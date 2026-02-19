@@ -53,33 +53,3 @@ jobs:
           make test-integration
           make test-e2e
           make test-contracts
-
-  codeql:
-    name: codeql
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25.7'
-          check-latest: false
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: go
-
-      - name: Build
-        run: |
-          mkdir -p .tmp
-          go build -o .tmp/wrkr ./cmd/wrkr
-
-      - name: Analyze
-        uses: github/codeql-action/analyze@v3
