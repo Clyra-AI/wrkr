@@ -1,0 +1,6 @@
+{
+  "required_checks": [
+    "fast-lane",
+    "windows-smoke"
+  ]
+}

@@ -1,0 +1,41 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: '18 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  risk-lane:
+    name: risk-lane
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Run prepush full
+        run: make prepush-full
+
+      - name: Run race lane
+        run: go test -race ./... -count=1
+
+      - name: Run vulnerability scan
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          go build -o .tmp/wrkr ./cmd/wrkr
+          "$(go env GOPATH)/bin/govulncheck" -mode=binary .tmp/wrkr

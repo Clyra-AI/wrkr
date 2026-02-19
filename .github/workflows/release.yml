@@ -1,0 +1,82 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+  security-events: write
+
+jobs:
+  release-artifacts:
+    name: release-artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run deterministic tests
+        run: go test ./... -count=1
+
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: v2.7.0
+          install-only: true
+
+      - name: Build release artifacts
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            goreleaser release --clean
+          else
+            goreleaser release --snapshot --clean
+          fi
+
+      - name: Verify checksums
+        run: (cd dist && sha256sum -c checksums.txt)
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./dist
+          output-file: dist/sbom.spdx.json
+
+      - name: Scan with Grype
+        uses: anchore/scan-action@v4
+        with:
+          sbom: dist/sbom.spdx.json
+          fail-build: true
+          severity-cutoff: high
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.4.3
+
+      - name: Sign checksums
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+        run: cosign sign-blob --yes --output-signature dist/checksums.txt.sig dist/checksums.txt
+
+      - name: Generate provenance attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*

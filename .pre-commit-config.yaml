@@ -1,0 +1,40 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.8
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        additional_dependencies: ["types-PyYAML==6.0.12.20241230"]
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        args: ["-q", "-r", "scripts"]
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: go-fmt
+        language: system
+        entry: make fmt
+        pass_filenames: false
+      - id: go-lint-fast
+        name: go-lint-fast
+        language: system
+        entry: make lint-fast
+        pass_filenames: false
+      - id: go-test-fast
+        name: go-test-fast
+        language: system
+        entry: make test-fast
+        pass_filenames: false

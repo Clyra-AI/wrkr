@@ -1,0 +1,108 @@
+name: pr
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  fast-lane:
+    name: fast-lane
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Python scanners
+        run: python -m pip install ruff==0.11.8 mypy==1.14.1 bandit==1.8.3
+
+      - name: Detect Python script files
+        id: pyfiles
+        shell: bash
+        run: |
+          if find scripts -type f \( -name '*.py' -o -name '*.pyi' \) -print -quit | grep -q .; then
+            echo "has_python=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_python=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fast lint and tests
+        run: |
+          make lint-fast
+          make test-fast
+          make test-contracts
+
+      - name: Run ruff
+        if: steps.pyfiles.outputs.has_python == 'true'
+        run: ruff check scripts
+
+      - name: Run mypy
+        if: steps.pyfiles.outputs.has_python == 'true'
+        run: mypy --ignore-missing-imports scripts
+
+      - name: Run bandit
+        if: steps.pyfiles.outputs.has_python == 'true'
+        run: bandit -q -r scripts
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.22.1
+
+      - name: Run gosec
+        run: |
+          "$(go env GOPATH)/bin/gosec" ./...
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4
+
+      - name: Run golangci-lint
+        run: |
+          "$(go env GOPATH)/bin/golangci-lint" run --timeout=5m
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+
+      - name: Build binary for vulnerability scan
+        run: go build -o .tmp/wrkr ./cmd/wrkr
+
+      - name: Run govulncheck
+        run: |
+          "$(go env GOPATH)/bin/govulncheck" -mode=binary .tmp/wrkr
+
+  windows-smoke:
+    name: windows-smoke
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Build and test smoke
+        shell: bash
+        run: |
+          mkdir -p .tmp
+          go build -o .tmp/wrkr ./cmd/wrkr
+          go test ./... -count=1

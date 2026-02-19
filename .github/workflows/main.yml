@@ -1,0 +1,85 @@
+name: main
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  core-matrix:
+    name: core-matrix-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Run core lane
+        shell: bash
+        run: |
+          make lint-fast
+          make test-fast
+          make build
+
+  acceptance:
+    name: acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Run acceptance lane
+        run: |
+          make test-integration
+          make test-e2e
+          make test-contracts
+
+  codeql:
+    name: codeql
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+
+      - name: Build
+        run: |
+          mkdir -p .tmp
+          go build -o .tmp/wrkr ./cmd/wrkr
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3

@@ -1,1 +1,19 @@
-product/
+# Build outputs
+bin/
+dist/
+coverage/
+
+# OS/editor noise
+.DS_Store
+.vscode/
+.idea/
+
+# Python virtualenvs
+.venv/
+venv/
+
+# Local analysis scratch
+.tmp/
+*.sarif
+/wrkr
+/wrkr.exe
