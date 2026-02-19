@@ -13,6 +13,10 @@ permissions:
   attestations: write
   security-events: write
 
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release-artifacts:
     name: release-artifacts

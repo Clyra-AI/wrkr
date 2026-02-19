@@ -435,77 +435,72 @@ These minimums are for v1 launch. Scenario count grows with product surface — 
 
 ## CI Pipeline Architecture
 
-### PR Pipeline (fast, ~2 minutes)
+### PR Pipeline (required, fast feedback)
 
-- lint-fast: go vet, golangci-lint, ruff, mypy
-- test-fast: `go test ./...` + pytest (no coverage thresholds)
-- Windows smoke: go test, go build on Windows
+- Require at least one fast lane on every `pull_request`; this lane is merge-blocking.
+- Fast lane should run deterministic lint + unit + contract checks and complete quickly.
+- Include at least one non-primary platform smoke lane for portability confidence.
+- Use path-based change detection to gate expensive scanners, but keep baseline lint/test checks always on.
+- Every PR workflow must define `concurrency` with `cancel-in-progress: true`.
 
-### Main Pipeline (push to main)
+### Main Pipeline (protected branch push)
 
-Parallel job families:
-
-- **Lint** (ubuntu + macos): full lint with gosec, govulncheck
-- **Test** (ubuntu + macos): tests with coverage enforcement
-- **E2E** (ubuntu + macos): CLI end-to-end tests
-- **Docs site**: build, link validation, Mermaid, consistency
-- **UI**: unit, e2e smoke, acceptance, performance
-- **Acceptance** (conditional): version-gated gates when adoption-critical paths change
-- **Contracts**: determinism, exit codes, schema stability
-- **Hardening**: full hardening suite
-- **Chaos**: all chaos suites
-- **Runtime SLO**: benchmark budgets + context budgets
-- **Adoption**: smoke tests, regress template validation
-- **Release smoke**: release workflow validation
-- **Install smoke**: install script validation across platforms
-
-**Change detection**: use dorny/paths-filter to identify adoption-critical changes and conditionally run expensive gates.
+- Run the full deterministic matrix after merge to the protected branch.
+- Include full test suites, contract suites, and acceptance suites required by the release policy.
+- Keep heavy suites path-gated where safe, but never gate foundational contract or determinism checks.
 
 ### Nightly Pipelines
 
-| Pipeline | Schedule | Scope |
-|----------|----------|-------|
-| Hardening | 04:00 UTC | Cross-platform (ubuntu, macos, windows) hardening + chaos + runtime SLO |
-| Performance | 06:00 UTC | 5-count benchmarks, resource budgets, command budgets, context budgets |
-| Adoption | 05:15 UTC | Full lint + test, integration, e2e, session soak, contention, bench-check |
-| UI | 06:30 UTC | UI e2e smoke, UI performance budgets |
-| Windows full | Weekly | Full test matrix on Windows |
+| Pipeline | Typical Schedule | Scope |
+|----------|------------------|-------|
+| Hardening | Daily | Cross-platform hardening and resilience suites |
+| Performance | Daily | Benchmark and resource-budget regression checks |
+| Extended security/compliance | Daily or weekly | Full security/dependency/compliance scans not suitable for PR latency |
+| Platform depth | Weekly | Full matrix on secondary platforms |
 
-### Release Pipeline (tag push)
+### Release Pipeline (tag push or manual dispatch)
 
 Sequence:
 
-1. **Version-gated acceptance gates**: all acceptance suites for the release version must pass.
-2. **GoReleaser build**: cross-compilation for linux/darwin/windows x amd64/arm64.
-3. **Checksums**: sha256 of all artifacts into `checksums.txt`.
-4. **SBOM**: Syft generates SPDX JSON.
-5. **Vulnerability scan**: Grype scans release artifacts.
-6. **Code signing**: cosign OIDC keyless signing (GitHub Actions identity).
-7. **SLSA provenance**: intoto attestation format.
-8. **Checksum verification**: roundtrip `sha256sum -c checksums.txt`.
-9. **Signature verification**: cosign verify-blob with certificate and OIDC issuer.
-10. **Homebrew tap**: formula rendering and publication (conditional).
-11. **Release notes**: ecosystem-aware notes generation.
+1. Run release-gated acceptance and contract suites.
+2. Build reproducible release artifacts for supported targets.
+3. Generate and verify checksums.
+4. Generate SBOM.
+5. Run vulnerability scan against produced artifacts/SBOM.
+6. Sign release artifacts using project-standard signing identity.
+7. Generate provenance attestation.
+8. Verify checksum/signature/provenance in-pipeline before publication.
+9. Publish artifacts and release notes only after all gates pass.
+
+### Workflow Contract Validation
+
+- Treat workflow YAML and branch-protection configuration as testable contracts.
+- Enforce in CI:
+  - required-checks contract file exists and parses.
+  - required checks list is non-empty, unique, and sorted.
+  - each required check maps to a status emitted on `pull_request`.
+  - all primary workflows include `concurrency` + `cancel-in-progress: true`.
+  - path-filter contract fragments exist for expensive conditional lanes.
+- Any workflow rename/trigger change must update contract tests in the same PR.
 
 ## Pre-Push Enforcement
 
 ### Hook Setup
 
 ```bash
-make hooks  # git config core.hooksPath .githooks
+make hooks
 ```
 
 ### Modes
 
 | Mode | Trigger | What runs |
 |------|---------|-----------|
-| Default (fast) | `git push` | `make prepush` → lint-fast + test-fast |
-| Full | `PREPUSH_MODE=full git push` | `make prepush-full` → full lint + full test + CodeQL |
+| Default (fast) | `git push` | fast deterministic lint + test + contract checks |
+| Full | explicit opt-in | full lint + full test + deep security scans |
 
 - Pre-commit hooks handle formatting and secret detection (commit stage).
 - Pre-push hooks gate on lint + test (push stage).
-- Hook configuration validated by `scripts/check_hooks_config.sh`.
-- `make lint` enforces hooks are configured; remediation: `make hooks`.
+- Repositories should provide one command for fast mode and one for full mode.
 
 ## Branch Protection
 
@@ -513,7 +508,7 @@ Standard branch protection for the default branch:
 
 | Setting | Value |
 |---------|-------|
-| Required status checks | pr-lint, pr-test, pr-windows, codeql-scan |
+| Required status checks | Only checks emitted by `pull_request` workflows and declared in a tracked required-checks contract file |
 | Strict status checks | Yes (require latest commit to pass) |
 | Required conversation resolution | Yes |
 | Linear history | Yes |
@@ -523,7 +518,11 @@ Standard branch protection for the default branch:
 | Required reviews (standard) | 0 |
 | Required reviews (strict) | 1 + CODEOWNERS |
 
-Configuration via `gh` API script with environment variable overrides. Two modes: `make github-guardrails` (standard) and `make github-guardrails-strict` (strict).
+Branch-protection policy rules:
+
+- A required check must never reference a job that does not run on `pull_request`.
+- Main-only, nightly-only, and release-only checks are not valid PR merge blockers.
+- Branch-protection settings should be configurable from code (script/API), not only manual UI changes.
 
 ## Security Scanning
 
