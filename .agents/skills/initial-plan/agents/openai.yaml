@@ -1,0 +1,4 @@
+interface:
+  display_name: "Initial Plan"
+  short_description: "PRD to zero-ambiguity execution plan"
+  default_prompt: "Use $initial-plan to transform product/wrkr.md into an execution-ready PLAN_v1 with strict product/dev_guides.md coding and testing standards."
