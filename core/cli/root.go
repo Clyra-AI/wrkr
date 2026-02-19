@@ -9,8 +9,30 @@ import (
 	"strings"
 )
 
+const (
+	exitSuccess      = 0
+	exitRuntime      = 1
+	exitInvalidInput = 6
+)
+
 // Run executes the wrkr CLI root command and returns a stable process exit code.
 func Run(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) == 0 {
+		_, _ = fmt.Fprintln(stdout, "wrkr")
+		return exitSuccess
+	}
+
+	switch args[0] {
+	case "init":
+		return runInit(args[1:], stdout, stderr)
+	case "scan":
+		return runScan(args[1:], stdout, stderr)
+	}
+
+	return runRootFlags(args, stdout, stderr)
+}
+
+func runRootFlags(args []string, stdout io.Writer, stderr io.Writer) int {
 	jsonRequested := wantsJSONOutput(args)
 
 	fs := flag.NewFlagSet("wrkr", flag.ContinueOnError)
@@ -25,15 +47,7 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 	explain := fs.Bool("explain", false, "emit human-readable rationale")
 
 	if err := fs.Parse(args); err != nil {
-		if jsonRequested || *jsonOut {
-			_ = json.NewEncoder(stderr).Encode(map[string]any{
-				"error": map[string]any{
-					"code":    "invalid_input",
-					"message": err.Error(),
-				},
-			})
-		}
-		return 6
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 	}
 
 	if *jsonOut {
@@ -41,20 +55,35 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 			"status":  "ok",
 			"message": "wrkr scaffold ready",
 		})
-		return 0
+		return exitSuccess
 	}
 
 	if *quiet {
-		return 0
+		return exitSuccess
 	}
 
 	if *explain {
-		_, _ = fmt.Fprintln(stdout, "wrkr scaffold command succeeded")
-		return 0
+		_, _ = fmt.Fprintln(stdout, "wrkr root command succeeded")
+		return exitSuccess
 	}
 
 	_, _ = fmt.Fprintln(stdout, "wrkr")
-	return 0
+	return exitSuccess
+}
+
+func emitError(stderr io.Writer, jsonOut bool, code, message string, exitCode int) int {
+	if jsonOut {
+		_ = json.NewEncoder(stderr).Encode(map[string]any{
+			"error": map[string]any{
+				"code":      code,
+				"message":   message,
+				"exit_code": exitCode,
+			},
+		})
+	} else {
+		_, _ = fmt.Fprintln(stderr, message)
+	}
+	return exitCode
 }
 
 func wantsJSONOutput(args []string) bool {
@@ -71,6 +100,5 @@ func wantsJSONOutput(args []string) bool {
 			return parsed
 		}
 	}
-
 	return false
 }
