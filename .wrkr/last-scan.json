@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "target": {
+    "mode": "repo",
+    "value": "acme/backend"
+  },
+  "findings": [
+    {
+      "tool_type": "source_repo",
+      "location": "acme/backend",
+      "org": "acme",
+      "permissions": [
+        "repo.contents.read"
+      ]
+    }
+  ]
+}

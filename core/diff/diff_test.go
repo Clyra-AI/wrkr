@@ -1,0 +1,44 @@
+package diff
+
+import (
+	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/source"
+)
+
+func TestComputeAddedRemovedChanged(t *testing.T) {
+	t.Parallel()
+
+	previous := []source.Finding{
+		{ToolType: "repo", Location: "acme/a", Org: "acme", Permissions: []string{"read"}},
+		{ToolType: "repo", Location: "acme/b", Org: "acme", Permissions: []string{"read"}},
+	}
+	current := []source.Finding{
+		{ToolType: "repo", Location: "acme/a", Org: "acme", Permissions: []string{"write"}},
+		{ToolType: "repo", Location: "acme/c", Org: "acme", Permissions: []string{"read"}},
+	}
+
+	result := Compute(previous, current)
+	if len(result.Added) != 1 || result.Added[0].Location != "acme/c" {
+		t.Fatalf("unexpected added: %+v", result.Added)
+	}
+	if len(result.Removed) != 1 || result.Removed[0].Location != "acme/b" {
+		t.Fatalf("unexpected removed: %+v", result.Removed)
+	}
+	if len(result.Changed) != 1 || result.Changed[0].Key.Location != "acme/a" {
+		t.Fatalf("unexpected changed: %+v", result.Changed)
+	}
+	if !result.Changed[0].PermissionChanged {
+		t.Fatalf("expected permission_changed=true")
+	}
+}
+
+func TestComputeNoChanges(t *testing.T) {
+	t.Parallel()
+
+	items := []source.Finding{{ToolType: "repo", Location: "acme/a", Org: "acme", Permissions: []string{"read"}}}
+	result := Compute(items, items)
+	if !Empty(result) {
+		t.Fatalf("expected empty diff, got %+v", result)
+	}
+}

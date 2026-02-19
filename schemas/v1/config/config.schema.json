@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clyra.ai/wrkr/schemas/v1/config/config.schema.json",
+  "title": "Wrkr Config v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "auth", "default_target"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scan", "fix"],
+      "properties": {
+        "scan": {
+          "$ref": "#/$defs/authProfile"
+        },
+        "fix": {
+          "$ref": "#/$defs/authProfile"
+        }
+      }
+    },
+    "default_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "value"],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["repo", "org", "path"]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "authProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
