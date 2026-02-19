@@ -30,7 +30,7 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(map[string]any{
-			"status": "ok",
+			"status":  "ok",
 			"message": "wrkr scaffold ready",
 		})
 		return 0
