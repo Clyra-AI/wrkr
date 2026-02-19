@@ -70,11 +70,12 @@ jobs:
         run: |
           "$(go env GOPATH)/bin/gosec" ./...
 
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4
+
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.63.4
-          args: --timeout=5m
+        run: |
+          "$(go env GOPATH)/bin/golangci-lint" run --timeout=5m
 
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
