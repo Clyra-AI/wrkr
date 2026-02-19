@@ -1,12 +1,6 @@
 {
   "required_checks": [
     "fast-lane",
-    "windows-smoke",
-    "core-matrix-ubuntu-latest",
-    "core-matrix-macos-latest",
-    "core-matrix-windows-latest",
-    "acceptance",
-    "codeql",
-    "release-artifacts"
+    "windows-smoke"
   ]
 }

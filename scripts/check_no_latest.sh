@@ -16,8 +16,16 @@ if [[ ${#files[@]} -eq 0 ]]; then
   exit 0
 fi
 
-if rg -n "@latest" "${files[@]}" >/dev/null; then
-  echo "floating @latest reference found in build/CI configs" >&2
-  rg -n "@latest" "${files[@]}" >&2
-  exit 3
+if command -v rg >/dev/null 2>&1; then
+  if rg -n "@latest" "${files[@]}" >/dev/null; then
+    echo "floating @latest reference found in build/CI configs" >&2
+    rg -n "@latest" "${files[@]}" >&2
+    exit 3
+  fi
+else
+  if grep -nH "@latest" "${files[@]}" >/dev/null; then
+    echo "floating @latest reference found in build/CI configs" >&2
+    grep -nH "@latest" "${files[@]}" >&2
+    exit 3
+  fi
 fi

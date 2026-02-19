@@ -67,7 +67,7 @@ func TestNoFloatingLatestInBuildConfigs(t *testing.T) {
 	}
 }
 
-func TestRequiredChecksContractIncludesCoreJobs(t *testing.T) {
+func TestRequiredChecksContractTargetsPROnlyJobs(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := mustFindRepoRoot(t)
@@ -86,13 +86,22 @@ func TestRequiredChecksContractIncludesCoreJobs(t *testing.T) {
 	for _, required := range []string{
 		"fast-lane",
 		"windows-smoke",
+	} {
+		if !containsLine(payload.RequiredChecks, required) {
+			t.Fatalf("required check missing from contract: %s", required)
+		}
+	}
+
+	for _, disallowed := range []string{
 		"core-matrix-ubuntu-latest",
+		"core-matrix-macos-latest",
+		"core-matrix-windows-latest",
 		"acceptance",
 		"codeql",
 		"release-artifacts",
 	} {
-		if !containsLine(payload.RequiredChecks, required) {
-			t.Fatalf("required check missing from contract: %s", required)
+		if containsLine(payload.RequiredChecks, disallowed) {
+			t.Fatalf("contract should not require non-PR check: %s", disallowed)
 		}
 	}
 }

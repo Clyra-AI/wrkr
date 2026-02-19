@@ -9,10 +9,20 @@ fi
 required_jobs=(
   "fast-lane:.github/workflows/pr.yml"
   "windows-smoke:.github/workflows/pr.yml"
-  "core-matrix:.github/workflows/main.yml"
-  "acceptance:.github/workflows/main.yml"
-  "codeql:.github/workflows/main.yml"
-  "release-artifacts:.github/workflows/release.yml"
+)
+
+required_checks=(
+  "fast-lane"
+  "windows-smoke"
+)
+
+disallowed_checks=(
+  "core-matrix-ubuntu-latest"
+  "core-matrix-macos-latest"
+  "core-matrix-windows-latest"
+  "acceptance"
+  "codeql"
+  "release-artifacts"
 )
 
 for item in "${required_jobs[@]}"; do
@@ -22,8 +32,28 @@ for item in "${required_jobs[@]}"; do
     echo "missing workflow file for required job $job: $file" >&2
     exit 3
   fi
-  if ! rg -n "^[[:space:]]{2}${job}:$" "$file" >/dev/null; then
+  if command -v rg >/dev/null 2>&1; then
+    job_found_cmd=(rg -n "^[[:space:]]{2}${job}:$" "$file")
+  else
+    job_found_cmd=(grep -nE "^[[:space:]]{2}${job}:$" "$file")
+  fi
+
+  if ! "${job_found_cmd[@]}" >/dev/null; then
     echo "required job $job not found in $file" >&2
+    exit 3
+  fi
+done
+
+for check in "${required_checks[@]}"; do
+  if ! grep -Eq "\"${check}\"" .github/required-checks.json; then
+    echo "required check missing from branch protection contract: ${check}" >&2
+    exit 3
+  fi
+done
+
+for check in "${disallowed_checks[@]}"; do
+  if grep -Eq "\"${check}\"" .github/required-checks.json; then
+    echo "branch protection contract includes non-PR check: ${check}" >&2
     exit 3
   fi
 done
