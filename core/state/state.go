@@ -32,7 +32,7 @@ func ResolvePath(explicit string) string {
 func Save(path string, snapshot Snapshot) error {
 	snapshot.Version = SnapshotVersion
 	source.SortFindings(snapshot.Findings)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("mkdir state dir: %w", err)
 	}
 	payload, err := json.MarshalIndent(snapshot, "", "  ")
@@ -47,6 +47,7 @@ func Save(path string, snapshot Snapshot) error {
 }
 
 func Load(path string) (Snapshot, error) {
+	// #nosec G304 -- caller controls state path selection; reading that explicit path is intended.
 	payload, err := os.ReadFile(path)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("read state: %w", err)

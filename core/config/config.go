@@ -111,7 +111,7 @@ func Save(path string, cfg Config) error {
 	if err := Validate(cfg); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("mkdir config dir: %w", err)
 	}
 	payload, err := json.MarshalIndent(cfg, "", "  ")
@@ -127,6 +127,7 @@ func Save(path string, cfg Config) error {
 
 // Load reads config from disk.
 func Load(path string) (Config, error) {
+	// #nosec G304 -- caller controls config path resolution; reading that explicit path is intended.
 	payload, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, fmt.Errorf("read config: %w", err)
