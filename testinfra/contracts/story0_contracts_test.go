@@ -140,6 +140,7 @@ func TestWorkflowConcurrencyConfigured(t *testing.T) {
 			t.Fatalf("read %s: %v", rel, err)
 		}
 		text := string(content)
+		text = strings.ReplaceAll(text, "\r\n", "\n")
 		if !strings.Contains(text, "\nconcurrency:\n") {
 			t.Fatalf("workflow missing concurrency block: %s", rel)
 		}

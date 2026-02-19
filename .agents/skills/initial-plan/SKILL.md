@@ -12,8 +12,8 @@ Execute this workflow when asked to create the initial execution plan from the W
 - Repository root: `/Users/davidahmann/Projects/wrkr`
 - Primary source of truth: `/Users/davidahmann/Projects/wrkr/product/wrkr.md`
 - Standards source of truth: `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
-- Style reference (structure and depth): `/Users/davidahmann/Projects/gait/product/PLAN_v1.md`
-- Default output: `/Users/davidahmann/Projects/wrkr/product/PLAN_v1.md` (unless user specifies a different target path)
+- Style reference (structure and depth): `/Users/davidahmann/Projects/wrkr/product/PLAN_v1.md`
+- Default output: `/Users/davidahmann/Projects/wrkr/product/PLAN_v1.0.md` (unless user specifies a different target path)
 - Planning only. Do not implement code or docs outside the target plan file.
 
 ## Preconditions
