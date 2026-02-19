@@ -39,9 +39,9 @@ type AuthProfiles struct {
 
 // Config is the persisted wrkr init configuration.
 type Config struct {
-	Version       string   `json:"version"`
+	Version       string       `json:"version"`
 	Auth          AuthProfiles `json:"auth"`
-	DefaultTarget Target   `json:"default_target"`
+	DefaultTarget Target       `json:"default_target"`
 }
 
 func Default() Config {

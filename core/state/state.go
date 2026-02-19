@@ -14,8 +14,8 @@ const SnapshotVersion = "v1"
 
 // Snapshot stores deterministic scan material for diff mode.
 type Snapshot struct {
-	Version  string         `json:"version"`
-	Target   source.Target  `json:"target"`
+	Version  string           `json:"version"`
+	Target   source.Target    `json:"target"`
 	Findings []source.Finding `json:"findings"`
 }
 
