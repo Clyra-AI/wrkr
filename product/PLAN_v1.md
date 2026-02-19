@@ -199,9 +199,16 @@ Acceptance criteria:
 Priority: P0
 Tasks:
 - Add PR/Main/Nightly/Release workflows with pinned action/tool versions.
+- Add workflow-level `concurrency` groups with `cancel-in-progress: true` for PR/Main/Nightly/Release.
 - Wire required scanners: `golangci-lint`, `gosec`, `govulncheck`, `ruff`, `mypy`, `bandit`, CodeQL.
+- Add path-based change detection for expensive lanes/scanners while keeping baseline fast lint/test/contract checks always-on.
+- If CodeQL is merge-blocking, ensure it emits PR statuses on `pull_request`; otherwise do not include it in required PR checks.
 - Add release integrity flow: GoReleaser, checksums, Syft SBOM, Grype scan, cosign signing, provenance.
-- Enforce branch protection required checks contract.
+- Enforce branch protection required checks contract:
+  - non-empty, unique, sorted required-check list.
+  - every required check maps to a status emitted by `pull_request` workflows.
+  - required checks cannot reference main-only, nightly-only, or release-only statuses.
+- Add workflow contract tests for trigger correctness, required-check mapping, concurrency blocks, and path-filter fragments.
 Repo paths:
 - `.github/workflows/pr.yml`
 - `.github/workflows/main.yml`
@@ -209,20 +216,26 @@ Repo paths:
 - `.github/workflows/release.yml`
 - `.goreleaser.yaml`
 - `scripts/check_repo_hygiene.sh`
+- `scripts/check_branch_protection_contract.sh`
+- `testinfra/contracts/story0_contracts_test.go`
 Run commands:
 - `go test ./... -count=1`
 - `govulncheck -mode=binary ./cmd/wrkr`
 - `sha256sum -c dist/checksums.txt`
+- `bash scripts/check_branch_protection_contract.sh`
+- `go test ./testinfra/contracts -count=1`
 Test requirements:
 - Tier 2/3: CI workflow smoke and deterministic run.
 - Tier 5: release artifact integrity checks.
-- Tier 9: contract and schema checks in main pipeline.
+- Tier 9: contract and schema checks in main pipeline, including workflow/branch-protection contract assertions.
 - Tier 10: release install-path checks before tags.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (fast), Main (core+contracts), Nightly (hardening/perf subsets), Release (full integrity gate).
+- Pipeline placement: PR (fast + workflow contract subset), Main (core+full contracts), Nightly (hardening/perf subsets), Release (full integrity gate).
 Acceptance criteria:
 - Workflow matrix runs successfully on PR and main.
+- Required checks contract fails when a required status does not run on `pull_request`.
+- PR/Main/Nightly/Release workflows all enforce `concurrency` with cancellation of stale runs.
 - Release workflow emits signed artifacts with verifiable checksums/SBOM/provenance.
 
 ---
@@ -663,6 +676,8 @@ Tasks:
 - Centralize exit-code mapping to locked contract.
 - Provide JSON schema for command success/error envelopes.
 - Add strict parser for `--quiet` vs human output interaction rules.
+- Ensure `--json` parse/flag errors emit machine-readable JSON error output only (no mixed human usage text).
+- Add explicit contract coverage for invalid-flag ordering variants (`--json --bad-flag` and `--bad-flag --json`).
 Repo paths:
 - `cmd/wrkr/root.go`
 - `core/cli/`
@@ -676,12 +691,13 @@ Run commands:
 Test requirements:
 - Tier 1: shared CLI helper units.
 - Tier 3: command envelope and flag behavior tests.
-- Tier 9: exit-code and JSON-shape contract tests.
+- Tier 9: exit-code and JSON-shape contract tests, including pure-JSON parse-error output under `--json`.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform.
 - Pipeline placement: PR (contract tests), Main (full command matrix).
 Acceptance criteria:
 - All commands produce stable machine-readable output under `--json`.
+- Invalid flag input with `--json` remains parseable JSON-only output regardless of flag order.
 - Exit-code contract remains unchanged across command families.
 
 ### Story 5.2: Implement scan/report/evidence/manifest/identity command flows
@@ -859,15 +875,23 @@ Tasks:
 - Add golden-file and byte-stability tests for inventories, risk reports, regress outputs, and proof chains.
 - Add explicit schema compatibility checks for `schemas/v1/*` and JSON field/enum stability.
 - Add exit code contract tests across command families.
+- Add workflow/branch-protection contract tests for:
+  - trigger correctness by workflow type (PR/Main/Nightly/Release),
+  - required-check mapping to `pull_request` statuses,
+  - required-check ordering/uniqueness constraints,
+  - concurrency block presence,
+  - path-filter contract fragments for expensive lanes.
 - Add deterministic command-smoke harness for key anchors.
 Repo paths:
 - `internal/contracts/`
 - `internal/scenarios/`
 - `schemas/v1/`
 - `scripts/validate_contracts.sh`
+- `testinfra/contracts/`
 Run commands:
 - `go test ./...`
 - `go test ./... -count=1`
+- `go test ./testinfra/contracts -count=1`
 - `wrkr scan --json`
 - `wrkr verify --chain --json`
 - `wrkr regress run --baseline <baseline-path> --json`
@@ -875,13 +899,14 @@ Test requirements:
 - Tier 2: deterministic cross-component integration.
 - Tier 3: e2e command behavior with cache disabled.
 - Tier 4: acceptance command smoke scripts.
-- Tier 9: full contract suite (byte stability, exit codes, schema compatibility).
+- Tier 9: full contract suite (byte stability, exit codes, schema compatibility, workflow/branch-protection contracts).
 - Tier 11: scenario fixtures for spec-driven behavior.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (subset contracts), Main (full Tier 9 + scenarios), Nightly (expanded fixture volume), Release (contract freeze gate).
+- Pipeline placement: PR (subset contracts including workflow/required-check contracts), Main (full Tier 9 + scenarios), Nightly (expanded fixture volume), Release (contract freeze gate).
 Acceptance criteria:
 - Contract suite detects any schema/exit/output drift before merge.
+- Contract suite detects workflow trigger/required-check contract drift before merge.
 - Key command anchors remain deterministic across Linux/macOS/Windows.
 
 ### Story 7.2: Add hardening, chaos, performance, soak, and Tier 12 interop suites
@@ -1047,4 +1072,3 @@ A story is done only when all items below are true:
 - Security/release checks pass for scope that touches build/release surfaces.
 - User-facing command/flag/exit/schema changes include doc updates in the same change.
 - For proof-touching work, chain integrity and `proof` interop checks pass.
-

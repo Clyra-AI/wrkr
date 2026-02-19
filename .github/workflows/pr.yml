@@ -8,6 +8,10 @@ permissions:
   contents: read
   security-events: write
 
+concurrency:
+  group: pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   fast-lane:
     name: fast-lane
@@ -15,6 +19,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'cmd/**'
+              - 'core/**'
+              - 'internal/**'
+              - 'testinfra/**'
+            python:
+              - 'scripts/**/*.py'
+            workflow_or_policy:
+              - '.github/workflows/**'
+              - '.github/required-checks.json'
+              - 'scripts/check_branch_protection_contract.sh'
+              - 'scripts/run_codeql.sh'
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -52,40 +77,51 @@ jobs:
           make test-contracts
 
       - name: Run ruff
-        if: steps.pyfiles.outputs.has_python == 'true'
+        if: steps.pyfiles.outputs.has_python == 'true' && steps.changes.outputs.python == 'true'
         run: ruff check scripts
 
       - name: Run mypy
-        if: steps.pyfiles.outputs.has_python == 'true'
+        if: steps.pyfiles.outputs.has_python == 'true' && steps.changes.outputs.python == 'true'
         run: mypy --ignore-missing-imports scripts
 
       - name: Run bandit
-        if: steps.pyfiles.outputs.has_python == 'true'
+        if: steps.pyfiles.outputs.has_python == 'true' && steps.changes.outputs.python == 'true'
         run: bandit -q -r scripts
 
       - name: Install gosec
+        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: go install github.com/securego/gosec/v2/cmd/gosec@v2.22.1
 
       - name: Run gosec
+        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: |
           "$(go env GOPATH)/bin/gosec" ./...
 
       - name: Install golangci-lint
+        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.4
 
       - name: Run golangci-lint
+        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: |
           "$(go env GOPATH)/bin/golangci-lint" run --timeout=5m
 
       - name: Install govulncheck
+        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
 
       - name: Build binary for vulnerability scan
+        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: go build -o .tmp/wrkr ./cmd/wrkr
 
       - name: Run govulncheck
+        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: |
           "$(go env GOPATH)/bin/govulncheck" -mode=binary .tmp/wrkr
+
+      - name: Skip deep scanners for non-code changes
+        if: steps.changes.outputs.go != 'true' && steps.changes.outputs.python != 'true' && steps.changes.outputs.workflow_or_policy != 'true'
+        run: echo "no code, workflow, or policy changes; deep scanners skipped"
 
   windows-smoke:
     name: windows-smoke
