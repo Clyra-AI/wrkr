@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -75,7 +76,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			})
 			continue
 		}
-		for name, server := range doc.MCPServers {
+		for _, name := range sortedServerNames(doc.MCPServers) {
+			server := doc.MCPServers[name]
 			transport := inferTransport(server)
 			credentialRefs := countCredentialRefs(server)
 			pinned := isPinned(server)
@@ -215,4 +217,16 @@ func fallbackOrg(org string) string {
 		return "local"
 	}
 	return org
+}
+
+func sortedServerNames(in map[string]serverDef) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(in))
+	for key := range in {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

@@ -4,9 +4,11 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/model"
 )
 
 func TestDetectMCPServersAndTrustSignals(t *testing.T) {
@@ -51,4 +53,53 @@ func mustFindRepoRoot(t *testing.T) string {
 		}
 		wd = next
 	}
+}
+
+func TestDetectMCPServerOrderIsDeterministic(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	payload := []byte(`{
+  "mcpServers": {
+    "zeta": { "command": "npx @1", "args": ["-y", "pkg@1"] },
+    "alpha": { "command": "npx @1", "args": ["-y", "pkg@1"] },
+    "beta": { "command": "npx @1", "args": ["-y", "pkg@1"] }
+  }
+}`)
+	if err := os.WriteFile(filepath.Join(root, ".mcp.json"), payload, 0o600); err != nil {
+		t.Fatalf("write mcp file: %v", err)
+	}
+
+	scope := detect.Scope{
+		Org:  "local",
+		Repo: "deterministic",
+		Root: root,
+	}
+	expected := []string{"alpha", "beta", "zeta"}
+	for i := 0; i < 64; i++ {
+		findings, err := New().Detect(context.Background(), scope, detect.Options{})
+		if err != nil {
+			t.Fatalf("detect mcp: %v", err)
+		}
+		got := extractServerNames(findings)
+		if !reflect.DeepEqual(got, expected) {
+			t.Fatalf("server order drift on run %d: got %v want %v", i+1, got, expected)
+		}
+	}
+}
+
+func extractServerNames(findings []model.Finding) []string {
+	names := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		if finding.FindingType != "mcp_server" || finding.Location != ".mcp.json" {
+			continue
+		}
+		for _, ev := range finding.Evidence {
+			if ev.Key == "server" {
+				names = append(names, ev.Value)
+				break
+			}
+		}
+	}
+	return names
 }
