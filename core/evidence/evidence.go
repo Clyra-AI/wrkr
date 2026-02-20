@@ -41,6 +41,12 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, fmt.Errorf("load state snapshot: %w", err)
 	}
 	chainPath := proofemit.ChainPath(resolvedStatePath)
+	if _, err := os.Stat(chainPath); err != nil {
+		if os.IsNotExist(err) {
+			return BuildResult{}, fmt.Errorf("load proof chain: proof chain file does not exist: %s", chainPath)
+		}
+		return BuildResult{}, fmt.Errorf("load proof chain: stat chain file: %w", err)
+	}
 	chain, err := proofemit.LoadChain(chainPath)
 	if err != nil {
 		return BuildResult{}, fmt.Errorf("load proof chain: %w", err)
@@ -53,8 +59,8 @@ func Build(in BuildInput) (BuildResult, error) {
 	if outputDir == "" {
 		outputDir = "wrkr-evidence"
 	}
-	if err := os.MkdirAll(outputDir, 0o750); err != nil {
-		return BuildResult{}, fmt.Errorf("mkdir output dir: %w", err)
+	if err := resetOutputDir(outputDir); err != nil {
+		return BuildResult{}, err
 	}
 
 	generatedAt := in.GeneratedAt
@@ -246,6 +252,33 @@ func writeJSONL(path string, records []proof.Record) error {
 	}
 	if err := file.Chmod(0o600); err != nil {
 		return fmt.Errorf("chmod %s: %w", path, err)
+	}
+	return nil
+}
+
+func resetOutputDir(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if err := os.MkdirAll(path, 0o750); err != nil {
+				return fmt.Errorf("mkdir output dir: %w", err)
+			}
+			return nil
+		}
+		return fmt.Errorf("stat output dir: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("output dir is not a directory: %s", path)
+	}
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return fmt.Errorf("read output dir: %w", err)
+	}
+	for _, entry := range entries {
+		entryPath := filepath.Join(path, entry.Name())
+		if err := os.RemoveAll(entryPath); err != nil {
+			return fmt.Errorf("clear output dir entry %s: %w", entryPath, err)
+		}
 	}
 	return nil
 }
