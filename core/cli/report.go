@@ -40,10 +40,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		report = &generated
 	}
 
-	top := report.TopN
-	if *topN >= 0 && *topN < len(top) {
-		top = top[:*topN]
-	}
+	top := selectTopFindings(*report, *topN)
 	payload := map[string]any{
 		"status":       "ok",
 		"generated_at": report.GeneratedAt,
@@ -64,4 +61,21 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintln(stdout, "wrkr report complete")
 	return exitSuccess
+}
+
+func selectTopFindings(report risk.Report, requested int) []risk.ScoredFinding {
+	source := report.TopN
+	if len(source) == 0 && len(report.Ranked) > 0 {
+		source = report.Ranked
+	}
+	if requested >= 0 && requested > len(source) && len(report.Ranked) > len(source) {
+		source = report.Ranked
+	}
+	if requested < 0 {
+		return append([]risk.ScoredFinding(nil), source...)
+	}
+	if requested > len(source) {
+		requested = len(source)
+	}
+	return append([]risk.ScoredFinding(nil), source[:requested]...)
 }

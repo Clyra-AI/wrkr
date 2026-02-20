@@ -305,6 +305,69 @@ func TestReportExportScoreCommands(t *testing.T) {
 	}
 }
 
+func TestReportUsesRankedFindingsWhenTopExceedsStoredTopN(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+
+	snapshot := map[string]any{
+		"version": "v1",
+		"risk_report": map[string]any{
+			"generated_at": "2026-02-20T12:00:00Z",
+			"top_findings": []any{
+				map[string]any{
+					"canonical_key": "k1",
+					"risk_score":    9.1,
+					"finding":       map[string]any{"finding_type": "policy_violation", "location": "WRKR-001"},
+				},
+			},
+			"ranked_findings": []any{
+				map[string]any{
+					"canonical_key": "k1",
+					"risk_score":    9.1,
+					"finding":       map[string]any{"finding_type": "policy_violation", "location": "WRKR-001"},
+				},
+				map[string]any{
+					"canonical_key": "k2",
+					"risk_score":    8.0,
+					"finding":       map[string]any{"finding_type": "policy_violation", "location": "WRKR-002"},
+				},
+				map[string]any{
+					"canonical_key": "k3",
+					"risk_score":    7.0,
+					"finding":       map[string]any{"finding_type": "policy_violation", "location": "WRKR-003"},
+				},
+			},
+		},
+	}
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal snapshot: %v", err)
+	}
+	if err := os.WriteFile(statePath, append(payload, '\n'), 0o600); err != nil {
+		t.Fatalf("write state snapshot: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"report", "--top", "3", "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+
+	var reportPayload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &reportPayload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	topFindings, ok := reportPayload["top_findings"].([]any)
+	if !ok {
+		t.Fatalf("expected top_findings array, got %T", reportPayload["top_findings"])
+	}
+	if len(topFindings) != 3 {
+		t.Fatalf("expected 3 top findings from ranked set, got %d", len(topFindings))
+	}
+}
+
 func TestIdentityAndLifecycleCommands(t *testing.T) {
 	t.Parallel()
 

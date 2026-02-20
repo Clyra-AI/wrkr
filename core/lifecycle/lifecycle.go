@@ -58,6 +58,7 @@ func Reconcile(previous manifest.Manifest, observed []ObservedTool, now time.Tim
 
 	for _, tool := range sortedObserved {
 		previousRecord, exists := prevByID[tool.AgentID]
+		previousState := previousRecord.Status
 		record := manifest.IdentityRecord{
 			AgentID:       tool.AgentID,
 			ToolID:        tool.ToolID,
@@ -105,6 +106,9 @@ func Reconcile(previous manifest.Manifest, observed []ObservedTool, now time.Tim
 		}
 		if record.Status == "" {
 			record.Status = identity.StateUnderReview
+		}
+		if trigger == "" && exists && previousState != record.Status {
+			trigger = "state_changed"
 		}
 
 		next.Identities = append(next.Identities, record)

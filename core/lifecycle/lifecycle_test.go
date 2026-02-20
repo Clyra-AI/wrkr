@@ -23,9 +23,18 @@ func TestReconcileDerivesUnderReviewWhenApprovalExpired(t *testing.T) {
 		Present: true,
 	}}}
 
-	next, _ := Reconcile(prev, []ObservedTool{{AgentID: "wrkr:mcp-1:acme", ToolID: "mcp-1", ToolType: "mcp", Org: "acme", Repo: "acme/repo", Location: ".mcp.json"}}, now)
+	next, transitions := Reconcile(prev, []ObservedTool{{AgentID: "wrkr:mcp-1:acme", ToolID: "mcp-1", ToolType: "mcp", Org: "acme", Repo: "acme/repo", Location: ".mcp.json"}}, now)
 	if next.Identities[0].Status != identity.StateUnderReview {
 		t.Fatalf("expected under_review, got %s", next.Identities[0].Status)
+	}
+	if len(transitions) == 0 {
+		t.Fatal("expected lifecycle transition when approval expiry changes state")
+	}
+	if transitions[0].Trigger != "state_changed" {
+		t.Fatalf("expected state_changed trigger, got %s", transitions[0].Trigger)
+	}
+	if transitions[0].PreviousState != identity.StateActive || transitions[0].NewState != identity.StateUnderReview {
+		t.Fatalf("unexpected state transition %+v", transitions[0])
 	}
 }
 
