@@ -34,6 +34,8 @@ type BuildResult struct {
 	FrameworkCoverage map[string]float64 `json:"framework_coverage"`
 }
 
+const outputDirMarkerFile = ".wrkr-evidence-managed"
+
 func Build(in BuildInput) (BuildResult, error) {
 	resolvedStatePath := state.ResolvePath(strings.TrimSpace(in.StatePath))
 	snapshot, err := state.Load(resolvedStatePath)
@@ -263,7 +265,7 @@ func resetOutputDir(path string) error {
 			if err := os.MkdirAll(path, 0o750); err != nil {
 				return fmt.Errorf("mkdir output dir: %w", err)
 			}
-			return nil
+			return writeOutputDirMarker(path)
 		}
 		return fmt.Errorf("stat output dir: %w", err)
 	}
@@ -274,11 +276,35 @@ func resetOutputDir(path string) error {
 	if err != nil {
 		return fmt.Errorf("read output dir: %w", err)
 	}
+	if len(entries) == 0 {
+		return writeOutputDirMarker(path)
+	}
+	markerPresent := false
 	for _, entry := range entries {
+		if entry.Name() == outputDirMarkerFile {
+			markerPresent = true
+			break
+		}
+	}
+	if !markerPresent {
+		return fmt.Errorf("output dir is not empty and not managed by wrkr evidence: %s", path)
+	}
+	for _, entry := range entries {
+		if entry.Name() == outputDirMarkerFile {
+			continue
+		}
 		entryPath := filepath.Join(path, entry.Name())
 		if err := os.RemoveAll(entryPath); err != nil {
 			return fmt.Errorf("clear output dir entry %s: %w", entryPath, err)
 		}
+	}
+	return nil
+}
+
+func writeOutputDirMarker(path string) error {
+	markerPath := filepath.Join(path, outputDirMarkerFile)
+	if err := os.WriteFile(markerPath, []byte("managed by wrkr evidence build\n"), 0o600); err != nil {
+		return fmt.Errorf("write output dir marker: %w", err)
 	}
 	return nil
 }
@@ -314,7 +340,7 @@ func buildManifestEntries(outputDir string) ([]proof.BundleManifestEntry, error)
 			return err
 		}
 		normalized := filepath.ToSlash(rel)
-		if normalized == "manifest.json" {
+		if normalized == "manifest.json" || normalized == outputDirMarkerFile {
 			return nil
 		}
 		payload, err := os.ReadFile(path) // #nosec G304 -- walk only reads files under deterministic output directory.
