@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/identity/identity-manifest.schema.json",
+  "title": "Wrkr Identity Manifest",
+  "type": "object",
+  "required": ["version", "updated_at", "identities"],
+  "properties": {
+    "version": {"type": "string"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "identities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["agent_id", "tool_id", "tool_type", "org", "repo", "location", "status", "approval_status", "first_seen", "last_seen", "present", "data_class", "endpoint_class", "autonomy_level", "risk_score"],
+        "properties": {
+          "agent_id": {"type": "string"},
+          "tool_id": {"type": "string"},
+          "tool_type": {"type": "string"},
+          "org": {"type": "string"},
+          "repo": {"type": "string"},
+          "location": {"type": "string"},
+          "status": {"type": "string", "enum": ["discovered", "under_review", "approved", "active", "deprecated", "revoked"]},
+          "approval_status": {"type": "string"},
+          "first_seen": {"type": "string", "format": "date-time"},
+          "last_seen": {"type": "string", "format": "date-time"},
+          "present": {"type": "boolean"},
+          "data_class": {"type": "string"},
+          "endpoint_class": {"type": "string"},
+          "autonomy_level": {"type": "string"},
+          "risk_score": {"type": "number"}
+        }
+      }
+    }
+  }
+}

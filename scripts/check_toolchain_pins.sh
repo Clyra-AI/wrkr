@@ -18,7 +18,13 @@ for line in "${expected[@]}"; do
   fi
 done
 
-if ! grep -Eq '^toolchain go1\.25\.7$' go.mod; then
-  echo "go.mod must pin toolchain go1.25.7" >&2
-  exit 3
+if grep -Eq '^toolchain go1\.25\.7$' go.mod; then
+  exit 0
 fi
+
+if grep -Eq '^go 1\.25\.7$' go.mod; then
+  exit 0
+fi
+
+echo "go.mod must pin go toolchain version 1.25.7 (toolchain or go directive)" >&2
+exit 3

@@ -4,10 +4,11 @@ Wrkr is the deterministic See-layer CLI in the See -> Prove -> Control model.
 
 ## Status
 
-Epics 1-2 are implemented.
+Epics 1-3 are implemented.
 
 - Epic 1: source acquisition contracts (`init`, `scan`, source manifests, incremental diff state)
 - Epic 2: deterministic detector engine (Claude/Cursor/Codex/Copilot, MCP, skills, CI/headless autonomy, dependencies, secrets, compiled actions) and YAML-backed policy evaluation (`WRKR-001`..`WRKR-015`)
+- Epic 3: deterministic inventory aggregation + repo exposure summaries, identity lifecycle manifest/chain updates, ranked risk reporting, posture profiles, and posture score outputs
 
 ## Quick Start
 
@@ -22,6 +23,20 @@ wrkr scan --path ./local-repos --json
 
 # Optional custom policy overlay.
 wrkr scan --path ./local-repos --policy ./fixtures/wrkr-policy.yaml --json
+
+# Profile-aware compliance scan and posture score output.
+wrkr scan --path ./local-repos --profile standard --json
+
+# Risk report and inventory export views.
+wrkr report --top 5 --json
+wrkr export --format inventory --json
+
+# Identity lifecycle commands.
+wrkr identity list --json
+wrkr identity show <agent_id> --json
+wrkr identity approve <agent_id> --approver @maria --scope read-only --expires 90d --json
+wrkr lifecycle --org acme --json
+wrkr score --json
 
 # Optional non-deterministic enrichment branch (explicitly opt-in).
 wrkr scan --path ./local-repos --enrich --github-api https://api.github.com --json

@@ -40,7 +40,18 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 		t.Fatalf("parse payload: %v", err)
 	}
 	got := sortedKeys(payload)
-	want := []string{"findings", "source_manifest", "status", "target", "top_findings"}
+	want := []string{
+		"findings",
+		"inventory",
+		"posture_score",
+		"profile",
+		"ranked_findings",
+		"repo_exposure_summaries",
+		"source_manifest",
+		"status",
+		"target",
+		"top_findings",
+	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected top-level keys: got %v want %v", got, want)
 	}

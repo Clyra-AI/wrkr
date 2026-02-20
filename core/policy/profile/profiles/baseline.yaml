@@ -1,0 +1,7 @@
+name: baseline
+description: Baseline posture profile
+min_compliance: 60
+rule_thresholds:
+  WRKR-013: 1
+  WRKR-014: 1
+  WRKR-015: 1

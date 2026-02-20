@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/profile/profile-result.schema.json",
+  "title": "Wrkr Profile Result",
+  "type": "object",
+  "required": ["profile", "compliance_percent", "failing_rules", "compliance_delta", "min_compliance", "status"],
+  "properties": {
+    "profile": {"type": "string", "enum": ["baseline", "standard", "strict"]},
+    "compliance_percent": {"type": "number"},
+    "failing_rules": {"type": "array", "items": {"type": "string"}},
+    "compliance_delta": {"type": "number"},
+    "min_compliance": {"type": "number"},
+    "status": {"type": "string", "enum": ["pass", "fail"]}
+  }
+}

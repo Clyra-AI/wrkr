@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/export/inventory-export.schema.json",
+  "title": "Wrkr Inventory Export",
+  "type": "object",
+  "required": ["export_version", "exported_at", "org", "tools"],
+  "properties": {
+    "export_version": {"type": "string"},
+    "exported_at": {"type": "string", "format": "date-time"},
+    "org": {"type": "string"},
+    "tools": {"type": "array"}
+  }
+}

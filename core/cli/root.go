@@ -10,9 +10,14 @@ import (
 )
 
 const (
-	exitSuccess      = 0
-	exitRuntime      = 1
-	exitInvalidInput = 6
+	exitSuccess           = 0
+	exitRuntime           = 1
+	exitPolicyViolation   = 3
+	exitApprovalRequired  = 4
+	exitRegressionDrift   = 5
+	exitInvalidInput      = 6
+	exitDependencyMissing = 7
+	exitUnsafeBlocked     = 8
 )
 
 // Run executes the wrkr CLI root command and returns a stable process exit code.
@@ -27,6 +32,16 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runInit(args[1:], stdout, stderr)
 	case "scan":
 		return runScan(args[1:], stdout, stderr)
+	case "report":
+		return runReport(args[1:], stdout, stderr)
+	case "export":
+		return runExport(args[1:], stdout, stderr)
+	case "identity":
+		return runIdentity(args[1:], stdout, stderr)
+	case "lifecycle":
+		return runLifecycle(args[1:], stdout, stderr)
+	case "score":
+		return runScore(args[1:], stdout, stderr)
 	}
 
 	return runRootFlags(args, stdout, stderr)
