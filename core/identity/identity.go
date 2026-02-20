@@ -1,7 +1,7 @@
 package identity
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -28,7 +28,7 @@ var validStates = map[string]struct{}{
 // ToolID deterministically derives a canonical tool identity component.
 func ToolID(toolType, location string) string {
 	key := strings.ToLower(strings.TrimSpace(toolType)) + "::" + strings.ToLower(strings.TrimSpace(location))
-	digest := sha1.Sum([]byte(key))
+	digest := sha256.Sum256([]byte(key))
 	return fmt.Sprintf("%s-%s", sanitize(strings.TrimSpace(toolType)), hex.EncodeToString(digest[:])[:10])
 }
 

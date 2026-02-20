@@ -21,7 +21,7 @@ func ChainPath(statePath string) string {
 }
 
 func LoadChain(path string) (*proof.Chain, error) {
-	payload, err := os.ReadFile(path)
+	payload, err := os.ReadFile(path) // #nosec G304 -- path is an explicit local chain file location from CLI/state configuration.
 	if err != nil {
 		if os.IsNotExist(err) {
 			return proof.NewChain("wrkr-identity"), nil
@@ -78,7 +78,7 @@ func AppendTransitionRecord(chain *proof.Chain, transition Transition, eventType
 		AgentID:       transition.AgentID,
 		Type:          recordType,
 		Event: map[string]any{
-			"event_type":      eventType,
+			"event_type":     eventType,
 			"previous_state": transition.PreviousState,
 			"new_state":      transition.NewState,
 			"trigger":        transition.Trigger,

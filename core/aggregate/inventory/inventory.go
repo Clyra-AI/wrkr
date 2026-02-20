@@ -42,12 +42,12 @@ type Summary struct {
 }
 
 type Inventory struct {
-	InventoryVersion      string                        `json:"inventory_version" yaml:"inventory_version"`
-	GeneratedAt           string                        `json:"generated_at" yaml:"generated_at"`
-	Org                   string                        `json:"org" yaml:"org"`
-	Tools                 []Tool                        `json:"tools" yaml:"tools"`
+	InventoryVersion      string                         `json:"inventory_version" yaml:"inventory_version"`
+	GeneratedAt           string                         `json:"generated_at" yaml:"generated_at"`
+	Org                   string                         `json:"org" yaml:"org"`
+	Tools                 []Tool                         `json:"tools" yaml:"tools"`
 	RepoExposureSummaries []exposure.RepoExposureSummary `json:"repo_exposure_summaries" yaml:"repo_exposure_summaries"`
-	Summary               Summary                       `json:"summary" yaml:"summary"`
+	Summary               Summary                        `json:"summary" yaml:"summary"`
 }
 
 type ToolContext struct {
@@ -75,9 +75,9 @@ func Build(input BuildInput) Inventory {
 	org := deriveOrg(input.Manifest)
 
 	type accumulator struct {
-		tool        Tool
-		repoSet      map[string]struct{}
-		locSet       map[string]struct{}
+		tool          Tool
+		repoSet       map[string]struct{}
+		locSet        map[string]struct{}
 		permissionSet map[string]struct{}
 	}
 	toolMap := map[string]*accumulator{}

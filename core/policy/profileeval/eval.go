@@ -11,13 +11,13 @@ import (
 )
 
 type Result struct {
-	ProfileName         string   `json:"profile"`
-	CompliancePercent   float64  `json:"compliance_percent"`
-	Fails               []string `json:"failing_rules"`
-	DeltaPercent        float64  `json:"compliance_delta"`
-	MinCompliance       float64  `json:"min_compliance"`
-	Status              string   `json:"status"`
-	Rationale           []string `json:"rationale"`
+	ProfileName       string   `json:"profile"`
+	CompliancePercent float64  `json:"compliance_percent"`
+	Fails             []string `json:"failing_rules"`
+	DeltaPercent      float64  `json:"compliance_delta"`
+	MinCompliance     float64  `json:"min_compliance"`
+	Status            string   `json:"status"`
+	Rationale         []string `json:"rationale"`
 }
 
 func Evaluate(p profile.Profile, findings []model.Finding, previous *Result) Result {

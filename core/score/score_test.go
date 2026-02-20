@@ -14,11 +14,11 @@ import (
 func TestComputeDeterministicScoreAndGrade(t *testing.T) {
 	t.Parallel()
 	result := Compute(Input{
-		Findings: []model.Finding{{FindingType: "policy_check", CheckResult: model.CheckResultPass, Severity: model.SeverityLow}},
-		Identities: []manifest.IdentityRecord{{Present: true, ApprovalState: "valid"}},
-		ProfileResult: profileeval.Result{CompliancePercent: 90},
+		Findings:        []model.Finding{{FindingType: "policy_check", CheckResult: model.CheckResultPass, Severity: model.SeverityLow}},
+		Identities:      []manifest.IdentityRecord{{Present: true, ApprovalState: "valid"}},
+		ProfileResult:   profileeval.Result{CompliancePercent: 90},
 		TransitionCount: 0,
-		Weights: scoremodel.DefaultWeights(),
+		Weights:         scoremodel.DefaultWeights(),
 	})
 	if result.Score <= 0 {
 		t.Fatalf("expected positive score, got %.2f", result.Score)

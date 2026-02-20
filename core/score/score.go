@@ -116,7 +116,7 @@ type policyDoc struct {
 }
 
 func loadWeightOverrides(path string) (*scoremodel.Weights, error) {
-	payload, err := os.ReadFile(path)
+	payload, err := os.ReadFile(path) // #nosec G304 -- path is a local policy file path supplied by explicit CLI/config input.
 	if err != nil {
 		return nil, fmt.Errorf("read score weights %s: %w", path, err)
 	}
@@ -225,7 +225,7 @@ func severityDistribution(findings []model.Finding) float64 {
 			penalty += 0.1
 		}
 	}
-	raw := 100 - (penalty/float64(len(findings))*100)
+	raw := 100 - (penalty / float64(len(findings)) * 100)
 	if raw < 0 {
 		raw = 0
 	}

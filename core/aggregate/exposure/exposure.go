@@ -25,16 +25,16 @@ type SkillSprawl struct {
 }
 
 type RepoExposureSummary struct {
-	Org                         string                       `json:"org" yaml:"org"`
-	Repo                        string                       `json:"repo" yaml:"repo"`
-	PermissionUnion             []string                     `json:"permission_union" yaml:"permission_union"`
-	DataUnion                   []string                     `json:"data_union" yaml:"data_union"`
-	HighestAutonomy             string                       `json:"highest_autonomy" yaml:"highest_autonomy"`
-	CombinedRiskScore           float64                      `json:"combined_risk_score" yaml:"combined_risk_score"`
-	SkillPrivilegeCeiling       []string                     `json:"skill_privilege_ceiling" yaml:"skill_privilege_ceiling"`
-	SkillPrivilegeConcentration SkillPrivilegeConcentration  `json:"skill_privilege_concentration" yaml:"skill_privilege_concentration"`
-	SkillSprawl                 SkillSprawl                  `json:"skill_sprawl" yaml:"skill_sprawl"`
-	ExposureFactors             []string                     `json:"exposure_factors" yaml:"exposure_factors"`
+	Org                         string                      `json:"org" yaml:"org"`
+	Repo                        string                      `json:"repo" yaml:"repo"`
+	PermissionUnion             []string                    `json:"permission_union" yaml:"permission_union"`
+	DataUnion                   []string                    `json:"data_union" yaml:"data_union"`
+	HighestAutonomy             string                      `json:"highest_autonomy" yaml:"highest_autonomy"`
+	CombinedRiskScore           float64                     `json:"combined_risk_score" yaml:"combined_risk_score"`
+	SkillPrivilegeCeiling       []string                    `json:"skill_privilege_ceiling" yaml:"skill_privilege_ceiling"`
+	SkillPrivilegeConcentration SkillPrivilegeConcentration `json:"skill_privilege_concentration" yaml:"skill_privilege_concentration"`
+	SkillSprawl                 SkillSprawl                 `json:"skill_sprawl" yaml:"skill_sprawl"`
+	ExposureFactors             []string                    `json:"exposure_factors" yaml:"exposure_factors"`
 }
 
 type accumulator struct {
@@ -121,12 +121,12 @@ func Build(findings []model.Finding, repoRisk map[string]float64) []RepoExposure
 		sort.Strings(factors)
 
 		out = append(out, RepoExposureSummary{
-			Org:               item.org,
-			Repo:              item.repo,
-			PermissionUnion:   permissions,
-			DataUnion:         dataUnion,
-			HighestAutonomy:   item.autonomy,
-			CombinedRiskScore: round2(risk),
+			Org:                         item.org,
+			Repo:                        item.repo,
+			PermissionUnion:             permissions,
+			DataUnion:                   dataUnion,
+			HighestAutonomy:             item.autonomy,
+			CombinedRiskScore:           round2(risk),
 			SkillPrivilegeCeiling:       ceiling,
 			SkillPrivilegeConcentration: concentration,
 			SkillSprawl:                 item.skillSprawl,

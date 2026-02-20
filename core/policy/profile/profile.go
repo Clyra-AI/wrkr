@@ -73,7 +73,7 @@ type policyDoc struct {
 }
 
 func loadOverrides(path string) (map[string]Profile, error) {
-	payload, err := os.ReadFile(path)
+	payload, err := os.ReadFile(path) // #nosec G304 -- path is a local policy file path supplied by explicit CLI/config input.
 	if err != nil {
 		return nil, fmt.Errorf("read profile overrides %s: %w", path, err)
 	}

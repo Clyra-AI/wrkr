@@ -8,10 +8,10 @@ import (
 )
 
 type Snapshot struct {
-	ExportVersion string      `json:"export_version" yaml:"export_version"`
-	ExportedAt    string      `json:"exported_at" yaml:"exported_at"`
-	Org           string      `json:"org" yaml:"org"`
-	Tools         []agg.Tool  `json:"tools" yaml:"tools"`
+	ExportVersion string     `json:"export_version" yaml:"export_version"`
+	ExportedAt    string     `json:"exported_at" yaml:"exported_at"`
+	Org           string     `json:"org" yaml:"org"`
+	Tools         []agg.Tool `json:"tools" yaml:"tools"`
 }
 
 func Build(inv agg.Inventory, now time.Time) Snapshot {

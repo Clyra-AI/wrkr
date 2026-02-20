@@ -32,7 +32,7 @@ func loadCodeowners(root string) []rule {
 	paths := []string{"CODEOWNERS", ".github/CODEOWNERS", "docs/CODEOWNERS"}
 	for _, rel := range paths {
 		path := filepath.Join(root, filepath.FromSlash(rel))
-		payload, err := os.ReadFile(path)
+		payload, err := os.ReadFile(path) // #nosec G304 -- path is derived from known CODEOWNERS locations under the selected local root.
 		if err != nil {
 			continue
 		}

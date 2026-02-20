@@ -55,7 +55,7 @@ func ResolvePath(statePath string) string {
 }
 
 func Load(path string) (Manifest, error) {
-	payload, err := os.ReadFile(path)
+	payload, err := os.ReadFile(path) // #nosec G304 -- path is an explicit local manifest/state location controlled by CLI arguments.
 	if err != nil {
 		return Manifest{}, err
 	}
