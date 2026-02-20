@@ -2,6 +2,7 @@ package hygiene
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -41,6 +42,17 @@ func TestGitignoreDoesNotIgnoreProductDocs(t *testing.T) {
 	}
 }
 
+func TestNoTrackedWrkrLocalState(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	for _, path := range gitTrackedFiles(t, repoRoot) {
+		if strings.HasPrefix(path, ".wrkr/") {
+			t.Fatalf("transient wrkr local state must not be tracked: %s", path)
+		}
+	}
+}
+
 func mustFindRepoRoot(t *testing.T) string {
 	t.Helper()
 
@@ -60,4 +72,23 @@ func mustFindRepoRoot(t *testing.T) string {
 		}
 		current = parent
 	}
+}
+
+func gitTrackedFiles(t *testing.T, repoRoot string) []string {
+	t.Helper()
+
+	cmd := exec.Command("git", "-C", repoRoot, "ls-files")
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("list tracked files: %v", err)
+	}
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return nil
+	}
+	paths := strings.Split(trimmed, "\n")
+	for i := range paths {
+		paths[i] = strings.TrimSpace(paths[i])
+	}
+	return paths
 }
