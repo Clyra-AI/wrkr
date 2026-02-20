@@ -1,6 +1,7 @@
 package evidence
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -165,6 +166,41 @@ func TestBuildEvidenceFailsWhenSigningKeyMissing(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "signing key file does not exist") {
 		t.Fatalf("expected missing signing key error, got: %v", err)
+	}
+}
+
+func TestBuildEvidenceUsesEnvSigningKeyWhenFileMissing(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	signingMaterial, err := proofemit.LoadSigningMaterial(statePath)
+	if err != nil {
+		t.Fatalf("load signing material: %v", err)
+	}
+	signingKeyPath := proofemit.SigningKeyPath(statePath)
+	if err := os.Remove(signingKeyPath); err != nil {
+		t.Fatalf("remove signing key: %v", err)
+	}
+	t.Setenv("WRKR_PROOF_PRIVATE_KEY_B64", base64.StdEncoding.EncodeToString(signingMaterial.Private))
+	t.Setenv("WRKR_PROOF_KEY_ID", strings.TrimSpace(signingMaterial.KeyID))
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	result, err := Build(BuildInput{
+		StatePath:  statePath,
+		Frameworks: []string{"soc2"},
+		OutputDir:  outputDir,
+	})
+	if err != nil {
+		t.Fatalf("expected env signing key to be accepted when file is missing, got: %v", err)
+	}
+	if _, err := os.Stat(result.ManifestPath); err != nil {
+		t.Fatalf("expected manifest to be written: %v", err)
+	}
+	keyIDPayload, err := os.ReadFile(filepath.Join(outputDir, "signatures", "key-id.txt"))
+	if err != nil {
+		t.Fatalf("read key id output: %v", err)
+	}
+	if strings.TrimSpace(string(keyIDPayload)) != strings.TrimSpace(signingMaterial.KeyID) {
+		t.Fatalf("expected key id %q, got %q", strings.TrimSpace(signingMaterial.KeyID), strings.TrimSpace(string(keyIDPayload)))
 	}
 }
 

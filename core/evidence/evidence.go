@@ -155,11 +155,13 @@ func Build(in BuildInput) (BuildResult, error) {
 	}
 
 	signingKeyPath := proofemit.SigningKeyPath(resolvedStatePath)
-	if _, err := os.Stat(signingKeyPath); err != nil {
-		if os.IsNotExist(err) {
-			return BuildResult{}, fmt.Errorf("load signing material: signing key file does not exist: %s", signingKeyPath)
+	if !proofemit.HasEnvSigningKey() {
+		if _, err := os.Stat(signingKeyPath); err != nil {
+			if os.IsNotExist(err) {
+				return BuildResult{}, fmt.Errorf("load signing material: signing key file does not exist: %s", signingKeyPath)
+			}
+			return BuildResult{}, fmt.Errorf("load signing material: stat signing key file: %w", err)
 		}
-		return BuildResult{}, fmt.Errorf("load signing material: stat signing key file: %w", err)
 	}
 	signingMaterial, signingErr := proofemit.LoadSigningMaterial(resolvedStatePath)
 	if signingErr != nil {

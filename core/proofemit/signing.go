@@ -12,6 +12,10 @@ import (
 	proof "github.com/Clyra-AI/proof"
 )
 
+const envProofPrivateKey = "WRKR_PROOF_PRIVATE_KEY_B64"
+const envProofPublicKey = "WRKR_PROOF_PUBLIC_KEY_B64"
+const envProofKeyID = "WRKR_PROOF_KEY_ID"
+
 type keyFile struct {
 	KeyID      string `json:"key_id"`
 	PublicKey  string `json:"public_key"`
@@ -26,15 +30,19 @@ func keyPath(statePath string) string {
 	return filepath.Join(dir, "proof-signing-key.json")
 }
 
+func HasEnvSigningKey() bool {
+	return strings.TrimSpace(os.Getenv(envProofPrivateKey)) != ""
+}
+
 func loadSigningKey(statePath string) (proof.SigningKey, error) {
 	path := keyPath(statePath)
-	if value := strings.TrimSpace(os.Getenv("WRKR_PROOF_PRIVATE_KEY_B64")); value != "" {
+	if value := strings.TrimSpace(os.Getenv(envProofPrivateKey)); value != "" {
 		privateKey, err := decodePrivateKey(value)
 		if err != nil {
-			return proof.SigningKey{}, fmt.Errorf("decode WRKR_PROOF_PRIVATE_KEY_B64: %w", err)
+			return proof.SigningKey{}, fmt.Errorf("decode %s: %w", envProofPrivateKey, err)
 		}
 		publicKey := privateKey.Public().(ed25519.PublicKey)
-		keyID := strings.TrimSpace(os.Getenv("WRKR_PROOF_KEY_ID"))
+		keyID := strings.TrimSpace(os.Getenv(envProofKeyID))
 		return proof.SigningKey{Private: privateKey, Public: publicKey, KeyID: keyID}, nil
 	}
 
@@ -85,12 +93,12 @@ func loadSigningKey(statePath string) (proof.SigningKey, error) {
 }
 
 func loadPublicKey(statePath string) (proof.PublicKey, error) {
-	if value := strings.TrimSpace(os.Getenv("WRKR_PROOF_PUBLIC_KEY_B64")); value != "" {
+	if value := strings.TrimSpace(os.Getenv(envProofPublicKey)); value != "" {
 		publicKey, err := decodePublicKey(value)
 		if err != nil {
-			return proof.PublicKey{}, fmt.Errorf("decode WRKR_PROOF_PUBLIC_KEY_B64: %w", err)
+			return proof.PublicKey{}, fmt.Errorf("decode %s: %w", envProofPublicKey, err)
 		}
-		keyID := strings.TrimSpace(os.Getenv("WRKR_PROOF_KEY_ID"))
+		keyID := strings.TrimSpace(os.Getenv(envProofKeyID))
 		return proof.PublicKey{Public: publicKey, KeyID: keyID}, nil
 	}
 
