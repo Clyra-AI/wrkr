@@ -221,7 +221,7 @@ func writeJSONL(path string, records []proof.Record) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("mkdir jsonl dir: %w", err)
 	}
-	file, err := os.Create(path)
+	file, err := os.Create(path) // #nosec G304 -- path is a deterministic local evidence output path assembled by wrkr.
 	if err != nil {
 		return fmt.Errorf("create %s: %w", path, err)
 	}
