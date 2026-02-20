@@ -35,3 +35,10 @@ for plan_doc in "product/PLAN_v1.md" "product/wrkr.md" "product/dev_guides.md" "
     exit 3
   fi
 done
+
+tracked_wrkr_state="$(git ls-files -- '.wrkr/*')"
+if [[ -n "${tracked_wrkr_state}" ]]; then
+  echo "transient wrkr local state must not be tracked:" >&2
+  echo "${tracked_wrkr_state}" >&2
+  exit 3
+fi

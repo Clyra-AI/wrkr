@@ -14,6 +14,7 @@ venv/
 
 # Local analysis scratch
 .tmp/
+.wrkr/
 *.sarif
 /wrkr
 /wrkr.exe
