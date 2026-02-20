@@ -37,6 +37,25 @@ func TestParseJSONFileStrictUnknownField(t *testing.T) {
 	}
 }
 
+func TestParseJSONFileRejectsTrailingTopLevelDocument(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "cfg.json")
+	if err := os.WriteFile(path, []byte(`{"name":"ok"}{"name":"extra"}`), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var parsed jsonFixture
+	parseErr := ParseJSONFile("detector", root, "cfg.json", &parsed)
+	if parseErr == nil {
+		t.Fatal("expected parse error for trailing JSON document")
+	}
+	if parseErr.Format != "json" {
+		t.Fatalf("unexpected parse error format: %#v", parseErr)
+	}
+}
+
 func TestParseYAMLFileStrictUnknownField(t *testing.T) {
 	t.Parallel()
 

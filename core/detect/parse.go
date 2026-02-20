@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -27,8 +28,12 @@ func ParseJSONFile(detectorID, root, rel string, dst any) *model.ParseError {
 	if err := decoder.Decode(dst); err != nil {
 		return newParseError(detectorID, rel, "json", err)
 	}
-	if decoder.More() {
-		return newParseError(detectorID, rel, "json", fmt.Errorf("multiple JSON values are not allowed"))
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return newParseError(detectorID, rel, "json", fmt.Errorf("multiple JSON values are not allowed"))
+		}
+		return newParseError(detectorID, rel, "json", err)
 	}
 	return nil
 }
