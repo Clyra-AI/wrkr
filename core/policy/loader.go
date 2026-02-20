@@ -76,10 +76,8 @@ func loadBuiltinRulePack() ([]Rule, error) {
 }
 
 func parseRulePack(payload []byte, source string) ([]Rule, error) {
-	decoder := yaml.NewDecoder(strings.NewReader(string(payload)))
-	decoder.KnownFields(true)
 	var pack RulePack
-	if decodeErr := decoder.Decode(&pack); decodeErr != nil {
+	if decodeErr := yaml.Unmarshal(payload, &pack); decodeErr != nil {
 		return nil, fmt.Errorf("parse policy rules %s: %w", source, decodeErr)
 	}
 	for i := range pack.Rules {

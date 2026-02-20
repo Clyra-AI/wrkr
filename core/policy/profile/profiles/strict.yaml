@@ -1,0 +1,7 @@
+name: strict
+description: Strict posture profile
+min_compliance: 95
+rule_thresholds:
+  WRKR-013: 0
+  WRKR-014: 0
+  WRKR-015: 0

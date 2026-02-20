@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/risk/risk-report.schema.json",
+  "title": "Wrkr Risk Report",
+  "type": "object",
+  "required": ["generated_at", "top_findings", "ranked_findings", "repo_risk"],
+  "properties": {
+    "generated_at": {"type": "string", "format": "date-time"},
+    "top_findings": {"type": "array"},
+    "ranked_findings": {"type": "array"},
+    "repo_risk": {"type": "array"}
+  }
+}

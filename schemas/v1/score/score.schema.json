@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/score/score.schema.json",
+  "title": "Wrkr Posture Score",
+  "type": "object",
+  "required": ["score", "grade", "breakdown", "weighted_breakdown", "weights", "trend_delta"],
+  "properties": {
+    "score": {"type": "number"},
+    "grade": {"type": "string", "enum": ["A", "B", "C", "D", "F"]},
+    "breakdown": {"type": "object"},
+    "weighted_breakdown": {"type": "object"},
+    "weights": {"type": "object"},
+    "trend_delta": {"type": "number"}
+  }
+}

@@ -7,6 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/lifecycle"
+	"github.com/Clyra-AI/wrkr/core/manifest"
+	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
+	"github.com/Clyra-AI/wrkr/core/risk"
+	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
 )
 
@@ -14,9 +20,15 @@ const SnapshotVersion = "v1"
 
 // Snapshot stores deterministic scan material for diff mode.
 type Snapshot struct {
-	Version  string           `json:"version"`
-	Target   source.Target    `json:"target"`
-	Findings []source.Finding `json:"findings"`
+	Version      string                    `json:"version"`
+	Target       source.Target             `json:"target"`
+	Findings     []source.Finding          `json:"findings"`
+	Inventory    *agginventory.Inventory   `json:"inventory,omitempty"`
+	RiskReport   *risk.Report              `json:"risk_report,omitempty"`
+	Profile      *profileeval.Result       `json:"profile,omitempty"`
+	PostureScore *score.Result             `json:"posture_score,omitempty"`
+	Identities   []manifest.IdentityRecord `json:"identities,omitempty"`
+	Transitions  []lifecycle.Transition    `json:"lifecycle_transitions,omitempty"`
 }
 
 func ResolvePath(explicit string) string {

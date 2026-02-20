@@ -66,7 +66,11 @@ func TestScenarioScanMixedOrgCoverage(t *testing.T) {
 	if !ok {
 		t.Fatalf("invalid top finding shape: %T", topFindings[0])
 	}
-	if severity, _ := top["severity"].(string); severity != "critical" {
+	findingPayload, ok := top["finding"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected nested finding payload, got %T", top["finding"])
+	}
+	if severity, _ := findingPayload["severity"].(string); severity != "critical" {
 		t.Fatalf("expected critical finding ranked first, got severity=%q", severity)
 	}
 }
