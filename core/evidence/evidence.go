@@ -35,6 +35,7 @@ type BuildResult struct {
 }
 
 const outputDirMarkerFile = ".wrkr-evidence-managed"
+const outputDirMarkerContent = "managed by wrkr evidence build\n"
 
 func Build(in BuildInput) (BuildResult, error) {
 	resolvedStatePath := state.ResolvePath(strings.TrimSpace(in.StatePath))
@@ -53,9 +54,15 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, fmt.Errorf("load proof chain: %w", err)
 	}
+	if !hasScanEvidenceRecords(chain.Records) {
+		return BuildResult{}, fmt.Errorf("load proof chain: proof chain has no scan evidence records")
+	}
 	frameworks := normalizeFrameworks(in.Frameworks)
 	if len(frameworks) == 0 {
 		return BuildResult{}, fmt.Errorf("at least one framework is required")
+	}
+	if err := validateSnapshot(snapshot); err != nil {
+		return BuildResult{}, err
 	}
 	outputDir := strings.TrimSpace(in.OutputDir)
 	if outputDir == "" {
@@ -147,6 +154,13 @@ func Build(in BuildInput) (BuildResult, error) {
 		}
 	}
 
+	signingKeyPath := proofemit.SigningKeyPath(resolvedStatePath)
+	if _, err := os.Stat(signingKeyPath); err != nil {
+		if os.IsNotExist(err) {
+			return BuildResult{}, fmt.Errorf("load signing material: signing key file does not exist: %s", signingKeyPath)
+		}
+		return BuildResult{}, fmt.Errorf("load signing material: stat signing key file: %w", err)
+	}
 	signingMaterial, signingErr := proofemit.LoadSigningMaterial(resolvedStatePath)
 	if signingErr != nil {
 		return BuildResult{}, fmt.Errorf("load signing material: %w", signingErr)
@@ -210,6 +224,27 @@ func normalizeFrameworks(in []string) []string {
 	return out
 }
 
+func validateSnapshot(snapshot state.Snapshot) error {
+	missing := make([]string, 0, 4)
+	if snapshot.Inventory == nil {
+		missing = append(missing, "inventory")
+	}
+	if snapshot.RiskReport == nil {
+		missing = append(missing, "risk_report")
+	}
+	if snapshot.Profile == nil {
+		missing = append(missing, "profile")
+	}
+	if snapshot.PostureScore == nil {
+		missing = append(missing, "posture_score")
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	sort.Strings(missing)
+	return fmt.Errorf("load state snapshot: missing required sections: %s", strings.Join(missing, ", "))
+}
+
 func writeJSON(path string, value any) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("mkdir json dir: %w", err)
@@ -259,7 +294,8 @@ func writeJSONL(path string, records []proof.Record) error {
 }
 
 func resetOutputDir(path string) error {
-	info, err := os.Stat(path)
+	path = filepath.Clean(path)
+	info, err := os.Lstat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(path, 0o750); err != nil {
@@ -267,7 +303,10 @@ func resetOutputDir(path string) error {
 			}
 			return writeOutputDirMarker(path)
 		}
-		return fmt.Errorf("stat output dir: %w", err)
+		return fmt.Errorf("lstat output dir: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("output dir must not be a symlink: %s", path)
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("output dir is not a directory: %s", path)
@@ -279,16 +318,26 @@ func resetOutputDir(path string) error {
 	if len(entries) == 0 {
 		return writeOutputDirMarker(path)
 	}
-	markerPresent := false
-	for _, entry := range entries {
-		if entry.Name() == outputDirMarkerFile {
-			markerPresent = true
-			break
+
+	markerPath := filepath.Join(path, outputDirMarkerFile)
+	markerInfo, err := os.Lstat(markerPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("output dir is not empty and not managed by wrkr evidence: %s", path)
 		}
+		return fmt.Errorf("stat output dir marker: %w", err)
 	}
-	if !markerPresent {
-		return fmt.Errorf("output dir is not empty and not managed by wrkr evidence: %s", path)
+	if !markerInfo.Mode().IsRegular() {
+		return fmt.Errorf("output dir marker is not a regular file: %s", markerPath)
 	}
+	markerPayload, err := os.ReadFile(markerPath) // #nosec G304 -- marker path is deterministic under the selected local output directory.
+	if err != nil {
+		return fmt.Errorf("read output dir marker: %w", err)
+	}
+	if string(markerPayload) != outputDirMarkerContent {
+		return fmt.Errorf("output dir marker content is invalid: %s", markerPath)
+	}
+
 	for _, entry := range entries {
 		if entry.Name() == outputDirMarkerFile {
 			continue
@@ -303,7 +352,7 @@ func resetOutputDir(path string) error {
 
 func writeOutputDirMarker(path string) error {
 	markerPath := filepath.Join(path, outputDirMarkerFile)
-	if err := os.WriteFile(markerPath, []byte("managed by wrkr evidence build\n"), 0o600); err != nil {
+	if err := os.WriteFile(markerPath, []byte(outputDirMarkerContent), 0o600); err != nil {
 		return fmt.Errorf("write output dir marker: %w", err)
 	}
 	return nil
@@ -326,6 +375,16 @@ func filterRecords(records []proof.Record, recordType string, eventType string) 
 	return out
 }
 
+func hasScanEvidenceRecords(records []proof.Record) bool {
+	for _, record := range records {
+		recordType := strings.TrimSpace(record.RecordType)
+		if recordType == "scan_finding" || recordType == "risk_assessment" {
+			return true
+		}
+	}
+	return false
+}
+
 func buildManifestEntries(outputDir string) ([]proof.BundleManifestEntry, error) {
 	entries := make([]proof.BundleManifestEntry, 0)
 	err := filepath.WalkDir(outputDir, func(path string, d os.DirEntry, walkErr error) error {
@@ -342,6 +401,9 @@ func buildManifestEntries(outputDir string) ([]proof.BundleManifestEntry, error)
 		normalized := filepath.ToSlash(rel)
 		if normalized == "manifest.json" || normalized == outputDirMarkerFile {
 			return nil
+		}
+		if d.Type()&os.ModeSymlink != 0 || !d.Type().IsRegular() {
+			return fmt.Errorf("manifest entry is not a regular file: %s", normalized)
 		}
 		payload, err := os.ReadFile(path) // #nosec G304 -- walk only reads files under deterministic output directory.
 		if err != nil {

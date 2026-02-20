@@ -86,6 +86,8 @@ Use `wrkr` commands with `--json` whenever the plan needs machine-readable evide
 - deterministic allow/block/require_approval fixtures
 - fail-closed undecidable-path tests
 - reason-code stability checks
+- For stories that clean/reset output paths, require `non-empty + non-managed => fail` tests
+- Require marker trust tests (`marker must be regular file`; reject symlink/directory)
 
 4. Determinism/hash/sign/packaging changes:
 - byte-stability repeat-run tests

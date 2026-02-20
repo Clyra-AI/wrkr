@@ -97,6 +97,8 @@ When collecting evidence or emitting machine-readable status, use `wrkr` command
 - deterministic allow/block/require_approval fixtures
 - fail-closed undecidable-path tests
 - reason-code stability checks
+- filesystem boundary tests for user-supplied output paths (`non-empty + non-managed => fail`)
+- ownership marker trust tests (`marker must be regular file`; reject symlink/directory)
 
 4. Determinism/hash/sign/pack changes:
 - byte-stability repeat-run tests
@@ -147,6 +149,7 @@ No story is complete if any required lane is skipped or failing.
 
 - Preserve determinism, offline-first defaults, fail-closed enforcement, schema stability, and exit-code stability.
 - Never weaken unapproved posture => regression failure behavior.
+- Do not allow recursive cleanup on user-supplied paths without explicit ownership validation tests.
 - No destructive git operations unless explicitly requested.
 - No silent skips of required tests/checks.
 - Keep changes tightly scoped to active story.

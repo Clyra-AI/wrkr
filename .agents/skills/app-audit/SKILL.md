@@ -27,6 +27,8 @@ Execute this workflow when asked to perform app review, release readiness, archi
    - sync vs async behavior and failure handling
 7. Compare stated product intent vs implemented behavior.
 8. Assess security posture and fail-closed guarantees.
+   - explicitly test filesystem mutation boundaries on user-supplied output paths
+   - confirm cleanup/reset flows reject non-managed dirs and reject marker symlink/directory types
 9. Assess market wedge sharpness for existing personas only.
 10. Produce final go/no-go verdict with minimum blocker set.
 

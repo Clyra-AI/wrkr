@@ -9,6 +9,7 @@ import (
 	"time"
 
 	proof "github.com/Clyra-AI/proof"
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
@@ -40,6 +41,7 @@ func TestBuildEvidenceBundle(t *testing.T) {
 		Version:      state.SnapshotVersion,
 		Target:       source.Target{Mode: "repo", Value: "acme/repo"},
 		Findings:     findings,
+		Inventory:    &agginventory.Inventory{InventoryVersion: "v1", GeneratedAt: "2026-02-20T12:00:00Z"},
 		RiskReport:   &report,
 		Profile:      &profile,
 		PostureScore: &posture,
@@ -114,6 +116,99 @@ func TestBuildEvidenceFailsWhenProofChainMissing(t *testing.T) {
 	}
 }
 
+func TestBuildEvidenceFailsWhenProofChainHasNoScanEvidenceRecords(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	snapshot := state.Snapshot{
+		Version: state.SnapshotVersion,
+		Target:  source.Target{Mode: "repo", Value: "acme/repo"},
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	chainPath := proofemit.ChainPath(statePath)
+	chain := proof.NewChain("wrkr-proof")
+	if err := proofemit.SaveChain(chainPath, chain); err != nil {
+		t.Fatalf("save empty chain: %v", err)
+	}
+
+	_, err := Build(BuildInput{
+		StatePath:  statePath,
+		Frameworks: []string{"soc2"},
+		OutputDir:  filepath.Join(tmp, "wrkr-evidence"),
+	})
+	if err == nil {
+		t.Fatal("expected error when proof chain has no scan evidence records")
+	}
+	if !strings.Contains(err.Error(), "proof chain has no scan evidence records") {
+		t.Fatalf("expected no-scan-evidence error, got: %v", err)
+	}
+}
+
+func TestBuildEvidenceFailsWhenSigningKeyMissing(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	signingKeyPath := proofemit.SigningKeyPath(statePath)
+	if err := os.Remove(signingKeyPath); err != nil {
+		t.Fatalf("remove signing key: %v", err)
+	}
+
+	_, err := Build(BuildInput{
+		StatePath:  statePath,
+		Frameworks: []string{"soc2"},
+		OutputDir:  filepath.Join(tmp, "wrkr-evidence"),
+	})
+	if err == nil {
+		t.Fatal("expected error when signing key file is missing")
+	}
+	if !strings.Contains(err.Error(), "signing key file does not exist") {
+		t.Fatalf("expected missing signing key error, got: %v", err)
+	}
+}
+
+func TestBuildEvidenceFailsWhenStateSnapshotMissingRequiredSections(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	snapshot := state.Snapshot{
+		Version: state.SnapshotVersion,
+		Target:  source.Target{Mode: "repo", Value: "acme/repo"},
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	findings := []model.Finding{
+		{
+			FindingType: "skill_policy_conflict",
+			Severity:    model.SeverityHigh,
+			ToolType:    "skill",
+			Location:    ".claude/skills/deploy/SKILL.md",
+			Repo:        "repo",
+			Org:         "acme",
+		},
+	}
+	report := risk.Score(findings, 5, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC))
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
+	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+		t.Fatalf("emit scan records: %v", err)
+	}
+
+	_, err := Build(BuildInput{
+		StatePath:  statePath,
+		Frameworks: []string{"soc2"},
+		OutputDir:  filepath.Join(tmp, "wrkr-evidence"),
+	})
+	if err == nil {
+		t.Fatal("expected error when state snapshot is missing required sections")
+	}
+	if !strings.Contains(err.Error(), "missing required sections") {
+		t.Fatalf("expected missing snapshot section error, got: %v", err)
+	}
+}
+
 func TestBuildEvidenceRejectsNonManagedNonEmptyOutputDir(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
@@ -135,6 +230,7 @@ func TestBuildEvidenceRejectsNonManagedNonEmptyOutputDir(t *testing.T) {
 		Version:      state.SnapshotVersion,
 		Target:       source.Target{Mode: "repo", Value: "acme/repo"},
 		Findings:     findings,
+		Inventory:    &agginventory.Inventory{InventoryVersion: "v1", GeneratedAt: "2026-02-20T12:00:00Z"},
 		RiskReport:   &report,
 		Profile:      &profile,
 		PostureScore: &posture,
@@ -187,6 +283,7 @@ func TestBuildEvidenceClearsManagedOutputDirBeforeManifestHashing(t *testing.T) 
 		Version:      state.SnapshotVersion,
 		Target:       source.Target{Mode: "repo", Value: "acme/repo"},
 		Findings:     findings,
+		Inventory:    &agginventory.Inventory{InventoryVersion: "v1", GeneratedAt: "2026-02-20T12:00:00Z"},
 		RiskReport:   &report,
 		Profile:      &profile,
 		PostureScore: &posture,
@@ -236,4 +333,178 @@ func TestBuildEvidenceClearsManagedOutputDirBeforeManifestHashing(t *testing.T) 
 			t.Fatalf("manifest should not include stale file path %q", entry.Path)
 		}
 	}
+}
+
+func TestBuildEvidenceRejectsMarkerDirectory(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	if err := os.MkdirAll(filepath.Join(outputDir, outputDirMarkerFile), 0o750); err != nil {
+		t.Fatalf("mkdir marker directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, "stale.txt"), []byte("stale"), 0o600); err != nil {
+		t.Fatalf("write stale file: %v", err)
+	}
+
+	_, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC)})
+	if err == nil {
+		t.Fatal("expected error when marker is a directory")
+	}
+	if !strings.Contains(err.Error(), "marker is not a regular file") {
+		t.Fatalf("expected marker regular file error, got: %v", err)
+	}
+}
+
+func TestBuildEvidenceRejectsMarkerSymlink(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		t.Fatalf("mkdir output dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, "marker-target.txt"), []byte(outputDirMarkerContent), 0o600); err != nil {
+		t.Fatalf("write marker target: %v", err)
+	}
+	if err := os.Symlink("marker-target.txt", filepath.Join(outputDir, outputDirMarkerFile)); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, "stale.txt"), []byte("stale"), 0o600); err != nil {
+		t.Fatalf("write stale file: %v", err)
+	}
+
+	_, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC)})
+	if err == nil {
+		t.Fatal("expected error when marker is a symlink")
+	}
+	if !strings.Contains(err.Error(), "marker is not a regular file") {
+		t.Fatalf("expected marker regular file error, got: %v", err)
+	}
+}
+
+func TestBuildEvidenceRejectsMarkerWithInvalidContent(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		t.Fatalf("mkdir output dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, outputDirMarkerFile), []byte("invalid marker\n"), 0o600); err != nil {
+		t.Fatalf("write invalid marker: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, "stale.txt"), []byte("stale"), 0o600); err != nil {
+		t.Fatalf("write stale file: %v", err)
+	}
+
+	_, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC)})
+	if err == nil {
+		t.Fatal("expected error when marker content is invalid")
+	}
+	if !strings.Contains(err.Error(), "marker content is invalid") {
+		t.Fatalf("expected marker content error, got: %v", err)
+	}
+}
+
+func TestBuildEvidenceRejectsSymlinkOutputDir(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+
+	managedDir := filepath.Join(tmp, "managed-dir")
+	if err := os.MkdirAll(managedDir, 0o750); err != nil {
+		t.Fatalf("mkdir managed dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(managedDir, outputDirMarkerFile), []byte(outputDirMarkerContent), 0o600); err != nil {
+		t.Fatalf("write managed marker: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(managedDir, "stale.txt"), []byte("stale"), 0o600); err != nil {
+		t.Fatalf("write stale file: %v", err)
+	}
+	outputDir := filepath.Join(tmp, "wrkr-evidence-symlink")
+	if err := os.Symlink(managedDir, outputDir); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	_, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("expected error when output dir is a symlink")
+	}
+	if !strings.Contains(err.Error(), "output dir must not be a symlink") {
+		t.Fatalf("expected symlink output dir error, got: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(managedDir, "stale.txt")); err != nil {
+		t.Fatalf("expected symlink target to remain untouched, got: %v", err)
+	}
+}
+
+func TestBuildManifestEntriesRejectsSymlinkFile(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		t.Fatalf("mkdir output dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, "inventory.json"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("write inventory: %v", err)
+	}
+	outside := filepath.Join(tmp, "outside.txt")
+	if err := os.WriteFile(outside, []byte("outside"), 0o600); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+	if err := os.Symlink(outside, filepath.Join(outputDir, "linked.txt")); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	_, err := buildManifestEntries(outputDir)
+	if err == nil {
+		t.Fatal("expected error when manifest input contains symlink")
+	}
+	if !strings.Contains(err.Error(), "manifest entry is not a regular file") {
+		t.Fatalf("expected non-regular manifest entry error, got: %v", err)
+	}
+}
+
+func createEvidenceStateWithProof(t *testing.T, tmp string) string {
+	t.Helper()
+
+	statePath := filepath.Join(tmp, "state.json")
+	findings := []model.Finding{
+		{
+			FindingType: "skill_policy_conflict",
+			Severity:    model.SeverityHigh,
+			ToolType:    "skill",
+			Location:    ".claude/skills/deploy/SKILL.md",
+			Repo:        "repo",
+			Org:         "acme",
+		},
+	}
+	report := risk.Score(findings, 5, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC))
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
+	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
+	snapshot := state.Snapshot{
+		Version:      state.SnapshotVersion,
+		Target:       source.Target{Mode: "repo", Value: "acme/repo"},
+		Findings:     findings,
+		Inventory:    &agginventory.Inventory{InventoryVersion: "v1", GeneratedAt: "2026-02-20T12:00:00Z"},
+		RiskReport:   &report,
+		Profile:      &profile,
+		PostureScore: &posture,
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+		t.Fatalf("emit scan records: %v", err)
+	}
+	return statePath
 }

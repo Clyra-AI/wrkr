@@ -38,6 +38,7 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
 2. Run baseline validation where feasible (lint/build/tests) and record gaps if not run.
 3. Review each subsystem for:
    - Safety/control bypasses
+   - Destructive filesystem operations on user-supplied paths without trusted ownership checks (regular-file marker validation, no marker-name-only trust)
    - Determinism or reproducibility breaks
    - Integrity verification weakening
    - False-green test/CI paths
@@ -68,6 +69,7 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
 ## Review Rules
 
 - Findings are primary output; summaries stay brief.
+- Treat recursive cleanup/delete on caller-selected paths with weak ownership gating as at least `P1`.
 - Do not report style nits unless they cause runtime/contract risk.
 - Do not claim tests/commands were run if they were not.
 - Separate facts from inference.

@@ -33,6 +33,10 @@ func ChainPath(statePath string) string {
 	return filepath.Join(dir, "proof-chain.json")
 }
 
+func SigningKeyPath(statePath string) string {
+	return keyPath(statePath)
+}
+
 func LoadChain(path string) (*proof.Chain, error) {
 	payload, err := os.ReadFile(path) // #nosec G304 -- path is an explicit local proof chain location controlled by CLI state configuration.
 	if err != nil {
