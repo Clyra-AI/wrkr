@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Clyra-AI/wrkr/schemas/v1/proof-outputs/proof-chain.schema.json",
+  "title": "Wrkr Proof Chain Output",
+  "type": "object",
+  "required": ["chain_id", "record_count", "records"],
+  "properties": {
+    "chain_id": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "record_count": {"type": "integer", "minimum": 0},
+    "head_hash": {"type": "string"},
+    "records": {
+      "type": "array",
+      "items": {"type": "object"}
+    },
+    "signatures": {
+      "type": "array",
+      "items": {"type": "object"}
+    }
+  },
+  "additionalProperties": true
+}

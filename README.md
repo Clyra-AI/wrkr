@@ -4,11 +4,12 @@ Wrkr is the deterministic See-layer CLI in the See -> Prove -> Control model.
 
 ## Status
 
-Epics 1-3 are implemented.
+Epics 1-4 are implemented.
 
 - Epic 1: source acquisition contracts (`init`, `scan`, source manifests, incremental diff state)
 - Epic 2: deterministic detector engine (Claude/Cursor/Codex/Copilot, MCP, skills, CI/headless autonomy, dependencies, secrets, compiled actions) and YAML-backed policy evaluation (`WRKR-001`..`WRKR-015`)
 - Epic 3: deterministic inventory aggregation + repo exposure summaries, identity lifecycle manifest/chain updates, ranked risk reporting, posture profiles, and posture score outputs
+- Epic 4: signed proof record emission (`scan_finding`, `risk_assessment`, `approval`, lifecycle transitions), proof chain verification, and compliance evidence bundle generation
 
 ## Quick Start
 
@@ -37,6 +38,8 @@ wrkr identity show <agent_id> --json
 wrkr identity approve <agent_id> --approver @maria --scope read-only --expires 90d --json
 wrkr lifecycle --org acme --json
 wrkr score --json
+wrkr verify --chain --json
+wrkr evidence --frameworks eu-ai-act,soc2 --json
 
 # Optional non-deterministic enrichment branch (explicitly opt-in).
 wrkr scan --path ./local-repos --enrich --github-api https://api.github.com --json
@@ -58,6 +61,7 @@ Invalid target combinations return exit code `6` with a machine-readable JSON en
 ## State and Diff
 
 - Last scan state is persisted locally at `.wrkr/last-scan.json` (override with `--state` or `WRKR_STATE_PATH`).
+- Signed proof records are appended to `.wrkr/proof-chain.json` and use local signing material at `.wrkr/proof-signing-key.json`.
 - `--diff` reports only added, removed, and permission-changed findings.
 - If local state is absent, `--baseline <path>` can provide a CI artifact baseline.
 

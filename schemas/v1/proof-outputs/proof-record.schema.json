@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Clyra-AI/wrkr/schemas/v1/proof-outputs/proof-record.schema.json",
+  "title": "Wrkr Proof Record Output",
+  "type": "object",
+  "required": ["record_id", "record_type", "timestamp", "source", "source_product", "event", "integrity"],
+  "properties": {
+    "record_id": {"type": "string"},
+    "record_version": {"type": "string"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "source": {"type": "string"},
+    "source_product": {"type": "string"},
+    "agent_id": {"type": "string"},
+    "record_type": {"type": "string"},
+    "event": {"type": "object"},
+    "metadata": {"type": "object"},
+    "controls": {"type": "object"},
+    "integrity": {
+      "type": "object",
+      "required": ["record_hash"],
+      "properties": {
+        "record_hash": {"type": "string"},
+        "previous_record_hash": {"type": "string"},
+        "signing_key_id": {"type": "string"},
+        "signature": {"type": "string"}
+      }
+    }
+  },
+  "additionalProperties": true
+}

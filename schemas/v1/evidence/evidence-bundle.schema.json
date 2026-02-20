@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Clyra-AI/wrkr/schemas/v1/evidence/evidence-bundle.schema.json",
+  "title": "Wrkr Evidence Bundle Manifest",
+  "type": "object",
+  "required": ["status", "output_dir", "frameworks", "manifest_path", "chain_path"],
+  "properties": {
+    "status": {"const": "ok"},
+    "output_dir": {"type": "string"},
+    "frameworks": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "manifest_path": {"type": "string"},
+    "chain_path": {"type": "string"},
+    "framework_coverage": {
+      "type": "object",
+      "additionalProperties": {"type": "number"}
+    }
+  },
+  "additionalProperties": true
+}

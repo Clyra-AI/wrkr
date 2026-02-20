@@ -196,9 +196,19 @@ func ApplyManualState(m manifest.Manifest, agentID, state, approver, scope, reas
 		NewState:      record.Status,
 		Trigger:       "manual_transition",
 		Timestamp:     now.Format(time.RFC3339),
-		Diff: map[string]any{
-			"reason": strings.TrimSpace(reason),
-		},
+		Diff:          map[string]any{},
+	}
+	if strings.TrimSpace(reason) != "" {
+		transition.Diff["reason"] = strings.TrimSpace(reason)
+	}
+	if strings.TrimSpace(approver) != "" {
+		transition.Diff["approver"] = strings.TrimSpace(approver)
+	}
+	if strings.TrimSpace(scope) != "" {
+		transition.Diff["scope"] = strings.TrimSpace(scope)
+	}
+	if !expiresAt.IsZero() {
+		transition.Diff["expires"] = expiresAt.UTC().Format(time.RFC3339)
 	}
 	return m, transition, nil
 }
