@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.clyra.ai/wrkr/v1/finding.schema.json",
+  "title": "Wrkr Finding",
+  "type": "object",
+  "required": [
+    "finding_type",
+    "severity",
+    "tool_type",
+    "location",
+    "org"
+  ],
+  "properties": {
+    "finding_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rule_id": {
+      "type": "string"
+    },
+    "check_result": {
+      "type": "string",
+      "enum": ["pass", "fail"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "info"]
+    },
+    "remediation": {
+      "type": "string"
+    },
+    "tool_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "location": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repo": {
+      "type": "string"
+    },
+    "org": {
+      "type": "string",
+      "minLength": 1
+    },
+    "detector": {
+      "type": "string"
+    },
+    "permissions": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "autonomy": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "value"],
+        "properties": {
+          "key": {"type": "string"},
+          "value": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "parse_error": {
+      "type": "object",
+      "required": ["kind", "format", "path", "detector", "message"],
+      "properties": {
+        "kind": {"type": "string"},
+        "format": {"type": "string"},
+        "path": {"type": "string"},
+        "detector": {"type": "string"},
+        "message": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

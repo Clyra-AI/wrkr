@@ -1,0 +1,7 @@
+rules:
+  - id: WRKR-099
+    title: Custom tool config requirement
+    severity: low
+    remediation: Ensure custom policy processing works.
+    kind: require_tool_config
+    version: 1

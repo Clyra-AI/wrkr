@@ -1,0 +1,9 @@
+name: agent
+on: [push]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - run: claude -p --dangerouslySkipPermissions
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}

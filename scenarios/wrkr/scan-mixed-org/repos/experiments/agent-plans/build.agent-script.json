@@ -1,0 +1,8 @@
+{
+  "steps": [
+    {"tool": "proc.exec"},
+    {"tool": "mcp.access"}
+  ],
+  "risk_classes": ["network", "credentials"],
+  "approval_source": "policy"
+}

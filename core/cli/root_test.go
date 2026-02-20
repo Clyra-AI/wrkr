@@ -179,8 +179,22 @@ func TestScanDiffOnlyReturnsDelta(t *testing.T) {
 		t.Fatalf("expected diff object, got %v", payload)
 	}
 	added, _ := diffPayload["added"].([]any)
-	if len(added) != 1 {
-		t.Fatalf("expected one added finding, got %d payload=%v", len(added), payload)
+	if len(added) == 0 {
+		t.Fatalf("expected added findings, got none payload=%v", payload)
+	}
+	foundNewRepo := false
+	for _, item := range added {
+		finding, castOK := item.(map[string]any)
+		if !castOK {
+			continue
+		}
+		if finding["tool_type"] == "source_repo" && finding["repo"] == "beta" {
+			foundNewRepo = true
+			break
+		}
+	}
+	if !foundNewRepo {
+		t.Fatalf("expected diff to include beta source discovery, payload=%v", payload)
 	}
 	removed, _ := diffPayload["removed"].([]any)
 	if len(removed) != 0 {

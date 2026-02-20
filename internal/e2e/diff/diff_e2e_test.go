@@ -89,7 +89,21 @@ func TestE2EDiffUsesBaselineWhenStateMissing(t *testing.T) {
 	}
 	diffPayload := payload["diff"].(map[string]any)
 	added := diffPayload["added"].([]any)
-	if len(added) != 1 {
-		t.Fatalf("expected one added repo from baseline comparison, got %d", len(added))
+	if len(added) == 0 {
+		t.Fatalf("expected added findings from baseline comparison, got %d", len(added))
+	}
+	foundBetaRepo := false
+	for _, item := range added {
+		finding, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if finding["tool_type"] == "source_repo" && finding["repo"] == "beta" {
+			foundBetaRepo = true
+			break
+		}
+	}
+	if !foundBetaRepo {
+		t.Fatalf("expected diff added list to include beta source discovery, payload=%v", diffPayload)
 	}
 }

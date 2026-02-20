@@ -1,0 +1,7 @@
+rules:
+  - id: WRKR-099
+    title: Custom policy smoke
+    severity: low
+    remediation: Ensure custom policy loading is functional.
+    kind: require_tool_config
+    version: 1

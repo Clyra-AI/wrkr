@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx -y @acme/postgres-mcp@1.0.0",
+      "args": ["--readonly"],
+      "transport": "stdio"
+    }
+  }
+}
