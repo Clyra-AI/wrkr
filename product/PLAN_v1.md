@@ -8,6 +8,23 @@ This plan is execution-first: every story includes concrete paths, commands, tes
 
 ---
 
+## Positioning Update (AI-DSPM)
+
+Wrkr is an open-source AI Development Security Posture Management (AI-DSPM) scanner: Trivy for AI tool configurations. It scans repos for AI tool posture including misconfigurations, overprivileged agents, unpinned dependencies, unapproved MCP connections, and shadow AI tooling.
+
+Competitive layer map:
+
+| Layer | What It Governs | Who's Building Here | Crowded? |
+|---|---|---|---|
+| LLM / Model layer | Prompt injection, hallucination, output safety | Guardrails AI, NeMo, WitnessAI, HiddenLayer | Very |
+| Agent runtime layer | Identity, sandboxing, kill switches, scope enforcement | ConductorOne, Orchid, Strata, MintMCP | Getting crowded |
+| Network / traffic layer | Data loss, shadow AI traffic, API monitoring | Aurascape, Oximy, Zscaler/Netskope AI features | Crowded with incumbents |
+| Configuration / posture layer | What's declared, approved, pinned, manifested, drifted | **Wrkr** | Empty |
+
+Wrkr coexists with runtime controls: it produces the inventory and manifest describing what should be true. Runtime tools enforce against that declaration. Wrkr does not replace runtime guardrails; it feeds them.
+
+---
+
 ## Global Decisions (Locked)
 
 - Core runtime is Go only (`cmd/wrkr`, `core/`, `internal/`), pinned to Go `1.25.7`.
@@ -20,6 +37,7 @@ This plan is execution-first: every story includes concrete paths, commands, tes
 - Structured parsing is required for JSON/YAML/TOML configs; regex-only detection is not acceptable for structured inputs.
 - Secret handling is presence-only detection. Secret values are never extracted or persisted.
 - Proof records use `Clyra-AI/proof` primitives and shared record types: `scan_finding`, `risk_assessment`, `approval`, `lifecycle_transition`.
+- Configuration policy rules and posture profiles are data-driven YAML contracts loaded from `Clyra-AI/proof/policies/wrkr/` and are deterministic in offline mode.
 - Exit code contract is locked as API surface: `0,1,2,3,4,5,6,7,8` per `product/dev_guides.md`.
 - All user-facing commands support `--json`; major commands support `--explain`; CI paths support `--quiet`.
 - JSON digests/signatures use RFC 8785 canonicalization and deterministic byte output.
@@ -37,7 +55,7 @@ Repository snapshot (2026-02-20):
 - Implemented baseline CLI: `init` and `scan` command paths with `--json`, `--quiet`, `--explain` handling in current scaffold.
 - Implemented baseline engines: source acquisition (`repo`/`org`/`path`), local state snapshot, deterministic diffing by tuple key, and e2e/integration coverage for current scope.
 - Missing v1 command surface: `report`, `evidence`, `verify`, `regress`, `identity`, `fix`, `manifest`, plus dedicated `export`/lifecycle-read views.
-- Missing v1 product depth: detector coverage, aggregation/risk scoring completeness, proof emission, compliance mapping, remediation loops, and full AC1-AC17 acceptance closure.
+- Missing v1 product depth: detector coverage, policy/profile/score posture engine completeness, proof emission, compliance mapping, remediation loops, and full AC1-AC20 acceptance closure.
 - Gap to PRD remains substantial: current implementation is early foundation with partial FR1/FR8 path only.
 
 ---
@@ -63,6 +81,9 @@ Wrkr v1 is done when all criteria below are automated and passing:
 15. AC15: skill detection/risk scoring/remediation signals are complete and ranked.
 16. AC16: PR-mode action comments only on relevant file changes with risk deltas.
 17. AC17: `wrkr manifest generate` creates under-review baseline and preserves trust deficit until explicit approval.
+18. AC18: policy check emits deterministic pass/fail rule outcomes and policy-violation proof records.
+19. AC19: profile compliance reports deterministic percentage, failing rules, and trend deltas.
+20. AC20: posture score command/report emits deterministic score, grade, weighted breakdown, and trend proof records.
 
 NFR gates:
 
@@ -70,6 +91,20 @@ NFR gates:
 - Data sovereignty: no scan data exfil by default.
 - Performance: 100 repos <= 10 minutes, 500 repos <= 30 minutes, diff <= 2 minutes for 100 repos.
 - Security/release integrity: signing, SBOM, vulnerability scan, provenance, and contract stability gates pass.
+
+---
+
+## Recommendation Traceability
+
+| Recommendation | Planned Coverage |
+|---|---|
+| AI-DSPM positioning reframe and coexistence language | Positioning Update section; Story 8.1 docs parity updates |
+| FR11 Configuration Policy Engine with built-in YAML rules and custom policy loading | Story 2.5, Story 4.1, Story 5.2, Story 6.1 |
+| FR12 Posture Profiles (baseline/standard/strict) | Story 3.4, Story 4.3, Story 5.2 |
+| FR13 AI Posture Score and standalone `wrkr score` | Story 3.5, Story 4.1, Story 5.4, Story 6.3 |
+| Elevate `wrkr-manifest.yaml` as open specification | Story 8.3 |
+| AC18/AC19/AC20 acceptance closure | Story 7.1, Story 8.2 |
+| Skill scanning refinement (transitive ceiling, policy conflicts, sprawl concentration) | Story 2.3, Story 2.5, Story 3.1, Story 3.3, Story 4.1, Story 6.1, Story 7.1, Story 8.2 |
 
 ---
 
@@ -90,6 +125,13 @@ Pipeline placement (global):
 - Nightly pipeline: Risk lane heavy suites (`Tier 5/6/7/8/12`) and long-running validations.
 - Release pipeline: Acceptance + Risk + UAT (`Tier 10`) + signing/provenance/security gates.
 
+Scenario coverage contract (dev-guides alignment):
+
+- Tier 11 scenario tests are required for every FR and AC path touched by a story.
+- Scenario fixtures in `scenarios/` are treated as spec artifacts and are merge-blocking on failure.
+- Every new FR introduced by this plan (FR11, FR12, FR13) must have at least one dedicated Tier 11 scenario fixture.
+- Scenario tooling commands are explicit acceptance anchors: `scripts/validate_scenarios.sh` and `go test ./internal/scenarios -count=1 -tags=scenario`.
+
 Story-to-lane map:
 
 | Story | Fast | Core CI | Acceptance | Cross-platform | Risk |
@@ -104,15 +146,19 @@ Story-to-lane map:
 | 2.2 | Yes | Yes | Yes | Yes | Yes |
 | 2.3 | Yes | Yes | Yes | Yes | Yes |
 | 2.4 | Yes | Yes | Yes | Yes | Yes |
+| 2.5 | Yes | Yes | Yes | Yes | Yes |
 | 3.1 | Yes | Yes | Yes | Yes | Yes |
 | 3.2 | Yes | Yes | Yes | Yes | Yes |
 | 3.3 | Yes | Yes | Yes | Yes | Yes |
+| 3.4 | Yes | Yes | Yes | Yes | Yes |
+| 3.5 | Yes | Yes | Yes | Yes | Yes |
 | 4.1 | Yes | Yes | Yes | Yes | Yes |
 | 4.2 | Yes | Yes | Yes | Yes | Yes |
 | 4.3 | Yes | Yes | Yes | Yes | Yes |
 | 5.1 | Yes | Yes | Yes | Yes | No |
 | 5.2 | Yes | Yes | Yes | Yes | Yes |
 | 5.3 | Yes | Yes | Yes | Yes | Yes |
+| 5.4 | Yes | Yes | Yes | Yes | Yes |
 | 6.1 | Yes | Yes | Yes | Yes | Yes |
 | 6.2 | Yes | Yes | Yes | Yes | Yes |
 | 6.3 | Yes | Yes | Yes | Yes | Yes |
@@ -120,6 +166,7 @@ Story-to-lane map:
 | 7.2 | No | Yes | Yes | Yes | Yes |
 | 8.1 | Yes | Yes | Yes | Yes | No |
 | 8.2 | No | Yes | Yes | Yes | Yes |
+| 8.3 | Yes | Yes | Yes | Yes | No |
 
 Gating rule:
 
@@ -333,13 +380,14 @@ Acceptance criteria:
 ## Epic 2: Detection Engine and Sensor Surface Coverage
 
 Objective: implement deterministic structured detectors across required AI surfaces and execution contexts.
-Traceability: FR1, FR7 PR-mode triggers, AC5/AC12/AC14/AC15/AC16, NFR3 deterministic output.
+Traceability: FR1, FR3, FR7, FR11, AC5/AC12/AC14/AC15/AC16/AC18, NFR3 deterministic output.
 
 ### Story 2.1: Define detector interfaces and canonical finding model
 Priority: P0
 Tasks:
 - Implement detector interfaces and registration for repo/org scopes.
 - Define typed finding model with explainable risk context fields.
+- Extend finding model for policy outcomes: `finding_type`, `rule_id`, `check_result`, `severity`, `remediation`.
 - Add strict parser contracts for JSON/YAML/TOML; no regex-only structured parsing.
 - Build detector fixture harness for deterministic replay.
 Repo paths:
@@ -354,6 +402,7 @@ Test requirements:
 - Tier 1: interface and parser unit tests.
 - Tier 2: detector registry and fixture integration.
 - Tier 9: finding schema and enum stability checks.
+- Tier 11: scenario fixture that validates typed parse-error reporting and canonical finding shape.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform.
 - Pipeline placement: PR (unit), Main (integration + schema guards).
@@ -400,6 +449,11 @@ Tasks:
 - Implement offline supply-chain trust scoring (pinning, lockfile, transport).
 - Add optional `--enrich` branch for advisory/registry lookups, explicitly tagged non-deterministic.
 - Detect skills in `.claude/skills/` and `.agents/skills/`; extract `allowed-tools`, invocation policy, MCP dependencies.
+- Compute per-repo transitive skill privilege union (`skill_privilege_ceiling`) from all skill `allowed-tools`.
+- Compute `skill_privilege_concentration` metrics (`exec_ratio`, `write_ratio`, `exec_write_ratio`) so concentration is modeled separately from union presence.
+- Emit per-skill contribution signals when a skill adds high-privilege capability to the ceiling (for example `proc.exec`).
+- Detect skill-policy conflicts by cross-referencing skill `allowed-tools` with `.gait/` and `gait.yaml` block/approval rules.
+- Compute deterministic skill sprawl metrics per repo (`total`, `exec`, `write`, `read`, `none`).
 - Detect AI dependencies and API-key presence without value extraction.
 - Detect compiled-action artifacts and plans:
   - `.claude/scripts/`
@@ -410,6 +464,7 @@ Tasks:
 Repo paths:
 - `core/detect/mcp/`
 - `core/detect/skills/`
+- `core/detect/gaitpolicy/`
 - `core/detect/dependency/`
 - `core/detect/secrets/`
 - `core/detect/compiledaction/`
@@ -420,13 +475,14 @@ Run commands:
 - `go test ./core/detect/... -count=1`
 Test requirements:
 - Tier 1: scoring and parser units.
+- Tier 1: skill ceiling/sprawl/conflict classifier units.
 - Tier 2: mixed-surface integration tests.
 - Tier 4: acceptance fixture scripts for MCP/skills findings.
 - Tier 4: compiled-action fixtures for true positive/true negative coverage.
 - Tier 5: fail-closed behavior when enrichment is requested but unavailable.
 - Tier 9: secret redaction and schema stability checks.
 - Tier 9: compiled-action finding schema/golden stability.
-- Tier 11: scenario fixtures for AC14 and AC15.
+- Tier 11: scenario fixtures for AC14 and refined AC15 (ceiling union + conflict + sprawl assertions).
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
 - Pipeline placement: PR (offline deterministic path), Main (full detector matrix), Nightly (enrichment simulation + resilience).
@@ -434,6 +490,8 @@ Acceptance criteria:
 - Offline mode emits deterministic MCP trust scores for identical inputs.
 - Secret values are never present in outputs, logs, or proof records.
 - Repos with no compiled-action artifacts emit zero compiled-action findings (no false positives).
+- Skill transitive privilege ceiling, concentration ratios, and skill sprawl metrics are deterministic and included in detector outputs.
+- Skill-policy conflicts are emitted with stable detail fields (skill, grant, conflicting policy rule).
 
 ### Story 2.4: Implement CI/headless autonomy detector and PR change-surface classifier
 Priority: P0
@@ -466,12 +524,60 @@ Acceptance criteria:
 - Autonomous CI invocations with secrets and no gate are consistently top-ranked critical findings.
 - Docs-only PR fixture does not trigger PR-mode comment behavior.
 
+### Story 2.5: Implement configuration policy engine and YAML-backed built-in rules
+Priority: P0
+Tasks:
+- Implement deterministic policy evaluator that runs after detection and before final risk aggregation.
+- Load built-in rules from `Clyra-AI/proof/policies/wrkr/*.yaml` with strict schema validation.
+- Support custom org policies via `wrkr scan --policy <path>` and repository default `wrkr-policy.yaml`.
+- Emit named pass/fail rule checks and policy-violation findings using WRKR rule IDs.
+- Ship v1 built-in rule pack WRKR-001 through WRKR-015 with fixed semantics and remediation text.
+- Add skill-governance policy rules:
+
+  | ID | Title | Severity |
+  |---|---|---|
+  | WRKR-013 | Skill privilege ceiling must not include `proc.exec` + credentials | high |
+  | WRKR-014 | Skill allowed-tools must not conflict with Gait policy | high |
+  | WRKR-015 | Skill sprawl: no repo should have >50% exec-granting skills | medium |
+
+- For WRKR-013, `credentials` is evaluated from deterministic credential-presence signals only (for example `.env` key presence, CI `secrets.*` references, and manifest credential scopes).
+- Enforce rule-versioning contract: semantic changes require new rule IDs.
+Repo paths:
+- `core/policy/`
+- `core/policy/rules/`
+- `core/policy/eval/`
+- `schemas/v1/policy/`
+- `scenarios/wrkr/policy-check/`
+- `internal/scenarios/`
+Run commands:
+- `wrkr scan --json`
+- `wrkr scan --policy ./fixtures/wrkr-policy.yaml --json`
+- `go test ./core/policy/... -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+Test requirements:
+- Tier 1: rule parser, expression evaluator, and deterministic rule-selection units.
+- Tier 2: detector-to-policy integration tests using mixed fixtures.
+- Tier 3: CLI `--policy` behavior and error envelope tests.
+- Tier 4: acceptance script for policy check workflow.
+- Tier 5: fail-closed behavior for malformed/ambiguous policy definitions.
+- Tier 9: policy schema, rule ID, and reason-code stability checks.
+- Tier 11: AC18 scenario fixture with WRKR-001 fail, WRKR-002 fail, WRKR-004 pass, and custom-rule extension.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+schema+CLI subset), Main (integration+acceptance+scenario), Nightly (fault-injection on invalid policy packs).
+Acceptance criteria:
+- `wrkr scan` emits deterministic policy pass/fail results for identical input and rule set.
+- `--policy` custom rules are evaluated with the same engine and appear in findings with stable rule IDs.
+- Policy violations are represented as first-class findings consumable by risk scoring.
+- WRKR-013/014/015 are evaluated and surfaced with deterministic IDs, severities, and remediation hints.
+- AC18 remains policy-engine focused; skill-specific WRKR-013/014/015 behavior is validated through refined AC15 scenarios.
+
 ---
 
 ## Epic 3: Aggregation, Identity Lifecycle, and Risk Scoring
 
 Objective: convert detector outputs into actionable org posture with deterministic IDs, lifecycle state, and ranked risks.
-Traceability: FR2, FR3, FR10, AC11/AC13 plus NFR3 deterministic behavior.
+Traceability: FR2, FR3, FR10, FR11, FR12, FR13, AC11/AC13/AC15/AC19/AC20 plus NFR3 deterministic behavior.
 
 ### Story 3.1: Build inventory aggregation, dedupe, ownership, and repo exposure summaries
 Priority: P0
@@ -480,6 +586,9 @@ Tasks:
 - Deduplicate shared tools across repos while retaining location context.
 - Derive ownership via CODEOWNERS + deterministic fallback heuristic.
 - Emit `RepoExposureSummary` (permission union, data union, highest autonomy, combined score).
+- Emit `skill_privilege_ceiling` in `RepoExposureSummary` as the union of skill-granted capabilities.
+- Emit `skill_privilege_concentration` in `RepoExposureSummary` as `{ exec_ratio, write_ratio, exec_write_ratio }`.
+- Emit `skill_sprawl` in `RepoExposureSummary` as `{ total, exec, write, read, none }`.
 - Implement point-in-time inventory export contract for cross-product context exchange (`export_version`, `exported_at`, `org`, `tools[]`).
 - Include context fields required for Gait/Axym enrichment: `data_class`, `endpoint_class`, `autonomy_level`, `risk_score`, `approval_status`, and canonical lifecycle state.
 Repo paths:
@@ -496,13 +605,14 @@ Run commands:
 - `go test ./core/aggregate/... -count=1`
 Test requirements:
 - Tier 1: aggregation and owner-derivation units.
+- Tier 1: skill ceiling and skill sprawl aggregation units.
 - Tier 2: cross-repo dedupe integration.
 - Tier 3: CLI inventory output tests.
 - Tier 3: export command behavior tests (output path, empty inventory behavior, deterministic ordering).
 - Tier 4: acceptance script for aggregate exposure outputs.
 - Tier 9: inventory schema and byte-stable golden checks.
 - Tier 9: inventory export schema + golden checks (timestamp-aware determinism assertions).
-- Tier 11: AC13 scenario.
+- Tier 11: AC13 and refined AC15 scenarios.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
 - Pipeline placement: PR (unit+schema), Main (integration+acceptance), Nightly (large fixture scaling).
@@ -510,6 +620,7 @@ Acceptance criteria:
 - Inventory includes all required tool fields and deterministic ordering.
 - Repo exposure summaries are present and reproducible across runs.
 - Empty scans produce valid exports with `tools: []` and no runtime error.
+- Repo exposure summaries include deterministic `skill_privilege_ceiling`, `skill_privilege_concentration`, and `skill_sprawl` fields.
 
 ### Story 3.2: Implement deterministic identity lifecycle and manifest state indexing
 Priority: P0
@@ -568,6 +679,11 @@ Tasks:
 - Derive `endpoint_class` and `data_class` tags using deterministic rules.
 - Include MCP supply-chain and Gait coverage modifiers in trust deficit.
 - Add compiled-action composite-risk amplification when multi-step plans chain high-risk tools.
+- Add policy violation severity contribution so critical WRKR policy failures consistently affect top-N rank.
+- Add transitive skill privilege amplification using `skill_privilege_ceiling` for presence and `skill_privilege_concentration` for concentration.
+- Add high-severity scoring for `skill_policy_conflict` findings (`finding_type: skill_policy_conflict`).
+- Add skill-sprawl amplification when `exec+write` skills exceed 50% of repo skill count.
+- Correlate WRKR-014 and `skill_policy_conflict` to one canonical finding key to avoid duplicate counting.
 - Implement top-N ranked findings with deterministic tie-breakers and `--explain` rationale.
 Repo paths:
 - `core/risk/`
@@ -582,13 +698,16 @@ Run commands:
 Test requirements:
 - Tier 1: scoring formula and class-derivation units.
 - Tier 1: compiled-action composite scoring units.
+- Tier 1: policy-violation contribution units.
+- Tier 1: skill ceiling/sprawl/conflict scoring units.
+- Tier 1: conflict dedupe/correlation units for WRKR-014 and `skill_policy_conflict`.
 - Tier 2: risk aggregation integration tests.
 - Tier 3: CLI ranking output tests.
 - Tier 4: acceptance test for top finding ordering.
 - Tier 5: fail-closed tests for undecidable high-risk conditions.
 - Tier 7: benchmark checks on scoring throughput.
 - Tier 9: stable reason-codes and ranking determinism contracts.
-- Tier 11: AC12/AC13/AC14/AC15 scenarios.
+- Tier 11: AC12/AC13/AC14/refined AC15 scenarios.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
 - Pipeline placement: PR (unit+contract), Main (integration+acceptance), Nightly (perf + resilience scoring suites).
@@ -596,19 +715,103 @@ Acceptance criteria:
 - Identical input fixtures yield identical ranked output and risk scores.
 - High-autonomy CI finding outranks equivalent interactive finding by policy-defined multiplier.
 - Equivalent high-risk tools embedded in compiled actions rank above the same tools found in isolation.
+- Skills that introduce `proc.exec` into repo ceiling are flagged and influence aggregate rank deterministically.
+- Skill-policy mismatches are counted once in aggregate scoring even when both policy and conflict views are emitted.
+
+### Story 3.4: Implement posture profiles (`baseline`, `standard`, `strict`)
+Priority: P0
+Tasks:
+- Implement profile model and evaluator that maps profiles to required rule sets and thresholds.
+- Load built-in profiles from `Clyra-AI/proof/policies/wrkr/profiles/*.yaml`.
+- Support `wrkr scan --profile [baseline|standard|strict]` with deterministic compliance percentage output.
+- Support custom profile extension/override from `wrkr-policy.yaml`.
+- Include WRKR-013/014/015 mapping in built-in profile definitions with explicit thresholds per profile.
+- Emit per-profile failing-rule lists and compliance deltas against previous scan state.
+Repo paths:
+- `core/policy/profile/`
+- `core/policy/profileeval/`
+- `schemas/v1/profile/`
+- `scenarios/wrkr/profile-compliance/`
+- `internal/scenarios/`
+Run commands:
+- `wrkr scan --profile baseline --json`
+- `wrkr scan --profile standard --json`
+- `wrkr scan --profile strict --json`
+- `go test ./core/policy/profile/... -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+Test requirements:
+- Tier 1: profile parser and threshold-evaluator units.
+- Tier 2: policy-engine to profile integration tests.
+- Tier 3: CLI `--profile` output and error-contract tests.
+- Tier 4: acceptance workflow for profile compliance reporting.
+- Tier 5: fail-closed handling for invalid profile references.
+- Tier 9: profile schema/enums and output-shape contracts.
+- Tier 11: AC19 scenario fixture validating compliance percentage, failing rules, and delta output.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+contract subset), Main (integration+acceptance+scenario), Nightly (edge-case profile matrices).
+Acceptance criteria:
+- Profile evaluation is deterministic for fixed rules and inputs.
+- `wrkr scan --profile standard` reports compliance percentage and explicit failing rule IDs.
+- Profile results are consumable by risk report and evidence bundle generation.
+
+### Story 3.5: Implement AI posture score computation and trend model
+Priority: P0
+Tasks:
+- Implement deterministic 0-100 posture score model with fixed default weights:
+  - policy pass rate 40%
+  - approval coverage 20%
+  - severity distribution 20%
+  - profile compliance 10%
+  - drift rate 10%
+- Implement grade mapping `A/B/C/D/F` and trend delta logic against prior scan.
+- Add configurable score weights in `wrkr-policy.yaml` with validation constraints.
+- Persist score breakdown for reporting, CI output, and proof emission.
+Repo paths:
+- `core/score/`
+- `core/score/model/`
+- `schemas/v1/score/`
+- `scenarios/wrkr/posture-score/`
+- `internal/scenarios/`
+Run commands:
+- `wrkr scan --json`
+- `wrkr scan --diff --json`
+- `wrkr score --json`
+- `go test ./core/score/... -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+Test requirements:
+- Tier 1: weighting, normalization, and grading units.
+- Tier 2: score input aggregation integration tests.
+- Tier 3: score command/report output tests.
+- Tier 4: acceptance workflow validating score and delta output.
+- Tier 5: fail-closed behavior for invalid custom weight configs.
+- Tier 7: benchmark coverage for score computation overhead.
+- Tier 9: score schema, grade-band, and determinism contracts.
+- Tier 11: AC20 scenario fixture validating deterministic score, grade, and delta behavior.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+contract), Main (integration+acceptance+scenario), Nightly (perf/regression score suites).
+Acceptance criteria:
+- Same scan results and weights always produce identical score outputs.
+- `wrkr score` returns score, grade, weighted breakdown, and trend delta.
+- Score output is compatible with downstream proof emission and CI policy gates.
 
 ---
 
 ## Epic 4: Proof Emission, Chain Verification, and Compliance Mapping
 
 Objective: emit signed proof artifacts and compliance bundles that are verifiable, portable, and cross-product compatible.
-Traceability: FR4, FR5, AC3/AC8/AC9, NFR4 signing and chain integrity.
+Traceability: FR4, FR5, FR11, FR12, FR13, AC3/AC8/AC9/AC15/AC18/AC19/AC20, NFR4 signing and chain integrity.
 
 ### Story 4.1: Emit signed proof records for findings, risk, approval, and lifecycle events
 Priority: P0
 Tasks:
 - Integrate `Clyra-AI/proof` for `proof.NewRecord`, `proof.Sign`, `proof.AppendToChain`.
 - Map finding and risk entities into `scan_finding` and `risk_assessment` records.
+- Map policy violations to `scan_finding` with `finding_type: policy_violation`, `rule_id`, and profile context metadata.
+- Map skill/policy mismatches to `scan_finding` with `finding_type: skill_policy_conflict` and conflict metadata fields.
+- Correlate WRKR-014 policy output to the canonical `skill_policy_conflict` finding via shared metadata key, without emitting duplicate conflict records.
+- Map posture score outputs to `risk_assessment` records with weighted breakdown and grade.
 - Map identity transitions into `approval` and `lifecycle_transition` records.
 - Encode lifecycle transition payload fields: `previous_state`, `new_state`, `trigger`, `diff`.
 - For scan-delta lifecycle triggers that do not change canonical lifecycle state, require explicit same-state transitions with populated `trigger`/`diff`.
@@ -629,6 +832,8 @@ Test requirements:
 - Tier 4: acceptance script verifying emitted evidence set.
 - Tier 5: tamper/stale-chain recovery tests.
 - Tier 9: record-type and field contract tests.
+- Tier 11: refined AC15 plus AC18 and AC20 scenario fixtures for conflict/policy/score record emission.
+- Tier 9: canonical finding-key contract checks preventing duplicate WRKR-014 + conflict emission.
 - Tier 12: mixed-source chain append compatibility checks.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
@@ -636,6 +841,9 @@ Matrix wiring:
 Acceptance criteria:
 - All required record types are emitted with valid signatures.
 - Chain append remains deterministic and tamper-evident.
+- Policy violations and posture score records are chain-verifiable and stable across repeated runs.
+- Skill-policy conflict findings are emitted as proof records with stable field contracts.
+- WRKR-014 linkage preserves policy visibility without duplicating conflict findings in proof output.
 
 ### Story 4.2: Implement chain verification command and proof interop contract checks
 Priority: P0
@@ -671,6 +879,7 @@ Tasks:
 - Load framework definitions from `Clyra-AI/proof/frameworks/*.yaml`.
 - Generate evidence bundle structure with inventory, risk report, mappings, gaps, proof records, and signatures.
 - Include cross-product inventory context snapshot (`inventory.json`) in the evidence directory for Axym/Gait ingestion.
+- Include profile compliance report and posture score breakdown in evidence outputs.
 - Support framework selection flags and deterministic artifact naming.
 - Add bundle verification integration test path.
 Repo paths:
@@ -689,7 +898,7 @@ Test requirements:
 - Tier 4: auditor-package acceptance script.
 - Tier 5: fail-closed tests for missing/invalid framework files.
 - Tier 9: bundle schema/field compatibility.
-- Tier 11: AC3 scenario.
+- Tier 11: AC3 and AC19 scenario fixtures.
 - Tier 12: ingestion compatibility with Axym expectations where applicable.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
@@ -697,13 +906,14 @@ Matrix wiring:
 Acceptance criteria:
 - Evidence bundle is portable, signed, and independently verifiable.
 - Selected framework outputs match deterministic expected mappings.
+- Evidence includes profile compliance percentage/failing rules and posture score metadata.
 
 ---
 
 ## Epic 5: CLI Surface Contracts and Posture Regression
 
 Objective: deliver complete CLI contract behavior and regression gates for ongoing posture control.
-Traceability: FR8, FR9, AC1/AC2/AC6/AC10/AC17, exit-code contract section in dev guides.
+Traceability: FR8, FR9, FR11, FR12, FR13, AC1/AC2/AC6/AC10/AC15/AC17/AC18/AC19/AC20, exit-code contract section in dev guides.
 
 ### Story 5.1: Build CLI root contract (`--json`, `--quiet`, `--explain`, exit envelope)
 Priority: P0
@@ -740,6 +950,7 @@ Acceptance criteria:
 Priority: P0
 Tasks:
 - Implement command handlers for `scan`, `report`, `export`, `evidence`, `manifest generate`, identity lifecycle commands, and lifecycle-read views.
+- Add `scan` posture flags: `--policy <path>` and `--profile [baseline|standard|strict]`.
 - Implement report rendering for terminal and PDF (`wrkr report --pdf`).
 - Ensure command docs and runtime flags remain synchronized.
 - Add bounded, deterministic `--explain` output for major commands.
@@ -754,6 +965,8 @@ Repo paths:
 - `docs/commands/`
 Run commands:
 - `wrkr scan --json`
+- `wrkr scan --policy ./fixtures/wrkr-policy.yaml --json`
+- `wrkr scan --profile standard --json`
 - `wrkr report --pdf --json`
 - `wrkr export --format inventory --json`
 - `wrkr manifest generate --json`
@@ -764,7 +977,7 @@ Test requirements:
 - Tier 2: command-to-core integration tests.
 - Tier 3: CLI e2e for primary user workflows.
 - Tier 3: export/lifecycle command e2e with deterministic output checks.
-- Tier 4: acceptance scripts for AC1/AC2/AC17 command paths.
+- Tier 4: acceptance scripts for AC1/AC2/AC15/AC17/AC18/AC19 command paths.
 - Tier 9: docs-to-CLI consistency and schema contracts.
 - Tier 11: workflow scenarios for operator usage.
 Matrix wiring:
@@ -774,6 +987,7 @@ Acceptance criteria:
 - Core persona workflow completes end-to-end via CLI only.
 - PDF and JSON report outputs are reproducible for fixed fixtures.
 - `wrkr export --format inventory` writes deterministic inventory snapshots with explicit timestamp semantics.
+- `wrkr scan --policy` and `wrkr scan --profile` outputs remain stable and schema-valid under `--json`.
 
 ### Story 5.3: Implement regress baseline and drift command suite
 Priority: P0
@@ -807,18 +1021,51 @@ Acceptance criteria:
 - Drift conditions deterministically produce exit `5` and machine-readable reasons.
 - Same baseline + same scan input yields identical pass/fail result.
 
+### Story 5.4: Implement standalone `wrkr score` command and CLI contracts
+Priority: P0
+Tasks:
+- Implement `wrkr score` command for score-only evaluation from latest scan state.
+- Support `wrkr score --json`, `wrkr score --explain`, and CI-safe `--quiet`.
+- Provide deterministic score breakdown/grade/trend envelopes and stable error modes.
+- Ensure score command docs, examples, and schema files are versioned with CLI behavior.
+Repo paths:
+- `cmd/wrkr/score.go`
+- `core/cli/score/`
+- `schemas/v1/score/`
+- `internal/e2e/score/`
+- `docs/commands/score.md`
+Run commands:
+- `wrkr score --json`
+- `wrkr score --explain`
+- `go test ./internal/e2e/score -count=1`
+Test requirements:
+- Tier 1: score command handler units.
+- Tier 2: score command integration with core score engine.
+- Tier 3: CLI e2e for output and exit-code behavior.
+- Tier 4: acceptance script for score command operator flow.
+- Tier 9: schema/exit-code/output contract checks.
+- Tier 11: AC20 scenario for deterministic score command output.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+contract), Main (integration+acceptance), Nightly (extended score command matrix).
+Acceptance criteria:
+- `wrkr score` emits deterministic score, grade, breakdown, and trend fields.
+- CLI contracts for `--json` and error envelopes are stable and parseable.
+
 ---
 
 ## Epic 6: Remediation PR Loop and CI Action Integration
 
 Objective: turn discovery into recurring actionable remediation with deterministic PR generation and CI integration.
-Traceability: FR6, FR7, AC4/AC16, goals around recurring weekly cadence.
+Traceability: FR6, FR7, FR11, FR13, AC4/AC15/AC16/AC18/AC20, goals around recurring weekly cadence.
 
 ### Story 6.1: Implement remediation planner and deterministic patch generation
 Priority: P1
 Tasks:
 - Build remediation planner for top-N ranked findings.
 - Implement patch generators for: pinning versions, MCP pin+lockfile guidance, manifest generation updates, autonomy downgrade suggestions, CI gate additions, skill hardening.
+- Add policy-rule remediation templates keyed by WRKR IDs with deterministic fix instructions.
+- Add remediation templates for `skill_policy_conflict` findings and high skill-sprawl repos.
 - Generate deterministic patch previews and commit messages with risk rationale.
 - Ensure auto-fix skips unsupported cases with explicit reason codes.
 Repo paths:
@@ -833,10 +1080,10 @@ Test requirements:
 - Tier 1: remediation rule units.
 - Tier 2: patch generation integration tests.
 - Tier 3: CLI fix command behavior tests.
-- Tier 4: acceptance scripts for AC4 fix loop.
+- Tier 4: acceptance scripts for AC4/AC15/AC18 fix loops.
 - Tier 5: fail-closed tests for ambiguous patch targets.
 - Tier 9: deterministic patch/diff output checks.
-- Tier 11: remediation scenario fixtures.
+- Tier 11: remediation scenario fixtures including policy-violation and skill-policy-conflict findings.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
 - Pipeline placement: PR (unit+contract), Main (integration+acceptance), Nightly (fuzzing patch edge cases).
@@ -877,7 +1124,7 @@ Acceptance criteria:
 Priority: P1
 Tasks:
 - Publish GitHub Action entrypoint `Clyra-AI/wrkr-action@v1`.
-- Implement scheduled mode: full scan, posture delta trend, optional auto-open remediation PRs.
+- Implement scheduled mode: full scan, profile compliance delta, posture score trend, optional auto-open remediation PRs.
 - Implement PR mode: changed-file filter, risk delta comment, approval/manifest guidance.
 - Add optional threshold-based merge blocking for high-risk changes.
 Repo paths:
@@ -889,13 +1136,14 @@ Run commands:
 - `go test ./internal/e2e/action -count=1`
 - `wrkr scan --json`
 - `wrkr report --json`
+- `wrkr score --json`
 Test requirements:
 - Tier 2: action runtime integration tests.
 - Tier 3: action CLI invocation e2e.
 - Tier 4: scheduled and PR acceptance scripts.
 - Tier 5: fail-closed behavior for missing required secrets/config.
 - Tier 9: action output and comment payload contract checks.
-- Tier 11: AC16 scenario.
+- Tier 11: AC16 and AC20 scenarios.
 - Tier 12: proof-chain compatibility check for records emitted in action mode.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
@@ -903,13 +1151,14 @@ Matrix wiring:
 Acceptance criteria:
 - PR-mode comments trigger only for AI-config-affecting changes.
 - Scheduled runs produce deterministic posture deltas for fixed fixture inputs.
+- Scheduled mode includes posture score delta text and profile compliance deltas with deterministic values.
 
 ---
 
 ## Epic 7: Determinism, Hardening, and Cross-Product Assurance
 
 Objective: enforce byte-stable contracts and resilience under failure/scale across the governance loop.
-Traceability: NFR3/NFR4, dev-guide Tier 5-12 requirements, AC7/AC8/AC9/AC10.
+Traceability: NFR3/NFR4, dev-guide Tier 5-12 requirements, AC7/AC8/AC9/AC10/AC15/AC18/AC19/AC20.
 
 ### Story 7.1: Implement determinism and contract test suites
 Priority: P0
@@ -917,6 +1166,9 @@ Tasks:
 - Add golden-file and byte-stability tests for inventories, risk reports, regress outputs, and proof chains.
 - Add explicit schema compatibility checks for `schemas/v1/*` and JSON field/enum stability.
 - Add exit code contract tests across command families.
+- Add policy/profile/score determinism contract tests and frozen-weight reproducibility checks.
+- Add contract tests for `skill_policy_conflict` finding schema and `RepoExposureSummary.skill_privilege_ceiling` / `skill_sprawl` stability.
+- Add contract tests for `RepoExposureSummary.skill_privilege_concentration` and one-finding conflict dedupe semantics.
 - Add workflow/branch-protection contract tests for:
   - trigger correctness by workflow type (PR/Main/Nightly/Release),
   - required-check mapping to `pull_request` statuses,
@@ -924,6 +1176,7 @@ Tasks:
   - concurrency block presence,
   - path-filter contract fragments for expensive lanes.
 - Add deterministic command-smoke harness for key anchors.
+- Add scenario-coverage gate ensuring every FR and AC touched by changed stories maps to Tier 11 fixtures.
 Repo paths:
 - `internal/contracts/`
 - `internal/scenarios/`
@@ -934,6 +1187,8 @@ Run commands:
 - `go test ./...`
 - `go test ./... -count=1`
 - `go test ./testinfra/contracts -count=1`
+- `scripts/validate_scenarios.sh`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
 - `wrkr scan --json`
 - `wrkr verify --chain --json`
 - `wrkr regress run --baseline <baseline-path> --json`
@@ -942,7 +1197,7 @@ Test requirements:
 - Tier 3: e2e command behavior with cache disabled.
 - Tier 4: acceptance command smoke scripts.
 - Tier 9: full contract suite (byte stability, exit codes, schema compatibility, workflow/branch-protection contracts).
-- Tier 11: scenario fixtures for spec-driven behavior.
+- Tier 11: scenario fixtures for spec-driven behavior including refined AC15 and AC18/AC19/AC20.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
 - Pipeline placement: PR (subset contracts including workflow/required-check contracts), Main (full Tier 9 + scenarios), Nightly (expanded fixture volume), Release (contract freeze gate).
@@ -950,13 +1205,14 @@ Acceptance criteria:
 - Contract suite detects any schema/exit/output drift before merge.
 - Contract suite detects workflow trigger/required-check contract drift before merge.
 - Key command anchors remain deterministic across Linux/macOS/Windows.
+- Scenario coverage gate fails when FR/AC changes are not mapped to Tier 11 fixtures.
 
 ### Story 7.2: Add hardening, chaos, performance, soak, and Tier 12 interop suites
 Priority: P1
 Tasks:
 - Add Tier 5 tests for atomic writes, lock contention, stale lock recovery, retry classes.
 - Add Tier 6 fault-injection scripts for parser/source/proof boundary failures.
-- Add Tier 7 benchmark and command latency budget checks (including 100/500 repo scan targets).
+- Add Tier 7 benchmark and command latency budget checks (including policy/profile/score execution paths and 100/500 repo scan targets).
 - Add Tier 8 soak tests for sustained contention and long-running scan stability.
 - Add Tier 12 cross-product suite validating mixed proof chains and agent-ID consistency.
 Repo paths:
@@ -983,19 +1239,21 @@ Matrix wiring:
 Acceptance criteria:
 - High-risk paths meet fail-closed and recovery expectations under injected faults.
 - Performance budgets pass for mandated NFR scan targets.
+- Policy/profile/score paths remain within documented latency and resource budgets.
 
 ---
 
 ## Epic 8: Documentation, Acceptance Harness, and Release Readiness
 
 Objective: keep docs aligned with shipped behavior and block release until all launch-critical criteria are automated.
-Traceability: AC1-AC17 completeness, dev-guide docs standards, release integrity requirements.
+Traceability: AC1-AC20 completeness, dev-guide docs standards, release integrity requirements.
 
 ### Story 8.1: Implement docs parity, examples, and operator smoke checks
 Priority: P1
 Tasks:
 - Publish command docs for all shipped CLI surfaces with exact flags and exit codes.
 - Add quickstart and operator playbooks for scan, fix, evidence, verify, regress, and identity lifecycle.
+- Add AI-DSPM positioning language and coexistence guidance consistent with product framing.
 - Add offline-safe examples and expected outputs.
 - Add docs-to-CLI consistency checks in CI.
 Repo paths:
@@ -1006,13 +1264,16 @@ Repo paths:
 - `product/wrkr.md` (only if external contract text changes)
 Run commands:
 - `wrkr scan --json`
+- `wrkr scan --profile standard --json`
 - `wrkr evidence --frameworks eu-ai-act,soc2 --json`
+- `wrkr score --json`
 - `wrkr verify --chain --json`
 - `wrkr regress run --baseline <baseline-path> --json`
 Test requirements:
 - Tier 3: CLI command smoke from docs examples.
 - Tier 4: acceptance scripts for documented operator workflows.
 - Tier 9: docs parity checks for flags/exits/command names.
+- Tier 11: docs-linked scenario references validated for FR11/FR12/FR13 workflows.
 - Tier 10: install-path UAT smoke against docs instructions.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform.
@@ -1024,7 +1285,9 @@ Acceptance criteria:
 ### Story 8.2: Build v1 acceptance gate and release go/no-go checklist
 Priority: P0
 Tasks:
-- Implement acceptance runner that automates AC1-AC17 against deterministic fixtures.
+- Implement acceptance runner that automates AC1-AC20 against deterministic fixtures.
+- Include refined AC15 fixture assertions for skill ceiling union, conflict emission, and sprawl metrics.
+- Include refined AC15 fixture assertions for skill concentration ratios and non-duplicated conflict scoring.
 - Add release gate requiring green acceptance summary before tag publication.
 - Generate release scorecard artifact with lane status, AC status, and known exceptions.
 - Enforce no-go policy if required acceptance or contract checks fail.
@@ -1040,7 +1303,7 @@ Run commands:
 - `wrkr verify --chain --json`
 - `wrkr regress run --baseline <baseline-path> --json`
 Test requirements:
-- Tier 4: full acceptance suite (AC1-AC17).
+- Tier 4: full acceptance suite (AC1-AC20).
 - Tier 5/6/7/8: high-risk release gate subsets.
 - Tier 9: contract freeze checks.
 - Tier 10: full install-path UAT.
@@ -1052,6 +1315,36 @@ Matrix wiring:
 Acceptance criteria:
 - Release pipeline blocks when any required AC or lane check fails.
 - Release scorecard reports all mandatory criteria as pass before publication.
+
+### Story 8.3: Elevate `wrkr-manifest.yaml` as an open specification
+Priority: P1
+Tasks:
+- Define the manifest spec contract scope and independent versioning model.
+- Document canonical fields: approved tools, blocked tools, review-pending tools, policy constraints, permission scopes, approver metadata.
+- Publish interoperability guidance for non-Wrkr producers/consumers of `wrkr-manifest.yaml`.
+- Add contribution model for new tool types, policy fields, and permission scopes.
+- Add adoption metric tracking guidance for public-manifest count.
+Repo paths:
+- `docs/specs/wrkr-manifest.md`
+- `product/wrkr.md`
+- `docs/commands/manifest.md`
+- `schemas/v1/manifest/`
+Run commands:
+- `wrkr manifest generate --json`
+- `go test ./internal/e2e/manifest -count=1`
+- `scripts/check_docs_cli_parity.sh`
+Test requirements:
+- Tier 1: manifest schema validation units.
+- Tier 3: manifest command e2e against updated schema.
+- Tier 4: acceptance script for manifest generation + approval workflow documentation alignment.
+- Tier 9: manifest schema/version compatibility checks.
+- Tier 10: install-path docs smoke for manifest workflows.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform.
+- Pipeline placement: PR (schema/docs parity), Main (e2e+acceptance), Release (schema+docs freeze gate).
+Acceptance criteria:
+- Manifest spec is independently versioned and docs match CLI-generated artifacts.
+- External tools can consume/produce spec-valid manifest files without Wrkr runtime dependency.
 
 ---
 
@@ -1065,20 +1358,20 @@ Dependency-aware phased execution (assume 2-week sprints):
 2. Phase 1 (Weeks 2-3): Stories `1.1-1.3` and `2.1`.
 - Output: deterministic source acquisition + scan target contract + detector framework.
 
-3. Phase 2 (Weeks 4-6): Stories `2.2-2.4`, `3.1`.
-- Output: full sensor-surface detection (including compiled actions) + autonomy/CI signals + aggregate inventory and export model.
+3. Phase 2 (Weeks 4-6): Stories `2.2-2.5`, `3.1`.
+- Output: full sensor-surface detection (including compiled actions) + policy engine + autonomy/CI signals + aggregate inventory and export model.
 
-4. Phase 3 (Weeks 7-8): Stories `3.2-3.3`, `4.1-4.2`, `5.1`.
-- Output: lifecycle derivation + ranked risk (including compiled-action amplification) + signed proof emission + verify command + locked CLI envelope.
+4. Phase 3 (Weeks 7-8): Stories `3.2-3.5`, `4.1-4.2`, `5.1`.
+- Output: lifecycle derivation + ranked risk (including policy/profile/score inputs) + signed proof emission + verify command + locked CLI envelope.
 
-5. Phase 4 (Weeks 9-10): Stories `4.3`, `5.2-5.3`, `6.1`.
-- Output: evidence bundles (with cross-product inventory snapshot), full command surface (including export/lifecycle views), posture regression gates, deterministic remediation generation.
+5. Phase 4 (Weeks 9-10): Stories `4.3`, `5.2-5.4`, `6.1`.
+- Output: evidence bundles (with cross-product inventory snapshot, profile compliance, and posture score), full command surface (including export/lifecycle/score views), posture regression gates, deterministic remediation generation.
 
 6. Phase 5 (Weeks 11-12): Stories `6.2-6.3`, `7.1`, `8.1`.
-- Output: PR automation loop, GitHub Action modes, contract/scenario confidence, docs parity.
+- Output: PR automation loop, GitHub Action modes with score/profile deltas, contract/scenario confidence, docs parity.
 
-7. Phase 6 (Weeks 13-14): Stories `7.2`, `8.2`.
-- Output: hardening/chaos/perf/soak + cross-product integration + AC1-AC17 release gate.
+7. Phase 6 (Weeks 13-14): Stories `7.2`, `8.2-8.3`.
+- Output: hardening/chaos/perf/soak + cross-product integration + AC1-AC20 release gate + manifest open-spec publication.
 
 Execution rule:
 
@@ -1110,6 +1403,7 @@ A story is done only when all items below are true:
 - Required matrix lanes for the story are green in assigned pipelines.
 - `--json` outputs, exit codes, and schema contracts are covered by Tier 9 checks.
 - Deterministic behavior is validated (`go test ./... -count=1` where required).
+- Tier 11 scenario coverage is present for every FR/AC touched by the story and passes in CI.
 - No scan-data exfiltration path is introduced by default.
 - Security/release checks pass for scope that touches build/release surfaces.
 - User-facing command/flag/exit/schema changes include doc updates in the same change.
