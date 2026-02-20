@@ -42,7 +42,7 @@ All Clyra AI Go projects (proof, gait, wrkr, axym) share a dependency graph root
 | Component | Version | Scope |
 |-----------|---------|-------|
 | Go | `1.25.7` | All repos — `go.mod` + `.tool-versions` + CI (`go-version-file: go.mod`) |
-| `Clyra-AI/proof` | `>= v0.4.1` | All downstream SKUs (gait, wrkr, axym) — minimum import version |
+| `Clyra-AI/proof` | `>= v0.4.3` | All downstream SKUs (gait, wrkr, axym) — minimum import version |
 | Python | `3.13` | Scripts, SDKs — `pyproject.toml` + CI |
 | Node | `22` (LTS) | Docs sites only |
 
