@@ -114,7 +114,7 @@ func TestBuildEvidenceFailsWhenProofChainMissing(t *testing.T) {
 	}
 }
 
-func TestBuildEvidenceClearsOutputDirBeforeManifestHashing(t *testing.T) {
+func TestBuildEvidenceRejectsNonManagedNonEmptyOutputDir(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	statePath := filepath.Join(tmp, "state.json")
@@ -157,8 +157,63 @@ func TestBuildEvidenceClearsOutputDirBeforeManifestHashing(t *testing.T) {
 		t.Fatalf("write stale nested file: %v", err)
 	}
 
+	_, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC)})
+	if err == nil {
+		t.Fatal("expected build to fail when output dir is non-empty and not wrkr-managed")
+	}
+	if !strings.Contains(err.Error(), "not managed by wrkr evidence") {
+		t.Fatalf("expected non-managed output dir error, got: %v", err)
+	}
+}
+
+func TestBuildEvidenceClearsManagedOutputDirBeforeManifestHashing(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	findings := []model.Finding{
+		{
+			FindingType: "skill_policy_conflict",
+			Severity:    model.SeverityHigh,
+			ToolType:    "skill",
+			Location:    ".claude/skills/deploy/SKILL.md",
+			Repo:        "repo",
+			Org:         "acme",
+		},
+	}
+	report := risk.Score(findings, 5, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC))
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
+	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
+	snapshot := state.Snapshot{
+		Version:      state.SnapshotVersion,
+		Target:       source.Target{Mode: "repo", Value: "acme/repo"},
+		Findings:     findings,
+		RiskReport:   &report,
+		Profile:      &profile,
+		PostureScore: &posture,
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+		t.Fatalf("emit scan records: %v", err)
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
 	if _, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC)}); err != nil {
-		t.Fatalf("build evidence bundle: %v", err)
+		t.Fatalf("initial build evidence bundle: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(outputDir, "old"), 0o750); err != nil {
+		t.Fatalf("mkdir stale dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, "stale.txt"), []byte("stale"), 0o600); err != nil {
+		t.Fatalf("write stale root file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, "old", "legacy.json"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("write stale nested file: %v", err)
+	}
+
+	if _, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatalf("second build evidence bundle: %v", err)
 	}
 
 	if _, err := os.Stat(filepath.Join(outputDir, "stale.txt")); !os.IsNotExist(err) {
@@ -177,7 +232,7 @@ func TestBuildEvidenceClearsOutputDirBeforeManifestHashing(t *testing.T) {
 		t.Fatalf("parse manifest: %v", err)
 	}
 	for _, entry := range manifest.Files {
-		if entry.Path == "stale.txt" || strings.HasPrefix(entry.Path, "old/") {
+		if entry.Path == "stale.txt" || strings.HasPrefix(entry.Path, "old/") || entry.Path == outputDirMarkerFile {
 			t.Fatalf("manifest should not include stale file path %q", entry.Path)
 		}
 	}
