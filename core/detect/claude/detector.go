@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -132,21 +131,4 @@ func fallbackOrg(org string) string {
 		return "local"
 	}
 	return org
-}
-
-func normalizePermissions(in []string) []string {
-	set := map[string]struct{}{}
-	for _, item := range in {
-		trimmed := strings.TrimSpace(item)
-		if trimmed == "" {
-			continue
-		}
-		set[trimmed] = struct{}{}
-	}
-	out := make([]string, 0, len(set))
-	for item := range set {
-		out = append(out, item)
-	}
-	sort.Strings(out)
-	return out
 }

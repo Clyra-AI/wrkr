@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -216,13 +215,4 @@ func fallbackOrg(org string) string {
 		return "local"
 	}
 	return org
-}
-
-func sortedKeys(m map[string]serverDef) []string {
-	out := make([]string, 0, len(m))
-	for key := range m {
-		out = append(out, key)
-	}
-	sort.Strings(out)
-	return out
 }
