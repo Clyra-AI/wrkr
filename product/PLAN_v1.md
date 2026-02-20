@@ -1,6 +1,6 @@
 # PLAN v1: Wrkr (Deterministic Discovery-to-Proof Build Plan)
 
-Date: 2026-02-19
+Date: 2026-02-20
 Source of truth: `product/wrkr.md`, `product/dev_guides.md`, and `AGENTS.md`
 Scope: Wrkr v1 OSS CLI only (See product). No Axym/Gait feature implementation beyond `Clyra-AI/proof` interoperability contracts.
 
@@ -15,6 +15,7 @@ This plan is execution-first: every story includes concrete paths, commands, tes
 - Scan/risk/proof paths are deterministic and non-generative: no LLM calls in runtime pipelines.
 - Zero scan-data egress by default: inventory/risk/proof artifacts remain local unless user explicitly opens PRs.
 - Default scan mode is offline-deterministic after source acquisition; `--enrich` is explicitly non-deterministic and opt-in.
+- Artifacts may include explicit timestamp/version fields; determinism checks must either fix clock input or exclude those explicit time/version fields from byte-stability assertions.
 - Architecture boundaries are mandatory and testable: source, detection, aggregation, identity, risk, proof emission, compliance mapping.
 - Structured parsing is required for JSON/YAML/TOML configs; regex-only detection is not acceptable for structured inputs.
 - Secret handling is presence-only detection. Secret values are never extracted or persisted.
@@ -30,19 +31,14 @@ This plan is execution-first: every story includes concrete paths, commands, tes
 
 ## Current Baseline (Observed)
 
-Repository snapshot (2026-02-19):
+Repository snapshot (2026-02-20):
 
-- Present files: `AGENTS.md`, `product/wrkr.md`, `product/dev_guides.md`, `product/Clyra_AI.md`, `.agents/skills/*`.
-- Missing runtime scaffolding: no `go.mod`, no `cmd/wrkr`, no `core/`, no `internal/`, no `schemas/`.
-- Missing CI/release: no `.github/workflows/*`, no `.goreleaser.yaml`, no lint/security/release pipelines.
-- Missing developer automation: no `Makefile`, no `.pre-commit-config.yaml`, no scripts.
-- Missing tests: no Tier 1-12 test harnesses, fixtures, scenarios, contracts, or performance baselines.
-- Missing CLI surface: no implemented commands (`scan`, `report`, `evidence`, `verify`, `regress`, `identity`, `fix`, `manifest`).
-- Gap to PRD: all FR1-FR10 and AC1-AC17 remain unimplemented.
-
-Observed repo hygiene risk:
-
-- `.gitignore` currently ignores `product/`, which conflicts with `product/PLAN_*.md` tracked-file expectations in `product/dev_guides.md`.
+- Runtime scaffold exists: `go.mod`, `cmd/wrkr`, `core/`, `internal/`, `schemas/`, CI workflows, release config, and developer tooling files are present.
+- Implemented baseline CLI: `init` and `scan` command paths with `--json`, `--quiet`, `--explain` handling in current scaffold.
+- Implemented baseline engines: source acquisition (`repo`/`org`/`path`), local state snapshot, deterministic diffing by tuple key, and e2e/integration coverage for current scope.
+- Missing v1 command surface: `report`, `evidence`, `verify`, `regress`, `identity`, `fix`, `manifest`, plus dedicated `export`/lifecycle-read views.
+- Missing v1 product depth: detector coverage, aggregation/risk scoring completeness, proof emission, compliance mapping, remediation loops, and full AC1-AC17 acceptance closure.
+- Gap to PRD remains substantial: current implementation is early foundation with partial FR1/FR8 path only.
 
 ---
 
@@ -397,7 +393,7 @@ Acceptance criteria:
 - Fixture repos containing known tool configs are detected at 100% recall.
 - Unchanged fixtures produce byte-stable tool inventories.
 
-### Story 2.3: Implement MCP, Skills, dependency, and secret-presence detectors
+### Story 2.3: Implement MCP, Skills, dependency, secret-presence, and compiled-action detectors
 Priority: P0
 Tasks:
 - Detect MCP declarations across required files and extract transport, endpoint, credential references, annotations.
@@ -405,11 +401,18 @@ Tasks:
 - Add optional `--enrich` branch for advisory/registry lookups, explicitly tagged non-deterministic.
 - Detect skills in `.claude/skills/` and `.agents/skills/`; extract `allowed-tools`, invocation policy, MCP dependencies.
 - Detect AI dependencies and API-key presence without value extraction.
+- Detect compiled-action artifacts and plans:
+  - `.claude/scripts/`
+  - `workflows/` and `agent-plans/` multi-step JSON/YAML definitions
+  - `*.agent-script.json` and `*.ptc.json`
+  - CI steps invoking agent scripts (for example `run: gait eval --script ...`)
+- Extract deterministic compiled-action metadata: `tool_sequence`, `step_count`, referenced risk classes, approval-source signal.
 Repo paths:
 - `core/detect/mcp/`
 - `core/detect/skills/`
 - `core/detect/dependency/`
 - `core/detect/secrets/`
+- `core/detect/compiledaction/`
 - `core/supplychain/`
 Run commands:
 - `wrkr scan --json`
@@ -419,8 +422,10 @@ Test requirements:
 - Tier 1: scoring and parser units.
 - Tier 2: mixed-surface integration tests.
 - Tier 4: acceptance fixture scripts for MCP/skills findings.
+- Tier 4: compiled-action fixtures for true positive/true negative coverage.
 - Tier 5: fail-closed behavior when enrichment is requested but unavailable.
 - Tier 9: secret redaction and schema stability checks.
+- Tier 9: compiled-action finding schema/golden stability.
 - Tier 11: scenario fixtures for AC14 and AC15.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
@@ -428,6 +433,7 @@ Matrix wiring:
 Acceptance criteria:
 - Offline mode emits deterministic MCP trust scores for identical inputs.
 - Secret values are never present in outputs, logs, or proof records.
+- Repos with no compiled-action artifacts emit zero compiled-action findings (no false positives).
 
 ### Story 2.4: Implement CI/headless autonomy detector and PR change-surface classifier
 Priority: P0
@@ -474,21 +480,28 @@ Tasks:
 - Deduplicate shared tools across repos while retaining location context.
 - Derive ownership via CODEOWNERS + deterministic fallback heuristic.
 - Emit `RepoExposureSummary` (permission union, data union, highest autonomy, combined score).
+- Implement point-in-time inventory export contract for cross-product context exchange (`export_version`, `exported_at`, `org`, `tools[]`).
+- Include context fields required for Gait/Axym enrichment: `data_class`, `endpoint_class`, `autonomy_level`, `risk_score`, `approval_status`, and canonical lifecycle state.
 Repo paths:
 - `core/aggregate/inventory/`
 - `core/aggregate/exposure/`
 - `core/owners/`
+- `core/export/inventory/`
 - `schemas/v1/inventory/`
+- `schemas/v1/export/`
 Run commands:
 - `wrkr scan --json`
 - `wrkr scan --json > wrkr-inventory.json`
+- `wrkr export --format inventory --json`
 - `go test ./core/aggregate/... -count=1`
 Test requirements:
 - Tier 1: aggregation and owner-derivation units.
 - Tier 2: cross-repo dedupe integration.
 - Tier 3: CLI inventory output tests.
+- Tier 3: export command behavior tests (output path, empty inventory behavior, deterministic ordering).
 - Tier 4: acceptance script for aggregate exposure outputs.
 - Tier 9: inventory schema and byte-stable golden checks.
+- Tier 9: inventory export schema + golden checks (timestamp-aware determinism assertions).
 - Tier 11: AC13 scenario.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
@@ -496,29 +509,45 @@ Matrix wiring:
 Acceptance criteria:
 - Inventory includes all required tool fields and deterministic ordering.
 - Repo exposure summaries are present and reproducible across runs.
+- Empty scans produce valid exports with `tools: []` and no runtime error.
 
 ### Story 3.2: Implement deterministic identity lifecycle and manifest state indexing
 Priority: P0
 Tasks:
 - Implement deterministic identity assignment: `wrkr:<tool_id>:<org>`.
 - Implement lifecycle states and transitions with command support: review, approve, deprecate, revoke.
+- Keep canonical lifecycle enum contract unchanged: `discovered`, `under_review`, `approved`, `active`, `deprecated`, `revoked`.
+- Derive current lifecycle state from scan history + approval history:
+  - first seen -> `discovered`
+  - present with valid approval -> `active`
+  - present with missing/expired approval -> `under_review`
+- Derive deterministic scan-delta signals without introducing new lifecycle enum values:
+  - `removed` (previously present, now absent)
+  - `reappeared` (previously removed, now present)
+  - `modified` (contract fields changed: `data_class`, `endpoint_class`, `autonomy_level`)
+- Emit structured lifecycle transition payloads with `previous_state`, `new_state`, `trigger`, and `diff` metadata.
 - Persist current state in `wrkr-manifest.yaml`; persist history in proof chain.
 - Implement approval expiry default (90 days) and automatic `under_review` demotion when expired.
 Repo paths:
 - `core/identity/`
+- `core/lifecycle/`
 - `cmd/wrkr/identity.go`
 - `core/manifest/`
 - `schemas/v1/identity/`
 Run commands:
 - `wrkr identity list --json`
+- `wrkr lifecycle --org <org> --json`
 - `wrkr identity show <id> --json`
 - `wrkr identity approve <id> --approver @maria --scope read-only --expires 90d --json`
 - `go test ./core/identity/... -count=1`
 Test requirements:
 - Tier 1: state-machine and ID derivation units.
+- Tier 1: lifecycle derivation unit tests for discovered/active/under_review outcomes.
 - Tier 2: manifest+chain integration tests.
+- Tier 2: scan-history transition tests for removed/reappeared/modified trigger generation.
 - Tier 3: CLI lifecycle command tests.
 - Tier 4: approval/revoke acceptance flow tests.
+- Tier 4: lifecycle drift acceptance scenarios for disappearance/reappearance/config change.
 - Tier 5: concurrency/atomic-write tests for lifecycle persistence.
 - Tier 9: lifecycle event schema and exit-code stability.
 - Tier 11: AC11 scenario.
@@ -529,6 +558,7 @@ Matrix wiring:
 Acceptance criteria:
 - Same tool in same org yields the same `agent_id` on every scan.
 - Revoked tools reappearing in regress flow are deterministically flagged as drift.
+- Lifecycle-delta triggers (`removed`, `reappeared`, `modified`) are deterministic and explainable.
 
 ### Story 3.3: Implement risk scoring, ranking, endpoint/data class derivation, and explainability
 Priority: P0
@@ -537,6 +567,7 @@ Tasks:
 - Apply autonomy multipliers and execution-context amplification for CI/headless usage.
 - Derive `endpoint_class` and `data_class` tags using deterministic rules.
 - Include MCP supply-chain and Gait coverage modifiers in trust deficit.
+- Add compiled-action composite-risk amplification when multi-step plans chain high-risk tools.
 - Implement top-N ranked findings with deterministic tie-breakers and `--explain` rationale.
 Repo paths:
 - `core/risk/`
@@ -550,6 +581,7 @@ Run commands:
 - `go test ./core/risk/... -count=1`
 Test requirements:
 - Tier 1: scoring formula and class-derivation units.
+- Tier 1: compiled-action composite scoring units.
 - Tier 2: risk aggregation integration tests.
 - Tier 3: CLI ranking output tests.
 - Tier 4: acceptance test for top finding ordering.
@@ -563,6 +595,7 @@ Matrix wiring:
 Acceptance criteria:
 - Identical input fixtures yield identical ranked output and risk scores.
 - High-autonomy CI finding outranks equivalent interactive finding by policy-defined multiplier.
+- Equivalent high-risk tools embedded in compiled actions rank above the same tools found in isolation.
 
 ---
 
@@ -577,6 +610,8 @@ Tasks:
 - Integrate `Clyra-AI/proof` for `proof.NewRecord`, `proof.Sign`, `proof.AppendToChain`.
 - Map finding and risk entities into `scan_finding` and `risk_assessment` records.
 - Map identity transitions into `approval` and `lifecycle_transition` records.
+- Encode lifecycle transition payload fields: `previous_state`, `new_state`, `trigger`, `diff`.
+- For scan-delta lifecycle triggers that do not change canonical lifecycle state, require explicit same-state transitions with populated `trigger`/`diff`.
 - Persist append-only chain metadata with deterministic ordering.
 Repo paths:
 - `core/proofemit/`
@@ -635,6 +670,7 @@ Priority: P1
 Tasks:
 - Load framework definitions from `Clyra-AI/proof/frameworks/*.yaml`.
 - Generate evidence bundle structure with inventory, risk report, mappings, gaps, proof records, and signatures.
+- Include cross-product inventory context snapshot (`inventory.json`) in the evidence directory for Axym/Gait ingestion.
 - Support framework selection flags and deterministic artifact naming.
 - Add bundle verification integration test path.
 Repo paths:
@@ -700,29 +736,34 @@ Acceptance criteria:
 - Invalid flag input with `--json` remains parseable JSON-only output regardless of flag order.
 - Exit-code contract remains unchanged across command families.
 
-### Story 5.2: Implement scan/report/evidence/manifest/identity command flows
+### Story 5.2: Implement scan/report/export/evidence/manifest/identity/lifecycle command flows
 Priority: P0
 Tasks:
-- Implement command handlers for `scan`, `report`, `evidence`, `manifest generate`, and identity lifecycle commands.
+- Implement command handlers for `scan`, `report`, `export`, `evidence`, `manifest generate`, identity lifecycle commands, and lifecycle-read views.
 - Implement report rendering for terminal and PDF (`wrkr report --pdf`).
 - Ensure command docs and runtime flags remain synchronized.
 - Add bounded, deterministic `--explain` output for major commands.
 Repo paths:
 - `cmd/wrkr/scan.go`
 - `cmd/wrkr/report.go`
+- `cmd/wrkr/export.go`
 - `cmd/wrkr/evidence.go`
 - `cmd/wrkr/manifest.go`
 - `cmd/wrkr/identity.go`
+- `cmd/wrkr/lifecycle.go`
 - `docs/commands/`
 Run commands:
 - `wrkr scan --json`
 - `wrkr report --pdf --json`
+- `wrkr export --format inventory --json`
 - `wrkr manifest generate --json`
 - `wrkr identity list --json`
+- `wrkr lifecycle --org <org> --json`
 Test requirements:
 - Tier 1: command handler units.
 - Tier 2: command-to-core integration tests.
 - Tier 3: CLI e2e for primary user workflows.
+- Tier 3: export/lifecycle command e2e with deterministic output checks.
 - Tier 4: acceptance scripts for AC1/AC2/AC17 command paths.
 - Tier 9: docs-to-CLI consistency and schema contracts.
 - Tier 11: workflow scenarios for operator usage.
@@ -732,6 +773,7 @@ Matrix wiring:
 Acceptance criteria:
 - Core persona workflow completes end-to-end via CLI only.
 - PDF and JSON report outputs are reproducible for fixed fixtures.
+- `wrkr export --format inventory` writes deterministic inventory snapshots with explicit timestamp semantics.
 
 ### Story 5.3: Implement regress baseline and drift command suite
 Priority: P0
@@ -1024,13 +1066,13 @@ Dependency-aware phased execution (assume 2-week sprints):
 - Output: deterministic source acquisition + scan target contract + detector framework.
 
 3. Phase 2 (Weeks 4-6): Stories `2.2-2.4`, `3.1`.
-- Output: full sensor-surface detection + autonomy/CI signals + aggregate inventory.
+- Output: full sensor-surface detection (including compiled actions) + autonomy/CI signals + aggregate inventory and export model.
 
 4. Phase 3 (Weeks 7-8): Stories `3.2-3.3`, `4.1-4.2`, `5.1`.
-- Output: lifecycle identity + ranked risk + signed proof emission + verify command + locked CLI envelope.
+- Output: lifecycle derivation + ranked risk (including compiled-action amplification) + signed proof emission + verify command + locked CLI envelope.
 
 5. Phase 4 (Weeks 9-10): Stories `4.3`, `5.2-5.3`, `6.1`.
-- Output: evidence bundles, full command surface, posture regression gates, deterministic remediation generation.
+- Output: evidence bundles (with cross-product inventory snapshot), full command surface (including export/lifecycle views), posture regression gates, deterministic remediation generation.
 
 6. Phase 5 (Weeks 11-12): Stories `6.2-6.3`, `7.1`, `8.1`.
 - Output: PR automation loop, GitHub Action modes, contract/scenario confidence, docs parity.
