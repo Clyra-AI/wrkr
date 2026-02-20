@@ -12,6 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -227,6 +228,9 @@ func runIdentityManualTransition(stateName, agentID, approver, scope, reason str
 		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
+		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
+	if err := proofemit.EmitIdentityTransition(statePath, transition, eventType); err != nil {
 		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 	payload := map[string]any{"status": "ok", "transition": transition}

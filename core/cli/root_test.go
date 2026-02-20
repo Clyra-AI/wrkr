@@ -442,6 +442,119 @@ func TestIdentityAndLifecycleCommands(t *testing.T) {
 	}
 }
 
+func TestVerifyAndEvidenceCommands(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	var verifyOut bytes.Buffer
+	var verifyErr bytes.Buffer
+	if code := Run([]string{"verify", "--chain", "--state", statePath, "--json"}, &verifyOut, &verifyErr); code != 0 {
+		t.Fatalf("verify failed: %d %s", code, verifyErr.String())
+	}
+	var verifyPayload map[string]any
+	if err := json.Unmarshal(verifyOut.Bytes(), &verifyPayload); err != nil {
+		t.Fatalf("parse verify payload: %v", err)
+	}
+	chainPayload, ok := verifyPayload["chain"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chain payload, got %T", verifyPayload["chain"])
+	}
+	if intact, _ := chainPayload["intact"].(bool); !intact {
+		t.Fatalf("expected intact chain payload: %v", chainPayload)
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	var evidenceOut bytes.Buffer
+	var evidenceErr bytes.Buffer
+	if code := Run([]string{"evidence", "--frameworks", "soc2,eu-ai-act", "--state", statePath, "--output", outputDir, "--json"}, &evidenceOut, &evidenceErr); code != 0 {
+		t.Fatalf("evidence failed: %d %s", code, evidenceErr.String())
+	}
+	var evidencePayload map[string]any
+	if err := json.Unmarshal(evidenceOut.Bytes(), &evidencePayload); err != nil {
+		t.Fatalf("parse evidence payload: %v", err)
+	}
+	if evidencePayload["status"] != "ok" {
+		t.Fatalf("unexpected evidence status: %v", evidencePayload["status"])
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "manifest.json")); err != nil {
+		t.Fatalf("expected manifest.json in evidence output: %v", err)
+	}
+}
+
+func TestVerifyTamperedChainReturnsExit2(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	chainPath := filepath.Join(filepath.Dir(statePath), "proof-chain.json")
+	payload, err := os.ReadFile(chainPath)
+	if err != nil {
+		t.Fatalf("read chain: %v", err)
+	}
+	var chain map[string]any
+	if err := json.Unmarshal(payload, &chain); err != nil {
+		t.Fatalf("parse chain json: %v", err)
+	}
+	records, ok := chain["records"].([]any)
+	if !ok || len(records) == 0 {
+		t.Fatalf("expected records in proof chain: %v", chain)
+	}
+	first, ok := records[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected record shape: %T", records[0])
+	}
+	integrity, ok := first["integrity"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing integrity block in first record: %v", first)
+	}
+	integrity["record_hash"] = "sha256:tampered"
+	mutated, err := json.MarshalIndent(chain, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal tampered chain: %v", err)
+	}
+	mutated = append(mutated, '\n')
+	if err := os.WriteFile(chainPath, mutated, 0o600); err != nil {
+		t.Fatalf("write tampered chain: %v", err)
+	}
+
+	var verifyOut bytes.Buffer
+	var verifyErr bytes.Buffer
+	code := Run([]string{"verify", "--chain", "--state", statePath, "--json"}, &verifyOut, &verifyErr)
+	if code != 2 {
+		t.Fatalf("expected exit 2 for tampered chain, got %d", code)
+	}
+	var errorPayload map[string]any
+	if err := json.Unmarshal(verifyErr.Bytes(), &errorPayload); err != nil {
+		t.Fatalf("parse verify error payload: %v", err)
+	}
+	errObject, ok := errorPayload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object in verify payload: %v", errorPayload)
+	}
+	if errObject["code"] != "verification_failure" {
+		t.Fatalf("unexpected verification error code: %v", errObject["code"])
+	}
+}
+
 func mustFindRepoRoot(t *testing.T) string {
 	t.Helper()
 

@@ -26,6 +26,7 @@ import (
 	policyeval "github.com/Clyra-AI/wrkr/core/policy/eval"
 	profilemodel "github.com/Clyra-AI/wrkr/core/policy/profile"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
+	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
@@ -194,6 +195,9 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 		Weights:         weights,
 		Previous:        previousScore,
 	})
+	if _, err := proofemit.EmitScan(statePath, now, findings, riskReport, profileResult, postureScore, transitions); err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
 
 	snapshot := state.Snapshot{
 		Version:      state.SnapshotVersion,

@@ -12,6 +12,7 @@ import (
 const (
 	exitSuccess           = 0
 	exitRuntime           = 1
+	exitVerification      = 2
 	exitPolicyViolation   = 3
 	exitApprovalRequired  = 4
 	exitRegressionDrift   = 5
@@ -42,6 +43,10 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runLifecycle(args[1:], stdout, stderr)
 	case "score":
 		return runScore(args[1:], stdout, stderr)
+	case "verify":
+		return runVerify(args[1:], stdout, stderr)
+	case "evidence":
+		return runEvidence(args[1:], stdout, stderr)
 	}
 
 	return runRootFlags(args, stdout, stderr)
