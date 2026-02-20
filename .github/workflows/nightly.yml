@@ -32,6 +32,11 @@ jobs:
         with:
           python-version: '3.13'
 
+      - name: Setup CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+
       - name: Run prepush full
         run: make prepush-full
 
