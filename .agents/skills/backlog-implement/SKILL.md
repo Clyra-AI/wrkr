@@ -132,6 +132,8 @@ Rules:
 - Deterministic allow/block/require_approval fixture tests
 - Fail-closed undecidable-path tests
 - Stable reason-code tests
+- Filesystem boundary tests for user-supplied output paths (`non-empty + non-managed => fail`)
+- Ownership marker trust tests (`marker must be regular file`; reject symlink/directory)
 
 4. Determinism/hash/sign/packaging changes:
 - Repeat-run byte-stability tests
@@ -185,6 +187,7 @@ If story is internal-only and behavior is unchanged, do not force doc churn.
 
 - Preserve non-negotiables: determinism, offline-first, fail-closed, schema stability, stable exit codes.
 - Never weaken unapproved posture => regression failure paths.
+- Do not allow recursive cleanup on user-supplied paths without explicit ownership validation tests.
 - No destructive git operations unless explicitly requested.
 - No auto-commit or auto-push.
 - Keep changes story-scoped; no unrelated refactors.

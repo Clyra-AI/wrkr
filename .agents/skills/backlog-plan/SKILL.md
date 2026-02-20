@@ -70,6 +70,8 @@ If these are missing, stop and output a gap note instead of inventing details.
 - Add deterministic allow/block/require_approval fixture tests.
 - Add fail-closed tests for evaluator-missing or undecidable paths.
 - Add reason code stability checks.
+- For stories that clean/reset output paths, require `non-empty + non-managed => fail` tests.
+- Require marker trust tests (`marker must be regular file`; reject symlink/directory).
 
 4. Determinism, hashing, signing, packaging:
 - Add byte-stability tests for repeated runs with identical input.

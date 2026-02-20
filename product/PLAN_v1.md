@@ -954,6 +954,9 @@ Tasks:
 - Implement report rendering for terminal and PDF (`wrkr report --pdf`).
 - Ensure command docs and runtime flags remain synchronized.
 - Add bounded, deterministic `--explain` output for major commands.
+- Enforce evidence output-directory safety: cleanup/reset only for Wrkr-managed directories.
+- Validate evidence ownership marker type before cleanup (`regular file` only; reject symlink/directory).
+- Fail closed on unsafe evidence output path conditions with machine-readable error envelopes and exit `8`.
 Repo paths:
 - `cmd/wrkr/scan.go`
 - `cmd/wrkr/report.go`
@@ -969,6 +972,8 @@ Run commands:
 - `wrkr scan --profile standard --json`
 - `wrkr report --pdf --json`
 - `wrkr export --format inventory --json`
+- `wrkr evidence --frameworks eu-ai-act,soc2 --output <managed-output-dir> --json`
+- `wrkr evidence --frameworks eu-ai-act,soc2 --output <non-managed-output-dir> --json`
 - `wrkr manifest generate --json`
 - `wrkr identity list --json`
 - `wrkr lifecycle --org <org> --json`
@@ -977,8 +982,11 @@ Test requirements:
 - Tier 2: command-to-core integration tests.
 - Tier 3: CLI e2e for primary user workflows.
 - Tier 3: export/lifecycle command e2e with deterministic output checks.
+- Tier 3: evidence command e2e for managed/non-managed output-directory paths.
 - Tier 4: acceptance scripts for AC1/AC2/AC15/AC17/AC18/AC19 command paths.
+- Tier 5: fail-closed safety tests for unsafe evidence output cleanup attempts.
 - Tier 9: docs-to-CLI consistency and schema contracts.
+- Tier 9: stable JSON error envelope and exit `8` contract checks for unsafe output-path rejection.
 - Tier 11: workflow scenarios for operator usage.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
@@ -988,6 +996,7 @@ Acceptance criteria:
 - PDF and JSON report outputs are reproducible for fixed fixtures.
 - `wrkr export --format inventory` writes deterministic inventory snapshots with explicit timestamp semantics.
 - `wrkr scan --policy` and `wrkr scan --profile` outputs remain stable and schema-valid under `--json`.
+- `wrkr evidence` refuses cleanup on non-managed output dirs and rejects marker symlink/directory types, with stable JSON error envelope and exit `8`.
 
 ### Story 5.3: Implement regress baseline and drift command suite
 Priority: P0
@@ -1175,6 +1184,10 @@ Tasks:
   - required-check ordering/uniqueness constraints,
   - concurrency block presence,
   - path-filter contract fragments for expensive lanes.
+- Add contract tests for evidence output-directory safety:
+  - reject non-managed non-empty directories,
+  - reject marker symlink/directory types,
+  - exclude ownership marker file from evidence manifest entries.
 - Add deterministic command-smoke harness for key anchors.
 - Add scenario-coverage gate ensuring every FR and AC touched by changed stories maps to Tier 11 fixtures.
 Repo paths:
@@ -1197,6 +1210,7 @@ Test requirements:
 - Tier 3: e2e command behavior with cache disabled.
 - Tier 4: acceptance command smoke scripts.
 - Tier 9: full contract suite (byte stability, exit codes, schema compatibility, workflow/branch-protection contracts).
+- Tier 9: evidence output-directory safety contracts including exit `8` behavior and marker trust checks.
 - Tier 11: scenario fixtures for spec-driven behavior including refined AC15 and AC18/AC19/AC20.
 Matrix wiring:
 - Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
@@ -1204,6 +1218,7 @@ Matrix wiring:
 Acceptance criteria:
 - Contract suite detects any schema/exit/output drift before merge.
 - Contract suite detects workflow trigger/required-check contract drift before merge.
+- Contract suite detects evidence output-directory ownership/marker trust regressions before merge.
 - Key command anchors remain deterministic across Linux/macOS/Windows.
 - Scenario coverage gate fails when FR/AC changes are not mapped to Tier 11 fixtures.
 
@@ -1212,6 +1227,7 @@ Priority: P1
 Tasks:
 - Add Tier 5 tests for atomic writes, lock contention, stale lock recovery, retry classes.
 - Add Tier 6 fault-injection scripts for parser/source/proof boundary failures.
+- Add Tier 6 fault-injection cases for evidence output marker spoofing and unsafe shared output-path cleanup attempts.
 - Add Tier 7 benchmark and command latency budget checks (including policy/profile/score execution paths and 100/500 repo scan targets).
 - Add Tier 8 soak tests for sustained contention and long-running scan stability.
 - Add Tier 12 cross-product suite validating mixed proof chains and agent-ID consistency.
@@ -1230,6 +1246,7 @@ Run commands:
 Test requirements:
 - Tier 5: full resilience checks.
 - Tier 6: controlled chaos/fault injection.
+- Tier 6: evidence output-path safety fault-injection checks (marker-type spoofing, shared-path misconfiguration).
 - Tier 7: performance regression detection.
 - Tier 8: soak stability checks.
 - Tier 12: cross-product governance loop checks.
@@ -1238,6 +1255,7 @@ Matrix wiring:
 - Pipeline placement: Main (targeted hardening smoke), Nightly (full Tier 5-8 + 12), Release (required subset of Tier 5/7/12).
 Acceptance criteria:
 - High-risk paths meet fail-closed and recovery expectations under injected faults.
+- Evidence output-path safety remains fail-closed under marker spoofing and misconfiguration fault cases.
 - Performance budgets pass for mandated NFR scan targets.
 - Policy/profile/score paths remain within documented latency and resource budgets.
 
@@ -1255,6 +1273,7 @@ Tasks:
 - Add quickstart and operator playbooks for scan, fix, evidence, verify, regress, and identity lifecycle.
 - Add AI-DSPM positioning language and coexistence guidance consistent with product framing.
 - Add offline-safe examples and expected outputs.
+- Document evidence output-directory ownership safety rules and unsafe-path failure behavior (including exit `8`).
 - Add docs-to-CLI consistency checks in CI.
 Repo paths:
 - `README.md`
@@ -1266,6 +1285,7 @@ Run commands:
 - `wrkr scan --json`
 - `wrkr scan --profile standard --json`
 - `wrkr evidence --frameworks eu-ai-act,soc2 --json`
+- `wrkr evidence --frameworks eu-ai-act,soc2 --output <managed-output-dir> --json`
 - `wrkr score --json`
 - `wrkr verify --chain --json`
 - `wrkr regress run --baseline <baseline-path> --json`
@@ -1281,6 +1301,7 @@ Matrix wiring:
 Acceptance criteria:
 - All documented commands execute successfully with expected outputs in CI.
 - No doc references stale flag names, exit codes, or unsupported workflows.
+- Docs clearly describe evidence output ownership safety behavior and unsafe-path failure semantics.
 
 ### Story 8.2: Build v1 acceptance gate and release go/no-go checklist
 Priority: P0
@@ -1288,6 +1309,7 @@ Tasks:
 - Implement acceptance runner that automates AC1-AC20 against deterministic fixtures.
 - Include refined AC15 fixture assertions for skill ceiling union, conflict emission, and sprawl metrics.
 - Include refined AC15 fixture assertions for skill concentration ratios and non-duplicated conflict scoring.
+- Add acceptance fixtures for evidence output-path safety (non-managed dir rejection, marker-type trust checks).
 - Add release gate requiring green acceptance summary before tag publication.
 - Generate release scorecard artifact with lane status, AC status, and known exceptions.
 - Enforce no-go policy if required acceptance or contract checks fail.
@@ -1304,6 +1326,7 @@ Run commands:
 - `wrkr regress run --baseline <baseline-path> --json`
 Test requirements:
 - Tier 4: full acceptance suite (AC1-AC20).
+- Tier 4: acceptance fixtures for evidence output ownership safety and fail-closed behavior.
 - Tier 5/6/7/8: high-risk release gate subsets.
 - Tier 9: contract freeze checks.
 - Tier 10: full install-path UAT.
@@ -1315,6 +1338,7 @@ Matrix wiring:
 Acceptance criteria:
 - Release pipeline blocks when any required AC or lane check fails.
 - Release scorecard reports all mandatory criteria as pass before publication.
+- Release gate blocks if evidence output-path safety acceptance fixtures fail.
 
 ### Story 8.3: Elevate `wrkr-manifest.yaml` as an open specification
 Priority: P1

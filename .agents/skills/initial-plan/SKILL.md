@@ -141,6 +141,8 @@ For every story, derive required checks from `product/dev_guides.md` by work typ
 - Add deterministic fixture tests for allow/block/risk ranking behavior.
 - Add fail-closed tests for undecidable/ambiguous high-risk paths.
 - Add reason-code stability and ranking determinism checks.
+- For stories that clean/reset output paths, add `non-empty + non-managed => fail` tests.
+- Add marker trust tests (`marker must be regular file`; reject symlink/directory).
 
 5. Runtime/state/concurrency:
 - Add atomic write/checkpoint/lock contention tests.

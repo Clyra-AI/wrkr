@@ -57,11 +57,15 @@ If `pr_numbers` is missing, stop and report blocker.
 Prioritize comments that affect:
 
 1. Fail-closed behavior and enforcement boundaries.
-2. Determinism (verify/diff/replay/pack reproducibility).
-3. Schema and CLI contract stability (`--json`, exit codes, compatibility).
-4. Security/privacy controls (signing, secrets handling, unsafe interlocks).
-5. Cross-platform/CI portability issues.
-6. Docs drift where behavior has changed.
+2. Destructive filesystem cleanup on user-supplied paths with weak ownership validation.
+3. Determinism (verify/diff/replay/pack reproducibility).
+4. Schema and CLI contract stability (`--json`, exit codes, compatibility).
+5. Security/privacy controls (signing, secrets handling, unsafe interlocks).
+6. Cross-platform/CI portability issues.
+7. Docs drift where behavior has changed.
+
+Severity guidance:
+- Treat marker-name-only ownership checks before recursive delete/cleanup on user-supplied paths as at least `P1` until proven safe.
 
 Deprioritize or reject:
 
