@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if ! command -v codeql >/dev/null 2>&1; then
-  echo "codeql CLI not found" >&2
+codeql_bin="$(command -v codeql 2>/dev/null || true)"
+if [[ -z "${codeql_bin}" ]] && [[ -n "${CODEQL_DIST:-}" ]] && [[ -x "${CODEQL_DIST}/codeql" ]]; then
+  codeql_bin="${CODEQL_DIST}/codeql"
+fi
+if [[ -z "${codeql_bin}" ]]; then
+  echo "codeql CLI not found (PATH and CODEQL_DIST/codeql)" >&2
   exit 7
 fi
 
@@ -11,13 +15,13 @@ results_file=".tmp/codeql-results.sarif"
 rm -rf "$db_dir"
 mkdir -p .tmp
 
-codeql database create "$db_dir" \
+"${codeql_bin}" database create "$db_dir" \
   --language=go \
   --source-root . \
   --overwrite \
   --command "go build -o .tmp/wrkr ./cmd/wrkr"
 
-codeql database analyze "$db_dir" \
+"${codeql_bin}" database analyze "$db_dir" \
   codeql/go-queries:codeql-suites/go-security-and-quality.qls \
   --format=sarif-latest \
   --output "$results_file"
