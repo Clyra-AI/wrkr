@@ -1,6 +1,10 @@
 package source
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/Clyra-AI/wrkr/core/model"
+)
 
 // Target describes a user-selected source scope.
 type Target struct {
@@ -28,13 +32,8 @@ type Manifest struct {
 	Failures []RepoFailure  `json:"failures,omitempty"`
 }
 
-// Finding is the scan-level record consumed by diff/state for Epic 1.
-type Finding struct {
-	ToolType    string   `json:"tool_type"`
-	Location    string   `json:"location"`
-	Org         string   `json:"org"`
-	Permissions []string `json:"permissions"`
-}
+// Finding is the canonical scan record used by diff/state.
+type Finding = model.Finding
 
 func SortManifest(m Manifest) Manifest {
 	sort.Slice(m.Repos, func(i, j int) bool {
@@ -56,13 +55,5 @@ func SortManifest(m Manifest) Manifest {
 }
 
 func SortFindings(findings []Finding) {
-	sort.Slice(findings, func(i, j int) bool {
-		if findings[i].ToolType == findings[j].ToolType {
-			if findings[i].Location == findings[j].Location {
-				return findings[i].Org < findings[j].Org
-			}
-			return findings[i].Location < findings[j].Location
-		}
-		return findings[i].ToolType < findings[j].ToolType
-	})
+	model.SortFindings(findings)
 }

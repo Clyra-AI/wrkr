@@ -9,9 +9,12 @@ import (
 
 // Key is the tuple-key identity contract for diffing.
 type Key struct {
-	ToolType string `json:"tool_type"`
-	Location string `json:"location"`
-	Org      string `json:"org"`
+	FindingType string `json:"finding_type"`
+	RuleID      string `json:"rule_id,omitempty"`
+	ToolType    string `json:"tool_type"`
+	Location    string `json:"location"`
+	Repo        string `json:"repo,omitempty"`
+	Org         string `json:"org"`
 }
 
 // ChangedItem reports the before/after permission tuple when key identity is stable.
@@ -71,13 +74,22 @@ func Compute(previous, current []source.Finding) Result {
 	sort.Slice(changed, func(i, j int) bool {
 		a := changed[i].Key
 		b := changed[j].Key
-		if a.ToolType == b.ToolType {
-			if a.Location == b.Location {
-				return a.Org < b.Org
+		if a.FindingType == b.FindingType {
+			if a.RuleID == b.RuleID {
+				if a.ToolType == b.ToolType {
+					if a.Location == b.Location {
+						if a.Repo == b.Repo {
+							return a.Org < b.Org
+						}
+						return a.Repo < b.Repo
+					}
+					return a.Location < b.Location
+				}
+				return a.ToolType < b.ToolType
 			}
-			return a.Location < b.Location
+			return a.RuleID < b.RuleID
 		}
-		return a.ToolType < b.ToolType
+		return a.FindingType < b.FindingType
 	})
 
 	return Result{Added: added, Removed: removed, Changed: changed}
@@ -88,12 +100,22 @@ func Empty(result Result) bool {
 }
 
 func toKey(item source.Finding) Key {
-	return Key{ToolType: strings.TrimSpace(item.ToolType), Location: strings.TrimSpace(item.Location), Org: strings.TrimSpace(item.Org)}
+	return Key{
+		FindingType: strings.TrimSpace(item.FindingType),
+		RuleID:      strings.TrimSpace(item.RuleID),
+		ToolType:    strings.TrimSpace(item.ToolType),
+		Location:    strings.TrimSpace(item.Location),
+		Repo:        strings.TrimSpace(item.Repo),
+		Org:         strings.TrimSpace(item.Org),
+	}
 }
 
 func normalizeFinding(item source.Finding) source.Finding {
+	item.FindingType = strings.TrimSpace(item.FindingType)
+	item.RuleID = strings.TrimSpace(item.RuleID)
 	item.ToolType = strings.TrimSpace(item.ToolType)
 	item.Location = strings.TrimSpace(item.Location)
+	item.Repo = strings.TrimSpace(item.Repo)
 	item.Org = strings.TrimSpace(item.Org)
 	item.Permissions = normalizePerms(item.Permissions)
 	return item

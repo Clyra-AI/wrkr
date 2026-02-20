@@ -1,0 +1,4 @@
+rules:
+  - id: deny_exec
+    block_tools:
+      - proc.exec

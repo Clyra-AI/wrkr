@@ -1,0 +1,91 @@
+rules:
+  - id: WRKR-001
+    title: Detect at least one AI tool configuration
+    severity: high
+    remediation: Ensure AI tooling configuration files are committed and discoverable.
+    kind: require_tool_config
+    version: 1
+  - id: WRKR-002
+    title: Secret presence must be remediated
+    severity: high
+    remediation: Replace inline credentials with managed secret references.
+    kind: block_secret_presence
+    version: 1
+  - id: WRKR-003
+    title: Structured configuration parsing must not fail
+    severity: medium
+    remediation: Fix malformed JSON/YAML/TOML files for deterministic parsing.
+    kind: no_parse_errors
+    version: 1
+  - id: WRKR-004
+    title: Headless CI execution requires approval gate
+    severity: high
+    remediation: Add environment reviewers or explicit approval controls for headless AI execution.
+    kind: headless_requires_gate
+    version: 1
+  - id: WRKR-005
+    title: MCP inventory must be present for scanned repos
+    severity: medium
+    remediation: Define MCP servers explicitly in supported config files.
+    kind: require_mcp_inventory
+    version: 1
+  - id: WRKR-006
+    title: AI dependencies must be inventoried
+    severity: medium
+    remediation: Declare AI dependencies in supported manifests.
+    kind: require_dependency_inventory
+    version: 1
+  - id: WRKR-007
+    title: Skill privilege metrics must be computed
+    severity: medium
+    remediation: Ensure skills are declared with allowed-tools in SKILL.md files.
+    kind: require_skill_metrics
+    version: 1
+  - id: WRKR-008
+    title: Compiled actions require deterministic review signals
+    severity: medium
+    remediation: Declare compiled action metadata with explicit step and approval sources.
+    kind: compiled_actions_reviewed
+    version: 1
+  - id: WRKR-009
+    title: Credential reference extraction must be deterministic
+    severity: low
+    remediation: Use stable credential reference naming patterns.
+    kind: credential_refs_reviewed
+    version: 1
+  - id: WRKR-010
+    title: CI autonomy reason codes must remain stable
+    severity: low
+    remediation: Keep autonomy reason semantics stable across releases.
+    kind: stable_ci_reason_codes
+    version: 1
+  - id: WRKR-011
+    title: Built-in policy rule pack must load
+    severity: high
+    remediation: Restore built-in policy rule pack integrity.
+    kind: policy_rule_pack_loaded
+    version: 1
+  - id: WRKR-012
+    title: Policy schema contract must remain stable
+    severity: low
+    remediation: Keep policy schema fields and enums backward compatible.
+    kind: schema_contract_maintained
+    version: 1
+  - id: WRKR-013
+    title: Skill privilege ceiling must not include proc.exec with credentials
+    severity: high
+    remediation: Remove exec grants from skills or eliminate credential-bearing contexts.
+    kind: skill_exec_plus_credentials
+    version: 1
+  - id: WRKR-014
+    title: Skill allowed-tools must not conflict with Gait policy
+    severity: high
+    remediation: Align skill allowed-tools grants with Gait block rules.
+    kind: skill_policy_conflicts
+    version: 1
+  - id: WRKR-015
+    title: Skill sprawl exec ratio must be <= 50%
+    severity: medium
+    remediation: Reduce exec-granting skills and narrow tool permissions.
+    kind: skill_sprawl_exec_ratio
+    version: 1

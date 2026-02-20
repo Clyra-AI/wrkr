@@ -1,0 +1,14 @@
+{
+  "allowedTools": ["Bash", "file_edit"],
+  "hooks": ["pre-commit"],
+  "commands": {
+    "review": {
+      "cmd": "go test ./..."
+    }
+  },
+  "mcpServers": {
+    "db": {
+      "command": "npx @acme/db-mcp@1.2.3"
+    }
+  }
+}

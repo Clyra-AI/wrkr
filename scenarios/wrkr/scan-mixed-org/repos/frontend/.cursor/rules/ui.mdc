@@ -1,0 +1,7 @@
+---
+description: UI rules
+alwaysApply: true
+globs:
+  - "**/*.tsx"
+---
+Use strict component boundaries.
