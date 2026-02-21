@@ -169,7 +169,7 @@ func (c *GitHubClient) doJSON(ctx context.Context, method, endpoint string, payl
 			req.Header.Set("Content-Type", "application/json")
 		}
 
-		resp, err := c.http.Do(req)
+		resp, err := c.http.Do(req) // #nosec G704 -- request targets GitHub API endpoint assembled from validated base URL and fixed path segments.
 		if err != nil {
 			if attempt < maxAttempts {
 				continue

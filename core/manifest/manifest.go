@@ -106,7 +106,7 @@ func Save(path string, m Manifest) error {
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("close manifest temp: %w", err)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
+	if err := os.Rename(tmpPath, path); err != nil { // #nosec G703 -- manifest output path is intentionally caller-controlled for local file-based evidence.
 		return fmt.Errorf("commit manifest: %w", err)
 	}
 	return nil

@@ -394,7 +394,7 @@ func evaluatePolicies(scopes []detect.Scope, findings []source.Finding, customPo
 func detectorScopes(manifestOut source.Manifest) []detect.Scope {
 	scopes := make([]detect.Scope, 0, len(manifestOut.Repos))
 	for _, repo := range manifestOut.Repos {
-		info, err := os.Stat(repo.Location)
+		info, err := os.Stat(repo.Location) // #nosec G703 -- repo locations come from deterministic source acquisition inputs for current scan scope.
 		if err != nil || !info.IsDir() {
 			continue
 		}
