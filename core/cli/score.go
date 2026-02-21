@@ -22,10 +22,15 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 		fs.SetOutput(stderr)
 	}
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
+	quiet := fs.Bool("quiet", false, "suppress non-error output")
+	explain := fs.Bool("explain", false, "emit rationale details")
 	statePathFlag := fs.String("state", "", "state file path override")
 
 	if err := fs.Parse(args); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	}
+	if *quiet && *explain && !*jsonOut {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--quiet and --explain cannot be used together", exitInvalidInput)
 	}
 
 	snapshot, err := state.Load(state.ResolvePath(*statePathFlag))
@@ -51,6 +56,20 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(result)
+		return exitSuccess
+	}
+	if *quiet {
+		return exitSuccess
+	}
+	if *explain {
+		_, _ = fmt.Fprintf(stdout, "wrkr score %.2f (%s) trend=%+.2f\n", result.Score, result.Grade, result.TrendDelta)
+		_, _ = fmt.Fprintf(stdout, "policy_pass_rate=%.2f approval_coverage=%.2f severity_distribution=%.2f profile_compliance=%.2f drift_rate=%.2f\n",
+			result.Breakdown.PolicyPassRate,
+			result.Breakdown.ApprovalCoverage,
+			result.Breakdown.SeverityDistribution,
+			result.Breakdown.ProfileCompliance,
+			result.Breakdown.DriftRate,
+		)
 		return exitSuccess
 	}
 	_, _ = fmt.Fprintf(stdout, "wrkr score %.2f (%s)\n", result.Score, result.Grade)

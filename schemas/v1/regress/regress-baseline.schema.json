@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/regress/regress-baseline.schema.json",
+  "title": "Wrkr Regress Baseline",
+  "type": "object",
+  "required": ["version", "generated_at", "tools"],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "tool_id",
+          "org",
+          "status",
+          "approval_status",
+          "present",
+          "permissions"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "tool_id": {
+            "type": "string"
+          },
+          "org": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["discovered", "under_review", "approved", "active", "deprecated", "revoked"]
+          },
+          "approval_status": {
+            "type": "string"
+          },
+          "present": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

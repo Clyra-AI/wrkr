@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestRunJSON(t *testing.T) {
@@ -20,6 +22,20 @@ func TestRunJSON(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"status":"ok"`) {
 		t.Fatalf("expected json status output, got %q", out.String())
+	}
+}
+
+func TestRunHelpReturnsExit0(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"--help"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "Usage of wrkr:") {
+		t.Fatalf("expected help usage output, got %q", errOut.String())
 	}
 }
 
@@ -60,6 +76,96 @@ func TestRunInvalidFlagWithJSONReturnsMachineReadableError(t *testing.T) {
 	}
 	if errorPayload["exit_code"] != float64(6) {
 		t.Fatalf("unexpected exit code envelope: %v", errorPayload["exit_code"])
+	}
+}
+
+func TestRunInvalidFlagBeforeJSONReturnsMachineReadableError(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"--nope", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on parse error, got %q", out.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("expected parsable JSON error output, got %q (%v)", errOut.String(), err)
+	}
+	errorPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object in payload, got %v", payload)
+	}
+	if errorPayload["code"] != "invalid_input" {
+		t.Fatalf("unexpected error code: %v", errorPayload["code"])
+	}
+	if errorPayload["exit_code"] != float64(6) {
+		t.Fatalf("unexpected exit code envelope: %v", errorPayload["exit_code"])
+	}
+}
+
+func TestRunUnknownCommandReturnsExit6(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"unknown-cmd"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout for unknown command, got %q", out.String())
+	}
+	if !strings.Contains(errOut.String(), "unsupported command") {
+		t.Fatalf("expected unsupported command error, got %q", errOut.String())
+	}
+}
+
+func TestRunUnknownCommandWithJSONReturnsMachineReadableError(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"unknown-cmd", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout for unknown command, got %q", out.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("expected parsable JSON error output, got %q (%v)", errOut.String(), err)
+	}
+	errorPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object in payload, got %v", payload)
+	}
+	if errorPayload["code"] != "invalid_input" {
+		t.Fatalf("unexpected error code: %v", errorPayload["code"])
+	}
+	if errorPayload["exit_code"] != float64(6) {
+		t.Fatalf("unexpected exit code envelope: %v", errorPayload["exit_code"])
+	}
+}
+
+func TestRunQuietExplainWithoutJSONReturnsExit6(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"--quiet", "--explain"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout for invalid flag combination, got %q", out.String())
+	}
+	if !strings.Contains(errOut.String(), "--quiet and --explain") {
+		t.Fatalf("expected quiet/explain validation message, got %q", errOut.String())
 	}
 }
 
@@ -302,6 +408,46 @@ func TestReportExportScoreCommands(t *testing.T) {
 	}
 	if _, present := scorePayload["grade"]; !present {
 		t.Fatalf("expected grade in score payload: %v", scorePayload)
+	}
+}
+
+func TestScoreQuietAndExplainContracts(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"score", "--state", statePath, "--quiet"}, &out, &errOut); code != 0 {
+		t.Fatalf("score --quiet failed: %d %s", code, errOut.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout for score --quiet, got %q", out.String())
+	}
+
+	out.Reset()
+	errOut.Reset()
+	if code := Run([]string{"score", "--state", statePath, "--explain"}, &out, &errOut); code != 0 {
+		t.Fatalf("score --explain failed: %d %s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "wrkr score") {
+		t.Fatalf("expected explain output, got %q", out.String())
+	}
+
+	out.Reset()
+	errOut.Reset()
+	code := Run([]string{"score", "--state", statePath, "--quiet", "--explain"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6 for score --quiet --explain, got %d", code)
 	}
 }
 
@@ -553,6 +699,173 @@ func TestVerifyTamperedChainReturnsExit2(t *testing.T) {
 	if errObject["code"] != "verification_failure" {
 		t.Fatalf("unexpected verification error code: %v", errObject["code"])
 	}
+}
+
+func TestReportPDFCommandWritesDeterministicPDFEnvelope(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	pdfPath := filepath.Join(tmp, "report.pdf")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	var reportOut bytes.Buffer
+	var reportErr bytes.Buffer
+	if code := Run([]string{"report", "--pdf", "--pdf-path", pdfPath, "--state", statePath, "--json"}, &reportOut, &reportErr); code != 0 {
+		t.Fatalf("report --pdf failed: %d %s", code, reportErr.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(reportOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	if payload["status"] != "ok" {
+		t.Fatalf("unexpected report payload: %v", payload)
+	}
+	if payload["pdf_path"] != pdfPath {
+		t.Fatalf("unexpected pdf_path value: %v", payload["pdf_path"])
+	}
+
+	pdfBytes, err := os.ReadFile(pdfPath)
+	if err != nil {
+		t.Fatalf("read generated pdf: %v", err)
+	}
+	if !bytes.HasPrefix(pdfBytes, []byte("%PDF-1.4\n")) {
+		t.Fatalf("expected PDF header, got %q", string(pdfBytes[:minInt(len(pdfBytes), 16)]))
+	}
+}
+
+func TestManifestGenerateCreatesUnderReviewBaseline(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	manifestPath := filepath.Join(tmp, "generated-manifest.yaml")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(scanOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	inventoryPayload, ok := payload["inventory"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected inventory payload, got %T", payload["inventory"])
+	}
+	tools, ok := inventoryPayload["tools"].([]any)
+	if !ok || len(tools) == 0 {
+		t.Fatalf("expected non-empty inventory tools")
+	}
+	firstTool, ok := tools[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected tool payload: %T", tools[0])
+	}
+	agentID, _ := firstTool["agent_id"].(string)
+	if agentID == "" {
+		t.Fatalf("missing agent_id in inventory tool: %v", firstTool)
+	}
+
+	var approveOut bytes.Buffer
+	var approveErr bytes.Buffer
+	if code := Run([]string{"identity", "approve", agentID, "--approver", "@maria", "--scope", "read-only", "--expires", "90d", "--state", statePath, "--json"}, &approveOut, &approveErr); code != 0 {
+		t.Fatalf("identity approve failed: %d %s", code, approveErr.String())
+	}
+
+	var manifestOut bytes.Buffer
+	var manifestErr bytes.Buffer
+	if code := Run([]string{"manifest", "generate", "--state", statePath, "--output", manifestPath, "--json"}, &manifestOut, &manifestErr); code != 0 {
+		t.Fatalf("manifest generate failed: %d %s", code, manifestErr.String())
+	}
+
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read generated manifest: %v", err)
+	}
+	var generated struct {
+		Identities []struct {
+			Status        string `yaml:"status"`
+			ApprovalState string `yaml:"approval_status"`
+		} `yaml:"identities"`
+	}
+	if err := yaml.Unmarshal(manifestBytes, &generated); err != nil {
+		t.Fatalf("parse generated manifest yaml: %v", err)
+	}
+	if len(generated.Identities) == 0 {
+		t.Fatal("expected manifest identities")
+	}
+	for _, record := range generated.Identities {
+		if record.Status != "under_review" {
+			t.Fatalf("expected under_review status, got %q", record.Status)
+		}
+		if record.ApprovalState != "missing" {
+			t.Fatalf("expected missing approval status, got %q", record.ApprovalState)
+		}
+	}
+}
+
+func TestEvidenceCommandRejectsUnsafeOutputPathWithExit8(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	outputDir := filepath.Join(tmp, "unsafe-output")
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		t.Fatalf("mkdir output dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, "not-managed.txt"), []byte("do-not-delete"), 0o600); err != nil {
+		t.Fatalf("write non-managed file: %v", err)
+	}
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"evidence", "--frameworks", "soc2", "--state", statePath, "--output", outputDir, "--json"}, &out, &errOut)
+	if code != 8 {
+		t.Fatalf("expected exit 8, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on unsafe path error, got %q", out.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse evidence error payload: %v", err)
+	}
+	errObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object payload: %v", payload)
+	}
+	if errObj["code"] != "unsafe_operation_blocked" {
+		t.Fatalf("unexpected error code: %v", errObj["code"])
+	}
+	if errObj["exit_code"] != float64(8) {
+		t.Fatalf("unexpected error exit code: %v", errObj["exit_code"])
+	}
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func mustFindRepoRoot(t *testing.T) string {

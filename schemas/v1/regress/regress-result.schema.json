@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/regress/regress-result.schema.json",
+  "title": "Wrkr Regress Result",
+  "type": "object",
+  "required": ["status", "drift_detected", "reason_count", "reasons"],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["ok", "drift"]
+    },
+    "drift_detected": {
+      "type": "boolean"
+    },
+    "reason_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "baseline_path": {
+      "type": "string"
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "agent_id", "tool_id", "org", "message"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "new_unapproved_tool",
+              "revoked_tool_reappeared",
+              "unapproved_permission_expansion"
+            ]
+          },
+          "agent_id": {
+            "type": "string"
+          },
+          "tool_id": {
+            "type": "string"
+          },
+          "org": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "added_permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
