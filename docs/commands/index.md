@@ -24,6 +24,11 @@ Wrkr CLI surfaces are deterministic and file-based by default.
 - `wrkr evidence`
 - `wrkr fix`
 
+## Notable scan contract
+
+- `wrkr scan --path` is local/offline.
+- `wrkr scan --repo` and `wrkr scan --org` require `--github-api` or `WRKR_GITHUB_API_BASE` and fail closed with exit `7` when unavailable.
+
 ## Exit codes
 
 Global process exit codes are documented in `docs/commands/root.md` and apply consistently across command families.

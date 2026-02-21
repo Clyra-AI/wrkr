@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/identity"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -90,6 +91,9 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 	}
 
 	for _, finding := range snapshot.Findings {
+		if !model.IsIdentityBearingFinding(finding) {
+			continue
+		}
 		org := fallback(finding.Org, "local")
 		toolID := identity.ToolID(finding.ToolType, finding.Location)
 		agentID := identity.AgentID(toolID, org)

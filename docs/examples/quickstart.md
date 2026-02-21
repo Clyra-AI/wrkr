@@ -10,6 +10,8 @@ Wrkr is the AI-DSPM discovery layer in the See -> Prove -> Control sequence:
 
 Wrkr is useful standalone and interoperates with Axym/Gait through shared proof contracts.
 
+For hosted source modes, `scan --repo` and `scan --org` require `--github-api` (or `WRKR_GITHUB_API_BASE`) and fail closed when acquisition is unavailable.
+
 ## Deterministic local scan
 
 ```bash

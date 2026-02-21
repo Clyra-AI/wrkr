@@ -3,6 +3,9 @@ package contracts
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -27,10 +30,18 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 
 	tmp := t.TempDir()
 	statePath := filepath.Join(tmp, "state.json")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/repos/acme/backend" {
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
 
 	var out bytes.Buffer
 	var errOut bytes.Buffer
-	code := cli.Run([]string{"scan", "--repo", "acme/backend", "--state", statePath, "--json"}, &out, &errOut)
+	code := cli.Run([]string{"scan", "--repo", "acme/backend", "--github-api", server.URL, "--state", statePath, "--json"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("scan failed: %d (%s)", code, errOut.String())
 	}

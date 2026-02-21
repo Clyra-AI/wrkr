@@ -201,7 +201,11 @@ func runIdentityTransition(args []string, stdout io.Writer, stderr io.Writer, st
 	} else if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "identity id is required", exitInvalidInput)
 	}
-	return runIdentityManualTransition(stateName, agentID, "", "", strings.TrimSpace(*reason), time.Time{}, *statePathFlag, jsonRequested || *jsonOut, stdout, stderr)
+	resolvedReason := strings.TrimSpace(*reason)
+	if resolvedReason == "" {
+		resolvedReason = defaultTransitionReason(stateName)
+	}
+	return runIdentityManualTransition(stateName, agentID, "", "", resolvedReason, time.Time{}, *statePathFlag, jsonRequested || *jsonOut, stdout, stderr)
 }
 
 func runIdentityManualTransition(stateName, agentID, approver, scope, reason string, expiresAt time.Time, statePathFlag string, jsonOut bool, stdout io.Writer, stderr io.Writer) int {
@@ -244,4 +248,17 @@ func runIdentityManualTransition(stateName, agentID, approver, scope, reason str
 	}
 	_, _ = fmt.Fprintf(stdout, "wrkr identity %s -> %s\n", agentID, stateName)
 	return exitSuccess
+}
+
+func defaultTransitionReason(stateName string) string {
+	switch stateName {
+	case identity.StateUnderReview:
+		return "manual_transition_under_review"
+	case identity.StateDeprecated:
+		return "manual_transition_deprecated"
+	case identity.StateRevoked:
+		return "manual_transition_revoked"
+	default:
+		return "manual_transition"
+	}
 }

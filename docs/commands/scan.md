@@ -8,6 +8,12 @@ wrkr scan [--repo <owner/repo> | --org <org> | --path <dir>] [--diff] [--enrich]
 
 Exactly one target source is required: `--repo`, `--org`, or `--path`.
 
+Acquisition behavior is fail-closed by target:
+
+- `--path` runs fully local/offline.
+- `--repo` and `--org` require real GitHub acquisition via `--github-api` or `WRKR_GITHUB_API_BASE`.
+- When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
+
 ## Flags
 
 - `--json`
@@ -35,6 +41,10 @@ Exactly one target source is required: `--repo`, `--org`, or `--path`.
 
 ```bash
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
+```
+
+```bash
+wrkr scan --org acme --github-api https://api.github.com --json
 ```
 
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`, and optional `report` when summary output is requested.

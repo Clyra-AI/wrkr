@@ -9,16 +9,12 @@ import (
 	"testing"
 )
 
-func TestAcquireRepoOfflineMode(t *testing.T) {
+func TestAcquireRepoRequiresBaseURL(t *testing.T) {
 	t.Parallel()
 
 	connector := NewConnector("", "", nil)
-	manifest, err := connector.AcquireRepo(context.Background(), "acme/backend")
-	if err != nil {
-		t.Fatalf("acquire repo: %v", err)
-	}
-	if manifest.Repo != "acme/backend" {
-		t.Fatalf("unexpected repo: %+v", manifest)
+	if _, err := connector.AcquireRepo(context.Background(), "acme/backend"); err == nil {
+		t.Fatal("expected missing base URL to fail")
 	}
 }
 
@@ -77,5 +73,32 @@ func TestAcquireRepoFailsOnInvalidRepo(t *testing.T) {
 	connector := NewConnector("", "", nil)
 	if _, err := connector.AcquireRepo(context.Background(), "acme"); err == nil {
 		t.Fatal("expected invalid repo input to fail")
+	}
+}
+
+func TestListOrgReposRequiresBaseURL(t *testing.T) {
+	t.Parallel()
+
+	connector := NewConnector("", "", nil)
+	if _, err := connector.ListOrgRepos(context.Background(), "acme"); err == nil {
+		t.Fatal("expected missing base URL to fail")
+	}
+}
+
+func TestListOrgReposAllowsEmptyResultWithoutSyntheticFallback(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprint(w, `[]`)
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "", server.Client())
+	repos, err := connector.ListOrgRepos(context.Background(), "acme")
+	if err != nil {
+		t.Fatalf("list org repos: %v", err)
+	}
+	if len(repos) != 0 {
+		t.Fatalf("expected no repos, got %v", repos)
 	}
 }

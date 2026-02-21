@@ -105,3 +105,67 @@ func TestE2EHelpContractMatrixReturnsExit0(t *testing.T) {
 		})
 	}
 }
+
+func TestE2EIdentityTransitionWithoutReasonUsesDeterministicDefaultReason(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	statePath := filepath.Join(tmp, "state.json")
+	if err := os.MkdirAll(filepath.Join(reposPath, "alpha"), 0o755); err != nil {
+		t.Fatalf("mkdir repo fixture: %v", err)
+	}
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, scanErr.String())
+	}
+	var scanPayload map[string]any
+	if err := json.Unmarshal(scanOut.Bytes(), &scanPayload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	inventoryObj, ok := scanPayload["inventory"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing inventory payload: %v", scanPayload)
+	}
+	tools, ok := inventoryObj["tools"].([]any)
+	if !ok || len(tools) == 0 {
+		t.Fatalf("missing inventory tools payload: %v", inventoryObj)
+	}
+	firstTool, ok := tools[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected tool payload type: %T", tools[0])
+	}
+	agentID, _ := firstTool["agent_id"].(string)
+	if agentID == "" {
+		t.Fatalf("missing agent_id in tool payload: %v", firstTool)
+	}
+
+	var approveOut bytes.Buffer
+	var approveErr bytes.Buffer
+	if code := cli.Run([]string{"identity", "approve", agentID, "--approver", "@qa", "--scope", "contract", "--expires", "90d", "--state", statePath, "--json"}, &approveOut, &approveErr); code != 0 {
+		t.Fatalf("approve failed: %d (%s)", code, approveErr.String())
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := cli.Run([]string{"identity", "revoke", agentID, "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("revoke failed: %d (%s)", code, errOut.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse revoke payload: %v", err)
+	}
+	transition, ok := payload["transition"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing transition payload: %v", payload)
+	}
+	diffObj, ok := transition["diff"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing transition diff: %v", transition)
+	}
+	if diffObj["reason"] != "manual_transition_revoked" {
+		t.Fatalf("unexpected default reason: %v", diffObj["reason"])
+	}
+}
