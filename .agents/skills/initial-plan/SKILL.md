@@ -115,6 +115,7 @@ Story template (required fields):
 - `Test requirements:`
 - `Matrix wiring:`
 - `Acceptance criteria:`
+- `Semantic invariants:` (required for stories touching identity/lifecycle/manifest/regress)
 - Optional when needed:
 - `Dependencies:`
 - `Risks:`
@@ -141,6 +142,8 @@ For every story, derive required checks from `product/dev_guides.md` by work typ
 - Add deterministic fixture tests for allow/block/risk ranking behavior.
 - Add fail-closed tests for undecidable/ambiguous high-risk paths.
 - Add reason-code stability and ranking determinism checks.
+- Add regression input-boundary tests (`policy_check`/`policy_violation`/`parse_error` must not become tracked tools).
+- Add lifecycle preservation tests (`present=false` identities must not be rewritten to `present=true` by generation flows).
 - For stories that clean/reset output paths, add `non-empty + non-managed => fail` tests.
 - Add marker trust tests (`marker must be regular file`; reject symlink/directory).
 
@@ -216,6 +219,7 @@ Before finalizing, verify:
 - every story has concrete repo paths and executable commands
 - acceptance criteria are deterministic and objectively testable
 - test requirements match `dev_guides.md` tier expectations
+- identity/lifecycle/manifest/regress stories include explicit semantic invariants
 - matrix wiring exists for every story
 - sequence is dependency-aware and executable end-to-end
 - plan respects Wrkr boundaries (See product only; no Axym/Gait feature scope creep)

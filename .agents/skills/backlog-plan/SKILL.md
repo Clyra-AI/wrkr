@@ -70,6 +70,8 @@ If these are missing, stop and output a gap note instead of inventing details.
 - Add deterministic allow/block/require_approval fixture tests.
 - Add fail-closed tests for evaluator-missing or undecidable paths.
 - Add reason code stability checks.
+- Add regression input-boundary tests (`policy_check`/`policy_violation`/`parse_error` must not become tracked tools).
+- Add lifecycle preservation tests (`present=false` identities must not be rewritten to `present=true` by generation flows).
 - For stories that clean/reset output paths, require `non-empty + non-managed => fail` tests.
 - Require marker trust tests (`marker must be regular file`; reject symlink/directory).
 
@@ -132,6 +134,7 @@ Story template (required fields):
 - Optional when needed:
 - `Dependencies:`
 - `Risks:`
+- `Semantic invariants:` (required for stories touching identity/lifecycle/manifest/regress)
 
 ## Quality Gate for Output
 

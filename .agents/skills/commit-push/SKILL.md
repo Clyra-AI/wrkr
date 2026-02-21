@@ -63,18 +63,34 @@ If preconditions fail, stop and report.
 - flaky/infra/transient
 - permission/workflow policy failure
 
-8. Merge PR after green:
+8. Pre-merge unresolved comment triage and fix loop (max 2 loops):
+- Fetch unresolved PR review threads/comments (including bot comments) for the latest PR head SHA.
+- Triage each unresolved item: `implement`, `defer`, `reject`.
+- Auto-fix only `implement` items that are:
+  - `P0/P1`, or
+  - high-confidence `P2` with concrete repro/break path.
+- For each fix loop:
+  - apply minimal scoped fix on the same working branch already used by the PR head
+  - run `make prepush-full`
+  - `git add -A`
+  - `git commit -m "fix: address actionable PR comments (loop <n>)"` (skip only if no changes)
+  - push branch
+  - re-watch PR CI to green
+  - re-fetch unresolved threads/comments
+- If unresolved `P0/P1` remain after loop cap, stop and report blocker.
+
+9. Merge PR after green:
 - Merge non-interactively (repo-default merge strategy or explicitly chosen one).
 - Record merged PR URL and merge commit SHA.
 
-9. Switch to main and sync:
+10. Switch to main and sync:
 - `git checkout main`
 - `git pull --ff-only origin main`
 
-10. Monitor post-merge CI on `main`:
+11. Monitor post-merge CI on `main`:
 - Watch the latest `main` CI run with timeout `25 minutes`.
 
-11. Hotfix loop on post-merge red (max 2 loops):
+12. Hotfix loop on post-merge red (max 2 loops):
 - Run only for actionable failures.
 - Loop cap: `2`.
 - For each loop:
@@ -90,8 +106,9 @@ If preconditions fail, stop and report.
 - `git checkout main && git pull --ff-only origin main`
 - Monitor post-merge CI again (25 min timeout).
 
-12. Stop conditions:
+13. Stop conditions:
 - CI green on main: success.
+- Unresolved pre-merge `P0/P1` comments after 2 fix loops: stop and report blocker.
 - Non-actionable failure class: stop and report.
 - Loop count exceeded (`>2`): stop and report blocker.
 
@@ -123,6 +140,7 @@ Never use inline `--body "..."` for multi-line PR text.
 
 - Required local gate before push: `make prepush-full` (includes CodeQL in this repo).
 - PR CI watch timeout: `25 minutes`.
+- Pre-merge comment-fix loop cap: `2`.
 - Post-merge main CI watch timeout: `25 minutes`.
 - Retry/hotfix loop cap: `2`.
 
