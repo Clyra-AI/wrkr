@@ -49,11 +49,12 @@ type Reason struct {
 }
 
 type Result struct {
-	Status       string   `json:"status"`
-	Drift        bool     `json:"drift_detected"`
-	ReasonCount  int      `json:"reason_count"`
-	Reasons      []Reason `json:"reasons"`
-	BaselinePath string   `json:"baseline_path,omitempty"`
+	Status        string   `json:"status"`
+	Drift         bool     `json:"drift_detected"`
+	ReasonCount   int      `json:"reason_count"`
+	Reasons       []Reason `json:"reasons"`
+	BaselinePath  string   `json:"baseline_path,omitempty"`
+	SummaryMDPath string   `json:"summary_md_path,omitempty"`
 }
 
 func BuildBaseline(snapshot state.Snapshot, generatedAt time.Time) Baseline {

@@ -16,6 +16,7 @@ import (
 	proof "github.com/Clyra-AI/proof"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
+	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -32,6 +33,7 @@ type BuildResult struct {
 	ManifestPath      string             `json:"manifest_path"`
 	ChainPath         string             `json:"chain_path"`
 	FrameworkCoverage map[string]float64 `json:"framework_coverage"`
+	ReportArtifacts   []string           `json:"report_artifacts"`
 }
 
 const outputDirMarkerFile = ".wrkr-evidence-managed"
@@ -101,6 +103,26 @@ func Build(in BuildInput) (BuildResult, error) {
 	}); err != nil {
 		return BuildResult{}, err
 	}
+	reportArtifacts := []string{}
+	summary, err := reportcore.BuildSummary(reportcore.BuildInput{
+		StatePath:    resolvedStatePath,
+		Snapshot:     snapshot,
+		Top:          5,
+		Template:     reportcore.TemplateAudit,
+		ShareProfile: reportcore.ShareProfileInternal,
+	})
+	if err != nil {
+		return BuildResult{}, fmt.Errorf("build deterministic report summary: %w", err)
+	}
+	reportsDir := filepath.Join(outputDir, "reports")
+	if err := os.MkdirAll(reportsDir, 0o750); err != nil {
+		return BuildResult{}, fmt.Errorf("mkdir reports dir: %w", err)
+	}
+	auditReportPath := filepath.Join(reportsDir, "audit-summary.md")
+	if err := os.WriteFile(auditReportPath, []byte(reportcore.RenderMarkdown(summary)), 0o600); err != nil {
+		return BuildResult{}, fmt.Errorf("write deterministic report summary: %w", err)
+	}
+	reportArtifacts = append(reportArtifacts, auditReportPath)
 
 	proofRecordsDir := filepath.Join(outputDir, "proof-records")
 	if err := os.MkdirAll(proofRecordsDir, 0o750); err != nil {
@@ -204,6 +226,7 @@ func Build(in BuildInput) (BuildResult, error) {
 		ManifestPath:      filepath.Join(outputDir, "manifest.json"),
 		ChainPath:         chainPath,
 		FrameworkCoverage: coverage,
+		ReportArtifacts:   reportArtifacts,
 	}, nil
 }
 

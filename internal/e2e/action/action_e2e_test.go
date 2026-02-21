@@ -70,3 +70,19 @@ func TestScheduledModeE2EIncludesDeterministicDeltas(t *testing.T) {
 		t.Fatalf("unexpected compliance delta text: %q", result.ComplianceDeltaText)
 	}
 }
+
+func TestScheduledModeE2EIncludesSummaryArtifactPath(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{
+		Profile:      &profileeval.Result{CompliancePercent: 92.75, DeltaPercent: -2.25},
+		PostureScore: &score.Result{Score: 81.40, TrendDelta: +1.60},
+	}
+	result := coreaction.RunScheduledWithSummary(snapshot, "./.tmp/wrkr-action-summary.md")
+	if result.SummaryArtifactPath != "./.tmp/wrkr-action-summary.md" {
+		t.Fatalf("unexpected summary artifact path: %q", result.SummaryArtifactPath)
+	}
+	if result.Summary == "" {
+		t.Fatal("expected scheduled summary text")
+	}
+}

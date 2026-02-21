@@ -53,7 +53,7 @@ func TestEntrypointE2EUsesRepositoryFallbackTarget(t *testing.T) {
 	if lines[0] != "scan --json --repo acme/backend" {
 		t.Fatalf("expected explicit repo target in scan invocation, got %q", lines[0])
 	}
-	if lines[1] != "report --top 5 --json" {
+	if lines[1] != "report --top 5 --md --md-path ./.tmp/wrkr-action-summary.md --template operator --share-profile internal --json" {
 		t.Fatalf("unexpected report invocation: %q", lines[1])
 	}
 	if lines[2] != "score --json" {

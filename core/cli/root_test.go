@@ -742,6 +742,74 @@ func TestReportPDFCommandWritesDeterministicPDFEnvelope(t *testing.T) {
 	}
 }
 
+func TestReportMarkdownPublicShareContract(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	mdPath := filepath.Join(tmp, "report-public.md")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	var reportOut bytes.Buffer
+	var reportErr bytes.Buffer
+	if code := Run([]string{"report", "--state", statePath, "--md", "--md-path", mdPath, "--template", "public", "--share-profile", "public", "--json"}, &reportOut, &reportErr); code != 0 {
+		t.Fatalf("report public markdown failed: %d %s", code, reportErr.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(reportOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	if payload["md_path"] != mdPath {
+		t.Fatalf("unexpected md_path: %v", payload["md_path"])
+	}
+	if _, err := os.Stat(mdPath); err != nil {
+		t.Fatalf("expected markdown output file: %v", err)
+	}
+	findings, ok := payload["top_findings"].([]any)
+	if !ok || len(findings) == 0 {
+		t.Fatalf("expected top_findings array: %v", payload)
+	}
+	firstFinding, _ := findings[0].(map[string]any)
+	findingPayload, _ := firstFinding["finding"].(map[string]any)
+	location, _ := findingPayload["location"].(string)
+	if strings.Contains(location, "/") {
+		t.Fatalf("expected public share location redaction, got %q", location)
+	}
+}
+
+func TestReportRejectsInvalidTemplateAndShareProfile(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("scan failed to seed state: %d", code)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"report", "--state", statePath, "--template", "unknown", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6 for invalid template, got %d", code)
+	}
+
+	out.Reset()
+	errOut.Reset()
+	code = Run([]string{"report", "--state", statePath, "--share-profile", "external", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6 for invalid share profile, got %d", code)
+	}
+}
+
 func TestManifestGenerateCreatesUnderReviewBaseline(t *testing.T) {
 	t.Parallel()
 
