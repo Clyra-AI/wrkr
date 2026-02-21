@@ -77,6 +77,79 @@ func TestActionMetadataIncludesExplicitTargetInputs(t *testing.T) {
 	}
 }
 
+func TestEntrypointE2ERejectsIncompleteExplicitTargetInputs(t *testing.T) {
+	t.Parallel()
+
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available in test environment")
+	}
+
+	repoRoot := mustFindRepoRoot(t)
+	tmp := t.TempDir()
+	binDir := filepath.Join(tmp, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin dir: %v", err)
+	}
+
+	logPath := filepath.Join(tmp, "wrkr.log")
+	wrkrPath := filepath.Join(binDir, "wrkr")
+	wrkrScript := "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"${WRKR_LOG}\"\n"
+	if err := os.WriteFile(wrkrPath, []byte(wrkrScript), 0o755); err != nil {
+		t.Fatalf("write wrkr stub: %v", err)
+	}
+
+	cases := []struct {
+		name        string
+		targetMode  string
+		targetValue string
+		wantErrText string
+	}{
+		{
+			name:        "mode without value",
+			targetMode:  "repo",
+			targetValue: "",
+			wantErrText: "target_mode requires target_value",
+		},
+		{
+			name:        "value without mode",
+			targetMode:  "",
+			targetValue: "acme/backend",
+			wantErrText: "target_value requires target_mode",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := exec.Command(bashPath, filepath.Join(repoRoot, "action", "entrypoint.sh"), "scheduled", "5", tc.targetMode, tc.targetValue, "")
+			cmd.Dir = repoRoot
+			cmd.Env = append(os.Environ(),
+				"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
+				"WRKR_LOG="+logPath,
+				"GITHUB_REPOSITORY=acme/backend",
+			)
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("expected entrypoint to fail, output=%s", out)
+			}
+			if !strings.Contains(string(out), tc.wantErrText) {
+				t.Fatalf("expected error to contain %q, got %q", tc.wantErrText, string(out))
+			}
+		})
+	}
+
+	if _, err := os.Stat(logPath); err == nil {
+		loggedBytes, readErr := os.ReadFile(logPath)
+		if readErr != nil {
+			t.Fatalf("read wrkr log: %v", readErr)
+		}
+		if len(nonEmptyLines(string(loggedBytes))) > 0 {
+			t.Fatalf("expected no wrkr invocation when explicit target inputs are incomplete, got %q", string(loggedBytes))
+		}
+	}
+}
+
 func nonEmptyLines(in string) []string {
 	parts := strings.Split(in, "\n")
 	out := make([]string, 0, len(parts))

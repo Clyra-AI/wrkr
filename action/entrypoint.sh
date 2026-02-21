@@ -27,6 +27,15 @@ run_wrkr() {
 
 scan_args=(--json)
 
+if [[ -n "${target_mode}" && -z "${target_value}" ]]; then
+  echo "incomplete explicit target: target_mode requires target_value" >&2
+  exit 6
+fi
+if [[ -z "${target_mode}" && -n "${target_value}" ]]; then
+  echo "incomplete explicit target: target_value requires target_mode" >&2
+  exit 6
+fi
+
 if [[ -n "${target_mode}" && -n "${target_value}" ]]; then
   case "${target_mode}" in
     repo)
