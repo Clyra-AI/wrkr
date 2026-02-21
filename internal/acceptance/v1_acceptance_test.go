@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -35,13 +37,14 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 		tmp := t.TempDir()
 		configPath := filepath.Join(tmp, "wrkr-config.yaml")
 		statePath := filepath.Join(tmp, "state.json")
+		githubAPI := newAcceptanceGitHubAPIServer(t)
 
 		initPayload := runJSONOK(t, "init", "--non-interactive", "--org", "acme", "--config", configPath, "--json")
 		if initPayload["status"] != "ok" {
 			t.Fatalf("unexpected init payload: %v", initPayload)
 		}
 
-		scanPayload := runJSONOK(t, "scan", "--org", "acme", "--state", statePath, "--json")
+		scanPayload := runJSONOK(t, "scan", "--org", "acme", "--github-api", githubAPI, "--state", statePath, "--json")
 		requireKey(t, scanPayload, "inventory")
 		topFindings, ok := scanPayload["top_findings"].([]any)
 		if !ok || len(topFindings) == 0 {
@@ -471,6 +474,23 @@ func loadAcceptancePaths(t *testing.T) acceptancePaths {
 		policyRepos:    filepath.Join(repoRoot, "scenarios", "wrkr", "policy-check", "repos"),
 		crossJSONL:     filepath.Join(repoRoot, "scenarios", "cross-product", "proof-record-interop", "records-from-all-3.jsonl"),
 	}
+}
+
+func newAcceptanceGitHubAPIServer(t *testing.T) string {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/backend"}]`)
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server.URL
 }
 
 func scanScenarioState(t *testing.T, scanPath, profile string) string {

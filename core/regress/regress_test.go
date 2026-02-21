@@ -273,3 +273,78 @@ func TestCompareDeterministicForSameInput(t *testing.T) {
 		t.Fatalf("compare must be deterministic\nfirst=%+v\nsecond=%+v", first, second)
 	}
 }
+
+func TestSnapshotToolsExcludesPolicyAndParseFindingTypes(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{
+		Findings: []model.Finding{
+			{
+				FindingType: "source_discovery",
+				ToolType:    "source_repo",
+				Location:    "acme/backend",
+				Org:         "acme",
+				Permissions: []string{"repo.contents.read"},
+			},
+			{
+				FindingType: "policy_check",
+				ToolType:    "policy",
+				Location:    ".wrkr/policy.yaml",
+				Org:         "acme",
+			},
+			{
+				FindingType: "parse_error",
+				ToolType:    "yaml",
+				Location:    ".github/workflows/ci.yml",
+				Org:         "acme",
+			},
+		},
+	}
+
+	tools := SnapshotTools(snapshot)
+	if len(tools) != 1 {
+		t.Fatalf("expected one tool after filtering policy/meta findings, got %d (%+v)", len(tools), tools)
+	}
+	if tools[0].ToolID != identity.ToolID("source_repo", "acme/backend") {
+		t.Fatalf("unexpected remaining tool: %+v", tools[0])
+	}
+}
+
+func TestCompareIgnoresPolicyOnlyBaselineDelta(t *testing.T) {
+	t.Parallel()
+
+	baselineSnapshot := state.Snapshot{
+		Findings: []model.Finding{
+			{
+				FindingType: "source_discovery",
+				ToolType:    "source_repo",
+				Location:    "acme/backend",
+				Org:         "acme",
+				Permissions: []string{"repo.contents.read"},
+			},
+			{
+				FindingType: "policy_violation",
+				ToolType:    "policy",
+				Location:    "WRKR-001",
+				Org:         "acme",
+			},
+		},
+	}
+	currentSnapshot := state.Snapshot{
+		Findings: []model.Finding{
+			{
+				FindingType: "source_discovery",
+				ToolType:    "source_repo",
+				Location:    "acme/backend",
+				Org:         "acme",
+				Permissions: []string{"repo.contents.read"},
+			},
+		},
+	}
+
+	baseline := BuildBaseline(baselineSnapshot, time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC))
+	result := Compare(baseline, currentSnapshot)
+	if result.Drift {
+		t.Fatalf("expected no drift for policy-only baseline delta, got %v", result.Reasons)
+	}
+}

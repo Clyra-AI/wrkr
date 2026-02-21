@@ -91,3 +91,48 @@ func TestParseExpiryDefault90Days(t *testing.T) {
 		t.Fatalf("expected 90d expiry, got %s", expires.Sub(now))
 	}
 }
+
+func TestApplyManualStateNonApprovedStatesAlwaysRevokeApprovalStatus(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC)
+	baseManifest := manifest.Manifest{
+		Version: manifest.Version,
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       "wrkr:mcp-1:acme",
+				ToolID:        "mcp-1",
+				Status:        identity.StateActive,
+				ApprovalState: "valid",
+				Approval: manifest.Approval{
+					Approver: "@maria",
+					Scope:    "read-only",
+					Approved: now.Add(-time.Hour).Format(time.RFC3339),
+					Expires:  now.Add(24 * time.Hour).Format(time.RFC3339),
+				},
+				Present: true,
+			},
+		},
+	}
+
+	for _, stateName := range []string{identity.StateUnderReview, identity.StateDeprecated, identity.StateRevoked} {
+		stateName := stateName
+		t.Run(stateName, func(t *testing.T) {
+			t.Parallel()
+
+			next, transition, err := ApplyManualState(baseManifest, "wrkr:mcp-1:acme", stateName, "", "", "", time.Time{}, now)
+			if err != nil {
+				t.Fatalf("apply manual state: %v", err)
+			}
+			if next.Identities[0].Status != stateName {
+				t.Fatalf("expected status %s, got %s", stateName, next.Identities[0].Status)
+			}
+			if next.Identities[0].ApprovalState != "revoked" {
+				t.Fatalf("expected approval_state=revoked, got %s", next.Identities[0].ApprovalState)
+			}
+			if transition.NewState != stateName {
+				t.Fatalf("unexpected transition state: %+v", transition)
+			}
+		})
+	}
+}

@@ -46,7 +46,7 @@ func (c *Connector) AcquireRepo(ctx context.Context, repo string) (source.RepoMa
 		return source.RepoManifest{}, err
 	}
 	if c.BaseURL == "" {
-		return source.RepoManifest{Repo: repo, Location: repo, Source: "github_repo"}, nil
+		return source.RepoManifest{}, errors.New("github api base url is required for repository acquisition")
 	}
 
 	endpoint := c.BaseURL + "/repos/" + repo
@@ -73,7 +73,7 @@ func (c *Connector) ListOrgRepos(ctx context.Context, org string) ([]string, err
 		return nil, errors.New("org is required")
 	}
 	if c.BaseURL == "" {
-		return []string{org + "/default"}, nil
+		return nil, errors.New("github api base url is required for organization acquisition")
 	}
 
 	u, err := url.Parse(c.BaseURL)
@@ -108,9 +108,6 @@ func (c *Connector) ListOrgRepos(ctx context.Context, org string) ([]string, err
 			repo = org + "/" + item.Name
 		}
 		repos = append(repos, repo)
-	}
-	if len(repos) == 0 {
-		repos = append(repos, org+"/default")
 	}
 	return repos, nil
 }

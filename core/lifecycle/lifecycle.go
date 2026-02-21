@@ -182,9 +182,7 @@ func ApplyManualState(m manifest.Manifest, agentID, state, approver, scope, reas
 		}
 		record.ApprovalState = "valid"
 	case identity.StateRevoked, identity.StateDeprecated, identity.StateUnderReview:
-		if strings.TrimSpace(reason) != "" {
-			record.ApprovalState = "revoked"
-		}
+		record.ApprovalState = "revoked"
 	}
 	record.LastSeen = now.Format(time.RFC3339)
 	m.Identities[index] = record

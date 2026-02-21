@@ -260,10 +260,14 @@ func TestScanUsesConfiguredDefaultTarget(t *testing.T) {
 	tmp := t.TempDir()
 	configPath := filepath.Join(tmp, "config.json")
 	statePath := filepath.Join(tmp, "last-scan.json")
+	reposPath := filepath.Join(tmp, "repos")
+	if err := os.MkdirAll(filepath.Join(reposPath, "alpha"), 0o755); err != nil {
+		t.Fatalf("mkdir repos fixture: %v", err)
+	}
 
 	var initOut bytes.Buffer
 	var initErr bytes.Buffer
-	initCode := Run([]string{"init", "--non-interactive", "--repo", "acme/backend", "--config", configPath, "--json"}, &initOut, &initErr)
+	initCode := Run([]string{"init", "--non-interactive", "--path", reposPath, "--config", configPath, "--json"}, &initOut, &initErr)
 	if initCode != 0 {
 		t.Fatalf("init failed: exit %d stderr %s", initCode, initErr.String())
 	}
@@ -280,7 +284,7 @@ func TestScanUsesConfiguredDefaultTarget(t *testing.T) {
 		t.Fatalf("parse json output: %v", err)
 	}
 	target := payload["target"].(map[string]any)
-	if target["mode"] != "repo" || target["value"] != "acme/backend" {
+	if target["mode"] != "path" || target["value"] != reposPath {
 		t.Fatalf("unexpected target: %v", target)
 	}
 }
@@ -364,6 +368,88 @@ func TestScanEnrichRequiresNetworkSource(t *testing.T) {
 	}
 	if errorPayload["code"] != "dependency_missing" {
 		t.Fatalf("unexpected error code: %v", errorPayload["code"])
+	}
+}
+
+func TestScanRepoAndOrgRequireGitHubAPI(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{name: "repo", args: []string{"scan", "--repo", "acme/backend", "--json"}},
+		{name: "org", args: []string{"scan", "--org", "acme", "--json"}},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var out bytes.Buffer
+			var errOut bytes.Buffer
+			code := Run(tc.args, &out, &errOut)
+			if code != 7 {
+				t.Fatalf("expected exit 7, got %d", code)
+			}
+			if out.Len() != 0 {
+				t.Fatalf("expected no stdout on dependency error, got %q", out.String())
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+				t.Fatalf("parse error payload: %v", err)
+			}
+			errorPayload, ok := payload["error"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected error object, got %v", payload)
+			}
+			if errorPayload["code"] != "dependency_missing" {
+				t.Fatalf("unexpected error code: %v", errorPayload["code"])
+			}
+		})
+	}
+}
+
+func TestScanRepoAndOrgWithUnreachableGitHubAPIReturnRuntimeFailure(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{name: "repo", args: []string{"scan", "--repo", "acme/backend", "--github-api", "http://127.0.0.1:1", "--json"}},
+		{name: "org", args: []string{"scan", "--org", "acme", "--github-api", "http://127.0.0.1:1", "--json"}},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var out bytes.Buffer
+			var errOut bytes.Buffer
+			code := Run(tc.args, &out, &errOut)
+			if code != 1 {
+				t.Fatalf("expected exit 1, got %d", code)
+			}
+			if out.Len() != 0 {
+				t.Fatalf("expected no stdout on runtime error, got %q", out.String())
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+				t.Fatalf("parse error payload: %v", err)
+			}
+			errorPayload, ok := payload["error"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected error object, got %v", payload)
+			}
+			if errorPayload["code"] != "runtime_failure" {
+				t.Fatalf("unexpected error code: %v", errorPayload["code"])
+			}
+		})
 	}
 }
 
@@ -621,6 +707,110 @@ func TestIdentityAndLifecycleCommands(t *testing.T) {
 	}
 	if _, ok := lifecyclePayload["identities"].([]any); !ok {
 		t.Fatalf("expected identities array in lifecycle payload: %v", lifecyclePayload)
+	}
+}
+
+func TestIdentityNonApprovedTransitionsUseDeterministicDefaultReasonAndRevokeApproval(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name           string
+		subcommand     string
+		expectedState  string
+		expectedReason string
+	}{
+		{name: "review", subcommand: "review", expectedState: "under_review", expectedReason: "manual_transition_under_review"},
+		{name: "deprecate", subcommand: "deprecate", expectedState: "deprecated", expectedReason: "manual_transition_deprecated"},
+		{name: "revoke", subcommand: "revoke", expectedState: "revoked", expectedReason: "manual_transition_revoked"},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			tmp := t.TempDir()
+			statePath := filepath.Join(tmp, "state.json")
+			repoRoot := mustFindRepoRoot(t)
+			scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+			var scanOut bytes.Buffer
+			var scanErr bytes.Buffer
+			if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+				t.Fatalf("scan failed: %d %s", code, scanErr.String())
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(scanOut.Bytes(), &payload); err != nil {
+				t.Fatalf("parse scan payload: %v", err)
+			}
+			inventoryPayload, ok := payload["inventory"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected inventory payload, got %T", payload["inventory"])
+			}
+			tools, ok := inventoryPayload["tools"].([]any)
+			if !ok || len(tools) == 0 {
+				t.Fatalf("expected inventory tools, got %v", inventoryPayload["tools"])
+			}
+			firstTool, ok := tools[0].(map[string]any)
+			if !ok {
+				t.Fatalf("unexpected first tool shape: %T", tools[0])
+			}
+			agentID, ok := firstTool["agent_id"].(string)
+			if !ok || agentID == "" {
+				t.Fatalf("missing agent_id in first tool: %v", firstTool)
+			}
+
+			var approveOut bytes.Buffer
+			var approveErr bytes.Buffer
+			if code := Run([]string{"identity", "approve", agentID, "--approver", "@maria", "--scope", "read-only", "--expires", "90d", "--state", statePath, "--json"}, &approveOut, &approveErr); code != 0 {
+				t.Fatalf("identity approve failed: %d %s", code, approveErr.String())
+			}
+
+			var transitionOut bytes.Buffer
+			var transitionErr bytes.Buffer
+			if code := Run([]string{"identity", tc.subcommand, agentID, "--state", statePath, "--json"}, &transitionOut, &transitionErr); code != 0 {
+				t.Fatalf("identity %s failed: %d %s", tc.subcommand, code, transitionErr.String())
+			}
+			var transitionPayload map[string]any
+			if err := json.Unmarshal(transitionOut.Bytes(), &transitionPayload); err != nil {
+				t.Fatalf("parse transition payload: %v", err)
+			}
+			transitionObj, ok := transitionPayload["transition"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected transition payload object, got %v", transitionPayload)
+			}
+			if gotState, _ := transitionObj["new_state"].(string); gotState != tc.expectedState {
+				t.Fatalf("expected new_state=%s, got %q", tc.expectedState, gotState)
+			}
+			diffObj, ok := transitionObj["diff"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected transition diff object, got %v", transitionObj["diff"])
+			}
+			if gotReason, _ := diffObj["reason"].(string); gotReason != tc.expectedReason {
+				t.Fatalf("expected reason=%q, got %q", tc.expectedReason, gotReason)
+			}
+
+			var showOut bytes.Buffer
+			var showErr bytes.Buffer
+			if code := Run([]string{"identity", "show", agentID, "--state", statePath, "--json"}, &showOut, &showErr); code != 0 {
+				t.Fatalf("identity show failed: %d %s", code, showErr.String())
+			}
+			var showPayload map[string]any
+			if err := json.Unmarshal(showOut.Bytes(), &showPayload); err != nil {
+				t.Fatalf("parse identity show payload: %v", err)
+			}
+			identityObj, ok := showPayload["identity"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected identity payload object, got %T", showPayload["identity"])
+			}
+			if gotStatus, _ := identityObj["status"].(string); gotStatus != tc.expectedState {
+				t.Fatalf("expected identity status %q, got %q", tc.expectedState, gotStatus)
+			}
+			if approvalStatus, _ := identityObj["approval_status"].(string); approvalStatus != "revoked" {
+				t.Fatalf("expected approval_status=revoked, got %q", approvalStatus)
+			}
+		})
 	}
 }
 

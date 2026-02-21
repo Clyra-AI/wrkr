@@ -3,6 +3,9 @@ package sourcee2e
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,16 +18,27 @@ func TestE2EScanModesRepoOrgPath(t *testing.T) {
 
 	tmp := t.TempDir()
 	state := filepath.Join(tmp, "state.json")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/backend"}]`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
 
 	var repoOut bytes.Buffer
 	var repoErr bytes.Buffer
-	if code := cli.Run([]string{"scan", "--repo", "acme/backend", "--state", state, "--json"}, &repoOut, &repoErr); code != 0 {
+	if code := cli.Run([]string{"scan", "--repo", "acme/backend", "--github-api", server.URL, "--state", state, "--json"}, &repoOut, &repoErr); code != 0 {
 		t.Fatalf("repo scan failed: %d (%s)", code, repoErr.String())
 	}
 
 	var orgOut bytes.Buffer
 	var orgErr bytes.Buffer
-	if code := cli.Run([]string{"scan", "--org", "acme", "--state", state, "--json"}, &orgOut, &orgErr); code != 0 {
+	if code := cli.Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", state, "--json"}, &orgOut, &orgErr); code != 0 {
 		t.Fatalf("org scan failed: %d (%s)", code, orgErr.String())
 	}
 

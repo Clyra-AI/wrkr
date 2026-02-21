@@ -3,6 +3,9 @@ package inite2e
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
@@ -10,11 +13,18 @@ import (
 )
 
 func TestE2EInitThenScanWithRepoTarget(t *testing.T) {
-	t.Parallel()
-
 	tmp := t.TempDir()
 	configPath := filepath.Join(tmp, "config.json")
 	statePath := filepath.Join(tmp, "state.json")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/repos/acme/backend" {
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+	t.Setenv("WRKR_GITHUB_API_BASE", server.URL)
 
 	var initOut bytes.Buffer
 	var initErr bytes.Buffer

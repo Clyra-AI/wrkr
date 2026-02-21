@@ -22,6 +22,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/policy"
 	policyeval "github.com/Clyra-AI/wrkr/core/policy/eval"
 	profilemodel "github.com/Clyra-AI/wrkr/core/policy/profile"
@@ -85,6 +86,15 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 			jsonRequested || *jsonOut,
 			"dependency_missing",
 			"--enrich requires a reachable network source; set --github-api or WRKR_GITHUB_API_BASE",
+			exitDependencyMissing,
+		)
+	}
+	if (targetMode == config.TargetRepo || targetMode == config.TargetOrg) && strings.TrimSpace(*githubBaseURL) == "" {
+		return emitError(
+			stderr,
+			jsonRequested || *jsonOut,
+			"dependency_missing",
+			"--repo and --org scans require --github-api or WRKR_GITHUB_API_BASE",
 			exitDependencyMissing,
 		)
 	}
@@ -478,10 +488,7 @@ func buildFindingContexts(report risk.Report) map[string]agginventory.ToolContex
 func observedTools(findings []source.Finding, contexts map[string]agginventory.ToolContext) []lifecycle.ObservedTool {
 	byAgent := map[string]lifecycle.ObservedTool{}
 	for _, finding := range findings {
-		if strings.TrimSpace(finding.ToolType) == "" {
-			continue
-		}
-		if finding.FindingType == "policy_check" || finding.FindingType == "policy_violation" || finding.FindingType == "parse_error" {
+		if !model.IsIdentityBearingFinding(finding) {
 			continue
 		}
 		org := strings.TrimSpace(finding.Org)
