@@ -5,13 +5,13 @@
 | Version | 1.0 |
 | Status | Execution-ready |
 | Owner | Product and Engineering |
-| Last Updated | 2026-02-18 |
+| Last Updated | 2026-02-21 |
 
 ---
 
 ## Executive Summary
 
-Wrkr is an open-source Go CLI that discovers AI development tools across an organization, tracks their lifecycle, and produces compliance-ready proof records of AI posture. It answers four questions no existing tool can: What AI tools are developers using? What can those tools access? What's their trust status? Can we prove it to an auditor?
+Wrkr is an open-source Go CLI and AI-DSPM scanner that discovers AI development tools across an organization, tracks their lifecycle, and produces compliance-ready proof records of AI posture. It answers four questions no existing tool can: What AI tools are developers using? What can those tools access? What's their trust status? Can we prove it to an auditor?
 
 **Primary audiences:** The primary user is the **platform engineering lead** responsible for developer tooling standards. The primary buyer is the **CISO or VP of Engineering** who needs to answer "what AI tools are in our environment" for auditors, boards, or regulators. The champion is the **security engineer** who runs the scan and surfaces findings.
 
@@ -172,6 +172,8 @@ Not 200 warnings. Five findings, ranked by blast radius x privilege x trust defi
 │ 5  │ Codex full-auto in CI with org-admin GitHub token │  7.4   │
 └────┴───────────────────────────────────────────────────┴────────┘
 ```
+
+The report output includes deterministic policy outcomes (pass/fail by rule ID), profile compliance status (`baseline`/`standard`/`strict`), and a posture score with grade and trend delta so teams can track posture movement over time, not just point-in-time findings.
 
 **3. Proof Records (the evidence)**
 
@@ -389,8 +391,11 @@ Alex heard about Wrkr on Reddit or at a meetup. Runs `wrkr scan` on a Friday aft
 - `wrkr scan` — scan using configured default target from `wrkr init` (repo or org). Errors if no default is configured and no target flag is provided.
 - `wrkr scan --path ./local-repos/` — scan pre-cloned local repos (skips clone phase, enables fully air-gapped operation)
 - `wrkr scan --enrich` — enable live advisory/registry lookups for MCP supply chain scoring (non-deterministic, requires network). Combinable with any target mode.
+- `wrkr scan --policy <path>` — evaluate custom policy rules in addition to built-in deterministic policy pack
+- `wrkr scan --profile [baseline|standard|strict]` — evaluate posture compliance profile and report pass rate + failing rules
 - `wrkr scan --diff` — incremental, shows changes since last scan for the selected target. Previous scan state is stored in `.wrkr/last-scan.json` locally. In CI, the previous scan can be loaded from a committed proof chain artifact or a cache key. Comparison is keyed on `(tool_type, location, org)` tuples.
 - `wrkr report` — render risk report to terminal (default) or PDF
+- `wrkr score` — compute posture score (0-100), grade (`A`-`F`), weighted breakdown, and trend delta from latest scan state
 - `wrkr evidence --frameworks [list]` — generate compliance bundle with proof records
 - `wrkr fix --top N` — open remediation PRs for top N findings
 - `wrkr manifest generate` — create `wrkr-manifest.yaml` for a repo (declaration of approved AI tools)
@@ -444,6 +449,40 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
   - `wrkr identity revoke <id> --reason <text>` — revoke a tool
   - All lifecycle commands emit signed proof records and append to the identity chain
 
+### FR11: Configuration Policy Engine
+
+- Run a deterministic policy evaluator after detection and before final risk aggregation
+- Load built-in rules from `Clyra-AI/proof/policies/wrkr/*.yaml` with strict schema validation
+- Support custom policy extension via `wrkr scan --policy <path>` and repository-default `wrkr-policy.yaml`
+- Emit named pass/fail checks and first-class policy findings (`finding_type: policy_violation`) using stable WRKR rule IDs
+- Enforce rule-versioning contract: semantic rule changes require new rule IDs (immutable meaning per ID)
+- Include skill-governance built-ins in v1 policy pack:
+  - `WRKR-013`: skill privilege ceiling must not combine `proc.exec` with credentialed access
+  - `WRKR-014`: skill `allowed-tools` must not conflict with Gait policy constraints
+  - `WRKR-015`: skill sprawl concentration threshold exceeded (exec-granting skills dominate repo skill set)
+- Fail closed on malformed policy packs or ambiguous high-risk policy evaluation paths
+
+### FR12: Posture Profiles
+
+- Support built-in posture profiles: `baseline`, `standard`, `strict`
+- Load profile definitions from `Clyra-AI/proof/policies/wrkr/profiles/*.yaml`
+- `wrkr scan --profile [baseline|standard|strict]` emits deterministic compliance percentage, failing rule IDs, and delta from prior scan
+- Support profile extension/override from `wrkr-policy.yaml` for org-specific thresholds
+- Profile results feed risk report ranking, compliance evidence generation, and proof-record metadata
+
+### FR13: AI Posture Score
+
+- Compute deterministic posture score (`0-100`) with fixed default weighted model:
+  - policy pass rate: `40%`
+  - approval coverage: `20%`
+  - severity distribution: `20%`
+  - profile compliance: `10%`
+  - drift rate: `10%`
+- Map score to grade bands (`A`/`B`/`C`/`D`/`F`) and trend delta against previous scan state
+- Expose score via `wrkr score` and in scan/report outputs
+- Allow configurable weights in `wrkr-policy.yaml` with strict validation constraints
+- Emit score and breakdown as structured outputs consumable by CI gates and `risk_assessment` proof records
+
 ---
 
 ## Non-Functional Requirements
@@ -462,6 +501,7 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
 ### NFR3: Reliability
 
 - Deterministic output: same input always produces same inventory and same proof records (no LLM in the scan pipeline — this is pattern matching and static analysis, not generative AI). Note: `--enrich` mode (live advisory/registry lookups) is explicitly non-deterministic and excluded from the determinism guarantee. Default offline mode is fully deterministic.
+- Deterministic policy/profile/score outputs in offline mode: identical findings + rule/profile packs + weights produce identical policy results, profile compliance, and posture score
 - Scan failures on individual repos don't halt the full scan (graceful degradation)
 - All outputs are schema-validated before writing
 
@@ -585,6 +625,18 @@ A test fixture PR modifies `.claude/settings.json` to add a new MCP server and c
 
 Running `wrkr manifest generate` against a repo with Claude Code, Cursor, and 2 MCP servers produces a `wrkr-manifest.yaml` that lists all discovered tools under `review_pending` with status `under_review` and their current configuration (versions, hooks, MCP servers, access scopes), sets `blocked_tools` to empty, and populates the `policy` section with sensible defaults (`require_pinned_versions: true`, `require_mcp_approval: true`). Tools in `under_review` status still carry trust deficit in risk scoring. A human must explicitly move tools to `approved_tools` (via `wrkr identity approve` or manual edit) and commit the manifest for trust deficit to reach zero. This prevents "paper compliance" where auto-generated manifests bypass the review lifecycle. Removing a tool from the manifest and re-scanning flags it as unapproved with elevated risk.
 
+### AC18: The "Policy Check"
+
+A test fixture repo with known rule outcomes (for example WRKR-001 fail, WRKR-002 fail, WRKR-004 pass) produces deterministic policy pass/fail results on repeated runs, with stable rule IDs and remediation hints in JSON output. Running `wrkr scan --policy ./fixtures/wrkr-policy.yaml --json` evaluates custom rules in the same engine and emits violations as first-class findings (`finding_type: policy_violation`) without changing built-in rule semantics.
+
+### AC19: The "Profile Compliance"
+
+For the same fixture input, `wrkr scan --profile baseline|standard|strict --json` returns deterministic profile compliance percentage, explicit failing rule IDs, and compliance delta from previous scan state. Invalid profile references fail closed with a stable error envelope. Profile results are included in risk and evidence outputs.
+
+### AC20: The "Posture Score"
+
+Given a fixed fixture scan state and fixed score weights, `wrkr score --json` emits a deterministic score (`0-100`), grade (`A`-`F`), weighted component breakdown, and trend delta. The score is stable across repeated runs and is emitted in proof-compatible structured form for downstream CI policy gates and evidence chains.
+
 ---
 
 ## Tech Stack & Architecture
@@ -659,17 +711,35 @@ Aggregation Engine:
   ├── AutonomyClassifier       (classify each tool: interactive → copilot → headless_gated → headless_auto)
   └── CombinedRiskCalculator   (aggregate risk score per repo, not just per tool)
 
+Policy Engine:
+  ├── BuiltInRuleLoader        (`Clyra-AI/proof/policies/wrkr/*.yaml`)
+  ├── CustomRuleLoader         (`wrkr scan --policy` + `wrkr-policy.yaml`)
+  ├── RuleEvaluator            (deterministic pass/fail checks with stable IDs)
+  └── PolicyFindingEmitter     (`finding_type: policy_violation`)
+
 Identity Engine:
   ├── IdentityAssigner         (deterministic agent ID: wrkr:<tool_id>:<org>)
   ├── LifecycleTracker         (state machine: discovered → approved → revoked)
   ├── ApprovalManager          (expiry enforcement, renewal detection)
   └── IdentityChainEmitter     (lifecycle transitions → proof record chain)
 
+Posture Profile Evaluator:
+  ├── ProfileLoader            (`baseline` / `standard` / `strict`)
+  ├── ThresholdEvaluator       (profile compliance % + failing rules)
+  └── DeltaCalculator          (compliance trend vs previous scan)
+
 Risk Scorer:
   ├── BlastRadiusCalculator   (what can this tool affect?)
   ├── PrivilegeCalculator     (what permissions does it have?)
   ├── TrustDeficitCalculator  (is it approved? pinned? tested?)
+  ├── PolicySeverityContributor (policy violations influence rank)
   └── CompositeScorer         (weighted combination → single score)
+
+Score Engine:
+  ├── ScoreInputAggregator    (policy pass rate, approvals, severity mix, profile compliance, drift rate)
+  ├── WeightedScorer          (deterministic 0-100 score)
+  ├── GradeMapper             (`A`/`B`/`C`/`D`/`F`)
+  └── TrendCalculator         (delta vs prior scan)
 
 Proof Record Emitter:
   ├── Converts Finding → proof.Record (type: scan_finding)
@@ -716,6 +786,9 @@ type Inventory struct {
     ScanVersion string      `json:"scan_version"`
     Tools       []AITool    `json:"tools"`
     Summary     ScanSummary `json:"summary"`
+    PolicyChecks      []PolicyCheck      `json:"policy_checks,omitempty"`
+    ProfileCompliance *ProfileCompliance `json:"profile_compliance,omitempty"`
+    PostureScore      *PostureScore      `json:"posture_score,omitempty"`
 }
 
 // AITool represents a discovered AI development tool.
@@ -829,12 +902,43 @@ type DataAccess struct {
 type Finding struct {
     ID               string   `json:"id"`
     Tool             AITool   `json:"tool"`
+    FindingType      string   `json:"finding_type,omitempty"` // "tool_risk" | "policy_violation" | "skill_policy_conflict"
+    RuleID           string   `json:"rule_id,omitempty"`      // WRKR rule ID when finding_type is policy-related
+    CheckResult      string   `json:"check_result,omitempty"` // "pass" | "fail" for rule-backed findings
+    ReasonCode       string   `json:"reason_code,omitempty"`  // stable machine-readable reason
     Severity         string   `json:"severity"` // "critical" | "high" | "medium" | "low"
     Title            string   `json:"title"`
     Description      string   `json:"description"`
     Remediation      string   `json:"remediation"`
     AutoFixAvailable bool     `json:"auto_fix_available"`
     RiskScore        float64  `json:"risk_score"`
+}
+
+// PolicyCheck captures deterministic pass/fail output for a single policy rule.
+type PolicyCheck struct {
+    RuleID      string `json:"rule_id"`       // e.g., WRKR-001
+    RuleVersion string `json:"rule_version"`  // immutable semantics per rule version
+    Name        string `json:"name"`
+    Severity    string `json:"severity"`      // "critical" | "high" | "medium" | "low"
+    Result      string `json:"result"`        // "pass" | "fail"
+    Reason      string `json:"reason,omitempty"`
+}
+
+// ProfileCompliance summarizes posture conformance for a selected profile.
+type ProfileCompliance struct {
+    Name          string   `json:"name"`             // baseline | standard | strict
+    CompliancePct float64  `json:"compliance_pct"`   // 0-100
+    FailingRuleIDs []string `json:"failing_rule_ids,omitempty"`
+    DeltaPct      float64  `json:"delta_pct"`        // change vs previous scan
+}
+
+// PostureScore is the deterministic weighted posture metric emitted by `wrkr score`.
+type PostureScore struct {
+    Score      float64            `json:"score"`       // 0-100
+    Grade      string             `json:"grade"`       // A | B | C | D | F
+    TrendDelta float64            `json:"trend_delta"` // score change vs previous scan
+    Breakdown  map[string]float64 `json:"breakdown"`   // component -> weighted contribution
+    Weights    map[string]float64 `json:"weights"`     // component -> configured weight
 }
 
 // ScanSummary provides aggregate scan statistics.
