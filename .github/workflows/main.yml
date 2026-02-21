@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       acceptance: ${{ steps.filter.outputs.acceptance }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,6 +41,14 @@ jobs:
               - 'scenarios/**'
               - '.github/workflows/**'
               - 'scripts/**'
+            docs:
+              - 'README.md'
+              - 'docs/**'
+              - 'product/wrkr.md'
+              - 'core/cli/**'
+              - 'scripts/check_docs_cli_parity.sh'
+              - 'scripts/check_docs_storyline.sh'
+              - 'scripts/run_docs_smoke.sh'
 
   core-matrix:
     name: core-matrix-${{ matrix.os }}
@@ -89,3 +98,50 @@ jobs:
           scripts/validate_contracts.sh
           scripts/validate_scenarios.sh
           go test ./internal/scenarios -count=1 -tags=scenario
+
+  docs-smoke:
+    name: docs-smoke
+    runs-on: ubuntu-latest
+    needs: [changes, core-matrix]
+    if: needs.changes.outputs.docs == 'true' || needs.changes.outputs.acceptance == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Run docs parity and full smoke
+        run: |
+          make test-docs-consistency
+          scripts/run_docs_smoke.sh
+
+  v1-acceptance:
+    name: v1-acceptance
+    runs-on: ubuntu-latest
+    needs: [changes, core-matrix]
+    if: needs.changes.outputs.acceptance == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Run v1 acceptance dry-run
+        run: scripts/run_v1_acceptance.sh --mode=main
+
+      - name: Upload v1 acceptance scorecard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1-acceptance-scorecard-main
+          path: |
+            .tmp/release/v1-scorecard.json
+            .tmp/release/v1-scorecard.md

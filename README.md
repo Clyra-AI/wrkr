@@ -2,6 +2,16 @@
 
 Wrkr is the deterministic See-layer CLI in the See -> Prove -> Control model.
 
+## Positioning
+
+Wrkr is the AI-DSPM discovery layer in Clyra's governance sequence:
+
+- See: Wrkr discovers AI tools, autonomy context, permissions, and risk.
+- Prove: Axym maps Wrkr proof records to compliance controls.
+- Control: Gait applies policy enforcement to approved governance decisions.
+
+Wrkr runs standalone and interoperates through shared `Clyra-AI/proof` contracts.
+
 ## Status
 
 Epics 1-6 are implemented.
@@ -85,3 +95,18 @@ Invalid target combinations return exit code `6` with a machine-readable JSON en
 - `wrkr fix --top <N> --json` generates deterministic remediation patch previews and commit messages for eligible high-risk findings.
 - Unsupported findings are emitted with explicit non-fixable reason codes.
 - `wrkr fix --open-pr` requires a write-capable fix profile token (scan-only profile fails closed).
+
+## Evidence Output Safety
+
+`wrkr evidence` is fail-closed on output paths:
+
+- Non-empty, non-managed output directories are blocked.
+- Ownership marker `.wrkr-evidence-managed` must be a regular file.
+- Marker symlink/directory usage is blocked.
+- Unsafe output writes return exit code `8` with `unsafe_operation_blocked`.
+
+## Documentation
+
+- Command reference: `docs/commands/`
+- Operator examples/playbooks: `docs/examples/`
+- `wrkr-manifest.yaml` open specification: `docs/specs/wrkr-manifest.md`

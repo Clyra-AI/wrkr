@@ -34,6 +34,10 @@ jobs:
               - 'core/**'
               - 'internal/**'
               - 'testinfra/**'
+            docs:
+              - 'README.md'
+              - 'docs/**'
+              - 'product/wrkr.md'
             python:
               - 'scripts/**/*.py'
             workflow_or_policy:
@@ -76,6 +80,12 @@ jobs:
           make test-fast
           make test-contracts
           scripts/validate_scenarios.sh
+
+      - name: Docs parity and smoke subset
+        if: steps.changes.outputs.go == 'true' || steps.changes.outputs.docs == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        run: |
+          make test-docs-consistency
+          make test-docs-storyline
 
       - name: Run ruff
         if: steps.pyfiles.outputs.has_python == 'true' && steps.changes.outputs.python == 'true'

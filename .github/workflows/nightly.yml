@@ -40,6 +40,9 @@ jobs:
       - name: Run prepush full
         run: make prepush-full
 
+      - name: Run v1 acceptance full cadence
+        run: scripts/run_v1_acceptance.sh --mode=nightly
+
       - name: Run contract determinism smoke
         run: scripts/validate_contracts.sh
 
@@ -63,3 +66,12 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           go build -o .tmp/wrkr ./cmd/wrkr
           "$(go env GOPATH)/bin/govulncheck" -mode=binary .tmp/wrkr
+
+      - name: Upload v1 acceptance scorecard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1-acceptance-scorecard-nightly
+          path: |
+            .tmp/release/v1-scorecard.json
+            .tmp/release/v1-scorecard.md
