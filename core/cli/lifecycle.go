@@ -29,8 +29,8 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 	reportShareProfile := fs.String("share-profile", "internal", "summary share profile [internal|public]")
 	reportTop := fs.Int("top", 5, "number of top findings included in lifecycle summary artifact")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 
 	resolvedStatePath := state.ResolvePath(*statePathFlag)

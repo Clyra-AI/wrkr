@@ -26,8 +26,8 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	statePathFlag := fs.String("state", "", "state file path override")
 	chainPathFlag := fs.String("path", "", "proof chain path override")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if !*verifyChain {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--chain is required", exitInvalidInput)

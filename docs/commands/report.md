@@ -30,3 +30,11 @@ wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --sha
 ```
 
 Expected JSON keys: `status`, `generated_at`, `top_findings`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `summary`, `md_path`, `pdf_path`.
+
+## Coverage semantics
+
+Report compliance/posture values are derived from evidence present in the current scan state.
+
+- Low compliance/coverage in report output indicates control evidence gaps in the scanned snapshot.
+- Low compliance/coverage does not imply Wrkr lacks framework support.
+- Use report findings as remediation priorities, then rerun deterministic scan/evidence/report commands to confirm improvement.

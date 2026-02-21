@@ -72,3 +72,36 @@ func TestE2ECLIParseErrorsRemainJSONForFlagOrderingVariants(t *testing.T) {
 		})
 	}
 }
+
+func TestE2EHelpContractMatrixReturnsExit0(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{name: "root", args: []string{"--help"}},
+		{name: "init", args: []string{"init", "--help"}},
+		{name: "scan", args: []string{"scan", "--help"}},
+		{name: "evidence", args: []string{"evidence", "--help"}},
+		{name: "regress run", args: []string{"regress", "run", "--help"}},
+		{name: "report", args: []string{"report", "--help"}},
+		{name: "verify", args: []string{"verify", "--help"}},
+		{name: "fix", args: []string{"fix", "--help"}},
+		{name: "lifecycle", args: []string{"lifecycle", "--help"}},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var out bytes.Buffer
+			var errOut bytes.Buffer
+			code := cli.Run(tc.args, &out, &errOut)
+			if code != 0 {
+				t.Fatalf("expected exit 0 for %v, got %d (stderr=%q)", tc.args, code, errOut.String())
+			}
+		})
+	}
+}

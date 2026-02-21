@@ -18,6 +18,10 @@ func runRegress(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
 		return emitError(stderr, wantsJSONOutput(args), "invalid_input", "regress subcommand is required", exitInvalidInput)
 	}
+	if isHelpFlag(args[0]) {
+		_, _ = fmt.Fprintln(stderr, "Usage of wrkr regress: regress <init|run> [flags]")
+		return exitSuccess
+	}
 
 	switch args[0] {
 	case "init":
@@ -42,8 +46,8 @@ func runRegressInit(args []string, stdout io.Writer, stderr io.Writer) int {
 	baselineScanPath := fs.String("baseline", "", "state snapshot path used to initialize baseline")
 	outputPath := fs.String("output", "", "baseline artifact output path")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "regress init does not accept positional arguments", exitInvalidInput)
@@ -95,8 +99,8 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 	reportShareProfile := fs.String("share-profile", "internal", "summary share profile [internal|public]")
 	reportTop := fs.Int("top", 5, "number of top findings included in regress summary artifact")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "regress run does not accept positional arguments", exitInvalidInput)

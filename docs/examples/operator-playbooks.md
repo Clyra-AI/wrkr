@@ -34,6 +34,18 @@ wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json
 
 Check `framework_coverage`, `report_artifacts`, and manifest/chain paths.
 
+`framework_coverage` reflects evidence currently present in scanned state.
+
+- Low/0% coverage indicates documented control gaps in current evidence.
+- Low/0% does not imply Wrkr lacks support for that framework.
+- Treat low coverage as an action queue: remediate, rescan, and regenerate evidence.
+
+Recommended low-coverage response:
+
+1. Run `wrkr report --top 5 --json` to prioritize the highest-risk missing controls.
+2. Complete control implementation or lifecycle approvals for the affected identities/tools.
+3. Re-run `wrkr scan --json`, then `wrkr evidence --frameworks ... --json` and compare updated `framework_coverage`.
+
 ### Unsafe output-path handling
 
 If output directory is non-empty and not Wrkr-managed, evidence fails closed with exit `8` and `unsafe_operation_blocked`.

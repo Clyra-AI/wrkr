@@ -31,8 +31,8 @@ func runInit(args []string, stdout io.Writer, stderr io.Writer) int {
 	fixToken := fs.String("fix-token", "", "read-write token for fix profile")
 	configPathFlag := fs.String("config", "", "config file path override")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 
 	configPath, err := config.ResolvePath(*configPathFlag)

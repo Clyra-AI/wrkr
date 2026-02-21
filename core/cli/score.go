@@ -26,8 +26,8 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 	explain := fs.Bool("explain", false, "emit rationale details")
 	statePathFlag := fs.String("state", "", "state file path override")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if *quiet && *explain && !*jsonOut {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--quiet and --explain cannot be used together", exitInvalidInput)

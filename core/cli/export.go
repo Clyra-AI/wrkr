@@ -25,8 +25,8 @@ func runExport(args []string, stdout io.Writer, stderr io.Writer) int {
 	format := fs.String("format", "inventory", "export format")
 	statePathFlag := fs.String("state", "", "state file path override")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if *format != "inventory" {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "unsupported export format", exitInvalidInput)

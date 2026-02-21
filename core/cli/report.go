@@ -58,8 +58,8 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	baselinePath := fs.String("baseline", "", "optional regress baseline for drift summary")
 	previousStatePath := fs.String("previous-state", "", "optional previous state for risk trend delta")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "report does not accept positional arguments", exitInvalidInput)
