@@ -71,7 +71,7 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 		"  fast-lane:",
 		"    steps:",
 		"      - run: go install github.com/securego/gosec/v2/cmd/gosec@" + versions.gosecVersion,
-		"      - run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@" + versions.golangciLintVersion,
+		"      - run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@" + versions.golangciLintVersion,
 		"",
 	}, "\n")
 	mustWriteFile(t, filepath.Join(root, ".github/workflows/pr.yml"), workflow)

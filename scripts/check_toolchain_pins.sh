@@ -186,4 +186,4 @@ if [[ -z "$golangci_lint_expected" ]]; then
 fi
 
 check_enforced_pin "gosec" "github.com/securego/gosec/v2/cmd/gosec" "$gosec_expected"
-check_enforced_pin "golangci-lint" "github.com/golangci/golangci-lint/cmd/golangci-lint" "$golangci_lint_expected"
+check_enforced_pin "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint" "$golangci_lint_expected"
