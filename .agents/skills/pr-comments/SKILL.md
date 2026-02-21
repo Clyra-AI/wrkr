@@ -63,9 +63,13 @@ Prioritize comments that affect:
 5. Security/privacy controls (signing, secrets handling, unsafe interlocks).
 6. Cross-platform/CI portability issues.
 7. Docs drift where behavior has changed.
+8. Semantic boundary leaks between finding classes and identity/regression state.
+9. Lifecycle-state preservation (for example absent identities being rewritten as present).
 
 Severity guidance:
 - Treat marker-name-only ownership checks before recursive delete/cleanup on user-supplied paths as at least `P1` until proven safe.
+- Treat finding-boundary leaks that can trigger false regression drift as at least `P1` until proven safe.
+- Treat lifecycle-preservation violations (`present=false` overwritten/reintroduced) as at least `P2`.
 
 Deprioritize or reject:
 

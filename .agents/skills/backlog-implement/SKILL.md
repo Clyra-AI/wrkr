@@ -132,6 +132,8 @@ Rules:
 - Deterministic allow/block/require_approval fixture tests
 - Fail-closed undecidable-path tests
 - Stable reason-code tests
+- Regression input-boundary tests (`policy_check`/`policy_violation`/`parse_error` must not become tracked tools)
+- Lifecycle preservation tests (`present=false` identities must not be rewritten to `present=true` by generation flows)
 - Filesystem boundary tests for user-supplied output paths (`non-empty + non-managed => fail`)
 - Ownership marker trust tests (`marker must be regular file`; reject symlink/directory)
 

@@ -97,6 +97,8 @@ When collecting evidence or emitting machine-readable status, use `wrkr` command
 - deterministic allow/block/require_approval fixtures
 - fail-closed undecidable-path tests
 - reason-code stability checks
+- regression input-boundary tests (`policy_check`/`policy_violation`/`parse_error` must not become tracked tools)
+- lifecycle preservation tests (`present=false` identities must not be rewritten to `present=true` by generation flows)
 - filesystem boundary tests for user-supplied output paths (`non-empty + non-managed => fail`)
 - ownership marker trust tests (`marker must be regular file`; reject symlink/directory)
 

@@ -43,6 +43,8 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
    - Integrity verification weakening
    - False-green test/CI paths
    - Portability/toolchain/path assumptions
+   - Finding-class boundary leaks (non-tool findings entering identity/regress tool state)
+   - Lifecycle-state clobbering (`present=false` or removed identities rewritten as present)
    - Schema/CLI contract drift
    - Docs/examples that do not match real behavior
 4. Verify findings with concrete evidence (file refs, commands, test output).
@@ -70,6 +72,8 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
 
 - Findings are primary output; summaries stay brief.
 - Treat recursive cleanup/delete on caller-selected paths with weak ownership gating as at least `P1`.
+- Treat finding-boundary leaks that can cause false drift/exit `5` as at least `P1`.
+- Treat lifecycle-state clobbering that reintroduces removed identities as at least `P2`.
 - Do not report style nits unless they cause runtime/contract risk.
 - Do not claim tests/commands were run if they were not.
 - Separate facts from inference.
