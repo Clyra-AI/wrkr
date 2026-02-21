@@ -498,6 +498,7 @@ func buildSections(
 	headlineFacts := []string{
 		fmt.Sprintf("posture score %.2f (%s)", headline.Score, headline.Grade),
 		fmt.Sprintf("profile status %s at %.2f%%", headline.ComplianceStatus, headline.Compliance),
+		"profile compliance reflects controls evidenced in the current deterministic scan state",
 	}
 
 	return []Section{
@@ -571,7 +572,7 @@ func postureImpact(headline Headline) string {
 
 func postureAction(headline Headline) string {
 	if strings.EqualFold(headline.ComplianceStatus, "fail") {
-		return "resolve failing profile controls and rerun scan with the same deterministic inputs"
+		return "resolve failing or missing controls, regenerate evidence, and rerun scan with the same deterministic inputs"
 	}
 	return "monitor score trend and keep profile compliance above configured minimums"
 }

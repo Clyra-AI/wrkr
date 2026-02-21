@@ -78,6 +78,15 @@ Pin exact versions in all CI workflows and Makefiles. Floating versions (`@lates
 | Syft | `v1.32.0` | SBOM generation |
 | Grype | `v0.99.1` | Vulnerability scanning on release artifacts |
 
+### Pinned Tool Update Procedure (Wrkr)
+
+Use this sequence whenever updating governance-critical tool pins (`gosec`, `golangci-lint`, `govulncheck`, release/signing scanners):
+
+1. Update the normative table in this document first.
+2. Update all enforced CI/workflow/Makefile references in the same change.
+3. Run `scripts/check_toolchain_pins.sh` and `make lint-fast` to confirm docs and enforcement are aligned.
+4. Never merge a docs-only or workflow-only pin change; pin updates are atomic contract changes.
+
 ### proof Version Tracking Policy
 
 `Clyra-AI/proof` is the shared primitive. All downstream SKUs (gait, wrkr, axym) depend on it.

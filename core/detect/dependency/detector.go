@@ -113,7 +113,7 @@ func parseRequirements(root string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	deps := make([]string, 0)
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {

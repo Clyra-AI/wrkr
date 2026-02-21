@@ -173,7 +173,7 @@ func SaveBaseline(path string, baseline Baseline) error {
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("close baseline temp: %w", err)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
+	if err := os.Rename(tmpPath, path); err != nil { // #nosec G703 -- caller-selected baseline path is intentional for local deterministic artifact output.
 		return fmt.Errorf("commit baseline: %w", err)
 	}
 	return nil

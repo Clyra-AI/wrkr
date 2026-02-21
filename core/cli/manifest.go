@@ -18,6 +18,10 @@ func runManifest(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
 		return emitError(stderr, wantsJSONOutput(args), "invalid_input", "manifest subcommand is required", exitInvalidInput)
 	}
+	if isHelpFlag(args[0]) {
+		_, _ = fmt.Fprintln(stderr, "Usage of wrkr manifest: manifest <generate> [flags]")
+		return exitSuccess
+	}
 
 	switch args[0] {
 	case "generate":
@@ -40,8 +44,8 @@ func runManifestGenerate(args []string, stdout io.Writer, stderr io.Writer) int 
 	statePathFlag := fs.String("state", "", "state file path override")
 	outputPath := fs.String("output", "", "manifest output path override")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "manifest generate does not accept positional arguments", exitInvalidInput)

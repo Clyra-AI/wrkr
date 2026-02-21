@@ -47,8 +47,8 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 	githubAPI := fs.String("github-api", strings.TrimSpace(os.Getenv("WRKR_GITHUB_API_BASE")), "github api base url")
 	fixToken := fs.String("fix-token", "", "fix profile token override")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "fix does not accept positional arguments", exitInvalidInput)

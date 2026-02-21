@@ -26,8 +26,8 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 	outputDir := fs.String("output", "wrkr-evidence", "evidence output directory")
 	statePathFlag := fs.String("state", "", "state file path override")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "evidence does not accept positional arguments", exitInvalidInput)

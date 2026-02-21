@@ -14,14 +14,19 @@ Wrkr runs standalone and interoperates through shared `Clyra-AI/proof` contracts
 
 ## Status
 
-Epics 1-6 are implemented.
+Wrkr is in v1 contract-hardening phase with deterministic end-to-end workflows implemented for:
 
-- Epic 1: source acquisition contracts (`init`, `scan`, source manifests, incremental diff state)
-- Epic 2: deterministic detector engine (Claude/Cursor/Codex/Copilot, MCP, skills, CI/headless autonomy, dependencies, secrets, compiled actions) and YAML-backed policy evaluation (`WRKR-001`..`WRKR-015`)
-- Epic 3: deterministic inventory aggregation + repo exposure summaries, identity lifecycle manifest/chain updates, ranked risk reporting, posture profiles, and posture score outputs
-- Epic 4: signed proof record emission (`scan_finding`, `risk_assessment`, `approval`, lifecycle transitions), proof chain verification, and compliance evidence bundle generation
-- Epic 5: CLI contract hardening (`--json`, `--quiet`, `--explain`), report PDF output, manifest generation, and posture regression baseline/drift checks
-- Epic 6: deterministic remediation planning (`fix`), split auth-profile PR safeguards, and `wrkr-action` scheduled/PR runtime contracts
+- discovery and scan target modes (`init`, `scan`, diff state)
+- deterministic detection, policy/profile evaluation, and ranked risk output
+- identity lifecycle, manifest generation, and proof chain verification
+- compliance evidence export, reporting artifacts, posture scoring, and regression baselines
+- deterministic remediation planning (`fix`) and auth-profile safeguards
+
+Coverage and contract health are enforced by:
+
+- acceptance flow tests in `internal/acceptance/v1_acceptance_test.go`
+- scenario coverage mapping in `internal/scenarios/coverage_map.json`
+- CI contract lanes (`make test-contracts`, `make prepush-full`, CodeQL)
 
 ## Quick Start
 

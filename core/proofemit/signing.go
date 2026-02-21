@@ -19,7 +19,7 @@ const envProofKeyID = "WRKR_PROOF_KEY_ID"
 type keyFile struct {
 	KeyID      string `json:"key_id"`
 	PublicKey  string `json:"public_key"`
-	PrivateKey string `json:"private_key"`
+	PrivateKey string `json:"private_key"` // #nosec G117 -- deterministic local signing key material is intentionally persisted for offline proof signing.
 }
 
 func keyPath(statePath string) string {

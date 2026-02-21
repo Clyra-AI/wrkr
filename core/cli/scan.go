@@ -68,8 +68,8 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	reportShareProfile := fs.String("report-share-profile", string(reportcore.ShareProfileInternal), "scan summary share profile [internal|public]")
 	reportTop := fs.Int("report-top", 5, "number of top findings included in scan summary artifact")
 
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 
 	targetMode, targetValue, cfg, err := resolveScanTarget(*repo, *orgTarget, *pathTarget, *configPathFlag)
@@ -394,7 +394,7 @@ func evaluatePolicies(scopes []detect.Scope, findings []source.Finding, customPo
 func detectorScopes(manifestOut source.Manifest) []detect.Scope {
 	scopes := make([]detect.Scope, 0, len(manifestOut.Repos))
 	for _, repo := range manifestOut.Repos {
-		info, err := os.Stat(repo.Location)
+		info, err := os.Stat(repo.Location) // #nosec G703 -- repo locations come from deterministic source acquisition inputs for current scan scope.
 		if err != nil || !info.IsDir() {
 			continue
 		}

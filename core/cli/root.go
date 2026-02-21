@@ -77,11 +77,8 @@ func runRootFlags(args []string, stdout io.Writer, stderr io.Writer) int {
 	quiet := fs.Bool("quiet", false, "suppress non-error output")
 	explain := fs.Bool("explain", false, "emit human-readable rationale")
 
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return exitSuccess
-		}
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", fmt.Sprintf("unsupported command %q", fs.Arg(0)), exitInvalidInput)
@@ -109,6 +106,20 @@ func runRootFlags(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	_, _ = fmt.Fprintln(stdout, "wrkr")
 	return exitSuccess
+}
+
+func parseFlags(fs *flag.FlagSet, args []string, stderr io.Writer, jsonOut bool) (int, bool) {
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return exitSuccess, true
+		}
+		return emitError(stderr, jsonOut, "invalid_input", err.Error(), exitInvalidInput), true
+	}
+	return 0, false
+}
+
+func isHelpFlag(arg string) bool {
+	return arg == "-h" || arg == "--help"
 }
 
 func emitError(stderr io.Writer, jsonOut bool, code, message string, exitCode int) int {

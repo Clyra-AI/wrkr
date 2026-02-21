@@ -20,6 +20,10 @@ func runIdentity(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
 		return emitError(stderr, wantsJSONOutput(args), "invalid_input", "identity subcommand is required", exitInvalidInput)
 	}
+	if isHelpFlag(args[0]) {
+		_, _ = fmt.Fprintln(stderr, "Usage of wrkr identity: identity <list|show|approve|review|deprecate|revoke> [flags]")
+		return exitSuccess
+	}
 	subcommand := args[0]
 	subArgs := args[1:]
 	switch subcommand {
@@ -50,8 +54,8 @@ func runIdentityList(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
 	statePathFlag := fs.String("state", "", "state file path override")
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	loaded, err := manifest.Load(manifest.ResolvePath(state.ResolvePath(*statePathFlag)))
 	if err != nil {
@@ -83,8 +87,8 @@ func runIdentityShow(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
 	statePathFlag := fs.String("state", "", "state file path override")
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	agentID := strings.TrimSpace(preID)
 	if agentID == "" {
@@ -146,8 +150,8 @@ func runIdentityApprove(args []string, stdout io.Writer, stderr io.Writer) int {
 	scope := fs.String("scope", "", "approval scope")
 	expires := fs.String("expires", "90d", "approval validity duration")
 	statePathFlag := fs.String("state", "", "state file path override")
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	agentID := strings.TrimSpace(preID)
 	if agentID == "" {
@@ -185,8 +189,8 @@ func runIdentityTransition(args []string, stdout io.Writer, stderr io.Writer, st
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
 	reason := fs.String("reason", "", "transition reason")
 	statePathFlag := fs.String("state", "", "state file path override")
-	if err := fs.Parse(args); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
+		return code
 	}
 	agentID := strings.TrimSpace(preID)
 	if agentID == "" {
