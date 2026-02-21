@@ -4,12 +4,13 @@ Wrkr is the deterministic See-layer CLI in the See -> Prove -> Control model.
 
 ## Status
 
-Epics 1-4 are implemented.
+Epics 1-5 are implemented.
 
 - Epic 1: source acquisition contracts (`init`, `scan`, source manifests, incremental diff state)
 - Epic 2: deterministic detector engine (Claude/Cursor/Codex/Copilot, MCP, skills, CI/headless autonomy, dependencies, secrets, compiled actions) and YAML-backed policy evaluation (`WRKR-001`..`WRKR-015`)
 - Epic 3: deterministic inventory aggregation + repo exposure summaries, identity lifecycle manifest/chain updates, ranked risk reporting, posture profiles, and posture score outputs
 - Epic 4: signed proof record emission (`scan_finding`, `risk_assessment`, `approval`, lifecycle transitions), proof chain verification, and compliance evidence bundle generation
+- Epic 5: CLI contract hardening (`--json`, `--quiet`, `--explain`), report PDF output, manifest generation, and posture regression baseline/drift checks
 
 ## Quick Start
 
@@ -30,6 +31,7 @@ wrkr scan --path ./local-repos --profile standard --json
 
 # Risk report and inventory export views.
 wrkr report --top 5 --json
+wrkr report --pdf --json
 wrkr export --format inventory --json
 
 # Identity lifecycle commands.
@@ -37,7 +39,11 @@ wrkr identity list --json
 wrkr identity show <agent_id> --json
 wrkr identity approve <agent_id> --approver @maria --scope read-only --expires 90d --json
 wrkr lifecycle --org acme --json
+wrkr manifest generate --json
 wrkr score --json
+wrkr score --explain
+wrkr regress init --baseline ./.wrkr/last-scan.json --json
+wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --json
 wrkr verify --chain --json
 wrkr evidence --frameworks eu-ai-act,soc2 --json
 

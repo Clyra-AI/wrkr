@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -41,12 +42,20 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runIdentity(args[1:], stdout, stderr)
 	case "lifecycle":
 		return runLifecycle(args[1:], stdout, stderr)
+	case "manifest":
+		return runManifest(args[1:], stdout, stderr)
+	case "regress":
+		return runRegress(args[1:], stdout, stderr)
 	case "score":
 		return runScore(args[1:], stdout, stderr)
 	case "verify":
 		return runVerify(args[1:], stdout, stderr)
 	case "evidence":
 		return runEvidence(args[1:], stdout, stderr)
+	}
+
+	if !strings.HasPrefix(args[0], "-") {
+		return emitError(stderr, wantsJSONOutput(args), "invalid_input", fmt.Sprintf("unsupported command %q", args[0]), exitInvalidInput)
 	}
 
 	return runRootFlags(args, stdout, stderr)
@@ -67,7 +76,16 @@ func runRootFlags(args []string, stdout io.Writer, stderr io.Writer) int {
 	explain := fs.Bool("explain", false, "emit human-readable rationale")
 
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return exitSuccess
+		}
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	}
+	if fs.NArg() != 0 {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", fmt.Sprintf("unsupported command %q", fs.Arg(0)), exitInvalidInput)
+	}
+	if *quiet && *explain && !*jsonOut {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--quiet and --explain cannot be used together", exitInvalidInput)
 	}
 
 	if *jsonOut {
