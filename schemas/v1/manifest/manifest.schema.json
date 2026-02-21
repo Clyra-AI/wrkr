@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.clyra.ai/wrkr/v1/manifest/manifest.schema.json",
+  "title": "Wrkr Manifest Specification",
+  "description": "Open wrkr-manifest.yaml contract for identity and policy interoperability profiles.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/identityProfile"
+    },
+    {
+      "$ref": "#/$defs/policyProfile"
+    }
+  ],
+  "$defs": {
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "approver": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "approved": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "identityRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "tool_id",
+        "tool_type",
+        "org",
+        "repo",
+        "location",
+        "status",
+        "approval_status",
+        "first_seen",
+        "last_seen",
+        "present",
+        "data_class",
+        "endpoint_class",
+        "autonomy_level",
+        "risk_score"
+      ],
+      "properties": {
+        "agent_id": {
+          "type": "string"
+        },
+        "tool_id": {
+          "type": "string"
+        },
+        "tool_type": {
+          "type": "string"
+        },
+        "org": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "discovered",
+            "under_review",
+            "approved",
+            "active",
+            "deprecated",
+            "revoked"
+          ]
+        },
+        "approval": {
+          "$ref": "#/$defs/approval"
+        },
+        "approval_status": {
+          "type": "string"
+        },
+        "first_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "last_seen": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "data_class": {
+          "type": "string"
+        },
+        "endpoint_class": {
+          "type": "string"
+        },
+        "autonomy_level": {
+          "type": "string",
+          "enum": [
+            "interactive",
+            "copilot",
+            "headless_gated",
+            "headless_auto"
+          ]
+        },
+        "risk_score": {
+          "type": "number"
+        }
+      }
+    },
+    "identityProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "updated_at",
+        "identities"
+      ],
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "identities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/identityRecord"
+          }
+        }
+      }
+    },
+    "policyTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool_id",
+        "tool_type"
+      ],
+      "properties": {
+        "tool_id": {
+          "type": "string"
+        },
+        "tool_type": {
+          "type": "string"
+        },
+        "org": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "permission_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "policyConstraint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "enforcement": {
+          "type": "string"
+        }
+      }
+    },
+    "permissionScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "approverMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "approver": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "approved": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "policyProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spec_version",
+        "generated_at",
+        "approved_tools",
+        "blocked_tools",
+        "review_pending_tools",
+        "policy_constraints",
+        "permission_scopes"
+      ],
+      "properties": {
+        "spec_version": {
+          "type": "string"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "approved_tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/policyTool"
+          }
+        },
+        "blocked_tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/policyTool"
+          }
+        },
+        "review_pending_tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/policyTool"
+          }
+        },
+        "policy_constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/policyConstraint"
+          }
+        },
+        "permission_scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/permissionScope"
+          }
+        },
+        "approver_metadata": {
+          "$ref": "#/$defs/approverMetadata"
+        }
+      }
+    }
+  }
+}

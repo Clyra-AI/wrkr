@@ -6,7 +6,7 @@ GOFILES := $(shell git ls-files '*.go')
 
 .PHONY: fmt lint lint-fast test test-fast test-integration test-e2e test-contracts test-scenarios \
 	test-hardening test-chaos test-perf test-risk-lane build hooks prepush prepush-full codeql lint-ci \
-	test-docs-consistency test-docs-storyline test-adapter-parity
+	test-docs-consistency test-docs-storyline test-adapter-parity test-v1-acceptance
 
 fmt:
 	@if [[ -n "$(GOFILES)" ]]; then \
@@ -52,10 +52,11 @@ test-perf:
 test-risk-lane: test-contracts test-scenarios test-hardening test-chaos test-perf
 
 test-docs-consistency:
-	@echo "docs consistency checks are not yet implemented"
+	@scripts/check_docs_cli_parity.sh
+	@scripts/check_docs_storyline.sh
 
 test-docs-storyline:
-	@echo "docs storyline checks are not yet implemented"
+	@scripts/run_docs_smoke.sh --subset
 
 test-adapter-parity:
 	@echo "adapter parity checks are not yet implemented"
@@ -68,6 +69,9 @@ hooks:
 	@pre-commit install
 
 prepush: fmt lint-fast test-fast test-contracts build
+
+test-v1-acceptance:
+	@scripts/run_v1_acceptance.sh
 
 prepush-full: prepush lint test test-integration test-e2e test-scenarios codeql
 

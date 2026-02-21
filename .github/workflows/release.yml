@@ -39,6 +39,23 @@ jobs:
       - name: Run deterministic tests
         run: go test ./... -count=1
 
+      - name: Run docs parity and UAT smoke
+        run: |
+          make test-docs-consistency
+          scripts/run_docs_smoke.sh
+
+      - name: Run v1 acceptance release gate
+        run: scripts/run_v1_acceptance.sh --mode=release
+
+      - name: Upload v1 acceptance scorecard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1-acceptance-scorecard-release
+          path: |
+            .tmp/release/v1-scorecard.json
+            .tmp/release/v1-scorecard.md
+
       - name: Run contract and scenario gates
         run: |
           make test-contracts
