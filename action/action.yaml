@@ -1,0 +1,22 @@
+name: Wrkr Action
+description: Deterministic Wrkr scheduled and PR-mode execution for AI posture visibility.
+author: Clyra-AI
+
+inputs:
+  mode:
+    description: scheduled or pr
+    required: false
+    default: scheduled
+  top:
+    description: number of top findings in report output
+    required: false
+    default: "5"
+
+runs:
+  using: composite
+  steps:
+    - name: Run wrkr-action entrypoint
+      shell: bash
+      run: |
+        set -euo pipefail
+        "${{ github.action_path }}/entrypoint.sh" "${{ inputs.mode }}" "${{ inputs.top }}"

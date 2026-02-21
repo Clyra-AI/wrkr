@@ -4,13 +4,14 @@ Wrkr is the deterministic See-layer CLI in the See -> Prove -> Control model.
 
 ## Status
 
-Epics 1-5 are implemented.
+Epics 1-6 are implemented.
 
 - Epic 1: source acquisition contracts (`init`, `scan`, source manifests, incremental diff state)
 - Epic 2: deterministic detector engine (Claude/Cursor/Codex/Copilot, MCP, skills, CI/headless autonomy, dependencies, secrets, compiled actions) and YAML-backed policy evaluation (`WRKR-001`..`WRKR-015`)
 - Epic 3: deterministic inventory aggregation + repo exposure summaries, identity lifecycle manifest/chain updates, ranked risk reporting, posture profiles, and posture score outputs
 - Epic 4: signed proof record emission (`scan_finding`, `risk_assessment`, `approval`, lifecycle transitions), proof chain verification, and compliance evidence bundle generation
 - Epic 5: CLI contract hardening (`--json`, `--quiet`, `--explain`), report PDF output, manifest generation, and posture regression baseline/drift checks
+- Epic 6: deterministic remediation planning (`fix`), split auth-profile PR safeguards, and `wrkr-action` scheduled/PR runtime contracts
 
 ## Quick Start
 
@@ -46,6 +47,7 @@ wrkr regress init --baseline ./.wrkr/last-scan.json --json
 wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --json
 wrkr verify --chain --json
 wrkr evidence --frameworks eu-ai-act,soc2 --json
+wrkr fix --top 3 --json
 
 # Optional non-deterministic enrichment branch (explicitly opt-in).
 wrkr scan --path ./local-repos --enrich --github-api https://api.github.com --json
@@ -77,3 +79,9 @@ Invalid target combinations return exit code `6` with a machine-readable JSON en
 - Secret detectors only emit credential-presence context and key names, never secret values.
 - Policy checks run after detection and emit deterministic `policy_check` and `policy_violation` findings.
 - Built-in policy pack is versioned (`core/policy/rules/builtin.yaml`) and loaded on every scan; repo-local `wrkr-policy.yaml` and `--policy` overlays are supported.
+
+## Remediation
+
+- `wrkr fix --top <N> --json` generates deterministic remediation patch previews and commit messages for eligible high-risk findings.
+- Unsupported findings are emitted with explicit non-fixable reason codes.
+- `wrkr fix --open-pr` requires a write-capable fix profile token (scan-only profile fails closed).

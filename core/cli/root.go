@@ -52,6 +52,8 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 		return runVerify(args[1:], stdout, stderr)
 	case "evidence":
 		return runEvidence(args[1:], stdout, stderr)
+	case "fix":
+		return runFix(args[1:], stdout, stderr)
 	}
 
 	if !strings.HasPrefix(args[0], "-") {
