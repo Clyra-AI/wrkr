@@ -1,0 +1,40 @@
+name: wrkr-action-ci
+
+on:
+  pull_request:
+    paths:
+      - 'action/**'
+      - 'core/action/**'
+      - 'internal/e2e/action/**'
+      - '.github/workflows/wrkr-action-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'action/**'
+      - 'core/action/**'
+      - 'internal/e2e/action/**'
+      - '.github/workflows/wrkr-action-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  action-contract:
+    name: action-contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Validate action runtime contracts
+        run: |
+          go test ./core/action/... -count=1
+          go test ./internal/e2e/action -count=1

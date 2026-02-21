@@ -1,0 +1,134 @@
+templates:
+  - id: WRKR-001
+    category: manifest_generation
+    title: Ensure at least one AI tooling config is committed
+    commit_prefix: "fix(manifest)"
+    hints:
+      - Add committed AI config files under supported detector paths.
+      - Keep configuration deterministic and parseable.
+  - id: WRKR-002
+    category: ci_gate_addition
+    title: Remove inline secret presence from AI tooling paths
+    commit_prefix: "fix(secrets)"
+    hints:
+      - Replace inline credentials with managed secret references.
+      - Keep secret names stable across environments.
+  - id: WRKR-003
+    category: manifest_generation
+    title: Repair malformed JSON/YAML/TOML AI configs
+    commit_prefix: "fix(config-parse)"
+    hints:
+      - Correct syntax while preserving semantics.
+      - Keep parser-visible keys and ordering deterministic.
+  - id: WRKR-004
+    category: autonomy_downgrade
+    title: Add approval gate for headless CI autonomy
+    commit_prefix: "fix(ci-gate)"
+    hints:
+      - Require explicit environment reviewers for headless execution.
+      - Keep CI reason-code semantics stable.
+  - id: WRKR-005
+    category: mcp_pin_lock
+    title: Declare MCP inventory in supported config files
+    commit_prefix: "fix(mcp)"
+    hints:
+      - Add explicit MCP server declarations.
+      - Pin MCP package versions where supported.
+  - id: WRKR-006
+    category: dependency_pin
+    title: Declare and pin AI dependencies
+    commit_prefix: "fix(deps)"
+    hints:
+      - Pin dependency versions to deterministic values.
+      - Regenerate lockfiles after pinning.
+  - id: WRKR-007
+    category: skill_hardening
+    title: Ensure skills declare explicit allowed-tools
+    commit_prefix: "fix(skills)"
+    hints:
+      - Add allowed-tools entries to SKILL contracts.
+      - Remove overly broad permissions.
+  - id: WRKR-008
+    category: ci_gate_addition
+    title: Add deterministic review metadata for compiled actions
+    commit_prefix: "fix(compiled-action)"
+    hints:
+      - Add explicit approval and provenance metadata for generated steps.
+      - Keep compiled action provenance stable.
+  - id: WRKR-009
+    category: manifest_generation
+    title: Normalize credential reference extraction
+    commit_prefix: "fix(credential-refs)"
+    hints:
+      - Keep credential reference names deterministic.
+      - Eliminate free-form identifier drift.
+  - id: WRKR-010
+    category: ci_gate_addition
+    title: Preserve stable CI autonomy reason-code semantics
+    commit_prefix: "fix(reason-codes)"
+    hints:
+      - Keep reason code enum values backward compatible.
+      - Add contract coverage for code stability.
+  - id: WRKR-011
+    category: manifest_generation
+    title: Restore built-in policy pack loading
+    commit_prefix: "fix(policy-pack)"
+    hints:
+      - Restore policy pack file integrity and parser compatibility.
+      - Ensure embedded/builtin pack can be loaded deterministically.
+  - id: WRKR-012
+    category: manifest_generation
+    title: Preserve policy schema compatibility
+    commit_prefix: "fix(policy-schema)"
+    hints:
+      - Keep existing schema fields and enums backward compatible.
+      - Add migration or compatibility tests when extending schema.
+  - id: WRKR-013
+    category: skill_hardening
+    title: Remove exec grants from credential-bearing skill contexts
+    commit_prefix: "fix(skill-ceiling)"
+    hints:
+      - Remove proc.exec when credential-bearing contexts are present.
+      - Constrain high-privilege tool grants.
+  - id: WRKR-014
+    category: skill_hardening
+    title: Resolve skill policy conflicts with Gait rules
+    commit_prefix: "fix(skill-policy)"
+    hints:
+      - Align allowed-tools with Gait block policies.
+      - Remove conflicting grants and re-run policy checks.
+  - id: WRKR-015
+    category: skill_hardening
+    title: Reduce skill exec/write sprawl ratio
+    commit_prefix: "fix(skill-sprawl)"
+    hints:
+      - Reduce exec-granting skills to <= 50 percent ratio.
+      - Narrow write and exec permissions per task.
+  - id: DEPENDENCY-PIN
+    category: dependency_pin
+    title: Pin AI dependency and lockfile versions
+    commit_prefix: "fix(deps)"
+    hints:
+      - Replace floating versions with pinned releases.
+      - Regenerate lockfiles deterministically.
+  - id: MCP-PIN-LOCK
+    category: mcp_pin_lock
+    title: Pin MCP packages and lock transport metadata
+    commit_prefix: "fix(mcp-lock)"
+    hints:
+      - Pin MCP server package versions.
+      - Record deterministic transport and source metadata.
+  - id: MANIFEST-GENERATE
+    category: manifest_generation
+    title: Regenerate manifest/contracts with deterministic ordering
+    commit_prefix: "fix(manifest)"
+    hints:
+      - Regenerate manifests from current deterministic findings.
+      - Preserve absent identities as absent.
+  - id: CI-GATE-ADD
+    category: ci_gate_addition
+    title: Add CI gate enforcement for autonomous changes
+    commit_prefix: "fix(ci-gate)"
+    hints:
+      - Add merge-blocking gate for high-risk autonomous changes.
+      - Keep approval and reason code contracts stable.
