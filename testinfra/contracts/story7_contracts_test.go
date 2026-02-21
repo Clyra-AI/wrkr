@@ -73,6 +73,7 @@ func TestStory7SchemaContractsStable(t *testing.T) {
 		"schemas/v1/proof-outputs/proof-record.schema.json",
 		"schemas/v1/regress/regress-baseline.schema.json",
 		"schemas/v1/regress/regress-result.schema.json",
+		"schemas/v1/report/report-summary.schema.json",
 		"schemas/v1/risk/risk-report.schema.json",
 		"schemas/v1/score/score.schema.json",
 	}

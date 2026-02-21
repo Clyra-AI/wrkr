@@ -14,6 +14,7 @@ type ScheduledResult struct {
 	Summary             string  `json:"summary"`
 	PostureScore        float64 `json:"posture_score"`
 	CompliancePercent   float64 `json:"compliance_percent"`
+	SummaryArtifactPath string  `json:"summary_artifact_path,omitempty"`
 }
 
 type PRModeInput struct {
@@ -32,6 +33,11 @@ type PRModeResult struct {
 
 // RunScheduled derives deterministic scheduled-mode summary text from a scan snapshot.
 func RunScheduled(snapshot state.Snapshot) ScheduledResult {
+	return RunScheduledWithSummary(snapshot, "")
+}
+
+// RunScheduledWithSummary derives deterministic scheduled-mode summary text and includes a summary artifact path when available.
+func RunScheduledWithSummary(snapshot state.Snapshot, summaryArtifactPath string) ScheduledResult {
 	score := 0.0
 	scoreDelta := 0.0
 	if snapshot.PostureScore != nil {
@@ -48,12 +54,17 @@ func RunScheduled(snapshot state.Snapshot) ScheduledResult {
 
 	scoreDeltaText := fmt.Sprintf("posture score delta %+.2f (current %.2f)", scoreDelta, score)
 	complianceDeltaText := fmt.Sprintf("profile compliance delta %+.2f%% (current %.2f%%)", complianceDelta, compliance)
+	summary := "scheduled mode: " + scoreDeltaText + "; " + complianceDeltaText
+	if strings.TrimSpace(summaryArtifactPath) != "" {
+		summary += "; summary artifact " + strings.TrimSpace(summaryArtifactPath)
+	}
 	return ScheduledResult{
 		ScoreDeltaText:      scoreDeltaText,
 		ComplianceDeltaText: complianceDeltaText,
-		Summary:             "scheduled mode: " + scoreDeltaText + "; " + complianceDeltaText,
+		Summary:             summary,
 		PostureScore:        score,
 		CompliancePercent:   compliance,
+		SummaryArtifactPath: strings.TrimSpace(summaryArtifactPath),
 	}
 }
 

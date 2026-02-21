@@ -27,6 +27,7 @@ import (
 	profilemodel "github.com/Clyra-AI/wrkr/core/policy/profile"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
+	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
@@ -61,6 +62,11 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	profileName := fs.String("profile", "standard", "posture profile [baseline|standard|strict]")
 	githubBaseURL := fs.String("github-api", strings.TrimSpace(os.Getenv("WRKR_GITHUB_API_BASE")), "github api base url")
 	githubToken := fs.String("github-token", "", "github token override")
+	reportMD := fs.Bool("report-md", false, "emit deterministic markdown summary artifact after scan")
+	reportMDPath := fs.String("report-md-path", "wrkr-scan-summary.md", "scan summary markdown output path")
+	reportTemplate := fs.String("report-template", string(reportcore.TemplateOperator), "scan summary template [exec|operator|audit|public]")
+	reportShareProfile := fs.String("report-share-profile", string(reportcore.ShareProfileInternal), "scan summary share profile [internal|public]")
+	reportTop := fs.Int("report-top", 5, "number of top findings included in scan summary artifact")
 
 	if err := fs.Parse(args); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
@@ -219,6 +225,7 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 		"target":          manifestOut.Target,
 		"source_manifest": manifestOut,
 	}
+	scanReportPath := ""
 
 	if *diffMode {
 		previousFindings := []source.Finding{}
@@ -237,6 +244,36 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 		payload["profile"] = profileResult
 		payload["posture_score"] = postureScore
 	}
+	if *reportMD {
+		template, shareProfile, parseErr := parseReportTemplateShare(*reportTemplate, *reportShareProfile)
+		if parseErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseErr.Error(), exitInvalidInput)
+		}
+		manifestCopy := nextManifest
+		_, mdOutPath, _, reportErr := generateReportArtifacts(reportArtifactOptions{
+			StatePath:        statePath,
+			Snapshot:         snapshot,
+			PreviousSnapshot: previousSnapshot,
+			Manifest:         &manifestCopy,
+			Top:              *reportTop,
+			Template:         template,
+			ShareProfile:     shareProfile,
+			WriteMarkdown:    true,
+			MarkdownPath:     *reportMDPath,
+		})
+		if reportErr != nil {
+			if isArtifactPathError(reportErr) {
+				return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", reportErr.Error(), exitInvalidInput)
+			}
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", reportErr.Error(), exitRuntime)
+		}
+		scanReportPath = mdOutPath
+		payload["report"] = map[string]any{
+			"md_path":       mdOutPath,
+			"template":      string(template),
+			"share_profile": string(shareProfile),
+		}
+	}
 
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(payload)
@@ -247,6 +284,9 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if *explain {
 		_, _ = fmt.Fprintf(stdout, "wrkr scan completed for %s:%s (profile=%s score=%.2f grade=%s)\n", targetMode, targetValue, profileResult.ProfileName, postureScore.Score, postureScore.Grade)
+		if scanReportPath != "" {
+			_, _ = fmt.Fprintf(stdout, "scan report: %s\n", scanReportPath)
+		}
 		return exitSuccess
 	}
 	_, _ = fmt.Fprintln(stdout, "wrkr scan complete")

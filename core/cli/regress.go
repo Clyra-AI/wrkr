@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -88,6 +89,11 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
 	baselinePath := fs.String("baseline", "", "baseline artifact path")
 	statePathFlag := fs.String("state", "", "state file path override")
+	summaryMD := fs.Bool("summary-md", false, "emit deterministic markdown drift summary artifact")
+	summaryMDPath := fs.String("summary-md-path", "wrkr-regress-summary.md", "regress summary markdown output path")
+	reportTemplate := fs.String("template", "operator", "summary template [exec|operator|audit|public]")
+	reportShareProfile := fs.String("share-profile", "internal", "summary share profile [internal|public]")
+	reportTop := fs.Int("top", 5, "number of top findings included in regress summary artifact")
 
 	if err := fs.Parse(args); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
@@ -103,19 +109,58 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
-	snapshot, err := state.Load(state.ResolvePath(*statePathFlag))
+	resolvedStatePath := state.ResolvePath(*statePathFlag)
+	snapshot, err := state.Load(resolvedStatePath)
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 
 	result := regress.Compare(baseline, snapshot)
 	result.BaselinePath = filepath.Clean(strings.TrimSpace(*baselinePath))
+	if *summaryMD {
+		template, shareProfile, parseErr := parseReportTemplateShare(*reportTemplate, *reportShareProfile)
+		if parseErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseErr.Error(), exitInvalidInput)
+		}
+		var loadedManifest *manifest.Manifest
+		manifestPath := manifest.ResolvePath(resolvedStatePath)
+		if m, loadErr := manifest.Load(manifestPath); loadErr == nil {
+			loadedManifest = &m
+		}
+		baselineCopy := baseline
+		resultCopy := result
+		_, mdOutPath, _, summaryErr := generateReportArtifacts(reportArtifactOptions{
+			StatePath:     resolvedStatePath,
+			Snapshot:      snapshot,
+			Baseline:      &baselineCopy,
+			RegressResult: &resultCopy,
+			Manifest:      loadedManifest,
+			Top:           *reportTop,
+			Template:      template,
+			ShareProfile:  shareProfile,
+			WriteMarkdown: true,
+			MarkdownPath:  *summaryMDPath,
+		})
+		if summaryErr != nil {
+			if isArtifactPathError(summaryErr) {
+				return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", summaryErr.Error(), exitInvalidInput)
+			}
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", summaryErr.Error(), exitRuntime)
+		}
+		result.SummaryMDPath = mdOutPath
+	}
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(result)
 	} else if result.Drift {
 		_, _ = fmt.Fprintf(stdout, "wrkr regress drift detected (%d reasons)\n", result.ReasonCount)
+		if result.SummaryMDPath != "" {
+			_, _ = fmt.Fprintf(stdout, "regress summary: %s\n", result.SummaryMDPath)
+		}
 	} else {
 		_, _ = fmt.Fprintln(stdout, "wrkr regress no drift")
+		if result.SummaryMDPath != "" {
+			_, _ = fmt.Fprintf(stdout, "regress summary: %s\n", result.SummaryMDPath)
+		}
 	}
 
 	if result.Drift {

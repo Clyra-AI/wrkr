@@ -3,10 +3,20 @@
 ## Scan workflow
 
 ```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
 ```
 
-Check `top_findings`, `repo_exposure_summaries`, and `profile`.
+Check `top_findings`, `repo_exposure_summaries`, `profile`, and optional `report.md_path`.
+
+## Shareable report workflow
+
+```bash
+wrkr report --md --md-path ./.tmp/wrkr-summary.md --template operator --share-profile internal --json
+wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --share-profile public --json
+wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
+```
+
+Use internal profile for engineering/security reviews. Use public profile for external packets with deterministic redaction.
 
 ## Fix workflow
 
@@ -22,7 +32,7 @@ Check `remediation_count`, deterministic `fingerprint`, and unsupported finding 
 wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json
 ```
 
-Check `framework_coverage` and manifest/chain paths.
+Check `framework_coverage`, `report_artifacts`, and manifest/chain paths.
 
 ### Unsafe output-path handling
 
@@ -40,7 +50,7 @@ Check `chain.intact` and `chain.head_hash`.
 
 ```bash
 wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --json
+wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --summary-md --summary-md-path ./.tmp/regress-summary.md --template operator --json
 ```
 
 Use exit `5` and drift reasons as gate criteria.
@@ -53,7 +63,7 @@ wrkr identity show <agent_id> --json
 wrkr identity approve <agent_id> --approver @maria --scope read-only --expires 90d --json
 wrkr identity deprecate <agent_id> --reason "tool retired" --json
 wrkr identity revoke <agent_id> --reason "policy violation" --json
-wrkr lifecycle --org local --json
+wrkr lifecycle --org local --summary-md --summary-md-path ./.tmp/lifecycle-summary.md --template audit --json
 ```
 
 Use lifecycle transitions and proof-chain history to track approval and revocation.

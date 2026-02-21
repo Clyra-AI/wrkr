@@ -67,6 +67,7 @@ func TestBuildEvidenceBundle(t *testing.T) {
 		"risk-report.json",
 		"profile-compliance.json",
 		"posture-score.json",
+		"reports/audit-summary.md",
 		"proof-records/chain.json",
 		"mappings/soc2.json",
 		"gaps/soc2.json",
@@ -77,6 +78,9 @@ func TestBuildEvidenceBundle(t *testing.T) {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected bundle file %s: %v", relative, err)
 		}
+	}
+	if len(result.ReportArtifacts) == 0 {
+		t.Fatal("expected report artifacts to be recorded in build result")
 	}
 }
 

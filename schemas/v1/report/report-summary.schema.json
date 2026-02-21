@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.clyra.ai/wrkr/v1/report/report-summary.schema.json",
+  "title": "Wrkr Report Summary",
+  "type": "object",
+  "required": [
+    "summary_version",
+    "generated_at",
+    "template",
+    "share_profile",
+    "section_order",
+    "sections",
+    "headline",
+    "top_risks",
+    "deltas",
+    "lifecycle",
+    "proof",
+    "next_actions"
+  ],
+  "properties": {
+    "summary_version": {
+      "type": "string",
+      "enum": ["v1"]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "template": {
+      "type": "string",
+      "enum": ["exec", "operator", "audit", "public"]
+    },
+    "share_profile": {
+      "type": "string",
+      "enum": ["internal", "public"]
+    },
+    "section_order": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/section"
+      }
+    },
+    "headline": {
+      "$ref": "#/$defs/headline"
+    },
+    "top_risks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/riskItem"
+      }
+    },
+    "deltas": {
+      "$ref": "#/$defs/deltas"
+    },
+    "lifecycle": {
+      "$ref": "#/$defs/lifecycle"
+    },
+    "regress_drift": {
+      "$ref": "#/$defs/regress"
+    },
+    "proof": {
+      "$ref": "#/$defs/proofReference"
+    },
+    "next_actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/checklistItem"
+      }
+    }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["id", "title", "facts", "impact", "action", "proof"],
+      "properties": {
+        "id": {"type": "string"},
+        "title": {"type": "string"},
+        "facts": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "impact": {"type": "string"},
+        "action": {"type": "string"},
+        "proof": {"$ref": "#/$defs/proofReference"}
+      }
+    },
+    "headline": {
+      "type": "object",
+      "required": ["score", "grade", "compliance_status", "compliance_percent"],
+      "properties": {
+        "score": {"type": "number"},
+        "grade": {"type": "string"},
+        "compliance_status": {"type": "string"},
+        "compliance_percent": {"type": "number"}
+      }
+    },
+    "riskItem": {
+      "type": "object",
+      "required": [
+        "rank",
+        "canonical_key",
+        "risk_score",
+        "finding_type",
+        "severity",
+        "tool_type",
+        "org",
+        "repo",
+        "location",
+        "rationale",
+        "remediation"
+      ],
+      "properties": {
+        "rank": {"type": "integer"},
+        "canonical_key": {"type": "string"},
+        "risk_score": {"type": "number"},
+        "finding_type": {"type": "string"},
+        "severity": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "location": {"type": "string"},
+        "rationale": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "remediation": {"type": "string"}
+      }
+    },
+    "deltas": {
+      "type": "object",
+      "required": ["risk_score_trend", "profile_compliance_delta", "posture_score_trend_delta"],
+      "properties": {
+        "risk_score_trend": {"$ref": "#/$defs/deltaMetric"},
+        "profile_compliance_delta": {"$ref": "#/$defs/deltaMetric"},
+        "posture_score_trend_delta": {"$ref": "#/$defs/deltaMetric"}
+      }
+    },
+    "deltaMetric": {
+      "type": "object",
+      "required": ["current", "previous", "delta", "has_previous"],
+      "properties": {
+        "current": {"type": "number"},
+        "previous": {"type": "number"},
+        "delta": {"type": "number"},
+        "has_previous": {"type": "boolean"}
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "required": [
+        "identity_count",
+        "under_review_count",
+        "revoked_count",
+        "deprecated_count",
+        "pending_action_count",
+        "recent_transitions"
+      ],
+      "properties": {
+        "identity_count": {"type": "integer"},
+        "under_review_count": {"type": "integer"},
+        "revoked_count": {"type": "integer"},
+        "deprecated_count": {"type": "integer"},
+        "pending_action_count": {"type": "integer"},
+        "recent_transitions": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/lifecycleTransition"}
+        }
+      }
+    },
+    "lifecycleTransition": {
+      "type": "object",
+      "required": ["agent_id", "previous_state", "new_state", "trigger", "timestamp"],
+      "properties": {
+        "agent_id": {"type": "string"},
+        "previous_state": {"type": "string"},
+        "new_state": {"type": "string"},
+        "trigger": {"type": "string"},
+        "timestamp": {"type": "string"}
+      }
+    },
+    "regress": {
+      "type": "object",
+      "required": ["baseline_provided", "drift_detected", "reason_count", "reason_groups"],
+      "properties": {
+        "baseline_provided": {"type": "boolean"},
+        "drift_detected": {"type": "boolean"},
+        "reason_count": {"type": "integer"},
+        "reason_groups": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reasonGroup"}
+        }
+      }
+    },
+    "reasonGroup": {
+      "type": "object",
+      "required": ["code", "count"],
+      "properties": {
+        "code": {"type": "string"},
+        "count": {"type": "integer"}
+      }
+    },
+    "proofReference": {
+      "type": "object",
+      "required": ["chain_path", "head_hash", "record_count", "record_type_counts", "canonical_finding_keys"],
+      "properties": {
+        "chain_path": {"type": "string"},
+        "head_hash": {"type": "string"},
+        "record_count": {"type": "integer"},
+        "record_type_counts": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/recordTypeCount"}
+        },
+        "canonical_finding_keys": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "recordTypeCount": {
+      "type": "object",
+      "required": ["record_type", "count"],
+      "properties": {
+        "record_type": {"type": "string"},
+        "count": {"type": "integer"}
+      }
+    },
+    "checklistItem": {
+      "type": "object",
+      "required": ["id", "text"],
+      "properties": {
+        "id": {"type": "string"},
+        "text": {"type": "string"}
+      }
+    }
+  }
+}

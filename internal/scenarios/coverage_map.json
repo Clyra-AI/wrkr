@@ -10,6 +10,12 @@
   "FR13": [
     "TestScenarioEpic7ProfileAndScoreContractsDeterministic"
   ],
+  "AC10": [
+    "TestScenarioEpic9SummaryIntegrationHooksAC10AC11"
+  ],
+  "AC11": [
+    "TestScenarioEpic9SummaryIntegrationHooksAC10AC11"
+  ],
   "AC15": [
     "TestScenarioEpic7SkillConflictSignals"
   ],
@@ -21,5 +27,9 @@
   ],
   "AC20": [
     "TestScenarioEpic7ProfileAndScoreContractsDeterministic"
+  ],
+  "AC21": [
+    "TestScenarioEpic9DeterministicShareableReportsAC21",
+    "TestScenarioEpic9SummaryIntegrationHooksAC10AC11"
   ]
 }

@@ -6,6 +6,7 @@ top="${2:-5}"
 target_mode="${3:-}"
 target_value="${4:-}"
 config_path="${5:-}"
+summary_path="${WRKR_ACTION_SUMMARY_PATH:-./.tmp/wrkr-action-summary.md}"
 
 if [[ "${mode}" != "scheduled" && "${mode}" != "pr" ]]; then
   echo "unsupported mode: ${mode}" >&2
@@ -62,8 +63,9 @@ else
 fi
 
 run_wrkr scan "${scan_args[@]}"
-run_wrkr report --top "${top}" --json
+run_wrkr report --top "${top}" --md --md-path "${summary_path}" --template operator --share-profile internal --json
 run_wrkr score --json
 
 # Deterministic mode marker for workflow consumers.
 echo "wrkr_action_mode=${mode}"
+echo "wrkr_action_summary=${summary_path}"
