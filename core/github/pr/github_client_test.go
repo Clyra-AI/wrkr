@@ -36,7 +36,7 @@ func TestGitHubClientListCreateUpdateWithRetry(t *testing.T) {
 			_, _ = w.Write([]byte(`{"number":7,"html_url":"https://example/pr/7","title":"updated","body":"u","head":{"ref":"wrkr-bot/remediation/repo/adhoc/abc"},"base":{"ref":"main"}}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(fmt.Sprintf("unknown route: %s %s", r.Method, r.URL.Path)))
+			_, _ = fmt.Fprintf(w, "unknown route: %s %s", r.Method, r.URL.Path)
 		}
 	}))
 	defer server.Close()

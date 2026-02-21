@@ -61,7 +61,12 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			continue
 		}
 
-		if !(strings.HasPrefix(rel, "workflows/") || strings.HasPrefix(rel, "agent-plans/") || strings.HasSuffix(rel, ".agent-script.json") || strings.HasSuffix(rel, ".ptc.json") || strings.HasPrefix(rel, ".github/workflows/")) {
+		isCompiledActionPath := strings.HasPrefix(rel, "workflows/") ||
+			strings.HasPrefix(rel, "agent-plans/") ||
+			strings.HasSuffix(rel, ".agent-script.json") ||
+			strings.HasSuffix(rel, ".ptc.json") ||
+			strings.HasPrefix(rel, ".github/workflows/")
+		if !isCompiledActionPath {
 			continue
 		}
 

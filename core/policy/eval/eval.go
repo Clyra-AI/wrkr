@@ -115,7 +115,7 @@ func applyRule(rule policy.Rule, findings []model.Finding) (bool, string) {
 				hasCreds = true
 			}
 		}
-		return !(hasExec && hasCreds), fmt.Sprintf("has_exec=%t,has_credentials=%t", hasExec, hasCreds)
+		return !hasExec || !hasCreds, fmt.Sprintf("has_exec=%t,has_credentials=%t", hasExec, hasCreds)
 	case "skill_policy_conflicts":
 		count := countType(findings, "skill_policy_conflict")
 		return count == 0, fmt.Sprintf("skill_policy_conflict=%d", count)
