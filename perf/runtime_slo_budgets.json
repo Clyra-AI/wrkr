@@ -1,0 +1,13 @@
+{
+  "version": "v1",
+  "scan": {
+    "repos_100": {"max_seconds": 600},
+    "repos_500": {"max_seconds": 1800},
+    "diff_100": {"max_seconds": 120}
+  },
+  "commands": {
+    "score": {"p95_ms": 150},
+    "verify_chain": {"p95_ms": 1000},
+    "regress_run": {"p95_ms": 300}
+  }
+}

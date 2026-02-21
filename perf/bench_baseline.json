@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "benchmarks": [
+    {
+      "name": "BenchmarkScoreComputeDeterministic",
+      "unit": "ns/op",
+      "median": 1500000,
+      "max_regression_factor": 1.25
+    },
+    {
+      "name": "BenchmarkRiskScoreDeterministic",
+      "unit": "ns/op",
+      "median": 1800000,
+      "max_regression_factor": 1.25
+    }
+  ]
+}

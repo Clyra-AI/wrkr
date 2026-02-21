@@ -1,0 +1,25 @@
+{
+  "FR11": [
+    "TestScenarioPolicyCheckContracts",
+    "TestScenarioEpic7PolicyOutcomesAndProofRecords"
+  ],
+  "FR12": [
+    "TestScenarioProfileComplianceAndScoreDeterminism",
+    "TestScenarioEpic7ProfileAndScoreContractsDeterministic"
+  ],
+  "FR13": [
+    "TestScenarioEpic7ProfileAndScoreContractsDeterministic"
+  ],
+  "AC15": [
+    "TestScenarioEpic7SkillConflictSignals"
+  ],
+  "AC18": [
+    "TestScenarioEpic7PolicyOutcomesAndProofRecords"
+  ],
+  "AC19": [
+    "TestScenarioEpic7ProfileAndScoreContractsDeterministic"
+  ],
+  "AC20": [
+    "TestScenarioEpic7ProfileAndScoreContractsDeterministic"
+  ]
+}

@@ -39,6 +39,19 @@ jobs:
       - name: Run deterministic tests
         run: go test ./... -count=1
 
+      - name: Run contract and scenario gates
+        run: |
+          make test-contracts
+          scripts/validate_contracts.sh
+          scripts/validate_scenarios.sh
+          go test ./internal/scenarios -count=1 -tags=scenario
+
+      - name: Run release hardening and perf subsets
+        run: |
+          scripts/test_hardening_core.sh
+          scripts/test_perf_budgets.sh
+          go test ./internal/integration/interop -count=1
+
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

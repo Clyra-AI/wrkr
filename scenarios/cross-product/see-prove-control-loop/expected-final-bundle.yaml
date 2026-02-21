@@ -1,0 +1,4 @@
+status: draft
+note: >-
+  Scenario scaffold for Tier 12 see-prove-control loop.
+  The full multi-product harness is validated by integration tests and CI scripts.
