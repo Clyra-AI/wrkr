@@ -55,7 +55,7 @@ Repository snapshot (2026-02-20):
 - Implemented baseline CLI: `init` and `scan` command paths with `--json`, `--quiet`, `--explain` handling in current scaffold.
 - Implemented baseline engines: source acquisition (`repo`/`org`/`path`), local state snapshot, deterministic diffing by tuple key, and e2e/integration coverage for current scope.
 - Missing v1 command surface: `report`, `evidence`, `verify`, `regress`, `identity`, `fix`, `manifest`, plus dedicated `export`/lifecycle-read views.
-- Missing v1 product depth: detector coverage, policy/profile/score posture engine completeness, proof emission, compliance mapping, remediation loops, and full AC1-AC20 acceptance closure.
+- Missing v1 product depth: detector coverage, policy/profile/score posture engine completeness, proof emission, compliance mapping, remediation loops, and full AC1-AC21 acceptance closure.
 - Gap to PRD remains substantial: current implementation is early foundation with partial FR1/FR8 path only.
 
 ---
@@ -84,6 +84,7 @@ Wrkr v1 is done when all criteria below are automated and passing:
 18. AC18: policy check emits deterministic pass/fail rule outcomes and policy-violation proof records.
 19. AC19: profile compliance reports deterministic percentage, failing rules, and trend deltas.
 20. AC20: posture score command/report emits deterministic score, grade, weighted breakdown, and trend proof records.
+21. AC21: `wrkr report --md` emits deterministic, audience-ready summaries (and matching PDF) with proof links, deltas, and prioritized actions.
 
 NFR gates:
 
@@ -103,7 +104,8 @@ NFR gates:
 | FR12 Posture Profiles (baseline/standard/strict) | Story 3.4, Story 4.3, Story 5.2 |
 | FR13 AI Posture Score and standalone `wrkr score` | Story 3.5, Story 4.1, Story 5.4, Story 6.3 |
 | Elevate `wrkr-manifest.yaml` as open specification | Story 8.3 |
-| AC18/AC19/AC20 acceptance closure | Story 7.1, Story 8.2 |
+| AC18/AC19/AC20/AC21 acceptance closure | Story 7.1, Story 8.2, Story 9.1, Story 9.2, Story 9.3 |
+| Shareable deterministic summary artifacts (markdown/pdf) for operator and board workflows | Story 9.1, Story 9.2, Story 9.3 |
 | Skill scanning refinement (transitive ceiling, policy conflicts, sprawl concentration) | Story 2.3, Story 2.5, Story 3.1, Story 3.3, Story 4.1, Story 6.1, Story 7.1, Story 8.2 |
 
 ---
@@ -167,6 +169,9 @@ Story-to-lane map:
 | 8.1 | Yes | Yes | Yes | Yes | No |
 | 8.2 | No | Yes | Yes | Yes | Yes |
 | 8.3 | Yes | Yes | Yes | Yes | No |
+| 9.1 | Yes | Yes | Yes | Yes | Yes |
+| 9.2 | Yes | Yes | Yes | Yes | Yes |
+| 9.3 | Yes | Yes | Yes | Yes | Yes |
 
 Gating rule:
 
@@ -1264,7 +1269,7 @@ Acceptance criteria:
 ## Epic 8: Documentation, Acceptance Harness, and Release Readiness
 
 Objective: keep docs aligned with shipped behavior and block release until all launch-critical criteria are automated.
-Traceability: AC1-AC20 completeness, dev-guide docs standards, release integrity requirements.
+Traceability: AC1-AC21 completeness, dev-guide docs standards, release integrity requirements.
 
 ### Story 8.1: Implement docs parity, examples, and operator smoke checks
 Priority: P1
@@ -1306,7 +1311,7 @@ Acceptance criteria:
 ### Story 8.2: Build v1 acceptance gate and release go/no-go checklist
 Priority: P0
 Tasks:
-- Implement acceptance runner that automates AC1-AC20 against deterministic fixtures.
+- Implement acceptance runner that automates AC1-AC21 against deterministic fixtures.
 - Include refined AC15 fixture assertions for skill ceiling union, conflict emission, and sprawl metrics.
 - Include refined AC15 fixture assertions for skill concentration ratios and non-duplicated conflict scoring.
 - Add acceptance fixtures for evidence output-path safety (non-managed dir rejection, marker-type trust checks).
@@ -1325,7 +1330,7 @@ Run commands:
 - `wrkr verify --chain --json`
 - `wrkr regress run --baseline <baseline-path> --json`
 Test requirements:
-- Tier 4: full acceptance suite (AC1-AC20).
+- Tier 4: full acceptance suite (AC1-AC21).
 - Tier 4: acceptance fixtures for evidence output ownership safety and fail-closed behavior.
 - Tier 5/6/7/8: high-risk release gate subsets.
 - Tier 9: contract freeze checks.
@@ -1372,6 +1377,140 @@ Acceptance criteria:
 
 ---
 
+## Epic 9: Deterministic Shareable Reporting Artifacts
+
+Objective: produce human-readable, high-signal report artifacts that are deterministic, audit-linked, and shareable across engineering, security, leadership, and external stakeholders.
+Traceability: FR8, FR9, FR11, FR12, FR13, AC2/AC10/AC11/AC19/AC20/AC21, NFR3 deterministic behavior and zero-egress defaults.
+
+### Story 9.1: Build deterministic report summary model and section contract
+Priority: P0
+Tasks:
+- Introduce a dedicated report-summary domain model that composes scan/risk/profile/score/lifecycle/regress/verify outputs into one canonical summary payload.
+- Define fixed section ordering and deterministic section IDs for stable artifact diffs and downstream consumption.
+- Include proof references per section: chain path, head hash, record counts, and canonical finding keys.
+- Add deterministic delta blocks for:
+  - risk score trend
+  - profile compliance delta
+  - posture score trend delta
+  - regress drift reason summary (when baseline is provided)
+- Define concise, deterministic phrase templates for impact and action text; no generative model inference.
+- Add explicit non-goal guardrail in code/docs: report generation path must remain non-generative and cannot call local/remote LLM or SLM runtimes.
+Repo paths:
+- `core/report/`
+- `core/cli/report.go`
+- `schemas/v1/report/`
+- `internal/e2e/report/`
+Run commands:
+- `wrkr report --top 5 --json`
+- `wrkr verify --chain --json`
+- `wrkr regress run --baseline <baseline-path> --json`
+- `go test ./core/report/... -count=1`
+Test requirements:
+- Tier 1: report model assembly units and stable section-ordering tests.
+- Tier 2: snapshot-to-report integration tests with fixed fixtures.
+- Tier 3: report command contract tests for JSON envelope and field presence.
+- Tier 9: report schema and deterministic key-order/section-order contract checks.
+- Tier 11: AC21 scenario fixture for deterministic summary payload generation.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+contract subset), Main (integration+scenario), Nightly (expanded fixture matrix and determinism replays).
+Acceptance criteria:
+- Same state snapshot and options always produce identical summary payload bytes (excluding explicit timestamp/version fields).
+- Summary payload includes proof linkage fields and deterministic deltas when prior state/baseline exists.
+- Report generation remains strictly non-generative and deterministic by implementation contract.
+
+### Story 9.2: Implement markdown and PDF audience templates for shareable outputs
+Priority: P0
+Tasks:
+- Extend `wrkr report` with deterministic artifact flags:
+  - `--md`
+  - `--md-path <path>`
+  - `--template [exec|operator|audit|public]`
+  - `--share-profile [internal|public]`
+- Implement template pack with section-level variants per audience while preserving identical underlying facts and ordering semantics.
+- Render markdown and PDF from the same report-summary model to prevent divergence.
+- Define required section structure for all templates:
+  - headline posture summary (`score`, `grade`, compliance status)
+  - top prioritized risks with rationale and remediation
+  - what changed since previous scan/baseline
+  - lifecycle approvals/reviews/revokes needing action
+  - proof verification footer (chain path/head hash/count)
+  - next actions (short, deterministic checklist)
+- Add deterministic public-share sanitization mode (`--share-profile public`) that redacts/anonymizes sensitive locations while preserving risk/action signal.
+- Fail closed on unknown template/share-profile values and unsafe output arguments with stable JSON errors.
+Repo paths:
+- `core/cli/report.go`
+- `core/cli/report_pdf.go`
+- `core/report/render_markdown.go`
+- `core/report/templates/`
+- `docs/commands/report.md`
+- `docs/examples/operator-playbooks.md`
+Run commands:
+- `wrkr report --md --md-path ./.tmp/wrkr-summary.md --template exec --json`
+- `wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json`
+- `wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --share-profile public --json`
+- `go test ./core/cli -count=1`
+Test requirements:
+- Tier 1: template rendering units and sanitization-rule units.
+- Tier 2: markdown/PDF renderer integration tests from shared summary model.
+- Tier 3: CLI e2e tests for md/pdf/template/share-profile flag combinations.
+- Tier 4: acceptance script for board/operator/public-share report workflows.
+- Tier 5: fail-closed tests for invalid template/share-profile and unsafe output settings.
+- Tier 9: byte-stable golden tests for markdown and PDF outputs by fixture/template.
+- Tier 11: AC2 + AC21 scenario fixture validation for report readability sections and deterministic ordering.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+contract), Main (e2e+acceptance), Nightly (golden stability and fuzzed flag-matrix checks).
+Acceptance criteria:
+- Markdown and PDF outputs are generated from one shared model and stay content-aligned.
+- Public-share profile output is deterministic and does not expose sensitive path/detail fields.
+- Generated reports are concise, actionable, and directly traceable to underlying deterministic findings/proof data.
+
+### Story 9.3: Integrate summary artifacts across scan, action, regress, lifecycle, and evidence
+Priority: P1
+Tasks:
+- Add optional scan/report integration flags to emit summary artifacts directly after scan completion.
+- Extend action scheduled mode to emit and surface summary artifact paths alongside posture/profile delta output.
+- Add regress summary mode for drift-focused markdown output with deterministic drift reason grouping.
+- Add lifecycle summary mode that emits approval-state snapshots and recent transition highlights for governance handoffs.
+- Include generated summary artifacts in evidence bundles under a deterministic reports directory.
+- Add docs and operator playbook guidance for internal vs public sharing workflows and expected artifact usage.
+Repo paths:
+- `cmd/wrkr/scan.go`
+- `cmd/wrkr/regress.go`
+- `cmd/wrkr/lifecycle.go`
+- `action/entrypoint.sh`
+- `core/action/runtime.go`
+- `core/evidence/evidence.go`
+- `docs/commands/scan.md`
+- `docs/commands/regress.md`
+- `docs/commands/lifecycle.md`
+- `docs/examples/operator-playbooks.md`
+Run commands:
+- `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json`
+- `wrkr report --md --md-path ./.tmp/scan-summary.md --template operator --json`
+- `wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --json`
+- `wrkr lifecycle --org local --json`
+- `wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json`
+- `go test ./internal/e2e/action -count=1`
+Test requirements:
+- Tier 2: integration tests for summary emission hooks in scan/action/regress/lifecycle/evidence flows.
+- Tier 3: command e2e tests validating summary artifact paths and output contracts.
+- Tier 4: acceptance workflows for scheduled governance cadence and drift triage packets.
+- Tier 5: fail-closed behavior when summary generation is requested with invalid/missing prerequisites.
+- Tier 9: artifact-path and JSON-envelope contract checks for all integrated command surfaces.
+- Tier 11: scenario fixtures for AC10/AC11/AC21 summary outputs across lifecycle and regress contexts.
+- Tier 12: evidence/summary interop checks for downstream consumption compatibility.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+integration subset), Main (full e2e+acceptance), Nightly (interop and fault-injection summary flows), Release (artifact contract freeze gate).
+Acceptance criteria:
+- Summary artifacts are available at all key decision checkpoints (scan, scheduled action, regress drift, lifecycle review, evidence packaging).
+- Added summary integrations do not alter deterministic scan/risk/proof computations.
+- Artifact contracts remain stable and parseable for automation and downstream sharing.
+
+---
+
 ## Minimum-Now Sequence
 
 Dependency-aware phased execution (assume 2-week sprints):
@@ -1395,7 +1534,10 @@ Dependency-aware phased execution (assume 2-week sprints):
 - Output: PR automation loop, GitHub Action modes with score/profile deltas, contract/scenario confidence, docs parity.
 
 7. Phase 6 (Weeks 13-14): Stories `7.2`, `8.2-8.3`.
-- Output: hardening/chaos/perf/soak + cross-product integration + AC1-AC20 release gate + manifest open-spec publication.
+- Output: hardening/chaos/perf/soak + cross-product integration + AC1-AC21 release gate + manifest open-spec publication.
+
+8. Phase 7 (Weeks 15-16): Stories `9.1-9.3`.
+- Output: deterministic shareable report artifacts (`md` + `pdf`), audience templates, summary integration for scan/action/regress/lifecycle/evidence workflows.
 
 Execution rule:
 
