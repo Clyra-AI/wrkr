@@ -73,3 +73,52 @@ func TestGitHubClientListCreateUpdateWithRetry(t *testing.T) {
 		t.Fatalf("expected one retry on update, attempts=%d", updateAttempts)
 	}
 }
+
+func TestGitHubClientRepoURLPreservesBasePathPrefix(t *testing.T) {
+	t.Parallel()
+
+	var requestedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedPath = r.URL.Path
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+
+	client := NewGitHubClient(server.URL+"/api/v3", "token", server.Client())
+	if _, err := client.ListOpenByHead(context.Background(), "acme", "repo", "branch", "main"); err != nil {
+		t.Fatalf("list prs: %v", err)
+	}
+	if requestedPath != "/api/v3/repos/acme/repo/pulls" {
+		t.Fatalf("expected API prefix preserved, got %q", requestedPath)
+	}
+}
+
+func TestGitHubClientEnsureHeadRefCreatesMissingBranchFromBase(t *testing.T) {
+	t.Parallel()
+
+	var createRefCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git/ref/heads/wrkr-bot/remediation/repo/weekly/abc"):
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git/ref/heads/main"):
+			_, _ = w.Write([]byte(`{"object":{"sha":"base-sha-123"}}`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/git/refs"):
+			createRefCalls++
+			_, _ = w.Write([]byte(`{"ref":"refs/heads/wrkr-bot/remediation/repo/weekly/abc"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"unexpected route"}`))
+		}
+	}))
+	defer server.Close()
+
+	client := NewGitHubClient(server.URL, "token", server.Client())
+	if err := client.EnsureHeadRef(context.Background(), "acme", "repo", "wrkr-bot/remediation/repo/weekly/abc", "main"); err != nil {
+		t.Fatalf("ensure head ref: %v", err)
+	}
+	if createRefCalls != 1 {
+		t.Fatalf("expected one branch-create call, got %d", createRefCalls)
+	}
+}

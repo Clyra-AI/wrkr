@@ -11,6 +11,18 @@ inputs:
     description: number of top findings in report output
     required: false
     default: "5"
+  target_mode:
+    description: explicit scan target mode (repo|org|path)
+    required: false
+    default: ""
+  target_value:
+    description: explicit scan target value for the selected target_mode
+    required: false
+    default: ""
+  config_path:
+    description: optional wrkr config path used when no explicit target is provided
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -19,4 +31,4 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        "${{ github.action_path }}/entrypoint.sh" "${{ inputs.mode }}" "${{ inputs.top }}"
+        "${{ github.action_path }}/entrypoint.sh" "${{ inputs.mode }}" "${{ inputs.top }}" "${{ inputs.target_mode }}" "${{ inputs.target_value }}" "${{ inputs.config_path }}"

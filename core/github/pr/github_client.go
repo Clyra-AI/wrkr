@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,6 +23,17 @@ type GitHubClient struct {
 	baseURL string
 	token   string
 	http    *http.Client
+}
+
+type httpStatusError struct {
+	method string
+	url    string
+	status int
+	body   string
+}
+
+func (e *httpStatusError) Error() string {
+	return fmt.Sprintf("github api %s %s failed: status=%d body=%s", e.method, e.url, e.status, strings.TrimSpace(e.body))
 }
 
 func NewGitHubClient(baseURL, token string, client *http.Client) *GitHubClient {
@@ -59,6 +71,43 @@ func (c *GitHubClient) ListOpenByHead(ctx context.Context, owner, repo, headBran
 		out = append(out, item.toPullRequest())
 	}
 	return out, nil
+}
+
+func (c *GitHubClient) EnsureHeadRef(ctx context.Context, owner, repo, headBranch, baseBranch string) error {
+	if strings.TrimSpace(headBranch) == "" || strings.TrimSpace(baseBranch) == "" {
+		return fmt.Errorf("head/base branches are required")
+	}
+	if _, err := c.refSHA(ctx, owner, repo, headBranch); err == nil {
+		return nil
+	} else {
+		var statusErr *httpStatusError
+		if !errors.As(err, &statusErr) || statusErr.status != http.StatusNotFound {
+			return err
+		}
+	}
+
+	baseSHA, err := c.refSHA(ctx, owner, repo, baseBranch)
+	if err != nil {
+		return fmt.Errorf("resolve base branch %q: %w", baseBranch, err)
+	}
+
+	endpoint, err := c.repoURL(owner, repo, "git", "refs")
+	if err != nil {
+		return err
+	}
+	payload := map[string]any{
+		"ref": "refs/heads/" + strings.TrimSpace(headBranch),
+		"sha": baseSHA,
+	}
+	if err := c.doJSON(ctx, http.MethodPost, endpoint.String(), payload, nil); err != nil {
+		var statusErr *httpStatusError
+		if errors.As(err, &statusErr) && statusErr.status == http.StatusUnprocessableEntity {
+			// Branch may have been created by a concurrent run between existence check and create.
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (c *GitHubClient) Create(ctx context.Context, owner, repo string, req CreateRequest) (PullRequest, error) {
@@ -146,7 +195,12 @@ func (c *GitHubClient) doJSON(ctx context.Context, method, endpoint string, payl
 		if shouldRetry(resp.StatusCode) && attempt < maxAttempts {
 			continue
 		}
-		return fmt.Errorf("github api %s %s failed: status=%d body=%s", method, endpoint, resp.StatusCode, strings.TrimSpace(string(respBody)))
+		return &httpStatusError{
+			method: method,
+			url:    endpoint,
+			status: resp.StatusCode,
+			body:   string(respBody),
+		}
 	}
 	return fmt.Errorf("github request attempts exceeded")
 }
@@ -165,11 +219,47 @@ func (c *GitHubClient) repoURL(owner, repo string, parts ...string) (*url.URL, e
 	if err != nil {
 		return nil, fmt.Errorf("parse github base url: %w", err)
 	}
-	base.Path = path.Join(base.Path, "/repos", owner, repo)
-	for _, item := range parts {
-		base.Path = path.Join(base.Path, item)
-	}
+	segments := []string{"repos", owner, repo}
+	segments = append(segments, parts...)
+	base.Path = joinURLPath(base.Path, segments...)
 	return base, nil
+}
+
+func joinURLPath(basePath string, segments ...string) string {
+	items := make([]string, 0, len(segments)+2)
+	if trimmed := strings.Trim(basePath, "/"); trimmed != "" {
+		items = append(items, strings.Split(trimmed, "/")...)
+	}
+	for _, segment := range segments {
+		trimmed := strings.Trim(segment, "/")
+		if trimmed == "" {
+			continue
+		}
+		items = append(items, strings.Split(trimmed, "/")...)
+	}
+	if len(items) == 0 {
+		return "/"
+	}
+	return "/" + path.Join(items...)
+}
+
+func (c *GitHubClient) refSHA(ctx context.Context, owner, repo, branch string) (string, error) {
+	endpoint, err := c.repoURL(owner, repo, "git", "ref", "heads", branch)
+	if err != nil {
+		return "", err
+	}
+	var payload struct {
+		Object struct {
+			SHA string `json:"sha"`
+		} `json:"object"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, endpoint.String(), nil, &payload); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(payload.Object.SHA) == "" {
+		return "", fmt.Errorf("git ref for branch %q did not include object sha", branch)
+	}
+	return strings.TrimSpace(payload.Object.SHA), nil
 }
 
 type githubPR struct {

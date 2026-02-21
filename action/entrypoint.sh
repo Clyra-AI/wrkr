@@ -3,6 +3,9 @@ set -euo pipefail
 
 mode="${1:-scheduled}"
 top="${2:-5}"
+target_mode="${3:-}"
+target_value="${4:-}"
+config_path="${5:-}"
 
 if [[ "${mode}" != "scheduled" && "${mode}" != "pr" ]]; then
   echo "unsupported mode: ${mode}" >&2
@@ -22,7 +25,34 @@ run_wrkr() {
   exit 7
 }
 
-run_wrkr scan --json
+scan_args=(--json)
+
+if [[ -n "${target_mode}" && -n "${target_value}" ]]; then
+  case "${target_mode}" in
+    repo)
+      scan_args+=(--repo "${target_value}")
+      ;;
+    org)
+      scan_args+=(--org "${target_value}")
+      ;;
+    path)
+      scan_args+=(--path "${target_value}")
+      ;;
+    *)
+      echo "unsupported target mode: ${target_mode}" >&2
+      exit 6
+      ;;
+  esac
+elif [[ -n "${config_path}" ]]; then
+  scan_args+=(--config "${config_path}")
+elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+  scan_args+=(--repo "${GITHUB_REPOSITORY}")
+else
+  echo "missing scan target: set target_mode+target_value, config_path, or GITHUB_REPOSITORY" >&2
+  exit 6
+fi
+
+run_wrkr scan "${scan_args[@]}"
 run_wrkr report --top "${top}" --json
 run_wrkr score --json
 
