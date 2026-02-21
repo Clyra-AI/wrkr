@@ -19,6 +19,9 @@ func Upsert(ctx context.Context, api API, in UpsertInput) (UpsertResult, error) 
 	}
 
 	body := ensureFingerprintMarker(in.Body, in.Fingerprint)
+	if err := api.EnsureHeadRef(ctx, in.Owner, in.Repo, in.HeadBranch, in.BaseBranch); err != nil {
+		return UpsertResult{}, err
+	}
 	existing, err := api.ListOpenByHead(ctx, in.Owner, in.Repo, in.HeadBranch, in.BaseBranch)
 	if err != nil {
 		return UpsertResult{}, err

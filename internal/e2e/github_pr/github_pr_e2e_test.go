@@ -23,8 +23,22 @@ func TestE2EPRUpsertIdempotentWithSimulatedAPI(t *testing.T) {
 	t.Parallel()
 
 	var storedBody string
+	var headExists bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git/ref/heads/wrkr-bot/remediation/backend/weekly/abc123"):
+			if !headExists {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"object":{"sha":"head-sha"}}`))
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/git/ref/heads/main"):
+			_, _ = w.Write([]byte(`{"object":{"sha":"base-sha"}}`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/git/refs"):
+			headExists = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"ref":"refs/heads/wrkr-bot/remediation/backend/weekly/abc123"}`))
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/pulls"):
 			if storedBody == "" {
 				_, _ = w.Write([]byte(`[]`))

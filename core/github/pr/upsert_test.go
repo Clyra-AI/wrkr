@@ -48,6 +48,9 @@ func TestUpsertCreateThenNoopIdempotent(t *testing.T) {
 	if api.createCalls != 1 {
 		t.Fatalf("expected one create call, got %d", api.createCalls)
 	}
+	if api.ensureHeadCalls != 2 {
+		t.Fatalf("expected ensure-head call per run, got %d", api.ensureHeadCalls)
+	}
 }
 
 func TestUpsertUpdatesWhenFingerprintChanges(t *testing.T) {
@@ -81,10 +84,40 @@ func TestUpsertUpdatesWhenFingerprintChanges(t *testing.T) {
 	}
 }
 
+func TestUpsertStopsWhenHeadRefEnsureFails(t *testing.T) {
+	t.Parallel()
+
+	api := &fakeAPI{ensureHeadErr: fmt.Errorf("head ref missing")}
+	in := UpsertInput{
+		Owner:       "acme",
+		Repo:        "backend",
+		HeadBranch:  "wrkr-bot/remediation/backend/weekly/abc",
+		BaseBranch:  "main",
+		Title:       "wrkr remediation",
+		Body:        "summary",
+		Fingerprint: "abc123",
+	}
+
+	_, err := Upsert(context.Background(), api, in)
+	if err == nil {
+		t.Fatal("expected ensure-head failure to stop upsert")
+	}
+	if api.createCalls != 0 {
+		t.Fatalf("expected no create call on ensure-head failure, got %d", api.createCalls)
+	}
+}
+
 type fakeAPI struct {
-	prs         []PullRequest
-	createCalls int
-	updateCalls int
+	prs             []PullRequest
+	createCalls     int
+	updateCalls     int
+	ensureHeadCalls int
+	ensureHeadErr   error
+}
+
+func (f *fakeAPI) EnsureHeadRef(_ context.Context, _ string, _ string, _ string, _ string) error {
+	f.ensureHeadCalls++
+	return f.ensureHeadErr
 }
 
 func (f *fakeAPI) ListOpenByHead(_ context.Context, _ string, _ string, headBranch, baseBranch string) ([]PullRequest, error) {
