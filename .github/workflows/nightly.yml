@@ -40,6 +40,21 @@ jobs:
       - name: Run prepush full
         run: make prepush-full
 
+      - name: Run contract determinism smoke
+        run: scripts/validate_contracts.sh
+
+      - name: Run hardening suites
+        run: scripts/test_hardening_all.sh
+
+      - name: Run chaos suites
+        run: scripts/test_chaos_all.sh
+
+      - name: Run performance budgets
+        run: scripts/test_perf_budgets.sh
+
+      - name: Run cross-product interop suite
+        run: go test ./internal/integration/interop -count=1
+
       - name: Run race lane
         run: go test -race ./... -count=1
 

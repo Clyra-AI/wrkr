@@ -1,0 +1,3 @@
+{"source_product":"wrkr","record_type":"scan_finding","event":{"agent_id":"wrkr:codex:acme","finding_type":"skill_policy_conflict","rule_id":"WRKR-014"}}
+{"source_product":"gait","record_type":"policy_enforcement","event":{"agent_id":"wrkr:codex:acme","decision":"block","policy_id":"gait-deny-exec"}}
+{"source_product":"axym","record_type":"risk_assessment","event":{"agent_id":"wrkr:codex:acme","assessment_type":"control_mapping","framework":"soc2","control_id":"CC7.2"}}

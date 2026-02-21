@@ -86,3 +86,6 @@ jobs:
           make test-integration
           make test-e2e
           make test-contracts
+          scripts/validate_contracts.sh
+          scripts/validate_scenarios.sh
+          go test ./internal/scenarios -count=1 -tags=scenario

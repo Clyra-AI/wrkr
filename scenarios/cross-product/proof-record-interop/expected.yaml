@@ -1,0 +1,7 @@
+chain: intact
+products:
+  - wrkr
+  - gait
+  - axym
+agent_id_consistent: true
+minimum_records: 3

@@ -39,8 +39,7 @@ jobs:
             workflow_or_policy:
               - '.github/workflows/**'
               - '.github/required-checks.json'
-              - 'scripts/check_branch_protection_contract.sh'
-              - 'scripts/run_codeql.sh'
+              - 'scripts/**/*.sh'
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -76,6 +75,7 @@ jobs:
           make lint-fast
           make test-fast
           make test-contracts
+          scripts/validate_scenarios.sh
 
       - name: Run ruff
         if: steps.pyfiles.outputs.has_python == 'true' && steps.changes.outputs.python == 'true'
