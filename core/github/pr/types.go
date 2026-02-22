@@ -27,6 +27,7 @@ type UpdateRequest struct {
 // API abstracts GitHub PR APIs for deterministic tests and retry behavior.
 type API interface {
 	EnsureHeadRef(ctx context.Context, owner, repo, headBranch, baseBranch string) error
+	EnsureFileContent(ctx context.Context, owner, repo, branch, filePath, commitMessage string, content []byte) (bool, error)
 	ListOpenByHead(ctx context.Context, owner, repo, headBranch, baseBranch string) ([]PullRequest, error)
 	Create(ctx context.Context, owner, repo string, req CreateRequest) (PullRequest, error)
 	Update(ctx context.Context, owner, repo string, number int, req UpdateRequest) (PullRequest, error)

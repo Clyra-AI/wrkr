@@ -37,6 +37,8 @@ run_cmd() {
   local rc=$?
   if [[ $rc -ne 0 ]]; then
     echo "[acceptance] ${name}: FAIL (exit ${rc})"
+    echo "[acceptance] ${name}: log ${log_path}"
+    tail -n 120 "$log_path" | sed "s/^/[acceptance] ${name}: /"
     overall=1
   else
     echo "[acceptance] ${name}: PASS"
@@ -52,7 +54,7 @@ lane_risk="fail"
 
 touch "$ac_json_log"
 
-# Acceptance AC1-AC20 matrix.
+# Acceptance AC1-AC21 matrix.
 go test ./internal/acceptance -run '^TestV1AcceptanceMatrix$' -count=1 -json >"$ac_json_log" 2>"$log_dir/ac_matrix.stderr.log"
 ac_rc=$?
 if [[ $ac_rc -ne 0 ]]; then
@@ -68,7 +70,7 @@ import sys
 log_path = pathlib.Path(sys.argv[1])
 out_path = pathlib.Path(sys.argv[2])
 
-status = {f"AC{i:02d}": {"status": "fail", "test": f"TestV1AcceptanceMatrix/AC{i:02d}"} for i in range(1, 21)}
+status = {f"AC{i:02d}": {"status": "fail", "test": f"TestV1AcceptanceMatrix/AC{i:02d}"} for i in range(1, 22)}
 
 pattern = re.compile(r"TestV1AcceptanceMatrix/(AC\d{2})_")
 for line in log_path.read_text(encoding="utf-8").splitlines():

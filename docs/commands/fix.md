@@ -29,4 +29,6 @@ wrkr fix [--top <n>] [--state <path>] [--config <path>] [--open-pr] [--repo <own
 wrkr fix --top 3 --state ./.tmp/state.json --json
 ```
 
-Expected JSON keys: `status`, `requested_top`, `fingerprint`, `remediation_count`, `non_fixable_count`, `remediations`, `unsupported_findings`.
+When `--open-pr` is set, Wrkr writes deterministic remediation artifacts under `.wrkr/remediations/<fingerprint>/` on the remediation branch before creating/updating the PR.
+
+Expected JSON keys: `status`, `requested_top`, `fingerprint`, `remediation_count`, `non_fixable_count`, `remediations`, `unsupported_findings`; and when `--open-pr` is used: `pull_request`, `remediation_artifacts`.

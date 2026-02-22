@@ -55,7 +55,7 @@ Repository snapshot (2026-02-20):
 - Implemented baseline CLI: `init` and `scan` command paths with `--json`, `--quiet`, `--explain` handling in current scaffold.
 - Implemented baseline engines: source acquisition (`repo`/`org`/`path`), local state snapshot, deterministic diffing by tuple key, and e2e/integration coverage for current scope.
 - Missing v1 command surface: `report`, `evidence`, `verify`, `regress`, `identity`, `fix`, `manifest`, plus dedicated `export`/lifecycle-read views.
-- Missing v1 product depth: detector coverage, policy/profile/score posture engine completeness, proof emission, compliance mapping, remediation loops, and full AC1-AC21 acceptance closure.
+- Missing v1 product depth: detector coverage, policy/profile/score posture engine completeness, proof emission, compliance mapping, remediation loops, and full AC1-AC25 acceptance closure.
 - Gap to PRD remains substantial: current implementation is early foundation with partial FR1/FR8 path only.
 
 ---
@@ -85,6 +85,10 @@ Wrkr v1 is done when all criteria below are automated and passing:
 19. AC19: profile compliance reports deterministic percentage, failing rules, and trend deltas.
 20. AC20: posture score command/report emits deterministic score, grade, weighted breakdown, and trend proof records.
 21. AC21: `wrkr report --md` emits deterministic, audience-ready summaries (and matching PDF) with proof links, deltas, and prioritized actions.
+22. AC22: all discovered `AITool` entities include `discovery_method` with v1 enum value `static`, including deterministic handling of legacy baselines missing the field.
+23. AC23: MCP gateway configs (Kong, Docker interceptor definitions, MintMCP registry config, and `mcp-gateway.yaml` equivalents) are detected with deterministic coverage posture (`protected`, `unprotected`, `unknown`) and allow/deny signals.
+24. AC24: A2A agent cards are discovered as first-class entities with strict schema validation and deterministic capabilities/auth/protocol metadata extraction.
+25. AC25: WebMCP declarations are detected using static HTML and JS parsing plus repo-hosted `/.well-known/webmcp` route/file discovery; default scan performs no live endpoint probing.
 
 NFR gates:
 
@@ -107,6 +111,10 @@ NFR gates:
 | AC18/AC19/AC20/AC21 acceptance closure | Story 7.1, Story 8.2, Story 9.1, Story 9.2, Story 9.3 |
 | Shareable deterministic summary artifacts (markdown/pdf) for operator and board workflows | Story 9.1, Story 9.2, Story 9.3 |
 | Skill scanning refinement (transitive ceiling, policy conflicts, sprawl concentration) | Story 2.3, Story 2.5, Story 3.1, Story 3.3, Story 4.1, Story 6.1, Story 7.1, Story 8.2 |
+| `discovery_method` enum foundation for static/runtime expansion | Story 10.1 |
+| MCP gateway config detection with protected/unprotected and allow/deny posture | Story 10.2, Story 10.4 |
+| A2A agent card discovery with strict schema validation | Story 10.3 |
+| WebMCP declaration detection (declarative HTML, imperative JS, and repo-hosted discovery routes/files) | Story 10.4 |
 
 ---
 
@@ -172,6 +180,10 @@ Story-to-lane map:
 | 9.1 | Yes | Yes | Yes | Yes | Yes |
 | 9.2 | Yes | Yes | Yes | Yes | Yes |
 | 9.3 | Yes | Yes | Yes | Yes | Yes |
+| 10.1 | Yes | Yes | Yes | Yes | No |
+| 10.2 | Yes | Yes | Yes | Yes | Yes |
+| 10.3 | Yes | Yes | Yes | Yes | Yes |
+| 10.4 | Yes | Yes | Yes | Yes | Yes |
 
 Gating rule:
 
@@ -1269,7 +1281,7 @@ Acceptance criteria:
 ## Epic 8: Documentation, Acceptance Harness, and Release Readiness
 
 Objective: keep docs aligned with shipped behavior and block release until all launch-critical criteria are automated.
-Traceability: AC1-AC21 completeness, dev-guide docs standards, release integrity requirements.
+Traceability: AC1-AC25 completeness, dev-guide docs standards, release integrity requirements.
 
 ### Story 8.1: Implement docs parity, examples, and operator smoke checks
 Priority: P1
@@ -1311,7 +1323,7 @@ Acceptance criteria:
 ### Story 8.2: Build v1 acceptance gate and release go/no-go checklist
 Priority: P0
 Tasks:
-- Implement acceptance runner that automates AC1-AC21 against deterministic fixtures.
+- Implement acceptance runner that automates AC1-AC25 against deterministic fixtures.
 - Include refined AC15 fixture assertions for skill ceiling union, conflict emission, and sprawl metrics.
 - Include refined AC15 fixture assertions for skill concentration ratios and non-duplicated conflict scoring.
 - Add acceptance fixtures for evidence output-path safety (non-managed dir rejection, marker-type trust checks).
@@ -1330,7 +1342,7 @@ Run commands:
 - `wrkr verify --chain --json`
 - `wrkr regress run --baseline <baseline-path> --json`
 Test requirements:
-- Tier 4: full acceptance suite (AC1-AC21).
+- Tier 4: full acceptance suite (AC1-AC25).
 - Tier 4: acceptance fixtures for evidence output ownership safety and fail-closed behavior.
 - Tier 5/6/7/8: high-risk release gate subsets.
 - Tier 9: contract freeze checks.
@@ -1511,6 +1523,176 @@ Acceptance criteria:
 
 ---
 
+## Epic 10: Emerging Agent Discovery Surfaces (Static Deterministic Expansion)
+
+Objective: extend Wrkr discovery coverage to emerging WebMCP, MCP gateway, and A2A surfaces without breaking deterministic, zero-egress defaults.
+Traceability: FR1, FR2, FR3, FR7, FR11, AC5/AC13/AC14/AC22/AC23/AC24/AC25, NFR3 deterministic output and zero-egress constraints.
+
+### Story 10.1: Add `discovery_method` enum foundation across findings and inventory outputs
+Priority: P0
+Tasks:
+- Add `discovery_method` as a canonical enum in relevant output models and schemas, starting with v1 value `static`.
+- Emit `discovery_method: static` for all current detector outputs and derived inventory/export records.
+- Ensure baseline/diff/regress compatibility when historical artifacts do not yet contain `discovery_method`.
+- Enforce deterministic normalization and stable ordering for the new field across JSON output paths.
+- Update docs and schema references so the field is treated as a locked contract field.
+Repo paths:
+- `core/model/finding.go`
+- `core/aggregate/inventory/`
+- `core/export/inventory/`
+- `core/cli/scan.go`
+- `schemas/v1/findings/finding.schema.json`
+- `schemas/v1/inventory/inventory.schema.json`
+- `schemas/v1/export/inventory-export.schema.json`
+- `internal/e2e/cli_contract/`
+- `internal/e2e/regress/`
+- `docs/commands/scan.md`
+Run commands:
+- `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json`
+- `wrkr scan --diff --path ./scenarios/wrkr/scan-mixed-org/repos --json`
+- `wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --json`
+- `go test ./core/model/... -count=1`
+Test requirements:
+- Tier 1: field normalization/defaulting units for canonical model structures.
+- Tier 2: detector-to-inventory/export integration tests confirming `discovery_method` is always emitted.
+- Tier 3: CLI contract tests for scan/diff envelopes containing the new field.
+- Tier 9: schema enum stability and backward-compatibility fixture checks.
+- Tier 11: AC22 scenario fixture for deterministic static discovery-method output.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform.
+- Pipeline placement: PR (unit+contract subset), Main (integration+scenario), Release (schema contract freeze gate).
+Acceptance criteria:
+- All discovered tool entities in v1 outputs include `discovery_method: static`.
+- Historical baselines without `discovery_method` are handled deterministically and re-emitted with `static`.
+- Schema contracts fail closed on invalid enum values.
+
+### Story 10.2: Implement MCP gateway configuration detection and coverage posture signals
+Priority: P0
+Tasks:
+- Implement deterministic detectors for enterprise gateway config surfaces:
+  - Kong MCP gateway config files.
+  - Docker MCP gateway/interceptor definitions.
+  - MintMCP registry configuration.
+  - `mcp-gateway.yaml` and equivalent naming patterns.
+- Parse gateway config using typed JSON/YAML decoding; avoid regex-only extraction for structured content.
+- Emit deterministic gateway posture signals:
+  - coverage: `protected` | `unprotected` | `unknown`
+  - policy posture: `allow`, `deny`, and wildcard/default behavior
+  - scope references linking gateway rules to discovered tools/declarations where possible.
+- Correlate gateway config with MCP/WebMCP/A2A declarations to identify governed vs ungoverned surfaces.
+- Treat ambiguous high-risk gateway config as fail-closed findings with stable reason codes.
+Repo paths:
+- `core/detect/mcpgateway/`
+- `core/detect/mcp/`
+- `core/aggregate/exposure/`
+- `core/risk/`
+- `schemas/v1/findings/finding.schema.json`
+- `schemas/v1/risk/risk-report.schema.json`
+- `scenarios/wrkr/mcp-gateway-posture/`
+- `internal/scenarios/`
+Run commands:
+- `wrkr scan --path ./scenarios/wrkr/mcp-gateway-posture/repos --json`
+- `go test ./core/detect/mcpgateway/... -count=1`
+- `go test ./core/risk/... -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+Test requirements:
+- Tier 1: parser units for Kong, Docker, MintMCP, and generic gateway files.
+- Tier 2: detector+aggregation integration tests for gateway-to-tool correlation.
+- Tier 4: acceptance fixtures validating governed/ungoverned posture and allow/deny extraction.
+- Tier 5: fail-closed tests for malformed/ambiguous gateway configs and risky wildcard behaviors.
+- Tier 9: stable coverage enum and reason-code contract checks.
+- Tier 11: AC23 scenario fixture for gateway coverage posture outputs.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+contract subset), Main (integration+acceptance+scenario), Nightly (fault-injection and expanded gateway fixture matrix).
+Acceptance criteria:
+- Known gateway fixture repos produce deterministic coverage posture and policy posture outputs.
+- Tool declarations lacking matching gateway controls are flagged as `unprotected` with stable rationale.
+- Repos lacking sufficient gateway context are classified as `unknown` with deterministic rationale.
+- Ambiguous high-risk gateway config paths fail closed with deterministic error/findings output.
+
+### Story 10.3: Add A2A agent card discovery with strict schema validation
+Priority: P0
+Tasks:
+- Detect agent cards at canonical and repo-hosted locations (including `/.well-known/agent.json` equivalents).
+- Define and enforce strict agent-card schema validation with typed parse-error reporting.
+- Model agent cards as first-class discovered entities with deterministic extraction of:
+  - declared capabilities
+  - supported auth schemes
+  - supported protocols/interaction patterns
+- Map discovered agent-card entities into inventory/risk pipelines with deterministic IDs and ownership context.
+- Correlate A2A entities with gateway coverage signals for governed vs ungoverned posture.
+Repo paths:
+- `core/detect/a2a/`
+- `core/model/finding.go`
+- `core/aggregate/inventory/`
+- `schemas/v1/a2a/agent-card.schema.json`
+- `schemas/v1/findings/finding.schema.json`
+- `schemas/v1/inventory/inventory.schema.json`
+- `scenarios/wrkr/a2a-agent-cards/`
+- `internal/scenarios/`
+Run commands:
+- `wrkr scan --path ./scenarios/wrkr/a2a-agent-cards/repos --json`
+- `go test ./core/detect/a2a/... -count=1`
+- `go test ./core/aggregate/... -count=1`
+- `scripts/validate_scenarios.sh`
+Test requirements:
+- Tier 1: agent-card schema validation and metadata extraction units.
+- Tier 2: detector-to-inventory integration tests for entity modeling and ownership mapping.
+- Tier 4: acceptance fixtures for valid, invalid, partial, and malformed card inputs.
+- Tier 5: fail-closed tests for schema ambiguity and conflicting card declarations.
+- Tier 9: schema and reason-code stability checks for A2A findings.
+- Tier 11: AC24 scenario fixture validating capability/auth/protocol extraction.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+schema subset), Main (integration+acceptance+scenario), Nightly (edge-case and malformed-card replay matrix).
+Acceptance criteria:
+- Valid agent cards are discovered with deterministic capability/auth/protocol metadata.
+- Invalid cards do not silently pass; they emit typed parse-error findings.
+- A2A entities appear as first-class discovered records in inventory outputs with deterministic identifiers.
+
+### Story 10.4: Detect WebMCP declarations via static HTML/JS parsing and repo-hosted discovery routes
+Priority: P0
+Tasks:
+- Implement deterministic HTML parsing for declarative WebMCP tool markup (form elements with `tool-name` attributes).
+- Implement deterministic JS AST parsing for imperative registrations via `navigator.modelContext`.
+- Detect repo-hosted `/.well-known/webmcp` discovery surfaces from files and route declarations in source code (no live HTTP probing by default).
+- Correlate WebMCP declarations with MCP gateway signals to classify protected vs unprotected declarations.
+- Ensure detector output remains explainable and schema-stable with explicit evidence fields for declaration method and location.
+- Document static-only default behavior and explicit non-goal: live endpoint probing is out of scope for v1 deterministic scan.
+Repo paths:
+- `core/detect/webmcp/`
+- `core/detect/parse.go`
+- `core/detect/mcpgateway/`
+- `core/aggregate/exposure/`
+- `schemas/v1/findings/finding.schema.json`
+- `docs/commands/scan.md`
+- `scenarios/wrkr/webmcp-declarations/`
+- `internal/scenarios/epic10_scenario_test.go`
+Run commands:
+- `wrkr scan --path ./scenarios/wrkr/webmcp-declarations/repos --json`
+- `go test ./core/detect/webmcp/... -count=1`
+- `go test ./core/detect/... -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+Test requirements:
+- Tier 1: HTML parser units for declarative markup extraction.
+- Tier 1: JS AST parser units for `navigator.modelContext` registration extraction.
+- Tier 2: cross-detector integration tests for WebMCP declaration and gateway correlation.
+- Tier 4: acceptance fixtures for declarative, imperative, and route-file discovery cases.
+- Tier 5: fail-closed tests ensuring default scan mode never performs live endpoint probing.
+- Tier 9: stable declaration-method and coverage-field schema/golden checks.
+- Tier 11: AC25 scenario fixture validating static-only detection contract.
+Matrix wiring:
+- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
+- Pipeline placement: PR (unit+contract subset), Main (integration+acceptance+scenario), Nightly (parser robustness and false-positive replay suites).
+Acceptance criteria:
+- WebMCP declarative and imperative declarations are detected deterministically from repository content.
+- Repo-hosted `/.well-known/webmcp` discovery files/routes are identified without network access.
+- WebMCP findings include deterministic protected/unprotected posture when gateway data is available.
+- Default deterministic scan mode performs zero live HTTP probing for WebMCP discovery.
+
+---
+
 ## Minimum-Now Sequence
 
 Dependency-aware phased execution (assume 2-week sprints):
@@ -1534,10 +1716,13 @@ Dependency-aware phased execution (assume 2-week sprints):
 - Output: PR automation loop, GitHub Action modes with score/profile deltas, contract/scenario confidence, docs parity.
 
 7. Phase 6 (Weeks 13-14): Stories `7.2`, `8.2-8.3`.
-- Output: hardening/chaos/perf/soak + cross-product integration + AC1-AC21 release gate + manifest open-spec publication.
+- Output: hardening/chaos/perf/soak + cross-product integration + AC1-AC25 release gate + manifest open-spec publication.
 
 8. Phase 7 (Weeks 15-16): Stories `9.1-9.3`.
 - Output: deterministic shareable report artifacts (`md` + `pdf`), audience templates, summary integration for scan/action/regress/lifecycle/evidence workflows.
+
+9. Phase 8 (Weeks 17-18): Stories `10.1-10.4`.
+- Output: `discovery_method` schema foundation + MCP gateway posture detection + A2A agent-card inventory + WebMCP static declaration coverage with AC22-AC25 closure.
 
 Execution rule:
 
@@ -1571,6 +1756,7 @@ A story is done only when all items below are true:
 - Deterministic behavior is validated (`go test ./... -count=1` where required).
 - Tier 11 scenario coverage is present for every FR/AC touched by the story and passes in CI.
 - No scan-data exfiltration path is introduced by default.
+- Emerging discovery surfaces (WebMCP, A2A, gateway configs) remain static repository analysis by default; no live endpoint probing is allowed in deterministic mode.
 - Security/release checks pass for scope that touches build/release surfaces.
 - User-facing command/flag/exit/schema changes include doc updates in the same change.
 - For proof-touching work, chain integrity and `proof` interop checks pass.

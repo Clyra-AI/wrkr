@@ -5,7 +5,7 @@
 | Version | 1.0 |
 | Status | Execution-ready |
 | Owner | Product and Engineering |
-| Last Updated | 2026-02-21 |
+| Last Updated | 2026-02-22 |
 
 ---
 
@@ -74,6 +74,9 @@ Install → Connect → Scan → See → Fix → Prove
 | Codex config | `.codex/config.toml`, `.codex/config.yaml`, `AGENTS.md`, `AGENTS.override.md` | Task definitions, automations, permissions, agent configuration overrides, sandbox mode, MCP servers (in config.toml) |
 | GitHub Copilot config | `.github/copilot-instructions.md`, `.github/copilot-setup-steps.yml` (coding agent), `AGENTS.md` (shared standard), `.vscode/mcp.json`, `.vscode/settings.json` (copilot keys), org-level policy controls | Org policies, coding agent environment setup, allowed/blocked suggestions, workspace MCP servers |
 | MCP server declarations | `.claude/settings.json`, `.mcp.json` (project root), `.cursor/mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`, standalone `mcp.json`, `managed-mcp.json` (enterprise IT-deployed) | Server endpoints, transport type (stdio/SSE/streamable HTTP), credentials references, data access patterns, `ToolAnnotations` (readOnlyHint, destructiveHint, idempotentHint, openWorldHint) |
+| WebMCP tool declarations | HTML form markup with `tool-name` attributes, JS registrations via `navigator.modelContext`, repo-hosted `/.well-known/webmcp` files/routes | Declarative and imperative WebMCP declarations, declaration method, and discovery surface location (static repo analysis only) |
+| MCP gateway configuration | Kong gateway config, Docker MCP gateway/interceptor definitions, MintMCP registry config, `mcp-gateway.yaml` (and equivalent names) | Gateway allow/deny posture and coverage classification: `protected` / `unprotected` / `unknown` |
+| A2A agent cards | `/.well-known/agent.json` and equivalent repo-hosted card paths | Declared capabilities, auth schemes, protocols/interaction patterns, and schema validation status |
 | AI-related dependencies | `go.mod`, `package.json`, `requirements.txt`, `pyproject.toml`, etc. | LLM SDKs, agent frameworks, embedding libs |
 | API keys & secrets | `.env`, CI secrets (by reference) | AI service credentials (flagged, not extracted) |
 | Agent Skills (cross-platform) | `.claude/skills/`, `.agents/skills/` | Skill name, description, `allowed-tools`, implicit invocation policy, MCP dependencies, scripts, supply chain origin |
@@ -292,9 +295,13 @@ Alex heard about Wrkr on Reddit or at a meetup. Runs `wrkr scan` on a Friday aft
 - Scan GitHub org repos for Claude Code (`.claude/settings.json`, `settings.local.json`, `.mcp.json` at project root, `CLAUDE.md` at root/`.claude/`/parent dirs, `.claudeignore`, `.claude/commands/`, hooks), Cursor (`.cursor/rules/*.mdc` frontmatter rules, `.cursorrules` deprecated, `.cursor/mcp.json`), Codex (`.codex/config.toml`, `.codex/config.yaml`, `AGENTS.md`, `AGENTS.override.md` — the cross-platform agent configuration standard adopted by Codex, Copilot, and Cursor), and Copilot (`.github/copilot-instructions.md`, `.github/copilot-setup-steps.yml`, `AGENTS.md`, `.vscode/mcp.json`, org-level policy controls) configuration files
 - Scan Agent Skills across all tools — `.claude/skills/`, `.agents/skills/` (Codex, Copilot), and user/admin paths — using the standardized `SKILL.md` format (agentskills.io spec). Extract `allowed-tools`, implicit invocation policy, MCP dependencies, and script inventory per skill.
 - Detect MCP server declarations across all tool-specific config locations (`.claude/settings.json`, `.mcp.json` at project root, `.cursor/mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`, standalone `mcp.json`, enterprise `managed-mcp.json`) and extract endpoints, transport type (stdio/SSE/streamable HTTP), credentials references, access scopes, and `ToolAnnotations` metadata (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
+- Detect WebMCP declarations using deterministic static analysis: HTML parsing for declarative markup (`tool-name` attributes), JS AST parsing for imperative registrations (`navigator.modelContext`), and repo-hosted `/.well-known/webmcp` files/routes.
+- Detect MCP gateway configuration in repository-managed enterprise gateway surfaces (Kong, Docker interceptor definitions, MintMCP registry config, `mcp-gateway.yaml` equivalents) and emit deterministic coverage posture (`protected` / `unprotected` / `unknown`) plus allow/deny signals.
+- Detect A2A agent cards at canonical and equivalent repo-hosted paths (including `/.well-known/agent.json`) as first-class discovered entities with strict schema validation and deterministic capability/auth/protocol extraction.
 - Detect AI-related dependencies in package manifests (`go.mod`, `package.json`, `requirements.txt`, `pyproject.toml`)
 - Detect AI API keys in `.env` files and CI configuration (flag presence, never extract values)
 - Detect GitHub App installations with AI-related scopes
+- WebMCP and A2A discovery endpoints are detected from repository files/routes only in default mode. No live HTTP probing is performed in deterministic scans.
 - **Detect autonomous / auto-approve mode configurations:** Cursor YOLO mode (auto-executes commands without confirmation), Claude Code `--allowedTools Bash` and `--dangerouslySkipPermissions` flags, Codex `full-auto` approval mode, Copilot coding agent issue assignment automation. Each detected tool is classified by autonomy level: `interactive` (human approves each action), `copilot` (human triggers with confirmation), `headless_gated` (runs without UI but has approval gates), `headless_auto` (fully autonomous, no human in loop).
 - **Detect headless / CI agent execution:** Scan `.github/workflows/*.yml`, Jenkinsfile, and CI configs for AI agent invocations running in pipelines — Claude Code with `-p` flag or SDK usage, Codex in CI with `full-auto`, Copilot coding agent triggers, any AI tool invoked with elevated permissions in automated contexts. Extract: which tool, what permissions granted, whether human approval is required before execution, access to repo secrets.
 - **MCP server supply chain analysis:** For each discovered MCP server, extract package origin (npm/PyPI/Go module) and determine whether the package version is pinned or floating (`npx -y` with no lockfile = unpinned). **By default (offline mode), supply chain trust scoring uses only static signals: package pinning, lockfile presence, and transport type.** The optional `--enrich` flag enables live lookups: checking known vulnerabilities via advisory databases and verifying whether the server is listed in the official MCP Registry (`registry.modelcontextprotocol.io`). Offline mode is deterministic (same input = same output). Enriched mode adds non-deterministic signals that may change between runs. Unpinned MCP packages are the exact attack vector used in real-world supply chain compromises (malicious Postmark MCP on npm).
@@ -304,7 +311,7 @@ Alex heard about Wrkr on Reddit or at a meetup. Runs `wrkr scan` on a Friday aft
 ### FR2: Inventory Generation
 
 - Produce a structured, machine-readable inventory (YAML and JSON) of all discovered AI tools
-- For each tool: type, location, owning team (from CODEOWNERS or heuristic), version info, permissions requested, data access patterns
+- For each tool: type, location, `discovery_method` (`static` in v1), owning team (from CODEOWNERS or heuristic), version info, permissions requested, data access patterns
 - Deduplicate tools shared across repos
 - Support incremental scan (diff from previous scan)
 
@@ -320,6 +327,7 @@ Alex heard about Wrkr on Reddit or at a meetup. Runs `wrkr scan` on a Friday aft
 - **Headless / CI execution context as risk signal:** Tools detected running in CI pipelines (`.github/workflows/`, Jenkinsfile) are scored with elevated risk based on: access to repo secrets (`secrets.*` in workflow), deployment permissions, whether human approval gates exist in the workflow (`environment:` with required reviewers), and the autonomy level of the AI tool invocation. A Claude Code `-p --dangerouslySkipPermissions` step with access to `DEPLOY_KEY` in a workflow with no required reviewers is a critical finding.
 - **MCP ToolAnnotations as risk input:** When MCP servers declare `ToolAnnotations` (MCP spec 2025-11-25), Wrkr uses them as first-party risk signals: `destructiveHint: true` increases blast radius score, `readOnlyHint: true` reduces privilege score, `idempotentHint: false` increases risk for retry-sensitive operations, `openWorldHint: true` flags external network access. Servers that declare no annotations are scored as unknown-risk (conservative default).
 - **Skill-specific risk signals:** Skills are scored on privilege breadth (`allowed-tools` grants — broad grants like `Bash` or `mcp__.*` score high), invocation policy (implicit invocation enabled on side-effect skills scores high), MCP dependency risk (skills declaring MCP tool dependencies inherit the risk profile of those servers), and supply chain trust (unreviewed skills from external sources, missing hashes on supporting scripts, skills installed via `$skill-installer` without pinning).
+- **Gateway coverage posture as risk signal:** tool declarations with mapped gateway controls are treated as lower trust-deficit risk than equivalent ungoverned declarations. Wrkr emits deterministic coverage posture (`protected` / `unprotected` / `unknown`) and promotes unprotected high-privilege declarations.
 - **`endpoint_class` derivation:** Wrkr assigns Gait-compatible endpoint classes to each finding based on discovered permissions and access patterns. Derivation rules:
   - `proc.exec` — tool grants shell/exec access: Claude Code `Bash` in `allowed_tools` or `--dangerouslySkipPermissions`, Codex `full-auto` mode, CI steps invoking AI tools with script execution
   - `fs.write` — tool grants file write: Claude Code `file_edit`/`Write` tools, Cursor with auto-apply, MCP servers with `destructiveHint: true` targeting local paths
@@ -502,6 +510,7 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
 
 - Deterministic output: same input always produces same inventory and same proof records (no LLM in the scan pipeline — this is pattern matching and static analysis, not generative AI). Note: `--enrich` mode (live advisory/registry lookups) is explicitly non-deterministic and excluded from the determinism guarantee. Default offline mode is fully deterministic.
 - Deterministic policy/profile/score outputs in offline mode: identical findings + rule/profile packs + weights produce identical policy results, profile compliance, and posture score
+- WebMCP and A2A discovery remains static repository analysis in deterministic mode; default scans do not perform live endpoint probing.
 - Scan failures on individual repos don't halt the full scan (graceful degradation)
 - All outputs are schema-validated before writing
 
@@ -575,7 +584,7 @@ The output of `wrkr evidence --frameworks eu-ai-act,soc2` produces a directory t
 
 ### AC5: The "Detector Test"
 
-For each supported AI tool type (Claude Code, Cursor, Codex, Copilot, MCP, AI dependencies, API keys), a test fixture repo exists with known configurations, and Wrkr correctly detects and inventories 100% of them.
+For each supported AI tool type/surface (Claude Code, Cursor, Codex, Copilot, MCP, WebMCP declarations, MCP gateway configurations, A2A agent cards, AI dependencies, API keys), a test fixture repo exists with known configurations, and Wrkr correctly detects and inventories 100% of them.
 
 ### AC6: The "Diff Scan"
 
@@ -636,6 +645,26 @@ For the same fixture input, `wrkr scan --profile baseline|standard|strict --json
 ### AC20: The "Posture Score"
 
 Given a fixed fixture scan state and fixed score weights, `wrkr score --json` emits a deterministic score (`0-100`), grade (`A`-`F`), weighted component breakdown, and trend delta. The score is stable across repeated runs and is emitted in proof-compatible structured form for downstream CI policy gates and evidence chains.
+
+### AC21: The "Shareable Summary"
+
+Running `wrkr report --md --pdf --json` on a fixed scan state emits deterministic markdown and PDF artifacts with stable section ordering, deterministic proof references, clear delta summaries, and prioritized next actions. Repeated runs with identical inputs produce equivalent payload content (excluding explicit output path and timestamp fields), and both artifacts remain audience-ready for operator and board workflows.
+
+### AC22: The "Discovery Method Contract"
+
+All discovered `AITool` entities include `discovery_method`, with v1 enum value `static`. Re-running the same fixture scan emits identical values. Historical baseline fixtures missing this field are handled deterministically and normalized to `static` in scan/diff/regress output.
+
+### AC23: The "Gateway Coverage Posture"
+
+A fixture set containing Kong, Docker interceptor, MintMCP, and `mcp-gateway.yaml` variants produces deterministic gateway findings with coverage posture (`protected`, `unprotected`, `unknown`) and allow/deny posture. Tool declarations with no matching controls are surfaced as `unprotected` with stable rationale.
+
+### AC24: The "A2A Agent Card Discovery"
+
+A fixture set containing valid and invalid agent cards at `/.well-known/agent.json` (and equivalent paths) is scanned. Valid cards are discovered as first-class entities with deterministic capabilities/auth/protocol metadata. Invalid cards emit typed schema-validation findings (no silent pass).
+
+### AC25: The "WebMCP Static Discovery"
+
+A fixture set with declarative HTML (`tool-name`), imperative JS (`navigator.modelContext`), and repo-hosted `/.well-known/webmcp` files/routes produces deterministic WebMCP findings. Default scan mode performs no live HTTP endpoint probing.
 
 ---
 
@@ -700,6 +729,9 @@ Detection Engine (plugin architecture):
   ├── CodexDetector         → .codex/config.toml, .codex/config.yaml, AGENTS.md, AGENTS.override.md, approval mode (suggest/auto-edit/full-auto)
   ├── CopilotDetector       → .github/copilot-instructions.md, .github/copilot-setup-steps.yml, AGENTS.md, .vscode/mcp.json, org policy controls, coding agent assignment config
   ├── MCPDetector           → .claude/settings.json, .mcp.json (project root), .cursor/mcp.json, .vscode/mcp.json, .codex/config.toml, standalone mcp.json, managed-mcp.json, ToolAnnotations extraction, supply chain analysis (package pinning, registry verification, advisory lookup)
+  ├── WebMCPDetector        → HTML declarative markup (`tool-name`), JS AST (`navigator.modelContext`), repo-hosted `/.well-known/webmcp` files/routes (static-only detection)
+  ├── MCPGatewayDetector    → Kong/Docker/MintMCP configs, `mcp-gateway.yaml`, allow/deny extraction, protected/unprotected/unknown coverage posture
+  ├── A2AAgentCardDetector  → `/.well-known/agent.json` and equivalent card paths, strict schema validation, capabilities/auth/protocol extraction
   ├── CIAgentDetector       → .github/workflows/*.yml, Jenkinsfile — headless AI tool invocations, autonomy level, secret access (secrets.*), human approval gates (environment: + required_reviewers)
   ├── DependencyDetector    → go.mod, package.json, requirements.txt, pyproject.toml (AI libs)
   ├── SkillDetector         → SKILL.md in .claude/skills/, .agents/skills/ (cross-platform)
@@ -794,8 +826,9 @@ type Inventory struct {
 // AITool represents a discovered AI development tool.
 type AITool struct {
     ID             string         `json:"id"`              // deterministic hash of type + location
-    Type           ToolType       `json:"type"`             // "claude-code" | "cursor" | "codex" | "copilot" | "mcp" | "skill" | "dependency" | "api-key" | "github-app"
+    Type           ToolType       `json:"type"`             // "claude-code" | "cursor" | "codex" | "copilot" | "mcp" | "webmcp" | "a2a-agent-card" | "mcp-gateway" | "skill" | "dependency" | "api-key" | "github-app"
     Location       string         `json:"location"`         // repo/path
+    DiscoveryMethod DiscoveryMethod `json:"discovery_method"` // static (v1); runtime methods reserved for future expansion
     Teams          []string       `json:"teams"`            // from CODEOWNERS or heuristic
     Identity       AgentIdentity  `json:"identity"`         // lifecycle state and approval history
     Version        string         `json:"version,omitempty"`
@@ -837,6 +870,11 @@ const (
     StatusRevoked     LifecycleStatus = "revoked"
 )
 
+type DiscoveryMethod string
+const (
+    DiscoveryStatic DiscoveryMethod = "static"
+)
+
 type ToolType string
 const (
     ToolClaudeCode ToolType = "claude-code"
@@ -844,6 +882,9 @@ const (
     ToolCodex      ToolType = "codex"
     ToolCopilot    ToolType = "copilot"
     ToolMCP        ToolType = "mcp"
+    ToolWebMCP     ToolType = "webmcp"
+    ToolA2AAgentCard ToolType = "a2a-agent-card"
+    ToolMCPGateway ToolType = "mcp-gateway"
     ToolDependency ToolType = "dependency"
     ToolSkill      ToolType = "skill"       // Agent Skills standard (agentskills.io) — cross-platform
     ToolAPIKey     ToolType = "api-key"

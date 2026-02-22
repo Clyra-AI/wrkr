@@ -100,6 +100,7 @@ Invalid target combinations return exit code `6` with a machine-readable JSON en
 - `wrkr fix --top <N> --json` generates deterministic remediation patch previews and commit messages for eligible high-risk findings.
 - Unsupported findings are emitted with explicit non-fixable reason codes.
 - `wrkr fix --open-pr` requires a write-capable fix profile token (scan-only profile fails closed).
+- `wrkr fix --open-pr` writes deterministic remediation artifacts under `.wrkr/remediations/<fingerprint>/` on the remediation branch before creating/updating the PR.
 
 ## Evidence Output Safety
 

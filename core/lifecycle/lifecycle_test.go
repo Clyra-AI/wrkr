@@ -130,8 +130,22 @@ func TestApplyManualStateNonApprovedStatesAlwaysRevokeApprovalStatus(t *testing.
 			if next.Identities[0].ApprovalState != "revoked" {
 				t.Fatalf("expected approval_state=revoked, got %s", next.Identities[0].ApprovalState)
 			}
+			if next.Identities[0].Approval != (manifest.Approval{}) {
+				t.Fatalf("expected approval metadata to be cleared, got %+v", next.Identities[0].Approval)
+			}
 			if transition.NewState != stateName {
 				t.Fatalf("unexpected transition state: %+v", transition)
+			}
+			reconciled, _ := Reconcile(next, []ObservedTool{{
+				AgentID:  "wrkr:mcp-1:acme",
+				ToolID:   "mcp-1",
+				ToolType: "mcp",
+				Org:      "acme",
+				Repo:     "acme/repo",
+				Location: ".mcp.json",
+			}}, now.Add(time.Minute))
+			if reconciled.Identities[0].ApprovalState == "valid" {
+				t.Fatalf("expected non-approved state to stay non-valid after reconcile, got %+v", reconciled.Identities[0])
 			}
 		})
 	}

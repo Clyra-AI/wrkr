@@ -1,6 +1,7 @@
 package report
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -66,7 +67,7 @@ func TestPublicSanitizeFindingsRedactsLocationRepoOrg(t *testing.T) {
 	t.Parallel()
 
 	input := []risk.ScoredFinding{{
-		CanonicalKey: "k1",
+		CanonicalKey: "policy_violation|hardcoded-token|codex|/Users/example/private/repo/.codex/config.toml|backend|acme",
 		Finding: model.Finding{
 			Location: "/Users/example/private/repo/.codex/config.toml",
 			Repo:     "backend",
@@ -82,6 +83,9 @@ func TestPublicSanitizeFindingsRedactsLocationRepoOrg(t *testing.T) {
 	}
 	if out[0].Finding.Repo == "backend" || out[0].Finding.Org == "acme" {
 		t.Fatalf("expected redacted repo/org, got repo=%q org=%q", out[0].Finding.Repo, out[0].Finding.Org)
+	}
+	if out[0].CanonicalKey == input[0].CanonicalKey || strings.Contains(out[0].CanonicalKey, "backend") {
+		t.Fatalf("expected redacted canonical key, got %q", out[0].CanonicalKey)
 	}
 }
 
@@ -141,5 +145,58 @@ func TestBuildSummaryWithPublicProfileSanitizesProofPath(t *testing.T) {
 		if summary.Proof.ChainPath != "redacted://proof-chain.json" {
 			t.Fatalf("expected redacted proof path, got %q", summary.Proof.ChainPath)
 		}
+	}
+}
+
+func TestBuildSummaryHonorsExplicitTopZero(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC)
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			Findings: []model.Finding{
+				{
+					FindingType: "policy_violation",
+					Severity:    model.SeverityHigh,
+					ToolType:    "codex",
+					Location:    "/tmp/private/AGENTS.md",
+					Repo:        "backend",
+					Org:         "acme",
+				},
+			},
+		},
+		Template:     TemplateOperator,
+		ShareProfile: ShareProfileInternal,
+		GeneratedAt:  now,
+		Top:          0,
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if len(summary.TopRisks) != 0 {
+		t.Fatalf("expected zero top risks for explicit top=0, got %d", len(summary.TopRisks))
+	}
+}
+
+func TestSanitizeProofReferencePublicRedactsCanonicalKeys(t *testing.T) {
+	t.Parallel()
+
+	out := sanitizeProofReferencePublic(ProofReference{
+		ChainPath: "state/proof-chain.json",
+		CanonicalFindingKeys: []string{
+			"policy_violation|hardcoded-token|codex|/Users/example/private/repo/.codex/config.toml|backend|acme",
+			"",
+		},
+	})
+
+	if out.ChainPath != "redacted://proof-chain.json" {
+		t.Fatalf("expected redacted chain path, got %q", out.ChainPath)
+	}
+	if len(out.CanonicalFindingKeys) != 1 {
+		t.Fatalf("expected one redacted canonical key, got %v", out.CanonicalFindingKeys)
+	}
+	if strings.Contains(out.CanonicalFindingKeys[0], "backend") || strings.Contains(out.CanonicalFindingKeys[0], "acme") {
+		t.Fatalf("expected redacted canonical finding key, got %q", out.CanonicalFindingKeys[0])
 	}
 }

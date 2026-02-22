@@ -3,6 +3,7 @@ package pr
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -110,6 +111,84 @@ func (c *GitHubClient) EnsureHeadRef(ctx context.Context, owner, repo, headBranc
 	return nil
 }
 
+func (c *GitHubClient) EnsureFileContent(ctx context.Context, owner, repo, branch, filePath, commitMessage string, content []byte) (bool, error) {
+	trimmedPath := normalizeRepoContentPath(filePath)
+	trimmedBranch := strings.TrimSpace(branch)
+	trimmedMessage := strings.TrimSpace(commitMessage)
+	if trimmedPath == "" {
+		return false, fmt.Errorf("file path is required")
+	}
+	if trimmedBranch == "" {
+		return false, fmt.Errorf("branch is required")
+	}
+	if trimmedMessage == "" {
+		return false, fmt.Errorf("commit message is required")
+	}
+
+	endpoint, err := c.repoURL(owner, repo, "contents", trimmedPath)
+	if err != nil {
+		return false, err
+	}
+	query := endpoint.Query()
+	query.Set("ref", trimmedBranch)
+	endpoint.RawQuery = query.Encode()
+
+	existingSHA := ""
+	existingContent, err := c.readFileContent(ctx, endpoint.String())
+	if err == nil {
+		existingSHA = existingContent.SHA
+		decoded, decodeErr := decodeGitHubFileContent(existingContent.Content, existingContent.Encoding)
+		if decodeErr != nil {
+			return false, decodeErr
+		}
+		if bytes.Equal(decoded, content) {
+			return false, nil
+		}
+	} else {
+		var statusErr *httpStatusError
+		if !errors.As(err, &statusErr) || statusErr.status != http.StatusNotFound {
+			return false, err
+		}
+	}
+
+	payload := map[string]any{
+		"message": trimmedMessage,
+		"content": base64.StdEncoding.EncodeToString(content),
+		"branch":  trimmedBranch,
+	}
+	if strings.TrimSpace(existingSHA) != "" {
+		payload["sha"] = existingSHA
+	}
+
+	if err := c.doJSON(ctx, http.MethodPut, endpoint.String(), payload, nil); err != nil {
+		var statusErr *httpStatusError
+		if errors.As(err, &statusErr) && statusErr.status == http.StatusUnprocessableEntity {
+			lower := strings.ToLower(statusErr.body)
+			if strings.Contains(lower, "same") || strings.Contains(lower, "no changes") {
+				return false, nil
+			}
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func normalizeRepoContentPath(filePath string) string {
+	normalized := strings.TrimSpace(filePath)
+	if normalized == "" {
+		return ""
+	}
+	// GitHub contents API expects POSIX separators regardless of runner OS.
+	normalized = strings.ReplaceAll(normalized, "\\", "/")
+	normalized = strings.TrimPrefix(normalized, "/")
+	normalized = path.Clean(normalized)
+	normalized = strings.TrimPrefix(normalized, "./")
+	if normalized == "." {
+		return ""
+	}
+	return normalized
+}
+
 func (c *GitHubClient) Create(ctx context.Context, owner, repo string, req CreateRequest) (PullRequest, error) {
 	endpoint, err := c.repoURL(owner, repo, "pulls")
 	if err != nil {
@@ -139,6 +218,37 @@ func (c *GitHubClient) Update(ctx context.Context, owner, repo string, number in
 		return PullRequest{}, err
 	}
 	return raw.toPullRequest(), nil
+}
+
+type githubFileContent struct {
+	SHA      string `json:"sha"`
+	Content  string `json:"content"`
+	Encoding string `json:"encoding"`
+}
+
+func (c *GitHubClient) readFileContent(ctx context.Context, endpoint string) (githubFileContent, error) {
+	var payload githubFileContent
+	if err := c.doJSON(ctx, http.MethodGet, endpoint, nil, &payload); err != nil {
+		return githubFileContent{}, err
+	}
+	return payload, nil
+}
+
+func decodeGitHubFileContent(content, encoding string) ([]byte, error) {
+	if strings.TrimSpace(content) == "" {
+		return []byte{}, nil
+	}
+	switch strings.ToLower(strings.TrimSpace(encoding)) {
+	case "", "base64":
+		clean := strings.ReplaceAll(strings.TrimSpace(content), "\n", "")
+		decoded, err := base64.StdEncoding.DecodeString(clean)
+		if err != nil {
+			return nil, fmt.Errorf("decode github file content: %w", err)
+		}
+		return decoded, nil
+	default:
+		return nil, fmt.Errorf("unsupported github file encoding %q", encoding)
+	}
 }
 
 func (c *GitHubClient) doJSON(ctx context.Context, method, endpoint string, payload any, out any) error {
