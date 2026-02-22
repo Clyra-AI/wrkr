@@ -19,7 +19,6 @@ required_paths=(
   "product/PLAN_v1.md"
   "product/wrkr.md"
   "product/dev_guides.md"
-  "product/Clyra_AI.md"
 )
 
 for path in "${required_paths[@]}"; do
@@ -29,7 +28,7 @@ for path in "${required_paths[@]}"; do
   fi
 done
 
-for plan_doc in "product/PLAN_v1.md" "product/wrkr.md" "product/dev_guides.md" "product/Clyra_AI.md"; do
+for plan_doc in "product/PLAN_v1.md" "product/wrkr.md" "product/dev_guides.md"; do
   if git check-ignore -q "$plan_doc"; then
     echo "plan artifact is ignored but must be tracked: $plan_doc" >&2
     exit 3

@@ -1,7 +1,7 @@
 # PLAN Code Review Remediation: Fail-Closed Source and Lifecycle/Regress Contract Hardening
 
 Date: 2026-02-21
-Source of truth: User-provided findings (P1/P1/P2) from full-repo code review; repository contracts in `product/wrkr.md`, `product/dev_guides.md`, and `product/Clyra_AI.md`
+Source of truth: User-provided findings (P1/P1/P2) from full-repo code review; repository contracts in `product/wrkr.md` and `product/dev_guides.md`
 Scope: Planning-only backlog for remediation of three confirmed findings in source acquisition, regress identity boundaries, and lifecycle approval-state semantics
 
 ## Global Decisions (Locked)

@@ -11,7 +11,6 @@ Scope: This repository (`wrkr`) only.
 - Treat these docs as authoritative for product and engineering behavior:
   - `product/wrkr.md`
   - `product/dev_guides.md`
-  - `product/Clyra_AI.md`
 
 ## 2) Product North Star
 
