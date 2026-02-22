@@ -513,9 +513,6 @@ func parseAgentCardName(root, rel string) (string, *model.ParseError) {
 		return "", parseErr
 	}
 	name := strings.ToLower(strings.TrimSpace(parsed.Name))
-	if name == "" {
-		name = strings.TrimSuffix(strings.ToLower(filepath.Base(rel)), filepath.Ext(rel))
-	}
 	return name, nil
 }
 

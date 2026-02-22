@@ -97,6 +97,22 @@ func TestEvaluateCoverageNoGatewayContext(t *testing.T) {
 	}
 }
 
+func TestDetectGatewaySkipsUnnamedAgentCards(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, ".well-known/agent.json", `{"capabilities":["search"],"auth_schemes":["oauth2"],"protocols":["http"]}`)
+	writeFile(t, root, "mcp-gateway.yaml", "gateway:\n  default_action: allow\n")
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "svc", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect gateway posture: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected no findings for unnamed agent card declarations, got %#v", findings)
+	}
+}
+
 func mustFindPostureFinding(t *testing.T, findings []model.Finding) model.Finding {
 	t.Helper()
 	for _, finding := range findings {

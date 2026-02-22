@@ -53,6 +53,27 @@ func TestDetectA2AAgentCardInvalidSchema(t *testing.T) {
 	}
 }
 
+func TestDetectA2AAgentCardRejectsMissingAuthSchemes(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, ".well-known/agent.json", `{"name":"broken-agent","capabilities":["search"],"interaction_patterns":["oauth2"],"protocols":["http"]}`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "svc", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect a2a agent cards: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one parse_error finding, got %d", len(findings))
+	}
+	if findings[0].FindingType != "parse_error" {
+		t.Fatalf("expected parse_error finding, got %q", findings[0].FindingType)
+	}
+	if findings[0].ParseError == nil || findings[0].ParseError.Kind != "schema_validation_error" {
+		t.Fatalf("expected schema_validation_error parse error, got %#v", findings[0].ParseError)
+	}
+}
+
 func TestDetectA2AGatewayCoverageSignal(t *testing.T) {
 	t.Parallel()
 

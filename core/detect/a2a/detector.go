@@ -132,9 +132,6 @@ func validateAgentCard(card agentCard) (string, []string, []string, []string, er
 	capabilities := normalizeList(card.Capabilities)
 	authSchemes := normalizeList(card.AuthSchemes)
 	protocols := normalizeList(card.Protocols)
-	if len(authSchemes) == 0 {
-		authSchemes = normalizeList(card.InteractionPatterns)
-	}
 	if len(capabilities) == 0 {
 		return "", nil, nil, nil, fmt.Errorf("agent card field capabilities must contain at least one value")
 	}
