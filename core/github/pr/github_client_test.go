@@ -214,3 +214,44 @@ func TestGitHubClientEnsureFileContentCreateUpdateAndNoop(t *testing.T) {
 		t.Fatalf("expected exactly 2 write calls, got %d", putCalls)
 	}
 }
+
+func TestGitHubClientEnsureFileContentNormalizesWindowsSeparators(t *testing.T) {
+	t.Parallel()
+
+	var observedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		observedPath = r.URL.Path
+		switch r.Method {
+		case http.MethodGet:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+		case http.MethodPut:
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"content":{"sha":"sha-1"}}`))
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))
+	defer server.Close()
+
+	client := NewGitHubClient(server.URL, "token", server.Client())
+	_, err := client.EnsureFileContent(
+		context.Background(),
+		"acme",
+		"repo",
+		"main",
+		`.wrkr\remediations\abc123\plan.json`,
+		"update remediation plan",
+		[]byte("{\"v\":1}\n"),
+	)
+	if err != nil {
+		t.Fatalf("ensure file content: %v", err)
+	}
+
+	if strings.Contains(observedPath, `\`) {
+		t.Fatalf("expected normalized path separators, got %q", observedPath)
+	}
+	if !strings.Contains(observedPath, "/contents/.wrkr/remediations/abc123/plan.json") {
+		t.Fatalf("expected normalized repo path in request, got %q", observedPath)
+	}
+}

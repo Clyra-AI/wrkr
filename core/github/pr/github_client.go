@@ -112,7 +112,7 @@ func (c *GitHubClient) EnsureHeadRef(ctx context.Context, owner, repo, headBranc
 }
 
 func (c *GitHubClient) EnsureFileContent(ctx context.Context, owner, repo, branch, filePath, commitMessage string, content []byte) (bool, error) {
-	trimmedPath := strings.TrimSpace(filePath)
+	trimmedPath := normalizeRepoContentPath(filePath)
 	trimmedBranch := strings.TrimSpace(branch)
 	trimmedMessage := strings.TrimSpace(commitMessage)
 	if trimmedPath == "" {
@@ -171,6 +171,22 @@ func (c *GitHubClient) EnsureFileContent(ctx context.Context, owner, repo, branc
 		return false, err
 	}
 	return true, nil
+}
+
+func normalizeRepoContentPath(filePath string) string {
+	normalized := strings.TrimSpace(filePath)
+	if normalized == "" {
+		return ""
+	}
+	// GitHub contents API expects POSIX separators regardless of runner OS.
+	normalized = strings.ReplaceAll(normalized, "\\", "/")
+	normalized = strings.TrimPrefix(normalized, "/")
+	normalized = path.Clean(normalized)
+	normalized = strings.TrimPrefix(normalized, "./")
+	if normalized == "." {
+		return ""
+	}
+	return normalized
 }
 
 func (c *GitHubClient) Create(ctx context.Context, owner, repo string, req CreateRequest) (PullRequest, error) {
