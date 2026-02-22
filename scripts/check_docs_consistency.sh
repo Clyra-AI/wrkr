@@ -5,6 +5,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FAILURES=0
 
 ONE_LINER='Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.'
+HAS_RG=0
+if command -v rg >/dev/null 2>&1; then
+  HAS_RG=1
+fi
 
 fail() {
   echo "docs consistency failure: $1" >&2
@@ -22,8 +26,37 @@ require_pattern() {
   local path="$1"
   local pattern="$2"
   local reason="$3"
-  if ! rg -q --pcre2 "$pattern" "$path"; then
+  if ! search_regex "$pattern" "$path"; then
     fail "${reason} (${path})"
+  fi
+}
+
+search_regex() {
+  local pattern="$1"
+  local path="$2"
+  if [[ "${HAS_RG}" -eq 1 ]]; then
+    rg -q --pcre2 "$pattern" "$path"
+  else
+    grep -Eq "$pattern" "$path"
+  fi
+}
+
+search_fixed_ci() {
+  local needle="$1"
+  local path="$2"
+  if [[ "${HAS_RG}" -eq 1 ]]; then
+    rg -qi --fixed-strings "$needle" "$path"
+  else
+    grep -Fqi -- "$needle" "$path"
+  fi
+}
+
+extract_exit_codes() {
+  local source_path="$1"
+  if [[ "${HAS_RG}" -eq 1 ]]; then
+    rg -o --no-filename "exit[A-Za-z]+\\s*=\\s*[0-9]+" "${source_path}" | rg -o "[0-9]+" | sort -n | uniq
+  else
+    grep -Eo "exit[A-Za-z]+[[:space:]]*=[[:space:]]*[0-9]+" "${source_path}" | grep -Eo "[0-9]+" | sort -n | uniq
   fi
 }
 
@@ -99,7 +132,7 @@ for cmd in \
   "wrkr verify" \
   "wrkr regress" \
   "wrkr fix"; do
-  if ! rg -qi --fixed-strings "$cmd" "${REPO_ROOT}/docs-site/public/llms.txt"; then
+  if ! search_fixed_ci "$cmd" "${REPO_ROOT}/docs-site/public/llms.txt"; then
     fail "llms command surface missing '${cmd}'"
   fi
 done
@@ -170,7 +203,7 @@ else
   EXIT_CODES=()
   while IFS= read -r code; do
     EXIT_CODES+=("${code}")
-  done < <(rg -o --no-filename "exit[A-Za-z]+\s*=\s*[0-9]+" "${ROOT_SOURCE}" | rg -o "[0-9]+" | sort -n | uniq)
+  done < <(extract_exit_codes "${ROOT_SOURCE}" || true)
   if [[ "${#EXIT_CODES[@]}" -eq 0 ]]; then
     EXIT_CODES=(0 1 2 3 4 5 6 7 8)
   fi
