@@ -19,6 +19,9 @@ func TestScenarioContracts(t *testing.T) {
 	requiredPaths := []string{
 		"scenarios/wrkr/scan-mixed-org/repos",
 		"scenarios/wrkr/policy-check/repos",
+		"scenarios/wrkr/mcp-gateway-posture/repos",
+		"scenarios/wrkr/a2a-agent-cards/repos",
+		"scenarios/wrkr/webmcp-declarations/repos",
 		"scenarios/cross-product/proof-record-interop/records-from-all-3.jsonl",
 		"scenarios/cross-product/proof-record-interop/expected.yaml",
 		"internal/scenarios/coverage_map.json",
@@ -94,7 +97,7 @@ func TestScenarioContracts(t *testing.T) {
 		t.Fatalf("parse coverage map: %v", err)
 	}
 
-	requiredMappings := []string{"FR11", "FR12", "FR13", "AC10", "AC11", "AC15", "AC18", "AC19", "AC20", "AC21"}
+	requiredMappings := []string{"FR11", "FR12", "FR13", "AC10", "AC11", "AC15", "AC18", "AC19", "AC20", "AC21", "AC22", "AC23", "AC24", "AC25"}
 	testSymbols := scenarioTestSymbols(t, repoRoot)
 	for _, key := range requiredMappings {
 		mapped, ok := coverage[key]

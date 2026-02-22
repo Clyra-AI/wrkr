@@ -31,5 +31,17 @@
   "AC21": [
     "TestScenarioEpic9DeterministicShareableReportsAC21",
     "TestScenarioEpic9SummaryIntegrationHooksAC10AC11"
+  ],
+  "AC22": [
+    "TestScenarioEpic10DiscoveryMethodAC22"
+  ],
+  "AC23": [
+    "TestScenarioEpic10MCPGatewayPostureAC23"
+  ],
+  "AC24": [
+    "TestScenarioEpic10A2ADiscoveryAC24"
+  ],
+  "AC25": [
+    "TestScenarioEpic10WebMCPStaticDetectionAC25"
   ]
 }

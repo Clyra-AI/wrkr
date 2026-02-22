@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/config"
@@ -125,6 +126,24 @@ func TestFixOpenPRWritesRemediationArtifacts(t *testing.T) {
 	if got := stub.ensureFileCalls; got <= 0 {
 		t.Fatalf("expected EnsureFileContent calls, got %d", got)
 	}
+	for _, item := range stub.paths {
+		if strings.Contains(item, `\`) {
+			t.Fatalf("expected POSIX remediation artifact paths, got %q", item)
+		}
+	}
+	artifactPaths, ok := artifacts["paths"].([]any)
+	if !ok || len(artifactPaths) == 0 {
+		t.Fatalf("expected remediation_artifacts.paths array, got %v", artifacts["paths"])
+	}
+	for _, item := range artifactPaths {
+		pathValue, ok := item.(string)
+		if !ok {
+			t.Fatalf("expected path string, got %T", item)
+		}
+		if strings.Contains(pathValue, `\`) {
+			t.Fatalf("expected POSIX remediation_artifacts.paths entry, got %q", pathValue)
+		}
+	}
 	if _, ok := payload["pull_request"].(map[string]any); !ok {
 		t.Fatalf("expected pull_request payload, got %v", payload["pull_request"])
 	}
@@ -162,14 +181,16 @@ func writeFixStateFixture(t *testing.T) string {
 
 type stubPRAPI struct {
 	ensureFileCalls int
+	paths           []string
 }
 
 func (s *stubPRAPI) EnsureHeadRef(context.Context, string, string, string, string) error {
 	return nil
 }
 
-func (s *stubPRAPI) EnsureFileContent(context.Context, string, string, string, string, string, []byte) (bool, error) {
+func (s *stubPRAPI) EnsureFileContent(_ context.Context, _ string, _ string, _ string, filePath string, _ string, _ []byte) (bool, error) {
 	s.ensureFileCalls++
+	s.paths = append(s.paths, filepath.ToSlash(strings.TrimSpace(filePath)))
 	return true, nil
 }
 

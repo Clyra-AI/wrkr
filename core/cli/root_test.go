@@ -670,6 +670,9 @@ func TestIdentityAndLifecycleCommands(t *testing.T) {
 	if !ok || agentID == "" {
 		t.Fatalf("expected agent_id in first inventory tool: %v", firstTool)
 	}
+	if firstTool["discovery_method"] != "static" {
+		t.Fatalf("expected discovery_method=static in inventory tool, got %v", firstTool["discovery_method"])
+	}
 	org, _ := firstTool["org"].(string)
 
 	var approveOut bytes.Buffer

@@ -330,6 +330,19 @@ func trustDeficit(finding model.Finding, dataClass string) float64 {
 			deficit += (10 - trust) / 3
 		}
 	}
+	if coverage := evidenceString(finding, "coverage"); coverage != "" {
+		switch coverage {
+		case "unprotected":
+			deficit += 1.8
+		case "unknown":
+			deficit += 1.0
+		case "protected":
+			deficit -= 0.4
+		}
+	}
+	if posture := evidenceString(finding, "policy_posture"); posture == "allow" {
+		deficit += 0.6
+	}
 	if dataClass == "credentials" {
 		deficit += 1.4
 	}

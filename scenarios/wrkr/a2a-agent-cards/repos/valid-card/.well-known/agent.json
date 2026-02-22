@@ -1,0 +1,1 @@
+{"name":"support-agent","capabilities":["search","triage"],"auth_schemes":["oauth2"],"protocols":["http"]}

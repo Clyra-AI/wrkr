@@ -39,6 +39,9 @@ func TestNormalizeFindingDedupesPermissionsAndEvidence(t *testing.T) {
 	if norm.Severity != SeverityHigh {
 		t.Fatalf("expected normalized severity high, got %s", norm.Severity)
 	}
+	if norm.DiscoveryMethod != DiscoveryMethodStatic {
+		t.Fatalf("expected default discovery_method static, got %q", norm.DiscoveryMethod)
+	}
 	if len(norm.Permissions) != 2 || norm.Permissions[0] != "read" || norm.Permissions[1] != "write" {
 		t.Fatalf("unexpected permissions: %#v", norm.Permissions)
 	}

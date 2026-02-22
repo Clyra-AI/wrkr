@@ -1,0 +1,5 @@
+gateway:
+  default_action: deny
+  rules:
+    - name: alpha
+      action: allow

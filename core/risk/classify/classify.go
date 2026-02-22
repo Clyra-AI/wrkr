@@ -17,6 +17,10 @@ func EndpointClass(finding model.Finding) string {
 		return "ci_pipeline"
 	case finding.FindingType == "compiled_action" || strings.Contains(location, "agent-plans") || strings.Contains(location, "workflows/"):
 		return "compiled_action"
+	case finding.FindingType == "webmcp_declaration" || finding.FindingType == "a2a_agent_card":
+		return "network_service"
+	case finding.FindingType == "mcp_gateway_posture" || toolType == "mcp_gateway":
+		return "repo_config"
 	case finding.FindingType == "mcp_server" || toolType == "mcp":
 		if transport := evidenceValue(finding, "transport"); transport == "http" || transport == "sse" || transport == "streamable_http" {
 			return "network_service"

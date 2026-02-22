@@ -6,6 +6,7 @@
   "required": [
     "finding_type",
     "severity",
+    "discovery_method",
     "tool_type",
     "location",
     "org"
@@ -25,6 +26,10 @@
     "severity": {
       "type": "string",
       "enum": ["critical", "high", "medium", "low", "info"]
+    },
+    "discovery_method": {
+      "type": "string",
+      "enum": ["static"]
     },
     "remediation": {
       "type": "string"
