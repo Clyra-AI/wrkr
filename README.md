@@ -143,7 +143,7 @@ Reference guides: [`docs/adopt_in_one_pr.md`](docs/adopt_in_one_pr.md) | [`docs/
 
 ## Where Wrkr Fits
 
-Wrkr is the DMV registration for your AI fleet. It tells you what is on the road, what it is authorized to do, and what changed. It does not enforce rules at runtime (that is Gait) and does not generate compliance evidence packages (that is Axym). But nothing downstream works without the inventory Wrkr produces first.
+Wrkr is the DMV registration for your AI fleet. It tells you what is on the road, what it is authorized to do, and what changed. Wrkr generates deterministic evidence artifacts from scans; Axym maps those artifacts to compliance controls and reporting workflows. Runtime enforcement remains Gait's boundary.
 
 - **See (Wrkr):** Discover AI tooling posture and risk.
 - **Prove (Axym):** Consume and verify evidence records.
