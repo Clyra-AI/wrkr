@@ -182,6 +182,7 @@ func ApplyManualState(m manifest.Manifest, agentID, state, approver, scope, reas
 		}
 		record.ApprovalState = "valid"
 	case identity.StateRevoked, identity.StateDeprecated, identity.StateUnderReview:
+		record.Approval = manifest.Approval{}
 		record.ApprovalState = "revoked"
 	}
 	record.LastSeen = now.Format(time.RFC3339)

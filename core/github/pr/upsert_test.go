@@ -120,6 +120,10 @@ func (f *fakeAPI) EnsureHeadRef(_ context.Context, _ string, _ string, _ string,
 	return f.ensureHeadErr
 }
 
+func (f *fakeAPI) EnsureFileContent(_ context.Context, _ string, _ string, _ string, _ string, _ string, _ []byte) (bool, error) {
+	return false, nil
+}
+
 func (f *fakeAPI) ListOpenByHead(_ context.Context, _ string, _ string, headBranch, baseBranch string) ([]PullRequest, error) {
 	out := make([]PullRequest, 0)
 	for _, item := range f.prs {

@@ -107,9 +107,41 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 			title = fmt.Sprintf("wrkr remediation: %s (%s)", repoValue, plan.Fingerprint[:8])
 		}
 		branch := githubpr.BranchName(*botIdentity, repoValue, *scheduleKey, plan.Fingerprint)
+		artifacts, artifactErr := fix.BuildPRArtifacts(plan)
+		if artifactErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", artifactErr.Error(), exitRuntime)
+		}
+		if len(artifacts) == 0 {
+			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", "no remediation artifacts generated for PR operation", exitUnsafeBlocked)
+		}
 		body := remediationPRBody(repoValue, plan)
+		prClient := newGitHubPRClient(*githubAPI, token)
 
-		result, prErr := githubpr.Upsert(context.Background(), newGitHubPRClient(*githubAPI, token), githubpr.UpsertInput{
+		if err := prClient.EnsureHeadRef(context.Background(), owner, repo, branch, strings.TrimSpace(*baseBranch)); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		}
+		changedCount := 0
+		artifactPaths := make([]string, 0, len(artifacts))
+		for _, artifact := range artifacts {
+			changed, writeErr := prClient.EnsureFileContent(
+				context.Background(),
+				owner,
+				repo,
+				branch,
+				artifact.Path,
+				artifact.CommitMessage,
+				artifact.Content,
+			)
+			if writeErr != nil {
+				return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", writeErr.Error(), exitRuntime)
+			}
+			if changed {
+				changedCount++
+			}
+			artifactPaths = append(artifactPaths, artifact.Path)
+		}
+
+		result, prErr := githubpr.Upsert(context.Background(), prClient, githubpr.UpsertInput{
 			Owner:       owner,
 			Repo:        repo,
 			HeadBranch:  branch,
@@ -128,6 +160,11 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 			"url":         result.PullRequest.URL,
 			"head_branch": result.PullRequest.Head,
 			"base_branch": result.PullRequest.Base,
+		}
+		payload["remediation_artifacts"] = map[string]any{
+			"count":         len(artifacts),
+			"changed_count": changedCount,
+			"paths":         artifactPaths,
 		}
 	}
 

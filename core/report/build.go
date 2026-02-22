@@ -41,9 +41,6 @@ func BuildSummary(in BuildInput) (Summary, error) {
 
 	now := resolveGeneratedAt(in.GeneratedAt, in.Snapshot)
 	top := in.Top
-	if top <= 0 {
-		top = 5
-	}
 
 	riskReport := in.Snapshot.RiskReport
 	if riskReport == nil {
@@ -123,6 +120,7 @@ func PublicSanitizeFindings(in []risk.ScoredFinding) []risk.ScoredFinding {
 	out := make([]risk.ScoredFinding, 0, len(in))
 	for _, item := range in {
 		copyItem := item
+		copyItem.CanonicalKey = redactValue("finding", copyItem.CanonicalKey, 12)
 		copyItem.Finding.Location = redactValue("loc", copyItem.Finding.Location, 8)
 		copyItem.Finding.Repo = redactValue("repo", copyItem.Finding.Repo, 6)
 		copyItem.Finding.Org = redactValue("org", copyItem.Finding.Org, 6)
@@ -632,6 +630,16 @@ func round2(value float64) float64 {
 func sanitizeProofReferencePublic(in ProofReference) ProofReference {
 	copyRef := in
 	copyRef.ChainPath = "redacted://proof-chain.json"
+	keys := make([]string, 0, len(copyRef.CanonicalFindingKeys))
+	for _, key := range copyRef.CanonicalFindingKeys {
+		redacted := redactValue("finding", key, 12)
+		if redacted == "" {
+			continue
+		}
+		keys = append(keys, redacted)
+	}
+	sort.Strings(keys)
+	copyRef.CanonicalFindingKeys = keys
 	return copyRef
 }
 
@@ -647,6 +655,7 @@ func sanitizeRiskItemsPublic(in []RiskItem) []RiskItem {
 	out := make([]RiskItem, 0, len(in))
 	for _, item := range in {
 		copyItem := item
+		copyItem.CanonicalKey = redactValue("finding", copyItem.CanonicalKey, 12)
 		copyItem.Location = redactValue("loc", copyItem.Location, 8)
 		copyItem.Repo = redactValue("repo", copyItem.Repo, 6)
 		copyItem.Org = redactValue("org", copyItem.Org, 6)

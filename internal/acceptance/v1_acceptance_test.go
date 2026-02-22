@@ -86,6 +86,48 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 		if count, ok := first["remediation_count"].(float64); !ok || int(count) <= 0 {
 			t.Fatalf("expected remediation_count > 0, got %v", first["remediation_count"])
 		}
+
+		configPath := filepath.Join(t.TempDir(), "config.json")
+		githubAPI := newAcceptanceGitHubPRServer(t)
+		_ = runJSONOK(
+			t,
+			"init",
+			"--non-interactive",
+			"--repo",
+			"acme/backend",
+			"--scan-token",
+			"scan-token",
+			"--fix-token",
+			"fix-token",
+			"--config",
+			configPath,
+			"--json",
+		)
+
+		prPayload := runJSONOK(
+			t,
+			"fix",
+			"--top",
+			"3",
+			"--state",
+			statePath,
+			"--config",
+			configPath,
+			"--open-pr",
+			"--repo",
+			"acme/backend",
+			"--schedule-key",
+			"weekly",
+			"--github-api",
+			githubAPI,
+			"--json",
+		)
+		requireObject(t, prPayload, "pull_request")
+		artifacts := requireObject(t, prPayload, "remediation_artifacts")
+		changed, ok := artifacts["changed_count"].(float64)
+		if !ok || int(changed) <= 0 {
+			t.Fatalf("expected remediation_artifacts.changed_count > 0, got %v", artifacts["changed_count"])
+		}
 	})
 
 	t.Run("AC05_detector_fixture_coverage", func(t *testing.T) {
@@ -463,6 +505,56 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 			requireKey(t, first, key)
 		}
 	})
+
+	t.Run("AC21_report_md_pdf_deterministic_with_proof_and_actions", func(t *testing.T) {
+		statePath := scanScenarioState(t, paths.scanMixedRepos, "standard")
+		tmp := t.TempDir()
+		mdA := filepath.Join(tmp, "report-a.md")
+		mdB := filepath.Join(tmp, "report-b.md")
+		pdfA := filepath.Join(tmp, "report-a.pdf")
+		pdfB := filepath.Join(tmp, "report-b.pdf")
+
+		first := runJSONOK(t, "report", "--state", statePath, "--top", "5", "--md", "--md-path", mdA, "--pdf", "--pdf-path", pdfA, "--template", "operator", "--share-profile", "internal", "--json")
+		second := runJSONOK(t, "report", "--state", statePath, "--top", "5", "--md", "--md-path", mdB, "--pdf", "--pdf-path", pdfB, "--template", "operator", "--share-profile", "internal", "--json")
+
+		normalizedFirst := normalizeAcceptanceVolatile(first)
+		normalizedSecond := normalizeAcceptanceVolatile(second)
+		if !reflect.DeepEqual(normalizedFirst, normalizedSecond) {
+			t.Fatalf("expected deterministic report payload for AC21\nfirst=%v\nsecond=%v", normalizedFirst, normalizedSecond)
+		}
+
+		mdABytes, err := os.ReadFile(mdA)
+		if err != nil {
+			t.Fatalf("read first markdown: %v", err)
+		}
+		mdBBytes, err := os.ReadFile(mdB)
+		if err != nil {
+			t.Fatalf("read second markdown: %v", err)
+		}
+		if string(mdABytes) != string(mdBBytes) {
+			t.Fatal("expected deterministic markdown output for AC21")
+		}
+
+		pdfABytes, err := os.ReadFile(pdfA)
+		if err != nil {
+			t.Fatalf("read first pdf: %v", err)
+		}
+		pdfBBytes, err := os.ReadFile(pdfB)
+		if err != nil {
+			t.Fatalf("read second pdf: %v", err)
+		}
+		if string(pdfABytes) != string(pdfBBytes) {
+			t.Fatal("expected deterministic pdf output for AC21")
+		}
+
+		summary := requireObject(t, first, "summary")
+		requireObjectKey(t, summary, "proof")
+		requireObjectKey(t, summary, "deltas")
+		actions := requireArrayFromObject(t, summary, "next_actions")
+		if len(actions) == 0 {
+			t.Fatal("expected prioritized next_actions for AC21")
+		}
+	})
 }
 
 func loadAcceptancePaths(t *testing.T) acceptancePaths {
@@ -485,6 +577,82 @@ func newAcceptanceGitHubAPIServer(t *testing.T) string {
 			_, _ = fmt.Fprint(w, `[{"full_name":"acme/backend"}]`)
 		case "/repos/acme/backend":
 			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server.URL
+}
+
+func newAcceptanceGitHubPRServer(t *testing.T) string {
+	t.Helper()
+
+	branch := "wrkr-bot/remediation/acme-backend/weekly"
+	branchExists := false
+	contentStore := map[string]string{}
+	pullRequestBody := ""
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		switch {
+		case r.Method == http.MethodGet && strings.Contains(path, "/git/ref/heads/") && strings.HasSuffix(path, "/main"):
+			_, _ = fmt.Fprint(w, `{"object":{"sha":"base-sha"}}`)
+		case r.Method == http.MethodGet && strings.Contains(path, "/git/ref/heads/"):
+			if !branchExists || !strings.Contains(path, branch) {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = fmt.Fprint(w, `{"message":"Not Found"}`)
+				return
+			}
+			_, _ = fmt.Fprint(w, `{"object":{"sha":"head-sha"}}`)
+		case r.Method == http.MethodPost && strings.HasSuffix(path, "/git/refs"):
+			branchExists = true
+			w.WriteHeader(http.StatusCreated)
+			_, _ = fmt.Fprint(w, `{"ref":"refs/heads/`+branch+`"}`)
+		case strings.Contains(path, "/contents/.wrkr/remediations/"):
+			filePath := strings.SplitN(path, "/contents/", 2)[1]
+			switch r.Method {
+			case http.MethodGet:
+				content, exists := contentStore[filePath]
+				if !exists {
+					w.WriteHeader(http.StatusNotFound)
+					_, _ = fmt.Fprint(w, `{"message":"Not Found"}`)
+					return
+				}
+				encoded := jsonString(content)
+				_, _ = fmt.Fprintf(w, `{"sha":"sha-%s","encoding":"base64","content":%s}`, strings.ReplaceAll(filePath, "/", "-"), encoded)
+			case http.MethodPut:
+				var payload struct {
+					Content string `json:"content"`
+				}
+				_ = json.NewDecoder(r.Body).Decode(&payload)
+				contentStore[filePath] = payload.Content
+				w.WriteHeader(http.StatusCreated)
+				_, _ = fmt.Fprint(w, `{"content":{"sha":"next"}}`)
+			default:
+				w.WriteHeader(http.StatusMethodNotAllowed)
+			}
+		case r.Method == http.MethodGet && strings.HasSuffix(path, "/pulls"):
+			if pullRequestBody == "" {
+				_, _ = fmt.Fprint(w, `[]`)
+				return
+			}
+			_, _ = fmt.Fprint(w, `[{"number":55,"html_url":"https://example.test/pr/55","title":"wrkr remediation","body":`+jsonString(pullRequestBody)+`,"head":{"ref":"`+branch+`"},"base":{"ref":"main"}}]`)
+		case r.Method == http.MethodPost && strings.HasSuffix(path, "/pulls"):
+			var payload struct {
+				Body string `json:"body"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			pullRequestBody = payload.Body
+			w.WriteHeader(http.StatusCreated)
+			_, _ = fmt.Fprint(w, `{"number":55,"html_url":"https://example.test/pr/55","title":"wrkr remediation","body":`+jsonString(pullRequestBody)+`,"head":{"ref":"`+branch+`"},"base":{"ref":"main"}}`)
+		case r.Method == http.MethodPatch && strings.Contains(path, "/pulls/"):
+			var payload struct {
+				Body string `json:"body"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			pullRequestBody = payload.Body
+			_, _ = fmt.Fprint(w, `{"number":55,"html_url":"https://example.test/pr/55","title":"wrkr remediation","body":`+jsonString(pullRequestBody)+`,"head":{"ref":"`+branch+`"},"base":{"ref":"main"}}`)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -559,6 +727,41 @@ func runJSONAnyCode(t *testing.T, expectedCode int, args ...string) map[string]a
 		t.Fatalf("parse JSON payload for %v: %v (%q)", args, err, out.String())
 	}
 	return payload
+}
+
+func normalizeAcceptanceVolatile(input map[string]any) map[string]any {
+	normalized := map[string]any{}
+	for key, value := range input {
+		switch key {
+		case "generated_at", "md_path", "pdf_path":
+			continue
+		default:
+			normalized[key] = normalizeAcceptanceAny(value)
+		}
+	}
+	return normalized
+}
+
+func normalizeAcceptanceAny(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := map[string]any{}
+		for k, v := range typed {
+			if strings.HasSuffix(k, "_path") || k == "generated_at" {
+				continue
+			}
+			out[k] = normalizeAcceptanceAny(v)
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, normalizeAcceptanceAny(item))
+		}
+		return out
+	default:
+		return typed
+	}
 }
 
 type fixtureRecord struct {
@@ -700,6 +903,11 @@ func mapKeys(input map[string]struct{}) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func jsonString(in string) string {
+	blob, _ := json.Marshal(in)
+	return string(blob)
 }
 
 func mustFindRepoRoot(t *testing.T) string {

@@ -2,6 +2,8 @@ package pr
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -120,5 +122,95 @@ func TestGitHubClientEnsureHeadRefCreatesMissingBranchFromBase(t *testing.T) {
 	}
 	if createRefCalls != 1 {
 		t.Fatalf("expected one branch-create call, got %d", createRefCalls)
+	}
+}
+
+func TestGitHubClientEnsureFileContentCreateUpdateAndNoop(t *testing.T) {
+	t.Parallel()
+
+	type storedFile struct {
+		sha     string
+		content []byte
+	}
+	store := map[string]storedFile{}
+	putCalls := 0
+	var sequence int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/contents/") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		filePath := strings.SplitN(r.URL.Path, "/contents/", 2)[1]
+		current, exists := store[filePath]
+		switch r.Method {
+		case http.MethodGet:
+			if !exists {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+				return
+			}
+			resp := map[string]any{
+				"sha":      current.sha,
+				"encoding": "base64",
+				"content":  base64.StdEncoding.EncodeToString(current.content),
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		case http.MethodPut:
+			var payload struct {
+				SHA     string `json:"sha"`
+				Content string `json:"content"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			if exists && strings.TrimSpace(payload.SHA) == "" {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				_, _ = w.Write([]byte(`{"message":"sha is required for update"}`))
+				return
+			}
+			decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(payload.Content))
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"message":"invalid base64"}`))
+				return
+			}
+			nextSHA := fmt.Sprintf("sha-%d", atomic.AddInt32(&sequence, 1))
+			store[filePath] = storedFile{sha: nextSHA, content: decoded}
+			putCalls++
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"content":{"sha":"` + nextSHA + `"}}`))
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))
+	defer server.Close()
+
+	client := NewGitHubClient(server.URL, "token", server.Client())
+	path := ".wrkr/remediations/abc123/plan.json"
+
+	changed, err := client.EnsureFileContent(context.Background(), "acme", "repo", "main", path, "update remediation plan", []byte("{\"v\":1}\n"))
+	if err != nil {
+		t.Fatalf("create content: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected first write to report changed=true")
+	}
+
+	changed, err = client.EnsureFileContent(context.Background(), "acme", "repo", "main", path, "update remediation plan", []byte("{\"v\":1}\n"))
+	if err != nil {
+		t.Fatalf("noop content check: %v", err)
+	}
+	if changed {
+		t.Fatal("expected identical content to report changed=false")
+	}
+
+	changed, err = client.EnsureFileContent(context.Background(), "acme", "repo", "main", path, "update remediation plan", []byte("{\"v\":2}\n"))
+	if err != nil {
+		t.Fatalf("update content: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected changed=true on content update")
+	}
+	if putCalls != 2 {
+		t.Fatalf("expected exactly 2 write calls, got %d", putCalls)
 	}
 }

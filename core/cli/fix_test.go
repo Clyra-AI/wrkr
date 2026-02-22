@@ -2,11 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"path/filepath"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/config"
+	githubpr "github.com/Clyra-AI/wrkr/core/github/pr"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/source"
@@ -81,6 +83,53 @@ func TestFixOpenPRFailsClosedWithScanOnlyToken(t *testing.T) {
 	}
 }
 
+func TestFixOpenPRWritesRemediationArtifacts(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := writeFixStateFixture(t)
+	configPath := filepath.Join(tmp, "config.json")
+
+	cfg := config.Default()
+	cfg.DefaultTarget = config.Target{Mode: config.TargetRepo, Value: "acme/backend"}
+	cfg.Auth.Scan.Token = "scan-read-token"
+	cfg.Auth.Fix.Token = "fix-write-token"
+	if err := config.Save(configPath, cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	stub := &stubPRAPI{}
+	previousClient := newGitHubPRClient
+	newGitHubPRClient = func(_, _ string) githubpr.API { return stub }
+	t.Cleanup(func() { newGitHubPRClient = previousClient })
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"fix", "--state", statePath, "--config", configPath, "--open-pr", "--repo", "acme/backend", "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected success, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	if errOut.Len() != 0 {
+		t.Fatalf("expected empty stderr, got %q", errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse payload: %v", err)
+	}
+	artifacts, ok := payload["remediation_artifacts"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected remediation_artifacts, got %v", payload)
+	}
+	if got := int(artifacts["changed_count"].(float64)); got <= 0 {
+		t.Fatalf("expected changed_count > 0, got %d", got)
+	}
+	if got := stub.ensureFileCalls; got <= 0 {
+		t.Fatalf("expected EnsureFileContent calls, got %d", got)
+	}
+	if _, ok := payload["pull_request"].(map[string]any); !ok {
+		t.Fatalf("expected pull_request payload, got %v", payload["pull_request"])
+	}
+}
+
 func writeFixStateFixture(t *testing.T) string {
 	t.Helper()
 
@@ -109,4 +158,36 @@ func writeFixStateFixture(t *testing.T) string {
 		t.Fatalf("save state fixture: %v", err)
 	}
 	return statePath
+}
+
+type stubPRAPI struct {
+	ensureFileCalls int
+}
+
+func (s *stubPRAPI) EnsureHeadRef(context.Context, string, string, string, string) error {
+	return nil
+}
+
+func (s *stubPRAPI) EnsureFileContent(context.Context, string, string, string, string, string, []byte) (bool, error) {
+	s.ensureFileCalls++
+	return true, nil
+}
+
+func (s *stubPRAPI) ListOpenByHead(context.Context, string, string, string, string) ([]githubpr.PullRequest, error) {
+	return nil, nil
+}
+
+func (s *stubPRAPI) Create(context.Context, string, string, githubpr.CreateRequest) (githubpr.PullRequest, error) {
+	return githubpr.PullRequest{
+		Number: 11,
+		URL:    "https://example.test/pr/11",
+		Title:  "wrkr remediation",
+		Body:   "body",
+		Head:   "wrkr-bot/remediation/acme-backend/adhoc/abc",
+		Base:   "main",
+	}, nil
+}
+
+func (s *stubPRAPI) Update(context.Context, string, string, int, githubpr.UpdateRequest) (githubpr.PullRequest, error) {
+	return githubpr.PullRequest{}, nil
 }
