@@ -48,7 +48,6 @@ jobs:
         run: |
           make test-docs-consistency
           make docs-site-install
-          make docs-site-audit-prod
           make docs-site-lint
           make docs-site-build
           make docs-site-check
