@@ -54,7 +54,7 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 6. Ensure release prerequisites are available:
 - `gh auth status`
 - `gh workflow view release --repo Clyra-AI/wrkr`
-- `gh secret list --repo Clyra-AI/wrkr | rg '^HOMEBREW_TAP_GITHUB_TOKEN\\b'`
+- `gh secret list --repo Clyra-AI/wrkr | awk '{print $1}' | rg '^HOMEBREW_TAP_GITHUB_TOKEN$'`
 - if the secret check cannot be confirmed due permissions, continue with warning and rely on release workflow fail-closed check.
 - if the secret is confirmed missing, stop and report blocker (release workflow fails on tag pushes without this secret).
 7. Run local release preflight (mirror release workflow gate coverage):
