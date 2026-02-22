@@ -21,7 +21,9 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 
 - Mandatory input argument: `release_version`
 - Normalize to `vX.Y.Z`
-- If missing, resolve silently from first semantic version token in user request; otherwise use latest tag + patch increment.
+- If missing, resolve silently from first semantic version token in user request; otherwise:
+  - if no tags exist, default to `v1.0.0`
+  - if tags exist, use latest tag + patch increment.
 
 ## Constants
 
@@ -49,19 +51,29 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 3. `git pull --ff-only origin main`
 4. Ensure clean worktree (`git status --porcelain` must be empty)
 5. Ensure target tag does not already exist locally/remotely
-6. Run local release preflight (mirror release workflow gate coverage):
+6. Ensure release prerequisites are available:
+- `gh auth status`
+- `gh workflow view release --repo Clyra-AI/wrkr`
+- `gh secret list --repo Clyra-AI/wrkr | rg '^HOMEBREW_TAP_GITHUB_TOKEN\\b'`
+- if the secret check cannot be confirmed due permissions, continue with warning and rely on release workflow fail-closed check.
+- if the secret is confirmed missing, stop and report blocker (release workflow fails on tag pushes without this secret).
+7. Run local release preflight (mirror release workflow gate coverage):
 - `make prepush-full`
-- `make test-acceptance`
-- `make test-acceptance`
+- `go test ./... -count=1`
+- `make test-docs-consistency`
+- `make docs-site-install`
+- `make docs-site-lint`
+- `make docs-site-build`
+- `make docs-site-check`
+- `scripts/run_docs_smoke.sh`
+- `scripts/run_v1_acceptance.sh --mode=release`
 - `make test-contracts`
-- `make test-e2e`
-- `go test ./internal/integration -count=1`
-- `make test-chaos`
-- `make test-runtime-slo`
-- `make bench-check`
-- `make test-acceptance`
-- `make test`
-- `make test`
+- `scripts/validate_contracts.sh`
+- `scripts/validate_scenarios.sh`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+- `scripts/test_hardening_core.sh`
+- `scripts/test_perf_budgets.sh`
+- `go test ./internal/integration/interop -count=1`
 - `make test-release-smoke`
 
 If any step fails, stop and report blocker.
@@ -73,6 +85,9 @@ If any step fails, stop and report blocker.
 2. Push tag:
 - `git push origin <version>`
 3. Monitor GitHub workflow `release` for that tag until green (`RELEASE_TIMEOUT_MIN`)
+- confirm run URL and terminal status, for example:
+  - `gh run list --repo Clyra-AI/wrkr --workflow release --limit 5`
+  - `gh run watch --repo Clyra-AI/wrkr <run-id>`
 4. If release run fails:
 - classify failure as actionable, transient/infra, or non-actionable
 - transient/infra: rerun workflow once, re-monitor
@@ -117,14 +132,19 @@ For loop `r1..r2`:
 - include: problem, root cause, fix, validation
 - `EOF`
 
-7. Monitor PR CI (`ci` and `codeql`) to green (`CI_TIMEOUT_MIN`).
+7. Monitor PR CI to green (`CI_TIMEOUT_MIN`):
+- required checks: `fast-lane`, `windows-smoke`
+- also monitor `CodeQL` run status when present
+- use `gh pr checks <number> --watch --interval 10`
 
 8. Merge PR after green.
 
 9. Sync and monitor post-merge main CI:
 - `git checkout main`
 - `git pull --ff-only origin main`
-- monitor `ci` and `codeql` on `main` (`CI_TIMEOUT_MIN`)
+- monitor `main` and `CodeQL` workflows on `main` (`CI_TIMEOUT_MIN`)
+- use `gh run list --repo Clyra-AI/wrkr --branch main --limit 10`
+- then `gh run watch` for latest `main` and `CodeQL` run IDs
 - if post-merge main CI is red and actionable, continue same loop (counts against max)
 
 10. Bump patch version:
