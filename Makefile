@@ -6,7 +6,7 @@ GOFILES := $(shell git ls-files '*.go')
 
 .PHONY: fmt lint lint-fast test test-fast test-integration test-e2e test-contracts test-scenarios \
 	test-hardening test-chaos test-perf test-risk-lane build hooks prepush prepush-full codeql lint-ci \
-	test-docs-consistency test-docs-storyline test-adapter-parity test-v1-acceptance \
+	test-docs-consistency test-docs-storyline test-adapter-parity test-v1-acceptance test-uat-local test-release-smoke \
 	docs-site-install docs-site-lint docs-site-build docs-site-check docs-site-audit-prod
 
 fmt:
@@ -89,6 +89,12 @@ prepush: fmt lint-fast test-fast test-contracts build
 
 test-v1-acceptance:
 	@scripts/run_v1_acceptance.sh
+
+test-uat-local:
+	@scripts/test_uat_local.sh
+
+test-release-smoke:
+	@scripts/test_uat_local.sh --skip-global-gates
 
 prepush-full: prepush lint test test-integration test-e2e test-scenarios codeql
 

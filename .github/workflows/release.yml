@@ -82,10 +82,23 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: v2.7.0
+          version: v2.13.3
           install-only: true
 
+      - name: Validate Homebrew tap token for tag releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+        run: |
+          if [[ -z "${HOMEBREW_TAP_GITHUB_TOKEN}" ]]; then
+            echo "missing HOMEBREW_TAP_GITHUB_TOKEN secret for Homebrew tap publication" >&2
+            exit 7
+          fi
+
       - name: Build release artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             goreleaser release --clean

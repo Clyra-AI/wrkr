@@ -18,7 +18,7 @@ builds:
 
 archives:
   - id: wrkr-archive
-    builds:
+    ids:
       - wrkr
     formats:
       - tar.gz
@@ -29,6 +29,29 @@ archives:
 
 checksum:
   name_template: checksums.txt
+
+brews:
+  - name: wrkr
+    ids:
+      - wrkr-archive
+    directory: Formula
+    repository:
+      owner: Clyra-AI
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/Clyra-AI/wrkr
+    description: Deterministic AI tooling discovery, risk scoring, and proof artifacts
+    license: Apache-2.0
+    commit_author:
+      name: clyra-release-bot
+      email: releases@clyra.ai
+    install: |
+      bin.install "wrkr"
+    test: |
+      output = shell_output("#{bin}/wrkr --json")
+      assert_match "\"status\":\"ok\"", output
+    skip_upload: auto
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
