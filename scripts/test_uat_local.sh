@@ -37,6 +37,7 @@ done
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+mkdir -p .tmp
 tmp_dir="$(mktemp -d .tmp/uat-local.XXXXXX)"
 tmp_dir="$(cd "$tmp_dir" && pwd)"
 
