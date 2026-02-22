@@ -6,13 +6,13 @@ import { SITE_BASE_PATH, SITE_ORIGIN } from '@/lib/site';
 
 export const metadata: Metadata = {
   metadataBase: new URL(`${SITE_ORIGIN}${SITE_BASE_PATH}`),
-  title: 'Wrkr | AI-DSPM Discovery with Deterministic Proof',
+  title: 'Wrkr | See What AI Is Doing in Your Codebase',
   description:
     'Wrkr evaluates AI dev tool configurations across GitHub repos/orgs against policy. Posture-scored, compliance-ready, deterministic by default.',
   keywords:
     'AI-DSPM, ai governance, ai tooling inventory, mcp risk, headless agent risk, deterministic evidence, compliance evidence, ai posture scoring',
   openGraph: {
-    title: 'Wrkr | AI-DSPM Discovery with Deterministic Proof',
+    title: 'Wrkr | See What AI Is Doing in Your Codebase',
     description:
       'Deterministic discovery and risk scoring for AI development tooling with compliance-ready evidence outputs.',
     url: 'https://clyra-ai.github.io/wrkr',
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Wrkr | AI-DSPM Discovery with Deterministic Proof',
+    title: 'Wrkr | See What AI Is Doing in Your Codebase',
     description:
       'Evaluate AI dev tool configurations across GitHub repo/org against policy. Posture-scored, compliance-ready.',
     images: ['/og.svg'],

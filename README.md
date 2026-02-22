@@ -1,7 +1,7 @@
 # Wrkr — See What AI Is Doing in Your Codebase
 
 [![Main](https://github.com/Clyra-AI/wrkr/actions/workflows/main.yml/badge.svg)](https://github.com/Clyra-AI/wrkr/actions/workflows/main.yml)
-[![CodeQL](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml/badge.svg)](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml)
+[![CodeQL](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql)
 [![Nightly](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml/badge.svg?event=schedule)](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml)
 
 Most teams don't know what AI dev tools and agents are active across their repos, what permissions they have, or what changed since last week. Wrkr answers that in minutes. Scan your GitHub org, get ranked findings, and generate audit-ready evidence. Read-only. No integration required.
