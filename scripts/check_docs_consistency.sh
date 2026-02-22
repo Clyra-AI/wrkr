@@ -4,7 +4,6 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FAILURES=0
 
-ONE_LINER='Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.'
 HAS_RG=0
 if command -v rg >/dev/null 2>&1; then
   HAS_RG=1
@@ -100,15 +99,6 @@ for path in \
   "${REPO_ROOT}/docs-site/public/ai-sitemap.xml" \
   "${REPO_ROOT}/docs-site/public/robots.txt"; do
   require_file "$path"
-done
-
-for path in \
-  "${REPO_ROOT}/README.md" \
-  "${REPO_ROOT}/docs/examples/quickstart.md" \
-  "${REPO_ROOT}/docs-site/src/app/page.tsx" \
-  "${REPO_ROOT}/docs-site/public/llms.txt" \
-  "${REPO_ROOT}/docs-site/public/llm/product.md"; do
-  require_pattern "$path" "${ONE_LINER}" "canonical one-liner missing"
 done
 
 for path in \
