@@ -37,6 +37,7 @@ jobs:
             docs:
               - 'README.md'
               - 'docs/**'
+              - 'docs-site/**'
               - 'product/wrkr.md'
             python:
               - 'scripts/**/*.py'
@@ -86,6 +87,15 @@ jobs:
         run: |
           make test-docs-consistency
           make test-docs-storyline
+
+      - name: Docs site quality gates
+        if: steps.changes.outputs.docs == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
+        run: |
+          make docs-site-install
+          make docs-site-audit-prod
+          make docs-site-lint
+          make docs-site-build
+          make docs-site-check
 
       - name: Run ruff
         if: steps.pyfiles.outputs.has_python == 'true' && steps.changes.outputs.python == 'true'

@@ -1,5 +1,7 @@
 # Wrkr Quickstart (Offline-safe)
 
+Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.
+
 ## Positioning
 
 Wrkr is the AI-DSPM discovery layer in the See -> Prove -> Control sequence:

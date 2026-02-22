@@ -1,0 +1,20 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <text x="96" y="220" fill="#F9FAFB" font-size="72" font-family="ui-sans-serif, system-ui" font-weight="700">Wrkr</text>
+  <text x="96" y="300" fill="url(#accent)" font-size="44" font-family="ui-sans-serif, system-ui" font-weight="600">
+    Deterministic AI-DSPM Discovery
+  </text>
+  <text x="96" y="370" fill="#9CA3AF" font-size="32" font-family="ui-sans-serif, system-ui">
+    Evaluate AI dev tool configs across GitHub repo/org against policy.
+  </text>
+</svg>

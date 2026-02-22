@@ -18,3 +18,9 @@ venv/
 *.sarif
 /wrkr
 /wrkr.exe
+
+# Docs site generated artifacts
+docs-site/node_modules/
+docs-site/.next/
+docs-site/out/
+wrkr-out/

@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+Sitemap: https://clyra-ai.github.io/wrkr/sitemap.xml
+Sitemap: https://clyra-ai.github.io/wrkr/ai-sitemap.xml
