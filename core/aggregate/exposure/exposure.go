@@ -38,15 +38,18 @@ type RepoExposureSummary struct {
 }
 
 type accumulator struct {
-	org             string
-	repo            string
-	permissions     map[string]struct{}
-	dataClasses     map[string]struct{}
-	autonomy        string
-	skillCeiling    map[string]struct{}
-	skillSprawl     SkillSprawl
-	findingCount    int
-	skillMetricSeen bool
+	org                string
+	repo               string
+	permissions        map[string]struct{}
+	dataClasses        map[string]struct{}
+	autonomy           string
+	skillCeiling       map[string]struct{}
+	skillSprawl        SkillSprawl
+	gatewayProtected   int
+	gatewayUnprotected int
+	gatewayUnknown     int
+	findingCount       int
+	skillMetricSeen    bool
 }
 
 func Build(findings []model.Finding, repoRisk map[string]float64) []RepoExposureSummary {
@@ -92,6 +95,16 @@ func Build(findings []model.Finding, repoRisk map[string]float64) []RepoExposure
 			item.skillMetricSeen = true
 			mergeSkillMetrics(item, finding)
 		}
+		if coverage := evidenceString(finding, "coverage"); coverage != "" {
+			switch coverage {
+			case "protected":
+				item.gatewayProtected++
+			case "unprotected":
+				item.gatewayUnprotected++
+			default:
+				item.gatewayUnknown++
+			}
+		}
 	}
 
 	out := make([]RepoExposureSummary, 0, len(acc))
@@ -116,6 +129,13 @@ func Build(findings []model.Finding, repoRisk map[string]float64) []RepoExposure
 			factors = append(factors,
 				fmt.Sprintf("skill_ceiling=%d", len(ceiling)),
 				fmt.Sprintf("skill_exec_write_ratio=%.2f", concentration.ExecWriteRatio),
+			)
+		}
+		if gatewayTotal(item) > 0 {
+			factors = append(factors,
+				fmt.Sprintf("gateway_protected=%d", item.gatewayProtected),
+				fmt.Sprintf("gateway_unprotected=%d", item.gatewayUnprotected),
+				fmt.Sprintf("gateway_unknown=%d", item.gatewayUnknown),
 			)
 		}
 		sort.Strings(factors)
@@ -246,6 +266,10 @@ func evidenceFloat(finding model.Finding, key string) float64 {
 		return 0
 	}
 	return parsed
+}
+
+func gatewayTotal(item *accumulator) int {
+	return item.gatewayProtected + item.gatewayUnprotected + item.gatewayUnknown
 }
 
 func round2(in float64) float64 {

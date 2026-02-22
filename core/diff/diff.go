@@ -10,18 +10,19 @@ import (
 
 // Key is the tuple-key identity contract for diffing.
 type Key struct {
-	FindingType string `json:"finding_type"`
-	RuleID      string `json:"rule_id,omitempty"`
-	ToolType    string `json:"tool_type"`
-	Location    string `json:"location"`
-	Repo        string `json:"repo,omitempty"`
-	Org         string `json:"org"`
-	Detector    string `json:"detector,omitempty"`
-	CheckResult string `json:"check_result,omitempty"`
-	Severity    string `json:"severity,omitempty"`
-	Autonomy    string `json:"autonomy,omitempty"`
-	EvidenceKey string `json:"evidence_key,omitempty"`
-	ParseError  string `json:"parse_error,omitempty"`
+	FindingType     string `json:"finding_type"`
+	RuleID          string `json:"rule_id,omitempty"`
+	DiscoveryMethod string `json:"discovery_method,omitempty"`
+	ToolType        string `json:"tool_type"`
+	Location        string `json:"location"`
+	Repo            string `json:"repo,omitempty"`
+	Org             string `json:"org"`
+	Detector        string `json:"detector,omitempty"`
+	CheckResult     string `json:"check_result,omitempty"`
+	Severity        string `json:"severity,omitempty"`
+	Autonomy        string `json:"autonomy,omitempty"`
+	EvidenceKey     string `json:"evidence_key,omitempty"`
+	ParseError      string `json:"parse_error,omitempty"`
 }
 
 // ChangedItem reports the before/after permission tuple when key identity is stable.
@@ -113,18 +114,19 @@ func Empty(result Result) bool {
 
 func toKey(item source.Finding) Key {
 	return Key{
-		FindingType: strings.TrimSpace(item.FindingType),
-		RuleID:      strings.TrimSpace(item.RuleID),
-		ToolType:    strings.TrimSpace(item.ToolType),
-		Location:    strings.TrimSpace(item.Location),
-		Repo:        strings.TrimSpace(item.Repo),
-		Org:         strings.TrimSpace(item.Org),
-		Detector:    strings.TrimSpace(item.Detector),
-		CheckResult: strings.TrimSpace(item.CheckResult),
-		Severity:    strings.TrimSpace(item.Severity),
-		Autonomy:    strings.TrimSpace(item.Autonomy),
-		EvidenceKey: evidenceKey(item.Evidence),
-		ParseError:  parseErrorKey(item.ParseError),
+		FindingType:     strings.TrimSpace(item.FindingType),
+		RuleID:          strings.TrimSpace(item.RuleID),
+		DiscoveryMethod: strings.TrimSpace(item.DiscoveryMethod),
+		ToolType:        strings.TrimSpace(item.ToolType),
+		Location:        strings.TrimSpace(item.Location),
+		Repo:            strings.TrimSpace(item.Repo),
+		Org:             strings.TrimSpace(item.Org),
+		Detector:        strings.TrimSpace(item.Detector),
+		CheckResult:     strings.TrimSpace(item.CheckResult),
+		Severity:        strings.TrimSpace(item.Severity),
+		Autonomy:        strings.TrimSpace(item.Autonomy),
+		EvidenceKey:     evidenceKey(item.Evidence),
+		ParseError:      parseErrorKey(item.ParseError),
 	}
 }
 
@@ -135,6 +137,10 @@ func normalizeFinding(item source.Finding) source.Finding {
 	item.Location = strings.TrimSpace(item.Location)
 	item.Repo = strings.TrimSpace(item.Repo)
 	item.Org = strings.TrimSpace(item.Org)
+	item.DiscoveryMethod = strings.TrimSpace(item.DiscoveryMethod)
+	if item.DiscoveryMethod == "" {
+		item.DiscoveryMethod = model.DiscoveryMethodStatic
+	}
 	item.Permissions = normalizePerms(item.Permissions)
 	return item
 }
@@ -217,6 +223,9 @@ func keyLess(a, b Key) bool {
 	}
 	if a.RuleID != b.RuleID {
 		return a.RuleID < b.RuleID
+	}
+	if a.DiscoveryMethod != b.DiscoveryMethod {
+		return a.DiscoveryMethod < b.DiscoveryMethod
 	}
 	if a.ToolType != b.ToolType {
 		return a.ToolType < b.ToolType

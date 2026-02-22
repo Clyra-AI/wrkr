@@ -8,6 +8,19 @@
     "export_version": {"type": "string"},
     "exported_at": {"type": "string", "format": "date-time"},
     "org": {"type": "string"},
-    "tools": {"type": "array"}
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tool_id", "agent_id", "discovery_method", "tool_type", "org"],
+        "properties": {
+          "tool_id": {"type": "string"},
+          "agent_id": {"type": "string"},
+          "discovery_method": {"type": "string", "enum": ["static"]},
+          "tool_type": {"type": "string"},
+          "org": {"type": "string"}
+        }
+      }
+    }
   }
 }

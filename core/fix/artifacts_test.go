@@ -1,7 +1,8 @@
 package fix
 
 import (
-	"path/filepath"
+	"path"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -43,12 +44,17 @@ func TestBuildPRArtifactsDeterministic(t *testing.T) {
 		t.Fatalf("expected plan + remediation artifact, got %d", len(first))
 	}
 
-	wantRoot := filepath.Join(".wrkr/remediations", "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
-	if first[0].Path != filepath.Join(wantRoot, "plan.json") {
+	wantRoot := path.Join(".wrkr/remediations", "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
+	if first[0].Path != path.Join(wantRoot, "plan.json") {
 		t.Fatalf("unexpected plan path %q", first[0].Path)
 	}
-	if first[1].Path != filepath.Join(wantRoot, "01-wrkr-004-111111111111.patch") {
+	if first[1].Path != path.Join(wantRoot, "01-wrkr-004-111111111111.patch") {
 		t.Fatalf("unexpected remediation patch path %q", first[1].Path)
+	}
+	for _, artifact := range first {
+		if strings.Contains(artifact.Path, `\`) {
+			t.Fatalf("artifact path must use POSIX separators, got %q", artifact.Path)
+		}
 	}
 	if string(first[0].Content) != string(second[0].Content) || string(first[1].Content) != string(second[1].Content) {
 		t.Fatal("expected deterministic artifact content across runs")

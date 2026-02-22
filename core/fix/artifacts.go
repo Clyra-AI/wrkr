@@ -3,7 +3,7 @@ package fix
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 )
 
@@ -18,7 +18,7 @@ type PRArtifact struct {
 // BuildPRArtifacts renders deterministic repository files that document and apply
 // remediation intent so --open-pr produces code changes instead of metadata-only PRs.
 func BuildPRArtifacts(plan Plan) ([]PRArtifact, error) {
-	root := filepath.Join(remediationArtifactsRoot, strings.TrimSpace(plan.Fingerprint))
+	root := path.Join(remediationArtifactsRoot, strings.TrimSpace(plan.Fingerprint))
 	artifacts := make([]PRArtifact, 0, len(plan.Remediations)+1)
 
 	planPayload := map[string]any{
@@ -34,16 +34,16 @@ func BuildPRArtifacts(plan Plan) ([]PRArtifact, error) {
 	}
 	encodedPlan = append(encodedPlan, '\n')
 	artifacts = append(artifacts, PRArtifact{
-		Path:          filepath.Join(root, "plan.json"),
+		Path:          path.Join(root, "plan.json"),
 		Content:       encodedPlan,
 		CommitMessage: fmt.Sprintf("chore(remediation): update plan %s", shortFingerprint(plan.Fingerprint)),
 	})
 
 	for idx, item := range plan.Remediations {
-		path := filepath.Join(root, fmt.Sprintf("%02d-%s-%s.patch", idx+1, strings.ToLower(strings.TrimSpace(item.TemplateID)), shortRemediationID(item.ID)))
+		artifactPath := path.Join(root, fmt.Sprintf("%02d-%s-%s.patch", idx+1, strings.ToLower(strings.TrimSpace(item.TemplateID)), shortRemediationID(item.ID)))
 		content := remediationPatchContent(item)
 		artifacts = append(artifacts, PRArtifact{
-			Path:          path,
+			Path:          artifactPath,
 			Content:       []byte(content),
 			CommitMessage: item.CommitMessage,
 		})

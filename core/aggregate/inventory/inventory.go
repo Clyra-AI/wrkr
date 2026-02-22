@@ -19,19 +19,20 @@ type ToolLocation struct {
 }
 
 type Tool struct {
-	ToolID         string         `json:"tool_id" yaml:"tool_id"`
-	AgentID        string         `json:"agent_id" yaml:"agent_id"`
-	ToolType       string         `json:"tool_type" yaml:"tool_type"`
-	Org            string         `json:"org" yaml:"org"`
-	Repos          []string       `json:"repos" yaml:"repos"`
-	Locations      []ToolLocation `json:"locations" yaml:"locations"`
-	Permissions    []string       `json:"permissions,omitempty" yaml:"permissions,omitempty"`
-	EndpointClass  string         `json:"endpoint_class" yaml:"endpoint_class"`
-	DataClass      string         `json:"data_class" yaml:"data_class"`
-	AutonomyLevel  string         `json:"autonomy_level" yaml:"autonomy_level"`
-	RiskScore      float64        `json:"risk_score" yaml:"risk_score"`
-	ApprovalStatus string         `json:"approval_status" yaml:"approval_status"`
-	LifecycleState string         `json:"lifecycle_state" yaml:"lifecycle_state"`
+	ToolID          string         `json:"tool_id" yaml:"tool_id"`
+	AgentID         string         `json:"agent_id" yaml:"agent_id"`
+	DiscoveryMethod string         `json:"discovery_method" yaml:"discovery_method"`
+	ToolType        string         `json:"tool_type" yaml:"tool_type"`
+	Org             string         `json:"org" yaml:"org"`
+	Repos           []string       `json:"repos" yaml:"repos"`
+	Locations       []ToolLocation `json:"locations" yaml:"locations"`
+	Permissions     []string       `json:"permissions,omitempty" yaml:"permissions,omitempty"`
+	EndpointClass   string         `json:"endpoint_class" yaml:"endpoint_class"`
+	DataClass       string         `json:"data_class" yaml:"data_class"`
+	AutonomyLevel   string         `json:"autonomy_level" yaml:"autonomy_level"`
+	RiskScore       float64        `json:"risk_score" yaml:"risk_score"`
+	ApprovalStatus  string         `json:"approval_status" yaml:"approval_status"`
+	LifecycleState  string         `json:"lifecycle_state" yaml:"lifecycle_state"`
 }
 
 type Summary struct {
@@ -96,16 +97,17 @@ func Build(input BuildInput) Inventory {
 			agentID := identity.AgentID(toolID, findingOrg)
 			context := input.Contexts[KeyForFinding(finding)]
 			tool := Tool{
-				ToolID:         toolID,
-				AgentID:        agentID,
-				ToolType:       strings.TrimSpace(finding.ToolType),
-				Org:            findingOrg,
-				EndpointClass:  fallback(context.EndpointClass, "workspace"),
-				DataClass:      fallback(context.DataClass, "code"),
-				AutonomyLevel:  fallback(context.AutonomyLevel, "interactive"),
-				RiskScore:      context.RiskScore,
-				ApprovalStatus: fallback(context.ApprovalStatus, "missing"),
-				LifecycleState: fallback(context.LifecycleState, identity.StateDiscovered),
+				ToolID:          toolID,
+				AgentID:         agentID,
+				DiscoveryMethod: normalizeDiscoveryMethod(finding.DiscoveryMethod),
+				ToolType:        strings.TrimSpace(finding.ToolType),
+				Org:             findingOrg,
+				EndpointClass:   fallback(context.EndpointClass, "workspace"),
+				DataClass:       fallback(context.DataClass, "code"),
+				AutonomyLevel:   fallback(context.AutonomyLevel, "interactive"),
+				RiskScore:       context.RiskScore,
+				ApprovalStatus:  fallback(context.ApprovalStatus, "missing"),
+				LifecycleState:  fallback(context.LifecycleState, identity.StateDiscovered),
 			}
 			item = &accumulator{tool: tool, repoSet: map[string]struct{}{}, locSet: map[string]struct{}{}, permissionSet: map[string]struct{}{}}
 			toolMap[key] = item
@@ -134,6 +136,7 @@ func Build(input BuildInput) Inventory {
 			item.tool.DataClass = fallback(context.DataClass, item.tool.DataClass)
 			item.tool.AutonomyLevel = fallback(context.AutonomyLevel, item.tool.AutonomyLevel)
 		}
+		item.tool.DiscoveryMethod = normalizeDiscoveryMethod(finding.DiscoveryMethod)
 		item.tool.ApprovalStatus = fallback(context.ApprovalStatus, item.tool.ApprovalStatus)
 		item.tool.LifecycleState = fallback(context.LifecycleState, item.tool.LifecycleState)
 	}
@@ -185,7 +188,15 @@ func Build(input BuildInput) Inventory {
 }
 
 func KeyForFinding(finding model.Finding) string {
-	return strings.Join([]string{finding.FindingType, finding.RuleID, finding.ToolType, finding.Location, finding.Repo, finding.Org}, "|")
+	return strings.Join([]string{
+		finding.FindingType,
+		finding.RuleID,
+		normalizeDiscoveryMethod(finding.DiscoveryMethod),
+		finding.ToolType,
+		finding.Location,
+		finding.Repo,
+		finding.Org,
+	}, "|")
 }
 
 func includeFinding(finding model.Finding) bool {
@@ -227,6 +238,14 @@ func fallback(value, fallbackValue string) string {
 		return fallbackValue
 	}
 	return value
+}
+
+func normalizeDiscoveryMethod(value string) string {
+	trimmed := strings.TrimSpace(strings.ToLower(value))
+	if trimmed == "" {
+		return model.DiscoveryMethodStatic
+	}
+	return trimmed
 }
 
 func sortedSet(set map[string]struct{}) []string {

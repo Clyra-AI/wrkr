@@ -14,6 +14,8 @@ const (
 	SeverityMedium   = "medium"
 	SeverityLow      = "low"
 	SeverityInfo     = "info"
+
+	DiscoveryMethodStatic = "static"
 )
 
 // ParseError captures structured parsing failures for deterministic reporting.
@@ -33,20 +35,21 @@ type Evidence struct {
 
 // Finding is the canonical detector/policy output contract.
 type Finding struct {
-	FindingType string      `json:"finding_type"`
-	RuleID      string      `json:"rule_id,omitempty"`
-	CheckResult string      `json:"check_result,omitempty"`
-	Severity    string      `json:"severity"`
-	Remediation string      `json:"remediation,omitempty"`
-	ToolType    string      `json:"tool_type"`
-	Location    string      `json:"location"`
-	Repo        string      `json:"repo,omitempty"`
-	Org         string      `json:"org"`
-	Detector    string      `json:"detector,omitempty"`
-	Permissions []string    `json:"permissions,omitempty"`
-	Autonomy    string      `json:"autonomy,omitempty"`
-	Evidence    []Evidence  `json:"evidence,omitempty"`
-	ParseError  *ParseError `json:"parse_error,omitempty"`
+	FindingType     string      `json:"finding_type"`
+	RuleID          string      `json:"rule_id,omitempty"`
+	CheckResult     string      `json:"check_result,omitempty"`
+	Severity        string      `json:"severity"`
+	DiscoveryMethod string      `json:"discovery_method"`
+	Remediation     string      `json:"remediation,omitempty"`
+	ToolType        string      `json:"tool_type"`
+	Location        string      `json:"location"`
+	Repo            string      `json:"repo,omitempty"`
+	Org             string      `json:"org"`
+	Detector        string      `json:"detector,omitempty"`
+	Permissions     []string    `json:"permissions,omitempty"`
+	Autonomy        string      `json:"autonomy,omitempty"`
+	Evidence        []Evidence  `json:"evidence,omitempty"`
+	ParseError      *ParseError `json:"parse_error,omitempty"`
 }
 
 func NormalizeFinding(item Finding) Finding {
@@ -54,6 +57,7 @@ func NormalizeFinding(item Finding) Finding {
 	item.RuleID = strings.TrimSpace(item.RuleID)
 	item.CheckResult = strings.TrimSpace(item.CheckResult)
 	item.Severity = normalizeSeverity(item.Severity)
+	item.DiscoveryMethod = normalizeDiscoveryMethod(item.DiscoveryMethod)
 	item.Remediation = strings.TrimSpace(item.Remediation)
 	item.ToolType = strings.TrimSpace(item.ToolType)
 	item.Location = strings.TrimSpace(item.Location)
@@ -89,6 +93,9 @@ func SortFindings(findings []Finding) {
 		if a.RuleID != b.RuleID {
 			return a.RuleID < b.RuleID
 		}
+		if a.DiscoveryMethod != b.DiscoveryMethod {
+			return a.DiscoveryMethod < b.DiscoveryMethod
+		}
 		if a.ToolType != b.ToolType {
 			return a.ToolType < b.ToolType
 		}
@@ -121,6 +128,14 @@ func normalizeSeverity(in string) string {
 	default:
 		return SeverityInfo
 	}
+}
+
+func normalizeDiscoveryMethod(in string) string {
+	trimmed := strings.ToLower(strings.TrimSpace(in))
+	if trimmed == "" {
+		return DiscoveryMethodStatic
+	}
+	return trimmed
 }
 
 func severityRank(severity string) int {

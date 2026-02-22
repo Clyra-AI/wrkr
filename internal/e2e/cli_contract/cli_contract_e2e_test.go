@@ -141,6 +141,9 @@ func TestE2EIdentityTransitionWithoutReasonUsesDeterministicDefaultReason(t *tes
 	if agentID == "" {
 		t.Fatalf("missing agent_id in tool payload: %v", firstTool)
 	}
+	if firstTool["discovery_method"] != "static" {
+		t.Fatalf("missing discovery_method=static in tool payload: %v", firstTool)
+	}
 
 	var approveOut bytes.Buffer
 	var approveErr bytes.Buffer

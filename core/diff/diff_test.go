@@ -84,3 +84,32 @@ func TestComputePreservesDuplicateIdentityFindings(t *testing.T) {
 		t.Fatalf("expected anthropic dependency in added finding, got %+v", result.Added[0])
 	}
 }
+
+func TestComputeTreatsMissingDiscoveryMethodAsStaticForLegacyState(t *testing.T) {
+	t.Parallel()
+
+	previous := []source.Finding{
+		{
+			FindingType: "mcp_server",
+			ToolType:    "mcp",
+			Location:    ".mcp.json",
+			Repo:        "backend",
+			Org:         "local",
+		},
+	}
+	current := []source.Finding{
+		{
+			FindingType:     "mcp_server",
+			DiscoveryMethod: model.DiscoveryMethodStatic,
+			ToolType:        "mcp",
+			Location:        ".mcp.json",
+			Repo:            "backend",
+			Org:             "local",
+		},
+	}
+
+	result := Compute(previous, current)
+	if !Empty(result) {
+		t.Fatalf("expected empty diff for legacy missing discovery_method, got %+v", result)
+	}
+}

@@ -50,3 +50,42 @@ func TestCompiledActionAmplification(t *testing.T) {
 		t.Fatalf("expected amplified score, got %.2f", report.Ranked[0].Score)
 	}
 }
+
+func TestGatewayCoverageAmplifiesRiskForUnprotectedDeclarations(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{
+			FindingType: "webmcp_declaration",
+			Severity:    model.SeverityMedium,
+			ToolType:    "webmcp",
+			Location:    "ui/register.js",
+			Repo:        "repo",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "coverage", Value: "protected"},
+				{Key: "policy_posture", Value: "deny"},
+			},
+		},
+		{
+			FindingType: "webmcp_declaration",
+			Severity:    model.SeverityMedium,
+			ToolType:    "webmcp",
+			Location:    "ui/register2.js",
+			Repo:        "repo",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "coverage", Value: "unprotected"},
+				{Key: "policy_posture", Value: "allow"},
+			},
+		},
+	}
+
+	report := Score(findings, 5, time.Time{})
+	if len(report.Ranked) != 2 {
+		t.Fatalf("expected two ranked findings, got %d", len(report.Ranked))
+	}
+	if report.Ranked[0].Finding.Location != "ui/register2.js" {
+		t.Fatalf("expected unprotected finding to rank higher, got %s", report.Ranked[0].Finding.Location)
+	}
+}

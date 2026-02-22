@@ -2,6 +2,7 @@ package defaults
 
 import (
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/detect/a2a"
 	"github.com/Clyra-AI/wrkr/core/detect/ciagent"
 	"github.com/Clyra-AI/wrkr/core/detect/claude"
 	"github.com/Clyra-AI/wrkr/core/detect/codex"
@@ -11,18 +12,23 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/dependency"
 	"github.com/Clyra-AI/wrkr/core/detect/gaitpolicy"
 	"github.com/Clyra-AI/wrkr/core/detect/mcp"
+	"github.com/Clyra-AI/wrkr/core/detect/mcpgateway"
 	"github.com/Clyra-AI/wrkr/core/detect/secrets"
 	"github.com/Clyra-AI/wrkr/core/detect/skills"
+	"github.com/Clyra-AI/wrkr/core/detect/webmcp"
 )
 
 func Registry() (*detect.Registry, error) {
 	registry := detect.NewRegistry()
 	detectorList := []detect.Detector{
+		a2a.New(),
 		claude.New(),
 		cursor.New(),
 		codex.New(),
 		copilot.New(),
 		mcp.New(),
+		mcpgateway.New(),
+		webmcp.New(),
 		skills.New(),
 		gaitpolicy.New(),
 		dependency.New(),

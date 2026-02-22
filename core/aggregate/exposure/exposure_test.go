@@ -35,3 +35,45 @@ func TestBuildIncludesSkillAggregationFields(t *testing.T) {
 		t.Fatal("expected non-zero skill_privilege_concentration.exec_write_ratio")
 	}
 }
+
+func TestBuildIncludesGatewayCoverageFactors(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{
+			FindingType: "mcp_gateway_posture",
+			ToolType:    "mcp",
+			Location:    ".mcp.json",
+			Repo:        "payments",
+			Org:         "acme",
+			Evidence:    []model.Evidence{{Key: "coverage", Value: "unprotected"}},
+		},
+		{
+			FindingType: "a2a_agent_card",
+			ToolType:    "a2a_agent",
+			Location:    ".well-known/agent.json",
+			Repo:        "payments",
+			Org:         "acme",
+			Evidence:    []model.Evidence{{Key: "coverage", Value: "protected"}},
+		},
+	}
+	out := Build(findings, map[string]float64{"acme::payments": 6.2})
+	if len(out) != 1 {
+		t.Fatalf("expected one summary, got %d", len(out))
+	}
+
+	factors := out[0].ExposureFactors
+	hasProtected := false
+	hasUnprotected := false
+	for _, factor := range factors {
+		if factor == "gateway_protected=1" {
+			hasProtected = true
+		}
+		if factor == "gateway_unprotected=1" {
+			hasUnprotected = true
+		}
+	}
+	if !hasProtected || !hasUnprotected {
+		t.Fatalf("expected gateway coverage factors in exposure_factors, got %v", factors)
+	}
+}

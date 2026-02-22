@@ -96,9 +96,12 @@ func TestScanFindingsCanonicalFields(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected finding shape: %T", findings[0])
 	}
-	for _, key := range []string{"finding_type", "severity", "tool_type", "location", "org"} {
+	for _, key := range []string{"finding_type", "severity", "discovery_method", "tool_type", "location", "org"} {
 		if _, present := finding[key]; !present {
 			t.Fatalf("expected canonical finding field %q in %v", key, finding)
 		}
+	}
+	if finding["discovery_method"] != "static" {
+		t.Fatalf("expected discovery_method=static, got %v", finding["discovery_method"])
 	}
 }

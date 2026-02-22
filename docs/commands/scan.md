@@ -48,3 +48,12 @@ wrkr scan --org acme --github-api https://api.github.com --json
 ```
 
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`, and optional `report` when summary output is requested.
+
+Every discovered entity now emits `discovery_method: static` in both `findings` and `inventory.tools` for deterministic v1 schema compatibility.
+
+Emerging discovery surfaces are static-only in default deterministic mode:
+
+- WebMCP detection uses repository HTML/JS/route files only.
+- A2A detection uses repo-hosted agent-card JSON files only.
+- MCP gateway posture is derived from local config files only.
+- No live endpoint probing is performed by default.

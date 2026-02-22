@@ -59,6 +59,7 @@ func TestStory7SchemaContractsStable(t *testing.T) {
 
 	sort.Strings(files)
 	want := []string{
+		"schemas/v1/a2a/agent-card.schema.json",
 		"schemas/v1/cli/command-envelope.schema.json",
 		"schemas/v1/config/config.schema.json",
 		"schemas/v1/evidence/evidence-bundle.schema.json",

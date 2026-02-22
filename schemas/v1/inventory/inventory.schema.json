@@ -12,10 +12,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["tool_id", "agent_id", "tool_type", "org", "repos", "locations", "endpoint_class", "data_class", "autonomy_level", "risk_score", "approval_status", "lifecycle_state"],
+        "required": ["tool_id", "agent_id", "discovery_method", "tool_type", "org", "repos", "locations", "endpoint_class", "data_class", "autonomy_level", "risk_score", "approval_status", "lifecycle_state"],
         "properties": {
           "tool_id": {"type": "string"},
           "agent_id": {"type": "string"},
+          "discovery_method": {"type": "string", "enum": ["static"]},
           "tool_type": {"type": "string"},
           "org": {"type": "string"},
           "repos": {"type": "array", "items": {"type": "string"}},

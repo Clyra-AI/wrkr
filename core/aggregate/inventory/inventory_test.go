@@ -24,6 +24,9 @@ func TestBuildDedupesAcrossReposWithLocationContext(t *testing.T) {
 	if len(inv.Tools) != 1 {
 		t.Fatalf("expected deduped tool count 1, got %d", len(inv.Tools))
 	}
+	if inv.Tools[0].DiscoveryMethod != model.DiscoveryMethodStatic {
+		t.Fatalf("expected default discovery_method static, got %q", inv.Tools[0].DiscoveryMethod)
+	}
 	if len(inv.Tools[0].Locations) != 2 {
 		t.Fatalf("expected two location contexts, got %d", len(inv.Tools[0].Locations))
 	}
