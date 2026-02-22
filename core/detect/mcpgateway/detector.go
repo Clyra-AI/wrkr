@@ -290,7 +290,7 @@ func discoverDeclarations(root string) ([]declaration, error) {
 			if parseErr == nil {
 				for _, name := range names {
 					item := declaration{name: name, toolType: "mcp", location: rel}
-					set[key{name: item.name, toolType: item.toolType, location: item.location}] = item
+					set[key(item)] = item
 				}
 			}
 		}
@@ -299,7 +299,7 @@ func discoverDeclarations(root string) ([]declaration, error) {
 			name, parseErr := parseAgentCardName(root, rel)
 			if parseErr == nil && name != "" {
 				item := declaration{name: name, toolType: "a2a_agent", location: rel}
-				set[key{name: item.name, toolType: item.toolType, location: item.location}] = item
+				set[key(item)] = item
 			}
 		}
 
@@ -312,7 +312,7 @@ func discoverDeclarations(root string) ([]declaration, error) {
 			strings.HasSuffix(lower, "/.well-known/webmcp.yaml") ||
 			strings.HasSuffix(lower, "/.well-known/webmcp.yml") {
 			item := declaration{name: "webmcp", toolType: "webmcp", location: rel}
-			set[key{name: item.name, toolType: item.toolType, location: item.location}] = item
+			set[key(item)] = item
 		}
 	}
 

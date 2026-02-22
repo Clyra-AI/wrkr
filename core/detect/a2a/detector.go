@@ -87,9 +87,10 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 
 		posture := mcpgateway.EvaluateCoverage(policy, name)
 		severity := model.SeverityLow
-		if posture.Coverage == mcpgateway.CoverageUnprotected {
+		switch posture.Coverage {
+		case mcpgateway.CoverageUnprotected:
 			severity = model.SeverityHigh
-		} else if posture.Coverage == mcpgateway.CoverageUnknown {
+		case mcpgateway.CoverageUnknown:
 			severity = model.SeverityMedium
 		}
 		remediation := "Keep agent-card schema fields strict and deterministic."
