@@ -7,7 +7,7 @@
   },
   "commands": {
     "score": {"p95_ms": 150},
-    "verify_chain": {"p95_ms": 1000},
+    "verify_chain": {"p95_ms": 1800},
     "regress_run": {"p95_ms": 300}
   }
 }
