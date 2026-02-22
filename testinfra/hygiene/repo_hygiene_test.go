@@ -16,7 +16,6 @@ func TestRequiredPlanDocsPresent(t *testing.T) {
 		"product/PLAN_v1.md",
 		"product/wrkr.md",
 		"product/dev_guides.md",
-		"product/Clyra_AI.md",
 	}
 	for _, rel := range required {
 		path := filepath.Join(repoRoot, filepath.Clean(rel))
