@@ -1,0 +1,64 @@
+# Wrkr
+
+> Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.
+
+## Canonical
+- https://github.com/Clyra-AI/wrkr
+- https://clyra-ai.github.io/wrkr/
+
+## Core Commands
+- wrkr init --non-interactive --path <dir> --json
+- wrkr scan --repo <owner/repo> --github-api <url> --json
+- wrkr scan --org <org> --github-api <url> --json
+- wrkr scan --path <dir> --profile baseline|standard|strict --json
+- wrkr report --top <n> --json
+- wrkr score --json
+- wrkr score --explain
+- wrkr evidence --frameworks <ids> --output <dir> --json
+- wrkr verify --chain --json
+- wrkr regress init --baseline <state-path> --output <baseline-path> --json
+- wrkr regress run --baseline <baseline-path> --json
+- wrkr fix --top <n> --json
+- wrkr manifest generate --json
+
+## When To Use
+- You need deterministic inventory and risk ranking for AI tooling declared in repo/org surfaces.
+- You need compliance-ready evidence outputs with explicit verification workflows.
+- You need CI gates for drift and regression with stable machine-readable reasons.
+
+## When Not To Use
+- You need runtime traffic interception or live endpoint behavior control.
+- You cannot provide required source acquisition inputs for repo/org scan modes.
+- You need non-deterministic exploratory analysis instead of contract-stable outputs.
+
+## Safety Model
+- Fail-closed handling for unsafe output paths and missing required dependencies.
+- Deterministic JSON contracts and stable exit-code semantics.
+- No secret-value extraction; only risk context signals.
+- Proof-chain verification support for evidence integrity checks.
+
+## Canonical Docs
+- /docs/adopt_in_one_pr/
+- /docs/integration_checklist/
+- /docs/architecture/
+- /docs/concepts/mental_model/
+- /docs/policy_authoring/
+- /docs/failure_taxonomy_exit_codes/
+- /docs/threat_model/
+- /docs/contracts/compatibility_matrix/
+- /docs/positioning/
+- /docs/intent/scan-org-repos-for-ai-agents-configs/
+- /docs/intent/detect-headless-agent-risk/
+- /docs/intent/generate-compliance-evidence-from-scans/
+- /docs/intent/gate-on-drift-and-regressions/
+- /docs/trust/deterministic-guarantees/
+- /docs/trust/detection-coverage-matrix/
+- /docs/trust/proof-chain-verification/
+
+## LLM Resources
+- /llms-full.txt
+- /llm/product.md
+- /llm/quickstart.md
+- /llm/security.md
+- /llm/faq.md
+- /llm/contracts.md

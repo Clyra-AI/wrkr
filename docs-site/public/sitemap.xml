@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://clyra-ai.github.io/wrkr/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/llms/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/llms.txt</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/llms-full</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/llms-full.txt</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/robots</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/llm/product.md</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/llm/quickstart.md</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/llm/security.md</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/llm/faq.md</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/llm/contracts.md</loc></url>
+
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/adopt_in_one_pr/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/integration_checklist/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/architecture/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/concepts/mental_model/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/policy_authoring/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/failure_taxonomy_exit_codes/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/threat_model/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/contracts/compatibility_matrix/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/positioning/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/evidence_templates/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/faq/</loc></url>
+
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/examples/quickstart/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/examples/operator-playbooks/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/commands/index/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/commands/root/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/commands/scan/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/commands/report/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/commands/score/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/commands/verify/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/commands/evidence/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/commands/regress/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/commands/fix/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/specs/wrkr-manifest/</loc></url>
+
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/intent/scan-org-repos-for-ai-agents-configs/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/intent/detect-headless-agent-risk/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/intent/generate-compliance-evidence-from-scans/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/intent/gate-on-drift-and-regressions/</loc></url>
+
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/detection-coverage-matrix/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/deterministic-guarantees/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/proof-chain-verification/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/contracts-and-schemas/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/compatibility-and-versioning/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/security-and-privacy/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/release-integrity/</loc></url>
+</urlset>

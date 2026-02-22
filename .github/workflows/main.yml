@@ -44,10 +44,13 @@ jobs:
             docs:
               - 'README.md'
               - 'docs/**'
+              - 'docs-site/**'
               - 'product/wrkr.md'
               - 'core/cli/**'
               - 'scripts/check_docs_cli_parity.sh'
               - 'scripts/check_docs_storyline.sh'
+              - 'scripts/check_docs_consistency.sh'
+              - 'scripts/check_docs_site_validation.py'
               - 'scripts/run_docs_smoke.sh'
 
   core-matrix:
@@ -114,9 +117,19 @@ jobs:
           go-version: '1.25.7'
           check-latest: false
 
-      - name: Run docs parity and full smoke
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run docs parity, docs site, and full smoke
         run: |
           make test-docs-consistency
+          make docs-site-install
+          make docs-site-audit-prod
+          make docs-site-lint
+          make docs-site-build
+          make docs-site-check
           scripts/run_docs_smoke.sh
 
   v1-acceptance:

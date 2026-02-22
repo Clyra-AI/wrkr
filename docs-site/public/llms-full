@@ -1,0 +1,46 @@
+# Wrkr Extended LLM Context
+
+## Product Summary
+Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.
+
+Wrkr is the deterministic See-layer CLI in the See -> Prove -> Control sequence.
+
+- See: Wrkr discovers AI tooling posture, autonomy context, and risk.
+- Prove: Axym consumes proof records for compliance mapping.
+- Control: Gait enforces runtime policy decisions.
+
+## Technical Foundation Guides
+- `/docs/architecture/`
+- `/docs/concepts/mental_model/`
+- `/docs/policy_authoring/`
+- `/docs/failure_taxonomy_exit_codes/`
+- `/docs/threat_model/`
+- `/docs/contracts/compatibility_matrix/`
+
+## High-Intent Flows
+- Scan org repos for AI agents/configs: `/docs/intent/scan-org-repos-for-ai-agents-configs/`
+- Detect headless agent risk: `/docs/intent/detect-headless-agent-risk/`
+- Generate compliance evidence from scans: `/docs/intent/generate-compliance-evidence-from-scans/`
+- Gate on drift/regressions: `/docs/intent/gate-on-drift-and-regressions/`
+
+## Determinism and Contracts
+- Stable exit codes 0-8 are API contracts.
+- `--json` output structure is contract-stable for automation.
+- Regress drift contract uses exit code `5`.
+- Verify chain integrity uses exit code `2` on verification failure.
+
+## Trust Boundaries
+- Static discovery default (no live endpoint probing in deterministic mode).
+- Local-first evidence generation and verification.
+- Secret presence detection only; no secret values extracted.
+
+## More
+- `/docs/positioning/`
+- `/docs/adopt_in_one_pr/`
+- `/docs/evidence_templates/`
+- `/docs/faq/`
+- `/llm/product.md`
+- `/llm/quickstart.md`
+- `/llm/security.md`
+- `/llm/contracts.md`
+- `/llm/faq.md`

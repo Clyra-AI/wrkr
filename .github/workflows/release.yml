@@ -33,15 +33,25 @@ jobs:
           go-version: '1.25.7'
           check-latest: false
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Download dependencies
         run: go mod download
 
       - name: Run deterministic tests
         run: go test ./... -count=1
 
-      - name: Run docs parity and UAT smoke
+      - name: Run docs parity, docs site, and UAT smoke
         run: |
           make test-docs-consistency
+          make docs-site-install
+          make docs-site-audit-prod
+          make docs-site-lint
+          make docs-site-build
+          make docs-site-check
           scripts/run_docs_smoke.sh
 
       - name: Run v1 acceptance release gate
