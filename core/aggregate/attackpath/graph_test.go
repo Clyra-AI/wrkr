@@ -44,4 +44,3 @@ func TestBuildGraphSkipsReposWithoutComposableNodes(t *testing.T) {
 		t.Fatalf("expected zero graphs, got %#v", graphs)
 	}
 }
-

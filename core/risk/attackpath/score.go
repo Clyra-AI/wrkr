@@ -224,4 +224,3 @@ func uniqueSorted(in []string) []string {
 func round2(in float64) float64 {
 	return float64(int(in*100+0.5)) / 100
 }
-

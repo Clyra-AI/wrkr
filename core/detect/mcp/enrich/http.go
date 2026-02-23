@@ -76,7 +76,7 @@ func (c OSVAdvisoryClient) Lookup(ctx context.Context, pkg string, version strin
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
-		resp, doErr := c.httpClient().Do(req)
+		resp, doErr := c.httpClient().Do(req) // #nosec G107,G704 -- endpoint is explicit operator-configured advisory source for deterministic enrich mode.
 		if doErr != nil {
 			lastErr = doErr
 			continue
@@ -159,7 +159,7 @@ func (c MCPRegistryClient) Lookup(ctx context.Context, pkg string) (RegistryResu
 			lastErr = reqErr
 			continue
 		}
-		resp, doErr := c.httpClient().Do(req)
+		resp, doErr := c.httpClient().Do(req) // #nosec G107,G704 -- endpoint is explicit operator-configured registry source for deterministic enrich mode.
 		if doErr != nil {
 			lastErr = doErr
 			continue

@@ -224,4 +224,3 @@ func fallbackOrg(org string) string {
 	}
 	return strings.TrimSpace(org)
 }
-

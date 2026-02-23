@@ -41,4 +41,3 @@ func TestScoreDeterministicOrdering(t *testing.T) {
 		}
 	}
 }
-
