@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/model"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/risk/autonomy"
 	"github.com/Clyra-AI/wrkr/core/risk/classify"
 )
@@ -33,16 +35,26 @@ type RepoAggregate struct {
 }
 
 type Report struct {
-	GeneratedAt string          `json:"generated_at"`
-	TopN        []ScoredFinding `json:"top_findings"`
-	Ranked      []ScoredFinding `json:"ranked_findings"`
-	Repos       []RepoAggregate `json:"repo_risk"`
+	GeneratedAt    string                  `json:"generated_at"`
+	TopN           []ScoredFinding         `json:"top_findings"`
+	Ranked         []ScoredFinding         `json:"ranked_findings"`
+	Repos          []RepoAggregate         `json:"repo_risk"`
+	AttackPaths    []riskattack.ScoredPath `json:"attack_paths,omitempty"`
+	TopAttackPaths []riskattack.ScoredPath `json:"top_attack_paths,omitempty"`
+}
+
+type promptCooccurrence struct {
+	HeadlessCIAutonomy bool
+	SecretPresence     bool
+	ProductionWrite    bool
 }
 
 func Score(findings []model.Finding, topN int, now time.Time) Report {
+	cooccurrenceByRepo := buildPromptCooccurrence(findings)
+
 	items := make([]ScoredFinding, 0, len(findings))
 	for _, finding := range findings {
-		items = append(items, scoreFinding(finding))
+		items = append(items, scoreFinding(finding, cooccurrenceByRepo[repoKey(finding.Org, finding.Repo)]))
 	}
 	items = correlateSkillConflicts(items)
 	sortRanked(items)
@@ -68,15 +80,24 @@ func Score(findings []model.Finding, topN int, now time.Time) Report {
 		generatedAt = time.Now().UTC().Truncate(time.Second)
 	}
 
+	attackGraphs := aggattack.Build(findings)
+	attackPaths := riskattack.Score(attackGraphs)
+	topAttackPaths := append([]riskattack.ScoredPath(nil), attackPaths...)
+	if topN > 0 && topN < len(topAttackPaths) {
+		topAttackPaths = topAttackPaths[:topN]
+	}
+
 	return Report{
-		GeneratedAt: generatedAt.Format(time.RFC3339),
-		TopN:        top,
-		Ranked:      items,
-		Repos:       repoScores,
+		GeneratedAt:    generatedAt.Format(time.RFC3339),
+		TopN:           top,
+		Ranked:         items,
+		Repos:          repoScores,
+		AttackPaths:    attackPaths,
+		TopAttackPaths: topAttackPaths,
 	}
 }
 
-func scoreFinding(finding model.Finding) ScoredFinding {
+func scoreFinding(finding model.Finding, cooccurrence promptCooccurrence) ScoredFinding {
 	endpointClass := classify.EndpointClass(finding)
 	dataClass := classify.DataClass(finding)
 	autonomyLevel := classify.AutonomyLevel(finding)
@@ -132,6 +153,39 @@ func scoreFinding(finding model.Finding) ScoredFinding {
 			reasons = append(reasons, "skill_sprawl_exec_write_over_50_percent")
 		}
 	}
+	if finding.FindingType == "mcp_server" && evidenceString(finding, "enrich_mode") == "true" {
+		enrichQuality := normalizedEnrichQuality(evidenceString(finding, "enrich_quality"))
+		reasons = append(reasons, fmt.Sprintf("mcp_enrich_quality=%s", enrichQuality))
+		if enrichQuality != "unavailable" {
+			advisoryCount := evidenceFloat(finding, "advisory_count")
+			if advisoryCount > 0 {
+				reasons = append(reasons, fmt.Sprintf("mcp_enrich_advisory_count=%.0f", advisoryCount))
+			}
+			registryStatus := evidenceString(finding, "registry_status")
+			if registryStatus != "" {
+				reasons = append(reasons, fmt.Sprintf("mcp_enrich_registry_status=%s", registryStatus))
+			}
+		}
+	}
+	if isPromptChannelFinding(finding) {
+		promptMultiplier := 1.0
+		if cooccurrence.HeadlessCIAutonomy {
+			promptMultiplier += 0.35
+			reasons = append(reasons, "prompt_channel_with_ci_autonomy")
+		}
+		if cooccurrence.SecretPresence {
+			promptMultiplier += 0.30
+			reasons = append(reasons, "prompt_channel_with_secret_presence")
+		}
+		if cooccurrence.ProductionWrite {
+			promptMultiplier += 0.35
+			reasons = append(reasons, "prompt_channel_with_production_write")
+		}
+		if promptMultiplier > 1 {
+			score = score * promptMultiplier
+			reasons = append(reasons, fmt.Sprintf("prompt_channel_correlation_multiplier=%.2f", promptMultiplier))
+		}
+	}
 
 	if score > 10 {
 		score = 10
@@ -148,6 +202,44 @@ func scoreFinding(finding model.Finding) ScoredFinding {
 		AutonomyLevel: autonomyLevel,
 		Reasons:       reasons,
 		Finding:       finding,
+	}
+}
+
+func buildPromptCooccurrence(findings []model.Finding) map[string]promptCooccurrence {
+	out := map[string]promptCooccurrence{}
+	for _, finding := range findings {
+		key := repoKey(finding.Org, finding.Repo)
+		current := out[key]
+		if finding.FindingType == "ci_autonomy" {
+			switch classify.AutonomyLevel(finding) {
+			case autonomy.LevelHeadlessAuto, autonomy.LevelHeadlessGate:
+				current.HeadlessCIAutonomy = true
+			}
+		}
+		if finding.FindingType == "secret_presence" {
+			current.SecretPresence = true
+		}
+		if hasPermission(finding.Permissions, "filesystem.write") || hasPermission(finding.Permissions, "db.write") || hasPermission(finding.Permissions, "production.write") || evidenceString(finding, "production_write") == "true" {
+			current.ProductionWrite = true
+		}
+		out[key] = current
+	}
+	return out
+}
+
+func repoKey(org string, repo string) string {
+	return strings.TrimSpace(org) + "::" + strings.TrimSpace(repo)
+}
+
+func isPromptChannelFinding(finding model.Finding) bool {
+	if strings.TrimSpace(finding.ToolType) == "prompt_channel" {
+		return true
+	}
+	switch strings.TrimSpace(finding.FindingType) {
+	case "prompt_channel_hidden_text", "prompt_channel_override", "prompt_channel_untrusted_context":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -329,6 +421,23 @@ func trustDeficit(finding model.Finding, dataClass string) float64 {
 		if trust > 0 {
 			deficit += (10 - trust) / 3
 		}
+		if evidenceString(finding, "enrich_mode") == "true" {
+			qualityWeight := enrichQualityWeight(normalizedEnrichQuality(evidenceString(finding, "enrich_quality")))
+			advisoryCount := evidenceFloat(finding, "advisory_count")
+			if advisoryCount > 0 {
+				deficit += advisoryCount * 0.2 * qualityWeight
+			}
+			switch evidenceString(finding, "registry_status") {
+			case "listed":
+				deficit -= 0.4 * qualityWeight
+			case "unlisted":
+				deficit += 0.7 * qualityWeight
+			case "lookup_error":
+				deficit += 0.3 * qualityWeight
+			case "unknown":
+				deficit += 0.2 * qualityWeight
+			}
+		}
 	}
 	if coverage := evidenceString(finding, "coverage"); coverage != "" {
 		switch coverage {
@@ -357,6 +466,32 @@ func trustDeficit(finding model.Finding, dataClass string) float64 {
 
 func hasFindingTypeHint(finding model.Finding, hint string) bool {
 	return strings.Contains(strings.ToLower(strings.TrimSpace(finding.ToolType)), strings.ToLower(strings.TrimSpace(hint)))
+}
+
+func normalizedEnrichQuality(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "ok", "partial", "stale", "unavailable":
+		return strings.ToLower(strings.TrimSpace(value))
+	case "":
+		return "ok"
+	default:
+		return "partial"
+	}
+}
+
+func enrichQualityWeight(quality string) float64 {
+	switch normalizedEnrichQuality(quality) {
+	case "ok":
+		return 1.0
+	case "partial":
+		return 0.6
+	case "stale":
+		return 0.4
+	case "unavailable":
+		return 0.0
+	default:
+		return 0.6
+	}
 }
 
 func compiledActionFactor(finding model.Finding) float64 {

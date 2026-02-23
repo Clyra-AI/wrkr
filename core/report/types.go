@@ -64,8 +64,14 @@ type Summary struct {
 	Deltas          DeltaSummary                 `json:"deltas"`
 	Lifecycle       LifecycleSummary             `json:"lifecycle"`
 	RegressDrift    *RegressSummary              `json:"regress_drift,omitempty"`
+	AttackPaths     AttackPathSummary            `json:"attack_paths"`
 	Proof           ProofReference               `json:"proof"`
 	NextActions     []ChecklistItem              `json:"next_actions"`
+}
+
+type AttackPathSummary struct {
+	Total      int      `json:"total"`
+	TopPathIDs []string `json:"top_path_ids"`
 }
 
 type Section struct {

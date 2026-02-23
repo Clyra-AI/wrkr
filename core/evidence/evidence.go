@@ -90,6 +90,11 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := writeJSON(filepath.Join(outputDir, "risk-report.json"), snapshot.RiskReport); err != nil {
 		return BuildResult{}, err
 	}
+	if snapshot.RiskReport != nil {
+		if err := writeJSON(filepath.Join(outputDir, "attack-paths.json"), snapshot.RiskReport.AttackPaths); err != nil {
+			return BuildResult{}, err
+		}
+	}
 	if err := writeJSON(filepath.Join(outputDir, "profile-compliance.json"), snapshot.Profile); err != nil {
 		return BuildResult{}, err
 	}

@@ -1,0 +1,15 @@
+name: release
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Build system prompt from user input (insecure fixture)
+        run: |
+          system_prompt="{{ user_input }}"
+          echo "$INPUT" >> system_prompt.txt
+          codex --full-auto --dangerouslySkipPermissions

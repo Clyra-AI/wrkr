@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "demo": {
+      "command": "npx",
+      "args": ["-y", "@scope/server@1.2.3"]
+    }
+  }
+}
+

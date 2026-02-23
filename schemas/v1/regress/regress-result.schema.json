@@ -30,7 +30,8 @@
             "enum": [
               "new_unapproved_tool",
               "revoked_tool_reappeared",
-              "unapproved_permission_expansion"
+              "unapproved_permission_expansion",
+              "critical_attack_path_drift"
             ]
           },
           "agent_id": {
@@ -50,6 +51,116 @@
             "items": {
               "type": "string"
             }
+          },
+          "attack_path_drift": {
+            "type": "object",
+            "required": [
+              "baseline_critical_count",
+              "current_critical_count",
+              "drift_count",
+              "drift_ratio",
+              "min_absolute",
+              "min_relative"
+            ],
+            "properties": {
+              "baseline_critical_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "current_critical_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "added": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["path_id", "org", "repo", "score"],
+                  "properties": {
+                    "path_id": {
+                      "type": "string"
+                    },
+                    "org": {
+                      "type": "string"
+                    },
+                    "repo": {
+                      "type": "string"
+                    },
+                    "score": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "removed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["path_id", "org", "repo", "score"],
+                  "properties": {
+                    "path_id": {
+                      "type": "string"
+                    },
+                    "org": {
+                      "type": "string"
+                    },
+                    "repo": {
+                      "type": "string"
+                    },
+                    "score": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "score_changed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["path_id", "org", "repo", "baseline_score", "current_score", "score_delta"],
+                  "properties": {
+                    "path_id": {
+                      "type": "string"
+                    },
+                    "org": {
+                      "type": "string"
+                    },
+                    "repo": {
+                      "type": "string"
+                    },
+                    "baseline_score": {
+                      "type": "number"
+                    },
+                    "current_score": {
+                      "type": "number"
+                    },
+                    "score_delta": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "drift_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "drift_ratio": {
+                "type": "number",
+                "minimum": 0
+              },
+              "min_absolute": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "min_relative": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false

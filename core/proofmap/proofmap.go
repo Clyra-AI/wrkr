@@ -111,7 +111,7 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, now time
 }
 
 func MapRisk(report risk.Report, posture score.Result, profile profileeval.Result, now time.Time) []MappedRecord {
-	records := make([]MappedRecord, 0, len(report.Ranked)+1)
+	records := make([]MappedRecord, 0, len(report.Ranked)+len(report.AttackPaths)+1)
 	for idx, item := range report.Ranked {
 		event := map[string]any{
 			"assessment_type": "finding_risk",
@@ -145,6 +145,34 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			},
 		})
 	}
+	for idx, path := range report.AttackPaths {
+		event := map[string]any{
+			"assessment_type": "attack_path_risk",
+			"path_id":         path.PathID,
+			"path_score":      path.PathScore,
+			"org":             path.Org,
+			"repo":            path.Repo,
+			"entry_node_id":   path.EntryNodeID,
+			"pivot_node_id":   path.PivotNodeID,
+			"target_node_id":  path.TargetNodeID,
+			"entry_exposure":  path.EntryExposure,
+			"pivot_privilege": path.PivotPrivilege,
+			"target_impact":   path.TargetImpact,
+			"edge_rationale":  append([]string(nil), path.EdgeRationale...),
+			"explain":         append([]string(nil), path.Explain...),
+		}
+		records = append(records, MappedRecord{
+			RecordType: "risk_assessment",
+			Timestamp:  canonicalTime(now),
+			Event:      event,
+			Metadata: map[string]any{
+				"rank":               idx + 1,
+				"canonical_finding":  "attack_path",
+				"attack_path_id":     path.PathID,
+				"attack_path_source": append([]string(nil), path.SourceFindings...),
+			},
+		})
+	}
 
 	postureEvent := map[string]any{
 		"assessment_type":    "posture_score",
@@ -164,6 +192,10 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			"profile_rationale":  append([]string(nil), profile.Rationale...),
 		},
 		"repo_risk": append([]risk.RepoAggregate(nil), report.Repos...),
+		"attack_paths": map[string]any{
+			"count": len(report.AttackPaths),
+			"top":   report.TopAttackPaths,
+		},
 	}
 	records = append(records, MappedRecord{
 		RecordType: "risk_assessment",

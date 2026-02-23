@@ -135,6 +135,20 @@ func applyRule(rule policy.Rule, findings []model.Finding) (bool, string) {
 			}
 		}
 		return ratio <= 0.5, fmt.Sprintf("exec_ratio=%.2f", ratio)
+	case "prompt_channel_governance":
+		total := 0
+		highOrCritical := 0
+		for _, finding := range findings {
+			if !isPromptChannelFinding(finding) {
+				continue
+			}
+			total++
+			switch severity(finding.Severity) {
+			case model.SeverityHigh, model.SeverityCritical:
+				highOrCritical++
+			}
+		}
+		return highOrCritical == 0, fmt.Sprintf("prompt_channel_high=%d,total=%d", highOrCritical, total)
 	default:
 		return false, "unknown policy kind"
 	}
@@ -177,4 +191,16 @@ func fallbackOrg(org string) string {
 		return "local"
 	}
 	return org
+}
+
+func isPromptChannelFinding(finding model.Finding) bool {
+	if strings.TrimSpace(finding.ToolType) == "prompt_channel" {
+		return true
+	}
+	switch strings.TrimSpace(finding.FindingType) {
+	case "prompt_channel_hidden_text", "prompt_channel_override", "prompt_channel_untrusted_context":
+		return true
+	default:
+		return false
+	}
 }

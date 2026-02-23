@@ -29,7 +29,8 @@ wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
 wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --share-profile public --json
 ```
 
-Expected JSON keys: `status`, `generated_at`, `top_findings`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `summary`, `md_path`, `pdf_path`.
+Expected JSON keys: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `summary`, `md_path`, `pdf_path`.
+`summary.attack_paths` provides deterministic attack-path section metadata (`total`, `top_path_ids`) used in report templates and external appendix joins.
 
 Public template behavior (`--template public --share-profile public`):
 

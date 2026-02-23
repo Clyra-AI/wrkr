@@ -314,6 +314,8 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 		payload["findings"] = findings
 		payload["ranked_findings"] = riskReport.Ranked
 		payload["top_findings"] = riskReport.TopN
+		payload["attack_paths"] = riskReport.AttackPaths
+		payload["top_attack_paths"] = riskReport.TopAttackPaths
 		payload["inventory"] = inventoryOut
 		payload["privilege_budget"] = inventoryOut.PrivilegeBudget
 		payload["agent_privilege_map"] = inventoryOut.AgentPrivilegeMap

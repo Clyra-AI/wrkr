@@ -62,6 +62,7 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	got := sortedKeys(payload)
 	want := []string{
 		"agent_privilege_map",
+		"attack_paths",
 		"findings",
 		"inventory",
 		"posture_score",
@@ -72,6 +73,7 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 		"source_manifest",
 		"status",
 		"target",
+		"top_attack_paths",
 		"top_findings",
 	}
 	if !reflect.DeepEqual(got, want) {

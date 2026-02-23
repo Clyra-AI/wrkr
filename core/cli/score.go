@@ -55,7 +55,19 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if *jsonOut {
-		_ = json.NewEncoder(stdout).Encode(result)
+		payload := map[string]any{
+			"score":              result.Score,
+			"grade":              result.Grade,
+			"breakdown":          result.Breakdown,
+			"weighted_breakdown": result.WeightedBreakdown,
+			"weights":            result.Weights,
+			"trend_delta":        result.TrendDelta,
+		}
+		if snapshot.RiskReport != nil {
+			payload["attack_paths"] = snapshot.RiskReport.AttackPaths
+			payload["top_attack_paths"] = snapshot.RiskReport.TopAttackPaths
+		}
+		_ = json.NewEncoder(stdout).Encode(payload)
 		return exitSuccess
 	}
 	if *quiet {

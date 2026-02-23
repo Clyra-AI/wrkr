@@ -12,6 +12,28 @@
       "type": "string",
       "format": "date-time"
     },
+    "attack_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path_id", "org", "repo", "score"],
+        "properties": {
+          "path_id": {
+            "type": "string"
+          },
+          "org": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "tools": {
       "type": "array",
       "items": {

@@ -51,7 +51,7 @@ wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --repo
 wrkr scan --org acme --github-api https://api.github.com --json
 ```
 
-Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, and optional `report` when summary output is requested.
+Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, and optional `report` when summary output is requested.
 `inventory.methodology` emits machine-readable scan metadata (`wrkr_version`, timing, repo/file counts, detector inventory).
 `inventory.tools[*]` includes deterministic `approval_classification` (`approved|unapproved|unknown`), and `inventory.approval_summary` emits aggregate approval-gap ratios for campaign/report workflows.
 `inventory.tools[*]` also emits report-ready `tool_category` and deterministic `confidence_score` (`0.00-1.00`) for inventory breakdown tables.
@@ -60,6 +60,8 @@ Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `i
 `--approved-tools <path>` accepts a schema-validated YAML policy (`schemas/v1/policy/approved-tools.schema.json`) for explicit approved-list matching (`tool_ids`, `agent_ids`, `tool_types`, `orgs`, `repos` via exact/prefix sets).
 Invalid `--approved-tools` policy files fail closed with `invalid_input` (exit `6`).
 For `--repo` and `--org` scans, `source_manifest.repos[*].source` is `github_repo_materialized`, and `source_manifest.repos[*].location` points to the deterministic materialized local root used for detector execution.
+Prompt-channel findings use stable reason codes and evidence hashes only (`pattern_family`, `evidence_snippet_hash`, `location_class`, `confidence_class`) and do not emit raw secret values.
+When `--enrich` is enabled, MCP findings include enrich provenance and quality fields: `source`, `as_of`, `package`, `version`, `advisory_count`, `registry_status`, `enrich_quality` (`ok|partial|stale|unavailable`), `advisory_schema`, `registry_schema`, and `enrich_errors`.
 When production target policy loading is non-fatal (`--production-targets` without `--production-targets-strict`), output may include `policy_warnings`.
 
 Approved-tools policy example: [`docs/examples/approved-tools.v1.yaml`](../examples/approved-tools.v1.yaml).

@@ -3,6 +3,7 @@ package regress
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,14 +21,21 @@ const (
 	ReasonNewUnapprovedTool     = "new_unapproved_tool"
 	ReasonRevokedToolReappeared = "revoked_tool_reappeared"
 	ReasonPermissionExpansion   = "unapproved_permission_expansion"
+	ReasonCriticalAttackPath    = "critical_attack_path_drift"
 	defaultApprovalState        = "missing"
 	defaultLifecycleState       = identity.StateUnderReview
+	criticalAttackPathMinScore  = 8.0
+	attackPathScoreDeltaMin     = 1.0
+	attackPathDriftMinAbsolute  = 2
+	attackPathDriftMinRelative  = 0.25
+	attackPathExampleLimit      = 5
 )
 
 type Baseline struct {
-	Version     string      `json:"version"`
-	GeneratedAt string      `json:"generated_at"`
-	Tools       []ToolState `json:"tools"`
+	Version     string            `json:"version"`
+	GeneratedAt string            `json:"generated_at"`
+	Tools       []ToolState       `json:"tools"`
+	AttackPaths []AttackPathState `json:"attack_paths,omitempty"`
 }
 
 type ToolState struct {
@@ -40,13 +48,42 @@ type ToolState struct {
 	Permissions    []string `json:"permissions"`
 }
 
+type AttackPathState struct {
+	PathID string  `json:"path_id"`
+	Org    string  `json:"org"`
+	Repo   string  `json:"repo"`
+	Score  float64 `json:"score"`
+}
+
 type Reason struct {
-	Code             string   `json:"code"`
-	AgentID          string   `json:"agent_id"`
-	ToolID           string   `json:"tool_id"`
-	Org              string   `json:"org"`
-	Message          string   `json:"message"`
-	AddedPermissions []string `json:"added_permissions,omitempty"`
+	Code             string                  `json:"code"`
+	AgentID          string                  `json:"agent_id"`
+	ToolID           string                  `json:"tool_id"`
+	Org              string                  `json:"org"`
+	Message          string                  `json:"message"`
+	AddedPermissions []string                `json:"added_permissions,omitempty"`
+	AttackPathDrift  *AttackPathDriftSummary `json:"attack_path_drift,omitempty"`
+}
+
+type AttackPathScoreChange struct {
+	PathID        string  `json:"path_id"`
+	Org           string  `json:"org"`
+	Repo          string  `json:"repo"`
+	BaselineScore float64 `json:"baseline_score"`
+	CurrentScore  float64 `json:"current_score"`
+	ScoreDelta    float64 `json:"score_delta"`
+}
+
+type AttackPathDriftSummary struct {
+	BaselineCriticalCount int                     `json:"baseline_critical_count"`
+	CurrentCriticalCount  int                     `json:"current_critical_count"`
+	Added                 []AttackPathState       `json:"added,omitempty"`
+	Removed               []AttackPathState       `json:"removed,omitempty"`
+	ScoreChanged          []AttackPathScoreChange `json:"score_changed,omitempty"`
+	DriftCount            int                     `json:"drift_count"`
+	DriftRatio            float64                 `json:"drift_ratio"`
+	MinAbsolute           int                     `json:"min_absolute"`
+	MinRelative           float64                 `json:"min_relative"`
 }
 
 type Result struct {
@@ -68,6 +105,7 @@ func BuildBaseline(snapshot state.Snapshot, generatedAt time.Time) Baseline {
 		Version:     BaselineVersion,
 		GeneratedAt: now.Format(time.RFC3339),
 		Tools:       tools,
+		AttackPaths: snapshotAttackPaths(snapshot),
 	}
 }
 
@@ -149,6 +187,7 @@ func SaveBaseline(path string, baseline Baseline) error {
 	for i := range baseline.Tools {
 		baseline.Tools[i].Permissions = dedupeSortedPermissions(baseline.Tools[i].Permissions)
 	}
+	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
 
 	payload, err := json.MarshalIndent(baseline, "", "  ")
 	if err != nil {
@@ -204,6 +243,7 @@ func LoadBaseline(path string) (Baseline, error) {
 	for i := range baseline.Tools {
 		baseline.Tools[i].Permissions = dedupeSortedPermissions(baseline.Tools[i].Permissions)
 	}
+	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
 	return baseline, nil
 }
 
@@ -252,6 +292,31 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 				AddedPermissions: added,
 			})
 		}
+	}
+
+	attackPathDrift := summarizeCriticalAttackPathDrift(baseline.AttackPaths, snapshotAttackPaths(current))
+	if attackPathDrift != nil && shouldEmitCriticalAttackPathDrift(*attackPathDrift) {
+		examples := topAttackPathDriftExamples(*attackPathDrift, attackPathExampleLimit)
+		message := fmt.Sprintf(
+			"critical attack path drift detected (added=%d removed=%d score_changed=%d drift=%d ratio=%.2f thresholds abs>=%d rel>=%.2f)",
+			len(attackPathDrift.Added),
+			len(attackPathDrift.Removed),
+			len(attackPathDrift.ScoreChanged),
+			attackPathDrift.DriftCount,
+			attackPathDrift.DriftRatio,
+			attackPathDrift.MinAbsolute,
+			attackPathDrift.MinRelative,
+		)
+		if len(examples) > 0 {
+			message = message + "; examples=" + strings.Join(examples, ",")
+		}
+		reasons = append(reasons, Reason{
+			Code:            ReasonCriticalAttackPath,
+			ToolID:          "attack_paths",
+			Org:             attackPathDriftOrg(*attackPathDrift),
+			Message:         message,
+			AttackPathDrift: attackPathDrift,
+		})
 	}
 
 	sort.Slice(reasons, func(i, j int) bool {
@@ -323,4 +388,199 @@ func fallback(value, fallbackValue string) string {
 		return fallbackValue
 	}
 	return value
+}
+
+func snapshotAttackPaths(snapshot state.Snapshot) []AttackPathState {
+	if snapshot.RiskReport == nil || len(snapshot.RiskReport.AttackPaths) == 0 {
+		return nil
+	}
+	out := make([]AttackPathState, 0, len(snapshot.RiskReport.AttackPaths))
+	for _, item := range snapshot.RiskReport.AttackPaths {
+		out = append(out, AttackPathState{
+			PathID: strings.TrimSpace(item.PathID),
+			Org:    fallback(item.Org, "local"),
+			Repo:   strings.TrimSpace(item.Repo),
+			Score:  item.PathScore,
+		})
+	}
+	return sortAttackPaths(out)
+}
+
+func sortAttackPaths(in []AttackPathState) []AttackPathState {
+	out := append([]AttackPathState(nil), in...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].PathID != out[j].PathID {
+			return out[i].PathID < out[j].PathID
+		}
+		if out[i].Org != out[j].Org {
+			return out[i].Org < out[j].Org
+		}
+		return out[i].Repo < out[j].Repo
+	})
+	return out
+}
+
+type attackPathKey struct {
+	PathID string
+	Org    string
+	Repo   string
+}
+
+func summarizeCriticalAttackPathDrift(baseline []AttackPathState, current []AttackPathState) *AttackPathDriftSummary {
+	baseCritical := filterCriticalAttackPaths(baseline)
+	currentCritical := filterCriticalAttackPaths(current)
+	baseByKey := map[attackPathKey]AttackPathState{}
+	currentByKey := map[attackPathKey]AttackPathState{}
+	for _, item := range baseCritical {
+		baseByKey[attackPathStateKey(item)] = item
+	}
+	for _, item := range currentCritical {
+		currentByKey[attackPathStateKey(item)] = item
+	}
+
+	added := make([]AttackPathState, 0)
+	removed := make([]AttackPathState, 0)
+	changed := make([]AttackPathScoreChange, 0)
+	for key, baseItem := range baseByKey {
+		currentItem, exists := currentByKey[key]
+		if !exists {
+			removed = append(removed, baseItem)
+			continue
+		}
+		delta := round2(currentItem.Score - baseItem.Score)
+		if math.Abs(delta) >= attackPathScoreDeltaMin {
+			changed = append(changed, AttackPathScoreChange{
+				PathID:        key.PathID,
+				Org:           key.Org,
+				Repo:          key.Repo,
+				BaselineScore: round2(baseItem.Score),
+				CurrentScore:  round2(currentItem.Score),
+				ScoreDelta:    delta,
+			})
+		}
+	}
+	for key, currentItem := range currentByKey {
+		if _, exists := baseByKey[key]; exists {
+			continue
+		}
+		added = append(added, currentItem)
+	}
+
+	added = sortAttackPaths(added)
+	removed = sortAttackPaths(removed)
+	sort.Slice(changed, func(i, j int) bool {
+		if changed[i].PathID != changed[j].PathID {
+			return changed[i].PathID < changed[j].PathID
+		}
+		if changed[i].Org != changed[j].Org {
+			return changed[i].Org < changed[j].Org
+		}
+		return changed[i].Repo < changed[j].Repo
+	})
+
+	driftCount := len(added) + len(removed) + len(changed)
+	if driftCount == 0 {
+		return nil
+	}
+	scale := len(baseCritical)
+	if len(currentCritical) > scale {
+		scale = len(currentCritical)
+	}
+	if scale == 0 {
+		scale = 1
+	}
+	return &AttackPathDriftSummary{
+		BaselineCriticalCount: len(baseCritical),
+		CurrentCriticalCount:  len(currentCritical),
+		Added:                 added,
+		Removed:               removed,
+		ScoreChanged:          changed,
+		DriftCount:            driftCount,
+		DriftRatio:            round2(float64(driftCount) / float64(scale)),
+		MinAbsolute:           attackPathDriftMinAbsolute,
+		MinRelative:           attackPathDriftMinRelative,
+	}
+}
+
+func filterCriticalAttackPaths(paths []AttackPathState) []AttackPathState {
+	filtered := make([]AttackPathState, 0, len(paths))
+	for _, item := range sortAttackPaths(paths) {
+		if item.Score < criticalAttackPathMinScore {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
+}
+
+func shouldEmitCriticalAttackPathDrift(drift AttackPathDriftSummary) bool {
+	if drift.DriftCount < drift.MinAbsolute {
+		return false
+	}
+	return drift.DriftRatio >= drift.MinRelative
+}
+
+func topAttackPathDriftExamples(drift AttackPathDriftSummary, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	out := make([]string, 0, limit)
+	appendExamples := func(prefix string, values []AttackPathState) {
+		for _, item := range values {
+			if len(out) >= limit {
+				return
+			}
+			out = append(out, prefix+":"+item.PathID)
+		}
+	}
+	appendExamples("added", drift.Added)
+	appendExamples("removed", drift.Removed)
+	for _, item := range drift.ScoreChanged {
+		if len(out) >= limit {
+			break
+		}
+		out = append(out, fmt.Sprintf("changed:%s(%.2f->%.2f)", item.PathID, item.BaselineScore, item.CurrentScore))
+	}
+	return out
+}
+
+func attackPathDriftOrg(drift AttackPathDriftSummary) string {
+	orgs := map[string]struct{}{}
+	for _, item := range drift.Added {
+		orgs[item.Org] = struct{}{}
+	}
+	for _, item := range drift.Removed {
+		orgs[item.Org] = struct{}{}
+	}
+	for _, item := range drift.ScoreChanged {
+		orgs[item.Org] = struct{}{}
+	}
+	keys := make([]string, 0, len(orgs))
+	for org := range orgs {
+		trimmed := strings.TrimSpace(org)
+		if trimmed == "" {
+			continue
+		}
+		keys = append(keys, trimmed)
+	}
+	sort.Strings(keys)
+	if len(keys) == 0 {
+		return "local"
+	}
+	if len(keys) == 1 {
+		return keys[0]
+	}
+	return "multi"
+}
+
+func attackPathStateKey(item AttackPathState) attackPathKey {
+	return attackPathKey{
+		PathID: strings.TrimSpace(item.PathID),
+		Org:    fallback(item.Org, "local"),
+		Repo:   strings.TrimSpace(item.Repo),
+	}
+}
+
+func round2(value float64) float64 {
+	return math.Round(value*100) / 100
 }

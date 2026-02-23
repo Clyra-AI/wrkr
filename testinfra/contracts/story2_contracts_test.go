@@ -43,8 +43,8 @@ func TestBuiltinPolicyRuleIDsStable(t *testing.T) {
 	if err := yaml.Unmarshal(payload, &pack); err != nil {
 		t.Fatalf("parse builtin policy pack: %v", err)
 	}
-	if len(pack.Rules) != 15 {
-		t.Fatalf("expected 15 rules, got %d", len(pack.Rules))
+	if len(pack.Rules) != 16 {
+		t.Fatalf("expected 16 rules, got %d", len(pack.Rules))
 	}
 	ids := make([]string, 0, len(pack.Rules))
 	for _, rule := range pack.Rules {
@@ -57,7 +57,7 @@ func TestBuiltinPolicyRuleIDsStable(t *testing.T) {
 			t.Fatalf("rule IDs must remain sorted for deterministic diffs: %v", ids)
 		}
 	}
-	for _, mustHave := range []string{"WRKR-013", "WRKR-014", "WRKR-015"} {
+	for _, mustHave := range []string{"WRKR-013", "WRKR-014", "WRKR-015", "WRKR-016"} {
 		found := false
 		for _, id := range ids {
 			if id == mustHave {
