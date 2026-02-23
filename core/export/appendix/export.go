@@ -364,6 +364,7 @@ func writeRegulatoryCSV(dir string, rows []RegulatoryMatrixRow) (string, error) 
 }
 
 func writeCSV(path string, records [][]string) error {
+	// #nosec G304 -- path is constrained to a validated csv output directory and fixed filenames.
 	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("create csv %s: %w", path, err)

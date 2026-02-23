@@ -158,7 +158,7 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 	if err := os.RemoveAll(repoRoot); err != nil {
 		return source.RepoManifest{}, fmt.Errorf("clean materialized repo root: %w", err)
 	}
-	if err := os.MkdirAll(repoRoot, 0o755); err != nil {
+	if err := os.MkdirAll(repoRoot, 0o750); err != nil {
 		return source.RepoManifest{}, fmt.Errorf("create materialized repo root: %w", err)
 	}
 
@@ -184,10 +184,10 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 		if pathErr != nil {
 			return source.RepoManifest{}, pathErr
 		}
-		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {
 			return source.RepoManifest{}, fmt.Errorf("create materialized parent: %w", err)
 		}
-		if err := os.WriteFile(dest, decoded, 0o644); err != nil {
+		if err := os.WriteFile(dest, decoded, 0o600); err != nil {
 			return source.RepoManifest{}, fmt.Errorf("write materialized file %s: %w", item.Path, err)
 		}
 	}

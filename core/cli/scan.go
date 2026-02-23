@@ -481,7 +481,7 @@ func prepareMaterializedRoot(statePath string) (string, error) {
 	if err := os.RemoveAll(root); err != nil {
 		return "", fmt.Errorf("reset materialized source root: %w", err)
 	}
-	if err := os.MkdirAll(root, 0o755); err != nil {
+	if err := os.MkdirAll(root, 0o750); err != nil {
 		return "", fmt.Errorf("create materialized source root: %w", err)
 	}
 	return root, nil
