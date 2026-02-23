@@ -7,6 +7,8 @@ target_mode="${3:-}"
 target_value="${4:-}"
 config_path="${5:-}"
 summary_path="${WRKR_ACTION_SUMMARY_PATH:-./.tmp/wrkr-action-summary.md}"
+comment_fingerprint="${WRKR_ACTION_COMMENT_FINGERPRINT:-wrkr-action-pr-mode-v1}"
+block_threshold="${WRKR_ACTION_BLOCK_THRESHOLD:-0}"
 
 if [[ "${mode}" != "scheduled" && "${mode}" != "pr" ]]; then
   echo "unsupported mode: ${mode}" >&2
@@ -62,9 +64,126 @@ else
   exit 6
 fi
 
-run_wrkr scan "${scan_args[@]}"
-run_wrkr report --top "${top}" --md --md-path "${summary_path}" --template operator --share-profile internal --json
-run_wrkr score --json
+scan_json="$(run_wrkr scan "${scan_args[@]}")"
+run_wrkr report --top "${top}" --md --md-path "${summary_path}" --template operator --share-profile internal --json >/dev/null
+score_json="$(run_wrkr score --json)"
+
+extract_number_from_json() {
+  local json_payload="$1"
+  local expression="$2"
+  python3 - "$expression" "$json_payload" <<'PY'
+import json
+import sys
+
+expr = sys.argv[1]
+payload = json.loads(sys.argv[2] or "{}")
+current = payload
+for token in expr.split("."):
+    if not token:
+        continue
+    if not isinstance(current, dict):
+        print("0")
+        raise SystemExit(0)
+    current = current.get(token)
+if current is None:
+    print("0")
+elif isinstance(current, (int, float)):
+    print(str(current))
+else:
+    try:
+        print(str(float(current)))
+    except Exception:
+        print("0")
+PY
+}
+
+detect_changed_paths() {
+  if [[ -n "${WRKR_ACTION_CHANGED_PATHS:-}" ]]; then
+    printf '%s\n' "${WRKR_ACTION_CHANGED_PATHS}"
+    return
+  fi
+
+  if [[ -n "${GITHUB_BASE_REF:-}" ]] && command -v git >/dev/null 2>&1; then
+    git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}" >/dev/null 2>&1 || true
+    git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" || true
+    return
+  fi
+
+  if [[ -n "${GITHUB_EVENT_PATH:-}" && -f "${GITHUB_EVENT_PATH}" ]]; then
+    python3 - <<'PY' "${GITHUB_EVENT_PATH}" || true
+import json
+import pathlib
+import sys
+
+event_path = pathlib.Path(sys.argv[1])
+payload = json.loads(event_path.read_text(encoding="utf-8"))
+paths = []
+for commit in payload.get("commits", []):
+    for key in ("added", "modified", "removed"):
+        for path in commit.get(key, []):
+            if isinstance(path, str) and path.strip():
+                paths.append(path.strip())
+seen = set()
+for item in paths:
+    if item in seen:
+        continue
+    seen.add(item)
+    print(item)
+PY
+    return
+  fi
+}
+
+extract_pr_number() {
+  if [[ -n "${WRKR_PR_NUMBER:-}" ]]; then
+    printf '%s\n' "${WRKR_PR_NUMBER}"
+    return
+  fi
+  if [[ -n "${GITHUB_EVENT_PATH:-}" && -f "${GITHUB_EVENT_PATH}" ]]; then
+    python3 - <<'PY' "${GITHUB_EVENT_PATH}"
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+number = payload.get("pull_request", {}).get("number")
+if isinstance(number, int):
+    print(number)
+else:
+    print("0")
+PY
+    return
+  fi
+  echo "0"
+}
+
+if [[ "${mode}" == "pr" ]]; then
+  changed_paths="$(detect_changed_paths)"
+  risk_delta="$(extract_number_from_json "${score_json}" "trend_delta")"
+  compliance_delta="$(extract_number_from_json "${scan_json}" "profile.delta_percent")"
+
+  owner="${GITHUB_REPOSITORY%%/*}"
+  repo="${GITHUB_REPOSITORY#*/}"
+  if [[ -z "${GITHUB_REPOSITORY:-}" || "${owner}" == "${repo}" ]]; then
+    owner="${WRKR_REPO_OWNER:-}"
+    repo="${WRKR_REPO_NAME:-}"
+  fi
+  pr_number="$(extract_pr_number)"
+
+  token="${WRKR_GITHUB_TOKEN:-${GITHUB_TOKEN:-}}"
+  run_wrkr action pr-comment \
+    --changed-paths "${changed_paths}" \
+    --risk-delta "${risk_delta}" \
+    --compliance-delta "${compliance_delta}" \
+    --block-threshold "${block_threshold}" \
+    --owner "${owner}" \
+    --repo "${repo}" \
+    --pr-number "${pr_number}" \
+    --github-api "${GITHUB_API_URL:-https://api.github.com}" \
+    --github-token "${token}" \
+    --fingerprint "${comment_fingerprint}" \
+    --json >/dev/null
+fi
 
 # Deterministic mode marker for workflow consumers.
 echo "wrkr_action_mode=${mode}"

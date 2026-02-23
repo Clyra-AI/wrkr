@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/export/appendix-export.schema.json",
+  "title": "Wrkr Appendix Export",
+  "type": "object",
+  "required": [
+    "export_version",
+    "schema_version",
+    "exported_at",
+    "org",
+    "inventory_rows",
+    "privilege_rows",
+    "approval_gap_rows",
+    "regulatory_rows"
+  ],
+  "properties": {
+    "export_version": {"type": "string"},
+    "schema_version": {"type": "string", "enum": ["v1"]},
+    "exported_at": {"type": "string", "format": "date-time"},
+    "org": {"type": "string"},
+    "inventory_rows": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/inventoryRow"}
+    },
+    "privilege_rows": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/privilegeRow"}
+    },
+    "approval_gap_rows": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/approvalGapRow"}
+    },
+    "regulatory_rows": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/regulatoryRow"}
+    }
+  },
+  "$defs": {
+    "inventoryRow": {
+      "type": "object",
+      "required": [
+        "tool_id",
+        "agent_id",
+        "tool_type",
+        "tool_category",
+        "confidence_score",
+        "org",
+        "repo_count",
+        "permission_tier",
+        "risk_tier",
+        "adoption_pattern",
+        "approval_classification",
+        "lifecycle_state"
+      ],
+      "properties": {
+        "tool_id": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "tool_category": {"type": "string"},
+        "confidence_score": {"type": "number"},
+        "org": {"type": "string"},
+        "repo_count": {"type": "integer"},
+        "permission_tier": {"type": "string"},
+        "risk_tier": {"type": "string"},
+        "adoption_pattern": {"type": "string"},
+        "approval_classification": {"type": "string"},
+        "lifecycle_state": {"type": "string"}
+      }
+    },
+    "privilegeRow": {
+      "type": "object",
+      "required": [
+        "agent_id",
+        "tool_id",
+        "tool_type",
+        "org",
+        "repo_count",
+        "permission_count",
+        "endpoint_class",
+        "data_class",
+        "autonomy_level",
+        "risk_score",
+        "write_capable",
+        "credential_access",
+        "exec_capable",
+        "production_write",
+        "matched_production_targets"
+      ],
+      "properties": {
+        "agent_id": {"type": "string"},
+        "tool_id": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "org": {"type": "string"},
+        "repo_count": {"type": "integer"},
+        "permission_count": {"type": "integer"},
+        "endpoint_class": {"type": "string"},
+        "data_class": {"type": "string"},
+        "autonomy_level": {"type": "string"},
+        "risk_score": {"type": "number"},
+        "write_capable": {"type": "boolean"},
+        "credential_access": {"type": "boolean"},
+        "exec_capable": {"type": "boolean"},
+        "production_write": {"type": "boolean"},
+        "matched_production_targets": {"type": "integer"}
+      }
+    },
+    "approvalGapRow": {
+      "type": "object",
+      "required": ["tool_id", "agent_id", "tool_type", "org", "approval_classification", "adoption_pattern", "risk_tier"],
+      "properties": {
+        "tool_id": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "org": {"type": "string"},
+        "approval_classification": {"type": "string"},
+        "adoption_pattern": {"type": "string"},
+        "risk_tier": {"type": "string"}
+      }
+    },
+    "regulatoryRow": {
+      "type": "object",
+      "required": ["tool_id", "agent_id", "tool_type", "org", "regulation", "control_id", "status", "risk_tier", "permission_tier"],
+      "properties": {
+        "tool_id": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "org": {"type": "string"},
+        "regulation": {"type": "string"},
+        "control_id": {"type": "string"},
+        "status": {"type": "string"},
+        "risk_tier": {"type": "string"},
+        "permission_tier": {"type": "string"}
+      }
+    }
+  }
+}

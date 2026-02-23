@@ -59,6 +59,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	regressSummary := buildRegressSummary(in.Baseline, in.RegressResult)
 	deltas := buildDeltaSummary(in.Snapshot, in.PreviousSnapshot, top)
 	headline := buildHeadline(in.Snapshot)
+	methodology := buildMethodology(in.Snapshot)
 	riskItems := buildRiskItems(topFindings)
 
 	if shareProfile == ShareProfilePublic {
@@ -70,23 +71,37 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
 	nextActions := buildNextActions(riskItems, lifecycleSummary, regressSummary)
 	pack := templatespkg.Resolve(string(template))
-	sections := buildSections(pack, headline, riskItems, privilegeBudget, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
+	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, privilegeBudget, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
 
-	summary := Summary{
-		SummaryVersion: SummaryVersion,
-		GeneratedAt:    now.Format(time.RFC3339),
-		Template:       string(template),
-		ShareProfile:   string(shareProfile),
-		SectionOrder: []string{
+	sectionOrder := []string{
+		SectionHeadline,
+		SectionTopRisks,
+		SectionChanges,
+		SectionLifecycle,
+		SectionProof,
+		SectionNextAction,
+	}
+	if template == TemplatePublic {
+		sectionOrder = []string{
 			SectionHeadline,
+			SectionMethodology,
 			SectionTopRisks,
 			SectionChanges,
 			SectionLifecycle,
 			SectionProof,
 			SectionNextAction,
-		},
+		}
+	}
+
+	summary := Summary{
+		SummaryVersion:  SummaryVersion,
+		GeneratedAt:     now.Format(time.RFC3339),
+		Template:        string(template),
+		ShareProfile:    string(shareProfile),
+		SectionOrder:    sectionOrder,
 		Sections:        sections,
 		Headline:        headline,
+		Methodology:     methodology,
 		TopRisks:        riskItems,
 		PrivilegeBudget: privilegeBudget,
 		Deltas:          deltas,
@@ -415,6 +430,38 @@ func buildHeadline(snapshot state.Snapshot) Headline {
 	return headline
 }
 
+func buildMethodology(snapshot state.Snapshot) Methodology {
+	methodology := Methodology{
+		WrkrVersion:         "devel",
+		ScanStartedAt:       "",
+		ScanCompletedAt:     "",
+		ScanDurationSeconds: 0,
+		RepoCount:           0,
+		FileCountProcessed:  0,
+		DetectorCount:       0,
+		CommandSet: []string{
+			"wrkr scan --json",
+			"wrkr report --template public --share-profile public --json",
+		},
+		SampleDefinition:  "discovered AI tooling from configured scan target",
+		ExclusionCriteria: []string{"no live endpoint probing", "no runtime execution telemetry", "no secret-value extraction"},
+	}
+	if snapshot.Inventory == nil {
+		return methodology
+	}
+	method := snapshot.Inventory.Methodology
+	if strings.TrimSpace(method.WrkrVersion) != "" {
+		methodology.WrkrVersion = strings.TrimSpace(method.WrkrVersion)
+	}
+	methodology.ScanStartedAt = strings.TrimSpace(method.ScanStartedAt)
+	methodology.ScanCompletedAt = strings.TrimSpace(method.ScanCompletedAt)
+	methodology.ScanDurationSeconds = method.ScanDurationSeconds
+	methodology.RepoCount = method.RepoCount
+	methodology.FileCountProcessed = method.FileCountProcessed
+	methodology.DetectorCount = len(method.Detectors)
+	return methodology
+}
+
 func buildRiskItems(findings []risk.ScoredFinding) []RiskItem {
 	out := make([]RiskItem, 0, len(findings))
 	for idx, finding := range findings {
@@ -484,7 +531,9 @@ func buildNextActions(risks []RiskItem, lifecycleSummary LifecycleSummary, regre
 
 func buildSections(
 	pack templatespkg.Pack,
+	isPublic bool,
 	headline Headline,
+	methodology Methodology,
 	risks []RiskItem,
 	privilegeBudget agginventory.PrivilegeBudget,
 	deltas DeltaSummary,
@@ -546,7 +595,20 @@ func buildSections(
 		headlineFacts = append(headlineFacts, fmt.Sprintf("production_write not configured (status=%s)", privilegeBudget.ProductionWrite.Status))
 	}
 
-	return []Section{
+	methodologyFacts := []string{
+		fmt.Sprintf("wrkr_version=%s", methodology.WrkrVersion),
+		fmt.Sprintf("scan_window=%s to %s duration=%.2fs", methodology.ScanStartedAt, methodology.ScanCompletedAt, methodology.ScanDurationSeconds),
+		fmt.Sprintf("repo_count=%d file_count_processed=%d detector_count=%d", methodology.RepoCount, methodology.FileCountProcessed, methodology.DetectorCount),
+		fmt.Sprintf("sample_definition=%s", methodology.SampleDefinition),
+	}
+	for _, command := range methodology.CommandSet {
+		methodologyFacts = append(methodologyFacts, fmt.Sprintf("command=%s", command))
+	}
+	for _, exclusion := range methodology.ExclusionCriteria {
+		methodologyFacts = append(methodologyFacts, fmt.Sprintf("exclusion=%s", exclusion))
+	}
+
+	sections := []Section{
 		{
 			ID:     SectionHeadline,
 			Title:  pack.HeadlineTitle,
@@ -596,6 +658,22 @@ func buildSections(
 			Proof:  proof,
 		},
 	}
+	if isPublic {
+		publicSections := []Section{
+			sections[0],
+			{
+				ID:     SectionMethodology,
+				Title:  "Methodology",
+				Facts:  methodologyFacts,
+				Impact: "transparent, reproducible method metadata improves external credibility",
+				Action: "publish command set and exclusion criteria alongside headline findings",
+				Proof:  proof,
+			},
+		}
+		publicSections = append(publicSections, sections[1:]...)
+		return publicSections
+	}
+	return sections
 }
 
 func formatDelta(label string, metric DeltaMetric) string {

@@ -48,8 +48,13 @@ func TestRunSubcommandHelpReturnsExit0(t *testing.T) {
 	}{
 		{name: "init", args: []string{"init", "--help"}},
 		{name: "scan", args: []string{"scan", "--help"}},
+		{name: "action", args: []string{"action", "--help"}},
+		{name: "action pr-mode", args: []string{"action", "pr-mode", "--help"}},
+		{name: "action pr-comment", args: []string{"action", "pr-comment", "--help"}},
 		{name: "evidence", args: []string{"evidence", "--help"}},
 		{name: "report", args: []string{"report", "--help"}},
+		{name: "campaign", args: []string{"campaign", "--help"}},
+		{name: "campaign aggregate", args: []string{"campaign", "aggregate", "--help"}},
 		{name: "verify", args: []string{"verify", "--help"}},
 		{name: "fix", args: []string{"fix", "--help"}},
 		{name: "lifecycle", args: []string{"lifecycle", "--help"}},
@@ -595,6 +600,103 @@ func TestScanProductionTargetsMissingNonStrictEmitsWarningAndNullCount(t *testin
 	}
 	if productionWrite["count"] != nil {
 		t.Fatalf("expected production_write.count=null, got %v", productionWrite["count"])
+	}
+}
+
+func TestScanApprovedToolsInvalidFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "backend")
+	if err := os.MkdirAll(filepath.Join(repoPath, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, ".codex", "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	approvedPath := filepath.Join(tmp, "approved-tools.yaml")
+	if err := os.WriteFile(approvedPath, []byte("schema_version: v2\n"), 0o600); err != nil {
+		t.Fatalf("write invalid approved tools policy: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", reposPath, "--state", filepath.Join(tmp, "state.json"), "--approved-tools", approvedPath, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6 for invalid approved-tools input, got %d (%s)", code, errOut.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on invalid approved-tools input, got %q", out.String())
+	}
+}
+
+func TestScanApprovedToolsPolicyReclassifiesInventory(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "backend")
+	if err := os.MkdirAll(filepath.Join(repoPath, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, ".codex", "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	approvedPath := filepath.Join(tmp, "approved-tools.yaml")
+	approvedPolicy := []byte(`
+schema_version: v1
+approved:
+  tool_types:
+    exact:
+      - codex
+`)
+	if err := os.WriteFile(approvedPath, approvedPolicy, 0o600); err != nil {
+		t.Fatalf("write approved tools policy: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", reposPath, "--state", filepath.Join(tmp, "state.json"), "--approved-tools", approvedPath, "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan output: %v", err)
+	}
+	inventory, ok := payload["inventory"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected inventory object in payload: %v", payload)
+	}
+	tools, ok := inventory["tools"].([]any)
+	if !ok || len(tools) == 0 {
+		t.Fatalf("expected non-empty inventory.tools: %v", inventory["tools"])
+	}
+	firstTool, ok := tools[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected tool payload: %T", tools[0])
+	}
+	if firstTool["approval_classification"] != "approved" {
+		t.Fatalf("expected approval_classification=approved, got %v", firstTool["approval_classification"])
+	}
+	approvalSummary, ok := inventory["approval_summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected approval_summary object: %v", inventory)
+	}
+	approvedTools, approvedOk := approvalSummary["approved_tools"].(float64)
+	unapprovedTools, unapprovedOk := approvalSummary["unapproved_tools"].(float64)
+	if !approvedOk || !unapprovedOk {
+		t.Fatalf("unexpected approval summary counters: %v", approvalSummary)
+	}
+	if approvedTools < 1 {
+		t.Fatalf("expected at least one approved tool, got %v", approvalSummary)
+	}
+	if unapprovedTools < 0 {
+		t.Fatalf("unexpected approval summary: %v", approvalSummary)
 	}
 }
 

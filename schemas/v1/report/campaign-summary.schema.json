@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.clyra.ai/wrkr/v1/report/campaign-summary.schema.json",
+  "title": "Wrkr Campaign Summary",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "methodology", "metrics", "segments", "scans"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["v1"]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "input_glob": {
+      "type": "string"
+    },
+    "methodology": {
+      "$ref": "#/$defs/methodology"
+    },
+    "metrics": {
+      "$ref": "#/$defs/metrics"
+    },
+    "segments": {
+      "$ref": "#/$defs/segments"
+    },
+    "scans": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scan"
+      }
+    }
+  },
+  "$defs": {
+    "methodology": {
+      "type": "object",
+      "required": ["wrkr_version", "scan_count", "repo_count", "file_count_processed", "detectors"],
+      "properties": {
+        "wrkr_version": {"type": "string"},
+        "scan_count": {"type": "integer"},
+        "repo_count": {"type": "integer"},
+        "file_count_processed": {"type": "integer"},
+        "detectors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/detector"}
+        }
+      }
+    },
+    "detector": {
+      "type": "object",
+      "required": ["id", "version", "finding_count"],
+      "properties": {
+        "id": {"type": "string"},
+        "version": {"type": "string"},
+        "finding_count": {"type": "integer"}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "repos_scanned",
+        "tools_detected_total",
+        "write_capable_tools",
+        "credential_access_tools",
+        "exec_capable_tools",
+        "approved_tools",
+        "unapproved_tools",
+        "unknown_tools",
+        "approved_percent",
+        "unapproved_percent",
+        "unknown_percent",
+        "unapproved_per_approved",
+        "production_write_status",
+        "production_write_tools"
+      ],
+      "properties": {
+        "repos_scanned": {"type": "integer"},
+        "tools_detected_total": {"type": "integer"},
+        "write_capable_tools": {"type": "integer"},
+        "credential_access_tools": {"type": "integer"},
+        "exec_capable_tools": {"type": "integer"},
+        "approved_tools": {"type": "integer"},
+        "unapproved_tools": {"type": "integer"},
+        "unknown_tools": {"type": "integer"},
+        "approved_percent": {"type": "number"},
+        "unapproved_percent": {"type": "number"},
+        "unknown_percent": {"type": "number"},
+        "unapproved_per_approved": {"type": ["number", "null"]},
+        "production_write_status": {
+          "type": "string",
+          "enum": ["configured", "not_configured", "invalid"]
+        },
+        "production_write_tools": {"type": ["integer", "null"]}
+      }
+    },
+    "segments": {
+      "type": "object",
+      "required": ["org_size_bands", "industry_bands"],
+      "properties": {
+        "org_size_bands": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/segmentBucket"}
+        },
+        "industry_bands": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/segmentBucket"}
+        }
+      }
+    },
+    "segmentBucket": {
+      "type": "object",
+      "required": ["segment", "org_count", "tool_count"],
+      "properties": {
+        "segment": {"type": "string"},
+        "org_count": {"type": "integer"},
+        "tool_count": {"type": "integer"}
+      }
+    },
+    "scan": {
+      "type": "object",
+      "required": [
+        "path",
+        "target_mode",
+        "target_value",
+        "repo_count",
+        "tools_detected",
+        "write_capable_tools",
+        "credential_access_tools",
+        "exec_capable_tools"
+      ],
+      "properties": {
+        "path": {"type": "string"},
+        "target_mode": {"type": "string"},
+        "target_value": {"type": "string"},
+        "repo_count": {"type": "integer"},
+        "tools_detected": {"type": "integer"},
+        "write_capable_tools": {"type": "integer"},
+        "credential_access_tools": {"type": "integer"},
+        "exec_capable_tools": {"type": "integer"}
+      }
+    }
+  }
+}

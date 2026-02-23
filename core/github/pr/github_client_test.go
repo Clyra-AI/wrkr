@@ -255,3 +255,69 @@ func TestGitHubClientEnsureFileContentNormalizesWindowsSeparators(t *testing.T) 
 		t.Fatalf("expected normalized repo path in request, got %q", observedPath)
 	}
 }
+
+func TestGitHubClientIssueCommentCRUD(t *testing.T) {
+	t.Parallel()
+
+	comments := []IssueComment{}
+	nextID := 1
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/issues/12/comments"):
+			_ = json.NewEncoder(w).Encode(comments)
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/issues/12/comments"):
+			var payload struct {
+				Body string `json:"body"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			item := IssueComment{ID: nextID, Body: payload.Body}
+			nextID++
+			comments = append(comments, item)
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(item)
+		case r.Method == http.MethodPatch && strings.Contains(r.URL.Path, "/issues/comments/"):
+			var payload struct {
+				Body string `json:"body"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			parts := strings.Split(r.URL.Path, "/")
+			commentID := parts[len(parts)-1]
+			if commentID == "1" {
+				comments[0].Body = payload.Body
+				_ = json.NewEncoder(w).Encode(comments[0])
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprintf(w, "unknown route: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := NewGitHubClient(server.URL, "token", server.Client())
+	created, err := client.CreateIssueComment(context.Background(), "acme", "repo", 12, "first comment")
+	if err != nil {
+		t.Fatalf("create issue comment: %v", err)
+	}
+	if created.ID != 1 {
+		t.Fatalf("expected comment id=1, got %+v", created)
+	}
+
+	listed, err := client.ListIssueComments(context.Background(), "acme", "repo", 12)
+	if err != nil {
+		t.Fatalf("list issue comments: %v", err)
+	}
+	if len(listed) != 1 || listed[0].Body != "first comment" {
+		t.Fatalf("unexpected listed comments: %+v", listed)
+	}
+
+	updated, err := client.UpdateIssueComment(context.Background(), "acme", "repo", 1, "updated comment")
+	if err != nil {
+		t.Fatalf("update issue comment: %v", err)
+	}
+	if updated.Body != "updated comment" {
+		t.Fatalf("unexpected updated body: %+v", updated)
+	}
+}

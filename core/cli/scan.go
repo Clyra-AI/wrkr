@@ -7,8 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -25,6 +27,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/policy"
+	"github.com/Clyra-AI/wrkr/core/policy/approvedtools"
 	policyeval "github.com/Clyra-AI/wrkr/core/policy/eval"
 	"github.com/Clyra-AI/wrkr/core/policy/productiontargets"
 	profilemodel "github.com/Clyra-AI/wrkr/core/policy/profile"
@@ -62,6 +65,7 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	configPathFlag := fs.String("config", "", "config file path override")
 	statePathFlag := fs.String("state", "", "state file path override")
 	policyPath := fs.String("policy", "", "optional custom policy rule file")
+	approvedToolsPath := fs.String("approved-tools", "", "optional approved tools policy file")
 	productionTargetsPath := fs.String("production-targets", "", "optional production target rules file")
 	productionTargetsStrict := fs.Bool("production-targets-strict", false, "fail scan when production target rules cannot be loaded")
 	profileName := fs.String("profile", "standard", "posture profile [baseline|standard|strict]")
@@ -112,9 +116,11 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 			exitDependencyMissing,
 		)
 	}
+	statePath := state.ResolvePath(*statePathFlag)
 
 	ctx := context.Background()
-	manifestOut, findings, err := acquireSources(ctx, targetMode, targetValue, *githubBaseURL, *githubToken)
+	scanStartedAt := time.Now().UTC().Truncate(time.Second)
+	manifestOut, findings, err := acquireSources(ctx, targetMode, targetValue, *githubBaseURL, *githubToken, statePath)
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
@@ -139,13 +145,13 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	source.SortFindings(findings)
 
-	statePath := state.ResolvePath(*statePathFlag)
 	previousSnapshot, loadPreviousErr := loadPreviousSnapshot(statePath, strings.TrimSpace(*baselinePath))
 	if loadPreviousErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", loadPreviousErr.Error(), exitRuntime)
 	}
 
 	now := time.Now().UTC().Truncate(time.Second)
+	scanMethodology := buildScanMethodology(manifestOut, findings, scanStartedAt, now)
 	riskReport := risk.Score(findings, 5, now)
 	repoRisk := map[string]float64{}
 	for _, repo := range riskReport.Repos {
@@ -189,9 +195,27 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 		Manifest:              manifestOut,
 		Findings:              findings,
 		Contexts:              contexts,
+		Methodology:           scanMethodology,
 		RepoExposureSummaries: repoExposure,
 		GeneratedAt:           now,
 	})
+	if approvedToolsPolicyPath := strings.TrimSpace(*approvedToolsPath); approvedToolsPolicyPath != "" {
+		approvedCfg, approvedErr := approvedtools.Load(approvedToolsPolicyPath)
+		if approvedErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", approvedErr.Error(), exitInvalidInput)
+		}
+		if approvedCfg.HasRules() {
+			agginventory.ReclassifyApprovalWithMatcher(&inventoryOut, func(tool agginventory.Tool) bool {
+				return approvedCfg.Match(approvedtools.ToolCandidate{
+					ToolID:   tool.ToolID,
+					AgentID:  tool.AgentID,
+					ToolType: tool.ToolType,
+					Org:      tool.Org,
+					Repos:    tool.Repos,
+				})
+			})
+		}
+	}
 	var productionTargets *productiontargets.Config
 	productionTargetWarnings := []string{}
 	productionWriteStatus := agginventory.ProductionTargetsStatusNotConfigured
@@ -371,11 +395,19 @@ func resolveScanTarget(repo, orgInput, pathInput, configPath string) (config.Tar
 	return cfg.DefaultTarget.Mode, cfg.DefaultTarget.Value, cfg, nil
 }
 
-func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBaseURL, githubToken string) (source.Manifest, []source.Finding, error) {
+func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBaseURL, githubToken, statePath string) (source.Manifest, []source.Finding, error) {
 	connector := github.NewConnector(githubBaseURL, githubToken, nil)
 
 	manifestOut := source.Manifest{Target: source.Target{Mode: string(mode), Value: value}}
 	var findings []source.Finding
+	materializeRoot := ""
+	if mode == config.TargetRepo || mode == config.TargetOrg {
+		root, err := prepareMaterializedRoot(statePath)
+		if err != nil {
+			return source.Manifest{}, nil, err
+		}
+		materializeRoot = root
+	}
 
 	sourceFinding := func(repoManifest source.RepoManifest, orgName, permission string) source.Finding {
 		return source.Finding{
@@ -396,17 +428,29 @@ func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBa
 		if err != nil {
 			return source.Manifest{}, nil, err
 		}
-		manifestOut.Repos = []source.RepoManifest{repoManifest}
+		materialized, materializeErr := connector.MaterializeRepo(ctx, repoManifest.Repo, materializeRoot)
+		if materializeErr != nil {
+			return source.Manifest{}, nil, fmt.Errorf("materialize repo %s: %w", repoManifest.Repo, materializeErr)
+		}
+		manifestOut.Repos = []source.RepoManifest{materialized}
 		owner := strings.Split(value, "/")[0]
-		findings = append(findings, sourceFinding(repoManifest, owner, "repo.contents.read"))
+		findings = append(findings, sourceFinding(materialized, owner, "repo.contents.read"))
 	case config.TargetOrg:
 		repos, failures, err := org.Acquire(ctx, value, connector, connector)
 		if err != nil {
 			return source.Manifest{}, nil, err
 		}
-		manifestOut.Repos = repos
-		manifestOut.Failures = failures
+		materializedRepos := make([]source.RepoManifest, 0, len(repos))
 		for _, repoManifest := range repos {
+			materialized, materializeErr := connector.MaterializeRepo(ctx, repoManifest.Repo, materializeRoot)
+			if materializeErr != nil {
+				return source.Manifest{}, nil, fmt.Errorf("materialize org repo %s: %w", repoManifest.Repo, materializeErr)
+			}
+			materializedRepos = append(materializedRepos, materialized)
+		}
+		manifestOut.Repos = materializedRepos
+		manifestOut.Failures = failures
+		for _, repoManifest := range materializedRepos {
 			findings = append(findings, sourceFinding(repoManifest, value, "repo.contents.read"))
 		}
 	case config.TargetPath:
@@ -426,6 +470,21 @@ func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBa
 	manifestOut = source.SortManifest(manifestOut)
 	source.SortFindings(findings)
 	return manifestOut, findings, nil
+}
+
+func prepareMaterializedRoot(statePath string) (string, error) {
+	cleanState := filepath.Clean(strings.TrimSpace(statePath))
+	if cleanState == "" || cleanState == "." {
+		return "", fmt.Errorf("state path is required for materialized source acquisition")
+	}
+	root := filepath.Join(filepath.Dir(cleanState), "materialized-sources")
+	if err := os.RemoveAll(root); err != nil {
+		return "", fmt.Errorf("reset materialized source root: %w", err)
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return "", fmt.Errorf("create materialized source root: %w", err)
+	}
+	return root, nil
 }
 
 func evaluatePolicies(scopes []detect.Scope, findings []source.Finding, customPolicyPath string) ([]source.Finding, error) {
@@ -606,6 +665,64 @@ func enrichFindingContexts(findings []source.Finding, base map[string]agginvento
 		out[key] = ctx
 	}
 	return out
+}
+
+func buildScanMethodology(manifestOut source.Manifest, findings []source.Finding, startedAt, completedAt time.Time) agginventory.MethodologySummary {
+	fileSet := map[string]struct{}{}
+	detectorCounts := map[string]int{}
+	for _, finding := range findings {
+		repo := strings.TrimSpace(finding.Repo)
+		location := strings.TrimSpace(finding.Location)
+		if repo != "" && location != "" {
+			fileSet[repo+"::"+location] = struct{}{}
+		}
+		detector := strings.TrimSpace(finding.Detector)
+		if detector == "" {
+			detector = "unknown"
+		}
+		detectorCounts[detector]++
+	}
+
+	detectors := make([]agginventory.MethodologyDetector, 0, len(detectorCounts))
+	for detectorID, count := range detectorCounts {
+		detectors = append(detectors, agginventory.MethodologyDetector{
+			ID:           detectorID,
+			Version:      "v1",
+			FindingCount: count,
+		})
+	}
+	sort.Slice(detectors, func(i, j int) bool {
+		return detectors[i].ID < detectors[j].ID
+	})
+
+	started := startedAt.UTC().Truncate(time.Second)
+	completed := completedAt.UTC().Truncate(time.Second)
+	if completed.Before(started) {
+		completed = started
+	}
+	durationSeconds := math.Round(completed.Sub(started).Seconds()*100) / 100
+
+	return agginventory.MethodologySummary{
+		WrkrVersion:         scanWrkrVersion(),
+		ScanStartedAt:       started.Format(time.RFC3339),
+		ScanCompletedAt:     completed.Format(time.RFC3339),
+		ScanDurationSeconds: durationSeconds,
+		RepoCount:           len(manifestOut.Repos),
+		FileCountProcessed:  len(fileSet),
+		Detectors:           detectors,
+	}
+}
+
+func scanWrkrVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "devel"
+	}
+	version := strings.TrimSpace(info.Main.Version)
+	if version == "" || version == "(devel)" {
+		return "devel"
+	}
+	return version
 }
 
 func repoRootFromScopes(scopes []detect.Scope) string {

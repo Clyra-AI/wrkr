@@ -2,6 +2,7 @@ package sourcee2e
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -21,9 +22,14 @@ func TestE2EScanModesRepoOrgPath(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/repos/acme/backend":
-			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main"}`)
 		case "/orgs/acme/repos":
 			_, _ = fmt.Fprint(w, `[{"full_name":"acme/backend"}]`)
+		case "/repos/acme/backend/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":".codex/config.toml","type":"blob","sha":"blob-1"}]}`)
+		case "/repos/acme/backend/git/blobs/blob-1":
+			blob := base64.StdEncoding.EncodeToString([]byte("sandbox_mode = \"danger-full-access\"\napproval_policy = \"never\"\nnetwork_access = true\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, blob)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -35,11 +41,33 @@ func TestE2EScanModesRepoOrgPath(t *testing.T) {
 	if code := cli.Run([]string{"scan", "--repo", "acme/backend", "--github-api", server.URL, "--state", state, "--json"}, &repoOut, &repoErr); code != 0 {
 		t.Fatalf("repo scan failed: %d (%s)", code, repoErr.String())
 	}
+	var repoPayload map[string]any
+	if err := json.Unmarshal(repoOut.Bytes(), &repoPayload); err != nil {
+		t.Fatalf("parse repo output: %v", err)
+	}
+	repoFindings, ok := repoPayload["findings"].([]any)
+	if !ok || len(repoFindings) == 0 {
+		t.Fatalf("expected detector findings from materialized repo scan, got %v", repoPayload["findings"])
+	}
+	if !containsToolType(repoFindings, "codex") {
+		t.Fatalf("expected codex finding from materialized repo scan, got %v", repoFindings)
+	}
 
 	var orgOut bytes.Buffer
 	var orgErr bytes.Buffer
 	if code := cli.Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", state, "--json"}, &orgOut, &orgErr); code != 0 {
 		t.Fatalf("org scan failed: %d (%s)", code, orgErr.String())
+	}
+	var orgPayload map[string]any
+	if err := json.Unmarshal(orgOut.Bytes(), &orgPayload); err != nil {
+		t.Fatalf("parse org output: %v", err)
+	}
+	orgFindings, ok := orgPayload["findings"].([]any)
+	if !ok || len(orgFindings) == 0 {
+		t.Fatalf("expected detector findings from materialized org scan, got %v", orgPayload["findings"])
+	}
+	if !containsToolType(orgFindings, "codex") {
+		t.Fatalf("expected codex finding from materialized org scan, got %v", orgFindings)
 	}
 
 	pathTarget := filepath.Join(tmp, "local-repos")
@@ -79,4 +107,18 @@ func TestE2EAirGappedPathScan(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("air-gapped path scan should succeed offline: %d (%s)", code, errOut.String())
 	}
+}
+
+func containsToolType(findings []any, want string) bool {
+	for _, item := range findings {
+		finding, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		toolType, _ := finding["tool_type"].(string)
+		if toolType == want {
+			return true
+		}
+	}
+	return false
 }

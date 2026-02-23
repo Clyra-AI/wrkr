@@ -172,6 +172,24 @@ Gate semantics:
 
 Reference guides: [`docs/adopt_in_one_pr.md`](docs/adopt_in_one_pr.md) | [`docs/integration_checklist.md`](docs/integration_checklist.md)
 
+## PR Distribution Mode
+
+Wrkr Action `mode=pr` can post deterministic, idempotent PR comments for relevant AI/config changes.
+
+- Required token capability: issue comment write on the target repository (`issues:write` on `GITHUB_TOKEN` or a PAT/App token with equivalent scope).
+- Token resolution order: `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
+- Docs: [`docs/commands/action.md`](docs/commands/action.md) and [`action/action.yaml`](action/action.yaml).
+
+## Release-Candidate UAT
+
+Validate source build, release archive install path, and Homebrew install path before tagging:
+
+```bash
+scripts/test_uat_local.sh
+scripts/test_uat_local.sh --skip-global-gates
+scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr
+```
+
 ## Where Wrkr Fits
 
 Wrkr is the DMV registration for your AI fleet. It tells you what is on the road, what it is authorized to do, and what changed. Wrkr generates deterministic evidence artifacts from scans; Axym maps those artifacts to compliance controls and reporting workflows. Runtime enforcement remains Gait's boundary.
@@ -204,7 +222,9 @@ Wrkr runs standalone and interoperates through shared `Clyra-AI/proof` contracts
 ```text
 wrkr init
 wrkr scan
+wrkr action pr-mode|pr-comment
 wrkr report
+wrkr campaign aggregate
 wrkr export
 wrkr identity list|show|approve|review|deprecate|revoke
 wrkr lifecycle
