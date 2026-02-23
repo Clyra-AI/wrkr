@@ -86,6 +86,8 @@ jobs:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p .tmp/release
           make test-release-smoke | tee .tmp/release/uat-prepublish-smoke.log
 
