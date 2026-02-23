@@ -240,10 +240,14 @@ func (c *Connector) repoTree(ctx context.Context, repo, ref string) ([]treeItem,
 	}
 
 	var payload struct {
-		Tree []treeItem `json:"tree"`
+		Tree      []treeItem `json:"tree"`
+		Truncated bool       `json:"truncated"`
 	}
 	if err := json.Unmarshal(respBody, &payload); err != nil {
 		return nil, fmt.Errorf("parse repo tree response: %w", err)
+	}
+	if payload.Truncated {
+		return nil, fmt.Errorf("repo tree for %s@%s is truncated; repository is too large for single recursive tree request", repo, ref)
 	}
 	return payload.Tree, nil
 }

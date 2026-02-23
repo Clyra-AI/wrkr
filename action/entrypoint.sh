@@ -105,8 +105,10 @@ detect_changed_paths() {
 
   if [[ -n "${GITHUB_BASE_REF:-}" ]] && command -v git >/dev/null 2>&1; then
     git fetch --no-tags --depth=1 origin "${GITHUB_BASE_REF}" >/dev/null 2>&1 || true
-    git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" || true
-    return
+    if changed_paths="$(git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" 2>/dev/null)"; then
+      printf '%s\n' "${changed_paths}"
+      return
+    fi
   fi
 
   if [[ -n "${GITHUB_EVENT_PATH:-}" && -f "${GITHUB_EVENT_PATH}" ]]; then

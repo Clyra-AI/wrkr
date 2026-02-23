@@ -321,3 +321,51 @@ func TestGitHubClientIssueCommentCRUD(t *testing.T) {
 		t.Fatalf("unexpected updated body: %+v", updated)
 	}
 }
+
+func TestGitHubClientListIssueCommentsPaginates(t *testing.T) {
+	t.Parallel()
+
+	var pages []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || !strings.HasSuffix(r.URL.Path, "/issues/12/comments") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		page := r.URL.Query().Get("page")
+		if page == "" {
+			page = "1"
+		}
+		pages = append(pages, page)
+		if r.URL.Query().Get("per_page") != "100" {
+			t.Fatalf("expected per_page=100, got %q", r.URL.Query().Get("per_page"))
+		}
+		switch page {
+		case "1":
+			items := make([]IssueComment, 0, 100)
+			for i := 1; i <= 100; i++ {
+				items = append(items, IssueComment{ID: i, Body: fmt.Sprintf("comment %d", i)})
+			}
+			_ = json.NewEncoder(w).Encode(items)
+		case "2":
+			_ = json.NewEncoder(w).Encode([]IssueComment{{ID: 101, Body: "comment 101"}})
+		default:
+			t.Fatalf("unexpected page request: %s", page)
+		}
+	}))
+	defer server.Close()
+
+	client := NewGitHubClient(server.URL, "token", server.Client())
+	listed, err := client.ListIssueComments(context.Background(), "acme", "repo", 12)
+	if err != nil {
+		t.Fatalf("list issue comments: %v", err)
+	}
+	if len(pages) != 2 || pages[0] != "1" || pages[1] != "2" {
+		t.Fatalf("expected deterministic paging [1,2], got %v", pages)
+	}
+	if len(listed) != 101 {
+		t.Fatalf("expected 101 comments, got %d", len(listed))
+	}
+	if listed[0].ID != 1 || listed[len(listed)-1].ID != 101 {
+		t.Fatalf("unexpected comment boundaries: first=%d last=%d", listed[0].ID, listed[len(listed)-1].ID)
+	}
+}

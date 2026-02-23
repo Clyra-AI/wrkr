@@ -317,3 +317,29 @@ func TestMaterializeRepoRejectsPathTraversal(t *testing.T) {
 		t.Fatal("expected traversal path to fail")
 	}
 }
+
+func TestMaterializeRepoFailsClosedOnTruncatedTree(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main"}`)
+		case "/repos/acme/backend/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"truncated":true,"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-1"}]}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "", server.Client())
+	_, err := connector.MaterializeRepo(context.Background(), "acme/backend", tmp)
+	if err == nil {
+		t.Fatal("expected truncated tree to fail closed")
+	}
+	if !strings.Contains(err.Error(), "truncated") {
+		t.Fatalf("expected truncated error, got %v", err)
+	}
+}
