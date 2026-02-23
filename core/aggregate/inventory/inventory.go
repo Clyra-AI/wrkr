@@ -48,6 +48,8 @@ type Inventory struct {
 	Org                   string                         `json:"org" yaml:"org"`
 	Tools                 []Tool                         `json:"tools" yaml:"tools"`
 	RepoExposureSummaries []exposure.RepoExposureSummary `json:"repo_exposure_summaries" yaml:"repo_exposure_summaries"`
+	PrivilegeBudget       PrivilegeBudget                `json:"privilege_budget" yaml:"privilege_budget"`
+	AgentPrivilegeMap     []AgentPrivilegeMapEntry       `json:"agent_privilege_map" yaml:"agent_privilege_map"`
 	Summary               Summary                        `json:"summary" yaml:"summary"`
 }
 
@@ -183,7 +185,15 @@ func Build(input BuildInput) Inventory {
 		Org:                   org,
 		Tools:                 tools,
 		RepoExposureSummaries: append([]exposure.RepoExposureSummary(nil), input.RepoExposureSummaries...),
-		Summary:               summary,
+		PrivilegeBudget: PrivilegeBudget{
+			TotalTools: summary.TotalTools,
+			ProductionWrite: ProductionWriteBudget{
+				Configured: false,
+				Count:      0,
+			},
+		},
+		AgentPrivilegeMap: []AgentPrivilegeMapEntry{},
+		Summary:           summary,
 	}
 }
 

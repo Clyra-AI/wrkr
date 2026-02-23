@@ -52,9 +52,11 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	}
 	got := sortedKeys(payload)
 	want := []string{
+		"agent_privilege_map",
 		"findings",
 		"inventory",
 		"posture_score",
+		"privilege_budget",
 		"profile",
 		"ranked_findings",
 		"repo_exposure_summaries",

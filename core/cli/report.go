@@ -20,15 +20,16 @@ import (
 )
 
 type reportPayload struct {
-	Status             string               `json:"status"`
-	GeneratedAt        string               `json:"generated_at"`
-	TopFindings        []risk.ScoredFinding `json:"top_findings"`
-	TotalTools         int                  `json:"total_tools"`
-	ToolTypeBreakdown  []toolTypeCount      `json:"tool_type_breakdown"`
-	ComplianceGapCount int                  `json:"compliance_gap_count"`
-	Summary            reportcore.Summary   `json:"summary"`
-	MDPath             string               `json:"md_path,omitempty"`
-	PDFPath            string               `json:"pdf_path,omitempty"`
+	Status             string                       `json:"status"`
+	GeneratedAt        string                       `json:"generated_at"`
+	TopFindings        []risk.ScoredFinding         `json:"top_findings"`
+	TotalTools         int                          `json:"total_tools"`
+	ToolTypeBreakdown  []toolTypeCount              `json:"tool_type_breakdown"`
+	ComplianceGapCount int                          `json:"compliance_gap_count"`
+	PrivilegeBudget    agginventory.PrivilegeBudget `json:"privilege_budget"`
+	Summary            reportcore.Summary           `json:"summary"`
+	MDPath             string                       `json:"md_path,omitempty"`
+	PDFPath            string                       `json:"pdf_path,omitempty"`
 }
 
 type toolTypeCount struct {
@@ -143,6 +144,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		TotalTools:         totalTools,
 		ToolTypeBreakdown:  typeBreakdown,
 		ComplianceGapCount: profileGapCount(snapshot),
+		PrivilegeBudget:    summary.PrivilegeBudget,
 		Summary:            summary,
 	}
 

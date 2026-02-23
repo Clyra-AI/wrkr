@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/policy/production-targets.schema.json",
+  "title": "Wrkr Production Targets",
+  "type": "object",
+  "required": ["schema_version", "targets"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["v1"]
+    },
+    "targets": {
+      "type": "object",
+      "properties": {
+        "repos": {"$ref": "#/$defs/matchSet"},
+        "mcp_servers": {"$ref": "#/$defs/matchSet"},
+        "hosts": {"$ref": "#/$defs/matchSet"},
+        "workflow_env_keys": {"$ref": "#/$defs/matchSet"},
+        "workflow_env_values": {"$ref": "#/$defs/matchSet"}
+      }
+    },
+    "write_permissions": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "$defs": {
+    "matchSet": {
+      "type": "object",
+      "properties": {
+        "exact": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "prefix": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  }
+}

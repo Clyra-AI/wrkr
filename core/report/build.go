@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
@@ -83,17 +84,30 @@ func BuildSummary(in BuildInput) (Summary, error) {
 			SectionProof,
 			SectionNextAction,
 		},
-		Sections:     sections,
-		Headline:     headline,
-		TopRisks:     riskItems,
-		Deltas:       deltas,
-		Lifecycle:    lifecycleSummary,
-		RegressDrift: regressSummary,
-		Proof:        proofRef,
-		NextActions:  nextActions,
+		Sections:        sections,
+		Headline:        headline,
+		TopRisks:        riskItems,
+		PrivilegeBudget: privilegeBudgetFromInventory(in.Snapshot.Inventory),
+		Deltas:          deltas,
+		Lifecycle:       lifecycleSummary,
+		RegressDrift:    regressSummary,
+		Proof:           proofRef,
+		NextActions:     nextActions,
 	}
 
 	return summary, nil
+}
+
+func privilegeBudgetFromInventory(inv *agginventory.Inventory) agginventory.PrivilegeBudget {
+	if inv == nil {
+		return agginventory.PrivilegeBudget{
+			ProductionWrite: agginventory.ProductionWriteBudget{
+				Configured: false,
+				Count:      0,
+			},
+		}
+	}
+	return inv.PrivilegeBudget
 }
 
 func SelectTopFindings(report risk.Report, requested int) []risk.ScoredFinding {

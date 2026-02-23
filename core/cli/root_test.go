@@ -472,9 +472,75 @@ func TestScanIncludesInventoryProfileAndScore(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse scan output: %v", err)
 	}
-	for _, key := range []string{"inventory", "repo_exposure_summaries", "profile", "posture_score", "ranked_findings"} {
+	for _, key := range []string{"inventory", "privilege_budget", "agent_privilege_map", "repo_exposure_summaries", "profile", "posture_score", "ranked_findings"} {
 		if _, present := payload[key]; !present {
 			t.Fatalf("missing %s in payload: %v", key, payload)
+		}
+	}
+}
+
+func TestScanIncludesPrivilegeBudgetAndAgentMap(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "payments-prod")
+	if err := os.MkdirAll(filepath.Join(repoPath, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	codexCfg := []byte("sandbox_mode = \"danger-full-access\"\napproval_policy = \"never\"\nnetwork_access = true\n")
+	if err := os.WriteFile(filepath.Join(repoPath, ".codex", "config.toml"), codexCfg, 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	targetsPath := filepath.Join(tmp, "production-targets.yaml")
+	targetsPayload := []byte("schema_version: v1\ntargets:\n  repos:\n    exact:\n      - payments-prod\n")
+	if err := os.WriteFile(targetsPath, targetsPayload, 0o600); err != nil {
+		t.Fatalf("write production targets: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--production-targets", targetsPath, "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("scan failed: %d %s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan output: %v", err)
+	}
+
+	budget, ok := payload["privilege_budget"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected privilege_budget object in payload: %v", payload)
+	}
+	if budget["write_capable_tools"] == nil || budget["credential_access_tools"] == nil || budget["exec_capable_tools"] == nil {
+		t.Fatalf("expected budget counters in payload: %v", budget)
+	}
+	productionWrite, ok := budget["production_write"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected production_write object in budget: %v", budget)
+	}
+	if productionWrite["configured"] != true {
+		t.Fatalf("expected production_write.configured=true, got %v", productionWrite["configured"])
+	}
+	if count, ok := productionWrite["count"].(float64); !ok || count < 1 {
+		t.Fatalf("expected production_write.count >= 1, got %v", productionWrite["count"])
+	}
+
+	agentMap, ok := payload["agent_privilege_map"].([]any)
+	if !ok || len(agentMap) == 0 {
+		t.Fatalf("expected non-empty agent_privilege_map: %v", payload["agent_privilege_map"])
+	}
+	first, ok := agentMap[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected agent map entry type: %T", agentMap[0])
+	}
+	for _, key := range []string{"agent_id", "write_capable", "credential_access", "exec_capable", "production_write"} {
+		if _, present := first[key]; !present {
+			t.Fatalf("agent privilege entry missing %s: %v", key, first)
 		}
 	}
 }

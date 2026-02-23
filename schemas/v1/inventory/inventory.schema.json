@@ -3,7 +3,7 @@
   "$id": "https://wrkr.dev/schemas/v1/inventory/inventory.schema.json",
   "title": "Wrkr Inventory",
   "type": "object",
-  "required": ["inventory_version", "generated_at", "org", "tools", "summary"],
+  "required": ["inventory_version", "generated_at", "org", "tools", "privilege_budget", "agent_privilege_map", "summary"],
   "properties": {
     "inventory_version": {"type": "string"},
     "generated_at": {"type": "string", "format": "date-time"},
@@ -75,6 +75,63 @@
               "none": {"type": "integer"}
             }
           }
+        }
+      }
+    },
+    "privilege_budget": {
+      "type": "object",
+      "required": ["total_tools", "write_capable_tools", "credential_access_tools", "exec_capable_tools", "production_write"],
+      "properties": {
+        "total_tools": {"type": "integer"},
+        "write_capable_tools": {"type": "integer"},
+        "credential_access_tools": {"type": "integer"},
+        "exec_capable_tools": {"type": "integer"},
+        "production_write": {
+          "type": "object",
+          "required": ["configured", "count"],
+          "properties": {
+            "configured": {"type": "boolean"},
+            "count": {"type": "integer"}
+          }
+        }
+      }
+    },
+    "agent_privilege_map": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "tool_id",
+          "tool_type",
+          "org",
+          "repos",
+          "permissions",
+          "endpoint_class",
+          "data_class",
+          "autonomy_level",
+          "risk_score",
+          "write_capable",
+          "credential_access",
+          "exec_capable",
+          "production_write"
+        ],
+        "properties": {
+          "agent_id": {"type": "string"},
+          "tool_id": {"type": "string"},
+          "tool_type": {"type": "string"},
+          "org": {"type": "string"},
+          "repos": {"type": "array", "items": {"type": "string"}},
+          "permissions": {"type": "array", "items": {"type": "string"}},
+          "endpoint_class": {"type": "string"},
+          "data_class": {"type": "string"},
+          "autonomy_level": {"type": "string"},
+          "risk_score": {"type": "number"},
+          "write_capable": {"type": "boolean"},
+          "credential_access": {"type": "boolean"},
+          "exec_capable": {"type": "boolean"},
+          "production_write": {"type": "boolean"},
+          "matched_production_targets": {"type": "array", "items": {"type": "string"}}
         }
       }
     },

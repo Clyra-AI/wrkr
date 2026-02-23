@@ -3,6 +3,7 @@ package report
 import (
 	"time"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -49,19 +50,20 @@ type BuildInput struct {
 }
 
 type Summary struct {
-	SummaryVersion string           `json:"summary_version"`
-	GeneratedAt    string           `json:"generated_at"`
-	Template       string           `json:"template"`
-	ShareProfile   string           `json:"share_profile"`
-	SectionOrder   []string         `json:"section_order"`
-	Sections       []Section        `json:"sections"`
-	Headline       Headline         `json:"headline"`
-	TopRisks       []RiskItem       `json:"top_risks"`
-	Deltas         DeltaSummary     `json:"deltas"`
-	Lifecycle      LifecycleSummary `json:"lifecycle"`
-	RegressDrift   *RegressSummary  `json:"regress_drift,omitempty"`
-	Proof          ProofReference   `json:"proof"`
-	NextActions    []ChecklistItem  `json:"next_actions"`
+	SummaryVersion  string                       `json:"summary_version"`
+	GeneratedAt     string                       `json:"generated_at"`
+	Template        string                       `json:"template"`
+	ShareProfile    string                       `json:"share_profile"`
+	SectionOrder    []string                     `json:"section_order"`
+	Sections        []Section                    `json:"sections"`
+	Headline        Headline                     `json:"headline"`
+	TopRisks        []RiskItem                   `json:"top_risks"`
+	PrivilegeBudget agginventory.PrivilegeBudget `json:"privilege_budget"`
+	Deltas          DeltaSummary                 `json:"deltas"`
+	Lifecycle       LifecycleSummary             `json:"lifecycle"`
+	RegressDrift    *RegressSummary              `json:"regress_drift,omitempty"`
+	Proof           ProofReference               `json:"proof"`
+	NextActions     []ChecklistItem              `json:"next_actions"`
 }
 
 type Section struct {
