@@ -2,7 +2,7 @@
 
 Date: 2026-02-23  
 Primary plan source: `/Users/davidahmann/Projects/wrkr/product/report_plan.md`  
-Report structure source: `/Users/davidahmann/Downloads/wrkr_report_structure.docx`
+Report structure source: `/Users/davidahmann/Projects/wrkr/product/report_structure.md`  
 Required publishing structure: `/Users/davidahmann/Projects/wrkr/product/report_structure.md`
 
 ## Goal
@@ -11,7 +11,10 @@ Produce a publication-ready report package (Sections 1-10) with deterministic, r
 
 - Headline metrics
 - Methodology evidence
-- Inventory/privilege/approval/regulatory analysis
+- Inventory, privilege, approval, and regulatory analysis
+- Prompt-channel exposure analysis
+- Cross-agent attack-path analysis
+- Optional enrich-backed MCP advisory/registry analysis (with `as_of` provenance)
 - Anonymized case-study inputs
 - Benchmark segments
 - Appendix-grade JSON/CSV tables
@@ -19,8 +22,9 @@ Produce a publication-ready report package (Sections 1-10) with deterministic, r
 ## Scope and Constraints
 
 - Deterministic pipeline only (no LLM in scan/risk/report paths).
+- Treat enrich mode as optional and time-sensitive; do not mix enrich claims into deterministic baseline claims without explicit provenance.
 - No production-write percentage claims unless production targets are configured.
-- Prefer machine-generated outputs as source of truth; manual writing should only format/narrate those outputs.
+- Prefer machine-generated outputs as source of truth; manual writing should only format and narrate generated outputs.
 - Final written report must follow `/Users/davidahmann/Projects/wrkr/product/report_structure.md` section order and headings.
 
 ## Inputs Required Before Run
@@ -34,7 +38,10 @@ Produce a publication-ready report package (Sections 1-10) with deterministic, r
 - Approved list (optional but recommended): `docs/examples/approved-tools.v1.yaml` or custom.
 - Production targets (required if publishing production-write claims): `docs/examples/production-targets.v1.yaml` or custom.
 - Segment metadata (optional, recommended for benchmarks): `docs/examples/campaign-segments.v1.yaml` or custom.
-4. Structure contract:
+4. Enrich decision:
+- `ENABLE_ENRICH=1` only if publishing advisory/registry findings.
+- Capture enrich window timestamp (`ENRICH_AS_OF`) for narrative provenance.
+5. Structure contract:
 - The editorial output must be composed against `/Users/davidahmann/Projects/wrkr/product/report_structure.md`.
 
 ## Standard Output Layout
@@ -82,6 +89,18 @@ while IFS= read -r org; do
     --approved-tools docs/examples/approved-tools.v1.yaml \
     --production-targets docs/examples/production-targets.v1.yaml \
     --json > "${scan_path}"
+
+  if [ "${ENABLE_ENRICH:-0}" = "1" ]; then
+    wrkr scan \
+      --org "${org}" \
+      --github-api "${WRKR_GITHUB_API_BASE}" \
+      --github-token "${WRKR_GITHUB_TOKEN}" \
+      --state "${state_path}" \
+      --approved-tools docs/examples/approved-tools.v1.yaml \
+      --production-targets docs/examples/production-targets.v1.yaml \
+      --enrich \
+      --json > "${BASE}/scans/${slug}.scan.enrich.json"
+  fi
 done < orgs.txt
 ```
 
@@ -104,6 +123,18 @@ while IFS= read -r repo; do
     --approved-tools docs/examples/approved-tools.v1.yaml \
     --production-targets docs/examples/production-targets.v1.yaml \
     --json > "${scan_path}"
+
+  if [ "${ENABLE_ENRICH:-0}" = "1" ]; then
+    wrkr scan \
+      --repo "${repo}" \
+      --github-api "${WRKR_GITHUB_API_BASE}" \
+      --github-token "${WRKR_GITHUB_TOKEN}" \
+      --state "${state_path}" \
+      --approved-tools docs/examples/approved-tools.v1.yaml \
+      --production-targets docs/examples/production-targets.v1.yaml \
+      --enrich \
+      --json > "${BASE}/scans/${slug}.scan.enrich.json"
+  fi
 done < repos.txt
 ```
 
@@ -113,10 +144,19 @@ done < repos.txt
 for f in "${BASE}"/scans/*.scan.json; do
   jq -e '.status=="ok"' "$f" >/dev/null
 done
+
+if ls "${BASE}"/scans/*.scan.enrich.json >/dev/null 2>&1; then
+  for f in "${BASE}"/scans/*.scan.enrich.json; do
+    jq -e '.status=="ok"' "$f" >/dev/null
+  done
+fi
+
 make test-contracts
 ```
 
 ## Step 4: Build Campaign Aggregate + Public Markdown
+
+Deterministic baseline aggregate:
 
 ```bash
 wrkr campaign aggregate \
@@ -127,6 +167,18 @@ wrkr campaign aggregate \
   --md-path "${BASE}/agg/campaign-public.md" \
   --template public \
   --json > "${BASE}/agg/campaign-envelope.json"
+```
+
+Optional enrich aggregate (for enrich-only claim support):
+
+```bash
+if ls "${BASE}"/scans/*.scan.enrich.json >/dev/null 2>&1; then
+  wrkr campaign aggregate \
+    --input-glob "${BASE}/scans/*.scan.enrich.json" \
+    --output "${BASE}/agg/campaign-summary-enrich.json" \
+    --segment-metadata docs/examples/campaign-segments.v1.yaml \
+    --json > "${BASE}/agg/campaign-envelope-enrich.json"
+fi
 ```
 
 ## Step 5: Build Appendix Data (Anonymized, Table-Ready)
@@ -145,51 +197,54 @@ for state in "${BASE}"/states/*.json; do
 done
 ```
 
-Merge all appendix JSON tables into one combined matrix:
+Merge all appendix JSON tables into one combined matrix (supports legacy and new rows):
 
 ```bash
 jq -s '
 {
   export_version: "1",
   schema_version: "v1",
-  inventory_rows: (map(.appendix.inventory_rows) | add | sort_by(.org,.tool_type,.tool_id)),
-  privilege_rows: (map(.appendix.privilege_rows) | add | sort_by(.org,.tool_type,.agent_id)),
-  approval_gap_rows: (map(.appendix.approval_gap_rows) | add | sort_by(.org,.approval_classification,.tool_id)),
-  regulatory_rows: (map(.appendix.regulatory_rows) | add | sort_by(.regulation,.control_id,.org,.tool_id))
+  inventory_rows: (map(.appendix.inventory_rows // []) | add | sort_by(.org,.tool_type,.tool_id)),
+  privilege_rows: (map(.appendix.privilege_rows // []) | add | sort_by(.org,.tool_type,.agent_id)),
+  approval_gap_rows: (map(.appendix.approval_gap_rows // []) | add | sort_by(.org,.approval_classification,.tool_id)),
+  regulatory_rows: (map(.appendix.regulatory_rows // []) | add | sort_by(.regulation,.control_id,.org,.tool_id)),
+  prompt_channel_rows: (map(.appendix.prompt_channel_rows // []) | add | sort_by(.org,.repo,.location,.pattern_family)),
+  attack_path_rows: (map(.appendix.attack_path_rows // []) | add | sort_by(.org,.path_id,.path_score)),
+  mcp_enrich_rows: (map(.appendix.mcp_enrich_rows // []) | add | sort_by(.org,.server,.as_of,.source))
 }' "${BASE}"/appendix/*.appendix.json > "${BASE}/appendix/combined-appendix.json"
 ```
 
 ## Step 6: Map Artifacts to Report Sections (1-10)
 
 1. Headline Findings  
-Source: `${BASE}/agg/campaign-summary.json` (`metrics` + `methodology`)
+Source: `${BASE}/agg/campaign-summary.json` (`metrics`, `methodology`) plus enrich summary when used.
 
 2. Methodology  
-Source: `${BASE}/agg/campaign-summary.json` (`methodology`) + `${BASE}/agg/campaign-public.md`
+Source: `${BASE}/agg/campaign-summary.json` (`methodology`) + `${BASE}/agg/campaign-public.md` + enrich window metadata when used.
 
 3. AI Tool Inventory Breakdown  
-Source: `${BASE}/appendix/combined-appendix.json` (`inventory_rows`)
+Source: `${BASE}/appendix/combined-appendix.json` (`inventory_rows`, `prompt_channel_rows`).
 
 4. Privilege and Access Map  
-Source: `${BASE}/appendix/combined-appendix.json` (`privilege_rows`) + per-scan `inventory.tools[*].permission_tier/risk_tier`
+Source: `${BASE}/appendix/combined-appendix.json` (`privilege_rows`, `attack_path_rows`) + per-scan tier fields.
 
 5. Approval Gap  
-Source: `${BASE}/appendix/combined-appendix.json` (`approval_gap_rows`) + campaign approval ratios from `metrics`
+Source: `${BASE}/appendix/combined-appendix.json` (`approval_gap_rows`) + campaign approval ratios.
 
 6. Regulatory Exposure  
-Source: `${BASE}/appendix/combined-appendix.json` (`regulatory_rows`) + per-scan `inventory.regulatory_summary`
+Source: `${BASE}/appendix/combined-appendix.json` (`regulatory_rows`) + per-scan regulatory summaries.
 
 7. Case Studies (Anonymized)  
-Source: per-scan `${BASE}/appendix/*.appendix.json` and anonymized rows
+Source: per-scan appendix exports + joined prompt/path rows.
 
 8. Benchmarks and Comparisons  
-Source: `${BASE}/agg/campaign-summary.json` (`segments`)
+Source: campaign segments and prevalence deltas (inventory, prompt, path, enrich when enabled).
 
 9. Recommendations  
-Source: derived narrative from measured gaps in sections 1-8
+Source: measured gaps from sections 1-8.
 
 10. Appendix: Full Data Tables  
-Source: `${BASE}/appendix/combined-appendix.json` + per-scan CSV directories `${BASE}/appendix/<slug>/`
+Source: `${BASE}/appendix/combined-appendix.json` + per-scan CSV directories `${BASE}/appendix/<slug>/`.
 
 ## Step 7: Publication Guardrails (Must Pass)
 
@@ -203,7 +258,7 @@ jq -e '.schema_version=="v1"' "${BASE}/agg/campaign-summary.json" >/dev/null
 jq -e '.metrics.production_write_status=="configured"' "${BASE}/agg/campaign-summary.json" >/dev/null
 ```
 
-If this check fails, do not publish numeric production-write percentages/count claims.
+If this check fails, do not publish numeric production-write percentages or counts.
 
 3. Anonymization check for case-study data:
 ```bash
@@ -212,12 +267,15 @@ jq -e '
     [.inventory_rows[].org] +
     [.privilege_rows[].org] +
     [.approval_gap_rows[].org] +
-    [.regulatory_rows[].org]
+    [.regulatory_rows[].org] +
+    [.prompt_channel_rows[].org] +
+    [.attack_path_rows[].org] +
+    [.mcp_enrich_rows[].org]
   ) | all(test("^org-[a-f0-9]+$"))
 ' "${BASE}/appendix/combined-appendix.json" >/dev/null
 ```
 
-4. Determinism spot-check (rerun aggregate, compare):
+4. Determinism spot-check (baseline aggregate rerun must match):
 ```bash
 wrkr campaign aggregate \
   --input-glob "${BASE}/scans/*.scan.json" \
@@ -227,15 +285,41 @@ wrkr campaign aggregate \
 diff -u "${BASE}/agg/campaign-summary.json" "${BASE}/agg/campaign-summary-rerun.json"
 ```
 
+5. Prompt-channel claim eligibility:
+```bash
+jq -e '(.prompt_channel_rows // [] | length) > 0' "${BASE}/appendix/combined-appendix.json" >/dev/null
+```
+
+If this check fails, do not publish prevalence or count claims for prompt poisoning indicators.
+
+6. Attack-path claim eligibility:
+```bash
+jq -e '(.attack_path_rows // [] | length) > 0' "${BASE}/appendix/combined-appendix.json" >/dev/null
+```
+
+If this check fails, do not publish critical-path count or top-path score claims.
+
+7. Enrich claim eligibility (only for enrich-backed supply-chain claims):
+```bash
+jq -e '
+  (.mcp_enrich_rows // []) as $rows |
+  ($rows | length) > 0 and
+  ($rows | all((.as_of // "") != "" and (.source // "") != ""))
+' "${BASE}/appendix/combined-appendix.json" >/dev/null
+```
+
+If this check fails, do not publish advisory/registry prevalence claims.
+
 ## Step 8: Package Deliverables
 
-Minimum package to hand off to editorial/PR:
+Minimum package to hand off to editorial and PR:
 
 - `${BASE}/agg/campaign-summary.json`
 - `${BASE}/agg/campaign-public.md`
 - `${BASE}/appendix/combined-appendix.json`
-- `${BASE}/appendix/*/*.csv` (inventory, privilege_map, approval_gap, regulatory_matrix)
-- A short methodology note referencing Wrkr commit SHA and run window.
+- `${BASE}/appendix/*/*.csv` (inventory, privilege_map, approval_gap, regulatory_matrix, plus new row CSVs when available)
+- `${BASE}/agg/campaign-summary-enrich.json` (if enrich run was enabled)
+- A short methodology note referencing commit SHA, run window, and enrich window (`ENRICH_AS_OF`) when applicable.
 
 ## Step 9: Final Quality Gate Before Publishing
 
@@ -244,14 +328,16 @@ Run repo-level checks used by release posture:
 ```bash
 make test-docs-consistency
 make test-contracts
+make test-scenarios
 make prepush-full
 ```
 
 ## Definition of Done for a Report Run
 
-- All scan artifacts are `status=ok`.
-- Campaign aggregate generated with deterministic methodology + segment outputs.
-- Appendix combined JSON + CSV tables generated.
+- All required scan artifacts are `status=ok`.
+- Campaign aggregate generated with deterministic methodology and segment outputs.
+- Appendix combined JSON and CSV tables generated, including prompt/path/enrich rows when available.
 - Production-write claim policy enforced (`configured` required for numeric claims).
+- Prompt/path/enrich claims are published only when corresponding guardrail checks pass.
 - Anonymized case-study source data is publication-safe.
-- Report sections 1-10 can be fully populated from generated artifacts plus editorial narrative.
+- Report sections 1-10 are fully populated from generated artifacts plus editorial narrative.
