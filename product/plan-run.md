@@ -51,7 +51,7 @@ Use one immutable run ID per campaign:
 ```bash
 RUN_ID="q1-2026-public-$(date -u +%Y%m%dT%H%M%SZ)"
 BASE=".tmp/campaign/${RUN_ID}"
-mkdir -p "${BASE}"/{states,scans,agg,appendix,report}
+mkdir -p "${BASE}"/{states,states-enrich,scans,agg,appendix,report}
 ```
 
 ## Step 1: Preflight and Tooling Validation
@@ -79,6 +79,7 @@ while IFS= read -r org; do
   [ -z "${org}" ] && continue
   slug="$(echo "${org}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9._-' '-')"
   state_path="${BASE}/states/${slug}.json"
+  enrich_state_path="${BASE}/states-enrich/${slug}.json"
   scan_path="${BASE}/scans/${slug}.scan.json"
 
   wrkr scan \
@@ -95,7 +96,7 @@ while IFS= read -r org; do
       --org "${org}" \
       --github-api "${WRKR_GITHUB_API_BASE}" \
       --github-token "${WRKR_GITHUB_TOKEN}" \
-      --state "${state_path}" \
+      --state "${enrich_state_path}" \
       --approved-tools docs/examples/approved-tools.v1.yaml \
       --production-targets docs/examples/production-targets.v1.yaml \
       --enrich \
@@ -113,6 +114,7 @@ while IFS= read -r repo; do
   [ -z "${repo}" ] && continue
   slug="$(echo "${repo}" | tr '[:upper:]' '[:lower:]' | tr '/:' '-' | tr -cs 'a-z0-9._-' '-')"
   state_path="${BASE}/states/${slug}.json"
+  enrich_state_path="${BASE}/states-enrich/${slug}.json"
   scan_path="${BASE}/scans/${slug}.scan.json"
 
   wrkr scan \
@@ -129,7 +131,7 @@ while IFS= read -r repo; do
       --repo "${repo}" \
       --github-api "${WRKR_GITHUB_API_BASE}" \
       --github-token "${WRKR_GITHUB_TOKEN}" \
-      --state "${state_path}" \
+      --state "${enrich_state_path}" \
       --approved-tools docs/examples/approved-tools.v1.yaml \
       --production-targets docs/examples/production-targets.v1.yaml \
       --enrich \
@@ -197,9 +199,30 @@ for state in "${BASE}"/states/*.json; do
 done
 ```
 
+Optional enrich appendix exports (for enrich-only evidence trails):
+
+```bash
+if ls "${BASE}"/states-enrich/*.json >/dev/null 2>&1; then
+  for state in "${BASE}"/states-enrich/*.json; do
+    slug="$(basename "${state}" .json)"
+    wrkr export \
+      --state "${state}" \
+      --format appendix \
+      --anonymize \
+      --csv-dir "${BASE}/appendix/${slug}.enrich" \
+      --json > "${BASE}/appendix/${slug}.enrich.appendix.json"
+  done
+fi
+```
+
 Merge all appendix JSON tables into one combined matrix (supports legacy and new rows):
 
 ```bash
+appendix_inputs=( "${BASE}"/appendix/*.appendix.json )
+if ls "${BASE}"/appendix/*.enrich.appendix.json >/dev/null 2>&1; then
+  appendix_inputs+=( "${BASE}"/appendix/*.enrich.appendix.json )
+fi
+
 jq -s '
 {
   export_version: "1",
@@ -211,7 +234,7 @@ jq -s '
   prompt_channel_rows: (map(.appendix.prompt_channel_rows // []) | add | sort_by(.org,.repo,.location,.pattern_family)),
   attack_path_rows: (map(.appendix.attack_path_rows // []) | add | sort_by(.org,.path_id,.path_score)),
   mcp_enrich_rows: (map(.appendix.mcp_enrich_rows // []) | add | sort_by(.org,.server,.as_of,.source))
-}' "${BASE}"/appendix/*.appendix.json > "${BASE}/appendix/combined-appendix.json"
+}' "${appendix_inputs[@]}" > "${BASE}/appendix/combined-appendix.json"
 ```
 
 ## Step 6: Map Artifacts to Report Sections (1-10)
