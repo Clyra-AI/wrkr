@@ -11,6 +11,7 @@
     "section_order",
     "sections",
     "headline",
+    "methodology",
     "top_risks",
     "privilege_budget",
     "deltas",
@@ -48,6 +49,9 @@
     },
     "headline": {
       "$ref": "#/$defs/headline"
+    },
+    "methodology": {
+      "$ref": "#/$defs/methodology"
     },
     "top_risks": {
       "type": "array",
@@ -99,6 +103,33 @@
         "grade": {"type": "string"},
         "compliance_status": {"type": "string"},
         "compliance_percent": {"type": "number"}
+      }
+    },
+    "methodology": {
+      "type": "object",
+      "required": [
+        "wrkr_version",
+        "scan_started_at",
+        "scan_completed_at",
+        "scan_duration_seconds",
+        "repo_count",
+        "file_count_processed",
+        "detector_count",
+        "command_set",
+        "sample_definition",
+        "exclusion_criteria"
+      ],
+      "properties": {
+        "wrkr_version": {"type": "string"},
+        "scan_started_at": {"type": "string"},
+        "scan_completed_at": {"type": "string"},
+        "scan_duration_seconds": {"type": "number"},
+        "repo_count": {"type": "integer"},
+        "file_count_processed": {"type": "integer"},
+        "detector_count": {"type": "integer"},
+        "command_set": {"type": "array", "items": {"type": "string"}},
+        "sample_definition": {"type": "string"},
+        "exclusion_criteria": {"type": "array", "items": {"type": "string"}}
       }
     },
     "riskItem": {

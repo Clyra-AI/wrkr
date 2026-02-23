@@ -24,6 +24,12 @@ type UpdateRequest struct {
 	Body  string `json:"body"`
 }
 
+// IssueComment is a minimal deterministic PR comment contract.
+type IssueComment struct {
+	ID   int    `json:"id"`
+	Body string `json:"body"`
+}
+
 // API abstracts GitHub PR APIs for deterministic tests and retry behavior.
 type API interface {
 	EnsureHeadRef(ctx context.Context, owner, repo, headBranch, baseBranch string) error
@@ -31,6 +37,13 @@ type API interface {
 	ListOpenByHead(ctx context.Context, owner, repo, headBranch, baseBranch string) ([]PullRequest, error)
 	Create(ctx context.Context, owner, repo string, req CreateRequest) (PullRequest, error)
 	Update(ctx context.Context, owner, repo string, number int, req UpdateRequest) (PullRequest, error)
+}
+
+// CommentAPI abstracts issue comment APIs for deterministic PR comment upserts.
+type CommentAPI interface {
+	ListIssueComments(ctx context.Context, owner, repo string, issueNumber int) ([]IssueComment, error)
+	CreateIssueComment(ctx context.Context, owner, repo string, issueNumber int, body string) (IssueComment, error)
+	UpdateIssueComment(ctx context.Context, owner, repo string, commentID int, body string) (IssueComment, error)
 }
 
 type UpsertInput struct {
@@ -46,4 +59,17 @@ type UpsertInput struct {
 type UpsertResult struct {
 	Action      string      `json:"action"`
 	PullRequest PullRequest `json:"pull_request"`
+}
+
+type UpsertIssueCommentInput struct {
+	Owner       string
+	Repo        string
+	IssueNumber int
+	Body        string
+	Fingerprint string
+}
+
+type UpsertIssueCommentResult struct {
+	Action  string       `json:"action"`
+	Comment IssueComment `json:"comment"`
 }

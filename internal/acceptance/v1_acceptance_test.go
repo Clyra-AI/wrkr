@@ -3,6 +3,7 @@ package acceptance
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -555,6 +556,28 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 			t.Fatal("expected prioritized next_actions for AC21")
 		}
 	})
+
+	t.Run("AC22_uat_homebrew_install_path_contract", func(t *testing.T) {
+		scriptPath := filepath.Join(paths.repoRoot, "scripts", "test_uat_local.sh")
+		payload, err := os.ReadFile(scriptPath)
+		if err != nil {
+			t.Fatalf("read uat script: %v", err)
+		}
+		content := string(payload)
+		requiredTokens := []string{
+			"if ! command -v brew >/dev/null 2>&1; then",
+			"run_json_smoke \"homebrew\" \"$brew_bin\"",
+			"run_docs_subset_smoke \"homebrew\" \"$brew_bin\"",
+			"run_json_smoke \"homebrew-local-formula\" \"$brew_bin\"",
+			"run_docs_subset_smoke \"homebrew-local-formula\" \"$brew_bin\"",
+			"brew test \"$brew_local_tap_name/$brew_local_formula_name\"",
+		}
+		for _, token := range requiredTokens {
+			if !strings.Contains(content, token) {
+				t.Fatalf("uat script missing homebrew acceptance contract token: %s", token)
+			}
+		}
+	})
 }
 
 func loadAcceptancePaths(t *testing.T) acceptancePaths {
@@ -577,6 +600,11 @@ func newAcceptanceGitHubAPIServer(t *testing.T) string {
 			_, _ = fmt.Fprint(w, `[{"full_name":"acme/backend"}]`)
 		case "/repos/acme/backend":
 			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+		case "/repos/acme/backend/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"blob-1"}]}`)
+		case "/repos/acme/backend/git/blobs/blob-1":
+			blob := base64.StdEncoding.EncodeToString([]byte("# acceptance\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, blob)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

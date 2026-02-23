@@ -207,6 +207,75 @@ func (c *GitHubClient) Create(ctx context.Context, owner, repo string, req Creat
 	return raw.toPullRequest(), nil
 }
 
+func (c *GitHubClient) ListIssueComments(ctx context.Context, owner, repo string, issueNumber int) ([]IssueComment, error) {
+	endpoint, err := c.repoURL(owner, repo, "issues", strconv.Itoa(issueNumber), "comments")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]IssueComment, 0, 64)
+	for page := 1; ; page++ {
+		pageURL := *endpoint
+		query := pageURL.Query()
+		query.Set("per_page", "100")
+		query.Set("page", strconv.Itoa(page))
+		pageURL.RawQuery = query.Encode()
+
+		var raw []struct {
+			ID   int    `json:"id"`
+			Body string `json:"body"`
+		}
+		if err := c.doJSON(ctx, http.MethodGet, pageURL.String(), nil, &raw); err != nil {
+			return nil, err
+		}
+		if len(raw) == 0 {
+			break
+		}
+		for _, item := range raw {
+			out = append(out, IssueComment{ID: item.ID, Body: item.Body})
+		}
+		if len(raw) < 100 {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (c *GitHubClient) CreateIssueComment(ctx context.Context, owner, repo string, issueNumber int, body string) (IssueComment, error) {
+	endpoint, err := c.repoURL(owner, repo, "issues", strconv.Itoa(issueNumber), "comments")
+	if err != nil {
+		return IssueComment{}, err
+	}
+	payload := map[string]any{
+		"body": strings.TrimSpace(body),
+	}
+	var raw struct {
+		ID   int    `json:"id"`
+		Body string `json:"body"`
+	}
+	if err := c.doJSON(ctx, http.MethodPost, endpoint.String(), payload, &raw); err != nil {
+		return IssueComment{}, err
+	}
+	return IssueComment{ID: raw.ID, Body: raw.Body}, nil
+}
+
+func (c *GitHubClient) UpdateIssueComment(ctx context.Context, owner, repo string, commentID int, body string) (IssueComment, error) {
+	endpoint, err := c.repoURL(owner, repo, "issues", "comments", strconv.Itoa(commentID))
+	if err != nil {
+		return IssueComment{}, err
+	}
+	payload := map[string]any{
+		"body": strings.TrimSpace(body),
+	}
+	var raw struct {
+		ID   int    `json:"id"`
+		Body string `json:"body"`
+	}
+	if err := c.doJSON(ctx, http.MethodPatch, endpoint.String(), payload, &raw); err != nil {
+		return IssueComment{}, err
+	}
+	return IssueComment{ID: raw.ID, Body: raw.Body}, nil
+}
+
 func (c *GitHubClient) Update(ctx context.Context, owner, repo string, number int, req UpdateRequest) (PullRequest, error) {
 	endpoint, err := c.repoURL(owner, repo, "pulls", strconv.Itoa(number))
 	if err != nil {

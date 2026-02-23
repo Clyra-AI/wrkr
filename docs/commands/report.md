@@ -31,6 +31,12 @@ wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --sha
 
 Expected JSON keys: `status`, `generated_at`, `top_findings`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `summary`, `md_path`, `pdf_path`.
 
+Public template behavior (`--template public --share-profile public`):
+
+- `summary.section_order` starts with headline then methodology.
+- `summary.methodology` includes machine-readable reproducibility metadata (`wrkr_version`, scan window, repo/file counts, command set, and exclusion criteria).
+- share-profile redaction is applied to public-facing risk/proof fields.
+
 ## Coverage semantics
 
 Report compliance/posture values are derived from evidence present in the current scan state.

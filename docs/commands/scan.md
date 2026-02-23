@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --path <dir>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--json] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --path <dir>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--json] [--quiet] [--explain]
 ```
 
 Exactly one target source is required: `--repo`, `--org`, or `--path`.
@@ -12,6 +12,7 @@ Acquisition behavior is fail-closed by target:
 
 - `--path` runs fully local/offline.
 - `--repo` and `--org` require real GitHub acquisition via `--github-api` or `WRKR_GITHUB_API_BASE`.
+- `--repo` and `--org` materialize repository contents into a deterministic local workspace under the scan state directory before detectors run.
 - When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
 
 ## Flags
@@ -28,6 +29,7 @@ Acquisition behavior is fail-closed by target:
 - `--config`
 - `--state`
 - `--policy`
+- `--approved-tools`
 - `--production-targets`
 - `--production-targets-strict`
 - `--profile`
@@ -50,7 +52,17 @@ wrkr scan --org acme --github-api https://api.github.com --json
 ```
 
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, and optional `report` when summary output is requested.
+`inventory.methodology` emits machine-readable scan metadata (`wrkr_version`, timing, repo/file counts, detector inventory).
+`inventory.tools[*]` includes deterministic `approval_classification` (`approved|unapproved|unknown`), and `inventory.approval_summary` emits aggregate approval-gap ratios for campaign/report workflows.
+`inventory.tools[*]` also emits report-ready `tool_category` and deterministic `confidence_score` (`0.00-1.00`) for inventory breakdown tables.
+`inventory.tools[*]` emits normalized `permission_surface`, `permission_tier`, `risk_tier`, `adoption_pattern`, and per-tool `regulatory_mapping` statuses.
+`inventory.adoption_summary` and `inventory.regulatory_summary` provide deterministic rollups for report section tables.
+`--approved-tools <path>` accepts a schema-validated YAML policy (`schemas/v1/policy/approved-tools.schema.json`) for explicit approved-list matching (`tool_ids`, `agent_ids`, `tool_types`, `orgs`, `repos` via exact/prefix sets).
+Invalid `--approved-tools` policy files fail closed with `invalid_input` (exit `6`).
+For `--repo` and `--org` scans, `source_manifest.repos[*].source` is `github_repo_materialized`, and `source_manifest.repos[*].location` points to the deterministic materialized local root used for detector execution.
 When production target policy loading is non-fatal (`--production-targets` without `--production-targets-strict`), output may include `policy_warnings`.
+
+Approved-tools policy example: [`docs/examples/approved-tools.v1.yaml`](../examples/approved-tools.v1.yaml).
 
 Production target policy files are YAML and schema-validated (`schemas/v1/policy/production-targets.schema.json`), with exact/prefix matching only. Example: [`docs/examples/production-targets.v1.yaml`](../examples/production-targets.v1.yaml).
 

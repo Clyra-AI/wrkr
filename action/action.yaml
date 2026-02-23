@@ -23,12 +23,23 @@ inputs:
     description: optional wrkr config path used when no explicit target is provided
     required: false
     default: ""
+  block_threshold:
+    description: optional PR-mode risk delta threshold for merge block messaging
+    required: false
+    default: "0"
+  comment_fingerprint:
+    description: deterministic marker for PR comment upsert identity
+    required: false
+    default: "wrkr-action-pr-mode-v1"
 
 runs:
   using: composite
   steps:
     - name: Run wrkr-action entrypoint
       shell: bash
+      env:
+        WRKR_ACTION_BLOCK_THRESHOLD: ${{ inputs.block_threshold }}
+        WRKR_ACTION_COMMENT_FINGERPRINT: ${{ inputs.comment_fingerprint }}
       run: |
         set -euo pipefail
         "${{ github.action_path }}/entrypoint.sh" "${{ inputs.mode }}" "${{ inputs.top }}" "${{ inputs.target_mode }}" "${{ inputs.target_value }}" "${{ inputs.config_path }}"

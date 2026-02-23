@@ -63,11 +63,13 @@ func TestStory7SchemaContractsStable(t *testing.T) {
 		"schemas/v1/cli/command-envelope.schema.json",
 		"schemas/v1/config/config.schema.json",
 		"schemas/v1/evidence/evidence-bundle.schema.json",
+		"schemas/v1/export/appendix-export.schema.json",
 		"schemas/v1/export/inventory-export.schema.json",
 		"schemas/v1/findings/finding.schema.json",
 		"schemas/v1/identity/identity-manifest.schema.json",
 		"schemas/v1/inventory/inventory.schema.json",
 		"schemas/v1/manifest/manifest.schema.json",
+		"schemas/v1/policy/approved-tools.schema.json",
 		"schemas/v1/policy/production-targets.schema.json",
 		"schemas/v1/policy/rule-pack.schema.json",
 		"schemas/v1/profile/profile-result.schema.json",
@@ -75,6 +77,7 @@ func TestStory7SchemaContractsStable(t *testing.T) {
 		"schemas/v1/proof-outputs/proof-record.schema.json",
 		"schemas/v1/regress/regress-baseline.schema.json",
 		"schemas/v1/regress/regress-result.schema.json",
+		"schemas/v1/report/campaign-summary.schema.json",
 		"schemas/v1/report/report-summary.schema.json",
 		"schemas/v1/risk/risk-report.schema.json",
 		"schemas/v1/score/score.schema.json",
@@ -447,7 +450,7 @@ func normalizeAny(input any) any {
 		out := make(map[string]any, len(typed))
 		for key, value := range typed {
 			switch key {
-			case "generated_at", "exported_at", "timestamp", "created_at", "updated_at":
+			case "generated_at", "exported_at", "timestamp", "created_at", "updated_at", "scan_started_at", "scan_completed_at", "scan_duration_seconds":
 				continue
 			default:
 				out[key] = normalizeAny(value)

@@ -12,12 +12,13 @@ import (
 const SummaryVersion = "v1"
 
 const (
-	SectionHeadline   = "headline_posture"
-	SectionTopRisks   = "top_prioritized_risks"
-	SectionChanges    = "change_since_previous"
-	SectionLifecycle  = "lifecycle_actions"
-	SectionProof      = "proof_verification_footer"
-	SectionNextAction = "next_actions"
+	SectionHeadline    = "headline_posture"
+	SectionMethodology = "methodology"
+	SectionTopRisks    = "top_prioritized_risks"
+	SectionChanges     = "change_since_previous"
+	SectionLifecycle   = "lifecycle_actions"
+	SectionProof       = "proof_verification_footer"
+	SectionNextAction  = "next_actions"
 )
 
 type Template string
@@ -57,6 +58,7 @@ type Summary struct {
 	SectionOrder    []string                     `json:"section_order"`
 	Sections        []Section                    `json:"sections"`
 	Headline        Headline                     `json:"headline"`
+	Methodology     Methodology                  `json:"methodology"`
 	TopRisks        []RiskItem                   `json:"top_risks"`
 	PrivilegeBudget agginventory.PrivilegeBudget `json:"privilege_budget"`
 	Deltas          DeltaSummary                 `json:"deltas"`
@@ -80,6 +82,19 @@ type Headline struct {
 	Grade            string  `json:"grade"`
 	ComplianceStatus string  `json:"compliance_status"`
 	Compliance       float64 `json:"compliance_percent"`
+}
+
+type Methodology struct {
+	WrkrVersion         string   `json:"wrkr_version"`
+	ScanStartedAt       string   `json:"scan_started_at"`
+	ScanCompletedAt     string   `json:"scan_completed_at"`
+	ScanDurationSeconds float64  `json:"scan_duration_seconds"`
+	RepoCount           int      `json:"repo_count"`
+	FileCountProcessed  int      `json:"file_count_processed"`
+	DetectorCount       int      `json:"detector_count"`
+	CommandSet          []string `json:"command_set"`
+	SampleDefinition    string   `json:"sample_definition"`
+	ExclusionCriteria   []string `json:"exclusion_criteria"`
 }
 
 type RiskItem struct {

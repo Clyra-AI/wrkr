@@ -3,7 +3,7 @@
   "$id": "https://wrkr.dev/schemas/v1/inventory/inventory.schema.json",
   "title": "Wrkr Inventory",
   "type": "object",
-  "required": ["inventory_version", "generated_at", "org", "tools", "privilege_budget", "agent_privilege_map", "summary"],
+  "required": ["inventory_version", "generated_at", "org", "tools", "methodology", "approval_summary", "adoption_summary", "regulatory_summary", "privilege_budget", "agent_privilege_map", "summary"],
   "properties": {
     "inventory_version": {"type": "string"},
     "generated_at": {"type": "string", "format": "date-time"},
@@ -12,12 +12,24 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["tool_id", "agent_id", "discovery_method", "tool_type", "org", "repos", "locations", "endpoint_class", "data_class", "autonomy_level", "risk_score", "approval_status", "lifecycle_state"],
+        "required": ["tool_id", "agent_id", "discovery_method", "tool_type", "tool_category", "confidence_score", "org", "repos", "locations", "permission_surface", "permission_tier", "risk_tier", "adoption_pattern", "regulatory_mapping", "endpoint_class", "data_class", "autonomy_level", "risk_score", "approval_status", "approval_classification", "lifecycle_state"],
         "properties": {
           "tool_id": {"type": "string"},
           "agent_id": {"type": "string"},
           "discovery_method": {"type": "string", "enum": ["static"]},
           "tool_type": {"type": "string"},
+          "tool_category": {
+            "type": "string",
+            "enum": [
+              "assistant",
+              "agent_framework",
+              "mcp_integration",
+              "plugin_extension",
+              "model_api_integration",
+              "custom_wrapper"
+            ]
+          },
+          "confidence_score": {"type": "number", "minimum": 0, "maximum": 1},
           "org": {"type": "string"},
           "repos": {"type": "array", "items": {"type": "string"}},
           "locations": {
@@ -33,12 +45,128 @@
             }
           },
           "permissions": {"type": "array", "items": {"type": "string"}},
+          "permission_surface": {
+            "type": "object",
+            "required": ["read", "write", "admin"],
+            "properties": {
+              "read": {"type": "boolean"},
+              "write": {"type": "boolean"},
+              "admin": {"type": "boolean"}
+            }
+          },
+          "permission_tier": {"type": "string", "enum": ["none", "read", "write", "admin"]},
+          "risk_tier": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+          "adoption_pattern": {"type": "string", "enum": ["org_wide", "team_level", "individual", "one_off"]},
+          "regulatory_mapping": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["regulation", "control_id", "status", "rationale"],
+              "properties": {
+                "regulation": {"type": "string"},
+                "control_id": {"type": "string"},
+                "status": {"type": "string", "enum": ["pass", "gap", "unknown"]},
+                "rationale": {"type": "string"}
+              }
+            }
+          },
           "endpoint_class": {"type": "string"},
           "data_class": {"type": "string"},
           "autonomy_level": {"type": "string"},
           "risk_score": {"type": "number"},
           "approval_status": {"type": "string"},
+          "approval_classification": {"type": "string", "enum": ["approved", "unapproved", "unknown"]},
           "lifecycle_state": {"type": "string", "enum": ["discovered", "under_review", "approved", "active", "deprecated", "revoked"]}
+        }
+      }
+    },
+    "methodology": {
+      "type": "object",
+      "required": ["wrkr_version", "scan_started_at", "scan_completed_at", "scan_duration_seconds", "repo_count", "file_count_processed", "detectors"],
+      "properties": {
+        "wrkr_version": {"type": "string"},
+        "scan_started_at": {"type": "string"},
+        "scan_completed_at": {"type": "string"},
+        "scan_duration_seconds": {"type": "number"},
+        "repo_count": {"type": "integer"},
+        "file_count_processed": {"type": "integer"},
+        "detectors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "version", "finding_count"],
+            "properties": {
+              "id": {"type": "string"},
+              "version": {"type": "string"},
+              "finding_count": {"type": "integer"}
+            }
+          }
+        }
+      }
+    },
+    "approval_summary": {
+      "type": "object",
+      "required": [
+        "approved_tools",
+        "unapproved_tools",
+        "unknown_tools",
+        "approved_percent",
+        "unapproved_percent",
+        "unknown_percent",
+        "unapproved_per_approved"
+      ],
+      "properties": {
+        "approved_tools": {"type": "integer"},
+        "unapproved_tools": {"type": "integer"},
+        "unknown_tools": {"type": "integer"},
+        "approved_percent": {"type": "number"},
+        "unapproved_percent": {"type": "number"},
+        "unknown_percent": {"type": "number"},
+        "unapproved_per_approved": {"type": ["number", "null"]}
+      }
+    },
+    "adoption_summary": {
+      "type": "object",
+      "required": ["org_wide", "team_level", "individual", "one_off"],
+      "properties": {
+        "org_wide": {"type": "integer"},
+        "team_level": {"type": "integer"},
+        "individual": {"type": "integer"},
+        "one_off": {"type": "integer"}
+      }
+    },
+    "regulatory_summary": {
+      "type": "object",
+      "required": ["by_regulation", "by_control"],
+      "properties": {
+        "by_regulation": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["regulation", "total", "pass", "gap", "unknown"],
+            "properties": {
+              "regulation": {"type": "string"},
+              "total": {"type": "integer"},
+              "pass": {"type": "integer"},
+              "gap": {"type": "integer"},
+              "unknown": {"type": "integer"}
+            }
+          }
+        },
+        "by_control": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["regulation", "control_id", "total", "pass", "gap", "unknown"],
+            "properties": {
+              "regulation": {"type": "string"},
+              "control_id": {"type": "string"},
+              "total": {"type": "integer"},
+              "pass": {"type": "integer"},
+              "gap": {"type": "integer"},
+              "unknown": {"type": "integer"}
+            }
+          }
         }
       }
     },

@@ -7,7 +7,9 @@ Wrkr CLI surfaces are deterministic and file-based by default.
 - `wrkr` (root flags: `--json`, `--quiet`, `--explain`)
 - `wrkr init`
 - `wrkr scan`
+- `wrkr action`
 - `wrkr report`
+- `wrkr campaign aggregate`
 - `wrkr export`
 - `wrkr identity list`
 - `wrkr identity show`

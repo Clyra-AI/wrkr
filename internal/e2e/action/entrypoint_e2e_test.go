@@ -150,6 +150,64 @@ func TestEntrypointE2ERejectsIncompleteExplicitTargetInputs(t *testing.T) {
 	}
 }
 
+func TestEntrypointPRModeFallsBackToEventPathsWhenGitDiffFails(t *testing.T) {
+	t.Parallel()
+
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available in test environment")
+	}
+
+	repoRoot := mustFindRepoRoot(t)
+	tmp := t.TempDir()
+	binDir := filepath.Join(tmp, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin dir: %v", err)
+	}
+
+	logPath := filepath.Join(tmp, "wrkr.log")
+	wrkrPath := filepath.Join(binDir, "wrkr")
+	wrkrScript := "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"${WRKR_LOG}\"\n"
+	if err := os.WriteFile(wrkrPath, []byte(wrkrScript), 0o755); err != nil {
+		t.Fatalf("write wrkr stub: %v", err)
+	}
+
+	eventPath := filepath.Join(tmp, "event.json")
+	eventPayload := `{"pull_request":{"number":42},"commits":[{"added":[".codex/config.toml"],"modified":[],"removed":[]}]}`
+	if err := os.WriteFile(eventPath, []byte(eventPayload), 0o600); err != nil {
+		t.Fatalf("write event payload: %v", err)
+	}
+
+	cmd := exec.Command(bashPath, filepath.Join(repoRoot, "action", "entrypoint.sh"), "pr", "5", "", "", "")
+	cmd.Dir = repoRoot
+	cmd.Env = append(os.Environ(),
+		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"WRKR_LOG="+logPath,
+		"GITHUB_REPOSITORY=acme/backend",
+		"GITHUB_BASE_REF=refs/heads/main",
+		"GITHUB_EVENT_PATH="+eventPath,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run entrypoint: %v output=%s", err, out)
+	}
+
+	loggedBytes, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read wrkr log: %v", err)
+	}
+	lines := nonEmptyLines(string(loggedBytes))
+	if len(lines) != 4 {
+		t.Fatalf("expected four wrkr invocations in pr mode, got %d (%v)", len(lines), lines)
+	}
+	if !strings.Contains(lines[3], "action pr-comment") {
+		t.Fatalf("expected pr-comment invocation, got %q", lines[3])
+	}
+	if !strings.Contains(lines[3], "--changed-paths .codex/config.toml") {
+		t.Fatalf("expected changed paths fallback from event payload, got %q", lines[3])
+	}
+}
+
 func nonEmptyLines(in string) []string {
 	parts := strings.Split(in, "\n")
 	out := make([]string, 0, len(parts))

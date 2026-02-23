@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -31,8 +32,16 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	tmp := t.TempDir()
 	statePath := filepath.Join(tmp, "state.json")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/repos/acme/backend" {
+		switch r.URL.Path {
+		case "/repos/acme/backend":
 			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+			return
+		case "/repos/acme/backend/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"blob-1"}]}`)
+			return
+		case "/repos/acme/backend/git/blobs/blob-1":
+			blob := base64.StdEncoding.EncodeToString([]byte("# agents\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, blob)
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)

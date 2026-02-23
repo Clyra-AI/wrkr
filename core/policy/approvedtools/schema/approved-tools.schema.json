@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/policy/approved-tools.schema.json",
+  "title": "Wrkr Approved Tools Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "approved"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["v1"]
+    },
+    "approved": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tool_ids": {"$ref": "#/$defs/matchSet"},
+        "agent_ids": {"$ref": "#/$defs/matchSet"},
+        "tool_types": {"$ref": "#/$defs/matchSet"},
+        "orgs": {"$ref": "#/$defs/matchSet"},
+        "repos": {"$ref": "#/$defs/matchSet"}
+      }
+    }
+  },
+  "$defs": {
+    "matchSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exact": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "prefix": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    }
+  }
+}
