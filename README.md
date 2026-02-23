@@ -38,6 +38,8 @@ WRKR_VERSION="$(gh release view --repo Clyra-AI/wrkr --json tagName -q .tagName 
 go install github.com/Clyra-AI/wrkr/cmd/wrkr@"${WRKR_VERSION}"
 ```
 
+These install commands are validated in release CI against published artifacts.
+
 ### Verify install path
 
 ```bash
@@ -182,11 +184,13 @@ Wrkr Action `mode=pr` can post deterministic, idempotent PR comments for relevan
 
 ## Release-Candidate UAT
 
-Validate source build, release archive install path, and Homebrew install path before tagging:
+Validate source build, `go install`, release archive install path, and Homebrew install path before tagging:
 
 ```bash
 scripts/test_uat_local.sh
 scripts/test_uat_local.sh --skip-global-gates
+
+# Validate the exact public install commands shown above (brew + pinned go install)
 scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr
 ```
 

@@ -12,6 +12,7 @@ const tracks = [
   {
     title: 'Track 1: First Deterministic Scan',
     steps: [
+      { label: 'Start Here (Install)', href: '/docs/start-here' },
       { label: 'Adopt In One PR', href: '/docs/adopt_in_one_pr' },
       { label: 'Quickstart', href: '/docs/examples/quickstart' },
       { label: 'Integration Checklist', href: '/docs/integration_checklist' },

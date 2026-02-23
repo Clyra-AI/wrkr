@@ -132,6 +132,7 @@ require_pattern "${REPO_ROOT}/docs-site/public/llms.txt" "^## When Not To Use$" 
 require_pattern "${REPO_ROOT}/docs-site/public/llms.txt" "/llms-full.txt" "llms.txt missing llms-full resource"
 
 for route in \
+  "/docs/start-here" \
   "/docs/adopt_in_one_pr" \
   "/docs/integration_checklist" \
   "/docs/architecture" \
@@ -182,6 +183,11 @@ require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "Sitemap: https://cly
 require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "Sitemap: https://clyra-ai.github.io/wrkr/ai-sitemap.xml" "robots.txt missing ai-sitemap pointer"
 require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "User-agent: PerplexityBot" "robots.txt missing PerplexityBot allow rule"
 require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "User-agent: ChatGPT-User" "robots.txt missing ChatGPT-User allow rule"
+
+require_pattern "${REPO_ROOT}/README.md" "brew install Clyra-AI/tap/wrkr" "README missing canonical Homebrew install command"
+require_pattern "${REPO_ROOT}/README.md" "go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"\\$\\{WRKR_VERSION\\}\"" "README missing canonical pinned go install command"
+require_pattern "${REPO_ROOT}/docs/trust/release-integrity.md" "scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr" "release integrity doc missing published install-path parity command"
+require_pattern "${REPO_ROOT}/docs-site/src/app/page.tsx" "/docs/start-here#install" "docs-site homepage missing start-here install pointer"
 
 ROOT_SOURCE="${REPO_ROOT}/core/cli/root.go"
 ROOT_DOC="${REPO_ROOT}/docs/commands/root.md"

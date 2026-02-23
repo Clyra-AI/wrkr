@@ -143,6 +143,13 @@ export default function HomePage() {
             Org Scan Flow
           </Link>
         </div>
+        <p className="text-sm text-gray-500 mt-5">
+          Install commands live in{' '}
+          <Link href="/docs/start-here#install" className="text-cyan-300 hover:text-cyan-200">
+            Start Here install
+          </Link>
+          .
+        </p>
       </div>
 
       <div className="max-w-3xl mx-auto mb-16">

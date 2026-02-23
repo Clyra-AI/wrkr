@@ -78,20 +78,22 @@ jobs:
           scripts/test_perf_budgets.sh
           go test ./internal/integration/interop -count=1
 
-      - name: Run release install-path UAT smoke
+      - name: Run pre-publish install-path UAT smoke
         env:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           mkdir -p .tmp/release
-          make test-release-smoke | tee .tmp/release/uat-release-smoke.log
+          make test-release-smoke | tee .tmp/release/uat-prepublish-smoke.log
 
       - name: Upload release UAT logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: release-uat-local-logs
-          path: .tmp/release/uat-release-smoke.log
+          path: |
+            .tmp/release/uat-prepublish-smoke.log
+            .tmp/release/uat-published-install-paths.log
 
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -120,6 +122,23 @@ jobs:
           else
             goreleaser release --snapshot --clean
           fi
+
+      - name: Run published install-path parity (README/docs commands)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/release
+          for attempt in 1 2 3; do
+            if scripts/test_uat_local.sh --skip-global-gates --release-version "${GITHUB_REF_NAME}" --brew-formula Clyra-AI/tap/wrkr \
+              | tee .tmp/release/uat-published-install-paths.log; then
+              exit 0
+            fi
+            if [[ "$attempt" -ge 3 ]]; then
+              echo "published install-path parity failed after ${attempt} attempts" >&2
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
 
       - name: Verify checksums
         run: (cd dist && sha256sum -c checksums.txt)

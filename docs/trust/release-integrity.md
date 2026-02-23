@@ -31,7 +31,7 @@ scripts/test_uat_local.sh
 # Fast smoke lane used by release CI job
 scripts/test_uat_local.sh --skip-global-gates
 
-# Validate a specific published release archive + tap formula path
+# Validate exact public install commands (brew + pinned go install) for a published tag
 scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr
 ```
 
