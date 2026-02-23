@@ -38,6 +38,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Setup Homebrew
+        uses: Homebrew/actions/setup-homebrew@cced187498280712e078aaba62dc13a3e9cd80bf
+
       - name: Download dependencies
         run: go mod download
 
