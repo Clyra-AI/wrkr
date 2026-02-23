@@ -218,10 +218,26 @@ fi
 Merge all appendix JSON tables into one combined matrix (supports legacy and new rows):
 
 ```bash
-appendix_inputs=( "${BASE}"/appendix/*.appendix.json )
-if ls "${BASE}"/appendix/*.enrich.appendix.json >/dev/null 2>&1; then
-  appendix_inputs+=( "${BASE}"/appendix/*.enrich.appendix.json )
-fi
+# Keep baseline and enrich inputs disjoint to prevent double-counting.
+appendix_inputs=()
+
+for f in "${BASE}"/appendix/*.appendix.json; do
+  [ -e "${f}" ] || continue
+  case "${f}" in
+    *.enrich.appendix.json) continue ;;
+  esac
+  appendix_inputs+=( "${f}" )
+done
+
+for f in "${BASE}"/appendix/*.enrich.appendix.json; do
+  [ -e "${f}" ] || continue
+  appendix_inputs+=( "${f}" )
+done
+
+[ "${#appendix_inputs[@]}" -gt 0 ] || {
+  echo "no appendix exports found at ${BASE}/appendix" >&2
+  exit 1
+}
 
 jq -s '
 {
