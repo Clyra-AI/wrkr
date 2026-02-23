@@ -109,10 +109,10 @@ func extractServerNames(findings []model.Finding) []string {
 
 func TestDetectMCPEnrichAddsNormalizedEvidence(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/advisory":
+		switch r.URL.Path {
+		case "/advisory":
 			_ = json.NewEncoder(w).Encode(map[string]any{"vulns": []any{map[string]any{"id": "GHSA-1"}}})
-		case r.URL.Path == "/registry/v0/servers/pkg":
+		case "/registry/v0/servers/pkg":
 			w.WriteHeader(http.StatusNotFound)
 		default:
 			w.WriteHeader(http.StatusNotFound)
