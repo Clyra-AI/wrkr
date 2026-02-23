@@ -15,6 +15,7 @@ import (
 
 	aggexposure "github.com/Clyra-AI/wrkr/core/aggregate/exposure"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/aggregate/privilegebudget"
 	"github.com/Clyra-AI/wrkr/core/config"
 	"github.com/Clyra-AI/wrkr/core/detect"
 	detectdefaults "github.com/Clyra-AI/wrkr/core/detect/defaults"
@@ -25,6 +26,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/policy"
 	policyeval "github.com/Clyra-AI/wrkr/core/policy/eval"
+	"github.com/Clyra-AI/wrkr/core/policy/productiontargets"
 	profilemodel "github.com/Clyra-AI/wrkr/core/policy/profile"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
@@ -60,6 +62,7 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	configPathFlag := fs.String("config", "", "config file path override")
 	statePathFlag := fs.String("state", "", "state file path override")
 	policyPath := fs.String("policy", "", "optional custom policy rule file")
+	productionTargetsPath := fs.String("production-targets", "", "optional production target rules file")
 	profileName := fs.String("profile", "standard", "posture profile [baseline|standard|strict]")
 	githubBaseURL := fs.String("github-api", strings.TrimSpace(os.Getenv("WRKR_GITHUB_API_BASE")), "github api base url")
 	githubToken := fs.String("github-token", "", "github token override")
@@ -178,6 +181,15 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 		RepoExposureSummaries: repoExposure,
 		GeneratedAt:           now,
 	})
+	var productionTargets *productiontargets.Config
+	if strings.TrimSpace(*productionTargetsPath) != "" {
+		cfg, cfgErr := productiontargets.Load(strings.TrimSpace(*productionTargetsPath))
+		if cfgErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", cfgErr.Error(), exitInvalidInput)
+		}
+		productionTargets = &cfg
+	}
+	inventoryOut.PrivilegeBudget, inventoryOut.AgentPrivilegeMap = privilegebudget.Build(inventoryOut.Tools, findings, productionTargets)
 
 	profileDef, profileErr := profilemodel.Builtin(*profileName)
 	if profileErr != nil {
@@ -250,6 +262,8 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 		payload["ranked_findings"] = riskReport.Ranked
 		payload["top_findings"] = riskReport.TopN
 		payload["inventory"] = inventoryOut
+		payload["privilege_budget"] = inventoryOut.PrivilegeBudget
+		payload["agent_privilege_map"] = inventoryOut.AgentPrivilegeMap
 		payload["repo_exposure_summaries"] = repoExposure
 		payload["profile"] = profileResult
 		payload["posture_score"] = postureScore

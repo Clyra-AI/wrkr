@@ -12,6 +12,7 @@
     "sections",
     "headline",
     "top_risks",
+    "privilege_budget",
     "deltas",
     "lifecycle",
     "proof",
@@ -54,6 +55,7 @@
         "$ref": "#/$defs/riskItem"
       }
     },
+    "privilege_budget": {"$ref": "#/$defs/privilegeBudget"},
     "deltas": {
       "$ref": "#/$defs/deltas"
     },
@@ -138,6 +140,24 @@
         "risk_score_trend": {"$ref": "#/$defs/deltaMetric"},
         "profile_compliance_delta": {"$ref": "#/$defs/deltaMetric"},
         "posture_score_trend_delta": {"$ref": "#/$defs/deltaMetric"}
+      }
+    },
+    "privilegeBudget": {
+      "type": "object",
+      "required": ["total_tools", "write_capable_tools", "credential_access_tools", "exec_capable_tools", "production_write"],
+      "properties": {
+        "total_tools": {"type": "integer"},
+        "write_capable_tools": {"type": "integer"},
+        "credential_access_tools": {"type": "integer"},
+        "exec_capable_tools": {"type": "integer"},
+        "production_write": {
+          "type": "object",
+          "required": ["configured", "count"],
+          "properties": {
+            "configured": {"type": "boolean"},
+            "count": {"type": "integer"}
+          }
+        }
       }
     },
     "deltaMetric": {

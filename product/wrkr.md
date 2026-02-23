@@ -401,6 +401,7 @@ Alex heard about Wrkr on Reddit or at a meetup. Runs `wrkr scan` on a Friday aft
 - `wrkr scan --enrich` — enable live advisory/registry lookups for MCP supply chain scoring (non-deterministic, requires network). Combinable with any target mode.
 - `wrkr scan --policy <path>` — evaluate custom policy rules in addition to built-in deterministic policy pack
 - `wrkr scan --profile [baseline|standard|strict]` — evaluate posture compliance profile and report pass rate + failing rules
+- `wrkr scan --production-targets <path>` — apply deterministic production target rules and emit a privilege budget (`write_capable_tools`, `credential_access_tools`, `exec_capable_tools`, `production_write.count`) plus per-agent privilege map
 - `wrkr scan --diff` — incremental, shows changes since last scan for the selected target. Previous scan state is stored in `.wrkr/last-scan.json` locally. In CI, the previous scan can be loaded from a committed proof chain artifact or a cache key. Comparison is keyed on `(tool_type, location, org)` tuples.
 - `wrkr report` — render risk report to terminal (default) or PDF
 - `wrkr score` — compute posture score (0-100), grade (`A`-`F`), weighted breakdown, and trend delta from latest scan state
