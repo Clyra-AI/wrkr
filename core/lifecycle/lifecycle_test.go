@@ -120,7 +120,10 @@ func TestApplyManualStateNonApprovedStatesAlwaysRevokeApprovalStatus(t *testing.
 		t.Run(stateName, func(t *testing.T) {
 			t.Parallel()
 
-			next, transition, err := ApplyManualState(baseManifest, "wrkr:mcp-1:acme", stateName, "", "", "", time.Time{}, now)
+			// Clone manifest identities so parallel subtests do not share slice backing storage.
+			testManifest := baseManifest
+			testManifest.Identities = append([]manifest.IdentityRecord(nil), baseManifest.Identities...)
+			next, transition, err := ApplyManualState(testManifest, "wrkr:mcp-1:acme", stateName, "", "", "", time.Time{}, now)
 			if err != nil {
 				t.Fatalf("apply manual state: %v", err)
 			}
