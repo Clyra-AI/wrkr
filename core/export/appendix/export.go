@@ -363,13 +363,17 @@ func writeRegulatoryCSV(dir string, rows []RegulatoryMatrixRow) (string, error) 
 	return path, writeCSV(path, records)
 }
 
-func writeCSV(path string, records [][]string) error {
+func writeCSV(path string, records [][]string) (err error) {
 	// #nosec G304 -- path is constrained to a validated csv output directory and fixed filenames.
 	file, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("create csv %s: %w", path, err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close csv %s: %w", path, closeErr)
+		}
+	}()
 
 	writer := csv.NewWriter(file)
 	if err := writer.WriteAll(records); err != nil {
