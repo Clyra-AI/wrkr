@@ -662,6 +662,31 @@ func TestScanProductionTargetsStrictWithoutPathFails(t *testing.T) {
 	}
 }
 
+func TestScanProductionTargetsStrictWithoutPathPrecedesDependencyChecks(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--repo", "acme/payments", "--production-targets-strict", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected strict mode exit 6 without production targets path, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on strict-mode input error, got %q", out.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse strict-mode error payload: %v", err)
+	}
+	errorObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %v", payload)
+	}
+	if errorObj["code"] != "invalid_input" {
+		t.Fatalf("expected invalid_input code, got %v", errorObj["code"])
+	}
+}
+
 func TestReportExportScoreCommands(t *testing.T) {
 	t.Parallel()
 
