@@ -1,0 +1,26 @@
+schema_version: v1
+targets:
+  repos:
+    exact:
+      - acme/payments-service
+  mcp_servers:
+    exact:
+      - postgres-prod
+      - redis-prod
+  hosts:
+    exact:
+      - prod-db.acme.internal
+      - api.prod.acme.com
+  workflow_env_keys:
+    exact:
+      - PRODUCTION
+      - DEPLOY_ENV
+  workflow_env_values:
+    exact:
+      - prod
+      - production
+write_permissions:
+  - filesystem.write
+  - db.write
+  - deploy.write
+  - infra.write

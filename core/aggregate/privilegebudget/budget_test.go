@@ -72,8 +72,11 @@ func TestBuildComputesPrivilegeBudgetAndPerAgentMap(t *testing.T) {
 	if !budget.ProductionWrite.Configured {
 		t.Fatal("expected production_write.configured=true")
 	}
-	if budget.ProductionWrite.Count != 1 {
-		t.Fatalf("expected production_write.count=1 got %d", budget.ProductionWrite.Count)
+	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusConfigured {
+		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusConfigured, budget.ProductionWrite.Status)
+	}
+	if budget.ProductionWrite.Count == nil || *budget.ProductionWrite.Count != 1 {
+		t.Fatalf("expected production_write.count=1 got %v", budget.ProductionWrite.Count)
 	}
 	if len(entries) != 2 {
 		t.Fatalf("expected 2 agent map entries, got %d", len(entries))
@@ -102,8 +105,11 @@ func TestBuildWithoutRulesLeavesProductionWriteUnconfigured(t *testing.T) {
 	if budget.ProductionWrite.Configured {
 		t.Fatal("expected production_write.configured=false when no rules provided")
 	}
-	if budget.ProductionWrite.Count != 0 {
-		t.Fatalf("expected zero production count, got %d", budget.ProductionWrite.Count)
+	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusNotConfigured {
+		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusNotConfigured, budget.ProductionWrite.Status)
+	}
+	if budget.ProductionWrite.Count != nil {
+		t.Fatalf("expected nil production count when not configured, got %v", *budget.ProductionWrite.Count)
 	}
 	if len(entries) != 0 {
 		t.Fatalf("expected no entries, got %d", len(entries))

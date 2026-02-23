@@ -526,6 +526,9 @@ func TestScanIncludesPrivilegeBudgetAndAgentMap(t *testing.T) {
 	if productionWrite["configured"] != true {
 		t.Fatalf("expected production_write.configured=true, got %v", productionWrite["configured"])
 	}
+	if productionWrite["status"] != "configured" {
+		t.Fatalf("expected production_write.status=configured, got %v", productionWrite["status"])
+	}
 	if count, ok := productionWrite["count"].(float64); !ok || count < 1 {
 		t.Fatalf("expected production_write.count >= 1, got %v", productionWrite["count"])
 	}
@@ -542,6 +545,83 @@ func TestScanIncludesPrivilegeBudgetAndAgentMap(t *testing.T) {
 		if _, present := first[key]; !present {
 			t.Fatalf("agent privilege entry missing %s: %v", key, first)
 		}
+	}
+}
+
+func TestScanProductionTargetsMissingNonStrictEmitsWarningAndNullCount(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "payments-prod")
+	if err := os.MkdirAll(filepath.Join(repoPath, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	codexCfg := []byte("sandbox_mode = \"danger-full-access\"\napproval_policy = \"never\"\nnetwork_access = true\n")
+	if err := os.WriteFile(filepath.Join(repoPath, ".codex", "config.toml"), codexCfg, 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	missingTargetsPath := filepath.Join(tmp, "missing-targets.yaml")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--production-targets", missingTargetsPath, "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected scan success in non-strict mode, got %d: %s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan output: %v", err)
+	}
+	warnings, ok := payload["policy_warnings"].([]any)
+	if !ok || len(warnings) == 0 {
+		t.Fatalf("expected policy_warnings in payload, got %v", payload["policy_warnings"])
+	}
+	budget, ok := payload["privilege_budget"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected privilege_budget object in payload: %v", payload)
+	}
+	productionWrite, ok := budget["production_write"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected production_write object in budget: %v", budget)
+	}
+	if productionWrite["configured"] != false {
+		t.Fatalf("expected production_write.configured=false, got %v", productionWrite["configured"])
+	}
+	if productionWrite["status"] != "invalid" {
+		t.Fatalf("expected production_write.status=invalid, got %v", productionWrite["status"])
+	}
+	if productionWrite["count"] != nil {
+		t.Fatalf("expected production_write.count=null, got %v", productionWrite["count"])
+	}
+}
+
+func TestScanProductionTargetsMissingStrictFails(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "payments-prod")
+	if err := os.MkdirAll(filepath.Join(repoPath, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	codexCfg := []byte("sandbox_mode = \"danger-full-access\"\napproval_policy = \"never\"\nnetwork_access = true\n")
+	if err := os.WriteFile(filepath.Join(repoPath, ".codex", "config.toml"), codexCfg, 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	missingTargetsPath := filepath.Join(tmp, "missing-targets.yaml")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--production-targets", missingTargetsPath, "--production-targets-strict", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected strict mode exit 6 for missing production targets, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on strict-mode input error, got %q", out.String())
 	}
 }
 
