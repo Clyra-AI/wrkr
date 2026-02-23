@@ -1,6 +1,8 @@
 package privilegebudget
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -113,5 +115,87 @@ func TestBuildWithoutRulesLeavesProductionWriteUnconfigured(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("expected no entries, got %d", len(entries))
+	}
+}
+
+func TestBuildKeepsRequiredArrayFieldsAsArrays(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{
+		{
+			ToolID:      "tool-1",
+			AgentID:     "wrkr:tool-1:acme",
+			ToolType:    "mcp",
+			Org:         "acme",
+			Permissions: nil,
+			Repos:       nil,
+		},
+	}
+	_, entries := Build(tools, nil, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one entry, got %d", len(entries))
+	}
+	if entries[0].Permissions == nil {
+		t.Fatal("expected permissions to be empty array, got nil")
+	}
+	if entries[0].Repos == nil {
+		t.Fatal("expected repos to be empty array, got nil")
+	}
+	encoded, err := json.Marshal(entries[0])
+	if err != nil {
+		t.Fatalf("marshal entry: %v", err)
+	}
+	asJSON := string(encoded)
+	if !strings.Contains(asJSON, "\"permissions\":[]") {
+		t.Fatalf("expected permissions to serialize as [], got %s", asJSON)
+	}
+	if !strings.Contains(asJSON, "\"repos\":[]") {
+		t.Fatalf("expected repos to serialize as [], got %s", asJSON)
+	}
+}
+
+func TestBuildPreservesMixedCaseOrgSignalAgentMatch(t *testing.T) {
+	t.Parallel()
+
+	mcpToolID := identity.ToolID("mcp", ".mcp.json")
+	mixedCaseOrg := "Acme"
+	mcpAgentID := identity.AgentID(mcpToolID, mixedCaseOrg)
+
+	tools := []agginventory.Tool{
+		{
+			ToolID:      mcpToolID,
+			AgentID:     mcpAgentID,
+			ToolType:    "mcp",
+			Org:         mixedCaseOrg,
+			Repos:       []string{"acme/shared"},
+			Permissions: []string{"db.write"},
+		},
+	}
+	findings := []model.Finding{
+		{
+			ToolType: "mcp",
+			Location: ".mcp.json",
+			Org:      mixedCaseOrg,
+			Repo:     "acme/shared",
+			Evidence: []model.Evidence{
+				{Key: "server", Value: "postgres-prod"},
+			},
+		},
+	}
+	rules := &productiontargets.Config{
+		SchemaVersion: "v1",
+		Targets: productiontargets.Targets{
+			MCPServers: productiontargets.MatchSet{Exact: []string{"postgres-prod"}},
+		},
+		WritePermissions: []string{"db.write"},
+	}
+	rules.Normalize()
+
+	budget, entries := Build(tools, findings, rules)
+	if budget.ProductionWrite.Count == nil || *budget.ProductionWrite.Count != 1 {
+		t.Fatalf("expected production write count=1, got %v", budget.ProductionWrite.Count)
+	}
+	if len(entries) != 1 || !entries[0].ProductionWrite {
+		t.Fatalf("expected entry production_write=true, got %+v", entries)
 	}
 }

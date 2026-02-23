@@ -185,7 +185,17 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	var productionTargets *productiontargets.Config
 	productionTargetWarnings := []string{}
 	productionWriteStatus := agginventory.ProductionTargetsStatusNotConfigured
-	if productionTargetsFile := strings.TrimSpace(*productionTargetsPath); productionTargetsFile != "" {
+	productionTargetsFile := strings.TrimSpace(*productionTargetsPath)
+	if *productionTargetsStrict && productionTargetsFile == "" {
+		return emitError(
+			stderr,
+			jsonRequested || *jsonOut,
+			"invalid_input",
+			"--production-targets-strict requires --production-targets <path>",
+			exitInvalidInput,
+		)
+	}
+	if productionTargetsFile != "" {
 		cfg, cfgErr := productiontargets.Load(productionTargetsFile)
 		if cfgErr != nil {
 			if *productionTargetsStrict {

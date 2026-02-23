@@ -625,6 +625,43 @@ func TestScanProductionTargetsMissingStrictFails(t *testing.T) {
 	}
 }
 
+func TestScanProductionTargetsStrictWithoutPathFails(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "payments-prod")
+	if err := os.MkdirAll(filepath.Join(repoPath, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	codexCfg := []byte("sandbox_mode = \"danger-full-access\"\napproval_policy = \"never\"\nnetwork_access = true\n")
+	if err := os.WriteFile(filepath.Join(repoPath, ".codex", "config.toml"), codexCfg, 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--production-targets-strict", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected strict mode exit 6 without production targets path, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on strict-mode input error, got %q", out.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse strict-mode error payload: %v", err)
+	}
+	errorObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %v", payload)
+	}
+	if errorObj["code"] != "invalid_input" {
+		t.Fatalf("expected invalid_input code, got %v", errorObj["code"])
+	}
+}
+
 func TestReportExportScoreCommands(t *testing.T) {
 	t.Parallel()
 
