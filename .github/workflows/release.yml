@@ -86,15 +86,6 @@ jobs:
           mkdir -p .tmp/release
           make test-release-smoke | tee .tmp/release/uat-prepublish-smoke.log
 
-      - name: Upload release UAT logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-uat-local-logs
-          path: |
-            .tmp/release/uat-prepublish-smoke.log
-            .tmp/release/uat-published-install-paths.log
-
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -139,6 +130,15 @@ jobs:
             fi
             sleep "$((attempt * 20))"
           done
+
+      - name: Upload release UAT logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-uat-local-logs
+          path: |
+            .tmp/release/uat-prepublish-smoke.log
+            .tmp/release/uat-published-install-paths.log
 
       - name: Verify checksums
         run: (cd dist && sha256sum -c checksums.txt)
