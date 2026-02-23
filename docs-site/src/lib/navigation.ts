@@ -16,6 +16,13 @@ export const navigation: NavItem[] = [
     ],
   },
   {
+    title: 'Audit Readiness',
+    href: '/docs/compliance/eu_ai_act_audit_readiness',
+    children: [
+      { title: 'EU AI Act Prep (Auditor Checklist)', href: '/docs/compliance/eu_ai_act_audit_readiness' },
+    ],
+  },
+  {
     title: 'Intent Guides',
     href: '/docs/intent/scan-org-repos-for-ai-agents-configs',
     children: [
