@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -176,6 +177,50 @@ func TestBuildSummaryHonorsExplicitTopZero(t *testing.T) {
 	}
 	if len(summary.TopRisks) != 0 {
 		t.Fatalf("expected zero top risks for explicit top=0, got %d", len(summary.TopRisks))
+	}
+}
+
+func TestPrivilegeBudgetFromInventoryBackfillsMissingStatus(t *testing.T) {
+	t.Parallel()
+
+	inv := &agginventory.Inventory{
+		PrivilegeBudget: agginventory.PrivilegeBudget{
+			TotalTools: 3,
+			ProductionWrite: agginventory.ProductionWriteBudget{
+				Configured: false,
+				Status:     "",
+				Count:      nil,
+			},
+		},
+	}
+	got := privilegeBudgetFromInventory(inv)
+	if got.ProductionWrite.Status != agginventory.ProductionTargetsStatusNotConfigured {
+		t.Fatalf("expected status backfilled to %q, got %q", agginventory.ProductionTargetsStatusNotConfigured, got.ProductionWrite.Status)
+	}
+	if got.ProductionWrite.Count != nil {
+		t.Fatalf("expected not-configured production count to be nil, got %v", got.ProductionWrite.Count)
+	}
+}
+
+func TestPrivilegeBudgetFromInventoryConfiguredBackfillsMissingCount(t *testing.T) {
+	t.Parallel()
+
+	inv := &agginventory.Inventory{
+		PrivilegeBudget: agginventory.PrivilegeBudget{
+			TotalTools: 1,
+			ProductionWrite: agginventory.ProductionWriteBudget{
+				Configured: true,
+				Status:     "",
+				Count:      nil,
+			},
+		},
+	}
+	got := privilegeBudgetFromInventory(inv)
+	if got.ProductionWrite.Status != agginventory.ProductionTargetsStatusConfigured {
+		t.Fatalf("expected status backfilled to %q, got %q", agginventory.ProductionTargetsStatusConfigured, got.ProductionWrite.Status)
+	}
+	if got.ProductionWrite.Count == nil || *got.ProductionWrite.Count != 0 {
+		t.Fatalf("expected configured production count to default to 0, got %v", got.ProductionWrite.Count)
 	}
 }
 

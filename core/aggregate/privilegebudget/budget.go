@@ -76,8 +76,8 @@ func Build(
 			ToolID:                   tool.ToolID,
 			ToolType:                 tool.ToolType,
 			Org:                      tool.Org,
-			Repos:                    append([]string(nil), tool.Repos...),
-			Permissions:              append([]string(nil), tool.Permissions...),
+			Repos:                    cloneStringSlice(tool.Repos),
+			Permissions:              cloneStringSlice(tool.Permissions),
 			EndpointClass:            tool.EndpointClass,
 			DataClass:                tool.DataClass,
 			AutonomyLevel:            tool.AutonomyLevel,
@@ -272,9 +272,18 @@ func normalizeToken(in string) string {
 }
 
 func fallbackOrg(org string) string {
-	normalized := normalizeToken(org)
-	if normalized == "" {
+	trimmed := strings.TrimSpace(org)
+	if trimmed == "" {
 		return "local"
 	}
-	return normalized
+	return trimmed
+}
+
+func cloneStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	out := make([]string, 0, len(values))
+	out = append(out, values...)
+	return out
 }

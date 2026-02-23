@@ -101,15 +101,39 @@ func BuildSummary(in BuildInput) (Summary, error) {
 
 func privilegeBudgetFromInventory(inv *agginventory.Inventory) agginventory.PrivilegeBudget {
 	if inv == nil {
-		return agginventory.PrivilegeBudget{
+		return normalizePrivilegeBudget(agginventory.PrivilegeBudget{
 			ProductionWrite: agginventory.ProductionWriteBudget{
 				Configured: false,
 				Status:     agginventory.ProductionTargetsStatusNotConfigured,
 				Count:      nil,
 			},
+		})
+	}
+	return normalizePrivilegeBudget(inv.PrivilegeBudget)
+}
+
+func normalizePrivilegeBudget(in agginventory.PrivilegeBudget) agginventory.PrivilegeBudget {
+	status := strings.TrimSpace(in.ProductionWrite.Status)
+	switch status {
+	case agginventory.ProductionTargetsStatusConfigured, agginventory.ProductionTargetsStatusNotConfigured, agginventory.ProductionTargetsStatusInvalid:
+		// Keep explicit status.
+	default:
+		if in.ProductionWrite.Configured {
+			status = agginventory.ProductionTargetsStatusConfigured
+		} else {
+			status = agginventory.ProductionTargetsStatusNotConfigured
 		}
 	}
-	return inv.PrivilegeBudget
+	in.ProductionWrite.Status = status
+	in.ProductionWrite.Configured = status == agginventory.ProductionTargetsStatusConfigured
+	if !in.ProductionWrite.Configured {
+		in.ProductionWrite.Count = nil
+	}
+	if in.ProductionWrite.Configured && in.ProductionWrite.Count == nil {
+		zero := 0
+		in.ProductionWrite.Count = &zero
+	}
+	return in
 }
 
 func SelectTopFindings(report risk.Report, requested int) []risk.ScoredFinding {
