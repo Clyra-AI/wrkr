@@ -9,6 +9,7 @@ export const navigation: NavItem[] = [
     title: 'Start Here',
     href: '/docs',
     children: [
+      { title: 'Start Here (Install)', href: '/docs/start-here' },
       { title: 'Adopt In One PR', href: '/docs/adopt_in_one_pr' },
       { title: 'Quickstart', href: '/docs/examples/quickstart' },
       { title: 'Integration Checklist', href: '/docs/integration_checklist' },

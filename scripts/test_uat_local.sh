@@ -4,6 +4,7 @@ set -euo pipefail
 skip_global_gates="false"
 release_version="${WRKR_UAT_RELEASE_VERSION:-}"
 brew_formula="${WRKR_UAT_BREW_FORMULA:-}"
+go_install_module="github.com/Clyra-AI/wrkr/cmd/wrkr"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -86,6 +87,25 @@ run_docs_subset_smoke() {
   WRKR_BIN="$bin_path" scripts/run_docs_smoke.sh --subset >"$tmp_dir/${label}-docs-smoke.log"
 }
 
+run_go_install_smoke() {
+  local label="$1"
+  local install_target="$2"
+  local install_bin_dir="$tmp_dir/${label}-gobin"
+  local install_bin="$install_bin_dir/wrkr"
+
+  rm -rf "$install_bin_dir"
+  mkdir -p "$install_bin_dir"
+  GOBIN="$install_bin_dir" go install "$install_target"
+
+  if [[ ! -x "$install_bin" ]]; then
+    echo "go install did not produce wrkr binary for ${label}: ${install_target}" >&2
+    exit 7
+  fi
+
+  run_json_smoke "$label" "$install_bin"
+  run_docs_subset_smoke "$label" "$install_bin"
+}
+
 if [[ "$skip_global_gates" != "true" ]]; then
   make lint-fast
   go test ./... -count=1
@@ -102,6 +122,7 @@ source_bin="$tmp_dir/wrkr-source"
 go build -o "$source_bin" ./cmd/wrkr
 run_json_smoke "source" "$source_bin"
 run_docs_subset_smoke "source" "$source_bin"
+run_go_install_smoke "go-install-local" "./cmd/wrkr"
 
 os_name="$(uname -s)"
 case "$os_name" in
@@ -147,6 +168,11 @@ else
   mkdir -p "$archive_stage"
   cp "$source_bin" "$archive_stage/wrkr"
   tar -C "$archive_stage" -czf "$release_archive" wrkr
+fi
+
+if [[ -n "${release_tag:-}" ]]; then
+  # This mirrors the README/docs install command pinned to a concrete release tag.
+  run_go_install_smoke "go-install-release-tag" "${go_install_module}@${release_tag}"
 fi
 
 release_extract_dir="$tmp_dir/release-extract"
