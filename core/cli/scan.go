@@ -76,6 +76,16 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
 		return code
 	}
+	productionTargetsFile := strings.TrimSpace(*productionTargetsPath)
+	if *productionTargetsStrict && productionTargetsFile == "" {
+		return emitError(
+			stderr,
+			jsonRequested || *jsonOut,
+			"invalid_input",
+			"--production-targets-strict requires --production-targets <path>",
+			exitInvalidInput,
+		)
+	}
 
 	targetMode, targetValue, cfg, err := resolveScanTarget(*repo, *orgTarget, *pathTarget, *configPathFlag)
 	if err != nil {
@@ -185,16 +195,6 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	var productionTargets *productiontargets.Config
 	productionTargetWarnings := []string{}
 	productionWriteStatus := agginventory.ProductionTargetsStatusNotConfigured
-	productionTargetsFile := strings.TrimSpace(*productionTargetsPath)
-	if *productionTargetsStrict && productionTargetsFile == "" {
-		return emitError(
-			stderr,
-			jsonRequested || *jsonOut,
-			"invalid_input",
-			"--production-targets-strict requires --production-targets <path>",
-			exitInvalidInput,
-		)
-	}
 	if productionTargetsFile != "" {
 		cfg, cfgErr := productiontargets.Load(productionTargetsFile)
 		if cfgErr != nil {
