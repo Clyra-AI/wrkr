@@ -63,6 +63,7 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	statePathFlag := fs.String("state", "", "state file path override")
 	policyPath := fs.String("policy", "", "optional custom policy rule file")
 	productionTargetsPath := fs.String("production-targets", "", "optional production target rules file")
+	productionTargetsStrict := fs.Bool("production-targets-strict", false, "fail scan when production target rules cannot be loaded")
 	profileName := fs.String("profile", "standard", "posture profile [baseline|standard|strict]")
 	githubBaseURL := fs.String("github-api", strings.TrimSpace(os.Getenv("WRKR_GITHUB_API_BASE")), "github api base url")
 	githubToken := fs.String("github-token", "", "github token override")
@@ -182,14 +183,29 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 		GeneratedAt:           now,
 	})
 	var productionTargets *productiontargets.Config
-	if strings.TrimSpace(*productionTargetsPath) != "" {
-		cfg, cfgErr := productiontargets.Load(strings.TrimSpace(*productionTargetsPath))
+	productionTargetWarnings := []string{}
+	productionWriteStatus := agginventory.ProductionTargetsStatusNotConfigured
+	if productionTargetsFile := strings.TrimSpace(*productionTargetsPath); productionTargetsFile != "" {
+		cfg, cfgErr := productiontargets.Load(productionTargetsFile)
 		if cfgErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", cfgErr.Error(), exitInvalidInput)
+			if *productionTargetsStrict {
+				return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", cfgErr.Error(), exitInvalidInput)
+			}
+			productionWriteStatus = agginventory.ProductionTargetsStatusInvalid
+			productionTargetWarnings = append(productionTargetWarnings, fmt.Sprintf("production targets not applied: %v", cfgErr))
+		} else if cfg.HasTargets() {
+			productionTargets = &cfg
+			productionWriteStatus = agginventory.ProductionTargetsStatusConfigured
+		} else {
+			productionTargetWarnings = append(productionTargetWarnings, fmt.Sprintf("production targets file %s has no configured targets; production_write budget is not configured", productionTargetsFile))
 		}
-		productionTargets = &cfg
 	}
 	inventoryOut.PrivilegeBudget, inventoryOut.AgentPrivilegeMap = privilegebudget.Build(inventoryOut.Tools, findings, productionTargets)
+	inventoryOut.PrivilegeBudget.ProductionWrite.Status = productionWriteStatus
+	inventoryOut.PrivilegeBudget.ProductionWrite.Configured = productionWriteStatus == agginventory.ProductionTargetsStatusConfigured
+	if !inventoryOut.PrivilegeBudget.ProductionWrite.Configured {
+		inventoryOut.PrivilegeBudget.ProductionWrite.Count = nil
+	}
 
 	profileDef, profileErr := profilemodel.Builtin(*profileName)
 	if profileErr != nil {
@@ -247,6 +263,9 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 		"target":          manifestOut.Target,
 		"source_manifest": manifestOut,
 	}
+	if len(productionTargetWarnings) > 0 {
+		payload["policy_warnings"] = append([]string(nil), productionTargetWarnings...)
+	}
 	scanReportPath := ""
 
 	if *diffMode {
@@ -302,6 +321,11 @@ func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(payload)
 		return exitSuccess
+	}
+	if !*quiet {
+		for _, warning := range productionTargetWarnings {
+			_, _ = fmt.Fprintf(stderr, "warning: %s\n", warning)
+		}
 	}
 	if *quiet {
 		return exitSuccess

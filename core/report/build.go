@@ -67,9 +67,10 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		riskItems = sanitizeRiskItemsPublic(riskItems)
 	}
 
+	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
 	nextActions := buildNextActions(riskItems, lifecycleSummary, regressSummary)
 	pack := templatespkg.Resolve(string(template))
-	sections := buildSections(pack, headline, riskItems, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
+	sections := buildSections(pack, headline, riskItems, privilegeBudget, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
 
 	summary := Summary{
 		SummaryVersion: SummaryVersion,
@@ -87,7 +88,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		Sections:        sections,
 		Headline:        headline,
 		TopRisks:        riskItems,
-		PrivilegeBudget: privilegeBudgetFromInventory(in.Snapshot.Inventory),
+		PrivilegeBudget: privilegeBudget,
 		Deltas:          deltas,
 		Lifecycle:       lifecycleSummary,
 		RegressDrift:    regressSummary,
@@ -103,7 +104,8 @@ func privilegeBudgetFromInventory(inv *agginventory.Inventory) agginventory.Priv
 		return agginventory.PrivilegeBudget{
 			ProductionWrite: agginventory.ProductionWriteBudget{
 				Configured: false,
-				Count:      0,
+				Status:     agginventory.ProductionTargetsStatusNotConfigured,
+				Count:      nil,
 			},
 		}
 	}
@@ -460,6 +462,7 @@ func buildSections(
 	pack templatespkg.Pack,
 	headline Headline,
 	risks []RiskItem,
+	privilegeBudget agginventory.PrivilegeBudget,
 	deltas DeltaSummary,
 	lifecycleSummary LifecycleSummary,
 	regressSummary *RegressSummary,
@@ -510,7 +513,13 @@ func buildSections(
 	headlineFacts := []string{
 		fmt.Sprintf("posture score %.2f (%s)", headline.Score, headline.Grade),
 		fmt.Sprintf("profile status %s at %.2f%%", headline.ComplianceStatus, headline.Compliance),
+		fmt.Sprintf("tools=%d write_capable=%d credential_access=%d exec_capable=%d", privilegeBudget.TotalTools, privilegeBudget.WriteCapableTools, privilegeBudget.CredentialAccessTools, privilegeBudget.ExecCapableTools),
 		"profile compliance reflects controls evidenced in the current deterministic scan state",
+	}
+	if privilegeBudget.ProductionWrite.Configured && privilegeBudget.ProductionWrite.Count != nil {
+		headlineFacts = append(headlineFacts, fmt.Sprintf("production_write=%d (status=%s)", *privilegeBudget.ProductionWrite.Count, privilegeBudget.ProductionWrite.Status))
+	} else {
+		headlineFacts = append(headlineFacts, fmt.Sprintf("production_write not configured (status=%s)", privilegeBudget.ProductionWrite.Status))
 	}
 
 	return []Section{

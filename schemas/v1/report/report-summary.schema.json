@@ -152,10 +152,11 @@
         "exec_capable_tools": {"type": "integer"},
         "production_write": {
           "type": "object",
-          "required": ["configured", "count"],
+          "required": ["configured", "status", "count"],
           "properties": {
             "configured": {"type": "boolean"},
-            "count": {"type": "integer"}
+            "status": {"type": "string", "enum": ["configured", "not_configured", "invalid"]},
+            "count": {"type": ["integer", "null"]}
           }
         }
       }

@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --path <dir>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--production-targets <path>] [--profile baseline|standard|strict] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--json] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --path <dir>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--json] [--quiet] [--explain]
 ```
 
 Exactly one target source is required: `--repo`, `--org`, or `--path`.
@@ -29,6 +29,7 @@ Acquisition behavior is fail-closed by target:
 - `--state`
 - `--policy`
 - `--production-targets`
+- `--production-targets-strict`
 - `--profile`
 - `--github-api`
 - `--github-token`
@@ -49,6 +50,15 @@ wrkr scan --org acme --github-api https://api.github.com --json
 ```
 
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, and optional `report` when summary output is requested.
+When production target policy loading is non-fatal (`--production-targets` without `--production-targets-strict`), output may include `policy_warnings`.
+
+Production target policy files are YAML and schema-validated (`schemas/v1/policy/production-targets.schema.json`), with exact/prefix matching only. Example: [`docs/examples/production-targets.v1.yaml`](../examples/production-targets.v1.yaml).
+
+Production write rule:
+
+```text
+production_write = has_any(write_permissions) AND matches_any_production_target
+```
 
 Every discovered entity now emits `discovery_method: static` in both `findings` and `inventory.tools` for deterministic v1 schema compatibility.
 

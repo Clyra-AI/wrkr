@@ -1,15 +1,30 @@
 package productiontargets
 
 import (
+	"bytes"
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 
+	"github.com/santhosh-tekuri/jsonschema/v5"
 	"gopkg.in/yaml.v3"
 )
 
 const SchemaVersionV1 = "v1"
+const schemaURL = "https://wrkr.dev/schemas/v1/policy/production-targets.schema.json"
+
+//go:embed schema/production-targets.schema.json
+var productionTargetsSchemaJSON []byte
+
+var (
+	compiledSchema     *jsonschema.Schema
+	compiledSchemaErr  error
+	compiledSchemaOnce sync.Once
+)
 
 var defaultWritePermissions = []string{
 	"db.write",
@@ -47,8 +62,13 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("read production targets %s: %w", path, err)
 	}
+	if err := validateSchema(payload, path); err != nil {
+		return Config{}, err
+	}
 	var cfg Config
-	if err := yaml.Unmarshal(payload, &cfg); err != nil {
+	decoder := yaml.NewDecoder(bytes.NewReader(payload))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&cfg); err != nil {
 		return Config{}, fmt.Errorf("parse production targets %s: %w", path, err)
 	}
 	cfg.Normalize()
@@ -138,4 +158,86 @@ func normalizeStrings(in []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func validateSchema(payload []byte, path string) error {
+	raw := any(nil)
+	if err := yaml.Unmarshal(payload, &raw); err != nil {
+		return fmt.Errorf("parse production targets %s: %w", path, err)
+	}
+	normalized, err := normalizeYAML(raw)
+	if err != nil {
+		return fmt.Errorf("normalize production targets %s: %w", path, err)
+	}
+	jsonPayload, err := json.Marshal(normalized)
+	if err != nil {
+		return fmt.Errorf("marshal production targets %s: %w", path, err)
+	}
+	var doc any
+	if err := json.Unmarshal(jsonPayload, &doc); err != nil {
+		return fmt.Errorf("decode production targets json %s: %w", path, err)
+	}
+	schema, err := getCompiledSchema()
+	if err != nil {
+		return fmt.Errorf("compile production target schema: %w", err)
+	}
+	if err := schema.Validate(doc); err != nil {
+		return fmt.Errorf("validate production targets %s: %w", path, err)
+	}
+	return nil
+}
+
+func getCompiledSchema() (*jsonschema.Schema, error) {
+	compiledSchemaOnce.Do(func() {
+		compiler := jsonschema.NewCompiler()
+		if err := compiler.AddResource(schemaURL, bytes.NewReader(productionTargetsSchemaJSON)); err != nil {
+			compiledSchemaErr = err
+			return
+		}
+		compiledSchema, compiledSchemaErr = compiler.Compile(schemaURL)
+	})
+	return compiledSchema, compiledSchemaErr
+}
+
+func normalizeYAML(in any) (any, error) {
+	switch value := in.(type) {
+	case nil, string, bool, int, int8, int16, int32, int64, float32, float64:
+		return value, nil
+	case map[string]any:
+		out := make(map[string]any, len(value))
+		for k, item := range value {
+			normalized, err := normalizeYAML(item)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = normalized
+		}
+		return out, nil
+	case map[any]any:
+		out := make(map[string]any, len(value))
+		for k, item := range value {
+			key, ok := k.(string)
+			if !ok {
+				return nil, fmt.Errorf("non-string key %T", k)
+			}
+			normalized, err := normalizeYAML(item)
+			if err != nil {
+				return nil, err
+			}
+			out[key] = normalized
+		}
+		return out, nil
+	case []any:
+		out := make([]any, 0, len(value))
+		for _, item := range value {
+			normalized, err := normalizeYAML(item)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, normalized)
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("unsupported YAML value type %T", value)
+	}
 }

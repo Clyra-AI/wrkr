@@ -35,8 +35,14 @@ func Build(
 		TotalTools: len(tools),
 		ProductionWrite: agginventory.ProductionWriteBudget{
 			Configured: productionConfigured,
-			Count:      0,
+			Status:     agginventory.ProductionTargetsStatusNotConfigured,
+			Count:      nil,
 		},
+	}
+	if productionConfigured {
+		zero := 0
+		budget.ProductionWrite.Status = agginventory.ProductionTargetsStatusConfigured
+		budget.ProductionWrite.Count = &zero
 	}
 
 	entries := make([]agginventory.AgentPrivilegeMapEntry, 0, len(tools))
@@ -60,8 +66,8 @@ func Build(
 			signal := signalsByAgent[tool.AgentID]
 			matchedTargets = matchedProductionTargets(tool, signal, *productionRules)
 			productionWrite = len(matchedTargets) > 0
-			if productionWrite {
-				budget.ProductionWrite.Count++
+			if productionWrite && budget.ProductionWrite.Count != nil {
+				*budget.ProductionWrite.Count = *budget.ProductionWrite.Count + 1
 			}
 		}
 

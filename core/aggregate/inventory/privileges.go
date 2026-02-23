@@ -1,8 +1,15 @@
 package inventory
 
+const (
+	ProductionTargetsStatusConfigured    = "configured"
+	ProductionTargetsStatusNotConfigured = "not_configured"
+	ProductionTargetsStatusInvalid       = "invalid"
+)
+
 type ProductionWriteBudget struct {
-	Configured bool `json:"configured" yaml:"configured"`
-	Count      int  `json:"count" yaml:"count"`
+	Configured bool   `json:"configured" yaml:"configured"`
+	Status     string `json:"status" yaml:"status"`
+	Count      *int   `json:"count" yaml:"count"`
 }
 
 type PrivilegeBudget struct {

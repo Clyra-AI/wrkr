@@ -189,7 +189,8 @@ func Build(input BuildInput) Inventory {
 			TotalTools: summary.TotalTools,
 			ProductionWrite: ProductionWriteBudget{
 				Configured: false,
-				Count:      0,
+				Status:     ProductionTargetsStatusNotConfigured,
+				Count:      nil,
 			},
 		},
 		AgentPrivilegeMap: []AgentPrivilegeMapEntry{},

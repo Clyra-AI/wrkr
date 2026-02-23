@@ -78,7 +78,7 @@ make build
 
 Expected JSON keys by command family:
 
-- `scan`: `target`, `findings`, `ranked_findings`, `inventory`, `profile`, `posture_score`
+- `scan`: `target`, `findings`, `ranked_findings`, `inventory`, `privilege_budget`, `agent_privilege_map`, `profile`, `posture_score` (optional: `policy_warnings`, `report`)
 - `report`: `top_findings`, `total_tools`, `compliance_gap_count`
 - `score`: `score`, `grade`, `weighted_breakdown`, `trend_delta`
 - `evidence`: `output_dir`, `manifest_path`, `chain_path`, `framework_coverage`
@@ -120,6 +120,37 @@ Acquisition behavior:
 - `--path`: local, offline, fully deterministic.
 - `--repo` and `--org`: require `--github-api` or `WRKR_GITHUB_API_BASE`; unavailable acquisition fails closed with exit `7`.
 - Invalid target combinations fail with exit `6`.
+
+## Production Target Policy
+
+Use `--production-targets <path>` to classify production-write exposure deterministically.
+
+```bash
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --production-targets ./docs/examples/production-targets.v1.yaml --json
+```
+
+Policy contract:
+
+- YAML file, schema-validated against `schemas/v1/policy/production-targets.schema.json`
+- Exact/prefix matching only (no free-form regex)
+- `production_write = has_any(write_permissions) AND matches_any_production_target`
+- Optional strict mode: `--production-targets-strict` returns non-zero when the policy file is missing/invalid
+
+Reference example: [`docs/examples/production-targets.v1.yaml`](docs/examples/production-targets.v1.yaml)
+
+## Human-Readable Reports
+
+Generate deterministic operator-ready markdown directly from scan:
+
+```bash
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
+```
+
+Render report artifacts from saved state:
+
+```bash
+wrkr report --state ./.tmp/state.json --md --md-path ./.tmp/wrkr-report.md --explain
+```
 
 ## CI Adoption (One PR)
 
