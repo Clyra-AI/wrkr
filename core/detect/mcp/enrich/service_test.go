@@ -170,6 +170,32 @@ func TestRegistryClientRejectsUnknownSchemaVersion(t *testing.T) {
 	}
 }
 
+func TestRegistryClient404PlainTextStillReturnsUnlisted(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/registry/v0/servers/") {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("not found"))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	registry := MCPRegistryClient{HTTPClient: server.Client(), BaseURL: server.URL + "/registry"}
+	result, err := registry.Lookup(context.Background(), "pkg")
+	if err != nil {
+		t.Fatalf("expected unlisted result, got err=%v", err)
+	}
+	if result.Status != "unlisted" {
+		t.Fatalf("expected unlisted status, got %s", result.Status)
+	}
+	if result.Schema != legacyRegistrySchema {
+		t.Fatalf("expected legacy schema fallback, got %s", result.Schema)
+	}
+}
+
 type mockAdvisoryProvider struct {
 	result AdvisoryResult
 	err    error

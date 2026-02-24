@@ -235,8 +235,10 @@ func hasLockfile(root string) bool {
 }
 
 func extractPackageVersion(server serverDef) (string, string) {
-	fields := []string{server.Command, server.URL}
-	fields = append(fields, server.Args...)
+	fields := append([]string{}, server.Args...)
+	fields = append(fields, server.Command, server.URL)
+	fallbackPkg := ""
+	fallbackVersion := ""
 	for _, field := range fields {
 		for _, match := range packageRE.FindAllStringSubmatch(field, -1) {
 			if len(match) < 2 {
@@ -247,13 +249,29 @@ func extractPackageVersion(server serverDef) (string, string) {
 			if len(match) > 2 {
 				version = strings.TrimSpace(match[2])
 			}
-			if pkg == "" {
+			if pkg == "" || strings.HasPrefix(pkg, "-") {
+				continue
+			}
+			if fallbackPkg == "" {
+				fallbackPkg = pkg
+				fallbackVersion = version
+			}
+			if isLauncherPackage(pkg) {
 				continue
 			}
 			return pkg, version
 		}
 	}
-	return "", ""
+	return fallbackPkg, fallbackVersion
+}
+
+func isLauncherPackage(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "npx", "pnpm", "yarn", "bunx", "node", "python", "python3", "pipx", "uv", "uvx":
+		return true
+	default:
+		return false
+	}
 }
 
 func fallbackValue(value string, fallback string) string {

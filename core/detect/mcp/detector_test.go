@@ -192,3 +192,15 @@ func TestDetectMCPEnrichDegradesToNoDataOnProviderFailure(t *testing.T) {
 		t.Fatalf("expected registry_status=unknown in fail-safe mode, got %s", evidence["registry_status"])
 	}
 }
+
+func TestExtractPackageVersionPrefersArgsOverLauncherCommand(t *testing.T) {
+	t.Parallel()
+
+	pkg, version := extractPackageVersion(serverDef{
+		Command: "npx",
+		Args:    []string{"-y", "@scope/server@1.2.3"},
+	})
+	if pkg != "@scope/server" || version != "1.2.3" {
+		t.Fatalf("expected scoped package from args, got pkg=%q version=%q", pkg, version)
+	}
+}

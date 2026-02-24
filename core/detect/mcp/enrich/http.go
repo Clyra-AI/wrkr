@@ -171,17 +171,20 @@ func (c MCPRegistryClient) Lookup(ctx context.Context, pkg string) (RegistryResu
 			continue
 		}
 		switch resp.StatusCode {
-		case http.StatusOK, http.StatusNotFound:
-			status := "listed"
-			if resp.StatusCode == http.StatusNotFound {
-				status = "unlisted"
-			}
+		case http.StatusOK:
 			schema, fresh, decodeErr := decodeRegistryResponse(responsePayload)
 			if decodeErr != nil {
 				lastErr = decodeErr
 				continue
 			}
-			return RegistryResult{Status: status, Source: endpoint, Schema: schema, Fresh: fresh}, nil
+			return RegistryResult{Status: "listed", Source: endpoint, Schema: schema, Fresh: fresh}, nil
+		case http.StatusNotFound:
+			// Treat 404 as authoritative unlisted even when body schema is unknown/plain-text.
+			schema, fresh, decodeErr := decodeRegistryResponse(responsePayload)
+			if decodeErr != nil {
+				return RegistryResult{Status: "unlisted", Source: endpoint, Schema: legacyRegistrySchema, Fresh: false}, nil
+			}
+			return RegistryResult{Status: "unlisted", Source: endpoint, Schema: schema, Fresh: fresh}, nil
 		default:
 			lastErr = fmt.Errorf("registry lookup status=%d", resp.StatusCode)
 		}
