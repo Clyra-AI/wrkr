@@ -29,6 +29,7 @@ export const navigation: NavItem[] = [
     children: [
       { title: 'Scan Org Repos', href: '/docs/intent/scan-org-repos-for-ai-agents-configs' },
       { title: 'Detect Headless Risk', href: '/docs/intent/detect-headless-agent-risk' },
+      { title: 'Detect Prompt + Attack Paths', href: '/docs/intent/detect-prompt-channel-and-attack-path-risk' },
       { title: 'Generate Evidence', href: '/docs/intent/generate-compliance-evidence-from-scans' },
       { title: 'Gate Regressions', href: '/docs/intent/gate-on-drift-and-regressions' },
     ],
@@ -41,6 +42,7 @@ export const navigation: NavItem[] = [
       { title: 'Architecture', href: '/docs/architecture' },
       { title: 'Mental Model', href: '/docs/concepts/mental_model' },
       { title: 'Policy Authoring', href: '/docs/policy_authoring' },
+      { title: 'Built-in Policy Rules', href: '/docs/policy_builtin_rules' },
       { title: 'Failure Taxonomy', href: '/docs/failure_taxonomy_exit_codes' },
       { title: 'Threat Model', href: '/docs/threat_model' },
     ],
@@ -51,6 +53,7 @@ export const navigation: NavItem[] = [
     children: [
       { title: 'Deterministic Guarantees', href: '/docs/trust/deterministic-guarantees' },
       { title: 'Coverage Matrix', href: '/docs/trust/detection-coverage-matrix' },
+      { title: 'MCP Enrich Quality', href: '/docs/trust/mcp-enrich-quality-model' },
       { title: 'Proof Verification', href: '/docs/trust/proof-chain-verification' },
       { title: 'Contracts and Schemas', href: '/docs/trust/contracts-and-schemas' },
       { title: 'Compatibility Matrix', href: '/docs/contracts/compatibility_matrix' },

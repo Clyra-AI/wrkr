@@ -29,6 +29,7 @@ This file defines where each topic lives so docs remain contract-aligned and non
 - Mental model: `docs/concepts/mental_model.md`
 - Failure taxonomy and exits: `docs/failure_taxonomy_exit_codes.md`
 - Policy authoring: `docs/policy_authoring.md`
+- Built-in policy rules: `docs/policy_builtin_rules.md`
 - Threat model: `docs/threat_model.md`
 
 ## Contracts and Trust
@@ -36,6 +37,7 @@ This file defines where each topic lives so docs remain contract-aligned and non
 - Manifest spec: `docs/specs/wrkr-manifest.md`
 - Compatibility matrix: `docs/contracts/compatibility_matrix.md`
 - Deterministic guarantees: `docs/trust/deterministic-guarantees.md`
+- MCP enrich quality model: `docs/trust/mcp-enrich-quality-model.md`
 - Proof verification: `docs/trust/proof-chain-verification.md`
 - Security and privacy posture: `docs/trust/security-and-privacy.md`
 
@@ -45,6 +47,7 @@ This file defines where each topic lives so docs remain contract-aligned and non
 - Integration checklist: `docs/integration_checklist.md`
 - Command quickstart: `docs/examples/quickstart.md`
 - Operator playbooks: `docs/examples/operator-playbooks.md`
+- Prompt-channel + attack-path runbook: `docs/intent/detect-prompt-channel-and-attack-path-risk.md`
 - Evidence templates: `docs/evidence_templates.md`
 
 ## Positioning and GTM

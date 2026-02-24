@@ -25,9 +25,13 @@ wrkr score --json
 
 Expected outputs:
 
-- `scan`: `findings`, `ranked_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`
-- `report`: `top_findings`, `total_tools`, `compliance_gap_count`
-- `score`: `score`, `grade`, `weighted_breakdown`, `trend_delta`
+- `scan`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`
+- `report`: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `summary`
+- `score`: `score`, `grade`, `breakdown`, `weighted_breakdown`, `weights`, `trend_delta` (optional: `attack_paths`, `top_attack_paths`)
+
+Optional enrich-mode note:
+
+- `scan --enrich` adds MCP evidence metadata (`source`, `as_of`, `advisory_count`, `registry_status`, `enrich_quality`, schema IDs, and adapter error classes).
 
 ## Evidence + verification
 
@@ -51,4 +55,4 @@ wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --json
 Expected outputs:
 
 - `regress init`: `baseline_path`, `tool_count`
-- `regress run`: deterministic drift status with stable reason fields
+- `regress run`: `status`, `drift_detected`, `reason_count`, `reasons`, `baseline_path` (when attack-path drift is critical, reasons include one `critical_attack_path_drift` summary with `attack_path_drift` details)

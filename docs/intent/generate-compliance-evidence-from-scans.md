@@ -21,8 +21,9 @@ wrkr verify --chain --state ./.tmp/state.json --json
 
 ## Expected JSON keys
 
-- `evidence`: `status`, `output_dir`, `manifest_path`, `chain_path`, `framework_coverage`
+- `evidence`: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`, `report_artifacts`
 - `verify`: `status`, `chain`
+- evidence artifact set includes deterministic `attack-paths.json` when scan state has attack-path scoring.
 
 ## Exit codes
 
@@ -37,7 +38,8 @@ wrkr verify --chain --state ./.tmp/state.json --json
   "status": "ok",
   "output_dir": "./.tmp/evidence",
   "manifest_path": "./.tmp/evidence/manifest.json",
-  "chain_path": "./.tmp/evidence/proof-chain.json"
+  "chain_path": "./.tmp/evidence/proof-chain.json",
+  "report_artifacts": ["./.tmp/evidence/reports/audit-summary.md"]
 }
 ```
 

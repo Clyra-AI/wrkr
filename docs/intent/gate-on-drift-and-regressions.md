@@ -22,7 +22,8 @@ wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.tmp/sta
 ## Expected JSON keys
 
 - `regress init`: `status`, `baseline_path`, `tool_count`
-- `regress run`: `status`, `drift_detected`, `reason_count`, `reasons`
+- `regress run`: `status`, `drift_detected`, `reason_count`, `reasons`, `baseline_path` (optional: `summary_md_path`)
+- `regress run.reasons[*]`: stable `code`, `message`, and when code is `critical_attack_path_drift`, nested `attack_path_drift` summary details (`added`, `removed`, `score_changed`, `drift_count`, `drift_ratio`, thresholds)
 
 ## Exit codes
 
@@ -34,10 +35,21 @@ wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.tmp/sta
 
 ```json
 {
-  "status": "ok",
-  "drift_detected": false,
-  "reason_count": 0,
-  "reasons": []
+  "status": "drift",
+  "drift_detected": true,
+  "reason_count": 1,
+  "reasons": [
+    {
+      "code": "critical_attack_path_drift",
+      "tool_id": "attack_paths",
+      "attack_path_drift": {
+        "drift_count": 4,
+        "added": [{"path_id": "path-x"}],
+        "removed": [{"path_id": "path-b"}],
+        "score_changed": [{"path_id": "path-a", "score_delta": 1.5}]
+      }
+    }
+  ]
 }
 ```
 

@@ -25,6 +25,7 @@ const tracks = [
     steps: [
       { label: 'Scan Org Repos', href: '/docs/intent/scan-org-repos-for-ai-agents-configs' },
       { label: 'Detect Headless Risk', href: '/docs/intent/detect-headless-agent-risk' },
+      { label: 'Detect Prompt + Attack Paths', href: '/docs/intent/detect-prompt-channel-and-attack-path-risk' },
       { label: 'Generate Evidence', href: '/docs/intent/generate-compliance-evidence-from-scans' },
       { label: 'Gate Regressions', href: '/docs/intent/gate-on-drift-and-regressions' },
     ],
@@ -35,6 +36,7 @@ const tracks = [
       { label: 'Architecture', href: '/docs/architecture' },
       { label: 'Mental Model', href: '/docs/concepts/mental_model' },
       { label: 'Policy Authoring', href: '/docs/policy_authoring' },
+      { label: 'Built-in Policy Rules', href: '/docs/policy_builtin_rules' },
       { label: 'Failure Taxonomy', href: '/docs/failure_taxonomy_exit_codes' },
       { label: 'Threat Model', href: '/docs/threat_model' },
     ],
@@ -58,6 +60,7 @@ const tracks = [
       { label: 'FAQ', href: '/docs/faq' },
       { label: 'Deterministic Guarantees', href: '/docs/trust/deterministic-guarantees' },
       { label: 'Coverage Matrix', href: '/docs/trust/detection-coverage-matrix' },
+      { label: 'MCP Enrich Quality', href: '/docs/trust/mcp-enrich-quality-model' },
       { label: 'Security and Privacy', href: '/docs/trust/security-and-privacy' },
       { label: 'Release Integrity', href: '/docs/trust/release-integrity' },
     ],

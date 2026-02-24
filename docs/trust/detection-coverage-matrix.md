@@ -8,24 +8,30 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 ## What Wrkr detects
 
 - Repository and org configuration surfaces for Claude, Cursor, Codex, Copilot, MCP, WebMCP, A2A, and CI headless execution patterns.
+- Prompt-channel override/poisoning patterns from static instruction surfaces with deterministic reason codes and evidence hashes.
 - Static policy/profile posture signals and ranked findings.
 - Deterministic inventory and risk outputs.
+- Optional enrich-mode MCP metadata (`source`, `as_of`, advisory/registry schema IDs, `enrich_quality`, adapter error classes) when `--enrich` is enabled.
 
 ## What Wrkr does not detect
 
 - Live runtime network traffic, live endpoint behavior, or post-deploy runtime side effects.
 - Dynamic SaaS telemetry from external systems unless explicitly integrated in non-default paths.
+- Guaranteed upstream API/schema stability for external enrich providers.
 
 ## Why
 
 Wrkr is deterministic and file-based by default. Static discovery avoids nondeterministic live probing and keeps scan data local.
+`--enrich` is an optional volatility-aware overlay; fail-closed adapter behavior preserves scan safety while quality is explicitly surfaced in output.
 
 ## Command anchors
 
 ```bash
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+wrkr scan --path ./scenarios/wrkr/prompt-channel-poisoning/repos --json
 wrkr scan --path ./scenarios/wrkr/webmcp-declarations/repos --json
 wrkr scan --path ./scenarios/wrkr/a2a-agent-cards/repos --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --enrich --github-api https://api.github.com --json
 ```
 
 ## Q&A
@@ -37,6 +43,10 @@ No. Wrkr is deterministic and file-based by default, so it detects declared conf
 ### How do I confirm whether a specific tooling surface is detected?
 
 Run `wrkr scan --json` on representative fixtures and verify the inventory findings include the expected tool/config declarations.
+
+### How should I interpret MCP enrich quality fields?
+
+Treat `enrich_quality` as explicit confidence metadata for optional network lookups: `ok`, `partial`, `stale`, or `unavailable`.
 
 ### When should I not use Wrkr as the primary tool?
 

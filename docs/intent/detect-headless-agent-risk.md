@@ -21,9 +21,9 @@ wrkr score --json
 
 ## Expected JSON keys
 
-- `scan`: `ranked_findings`, `repo_exposure_summaries`, `profile`, `posture_score`
-- `report`: `top_findings`, `total_tools`, `compliance_gap_count`
-- `score`: `score`, `grade`, `weighted_breakdown`, `trend_delta`
+- `scan`: `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `repo_exposure_summaries`, `profile`, `posture_score`
+- `report`: `status`, `top_findings`, `attack_paths`, `top_attack_paths`, `total_tools`, `compliance_gap_count`, `summary`
+- `score`: `score`, `grade`, `breakdown`, `weighted_breakdown`, `weights`, `trend_delta` (optional: `attack_paths`, `top_attack_paths`)
 
 ## Exit codes
 
@@ -38,6 +38,9 @@ wrkr score --json
   "status": "ok",
   "top_findings": [
     {"id": "WRKR-014", "risk_score": 9.1, "title": "headless_auto CI agent with elevated permissions"}
+  ],
+  "top_attack_paths": [
+    {"path_id": "acme/repo:entry-webmcp->ci-headless->prod-write", "path_score": 9.4}
   ],
   "total_tools": 12
 }

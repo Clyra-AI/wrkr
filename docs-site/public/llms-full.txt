@@ -13,13 +13,16 @@ Wrkr is the deterministic See-layer CLI in the See -> Prove -> Control sequence.
 - `/docs/architecture/`
 - `/docs/concepts/mental_model/`
 - `/docs/policy_authoring/`
+- `/docs/policy_builtin_rules/`
 - `/docs/failure_taxonomy_exit_codes/`
 - `/docs/threat_model/`
 - `/docs/contracts/compatibility_matrix/`
+- `/docs/trust/mcp-enrich-quality-model/`
 
 ## High-Intent Flows
 - Scan org repos for AI agents/configs: `/docs/intent/scan-org-repos-for-ai-agents-configs/`
 - Detect headless agent risk: `/docs/intent/detect-headless-agent-risk/`
+- Detect prompt-channel and attack-path risk: `/docs/intent/detect-prompt-channel-and-attack-path-risk/`
 - Generate compliance evidence from scans: `/docs/intent/generate-compliance-evidence-from-scans/`
 - Gate on drift/regressions: `/docs/intent/gate-on-drift-and-regressions/`
 

@@ -80,12 +80,15 @@ make build
 
 Expected JSON keys by command family:
 
-- `scan`: `target`, `findings`, `ranked_findings`, `inventory`, `privilege_budget`, `agent_privilege_map`, `profile`, `posture_score` (optional: `policy_warnings`, `report`)
-- `report`: `top_findings`, `total_tools`, `compliance_gap_count`
-- `score`: `score`, `grade`, `weighted_breakdown`, `trend_delta`
+- `scan`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score` (optional: `policy_warnings`, `report`)
+- `report`: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `privilege_budget`, `summary` (optional: `md_path`, `pdf_path`)
+- `score`: `score`, `grade`, `breakdown`, `weighted_breakdown`, `weights`, `trend_delta` (optional: `attack_paths`, `top_attack_paths`)
 - `evidence`: `output_dir`, `manifest_path`, `chain_path`, `framework_coverage`
 - `verify`: `chain.intact`, `chain.head_hash`
 - `regress run`: deterministic drift status and reason fields
+
+Prompt-channel findings are emitted deterministically with stable reason codes and evidence hashes (no raw secret extraction).  
+When `scan --enrich` is enabled, MCP findings include enrich provenance and quality fields (`source`, `as_of`, `advisory_count`, `registry_status`, `enrich_quality`, schema IDs, and adapter error classes).
 
 ## What You Get
 
