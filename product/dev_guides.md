@@ -7,6 +7,7 @@ Scope: All Clyra AI projects - gait, proof, wrkr and axym.
 This document defines the unified development infrastructure standards for Clyra AI projects. It covers toolchains, CI pipelines, testing, linting, security scanning, release integrity, performance budgets, and repo hygiene.
 
 This is a **toolchain and process specification**, not a contributor workflow guide (see each project's CONTRIBUTING.md) or an architecture description (see each project's AGENTS.md).
+For Wrkr architecture execution rules (TDD, cloud-native factors beyond 12-factor, frugal architecture, chaos operating model, and architecture governance), see `/Users/davidahmann/Projects/wrkr/product/architecture_guides.md`.
 
 ## Language Toolchains
 
