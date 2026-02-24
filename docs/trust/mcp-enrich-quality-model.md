@@ -15,6 +15,8 @@ Wrkr `scan --enrich` can attach optional MCP advisory/registry metadata to findi
 
 ## Quality states
 
+Wrkr emits these values under the evidence key `enrich_quality`.
+
 | Quality | Meaning | Typical condition |
 |---|---|---|
 | `ok` | Advisory and registry lookups succeeded with fresh schemas. | Both providers returned parseable current responses. |
@@ -24,7 +26,7 @@ Wrkr `scan --enrich` can attach optional MCP advisory/registry metadata to findi
 
 ## Fallback semantics
 
-- Fail-safe defaults: `advisory_count=0`, `registry_status=unknown`, `quality=unavailable`.
+- Fail-safe defaults: `advisory_count=0`, `registry_status=unknown`, `enrich_quality=unavailable`.
 - Errors are captured as stable adapter classes in `enrich_errors` (for example `advisory_error`, `registry_error`).
 - Schema metadata is explicit (`advisory_schema`, `registry_schema`) so upstream drift is visible in output.
 - `as_of` always records lookup time to bound operator interpretation.
