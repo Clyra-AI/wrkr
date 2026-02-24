@@ -12,6 +12,9 @@ Execute this workflow when asked to convert strategic feature recommendations in
 
 - Repository root: `/Users/davidahmann/Projects/wrkr`
 - Input file: `/Users/davidahmann/Projects/wrkr/product/ideas.md`
+- Standards sources of truth:
+  - `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
+  - `/Users/davidahmann/Projects/wrkr/product/architecture_guides.md`
 - Structure references (match level of detail and style):
 - `/Users/davidahmann/Projects/gait/product/PLAN_v1.md`
 - Output file: `/Users/davidahmann/Projects/wrkr/product/PLAN_NEXT.md` (unless user specifies a different target)
@@ -29,30 +32,56 @@ Execute this workflow when asked to convert strategic feature recommendations in
 
 If these are missing, stop and output a gap note instead of inventing details.
 
+- `product/dev_guides.md` and `product/architecture_guides.md` must exist and be readable.
+- Both guides must provide enforceable planning constraints for:
+  - testing/CI gates
+  - determinism/contracts
+  - architecture/TDD/chaos/frugal standards
+- If either guide is missing or incomplete, stop with a blocker report.
+
 ## Workflow
 
 1. Read `ideas.md` and extract candidate initiatives.
-2. Read reference plans to mirror structure and detail level.
-3. Cluster ideas into coherent epics (avoid one-idea-per-epic fragmentation).
-4. Prioritize using `P0/P1/P2` based on contract risk reduction, moat expansion, adoption leverage, and sequencing dependency.
-5. Produce execution-ready epics and stories.
-6. For every story, include concrete tasks, repo paths, run commands, acceptance criteria, test requirements, and CI matrix wiring.
-7. Build a plan-level test matrix section mapping stories to CI lanes (fast, integration, acceptance, cross-platform).
-8. Ensure each story defines tests based on work type (schema, CLI, gate/policy, determinism, runtime, SDK, docs/examples).
-9. Add explicit boundaries and non-goals to prevent scope drift.
-10. Add delivery sequencing section (phase/week-based minimum-now path).
-11. Add definition of done and release/exit gate criteria.
-12. Write full plan to target file, overwriting prior contents.
+2. Read `product/dev_guides.md` and `product/architecture_guides.md` and lock constraints into planning decisions.
+3. Read reference plans to mirror structure and detail level.
+4. Cluster ideas into coherent epics (avoid one-idea-per-epic fragmentation).
+5. Prioritize using `P0/P1/P2` based on contract risk reduction, moat expansion, adoption leverage, and sequencing dependency.
+6. Produce execution-ready epics and stories.
+7. For every story, include concrete tasks, repo paths, run commands, acceptance criteria, test requirements, CI matrix wiring, and architecture governance fields.
+8. Build a plan-level test matrix section mapping stories to CI lanes (fast, integration, acceptance, cross-platform).
+9. Ensure each story defines tests based on work type (schema, CLI, gate/policy, determinism, runtime, SDK, docs/examples).
+10. Add explicit boundaries and non-goals to prevent scope drift.
+11. Add delivery sequencing section (phase/week-based minimum-now path).
+12. Add definition of done and release/exit gate criteria.
+13. Write full plan to target file, overwriting prior contents.
 
 ## Non-Negotiables
 
 - Preserve Wrkr core contracts: determinism, offline-first defaults, fail-closed policy posture, schema stability, and exit code stability.
 - Respect architecture boundaries: Go core is authoritative for enforcement/verification logic; Python remains thin adoption layer.
+- Enforce both planning standards guides in all generated stories:
+  - `product/dev_guides.md`
+  - `product/architecture_guides.md`
 - Avoid dashboard-first or hosted-only dependencies in backlog core.
 - Do not include implementation code, pseudo-code, or ticket boilerplate.
 - Do not recommend minor polish work as primary backlog items.
 - Every story must include test requirements and explicit matrix wiring.
 - No story is complete without same-change test updates, except explicitly justified docs-only stories.
+
+## Architecture Guides Enforcement Contract
+
+For architecture/risk/adapter/failure stories, require wiring for:
+
+- `make prepush-full`
+
+For reliability/fault-tolerance stories, require wiring for:
+
+- `make test-hardening`
+- `make test-chaos`
+
+For performance-sensitive stories, require wiring for:
+
+- `make test-perf`
 
 ## Test Requirements by Work Type (Mandatory)
 
@@ -131,6 +160,11 @@ Story template (required fields):
 - `Test requirements:`
 - `Matrix wiring:`
 - `Acceptance criteria:`
+- `Architecture constraints:`
+- `ADR required: yes|no`
+- `TDD first failing test(s):`
+- `Cost/perf impact: low|medium|high`
+- `Chaos/failure hypothesis:` (required for risk-bearing stories)
 - Optional when needed:
 - `Dependencies:`
 - `Risks:`
@@ -146,6 +180,9 @@ Before finalizing, verify:
 - Paths are real and repo-relevant.
 - Test requirements match story work type.
 - Matrix wiring is present for every story.
+- Every story maps to enforceable rules from both guides (`dev_guides.md`, `architecture_guides.md`).
+- High-risk stories include hardening/chaos lane wiring.
+- CLI contract stories include explicit `--json` and exit-code invariants.
 - Sequence is dependency-aware.
 - Plan stays strategic and execution-relevant (not cosmetic).
 

@@ -1,6 +1,6 @@
 ---
 name: initial-plan
-description: Transform the Wrkr PRD in product/wrkr.md into a world-class, zero-ambiguity execution plan that mirrors the detail level of gait/product/PLAN_v1.md, while enforcing product/dev_guides.md coding, testing, CI, determinism, and contract standards. Use when the user asks for an initial build plan from the PRD (not from ideas/recommendations).
+description: Transform the Wrkr PRD in product/wrkr.md into a world-class, zero-ambiguity execution plan that mirrors the detail level of gait/product/PLAN_v1.md, while enforcing product/dev_guides.md and product/architecture_guides.md standards for coding, testing, CI, determinism, architecture governance, and contracts. Use when the user asks for an initial build plan from the PRD (not from ideas/recommendations).
 ---
 
 # PRD to Initial Execution Plan (Wrkr)
@@ -11,7 +11,9 @@ Execute this workflow when asked to create the initial execution plan from the W
 
 - Repository root: `/Users/davidahmann/Projects/wrkr`
 - Primary source of truth: `/Users/davidahmann/Projects/wrkr/product/wrkr.md`
-- Standards source of truth: `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
+- Standards sources of truth:
+  - `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
+  - `/Users/davidahmann/Projects/wrkr/product/architecture_guides.md`
 - Style reference (structure and depth): `/Users/davidahmann/Projects/wrkr/product/PLAN_v1.md`
 - Default output: `/Users/davidahmann/Projects/wrkr/product/PLAN_v1.0.md` (unless user specifies a different target path)
 - Planning only. Do not implement code or docs outside the target plan file.
@@ -26,7 +28,7 @@ Execute this workflow when asked to create the initial execution plan from the W
 - architecture and tech choices
 - CLI surfaces and expected behavior
 
-`dev_guides.md` must define enforceable engineering standards. At minimum:
+`product/dev_guides.md` and `product/architecture_guides.md` must define enforceable engineering standards. At minimum:
 - toolchain versions
 - lint/format requirements
 - testing tiers and commands
@@ -52,22 +54,29 @@ If these are missing, stop and output a gap note instead of inventing policy.
 - coverage gates, determinism, schema and exit code stability
 - security scanning and release integrity expectations
 
-3. Read `gait/product/PLAN_v1.md` to mirror structure depth and story-level specificity.
+3. Read `product/architecture_guides.md` and extract locked architecture execution standards:
+- TDD requirements and first-failing-test expectations
+- architecture constraints and ADR requirements
+- cloud-native execution factors beyond 12-factor expectations
+- frugal architecture/cost impact requirements
+- chaos/hardening/perf lane triggers and failure-hypothesis expectations
 
-4. Inspect current repository baseline and convert observed reality into a `Current Baseline (Observed)` section:
+4. Read `gait/product/PLAN_v1.md` to mirror structure depth and story-level specificity.
+
+5. Inspect current repository baseline and convert observed reality into a `Current Baseline (Observed)` section:
 - existing directories and key files
 - current CI/workflow state
 - current command surfaces and gaps versus PRD
 
-5. Build epics by implementation dependency, not by document order:
+6. Build epics by implementation dependency, not by document order:
 - Epic 0 foundations/scaffold/contracts
 - core runtime epics (source, detection, aggregation, identity, risk, proof, compliance)
 - CLI, regressions, and remediation flows
 - docs/acceptance/release hardening epics
 
-6. Decompose every epic into execution-ready stories with explicit tasks and test wiring.
+7. Decompose every epic into execution-ready stories with explicit tasks and test wiring.
 
-7. Add a plan-level `Test Matrix Wiring` section that maps stories to:
+8. Add a plan-level `Test Matrix Wiring` section that maps stories to:
 - Fast lane
 - Core CI lane
 - Acceptance lane
@@ -75,11 +84,11 @@ If these are missing, stop and output a gap note instead of inventing policy.
 - Risk lane
 - Gating rule
 
-8. Add a dependency-aware `Minimum-Now Sequence` with phased/week execution order.
+9. Add a dependency-aware `Minimum-Now Sequence` with phased/week execution order.
 
-9. Add `Explicit Non-Goals` and `Definition of Done`.
+10. Add `Explicit Non-Goals` and `Definition of Done`.
 
-10. Write the plan to the target file, replacing prior contents.
+11. Write the plan to the target file, replacing prior contents.
 
 ## Non-Negotiables
 
@@ -115,6 +124,11 @@ Story template (required fields):
 - `Test requirements:`
 - `Matrix wiring:`
 - `Acceptance criteria:`
+- `Architecture constraints:`
+- `ADR required: yes|no`
+- `TDD first failing test(s):`
+- `Cost/perf impact: low|medium|high`
+- `Chaos/failure hypothesis:` (required for risk-bearing stories)
 - `Semantic invariants:` (required for stories touching identity/lifecycle/manifest/regress)
 - Optional when needed:
 - `Dependencies:`
@@ -158,6 +172,30 @@ For every story, derive required checks from `product/dev_guides.md` by work typ
 7. Docs/examples contract changes:
 - Add command-smoke checks for documented flows.
 - Update acceptance scripts if operator workflow changed.
+
+## Architecture Guides Enforcement Contract
+
+For every story, enforce `product/architecture_guides.md` requirements:
+
+1. TDD requirements:
+- Capture first failing test(s) before implementation tasks.
+- Require red-green-refactor intent in story acceptance criteria where behavior changes.
+
+2. Architecture governance:
+- Specify architecture constraints for layer boundaries touched.
+- Mark `ADR required: yes` when changing boundary/data flow/contract/failure class.
+
+3. Frugal architecture:
+- Include cost/perf impact classification (`low|medium|high`).
+- For perf-sensitive stories, include `make test-perf`.
+
+4. Chaos/reliability operations:
+- Risk-bearing stories must include failure hypothesis and lane wiring for:
+  - `make test-hardening`
+  - `make test-chaos`
+
+5. Contract-first behavior:
+- CLI/JSON/exit-code stories must state explicit invariants in acceptance criteria.
 
 ## Testing Tier Mapping (Mandatory)
 
@@ -218,15 +256,18 @@ Before finalizing, verify:
 - every epic traces back to specific FR/NFR/AC statements in `wrkr.md`
 - every story has concrete repo paths and executable commands
 - acceptance criteria are deterministic and objectively testable
-- test requirements match `dev_guides.md` tier expectations
+- test requirements match `dev_guides.md` and `architecture_guides.md` requirements
 - identity/lifecycle/manifest/regress stories include explicit semantic invariants
+- every story includes architecture constraints, TDD first-failing-test requirement, and cost/perf impact
+- high-risk stories include hardening/chaos lane wiring
+- CLI contract stories include explicit `--json` and exit-code invariants
 - matrix wiring exists for every story
 - sequence is dependency-aware and executable end-to-end
 - plan respects Wrkr boundaries (See product only; no Axym/Gait feature scope creep)
 
 ## Failure Mode
 
-If `wrkr.md` or `dev_guides.md` lacks required planning inputs, write only:
+If `wrkr.md`, `dev_guides.md`, or `architecture_guides.md` lacks required planning inputs, write only:
 
 - `No initial plan generated.`
 - `Reason:` concise blocker summary.
