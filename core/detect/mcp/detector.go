@@ -12,6 +12,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/detect/mcp/enrich"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/supplychain"
 	"gopkg.in/yaml.v3"
@@ -38,11 +39,17 @@ type mcpDoc struct {
 }
 
 var pinRE = regexp.MustCompile(`@[0-9]+`)
+var packageRE = regexp.MustCompile(`(@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+|[A-Za-z0-9._-]+)(?:@([A-Za-z0-9._-]+))?`)
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
+func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	info, err := os.Stat(scope.Root)
 	if err != nil || !info.IsDir() {
 		return nil, nil
+	}
+
+	var enrichService enrich.Service
+	if options.Enrich {
+		enrichService = enrich.NewDefault()
 	}
 
 	lockfilePresent := hasLockfile(scope.Root)
@@ -97,9 +104,24 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 				{Key: "trust_score", Value: fmt.Sprintf("%.1f", trustScore)},
 			}
 			if options.Enrich {
+				pkg, version := extractPackageVersion(server)
+				enrichResult := enrichService.Lookup(ctx, pkg, version)
+				enrichErrors := "none"
+				if len(enrichResult.Errors) > 0 {
+					enrichErrors = strings.Join(enrichResult.Errors, ",")
+				}
 				evidence = append(evidence,
 					model.Evidence{Key: "enrich_mode", Value: "true"},
-					model.Evidence{Key: "advisory_lookup", Value: "not_implemented"},
+					model.Evidence{Key: "enrich_quality", Value: enrichResult.Quality},
+					model.Evidence{Key: "enrich_errors", Value: enrichErrors},
+					model.Evidence{Key: "source", Value: enrichResult.Source},
+					model.Evidence{Key: "as_of", Value: enrichResult.AsOf},
+					model.Evidence{Key: "advisory_schema", Value: enrichResult.AdvisorySchema},
+					model.Evidence{Key: "registry_schema", Value: enrichResult.RegistrySchema},
+					model.Evidence{Key: "package", Value: fallbackValue(enrichResult.Package, "unknown")},
+					model.Evidence{Key: "version", Value: fallbackValue(enrichResult.Version, "unknown")},
+					model.Evidence{Key: "advisory_count", Value: fmt.Sprintf("%d", enrichResult.AdvisoryCount)},
+					model.Evidence{Key: "registry_status", Value: enrichResult.RegistryStatus},
 				)
 			}
 			findings = append(findings, model.Finding{
@@ -210,6 +232,54 @@ func hasLockfile(root string) bool {
 		}
 	}
 	return false
+}
+
+func extractPackageVersion(server serverDef) (string, string) {
+	fields := append([]string{}, server.Args...)
+	fields = append(fields, server.Command, server.URL)
+	fallbackPkg := ""
+	fallbackVersion := ""
+	for _, field := range fields {
+		for _, match := range packageRE.FindAllStringSubmatch(field, -1) {
+			if len(match) < 2 {
+				continue
+			}
+			pkg := strings.TrimSpace(match[1])
+			version := ""
+			if len(match) > 2 {
+				version = strings.TrimSpace(match[2])
+			}
+			if pkg == "" || strings.HasPrefix(pkg, "-") {
+				continue
+			}
+			if fallbackPkg == "" {
+				fallbackPkg = pkg
+				fallbackVersion = version
+			}
+			if isLauncherPackage(pkg) {
+				continue
+			}
+			return pkg, version
+		}
+	}
+	return fallbackPkg, fallbackVersion
+}
+
+func isLauncherPackage(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "npx", "pnpm", "yarn", "bunx", "node", "python", "python3", "pipx", "uv", "uvx":
+		return true
+	default:
+		return false
+	}
+}
+
+func fallbackValue(value string, fallback string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return fallback
+	}
+	return trimmed
 }
 
 func fallbackOrg(org string) string {

@@ -13,8 +13,8 @@ func TestLoadRulesIncludesBuiltinPack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load builtin rules: %v", err)
 	}
-	if len(rules) != 15 {
-		t.Fatalf("expected 15 builtin rules, got %d", len(rules))
+	if len(rules) != 16 {
+		t.Fatalf("expected 16 builtin rules, got %d", len(rules))
 	}
 }
 

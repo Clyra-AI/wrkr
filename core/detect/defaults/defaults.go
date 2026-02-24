@@ -13,6 +13,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/gaitpolicy"
 	"github.com/Clyra-AI/wrkr/core/detect/mcp"
 	"github.com/Clyra-AI/wrkr/core/detect/mcpgateway"
+	"github.com/Clyra-AI/wrkr/core/detect/promptchannel"
 	"github.com/Clyra-AI/wrkr/core/detect/secrets"
 	"github.com/Clyra-AI/wrkr/core/detect/skills"
 	"github.com/Clyra-AI/wrkr/core/detect/webmcp"
@@ -29,6 +30,7 @@ func Registry() (*detect.Registry, error) {
 		mcp.New(),
 		mcpgateway.New(),
 		webmcp.New(),
+		promptchannel.New(),
 		skills.New(),
 		gaitpolicy.New(),
 		dependency.New(),

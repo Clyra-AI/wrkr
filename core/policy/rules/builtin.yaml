@@ -89,3 +89,9 @@ rules:
     remediation: Reduce exec-granting skills and narrow tool permissions.
     kind: skill_sprawl_exec_ratio
     version: 1
+  - id: WRKR-016
+    title: Prompt-channel override and poisoning findings must be remediated
+    severity: high
+    remediation: Remove prompt override/injection patterns or gate them behind explicit review and policy controls.
+    kind: prompt_channel_governance
+    version: 1

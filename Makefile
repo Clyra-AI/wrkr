@@ -76,7 +76,7 @@ docs-site-audit-prod:
 	@cd docs-site && npm audit --omit=dev --audit-level=high
 
 test-adapter-parity:
-	@echo "adapter parity checks are not yet implemented"
+	@scripts/test_adapter_parity.sh
 
 build:
 	@mkdir -p .tmp

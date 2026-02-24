@@ -10,6 +10,8 @@ import (
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -346,5 +348,85 @@ func TestCompareIgnoresPolicyOnlyBaselineDelta(t *testing.T) {
 	result := Compare(baseline, currentSnapshot)
 	if result.Drift {
 		t.Fatalf("expected no drift for policy-only baseline delta, got %v", result.Reasons)
+	}
+}
+
+func TestCompareSummarizesCriticalAttackPathDrift(t *testing.T) {
+	t.Parallel()
+
+	baseline := Baseline{
+		Version: BaselineVersion,
+		AttackPaths: []AttackPathState{
+			{PathID: "path-a", Org: "acme", Repo: "repo", Score: 8.2},
+			{PathID: "path-b", Org: "acme", Repo: "repo", Score: 8.1},
+			{PathID: "path-c", Org: "acme", Repo: "repo", Score: 8.5},
+			{PathID: "path-d", Org: "acme", Repo: "repo", Score: 7.4},
+		},
+	}
+
+	current := state.Snapshot{
+		RiskReport: &risk.Report{
+			AttackPaths: []riskattack.ScoredPath{
+				{PathID: "path-a", Org: "acme", Repo: "repo", PathScore: 9.7},
+				{PathID: "path-c", Org: "acme", Repo: "repo", PathScore: 8.5},
+				{PathID: "path-x", Org: "acme", Repo: "repo", PathScore: 9.0},
+				{PathID: "path-y", Org: "acme", Repo: "repo", PathScore: 8.6},
+			},
+		},
+	}
+
+	result := Compare(baseline, current)
+	second := Compare(baseline, current)
+	if !result.Drift {
+		t.Fatal("expected drift for significant attack path divergence")
+	}
+	if !reflect.DeepEqual(result, second) {
+		t.Fatalf("expected deterministic summarized drift output\nfirst=%+v\nsecond=%+v", result, second)
+	}
+	if result.ReasonCount != 1 {
+		t.Fatalf("expected a single summarized reason, got %d (%v)", result.ReasonCount, result.Reasons)
+	}
+	reason := result.Reasons[0]
+	if reason.Code != ReasonCriticalAttackPath {
+		t.Fatalf("unexpected reason code %q", reason.Code)
+	}
+	if reason.AttackPathDrift == nil {
+		t.Fatal("expected attack_path_drift details")
+	}
+	detail := reason.AttackPathDrift
+	if detail.DriftCount != 4 {
+		t.Fatalf("expected drift_count=4, got %d", detail.DriftCount)
+	}
+	if len(detail.Added) != 2 || len(detail.Removed) != 1 || len(detail.ScoreChanged) != 1 {
+		t.Fatalf("unexpected detail counts added=%d removed=%d score_changed=%d", len(detail.Added), len(detail.Removed), len(detail.ScoreChanged))
+	}
+	if reason.ToolID != "attack_paths" {
+		t.Fatalf("unexpected summarized tool_id %q", reason.ToolID)
+	}
+}
+
+func TestCompareSuppressesAttackPathDriftBelowThreshold(t *testing.T) {
+	t.Parallel()
+
+	baseline := Baseline{
+		Version: BaselineVersion,
+		AttackPaths: []AttackPathState{
+			{PathID: "path-a", Org: "acme", Repo: "repo", Score: 8.2},
+			{PathID: "path-b", Org: "acme", Repo: "repo", Score: 8.1},
+		},
+	}
+
+	current := state.Snapshot{
+		RiskReport: &risk.Report{
+			AttackPaths: []riskattack.ScoredPath{
+				{PathID: "path-a", Org: "acme", Repo: "repo", PathScore: 9.3},
+				{PathID: "path-b", Org: "acme", Repo: "repo", PathScore: 8.1},
+			},
+		},
+	}
+
+	result := Compare(baseline, current)
+	if result.Drift {
+		t.Fatalf("expected no drift below summary threshold, got %v", result.Reasons)
 	}
 }

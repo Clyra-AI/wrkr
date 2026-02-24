@@ -61,6 +61,8 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	headline := buildHeadline(in.Snapshot)
 	methodology := buildMethodology(in.Snapshot)
 	riskItems := buildRiskItems(topFindings)
+	attackPathSummary := buildAttackPathSummary(*riskReport)
+	attackPathFacts := buildAttackPathFacts(*riskReport)
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -71,7 +73,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
 	nextActions := buildNextActions(riskItems, lifecycleSummary, regressSummary)
 	pack := templatespkg.Resolve(string(template))
-	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, privilegeBudget, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
+	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, privilegeBudget, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
 
 	sectionOrder := []string{
 		SectionHeadline,
@@ -107,6 +109,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		Deltas:          deltas,
 		Lifecycle:       lifecycleSummary,
 		RegressDrift:    regressSummary,
+		AttackPaths:     attackPathSummary,
 		Proof:           proofRef,
 		NextActions:     nextActions,
 	}
@@ -535,6 +538,7 @@ func buildSections(
 	headline Headline,
 	methodology Methodology,
 	risks []RiskItem,
+	attackPathFacts []string,
 	privilegeBudget agginventory.PrivilegeBudget,
 	deltas DeltaSummary,
 	lifecycleSummary LifecycleSummary,
@@ -546,6 +550,7 @@ func buildSections(
 	for _, item := range risks {
 		riskFacts = append(riskFacts, fmt.Sprintf("#%d %.2f %s [%s] %s", item.Rank, item.Score, item.FindingType, item.Severity, item.Location))
 	}
+	riskFacts = append(riskFacts, attackPathFacts...)
 	if len(riskFacts) == 0 {
 		riskFacts = append(riskFacts, "no ranked findings are available in the current snapshot")
 	}
@@ -750,6 +755,44 @@ func lifecycleAction(summary LifecycleSummary) string {
 
 func round2(value float64) float64 {
 	return math.Round(value*100) / 100
+}
+
+func buildAttackPathSummary(report risk.Report) AttackPathSummary {
+	out := AttackPathSummary{Total: len(report.AttackPaths), TopPathIDs: []string{}}
+	for _, path := range report.TopAttackPaths {
+		out.TopPathIDs = append(out.TopPathIDs, strings.TrimSpace(path.PathID))
+	}
+	out.TopPathIDs = uniqueStrings(out.TopPathIDs)
+	return out
+}
+
+func buildAttackPathFacts(report risk.Report) []string {
+	if len(report.TopAttackPaths) == 0 {
+		return []string{"attack paths: none generated from current findings"}
+	}
+	facts := make([]string, 0, len(report.TopAttackPaths)+1)
+	facts = append(facts, fmt.Sprintf("attack paths total=%d", len(report.AttackPaths)))
+	for idx, path := range report.TopAttackPaths {
+		facts = append(facts, fmt.Sprintf("attack_path #%d score=%.2f id=%s", idx+1, path.PathScore, path.PathID))
+	}
+	return facts
+}
+
+func uniqueStrings(in []string) []string {
+	set := map[string]struct{}{}
+	for _, item := range in {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		set[trimmed] = struct{}{}
+	}
+	out := make([]string, 0, len(set))
+	for item := range set {
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func sanitizeProofReferencePublic(in ProofReference) ProofReference {

@@ -23,6 +23,8 @@ type reportPayload struct {
 	Status             string                       `json:"status"`
 	GeneratedAt        string                       `json:"generated_at"`
 	TopFindings        []risk.ScoredFinding         `json:"top_findings"`
+	AttackPaths        any                          `json:"attack_paths,omitempty"`
+	TopAttackPaths     any                          `json:"top_attack_paths,omitempty"`
 	TotalTools         int                          `json:"total_tools"`
 	ToolTypeBreakdown  []toolTypeCount              `json:"tool_type_breakdown"`
 	ComplianceGapCount int                          `json:"compliance_gap_count"`
@@ -141,6 +143,8 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		Status:             "ok",
 		GeneratedAt:        summary.GeneratedAt,
 		TopFindings:        top,
+		AttackPaths:        riskReport.AttackPaths,
+		TopAttackPaths:     riskReport.TopAttackPaths,
 		TotalTools:         totalTools,
 		ToolTypeBreakdown:  typeBreakdown,
 		ComplianceGapCount: profileGapCount(snapshot),

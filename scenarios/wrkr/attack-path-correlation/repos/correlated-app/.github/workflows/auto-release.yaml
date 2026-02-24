@@ -1,0 +1,14 @@
+name: auto-release
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - run: |
+          system_prompt="{{ user_input }}"
+          codex --full-auto --dangerouslySkipPermissions
+

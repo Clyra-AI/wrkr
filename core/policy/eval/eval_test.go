@@ -62,3 +62,27 @@ func TestRuleWRKR015FailsWhenExecRatioAboveThreshold(t *testing.T) {
 		t.Fatal("expected WRKR-015 policy violation")
 	}
 }
+
+func TestRuleWRKR016FailsWhenPromptChannelHighFindingsExist(t *testing.T) {
+	t.Parallel()
+
+	rules := []policy.Rule{{ID: "WRKR-016", Title: "prompt channel governance", Severity: "high", Kind: "prompt_channel_governance", Version: 1}}
+	findings := []model.Finding{{
+		FindingType: "prompt_channel_override",
+		Severity:    model.SeverityHigh,
+		ToolType:    "prompt_channel",
+		Location:    "AGENTS.md",
+		Org:         "local",
+	}}
+
+	out := Evaluate("repo", "org", findings, rules)
+	foundViolation := false
+	for _, finding := range out {
+		if finding.FindingType == "policy_violation" && finding.RuleID == "WRKR-016" {
+			foundViolation = true
+		}
+	}
+	if !foundViolation {
+		t.Fatal("expected WRKR-016 policy violation")
+	}
+}

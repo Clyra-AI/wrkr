@@ -34,3 +34,4 @@ wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.tmp/sta
 ```
 
 Expected JSON keys include `status`, `baseline_path`, `tool_count` (init) and drift fields plus optional `summary_md_path` (run).
+When critical attack-path sets diverge above deterministic thresholds, `reasons` includes a single `critical_attack_path_drift` summary entry with machine-readable `attack_path_drift` details (`added`, `removed`, `score_changed`).
