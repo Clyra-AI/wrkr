@@ -40,11 +40,14 @@
 
   <url><loc>https://clyra-ai.github.io/wrkr/docs/intent/scan-org-repos-for-ai-agents-configs/</loc></url>
   <url><loc>https://clyra-ai.github.io/wrkr/docs/intent/detect-headless-agent-risk/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/intent/detect-prompt-channel-and-attack-path-risk/</loc></url>
   <url><loc>https://clyra-ai.github.io/wrkr/docs/intent/generate-compliance-evidence-from-scans/</loc></url>
   <url><loc>https://clyra-ai.github.io/wrkr/docs/intent/gate-on-drift-and-regressions/</loc></url>
 
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/policy_builtin_rules/</loc></url>
   <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/detection-coverage-matrix/</loc></url>
   <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/deterministic-guarantees/</loc></url>
+  <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/mcp-enrich-quality-model/</loc></url>
   <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/proof-chain-verification/</loc></url>
   <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/contracts-and-schemas/</loc></url>
   <url><loc>https://clyra-ai.github.io/wrkr/docs/trust/compatibility-and-versioning/</loc></url>

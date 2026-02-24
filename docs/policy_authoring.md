@@ -12,6 +12,8 @@ Wrkr applies a built-in policy pack and supports repository/local overlays.
 - Built-in: `core/policy/rules/builtin.yaml`
 - Overlay by file: `--policy <path>`
 
+Built-in governance reference: `docs/policy_builtin_rules.md` (includes `WRKR-016` prompt-channel governance intent).
+
 ## Authoring Principles
 
 - Keep rules deterministic and explainable.

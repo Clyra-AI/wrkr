@@ -6,7 +6,8 @@
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
 ```
 
-Check `top_findings`, `repo_exposure_summaries`, `profile`, and optional `report.md_path`.
+Check `top_findings`, `attack_paths`, `top_attack_paths`, `repo_exposure_summaries`, `profile`, and optional `report.md_path`.
+For prompt-channel and enrich-enabled MCP findings, confirm stable evidence metadata fields are present (`pattern_family`, `evidence_snippet_hash`, `enrich_quality`, `as_of`, `source`).
 
 ## Shareable report workflow
 
@@ -33,6 +34,7 @@ wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json
 ```
 
 Check `framework_coverage`, `report_artifacts`, and manifest/chain paths.
+When risk state includes attack-path scoring, evidence output includes deterministic `attack-paths.json`.
 
 `framework_coverage` reflects evidence currently present in scanned state.
 
@@ -66,6 +68,7 @@ wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --summary-md --sum
 ```
 
 Use exit `5` and drift reasons as gate criteria.
+For attack-path divergence above thresholds, expect one summarized `critical_attack_path_drift` reason with nested `attack_path_drift` details (`added`, `removed`, `score_changed`, counts, thresholds).
 
 ## Identity lifecycle workflow
 
