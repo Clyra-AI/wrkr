@@ -1,130 +1,194 @@
 ---
 name: pr-comments
-description: Analyze Codex/agent review comments on one or more PRs, triage what should be implemented, and provide a clear implementation recommendation list for the user.
+description: Pull all comments from user-provided PR numbers, implement fixes, validate, and ship via commit-push. For closed/merged PRs, use follow-up branches from main.
 disable-model-invocation: true
 ---
 
-# PR Comments Triage (Wrkr)
+# PR Comments Implement + Ship (Wrkr)
 
-Execute this workflow when asked to review PR comments from agents/Codex and recommend what should actually be implemented and how.
+Execute this workflow when asked to take PR number(s), address comments, implement fixes, test, and ship.
 
 ## Scope
 
 - Repository context: `/Users/davidahmann/Projects/wrkr`
 - Input PRs: user-provided PR number(s)
-- Mode: analysis and recommendation only (read-only by default)
-- No code changes, commits, or pushes in this skill unless explicitly requested in a follow-up
+- Mode: implementation and ship
+- Comment policy: use all comments from each provided PR regardless of resolved/outdated state
 
 ## Input Contract (Mandatory)
 
 - `pr_numbers`: one or more PR numbers
 - Optional:
 - `repo` (owner/name if not inferable from current git remote)
-- `include_non_agent_comments` (`false` by default)
 
 If `pr_numbers` is missing, stop and report blocker.
 
+## Preconditions
+
+- `gh` auth must be available for read/write operations.
+- Worktree must be clean before starting.
+- If unexpected unrelated changes appear during execution, stop and ask.
+
+## Git Bootstrap Contract (Mandatory)
+
+Run before processing the first PR:
+
+1. `git fetch origin main`
+2. `git checkout main`
+3. `git pull --ff-only origin main`
+
+Rules:
+- If worktree is dirty before step 1, stop and report blocker.
+- If bootstrap fails, stop and report blocker.
+
+## Comment Collection Contract
+
+For each provided PR number, collect all of the following without filtering by comment state:
+
+- Review thread comments (inline)
+- Review summaries/body comments
+- PR issue comments
+
+Every fetched comment must be explicitly addressed in output as one of:
+- `implemented`
+- `already_satisfied`
+- `blocked` (with concrete blocker)
+
+Do not skip a comment because of resolved/outdated state.
+
+## Branch Strategy
+
+For each PR:
+
+1. If PR state is `OPEN`:
+- Attempt to use the PR head branch for implementation.
+- If head branch cannot be checked out or pushed (for example permissions/fork limits), fall back to follow-up branch from `main`:
+  - `codex/pr-comments-followup-<pr-number>`
+
+2. If PR state is `CLOSED` or `MERGED`:
+- Sync main first:
+  - `git fetch origin main`
+  - `git checkout main`
+  - `git pull --ff-only origin main`
+- Create follow-up branch from main:
+  - `git checkout -b codex/pr-comments-followup-<pr-number>`
+  - if name exists, append suffix (`-r1`, `-r2`, ...)
+- Implement fixes on this follow-up branch.
+- Follow-up PR must reference original PR URL and implemented comment URLs.
+
 ## Workflow
 
-1. Resolve repository and PR targets from input.
-2. For each PR:
+1. Resolve repository and validate `pr_numbers`.
+2. Run baseline before first edit:
+- `make lint-fast`
+- `make test-fast`
+- record failures as pre-existing vs introduced
+3. For each PR number, sequentially:
 - fetch PR metadata (state, base/head, latest head SHA)
-- fetch review comments, review summaries, and issue comments
-- collect inline comment context (file + line + diff hunk when available)
-3. Filter comments:
-- include agent/Codex comments by default
-- exclude outdated/stale comments not applicable to latest head SHA
-- collapse duplicates/near-duplicates
-4. Triage each comment into:
-- `implement`
-- `defer`
-- `reject`
-5. Score each triaged item:
-- severity (`P0/P1/P2/P3`)
-- confidence (`high/medium/low`)
-- impact area (`safety`, `determinism`, `contract`, `portability`, `docs`, `maintainability`)
-6. Produce implementation guidance for `implement` items:
-- what to change
-- why it matters
-- minimal safe fix direction
-- tests/validation required
-7. Produce rationale for `defer/reject`:
-- reason and conditions to revisit
-8. Generate final user-facing recommendation report.
+- collect all comments per Comment Collection Contract
+- establish working branch per Branch Strategy
+- implement changes needed to address fetched comments
+- keep fixes minimal and scoped to comment evidence
+- classify every fetched comment (`implemented`, `already_satisfied`, `blocked`)
+- run required tests per work type (see Test Requirements by Work Type)
+- run required matrix lanes (see Test Matrix Wiring)
+- run `make prepush-full`
+- collect command-anchor evidence (see Command Anchors)
+4. For each branch with actual file changes, run [`commit-push`](/Users/davidahmann/Projects/wrkr/.agents/skills/commit-push/SKILL.md).
+5. If a follow-up branch was used, ensure PR body references original PR + comment links.
+6. Return per-PR ship summary.
 
-## Triage Rules (Wrkr-Specific)
+## Test Requirements by Work Type (Mandatory)
 
-Prioritize comments that affect:
+1. Docs-only changes:
+- `make test-docs-consistency`
 
-1. Fail-closed behavior and enforcement boundaries.
-2. Destructive filesystem cleanup on user-supplied paths with weak ownership validation.
-3. Determinism (verify/diff/replay/pack reproducibility).
-4. Schema and CLI contract stability (`--json`, exit codes, compatibility).
-5. Security/privacy controls (signing, secrets handling, unsafe interlocks).
-6. Cross-platform/CI portability issues.
-7. Docs drift where behavior has changed.
-8. Semantic boundary leaks between finding classes and identity/regression state.
-9. Lifecycle-state preservation (for example absent identities being rewritten as present).
+2. CLI/schema/exit-code contract changes:
+- targeted CLI tests for touched commands
+- JSON key and exit-code compatibility checks
+- `make test-contracts` when contract surfaces are touched
 
-Severity guidance:
-- Treat marker-name-only ownership checks before recursive delete/cleanup on user-supplied paths as at least `P1` until proven safe.
-- Treat finding-boundary leaks that can trigger false regression drift as at least `P1` until proven safe.
-- Treat lifecycle-preservation violations (`present=false` overwritten/reintroduced) as at least `P2`.
+3. Policy/regression/fail-closed changes:
+- deterministic allow/block/approval fixtures
+- fail-closed path tests
+- regression boundary and lifecycle preservation tests
 
-Deprioritize or reject:
+4. Determinism/signing/proof-chain changes:
+- repeat-run stability checks
+- verify/diff determinism checks
 
-- style-only nits with no runtime/contract impact
-- speculative refactors outside PR scope
-- stale comments already fixed on newer commits
+5. Integration/runtime behavior changes:
+- targeted integration/e2e tests for touched surfaces
 
-## Command Anchors
+## Test Matrix Wiring
 
-- Use `wrkr` JSON outputs when validating recommendation risk:
-  - `wrkr scan --json`
-  - `wrkr regress run --baseline <baseline-path> --json`
-  - `wrkr verify --chain --json`
+For each PR batch, run at least:
+- Fast lane: `make lint-fast`, `make test-fast`
+- Core lane: targeted unit/integration suites for touched code
+- Contract lane: `make test-contracts` when contract surfaces change
+- Final gate: `make prepush-full`
 
-## Recommendation Format (Per Implement Item)
+No PR batch is complete if required lanes are skipped or failing.
 
-- `PR`: number
-- `Comment ref`: reviewer + permalink (or comment id)
-- `Location`: file:line (if inline)
-- `Decision`: implement
-- `Severity`: P0/P1/P2/P3
-- `Why`: risk and concrete break scenario
-- `How`: concise implementation direction (no code unless asked)
-- `Validation`: exact tests/checks to run
+## Command Anchors (JSON Required)
 
-## Output Contract
+Collect machine-readable evidence with:
+- `wrkr scan --json`
+- `wrkr verify --chain --json` (when chain/integrity paths are touched)
+- `wrkr regress run --baseline <baseline-path> --json` (when policy/regress paths are implicated)
 
-Return sections in this order:
+## Wrkr Priorities for Fixes
 
-1. `Implement Now` (ordered by severity, then confidence)
-2. `Defer` (with trigger/condition for future action)
-3. `Reject` (with concise rationale)
-4. `Cross-PR Patterns` (optional: repeated root causes seen across PRs)
-5. `Validation Plan` (commands/checks required if user asks to implement)
+Prioritize fixes affecting:
+1. Fail-closed behavior and safety boundaries
+2. Determinism and reproducibility contracts
+3. CLI/schema/output compatibility (`--json`, exit codes, stable keys)
+4. Security/privacy and unsafe operation guards
+5. Lifecycle/regression correctness
+6. Cross-platform portability and CI stability
+7. User-visible docs drift when behavior changed
 
 ## Safety Rules
 
-- Read-only analysis by default.
-- Do not edit files or run git write operations in this skill.
-- Do not claim a comment is resolved unless verified against current head.
-- Keep recommendations scoped to actual comment evidence.
+- Preserve determinism, offline-first defaults, fail-closed behavior, and contract stability.
+- Never use destructive git commands.
+- Never amend commits unless explicitly requested.
+- Do not silently skip failed validations.
+- Stop and report when blocked by missing permissions, missing refs, or failing required gates.
+- Keep fixes scoped; avoid broad refactors not required by comment evidence.
+- Never claim a comment was implemented without file/test evidence.
 
 ## Quality Rules
 
-- Evidence-first: every recommendation must map to a real comment.
+- Evidence-first: every reported decision maps to a fetched comment URL/id.
 - Distinguish facts from inference.
-- Avoid generic advice; tie guidance to exact files/contracts.
-- Prefer minimal-risk changes over broad refactors.
+- Do not claim tests ran if they were not run.
+- Prefer minimal-risk fixes over broad refactors.
 
-## Failure Mode
+## Blocker Handling
 
-If comments cannot be fetched or are insufficient:
+If blocked for a PR batch:
+1. Stop further edits on that PR batch immediately.
+2. Record each blocked comment with exact blocker.
+3. Continue only to next PR number when independent and safe.
+4. End with explicit unblock actions.
 
-- `No actionable PR comment triage produced.`
-- `Reason:` concise blocker
-- `Missing inputs/access:` exact requirement (PR numbers, repo, auth, permission)
+## Expected Output
 
-Do not fabricate recommendations.
+For each processed PR number:
+- source PR number/state/url
+- working branch used (head branch or follow-up branch)
+- total comments fetched
+- comments addressed:
+  - implemented (comment ref, file refs, commit SHA)
+  - already_satisfied (comment ref + verification note)
+  - blocked (comment ref + blocker)
+- tests and validations run (commands + pass/fail)
+- ship result (if changes were made):
+  - PR URL
+  - merge commit SHA
+  - post-merge main CI status
+
+If no code changes were needed, explicitly report:
+- `No file changes required after comment implementation review.`
+- and skip `commit-push` for that PR batch.
