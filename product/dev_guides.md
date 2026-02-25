@@ -1,6 +1,6 @@
 # Clyra AI Development Standards
 
-Version: 1.0
+Version: 1.1
 Status: Normative
 Scope: All Clyra AI projects - gait, proof, wrkr and axym.
 
@@ -8,6 +8,51 @@ This document defines the unified development infrastructure standards for Clyra
 
 This is a **toolchain and process specification**, not a contributor workflow guide (see each project's CONTRIBUTING.md) or an architecture description (see each project's AGENTS.md).
 For Wrkr architecture execution rules (TDD, cloud-native factors beyond 12-factor, frugal architecture, chaos operating model, and architecture governance), see `/Users/davidahmann/Projects/wrkr/product/architecture_guides.md`.
+
+## Product-Led Growth (PLG) Engineering Guidance
+
+Use this section as product-build guidance (not as a hard release gate) for user-facing features. It applies Bessemer-style PLG principles in engineering terms so product decisions stay adoption-first.
+
+### 1) Time-to-Value Is a First-Class Requirement
+
+- For any new user-facing workflow, define a target `time_to_first_value` in the design note.
+- Favor defaults, starter templates, and deterministic quickstarts over setup-heavy customization.
+- Treat onboarding friction as a defect class when it blocks first successful outcome.
+
+### 2) Self-Serve Must Work Without Human Intervention
+
+- A new user should be able to discover, install, run, and validate value without sales/support intervention.
+- CLI/docs examples must be copy-pasteable and validated in CI where practical.
+- Avoid feature launches that require manual backend setup unless there is a documented fallback path.
+
+### 3) Instrument Activation and Habit Signals Early
+
+- Define one activation event per feature (`user reached first meaningful outcome`).
+- Define one habit/retention event (`user repeated meaningful outcome`).
+- Emit events/telemetry in a deterministic, privacy-safe way that aligns with repo constraints (no secret/data exfiltration).
+
+### 4) Build for Expansion via Product Usage
+
+- New features should make team-level adoption easier (shared artifacts, reproducible output, policy/report portability).
+- Prefer capabilities that increase usage depth inside the product before adding new surface area.
+- Ensure packaging/permissions do not block internal expansion (for example CI adoption after local success).
+
+### 5) Keep Packaging and Monetization Paths Simple
+
+- Keep tiering/packaging simple enough that users can self-select without sales translation.
+- Avoid gating core first-value paths behind complex configuration.
+- When adding premium/advanced capability, preserve a complete self-serve baseline path.
+
+### PLG Checklist for Feature Proposals
+
+For any roadmap item that changes onboarding, activation, or adoption behavior, include these fields in the proposal or PR description:
+
+- `First value outcome`
+- `Time-to-value target`
+- `Activation signal`
+- `Repeat usage signal`
+- `Expansion path` (individual -> team -> org)
+- `Friction removed` (what got simpler for new users)
 
 ## Language Toolchains
 
