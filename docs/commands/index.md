@@ -5,6 +5,7 @@ Wrkr CLI surfaces are deterministic and file-based by default.
 ## Command index
 
 - `wrkr` (root flags: `--json`, `--quiet`, `--explain`)
+- `wrkr help [command]`
 - `wrkr init`
 - `wrkr scan`
 - `wrkr action`

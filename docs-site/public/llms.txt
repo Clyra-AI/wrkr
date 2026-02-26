@@ -7,6 +7,8 @@
 - https://clyra-ai.github.io/wrkr/
 
 ## Core Commands
+- wrkr --help
+- wrkr help <command>
 - wrkr init --non-interactive --path <dir> --json
 - wrkr scan --repo <owner/repo> --github-api <url> --json
 - wrkr scan --org <org> --github-api <url> --json
@@ -36,6 +38,7 @@
 - Deterministic JSON contracts and stable exit-code semantics.
 - No secret-value extraction; only risk context signals.
 - Proof-chain verification support for evidence integrity checks.
+- Evidence bundles include deterministic inventory artifacts: inventory.json, inventory-snapshot.json, inventory.yaml.
 
 ## Canonical Docs
 - /docs/adopt_in_one_pr/

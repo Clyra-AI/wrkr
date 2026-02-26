@@ -18,6 +18,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/state"
+	"gopkg.in/yaml.v3"
 )
 
 type BuildInput struct {
@@ -82,6 +83,9 @@ func Build(in BuildInput) (BuildResult, error) {
 	}
 
 	if err := writeJSON(filepath.Join(outputDir, "inventory.json"), snapshot.Inventory); err != nil {
+		return BuildResult{}, err
+	}
+	if err := writeYAML(filepath.Join(outputDir, "inventory.yaml"), snapshot.Inventory); err != nil {
 		return BuildResult{}, err
 	}
 	if err := writeJSON(filepath.Join(outputDir, "inventory-snapshot.json"), snapshot.Inventory); err != nil {
@@ -284,6 +288,20 @@ func writeJSON(path string, value any) error {
 		return fmt.Errorf("marshal %s: %w", path, err)
 	}
 	payload = append(payload, '\n')
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
+}
+
+func writeYAML(path string, value any) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return fmt.Errorf("mkdir yaml dir: %w", err)
+	}
+	payload, err := yaml.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("marshal %s: %w", path, err)
+	}
 	if err := os.WriteFile(path, payload, 0o600); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
