@@ -36,6 +36,26 @@ Required boundaries (do not collapse):
 
 Any PR that crosses boundaries directly MUST include an ADR (see Section 9).
 
+### 2.1 Current Wrkr Package Map (Implementation Clarification, Non-Breaking)
+
+This map clarifies where the required boundaries live in the current codebase so architecture reviews remain concrete and auditable.
+
+| Boundary | Primary packages (current Wrkr layout) |
+|---|---|
+| Source | `core/source/*`, `core/config`, source acquisition paths in `core/cli/scan.go` |
+| Detection | `core/detect/*`, detector registration in `core/detect/defaults` |
+| Aggregation | `core/aggregate/*` |
+| Identity | `core/identity`, `core/lifecycle`, `core/manifest`, `core/manifestgen` |
+| Risk | `core/risk/*`, `core/score/*`, policy evaluators in `core/policy/*` |
+| Proof emission | `core/proofemit`, `core/verify` |
+| Compliance/evidence output | `core/evidence`, `core/compliance`, `core/proofmap`, `core/export/*`, reporting in `core/report/*` |
+
+Supporting contract layers:
+
+- Contract tests and governance checks: `testinfra/contracts`, `testinfra/hygiene`
+- Scenario contract and outside-in behavior checks: `internal/scenarios`, `scenarios/`
+- Full acceptance matrix: `internal/acceptance`
+
 ## 3) TDD Standard (Required)
 
 ### 3.1 Red-Green-Refactor Contract
@@ -229,6 +249,26 @@ Wrkr favors explicit boundaries and evolutionary fitness functions.
 
 - `Clyra-AI/proof` contracts are non-negotiable interfaces.
 - Cross-product integration failures are blocking.
+
+### 8.5 Failure/Degradation Matrix (Current Wrkr Behavior Clarification)
+
+Use this matrix to preserve deterministic failure semantics when changing runtime behavior.
+
+| Condition | Expected behavior class | Current signal surface |
+|---|---|---|
+| `scan --repo/--org` without reachable GitHub base URL | Fail closed | exit `7`, error code `dependency_missing` |
+| `scan --enrich` without explicit network source | Fail closed | exit `7`, error code `dependency_missing` |
+| Policy file/schema violation | Fail closed | exit `3`, error code `policy_schema_violation` |
+| Production targets invalid in strict mode | Fail closed | exit `6`, error code `invalid_input` |
+| Production targets invalid in non-strict mode | Graceful degradation with explicit warning | JSON warning surface (`policy_warnings`) with deterministic continuation |
+| Per-repo failures during org acquisition | Partial result, deterministic failure list | `source_manifest.failures[]` populated and sorted |
+| Unsafe evidence output path (non-managed/symlink/marker misuse) | Fail closed | exit `8`, error code `unsafe_operation_blocked` |
+
+When modifying any row behavior, update:
+
+- CLI/error contract tests
+- docs command references and failure-taxonomy docs
+- ADR section (per Section 9)
 
 ## 9) Required ADR for Architecture-Impacting Changes
 

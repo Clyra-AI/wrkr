@@ -9,6 +9,78 @@ This document defines the unified development infrastructure standards for Clyra
 This is a **toolchain and process specification**, not a contributor workflow guide (see each project's CONTRIBUTING.md) or an architecture description (see each project's AGENTS.md).
 For Wrkr architecture execution rules (TDD, cloud-native factors beyond 12-factor, frugal architecture, chaos operating model, and architecture governance), see `/Users/davidahmann/Projects/wrkr/product/architecture_guides.md`.
 
+## Wrkr Implementation Clarifications (Additive, Non-Breaking)
+
+These notes clarify how this repository currently enforces this standard. They do not remove or weaken any normative requirement in this document.
+
+### 1) Enforcement-First Rule
+
+- Treat this file and CI/scripts as a single contract. If a normative statement changes, update enforcement in the same PR.
+- Wrkr enforces this via:
+  - `scripts/check_toolchain_pins.sh`
+  - `scripts/check_no_latest.sh`
+  - `scripts/check_branch_protection_contract.sh`
+  - `testinfra/contracts` and `testinfra/hygiene` tests
+
+### 2) Current PR Merge-Blocking Checks (Wrkr)
+
+- Required PR checks are declared in `.github/required-checks.json`.
+- Current required checks are:
+  - `fast-lane`
+  - `windows-smoke`
+- Any workflow rename must update:
+  - `.github/required-checks.json`
+  - `scripts/check_branch_protection_contract.sh`
+  - `testinfra/contracts/story0_contracts_test.go`
+
+### 3) Current Local Gate Entry Points (Wrkr)
+
+- Fast developer gate:
+  - `make prepush`
+- Full architecture/risk gate:
+  - `make prepush-full`
+- Risk lane bundle:
+  - `make test-risk-lane`
+- Acceptance scorecard gate:
+  - `scripts/run_v1_acceptance.sh --mode=local`
+
+### 4) Scenario and Acceptance Contract Reality (Wrkr)
+
+- Scenario fixture contract presence/shape is validated by:
+  - `scripts/validate_scenarios.sh` -> `go test ./internal/scenarios -run '^TestScenarioContracts$' -count=1`
+- Scenario behavior validation is executed by:
+  - `go test ./internal/scenarios -count=1 -tags=scenario`
+- FR/AC to scenario mapping is a tracked contract:
+  - `internal/scenarios/coverage_map.json`
+- Acceptance runs produce scorecards as deliverable artifacts:
+  - `.tmp/release/v1-scorecard.json`
+  - `.tmp/release/v1-scorecard.md`
+
+### 5) Docs as Executable Contract (Wrkr)
+
+- Docs are enforced as build contracts, not best-effort prose.
+- Key gates:
+  - `scripts/check_docs_cli_parity.sh`
+  - `scripts/check_docs_storyline.sh`
+  - `scripts/check_docs_consistency.sh`
+  - `scripts/run_docs_smoke.sh`
+- `core/cli/*.go` command/flag/exit-code changes must ship with doc updates in the same PR.
+
+### 6) Tool Pin Clarification (Wrkr)
+
+- In Wrkr today, hard-fail pin enforcement is implemented for:
+  - `gosec`
+  - `golangci-lint`
+  - `.tool-versions` lines for Go/Python/Node
+- Additional pins in this document remain normative targets and should be progressively added to automated enforcement.
+
+### 7) Simulation Clarification (Wrkr)
+
+- Wrkr currently uses deterministic in-test simulations primarily through:
+  - `httptest`-based service simulation in integration/unit tests
+  - scenario fixture repositories under `scenarios/wrkr/**`
+- If a shared `testinfra/simenv` layer is introduced later, it should be treated as an additive hardening improvement, not a prerequisite for current deterministic guarantees.
+
 ## Product-Led Growth (PLG) Engineering Guidance
 
 Use this section as product-build guidance (not as a hard release gate) for user-facing features. It applies Bessemer-style PLG principles in engineering terms so product decisions stay adoption-first.
