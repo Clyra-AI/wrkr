@@ -37,6 +37,61 @@ func TestRunHelpReturnsExit0(t *testing.T) {
 	if !strings.Contains(errOut.String(), "Usage of wrkr:") {
 		t.Fatalf("expected help usage output, got %q", errOut.String())
 	}
+	if !strings.Contains(errOut.String(), "Commands:") {
+		t.Fatalf("expected command catalog in help output, got %q", errOut.String())
+	}
+}
+
+func TestRunRootHelpListsCommands(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"--help"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d", code)
+	}
+
+	expectedAnchors := []string{
+		"  scan       discover tools and emit inventory/risk state",
+		"  score      compute posture score and breakdown",
+		"  evidence   build compliance-ready evidence bundles",
+		"Examples:",
+		"Global flags:",
+	}
+	for _, anchor := range expectedAnchors {
+		if !strings.Contains(errOut.String(), anchor) {
+			t.Fatalf("expected help output to contain %q, got %q", anchor, errOut.String())
+		}
+	}
+}
+
+func TestRunHelpAliasReturnsExit0(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"help"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "Usage of wrkr:") {
+		t.Fatalf("expected root usage for help alias, got %q", errOut.String())
+	}
+}
+
+func TestRunHelpSubcommandAliasReturnsExit0(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"help", "scan"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "Usage of scan:") {
+		t.Fatalf("expected scan usage for help subcommand alias, got %q", errOut.String())
+	}
 }
 
 func TestRunSubcommandHelpReturnsExit0(t *testing.T) {
@@ -1173,6 +1228,9 @@ func TestVerifyAndEvidenceCommands(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(outputDir, "manifest.json")); err != nil {
 		t.Fatalf("expected manifest.json in evidence output: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "inventory.yaml")); err != nil {
+		t.Fatalf("expected inventory.yaml in evidence output: %v", err)
 	}
 }
 

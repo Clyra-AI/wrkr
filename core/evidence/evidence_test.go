@@ -64,6 +64,7 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	}
 	required := []string{
 		"inventory.json",
+		"inventory.yaml",
 		"risk-report.json",
 		"profile-compliance.json",
 		"posture-score.json",
@@ -81,6 +82,39 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	}
 	if len(result.ReportArtifacts) == 0 {
 		t.Fatal("expected report artifacts to be recorded in build result")
+	}
+}
+
+func TestBuildEvidenceInventoryYAMLByteStableAcrossRuns(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	buildInput := BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC),
+	}
+
+	if _, err := Build(buildInput); err != nil {
+		t.Fatalf("initial build evidence bundle: %v", err)
+	}
+	firstPayload, err := os.ReadFile(filepath.Join(outputDir, "inventory.yaml"))
+	if err != nil {
+		t.Fatalf("read first inventory.yaml: %v", err)
+	}
+
+	if _, err := Build(buildInput); err != nil {
+		t.Fatalf("second build evidence bundle: %v", err)
+	}
+	secondPayload, err := os.ReadFile(filepath.Join(outputDir, "inventory.yaml"))
+	if err != nil {
+		t.Fatalf("read second inventory.yaml: %v", err)
+	}
+
+	if string(firstPayload) != string(secondPayload) {
+		t.Fatalf("expected inventory.yaml to be byte-stable across runs")
 	}
 }
 
