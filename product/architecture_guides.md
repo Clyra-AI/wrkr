@@ -256,9 +256,11 @@ Use this matrix to preserve deterministic failure semantics when changing runtim
 
 | Condition | Expected behavior class | Current signal surface |
 |---|---|---|
-| `scan --repo/--org` without reachable GitHub base URL | Fail closed | exit `7`, error code `dependency_missing` |
+| `scan --repo/--org` without configured GitHub API base (`--github-api`/`WRKR_GITHUB_API_BASE`) | Fail closed | exit `7`, error code `dependency_missing` |
+| `scan --repo/--org` with unreachable `--github-api` endpoint | Fail closed | exit `1`, error code `runtime_failure` |
 | `scan --enrich` without explicit network source | Fail closed | exit `7`, error code `dependency_missing` |
-| Policy file/schema violation | Fail closed | exit `3`, error code `policy_schema_violation` |
+| `scan --policy` file/schema/evaluation violation | Fail closed | exit `3`, error code `policy_schema_violation` |
+| `scan --approved-tools` invalid policy file/schema | Fail closed | exit `6`, error code `invalid_input` |
 | Production targets invalid in strict mode | Fail closed | exit `6`, error code `invalid_input` |
 | Production targets invalid in non-strict mode | Graceful degradation with explicit warning | JSON warning surface (`policy_warnings`) with deterministic continuation |
 | Per-repo failures during org acquisition | Partial result, deterministic failure list | `source_manifest.failures[]` populated and sorted |
