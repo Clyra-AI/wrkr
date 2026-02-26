@@ -10,9 +10,9 @@ Execute this workflow for: "implement the plan", "execute PLAN_NEXT", "ship plan
 
 ## Scope
 
-- Repository: `/Users/davidahmann/Projects/wrkr`
-- Default input plan: `/Users/davidahmann/Projects/wrkr/product/PLAN_NEXT.md`
-- Optional input plan: user-specified file under `/Users/davidahmann/Projects/wrkr/product/`
+- Repository: `.`
+- Default input plan: `./product/PLAN_NEXT.md`
+- Optional input plan: user-specified file under `./product/`
 - Optional scope selector: specific epic number from the input plan (`epic_number`)
 - This skill executes code/docs/tests for planned stories.
 - Out of scope by default:
@@ -24,13 +24,13 @@ Execute this workflow for: "implement the plan", "execute PLAN_NEXT", "ship plan
 ## Input Contract (Mandatory)
 
 - Optional: `plan_path`
-- If omitted, default to `/Users/davidahmann/Projects/wrkr/product/PLAN_NEXT.md`.
+- If omitted, default to `./product/PLAN_NEXT.md`.
 - Optional: `epic_number`
 - Accepted forms: `3`, `Epic 3`, `E3` (must resolve to exactly one heading `## Epic 3:` in the plan).
 - Mode selection:
 - If `epic_number` is provided -> `epic-only` mode.
 - If `epic_number` is omitted -> `full-plan` mode (current default behavior).
-- `plan_path` must resolve to a readable file under `/Users/davidahmann/Projects/wrkr/`.
+- `plan_path` must resolve to a readable file under `./`.
 - If `epic_number` is invalid or not found, stop and report blocker.
 
 ## Preconditions
@@ -178,10 +178,10 @@ In `epic-only` mode, required lanes are computed only from selected epic stories
 
 If a story introduces user-visible behavior changes, update only impacted docs in the same story:
 
-- `/Users/davidahmann/Projects/wrkr/README.md`
-- `/Users/davidahmann/Projects/wrkr/docs/`
-- `/Users/davidahmann/Projects/wrkr/docs-site/public/llms.txt`
-- `/Users/davidahmann/Projects/wrkr/docs-site/public/llm/*.md`
+- `./README.md`
+- `./docs/`
+- `./docs-site/public/llms.txt`
+- `./docs-site/public/llm/*.md`
 
 If story is internal-only and behavior is unchanged, do not force doc churn.
 

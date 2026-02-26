@@ -10,7 +10,7 @@ Execute this workflow for: "commit/push/open PR", "ship this branch", "merge aft
 
 ## Scope
 
-- Repository: `/Users/davidahmann/Projects/wrkr`
+- Repository: `.`
 - Works on current local branch, then merges into `main`.
 - No GitHub issue creation.
 - PR text must use heredoc EOF bodies (no inline `--body` strings).

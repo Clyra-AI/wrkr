@@ -10,14 +10,14 @@ Execute this workflow when asked to convert strategic feature recommendations in
 
 ## Scope
 
-- Repository root: `/Users/davidahmann/Projects/wrkr`
-- Input file: `/Users/davidahmann/Projects/wrkr/product/ideas.md`
+- Repository root: `.`
+- Input file: `./product/ideas.md`
 - Standards sources of truth:
-  - `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
-  - `/Users/davidahmann/Projects/wrkr/product/architecture_guides.md`
+  - `./product/dev_guides.md`
+  - `./product/architecture_guides.md`
 - Structure references (match level of detail and style):
-- `/Users/davidahmann/Projects/gait/product/PLAN_v1.md`
-- Output file: `/Users/davidahmann/Projects/wrkr/product/PLAN_NEXT.md` (unless user specifies a different target)
+- `gait/product/PLAN_v1.md` (reference only, if available in your environment)
+- Output file: `./product/PLAN_NEXT.md` (unless user specifies a different target)
 - Planning only. Do not implement code or docs outside the target plan file.
 
 ## Preconditions

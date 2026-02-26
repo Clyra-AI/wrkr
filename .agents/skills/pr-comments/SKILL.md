@@ -10,7 +10,7 @@ Execute this workflow when asked to take PR number(s), address comments, impleme
 
 ## Scope
 
-- Repository context: `/Users/davidahmann/Projects/wrkr`
+- Repository context: `.`
 - Input PRs: user-provided PR number(s)
 - Mode: implementation and ship
 - Comment policy: use all comments from each provided PR regardless of resolved/outdated state
@@ -94,7 +94,7 @@ For each PR:
 - run required matrix lanes (see Test Matrix Wiring)
 - run `make prepush-full`
 - collect command-anchor evidence (see Command Anchors)
-4. For each branch with actual file changes, run [`commit-push`](/Users/davidahmann/Projects/wrkr/.agents/skills/commit-push/SKILL.md).
+4. For each branch with actual file changes, run [`commit-push`](../commit-push/SKILL.md).
 5. If a follow-up branch was used, ensure PR body references original PR + comment links.
 6. Return per-PR ship summary.
 

@@ -10,11 +10,11 @@ Execute this workflow when asked to identify strategic upgrades for Wrkr based o
 
 ## Scope
 
-- Project context: `/Users/davidahmann/Projects/wrkr`
+- Project context: `.`
 - Date anchor: determine the current local date/time at runtime before collecting sources.
 - Time window: exactly the last 7 days from the run date (inclusive), using that runtime date anchor.
 - Focus: AI/agent developments materially relevant to Wrkr’s durable runtime, policy enforcement, provenance, fail-closed execution, and enterprise adoption.
-- Output target: `/Users/davidahmann/Projects/wrkr/product/ideas.md`
+- Output target: `./product/ideas.md`
 - This skill is strategy-only. No implementation tasks.
 
 ## Workflow

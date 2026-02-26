@@ -10,7 +10,7 @@ Execute this workflow when asked to perform app review, release readiness, archi
 
 ## Scope
 
-- Repository: `/Users/davidahmann/Projects/wrkr`
+- Repository: `.`
 - Analyze current code/docs only; do not invent features/markets.
 - Default mode is read-only unless user explicitly asks for fixes.
 

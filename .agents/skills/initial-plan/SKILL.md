@@ -9,13 +9,13 @@ Execute this workflow when asked to create the initial execution plan from the W
 
 ## Scope
 
-- Repository root: `/Users/davidahmann/Projects/wrkr`
-- Primary source of truth: `/Users/davidahmann/Projects/wrkr/product/wrkr.md`
+- Repository root: `.`
+- Primary source of truth: `./product/wrkr.md`
 - Standards sources of truth:
-  - `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
-  - `/Users/davidahmann/Projects/wrkr/product/architecture_guides.md`
-- Style reference (structure and depth): `/Users/davidahmann/Projects/wrkr/product/PLAN_v1.md`
-- Default output: `/Users/davidahmann/Projects/wrkr/product/PLAN_v1.0.md` (unless user specifies a different target path)
+  - `./product/dev_guides.md`
+  - `./product/architecture_guides.md`
+- Style reference (structure and depth): `./product/PLAN_v1.md`
+- Default output: `./product/PLAN_v1.0.md` (unless user specifies a different target path)
 - Planning only. Do not implement code or docs outside the target plan file.
 
 ## Preconditions
