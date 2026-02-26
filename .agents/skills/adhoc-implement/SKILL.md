@@ -10,7 +10,7 @@ Execute this workflow for: "implement this plan file", "run plan from <path>", o
 
 ## Scope
 
-- Repository: `/Users/davidahmann/Projects/wrkr`
+- Repository: `.`
 - Mandatory input argument: `plan_path`
 - `plan_path` must point to a specific plan document provided by the user
 - No default fallback to `product/PLAN_NEXT.md`
@@ -141,10 +141,10 @@ No story is complete if any required lane is skipped or failing.
 ## Surgical Docs Sync Rule
 
 - If a story changes user-visible behavior, update only impacted docs in the same story:
-- `/Users/davidahmann/Projects/wrkr/README.md`
-- `/Users/davidahmann/Projects/wrkr/docs/`
-- `/Users/davidahmann/Projects/wrkr/docs-site/public/llms.txt`
-- `/Users/davidahmann/Projects/wrkr/docs-site/public/llm/*.md`
+- `./README.md`
+- `./docs/`
+- `./docs-site/public/llms.txt`
+- `./docs-site/public/llm/*.md`
 - If internal-only behavior with no user-visible impact, avoid unnecessary doc churn.
 
 ## Safety Rules

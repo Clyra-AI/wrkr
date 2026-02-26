@@ -19,7 +19,7 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
 
 ## Scope
 
-- Repository root: `/Users/davidahmann/Projects/wrkr`
+- Repository root: `.`
 - Review entire repo, not only current diffs.
 - Prioritize high-risk surfaces first, then remaining components.
 

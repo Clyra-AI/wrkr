@@ -10,12 +10,12 @@ Execute this workflow when the user asks to turn recommended items into a concre
 
 ## Scope
 
-- Repository root: `/Users/davidahmann/Projects/wrkr`
+- Repository root: `.`
 - Recommendation source: user-provided recommended items for this run
 - Standards sources of truth:
-  - `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
-  - `/Users/davidahmann/Projects/wrkr/product/architecture_guides.md`
-- No dependency on `/Users/davidahmann/Projects/wrkr/product/ideas.md`
+  - `./product/dev_guides.md`
+  - `./product/architecture_guides.md`
+- No dependency on `./product/ideas.md`
 - Planning-only skill. Do not implement code in this workflow.
 
 ## Input Contract (Mandatory)
@@ -30,8 +30,8 @@ Validation rules:
 
 ## Preconditions
 
-- `/Users/davidahmann/Projects/wrkr/product/dev_guides.md` must exist and be readable.
-- `/Users/davidahmann/Projects/wrkr/product/architecture_guides.md` must exist and be readable.
+- `./product/dev_guides.md` must exist and be readable.
+- `./product/architecture_guides.md` must exist and be readable.
 - Both guides must contain enforceable rules for:
   - testing and CI gating
   - determinism and contract stability
