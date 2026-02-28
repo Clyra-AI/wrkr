@@ -6,11 +6,13 @@ import (
 	"strings"
 	"time"
 
+	proof "github.com/Clyra-AI/proof"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
 )
 
@@ -20,6 +22,7 @@ type MappedRecord struct {
 	Timestamp     time.Time
 	Event         map[string]any
 	Metadata      map[string]any
+	Relationship  *proof.Relationship
 	ApprovedScope string
 }
 
@@ -98,13 +101,15 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, now time
 			metadata["profile_status"] = profile.Status
 			metadata["profile_compliance_percent"] = profile.CompliancePercent
 		}
+		agentID := agentIDForFinding(representative)
 
 		records = append(records, MappedRecord{
-			RecordType: "scan_finding",
-			AgentID:    agentIDForFinding(representative),
-			Timestamp:  canonicalTime(now),
-			Event:      event,
-			Metadata:   metadata,
+			RecordType:   "scan_finding",
+			AgentID:      agentID,
+			Timestamp:    canonicalTime(now),
+			Event:        event,
+			Metadata:     metadata,
+			Relationship: buildFindingRelationship(representative, key, ruleIDs, agentID),
 		})
 	}
 	return records
@@ -134,11 +139,13 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			},
 			"reasons": append([]string(nil), item.Reasons...),
 		}
+		agentID := agentIDForFinding(item.Finding)
 		records = append(records, MappedRecord{
-			RecordType: "risk_assessment",
-			AgentID:    agentIDForFinding(item.Finding),
-			Timestamp:  canonicalTime(now),
-			Event:      event,
+			RecordType:   "risk_assessment",
+			AgentID:      agentID,
+			Timestamp:    canonicalTime(now),
+			Event:        event,
+			Relationship: buildFindingRiskRelationship(item, agentID),
 			Metadata: map[string]any{
 				"rank":              idx + 1,
 				"canonical_finding": item.CanonicalKey,
@@ -162,9 +169,10 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			"explain":         append([]string(nil), path.Explain...),
 		}
 		records = append(records, MappedRecord{
-			RecordType: "risk_assessment",
-			Timestamp:  canonicalTime(now),
-			Event:      event,
+			RecordType:   "risk_assessment",
+			Timestamp:    canonicalTime(now),
+			Event:        event,
+			Relationship: buildAttackPathRelationship(path),
 			Metadata: map[string]any{
 				"rank":               idx + 1,
 				"canonical_finding":  "attack_path",
@@ -198,9 +206,10 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 		},
 	}
 	records = append(records, MappedRecord{
-		RecordType: "risk_assessment",
-		Timestamp:  canonicalTime(now),
-		Event:      postureEvent,
+		RecordType:   "risk_assessment",
+		Timestamp:    canonicalTime(now),
+		Event:        postureEvent,
+		Relationship: buildPostureRelationship(profile.ProfileName),
 		Metadata: map[string]any{
 			"canonical_finding": "posture_score",
 			"profile_name":      profile.ProfileName,
@@ -254,6 +263,7 @@ func MapTransition(transition lifecycle.Transition, eventType string) MappedReco
 		AgentID:       strings.TrimSpace(transition.AgentID),
 		Timestamp:     timestamp,
 		Event:         event,
+		Relationship:  buildTransitionRelationship(strings.TrimSpace(transition.AgentID), approver, transition.NewState),
 		ApprovedScope: scope,
 		Metadata: map[string]any{
 			"transition_trigger": transition.Trigger,
@@ -421,4 +431,356 @@ func stringValue(values map[string]any, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(typed)
+}
+
+func buildFindingRelationship(finding model.Finding, canonicalKey string, ruleIDs []string, agentID string) *proof.Relationship {
+	toolID := identity.ToolID(finding.ToolType, finding.Location)
+	entityRefs := relationshipRefs(
+		proof.RelationshipRef{Kind: "agent", ID: agentID},
+		proof.RelationshipRef{Kind: "tool", ID: toolID},
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("org", canonicalOrg(finding.Org))},
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("repo", strings.TrimSpace(finding.Repo))},
+		proof.RelationshipRef{Kind: "evidence", ID: scopedID("finding", strings.TrimSpace(canonicalKey))},
+	)
+	policyRef := policyRefForRuleIDs(ruleIDs)
+	if policyID := policyRefID(policyRef); policyID != "" {
+		entityRefs = relationshipRefs(append(entityRefs, proof.RelationshipRef{Kind: "policy", ID: policyID})...)
+	}
+	edges := relationshipEdges(
+		proof.RelationshipEdge{
+			Kind: "calls",
+			From: proof.RelationshipRef{Kind: "agent", ID: agentID},
+			To:   proof.RelationshipRef{Kind: "tool", ID: toolID},
+		},
+		proof.RelationshipEdge{
+			Kind: "derived_from",
+			From: proof.RelationshipRef{Kind: "evidence", ID: scopedID("finding", strings.TrimSpace(canonicalKey))},
+			To:   proof.RelationshipRef{Kind: "tool", ID: toolID},
+		},
+	)
+	if policyID := policyRefID(policyRef); policyID != "" {
+		edges = relationshipEdges(append(edges, proof.RelationshipEdge{
+			Kind: "governed_by",
+			From: proof.RelationshipRef{Kind: "tool", ID: toolID},
+			To:   proof.RelationshipRef{Kind: "policy", ID: policyID},
+		})...)
+	}
+	return buildRelationshipEnvelope(entityRefs, policyRef, agentID, edges)
+}
+
+func buildFindingRiskRelationship(item risk.ScoredFinding, agentID string) *proof.Relationship {
+	toolID := identity.ToolID(item.Finding.ToolType, item.Finding.Location)
+	canonicalKey := strings.TrimSpace(item.CanonicalKey)
+	findingEvidenceID := scopedID("finding", canonicalKey)
+	riskEvidenceID := scopedID("risk", canonicalKey)
+
+	entityRefs := relationshipRefs(
+		proof.RelationshipRef{Kind: "agent", ID: agentID},
+		proof.RelationshipRef{Kind: "tool", ID: toolID},
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("org", canonicalOrg(item.Finding.Org))},
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("repo", strings.TrimSpace(item.Finding.Repo))},
+		proof.RelationshipRef{Kind: "evidence", ID: findingEvidenceID},
+		proof.RelationshipRef{Kind: "evidence", ID: riskEvidenceID},
+	)
+	policyRef := policyRefForRuleID(item.Finding.RuleID)
+	if policyID := policyRefID(policyRef); policyID != "" {
+		entityRefs = relationshipRefs(append(entityRefs, proof.RelationshipRef{Kind: "policy", ID: policyID})...)
+	}
+	edges := relationshipEdges(
+		proof.RelationshipEdge{
+			Kind: "calls",
+			From: proof.RelationshipRef{Kind: "agent", ID: agentID},
+			To:   proof.RelationshipRef{Kind: "tool", ID: toolID},
+		},
+		proof.RelationshipEdge{
+			Kind: "derived_from",
+			From: proof.RelationshipRef{Kind: "evidence", ID: riskEvidenceID},
+			To:   proof.RelationshipRef{Kind: "evidence", ID: findingEvidenceID},
+		},
+	)
+	if policyID := policyRefID(policyRef); policyID != "" {
+		edges = relationshipEdges(append(edges, proof.RelationshipEdge{
+			Kind: "governed_by",
+			From: proof.RelationshipRef{Kind: "tool", ID: toolID},
+			To:   proof.RelationshipRef{Kind: "policy", ID: policyID},
+		})...)
+	}
+	return buildRelationshipEnvelope(entityRefs, policyRef, agentID, edges)
+}
+
+func buildAttackPathRelationship(path riskattack.ScoredPath) *proof.Relationship {
+	pathID := strings.TrimSpace(path.PathID)
+	entryNodeID := strings.TrimSpace(path.EntryNodeID)
+	pivotNodeID := strings.TrimSpace(path.PivotNodeID)
+	targetNodeID := strings.TrimSpace(path.TargetNodeID)
+	pathEvidenceID := scopedID("attack_path", pathID)
+	entryResourceID := scopedID("attack_node", entryNodeID)
+	pivotResourceID := scopedID("attack_node", pivotNodeID)
+	targetResourceID := scopedID("attack_node", targetNodeID)
+
+	entityRefs := relationshipRefs(
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("org", canonicalOrg(path.Org))},
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("repo", strings.TrimSpace(path.Repo))},
+		proof.RelationshipRef{Kind: "evidence", ID: pathEvidenceID},
+		proof.RelationshipRef{Kind: "resource", ID: entryResourceID},
+		proof.RelationshipRef{Kind: "resource", ID: pivotResourceID},
+		proof.RelationshipRef{Kind: "resource", ID: targetResourceID},
+	)
+	edges := relationshipEdges(
+		proof.RelationshipEdge{
+			Kind: "derived_from",
+			From: proof.RelationshipRef{Kind: "evidence", ID: pathEvidenceID},
+			To:   proof.RelationshipRef{Kind: "resource", ID: entryResourceID},
+		},
+		proof.RelationshipEdge{
+			Kind: "derived_from",
+			From: proof.RelationshipRef{Kind: "evidence", ID: pathEvidenceID},
+			To:   proof.RelationshipRef{Kind: "resource", ID: pivotResourceID},
+		},
+		proof.RelationshipEdge{
+			Kind: "derived_from",
+			From: proof.RelationshipRef{Kind: "evidence", ID: pathEvidenceID},
+			To:   proof.RelationshipRef{Kind: "resource", ID: targetResourceID},
+		},
+		proof.RelationshipEdge{
+			Kind: "targets",
+			From: proof.RelationshipRef{Kind: "resource", ID: entryResourceID},
+			To:   proof.RelationshipRef{Kind: "resource", ID: targetResourceID},
+		},
+	)
+	if entryNodeID != "" && pivotNodeID != "" {
+		edges = relationshipEdges(append(edges, proof.RelationshipEdge{
+			Kind: "targets",
+			From: proof.RelationshipRef{Kind: "resource", ID: entryResourceID},
+			To:   proof.RelationshipRef{Kind: "resource", ID: pivotResourceID},
+		})...)
+	}
+	if pivotNodeID != "" && targetNodeID != "" {
+		edges = relationshipEdges(append(edges, proof.RelationshipEdge{
+			Kind: "targets",
+			From: proof.RelationshipRef{Kind: "resource", ID: pivotResourceID},
+			To:   proof.RelationshipRef{Kind: "resource", ID: targetResourceID},
+		})...)
+	}
+	return buildRelationshipEnvelope(entityRefs, nil, "", edges)
+}
+
+func buildPostureRelationship(profileName string) *proof.Relationship {
+	trimmedProfile := strings.TrimSpace(profileName)
+	if trimmedProfile == "" {
+		trimmedProfile = "default"
+	}
+	entityRefs := relationshipRefs(
+		proof.RelationshipRef{Kind: "evidence", ID: scopedID("posture_score", trimmedProfile)},
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("profile", trimmedProfile)},
+	)
+	return buildRelationshipEnvelope(entityRefs, nil, "", nil)
+}
+
+func buildTransitionRelationship(agentID, approver, newState string) *proof.Relationship {
+	state := strings.TrimSpace(newState)
+	evidenceID := lifecycleEvidenceID(agentID, state)
+	entityRefs := relationshipRefs(
+		proof.RelationshipRef{Kind: "agent", ID: agentID},
+		proof.RelationshipRef{Kind: "agent", ID: strings.TrimSpace(approver)},
+		proof.RelationshipRef{Kind: "evidence", ID: evidenceID},
+	)
+	edges := relationshipEdges(
+		proof.RelationshipEdge{
+			Kind: "derived_from",
+			From: proof.RelationshipRef{Kind: "evidence", ID: evidenceID},
+			To:   proof.RelationshipRef{Kind: "agent", ID: agentID},
+		},
+	)
+	return buildRelationshipEnvelope(entityRefs, nil, agentID, edges)
+}
+
+func buildRelationshipEnvelope(entityRefs []proof.RelationshipRef, policyRef *proof.PolicyRef, agentID string, edges []proof.RelationshipEdge) *proof.Relationship {
+	normalizedRefs := relationshipRefs(entityRefs...)
+	normalizedEdges := relationshipEdges(edges...)
+	relatedEntityIDs := make([]string, 0, len(normalizedRefs))
+	for _, ref := range normalizedRefs {
+		relatedEntityIDs = append(relatedEntityIDs, ref.ID)
+	}
+	relatedEntityIDs = uniqueSortedStrings(relatedEntityIDs)
+	agentChain := []proof.AgentChainHop{}
+	if strings.TrimSpace(agentID) != "" {
+		agentChain = append(agentChain, proof.AgentChainHop{Identity: strings.TrimSpace(agentID), Role: "requester"})
+	}
+	relationship := &proof.Relationship{
+		EntityRefs:       normalizedRefs,
+		PolicyRef:        policyRef,
+		AgentChain:       agentChain,
+		Edges:            normalizedEdges,
+		RelatedEntityIDs: relatedEntityIDs,
+	}
+	if len(relationship.EntityRefs) == 0 && relationship.PolicyRef == nil && len(relationship.AgentChain) == 0 && len(relationship.Edges) == 0 && len(relationship.RelatedEntityIDs) == 0 {
+		return nil
+	}
+	return relationship
+}
+
+func policyRefForRuleID(ruleID string) *proof.PolicyRef {
+	trimmed := strings.TrimSpace(ruleID)
+	if trimmed == "" {
+		return nil
+	}
+	return &proof.PolicyRef{
+		PolicyID:       "wrkr-policy",
+		MatchedRuleIDs: []string{trimmed},
+	}
+}
+
+func policyRefForRuleIDs(ruleIDs []string) *proof.PolicyRef {
+	normalized := uniqueSortedStrings(ruleIDs)
+	if len(normalized) == 0 {
+		return nil
+	}
+	return &proof.PolicyRef{
+		PolicyID:       "wrkr-policy",
+		MatchedRuleIDs: normalized,
+	}
+}
+
+func policyRefID(policyRef *proof.PolicyRef) string {
+	if policyRef == nil {
+		return ""
+	}
+	if digest := strings.ToLower(strings.TrimSpace(policyRef.PolicyDigest)); digest != "" {
+		return digest
+	}
+	if policyID := strings.TrimSpace(policyRef.PolicyID); policyID != "" {
+		return policyID
+	}
+	if policyVersion := strings.TrimSpace(policyRef.PolicyVersion); policyVersion != "" {
+		return "policy-version:" + policyVersion
+	}
+	return ""
+}
+
+func relationshipRefs(refs ...proof.RelationshipRef) []proof.RelationshipRef {
+	type key struct {
+		kind string
+		id   string
+	}
+	seen := map[key]struct{}{}
+	out := make([]proof.RelationshipRef, 0, len(refs))
+	for _, ref := range refs {
+		kind := strings.ToLower(strings.TrimSpace(ref.Kind))
+		id := strings.TrimSpace(ref.ID)
+		if kind == "" || id == "" {
+			continue
+		}
+		k := key{kind: kind, id: id}
+		if _, exists := seen[k]; exists {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, proof.RelationshipRef{Kind: kind, ID: id})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Kind != out[j].Kind {
+			return out[i].Kind < out[j].Kind
+		}
+		return out[i].ID < out[j].ID
+	})
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func relationshipEdges(edges ...proof.RelationshipEdge) []proof.RelationshipEdge {
+	type key struct {
+		kind     string
+		fromKind string
+		fromID   string
+		toKind   string
+		toID     string
+	}
+	seen := map[key]struct{}{}
+	out := make([]proof.RelationshipEdge, 0, len(edges))
+	for _, edge := range edges {
+		kind := strings.ToLower(strings.TrimSpace(edge.Kind))
+		fromKind := strings.ToLower(strings.TrimSpace(edge.From.Kind))
+		fromID := strings.TrimSpace(edge.From.ID)
+		toKind := strings.ToLower(strings.TrimSpace(edge.To.Kind))
+		toID := strings.TrimSpace(edge.To.ID)
+		if kind == "" || fromKind == "" || fromID == "" || toKind == "" || toID == "" {
+			continue
+		}
+		k := key{kind: kind, fromKind: fromKind, fromID: fromID, toKind: toKind, toID: toID}
+		if _, exists := seen[k]; exists {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, proof.RelationshipEdge{
+			Kind: kind,
+			From: proof.RelationshipRef{Kind: fromKind, ID: fromID},
+			To:   proof.RelationshipRef{Kind: toKind, ID: toID},
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Kind != out[j].Kind {
+			return out[i].Kind < out[j].Kind
+		}
+		if out[i].From.Kind != out[j].From.Kind {
+			return out[i].From.Kind < out[j].From.Kind
+		}
+		if out[i].From.ID != out[j].From.ID {
+			return out[i].From.ID < out[j].From.ID
+		}
+		if out[i].To.Kind != out[j].To.Kind {
+			return out[i].To.Kind < out[j].To.Kind
+		}
+		return out[i].To.ID < out[j].To.ID
+	})
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func uniqueSortedStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func scopedID(prefix, value string) string {
+	trimmedValue := strings.TrimSpace(value)
+	if trimmedValue == "" {
+		return ""
+	}
+	trimmedPrefix := strings.TrimSpace(prefix)
+	if trimmedPrefix == "" {
+		return trimmedValue
+	}
+	return trimmedPrefix + ":" + trimmedValue
+}
+
+func lifecycleEvidenceID(agentID, state string) string {
+	agent := strings.TrimSpace(agentID)
+	if agent == "" {
+		return ""
+	}
+	return "lifecycle:" + agent + ":" + strings.TrimSpace(state)
 }

@@ -15,6 +15,71 @@
     "event": {"type": "object"},
     "metadata": {"type": "object"},
     "controls": {"type": "object"},
+    "relationship": {
+      "type": "object",
+      "properties": {
+        "parent_ref": {
+          "type": "object",
+          "properties": {
+            "kind": {"type": "string"},
+            "id": {"type": "string"}
+          }
+        },
+        "entity_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {"type": "string"},
+              "id": {"type": "string"}
+            }
+          }
+        },
+        "policy_ref": {
+          "type": "object",
+          "properties": {
+            "policy_id": {"type": "string"},
+            "policy_version": {"type": "string"},
+            "policy_digest": {"type": "string"},
+            "matched_rule_ids": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        },
+        "agent_chain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "identity": {"type": "string"},
+              "role": {"type": "string"}
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {"type": "string"},
+              "from": {"type": "object"},
+              "to": {"type": "object"}
+            }
+          }
+        },
+        "parent_record_id": {"type": "string"},
+        "related_record_ids": {"type": "array", "items": {"type": "string"}},
+        "related_entity_ids": {"type": "array", "items": {"type": "string"}},
+        "agent_lineage": {
+          "type": "array",
+          "items": {"type": "object"}
+        }
+      }
+    },
+    "relations": {
+      "type": "object"
+    },
     "integrity": {
       "type": "object",
       "required": ["record_hash"],

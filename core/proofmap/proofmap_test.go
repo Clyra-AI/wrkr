@@ -59,6 +59,12 @@ func TestMapFindingsDeduplicatesWRKR014Conflict(t *testing.T) {
 	if linked, ok := record.Metadata["wrkr014_linked"].(bool); !ok || !linked {
 		t.Fatalf("expected wrkr014_linked=true metadata, got %v", record.Metadata["wrkr014_linked"])
 	}
+	if record.Relationship == nil {
+		t.Fatal("expected relationship envelope on scan_finding proof map record")
+	}
+	if record.Relationship.PolicyRef == nil || len(record.Relationship.PolicyRef.MatchedRuleIDs) != 1 || record.Relationship.PolicyRef.MatchedRuleIDs[0] != "WRKR-014" {
+		t.Fatalf("expected relationship policy_ref matched_rule_ids, got %#v", record.Relationship.PolicyRef)
+	}
 }
 
 func TestMapRiskIncludesPostureAssessment(t *testing.T) {
@@ -112,6 +118,15 @@ func TestMapRiskIncludesPostureAssessment(t *testing.T) {
 	if records[1].Event["grade"] != "B" {
 		t.Fatalf("expected posture grade B, got %v", records[1].Event["grade"])
 	}
+	if records[0].Relationship == nil {
+		t.Fatal("expected relationship envelope for finding risk record")
+	}
+	if len(records[0].Relationship.EntityRefs) == 0 {
+		t.Fatalf("expected relationship entity refs on first risk record, got %#v", records[0].Relationship)
+	}
+	if records[1].Relationship == nil || len(records[1].Relationship.RelatedEntityIDs) == 0 {
+		t.Fatalf("expected relationship metadata on posture record, got %#v", records[1].Relationship)
+	}
 }
 
 func TestMapTransitionApprovalIncludesScope(t *testing.T) {
@@ -137,5 +152,11 @@ func TestMapTransitionApprovalIncludesScope(t *testing.T) {
 	}
 	if got := record.Event["event_type"]; got != "approval" {
 		t.Fatalf("expected event_type approval, got %v", got)
+	}
+	if record.Relationship == nil {
+		t.Fatal("expected relationship envelope on transition record")
+	}
+	if len(record.Relationship.EntityRefs) == 0 {
+		t.Fatalf("expected transition relationship entity refs, got %#v", record.Relationship)
 	}
 }
