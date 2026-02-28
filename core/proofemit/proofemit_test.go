@@ -109,3 +109,48 @@ func TestEmitIdentityTransitionAddsApprovalRecord(t *testing.T) {
 		t.Fatalf("expected transition relationship envelope, got %#v", record.Relationship)
 	}
 }
+
+func TestEmitScanLinksRiskRecordWhenOrgIsEmpty(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	findings := []model.Finding{
+		{
+			FindingType: "skill_policy_conflict",
+			Severity:    model.SeverityHigh,
+			ToolType:    "skill",
+			Location:    ".agents/skills/deploy/SKILL.md",
+			Repo:        "repo",
+			Org:         "   ",
+		},
+	}
+	report := risk.Score(findings, 5, now)
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 90, Status: "pass"}
+	posture := score.Result{Score: 82.5, Grade: "B", Weights: scoremodel.DefaultWeights()}
+
+	summary, err := EmitScan(statePath, now, findings, report, profile, posture, nil)
+	if err != nil {
+		t.Fatalf("emit scan: %v", err)
+	}
+	chain, err := LoadChain(summary.ChainPath)
+	if err != nil {
+		t.Fatalf("load proof chain: %v", err)
+	}
+	linkedRisk := false
+	for _, record := range chain.Records {
+		if record.RecordType != "risk_assessment" {
+			continue
+		}
+		assessmentType, _ := record.Event["assessment_type"].(string)
+		if assessmentType != "finding_risk" {
+			continue
+		}
+		if record.Relationship != nil && len(record.Relationship.RelatedRecordIDs) > 0 {
+			linkedRisk = true
+			break
+		}
+	}
+	if !linkedRisk {
+		t.Fatalf("expected finding_risk record with related_record_ids linkage for empty-org finding; chain=%#v", chain.Records)
+	}
+}

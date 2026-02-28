@@ -96,6 +96,7 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, report 
 		canonicalKey := metadataString(mapped.Metadata, "canonical_finding_key")
 		if canonicalKey != "" {
 			findingRecordIDs[canonicalKey] = strings.TrimSpace(record.RecordID)
+			findingRecordIDs[canonicalFindingLookupKey(canonicalKey)] = strings.TrimSpace(record.RecordID)
 		}
 		summary.Findings++
 		summary.Total++
@@ -221,12 +222,14 @@ func linkMappedRecordToFindings(mapped *proofmap.MappedRecord, findingRecordIDs 
 	}
 	related := []string{}
 	if canonical := metadataString(mapped.Metadata, "canonical_finding"); canonical != "" {
-		if recordID := strings.TrimSpace(findingRecordIDs[canonical]); recordID != "" {
+		lookupKey := canonicalFindingLookupKey(canonical)
+		if recordID := strings.TrimSpace(findingRecordIDs[lookupKey]); recordID != "" {
 			related = append(related, recordID)
 		}
 	}
 	for _, key := range metadataStringSlice(mapped.Metadata, "attack_path_source") {
-		if recordID := strings.TrimSpace(findingRecordIDs[key]); recordID != "" {
+		lookupKey := canonicalFindingLookupKey(key)
+		if recordID := strings.TrimSpace(findingRecordIDs[lookupKey]); recordID != "" {
 			related = append(related, recordID)
 		}
 	}
@@ -315,4 +318,39 @@ func uniqueSortedStrings(values []string) []string {
 		return nil
 	}
 	return out
+}
+
+func canonicalFindingLookupKey(key string) string {
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "skill_policy_conflict:") {
+		parts := strings.SplitN(trimmed, ":", 3)
+		if len(parts) != 3 {
+			return trimmed
+		}
+		org := normalizeCanonicalOrgPart(parts[1])
+		repo := strings.TrimSpace(parts[2])
+		return strings.Join([]string{"skill_policy_conflict", org, repo}, ":")
+	}
+	parts := strings.Split(trimmed, "|")
+	if len(parts) != 6 {
+		return trimmed
+	}
+	parts[0] = strings.TrimSpace(parts[0])
+	parts[1] = strings.TrimSpace(parts[1])
+	parts[2] = strings.TrimSpace(parts[2])
+	parts[3] = strings.TrimSpace(parts[3])
+	parts[4] = strings.TrimSpace(parts[4])
+	parts[5] = normalizeCanonicalOrgPart(parts[5])
+	return strings.Join(parts, "|")
+}
+
+func normalizeCanonicalOrgPart(org string) string {
+	trimmed := strings.TrimSpace(org)
+	if trimmed == "" {
+		return "local"
+	}
+	return trimmed
 }
