@@ -60,7 +60,7 @@ Rules:
 - If working tree is dirty before step 1:
 - Allow only the plan-handoff case where all modified files are planning outputs and include selected `plan_path`.
 - Planning-output allowlist: `./product/PLAN_NEXT.md`, `./product/PLAN_v1.0.md`, and selected `plan_path`.
-- In the allowlist case, require current branch is already `main`, run step 1, skip steps 2-3, and run step 4 to branch with plan edits preserved.
+- In the allowlist case, require current branch is already `main`, run step 1, skip steps 2-3, and create the branch from fetched `origin/main` with `git checkout -b codex/<plan-scope> origin/main` to preserve plan edits on an up-to-date base.
 - Otherwise stop and report blocker for user decision.
 - If unexpected changes appear during implementation, stop immediately and ask how to proceed.
 - Do not switch to other branches unless user explicitly requests it.
