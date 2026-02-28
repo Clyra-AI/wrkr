@@ -57,7 +57,11 @@ Before implementation starts, run in order:
 4. `git checkout -b codex/<plan-scope>`
 
 Rules:
-- If working tree is dirty before step 1, stop and report blocker for user decision.
+- If working tree is dirty before step 1:
+- Allow only the plan-handoff case where all modified files are planning outputs and include selected `plan_path`.
+- Planning-output allowlist: `./product/PLAN_NEXT.md`, `./product/PLAN_v1.0.md`, and selected `plan_path`.
+- In the allowlist case, require current branch is already `main`, run step 1, skip steps 2-3, and run step 4 to branch with plan edits preserved.
+- Otherwise stop and report blocker for user decision.
 - If unexpected changes appear during implementation, stop immediately and ask how to proceed.
 - Do not switch to other branches unless user explicitly requests it.
 
