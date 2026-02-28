@@ -106,15 +106,20 @@ def enforce_command_budget(name, cmd, limit_ms, windows=2, runs_per_window=5):
 
 tmpdir = pathlib.Path(tempfile.mkdtemp(prefix='wrkr-perf-'))
 try:
-    repos100 = tmpdir / 'repos-100'
-    repos500 = tmpdir / 'repos-500'
+    # Keep scan workloads in separate roots so proof-chain paths do not overlap.
+    # Commands below are budgeted on the 100-repo state, so its chain must not
+    # include records emitted by the 500-repo scan.
+    workspace100 = tmpdir / 'workload-100'
+    workspace500 = tmpdir / 'workload-500'
+    repos100 = workspace100 / 'repos'
+    repos500 = workspace500 / 'repos'
     for i in range(100):
         (repos100 / f'repo-{i:03d}').mkdir(parents=True, exist_ok=True)
     for i in range(500):
         (repos500 / f'repo-{i:03d}').mkdir(parents=True, exist_ok=True)
 
-    state100 = tmpdir / 'state-100.json'
-    state500 = tmpdir / 'state-500.json'
+    state100 = workspace100 / 'state.json'
+    state500 = workspace500 / 'state.json'
 
     rc, duration100, stderr100 = timed_run([str(wrkr_bin), 'scan', '--path', str(repos100), '--state', str(state100), '--json'])
     if rc != 0:
@@ -132,7 +137,7 @@ try:
         if duration500 > budget500:
             errors.append(f'scan 500 repos took {duration500:.2f}s (budget {budget500:.2f}s)')
 
-    baseline = tmpdir / 'baseline-100.json'
+    baseline = workspace100 / 'baseline.json'
     rc, _, stderr = timed_run([str(wrkr_bin), 'regress', 'init', '--baseline', str(state100), '--output', str(baseline), '--json'])
     if rc != 0:
         errors.append(f'regress init failed with exit {rc}: {stderr}')
