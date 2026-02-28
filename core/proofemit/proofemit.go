@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -85,10 +86,16 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, report 
 	}
 
 	summary := Summary{ChainPath: chainPath}
+	findingRecordIDs := map[string]string{}
 	mappedFindings := proofmap.MapFindings(findings, &profile, now)
 	for _, mapped := range mappedFindings {
-		if err := appendSignedRecord(chain, key, mapped); err != nil {
+		record, err := appendSignedRecord(chain, key, mapped)
+		if err != nil {
 			return Summary{}, err
+		}
+		canonicalKey := metadataString(mapped.Metadata, "canonical_finding_key")
+		if canonicalKey != "" {
+			findingRecordIDs[canonicalKey] = strings.TrimSpace(record.RecordID)
 		}
 		summary.Findings++
 		summary.Total++
@@ -96,7 +103,8 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, report 
 
 	mappedRisk := proofmap.MapRisk(report, posture, profile, now)
 	for _, mapped := range mappedRisk {
-		if err := appendSignedRecord(chain, key, mapped); err != nil {
+		linkMappedRecordToFindings(&mapped, findingRecordIDs)
+		if _, err := appendSignedRecord(chain, key, mapped); err != nil {
 			return Summary{}, err
 		}
 		summary.Risk++
@@ -105,7 +113,7 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, report 
 
 	for _, transition := range transitions {
 		mapped := proofmap.MapTransition(transition, "lifecycle_transition")
-		if err := appendSignedRecord(chain, key, mapped); err != nil {
+		if _, err := appendSignedRecord(chain, key, mapped); err != nil {
 			return Summary{}, err
 		}
 		summary.Transitions++
@@ -129,7 +137,7 @@ func EmitIdentityTransition(statePath string, transition lifecycle.Transition, e
 		return err
 	}
 	mapped := proofmap.MapTransition(transition, eventType)
-	if err := appendSignedRecord(chain, key, mapped); err != nil {
+	if _, err := appendSignedRecord(chain, key, mapped); err != nil {
 		return err
 	}
 	return SaveChain(chainPath, chain)
@@ -143,9 +151,9 @@ func LoadSigningMaterial(statePath string) (proof.SigningKey, error) {
 	return loadSigningKey(statePath)
 }
 
-func appendSignedRecord(chain *proof.Chain, key proof.SigningKey, mapped proofmap.MappedRecord) error {
+func appendSignedRecord(chain *proof.Chain, key proof.SigningKey, mapped proofmap.MappedRecord) (*proof.Record, error) {
 	if chain == nil {
-		return fmt.Errorf("proof chain is required")
+		return nil, fmt.Errorf("proof chain is required")
 	}
 	controls := proof.Controls{PermissionsEnforced: true}
 	if strings.TrimSpace(mapped.ApprovedScope) != "" {
@@ -153,6 +161,7 @@ func appendSignedRecord(chain *proof.Chain, key proof.SigningKey, mapped proofma
 		withinScope := true
 		controls.WithinScope = &withinScope
 	}
+	relationship := relationshipForRecord(chain, mapped.Relationship)
 	record, err := proof.NewRecord(proof.RecordOpts{
 		Timestamp:     mapped.Timestamp.UTC(),
 		Source:        "wrkr",
@@ -161,22 +170,149 @@ func appendSignedRecord(chain *proof.Chain, key proof.SigningKey, mapped proofma
 		Type:          mapped.RecordType,
 		Event:         mapped.Event,
 		Metadata:      mapped.Metadata,
+		Relationship:  relationship,
 		Controls:      controls,
 	})
 	if err != nil {
-		return fmt.Errorf("build proof record: %w", err)
+		return nil, fmt.Errorf("build proof record: %w", err)
 	}
 	record.Integrity.PreviousRecordHash = chain.HeadHash
 	hash, err := proof.ComputeRecordHash(record)
 	if err != nil {
-		return fmt.Errorf("compute proof hash: %w", err)
+		return nil, fmt.Errorf("compute proof hash: %w", err)
 	}
 	record.Integrity.RecordHash = hash
 	if _, err := proof.Sign(record, key); err != nil {
-		return fmt.Errorf("sign proof record: %w", err)
+		return nil, fmt.Errorf("sign proof record: %w", err)
 	}
 	if err := proof.AppendToChain(chain, record); err != nil {
-		return fmt.Errorf("append proof record: %w", err)
+		return nil, fmt.Errorf("append proof record: %w", err)
 	}
-	return nil
+	return record, nil
+}
+
+func relationshipForRecord(chain *proof.Chain, relationship *proof.Relationship) *proof.Relationship {
+	if relationship == nil {
+		relationship = &proof.Relationship{}
+	}
+	if parentRecordID := previousRecordID(chain); parentRecordID != "" {
+		if relationship.ParentRef == nil {
+			relationship.ParentRef = &proof.RelationshipRef{Kind: "evidence", ID: parentRecordID}
+		}
+		if strings.TrimSpace(relationship.ParentRecordID) == "" {
+			relationship.ParentRecordID = parentRecordID
+		}
+	}
+	relationship.RelatedRecordIDs = uniqueSortedStrings(relationship.RelatedRecordIDs)
+	entityIDs := make([]string, 0, len(relationship.EntityRefs))
+	for _, ref := range relationship.EntityRefs {
+		entityIDs = append(entityIDs, strings.TrimSpace(ref.ID))
+	}
+	relationship.RelatedEntityIDs = uniqueSortedStrings(append(relationship.RelatedEntityIDs, entityIDs...))
+	if relationshipIsEmpty(*relationship) {
+		return nil
+	}
+	return relationship
+}
+
+func linkMappedRecordToFindings(mapped *proofmap.MappedRecord, findingRecordIDs map[string]string) {
+	if mapped == nil || len(findingRecordIDs) == 0 {
+		return
+	}
+	related := []string{}
+	if canonical := metadataString(mapped.Metadata, "canonical_finding"); canonical != "" {
+		if recordID := strings.TrimSpace(findingRecordIDs[canonical]); recordID != "" {
+			related = append(related, recordID)
+		}
+	}
+	for _, key := range metadataStringSlice(mapped.Metadata, "attack_path_source") {
+		if recordID := strings.TrimSpace(findingRecordIDs[key]); recordID != "" {
+			related = append(related, recordID)
+		}
+	}
+	if len(related) == 0 {
+		return
+	}
+	if mapped.Relationship == nil {
+		mapped.Relationship = &proof.Relationship{}
+	}
+	mapped.Relationship.RelatedRecordIDs = uniqueSortedStrings(append(mapped.Relationship.RelatedRecordIDs, related...))
+}
+
+func metadataString(metadata map[string]any, key string) string {
+	value, ok := metadata[key]
+	if !ok {
+		return ""
+	}
+	typed, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(typed)
+}
+
+func metadataStringSlice(metadata map[string]any, key string) []string {
+	value, ok := metadata[key]
+	if !ok {
+		return nil
+	}
+	switch typed := value.(type) {
+	case []string:
+		return uniqueSortedStrings(typed)
+	case []any:
+		values := make([]string, 0, len(typed))
+		for _, item := range typed {
+			asString, ok := item.(string)
+			if !ok {
+				continue
+			}
+			values = append(values, asString)
+		}
+		return uniqueSortedStrings(values)
+	default:
+		return nil
+	}
+}
+
+func previousRecordID(chain *proof.Chain) string {
+	if chain == nil || len(chain.Records) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(chain.Records[len(chain.Records)-1].RecordID)
+}
+
+func relationshipIsEmpty(relationship proof.Relationship) bool {
+	return relationship.ParentRef == nil &&
+		len(relationship.EntityRefs) == 0 &&
+		relationship.PolicyRef == nil &&
+		len(relationship.AgentChain) == 0 &&
+		len(relationship.Edges) == 0 &&
+		strings.TrimSpace(relationship.ParentRecordID) == "" &&
+		len(relationship.RelatedRecordIDs) == 0 &&
+		len(relationship.RelatedEntityIDs) == 0 &&
+		len(relationship.AgentLineage) == 0
+}
+
+func uniqueSortedStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

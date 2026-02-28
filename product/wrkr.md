@@ -364,6 +364,7 @@ Alex heard about Wrkr on Reddit or at a meetup. Runs `wrkr scan` on a Friday aft
 - Every risk assessment is emitted as a `risk_assessment` proof record via `proof.NewRecord()`
 - All proof records are signed via `proof.Sign()` and chained via `proof.AppendToChain()`
 - Records use the shared `Clyra-AI/proof` format — same format as Axym and Gait
+- Proof records include relationship envelopes (`parent_ref`, `entity_refs`, `policy_ref`, `agent_chain`, `edges`, plus legacy compatibility fields) so cross-product graph queries can be built over accumulated history without schema migration
 - Proof records can be ingested by Axym without conversion for unified compliance mapping
 
 ### FR5: Compliance Evidence Generation

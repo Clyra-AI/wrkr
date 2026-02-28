@@ -52,6 +52,28 @@ func TestEmitScanProducesSignedRecords(t *testing.T) {
 		if record.Integrity.SigningKeyID == "" {
 			t.Fatalf("expected signing key id for %s", record.RecordID)
 		}
+		if record.Relationship == nil {
+			t.Fatalf("expected relationship envelope for %s", record.RecordID)
+		}
+	}
+	if len(chain.Records) > 1 {
+		second := chain.Records[1]
+		if second.Relationship.ParentRef == nil || second.Relationship.ParentRef.Kind != "evidence" {
+			t.Fatalf("expected parent_ref evidence on second record relationship, got %#v", second.Relationship.ParentRef)
+		}
+		if second.Relationship.ParentRecordID == "" {
+			t.Fatalf("expected legacy parent_record_id on second record relationship, got %#v", second.Relationship)
+		}
+		linked := false
+		for _, record := range chain.Records[1:] {
+			if len(record.Relationship.RelatedRecordIDs) > 0 {
+				linked = true
+				break
+			}
+		}
+		if !linked {
+			t.Fatalf("expected at least one related_record_ids linkage on emitted records, got %#v", chain.Records)
+		}
 	}
 }
 
@@ -82,5 +104,8 @@ func TestEmitIdentityTransitionAddsApprovalRecord(t *testing.T) {
 	record := chain.Records[0]
 	if record.RecordType != "approval" {
 		t.Fatalf("expected approval record type, got %s", record.RecordType)
+	}
+	if record.Relationship == nil || len(record.Relationship.EntityRefs) == 0 {
+		t.Fatalf("expected transition relationship envelope, got %#v", record.Relationship)
 	}
 }
