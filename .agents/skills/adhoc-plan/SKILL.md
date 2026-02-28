@@ -68,6 +68,12 @@ Validation rules:
 11. Verify quality gates.
 12. Overwrite `output_plan_path` with the final plan.
 
+## Handoff Contract (Planning -> Implementation)
+
+- This skill intentionally leaves `output_plan_path` modified in the working tree.
+- Expected follow-up is `adhoc-implement` with the same `plan_path` on a new branch.
+- If additional dirty files exist beyond the generated plan file, stop and scope/clean before implementation.
+
 ## Command Contract (JSON Required)
 
 Use `wrkr` commands with `--json` whenever the plan needs machine-readable evidence, for example:

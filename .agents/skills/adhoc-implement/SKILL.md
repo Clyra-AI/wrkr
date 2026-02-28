@@ -44,7 +44,11 @@ Run in order before implementation:
 4. `git checkout -b codex/adhoc-<plan-scope>`
 
 Rules:
-- If worktree is dirty before step 1, stop and report blocker
+- If worktree is dirty before step 1:
+- Allow only the plan-handoff case where all modified files are planning outputs and include `plan_path`.
+- Planning-output allowlist: `./product/PLAN_NEXT.md`, `./product/PLAN_v1.0.md`, and selected `plan_path`.
+- In the allowlist case, require current branch is already `main`, run step 1, skip steps 2-3, and run step 4 to branch with plan edits preserved.
+- Otherwise stop and report blocker.
 - If unexpected unrelated changes appear during execution, stop immediately and ask how to proceed
 - Do not auto-commit or auto-push unless explicitly requested by the user
 

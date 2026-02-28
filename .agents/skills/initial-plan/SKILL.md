@@ -1,6 +1,7 @@
 ---
 name: initial-plan
-description: Transform the Wrkr PRD in product/wrkr.md into a world-class, zero-ambiguity execution plan that mirrors the detail level of gait/product/PLAN_v1.md, while enforcing product/dev_guides.md and product/architecture_guides.md standards for coding, testing, CI, determinism, architecture governance, and contracts. Use when the user asks for an initial build plan from the PRD (not from ideas/recommendations).
+description: Transform the Wrkr PRD in product/wrkr.md into a world-class, zero-ambiguity execution plan that mirrors the detail level of product/PLAN_v1.md (or gait/product/PLAN_v1.md when needed), while enforcing product/dev_guides.md and product/architecture_guides.md standards for coding, testing, CI, determinism, architecture governance, and contracts. Use when the user asks for an initial build plan from the PRD (not from ideas/recommendations).
+disable-model-invocation: true
 ---
 
 # PRD to Initial Execution Plan (Wrkr)
@@ -61,7 +62,7 @@ If these are missing, stop and output a gap note instead of inventing policy.
 - frugal architecture/cost impact requirements
 - chaos/hardening/perf lane triggers and failure-hypothesis expectations
 
-4. Read `gait/product/PLAN_v1.md` to mirror structure depth and story-level specificity.
+4. Read `./product/PLAN_v1.md` (or `../gait/product/PLAN_v1.md` if local reference is unavailable) to mirror structure depth and story-level specificity.
 
 5. Inspect current repository baseline and convert observed reality into a `Current Baseline (Observed)` section:
 - existing directories and key files
@@ -89,6 +90,12 @@ If these are missing, stop and output a gap note instead of inventing policy.
 10. Add `Explicit Non-Goals` and `Definition of Done`.
 
 11. Write the plan to the target file, replacing prior contents.
+
+## Handoff Contract (Planning -> Implementation)
+
+- This skill intentionally leaves the generated plan file modified in the working tree.
+- Expected follow-up is an implementation skill on a new branch with that plan as input.
+- If additional dirty files exist beyond the generated plan file, stop and scope/clean before implementation.
 
 ## Non-Negotiables
 

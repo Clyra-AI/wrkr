@@ -16,7 +16,8 @@ Execute this workflow when asked to convert strategic feature recommendations in
   - `./product/dev_guides.md`
   - `./product/architecture_guides.md`
 - Structure references (match level of detail and style):
-- `gait/product/PLAN_v1.md` (reference only, if available in your environment)
+- `./product/PLAN_v1.md` (preferred local reference, if available)
+- `../gait/product/PLAN_v1.md` (fallback reference, if available in your environment)
 - Output file: `./product/PLAN_NEXT.md` (unless user specifies a different target)
 - Planning only. Do not implement code or docs outside the target plan file.
 
@@ -54,6 +55,12 @@ If these are missing, stop and output a gap note instead of inventing details.
 11. Add delivery sequencing section (phase/week-based minimum-now path).
 12. Add definition of done and release/exit gate criteria.
 13. Write full plan to target file, overwriting prior contents.
+
+## Handoff Contract (Planning -> Implementation)
+
+- This skill intentionally leaves the generated plan file modified in the working tree.
+- Expected follow-up is `backlog-implement` using that plan file on a new branch.
+- If additional dirty files exist beyond the plan output, stop and scope/clean before implementation.
 
 ## Non-Negotiables
 
