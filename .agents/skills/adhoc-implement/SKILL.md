@@ -32,6 +32,7 @@ Execute this workflow for: "implement this plan file", "run plan from <path>", o
 - `Exit Criteria`
 - `Test Matrix Wiring`
 - Story sections with `Tasks`, `Repo paths`, `Run commands`, `Test requirements`, `Matrix wiring`, `Acceptance criteria`
+- If plan defines Wave 1/Wave 2 sequencing (or this can be inferred from story intent), Wave 1 must complete before Wave 2.
 - If structure is incomplete, stop and report missing sections
 
 ## Git Bootstrap Contract (Mandatory)
@@ -55,6 +56,11 @@ Rules:
 ## Workflow
 
 1. Parse plan and build execution queue by dependency and priority (`P0 -> P1 -> P2`).
+- Detect wave ordering from plan labels (or infer if missing):
+  - Wave 1: contract/runtime correctness and architecture boundaries
+  - Wave 2: docs, OSS hygiene, distribution UX
+- Execute all Wave 1 stories before any Wave 2 story.
+- Do not start Wave 2 until Wave 1 acceptance criteria and mapped lanes are green.
 2. Run baseline before first edit:
 - `make lint-fast`
 - `make test-fast`
@@ -130,6 +136,13 @@ When collecting evidence or emitting machine-readable status, use `wrkr` command
 - `make test-docs-consistency`
 - `make test-docs-storyline` when flow changes
 
+9. API/contract lifecycle and OSS-readiness changes:
+- public API classification updates for touched surfaces (`stable/internal/shim/deprecated`)
+- schema/versioning + migration compatibility checks for contract changes
+- machine-readable error envelope checks for automation/library consumers when applicable
+- version/install discoverability checks (`wrkr version`, install docs smoke)
+- OSS trust baseline checks when scope touches OSS posture (`CONTRIBUTING`, `CHANGELOG`, `CODE_OF_CONDUCT`, issue/PR templates, security policy links)
+
 ## Test Matrix Wiring (Enforcement)
 
 Every story must map to and run required lanes:
@@ -149,6 +162,11 @@ No story is complete if any required lane is skipped or failing.
 - `./docs/`
 - `./docs-site/public/llms.txt`
 - `./docs-site/public/llm/*.md`
+- For touched docs/onboarding surfaces, enforce:
+- README first screen states what/who/integration/first-value path
+- integration guidance appears before internals for changed flows
+- file/state lifecycle path model remains coherent
+- repo docs and docs-site stay in sync with one documented source-of-truth relationship
 - If internal-only behavior with no user-visible impact, avoid unnecessary doc churn.
 
 ## Safety Rules
@@ -166,6 +184,7 @@ No story is complete if any required lane is skipped or failing.
 - Do not claim tests ran if they were not run.
 - Tests must use temp dirs for generated artifacts; do not leak test outputs into tracked source paths.
 - If docs/CLI drift occurs due to user-visible changes, patch docs in same story.
+- If both waves are in scope, keep Wave 2 blocked until Wave 1 passes required evidence gates.
 
 ## Blocker Handling
 
@@ -184,6 +203,7 @@ Implementation is complete only when all are true:
 - Plan Definition of Done is satisfied.
 - Plan Exit Criteria is satisfied.
 - CodeQL validation is green.
+- If Wave 2 stories were executed, Wave 1 stories were completed and validated first.
 
 ## Expected Output
 

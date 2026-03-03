@@ -45,6 +45,7 @@ Execute this workflow for: "implement the plan", "execute PLAN_NEXT", "ship plan
 - Selected epic exists and can be resolved uniquely from `epic_number`.
 - Every story in the selected epic contains required story-level fields.
 - If selected stories declare dependencies outside selected epic, stop and report dependency blocker unless already satisfied.
+- If plan defines Wave 1/Wave 2 sequencing (or can be inferred from story intent), enforce Wave 1 completion before Wave 2 execution.
 - If required sections are missing, stop and report blockers.
 
 ## Git Bootstrap Contract (Mandatory)
@@ -71,10 +72,16 @@ Rules:
 - In `full-plan` mode:
 - Follow `Minimum-Now Sequence` first.
 - Respect dependencies and `P0 -> P1 -> P2`.
+- Detect wave ordering from plan labels (or infer if missing):
+  - Wave 1: contract/runtime correctness and architecture boundaries
+  - Wave 2: docs, OSS hygiene, distribution UX
+- Execute all Wave 1 stories before any Wave 2 story.
+- Do not start Wave 2 until Wave 1 acceptance criteria and mapped lanes are green.
 - In `epic-only` mode:
 - Queue only stories under selected epic.
 - Respect intra-epic dependencies and story ordering.
 - Do not auto-expand to other epics.
+- If selected epic is Wave 2 while required Wave 1 dependencies are incomplete, stop with dependency blocker.
 
 2. Run baseline before first code change:
 - `make lint-fast`
@@ -165,6 +172,13 @@ Rules:
 - `make test-docs-consistency`
 - `make test-docs-storyline` when operator flow changes
 
+9. API/contract lifecycle and OSS-readiness changes:
+- Public API classification updates for touched surfaces (`stable/internal/shim/deprecated`)
+- Schema/versioning + migration compatibility checks for contract changes
+- Machine-readable error envelope checks for automation/library consumers when applicable
+- Version/install discoverability checks (`wrkr version`, install docs smoke)
+- OSS trust baseline checks when scope touches OSS posture (`CONTRIBUTING`, `CHANGELOG`, `CODE_OF_CONDUCT`, issue/PR templates, security policy links)
+
 ## Test Matrix Wiring (Enforcement)
 
 Each story must map to and run required lanes:
@@ -187,6 +201,13 @@ If a story introduces user-visible behavior changes, update only impacted docs i
 - `./docs-site/public/llms.txt`
 - `./docs-site/public/llm/*.md`
 
+For touched docs/onboarding surfaces, enforce:
+
+- README first screen clearly states what/who/integration/first-value path
+- integration guidance appears before deep internals for changed flows
+- file/state lifecycle path model remains coherent
+- repo docs and docs-site stay in sync with one documented source-of-truth relationship
+
 If story is internal-only and behavior is unchanged, do not force doc churn.
 
 ## Safety Rules
@@ -205,6 +226,7 @@ If story is internal-only and behavior is unchanged, do not force doc churn.
 - No silent skips of required checks.
 - Tests must use temp output paths (no artifact leakage into source tree).
 - If code/docs drift is introduced by user-facing change, patch docs in same story.
+- If both waves are in scope, keep Wave 2 blocked until Wave 1 passes required evidence gates.
 
 ## Blocker Handling
 
@@ -225,6 +247,7 @@ Implementation is complete only when all are true for active mode:
 - Plan `Definition of Done` is satisfied.
 - Plan `Exit Criteria` is satisfied.
 - Required matrix lanes and CodeQL are passing.
+- If Wave 2 stories were executed, Wave 1 stories must already be complete and green.
 
 `epic-only` mode:
 - All non-blocked stories in selected epic are implemented.
@@ -233,6 +256,7 @@ Implementation is complete only when all are true for active mode:
 - Plan `Exit Criteria` mapped to selected epic are satisfied.
 - Non-mapped plan-level `Exit Criteria` are explicitly reported as `deferred (out of scope)`.
 - Required matrix lanes for selected epic stories and CodeQL are passing.
+- If selected epic is Wave 2, prerequisite Wave 1 dependencies are explicitly verified or reported as blocker.
 
 ## Expected Output
 

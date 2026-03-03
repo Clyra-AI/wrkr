@@ -49,12 +49,16 @@ If these are missing, stop and output a gap note instead of inventing details.
 5. Prioritize using `P0/P1/P2` based on contract risk reduction, moat expansion, adoption leverage, and sequencing dependency.
 6. Produce execution-ready epics and stories.
 7. For every story, include concrete tasks, repo paths, run commands, acceptance criteria, test requirements, CI matrix wiring, and architecture governance fields.
-8. Build a plan-level test matrix section mapping stories to CI lanes (fast, integration, acceptance, cross-platform).
-9. Ensure each story defines tests based on work type (schema, CLI, gate/policy, determinism, runtime, SDK, docs/examples).
-10. Add explicit boundaries and non-goals to prevent scope drift.
-11. Add delivery sequencing section (phase/week-based minimum-now path).
-12. Add definition of done and release/exit gate criteria.
-13. Write full plan to target file, overwriting prior contents.
+8. Add `Public API and Contract Map` with stable/internal surfaces, shim/deprecation plan, schema/versioning policy, and machine-readable error expectations.
+9. Add `Docs and OSS Readiness Baseline` with README first-screen contract, integration-first docs flow, lifecycle path model, docs source-of-truth, and OSS trust baseline files.
+10. Build a plan-level test matrix section mapping stories to CI lanes (fast, integration, acceptance, cross-platform).
+11. Ensure each story defines tests based on work type (schema, CLI, gate/policy, determinism, runtime, SDK, docs/examples).
+12. Add explicit boundaries and non-goals to prevent scope drift.
+13. Add delivery sequencing section (phase/week-based minimum-now path) with explicit wave order:
+- Wave 1: contract/runtime correctness and architecture boundaries
+- Wave 2: docs, OSS hygiene, distribution UX
+14. Add definition of done and release/exit gate criteria.
+15. Write full plan to target file, overwriting prior contents.
 
 ## Handoff Contract (Planning -> Implementation)
 
@@ -72,6 +76,8 @@ If these are missing, stop and output a gap note instead of inventing details.
 - Avoid dashboard-first or hosted-only dependencies in backlog core.
 - Do not include implementation code, pseudo-code, or ticket boilerplate.
 - Do not recommend minor polish work as primary backlog items.
+- Apply two-wave execution discipline when both classes exist (Wave 1 before Wave 2).
+- Use shared cross-repo onboarding taxonomy when stories touch public docs (`README`, install, quickstart, integration, command docs).
 - Every story must include test requirements and explicit matrix wiring.
 - No story is complete without same-change test updates, except explicitly justified docs-only stories.
 
@@ -90,6 +96,14 @@ For performance-sensitive stories, require wiring for:
 
 - `make test-perf`
 
+For boundary-sensitive stories, require architecture constraints to include:
+
+- thin orchestration with focused packages for parsing/persistence/reporting/policy logic
+- explicit side-effect semantics in API names/signatures
+- symmetric API semantics (`read` vs `read+validate`, `plan` vs `apply`)
+- cancellation/timeout propagation for long-running workflows
+- extension points to avoid enterprise forks
+
 ## Test Requirements by Work Type (Mandatory)
 
 1. Schema or artifact contract work:
@@ -101,6 +115,7 @@ For performance-sensitive stories, require wiring for:
 - Add command tests for help/usage behavior.
 - Add `--json` stability tests.
 - Add exit code contract tests.
+- Add machine-readable error envelope tests for automation/library consumers when applicable.
 
 3. Gate or policy semantics:
 - Add deterministic allow/block/require_approval fixture tests.
@@ -130,6 +145,18 @@ For performance-sensitive stories, require wiring for:
 - Add command-smoke checks for documented flows.
 - Add docs-versus-CLI parity checks where possible.
 - Update acceptance scripts if docs alter required operator path.
+- Ensure README first screen answers what/who/integration/first-value quickly.
+- Ensure docs explain integration before internals for touched user flows.
+- Keep docs source-of-truth mapping explicit when repo docs/docs-site are both changed.
+
+8. API/contract lifecycle work:
+- Add/update public API map classification (stable/internal/shim/deprecated) for touched surfaces.
+- Add schema/version bump and migration expectation checks for contract changes.
+- Verify install/version discoverability path (`wrkr version`, minimal dependency install guidance).
+
+9. OSS readiness/doc ops work:
+- Validate `CONTRIBUTING`, `CHANGELOG`, `CODE_OF_CONDUCT`, issue/PR templates, and security policy links when touched by story scope.
+- Document maintainer/support expectations when public OSS behavior changes.
 
 ## Test Matrix Wiring Contract (Plan-Level)
 
@@ -151,11 +178,13 @@ Required top sections:
 3. `Global Decisions (Locked)`
 4. `Current Baseline (Observed)`
 5. `Exit Criteria`
-6. `Test Matrix Wiring`
-7. `Epic` sections with `Objective` and `Story` breakdowns
-8. `Minimum-Now Sequence` (phased execution)
-9. `Explicit Non-Goals`
-10. `Definition of Done`
+6. `Public API and Contract Map`
+7. `Docs and OSS Readiness Baseline`
+8. `Test Matrix Wiring`
+9. `Epic` sections with `Objective` and `Story` breakdowns
+10. `Minimum-Now Sequence` (phased execution)
+11. `Explicit Non-Goals`
+12. `Definition of Done`
 
 Story template (required fields):
 
@@ -167,6 +196,8 @@ Story template (required fields):
 - `Test requirements:`
 - `Matrix wiring:`
 - `Acceptance criteria:`
+- `Contract/API impact:` (required for CLI/schema/sdk/library stories)
+- `Versioning/migration impact:` (required for schema/contract changes)
 - `Architecture constraints:`
 - `ADR required: yes|no`
 - `TDD first failing test(s):`
@@ -190,6 +221,11 @@ Before finalizing, verify:
 - Every story maps to enforceable rules from both guides (`dev_guides.md`, `architecture_guides.md`).
 - High-risk stories include hardening/chaos lane wiring.
 - CLI contract stories include explicit `--json` and exit-code invariants.
+- API/contract map is explicit for touched surfaces and deprecations.
+- Schema/versioning and migration expectations are explicit for contract changes.
+- Docs baseline includes README first-screen, integration-first flow, and lifecycle path model.
+- OSS trust baseline files/maintainer expectations are addressed or explicitly deferred.
+- Sequence enforces Wave 1 before Wave 2 where both are present.
 - Sequence is dependency-aware.
 - Plan stays strategic and execution-relevant (not cosmetic).
 
