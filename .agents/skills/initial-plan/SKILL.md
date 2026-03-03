@@ -77,7 +77,21 @@ If these are missing, stop and output a gap note instead of inventing policy.
 
 7. Decompose every epic into execution-ready stories with explicit tasks and test wiring.
 
-8. Add a plan-level `Test Matrix Wiring` section that maps stories to:
+8. Add a plan-level `Public API and Contract Map` section that defines:
+- stable public surfaces vs internal surfaces
+- shim/deprecation path and compatibility window
+- schema/versioning policy (what is breaking, when to bump, migration expectations)
+- machine-readable error envelope expectations for programmatic consumers
+- install/version discoverability (`wrkr version`, minimal dependency install path)
+
+9. Add a plan-level `Docs and OSS Readiness Baseline` section that defines:
+- README first-screen contract (what it is, who it is for, how it integrates, first 10 minutes)
+- integration-before-internals docs flow using problem -> solution framing
+- file/state lifecycle diagram and canonical path model expectations
+- single docs source-of-truth policy across repo docs and docs-site
+- OSS trust baseline files and maintainer/support expectation clarity
+
+10. Add a plan-level `Test Matrix Wiring` section that maps stories to:
 - Fast lane
 - Core CI lane
 - Acceptance lane
@@ -85,11 +99,14 @@ If these are missing, stop and output a gap note instead of inventing policy.
 - Risk lane
 - Gating rule
 
-9. Add a dependency-aware `Minimum-Now Sequence` with phased/week execution order.
+11. Add a dependency-aware `Minimum-Now Sequence` with phased/week execution order and explicit wave order:
+- Wave 1: contract/runtime correctness and architecture boundaries
+- Wave 2: docs, OSS hygiene, and distribution UX
+- Do not schedule Wave 2 stories ahead of Wave 1 dependencies
 
-10. Add `Explicit Non-Goals` and `Definition of Done`.
+12. Add `Explicit Non-Goals` and `Definition of Done`.
 
-11. Write the plan to the target file, replacing prior contents.
+13. Write the plan to the target file, replacing prior contents.
 
 ## Handoff Contract (Planning -> Implementation)
 
@@ -115,11 +132,13 @@ Required top sections:
 3. `Global Decisions (Locked)`
 4. `Current Baseline (Observed)`
 5. `Exit Criteria`
-6. `Test Matrix Wiring`
-7. `Epic` sections with objective and story breakdowns
-8. `Minimum-Now Sequence` (phased, dependency-aware)
-9. `Explicit Non-Goals`
-10. `Definition of Done`
+6. `Public API and Contract Map`
+7. `Docs and OSS Readiness Baseline`
+8. `Test Matrix Wiring`
+9. `Epic` sections with objective and story breakdowns
+10. `Minimum-Now Sequence` (phased, dependency-aware)
+11. `Explicit Non-Goals`
+12. `Definition of Done`
 
 Story template (required fields):
 
@@ -131,6 +150,8 @@ Story template (required fields):
 - `Test requirements:`
 - `Matrix wiring:`
 - `Acceptance criteria:`
+- `Contract/API impact:` (required for CLI/schema/sdk/library stories)
+- `Versioning/migration impact:` (required for schema/contract changes)
 - `Architecture constraints:`
 - `ADR required: yes|no`
 - `TDD first failing test(s):`
@@ -179,6 +200,15 @@ For every story, derive required checks from `product/dev_guides.md` by work typ
 7. Docs/examples contract changes:
 - Add command-smoke checks for documented flows.
 - Update acceptance scripts if operator workflow changed.
+- Enforce README first-screen contract (what/who/integration/quickstart).
+- Keep integration guidance ahead of internals for changed user flows.
+- Keep docs source-of-truth mapping explicit when repo docs/docs-site both change.
+
+8. API/contract lifecycle changes:
+- Update public API map classification (stable/internal/shim/deprecated).
+- Define schema/version bump rationale and migration expectation for breaking changes.
+- Add machine-readable error contract checks for programmatic consumers.
+- Verify `wrkr version` and minimal install path discoverability remain accurate.
 
 ## Architecture Guides Enforcement Contract
 
@@ -203,6 +233,13 @@ For every story, enforce `product/architecture_guides.md` requirements:
 
 5. Contract-first behavior:
 - CLI/JSON/exit-code stories must state explicit invariants in acceptance criteria.
+
+6. Boundary discipline and API semantics:
+- Keep orchestration layers thin; move parsing/persistence/reporting/policy to focused packages.
+- Make side effects explicit in API names and signatures.
+- Preserve semantic symmetry (`read` vs `read+validate`, `plan` vs `apply`).
+- Propagate `context.Context` cancellation/timeouts through long-running flows.
+- Add extension points early for enterprise integrations to reduce fork pressure.
 
 ## Testing Tier Mapping (Mandatory)
 
@@ -268,6 +305,12 @@ Before finalizing, verify:
 - every story includes architecture constraints, TDD first-failing-test requirement, and cost/perf impact
 - high-risk stories include hardening/chaos lane wiring
 - CLI contract stories include explicit `--json` and exit-code invariants
+- API/contract map clearly classifies touched surfaces (stable/internal/shim/deprecated)
+- schema/versioning and migration expectations are explicit for contract changes
+- machine-readable error behavior is specified for automation/library consumers
+- docs baseline covers first-screen README, integration-first flow, and lifecycle path model
+- OSS trust baseline files/ownership expectations are planned or explicitly deferred
+- sequence enforces Wave 1 before Wave 2 where both exist
 - matrix wiring exists for every story
 - sequence is dependency-aware and executable end-to-end
 - plan respects Wrkr boundaries (See product only; no Axym/Gait feature scope creep)
