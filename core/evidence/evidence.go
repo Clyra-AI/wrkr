@@ -222,7 +222,7 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, err
 	}
 
-	if _, err := proof.SignBundle(outputDir, signingMaterial); err != nil {
+	if _, err := proof.SignBundleFile(outputDir, signingMaterial); err != nil {
 		return BuildResult{}, fmt.Errorf("sign bundle manifest: %w", err)
 	}
 	if _, err := proof.VerifyBundle(outputDir, proof.BundleVerifyOpts{}); err != nil {
