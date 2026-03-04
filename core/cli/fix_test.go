@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -149,6 +150,42 @@ func TestFixOpenPRWritesRemediationArtifacts(t *testing.T) {
 	}
 }
 
+func TestFixHelpMatchesBehaviorContract(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"fix", "--help"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d stderr=%q", code, errOut.String())
+	}
+
+	helpText := errOut.String()
+	for _, sentence := range []string{fixBehaviorContractSentenceOne, fixBehaviorContractSentenceTwo} {
+		if !strings.Contains(helpText, sentence) {
+			t.Fatalf("fix help missing behavior contract sentence %q", sentence)
+		}
+	}
+
+	repoRoot := mustRepoRoot(t)
+	docsText, err := os.ReadFile(filepath.Join(repoRoot, "docs/commands/fix.md"))
+	if err != nil {
+		t.Fatalf("read fix docs: %v", err)
+	}
+	readmeText, err := os.ReadFile(filepath.Join(repoRoot, "README.md"))
+	if err != nil {
+		t.Fatalf("read README: %v", err)
+	}
+	for _, sentence := range []string{fixBehaviorContractSentenceOne, fixBehaviorContractSentenceTwo} {
+		if !strings.Contains(string(docsText), sentence) {
+			t.Fatalf("docs/commands/fix.md missing behavior contract sentence %q", sentence)
+		}
+		if !strings.Contains(string(readmeText), sentence) {
+			t.Fatalf("README.md missing behavior contract sentence %q", sentence)
+		}
+	}
+}
+
 func writeFixStateFixture(t *testing.T) string {
 	t.Helper()
 
@@ -177,6 +214,26 @@ func writeFixStateFixture(t *testing.T) string {
 		t.Fatalf("save state fixture: %v", err)
 	}
 	return statePath
+}
+
+func mustRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	current := wd
+	for {
+		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
+			return current
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			t.Fatalf("could not find repo root from %s", wd)
+		}
+		current = parent
+	}
 }
 
 type stubPRAPI struct {

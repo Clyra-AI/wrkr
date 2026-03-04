@@ -10,6 +10,7 @@ description: "Release hardening checks, reproducibility expectations, and integr
 - Deterministic test gates in release workflow.
 - Contract and scenario validation before artifact generation.
 - SBOM generation and vulnerability scanning in release pipeline.
+- `CHANGELOG.md` release-note entries updated before tag publication.
 
 ## Command anchors
 
@@ -38,6 +39,7 @@ scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/w
 ## Operational note
 
 Consumers should verify published release checksums and provenance metadata before promotion.
+Maintainers should treat changelog updates as release-gating documentation work, not an optional follow-up.
 
 ## Q&A
 

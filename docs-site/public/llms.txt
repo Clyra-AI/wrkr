@@ -39,8 +39,10 @@
 - No secret-value extraction; only risk context signals.
 - Proof-chain verification support for evidence integrity checks.
 - Evidence bundles include deterministic inventory artifacts: inventory.json, inventory-snapshot.json, inventory.yaml.
+- Wrkr runs standalone; Axym/Gait are optional integrations over shared proof contracts.
 
 ## Canonical Docs
+- /docs/map/
 - /docs/adopt_in_one_pr/
 - /docs/integration_checklist/
 - /docs/architecture/

@@ -6,6 +6,7 @@ description: "Canonical map of Wrkr docs, with normative surfaces and ownership 
 # Wrkr Documentation Map
 
 This file defines where each topic lives so docs remain contract-aligned and non-duplicative.
+For editing/validation workflow, see [`docs/map.md`](map.md).
 
 ## Canonical Surface Taxonomy
 
@@ -27,6 +28,7 @@ This file defines where each topic lives so docs remain contract-aligned and non
 
 - Architecture: `docs/architecture.md`
 - Mental model: `docs/concepts/mental_model.md`
+- State lifecycle (canonical local artifact paths): `docs/state_lifecycle.md`
 - Failure taxonomy and exits: `docs/failure_taxonomy_exit_codes.md`
 - Policy authoring: `docs/policy_authoring.md`
 - Built-in policy rules: `docs/policy_builtin_rules.md`
@@ -38,6 +40,7 @@ This file defines where each topic lives so docs remain contract-aligned and non
 - Manifest spec: `docs/specs/wrkr-manifest.md`
 - Compatibility and versioning policy: `docs/trust/compatibility-and-versioning.md`
 - Compatibility matrix: `docs/contracts/compatibility_matrix.md`
+- README cross-repo contract: `docs/contracts/readme_contract.md`
 - Deterministic guarantees: `docs/trust/deterministic-guarantees.md`
 - goja AST-only guardrails: `docs/trust/goja-ast-only.md`
 - MCP enrich quality model: `docs/trust/mcp-enrich-quality-model.md`
@@ -58,6 +61,7 @@ This file defines where each topic lives so docs remain contract-aligned and non
 - Positioning: `docs/positioning.md`
 - FAQ: `docs/faq.md`
 - Intent guides: `docs/intent/*.md`
+- Cross-repo README alignment tracker: `docs/roadmap/cross-repo-readme-alignment.md`
 
 ## Ownership Rules
 

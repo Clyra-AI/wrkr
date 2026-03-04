@@ -40,9 +40,11 @@ Recommended operator actions when coverage is low:
 ## Example
 
 ```bash
-wrkr evidence --frameworks eu-ai-act,soc2 --state ./.tmp/state.json --output ./.tmp/evidence --json
+wrkr evidence --frameworks eu-ai-act,soc2 --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
 ```
 
 Expected JSON keys: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`, `report_artifacts`.
 Evidence bundle includes deterministic inventory exports at `inventory.json`, `inventory-snapshot.json`, and `inventory.yaml`.
 Evidence bundle includes deterministic attack-path artifact export at `attack-paths.json` when attack-path scoring is present in scan state.
+
+Canonical state and proof-chain path behavior: [`docs/state_lifecycle.md`](../state_lifecycle.md).

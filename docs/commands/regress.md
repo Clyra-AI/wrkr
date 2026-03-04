@@ -29,9 +29,11 @@ wrkr regress run --baseline <baseline-path> [--state <state-path>] [--summary-md
 ## Example
 
 ```bash
-wrkr regress init --baseline ./.tmp/state.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.tmp/state.json --summary-md --summary-md-path ./.tmp/regress-summary.md --template operator --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
+wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --summary-md --summary-md-path ./.tmp/regress-summary.md --template operator --json
 ```
 
 Expected JSON keys include `status`, `baseline_path`, `tool_count` (init) and drift fields plus optional `summary_md_path` (run).
 When critical attack-path sets diverge above deterministic thresholds, `reasons` includes a single `critical_attack_path_drift` summary entry with machine-readable `attack_path_drift` details (`added`, `removed`, `score_changed`).
+
+Canonical state/baseline path behavior: [`docs/state_lifecycle.md`](../state_lifecycle.md).

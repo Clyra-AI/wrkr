@@ -14,6 +14,7 @@ Acquisition behavior is fail-closed by target:
 - `--repo` and `--org` require real GitHub acquisition via `--github-api` or `WRKR_GITHUB_API_BASE`.
 - `--repo` and `--org` materialize repository contents into a deterministic local workspace under the scan state directory before detectors run.
 - When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
+- `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
 
 ## Flags
 
@@ -108,3 +109,4 @@ Emerging discovery surfaces are static-only in default deterministic mode:
 - No live endpoint probing is performed by default.
 
 Custom extension detectors are loaded from `.wrkr/detectors/extensions.json` when present in scanned repositories. See [`docs/extensions/detectors.md`](../extensions/detectors.md).
+Canonical state and artifact lifecycle: [`docs/state_lifecycle.md`](../state_lifecycle.md).
