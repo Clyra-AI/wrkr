@@ -30,13 +30,16 @@ This file defines where each topic lives so docs remain contract-aligned and non
 - Failure taxonomy and exits: `docs/failure_taxonomy_exit_codes.md`
 - Policy authoring: `docs/policy_authoring.md`
 - Built-in policy rules: `docs/policy_builtin_rules.md`
+- Extension detectors: `docs/extensions/detectors.md`
 - Threat model: `docs/threat_model.md`
 
 ## Contracts and Trust
 
 - Manifest spec: `docs/specs/wrkr-manifest.md`
+- Compatibility and versioning policy: `docs/trust/compatibility-and-versioning.md`
 - Compatibility matrix: `docs/contracts/compatibility_matrix.md`
 - Deterministic guarantees: `docs/trust/deterministic-guarantees.md`
+- goja AST-only guardrails: `docs/trust/goja-ast-only.md`
 - MCP enrich quality model: `docs/trust/mcp-enrich-quality-model.md`
 - Proof verification: `docs/trust/proof-chain-verification.md`
 - Security and privacy posture: `docs/trust/security-and-privacy.md`

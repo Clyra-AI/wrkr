@@ -26,9 +26,8 @@ func (Detector) ID() string { return detectorID }
 var aiKeywords = []string{"openai", "anthropic", "langchain", "llama", "cohere", "mistral", "gemini", "agent", "copilot"}
 
 func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
-	info, err := os.Stat(scope.Root)
-	if err != nil || !info.IsDir() {
-		return nil, nil
+	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
+		return nil, err
 	}
 
 	findings := make([]model.Finding, 0)

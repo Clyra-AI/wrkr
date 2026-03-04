@@ -15,6 +15,9 @@ venv/
 # Local analysis scratch
 .tmp/
 .wrkr/
+!scenarios/wrkr/extension-detectors/repos/ext-repo/.wrkr/
+!scenarios/wrkr/extension-detectors/repos/ext-repo/.wrkr/detectors/
+!scenarios/wrkr/extension-detectors/repos/ext-repo/.wrkr/detectors/extensions.json
 *.sarif
 /wrkr
 /wrkr.exe

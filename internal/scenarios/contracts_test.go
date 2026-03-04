@@ -23,6 +23,7 @@ func TestScenarioContracts(t *testing.T) {
 		"scenarios/wrkr/a2a-agent-cards/repos",
 		"scenarios/wrkr/webmcp-declarations/repos",
 		"scenarios/wrkr/prompt-channel-poisoning/repos",
+		"scenarios/wrkr/extension-detectors/repos",
 		"scenarios/wrkr/attack-path-correlation/repos",
 		"scenarios/wrkr/mcp-enrich-supplychain/repos",
 		"scenarios/cross-product/proof-record-interop/records-from-all-3.jsonl",

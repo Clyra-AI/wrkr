@@ -6,11 +6,12 @@ top="${2:-5}"
 target_mode="${3:-}"
 target_value="${4:-}"
 config_path="${5:-}"
+sarif_path="${6:-${WRKR_ACTION_SARIF_PATH:-./.tmp/wrkr.sarif}}"
 summary_path="${WRKR_ACTION_SUMMARY_PATH:-./.tmp/wrkr-action-summary.md}"
 comment_fingerprint="${WRKR_ACTION_COMMENT_FINGERPRINT:-wrkr-action-pr-mode-v1}"
 block_threshold="${WRKR_ACTION_BLOCK_THRESHOLD:-0}"
 
-if [[ "${mode}" != "scheduled" && "${mode}" != "pr" ]]; then
+if [[ "${mode}" != "scheduled" && "${mode}" != "pr" && "${mode}" != "sarif" ]]; then
   echo "unsupported mode: ${mode}" >&2
   exit 6
 fi
@@ -62,6 +63,10 @@ elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
 else
   echo "missing scan target: set target_mode+target_value, config_path, or GITHUB_REPOSITORY" >&2
   exit 6
+fi
+
+if [[ "${mode}" == "sarif" ]]; then
+  scan_args+=(--sarif --sarif-path "${sarif_path}")
 fi
 
 scan_json="$(run_wrkr scan "${scan_args[@]}")"
@@ -190,3 +195,6 @@ fi
 # Deterministic mode marker for workflow consumers.
 echo "wrkr_action_mode=${mode}"
 echo "wrkr_action_summary=${summary_path}"
+if [[ "${mode}" == "sarif" ]]; then
+  echo "wrkr_action_sarif=${sarif_path}"
+fi

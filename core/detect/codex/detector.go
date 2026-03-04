@@ -3,7 +3,6 @@ package codex
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -25,9 +24,8 @@ type configModel struct {
 }
 
 func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
-	info, err := os.Stat(scope.Root)
-	if err != nil || !info.IsDir() {
-		return nil, nil
+	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
+		return nil, err
 	}
 	findings := make([]model.Finding, 0)
 

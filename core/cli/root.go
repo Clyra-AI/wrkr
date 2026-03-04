@@ -1,12 +1,12 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 )
 
@@ -24,12 +24,20 @@ const (
 
 // Run executes the wrkr CLI root command and returns a stable process exit code.
 func Run(args []string, stdout io.Writer, stderr io.Writer) int {
+	return RunWithContext(context.Background(), args, stdout, stderr)
+}
+
+// RunWithContext executes the wrkr CLI root command with a caller-provided context.
+func RunWithContext(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if len(args) == 0 {
 		_, _ = fmt.Fprintln(stdout, "wrkr")
 		return exitSuccess
 	}
 
-	if code, handled := runKnownSubcommand(args[0], args[1:], stdout, stderr); handled {
+	if code, handled := runKnownSubcommand(ctx, args[0], args[1:], stdout, stderr); handled {
 		return code
 	}
 
@@ -40,12 +48,12 @@ func Run(args []string, stdout io.Writer, stderr io.Writer) int {
 	return runRootFlags(args, stdout, stderr)
 }
 
-func runKnownSubcommand(name string, args []string, stdout io.Writer, stderr io.Writer) (int, bool) {
+func runKnownSubcommand(ctx context.Context, name string, args []string, stdout io.Writer, stderr io.Writer) (int, bool) {
 	switch name {
 	case "init":
 		return runInit(args, stdout, stderr), true
 	case "scan":
-		return runScan(args, stdout, stderr), true
+		return runScanWithContext(ctx, args, stdout, stderr), true
 	case "action":
 		return runAction(args, stdout, stderr), true
 	case "report":
@@ -70,20 +78,22 @@ func runKnownSubcommand(name string, args []string, stdout io.Writer, stderr io.
 		return runEvidence(args, stdout, stderr), true
 	case "fix":
 		return runFix(args, stdout, stderr), true
+	case "version":
+		return runVersion(args, stdout, stderr), true
 	case "help":
-		return runHelp(args, stdout, stderr), true
+		return runHelp(ctx, args, stdout, stderr), true
 	default:
 		return 0, false
 	}
 }
 
-func runHelp(args []string, stdout io.Writer, stderr io.Writer) int {
+func runHelp(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 || isHelpFlag(args[0]) {
 		return runRootFlags([]string{"--help"}, stdout, stderr)
 	}
 
 	helpArgs := append(append([]string{}, args[1:]...), "--help")
-	if code, handled := runKnownSubcommand(args[0], helpArgs, stdout, stderr); handled {
+	if code, handled := runKnownSubcommand(ctx, args[0], helpArgs, stdout, stderr); handled {
 		return code
 	}
 
@@ -103,6 +113,7 @@ func runRootFlags(args []string, stdout io.Writer, stderr io.Writer) int {
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
 	quiet := fs.Bool("quiet", false, "suppress non-error output")
 	explain := fs.Bool("explain", false, "emit human-readable rationale")
+	version := fs.Bool("version", false, "print wrkr version")
 	fs.Usage = func() {
 		writeRootUsage(fs.Output(), fs)
 	}
@@ -115,6 +126,9 @@ func runRootFlags(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if *quiet && *explain && !*jsonOut {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--quiet and --explain cannot be used together", exitInvalidInput)
+	}
+	if *version {
+		return emitVersion(stdout, jsonRequested || *jsonOut, *jsonOut)
 	}
 
 	if *jsonOut {
@@ -157,6 +171,7 @@ func writeRootUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "  verify     verify proof chain integrity")
 	_, _ = fmt.Fprintln(out, "  evidence   build compliance-ready evidence bundles")
 	_, _ = fmt.Fprintln(out, "  fix        apply deterministic remediations")
+	_, _ = fmt.Fprintln(out, "  version    print wrkr version")
 	_, _ = fmt.Fprintln(out, "")
 	_, _ = fmt.Fprintln(out, "Examples:")
 	_, _ = fmt.Fprintln(out, "  wrkr scan --path . --json")
@@ -196,21 +211,4 @@ func emitError(stderr io.Writer, jsonOut bool, code, message string, exitCode in
 		_, _ = fmt.Fprintln(stderr, message)
 	}
 	return exitCode
-}
-
-func wantsJSONOutput(args []string) bool {
-	for _, arg := range args {
-		if arg == "--json" {
-			return true
-		}
-		if strings.HasPrefix(arg, "--json=") {
-			value := strings.TrimPrefix(arg, "--json=")
-			parsed, err := strconv.ParseBool(value)
-			if err != nil {
-				return true
-			}
-			return parsed
-		}
-	}
-	return false
 }

@@ -3,6 +3,7 @@ SHELL := /bin/bash
 GO ?= go
 PKGS := ./...
 GOFILES := $(shell git ls-files '*.go')
+DOCS_SITE_NPM_CACHE ?= $(CURDIR)/.tmp/npm-cache
 
 .PHONY: fmt lint lint-fast test test-fast test-integration test-e2e test-contracts test-scenarios \
 	test-hardening test-chaos test-perf test-risk-lane build hooks prepush prepush-full codeql lint-ci \
@@ -61,19 +62,23 @@ test-docs-storyline:
 	@scripts/run_docs_smoke.sh --subset
 
 docs-site-install:
-	@cd docs-site && npm ci
+	@mkdir -p "$(DOCS_SITE_NPM_CACHE)"
+	@cd docs-site && NPM_CONFIG_CACHE="$(DOCS_SITE_NPM_CACHE)" npm ci
 
 docs-site-lint:
-	@cd docs-site && npm run lint
+	@mkdir -p "$(DOCS_SITE_NPM_CACHE)"
+	@cd docs-site && NPM_CONFIG_CACHE="$(DOCS_SITE_NPM_CACHE)" npm run lint
 
 docs-site-build:
-	@cd docs-site && npm run build
+	@mkdir -p "$(DOCS_SITE_NPM_CACHE)"
+	@cd docs-site && NPM_CONFIG_CACHE="$(DOCS_SITE_NPM_CACHE)" npm run build
 
 docs-site-check:
 	@python3 scripts/check_docs_site_validation.py --report wrkr-out/docs_site_validation_report.json
 
 docs-site-audit-prod:
-	@cd docs-site && npm audit --omit=dev --audit-level=high
+	@mkdir -p "$(DOCS_SITE_NPM_CACHE)"
+	@cd docs-site && NPM_CONFIG_CACHE="$(DOCS_SITE_NPM_CACHE)" npm audit --omit=dev --audit-level=high
 
 test-adapter-parity:
 	@scripts/test_adapter_parity.sh

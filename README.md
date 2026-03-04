@@ -81,7 +81,7 @@ make build
 
 Expected JSON keys by command family:
 
-- `scan`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score` (optional: `policy_warnings`, `report`)
+- `scan`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score` (optional: `detector_errors`, `partial_result`, `source_errors`, `source_degraded`, `policy_warnings`, `report`, `sarif`)
 - `report`: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `privilege_budget`, `summary` (optional: `md_path`, `pdf_path`)
 - `score`: `score`, `grade`, `breakdown`, `weighted_breakdown`, `weights`, `trend_delta` (optional: `attack_paths`, `top_attack_paths`)
 - `evidence`: `status`, `output_dir`, `manifest_path`, `chain_path`, `framework_coverage`, `report_artifacts`
@@ -127,6 +127,8 @@ Acquisition behavior:
 - `--path`: local, offline, fully deterministic.
 - `--repo` and `--org`: require `--github-api` or `WRKR_GITHUB_API_BASE`; unavailable acquisition fails closed with exit `7`.
 - Invalid target combinations fail with exit `6`.
+- `--timeout <duration>` bounds scan runtime. Timeout returns JSON error code `scan_timeout` (exit `1`); signal/parent cancellation returns `scan_canceled` (exit `1`).
+- GitHub retry behavior is bounded and rate-limit aware (`Retry-After`/`X-RateLimit-Reset`); repeated transient failures enter cooldown degradation and are surfaced in partial-result output.
 
 ## Production Target Policy
 
@@ -240,6 +242,7 @@ wrkr lifecycle
 wrkr manifest generate
 wrkr regress init|run
 wrkr score
+wrkr version
 wrkr verify --chain
 wrkr evidence
 wrkr fix
@@ -255,6 +258,7 @@ All commands support `--json`. Human-readable rationale is available via `--expl
 - Policy authoring: [`docs/policy_authoring.md`](docs/policy_authoring.md)
 - Failure taxonomy and exits: [`docs/failure_taxonomy_exit_codes.md`](docs/failure_taxonomy_exit_codes.md)
 - Threat model: [`docs/threat_model.md`](docs/threat_model.md)
+- Compatibility and versioning policy: [`docs/trust/compatibility-and-versioning.md`](docs/trust/compatibility-and-versioning.md)
 - Compatibility matrix: [`docs/contracts/compatibility_matrix.md`](docs/contracts/compatibility_matrix.md)
 - Trust docs: [`docs/trust/`](docs/trust/)
 - Intent pages: [`docs/intent/`](docs/intent/)
