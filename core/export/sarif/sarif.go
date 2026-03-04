@@ -130,7 +130,7 @@ func Build(findings []model.Finding, wrkrVersion string) Report {
 
 // Write persists a SARIF report at path.
 func Write(path string, report Report) error {
-	file, err := os.Create(path)
+	file, err := os.Create(path) // #nosec G304 -- output path is caller-controlled and validated by CLI path guards before write.
 	if err != nil {
 		return fmt.Errorf("create sarif output: %w", err)
 	}
