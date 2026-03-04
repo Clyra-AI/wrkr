@@ -1,0 +1,31 @@
+name: wrkr-sarif
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build wrkr
+        run: go build -o .tmp/wrkr ./cmd/wrkr
+
+      - name: Run scan with SARIF output
+        run: ./.tmp/wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --sarif --sarif-path ./.tmp/wrkr.sarif --json >/dev/null
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ./.tmp/wrkr.sarif

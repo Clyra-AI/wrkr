@@ -31,10 +31,14 @@ func TestRegistryRunsCrossDetectorCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create detector registry: %v", err)
 	}
-	findings, err := registry.Run(context.Background(), scopes, detect.Options{})
+	result, err := registry.Run(context.Background(), scopes, detect.Options{})
 	if err != nil {
 		t.Fatalf("run detector registry: %v", err)
 	}
+	if len(result.DetectorErrors) != 0 {
+		t.Fatalf("expected no detector errors from fixtures, got %+v", result.DetectorErrors)
+	}
+	findings := result.Findings
 	if len(findings) == 0 {
 		t.Fatal("expected detector findings from mixed-org fixtures")
 	}

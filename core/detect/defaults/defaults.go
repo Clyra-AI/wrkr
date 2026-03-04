@@ -10,6 +10,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/copilot"
 	"github.com/Clyra-AI/wrkr/core/detect/cursor"
 	"github.com/Clyra-AI/wrkr/core/detect/dependency"
+	"github.com/Clyra-AI/wrkr/core/detect/extension"
 	"github.com/Clyra-AI/wrkr/core/detect/gaitpolicy"
 	"github.com/Clyra-AI/wrkr/core/detect/mcp"
 	"github.com/Clyra-AI/wrkr/core/detect/mcpgateway"
@@ -34,6 +35,7 @@ func Registry() (*detect.Registry, error) {
 		skills.New(),
 		gaitpolicy.New(),
 		dependency.New(),
+		extension.New(),
 		secrets.New(),
 		compiledaction.New(),
 		ciagent.New(),

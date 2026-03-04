@@ -42,9 +42,8 @@ var pinRE = regexp.MustCompile(`@[0-9]+`)
 var packageRE = regexp.MustCompile(`(@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+|[A-Za-z0-9._-]+)(?:@([A-Za-z0-9._-]+))?`)
 
 func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
-	info, err := os.Stat(scope.Root)
-	if err != nil || !info.IsDir() {
-		return nil, nil
+	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
+		return nil, err
 	}
 
 	var enrichService enrich.Service

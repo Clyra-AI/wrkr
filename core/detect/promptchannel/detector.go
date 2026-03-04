@@ -37,9 +37,8 @@ func New() Detector { return Detector{} }
 func (Detector) ID() string { return detectorID }
 
 func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
-	info, err := os.Stat(scope.Root)
-	if err != nil || !info.IsDir() {
-		return nil, nil
+	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
+		return nil, err
 	}
 
 	files, err := detect.WalkFiles(scope.Root)

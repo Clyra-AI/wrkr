@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.clyra.ai/wrkr/v1/extension-detectors.schema.json",
+  "title": "Wrkr Extension Detector Descriptors",
+  "type": "object",
+  "required": ["version", "detectors"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["v1"]
+    },
+    "detectors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "finding_type", "tool_type", "location", "severity"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._-]+$"
+          },
+          "finding_type": {"type": "string", "minLength": 1},
+          "tool_type": {"type": "string", "minLength": 1},
+          "location": {"type": "string", "minLength": 1},
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low", "info"]
+          },
+          "remediation": {"type": "string"},
+          "permissions": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "value"],
+              "properties": {
+                "key": {"type": "string"},
+                "value": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

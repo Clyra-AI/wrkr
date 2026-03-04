@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestAcquireRepoRequiresBaseURL(t *testing.T) {
@@ -341,5 +342,152 @@ func TestMaterializeRepoFailsClosedOnTruncatedTree(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "truncated") {
 		t.Fatalf("expected truncated error, got %v", err)
+	}
+}
+
+func TestConnectorHonorsRetryAfter429(t *testing.T) {
+	t.Parallel()
+
+	var attempts int32
+	var slept []time.Duration
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		current := atomic.AddInt32(&attempts, 1)
+		if current == 1 {
+			w.Header().Set("Retry-After", "4")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = fmt.Fprint(w, `{"message":"rate limited"}`)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "", server.Client())
+	connector.MaxRetries = 2
+	connector.sleepFn = func(_ context.Context, duration time.Duration) error {
+		slept = append(slept, duration)
+		return nil
+	}
+
+	if _, err := connector.AcquireRepo(context.Background(), "acme/backend"); err != nil {
+		t.Fatalf("acquire repo: %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("expected two attempts, got %d", attempts)
+	}
+	if len(slept) == 0 || slept[0] != 4*time.Second {
+		t.Fatalf("expected retry-after sleep of 4s, got %v", slept)
+	}
+}
+
+func TestConnectorCircuitBreakerCooldown(t *testing.T) {
+	t.Parallel()
+
+	var attempts int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = fmt.Fprint(w, `{"message":"upstream down"}`)
+	}))
+	defer server.Close()
+
+	now := time.Unix(1_700_000_000, 0)
+	connector := NewConnector(server.URL, "", server.Client())
+	connector.MaxRetries = 0
+	connector.FailureThreshold = 2
+	connector.Cooldown = 30 * time.Second
+	connector.nowFn = func() time.Time { return now }
+	connector.sleepFn = func(_ context.Context, _ time.Duration) error { return nil }
+
+	_, err := connector.AcquireRepo(context.Background(), "acme/backend")
+	if err == nil {
+		t.Fatal("expected first upstream failure")
+	}
+	if IsDegradedError(err) {
+		t.Fatalf("first failure should not open circuit yet: %v", err)
+	}
+
+	_, err = connector.AcquireRepo(context.Background(), "acme/backend")
+	if err == nil {
+		t.Fatal("expected second failure")
+	}
+	if !IsDegradedError(err) {
+		t.Fatalf("expected degradation on threshold breach, got %v", err)
+	}
+
+	attemptsAtOpen := atomic.LoadInt32(&attempts)
+	_, err = connector.AcquireRepo(context.Background(), "acme/backend")
+	if err == nil {
+		t.Fatal("expected circuit-open degraded error")
+	}
+	if !IsDegradedError(err) {
+		t.Fatalf("expected degraded error while cooldown active, got %v", err)
+	}
+	if got := atomic.LoadInt32(&attempts); got != attemptsAtOpen {
+		t.Fatalf("expected no upstream calls while cooldown active, got before=%d after=%d", attemptsAtOpen, got)
+	}
+
+	now = now.Add(31 * time.Second)
+	_, err = connector.AcquireRepo(context.Background(), "acme/backend")
+	if err == nil {
+		t.Fatal("expected upstream request after cooldown expiry")
+	}
+	if IsDegradedError(err) {
+		t.Fatalf("expected non-degraded upstream error after cooldown expiry, got %v", err)
+	}
+}
+
+func TestConnectorNonRetryableStatusResetsTransientFailureStreak(t *testing.T) {
+	t.Parallel()
+
+	var attempts int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/acme/backend" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		switch atomic.AddInt32(&attempts, 1) {
+		case 1:
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = fmt.Fprint(w, `{"message":"transient-1"}`)
+		case 2:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprint(w, `{"message":"missing"}`)
+		default:
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = fmt.Fprint(w, `{"message":"transient-2"}`)
+		}
+	}))
+	defer server.Close()
+
+	now := time.Unix(1_700_000_000, 0)
+	connector := NewConnector(server.URL, "", server.Client())
+	connector.MaxRetries = 0
+	connector.FailureThreshold = 2
+	connector.Cooldown = 30 * time.Second
+	connector.nowFn = func() time.Time { return now }
+	connector.sleepFn = func(_ context.Context, _ time.Duration) error { return nil }
+
+	_, err := connector.AcquireRepo(context.Background(), "acme/backend")
+	if err == nil {
+		t.Fatal("expected first transient failure")
+	}
+	if IsDegradedError(err) {
+		t.Fatalf("first transient failure must not open cooldown, got %v", err)
+	}
+
+	_, err = connector.AcquireRepo(context.Background(), "acme/backend")
+	if err == nil {
+		t.Fatal("expected non-retryable status failure")
+	}
+	if IsDegradedError(err) {
+		t.Fatalf("non-retryable status should not open cooldown, got %v", err)
+	}
+
+	_, err = connector.AcquireRepo(context.Background(), "acme/backend")
+	if err == nil {
+		t.Fatal("expected second transient failure")
+	}
+	if IsDegradedError(err) {
+		t.Fatalf("transient streak should reset after non-retryable status, got %v", err)
 	}
 }

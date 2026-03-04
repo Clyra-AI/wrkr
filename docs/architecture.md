@@ -34,6 +34,7 @@ flowchart LR
 ## Deterministic Invariants
 
 - Structured configs are parsed with typed decoders where possible.
+- WebMCP JavaScript parsing is AST-only (`goja/parser` + `goja/ast`), never runtime eval.
 - Secret values are never emitted.
 - Risk ordering uses deterministic tie-breakers.
 - Exit codes are stable API contracts.

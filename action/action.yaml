@@ -1,10 +1,10 @@
 name: Wrkr Action
-description: Deterministic Wrkr scheduled and PR-mode execution for AI posture visibility.
+description: Deterministic Wrkr scheduled, PR-mode, and SARIF execution for AI posture visibility.
 author: Clyra-AI
 
 inputs:
   mode:
-    description: scheduled or pr
+    description: scheduled, pr, or sarif
     required: false
     default: scheduled
   top:
@@ -31,6 +31,10 @@ inputs:
     description: deterministic marker for PR comment upsert identity
     required: false
     default: "wrkr-action-pr-mode-v1"
+  sarif_path:
+    description: SARIF output path when mode=sarif
+    required: false
+    default: "./.tmp/wrkr.sarif"
 
 runs:
   using: composite
@@ -40,6 +44,7 @@ runs:
       env:
         WRKR_ACTION_BLOCK_THRESHOLD: ${{ inputs.block_threshold }}
         WRKR_ACTION_COMMENT_FINGERPRINT: ${{ inputs.comment_fingerprint }}
+        WRKR_ACTION_SARIF_PATH: ${{ inputs.sarif_path }}
       run: |
         set -euo pipefail
-        "${{ github.action_path }}/entrypoint.sh" "${{ inputs.mode }}" "${{ inputs.top }}" "${{ inputs.target_mode }}" "${{ inputs.target_value }}" "${{ inputs.config_path }}"
+        "${{ github.action_path }}/entrypoint.sh" "${{ inputs.mode }}" "${{ inputs.top }}" "${{ inputs.target_mode }}" "${{ inputs.target_value }}" "${{ inputs.config_path }}" "${{ inputs.sarif_path }}"

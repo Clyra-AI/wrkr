@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -68,6 +69,25 @@ func TestDetectWebMCPParseErrorForInvalidJavaScript(t *testing.T) {
 	}
 }
 
+func TestWebMCPParserRejectsRuntimeEvalPath(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	payload, err := os.ReadFile(filepath.Join(repoRoot, "core", "detect", "webmcp", "detector.go"))
+	if err != nil {
+		t.Fatalf("read detector source: %v", err)
+	}
+	source := string(payload)
+	for _, forbidden := range []string{"goja.New(", ".RunString(", ".RunProgram(", "AssertFunction(", ".Call("} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("webmcp detector must remain AST-parse-only; found forbidden token %q", forbidden)
+		}
+	}
+	if !strings.Contains(source, "goja/parser") || !strings.Contains(source, "goja/ast") {
+		t.Fatal("expected parser-only goja imports for AST analysis")
+	}
+}
+
 func mustFindWebMCPFinding(t *testing.T, findings []model.Finding) model.Finding {
 	t.Helper()
 	for _, finding := range findings {
@@ -117,5 +137,24 @@ func writeFile(t *testing.T, root, rel, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", rel, err)
+	}
+}
+
+func mustFindRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	for {
+		if _, statErr := os.Stat(filepath.Join(wd, "go.mod")); statErr == nil {
+			return wd
+		}
+		next := filepath.Dir(wd)
+		if next == wd {
+			t.Fatal("could not find repo root")
+		}
+		wd = next
 	}
 }

@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "detectors": [
+    {
+      "id": "custom_extension_story13",
+      "finding_type": "custom_extension_finding",
+      "tool_type": "custom_detector",
+      "location": ".custom/policy.yaml",
+      "severity": "low",
+      "remediation": "Review extension-defined policy finding.",
+      "permissions": ["mcp.access"],
+      "evidence": [
+        {"key": "owner", "value": "security"}
+      ]
+    }
+  ]
+}

@@ -19,9 +19,12 @@ func RunFixture(t *testing.T, fixtureRoot, org, repo string, detectorList ...det
 		}
 	}
 
-	findings, err := registry.Run(context.Background(), []detect.Scope{{Org: org, Repo: repo, Root: fixtureRoot}}, detect.Options{})
+	result, err := registry.Run(context.Background(), []detect.Scope{{Org: org, Repo: repo, Root: fixtureRoot}}, detect.Options{})
 	if err != nil {
 		t.Fatalf("run detector registry: %v", err)
 	}
-	return findings
+	if len(result.DetectorErrors) != 0 {
+		t.Fatalf("unexpected detector errors: %+v", result.DetectorErrors)
+	}
+	return result.Findings
 }
