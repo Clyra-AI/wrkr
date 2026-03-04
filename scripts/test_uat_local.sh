@@ -64,29 +64,7 @@ run_json_smoke() {
   fi
 
   "$bin_path" --json >"$out_path"
-  if command -v rg >/dev/null 2>&1; then
-    if ! rg -q '"status"[[:space:]]*:[[:space:]]*"ok"' "$out_path"; then
-      echo "${label}: expected --json output status=ok" >&2
-      cat "$out_path" >&2
-      exit 3
-    fi
-    if ! rg -q '"message"[[:space:]]*:' "$out_path"; then
-      echo "${label}: expected --json output message field" >&2
-      cat "$out_path" >&2
-      exit 3
-    fi
-    return
-  fi
-  if ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$out_path"; then
-    echo "${label}: expected --json output status=ok" >&2
-    cat "$out_path" >&2
-    exit 3
-  fi
-  if ! grep -Eq '"message"[[:space:]]*:' "$out_path"; then
-    echo "${label}: expected --json output message field" >&2
-    cat "$out_path" >&2
-    exit 3
-  fi
+  go run ./scripts/check_json_smoke.go "$out_path" "$label"
 }
 
 run_docs_subset_smoke() {
