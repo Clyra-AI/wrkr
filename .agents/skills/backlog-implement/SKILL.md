@@ -72,9 +72,10 @@ Rules:
 - In `full-plan` mode:
 - Follow `Minimum-Now Sequence` first.
 - Respect dependencies and `P0 -> P1 -> P2`.
-- Detect wave ordering from plan labels (or infer if missing):
+- Require explicit wave ordering labels in the plan:
   - Wave 1: contract/runtime correctness and architecture boundaries
   - Wave 2: docs, OSS hygiene, distribution UX
+- If wave labels are missing or ambiguous, stop with blocker and require plan update (no inferred assignment).
 - Execute all Wave 1 stories before any Wave 2 story.
 - Do not start Wave 2 until Wave 1 acceptance criteria and mapped lanes are green.
 - In `epic-only` mode:
@@ -176,7 +177,7 @@ Rules:
 - Public API classification updates for touched surfaces (`stable/internal/shim/deprecated`)
 - Schema/versioning + migration compatibility checks for contract changes
 - Machine-readable error envelope checks for automation/library consumers when applicable
-- Version/install discoverability checks (`wrkr version`, install docs smoke)
+- Version/install discoverability checks for currently shipped CLI surfaces (install docs smoke; include `wrkr version` only when implemented)
 - OSS trust baseline checks when scope touches OSS posture (`CONTRIBUTING`, `CHANGELOG`, `CODE_OF_CONDUCT`, issue/PR templates, security policy links)
 
 ## Test Matrix Wiring (Enforcement)

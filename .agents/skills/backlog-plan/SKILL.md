@@ -152,7 +152,7 @@ For boundary-sensitive stories, require architecture constraints to include:
 8. API/contract lifecycle work:
 - Add/update public API map classification (stable/internal/shim/deprecated) for touched surfaces.
 - Add schema/version bump and migration expectation checks for contract changes.
-- Verify install/version discoverability path (`wrkr version`, minimal dependency install guidance).
+- Verify install/version discoverability for currently shipped CLI surfaces (install docs smoke, minimal dependency install guidance, and `wrkr version` checks only when command support exists).
 
 9. OSS readiness/doc ops work:
 - Validate `CONTRIBUTING`, `CHANGELOG`, `CODE_OF_CONDUCT`, issue/PR templates, and security policy links when touched by story scope.
