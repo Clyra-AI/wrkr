@@ -45,7 +45,8 @@ Execute this workflow for: "implement the plan", "execute PLAN_NEXT", "ship plan
 - Selected epic exists and can be resolved uniquely from `epic_number`.
 - Every story in the selected epic contains required story-level fields.
 - If selected stories declare dependencies outside selected epic, stop and report dependency blocker unless already satisfied.
-- If plan defines Wave 1/Wave 2 sequencing (or can be inferred from story intent), enforce Wave 1 completion before Wave 2 execution.
+- If plan defines explicit Wave 1/Wave 2 sequencing, enforce Wave 1 completion before Wave 2 execution.
+- If wave sequencing labels are missing or ambiguous, stop and report blocker (no inference from story intent).
 - If required sections are missing, stop and report blockers.
 
 ## Git Bootstrap Contract (Mandatory)
@@ -72,9 +73,10 @@ Rules:
 - In `full-plan` mode:
 - Follow `Minimum-Now Sequence` first.
 - Respect dependencies and `P0 -> P1 -> P2`.
-- Detect wave ordering from plan labels (or infer if missing):
+- Require explicit wave ordering labels in the plan:
   - Wave 1: contract/runtime correctness and architecture boundaries
   - Wave 2: docs, OSS hygiene, distribution UX
+- If wave labels are missing or ambiguous, stop with blocker and require plan update (no inferred assignment).
 - Execute all Wave 1 stories before any Wave 2 story.
 - Do not start Wave 2 until Wave 1 acceptance criteria and mapped lanes are green.
 - In `epic-only` mode:
@@ -176,7 +178,7 @@ Rules:
 - Public API classification updates for touched surfaces (`stable/internal/shim/deprecated`)
 - Schema/versioning + migration compatibility checks for contract changes
 - Machine-readable error envelope checks for automation/library consumers when applicable
-- Version/install discoverability checks (`wrkr version`, install docs smoke)
+- Version/install discoverability checks for currently shipped CLI surfaces (install docs smoke; include `wrkr version` only when implemented)
 - OSS trust baseline checks when scope touches OSS posture (`CONTRIBUTING`, `CHANGELOG`, `CODE_OF_CONDUCT`, issue/PR templates, security policy links)
 
 ## Test Matrix Wiring (Enforcement)
