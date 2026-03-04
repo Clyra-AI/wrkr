@@ -2,6 +2,8 @@
 
 Wrkr CLI surfaces are deterministic and file-based by default.
 
+Canonical local state and artifact path behavior is documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
+
 ## Command index
 
 - `wrkr` (root flags: `--json`, `--quiet`, `--explain`, `--version`)

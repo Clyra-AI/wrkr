@@ -1,0 +1,28 @@
+name: Docs improvement
+description: Request a docs correction or workflow clarification.
+title: "[docs] "
+labels:
+  - documentation
+body:
+  - type: textarea
+    id: gap
+    attributes:
+      label: Documentation gap
+      description: What is ambiguous, missing, or incorrect?
+    validations:
+      required: true
+  - type: textarea
+    id: source_of_truth
+    attributes:
+      label: Source-of-truth location
+      description: Which canonical file should be changed? (for example README.md, docs/commands/*, docs/map.md)
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation commands
+      description: Which docs checks should pass after the change?
+      placeholder: make test-docs-consistency && make test-docs-storyline
+    validations:
+      required: true

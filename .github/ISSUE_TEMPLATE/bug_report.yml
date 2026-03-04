@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a reproducible Wrkr defect with contract and environment context.
+title: "[bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: "Use this template for deterministic reproduction and contract-safe triage."
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence defect summary.
+      placeholder: wrkr regress run returns exit 1 instead of exit 5 for drift.
+    validations:
+      required: true
+  - type: textarea
+    id: repro_steps
+    attributes:
+      label: Reproduction steps
+      description: Exact commands and inputs.
+      placeholder: |
+        1. wrkr scan --path ... --json
+        2. wrkr regress init --baseline ... --json
+        3. wrkr regress run --baseline ... --json
+    validations:
+      required: true
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: Expected vs actual
+      description: Include expected exit code, JSON envelope, and actual output.
+    validations:
+      required: true
+  - type: textarea
+    id: contract_surface
+    attributes:
+      label: Contract surface affected
+      description: Specify CLI flags, JSON keys, schemas, or exit codes impacted.
+      placeholder: exit-code contract, docs/commands/regress.md, schemas/v1/state.schema.json
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Go version, Wrkr version/commit, and install path.
+    validations:
+      required: true

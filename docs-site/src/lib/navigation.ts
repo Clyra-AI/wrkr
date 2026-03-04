@@ -13,6 +13,7 @@ export const navigation: NavItem[] = [
       { title: 'Adopt In One PR', href: '/docs/adopt_in_one_pr' },
       { title: 'Quickstart', href: '/docs/examples/quickstart' },
       { title: 'Integration Checklist', href: '/docs/integration_checklist' },
+      { title: 'Docs Source Map', href: '/docs/map' },
       { title: 'FAQ', href: '/docs/faq' },
     ],
   },

@@ -170,7 +170,7 @@ func writeRootUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "  score      compute posture score and breakdown")
 	_, _ = fmt.Fprintln(out, "  verify     verify proof chain integrity")
 	_, _ = fmt.Fprintln(out, "  evidence   build compliance-ready evidence bundles")
-	_, _ = fmt.Fprintln(out, "  fix        apply deterministic remediations")
+	_, _ = fmt.Fprintln(out, "  fix        plan deterministic remediations (repo writes require --open-pr)")
 	_, _ = fmt.Fprintln(out, "  version    print wrkr version")
 	_, _ = fmt.Fprintln(out, "")
 	_, _ = fmt.Fprintln(out, "Examples:")

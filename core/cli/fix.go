@@ -23,6 +23,11 @@ var newGitHubPRClient = func(baseURL, token string) githubpr.API {
 	return githubpr.NewGitHubClient(baseURL, token, nil)
 }
 
+const (
+	fixBehaviorContractSentenceOne = "wrkr fix computes a deterministic remediation plan from existing scan state and emits plan metadata; it does not mutate repository files unless --open-pr is set."
+	fixBehaviorContractSentenceTwo = "When --open-pr is set, wrkr fix writes deterministic artifacts under .wrkr/remediations/<fingerprint>/ and then creates or updates one remediation PR for the target repo."
+)
+
 func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 	jsonRequested := wantsJSONOutput(args)
 	fs := flag.NewFlagSet("fix", flag.ContinueOnError)
@@ -46,6 +51,9 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 	prTitle := fs.String("pr-title", "", "optional deterministic PR title override")
 	githubAPI := fs.String("github-api", strings.TrimSpace(os.Getenv("WRKR_GITHUB_API_BASE")), "github api base url")
 	fixToken := fs.String("fix-token", "", "fix profile token override")
+	fs.Usage = func() {
+		writeFixUsage(fs.Output(), fs)
+	}
 
 	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
 		return code
@@ -184,6 +192,22 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintln(stdout, "wrkr fix complete")
 	return exitSuccess
+}
+
+func writeFixUsage(out io.Writer, fs *flag.FlagSet) {
+	_, _ = fmt.Fprintln(out, "Usage of fix:")
+	_, _ = fmt.Fprintln(out, "  wrkr fix [flags]")
+	_, _ = fmt.Fprintln(out, "")
+	_, _ = fmt.Fprintln(out, "Behavior contract:")
+	_, _ = fmt.Fprintln(out, "  "+fixBehaviorContractSentenceOne)
+	_, _ = fmt.Fprintln(out, "  "+fixBehaviorContractSentenceTwo)
+	_, _ = fmt.Fprintln(out, "")
+	_, _ = fmt.Fprintln(out, "PR prerequisites:")
+	_, _ = fmt.Fprintln(out, "  - --repo owner/repo (or repo-target state)")
+	_, _ = fmt.Fprintln(out, "  - writable fix profile token via config or --fix-token")
+	_, _ = fmt.Fprintln(out, "")
+	_, _ = fmt.Fprintln(out, "Flags:")
+	fs.PrintDefaults()
 }
 
 func loadRankedFindings(snapshot state.Snapshot, top int) []risk.ScoredFinding {

@@ -16,6 +16,7 @@ const tracks = [
       { label: 'Adopt In One PR', href: '/docs/adopt_in_one_pr' },
       { label: 'Quickstart', href: '/docs/examples/quickstart' },
       { label: 'Integration Checklist', href: '/docs/integration_checklist' },
+      { label: 'Docs Source Map', href: '/docs/map' },
       { label: 'Command Index', href: '/docs/commands/index' },
       { label: 'Scan Command', href: '/docs/commands/scan' },
     ],

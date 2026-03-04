@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose a new capability with deterministic and contract impact analysis.
+title: "[feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What operator or governance problem are you solving?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe command behavior and expected outputs.
+    validations:
+      required: true
+  - type: textarea
+    id: contract_impact
+    attributes:
+      label: Contract impact
+      description: Note any expected changes to flags, JSON, schemas, exit codes, or docs.
+      placeholder: additive JSON field in scan --json payload
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test expectations
+      description: Specify required lanes and test classes (unit/integration/e2e/contracts/docs).
+      placeholder: fast + core + contract tests
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks and non-goals
+      description: List determinism/fail-closed/security risks and out-of-scope items.
+    validations:
+      required: true

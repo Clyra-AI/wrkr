@@ -16,6 +16,10 @@ No. Core scan and evidence workflows are local/file-based by default.
 
 No. Wrkr is discovery and posture. Runtime control is a separate layer.
 
+## Do I need Axym or Gait to use Wrkr?
+
+No. Wrkr runs standalone; Axym and Gait are optional integrations that share proof contracts.
+
 ## How do I gate on posture drift in CI?
 
 Use `wrkr regress init` then `wrkr regress run`. Exit code `5` indicates drift.

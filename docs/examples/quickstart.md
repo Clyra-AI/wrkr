@@ -14,6 +14,8 @@ Wrkr is useful standalone and interoperates with Axym/Gait through shared proof 
 
 For hosted source modes, `scan --repo` and `scan --org` require `--github-api` (or `WRKR_GITHUB_API_BASE`) and fail closed when acquisition is unavailable.
 
+Canonical local artifact paths are documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
+
 ## Deterministic local scan
 
 ```bash
@@ -48,8 +50,8 @@ Expected outputs:
 ## Regression baseline
 
 ```bash
-wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
+wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --json
 ```
 
 Expected outputs:

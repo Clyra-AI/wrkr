@@ -56,6 +56,7 @@ func TestRunRootHelpListsCommands(t *testing.T) {
 		"  scan       discover tools and emit inventory/risk state",
 		"  score      compute posture score and breakdown",
 		"  evidence   build compliance-ready evidence bundles",
+		"  fix        plan deterministic remediations (repo writes require --open-pr)",
 		"Examples:",
 		"Global flags:",
 	}

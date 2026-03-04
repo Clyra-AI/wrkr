@@ -8,7 +8,7 @@ Most teams don't know what AI dev tools and agents are active across their repos
 
 Wrkr is the **See** layer in the Clyra AI governance stack (See -> Prove -> Control -> Build). It discovers AI tooling across repositories and orgs, scores posture, tracks identity lifecycle, and emits signed proof artifacts ready for compliance review or downstream automation.
 
-Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command contracts: [`docs/commands/`](docs/commands/) | Docs map: [`docs/README.md`](docs/README.md)
+Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command contracts: [`docs/commands/`](docs/commands/) | Docs map: [`docs/map.md`](docs/map.md)
 
 ## When To Use Wrkr
 
@@ -31,14 +31,22 @@ Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command cont
 brew install Clyra-AI/tap/wrkr
 ```
 
-### Go install (pinned to latest release tag)
+### Go install (pinned, no extra tools)
 
 ```bash
-WRKR_VERSION="$(gh release view --repo Clyra-AI/wrkr --json tagName -q .tagName 2>/dev/null || curl -fsSL https://api.github.com/repos/Clyra-AI/wrkr/releases/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)[\"tag_name\"])')"
+WRKR_VERSION="v1.0.0"
 go install github.com/Clyra-AI/wrkr/cmd/wrkr@"${WRKR_VERSION}"
 ```
 
-These install commands are validated in release CI against published artifacts.
+### Go install (resolve latest tag with `curl` + POSIX tools)
+
+```bash
+WRKR_VERSION="$(curl -fsSL https://api.github.com/repos/Clyra-AI/wrkr/releases/latest | sed -nE 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/p' | head -n1)"
+test -n "${WRKR_VERSION}"
+go install github.com/Clyra-AI/wrkr/cmd/wrkr@"${WRKR_VERSION}"
+```
+
+No `gh` or `python3` dependency is required for these Go install paths. See [`docs/install/minimal-dependencies.md`](docs/install/minimal-dependencies.md) for the full install contract.
 
 ### Verify install path
 
@@ -54,7 +62,7 @@ Common locations:
 - Intel Homebrew: `/usr/local/bin/wrkr`
 - Go install: `$(go env GOBIN)/wrkr` (or `$(go env GOPATH)/bin/wrkr` when `GOBIN` is unset)
 
-## Try It (Offline, No Setup)
+## First 10 Minutes (Offline, No Setup)
 
 Run the full scan-to-evidence workflow locally against the bundled scenarios:
 
@@ -75,8 +83,8 @@ make build
 ./.tmp/wrkr verify --chain --json
 
 # Baseline and drift gate
-./.tmp/wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
-./.tmp/wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --json
+./.tmp/wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
+./.tmp/wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --json
 ```
 
 Expected JSON keys by command family:
@@ -91,6 +99,7 @@ Expected JSON keys by command family:
 Prompt-channel findings are emitted deterministically with stable reason codes and evidence hashes (no raw secret extraction).  
 When `scan --enrich` is enabled, MCP findings include enrich provenance and quality fields (`source`, `as_of`, `advisory_count`, `registry_status`, `enrich_quality`, schema IDs, and adapter error classes).
 Evidence bundles include deterministic inventory artifacts at `inventory.json`, `inventory-snapshot.json`, and `inventory.yaml`.
+Canonical local path lifecycle for state, baseline, manifest, and proof chain: [`docs/state_lifecycle.md`](docs/state_lifecycle.md).
 
 ## What You Get
 
@@ -113,6 +122,11 @@ Signed proof records for `scan_finding`, `risk_assessment`, and lifecycle events
 ### CI drift gates
 
 Regress baseline and run gates with stable exit behavior. Deterministic remediation planning via `wrkr fix` for top-risk findings.
+
+### `wrkr fix` side-effect contract
+
+wrkr fix computes a deterministic remediation plan from existing scan state and emits plan metadata; it does not mutate repository files unless --open-pr is set.
+When --open-pr is set, wrkr fix writes deterministic artifacts under .wrkr/remediations/<fingerprint>/ and then creates or updates one remediation PR for the target repo.
 
 ## Scan Targets
 
@@ -161,7 +175,7 @@ Render report artifacts from saved state:
 wrkr report --state ./.tmp/state.json --md --md-path ./.tmp/wrkr-report.md --explain
 ```
 
-## CI Adoption (One PR)
+## Integration (One PR)
 
 ```bash
 wrkr init --non-interactive --path ./scenarios/wrkr/scan-mixed-org/repos --json
@@ -211,6 +225,12 @@ Wrkr is the DMV registration for your AI fleet. It tells you what is on the road
 
 Wrkr runs standalone and interoperates through shared `Clyra-AI/proof` contracts.
 
+## Trust and Project Relationship
+
+- Wrkr is standalone: you can install and run discovery, posture scoring, regress gating, and evidence generation without Axym or Gait.
+- Axym and Gait are related projects that consume or enforce around the same proof contracts; they are optional integrations, not runtime prerequisites for Wrkr.
+- The interoperability boundary is explicit and file-based via shared `Clyra-AI/proof` contracts.
+
 ## Guarantees
 
 - Deterministic scan, risk, and proof pipeline. No LLM calls in these paths, ever.
@@ -252,7 +272,10 @@ All commands support `--json`. Human-readable rationale is available via `--expl
 
 ## Documentation
 
-- Docs map: [`docs/README.md`](docs/README.md)
+- Docs source-of-truth map: [`docs/map.md`](docs/map.md)
+- Docs taxonomy: [`docs/README.md`](docs/README.md)
+- Shared README contract: [`docs/contracts/readme_contract.md`](docs/contracts/readme_contract.md)
+- Cross-repo README follow-ups: [`docs/roadmap/cross-repo-readme-alignment.md`](docs/roadmap/cross-repo-readme-alignment.md)
 - Mental model: [`docs/concepts/mental_model.md`](docs/concepts/mental_model.md)
 - Architecture: [`docs/architecture.md`](docs/architecture.md)
 - Policy authoring: [`docs/policy_authoring.md`](docs/policy_authoring.md)
@@ -260,10 +283,13 @@ All commands support `--json`. Human-readable rationale is available via `--expl
 - Threat model: [`docs/threat_model.md`](docs/threat_model.md)
 - Compatibility and versioning policy: [`docs/trust/compatibility-and-versioning.md`](docs/trust/compatibility-and-versioning.md)
 - Compatibility matrix: [`docs/contracts/compatibility_matrix.md`](docs/contracts/compatibility_matrix.md)
+- Content visibility governance: [`docs/governance/content-visibility.md`](docs/governance/content-visibility.md)
 - Trust docs: [`docs/trust/`](docs/trust/)
 - Intent pages: [`docs/intent/`](docs/intent/)
 
 Public docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/)
+
+Docs contribution path: edit canonical markdown in this repo first (`README.md` and `docs/`), then run `make test-docs-consistency`, `make test-docs-storyline`, and docs-site checks from [`docs/map.md`](docs/map.md).
 
 ## Developer Workflow
 
@@ -285,9 +311,11 @@ make docs-site-check
 make docs-site-audit-prod
 ```
 
-## Security and Feedback
+## Governance and Support
 
 - Security policy: [`SECURITY.md`](SECURITY.md)
 - Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Code of conduct: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
 - License: [`LICENSE`](LICENSE)
 - Issues: [github.com/Clyra-AI/wrkr/issues](https://github.com/Clyra-AI/wrkr/issues)

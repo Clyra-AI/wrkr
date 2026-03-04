@@ -64,25 +64,39 @@ run_json_smoke() {
   fi
 
   "$bin_path" --json >"$out_path"
-
-  python3 - "$out_path" "$label" <<'PY'
-import json
-import pathlib
-import sys
-
-path = pathlib.Path(sys.argv[1])
-label = sys.argv[2]
-payload = json.loads(path.read_text(encoding="utf-8"))
-if payload.get("status") != "ok":
-    raise SystemExit(f"{label}: unexpected status payload: {payload}")
-if "message" not in payload:
-    raise SystemExit(f"{label}: missing message field: {payload}")
-PY
+  if command -v rg >/dev/null 2>&1; then
+    if ! rg -q '"status"[[:space:]]*:[[:space:]]*"ok"' "$out_path"; then
+      echo "${label}: expected --json output status=ok" >&2
+      cat "$out_path" >&2
+      exit 3
+    fi
+    if ! rg -q '"message"[[:space:]]*:' "$out_path"; then
+      echo "${label}: expected --json output message field" >&2
+      cat "$out_path" >&2
+      exit 3
+    fi
+    return
+  fi
+  if ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"' "$out_path"; then
+    echo "${label}: expected --json output status=ok" >&2
+    cat "$out_path" >&2
+    exit 3
+  fi
+  if ! grep -Eq '"message"[[:space:]]*:' "$out_path"; then
+    echo "${label}: expected --json output message field" >&2
+    cat "$out_path" >&2
+    exit 3
+  fi
 }
 
 run_docs_subset_smoke() {
   local label="$1"
   local bin_path="$2"
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "python3 not found; skipping docs subset smoke for ${label}" >"$tmp_dir/${label}-docs-smoke.log"
+    return
+  fi
 
   WRKR_BIN="$bin_path" scripts/run_docs_smoke.sh --subset >"$tmp_dir/${label}-docs-smoke.log"
 }

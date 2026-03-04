@@ -23,6 +23,11 @@ No. Core operation is local and file-based by default.
 
 No. Wrkr is discovery/posture. Runtime enforcement is a separate control layer.
 
+### Do I need Axym or Gait to run Wrkr?
+
+No. Wrkr runs standalone for discovery, posture scoring, regress gates, and evidence generation.
+Axym and Gait are optional companion projects that interoperate through shared `Clyra-AI/proof` contracts.
+
 ### How do I fail CI on posture drift?
 
 Use `wrkr regress init` to establish a baseline and `wrkr regress run` in CI. Exit `5` indicates drift.

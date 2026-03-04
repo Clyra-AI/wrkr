@@ -1,5 +1,7 @@
 # Operator Playbooks
 
+Canonical local artifact locations are documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
+
 ## Scan workflow
 
 ```bash
@@ -63,8 +65,8 @@ Check `chain.intact` and `chain.head_hash`.
 ## Regress workflow
 
 ```bash
-wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --summary-md --summary-md-path ./.tmp/regress-summary.md --template operator --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
+wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --summary-md --summary-md-path ./.tmp/regress-summary.md --template operator --json
 ```
 
 Use exit `5` and drift reasons as gate criteria.
