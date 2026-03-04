@@ -33,10 +33,6 @@ import (
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
-func runScan(args []string, stdout io.Writer, stderr io.Writer) int {
-	return runScanWithContext(context.Background(), args, stdout, stderr)
-}
-
 func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
 	if parentCtx == nil {
 		parentCtx = context.Background()
