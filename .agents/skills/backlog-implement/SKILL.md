@@ -45,7 +45,8 @@ Execute this workflow for: "implement the plan", "execute PLAN_NEXT", "ship plan
 - Selected epic exists and can be resolved uniquely from `epic_number`.
 - Every story in the selected epic contains required story-level fields.
 - If selected stories declare dependencies outside selected epic, stop and report dependency blocker unless already satisfied.
-- If plan defines Wave 1/Wave 2 sequencing (or can be inferred from story intent), enforce Wave 1 completion before Wave 2 execution.
+- If plan defines explicit Wave 1/Wave 2 sequencing, enforce Wave 1 completion before Wave 2 execution.
+- If wave sequencing labels are missing or ambiguous, stop and report blocker (no inference from story intent).
 - If required sections are missing, stop and report blockers.
 
 ## Git Bootstrap Contract (Mandatory)
