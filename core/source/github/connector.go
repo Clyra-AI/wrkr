@@ -377,6 +377,7 @@ func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte
 				return body, nil
 			}
 			if !isRetryable(resp.StatusCode) {
+				c.resetFailureStreak()
 				return nil, fmt.Errorf("github API status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 			}
 			retryDelay = c.retryDelayForResponse(resp, attempt)
@@ -534,6 +535,12 @@ func (c *Connector) recordSuccess() {
 	defer c.mu.Unlock()
 	c.consecutiveFailures = 0
 	c.cooldownUntil = time.Time{}
+}
+
+func (c *Connector) resetFailureStreak() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.consecutiveFailures = 0
 }
 
 func (c *Connector) recordFailure(lastErr error) error {

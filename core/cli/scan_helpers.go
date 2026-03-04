@@ -103,6 +103,9 @@ func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBa
 		if err != nil {
 			return source.Manifest{}, nil, err
 		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return source.Manifest{}, nil, ctxErr
+		}
 		materializedRepos := make([]source.RepoManifest, 0, len(repos))
 		for _, repoManifest := range repos {
 			if ctxErr := ctx.Err(); ctxErr != nil {

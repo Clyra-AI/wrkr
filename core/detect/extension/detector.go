@@ -81,7 +81,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 
 		findings = append(findings, model.Finding{
 			FindingType: descriptor.FindingType,
-			Severity:    descriptor.Severity,
+			Severity:    strings.ToLower(strings.TrimSpace(descriptor.Severity)),
 			ToolType:    descriptor.ToolType,
 			Location:    descriptor.Location,
 			Repo:        scope.Repo,

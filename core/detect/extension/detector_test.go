@@ -78,6 +78,37 @@ func TestInvalidExtensionDescriptorFailsClosed(t *testing.T) {
 	}
 }
 
+func TestExtensionRegistryNormalizesSeverity(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	descriptorDir := filepath.Join(root, ".wrkr", "detectors")
+	if err := os.MkdirAll(descriptorDir, 0o755); err != nil {
+		t.Fatalf("mkdir descriptor dir: %v", err)
+	}
+	payload := []byte(`{
+  "version": "v1",
+  "detectors": [
+    {"id":"alpha","finding_type":"custom_alpha","tool_type":"custom_detector","location":".custom/alpha.yaml","severity":"HIGH"}
+  ]
+}`)
+	if err := os.WriteFile(filepath.Join(descriptorDir, "extensions.json"), payload, 0o600); err != nil {
+		t.Fatalf("write descriptors: %v", err)
+	}
+
+	scope := detect.Scope{Org: "acme", Repo: "backend", Root: root}
+	findings, err := New().Detect(context.Background(), scope, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+	if findings[0].Severity != "high" {
+		t.Fatalf("expected normalized severity high, got %q", findings[0].Severity)
+	}
+}
+
 func containsAll(value string, fragments ...string) bool {
 	for _, fragment := range fragments {
 		if !strings.Contains(value, fragment) {
