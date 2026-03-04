@@ -53,6 +53,52 @@ cleanup() {
 }
 trap cleanup EXIT
 
+json_smoke_validator="$tmp_dir/check_json_smoke.go"
+cat >"$json_smoke_validator" <<'GO'
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+)
+
+type rootPayload struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+func main() {
+	if len(os.Args) != 3 {
+		fmt.Fprintln(os.Stderr, "usage: go run <validator> <path> <label>")
+		os.Exit(6)
+	}
+
+	path := strings.TrimSpace(os.Args[1])
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "json smoke read failure")
+		os.Exit(3)
+	}
+
+	var parsed rootPayload
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		fmt.Fprintln(os.Stderr, "json smoke parse failure")
+		os.Exit(3)
+	}
+
+	if strings.TrimSpace(parsed.Status) != "ok" {
+		fmt.Fprintln(os.Stderr, "json smoke status mismatch")
+		os.Exit(3)
+	}
+	if strings.TrimSpace(parsed.Message) == "" {
+		fmt.Fprintln(os.Stderr, "json smoke missing message")
+		os.Exit(3)
+	}
+}
+GO
+
 run_json_smoke() {
   local label="$1"
   local bin_path="$2"
@@ -64,7 +110,7 @@ run_json_smoke() {
   fi
 
   "$bin_path" --json >"$out_path"
-  go run ./scripts/check_json_smoke.go "$out_path" "$label"
+  go run "$json_smoke_validator" "$out_path" "$label"
 }
 
 run_docs_subset_smoke() {
