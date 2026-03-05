@@ -85,7 +85,7 @@ func parseRulePack(payload []byte, source string) ([]Rule, error) {
 		if idErr != nil {
 			return nil, fmt.Errorf("policy rule id validation in %s: %w", source, idErr)
 		}
-		pack.Rules[i].ID = normalizedID
+		pack.Rules[i].ID = canonicalRuleFamilyIDFromNormalized(normalizedID)
 		pack.Rules[i].Title = strings.TrimSpace(pack.Rules[i].Title)
 		pack.Rules[i].Severity = strings.ToLower(strings.TrimSpace(pack.Rules[i].Severity))
 		pack.Rules[i].Remediation = strings.TrimSpace(pack.Rules[i].Remediation)

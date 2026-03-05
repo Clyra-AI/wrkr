@@ -17,6 +17,15 @@ func NormalizeRuleID(id string) (string, error) {
 	return normalized, nil
 }
 
+// CanonicalRuleFamilyID returns the stable rule family identifier used for merge keys.
+func CanonicalRuleFamilyID(id string) (string, error) {
+	normalized, err := NormalizeRuleID(id)
+	if err != nil {
+		return "", err
+	}
+	return canonicalRuleFamilyIDFromNormalized(normalized), nil
+}
+
 // RuleIDAliases returns deterministic namespace aliases for a rule ID.
 func RuleIDAliases(id string) []string {
 	normalized, err := NormalizeRuleID(id)
@@ -39,4 +48,12 @@ func RuleIDAliases(id string) []string {
 		normalized,
 		"WRKR-A" + suffix,
 	}
+}
+
+func canonicalRuleFamilyIDFromNormalized(normalized string) string {
+	suffix := strings.TrimPrefix(normalized, "WRKR-")
+	if strings.HasPrefix(suffix, "A") {
+		suffix = strings.TrimPrefix(suffix, "A")
+	}
+	return "WRKR-" + suffix
 }

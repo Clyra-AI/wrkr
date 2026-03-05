@@ -45,6 +45,7 @@ func Reconcile(previous manifest.Manifest, observed []ObservedTool, now time.Tim
 	next := manifest.Manifest{Version: manifest.Version, UpdatedAt: now.Format(time.RFC3339), Identities: make([]manifest.IdentityRecord, 0, len(observed))}
 	transitions := make([]Transition, 0)
 	seen := map[string]struct{}{}
+	legacyMigrated := map[string]struct{}{}
 
 	sortedObserved := append([]ObservedTool(nil), observed...)
 	sort.Slice(sortedObserved, func(i, j int) bool {
@@ -62,10 +63,15 @@ func Reconcile(previous manifest.Manifest, observed []ObservedTool, now time.Tim
 		migratedFromLegacy := false
 		legacyAgentID := strings.TrimSpace(tool.LegacyAgentID)
 		if !exists && legacyAgentID != "" {
-			if legacyRecord, legacyExists := prevByID[legacyAgentID]; legacyExists {
-				previousRecord = legacyRecord
-				exists = true
-				migratedFromLegacy = legacyAgentID != strings.TrimSpace(tool.AgentID)
+			if _, alreadyMigrated := legacyMigrated[legacyAgentID]; !alreadyMigrated {
+				if legacyRecord, legacyExists := prevByID[legacyAgentID]; legacyExists {
+					previousRecord = legacyRecord
+					exists = true
+					migratedFromLegacy = legacyAgentID != strings.TrimSpace(tool.AgentID)
+					if migratedFromLegacy {
+						legacyMigrated[legacyAgentID] = struct{}{}
+					}
+				}
 			}
 		}
 		previousState := previousRecord.Status

@@ -128,6 +128,88 @@ func TestReconcileLegacyAgentIDMigratesWithoutLosingState(t *testing.T) {
 	}
 }
 
+func TestReconcileLegacyAgentIDMigrationDoesNotFanOutApprovalState(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
+	prev := manifest.Manifest{Identities: []manifest.IdentityRecord{{
+		AgentID:       "wrkr:codex-legacy:acme",
+		ToolID:        "codex-legacy",
+		ToolType:      "codex",
+		Org:           "acme",
+		Repo:          "acme/repo",
+		Location:      "AGENTS.md",
+		Status:        identity.StateApproved,
+		ApprovalState: "valid",
+		Approval: manifest.Approval{
+			Approver: "@maria",
+			Scope:    "repo",
+			Expires:  now.Add(24 * time.Hour).Format(time.RFC3339),
+		},
+		Present: true,
+	}}}
+
+	next, transitions := Reconcile(prev, []ObservedTool{
+		{
+			AgentID:       "wrkr:codex-inst-100:acme",
+			LegacyAgentID: "wrkr:codex-legacy:acme",
+			ToolID:        "codex-inst-100",
+			ToolType:      "codex",
+			Org:           "acme",
+			Repo:          "acme/repo",
+			Location:      "AGENTS.md",
+		},
+		{
+			AgentID:       "wrkr:codex-inst-200:acme",
+			LegacyAgentID: "wrkr:codex-legacy:acme",
+			ToolID:        "codex-inst-200",
+			ToolType:      "codex",
+			Org:           "acme",
+			Repo:          "acme/repo",
+			Location:      "AGENTS.md",
+		},
+	}, now)
+
+	if len(next.Identities) != 2 {
+		t.Fatalf("expected two successor identities, got %d", len(next.Identities))
+	}
+
+	var migrated, fresh *manifest.IdentityRecord
+	for i := range next.Identities {
+		switch next.Identities[i].AgentID {
+		case "wrkr:codex-inst-100:acme":
+			migrated = &next.Identities[i]
+		case "wrkr:codex-inst-200:acme":
+			fresh = &next.Identities[i]
+		}
+	}
+	if migrated == nil || fresh == nil {
+		t.Fatalf("expected deterministic successors, got %+v", next.Identities)
+	}
+	if migrated.Status != identity.StateActive {
+		t.Fatalf("expected first successor to inherit approved semantics, got %+v", *migrated)
+	}
+	if fresh.Status != identity.StateUnderReview || fresh.ApprovalState != "missing" {
+		t.Fatalf("expected additional successor to require new review, got %+v", *fresh)
+	}
+
+	var migratedTrigger, freshTrigger string
+	for _, transition := range transitions {
+		switch transition.AgentID {
+		case "wrkr:codex-inst-100:acme":
+			migratedTrigger = transition.Trigger
+		case "wrkr:codex-inst-200:acme":
+			freshTrigger = transition.Trigger
+		}
+	}
+	if migratedTrigger != "identity_migrated" {
+		t.Fatalf("expected identity_migrated for first successor, got %+v", transitions)
+	}
+	if freshTrigger != "first_seen" {
+		t.Fatalf("expected first_seen for additional successor, got %+v", transitions)
+	}
+}
+
 func TestParseExpiryDefault90Days(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
