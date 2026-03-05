@@ -79,6 +79,17 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected top-level keys: got %v want %v", got, want)
 	}
+
+	inventoryPayload, ok := payload["inventory"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected inventory object in payload, got %T", payload["inventory"])
+	}
+	if _, present := inventoryPayload["agents"]; !present {
+		t.Fatalf("expected additive inventory.agents key, got %v", inventoryPayload)
+	}
+	if _, ok := inventoryPayload["agents"].([]any); !ok {
+		t.Fatalf("expected inventory.agents array, got %T", inventoryPayload["agents"])
+	}
 }
 
 func TestDiffJSONContractStableKeys(t *testing.T) {

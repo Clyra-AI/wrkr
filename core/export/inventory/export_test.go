@@ -13,6 +13,9 @@ func TestBuildEmptyInventoryIsStable(t *testing.T) {
 	if snapshot.ExportVersion != "1" {
 		t.Fatalf("unexpected export version: %s", snapshot.ExportVersion)
 	}
+	if len(snapshot.Agents) != 0 {
+		t.Fatalf("expected empty agents, got %d", len(snapshot.Agents))
+	}
 	if len(snapshot.Tools) != 0 {
 		t.Fatalf("expected empty tools, got %d", len(snapshot.Tools))
 	}

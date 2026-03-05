@@ -366,11 +366,15 @@ func observedTools(findings []source.Finding, contexts map[string]agginventory.T
 		if org == "" {
 			org = "local"
 		}
-		toolID := identity.ToolID(finding.ToolType, finding.Location)
+		symbol := findingAgentSymbol(finding)
+		startLine, endLine := findingRangeLines(finding)
+		toolID := identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
 		agentID := identity.AgentID(toolID, org)
+		legacyAgentID := identity.LegacyAgentID(finding.ToolType, finding.Location, org)
 		ctx := contexts[agginventory.KeyForFinding(finding)]
 		candidate := lifecycle.ObservedTool{
 			AgentID:       agentID,
+			LegacyAgentID: legacyAgentID,
 			ToolID:        toolID,
 			ToolType:      finding.ToolType,
 			Org:           org,
@@ -404,9 +408,14 @@ func enrichFindingContexts(findings []source.Finding, base map[string]agginvento
 		if org == "" {
 			org = "local"
 		}
-		toolID := identity.ToolID(finding.ToolType, finding.Location)
-		agentID := identity.AgentID(toolID, org)
+		symbol := findingAgentSymbol(finding)
+		startLine, endLine := findingRangeLines(finding)
+		instanceToolID := identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+		agentID := identity.AgentID(instanceToolID, org)
 		record, exists := identities[agentID]
+		if !exists {
+			record, exists = identities[identity.LegacyAgentID(finding.ToolType, finding.Location, org)]
+		}
 		if !exists {
 			continue
 		}
@@ -498,6 +507,38 @@ func fallback(value, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func findingAgentSymbol(finding source.Finding) string {
+	index := map[string]string{}
+	for _, evidence := range finding.Evidence {
+		key := strings.ToLower(strings.TrimSpace(evidence.Key))
+		if key == "" {
+			continue
+		}
+		index[key] = strings.TrimSpace(evidence.Value)
+	}
+	for _, key := range []string{
+		"symbol",
+		"name",
+		"agent_name",
+		"agent.symbol",
+		"agent.name",
+		"function",
+		"class",
+	} {
+		if value := strings.TrimSpace(index[key]); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func findingRangeLines(finding source.Finding) (int, int) {
+	if finding.LocationRange == nil {
+		return 0, 0
+	}
+	return finding.LocationRange.StartLine, finding.LocationRange.EndLine
 }
 
 func driftTransitionCount(transitions []lifecycle.Transition) int {

@@ -26,3 +26,23 @@ func TestEvaluateComplianceAndDelta(t *testing.T) {
 		t.Fatalf("unexpected failing rules: %+v", result.Fails)
 	}
 }
+
+func TestProfileEval_NormalizesRuleAliasesDeterministically(t *testing.T) {
+	t.Parallel()
+
+	p := profile.Profile{
+		Name:          "standard",
+		MinCompliance: 80,
+		RuleThreshold: map[string]int{"WRKR-A014": 0},
+	}
+	findings := []model.Finding{
+		{FindingType: "policy_check", RuleID: "wrkr-014", CheckResult: model.CheckResultFail},
+	}
+	result := Evaluate(p, findings, nil)
+	if len(result.Fails) != 1 || result.Fails[0] != "WRKR-A014" {
+		t.Fatalf("expected alias-normalized failure list, got %+v", result.Fails)
+	}
+	if len(result.Rationale) != 1 || result.Rationale[0] != "WRKR-A014 fail_count=1 threshold=0" {
+		t.Fatalf("expected deterministic alias rationale, got %+v", result.Rationale)
+	}
+}

@@ -26,6 +26,44 @@ func TestFindingsAndPolicySchemasPresent(t *testing.T) {
 	}
 }
 
+func TestRulePackSchemaSupportsAgentNamespaceIDs(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	schemaPath := filepath.Join(repoRoot, "schemas", "v1", "policy", "rule-pack.schema.json")
+	payload, err := os.ReadFile(schemaPath)
+	if err != nil {
+		t.Fatalf("read rule-pack schema: %v", err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(payload, &schema); err != nil {
+		t.Fatalf("parse rule-pack schema: %v", err)
+	}
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("rule-pack schema missing properties: %v", schema)
+	}
+	rules, ok := properties["rules"].(map[string]any)
+	if !ok {
+		t.Fatalf("rule-pack schema missing rules property: %v", properties)
+	}
+	items, ok := rules["items"].(map[string]any)
+	if !ok {
+		t.Fatalf("rule-pack schema missing rules.items: %v", rules)
+	}
+	itemProps, ok := items["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("rule-pack schema missing item properties: %v", items)
+	}
+	idProp, ok := itemProps["id"].(map[string]any)
+	if !ok {
+		t.Fatalf("rule-pack schema missing id property: %v", itemProps)
+	}
+	if idProp["pattern"] != "^WRKR-(A)?[0-9]{3}$" {
+		t.Fatalf("unexpected rule-pack id regex: %v", idProp["pattern"])
+	}
+}
+
 func TestBuiltinPolicyRuleIDsStable(t *testing.T) {
 	t.Parallel()
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/policy"
 	"github.com/Clyra-AI/wrkr/core/policy/profile"
 )
 
@@ -32,14 +33,15 @@ func Evaluate(p profile.Profile, findings []model.Finding, previous *Result) Res
 	failList := make([]string, 0)
 	rationale := make([]string, 0)
 	for ruleID, threshold := range p.RuleThreshold {
-		count := ruleFails[strings.ToUpper(ruleID)]
+		canonicalRuleID := normalizeRuleID(ruleID)
+		count := failCountForRule(ruleFails, canonicalRuleID)
 		if count > threshold {
-			failList = append(failList, strings.ToUpper(ruleID))
-			rationale = append(rationale, fmt.Sprintf("%s fail_count=%d threshold=%d", strings.ToUpper(ruleID), count, threshold))
+			failList = append(failList, canonicalRuleID)
+			rationale = append(rationale, fmt.Sprintf("%s fail_count=%d threshold=%d", canonicalRuleID, count, threshold))
 		}
 	}
 	for ruleID, count := range ruleFails {
-		if _, exists := p.RuleThreshold[ruleID]; exists {
+		if isConfiguredRuleID(p.RuleThreshold, ruleID) {
 			continue
 		}
 		if count > 0 {
@@ -83,7 +85,7 @@ func collectRuleResults(findings []model.Finding) (map[string]int, int) {
 	ruleFails := map[string]int{}
 	ruleSeen := map[string]struct{}{}
 	for _, finding := range findings {
-		ruleID := strings.ToUpper(strings.TrimSpace(finding.RuleID))
+		ruleID := ruleFamilyID(finding.RuleID)
 		if ruleID == "" {
 			continue
 		}
@@ -96,6 +98,40 @@ func collectRuleResults(findings []model.Finding) (map[string]int, int) {
 		}
 	}
 	return ruleFails, len(ruleSeen)
+}
+
+func normalizeRuleID(ruleID string) string {
+	normalized, err := policy.NormalizeRuleID(ruleID)
+	if err == nil {
+		return normalized
+	}
+	return strings.ToUpper(strings.TrimSpace(ruleID))
+}
+
+func failCountForRule(ruleFails map[string]int, ruleID string) int {
+	return ruleFails[ruleFamilyID(ruleID)]
+}
+
+func isConfiguredRuleID(thresholds map[string]int, ruleID string) bool {
+	targetFamily := ruleFamilyID(ruleID)
+	for configured := range thresholds {
+		if ruleFamilyID(configured) == targetFamily {
+			return true
+		}
+	}
+	return false
+}
+
+func ruleFamilyID(ruleID string) string {
+	normalized, err := policy.NormalizeRuleID(ruleID)
+	if err != nil {
+		return strings.ToUpper(strings.TrimSpace(ruleID))
+	}
+	suffix := strings.TrimPrefix(normalized, "WRKR-")
+	if strings.HasPrefix(suffix, "A") {
+		return "WRKR-" + strings.TrimPrefix(suffix, "A")
+	}
+	return normalized
 }
 
 func unique(values []string) []string {

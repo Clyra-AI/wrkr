@@ -85,7 +85,7 @@ func TestExportInventoryContract(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse export payload: %v", err)
 	}
-	for _, key := range []string{"export_version", "exported_at", "org", "tools"} {
+	for _, key := range []string{"export_version", "exported_at", "org", "agents", "tools"} {
 		if _, present := payload[key]; !present {
 			t.Fatalf("missing export key %q in %v", key, payload)
 		}

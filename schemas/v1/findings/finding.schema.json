@@ -42,6 +42,21 @@
       "type": "string",
       "minLength": 1
     },
+    "location_range": {
+      "type": "object",
+      "required": ["start_line", "end_line"],
+      "properties": {
+        "start_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
     "repo": {
       "type": "string"
     },

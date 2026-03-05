@@ -3,11 +3,35 @@
   "$id": "https://wrkr.dev/schemas/v1/inventory/inventory.schema.json",
   "title": "Wrkr Inventory",
   "type": "object",
-  "required": ["inventory_version", "generated_at", "org", "tools", "methodology", "approval_summary", "adoption_summary", "regulatory_summary", "privilege_budget", "agent_privilege_map", "summary"],
+  "required": ["inventory_version", "generated_at", "org", "agents", "tools", "methodology", "approval_summary", "adoption_summary", "regulatory_summary", "privilege_budget", "agent_privilege_map", "summary"],
   "properties": {
     "inventory_version": {"type": "string"},
     "generated_at": {"type": "string", "format": "date-time"},
     "org": {"type": "string"},
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["agent_id", "agent_instance_id", "framework", "org", "repo", "location"],
+        "properties": {
+          "agent_id": {"type": "string"},
+          "agent_instance_id": {"type": "string"},
+          "framework": {"type": "string"},
+          "org": {"type": "string"},
+          "repo": {"type": "string"},
+          "location": {"type": "string"},
+          "location_range": {
+            "type": "object",
+            "required": ["start_line", "end_line"],
+            "properties": {
+              "start_line": {"type": "integer", "minimum": 1},
+              "end_line": {"type": "integer", "minimum": 1}
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
     "tools": {
       "type": "array",
       "items": {

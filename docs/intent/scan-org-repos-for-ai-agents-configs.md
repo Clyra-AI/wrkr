@@ -47,7 +47,7 @@ wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
 {
   "status": "ok",
   "target": {"mode": "path", "value": "./scenarios/wrkr/scan-mixed-org/repos"},
-  "inventory": {"tools": []},
+  "inventory": {"agents": [], "tools": []},
   "profile": {"name": "baseline"},
   "posture_score": {"score": 0}
 }

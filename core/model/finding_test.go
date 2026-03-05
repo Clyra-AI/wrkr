@@ -49,3 +49,49 @@ func TestNormalizeFindingDedupesPermissionsAndEvidence(t *testing.T) {
 		t.Fatalf("unexpected evidence ordering: %#v", norm.Evidence)
 	}
 }
+
+func TestNormalizeFindingCanonicalizesLocationRange(t *testing.T) {
+	t.Parallel()
+
+	norm := NormalizeFinding(Finding{
+		Severity:      "low",
+		FindingType:   "agent_framework",
+		ToolType:      "langchain",
+		Location:      "agents.py",
+		Org:           "acme",
+		LocationRange: &LocationRange{StartLine: 40, EndLine: 30},
+	})
+	if norm.LocationRange == nil {
+		t.Fatal("expected normalized location range")
+	}
+	if norm.LocationRange.StartLine != 30 || norm.LocationRange.EndLine != 40 {
+		t.Fatalf("expected canonical range 30..40, got %+v", norm.LocationRange)
+	}
+}
+
+func TestSortFindingsOrdersByLocationRange(t *testing.T) {
+	t.Parallel()
+
+	findings := []Finding{
+		{
+			Severity:      "low",
+			FindingType:   "agent_framework",
+			ToolType:      "langchain",
+			Location:      "agents.py",
+			LocationRange: &LocationRange{StartLine: 40, EndLine: 45},
+			Org:           "acme",
+		},
+		{
+			Severity:      "low",
+			FindingType:   "agent_framework",
+			ToolType:      "langchain",
+			Location:      "agents.py",
+			LocationRange: &LocationRange{StartLine: 10, EndLine: 12},
+			Org:           "acme",
+		},
+	}
+	SortFindings(findings)
+	if findings[0].LocationRange == nil || findings[0].LocationRange.StartLine != 10 {
+		t.Fatalf("expected lower start line first, got %+v", findings)
+	}
+}

@@ -1,6 +1,7 @@
 package inventory
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -17,6 +18,16 @@ type ToolLocation struct {
 	Repo     string `json:"repo" yaml:"repo"`
 	Location string `json:"location" yaml:"location"`
 	Owner    string `json:"owner" yaml:"owner"`
+}
+
+type Agent struct {
+	AgentID         string               `json:"agent_id" yaml:"agent_id"`
+	AgentInstanceID string               `json:"agent_instance_id" yaml:"agent_instance_id"`
+	Framework       string               `json:"framework" yaml:"framework"`
+	Org             string               `json:"org" yaml:"org"`
+	Repo            string               `json:"repo" yaml:"repo"`
+	Location        string               `json:"location" yaml:"location"`
+	LocationRange   *model.LocationRange `json:"location_range,omitempty" yaml:"location_range,omitempty"`
 }
 
 type Tool struct {
@@ -68,6 +79,7 @@ type Inventory struct {
 	InventoryVersion      string                         `json:"inventory_version" yaml:"inventory_version"`
 	GeneratedAt           string                         `json:"generated_at" yaml:"generated_at"`
 	Org                   string                         `json:"org" yaml:"org"`
+	Agents                []Agent                        `json:"agents" yaml:"agents"`
 	Tools                 []Tool                         `json:"tools" yaml:"tools"`
 	Methodology           MethodologySummary             `json:"methodology" yaml:"methodology"`
 	ApprovalSummary       ApprovalSummary                `json:"approval_summary" yaml:"approval_summary"`
@@ -166,6 +178,7 @@ func Build(input BuildInput) Inventory {
 		permissionSet map[string]struct{}
 	}
 	toolMap := map[string]*accumulator{}
+	agentMap := map[string]Agent{}
 	for _, finding := range input.Findings {
 		if !includeFinding(finding) {
 			continue
@@ -198,6 +211,30 @@ func Build(input BuildInput) Inventory {
 			item = &accumulator{tool: tool, repoSet: map[string]struct{}{}, locSet: map[string]struct{}{}, permissionSet: map[string]struct{}{}}
 			toolMap[key] = item
 		}
+
+		framework := strings.TrimSpace(finding.ToolType)
+		symbol := findingAgentSymbol(finding)
+		startLine, endLine := findingRangeLines(finding)
+		instanceID := identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+		agentKey := strings.Join([]string{
+			findingOrg,
+			framework,
+			instanceID,
+			strings.TrimSpace(finding.Location),
+			strings.TrimSpace(finding.Repo),
+			strings.TrimSpace(symbol),
+			strings.TrimSpace(fmt.Sprintf("%d:%d", startLine, endLine)),
+		}, "::")
+		agentMap[agentKey] = Agent{
+			AgentID:         identity.AgentID(instanceID, findingOrg),
+			AgentInstanceID: instanceID,
+			Framework:       framework,
+			Org:             findingOrg,
+			Repo:            strings.TrimSpace(finding.Repo),
+			Location:        strings.TrimSpace(finding.Location),
+			LocationRange:   cloneLocationRange(finding.LocationRange),
+		}
+
 		if finding.Repo != "" {
 			item.repoSet[finding.Repo] = struct{}{}
 		}
@@ -291,6 +328,28 @@ func Build(input BuildInput) Inventory {
 		}
 		return tools[i].ToolID < tools[j].ToolID
 	})
+	agents := make([]Agent, 0, len(agentMap))
+	for _, agent := range agentMap {
+		agents = append(agents, agent)
+	}
+	sort.Slice(agents, func(i, j int) bool {
+		if agents[i].Org != agents[j].Org {
+			return agents[i].Org < agents[j].Org
+		}
+		if agents[i].Framework != agents[j].Framework {
+			return agents[i].Framework < agents[j].Framework
+		}
+		if agents[i].AgentInstanceID != agents[j].AgentInstanceID {
+			return agents[i].AgentInstanceID < agents[j].AgentInstanceID
+		}
+		if agents[i].Location != agents[j].Location {
+			return agents[i].Location < agents[j].Location
+		}
+		if agents[i].Repo != agents[j].Repo {
+			return agents[i].Repo < agents[j].Repo
+		}
+		return agents[i].AgentID < agents[j].AgentID
+	})
 	approvalSummary = finalizeApprovalSummary(approvalSummary)
 	regulatorySummary := buildRegulatorySummary(tools)
 
@@ -298,6 +357,7 @@ func Build(input BuildInput) Inventory {
 		InventoryVersion:      "1",
 		GeneratedAt:           generatedAt.Format(time.RFC3339),
 		Org:                   org,
+		Agents:                agents,
 		Tools:                 tools,
 		Methodology:           normalizeMethodology(input.Methodology),
 		ApprovalSummary:       approvalSummary,
@@ -745,15 +805,7 @@ func KeyForFinding(finding model.Finding) string {
 }
 
 func includeFinding(finding model.Finding) bool {
-	if strings.TrimSpace(finding.ToolType) == "" {
-		return false
-	}
-	switch finding.FindingType {
-	case "policy_check", "policy_violation", "parse_error":
-		return false
-	default:
-		return true
-	}
+	return model.IsInventoryBearingFinding(finding)
 }
 
 func deriveOrg(manifest source.Manifest) string {
@@ -800,4 +852,43 @@ func sortedSet(set map[string]struct{}) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func findingAgentSymbol(finding model.Finding) string {
+	index := map[string]string{}
+	for _, evidence := range finding.Evidence {
+		key := strings.ToLower(strings.TrimSpace(evidence.Key))
+		if key == "" {
+			continue
+		}
+		index[key] = strings.TrimSpace(evidence.Value)
+	}
+	for _, key := range []string{
+		"symbol",
+		"name",
+		"agent_name",
+		"agent.symbol",
+		"agent.name",
+		"function",
+		"class",
+	} {
+		if value := strings.TrimSpace(index[key]); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func findingRangeLines(finding model.Finding) (int, int) {
+	if finding.LocationRange == nil {
+		return 0, 0
+	}
+	return finding.LocationRange.StartLine, finding.LocationRange.EndLine
+}
+
+func cloneLocationRange(in *model.LocationRange) *model.LocationRange {
+	if in == nil {
+		return nil
+	}
+	return &model.LocationRange{StartLine: in.StartLine, EndLine: in.EndLine}
 }
