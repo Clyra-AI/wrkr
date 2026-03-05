@@ -25,6 +25,7 @@ type AgentSpec struct {
 	KillSwitch       bool     `json:"kill_switch" yaml:"kill_switch"`
 	AutoDeploy       bool     `json:"auto_deploy" yaml:"auto_deploy"`
 	HumanGate        bool     `json:"human_gate" yaml:"human_gate"`
+	DeploymentGate   string   `json:"deployment_gate" yaml:"deployment_gate"`
 }
 
 type declaration struct {
@@ -120,6 +121,7 @@ func frameworkFinding(scope detect.Scope, cfg DetectorConfig, agent AgentSpec) m
 		{Key: "kill_switch", Value: fmt.Sprintf("%t", agent.KillSwitch)},
 		{Key: "auto_deploy", Value: fmt.Sprintf("%t", agent.AutoDeploy)},
 		{Key: "human_gate", Value: fmt.Sprintf("%t", agent.HumanGate)},
+		{Key: "deployment_gate", Value: deriveDeploymentGate(agent)},
 	}
 
 	severity := model.SeverityLow
@@ -232,4 +234,18 @@ func fallbackOrg(org string) string {
 		return "local"
 	}
 	return org
+}
+
+func deriveDeploymentGate(agent AgentSpec) string {
+	explicit := strings.ToLower(strings.TrimSpace(agent.DeploymentGate))
+	if explicit != "" {
+		return explicit
+	}
+	if !agent.AutoDeploy {
+		return ""
+	}
+	if agent.HumanGate {
+		return "enforced"
+	}
+	return "missing"
 }

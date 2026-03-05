@@ -90,7 +90,8 @@ func applyRule(rule policy.Rule, findings []model.Finding) (bool, string) {
 				violations++
 			}
 		}
-		return violations == 0, fmt.Sprintf("prod_write_without_human_gate=%d", violations)
+		secretCount := countType(findings, "secret_presence")
+		return violations == 0 && secretCount == 0, fmt.Sprintf("prod_write_without_human_gate=%d,secret_presence=%d", violations, secretCount)
 	case "agent_secret_controls":
 		agents := agentFindings(findings)
 		if len(agents) == 0 {
@@ -184,6 +185,9 @@ func applyRule(rule policy.Rule, findings []model.Finding) (bool, string) {
 				continue
 			}
 			gate := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "deployment_gate")))
+			if gate == "" && boolEvidenceWithDefault(finding, "human_gate", false) {
+				gate = "enforced"
+			}
 			if gate != "approved" && gate != "enforced" {
 				violations++
 			}
