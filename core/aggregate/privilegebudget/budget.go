@@ -123,13 +123,84 @@ func Build(
 func mapAgentsByID(agents []agginventory.Agent) map[string]agginventory.Agent {
 	out := map[string]agginventory.Agent{}
 	for _, agent := range agents {
-		agentID := strings.TrimSpace(agent.AgentID)
-		if agentID == "" {
+		keys := agentLookupKeys(agent)
+		if len(keys) == 0 {
 			continue
 		}
-		out[agentID] = agent
+		for _, key := range keys {
+			current := out[key]
+			out[key] = mergeAgentContext(current, agent, key)
+		}
 	}
 	return out
+}
+
+func agentLookupKeys(agent agginventory.Agent) []string {
+	keys := map[string]struct{}{}
+	if agentID := strings.TrimSpace(agent.AgentID); agentID != "" {
+		keys[agentID] = struct{}{}
+	}
+	framework := strings.TrimSpace(agent.Framework)
+	location := strings.TrimSpace(agent.Location)
+	if framework != "" && location != "" {
+		toolScoped := identity.AgentID(identity.ToolID(framework, location), fallbackOrg(agent.Org))
+		keys[toolScoped] = struct{}{}
+	}
+	out := make([]string, 0, len(keys))
+	for key := range keys {
+		out = append(out, key)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func mergeAgentContext(current, incoming agginventory.Agent, key string) agginventory.Agent {
+	merged := current
+	if strings.TrimSpace(merged.AgentID) == "" {
+		merged.AgentID = strings.TrimSpace(key)
+	}
+	if strings.TrimSpace(merged.AgentInstanceID) == "" {
+		merged.AgentInstanceID = strings.TrimSpace(incoming.AgentInstanceID)
+	}
+	if strings.TrimSpace(merged.Framework) == "" {
+		merged.Framework = strings.TrimSpace(incoming.Framework)
+	}
+	merged.BoundTools = dedupeSorted(append(append([]string(nil), merged.BoundTools...), incoming.BoundTools...))
+	merged.BoundDataSources = dedupeSorted(append(append([]string(nil), merged.BoundDataSources...), incoming.BoundDataSources...))
+	merged.BoundAuthSurfaces = dedupeSorted(append(append([]string(nil), merged.BoundAuthSurfaces...), incoming.BoundAuthSurfaces...))
+	merged.BindingEvidenceKeys = dedupeSorted(append(append([]string(nil), merged.BindingEvidenceKeys...), incoming.BindingEvidenceKeys...))
+	merged.MissingBindings = dedupeSorted(append(append([]string(nil), merged.MissingBindings...), incoming.MissingBindings...))
+	merged.DeploymentStatus = mergeDeploymentStatus(merged.DeploymentStatus, incoming.DeploymentStatus)
+	merged.DeploymentArtifacts = dedupeSorted(append(append([]string(nil), merged.DeploymentArtifacts...), incoming.DeploymentArtifacts...))
+	merged.DeploymentEvidenceKeys = dedupeSorted(append(append([]string(nil), merged.DeploymentEvidenceKeys...), incoming.DeploymentEvidenceKeys...))
+	return merged
+}
+
+func mergeDeploymentStatus(current, incoming string) string {
+	currentNormalized := normalizeToken(current)
+	incomingNormalized := normalizeToken(incoming)
+	switch {
+	case currentNormalized == "deployed" || incomingNormalized == "deployed":
+		return "deployed"
+	case currentNormalized == "" || currentNormalized == "unknown":
+		if incomingNormalized != "" {
+			return incomingNormalized
+		}
+	case incomingNormalized == "" || incomingNormalized == "unknown":
+		if currentNormalized != "" {
+			return currentNormalized
+		}
+	}
+	if currentNormalized == "" {
+		return incomingNormalized
+	}
+	if incomingNormalized == "" {
+		return currentNormalized
+	}
+	if currentNormalized <= incomingNormalized {
+		return currentNormalized
+	}
+	return incomingNormalized
 }
 
 func buildSignalsByAgent(findings []model.Finding) map[string]findingSignals {

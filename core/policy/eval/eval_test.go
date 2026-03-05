@@ -140,6 +140,69 @@ func TestPolicyEval_WRKRA010_AutoDeployWithoutHumanGateFails(t *testing.T) {
 	}
 }
 
+func TestPolicyEval_WRKR002_AgentProdWriteAlsoChecksSecretPresence(t *testing.T) {
+	t.Parallel()
+
+	rules := []policy.Rule{{
+		ID:          "WRKR-002",
+		Title:       "production write agents require human gate",
+		Severity:    "high",
+		Kind:        "agent_prod_write_human_gate",
+		Remediation: "set human gate and remove inline secrets",
+		Version:     1,
+	}}
+	findings := []model.Finding{
+		{
+			FindingType: "agent_framework",
+			ToolType:    "langchain",
+			Location:    "agents/release.py",
+			Permissions: []string{"deploy.write"},
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "release_agent"},
+				{Key: "deployment_status", Value: "deployed"},
+				{Key: "human_gate", Value: "true"},
+			},
+		},
+		{
+			FindingType: "secret_presence",
+			ToolType:    "codex",
+			Location:    ".codex/config.toml",
+		},
+	}
+	out := Evaluate("repo", "org", findings, rules)
+	if !hasViolation(out, "WRKR-002") {
+		t.Fatalf("expected WRKR-002 violation when secret_presence exists, got %+v", out)
+	}
+}
+
+func TestPolicyEval_WRKRA009_UsesHumanGateFallbackWithoutDeploymentGate(t *testing.T) {
+	t.Parallel()
+
+	rules := []policy.Rule{{
+		ID:          "WRKR-A009",
+		Title:       "auto deploy requires deployment gate",
+		Severity:    "high",
+		Kind:        "agent_auto_deploy_gate",
+		Remediation: "declare deployment gate",
+		Version:     1,
+	}}
+	findings := []model.Finding{{
+		FindingType: "agent_framework",
+		ToolType:    "openai_agents",
+		Location:    "agents/release.py",
+		Evidence: []model.Evidence{
+			{Key: "symbol", Value: "release_agent"},
+			{Key: "auto_deploy", Value: "true"},
+			{Key: "human_gate", Value: "true"},
+		},
+	}}
+
+	out := Evaluate("repo", "org", findings, rules)
+	if hasViolation(out, "WRKR-A009") {
+		t.Fatalf("expected WRKR-A009 to pass with human_gate fallback, got %+v", out)
+	}
+}
+
 func TestPolicyEval_AgentRuleKindsDeterministicPassFail(t *testing.T) {
 	t.Parallel()
 

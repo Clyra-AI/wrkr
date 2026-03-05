@@ -249,3 +249,47 @@ func TestBuildIncludesAgentLayerContextDeterministically(t *testing.T) {
 		t.Fatalf("unexpected approval classification: %q", entry.ApprovalClassification)
 	}
 }
+
+func TestBuildResolvesInstanceScopedAgentContextForToolEntries(t *testing.T) {
+	t.Parallel()
+
+	toolID := identity.ToolID("langchain", "agents/main.py")
+	toolAgentID := identity.AgentID(toolID, "acme")
+	instanceID := identity.AgentInstanceID("langchain", "agents/main.py", "release_agent", 12, 64)
+
+	tools := []agginventory.Tool{{
+		ToolID:      toolID,
+		AgentID:     toolAgentID,
+		ToolType:    "langchain",
+		Org:         "acme",
+		Repos:       []string{"acme/backend"},
+		Permissions: []string{"deploy.write"},
+	}}
+	agents := []agginventory.Agent{{
+		AgentID:                identity.AgentID(instanceID, "acme"),
+		AgentInstanceID:        instanceID,
+		Framework:              "langchain",
+		Org:                    "acme",
+		Location:               "agents/main.py",
+		BoundDataSources:       []string{"warehouse.events"},
+		BindingEvidenceKeys:    []string{"data:warehouse.events"},
+		DeploymentStatus:       "deployed",
+		DeploymentArtifacts:    []string{".github/workflows/release.yml"},
+		DeploymentEvidenceKeys: []string{"deployment:.github/workflows/release.yml"},
+	}}
+
+	_, entries := Build(tools, agents, nil, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one privilege map entry, got %d", len(entries))
+	}
+	entry := entries[0]
+	if entry.DeploymentStatus != "deployed" {
+		t.Fatalf("expected deployment_status=deployed, got %q", entry.DeploymentStatus)
+	}
+	if !reflect.DeepEqual(entry.BoundDataSources, []string{"warehouse.events"}) {
+		t.Fatalf("unexpected bound_data_sources: %+v", entry.BoundDataSources)
+	}
+	if !reflect.DeepEqual(entry.DeploymentEvidenceKeys, []string{"deployment:.github/workflows/release.yml"}) {
+		t.Fatalf("unexpected deployment_evidence_keys: %+v", entry.DeploymentEvidenceKeys)
+	}
+}
