@@ -86,3 +86,119 @@ func TestRuleWRKR016FailsWhenPromptChannelHighFindingsExist(t *testing.T) {
 		t.Fatal("expected WRKR-016 policy violation")
 	}
 }
+
+func TestPolicyEval_WRKRA001_NoApprovalFails(t *testing.T) {
+	t.Parallel()
+
+	rules := []policy.Rule{{
+		ID:          "WRKR-A001",
+		Title:       "approval required",
+		Severity:    "high",
+		Kind:        "agent_approval_required",
+		Remediation: "set approval_status",
+		Version:     1,
+	}}
+	findings := []model.Finding{{
+		FindingType: "agent_framework",
+		ToolType:    "langchain",
+		Location:    "agents/release.py",
+		Evidence: []model.Evidence{
+			{Key: "symbol", Value: "release_agent"},
+			{Key: "approval_status", Value: "missing"},
+		},
+	}}
+	out := Evaluate("repo", "org", findings, rules)
+	if !hasViolation(out, "WRKR-A001") {
+		t.Fatalf("expected WRKR-A001 violation, got %+v", out)
+	}
+}
+
+func TestPolicyEval_WRKRA010_AutoDeployWithoutHumanGateFails(t *testing.T) {
+	t.Parallel()
+
+	rules := []policy.Rule{{
+		ID:          "WRKR-A010",
+		Title:       "auto deploy gate",
+		Severity:    "high",
+		Kind:        "agent_autodeploy_without_human_gate",
+		Remediation: "set human_gate=true",
+		Version:     1,
+	}}
+	findings := []model.Finding{{
+		FindingType: "agent_framework",
+		ToolType:    "openai_agents",
+		Location:    "agents/release.py",
+		Evidence: []model.Evidence{
+			{Key: "symbol", Value: "release_agent"},
+			{Key: "auto_deploy", Value: "true"},
+			{Key: "human_gate", Value: "false"},
+		},
+	}}
+	out := Evaluate("repo", "org", findings, rules)
+	if !hasViolation(out, "WRKR-A010") {
+		t.Fatalf("expected WRKR-A010 violation, got %+v", out)
+	}
+}
+
+func TestPolicyEval_AgentRuleKindsDeterministicPassFail(t *testing.T) {
+	t.Parallel()
+
+	rules := []policy.Rule{
+		{ID: "WRKR-A001", Title: "A001", Severity: "high", Kind: "agent_approval_required", Remediation: "r1", Version: 1},
+		{ID: "WRKR-A002", Title: "A002", Severity: "high", Kind: "agent_prod_write_human_gate", Remediation: "r2", Version: 1},
+		{ID: "WRKR-A003", Title: "A003", Severity: "high", Kind: "agent_secret_controls", Remediation: "r3", Version: 1},
+		{ID: "WRKR-A004", Title: "A004", Severity: "high", Kind: "agent_exfil_controls", Remediation: "r4", Version: 1},
+		{ID: "WRKR-A005", Title: "A005", Severity: "high", Kind: "agent_delegation_controls", Remediation: "r5", Version: 1},
+		{ID: "WRKR-A006", Title: "A006", Severity: "high", Kind: "agent_dynamic_discovery_controls", Remediation: "r6", Version: 1},
+		{ID: "WRKR-A007", Title: "A007", Severity: "high", Kind: "agent_kill_switch_required", Remediation: "r7", Version: 1},
+		{ID: "WRKR-A008", Title: "A008", Severity: "high", Kind: "agent_data_classification_required", Remediation: "r8", Version: 1},
+		{ID: "WRKR-A009", Title: "A009", Severity: "high", Kind: "agent_auto_deploy_gate", Remediation: "r9", Version: 1},
+		{ID: "WRKR-A010", Title: "A010", Severity: "high", Kind: "agent_autodeploy_without_human_gate", Remediation: "r10", Version: 1},
+	}
+	findings := []model.Finding{{
+		FindingType: "agent_framework",
+		ToolType:    "langchain",
+		Location:    "agents/main.py",
+		Permissions: []string{"deploy.write", "secret.read"},
+		Evidence: []model.Evidence{
+			{Key: "symbol", Value: "ops_agent"},
+			{Key: "approval_status", Value: "approved"},
+			{Key: "deployment_status", Value: "deployed"},
+			{Key: "human_gate", Value: "true"},
+			{Key: "secret_control", Value: "managed"},
+			{Key: "external_network", Value: "true"},
+			{Key: "egress_policy", Value: "enforced"},
+			{Key: "delegation", Value: "true"},
+			{Key: "delegation_policy", Value: "approved"},
+			{Key: "dynamic_discovery", Value: "false"},
+			{Key: "kill_switch", Value: "true"},
+			{Key: "data_class", Value: "internal"},
+			{Key: "auto_deploy", Value: "true"},
+			{Key: "deployment_gate", Value: "enforced"},
+		},
+	}}
+	first := Evaluate("repo", "org", findings, rules)
+	second := Evaluate("repo", "org", findings, rules)
+	if len(first) != 10 || len(second) != 10 {
+		t.Fatalf("expected 10 policy checks for deterministic baseline, got %d and %d", len(first), len(second))
+	}
+	for _, finding := range first {
+		if finding.FindingType == "policy_violation" {
+			t.Fatalf("expected no violations for all-pass fixture, got %+v", first)
+		}
+	}
+	for i := range first {
+		if first[i].RuleID != second[i].RuleID || first[i].CheckResult != second[i].CheckResult {
+			t.Fatalf("non-deterministic rule ordering or outcomes\nfirst=%+v\nsecond=%+v", first, second)
+		}
+	}
+}
+
+func hasViolation(findings []model.Finding, ruleID string) bool {
+	for _, finding := range findings {
+		if finding.FindingType == "policy_violation" && finding.RuleID == ruleID {
+			return true
+		}
+	}
+	return false
+}

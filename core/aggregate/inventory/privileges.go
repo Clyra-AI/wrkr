@@ -24,6 +24,7 @@ type AgentPrivilegeMapEntry struct {
 	AgentID                  string   `json:"agent_id" yaml:"agent_id"`
 	ToolID                   string   `json:"tool_id" yaml:"tool_id"`
 	ToolType                 string   `json:"tool_type" yaml:"tool_type"`
+	Framework                string   `json:"framework,omitempty" yaml:"framework,omitempty"`
 	Org                      string   `json:"org" yaml:"org"`
 	Repos                    []string `json:"repos" yaml:"repos"`
 	Permissions              []string `json:"permissions" yaml:"permissions"`
@@ -31,6 +32,15 @@ type AgentPrivilegeMapEntry struct {
 	DataClass                string   `json:"data_class" yaml:"data_class"`
 	AutonomyLevel            string   `json:"autonomy_level" yaml:"autonomy_level"`
 	RiskScore                float64  `json:"risk_score" yaml:"risk_score"`
+	ApprovalClassification   string   `json:"approval_classification,omitempty" yaml:"approval_classification,omitempty"`
+	BoundTools               []string `json:"bound_tools,omitempty" yaml:"bound_tools,omitempty"`
+	BoundDataSources         []string `json:"bound_data_sources,omitempty" yaml:"bound_data_sources,omitempty"`
+	BoundAuthSurfaces        []string `json:"bound_auth_surfaces,omitempty" yaml:"bound_auth_surfaces,omitempty"`
+	BindingEvidenceKeys      []string `json:"binding_evidence_keys,omitempty" yaml:"binding_evidence_keys,omitempty"`
+	MissingBindings          []string `json:"missing_bindings,omitempty" yaml:"missing_bindings,omitempty"`
+	DeploymentStatus         string   `json:"deployment_status,omitempty" yaml:"deployment_status,omitempty"`
+	DeploymentArtifacts      []string `json:"deployment_artifacts,omitempty" yaml:"deployment_artifacts,omitempty"`
+	DeploymentEvidenceKeys   []string `json:"deployment_evidence_keys,omitempty" yaml:"deployment_evidence_keys,omitempty"`
 	WriteCapable             bool     `json:"write_capable" yaml:"write_capable"`
 	CredentialAccess         bool     `json:"credential_access" yaml:"credential_access"`
 	ExecCapable              bool     `json:"exec_capable" yaml:"exec_capable"`

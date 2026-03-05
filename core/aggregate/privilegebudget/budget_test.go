@@ -2,6 +2,7 @@ package privilegebudget
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -58,7 +59,7 @@ func TestBuildComputesPrivilegeBudgetAndPerAgentMap(t *testing.T) {
 	}
 	rules.Normalize()
 
-	budget, entries := Build(tools, findings, rules)
+	budget, entries := Build(tools, nil, findings, rules)
 	if budget.TotalTools != 2 {
 		t.Fatalf("expected total_tools=2 got %d", budget.TotalTools)
 	}
@@ -103,7 +104,7 @@ func TestBuildComputesPrivilegeBudgetAndPerAgentMap(t *testing.T) {
 func TestBuildWithoutRulesLeavesProductionWriteUnconfigured(t *testing.T) {
 	t.Parallel()
 
-	budget, entries := Build([]agginventory.Tool{}, nil, nil)
+	budget, entries := Build([]agginventory.Tool{}, nil, nil, nil)
 	if budget.ProductionWrite.Configured {
 		t.Fatal("expected production_write.configured=false when no rules provided")
 	}
@@ -131,7 +132,7 @@ func TestBuildKeepsRequiredArrayFieldsAsArrays(t *testing.T) {
 			Repos:       nil,
 		},
 	}
-	_, entries := Build(tools, nil, nil)
+	_, entries := Build(tools, nil, nil, nil)
 	if len(entries) != 1 {
 		t.Fatalf("expected one entry, got %d", len(entries))
 	}
@@ -191,11 +192,60 @@ func TestBuildPreservesMixedCaseOrgSignalAgentMatch(t *testing.T) {
 	}
 	rules.Normalize()
 
-	budget, entries := Build(tools, findings, rules)
+	budget, entries := Build(tools, nil, findings, rules)
 	if budget.ProductionWrite.Count == nil || *budget.ProductionWrite.Count != 1 {
 		t.Fatalf("expected production write count=1, got %v", budget.ProductionWrite.Count)
 	}
 	if len(entries) != 1 || !entries[0].ProductionWrite {
 		t.Fatalf("expected entry production_write=true, got %+v", entries)
+	}
+}
+
+func TestBuildIncludesAgentLayerContextDeterministically(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{
+		{
+			ToolID:        "langchain-1",
+			AgentID:       "wrkr:langchain-inst-a:acme",
+			ToolType:      "langchain",
+			Org:           "acme",
+			Repos:         []string{"acme/backend"},
+			Permissions:   []string{"deploy.write"},
+			ApprovalClass: "unapproved",
+		},
+	}
+	agents := []agginventory.Agent{
+		{
+			AgentID:                "wrkr:langchain-inst-a:acme",
+			AgentInstanceID:        "langchain-inst-a",
+			Framework:              "langchain",
+			BoundTools:             []string{"deploy.write"},
+			BoundDataSources:       []string{"warehouse.events"},
+			BoundAuthSurfaces:      []string{"oauth2"},
+			BindingEvidenceKeys:    []string{"tool:deploy.write", "data:warehouse.events", "auth:oauth2"},
+			MissingBindings:        []string{},
+			DeploymentStatus:       "deployed",
+			DeploymentArtifacts:    []string{".github/workflows/release.yml"},
+			DeploymentEvidenceKeys: []string{"deployment:.github/workflows/release.yml"},
+		},
+	}
+
+	_, entries := Build(tools, agents, nil, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one privilege map entry, got %d", len(entries))
+	}
+	entry := entries[0]
+	if entry.Framework != "langchain" {
+		t.Fatalf("expected framework=langchain, got %q", entry.Framework)
+	}
+	if entry.DeploymentStatus != "deployed" {
+		t.Fatalf("expected deployment_status=deployed, got %q", entry.DeploymentStatus)
+	}
+	if !reflect.DeepEqual(entry.BoundDataSources, []string{"warehouse.events"}) {
+		t.Fatalf("unexpected bound_data_sources: %+v", entry.BoundDataSources)
+	}
+	if entry.ApprovalClassification != "unapproved" {
+		t.Fatalf("unexpected approval classification: %q", entry.ApprovalClassification)
 	}
 }

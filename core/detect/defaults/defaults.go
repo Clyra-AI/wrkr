@@ -3,6 +3,11 @@ package defaults
 import (
 	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/detect/a2a"
+	"github.com/Clyra-AI/wrkr/core/detect/agentautogen"
+	"github.com/Clyra-AI/wrkr/core/detect/agentcrewai"
+	"github.com/Clyra-AI/wrkr/core/detect/agentlangchain"
+	"github.com/Clyra-AI/wrkr/core/detect/agentllamaindex"
+	"github.com/Clyra-AI/wrkr/core/detect/agentopenai"
 	"github.com/Clyra-AI/wrkr/core/detect/ciagent"
 	"github.com/Clyra-AI/wrkr/core/detect/claude"
 	"github.com/Clyra-AI/wrkr/core/detect/codex"
@@ -24,6 +29,11 @@ func Registry() (*detect.Registry, error) {
 	registry := detect.NewRegistry()
 	detectorList := []detect.Detector{
 		a2a.New(),
+		agentlangchain.New(),
+		agentcrewai.New(),
+		agentopenai.New(),
+		agentautogen.New(),
+		agentllamaindex.New(),
 		claude.New(),
 		cursor.New(),
 		codex.New(),

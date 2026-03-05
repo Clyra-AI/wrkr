@@ -20,6 +20,7 @@ type findingSignals struct {
 
 func Build(
 	tools []agginventory.Tool,
+	agents []agginventory.Agent,
 	findings []model.Finding,
 	productionRules *productiontargets.Config,
 ) (agginventory.PrivilegeBudget, []agginventory.AgentPrivilegeMapEntry) {
@@ -31,6 +32,7 @@ func Build(
 	}
 
 	signalsByAgent := buildSignalsByAgent(findings)
+	agentContextByID := mapAgentsByID(agents)
 	budget := agginventory.PrivilegeBudget{
 		TotalTools: len(tools),
 		ProductionWrite: agginventory.ProductionWriteBudget{
@@ -71,10 +73,17 @@ func Build(
 			}
 		}
 
+		agentContext := agentContextByID[tool.AgentID]
+		deploymentStatus := strings.TrimSpace(agentContext.DeploymentStatus)
+		if deploymentStatus == "" {
+			deploymentStatus = "unknown"
+		}
+
 		entries = append(entries, agginventory.AgentPrivilegeMapEntry{
 			AgentID:                  tool.AgentID,
 			ToolID:                   tool.ToolID,
 			ToolType:                 tool.ToolType,
+			Framework:                fallbackFramework(agentContext.Framework, tool.ToolType),
 			Org:                      tool.Org,
 			Repos:                    cloneStringSlice(tool.Repos),
 			Permissions:              cloneStringSlice(tool.Permissions),
@@ -82,6 +91,15 @@ func Build(
 			DataClass:                tool.DataClass,
 			AutonomyLevel:            tool.AutonomyLevel,
 			RiskScore:                tool.RiskScore,
+			ApprovalClassification:   strings.TrimSpace(tool.ApprovalClass),
+			BoundTools:               cloneStringSlice(agentContext.BoundTools),
+			BoundDataSources:         cloneStringSlice(agentContext.BoundDataSources),
+			BoundAuthSurfaces:        cloneStringSlice(agentContext.BoundAuthSurfaces),
+			BindingEvidenceKeys:      cloneStringSlice(agentContext.BindingEvidenceKeys),
+			MissingBindings:          cloneStringSlice(agentContext.MissingBindings),
+			DeploymentStatus:         deploymentStatus,
+			DeploymentArtifacts:      cloneStringSlice(agentContext.DeploymentArtifacts),
+			DeploymentEvidenceKeys:   cloneStringSlice(agentContext.DeploymentEvidenceKeys),
 			WriteCapable:             writeCapable,
 			CredentialAccess:         credentialAccess,
 			ExecCapable:              execCapable,
@@ -100,6 +118,18 @@ func Build(
 	})
 
 	return budget, entries
+}
+
+func mapAgentsByID(agents []agginventory.Agent) map[string]agginventory.Agent {
+	out := map[string]agginventory.Agent{}
+	for _, agent := range agents {
+		agentID := strings.TrimSpace(agent.AgentID)
+		if agentID == "" {
+			continue
+		}
+		out[agentID] = agent
+	}
+	return out
 }
 
 func buildSignalsByAgent(findings []model.Finding) map[string]findingSignals {
@@ -286,4 +316,12 @@ func cloneStringSlice(values []string) []string {
 	out := make([]string, 0, len(values))
 	out = append(out, values...)
 	return out
+}
+
+func fallbackFramework(framework, toolType string) string {
+	trimmed := strings.TrimSpace(framework)
+	if trimmed != "" {
+		return trimmed
+	}
+	return strings.TrimSpace(toolType)
 }

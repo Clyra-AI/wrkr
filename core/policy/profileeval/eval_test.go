@@ -46,3 +46,24 @@ func TestProfileEval_NormalizesRuleAliasesDeterministically(t *testing.T) {
 		t.Fatalf("expected deterministic alias rationale, got %+v", result.Rationale)
 	}
 }
+
+func TestProfileEval_AgentRuleAliasCompatibility(t *testing.T) {
+	t.Parallel()
+
+	p := profile.Profile{
+		Name:          "standard",
+		MinCompliance: 80,
+		RuleThreshold: map[string]int{"WRKR-A010": 0},
+	}
+	findings := []model.Finding{
+		{FindingType: "policy_check", RuleID: "WRKR-010", CheckResult: model.CheckResultFail},
+	}
+
+	result := Evaluate(p, findings, nil)
+	if len(result.Fails) != 1 || result.Fails[0] != "WRKR-A010" {
+		t.Fatalf("expected WRKR-A010 alias-normalized failure, got %+v", result.Fails)
+	}
+	if len(result.Rationale) != 1 || result.Rationale[0] != "WRKR-A010 fail_count=1 threshold=0" {
+		t.Fatalf("unexpected rationale: %+v", result.Rationale)
+	}
+}
