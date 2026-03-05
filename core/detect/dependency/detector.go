@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -68,14 +69,14 @@ var projectSignalKeywords = []string{
 	"gemini",
 }
 
-var ignoredPathFragments = []string{
-	"/.git/",
-	"/node_modules/",
-	"/vendor/",
-	"/dist/",
-	"/build/",
-	"/target/",
-	"/.venv/",
+var ignoredDirectoryNames = map[string]struct{}{
+	".git":         {},
+	"node_modules": {},
+	"vendor":       {},
+	"dist":         {},
+	"build":        {},
+	"target":       {},
+	".venv":        {},
 }
 
 func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
@@ -83,17 +84,13 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		return nil, err
 	}
 
-	files, err := detect.WalkFiles(scope.Root)
+	files, err := collectDependencyManifests(scope.Root)
 	if err != nil {
 		return nil, err
 	}
 
 	findings := make([]model.Finding, 0)
 	for _, rel := range files {
-		rel = filepath.ToSlash(rel)
-		if shouldSkipPath(rel) {
-			continue
-		}
 		base := strings.ToLower(filepath.Base(rel))
 		switch {
 		case base == "go.mod":
@@ -342,10 +339,60 @@ func normalizeDependencyToken(value string) string {
 	return normalized
 }
 
-func shouldSkipPath(rel string) bool {
-	path := "/" + strings.ToLower(strings.TrimSpace(filepath.ToSlash(rel)))
-	for _, fragment := range ignoredPathFragments {
-		if strings.Contains(path, fragment) {
+func collectDependencyManifests(root string) ([]string, error) {
+	files := make([]string, 0)
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return relErr
+		}
+		rel = filepath.ToSlash(rel)
+		if rel == "." {
+			rel = ""
+		}
+		if walkErr != nil {
+			if shouldSkipTraversal(rel) {
+				return filepath.SkipDir
+			}
+			return walkErr
+		}
+		if d != nil && d.IsDir() {
+			if shouldSkipTraversal(rel) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if isDependencyManifest(rel) {
+			files = append(files, rel)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
+func isDependencyManifest(rel string) bool {
+	base := strings.ToLower(filepath.Base(rel))
+	switch {
+	case base == "go.mod", base == "package.json", base == "pyproject.toml", base == "cargo.toml":
+		return true
+	case strings.HasPrefix(base, "requirements") && strings.HasSuffix(base, ".txt"):
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldSkipTraversal(rel string) bool {
+	if strings.TrimSpace(rel) == "" {
+		return false
+	}
+	parts := strings.Split(strings.ToLower(filepath.ToSlash(rel)), "/")
+	for _, part := range parts {
+		if _, ok := ignoredDirectoryNames[part]; ok {
 			return true
 		}
 	}
@@ -353,11 +400,8 @@ func shouldSkipPath(rel string) bool {
 }
 
 func projectSignal(scope detect.Scope, root string) (string, string, string, bool) {
-	repoToken := normalizeDependencyToken(scope.Repo)
-	for _, keyword := range projectSignalKeywords {
-		if strings.Contains(repoToken, keyword) {
-			return "__project_signal__/" + repoSignalSlug(scope.Repo), "repo_name", keyword, true
-		}
+	if keyword, ok := firstProjectSignalKeyword(scope.Repo); ok {
+		return "__project_signal__/" + repoSignalSlug(scope.Repo), "repo_name", keyword, true
 	}
 
 	for _, rel := range []string{"README.md", "readme.md", "README"} {
@@ -370,14 +414,35 @@ func projectSignal(scope detect.Scope, root string) (string, string, string, boo
 		if err != nil {
 			continue
 		}
-		normalized := normalizeDependencyToken(string(payload))
-		for _, keyword := range projectSignalKeywords {
-			if strings.Contains(normalized, keyword) {
-				return rel, "readme_text", keyword, true
-			}
+		if keyword, ok := firstProjectSignalKeyword(string(payload)); ok {
+			return rel, "readme_text", keyword, true
 		}
 	}
 	return "", "", "", false
+}
+
+func firstProjectSignalKeyword(value string) (string, bool) {
+	tokens := tokenizeProjectSignal(value)
+	if len(tokens) == 0 {
+		return "", false
+	}
+	tokenSet := make(map[string]struct{}, len(tokens))
+	for _, token := range tokens {
+		tokenSet[token] = struct{}{}
+	}
+	for _, keyword := range projectSignalKeywords {
+		if _, ok := tokenSet[strings.ToLower(strings.TrimSpace(keyword))]; ok {
+			return keyword, true
+		}
+	}
+	return "", false
+}
+
+func tokenizeProjectSignal(value string) []string {
+	lower := strings.ToLower(value)
+	return strings.FieldsFunc(lower, func(r rune) bool {
+		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
+	})
 }
 
 func repoSignalSlug(value string) string {
