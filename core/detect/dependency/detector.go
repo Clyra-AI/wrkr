@@ -441,7 +441,13 @@ func firstProjectSignalKeyword(value string) (string, bool) {
 func tokenizeProjectSignal(value string) []string {
 	lower := strings.ToLower(value)
 	return strings.FieldsFunc(lower, func(r rune) bool {
-		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
+		if r >= 'a' && r <= 'z' {
+			return false
+		}
+		if r >= '0' && r <= '9' {
+			return false
+		}
+		return true
 	})
 }
 
