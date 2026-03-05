@@ -226,8 +226,8 @@ func TestBuildIncludesAgentLayerContextDeterministically(t *testing.T) {
 			BindingEvidenceKeys:    []string{"tool:deploy.write", "data:warehouse.events", "auth:oauth2"},
 			MissingBindings:        []string{},
 			DeploymentStatus:       "deployed",
-			DeploymentArtifacts:    []string{".github/workflows/release.yml"},
-			DeploymentEvidenceKeys: []string{"deployment:.github/workflows/release.yml"},
+			DeploymentArtifacts:    []string{".github/workflows/Release.yml"},
+			DeploymentEvidenceKeys: []string{"deployment:.github/workflows/Release.yml"},
 		},
 	}
 
@@ -274,8 +274,8 @@ func TestBuildResolvesInstanceScopedAgentContextForToolEntries(t *testing.T) {
 		BoundDataSources:       []string{"warehouse.events"},
 		BindingEvidenceKeys:    []string{"data:warehouse.events"},
 		DeploymentStatus:       "deployed",
-		DeploymentArtifacts:    []string{".github/workflows/release.yml"},
-		DeploymentEvidenceKeys: []string{"deployment:.github/workflows/release.yml"},
+		DeploymentArtifacts:    []string{".github/workflows/Deploy.yml"},
+		DeploymentEvidenceKeys: []string{"deployment:.github/workflows/Deploy.yml"},
 	}}
 
 	_, entries := Build(tools, agents, nil, nil)
@@ -289,7 +289,10 @@ func TestBuildResolvesInstanceScopedAgentContextForToolEntries(t *testing.T) {
 	if !reflect.DeepEqual(entry.BoundDataSources, []string{"warehouse.events"}) {
 		t.Fatalf("unexpected bound_data_sources: %+v", entry.BoundDataSources)
 	}
-	if !reflect.DeepEqual(entry.DeploymentEvidenceKeys, []string{"deployment:.github/workflows/release.yml"}) {
+	if !reflect.DeepEqual(entry.DeploymentEvidenceKeys, []string{"deployment:.github/workflows/Deploy.yml"}) {
 		t.Fatalf("unexpected deployment_evidence_keys: %+v", entry.DeploymentEvidenceKeys)
+	}
+	if !reflect.DeepEqual(entry.DeploymentArtifacts, []string{".github/workflows/Deploy.yml"}) {
+		t.Fatalf("unexpected deployment_artifacts: %+v", entry.DeploymentArtifacts)
 	}
 }

@@ -171,8 +171,8 @@ func mergeAgentContext(current, incoming agginventory.Agent, key string) agginve
 	merged.BindingEvidenceKeys = dedupeSorted(append(append([]string(nil), merged.BindingEvidenceKeys...), incoming.BindingEvidenceKeys...))
 	merged.MissingBindings = dedupeSorted(append(append([]string(nil), merged.MissingBindings...), incoming.MissingBindings...))
 	merged.DeploymentStatus = mergeDeploymentStatus(merged.DeploymentStatus, incoming.DeploymentStatus)
-	merged.DeploymentArtifacts = dedupeSorted(append(append([]string(nil), merged.DeploymentArtifacts...), incoming.DeploymentArtifacts...))
-	merged.DeploymentEvidenceKeys = dedupeSorted(append(append([]string(nil), merged.DeploymentEvidenceKeys...), incoming.DeploymentEvidenceKeys...))
+	merged.DeploymentArtifacts = dedupeSortedPreserveCase(append(append([]string(nil), merged.DeploymentArtifacts...), incoming.DeploymentArtifacts...))
+	merged.DeploymentEvidenceKeys = dedupeSortedPreserveCase(append(append([]string(nil), merged.DeploymentEvidenceKeys...), incoming.DeploymentEvidenceKeys...))
 	return merged
 }
 
@@ -363,6 +363,27 @@ func dedupeSorted(in []string) []string {
 		}
 		seen[normalized] = struct{}{}
 		out = append(out, normalized)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func dedupeSortedPreserveCase(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(in))
+	for _, item := range in {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
 	}
 	sort.Strings(out)
 	return out
