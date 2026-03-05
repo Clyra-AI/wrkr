@@ -80,6 +80,54 @@ func TestReconcileEmitsModifiedTriggerForContractFields(t *testing.T) {
 	}
 }
 
+func TestReconcileLegacyAgentIDMigratesWithoutLosingState(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
+	prev := manifest.Manifest{Identities: []manifest.IdentityRecord{{
+		AgentID:       "wrkr:codex-legacy:acme",
+		ToolID:        "codex-legacy",
+		ToolType:      "codex",
+		Org:           "acme",
+		Repo:          "acme/repo",
+		Location:      "AGENTS.md",
+		Status:        identity.StateApproved,
+		ApprovalState: "valid",
+		Approval: manifest.Approval{
+			Approver: "@maria",
+			Scope:    "repo",
+			Expires:  now.Add(24 * time.Hour).Format(time.RFC3339),
+		},
+		Present: true,
+	}}}
+
+	next, transitions := Reconcile(prev, []ObservedTool{{
+		AgentID:       "wrkr:codex-inst-123:acme",
+		LegacyAgentID: "wrkr:codex-legacy:acme",
+		ToolID:        "codex-inst-123",
+		ToolType:      "codex",
+		Org:           "acme",
+		Repo:          "acme/repo",
+		Location:      "AGENTS.md",
+	}}, now)
+
+	if len(next.Identities) != 1 {
+		t.Fatalf("expected one migrated identity, got %d", len(next.Identities))
+	}
+	if next.Identities[0].AgentID != "wrkr:codex-inst-123:acme" {
+		t.Fatalf("expected migrated agent id, got %+v", next.Identities[0])
+	}
+	if next.Identities[0].Status != identity.StateActive {
+		t.Fatalf("expected approved state semantics to continue as active, got %s", next.Identities[0].Status)
+	}
+	if len(transitions) == 0 || transitions[0].Trigger != "identity_migrated" {
+		t.Fatalf("expected identity_migrated transition, got %+v", transitions)
+	}
+	if transitions[0].PreviousState != identity.StateApproved {
+		t.Fatalf("expected previous approved state to be preserved, got %+v", transitions[0])
+	}
+}
+
 func TestParseExpiryDefault90Days(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)

@@ -33,23 +33,29 @@ type Evidence struct {
 	Value string `json:"value"`
 }
 
+type LocationRange struct {
+	StartLine int `json:"start_line"`
+	EndLine   int `json:"end_line"`
+}
+
 // Finding is the canonical detector/policy output contract.
 type Finding struct {
-	FindingType     string      `json:"finding_type"`
-	RuleID          string      `json:"rule_id,omitempty"`
-	CheckResult     string      `json:"check_result,omitempty"`
-	Severity        string      `json:"severity"`
-	DiscoveryMethod string      `json:"discovery_method"`
-	Remediation     string      `json:"remediation,omitempty"`
-	ToolType        string      `json:"tool_type"`
-	Location        string      `json:"location"`
-	Repo            string      `json:"repo,omitempty"`
-	Org             string      `json:"org"`
-	Detector        string      `json:"detector,omitempty"`
-	Permissions     []string    `json:"permissions,omitempty"`
-	Autonomy        string      `json:"autonomy,omitempty"`
-	Evidence        []Evidence  `json:"evidence,omitempty"`
-	ParseError      *ParseError `json:"parse_error,omitempty"`
+	FindingType     string         `json:"finding_type"`
+	RuleID          string         `json:"rule_id,omitempty"`
+	CheckResult     string         `json:"check_result,omitempty"`
+	Severity        string         `json:"severity"`
+	DiscoveryMethod string         `json:"discovery_method"`
+	Remediation     string         `json:"remediation,omitempty"`
+	ToolType        string         `json:"tool_type"`
+	Location        string         `json:"location"`
+	LocationRange   *LocationRange `json:"location_range,omitempty"`
+	Repo            string         `json:"repo,omitempty"`
+	Org             string         `json:"org"`
+	Detector        string         `json:"detector,omitempty"`
+	Permissions     []string       `json:"permissions,omitempty"`
+	Autonomy        string         `json:"autonomy,omitempty"`
+	Evidence        []Evidence     `json:"evidence,omitempty"`
+	ParseError      *ParseError    `json:"parse_error,omitempty"`
 }
 
 func NormalizeFinding(item Finding) Finding {
@@ -61,6 +67,7 @@ func NormalizeFinding(item Finding) Finding {
 	item.Remediation = strings.TrimSpace(item.Remediation)
 	item.ToolType = strings.TrimSpace(item.ToolType)
 	item.Location = strings.TrimSpace(item.Location)
+	item.LocationRange = normalizeLocationRange(item.LocationRange)
 	item.Repo = strings.TrimSpace(item.Repo)
 	item.Org = strings.TrimSpace(item.Org)
 	item.Detector = strings.TrimSpace(item.Detector)
@@ -101,6 +108,14 @@ func SortFindings(findings []Finding) {
 		}
 		if a.Location != b.Location {
 			return a.Location < b.Location
+		}
+		aStart, aEnd := locationRangeBounds(a.LocationRange)
+		bStart, bEnd := locationRangeBounds(b.LocationRange)
+		if aStart != bStart {
+			return aStart < bStart
+		}
+		if aEnd != bEnd {
+			return aEnd < bEnd
 		}
 		if a.Repo != b.Repo {
 			return a.Repo < b.Repo
@@ -199,4 +214,38 @@ func normalizeEvidence(in []Evidence) []Evidence {
 		return nil
 	}
 	return out
+}
+
+func normalizeLocationRange(in *LocationRange) *LocationRange {
+	if in == nil {
+		return nil
+	}
+	start := in.StartLine
+	end := in.EndLine
+	if start < 0 {
+		start = 0
+	}
+	if end < 0 {
+		end = 0
+	}
+	if start == 0 && end == 0 {
+		return nil
+	}
+	if start == 0 {
+		start = end
+	}
+	if end == 0 {
+		end = start
+	}
+	if end < start {
+		start, end = end, start
+	}
+	return &LocationRange{StartLine: start, EndLine: end}
+}
+
+func locationRangeBounds(in *LocationRange) (int, int) {
+	if in == nil {
+		return 0, 0
+	}
+	return in.StartLine, in.EndLine
 }

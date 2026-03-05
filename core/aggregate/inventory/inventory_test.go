@@ -1,10 +1,12 @@
 package inventory
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/exposure"
+	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/source"
 )
@@ -174,5 +176,170 @@ func TestReclassifyApprovalWithMatcherOverridesSummary(t *testing.T) {
 	}
 	if len(inv.RegulatorySummary.ByRegulation) == 0 {
 		t.Fatalf("expected regulatory summary rollups after reclassify: %+v", inv.RegulatorySummary)
+	}
+}
+
+func TestInventoryBuild_EmitsAgentsAdditiveOnly(t *testing.T) {
+	t.Parallel()
+
+	manifest := source.Manifest{
+		Target: source.Target{Mode: "org", Value: "acme"},
+		Repos: []source.RepoManifest{
+			{Repo: "acme/backend", Location: t.TempDir()},
+			{Repo: "acme/frontend", Location: t.TempDir()},
+		},
+	}
+	findings := []model.Finding{
+		{FindingType: "tool_config", ToolType: "codex", Location: "AGENTS.md", Repo: "acme/backend", Org: "acme"},
+		{FindingType: "tool_config", ToolType: "cursor", Location: ".cursor/mcp.json", Repo: "acme/frontend", Org: "acme"},
+	}
+	ctx := map[string]ToolContext{
+		KeyForFinding(findings[0]): {RiskScore: 4.1, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
+		KeyForFinding(findings[1]): {RiskScore: 4.2, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
+	}
+
+	inv := Build(BuildInput{
+		Manifest:              manifest,
+		Findings:              findings,
+		Contexts:              ctx,
+		RepoExposureSummaries: []exposure.RepoExposureSummary{},
+		GeneratedAt:           time.Date(2026, 2, 26, 10, 0, 0, 0, time.UTC),
+	})
+
+	if len(inv.Tools) != 2 {
+		t.Fatalf("expected unchanged tools behavior with two entries, got %d", len(inv.Tools))
+	}
+	if inv.Agents == nil {
+		t.Fatal("expected inventory.agents to be a non-nil array")
+	}
+	if len(inv.Agents) != 2 {
+		t.Fatalf("expected two agent entries, got %d", len(inv.Agents))
+	}
+
+	expected := []Agent{
+		{
+			AgentID:         identity.AgentID(identity.ToolID("codex", "AGENTS.md"), "acme"),
+			AgentInstanceID: identity.ToolID("codex", "AGENTS.md"),
+			Framework:       "codex",
+			Org:             "acme",
+			Repo:            "acme/backend",
+			Location:        "AGENTS.md",
+		},
+		{
+			AgentID:         identity.AgentID(identity.ToolID("cursor", ".cursor/mcp.json"), "acme"),
+			AgentInstanceID: identity.ToolID("cursor", ".cursor/mcp.json"),
+			Framework:       "cursor",
+			Org:             "acme",
+			Repo:            "acme/frontend",
+			Location:        ".cursor/mcp.json",
+		},
+	}
+	if !reflect.DeepEqual(inv.Agents, expected) {
+		t.Fatalf("unexpected inventory.agents ordering or shape\ngot=%+v\nwant=%+v", inv.Agents, expected)
+	}
+}
+
+func TestInventoryBuild_EmitsEmptyAgentsArray(t *testing.T) {
+	t.Parallel()
+
+	inv := Build(BuildInput{
+		Manifest: source.Manifest{
+			Target: source.Target{Mode: "org", Value: "acme"},
+			Repos:  []source.RepoManifest{{Repo: "acme/backend", Location: t.TempDir()}},
+		},
+		Findings:              []model.Finding{},
+		Contexts:              map[string]ToolContext{},
+		RepoExposureSummaries: []exposure.RepoExposureSummary{},
+		GeneratedAt:           time.Date(2026, 2, 26, 10, 0, 0, 0, time.UTC),
+	})
+
+	if inv.Agents == nil {
+		t.Fatal("expected inventory.agents to be present as [] and never null")
+	}
+	if len(inv.Agents) != 0 {
+		t.Fatalf("expected zero agents, got %d", len(inv.Agents))
+	}
+}
+
+func TestInventoryAgents_IncludeRangeWhenAvailable(t *testing.T) {
+	t.Parallel()
+
+	manifest := source.Manifest{
+		Target: source.Target{Mode: "org", Value: "acme"},
+		Repos:  []source.RepoManifest{{Repo: "acme/backend", Location: t.TempDir()}},
+	}
+	finding := model.Finding{
+		FindingType:   "agent_framework",
+		ToolType:      "langchain",
+		Location:      "agents.py",
+		LocationRange: &model.LocationRange{StartLine: 11, EndLine: 18},
+		Repo:          "acme/backend",
+		Org:           "acme",
+		Evidence:      []model.Evidence{{Key: "symbol", Value: "release_agent"}},
+	}
+	ctx := map[string]ToolContext{
+		KeyForFinding(finding): {RiskScore: 5.0, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
+	}
+
+	inv := Build(BuildInput{
+		Manifest:              manifest,
+		Findings:              []model.Finding{finding},
+		Contexts:              ctx,
+		RepoExposureSummaries: []exposure.RepoExposureSummary{},
+		GeneratedAt:           time.Date(2026, 2, 26, 10, 0, 0, 0, time.UTC),
+	})
+
+	if len(inv.Agents) != 1 {
+		t.Fatalf("expected one agent, got %d", len(inv.Agents))
+	}
+	if inv.Agents[0].LocationRange == nil {
+		t.Fatalf("expected location range on inventory agent, got %+v", inv.Agents[0])
+	}
+	if inv.Agents[0].LocationRange.StartLine != 11 || inv.Agents[0].LocationRange.EndLine != 18 {
+		t.Fatalf("unexpected location range payload: %+v", inv.Agents[0].LocationRange)
+	}
+}
+
+func TestInventoryBuild_IgnoresCorrelationOnlyFindings(t *testing.T) {
+	t.Parallel()
+
+	manifest := source.Manifest{
+		Target: source.Target{Mode: "org", Value: "acme"},
+		Repos:  []source.RepoManifest{{Repo: "acme/backend", Location: t.TempDir()}},
+	}
+	findings := []model.Finding{
+		{
+			FindingType: "tool_config",
+			ToolType:    "codex",
+			Location:    "AGENTS.md",
+			Repo:        "acme/backend",
+			Org:         "acme",
+		},
+		{
+			FindingType: "skill_metrics",
+			ToolType:    "skill",
+			Location:    ".agents/skills",
+			Repo:        "acme/backend",
+			Org:         "acme",
+		},
+	}
+	contexts := map[string]ToolContext{
+		KeyForFinding(findings[0]): {RiskScore: 4.0, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
+		KeyForFinding(findings[1]): {RiskScore: 9.0, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
+	}
+
+	inv := Build(BuildInput{
+		Manifest:              manifest,
+		Findings:              findings,
+		Contexts:              contexts,
+		RepoExposureSummaries: []exposure.RepoExposureSummary{},
+		GeneratedAt:           time.Date(2026, 2, 26, 10, 0, 0, 0, time.UTC),
+	})
+
+	if len(inv.Tools) != 1 || inv.Tools[0].ToolType != "codex" {
+		t.Fatalf("expected only canonical finding to materialize tool entry, got %+v", inv.Tools)
+	}
+	if len(inv.Agents) != 1 || inv.Agents[0].Framework != "codex" {
+		t.Fatalf("expected only canonical finding to materialize agent entry, got %+v", inv.Agents)
 	}
 }

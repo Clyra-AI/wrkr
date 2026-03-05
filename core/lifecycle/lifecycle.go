@@ -14,6 +14,7 @@ const defaultApprovalTTL = 90 * 24 * time.Hour
 
 type ObservedTool struct {
 	AgentID       string
+	LegacyAgentID string
 	ToolID        string
 	ToolType      string
 	Org           string
@@ -58,6 +59,15 @@ func Reconcile(previous manifest.Manifest, observed []ObservedTool, now time.Tim
 
 	for _, tool := range sortedObserved {
 		previousRecord, exists := prevByID[tool.AgentID]
+		migratedFromLegacy := false
+		legacyAgentID := strings.TrimSpace(tool.LegacyAgentID)
+		if !exists && legacyAgentID != "" {
+			if legacyRecord, legacyExists := prevByID[legacyAgentID]; legacyExists {
+				previousRecord = legacyRecord
+				exists = true
+				migratedFromLegacy = legacyAgentID != strings.TrimSpace(tool.AgentID)
+			}
+		}
 		previousState := previousRecord.Status
 		record := manifest.IdentityRecord{
 			AgentID:       tool.AgentID,
@@ -92,6 +102,10 @@ func Reconcile(previous manifest.Manifest, observed []ObservedTool, now time.Tim
 				trigger = "modified"
 				diff = details
 			}
+			if migratedFromLegacy {
+				trigger = "identity_migrated"
+				diff["legacy_agent_id"] = previousRecord.AgentID
+			}
 		}
 
 		applyApprovalState(&record, now)
@@ -113,6 +127,9 @@ func Reconcile(previous manifest.Manifest, observed []ObservedTool, now time.Tim
 
 		next.Identities = append(next.Identities, record)
 		seen[tool.AgentID] = struct{}{}
+		if exists {
+			seen[previousRecord.AgentID] = struct{}{}
+		}
 
 		if trigger != "" {
 			transitions = append(transitions, Transition{

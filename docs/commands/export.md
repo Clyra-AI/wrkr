@@ -22,7 +22,7 @@ wrkr export --format inventory --anonymize --json
 wrkr export --format appendix --csv-dir ./.tmp/appendix --json
 ```
 
-Inventory format JSON keys: `export_version`, `exported_at`, `org`, `tools`.
+Inventory format JSON keys: `export_version`, `exported_at`, `org`, `agents`, `tools`.
 Appendix format JSON keys: `status`, `appendix`, optional `csv_files`.
 
 Appendix export emits deterministic table sets for:

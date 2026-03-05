@@ -65,6 +65,7 @@ Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `t
 `partial_result`, `source_errors`, and `source_degraded` are included when source acquisition/materialization has non-fatal failures.
 `sarif.path` is included when `--sarif` output is requested.
 `inventory.methodology` emits machine-readable scan metadata (`wrkr_version`, timing, repo/file counts, detector inventory).
+`inventory.agents` is always present (possibly empty) and is deterministically sorted by org/framework/instance/location; agent entries may include additive `location_range` when parser metadata is available.
 `inventory.tools[*]` includes deterministic `approval_classification` (`approved|unapproved|unknown`), and `inventory.approval_summary` emits aggregate approval-gap ratios for campaign/report workflows.
 `inventory.tools[*]` also emits report-ready `tool_category` and deterministic `confidence_score` (`0.00-1.00`) for inventory breakdown tables.
 `inventory.tools[*]` emits normalized `permission_surface`, `permission_tier`, `risk_tier`, `adoption_pattern`, and per-tool `regulatory_mapping` statuses.

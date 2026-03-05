@@ -29,6 +29,34 @@ func TestToolIDStable(t *testing.T) {
 	}
 }
 
+func TestAgentInstanceID_TwoDefinitionsSameFile_AreDistinct(t *testing.T) {
+	t.Parallel()
+
+	first := AgentInstanceID("langchain", "agents.py", "research_agent", 12, 28)
+	second := AgentInstanceID("langchain", "agents.py", "ops_agent", 30, 45)
+	if first == second {
+		t.Fatalf("expected distinct instance IDs for separate definitions, got %q", first)
+	}
+	repeat := AgentInstanceID("langchain", "agents.py", "research_agent", 12, 28)
+	if first != repeat {
+		t.Fatalf("expected deterministic instance ID, got %q and %q", first, repeat)
+	}
+}
+
+func TestAgentIDBackwardCompatibility_ToolIDFlowStillResolves(t *testing.T) {
+	t.Parallel()
+
+	legacyToolID := ToolID("codex", "AGENTS.md")
+	instanceID := AgentInstanceID("codex", "AGENTS.md", "", 0, 0)
+	if instanceID != legacyToolID {
+		t.Fatalf("expected missing metadata to preserve legacy tool_id, got %q want %q", instanceID, legacyToolID)
+	}
+	legacyAgentID := AgentID(legacyToolID, "acme")
+	if agentID := LegacyAgentID("codex", "AGENTS.md", "acme"); agentID != legacyAgentID {
+		t.Fatalf("expected legacy agent id compatibility, got %q want %q", agentID, legacyAgentID)
+	}
+}
+
 func TestIsValidState(t *testing.T) {
 	t.Parallel()
 	if !IsValidState(StateUnderReview) {

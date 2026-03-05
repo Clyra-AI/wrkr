@@ -13,7 +13,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^WRKR-[0-9]{3}$"
+            "pattern": "^WRKR-(A)?[0-9]{3}$"
           },
           "title": {
             "type": "string",

@@ -34,6 +34,26 @@ func TestStory10DiscoveryMethodSchemaContracts(t *testing.T) {
 	}
 }
 
+func TestFindingSchema_AllowsOptionalLocationRange(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	findingSchemaPath := filepath.Join(repoRoot, "schemas", "v1", "findings", "finding.schema.json")
+	findingSchema := mustReadJSON(t, findingSchemaPath)
+	props, ok := findingSchema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("finding schema missing properties: %v", findingSchema)
+	}
+	locationRange, ok := props["location_range"].(map[string]any)
+	if !ok {
+		t.Fatalf("finding schema missing location_range: %v", props)
+	}
+	required, ok := locationRange["required"].([]any)
+	if !ok || len(required) != 2 || required[0] != "start_line" || required[1] != "end_line" {
+		t.Fatalf("expected location_range required [start_line end_line], got %v", locationRange["required"])
+	}
+}
+
 func TestStory10A2ASchemaPresent(t *testing.T) {
 	t.Parallel()
 

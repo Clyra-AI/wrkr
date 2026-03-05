@@ -81,7 +81,11 @@ func parseRulePack(payload []byte, source string) ([]Rule, error) {
 		return nil, fmt.Errorf("parse policy rules %s: %w", source, decodeErr)
 	}
 	for i := range pack.Rules {
-		pack.Rules[i].ID = strings.TrimSpace(pack.Rules[i].ID)
+		normalizedID, idErr := NormalizeRuleID(pack.Rules[i].ID)
+		if idErr != nil {
+			return nil, fmt.Errorf("policy rule id validation in %s: %w", source, idErr)
+		}
+		pack.Rules[i].ID = normalizedID
 		pack.Rules[i].Title = strings.TrimSpace(pack.Rules[i].Title)
 		pack.Rules[i].Severity = strings.ToLower(strings.TrimSpace(pack.Rules[i].Severity))
 		pack.Rules[i].Remediation = strings.TrimSpace(pack.Rules[i].Remediation)
