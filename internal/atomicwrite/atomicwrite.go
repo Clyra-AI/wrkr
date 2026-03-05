@@ -100,7 +100,11 @@ func resolveCommitPath(path string) (string, error) {
 		return "", fmt.Errorf("read atomic-write symlink target: %w", err)
 	}
 	if !filepath.IsAbs(targetPath) {
-		targetPath = filepath.Join(filepath.Dir(cleanPath), targetPath)
+		parentDir, err := filepath.EvalSymlinks(filepath.Dir(cleanPath))
+		if err != nil {
+			return "", fmt.Errorf("resolve atomic-write symlink parent: %w", err)
+		}
+		targetPath = filepath.Join(parentDir, targetPath)
 	}
 	return filepath.Clean(targetPath), nil
 }
