@@ -51,9 +51,6 @@ func RuleIDAliases(id string) []string {
 }
 
 func canonicalRuleFamilyIDFromNormalized(normalized string) string {
-	suffix := strings.TrimPrefix(normalized, "WRKR-")
-	if strings.HasPrefix(suffix, "A") {
-		suffix = strings.TrimPrefix(suffix, "A")
-	}
+	suffix := strings.TrimPrefix(strings.TrimPrefix(normalized, "WRKR-"), "A")
 	return "WRKR-" + suffix
 }
