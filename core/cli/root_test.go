@@ -602,7 +602,7 @@ func TestScanIncludesPrivilegeBudgetAndAgentMap(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected agent map entry type: %T", agentMap[0])
 	}
-	for _, key := range []string{"agent_id", "write_capable", "credential_access", "exec_capable", "production_write"} {
+	for _, key := range []string{"agent_id", "framework", "approval_classification", "deployment_status", "write_capable", "credential_access", "exec_capable", "production_write"} {
 		if _, present := first[key]; !present {
 			t.Fatalf("agent privilege entry missing %s: %v", key, first)
 		}

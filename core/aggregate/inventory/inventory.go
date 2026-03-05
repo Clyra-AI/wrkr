@@ -21,13 +21,35 @@ type ToolLocation struct {
 }
 
 type Agent struct {
-	AgentID         string               `json:"agent_id" yaml:"agent_id"`
-	AgentInstanceID string               `json:"agent_instance_id" yaml:"agent_instance_id"`
-	Framework       string               `json:"framework" yaml:"framework"`
-	Org             string               `json:"org" yaml:"org"`
-	Repo            string               `json:"repo" yaml:"repo"`
-	Location        string               `json:"location" yaml:"location"`
-	LocationRange   *model.LocationRange `json:"location_range,omitempty" yaml:"location_range,omitempty"`
+	AgentID                string               `json:"agent_id" yaml:"agent_id"`
+	AgentInstanceID        string               `json:"agent_instance_id" yaml:"agent_instance_id"`
+	Framework              string               `json:"framework" yaml:"framework"`
+	Org                    string               `json:"org" yaml:"org"`
+	Repo                   string               `json:"repo" yaml:"repo"`
+	Location               string               `json:"location" yaml:"location"`
+	LocationRange          *model.LocationRange `json:"location_range,omitempty" yaml:"location_range,omitempty"`
+	BoundTools             []string             `json:"bound_tools,omitempty" yaml:"bound_tools,omitempty"`
+	BoundDataSources       []string             `json:"bound_data_sources,omitempty" yaml:"bound_data_sources,omitempty"`
+	BoundAuthSurfaces      []string             `json:"bound_auth_surfaces,omitempty" yaml:"bound_auth_surfaces,omitempty"`
+	BindingEvidenceKeys    []string             `json:"binding_evidence_keys,omitempty" yaml:"binding_evidence_keys,omitempty"`
+	MissingBindings        []string             `json:"missing_bindings,omitempty" yaml:"missing_bindings,omitempty"`
+	DeploymentStatus       string               `json:"deployment_status,omitempty" yaml:"deployment_status,omitempty"`
+	DeploymentArtifacts    []string             `json:"deployment_artifacts,omitempty" yaml:"deployment_artifacts,omitempty"`
+	DeploymentEvidenceKeys []string             `json:"deployment_evidence_keys,omitempty" yaml:"deployment_evidence_keys,omitempty"`
+}
+
+type AgentBindingContext struct {
+	BoundTools          []string
+	BoundDataSources    []string
+	BoundAuthSurfaces   []string
+	BindingEvidenceKeys []string
+	MissingBindings     []string
+}
+
+type AgentDeploymentContext struct {
+	DeploymentStatus       string
+	DeploymentArtifacts    []string
+	DeploymentEvidenceKeys []string
 }
 
 type Tool struct {
@@ -159,6 +181,8 @@ type BuildInput struct {
 	Manifest              source.Manifest
 	Findings              []model.Finding
 	Contexts              map[string]ToolContext
+	AgentBindings         map[string]AgentBindingContext
+	AgentDeployments      map[string]AgentDeploymentContext
 	Methodology           MethodologySummary
 	RepoExposureSummaries []exposure.RepoExposureSummary
 	GeneratedAt           time.Time
@@ -226,13 +250,21 @@ func Build(input BuildInput) Inventory {
 			strings.TrimSpace(fmt.Sprintf("%d:%d", startLine, endLine)),
 		}, "::")
 		agentMap[agentKey] = Agent{
-			AgentID:         identity.AgentID(instanceID, findingOrg),
-			AgentInstanceID: instanceID,
-			Framework:       framework,
-			Org:             findingOrg,
-			Repo:            strings.TrimSpace(finding.Repo),
-			Location:        strings.TrimSpace(finding.Location),
-			LocationRange:   cloneLocationRange(finding.LocationRange),
+			AgentID:                identity.AgentID(instanceID, findingOrg),
+			AgentInstanceID:        instanceID,
+			Framework:              framework,
+			Org:                    findingOrg,
+			Repo:                   strings.TrimSpace(finding.Repo),
+			Location:               strings.TrimSpace(finding.Location),
+			LocationRange:          cloneLocationRange(finding.LocationRange),
+			BoundTools:             cloneStringSlice(input.AgentBindings[instanceID].BoundTools),
+			BoundDataSources:       cloneStringSlice(input.AgentBindings[instanceID].BoundDataSources),
+			BoundAuthSurfaces:      cloneStringSlice(input.AgentBindings[instanceID].BoundAuthSurfaces),
+			BindingEvidenceKeys:    cloneStringSlice(input.AgentBindings[instanceID].BindingEvidenceKeys),
+			MissingBindings:        cloneStringSlice(input.AgentBindings[instanceID].MissingBindings),
+			DeploymentStatus:       strings.TrimSpace(input.AgentDeployments[instanceID].DeploymentStatus),
+			DeploymentArtifacts:    cloneStringSlice(input.AgentDeployments[instanceID].DeploymentArtifacts),
+			DeploymentEvidenceKeys: cloneStringSlice(input.AgentDeployments[instanceID].DeploymentEvidenceKeys),
 		}
 
 		if finding.Repo != "" {
@@ -851,6 +883,15 @@ func sortedSet(set map[string]struct{}) []string {
 		out = append(out, item)
 	}
 	sort.Strings(out)
+	return out
+}
+
+func cloneStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	out = append(out, values...)
 	return out
 }
 

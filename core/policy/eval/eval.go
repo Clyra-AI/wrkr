@@ -60,6 +60,150 @@ func Evaluate(repo, org string, findings []model.Finding, rules []policy.Rule) [
 
 func applyRule(rule policy.Rule, findings []model.Finding) (bool, string) {
 	switch rule.Kind {
+	case "agent_approval_required":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("require_tool_config", findings)
+		}
+		approvalGaps := 0
+		for _, finding := range agents {
+			status := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "approval_status")))
+			if status == "" {
+				status = "missing"
+			}
+			if status != "approved" && status != "valid" {
+				approvalGaps++
+			}
+		}
+		return approvalGaps == 0, fmt.Sprintf("agent_count=%d,approval_gaps=%d", len(agents), approvalGaps)
+	case "agent_prod_write_human_gate":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("block_secret_presence", findings)
+		}
+		violations := 0
+		for _, finding := range agents {
+			deployment := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "deployment_status")))
+			autoDeploy := boolEvidence(finding, "auto_deploy")
+			humanGate := boolEvidenceWithDefault(finding, "human_gate", true)
+			if hasWriteLikePermission(finding.Permissions) && (deployment == "deployed" || autoDeploy) && !humanGate {
+				violations++
+			}
+		}
+		return violations == 0, fmt.Sprintf("prod_write_without_human_gate=%d", violations)
+	case "agent_secret_controls":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("no_parse_errors", findings)
+		}
+		violations := 0
+		for _, finding := range agents {
+			secretControl := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "secret_control")))
+			if hasSecretSignal(finding) && secretControl != "managed" && secretControl != "enforced" {
+				violations++
+			}
+		}
+		return violations == 0, fmt.Sprintf("secret_control_gaps=%d", violations)
+	case "agent_exfil_controls":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("headless_requires_gate", findings)
+		}
+		violations := 0
+		for _, finding := range agents {
+			external := boolEvidence(finding, "external_network")
+			egress := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "egress_policy")))
+			if external && egress != "enforced" {
+				violations++
+			}
+		}
+		return violations == 0, fmt.Sprintf("exfil_control_gaps=%d", violations)
+	case "agent_delegation_controls":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("require_mcp_inventory", findings)
+		}
+		violations := 0
+		for _, finding := range agents {
+			delegationEnabled := boolEvidence(finding, "delegation") || strings.TrimSpace(evidenceValue(finding, "delegate_to")) != ""
+			delegationPolicy := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "delegation_policy")))
+			if delegationEnabled && delegationPolicy != "approved" && delegationPolicy != "enforced" {
+				violations++
+			}
+		}
+		return violations == 0, fmt.Sprintf("delegation_control_gaps=%d", violations)
+	case "agent_dynamic_discovery_controls":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("require_dependency_inventory", findings)
+		}
+		violations := 0
+		for _, finding := range agents {
+			if boolEvidence(finding, "dynamic_discovery") {
+				violations++
+			}
+		}
+		return violations == 0, fmt.Sprintf("dynamic_discovery_enabled=%d", violations)
+	case "agent_kill_switch_required":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("require_skill_metrics", findings)
+		}
+		violations := 0
+		for _, finding := range agents {
+			deployment := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "deployment_status")))
+			if deployment != "deployed" {
+				continue
+			}
+			if !boolEvidence(finding, "kill_switch") {
+				violations++
+			}
+		}
+		return violations == 0, fmt.Sprintf("missing_kill_switch=%d", violations)
+	case "agent_data_classification_required":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("compiled_actions_reviewed", findings)
+		}
+		violations := 0
+		for _, finding := range agents {
+			dataClass := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "data_class")))
+			if dataClass == "" || dataClass == "unknown" || dataClass == "unclassified" {
+				violations++
+			}
+		}
+		return violations == 0, fmt.Sprintf("unclassified_agents=%d", violations)
+	case "agent_auto_deploy_gate":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("credential_refs_reviewed", findings)
+		}
+		violations := 0
+		for _, finding := range agents {
+			if !boolEvidence(finding, "auto_deploy") {
+				continue
+			}
+			gate := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "deployment_gate")))
+			if gate != "approved" && gate != "enforced" {
+				violations++
+			}
+		}
+		return violations == 0, fmt.Sprintf("auto_deploy_gate_gaps=%d", violations)
+	case "agent_autodeploy_without_human_gate":
+		agents := agentFindings(findings)
+		if len(agents) == 0 {
+			return legacyRuleResult("stable_ci_reason_codes", findings)
+		}
+		violations := 0
+		for _, finding := range agents {
+			if !boolEvidence(finding, "auto_deploy") {
+				continue
+			}
+			if !boolEvidenceWithDefault(finding, "human_gate", true) {
+				violations++
+			}
+		}
+		return violations == 0, fmt.Sprintf("auto_deploy_without_human_gate=%d", violations)
 	case "require_tool_config":
 		count := countType(findings, "tool_config")
 		return count > 0, fmt.Sprintf("tool_config=%d", count)
@@ -154,6 +298,10 @@ func applyRule(rule policy.Rule, findings []model.Finding) (bool, string) {
 	}
 }
 
+func legacyRuleResult(kind string, findings []model.Finding) (bool, string) {
+	return applyRule(policy.Rule{Kind: kind}, findings)
+}
+
 func countType(findings []model.Finding, findingType string) int {
 	count := 0
 	for _, finding := range findings {
@@ -203,4 +351,74 @@ func isPromptChannelFinding(finding model.Finding) bool {
 	default:
 		return false
 	}
+}
+
+func agentFindings(findings []model.Finding) []model.Finding {
+	agentToolTypes := map[string]struct{}{
+		"langchain":     {},
+		"crewai":        {},
+		"openai_agents": {},
+		"autogen":       {},
+		"llamaindex":    {},
+	}
+	out := make([]model.Finding, 0)
+	for _, finding := range findings {
+		if strings.TrimSpace(finding.FindingType) == "agent_framework" {
+			out = append(out, finding)
+			continue
+		}
+		if _, ok := agentToolTypes[strings.ToLower(strings.TrimSpace(finding.ToolType))]; ok {
+			out = append(out, finding)
+		}
+	}
+	return out
+}
+
+func evidenceValue(finding model.Finding, key string) string {
+	target := strings.ToLower(strings.TrimSpace(key))
+	for _, evidence := range finding.Evidence {
+		if strings.ToLower(strings.TrimSpace(evidence.Key)) == target {
+			return strings.TrimSpace(evidence.Value)
+		}
+	}
+	return ""
+}
+
+func boolEvidence(finding model.Finding, key string) bool {
+	value := strings.ToLower(strings.TrimSpace(evidenceValue(finding, key)))
+	return value == "true" || value == "1" || value == "yes" || value == "enabled"
+}
+
+func boolEvidenceWithDefault(finding model.Finding, key string, defaultValue bool) bool {
+	value := strings.ToLower(strings.TrimSpace(evidenceValue(finding, key)))
+	if value == "" {
+		return defaultValue
+	}
+	switch value {
+	case "true", "1", "yes", "enabled":
+		return true
+	default:
+		return false
+	}
+}
+
+func hasWriteLikePermission(permissions []string) bool {
+	for _, permission := range permissions {
+		normalized := strings.ToLower(strings.TrimSpace(permission))
+		if strings.Contains(normalized, "write") || strings.Contains(normalized, "deploy") || strings.Contains(normalized, "proc.exec") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasSecretSignal(finding model.Finding) bool {
+	for _, permission := range finding.Permissions {
+		normalized := strings.ToLower(strings.TrimSpace(permission))
+		if strings.Contains(normalized, "secret") || strings.Contains(normalized, "token") || strings.Contains(normalized, "credential") {
+			return true
+		}
+	}
+	authSurfaces := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "auth_surfaces")))
+	return strings.Contains(authSurfaces, "secret") || strings.Contains(authSurfaces, "token") || strings.Contains(authSurfaces, "credential")
 }

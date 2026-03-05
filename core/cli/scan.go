@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/agentdeploy"
+	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
 	aggexposure "github.com/Clyra-AI/wrkr/core/aggregate/exposure"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/privilegebudget"
@@ -198,10 +200,14 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	contexts := enrichFindingContexts(findings, baseContexts, identityByAgent)
 
 	repoExposure := aggexposure.Build(findings, repoRisk)
+	agentBindings := agentresolver.Resolve(findings)
+	agentDeployments := agentdeploy.Resolve(findings)
 	inventoryOut := agginventory.Build(agginventory.BuildInput{
 		Manifest:              manifestOut,
 		Findings:              findings,
 		Contexts:              contexts,
+		AgentBindings:         agentBindings,
+		AgentDeployments:      agentDeployments,
 		Methodology:           scanMethodology,
 		RepoExposureSummaries: repoExposure,
 		GeneratedAt:           now,
@@ -241,7 +247,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			productionTargetWarnings = append(productionTargetWarnings, fmt.Sprintf("production targets file %s has no configured targets; production_write budget is not configured", productionTargetsFile))
 		}
 	}
-	inventoryOut.PrivilegeBudget, inventoryOut.AgentPrivilegeMap = privilegebudget.Build(inventoryOut.Tools, findings, productionTargets)
+	inventoryOut.PrivilegeBudget, inventoryOut.AgentPrivilegeMap = privilegebudget.Build(inventoryOut.Tools, inventoryOut.Agents, findings, productionTargets)
 	inventoryOut.PrivilegeBudget.ProductionWrite.Status = productionWriteStatus
 	inventoryOut.PrivilegeBudget.ProductionWrite.Configured = productionWriteStatus == agginventory.ProductionTargetsStatusConfigured
 	if !inventoryOut.PrivilegeBudget.ProductionWrite.Configured {
