@@ -10,6 +10,7 @@ import (
 	"time"
 
 	proof "github.com/Clyra-AI/proof"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 func ChainPath(statePath string) string {
@@ -42,15 +43,12 @@ func SaveChain(path string, chain *proof.Chain) error {
 	if chain == nil {
 		return fmt.Errorf("chain is required")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return fmt.Errorf("mkdir chain dir: %w", err)
-	}
 	payload, err := json.MarshalIndent(chain, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal chain: %w", err)
 	}
 	payload = append(payload, '\n')
-	if err := os.WriteFile(path, payload, 0o600); err != nil {
+	if err := atomicwrite.WriteFile(path, payload, 0o600); err != nil {
 		return fmt.Errorf("write chain: %w", err)
 	}
 	return nil

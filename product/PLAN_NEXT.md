@@ -1,1050 +1,376 @@
-# PLAN NEXT: Wrkr Runtime Contract Hardening and OSS Readiness
+# PLAN NEXT: Runtime Contract and Safety Hardening
 
-Date: 2026-03-03
-Source of truth: user-provided required changes (items 1-27), `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`
-Scope: Wrkr OSS CLI only. Planning artifact only; no implementation in this document.
-
-This plan is execution-ready and dependency-ordered. It uses two strict waves:
-- Wave 1: runtime/contract/reliability correctness
-- Wave 2: docs/DX/OSS/governance consistency
+Date: 2026-03-04
+Source of truth: user-provided code-review findings (P1/P2), `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`
+Scope: Wrkr repository only; planning artifact only (no implementation in this document).
 
 ## Global Decisions (Locked)
 
-- Runtime correctness and contract safety are merge-blocking and always precede docs/governance polish.
-- Exit code contract remains stable (`0..8` per `product/dev_guides.md`) unless explicitly versioned.
-- Scan behavior must be deterministic and fail-closed for ambiguous high-risk conditions.
-- Partial-result mode is required: non-fatal detector/repo errors are surfaced without discarding completed findings.
-- Timeout and cancellation must propagate through acquisition, detection, and long-running operations via context.
-- Retry semantics must honor upstream rate-limit contracts (`Retry-After`/reset windows) and use bounded jittered backoff.
-- Source connector degradation must be bounded (threshold + cooldown), with explicit partial-result reporting.
-- Architecture boundaries remain mandatory: Source -> Detection -> Aggregation -> Identity -> Risk -> Proof -> Compliance.
-- Go remains authoritative for policy/signing/verification logic; wrappers/adapters remain thin.
-- Contract evolution is additive-first: new fields/envelopes before breaking changes, with migration guidance.
-- Machine-readable failure semantics are mandatory for JSON mode (stable code/class envelope + retryability hints where applicable).
-- Two-wave execution is hard-gated: Wave 2 stories cannot begin until Wave 1 story criteria and lanes are green.
+- Wave order is strict.
+- Wave 1 is mandatory before any Wave 2 work.
+- Exit-code and JSON error-envelope behavior is public contract surface.
+- Contract changes are additive-first unless explicitly versioned.
+- Fail-closed filesystem safety is mandatory for destructive/reset operations.
+- State/proof persistence paths must be crash-safe and deterministic.
+- Architecture boundaries remain enforced: Source -> Detection -> Aggregation -> Identity -> Risk -> Proof -> Compliance.
+- High-risk reliability stories must run `make prepush-full`, `make test-hardening`, and `make test-chaos`.
+- Contract stories must run `make test-contracts` and `make test-scenarios`.
 
 ## Current Baseline (Observed)
 
-Repository snapshot (2026-03-03):
-
-- `core/cli/scan.go` is large (762 LOC) and currently carries multiple responsibilities.
-- `core/source/github/connector.go` (358 LOC) contains retry-sensitive external acquisition behavior.
-- `core/detect/detect.go` is central detector orchestration with detector-level contract implications.
-- JSON mode detection exists as `wantsJSONOutput` in `core/cli/root.go`; command surfaces call into same package helper but ownership is not in a dedicated shared CLI utility.
-- No first-class `wrkr version` / `wrkr --version` command surface exists today.
-- Install docs rely on `gh`/`python3` fallback for latest tag resolution in README Go-install path.
-- `CONTRIBUTING.md` is minimal and does not yet encode contributor workflow complexity.
-- Community health gaps remain:
-  - missing `CODE_OF_CONDUCT.md`
-  - missing `CHANGELOG.md`
-  - missing `.github/ISSUE_TEMPLATE/*`
-  - missing `.github/pull_request_template.md`
-- `product/PLAN_NEXT.md` did not previously exist.
+- `make lint-fast` and `make test-fast` passed during review baseline.
+- `wrkr evidence` currently maps non-unsafe failures to `unsafe_operation_blocked` with exit `8`.
+- Repo/org scan materialization path cleanup uses recursive delete without ownership gating on caller-influenced path roots.
+- `core/state`, `core/proofemit`, and `core/lifecycle` persistence writes are non-atomic relative to `manifest`/`regress` temp+rename patterns.
+- `wrkr verify --chain` maps malformed-chain parse failures to `invalid_input` (`6`), while trust docs define verification-failure semantics around exit `2`.
 
 ## Exit Criteria
 
-The plan is complete only when all are true:
-
-1. Scan does not abort on first non-fatal detector error; findings and structured detector/repo errors are both returned.
-2. `wrkr scan --timeout <duration>` enforces deadline deterministically with documented JSON and exit behavior.
-3. Ctrl-C cancellation stops acquisition/detection promptly without stuck in-flight work.
-4. GitHub connector retries honor 429 rate-limit windows and apply bounded jittered backoff for retryable errors.
-5. Connector degradation handling is bounded (threshold/cooldown) with explicit partial-result output.
-6. Silent detector failures (`nil, nil` on real I/O/permission/corruption issues) are removed; failures are surfaced with stable codes/context.
-7. Scan command responsibilities are decomposed into focused units; orchestrator remains thin and testable.
-8. JSON error-mode detection is centralized and consistently tested across commands.
-9. `wrkr version` and `wrkr --version` are available with human and JSON output contracts.
-10. Install path supports minimal environments without mandatory `gh`/`python3` while preserving pinned install options.
-11. State/baseline/evidence lifecycle and canonical paths are documented once and linked from quickstart/commands.
-12. `wrkr fix` behavior contract (planning/mutations/optional PR effects) is explicit and consistent in help + docs.
-13. Custom detector extension point is documented, deterministic, schema-validated, and covered by E2E tests.
-14. Explicit compatibility/versioning policy is published and tied to CI contract enforcement.
-15. goja rationale and AST-only guardrails are documented; tests block runtime eval regressions.
-16. Contributor workflow, Go-only path, docs-source-of-truth flow, and CI lane map are explicit in docs.
-17. OSS governance baseline files/templates are present and linked.
-18. Governance policies for `product/` and `.agents/skills/` visibility are explicit and enforced by repository content.
-19. Cross-repo README contract is defined and Wrkr README conforms, with tracked follow-up for Proof/Gait.
-20. Wave gates pass with no JSON/exit-code contract regressions:
-- `make prepush-full`
-- `make test-contracts`
-- `make test-scenarios`
-- `make test-docs-consistency`
-- `make docs-site-install && make docs-site-lint && make docs-site-build && make docs-site-check`
+1. `evidence` distinguishes `invalid_input` vs `runtime_failure` vs `unsafe_operation_blocked` deterministically, with stable JSON envelopes and exits.
+2. Scan materialization cleanup cannot delete non-managed content; ownership marker trust checks are enforced.
+3. State/proof/lifecycle writes are atomic and crash-safe, with contention-safe behavior and deterministic outcomes.
+4. `verify --chain` malformed/tampered-chain failures consistently emit `verification_failure` with exit `2` (or explicitly versioned migration path if not).
+5. CLI/docs contract parity is green for touched command surfaces.
+6. Required matrix lanes pass for all in-scope stories.
 
 ## Public API and Contract Map
 
-Stable/public surfaces (must remain compatible unless explicitly versioned):
-- CLI commands and flags under `core/cli/*` (`scan`, `fix`, `report`, `evidence`, `verify`, `regress`, etc.)
-- JSON output envelopes and reason/error codes in `--json` mode
-- Exit code contract (`0..8`)
-- State/evidence artifact schemas in `schemas/v1`
+Stable/public surfaces:
+- CLI exits (`0..8`) and machine-readable error envelope fields.
+- `wrkr evidence --json`, `wrkr scan --json`, `wrkr verify --chain --json` behavior.
+- Artifact paths and state/proof lifecycle semantics documented under `docs/`.
 
-Internal surfaces (refactor-safe, non-public API):
-- `core/detect/*` detector internals and registration internals
-- `core/source/*` connector internals
-- internal orchestration helpers and non-exported package functions
+Internal surfaces:
+- Error typing internals in `core/evidence`.
+- Materialized-source ownership internals in `core/cli` + `core/source` support helpers.
+- Atomic write utilities and locking internals in `core/state`, `core/proofemit`, `core/lifecycle`.
 
-Planned additive contract changes:
-- Scan JSON envelope extension for structured partial-result detector/repo errors
-- Machine-readable timeout/cancellation/degradation error classes
-- Optional SARIF output format alongside existing native artifacts
-- `version` command output envelope
+Shim/deprecation policy:
+- No immediate removal of existing JSON keys.
+- If any error-code/class change impacts automation, keep compatibility notes and deterministic migration guidance in docs.
 
-Deprecation/shim policy for this plan:
-- Additive fields first; no removal/rename of existing required JSON keys without migration path.
-- If behavior changes, dual-reader compatibility and contract tests are required in the same PR.
+Schema/versioning policy:
+- No schema major bump planned.
+- Any contract delta is additive unless explicitly approved and versioned.
+
+Machine-readable error expectations:
+- `invalid_input` -> exit `6` for caller input/schema violations.
+- `runtime_failure` -> exit `1` for runtime/environment failures.
+- `unsafe_operation_blocked` -> exit `8` only for explicit safety boundary violations.
+- `verification_failure` -> exit `2` for chain verification/parsing-integrity failure class.
 
 ## Docs and OSS Readiness Baseline
 
-README first-screen baseline:
-- One-liner, positioning, install, quickstart already present, but minimal-dependency install path and clearer side-effect docs are required.
+README first-screen contract:
+- Preserve concise what/who/first-value flow.
+- Update only behavior-affecting sections for `evidence`, `scan`, `verify` semantics.
 
-Integration-before-internals baseline:
-- Command docs exist but state-lifecycle and docs source-of-truth need explicit canonical mapping.
+Integration-first docs flow:
+- Command docs must state integration-safe error handling and expected exits before internals.
 
-Governance baseline:
-- Present: `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`
-- Missing: `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, issue templates, PR template
+Lifecycle path model:
+- Keep canonical state/proof path model aligned with `docs/state_lifecycle.md` and command docs.
 
-Cross-project clarity baseline:
-- README contains Clyra/Axym/Gait references and standalone note; requires concise trust/support section with clearer governance positioning.
+Docs source-of-truth:
+- `docs/commands/*` is command-contract source; README/examples must stay consistent.
+
+OSS trust baseline files:
+- Existing baseline retained; this plan does not introduce governance-file scope changes.
 
 ## Recommendation Traceability
 
-| Item | Requirement | Planned Coverage |
+| Recommendation ID | Finding | Story Mapping |
 |---|---|---|
-| 1 | Keep scans running on detector failures (partial-results mode) | Story 0.1 |
-| 2 | Add scan-level timeout (`--timeout`) | Story 0.2 |
-| 3 | Wire cancellation end-to-end (Ctrl-C) | Story 0.2 |
-| 4 | Honor GitHub rate-limit semantics in retry logic | Story 0.3 |
-| 5 | Circuit-breaker style degradation handling | Story 0.3 |
-| 6 | Remove silent detector failures (`nil, nil`) | Story 0.1 |
-| 7 | Decompose scan command by responsibility | Story 1.1 |
-| 8 | Centralize JSON error-mode detection | Story 1.1 |
-| 9 | Add `wrkr version` / `wrkr --version` | Story 1.2 |
-| 10 | Harden install UX (minimal dependencies) | Story 2.1 |
-| 11 | Clarify state-file lifecycle and canonical paths | Story 2.2 |
-| 12 | Make `wrkr fix` behavior explicit | Story 2.3 |
-| 13 | Add custom detector extension point | Story 1.3 |
-| 14 | Publish explicit schema/versioning policy | Story 1.4 |
-| 15 | Document goja rationale and enforce guardrails | Story 1.5 |
-| 16 | Expand CONTRIBUTING workflow | Story 3.1 |
-| 17 | Make Node requirement optional for Go-only contributors | Story 3.1 |
-| 18 | Clarify Clyra/Axym/Gait context and standalone positioning | Story 2.4 |
-| 19 | Clarify docs source-of-truth (`docs/` vs `docs-site`) | Story 2.4 |
-| 20 | Add issue and PR templates | Story 3.2 |
-| 21 | Add `CODE_OF_CONDUCT.md` | Story 3.3 |
-| 22 | Add `CHANGELOG.md` with process | Story 3.3 |
-| 23 | Decide public-content policy for `product/` docs | Story 3.4 |
-| 24 | Decide exposure policy for `.agents/skills/` | Story 3.4 |
-| 25 | Standardize README flow across 3 repos | Story 3.5 |
-| 26 | SARIF output + GitHub Action distribution | Story 1.6 |
-| 27 | Two PR waves with strict gates | Global Decisions, Minimum-Now Sequence, Exit Criteria |
+| R1 | Evidence misclassifies non-unsafe failures as exit `8` | S1.1 |
+| R2 | Materialized-source recursive delete without ownership gating | S1.2 |
+| R3 | Non-atomic state/proof/lifecycle writes | S1.3 |
+| R4 | Malformed proof chain returns exit `6` instead of `2` | S1.4 |
+| R5 | Missing explicit tests for classification/boundary/atomic-write failures | S1.1, S1.2, S1.3, S1.4 |
+| R6 | Docs/contract parity drift around verify/evidence semantics | S2.1 |
 
 ## Test Matrix Wiring
 
-Lane definitions:
-- Fast lane: `make lint-fast`, targeted unit checks, contract smoke.
-- Core CI lane: deterministic unit/integration/e2e for touched packages.
-- Acceptance lane: scenario/operator-path acceptance checks.
-- Cross-platform lane: Linux/macOS/Windows-safe command/path behavior.
-- Risk lane: hardening/chaos/perf/contract suites for high-risk changes.
-- Gating rule: merge/release blocks on required lane failures.
-
-Story-to-lane mapping:
-
-| Story | Fast | Core CI | Acceptance | Cross-platform | Risk |
-|---|---|---|---|---|---|
-| 0.1 | Yes | Yes | Yes | Yes | Yes |
-| 0.2 | Yes | Yes | Yes | Yes | Yes |
-| 0.3 | Yes | Yes | Yes | Yes | Yes |
-| 1.1 | Yes | Yes | Yes | Yes | Yes |
-| 1.2 | Yes | Yes | Yes | Yes | No |
-| 1.3 | Yes | Yes | Yes | Yes | Yes |
-| 1.4 | Yes | Yes | Yes | Yes | Yes |
-| 1.5 | Yes | Yes | Yes | Yes | Yes |
-| 1.6 | Yes | Yes | Yes | Yes | Yes |
-| 2.1 | Yes | Yes | Yes | Yes | No |
-| 2.2 | Yes | Yes | Yes | Yes | No |
-| 2.3 | Yes | Yes | Yes | Yes | No |
-| 2.4 | Yes | Yes | Yes | Yes | No |
-| 3.1 | Yes | Yes | No | Yes | No |
-| 3.2 | Yes | Yes | No | No | No |
-| 3.3 | Yes | Yes | No | No | No |
-| 3.4 | Yes | Yes | No | No | No |
-| 3.5 | Yes | Yes | Yes | Yes | No |
-
-Gating rule:
-- Wave 1 stories (`0.*`, `1.*`) must be complete and green before starting any Wave 2 story (`2.*`, `3.*`).
-- A story is complete only when all mapped lanes are green with command evidence.
-
-## Epic 0: Wave 1 Runtime Reliability and Partial-Result Safety
-
-Objective: prevent scan abort cascades, bound runtime behavior, and make detector/source failures visible and deterministic.
-
-### Story 0.1: Partial-Result Detector Error Envelope and Silent-Failure Removal
-Priority: P0
-Tasks:
-- Add detector/repo scoped error capture in `core/detect/detect.go` and detector output model.
-- Extend scan JSON envelope in `core/cli/scan.go` to include structured partial-result detector errors.
-- Audit detectors for silent `nil, nil` on real stat/walk/permission/corruption errors; convert to surfaced findings/errors with stable codes.
-- Add deterministic ordering for surfaced detector errors.
-Repo paths:
-- `core/detect/detect.go`
-- `core/detect/*/detector.go`
-- `core/cli/scan.go`
-- `core/cli/*_test.go`
-Run commands:
-- `go test ./core/detect/... -count=1`
-- `go test ./core/cli -run Scan -count=1`
-- `make test-contracts`
-- `make test-scenarios`
-Test requirements:
-- Tier 1 unit tests for per-detector error aggregation and ordering.
-- Tier 2 integration tests for mixed-success detector runs.
-- Tier 3 CLI tests for scan JSON envelope with findings + detector errors.
-- Tier 9 contract tests for JSON shape/additive compatibility.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (Fast + targeted Core), Main (Core + Acceptance), Nightly (Risk).
-Acceptance criteria:
-- Non-fatal detector errors do not abort scan.
-- Findings from completed repos are preserved when later repos/detectors fail.
-- JSON output includes deterministic, structured detector error list.
-- Silent permission/mount/corruption failures are surfaced with stable code/class/context.
-Contract/API impact:
-- Additive scan JSON fields for partial-result errors; no removal of existing keys.
-Versioning/migration impact:
-- Additive-only; no schema major bump.
-Architecture constraints:
-- Detection layer emits structured errors; CLI layer formats output only.
-- No boundary leakage from CLI into detector internals.
-ADR required: yes
-TDD first failing test(s):
-- `TestScanContinuesOnDetectorError`
-- `TestDetectorPermissionErrorIsSurfaced`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Inject detector filesystem permission errors mid-scan; expected deterministic partial-result output with non-stuck completion.
-Dependencies:
-- None.
-Risks:
-- Contract drift if JSON envelope changes are not covered in Tier 9 tests.
-
-### Story 0.2: Scan Timeout and End-to-End Cancellation Propagation
-Priority: P0
-Tasks:
-- Add `--timeout` flag to `wrkr scan` and enforce with `context.WithTimeout` in `core/cli/scan.go`.
-- Add signal-aware context in `cmd/wrkr/main.go` and propagate cancellation into acquisition/detector loops/connectors.
-- Ensure cancellation/deadline errors map to stable machine-readable error classes in JSON mode.
-- Document timeout/cancel behavior and exit semantics in docs and README.
-Repo paths:
-- `cmd/wrkr/main.go`
-- `core/cli/scan.go`
-- `core/detect/detect.go`
-- `core/source/*`
-- `docs/commands/scan.md`
-- `README.md`
-Run commands:
-- `go test ./core/cli -run Scan -count=1`
-- `go test ./core/source/... -count=1`
-- `go test ./... -run Integration -count=1`
-- `make test-contracts`
-Test requirements:
-- Tier 1 unit tests for timeout flag parsing and context wiring.
-- Tier 2 integration tests for context cancel propagation.
-- Tier 3 CLI tests for timeout deadline behavior and JSON error envelope.
-- Tier 5 hardening tests for cancellation during in-flight acquisition.
-- Tier 9 tests for exit-code and JSON error class stability.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (Fast + targeted Core), Main (Core + Acceptance + Tier 9), Nightly (Tier 5).
-Acceptance criteria:
-- `wrkr scan --timeout 10m` exits deterministically on deadline with documented behavior.
-- Ctrl-C cancels promptly without hanging goroutines/workers.
-- Timeout/cancel output is machine-readable and stable in `--json` mode.
-Contract/API impact:
-- New `--timeout` scan flag; additive error classes for timeout/cancel.
-Versioning/migration impact:
-- Additive-only command/JSON updates.
-Architecture constraints:
-- Context propagation from entrypoint to source/detect is mandatory.
-- No ad-hoc timeout handling in leaf components without parent context.
-ADR required: yes
-TDD first failing test(s):
-- `TestScanTimeoutDeadlineExceeded`
-- `TestScanCancellationStopsAcquisitionAndDetection`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Inject slow source and long detector operations; expected deadline/cancel termination with bounded completion time.
-Dependencies:
-- Story 0.1 recommended first for consistent error envelope behavior.
-Risks:
-- Incomplete context propagation can leave latent hangs.
-
-### Story 0.3: Rate-Limit Correct Retry Semantics and Circuit-Breaker Degradation
-Priority: P0
-Tasks:
-- Update GitHub connector retry logic to honor `Retry-After` and reset windows for 429.
-- Implement bounded jittered backoff for retryable 5xx/network failures.
-- Add circuit-breaker style consecutive-failure threshold + cooldown in connector.
-- Surface degraded mode/partial termination explicitly in scan error/report envelope.
-Repo paths:
-- `core/source/github/connector.go`
-- `core/source/github/connector_test.go`
-- `core/cli/scan.go`
-Run commands:
-- `go test ./core/source/github -count=1`
-- `go test ./core/cli -run Scan -count=1`
-- `make test-hardening`
-- `make test-chaos`
-Test requirements:
-- Tier 1 retry/backoff/circuit unit tests with deterministic clocks.
-- Tier 2 integration tests for prolonged outage behavior.
-- Tier 5 hardening tests for bounded failure under repeated upstream errors.
-- Tier 6 chaos tests for alternating 429/5xx faults.
-- Tier 9 contract tests for degraded partial-result reporting.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (Fast + Core), Main (Core + Acceptance), Nightly (Risk).
-Acceptance criteria:
-- 429 behavior honors server-declared wait semantics.
-- Retry behavior for retryable failures is jittered but bounded.
-- Prolonged outage triggers bounded degradation behavior with explicit partial-result output.
-Contract/API impact:
-- Additive degraded-mode metadata in JSON scan output (if needed).
-Versioning/migration impact:
-- Additive-only envelope updates.
-Architecture constraints:
-- Connector owns retry/circuit policy; CLI only maps surfaced states.
-ADR required: yes
-TDD first failing test(s):
-- `TestConnectorHonorsRetryAfter429`
-- `TestConnectorCircuitBreakerCooldown`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Simulate sustained 429/5xx responses; expected bounded retries and explicit degraded result classification.
-Dependencies:
-- Story 0.2 for context cancellation interaction.
-Risks:
-- Non-deterministic timing in tests without controlled clock abstractions.
-
-## Epic 1: Wave 1 Contract Surfaces, Boundary Hygiene, and Distribution
-
-Objective: tighten command contracts, improve architecture boundaries, and unlock ecosystem distribution without breaking existing contracts.
-
-### Story 1.1: Decompose Scan Command and Centralize JSON Error-Mode Utility
-Priority: P1
-Tasks:
-- Split `core/cli/scan.go` into focused modules (orchestration, flag parsing, persistence, report output, policy/profile eval).
-- Keep top-level orchestrator thin and explicit in side effects.
-- Move JSON mode detection logic from `root.go` into shared CLI helper used across commands.
-- Add coverage for `--json`, `--json=true/false`, malformed bool values, and command parity.
-Repo paths:
-- `core/cli/scan.go`
-- `core/cli/scan_*.go`
-- `core/cli/root.go`
-- `core/cli/jsonmode.go` (new)
-- `core/cli/*_test.go`
-Run commands:
-- `go test ./core/cli -count=1`
-- `make test-contracts`
-- `make prepush-full`
-Test requirements:
-- Tier 1 unit tests for shared JSON mode parser.
-- Tier 2 module-level integration tests for decomposed scan units.
-- Tier 3 CLI parity tests across commands.
-- Tier 9 contract tests for unchanged JSON/exit behavior.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (Fast + Core), Main (Core + Acceptance + Tier 9), Nightly (Risk if perf-sensitive).
-Acceptance criteria:
-- Scan orchestrator is thin, responsibilities are split, and isolated tests exist.
-- One shared implementation handles JSON mode detection consistently.
-- No JSON/exit-code contract regressions.
-Contract/API impact:
-- No intended public contract change.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Explicit boundaries between orchestration, persistence, rendering, and policy evaluation.
-ADR required: yes
-TDD first failing test(s):
-- `TestSharedJSONModeParsingCases`
-- `TestScanOrchestratorDelegatesResponsibilities`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Inject malformed JSON mode flag variants during command parsing; expected deterministic validation behavior.
-Dependencies:
-- Story 0.* should be merged first.
-Risks:
-- Refactor may accidentally alter command side effects without contract tests.
-
-### Story 1.2: Add First-Class Version Command Surface
-Priority: P1
-Tasks:
-- Add `wrkr version` subcommand and `wrkr --version` handling.
-- Provide human and JSON outputs with stable fields.
-- Update root help/README/docs command index.
-- Add contract tests for output shape and exit behavior.
-Repo paths:
-- `core/cli/root.go`
-- `core/cli/version.go` (new)
-- `core/cli/root_test.go`
-- `docs/commands/index.md`
-- `README.md`
-Run commands:
-- `go test ./core/cli -run Version -count=1`
-- `make test-docs-consistency`
-- `make test-contracts`
-Test requirements:
-- Tier 1 unit tests for version formatter.
-- Tier 3 CLI tests for command and flag forms.
-- Tier 9 output key/exit contract tests.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform.
-- Pipeline placement: PR (Fast + Core), Main (Core + Acceptance + docs consistency).
-Acceptance criteria:
-- `wrkr version` and `wrkr --version` both succeed.
-- JSON output is deterministic and documented.
-Contract/API impact:
-- New additive command surface.
-Versioning/migration impact:
-- Additive-only.
-Architecture constraints:
-- Version retrieval must not introduce runtime network dependencies.
-ADR required: no
-TDD first failing test(s):
-- `TestVersionCommandHumanAndJSON`
-- `TestRootVersionFlag`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not required (low-risk command-surface addition).
-Dependencies:
-- Story 1.1 for shared JSON mode utility.
-Risks:
-- Help/docs drift if command index not updated in same PR.
-
-### Story 1.3: Custom Detector Extension Point with Deterministic Ordering
-Priority: P1
-Tasks:
-- Define extension contract (plugin/file-based registry) and validation rules.
-- Enforce deterministic ordering and failure semantics for extension detectors.
-- Add schema validation for extension descriptor/config.
-- Add E2E scenario fixtures showing extension detector execution.
-Repo paths:
-- `core/detect/*`
-- `core/detect/defaults/defaults.go`
-- `schemas/v1/*` (if extension descriptor schema added)
-- `docs/extensions/detectors.md` (new)
-- `internal/scenarios/*`
-Run commands:
-- `go test ./core/detect/... -count=1`
-- `make test-contracts`
-- `make test-scenarios`
-- `make test-adapter-parity`
-Test requirements:
-- Tier 1 unit tests for extension loading/ordering/validation.
-- Tier 2 integration tests for extension + built-in detector composition.
-- Tier 4 acceptance scenario for enterprise extension flow.
-- Tier 9 contract tests for extension schema compatibility.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (Fast + Core), Main (Core + Acceptance), Nightly (Risk).
-Acceptance criteria:
-- Extension path is documented and deterministic.
-- Invalid extensions fail with stable machine-readable errors.
-- E2E test covers extension execution path.
-Contract/API impact:
-- New extension contract surface and optional schema.
-Versioning/migration impact:
-- Additive extension surface; no break to built-in detectors.
-Architecture constraints:
-- Core detection engine remains authoritative; extension adapters cannot bypass policy/signing boundaries.
-ADR required: yes
-TDD first failing test(s):
-- `TestExtensionRegistryDeterministicOrdering`
-- `TestInvalidExtensionDescriptorFailsClosed`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Inject malformed/slow extension definitions; expected bounded failure and deterministic ordering.
-Dependencies:
-- Story 0.1 error surfacing model.
-Risks:
-- Inadequate sandboxing model for extensions if contract is underspecified.
-
-### Story 1.4: Compatibility and Versioning Policy with CI Enforcement
-Priority: P1
-Tasks:
-- Publish compatibility/versioning policy docs (additive vs breaking, v2 trigger, migration guidance).
-- Publish compatibility matrix and consumer guidance.
-- Add CI contract checks that fail on undocumented breaking contract changes.
-Repo paths:
-- `docs/trust/compatibility-and-versioning.md` (new)
-- `docs/contracts/compatibility_matrix.md` (new)
-- `testinfra/contracts/*`
-- `scripts/validate_contracts.sh`
-Run commands:
-- `make test-contracts`
-- `scripts/validate_contracts.sh`
-- `make prepush-full`
-Test requirements:
-- Tier 9 contract tests for schema/JSON key/exit behavior compatibility.
-- Tier 11 scenario checks for representative compatibility transitions.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (Fast + Tier 9 subset), Main (full Tier 9/11), Release (contract freeze gate).
-Acceptance criteria:
-- Policy docs exist and are linked from README/docs index.
-- CI fails when compatibility policy is violated without explicit versioned migration handling.
-Contract/API impact:
-- No immediate runtime change; governance contract clarified and enforced.
-Versioning/migration impact:
-- Defines future policy behavior; no immediate schema bump.
-Architecture constraints:
-- Compatibility enforcement lives in contract tests/scripts, not ad-hoc reviewer convention.
-ADR required: no
-TDD first failing test(s):
-- `TestContractPolicyFailsOnUndocumentedBreakingChange`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not required (governance/contract enforcement story).
-Dependencies:
-- None.
-Risks:
-- Overly strict rule set could block valid additive changes if not tuned.
-
-### Story 1.5: goja Dependency Rationale and AST-Only Guardrails
-Priority: P1
-Tasks:
-- Document rationale for goja usage in threat/architecture docs.
-- Codify AST-parse-only intent in implementation and tests.
-- Add tests/policy checks blocking runtime eval execution regressions.
-Repo paths:
-- `core/detect/webmcp/*`
-- `docs/architecture/*`
-- `docs/trust/*`
-- `testinfra/contracts/*`
-Run commands:
-- `go test ./core/detect/webmcp -count=1`
-- `make test-contracts`
-- `make prepush-full`
-Test requirements:
-- Tier 1 unit tests for parser behavior and disallowed eval paths.
-- Tier 9 contract/policy checks preventing runtime execution drift.
-- Tier 5 hardening checks for malicious JS fixtures.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (Fast + Core), Main (Core + Risk subset), Nightly (hardening).
-Acceptance criteria:
-- Documentation clearly states goja scope and constraints.
-- Tests fail if runtime eval execution path is introduced.
-Contract/API impact:
-- No public API change.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Parser-only semantics are invariant for WebMCP detection.
-ADR required: yes
-TDD first failing test(s):
-- `TestWebMCPParserRejectsRuntimeEvalPath`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Fuzz malformed JS payloads; expected parse-safe failure without runtime execution.
-Dependencies:
-- None.
-Risks:
-- False confidence if tests do not cover all evaluator entry points.
-
-### Story 1.6: SARIF Output and GitHub Action Distribution
-Priority: P1
-Tasks:
-- Add SARIF output mode mapping Wrkr findings to SARIF schema.
-- Add GitHub Action packaging path for scan + SARIF publication.
-- Ensure native proof outputs remain unchanged and primary contract remains intact.
-- Add docs for SARIF usage and GitHub Security tab integration.
-Repo paths:
-- `core/export/*` or `core/cli/*` (SARIF emitter path)
-- `action/*`
-- `.github/workflows/*`
-- `docs/commands/*`
-- `README.md`
-Run commands:
-- `go test ./core/... -count=1`
-- `make test-contracts`
-- `make test-release-smoke`
-- `make test-docs-consistency`
-Test requirements:
-- Tier 1 unit tests for SARIF transformation.
-- Tier 3 CLI tests for SARIF output switch.
-- Tier 9 schema/output compatibility checks for SARIF envelopes.
-- Tier 12 interoperability checks where action/release contracts are touched.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform, Risk.
-- Pipeline placement: PR (Fast + Core), Main (Core + Acceptance), Release (integrity + smoke).
-Acceptance criteria:
-- Wrkr emits valid SARIF for supported finding classes.
-- GitHub Action path is documented and release-smoke validated.
-- Existing proof and JSON contracts remain compatible.
-Contract/API impact:
-- Additive output format; no break to existing JSON/proof contracts.
-Versioning/migration impact:
-- Additive-only.
-Architecture constraints:
-- Distribution packaging must not alter core risk/proof decision logic.
-ADR required: yes
-TDD first failing test(s):
-- `TestSARIFEmitterValidatesAgainstSchema`
-- `TestScanSARIFModeDoesNotAlterNativeOutput`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Simulate action upload/report failure; expected fail-closed publish behavior without corrupting scan outputs.
-Dependencies:
-- Story 1.4 for compatibility policy checks.
-Risks:
-- SARIF mapping ambiguity for non-standard finding classes.
-
-## Epic 2: Wave 2 Docs and DX Contract Clarity
-
-Objective: make operator behavior and integration surfaces explicit, reproducible, and troubleshooting-first.
-
-### Story 2.1: Minimal-Dependency Install UX Hardening
-Priority: P1
-Tasks:
-- Add install path that does not require `gh`/`python3` for latest-tag resolution.
-- Keep pinned install options documented.
-- Add release smoke checks for clean Go-only environments.
-Repo paths:
-- `README.md`
-- `docs/install/*` (new or existing)
-- `scripts/test_uat_local.sh`
-Run commands:
-- `scripts/test_uat_local.sh --release-version v1.0.0 --skip-global-gates`
-- `make test-docs-consistency`
-Test requirements:
-- Tier 4 acceptance checks for install copy-paste paths.
-- Tier 10 UAT checks for source/go/brew install flows.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform.
-- Pipeline placement: Main + Release.
-Acceptance criteria:
-- Documented install works in clean Go environment without mandatory `gh`/`python3`.
-- Pinned install path remains available and validated.
-Contract/API impact:
-- No runtime API change; install contract/documentation updates.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Keep install logic deterministic and tool-minimal.
-ADR required: no
-TDD first failing test(s):
-- `TestInstallDocsSmokeGoOnlyPath`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not required (docs/distribution workflow story).
-Dependencies:
-- Story 1.2 (version command) preferred.
-Risks:
-- Release smoke may pass locally but fail in constrained CI if assumptions persist.
-
-### Story 2.2: Canonical State Lifecycle Documentation
-Priority: P1
-Tasks:
-- Add canonical lifecycle doc with table/diagram for state/baseline/evidence artifacts.
-- Link lifecycle doc from quickstart and command docs.
-- Normalize `.wrkr` vs `.tmp` examples.
-Repo paths:
-- `docs/state_lifecycle.md` (new)
-- `README.md`
-- `docs/commands/*.md`
-Run commands:
-- `make test-docs-consistency`
-- `make test-docs-storyline`
-Test requirements:
-- Tier 4 docs storyline checks for lifecycle path consistency.
-- Tier 9 docs contract checks for required tokens/sections.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform.
-- Pipeline placement: PR + Main.
-Acceptance criteria:
-- One canonical lifecycle source is documented and linked.
-- Command docs and quickstart align on canonical paths.
-Contract/API impact:
-- No runtime API change.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Documentation reflects actual command read/write behavior only.
-ADR required: no
-TDD first failing test(s):
-- `TestDocsLifecyclePathConsistency`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not required (docs story).
-Dependencies:
-- None.
-Risks:
-- Drift if docs are updated without command behavior checks.
-
-### Story 2.3: Explicit `wrkr fix` Side-Effect Contract
-Priority: P1
-Tasks:
-- Rewrite `wrkr fix` description in README/docs/help text with explicit behavior contract:
-  - planning outputs
-  - file mutation behavior
-  - optional PR actions and prerequisites
-- Ensure docs/help text matches implementation and JSON output.
-Repo paths:
-- `README.md`
-- `docs/commands/fix.md`
-- `core/cli/root.go`
-- `core/cli/fix.go` (if help text wired there)
-Run commands:
-- `go test ./core/cli -run Fix -count=1`
-- `make test-docs-consistency`
-Test requirements:
-- Tier 3 CLI help contract tests.
-- Tier 4 docs storyline checks for fix workflow.
-- Tier 9 docs/CLI parity checks.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform.
-- Pipeline placement: PR + Main.
-Acceptance criteria:
-- Two-sentence explicit behavior contract appears consistently in README/help/docs.
-- Docs/help no longer imply opaque side effects.
-Contract/API impact:
-- Documentation/help contract clarifies existing side effects.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Side-effect semantics must remain explicit and auditable.
-ADR required: no
-TDD first failing test(s):
-- `TestFixHelpMatchesBehaviorContract`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not required (docs/help contract story).
-Dependencies:
-- None.
-Risks:
-- Misalignment if implementation changes without docs update.
-
-### Story 2.4: Positioning Trust Section and Docs Source-of-Truth Map
-Priority: P1
-Tasks:
-- Add concise trust/positioning section clarifying Wrkr standalone usage and Clyra/Axym/Gait relationship.
-- Add explicit docs source-of-truth map: where to edit and required validation commands.
-- Add FAQ entry for standalone vs ecosystem dependency questions.
-Repo paths:
-- `README.md`
-- `docs/faq.md`
-- `CONTRIBUTING.md`
-- `docs/map.md` (new or existing map page)
-Run commands:
-- `make test-docs-consistency`
-- `make docs-site-install && make docs-site-lint && make docs-site-build && make docs-site-check`
-Test requirements:
-- Tier 4 docs acceptance checks for required trust/source-of-truth sections.
-- Tier 9 docs consistency checks across repo docs and docs-site.
-Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform.
-- Pipeline placement: PR + Main + Release docs gate.
-Acceptance criteria:
-- README/FAQ clearly state standalone usage and related projects.
-- Docs contribution path is explicit: "edit here, validate with these commands".
-Contract/API impact:
-- No runtime API change.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Keep source-of-truth mapping explicit and stable.
-ADR required: no
-TDD first failing test(s):
-- `TestDocsSourceOfTruthSectionsPresent`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not required (docs/governance story).
-Dependencies:
-- Story 2.2 preferred.
-Risks:
-- Multi-surface docs drift if source map not enforced in CI.
-
-## Epic 3: Wave 2 OSS Governance and Contributor Systemization
-
-Objective: raise public OSS trust baseline and contributor throughput with explicit governance contracts.
-
-### Story 3.1: Expand CONTRIBUTING Workflow and Go-Only Contributor Path
-Priority: P1
-Tasks:
-- Expand `CONTRIBUTING.md` with setup, targeted test commands, detector authoring guidance, determinism expectations, PR process, and CI lane map.
-- Split required vs optional toolchains; document Go-only contribution path without default Node requirement.
-Repo paths:
-- `CONTRIBUTING.md`
-- `Makefile` (guidance references only if needed)
-- `docs/contributing/*` (optional)
-Run commands:
+Fast lane:
 - `make lint-fast`
 - `make test-fast`
-- `make test-docs-consistency`
+
+Core CI lane:
+- Targeted package tests for touched components (`core/cli`, `core/evidence`, `core/state`, `core/proofemit`, `core/lifecycle`, `core/source`).
+- `make test-contracts`
+
+Acceptance lane:
+- `make test-scenarios`
+- relevant CLI/e2e acceptance tests for command contracts
+
+Cross-platform lane:
+- Preserve Linux/macOS/Windows behavior for path handling and CLI exit-code envelopes.
+
+Risk lane:
+- `make prepush-full`
+- `make test-hardening`
+- `make test-chaos`
+- `make test-perf` for any measurable regression in persistence path changes
+
+Merge/release gating rule:
+- No Wave 2 execution until all Wave 1 stories are green across required lanes.
+- No merge when any touched contract, hardening, or chaos lane is red.
+
+## Epic 1 (Wave 1): Contract and Runtime Safety Corrections
+
+Objective: close release-blocking P1/P2 findings on exit taxonomy, destructive path safety, and persistence durability.
+
+### Story S1.1: Classify Evidence Failures by Deterministic Error Type
+Priority: P0
+Tasks:
+- Introduce typed/sentinel errors in `core/evidence` for invalid input, runtime, and unsafe-operation classes.
+- Map typed errors in `core/cli/evidence.go` to stable `code + exit` contract.
+- Add/refresh CLI contract tests for JSON envelope and exits.
+- Add command docs updates for classification semantics.
+Repo paths:
+- `core/evidence/evidence.go`
+- `core/cli/evidence.go`
+- `core/cli/root_test.go`
+- `docs/commands/evidence.md`
+- `docs/commands/root.md`
+Run commands:
+- `go test ./core/evidence ./core/cli -count=1`
+- `make test-contracts`
+- `make test-scenarios`
+- `make prepush-full`
 Test requirements:
-- Tier 9 docs contract checks for required contributor sections and command accuracy.
+- CLI behavior tests: `--json` stability, exit-code invariants, error envelope fields.
+- Contract tests for `invalid_input` vs `runtime_failure` vs `unsafe_operation_blocked`.
+- Regression tests to prevent class collapse back to exit `8`.
 Matrix wiring:
-- Lanes: Fast, Core CI, Cross-platform.
-- Pipeline placement: PR + Main.
+- Fast, Core CI, Acceptance, Cross-platform, Risk.
 Acceptance criteria:
-- New contributor can execute focused Go-only workflow without Node stack.
-- Optional docs-site path is explicit and separate.
+- Missing state path yields `runtime_failure` + exit `1`.
+- Invalid framework ID yields `invalid_input` + exit `6` (or explicit documented taxonomy decision if chosen otherwise).
+- Unsafe output-path violations remain `unsafe_operation_blocked` + exit `8`.
 Contract/API impact:
-- No runtime API change.
+- Error/exit classification behavior is normalized to stable documented contract.
 Versioning/migration impact:
-- None.
+- Additive/no schema version bump; release notes + docs contract note required.
 Architecture constraints:
-- Contributor guidance must reflect actual lane gates and deterministic expectations.
-ADR required: no
+- Keep CLI as mapper/orchestrator; classification logic belongs in evidence/core errors.
+- Preserve fail-closed semantics for unsafe path detection.
+ADR required: yes
 TDD first failing test(s):
-- `TestContributingContainsRequiredWorkflowSections`
+- `TestEvidenceCommandClassifiesMissingStateAsRuntimeFailure`
+- `TestEvidenceCommandClassifiesUnknownFrameworkAsInvalidInput`
+- `TestEvidenceCommandRetainsUnsafePathAsExit8`
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- Not required (contributor-doc story).
-Dependencies:
-- None.
-Risks:
-- Documentation quality degrades if commands are not validated in CI.
+- If evidence input and runtime failures are mixed, classification remains deterministic and never escalates non-safety failures to unsafe blocked.
 
-### Story 3.2: Add Issue and PR Templates with Contract/Test Prompts
+### Story S1.2: Ownership-Gated Materialized Source Cleanup
+Priority: P0
+Tasks:
+- Add managed-root marker contract for `materialized-sources` similar to evidence ownership semantics.
+- Block recursive cleanup when path is non-empty and non-managed.
+- Reject marker symlink/directory and invalid marker content.
+- Add tests for caller-supplied state-path boundary behavior.
+Repo paths:
+- `core/cli/scan_helpers.go`
+- `core/source/github/connector.go` (if helper reuse needed)
+- `core/cli/root_test.go`
+- `internal/e2e/source/*`
+- `docs/commands/scan.md`
+Run commands:
+- `go test ./core/cli ./core/source/... -count=1`
+- `go test ./internal/e2e/source -count=1`
+- `make test-contracts`
+- `make test-hardening`
+- `make test-chaos`
+- `make prepush-full`
+Test requirements:
+- Fail-closed boundary tests: non-empty + non-managed => fail.
+- Marker trust tests: regular-file marker only; symlink/directory marker rejected.
+- Deterministic path error envelope tests for scan JSON mode.
+Matrix wiring:
+- Fast, Core CI, Acceptance, Cross-platform, Risk.
+Acceptance criteria:
+- Scan no longer deletes unmanaged `materialized-sources` data.
+- Managed roots are safely reset with deterministic behavior.
+- Boundary violations are explicit and machine-readable.
+Contract/API impact:
+- Scan path-safety semantics tightened; error envelope behavior documented.
+Versioning/migration impact:
+- Behavioral hardening only; no schema bump.
+Architecture constraints:
+- Source boundary owns materialization safety checks; CLI only surfaces deterministic failure class.
+- Explicit side-effect semantics in helper naming (`prepare` vs `resetManaged`).
+ADR required: yes
+TDD first failing test(s):
+- `TestPrepareMaterializedRootRejectsNonManagedNonEmptyDir`
+- `TestPrepareMaterializedRootRejectsMarkerSymlink`
+- `TestScanRepoDoesNotDeleteUnmanagedMaterializedSources`
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Under concurrent or interrupted scan starts, unmanaged directories remain intact and managed reset remains idempotent.
+
+### Story S1.3: Atomic and Crash-Safe Writes for State and Chains
+Priority: P0
+Tasks:
+- Introduce shared atomic-write utility (`temp -> fsync -> rename`) for JSON/YAML artifacts.
+- Apply utility to state snapshot writes, proof-chain writes, and lifecycle chain writes.
+- Add lock/contention protection where concurrent writers can collide.
+- Add crash/partial-write simulation tests.
+Repo paths:
+- `core/state/state.go`
+- `core/proofemit/proofemit.go`
+- `core/lifecycle/chain.go`
+- `core/*/*_test.go` for persistence/hardening cases
+- `scripts/test_hardening_core.sh` (if lane wiring update needed)
+Run commands:
+- `go test ./core/state ./core/proofemit ./core/lifecycle -count=1`
+- `make test-hardening`
+- `make test-chaos`
+- `make test-contracts`
+- `make prepush-full`
+Test requirements:
+- Atomic-write lifecycle tests (interruption and rollback behavior).
+- Contention/concurrency tests with deterministic final artifact state.
+- Byte-stability checks for repeated writes.
+Matrix wiring:
+- Fast, Core CI, Acceptance, Cross-platform, Risk.
+Acceptance criteria:
+- No truncated/corrupted state/proof/lifecycle files under induced interruption tests.
+- Concurrent write attempts produce deterministic valid artifacts or explicit blocked error behavior.
+- Existing command contracts remain unchanged.
+Contract/API impact:
+- No user-facing schema change; durability guarantees strengthened.
+Versioning/migration impact:
+- No migration required.
+Architecture constraints:
+- Keep persistence mechanics in dedicated utilities; avoid duplicating write logic across boundaries.
+- Preserve deterministic serialization ordering before write commit.
+ADR required: yes
+TDD first failing test(s):
+- `TestStateSaveIsAtomicUnderInterruption`
+- `TestProofChainSaveIsAtomicUnderInterruption`
+- `TestLifecycleChainSaveHandlesWriteContention`
+Cost/perf impact: medium
+Chaos/failure hypothesis:
+- During filesystem faults and abrupt cancellation, committed artifact remains last-valid version and downstream parse succeeds.
+
+### Story S1.4: Verify Chain Failure Taxonomy Alignment
 Priority: P1
 Tasks:
-- Add structured issue templates for bug/feature/docs.
-- Add PR template requiring contract impact, tests, and lane evidence.
-- Link templates from contributing docs.
+- Align `verify --chain` parse/integrity failure mapping to `verification_failure` exit `2`.
+- Keep clear distinction between true CLI argument validation (`exit 6`) and chain verification failures (`exit 2`).
+- Update command docs and trust docs for exact taxonomy.
 Repo paths:
-- `.github/ISSUE_TEMPLATE/*`
-- `.github/pull_request_template.md`
-- `CONTRIBUTING.md`
+- `core/cli/verify.go`
+- `core/verify/verify.go` (if typed errors needed)
+- `core/cli/root_test.go`
+- `docs/commands/verify.md`
+- `docs/trust/proof-chain-verification.md`
 Run commands:
-- `make lint-fast`
-- `make test-docs-consistency`
+- `go test ./core/verify ./core/cli -count=1`
+- `make test-contracts`
+- `make test-scenarios`
+- `make prepush-full`
 Test requirements:
-- Tier 9 hygiene tests for presence/required template fields.
+- CLI exit-code envelope tests for malformed chain and tampered chain.
+- Machine-readable error object stability tests (`code`, `reason`, `exit_code`, break fields).
 Matrix wiring:
-- Lanes: Fast, Core CI.
-- Pipeline placement: PR + Main.
+- Fast, Core CI, Acceptance, Cross-platform, Risk.
 Acceptance criteria:
-- New issue/PR forms guide reproducible, high-signal submissions.
-- Template prompts include contract/test expectations.
+- Malformed or tampered chain yields `verification_failure` + exit `2`.
+- `verify` positional/flag misuse still yields `invalid_input` + exit `6`.
+- Docs match runtime behavior exactly.
 Contract/API impact:
-- No runtime API change.
+- Verification failure semantics become explicitly consistent across parse/integrity failure paths.
 Versioning/migration impact:
-- None.
+- Contract clarification and normalization; no schema version bump.
 Architecture constraints:
-- Governance templates must reinforce contract-first review behavior.
-ADR required: no
+- Verification classification belongs in verify core/CLI boundary, not caller-specific wrappers.
+ADR required: yes
 TDD first failing test(s):
-- `TestCommunityTemplatesPresentAndStructured`
+- `TestVerifyMalformedChainReturnsExit2`
+- `TestVerifyInvalidCLIArgsRemainExit6`
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- Not required.
-Dependencies:
-- None.
-Risks:
-- Low.
+- Corrupted chain bytes under repeated verify calls always map to stable failure class and deterministic envelope.
 
-### Story 3.3: Community Health Baseline (`CODE_OF_CONDUCT` + `CHANGELOG`)
-Priority: P2
-Tasks:
-- Add `CODE_OF_CONDUCT.md` and link from README/community section.
-- Add `CHANGELOG.md` format + maintenance process and release linkage.
-- Update release docs to include changelog update expectation.
-Repo paths:
-- `CODE_OF_CONDUCT.md` (new)
-- `CHANGELOG.md` (new)
-- `README.md`
-- `docs/release/*`
-Run commands:
-- `make test-docs-consistency`
-Test requirements:
-- Tier 9 docs/hygiene checks for required governance files and links.
-Matrix wiring:
-- Lanes: Fast, Core CI.
-- Pipeline placement: PR + Main + Release doc gate.
-Acceptance criteria:
-- Both files exist and are linked from README/docs.
-- Changelog maintenance process is explicit and release-linked.
-Contract/API impact:
-- No runtime API change.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Governance docs remain aligned with release process reality.
-ADR required: no
-TDD first failing test(s):
-- `TestCommunityHealthFilesAndLinks`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not required.
-Dependencies:
-- None.
-Risks:
-- Low.
+## Epic 2 (Wave 2): Docs and Contract Publication Alignment
 
-### Story 3.4: Governance Policy for `product/` and `.agents/skills/` Exposure
-Priority: P2
-Tasks:
-- Define policy for planning/audit content in `product/` (public vs redacted vs private).
-- Define policy for `.agents/skills/` exposure (transparency artifact vs restricted operational detail).
-- Add enforcement guidance and directory notices; reconcile repository content to chosen policy.
-Repo paths:
-- `docs/governance/content-visibility.md` (new)
-- `product/*` (policy-driven updates as needed)
-- `.agents/skills/README.md` or policy notice (new)
-- `README.md` / `CONTRIBUTING.md`
-Run commands:
-- `make test-docs-consistency`
-- `make lint-fast`
-Test requirements:
-- Tier 9 governance-doc checks for explicit policy statements and directory references.
-Matrix wiring:
-- Lanes: Fast, Core CI.
-- Pipeline placement: PR + Main.
-Acceptance criteria:
-- Both policies are explicit and linked.
-- Repository content/state aligns with documented policy.
-Contract/API impact:
-- No runtime API change.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Governance policy must not weaken runtime security contracts.
-ADR required: no
-TDD first failing test(s):
-- `TestGovernancePolicyDocsPresent`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not required.
-Dependencies:
-- Story 3.1 recommended.
-Risks:
-- Organizational alignment needed before enforcement.
+Objective: ensure user-facing and automation-facing docs reflect final Wave 1 runtime behavior without ambiguity.
 
-### Story 3.5: Cross-Repo README Contract Standardization (Wrkr-first)
-Priority: P2
+### Story S2.1: Command Contract and Taxonomy Docs Sync
+Priority: P1
 Tasks:
-- Define shared README contract sections (install, first 10 minutes, integration, command surface, governance/support links).
-- Align Wrkr README to the contract in this repo.
-- Record tracked external follow-ups for Proof/Gait alignment with owner and due date.
+- Update docs for `evidence`, `scan`, and `verify` with final error/exit taxonomy.
+- Confirm examples and expected JSON keys/envelopes reflect implemented behavior.
+- Run docs consistency/storyline checks.
 Repo paths:
-- `docs/contracts/readme_contract.md` (new)
-- `README.md`
-- `docs/roadmap/cross-repo-readme-alignment.md` (new)
+- `README.md` (if externally visible behavior summary changes)
+- `docs/commands/evidence.md`
+- `docs/commands/scan.md`
+- `docs/commands/verify.md`
+- `docs/commands/root.md`
+- `docs/failure_taxonomy_exit_codes.md`
 Run commands:
 - `make test-docs-consistency`
 - `make test-docs-storyline`
+- `scripts/run_docs_smoke.sh`
+- `make prepush-full`
 Test requirements:
-- Tier 9 docs contract checks for required README sections.
-- Tier 4 docs storyline checks for first-10-minutes flow.
+- Docs consistency checks for command/flag/exit parity.
+- Storyline/smoke checks for integration-first flow.
 Matrix wiring:
-- Lanes: Fast, Core CI, Acceptance, Cross-platform.
-- Pipeline placement: PR + Main.
+- Fast, Core CI, Acceptance, Cross-platform.
 Acceptance criteria:
-- Wrkr README follows shared contract.
-- External repo alignment work is explicitly tracked (owner + dates) and linkable.
+- No docs/runtime mismatch for modified command semantics.
+- Failure taxonomy tables and command docs agree with tested exits.
 Contract/API impact:
-- No runtime API change.
+- Documentation-only publication of stabilized runtime contracts.
 Versioning/migration impact:
 - None.
 Architecture constraints:
-- README contract reflects runtime boundaries and deterministic command behavior.
+- Do not alter runtime behavior in docs-only story.
 ADR required: no
 TDD first failing test(s):
-- `TestReadmeContractSectionsPresent`
+- `docs parity check` failure before doc updates.
 Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not required.
-Dependencies:
-- Story 2.4 recommended.
-Risks:
-- Cross-repo dependency outside this repo’s direct merge control.
 
 ## Minimum-Now Sequence
 
-Phase 0 (Week 1): Wave 1/P0 runtime safety foundation
-- Story 0.1
-- Story 0.2
-- Story 0.3
-Gate:
-- `make prepush-full`
-- `make test-contracts`
-- `make test-scenarios`
+Wave 1 (must complete first):
+1. S1.2 (filesystem ownership-gated cleanup)
+2. S1.3 (atomic persistence hardening)
+3. S1.1 (evidence classification taxonomy)
+4. S1.4 (verify taxonomy alignment)
 
-Phase 1 (Week 2): Wave 1 contract/boundary quality
-- Story 1.1
-- Story 1.2
-- Story 1.3
-- Story 1.4
-- Story 1.5
-Gate:
-- `make prepush-full`
-- `make test-risk-lane`
+Wave 2:
+5. S2.1 (docs/contract publication sync)
 
-Phase 2 (Week 3): Wave 1 distribution completion
-- Story 1.6
-Gate:
-- `make prepush-full`
-- `make test-release-smoke`
-- `make test-contracts`
-
-Wave 1 hard gate before Wave 2:
-- All `0.*` and `1.*` stories are complete and all mapped lanes are green.
-- No JSON key removals, exit-code changes, or undocumented compatibility breaks.
-
-Phase 3 (Week 4): Wave 2 docs/DX clarity
-- Story 2.1
-- Story 2.2
-- Story 2.3
-- Story 2.4
-Gate:
-- `make test-docs-consistency`
-- `make docs-site-install && make docs-site-lint && make docs-site-build && make docs-site-check`
-
-Phase 4 (Week 5): Wave 2 OSS/governance closure
-- Story 3.1
-- Story 3.2
-- Story 3.3
-- Story 3.4
-- Story 3.5
-Gate:
-- `make lint-fast`
-- `make test-docs-consistency`
-
-Release readiness gate:
-- `make prepush-full`
-- `make test-contracts`
-- `make test-scenarios`
-- `make test-docs-consistency`
-- `make docs-site-install && make docs-site-lint && make docs-site-build && make docs-site-check`
+Dependency rationale:
+- Safety boundary and persistence fixes first to remove destructive/corruption risk.
+- Error-taxonomy normalization next, then verification semantics.
+- Docs last to reflect final runtime truth.
 
 ## Explicit Non-Goals
 
-- No Axym or Gait runtime feature implementation in Wrkr.
-- No hosted backend introduction for core scan/risk/proof paths.
-- No schema v2 rollout in this plan unless explicitly triggered by approved compatibility policy.
-- No relaxation of fail-closed behavior for ambiguous high-risk paths.
-- No replacement of native proof artifacts; SARIF is additive distribution output only.
-- No broad refactor outside story scope.
+- No new product features outside these findings.
+- No detector-coverage expansion unrelated to failure taxonomy/safety issues.
+- No schema major-version bump.
+- No Axym/Gait feature implementation in Wrkr repo.
+- No release cut/PR shipping steps in this plan.
 
 ## Definition of Done
 
-A story is done only when all are true:
-
-- Acceptance criteria are met with command evidence.
-- Required tests for the story work type are added/updated and passing.
-- Required lane mapping is satisfied in the designated pipeline(s).
-- Contract/API impact and migration implications are documented and reflected in tests.
-- Docs/help are updated in the same change for user-visible behavior changes.
-- Architecture constraints are respected; ADR included when marked required.
-- Determinism/fail-closed guarantees are preserved.
-
-Plan completion requires:
-- All stories complete or explicitly marked blocked/deferred with owner and unblock path.
-- All Exit Criteria met.
-- Wave 1 hard gate satisfied before any Wave 2 completion claims.
+- All in-scope stories completed with required story fields satisfied.
+- Wave 1 complete and green before Wave 2 work starts.
+- Every recommendation mapped to at least one implemented story.
+- Contract-impacting stories include deterministic tests for JSON envelope and exit code behavior.
+- Reliability/safety stories include hardening + chaos evidence.
+- Docs are updated in same change set for user-visible behavior changes.
+- Final validation evidence includes:
+  - `make prepush-full`
+  - `make test-contracts`
+  - `make test-scenarios`
+  - `make test-hardening`
+  - `make test-chaos`
+  - `make test-docs-consistency`

@@ -1,16 +1,21 @@
 package proofemit
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	proof "github.com/Clyra-AI/proof"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/score"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 func TestEmitScanProducesSignedRecords(t *testing.T) {
@@ -152,5 +157,44 @@ func TestEmitScanLinksRiskRecordWhenOrgIsEmpty(t *testing.T) {
 	}
 	if !linkedRisk {
 		t.Fatalf("expected finding_risk record with related_record_ids linkage for empty-org finding; chain=%#v", chain.Records)
+	}
+}
+
+func TestProofChainSaveIsAtomicUnderInterruption(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "proof-chain.json")
+	chain := proof.NewChain("wrkr-proof")
+	if err := SaveChain(path, chain); err != nil {
+		t.Fatalf("save initial chain: %v", err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read initial chain bytes: %v", err)
+	}
+
+	var injected atomic.Bool
+	restore := atomicwrite.SetBeforeRenameHookForTest(func(targetPath string, _ string) error {
+		if filepath.Clean(targetPath) != filepath.Clean(path) {
+			return nil
+		}
+		if injected.CompareAndSwap(false, true) {
+			return errors.New("simulated interruption before rename")
+		}
+		return nil
+	})
+	defer restore()
+
+	updated := proof.NewChain("wrkr-proof-updated")
+	if err := SaveChain(path, updated); err == nil {
+		t.Fatal("expected proof chain save interruption failure")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read chain after interruption: %v", err)
+	}
+	if string(before) != string(after) {
+		t.Fatalf("expected proof chain bytes to remain unchanged after interruption\nbefore: %s\nafter: %s", before, after)
+	}
+	if _, err := LoadChain(path); err != nil {
+		t.Fatalf("expected proof chain to remain parseable after interruption: %v", err)
 	}
 }

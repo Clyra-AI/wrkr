@@ -422,6 +422,8 @@ func emitScanRuntimeError(stderr io.Writer, jsonOut bool, err error) int {
 		return emitError(stderr, jsonOut, "scan_timeout", "scan exceeded configured timeout", exitRuntime)
 	case errors.Is(err, context.Canceled):
 		return emitError(stderr, jsonOut, "scan_canceled", "scan canceled by signal or parent context", exitRuntime)
+	case isMaterializedRootSafetyError(err):
+		return emitError(stderr, jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
 	default:
 		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}

@@ -109,6 +109,42 @@ func TestE2EAirGappedPathScan(t *testing.T) {
 	}
 }
 
+func TestE2EScanRepoRejectsUnmanagedMaterializedRoot(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	materializedRoot := filepath.Join(filepath.Dir(statePath), "materialized-sources")
+	if err := os.MkdirAll(materializedRoot, 0o750); err != nil {
+		t.Fatalf("mkdir materialized root: %v", err)
+	}
+	stalePath := filepath.Join(materializedRoot, "unmanaged.txt")
+	if err := os.WriteFile(stalePath, []byte("do-not-delete"), 0o600); err != nil {
+		t.Fatalf("write unmanaged file: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := cli.Run([]string{"scan", "--repo", "acme/backend", "--github-api", "https://example.invalid", "--state", statePath, "--json"}, &out, &errOut)
+	if code != 8 {
+		t.Fatalf("expected exit 8 for unmanaged materialized root, got %d (%s)", code, errOut.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan error payload: %v", err)
+	}
+	errObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object payload: %v", payload)
+	}
+	if errObj["code"] != "unsafe_operation_blocked" {
+		t.Fatalf("expected unsafe_operation_blocked code, got %v", errObj["code"])
+	}
+	if _, err := os.Stat(stalePath); err != nil {
+		t.Fatalf("expected unmanaged file to remain, got %v", err)
+	}
+}
+
 func containsToolType(findings []any, want string) bool {
 	for _, item := range findings {
 		finding, ok := item.(map[string]any)
