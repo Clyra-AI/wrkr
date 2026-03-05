@@ -24,7 +24,10 @@ func WriteFile(path string, payload []byte, perm os.FileMode) error {
 }
 
 func WriteFileWithOptions(path string, payload []byte, perm os.FileMode, opts Options) error {
-	cleanPath := filepath.Clean(path)
+	cleanPath, err := resolveCommitPath(path)
+	if err != nil {
+		return err
+	}
 	dir := filepath.Dir(cleanPath)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return fmt.Errorf("mkdir atomic-write dir: %w", err)
@@ -77,6 +80,29 @@ func WriteFileWithOptions(path string, payload []byte, perm os.FileMode, opts Op
 	committed = true
 	syncDirBestEffort(dir)
 	return nil
+}
+
+func resolveCommitPath(path string) (string, error) {
+	cleanPath := filepath.Clean(path)
+	info, err := os.Lstat(cleanPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return cleanPath, nil
+		}
+		return "", fmt.Errorf("stat atomic-write path: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return cleanPath, nil
+	}
+
+	targetPath, err := os.Readlink(cleanPath)
+	if err != nil {
+		return "", fmt.Errorf("read atomic-write symlink target: %w", err)
+	}
+	if !filepath.IsAbs(targetPath) {
+		targetPath = filepath.Join(filepath.Dir(cleanPath), targetPath)
+	}
+	return filepath.Clean(targetPath), nil
 }
 
 // SetBeforeRenameHookForTest installs a process-wide hook used by tests to
