@@ -1299,6 +1299,78 @@ func TestVerifyTamperedChainReturnsExit2(t *testing.T) {
 	}
 }
 
+func TestVerifyMalformedChainReturnsExit2(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	chainPath := filepath.Join(filepath.Dir(statePath), "proof-chain.json")
+	if err := os.WriteFile(chainPath, []byte("{invalid-json"), 0o600); err != nil {
+		t.Fatalf("write malformed chain: %v", err)
+	}
+
+	var verifyOut bytes.Buffer
+	var verifyErr bytes.Buffer
+	code := Run([]string{"verify", "--chain", "--state", statePath, "--json"}, &verifyOut, &verifyErr)
+	if code != 2 {
+		t.Fatalf("expected exit 2 for malformed chain, got %d", code)
+	}
+	var errorPayload map[string]any
+	if err := json.Unmarshal(verifyErr.Bytes(), &errorPayload); err != nil {
+		t.Fatalf("parse verify error payload: %v", err)
+	}
+	errObject, ok := errorPayload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object in verify payload: %v", errorPayload)
+	}
+	if errObject["code"] != "verification_failure" {
+		t.Fatalf("unexpected verification error code: %v", errObject["code"])
+	}
+	if errObject["reason"] != "chain_parse_error" {
+		t.Fatalf("unexpected malformed-chain reason: %v", errObject["reason"])
+	}
+	if errObject["exit_code"] != float64(2) {
+		t.Fatalf("unexpected malformed-chain exit code: %v", errObject["exit_code"])
+	}
+}
+
+func TestVerifyInvalidCLIArgsRemainExit6(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"verify", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6 for invalid verify args, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout for invalid verify args, got %q", out.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse verify invalid-args payload: %v", err)
+	}
+	errObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object payload: %v", payload)
+	}
+	if errObj["code"] != "invalid_input" {
+		t.Fatalf("expected invalid_input code, got %v", errObj["code"])
+	}
+	if errObj["exit_code"] != float64(6) {
+		t.Fatalf("unexpected verify invalid-args exit code: %v", errObj["exit_code"])
+	}
+}
+
 func TestReportPDFCommandWritesDeterministicPDFEnvelope(t *testing.T) {
 	t.Parallel()
 
@@ -1481,7 +1553,79 @@ func TestManifestGenerateCreatesUnderReviewBaseline(t *testing.T) {
 	}
 }
 
-func TestEvidenceCommandRejectsUnsafeOutputPathWithExit8(t *testing.T) {
+func TestEvidenceCommandClassifiesMissingStateAsRuntimeFailure(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "missing-state.json")
+	outputDir := filepath.Join(tmp, "output")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"evidence", "--frameworks", "soc2", "--state", statePath, "--output", outputDir, "--json"}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on runtime error, got %q", out.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse evidence error payload: %v", err)
+	}
+	errObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object payload: %v", payload)
+	}
+	if errObj["code"] != "runtime_failure" {
+		t.Fatalf("unexpected error code: %v", errObj["code"])
+	}
+	if errObj["exit_code"] != float64(1) {
+		t.Fatalf("unexpected error exit code: %v", errObj["exit_code"])
+	}
+}
+
+func TestEvidenceCommandClassifiesUnknownFrameworkAsInvalidInput(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	outputDir := filepath.Join(tmp, "output")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"evidence", "--frameworks", "unknown-framework", "--state", statePath, "--output", outputDir, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d", code)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on invalid input error, got %q", out.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse evidence error payload: %v", err)
+	}
+	errObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object payload: %v", payload)
+	}
+	if errObj["code"] != "invalid_input" {
+		t.Fatalf("unexpected error code: %v", errObj["code"])
+	}
+	if errObj["exit_code"] != float64(6) {
+		t.Fatalf("unexpected error exit code: %v", errObj["exit_code"])
+	}
+}
+
+func TestEvidenceCommandRetainsUnsafePathAsExit8(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()

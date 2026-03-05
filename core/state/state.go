@@ -3,7 +3,6 @@ package state
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -14,6 +13,8 @@ import (
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
+	"os"
 )
 
 const SnapshotVersion = "v1"
@@ -44,15 +45,12 @@ func ResolvePath(explicit string) string {
 func Save(path string, snapshot Snapshot) error {
 	snapshot.Version = SnapshotVersion
 	source.SortFindings(snapshot.Findings)
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return fmt.Errorf("mkdir state dir: %w", err)
-	}
 	payload, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal state: %w", err)
 	}
 	payload = append(payload, '\n')
-	if err := os.WriteFile(path, payload, 0o600); err != nil {
+	if err := atomicwrite.WriteFile(path, payload, 0o600); err != nil {
 		return fmt.Errorf("write state: %w", err)
 	}
 	return nil

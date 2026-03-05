@@ -13,6 +13,11 @@ Acquisition behavior is fail-closed by target:
 - `--path` runs fully local/offline.
 - `--repo` and `--org` require real GitHub acquisition via `--github-api` or `WRKR_GITHUB_API_BASE`.
 - `--repo` and `--org` materialize repository contents into a deterministic local workspace under the scan state directory before detectors run.
+- Materialized workspace root (`materialized-sources/`) is ownership-gated:
+  - Wrkr-managed roots include marker `.wrkr-materialized-sources-managed`.
+  - Non-empty roots without a valid marker are blocked (no recursive cleanup).
+  - Marker must be a regular file with expected content; symlink/directory/invalid marker content is blocked.
+  - Ownership violations return `unsafe_operation_blocked` (exit `8`).
 - When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
 

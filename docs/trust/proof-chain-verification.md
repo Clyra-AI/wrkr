@@ -23,7 +23,7 @@ wrkr verify --chain --state ./.tmp/state.json --json
 ## Exit codes
 
 - `0`: chain intact
-- `2`: verification failure
+- `2`: verification failure (including malformed-chain parse failures, chain read failures, and tamper/integrity failures)
 
 ## Notes
 
@@ -33,7 +33,7 @@ Proof verification is local and deterministic. Verification failures are blockin
 
 ### Which JSON keys should automation parse after verification?
 
-Parse `status`, `chain`, `chain.intact`, and `chain.head_hash` as the core verification contract fields.
+Parse success keys `status`, `chain`, `chain.intact`, and `chain.head_hash`. For failure handling in JSON mode, parse `error.code`, `error.reason`, and `error.exit_code`.
 
 ### What exit code indicates proof-chain failure?
 

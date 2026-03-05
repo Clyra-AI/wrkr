@@ -44,7 +44,14 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 		GeneratedAt: time.Now().UTC().Truncate(time.Second),
 	})
 	if err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+		switch evidence.ClassifyBuildError(err) {
+		case evidence.ErrorClassInvalidInput:
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		case evidence.ErrorClassUnsafeOperationBlocked:
+			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+		default:
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		}
 	}
 
 	if *jsonOut {

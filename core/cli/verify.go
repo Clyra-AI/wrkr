@@ -42,24 +42,14 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	result, err := verifycore.Chain(chainPath)
 	if err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		errorCode := verifycore.ErrorCodeFor(err)
+		if errorCode == verifycore.ErrorCodeInvalidInput {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		return emitVerificationFailure(stderr, jsonRequested || *jsonOut, reasonForVerifyError(errorCode), -1, "", err.Error())
 	}
 	if !result.Intact {
-		if jsonRequested || *jsonOut {
-			_ = json.NewEncoder(stderr).Encode(map[string]any{
-				"error": map[string]any{
-					"code":        "verification_failure",
-					"message":     "proof chain verification failed",
-					"reason":      result.Reason,
-					"break_index": result.BreakIndex,
-					"break_point": result.BreakPoint,
-					"exit_code":   exitVerification,
-				},
-			})
-		} else {
-			_, _ = fmt.Fprintf(stderr, "proof chain verification failed at index %d (%s)\n", result.BreakIndex, result.BreakPoint)
-		}
-		return exitVerification
+		return emitVerificationFailure(stderr, jsonRequested || *jsonOut, result.Reason, result.BreakIndex, result.BreakPoint, "")
 	}
 
 	payload := map[string]any{
@@ -80,4 +70,45 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintf(stdout, "wrkr verify chain intact records=%d\n", result.Count)
 	return exitSuccess
+}
+
+func emitVerificationFailure(stderr io.Writer, jsonOut bool, reason string, breakIndex int, breakPoint, detail string) int {
+	if jsonOut {
+		errorPayload := map[string]any{
+			"code":      "verification_failure",
+			"message":   "proof chain verification failed",
+			"reason":    reason,
+			"exit_code": exitVerification,
+		}
+		if breakIndex >= 0 {
+			errorPayload["break_index"] = breakIndex
+		}
+		if strings.TrimSpace(breakPoint) != "" {
+			errorPayload["break_point"] = breakPoint
+		}
+		if strings.TrimSpace(detail) != "" {
+			errorPayload["detail"] = detail
+		}
+		_ = json.NewEncoder(stderr).Encode(map[string]any{"error": errorPayload})
+		return exitVerification
+	}
+	if breakIndex >= 0 {
+		_, _ = fmt.Fprintf(stderr, "proof chain verification failed at index %d (%s)\n", breakIndex, breakPoint)
+		return exitVerification
+	}
+	_, _ = fmt.Fprintf(stderr, "proof chain verification failed: %s\n", detail)
+	return exitVerification
+}
+
+func reasonForVerifyError(code verifycore.ErrorCode) string {
+	switch code {
+	case verifycore.ErrorCodeReadChain:
+		return "chain_read_error"
+	case verifycore.ErrorCodeParseChain:
+		return "chain_parse_error"
+	case verifycore.ErrorCodeVerifyChainFailure:
+		return "chain_integrity_failure"
+	default:
+		return "verification_error"
+	}
 }

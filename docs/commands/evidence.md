@@ -22,6 +22,14 @@ Evidence output directories are fail-closed:
 - Marker path must be a regular file; symlink or directory markers are blocked.
 - Unsafe output directory usage returns exit code `8` with error code `unsafe_operation_blocked`.
 
+## Error classification contract
+
+`wrkr evidence --json` emits stable machine-readable error classes:
+
+- `runtime_failure` (exit `1`) for runtime/environment/state prerequisites (for example missing state snapshot/proof chain/signing material).
+- `invalid_input` (exit `6`) for caller-controlled invalid arguments (for example unknown framework IDs).
+- `unsafe_operation_blocked` (exit `8`) for output-path ownership/marker safety violations.
+
 ## Coverage semantics
 
 `framework_coverage` is computed from proof/evidence present in the scanned state at run time.

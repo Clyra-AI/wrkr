@@ -35,6 +35,13 @@ Root help output emits a deterministic command catalog plus global flags.
 - `7`: dependency missing
 - `8`: unsafe operation blocked
 
+Command taxonomy notes:
+
+- `wrkr evidence --json` uses deterministic error mapping:
+  - `runtime_failure` -> `1`
+  - `invalid_input` -> `6`
+  - `unsafe_operation_blocked` -> `8`
+
 ## Example
 
 ```bash

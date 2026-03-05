@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,39 +41,108 @@ type BuildResult struct {
 const outputDirMarkerFile = ".wrkr-evidence-managed"
 const outputDirMarkerContent = "managed by wrkr evidence build\n"
 
+type ErrorClass string
+
+const (
+	ErrorClassInvalidInput           ErrorClass = "invalid_input"
+	ErrorClassRuntimeFailure         ErrorClass = "runtime_failure"
+	ErrorClassUnsafeOperationBlocked ErrorClass = "unsafe_operation_blocked"
+)
+
+type classifiedError struct {
+	class ErrorClass
+	err   error
+}
+
+func (e *classifiedError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e *classifiedError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func classifyError(class ErrorClass, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &classifiedError{class: class, err: err}
+}
+
+func classifyErrorf(class ErrorClass, format string, args ...any) error {
+	return &classifiedError{class: class, err: fmt.Errorf(format, args...)}
+}
+
+func ClassifyBuildError(err error) ErrorClass {
+	var target *classifiedError
+	if errors.As(err, &target) {
+		return target.class
+	}
+	return ErrorClassRuntimeFailure
+}
+
+type outputDirSafetyError struct {
+	message string
+}
+
+func (e *outputDirSafetyError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.message
+}
+
+func newOutputDirSafetyError(format string, args ...any) error {
+	return &outputDirSafetyError{message: fmt.Sprintf(format, args...)}
+}
+
+func isOutputDirSafetyError(err error) bool {
+	var target *outputDirSafetyError
+	return errors.As(err, &target)
+}
+
 func Build(in BuildInput) (BuildResult, error) {
 	resolvedStatePath := state.ResolvePath(strings.TrimSpace(in.StatePath))
 	snapshot, err := state.Load(resolvedStatePath)
 	if err != nil {
-		return BuildResult{}, fmt.Errorf("load state snapshot: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load state snapshot: %w", err)
 	}
 	chainPath := proofemit.ChainPath(resolvedStatePath)
 	if _, err := os.Stat(chainPath); err != nil {
 		if os.IsNotExist(err) {
-			return BuildResult{}, fmt.Errorf("load proof chain: proof chain file does not exist: %s", chainPath)
+			return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load proof chain: proof chain file does not exist: %s", chainPath)
 		}
-		return BuildResult{}, fmt.Errorf("load proof chain: stat chain file: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load proof chain: stat chain file: %w", err)
 	}
 	chain, err := proofemit.LoadChain(chainPath)
 	if err != nil {
-		return BuildResult{}, fmt.Errorf("load proof chain: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load proof chain: %w", err)
 	}
 	if !hasScanEvidenceRecords(chain.Records) {
-		return BuildResult{}, fmt.Errorf("load proof chain: proof chain has no scan evidence records")
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load proof chain: proof chain has no scan evidence records")
 	}
 	frameworks := normalizeFrameworks(in.Frameworks)
 	if len(frameworks) == 0 {
-		return BuildResult{}, fmt.Errorf("at least one framework is required")
+		return BuildResult{}, classifyErrorf(ErrorClassInvalidInput, "at least one framework is required")
 	}
 	if err := validateSnapshot(snapshot); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	outputDir := strings.TrimSpace(in.OutputDir)
 	if outputDir == "" {
 		outputDir = "wrkr-evidence"
 	}
 	if err := resetOutputDir(outputDir); err != nil {
-		return BuildResult{}, err
+		if isOutputDirSafetyError(err) {
+			return BuildResult{}, classifyError(ErrorClassUnsafeOperationBlocked, err)
+		}
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 
 	generatedAt := in.GeneratedAt
@@ -83,34 +153,34 @@ func Build(in BuildInput) (BuildResult, error) {
 	}
 
 	if err := writeJSON(filepath.Join(outputDir, "inventory.json"), snapshot.Inventory); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeYAML(filepath.Join(outputDir, "inventory.yaml"), snapshot.Inventory); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSON(filepath.Join(outputDir, "inventory-snapshot.json"), snapshot.Inventory); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSON(filepath.Join(outputDir, "risk-report.json"), snapshot.RiskReport); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if snapshot.RiskReport != nil {
 		if err := writeJSON(filepath.Join(outputDir, "attack-paths.json"), snapshot.RiskReport.AttackPaths); err != nil {
-			return BuildResult{}, err
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 		}
 	}
 	if err := writeJSON(filepath.Join(outputDir, "profile-compliance.json"), snapshot.Profile); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSON(filepath.Join(outputDir, "posture-score.json"), snapshot.PostureScore); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSON(filepath.Join(outputDir, "scan-metadata.json"), map[string]any{
 		"generated_at": generatedAt.Format(time.RFC3339),
 		"frameworks":   frameworks,
 		"state_path":   resolvedStatePath,
 	}); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	reportArtifacts := []string{}
 	summary, err := reportcore.BuildSummary(reportcore.BuildInput{
@@ -121,67 +191,67 @@ func Build(in BuildInput) (BuildResult, error) {
 		ShareProfile: reportcore.ShareProfileInternal,
 	})
 	if err != nil {
-		return BuildResult{}, fmt.Errorf("build deterministic report summary: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build deterministic report summary: %w", err)
 	}
 	reportsDir := filepath.Join(outputDir, "reports")
 	if err := os.MkdirAll(reportsDir, 0o750); err != nil {
-		return BuildResult{}, fmt.Errorf("mkdir reports dir: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "mkdir reports dir: %w", err)
 	}
 	auditReportPath := filepath.Join(reportsDir, "audit-summary.md")
 	if err := os.WriteFile(auditReportPath, []byte(reportcore.RenderMarkdown(summary)), 0o600); err != nil {
-		return BuildResult{}, fmt.Errorf("write deterministic report summary: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write deterministic report summary: %w", err)
 	}
 	reportArtifacts = append(reportArtifacts, auditReportPath)
 
 	proofRecordsDir := filepath.Join(outputDir, "proof-records")
 	if err := os.MkdirAll(proofRecordsDir, 0o750); err != nil {
-		return BuildResult{}, fmt.Errorf("mkdir proof-records dir: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "mkdir proof-records dir: %w", err)
 	}
 	if err := writeJSON(filepath.Join(proofRecordsDir, "chain.json"), chain); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSONL(filepath.Join(proofRecordsDir, "scan-findings.jsonl"), filterRecords(chain.Records, "scan_finding", "")); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSONL(filepath.Join(proofRecordsDir, "risk-assessments.jsonl"), filterRecords(chain.Records, "risk_assessment", "")); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSONL(filepath.Join(proofRecordsDir, "approvals.jsonl"), filterRecords(chain.Records, "approval", "")); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSONL(filepath.Join(proofRecordsDir, "lifecycle-transitions.jsonl"), filterRecords(chain.Records, "decision", "lifecycle_transition")); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 
 	mappingsDir := filepath.Join(outputDir, "mappings")
 	gapsDir := filepath.Join(outputDir, "gaps")
 	if err := os.MkdirAll(mappingsDir, 0o750); err != nil {
-		return BuildResult{}, fmt.Errorf("mkdir mappings dir: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "mkdir mappings dir: %w", err)
 	}
 	if err := os.MkdirAll(gapsDir, 0o750); err != nil {
-		return BuildResult{}, fmt.Errorf("mkdir gaps dir: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "mkdir gaps dir: %w", err)
 	}
 
 	coverage := map[string]float64{}
 	for _, frameworkID := range frameworks {
 		framework, err := proof.LoadFramework(frameworkID)
 		if err != nil {
-			return BuildResult{}, fmt.Errorf("load framework %s: %w", frameworkID, err)
+			return BuildResult{}, classifyErrorf(ErrorClassInvalidInput, "load framework %s: %w", frameworkID, err)
 		}
 		result, err := compliance.Evaluate(compliance.Input{Framework: framework, Chain: chain})
 		if err != nil {
-			return BuildResult{}, fmt.Errorf("evaluate framework %s: %w", frameworkID, err)
+			return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "evaluate framework %s: %w", frameworkID, err)
 		}
 		coverage[frameworkID] = result.Coverage
 		if err := writeJSON(filepath.Join(mappingsDir, frameworkID+".json"), result); err != nil {
-			return BuildResult{}, err
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 		}
 		if err := writeJSON(filepath.Join(gapsDir, frameworkID+".json"), map[string]any{
 			"framework_id":     result.FrameworkID,
 			"coverage_percent": result.Coverage,
 			"gaps":             result.Gaps,
 		}); err != nil {
-			return BuildResult{}, err
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 		}
 	}
 
@@ -189,29 +259,32 @@ func Build(in BuildInput) (BuildResult, error) {
 	if !proofemit.HasEnvSigningKey() {
 		if _, err := os.Stat(signingKeyPath); err != nil {
 			if os.IsNotExist(err) {
-				return BuildResult{}, fmt.Errorf("load signing material: signing key file does not exist: %s", signingKeyPath)
+				return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load signing material: signing key file does not exist: %s", signingKeyPath)
 			}
-			return BuildResult{}, fmt.Errorf("load signing material: stat signing key file: %w", err)
+			return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load signing material: stat signing key file: %w", err)
 		}
 	}
 	signingMaterial, signingErr := proofemit.LoadSigningMaterial(resolvedStatePath)
 	if signingErr != nil {
-		return BuildResult{}, fmt.Errorf("load signing material: %w", signingErr)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load signing material: %w", signingErr)
 	}
 	if err := os.MkdirAll(filepath.Join(outputDir, "signatures"), 0o750); err != nil {
-		return BuildResult{}, fmt.Errorf("mkdir signatures dir: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "mkdir signatures dir: %w", err)
 	}
 	publicKeyBase64 := base64.StdEncoding.EncodeToString(signingMaterial.Public)
 	if err := os.WriteFile(filepath.Join(outputDir, "signatures", "public-key.base64"), []byte(publicKeyBase64+"\n"), 0o600); err != nil {
-		return BuildResult{}, fmt.Errorf("write public key: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write public key: %w", err)
 	}
 	if err := os.WriteFile(filepath.Join(outputDir, "signatures", "key-id.txt"), []byte(strings.TrimSpace(signingMaterial.KeyID)+"\n"), 0o600); err != nil {
-		return BuildResult{}, fmt.Errorf("write key id: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write key id: %w", err)
 	}
 
 	entries, err := buildManifestEntries(outputDir)
 	if err != nil {
-		return BuildResult{}, err
+		if isOutputDirSafetyError(err) {
+			return BuildResult{}, classifyError(ErrorClassUnsafeOperationBlocked, err)
+		}
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	manifest := proof.BundleManifest{
 		Files:  entries,
@@ -219,14 +292,14 @@ func Build(in BuildInput) (BuildResult, error) {
 		SaltID: "wrkr-evidence-v1",
 	}
 	if err := writeJSON(filepath.Join(outputDir, "manifest.json"), manifest); err != nil {
-		return BuildResult{}, err
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 
 	if _, err := proof.SignBundleFile(outputDir, signingMaterial); err != nil {
-		return BuildResult{}, fmt.Errorf("sign bundle manifest: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "sign bundle manifest: %w", err)
 	}
 	if _, err := proof.VerifyBundle(outputDir, proof.BundleVerifyOpts{}); err != nil {
-		return BuildResult{}, fmt.Errorf("verify bundle integrity: %w", err)
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "verify bundle integrity: %w", err)
 	}
 
 	return BuildResult{
@@ -354,10 +427,10 @@ func resetOutputDir(path string) error {
 		return fmt.Errorf("lstat output dir: %w", err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("output dir must not be a symlink: %s", path)
+		return newOutputDirSafetyError("output dir must not be a symlink: %s", path)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("output dir is not a directory: %s", path)
+		return newOutputDirSafetyError("output dir is not a directory: %s", path)
 	}
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -371,19 +444,19 @@ func resetOutputDir(path string) error {
 	markerInfo, err := os.Lstat(markerPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("output dir is not empty and not managed by wrkr evidence: %s", path)
+			return newOutputDirSafetyError("output dir is not empty and not managed by wrkr evidence: %s", path)
 		}
 		return fmt.Errorf("stat output dir marker: %w", err)
 	}
 	if !markerInfo.Mode().IsRegular() {
-		return fmt.Errorf("output dir marker is not a regular file: %s", markerPath)
+		return newOutputDirSafetyError("output dir marker is not a regular file: %s", markerPath)
 	}
 	markerPayload, err := os.ReadFile(markerPath) // #nosec G304 -- marker path is deterministic under the selected local output directory.
 	if err != nil {
 		return fmt.Errorf("read output dir marker: %w", err)
 	}
 	if string(markerPayload) != outputDirMarkerContent {
-		return fmt.Errorf("output dir marker content is invalid: %s", markerPath)
+		return newOutputDirSafetyError("output dir marker content is invalid: %s", markerPath)
 	}
 
 	for _, entry := range entries {
@@ -451,7 +524,7 @@ func buildManifestEntries(outputDir string) ([]proof.BundleManifestEntry, error)
 			return nil
 		}
 		if d.Type()&os.ModeSymlink != 0 || !d.Type().IsRegular() {
-			return fmt.Errorf("manifest entry is not a regular file: %s", normalized)
+			return newOutputDirSafetyError("manifest entry is not a regular file: %s", normalized)
 		}
 		payload, err := os.ReadFile(path) // #nosec G304 -- walk only reads files under deterministic output directory.
 		if err != nil {
