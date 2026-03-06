@@ -1,0 +1,3 @@
+agents:
+  - name: weak_custom_agent
+    file: agents/triage.py

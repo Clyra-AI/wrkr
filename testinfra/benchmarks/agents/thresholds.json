@@ -1,0 +1,6 @@
+{
+  "minimum_precision": 0.95,
+  "minimum_recall": 0.70,
+  "baseline_recall": 0.95,
+  "max_recall_regression": 0.03
+}

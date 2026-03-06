@@ -1,0 +1,93 @@
+{
+  "target_detectors": [
+    "agentautogen",
+    "agentcustom",
+    "agentllamaindex",
+    "agentmcpclient"
+  ],
+  "positive_finding_types": [
+    "agent_custom_scaffold",
+    "agent_framework"
+  ],
+  "cases": [
+    {
+      "id": "neg-custom-weak",
+      "kind": "negative",
+      "path": "testinfra/benchmarks/agents/fixtures/neg-custom-weak/repos"
+    },
+    {
+      "id": "neg-docs-only",
+      "kind": "negative",
+      "path": "testinfra/benchmarks/agents/fixtures/neg-docs-only/repos"
+    },
+    {
+      "id": "neg-random",
+      "kind": "negative",
+      "path": "testinfra/benchmarks/agents/fixtures/neg-random/repos"
+    },
+    {
+      "id": "pos-autogen-json",
+      "kind": "positive",
+      "path": "testinfra/benchmarks/agents/fixtures/pos-autogen-json/repos",
+      "expected_detectors": [
+        "agentautogen"
+      ]
+    },
+    {
+      "id": "pos-autogen-toml",
+      "kind": "positive",
+      "path": "testinfra/benchmarks/agents/fixtures/pos-autogen-toml/repos",
+      "expected_detectors": [
+        "agentautogen"
+      ]
+    },
+    {
+      "id": "pos-autogen-yaml",
+      "kind": "positive",
+      "path": "testinfra/benchmarks/agents/fixtures/pos-autogen-yaml/repos",
+      "expected_detectors": [
+        "agentautogen"
+      ]
+    },
+    {
+      "id": "pos-custom-strong",
+      "kind": "positive",
+      "path": "testinfra/benchmarks/agents/fixtures/pos-custom-strong/repos",
+      "expected_detectors": [
+        "agentcustom"
+      ]
+    },
+    {
+      "id": "pos-llama-json",
+      "kind": "positive",
+      "path": "testinfra/benchmarks/agents/fixtures/pos-llama-json/repos",
+      "expected_detectors": [
+        "agentllamaindex"
+      ]
+    },
+    {
+      "id": "pos-llama-yaml",
+      "kind": "positive",
+      "path": "testinfra/benchmarks/agents/fixtures/pos-llama-yaml/repos",
+      "expected_detectors": [
+        "agentllamaindex"
+      ]
+    },
+    {
+      "id": "pos-mcpclient-toml",
+      "kind": "positive",
+      "path": "testinfra/benchmarks/agents/fixtures/pos-mcpclient-toml/repos",
+      "expected_detectors": [
+        "agentmcpclient"
+      ]
+    },
+    {
+      "id": "pos-mcpclient-yaml",
+      "kind": "positive",
+      "path": "testinfra/benchmarks/agents/fixtures/pos-mcpclient-yaml/repos",
+      "expected_detectors": [
+        "agentmcpclient"
+      ]
+    }
+  ]
+}

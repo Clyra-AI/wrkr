@@ -1,0 +1,8 @@
+agents:
+  - name: policy_sensitive_agent
+    file: agents/policy_sensitive.py
+    tools: [deploy.write, proc.exec]
+    auth_surfaces: [token]
+    deployment_artifacts: [.github/workflows/release.yml]
+    auto_deploy: true
+    human_gate: false

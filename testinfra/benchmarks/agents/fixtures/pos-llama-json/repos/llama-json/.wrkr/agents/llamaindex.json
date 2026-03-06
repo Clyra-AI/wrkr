@@ -1,0 +1,1 @@
+{"agents":[{"name":"llama_json","file":"agents/llama_json.py","data_sources":["vector.rag"]}]}

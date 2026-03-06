@@ -18,6 +18,15 @@ venv/
 !scenarios/wrkr/extension-detectors/repos/ext-repo/.wrkr/
 !scenarios/wrkr/extension-detectors/repos/ext-repo/.wrkr/detectors/
 !scenarios/wrkr/extension-detectors/repos/ext-repo/.wrkr/detectors/extensions.json
+!scenarios/wrkr/agent-policy-outcomes/repos/policy-agent-app/.wrkr/
+!scenarios/wrkr/agent-policy-outcomes/repos/policy-agent-app/.wrkr/agents/
+!scenarios/wrkr/agent-policy-outcomes/repos/policy-agent-app/.wrkr/agents/custom-agent.yaml
+!scenarios/wrkr/agent-policy-outcomes/repos/policy-agent-app/.wrkr/agents/mcp-client.yaml
+!scenarios/wrkr/agent-relationship-correlation/repos/correlated-agent-app/.wrkr/
+!scenarios/wrkr/agent-relationship-correlation/repos/correlated-agent-app/.wrkr/agents/
+!scenarios/wrkr/agent-relationship-correlation/repos/correlated-agent-app/.wrkr/agents/mcp-client.yaml
+!testinfra/benchmarks/agents/fixtures/**/.wrkr/
+!testinfra/benchmarks/agents/fixtures/**/.wrkr/**
 *.sarif
 /wrkr
 /wrkr.exe

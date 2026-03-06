@@ -6,7 +6,7 @@ GOFILES := $(shell git ls-files '*.go')
 DOCS_SITE_NPM_CACHE ?= $(CURDIR)/.tmp/npm-cache
 
 .PHONY: fmt lint lint-fast test test-fast test-integration test-e2e test-contracts test-scenarios \
-	test-hardening test-chaos test-perf test-risk-lane build hooks prepush prepush-full codeql lint-ci \
+	test-hardening test-chaos test-perf test-agent-benchmarks test-risk-lane build hooks prepush prepush-full codeql lint-ci \
 	test-docs-consistency test-docs-storyline test-adapter-parity test-v1-acceptance test-uat-local test-release-smoke \
 	docs-site-install docs-site-lint docs-site-build docs-site-check docs-site-audit-prod
 
@@ -51,7 +51,10 @@ test-chaos:
 test-perf:
 	@scripts/test_perf_budgets.sh
 
-test-risk-lane: test-contracts test-scenarios test-hardening test-chaos test-perf
+test-agent-benchmarks:
+	@scripts/run_agent_benchmarks.sh --output .tmp/agent-benchmarks.json
+
+test-risk-lane: test-contracts test-scenarios test-hardening test-chaos test-perf test-agent-benchmarks
 
 test-docs-consistency:
 	@scripts/check_docs_cli_parity.sh

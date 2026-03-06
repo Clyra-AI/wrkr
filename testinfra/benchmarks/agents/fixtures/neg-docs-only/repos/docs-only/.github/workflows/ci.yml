@@ -1,0 +1,6 @@
+name: ci
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: go test ./...

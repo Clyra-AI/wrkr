@@ -1,0 +1,4 @@
+[[agents]]
+name = "ops_toml"
+file = "agents/ops_toml.py"
+tools = ["search.read"]

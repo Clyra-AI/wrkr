@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -67,6 +68,84 @@ func TestDetect_UsesExplicitDeploymentGate(t *testing.T) {
 	}
 	if value := evidenceValue(findings[0], "deployment_gate"); value != "approved" {
 		t.Fatalf("expected deployment_gate=approved, got %q", value)
+	}
+}
+
+func TestDetectMany_DeterministicAcrossFormats(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, ".wrkr/agents/autogen.yaml", `agents:
+  - name: alpha
+    file: agents/alpha.py
+`)
+	writeFile(t, root, ".wrkr/agents/autogen.toml", `[[agents]]
+name = "beta"
+file = "agents/beta.py"
+`)
+
+	scope := detect.Scope{Org: "acme", Repo: "payments", Root: root}
+	configs := []DetectorConfig{
+		{DetectorID: "agentframework_autogen", Framework: "autogen", ConfigPath: ".wrkr/agents/autogen.toml", Format: "toml"},
+		{DetectorID: "agentframework_autogen", Framework: "autogen", ConfigPath: ".wrkr/agents/autogen.yaml", Format: "yaml"},
+	}
+
+	first, err := DetectMany(scope, configs)
+	if err != nil {
+		t.Fatalf("detect many: %v", err)
+	}
+	if len(first) != 2 {
+		t.Fatalf("expected two findings, got %d", len(first))
+	}
+	for _, finding := range first {
+		if finding.ToolType != "autogen" {
+			t.Fatalf("expected autogen tool type, got %q", finding.ToolType)
+		}
+	}
+	for i := 0; i < 12; i++ {
+		next, err := DetectMany(scope, configs)
+		if err != nil {
+			t.Fatalf("detect many run %d: %v", i+1, err)
+		}
+		if !reflect.DeepEqual(first, next) {
+			t.Fatalf("non-deterministic output at run %d", i+1)
+		}
+	}
+}
+
+func TestDetectMany_ParseErrorDoesNotAbortOtherConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, ".wrkr/agents/autogen.json", `{"agents":[`)
+	writeFile(t, root, ".wrkr/agents/autogen.yaml", `agents:
+  - name: rescue
+    file: agents/rescue.py
+`)
+
+	findings, err := DetectMany(detect.Scope{Org: "acme", Repo: "payments", Root: root}, []DetectorConfig{
+		{DetectorID: "agentframework_autogen", Framework: "autogen", ConfigPath: ".wrkr/agents/autogen.json", Format: "json"},
+		{DetectorID: "agentframework_autogen", Framework: "autogen", ConfigPath: ".wrkr/agents/autogen.yaml", Format: "yaml"},
+	})
+	if err != nil {
+		t.Fatalf("detect many: %v", err)
+	}
+	if len(findings) != 2 {
+		t.Fatalf("expected one parse error and one finding, got %d", len(findings))
+	}
+
+	seenParseErr := false
+	seenFramework := false
+	for _, finding := range findings {
+		switch finding.FindingType {
+		case "parse_error":
+			seenParseErr = true
+		case "agent_framework":
+			seenFramework = true
+		}
+	}
+	if !seenParseErr || !seenFramework {
+		t.Fatalf("expected parse_error and agent_framework findings, got %+v", findings)
 	}
 }
 

@@ -81,6 +81,14 @@ jobs:
           make test-fast
           make test-contracts
           scripts/validate_scenarios.sh
+          scripts/run_agent_benchmarks.sh --output .tmp/agent-benchmarks-pr.json
+
+      - name: Upload agent benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-benchmark-pr
+          path: .tmp/agent-benchmarks-pr.json
 
       - name: Docs parity and smoke subset
         if: steps.changes.outputs.go == 'true' || steps.changes.outputs.docs == 'true' || steps.changes.outputs.workflow_or_policy == 'true'

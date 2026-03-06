@@ -1,0 +1,4 @@
+agents:
+  - name: ops_yaml
+    file: agents/ops_yaml.py
+    tools: [search.read]

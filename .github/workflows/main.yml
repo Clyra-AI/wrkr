@@ -93,6 +93,11 @@ jobs:
           go-version: '1.25.7'
           check-latest: false
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
       - name: Run acceptance lane
         run: |
           make test-integration
@@ -101,6 +106,14 @@ jobs:
           scripts/validate_contracts.sh
           scripts/validate_scenarios.sh
           go test ./internal/scenarios -count=1 -tags=scenario
+          scripts/run_agent_benchmarks.sh --output .tmp/agent-benchmarks-main.json
+
+      - name: Upload agent benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-benchmark-main
+          path: .tmp/agent-benchmarks-main.json
 
   docs-smoke:
     name: docs-smoke

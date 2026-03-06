@@ -43,5 +43,17 @@
   ],
   "AC25": [
     "TestScenarioEpic10WebMCPStaticDetectionAC25"
+  ],
+  "FR14": [
+    "TestScenario_AgentRelationshipCorrelation"
+  ],
+  "FR15": [
+    "TestScenario_AgentPolicyOutcomes"
+  ],
+  "AC26": [
+    "TestScenario_AgentRelationshipCorrelation"
+  ],
+  "AC27": [
+    "TestScenario_AgentPolicyOutcomes"
   ]
 }

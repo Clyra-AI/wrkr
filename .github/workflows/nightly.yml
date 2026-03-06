@@ -55,6 +55,9 @@ jobs:
       - name: Run performance budgets
         run: scripts/test_perf_budgets.sh
 
+      - name: Run agent benchmark gate
+        run: scripts/run_agent_benchmarks.sh --output .tmp/agent-benchmarks-nightly.json
+
       - name: Run cross-product interop suite
         run: go test ./internal/integration/interop -count=1
 
@@ -75,3 +78,10 @@ jobs:
           path: |
             .tmp/release/v1-scorecard.json
             .tmp/release/v1-scorecard.md
+
+      - name: Upload agent benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-benchmark-nightly
+          path: .tmp/agent-benchmarks-nightly.json

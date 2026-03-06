@@ -1,0 +1,5 @@
+agents:
+  - name: mcp_yaml
+    file: agents/mcp_yaml.py
+    tools: [mcp.server.search]
+    auth_surfaces: [token]
