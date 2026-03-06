@@ -11,25 +11,25 @@ import (
 )
 
 type AgentSpec struct {
-	Name             string   `json:"name" yaml:"name"`
-	File             string   `json:"file" yaml:"file"`
-	StartLine        int      `json:"start_line" yaml:"start_line"`
-	EndLine          int      `json:"end_line" yaml:"end_line"`
-	Tools            []string `json:"tools" yaml:"tools"`
-	DataSources      []string `json:"data_sources" yaml:"data_sources"`
-	AuthSurfaces     []string `json:"auth_surfaces" yaml:"auth_surfaces"`
-	Deployment       []string `json:"deployment_artifacts" yaml:"deployment_artifacts"`
-	DataClass        string   `json:"data_class" yaml:"data_class"`
-	ApprovalStatus   string   `json:"approval_status" yaml:"approval_status"`
-	DynamicDiscovery bool     `json:"dynamic_discovery" yaml:"dynamic_discovery"`
-	KillSwitch       bool     `json:"kill_switch" yaml:"kill_switch"`
-	AutoDeploy       bool     `json:"auto_deploy" yaml:"auto_deploy"`
-	HumanGate        bool     `json:"human_gate" yaml:"human_gate"`
-	DeploymentGate   string   `json:"deployment_gate" yaml:"deployment_gate"`
+	Name             string   `json:"name" yaml:"name" toml:"name"`
+	File             string   `json:"file" yaml:"file" toml:"file"`
+	StartLine        int      `json:"start_line" yaml:"start_line" toml:"start_line"`
+	EndLine          int      `json:"end_line" yaml:"end_line" toml:"end_line"`
+	Tools            []string `json:"tools" yaml:"tools" toml:"tools"`
+	DataSources      []string `json:"data_sources" yaml:"data_sources" toml:"data_sources"`
+	AuthSurfaces     []string `json:"auth_surfaces" yaml:"auth_surfaces" toml:"auth_surfaces"`
+	Deployment       []string `json:"deployment_artifacts" yaml:"deployment_artifacts" toml:"deployment_artifacts"`
+	DataClass        string   `json:"data_class" yaml:"data_class" toml:"data_class"`
+	ApprovalStatus   string   `json:"approval_status" yaml:"approval_status" toml:"approval_status"`
+	DynamicDiscovery bool     `json:"dynamic_discovery" yaml:"dynamic_discovery" toml:"dynamic_discovery"`
+	KillSwitch       bool     `json:"kill_switch" yaml:"kill_switch" toml:"kill_switch"`
+	AutoDeploy       bool     `json:"auto_deploy" yaml:"auto_deploy" toml:"auto_deploy"`
+	HumanGate        bool     `json:"human_gate" yaml:"human_gate" toml:"human_gate"`
+	DeploymentGate   string   `json:"deployment_gate" yaml:"deployment_gate" toml:"deployment_gate"`
 }
 
 type declaration struct {
-	Agents []AgentSpec `json:"agents" yaml:"agents"`
+	Agents []AgentSpec `json:"agents" yaml:"agents" toml:"agents"`
 }
 
 type DetectorConfig struct {
@@ -40,16 +40,39 @@ type DetectorConfig struct {
 }
 
 func Detect(_ context.Context, scope detect.Scope, cfg DetectorConfig) ([]model.Finding, error) {
+	return DetectMany(scope, []DetectorConfig{cfg})
+}
+
+func DetectMany(scope detect.Scope, configs []DetectorConfig) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
-	if !detect.FileExists(scope.Root, cfg.ConfigPath) {
+
+	normalized := normalizeConfigs(configs)
+	if len(normalized) == 0 {
 		return nil, nil
 	}
 
+	findings := make([]model.Finding, 0)
+	for _, cfg := range normalized {
+		if !detect.FileExists(scope.Root, cfg.ConfigPath) {
+			continue
+		}
+		fileFindings := detectOne(scope, cfg)
+		findings = append(findings, fileFindings...)
+	}
+
+	if len(findings) == 0 {
+		return nil, nil
+	}
+	model.SortFindings(findings)
+	return findings, nil
+}
+
+func detectOne(scope detect.Scope, cfg DetectorConfig) []model.Finding {
 	parsed, parseErr := parse(scope, cfg)
 	if parseErr != nil {
-		return []model.Finding{parseErrorFinding(scope, cfg, *parseErr)}, nil
+		return []model.Finding{parseErrorFinding(scope, cfg, *parseErr)}
 	}
 	if len(parsed.Agents) == 0 {
 		return []model.Finding{parseErrorFinding(scope, cfg, model.ParseError{
@@ -58,7 +81,7 @@ func Detect(_ context.Context, scope detect.Scope, cfg DetectorConfig) ([]model.
 			Path:     cfg.ConfigPath,
 			Detector: cfg.DetectorID,
 			Message:  "expected at least one agents entry",
-		})}, nil
+		})}
 	}
 
 	findings := make([]model.Finding, 0, len(parsed.Agents))
@@ -70,12 +93,11 @@ func Detect(_ context.Context, scope detect.Scope, cfg DetectorConfig) ([]model.
 				Path:     cfg.ConfigPath,
 				Detector: cfg.DetectorID,
 				Message:  "each agent requires non-empty name and file",
-			})}, nil
+			})}
 		}
 		findings = append(findings, frameworkFinding(scope, cfg, agent))
 	}
-	model.SortFindings(findings)
-	return findings, nil
+	return findings
 }
 
 func parse(scope detect.Scope, cfg DetectorConfig) (declaration, *model.ParseError) {
@@ -89,10 +111,57 @@ func parse(scope detect.Scope, cfg DetectorConfig) (declaration, *model.ParseErr
 		if parseErr := detect.ParseYAMLFile(cfg.DetectorID, scope.Root, cfg.ConfigPath, &parsed); parseErr != nil {
 			return declaration{}, parseErr
 		}
+	case "toml":
+		if parseErr := detect.ParseTOMLFile(cfg.DetectorID, scope.Root, cfg.ConfigPath, &parsed); parseErr != nil {
+			return declaration{}, parseErr
+		}
 	default:
 		return declaration{}, &model.ParseError{Kind: "parse_error", Format: cfg.Format, Path: cfg.ConfigPath, Detector: cfg.DetectorID, Message: "unsupported detector config format"}
 	}
 	return parsed, nil
+}
+
+func normalizeConfigs(configs []DetectorConfig) []DetectorConfig {
+	if len(configs) == 0 {
+		return nil
+	}
+	unique := map[string]DetectorConfig{}
+	for _, cfg := range configs {
+		detectorID := strings.TrimSpace(cfg.DetectorID)
+		framework := strings.TrimSpace(cfg.Framework)
+		configPath := strings.TrimSpace(cfg.ConfigPath)
+		format := strings.ToLower(strings.TrimSpace(cfg.Format))
+		if detectorID == "" || framework == "" || configPath == "" || format == "" {
+			continue
+		}
+		key := fmt.Sprintf("%s|%s|%s", configPath, format, detectorID)
+		unique[key] = DetectorConfig{
+			DetectorID: detectorID,
+			Framework:  framework,
+			ConfigPath: configPath,
+			Format:     format,
+		}
+	}
+	if len(unique) == 0 {
+		return nil
+	}
+	out := make([]DetectorConfig, 0, len(unique))
+	for _, cfg := range unique {
+		out = append(out, cfg)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ConfigPath != out[j].ConfigPath {
+			return out[i].ConfigPath < out[j].ConfigPath
+		}
+		if out[i].Format != out[j].Format {
+			return out[i].Format < out[j].Format
+		}
+		if out[i].DetectorID != out[j].DetectorID {
+			return out[i].DetectorID < out[j].DetectorID
+		}
+		return out[i].Framework < out[j].Framework
+	})
+	return out
 }
 
 func frameworkFinding(scope detect.Scope, cfg DetectorConfig, agent AgentSpec) model.Finding {

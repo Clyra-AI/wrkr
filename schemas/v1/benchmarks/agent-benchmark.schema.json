@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.clyra.ai/wrkr/v1/agent-benchmark.schema.json",
+  "title": "Wrkr Agent Benchmark Report",
+  "type": "object",
+  "required": ["version", "thresholds", "metrics", "cases", "status", "violations"],
+  "properties": {
+    "version": {"type": "string", "const": "v1"},
+    "thresholds": {
+      "type": "object",
+      "required": ["minimum_precision", "minimum_recall", "baseline_recall", "max_recall_regression", "recall_regression_floor"],
+      "properties": {
+        "minimum_precision": {"type": "number", "minimum": 0, "maximum": 1},
+        "minimum_recall": {"type": "number", "minimum": 0, "maximum": 1},
+        "baseline_recall": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_recall_regression": {"type": "number", "minimum": 0, "maximum": 1},
+        "recall_regression_floor": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["tp", "fp", "tn", "fn", "precision", "recall"],
+      "properties": {
+        "tp": {"type": "integer", "minimum": 0},
+        "fp": {"type": "integer", "minimum": 0},
+        "tn": {"type": "integer", "minimum": 0},
+        "fn": {"type": "integer", "minimum": 0},
+        "precision": {"type": "number", "minimum": 0, "maximum": 1},
+        "recall": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "path", "expected_detectors", "matched_detectors", "outcome"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "kind": {"type": "string", "enum": ["positive", "negative"]},
+          "path": {"type": "string", "minLength": 1},
+          "expected_detectors": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true
+          },
+          "matched_detectors": {
+            "type": "array",
+            "items": {"type": "string"},
+            "uniqueItems": true
+          },
+          "outcome": {"type": "string", "enum": ["tp", "fp", "tn", "fn"]}
+        },
+        "additionalProperties": false
+      }
+    },
+    "status": {"type": "string", "enum": ["pass", "fail"]},
+    "violations": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": false
+}

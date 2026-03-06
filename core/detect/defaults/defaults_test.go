@@ -77,6 +77,10 @@ func TestRegistryIncludesAgentFrameworkDetectors(t *testing.T) {
 	writeFixtureFile(t, root, ".wrkr/agents/openai-agents.json", `{"agents":[{"name":"oa_agent","file":"agents/openai.py"}]}`)
 	writeFixtureFile(t, root, ".wrkr/agents/autogen.json", `{"agents":[{"name":"ag_agent","file":"agents/autogen.py"}]}`)
 	writeFixtureFile(t, root, ".wrkr/agents/llamaindex.yaml", "agents:\n  - name: li_agent\n    file: agents/llamaindex.py\n")
+	writeFixtureFile(t, root, ".wrkr/agents/mcp-client.yaml", "agents:\n  - name: mcpc_agent\n    file: agents/mcp_client.py\n")
+	writeFixtureFile(t, root, ".wrkr/agents/custom-agent.yaml", "agents:\n  - name: custom_agent\n    file: agents/custom.py\n    tools: [deploy.write]\n")
+	writeFixtureFile(t, root, "AGENTS.md", "# Agent instructions\n")
+	writeFixtureFile(t, root, ".agents/skills/release/SKILL.md", "release playbook\n")
 
 	registry, err := Registry()
 	if err != nil {
@@ -94,7 +98,7 @@ func TestRegistryIncludesAgentFrameworkDetectors(t *testing.T) {
 	for _, finding := range result.Findings {
 		seen[finding.Detector] = true
 	}
-	for _, detectorID := range []string{"agentlangchain", "agentcrewai", "agentopenai", "agentautogen", "agentllamaindex"} {
+	for _, detectorID := range []string{"agentlangchain", "agentcrewai", "agentopenai", "agentautogen", "agentllamaindex", "agentmcpclient", "agentcustom"} {
 		if !seen[detectorID] {
 			t.Fatalf("expected detector %s finding in registry run, got %+v", detectorID, result.Findings)
 		}

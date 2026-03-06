@@ -17,10 +17,31 @@ func New() Detector { return Detector{} }
 func (Detector) ID() string { return detectorID }
 
 func (Detector) Detect(ctx context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
-	return agentframework.Detect(ctx, scope, agentframework.DetectorConfig{
-		DetectorID: detectorID,
-		Framework:  "llamaindex",
-		ConfigPath: ".wrkr/agents/llamaindex.yaml",
-		Format:     "yaml",
+	_ = ctx
+	return agentframework.DetectMany(scope, []agentframework.DetectorConfig{
+		{
+			DetectorID: detectorID,
+			Framework:  "llamaindex",
+			ConfigPath: ".wrkr/agents/llamaindex.yaml",
+			Format:     "yaml",
+		},
+		{
+			DetectorID: detectorID,
+			Framework:  "llamaindex",
+			ConfigPath: ".wrkr/agents/llamaindex.yml",
+			Format:     "yaml",
+		},
+		{
+			DetectorID: detectorID,
+			Framework:  "llamaindex",
+			ConfigPath: ".wrkr/agents/llamaindex.json",
+			Format:     "json",
+		},
+		{
+			DetectorID: detectorID,
+			Framework:  "llamaindex",
+			ConfigPath: ".wrkr/agents/llamaindex.toml",
+			Format:     "toml",
+		},
 	})
 }

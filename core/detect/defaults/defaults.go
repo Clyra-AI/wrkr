@@ -5,8 +5,10 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/a2a"
 	"github.com/Clyra-AI/wrkr/core/detect/agentautogen"
 	"github.com/Clyra-AI/wrkr/core/detect/agentcrewai"
+	"github.com/Clyra-AI/wrkr/core/detect/agentcustom"
 	"github.com/Clyra-AI/wrkr/core/detect/agentlangchain"
 	"github.com/Clyra-AI/wrkr/core/detect/agentllamaindex"
+	"github.com/Clyra-AI/wrkr/core/detect/agentmcpclient"
 	"github.com/Clyra-AI/wrkr/core/detect/agentopenai"
 	"github.com/Clyra-AI/wrkr/core/detect/ciagent"
 	"github.com/Clyra-AI/wrkr/core/detect/claude"
@@ -34,6 +36,8 @@ func Registry() (*detect.Registry, error) {
 		agentopenai.New(),
 		agentautogen.New(),
 		agentllamaindex.New(),
+		agentmcpclient.New(),
+		agentcustom.New(),
 		claude.New(),
 		cursor.New(),
 		codex.New(),

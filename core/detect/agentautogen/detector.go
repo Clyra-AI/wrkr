@@ -17,10 +17,31 @@ func New() Detector { return Detector{} }
 func (Detector) ID() string { return detectorID }
 
 func (Detector) Detect(ctx context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
-	return agentframework.Detect(ctx, scope, agentframework.DetectorConfig{
-		DetectorID: detectorID,
-		Framework:  "autogen",
-		ConfigPath: ".wrkr/agents/autogen.json",
-		Format:     "json",
+	_ = ctx
+	return agentframework.DetectMany(scope, []agentframework.DetectorConfig{
+		{
+			DetectorID: detectorID,
+			Framework:  "autogen",
+			ConfigPath: ".wrkr/agents/autogen.json",
+			Format:     "json",
+		},
+		{
+			DetectorID: detectorID,
+			Framework:  "autogen",
+			ConfigPath: ".wrkr/agents/autogen.yaml",
+			Format:     "yaml",
+		},
+		{
+			DetectorID: detectorID,
+			Framework:  "autogen",
+			ConfigPath: ".wrkr/agents/autogen.yml",
+			Format:     "yaml",
+		},
+		{
+			DetectorID: detectorID,
+			Framework:  "autogen",
+			ConfigPath: ".wrkr/agents/autogen.toml",
+			Format:     "toml",
+		},
 	})
 }

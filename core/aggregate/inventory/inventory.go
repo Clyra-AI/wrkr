@@ -740,7 +740,7 @@ func classifyToolCategory(toolType string) string {
 	switch normalized {
 	case "claude", "cursor", "codex", "copilot", "cody", "windsurf":
 		return "assistant"
-	case "a2a", "agent", "agent_framework", "ci_agent", "compiled_action", "langchain", "crewai", "autogen":
+	case "a2a", "agent", "agent_framework", "ci_agent", "compiled_action", "langchain", "crewai", "autogen", "llamaindex", "openai_agents", "mcp_client", "custom_agent":
 		return "agent_framework"
 	case "mcp", "mcpgateway", "webmcp":
 		return "mcp_integration"

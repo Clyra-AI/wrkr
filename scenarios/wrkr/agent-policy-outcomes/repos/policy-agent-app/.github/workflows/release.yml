@@ -1,0 +1,6 @@
+name: release
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: codex --full-auto --approval never
