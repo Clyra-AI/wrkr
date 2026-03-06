@@ -63,7 +63,66 @@ If preconditions fail, stop and report.
 - flaky/infra/transient
 - permission/workflow policy failure
 
-8. Pre-merge unresolved comment triage and fix loop (max 2 loops):
+8. Codex review settle gate (mandatory, latest PR head SHA):
+- After PR creation/update and green CI, wait for Codex review output before merge.
+- Poll PR reviews/comments every `15s` for up to `5 minutes`, scoped to the latest PR head SHA.
+- Default reviewer identity for this gate: `chatgpt-codex-connector` (GitHub UI may render as `chatgpt-codex-connector bot`).
+- Accepted settle signals:
+  - Codex posts actionable review comments/suggestions -> proceed to pre-merge fix loop.
+  - Codex posts explicit approval/all-good signal -> review gate is satisfied.
+- If no Codex review signal appears within timeout, stop and report blocker (`review pending`).
+- Example `gh api` polling implementation:
+```bash
+PR_NUMBER="$(gh pr view --json number --jq .number)"
+REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
+HEAD_SHA="$(gh pr view --json headRefOid --jq .headRefOid)"
+BOT_RE="${BOT_RE:-^chatgpt-codex-connector(\\[bot\\])?$}"   # override if your org uses a different reviewer bot login
+DEADLINE=$(( $(date +%s) + 300 ))
+SETTLED=0
+SETTLE_KIND=""
+
+while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+  APPROVAL_COUNT="$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+    --jq "[.[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .commit_id==\"$HEAD_SHA\" and .state==\"APPROVED\")] | length")"
+
+  ACTION_REVIEW_COUNT="$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+    --jq "[.[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .commit_id==\"$HEAD_SHA\" and (.state==\"CHANGES_REQUESTED\" or .state==\"COMMENTED\"))] | length")"
+
+  ACTION_COMMENT_COUNT="$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+    --jq "[.[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .commit_id==\"$HEAD_SHA\")] | length")"
+
+  if [ "$ACTION_REVIEW_COUNT" -gt 0 ] || [ "$ACTION_COMMENT_COUNT" -gt 0 ]; then
+    SETTLED=1
+    SETTLE_KIND="actionable"
+    break
+  fi
+
+  if [ "$APPROVAL_COUNT" -gt 0 ]; then
+    SETTLED=1
+    SETTLE_KIND="approved"
+    break
+  fi
+
+  sleep 15
+done
+
+if [ "$SETTLED" -ne 1 ]; then
+  echo "BLOCKER: review pending (no Codex signal within 5 minutes for head $HEAD_SHA)"
+  exit 1
+fi
+
+echo "Codex review settle result: $SETTLE_KIND"
+```
+- Example signal inspection commands for reporting:
+```bash
+gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+  --jq ".[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .commit_id==\"$HEAD_SHA\") | {state, user: .user.login, submitted_at, body}"
+
+gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+  --jq ".[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .commit_id==\"$HEAD_SHA\") | {path, user: .user.login, created_at, body}"
+```
+
+9. Pre-merge unresolved comment triage and fix loop (max 2 loops):
 - Fetch unresolved PR review threads/comments (including bot comments) for the latest PR head SHA.
 - Triage each unresolved item: `implement`, `defer`, `reject`.
 - Auto-fix only `implement` items that are:
@@ -76,21 +135,26 @@ If preconditions fail, stop and report.
   - `git commit -m "fix: address actionable PR comments (loop <n>)"` (skip only if no changes)
   - push branch
   - re-watch PR CI to green
+  - re-run Codex review settle gate on the new PR head SHA (poll `15s`, timeout `5 minutes`)
   - re-fetch unresolved threads/comments
 - If unresolved `P0/P1` remain after loop cap, stop and report blocker.
 
-9. Merge PR after green:
+10. Merge PR after green and review gate satisfied:
+- Merge only when all are true on latest PR head SHA:
+  - required PR CI is green
+  - Codex review settle gate is satisfied
+  - no unresolved `P0/P1` review items remain
 - Merge non-interactively (repo-default merge strategy or explicitly chosen one).
 - Record merged PR URL and merge commit SHA.
 
-10. Switch to main and sync:
+11. Switch to main and sync:
 - `git checkout main`
 - `git pull --ff-only origin main`
 
-11. Monitor post-merge CI on `main`:
+12. Monitor post-merge CI on `main`:
 - Watch the latest `main` CI run with timeout `25 minutes`.
 
-12. Hotfix loop on post-merge red (max 2 loops):
+13. Hotfix loop on post-merge red (max 2 loops):
 - Run only for actionable failures.
 - Loop cap: `2`.
 - For each loop:
@@ -106,8 +170,9 @@ If preconditions fail, stop and report.
 - `git checkout main && git pull --ff-only origin main`
 - Monitor post-merge CI again (25 min timeout).
 
-13. Stop conditions:
+14. Stop conditions:
 - CI green on main: success.
+- Codex review signal not received within settle timeout (`5 minutes`): stop and report blocker.
 - Unresolved pre-merge `P0/P1` comments after 2 fix loops: stop and report blocker.
 - Non-actionable failure class: stop and report.
 - Loop count exceeded (`>2`): stop and report blocker.
@@ -140,6 +205,8 @@ Never use inline `--body "..."` for multi-line PR text.
 
 - Required local gate before push: `make prepush-full` (includes CodeQL in this repo).
 - PR CI watch timeout: `25 minutes`.
+- Codex review settle polling interval: `15 seconds`.
+- Codex review settle timeout: `5 minutes` (mandatory pre-merge gate).
 - Pre-merge comment-fix loop cap: `2`.
 - Post-merge main CI watch timeout: `25 minutes`.
 - Retry/hotfix loop cap: `2`.
@@ -150,6 +217,7 @@ Never use inline `--body "..."` for multi-line PR text.
 - Commit SHA(s)
 - PR URL(s)
 - CI status per cycle
+- Codex review settle status per cycle
 - Merge commit SHA(s)
 - Post-merge CI status on `main`
 - If stopped: blocker reason and last failing check
