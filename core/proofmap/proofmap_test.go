@@ -160,3 +160,48 @@ func TestMapTransitionApprovalIncludesScope(t *testing.T) {
 		t.Fatalf("expected transition relationship entity refs, got %#v", record.Relationship)
 	}
 }
+
+func TestProofMap_ScanFindingIncludesAgentContextAdditively(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
+	findings := []model.Finding{
+		{
+			FindingType: "agent_framework",
+			Severity:    model.SeverityHigh,
+			ToolType:    "langchain",
+			Location:    "agents/release.py",
+			Repo:        "repo",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "release_agent"},
+				{Key: "bound_tools", Value: "deploy.write,search.read"},
+				{Key: "data_sources", Value: "warehouse.events"},
+				{Key: "auth_surfaces", Value: "token"},
+				{Key: "deployment_artifacts", Value: ".github/workflows/release.yml"},
+				{Key: "deployment_status", Value: "deployed"},
+				{Key: "approval_status", Value: "missing"},
+			},
+		},
+	}
+
+	records := MapFindings(findings, nil, now)
+	if len(records) != 1 {
+		t.Fatalf("expected one record, got %d", len(records))
+	}
+	if records[0].Event["agent_id"] == "" {
+		t.Fatalf("expected additive event.agent_id, got %v", records[0].Event)
+	}
+	context, ok := records[0].Event["agent_context"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected event.agent_context map, got %T", records[0].Event["agent_context"])
+	}
+	for _, key := range []string{"agent_instance_id", "bound_tools", "deployment_artifacts", "framework", "name"} {
+		if _, ok := context[key]; !ok {
+			t.Fatalf("expected agent_context key %s, got %v", key, context)
+		}
+	}
+	if records[0].Metadata["agent_instance_id"] == "" {
+		t.Fatalf("expected additive metadata.agent_instance_id, got %v", records[0].Metadata)
+	}
+}

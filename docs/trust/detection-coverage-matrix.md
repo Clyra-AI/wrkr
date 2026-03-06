@@ -8,14 +8,16 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 ## What Wrkr detects
 
 - Repository and org configuration surfaces for Claude, Cursor, Codex, Copilot, MCP, WebMCP, A2A, and CI headless execution patterns.
+- First-class agent declarations and bindings from LangChain, CrewAI, OpenAI Agents, AutoGen, LlamaIndex, MCP-client, and conservative custom-agent scaffolding surfaces.
 - Prompt-channel override/poisoning patterns from static instruction surfaces with deterministic reason codes and evidence hashes.
 - Static policy/profile posture signals and ranked findings.
-- Deterministic inventory and risk outputs.
+- Deterministic inventory and risk outputs for both tools and agents, including agent-linked attack-path edges when bindings/deployments are declared in-repo.
 - Optional enrich-mode MCP metadata (`source`, `as_of`, advisory/registry schema IDs, `enrich_quality`, adapter error classes) when `--enrich` is enabled.
 
 ## What Wrkr does not detect
 
 - Live runtime network traffic, live endpoint behavior, or post-deploy runtime side effects.
+- Live runtime execution of agents or tool side effects beyond what is declared in repository and CI artifacts.
 - Dynamic SaaS telemetry from external systems unless explicitly integrated in non-default paths.
 - Guaranteed upstream API/schema stability for external enrich providers.
 
@@ -43,6 +45,8 @@ No. Wrkr is deterministic and file-based by default, so it detects declared conf
 ### How do I confirm whether a specific tooling surface is detected?
 
 Run `wrkr scan --json` on representative fixtures and verify the inventory findings include the expected tool/config declarations.
+
+The expected v1 output model is tools plus agents. `inventory.agents`, `agent_privilege_map`, agent-aware `ranked_findings`, and additive agent-linked `attack_paths` are the deterministic proof surfaces for that model.
 
 ### How should I interpret MCP enrich quality fields?
 

@@ -56,6 +56,10 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, now time
 			"permissions":  append([]string(nil), representative.Permissions...),
 			"evidence":     evidenceMap(representative.Evidence),
 		}
+		if agentContext := agentContextForFinding(representative); len(agentContext) > 0 {
+			event["agent_id"] = agentIDForFinding(representative)
+			event["agent_context"] = agentContext
+		}
 		if representative.RuleID != "" {
 			event["rule_id"] = representative.RuleID
 		}
@@ -102,6 +106,14 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, now time
 			metadata["profile_compliance_percent"] = profile.CompliancePercent
 		}
 		agentID := agentIDForFinding(representative)
+		if agentContext := agentContextForFinding(representative); len(agentContext) > 0 {
+			if agentInstanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(agentInstanceID) != "" {
+				metadata["agent_instance_id"] = agentInstanceID
+			}
+			if framework, ok := agentContext["framework"].(string); ok && strings.TrimSpace(framework) != "" {
+				metadata["agent_framework"] = framework
+			}
+		}
 
 		records = append(records, MappedRecord{
 			RecordType:   "scan_finding",
@@ -139,17 +151,32 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			},
 			"reasons": append([]string(nil), item.Reasons...),
 		}
+		if agentContext := agentContextForFinding(item.Finding); len(agentContext) > 0 {
+			event["agent_id"] = agentIDForFinding(item.Finding)
+			event["agent_context"] = agentContext
+			findingMap := event["finding"].(map[string]any)
+			findingMap["agent_id"] = agentIDForFinding(item.Finding)
+		}
 		agentID := agentIDForFinding(item.Finding)
+		metadata := map[string]any{
+			"rank":              idx + 1,
+			"canonical_finding": item.CanonicalKey,
+		}
+		if agentContext := agentContextForFinding(item.Finding); len(agentContext) > 0 {
+			if agentInstanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(agentInstanceID) != "" {
+				metadata["agent_instance_id"] = agentInstanceID
+			}
+			if framework, ok := agentContext["framework"].(string); ok && strings.TrimSpace(framework) != "" {
+				metadata["agent_framework"] = framework
+			}
+		}
 		records = append(records, MappedRecord{
 			RecordType:   "risk_assessment",
 			AgentID:      agentID,
 			Timestamp:    canonicalTime(now),
 			Event:        event,
 			Relationship: buildFindingRiskRelationship(item, agentID),
-			Metadata: map[string]any{
-				"rank":              idx + 1,
-				"canonical_finding": item.CanonicalKey,
-			},
+			Metadata:     metadata,
 		})
 	}
 	for idx, path := range report.AttackPaths {
@@ -431,6 +458,56 @@ func stringValue(values map[string]any, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(typed)
+}
+
+func agentContextForFinding(finding model.Finding) map[string]any {
+	agentID := strings.TrimSpace(agentIDForFinding(finding))
+	if agentID == "" {
+		return nil
+	}
+
+	context := map[string]any{
+		"agent_id": agentID,
+	}
+	if instanceID := agentInstanceIDForFinding(finding); instanceID != "" {
+		context["agent_instance_id"] = instanceID
+	}
+	if strings.TrimSpace(finding.FindingType) == "agent_framework" {
+		context["framework"] = strings.TrimSpace(finding.ToolType)
+	}
+	if symbol := evidenceStringValue(finding, "symbol"); symbol != "" {
+		context["name"] = symbol
+	}
+	if approvalStatus := evidenceStringValue(finding, "approval_status"); approvalStatus != "" {
+		context["approval_status"] = approvalStatus
+	}
+	if deploymentStatus := evidenceStringValue(finding, "deployment_status"); deploymentStatus != "" {
+		context["deployment_status"] = deploymentStatus
+	}
+	if dataClass := evidenceStringValue(finding, "data_class"); dataClass != "" {
+		context["data_class"] = dataClass
+	}
+	if boundTools := evidenceListValue(finding, "bound_tools"); len(boundTools) > 0 {
+		context["bound_tools"] = boundTools
+	}
+	if boundDataSources := evidenceListValue(finding, "data_sources"); len(boundDataSources) > 0 {
+		context["bound_data_sources"] = boundDataSources
+	}
+	if boundAuthSurfaces := evidenceListValue(finding, "auth_surfaces"); len(boundAuthSurfaces) > 0 {
+		context["bound_auth_surfaces"] = boundAuthSurfaces
+	}
+	if deploymentArtifacts := evidenceListValue(finding, "deployment_artifacts"); len(deploymentArtifacts) > 0 {
+		context["deployment_artifacts"] = deploymentArtifacts
+	}
+	for _, key := range []string{"kill_switch", "dynamic_discovery", "auto_deploy", "human_gate", "delegation"} {
+		if value := evidenceStringValue(finding, key); value != "" {
+			context[key] = value
+		}
+	}
+	if len(context) == 1 {
+		return nil
+	}
+	return context
 }
 
 func buildFindingRelationship(finding model.Finding, canonicalKey string, ruleIDs []string, agentID string) *proof.Relationship {
@@ -775,6 +852,53 @@ func scopedID(prefix, value string) string {
 		return trimmedValue
 	}
 	return trimmedPrefix + ":" + trimmedValue
+}
+
+func agentInstanceIDForFinding(finding model.Finding) string {
+	symbol := evidenceStringValue(finding, "symbol")
+	startLine := 0
+	endLine := 0
+	if finding.LocationRange != nil {
+		startLine = finding.LocationRange.StartLine
+		endLine = finding.LocationRange.EndLine
+	}
+	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+}
+
+func evidenceStringValue(finding model.Finding, key string) string {
+	needle := strings.ToLower(strings.TrimSpace(key))
+	for _, item := range finding.Evidence {
+		if strings.ToLower(strings.TrimSpace(item.Key)) == needle {
+			return strings.TrimSpace(item.Value)
+		}
+	}
+	return ""
+}
+
+func evidenceListValue(finding model.Finding, key string) []string {
+	needle := strings.ToLower(strings.TrimSpace(key))
+	set := map[string]struct{}{}
+	for _, item := range finding.Evidence {
+		if strings.ToLower(strings.TrimSpace(item.Key)) != needle {
+			continue
+		}
+		for _, part := range strings.Split(item.Value, ",") {
+			trimmed := strings.TrimSpace(part)
+			if trimmed == "" {
+				continue
+			}
+			set[trimmed] = struct{}{}
+		}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(set))
+	for item := range set {
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func lifecycleEvidenceID(agentID, state string) string {

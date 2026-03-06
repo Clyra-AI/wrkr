@@ -82,6 +82,27 @@ func buildRepoGraph(org string, repo string, findings []model.Finding) Graph {
 	targetNodes := make([]Node, 0)
 
 	nodeSet := map[string]Node{}
+	edgeSet := map[string]Edge{}
+	addNode := func(node Node) {
+		if _, exists := nodeSet[node.NodeID]; exists {
+			return
+		}
+		nodeSet[node.NodeID] = node
+		switch node.Kind {
+		case "entry":
+			entryNodes = append(entryNodes, node)
+		case "pivot":
+			pivotNodes = append(pivotNodes, node)
+		case "target":
+			targetNodes = append(targetNodes, node)
+		}
+	}
+	addEdge := func(edge Edge) {
+		if _, exists := edgeSet[edge.EdgeID]; exists {
+			return
+		}
+		edgeSet[edge.EdgeID] = edge
+	}
 	for _, finding := range findings {
 		kind := nodeKind(finding)
 		if kind == "" {
@@ -97,17 +118,15 @@ func buildRepoGraph(org string, repo string, findings []model.Finding) Graph {
 			Location:     strings.TrimSpace(finding.Location),
 			CanonicalKey: canonicalFindingKey(finding),
 		}
-		if _, exists := nodeSet[node.NodeID]; exists {
-			continue
-		}
-		nodeSet[node.NodeID] = node
-		switch kind {
-		case "entry":
-			entryNodes = append(entryNodes, node)
-		case "pivot":
-			pivotNodes = append(pivotNodes, node)
-		case "target":
-			targetNodes = append(targetNodes, node)
+		addNode(node)
+		if strings.TrimSpace(finding.FindingType) == "agent_framework" {
+			syntheticNodes, syntheticEdges := agentRelationshipNodesAndEdges(org, repo, node, finding)
+			for _, synthetic := range syntheticNodes {
+				addNode(synthetic)
+			}
+			for _, synthetic := range syntheticEdges {
+				addEdge(synthetic)
+			}
 		}
 	}
 
@@ -115,24 +134,31 @@ func buildRepoGraph(org string, repo string, findings []model.Finding) Graph {
 	sortNodes(pivotNodes)
 	sortNodes(targetNodes)
 
-	edges := make([]Edge, 0)
+	edges := make([]Edge, 0, len(edgeSet))
+	for _, edge := range edgeSet {
+		edges = append(edges, edge)
+	}
 	if len(entryNodes) > 0 && len(pivotNodes) > 0 {
 		for _, entry := range entryNodes {
 			for _, pivot := range pivotNodes {
-				edges = append(edges, newEdge(org, repo, entry, pivot, "entry_to_pivot"))
+				addEdge(newEdge(org, repo, entry, pivot, "entry_to_pivot"))
 			}
 		}
 		for _, pivot := range pivotNodes {
 			for _, target := range targetNodes {
-				edges = append(edges, newEdge(org, repo, pivot, target, "pivot_to_target"))
+				addEdge(newEdge(org, repo, pivot, target, "pivot_to_target"))
 			}
 		}
 	} else {
 		for _, entry := range entryNodes {
 			for _, target := range targetNodes {
-				edges = append(edges, newEdge(org, repo, entry, target, "entry_to_target"))
+				addEdge(newEdge(org, repo, entry, target, "entry_to_target"))
 			}
 		}
+	}
+	edges = edges[:0]
+	for _, edge := range edgeSet {
+		edges = append(edges, edge)
 	}
 
 	sort.Slice(edges, func(i, j int) bool {
@@ -153,6 +179,8 @@ func buildRepoGraph(org string, repo string, findings []model.Finding) Graph {
 
 func nodeKind(finding model.Finding) string {
 	switch strings.TrimSpace(finding.FindingType) {
+	case "agent_framework":
+		return "entry"
 	case "a2a_agent_card", "webmcp_declaration", "prompt_channel_hidden_text", "prompt_channel_override", "prompt_channel_untrusted_context":
 		return "entry"
 	case "ci_autonomy", "mcp_server", "compiled_action", "skill", "skill_metrics":
@@ -216,6 +244,105 @@ func sortNodes(nodes []Node) {
 		}
 		return nodes[i].Location < nodes[j].Location
 	})
+}
+
+func agentRelationshipNodesAndEdges(org string, repo string, agentNode Node, finding model.Finding) ([]Node, []Edge) {
+	pivots := make([]Node, 0)
+	targets := make([]Node, 0)
+	edges := make([]Edge, 0)
+	agentKey := strings.TrimSpace(agentNode.CanonicalKey)
+
+	tools := splitEvidenceList(finding, "bound_tools")
+	dataSources := splitEvidenceList(finding, "data_sources")
+	authSurfaces := splitEvidenceList(finding, "auth_surfaces")
+	deploymentArtifacts := splitEvidenceList(finding, "deployment_artifacts")
+
+	for _, tool := range tools {
+		pivot := syntheticNode(org, repo, "pivot", "agent_tool_binding", tool, finding.Location, agentKey+"|tool:"+tool)
+		pivots = append(pivots, pivot)
+		edges = append(edges, newEdge(org, repo, agentNode, pivot, "agent_to_tool_binding"))
+	}
+	for _, dataSource := range dataSources {
+		target := syntheticNode(org, repo, "target", "agent_data_binding", dataSource, finding.Location, agentKey+"|data:"+dataSource)
+		targets = append(targets, target)
+		if len(pivots) == 0 {
+			edges = append(edges, newEdge(org, repo, agentNode, target, "agent_to_data_binding"))
+			continue
+		}
+		for _, pivot := range pivots {
+			edges = append(edges, newEdge(org, repo, pivot, target, "tool_to_data_binding"))
+		}
+	}
+	for _, authSurface := range authSurfaces {
+		target := syntheticNode(org, repo, "target", "agent_auth_surface", authSurface, finding.Location, agentKey+"|auth:"+authSurface)
+		targets = append(targets, target)
+		if len(pivots) == 0 {
+			edges = append(edges, newEdge(org, repo, agentNode, target, "agent_to_auth_surface"))
+			continue
+		}
+		for _, pivot := range pivots {
+			edges = append(edges, newEdge(org, repo, pivot, target, "tool_to_auth_surface"))
+		}
+	}
+	for _, artifact := range deploymentArtifacts {
+		target := syntheticNode(org, repo, "target", "agent_deploy_artifact", artifact, finding.Location, agentKey+"|deploy:"+artifact)
+		targets = append(targets, target)
+		if len(pivots) == 0 {
+			edges = append(edges, newEdge(org, repo, agentNode, target, "agent_to_deploy_artifact"))
+			continue
+		}
+		for _, pivot := range pivots {
+			edges = append(edges, newEdge(org, repo, pivot, target, "tool_to_deploy_artifact"))
+		}
+	}
+
+	nodes := append([]Node{}, pivots...)
+	nodes = append(nodes, targets...)
+	return nodes, edges
+}
+
+func syntheticNode(org, repo, kind, findingType, toolType, location, canonicalKey string) Node {
+	node := Node{
+		Org:          org,
+		Repo:         repo,
+		Kind:         kind,
+		FindingType:  strings.TrimSpace(findingType),
+		ToolType:     strings.TrimSpace(toolType),
+		Location:     strings.TrimSpace(location),
+		CanonicalKey: strings.TrimSpace(canonicalKey),
+	}
+	node.NodeID = nodeID(kind, model.Finding{
+		FindingType: node.FindingType,
+		ToolType:    node.ToolType,
+		Location:    node.Location,
+	})
+	return node
+}
+
+func splitEvidenceList(finding model.Finding, key string) []string {
+	needle := strings.ToLower(strings.TrimSpace(key))
+	set := map[string]struct{}{}
+	for _, item := range finding.Evidence {
+		if strings.ToLower(strings.TrimSpace(item.Key)) != needle {
+			continue
+		}
+		for _, part := range strings.Split(item.Value, ",") {
+			trimmed := strings.TrimSpace(part)
+			if trimmed == "" {
+				continue
+			}
+			set[trimmed] = struct{}{}
+		}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(set))
+	for item := range set {
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func fallbackOrg(org string) string {
