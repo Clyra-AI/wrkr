@@ -86,7 +86,8 @@ func buildPath(graph aggattack.Graph, entry aggattack.Node, pivot aggattack.Node
 	entryExposure := entryExposure(entry)
 	pivotPrivilege := pivotPrivilege(pivot)
 	targetImpact := targetImpact(target)
-	score := entryExposure + pivotPrivilege + targetImpact
+	rationaleBonus, rationaleExplain := edgeRationaleBonus(edges)
+	score := entryExposure + pivotPrivilege + targetImpact + rationaleBonus
 	if score > 10 {
 		score = 10
 	}
@@ -95,6 +96,9 @@ func buildPath(graph aggattack.Graph, entry aggattack.Node, pivot aggattack.Node
 		fmt.Sprintf("entry_exposure=%.2f", entryExposure),
 		fmt.Sprintf("pivot_privilege=%.2f", pivotPrivilege),
 		fmt.Sprintf("target_impact=%.2f", targetImpact),
+	}
+	if rationaleBonus > 0 {
+		reasons = append(reasons, rationaleExplain...)
 	}
 	edgeRationale := make([]string, 0, len(edges))
 	sourceFindings := []string{entry.CanonicalKey, target.CanonicalKey}
@@ -128,6 +132,8 @@ func buildPath(graph aggattack.Graph, entry aggattack.Node, pivot aggattack.Node
 
 func entryExposure(node aggattack.Node) float64 {
 	switch strings.TrimSpace(node.FindingType) {
+	case "agent_framework":
+		return 3.2
 	case "a2a_agent_card", "webmcp_declaration":
 		return 3.4
 	case "prompt_channel_untrusted_context":
@@ -141,6 +147,14 @@ func entryExposure(node aggattack.Node) float64 {
 
 func pivotPrivilege(node aggattack.Node) float64 {
 	switch strings.TrimSpace(node.FindingType) {
+	case "agent_tool_binding":
+		lower := strings.ToLower(strings.TrimSpace(node.ToolType))
+		switch {
+		case strings.Contains(lower, "deploy"), strings.Contains(lower, "write"), strings.Contains(lower, "exec"):
+			return 3.1
+		default:
+			return 2.5
+		}
 	case "ci_autonomy":
 		return 3.4
 	case "compiled_action":
@@ -159,6 +173,12 @@ func pivotPrivilege(node aggattack.Node) float64 {
 
 func targetImpact(node aggattack.Node) float64 {
 	switch strings.TrimSpace(node.FindingType) {
+	case "agent_auth_surface":
+		return 3.4
+	case "agent_deploy_artifact":
+		return 3.1
+	case "agent_data_binding":
+		return 2.8
 	case "secret_presence":
 		return 3.5
 	case "policy_violation":
@@ -166,6 +186,34 @@ func targetImpact(node aggattack.Node) float64 {
 	default:
 		return 2.2
 	}
+}
+
+func edgeRationaleBonus(edges []aggattack.Edge) (float64, []string) {
+	bonus := 0.0
+	reasons := make([]string, 0, len(edges))
+	for _, edge := range edges {
+		switch strings.TrimSpace(edge.Rationale) {
+		case "agent_to_tool_binding":
+			bonus += 0.7
+			reasons = append(reasons, "edge_rationale=agent_to_tool_binding")
+		case "tool_to_data_binding":
+			bonus += 0.6
+			reasons = append(reasons, "edge_rationale=tool_to_data_binding")
+		case "tool_to_auth_surface":
+			bonus += 0.8
+			reasons = append(reasons, "edge_rationale=tool_to_auth_surface")
+		case "tool_to_deploy_artifact", "agent_to_deploy_artifact":
+			bonus += 0.9
+			reasons = append(reasons, "edge_rationale=tool_to_deploy_artifact")
+		case "agent_to_data_binding":
+			bonus += 0.5
+			reasons = append(reasons, "edge_rationale=agent_to_data_binding")
+		case "agent_to_auth_surface":
+			bonus += 0.7
+			reasons = append(reasons, "edge_rationale=agent_to_auth_surface")
+		}
+	}
+	return bonus, reasons
 }
 
 func pathID(org, repo, entry, pivot, target string) string {

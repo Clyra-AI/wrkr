@@ -66,6 +66,7 @@ Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `t
 `sarif.path` is included when `--sarif` output is requested.
 `inventory.methodology` emits machine-readable scan metadata (`wrkr_version`, timing, repo/file counts, detector inventory).
 `inventory.agents` is always present (possibly empty) and is deterministically sorted by org/framework/instance/location; agent entries may include additive `location_range` when parser metadata is available.
+`ranked_findings[*]` and `attack_paths[*]` now include deterministic agent-aware amplification and edge rationale when agent declarations expose deployment, delegation, dynamic discovery, or bound tool/data/auth/deploy chains.
 `inventory.tools[*]` includes deterministic `approval_classification` (`approved|unapproved|unknown`), and `inventory.approval_summary` emits aggregate approval-gap ratios for campaign/report workflows.
 `inventory.tools[*]` also emits report-ready `tool_category` and deterministic `confidence_score` (`0.00-1.00`) for inventory breakdown tables.
 `inventory.tools[*]` emits normalized `permission_surface`, `permission_tier`, `risk_tier`, `adoption_pattern`, and per-tool `regulatory_mapping` statuses.
@@ -113,6 +114,8 @@ Emerging discovery surfaces are static-only in default deterministic mode:
 - A2A detection uses repo-hosted agent-card JSON files only.
 - MCP gateway posture is derived from local config files only.
 - No live endpoint probing is performed by default.
+
+Wrkr stays in the See boundary: it inventories and scores tools plus agents from files and CI declarations, but it does not enforce runtime side effects or execute agent workflows.
 
 Custom extension detectors are loaded from `.wrkr/detectors/extensions.json` when present in scanned repositories. See [`docs/extensions/detectors.md`](../extensions/detectors.md).
 Canonical state and artifact lifecycle: [`docs/state_lifecycle.md`](../state_lifecycle.md).

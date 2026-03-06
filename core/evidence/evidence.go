@@ -316,7 +316,7 @@ func normalizeFrameworks(in []string) []string {
 	set := map[string]struct{}{}
 	for _, value := range in {
 		for _, part := range strings.Split(value, ",") {
-			trimmed := strings.TrimSpace(part)
+			trimmed := normalizeFrameworkID(part)
 			if trimmed == "" {
 				continue
 			}
@@ -329,6 +329,23 @@ func normalizeFrameworks(in []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func normalizeFrameworkID(value string) string {
+	trimmed := strings.ToLower(strings.TrimSpace(value))
+	if trimmed == "" {
+		return ""
+	}
+	replacer := strings.NewReplacer("_", "-", " ", "-", "eu-ai-act", "eu-ai-act", "pci-dss", "pci-dss")
+	trimmed = replacer.Replace(trimmed)
+	switch trimmed {
+	case "euaiact":
+		return "eu-ai-act"
+	case "pcidss":
+		return "pci-dss"
+	default:
+		return trimmed
+	}
 }
 
 func validateSnapshot(snapshot state.Snapshot) error {

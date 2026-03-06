@@ -11,7 +11,7 @@
 
 ## Executive Summary
 
-Wrkr is an open-source Go CLI and AI-DSPM scanner that discovers AI development tools across an organization, tracks their lifecycle, and produces compliance-ready proof records of AI posture. It answers four questions no existing tool can: What AI tools are developers using? What can those tools access? What's their trust status? Can we prove it to an auditor?
+Wrkr is an open-source Go CLI and AI-DSPM scanner that discovers AI development tools and agent declarations across an organization, tracks their lifecycle, and produces compliance-ready proof records of AI posture. It answers four questions no existing tool can: What AI tools and agents are developers using? What can they access? What's their trust status? Can we prove it to an auditor?
 
 **Primary audiences:** The primary user is the **platform engineering lead** responsible for developer tooling standards. The primary buyer is the **CISO or VP of Engineering** who needs to answer "what AI tools are in our environment" for auditors, boards, or regulators. The champion is the **security engineer** who runs the scan and surfaces findings.
 
@@ -51,7 +51,7 @@ Wrkr is an open-source Go CLI and AI-DSPM scanner that discovers AI development 
 
 ### One-liner:
 
-**Wrkr is an open-source Go CLI that discovers AI development tools across your organization and produces compliance-ready proof records of your AI posture.**
+**Wrkr is an open-source Go CLI that discovers AI development tools and agent declarations across your organization and produces compliance-ready proof records of your AI posture.**
 
 ### Core loop (the "10-minute time-to-value"):
 

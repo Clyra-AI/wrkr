@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +83,118 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	}
 	if len(result.ReportArtifacts) == 0 {
 		t.Fatal("expected report artifacts to be recorded in build result")
+	}
+}
+
+func TestEvidenceBundle_VerifiesWithAgentContextFields(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	findings := []model.Finding{
+		{
+			FindingType: "agent_framework",
+			Severity:    model.SeverityHigh,
+			ToolType:    "langchain",
+			Location:    "agents/release.py",
+			Repo:        "repo",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "release_agent"},
+				{Key: "bound_tools", Value: "deploy.write"},
+				{Key: "deployment_artifacts", Value: ".github/workflows/release.yml"},
+				{Key: "deployment_status", Value: "deployed"},
+				{Key: "approval_status", Value: "missing"},
+				{Key: "kill_switch", Value: "false"},
+			},
+		},
+	}
+	report := risk.Score(findings, 5, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC))
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
+	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
+	snapshot := state.Snapshot{
+		Version:      state.SnapshotVersion,
+		Target:       source.Target{Mode: "repo", Value: "acme/repo"},
+		Findings:     findings,
+		Inventory:    &agginventory.Inventory{InventoryVersion: "v1", GeneratedAt: "2026-02-20T12:00:00Z"},
+		RiskReport:   &report,
+		Profile:      &profile,
+		PostureScore: &posture,
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+		t.Fatalf("emit scan records: %v", err)
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	if _, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatalf("build evidence bundle: %v", err)
+	}
+
+	payload, err := os.ReadFile(filepath.Join(outputDir, "proof-records", "scan-findings.jsonl"))
+	if err != nil {
+		t.Fatalf("read scan findings jsonl: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(payload)), "\n")
+	if len(lines) == 0 {
+		t.Fatal("expected scan findings records in evidence bundle")
+	}
+	record := map[string]any{}
+	if err := json.Unmarshal([]byte(lines[0]), &record); err != nil {
+		t.Fatalf("parse scan finding jsonl: %v", err)
+	}
+	event, ok := record["event"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected event map in proof record, got %T", record["event"])
+	}
+	if event["agent_id"] == "" {
+		t.Fatalf("expected additive agent_id in proof record event, got %v", event)
+	}
+	if _, ok := event["agent_context"].(map[string]any); !ok {
+		t.Fatalf("expected additive agent_context map in proof record event, got %T", event["agent_context"])
+	}
+}
+
+func TestEvidenceFrameworkCoverage_DeterministicForAgentFindings(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	firstDir := filepath.Join(tmp, "evidence-first")
+	secondDir := filepath.Join(tmp, "evidence-second")
+	input := BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"eu_ai_act", "soc2", "pci_dss"},
+		GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC),
+	}
+
+	first, err := Build(BuildInput{
+		StatePath:   input.StatePath,
+		Frameworks:  input.Frameworks,
+		OutputDir:   firstDir,
+		GeneratedAt: input.GeneratedAt,
+	})
+	if err != nil {
+		t.Fatalf("first evidence build: %v", err)
+	}
+	second, err := Build(BuildInput{
+		StatePath:   input.StatePath,
+		Frameworks:  input.Frameworks,
+		OutputDir:   secondDir,
+		GeneratedAt: input.GeneratedAt,
+	})
+	if err != nil {
+		t.Fatalf("second evidence build: %v", err)
+	}
+
+	if !reflect.DeepEqual(first.FrameworkCoverage, second.FrameworkCoverage) {
+		t.Fatalf("expected deterministic framework coverage\nfirst=%v\nsecond=%v", first.FrameworkCoverage, second.FrameworkCoverage)
+	}
+	expectedFrameworks := []string{"eu-ai-act", "pci-dss", "soc2"}
+	if !reflect.DeepEqual(first.Frameworks, expectedFrameworks) {
+		t.Fatalf("expected normalized framework IDs %v, got %v", expectedFrameworks, first.Frameworks)
 	}
 }
 

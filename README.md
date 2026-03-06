@@ -4,9 +4,9 @@
 [![CodeQL](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql)
 [![Nightly](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml/badge.svg?event=schedule)](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml)
 
-Most teams don't know what AI dev tools and agents are active across their repos, what permissions they have, or what changed since last week. Wrkr answers that in minutes. Scan your GitHub org, get ranked findings, and generate audit-ready evidence. Read-only. No integration required.
+Most teams don't know what AI dev tools and agents are active across their repos, what permissions they have, or what changed since last week. Wrkr answers that in minutes. Scan your GitHub org, get ranked findings for tools and agents, and generate audit-ready evidence. Read-only. No integration required.
 
-Wrkr is the **See** layer in the Clyra AI governance stack (See -> Prove -> Control -> Build). It discovers AI tooling across repositories and orgs, scores posture, tracks identity lifecycle, and emits signed proof artifacts ready for compliance review or downstream automation.
+Wrkr is the **See** layer in the Clyra AI governance stack (See -> Prove -> Control -> Build). It discovers AI tooling and agent declarations across repositories and orgs, scores posture, tracks identity lifecycle, and emits signed proof artifacts ready for compliance review or downstream automation.
 
 Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command contracts: [`docs/commands/`](docs/commands/) | Docs map: [`docs/map.md`](docs/map.md)
 
@@ -79,7 +79,7 @@ make build
 ./.tmp/wrkr score --json
 
 # Generate and verify evidence
-./.tmp/wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json
+./.tmp/wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json
 ./.tmp/wrkr verify --chain --json
 
 # Baseline and drift gate
@@ -92,13 +92,14 @@ Expected JSON keys by command family:
 - `scan`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score` (optional: `detector_errors`, `partial_result`, `source_errors`, `source_degraded`, `policy_warnings`, `report`, `sarif`)
 - `report`: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `privilege_budget`, `summary` (optional: `md_path`, `pdf_path`)
 - `score`: `score`, `grade`, `breakdown`, `weighted_breakdown`, `weights`, `trend_delta` (optional: `attack_paths`, `top_attack_paths`)
-- `evidence`: `status`, `output_dir`, `manifest_path`, `chain_path`, `framework_coverage`, `report_artifacts`
+- `evidence`: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`, `report_artifacts`
 - `verify`: `chain.intact`, `chain.head_hash`
 - `regress run`: deterministic drift status and reason fields
 
 Prompt-channel findings are emitted deterministically with stable reason codes and evidence hashes (no raw secret extraction).  
 When `scan --enrich` is enabled, MCP findings include enrich provenance and quality fields (`source`, `as_of`, `advisory_count`, `registry_status`, `enrich_quality`, schema IDs, and adapter error classes).
 Evidence bundles include deterministic inventory artifacts at `inventory.json`, `inventory-snapshot.json`, and `inventory.yaml`.
+Evidence framework IDs are normalized to upstream `Clyra-AI/proof` IDs in output (`eu-ai-act`, `pci-dss`); underscore aliases such as `eu_ai_act` and `pci_dss` are accepted as input.
 Canonical local path lifecycle for state, baseline, manifest, and proof chain: [`docs/state_lifecycle.md`](docs/state_lifecycle.md).
 
 ## What You Get
@@ -117,7 +118,7 @@ Deterministic identities in `wrkr:<tool_id>:<org>` format. Lifecycle transitions
 
 ### Audit-ready evidence
 
-Signed proof records for `scan_finding`, `risk_assessment`, and lifecycle events. Evidence bundles with compliance framework mappings and offline verification. No calling home required.
+Signed proof records for `scan_finding`, `risk_assessment`, and lifecycle events. Agent-aware proof events now carry additive `agent_context` fields for portability, and evidence bundles keep compliance framework mappings verifiable offline. No calling home required.
 
 ### CI drift gates
 

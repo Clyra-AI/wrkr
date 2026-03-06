@@ -1,0 +1,93 @@
+{
+  "merge_gates": {
+    "required_pr_checks": [
+      "fast-lane",
+      "scan-contract",
+      "wave-sequence",
+      "windows-smoke"
+    ],
+    "required_release_commands": [
+      "make prepush-full",
+      "make test-contracts",
+      "make test-scenarios",
+      "scripts/run_v1_acceptance.sh --mode=local",
+      "go run ./cmd/wrkr scan --path scenarios/wrkr/scan-diff-no-noise/input/local-repos --json --quiet"
+    ]
+  },
+  "waves": [
+    {
+      "id": "wave-1",
+      "label": "foundation",
+      "order": 1,
+      "required_lanes": [
+        "fast",
+        "core",
+        "acceptance",
+        "cross_platform",
+        "risk"
+      ],
+      "required_story_checks": [
+        "story1_contracts_test.go",
+        "story2_contracts_test.go",
+        "story3_contracts_test.go",
+        "story4_contracts_test.go",
+        "story5_contracts_test.go"
+      ],
+      "successor": "wave-2"
+    },
+    {
+      "id": "wave-2",
+      "label": "core-detection-and-policy",
+      "order": 2,
+      "required_lanes": [
+        "fast",
+        "core",
+        "acceptance",
+        "cross_platform",
+        "risk"
+      ],
+      "required_story_checks": [
+        "story10_contracts_test.go",
+        "story7_contracts_test.go",
+        "story8_contracts_test.go",
+        "story9_contracts_test.go"
+      ],
+      "requires": "wave-1",
+      "successor": "wave-3"
+    },
+    {
+      "id": "wave-3",
+      "label": "coverage-and-quality",
+      "order": 3,
+      "required_lanes": [
+        "fast",
+        "core",
+        "acceptance",
+        "cross_platform",
+        "risk"
+      ],
+      "required_story_checks": [
+        "story14_contracts_test.go",
+        "story15_contracts_test.go"
+      ],
+      "requires": "wave-2",
+      "successor": "wave-4"
+    },
+    {
+      "id": "wave-4",
+      "label": "hardening-and-docs",
+      "order": 4,
+      "required_lanes": [
+        "fast",
+        "core",
+        "acceptance",
+        "cross_platform",
+        "risk"
+      ],
+      "required_story_checks": [
+        "story21_contracts_test.go"
+      ],
+      "requires": "wave-3"
+    }
+  ]
+}

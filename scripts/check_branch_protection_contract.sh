@@ -6,6 +6,11 @@ if [[ ! -f .github/required-checks.json ]]; then
   exit 3
 fi
 
+if [[ ! -f .github/wave-gates.json ]]; then
+  echo "missing wave gate contract: .github/wave-gates.json" >&2
+  exit 3
+fi
+
 if ! command -v python3 >/dev/null 2>&1; then
   echo "python3 is required for branch protection contract validation" >&2
   exit 7
@@ -20,6 +25,7 @@ import sys
 
 ROOT = pathlib.Path(".")
 required_checks_path = ROOT / ".github" / "required-checks.json"
+wave_gates_path = ROOT / ".github" / "wave-gates.json"
 workflows_dir = ROOT / ".github" / "workflows"
 
 errors = []
@@ -28,6 +34,12 @@ try:
     payload = json.loads(required_checks_path.read_text(encoding="utf-8"))
 except Exception as exc:
     print(f"failed to parse {required_checks_path}: {exc}", file=sys.stderr)
+    sys.exit(3)
+
+try:
+    wave_payload = json.loads(wave_gates_path.read_text(encoding="utf-8"))
+except Exception as exc:
+    print(f"failed to parse {wave_gates_path}: {exc}", file=sys.stderr)
     sys.exit(3)
 
 required_checks = payload.get("required_checks")
@@ -45,6 +57,16 @@ if len(set(required_checks)) != len(required_checks):
 
 if required_checks != sorted(required_checks):
     errors.append("required_checks must be sorted for deterministic diffs")
+
+wave_required_checks = wave_payload.get("merge_gates", {}).get("required_pr_checks")
+if not isinstance(wave_required_checks, list) or not all(
+    isinstance(item, str) and item.strip() for item in wave_required_checks
+):
+    errors.append("wave gate contract merge_gates.required_pr_checks must be a non-empty string array")
+    wave_required_checks = []
+
+if list(required_checks) != [item.strip() for item in wave_required_checks]:
+    errors.append("required_checks must match wave gate contract merge_gates.required_pr_checks exactly")
 
 workflow_files = sorted(workflows_dir.glob("*.yml")) + sorted(workflows_dir.glob("*.yaml"))
 if not workflow_files:

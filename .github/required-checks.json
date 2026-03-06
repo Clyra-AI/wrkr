@@ -1,6 +1,8 @@
 {
   "required_checks": [
     "fast-lane",
+    "scan-contract",
+    "wave-sequence",
     "windows-smoke"
   ]
 }

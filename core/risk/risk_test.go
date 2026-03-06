@@ -252,3 +252,101 @@ func TestMCPEnrichUnavailableDoesNotAlterTrustDeficit(t *testing.T) {
 		t.Fatalf("expected unavailable enrich to not alter trust deficit, base=%.2f unavailable=%.2f", base.Ranked[0].TrustDeficit, unavailable.Ranked[0].TrustDeficit)
 	}
 }
+
+func TestRiskScore_AgentAmplificationElevatesHighBlastExposure(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{
+			FindingType: "agent_framework",
+			Severity:    model.SeverityMedium,
+			ToolType:    "langchain",
+			Location:    "agents/base.py",
+			Repo:        "repo",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "approval_status", Value: "approved"},
+				{Key: "deployment_status", Value: "unknown"},
+				{Key: "kill_switch", Value: "true"},
+			},
+		},
+		{
+			FindingType: "agent_framework",
+			Severity:    model.SeverityHigh,
+			ToolType:    "langchain",
+			Location:    "agents/release.py",
+			Repo:        "repo",
+			Org:         "acme",
+			Permissions: []string{"deploy.write", "secret.read"},
+			Evidence: []model.Evidence{
+				{Key: "deployment_status", Value: "deployed"},
+				{Key: "approval_status", Value: "missing"},
+				{Key: "kill_switch", Value: "false"},
+				{Key: "dynamic_discovery", Value: "true"},
+				{Key: "delegation", Value: "true"},
+				{Key: "auto_deploy", Value: "true"},
+				{Key: "human_gate", Value: "false"},
+			},
+		},
+	}
+
+	report := Score(findings, 5, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC))
+	if len(report.Ranked) != 2 {
+		t.Fatalf("expected 2 ranked findings, got %d", len(report.Ranked))
+	}
+	if report.Ranked[0].Finding.Location != "agents/release.py" {
+		t.Fatalf("expected amplified agent finding to rank first, got %s", report.Ranked[0].Finding.Location)
+	}
+	reasonSet := map[string]bool{}
+	for _, reason := range report.Ranked[0].Reasons {
+		reasonSet[reason] = true
+	}
+	for _, reason := range []string{
+		"agent_deployment_scope=deployed",
+		"agent_production_write",
+		"agent_delegation_enabled",
+		"agent_dynamic_tool_discovery",
+		"agent_approval_missing",
+		"agent_kill_switch_missing",
+	} {
+		if !reasonSet[reason] {
+			t.Fatalf("expected amplified agent reason %s, got %v", reason, report.Ranked[0].Reasons)
+		}
+	}
+}
+
+func TestRiskReasons_DeterministicOrderingWithAgentFactors(t *testing.T) {
+	t.Parallel()
+
+	finding := model.Finding{
+		FindingType: "agent_framework",
+		Severity:    model.SeverityHigh,
+		ToolType:    "crewai",
+		Location:    "crews/release.py",
+		Repo:        "repo",
+		Org:         "acme",
+		Permissions: []string{"deploy.write"},
+		Evidence: []model.Evidence{
+			{Key: "deployment_status", Value: "deployed"},
+			{Key: "approval_status", Value: "missing"},
+			{Key: "kill_switch", Value: "false"},
+			{Key: "dynamic_discovery", Value: "true"},
+			{Key: "delegation", Value: "true"},
+			{Key: "auto_deploy", Value: "true"},
+			{Key: "human_gate", Value: "false"},
+		},
+	}
+
+	first := Score([]model.Finding{finding}, 5, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)).Ranked[0].Reasons
+	for i := 0; i < 32; i++ {
+		next := Score([]model.Finding{finding}, 5, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)).Ranked[0].Reasons
+		if len(next) != len(first) {
+			t.Fatalf("expected stable reason count, got %d vs %d", len(next), len(first))
+		}
+		for idx := range first {
+			if first[idx] != next[idx] {
+				t.Fatalf("non-deterministic reason ordering at run %d\nfirst=%v\nnext=%v", i+1, first, next)
+			}
+		}
+	}
+}

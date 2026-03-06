@@ -186,6 +186,11 @@ func scoreFinding(finding model.Finding, cooccurrence promptCooccurrence) Scored
 			reasons = append(reasons, fmt.Sprintf("prompt_channel_correlation_multiplier=%.2f", promptMultiplier))
 		}
 	}
+	if agentMultiplier, agentReasons := agentAmplification(finding); agentMultiplier > 1 {
+		score = score * agentMultiplier
+		reasons = append(reasons, agentReasons...)
+		reasons = append(reasons, fmt.Sprintf("agent_context_multiplier=%.2f", agentMultiplier))
+	}
 
 	if score > 10 {
 		score = 10
@@ -505,6 +510,51 @@ func compiledActionFactor(finding model.Finding) float64 {
 	return 1.1
 }
 
+func agentAmplification(finding model.Finding) (float64, []string) {
+	if strings.TrimSpace(finding.FindingType) != "agent_framework" {
+		return 1, nil
+	}
+
+	multiplier := 1.0
+	reasons := make([]string, 0, 7)
+
+	deploymentStatus := evidenceString(finding, "deployment_status")
+	switch deploymentStatus {
+	case "deployed":
+		multiplier += 0.20
+		reasons = append(reasons, "agent_deployment_scope=deployed")
+	case "ambiguous":
+		multiplier += 0.10
+		reasons = append(reasons, "agent_deployment_scope=ambiguous")
+	}
+
+	if hasAgentProductionWrite(finding) {
+		multiplier += 0.25
+		reasons = append(reasons, "agent_production_write")
+	}
+	if hasAgentDelegation(finding) {
+		multiplier += 0.15
+		reasons = append(reasons, "agent_delegation_enabled")
+	}
+	if evidenceBool(finding, "dynamic_discovery") {
+		multiplier += 0.15
+		reasons = append(reasons, "agent_dynamic_tool_discovery")
+	}
+	if approval := evidenceString(finding, "approval_status"); approval != "approved" && approval != "valid" {
+		multiplier += 0.20
+		reasons = append(reasons, "agent_approval_missing")
+	}
+	if deploymentStatus == "deployed" && !evidenceBool(finding, "kill_switch") {
+		multiplier += 0.15
+		reasons = append(reasons, "agent_kill_switch_missing")
+	}
+
+	if len(reasons) == 0 {
+		return 1, nil
+	}
+	return multiplier, reasons
+}
+
 func autonomyFactor(level string) float64 {
 	switch level {
 	case autonomy.LevelHeadlessAuto:
@@ -516,6 +566,17 @@ func autonomyFactor(level string) float64 {
 	default:
 		return 1
 	}
+}
+
+func hasAgentProductionWrite(finding model.Finding) bool {
+	return hasPermission(finding.Permissions, "deploy.write") ||
+		hasPermission(finding.Permissions, "production.write") ||
+		evidenceBool(finding, "auto_deploy") ||
+		evidenceString(finding, "deployment_gate") == "open"
+}
+
+func hasAgentDelegation(finding model.Finding) bool {
+	return evidenceBool(finding, "delegation") || evidenceString(finding, "delegate_to") != ""
 }
 
 func autonomyRank(level string) int {
@@ -588,6 +649,15 @@ func evidenceFloat(finding model.Finding, key string) float64 {
 	parsed, err := strconv.ParseFloat(value, 64)
 	if err != nil {
 		return 0
+	}
+	return parsed
+}
+
+func evidenceBool(finding model.Finding, key string) bool {
+	value := evidenceString(finding, key)
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false
 	}
 	return parsed
 }

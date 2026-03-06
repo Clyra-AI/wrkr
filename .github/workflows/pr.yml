@@ -14,6 +14,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  wave-sequence:
+    name: wave-sequence
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Validate branch protection and wave sequencing contracts
+        run: |
+          scripts/check_branch_protection_contract.sh
+          scripts/check_wave_gates.sh
+
   fast-lane:
     name: fast-lane
     runs-on: ubuntu-latest
@@ -151,6 +168,26 @@ jobs:
       - name: Skip deep scanners for non-code changes
         if: steps.changes.outputs.go != 'true' && steps.changes.outputs.python != 'true' && steps.changes.outputs.workflow_or_policy != 'true'
         run: echo "no code, workflow, or policy changes; deep scanners skipped"
+
+  scan-contract:
+    name: scan-contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.7'
+          check-latest: false
+
+      - name: Enforce scan JSON and exit-code contracts
+        run: |
+          go test ./testinfra/contracts -run 'TestRequiredChecks_EnforceWaveSequence1To2To3To4|TestScanContract_NoJSONOrExitRegressionAcrossWaves' -count=1
+          mkdir -p .tmp
+          go run ./cmd/wrkr scan --path scenarios/wrkr/scan-diff-no-noise/input/local-repos --json --quiet > .tmp/scan-contract.json
+          test -s .tmp/scan-contract.json
 
   windows-smoke:
     name: windows-smoke

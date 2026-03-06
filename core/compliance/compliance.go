@@ -30,6 +30,7 @@ type ControlCheck struct {
 	Title               string   `json:"title"`
 	Status              string   `json:"status"`
 	MatchedRecords      int      `json:"matched_records"`
+	MappedRuleIDs       []string `json:"mapped_rule_ids,omitempty"`
 	MissingRecordTypes  []string `json:"missing_record_types,omitempty"`
 	MissingFields       []string `json:"missing_fields,omitempty"`
 	RequiredRecordTypes []string `json:"required_record_types"`
@@ -44,11 +45,12 @@ func Evaluate(in Input) (Result, error) {
 		return Result{}, fmt.Errorf("chain is required")
 	}
 	controls := flatten(in.Framework.Controls)
+	matchedRuleIDs := collectRuleIDs(in.Chain.Records)
 	checks := make([]ControlCheck, 0, len(controls))
 	gaps := make([]ControlCheck, 0)
 	covered := 0
 	for _, control := range controls {
-		check := evaluateControl(control, in.Chain.Records)
+		check := evaluateControl(in.Framework.Framework.ID, control, in.Chain.Records, matchedRuleIDs)
 		checks = append(checks, check)
 		if check.Status == "covered" {
 			covered++
@@ -72,7 +74,7 @@ func Evaluate(in Input) (Result, error) {
 	}, nil
 }
 
-func evaluateControl(control framework.Control, records []proof.Record) ControlCheck {
+func evaluateControl(frameworkID string, control framework.Control, records []proof.Record, matchedRuleIDs map[string]struct{}) ControlCheck {
 	requiredTypes := uniqueSortedStrings(control.RequiredRecordTypes)
 	requiredFields := uniqueSortedStrings(control.RequiredFields)
 	missingTypes := make([]string, 0)
@@ -99,17 +101,20 @@ func evaluateControl(control framework.Control, records []proof.Record) ControlC
 	if len(missingTypes) > 0 || len(missingFields) > 0 {
 		status = "gap"
 	}
+	mappedRules := mappedRuleIDs(frameworkID, control.ID, matchedRuleIDs)
 
 	matchedCount := 0
 	for _, items := range matchedByType {
 		matchedCount += len(items)
 	}
+	matchedCount += len(mappedRules)
 
 	return ControlCheck{
 		ID:                  control.ID,
 		Title:               control.Title,
 		Status:              status,
 		MatchedRecords:      matchedCount,
+		MappedRuleIDs:       mappedRules,
 		MissingRecordTypes:  missingTypes,
 		MissingFields:       missingFields,
 		RequiredRecordTypes: requiredTypes,
@@ -200,4 +205,73 @@ func uniqueSortedStrings(values []string) []string {
 
 func round2(value float64) float64 {
 	return float64(int(value*100+0.5)) / 100
+}
+
+func collectRuleIDs(records []proof.Record) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, record := range records {
+		for _, ruleID := range recordRuleIDs(record) {
+			out[ruleID] = struct{}{}
+		}
+	}
+	return out
+}
+
+func recordRuleIDs(record proof.Record) []string {
+	set := map[string]struct{}{}
+	if ruleID := eventRuleID(record.Event); ruleID != "" {
+		set[ruleID] = struct{}{}
+	}
+	if record.Relationship != nil && record.Relationship.PolicyRef != nil {
+		for _, ruleID := range record.Relationship.PolicyRef.MatchedRuleIDs {
+			trimmed := strings.TrimSpace(ruleID)
+			if trimmed == "" {
+				continue
+			}
+			set[trimmed] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for ruleID := range set {
+		out = append(out, ruleID)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func eventRuleID(event map[string]any) string {
+	if event == nil {
+		return ""
+	}
+	if ruleID, ok := event["rule_id"].(string); ok && strings.TrimSpace(ruleID) != "" {
+		return strings.TrimSpace(ruleID)
+	}
+	finding, ok := event["finding"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	ruleID, _ := finding["rule_id"].(string)
+	return strings.TrimSpace(ruleID)
+}
+
+func mappedRuleIDs(frameworkID, controlID string, matchedRuleIDs map[string]struct{}) []string {
+	controls := frameworkControlRuleMap[strings.TrimSpace(frameworkID)]
+	if len(controls) == 0 {
+		return nil
+	}
+	ruleIDs := controls[strings.TrimSpace(controlID)]
+	if len(ruleIDs) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(ruleIDs))
+	for _, ruleID := range ruleIDs {
+		if _, ok := matchedRuleIDs[ruleID]; ok {
+			out = append(out, ruleID)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Strings(out)
+	return out
 }
