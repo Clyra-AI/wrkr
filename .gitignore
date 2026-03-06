@@ -18,6 +18,8 @@ venv/
 !scenarios/wrkr/extension-detectors/repos/ext-repo/.wrkr/
 !scenarios/wrkr/extension-detectors/repos/ext-repo/.wrkr/detectors/
 !scenarios/wrkr/extension-detectors/repos/ext-repo/.wrkr/detectors/extensions.json
+!testinfra/benchmarks/agents/fixtures/**/.wrkr/
+!testinfra/benchmarks/agents/fixtures/**/.wrkr/**
 *.sarif
 /wrkr
 /wrkr.exe

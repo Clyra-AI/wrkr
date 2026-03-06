@@ -1,0 +1,5 @@
+[[agents]]
+name = "mcp_toml"
+file = "agents/mcp_toml.py"
+tools = ["mcp.server.docs"]
+auth_surfaces = ["token"]

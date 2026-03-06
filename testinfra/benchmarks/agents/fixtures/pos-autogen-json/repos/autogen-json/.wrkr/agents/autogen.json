@@ -1,0 +1,1 @@
+{"agents":[{"name":"ops_json","file":"agents/ops_json.py","tools":["search.read"]}]}

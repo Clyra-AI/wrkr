@@ -1,0 +1,5 @@
+agents:
+  - name: custom_ops
+    file: agents/custom_ops.py
+    tools: [deploy.write, proc.exec]
+    auth_surfaces: [token]

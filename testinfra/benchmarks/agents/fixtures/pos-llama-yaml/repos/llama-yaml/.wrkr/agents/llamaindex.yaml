@@ -1,0 +1,4 @@
+agents:
+  - name: llama_yaml
+    file: agents/llama_yaml.py
+    data_sources: [vector.rag]
