@@ -1,0 +1,8 @@
+agents:
+  - name: policy_framework_agent
+    file: agents/policy_framework.py
+    tools: [deploy.write]
+    auth_surfaces: [token]
+    deployment_artifacts: [.github/workflows/release.yml]
+    auto_deploy: true
+    human_gate: false

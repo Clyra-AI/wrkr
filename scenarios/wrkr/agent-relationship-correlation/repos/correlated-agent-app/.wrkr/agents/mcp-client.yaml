@@ -1,0 +1,11 @@
+agents:
+  - name: release_coordinator
+    file: agents/release.py
+    start_line: 12
+    end_line: 42
+    tools: [mcp.server.deploy, shell.exec]
+    data_sources: [postgres.audit]
+    auth_surfaces: [token]
+    deployment_artifacts: [.github/workflows/release.yml]
+    auto_deploy: true
+    human_gate: false
