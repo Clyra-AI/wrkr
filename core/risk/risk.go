@@ -519,10 +519,11 @@ func agentAmplification(finding model.Finding) (float64, []string) {
 	reasons := make([]string, 0, 7)
 
 	deploymentStatus := evidenceString(finding, "deployment_status")
-	if deploymentStatus == "deployed" {
+	switch deploymentStatus {
+	case "deployed":
 		multiplier += 0.20
 		reasons = append(reasons, "agent_deployment_scope=deployed")
-	} else if deploymentStatus == "ambiguous" {
+	case "ambiguous":
 		multiplier += 0.10
 		reasons = append(reasons, "agent_deployment_scope=ambiguous")
 	}
