@@ -102,11 +102,6 @@ func evaluateControl(frameworkID string, control framework.Control, records []pr
 		status = "gap"
 	}
 	mappedRules := mappedRuleIDs(frameworkID, control.ID, matchedRuleIDs)
-	if len(mappedRules) > 0 {
-		status = "covered"
-		missingTypes = nil
-		missingFields = nil
-	}
 
 	matchedCount := 0
 	for _, items := range matchedByType {
