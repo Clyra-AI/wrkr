@@ -71,9 +71,12 @@ If preconditions fail, stop and report.
 - Accepted settle signals:
   - Codex posts actionable review comments/suggestions -> proceed to pre-merge fix loop.
   - Codex posts explicit approval/all-good signal -> review gate is satisfied.
+  - `chatgpt-codex-connector` or `chatgpt-codex-connector[bot]` reacts with `+1` / thumbs-up on the PR body, an issue comment, or a review comment -> review gate is satisfied for the current latest PR head when required PR CI is green and no unresolved `P0/P1` Codex items remain.
 - If no latest-head Codex signal appears within timeout, fall back to PR-wide Codex review inventory:
   - collect existing Codex review summaries, inline comments, and issue comments for the PR
+  - collect Codex-authored `+1` / thumbs-up reactions on the PR body, issue comments, and review comments
   - require at least one prior Codex review artifact on the PR before permitting `carry_forward`
+  - a Codex thumbs-up reaction counts as a prior Codex review artifact for this fallback
   - if no unresolved `P0/P1` Codex items remain and required PR CI is green, treat the review gate as satisfied (`carry_forward`)
   - if unresolved `P0/P1` Codex items remain, stop and report blocker
   - if no prior Codex review artifact exists on the PR, stop and report blocker
@@ -99,6 +102,25 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
   ACTION_COMMENT_COUNT="$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
     --jq "[.[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .commit_id==\"$HEAD_SHA\")] | length")"
 
+  PR_PLUS_ONE_COUNT="$(gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/issues/$PR_NUMBER/reactions" \
+    --jq "[.[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .content==\"+1\")] | length")"
+
+  ISSUE_PLUS_ONE_COUNT="$(
+    gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/issues/$PR_NUMBER/comments" --jq '.[].id' |
+    while read -r COMMENT_ID; do
+      gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+        --jq ".[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .content==\"+1\") | 1"
+    done | wc -l | tr -d ' '
+  )"
+
+  REVIEW_PLUS_ONE_COUNT="$(
+    gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/pulls/$PR_NUMBER/comments" --jq '.[].id' |
+    while read -r COMMENT_ID; do
+      gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/pulls/comments/$COMMENT_ID/reactions" \
+        --jq ".[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .content==\"+1\") | 1"
+    done | wc -l | tr -d ' '
+  )"
+
   if [ "$ACTION_REVIEW_COUNT" -gt 0 ] || [ "$ACTION_COMMENT_COUNT" -gt 0 ]; then
     SETTLED=1
     SETTLE_KIND="actionable"
@@ -108,6 +130,12 @@ while [ "$(date +%s)" -lt "$DEADLINE" ]; do
   if [ "$APPROVAL_COUNT" -gt 0 ]; then
     SETTLED=1
     SETTLE_KIND="approved"
+    break
+  fi
+
+  if [ "$PR_PLUS_ONE_COUNT" -gt 0 ] || [ "$ISSUE_PLUS_ONE_COUNT" -gt 0 ] || [ "$REVIEW_PLUS_ONE_COUNT" -gt 0 ]; then
+    SETTLED=1
+    SETTLE_KIND="thumbs_up"
     break
   fi
 
@@ -128,6 +156,21 @@ gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
 
 gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
   --jq ".[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .commit_id==\"$HEAD_SHA\") | {path, user: .user.login, created_at, body}"
+
+gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/issues/$PR_NUMBER/reactions" \
+  --jq ".[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .content==\"+1\") | {user: .user.login, created_at, content}"
+
+gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/issues/$PR_NUMBER/comments" --jq '.[].id' |
+while read -r COMMENT_ID; do
+  gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+    --jq ".[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .content==\"+1\") | {comment_id: $COMMENT_ID, user: .user.login, content}"
+done
+
+gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/pulls/$PR_NUMBER/comments" --jq '.[].id' |
+while read -r COMMENT_ID; do
+  gh api -H 'Accept: application/vnd.github+json' "repos/$REPO/pulls/comments/$COMMENT_ID/reactions" \
+    --jq ".[] | select((.user.login | test(\"$BOT_RE\"; \"i\")) and .content==\"+1\") | {comment_id: $COMMENT_ID, user: .user.login, content}"
+done
 ```
 
 9. Pre-merge unresolved comment triage and fix loop (max 2 loops):
@@ -153,7 +196,7 @@ gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
 10. Merge PR after green and review gate satisfied:
 - Merge only when all are true on latest PR head SHA:
   - required PR CI is green
-  - Codex review settle gate is satisfied (`approved`, `actionable` resolved, or `carry_forward`)
+  - Codex review settle gate is satisfied (`approved`, `thumbs_up`, `actionable` resolved, or `carry_forward`)
   - no unresolved `P0/P1` review items remain
 - Merge non-interactively (repo-default merge strategy or explicitly chosen one).
 - Record merged PR URL and merge commit SHA.
