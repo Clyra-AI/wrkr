@@ -73,8 +73,10 @@ If preconditions fail, stop and report.
   - Codex posts explicit approval/all-good signal -> review gate is satisfied.
 - If no latest-head Codex signal appears within timeout, fall back to PR-wide Codex review inventory:
   - collect existing Codex review summaries, inline comments, and issue comments for the PR
+  - require at least one prior Codex review artifact on the PR before permitting `carry_forward`
   - if no unresolved `P0/P1` Codex items remain and required PR CI is green, treat the review gate as satisfied (`carry_forward`)
   - if unresolved `P0/P1` Codex items remain, stop and report blocker
+  - if no prior Codex review artifact exists on the PR, stop and report blocker
   - if Codex explicitly reports service/quota failure for automatic review, stop and report blocker
 - Do not create a new GitHub comment to force or retry review.
 - Example `gh api` polling implementation:
