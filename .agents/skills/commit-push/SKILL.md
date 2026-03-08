@@ -63,14 +63,20 @@ If preconditions fail, stop and report.
 - flaky/infra/transient
 - permission/workflow policy failure
 
-8. Codex review settle gate (mandatory, latest PR head SHA):
-- After PR creation/update and green CI, wait for Codex review output before merge.
-- Poll PR reviews/comments every `15s` for up to `5 minutes`, scoped to the latest PR head SHA.
+8. Codex review settle gate (mandatory, passive, latest-head preferred):
+- After PR creation/update and green CI, inspect Codex review output before merge.
+- Poll PR reviews/comments every `15s` for up to `5 minutes`, scoped to the latest PR head SHA first.
+- Never post `@codex review` or any other PR/issue comment solely to solicit a reviewer response.
 - Default reviewer identity for this gate: `chatgpt-codex-connector` (GitHub UI may render as `chatgpt-codex-connector bot`).
 - Accepted settle signals:
   - Codex posts actionable review comments/suggestions -> proceed to pre-merge fix loop.
   - Codex posts explicit approval/all-good signal -> review gate is satisfied.
-- If no Codex review signal appears within timeout, stop and report blocker (`review pending`).
+- If no latest-head Codex signal appears within timeout, fall back to PR-wide Codex review inventory:
+  - collect existing Codex review summaries, inline comments, and issue comments for the PR
+  - if no unresolved `P0/P1` Codex items remain and required PR CI is green, treat the review gate as satisfied (`carry_forward`)
+  - if unresolved `P0/P1` Codex items remain, stop and report blocker
+  - if Codex explicitly reports service/quota failure for automatic review, stop and report blocker
+- Do not create a new GitHub comment to force or retry review.
 - Example `gh api` polling implementation:
 ```bash
 PR_NUMBER="$(gh pr view --json number --jq .number)"
@@ -123,8 +129,10 @@ gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
 ```
 
 9. Pre-merge unresolved comment triage and fix loop (max 2 loops):
-- Fetch unresolved PR review threads/comments (including bot comments) for the latest PR head SHA.
+- Fetch unresolved PR review threads/comments (including bot comments) for the PR, preferring latest-head items first and then any still-open carry-forward `P0/P1` items from earlier heads.
 - Triage each unresolved item: `implement`, `defer`, `reject`.
+- For any item classified `implement` or `already_satisfied`, resolve the corresponding GitHub review thread before merge.
+- Do not resolve threads for `blocked`, `defer`, or `reject`.
 - Auto-fix only `implement` items that are:
   - `P0/P1`, or
   - high-confidence `P2` with concrete repro/break path.
@@ -135,14 +143,15 @@ gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
   - `git commit -m "fix: address actionable PR comments (loop <n>)"` (skip only if no changes)
   - push branch
   - re-watch PR CI to green
-  - re-run Codex review settle gate on the new PR head SHA (poll `15s`, timeout `5 minutes`)
+  - resolve the corresponding GitHub review threads for items now satisfied on the pushed head
+  - re-run Codex review settle gate on the new PR head SHA using the passive/latest-head-preferred logic above
   - re-fetch unresolved threads/comments
 - If unresolved `P0/P1` remain after loop cap, stop and report blocker.
 
 10. Merge PR after green and review gate satisfied:
 - Merge only when all are true on latest PR head SHA:
   - required PR CI is green
-  - Codex review settle gate is satisfied
+  - Codex review settle gate is satisfied (`approved`, `actionable` resolved, or `carry_forward`)
   - no unresolved `P0/P1` review items remain
 - Merge non-interactively (repo-default merge strategy or explicitly chosen one).
 - Record merged PR URL and merge commit SHA.
@@ -172,7 +181,7 @@ gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
 
 14. Stop conditions:
 - CI green on main: success.
-- Codex review signal not received within settle timeout (`5 minutes`): stop and report blocker.
+- Codex gate unresolved after passive latest-head poll plus PR-wide carry-forward triage: stop and report blocker.
 - Unresolved pre-merge `P0/P1` comments after 2 fix loops: stop and report blocker.
 - Non-actionable failure class: stop and report.
 - Loop count exceeded (`>2`): stop and report blocker.
@@ -198,6 +207,8 @@ Never use inline `--body "..."` for multi-line PR text.
 - Never use destructive git commands unless explicitly requested.
 - Never amend commits unless explicitly requested.
 - Never create duplicate PRs for the same head branch.
+- Never post `@codex review` or equivalent review-trigger comments.
+- Never leave an implemented Codex review thread unresolved before merge.
 - Keep fixes scoped to CI failure root cause.
 - If unexpected repo state appears, stop and ask.
 
@@ -206,7 +217,7 @@ Never use inline `--body "..."` for multi-line PR text.
 - Required local gate before push: `make prepush-full` (includes CodeQL in this repo).
 - PR CI watch timeout: `25 minutes`.
 - Codex review settle polling interval: `15 seconds`.
-- Codex review settle timeout: `5 minutes` (mandatory pre-merge gate).
+- Codex review settle timeout: `5 minutes` (mandatory pre-merge gate; passive only, no manual trigger comments).
 - Pre-merge comment-fix loop cap: `2`.
 - Post-merge main CI watch timeout: `25 minutes`.
 - Retry/hotfix loop cap: `2`.
@@ -219,6 +230,7 @@ Never use inline `--body "..."` for multi-line PR text.
 - PR URL(s)
 - CI status per cycle
 - Codex review settle status per cycle
+- Resolved review thread/comment refs
 - Merge commit SHA(s)
 - Post-merge CI status on `main`
 - If stopped: blocker reason and last failing check
