@@ -168,7 +168,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 
 	manifestPath := manifest.ResolvePath(statePath)
-	previousManifest, manifestErr := loadManifest(manifestPath)
+	previousManifest, manifestErr := loadLifecycleManifest(manifestPath, statePath, previousSnapshot)
 	if manifestErr != nil {
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, manifestErr)
 	}
