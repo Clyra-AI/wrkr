@@ -19,7 +19,7 @@ func TestToolchainPinsAreExact(t *testing.T) {
 		t.Fatalf("read .tool-versions: %v", err)
 	}
 	got := strings.Split(strings.TrimSpace(string(content)), "\n")
-	want := []string{"golang 1.25.7", "python 3.13.1", "nodejs 22.14.0"}
+	want := []string{"golang 1.26.1", "python 3.13.1", "nodejs 22.14.0"}
 	for _, line := range want {
 		if !containsLine(got, line) {
 			t.Fatalf("missing pinned version %q in .tool-versions", line)

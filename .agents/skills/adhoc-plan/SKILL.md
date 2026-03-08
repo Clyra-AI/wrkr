@@ -56,21 +56,27 @@ Validation rules:
 - test requirements
 - matrix wiring
 - acceptance criteria
-7. For every story, enforce architecture fields:
+7. If recommendations include cross-repo toolchain or scanner-remediation work, create a Wave 1 remediation epic that includes:
+- affected repo inventory
+- canonical target version
+- atomic pin surfaces (`go.mod`, local toolchain files, CI, docs, enforcement tests)
+- scanner-specific validation on the built artifact
+- rerun of the previously failing workflow/lane
+8. For every story, enforce architecture fields:
 - architecture constraints
 - ADR required (`yes/no`)
 - TDD first failing test(s)
 - cost/perf impact (`low|medium|high`)
 - chaos/failure hypothesis (required for risk-bearing stories)
-8. Add plan-level `Public API and Contract Map` with stable/internal surfaces, shim/deprecation path, schema/versioning policy, and machine-readable error expectations.
-9. Add plan-level `Docs and OSS Readiness Baseline` with README first-screen contract, integration-first docs flow, lifecycle path model, docs source-of-truth, and OSS trust baseline files.
-10. Add plan-level `Test Matrix Wiring`.
-11. Add `Recommendation Traceability` mapping recommendations to epic/story IDs.
-12. Add `Minimum-Now Sequence`, `Exit Criteria`, and `Definition of Done`, with explicit wave order:
+9. Add plan-level `Public API and Contract Map` with stable/internal surfaces, shim/deprecation path, schema/versioning policy, and machine-readable error expectations.
+10. Add plan-level `Docs and OSS Readiness Baseline` with README first-screen contract, integration-first docs flow, lifecycle path model, docs source-of-truth, and OSS trust baseline files.
+11. Add plan-level `Test Matrix Wiring`.
+12. Add `Recommendation Traceability` mapping recommendations to epic/story IDs.
+13. Add `Minimum-Now Sequence`, `Exit Criteria`, and `Definition of Done`, with explicit wave order:
 - Wave 1: contract/runtime correctness and architecture boundaries
 - Wave 2: docs, OSS hygiene, and distribution UX
-13. Verify quality gates.
-14. Overwrite `output_plan_path` with the final plan.
+14. Verify quality gates.
+15. Overwrite `output_plan_path` with the final plan.
 
 ## Handoff Contract (Planning -> Implementation)
 
@@ -182,6 +188,13 @@ For boundary-sensitive stories, architecture constraints must include:
 10. OSS readiness changes:
 - verify baseline OSS trust files when touched (`CONTRIBUTING`, `CHANGELOG`, `CODE_OF_CONDUCT`, issue/PR templates, security policy links)
 - ensure maintainer/support expectations are explicit for public OSS behavior changes
+
+11. Toolchain/runtime/security scanner changes:
+- atomic pin updates across `go.mod`, local toolchain files, CI, docs, and enforcement tests
+- built-artifact validation with the scanner used by CI (for example `govulncheck -mode=binary ./<binary>`)
+- compatibility checks for shared cross-repo dependency constraints
+- rerun of the previously failing workflow or equivalent required lane
+- when advisories are fixed only in a later minor version, target the first fully fixed version rather than the nearest patch release
 
 ## Test Matrix Wiring Contract (Plan-Level)
 

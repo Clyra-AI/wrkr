@@ -16,7 +16,7 @@ func TestDetectSkipsIgnoredUnreadableDirectory(t *testing.T) {
 	}
 
 	root := t.TempDir()
-	writeFile(t, root, "go.mod", "module example.com/repo\n\ngo 1.25.7\nrequire github.com/openai/openai-go v0.1.0\n")
+	writeFile(t, root, "go.mod", "module example.com/repo\n\ngo 1.26.1\nrequire github.com/openai/openai-go v0.1.0\n")
 
 	ignoredDir := filepath.Join(root, "node_modules")
 	if err := os.MkdirAll(filepath.Join(ignoredDir, "pkg"), 0o755); err != nil {

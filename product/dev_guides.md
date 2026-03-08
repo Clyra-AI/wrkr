@@ -130,7 +130,8 @@ For any roadmap item that changes onboarding, activation, or adoption behavior, 
 
 ### Go
 
-- **Version policy**: pin in `go.mod`; track latest stable within 2 minor releases. **Current pin: `1.25.7`** across all repos.
+- **Version policy**: pin in `go.mod`; track latest stable within 2 minor releases. **Current pin: `1.26.1`** across all repos.
+- **Security override**: if `govulncheck` identifies called standard-library vulnerabilities and the first complete fix lands in a newer minor Go release, move directly to the first fully fixed version across affected repos. Do not stop at an intermediate patch release that leaves called vulnerabilities unresolved.
 - **Module layout**: single module per repo, `cmd/<binary>/` for entry points, `core/` for library packages, `internal/` for non-exported packages.
 - **Build**: `go build ./cmd/<binary>`.
 - **Version injection**: `-ldflags "-s -w -X main.version={{ .Version }}"` via GoReleaser or manual build.
@@ -159,7 +160,7 @@ All Clyra AI Go projects (proof, gait, wrkr, axym) share a dependency graph root
 
 | Component | Version | Scope |
 |-----------|---------|-------|
-| Go | `1.25.7` | All repos — `go.mod` + `.tool-versions` + CI (`go-version-file: go.mod`) |
+| Go | `1.26.1` | All repos — `go.mod` + `.tool-versions` + CI (`go-version-file: go.mod`) |
 | `Clyra-AI/proof` | `>= v0.4.5` | All downstream SKUs (gait, wrkr, axym) — minimum import version |
 | Python | `3.13` | Scripts, SDKs — `pyproject.toml` + CI |
 | Node | `22` (LTS) | Docs sites only |
@@ -202,8 +203,11 @@ Use this sequence whenever updating governance-critical tool pins (`gosec`, `gol
 
 1. Update the normative table in this document first.
 2. Update all enforced CI/workflow/Makefile references in the same change.
-3. Run `scripts/check_toolchain_pins.sh` and `make lint-fast` to confirm docs and enforcement are aligned.
-4. Never merge a docs-only or workflow-only pin change; pin updates are atomic contract changes.
+3. Update local toolchain declarations and contributor-facing docs in the same change (`.tool-versions`, `go.mod`, `CONTRIBUTING`, install guidance, repo policy docs).
+4. Rebuild the produced binary or primary artifact and run the same scanner mode used by CI (for example `govulncheck -mode=binary ./<binary>`).
+5. Run `scripts/check_toolchain_pins.sh` and `make lint-fast` to confirm docs and enforcement are aligned.
+6. Rerun the previously failing workflow or equivalent required lane before merge.
+7. Never merge a docs-only or workflow-only pin change; pin updates are atomic contract changes.
 
 ### proof Version Tracking Policy
 
