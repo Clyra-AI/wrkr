@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/source"
+	"github.com/Clyra-AI/wrkr/internal/reponame"
 )
 
 type HTTPClient interface {
@@ -86,7 +87,8 @@ func IsDegradedError(err error) bool {
 }
 
 func (c *Connector) AcquireRepo(ctx context.Context, repo string) (source.RepoManifest, error) {
-	if err := validateRepo(repo); err != nil {
+	repo, err := normalizeRepo(repo)
+	if err != nil {
 		return source.RepoManifest{}, err
 	}
 	if c.BaseURL == "" {
@@ -99,15 +101,19 @@ func (c *Connector) AcquireRepo(ctx context.Context, repo string) (source.RepoMa
 	}
 	fullName := strings.TrimSpace(meta.FullName)
 	if fullName == "" {
-		fullName = strings.TrimSpace(repo)
+		fullName = repo
+	}
+	fullName, err = normalizeRepo(fullName)
+	if err != nil {
+		return source.RepoManifest{}, fmt.Errorf("acquire repo metadata: %w", err)
 	}
 	return source.RepoManifest{Repo: fullName, Location: fullName, Source: "github_repo"}, nil
 }
 
 func (c *Connector) ListOrgRepos(ctx context.Context, org string) ([]string, error) {
-	org = strings.TrimSpace(org)
-	if org == "" {
-		return nil, errors.New("org is required")
+	normalizedOrg, err := reponame.NormalizeOrg(org)
+	if err != nil {
+		return nil, err
 	}
 	if c.BaseURL == "" {
 		return nil, errors.New("github api base url is required for organization acquisition")
@@ -117,7 +123,7 @@ func (c *Connector) ListOrgRepos(ctx context.Context, org string) ([]string, err
 	if err != nil {
 		return nil, fmt.Errorf("invalid base url: %w", err)
 	}
-	u.Path = path.Join(u.Path, "orgs", org, "repos")
+	u.Path = path.Join(u.Path, "orgs", normalizedOrg, "repos")
 	repos := make([]string, 0, 128)
 	seen := map[string]struct{}{}
 	for page := 1; ; page++ {
@@ -149,7 +155,11 @@ func (c *Connector) ListOrgRepos(ctx context.Context, org string) ([]string, err
 				if strings.TrimSpace(item.Name) == "" {
 					continue
 				}
-				repo = org + "/" + item.Name
+				repo = normalizedOrg + "/" + item.Name
+			}
+			repo, err = normalizeRepo(repo)
+			if err != nil {
+				return nil, fmt.Errorf("list org repos page %d: %w", page, err)
 			}
 			if _, ok := seen[repo]; ok {
 				continue
@@ -169,7 +179,8 @@ func (c *Connector) ListOrgRepos(ctx context.Context, org string) ([]string, err
 // MaterializeRepo fetches repository file contents through the GitHub API and writes
 // them into a deterministic local workspace under materializedRoot.
 func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializedRoot string) (source.RepoManifest, error) {
-	if err := validateRepo(repo); err != nil {
+	repo, err := normalizeRepo(repo)
+	if err != nil {
 		return source.RepoManifest{}, err
 	}
 	if c.BaseURL == "" {
@@ -182,19 +193,21 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 	}
 	fullName := strings.TrimSpace(meta.FullName)
 	if fullName == "" {
-		fullName = strings.TrimSpace(repo)
+		fullName = repo
+	}
+	fullName, err = normalizeRepo(fullName)
+	if err != nil {
+		return source.RepoManifest{}, fmt.Errorf("materialize repo metadata: %w", err)
 	}
 	defaultBranch := strings.TrimSpace(meta.DefaultBranch)
 	if defaultBranch == "" {
 		defaultBranch = "main"
 	}
 
-	parts := strings.SplitN(fullName, "/", 2)
-	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
-		return source.RepoManifest{}, fmt.Errorf("materialize repo: invalid full_name %q", fullName)
+	repoRoot, err := safeJoin(materializedRoot, fullName)
+	if err != nil {
+		return source.RepoManifest{}, fmt.Errorf("materialize repo root: %w", err)
 	}
-
-	repoRoot := filepath.Join(materializedRoot, parts[0], parts[1])
 	if err := os.RemoveAll(repoRoot); err != nil {
 		return source.RepoManifest{}, fmt.Errorf("clean materialized repo root: %w", err)
 	}
@@ -591,11 +604,6 @@ func isRetryable(code int) bool {
 	return code == http.StatusTooManyRequests || code >= 500
 }
 
-func validateRepo(repo string) error {
-	repo = strings.TrimSpace(repo)
-	parts := strings.Split(repo, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return fmt.Errorf("repo must be owner/repo, got %q", repo)
-	}
-	return nil
+func normalizeRepo(repo string) (string, error) {
+	return reponame.NormalizeRepo(repo)
 }

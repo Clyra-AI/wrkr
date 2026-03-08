@@ -24,6 +24,15 @@ func TestValidateTarget(t *testing.T) {
 	if err := ValidateTarget(TargetOrg, "acme/backend"); err == nil {
 		t.Fatal("expected invalid org target to fail")
 	}
+	if err := ValidateTarget(TargetRepo, "acme/.."); err == nil {
+		t.Fatal("expected traversal-style repo target to fail")
+	}
+	if err := ValidateTarget(TargetRepo, "../backend"); err == nil {
+		t.Fatal("expected repo owner traversal to fail")
+	}
+	if err := ValidateTarget(TargetOrg, ".."); err == nil {
+		t.Fatal("expected traversal-style org target to fail")
+	}
 }
 
 func TestSaveLoadDeterministicRoundTrip(t *testing.T) {

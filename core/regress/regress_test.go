@@ -1,9 +1,11 @@
 package regress
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/state"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 func TestBuildBaselineAndLoadRoundTrip(t *testing.T) {
@@ -76,6 +79,47 @@ func TestBuildBaselineAndLoadRoundTrip(t *testing.T) {
 	}
 	if len(loaded.Tools) != 1 {
 		t.Fatalf("expected one loaded tool, got %d", len(loaded.Tools))
+	}
+}
+
+func TestSaveBaselineIsAtomicUnderInterruption(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "baseline.json")
+	initial := Baseline{Version: BaselineVersion, Tools: []ToolState{{AgentID: "wrkr:source-repo-old:acme", ToolID: "source-repo-old"}}}
+	if err := SaveBaseline(path, initial); err != nil {
+		t.Fatalf("save initial baseline: %v", err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read initial baseline: %v", err)
+	}
+
+	var injected atomic.Bool
+	restore := atomicwrite.SetBeforeRenameHookForTest(func(targetPath string, _ string) error {
+		if filepath.Clean(targetPath) != filepath.Clean(path) {
+			return nil
+		}
+		if injected.CompareAndSwap(false, true) {
+			return errors.New("simulated interruption before rename")
+		}
+		return nil
+	})
+	defer restore()
+
+	updated := Baseline{Version: BaselineVersion, Tools: []ToolState{{AgentID: "wrkr:source-repo-new:acme", ToolID: "source-repo-new"}}}
+	if err := SaveBaseline(path, updated); err == nil {
+		t.Fatal("expected interrupted baseline save to fail")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read baseline after interruption: %v", err)
+	}
+	if string(before) != string(after) {
+		t.Fatalf("expected baseline bytes to remain unchanged after interruption")
+	}
+	if _, err := LoadBaseline(path); err != nil {
+		t.Fatalf("expected baseline to remain parseable after interruption: %v", err)
 	}
 }
 

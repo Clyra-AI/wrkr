@@ -1,9 +1,13 @@
 package manifest
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 func TestSaveLoadRoundTrip(t *testing.T) {
@@ -38,5 +42,46 @@ func TestSaveCreatesDirectory(t *testing.T) {
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("manifest not written: %v", err)
+	}
+}
+
+func TestSaveIsAtomicUnderInterruption(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "wrkr-manifest.yaml")
+	initial := Manifest{Identities: []IdentityRecord{{AgentID: "wrkr:mcp-old:acme", ToolID: "mcp-old", Present: true}}}
+	if err := Save(path, initial); err != nil {
+		t.Fatalf("save initial manifest: %v", err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read initial manifest: %v", err)
+	}
+
+	var injected atomic.Bool
+	restore := atomicwrite.SetBeforeRenameHookForTest(func(targetPath string, _ string) error {
+		if filepath.Clean(targetPath) != filepath.Clean(path) {
+			return nil
+		}
+		if injected.CompareAndSwap(false, true) {
+			return errors.New("simulated interruption before rename")
+		}
+		return nil
+	})
+	defer restore()
+
+	updated := Manifest{Identities: []IdentityRecord{{AgentID: "wrkr:mcp-new:acme", ToolID: "mcp-new", Present: true}}}
+	if err := Save(path, updated); err == nil {
+		t.Fatal("expected interrupted manifest save to fail")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read manifest after interruption: %v", err)
+	}
+	if string(before) != string(after) {
+		t.Fatalf("expected manifest bytes to remain unchanged after interruption")
+	}
+	if _, err := Load(path); err != nil {
+		t.Fatalf("expected manifest to remain parseable after interruption: %v", err)
 	}
 }

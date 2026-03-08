@@ -20,6 +20,7 @@ Acquisition behavior is fail-closed by target:
   - Ownership violations return `unsafe_operation_blocked` (exit `8`).
 - When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
+- The state snapshot is the authoritative commit point; auxiliary manifest/chain artifacts are emitted only after snapshot persistence succeeds.
 
 ## Flags
 

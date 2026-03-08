@@ -338,6 +338,49 @@ func loadManifest(path string) (manifest.Manifest, error) {
 	return manifest.Manifest{}, err
 }
 
+func loadLifecycleManifest(manifestPath, statePath string, previousSnapshot *state.Snapshot) (manifest.Manifest, error) {
+	loaded, err := loadManifest(manifestPath)
+	if err != nil {
+		return manifest.Manifest{}, err
+	}
+	if previousSnapshot == nil {
+		return loaded, nil
+	}
+
+	stateInfo, err := os.Stat(statePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return loaded, nil
+		}
+		return manifest.Manifest{}, fmt.Errorf("stat state for lifecycle manifest: %w", err)
+	}
+
+	manifestInfo, err := os.Stat(manifestPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return manifestFromSnapshot(*previousSnapshot, stateInfo.ModTime()), nil
+		}
+		return manifest.Manifest{}, fmt.Errorf("stat lifecycle manifest: %w", err)
+	}
+
+	if stateInfo.ModTime().After(manifestInfo.ModTime()) {
+		return manifestFromSnapshot(*previousSnapshot, stateInfo.ModTime()), nil
+	}
+	return loaded, nil
+}
+
+func manifestFromSnapshot(snapshot state.Snapshot, updatedAt time.Time) manifest.Manifest {
+	identities := append([]manifest.IdentityRecord(nil), snapshot.Identities...)
+	manifestOut := manifest.Manifest{
+		Version:    manifest.Version,
+		Identities: identities,
+	}
+	if !updatedAt.IsZero() {
+		manifestOut.UpdatedAt = updatedAt.UTC().Truncate(time.Second).Format(time.RFC3339)
+	}
+	return manifestOut
+}
+
 func buildFindingContexts(report risk.Report) map[string]agginventory.ToolContext {
 	out := map[string]agginventory.ToolContext{}
 	for _, item := range report.Ranked {
