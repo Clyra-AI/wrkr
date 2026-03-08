@@ -4,7 +4,7 @@
 [![CodeQL](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql)
 [![Nightly](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml/badge.svg?event=schedule)](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml)
 
-Most teams don't know what AI dev tools and agents are active across their repos, what permissions they have, or what changed since last week. Wrkr answers that in minutes. Scan your GitHub org, get ranked findings for tools and agents, and generate audit-ready evidence. Read-only. No integration required.
+Most teams don't know what AI dev tools and agents are active across their repos, what permissions they have, or what changed since last week. Wrkr answers that in minutes. Start with a local `--path` scan for zero-integration first value, or scan a GitHub repo/org with explicit GitHub API configuration. Get ranked findings for tools and agents, then generate verifiable evidence bundles for audits. Read-only. No runtime integration required.
 
 Wrkr is the **See** layer in the Clyra AI governance stack (See -> Prove -> Control -> Build). It discovers AI tooling and agent declarations across repositories and orgs, scores posture, tracks identity lifecycle, and emits signed proof artifacts ready for compliance review or downstream automation.
 
@@ -100,6 +100,7 @@ Prompt-channel findings are emitted deterministically with stable reason codes a
 When `scan --enrich` is enabled, MCP findings include enrich provenance and quality fields (`source`, `as_of`, `advisory_count`, `registry_status`, `enrich_quality`, schema IDs, and adapter error classes).
 Evidence bundles include deterministic inventory artifacts at `inventory.json`, `inventory-snapshot.json`, and `inventory.yaml`.
 Evidence framework IDs are normalized to upstream `Clyra-AI/proof` IDs in output (`eu-ai-act`, `pci-dss`); underscore aliases such as `eu_ai_act` and `pci_dss` are accepted as input.
+Bundled scenarios can produce low initial `framework_coverage` values until approvals and controls are documented in the scanned state. Treat that as an evidence gap to close, not as a parser or product failure.
 Canonical local path lifecycle for state, baseline, manifest, and proof chain: [`docs/state_lifecycle.md`](docs/state_lifecycle.md).
 
 ## What You Get
@@ -118,7 +119,7 @@ Deterministic identities in `wrkr:<tool_id>:<org>` format. Lifecycle transitions
 
 ### Audit-ready evidence
 
-Signed proof records for `scan_finding`, `risk_assessment`, and lifecycle events. Agent-aware proof events now carry additive `agent_context` fields for portability, and evidence bundles keep compliance framework mappings verifiable offline. No calling home required.
+Signed proof records for `scan_finding`, `risk_assessment`, and lifecycle events. Agent-aware proof events now carry additive `agent_context` fields for portability, and evidence bundles keep compliance framework mappings verifiable offline. No calling home required. Low first-run `framework_coverage` means the current scan state lacks documented controls or approvals; rescan after remediation to measure improvement.
 
 ### CI drift gates
 

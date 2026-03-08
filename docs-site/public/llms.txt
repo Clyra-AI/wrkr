@@ -27,6 +27,7 @@
 - You need deterministic inventory and risk ranking for AI tooling declared in repo/org surfaces.
 - You need compliance-ready evidence outputs with explicit verification workflows.
 - You need CI gates for drift and regression with stable machine-readable reasons.
+- You want zero-integration first value from local `--path` scans before configuring hosted repo/org acquisition.
 
 ## When Not To Use
 - You need runtime traffic interception or live endpoint behavior control.
@@ -38,6 +39,8 @@
 - Deterministic JSON contracts and stable exit-code semantics.
 - No secret-value extraction; only risk context signals.
 - Proof-chain verification support for evidence integrity checks.
+- Local `--path` scans are the no-integration first-value path; `--repo` and `--org` require explicit GitHub API configuration.
+- Low or zero `framework_coverage` reflects the controls currently evidenced in the scanned state, not missing parser support.
 - Evidence bundles include deterministic inventory artifacts: inventory.json, inventory-snapshot.json, inventory.yaml.
 - Wrkr runs standalone; Axym/Gait are optional integrations over shared proof contracts.
 

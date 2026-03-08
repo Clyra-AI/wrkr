@@ -1,7 +1,7 @@
 # PLAN Wrkr: Public Scan Tentpole Readiness
 
 Date: 2026-02-23
-Source of truth: User-provided recommended items in this thread (public-repo tentpole readiness gaps) + current repo contracts (`/Users/davidahmann/Projects/wrkr/product/wrkr.md`, `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`).
+Source of truth: User-provided recommended items in this thread (public-repo tentpole readiness gaps) + current repo contracts (`product/wrkr.md`, `product/dev_guides.md`).
 Scope: Planning only. No implementation in this plan. Focus is execution-ready backlog to ship a repeatable "State of AI Tool Sprawl" public scan/report + PR distribution workflow with deterministic Wrkr contracts.
 
 ## Global Decisions (Locked)
@@ -16,16 +16,16 @@ Scope: Planning only. No implementation in this plan. Focus is execution-ready b
 ## Current Baseline (Observed)
 
 - Strong scenario and acceptance posture exists:
-  - Scenario contract gate: `/Users/davidahmann/Projects/wrkr/scripts/validate_scenarios.sh`
-  - Scenario tests: `/Users/davidahmann/Projects/wrkr/internal/scenarios/`
-  - AC matrix (AC01-AC21): `/Users/davidahmann/Projects/wrkr/internal/acceptance/v1_acceptance_test.go`
+  - Scenario contract gate: `scripts/validate_scenarios.sh`
+  - Scenario tests: `internal/scenarios/`
+  - AC matrix (AC01-AC21): `internal/acceptance/v1_acceptance_test.go`
 - UAT install-path script already covers source build, release archive, and Homebrew path (including local formula).
-  - `/Users/davidahmann/Projects/wrkr/scripts/test_uat_local.sh`
+  - `scripts/test_uat_local.sh`
 - `scan` already emits privilege budget + `production_write` status and supports report artifacts.
-  - `/Users/davidahmann/Projects/wrkr/core/cli/scan.go`
-  - `/Users/davidahmann/Projects/wrkr/core/aggregate/privilegebudget/budget.go`
+  - `core/cli/scan.go`
+  - `core/aggregate/privilegebudget/budget.go`
 - Main gaps blocking tentpole automation:
-  - Org listing limited to one page (`per_page=100`) in `/Users/davidahmann/Projects/wrkr/core/source/github/connector.go`.
+  - Org listing limited to one page (`per_page=100`) in `core/source/github/connector.go`.
   - Repo/org acquisition metadata does not materialize local repo contents for detector pass in org/repo mode.
   - No built-in multi-run public-scan aggregation artifact for headline numbers.
   - PR distribution exists for `fix --open-pr`, but action `mode=pr` is not wired to publish PR comments.
@@ -114,10 +114,10 @@ Tasks:
 - Preserve stable repo ordering and deterministic failure collection.
 - Add clear fail-closed behavior for partial page/API failures.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/source/github/connector.go`
-- `/Users/davidahmann/Projects/wrkr/core/source/org/acquire.go`
-- `/Users/davidahmann/Projects/wrkr/core/source/github/connector_test.go`
-- `/Users/davidahmann/Projects/wrkr/internal/e2e/source/source_e2e_test.go`
+- `core/source/github/connector.go`
+- `core/source/org/acquire.go`
+- `core/source/github/connector_test.go`
+- `internal/e2e/source/source_e2e_test.go`
 Run commands:
 - `go test ./core/source/github -count=1`
 - `go test ./core/source/org -count=1`
@@ -151,11 +151,11 @@ Tasks:
 - Add cleanup/safety policy for temp materialization directories.
 - Keep `--path` behavior unchanged; repo/org modes gain analyzable local roots.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/cli/scan.go`
-- `/Users/davidahmann/Projects/wrkr/core/source/github/`
-- `/Users/davidahmann/Projects/wrkr/core/source/types.go`
-- `/Users/davidahmann/Projects/wrkr/internal/e2e/source/source_e2e_test.go`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/scan.md`
+- `core/cli/scan.go`
+- `core/source/github/`
+- `core/source/types.go`
+- `internal/e2e/source/source_e2e_test.go`
+- `docs/commands/scan.md`
 Run commands:
 - `go test ./core/source/... -count=1`
 - `go test ./core/cli -count=1`
@@ -198,11 +198,11 @@ Tasks:
   - production_write_tools (when configured)
 - Emit one machine-readable campaign artifact with methodology metadata.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/cmd/wrkr/`
-- `/Users/davidahmann/Projects/wrkr/core/cli/`
-- `/Users/davidahmann/Projects/wrkr/core/report/`
-- `/Users/davidahmann/Projects/wrkr/schemas/v1/report/`
-- `/Users/davidahmann/Projects/wrkr/internal/e2e/`
+- `cmd/wrkr/`
+- `core/cli/`
+- `core/report/`
+- `schemas/v1/report/`
+- `internal/e2e/`
 Run commands:
 - `go test ./core/cli -count=1`
 - `go test ./core/report -count=1`
@@ -234,10 +234,10 @@ Tasks:
 - Ensure redaction and public-share safety remain intact.
 - Include reproducibility metadata: command set, date range, sample definition, exclusion criteria.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/report/`
-- `/Users/davidahmann/Projects/wrkr/core/cli/report.go`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/report.md`
-- `/Users/davidahmann/Projects/wrkr/docs/` (new campaign methodology page)
+- `core/report/`
+- `core/cli/report.go`
+- `docs/commands/report.md`
+- `docs/` (new campaign methodology page)
 Run commands:
 - `go test ./core/report -count=1`
 - `go test ./core/cli -run Report -count=1`
@@ -267,11 +267,11 @@ Tasks:
 - Emit deterministic warning/error modes for strict publication use.
 - Document claim policy in command docs.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/aggregate/privilegebudget/budget.go`
-- `/Users/davidahmann/Projects/wrkr/core/cli/scan.go`
-- `/Users/davidahmann/Projects/wrkr/core/report/build.go`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/scan.md`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/report.md`
+- `core/aggregate/privilegebudget/budget.go`
+- `core/cli/scan.go`
+- `core/report/build.go`
+- `docs/commands/scan.md`
+- `docs/commands/report.md`
 Run commands:
 - `go test ./core/aggregate/privilegebudget -count=1`
 - `go test ./core/cli -count=1`
@@ -307,10 +307,10 @@ Tasks:
 - Reuse deterministic `RunPRMode` payload formatting and threshold logic.
 - Ensure idempotent comment update behavior (upsert by fingerprint/marker).
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/action/entrypoint.sh`
-- `/Users/davidahmann/Projects/wrkr/core/action/runtime.go`
-- `/Users/davidahmann/Projects/wrkr/core/github/pr/`
-- `/Users/davidahmann/Projects/wrkr/internal/e2e/action/`
+- `action/entrypoint.sh`
+- `core/action/runtime.go`
+- `core/github/pr/`
+- `internal/e2e/action/`
 Run commands:
 - `go test ./core/action/... -count=1`
 - `go test ./internal/e2e/action -count=1`
@@ -341,9 +341,9 @@ Tasks:
 - Add explicit examples for scheduled vs PR mode usage.
 - Add troubleshooting map for common auth failures.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/docs/`
-- `/Users/davidahmann/Projects/wrkr/README.md`
-- `/Users/davidahmann/Projects/wrkr/action/action.yaml`
+- `docs/`
+- `README.md`
+- `action/action.yaml`
 Run commands:
 - `make test-docs-consistency`
 - `make test-docs-storyline`
@@ -375,10 +375,10 @@ Tasks:
 - Enforce explicit prereq checks for Homebrew availability and tap token semantics.
 - Upload UAT logs/artifacts in release workflow for auditability.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/.github/workflows/release.yml`
-- `/Users/davidahmann/Projects/wrkr/.github/workflows/main.yml` (if adding pre-release dry-run)
-- `/Users/davidahmann/Projects/wrkr/scripts/test_uat_local.sh`
-- `/Users/davidahmann/Projects/wrkr/Makefile`
+- `.github/workflows/release.yml`
+- `.github/workflows/main.yml` (if adding pre-release dry-run)
+- `scripts/test_uat_local.sh`
+- `Makefile`
 Run commands:
 - `make test-release-smoke`
 - `scripts/test_uat_local.sh --skip-global-gates`
@@ -407,9 +407,9 @@ Tasks:
 - Add acceptance assertions that Homebrew-installed binary passes JSON smoke and docs subset smoke.
 - Document release-candidate UAT execution pattern.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/internal/acceptance/v1_acceptance_test.go`
-- `/Users/davidahmann/Projects/wrkr/scripts/test_uat_local.sh`
-- `/Users/davidahmann/Projects/wrkr/README.md`
+- `internal/acceptance/v1_acceptance_test.go`
+- `scripts/test_uat_local.sh`
+- `README.md`
 Run commands:
 - `go test ./internal/acceptance -run '^TestV1AcceptanceMatrix$' -count=1`
 - `scripts/test_uat_local.sh --skip-global-gates`
@@ -441,12 +441,12 @@ Tasks:
 - Support explicit approved-list inputs (for example manifest/policy list) and deterministic matching rules.
 - Emit aggregate approval-gap ratios for campaign/report outputs.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/cli/scan.go`
-- `/Users/davidahmann/Projects/wrkr/core/aggregate/inventory/`
-- `/Users/davidahmann/Projects/wrkr/core/report/build.go`
-- `/Users/davidahmann/Projects/wrkr/schemas/v1/inventory/inventory.schema.json`
-- `/Users/davidahmann/Projects/wrkr/schemas/v1/report/report-summary.schema.json`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/scan.md`
+- `core/cli/scan.go`
+- `core/aggregate/inventory/`
+- `core/report/build.go`
+- `schemas/v1/inventory/inventory.schema.json`
+- `schemas/v1/report/report-summary.schema.json`
+- `docs/commands/scan.md`
 Run commands:
 - `go test ./core/aggregate/inventory -count=1`
 - `go test ./core/cli -count=1`
@@ -478,11 +478,11 @@ Tasks:
 - Emit detector inventory with deterministic IDs and versions.
 - Ensure metadata is directly consumable by report Section 2 without manual reconstruction.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/cli/scan.go`
-- `/Users/davidahmann/Projects/wrkr/core/detect/defaults/defaults.go`
-- `/Users/davidahmann/Projects/wrkr/core/report/types.go`
-- `/Users/davidahmann/Projects/wrkr/schemas/v1/report/report-summary.schema.json`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/scan.md`
+- `core/cli/scan.go`
+- `core/detect/defaults/defaults.go`
+- `core/report/types.go`
+- `schemas/v1/report/report-summary.schema.json`
+- `docs/commands/scan.md`
 Run commands:
 - `go test ./core/cli -count=1`
 - `go test ./core/report -count=1`
@@ -513,11 +513,11 @@ Tasks:
 - Add deterministic confidence scoring/ranking per detection, with documented rubric.
 - Expose taxonomy/confidence in scan, inventory, and export outputs.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/model/`
-- `/Users/davidahmann/Projects/wrkr/core/detect/`
-- `/Users/davidahmann/Projects/wrkr/core/aggregate/inventory/`
-- `/Users/davidahmann/Projects/wrkr/schemas/v1/inventory/inventory.schema.json`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/scan.md`
+- `core/model/`
+- `core/detect/`
+- `core/aggregate/inventory/`
+- `schemas/v1/inventory/inventory.schema.json`
+- `docs/commands/scan.md`
 Run commands:
 - `go test ./core/detect/... -count=1`
 - `go test ./core/aggregate/inventory -count=1`
@@ -548,11 +548,11 @@ Tasks:
 - Emit deterministic report risk tier (`critical`, `high`, `medium`, `low`) based on explicit permission + environment rules.
 - Add example/edge-case fixtures for prod-write, credential-store, infra-provisioning, and sandboxed read-only cases.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/aggregate/privilegebudget/`
-- `/Users/davidahmann/Projects/wrkr/core/risk/`
-- `/Users/davidahmann/Projects/wrkr/core/report/build.go`
-- `/Users/davidahmann/Projects/wrkr/schemas/v1/report/report-summary.schema.json`
-- `/Users/davidahmann/Projects/wrkr/internal/scenarios/`
+- `core/aggregate/privilegebudget/`
+- `core/risk/`
+- `core/report/build.go`
+- `schemas/v1/report/report-summary.schema.json`
+- `internal/scenarios/`
 Run commands:
 - `go test ./core/aggregate/privilegebudget -count=1`
 - `go test ./core/risk -count=1`
@@ -583,11 +583,11 @@ Tasks:
 - Emit per-tool adoption pattern and aggregate distribution.
 - Document assumptions and false-positive boundaries for publicly scanned repos.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/detect/`
-- `/Users/davidahmann/Projects/wrkr/core/aggregate/inventory/`
-- `/Users/davidahmann/Projects/wrkr/core/report/build.go`
-- `/Users/davidahmann/Projects/wrkr/internal/scenarios/`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/scan.md`
+- `core/detect/`
+- `core/aggregate/inventory/`
+- `core/report/build.go`
+- `internal/scenarios/`
+- `docs/commands/scan.md`
 Run commands:
 - `go test ./core/detect/... -count=1`
 - `go test ./core/aggregate/inventory -count=1`
@@ -617,11 +617,11 @@ Tasks:
 - Support report-ready mappings for EU AI Act, SOC 2 AI controls, Colorado AI Act, Texas TRAIGA, NIST AI RMF.
 - Add deterministic gap-count rollups by regulation and control family.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/compliance/`
-- `/Users/davidahmann/Projects/wrkr/core/evidence/`
-- `/Users/davidahmann/Projects/wrkr/core/report/`
-- `/Users/davidahmann/Projects/wrkr/schemas/v1/report/report-summary.schema.json`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/evidence.md`
+- `core/compliance/`
+- `core/evidence/`
+- `core/report/`
+- `schemas/v1/report/report-summary.schema.json`
+- `docs/commands/evidence.md`
 Run commands:
 - `go test ./core/compliance -count=1`
 - `go test ./core/evidence -count=1`
@@ -652,11 +652,11 @@ Tasks:
 - Preserve technical pattern detail (tool names, access patterns, controls) while removing direct attribution.
 - Add stable pseudonym scheme to keep cross-table joins possible without de-anonymization.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/cli/report.go`
-- `/Users/davidahmann/Projects/wrkr/core/cli/export.go`
-- `/Users/davidahmann/Projects/wrkr/core/report/`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/report.md`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/export.md`
+- `core/cli/report.go`
+- `core/cli/export.go`
+- `core/report/`
+- `docs/commands/report.md`
+- `docs/commands/export.md`
 Run commands:
 - `go test ./core/report -count=1`
 - `go test ./core/cli -count=1`
@@ -687,11 +687,11 @@ Tasks:
 - Emit segmented aggregates for headline and benchmark tables.
 - Keep segmentation optional and fail-closed when metadata is missing or malformed.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/cli/scan.go`
-- `/Users/davidahmann/Projects/wrkr/core/source/github/`
-- `/Users/davidahmann/Projects/wrkr/core/report/`
-- `/Users/davidahmann/Projects/wrkr/schemas/v1/report/report-summary.schema.json`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/scan.md`
+- `core/cli/scan.go`
+- `core/source/github/`
+- `core/report/`
+- `schemas/v1/report/report-summary.schema.json`
+- `docs/commands/scan.md`
 Run commands:
 - `go test ./core/source/github -count=1`
 - `go test ./core/report -count=1`
@@ -722,11 +722,11 @@ Tasks:
 - Add deterministic column ordering and schema/version headers for citation stability.
 - Add docs/examples for generating appendix tables directly from CLI.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/cli/export.go`
-- `/Users/davidahmann/Projects/wrkr/core/export/`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/export.md`
-- `/Users/davidahmann/Projects/wrkr/schemas/v1/`
-- `/Users/davidahmann/Projects/wrkr/internal/e2e/`
+- `core/cli/export.go`
+- `core/export/`
+- `docs/commands/export.md`
+- `schemas/v1/`
+- `internal/e2e/`
 Run commands:
 - `go test ./core/export/... -count=1`
 - `go test ./core/cli -count=1`

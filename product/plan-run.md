@@ -1,9 +1,9 @@
 # Wrkr Runbook: Generate "The State of AI Tool Sprawl" Report
 
-Date: 2026-02-23  
-Primary plan source: `/Users/davidahmann/Projects/wrkr/product/report_plan.md`  
-Report structure source: `/Users/davidahmann/Projects/wrkr/product/report_structure.md`  
-Required publishing structure: `/Users/davidahmann/Projects/wrkr/product/report_structure.md`
+Date: 2026-02-23
+Primary plan source: `product/report_plan.md`
+Report structure source: `product/report_structure.md`
+Required publishing structure: `product/report_structure.md`
 
 ## Goal
 
@@ -25,7 +25,7 @@ Produce a publication-ready report package (Sections 1-10) with deterministic, r
 - Treat enrich mode as optional and time-sensitive; do not mix enrich claims into deterministic baseline claims without explicit provenance.
 - No production-write percentage claims unless production targets are configured.
 - Prefer machine-generated outputs as source of truth; manual writing should only format and narrate generated outputs.
-- Final written report must follow `/Users/davidahmann/Projects/wrkr/product/report_structure.md` section order and headings.
+- Final written report must follow `product/report_structure.md` section order and headings.
 
 ## Inputs Required Before Run
 
@@ -42,7 +42,7 @@ Produce a publication-ready report package (Sections 1-10) with deterministic, r
 - `ENABLE_ENRICH=1` only if publishing advisory/registry findings.
 - Capture enrich window timestamp (`ENRICH_AS_OF`) for narrative provenance.
 5. Structure contract:
-- The editorial output must be composed against `/Users/davidahmann/Projects/wrkr/product/report_structure.md`.
+- The editorial output must be composed against `product/report_structure.md`.
 
 ## Standard Output Layout
 

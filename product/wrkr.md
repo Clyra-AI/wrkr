@@ -58,8 +58,8 @@ Wrkr is an open-source Go CLI and AI-DSPM scanner that discovers AI development 
 ```
 Install → Connect → Scan → See → Fix → Prove
   brew     GitHub    auto    inventory   PRs    proof
-  install  OAuth     detect  + risks     to     records
-  Clyra-AI/tap/  token             ranked     fix    + bundle
+  install  API/base  detect  + risks     to     records
+  Clyra-AI/tap/  + token            ranked     fix    + bundle
   wrkr
 ```
 
@@ -82,7 +82,9 @@ Install → Connect → Scan → See → Fix → Prove
 | Agent Skills (cross-platform) | `.claude/skills/`, `.agents/skills/` | Skill name, description, `allowed-tools`, implicit invocation policy, MCP dependencies, scripts, supply chain origin |
 | CI/CD AI integrations | `.github/workflows/`, Jenkinsfile, etc. | AI tools in pipeline: review bots, code gen, test gen, **headless agent invocations** (Claude Code `-p`, Codex `full-auto`, Copilot coding agent), autonomy level, secret access, human approval gates |
 
-**Layer 2: Platform signals (secondary — enrichment)**
+**Layer 2: Platform signals (secondary — future/additive surfaces, not part of the current OSS default scan path)**
+
+Current OSS shipped scope is Layer 1 plus deterministic GitHub repo/org acquisition and local materialization. The platform signals below are strategic extension points and roadmap candidates, not current default OSS scan outputs.
 
 | What | Where | What Wrkr Extracts |
 |------|-------|--------------------|
@@ -529,7 +531,7 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
 ### NFR5: Extensibility
 
 - Plugin architecture for adding new AI tool detectors (e.g., when a new AI IDE emerges)
-- Two detector interfaces: `Detector.Detect(repoPath string) ([]Finding, error)` for repo-level scanning, `OrgDetector.DetectOrg(orgID string, client OrgClient) ([]Finding, error)` for org-level signals (GitHub App installs, IdP grants)
+- Two detector interfaces: `Detector.Detect(repoPath string) ([]Finding, error)` for repo-level scanning, and a future/additive `OrgDetector.DetectOrg(orgID string, client OrgClient) ([]Finding, error)` shape for org-level signals such as GitHub App installs or IdP grants
 - Compliance framework mapping is configuration from `Clyra-AI/proof/frameworks/*.yaml`, not code
 - Risk scoring weights are configurable
 
@@ -1001,8 +1003,9 @@ type Detector interface {
     Detect(repoPath string) ([]Finding, error)
 }
 
-// OrgDetector is the interface for org-level detection plugins (GitHub App installs, IdP grants).
-// These operate on org-wide API responses, not individual repo paths.
+// OrgDetector is a future/additive interface for org-level detection plugins
+// (for example GitHub App installs or IdP grants).
+// Current OSS default discovery remains centered on repo-level inputs plus repo/org acquisition.
 type OrgDetector interface {
     Name() string
     DetectOrg(orgID string, client OrgClient) ([]Finding, error)
