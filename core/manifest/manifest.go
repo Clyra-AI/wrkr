@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 	"gopkg.in/yaml.v3"
 )
 
@@ -80,34 +81,9 @@ func Save(path string, m Manifest) error {
 	if err != nil {
 		return fmt.Errorf("marshal manifest: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return fmt.Errorf("mkdir manifest dir: %w", err)
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "manifest-*.yaml")
-	if err != nil {
-		return fmt.Errorf("create manifest temp: %w", err)
-	}
-	tmpPath := tmp.Name()
-	defer func() {
-		_ = os.Remove(tmpPath)
-	}()
-	if _, err := tmp.Write(payload); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write manifest temp: %w", err)
-	}
-	if _, err := tmp.Write([]byte("\n")); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write manifest newline: %w", err)
-	}
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("chmod manifest temp: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close manifest temp: %w", err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil { // #nosec G703 -- manifest output path is intentionally caller-controlled for local file-based evidence.
-		return fmt.Errorf("commit manifest: %w", err)
+	payload = append(payload, '\n')
+	if err := atomicwrite.WriteFile(path, payload, 0o600); err != nil {
+		return fmt.Errorf("write manifest: %w", err)
 	}
 	return nil
 }

@@ -211,8 +211,10 @@ func TestAcquireRepoFailsOnInvalidRepo(t *testing.T) {
 	t.Parallel()
 
 	connector := NewConnector("", "", nil)
-	if _, err := connector.AcquireRepo(context.Background(), "acme"); err == nil {
-		t.Fatal("expected invalid repo input to fail")
+	for _, repo := range []string{"acme", "../..", "acme/..", "../backend"} {
+		if _, err := connector.AcquireRepo(context.Background(), repo); err == nil {
+			t.Fatalf("expected invalid repo input to fail: %q", repo)
+		}
 	}
 }
 
@@ -316,6 +318,55 @@ func TestMaterializeRepoRejectsPathTraversal(t *testing.T) {
 	connector := NewConnector(server.URL, "", server.Client())
 	if _, err := connector.MaterializeRepo(context.Background(), "acme/backend", tmp); err == nil {
 		t.Fatal("expected traversal path to fail")
+	}
+}
+
+func TestMaterializeRepoRejectsUnsafeMetadataFullName(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	materializedRoot := filepath.Join(tmp, "materialized-sources")
+	if err := os.MkdirAll(materializedRoot, 0o750); err != nil {
+		t.Fatalf("mkdir materialized root: %v", err)
+	}
+	sentinel := filepath.Join(materializedRoot, "keep.txt")
+	if err := os.WriteFile(sentinel, []byte("keep"), 0o600); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/..","default_branch":"main"}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "", server.Client())
+	if _, err := connector.MaterializeRepo(context.Background(), "acme/backend", materializedRoot); err == nil {
+		t.Fatal("expected unsafe metadata full_name to fail")
+	}
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Fatalf("expected sentinel to remain after rejected metadata, got: %v", err)
+	}
+}
+
+func TestListOrgReposRejectsUnsafeFullName(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/orgs/acme/repos" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		_, _ = fmt.Fprint(w, `[{"full_name":"acme/.."}]`)
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "", server.Client())
+	if _, err := connector.ListOrgRepos(context.Background(), "acme"); err == nil {
+		t.Fatal("expected unsafe repo metadata to fail closed")
 	}
 }
 

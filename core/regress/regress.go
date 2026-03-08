@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 const BaselineVersion = "v1"
@@ -194,30 +194,8 @@ func SaveBaseline(path string, baseline Baseline) error {
 		return fmt.Errorf("marshal baseline: %w", err)
 	}
 	payload = append(payload, '\n')
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return fmt.Errorf("mkdir baseline dir: %w", err)
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "regress-baseline-*.json")
-	if err != nil {
-		return fmt.Errorf("create baseline temp: %w", err)
-	}
-	tmpPath := tmp.Name()
-	defer func() {
-		_ = os.Remove(tmpPath)
-	}()
-	if _, err := tmp.Write(payload); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("write baseline temp: %w", err)
-	}
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("chmod baseline temp: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("close baseline temp: %w", err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil { // #nosec G703 -- caller-selected baseline path is intentional for local deterministic artifact output.
-		return fmt.Errorf("commit baseline: %w", err)
+	if err := atomicwrite.WriteFile(path, payload, 0o600); err != nil {
+		return fmt.Errorf("write baseline: %w", err)
 	}
 	return nil
 }

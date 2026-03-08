@@ -176,22 +176,6 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	baseContexts := buildFindingContexts(riskReport)
 	observed := observedTools(findings, baseContexts)
 	nextManifest, transitions := lifecycle.Reconcile(previousManifest, observed, now)
-	if err := manifest.Save(manifestPath, nextManifest); err != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
-	}
-	chainPath := lifecycle.ChainPath(statePath)
-	chain, chainErr := lifecycle.LoadChain(chainPath)
-	if chainErr != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, chainErr)
-	}
-	for _, transition := range transitions {
-		if err := lifecycle.AppendTransitionRecord(chain, transition, "lifecycle_transition"); err != nil {
-			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
-		}
-	}
-	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
-	}
 
 	identityByAgent := map[string]manifest.IdentityRecord{}
 	for _, record := range nextManifest.Identities {
@@ -260,7 +244,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	profileDef, profileErr = profilemodel.WithOverrides(profileDef, strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))
 	if profileErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", profileErr.Error(), exitUnsafeBlocked)
+		return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", profileErr.Error(), exitPolicyViolation)
 	}
 	var previousProfile *profileeval.Result
 	if previousSnapshot != nil && previousSnapshot.Profile != nil {
@@ -271,7 +255,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 
 	weights, weightErr := score.LoadWeights(strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))
 	if weightErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", weightErr.Error(), exitUnsafeBlocked)
+		return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", weightErr.Error(), exitPolicyViolation)
 	}
 	var previousScore *score.Result
 	if previousSnapshot != nil && previousSnapshot.PostureScore != nil {
@@ -286,9 +270,6 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Weights:         weights,
 		Previous:        previousScore,
 	})
-	if _, err := proofemit.EmitScan(statePath, now, findings, riskReport, profileResult, postureScore, transitions); err != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
-	}
 
 	snapshot := state.Snapshot{
 		Version:      state.SnapshotVersion,
@@ -302,6 +283,25 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Transitions:  transitions,
 	}
 	if err := state.Save(statePath, snapshot); err != nil {
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+	}
+	chainPath := lifecycle.ChainPath(statePath)
+	chain, chainErr := lifecycle.LoadChain(chainPath)
+	if chainErr != nil {
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, chainErr)
+	}
+	for _, transition := range transitions {
+		if err := lifecycle.AppendTransitionRecord(chain, transition, "lifecycle_transition"); err != nil {
+			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+		}
+	}
+	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+	}
+	if _, err := proofemit.EmitScan(statePath, now, findings, riskReport, profileResult, postureScore, transitions); err != nil {
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+	}
+	if err := manifest.Save(manifestPath, nextManifest); err != nil {
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
 	}
 

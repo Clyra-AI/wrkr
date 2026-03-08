@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Clyra-AI/wrkr/internal/reponame"
 )
 
 const CurrentVersion = "v1"
@@ -73,13 +75,12 @@ func ValidateTarget(mode TargetMode, value string) error {
 	}
 	switch mode {
 	case TargetRepo:
-		parts := strings.Split(value, "/")
-		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
-			return fmt.Errorf("repo target must be owner/repo, got %q", value)
+		if err := reponame.ValidateRepo(value); err != nil {
+			return err
 		}
 	case TargetOrg:
-		if strings.Contains(value, "/") {
-			return fmt.Errorf("org target must not contain '/': %q", value)
+		if err := reponame.ValidateOrg(value); err != nil {
+			return err
 		}
 	case TargetPath:
 		if strings.TrimSpace(value) == "" {
