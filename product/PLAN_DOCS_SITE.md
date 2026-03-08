@@ -1,7 +1,7 @@
 # PLAN Wrkr Docs-Site: Agent-Answerability First Documentation System
 
 Date: 2026-02-22
-Source of truth: `product/wrkr.md`, `product/dev_guides.md`, `AGENTS.md`, and validated baseline from `/Users/davidahmann/Projects/gait/docs` + `/Users/davidahmann/Projects/gait/docs-site`
+Source of truth: `product/wrkr.md`, `product/dev_guides.md`, `AGENTS.md`, and validated baseline from the Gait `docs/` and `docs-site/` surfaces
 Scope: Wrkr OSS docs corpus and docs-site only. No Axym/Gait feature implementation in Wrkr runtime.
 
 ## Global Decisions (Locked)

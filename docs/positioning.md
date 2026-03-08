@@ -20,6 +20,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 - Deterministic AI tooling posture scanner.
 - Command-first evidence and regress gate source.
 - Static discovery engine for repo/org configuration surfaces.
+- Zero-integration first value through local `--path` scans; hosted repo/org scans use explicit GitHub API configuration.
 
 ## What Wrkr Is Not
 
@@ -41,3 +42,5 @@ wrkr report --top 5 --json
 wrkr evidence --frameworks eu-ai-act,soc2 --json
 wrkr verify --chain --json
 ```
+
+Low first-run `framework_coverage` is an evidence-state signal, not a parser failure. Wrkr measures what is currently documented in the scanned state.

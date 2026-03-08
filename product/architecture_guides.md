@@ -2,9 +2,9 @@
 
 Version: 1.0  
 Status: Normative  
-Scope: Wrkr only (`/Users/davidahmann/Projects/wrkr`)
+Scope: Wrkr only (`wrkr/` repository root)
 
-This document is the actionable architecture companion to `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`.
+This document is the actionable architecture companion to `product/dev_guides.md`.
 
 `dev_guides.md` defines toolchain/process standards.  
 This file defines architecture execution rules, PR gates, and required artifacts.

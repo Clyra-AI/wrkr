@@ -3,6 +3,7 @@
 Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.
 
 Wrkr is an open-source Go CLI focused on deterministic AI-DSPM discovery.
+Current OSS shipped scope centers on repo/config/CI discovery and proofable posture. Broader platform signals such as IdP grants or browser-extension inventory are future/additive surfaces, not part of the current default OSS scan path.
 
 Primary outcomes:
 

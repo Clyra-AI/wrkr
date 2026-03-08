@@ -12,6 +12,8 @@ Wrkr is the AI-DSPM discovery layer in the See -> Prove -> Control sequence:
 
 Wrkr is useful standalone and interoperates with Axym/Gait through shared proof contracts.
 
+The fastest zero-integration first value is `wrkr scan --path ...` against pre-cloned or local repositories.
+
 For hosted source modes, `scan --repo` and `scan --org` require `--github-api` (or `WRKR_GITHUB_API_BASE`) and fail closed when acquisition is unavailable.
 
 Canonical local artifact paths are documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
@@ -46,6 +48,8 @@ Expected outputs:
 
 - `evidence`: `output_dir`, `manifest_path`, `chain_path`, `framework_coverage`
 - `verify`: `chain.intact=true`
+
+Low or zero `framework_coverage` on a first run is expected when the scanned state lacks documented approvals or controls. Treat it as an evidence gap and rerun after remediation.
 
 ## Regression baseline
 

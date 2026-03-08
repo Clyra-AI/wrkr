@@ -19,6 +19,10 @@ Yes. Wrkr scan/risk/proof paths are deterministic by default for fixed inputs.
 
 No. Core operation is local and file-based by default.
 
+### Does Wrkr require setup for repo or org scans?
+
+`--path` is the zero-integration first-value path. Hosted `--repo` and `--org` scans require explicit GitHub API configuration via `--github-api` or `WRKR_GITHUB_API_BASE`.
+
 ### Does Wrkr replace runtime enforcement?
 
 No. Wrkr is discovery/posture. Runtime enforcement is a separate control layer.
@@ -35,3 +39,7 @@ Use `wrkr regress init` to establish a baseline and `wrkr regress run` in CI. Ex
 ### How do I produce compliance evidence?
 
 Use `wrkr evidence --frameworks ... --json` and verify chain integrity with `wrkr verify --chain --json`.
+
+### Why can framework coverage be low on the first run?
+
+`framework_coverage` reflects the controls and approvals currently evidenced in the scanned state. Low or zero coverage means more evidence work is needed; it does not mean Wrkr lacks support for that framework.

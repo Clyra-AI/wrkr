@@ -1,7 +1,7 @@
 # PLAN OWASP-1: Agentic Security Gap Closure
 
-Date: 2026-02-23  
-Source of truth: user-provided recommended items in this planning run; `/Users/davidahmann/Projects/wrkr/product/wrkr.md`; `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`; current code baseline in `/Users/davidahmann/Projects/wrkr/core` and `/Users/davidahmann/Projects/wrkr/docs`  
+Date: 2026-02-23
+Source of truth: user-provided recommended items in this planning run; `product/wrkr.md`; `product/dev_guides.md`; current code baseline in `core` and `docs`
 Scope: planning only; no implementation in this artifact
 
 ## Global Decisions (Locked)
@@ -16,15 +16,15 @@ Scope: planning only; no implementation in this artifact
 
 ## Current Baseline (Observed)
 
-- Current detector registry already covers A2A, WebMCP, MCP gateway, MCP, CI agent autonomy, skills, dependencies, and secrets: `/Users/davidahmann/Projects/wrkr/core/detect/defaults/defaults.go`.
-- CI autonomy detector already extracts headless execution, secret access, approval gates, and dangerous flags with stable evidence fields: `/Users/davidahmann/Projects/wrkr/core/detect/ciagent/detector.go`.
-- MCP trust scoring exists, but enrich advisory lookup is still a placeholder (`advisory_lookup=not_implemented`): `/Users/davidahmann/Projects/wrkr/core/detect/mcp/detector.go`.
-- Risk scoring already combines blast radius, privilege, trust deficit, and autonomy amplification with deterministic reasons: `/Users/davidahmann/Projects/wrkr/core/risk/risk.go`.
-- Classification already tags network entry points for A2A/WebMCP and CI pipeline surfaces: `/Users/davidahmann/Projects/wrkr/core/risk/classify/classify.go`.
-- MCP gateway posture model already produces `protected`/`unprotected`/`unknown` reasoned coverage outputs: `/Users/davidahmann/Projects/wrkr/core/detect/mcpgateway/detector.go`.
+- Current detector registry already covers A2A, WebMCP, MCP gateway, MCP, CI agent autonomy, skills, dependencies, and secrets: `core/detect/defaults/defaults.go`.
+- CI autonomy detector already extracts headless execution, secret access, approval gates, and dangerous flags with stable evidence fields: `core/detect/ciagent/detector.go`.
+- MCP trust scoring exists, but enrich advisory lookup is still a placeholder (`advisory_lookup=not_implemented`): `core/detect/mcp/detector.go`.
+- Risk scoring already combines blast radius, privilege, trust deficit, and autonomy amplification with deterministic reasons: `core/risk/risk.go`.
+- Classification already tags network entry points for A2A/WebMCP and CI pipeline surfaces: `core/risk/classify/classify.go`.
+- MCP gateway posture model already produces `protected`/`unprotected`/`unknown` reasoned coverage outputs: `core/detect/mcpgateway/detector.go`.
 - No first-class prompt-injection/context-poisoning detector or policy rule exists in current core (search baseline had zero hits for those terms).
-- Adapter parity lane is explicitly not implemented yet (`test-adapter-parity` placeholder): `/Users/davidahmann/Projects/wrkr/Makefile`.
-- Product contracts explicitly disallow runtime enforcement and probabilistic scoring in these paths: `/Users/davidahmann/Projects/wrkr/README.md`.
+- Adapter parity lane is explicitly not implemented yet (`test-adapter-parity` placeholder): `Makefile`.
+- Product contracts explicitly disallow runtime enforcement and probabilistic scoring in these paths: `README.md`.
 
 ## Exit Criteria
 
@@ -34,7 +34,7 @@ Scope: planning only; no implementation in this artifact
 - `wrkr report --json` and markdown report include attack-path summary sections without breaking existing output contracts.
 - `wrkr evidence --frameworks ... --json` includes proof records and evidence references for new finding/path classes.
 - `--enrich` MCP path performs advisory/registry lookups, emits `as_of` and `source` evidence fields, and preserves offline deterministic defaults when enrich is not set.
-- `/Users/davidahmann/Projects/wrkr/product/report_structure.md` and `/Users/davidahmann/Projects/wrkr/product/plan-run.md` are updated so sections and runbook explicitly consume prompt-channel, attack-path, and enrich-provenance outputs.
+- `product/report_structure.md` and `product/plan-run.md` are updated so sections and runbook explicitly consume prompt-channel, attack-path, and enrich-provenance outputs.
 - All CLI, schema, policy, determinism, and scenario tests pass in their required lanes.
 - Merge gating enforces no regressions in exit codes, JSON keys, and deterministic replay behavior.
 
@@ -82,10 +82,10 @@ Tasks:
 - Add parse/normalization helpers for text, markdown, YAML, JSON, TOML, workflow files.
 - Register detector in default detector registry and ensure no behavior change when no matches exist.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/detect/promptchannel/` (new)
-- `/Users/davidahmann/Projects/wrkr/core/detect/defaults/defaults.go`
-- `/Users/davidahmann/Projects/wrkr/core/model/finding.go`
-- `/Users/davidahmann/Projects/wrkr/core/model/finding_test.go`
+- `core/detect/promptchannel/` (new)
+- `core/detect/defaults/defaults.go`
+- `core/model/finding.go`
+- `core/model/finding_test.go`
 Run commands:
 - `go test ./core/detect/promptchannel/... -count=1`
 - `go test ./core/model/... -count=1`
@@ -109,10 +109,10 @@ Tasks:
 - Detect untrusted-content-to-system-prompt flows in static templates and pipeline concatenation patterns.
 - Emit per-finding evidence fields: `pattern_family`, `evidence_snippet_hash`, `location_class`, `confidence_class` (deterministic classes, not probabilistic).
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/detect/promptchannel/`
-- `/Users/davidahmann/Projects/wrkr/core/detect/promptchannel/testdata/` (new)
-- `/Users/davidahmann/Projects/wrkr/core/detect/promptchannel/detector_test.go`
-- `/Users/davidahmann/Projects/wrkr/scenarios/wrkr/prompt-channel-poisoning/` (new)
+- `core/detect/promptchannel/`
+- `core/detect/promptchannel/testdata/` (new)
+- `core/detect/promptchannel/detector_test.go`
+- `scenarios/wrkr/prompt-channel-poisoning/` (new)
 Run commands:
 - `go test ./core/detect/promptchannel/... -count=1`
 - `./.tmp/wrkr scan --path ./scenarios/wrkr/prompt-channel-poisoning/repos --json`
@@ -136,11 +136,11 @@ Tasks:
 - Add deterministic tie-breaking and explanation entries in ranked findings for amplified cases.
 - Preserve existing score ceilings and exit-code behavior.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/risk/risk.go`
-- `/Users/davidahmann/Projects/wrkr/core/risk/risk_test.go`
-- `/Users/davidahmann/Projects/wrkr/core/policy/rules/builtin.yaml`
-- `/Users/davidahmann/Projects/wrkr/core/policy/eval/eval.go`
-- `/Users/davidahmann/Projects/wrkr/core/policy/eval/eval_test.go`
+- `core/risk/risk.go`
+- `core/risk/risk_test.go`
+- `core/policy/rules/builtin.yaml`
+- `core/policy/eval/eval.go`
+- `core/policy/eval/eval_test.go`
 Run commands:
 - `go test ./core/risk/... -count=1`
 - `go test ./core/policy/... -count=1`
@@ -165,14 +165,14 @@ Tasks:
 - Harmonize report production docs so Section 1-10 and runbook inputs explicitly include prompt-channel outputs and claim guardrails.
 - Add scenario acceptance coverage for end-to-end scan -> report -> evidence -> verify loop.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/proofmap/proofmap.go`
-- `/Users/davidahmann/Projects/wrkr/core/report/build.go`
-- `/Users/davidahmann/Projects/wrkr/core/report/render_markdown.go`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/scan.md`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/report.md`
-- `/Users/davidahmann/Projects/wrkr/docs/compliance/eu_ai_act_audit_readiness.md`
-- `/Users/davidahmann/Projects/wrkr/product/report_structure.md`
-- `/Users/davidahmann/Projects/wrkr/product/plan-run.md`
+- `core/proofmap/proofmap.go`
+- `core/report/build.go`
+- `core/report/render_markdown.go`
+- `docs/commands/scan.md`
+- `docs/commands/report.md`
+- `docs/compliance/eu_ai_act_audit_readiness.md`
+- `product/report_structure.md`
+- `product/plan-run.md`
 Run commands:
 - `go test ./core/proofmap/... ./core/report/... -count=1`
 - `./.tmp/wrkr scan --path ./scenarios/wrkr/prompt-channel-poisoning/repos --report-md --report-md-path ./.tmp/prompt-channel.md --json`
@@ -201,10 +201,10 @@ Tasks:
 - Encode trust boundaries and edge rationale fields for explainability.
 - Add canonical serialization for graph snapshots.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/aggregate/attackpath/` (new)
-- `/Users/davidahmann/Projects/wrkr/core/aggregate/inventory/`
-- `/Users/davidahmann/Projects/wrkr/core/model/`
-- `/Users/davidahmann/Projects/wrkr/core/cli/scan.go`
+- `core/aggregate/attackpath/` (new)
+- `core/aggregate/inventory/`
+- `core/model/`
+- `core/cli/scan.go`
 Run commands:
 - `go test ./core/aggregate/attackpath/... -count=1`
 - `./.tmp/wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json`
@@ -227,10 +227,10 @@ Tasks:
 - Add explain fields showing per-edge and per-path contribution.
 - Ensure compatibility with existing `top_findings` and repo risk envelopes.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/risk/attackpath/` (new)
-- `/Users/davidahmann/Projects/wrkr/core/risk/risk.go`
-- `/Users/davidahmann/Projects/wrkr/core/risk/risk_test.go`
-- `/Users/davidahmann/Projects/wrkr/core/cli/score.go`
+- `core/risk/attackpath/` (new)
+- `core/risk/risk.go`
+- `core/risk/risk_test.go`
+- `core/cli/score.go`
 Run commands:
 - `go test ./core/risk/... -count=1`
 - `./.tmp/wrkr scan --path ./scenarios/wrkr/attack-path-correlation/repos --json`
@@ -255,13 +255,13 @@ Tasks:
 - Extend campaign and appendix mapping contracts so attack-path rows are available for report sections and benchmark narrative.
 - Add scenario suite for client-facing entry to internal target chain examples.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/report/build.go`
-- `/Users/davidahmann/Projects/wrkr/core/evidence/evidence.go`
-- `/Users/davidahmann/Projects/wrkr/core/proofmap/proofmap.go`
-- `/Users/davidahmann/Projects/wrkr/core/cli/regress.go`
-- `/Users/davidahmann/Projects/wrkr/scenarios/wrkr/attack-path-correlation/` (new)
-- `/Users/davidahmann/Projects/wrkr/product/plan-run.md`
-- `/Users/davidahmann/Projects/wrkr/product/report_structure.md`
+- `core/report/build.go`
+- `core/evidence/evidence.go`
+- `core/proofmap/proofmap.go`
+- `core/cli/regress.go`
+- `scenarios/wrkr/attack-path-correlation/` (new)
+- `product/plan-run.md`
+- `product/report_structure.md`
 Run commands:
 - `go test ./core/report/... ./core/evidence/... ./core/proofmap/... -count=1`
 - `./.tmp/wrkr report --state ./.wrkr/state.json --json`
@@ -296,9 +296,9 @@ Tasks:
 - Add strict error mapping so enrich failures degrade gracefully without affecting offline scan defaults.
 - Keep enrich execution explicitly opt-in from `--enrich`.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/detect/mcp/enrich/` (new)
-- `/Users/davidahmann/Projects/wrkr/core/detect/mcp/detector.go`
-- `/Users/davidahmann/Projects/wrkr/core/cli/scan.go`
+- `core/detect/mcp/enrich/` (new)
+- `core/detect/mcp/detector.go`
+- `core/cli/scan.go`
 Run commands:
 - `go test ./core/detect/mcp/... -count=1`
 - `./.tmp/wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --enrich --github-api https://api.github.com --json`
@@ -323,13 +323,13 @@ Tasks:
 - Document deterministic/offline vs enrich/non-deterministic behavior clearly.
 - Add report/runbook guardrails so enrich claims require `as_of` and `source` provenance in exported tables.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/risk/risk.go`
-- `/Users/davidahmann/Projects/wrkr/core/proofmap/proofmap.go`
-- `/Users/davidahmann/Projects/wrkr/core/report/build.go`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/scan.md`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/evidence.md`
-- `/Users/davidahmann/Projects/wrkr/product/plan-run.md`
-- `/Users/davidahmann/Projects/wrkr/product/report_structure.md`
+- `core/risk/risk.go`
+- `core/proofmap/proofmap.go`
+- `core/report/build.go`
+- `docs/commands/scan.md`
+- `docs/commands/evidence.md`
+- `product/plan-run.md`
+- `product/report_structure.md`
 Run commands:
 - `go test ./core/risk/... ./core/proofmap/... ./core/report/... -count=1`
 - `./.tmp/wrkr report --state ./.wrkr/state.json --json`
@@ -360,10 +360,10 @@ Tasks:
 - Replace `test-adapter-parity` placeholder with actionable adapter parity checks for enrich providers.
 - Add release-gate checks ensuring enrich code paths do not leak into offline deterministic assertions.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/scenarios/wrkr/mcp-enrich-supplychain/` (new)
-- `/Users/davidahmann/Projects/wrkr/internal/scenarios/`
-- `/Users/davidahmann/Projects/wrkr/Makefile`
-- `/Users/davidahmann/Projects/wrkr/scripts/` (new parity scripts as needed)
+- `scenarios/wrkr/mcp-enrich-supplychain/` (new)
+- `internal/scenarios/`
+- `Makefile`
+- `scripts/` (new parity scripts as needed)
 Run commands:
 - `make test-scenarios`
 - `make test-risk-lane`

@@ -4,19 +4,19 @@ Date: 2026-02-21
 Source of truth:
 - User-provided recommended items (audit gap-closure list in this thread)
 - Audit evidence already observed in repo/runtime:
-  - `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
-  - `/Users/davidahmann/Projects/wrkr/.github/workflows/pr.yml`
-  - `/Users/davidahmann/Projects/wrkr/core/cli/`
-  - `/Users/davidahmann/Projects/wrkr/README.md`
-  - `/Users/davidahmann/Projects/wrkr/docs/commands/evidence.md`
-  - `/Users/davidahmann/Projects/wrkr/docs/examples/operator-playbooks.md`
-  - `/Users/davidahmann/Projects/wrkr/SECURITY.md`
+  - `product/dev_guides.md`
+  - `.github/workflows/pr.yml`
+  - `core/cli/`
+  - `README.md`
+  - `docs/commands/evidence.md`
+  - `docs/examples/operator-playbooks.md`
+  - `SECURITY.md`
 Scope:
 - Planning-only backlog for closing all identified audit gaps.
 - No code implementation in this plan.
 
 ## Global Decisions (Locked)
-- `GD-1`: Standards file remains normative for toolchain policy. Implementation should align CI to `/Users/davidahmann/Projects/wrkr/product/dev_guides.md` unless maintainers explicitly re-baseline policy docs.
+- `GD-1`: Standards file remains normative for toolchain policy. Implementation should align CI to `product/dev_guides.md` unless maintainers explicitly re-baseline policy docs.
 - `GD-2`: CLI help behavior is a contract: `wrkr <command> --help` must return exit code `0` consistently.
 - `GD-3`: Compliance coverage percentages are evidence-state signals, not product-capability completeness claims.
 - `GD-4`: Wrkr contracts must remain stable: determinism, fail-closed behavior, schema stability, exit-code stability.
@@ -24,8 +24,8 @@ Scope:
 
 ## Current Baseline (Observed)
 - Toolchain pin drift exists between standards and PR workflow:
-  - Standards expect `gosec v2.23.0`, `golangci-lint v2.0.1` in `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`.
-  - PR workflow currently installs older versions in `/Users/davidahmann/Projects/wrkr/.github/workflows/pr.yml`.
+  - Standards expect `gosec v2.23.0`, `golangci-lint v2.0.1` in `product/dev_guides.md`.
+  - PR workflow currently installs older versions in `.github/workflows/pr.yml`.
 - Root help exits `0`, but several subcommand `--help` paths exit `6` due flag parsing behavior.
 - `README` status section still states “Epics 1-6 are implemented” while acceptance/scenario contracts now cover broader scope.
 - Docs mention evidence coverage but do not clearly frame low/0 coverage as expected gap signal from scanned evidence state.
@@ -87,13 +87,13 @@ Objective:
 Priority:
 - P1
 Tasks:
-- Update `/Users/davidahmann/Projects/wrkr/.github/workflows/pr.yml` tool install versions to match `/Users/davidahmann/Projects/wrkr/product/dev_guides.md` for:
+- Update `.github/workflows/pr.yml` tool install versions to match `product/dev_guides.md` for:
   - `gosec`
   - `golangci-lint`
 - Validate no `@latest` remains in governance-critical installs.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/.github/workflows/pr.yml`
-- `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
+- `.github/workflows/pr.yml`
+- `product/dev_guides.md`
 Run commands:
 - `make lint-fast`
 - `make test-fast`
@@ -116,14 +116,14 @@ Risks:
 Priority:
 - P1
 Tasks:
-- Extend `/Users/davidahmann/Projects/wrkr/scripts/check_toolchain_pins.sh` (or add a dedicated script) to compare:
+- Extend `scripts/check_toolchain_pins.sh` (or add a dedicated script) to compare:
   - Normative pin table in `product/dev_guides.md`
   - Enforced versions in `/.github/workflows/*.yml` and Makefile-related invocations
-- Wire script into `lint-fast` in `/Users/davidahmann/Projects/wrkr/Makefile`.
+- Wire script into `lint-fast` in `Makefile`.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/scripts/check_toolchain_pins.sh`
-- `/Users/davidahmann/Projects/wrkr/Makefile`
-- `/Users/davidahmann/Projects/wrkr/.github/workflows/pr.yml`
+- `scripts/check_toolchain_pins.sh`
+- `Makefile`
+- `.github/workflows/pr.yml`
 Run commands:
 - `make lint-fast`
 - `make prepush`
@@ -146,8 +146,8 @@ Tasks:
 - Add concise maintenance note in `product/dev_guides.md` or docs section describing “how to update pinned tools safely”.
 - Include rule that docs and workflows must be updated atomically.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/product/dev_guides.md`
-- `/Users/davidahmann/Projects/wrkr/docs/` (if needed)
+- `product/dev_guides.md`
+- `docs/` (if needed)
 Run commands:
 - `make test-docs-consistency`
 - `make test-docs-storyline`
@@ -168,10 +168,10 @@ Objective:
 Priority:
 - P2
 Tasks:
-- Update subcommand handlers under `/Users/davidahmann/Projects/wrkr/core/cli/` to return `0` on `flag.ErrHelp`.
+- Update subcommand handlers under `core/cli/` to return `0` on `flag.ErrHelp`.
 - Ensure no regression in machine-readable errors for true invalid input.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/cli/*.go`
+- `core/cli/*.go`
 Run commands:
 - `go test ./core/cli -count=1`
 - `go test ./internal/e2e/cli_contract -count=1`
@@ -198,8 +198,8 @@ Tasks:
 - Add or extend tests for at least: `scan`, `evidence`, `regress run`, `report`, `verify`, `fix`, `lifecycle`, `init` help flags.
 - Add regression guard for root vs subcommand parity.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/cli/root_test.go`
-- `/Users/davidahmann/Projects/wrkr/internal/e2e/cli_contract/`
+- `core/cli/root_test.go`
+- `internal/e2e/cli_contract/`
 Run commands:
 - `go test ./core/cli -run Help -count=1`
 - `go test ./internal/e2e/cli_contract -count=1`
@@ -222,12 +222,12 @@ Objective:
 Priority:
 - P2
 Tasks:
-- Update stale status text in `/Users/davidahmann/Projects/wrkr/README.md`.
+- Update stale status text in `README.md`.
 - Reflect current acceptance/scenario coverage and shipped scope accurately without overstating.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/README.md`
-- `/Users/davidahmann/Projects/wrkr/internal/acceptance/v1_acceptance_test.go`
-- `/Users/davidahmann/Projects/wrkr/internal/scenarios/coverage_map.json`
+- `README.md`
+- `internal/acceptance/v1_acceptance_test.go`
+- `internal/scenarios/coverage_map.json`
 Run commands:
 - `make test-docs-consistency`
 - `make test-docs-storyline`
@@ -249,13 +249,13 @@ Objective:
 Priority:
 - P2
 Tasks:
-- Update `/Users/davidahmann/Projects/wrkr/docs/commands/evidence.md` and `/Users/davidahmann/Projects/wrkr/docs/examples/operator-playbooks.md` to state:
+- Update `docs/commands/evidence.md` and `docs/examples/operator-playbooks.md` to state:
   - Coverage is measured against available scanned proof/evidence in current state.
   - Low/0% coverage indicates documented control gaps, not scanner feature absence.
   - Include recommended next operator actions when coverage is low.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/docs/commands/evidence.md`
-- `/Users/davidahmann/Projects/wrkr/docs/examples/operator-playbooks.md`
+- `docs/commands/evidence.md`
+- `docs/examples/operator-playbooks.md`
 Run commands:
 - `make test-docs-consistency`
 - `make test-docs-storyline`
@@ -272,11 +272,11 @@ Dependencies:
 Priority:
 - P2
 Tasks:
-- Adjust report summary phrasing in `/Users/davidahmann/Projects/wrkr/core/report/` templates to avoid ambiguity about coverage interpretation.
+- Adjust report summary phrasing in `core/report/` templates to avoid ambiguity about coverage interpretation.
 - Keep deterministic output structure stable.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/core/report/`
-- `/Users/davidahmann/Projects/wrkr/docs/commands/report.md`
+- `core/report/`
+- `docs/commands/report.md`
 Run commands:
 - `go test ./core/report -count=1`
 - `go test ./core/cli -run Report -count=1`
@@ -301,15 +301,15 @@ Objective:
 Priority:
 - P2
 Tasks:
-- Expand `/Users/davidahmann/Projects/wrkr/SECURITY.md` with:
+- Expand `SECURITY.md` with:
   - Private report channel and required fields
   - Triage acknowledgment and response expectations
   - Supported branches/versions for fixes
   - Disclosure coordination expectations
 - Keep concise and OSS-appropriate.
 Repo paths:
-- `/Users/davidahmann/Projects/wrkr/SECURITY.md`
-- `/Users/davidahmann/Projects/wrkr/README.md` (optional link enhancement)
+- `SECURITY.md`
+- `README.md` (optional link enhancement)
 Run commands:
 - `make test-docs-consistency`
 - `make test-docs-storyline`
