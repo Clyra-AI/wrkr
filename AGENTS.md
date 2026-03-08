@@ -105,7 +105,7 @@ CLI output expectations:
 
 - Go is primary runtime language (single static binary model).
 - Target toolchain versions:
-  - Go `1.25.7`
+  - Go `1.26.1`
   - Python `3.13+` (scripts/tools)
   - Node `22+` (docs/UI only; not core runtime logic)
 - Use exact/pinned dependency versions where applicable.

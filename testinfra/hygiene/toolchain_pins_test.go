@@ -49,12 +49,12 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 
 	root := t.TempDir()
 	mustWriteFile(t, filepath.Join(root, ".tool-versions"), strings.Join([]string{
-		"golang 1.25.7",
+		"golang 1.26.1",
 		"python 3.13.1",
 		"nodejs 22.14.0",
 		"",
 	}, "\n"))
-	mustWriteFile(t, filepath.Join(root, "go.mod"), "module fixture\n\ngo 1.25.7\n")
+	mustWriteFile(t, filepath.Join(root, "go.mod"), "module fixture\n\ngo 1.26.1\n")
 	mustWriteFile(t, filepath.Join(root, "Makefile"), "lint-fast:\n\t@echo ok\n")
 
 	mustWriteFile(t, filepath.Join(root, "product/dev_guides.md"), strings.Join([]string{

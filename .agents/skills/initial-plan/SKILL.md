@@ -167,7 +167,7 @@ Story template (required fields):
 For every story, derive required checks from `product/dev_guides.md` by work type. At minimum:
 
 1. Toolchain/runtime changes:
-- Lock versions to stated standards (Go 1.25.7, Python 3.13+, Node 22 docs/UI only).
+- Lock versions to stated standards (Go 1.26.1, Python 3.13+, Node 22 docs/UI only).
 - Include compatibility checks for shared `Clyra-AI/proof` constraints.
 
 2. CLI surface changes (commands/flags/json/exits):
