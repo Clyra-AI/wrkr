@@ -604,10 +604,6 @@ func isRetryable(code int) bool {
 	return code == http.StatusTooManyRequests || code >= 500
 }
 
-func validateRepo(repo string) error {
-	return reponame.ValidateRepo(repo)
-}
-
 func normalizeRepo(repo string) (string, error) {
 	return reponame.NormalizeRepo(repo)
 }
