@@ -21,8 +21,12 @@ func TestScanStateFailureDoesNotWriteAuxiliaryArtifacts(t *testing.T) {
 		t.Fatalf("write codex config: %v", err)
 	}
 
+	blockedTarget := filepath.Join(tmp, "blocked-state-target")
+	if err := os.MkdirAll(blockedTarget, 0o755); err != nil {
+		t.Fatalf("mkdir blocked target: %v", err)
+	}
 	statePath := filepath.Join(tmp, "state.json")
-	if err := os.Symlink("/System/state.json", statePath); err != nil {
+	if err := os.Symlink(blockedTarget, statePath); err != nil {
 		t.Skipf("symlink not supported in this environment: %v", err)
 	}
 
