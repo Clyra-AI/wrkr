@@ -212,6 +212,7 @@ func TestScanMySetupReturnsLocalMachineTarget(t *testing.T) {
 func TestScanMySetupFindsEnvironmentKeysAndProjectMarkers(t *testing.T) {
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
 	t.Setenv("OPENAI_API_KEY", "redacted")
 	t.Setenv("ANTHROPIC_API_KEY", "redacted")
 

@@ -12,6 +12,7 @@ import (
 func TestDetectLocalMachineEnvAndProjectSignals(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("OPENAI_API_KEY", "redacted")
 	t.Setenv("ANTHROPIC_API_KEY", "redacted")
 
