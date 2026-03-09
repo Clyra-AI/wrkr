@@ -40,7 +40,15 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	if chainPath == "" {
 		chainPath = proofemit.ChainPath(state.ResolvePath(*statePathFlag))
 	}
-	result, err := verifycore.Chain(chainPath)
+	var (
+		result verifycore.Result
+		err    error
+	)
+	if publicKey, keyErr := proofemit.LoadVerifierKey(chainPath); keyErr == nil {
+		result, err = verifycore.ChainWithPublicKey(chainPath, publicKey)
+	} else {
+		result, err = verifycore.Chain(chainPath)
+	}
 	if err != nil {
 		errorCode := verifycore.ErrorCodeFor(err)
 		if errorCode == verifycore.ErrorCodeInvalidInput {

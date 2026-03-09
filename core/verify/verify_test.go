@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
 	proof "github.com/Clyra-AI/proof"
+	"github.com/Clyra-AI/proof/core/signing"
 )
 
 func TestChainIntact(t *testing.T) {
@@ -66,6 +68,164 @@ func TestChainMixedSourceCompatibility(t *testing.T) {
 	}
 	if !result.Intact {
 		t.Fatalf("expected mixed-source chain to be intact, got %+v", result)
+	}
+}
+
+func TestChainMatchesProofVerifierOnHeadHashMismatch(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "chain.json")
+	chain := proof.NewChain("wrkr-proof")
+	appendRecord(t, chain, "scan_finding", map[string]any{"finding_type": "policy_violation"})
+	appendRecord(t, chain, "risk_assessment", map[string]any{"assessment_type": "finding_risk"})
+	chain.HeadHash = "sha256:tampered"
+	writeChain(t, path, chain)
+
+	got, err := Chain(path)
+	if err != nil {
+		t.Fatalf("verify chain: %v", err)
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read chain: %v", err)
+	}
+	var parsed proof.Chain
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("parse chain: %v", err)
+	}
+	want, err := proof.VerifyChain(&parsed)
+	if err != nil {
+		t.Fatalf("proof verify chain: %v", err)
+	}
+
+	expected := Result{
+		Intact:     want.Intact,
+		Count:      want.Count,
+		HeadHash:   want.HeadHash,
+		BreakPoint: want.BreakPoint,
+		BreakIndex: want.BreakIndex,
+		Reason:     "chain_integrity_failure",
+	}
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatalf("unexpected verify result\nwant=%+v\ngot=%+v", expected, got)
+	}
+}
+
+func TestChainWithPublicKeyAcceptsSignedChain(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "chain.json")
+	chain := proof.NewChain("wrkr-proof")
+	appendRecord(t, chain, "scan_finding", map[string]any{"finding_type": "policy_violation"})
+	appendRecord(t, chain, "risk_assessment", map[string]any{"assessment_type": "finding_risk"})
+	key, err := proof.GenerateSigningKey()
+	if err != nil {
+		t.Fatalf("generate signing key: %v", err)
+	}
+	if _, err := proof.SignChain(chain, key); err != nil {
+		t.Fatalf("sign chain: %v", err)
+	}
+	writeChain(t, path, chain)
+
+	result, err := ChainWithPublicKey(path, proof.PublicKey{Public: key.Public, KeyID: key.KeyID})
+	if err != nil {
+		t.Fatalf("verify signed chain: %v", err)
+	}
+	if !result.Intact {
+		t.Fatalf("expected intact signed chain result, got %+v", result)
+	}
+	if result.Reason != "ok" {
+		t.Fatalf("expected reason ok, got %s", result.Reason)
+	}
+}
+
+func TestChainWithPublicKeyAcceptsAttestedChain(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "chain.json")
+	chain := proof.NewChain("wrkr-proof")
+	appendRecord(t, chain, "scan_finding", map[string]any{"finding_type": "policy_violation"})
+	appendRecord(t, chain, "risk_assessment", map[string]any{"assessment_type": "finding_risk"})
+	writeChain(t, path, chain)
+
+	key, err := proof.GenerateSigningKey()
+	if err != nil {
+		t.Fatalf("generate signing key: %v", err)
+	}
+	chainPayload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read chain: %v", err)
+	}
+	attestation := chainAttestation{
+		Version:     "v1",
+		ChainSHA:    digestBytes(chainPayload),
+		ChainBytes:  int64(len(chainPayload)),
+		RecordCount: len(chain.Records),
+		HeadHash:    chain.HeadHash,
+	}
+	digest, err := digestAttestationPayload(chainAttestationPayload{
+		Version:     attestation.Version,
+		ChainSHA:    attestation.ChainSHA,
+		ChainBytes:  attestation.ChainBytes,
+		RecordCount: attestation.RecordCount,
+		HeadHash:    attestation.HeadHash,
+	})
+	if err != nil {
+		t.Fatalf("digest attestation payload: %v", err)
+	}
+	signature, err := signing.SignDigest(digest, key)
+	if err != nil {
+		t.Fatalf("sign attestation payload: %v", err)
+	}
+	attestation.Signature = signature
+	encoded, err := json.MarshalIndent(attestation, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal attestation: %v", err)
+	}
+	encoded = append(encoded, '\n')
+	if err := os.WriteFile(attestationPath(path), encoded, 0o600); err != nil {
+		t.Fatalf("write attestation: %v", err)
+	}
+
+	result, err := ChainWithPublicKey(path, proof.PublicKey{Public: key.Public, KeyID: key.KeyID})
+	if err != nil {
+		t.Fatalf("verify attested chain: %v", err)
+	}
+	if !result.Intact {
+		t.Fatalf("expected intact attested chain result, got %+v", result)
+	}
+	if result.Reason != "ok" {
+		t.Fatalf("expected reason ok, got %s", result.Reason)
+	}
+}
+
+func TestChainWithPublicKeyFallsBackOnTamperedSignedChain(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "chain.json")
+	chain := proof.NewChain("wrkr-proof")
+	appendRecord(t, chain, "scan_finding", map[string]any{"finding_type": "policy_violation"})
+	appendRecord(t, chain, "risk_assessment", map[string]any{"assessment_type": "finding_risk"})
+	key, err := proof.GenerateSigningKey()
+	if err != nil {
+		t.Fatalf("generate signing key: %v", err)
+	}
+	if _, err := proof.SignChain(chain, key); err != nil {
+		t.Fatalf("sign chain: %v", err)
+	}
+	chain.Records[1].Integrity.RecordHash = "sha256:tampered"
+	writeChain(t, path, chain)
+
+	result, err := ChainWithPublicKey(path, proof.PublicKey{Public: key.Public, KeyID: key.KeyID})
+	if err != nil {
+		t.Fatalf("verify tampered signed chain: %v", err)
+	}
+	if result.Intact {
+		t.Fatalf("expected tamper detection result, got %+v", result)
+	}
+	if result.Reason != "chain_integrity_failure" {
+		t.Fatalf("unexpected reason: %s", result.Reason)
 	}
 }
 

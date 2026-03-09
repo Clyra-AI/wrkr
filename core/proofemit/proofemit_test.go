@@ -50,6 +50,19 @@ func TestEmitScanProducesSignedRecords(t *testing.T) {
 	if len(chain.Records) != summary.Total {
 		t.Fatalf("expected %d records, got %d", summary.Total, len(chain.Records))
 	}
+	if len(chain.Signatures) != 1 {
+		t.Fatalf("expected 1 proof chain signature, got %d", len(chain.Signatures))
+	}
+	if _, err := os.Stat(chainAttestationPath(summary.ChainPath)); err != nil {
+		t.Fatalf("expected proof chain attestation file: %v", err)
+	}
+	publicKey, err := LoadVerifierKey(statePath)
+	if err != nil {
+		t.Fatalf("load verifier key: %v", err)
+	}
+	if err := proof.VerifyChainSignature(chain, chain.Signatures[0], publicKey); err != nil {
+		t.Fatalf("verify proof chain signature: %v", err)
+	}
 	for _, record := range chain.Records {
 		if record.Integrity.Signature == "" {
 			t.Fatalf("expected signed proof record, got empty signature for %s", record.RecordID)
@@ -105,6 +118,12 @@ func TestEmitIdentityTransitionAddsApprovalRecord(t *testing.T) {
 	}
 	if len(chain.Records) != 1 {
 		t.Fatalf("expected 1 proof record, got %d", len(chain.Records))
+	}
+	if len(chain.Signatures) != 1 {
+		t.Fatalf("expected 1 proof chain signature, got %d", len(chain.Signatures))
+	}
+	if _, err := os.Stat(chainAttestationPath(statePath)); err != nil {
+		t.Fatalf("expected proof chain attestation file: %v", err)
 	}
 	record := chain.Records[0]
 	if record.RecordType != "approval" {
