@@ -13,9 +13,14 @@ import (
 
 // Scope is one deterministic repository scan input.
 type Scope struct {
-	Org  string
-	Repo string
-	Root string
+	Org        string
+	Repo       string
+	Root       string
+	TargetMode string
+}
+
+func IsLocalMachineScope(scope Scope) bool {
+	return strings.TrimSpace(scope.TargetMode) == "my_setup"
 }
 
 // Options toggles optional detector behavior.

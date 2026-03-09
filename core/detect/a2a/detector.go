@@ -32,6 +32,9 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
+	if detect.IsLocalMachineScope(scope) {
+		return nil, nil
+	}
 
 	policy, _, policyErr := mcpgateway.LoadPolicy(scope.Root)
 	if policyErr != nil {

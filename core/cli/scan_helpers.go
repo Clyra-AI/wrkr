@@ -24,6 +24,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/source/github"
 	"github.com/Clyra-AI/wrkr/core/source/local"
+	"github.com/Clyra-AI/wrkr/core/source/localsetup"
 	"github.com/Clyra-AI/wrkr/core/source/org"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -51,12 +52,12 @@ func isMaterializedRootSafetyError(err error) bool {
 	return errors.As(err, &target)
 }
 
-func resolveScanTarget(repo, orgInput, pathInput, configPath string) (config.TargetMode, string, config.Config, error) {
-	mode, value, err := resolveTarget(repo, orgInput, pathInput)
+func resolveScanTarget(repo, orgInput, githubOrgInput, pathInput string, mySetup bool, configPath string) (config.TargetMode, string, config.Config, error) {
+	mode, value, err := resolveScanTargetInput(repo, orgInput, githubOrgInput, pathInput, mySetup)
 	if err == nil {
 		return mode, value, config.Default(), nil
 	}
-	if strings.TrimSpace(repo) != "" || strings.TrimSpace(orgInput) != "" || strings.TrimSpace(pathInput) != "" {
+	if strings.TrimSpace(repo) != "" || strings.TrimSpace(orgInput) != "" || strings.TrimSpace(githubOrgInput) != "" || strings.TrimSpace(pathInput) != "" || mySetup {
 		return "", "", config.Config{}, err
 	}
 
@@ -69,6 +70,33 @@ func resolveScanTarget(repo, orgInput, pathInput, configPath string) (config.Tar
 		return "", "", config.Config{}, fmt.Errorf("no target provided and no usable config default target (%v)", loadErr)
 	}
 	return cfg.DefaultTarget.Mode, cfg.DefaultTarget.Value, cfg, nil
+}
+
+func resolveScanTargetInput(repo, orgInput, githubOrgInput, pathInput string, mySetup bool) (config.TargetMode, string, error) {
+	targets := make([]config.Target, 0, 4)
+	if strings.TrimSpace(repo) != "" {
+		targets = append(targets, config.Target{Mode: config.TargetRepo, Value: strings.TrimSpace(repo)})
+	}
+	if strings.TrimSpace(orgInput) != "" {
+		targets = append(targets, config.Target{Mode: config.TargetOrg, Value: strings.TrimSpace(orgInput)})
+	}
+	if strings.TrimSpace(githubOrgInput) != "" {
+		targets = append(targets, config.Target{Mode: config.TargetOrg, Value: strings.TrimSpace(githubOrgInput)})
+	}
+	if strings.TrimSpace(pathInput) != "" {
+		targets = append(targets, config.Target{Mode: config.TargetPath, Value: strings.TrimSpace(pathInput)})
+	}
+	if mySetup {
+		targets = append(targets, config.Target{Mode: config.TargetMySetup, Value: localsetup.TargetValue})
+	}
+
+	if len(targets) != 1 {
+		return "", "", fmt.Errorf("exactly one target source is required: use one of --repo, --org, --github-org, --path, --my-setup")
+	}
+	if err := config.ValidateTarget(targets[0].Mode, targets[0].Value); err != nil {
+		return "", "", err
+	}
+	return targets[0].Mode, targets[0].Value, nil
 }
 
 func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBaseURL, githubToken, statePath string) (source.Manifest, []source.Finding, error) {
@@ -164,6 +192,18 @@ func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBa
 		manifestOut.Repos = repos
 		for _, repoManifest := range repos {
 			repoManifest.Location = filepath.ToSlash(repoManifest.Location)
+			findings = append(findings, sourceFinding(repoManifest, "local", "filesystem.read"))
+		}
+	case config.TargetMySetup:
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return source.Manifest{}, nil, ctxErr
+		}
+		repos, err := localsetup.Acquire()
+		if err != nil {
+			return source.Manifest{}, nil, err
+		}
+		manifestOut.Repos = repos
+		for _, repoManifest := range repos {
 			findings = append(findings, sourceFinding(repoManifest, "local", "filesystem.read"))
 		}
 	default:
@@ -280,7 +320,12 @@ func detectorScopes(manifestOut source.Manifest) []detect.Scope {
 			continue
 		}
 		orgName := deriveOrg(manifestOut.Target, repo)
-		scopes = append(scopes, detect.Scope{Org: orgName, Repo: repo.Repo, Root: location})
+		scopes = append(scopes, detect.Scope{
+			Org:        orgName,
+			Repo:       repo.Repo,
+			Root:       location,
+			TargetMode: strings.TrimSpace(manifestOut.Target.Mode),
+		})
 	}
 	return scopes
 }

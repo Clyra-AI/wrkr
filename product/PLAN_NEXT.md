@@ -1,129 +1,156 @@
-# PLAN AGENT_PHASE_1_5: Deterministic Tools + Agents Inventory
+# PLAN WRKR_PERSONAL_HYGIENE: Developer Machine Hygiene to Org-Ready Proof
 
-Date: 2026-03-05  
-Source of truth: user-provided recommended items (20), `product/dev_guides.md`, `product/architecture_guides.md`, `product/wrkr.md`, `AGENTS.md`  
+Date: 2026-03-09  
+Source of truth: user-provided recommended items for this run, `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`, current repo baseline  
 Scope: Wrkr repository only. Planning artifact only; no implementation in this document.
 
 ## Global Decisions (Locked)
 
-- Preserve Wrkr deterministic/offline-first/fail-closed contracts on scan, risk, proof, policy, and evidence paths.
-- Keep architecture boundaries explicit and testable: Source -> Detection -> Aggregation -> Identity -> Risk -> Proof emission -> Compliance.
-- Ship additive-first API/schema changes only in this plan; do not remove or rename existing scan JSON top-level keys.
-- Keep `inventory.tools` and existing top-level scan JSON keys stable; add `inventory.agents` as additive output.
-- Preserve existing lifecycle identity contract (`agent_id`) while adding deterministic instance-level identity to prevent collisions.
-- Keep exit code taxonomy stable (`0..8`) and keep `--json` machine-readable output stable for automation.
-- Promote top-5 framework detector coverage to Wave 2 gate (LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex) per execution model.
-- Treat policy rule IDs as contract surface; add compatibility for `WRKR-A###` without regressing `WRKR-###` consumers.
-- Require `make prepush-full` for architecture/risk/boundary stories and `make test-hardening` + `make test-chaos` for reliability/fault stories.
-- Enforce same-input -> same-output determinism for findings, inventory entities, risk ranking, proof records, and evidence artifacts.
+- Lead the next Wrkr release with the developer angle first: personal machine hygiene (`wrkr scan --my-setup`, `wrkr mcp-list`, `wrkr inventory --diff`) becomes the first-screen contract, while org scanning remains a first-class security workflow.
+- Preserve Wrkr’s deterministic, offline-first, fail-closed core. `scan --my-setup` must work locally by default and must never exfiltrate host data or require network access.
+- Preserve architecture boundaries: Source -> Detection -> Aggregation -> Identity -> Risk -> Proof emission -> Compliance/evidence output. Local-machine support must be added as a new source/detection flow, not as ad hoc CLI logic.
+- Preserve existing CLI/API contracts:
+  - keep `scan --path`, `scan --org`, `scan --repo`, `export`, `evidence`, `verify`, and `regress`
+  - keep stable `--json` envelope and exit code taxonomy (`0..8`)
+  - add new commands/flags additively only
+- Treat `scan --github-org` as an additive alias over existing `scan --org`, not a replacement.
+- Treat `inventory` as a developer-facing compatibility wrapper over existing inventory export/regression primitives. `export --format inventory` remains supported and documented.
+- `mcp-list` is discovery and privilege mapping only. It must not perform vulnerability scanning, package exploitation checks, or live MCP endpoint probing. Discovery/interoperability notes may reference Snyk and Gait, but Wrkr stays in the See boundary.
+- Secret handling remains presence-only and class-only. Local environment scanning may identify configured key names/categories and privilege implications, but must never emit secret values.
+- Optional Gait trust-registry overlay is allowed only as a local read-only enrichment. Missing Gait files/tools must degrade explicitly in output (`trust_status: unavailable`) and must not block Wrkr commands.
+- Compliance rollups are additive summaries built from existing proof/compliance mappings; do not break current evidence bundle schema or framework coverage semantics.
+- Delivery wave order is locked:
+  - Wave 1: target contract expansion and local-machine discovery foundation
+  - Wave 2: developer command surfaces (`mcp-list`, `inventory`, `inventory --diff`)
+  - Wave 3: compliance rollups and evidence/proof packaging
+  - Wave 4: README, docs, OSS hygiene, and positioning reframe
+  - Wave 5: thin self-serve web bootstrap only
+- Thin self-serve web scanning may be planned only as a read-only bootstrap shell after Waves 1-4 are locked. No dashboard-first scope in this plan.
+- Every runtime/boundary/risk story must wire `make prepush-full`. Reliability-sensitive local machine scanning and trust overlay stories must also wire `make test-hardening` and `make test-chaos`.
 
 ## Current Baseline (Observed)
 
-- `core/aggregate/inventory/inventory.go` and `schemas/v1/inventory/inventory.schema.json` currently model `tools` but not first-class `agents` inventory.
-- `core/cli/scan.go` emits stable top-level keys (`findings`, `ranked_findings`, `top_findings`, `inventory`, `privilege_budget`, `agent_privilege_map`, etc.) and those keys are contract-sensitive.
-- Identity today is derived by `ToolID(tool_type, location)` + `AgentID(tool_id, org)` in `core/identity/identity.go`; this is coarse for multiple agent definitions in one file.
-- `core/model/identity_bearing.go` excludes only `policy_check`, `policy_violation`, and `parse_error`; correlation/helper finding types can still pollute identity/inventory.
-- Default detectors (`core/detect/defaults/defaults.go`) do not include LangChain, CrewAI, OpenAI Agents SDK, AutoGen, or LlamaIndex detectors.
-- There is no dedicated relationship resolver package for agent->tool/data/auth links and no dedicated deployment correlator package for agent->deploy artifact links.
-- Privilege map entries are tool-centric (`core/aggregate/inventory/privileges.go`, `core/aggregate/privilegebudget/budget.go`) and do not yet model agent framework/bindings/deployment posture.
-- Finding contract (`core/model/finding.go`, `schemas/v1/findings/finding.schema.json`) has single `location` string but no optional line-range metadata.
-- Policy rule-pack schema currently enforces `^WRKR-[0-9]{3}$` only (`schemas/v1/policy/rule-pack.schema.json`).
-- Built-in policy kinds (`core/policy/eval/eval.go`, `core/policy/rules/builtin.yaml`) do not include WRKR-A001..A010 agent rule semantics.
-- Risk and attack-path models (`core/risk/risk.go`, `core/risk/classify/classify.go`, `core/aggregate/attackpath/graph.go`) are not yet agent-relationship amplified.
-- Proof/evidence mapping (`core/proofmap/proofmap.go`, `core/evidence/evidence.go`) uses current finding/risk fields and needs additive agent-context portability fields.
+- `core/cli/root.go` exposes `scan`, `export`, `report`, `score`, `verify`, `evidence`, `regress`, `fix`, and related commands. There is no `inventory` command and no `mcp-list` command today.
+- `core/cli/scan.go` already supports `--path`, `--repo`, and `--org`; there is no `--my-setup` mode and no `--github-org` alias.
+- `core/cli/export.go` already emits machine-readable inventory via `wrkr export --format inventory --json`. This should be reused rather than replaced.
+- `core/cli/regress.go` already provides deterministic baseline/drift mechanics that can power `inventory --diff`.
+- `docs/commands/scan.md` and `README.md` are currently repo/org/path posture-first. They do not lead with a personal-machine workflow or MCP quick-reference UX.
+- `docs-site/next.config.mjs` uses `output: 'export'`; the current docs-site is static-export oriented and has no GitHub OAuth/bootstrap flow today.
+- Agent inventory is already present in scan contracts (`inventory.agents` appears in `docs/commands/scan.md` and tests). This plan should not re-plan generic phase-1.5 agent detection from scratch; it should surface and package existing org/agent signals more effectively.
+- Current docs already position Wrkr and Gait together, but they do not yet frame Wrkr as “npm audit for AI tools/MCP servers” or show concrete personal setup examples.
+- OSS trust files already exist at repo root: `CONTRIBUTING.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `README.md`, and `LICENSE`.
+- Current CI and local gate baseline is compatible with this plan:
+  - fast local gate: `make prepush`
+  - full architecture gate: `make prepush-full`
+  - contract gate: `make test-contracts`
+  - scenario gate: `make test-scenarios`
+  - reliability gates: `make test-hardening`, `make test-chaos`
+  - docs consistency/storyline gates: `make test-docs-consistency`, `make test-docs-storyline`
 
 ## Exit Criteria
 
-1. `inventory.agents` is emitted deterministically while `inventory.tools` and scan top-level JSON contract keys remain backward compatible.
-2. Deterministic agent-instance identity prevents same-file collisions and remains backward compatible with existing `agent_id` lifecycle flows.
-3. Top-5 framework detectors in Wave 2 meet precision gate (`>=95%`) with deterministic ordering.
-4. Agent relationship resolver outputs stable tool/data/auth bindings with deterministic evidence keys.
-5. Deployment correlator outputs deterministic deployment posture and matched artifact evidence.
-6. Agent-centric privilege map entries include framework/bindings/deployment/approval posture and are deterministically sorted.
-7. Agent definition location ranges are optional/additive and do not break existing finding/inventory consumers.
-8. Correlation-only findings are excluded from identity and inventory entity creation.
-9. Policy ID compatibility accepts `WRKR-A###` (and aliases where configured) without regressing existing policy/profile/contract tests.
-10. WRKR-A001..A010 policy checks are deterministic with stable remediation and test fixtures.
-11. Waves 3 and 4 deliver expanded detector coverage, recall harness, risk amplification, attack-path edges, proof portability, compliance mapping, and docs parity.
-12. All required matrix lanes pass, including `make prepush-full`, scenario/contract suites, and docs checks, with no scan JSON or exit-code regressions.
+1. `wrkr scan --my-setup --json` deterministically inventories supported local AI tools, MCP configs, local agent project markers, and environment key presence classes without emitting raw secrets.
+2. `wrkr mcp-list` emits a stable machine-readable and human-readable MCP quick-reference view with transport, privilege surface, and optional trust overlay fields.
+3. `wrkr inventory` emits a stable machine-readable inventory contract, and `wrkr inventory --diff` deterministically reports added/removed/changed entities relative to a baseline.
+4. Existing `wrkr export --format inventory --json` and `wrkr regress` contracts remain valid and documented as compatibility surfaces.
+5. `wrkr scan --github-org` exists as an additive alias for org scanning without breaking existing `scan --org` automation.
+6. Scan/report/evidence outputs expose additive compliance rollups by framework/control/article without changing existing exit codes or removing current JSON keys.
+7. Personal setup and org scan outputs can both produce signed proof/evidence artifacts that remain verifiable via existing `wrkr verify --chain --json` contract.
+8. README, command docs, examples, and docs-site first-screen flow lead with the developer hygiene narrative while still covering the security-team posture/compliance path.
+9. Thin web scanner scope, if implemented, remains a read-only bootstrap shell that hands off to existing Wrkr org scan contracts and does not introduce dashboard-first core scope.
+10. All changed surfaces are covered by deterministic contract tests, scenario coverage where applicable, docs parity checks, and required CI matrix wiring.
 
 ## Public API and Contract Map
 
 Stable/public surfaces:
-- CLI output contracts: `wrkr scan --json`, `wrkr report --json`, `wrkr evidence --json`, `wrkr regress --json`.
-- Exit code taxonomy: `0` success, `1` runtime failure, `2` verification failure, `3` policy/schema violation, `4` approval required, `5` regression drift, `6` invalid input, `7` dependency missing, `8` unsafe operation blocked.
-- Scan top-level JSON keys in `core/cli/scan.go` payload.
-- Inventory schema v1 fields already consumed externally (`tools`, `summary`, `privilege_budget`, `agent_privilege_map`).
-- Policy rule IDs and profile evaluation semantics.
+- `wrkr scan --path|--repo|--org --json`
+- `wrkr export --format inventory|appendix --json`
+- `wrkr regress init|run --json`
+- `wrkr evidence --frameworks ... --json`
+- `wrkr verify --chain --json`
+- Current scan/report/evidence exit codes and machine-readable error envelopes
+- Current top-level scan JSON keys and additive v1 schema policy
+
+New stable/public surfaces introduced by this plan:
+- `wrkr scan --my-setup`
+- `wrkr scan --github-org <org>` as alias for `scan --org <org>`
+- `wrkr inventory [--diff] [--baseline <path>]`
+- `wrkr mcp-list`
+- Additive `compliance_summary` / `control_mappings`-style summary sections in scan/report/evidence outputs
 
 Internal surfaces:
-- New detector packages for agent frameworks.
-- New resolver/correlator packages under aggregation layer.
-- Internal identity derivation helpers for instance IDs.
-- Internal scoring/correlation heuristics and evidence key extraction helpers.
+- New local-machine source package(s) for workstation discovery
+- New local detection package(s) for host config/env classification
+- Optional Gait trust overlay adapter
+- Inventory diff projection helpers built on existing export/regress internals
+- Docs-site bootstrap shell and auth handoff scaffolding
 
 Shim/deprecation path:
-- Keep current `agent_id` flows intact; add additive instance ID field(s) and helper APIs.
-- Accept both `WRKR-###` and `WRKR-A###` IDs via loader/schema compatibility layer.
-- If aliasing is enabled, preserve canonical emitted rule IDs deterministically and document alias normalization.
+- `export --format inventory` remains stable and supported; `inventory` initially wraps the same builder and only adds ergonomic affordances like `--diff`.
+- `scan --org` remains stable; `scan --github-org` is an additive alias and docs-friendly spelling.
+- `regress` remains the underlying deterministic diff engine; `inventory --diff` should call into it rather than fork logic.
+- Existing `report` and `evidence` output keys stay intact; compliance rollups are additive only.
 
 Schema/versioning policy:
-- Keep schema family on `v1`; all new fields in this plan are additive and optional unless empty-array deterministic defaults are contract-required.
-- No removal/rename of existing required keys in v1.
-- Any future breaking change requires explicit versioned schema (`v2`) and migration notes.
+- Remain on v1 schemas.
+- New machine-readable fields must be additive and optional unless deterministic empty/default values are required by contract.
+- No renames/removals of existing required keys in scan/export/evidence payloads.
+- If the thin web bootstrap introduces any server-facing payload contract, it must be explicitly versioned and isolated from core CLI schemas.
 
 Machine-readable error expectations:
-- Preserve existing error envelope format and exit code mapping for scan/policy/evidence paths.
-- New agent-policy validation errors map to existing stable error classes (`invalid_input` or `policy_schema_violation`) with deterministic reason text.
-- Do not introduce ad-hoc or detector-specific exit codes.
+- Conflicting target flags (`--my-setup` plus `--path`/`--repo`/`--org`) return `invalid_input` (exit `6`).
+- Unsupported or unreadable local config roots that are optional degrade explicitly in output; they do not silently disappear.
+- Unsafe local read paths or invalid trust overlay references fail closed with stable error classes.
+- Missing GitHub acquisition dependencies for org scan remain `dependency_missing` (exit `7`).
+- Missing optional Gait trust registry must not become a hard dependency failure.
 
 ## Docs and OSS Readiness Baseline
 
 README first-screen contract:
-- Keep concise first-screen coverage of what Wrkr does, who it is for, and deterministic quickstart.
-- Update first-screen copy to explicitly describe “tools + agents” inventory scope and non-goals.
+- Current README is strong on deterministic org/path scanning and evidence, but it does not lead with the developer-machine problem.
+- This plan moves the first screen to:
+  - install
+  - `scan --my-setup`
+  - `mcp-list`
+  - `scan --github-org`
+  - `inventory --diff`
+- Security-team positioning remains, but moves below the developer-first story.
 
 Integration-first docs flow:
-- `docs/commands/scan.md` must show integration-safe JSON examples and exit-code semantics before internals.
-- Examples must remain copy-pasteable and deterministic.
+- New docs must explain “what do I run first?” before internal architecture or taxonomy.
+- Command docs for new surfaces must include copy-paste examples and stable JSON keys before implementation details.
 
 Lifecycle path model:
-- Keep lifecycle model centered on `discovered`, `under_review`, `approved`, `active`, `deprecated`, `revoked`.
-- Document how instance identity and relationship/deployment context affect lifecycle evidence without changing state machine semantics.
+- Keep Wrkr’s current lifecycle state model intact.
+- Personal setup inventory should not invent a separate lifecycle machine; it should enrich discovery posture, not fork identity semantics.
 
 Docs source-of-truth:
-- Command contracts: `docs/commands/*`.
-- Architecture boundaries: `docs/architecture.md` + `product/architecture_guides.md`.
-- Product scope/boundaries: `product/wrkr.md`.
+- README: product entry contract
+- `docs/commands/*`: command/flag/JSON/exit-code contract
+- `docs/examples/*`: narrative examples and adoption flows
+- `docs/contracts/readme_contract.md`: README structural contract
+- `docs-site/`: public docs shell and future thin web bootstrap shell
 
 OSS trust baseline:
-- Baseline files exist (`CONTRIBUTING.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`).
-- This plan updates behavior/docs, not maintainer policy; if maintainer expectations change, document explicitly in same PR.
+- Root baseline files already exist.
+- This plan keeps trust-file changes minimal and focused on externally visible behavior, support expectations, and install/discovery clarity.
+- If web bootstrap scope adds hosted behavior, maintainer/support expectations must be made explicit in docs and security policy links.
 
 ## Recommendation Traceability
 
 | Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story mapping |
 |---|---|---|---|---|---|
-| R1 | Add `inventory.agents` additive contract | Dual inventory dimensions without breakage | Contract-safe model expansion | Better auditor/operator visibility with no consumer break | W1-S01 |
-| R2 | Deterministic agent-instance identity | Avoid collisions in multi-agent files | Identity precision hardening | Stable lifecycle and drift signals | W1-S02 |
-| R3 | Add top 3 framework detectors | Highest-signal phase 1.5 coverage | Precision-first detection expansion | Fast adoption leverage with high trust | W1-S06 |
-| R4 | Build relationship resolver | Core value path for privilege narratives | Cross-surface deterministic correlation | Actionable blast-radius mapping | W1-S07 |
-| R5 | Build deployment correlator | Runtime posture depends on deploy path | Deployment-aware agent posture | Higher signal for true production risk | W1-S08 |
-| R6 | Extend privilege map agent-centric | Required for actionable risk stories | Agent-layer privilege budgeting | Better prioritization and remediation | W1-S10 |
-| R7 | Add location ranges | Need exact agent definition location | Evidence precision and traceability | Faster triage, stronger audit portability | W1-S03 |
-| R8 | Block correlation pollution | Prevent false identities/lifecycle drift | Canonical-entity hygiene | Lower noise and fewer false entities | W1-S04 |
-| R9 | Policy ID compatibility (`WRKR-A###`) | New namespace currently schema-invalid | Policy contract compatibility | Enables agent rules without breaking profiles | W1-S05 |
-| R10 | Implement WRKR-A001..A010 checks | Auditor-facing deterministic outcomes | Agent policy enforcement | Immediate governance value for buyers | W1-S11 |
-| R11 | Expand coverage (AutoGen/LlamaIndex/MCP-client patterns) | Raise recall after precision baseline | Controlled coverage expansion | Better recall while preserving credibility | W1-S09, W2-S12 |
-| R12 | Conservative custom-agent detector | Capture custom agents with low FP | Confidence-gated heuristic detection | Coverage moat without trust erosion | W2-S13 |
-| R13 | Risk amplification factors | Tool-only scoring underestimates agent risk | Agent-aware risk math | Better ranking quality for high blast radius | W2-S16 |
-| R14 | Attack-path edges for agents | Improve explainability and remediation order | Graph-model enrichment | Stronger executive/auditor narratives | W2-S17 |
-| R15 | Proof record agent context portability | Keep richer context in verifiable evidence | Proof contract additive extension | Portable audit bundles with richer semantics | W2-S18 |
-| R16 | Compliance mappings for agent findings | Convert findings to control evidence | Compliance-value expansion | Faster control coverage demonstration | W2-S19 |
-| R17 | Scenario + contract packs | Prevent regressions deterministically | Outside-in validation expansion | Durable release confidence | W2-S15 |
-| R18 | Precision/recall benchmark harness | Enforce precision-over-recall strategy | Measured quality gating | Sustained detector trust over time | W2-S14 |
-| R19 | Docs/CLI narrative updates | Keep user/auditor expectations aligned | Contract documentation parity | Lower support friction and adoption friction | W2-S20 |
-| R20 | Four PR waves with strict gates | Minimize blast radius and focus review | Controlled rollout governance | Safer integration and faster approvals | W2-S21 |
+| R1 | `wrkr scan --my-setup` personal machine scan | Create immediate “what’s on my machine?” moment | Developer-bottom-up PLG | Faster first value and higher individual adoption | W1-S01, W1-S02 |
+| R2 | Personal inventory + diff | Make posture trackable over time | Ongoing hygiene loop | Habit formation and drift visibility | W1-S04 |
+| R3 | `wrkr mcp-list` quick reference | Show MCP posture fast without full scan archaeology | Fast operator UX | Clearer day-1 value and lower friction | W1-S03 |
+| R4 | Discovery, not vulnerability scanning | Avoid scope confusion and competitive overlap | Product boundary clarity | Stronger positioning with less promise risk | W2-S08 |
+| R5 | `scan --github-org` org workflow | Make org posture story obvious in CLI/README | Security-team usability | Lower onboarding friction for CISOs | W1-S01, W2-S07, W2-S08 |
+| R6 | Surface agent/org posture in org scans | Keep top-down security story complete | Security posture continuity | Better enterprise relevance | W1-S05, W1-S06 |
+| R7 | Compliance mapping output in scan/report | Turn findings into audit-ready summaries | Compliance leverage | Stronger buyer and auditor value | W1-S05 |
+| R8 | Evidence bundle as signed proof artifact | Preserve audit handoff story | Proof-first differentiation | Portable, verifiable evidence moat | W1-S06 |
+| R9 | Developer-first README and examples | Reframe Wrkr from org-only to dual-use | PLG messaging shift | Better conversion from install to activation | W2-S07, W2-S08 |
+| R10 | Gait interoperability and Snyk boundary docs | Make product edges explicit | Ecosystem positioning | Lower confusion, higher trust | W1-S03, W2-S08 |
+| R11 | Thin self-serve web scanner | Show HN/demo-ready org onboarding path | Distribution UX | Higher reach without changing core runtime | W2-S09 |
 
 ## Test Matrix Wiring
 
@@ -134,980 +161,586 @@ Fast lane:
 Core CI lane:
 - `make prepush`
 - `make test-contracts`
-- targeted package tests for touched paths (`go test ./core/... -count=1`)
+- targeted package tests for touched command/source/detection packages
 
 Acceptance lane:
 - `make test-scenarios`
 - `scripts/run_v1_acceptance.sh --mode=local`
+- add new outside-in personal setup fixture scenarios where applicable
 
 Cross-platform lane:
-- `windows-smoke` required check
-- path-handling and JSON envelope contract tests on Linux/macOS/Windows runners
+- `windows-smoke`
+- path/home-directory/env handling contract tests on Linux/macOS/Windows
 
 Risk lane:
 - `make prepush-full`
 - `make test-hardening`
 - `make test-chaos`
-- `make test-perf` for performance-sensitive stories
+- `make test-perf` for stories that materially increase local file traversal or docs-site server/runtime cost
 
 Merge/release gating rule:
-- Wave 1 PRs cannot merge unless Fast + Core CI + Acceptance + Cross-platform + required Risk lanes are green.
-- Wave 2 cannot start until Wave 1 contract gates are green.
-- Wave 3 cannot start until Wave 2 contract gates are green and baseline precision fixture set is locked.
-- Wave 4 cannot start until Wave 3 contract gates are green and benchmark/scenario thresholds are locked.
-- No merge allowed with scan JSON contract diffs or exit-code regressions unless explicitly versioned and approved.
+- Wave 1 must pass Fast + Core CI + Acceptance + Cross-platform + Risk lanes before Wave 2 starts.
+- Wave 2 must pass Fast + Core CI + Acceptance + Cross-platform + Risk lanes before Wave 3 starts.
+- Wave 3 must pass Fast + Core CI + Acceptance + Cross-platform + Risk lanes before Wave 4 starts.
+- Wave 4 must pass Fast + docs consistency/storyline gates before Wave 5 starts.
+- Wave 5 must pass Fast + Core CI + Cross-platform + Risk lanes plus docs-site build/smoke gates.
+- No merge is allowed with `--json` drift, exit-code drift, or docs/CLI parity failures unless explicitly versioned and approved.
 
-## Epic W1-E1 (Wave 1): Contract-Safe Data Model and Identity Foundation
+## Epic W1-E1 (Wave 1): Personal Machine Discovery Foundation
 
-Objective: add agent-first inventory and identity primitives without breaking existing scan, schema, lifecycle, or policy contracts.
+Objective: add the deterministic, offline-first personal-machine source mode and target contract needed for all later developer-facing flows without breaking current `scan`, `export`, or `regress` contracts.
 
-### Story W1-S01: Add first-class `inventory.agents` contract (additive only)
+### Story W1-S01: Add `scan --my-setup` and `scan --github-org` target contract expansion
 Priority: P0
 Tasks:
-- Add `agents` model to `core/aggregate/inventory` with deterministic sorting by org/framework/instance ID/location.
-- Keep `inventory.tools` unchanged and preserve current scan top-level JSON keys.
-- Update inventory schema with additive `agents` object contract and deterministic empty array behavior.
-- Update scan/export/state contract tests to assert additive-only behavior.
+- Add additive scan target flags:
+  - `--my-setup`
+  - `--github-org` as alias to existing `--org`
+- Define and document mutual exclusion rules across `--my-setup`, `--path`, `--repo`, `--org`, and `--github-org`.
+- Add deterministic target metadata to scan output so personal vs repo/org scans are machine-distinguishable without breaking current top-level keys.
+- Keep org/repo acquisition failure semantics unchanged and keep `--my-setup` local-only by default.
 Repo paths:
-- `core/aggregate/inventory/inventory.go`
-- `schemas/v1/inventory/inventory.schema.json`
 - `core/cli/scan.go`
-- `core/export/inventory/export.go`
-- `core/aggregate/inventory/inventory_test.go`
-- `testinfra/contracts/*`
+- `core/cli/root.go`
+- `core/state/*`
+- `docs/commands/scan.md`
+- `README.md`
+- `core/cli/root_test.go`
+- `core/cli/*scan*_test.go`
 Run commands:
-- `go test ./core/aggregate/inventory ./core/cli ./core/export/inventory -count=1`
+- `go test ./core/cli -count=1`
+- `go run ./cmd/wrkr scan --my-setup --json --quiet`
+- `go run ./cmd/wrkr scan --github-org acme --github-api https://api.github.com --json`
 - `make test-contracts`
-- `go run ./cmd/wrkr scan --path scenarios/wrkr/policy-check/repos --json --quiet`
 - `make prepush-full`
 Test requirements:
-- Schema validation tests for new `inventory.agents` field.
-- Golden fixture updates for scan JSON payload with additive keys only.
-- Compatibility tests proving `inventory.tools` and existing top-level scan keys are unchanged.
+- CLI help/usage tests for new flags.
+- `--json` stability tests for target selection and machine-readable error envelopes.
+- Exit-code contract tests for conflicting target combinations.
+- Deterministic target metadata fixture tests.
 Matrix wiring:
 - Fast, Core CI, Acceptance, Cross-platform, Risk
 Acceptance criteria:
-- `inventory.agents` is always present and deterministically ordered.
-- Existing contract tests remain green without consumer-facing key removals/renames.
-- Repeated scans on same input produce byte-stable agent inventory ordering.
+- `scan --my-setup` is accepted as a single-source mode and rejects mixed target combinations with exit `6`.
+- `scan --github-org` behaves identically to `scan --org` for output and exit semantics.
+- Existing `scan --org` and `scan --path` automation remains green without output regressions.
 Contract/API impact:
-- Additive scan/inventory API expansion only; no breaking top-level key change.
+- Additive CLI flag expansion on `scan`; preserve current exit codes and top-level JSON envelope.
 Versioning/migration impact:
-- Schema remains `v1`; additive optional field with deterministic default `[]`.
+- No schema major bump; only additive target metadata fields if needed.
 Architecture constraints:
-- Aggregation layer builds agent inventory; CLI remains orchestration only.
-- Preserve thin orchestration with explicit side-effect boundaries.
-- Keep extension points for additional agent frameworks without cross-layer leakage.
+- Keep target selection in CLI orchestration only.
+- Introduce local-machine source entry point under Source boundary rather than direct filesystem crawling in CLI.
+- Preserve cancellation/timeout propagation for target acquisition flow.
 ADR required: yes
 TDD first failing test(s):
-- `TestInventoryBuild_EmitsAgentsAdditiveOnly`
-- `TestScanJSONContract_PreservesTopLevelKeysWithAgents`
+- `TestScanRejectsMixedMySetupAndPathTargets`
+- `TestScanGitHubOrgAliasMatchesOrgContract`
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- If agent extraction fails for one repo, scan still emits deterministic inventory with explicit parse errors and no contract break.
+- If local target roots are partially unreadable, scan emits deterministic non-secret detector/source errors and stays fail-closed on unsafe reads.
 Dependencies:
 - none
 
-### Story W1-S02: Introduce deterministic agent-instance identity (collision-safe)
+### Story W1-S02: Implement deterministic local-machine source and workstation detectors
 Priority: P0
 Tasks:
-- Add instance identity derivation key: framework + file + symbol/name + range.
-- Preserve current `agent_id` flow and add backward-compatible mapping from prior tool-based IDs.
-- Update observed-tool and lifecycle reconciliation paths to store/use instance-level identity while retaining current lifecycle state semantics.
+- Add new local-machine source package that enumerates supported config roots deterministically:
+  - home-directory config roots for Cursor, Claude, Codex, VS Code/Copilot, MCP declarations, agent projects
+  - environment-variable allowlist for API key presence classification
+- Implement structured detectors for:
+  - installed/configured AI tools
+  - MCP server definitions and privilege-bearing config
+  - local agent project markers
+  - environment key presence classes and risk hints
+- Normalize findings so raw secret values and raw connection strings are never emitted.
+- Add privilege mapping for local-only findings such as filesystem scope, database endpoints, Slack/channel posting, and production-target hints where parsable.
 Repo paths:
-- `core/identity/identity.go`
-- `core/cli/scan_helpers.go`
-- `core/lifecycle/lifecycle.go`
-- `core/identity/identity_test.go`
-- `core/lifecycle/lifecycle_test.go`
+- `core/source/localsetup/*`
+- `core/detect/workstation/*`
+- `core/detect/mcp/*`
+- `core/detect/mcpgateway/*`
+- `core/model/finding.go`
+- `schemas/v1/findings/*`
+- `schemas/v1/inventory/*`
+- `internal/scenarios/*`
+- `scenarios/wrkr/my-setup/*`
 Run commands:
-- `go test ./core/identity ./core/cli ./core/lifecycle -count=1`
+- `go test ./core/source/... ./core/detect/... -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+- `go run ./cmd/wrkr scan --my-setup --json --quiet`
 - `make test-contracts`
+- `make test-hardening`
+- `make test-chaos`
 - `make prepush-full`
 Test requirements:
-- Deterministic identity tests for two agent definitions in same file.
-- Compatibility tests for existing `agent_id` lookup/manifest behavior.
-- Repeat-run byte-stability tests for instance identity generation.
+- Structured parser tests for local config formats (JSON/YAML/TOML).
+- Privacy contract tests proving no raw secret value is emitted.
+- Deterministic inventory/finding ordering tests for home directory and env enumeration.
+- Fail-closed undecidable-path tests for unreadable directories, symlink traps, and malformed configs.
+- Scenario fixtures for realistic local setup examples, including production-risk MCP configs.
 Matrix wiring:
 - Fast, Core CI, Acceptance, Cross-platform, Risk
 Acceptance criteria:
-- Two agent definitions in one file produce stable distinct instance IDs across repeated scans.
-- Existing lifecycle flows continue to resolve prior identities deterministically.
+- A fixed machine fixture produces byte-stable findings and inventory across repeated runs.
+- Environment results identify key presence by normalized key family only.
+- MCP privilege findings show explainable privilege surfaces without active probing.
+- Unsupported or unreadable roots are surfaced explicitly and deterministically.
 Contract/API impact:
-- Additive identity surface (`agent_instance_id` or equivalent) while preserving existing `agent_id` semantics.
+- Additive scan finding/inventory fields for local-machine context and privilege hints.
 Versioning/migration impact:
-- No schema major bump; if manifest fields change, apply additive migration with compatibility reads.
+- Stay on v1 schemas with additive fields only.
 Architecture constraints:
-- Identity derivation stays in identity boundary package.
-- Lifecycle package consumes identity outputs; no direct detector coupling.
-- Preserve symmetric API semantics (`derive` vs `derive+validate`) for future extension.
+- Source package enumerates candidate inputs; detectors parse structured content; aggregation/risk remain separate.
+- Avoid regex-only parsing for structured configs.
+- No network or remote calls in default local-machine scan path.
 ADR required: yes
 TDD first failing test(s):
-- `TestAgentInstanceID_TwoDefinitionsSameFile_AreDistinct`
-- `TestAgentIDBackwardCompatibility_ToolIDFlowStillResolves`
-Cost/perf impact: low
+- `TestMySetupScan_RedactsEnvironmentSecrets`
+- `TestMySetupScan_DeterministicOrderingAcrossHomeRoots`
+Cost/perf impact: medium
 Chaos/failure hypothesis:
-- Under partial metadata (missing symbol/range), fallback identity remains deterministic and non-colliding within file scope.
+- If home-directory traversal encounters symlink loops or permission-denied folders, scan exits or degrades deterministically without partial secret exposure or hidden skips.
 Dependencies:
 - W1-S01
+Risks:
+- Home-directory and env modeling can create noise if allowlists are too broad; keep fixtures and confidence thresholds conservative.
 
-### Story W1-S03: Add optional location ranges for agent definitions
+## Epic W1-E2 (Wave 2): Developer Command Surfaces
+
+Objective: expose the new local-machine posture model through stable, ergonomic command surfaces after the source and detection foundation is locked.
+
+### Story W1-S03: Add `wrkr mcp-list` with optional Gait trust overlay
 Priority: P0
 Tasks:
-- Extend finding model with optional line range metadata for agent detections.
-- Extend finding and inventory schemas with additive optional range fields.
-- Wire detectors/resolver outputs to populate path + line ranges when available.
+- Add new top-level `mcp-list` command with human-readable and `--json` output.
+- Project existing local/repo MCP findings into a stable MCP server catalog:
+  - server name
+  - transport type
+  - requested permissions / privilege surface
+  - trust status
+  - concise risk note
+- Add optional local-only overlay that reads Gait trust registry state when present and marks server trust status without making Gait a hard dependency.
+- Add explicit docs note that Wrkr inventories/configures MCP posture and does not replace vulnerability scanners.
 Repo paths:
-- `core/model/finding.go`
-- `schemas/v1/findings/finding.schema.json`
-- `schemas/v1/inventory/inventory.schema.json`
-- `core/aggregate/inventory/inventory.go`
-- `core/model/finding_test.go`
+- `core/cli/mcp_list.go`
+- `core/cli/root.go`
+- `core/report/mcp_list.go`
+- `core/detect/mcp/*`
+- `core/detect/mcpgateway/*`
+- `docs/commands/mcp-list.md`
+- `docs/faq.md`
+- `core/cli/*mcp*_test.go`
 Run commands:
-- `go test ./core/model ./core/aggregate/inventory -count=1`
+- `go test ./core/cli ./core/report ./core/detect/mcp ./core/detect/mcpgateway -count=1`
+- `go run ./cmd/wrkr mcp-list --json`
 - `make test-contracts`
+- `make test-hardening`
+- `make test-chaos`
 - `make prepush-full`
 Test requirements:
-- Schema tests validating optional range fields.
-- Golden fixtures for findings/inventory with and without ranges.
-- Compatibility tests ensuring old payloads remain valid.
+- CLI help/usage tests.
+- Stable JSON contract tests for field ordering and absence/presence of trust overlay metadata.
+- Wrapper error-mapping tests for missing/unreadable optional Gait inputs.
+- Deterministic allow/block/degrade tests for trust overlay states.
 Matrix wiring:
 - Fast, Core CI, Acceptance, Cross-platform, Risk
 Acceptance criteria:
-- Agent records include path + line range where parser provides range.
-- Older consumers and existing fixtures remain valid with absent range fields.
+- `mcp-list --json` produces deterministic rows for the same fixture input.
+- Missing Gait trust registry yields `trust_status: unavailable` rather than command failure.
+- Human-readable output is a concise quick-reference card, not a verbose report.
+- Docs clearly distinguish discovery from vulnerability assessment and reference Snyk/Gait appropriately.
 Contract/API impact:
-- Additive finding/inventory contract field extension.
+- New public CLI command and JSON schema surface.
 Versioning/migration impact:
-- No schema version bump; optional fields only.
+- Additive only; no impact on existing scan/export/evidence schemas.
 Architecture constraints:
-- Parsing boundaries own range extraction; aggregation passes through normalized metadata.
-- No regex-only extraction where structured parse metadata is available.
+- Command should consume catalog/projection helpers, not reimplement detector logic.
+- Keep optional trust overlay behind a thin adapter boundary.
+- Explicitly separate discovery data from trust overlay metadata.
 ADR required: yes
 TDD first failing test(s):
-- `TestFindingSchema_AllowsOptionalLocationRange`
-- `TestInventoryAgents_IncludeRangeWhenAvailable`
+- `TestMCPListJSON_StableRowsAndTrustStatus`
+- `TestMCPListWithoutGait_DegradesExplicitly`
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- If range extraction fails, detector emits deterministic finding without range and no runtime failure.
-Dependencies:
-- W1-S01, W1-S02
-
-### Story W1-S04: Prevent identity/inventory pollution from correlation-only findings
-Priority: P0
-Tasks:
-- Add explicit identity-bearing/inventory-bearing gating for canonical detector findings.
-- Exclude helper/correlation findings from lifecycle identity creation and inventory entity materialization.
-- Add deterministic allowlist/denylist tests for finding types.
-Repo paths:
-- `core/model/identity_bearing.go`
-- `core/aggregate/inventory/inventory.go`
-- `core/model/identity_bearing_test.go`
-- `core/cli/scan_observed_tools_test.go`
-Run commands:
-- `go test ./core/model ./core/aggregate/inventory ./core/cli -count=1`
-- `make test-contracts`
-- `make prepush-full`
-Test requirements:
-- Deterministic identity-bearing classification fixtures.
-- Lifecycle/inventory tests proving correlation-only findings do not create entities.
-- Reason-code stability assertions for excluded finding categories.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Only canonical detections participate in lifecycle + inventory entity creation.
-- Helper/correlation findings remain available for evidence/risk context only.
-Contract/API impact:
-- Internal entity-creation contract tightened; external scan payload still includes helper findings.
-Versioning/migration impact:
-- No version bump.
-Architecture constraints:
-- Domain classification centralized in model boundary; avoid duplicate filters across layers.
-- Keep orchestration thin and deterministic.
-ADR required: yes
-TDD first failing test(s):
-- `TestIdentityBearing_ExcludesCorrelationOnlyFindings`
-- `TestObservedTools_IgnoresCorrelationFindings`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Mixed finding streams cannot generate fake lifecycle transitions.
+- If the trust overlay file is malformed or unreadable, Wrkr still lists MCP servers with deterministic `trust_status: unavailable` and machine-readable warning context.
 Dependencies:
 - W1-S02
 
-### Story W1-S05: Add policy ID compatibility for agent namespace (`WRKR-A###`)
+### Story W1-S04: Add `wrkr inventory` and deterministic `inventory --diff`
 Priority: P0
 Tasks:
-- Extend rule-pack schema to accept `WRKR-A###` IDs (and alias mapping rules where needed).
-- Update policy loader and profile evaluator to normalize ID comparison deterministically.
-- Add compatibility tests for mixed rule packs and profile thresholds.
+- Add new top-level `inventory` command that wraps current inventory export primitives.
+- Add `inventory --diff` over deterministic baseline comparison using existing regress/diff logic rather than bespoke comparison code.
+- Define baseline file/default path semantics for developer hygiene workflows.
+- Keep `export --format inventory` and `regress` fully supported and document the relationship between commands.
 Repo paths:
-- `schemas/v1/policy/rule-pack.schema.json`
-- `core/policy/loader.go`
-- `core/policy/profileeval/eval.go`
-- `core/policy/policy_test.go`
-- `core/policy/profileeval/eval_test.go`
+- `core/cli/inventory.go`
+- `core/cli/root.go`
+- `core/export/inventory/*`
+- `core/regress/*`
+- `docs/commands/inventory.md`
+- `docs/commands/export.md`
+- `docs/commands/regress.md`
+- `core/cli/*inventory*_test.go`
 Run commands:
-- `go test ./core/policy/... -count=1`
+- `go test ./core/cli ./core/export/inventory ./core/regress -count=1`
+- `go run ./cmd/wrkr inventory --json`
+- `go run ./cmd/wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json`
 - `make test-contracts`
 - `make prepush-full`
 Test requirements:
-- Schema validation for both `WRKR-###` and `WRKR-A###` IDs.
-- Deterministic profile evaluation tests with mixed namespaces.
-- Contract tests for stable rule ID serialization and rationale ordering.
+- CLI help/usage tests.
+- `--json` stability tests for inventory and diff payloads.
+- Exit-code contract tests for missing baseline / invalid baseline shape.
+- Compatibility tests proving `inventory` output matches `export --format inventory` for equivalent state.
+- Deterministic drift reason tests for added/removed/changed MCP servers, tools, and key-presence classes.
 Matrix wiring:
 - Fast, Core CI, Acceptance, Cross-platform, Risk
 Acceptance criteria:
-- Agent rule IDs are accepted in schema/loader/profile flows.
-- Existing policy/profile contract tests remain stable.
+- `inventory --json` produces a stable inventory payload equivalent to the underlying export contract.
+- `inventory --diff` deterministically identifies additions/removals/permission changes between two fixed baselines.
+- Existing `export` and `regress` workflows remain valid and documented as compatibility surfaces.
 Contract/API impact:
-- Policy ID namespace expansion with backward compatibility.
+- New public CLI command; additive wrapper over existing stable JSON builders and drift semantics.
 Versioning/migration impact:
-- Additive schema regex broadening; no major version bump.
+- No schema major bump; diff payload uses additive v1-compatible envelope.
 Architecture constraints:
-- Keep rule normalization in policy boundary; no CLI special-casing.
-- Maintain policy-as-code deterministic semantics.
+- Reuse export/regress boundaries; do not duplicate inventory serialization or diff semantics in CLI.
+- Keep diff engine deterministic and side-effect-free.
+- Preserve symmetric API semantics between raw inventory export and diff mode.
 ADR required: yes
 TDD first failing test(s):
-- `TestRulePackSchema_AcceptsWRKRAIDs`
-- `TestProfileEval_NormalizesRuleAliasesDeterministically`
+- `TestInventoryCommand_MatchesInventoryExportContract`
+- `TestInventoryDiff_ReportsAddedRemovedChangedDeterministically`
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- Unknown rule ID formats fail closed with deterministic validation error class.
+- If baseline file is malformed or stale, command fails with a stable machine-readable error instead of producing ambiguous diff results.
 Dependencies:
-- none
+- W1-S02
 
-## Epic W1-E2 (Wave 2): Core Agent Detection, Relationship Resolution, and Deployment Correlation
+## Epic W1-E3 (Wave 3): Compliance Rollups and Evidence Packaging
 
-Objective: deliver deterministic high-signal detection plus relationship/deployment context to support agent-centric risk narratives.
+Objective: make Wrkr’s top-down security story explicit in scan/report/evidence outputs after the personal-machine and command contracts are stable.
 
-### Story W1-S06: Implement top-3 framework detectors (LangChain, CrewAI, OpenAI Agents SDK)
+### Story W1-S05: Add additive compliance summary sections to scan and report outputs
 Priority: P0
 Tasks:
-- Add detector packages with typed parsing/AST-first extraction and deterministic finding ordering.
-- Add framework-specific fixtures for positive/negative and parse-error cases.
-- Register detectors in default registry and ensure deterministic detector order.
+- Reuse existing compliance mappings to emit deterministic rollups by framework/control/article in scan and report outputs.
+- Add explain-mode rendering so human-readable summaries can say things like “12 findings map to SOC 2 CC6.1”.
+- Ensure summaries work for both personal setup and org/repo scans where mappings exist.
+- Keep current report keys intact and add compliance sections additively.
 Repo paths:
-- `core/detect/agentlangchain/*`
-- `core/detect/agentcrewai/*`
-- `core/detect/agentopenai/*`
-- `core/detect/defaults/defaults.go`
-- `core/detect/defaults/defaults_test.go`
+- `core/compliance/*`
+- `core/cli/scan.go`
+- `core/cli/report.go`
+- `core/report/*`
+- `docs/commands/scan.md`
+- `docs/commands/report.md`
+- `core/cli/report_contract_test.go`
+- `core/cli/root_test.go`
 Run commands:
-- `go test ./core/detect/... -count=1`
+- `go test ./core/compliance ./core/cli ./core/report -count=1`
+- `go run ./cmd/wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json`
+- `go run ./cmd/wrkr report --state ./.wrkr/last-scan.json --json`
+- `make test-contracts`
 - `make test-scenarios`
 - `make prepush-full`
 Test requirements:
-- Precision-focused fixture tests with structured parsing.
-- Deterministic output ordering tests.
-- Parse error contract tests for malformed framework files.
+- Schema/contract tests for additive compliance summary keys.
+- Golden fixture updates for scan/report JSON.
+- Deterministic mapping aggregation tests and ordering checks.
+- Scenario tests proving summary counts stay stable on fixed fixtures.
 Matrix wiring:
 - Fast, Core CI, Acceptance, Cross-platform, Risk
 Acceptance criteria:
-- Top 3 framework detectors emit deterministic findings with `>=95%` precision on labeled fixtures.
-- Output ordering is stable across repeated runs.
+- Scan and report JSON include deterministic compliance rollups without removing existing fields.
+- Repeated runs on fixed fixtures emit identical framework/control counts.
+- Human-readable docs/examples match tested JSON terminology.
 Contract/API impact:
-- New finding types added; existing finding fields and ordering contract preserved.
+- Additive public JSON fields for scan/report.
 Versioning/migration impact:
-- Additive finding-type growth only.
+- v1 additive fields only; no breaking changes.
 Architecture constraints:
-- Detection boundary only; no direct risk/policy coupling in detector code.
-- Prefer typed decoders/AST over regex-only extraction.
-- Preserve cancellation/timeout propagation from scan context.
+- Compliance mapping logic remains in compliance/evidence layer, not in detectors or CLI.
+- Keep stable framework IDs and reason-code semantics.
+- Preserve explicit side-effect naming between summarize/build/export paths.
 ADR required: yes
 TDD first failing test(s):
-- `TestLangChainDetector_PrecisionFixtures`
-- `TestCrewAIDetector_DeterministicOrdering`
-- `TestOpenAIAgentsDetector_ParseErrors`
+- `TestScanJSON_EmitsComplianceSummaryAdditively`
+- `TestReportJSON_EmitsDeterministicControlRollups`
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- If a mapping file is missing or invalid, Wrkr fails closed with stable policy/schema behavior instead of silently emitting partial compliance numbers.
+Dependencies:
+- W1-S02
+
+### Story W1-S06: Extend proof/evidence artifacts for personal setup and org posture bundles
+Priority: P0
+Tasks:
+- Ensure `scan --my-setup` writes proof records and state artifacts that remain compatible with existing evidence and verify flows.
+- Add additive evidence bundle artifacts for:
+  - personal inventory snapshot
+  - compliance summary snapshot
+  - MCP catalog snapshot when present
+- Keep existing proof record type conventions and chain verification semantics intact.
+- Add evidence docs showing auditor handoff for org scans and local handoff for personal hygiene baselines.
+Repo paths:
+- `core/evidence/*`
+- `core/proofemit/*`
+- `core/proofmap/*`
+- `core/verify/*`
+- `docs/commands/evidence.md`
+- `docs/commands/verify.md`
+- `core/evidence/*test.go`
+- `internal/scenarios/*`
+Run commands:
+- `go test ./core/evidence ./core/proofemit ./core/proofmap ./core/verify -count=1`
+- `go run ./cmd/wrkr evidence --frameworks soc2 --json`
+- `go run ./cmd/wrkr verify --chain --json`
+- `make test-contracts`
+- `make test-scenarios`
+- `make prepush-full`
+Test requirements:
+- Schema/artifact compatibility tests for new evidence files.
+- Byte-stability repeat-run tests for personal and org evidence bundles.
+- Canonicalization/digest and chain verification tests.
+- Scenario tests covering both personal and org evidence generation paths.
+Matrix wiring:
+- Fast, Core CI, Acceptance, Cross-platform, Risk
+Acceptance criteria:
+- Personal setup scans can produce verifiable proof/evidence artifacts without changing existing verify semantics.
+- Evidence bundles contain deterministic machine-readable inventory and compliance summary artifacts.
+- Existing evidence consumers remain compatible.
+Contract/API impact:
+- Additive evidence artifact surface; existing proof verify contract remains stable.
+Versioning/migration impact:
+- No proof record type rename/removal; additive artifact files only.
+Architecture constraints:
+- Proof emission remains authoritative in Go core.
+- Evidence packaging reuses existing proof primitives and chain semantics.
+- No web/UI-specific evidence generation logic leaks into core runtime.
+ADR required: yes
+TDD first failing test(s):
+- `TestEvidenceBuild_IncludesPersonalInventoryArtifactDeterministically`
+- `TestVerifyChain_PersonalSetupBundleRemainsCompatible`
 Cost/perf impact: medium
 Chaos/failure hypothesis:
-- Malformed framework files produce deterministic parse_error findings without aborting whole scan.
+- If evidence output directory is unsafe or partially populated, Wrkr fails closed using existing unsafe-output semantics and does not emit half-written artifacts.
+Dependencies:
+- W1-S04
+- W1-S05
+
+## Epic W2-E1 (Wave 4): Developer-First README and Docs Reframe
+
+Objective: reposition Wrkr around the developer “holy shit” moment first after runtime/API surfaces are settled, while preserving the security-team and compliance story lower in the funnel.
+
+### Story W2-S07: Rewrite README first screen and quickstart around personal machine hygiene
+Priority: P1
+Tasks:
+- Replace current hero and top quickstart with the developer-first contract:
+  - install
+  - `wrkr scan --my-setup`
+  - `wrkr mcp-list`
+  - `wrkr scan --github-org`
+  - `wrkr inventory --diff`
+- Add a concrete personal setup output example showing surprising but realistic privilege findings.
+- Preserve lower-page sections for security-team posture, evidence, and Gait relationship.
+- Update root help examples/documentation references if needed for command discoverability.
+Repo paths:
+- `README.md`
+- `docs/examples/quickstart.md`
+- `docs/contracts/readme_contract.md`
+- `docs/map.md`
+- `core/cli/root.go`
+- `core/cli/root_test.go`
+Run commands:
+- `go test ./core/cli -count=1`
+- `make test-docs-consistency`
+- `make test-docs-storyline`
+- `docs-site-install`
+- `docs-site-build`
+Test requirements:
+- README first-screen checks.
+- Docs consistency checks for renamed/additive commands and examples.
+- Storyline/smoke checks for first-run developer flow.
+- Help/usage tests if examples or command catalog text changes.
+Matrix wiring:
+- Fast, Core CI
+Acceptance criteria:
+- README first screen reflects the developer-machine narrative before the org/audit narrative.
+- Examples are copy-pasteable and aligned with tested command surfaces.
+- Docs/CLI parity checks stay green.
+Contract/API impact:
+- Documentation-only unless root help/example text changes.
+Architecture constraints:
+- Docs must remain integration-first and contract-accurate.
+- Do not overstate runtime enforcement or vulnerability scanning scope.
+ADR required: no
+TDD first failing test(s):
+- `TestRootHelpListsInventoryAndMCPListExamples`
+- docs storyline check for developer-first quickstart
+Cost/perf impact: low
+Dependencies:
+- W1-S01
+- W1-S03
+- W1-S04
+
+### Story W2-S08: Publish command docs and positioning pages for developer and security personas
+Priority: P1
+Tasks:
+- Add/refresh docs for:
+  - `docs/commands/mcp-list.md`
+  - `docs/commands/inventory.md`
+  - `docs/commands/scan.md` developer/org examples
+  - security-team posture/compliance examples
+  - Gait interoperability notes
+  - Snyk/vuln-scanning boundary notes
+- Add separate persona examples:
+  - developer personal hygiene
+  - security team org inventory and compliance handoff
+- Update FAQ and positioning pages to make the discovery-versus-vulnerability boundary explicit.
+Repo paths:
+- `docs/commands/scan.md`
+- `docs/commands/mcp-list.md`
+- `docs/commands/inventory.md`
+- `docs/commands/evidence.md`
+- `docs/examples/personal-hygiene.md`
+- `docs/examples/security-team.md`
+- `docs/faq.md`
+- `docs/positioning.md`
+- `README.md`
+Run commands:
+- `make test-docs-consistency`
+- `make test-docs-storyline`
+- `docs-site-install`
+- `docs-site-lint`
+- `docs-site-build`
+- `docs-site-check`
+Test requirements:
+- Docs consistency checks.
+- Storyline/smoke checks for changed user flows.
+- README/docs source-of-truth mapping checks when both repo docs and docs-site nav are touched.
+- Version/install discoverability checks where command surface changes are referenced.
+Matrix wiring:
+- Fast, Core CI
+Acceptance criteria:
+- New commands and examples are fully documented with stable `--json` expectations.
+- Docs explicitly say Wrkr inventories/configures MCP posture and does not assess server vulnerabilities.
+- Gait interoperability is framed as inventory vs enforcement, not as a hard prerequisite.
+Contract/API impact:
+- Documentation-only unless command docs expose new public JSON fields from Wave 1.
+Architecture constraints:
+- Docs must mirror tested CLI semantics and fail-closed behavior.
+- Keep integration-before-internals order in command docs.
+ADR required: no
+TDD first failing test(s):
+- docs parity check for `mcp-list` and `inventory`
+- docs storyline check for personal hygiene flow
+Cost/perf impact: low
 Dependencies:
 - W1-S03
-
-### Story W1-S07: Build agent relationship resolver (agent -> tools/data/auth bindings)
-Priority: P0
-Tasks:
-- Create resolver package in aggregation layer to link agent defs to tool registrations, data sources, and auth references.
-- Emit stable evidence keys for each binding edge.
-- Integrate resolver output into scan orchestration and inventory agent records.
-Repo paths:
-- `core/aggregate/agentresolver/*`
-- `core/cli/scan.go`
-- `core/aggregate/inventory/inventory.go`
-- `core/aggregate/agentresolver/*_test.go`
-Run commands:
-- `go test ./core/aggregate/... ./core/cli -count=1`
-- `make test-scenarios`
-- `make prepush-full`
-- `make test-chaos`
-Test requirements:
-- Relationship graph unit tests for tool/data/auth edge extraction.
-- Deterministic evidence key tests.
-- Integration tests proving stable resolver output inside scan JSON.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Agent records include deterministic bound tools, data sources, and auth surfaces.
-- Evidence keys are stable and sorted.
-Contract/API impact:
-- Additive agent relationship fields in inventory and finding evidence.
-Versioning/migration impact:
-- No schema major bump; additive fields only.
-Architecture constraints:
-- Resolver lives in aggregation boundary and consumes normalized findings.
-- No direct filesystem crawling from resolver once detector outputs exist.
-- Extension points for additional binding categories.
-ADR required: yes
-TDD first failing test(s):
-- `TestAgentResolver_BindsToolsDataAuthDeterministically`
-- `TestScanPayload_IncludesAgentBindings`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Partial binding extraction keeps deterministic partial output and marks missing links explicitly.
-Dependencies:
+- W1-S04
+- W1-S05
 - W1-S06
 
-### Story W1-S08: Build deployment correlator (agent -> deploy artifacts/pipeline)
-Priority: P0
+## Epic W2-E2 (Wave 5): Thin Self-Serve Web Bootstrap
+
+Objective: create a minimal distribution shell that lets a user connect GitHub and trigger/read a Wrkr org scan quickly, without turning Wrkr into a dashboard-first product, only after the CLI/docs contract is settled.
+
+### Story W2-S09: Add thin web scanner/bootstrap shell for read-only org scanning
+Priority: P2
 Tasks:
-- Add deployment correlator package linking agent code to Docker/K8s/serverless/CI artifacts.
-- Integrate compiled-action and CI findings as correlation signals.
-- Emit deterministic deployment status and matched artifact evidence on agent records.
+- Produce ADR for hosting model change required by current static docs-site baseline.
+- Add a minimal docs-site `/scan` bootstrap flow that:
+  - explains the 60-second org scan value proposition
+  - initiates read-only GitHub OAuth or equivalent bootstrap handshake
+  - hands off to existing Wrkr org scan/action contracts
+  - renders returned machine-readable summary artifact, not a persistent dashboard
+- Keep Go CLI authoritative for scan/risk/proof; Node/Next code remains a thin adoption/distribution layer only.
+- Add privacy/security copy and explicit “read-only, no runtime enforcement” messaging.
 Repo paths:
-- `core/aggregate/agentdeploy/*`
-- `core/detect/compiledaction/detector.go`
-- `core/cli/scan.go`
-- `core/aggregate/agentdeploy/*_test.go`
-Run commands:
-- `go test ./core/aggregate/... ./core/detect/compiledaction ./core/cli -count=1`
-- `make test-scenarios`
-- `make test-hardening`
-- `make test-chaos`
-- `make prepush-full`
-Test requirements:
-- Deterministic correlator tests for Docker/K8s/serverless/CI matchers.
-- Fail-closed tests for ambiguous artifact matching.
-- Scenario tests with deployment/no-deployment splits.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Agent records include deterministic deployment status and matched artifact evidence.
-- Ambiguous correlation paths are explicit and deterministic.
-Contract/API impact:
-- Additive deployment-context fields for agents.
-Versioning/migration impact:
-- No version bump.
-Architecture constraints:
-- Correlator resides in aggregation boundary; detectors remain extraction-focused.
-- Explicit side-effect semantics in correlator API naming (`resolve` vs `correlate`).
-ADR required: yes
-TDD first failing test(s):
-- `TestAgentDeploymentCorrelator_MatchesArtifactsDeterministically`
-- `TestAgentDeploymentCorrelator_AmbiguousPathFailClosed`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Missing/partial deploy manifests do not create false deployed=true assertions.
-Dependencies:
-- W1-S06
-
-### Story W1-S09: Reach Wave 2 top-5 framework detector gate (AutoGen + LlamaIndex baseline)
-Priority: P0
-Tasks:
-- Add high-confidence AutoGen and LlamaIndex baseline detectors to complete top-5 wave gate.
-- Keep strict confidence thresholds and deterministic ordering.
-- Defer broader MCP-client pattern expansion to Wave 3.
-Repo paths:
-- `core/detect/agentautogen/*`
-- `core/detect/agentllamaindex/*`
-- `core/detect/defaults/defaults.go`
-- `core/detect/defaults/defaults_test.go`
-Run commands:
-- `go test ./core/detect/... -count=1`
-- `make test-scenarios`
-- `make prepush-full`
-Test requirements:
-- Precision fixtures for AutoGen/LlamaIndex detectors.
-- Deterministic registration and output ordering tests.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Wave 2 detector set includes 5 frameworks with `>=95%` precision on baseline corpus.
-- No regression in top-3 framework detector precision.
-Contract/API impact:
-- Additive finding types only.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Maintain detector isolation and typed parse preference.
-- Keep cancellation propagation and bounded file traversal.
-ADR required: no
-TDD first failing test(s):
-- `TestAutoGenDetector_PrecisionBaseline`
-- `TestLlamaIndexDetector_PrecisionBaseline`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- New detectors degrade gracefully on unsupported versions and emit deterministic parse_error findings.
-Dependencies:
-- W1-S06
-
-## Epic W1-E3 (Wave 2): Agent-Centric Privilege and Core Policy Enforcement
-
-Objective: ship auditor-usable policy outcomes and privilege narratives for agent-centric blast radius.
-
-### Story W1-S10: Extend privilege map to agent-centric tree entries
-Priority: P0
-Tasks:
-- Expand privilege map entries with framework, bound tools/APIs/data, deployment context, and approval posture.
-- Update privilege budget aggregation to include agent-layer deterministic rollups.
-- Ensure deterministic sorting for tree entries and summarized counts.
-Repo paths:
-- `core/aggregate/inventory/privileges.go`
-- `core/aggregate/privilegebudget/budget.go`
-- `schemas/v1/inventory/inventory.schema.json`
-- `core/aggregate/privilegebudget/budget_test.go`
-Run commands:
-- `go test ./core/aggregate/inventory ./core/aggregate/privilegebudget -count=1`
-- `make test-contracts`
-- `go run ./cmd/wrkr scan --path scenarios/wrkr/attack-path-correlation/repos --json --quiet`
-- `make prepush-full`
-Test requirements:
-- Schema tests for additive privilege-map fields.
-- Deterministic sorting tests for agent-layer entries.
-- Budget rollup regression tests for old tool-only cases.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Scan JSON includes agent-layer privilege entries with deterministic ordering.
-- Existing privilege budget fields remain stable.
-Contract/API impact:
-- Additive inventory privilege fields with stable existing keys.
-Versioning/migration impact:
-- v1 additive schema update only.
-Architecture constraints:
-- Privilege aggregation remains in aggregation boundary; policy/risk consume normalized output.
-- Avoid direct detector coupling in budget logic.
-ADR required: yes
-TDD first failing test(s):
-- `TestPrivilegeMap_IncludesAgentLayerBindings`
-- `TestPrivilegeBudget_DeterministicAgentSorting`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Missing relationship/deployment context yields explicit unknown fields, not silent drop or false assumptions.
-Dependencies:
-- W1-S07, W1-S08
-
-### Story W1-S11: Implement WRKR-A001..A010 policy checks in existing framework
-Priority: P0
-Tasks:
-- Add WRKR-A001..A010 rules to builtin rule pack with deterministic remediation text.
-- Extend policy evaluator with new rule kinds (approval gaps, prod write, secrets, exfil, delegation, dynamic discovery, kill switch, data classification, auto-deploy gate).
-- Add deterministic allow/fail fixtures and profile compatibility tests.
-Repo paths:
-- `core/policy/rules/builtin.yaml`
-- `core/policy/eval/eval.go`
-- `core/policy/eval/eval_test.go`
-- `core/policy/profileeval/eval_test.go`
-Run commands:
-- `go test ./core/policy/... -count=1`
-- `make test-contracts`
-- `make test-scenarios`
-- `make prepush-full`
-- `make test-hardening`
-Test requirements:
-- Deterministic policy pass/fail fixture tests for all A001..A010 rules.
-- Reason-code and remediation-text stability checks.
-- Fail-closed undecidable-path tests.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Each WRKR-A rule has deterministic pass/fail behavior and remediation text.
-- Profile and contract test suites remain stable.
-Contract/API impact:
-- Additive policy rule IDs/kinds and policy findings.
-Versioning/migration impact:
-- No schema major bump; rule-pack content expands.
-Architecture constraints:
-- Policy logic remains in policy boundary, consuming normalized findings/context.
-- Keep policy-as-code semantics deterministic and auditable.
-ADR required: yes
-TDD first failing test(s):
-- `TestPolicyEval_WRKRA001_NoApprovalFails`
-- `TestPolicyEval_WRKRA010_AutoDeployWithoutHumanGateFails`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Missing optional context causes deterministic conservative fail/unknown behavior (never silent pass).
-Dependencies:
-- W1-S05, W1-S07, W1-S08, W1-S10
-
-## Epic W2-E4 (Wave 3): Coverage Expansion and Quality Gates
-
-Objective: raise recall and confidence with controlled detector expansion and measurable quality thresholds.
-
-### Story W2-S12: Expand detector coverage (MCP-client patterns + deeper AutoGen/LlamaIndex)
-Priority: P1
-Tasks:
-- Add MCP-client agent pattern detector package.
-- Expand AutoGen/LlamaIndex detector signatures beyond Wave 2 baseline while preserving precision.
-- Track recall trend to `>=70%` benchmark with precision `>=95%` preserved.
-Repo paths:
-- `core/detect/agentmcpclient/*`
-- `core/detect/agentautogen/*`
-- `core/detect/agentllamaindex/*`
-- `core/detect/defaults/defaults.go`
-Run commands:
-- `go test ./core/detect/... -count=1`
-- `make test-scenarios`
-- `make prepush-full`
-Test requirements:
-- Expanded fixture corpus across true-positive/false-positive sets.
-- Deterministic ordering and parse-error behavior tests.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Recall trend reaches `>=70%` benchmark with precision `>=95%` maintained.
-- Detector outputs remain deterministic and sorted.
-Contract/API impact:
-- Additive finding type expansion only.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Detection logic remains isolated from risk/policy outputs.
-- Prefer typed parsing and bounded work.
-ADR required: no
-TDD first failing test(s):
-- `TestMCPClientDetector_FixtureCoverage`
-- `TestDetectorExpansion_PrecisionRecallThresholds`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Unsupported MCP-client formats emit parse errors deterministically without scan abort.
-Dependencies:
-- W1-S06, W1-S09
-
-### Story W2-S13: Add conservative custom-agent scaffolding detector
-Priority: P1
-Tasks:
-- Implement custom detector requiring multiple strong co-occurring signals before emitting findings.
-- Add confidence gates and explain evidence for each triggered detection.
-- Keep detector off broad heuristics to minimize false positives.
-Repo paths:
-- `core/detect/agentcustom/*`
-- `core/detect/defaults/defaults.go`
-- `core/detect/agentcustom/*_test.go`
-Run commands:
-- `go test ./core/detect/agentcustom ./core/detect/defaults -count=1`
-- `make test-scenarios`
-- `make prepush-full`
-Test requirements:
-- Low-FP fixture tests with strict confidence thresholds.
-- Deterministic evidence key tests for co-occurrence signals.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Detector only fires when configured confidence gate is met.
-- Fixture results show low false-positive rate and deterministic ordering.
-Contract/API impact:
-- Additive finding type only.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Keep heuristic logic encapsulated in detector package with explicit thresholds.
-- Maintain explainable, auditable evidence output.
-ADR required: no
-TDD first failing test(s):
-- `TestCustomAgentDetector_RequiresStrongSignalCooccurrence`
-- `TestCustomAgentDetector_LowFalsePositiveFixtures`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Sparse signal repos never produce synthetic custom-agent findings.
-Dependencies:
-- W1-S06
-
-### Story W2-S14: Add precision/recall benchmark harness with release gates
-Priority: P1
-Tasks:
-- Build labeled benchmark corpus and deterministic evaluation command.
-- Add CI threshold checks that fail precision <95% or recall regression over budget.
-- Expose benchmark reports as CI artifacts for release review.
-Repo paths:
-- `testinfra/benchmarks/agents/*`
-- `scripts/run_agent_benchmarks.sh`
-- `Makefile`
+- `docs-site/src/app/*`
+- `docs-site/src/lib/*`
+- `docs-site/package.json`
+- `docs-site/next.config.mjs`
+- `docs-site/README.md`
 - `.github/workflows/*`
+- `docs/positioning.md`
+- `README.md`
 Run commands:
-- `make test-fast`
-- `make test-contracts`
-- `scripts/run_agent_benchmarks.sh --json`
-- `make prepush-full`
-Test requirements:
-- Deterministic benchmark runner tests.
-- CI gate tests for threshold enforcement and regression budgets.
-- Artifact schema checks for benchmark JSON output.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- CI fails on precision <95%.
-- CI fails on recall regression beyond approved budget.
-- Benchmark output is deterministic across repeated runs.
-Contract/API impact:
-- New internal benchmark command/artifact; no user-facing exit-code contract change.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Keep benchmark harness isolated from runtime scan path.
-- Deterministic fixture corpus and evaluation semantics only.
-ADR required: yes
-TDD first failing test(s):
-- `TestAgentBenchmarkHarness_FailsPrecisionBelowThreshold`
-- `TestAgentBenchmarkHarness_FailsRecallRegressionBudget`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Missing benchmark labels fail closed in CI with deterministic error output.
-Dependencies:
-- W1-S06, W1-S09
-
-### Story W2-S15: Add scenario + contract test packs for agent detection/correlation/policy
-Priority: P1
-Tasks:
-- Add new scenarios for framework detection, relationship/deployment links, and policy outcomes.
-- Add contract tests for schema/output stability and deterministic artifact diffs.
-- Extend internal scenario coverage map and acceptance scorecard wiring.
-Repo paths:
-- `scenarios/wrkr/*`
-- `internal/scenarios/*`
-- `testinfra/contracts/*`
-- `internal/scenarios/coverage_map.json`
-Run commands:
-- `make test-scenarios`
-- `make test-contracts`
-- `scripts/validate_scenarios.sh`
-- `scripts/run_v1_acceptance.sh --mode=local`
-Test requirements:
-- Scenario acceptance packs covering detector/correlation/deployment/policy.
-- Schema/golden stability tests.
-- Deterministic output ordering checks.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform
-Acceptance criteria:
-- New scenario ACs pass.
-- Existing contract suites do not regress.
-- Coverage map includes new FR/AC mappings for agent stories.
-Contract/API impact:
-- No API change; contract guardrails expanded.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Scenario tests remain outside-in and deterministic.
-- Avoid product logic duplication in test harness.
-ADR required: no
-TDD first failing test(s):
-- `TestScenario_AgentRelationshipCorrelation`
-- `TestScenario_AgentPolicyOutcomes`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Scenario fixture corruption is detected deterministically by scenario contract checks.
-Dependencies:
-- W1-S06, W1-S07, W1-S08, W1-S11
-
-## Epic W2-E5 (Wave 4): Risk, Attack Path, Proof, and Compliance Hardening
-
-Objective: integrate agent context into ranking, narratives, proof portability, and compliance coverage.
-
-### Story W2-S16: Extend risk scoring with agent-specific amplification factors
-Priority: P1
-Tasks:
-- Add scoring factors for deployment scope, production write, delegation, dynamic tool discovery, missing approval, missing kill-switch.
-- Keep deterministic scoring math and explain reasons list order.
-- Update risk classification helpers for new agent-context evidence.
-Repo paths:
-- `core/risk/risk.go`
-- `core/risk/classify/classify.go`
-- `core/risk/risk_test.go`
-- `core/risk/classify/classify_test.go`
-Run commands:
-- `go test ./core/risk/... -count=1`
-- `make test-contracts`
+- `docs-site-install`
+- `docs-site-lint`
+- `docs-site-build`
+- `docs-site-check`
+- `make test-docs-consistency`
 - `make test-perf`
 - `make prepush-full`
 Test requirements:
-- Deterministic ranking tests for amplified agent exposures.
-- Explainability tests for stable reason strings.
-- Performance regression checks on scoring path.
+- Docs-site smoke tests for bootstrap flow.
+- Failure-path tests for denied auth, missing callback state, and unavailable scan backend/handoff.
+- Wrapper error-mapping tests if a thin adapter/service contract is introduced.
+- README/docs parity checks for hosted bootstrap copy.
 Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
+- Fast, Core CI, Cross-platform, Risk
 Acceptance criteria:
-- High-blast agent exposures are consistently elevated in ranked findings.
-- Repeat runs produce byte-stable ranked ordering and reasons.
+- A user can reach a read-only org scan bootstrap flow from the docs-site without encountering dashboard-only dead ends.
+- The bootstrap shell produces or renders a deterministic Wrkr summary artifact tied to existing org scan contracts.
+- The flow clearly states its boundaries and does not duplicate core runtime logic in Node.
 Contract/API impact:
-- Additive risk reason fields and potential score shifts; schema shape unchanged.
+- Potential new thin web bootstrap payload contract; must be versioned and isolated from CLI schemas if introduced.
 Versioning/migration impact:
-- No schema version bump; documented ranking behavior change.
+- If docs-site hosting/export mode changes, document the migration and release/deploy expectations explicitly.
 Architecture constraints:
-- Scoring logic remains within risk boundary; no detector-level score mutation.
-- Keep bounded work and deterministic sorting tie-breakers.
+- No dashboard-first scope.
+- Go core remains authoritative for scanning, risk, proof, and evidence logic.
+- Thin orchestration only in web layer; explicit timeout/cancellation semantics for long-running handoff flows.
+- Extension points should reduce enterprise fork pressure if self-hosted bootstrap variants are needed later.
 ADR required: yes
 TDD first failing test(s):
-- `TestRiskScore_AgentAmplificationElevatesHighBlastExposure`
-- `TestRiskReasons_DeterministicOrderingWithAgentFactors`
+- docs-site bootstrap smoke test with mocked GitHub auth callback
+- adapter test for scan kickoff error mapping
 Cost/perf impact: medium
 Chaos/failure hypothesis:
-- Missing optional agent context falls back deterministically to conservative baseline score.
+- If auth callback or scan kickoff fails, the shell must present deterministic retry/error states and must not create hidden partial org scans or ambiguous success UX.
 Dependencies:
-- W1-S07, W1-S08, W1-S10, W1-S11
-
-### Story W2-S17: Extend attack-path modeling with agent relationship edges
-Priority: P1
-Tasks:
-- Add graph nodes/edges for agent->tool->data/secret/deploy chains.
-- Keep stable node/edge IDs and deterministic graph ordering.
-- Update attack path scoring inputs to include new edge rationales.
-Repo paths:
-- `core/aggregate/attackpath/graph.go`
-- `core/aggregate/attackpath/graph_test.go`
-- `core/risk/attackpath/score.go`
-- `core/risk/attackpath/score_test.go`
-Run commands:
-- `go test ./core/aggregate/attackpath ./core/risk/attackpath -count=1`
-- `make test-scenarios`
-- `make prepush-full`
-Test requirements:
-- Deterministic node/edge ID tests.
-- Scenario tests for agent-linked chain outputs.
-- Regression tests for existing non-agent attack-path behavior.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Attack-path outputs include agent-linked chains with stable IDs.
-- Existing attack-path contracts remain valid.
-Contract/API impact:
-- Additive graph semantics and rationale fields.
-Versioning/migration impact:
-- No schema major bump.
-Architecture constraints:
-- Graph building remains in aggregation boundary; scoring remains in risk boundary.
-- Preserve explicit dataflow and avoid circular dependencies.
-ADR required: yes
-TDD first failing test(s):
-- `TestAttackGraph_IncludesAgentToolDataDeployEdges`
-- `TestAttackPathNodeEdgeIDs_AreDeterministic`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Missing relation edges do not cause panics or unstable empty-node graphs.
-Dependencies:
-- W1-S07, W1-S08
-
-### Story W2-S18: Extend proof records for agent evidence portability
-Priority: P1
-Tasks:
-- Add additive agent fields to mapped `scan_finding` and `risk_assessment` events.
-- Keep proof record type contracts unchanged.
-- Update evidence bundle outputs and verification tests for enriched fields.
-Repo paths:
-- `core/proofmap/proofmap.go`
-- `core/evidence/evidence.go`
-- `core/proofmap/proofmap_test.go`
-- `core/evidence/evidence_test.go`
-Run commands:
-- `go test ./core/proofmap ./core/evidence -count=1`
-- `make test-contracts`
-- `make test-scenarios`
-- `make prepush-full`
-Test requirements:
-- Proof mapping tests for additive agent fields.
-- Bundle sign/verify determinism tests.
-- Compatibility tests for existing proof consumers.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Evidence bundles contain agent context and remain verifiable end-to-end.
-- Proof record types and chain integrity contracts remain stable.
-Contract/API impact:
-- Additive event fields in existing proof record types.
-Versioning/migration impact:
-- No proof type rename; additive contract only.
-Architecture constraints:
-- Proof mapping remains translation-only; no policy/scoring logic introduced.
-- Preserve canonical ordering for mapped metadata/event fields.
-ADR required: yes
-TDD first failing test(s):
-- `TestProofMap_ScanFindingIncludesAgentContextAdditively`
-- `TestEvidenceBundle_VerifiesWithAgentContextFields`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Unknown agent fields in older snapshots are ignored deterministically, not treated as verification failures.
-Dependencies:
-- W1-S01, W1-S02, W1-S07, W1-S08
-
-### Story W2-S19: Add compliance mappings for new agent findings
-Priority: P1
-Tasks:
-- Add WRKR-A mapping entries for EU AI Act, SOC 2, and PCI in Wrkr compliance mapping surfaces.
-- Coordinate additive mapping updates with `Clyra-AI/proof` framework/control definitions.
-- Add deterministic coverage tests for `wrkr evidence --frameworks ... --json`.
-Repo paths:
-- `core/compliance/*`
-- `core/proofmap/*`
-- `core/evidence/*`
-- `testinfra/contracts/*`
-- `external dependency: Clyra-AI/proof framework YAML mappings`
-Run commands:
-- `go test ./core/compliance ./core/proofmap ./core/evidence -count=1`
-- `go run ./cmd/wrkr evidence --state .wrkr/state.json --frameworks eu_ai_act,soc2,pci_dss --json`
-- `make test-contracts`
-- `make prepush-full`
-Test requirements:
-- Compliance mapping tests for WRKR-A001..A010 to listed controls.
-- Deterministic coverage percentage and gaps output tests.
-- Cross-repo compatibility checks for proof framework IDs.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- `wrkr evidence --frameworks ...` includes deterministic control coverage for agent findings.
-- Mapping results remain stable across repeated runs.
-Contract/API impact:
-- Additive compliance evidence coverage for agent rule IDs.
-Versioning/migration impact:
-- No breaking contract in Wrkr; proof mapping additions coordinated as additive change.
-Architecture constraints:
-- Compliance logic stays in compliance/proofmap boundaries.
-- Keep external contract dependency explicit and version-pinned.
-ADR required: yes
-TDD first failing test(s):
-- `TestComplianceMapping_WRKRAControlsCovered`
-- `TestEvidenceFrameworkCoverage_DeterministicForAgentFindings`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Missing external mapping dependency fails closed with deterministic dependency/classification error.
-Dependencies:
-- W1-S11, W2-S18
-
-## Epic W2-E6 (Wave 4): Documentation, OSS Readiness, and Program Gating
-
-Objective: align external contracts/docs with new behavior and enforce four-wave delivery gates.
-
-### Story W2-S20: Update docs and CLI narratives for tools + agents scope/boundaries
-Priority: P1
-Tasks:
-- Update scan, architecture, and detection coverage docs for “tools + agents” model.
-- Add explicit non-goals and See/Prove/Control product boundary text.
-- Ensure docs-contract parity checks remain green.
-Repo paths:
-- `docs/commands/scan.md`
-- `docs/architecture.md`
-- `docs/trust/detection-coverage-matrix.md`
-- `product/wrkr.md`
-- `README.md` (if first-screen contract needs adjustment)
-Run commands:
-- `scripts/check_docs_cli_parity.sh`
-- `scripts/check_docs_storyline.sh`
-- `scripts/check_docs_consistency.sh`
-- `scripts/run_docs_smoke.sh`
-- `make prepush`
-Test requirements:
-- Docs consistency checks.
-- README first-screen and integration-before-internals flow checks.
-- Command/flag/exit-code parity checks for touched docs.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform
-Acceptance criteria:
-- Externally visible behavior is fully documented with accurate scope and boundaries.
-- Docs checks pass with no CLI parity drift.
-Contract/API impact:
-- Documentation-only contract clarification; no runtime API changes.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Docs must reflect actual architecture boundaries and failure semantics.
-ADR required: no
-TDD first failing test(s):
-- `TestDocsCLIParity_ScanAgentsInventoryNarrative`
-- `TestDocsConsistency_ToolsAgentsBoundary`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Not runtime risk-bearing; docs gates fail deterministically on drift.
-Dependencies:
-- W1-S01 through W2-S19 (as relevant)
-
-### Story W2-S21: Enforce four-PR-wave execution model with strict gates
-Priority: P0
-Tasks:
-- Define wave-specific PR templates/checklists and CI gate criteria.
-- Enforce Wave sequencing gates (Wave 1 foundation -> Wave 2 core detection/policy -> Wave 3 expansion/quality -> Wave 4 hardening/docs) before downstream merges.
-- Add release gate checks for `make prepush-full`, scenario/contract suites, and scan JSON/exit-code diff checks.
-Repo paths:
-- `.github/workflows/*`
-- `.github/required-checks.json`
-- `scripts/check_branch_protection_contract.sh`
-- `testinfra/contracts/*`
-- `docs/trust/*`
-Run commands:
-- `make prepush-full`
-- `make test-contracts`
-- `make test-scenarios`
-- `scripts/run_v1_acceptance.sh --mode=local`
-- `go run ./cmd/wrkr scan --path scenarios/wrkr/scan-diff-no-noise/input/local-repos --json --quiet`
-Test requirements:
-- Gate enforcement tests for required checks and branch-protection contract.
-- Scan JSON/exit-code regression tests across wave boundaries.
-- CI workflow contract tests for new required lanes.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Wave sequencing is enforced by CI contract checks.
-- No merge occurs with scan JSON/exit-code regressions.
-- Program gate docs and checks are auditable.
-Contract/API impact:
-- Governance and CI contract tightening; runtime contract unchanged.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Keep gating logic in CI/testinfra boundaries, not runtime command paths.
-- Preserve deterministic local reproducibility of all merge gates.
-ADR required: yes
-TDD first failing test(s):
-- `TestRequiredChecks_EnforceWaveSequence1To2To3To4`
-- `TestScanContract_NoJSONOrExitRegressionAcrossWaves`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Misconfigured CI gates fail closed (block merge) rather than allowing partial wave progression.
-Dependencies:
-- W1-S01 through W1-S11
+- W2-S07
+- W2-S08
+Risks:
+- Current static-export docs-site is incompatible with full OAuth callback handling; hosting mode change must be explicit and tightly scoped.
 
 ## Minimum-Now Sequence
 
-1. Wave 1 foundation contracts and identity:
-   W1-S01 -> W1-S02 -> W1-S03 -> W1-S04 -> W1-S05.
-2. Wave 1 gate checkpoint:
-   run full matrix and lock contract baselines before any Wave 2 story starts.
-3. Wave 2 detection/correlation core:
-   W1-S06 -> W1-S07 -> W1-S08 -> W1-S09.
-4. Wave 2 core policy and privilege:
-   W1-S10 -> W1-S11.
-5. Wave 2 gate checkpoint:
-   run full matrix and lock detector precision baselines before any Wave 3 story starts.
-6. Wave 3 coverage and quality:
-   W2-S12 -> W2-S13 -> W2-S14 -> W2-S15.
-7. Wave 3 gate checkpoint:
-   run benchmark/scenario/contract suites and lock thresholds before any Wave 4 story starts.
-8. Wave 4 risk/proof/compliance:
-   W2-S16 -> W2-S17 -> W2-S18 -> W2-S19.
-9. Wave 4 docs and governance closure:
-   W2-S20 -> W2-S21.
+1. Wave 1: W1-S01, W1-S02
+2. Wave 2: W1-S03, W1-S04
+3. Wave 3: W1-S05, W1-S06
+4. Wave 4: W2-S07, W2-S08
+5. Wave 5: W2-S09
+
+Parallelization notes:
+- Within Wave 1, W1-S02 starts immediately after W1-S01 target-contract locking.
+- Within Wave 2, W1-S03 and W1-S04 can overlap once W1-S02 lands stable local inventory primitives.
+- Within Wave 3, W1-S05 can start first; W1-S06 follows once inventory/diff/compliance payload shapes are stable.
+- Within Wave 4, W2-S07 can start before W2-S08, but both should stay behind locked Wave 3 command/output contracts.
+- Wave 5 must not start before Waves 1-4 are green and the docs-site hosting/ADR decision is explicitly accepted.
 
 ## Explicit Non-Goals
 
-- Do not detect whether agents are currently running in production runtime.
-- Do not infer runtime behavior/actions from execution telemetry.
-- Do not implement runtime gating/blocking or kill-switch enforcement controls in Wrkr runtime.
-- Do not infer intent/capability beyond deterministic declared/configured artifacts.
-- Do not add LLM inference into detection, risk, policy, or proof paths.
-- Do not implement Axym or Gait product logic in this repository beyond existing interoperability contracts.
+- No vulnerability scanning of MCP servers, agent packages, or developer workstations.
+- No raw secret extraction or raw credential materialization in any output.
+- No runtime enforcement, request interception, or tool blocking; that remains Gait’s boundary.
+- No rich multi-tenant dashboard, analytics portal, or long-lived SaaS control plane in this plan.
+- No breaking removal of `scan --org`, `export --format inventory`, `regress`, or current v1 JSON schemas.
+- No LLM-based local machine interpretation in scan/risk/proof paths.
 
 ## Definition of Done
 
-- All recommendations map to execution-ready stories with concrete tasks, paths, commands, tests, matrix lanes, and acceptance criteria.
-- Wave 1 through Wave 4 ordering is dependency-aware and enforced by CI/program gates.
-- All contract-sensitive stories include explicit contract/API and versioning/migration impacts.
-- All risk-bearing stories include chaos/failure hypotheses and risk-lane commands.
-- Determinism requirements are validated by contract/scenario/benchmark suites where applicable.
-- Docs and CLI narratives are updated for externally visible behavior changes in the same PR wave.
-- Final merge gate for completed implementation work requires green `make prepush-full`, contract/scenario suites, and docs parity checks with no scan JSON/exit-code regressions.
+- Every recommendation in the traceability table maps to at least one implemented story or an explicit additive compatibility shim.
+- Every story has real repo paths, concrete run commands, deterministic acceptance criteria, and matrix wiring.
+- CLI changes preserve stable `--json` and exit-code behavior, with help/usage coverage and machine-readable error envelope tests.
+- Schema/artifact changes remain additive under v1 and are covered by contract/golden compatibility tests.
+- Reliability-sensitive local scan and trust-overlay stories pass `make test-hardening` and `make test-chaos`.
+- Docs updates ship in the same PRs as command/contract changes and pass docs parity/storyline checks.
+- README first-screen contract, integration-first docs flow, and OSS trust baseline remain explicit and accurate.
+- Waves 1-4 complete in order before Wave 5 distribution/bootstrap work begins.

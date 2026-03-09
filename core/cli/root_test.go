@@ -137,6 +137,131 @@ func TestRunSubcommandHelpReturnsExit0(t *testing.T) {
 	}
 }
 
+func TestScanRejectsMixedMySetupAndPathTargets(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--my-setup", "--path", ".", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d", code)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse error payload: %v", err)
+	}
+	errObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object: %v", payload)
+	}
+	if errObj["code"] != "invalid_input" {
+		t.Fatalf("unexpected code: %v", errObj["code"])
+	}
+}
+
+func TestScanGitHubOrgAliasMatchesOrgContract(t *testing.T) {
+	t.Parallel()
+
+	cases := [][]string{
+		{"scan", "--org", "acme", "--json"},
+		{"scan", "--github-org", "acme", "--json"},
+	}
+	for _, args := range cases {
+		var out bytes.Buffer
+		var errOut bytes.Buffer
+		code := Run(args, &out, &errOut)
+		if code != 7 {
+			t.Fatalf("expected dependency-missing exit for %v, got %d stderr=%s", args, code, errOut.String())
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+			t.Fatalf("parse error payload for %v: %v", args, err)
+		}
+		errObj, ok := payload["error"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected error object for %v: %v", args, payload)
+		}
+		if errObj["code"] != "dependency_missing" {
+			t.Fatalf("unexpected code for %v: %v", args, errObj["code"])
+		}
+	}
+}
+
+func TestScanMySetupReturnsLocalMachineTarget(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--my-setup", "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("scan failed: %d %s", code, errOut.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	target, ok := payload["target"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected target payload: %v", payload["target"])
+	}
+	if target["mode"] != "my_setup" {
+		t.Fatalf("unexpected target mode: %v", target["mode"])
+	}
+}
+
+func TestScanMySetupFindsEnvironmentKeysAndProjectMarkers(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+	t.Setenv("OPENAI_API_KEY", "redacted")
+	t.Setenv("ANTHROPIC_API_KEY", "redacted")
+
+	projectRoot := filepath.Join(tmpHome, "Projects", "demo-agent")
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".agents"), 0o755); err != nil {
+		t.Fatalf("mkdir project: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(projectRoot, "AGENTS.md"), []byte("agent"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--my-setup", "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("scan failed: %d %s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	findings, ok := payload["findings"].([]any)
+	if !ok {
+		t.Fatalf("expected findings array: %T", payload["findings"])
+	}
+
+	foundEnv := false
+	foundProject := false
+	for _, item := range findings {
+		finding, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if finding["location"] == "process:env" {
+			foundEnv = true
+		}
+		if finding["tool_type"] == "agent_project" {
+			foundProject = true
+		}
+	}
+	if !foundEnv {
+		t.Fatal("expected process env finding")
+	}
+	if !foundProject {
+		t.Fatal("expected agent project finding")
+	}
+}
+
 func TestRunInvalidFlagReturnsExit6(t *testing.T) {
 	t.Parallel()
 

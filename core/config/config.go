@@ -17,9 +17,10 @@ const CurrentVersion = "v1"
 type TargetMode string
 
 const (
-	TargetRepo TargetMode = "repo"
-	TargetOrg  TargetMode = "org"
-	TargetPath TargetMode = "path"
+	TargetRepo    TargetMode = "repo"
+	TargetOrg     TargetMode = "org"
+	TargetPath    TargetMode = "path"
+	TargetMySetup TargetMode = "my_setup"
 )
 
 // Target identifies a scan source target.
@@ -85,6 +86,10 @@ func ValidateTarget(mode TargetMode, value string) error {
 	case TargetPath:
 		if strings.TrimSpace(value) == "" {
 			return errors.New("path target must be non-empty")
+		}
+	case TargetMySetup:
+		if strings.TrimSpace(value) == "" {
+			return errors.New("my-setup target must be non-empty")
 		}
 	default:
 		return fmt.Errorf("unsupported target mode %q", mode)
