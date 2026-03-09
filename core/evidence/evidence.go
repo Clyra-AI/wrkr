@@ -217,7 +217,7 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write deterministic report summary: %w", err)
 	}
 	reportArtifacts = append(reportArtifacts, auditReportPath)
-	mcpCatalog := reportcore.BuildMCPList(snapshot, generatedAt, "")
+	mcpCatalog := reportcore.BuildMCPList(snapshot, generatedAt, "", false)
 	if len(mcpCatalog.Rows) > 0 {
 		if err := writeJSON(filepath.Join(outputDir, "mcp-catalog.json"), mcpCatalog); err != nil {
 			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)

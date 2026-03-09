@@ -49,8 +49,8 @@ type mcpTrustEntry struct {
 	TrustStatus string `yaml:"trust_status"`
 }
 
-func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath string) MCPList {
-	overlay, warnings := loadMCPTrustOverlay(strings.TrimSpace(overlayPath))
+func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath string, allowAmbientOverlay bool) MCPList {
+	overlay, warnings := loadMCPTrustOverlay(strings.TrimSpace(overlayPath), allowAmbientOverlay)
 	toolSurfaces := buildMCPToolSurfaceIndex(snapshot.Inventory)
 	gatewayCoverage := buildMCPGatewayCoverageIndex(snapshot.Findings)
 
@@ -240,8 +240,8 @@ func buildMCPRiskNote(finding model.Finding, trustStatus, gatewayCoverage string
 	}
 }
 
-func loadMCPTrustOverlay(rawPath string) (map[string]string, []string) {
-	path, explicit := resolveMCPTrustOverlayPath(rawPath)
+func loadMCPTrustOverlay(rawPath string, allowAmbientOverlay bool) (map[string]string, []string) {
+	path, explicit := resolveMCPTrustOverlayPath(rawPath, allowAmbientOverlay)
 	if path == "" {
 		return map[string]string{}, nil
 	}
@@ -270,9 +270,12 @@ func loadMCPTrustOverlay(rawPath string) (map[string]string, []string) {
 	return out, nil
 }
 
-func resolveMCPTrustOverlayPath(rawPath string) (string, bool) {
+func resolveMCPTrustOverlayPath(rawPath string, allowAmbientOverlay bool) (string, bool) {
 	if strings.TrimSpace(rawPath) != "" {
 		return strings.TrimSpace(rawPath), true
+	}
+	if !allowAmbientOverlay {
+		return "", false
 	}
 	if fromEnv := strings.TrimSpace(os.Getenv("WRKR_GAIT_TRUST_PATH")); fromEnv != "" {
 		return fromEnv, true
