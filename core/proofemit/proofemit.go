@@ -119,7 +119,13 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, report 
 		summary.Total++
 	}
 
+	if err := signChain(chain, key); err != nil {
+		return Summary{}, err
+	}
 	if err := SaveChain(chainPath, chain); err != nil {
+		return Summary{}, err
+	}
+	if err := saveChainAttestation(chainPath, len(chain.Records), chain.HeadHash, key); err != nil {
 		return Summary{}, err
 	}
 	return summary, nil
@@ -139,7 +145,13 @@ func EmitIdentityTransition(statePath string, transition lifecycle.Transition, e
 	if _, err := appendSignedRecord(chain, key, mapped); err != nil {
 		return err
 	}
-	return SaveChain(chainPath, chain)
+	if err := signChain(chain, key); err != nil {
+		return err
+	}
+	if err := SaveChain(chainPath, chain); err != nil {
+		return err
+	}
+	return saveChainAttestation(chainPath, len(chain.Records), chain.HeadHash, key)
 }
 
 func LoadVerifierKey(statePath string) (proof.PublicKey, error) {
@@ -188,6 +200,17 @@ func appendSignedRecord(chain *proof.Chain, key proof.SigningKey, mapped proofma
 		return nil, fmt.Errorf("append proof record: %w", err)
 	}
 	return record, nil
+}
+
+func signChain(chain *proof.Chain, key proof.SigningKey) error {
+	if chain == nil {
+		return fmt.Errorf("proof chain is required")
+	}
+	chain.Signatures = nil
+	if _, err := proof.SignChain(chain, key); err != nil {
+		return fmt.Errorf("sign proof chain: %w", err)
+	}
+	return nil
 }
 
 func relationshipForRecord(chain *proof.Chain, relationship *proof.Relationship) *proof.Relationship {

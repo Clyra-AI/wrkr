@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	proof "github.com/Clyra-AI/proof"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1343,6 +1344,65 @@ func TestVerifyMalformedChainReturnsExit2(t *testing.T) {
 	}
 }
 
+func TestVerifyUsesStatePathVerifierKeyWhenChainPathOverrides(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	chainPath := filepath.Join(filepath.Dir(statePath), "proof-chain.json")
+	payload, err := os.ReadFile(chainPath)
+	if err != nil {
+		t.Fatalf("read chain: %v", err)
+	}
+	var chain proof.Chain
+	if err := json.Unmarshal(payload, &chain); err != nil {
+		t.Fatalf("parse chain json: %v", err)
+	}
+	chain.Records[0].Event["finding_type"] = "tampered"
+	rehashCLIChain(t, &chain)
+
+	copiedDir := filepath.Join(tmp, "copied")
+	if err := os.MkdirAll(copiedDir, 0o755); err != nil {
+		t.Fatalf("create copied dir: %v", err)
+	}
+	copiedChainPath := filepath.Join(copiedDir, "proof-chain.json")
+	mutated, err := json.MarshalIndent(chain, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal copied chain: %v", err)
+	}
+	mutated = append(mutated, '\n')
+	if err := os.WriteFile(copiedChainPath, mutated, 0o600); err != nil {
+		t.Fatalf("write copied chain: %v", err)
+	}
+
+	var verifyOut bytes.Buffer
+	var verifyErr bytes.Buffer
+	code := Run([]string{"verify", "--chain", "--state", statePath, "--path", copiedChainPath, "--json"}, &verifyOut, &verifyErr)
+	if code != 2 {
+		t.Fatalf("expected exit 2 for copied chain with stale signature, got %d stdout=%s stderr=%s", code, verifyOut.String(), verifyErr.String())
+	}
+	var errorPayload map[string]any
+	if err := json.Unmarshal(verifyErr.Bytes(), &errorPayload); err != nil {
+		t.Fatalf("parse verify error payload: %v", err)
+	}
+	errObject, ok := errorPayload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object in verify payload: %v", errorPayload)
+	}
+	if errObject["code"] != "verification_failure" {
+		t.Fatalf("unexpected verification error code: %v", errObject["code"])
+	}
+}
+
 func TestVerifyInvalidCLIArgsRemainExit6(t *testing.T) {
 	t.Parallel()
 
@@ -1369,6 +1429,23 @@ func TestVerifyInvalidCLIArgsRemainExit6(t *testing.T) {
 	if errObj["exit_code"] != float64(6) {
 		t.Fatalf("unexpected verify invalid-args exit code: %v", errObj["exit_code"])
 	}
+}
+
+func rehashCLIChain(t *testing.T, chain *proof.Chain) {
+	t.Helper()
+
+	prev := ""
+	for i := range chain.Records {
+		chain.Records[i].Integrity.PreviousRecordHash = prev
+		hash, err := proof.ComputeRecordHash(&chain.Records[i])
+		if err != nil {
+			t.Fatalf("compute record hash: %v", err)
+		}
+		chain.Records[i].Integrity.RecordHash = hash
+		prev = hash
+	}
+	chain.HeadHash = prev
+	chain.RecordCount = len(chain.Records)
 }
 
 func TestReportPDFCommandWritesDeterministicPDFEnvelope(t *testing.T) {
