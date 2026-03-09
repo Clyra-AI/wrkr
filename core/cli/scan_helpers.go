@@ -320,7 +320,12 @@ func detectorScopes(manifestOut source.Manifest) []detect.Scope {
 			continue
 		}
 		orgName := deriveOrg(manifestOut.Target, repo)
-		scopes = append(scopes, detect.Scope{Org: orgName, Repo: repo.Repo, Root: location})
+		scopes = append(scopes, detect.Scope{
+			Org:        orgName,
+			Repo:       repo.Repo,
+			Root:       location,
+			TargetMode: strings.TrimSpace(manifestOut.Target.Mode),
+		})
 	}
 	return scopes
 }

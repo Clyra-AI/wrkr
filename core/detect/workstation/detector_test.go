@@ -30,9 +30,10 @@ func TestDetectLocalMachineEnvAndProjectSignals(t *testing.T) {
 	}
 
 	findings, err := New().Detect(context.Background(), detect.Scope{
-		Org:  "local",
-		Repo: "local-machine",
-		Root: scopeRoot,
+		Org:        "local",
+		Repo:       "local-machine",
+		Root:       scopeRoot,
+		TargetMode: "my_setup",
 	}, detect.Options{})
 	if err != nil {
 		t.Fatalf("detect workstation: %v", err)

@@ -155,6 +155,17 @@ func TestRegistryReturnsContextCancellation(t *testing.T) {
 	}
 }
 
+func TestIsLocalMachineScopeRequiresExplicitTargetMode(t *testing.T) {
+	t.Parallel()
+
+	if IsLocalMachineScope(Scope{Org: "local", Repo: "local-machine", Root: "/tmp/repo"}) {
+		t.Fatal("expected local names alone to be insufficient")
+	}
+	if !IsLocalMachineScope(Scope{Org: "local", Repo: "local-machine", Root: "/tmp/repo", TargetMode: "my_setup"}) {
+		t.Fatal("expected explicit my_setup target mode to be required")
+	}
+}
+
 func TestRegistryRejectsDuplicateIDs(t *testing.T) {
 	t.Parallel()
 
