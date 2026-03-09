@@ -25,6 +25,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/secrets"
 	"github.com/Clyra-AI/wrkr/core/detect/skills"
 	"github.com/Clyra-AI/wrkr/core/detect/webmcp"
+	"github.com/Clyra-AI/wrkr/core/detect/workstation"
 )
 
 func Registry() (*detect.Registry, error) {
@@ -43,6 +44,7 @@ func Registry() (*detect.Registry, error) {
 		codex.New(),
 		copilot.New(),
 		mcp.New(),
+		workstation.New(),
 		mcpgateway.New(),
 		webmcp.New(),
 		promptchannel.New(),

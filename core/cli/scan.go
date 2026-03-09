@@ -54,6 +54,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	quiet := fs.Bool("quiet", false, "suppress non-error output")
 	repo := fs.String("repo", "", "scan one repo owner/repo")
 	orgTarget := fs.String("org", "", "scan an organization")
+	githubOrgTarget := fs.String("github-org", "", "scan an organization (alias for --org)")
+	mySetup := fs.Bool("my-setup", false, "scan the local machine setup for AI tool posture")
 	pathTarget := fs.String("path", "", "scan local pre-cloned repositories")
 	timeout := fs.Duration("timeout", 0, "optional scan timeout (0 disables)")
 	diffMode := fs.Bool("diff", false, "show only changes since previous scan")
@@ -93,7 +95,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		)
 	}
 
-	targetMode, targetValue, cfg, err := resolveScanTarget(*repo, *orgTarget, *pathTarget, *configPathFlag)
+	targetMode, targetValue, cfg, err := resolveScanTarget(*repo, *orgTarget, *githubOrgTarget, *pathTarget, *mySetup, *configPathFlag)
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 	}

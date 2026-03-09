@@ -18,6 +18,10 @@ type Scope struct {
 	Root string
 }
 
+func IsLocalMachineScope(scope Scope) bool {
+	return strings.TrimSpace(scope.Repo) == "local-machine" && strings.TrimSpace(scope.Org) == "local"
+}
+
 // Options toggles optional detector behavior.
 type Options struct {
 	Enrich bool

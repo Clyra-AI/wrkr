@@ -3,15 +3,18 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --path <dir>] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--quiet] [--explain]
 ```
 
-Exactly one target source is required: `--repo`, `--org`, or `--path`.
+Exactly one target source is required: `--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`.
 
 Acquisition behavior is fail-closed by target:
 
 - `--path` runs fully local/offline.
+- `--my-setup` runs fully local/offline against the local machine setup rooted at the current user home directory.
+  It inspects supported user-home tool configs, selected environment key names, and common workspace roots for local agent project markers without emitting raw secret values.
 - `--repo` and `--org` require real GitHub acquisition via `--github-api` or `WRKR_GITHUB_API_BASE`.
+- `--github-org` is an additive alias for `--org`.
 - `--repo` and `--org` materialize repository contents into a deterministic local workspace under the scan state directory before detectors run.
 - Materialized workspace root (`materialized-sources/`) is ownership-gated:
   - Wrkr-managed roots include marker `.wrkr-materialized-sources-managed`.
@@ -29,7 +32,9 @@ Acquisition behavior is fail-closed by target:
 - `--quiet`
 - `--repo`
 - `--org`
+- `--github-org`
 - `--path`
+- `--my-setup`
 - `--timeout`
 - `--diff`
 - `--enrich`
@@ -61,7 +66,12 @@ wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --repo
 wrkr scan --org acme --github-api https://api.github.com --json
 ```
 
+```bash
+wrkr scan --my-setup --json
+```
+
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, and optional `report` when summary output is requested.
+For local-machine scans, `target.mode` is `my_setup`.
 `detector_errors` is included when non-fatal detector failures occur and partial scan results are preserved.
 `partial_result`, `source_errors`, and `source_degraded` are included when source acquisition/materialization has non-fatal failures.
 `sarif.path` is included when `--sarif` output is requested.
