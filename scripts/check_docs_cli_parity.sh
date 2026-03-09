@@ -41,7 +41,7 @@ if missing:
     sys.exit(3)
 
 root_source = (repo / "core/cli/root.go").read_text(encoding="utf-8")
-root_commands = sorted(set(re.findall(r'case\s+"([a-z]+)"\s*:', root_source)))
+root_commands = sorted(set(re.findall(r'case\s+"([a-z0-9-]+)"\s*:', root_source)))
 index_text = (repo / "docs/commands/index.md").read_text(encoding="utf-8")
 for command in root_commands:
     token = f"wrkr {command}"
