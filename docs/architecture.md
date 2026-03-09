@@ -78,3 +78,5 @@ No. Wrkr is a discovery and posture engine. Runtime enforcement belongs to a con
 ### How is wave sequencing enforced for the tools-plus-agents rollout?
 
 Wrkr keeps the ordered merge-gate contract in [`docs/trust/wave-gates.md`](./trust/wave-gates.md) and `/.github/wave-gates.json`. CI validates the wave contract and blocks scan JSON or exit-code regressions before merge.
+
+Architecture decision records for additive command-surface changes live under [`docs/decisions/`](./decisions/wave2-command-surfaces.md).

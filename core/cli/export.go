@@ -10,6 +10,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	exportappendix "github.com/Clyra-AI/wrkr/core/export/appendix"
 	exportinventory "github.com/Clyra-AI/wrkr/core/export/inventory"
+	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -42,7 +43,7 @@ func runExport(args []string, stdout io.Writer, stderr io.Writer) int {
 		inv = &empty
 	}
 
-	now := time.Now().UTC().Truncate(time.Second)
+	now := reportcore.ResolveGeneratedAtForCLI(snapshot, time.Time{})
 	switch *format {
 	case "inventory":
 		if *csvDir != "" {

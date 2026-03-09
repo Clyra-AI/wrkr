@@ -36,4 +36,9 @@ wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --state ./.wrkr/l
 Expected JSON keys include `status`, `baseline_path`, `tool_count` (init) and drift fields plus optional `summary_md_path` (run).
 When critical attack-path sets diverge above deterministic thresholds, `reasons` includes a single `critical_attack_path_drift` summary entry with machine-readable `attack_path_drift` details (`added`, `removed`, `score_changed`).
 
+Compatibility note:
+
+- `wrkr inventory` is the developer-facing wrapper for deterministic added/removed/changed inventory review from scan state.
+- `wrkr regress run` remains the approval/lifecycle drift gate with stable reason-code semantics for CI and policy workflows.
+
 Canonical state/baseline path behavior: [`docs/state_lifecycle.md`](../state_lifecycle.md).
