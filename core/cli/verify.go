@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/proofemit"
@@ -36,15 +37,20 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "verify does not accept positional arguments", exitInvalidInput)
 	}
 
+	resolvedStatePath := state.ResolvePath(*statePathFlag)
 	chainPath := strings.TrimSpace(*chainPathFlag)
 	if chainPath == "" {
-		chainPath = proofemit.ChainPath(state.ResolvePath(*statePathFlag))
+		chainPath = proofemit.ChainPath(resolvedStatePath)
+	}
+	keyLookupPath := chainPath
+	if strings.TrimSpace(*chainPathFlag) == "" || strings.TrimSpace(*statePathFlag) != "" || strings.TrimSpace(os.Getenv("WRKR_STATE_PATH")) != "" {
+		keyLookupPath = resolvedStatePath
 	}
 	var (
 		result verifycore.Result
 		err    error
 	)
-	if publicKey, keyErr := proofemit.LoadVerifierKey(chainPath); keyErr == nil {
+	if publicKey, keyErr := proofemit.LoadVerifierKey(keyLookupPath); keyErr == nil {
 		result, err = verifycore.ChainWithPublicKey(chainPath, publicKey)
 	} else {
 		result, err = verifycore.Chain(chainPath)

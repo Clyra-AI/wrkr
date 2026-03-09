@@ -39,6 +39,11 @@ type ChainError struct {
 	Err  error
 }
 
+var (
+	errNoChainAttestation = errors.New("chain attestation not present")
+	errNoChainSignature   = errors.New("chain signature not present")
+)
+
 func (e *ChainError) Error() string {
 	if e == nil || e.Err == nil {
 		return ""
@@ -85,15 +90,28 @@ func ChainWithPublicKey(path string, publicKey proof.PublicKey) (Result, error) 
 	if trimmed == "" {
 		return Result{}, classifyError(ErrorCodeInvalidInput, fmt.Errorf("chain path is required"))
 	}
-	if verified, ok := verifyByAttestation(trimmed, publicKey); ok {
+	if verified, err := verifyByAttestation(trimmed, publicKey); err == nil {
 		return verified, nil
+	} else if !errors.Is(err, errNoChainAttestation) {
+		chain, loadErr := loadChain(trimmed)
+		if loadErr != nil {
+			return Result{}, loadErr
+		}
+		if verified, sigErr := verifyBySignature(chain, publicKey); sigErr == nil {
+			return verified, nil
+		} else if !errors.Is(sigErr, errNoChainSignature) {
+			return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain signature: %w", sigErr))
+		}
+		return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain attestation: %w", err))
 	}
 	chain, err := loadChain(trimmed)
 	if err != nil {
 		return Result{}, err
 	}
-	if verified, ok := verifyBySignature(chain, publicKey); ok {
+	if verified, err := verifyBySignature(chain, publicKey); err == nil {
 		return verified, nil
+	} else if !errors.Is(err, errNoChainSignature) {
+		return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain signature: %w", err))
 	}
 	return verifyLoadedChain(chain)
 }
@@ -127,24 +145,27 @@ type chainAttestationPayload struct {
 	HeadHash    string `json:"head_hash"`
 }
 
-func verifyByAttestation(path string, publicKey proof.PublicKey) (Result, bool) {
+func verifyByAttestation(path string, publicKey proof.PublicKey) (Result, error) {
 	if len(publicKey.Public) == 0 {
-		return Result{}, false
+		return Result{}, errNoChainAttestation
 	}
 	chainPayload, err := os.ReadFile(path) // #nosec G304 -- attestation binds to the explicit local proof chain path.
 	if err != nil {
-		return Result{}, false
+		return Result{}, errNoChainAttestation
 	}
 	attestationPayload, err := os.ReadFile(attestationPath(path)) // #nosec G304 -- attestation file lives beside the explicit local proof chain path.
 	if err != nil {
-		return Result{}, false
+		if errors.Is(err, os.ErrNotExist) {
+			return Result{}, errNoChainAttestation
+		}
+		return Result{}, err
 	}
 	var attestation chainAttestation
 	if err := json.Unmarshal(attestationPayload, &attestation); err != nil {
-		return Result{}, false
+		return Result{}, err
 	}
 	if attestation.ChainSHA != digestBytes(chainPayload) || attestation.ChainBytes != int64(len(chainPayload)) {
-		return Result{}, false
+		return Result{}, fmt.Errorf("attested chain digest mismatch")
 	}
 	digest, err := digestAttestationPayload(chainAttestationPayload{
 		Version:     attestation.Version,
@@ -154,10 +175,10 @@ func verifyByAttestation(path string, publicKey proof.PublicKey) (Result, bool) 
 		HeadHash:    attestation.HeadHash,
 	})
 	if err != nil {
-		return Result{}, false
+		return Result{}, err
 	}
 	if err := signing.VerifyDigest(attestation.Signature, digest, publicKey); err != nil {
-		return Result{}, false
+		return Result{}, err
 	}
 	return Result{
 		Intact:     true,
@@ -166,16 +187,16 @@ func verifyByAttestation(path string, publicKey proof.PublicKey) (Result, bool) 
 		BreakPoint: "",
 		BreakIndex: 0,
 		Reason:     "ok",
-	}, true
+	}, nil
 }
 
-func verifyBySignature(chain *proof.Chain, publicKey proof.PublicKey) (Result, bool) {
+func verifyBySignature(chain *proof.Chain, publicKey proof.PublicKey) (Result, error) {
 	if chain == nil || len(chain.Signatures) == 0 || len(publicKey.Public) == 0 {
-		return Result{}, false
+		return Result{}, errNoChainSignature
 	}
 	signature := chain.Signatures[len(chain.Signatures)-1]
 	if err := proof.VerifyChainSignature(chain, signature, publicKey); err != nil {
-		return Result{}, false
+		return Result{}, err
 	}
 	return Result{
 		Intact:     true,
@@ -184,7 +205,7 @@ func verifyBySignature(chain *proof.Chain, publicKey proof.PublicKey) (Result, b
 		BreakPoint: "",
 		BreakIndex: 0,
 		Reason:     "ok",
-	}, true
+	}, nil
 }
 
 func verifyLoadedChain(chain *proof.Chain) (Result, error) {

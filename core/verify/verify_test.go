@@ -200,7 +200,7 @@ func TestChainWithPublicKeyAcceptsAttestedChain(t *testing.T) {
 	}
 }
 
-func TestChainWithPublicKeyFallsBackOnTamperedSignedChain(t *testing.T) {
+func TestChainWithPublicKeyRejectsInvalidSignedChain(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "chain.json")
@@ -214,18 +214,36 @@ func TestChainWithPublicKeyFallsBackOnTamperedSignedChain(t *testing.T) {
 	if _, err := proof.SignChain(chain, key); err != nil {
 		t.Fatalf("sign chain: %v", err)
 	}
-	chain.Records[1].Integrity.RecordHash = "sha256:tampered"
+	chain.Records[1].Event["assessment_type"] = "tampered"
+	rehashChain(t, chain)
 	writeChain(t, path, chain)
 
+	if _, err := ChainWithPublicKey(path, proof.PublicKey{Public: key.Public, KeyID: key.KeyID}); err == nil {
+		t.Fatalf("expected signature verification failure")
+	} else if ErrorCodeFor(err) != ErrorCodeVerifyChainFailure {
+		t.Fatalf("unexpected error code: %s", ErrorCodeFor(err))
+	}
+}
+
+func TestChainWithPublicKeyFallsBackWhenSignatureUnavailable(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "chain.json")
+	chain := proof.NewChain("wrkr-proof")
+	appendRecord(t, chain, "scan_finding", map[string]any{"finding_type": "policy_violation"})
+	appendRecord(t, chain, "risk_assessment", map[string]any{"assessment_type": "finding_risk"})
+	writeChain(t, path, chain)
+
+	key, err := proof.GenerateSigningKey()
+	if err != nil {
+		t.Fatalf("generate signing key: %v", err)
+	}
 	result, err := ChainWithPublicKey(path, proof.PublicKey{Public: key.Public, KeyID: key.KeyID})
 	if err != nil {
-		t.Fatalf("verify tampered signed chain: %v", err)
+		t.Fatalf("verify unsigned chain: %v", err)
 	}
-	if result.Intact {
-		t.Fatalf("expected tamper detection result, got %+v", result)
-	}
-	if result.Reason != "chain_integrity_failure" {
-		t.Fatalf("unexpected reason: %s", result.Reason)
+	if !result.Intact {
+		t.Fatalf("expected unsigned chain fallback result, got %+v", result)
 	}
 }
 
@@ -262,4 +280,21 @@ func writeChain(t *testing.T, path string, chain *proof.Chain) {
 	if err := os.WriteFile(path, payload, 0o600); err != nil {
 		t.Fatalf("write chain: %v", err)
 	}
+}
+
+func rehashChain(t *testing.T, chain *proof.Chain) {
+	t.Helper()
+
+	prev := ""
+	for i := range chain.Records {
+		chain.Records[i].Integrity.PreviousRecordHash = prev
+		hash, err := proof.ComputeRecordHash(&chain.Records[i])
+		if err != nil {
+			t.Fatalf("compute record hash: %v", err)
+		}
+		chain.Records[i].Integrity.RecordHash = hash
+		prev = hash
+	}
+	chain.HeadHash = prev
+	chain.RecordCount = len(chain.Records)
 }
