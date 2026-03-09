@@ -60,8 +60,12 @@ func runKnownSubcommand(ctx context.Context, name string, args []string, stdout 
 		return runReport(args, stdout, stderr), true
 	case "campaign":
 		return runCampaign(args, stdout, stderr), true
+	case "mcp-list":
+		return runMCPList(args, stdout, stderr), true
 	case "export":
 		return runExport(args, stdout, stderr), true
+	case "inventory":
+		return runInventory(args, stdout, stderr), true
 	case "identity":
 		return runIdentity(args, stdout, stderr), true
 	case "lifecycle":
@@ -162,7 +166,9 @@ func writeRootUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "  action     evaluate and gate automation actions")
 	_, _ = fmt.Fprintln(out, "  report     generate posture summaries")
 	_, _ = fmt.Fprintln(out, "  campaign   aggregate multi-org posture snapshots")
+	_, _ = fmt.Fprintln(out, "  mcp-list   list MCP servers with trust and privilege posture")
 	_, _ = fmt.Fprintln(out, "  export     emit inventory/appendix exports")
+	_, _ = fmt.Fprintln(out, "  inventory  emit inventory export or deterministic inventory drift")
 	_, _ = fmt.Fprintln(out, "  identity   manage deterministic identity lifecycle state")
 	_, _ = fmt.Fprintln(out, "  lifecycle  view lifecycle transitions and posture")
 	_, _ = fmt.Fprintln(out, "  manifest   generate identity manifest baselines")
@@ -175,6 +181,8 @@ func writeRootUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "")
 	_, _ = fmt.Fprintln(out, "Examples:")
 	_, _ = fmt.Fprintln(out, "  wrkr scan --path . --json")
+	_, _ = fmt.Fprintln(out, "  wrkr mcp-list --json")
+	_, _ = fmt.Fprintln(out, "  wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json")
 	_, _ = fmt.Fprintln(out, "  wrkr score --json")
 	_, _ = fmt.Fprintln(out, "  wrkr evidence --frameworks soc2 --json")
 	_, _ = fmt.Fprintln(out, "  wrkr verify --chain --json")

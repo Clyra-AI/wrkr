@@ -32,6 +32,15 @@ No. Wrkr is discovery/posture. Runtime enforcement is a separate control layer.
 No. Wrkr runs standalone for discovery, posture scoring, regress gates, and evidence generation.
 Axym and Gait are optional companion projects that interoperate through shared `Clyra-AI/proof` contracts.
 
+### Does `wrkr mcp-list` do vulnerability scanning?
+
+No. `mcp-list` inventories saved MCP posture, transport, privilege surface, and optional local trust overlay state.
+Wrkr does not perform live MCP probing or package vulnerability assessment in this path. Use dedicated scanners such as Snyk for vulnerability workflows.
+
+### Do I need Gait to use `wrkr mcp-list`?
+
+No. Gait trust overlay data is optional. When no local trust registry is available, `mcp-list` degrades explicitly to `trust_status=unavailable` instead of failing.
+
 ### How do I fail CI on posture drift?
 
 Use `wrkr regress init` to establish a baseline and `wrkr regress run` in CI. Exit `5` indicates drift.

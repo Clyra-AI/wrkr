@@ -18,8 +18,10 @@ required_docs = {
     "docs/commands/root.md",
     "docs/commands/init.md",
     "docs/commands/scan.md",
+    "docs/commands/mcp-list.md",
     "docs/commands/report.md",
     "docs/commands/export.md",
+    "docs/commands/inventory.md",
     "docs/commands/identity.md",
     "docs/commands/lifecycle.md",
     "docs/commands/manifest.md",
@@ -39,7 +41,7 @@ if missing:
     sys.exit(3)
 
 root_source = (repo / "core/cli/root.go").read_text(encoding="utf-8")
-root_commands = sorted(set(re.findall(r'case\s+"([a-z]+)"\s*:', root_source)))
+root_commands = sorted(set(re.findall(r'case\s+"([a-z0-9-]+)"\s*:', root_source)))
 index_text = (repo / "docs/commands/index.md").read_text(encoding="utf-8")
 for command in root_commands:
     token = f"wrkr {command}"
@@ -60,8 +62,10 @@ source_to_doc = {
     "core/cli/root.go": "docs/commands/root.md",
     "core/cli/init.go": "docs/commands/init.md",
     "core/cli/scan.go": "docs/commands/scan.md",
+    "core/cli/mcp_list.go": "docs/commands/mcp-list.md",
     "core/cli/report.go": "docs/commands/report.md",
     "core/cli/export.go": "docs/commands/export.md",
+    "core/cli/inventory.go": "docs/commands/inventory.md",
     "core/cli/identity.go": "docs/commands/identity.md",
     "core/cli/lifecycle.go": "docs/commands/lifecycle.md",
     "core/cli/manifest.go": "docs/commands/manifest.md",

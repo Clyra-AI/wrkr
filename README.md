@@ -257,10 +257,12 @@ Wrkr runs standalone and interoperates through shared `Clyra-AI/proof` contracts
 ```text
 wrkr init
 wrkr scan
+wrkr mcp-list
 wrkr action pr-mode|pr-comment
 wrkr report
 wrkr campaign aggregate
 wrkr export
+wrkr inventory [--diff]
 wrkr identity list|show|approve|review|deprecate|revoke
 wrkr lifecycle
 wrkr manifest generate

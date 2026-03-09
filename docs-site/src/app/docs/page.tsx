@@ -19,6 +19,8 @@ const tracks = [
       { label: 'Docs Source Map', href: '/docs/map' },
       { label: 'Command Index', href: '/docs/commands/index' },
       { label: 'Scan Command', href: '/docs/commands/scan' },
+      { label: 'MCP List Command', href: '/docs/commands/mcp-list' },
+      { label: 'Inventory Command', href: '/docs/commands/inventory' },
     ],
   },
   {

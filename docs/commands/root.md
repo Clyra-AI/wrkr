@@ -22,6 +22,8 @@ Root help output emits a deterministic command catalog plus global flags.
 
 - `wrkr help`: root usage + command catalog
 - `wrkr help <command>`: shows help output for a specific command
+- `wrkr mcp-list --json`: quick MCP server catalog from saved state
+- `wrkr inventory`: developer-facing inventory export and drift review entrypoint
 
 ## Stable exit codes
 

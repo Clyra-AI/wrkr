@@ -11,10 +11,12 @@ Canonical local state and artifact path behavior is documented in [`docs/state_l
 - `wrkr version`
 - `wrkr init`
 - `wrkr scan`
+- `wrkr mcp-list`
 - `wrkr action`
 - `wrkr report`
 - `wrkr campaign aggregate`
 - `wrkr export`
+- `wrkr inventory`
 - `wrkr identity list`
 - `wrkr identity show`
 - `wrkr identity approve`

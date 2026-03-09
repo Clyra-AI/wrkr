@@ -70,6 +70,8 @@ export const navigation: NavItem[] = [
       { title: 'index', href: '/docs/commands/index' },
       { title: 'root', href: '/docs/commands/root' },
       { title: 'scan', href: '/docs/commands/scan' },
+      { title: 'mcp-list', href: '/docs/commands/mcp-list' },
+      { title: 'inventory', href: '/docs/commands/inventory' },
       { title: 'report', href: '/docs/commands/report' },
       { title: 'score', href: '/docs/commands/score' },
       { title: 'verify', href: '/docs/commands/verify' },
