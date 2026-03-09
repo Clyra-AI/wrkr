@@ -2,6 +2,7 @@ package report
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
@@ -17,6 +19,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/regress"
 	templatespkg "github.com/Clyra-AI/wrkr/core/report/templates"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 	verifycore "github.com/Clyra-AI/wrkr/core/verify"
 )
@@ -54,6 +57,10 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	if err != nil {
 		return Summary{}, err
 	}
+	complianceSummary, err := buildComplianceSummary(in.StatePath, in.Snapshot.Findings)
+	if err != nil {
+		return Summary{}, err
+	}
 
 	lifecycleSummary := buildLifecycleSummary(in.Manifest, in.Snapshot.Identities, in.Snapshot.Transitions)
 	regressSummary := buildRegressSummary(in.Baseline, in.RegressResult)
@@ -73,7 +80,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
 	nextActions := buildNextActions(riskItems, lifecycleSummary, regressSummary)
 	pack := templatespkg.Resolve(string(template))
-	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, privilegeBudget, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
+	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, complianceSummary, privilegeBudget, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
 
 	sectionOrder := []string{
 		SectionHeadline,
@@ -96,25 +103,49 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 
 	summary := Summary{
-		SummaryVersion:  SummaryVersion,
-		GeneratedAt:     now.Format(time.RFC3339),
-		Template:        string(template),
-		ShareProfile:    string(shareProfile),
-		SectionOrder:    sectionOrder,
-		Sections:        sections,
-		Headline:        headline,
-		Methodology:     methodology,
-		TopRisks:        riskItems,
-		PrivilegeBudget: privilegeBudget,
-		Deltas:          deltas,
-		Lifecycle:       lifecycleSummary,
-		RegressDrift:    regressSummary,
-		AttackPaths:     attackPathSummary,
-		Proof:           proofRef,
-		NextActions:     nextActions,
+		SummaryVersion:    SummaryVersion,
+		GeneratedAt:       now.Format(time.RFC3339),
+		Template:          string(template),
+		ShareProfile:      string(shareProfile),
+		SectionOrder:      sectionOrder,
+		Sections:          sections,
+		Headline:          headline,
+		Methodology:       methodology,
+		TopRisks:          riskItems,
+		PrivilegeBudget:   privilegeBudget,
+		Deltas:            deltas,
+		Lifecycle:         lifecycleSummary,
+		RegressDrift:      regressSummary,
+		AttackPaths:       attackPathSummary,
+		ComplianceSummary: complianceSummary,
+		Proof:             proofRef,
+		NextActions:       nextActions,
 	}
 
 	return summary, nil
+}
+
+type complianceSummaryError struct {
+	err error
+}
+
+func (e *complianceSummaryError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e *complianceSummaryError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func IsComplianceSummaryError(err error) bool {
+	var target *complianceSummaryError
+	return errors.As(err, &target)
 }
 
 func privilegeBudgetFromInventory(inv *agginventory.Inventory) agginventory.PrivilegeBudget {
@@ -539,6 +570,7 @@ func buildSections(
 	methodology Methodology,
 	risks []RiskItem,
 	attackPathFacts []string,
+	complianceSummary compliance.RollupSummary,
 	privilegeBudget agginventory.PrivilegeBudget,
 	deltas DeltaSummary,
 	lifecycleSummary LifecycleSummary,
@@ -594,6 +626,7 @@ func buildSections(
 		fmt.Sprintf("tools=%d write_capable=%d credential_access=%d exec_capable=%d", privilegeBudget.TotalTools, privilegeBudget.WriteCapableTools, privilegeBudget.CredentialAccessTools, privilegeBudget.ExecCapableTools),
 		"profile compliance reflects controls evidenced in the current deterministic scan state",
 	}
+	headlineFacts = append(headlineFacts, compliance.ExplainRollupSummary(complianceSummary, 3)...)
 	if privilegeBudget.ProductionWrite.Configured && privilegeBudget.ProductionWrite.Count != nil {
 		headlineFacts = append(headlineFacts, fmt.Sprintf("production_write=%d (status=%s)", *privilegeBudget.ProductionWrite.Count, privilegeBudget.ProductionWrite.Status))
 	} else {
@@ -776,6 +809,19 @@ func buildAttackPathFacts(report risk.Report) []string {
 		facts = append(facts, fmt.Sprintf("attack_path #%d score=%.2f id=%s", idx+1, path.PathScore, path.PathID))
 	}
 	return facts
+}
+
+func buildComplianceSummary(statePath string, findings []source.Finding) (compliance.RollupSummary, error) {
+	chainPath := proofemit.ChainPath(state.ResolvePath(strings.TrimSpace(statePath)))
+	chain, err := proofemit.LoadChain(chainPath)
+	if err != nil {
+		return compliance.RollupSummary{}, err
+	}
+	summary, err := compliance.BuildRollupSummary(findings, chain)
+	if err != nil {
+		return compliance.RollupSummary{}, &complianceSummaryError{err: err}
+	}
+	return summary, nil
 }
 
 func uniqueStrings(in []string) []string {

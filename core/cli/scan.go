@@ -16,6 +16,7 @@ import (
 	aggexposure "github.com/Clyra-AI/wrkr/core/aggregate/exposure"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/privilegebudget"
+	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/config"
 	"github.com/Clyra-AI/wrkr/core/detect"
 	detectdefaults "github.com/Clyra-AI/wrkr/core/detect/defaults"
@@ -303,6 +304,14 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if _, err := proofemit.EmitScan(statePath, now, findings, riskReport, profileResult, postureScore, transitions); err != nil {
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
 	}
+	proofChain, err := proofemit.LoadChain(proofemit.ChainPath(statePath))
+	if err != nil {
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+	}
+	complianceSummary, err := compliance.BuildRollupSummary(findings, proofChain)
+	if err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", err.Error(), exitPolicyViolation)
+	}
 	if err := manifest.Save(manifestPath, nextManifest); err != nil {
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
 	}
@@ -346,6 +355,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		payload["repo_exposure_summaries"] = repoExposure
 		payload["profile"] = profileResult
 		payload["posture_score"] = postureScore
+		payload["compliance_summary"] = complianceSummary
 	}
 	if *reportMD {
 		template, shareProfile, parseErr := parseReportTemplateShare(*reportTemplate, *reportShareProfile)
@@ -412,6 +422,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	if *explain {
 		_, _ = fmt.Fprintf(stdout, "wrkr scan completed for %s:%s (profile=%s score=%.2f grade=%s)\n", targetMode, targetValue, profileResult.ProfileName, postureScore.Score, postureScore.Grade)
+		for _, line := range compliance.ExplainRollupSummary(complianceSummary, 3) {
+			_, _ = fmt.Fprintf(stdout, "compliance: %s\n", line)
+		}
 		if scanReportPath != "" {
 			_, _ = fmt.Fprintf(stdout, "scan report: %s\n", scanReportPath)
 		}

@@ -20,6 +20,7 @@ import (
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
+	verifycore "github.com/Clyra-AI/wrkr/core/verify"
 )
 
 func TestBuildEvidenceBundle(t *testing.T) {
@@ -66,6 +67,7 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	required := []string{
 		"inventory.json",
 		"inventory.yaml",
+		"compliance-summary.json",
 		"risk-report.json",
 		"profile-compliance.json",
 		"posture-score.json",
@@ -83,6 +85,127 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	}
 	if len(result.ReportArtifacts) == 0 {
 		t.Fatal("expected report artifacts to be recorded in build result")
+	}
+}
+
+func TestBuildEvidenceBundleIncludesPersonalInventoryAndMCPCatalogWhenPresent(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	findings := []model.Finding{
+		{
+			FindingType: "policy_violation",
+			RuleID:      "WRKR-A001",
+			Severity:    model.SeverityHigh,
+			ToolType:    "codex",
+			Location:    ".codex/config.toml",
+			Org:         "local",
+		},
+		{
+			FindingType: "mcp_server",
+			Severity:    model.SeverityHigh,
+			ToolType:    "mcp",
+			Location:    ".mcp.json",
+			Org:         "local",
+			Evidence: []model.Evidence{
+				{Key: "server", Value: "filesystem"},
+				{Key: "transport", Value: "stdio"},
+			},
+			Permissions: []string{"filesystem.read"},
+		},
+	}
+	report := risk.Score(findings, 5, time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC))
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
+	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
+	snapshot := state.Snapshot{
+		Version:  state.SnapshotVersion,
+		Target:   source.Target{Mode: "my_setup", Value: ""},
+		Findings: findings,
+		Inventory: &agginventory.Inventory{
+			InventoryVersion: "v1",
+			GeneratedAt:      "2026-03-09T12:00:00Z",
+			Tools: []agginventory.Tool{
+				{
+					ToolID:          "wrkr:mcp:.mcp.json",
+					AgentID:         "wrkr:mcp:local",
+					DiscoveryMethod: "static",
+					ToolType:        "mcp",
+					ToolCategory:    "mcp_integration",
+					Org:             "local",
+					Locations: []agginventory.ToolLocation{
+						{Location: ".mcp.json"},
+					},
+					Permissions: []string{"filesystem.read"},
+				},
+			},
+		},
+		RiskReport:   &report,
+		Profile:      &profile,
+		PostureScore: &posture,
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+		t.Fatalf("emit scan records: %v", err)
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	if _, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 3, 9, 13, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatalf("build evidence bundle: %v", err)
+	}
+
+	for _, relative := range []string{"personal-inventory-snapshot.json", "mcp-catalog.json", "compliance-summary.json"} {
+		if _, err := os.Stat(filepath.Join(outputDir, relative)); err != nil {
+			t.Fatalf("expected %s in bundle: %v", relative, err)
+		}
+	}
+}
+
+func TestVerifyChainPersonalSetupBundleRemainsCompatible(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	findings := []model.Finding{
+		{
+			FindingType: "policy_violation",
+			RuleID:      "WRKR-A001",
+			Severity:    model.SeverityHigh,
+			ToolType:    "codex",
+			Location:    ".codex/config.toml",
+			Org:         "local",
+		},
+	}
+	report := risk.Score(findings, 5, time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC))
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
+	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
+	snapshot := state.Snapshot{
+		Version:      state.SnapshotVersion,
+		Target:       source.Target{Mode: "my_setup"},
+		Findings:     findings,
+		Inventory:    &agginventory.Inventory{InventoryVersion: "v1", GeneratedAt: "2026-03-09T12:00:00Z"},
+		RiskReport:   &report,
+		Profile:      &profile,
+		PostureScore: &posture,
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+		t.Fatalf("emit scan records: %v", err)
+	}
+	if _, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: filepath.Join(tmp, "wrkr-evidence"), GeneratedAt: time.Date(2026, 3, 9, 13, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatalf("build evidence bundle: %v", err)
+	}
+
+	verified, err := verifycore.Chain(proofemit.ChainPath(statePath))
+	if err != nil {
+		t.Fatalf("verify chain: %v", err)
+	}
+	if !verified.Intact {
+		t.Fatalf("expected intact chain, got %+v", verified)
 	}
 }
 
