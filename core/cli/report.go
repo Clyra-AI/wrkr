@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
@@ -28,6 +30,7 @@ type reportPayload struct {
 	TotalTools         int                          `json:"total_tools"`
 	ToolTypeBreakdown  []toolTypeCount              `json:"tool_type_breakdown"`
 	ComplianceGapCount int                          `json:"compliance_gap_count"`
+	ComplianceSummary  compliance.RollupSummary     `json:"compliance_summary"`
 	PrivilegeBudget    agginventory.PrivilegeBudget `json:"privilege_budget"`
 	Summary            reportcore.Summary           `json:"summary"`
 	MDPath             string                       `json:"md_path,omitempty"`
@@ -125,6 +128,13 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		if isArtifactPathError(err) {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 		}
+		if reportcore.IsComplianceSummaryError(err) {
+			return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", err.Error(), exitPolicyViolation)
+		}
+		var pathErr *os.PathError
+		if errors.As(err, &pathErr) {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		}
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 
@@ -148,6 +158,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		TotalTools:         totalTools,
 		ToolTypeBreakdown:  typeBreakdown,
 		ComplianceGapCount: profileGapCount(snapshot),
+		ComplianceSummary:  summary.ComplianceSummary,
 		PrivilegeBudget:    summary.PrivilegeBudget,
 		Summary:            summary,
 	}
@@ -161,6 +172,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if *explain {
 		_, _ = fmt.Fprintf(stdout, "wrkr report template=%s share_profile=%s top=%d score=%.2f grade=%s\n", summary.Template, summary.ShareProfile, len(top), summary.Headline.Score, summary.Headline.Grade)
+		for _, line := range compliance.ExplainRollupSummary(summary.ComplianceSummary, 3) {
+			_, _ = fmt.Fprintf(stdout, "compliance: %s\n", line)
+		}
 		if payload.MDPath != "" {
 			_, _ = fmt.Fprintf(stdout, "md: %s\n", payload.MDPath)
 		}

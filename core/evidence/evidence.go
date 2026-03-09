@@ -134,6 +134,10 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := validateSnapshot(snapshot); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
+	complianceSummary, err := compliance.BuildRollupSummary(snapshot.Findings, chain)
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build compliance summary: %w", err)
+	}
 	outputDir := strings.TrimSpace(in.OutputDir)
 	if outputDir == "" {
 		outputDir = "wrkr-evidence"
@@ -161,6 +165,14 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := writeJSON(filepath.Join(outputDir, "inventory-snapshot.json"), snapshot.Inventory); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
+	if snapshot.Target.Mode == "my_setup" {
+		if err := writeJSON(filepath.Join(outputDir, "personal-inventory-snapshot.json"), map[string]any{
+			"target":    snapshot.Target,
+			"inventory": snapshot.Inventory,
+		}); err != nil {
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+		}
+	}
 	if err := writeJSON(filepath.Join(outputDir, "risk-report.json"), snapshot.RiskReport); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
@@ -170,6 +182,9 @@ func Build(in BuildInput) (BuildResult, error) {
 		}
 	}
 	if err := writeJSON(filepath.Join(outputDir, "profile-compliance.json"), snapshot.Profile); err != nil {
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+	}
+	if err := writeJSON(filepath.Join(outputDir, "compliance-summary.json"), complianceSummary); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSON(filepath.Join(outputDir, "posture-score.json"), snapshot.PostureScore); err != nil {
@@ -202,6 +217,12 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write deterministic report summary: %w", err)
 	}
 	reportArtifacts = append(reportArtifacts, auditReportPath)
+	mcpCatalog := reportcore.BuildMCPList(snapshot, generatedAt, "", false)
+	if len(mcpCatalog.Rows) > 0 {
+		if err := writeJSON(filepath.Join(outputDir, "mcp-catalog.json"), mcpCatalog); err != nil {
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+		}
+	}
 
 	proofRecordsDir := filepath.Join(outputDir, "proof-records")
 	if err := os.MkdirAll(proofRecordsDir, 0o750); err != nil {

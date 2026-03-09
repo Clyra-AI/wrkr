@@ -63,6 +63,7 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	want := []string{
 		"agent_privilege_map",
 		"attack_paths",
+		"compliance_summary",
 		"findings",
 		"inventory",
 		"posture_score",
@@ -89,6 +90,14 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	}
 	if _, ok := inventoryPayload["agents"].([]any); !ok {
 		t.Fatalf("expected inventory.agents array, got %T", inventoryPayload["agents"])
+	}
+
+	complianceSummary, ok := payload["compliance_summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected compliance_summary object in payload, got %T", payload["compliance_summary"])
+	}
+	if _, ok := complianceSummary["frameworks"].([]any); !ok {
+		t.Fatalf("expected compliance_summary.frameworks array, got %T", complianceSummary["frameworks"])
 	}
 }
 

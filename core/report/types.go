@@ -4,6 +4,7 @@ import (
 	"time"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -51,22 +52,23 @@ type BuildInput struct {
 }
 
 type Summary struct {
-	SummaryVersion  string                       `json:"summary_version"`
-	GeneratedAt     string                       `json:"generated_at"`
-	Template        string                       `json:"template"`
-	ShareProfile    string                       `json:"share_profile"`
-	SectionOrder    []string                     `json:"section_order"`
-	Sections        []Section                    `json:"sections"`
-	Headline        Headline                     `json:"headline"`
-	Methodology     Methodology                  `json:"methodology"`
-	TopRisks        []RiskItem                   `json:"top_risks"`
-	PrivilegeBudget agginventory.PrivilegeBudget `json:"privilege_budget"`
-	Deltas          DeltaSummary                 `json:"deltas"`
-	Lifecycle       LifecycleSummary             `json:"lifecycle"`
-	RegressDrift    *RegressSummary              `json:"regress_drift,omitempty"`
-	AttackPaths     AttackPathSummary            `json:"attack_paths"`
-	Proof           ProofReference               `json:"proof"`
-	NextActions     []ChecklistItem              `json:"next_actions"`
+	SummaryVersion    string                       `json:"summary_version"`
+	GeneratedAt       string                       `json:"generated_at"`
+	Template          string                       `json:"template"`
+	ShareProfile      string                       `json:"share_profile"`
+	SectionOrder      []string                     `json:"section_order"`
+	Sections          []Section                    `json:"sections"`
+	Headline          Headline                     `json:"headline"`
+	Methodology       Methodology                  `json:"methodology"`
+	TopRisks          []RiskItem                   `json:"top_risks"`
+	PrivilegeBudget   agginventory.PrivilegeBudget `json:"privilege_budget"`
+	Deltas            DeltaSummary                 `json:"deltas"`
+	Lifecycle         LifecycleSummary             `json:"lifecycle"`
+	RegressDrift      *RegressSummary              `json:"regress_drift,omitempty"`
+	AttackPaths       AttackPathSummary            `json:"attack_paths"`
+	ComplianceSummary compliance.RollupSummary     `json:"compliance_summary"`
+	Proof             ProofReference               `json:"proof"`
+	NextActions       []ChecklistItem              `json:"next_actions"`
 }
 
 type AttackPathSummary struct {

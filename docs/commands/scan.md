@@ -70,11 +70,12 @@ wrkr scan --org acme --github-api https://api.github.com --json
 wrkr scan --my-setup --json
 ```
 
-Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, and optional `report` when summary output is requested.
+Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, and optional `report` when summary output is requested.
 For local-machine scans, `target.mode` is `my_setup`.
 `detector_errors` is included when non-fatal detector failures occur and partial scan results are preserved.
 `partial_result`, `source_errors`, and `source_degraded` are included when source acquisition/materialization has non-fatal failures.
 `sarif.path` is included when `--sarif` output is requested.
+`compliance_summary.frameworks[*].controls[*]` emits deterministic framework/control rollups with `mapped_rule_ids`, `finding_count`, and proof-derived coverage status.
 `inventory.methodology` emits machine-readable scan metadata (`wrkr_version`, timing, repo/file counts, detector inventory).
 `inventory.agents` is always present (possibly empty) and is deterministically sorted by org/framework/instance/location; agent entries may include additive `location_range` when parser metadata is available.
 `ranked_findings[*]` and `attack_paths[*]` now include deterministic agent-aware amplification and edge rationale when agent declarations expose deployment, delegation, dynamic discovery, or bound tool/data/auth/deploy chains.
@@ -118,6 +119,8 @@ production_write = has_any(write_permissions) AND matches_any_production_target
 ```
 
 Every discovered entity now emits `discovery_method: static` in both `findings` and `inventory.tools` for deterministic v1 schema compatibility.
+
+`--explain` also emits short compliance rollup lines derived from the same machine-readable `compliance_summary` contract.
 
 Emerging discovery surfaces are static-only in default deterministic mode:
 

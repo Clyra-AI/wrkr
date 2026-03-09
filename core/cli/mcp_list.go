@@ -38,7 +38,7 @@ func runMCPList(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 
-	payload := reportcore.BuildMCPList(snapshot, reportcore.ResolveGeneratedAtForCLI(snapshot, time.Time{}), *gaitTrustPath)
+	payload := reportcore.BuildMCPList(snapshot, reportcore.ResolveGeneratedAtForCLI(snapshot, time.Time{}), *gaitTrustPath, true)
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(payload)
 		return exitSuccess
