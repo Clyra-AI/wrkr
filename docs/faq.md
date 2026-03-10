@@ -21,7 +21,7 @@ No. Core operation is local and file-based by default.
 
 ### Does Wrkr require setup for repo or org scans?
 
-`--path` is the zero-integration first-value path. Hosted `--repo` and `--org` scans require explicit GitHub API configuration via `--github-api` or `WRKR_GITHUB_API_BASE`.
+`--path` is the zero-integration first-value path. Hosted `--repo` and `--org` scans require explicit GitHub API configuration via `--github-api` or `WRKR_GITHUB_API_BASE`, and they usually also need a GitHub token for private repos or to avoid public API rate limits. Token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 
 ### Does Wrkr replace runtime enforcement?
 

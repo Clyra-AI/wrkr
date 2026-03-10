@@ -12,6 +12,9 @@ wrkr evidence --frameworks eu-ai-act,soc2 --state ./.wrkr/last-scan.json --outpu
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
 
+Hosted repo/org scans typically need GitHub authentication for private repos or to avoid public API rate limits.
+Token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
+
 ## Expected JSON keys
 
 - `scan --github-org`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`

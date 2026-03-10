@@ -3,6 +3,7 @@ package report
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -103,5 +104,38 @@ func TestBuildMCPListCanDisableAmbientOverlayDiscovery(t *testing.T) {
 	}
 	if len(payload.Warnings) != 0 {
 		t.Fatalf("expected no ambient overlay warnings, got %v", payload.Warnings)
+	}
+}
+
+func TestBuildMCPListWarnsWhenKnownMCPDeclarationFilesFailToParse(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPList(state.Snapshot{
+		Findings: []source.Finding{
+			{
+				FindingType: "parse_error",
+				ToolType:    "claude",
+				Location:    ".claude/settings.json",
+				Repo:        "local-machine",
+				Org:         "local",
+			},
+			{
+				FindingType: "parse_error",
+				ToolType:    "codex",
+				Location:    ".codex/config.toml",
+				Repo:        "local-machine",
+				Org:         "local",
+			},
+		},
+	}, time.Time{}, "", false)
+
+	if len(payload.Rows) != 0 {
+		t.Fatalf("expected no MCP rows, got %d", len(payload.Rows))
+	}
+	if len(payload.Warnings) != 1 {
+		t.Fatalf("expected one warning, got %v", payload.Warnings)
+	}
+	if !strings.Contains(payload.Warnings[0], ".claude/settings.json") || !strings.Contains(payload.Warnings[0], ".codex/config.toml") {
+		t.Fatalf("expected warning to name suppressed MCP declaration paths, got %v", payload.Warnings)
 	}
 }

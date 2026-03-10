@@ -24,6 +24,8 @@ Run this after a saved state snapshot already exists from `wrkr scan`.
 
 Expected JSON keys: `status`, `generated_at`, `rows`, optional `warnings`.
 
+`warnings` is also used when Wrkr can prove the saved state may have incomplete MCP posture because known MCP-bearing declaration files failed to parse.
+
 Each row includes:
 
 - `server_name`

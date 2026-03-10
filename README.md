@@ -4,11 +4,13 @@
 [![CodeQL](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql)
 [![Nightly](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml/badge.svg?event=schedule)](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml)
 
-Wrkr gives individual developers and security teams the same deterministic first answer: what AI agents, MCP servers, and high-privilege tool configs are already present, and what changed since the last known-good snapshot. Start on your own machine with `wrkr scan --my-setup --json`, inspect saved MCP posture with `wrkr mcp-list`, then widen to `wrkr scan --github-org` and `wrkr inventory --diff` when you need the org view. Read-only. No runtime integration required.
+Wrkr gives individual developers and security teams the same deterministic first answer about supported repo, config, CI, and local-machine setup surfaces: what AI agents, MCP servers, and high-privilege tool configs are already present, and what changed since the last known-good snapshot. Start on your own machine with `wrkr scan --my-setup --json`, inspect saved MCP posture with `wrkr mcp-list`, then widen to `wrkr scan --github-org` and `wrkr inventory --diff` when you need the org view. Read-only. No runtime integration required.
 
 Local-machine discovery inventories supported user-home tool configs, MCP declarations, selected environment key presence, and local agent project markers without emitting raw secret values.
 
 Wrkr is the **See** layer in the Clyra AI governance stack (See -> Prove -> Control -> Build). It discovers AI tooling and agent declarations across repositories and orgs, scores posture, tracks identity lifecycle, and emits signed proof artifacts ready for compliance review or downstream automation.
+
+Wrkr's OSS default scope is static repo/config/CI and local-machine setup discovery. It does not claim browser extension, IdP grant, or GitHub App inventory in this default path.
 
 Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Browser bootstrap: [clyra-ai.github.io/wrkr/scan/](https://clyra-ai.github.io/wrkr/scan/) | Command contracts: [`docs/commands/`](docs/commands/) | Docs map: [`docs/map.md`](docs/map.md)
 
@@ -112,6 +114,8 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json
 ```
 
 `--github-org` is the additive alias for `--org`. `inventory --diff` is the ergonomic drift review surface and exits `5` when deterministic inventory drift is present.
+Hosted repo/org scans usually need GitHub authentication for private repos and to avoid public API rate limits.
+Token resolution order for `scan` is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 
 If you want a browser-first handoff before running the CLI yourself, use the read-only `/scan/` bootstrap shell on the docs site. It generates the org-scan handoff and projects returned JSON summaries without becoming a dashboard.
 
@@ -137,7 +141,7 @@ Canonical local path lifecycle for state, baseline, manifest, and proof chain: [
 
 ## What You Get
 
-### Complete AI tool inventory
+### Complete AI tool inventory for supported static surfaces
 
 Structured detection for Claude, Cursor, Codex, Copilot, MCP, skills, and CI agent execution patterns. Local offline scanning via `--path`. Fail-closed behavior for hosted acquisition modes.
 
