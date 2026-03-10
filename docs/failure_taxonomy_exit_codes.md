@@ -45,3 +45,7 @@ Exit code `5` indicates drift/regression against baseline and is the expected CI
 ### How should CI map Wrkr exit codes?
 
 Use code-based branching with non-zero fail semantics. Keep a simple rule: `0` pass, any non-zero fail, with code-specific remediation messaging.
+
+### What changed in `verify --chain` failure handling?
+
+`wrkr verify --chain --json` now fails with exit code `2` for malformed chains, structural integrity failures, and invalid/unreadable verifier-key material. When no verifier key exists, success remains possible only with explicit JSON status (`chain.verification_mode = chain_only`, `chain.authenticity_status = unavailable`).

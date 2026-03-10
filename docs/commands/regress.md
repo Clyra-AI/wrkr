@@ -40,5 +40,6 @@ Compatibility note:
 
 - `wrkr inventory` is the developer-facing wrapper for deterministic added/removed/changed inventory review from scan state.
 - `wrkr regress run` remains the approval/lifecycle drift gate with stable reason-code semantics for CI and policy workflows.
+- `v1` baselines created before instance identities are automatically reconciled against equivalent current identities at the same legacy anchor. Additional current instances beyond that legacy match still drift normally.
 
 Canonical state/baseline path behavior: [`docs/state_lifecycle.md`](../state_lifecycle.md).

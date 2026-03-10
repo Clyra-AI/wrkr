@@ -19,21 +19,25 @@ wrkr verify --chain --state ./.tmp/state.json --json
 - `chain`
 - `chain.intact`
 - `chain.head_hash`
+- `chain.verification_mode`
+- `chain.authenticity_status`
 
 ## Exit codes
 
 - `0`: chain intact
-- `2`: verification failure (including malformed-chain parse failures, chain read failures, and tamper/integrity failures)
+- `2`: verification failure (including malformed-chain parse failures, chain read failures, invalid verifier-key material, and tamper/integrity failures)
 
 ## Notes
 
-Proof verification is local and deterministic. Verification failures are blocking contract signals.
+Proof verification is local and deterministic. Wrkr now always performs structural chain verification even when attestation or signature material verifies successfully.
+If no verifier key exists, success remains possible only with explicit structural-only JSON status (`chain.verification_mode = chain_only`, `chain.authenticity_status = unavailable`).
+Verification failures are blocking contract signals.
 
 ## Q&A
 
 ### Which JSON keys should automation parse after verification?
 
-Parse success keys `status`, `chain`, `chain.intact`, and `chain.head_hash`. For failure handling in JSON mode, parse `error.code`, `error.reason`, and `error.exit_code`.
+Parse success keys `status`, `chain`, `chain.intact`, `chain.head_hash`, `chain.verification_mode`, and `chain.authenticity_status`. For failure handling in JSON mode, parse `error.code`, `error.reason`, and `error.exit_code`.
 
 ### What exit code indicates proof-chain failure?
 

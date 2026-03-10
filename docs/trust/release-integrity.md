@@ -40,6 +40,7 @@ scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/w
 
 Consumers should verify published release checksums and provenance metadata before promotion.
 Maintainers should treat changelog updates as release-gating documentation work, not an optional follow-up.
+When using `wrkr verify --chain --json` as a release/promotion gate, inspect `chain.verification_mode` and `chain.authenticity_status` in addition to exit code `0`; `chain_only/unavailable` is an explicit structural-only result, not authenticated proof verification.
 
 ## Q&A
 

@@ -8,6 +8,10 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/cli"
+	"github.com/Clyra-AI/wrkr/core/identity"
+	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -123,6 +127,68 @@ func TestE2ERegressRunIgnoresPolicyOnlyStateDelta(t *testing.T) {
 	}
 	if payload["drift_detected"] != false {
 		t.Fatalf("expected no drift for policy-only delta, got %v", payload)
+	}
+}
+
+func TestE2ERegressRunAcceptsLegacyBaselineForEquivalentInstanceIdentity(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	legacyStatePath := filepath.Join(tmp, "legacy-state.json")
+	statePath := filepath.Join(tmp, "state.json")
+	baselinePath := filepath.Join(tmp, "baseline.json")
+
+	finding := model.Finding{
+		FindingType:   "tool_config",
+		ToolType:      "agentframework",
+		Location:      ".wrkr/agents/research.yaml",
+		LocationRange: &model.LocationRange{StartLine: 12, EndLine: 24},
+		Org:           "acme",
+		Repo:          "backend",
+		Evidence:      []model.Evidence{{Key: "symbol", Value: "research_agent"}},
+	}
+	if err := state.Save(legacyStatePath, state.Snapshot{
+		Version:  state.SnapshotVersion,
+		Target:   source.Target{Mode: "path", Value: "legacy"},
+		Findings: []model.Finding{finding},
+	}); err != nil {
+		t.Fatalf("save legacy state: %v", err)
+	}
+
+	var initOut bytes.Buffer
+	var initErr bytes.Buffer
+	if code := cli.Run([]string{"regress", "init", "--baseline", legacyStatePath, "--output", baselinePath, "--json"}, &initOut, &initErr); code != 0 {
+		t.Fatalf("regress init failed: %d (%s)", code, initErr.String())
+	}
+
+	instanceToolID := identity.AgentInstanceID(finding.ToolType, finding.Location, "research_agent", 12, 24)
+	if err := state.Save(statePath, state.Snapshot{
+		Version:  state.SnapshotVersion,
+		Target:   source.Target{Mode: "path", Value: "current"},
+		Findings: []model.Finding{finding},
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       identity.AgentID(instanceToolID, "acme"),
+			ToolID:        instanceToolID,
+			Org:           "acme",
+			Status:        identity.StateUnderReview,
+			ApprovalState: "missing",
+			Present:       true,
+		}},
+	}); err != nil {
+		t.Fatalf("save current state: %v", err)
+	}
+
+	var runOut bytes.Buffer
+	var runErr bytes.Buffer
+	if code := cli.Run([]string{"regress", "run", "--baseline", baselinePath, "--state", statePath, "--json"}, &runOut, &runErr); code != 0 {
+		t.Fatalf("expected no drift for legacy baseline compatibility, got %d (%s)", code, runErr.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(runOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse regress run payload: %v", err)
+	}
+	if payload["drift_detected"] != false {
+		t.Fatalf("expected no drift for legacy baseline compatibility, got %v", payload)
 	}
 }
 

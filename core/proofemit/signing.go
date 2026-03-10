@@ -8,8 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	proof "github.com/Clyra-AI/proof"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 const envProofPrivateKey = "WRKR_PROOF_PRIVATE_KEY_B64"
@@ -21,6 +23,11 @@ type keyFile struct {
 	PublicKey  string `json:"public_key"`
 	PrivateKey string `json:"private_key"` // #nosec G117 -- deterministic local signing key material is intentionally persisted for offline proof signing.
 }
+
+var (
+	signingKeyInitLocksMu sync.Mutex
+	signingKeyInitLocks   = map[string]*sync.Mutex{}
+)
 
 func keyPath(statePath string) string {
 	dir := filepath.Dir(strings.TrimSpace(statePath))
@@ -46,27 +53,20 @@ func loadSigningKey(statePath string) (proof.SigningKey, error) {
 		return proof.SigningKey{Private: privateKey, Public: publicKey, KeyID: keyID}, nil
 	}
 
-	payload, err := os.ReadFile(path) // #nosec G304 -- path is a deterministic local wrkr key location under state directory.
-	if err == nil {
-		var stored keyFile
-		if err := json.Unmarshal(payload, &stored); err != nil {
-			return proof.SigningKey{}, fmt.Errorf("parse key file: %w", err)
-		}
-		privateKey, err := decodePrivateKey(stored.PrivateKey)
-		if err != nil {
-			return proof.SigningKey{}, fmt.Errorf("decode private key: %w", err)
-		}
-		publicKey, err := decodePublicKey(stored.PublicKey)
-		if err != nil {
-			return proof.SigningKey{}, fmt.Errorf("decode public key: %w", err)
-		}
-		if !publicKey.Equal(privateKey.Public().(ed25519.PublicKey)) {
-			return proof.SigningKey{}, fmt.Errorf("key file public key does not match private key")
-		}
-		return proof.SigningKey{Private: privateKey, Public: publicKey, KeyID: strings.TrimSpace(stored.KeyID)}, nil
+	if key, found, err := loadStoredSigningKey(path); found {
+		return key, err
+	} else if err != nil {
+		return proof.SigningKey{}, err
 	}
-	if !os.IsNotExist(err) {
-		return proof.SigningKey{}, fmt.Errorf("read key file: %w", err)
+
+	lock := signingKeyInitLock(path)
+	lock.Lock()
+	defer lock.Unlock()
+
+	if key, found, err := loadStoredSigningKey(path); found {
+		return key, err
+	} else if err != nil {
+		return proof.SigningKey{}, err
 	}
 
 	generated, err := proof.GenerateSigningKey()
@@ -86,7 +86,7 @@ func loadSigningKey(statePath string) (proof.SigningKey, error) {
 		return proof.SigningKey{}, fmt.Errorf("marshal key file: %w", err)
 	}
 	encoded = append(encoded, '\n')
-	if err := os.WriteFile(path, encoded, 0o600); err != nil {
+	if err := atomicwrite.WriteFile(path, encoded, 0o600); err != nil {
 		return proof.SigningKey{}, fmt.Errorf("write key file: %w", err)
 	}
 	return generated, nil
@@ -103,19 +103,12 @@ func loadPublicKey(statePath string) (proof.PublicKey, error) {
 	}
 
 	path := keyPath(statePath)
-	payload, err := os.ReadFile(path) // #nosec G304 -- path is a deterministic local wrkr key location under state directory.
-	if err != nil {
-		return proof.PublicKey{}, fmt.Errorf("read key file: %w", err)
+	if publicKey, found, err := loadStoredPublicKey(path); found {
+		return publicKey, err
+	} else if err != nil {
+		return proof.PublicKey{}, err
 	}
-	var stored keyFile
-	if err := json.Unmarshal(payload, &stored); err != nil {
-		return proof.PublicKey{}, fmt.Errorf("parse key file: %w", err)
-	}
-	publicKey, err := decodePublicKey(stored.PublicKey)
-	if err != nil {
-		return proof.PublicKey{}, fmt.Errorf("decode public key: %w", err)
-	}
-	return proof.PublicKey{Public: publicKey, KeyID: strings.TrimSpace(stored.KeyID)}, nil
+	return proof.PublicKey{}, fmt.Errorf("read key file: %w", os.ErrNotExist)
 }
 
 func decodePrivateKey(encoded string) (ed25519.PrivateKey, error) {
@@ -138,4 +131,62 @@ func decodePublicKey(encoded string) (ed25519.PublicKey, error) {
 		return nil, fmt.Errorf("invalid public key length %d", len(raw))
 	}
 	return ed25519.PublicKey(raw), nil
+}
+
+func loadStoredSigningKey(path string) (proof.SigningKey, bool, error) {
+	payload, err := os.ReadFile(path) // #nosec G304 -- path is a deterministic local wrkr key location under state directory.
+	if err != nil {
+		if os.IsNotExist(err) {
+			return proof.SigningKey{}, false, nil
+		}
+		return proof.SigningKey{}, true, fmt.Errorf("read key file: %w", err)
+	}
+	var stored keyFile
+	if err := json.Unmarshal(payload, &stored); err != nil {
+		return proof.SigningKey{}, true, fmt.Errorf("parse key file: %w", err)
+	}
+	privateKey, err := decodePrivateKey(stored.PrivateKey)
+	if err != nil {
+		return proof.SigningKey{}, true, fmt.Errorf("decode private key: %w", err)
+	}
+	publicKey, err := decodePublicKey(stored.PublicKey)
+	if err != nil {
+		return proof.SigningKey{}, true, fmt.Errorf("decode public key: %w", err)
+	}
+	if !publicKey.Equal(privateKey.Public().(ed25519.PublicKey)) {
+		return proof.SigningKey{}, true, fmt.Errorf("key file public key does not match private key")
+	}
+	return proof.SigningKey{Private: privateKey, Public: publicKey, KeyID: strings.TrimSpace(stored.KeyID)}, true, nil
+}
+
+func loadStoredPublicKey(path string) (proof.PublicKey, bool, error) {
+	payload, err := os.ReadFile(path) // #nosec G304 -- path is a deterministic local wrkr key location under state directory.
+	if err != nil {
+		if os.IsNotExist(err) {
+			return proof.PublicKey{}, false, nil
+		}
+		return proof.PublicKey{}, true, fmt.Errorf("read key file: %w", err)
+	}
+	var stored keyFile
+	if err := json.Unmarshal(payload, &stored); err != nil {
+		return proof.PublicKey{}, true, fmt.Errorf("parse key file: %w", err)
+	}
+	publicKey, err := decodePublicKey(stored.PublicKey)
+	if err != nil {
+		return proof.PublicKey{}, true, fmt.Errorf("decode public key: %w", err)
+	}
+	return proof.PublicKey{Public: publicKey, KeyID: strings.TrimSpace(stored.KeyID)}, true, nil
+}
+
+func signingKeyInitLock(path string) *sync.Mutex {
+	cleanPath := filepath.Clean(path)
+	signingKeyInitLocksMu.Lock()
+	defer signingKeyInitLocksMu.Unlock()
+	lock, ok := signingKeyInitLocks[cleanPath]
+	if ok {
+		return lock
+	}
+	lock = &sync.Mutex{}
+	signingKeyInitLocks[cleanPath] = lock
+	return lock
 }

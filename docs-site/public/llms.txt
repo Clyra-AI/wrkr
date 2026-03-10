@@ -43,7 +43,7 @@
 - Fail-closed handling for unsafe output paths and missing required dependencies.
 - Deterministic JSON contracts and stable exit-code semantics.
 - No secret-value extraction; only risk context signals.
-- Proof-chain verification support for evidence integrity checks.
+- Proof-chain verification support for evidence integrity checks; `verify --chain --json` reports `chain.verification_mode` and `chain.authenticity_status`, and invalid verifier-key material fails closed.
 - Local `--my-setup` and `--path` scans are the no-integration first-value paths; `--repo`, `--org`, and `--github-org` require explicit GitHub API configuration.
 - Low or zero `framework_coverage` reflects the controls currently evidenced in the scanned state, not missing parser support.
 - Evidence bundles include deterministic inventory artifacts: inventory.json, inventory-snapshot.json, inventory.yaml.

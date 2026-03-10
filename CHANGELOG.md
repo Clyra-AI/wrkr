@@ -16,7 +16,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- `wrkr verify --chain` now always performs structural chain verification even when attestation or signature material is present.
+- Invalid or unreadable verifier-key material now fails closed instead of silently downgrading to structural-only verification.
+- `wrkr regress run` now reconciles legacy `v1` baselines created before instance identities when the current identity is equivalent.
 
 ### Security
 
