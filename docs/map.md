@@ -17,6 +17,8 @@ This page defines where to edit and how to validate docs changes.
 
 Edit canonical documentation in repository markdown first (`README.md` + `docs/`), then update docs-site-specific projection files when needed.
 
+README first-screen or quickstart changes should also update the affected docs-site LLM projection files (`docs-site/public/llms.txt`, `docs-site/public/llm/*.md`) in the same change.
+
 ## Required validation bundle
 
 Run this bundle before merge when docs are touched:

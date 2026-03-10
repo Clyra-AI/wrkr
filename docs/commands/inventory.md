@@ -17,7 +17,7 @@ wrkr inventory --diff [--baseline <path>] [--state <path>] [--json]
 - `--diff`
 - `--baseline`
 
-## Example
+## Developer personal-hygiene example
 
 ```bash
 wrkr inventory --json
@@ -54,6 +54,14 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr
 - `--baseline` points to a prior Wrkr scan state snapshot.
 - When `--baseline` is omitted, Wrkr defaults to `.wrkr/inventory-baseline.json` beside the active state file.
 - The baseline file must be a machine-readable Wrkr scan state written by `wrkr scan --state ... --json` or copied from a previous `.wrkr/last-scan.json`.
+
+## Security-team org example
+
+```bash
+wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
+```
+
+Use this when platform or security teams want a deterministic change review over the latest saved org posture before deciding whether to escalate into `wrkr regress` or evidence generation.
 
 ## Compatibility relationship
 

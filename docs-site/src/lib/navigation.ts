@@ -12,6 +12,8 @@ export const navigation: NavItem[] = [
       { title: 'Start Here (Install)', href: '/docs/start-here' },
       { title: 'Adopt In One PR', href: '/docs/adopt_in_one_pr' },
       { title: 'Quickstart', href: '/docs/examples/quickstart' },
+      { title: 'Personal Machine Hygiene', href: '/docs/examples/personal-hygiene' },
+      { title: 'Security Team Workflow', href: '/docs/examples/security-team' },
       { title: 'Integration Checklist', href: '/docs/integration_checklist' },
       { title: 'Docs Source Map', href: '/docs/map' },
       { title: 'FAQ', href: '/docs/faq' },
@@ -86,6 +88,8 @@ export const navigation: NavItem[] = [
     children: [
       { title: 'Positioning', href: '/docs/positioning' },
       { title: 'Evidence Templates', href: '/docs/evidence_templates' },
+      { title: 'Personal Machine Hygiene', href: '/docs/examples/personal-hygiene' },
+      { title: 'Security Team Workflow', href: '/docs/examples/security-team' },
       { title: 'Operator Playbooks', href: '/docs/examples/operator-playbooks' },
     ],
   },

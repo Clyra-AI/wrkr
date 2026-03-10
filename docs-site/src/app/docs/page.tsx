@@ -15,6 +15,8 @@ const tracks = [
       { label: 'Start Here (Install)', href: '/docs/start-here' },
       { label: 'Adopt In One PR', href: '/docs/adopt_in_one_pr' },
       { label: 'Quickstart', href: '/docs/examples/quickstart' },
+      { label: 'Personal Machine Hygiene', href: '/docs/examples/personal-hygiene' },
+      { label: 'Security Team Workflow', href: '/docs/examples/security-team' },
       { label: 'Integration Checklist', href: '/docs/integration_checklist' },
       { label: 'Docs Source Map', href: '/docs/map' },
       { label: 'Command Index', href: '/docs/commands/index' },
@@ -59,6 +61,8 @@ const tracks = [
     title: 'Track 5: Positioning and Packaging',
     steps: [
       { label: 'Positioning', href: '/docs/positioning' },
+      { label: 'Personal Machine Hygiene', href: '/docs/examples/personal-hygiene' },
+      { label: 'Security Team Workflow', href: '/docs/examples/security-team' },
       { label: 'Evidence Templates', href: '/docs/evidence_templates' },
       { label: 'FAQ', href: '/docs/faq' },
       { label: 'Deterministic Guarantees', href: '/docs/trust/deterministic-guarantees' },

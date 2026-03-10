@@ -10,6 +10,9 @@ Stable contract surfaces include:
 Key command anchors:
 
 - `wrkr scan --json`
+- `wrkr scan --my-setup --json`
+- `wrkr mcp-list --json`
+- `wrkr inventory --diff --baseline <baseline-path> --json`
 - `wrkr evidence --frameworks <ids> --json`
 - `wrkr verify --chain --json`
 - `wrkr regress run --baseline <baseline-path> --json`

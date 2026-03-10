@@ -4,26 +4,13 @@
 [![CodeQL](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql)
 [![Nightly](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml/badge.svg?event=schedule)](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml)
 
-Most teams don't know what AI dev tools and agents are active across their repos, what permissions they have, or what changed since last week. Wrkr answers that in minutes. Start with a local `--path` scan for zero-integration first value, or scan a GitHub repo/org with explicit GitHub API configuration. Get ranked findings for tools and agents, then generate verifiable evidence bundles for audits. Read-only. No runtime integration required.
+Wrkr gives individual developers and security teams the same deterministic first answer: what AI agents, MCP servers, and high-privilege tool configs are already present, and what changed since the last known-good snapshot. Start on your own machine with `wrkr scan --my-setup --json`, inspect saved MCP posture with `wrkr mcp-list`, then widen to `wrkr scan --github-org` and `wrkr inventory --diff` when you need the org view. Read-only. No runtime integration required.
 
-Wrkr can also scan the local machine setup directly with `wrkr scan --my-setup --json` to inventory user-level AI tool configs, MCP declarations, selected environment key presence, and local agent project markers without emitting raw secret values.
+Local-machine discovery inventories supported user-home tool configs, MCP declarations, selected environment key presence, and local agent project markers without emitting raw secret values.
 
 Wrkr is the **See** layer in the Clyra AI governance stack (See -> Prove -> Control -> Build). It discovers AI tooling and agent declarations across repositories and orgs, scores posture, tracks identity lifecycle, and emits signed proof artifacts ready for compliance review or downstream automation.
 
 Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command contracts: [`docs/commands/`](docs/commands/) | Docs map: [`docs/map.md`](docs/map.md)
-
-## When To Use Wrkr
-
-- You need a deterministic inventory of AI development tools across repos or an org.
-- You need ranked risk findings and posture scoring you can trend over time.
-- You need file-based, verifiable evidence for audits or CI gates.
-- You need stable JSON and exit-code contracts for automation pipelines.
-
-## When Not To Use Wrkr
-
-- You need runtime enforcement at tool execution boundaries (that is Gait, the Control layer).
-- You need live network telemetry as your primary signal.
-- You need probabilistic or LLM-based scoring in the scan or evidence path.
 
 ## Install
 
@@ -66,44 +53,85 @@ Common locations:
 
 ## First 10 Minutes (Offline, No Setup)
 
-Run the full scan-to-evidence workflow locally against the bundled scenarios:
+### 1. Inspect your own machine first
 
 ```bash
-# Build local CLI
-make build
-
-# Point at a local target
-./.tmp/wrkr init --non-interactive --path ./scenarios/wrkr/scan-mixed-org/repos --json
-
-# Scan, rank, and score posture
-./.tmp/wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --json
-./.tmp/wrkr report --top 5 --json
-./.tmp/wrkr score --json
-
-# Generate and verify evidence
-./.tmp/wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json
-./.tmp/wrkr verify --chain --json
-
-# Baseline and drift gate
-./.tmp/wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
-./.tmp/wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --json
+wrkr scan --my-setup --json
+wrkr mcp-list --state ./.wrkr/last-scan.json --json
 ```
 
-Expected JSON keys by command family:
+Abbreviated personal-setup output example:
 
-- `scan`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score` (optional: `detector_errors`, `partial_result`, `source_errors`, `source_degraded`, `policy_warnings`, `report`, `sarif`)
-- `report`: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `privilege_budget`, `summary` (optional: `md_path`, `pdf_path`)
-- `score`: `score`, `grade`, `breakdown`, `weighted_breakdown`, `weights`, `trend_delta` (optional: `attack_paths`, `top_attack_paths`)
-- `evidence`: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`, `report_artifacts`
-- `verify`: `chain.intact`, `chain.head_hash`
-- `regress run`: deterministic drift status and reason fields
+```json
+{
+  "status": "ok",
+  "target": {
+    "mode": "my_setup"
+  },
+  "top_findings": [
+    {
+      "risk_score": 9.4,
+      "finding": {
+        "severity": "high",
+        "tool_type": "mcp_server",
+        "location": "~/.claude.json",
+        "permissions": [
+          "fs.write",
+          "shell"
+        ]
+      }
+    },
+    {
+      "risk_score": 7.2,
+      "finding": {
+        "severity": "medium",
+        "tool_type": "env_secret_presence",
+        "location": "process:env"
+      }
+    },
+    {
+      "risk_score": 6.8,
+      "finding": {
+        "severity": "medium",
+        "tool_type": "agent_project",
+        "location": "~/Projects/payments-bot/AGENTS.md"
+      }
+    }
+  ]
+}
+```
 
-Prompt-channel findings are emitted deterministically with stable reason codes and evidence hashes (no raw secret extraction).  
-When `scan --enrich` is enabled, MCP findings include enrich provenance and quality fields (`source`, `as_of`, `advisory_count`, `registry_status`, `enrich_quality`, schema IDs, and adapter error classes).
-Evidence bundles include deterministic inventory artifacts at `inventory.json`, `inventory-snapshot.json`, and `inventory.yaml`.
-Evidence framework IDs are normalized to upstream `Clyra-AI/proof` IDs in output (`eu-ai-act`, `pci-dss`); underscore aliases such as `eu_ai_act` and `pci_dss` are accepted as input.
-Bundled scenarios can produce low initial `framework_coverage` values until approvals and controls are documented in the scanned state. Treat that as an evidence gap to close, not as a parser or product failure.
+This is the fastest developer-machine hygiene pass: local, deterministic, and secret-safe.
+
+### 2. Hand off to org posture when you are ready
+
+```bash
+wrkr scan --github-org acme --github-api https://api.github.com --json
+cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
+wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json
+```
+
+`--github-org` is the additive alias for `--org`. `inventory --diff` is the ergonomic drift review surface and exits `5` when deterministic inventory drift is present.
+
+### 3. Need the full scan-to-evidence walkthrough?
+
+Use [`docs/examples/quickstart.md`](docs/examples/quickstart.md) for the repo/org workflow that continues into `wrkr evidence`, `wrkr verify`, and `wrkr regress`.
+Persona guides: [`docs/examples/personal-hygiene.md`](docs/examples/personal-hygiene.md) for developers and [`docs/examples/security-team.md`](docs/examples/security-team.md) for security/compliance handoff.
+
 Canonical local path lifecycle for state, baseline, manifest, and proof chain: [`docs/state_lifecycle.md`](docs/state_lifecycle.md).
+
+## When To Use Wrkr
+
+- You need a deterministic inventory of AI development tools across a machine, repo, or org.
+- You need ranked risk findings and posture scoring you can trend over time.
+- You need file-based, verifiable evidence for audits or CI gates.
+- You need stable JSON and exit-code contracts for automation pipelines.
+
+## When Not To Use Wrkr
+
+- You need runtime enforcement at tool execution boundaries (that is Gait, the Control layer).
+- You need live network telemetry as your primary signal.
+- You need probabilistic or LLM-based scoring in the scan or evidence path.
 
 ## What You Get
 
