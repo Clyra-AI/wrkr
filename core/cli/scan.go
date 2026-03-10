@@ -96,7 +96,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		)
 	}
 
-	loadedCfg, hasLoadedCfg, cfgLoadErr := loadOptionalScanConfig(*configPathFlag)
+	hasExplicitTarget := strings.TrimSpace(*repo) != "" || strings.TrimSpace(*orgTarget) != "" || strings.TrimSpace(*githubOrgTarget) != "" || strings.TrimSpace(*pathTarget) != "" || *mySetup
+	loadedCfg, hasLoadedCfg, cfgLoadErr := loadOptionalScanConfig(*configPathFlag, hasExplicitTarget)
 	if cfgLoadErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", cfgLoadErr.Error(), exitRuntime)
 	}
@@ -472,7 +473,7 @@ func resolveScanGitHubToken(explicit string, cfg config.Config) string {
 	return ""
 }
 
-func loadOptionalScanConfig(configPath string) (config.Config, bool, error) {
+func loadOptionalScanConfig(configPath string, hasExplicitTarget bool) (config.Config, bool, error) {
 	resolvedPath, err := config.ResolvePath(configPath)
 	if err != nil {
 		return config.Config{}, false, err
@@ -480,6 +481,9 @@ func loadOptionalScanConfig(configPath string) (config.Config, bool, error) {
 	cfg, err := config.Load(resolvedPath)
 	if err == nil {
 		return cfg, true, nil
+	}
+	if hasExplicitTarget && strings.TrimSpace(configPath) == "" {
+		return config.Config{}, false, nil
 	}
 	if errors.Is(err, os.ErrNotExist) && strings.TrimSpace(configPath) == "" && strings.TrimSpace(os.Getenv("WRKR_CONFIG_PATH")) == "" {
 		return config.Config{}, false, nil
