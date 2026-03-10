@@ -2,9 +2,11 @@ package verify
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -111,6 +113,62 @@ func TestChainMatchesProofVerifierOnHeadHashMismatch(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, expected) {
 		t.Fatalf("unexpected verify result\nwant=%+v\ngot=%+v", expected, got)
+	}
+}
+
+func TestVerifyChainStructureMatchesProofVerifier(t *testing.T) {
+	previousGOMAXPROCS := runtime.GOMAXPROCS(2)
+	t.Cleanup(func() {
+		runtime.GOMAXPROCS(previousGOMAXPROCS)
+	})
+
+	cases := []struct {
+		name   string
+		mutate func(*proof.Chain)
+	}{
+		{name: "intact"},
+		{
+			name: "previous_hash_mismatch",
+			mutate: func(chain *proof.Chain) {
+				chain.Records[128].Integrity.PreviousRecordHash = "sha256:tampered"
+			},
+		},
+		{
+			name: "record_hash_mismatch",
+			mutate: func(chain *proof.Chain) {
+				chain.Records[128].Integrity.RecordHash = "sha256:tampered"
+			},
+		},
+		{
+			name: "head_hash_mismatch",
+			mutate: func(chain *proof.Chain) {
+				chain.HeadHash = "sha256:tampered"
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			chain := proof.NewChain("wrkr-proof")
+			for i := 0; i < 256; i++ {
+				appendRecord(t, chain, "scan_finding", map[string]any{"finding_type": fmt.Sprintf("policy_violation_%03d", i)})
+			}
+			if tc.mutate != nil {
+				tc.mutate(chain)
+			}
+
+			got, err := verifyChainStructure(chain)
+			if err != nil {
+				t.Fatalf("verify chain structure: %v", err)
+			}
+			want, err := proof.VerifyChain(chain)
+			if err != nil {
+				t.Fatalf("proof verify chain: %v", err)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("unexpected verification\nwant=%+v\ngot=%+v", want, got)
+			}
+		})
 	}
 }
 

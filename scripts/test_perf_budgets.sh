@@ -52,8 +52,9 @@ for name, contract in bench_entries.items():
 
 wrkr_bin = root / '.tmp' / 'wrkr'
 wrkr_bin.parent.mkdir(parents=True, exist_ok=True)
-if not wrkr_bin.exists():
-    subprocess.run(['go', 'build', '-o', str(wrkr_bin), './cmd/wrkr'], cwd=root, check=True)
+# Always rebuild the CLI under test so perf gates measure the current workspace,
+# not a stale binary left behind by a previous run.
+subprocess.run(['go', 'build', '-o', str(wrkr_bin), './cmd/wrkr'], cwd=root, check=True)
 
 
 def timed_run(cmd):

@@ -61,7 +61,7 @@ func SaveChain(path string, chain *proof.Chain) error {
 	if chain == nil {
 		return fmt.Errorf("chain is required")
 	}
-	payload, err := json.MarshalIndent(chain, "", "  ")
+	payload, err := json.Marshal(chain)
 	if err != nil {
 		return fmt.Errorf("marshal proof chain: %w", err)
 	}
