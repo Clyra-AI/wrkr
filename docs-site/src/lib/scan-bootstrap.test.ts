@@ -6,8 +6,10 @@ import {
   buildBootstrapRequest,
   buildCLICommand,
   buildDemoHref,
+  isValidGitHubOrg,
   projectSummaryArtifact,
   resolveBootstrapState,
+  scanTargetOrg,
 } from './scan-bootstrap';
 
 test('buildBootstrapRequest returns a versioned read-only contract', () => {
@@ -25,6 +27,14 @@ test('buildCLICommand and demo links stay deterministic', () => {
   assert.equal(buildCLICommand('acme'), 'wrkr scan --github-org acme --github-api https://api.github.com --json');
   assert.equal(buildDemoHref('acme', 'success'), '/scan?org=acme&demo=success');
   assert.equal(buildDemoHref('acme', 'denied'), '/scan?org=acme&error=denied');
+});
+
+test('invalid org values do not flow into generated handoff snippets', () => {
+  assert.equal(isValidGitHubOrg('acme-platform'), true);
+  assert.equal(isValidGitHubOrg('acme; rm -rf /'), false);
+  assert.equal(scanTargetOrg('acme; rm -rf /'), 'acme');
+  assert.equal(buildCLICommand('acme; rm -rf /'), 'wrkr scan --github-org acme --github-api https://api.github.com --json');
+  assert.equal(buildDemoHref('acme; rm -rf /', 'success'), '/scan?org=acme&demo=success');
 });
 
 test('projectSummaryArtifact accepts Wrkr org scan JSON', () => {

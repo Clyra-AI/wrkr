@@ -121,17 +121,29 @@ export const DEMO_ACTION_PAYLOAD = {
   compliance_percent: 88,
 } as const;
 
+const GITHUB_ORG_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+
 export function normalizeOrg(input?: string): string {
   const trimmed = (input ?? '').trim();
   return trimmed === '' ? DEMO_ORG : trimmed;
 }
 
+export function isValidGitHubOrg(input?: string): boolean {
+  const normalized = normalizeOrg(input);
+  return GITHUB_ORG_RE.test(normalized);
+}
+
+export function scanTargetOrg(input?: string): string {
+  const normalized = normalizeOrg(input);
+  return isValidGitHubOrg(normalized) ? normalized : DEMO_ORG;
+}
+
 export function buildCLICommand(org: string): string {
-  return `wrkr scan --github-org ${normalizeOrg(org)} --github-api https://api.github.com --json`;
+  return `wrkr scan --github-org ${scanTargetOrg(org)} --github-api https://api.github.com --json`;
 }
 
 export function buildActionWorkflow(org: string): string {
-  const targetOrg = normalizeOrg(org);
+  const targetOrg = scanTargetOrg(org);
   return `name: wrkr-org-bootstrap
 on:
   workflow_dispatch:
@@ -151,7 +163,7 @@ jobs:
 }
 
 export function buildBootstrapRequest(org: string, handoffMode: HandoffMode): BootstrapRequest {
-  const targetOrg = normalizeOrg(org);
+  const targetOrg = scanTargetOrg(org);
   return {
     schema_id: 'wrkr.web.bootstrap_request',
     schema_version: '1.0.0',
@@ -181,7 +193,7 @@ export function buildDemoHref(
   org: string,
   demo: 'success' | 'denied' | 'missing_state' | 'backend_unavailable',
 ): string {
-  const encodedOrg = encodeURIComponent(normalizeOrg(org));
+  const encodedOrg = encodeURIComponent(scanTargetOrg(org));
   if (demo === 'success') {
     return `/scan?org=${encodedOrg}&demo=success`;
   }

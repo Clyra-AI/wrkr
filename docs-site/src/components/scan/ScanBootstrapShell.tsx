@@ -11,8 +11,10 @@ import {
   buildDemoHref,
   buildActionWorkflow,
   buildCLICommand,
+  isValidGitHubOrg,
   normalizeOrg,
   resolveBootstrapState,
+  scanTargetOrg,
   type HandoffMode,
 } from '@/lib/scan-bootstrap';
 
@@ -28,7 +30,9 @@ export default function ScanBootstrapShell() {
   const [handoffMode, setHandoffMode] = useState<HandoffMode>('cli');
   const [artifactInput, setArtifactInput] = useState('');
 
-  const org = normalizeOrg(orgInput);
+  const normalizedOrg = normalizeOrg(orgInput);
+  const org = scanTargetOrg(normalizedOrg);
+  const hasInvalidOrg = !isValidGitHubOrg(normalizedOrg);
   const request = buildBootstrapRequest(org, handoffMode);
   const state = resolveBootstrapState(searchParams, { artifactText: artifactInput, org });
 
@@ -80,6 +84,11 @@ export default function ScanBootstrapShell() {
               placeholder={DEMO_ORG}
             />
           </label>
+          {hasInvalidOrg ? (
+            <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+              GitHub org values must use letters, numbers, and internal hyphens only. The generated handoff uses `{org}` until the input is valid.
+            </p>
+          ) : null}
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <button
