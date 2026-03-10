@@ -56,6 +56,25 @@ func TestParseJSONFileRejectsTrailingTopLevelDocument(t *testing.T) {
 	}
 }
 
+func TestParseJSONFileAllowUnknownFields(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "cfg.json")
+	if err := os.WriteFile(path, []byte(`{"name":"ok","extra":true}`), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var parsed jsonFixture
+	parseErr := ParseJSONFileAllowUnknownFields("detector", root, "cfg.json", &parsed)
+	if parseErr != nil {
+		t.Fatalf("expected no parse error, got %#v", parseErr)
+	}
+	if parsed.Name != "ok" {
+		t.Fatalf("unexpected parsed result: %#v", parsed)
+	}
+}
+
 func TestParseYAMLFileStrictUnknownField(t *testing.T) {
 	t.Parallel()
 
@@ -75,6 +94,25 @@ func TestParseYAMLFileStrictUnknownField(t *testing.T) {
 	}
 }
 
+func TestParseYAMLFileAllowUnknownFields(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "cfg.yaml")
+	if err := os.WriteFile(path, []byte("enabled: true\nextra: 1\n"), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var parsed yamlFixture
+	parseErr := ParseYAMLFileAllowUnknownFields("detector", root, "cfg.yaml", &parsed)
+	if parseErr != nil {
+		t.Fatalf("expected no parse error, got %#v", parseErr)
+	}
+	if !parsed.Enabled {
+		t.Fatalf("unexpected parsed result: %#v", parsed)
+	}
+}
+
 func TestParseTOMLFileStrictUnknownField(t *testing.T) {
 	t.Parallel()
 
@@ -91,5 +129,24 @@ func TestParseTOMLFileStrictUnknownField(t *testing.T) {
 	}
 	if parseErr.Format != "toml" {
 		t.Fatalf("unexpected parse error format: %#v", parseErr)
+	}
+}
+
+func TestParseTOMLFileAllowUnknownFields(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "cfg.toml")
+	if err := os.WriteFile(path, []byte("name = \"ok\"\nextra = true\n"), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var parsed tomlFixture
+	parseErr := ParseTOMLFileAllowUnknownFields("detector", root, "cfg.toml", &parsed)
+	if parseErr != nil {
+		t.Fatalf("expected no parse error, got %#v", parseErr)
+	}
+	if parsed.Name != "ok" {
+		t.Fatalf("unexpected parsed result: %#v", parsed)
 	}
 }

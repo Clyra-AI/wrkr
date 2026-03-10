@@ -53,7 +53,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			continue
 		}
 		var parsed settingsFile
-		if parseErr := detect.ParseJSONFile(detectorID, scope.Root, rel, &parsed); parseErr != nil {
+		if parseErr := detect.ParseJSONFileAllowUnknownFields(detectorID, scope.Root, rel, &parsed); parseErr != nil {
 			findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			continue
 		}

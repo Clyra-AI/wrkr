@@ -232,6 +232,45 @@ func TestMCPListWithoutGaitDegradesExplicitly(t *testing.T) {
 	}
 }
 
+func TestMCPListWarnsWhenKnownMCPDeclarationFilesFailedToParse(t *testing.T) {
+	t.Parallel()
+
+	statePath := writeWave2State(t, state.Snapshot{
+		Findings: []source.Finding{
+			{
+				FindingType: "parse_error",
+				Severity:    model.SeverityMedium,
+				ToolType:    "claude",
+				Location:    ".claude/settings.json",
+				Repo:        "local-machine",
+				Org:         "local",
+			},
+		},
+	})
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"mcp-list", "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("mcp-list failed: code=%d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse mcp-list payload: %v", err)
+	}
+	rows, ok := payload["rows"].([]any)
+	if !ok || len(rows) != 0 {
+		t.Fatalf("expected zero rows, got %v", payload["rows"])
+	}
+	warnings, ok := payload["warnings"].([]any)
+	if !ok || len(warnings) == 0 {
+		t.Fatalf("expected MCP visibility warning, got %v", payload["warnings"])
+	}
+	if got := warnings[0].(string); !strings.Contains(got, ".claude/settings.json") {
+		t.Fatalf("expected warning to mention known MCP declaration path, got %q", got)
+	}
+}
+
 func writeWave2State(t *testing.T, snapshot state.Snapshot) string {
 	t.Helper()
 

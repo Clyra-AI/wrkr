@@ -17,6 +17,14 @@ import (
 )
 
 func ParseJSONFile(detectorID, root, rel string, dst any) *model.ParseError {
+	return parseJSONFile(detectorID, root, rel, dst, false)
+}
+
+func ParseJSONFileAllowUnknownFields(detectorID, root, rel string, dst any) *model.ParseError {
+	return parseJSONFile(detectorID, root, rel, dst, true)
+}
+
+func parseJSONFile(detectorID, root, rel string, dst any, allowUnknownFields bool) *model.ParseError {
 	payload, parseErr := readFile(root, rel)
 	if parseErr != nil {
 		parseErr.Format = "json"
@@ -24,7 +32,9 @@ func ParseJSONFile(detectorID, root, rel string, dst any) *model.ParseError {
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(payload))
-	decoder.DisallowUnknownFields()
+	if !allowUnknownFields {
+		decoder.DisallowUnknownFields()
+	}
 	if err := decoder.Decode(dst); err != nil {
 		return newParseError(detectorID, rel, "json", err)
 	}
@@ -39,6 +49,14 @@ func ParseJSONFile(detectorID, root, rel string, dst any) *model.ParseError {
 }
 
 func ParseYAMLFile(detectorID, root, rel string, dst any) *model.ParseError {
+	return parseYAMLFile(detectorID, root, rel, dst, false)
+}
+
+func ParseYAMLFileAllowUnknownFields(detectorID, root, rel string, dst any) *model.ParseError {
+	return parseYAMLFile(detectorID, root, rel, dst, true)
+}
+
+func parseYAMLFile(detectorID, root, rel string, dst any, allowUnknownFields bool) *model.ParseError {
 	payload, parseErr := readFile(root, rel)
 	if parseErr != nil {
 		parseErr.Format = "yaml"
@@ -46,7 +64,9 @@ func ParseYAMLFile(detectorID, root, rel string, dst any) *model.ParseError {
 	}
 
 	decoder := yaml.NewDecoder(bytes.NewReader(payload))
-	decoder.KnownFields(true)
+	if !allowUnknownFields {
+		decoder.KnownFields(true)
+	}
 	if err := decoder.Decode(dst); err != nil {
 		return newParseError(detectorID, rel, "yaml", err)
 	}
@@ -60,6 +80,14 @@ func ParseYAMLFile(detectorID, root, rel string, dst any) *model.ParseError {
 }
 
 func ParseTOMLFile(detectorID, root, rel string, dst any) *model.ParseError {
+	return parseTOMLFile(detectorID, root, rel, dst, false)
+}
+
+func ParseTOMLFileAllowUnknownFields(detectorID, root, rel string, dst any) *model.ParseError {
+	return parseTOMLFile(detectorID, root, rel, dst, true)
+}
+
+func parseTOMLFile(detectorID, root, rel string, dst any, allowUnknownFields bool) *model.ParseError {
 	payload, parseErr := readFile(root, rel)
 	if parseErr != nil {
 		parseErr.Format = "toml"
@@ -71,7 +99,7 @@ func ParseTOMLFile(detectorID, root, rel string, dst any) *model.ParseError {
 		return newParseError(detectorID, rel, "toml", err)
 	}
 	undecoded := meta.Undecoded()
-	if len(undecoded) > 0 {
+	if !allowUnknownFields && len(undecoded) > 0 {
 		parts := make([]string, 0, len(undecoded))
 		for _, item := range undecoded {
 			parts = append(parts, item.String())

@@ -96,13 +96,18 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		)
 	}
 
+	loadedCfg, hasLoadedCfg, cfgLoadErr := loadOptionalScanConfig(*configPathFlag)
+	if cfgLoadErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", cfgLoadErr.Error(), exitRuntime)
+	}
 	targetMode, targetValue, cfg, err := resolveScanTarget(*repo, *orgTarget, *githubOrgTarget, *pathTarget, *mySetup, *configPathFlag)
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 	}
-	if cfg.Auth.Scan.Token != "" && strings.TrimSpace(*githubToken) == "" {
-		*githubToken = cfg.Auth.Scan.Token
+	if hasLoadedCfg {
+		cfg.Auth = loadedCfg.Auth
 	}
+	*githubToken = resolveScanGitHubToken(*githubToken, cfg)
 	if *enrich && strings.TrimSpace(*githubBaseURL) == "" {
 		return emitError(
 			stderr,
@@ -329,6 +334,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if len(detectorErrors) > 0 {
 		payload["detector_errors"] = detectorErrors
 	}
+	if warnings := reportcore.MCPVisibilityWarnings(findings); len(warnings) > 0 {
+		payload["warnings"] = warnings
+	}
 	if len(productionTargetWarnings) > 0 {
 		payload["policy_warnings"] = append([]string(nil), productionTargetWarnings...)
 	}
@@ -446,6 +454,47 @@ func emitScanRuntimeError(stderr io.Writer, jsonOut bool, err error) int {
 	case isMaterializedRootSafetyError(err):
 		return emitError(stderr, jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
 	default:
-		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		return emitError(stderr, jsonOut, "runtime_failure", scanRuntimeErrorMessage(err), exitRuntime)
 	}
+}
+
+func resolveScanGitHubToken(explicit string, cfg config.Config) string {
+	for _, candidate := range []string{
+		strings.TrimSpace(explicit),
+		strings.TrimSpace(cfg.Auth.Scan.Token),
+		strings.TrimSpace(os.Getenv("WRKR_GITHUB_TOKEN")),
+		strings.TrimSpace(os.Getenv("GITHUB_TOKEN")),
+	} {
+		if candidate != "" {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func loadOptionalScanConfig(configPath string) (config.Config, bool, error) {
+	resolvedPath, err := config.ResolvePath(configPath)
+	if err != nil {
+		return config.Config{}, false, err
+	}
+	cfg, err := config.Load(resolvedPath)
+	if err == nil {
+		return cfg, true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) && strings.TrimSpace(configPath) == "" && strings.TrimSpace(os.Getenv("WRKR_CONFIG_PATH")) == "" {
+		return config.Config{}, false, nil
+	}
+	return config.Config{}, false, err
+}
+
+func scanRuntimeErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	message := err.Error()
+	lower := strings.ToLower(message)
+	if strings.Contains(message, "github API status 403") && strings.Contains(lower, "rate limit") {
+		return message + "; authenticate hosted scans with --github-token, config auth.scan.token, WRKR_GITHUB_TOKEN, or GITHUB_TOKEN"
+	}
+	return message
 }

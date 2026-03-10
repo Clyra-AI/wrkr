@@ -1,398 +1,506 @@
-# PLAN WRKR_WAVE1_CONTRACT_HARDENING: Proof Integrity, Regress Compatibility, and State Safety
+# PLAN WRKR_LAUNCH_BLOCKERS_WAVE1: Self-Serve Activation and Contract Hardening
 
 Date: 2026-03-10  
-Source of truth: user-provided code-review findings for this run, `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`, current repo baseline  
-Scope: Wrkr repository only. Planning artifact only. One wave only.
+Source of truth: user-provided launch audit findings dated 2026-03-10, `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`, and the observed repository/runtime baseline from this audit run  
+Scope: Wrkr repository only. Planning artifact only. One wave only. Scope is limited to launch-blocking contract/runtime correctness plus the minimum doc and OSS-readiness updates required to ship those fixes safely.
 
 ## Global Decisions (Locked)
 
-- This plan is intentionally one wave only. Scope is limited to release-blocking contract/runtime correctness and the minimum docs/schema parity required to ship those fixes safely.
-- Preserve Wrkr's deterministic, offline-first, fail-closed default behavior. No new network paths, dashboard work, or UX expansion are in scope.
-- Preserve architecture boundaries: Source -> Detection -> Aggregation -> Identity -> Risk -> Proof emission -> Compliance/evidence output.
-- Keep existing public command names and exit taxonomy stable:
-  - `wrkr verify --chain`
-  - `wrkr regress init|run`
-  - `wrkr evidence`
-  - exit codes `0..8`
-- Proof verification must always perform structural chain validation. Attestation or signature verification is an authenticity layer, not a substitute for structural integrity checks.
-- Present-but-invalid or unreadable signing material is fail-closed. Silent authenticity downgrades are not allowed.
-- Prefer additive `--json` fields on `verify` over envelope/key renames. If additional status is required, add optional fields instead of changing the success/error shape.
-- Preserve `schemas/v1/regress/regress-baseline.schema.json` and `BaselineVersion = "v1"` if a compatibility shim can safely reconcile legacy agent IDs. Only bump the baseline version if an ADR proves that additive compatibility is unsafe or ambiguous.
-- `proof-signing-key.json` must use the same atomic/locked persistence discipline already used for state, manifests, baselines, and proof chains.
-- All runtime/contract/failure stories in this wave must wire `make prepush-full`. Reliability-sensitive stories must also wire `make test-hardening` and `make test-chaos`.
-- Docs changes in this wave are limited to touched contracts: command docs, failure taxonomy, compatibility/versioning notes, release-integrity guidance, README/changelog wording where required by real behavior changes.
+- This plan is intentionally one wave only. It covers the March 10, 2026 no-go blockers and the minimum contract-doc parity required to release them. Broader OSS/distribution polish is deferred.
+- Preserve Wrkr's deterministic, offline-first, fail-closed behavior. No LLM calls, no new background services, no dashboard-first work, and no default scan-data exfiltration are allowed.
+- Preserve architecture boundaries:
+  - Source
+  - Detection
+  - Aggregation
+  - Identity
+  - Risk
+  - Proof emission
+  - Compliance mapping/evidence output
+- Keep Go core authoritative for parser behavior, auth resolution, reporting semantics, and fail-closed enforcement. Python remains out of scope except for existing thin scripts and docs tooling.
+- Do not globally relax strict parsing for Wrkr-owned contracts such as policy files, manifests, schemas, or proof/evidence artifacts. Any additive-tolerant parsing introduced in this wave must be isolated to vendor-owned config adapters.
+- Preserve current exit-code contracts:
+  - `0` success
+  - `1` runtime failure
+  - `2` verification failure
+  - `3` policy/schema violation
+  - `4` approval required
+  - `5` regression drift
+  - `6` invalid input
+  - `7` dependency missing
+  - `8` unsafe operation blocked
+- Preserve current hosted acquisition dependency contract:
+  - `scan --repo` and `scan --org` still require explicit `--github-api` or `WRKR_GITHUB_API_BASE`
+  - missing GitHub API base remains `dependency_missing` with exit `7`
+- If ambient GitHub token fallback is added, it must be additive only and must not weaken explicit flag/config precedence.
+- Docs are executable contract in this wave. Any user-visible CLI/auth/warning behavior change must update command docs, first-screen docs, and storyline docs in the same PR.
+- Every story in this wave must include tests and matrix wiring. Stories touching parser boundaries, auth/external adapters, or warning/failure semantics must wire `make prepush-full`. Reliability-sensitive stories must also wire `make test-hardening` and `make test-chaos`.
+- Time-to-first-value is a first-class requirement for this wave:
+  - Developer first-value target: `wrkr scan --my-setup --json` then `wrkr mcp-list --state ... --json` should yield usable posture or an explicit incompleteness warning in two commands.
+  - Hosted first-value target: `wrkr scan --repo/--org` should be self-serve when `--github-api` and an ambient or explicit token are configured.
 
 ## Current Baseline (Observed)
 
-- `go test ./... -count=1` passes in the current repository.
-- Happy-path command anchors pass:
-  - `wrkr scan --path scenarios/wrkr/scan-mixed-org/repos --state /tmp/wrkr-review-state.json --json`
-  - `wrkr regress init --baseline /tmp/wrkr-review-state.json --output /tmp/wrkr-review-baseline.json --json`
-  - `wrkr regress run --baseline /tmp/wrkr-review-baseline.json --state /tmp/wrkr-review-state.json --json`
-  - `wrkr verify --chain --state /tmp/wrkr-review-state.json --json`
-  - `scripts/check_branch_protection_contract.sh`
-- The proof verification boundary is currently unsafe:
-  - `core/verify/verify.go` returns success on attestation verification without parsing or structurally verifying the chain.
-  - `core/cli/verify.go` silently falls back to unsigned verification when `LoadVerifierKey` fails.
-- The regress compatibility boundary is currently unsafe:
-  - `core/regress/regress.go` keeps `BaselineVersion = "v1"` and derives legacy agent IDs when `snapshot.Identities` is absent.
-  - `core/cli/scan_helpers.go` now emits instance-level IDs via `AgentInstanceID`, creating a legacy/current mismatch without a migration path.
-- The proof signing-material persistence boundary is currently weak:
-  - `core/proofemit/signing.go` creates `proof-signing-key.json` with raw `os.WriteFile` and no path lock.
-  - `core/evidence/evidence.go` hard-depends on valid signing material for bundle creation, so a torn or rotated key file becomes a release-path failure.
-- `docs/commands/verify.md` currently documents only `status`, `chain.path`, `chain.intact`, `chain.count`, and `chain.head_hash`; it does not describe authenticity-degraded behavior or fail-closed key semantics.
-- No `sdk/python` directory exists in this checkout, so no SDK wrapper scope is included in this plan.
+- Fact: `go test ./... -count=1` passed on 2026-03-10 across unit, integration, e2e, acceptance, `testinfra/contracts`, and `testinfra/hygiene`.
+- Fact: bundled repo-path activation works:
+  - `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --state ./.tmp/audit/scenario-state.json --production-targets ./docs/examples/production-targets.v1.yaml --json` returned `status=ok`, `total_findings=132`, `inventory.summary.total_tools=25`.
+  - `wrkr evidence --frameworks eu-ai-act,soc2 --state ./.tmp/audit/scenario-state.json --output ./.tmp/audit/evidence --json` returned `status=ok`.
+  - `wrkr verify --chain --state ./.tmp/audit/scenario-state.json --json` returned `chain.intact=true` and `authenticity_status=verified`.
+  - `wrkr regress run --baseline ./.tmp/audit/scenario-baseline.json --state ./.tmp/audit/scenario-state.json --json` returned `drift_detected=false`.
+- Fact: local-machine first-value is currently broken for live vendor configs:
+  - On 2026-03-10, `wrkr scan --my-setup --state ./.tmp/audit/my-setup.json --json` emitted parse errors for:
+    - Claude unknown field `feedbackSurveyState`
+    - Codex unknown keys `model`, `model_context_window`, `model_reasoning_effort`
+  - On 2026-03-10, `wrkr mcp-list --state ./.tmp/audit/my-setup.json --json` returned `status=ok`, `row_count=0`, `warnings=null`.
+- Fact: hosted self-serve onboarding is currently brittle without explicit auth:
+  - On 2026-03-10, `wrkr scan --repo Clyra-AI/wrkr --github-api https://api.github.com --state ./.tmp/audit/public-repo-state.json --json` failed with GitHub `403 API rate limit exceeded`.
+- Fact: fail-closed filesystem ownership controls are working in live probes:
+  - evidence output path misuse returned `unsafe_operation_blocked` with exit `8`
+  - materialized source root misuse returned `unsafe_operation_blocked` with exit `8`
+- Fact: `wrkr init --non-interactive --path ./scenarios/wrkr/scan-mixed-org/repos --json` wrote `/Users/tr/.wrkr/config.json` and returned `scan.token_configured=false`.
 
 ## Exit Criteria
 
-1. `wrkr verify --chain` never returns `status=ok` for non-JSON or structurally invalid proof chains, even when attestation or signature material is present and valid.
-2. `wrkr verify --chain --json` no longer silently downgrades when verifier-key loading fails; missing-key and invalid-key paths are explicit, documented, and deterministic.
-3. `proof-signing-key.json` initialization is atomic and contention-safe, with interruption and concurrency coverage proving no torn writes or key/chain mismatches.
-4. Legacy `v1` regress baselines built before instance identities do not false-trigger drift for equivalent current identities.
-5. `wrkr regress` preserves deterministic ordering, reason codes, and exit `5` semantics for genuine drift while suppressing false drift caused only by legacy/current identity format differences.
-6. Docs, contract tests, and release-integrity guidance are updated in the same PR for every externally visible `verify` or `regress` behavior change.
-7. All stories in this wave pass Fast, Core CI, Acceptance, Cross-platform, and Risk lane requirements before merge.
+1. `wrkr scan --my-setup --json` no longer emits parse errors solely because supported Claude/Codex configs contain additive vendor fields that Wrkr does not consume.
+2. Malformed vendor configs still emit deterministic `parse_error` findings; this wave must not weaken syntax-error detection.
+3. `wrkr mcp-list --state ... --json` returns deterministic warning context when known MCP-bearing files failed to parse and zero MCP rows would otherwise look like a clean result.
+4. Hosted `scan --repo` and `scan --org` resolve GitHub tokens deterministically using one documented precedence order, and that order is consistent across code and docs.
+5. GitHub unauthenticated/rate-limited hosted scan failures remain fail-closed but become actionable, with stable machine-readable error envelopes and explicit auth guidance.
+6. Front-door docs describe Wrkr as repo/config/CI posture plus evidence tooling, not as a broader live SaaS/browser/IdP inventory platform.
+7. Docs, CLI help/usage, examples, and failure-taxonomy references all align in the same PR for any user-visible change.
+8. All story-level lane requirements pass before merge, with required branch gates still satisfied by `fast-lane` and `windows-smoke`.
 
 ## Public API and Contract Map
 
-Stable/public surfaces touched by this wave:
-- `wrkr verify --chain --json`
-- `wrkr regress init --json`
-- `wrkr regress run --json`
-- `wrkr evidence --frameworks ... --json`
-- Machine-readable error envelope and exit code taxonomy
-- `schemas/v1/regress/regress-baseline.schema.json`
-- Docs contracts:
-  - `README.md`
-  - `docs/commands/verify.md`
-  - `docs/commands/regress.md`
-  - `docs/failure_taxonomy_exit_codes.md`
+Stable/public surfaces touched in this wave:
 
-Internal surfaces touched by this wave:
-- `core/verify/*`
-- `core/cli/verify.go`
-- `core/proofemit/*`
-- `core/regress/*`
-- `core/cli/regress.go`
-- `internal/atomicwrite/*`
-- `internal/e2e/verify/*`
-- `internal/e2e/regress/*`
-- `testinfra/contracts/*`
-- `testinfra/hygiene/*`
+- `wrkr scan --my-setup --json`
+- `wrkr scan --repo <owner/repo> --github-api <url> [--github-token <token>] --json`
+- `wrkr scan --org <org> --github-api <url> [--github-token <token>] --json`
+- `wrkr mcp-list --state <path> --json`
+- `wrkr init --non-interactive --json` documentation and expectation notes only
+- User-visible docs and contract references:
+  - `README.md`
+  - `docs/examples/quickstart.md`
+  - `docs/examples/personal-hygiene.md`
+  - `docs/examples/security-team.md`
+  - `docs/commands/scan.md`
+  - `docs/commands/mcp-list.md`
+  - `docs/positioning.md`
+  - `docs/faq.md`
+  - `docs/state_lifecycle.md`
+
+Internal surfaces expected to change:
+
+- `core/detect/parse.go`
+- `core/detect/claude/*`
+- `core/detect/codex/*`
+- `core/cli/scan.go`
+- `core/source/github/*`
+- `core/report/mcp_list.go`
+- `core/cli/mcp_list.go`
+- detector, CLI, e2e, scenario, contract, and docs-smoke tests under `core/`, `internal/`, and `testinfra/`
 
 Shim/deprecation path:
-- `verify` keeps its top-level success envelope. If additional mode/status detail is required, add optional fields such as `chain.verification_mode` and `chain.authenticity_status` rather than renaming or removing existing keys.
-- `regress` keeps the existing command surface and preferred `v1` baseline format. Compatibility is restored by automatic legacy-ID reconciliation if it can be done safely.
-- If automatic reconciliation is unsafe, the fallback is an explicit baseline-version bump with a documented migration path in the same wave. No silent format drift is allowed.
+
+- `--github-token` remains the explicit override. Ambient token fallback, if added, is additive only and must not deprecate the flag.
+- Unknown additive vendor fields in supported Claude/Codex configs stop being treated as parse errors; truly malformed JSON/TOML/YAML remains a `parse_error`.
+- `mcp-list` reuses additive warning surfaces; no removal or rename of existing success keys is allowed.
+- If `scan --json` adds a new warning field, it must be additive only and must preserve existing top-level keys.
 
 Schema/versioning policy:
-- `verify` success payload changes must be additive only.
-- `regress` remains `v1` only if compatibility tests prove that legacy baselines do not false-drift against equivalent current identities.
-- Any schema/version bump must ship with:
-  - migration expectations
-  - compatibility tests
-  - docs updates
-  - contract/golden updates
+
+- No schema major bump is planned in this wave.
+- JSON contract changes must be additive only.
+- Exit-code behavior must remain stable.
+- If a new warning collection is added to `scan --json`, it must be:
+  - deterministic in ordering
+  - documented in `docs/commands/scan.md`
+  - covered by CLI contract tests
 
 Machine-readable error expectations:
-- Invalid `verify` input remains `invalid_input` with exit `6`.
-- Non-JSON or structurally invalid proof chains return `verification_failure` with exit `2`, even when attestation/signature verification succeeds.
-- Present-but-invalid or unreadable verifier key material returns `verification_failure` with exit `2`.
-- Missing verifier-key material must never silently behave like “all checks passed”; the selected behavior must be explicit in JSON and documented in the same PR.
-- Equivalent legacy/current regress inputs must not produce `drift_detected=true` or exit `5`.
+
+- `scan --repo/--org` without `--github-api` or `WRKR_GITHUB_API_BASE` remains `dependency_missing` with exit `7`.
+- Hosted GitHub rate-limit or auth failures remain `runtime_failure` with exit `1`, but the message must explicitly direct the operator to the canonical auth path.
+- Malformed supported vendor config files remain non-fatal findings, not command-fatal errors.
+- Additive vendor fields in supported Claude/Codex config variants must not produce `parse_error` findings.
+- `mcp-list --json` must distinguish between:
+  - genuinely no MCP declarations found
+  - zero rows because known MCP-bearing config parsing failed upstream
 
 ## Docs and OSS Readiness Baseline
 
 README first-screen contract:
-- Current README promises signed proof artifacts and verifiable evidence. This wave must keep those statements accurate by fixing the implementation and tightening wording where necessary.
-- No README repositioning or new onboarding narrative is planned; only touched contract language should change.
+
+- README must lead with Wrkr's actual OSS value: deterministic repo/config/CI posture and evidence output.
+- README must keep the local-machine and hosted scan flows copy-pasteable.
+- Hosted examples must include the canonical auth contract, not just the GitHub API base.
 
 Integration-first docs flow:
-- `docs/commands/verify.md` must explain success keys, failure keys, and authenticity behavior with copy-paste examples before implementation details.
-- `docs/commands/regress.md` must explain legacy baseline compatibility expectations and any versioning/migration path chosen in this wave.
+
+1. Install
+2. `wrkr scan --my-setup --json`
+3. `wrkr mcp-list --state ./.wrkr/last-scan.json --json`
+4. Hosted `wrkr scan --repo/--org` with explicit API base and token contract
+5. `wrkr inventory --diff`
+6. `wrkr evidence`
+7. `wrkr verify`
+8. `wrkr regress`
 
 Lifecycle path model:
-- This wave does not introduce a new lifecycle model. The work stays inside existing identity/regress semantics and compatibility repair.
+
+- `docs/state_lifecycle.md` remains the canonical path model for:
+  - `.wrkr/last-scan.json`
+  - `.wrkr/wrkr-regress-baseline.json`
+  - `.wrkr/wrkr-manifest.yaml`
+  - `.wrkr/proof-chain.json`
+  - evidence output directories
 
 Docs source-of-truth for this wave:
-- `README.md`
-- `docs/commands/verify.md`
-- `docs/commands/regress.md`
-- `docs/failure_taxonomy_exit_codes.md`
-- `docs/trust/release-integrity.md`
-- `docs/trust/compatibility-and-versioning.md`
+
+- CLI contract docs under `docs/commands/`
+- first-screen README and example guides
+- `docs/positioning.md`
+- `docs/faq.md`
+- `docs/state_lifecycle.md`
 
 OSS trust baseline:
-- Existing trust files already exist: `CONTRIBUTING.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `README.md`, `LICENSE`.
-- This wave only requires updates to touched command/contract docs and `CHANGELOG.md` if released behavior changes are user-visible.
+
+- No new OSS trust-file epic is in scope for this one-wave plan.
+- If user-visible behavior changes materially, update `CHANGELOG.md` in the implementation PR.
+- Maintainer/support expectations remain explicit through existing OSS trust files; do not widen product promises beyond shipped behavior in this wave.
 
 ## Recommendation Traceability
 
 | Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story mapping |
 |---|---|---|---|---|---|
-| R1 | Always structurally verify proof chains after attestation/signature checks | Stop invalid artifacts from passing integrity verification | Fail-closed proof verification | Restore trust in signed evidence and chain integrity claims | W1-S01 |
-| R2 | Remove silent verifier-key downgrade and make authenticity state explicit | Prevent fail-open authenticity behavior | Boundary hardening at CLI/runtime edge | Safer operator automation and more truthful machine-readable outputs | W1-S01, W1-S02 |
-| R3 | Restore legacy regress baseline compatibility under `v1` or ship explicit migration | Stop false drift after instance-identity rollout | Compatibility-preserving contract evolution | Preserve existing automation and prevent spurious exit `5` regressions | W1-S03 |
-| R4 | Make proof signing-material creation atomic and contention-safe | Remove crash/race hazard on authoritative signing state | State-safety hardening | Keep proof emission, verification, and evidence generation reliable under interruption/contention | W1-S02 |
+| R1 | Fix parser compatibility for current Claude/Codex configs | Restore the marketed local-machine first-value path | Vendor-adapter hardening without weakening Wrkr contracts | Higher self-serve activation and lower false-negative posture gaps | W1-S01 |
+| R2 | Make missing MCP posture visible when parse errors suppress extraction | Prevent silent zero-row false confidence | Explicit failure visibility | Safer operator triage and more truthful `mcp-list` output | W1-S02 |
+| R3 | Support a single canonical GitHub token contract in hosted scan | Remove self-serve onboarding ambiguity | Hosted acquisition hardening | Faster org/repo activation and less rate-limit friction | W1-S03 |
+| R4 | Keep hosted scan fail-closed but actionable on rate limit/auth errors | Preserve determinism while improving operator recovery | External-adapter resilience | Lower launch friction without changing safety stance | W1-S03 |
+| R5 | Tighten launch messaging to repo/config/CI posture and evidence | Avoid over-claiming product scope | Expectation management | Better OSS trust and less launch confusion | W1-S04 |
+| R6 | Keep docs aligned with actual fixed behavior in the same PR | Docs are executable contract | Contract-first delivery | Lower support burden and safer automation adoption | W1-S02, W1-S03, W1-S04 |
+| R7 | Preserve fail-closed filesystem, proof, and exit-code contracts while fixing onboarding | Do not regress the parts that are already strong | Launch blocker remediation without scope creep | Maintains trust while fixing the highest-value adoption edges | W1-S01, W1-S02, W1-S03 |
 
 ## Test Matrix Wiring
 
 Fast lane:
+
 - `make lint-fast`
 - `make test-fast`
+- targeted package tests for changed detector, CLI, report, and source packages
 
 Core CI lane:
+
 - `make prepush`
 - `make test-contracts`
-- Targeted package tests for `core/verify`, `core/proofemit`, `core/regress`, `core/cli`, and touched docs-contract packages
+- `scripts/check_docs_cli_parity.sh`
+- `scripts/check_docs_storyline.sh`
+- `scripts/check_docs_consistency.sh`
+- `scripts/run_docs_smoke.sh`
 
 Acceptance lane:
-- `go test ./internal/e2e/verify -count=1`
-- `go test ./internal/e2e/regress -count=1`
-- `make test-scenarios`
+
+- `go test ./internal/scenarios -run '^TestScenarioContracts$' -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
 - `scripts/run_v1_acceptance.sh --mode=local`
+- targeted e2e suites for scan and CLI contracts
 
 Cross-platform lane:
-- Existing `windows-smoke`
-- Targeted path and artifact tests for `verify`/`regress` on Linux/macOS/Windows in CI where applicable
+
+- `windows-smoke`
+- targeted CLI contract coverage for scan and hosted-source behavior on Linux/macOS/Windows CI lanes where applicable
 
 Risk lane:
+
 - `make prepush-full`
+- `make test-risk-lane`
 - `make test-hardening`
 - `make test-chaos`
 
 Merge/release gating rule:
-- No story in this wave is mergeable until Fast + Core CI + Acceptance + Cross-platform + Risk lanes are green.
-- No release is allowed with `verify --json` drift, exit-code drift, docs/CLI parity failures, or unresolved legacy-baseline compatibility gaps unless explicitly versioned and documented in the same change.
 
-## Epic W1-E1 (Wave 1): Contract and Reliability Hardening for Verify, Regress, and Proof State
+- Required merge-blocking checks remain `fast-lane` and `windows-smoke`.
+- For stories that wire Risk lane commands, those lanes must be green in PR validation before merge even if not branch-protection named checks.
+- No release is allowed with unresolved parser-compatibility regressions, hosted auth contract drift, or docs/CLI parity failures.
 
-Objective: restore release-safe proof verification, proof signing-material persistence, and regress compatibility without expanding Wrkr scope beyond contract/runtime correctness.
+## Epic W1-E1: Restore Self-Serve Activation Without Weakening Contracts
 
-### Story W1-S01: Make proof verification structurally authoritative and authenticity-explicit
+Objective: fix the two March 10, 2026 launch blockers, local-machine first-value failure and hosted auth/rate-limit onboarding friction, while preserving Wrkr's deterministic, fail-closed architecture and keeping docs aligned with shipped behavior.
+
+### Story W1-S01: Add additive-tolerant vendor parsing for supported Claude and Codex configs
 Priority: P0
 Tasks:
-- Refactor `core/verify.ChainWithPublicKey` so structural chain verification always runs after attestation/signature verification logic.
-- Separate structural integrity and authenticity checks in the result model so the CLI can report both without silent downgrade.
-- Update CLI verify flow so non-JSON and structurally invalid chains return deterministic verification failures even when attestation/signature verification succeeds.
-- Add targeted tests for:
-  - attested non-JSON chain
-  - attested structurally invalid chain
-  - signed structurally invalid chain
-  - explicit success output for the chosen verification/authenticity mode fields
+- Capture the audited live-config incompatibilities as deterministic fixtures for Claude and Codex.
+- Introduce detector-scoped or vendor-adapter parse behavior that ignores unknown vendor-owned fields while still failing on malformed syntax.
+- Recover known-field extraction for supported Claude/Codex capabilities from current config variants, including the known MCP-bearing locations already in scope.
+- Preserve strict parsing for Wrkr-owned contracts such as policy, manifest, baseline, proof, evidence, and profile schemas.
+- Add/update scenario and CLI contract coverage so repeated scans produce byte-stable findings for the same vendor fixture set.
 Repo paths:
-- `core/verify/*`
-- `core/cli/verify.go`
-- `internal/e2e/verify/*`
-- `testinfra/contracts/*`
+- `core/detect/parse.go`
+- `core/detect/claude/*`
+- `core/detect/codex/*`
+- `core/source/localsetup/*`
+- `core/cli/*`
+- `internal/scenarios/*`
+- `scenarios/wrkr/**`
 Run commands:
-- `go test ./core/verify -count=1`
-- `go test ./core/cli -run Verify -count=1`
-- `go test ./internal/e2e/verify -count=1`
+- `go test ./core/detect/claude ./core/detect/codex ./core/cli -count=1`
+- `go test ./internal/e2e/cli_contract -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
 - `make test-contracts`
 - `make prepush-full`
 Test requirements:
-- Proof/evidence contract tests for structural verification after authenticity checks
-- CLI `--json` stability tests
-- Exit-code and machine-readable error envelope tests
-- Deterministic repeat-run tests for success/error output ordering
+- Parser/schema unit tests for supported additive vendor fields
+- Fixture/golden updates for current Claude/Codex config variants
+- Compatibility tests proving malformed syntax still returns `parse_error`
+- CLI `--json` stability tests for `scan --my-setup`
+- Determinism repeat-run tests for findings ordering and counts
 Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Risk lane
 Acceptance criteria:
-- A non-JSON `proof-chain.json` with a valid attestation returns exit `2`, not `status=ok`.
-- A structurally invalid but correctly signed chain returns exit `2`.
-- The final `verify --json` success contract explicitly states the verification/authenticity mode without breaking the top-level envelope.
+- A supported Claude config containing `feedbackSurveyState` but otherwise valid syntax does not produce a `parse_error` finding.
+- A supported Codex config containing `model`, `model_context_window`, and `model_reasoning_effort` but otherwise valid syntax does not produce a `parse_error` finding.
+- The same files still produce deterministic tool/MCP-related findings from the known fields Wrkr consumes.
+- A malformed Claude/Codex config still produces a deterministic `parse_error` finding and does not crash or silently skip.
 Contract/API impact:
-- Touches `wrkr verify --chain --json` success/failure semantics.
-- Must preserve the current top-level envelope and existing keys; any new status fields must be additive and documented.
+- `wrkr scan --json` may emit a different mix of findings for the same supported vendor config because false parse errors are removed and real posture findings are restored.
+- No flag, exit-code, or top-level JSON-envelope changes are allowed in this story.
 Versioning/migration impact:
-- No schema major bump expected; additive `verify` fields only.
+- No schema version bump expected.
+- Compatibility change is additive and behavioral only.
 Architecture constraints:
-- Keep policy/sign/verify authority in Go core packages, not in CLI branching.
-- Maintain symmetric API semantics: structural verification and authenticity verification must be explicit, ordered steps.
-- No network or remote key dependency may be introduced.
+- Keep thin orchestration in CLI; parsing authority remains in focused detector/adapter packages.
+- Do not collapse vendor config handling into shared loose parsing for Wrkr-owned contracts.
+- Keep side-effect semantics explicit in helper names and signatures.
+- Preserve cancellation and timeout propagation in scan flows.
+- Favor extension points that let Wrkr absorb upstream additive vendor fields without enterprise forks.
 ADR required: yes
 TDD first failing test(s):
-- `TestChainWithPublicKeyRejectsAttestedNonJSONPayload`
-- `TestChainWithPublicKeyRejectsAttestedStructuralCorruption`
-- `TestVerifyCLIEmitsExplicitVerificationMode`
+- `TestClaudeDetectorIgnoresAdditiveVendorFields`
+- `TestCodexDetectorIgnoresAdditiveVendorFields`
+- `TestClaudeDetectorStillFailsMalformedJSON`
+- `TestCodexDetectorStillFailsMalformedTOML`
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- If attestation or signature verification succeeds but the chain payload is malformed or structurally corrupt, verification must still fail deterministically with exit `2` and no partial-success output.
+- If a vendor adds new non-breaking fields to a supported config file, Wrkr should still emit deterministic posture from known fields. If the file is syntactically malformed, Wrkr should emit a deterministic `parse_error` without panicking, hanging, or inventing posture.
 
-### Story W1-S02: Fail closed on bad verifier keys and harden proof-signing-key initialization
+### Story W1-S02: Surface parse-suppressed MCP posture explicitly in `scan` and `mcp-list`
 Priority: P0
 Tasks:
-- Change `core/cli/verify.go` to distinguish:
-  - no verifier key available
-  - verifier key present but unreadable/invalid
-- Fail closed on unreadable/invalid key material; if no key exists, emit explicit deterministic authenticity status per the ADR in W1-S01 instead of silently falling back.
-- Replace raw `os.WriteFile` in `core/proofemit/signing.go` with `atomicwrite.WriteFile` and add a per-path initialization lock for first-time key creation.
-- Add interruption and contention coverage for first-write key creation and prove that `verify` and `evidence` behave consistently after fault injection.
+- Define the deterministic set of parse-error locations that can suppress MCP visibility for existing supported inputs.
+- Reuse or extend existing warning surfaces so operators can distinguish "no MCP servers found" from "state incomplete because known MCP-bearing configs failed to parse."
+- Update `mcp-list` output building to inspect saved-state parse errors and emit sorted, stable warnings when MCP posture may be incomplete.
+- If `scan --json` needs a new warning surface, make it additive only and keep ordering deterministic.
+- Update `--explain` and relevant docs/examples to describe the new warning semantics without changing success/exit behavior.
 Repo paths:
-- `core/cli/verify.go`
-- `core/proofemit/signing.go`
-- `core/proofemit/*`
-- `core/evidence/*`
-- `internal/atomicwrite/*`
-- `internal/e2e/verify/*`
+- `core/report/mcp_list.go`
+- `core/cli/mcp_list.go`
+- `core/cli/scan.go`
+- `docs/commands/mcp-list.md`
+- `docs/commands/scan.md`
+- `docs/examples/personal-hygiene.md`
+- `docs/examples/quickstart.md`
 Run commands:
-- `go test ./core/proofemit -count=1`
-- `go test ./core/evidence -count=1`
-- `go test ./core/cli -run Verify -count=1`
-- `make test-hardening`
-- `make test-chaos`
-- `make prepush-full`
-Test requirements:
-- Invalid-key and missing-key contract tests
-- Atomic-write interruption tests
-- Contention/concurrency tests
-- Hardening and chaos coverage for first-time signing-material creation
-- Evidence/verify consistency tests when signing material is absent, invalid, or newly created
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- A corrupted `proof-signing-key.json` no longer yields `status=ok` from `wrkr verify --chain`.
-- Missing verifier-key behavior is explicit and deterministic; no silent fallback remains.
-- Concurrent first-time key initialization produces exactly one valid persisted key state and a verifiable proof chain.
-- Simulated interruption during key initialization leaves no torn or partially valid key file behind.
-Contract/API impact:
-- Touches `verify` error behavior for key-material failures and may add explicit success-state fields for authenticity mode.
-- Keeps existing exit taxonomy; invalid key material must map to stable verification failure semantics.
-Versioning/migration impact:
-- No schema/version bump expected.
-Architecture constraints:
-- Persistence safety belongs in proof/state helpers, not CLI-level ad hoc retries.
-- API names should make side effects explicit (`load`, `init`, `verify`, `emit`).
-- Avoid new shared mutable global state except tightly scoped path locks with tests.
-ADR required: yes
-TDD first failing test(s):
-- `TestVerifyCLIRejectsInvalidVerifierKeyFile`
-- `TestLoadSigningKeyIsAtomicUnderInterruption`
-- `TestLoadSigningKeyConcurrentInitializationProducesSingleValidState`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Two concurrent scans against a fresh state directory or an interruption during first key creation must not leave mismatched key/chain state, torn files, or a false-green verify result.
-
-### Story W1-S03: Restore legacy regress baseline compatibility without silent contract drift
-Priority: P0
-Tasks:
-- Implement a compatibility shim in `core/regress` that reconciles legacy baseline agent IDs with current instance-level identities when the underlying tool is equivalent.
-- Preserve deterministic sorting, reason ordering, and reason-code stability while suppressing false `new_unapproved_tool` drift for legacy/current ID format differences alone.
-- Add compatibility fixtures that cover symbol/location-range instance IDs, legacy baselines built without `snapshot.Identities`, and genuine new-tool drift.
-- Only if the shim is proven unsafe, version-bump the baseline format and ship an explicit migration path and contract docs in the same wave.
-Repo paths:
-- `core/regress/*`
-- `core/identity/*`
-- `core/cli/regress.go`
-- `schemas/v1/regress/*`
-- `internal/e2e/regress/*`
-- `testinfra/contracts/*`
-Run commands:
-- `go test ./core/regress -count=1`
-- `go test ./internal/e2e/regress -count=1`
-- `make test-contracts`
-- `make prepush-full`
-Test requirements:
-- Compatibility and migration tests for legacy baseline to current identity matching
-- Exit `5` drift/no-drift contract tests
-- Deterministic ordering and reason-code stability checks
-- Schema validation and fixture/golden updates if any schema or payload shape changes
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- A legacy `v1` baseline describing the same tool as a current instance-identity scan returns no drift.
-- A genuinely new instance identity still returns `new_unapproved_tool` and exit `5`.
-- `regress` remains byte-stable and deterministically ordered across repeated runs.
-- If schema/version changes are required, migration expectations and tests ship in the same PR.
-Contract/API impact:
-- Touches `wrkr regress` compatibility behavior and potentially baseline schema expectations.
-- Must not change exit-code semantics for genuine drift.
-Versioning/migration impact:
-- Preferred path: preserve `v1` with automatic compatibility shim.
-- Fallback path: explicit version bump with migration document and compatibility tests.
-Architecture constraints:
-- Keep compatibility logic inside `core/regress` and `core/identity`, not CLI glue.
-- Do not leak lifecycle state reconciliation into unrelated packages.
-- Reason-code stability is non-negotiable for automation consumers.
-ADR required: yes
-TDD first failing test(s):
-- `TestCompareLegacyBaselineInstanceIdentity_NoFalseDrift`
-- `TestLoadBaselineLegacyAgentIDCompatibility`
-- `TestCompareStillFlagsTrueNewInstanceIdentity`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Mixed legacy/current baseline inputs should never produce nondeterministic drift or order-dependent results when repeated under the same input set.
-
-### Story W1-S04: Align docs, contract tests, and release notes with the fixed verify/regress behavior
-Priority: P1
-Tasks:
-- Update command docs, failure-taxonomy docs, and compatibility/versioning notes to match the final verify and regress contract.
-- Update README wording only where current integrity/authenticity claims must become more precise after the runtime fix.
-- Refresh contract/golden coverage and run docs parity checks against the actual CLI output.
-- Add changelog entries for externally visible behavior changes if the fixes are intended for the next release.
-Repo paths:
-- `README.md`
-- `CHANGELOG.md`
-- `docs/commands/verify.md`
-- `docs/commands/regress.md`
-- `docs/failure_taxonomy_exit_codes.md`
-- `docs/trust/release-integrity.md`
-- `docs/trust/compatibility-and-versioning.md`
-- `testinfra/contracts/*`
-- `testinfra/hygiene/*`
-Run commands:
-- `make test-docs-consistency`
-- `make test-docs-storyline`
+- `go test ./core/report ./core/cli -count=1`
+- `go test ./internal/e2e/cli_contract -count=1`
 - `scripts/check_docs_cli_parity.sh`
-- `make test-contracts`
+- `scripts/run_docs_smoke.sh`
 - `make prepush-full`
 Test requirements:
-- Docs consistency and storyline checks
-- CLI/docs parity checks
-- Contract tests for any new `verify` fields or regress compatibility notes
-- README first-screen checks if touched
+- CLI help/usage tests when docs/examples change
+- `--json` stability tests for additive warning fields
+- Machine-readable warning-envelope tests for `mcp-list`
+- Deterministic allow/block/incomplete fixtures for parse-suppressed MCP visibility
+- Scenario or e2e coverage for the audited local-machine failure shape
 Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Risk lane
 Acceptance criteria:
-- Docs/examples match the final `verify` and `regress` behavior exactly.
-- Failure taxonomy docs reflect invalid-key, missing-key, and invalid-chain semantics.
-- No docs introduce contract claims not backed by code and tests.
+- When zero MCP rows are returned and the saved state contains parse errors for known MCP-bearing files, `wrkr mcp-list --json` emits non-empty deterministic warnings.
+- When no MCP declarations exist and no relevant parse suppression occurred, `wrkr mcp-list --json` remains a clean zero-row result without false warnings.
+- Any new `scan --json` warning field is additive, documented, and stable across repeated runs.
 Contract/API impact:
-- Docs and tests only; no new CLI surface beyond the implementation completed in W1-S01 through W1-S03.
+- Touches machine-readable warning semantics for `mcp-list` and possibly `scan`.
+- Existing success keys must remain intact; additive fields only.
 Versioning/migration impact:
-- Documents the chosen `v1` compatibility path or the explicit version-bump migration path.
+- No schema bump expected.
 Architecture constraints:
-- Documentation must mirror the authoritative Go implementation and contract tests; no docs-only contract invention.
+- Keep reporting and warning derivation in reporting/CLI layers, not inside unrelated risk or evidence packages.
+- Make side-effect semantics explicit: warnings explain incompleteness, they do not mutate findings.
+- Preserve symmetry between saved-state read behavior and reporting behavior.
 ADR required: no
 TDD first failing test(s):
-- `TestVerifyDocsMatchCLIContract`
-- `TestRegressDocsDescribeLegacyCompatibilityPath`
-- `TestFailureTaxonomyIncludesVerifyKeyFailureCase`
+- `TestBuildMCPListWarnsOnSuppressedMCPConfigs`
+- `TestMCPListDoesNotWarnOnCleanZeroRows`
+- `TestScanJSONEmitsDeterministicMCPVisibilityWarning`
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- Not applicable; this story consumes the behavior fixed and validated in W1-S01 through W1-S03.
+- If known MCP-bearing files fail to parse upstream, users must receive a deterministic incompleteness warning instead of a silent zero-row false negative.
+
+### Story W1-S03: Unify hosted GitHub token resolution and rate-limit guidance for `scan`
+Priority: P1
+Tasks:
+- Decide and implement the canonical hosted-scan token precedence:
+  - `--github-token`
+  - config token
+  - `WRKR_GITHUB_TOKEN`
+  - `GITHUB_TOKEN`
+- Preserve explicit `--github-api` or `WRKR_GITHUB_API_BASE` as the only hosted network source selector.
+- Add actionable error translation for GitHub unauthenticated or insufficiently authenticated rate-limit failures while preserving fail-closed exit semantics.
+- Update hosted scan docs, examples, and `init` expectation notes so config-persisted auth and ambient env auth are clearly distinguished.
+- Add tests for precedence, no-token paths, env-token success paths, and 403 rate-limit messaging.
+Repo paths:
+- `core/cli/scan.go`
+- `core/source/github/*`
+- `core/cli/init.go`
+- `core/cli/*`
+- `README.md`
+- `docs/commands/scan.md`
+- `docs/examples/quickstart.md`
+- `docs/examples/security-team.md`
+- `docs/faq.md`
+- `product/plan-run.md`
+Run commands:
+- `go test ./core/source/github ./core/cli -count=1`
+- `go test ./internal/integration/source -count=1`
+- `go test ./internal/e2e/source -count=1`
+- `scripts/check_docs_cli_parity.sh`
+- `make prepush-full`
+Test requirements:
+- CLI behavior tests for flag/config/env precedence
+- `--json` stability and error-envelope tests
+- Exit-code contract tests proving missing GitHub API base stays exit `7`
+- Adapter error-mapping tests for 403 rate-limit/auth failures
+- Docs consistency and storyline checks for hosted examples
+Matrix wiring:
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Cross-platform lane
+- Risk lane
+Acceptance criteria:
+- Hosted scan uses `WRKR_GITHUB_TOKEN` or `GITHUB_TOKEN` when `--github-token` is not passed and config token is absent.
+- `--github-token` still overrides config and ambient env values.
+- A GitHub rate-limit/auth failure remains fail-closed but returns actionable remediation text pointing to the canonical hosted auth path.
+- `scan --repo/--org` without `--github-api` or `WRKR_GITHUB_API_BASE` still fails with `dependency_missing` and exit `7`.
+Contract/API impact:
+- Touches hosted scan auth-source resolution and runtime failure messaging.
+- No new exit code, no removal of existing flags, and no hidden network defaults are allowed.
+Versioning/migration impact:
+- No schema or command version bump expected.
+Architecture constraints:
+- Keep auth resolution in the CLI/source boundary, not scattered across detectors or unrelated packages.
+- Preserve bounded retry/backoff and explicit dependency-loss semantics.
+- No credential persistence by default when ambient env fallback is used.
+- Make API names and error mapping explicit about read/materialize behavior.
+ADR required: yes
+TDD first failing test(s):
+- `TestScanUsesEnvGitHubTokenWhenFlagAndConfigAreUnset`
+- `TestScanGitHubTokenPrecedenceFlagOverConfigOverEnv`
+- `TestScanHostedRateLimitMessageIsActionable`
+- `TestScanMissingGitHubAPIBaseStillFailsClosed`
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- If hosted acquisition is attempted without sufficient auth and GitHub returns a 403 rate-limit/auth response, Wrkr must fail deterministically with actionable guidance and without partial synthetic repository results.
+
+### Story W1-S04: Align front-door docs and launch messaging with shipped OSS scope and fixed onboarding contract
+Priority: P1
+Tasks:
+- Rewrite the README first screen and first-10-minutes flow so it matches actual shipped OSS behavior after Stories W1-S01 through W1-S03.
+- Update example guides so local-machine flow documents MCP incompleteness warnings and hosted flow documents the canonical auth contract.
+- Tighten positioning and FAQ copy to say Wrkr is repo/config/CI posture and evidence tooling, not live browser extension, IdP, or GitHub App inventory in OSS default mode.
+- Keep docs ordered integration-first, not internals-first.
+- Update `CHANGELOG.md` if any externally visible auth or warning behavior changes ship in the same PR.
+Repo paths:
+- `README.md`
+- `docs/examples/quickstart.md`
+- `docs/examples/personal-hygiene.md`
+- `docs/examples/security-team.md`
+- `docs/commands/scan.md`
+- `docs/commands/mcp-list.md`
+- `docs/positioning.md`
+- `docs/faq.md`
+- `docs/state_lifecycle.md`
+- `CHANGELOG.md`
+Run commands:
+- `scripts/check_docs_cli_parity.sh`
+- `scripts/check_docs_storyline.sh`
+- `scripts/check_docs_consistency.sh`
+- `scripts/run_docs_smoke.sh`
+- `make prepush`
+Test requirements:
+- Docs consistency checks
+- Storyline and smoke checks for updated user flows
+- README first-screen checks
+- Integration-before-internals guidance checks for touched flows
+- Version/install discoverability checks for hosted/local examples
+Matrix wiring:
+- Fast lane
+- Core CI lane
+- Acceptance lane
+Acceptance criteria:
+- README and example guides no longer over-claim default OSS coverage beyond repo/config/CI posture and evidence.
+- Hosted examples explicitly show the canonical auth contract.
+- Local-machine docs explain that parse-suppressed MCP posture now appears as explicit warning context rather than silent zero-row results.
+- Docs smoke and parity gates pass without manual exceptions.
+Contract/API impact:
+- Docs-only for public messaging and command guidance, except for reflecting Stories W1-S02 and W1-S03.
+Versioning/migration impact:
+- None expected.
+Architecture constraints:
+- Docs must describe shipped behavior only.
+- Preserve docs source-of-truth alignment across README, command docs, and example guides.
+ADR required: no
+TDD first failing test(s):
+- `scripts/check_docs_storyline.sh`
+- `scripts/check_docs_consistency.sh`
+- `scripts/run_docs_smoke.sh`
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- If docs diverge from shipped auth or warning behavior, users will misconfigure hosted scans or misread zero-row MCP posture. This story closes that operational failure mode with executable docs checks.
 
 ## Minimum-Now Sequence
 
-1. W1-S01: lock the verify ADR and remove the structural-verification bypass first, because it defines the final verification contract for the rest of the wave.
-2. W1-S02: harden verifier-key handling and proof-signing-key persistence next, because it closes the remaining fail-open path and the authoritative state-safety gap.
-3. W1-S03: repair regress baseline compatibility after the proof boundary is fixed, keeping `v1` if the shim is safe.
-4. W1-S04: land docs, contract/golden updates, and release-note alignment only after the runtime behavior is final.
+1. W1-S01
+   - Remove false parse errors from supported additive vendor fields before touching warning UX or docs.
+2. W1-S02
+   - Add explicit incompleteness signaling so remaining parse-failure cases cannot silently suppress MCP posture.
+3. W1-S03
+   - Unify hosted auth behavior and actionable rate-limit guidance once local-machine activation is restored.
+4. W1-S04
+   - Land first-screen and example doc updates only after runtime behavior is settled.
+
+Implementation order inside the wave:
+
+- Branch 1 or PR slice 1: W1-S01 plus the minimum command-doc notes required by the behavior change
+- Branch 1 or PR slice 2: W1-S02 plus `mcp-list` and personal-hygiene docs
+- Branch 1 or PR slice 3: W1-S03 plus hosted-scan docs and `init` expectation notes
+- Branch 1 or PR slice 4: W1-S04 final README/positioning/FAQ alignment and changelog
 
 ## Explicit Non-Goals
 
-- No new scan, detect, report, inventory, mcp-list, or docs-site feature work.
-- No expansion of `--enrich` or any other non-deterministic network behavior.
-- No dashboard, SaaS, or web bootstrap scope.
-- No unrelated toolchain upgrades or dependency sweeps unless directly required by the implementation of this wave.
-- No baseline schema `v2` unless the ADR in W1-S03 proves that additive compatibility under `v1` is unsafe.
+- No new detection surfaces for browser extension inventory, IdP grants, GitHub App installs, or other platform-signal roadmap items.
+- No dashboard, docs-site redesign, or UI shell work.
+- No changes to proof, evidence, verify, regress, lifecycle, or exit-code contracts outside the launch blockers covered here.
+- No new network defaults, live MCP probing, or runtime telemetry collection.
+- No automatic persistence of ambient GitHub env tokens into config files by default.
+- No cross-repo toolchain or scanner-remediation wave.
 
 ## Definition of Done
 
-- Every recommendation in this plan maps to at least one completed story with tests and lane wiring.
-- `wrkr verify --chain` is fail-closed for invalid chains and invalid key material, with no silent authenticity downgrade.
-- `proof-signing-key.json` creation is atomic, locked, and covered by interruption/concurrency tests.
-- Legacy `v1` regress baselines no longer false-trigger drift for equivalent current identities, or a fully documented migration path ships in the same wave.
-- All touched CLI/docs/schema contracts are updated in the same PR and pass parity checks.
-- Required commands for touched stories are recorded and green, including `make prepush-full`, `make test-contracts`, and reliability gates where applicable.
+- Every recommendation in this plan maps to at least one completed story with green acceptance criteria.
+- Local-machine first-value path is restored for the audited Claude/Codex compatibility failures from 2026-03-10.
+- `mcp-list` can no longer silently present parse-suppressed zero-row posture as a clean result.
+- Hosted scan auth precedence is implemented, documented, and covered by contract tests.
+- README, command docs, quickstarts, FAQ, and positioning all reflect shipped behavior and pass executable docs gates.
+- Determinism, fail-closed behavior, and architecture boundaries are preserved and explicitly revalidated through the required lane matrix.
+- Implementation PR(s) include:
+  - TDD evidence
+  - exact commands run
+  - ADRs for Stories W1-S01 and W1-S03
+  - no unrelated feature work

@@ -14,6 +14,7 @@ Acquisition behavior is fail-closed by target:
 - `--my-setup` runs fully local/offline against the local machine setup rooted at the current user home directory.
   It inspects supported user-home tool configs, selected environment key names, and common workspace roots for local agent project markers without emitting raw secret values.
 - `--repo` and `--org` require real GitHub acquisition via `--github-api` or `WRKR_GITHUB_API_BASE`.
+- Hosted GitHub token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 - `--github-org` is an additive alias for `--org`.
 - `--repo` and `--org` materialize repository contents into a deterministic local workspace under the scan state directory before detectors run.
 - Materialized workspace root (`materialized-sources/`) is ownership-gated:
@@ -71,6 +72,7 @@ wrkr scan --github-org acme --github-api https://api.github.com --json
 ```
 
 `--github-org` is the additive alias for `--org`. Use it when security or platform teams need the deterministic saved-state input for `wrkr report`, `wrkr evidence`, `wrkr mcp-list`, or `wrkr inventory --diff`.
+Private repos and public API rate-limit avoidance usually require a GitHub token even when `--github-api` is set.
 
 ## Repo/path example
 
@@ -80,6 +82,7 @@ wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --repo
 
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, and optional `report` when summary output is requested.
 For local-machine scans, `target.mode` is `my_setup`.
+`warnings` is included when Wrkr can prove posture may be incomplete even though the scan succeeded, for example when known MCP-bearing declaration files failed to parse.
 `detector_errors` is included when non-fatal detector failures occur and partial scan results are preserved.
 `partial_result`, `source_errors`, and `source_degraded` are included when source acquisition/materialization has non-fatal failures.
 `sarif.path` is included when `--sarif` output is requested.

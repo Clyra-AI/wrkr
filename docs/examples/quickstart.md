@@ -14,7 +14,8 @@ Wrkr is useful standalone and interoperates with Axym/Gait through shared proof 
 
 The fastest zero-integration first value is `wrkr scan --my-setup --json` against the local machine setup, followed by `wrkr mcp-list` from the saved state snapshot.
 
-For hosted source modes, `scan --repo` and `scan --org` require `--github-api` (or `WRKR_GITHUB_API_BASE`) and fail closed when acquisition is unavailable.
+For hosted source modes, `scan --repo` and `scan --org` require `--github-api` (or `WRKR_GITHUB_API_BASE`) and typically also need a GitHub token for private repos or to avoid public API rate limits.
+Token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 
 Canonical local artifact paths are documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
 
@@ -35,6 +36,7 @@ Common first surprises:
 - MCP servers requesting write or shell permissions from user-home config.
 - Environment key presence (`location=process:env`) without exposing raw values.
 - Local `AGENTS.md` or `.agents/` project markers under common workspace roots.
+- `warnings` on `scan` or `mcp-list` explaining that known MCP declaration files failed to parse, so posture may be incomplete even when the command itself succeeded.
 
 ## Org handoff when you need team-wide posture
 

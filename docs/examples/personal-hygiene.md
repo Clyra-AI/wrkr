@@ -22,6 +22,7 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr
 - High-privilege MCP servers requesting `shell` or write permissions from user-home configs.
 - `process:env` findings showing key presence without exposing secret values.
 - Local `AGENTS.md`, `.agents/`, `.claude/`, `.cursor/`, or `.codex/` project markers that widen the effective AI tooling surface.
+- `warnings` on `mcp-list` showing that known MCP-bearing config files failed to parse, which means a zero-row MCP catalog is incomplete rather than clean.
 
 ## Scope boundary
 

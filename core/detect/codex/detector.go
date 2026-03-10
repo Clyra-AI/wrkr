@@ -70,9 +70,9 @@ func parseConfig(scope detect.Scope, rel, format string) (model.Finding, *model.
 	var parseErr *model.ParseError
 	switch format {
 	case "toml":
-		parseErr = detect.ParseTOMLFile(detectorID, scope.Root, rel, &parsed)
+		parseErr = detect.ParseTOMLFileAllowUnknownFields(detectorID, scope.Root, rel, &parsed)
 	case "yaml":
-		parseErr = detect.ParseYAMLFile(detectorID, scope.Root, rel, &parsed)
+		parseErr = detect.ParseYAMLFileAllowUnknownFields(detectorID, scope.Root, rel, &parsed)
 	default:
 		parseErr = &model.ParseError{Kind: "parse_error", Format: format, Path: rel, Detector: detectorID, Message: "unsupported format"}
 	}

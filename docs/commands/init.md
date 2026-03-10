@@ -24,3 +24,5 @@ wrkr init --non-interactive --path ./scenarios/wrkr/scan-mixed-org/repos --json
 ```
 
 Expected JSON keys: `status`, `config_path`, `default_target`, `auth_profiles`.
+
+`auth_profiles.scan.token_configured` and `auth_profiles.fix.token_configured` report only tokens persisted in config by `wrkr init`. Ambient runtime fallback tokens from `WRKR_GITHUB_TOKEN` or `GITHUB_TOKEN` are not reflected in that JSON response.

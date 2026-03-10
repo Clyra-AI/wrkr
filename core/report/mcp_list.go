@@ -10,6 +10,7 @@ import (
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 	"gopkg.in/yaml.v3"
 )
@@ -51,6 +52,7 @@ type mcpTrustEntry struct {
 
 func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath string, allowAmbientOverlay bool) MCPList {
 	overlay, warnings := loadMCPTrustOverlay(strings.TrimSpace(overlayPath), allowAmbientOverlay)
+	warnings = append(warnings, MCPVisibilityWarnings(snapshot.Findings)...)
 	toolSurfaces := buildMCPToolSurfaceIndex(snapshot.Inventory)
 	gatewayCoverage := buildMCPGatewayCoverageIndex(snapshot.Findings)
 
@@ -102,6 +104,58 @@ func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath st
 		GeneratedAt: ResolveGeneratedAtForCLI(snapshot, generatedAt).Format(time.RFC3339),
 		Rows:        rows,
 		Warnings:    warnings,
+	}
+}
+
+func MCPVisibilityWarnings(findings []source.Finding) []string {
+	locations := map[string]struct{}{}
+	hasMCPRows := false
+	for _, finding := range findings {
+		if strings.TrimSpace(finding.FindingType) == "mcp_server" {
+			hasMCPRows = true
+			continue
+		}
+		if strings.TrimSpace(finding.FindingType) != "parse_error" {
+			continue
+		}
+		location := strings.TrimSpace(finding.Location)
+		if !isKnownMCPDeclarationPath(location) {
+			continue
+		}
+		locations[location] = struct{}{}
+	}
+	if len(locations) == 0 {
+		return nil
+	}
+
+	ordered := make([]string, 0, len(locations))
+	for location := range locations {
+		ordered = append(ordered, location)
+	}
+	sort.Strings(ordered)
+
+	prefix := "MCP visibility may be incomplete because these declaration files failed to parse: "
+	if !hasMCPRows {
+		prefix = "MCP visibility incomplete: no MCP rows were emitted because these declaration files failed to parse: "
+	}
+	return []string{prefix + strings.Join(ordered, ", ")}
+}
+
+func isKnownMCPDeclarationPath(location string) bool {
+	switch strings.TrimSpace(location) {
+	case ".mcp.json",
+		".cursor/mcp.json",
+		".vscode/mcp.json",
+		"mcp.json",
+		"managed-mcp.json",
+		".claude/settings.json",
+		".claude/settings.local.json",
+		".codex/config.toml",
+		".codex/config.yaml",
+		".codex/config.yml":
+		return true
+	default:
+		return false
 	}
 }
 
