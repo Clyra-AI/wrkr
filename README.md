@@ -10,7 +10,7 @@ Local-machine discovery inventories supported user-home tool configs, MCP declar
 
 Wrkr is the **See** layer in the Clyra AI governance stack (See -> Prove -> Control -> Build). It discovers AI tooling and agent declarations across repositories and orgs, scores posture, tracks identity lifecycle, and emits signed proof artifacts ready for compliance review or downstream automation.
 
-Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command contracts: [`docs/commands/`](docs/commands/) | Docs map: [`docs/map.md`](docs/map.md)
+Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Browser bootstrap: [clyra-ai.github.io/wrkr/scan/](https://clyra-ai.github.io/wrkr/scan/) | Command contracts: [`docs/commands/`](docs/commands/) | Docs map: [`docs/map.md`](docs/map.md)
 
 ## Install
 
@@ -112,6 +112,8 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json
 ```
 
 `--github-org` is the additive alias for `--org`. `inventory --diff` is the ergonomic drift review surface and exits `5` when deterministic inventory drift is present.
+
+If you want a browser-first handoff before running the CLI yourself, use the read-only `/scan/` bootstrap shell on the docs site. It generates the org-scan handoff and projects returned JSON summaries without becoming a dashboard.
 
 ### 3. Need the full scan-to-evidence walkthrough?
 

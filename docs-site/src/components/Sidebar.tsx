@@ -54,6 +54,9 @@ export default function Sidebar() {
         </nav>
 
         <div className="mt-8 pt-8 border-t border-gray-800 px-3 space-y-3">
+          <Link href="/scan" className="block text-sm text-gray-400 hover:text-gray-200">
+            Web Bootstrap
+          </Link>
           <Link href="/llms" className="block text-sm text-gray-400 hover:text-gray-200">
             LLM Context
           </Link>
