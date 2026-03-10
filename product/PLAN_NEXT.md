@@ -1,156 +1,139 @@
-# PLAN WRKR_PERSONAL_HYGIENE: Developer Machine Hygiene to Org-Ready Proof
+# PLAN WRKR_WAVE1_CONTRACT_HARDENING: Proof Integrity, Regress Compatibility, and State Safety
 
-Date: 2026-03-09  
-Source of truth: user-provided recommended items for this run, `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`, current repo baseline  
-Scope: Wrkr repository only. Planning artifact only; no implementation in this document.
+Date: 2026-03-10  
+Source of truth: user-provided code-review findings for this run, `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`, current repo baseline  
+Scope: Wrkr repository only. Planning artifact only. One wave only.
 
 ## Global Decisions (Locked)
 
-- Lead the next Wrkr release with the developer angle first: personal machine hygiene (`wrkr scan --my-setup`, `wrkr mcp-list`, `wrkr inventory --diff`) becomes the first-screen contract, while org scanning remains a first-class security workflow.
-- Preserve Wrkr’s deterministic, offline-first, fail-closed core. `scan --my-setup` must work locally by default and must never exfiltrate host data or require network access.
-- Preserve architecture boundaries: Source -> Detection -> Aggregation -> Identity -> Risk -> Proof emission -> Compliance/evidence output. Local-machine support must be added as a new source/detection flow, not as ad hoc CLI logic.
-- Preserve existing CLI/API contracts:
-  - keep `scan --path`, `scan --org`, `scan --repo`, `export`, `evidence`, `verify`, and `regress`
-  - keep stable `--json` envelope and exit code taxonomy (`0..8`)
-  - add new commands/flags additively only
-- Treat `scan --github-org` as an additive alias over existing `scan --org`, not a replacement.
-- Treat `inventory` as a developer-facing compatibility wrapper over existing inventory export/regression primitives. `export --format inventory` remains supported and documented.
-- `mcp-list` is discovery and privilege mapping only. It must not perform vulnerability scanning, package exploitation checks, or live MCP endpoint probing. Discovery/interoperability notes may reference Snyk and Gait, but Wrkr stays in the See boundary.
-- Secret handling remains presence-only and class-only. Local environment scanning may identify configured key names/categories and privilege implications, but must never emit secret values.
-- Optional Gait trust-registry overlay is allowed only as a local read-only enrichment. Missing Gait files/tools must degrade explicitly in output (`trust_status: unavailable`) and must not block Wrkr commands.
-- Compliance rollups are additive summaries built from existing proof/compliance mappings; do not break current evidence bundle schema or framework coverage semantics.
-- Delivery wave order is locked:
-  - Wave 1: target contract expansion and local-machine discovery foundation
-  - Wave 2: developer command surfaces (`mcp-list`, `inventory`, `inventory --diff`)
-  - Wave 3: compliance rollups and evidence/proof packaging
-  - Wave 4: README, docs, OSS hygiene, and positioning reframe
-  - Wave 5: thin self-serve web bootstrap only
-- Thin self-serve web scanning may be planned only as a read-only bootstrap shell after Waves 1-4 are locked. No dashboard-first scope in this plan.
-- Every runtime/boundary/risk story must wire `make prepush-full`. Reliability-sensitive local machine scanning and trust overlay stories must also wire `make test-hardening` and `make test-chaos`.
+- This plan is intentionally one wave only. Scope is limited to release-blocking contract/runtime correctness and the minimum docs/schema parity required to ship those fixes safely.
+- Preserve Wrkr's deterministic, offline-first, fail-closed default behavior. No new network paths, dashboard work, or UX expansion are in scope.
+- Preserve architecture boundaries: Source -> Detection -> Aggregation -> Identity -> Risk -> Proof emission -> Compliance/evidence output.
+- Keep existing public command names and exit taxonomy stable:
+  - `wrkr verify --chain`
+  - `wrkr regress init|run`
+  - `wrkr evidence`
+  - exit codes `0..8`
+- Proof verification must always perform structural chain validation. Attestation or signature verification is an authenticity layer, not a substitute for structural integrity checks.
+- Present-but-invalid or unreadable signing material is fail-closed. Silent authenticity downgrades are not allowed.
+- Prefer additive `--json` fields on `verify` over envelope/key renames. If additional status is required, add optional fields instead of changing the success/error shape.
+- Preserve `schemas/v1/regress/regress-baseline.schema.json` and `BaselineVersion = "v1"` if a compatibility shim can safely reconcile legacy agent IDs. Only bump the baseline version if an ADR proves that additive compatibility is unsafe or ambiguous.
+- `proof-signing-key.json` must use the same atomic/locked persistence discipline already used for state, manifests, baselines, and proof chains.
+- All runtime/contract/failure stories in this wave must wire `make prepush-full`. Reliability-sensitive stories must also wire `make test-hardening` and `make test-chaos`.
+- Docs changes in this wave are limited to touched contracts: command docs, failure taxonomy, compatibility/versioning notes, release-integrity guidance, README/changelog wording where required by real behavior changes.
 
 ## Current Baseline (Observed)
 
-- `core/cli/root.go` exposes `scan`, `export`, `report`, `score`, `verify`, `evidence`, `regress`, `fix`, and related commands. There is no `inventory` command and no `mcp-list` command today.
-- `core/cli/scan.go` already supports `--path`, `--repo`, and `--org`; there is no `--my-setup` mode and no `--github-org` alias.
-- `core/cli/export.go` already emits machine-readable inventory via `wrkr export --format inventory --json`. This should be reused rather than replaced.
-- `core/cli/regress.go` already provides deterministic baseline/drift mechanics that can power `inventory --diff`.
-- `docs/commands/scan.md` and `README.md` are currently repo/org/path posture-first. They do not lead with a personal-machine workflow or MCP quick-reference UX.
-- `docs-site/next.config.mjs` uses `output: 'export'`; the current docs-site is static-export oriented and has no GitHub OAuth/bootstrap flow today.
-- Agent inventory is already present in scan contracts (`inventory.agents` appears in `docs/commands/scan.md` and tests). This plan should not re-plan generic phase-1.5 agent detection from scratch; it should surface and package existing org/agent signals more effectively.
-- Current docs already position Wrkr and Gait together, but they do not yet frame Wrkr as “npm audit for AI tools/MCP servers” or show concrete personal setup examples.
-- OSS trust files already exist at repo root: `CONTRIBUTING.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `README.md`, and `LICENSE`.
-- Current CI and local gate baseline is compatible with this plan:
-  - fast local gate: `make prepush`
-  - full architecture gate: `make prepush-full`
-  - contract gate: `make test-contracts`
-  - scenario gate: `make test-scenarios`
-  - reliability gates: `make test-hardening`, `make test-chaos`
-  - docs consistency/storyline gates: `make test-docs-consistency`, `make test-docs-storyline`
+- `go test ./... -count=1` passes in the current repository.
+- Happy-path command anchors pass:
+  - `wrkr scan --path scenarios/wrkr/scan-mixed-org/repos --state /tmp/wrkr-review-state.json --json`
+  - `wrkr regress init --baseline /tmp/wrkr-review-state.json --output /tmp/wrkr-review-baseline.json --json`
+  - `wrkr regress run --baseline /tmp/wrkr-review-baseline.json --state /tmp/wrkr-review-state.json --json`
+  - `wrkr verify --chain --state /tmp/wrkr-review-state.json --json`
+  - `scripts/check_branch_protection_contract.sh`
+- The proof verification boundary is currently unsafe:
+  - `core/verify/verify.go` returns success on attestation verification without parsing or structurally verifying the chain.
+  - `core/cli/verify.go` silently falls back to unsigned verification when `LoadVerifierKey` fails.
+- The regress compatibility boundary is currently unsafe:
+  - `core/regress/regress.go` keeps `BaselineVersion = "v1"` and derives legacy agent IDs when `snapshot.Identities` is absent.
+  - `core/cli/scan_helpers.go` now emits instance-level IDs via `AgentInstanceID`, creating a legacy/current mismatch without a migration path.
+- The proof signing-material persistence boundary is currently weak:
+  - `core/proofemit/signing.go` creates `proof-signing-key.json` with raw `os.WriteFile` and no path lock.
+  - `core/evidence/evidence.go` hard-depends on valid signing material for bundle creation, so a torn or rotated key file becomes a release-path failure.
+- `docs/commands/verify.md` currently documents only `status`, `chain.path`, `chain.intact`, `chain.count`, and `chain.head_hash`; it does not describe authenticity-degraded behavior or fail-closed key semantics.
+- No `sdk/python` directory exists in this checkout, so no SDK wrapper scope is included in this plan.
 
 ## Exit Criteria
 
-1. `wrkr scan --my-setup --json` deterministically inventories supported local AI tools, MCP configs, local agent project markers, and environment key presence classes without emitting raw secrets.
-2. `wrkr mcp-list` emits a stable machine-readable and human-readable MCP quick-reference view with transport, privilege surface, and optional trust overlay fields.
-3. `wrkr inventory` emits a stable machine-readable inventory contract, and `wrkr inventory --diff` deterministically reports added/removed/changed entities relative to a baseline.
-4. Existing `wrkr export --format inventory --json` and `wrkr regress` contracts remain valid and documented as compatibility surfaces.
-5. `wrkr scan --github-org` exists as an additive alias for org scanning without breaking existing `scan --org` automation.
-6. Scan/report/evidence outputs expose additive compliance rollups by framework/control/article without changing existing exit codes or removing current JSON keys.
-7. Personal setup and org scan outputs can both produce signed proof/evidence artifacts that remain verifiable via existing `wrkr verify --chain --json` contract.
-8. README, command docs, examples, and docs-site first-screen flow lead with the developer hygiene narrative while still covering the security-team posture/compliance path.
-9. Thin web scanner scope, if implemented, remains a read-only bootstrap shell that hands off to existing Wrkr org scan contracts and does not introduce dashboard-first core scope.
-10. All changed surfaces are covered by deterministic contract tests, scenario coverage where applicable, docs parity checks, and required CI matrix wiring.
+1. `wrkr verify --chain` never returns `status=ok` for non-JSON or structurally invalid proof chains, even when attestation or signature material is present and valid.
+2. `wrkr verify --chain --json` no longer silently downgrades when verifier-key loading fails; missing-key and invalid-key paths are explicit, documented, and deterministic.
+3. `proof-signing-key.json` initialization is atomic and contention-safe, with interruption and concurrency coverage proving no torn writes or key/chain mismatches.
+4. Legacy `v1` regress baselines built before instance identities do not false-trigger drift for equivalent current identities.
+5. `wrkr regress` preserves deterministic ordering, reason codes, and exit `5` semantics for genuine drift while suppressing false drift caused only by legacy/current identity format differences.
+6. Docs, contract tests, and release-integrity guidance are updated in the same PR for every externally visible `verify` or `regress` behavior change.
+7. All stories in this wave pass Fast, Core CI, Acceptance, Cross-platform, and Risk lane requirements before merge.
 
 ## Public API and Contract Map
 
-Stable/public surfaces:
-- `wrkr scan --path|--repo|--org --json`
-- `wrkr export --format inventory|appendix --json`
-- `wrkr regress init|run --json`
-- `wrkr evidence --frameworks ... --json`
+Stable/public surfaces touched by this wave:
 - `wrkr verify --chain --json`
-- Current scan/report/evidence exit codes and machine-readable error envelopes
-- Current top-level scan JSON keys and additive v1 schema policy
+- `wrkr regress init --json`
+- `wrkr regress run --json`
+- `wrkr evidence --frameworks ... --json`
+- Machine-readable error envelope and exit code taxonomy
+- `schemas/v1/regress/regress-baseline.schema.json`
+- Docs contracts:
+  - `README.md`
+  - `docs/commands/verify.md`
+  - `docs/commands/regress.md`
+  - `docs/failure_taxonomy_exit_codes.md`
 
-New stable/public surfaces introduced by this plan:
-- `wrkr scan --my-setup`
-- `wrkr scan --github-org <org>` as alias for `scan --org <org>`
-- `wrkr inventory [--diff] [--baseline <path>]`
-- `wrkr mcp-list`
-- Additive `compliance_summary` / `control_mappings`-style summary sections in scan/report/evidence outputs
-
-Internal surfaces:
-- New local-machine source package(s) for workstation discovery
-- New local detection package(s) for host config/env classification
-- Optional Gait trust overlay adapter
-- Inventory diff projection helpers built on existing export/regress internals
-- Docs-site bootstrap shell and auth handoff scaffolding
+Internal surfaces touched by this wave:
+- `core/verify/*`
+- `core/cli/verify.go`
+- `core/proofemit/*`
+- `core/regress/*`
+- `core/cli/regress.go`
+- `internal/atomicwrite/*`
+- `internal/e2e/verify/*`
+- `internal/e2e/regress/*`
+- `testinfra/contracts/*`
+- `testinfra/hygiene/*`
 
 Shim/deprecation path:
-- `export --format inventory` remains stable and supported; `inventory` initially wraps the same builder and only adds ergonomic affordances like `--diff`.
-- `scan --org` remains stable; `scan --github-org` is an additive alias and docs-friendly spelling.
-- `regress` remains the underlying deterministic diff engine; `inventory --diff` should call into it rather than fork logic.
-- Existing `report` and `evidence` output keys stay intact; compliance rollups are additive only.
+- `verify` keeps its top-level success envelope. If additional mode/status detail is required, add optional fields such as `chain.verification_mode` and `chain.authenticity_status` rather than renaming or removing existing keys.
+- `regress` keeps the existing command surface and preferred `v1` baseline format. Compatibility is restored by automatic legacy-ID reconciliation if it can be done safely.
+- If automatic reconciliation is unsafe, the fallback is an explicit baseline-version bump with a documented migration path in the same wave. No silent format drift is allowed.
 
 Schema/versioning policy:
-- Remain on v1 schemas.
-- New machine-readable fields must be additive and optional unless deterministic empty/default values are required by contract.
-- No renames/removals of existing required keys in scan/export/evidence payloads.
-- If the thin web bootstrap introduces any server-facing payload contract, it must be explicitly versioned and isolated from core CLI schemas.
+- `verify` success payload changes must be additive only.
+- `regress` remains `v1` only if compatibility tests prove that legacy baselines do not false-drift against equivalent current identities.
+- Any schema/version bump must ship with:
+  - migration expectations
+  - compatibility tests
+  - docs updates
+  - contract/golden updates
 
 Machine-readable error expectations:
-- Conflicting target flags (`--my-setup` plus `--path`/`--repo`/`--org`) return `invalid_input` (exit `6`).
-- Unsupported or unreadable local config roots that are optional degrade explicitly in output; they do not silently disappear.
-- Unsafe local read paths or invalid trust overlay references fail closed with stable error classes.
-- Missing GitHub acquisition dependencies for org scan remain `dependency_missing` (exit `7`).
-- Missing optional Gait trust registry must not become a hard dependency failure.
+- Invalid `verify` input remains `invalid_input` with exit `6`.
+- Non-JSON or structurally invalid proof chains return `verification_failure` with exit `2`, even when attestation/signature verification succeeds.
+- Present-but-invalid or unreadable verifier key material returns `verification_failure` with exit `2`.
+- Missing verifier-key material must never silently behave like “all checks passed”; the selected behavior must be explicit in JSON and documented in the same PR.
+- Equivalent legacy/current regress inputs must not produce `drift_detected=true` or exit `5`.
 
 ## Docs and OSS Readiness Baseline
 
 README first-screen contract:
-- Current README is strong on deterministic org/path scanning and evidence, but it does not lead with the developer-machine problem.
-- This plan moves the first screen to:
-  - install
-  - `scan --my-setup`
-  - `mcp-list`
-  - `scan --github-org`
-  - `inventory --diff`
-- Security-team positioning remains, but moves below the developer-first story.
+- Current README promises signed proof artifacts and verifiable evidence. This wave must keep those statements accurate by fixing the implementation and tightening wording where necessary.
+- No README repositioning or new onboarding narrative is planned; only touched contract language should change.
 
 Integration-first docs flow:
-- New docs must explain “what do I run first?” before internal architecture or taxonomy.
-- Command docs for new surfaces must include copy-paste examples and stable JSON keys before implementation details.
+- `docs/commands/verify.md` must explain success keys, failure keys, and authenticity behavior with copy-paste examples before implementation details.
+- `docs/commands/regress.md` must explain legacy baseline compatibility expectations and any versioning/migration path chosen in this wave.
 
 Lifecycle path model:
-- Keep Wrkr’s current lifecycle state model intact.
-- Personal setup inventory should not invent a separate lifecycle machine; it should enrich discovery posture, not fork identity semantics.
+- This wave does not introduce a new lifecycle model. The work stays inside existing identity/regress semantics and compatibility repair.
 
-Docs source-of-truth:
-- README: product entry contract
-- `docs/commands/*`: command/flag/JSON/exit-code contract
-- `docs/examples/*`: narrative examples and adoption flows
-- `docs/contracts/readme_contract.md`: README structural contract
-- `docs-site/`: public docs shell and future thin web bootstrap shell
+Docs source-of-truth for this wave:
+- `README.md`
+- `docs/commands/verify.md`
+- `docs/commands/regress.md`
+- `docs/failure_taxonomy_exit_codes.md`
+- `docs/trust/release-integrity.md`
+- `docs/trust/compatibility-and-versioning.md`
 
 OSS trust baseline:
-- Root baseline files already exist.
-- This plan keeps trust-file changes minimal and focused on externally visible behavior, support expectations, and install/discovery clarity.
-- If web bootstrap scope adds hosted behavior, maintainer/support expectations must be made explicit in docs and security policy links.
+- Existing trust files already exist: `CONTRIBUTING.md`, `CHANGELOG.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `README.md`, `LICENSE`.
+- This wave only requires updates to touched command/contract docs and `CHANGELOG.md` if released behavior changes are user-visible.
 
 ## Recommendation Traceability
 
 | Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story mapping |
 |---|---|---|---|---|---|
-| R1 | `wrkr scan --my-setup` personal machine scan | Create immediate “what’s on my machine?” moment | Developer-bottom-up PLG | Faster first value and higher individual adoption | W1-S01, W1-S02 |
-| R2 | Personal inventory + diff | Make posture trackable over time | Ongoing hygiene loop | Habit formation and drift visibility | W1-S04 |
-| R3 | `wrkr mcp-list` quick reference | Show MCP posture fast without full scan archaeology | Fast operator UX | Clearer day-1 value and lower friction | W1-S03 |
-| R4 | Discovery, not vulnerability scanning | Avoid scope confusion and competitive overlap | Product boundary clarity | Stronger positioning with less promise risk | W2-S08 |
-| R5 | `scan --github-org` org workflow | Make org posture story obvious in CLI/README | Security-team usability | Lower onboarding friction for CISOs | W1-S01, W2-S07, W2-S08 |
-| R6 | Surface agent/org posture in org scans | Keep top-down security story complete | Security posture continuity | Better enterprise relevance | W1-S05, W1-S06 |
-| R7 | Compliance mapping output in scan/report | Turn findings into audit-ready summaries | Compliance leverage | Stronger buyer and auditor value | W1-S05 |
-| R8 | Evidence bundle as signed proof artifact | Preserve audit handoff story | Proof-first differentiation | Portable, verifiable evidence moat | W1-S06 |
-| R9 | Developer-first README and examples | Reframe Wrkr from org-only to dual-use | PLG messaging shift | Better conversion from install to activation | W2-S07, W2-S08 |
-| R10 | Gait interoperability and Snyk boundary docs | Make product edges explicit | Ecosystem positioning | Lower confusion, higher trust | W1-S03, W2-S08 |
-| R11 | Thin self-serve web scanner | Show HN/demo-ready org onboarding path | Distribution UX | Higher reach without changing core runtime | W2-S09 |
+| R1 | Always structurally verify proof chains after attestation/signature checks | Stop invalid artifacts from passing integrity verification | Fail-closed proof verification | Restore trust in signed evidence and chain integrity claims | W1-S01 |
+| R2 | Remove silent verifier-key downgrade and make authenticity state explicit | Prevent fail-open authenticity behavior | Boundary hardening at CLI/runtime edge | Safer operator automation and more truthful machine-readable outputs | W1-S01, W1-S02 |
+| R3 | Restore legacy regress baseline compatibility under `v1` or ship explicit migration | Stop false drift after instance-identity rollout | Compatibility-preserving contract evolution | Preserve existing automation and prevent spurious exit `5` regressions | W1-S03 |
+| R4 | Make proof signing-material creation atomic and contention-safe | Remove crash/race hazard on authoritative signing state | State-safety hardening | Keep proof emission, verification, and evidence generation reliable under interruption/contention | W1-S02 |
 
 ## Test Matrix Wiring
 
@@ -161,586 +144,255 @@ Fast lane:
 Core CI lane:
 - `make prepush`
 - `make test-contracts`
-- targeted package tests for touched command/source/detection packages
+- Targeted package tests for `core/verify`, `core/proofemit`, `core/regress`, `core/cli`, and touched docs-contract packages
 
 Acceptance lane:
+- `go test ./internal/e2e/verify -count=1`
+- `go test ./internal/e2e/regress -count=1`
 - `make test-scenarios`
 - `scripts/run_v1_acceptance.sh --mode=local`
-- add new outside-in personal setup fixture scenarios where applicable
 
 Cross-platform lane:
-- `windows-smoke`
-- path/home-directory/env handling contract tests on Linux/macOS/Windows
+- Existing `windows-smoke`
+- Targeted path and artifact tests for `verify`/`regress` on Linux/macOS/Windows in CI where applicable
 
 Risk lane:
 - `make prepush-full`
 - `make test-hardening`
 - `make test-chaos`
-- `make test-perf` for stories that materially increase local file traversal or docs-site server/runtime cost
 
 Merge/release gating rule:
-- Wave 1 must pass Fast + Core CI + Acceptance + Cross-platform + Risk lanes before Wave 2 starts.
-- Wave 2 must pass Fast + Core CI + Acceptance + Cross-platform + Risk lanes before Wave 3 starts.
-- Wave 3 must pass Fast + Core CI + Acceptance + Cross-platform + Risk lanes before Wave 4 starts.
-- Wave 4 must pass Fast + docs consistency/storyline gates before Wave 5 starts.
-- Wave 5 must pass Fast + Core CI + Cross-platform + Risk lanes plus docs-site build/smoke gates.
-- No merge is allowed with `--json` drift, exit-code drift, or docs/CLI parity failures unless explicitly versioned and approved.
+- No story in this wave is mergeable until Fast + Core CI + Acceptance + Cross-platform + Risk lanes are green.
+- No release is allowed with `verify --json` drift, exit-code drift, docs/CLI parity failures, or unresolved legacy-baseline compatibility gaps unless explicitly versioned and documented in the same change.
 
-## Epic W1-E1 (Wave 1): Personal Machine Discovery Foundation
+## Epic W1-E1 (Wave 1): Contract and Reliability Hardening for Verify, Regress, and Proof State
 
-Objective: add the deterministic, offline-first personal-machine source mode and target contract needed for all later developer-facing flows without breaking current `scan`, `export`, or `regress` contracts.
+Objective: restore release-safe proof verification, proof signing-material persistence, and regress compatibility without expanding Wrkr scope beyond contract/runtime correctness.
 
-### Story W1-S01: Add `scan --my-setup` and `scan --github-org` target contract expansion
+### Story W1-S01: Make proof verification structurally authoritative and authenticity-explicit
 Priority: P0
 Tasks:
-- Add additive scan target flags:
-  - `--my-setup`
-  - `--github-org` as alias to existing `--org`
-- Define and document mutual exclusion rules across `--my-setup`, `--path`, `--repo`, `--org`, and `--github-org`.
-- Add deterministic target metadata to scan output so personal vs repo/org scans are machine-distinguishable without breaking current top-level keys.
-- Keep org/repo acquisition failure semantics unchanged and keep `--my-setup` local-only by default.
+- Refactor `core/verify.ChainWithPublicKey` so structural chain verification always runs after attestation/signature verification logic.
+- Separate structural integrity and authenticity checks in the result model so the CLI can report both without silent downgrade.
+- Update CLI verify flow so non-JSON and structurally invalid chains return deterministic verification failures even when attestation/signature verification succeeds.
+- Add targeted tests for:
+  - attested non-JSON chain
+  - attested structurally invalid chain
+  - signed structurally invalid chain
+  - explicit success output for the chosen verification/authenticity mode fields
 Repo paths:
-- `core/cli/scan.go`
-- `core/cli/root.go`
-- `core/state/*`
-- `docs/commands/scan.md`
-- `README.md`
-- `core/cli/root_test.go`
-- `core/cli/*scan*_test.go`
-Run commands:
-- `go test ./core/cli -count=1`
-- `go run ./cmd/wrkr scan --my-setup --json --quiet`
-- `go run ./cmd/wrkr scan --github-org acme --github-api https://api.github.com --json`
-- `make test-contracts`
-- `make prepush-full`
-Test requirements:
-- CLI help/usage tests for new flags.
-- `--json` stability tests for target selection and machine-readable error envelopes.
-- Exit-code contract tests for conflicting target combinations.
-- Deterministic target metadata fixture tests.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- `scan --my-setup` is accepted as a single-source mode and rejects mixed target combinations with exit `6`.
-- `scan --github-org` behaves identically to `scan --org` for output and exit semantics.
-- Existing `scan --org` and `scan --path` automation remains green without output regressions.
-Contract/API impact:
-- Additive CLI flag expansion on `scan`; preserve current exit codes and top-level JSON envelope.
-Versioning/migration impact:
-- No schema major bump; only additive target metadata fields if needed.
-Architecture constraints:
-- Keep target selection in CLI orchestration only.
-- Introduce local-machine source entry point under Source boundary rather than direct filesystem crawling in CLI.
-- Preserve cancellation/timeout propagation for target acquisition flow.
-ADR required: yes
-TDD first failing test(s):
-- `TestScanRejectsMixedMySetupAndPathTargets`
-- `TestScanGitHubOrgAliasMatchesOrgContract`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If local target roots are partially unreadable, scan emits deterministic non-secret detector/source errors and stays fail-closed on unsafe reads.
-Dependencies:
-- none
-
-### Story W1-S02: Implement deterministic local-machine source and workstation detectors
-Priority: P0
-Tasks:
-- Add new local-machine source package that enumerates supported config roots deterministically:
-  - home-directory config roots for Cursor, Claude, Codex, VS Code/Copilot, MCP declarations, agent projects
-  - environment-variable allowlist for API key presence classification
-- Implement structured detectors for:
-  - installed/configured AI tools
-  - MCP server definitions and privilege-bearing config
-  - local agent project markers
-  - environment key presence classes and risk hints
-- Normalize findings so raw secret values and raw connection strings are never emitted.
-- Add privilege mapping for local-only findings such as filesystem scope, database endpoints, Slack/channel posting, and production-target hints where parsable.
-Repo paths:
-- `core/source/localsetup/*`
-- `core/detect/workstation/*`
-- `core/detect/mcp/*`
-- `core/detect/mcpgateway/*`
-- `core/model/finding.go`
-- `schemas/v1/findings/*`
-- `schemas/v1/inventory/*`
-- `internal/scenarios/*`
-- `scenarios/wrkr/my-setup/*`
-Run commands:
-- `go test ./core/source/... ./core/detect/... -count=1`
-- `go test ./internal/scenarios -count=1 -tags=scenario`
-- `go run ./cmd/wrkr scan --my-setup --json --quiet`
-- `make test-contracts`
-- `make test-hardening`
-- `make test-chaos`
-- `make prepush-full`
-Test requirements:
-- Structured parser tests for local config formats (JSON/YAML/TOML).
-- Privacy contract tests proving no raw secret value is emitted.
-- Deterministic inventory/finding ordering tests for home directory and env enumeration.
-- Fail-closed undecidable-path tests for unreadable directories, symlink traps, and malformed configs.
-- Scenario fixtures for realistic local setup examples, including production-risk MCP configs.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- A fixed machine fixture produces byte-stable findings and inventory across repeated runs.
-- Environment results identify key presence by normalized key family only.
-- MCP privilege findings show explainable privilege surfaces without active probing.
-- Unsupported or unreadable roots are surfaced explicitly and deterministically.
-Contract/API impact:
-- Additive scan finding/inventory fields for local-machine context and privilege hints.
-Versioning/migration impact:
-- Stay on v1 schemas with additive fields only.
-Architecture constraints:
-- Source package enumerates candidate inputs; detectors parse structured content; aggregation/risk remain separate.
-- Avoid regex-only parsing for structured configs.
-- No network or remote calls in default local-machine scan path.
-ADR required: yes
-TDD first failing test(s):
-- `TestMySetupScan_RedactsEnvironmentSecrets`
-- `TestMySetupScan_DeterministicOrderingAcrossHomeRoots`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- If home-directory traversal encounters symlink loops or permission-denied folders, scan exits or degrades deterministically without partial secret exposure or hidden skips.
-Dependencies:
-- W1-S01
-Risks:
-- Home-directory and env modeling can create noise if allowlists are too broad; keep fixtures and confidence thresholds conservative.
-
-## Epic W1-E2 (Wave 2): Developer Command Surfaces
-
-Objective: expose the new local-machine posture model through stable, ergonomic command surfaces after the source and detection foundation is locked.
-
-### Story W1-S03: Add `wrkr mcp-list` with optional Gait trust overlay
-Priority: P0
-Tasks:
-- Add new top-level `mcp-list` command with human-readable and `--json` output.
-- Project existing local/repo MCP findings into a stable MCP server catalog:
-  - server name
-  - transport type
-  - requested permissions / privilege surface
-  - trust status
-  - concise risk note
-- Add optional local-only overlay that reads Gait trust registry state when present and marks server trust status without making Gait a hard dependency.
-- Add explicit docs note that Wrkr inventories/configures MCP posture and does not replace vulnerability scanners.
-Repo paths:
-- `core/cli/mcp_list.go`
-- `core/cli/root.go`
-- `core/report/mcp_list.go`
-- `core/detect/mcp/*`
-- `core/detect/mcpgateway/*`
-- `docs/commands/mcp-list.md`
-- `docs/faq.md`
-- `core/cli/*mcp*_test.go`
-Run commands:
-- `go test ./core/cli ./core/report ./core/detect/mcp ./core/detect/mcpgateway -count=1`
-- `go run ./cmd/wrkr mcp-list --json`
-- `make test-contracts`
-- `make test-hardening`
-- `make test-chaos`
-- `make prepush-full`
-Test requirements:
-- CLI help/usage tests.
-- Stable JSON contract tests for field ordering and absence/presence of trust overlay metadata.
-- Wrapper error-mapping tests for missing/unreadable optional Gait inputs.
-- Deterministic allow/block/degrade tests for trust overlay states.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- `mcp-list --json` produces deterministic rows for the same fixture input.
-- Missing Gait trust registry yields `trust_status: unavailable` rather than command failure.
-- Human-readable output is a concise quick-reference card, not a verbose report.
-- Docs clearly distinguish discovery from vulnerability assessment and reference Snyk/Gait appropriately.
-Contract/API impact:
-- New public CLI command and JSON schema surface.
-Versioning/migration impact:
-- Additive only; no impact on existing scan/export/evidence schemas.
-Architecture constraints:
-- Command should consume catalog/projection helpers, not reimplement detector logic.
-- Keep optional trust overlay behind a thin adapter boundary.
-- Explicitly separate discovery data from trust overlay metadata.
-ADR required: yes
-TDD first failing test(s):
-- `TestMCPListJSON_StableRowsAndTrustStatus`
-- `TestMCPListWithoutGait_DegradesExplicitly`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If the trust overlay file is malformed or unreadable, Wrkr still lists MCP servers with deterministic `trust_status: unavailable` and machine-readable warning context.
-Dependencies:
-- W1-S02
-
-### Story W1-S04: Add `wrkr inventory` and deterministic `inventory --diff`
-Priority: P0
-Tasks:
-- Add new top-level `inventory` command that wraps current inventory export primitives.
-- Add `inventory --diff` over deterministic baseline comparison using existing regress/diff logic rather than bespoke comparison code.
-- Define baseline file/default path semantics for developer hygiene workflows.
-- Keep `export --format inventory` and `regress` fully supported and document the relationship between commands.
-Repo paths:
-- `core/cli/inventory.go`
-- `core/cli/root.go`
-- `core/export/inventory/*`
-- `core/regress/*`
-- `docs/commands/inventory.md`
-- `docs/commands/export.md`
-- `docs/commands/regress.md`
-- `core/cli/*inventory*_test.go`
-Run commands:
-- `go test ./core/cli ./core/export/inventory ./core/regress -count=1`
-- `go run ./cmd/wrkr inventory --json`
-- `go run ./cmd/wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json`
-- `make test-contracts`
-- `make prepush-full`
-Test requirements:
-- CLI help/usage tests.
-- `--json` stability tests for inventory and diff payloads.
-- Exit-code contract tests for missing baseline / invalid baseline shape.
-- Compatibility tests proving `inventory` output matches `export --format inventory` for equivalent state.
-- Deterministic drift reason tests for added/removed/changed MCP servers, tools, and key-presence classes.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- `inventory --json` produces a stable inventory payload equivalent to the underlying export contract.
-- `inventory --diff` deterministically identifies additions/removals/permission changes between two fixed baselines.
-- Existing `export` and `regress` workflows remain valid and documented as compatibility surfaces.
-Contract/API impact:
-- New public CLI command; additive wrapper over existing stable JSON builders and drift semantics.
-Versioning/migration impact:
-- No schema major bump; diff payload uses additive v1-compatible envelope.
-Architecture constraints:
-- Reuse export/regress boundaries; do not duplicate inventory serialization or diff semantics in CLI.
-- Keep diff engine deterministic and side-effect-free.
-- Preserve symmetric API semantics between raw inventory export and diff mode.
-ADR required: yes
-TDD first failing test(s):
-- `TestInventoryCommand_MatchesInventoryExportContract`
-- `TestInventoryDiff_ReportsAddedRemovedChangedDeterministically`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If baseline file is malformed or stale, command fails with a stable machine-readable error instead of producing ambiguous diff results.
-Dependencies:
-- W1-S02
-
-## Epic W1-E3 (Wave 3): Compliance Rollups and Evidence Packaging
-
-Objective: make Wrkr’s top-down security story explicit in scan/report/evidence outputs after the personal-machine and command contracts are stable.
-
-### Story W1-S05: Add additive compliance summary sections to scan and report outputs
-Priority: P0
-Tasks:
-- Reuse existing compliance mappings to emit deterministic rollups by framework/control/article in scan and report outputs.
-- Add explain-mode rendering so human-readable summaries can say things like “12 findings map to SOC 2 CC6.1”.
-- Ensure summaries work for both personal setup and org/repo scans where mappings exist.
-- Keep current report keys intact and add compliance sections additively.
-Repo paths:
-- `core/compliance/*`
-- `core/cli/scan.go`
-- `core/cli/report.go`
-- `core/report/*`
-- `docs/commands/scan.md`
-- `docs/commands/report.md`
-- `core/cli/report_contract_test.go`
-- `core/cli/root_test.go`
-Run commands:
-- `go test ./core/compliance ./core/cli ./core/report -count=1`
-- `go run ./cmd/wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json`
-- `go run ./cmd/wrkr report --state ./.wrkr/last-scan.json --json`
-- `make test-contracts`
-- `make test-scenarios`
-- `make prepush-full`
-Test requirements:
-- Schema/contract tests for additive compliance summary keys.
-- Golden fixture updates for scan/report JSON.
-- Deterministic mapping aggregation tests and ordering checks.
-- Scenario tests proving summary counts stay stable on fixed fixtures.
-Matrix wiring:
-- Fast, Core CI, Acceptance, Cross-platform, Risk
-Acceptance criteria:
-- Scan and report JSON include deterministic compliance rollups without removing existing fields.
-- Repeated runs on fixed fixtures emit identical framework/control counts.
-- Human-readable docs/examples match tested JSON terminology.
-Contract/API impact:
-- Additive public JSON fields for scan/report.
-Versioning/migration impact:
-- v1 additive fields only; no breaking changes.
-Architecture constraints:
-- Compliance mapping logic remains in compliance/evidence layer, not in detectors or CLI.
-- Keep stable framework IDs and reason-code semantics.
-- Preserve explicit side-effect naming between summarize/build/export paths.
-ADR required: yes
-TDD first failing test(s):
-- `TestScanJSON_EmitsComplianceSummaryAdditively`
-- `TestReportJSON_EmitsDeterministicControlRollups`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If a mapping file is missing or invalid, Wrkr fails closed with stable policy/schema behavior instead of silently emitting partial compliance numbers.
-Dependencies:
-- W1-S02
-
-### Story W1-S06: Extend proof/evidence artifacts for personal setup and org posture bundles
-Priority: P0
-Tasks:
-- Ensure `scan --my-setup` writes proof records and state artifacts that remain compatible with existing evidence and verify flows.
-- Add additive evidence bundle artifacts for:
-  - personal inventory snapshot
-  - compliance summary snapshot
-  - MCP catalog snapshot when present
-- Keep existing proof record type conventions and chain verification semantics intact.
-- Add evidence docs showing auditor handoff for org scans and local handoff for personal hygiene baselines.
-Repo paths:
-- `core/evidence/*`
-- `core/proofemit/*`
-- `core/proofmap/*`
 - `core/verify/*`
-- `docs/commands/evidence.md`
-- `docs/commands/verify.md`
-- `core/evidence/*test.go`
-- `internal/scenarios/*`
+- `core/cli/verify.go`
+- `internal/e2e/verify/*`
+- `testinfra/contracts/*`
 Run commands:
-- `go test ./core/evidence ./core/proofemit ./core/proofmap ./core/verify -count=1`
-- `go run ./cmd/wrkr evidence --frameworks soc2 --json`
-- `go run ./cmd/wrkr verify --chain --json`
+- `go test ./core/verify -count=1`
+- `go test ./core/cli -run Verify -count=1`
+- `go test ./internal/e2e/verify -count=1`
 - `make test-contracts`
-- `make test-scenarios`
 - `make prepush-full`
 Test requirements:
-- Schema/artifact compatibility tests for new evidence files.
-- Byte-stability repeat-run tests for personal and org evidence bundles.
-- Canonicalization/digest and chain verification tests.
-- Scenario tests covering both personal and org evidence generation paths.
+- Proof/evidence contract tests for structural verification after authenticity checks
+- CLI `--json` stability tests
+- Exit-code and machine-readable error envelope tests
+- Deterministic repeat-run tests for success/error output ordering
 Matrix wiring:
 - Fast, Core CI, Acceptance, Cross-platform, Risk
 Acceptance criteria:
-- Personal setup scans can produce verifiable proof/evidence artifacts without changing existing verify semantics.
-- Evidence bundles contain deterministic machine-readable inventory and compliance summary artifacts.
-- Existing evidence consumers remain compatible.
+- A non-JSON `proof-chain.json` with a valid attestation returns exit `2`, not `status=ok`.
+- A structurally invalid but correctly signed chain returns exit `2`.
+- The final `verify --json` success contract explicitly states the verification/authenticity mode without breaking the top-level envelope.
 Contract/API impact:
-- Additive evidence artifact surface; existing proof verify contract remains stable.
+- Touches `wrkr verify --chain --json` success/failure semantics.
+- Must preserve the current top-level envelope and existing keys; any new status fields must be additive and documented.
 Versioning/migration impact:
-- No proof record type rename/removal; additive artifact files only.
+- No schema major bump expected; additive `verify` fields only.
 Architecture constraints:
-- Proof emission remains authoritative in Go core.
-- Evidence packaging reuses existing proof primitives and chain semantics.
-- No web/UI-specific evidence generation logic leaks into core runtime.
+- Keep policy/sign/verify authority in Go core packages, not in CLI branching.
+- Maintain symmetric API semantics: structural verification and authenticity verification must be explicit, ordered steps.
+- No network or remote key dependency may be introduced.
 ADR required: yes
 TDD first failing test(s):
-- `TestEvidenceBuild_IncludesPersonalInventoryArtifactDeterministically`
-- `TestVerifyChain_PersonalSetupBundleRemainsCompatible`
-Cost/perf impact: medium
+- `TestChainWithPublicKeyRejectsAttestedNonJSONPayload`
+- `TestChainWithPublicKeyRejectsAttestedStructuralCorruption`
+- `TestVerifyCLIEmitsExplicitVerificationMode`
+Cost/perf impact: low
 Chaos/failure hypothesis:
-- If evidence output directory is unsafe or partially populated, Wrkr fails closed using existing unsafe-output semantics and does not emit half-written artifacts.
-Dependencies:
-- W1-S04
-- W1-S05
+- If attestation or signature verification succeeds but the chain payload is malformed or structurally corrupt, verification must still fail deterministically with exit `2` and no partial-success output.
 
-## Epic W2-E1 (Wave 4): Developer-First README and Docs Reframe
-
-Objective: reposition Wrkr around the developer “holy shit” moment first after runtime/API surfaces are settled, while preserving the security-team and compliance story lower in the funnel.
-
-### Story W2-S07: Rewrite README first screen and quickstart around personal machine hygiene
-Priority: P1
+### Story W1-S02: Fail closed on bad verifier keys and harden proof-signing-key initialization
+Priority: P0
 Tasks:
-- Replace current hero and top quickstart with the developer-first contract:
-  - install
-  - `wrkr scan --my-setup`
-  - `wrkr mcp-list`
-  - `wrkr scan --github-org`
-  - `wrkr inventory --diff`
-- Add a concrete personal setup output example showing surprising but realistic privilege findings.
-- Preserve lower-page sections for security-team posture, evidence, and Gait relationship.
-- Update root help examples/documentation references if needed for command discoverability.
+- Change `core/cli/verify.go` to distinguish:
+  - no verifier key available
+  - verifier key present but unreadable/invalid
+- Fail closed on unreadable/invalid key material; if no key exists, emit explicit deterministic authenticity status per the ADR in W1-S01 instead of silently falling back.
+- Replace raw `os.WriteFile` in `core/proofemit/signing.go` with `atomicwrite.WriteFile` and add a per-path initialization lock for first-time key creation.
+- Add interruption and contention coverage for first-write key creation and prove that `verify` and `evidence` behave consistently after fault injection.
 Repo paths:
-- `README.md`
-- `docs/examples/quickstart.md`
-- `docs/contracts/readme_contract.md`
-- `docs/map.md`
-- `core/cli/root.go`
-- `core/cli/root_test.go`
+- `core/cli/verify.go`
+- `core/proofemit/signing.go`
+- `core/proofemit/*`
+- `core/evidence/*`
+- `internal/atomicwrite/*`
+- `internal/e2e/verify/*`
 Run commands:
-- `go test ./core/cli -count=1`
-- `make test-docs-consistency`
-- `make test-docs-storyline`
-- `docs-site-install`
-- `docs-site-build`
-Test requirements:
-- README first-screen checks.
-- Docs consistency checks for renamed/additive commands and examples.
-- Storyline/smoke checks for first-run developer flow.
-- Help/usage tests if examples or command catalog text changes.
-Matrix wiring:
-- Fast, Core CI
-Acceptance criteria:
-- README first screen reflects the developer-machine narrative before the org/audit narrative.
-- Examples are copy-pasteable and aligned with tested command surfaces.
-- Docs/CLI parity checks stay green.
-Contract/API impact:
-- Documentation-only unless root help/example text changes.
-Architecture constraints:
-- Docs must remain integration-first and contract-accurate.
-- Do not overstate runtime enforcement or vulnerability scanning scope.
-ADR required: no
-TDD first failing test(s):
-- `TestRootHelpListsInventoryAndMCPListExamples`
-- docs storyline check for developer-first quickstart
-Cost/perf impact: low
-Dependencies:
-- W1-S01
-- W1-S03
-- W1-S04
-
-### Story W2-S08: Publish command docs and positioning pages for developer and security personas
-Priority: P1
-Tasks:
-- Add/refresh docs for:
-  - `docs/commands/mcp-list.md`
-  - `docs/commands/inventory.md`
-  - `docs/commands/scan.md` developer/org examples
-  - security-team posture/compliance examples
-  - Gait interoperability notes
-  - Snyk/vuln-scanning boundary notes
-- Add separate persona examples:
-  - developer personal hygiene
-  - security team org inventory and compliance handoff
-- Update FAQ and positioning pages to make the discovery-versus-vulnerability boundary explicit.
-Repo paths:
-- `docs/commands/scan.md`
-- `docs/commands/mcp-list.md`
-- `docs/commands/inventory.md`
-- `docs/commands/evidence.md`
-- `docs/examples/personal-hygiene.md`
-- `docs/examples/security-team.md`
-- `docs/faq.md`
-- `docs/positioning.md`
-- `README.md`
-Run commands:
-- `make test-docs-consistency`
-- `make test-docs-storyline`
-- `docs-site-install`
-- `docs-site-lint`
-- `docs-site-build`
-- `docs-site-check`
-Test requirements:
-- Docs consistency checks.
-- Storyline/smoke checks for changed user flows.
-- README/docs source-of-truth mapping checks when both repo docs and docs-site nav are touched.
-- Version/install discoverability checks where command surface changes are referenced.
-Matrix wiring:
-- Fast, Core CI
-Acceptance criteria:
-- New commands and examples are fully documented with stable `--json` expectations.
-- Docs explicitly say Wrkr inventories/configures MCP posture and does not assess server vulnerabilities.
-- Gait interoperability is framed as inventory vs enforcement, not as a hard prerequisite.
-Contract/API impact:
-- Documentation-only unless command docs expose new public JSON fields from Wave 1.
-Architecture constraints:
-- Docs must mirror tested CLI semantics and fail-closed behavior.
-- Keep integration-before-internals order in command docs.
-ADR required: no
-TDD first failing test(s):
-- docs parity check for `mcp-list` and `inventory`
-- docs storyline check for personal hygiene flow
-Cost/perf impact: low
-Dependencies:
-- W1-S03
-- W1-S04
-- W1-S05
-- W1-S06
-
-## Epic W2-E2 (Wave 5): Thin Self-Serve Web Bootstrap
-
-Objective: create a minimal distribution shell that lets a user connect GitHub and trigger/read a Wrkr org scan quickly, without turning Wrkr into a dashboard-first product, only after the CLI/docs contract is settled.
-
-### Story W2-S09: Add thin web scanner/bootstrap shell for read-only org scanning
-Priority: P2
-Tasks:
-- Produce ADR for hosting model change required by current static docs-site baseline.
-- Add a minimal docs-site `/scan` bootstrap flow that:
-  - explains the 60-second org scan value proposition
-  - initiates read-only GitHub OAuth or equivalent bootstrap handshake
-  - hands off to existing Wrkr org scan/action contracts
-  - renders returned machine-readable summary artifact, not a persistent dashboard
-- Keep Go CLI authoritative for scan/risk/proof; Node/Next code remains a thin adoption/distribution layer only.
-- Add privacy/security copy and explicit “read-only, no runtime enforcement” messaging.
-Repo paths:
-- `docs-site/src/app/*`
-- `docs-site/src/lib/*`
-- `docs-site/package.json`
-- `docs-site/next.config.mjs`
-- `docs-site/README.md`
-- `.github/workflows/*`
-- `docs/positioning.md`
-- `README.md`
-Run commands:
-- `docs-site-install`
-- `docs-site-lint`
-- `docs-site-build`
-- `docs-site-check`
-- `make test-docs-consistency`
-- `make test-perf`
+- `go test ./core/proofemit -count=1`
+- `go test ./core/evidence -count=1`
+- `go test ./core/cli -run Verify -count=1`
+- `make test-hardening`
+- `make test-chaos`
 - `make prepush-full`
 Test requirements:
-- Docs-site smoke tests for bootstrap flow.
-- Failure-path tests for denied auth, missing callback state, and unavailable scan backend/handoff.
-- Wrapper error-mapping tests if a thin adapter/service contract is introduced.
-- README/docs parity checks for hosted bootstrap copy.
+- Invalid-key and missing-key contract tests
+- Atomic-write interruption tests
+- Contention/concurrency tests
+- Hardening and chaos coverage for first-time signing-material creation
+- Evidence/verify consistency tests when signing material is absent, invalid, or newly created
 Matrix wiring:
-- Fast, Core CI, Cross-platform, Risk
+- Fast, Core CI, Acceptance, Cross-platform, Risk
 Acceptance criteria:
-- A user can reach a read-only org scan bootstrap flow from the docs-site without encountering dashboard-only dead ends.
-- The bootstrap shell produces or renders a deterministic Wrkr summary artifact tied to existing org scan contracts.
-- The flow clearly states its boundaries and does not duplicate core runtime logic in Node.
+- A corrupted `proof-signing-key.json` no longer yields `status=ok` from `wrkr verify --chain`.
+- Missing verifier-key behavior is explicit and deterministic; no silent fallback remains.
+- Concurrent first-time key initialization produces exactly one valid persisted key state and a verifiable proof chain.
+- Simulated interruption during key initialization leaves no torn or partially valid key file behind.
 Contract/API impact:
-- Potential new thin web bootstrap payload contract; must be versioned and isolated from CLI schemas if introduced.
+- Touches `verify` error behavior for key-material failures and may add explicit success-state fields for authenticity mode.
+- Keeps existing exit taxonomy; invalid key material must map to stable verification failure semantics.
 Versioning/migration impact:
-- If docs-site hosting/export mode changes, document the migration and release/deploy expectations explicitly.
+- No schema/version bump expected.
 Architecture constraints:
-- No dashboard-first scope.
-- Go core remains authoritative for scanning, risk, proof, and evidence logic.
-- Thin orchestration only in web layer; explicit timeout/cancellation semantics for long-running handoff flows.
-- Extension points should reduce enterprise fork pressure if self-hosted bootstrap variants are needed later.
+- Persistence safety belongs in proof/state helpers, not CLI-level ad hoc retries.
+- API names should make side effects explicit (`load`, `init`, `verify`, `emit`).
+- Avoid new shared mutable global state except tightly scoped path locks with tests.
 ADR required: yes
 TDD first failing test(s):
-- docs-site bootstrap smoke test with mocked GitHub auth callback
-- adapter test for scan kickoff error mapping
-Cost/perf impact: medium
+- `TestVerifyCLIRejectsInvalidVerifierKeyFile`
+- `TestLoadSigningKeyIsAtomicUnderInterruption`
+- `TestLoadSigningKeyConcurrentInitializationProducesSingleValidState`
+Cost/perf impact: low
 Chaos/failure hypothesis:
-- If auth callback or scan kickoff fails, the shell must present deterministic retry/error states and must not create hidden partial org scans or ambiguous success UX.
-Dependencies:
-- W2-S07
-- W2-S08
-Risks:
-- Current static-export docs-site is incompatible with full OAuth callback handling; hosting mode change must be explicit and tightly scoped.
+- Two concurrent scans against a fresh state directory or an interruption during first key creation must not leave mismatched key/chain state, torn files, or a false-green verify result.
+
+### Story W1-S03: Restore legacy regress baseline compatibility without silent contract drift
+Priority: P0
+Tasks:
+- Implement a compatibility shim in `core/regress` that reconciles legacy baseline agent IDs with current instance-level identities when the underlying tool is equivalent.
+- Preserve deterministic sorting, reason ordering, and reason-code stability while suppressing false `new_unapproved_tool` drift for legacy/current ID format differences alone.
+- Add compatibility fixtures that cover symbol/location-range instance IDs, legacy baselines built without `snapshot.Identities`, and genuine new-tool drift.
+- Only if the shim is proven unsafe, version-bump the baseline format and ship an explicit migration path and contract docs in the same wave.
+Repo paths:
+- `core/regress/*`
+- `core/identity/*`
+- `core/cli/regress.go`
+- `schemas/v1/regress/*`
+- `internal/e2e/regress/*`
+- `testinfra/contracts/*`
+Run commands:
+- `go test ./core/regress -count=1`
+- `go test ./internal/e2e/regress -count=1`
+- `make test-contracts`
+- `make prepush-full`
+Test requirements:
+- Compatibility and migration tests for legacy baseline to current identity matching
+- Exit `5` drift/no-drift contract tests
+- Deterministic ordering and reason-code stability checks
+- Schema validation and fixture/golden updates if any schema or payload shape changes
+Matrix wiring:
+- Fast, Core CI, Acceptance, Cross-platform, Risk
+Acceptance criteria:
+- A legacy `v1` baseline describing the same tool as a current instance-identity scan returns no drift.
+- A genuinely new instance identity still returns `new_unapproved_tool` and exit `5`.
+- `regress` remains byte-stable and deterministically ordered across repeated runs.
+- If schema/version changes are required, migration expectations and tests ship in the same PR.
+Contract/API impact:
+- Touches `wrkr regress` compatibility behavior and potentially baseline schema expectations.
+- Must not change exit-code semantics for genuine drift.
+Versioning/migration impact:
+- Preferred path: preserve `v1` with automatic compatibility shim.
+- Fallback path: explicit version bump with migration document and compatibility tests.
+Architecture constraints:
+- Keep compatibility logic inside `core/regress` and `core/identity`, not CLI glue.
+- Do not leak lifecycle state reconciliation into unrelated packages.
+- Reason-code stability is non-negotiable for automation consumers.
+ADR required: yes
+TDD first failing test(s):
+- `TestCompareLegacyBaselineInstanceIdentity_NoFalseDrift`
+- `TestLoadBaselineLegacyAgentIDCompatibility`
+- `TestCompareStillFlagsTrueNewInstanceIdentity`
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Mixed legacy/current baseline inputs should never produce nondeterministic drift or order-dependent results when repeated under the same input set.
+
+### Story W1-S04: Align docs, contract tests, and release notes with the fixed verify/regress behavior
+Priority: P1
+Tasks:
+- Update command docs, failure-taxonomy docs, and compatibility/versioning notes to match the final verify and regress contract.
+- Update README wording only where current integrity/authenticity claims must become more precise after the runtime fix.
+- Refresh contract/golden coverage and run docs parity checks against the actual CLI output.
+- Add changelog entries for externally visible behavior changes if the fixes are intended for the next release.
+Repo paths:
+- `README.md`
+- `CHANGELOG.md`
+- `docs/commands/verify.md`
+- `docs/commands/regress.md`
+- `docs/failure_taxonomy_exit_codes.md`
+- `docs/trust/release-integrity.md`
+- `docs/trust/compatibility-and-versioning.md`
+- `testinfra/contracts/*`
+- `testinfra/hygiene/*`
+Run commands:
+- `make test-docs-consistency`
+- `make test-docs-storyline`
+- `scripts/check_docs_cli_parity.sh`
+- `make test-contracts`
+- `make prepush-full`
+Test requirements:
+- Docs consistency and storyline checks
+- CLI/docs parity checks
+- Contract tests for any new `verify` fields or regress compatibility notes
+- README first-screen checks if touched
+Matrix wiring:
+- Fast, Core CI, Acceptance, Cross-platform
+Acceptance criteria:
+- Docs/examples match the final `verify` and `regress` behavior exactly.
+- Failure taxonomy docs reflect invalid-key, missing-key, and invalid-chain semantics.
+- No docs introduce contract claims not backed by code and tests.
+Contract/API impact:
+- Docs and tests only; no new CLI surface beyond the implementation completed in W1-S01 through W1-S03.
+Versioning/migration impact:
+- Documents the chosen `v1` compatibility path or the explicit version-bump migration path.
+Architecture constraints:
+- Documentation must mirror the authoritative Go implementation and contract tests; no docs-only contract invention.
+ADR required: no
+TDD first failing test(s):
+- `TestVerifyDocsMatchCLIContract`
+- `TestRegressDocsDescribeLegacyCompatibilityPath`
+- `TestFailureTaxonomyIncludesVerifyKeyFailureCase`
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Not applicable; this story consumes the behavior fixed and validated in W1-S01 through W1-S03.
 
 ## Minimum-Now Sequence
 
-1. Wave 1: W1-S01, W1-S02
-2. Wave 2: W1-S03, W1-S04
-3. Wave 3: W1-S05, W1-S06
-4. Wave 4: W2-S07, W2-S08
-5. Wave 5: W2-S09
-
-Parallelization notes:
-- Within Wave 1, W1-S02 starts immediately after W1-S01 target-contract locking.
-- Within Wave 2, W1-S03 and W1-S04 can overlap once W1-S02 lands stable local inventory primitives.
-- Within Wave 3, W1-S05 can start first; W1-S06 follows once inventory/diff/compliance payload shapes are stable.
-- Within Wave 4, W2-S07 can start before W2-S08, but both should stay behind locked Wave 3 command/output contracts.
-- Wave 5 must not start before Waves 1-4 are green and the docs-site hosting/ADR decision is explicitly accepted.
+1. W1-S01: lock the verify ADR and remove the structural-verification bypass first, because it defines the final verification contract for the rest of the wave.
+2. W1-S02: harden verifier-key handling and proof-signing-key persistence next, because it closes the remaining fail-open path and the authoritative state-safety gap.
+3. W1-S03: repair regress baseline compatibility after the proof boundary is fixed, keeping `v1` if the shim is safe.
+4. W1-S04: land docs, contract/golden updates, and release-note alignment only after the runtime behavior is final.
 
 ## Explicit Non-Goals
 
-- No vulnerability scanning of MCP servers, agent packages, or developer workstations.
-- No raw secret extraction or raw credential materialization in any output.
-- No runtime enforcement, request interception, or tool blocking; that remains Gait’s boundary.
-- No rich multi-tenant dashboard, analytics portal, or long-lived SaaS control plane in this plan.
-- No breaking removal of `scan --org`, `export --format inventory`, `regress`, or current v1 JSON schemas.
-- No LLM-based local machine interpretation in scan/risk/proof paths.
+- No new scan, detect, report, inventory, mcp-list, or docs-site feature work.
+- No expansion of `--enrich` or any other non-deterministic network behavior.
+- No dashboard, SaaS, or web bootstrap scope.
+- No unrelated toolchain upgrades or dependency sweeps unless directly required by the implementation of this wave.
+- No baseline schema `v2` unless the ADR in W1-S03 proves that additive compatibility under `v1` is unsafe.
 
 ## Definition of Done
 
-- Every recommendation in the traceability table maps to at least one implemented story or an explicit additive compatibility shim.
-- Every story has real repo paths, concrete run commands, deterministic acceptance criteria, and matrix wiring.
-- CLI changes preserve stable `--json` and exit-code behavior, with help/usage coverage and machine-readable error envelope tests.
-- Schema/artifact changes remain additive under v1 and are covered by contract/golden compatibility tests.
-- Reliability-sensitive local scan and trust-overlay stories pass `make test-hardening` and `make test-chaos`.
-- Docs updates ship in the same PRs as command/contract changes and pass docs parity/storyline checks.
-- README first-screen contract, integration-first docs flow, and OSS trust baseline remain explicit and accurate.
-- Waves 1-4 complete in order before Wave 5 distribution/bootstrap work begins.
+- Every recommendation in this plan maps to at least one completed story with tests and lane wiring.
+- `wrkr verify --chain` is fail-closed for invalid chains and invalid key material, with no silent authenticity downgrade.
+- `proof-signing-key.json` creation is atomic, locked, and covered by interruption/concurrency tests.
+- Legacy `v1` regress baselines no longer false-trigger drift for equivalent current identities, or a fully documented migration path ships in the same wave.
+- All touched CLI/docs/schema contracts are updated in the same PR and pass parity checks.
+- Required commands for touched stories are recorded and green, including `make prepush-full`, `make test-contracts`, and reliability gates where applicable.

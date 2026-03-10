@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -52,8 +53,10 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	)
 	if publicKey, keyErr := proofemit.LoadVerifierKey(keyLookupPath); keyErr == nil {
 		result, err = verifycore.ChainWithPublicKey(chainPath, publicKey)
-	} else {
+	} else if errors.Is(keyErr, os.ErrNotExist) {
 		result, err = verifycore.Chain(chainPath)
+	} else {
+		return emitVerificationFailure(stderr, jsonRequested || *jsonOut, "verifier_key_error", -1, "", keyErr.Error())
 	}
 	if err != nil {
 		errorCode := verifycore.ErrorCodeFor(err)
@@ -69,13 +72,15 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	payload := map[string]any{
 		"status": "ok",
 		"chain": map[string]any{
-			"path":        chainPath,
-			"intact":      result.Intact,
-			"count":       result.Count,
-			"head_hash":   result.HeadHash,
-			"reason":      result.Reason,
-			"break_index": result.BreakIndex,
-			"break_point": result.BreakPoint,
+			"path":                chainPath,
+			"intact":              result.Intact,
+			"count":               result.Count,
+			"head_hash":           result.HeadHash,
+			"reason":              result.Reason,
+			"break_index":         result.BreakIndex,
+			"break_point":         result.BreakPoint,
+			"verification_mode":   result.VerificationMode,
+			"authenticity_status": result.AuthenticityStatus,
 		},
 	}
 	if *jsonOut {

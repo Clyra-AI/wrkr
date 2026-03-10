@@ -100,12 +100,14 @@ func TestChainMatchesProofVerifierOnHeadHashMismatch(t *testing.T) {
 	}
 
 	expected := Result{
-		Intact:     want.Intact,
-		Count:      want.Count,
-		HeadHash:   want.HeadHash,
-		BreakPoint: want.BreakPoint,
-		BreakIndex: want.BreakIndex,
-		Reason:     "chain_integrity_failure",
+		Intact:             want.Intact,
+		Count:              want.Count,
+		HeadHash:           want.HeadHash,
+		BreakPoint:         want.BreakPoint,
+		BreakIndex:         want.BreakIndex,
+		Reason:             "chain_integrity_failure",
+		VerificationMode:   verificationModeChainOnly,
+		AuthenticityStatus: authenticityStatusUnavailable,
 	}
 	if !reflect.DeepEqual(got, expected) {
 		t.Fatalf("unexpected verify result\nwant=%+v\ngot=%+v", expected, got)
@@ -137,6 +139,12 @@ func TestChainWithPublicKeyAcceptsSignedChain(t *testing.T) {
 	}
 	if result.Reason != "ok" {
 		t.Fatalf("expected reason ok, got %s", result.Reason)
+	}
+	if result.VerificationMode != verificationModeSignature {
+		t.Fatalf("expected signature verification mode, got %s", result.VerificationMode)
+	}
+	if result.AuthenticityStatus != authenticityStatusVerified {
+		t.Fatalf("expected verified authenticity status, got %s", result.AuthenticityStatus)
 	}
 }
 
@@ -197,6 +205,67 @@ func TestChainWithPublicKeyAcceptsAttestedChain(t *testing.T) {
 	}
 	if result.Reason != "ok" {
 		t.Fatalf("expected reason ok, got %s", result.Reason)
+	}
+	if result.VerificationMode != verificationModeAttestation {
+		t.Fatalf("expected attestation verification mode, got %s", result.VerificationMode)
+	}
+	if result.AuthenticityStatus != authenticityStatusVerified {
+		t.Fatalf("expected verified authenticity status, got %s", result.AuthenticityStatus)
+	}
+}
+
+func TestChainWithPublicKeyRejectsAttestedNonJSONPayload(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "chain.json")
+	if err := os.WriteFile(path, []byte("not-json-at-all\n"), 0o600); err != nil {
+		t.Fatalf("write chain payload: %v", err)
+	}
+	key, err := proof.GenerateSigningKey()
+	if err != nil {
+		t.Fatalf("generate signing key: %v", err)
+	}
+	writeAttestation(t, path, key, 999, "sha256:fakehead")
+
+	if _, err := ChainWithPublicKey(path, proof.PublicKey{Public: key.Public, KeyID: key.KeyID}); err == nil {
+		t.Fatal("expected parse failure for attested non-JSON chain")
+	} else if ErrorCodeFor(err) != ErrorCodeParseChain {
+		t.Fatalf("unexpected error code: %s", ErrorCodeFor(err))
+	}
+}
+
+func TestChainWithPublicKeyRejectsAttestedStructuralCorruption(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "chain.json")
+	chain := proof.NewChain("wrkr-proof")
+	appendRecord(t, chain, "scan_finding", map[string]any{"finding_type": "policy_violation"})
+	appendRecord(t, chain, "risk_assessment", map[string]any{"assessment_type": "finding_risk"})
+	chain.Records[1].Integrity.PreviousRecordHash = "sha256:tampered"
+	writeChain(t, path, chain)
+
+	key, err := proof.GenerateSigningKey()
+	if err != nil {
+		t.Fatalf("generate signing key: %v", err)
+	}
+	writeAttestation(t, path, key, len(chain.Records), chain.HeadHash)
+
+	result, err := ChainWithPublicKey(path, proof.PublicKey{Public: key.Public, KeyID: key.KeyID})
+	if err != nil {
+		t.Fatalf("verify attested structurally invalid chain: %v", err)
+	}
+	if result.Intact {
+		t.Fatalf("expected structural integrity failure, got %+v", result)
+	}
+	if result.Reason != "chain_integrity_failure" {
+		t.Fatalf("unexpected reason: %s", result.Reason)
+	}
+	if result.VerificationMode != verificationModeAttestation {
+		t.Fatalf("expected attestation verification mode, got %s", result.VerificationMode)
+	}
+	if result.AuthenticityStatus != authenticityStatusVerified {
+		t.Fatalf("expected verified authenticity status, got %s", result.AuthenticityStatus)
 	}
 }
 
@@ -297,4 +366,43 @@ func rehashChain(t *testing.T, chain *proof.Chain) {
 	}
 	chain.HeadHash = prev
 	chain.RecordCount = len(chain.Records)
+}
+
+func writeAttestation(t *testing.T, path string, key proof.SigningKey, recordCount int, headHash string) {
+	t.Helper()
+
+	chainPayload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read chain: %v", err)
+	}
+	attestation := chainAttestation{
+		Version:     "v1",
+		ChainSHA:    digestBytes(chainPayload),
+		ChainBytes:  int64(len(chainPayload)),
+		RecordCount: recordCount,
+		HeadHash:    headHash,
+	}
+	digest, err := digestAttestationPayload(chainAttestationPayload{
+		Version:     attestation.Version,
+		ChainSHA:    attestation.ChainSHA,
+		ChainBytes:  attestation.ChainBytes,
+		RecordCount: attestation.RecordCount,
+		HeadHash:    attestation.HeadHash,
+	})
+	if err != nil {
+		t.Fatalf("digest attestation payload: %v", err)
+	}
+	signature, err := signing.SignDigest(digest, key)
+	if err != nil {
+		t.Fatalf("sign attestation payload: %v", err)
+	}
+	attestation.Signature = signature
+	encoded, err := json.MarshalIndent(attestation, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal attestation: %v", err)
+	}
+	encoded = append(encoded, '\n')
+	if err := os.WriteFile(attestationPath(path), encoded, 0o600); err != nil {
+		t.Fatalf("write attestation: %v", err)
+	}
 }

@@ -227,6 +227,11 @@ Gate semantics:
 - Exit `5`: drift/regression gate fail
 - Any other non-zero: contract or runtime failure; block merge
 
+Verification and regress notes:
+
+- `wrkr verify --chain --json` now always performs structural proof-chain verification, even when attestation or signature material is present. Success payloads include `chain.verification_mode` and `chain.authenticity_status`; invalid verifier-key material fails closed with exit `2`.
+- `wrkr regress run --json` keeps `v1` baseline compatibility for legacy baselines created before instance identities when the current identity is equivalent at the same legacy anchor.
+
 Reference guides: [`docs/adopt_in_one_pr.md`](docs/adopt_in_one_pr.md) | [`docs/integration_checklist.md`](docs/integration_checklist.md)
 
 ## PR Distribution Mode

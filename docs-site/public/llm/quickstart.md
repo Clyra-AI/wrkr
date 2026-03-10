@@ -17,6 +17,8 @@ Use these next when you want compliance handoff:
 - `wrkr verify --chain --json`
 - `wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --json`
 
+`wrkr verify --chain --json` now reports whether the result was structural-only (`chain_only` / `unavailable`) or authenticated (`chain_and_attestation` or `chain_and_signature` with `verified` authenticity status).
+
 Low or zero `framework_coverage` on a first run means the scanned state still lacks documented controls or approvals. It is an evidence gap, not a parser failure.
 
 Use these intent guides next:

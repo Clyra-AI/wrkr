@@ -46,6 +46,7 @@ type ToolState struct {
 	ApprovalStatus string   `json:"approval_status"`
 	Present        bool     `json:"present"`
 	Permissions    []string `json:"permissions"`
+	LegacyAgentID  string   `json:"-"`
 }
 
 type AttackPathState struct {
@@ -128,13 +129,13 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 		byAgent[agentID] = tool
 	}
 
+	useInstanceIDs := len(snapshot.Identities) > 0
 	for _, finding := range snapshot.Findings {
 		if !model.IsIdentityBearingFinding(finding) {
 			continue
 		}
 		org := fallback(finding.Org, "local")
-		toolID := identity.ToolID(finding.ToolType, finding.Location)
-		agentID := identity.AgentID(toolID, org)
+		toolID, agentID, legacyAgentID := snapshotFindingIdentity(finding, useInstanceIDs)
 		item, exists := byAgent[agentID]
 		if !exists {
 			item = &ToolState{
@@ -145,11 +146,15 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 				ApprovalStatus: defaultApprovalState,
 				Present:        true,
 				Permissions:    []string{},
+				LegacyAgentID:  legacyAgentID,
 			}
 			byAgent[agentID] = item
 		}
 		if strings.TrimSpace(item.ToolID) == "" {
 			item.ToolID = toolID
+		}
+		if strings.TrimSpace(item.LegacyAgentID) == "" {
+			item.LegacyAgentID = legacyAgentID
 		}
 		item.Present = true
 		item.Permissions = append(item.Permissions, finding.Permissions...)
@@ -233,9 +238,10 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 		baseByAgent[item.AgentID] = item
 	}
 	reasons := make([]Reason, 0)
+	legacyClaims := map[string]struct{}{}
 
 	for _, currentTool := range currentTools {
-		baseTool, exists := baseByAgent[currentTool.AgentID]
+		baseTool, exists := matchBaselineTool(baseByAgent, legacyClaims, currentTool)
 		if !exists {
 			if currentTool.Present && !isApproved(currentTool) {
 				reasons = append(reasons, Reason{
@@ -320,6 +326,25 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 	}
 }
 
+func matchBaselineTool(baseByAgent map[string]ToolState, legacyClaims map[string]struct{}, currentTool ToolState) (ToolState, bool) {
+	if baseTool, exists := baseByAgent[currentTool.AgentID]; exists {
+		return baseTool, true
+	}
+	legacyAgentID := strings.TrimSpace(currentTool.LegacyAgentID)
+	if legacyAgentID == "" || legacyAgentID == currentTool.AgentID {
+		return ToolState{}, false
+	}
+	if _, claimed := legacyClaims[legacyAgentID]; claimed {
+		return ToolState{}, false
+	}
+	baseTool, exists := baseByAgent[legacyAgentID]
+	if !exists {
+		return ToolState{}, false
+	}
+	legacyClaims[legacyAgentID] = struct{}{}
+	return baseTool, true
+}
+
 func dedupeSortedPermissions(values []string) []string {
 	set := map[string]struct{}{}
 	for _, value := range values {
@@ -366,6 +391,51 @@ func fallback(value, fallbackValue string) string {
 		return fallbackValue
 	}
 	return value
+}
+
+func snapshotFindingIdentity(finding model.Finding, useInstanceIDs bool) (toolID string, agentID string, legacyAgentID string) {
+	org := fallback(finding.Org, "local")
+	legacyAgentID = identity.LegacyAgentID(finding.ToolType, finding.Location, org)
+	if !useInstanceIDs {
+		toolID = identity.ToolID(finding.ToolType, finding.Location)
+		return toolID, legacyAgentID, legacyAgentID
+	}
+	symbol := findingAgentSymbol(finding)
+	startLine, endLine := findingRangeLines(finding)
+	toolID = identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+	return toolID, identity.AgentID(toolID, org), legacyAgentID
+}
+
+func findingAgentSymbol(finding model.Finding) string {
+	index := map[string]string{}
+	for _, evidence := range finding.Evidence {
+		key := strings.ToLower(strings.TrimSpace(evidence.Key))
+		if key == "" {
+			continue
+		}
+		index[key] = strings.TrimSpace(evidence.Value)
+	}
+	for _, key := range []string{
+		"symbol",
+		"name",
+		"agent_name",
+		"agent.symbol",
+		"agent.name",
+		"function",
+		"class",
+	} {
+		if value := strings.TrimSpace(index[key]); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func findingRangeLines(finding model.Finding) (int, int) {
+	if finding.LocationRange == nil {
+		return 0, 0
+	}
+	return finding.LocationRange.StartLine, finding.LocationRange.EndLine
 }
 
 func snapshotAttackPaths(snapshot state.Snapshot) []AttackPathState {

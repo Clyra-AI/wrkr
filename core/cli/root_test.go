@@ -1339,6 +1339,12 @@ func TestVerifyAndEvidenceCommands(t *testing.T) {
 	if intact, _ := chainPayload["intact"].(bool); !intact {
 		t.Fatalf("expected intact chain payload: %v", chainPayload)
 	}
+	if chainPayload["verification_mode"] != "chain_and_attestation" {
+		t.Fatalf("expected attestation verification mode, got %v", chainPayload["verification_mode"])
+	}
+	if chainPayload["authenticity_status"] != "verified" {
+		t.Fatalf("expected verified authenticity status, got %v", chainPayload["authenticity_status"])
+	}
 
 	outputDir := filepath.Join(tmp, "wrkr-evidence")
 	var evidenceOut bytes.Buffer
@@ -1525,6 +1531,87 @@ func TestVerifyUsesStatePathVerifierKeyWhenChainPathOverrides(t *testing.T) {
 	}
 	if errObject["code"] != "verification_failure" {
 		t.Fatalf("unexpected verification error code: %v", errObject["code"])
+	}
+}
+
+func TestVerifyMissingVerifierKeyReturnsExplicitStructuralOnlyResult(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	keyPath := filepath.Join(filepath.Dir(statePath), "proof-signing-key.json")
+	if err := os.Remove(keyPath); err != nil {
+		t.Fatalf("remove signing key: %v", err)
+	}
+
+	var verifyOut bytes.Buffer
+	var verifyErr bytes.Buffer
+	if code := Run([]string{"verify", "--chain", "--state", statePath, "--json"}, &verifyOut, &verifyErr); code != 0 {
+		t.Fatalf("verify failed without key: %d %s", code, verifyErr.String())
+	}
+	var verifyPayload map[string]any
+	if err := json.Unmarshal(verifyOut.Bytes(), &verifyPayload); err != nil {
+		t.Fatalf("parse verify payload: %v", err)
+	}
+	chainPayload, ok := verifyPayload["chain"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chain payload, got %T", verifyPayload["chain"])
+	}
+	if chainPayload["verification_mode"] != "chain_only" {
+		t.Fatalf("expected chain_only verification mode, got %v", chainPayload["verification_mode"])
+	}
+	if chainPayload["authenticity_status"] != "unavailable" {
+		t.Fatalf("expected unavailable authenticity status, got %v", chainPayload["authenticity_status"])
+	}
+}
+
+func TestVerifyInvalidVerifierKeyFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	keyPath := filepath.Join(filepath.Dir(statePath), "proof-signing-key.json")
+	if err := os.WriteFile(keyPath, []byte("{\"not\":\"a valid key file\"}\n"), 0o600); err != nil {
+		t.Fatalf("write invalid signing key: %v", err)
+	}
+
+	var verifyOut bytes.Buffer
+	var verifyErr bytes.Buffer
+	code := Run([]string{"verify", "--chain", "--state", statePath, "--json"}, &verifyOut, &verifyErr)
+	if code != 2 {
+		t.Fatalf("expected exit 2 for invalid verifier key, got %d stdout=%s stderr=%s", code, verifyOut.String(), verifyErr.String())
+	}
+	var errorPayload map[string]any
+	if err := json.Unmarshal(verifyErr.Bytes(), &errorPayload); err != nil {
+		t.Fatalf("parse verify error payload: %v", err)
+	}
+	errObject, ok := errorPayload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object in verify payload: %v", errorPayload)
+	}
+	if errObject["code"] != "verification_failure" {
+		t.Fatalf("unexpected verification error code: %v", errObject["code"])
+	}
+	if errObject["reason"] != "verifier_key_error" {
+		t.Fatalf("unexpected verifier-key failure reason: %v", errObject["reason"])
 	}
 }
 

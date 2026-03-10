@@ -395,6 +395,110 @@ func TestCompareIgnoresPolicyOnlyBaselineDelta(t *testing.T) {
 	}
 }
 
+func TestCompareAllowsLegacyBaselineForEquivalentInstanceIdentity(t *testing.T) {
+	t.Parallel()
+
+	finding := model.Finding{
+		FindingType:   "tool_config",
+		ToolType:      "agentframework",
+		Location:      ".wrkr/agents/research.yaml",
+		LocationRange: &model.LocationRange{StartLine: 12, EndLine: 24},
+		Org:           "acme",
+		Repo:          "backend",
+		Evidence:      []model.Evidence{{Key: "symbol", Value: "research_agent"}},
+	}
+	legacySnapshot := state.Snapshot{Findings: []model.Finding{finding}}
+	baseline := BuildBaseline(legacySnapshot, time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC))
+
+	instanceToolID := identity.AgentInstanceID(finding.ToolType, finding.Location, "research_agent", 12, 24)
+	current := state.Snapshot{
+		Findings: []model.Finding{finding},
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       identity.AgentID(instanceToolID, "acme"),
+			ToolID:        instanceToolID,
+			Org:           "acme",
+			Status:        identity.StateUnderReview,
+			ApprovalState: "missing",
+			Present:       true,
+		}},
+	}
+
+	result := Compare(baseline, current)
+	if result.Drift {
+		t.Fatalf("expected no drift for equivalent legacy baseline and instance identity, got %v", result.Reasons)
+	}
+}
+
+func TestCompareFlagsAdditionalInstanceBeyondLegacyBaseline(t *testing.T) {
+	t.Parallel()
+
+	baseFinding := model.Finding{
+		FindingType: "tool_config",
+		ToolType:    "agentframework",
+		Location:    ".wrkr/agents/research.yaml",
+		Org:         "acme",
+		Repo:        "backend",
+	}
+	baseline := BuildBaseline(state.Snapshot{Findings: []model.Finding{baseFinding}}, time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC))
+
+	currentFindings := []model.Finding{
+		{
+			FindingType:   "tool_config",
+			ToolType:      "agentframework",
+			Location:      ".wrkr/agents/research.yaml",
+			LocationRange: &model.LocationRange{StartLine: 12, EndLine: 24},
+			Org:           "acme",
+			Repo:          "backend",
+			Evidence:      []model.Evidence{{Key: "symbol", Value: "research_agent"}},
+		},
+		{
+			FindingType:   "tool_config",
+			ToolType:      "agentframework",
+			Location:      ".wrkr/agents/research.yaml",
+			LocationRange: &model.LocationRange{StartLine: 30, EndLine: 42},
+			Org:           "acme",
+			Repo:          "backend",
+			Evidence:      []model.Evidence{{Key: "symbol", Value: "ops_agent"}},
+		},
+	}
+	current := state.Snapshot{
+		Findings: currentFindings,
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       identity.AgentID(identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "research_agent", 12, 24), "acme"),
+				ToolID:        identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "research_agent", 12, 24),
+				Org:           "acme",
+				Status:        identity.StateUnderReview,
+				ApprovalState: "missing",
+				Present:       true,
+			},
+			{
+				AgentID:       identity.AgentID(identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "ops_agent", 30, 42), "acme"),
+				ToolID:        identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "ops_agent", 30, 42),
+				Org:           "acme",
+				Status:        identity.StateUnderReview,
+				ApprovalState: "missing",
+				Present:       true,
+			},
+		},
+	}
+
+	result := Compare(baseline, current)
+	if !result.Drift {
+		t.Fatal("expected drift when current state contains an additional instance beyond the legacy baseline")
+	}
+	found := false
+	for _, reason := range result.Reasons {
+		if reason.Code == ReasonNewUnapprovedTool {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected new_unapproved_tool reason, got %v", result.Reasons)
+	}
+}
+
 func TestCompareSummarizesCriticalAttackPathDrift(t *testing.T) {
 	t.Parallel()
 

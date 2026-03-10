@@ -443,6 +443,28 @@ func TestBuildEvidenceFailsWhenSigningKeyMissing(t *testing.T) {
 	}
 }
 
+func TestBuildEvidenceFailsWhenSigningKeyInvalid(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	signingKeyPath := proofemit.SigningKeyPath(statePath)
+	if err := os.WriteFile(signingKeyPath, []byte("{\"not\":\"a valid key file\"}\n"), 0o600); err != nil {
+		t.Fatalf("write invalid signing key: %v", err)
+	}
+
+	_, err := Build(BuildInput{
+		StatePath:  statePath,
+		Frameworks: []string{"soc2"},
+		OutputDir:  filepath.Join(tmp, "wrkr-evidence"),
+	})
+	if err == nil {
+		t.Fatal("expected error when signing key file is invalid")
+	}
+	if !strings.Contains(err.Error(), "load signing material") {
+		t.Fatalf("expected signing-material load error, got: %v", err)
+	}
+}
+
 func TestBuildEvidenceUsesEnvSigningKeyWhenFileMissing(t *testing.T) {
 	tmp := t.TempDir()
 	statePath := createEvidenceStateWithProof(t, tmp)

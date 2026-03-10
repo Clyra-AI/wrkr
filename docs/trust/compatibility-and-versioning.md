@@ -15,6 +15,7 @@ description: "How Wrkr maintains command, schema, and exit-code compatibility ac
 
 - Schema evolution is managed under `schemas/v1/`.
 - Manifest spec versioning is defined in `docs/specs/wrkr-manifest.md`.
+- `regress` baseline compatibility remains in `v1` for legacy baselines created before instance identities. Equivalent current identities reconcile automatically; additive JSON fields remain the preferred evolution path.
 
 ## Command anchors
 
@@ -33,6 +34,10 @@ It means the major-line output shape remains consistent for machine consumers, w
 ### Can new fields be added in v1 without a breaking release?
 
 Yes. Additive optional fields are expected; removals or required-field breaks require explicit contract versioning.
+
+### How are pre-instance `regress` baselines handled?
+
+Wrkr reconciles legacy `v1` baseline agent IDs against equivalent current instance identities at compare time. If a future change ever requires a baseline version bump, Wrkr must ship an explicit migration path and compatibility tests in the same release.
 
 ### How should agents handle unknown fields in Wrkr JSON?
 

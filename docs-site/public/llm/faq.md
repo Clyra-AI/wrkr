@@ -30,11 +30,11 @@ No. Wrkr runs standalone; Axym and Gait are optional integrations that share pro
 
 ## How do I gate on posture drift in CI?
 
-Use `wrkr regress init` then `wrkr regress run`. Exit code `5` indicates drift.
+Use `wrkr regress init` then `wrkr regress run`. Exit code `5` indicates drift. Legacy `v1` baselines created before instance identities are reconciled automatically when the current identity is equivalent.
 
 ## How do I produce verifiable compliance evidence?
 
-Use `wrkr evidence --frameworks ... --json` and verify with `wrkr verify --chain --json`.
+Use `wrkr evidence --frameworks ... --json` and verify with `wrkr verify --chain --json`. Success JSON includes `chain.verification_mode` and `chain.authenticity_status`; invalid verifier-key material is a verification failure.
 
 ## Why can framework coverage be low on the first run?
 
