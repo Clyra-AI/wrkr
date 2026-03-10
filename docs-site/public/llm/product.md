@@ -11,6 +11,7 @@ Primary outcomes:
 2. Ranked risk findings with posture context.
 3. Compliance evidence generation and proof-chain verification.
 4. Regression baseline and drift gating for CI.
+5. Thin browser bootstrap at `/scan/` for read-only org-scan handoff without introducing a dashboard-first control plane.
 
 When to use:
 

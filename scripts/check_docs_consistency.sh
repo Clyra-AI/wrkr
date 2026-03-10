@@ -170,6 +170,7 @@ for route in \
 done
 
 for url in \
+  "https://clyra-ai.github.io/wrkr/scan/" \
   "https://clyra-ai.github.io/wrkr/llms.txt" \
   "https://clyra-ai.github.io/wrkr/llms-full.txt" \
   "https://clyra-ai.github.io/wrkr/docs/adopt_in_one_pr/" \
@@ -202,6 +203,7 @@ require_pattern "${REPO_ROOT}/README.md" "go install github.com/Clyra-AI/wrkr/cm
 require_pattern "${REPO_ROOT}/README.md" "docs/state_lifecycle.md" "README missing canonical state lifecycle reference"
 require_pattern "${REPO_ROOT}/docs/trust/release-integrity.md" "scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr" "release integrity doc missing published install-path parity command"
 require_pattern "${REPO_ROOT}/docs-site/src/app/page.tsx" "/docs/start-here#install" "docs-site homepage missing start-here install pointer"
+require_pattern "${REPO_ROOT}/docs-site/src/app/page.tsx" "/scan" "docs-site homepage missing web bootstrap pointer"
 require_pattern "${REPO_ROOT}/docs/state_lifecycle.md" "^## Canonical artifact locations$" "state lifecycle doc missing canonical artifact table section"
 require_pattern "${REPO_ROOT}/docs/state_lifecycle.md" "\\.wrkr/last-scan\\.json" "state lifecycle doc missing canonical state path"
 require_pattern "${REPO_ROOT}/docs/state_lifecycle.md" "\\.wrkr/wrkr-regress-baseline\\.json" "state lifecycle doc missing canonical baseline path"

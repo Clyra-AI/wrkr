@@ -77,6 +77,7 @@ docs-site-build:
 	@cd docs-site && NPM_CONFIG_CACHE="$(DOCS_SITE_NPM_CACHE)" npm run build
 
 docs-site-check:
+	@cd docs-site && NPM_CONFIG_CACHE="$(DOCS_SITE_NPM_CACHE)" npm run test:smoke
 	@python3 scripts/check_docs_site_validation.py --report wrkr-out/docs_site_validation_report.json
 
 docs-site-audit-prod:

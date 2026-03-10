@@ -58,6 +58,11 @@ const features = [
     description: 'LLM-oriented docs resources, AI sitemap, and crawler policy for reliable assistant grounding.',
     href: '/llms',
   },
+  {
+    title: 'Browser Bootstrap',
+    description: 'Open a read-only org scan shell, generate a Wrkr handoff, and project a returned summary artifact.',
+    href: '/scan',
+  },
 ];
 
 const faqs = [
@@ -139,6 +144,9 @@ export default function HomePage() {
           <Link href="/docs/examples/quickstart" className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
             Start Here
           </Link>
+          <Link href="/scan" className="px-6 py-3 bg-emerald-400 hover:bg-emerald-300 text-gray-950 font-semibold rounded-lg transition-colors">
+            Browser Bootstrap
+          </Link>
           <Link href="/docs/intent/scan-org-repos-for-ai-agents-configs" className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-100 font-semibold rounded-lg border border-gray-700 transition-colors">
             Org Scan Flow
           </Link>
@@ -147,6 +155,10 @@ export default function HomePage() {
           Install commands live in{' '}
           <Link href="/docs/start-here#install" className="text-cyan-300 hover:text-cyan-200">
             Start Here install
+          </Link>
+          {' '}and the read-only browser bootstrap lives at{' '}
+          <Link href="/scan" className="text-emerald-300 hover:text-emerald-200">
+            /scan
           </Link>
           .
         </p>

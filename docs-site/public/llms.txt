@@ -51,6 +51,7 @@
 - Wrkr does not replace vulnerability scanners such as Snyk.
 
 ## Canonical Docs
+- /scan/
 - /docs/map/
 - /docs/examples/personal-hygiene/
 - /docs/examples/security-team/

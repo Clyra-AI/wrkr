@@ -21,6 +21,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 - Command-first evidence and regress gate source.
 - Static discovery engine for repo/org configuration surfaces.
 - Zero-integration first value through local `--my-setup` and `--path` scans; hosted repo/org scans use explicit GitHub API configuration.
+- Thin browser bootstrap at `/scan/` for read-only org scan handoff and summary projection.
 
 ## What Wrkr Is Not
 
@@ -28,6 +29,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 - Live network telemetry platform.
 - Dashboard-only reporting product.
 - MCP or package vulnerability scanner.
+- Browser-resident replacement for the Go CLI scan/risk/proof pipeline.
 
 ## Persona Fit
 
