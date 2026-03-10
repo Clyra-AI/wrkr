@@ -40,6 +40,7 @@ Common first surprises:
 
 ```bash
 wrkr scan --github-org acme --github-api https://api.github.com --json
+cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
 wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json
 ```
 
