@@ -20,8 +20,10 @@ This document defines the required README structure shared across Wrkr/Proof/Gai
 
 ### First 10 Minutes
 
-- Provide copy-paste workflow from initialization to first value output.
+- Foreground the developer-machine path before the org/audit path.
+- Include the copy-paste sequence `wrkr scan --my-setup`, `wrkr mcp-list`, `wrkr scan --github-org`, `wrkr inventory --diff`.
 - Show deterministic `--json` command anchors.
+- Include one concrete personal-setup output example with realistic privilege findings.
 - Link to canonical state lifecycle behavior.
 
 ### Integration

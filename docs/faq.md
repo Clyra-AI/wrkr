@@ -37,6 +37,11 @@ Axym and Gait are optional companion projects that interoperate through shared `
 No. `mcp-list` inventories saved MCP posture, transport, privilege surface, and optional local trust overlay state.
 Wrkr does not perform live MCP probing or package vulnerability assessment in this path. Use dedicated scanners such as Snyk for vulnerability workflows.
 
+### Should I start with `wrkr scan --my-setup` or `wrkr scan --github-org`?
+
+Start with `wrkr scan --my-setup --json` when a developer wants immediate machine-hygiene visibility with no extra setup.
+Use `wrkr scan --github-org ... --github-api ... --json` when the goal is org posture, shared inventory review, or compliance handoff.
+
 ### Do I need Gait to use `wrkr mcp-list`?
 
 No. Gait trust overlay data is optional. When no local trust registry is available, `mcp-list` degrades explicitly to `trust_status=unavailable` instead of failing.

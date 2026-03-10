@@ -14,11 +14,15 @@ No. Core scan and evidence workflows are local/file-based by default.
 
 ## Does Wrkr require setup for repo or org scans?
 
-`--path` is the zero-integration first-value path. Hosted `--repo` and `--org` scans require explicit GitHub API configuration.
+`--my-setup` and `--path` are the zero-integration first-value paths. Hosted `--repo` and `--org` scans require explicit GitHub API configuration.
 
 ## Can Wrkr enforce runtime tool calls?
 
 No. Wrkr is discovery and posture. Runtime control is a separate layer.
+
+## Does Wrkr replace Snyk or vulnerability scanners?
+
+No. Wrkr inventories MCP posture, permissions, and discovery surfaces. Use dedicated scanners such as Snyk for vulnerability assessment.
 
 ## Do I need Axym or Gait to use Wrkr?
 

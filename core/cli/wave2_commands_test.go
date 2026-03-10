@@ -27,7 +27,9 @@ func TestRootHelpListsInventoryAndMCPListExamples(t *testing.T) {
 	for _, token := range []string{
 		"  mcp-list   list MCP servers with trust and privilege posture",
 		"  inventory  emit inventory export or deterministic inventory drift",
-		"  wrkr mcp-list --json",
+		"  wrkr scan --my-setup --json",
+		"  wrkr mcp-list --state ./.wrkr/last-scan.json --json",
+		"  wrkr scan --github-org acme --github-api https://api.github.com --json",
 		"  wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json",
 	} {
 		if !strings.Contains(errOut.String(), token) {

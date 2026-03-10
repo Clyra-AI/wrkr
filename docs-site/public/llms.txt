@@ -1,6 +1,6 @@
 # Wrkr
 
-> Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.
+> Wrkr evaluates AI dev tool configurations across developer machines, repositories, and GitHub orgs against policy. Posture-scored, compliance-ready.
 
 ## Canonical
 - https://github.com/Clyra-AI/wrkr
@@ -10,9 +10,13 @@
 - wrkr --help
 - wrkr help <command>
 - wrkr init --non-interactive --path <dir> --json
+- wrkr scan --my-setup --json
+- wrkr mcp-list --state ./.wrkr/last-scan.json --json
 - wrkr scan --repo <owner/repo> --github-api <url> --json
 - wrkr scan --org <org> --github-api <url> --json
+- wrkr scan --github-org <org> --github-api <url> --json
 - wrkr scan --path <dir> --profile baseline|standard|strict --json
+- wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json
 - wrkr report --top <n> --json
 - wrkr score --json
 - wrkr score --explain
@@ -24,14 +28,15 @@
 - wrkr manifest generate --json
 
 ## When To Use
-- You need deterministic inventory and risk ranking for AI tooling declared in repo/org surfaces.
+- You need deterministic inventory and risk ranking for AI tooling declared across developer machines, repos, or org surfaces.
 - You need compliance-ready evidence outputs with explicit verification workflows.
 - You need CI gates for drift and regression with stable machine-readable reasons.
-- You want zero-integration first value from local `--path` scans before configuring hosted repo/org acquisition.
+- You want zero-integration first value from local `--my-setup` or `--path` scans before configuring hosted repo/org acquisition.
 
 ## When Not To Use
 - You need runtime traffic interception or live endpoint behavior control.
 - You cannot provide required source acquisition inputs for repo/org scan modes.
+- You need package or MCP-server vulnerability assessment rather than posture inventory.
 - You need non-deterministic exploratory analysis instead of contract-stable outputs.
 
 ## Safety Model
@@ -39,13 +44,16 @@
 - Deterministic JSON contracts and stable exit-code semantics.
 - No secret-value extraction; only risk context signals.
 - Proof-chain verification support for evidence integrity checks.
-- Local `--path` scans are the no-integration first-value path; `--repo` and `--org` require explicit GitHub API configuration.
+- Local `--my-setup` and `--path` scans are the no-integration first-value paths; `--repo`, `--org`, and `--github-org` require explicit GitHub API configuration.
 - Low or zero `framework_coverage` reflects the controls currently evidenced in the scanned state, not missing parser support.
 - Evidence bundles include deterministic inventory artifacts: inventory.json, inventory-snapshot.json, inventory.yaml.
 - Wrkr runs standalone; Axym/Gait are optional integrations over shared proof contracts.
+- Wrkr does not replace vulnerability scanners such as Snyk.
 
 ## Canonical Docs
 - /docs/map/
+- /docs/examples/personal-hygiene/
+- /docs/examples/security-team/
 - /docs/adopt_in_one_pr/
 - /docs/integration_checklist/
 - /docs/architecture/

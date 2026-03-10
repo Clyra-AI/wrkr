@@ -14,12 +14,13 @@ wrkr mcp-list [--state <path>] [--gait-trust <path>] [--json]
 - `--state`
 - `--gait-trust`
 
-## Example
+## Developer personal-hygiene example
 
 ```bash
-wrkr mcp-list --json
-wrkr mcp-list --state ./.wrkr/last-scan.json --gait-trust ~/.gait/trust-registry.yaml --json
+wrkr mcp-list --state ./.wrkr/last-scan.json --json
 ```
+
+Run this after a saved state snapshot already exists from `wrkr scan`.
 
 Expected JSON keys: `status`, `generated_at`, `rows`, optional `warnings`.
 
@@ -42,6 +43,14 @@ Each row includes:
 - `WRKR_GAIT_TRUST_PATH` is also honored when `--gait-trust` is not set.
 - If no explicit overlay path is set, Wrkr will opportunistically read `.gait/trust-registry.yaml` or `.gait/trust-registry.yml` from the current working directory or user home directory when present.
 - Missing or unreadable overlay files degrade explicitly to `trust_status=unavailable`; the command does not fail closed on optional trust metadata.
+
+## Security-team org example
+
+```bash
+wrkr mcp-list --state ./.wrkr/last-scan.json --gait-trust ~/.gait/trust-registry.yaml --json
+```
+
+This is the inventory overlay view for MCP posture after a saved repo/org scan. It is useful for security reviews and control handoff, but it is still derived from saved Wrkr state rather than live endpoint probing.
 
 ## Scope boundary
 

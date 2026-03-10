@@ -56,18 +56,26 @@ Acquisition behavior is fail-closed by target:
 - `--sarif`
 - `--sarif-path`
 
-## Example
-
-```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
-```
-
-```bash
-wrkr scan --org acme --github-api https://api.github.com --json
-```
+## Developer personal-hygiene example
 
 ```bash
 wrkr scan --my-setup --json
+```
+
+This local/offline mode inventories supported user-home tool configs, selected environment key presence, and local agent project markers. Use it when a developer wants to answer "what AI tooling is already on this machine?" before widening to the org workflow.
+
+## Security-team org example
+
+```bash
+wrkr scan --github-org acme --github-api https://api.github.com --json
+```
+
+`--github-org` is the additive alias for `--org`. Use it when security or platform teams need the deterministic saved-state input for `wrkr report`, `wrkr evidence`, `wrkr mcp-list`, or `wrkr inventory --diff`.
+
+## Repo/path example
+
+```bash
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
 ```
 
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, and optional `report` when summary output is requested.
@@ -130,6 +138,8 @@ Emerging discovery surfaces are static-only in default deterministic mode:
 - No live endpoint probing is performed by default.
 
 Wrkr stays in the See boundary: it inventories and scores tools plus agents from files and CI declarations, but it does not enforce runtime side effects or execute agent workflows.
+Wrkr also does not assess package or MCP-server vulnerabilities in this path; use dedicated scanners such as Snyk for that class of assessment.
+Gait is optional interoperability for control-layer decisions, not a prerequisite for `scan`.
 
 Custom extension detectors are loaded from `.wrkr/detectors/extensions.json` when present in scanned repositories. See [`docs/extensions/detectors.md`](../extensions/detectors.md).
 Canonical state and artifact lifecycle: [`docs/state_lifecycle.md`](../state_lifecycle.md).

@@ -12,26 +12,41 @@ Wrkr is the AI-DSPM discovery layer in the See -> Prove -> Control sequence:
 
 Wrkr is useful standalone and interoperates with Axym/Gait through shared proof contracts.
 
-The fastest zero-integration first value is `wrkr scan --path ...` against pre-cloned or local repositories.
+The fastest zero-integration first value is `wrkr scan --my-setup --json` against the local machine setup, followed by `wrkr mcp-list` from the saved state snapshot.
 
 For hosted source modes, `scan --repo` and `scan --org` require `--github-api` (or `WRKR_GITHUB_API_BASE`) and fail closed when acquisition is unavailable.
 
 Canonical local artifact paths are documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
 
-## Deterministic local scan
+## Developer-machine hygiene first
 
 ```bash
-wrkr init --non-interactive --path ./scenarios/wrkr/scan-mixed-org/repos --json
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --json
-wrkr report --top 5 --json
-wrkr score --json
+wrkr scan --my-setup --json
+wrkr mcp-list --state ./.wrkr/last-scan.json --json
 ```
 
 Expected outputs:
 
-- `scan`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`
-- `report`: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `summary`
-- `score`: `score`, `grade`, `breakdown`, `weighted_breakdown`, `weights`, `trend_delta` (optional: `attack_paths`, `top_attack_paths`)
+- `scan --my-setup`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `inventory`, `profile`, `posture_score`
+- `mcp-list`: `status`, `generated_at`, `rows`, optional `warnings`
+
+Common first surprises:
+
+- MCP servers requesting write or shell permissions from user-home config.
+- Environment key presence (`location=process:env`) without exposing raw values.
+- Local `AGENTS.md` or `.agents/` project markers under common workspace roots.
+
+## Org handoff when you need team-wide posture
+
+```bash
+wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json
+```
+
+Expected outputs:
+
+- `scan --github-org`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`
+- `inventory --diff`: `status`, `drift_detected`, `baseline_path`, `added_count`, `removed_count`, `changed_count`, `added`, `removed`, `changed`
 
 Optional enrich-mode note:
 
