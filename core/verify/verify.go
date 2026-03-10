@@ -8,10 +8,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	proof "github.com/Clyra-AI/proof"
 	"github.com/Clyra-AI/proof/core/canon"
+	proofrecord "github.com/Clyra-AI/proof/core/record"
 	"github.com/Clyra-AI/proof/core/signing"
 )
 
@@ -52,6 +55,7 @@ const (
 	verificationModeSignature     = "chain_and_signature"
 	authenticityStatusUnavailable = "unavailable"
 	authenticityStatusVerified    = "verified"
+	parallelHashThreshold         = 128
 )
 
 type authenticityResult struct {
@@ -246,11 +250,129 @@ func verifyBySignature(chain *proof.Chain, publicKey proof.PublicKey) (authentic
 }
 
 func verifyLoadedChain(chain *proof.Chain) (Result, error) {
-	verified, err := proof.VerifyChain(chain)
+	verified, err := verifyChainStructure(chain)
 	if err != nil {
 		return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain: %w", err))
 	}
 	return resultFromVerification(verified), nil
+}
+
+func verifyChainStructure(chain *proof.Chain) (*proof.ChainVerification, error) {
+	if chain == nil {
+		return nil, errors.New("chain is nil")
+	}
+
+	verified := &proof.ChainVerification{
+		Intact:   true,
+		Count:    len(chain.Records),
+		HeadHash: chain.HeadHash,
+	}
+
+	expectedHashes, err := computeRecordHashes(chain.Records)
+	if err != nil {
+		return nil, err
+	}
+
+	prev := ""
+	for i := range chain.Records {
+		record := chain.Records[i]
+		if record.Integrity.PreviousRecordHash != prev {
+			verified.Intact = false
+			verified.BreakIndex = i
+			verified.BreakPoint = record.RecordID
+			return verified, nil
+		}
+		if expectedHashes[i] != chain.Records[i].Integrity.RecordHash {
+			verified.Intact = false
+			verified.BreakIndex = i
+			verified.BreakPoint = chain.Records[i].RecordID
+			return verified, nil
+		}
+		prev = record.Integrity.RecordHash
+	}
+
+	computedHead := ""
+	if len(expectedHashes) > 0 {
+		computedHead = expectedHashes[len(expectedHashes)-1]
+	}
+	if chain.HeadHash != computedHead {
+		verified.Intact = false
+		verified.BreakIndex = len(chain.Records) - 1
+		verified.BreakPoint = fmt.Sprintf("head_hash mismatch: expected %s got %s", computedHead, chain.HeadHash)
+		verified.HeadHash = computedHead
+		return verified, nil
+	}
+	verified.HeadHash = computedHead
+	return verified, nil
+}
+
+func computeRecordHashes(records []proofrecord.Record) ([]string, error) {
+	if len(records) == 0 {
+		return nil, nil
+	}
+	if len(records) < parallelHashThreshold || runtime.GOMAXPROCS(0) == 1 {
+		return computeRecordHashesSequential(records)
+	}
+
+	type hashResult struct {
+		index int
+		hash  string
+		err   error
+	}
+
+	workers := runtime.GOMAXPROCS(0)
+	if workers > len(records) {
+		workers = len(records)
+	}
+	indexes := make(chan int, workers)
+	results := make(chan hashResult, workers)
+
+	var wg sync.WaitGroup
+	for worker := 0; worker < workers; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for index := range indexes {
+				hash, err := proofrecord.ComputeHash(&records[index])
+				results <- hashResult{index: index, hash: hash, err: err}
+			}
+		}()
+	}
+
+	go func() {
+		for index := range records {
+			indexes <- index
+		}
+		close(indexes)
+		wg.Wait()
+		close(results)
+	}()
+
+	hashes := make([]string, len(records))
+	var firstErr error
+	for result := range results {
+		if result.err != nil && firstErr == nil {
+			firstErr = result.err
+			continue
+		}
+		hashes[result.index] = result.hash
+	}
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return hashes, nil
+}
+
+func computeRecordHashesSequential(records []proofrecord.Record) ([]string, error) {
+	hashes := make([]string, len(records))
+	for i := range records {
+		hash, err := proofrecord.ComputeHash(&records[i])
+		if err != nil {
+			return nil, err
+		}
+		hashes[i] = hash
+	}
+	return hashes, nil
 }
 
 func attestationPath(path string) string {
