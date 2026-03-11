@@ -424,11 +424,11 @@ func detectBaselineInputKind(payload []byte) (string, error) {
 	if err := json.Unmarshal(payload, &probe); err != nil {
 		return "", fmt.Errorf("parse baseline: %w", err)
 	}
-	if len(probe.Tools) > 0 || len(probe.GeneratedAt) > 0 || len(probe.AttackPaths) > 0 {
-		return "regress_baseline", nil
-	}
 	if len(probe.Findings) > 0 || len(probe.Target) > 0 {
 		return "scan_snapshot", nil
+	}
+	if len(probe.Tools) > 0 || len(probe.GeneratedAt) > 0 || len(probe.AttackPaths) > 0 {
+		return "regress_baseline", nil
 	}
 	return "", fmt.Errorf("parse baseline: expected regress baseline artifact or scan snapshot")
 }

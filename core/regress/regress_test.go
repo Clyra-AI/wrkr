@@ -123,6 +123,44 @@ func TestLoadComparableBaselineAcceptsScanSnapshot(t *testing.T) {
 	}
 }
 
+func TestLoadComparableBaselinePrefersSnapshotMarkersOverAttackPaths(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "scan-json-baseline.json")
+	payload := []byte(`{
+  "status": "ok",
+  "target": {"mode": "path", "value": "repos"},
+  "findings": [
+    {
+      "finding_type": "tool_config",
+      "tool_type": "agentframework",
+      "location": ".wrkr/agents/research.yaml",
+      "org": "acme",
+      "repo": "backend",
+      "permissions": ["repo.contents.read"]
+    }
+  ],
+  "attack_paths": [
+    {"path_id": "ap-1", "org": "acme", "repo": "backend", "path_score": 9.1}
+  ]
+}
+`)
+	if err := os.WriteFile(path, append(payload, '\n'), 0o600); err != nil {
+		t.Fatalf("write scan json baseline: %v", err)
+	}
+
+	loaded, err := LoadComparableBaseline(path)
+	if err != nil {
+		t.Fatalf("load comparable baseline: %v", err)
+	}
+	if len(loaded.Tools) != 1 {
+		t.Fatalf("expected one tool from snapshot payload, got %+v", loaded)
+	}
+	if loaded.Tools[0].ToolID == "" {
+		t.Fatalf("expected normalized tool id from snapshot payload, got %+v", loaded.Tools[0])
+	}
+}
+
 func TestLoadComparableBaselineRejectsUnknownPayload(t *testing.T) {
 	t.Parallel()
 
