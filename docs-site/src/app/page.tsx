@@ -3,64 +3,59 @@ import type { Metadata } from 'next';
 import { canonicalUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Wrkr | AI-DSPM Discovery with Deterministic Proof',
+  title: 'Wrkr | Know Your AI Tooling Posture',
   description:
-    'Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.',
+    'Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.',
   alternates: {
     canonical: canonicalUrl('/'),
   },
 };
 
-const QUICKSTART = `# Initialize with deterministic defaults
-wrkr init --non-interactive --path ./scenarios/wrkr/scan-mixed-org/repos --json
+const QUICKSTART = `# Developers: start on your own machine
+wrkr scan --my-setup --json
+wrkr mcp-list --state ./.wrkr/last-scan.json --json
+cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
+wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
 
-# Run scan and posture outputs
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --json
-wrkr report --top 5 --json
-wrkr score --json
-
-# Generate and verify compliance evidence
-wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json
-wrkr verify --chain --json
-
-# Gate on drift
-wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --json`;
+# Security teams: widen to org posture and evidence
+wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json`;
 
 const features = [
   {
-    title: 'Org and Repo Discovery',
-    description: 'Discover AI tooling declarations across repo/org/path sources with deterministic output contracts.',
-    href: '/docs/intent/scan-org-repos-for-ai-agents-configs',
+    title: 'Local Setup Inventory',
+    description: 'Start with your own machine to see supported AI configs, local agent project markers, and secret-presence signals.',
+    href: '/docs/examples/personal-hygiene',
   },
   {
-    title: 'Headless Risk Ranking',
-    description: 'Surface high-impact CI/autonomous execution risks with ranked, explainable findings.',
-    href: '/docs/intent/detect-headless-agent-risk',
+    title: 'MCP Posture',
+    description: 'Project MCP server transport, requested permissions, gateway posture, and trust overlay from saved state.',
+    href: '/docs/commands/mcp-list',
   },
   {
-    title: 'Compliance Evidence',
-    description: 'Generate framework-mapped evidence bundles and verify proof chain integrity.',
-    href: '/docs/intent/generate-compliance-evidence-from-scans',
+    title: 'Org Evidence',
+    description: 'Widen from local hygiene to GitHub org posture and emit deterministic evidence bundles for audit and CI.',
+    href: '/docs/examples/security-team',
   },
   {
-    title: 'Deterministic Regressions',
-    description: 'Create baseline posture gates and fail CI with stable drift reasons.',
-    href: '/docs/intent/gate-on-drift-and-regressions',
+    title: 'Workflow Drift Review',
+    description: 'Use inventory drift for day-to-day review and regress gates when you need policy-grade change detection.',
+    href: '/docs/commands/regress',
   },
   {
-    title: 'Open Manifest Contract',
-    description: 'Use `wrkr-manifest.yaml` as a portable policy and lifecycle posture contract.',
-    href: '/docs/specs/wrkr-manifest',
+    title: 'Command Contracts',
+    description: 'Keep automation grounded on stable `--json`, SARIF, and exit-code surfaces rather than ad hoc scraping.',
+    href: '/docs/commands/index',
   },
   {
-    title: 'Agent-Readable Context',
-    description: 'LLM-oriented docs resources, AI sitemap, and crawler policy for reliable assistant grounding.',
-    href: '/llms',
+    title: 'Scope Boundaries',
+    description: 'Wrkr inventories what is configured and what it can touch. It does not replace vulnerability scanners or runtime control.',
+    href: '/docs/positioning',
   },
   {
     title: 'Browser Bootstrap',
-    description: 'Open a read-only org scan shell, generate a Wrkr handoff, and project a returned summary artifact.',
+    description: 'Use the read-only browser handoff only when you want a secondary org-scan projection surface.',
     href: '/scan',
   },
 ];
@@ -68,7 +63,7 @@ const features = [
 const faqs = [
   {
     question: 'What is Wrkr in one sentence?',
-    answer: 'Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.',
+    answer: 'Wrkr gives developers a read-only inventory of local AI tooling and gives security teams an evidence-ready view of org-wide AI tooling posture.',
   },
   {
     question: 'Does Wrkr require a hosted control plane?',
@@ -84,7 +79,7 @@ const faqs = [
   },
   {
     question: 'How do I fail CI on posture drift?',
-    answer: 'Use `wrkr regress init` to create a baseline and `wrkr regress run` in CI. Exit code `5` indicates drift.',
+    answer: 'Use `wrkr regress run` in CI. It accepts a saved regress baseline or a raw saved scan snapshot baseline. Exit code `5` indicates drift.',
   },
   {
     question: 'How do I generate compliance evidence?',
@@ -99,7 +94,7 @@ const softwareApplicationJsonLd = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Linux, macOS, Windows',
   description:
-    'Wrkr evaluates AI dev tool configurations across GitHub repo/org against policy with deterministic posture scoring and compliance-ready evidence.',
+    'Wrkr inventories AI tools, agents, and MCP servers across local setup, repos, and GitHub orgs with deterministic posture and evidence outputs.',
   url: 'https://clyra-ai.github.io/wrkr/',
   softwareHelp: 'https://clyra-ai.github.io/wrkr/docs/',
   codeRepository: 'https://github.com/Clyra-AI/wrkr',
@@ -131,32 +126,32 @@ export default function HomePage() {
 
       <div className="text-center py-12 lg:py-20">
         <h1 className="text-4xl lg:text-6xl font-bold text-white mb-6">
-          Evaluate AI Tooling Posture.
-          <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent"> Prove It Deterministically.</span>
+          Know Your AI Tooling
+          <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent"> Before It Becomes Unreviewed Access.</span>
         </h1>
         <p className="text-xl text-gray-400 max-w-3xl mx-auto mb-4">
-          Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.
+          Wrkr gives developers a fast, read-only inventory of local AI setup and gives security teams an evidence-ready view of org-wide AI tooling posture.
         </p>
         <p className="text-base text-gray-500 max-w-3xl mx-auto mb-8">
-          Scan, rank, regress, verify, and export evidence with stable `--json` outputs and fail-closed safety defaults.
+          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/docs/examples/quickstart" className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
             Start Here
           </Link>
-          <Link href="/scan" className="px-6 py-3 bg-emerald-400 hover:bg-emerald-300 text-gray-950 font-semibold rounded-lg transition-colors">
-            Browser Bootstrap
+          <Link href="/docs/examples/security-team" className="px-6 py-3 bg-emerald-400 hover:bg-emerald-300 text-gray-950 font-semibold rounded-lg transition-colors">
+            Security Team Flow
           </Link>
-          <Link href="/docs/intent/scan-org-repos-for-ai-agents-configs" className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-100 font-semibold rounded-lg border border-gray-700 transition-colors">
-            Org Scan Flow
+          <Link href="/scan" className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-100 font-semibold rounded-lg border border-gray-700 transition-colors">
+            Browser Bootstrap
           </Link>
         </div>
         <p className="text-sm text-gray-500 mt-5">
-          Install commands live in{' '}
+          Pinned install and release-parity commands live in{' '}
           <Link href="/docs/start-here#install" className="text-cyan-300 hover:text-cyan-200">
             Start Here install
           </Link>
-          {' '}and the read-only browser bootstrap lives at{' '}
+          {' '}and the secondary browser handoff lives at{' '}
           <Link href="/scan" className="text-emerald-300 hover:text-emerald-200">
             /scan
           </Link>
@@ -197,12 +192,12 @@ export default function HomePage() {
             <tr>
               <td className="py-3 px-4 text-gray-300 font-medium">AI tool inventory</td>
               <td className="py-3 px-4 text-gray-500">manual surveys, stale answers</td>
-              <td className="py-3 px-4 text-gray-300">deterministic repo/org inventory</td>
+              <td className="py-3 px-4 text-gray-300">deterministic machine, repo, and org inventory</td>
             </tr>
             <tr>
-              <td className="py-3 px-4 text-gray-300 font-medium">Headless risk visibility</td>
-              <td className="py-3 px-4 text-gray-500">ad-hoc grep and assumptions</td>
-              <td className="py-3 px-4 text-gray-300">ranked findings with posture context</td>
+              <td className="py-3 px-4 text-gray-300 font-medium">MCP trust posture</td>
+              <td className="py-3 px-4 text-gray-500">partial config knowledge, no privilege map</td>
+              <td className="py-3 px-4 text-gray-300">transport, permissions, gateway, and trust context</td>
             </tr>
             <tr>
               <td className="py-3 px-4 text-gray-300 font-medium">Compliance evidence</td>
@@ -231,8 +226,8 @@ export default function HomePage() {
       </div>
 
       <div className="text-center py-12 border-t border-gray-800">
-        <h2 className="text-2xl font-bold text-white mb-4">Use command-first docs that agents can quote and operators can verify.</h2>
-        <p className="text-gray-400 mb-6">Start with intent guides, then validate with deterministic CLI outputs.</p>
+        <h2 className="text-2xl font-bold text-white mb-4">Start with your machine. Widen to your org only when you need posture and proof.</h2>
+        <p className="text-gray-400 mb-6">Use command-first docs that developers, security teams, and assistants can all validate against the same deterministic CLI outputs.</p>
         <Link href="/docs" className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
           Open Documentation
         </Link>

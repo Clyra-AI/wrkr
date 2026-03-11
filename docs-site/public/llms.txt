@@ -1,6 +1,6 @@
 # Wrkr
 
-> Wrkr evaluates AI dev tool configurations across developer machines, repositories, and GitHub orgs against policy. Posture-scored, compliance-ready.
+> Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
 
 ## Canonical
 - https://github.com/Clyra-AI/wrkr
@@ -9,29 +9,26 @@
 ## Core Commands
 - wrkr --help
 - wrkr help <command>
-- wrkr init --non-interactive --path <dir> --json
 - wrkr scan --my-setup --json
 - wrkr mcp-list --state ./.wrkr/last-scan.json --json
 - wrkr scan --repo <owner/repo> --github-api <url> --json
 - wrkr scan --org <org> --github-api <url> --json
 - wrkr scan --github-org <org> --github-api <url> --json
-- wrkr scan --path <dir> --profile baseline|standard|strict --json
-- wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json
+- wrkr scan --path <dir> --sarif --json
+- wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
 - wrkr report --top <n> --json
 - wrkr score --json
-- wrkr score --explain
-- wrkr evidence --frameworks <ids> --output <dir> --json
+- wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 - wrkr verify --chain --json
-- wrkr regress init --baseline <state-path> --output <baseline-path> --json
-- wrkr regress run --baseline <baseline-path> --json
+- wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
 - wrkr fix --top <n> --json
-- wrkr manifest generate --json
 
 ## When To Use
-- You need deterministic inventory and risk ranking for AI tooling declared across developer machines, repos, or org surfaces.
+- You need a developer-first, read-only inventory of local AI tooling before widening to repo or org posture.
+- You need deterministic inventory and evidence outputs for AI tooling declared across machines, repos, or org surfaces.
 - You need compliance-ready evidence outputs with explicit verification workflows.
 - You need CI gates for drift and regression with stable machine-readable reasons.
-- You want zero-integration first value from local `--my-setup` or `--path` scans before configuring hosted repo/org acquisition.
+- You want posture and proof without moving scan data out of your environment.
 
 ## When Not To Use
 - You need runtime traffic interception or live endpoint behavior control.
@@ -47,12 +44,15 @@
 - Local `--my-setup` and `--path` scans are the no-integration first-value paths; `--repo`, `--org`, and `--github-org` require explicit GitHub API configuration.
 - Low or zero `framework_coverage` reflects the controls currently evidenced in the scanned state, not missing parser support.
 - Evidence bundles include deterministic inventory artifacts: inventory.json, inventory-snapshot.json, inventory.yaml.
-- Wrkr runs standalone; Axym/Gait are optional integrations over shared proof contracts.
+- Wrkr runs standalone; Gait is the optional control-layer counterpart.
 - Wrkr does not replace vulnerability scanners such as Snyk.
 
 ## Canonical Docs
 - /scan/
 - /docs/map/
+- /docs/start-here/
+- /docs/commands/
+- /docs/examples/quickstart/
 - /docs/examples/personal-hygiene/
 - /docs/examples/security-team/
 - /docs/adopt_in_one_pr/

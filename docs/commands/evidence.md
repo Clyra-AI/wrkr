@@ -48,13 +48,13 @@ Recommended operator actions when coverage is low:
 ## Example
 
 ```bash
-wrkr evidence --frameworks eu-ai-act,soc2 --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
 ```
 
 Security-team handoff example:
 
 ```bash
-wrkr evidence --frameworks eu-ai-act,soc2 --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
 ```
 
 Pair this with the saved-state `wrkr report` and `wrkr verify` flow documented in [`docs/examples/security-team.md`](../examples/security-team.md).

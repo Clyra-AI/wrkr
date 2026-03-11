@@ -1,16 +1,16 @@
 # Wrkr Quickstart (Offline-safe)
 
-Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.
+Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
+
+Wrkr gives developers a fast, read-only inventory of local AI setup and gives security teams an evidence-ready view of org-wide AI tooling posture. This quickstart follows the same developer-first path as the landing README, then widens into org evidence flow.
 
 ## Positioning
 
-Wrkr is the AI-DSPM discovery layer in the See -> Prove -> Control sequence:
+Wrkr is an AI-DSPM discovery and posture tool in the See -> Prove -> Control sequence.
 
-- See: Wrkr discovers tools, permissions, autonomy context, and risk.
-- Prove: Axym consumes proof records and maps controls.
-- Control: Gait enforces policy decisions.
-
-Wrkr is useful standalone and interoperates with Axym/Gait through shared proof contracts.
+- See: Wrkr inventories tools, permissions, autonomy context, and posture.
+- Prove: proof-ready artifacts can flow into downstream evidence consumers.
+- Control: Gait is the optional runtime enforcement counterpart.
 
 The fastest zero-integration first value is `wrkr scan --my-setup --json` against the local machine setup, followed by `wrkr mcp-list` from the saved state snapshot.
 
@@ -58,7 +58,7 @@ Optional enrich-mode note:
 ## Evidence + verification
 
 ```bash
-wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json
 wrkr verify --chain --json
 ```
 

@@ -1,68 +1,51 @@
-# Wrkr — See What AI Is Doing in Your Codebase
+# Wrkr
 
-[![Main](https://github.com/Clyra-AI/wrkr/actions/workflows/main.yml/badge.svg)](https://github.com/Clyra-AI/wrkr/actions/workflows/main.yml)
-[![CodeQL](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/Clyra-AI/wrkr/actions/workflows/github-code-scanning/codeql)
-[![Nightly](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml/badge.svg?event=schedule)](https://github.com/Clyra-AI/wrkr/actions/workflows/nightly.yml)
+Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
 
-Wrkr gives individual developers and security teams the same deterministic first answer about supported repo, config, CI, and local-machine setup surfaces: what AI agents, MCP servers, and high-privilege tool configs are already present, and what changed since the last known-good snapshot. Start on your own machine with `wrkr scan --my-setup --json`, inspect saved MCP posture with `wrkr mcp-list`, then widen to `wrkr scan --github-org` and `wrkr inventory --diff` when you need the org view. Read-only. No runtime integration required.
+Wrkr gives developers a fast, read-only inventory of their local AI setup and gives security teams an evidence-ready view of org-wide AI tooling posture. It discovers supported AI dev tools, MCP servers, and agent frameworks, maps what they can touch, shows what changed, and emits proof artifacts for audits and CI.
 
-Local-machine discovery inventories supported user-home tool configs, MCP declarations, selected environment key presence, and local agent project markers without emitting raw secret values.
+Developer-first. Security-ready. Deterministic by default.
 
-Wrkr is the **See** layer in the Clyra AI governance stack (See -> Prove -> Control -> Build). It discovers AI tooling and agent declarations across repositories and orgs, scores posture, tracks identity lifecycle, and emits signed proof artifacts ready for compliance review or downstream automation.
-
-Wrkr's OSS default scope is static repo/config/CI and local-machine setup discovery. It does not claim browser extension, IdP grant, or GitHub App inventory in this default path.
-
-Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Browser bootstrap: [clyra-ai.github.io/wrkr/scan/](https://clyra-ai.github.io/wrkr/scan/) | Command contracts: [`docs/commands/`](docs/commands/) | Docs map: [`docs/map.md`](docs/map.md)
+Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command reference: [`docs/commands/`](docs/commands/) | Examples: [`docs/examples/`](docs/examples/)
 
 ## Install
 
-### Homebrew (recommended)
+### Homebrew
 
 ```bash
 brew install Clyra-AI/tap/wrkr
 ```
 
-### Go install (pinned, no extra tools)
+### Go install
+
 
 ```bash
-WRKR_VERSION="v1.0.0"
-go install github.com/Clyra-AI/wrkr/cmd/wrkr@"${WRKR_VERSION}"
+go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest
+
 ```
 
-### Go install (resolve latest tag with `curl` + POSIX tools)
+## Start Here
 
-```bash
-WRKR_VERSION="$(curl -fsSL https://api.github.com/repos/Clyra-AI/wrkr/releases/latest | sed -nE 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/p' | head -n1)"
-test -n "${WRKR_VERSION}"
-go install github.com/Clyra-AI/wrkr/cmd/wrkr@"${WRKR_VERSION}"
-```
+### Developers
 
-No `gh` or `python3` dependency is required for these Go install paths. See [`docs/install/minimal-dependencies.md`](docs/install/minimal-dependencies.md) for the full install contract.
-
-### Verify install path
-
-```bash
-command -v wrkr
-wrkr --help
-wrkr --json
-```
-
-Common locations:
-
-- Apple Silicon Homebrew: `/opt/homebrew/bin/wrkr`
-- Intel Homebrew: `/usr/local/bin/wrkr`
-- Go install: `$(go env GOBIN)/wrkr` (or `$(go env GOPATH)/bin/wrkr` when `GOBIN` is unset)
-
-## First 10 Minutes (Offline, No Setup)
-
-### 1. Inspect your own machine first
+Start with your own machine.
 
 ```bash
 wrkr scan --my-setup --json
 wrkr mcp-list --state ./.wrkr/last-scan.json --json
+
+cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
+wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
 ```
 
-Abbreviated personal-setup output example:
+In one flow, Wrkr answers:
+
+- What AI tools, agents, and MCP servers are configured in my local setup?
+- Which API-key environments are present without exposing secret values?
+- Which MCP servers are requesting access, over what transport, and with what trust status?
+- What changed since my last known-good snapshot?
+
+Abbreviated `scan --my-setup` example:
 
 ```json
 {
@@ -72,22 +55,20 @@ Abbreviated personal-setup output example:
   },
   "top_findings": [
     {
-      "risk_score": 9.4,
+      "risk_score": 9.3,
       "finding": {
         "severity": "high",
-        "tool_type": "mcp_server",
-        "location": "~/.claude.json",
-        "permissions": [
-          "fs.write",
-          "shell"
-        ]
+        "finding_type": "mcp_server",
+        "tool_type": "mcp",
+        "location": ".claude/settings.json"
       }
     },
     {
-      "risk_score": 7.2,
+      "risk_score": 7.4,
       "finding": {
-        "severity": "medium",
-        "tool_type": "env_secret_presence",
+        "severity": "high",
+        "finding_type": "secret_presence",
+        "tool_type": "secret",
         "location": "process:env"
       }
     },
@@ -95,272 +76,257 @@ Abbreviated personal-setup output example:
       "risk_score": 6.8,
       "finding": {
         "severity": "medium",
+        "finding_type": "tool_config",
         "tool_type": "agent_project",
-        "location": "~/Projects/payments-bot/AGENTS.md"
+        "location": "Projects/payments-bot/AGENTS.md"
       }
+    }
+  ],
+  "warnings": [
+    "MCP visibility may be incomplete because these declaration files failed to parse: .codex/config.yaml"
+  ]
+}
+```
+
+Abbreviated `mcp-list` example:
+
+```json
+{
+  "status": "ok",
+  "rows": [
+    {
+      "server_name": "postgres-prod",
+      "transport": "stdio",
+      "requested_permissions": ["db.write"],
+      "privilege_surface": ["write"],
+      "gateway_coverage": "unprotected",
+      "trust_status": "unreviewed",
+      "risk_note": "Gateway posture is unprotected; review least-privilege controls."
+    },
+    {
+      "server_name": "slack",
+      "transport": "http",
+      "requested_permissions": ["network.access"],
+      "privilege_surface": ["read"],
+      "gateway_coverage": "protected",
+      "trust_status": "trusted",
+      "risk_note": "Static MCP declaration discovered; verify package pinning and trust."
     }
   ]
 }
 ```
 
-This is the fastest developer-machine hygiene pass: local, deterministic, and secret-safe.
+Wrkr is not a vulnerability scanner. It inventories what is configured and what it can touch. Use dedicated tools such as Snyk for package and server vulnerability assessment.
 
-### 2. Hand off to org posture when you are ready
+### Security Teams
+
+Then widen from personal hygiene to org posture.
 
 ```bash
 wrkr scan --github-org acme --github-api https://api.github.com --json
-cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
-wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 ```
 
-`--github-org` is the additive alias for `--org`. `inventory --diff` is the ergonomic drift review surface and exits `5` when deterministic inventory drift is present.
-Hosted repo/org scans usually need GitHub authentication for private repos and to avoid public API rate limits.
-Token resolution order for `scan` is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
+Hosted scans usually need GitHub authentication for private repos and to avoid public API rate limits.
 
-If you want a browser-first handoff before running the CLI yourself, use the read-only `/scan/` bootstrap shell on the docs site. It generates the org-scan handoff and projects returned JSON summaries without becoming a dashboard.
+Abbreviated org-scan example:
 
-### 3. Need the full scan-to-evidence walkthrough?
+```json
+{
+  "status": "ok",
+  "target": {
+    "mode": "org",
+    "value": "acme"
+  },
+  "top_findings": [
+    {
+      "risk_score": 9.7,
+      "finding": {
+        "rule_id": "WRKR-A004",
+        "severity": "critical",
+        "tool_type": "agent",
+        "location": "services/ops/agent.py"
+      }
+    }
+  ],
+  "inventory": {
+    "tools": 47,
+    "agents": 12
+  },
+  "agent_privilege_map": [
+    {
+      "agent_id": "wrkr:langchain:services/ops/agent.py:planner:42-88:acme",
+      "framework": "langchain",
+      "bound_tools": ["postgres-prod", "slack"],
+      "bound_data_sources": ["prod-db"],
+      "bound_auth_surfaces": ["OPENAI_API_KEY"],
+      "deployment_status": "deployed",
+      "production_write": true
+    }
+  ],
+  "compliance_summary": {
+    "frameworks": [
+      {
+        "framework": "soc2",
+        "mapped_finding_count": 12
+      },
+      {
+        "framework": "eu-ai-act",
+        "mapped_finding_count": 8
+      },
+      {
+        "framework": "pci-dss",
+        "mapped_finding_count": 5
+      }
+    ]
+  }
+}
+```
 
-Use [`docs/examples/quickstart.md`](docs/examples/quickstart.md) for the repo/org workflow that continues into `wrkr evidence`, `wrkr verify`, and `wrkr regress`.
-Persona guides: [`docs/examples/personal-hygiene.md`](docs/examples/personal-hygiene.md) for developers and [`docs/examples/security-team.md`](docs/examples/security-team.md) for security/compliance handoff.
+Your developers are already using AI coding tools, agents, and MCP servers. That is not the problem. The problem is being unable to inventory them, map what they can touch, and prove they are governed.
 
-Canonical local path lifecycle for state, baseline, manifest, and proof chain: [`docs/state_lifecycle.md`](docs/state_lifecycle.md).
+Wrkr scans your GitHub org, shows supported AI tools and agents with privilege mapping and policy gaps, and emits evidence bundles your team can hand to auditors. Your developers keep moving. You get the posture and the proof.
 
-## When To Use Wrkr
+## Why Wrkr
 
-- You need a deterministic inventory of AI development tools across a machine, repo, or org.
-- You need ranked risk findings and posture scoring you can trend over time.
-- You need file-based, verifiable evidence for audits or CI gates.
-- You need stable JSON and exit-code contracts for automation pipelines.
+AI tool usage is already happening across developer machines, repositories, MCP configs, and CI pipelines.
 
-## When Not To Use Wrkr
+Developers need fast answers:
 
-- You need runtime enforcement at tool execution boundaries (that is Gait, the Control layer).
-- You need live network telemetry as your primary signal.
-- You need probabilistic or LLM-based scoring in the scan or evidence path.
+- What is configured on my machine?
+- What can it touch?
+- What changed since last scan?
+
+Security teams need organization-wide answers:
+
+- Which AI tools and agents exist across repos?
+- Which ones have production write, credential access, or broad execution privileges?
+- Which findings map to policy and compliance frameworks?
+- Can we hand an auditor a deterministic evidence bundle instead of a spreadsheet?
+
+Wrkr answers both without requiring runtime interception or moving scan data out of your environment.
 
 ## What You Get
 
-### Complete AI tool inventory for supported static surfaces
+- Local AI setup inventory for supported user-home config surfaces.
+- MCP server catalog with transport, requested permissions, trust overlay, and posture notes.
+- Org-wide inventory of AI tools, agent frameworks, CI execution patterns, and MCP declarations.
+- Deterministic, instance-scoped agent identity and privilege mapping.
+- Native structured parsing for supported agent frameworks including LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, MCP-client patterns, and conservative custom-agent scaffolds.
+- Relationship resolution from agents to tools, data sources, auth surfaces, and deployment artifacts.
+- Ranked findings, attack-path context, and posture scoring.
+- `inventory --diff` for drift review against a known-good snapshot.
+- Policy findings with stable rule IDs and remediation text.
+- Compliance mappings for EU AI Act, SOC 2, PCI-DSS, and related frameworks.
+- Signed evidence bundles for audit and CI workflows.
+- Native JSON, SARIF, and proof-friendly output contracts.
 
-Structured detection for Claude, Cursor, Codex, Copilot, MCP, skills, and CI agent execution patterns. Local offline scanning via `--path`. Fail-closed behavior for hosted acquisition modes.
+## What Wrkr Detects
 
-### Risk clarity, not noise
+Wrkr is deterministic and file-based by default.
 
-Ranked findings with repo-exposure rollups. Posture score and weighted breakdown you can trend over time to show governance improving.
+It detects supported signals from:
 
-### Identity lifecycle tracking
+- Local-machine setup rooted at the current user home directory.
+- Repository config and source surfaces.
+- GitHub repo and org acquisition targets.
+- MCP declarations and gateway posture.
+- AI tool configs for Claude, Cursor, Codex, Copilot, skills, and CI agent execution patterns.
+- Agent definitions and bindings from supported framework-native sources.
+- Deployment artifacts linking agents to Docker, Kubernetes, serverless, and CI/CD paths.
+- Prompt-channel and attack-path risk signals from static artifacts.
 
-Deterministic identities in `wrkr:<tool_id>:<org>` format. Lifecycle transitions from `discovered` through `approved`, `active`, `deprecated`, and `revoked`.
+## What Wrkr Does Not Do
 
-### Audit-ready evidence
+- It does not probe MCP endpoints live by default.
+- It does not replace package or vulnerability scanners.
+- It does not enforce runtime tool behavior or block agents.
+- It does not monitor live runtime traffic.
+- It does not use LLMs in scan, risk, or proof paths.
 
-Signed proof records for `scan_finding`, `risk_assessment`, and lifecycle events. Agent-aware proof events now carry additive `agent_context` fields for portability, and evidence bundles keep compliance framework mappings verifiable offline. No calling home required. Low first-run `framework_coverage` means the current scan state lacks documented controls or approvals; rescan after remediation to measure improvement.
+Wrkr is the inventory and posture layer. Gait is the control layer when runtime enforcement is needed.
 
-### CI drift gates
+## Works With Gait
 
-Regress baseline and run gates with stable exit behavior. Deterministic remediation planning via `wrkr fix` for top-risk findings.
+Wrkr discovers what is configured. Gait enforces what is allowed to execute.
 
-### `wrkr fix` side-effect contract
+Use Wrkr when you want to answer:
 
-wrkr fix computes a deterministic remediation plan from existing scan state and emits plan metadata; it does not mutate repository files unless --open-pr is set.
-When --open-pr is set, wrkr fix writes deterministic artifacts under .wrkr/remediations/<fingerprint>/ and then creates or updates one remediation PR for the target repo.
+- What tools and agents exist?
+- What can they touch?
+- What changed?
+- Where are the policy and compliance gaps?
 
-## Scan Targets
+Use Gait when you want to answer:
 
-Exactly one source target is required per `scan` invocation:
+- Should this action be allowed right now?
+- Should this tool be blocked, gated, or require approval?
 
-- `--repo <owner/repo>`
-- `--org <org>`
-- `--path <local-dir>`
+The two products complement each other. Wrkr gives you the inventory and evidence. Gait gives you runtime control.
 
-Acquisition behavior:
+## Typical Workflows
 
-- `--path`: local, offline, fully deterministic.
-- `--repo` and `--org`: require `--github-api` or `WRKR_GITHUB_API_BASE`; unavailable acquisition fails closed with exit `7`.
-- Invalid target combinations fail with exit `6`.
-- `--timeout <duration>` bounds scan runtime. Timeout returns JSON error code `scan_timeout` (exit `1`); signal/parent cancellation returns `scan_canceled` (exit `1`).
-- GitHub retry behavior is bounded and rate-limit aware (`Retry-After`/`X-RateLimit-Reset`); repeated transient failures enter cooldown degradation and are surfaced in partial-result output.
-
-## Production Target Policy
-
-Use `--production-targets <path>` to classify production-write exposure deterministically.
+### Personal AI setup hygiene
 
 ```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --production-targets ./docs/examples/production-targets.v1.yaml --json
+wrkr scan --my-setup --json
+wrkr mcp-list --state ./.wrkr/last-scan.json --json
+cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
+wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
 ```
 
-Policy contract:
-
-- YAML file, schema-validated against `schemas/v1/policy/production-targets.schema.json`
-- Exact/prefix matching only (no free-form regex)
-- `production_write = has_any(write_permissions) AND matches_any_production_target`
-- Optional strict mode: `--production-targets-strict` returns non-zero when the policy file is missing/invalid
-
-Reference example: [`docs/examples/production-targets.v1.yaml`](docs/examples/production-targets.v1.yaml)
-
-## Human-Readable Reports
-
-Generate deterministic operator-ready markdown directly from scan:
+### Repo or org posture review
 
 ```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
-```
-
-Render report artifacts from saved state:
-
-```bash
-wrkr report --state ./.tmp/state.json --md --md-path ./.tmp/wrkr-report.md --explain
-```
-
-## Integration (One PR)
-
-```bash
-wrkr init --non-interactive --path ./scenarios/wrkr/scan-mixed-org/repos --json
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --state ./.tmp/state.json --json
+wrkr scan --github-org acme --github-api https://api.github.com --json
 wrkr report --top 5 --json
-wrkr evidence --frameworks eu-ai-act,soc2 --state ./.tmp/state.json --output ./.tmp/evidence --json
-wrkr verify --chain --state ./.tmp/state.json --json
-wrkr regress init --baseline ./.tmp/state.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.tmp/state.json --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
 
-Gate semantics:
-
-- Exit `0`: pass
-- Exit `5`: drift/regression gate fail
-- Any other non-zero: contract or runtime failure; block merge
-
-Verification and regress notes:
-
-- `wrkr verify --chain --json` now always performs structural proof-chain verification, even when attestation or signature material is present. Success payloads include `chain.verification_mode` and `chain.authenticity_status`; invalid verifier-key material fails closed with exit `2`.
-- `wrkr regress run --json` keeps `v1` baseline compatibility for legacy baselines created before instance identities when the current identity is equivalent at the same legacy anchor.
-
-Reference guides: [`docs/adopt_in_one_pr.md`](docs/adopt_in_one_pr.md) | [`docs/integration_checklist.md`](docs/integration_checklist.md)
-
-## PR Distribution Mode
-
-Wrkr Action `mode=pr` can post deterministic, idempotent PR comments for relevant AI/config changes.
-
-- Required token capability: issue comment write on the target repository (`issues:write` on `GITHUB_TOKEN` or a PAT/App token with equivalent scope).
-- Token resolution order: `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
-- Docs: [`docs/commands/action.md`](docs/commands/action.md) and [`action/action.yaml`](action/action.yaml).
-
-## Release-Candidate UAT
-
-Validate source build, `go install`, release archive install path, and Homebrew install path before tagging:
+### CI distribution
 
 ```bash
-scripts/test_uat_local.sh
-scripts/test_uat_local.sh --skip-global-gates
-
-# Validate the exact public install commands shown above (brew + pinned go install)
-scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr
+wrkr scan --path . --sarif --json
+wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
 ```
-
-## Where Wrkr Fits
-
-Wrkr is the DMV registration for your AI fleet. It tells you what is on the road, what it is authorized to do, and what changed. Wrkr generates deterministic evidence artifacts from scans; Axym maps those artifacts to compliance controls and reporting workflows. Runtime enforcement remains Gait's boundary.
-
-- **See (Wrkr):** Discover AI tooling posture and risk.
-- **Prove (Axym):** Consume and verify evidence records.
-- **Control (Gait):** Enforce runtime tool-boundary decisions.
-
-Wrkr runs standalone and interoperates through shared `Clyra-AI/proof` contracts.
-
-## Trust and Project Relationship
-
-- Wrkr is standalone: you can install and run discovery, posture scoring, regress gating, and evidence generation without Axym or Gait.
-- Axym and Gait are related projects that consume or enforce around the same proof contracts; they are optional integrations, not runtime prerequisites for Wrkr.
-- The interoperability boundary is explicit and file-based via shared `Clyra-AI/proof` contracts.
-
-## Guarantees
-
-- Deterministic scan, risk, and proof pipeline. No LLM calls in these paths, ever.
-- Zero data exfiltration by default for local scan and evidence workflows.
-- Evidence is file-based, portable, and verifiable offline.
-- `--json` output is machine-consumable across all command surfaces.
-- Exit codes are stable API contracts:
-  - `0` success
-  - `1` runtime failure
-  - `2` verification failure
-  - `3` policy/schema violation
-  - `4` approval required
-  - `5` regression drift
-  - `6` invalid input
-  - `7` dependency missing
-  - `8` unsafe operation blocked
 
 ## Command Surface
 
-```text
-wrkr init
-wrkr scan
-wrkr mcp-list
-wrkr action pr-mode|pr-comment
-wrkr report
-wrkr campaign aggregate
-wrkr export
-wrkr inventory [--diff]
-wrkr identity list|show|approve|review|deprecate|revoke
-wrkr lifecycle
-wrkr manifest generate
-wrkr regress init|run
-wrkr score
-wrkr version
-wrkr verify --chain
-wrkr evidence
-wrkr fix
-```
+- `wrkr scan` scans local setup, repos, or GitHub orgs.
+- `wrkr mcp-list` projects MCP posture from saved state.
+- `wrkr inventory --diff` shows deterministic drift from baseline.
+- `wrkr report` renders ranked summaries from saved state.
+- `wrkr evidence` builds signed, compliance-ready evidence bundles.
+- `wrkr verify` verifies proof-chain integrity.
+- `wrkr regress` gates on drift and regressions.
+- `wrkr version` reports CLI version in human or JSON form.
 
-All commands support `--json`. Human-readable rationale is available via `--explain` where supported.
+## Output And Contracts
 
-## Documentation
+Wrkr treats machine-readable output and exit codes as product contracts.
 
-- Docs source-of-truth map: [`docs/map.md`](docs/map.md)
-- Docs taxonomy: [`docs/README.md`](docs/README.md)
-- Shared README contract: [`docs/contracts/readme_contract.md`](docs/contracts/readme_contract.md)
-- Cross-repo README follow-ups: [`docs/roadmap/cross-repo-readme-alignment.md`](docs/roadmap/cross-repo-readme-alignment.md)
-- Mental model: [`docs/concepts/mental_model.md`](docs/concepts/mental_model.md)
-- Architecture: [`docs/architecture.md`](docs/architecture.md)
-- Policy authoring: [`docs/policy_authoring.md`](docs/policy_authoring.md)
-- Failure taxonomy and exits: [`docs/failure_taxonomy_exit_codes.md`](docs/failure_taxonomy_exit_codes.md)
-- Threat model: [`docs/threat_model.md`](docs/threat_model.md)
-- Compatibility and versioning policy: [`docs/trust/compatibility-and-versioning.md`](docs/trust/compatibility-and-versioning.md)
-- Compatibility matrix: [`docs/contracts/compatibility_matrix.md`](docs/contracts/compatibility_matrix.md)
-- Content visibility governance: [`docs/governance/content-visibility.md`](docs/governance/content-visibility.md)
-- Trust docs: [`docs/trust/`](docs/trust/)
-- Intent pages: [`docs/intent/`](docs/intent/)
+- `--json` emits stable machine-readable output.
+- `--sarif` emits SARIF `2.1.0` for security tooling and GitHub code scanning workflows.
+- Partial-result mode preserves findings when a detector or source path fails non-fatally.
+- `--timeout` and signal cancellation are enforced end-to-end.
+- Exit codes remain deterministic across success, runtime failure, verification failure, policy/schema violation, approval-required, regress drift, invalid input, dependency missing, and unsafe-operation-blocked paths.
 
-Public docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/)
+## Security And Privacy
 
-Docs contribution path: edit canonical markdown in this repo first (`README.md` and `docs/`), then run `make test-docs-consistency`, `make test-docs-storyline`, and docs-site checks from [`docs/map.md`](docs/map.md).
+- Read-only by default.
+- No raw secret values are emitted in findings.
+- Local setup scans keep data in your environment.
+- Evidence is file-based, portable, and verifiable.
+- Same input, same output, barring explicit timestamps and version fields.
 
-## Developer Workflow
+## Learn More
 
-```bash
-make fmt
-make lint-fast
-make test-fast
-make test-contracts
-make test-scenarios
-make prepush-full
-```
-
-Docs and docs-site validation:
-
-```bash
-make test-docs-consistency
-make test-docs-storyline
-make docs-site-check
-make docs-site-audit-prod
-```
-
-## Governance and Support
-
-- Security policy: [`SECURITY.md`](SECURITY.md)
-- Contributing guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Code of conduct: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
-- Changelog: [`CHANGELOG.md`](CHANGELOG.md)
-- License: [`LICENSE`](LICENSE)
-- Issues: [github.com/Clyra-AI/wrkr/issues](https://github.com/Clyra-AI/wrkr/issues)
+- Quickstart: [`docs/examples/quickstart.md`](docs/examples/quickstart.md)
+- Personal hygiene workflow: [`docs/examples/personal-hygiene.md`](docs/examples/personal-hygiene.md)
+- Security-team workflow: [`docs/examples/security-team.md`](docs/examples/security-team.md)
+- Scan command: [`docs/commands/scan.md`](docs/commands/scan.md)
+- MCP list: [`docs/commands/mcp-list.md`](docs/commands/mcp-list.md)
+- Inventory drift: [`docs/commands/inventory.md`](docs/commands/inventory.md)
+- Evidence bundles: [`docs/commands/evidence.md`](docs/commands/evidence.md)
+- Positioning: [`docs/positioning.md`](docs/positioning.md)

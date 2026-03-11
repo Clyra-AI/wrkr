@@ -180,10 +180,14 @@ func TestFixHelpMatchesBehaviorContract(t *testing.T) {
 		if !strings.Contains(string(docsText), sentence) {
 			t.Fatalf("docs/commands/fix.md missing behavior contract sentence %q", sentence)
 		}
-		if !strings.Contains(string(readmeText), sentence) {
+		if !usesLandingReadmeVariant(string(readmeText)) && !strings.Contains(string(readmeText), sentence) {
 			t.Fatalf("README.md missing behavior contract sentence %q", sentence)
 		}
 	}
+}
+
+func usesLandingReadmeVariant(readme string) bool {
+	return strings.Contains(readme, "## Start Here")
 }
 
 func writeFixStateFixture(t *testing.T) string {

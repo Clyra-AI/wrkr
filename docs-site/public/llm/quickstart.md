@@ -5,17 +5,17 @@
 ```bash
 wrkr scan --my-setup --json
 wrkr mcp-list --state ./.wrkr/last-scan.json --json
-wrkr scan --github-org acme --github-api https://api.github.com --json
 cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
-wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json
+wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
+wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 ```
 
 Use these next when you want compliance handoff:
 
 - `wrkr report --top 5 --json`
-- `wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json`
 - `wrkr verify --chain --json`
-- `wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --json`
+- `wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json`
 
 `wrkr verify --chain --json` now reports whether the result was structural-only (`chain_only` / `unavailable`) or authenticated (`chain_and_attestation` or `chain_and_signature` with `verified` authenticity status).
 
@@ -25,6 +25,7 @@ Use these intent guides next:
 
 - `/docs/examples/personal-hygiene/`
 - `/docs/examples/security-team/`
+- `/docs/commands/`
 - `/docs/intent/scan-org-repos-for-ai-agents-configs/`
 - `/docs/intent/detect-headless-agent-risk/`
 - `/docs/intent/generate-compliance-evidence-from-scans/`

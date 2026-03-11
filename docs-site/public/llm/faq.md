@@ -2,7 +2,7 @@
 
 ## What is Wrkr in one sentence?
 
-Wrkr evaluates your AI dev tool configurations across your GitHub repo/org against policy. Posture-scored, compliance-ready.
+Wrkr gives developers a read-only inventory of local AI tooling and gives security teams an evidence-ready view of org-wide AI tooling posture.
 
 ## Is Wrkr deterministic?
 
@@ -26,11 +26,11 @@ No. Wrkr inventories MCP posture, permissions, and discovery surfaces. Use dedic
 
 ## Do I need Axym or Gait to use Wrkr?
 
-No. Wrkr runs standalone; Axym and Gait are optional integrations that share proof contracts.
+No. Wrkr runs standalone; Gait is the optional control-layer counterpart when runtime enforcement is needed.
 
 ## How do I gate on posture drift in CI?
 
-Use `wrkr regress init` then `wrkr regress run`. Exit code `5` indicates drift. Legacy `v1` baselines created before instance identities are reconciled automatically when the current identity is equivalent.
+Use `wrkr regress run`. It accepts a saved regress baseline or a raw saved scan snapshot baseline. Exit code `5` indicates drift. Legacy `v1` baselines created before instance identities are reconciled automatically when the current identity is equivalent.
 
 ## How do I produce verifiable compliance evidence?
 

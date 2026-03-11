@@ -137,6 +137,20 @@ func TestRunSubcommandHelpReturnsExit0(t *testing.T) {
 	}
 }
 
+func TestRegressRunHelpMentionsCompatibleBaselineInputs(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"regress", "run", "--help"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "baseline artifact path or raw scan snapshot path") {
+		t.Fatalf("expected regress run help to mention compatible baseline inputs, got %q", errOut.String())
+	}
+}
+
 func TestScanRejectsMixedMySetupAndPathTargets(t *testing.T) {
 	t.Parallel()
 

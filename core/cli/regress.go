@@ -91,7 +91,7 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
-	baselinePath := fs.String("baseline", "", "baseline artifact path")
+	baselinePath := fs.String("baseline", "", "baseline artifact path or raw scan snapshot path")
 	statePathFlag := fs.String("state", "", "state file path override")
 	summaryMD := fs.Bool("summary-md", false, "emit deterministic markdown drift summary artifact")
 	summaryMDPath := fs.String("summary-md-path", "wrkr-regress-summary.md", "regress summary markdown output path")
@@ -109,7 +109,7 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--baseline is required", exitInvalidInput)
 	}
 
-	baseline, err := regress.LoadBaseline(strings.TrimSpace(*baselinePath))
+	baseline, err := regress.LoadComparableBaseline(strings.TrimSpace(*baselinePath))
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}

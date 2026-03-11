@@ -4,6 +4,12 @@ Wrkr CLI surfaces are deterministic and file-based by default.
 
 Canonical local state and artifact path behavior is documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
 
+Developer-first entry path:
+
+- `wrkr scan --my-setup --json`
+- `wrkr mcp-list --state ./.wrkr/last-scan.json --json`
+- `wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json`
+
 ## Command index
 
 - `wrkr` (root flags: `--json`, `--quiet`, `--explain`, `--version`)
@@ -35,6 +41,7 @@ Canonical local state and artifact path behavior is documented in [`docs/state_l
 ## Notable scan contract
 
 - `wrkr scan --path` is local/offline.
+- `wrkr scan --my-setup` is local/offline against supported user-home AI setup surfaces.
 - `wrkr scan --repo` and `wrkr scan --org` require `--github-api` or `WRKR_GITHUB_API_BASE` and fail closed with exit `7` when unavailable.
 
 ## Exit codes

@@ -56,7 +56,7 @@ Validation rules:
 - test requirements
 - matrix wiring
 - acceptance criteria
-7. If recommendations include cross-repo toolchain or scanner-remediation work, create a Wave 1 remediation epic that includes:
+7. If recommendations include cross-repo toolchain or scanner-remediation work, create the earliest required remediation wave epic (typically Wave 1) that includes:
 - affected repo inventory
 - canonical target version
 - atomic pin surfaces (`go.mod`, local toolchain files, CI, docs, enforcement tests)
@@ -72,9 +72,11 @@ Validation rules:
 10. Add plan-level `Docs and OSS Readiness Baseline` with README first-screen contract, integration-first docs flow, lifecycle path model, docs source-of-truth, and OSS trust baseline files.
 11. Add plan-level `Test Matrix Wiring`.
 12. Add `Recommendation Traceability` mapping recommendations to epic/story IDs.
-13. Add `Minimum-Now Sequence`, `Exit Criteria`, and `Definition of Done`, with explicit wave order:
-- Wave 1: contract/runtime correctness and architecture boundaries
-- Wave 2: docs, OSS hygiene, and distribution UX
+13. Add `Minimum-Now Sequence`, `Exit Criteria`, and `Definition of Done`, with explicit dependency-driven wave order:
+- Use `Wave 1 .. Wave N`, where `N >= 1`
+- Create only 1 wave when scope is small and a split adds no implementation value
+- Create multiple waves when dependency order, risk reduction, or reviewability benefits from staging
+- When both classes exist, contract/runtime correctness and architecture-boundary work must complete in earlier waves before docs, OSS hygiene, and distribution UX waves
 14. Verify quality gates.
 15. Overwrite `output_plan_path` with the final plan.
 
@@ -107,7 +109,9 @@ Use `wrkr` commands with `--json` whenever the plan needs machine-readable evide
   - `product/architecture_guides.md`
 - No dashboard-first scope in core backlog.
 - No minor polish as primary backlog.
-- Use two-wave sequencing when both classes exist (Wave 1 before Wave 2).
+- Use dependency-driven wave sequencing.
+- It may be 1 wave or many waves depending on complexity, dependencies, and implementation risk.
+- When both contract/runtime and docs/onboarding/distribution classes exist, all contract/runtime waves must precede later docs/onboarding/distribution waves.
 - Use shared cross-repo onboarding taxonomy when docs/onboarding stories are in scope.
 - Every story must include tests and matrix wiring.
 
@@ -263,7 +267,8 @@ Before finalizing:
 - Schema/versioning and migration expectations are explicit for contract changes.
 - Docs baseline includes README first-screen, integration-first flow, and lifecycle path model.
 - OSS trust baseline files/maintainer expectations are addressed or explicitly deferred.
-- Sequence enforces Wave 1 before Wave 2 where both are present.
+- Sequence enforces dependency-driven wave order.
+- When both contract/runtime and docs/onboarding/distribution classes are present, earlier waves cover contract/runtime before later docs/onboarding/distribution waves.
 - Sequence is dependency-aware and implementation-ready.
 
 ## Failure Mode

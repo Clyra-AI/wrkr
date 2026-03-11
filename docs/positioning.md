@@ -5,15 +5,17 @@ description: "Wrkr positioning for technical buyers: where discovery/posture fit
 
 # Positioning
 
-Wrkr evaluates AI dev tool configurations across supported developer-machine, repository, and GitHub org config surfaces. Posture-scored, compliance-ready.
+Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
+
+Wrkr gives developers a fast, read-only inventory of local AI setup and gives security teams an evidence-ready view of org-wide AI tooling posture. It stays deterministic, file-based, and standalone by default.
 
 ## Category Position
 
 Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 
-- See: Wrkr
-- Prove: Axym
-- Control: Gait
+- See: Wrkr inventories and scores AI tooling posture.
+- Prove: downstream proof consumers can ingest Wrkr artifacts.
+- Control: Gait is the optional runtime control counterpart.
 
 ## What Wrkr Is
 
@@ -21,7 +23,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 - Command-first evidence and regress gate source.
 - Static discovery engine for repo/config/CI posture surfaces.
 - Zero-integration first value through local `--my-setup` and `--path` scans; hosted repo/org scans use explicit GitHub API configuration and typically a token to avoid rate limits or reach private repos.
-- Thin browser bootstrap at `/scan/` for read-only org scan handoff and summary projection.
+- Thin browser bootstrap at `/scan/` for read-only org scan handoff and summary projection when teams want a secondary browser handoff.
 
 ## What Wrkr Is Not
 
@@ -35,7 +37,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 ## Persona Fit
 
 - Developer: start with `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff` to understand personal machine hygiene and local drift.
-- Security/platform team: use `wrkr scan --github-org`, `wrkr report`, `wrkr evidence`, and `wrkr verify` for org posture and compliance-ready handoff.
+- Security/platform team: use `wrkr scan --github-org`, `wrkr evidence`, `wrkr verify`, and optional `wrkr report` / `wrkr mcp-list` for org posture and compliance-ready handoff.
 - Buyer: CISO / VP Engineering
 - Consumer: CI pipelines and audit workflows
 
@@ -43,8 +45,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 
 ```bash
 wrkr scan --github-org acme --github-api https://api.github.com --json
-wrkr report --top 5 --json
-wrkr evidence --frameworks eu-ai-act,soc2 --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --json
 wrkr verify --chain --json
 ```
 

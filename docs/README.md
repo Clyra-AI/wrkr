@@ -23,6 +23,7 @@ For editing/validation workflow, see [`docs/map.md`](map.md).
 3. `docs/architecture.md` for deterministic pipeline boundaries.
 4. `docs/integration_checklist.md` for adoption in CI.
 5. `docs/commands/index.md` for command contract references.
+6. `docs/install/minimal-dependencies.md` for the pinned/reproducible install contract.
 
 ## Technical Foundations
 
@@ -41,6 +42,7 @@ For editing/validation workflow, see [`docs/map.md`](map.md).
 - Compatibility and versioning policy: `docs/trust/compatibility-and-versioning.md`
 - Compatibility matrix: `docs/contracts/compatibility_matrix.md`
 - README cross-repo contract: `docs/contracts/readme_contract.md`
+- Install contract: `docs/install/minimal-dependencies.md`
 - Deterministic guarantees: `docs/trust/deterministic-guarantees.md`
 - goja AST-only guardrails: `docs/trust/goja-ast-only.md`
 - MCP enrich quality model: `docs/trust/mcp-enrich-quality-model.md`
@@ -62,6 +64,13 @@ For editing/validation workflow, see [`docs/map.md`](map.md).
 - FAQ: `docs/faq.md`
 - Intent guides: `docs/intent/*.md`
 - Cross-repo README alignment tracker: `docs/roadmap/cross-repo-readme-alignment.md`
+
+## Community and Support
+
+- Contributing guide: `CONTRIBUTING.md`
+- Security policy: `SECURITY.md`
+- Code of conduct: `CODE_OF_CONDUCT.md`
+- Changelog: `CHANGELOG.md`
 
 ## Ownership Rules
 
