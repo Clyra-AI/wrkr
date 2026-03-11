@@ -192,6 +192,59 @@ func TestE2ERegressRunAcceptsLegacyBaselineForEquivalentInstanceIdentity(t *test
 	}
 }
 
+func TestE2ERegressRunAcceptsRawScanSnapshotBaseline(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	baselinePath := filepath.Join(tmp, "inventory-baseline.json")
+	reposPath := filepath.Join(tmp, "repos")
+	if err := os.MkdirAll(filepath.Join(reposPath, "alpha"), 0o755); err != nil {
+		t.Fatalf("mkdir alpha fixture: %v", err)
+	}
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("initial scan failed: %d (%s)", code, scanErr.String())
+	}
+	initialState, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read initial state: %v", err)
+	}
+	if err := os.WriteFile(baselinePath, initialState, 0o600); err != nil {
+		t.Fatalf("write raw snapshot baseline: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(reposPath, "beta"), 0o755); err != nil {
+		t.Fatalf("mkdir beta fixture: %v", err)
+	}
+	scanOut.Reset()
+	scanErr.Reset()
+	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("second scan failed: %d (%s)", code, scanErr.String())
+	}
+
+	var runOut bytes.Buffer
+	var runErr bytes.Buffer
+	if code := cli.Run([]string{"regress", "run", "--baseline", baselinePath, "--state", statePath, "--json"}, &runOut, &runErr); code != 5 {
+		t.Fatalf("expected drift exit 5, got %d (%s)", code, runErr.String())
+	}
+	if runErr.Len() != 0 {
+		t.Fatalf("expected drift JSON on stdout only, got stderr=%q", runErr.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(runOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse regress drift payload: %v", err)
+	}
+	if payload["drift_detected"] != true {
+		t.Fatalf("expected drift_detected=true, got %v", payload["drift_detected"])
+	}
+	if payload["baseline_path"] != baselinePath {
+		t.Fatalf("unexpected baseline_path: %v", payload["baseline_path"])
+	}
+}
+
 func mustFindRepoRoot(t *testing.T) string {
 	t.Helper()
 

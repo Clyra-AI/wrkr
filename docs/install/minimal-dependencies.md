@@ -2,6 +2,8 @@
 
 This page is the install contract source for environments that only have Go and standard shell tooling.
 
+The main README landing page may show a convenience `@latest` install path. This page remains the pinned and reproducible install contract for CI, release validation, and support.
+
 ## Go-only pinned install
 
 ```bash

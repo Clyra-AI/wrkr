@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -79,6 +80,63 @@ func TestBuildBaselineAndLoadRoundTrip(t *testing.T) {
 	}
 	if len(loaded.Tools) != 1 {
 		t.Fatalf("expected one loaded tool, got %d", len(loaded.Tools))
+	}
+}
+
+func TestLoadComparableBaselineAcceptsScanSnapshot(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{
+		Version: state.SnapshotVersion,
+		Findings: []model.Finding{
+			{
+				FindingType: "source_discovery",
+				ToolType:    "source_repo",
+				Location:    "acme/backend",
+				Org:         "acme",
+				Permissions: []string{"repo.contents.read"},
+			},
+		},
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       identity.AgentID(identity.ToolID("source_repo", "acme/backend"), "acme"),
+				ToolID:        identity.ToolID("source_repo", "acme/backend"),
+				Org:           "acme",
+				Status:        identity.StateActive,
+				ApprovalState: "valid",
+				Present:       true,
+			},
+		},
+	}
+	path := filepath.Join(t.TempDir(), "inventory-baseline.json")
+	if err := state.Save(path, snapshot); err != nil {
+		t.Fatalf("save snapshot baseline: %v", err)
+	}
+
+	loaded, err := LoadComparableBaseline(path)
+	if err != nil {
+		t.Fatalf("load comparable baseline: %v", err)
+	}
+	expected := BuildBaselineFromSnapshot(snapshot)
+	if !reflect.DeepEqual(expected, loaded) {
+		t.Fatalf("unexpected snapshot baseline conversion\nwant=%+v\ngot=%+v", expected, loaded)
+	}
+}
+
+func TestLoadComparableBaselineRejectsUnknownPayload(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "baseline.json")
+	if err := os.WriteFile(path, []byte("{\"version\":\"v1\",\"foo\":\"bar\"}\n"), 0o600); err != nil {
+		t.Fatalf("write unknown payload: %v", err)
+	}
+
+	_, err := LoadComparableBaseline(path)
+	if err == nil {
+		t.Fatal("expected unknown payload to fail")
+	}
+	if got := err.Error(); !strings.Contains(got, "expected regress baseline artifact or scan snapshot") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

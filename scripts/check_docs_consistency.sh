@@ -59,6 +59,10 @@ extract_exit_codes() {
   fi
 }
 
+readme_uses_landing_v2() {
+  search_regex "^## Start Here$" "${REPO_ROOT}/README.md"
+}
+
 for path in \
   "${REPO_ROOT}/README.md" \
   "${REPO_ROOT}/CODE_OF_CONDUCT.md" \
@@ -199,8 +203,8 @@ require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "User-agent: Perplexi
 require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "User-agent: ChatGPT-User" "robots.txt missing ChatGPT-User allow rule"
 
 require_pattern "${REPO_ROOT}/README.md" "brew install Clyra-AI/tap/wrkr" "README missing canonical Homebrew install command"
-require_pattern "${REPO_ROOT}/README.md" "go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"\\$\\{WRKR_VERSION\\}\"" "README missing canonical pinned go install command"
-require_pattern "${REPO_ROOT}/README.md" "docs/state_lifecycle.md" "README missing canonical state lifecycle reference"
+require_pattern "${REPO_ROOT}/docs/install/minimal-dependencies.md" "go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"\\$\\{WRKR_VERSION\\}\"" "install docs missing canonical pinned go install command"
+require_pattern "${REPO_ROOT}/docs/install/minimal-dependencies.md" "curl -fsSL https://api.github.com/repos/Clyra-AI/wrkr/releases/latest" "install docs missing latest-tag resolution path"
 require_pattern "${REPO_ROOT}/docs/trust/release-integrity.md" "scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr" "release integrity doc missing published install-path parity command"
 require_pattern "${REPO_ROOT}/docs-site/src/app/page.tsx" "/docs/start-here#install" "docs-site homepage missing start-here install pointer"
 require_pattern "${REPO_ROOT}/docs-site/src/app/page.tsx" "/scan" "docs-site homepage missing web bootstrap pointer"
@@ -216,12 +220,8 @@ require_pattern "${REPO_ROOT}/docs/commands/evidence.md" "docs/state_lifecycle.m
 require_pattern "${REPO_ROOT}/docs/commands/fix.md" "docs/state_lifecycle.md" "fix command docs missing lifecycle reference"
 require_pattern "${REPO_ROOT}/docs/examples/quickstart.md" "\\.wrkr/wrkr-regress-baseline\\.json" "quickstart regress examples missing canonical baseline path"
 require_pattern "${REPO_ROOT}/docs/examples/operator-playbooks.md" "\\.wrkr/wrkr-regress-baseline\\.json" "operator playbook regress examples missing canonical baseline path"
-require_pattern "${REPO_ROOT}/README.md" "wrkr fix computes a deterministic remediation plan from existing scan state and emits plan metadata; it does not mutate repository files unless --open-pr is set\\." "README missing explicit wrkr fix side-effect contract sentence one"
-require_pattern "${REPO_ROOT}/README.md" "When --open-pr is set, wrkr fix writes deterministic artifacts under \\.wrkr/remediations/<fingerprint>/ and then creates or updates one remediation PR for the target repo\\." "README missing explicit wrkr fix side-effect contract sentence two"
 require_pattern "${REPO_ROOT}/docs/commands/fix.md" "wrkr fix computes a deterministic remediation plan from existing scan state and emits plan metadata; it does not mutate repository files unless --open-pr is set\\." "fix command docs missing explicit side-effect contract sentence one"
 require_pattern "${REPO_ROOT}/docs/commands/fix.md" "When --open-pr is set, wrkr fix writes deterministic artifacts under \\.wrkr/remediations/<fingerprint>/ and then creates or updates one remediation PR for the target repo\\." "fix command docs missing explicit side-effect contract sentence two"
-require_pattern "${REPO_ROOT}/README.md" "^## Trust and Project Relationship$" "README missing trust and project relationship section"
-require_pattern "${REPO_ROOT}/README.md" "docs/map\\.md" "README missing docs source-of-truth map reference"
 require_pattern "${REPO_ROOT}/docs/faq.md" "^### Do I need Axym or Gait to run Wrkr\\?$" "FAQ missing standalone vs ecosystem entry"
 require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "^## Docs Source of Truth$" "CONTRIBUTING missing docs source-of-truth section"
 require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "make docs-site-install" "CONTRIBUTING missing docs-site validation command guidance"
@@ -243,22 +243,15 @@ require_pattern "${REPO_ROOT}/.github/ISSUE_TEMPLATE/docs_change.yml" "^name: Do
 require_pattern "${REPO_ROOT}/.github/ISSUE_TEMPLATE/docs_change.yml" "Validation commands" "docs issue template missing validation commands prompt"
 require_pattern "${REPO_ROOT}/.github/pull_request_template.md" "^## Contract Impact$" "PR template missing contract impact section"
 require_pattern "${REPO_ROOT}/.github/pull_request_template.md" "^## Tests and Lane Evidence$" "PR template missing tests/lane evidence section"
-require_pattern "${REPO_ROOT}/README.md" "CODE_OF_CONDUCT\\.md" "README missing code of conduct link"
-require_pattern "${REPO_ROOT}/README.md" "CHANGELOG\\.md" "README missing changelog link"
 require_pattern "${REPO_ROOT}/docs/trust/release-integrity.md" "CHANGELOG\\.md" "release integrity docs missing changelog linkage"
 require_pattern "${REPO_ROOT}/CHANGELOG.md" "^## \\[Unreleased\\]$" "CHANGELOG missing Unreleased section"
 require_pattern "${REPO_ROOT}/CHANGELOG.md" "^## Changelog maintenance process$" "CHANGELOG missing maintenance process section"
 require_pattern "${REPO_ROOT}/README.md" "^## Install$" "README missing install section"
-require_pattern "${REPO_ROOT}/README.md" "^## First 10 Minutes \\(Offline, No Setup\\)$" "README missing first 10 minutes section"
-require_pattern "${REPO_ROOT}/README.md" "^## Integration \\(One PR\\)$" "README missing integration section"
 require_pattern "${REPO_ROOT}/README.md" "^## Command Surface$" "README missing command surface section"
-require_pattern "${REPO_ROOT}/README.md" "^## Governance and Support$" "README missing governance and support section"
-require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^## Required sections$" "readme contract doc missing required sections"
-require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^1\\. Install$" "readme contract doc missing install section requirement"
-require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^2\\. First 10 Minutes$" "readme contract doc missing first 10 minutes requirement"
-require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^3\\. Integration$" "readme contract doc missing integration requirement"
-require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^4\\. Command Surface$" "readme contract doc missing command surface requirement"
-require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^5\\. Governance and Support$" "readme contract doc missing governance/support requirement"
+require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^## Supported variants$" "readme contract doc missing supported variants section"
+require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^### Variant A: Shared README Classic$" "readme contract doc missing classic variant section"
+require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^### Variant B: Wrkr Landing v2$" "readme contract doc missing landing v2 variant section"
+require_pattern "${REPO_ROOT}/docs/contracts/readme_contract.md" "^## Non-README obligations for Variant B$" "readme contract doc missing variant b obligations section"
 require_pattern "${REPO_ROOT}/docs/roadmap/cross-repo-readme-alignment.md" "Clyra-AI/proof" "cross-repo roadmap missing proof follow-up"
 require_pattern "${REPO_ROOT}/docs/roadmap/cross-repo-readme-alignment.md" "Clyra-AI/gait" "cross-repo roadmap missing gait follow-up"
 require_pattern "${REPO_ROOT}/docs/roadmap/cross-repo-readme-alignment.md" "20[0-9]{2}-[0-9]{2}-[0-9]{2}" "cross-repo roadmap missing explicit due date"
@@ -267,7 +260,37 @@ require_pattern "${REPO_ROOT}/docs/governance/content-visibility.md" "^## Policy
 require_pattern "${REPO_ROOT}/docs/governance/content-visibility.md" "^## Directory notices and review checklist$" "content visibility policy missing directory notices section"
 require_pattern "${REPO_ROOT}/product/README.md" "docs/governance/content-visibility.md" "product directory notice missing governance policy link"
 require_pattern "${REPO_ROOT}/.agents/skills/README.md" "docs/governance/content-visibility.md" "skills directory notice missing governance policy link"
-require_pattern "${REPO_ROOT}/README.md" "docs/governance/content-visibility.md" "README missing governance policy link"
+
+if readme_uses_landing_v2; then
+  require_pattern "${REPO_ROOT}/README.md" "go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest" "landing README missing go install latest command"
+  require_pattern "${REPO_ROOT}/README.md" "^## Start Here$" "landing README missing start here section"
+  require_pattern "${REPO_ROOT}/README.md" "^## Why Wrkr$" "landing README missing why section"
+  require_pattern "${REPO_ROOT}/README.md" "^## What You Get$" "landing README missing what-you-get section"
+  require_pattern "${REPO_ROOT}/README.md" "^## What Wrkr Detects$" "landing README missing detection scope section"
+  require_pattern "${REPO_ROOT}/README.md" "^## What Wrkr Does Not Do$" "landing README missing does-not-do section"
+  require_pattern "${REPO_ROOT}/README.md" "^## Works With Gait$" "landing README missing works-with-gait section"
+  require_pattern "${REPO_ROOT}/README.md" "^## Typical Workflows$" "landing README missing workflows section"
+  require_pattern "${REPO_ROOT}/README.md" "^## Output And Contracts$" "landing README missing output/contracts section"
+  require_pattern "${REPO_ROOT}/README.md" "^## Security And Privacy$" "landing README missing security/privacy section"
+  require_pattern "${REPO_ROOT}/README.md" "^## Learn More$" "landing README missing learn-more section"
+  require_pattern "${REPO_ROOT}/docs/README.md" "CONTRIBUTING\\.md" "docs README missing contributing link for landing variant"
+  require_pattern "${REPO_ROOT}/docs/README.md" "SECURITY\\.md" "docs README missing security policy link for landing variant"
+  require_pattern "${REPO_ROOT}/docs/README.md" "CODE_OF_CONDUCT\\.md" "docs README missing code of conduct link for landing variant"
+  require_pattern "${REPO_ROOT}/docs/README.md" "CHANGELOG\\.md" "docs README missing changelog link for landing variant"
+else
+  require_pattern "${REPO_ROOT}/README.md" "go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"\\$\\{WRKR_VERSION\\}\"" "README missing canonical pinned go install command"
+  require_pattern "${REPO_ROOT}/README.md" "docs/state_lifecycle.md" "README missing canonical state lifecycle reference"
+  require_pattern "${REPO_ROOT}/README.md" "wrkr fix computes a deterministic remediation plan from existing scan state and emits plan metadata; it does not mutate repository files unless --open-pr is set\\." "README missing explicit wrkr fix side-effect contract sentence one"
+  require_pattern "${REPO_ROOT}/README.md" "When --open-pr is set, wrkr fix writes deterministic artifacts under \\.wrkr/remediations/<fingerprint>/ and then creates or updates one remediation PR for the target repo\\." "README missing explicit wrkr fix side-effect contract sentence two"
+  require_pattern "${REPO_ROOT}/README.md" "^## Trust and Project Relationship$" "README missing trust and project relationship section"
+  require_pattern "${REPO_ROOT}/README.md" "docs/map\\.md" "README missing docs source-of-truth map reference"
+  require_pattern "${REPO_ROOT}/README.md" "CODE_OF_CONDUCT\\.md" "README missing code of conduct link"
+  require_pattern "${REPO_ROOT}/README.md" "CHANGELOG\\.md" "README missing changelog link"
+  require_pattern "${REPO_ROOT}/README.md" "^## First 10 Minutes \\(Offline, No Setup\\)$" "README missing first 10 minutes section"
+  require_pattern "${REPO_ROOT}/README.md" "^## Integration \\(One PR\\)$" "README missing integration section"
+  require_pattern "${REPO_ROOT}/README.md" "^## Governance and Support$" "README missing governance and support section"
+  require_pattern "${REPO_ROOT}/README.md" "docs/governance/content-visibility.md" "README missing governance policy link"
+fi
 
 ROOT_SOURCE="${REPO_ROOT}/core/cli/root.go"
 ROOT_DOC="${REPO_ROOT}/docs/commands/root.md"

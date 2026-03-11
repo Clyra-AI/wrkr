@@ -8,6 +8,7 @@ Stable contract surfaces include:
 - Exit-code contract (`0` success, `1` runtime failure, `2` verification failure, `3` policy/schema violation, `4` approval required, `5` regression drift, `6` invalid input, `7` dependency missing, `8` unsafe operation blocked)
 - Additive `verify --json` success detail fields such as `chain.verification_mode` and `chain.authenticity_status`
 - `regress` compatibility for legacy `v1` baselines when current instance identities are equivalent
+- `regress run` compatibility for raw saved scan snapshots used as baseline inputs
 
 Key command anchors:
 

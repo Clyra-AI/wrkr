@@ -205,29 +205,43 @@ func SaveBaseline(path string, baseline Baseline) error {
 	return nil
 }
 
+func BuildBaselineFromSnapshot(snapshot state.Snapshot) Baseline {
+	return normalizeBaseline(Baseline{
+		Version:     BaselineVersion,
+		Tools:       SnapshotTools(snapshot),
+		AttackPaths: snapshotAttackPaths(snapshot),
+	})
+}
+
 func LoadBaseline(path string) (Baseline, error) {
 	payload, err := os.ReadFile(path) // #nosec G304 -- caller provides explicit local baseline path.
 	if err != nil {
 		return Baseline{}, fmt.Errorf("read baseline: %w", err)
 	}
-	var baseline Baseline
-	if err := json.Unmarshal(payload, &baseline); err != nil {
-		return Baseline{}, fmt.Errorf("parse baseline: %w", err)
+	return loadBaselinePayload(payload)
+}
+
+func LoadComparableBaseline(path string) (Baseline, error) {
+	payload, err := os.ReadFile(path) // #nosec G304 -- caller provides explicit local baseline path.
+	if err != nil {
+		return Baseline{}, fmt.Errorf("read baseline: %w", err)
 	}
-	if strings.TrimSpace(baseline.Version) == "" {
-		baseline.Version = BaselineVersion
+	kind, err := detectBaselineInputKind(payload)
+	if err != nil {
+		return Baseline{}, err
 	}
-	sort.Slice(baseline.Tools, func(i, j int) bool {
-		if baseline.Tools[i].AgentID != baseline.Tools[j].AgentID {
-			return baseline.Tools[i].AgentID < baseline.Tools[j].AgentID
+	switch kind {
+	case "regress_baseline":
+		return loadBaselinePayload(payload)
+	case "scan_snapshot":
+		snapshot, err := loadSnapshotPayload(payload)
+		if err != nil {
+			return Baseline{}, err
 		}
-		return baseline.Tools[i].ToolID < baseline.Tools[j].ToolID
-	})
-	for i := range baseline.Tools {
-		baseline.Tools[i].Permissions = dedupeSortedPermissions(baseline.Tools[i].Permissions)
+		return BuildBaselineFromSnapshot(snapshot), nil
+	default:
+		return Baseline{}, fmt.Errorf("parse baseline: expected regress baseline artifact or scan snapshot")
 	}
-	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
-	return baseline, nil
 }
 
 func Compare(baseline Baseline, current state.Snapshot) Result {
@@ -360,6 +374,63 @@ func dedupeSortedPermissions(values []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func loadBaselinePayload(payload []byte) (Baseline, error) {
+	var baseline Baseline
+	if err := json.Unmarshal(payload, &baseline); err != nil {
+		return Baseline{}, fmt.Errorf("parse baseline: %w", err)
+	}
+	return normalizeBaseline(baseline), nil
+}
+
+func loadSnapshotPayload(payload []byte) (state.Snapshot, error) {
+	var snapshot state.Snapshot
+	if err := json.Unmarshal(payload, &snapshot); err != nil {
+		return state.Snapshot{}, fmt.Errorf("parse baseline snapshot: %w", err)
+	}
+	if snapshot.Version == "" {
+		snapshot.Version = state.SnapshotVersion
+	}
+	model.SortFindings(snapshot.Findings)
+	return snapshot, nil
+}
+
+func normalizeBaseline(baseline Baseline) Baseline {
+	if strings.TrimSpace(baseline.Version) == "" {
+		baseline.Version = BaselineVersion
+	}
+	sort.Slice(baseline.Tools, func(i, j int) bool {
+		if baseline.Tools[i].AgentID != baseline.Tools[j].AgentID {
+			return baseline.Tools[i].AgentID < baseline.Tools[j].AgentID
+		}
+		return baseline.Tools[i].ToolID < baseline.Tools[j].ToolID
+	})
+	for i := range baseline.Tools {
+		baseline.Tools[i].Permissions = dedupeSortedPermissions(baseline.Tools[i].Permissions)
+	}
+	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
+	return baseline
+}
+
+func detectBaselineInputKind(payload []byte) (string, error) {
+	var probe struct {
+		Tools       json.RawMessage `json:"tools"`
+		GeneratedAt json.RawMessage `json:"generated_at"`
+		AttackPaths json.RawMessage `json:"attack_paths"`
+		Findings    json.RawMessage `json:"findings"`
+		Target      json.RawMessage `json:"target"`
+	}
+	if err := json.Unmarshal(payload, &probe); err != nil {
+		return "", fmt.Errorf("parse baseline: %w", err)
+	}
+	if len(probe.Tools) > 0 || len(probe.GeneratedAt) > 0 || len(probe.AttackPaths) > 0 {
+		return "regress_baseline", nil
+	}
+	if len(probe.Findings) > 0 || len(probe.Target) > 0 {
+		return "scan_snapshot", nil
+	}
+	return "", fmt.Errorf("parse baseline: expected regress baseline artifact or scan snapshot")
 }
 
 func permissionDelta(base, current []string) []string {

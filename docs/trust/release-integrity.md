@@ -25,6 +25,8 @@ make test-release-smoke
 
 Run install-path UAT locally before cutting a release tag:
 
+`README.md` may use a convenience install path for landing-page onboarding. Treat this page plus `docs/install/minimal-dependencies.md` as the authoritative pinned install and release-parity contract.
+
 ```bash
 # Full local gate set + source/release/homebrew-path checks
 scripts/test_uat_local.sh
