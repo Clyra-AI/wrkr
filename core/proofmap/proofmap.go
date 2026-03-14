@@ -7,6 +7,7 @@ import (
 	"time"
 
 	proof "github.com/Clyra-AI/proof"
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -26,7 +27,12 @@ type MappedRecord struct {
 	ApprovedScope string
 }
 
-func MapFindings(findings []model.Finding, profile *profileeval.Result, now time.Time) []MappedRecord {
+type SecurityVisibilityContext struct {
+	Summary          agginventory.SecurityVisibilitySummary
+	StatusByInstance map[string]string
+}
+
+func MapFindings(findings []model.Finding, profile *profileeval.Result, visibility SecurityVisibilityContext, now time.Time) []MappedRecord {
 	ordered := append([]model.Finding(nil), findings...)
 	model.SortFindings(ordered)
 	groups := map[string][]model.Finding{}
@@ -59,6 +65,12 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, now time
 		if agentContext := agentContextForFinding(representative); len(agentContext) > 0 {
 			event["agent_id"] = agentIDForFinding(representative)
 			event["agent_context"] = agentContext
+			if instanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(instanceID) != "" {
+				if status := strings.TrimSpace(visibility.StatusByInstance[instanceID]); status != "" {
+					event["security_visibility_status"] = status
+					event["security_visibility_reference"] = visibility.Summary.ReferenceBasis
+				}
+			}
 		}
 		if representative.RuleID != "" {
 			event["rule_id"] = representative.RuleID
@@ -109,6 +121,10 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, now time
 		if agentContext := agentContextForFinding(representative); len(agentContext) > 0 {
 			if agentInstanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(agentInstanceID) != "" {
 				metadata["agent_instance_id"] = agentInstanceID
+				if status := strings.TrimSpace(visibility.StatusByInstance[agentInstanceID]); status != "" {
+					metadata["security_visibility_status"] = status
+					metadata["security_visibility_reference"] = visibility.Summary.ReferenceBasis
+				}
 			}
 			if framework, ok := agentContext["framework"].(string); ok && strings.TrimSpace(framework) != "" {
 				metadata["agent_framework"] = framework
@@ -127,7 +143,7 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, now time
 	return records
 }
 
-func MapRisk(report risk.Report, posture score.Result, profile profileeval.Result, now time.Time) []MappedRecord {
+func MapRisk(report risk.Report, posture score.Result, profile profileeval.Result, visibility SecurityVisibilityContext, now time.Time) []MappedRecord {
 	records := make([]MappedRecord, 0, len(report.Ranked)+len(report.AttackPaths)+1)
 	for idx, item := range report.Ranked {
 		event := map[string]any{
@@ -156,6 +172,13 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			event["agent_context"] = agentContext
 			findingMap := event["finding"].(map[string]any)
 			findingMap["agent_id"] = agentIDForFinding(item.Finding)
+			if instanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(instanceID) != "" {
+				if status := strings.TrimSpace(visibility.StatusByInstance[instanceID]); status != "" {
+					event["security_visibility_status"] = status
+					event["security_visibility_reference"] = visibility.Summary.ReferenceBasis
+					findingMap["security_visibility_status"] = status
+				}
+			}
 		}
 		agentID := agentIDForFinding(item.Finding)
 		metadata := map[string]any{
@@ -165,6 +188,9 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 		if agentContext := agentContextForFinding(item.Finding); len(agentContext) > 0 {
 			if agentInstanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(agentInstanceID) != "" {
 				metadata["agent_instance_id"] = agentInstanceID
+				if status := strings.TrimSpace(visibility.StatusByInstance[agentInstanceID]); status != "" {
+					metadata["security_visibility_status"] = status
+				}
 			}
 			if framework, ok := agentContext["framework"].(string); ok && strings.TrimSpace(framework) != "" {
 				metadata["agent_framework"] = framework
@@ -230,6 +256,12 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 		"attack_paths": map[string]any{
 			"count": len(report.AttackPaths),
 			"top":   report.TopAttackPaths,
+		},
+		"security_visibility": map[string]any{
+			"reference_basis":                          visibility.Summary.ReferenceBasis,
+			"unknown_to_security_tools":                visibility.Summary.UnknownToSecurityTools,
+			"unknown_to_security_agents":               visibility.Summary.UnknownToSecurityAgents,
+			"unknown_to_security_write_capable_agents": visibility.Summary.UnknownToSecurityWriteCapableAgents,
 		},
 	}
 	records = append(records, MappedRecord{
@@ -312,6 +344,9 @@ func CanonicalFindingKey(finding model.Finding) string {
 		strings.TrimSpace(finding.Location),
 		strings.TrimSpace(finding.Repo),
 		canonicalOrg(finding.Org),
+	}
+	if identityComponent := findingIdentityComponent(finding); identityComponent != "" {
+		parts = append(parts[:4], append([]string{identityComponent}, parts[4:]...)...)
 	}
 	return strings.Join(parts, "|")
 }
@@ -429,8 +464,10 @@ func hasSkillConflict(findings []model.Finding) bool {
 }
 
 func agentIDForFinding(finding model.Finding) string {
-	toolID := identity.ToolID(finding.ToolType, finding.Location)
-	return identity.AgentID(toolID, canonicalOrg(finding.Org))
+	if instanceID := agentInstanceIDForFinding(finding); instanceID != "" {
+		return identity.AgentID(instanceID, canonicalOrg(finding.Org))
+	}
+	return identity.AgentID(identity.ToolID(finding.ToolType, finding.Location), canonicalOrg(finding.Org))
 }
 
 func canonicalOrg(org string) string {
@@ -863,6 +900,26 @@ func agentInstanceIDForFinding(finding model.Finding) string {
 		endLine = finding.LocationRange.EndLine
 	}
 	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+}
+
+func findingIdentityComponent(finding model.Finding) string {
+	if strings.TrimSpace(finding.FindingType) != "agent_framework" {
+		return ""
+	}
+	if !hasExplicitAgentInstanceMetadata(finding) {
+		return ""
+	}
+	return agentInstanceIDForFinding(finding)
+}
+
+func hasExplicitAgentInstanceMetadata(finding model.Finding) bool {
+	if evidenceStringValue(finding, "symbol") != "" {
+		return true
+	}
+	if finding.LocationRange == nil {
+		return false
+	}
+	return finding.LocationRange.StartLine > 0 || finding.LocationRange.EndLine > 0
 }
 
 func evidenceStringValue(finding model.Finding, key string) string {

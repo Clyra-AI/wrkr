@@ -78,9 +78,10 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
+	securityVisibility := securityVisibilityFromInventory(in.Snapshot.Inventory)
 	nextActions := buildNextActions(riskItems, lifecycleSummary, regressSummary)
 	pack := templatespkg.Resolve(string(template))
-	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, complianceSummary, privilegeBudget, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
+	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, complianceSummary, privilegeBudget, securityVisibility, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
 
 	sectionOrder := []string{
 		SectionHeadline,
@@ -103,23 +104,24 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 
 	summary := Summary{
-		SummaryVersion:    SummaryVersion,
-		GeneratedAt:       now.Format(time.RFC3339),
-		Template:          string(template),
-		ShareProfile:      string(shareProfile),
-		SectionOrder:      sectionOrder,
-		Sections:          sections,
-		Headline:          headline,
-		Methodology:       methodology,
-		TopRisks:          riskItems,
-		PrivilegeBudget:   privilegeBudget,
-		Deltas:            deltas,
-		Lifecycle:         lifecycleSummary,
-		RegressDrift:      regressSummary,
-		AttackPaths:       attackPathSummary,
-		ComplianceSummary: complianceSummary,
-		Proof:             proofRef,
-		NextActions:       nextActions,
+		SummaryVersion:     SummaryVersion,
+		GeneratedAt:        now.Format(time.RFC3339),
+		Template:           string(template),
+		ShareProfile:       string(shareProfile),
+		SectionOrder:       sectionOrder,
+		Sections:           sections,
+		Headline:           headline,
+		Methodology:        methodology,
+		TopRisks:           riskItems,
+		PrivilegeBudget:    privilegeBudget,
+		SecurityVisibility: securityVisibility,
+		Deltas:             deltas,
+		Lifecycle:          lifecycleSummary,
+		RegressDrift:       regressSummary,
+		AttackPaths:        attackPathSummary,
+		ComplianceSummary:  complianceSummary,
+		Proof:              proofRef,
+		NextActions:        nextActions,
 	}
 
 	return summary, nil
@@ -159,6 +161,16 @@ func privilegeBudgetFromInventory(inv *agginventory.Inventory) agginventory.Priv
 		})
 	}
 	return normalizePrivilegeBudget(inv.PrivilegeBudget)
+}
+
+func securityVisibilityFromInventory(inv *agginventory.Inventory) agginventory.SecurityVisibilitySummary {
+	if inv == nil {
+		return agginventory.SecurityVisibilitySummary{ReferenceBasis: "initial_scan"}
+	}
+	if strings.TrimSpace(inv.SecurityVisibility.ReferenceBasis) == "" {
+		inv.SecurityVisibility.ReferenceBasis = "initial_scan"
+	}
+	return inv.SecurityVisibility
 }
 
 func normalizePrivilegeBudget(in agginventory.PrivilegeBudget) agginventory.PrivilegeBudget {
@@ -572,6 +584,7 @@ func buildSections(
 	attackPathFacts []string,
 	complianceSummary compliance.RollupSummary,
 	privilegeBudget agginventory.PrivilegeBudget,
+	securityVisibility agginventory.SecurityVisibilitySummary,
 	deltas DeltaSummary,
 	lifecycleSummary LifecycleSummary,
 	regressSummary *RegressSummary,
@@ -624,13 +637,14 @@ func buildSections(
 		fmt.Sprintf("posture score %.2f (%s)", headline.Score, headline.Grade),
 		fmt.Sprintf("profile status %s at %.2f%%", headline.ComplianceStatus, headline.Compliance),
 		fmt.Sprintf("tools=%d write_capable=%d credential_access=%d exec_capable=%d", privilegeBudget.TotalTools, privilegeBudget.WriteCapableTools, privilegeBudget.CredentialAccessTools, privilegeBudget.ExecCapableTools),
+		fmt.Sprintf("security_visibility reference=%s unknown_to_security_tools=%d unknown_to_security_agents=%d unknown_to_security_write_capable_agents=%d", securityVisibility.ReferenceBasis, securityVisibility.UnknownToSecurityTools, securityVisibility.UnknownToSecurityAgents, securityVisibility.UnknownToSecurityWriteCapableAgents),
 		"profile compliance reflects controls evidenced in the current deterministic scan state",
 	}
 	headlineFacts = append(headlineFacts, compliance.ExplainRollupSummary(complianceSummary, 3)...)
 	if privilegeBudget.ProductionWrite.Configured && privilegeBudget.ProductionWrite.Count != nil {
 		headlineFacts = append(headlineFacts, fmt.Sprintf("production_write=%d (status=%s)", *privilegeBudget.ProductionWrite.Count, privilegeBudget.ProductionWrite.Status))
 	} else {
-		headlineFacts = append(headlineFacts, fmt.Sprintf("production_write not configured (status=%s)", privilegeBudget.ProductionWrite.Status))
+		headlineFacts = append(headlineFacts, fmt.Sprintf("production targets %s; default claim scope is write_capable=%d", privilegeBudget.ProductionWrite.Status, privilegeBudget.WriteCapableTools))
 	}
 
 	methodologyFacts := []string{

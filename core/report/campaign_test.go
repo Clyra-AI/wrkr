@@ -31,6 +31,12 @@ func TestAggregateCampaignDeterministicMetrics(t *testing.T) {
 					UnapprovedTools: 3,
 					UnknownTools:    0,
 				},
+				SecurityVisibility: agginventory.SecurityVisibilitySummary{
+					ReferenceBasis:                      "state_snapshot",
+					UnknownToSecurityTools:              2,
+					UnknownToSecurityAgents:             3,
+					UnknownToSecurityWriteCapableAgents: 1,
+				},
 			},
 			PrivilegeBudget: agginventory.PrivilegeBudget{
 				TotalTools:            4,
@@ -58,6 +64,12 @@ func TestAggregateCampaignDeterministicMetrics(t *testing.T) {
 					ApprovedTools:   2,
 					UnapprovedTools: 0,
 					UnknownTools:    1,
+				},
+				SecurityVisibility: agginventory.SecurityVisibilitySummary{
+					ReferenceBasis:                      "state_snapshot",
+					UnknownToSecurityTools:              1,
+					UnknownToSecurityAgents:             2,
+					UnknownToSecurityWriteCapableAgents: 1,
 				},
 			},
 			PrivilegeBudget: agginventory.PrivilegeBudget{
@@ -94,6 +106,12 @@ func TestAggregateCampaignDeterministicMetrics(t *testing.T) {
 	}
 	if out.Metrics.ApprovedTools != 3 || out.Metrics.UnapprovedTools != 3 || out.Metrics.UnknownTools != 1 {
 		t.Fatalf("unexpected approval totals: %+v", out.Metrics)
+	}
+	if out.Metrics.UnknownToSecurityTools != 3 || out.Metrics.UnknownToSecurityAgents != 5 || out.Metrics.UnknownToSecurityWriteCapableAgents != 2 {
+		t.Fatalf("unexpected visibility totals: %+v", out.Metrics)
+	}
+	if out.Metrics.SecurityVisibilityReference != "state_snapshot" {
+		t.Fatalf("unexpected visibility reference: %+v", out.Metrics)
 	}
 	if out.Metrics.ApprovedPercent != 42.86 || out.Metrics.UnapprovedPercent != 42.86 || out.Metrics.UnknownPercent != 14.29 {
 		t.Fatalf("unexpected approval percentages: %+v", out.Metrics)

@@ -298,6 +298,9 @@ func TestInventoryAgents_IncludeRangeWhenAvailable(t *testing.T) {
 	if inv.Agents[0].LocationRange.StartLine != 11 || inv.Agents[0].LocationRange.EndLine != 18 {
 		t.Fatalf("unexpected location range payload: %+v", inv.Agents[0].LocationRange)
 	}
+	if inv.Agents[0].Symbol != "release_agent" {
+		t.Fatalf("expected symbol=release_agent, got %+v", inv.Agents[0])
+	}
 }
 
 func TestInventoryBuild_IgnoresCorrelationOnlyFindings(t *testing.T) {
@@ -341,5 +344,46 @@ func TestInventoryBuild_IgnoresCorrelationOnlyFindings(t *testing.T) {
 	}
 	if len(inv.Agents) != 1 || inv.Agents[0].Framework != "codex" {
 		t.Fatalf("expected only canonical finding to materialize agent entry, got %+v", inv.Agents)
+	}
+}
+
+func TestApplySecurityVisibilitySeparatesApprovedKnownAndUnknown(t *testing.T) {
+	t.Parallel()
+
+	inv := Inventory{
+		Agents: []Agent{
+			{AgentID: "wrkr:agent-approved:acme", AgentInstanceID: "agent-approved", Framework: "crewai", Location: "agents/a.py"},
+			{AgentID: "wrkr:agent-known:acme", AgentInstanceID: "agent-known", Framework: "crewai", Location: "agents/b.py"},
+			{AgentID: "wrkr:agent-unknown:acme", AgentInstanceID: "agent-unknown", Framework: "crewai", Location: "agents/c.py"},
+		},
+		Tools: []Tool{
+			{ToolID: identity.ToolID("crewai", "agents/a.py"), ToolType: "crewai", ApprovalClass: "approved"},
+			{ToolID: identity.ToolID("crewai", "agents/b.py"), ToolType: "crewai", ApprovalClass: "unapproved"},
+			{ToolID: identity.ToolID("crewai", "agents/c.py"), ToolType: "crewai", ApprovalClass: "unapproved"},
+		},
+	}
+
+	ref := SecurityVisibilityReference{
+		ReferenceBasis:        "baseline_snapshot",
+		ReferencePath:         ".wrkr/last-scan.json",
+		KnownToolIDs:          map[string]struct{}{identity.ToolID("crewai", "agents/b.py"): {}},
+		KnownAgentInstanceIDs: map[string]struct{}{"agent-known": {}},
+	}
+	ApplySecurityVisibility(&inv, ref)
+
+	if inv.Agents[0].SecurityVisibilityStatus != SecurityVisibilityApproved {
+		t.Fatalf("expected approved agent visibility, got %+v", inv.Agents[0])
+	}
+	if inv.Agents[1].SecurityVisibilityStatus != SecurityVisibilityKnownUnapproved {
+		t.Fatalf("expected known_unapproved agent visibility, got %+v", inv.Agents[1])
+	}
+	if inv.Agents[2].SecurityVisibilityStatus != SecurityVisibilityUnknownToSecurity {
+		t.Fatalf("expected unknown_to_security agent visibility, got %+v", inv.Agents[2])
+	}
+	if inv.SecurityVisibility.ReferenceBasis != "baseline_snapshot" {
+		t.Fatalf("unexpected security visibility summary: %+v", inv.SecurityVisibility)
+	}
+	if inv.SecurityVisibility.UnknownToSecurityAgents != 1 || inv.SecurityVisibility.KnownUnapprovedAgents != 1 || inv.SecurityVisibility.ApprovedAgents != 1 {
+		t.Fatalf("unexpected security visibility summary counts: %+v", inv.SecurityVisibility)
 	}
 }

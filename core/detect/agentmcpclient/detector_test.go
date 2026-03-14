@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/model"
 )
 
 func TestMCPClientDetector_FixtureCoverage(t *testing.T) {
@@ -63,6 +64,37 @@ func TestMCPClientDetector_ParseErrorsAreDeterministic(t *testing.T) {
 	}
 }
 
+func TestMCPClientDetector_SourceOnlyRepo(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "agents/mcp_client.ts", `import { Client } from "@modelcontextprotocol/sdk/client";
+
+const prodClient = new Client({
+  name: "prod_client",
+  servers: ["postgres-prod", "redis-prod"],
+  auth: [process.env.MCP_API_TOKEN],
+});
+`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "platform", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one source finding, got %d", len(findings))
+	}
+	if findings[0].Location != "agents/mcp_client.ts" {
+		t.Fatalf("unexpected location %q", findings[0].Location)
+	}
+	if evidenceValue(findings[0].Evidence, "symbol") != "prod_client" {
+		t.Fatalf("unexpected symbol %q", evidenceValue(findings[0].Evidence, "symbol"))
+	}
+	if evidenceValue(findings[0].Evidence, "bound_tools") != "postgres-prod,redis-prod" {
+		t.Fatalf("unexpected bound_tools %q", evidenceValue(findings[0].Evidence, "bound_tools"))
+	}
+}
+
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
@@ -72,4 +104,13 @@ func writeFile(t *testing.T, root, rel, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", rel, err)
 	}
+}
+
+func evidenceValue(evidence []model.Evidence, key string) string {
+	for _, item := range evidence {
+		if item.Key == key {
+			return item.Value
+		}
+	}
+	return ""
 }

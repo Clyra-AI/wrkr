@@ -372,6 +372,55 @@ func loadPreviousSnapshot(statePath, baselinePath string) (*state.Snapshot, erro
 	return nil, nil
 }
 
+func buildSecurityVisibilityReference(previousSnapshot *state.Snapshot, statePath, baselinePath string) agginventory.SecurityVisibilityReference {
+	ref := agginventory.SecurityVisibilityReference{
+		ReferenceBasis:        "initial_scan",
+		KnownToolIDs:          map[string]struct{}{},
+		KnownAgentInstanceIDs: map[string]struct{}{},
+	}
+	if previousSnapshot == nil {
+		return ref
+	}
+	if _, err := os.Stat(statePath); err == nil {
+		ref.ReferenceBasis = "state_snapshot"
+		ref.ReferencePath = strings.TrimSpace(statePath)
+	} else if strings.TrimSpace(baselinePath) != "" {
+		ref.ReferenceBasis = "baseline_snapshot"
+		ref.ReferencePath = strings.TrimSpace(baselinePath)
+	}
+	if previousSnapshot.Inventory != nil {
+		for _, tool := range previousSnapshot.Inventory.Tools {
+			if strings.TrimSpace(tool.ToolID) != "" {
+				ref.KnownToolIDs[strings.TrimSpace(tool.ToolID)] = struct{}{}
+			}
+		}
+		for _, agent := range previousSnapshot.Inventory.Agents {
+			if strings.TrimSpace(agent.AgentInstanceID) != "" {
+				ref.KnownAgentInstanceIDs[strings.TrimSpace(agent.AgentInstanceID)] = struct{}{}
+			}
+			if toolID := identity.ToolID(agent.Framework, agent.Location); strings.TrimSpace(toolID) != "" {
+				ref.KnownToolIDs[toolID] = struct{}{}
+			}
+		}
+	}
+	for _, finding := range previousSnapshot.Findings {
+		if !model.IsIdentityBearingFinding(finding) {
+			continue
+		}
+		toolID := identity.ToolID(finding.ToolType, finding.Location)
+		if strings.TrimSpace(toolID) != "" {
+			ref.KnownToolIDs[toolID] = struct{}{}
+		}
+		symbol := findingAgentSymbol(finding)
+		startLine, endLine := findingRangeLines(finding)
+		instanceID := identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+		if strings.TrimSpace(instanceID) != "" {
+			ref.KnownAgentInstanceIDs[instanceID] = struct{}{}
+		}
+	}
+	return ref
+}
+
 func loadManifest(path string) (manifest.Manifest, error) {
 	loaded, err := manifest.Load(path)
 	if err == nil {

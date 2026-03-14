@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/model"
 )
 
 func TestAutoGenDetector_PrecisionBaseline(t *testing.T) {
@@ -78,6 +79,38 @@ file = "agents/executor.py"
 	}
 }
 
+func TestAutoGenDetector_SourceOnlyRepo(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "agents/autogen_ops.py", `from autogen import AssistantAgent
+import os
+
+ops_agent = AssistantAgent(
+    name="ops_agent",
+    tools=["db.write"],
+    auth_surfaces=[os.getenv("AZURE_OPENAI_API_KEY")],
+)
+`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "platform", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one source finding, got %d", len(findings))
+	}
+	if findings[0].Location != "agents/autogen_ops.py" {
+		t.Fatalf("unexpected location %q", findings[0].Location)
+	}
+	if evidenceValue(findings[0].Evidence, "symbol") != "ops_agent" {
+		t.Fatalf("unexpected symbol %q", evidenceValue(findings[0].Evidence, "symbol"))
+	}
+	if evidenceValue(findings[0].Evidence, "auth_surfaces") != "AZURE_OPENAI_API_KEY" {
+		t.Fatalf("unexpected auth surfaces %q", evidenceValue(findings[0].Evidence, "auth_surfaces"))
+	}
+}
+
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
@@ -87,4 +120,13 @@ func writeFile(t *testing.T, root, rel, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", rel, err)
 	}
+}
+
+func evidenceValue(evidence []model.Evidence, key string) string {
+	for _, item := range evidence {
+		if item.Key == key {
+			return item.Value
+		}
+	}
+	return ""
 }

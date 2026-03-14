@@ -88,12 +88,15 @@ For local-machine scans, `target.mode` is `my_setup`.
 `sarif.path` is included when `--sarif` output is requested.
 `compliance_summary.frameworks[*].controls[*]` emits deterministic framework/control rollups with `mapped_rule_ids`, `finding_count`, and proof-derived coverage status.
 `inventory.methodology` emits machine-readable scan metadata (`wrkr_version`, timing, repo/file counts, detector inventory).
-`inventory.agents` is always present (possibly empty) and is deterministically sorted by org/framework/instance/location; agent entries may include additive `location_range` when parser metadata is available.
+`inventory.agents` is always present (possibly empty) and is deterministically sorted by org/framework/instance/location; agent entries may include additive `symbol`, `security_visibility_status`, and `location_range` when parser metadata is available.
 `ranked_findings[*]` and `attack_paths[*]` now include deterministic agent-aware amplification and edge rationale when agent declarations expose deployment, delegation, dynamic discovery, or bound tool/data/auth/deploy chains.
 `inventory.tools[*]` includes deterministic `approval_classification` (`approved|unapproved|unknown`), and `inventory.approval_summary` emits aggregate approval-gap ratios for campaign/report workflows.
+`inventory.tools[*]`, `inventory.agents[*]`, and `agent_privilege_map[*]` also emit additive `security_visibility_status` (`approved|known_unapproved|unknown_to_security`) without overloading `approval_classification`.
+`inventory.security_visibility_summary` emits additive reference-basis and count fields including `unknown_to_security_write_capable_agents`.
 `inventory.tools[*]` also emits report-ready `tool_category` and deterministic `confidence_score` (`0.00-1.00`) for inventory breakdown tables.
 `inventory.tools[*]` emits normalized `permission_surface`, `permission_tier`, `risk_tier`, `adoption_pattern`, and per-tool `regulatory_mapping` statuses.
 `inventory.adoption_summary` and `inventory.regulatory_summary` provide deterministic rollups for report section tables.
+`agent_privilege_map[*]` is instance-scoped and includes additive `agent_instance_id`, `symbol`, `location`, and `location_range` fields for multi-agent same-file repos.
 `--approved-tools <path>` accepts a schema-validated YAML policy (`schemas/v1/policy/approved-tools.schema.json`) for explicit approved-list matching (`tool_ids`, `agent_ids`, `tool_types`, `orgs`, `repos` via exact/prefix sets).
 Invalid `--approved-tools` policy files fail closed with `invalid_input` (exit `6`).
 For `--repo` and `--org` scans, `source_manifest.repos[*].source` is `github_repo_materialized`, and `source_manifest.repos[*].location` points to the deterministic materialized local root used for detector execution.
@@ -128,6 +131,12 @@ Production write rule:
 ```text
 production_write = has_any(write_permissions) AND matches_any_production_target
 ```
+
+Safe claim rule:
+
+- `write_capable` is always available from the privilege budget and `agent_privilege_map`.
+- `production_write` is safe to claim only when `--production-targets` is configured and valid.
+- When production targets are missing or invalid, public/report wording must stay at `write_capable` and only expose production-target status, not a production-write count.
 
 Every discovered entity now emits `discovery_method: static` in both `findings` and `inventory.tools` for deterministic v1 schema compatibility.
 

@@ -9,6 +9,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 
 - Repository and org configuration surfaces for Claude, Cursor, Codex, Copilot, MCP, WebMCP, A2A, and CI headless execution patterns.
 - First-class agent declarations and bindings from LangChain, CrewAI, OpenAI Agents, AutoGen, LlamaIndex, MCP-client, and conservative custom-agent scaffolding surfaces.
+- Direct Python and JS/TS source parsing for supported framework-native agent constructors, registrations, tool bindings, auth surfaces, and entrypoints when declaration files are absent.
 - Prompt-channel override/poisoning patterns from static instruction surfaces with deterministic reason codes and evidence hashes.
 - Static policy/profile posture signals and ranked findings.
 - Deterministic inventory and risk outputs for both tools and agents, including agent-linked attack-path edges when bindings/deployments are declared in-repo.
@@ -30,6 +31,7 @@ Wrkr is deterministic and file-based by default. Static discovery avoids nondete
 
 ```bash
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+wrkr scan --path ./scenarios/wrkr/agent-source-frameworks/repos --json
 wrkr scan --path ./scenarios/wrkr/prompt-channel-poisoning/repos --json
 wrkr scan --path ./scenarios/wrkr/webmcp-declarations/repos --json
 wrkr scan --path ./scenarios/wrkr/a2a-agent-cards/repos --json

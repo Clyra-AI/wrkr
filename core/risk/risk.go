@@ -8,6 +8,7 @@ import (
 	"time"
 
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
+	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/risk/autonomy"
@@ -368,7 +369,28 @@ func canonicalKey(finding model.Finding) string {
 	if finding.FindingType == "skill_policy_conflict" {
 		return "skill_policy_conflict:" + finding.Org + ":" + finding.Repo
 	}
-	return strings.Join([]string{finding.FindingType, finding.RuleID, finding.ToolType, finding.Location, finding.Repo, finding.Org}, "|")
+	parts := []string{finding.FindingType, finding.RuleID, finding.ToolType, finding.Location, finding.Repo, finding.Org}
+	if identityComponent := agentIdentityComponent(finding); identityComponent != "" {
+		parts = append(parts[:4], append([]string{identityComponent}, parts[4:]...)...)
+	}
+	return strings.Join(parts, "|")
+}
+
+func agentIdentityComponent(finding model.Finding) string {
+	if strings.TrimSpace(finding.FindingType) != "agent_framework" {
+		return ""
+	}
+	symbol := evidenceString(finding, "symbol")
+	startLine := 0
+	endLine := 0
+	if finding.LocationRange != nil {
+		startLine = finding.LocationRange.StartLine
+		endLine = finding.LocationRange.EndLine
+	}
+	if symbol == "" && startLine == 0 && endLine == 0 {
+		return ""
+	}
+	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
 }
 
 func blastRadius(finding model.Finding, endpointClass string) float64 {

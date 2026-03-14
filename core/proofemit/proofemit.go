@@ -10,6 +10,7 @@ import (
 	"time"
 
 	proof "github.com/Clyra-AI/proof"
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
@@ -72,7 +73,7 @@ func SaveChain(path string, chain *proof.Chain) error {
 	return nil
 }
 
-func EmitScan(statePath string, now time.Time, findings []model.Finding, report risk.Report, profile profileeval.Result, posture score.Result, transitions []lifecycle.Transition) (Summary, error) {
+func EmitScan(statePath string, now time.Time, findings []model.Finding, inventory *agginventory.Inventory, report risk.Report, profile profileeval.Result, posture score.Result, transitions []lifecycle.Transition) (Summary, error) {
 	chainPath := ChainPath(statePath)
 	chain, err := LoadChain(chainPath)
 	if err != nil {
@@ -85,7 +86,8 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, report 
 
 	summary := Summary{ChainPath: chainPath}
 	findingRecordIDs := map[string]string{}
-	mappedFindings := proofmap.MapFindings(findings, &profile, now)
+	visibility := proofVisibilityContext(inventory)
+	mappedFindings := proofmap.MapFindings(findings, &profile, visibility, now)
 	for _, mapped := range mappedFindings {
 		record, err := appendSignedRecord(chain, key, mapped)
 		if err != nil {
@@ -100,7 +102,7 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, report 
 		summary.Total++
 	}
 
-	mappedRisk := proofmap.MapRisk(report, posture, profile, now)
+	mappedRisk := proofmap.MapRisk(report, posture, profile, visibility, now)
 	for _, mapped := range mappedRisk {
 		linkMappedRecordToFindings(&mapped, findingRecordIDs)
 		if _, err := appendSignedRecord(chain, key, mapped); err != nil {
@@ -129,6 +131,28 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, report 
 		return Summary{}, err
 	}
 	return summary, nil
+}
+
+func proofVisibilityContext(inventory *agginventory.Inventory) proofmap.SecurityVisibilityContext {
+	context := proofmap.SecurityVisibilityContext{
+		Summary:          agginventory.SecurityVisibilitySummary{ReferenceBasis: "initial_scan"},
+		StatusByInstance: map[string]string{},
+	}
+	if inventory == nil {
+		return context
+	}
+	context.Summary = inventory.SecurityVisibility
+	if strings.TrimSpace(context.Summary.ReferenceBasis) == "" {
+		context.Summary.ReferenceBasis = "initial_scan"
+	}
+	for _, agent := range inventory.Agents {
+		instanceID := strings.TrimSpace(agent.AgentInstanceID)
+		if instanceID == "" {
+			continue
+		}
+		context.StatusByInstance[instanceID] = strings.TrimSpace(agent.SecurityVisibilityStatus)
+	}
+	return context
 }
 
 func EmitIdentityTransition(statePath string, transition lifecycle.Transition, eventType string) error {

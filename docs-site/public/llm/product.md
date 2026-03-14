@@ -7,11 +7,17 @@ Current OSS shipped scope centers on local setup plus repo/config/CI discovery a
 
 Primary outcomes:
 
-1. Deterministic inventory of AI tooling declarations across machines/repos/orgs/paths.
+1. Deterministic inventory of AI tooling declarations plus supported framework-native source agents across machines/repos/orgs/paths.
 2. Ranked risk findings with posture context.
 3. Compliance evidence generation and proof-chain verification.
 4. Regression baseline and drift gating for CI.
 5. Secondary browser bootstrap at `/scan/` for read-only org-scan handoff without introducing a dashboard-first control plane.
+
+Operational reporting notes:
+
+- `write_capable` is the default always-available claim.
+- `production_write` is only safe to claim when production targets are explicitly configured.
+- `unknown_to_security` is a first-class machine-readable status for paths not present in the approved/reference posture before the current scan.
 
 When to use:
 

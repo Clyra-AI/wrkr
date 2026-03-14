@@ -23,6 +23,8 @@ wrkr report --top 5 --json
 ## Expected JSON keys
 
 - `scan --github-org`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`
+  - `inventory.security_visibility_summary` gives you the additive `unknown_to_security` counts and reference basis for that run
+  - `agent_privilege_map[*]` is instance-scoped and includes `agent_instance_id`, `write_capable`, and `security_visibility_status`
 - `evidence`: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`
 - `verify`: `status`, `chain`
 - `mcp-list`: `status`, `generated_at`, `rows`, optional `warnings`
@@ -31,6 +33,7 @@ wrkr report --top 5 --json
 ## How to frame the results
 
 - `scan` and `mcp-list` answer inventory, privilege, and trust-overlay questions.
+- `scan` is the place to count unknown-to-security write-capable paths; use `inventory.security_visibility_summary.unknown_to_security_write_capable_agents` for that machine-readable number.
 - `report` gives the ranked operator summary for triage.
 - `evidence` and `verify` package the saved posture into portable proof artifacts for audit/compliance workflows.
 

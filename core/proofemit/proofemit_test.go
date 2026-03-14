@@ -36,7 +36,7 @@ func TestEmitScanProducesSignedRecords(t *testing.T) {
 	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 90, Status: "pass"}
 	posture := score.Result{Score: 82.5, Grade: "B", Weights: scoremodel.DefaultWeights()}
 
-	summary, err := EmitScan(statePath, now, findings, report, profile, posture, nil)
+	summary, err := EmitScan(statePath, now, findings, nil, report, profile, posture, nil)
 	if err != nil {
 		t.Fatalf("emit scan: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestEmitScanLinksRiskRecordWhenOrgIsEmpty(t *testing.T) {
 	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 90, Status: "pass"}
 	posture := score.Result{Score: 82.5, Grade: "B", Weights: scoremodel.DefaultWeights()}
 
-	summary, err := EmitScan(statePath, now, findings, report, profile, posture, nil)
+	summary, err := EmitScan(statePath, now, findings, nil, report, profile, posture, nil)
 	if err != nil {
 		t.Fatalf("emit scan: %v", err)
 	}

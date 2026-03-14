@@ -33,11 +33,13 @@ Expected JSON keys: `status`, `generated_at`, `top_findings`, `attack_paths`, `t
 `summary.attack_paths` provides deterministic attack-path section metadata (`total`, `top_path_ids`) used in report templates and external appendix joins.
 `compliance_summary.frameworks[*].controls[*]` exposes additive framework/control/article rollups with deterministic `finding_count`, `mapped_rule_ids`, and coverage status.
 `summary.compliance_summary` mirrors the same machine-readable contract used by report markdown/PDF generation.
+`summary.security_visibility` exposes additive reference-basis and `unknown_to_security` counts sourced from the saved scan state.
 
 Public template behavior (`--template public --share-profile public`):
 
 - `summary.section_order` starts with headline then methodology.
 - `summary.methodology` includes machine-readable reproducibility metadata (`wrkr_version`, scan window, repo/file counts, command set, and exclusion criteria).
+- when production targets are not configured, public/report wording stays at `write_capable` and reports production-target status rather than a production-write count.
 - share-profile redaction is applied to public-facing risk/proof fields.
 
 `--explain` emits short deterministic compliance mapping lines sourced from the same `compliance_summary` payload.

@@ -63,6 +63,7 @@ Expected JSON keys: `status`, `output_dir`, `frameworks`, `manifest_path`, `chai
 Evidence bundle includes deterministic inventory exports at `inventory.json`, `inventory-snapshot.json`, and `inventory.yaml`.
 Evidence bundle includes deterministic compliance rollup export at `compliance-summary.json`.
 Evidence bundle includes deterministic attack-path artifact export at `attack-paths.json` when attack-path scoring is present in scan state.
+Evidence bundle report summaries now carry additive security-visibility context from the scan state, including `unknown_to_security` counts and the reference basis used to derive them.
 When the scanned target is `my_setup`, the bundle also includes `personal-inventory-snapshot.json`.
 When MCP declarations are present, the bundle also includes `mcp-catalog.json`.
 

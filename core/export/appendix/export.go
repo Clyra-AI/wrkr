@@ -41,6 +41,7 @@ type InventoryRow struct {
 }
 
 type PrivilegeRow struct {
+	AgentInstanceID    string  `json:"agent_instance_id" yaml:"agent_instance_id"`
 	AgentID            string  `json:"agent_id" yaml:"agent_id"`
 	ToolID             string  `json:"tool_id" yaml:"tool_id"`
 	ToolType           string  `json:"tool_type" yaml:"tool_type"`
@@ -198,6 +199,7 @@ func BuildWithOptions(inv agginventory.Inventory, now time.Time, opts BuildOptio
 	privilegeRows := make([]PrivilegeRow, 0, len(inv.AgentPrivilegeMap))
 	for _, entry := range inv.AgentPrivilegeMap {
 		row := PrivilegeRow{
+			AgentInstanceID:    entry.AgentInstanceID,
 			AgentID:            entry.AgentID,
 			ToolID:             entry.ToolID,
 			ToolType:           entry.ToolType,
@@ -215,6 +217,7 @@ func BuildWithOptions(inv agginventory.Inventory, now time.Time, opts BuildOptio
 			MatchedTargetCount: len(entry.MatchedProductionTargets),
 		}
 		if opts.Anonymize {
+			row.AgentInstanceID = redact("agent-instance", row.AgentInstanceID, 12)
 			row.AgentID = redact("agent", row.AgentID, 12)
 			row.ToolID = redact("tool", row.ToolID, 12)
 			row.Org = redact("org", row.Org, 8)
@@ -298,11 +301,12 @@ func writeInventoryCSV(dir string, rows []InventoryRow) (string, error) {
 
 func writePrivilegeCSV(dir string, rows []PrivilegeRow) (string, error) {
 	path := filepath.Join(dir, "privilege_map.csv")
-	header := []string{"agent_id", "tool_id", "tool_type", "org", "repo_count", "permission_count", "endpoint_class", "data_class", "autonomy_level", "risk_score", "write_capable", "credential_access", "exec_capable", "production_write", "matched_production_targets"}
+	header := []string{"agent_instance_id", "agent_id", "tool_id", "tool_type", "org", "repo_count", "permission_count", "endpoint_class", "data_class", "autonomy_level", "risk_score", "write_capable", "credential_access", "exec_capable", "production_write", "matched_production_targets"}
 	records := make([][]string, 0, len(rows)+1)
 	records = append(records, header)
 	for _, row := range rows {
 		records = append(records, []string{
+			row.AgentInstanceID,
 			row.AgentID,
 			row.ToolID,
 			row.ToolType,

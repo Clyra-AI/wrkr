@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
@@ -38,7 +39,7 @@ func TestMapFindingsDeduplicatesWRKR014Conflict(t *testing.T) {
 		},
 	}
 	profile := &profileeval.Result{ProfileName: "standard", CompliancePercent: 92.5, Status: "pass"}
-	records := MapFindings(findings, profile, now)
+	records := MapFindings(findings, profile, SecurityVisibilityContext{}, now)
 	if len(records) != 1 {
 		t.Fatalf("expected one canonical scan_finding record, got %d", len(records))
 	}
@@ -105,7 +106,7 @@ func TestMapRiskIncludesPostureAssessment(t *testing.T) {
 	}
 	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.1, Status: "pass"}
 
-	records := MapRisk(report, posture, profile, now)
+	records := MapRisk(report, posture, profile, SecurityVisibilityContext{}, now)
 	if len(records) != 2 {
 		t.Fatalf("expected 2 risk_assessment records, got %d", len(records))
 	}
@@ -185,7 +186,7 @@ func TestProofMap_ScanFindingIncludesAgentContextAdditively(t *testing.T) {
 		},
 	}
 
-	records := MapFindings(findings, nil, now)
+	records := MapFindings(findings, nil, SecurityVisibilityContext{}, now)
 	if len(records) != 1 {
 		t.Fatalf("expected one record, got %d", len(records))
 	}
@@ -203,5 +204,84 @@ func TestProofMap_ScanFindingIncludesAgentContextAdditively(t *testing.T) {
 	}
 	if records[0].Metadata["agent_instance_id"] == "" {
 		t.Fatalf("expected additive metadata.agent_instance_id, got %v", records[0].Metadata)
+	}
+}
+
+func TestMapFindingsKeepsSameFileAgentsDistinctByInstanceIdentity(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
+	findings := []model.Finding{
+		{
+			FindingType:   "agent_framework",
+			Severity:      model.SeverityHigh,
+			ToolType:      "crewai",
+			Location:      "agents/crew.py",
+			LocationRange: &model.LocationRange{StartLine: 4, EndLine: 9},
+			Repo:          "repo",
+			Org:           "acme",
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "research_agent"},
+				{Key: "bound_tools", Value: "search.read"},
+			},
+		},
+		{
+			FindingType:   "agent_framework",
+			Severity:      model.SeverityHigh,
+			ToolType:      "crewai",
+			Location:      "agents/crew.py",
+			LocationRange: &model.LocationRange{StartLine: 11, EndLine: 16},
+			Repo:          "repo",
+			Org:           "acme",
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "publisher_agent"},
+				{Key: "bound_tools", Value: "deploy.write"},
+			},
+		},
+	}
+
+	records := MapFindings(findings, nil, SecurityVisibilityContext{}, now)
+	if len(records) != 2 {
+		t.Fatalf("expected two scan_finding records, got %d", len(records))
+	}
+	if records[0].AgentID == records[1].AgentID {
+		t.Fatalf("expected distinct proof agent ids for same-file agents, got %+v", records)
+	}
+	if records[0].Metadata["agent_instance_id"] == records[1].Metadata["agent_instance_id"] {
+		t.Fatalf("expected distinct proof instance ids, got %+v", records)
+	}
+}
+
+func TestMapFindingsIncludesSecurityVisibilityContextWhenProvided(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
+	findings := []model.Finding{{
+		FindingType:   "agent_framework",
+		Severity:      model.SeverityHigh,
+		ToolType:      "langchain",
+		Location:      "agents/release.py",
+		LocationRange: &model.LocationRange{StartLine: 10, EndLine: 18},
+		Repo:          "repo",
+		Org:           "acme",
+		Evidence: []model.Evidence{
+			{Key: "symbol", Value: "release_agent"},
+		},
+	}}
+	instanceID := agentInstanceIDForFinding(findings[0])
+
+	records := MapFindings(findings, nil, SecurityVisibilityContext{
+		Summary: agginventory.SecurityVisibilitySummary{
+			ReferenceBasis: "state_snapshot",
+		},
+		StatusByInstance: map[string]string{
+			instanceID: agginventory.SecurityVisibilityUnknownToSecurity,
+		},
+	}, now)
+	if len(records) != 1 {
+		t.Fatalf("expected one record, got %d", len(records))
+	}
+	if records[0].Metadata["security_visibility_status"] != agginventory.SecurityVisibilityUnknownToSecurity {
+		t.Fatalf("expected security visibility metadata, got %+v", records[0].Metadata)
 	}
 }

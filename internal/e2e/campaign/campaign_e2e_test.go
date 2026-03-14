@@ -59,7 +59,7 @@ func TestE2ECampaignAggregateFromScanArtifacts(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected metrics object, got %T", campaign["metrics"])
 	}
-	for _, key := range []string{"approved_tools", "unapproved_tools", "unknown_tools", "approved_percent", "unapproved_percent", "unknown_percent"} {
+	for _, key := range []string{"approved_tools", "unapproved_tools", "unknown_tools", "approved_percent", "unapproved_percent", "unknown_percent", "unknown_to_security_tools", "unknown_to_security_agents", "unknown_to_security_write_capable_agents", "security_visibility_reference"} {
 		if _, exists := metrics[key]; !exists {
 			t.Fatalf("expected metrics key %s, got %v", key, metrics)
 		}

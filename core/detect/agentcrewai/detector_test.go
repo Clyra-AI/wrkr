@@ -52,6 +52,39 @@ func TestCrewAIDetector_DeterministicOrdering(t *testing.T) {
 	}
 }
 
+func TestCrewAIDetector_SourceOnlyRepo(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "crews/ops.py", `from crewai import Agent
+import os
+
+researcher = Agent(
+    role="research_agent",
+    tools=["search.read"],
+    data_sources=["warehouse.events"],
+    auth_surfaces=[os.getenv("OPENAI_API_KEY")],
+)
+`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "ops", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one source finding, got %d", len(findings))
+	}
+	if findings[0].Location != "crews/ops.py" {
+		t.Fatalf("unexpected location %q", findings[0].Location)
+	}
+	if evidenceValue(findings[0].Evidence, "symbol") != "research_agent" {
+		t.Fatalf("unexpected symbol %q", evidenceValue(findings[0].Evidence, "symbol"))
+	}
+	if evidenceValue(findings[0].Evidence, "data_sources") != "warehouse.events" {
+		t.Fatalf("unexpected data_sources %q", evidenceValue(findings[0].Evidence, "data_sources"))
+	}
+}
+
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
@@ -61,4 +94,13 @@ func writeFile(t *testing.T, root, rel, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", rel, err)
 	}
+}
+
+func evidenceValue(evidence []model.Evidence, key string) string {
+	for _, item := range evidence {
+		if item.Key == key {
+			return item.Value
+		}
+	}
+	return ""
 }

@@ -62,9 +62,19 @@ func DetectMany(scope detect.Scope, configs []DetectorConfig) ([]model.Finding, 
 		findings = append(findings, fileFindings...)
 	}
 
+	sourcePlans := buildSourcePlans(normalized)
+	if len(sourcePlans) > 0 {
+		sourceFindings, err := detectFromSource(scope, sourcePlans)
+		if err != nil {
+			return nil, err
+		}
+		findings = append(findings, sourceFindings...)
+	}
+
 	if len(findings) == 0 {
 		return nil, nil
 	}
+	findings = mergeFrameworkFindings(findings)
 	model.SortFindings(findings)
 	return findings, nil
 }
@@ -247,7 +257,13 @@ func derivePermissions(agent AgentSpec) []string {
 	for _, item := range uniqueSorted(agent.AuthSurfaces) {
 		lower := strings.ToLower(strings.TrimSpace(item))
 		switch {
-		case strings.Contains(lower, "token"), strings.Contains(lower, "secret"), strings.Contains(lower, "credential"):
+		case strings.Contains(lower, "token"),
+			strings.Contains(lower, "secret"),
+			strings.Contains(lower, "credential"),
+			strings.Contains(lower, "api_key"),
+			strings.HasSuffix(lower, "_key"),
+			strings.HasSuffix(lower, ".key"),
+			strings.Contains(lower, "authorization"):
 			permissions = append(permissions, "secret.read")
 		case strings.Contains(lower, "oauth"):
 			permissions = append(permissions, "identity.read")
@@ -317,4 +333,105 @@ func deriveDeploymentGate(agent AgentSpec) string {
 		return "enforced"
 	}
 	return "missing"
+}
+
+func mergeFrameworkFindings(findings []model.Finding) []model.Finding {
+	merged := make([]model.Finding, 0, len(findings))
+	index := map[string]int{}
+	for _, finding := range findings {
+		if strings.TrimSpace(finding.FindingType) != "agent_framework" {
+			merged = append(merged, finding)
+			continue
+		}
+		key := frameworkFindingKey(finding)
+		if pos, exists := index[key]; exists {
+			merged[pos] = mergeFrameworkFinding(merged[pos], finding)
+			continue
+		}
+		index[key] = len(merged)
+		merged = append(merged, finding)
+	}
+	return merged
+}
+
+func frameworkFindingKey(finding model.Finding) string {
+	symbol := ""
+	for _, evidence := range finding.Evidence {
+		if strings.EqualFold(strings.TrimSpace(evidence.Key), "symbol") {
+			symbol = strings.TrimSpace(evidence.Value)
+			break
+		}
+	}
+	start := 0
+	end := 0
+	if finding.LocationRange != nil {
+		start = finding.LocationRange.StartLine
+		end = finding.LocationRange.EndLine
+	}
+	return strings.Join([]string{
+		strings.TrimSpace(finding.FindingType),
+		strings.TrimSpace(finding.ToolType),
+		strings.TrimSpace(finding.Location),
+		symbol,
+		fmt.Sprintf("%d", start),
+		fmt.Sprintf("%d", end),
+		strings.TrimSpace(finding.Repo),
+		strings.TrimSpace(finding.Org),
+	}, "::")
+}
+
+func mergeFrameworkFinding(current, incoming model.Finding) model.Finding {
+	if severityRank(incoming.Severity) < severityRank(current.Severity) {
+		current.Severity = incoming.Severity
+	}
+	current.Permissions = uniqueSorted(append(append([]string(nil), current.Permissions...), incoming.Permissions...))
+	current.Evidence = mergeEvidence(current.Evidence, incoming.Evidence)
+	if current.LocationRange == nil {
+		current.LocationRange = incoming.LocationRange
+	}
+	if strings.TrimSpace(current.Remediation) == "" {
+		current.Remediation = incoming.Remediation
+	}
+	return current
+}
+
+func mergeEvidence(current, incoming []model.Evidence) []model.Evidence {
+	if len(incoming) == 0 {
+		return current
+	}
+	seen := map[string]model.Evidence{}
+	for _, item := range current {
+		key := strings.TrimSpace(item.Key) + "::" + strings.TrimSpace(item.Value)
+		seen[key] = item
+	}
+	for _, item := range incoming {
+		key := strings.TrimSpace(item.Key) + "::" + strings.TrimSpace(item.Value)
+		seen[key] = item
+	}
+	out := make([]model.Evidence, 0, len(seen))
+	for _, item := range seen {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Key != out[j].Key {
+			return out[i].Key < out[j].Key
+		}
+		return out[i].Value < out[j].Value
+	})
+	return out
+}
+
+func severityRank(value string) int {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case model.SeverityCritical:
+		return 0
+	case model.SeverityHigh:
+		return 1
+	case model.SeverityMedium:
+		return 2
+	case model.SeverityLow:
+		return 3
+	default:
+		return 4
+	}
 }

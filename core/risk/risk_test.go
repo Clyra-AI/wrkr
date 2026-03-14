@@ -253,6 +253,47 @@ func TestMCPEnrichUnavailableDoesNotAlterTrustDeficit(t *testing.T) {
 	}
 }
 
+func TestScoreKeepsSameFileAgentsDistinctByInstanceIdentity(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{
+			FindingType:   "agent_framework",
+			Severity:      model.SeverityLow,
+			ToolType:      "crewai",
+			Location:      "agents/crew.py",
+			LocationRange: &model.LocationRange{StartLine: 4, EndLine: 9},
+			Repo:          "repo",
+			Org:           "acme",
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "research_agent"},
+				{Key: "bound_tools", Value: "search.read"},
+			},
+		},
+		{
+			FindingType:   "agent_framework",
+			Severity:      model.SeverityLow,
+			ToolType:      "crewai",
+			Location:      "agents/crew.py",
+			LocationRange: &model.LocationRange{StartLine: 11, EndLine: 16},
+			Repo:          "repo",
+			Org:           "acme",
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "publisher_agent"},
+				{Key: "bound_tools", Value: "deploy.write"},
+			},
+		},
+	}
+
+	report := Score(findings, 5, time.Time{})
+	if len(report.Ranked) != 2 {
+		t.Fatalf("expected two ranked findings, got %d", len(report.Ranked))
+	}
+	if report.Ranked[0].CanonicalKey == report.Ranked[1].CanonicalKey {
+		t.Fatalf("expected distinct canonical keys for same-file agents, got %+v", report.Ranked)
+	}
+}
+
 func TestRiskScore_AgentAmplificationElevatesHighBlastExposure(t *testing.T) {
 	t.Parallel()
 

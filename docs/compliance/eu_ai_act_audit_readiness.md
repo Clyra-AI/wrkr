@@ -122,7 +122,7 @@ Wrkr can help you close the engineering evidence gap quickly. You still need own
 ### 0-30 days: inventory + evidence + drift gate
 - Run `wrkr scan` across your critical repos/org and store artifacts.
 - Stand up a `wrkr regress` baseline and gate drift in CI for the repos that matter.
-- Identify your top 5 "write-capable" tools and decide: approve with controls, reduce permissions, or remove.
+- Identify your top 5 `write_capable` or `unknown_to_security` paths and decide: approve with controls, reduce permissions, or remove.
 
 ### 30-60 days: production targets + approvals + remediation
 - Define production targets explicitly and compute `production_write` subset.
@@ -159,6 +159,8 @@ Wrkr covers the deterministic inventory and evidence trail for the SDLC tooling 
 Define production targets explicitly with `--production-targets`, then run `wrkr scan` and use the `production_write` budget summary.
 
 If you do not configure targets, you can still report "write-capable" and "credential-capable" tooling, but you cannot claim the production subset with confidence.
+
+For the "security did not know this existed before this scan/reference state" claim, use `inventory.security_visibility_summary` and the per-row `security_visibility_status` fields rather than `approval_classification=unknown`.
 
 ### What does Wrkr not cover for EU AI Act compliance?
 
