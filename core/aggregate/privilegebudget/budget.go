@@ -61,12 +61,10 @@ func Build(
 			budget.ExecCapableTools++
 		}
 
-		matchedTargets := []string{}
 		productionWrite := false
 		if productionConfigured && writeCapable {
 			signal := signalsByAgent[tool.AgentID]
-			matchedTargets = matchedProductionTargets(tool.Repos, signal, *productionRules)
-			productionWrite = len(matchedTargets) > 0
+			productionWrite = len(matchedProductionTargets(tool.Repos, signal, *productionRules)) > 0
 			if productionWrite && budget.ProductionWrite.Count != nil {
 				*budget.ProductionWrite.Count = *budget.ProductionWrite.Count + 1
 			}

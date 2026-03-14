@@ -865,9 +865,7 @@ func splitTopLevel(raw string, delimiter rune) []string {
 func normalizeExpressionItems(items []string) []string {
 	out := make([]string, 0, len(items))
 	for _, item := range items {
-		for _, normalized := range normalizeExpressionItem(item) {
-			out = append(out, normalized)
-		}
+		out = append(out, normalizeExpressionItem(item)...)
 	}
 	return uniqueSorted(out)
 }
