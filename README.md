@@ -151,17 +151,27 @@ Abbreviated org-scan example:
   ],
   "inventory": {
     "tools": 47,
-    "agents": 12
+    "agents": 12,
+    "security_visibility_summary": {
+      "reference_basis": "state_snapshot",
+      "unknown_to_security_tools": 6,
+      "unknown_to_security_agents": 9,
+      "unknown_to_security_write_capable_agents": 3
+    }
   },
   "agent_privilege_map": [
     {
-      "agent_id": "wrkr:langchain:services/ops/agent.py:planner:42-88:acme",
+      "agent_id": "wrkr:langchain-inst-a1b2c3d4e5:acme",
+      "agent_instance_id": "langchain-inst-a1b2c3d4e5",
       "framework": "langchain",
+      "symbol": "planner_agent",
       "bound_tools": ["postgres-prod", "slack"],
       "bound_data_sources": ["prod-db"],
       "bound_auth_surfaces": ["OPENAI_API_KEY"],
       "deployment_status": "deployed",
-      "production_write": true
+      "write_capable": true,
+      "security_visibility_status": "unknown_to_security",
+      "production_write": false
     }
   ],
   "compliance_summary": {
@@ -200,7 +210,8 @@ Developers need fast answers:
 Security teams need organization-wide answers:
 
 - Which AI tools and agents exist across repos?
-- Which ones have production write, credential access, or broad execution privileges?
+- Which ones are write-capable right now, and which ones become `production_write` only after production targets are configured?
+- Which unknown-to-security paths can already write or touch credentials?
 - Which findings map to policy and compliance frameworks?
 - Can we hand an auditor a deterministic evidence bundle instead of a spreadsheet?
 
@@ -213,6 +224,7 @@ Wrkr answers both without requiring runtime interception or moving scan data out
 - Org-wide inventory of AI tools, agent frameworks, CI execution patterns, and MCP declarations.
 - Deterministic, instance-scoped agent identity and privilege mapping.
 - Native structured parsing for supported agent frameworks including LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, MCP-client patterns, and conservative custom-agent scaffolds.
+- First-class `security_visibility_status` for `approved`, `known_unapproved`, and `unknown_to_security` agent/tool paths.
 - Relationship resolution from agents to tools, data sources, auth surfaces, and deployment artifacts.
 - Ranked findings, attack-path context, and posture scoring.
 - `inventory --diff` for drift review against a known-good snapshot.

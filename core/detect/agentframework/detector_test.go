@@ -149,6 +149,114 @@ func TestDetectMany_ParseErrorDoesNotAbortOtherConfig(t *testing.T) {
 	}
 }
 
+func TestDetectMany_SourceOnlyMultiAgentFileYieldsStableSeparateDetections(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "agents/crew.py", `from crewai import Agent
+import os
+
+researcher = Agent(
+    role="research_agent",
+    tools=["search.read"],
+    data_sources=["warehouse.events"],
+    auth_surfaces=[os.getenv("OPENAI_API_KEY")],
+)
+
+publisher = Agent(
+    role="publisher_agent",
+    tools=["deploy.write"],
+    data_sources=["prod-db"],
+    auth_surfaces=[os.getenv("GITHUB_TOKEN")],
+)
+`)
+
+	scope := detect.Scope{Org: "acme", Repo: "payments", Root: root}
+	configs := []DetectorConfig{
+		{DetectorID: "agentcrewai", Framework: "crewai", ConfigPath: ".wrkr/agents/crewai.yaml", Format: "yaml"},
+	}
+
+	first, err := DetectMany(scope, configs)
+	if err != nil {
+		t.Fatalf("detect many: %v", err)
+	}
+	if len(first) != 2 {
+		t.Fatalf("expected two source findings, got %d", len(first))
+	}
+	if first[0].Location != "agents/crew.py" || first[1].Location != "agents/crew.py" {
+		t.Fatalf("expected source findings to point at the same file, got %+v", []string{first[0].Location, first[1].Location})
+	}
+	if first[0].LocationRange == nil || first[1].LocationRange == nil {
+		t.Fatalf("expected source findings to include location ranges, got %+v", first)
+	}
+	if first[0].LocationRange.StartLine >= first[1].LocationRange.StartLine {
+		t.Fatalf("expected findings ordered by source line, got %+v", first)
+	}
+	if evidenceValue(first[0], "symbol") != "research_agent" {
+		t.Fatalf("expected first source symbol research_agent, got %q", evidenceValue(first[0], "symbol"))
+	}
+	if evidenceValue(first[1], "symbol") != "publisher_agent" {
+		t.Fatalf("expected second source symbol publisher_agent, got %q", evidenceValue(first[1], "symbol"))
+	}
+	if evidenceValue(first[0], "bound_tools") != "search.read" {
+		t.Fatalf("unexpected first bound_tools evidence %q", evidenceValue(first[0], "bound_tools"))
+	}
+	if evidenceValue(first[1], "auth_surfaces") != "GITHUB_TOKEN" {
+		t.Fatalf("unexpected second auth_surfaces evidence %q", evidenceValue(first[1], "auth_surfaces"))
+	}
+
+	for i := 0; i < 8; i++ {
+		next, err := DetectMany(scope, configs)
+		if err != nil {
+			t.Fatalf("detect many rerun %d: %v", i+1, err)
+		}
+		if !reflect.DeepEqual(first, next) {
+			t.Fatalf("expected deterministic source output on rerun %d", i+1)
+		}
+	}
+}
+
+func TestDetectMany_MergesDeclarationAndSourceForSameAgentSymbol(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, ".wrkr/agents/langchain.json", `{
+  "agents": [
+    {
+      "name": "planner_agent",
+      "file": "agents/langchain_agent.py",
+      "tools": ["search.read"]
+    }
+  ]
+}`)
+	writeFile(t, root, "agents/langchain_agent.py", `from langchain.agents import create_react_agent
+import os
+
+planner = create_react_agent(
+    llm=llm,
+    name="planner_agent",
+    tools=["search.read", "deploy.write"],
+    auth_surfaces=[os.getenv("OPENAI_API_KEY")],
+)
+`)
+
+	findings, err := DetectMany(detect.Scope{Org: "acme", Repo: "payments", Root: root}, []DetectorConfig{
+		{DetectorID: "agentlangchain", Framework: "langchain", ConfigPath: ".wrkr/agents/langchain.json", Format: "json"},
+	})
+	if err != nil {
+		t.Fatalf("detect many: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected merged declaration/source finding, got %+v", findings)
+	}
+	if evidenceValue(findings[0], "auth_surfaces") != "OPENAI_API_KEY" {
+		t.Fatalf("expected merged source auth evidence, got %+v", findings[0].Evidence)
+	}
+	if evidenceValue(findings[0], "bound_tools") != "deploy.write,search.read" {
+		t.Fatalf("expected merged bound_tools evidence, got %+v", findings[0].Evidence)
+	}
+}
+
 func evidenceValue(finding model.Finding, key string) string {
 	target := strings.ToLower(strings.TrimSpace(key))
 	for _, evidence := range finding.Evidence {

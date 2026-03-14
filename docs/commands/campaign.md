@@ -36,6 +36,7 @@ wrkr campaign aggregate --input-glob './.tmp/campaign/*.json' --segment-metadata
 - `campaign.methodology`
 - `campaign.metrics`
   - includes approval-gap aggregates: `approved_tools`, `unapproved_tools`, `unknown_tools`, and ratio fields
+  - includes additive visibility aggregates: `unknown_to_security_tools`, `unknown_to_security_agents`, `unknown_to_security_write_capable_agents`, `security_visibility_reference`
 - `campaign.segments`
 - `campaign.scans`
 - optional `md_path` when markdown is generated
@@ -51,4 +52,5 @@ wrkr campaign aggregate --input-glob './.tmp/campaign/*.json' --segment-metadata
 - Input file paths are sorted before aggregation.
 - Detector inventory and per-scan outputs are sorted and stable for fixed artifacts.
 - Production-write totals are emitted only when all contributing scans have configured production-target policy.
+- When production targets are not configured, public markdown stays at `write-capable` wording and reports production-target status rather than a production-write count.
 - Segment outputs are deterministic, with explicit `unknown` buckets when metadata is absent.

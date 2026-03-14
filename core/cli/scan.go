@@ -222,6 +222,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			})
 		}
 	}
+	agginventory.ApplySecurityVisibility(&inventoryOut, buildSecurityVisibilityReference(previousSnapshot, statePath, strings.TrimSpace(*baselinePath)))
 	var productionTargets *productiontargets.Config
 	productionTargetWarnings := []string{}
 	productionWriteStatus := agginventory.ProductionTargetsStatusNotConfigured
@@ -246,6 +247,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if !inventoryOut.PrivilegeBudget.ProductionWrite.Configured {
 		inventoryOut.PrivilegeBudget.ProductionWrite.Count = nil
 	}
+	agginventory.ApplySecurityVisibilityToPrivilegeMap(&inventoryOut)
 
 	profileDef, profileErr := profilemodel.Builtin(*profileName)
 	if profileErr != nil {
@@ -307,7 +309,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
 	}
-	if _, err := proofemit.EmitScan(statePath, now, findings, riskReport, profileResult, postureScore, transitions); err != nil {
+	if _, err := proofemit.EmitScan(statePath, now, findings, &inventoryOut, riskReport, profileResult, postureScore, transitions); err != nil {
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
 	}
 	proofChain, err := proofemit.LoadChain(proofemit.ChainPath(statePath))

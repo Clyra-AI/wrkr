@@ -224,6 +224,51 @@ func TestPrivilegeBudgetFromInventoryConfiguredBackfillsMissingCount(t *testing.
 	}
 }
 
+func TestBuildSummaryUsesWriteCapableFallbackWhenProductionTargetsNotConfigured(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC)
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			Inventory: &agginventory.Inventory{
+				PrivilegeBudget: agginventory.PrivilegeBudget{
+					TotalTools:        2,
+					WriteCapableTools: 1,
+					ProductionWrite: agginventory.ProductionWriteBudget{
+						Configured: false,
+						Status:     agginventory.ProductionTargetsStatusNotConfigured,
+						Count:      nil,
+					},
+				},
+				SecurityVisibility: agginventory.SecurityVisibilitySummary{ReferenceBasis: "initial_scan"},
+			},
+			Findings: []model.Finding{{
+				FindingType: "tool_config",
+				Severity:    model.SeverityLow,
+				ToolType:    "codex",
+				Location:    ".codex/config.toml",
+				Repo:        "repo",
+				Org:         "acme",
+			}},
+		},
+		Template:     TemplateOperator,
+		ShareProfile: ShareProfileInternal,
+		GeneratedAt:  now,
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	headlineFacts := summary.Sections[0].Facts
+	joined := strings.Join(headlineFacts, "\n")
+	if !strings.Contains(joined, "write_capable=1") {
+		t.Fatalf("expected write_capable fallback in headline facts, got %v", headlineFacts)
+	}
+	if strings.Contains(joined, "production_write not configured") {
+		t.Fatalf("expected downgraded production-target wording, got %v", headlineFacts)
+	}
+}
+
 func TestSanitizeProofReferencePublicRedactsCanonicalKeys(t *testing.T) {
 	t.Parallel()
 

@@ -58,6 +58,40 @@ func TestLangChainDetector_PrecisionFixtures(t *testing.T) {
 	}
 }
 
+func TestLangChainDetector_SourceOnlyRepo(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "agents/langchain_agent.py", `from langchain.agents import create_react_agent
+import os
+
+planner = create_react_agent(
+    llm=llm,
+    tools=["search.read", "deploy.write"],
+    name="planner_agent",
+    data_sources=["warehouse.events"],
+    auth_surfaces=[os.getenv("OPENAI_API_KEY")],
+)
+`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "backend", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one source finding, got %d", len(findings))
+	}
+	if findings[0].Location != "agents/langchain_agent.py" {
+		t.Fatalf("unexpected location %q", findings[0].Location)
+	}
+	if evidenceValue(findings[0].Evidence, "symbol") != "planner_agent" {
+		t.Fatalf("unexpected symbol %q", evidenceValue(findings[0].Evidence, "symbol"))
+	}
+	if evidenceValue(findings[0].Evidence, "auth_surfaces") != "OPENAI_API_KEY" {
+		t.Fatalf("unexpected auth surfaces %q", evidenceValue(findings[0].Evidence, "auth_surfaces"))
+	}
+}
+
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))

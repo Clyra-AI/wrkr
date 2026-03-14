@@ -37,6 +37,7 @@ func TestBuildWithOptionsDeterministicAndAnonymized(t *testing.T) {
 		},
 		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
 			{
+				AgentInstanceID:          "codex-inst-1",
 				AgentID:                  "wrkr:wrkr:codex:.codex/config.toml:acme",
 				ToolID:                   "wrkr:codex:.codex/config.toml",
 				ToolType:                 "codex",
@@ -82,6 +83,9 @@ func TestBuildWithOptionsDeterministicAndAnonymized(t *testing.T) {
 	if strings.Contains(anon.InventoryRows[0].ToolID, "wrkr:codex") {
 		t.Fatalf("expected anonymized tool_id, got %q", anon.InventoryRows[0].ToolID)
 	}
+	if strings.Contains(anon.PrivilegeRows[0].AgentInstanceID, "codex-inst-1") {
+		t.Fatalf("expected anonymized agent_instance_id, got %q", anon.PrivilegeRows[0].AgentInstanceID)
+	}
 	if anon.InventoryRows[0].ToolID != anon.ApprovalGapRows[0].ToolID {
 		t.Fatalf("expected stable pseudonym across tables, got inventory=%q approval=%q", anon.InventoryRows[0].ToolID, anon.ApprovalGapRows[0].ToolID)
 	}
@@ -95,7 +99,7 @@ func TestWriteCSVCreatesDeterministicTables(t *testing.T) {
 			{ToolID: "t1", AgentID: "a1", ToolType: "codex", ToolCategory: "assistant", ConfidenceScore: 0.9, Org: "o1", RepoCount: 1, PermissionTier: "write", RiskTier: "high", AdoptionPattern: "team_level", ApprovalClass: "approved", LifecycleState: "active"},
 		},
 		PrivilegeRows: []PrivilegeRow{
-			{AgentID: "a1", ToolID: "t1", ToolType: "codex", Org: "o1", RepoCount: 1, PermissionCount: 1, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", RiskScore: 8.1, WriteCapable: true},
+			{AgentInstanceID: "ai1", AgentID: "a1", ToolID: "t1", ToolType: "codex", Org: "o1", RepoCount: 1, PermissionCount: 1, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", RiskScore: 8.1, WriteCapable: true},
 		},
 		ApprovalGapRows: []ApprovalGapRow{
 			{ToolID: "t1", AgentID: "a1", ToolType: "codex", Org: "o1", ApprovalClass: "approved", AdoptionPattern: "team_level", RiskTier: "high"},

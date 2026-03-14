@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/model"
 )
 
 func TestLlamaIndexDetector_PrecisionBaseline(t *testing.T) {
@@ -69,6 +70,39 @@ file = "agents/toml.py"
 	}
 }
 
+func TestLlamaIndexDetector_SourceOnlyRepo(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "agents/llama_agent.ts", `import { FunctionAgent } from "@llamaindex/agents";
+import process from "node:process";
+
+const retrieval = new FunctionAgent({
+  name: "retrieval_agent",
+  tools: ["search.read"],
+  dataSources: ["vector.rag"],
+  auth: [process.env.LLAMA_CLOUD_API_KEY],
+});
+`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "search", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one source finding, got %d", len(findings))
+	}
+	if findings[0].Location != "agents/llama_agent.ts" {
+		t.Fatalf("unexpected location %q", findings[0].Location)
+	}
+	if evidenceValue(findings[0].Evidence, "symbol") != "retrieval_agent" {
+		t.Fatalf("unexpected symbol %q", evidenceValue(findings[0].Evidence, "symbol"))
+	}
+	if evidenceValue(findings[0].Evidence, "data_sources") != "vector.rag" {
+		t.Fatalf("unexpected data_sources %q", evidenceValue(findings[0].Evidence, "data_sources"))
+	}
+}
+
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
@@ -78,4 +112,13 @@ func writeFile(t *testing.T, root, rel, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", rel, err)
 	}
+}
+
+func evidenceValue(evidence []model.Evidence, key string) string {
+	for _, item := range evidence {
+		if item.Key == key {
+			return item.Value
+		}
+	}
+	return ""
 }

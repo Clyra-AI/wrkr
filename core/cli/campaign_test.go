@@ -54,6 +54,16 @@ func TestCampaignAggregateJSON(t *testing.T) {
 				"unknown_percent":         0.0,
 				"unapproved_per_approved": nil,
 			},
+			"security_visibility_summary": map[string]any{
+				"reference_basis":                          "state_snapshot",
+				"approved_tools":                           0,
+				"known_unapproved_tools":                   0,
+				"unknown_to_security_tools":                1,
+				"approved_agents":                          0,
+				"known_unapproved_agents":                  0,
+				"unknown_to_security_agents":               1,
+				"unknown_to_security_write_capable_agents": 1,
+			},
 			"privilege_budget": map[string]any{
 				"total_tools":             1,
 				"write_capable_tools":     1,
@@ -130,6 +140,12 @@ func TestCampaignAggregateJSON(t *testing.T) {
 	if metrics["unapproved_tools"] != float64(2) {
 		t.Fatalf("expected unapproved_tools=2, got %v", metrics["unapproved_tools"])
 	}
+	if metrics["unknown_to_security_tools"] != float64(2) {
+		t.Fatalf("expected unknown_to_security_tools=2, got %v", metrics["unknown_to_security_tools"])
+	}
+	if metrics["security_visibility_reference"] != "state_snapshot" {
+		t.Fatalf("unexpected security_visibility_reference: %v", metrics["security_visibility_reference"])
+	}
 	if metrics["production_write_status"] != "configured" {
 		t.Fatalf("unexpected production_write_status: %v", metrics["production_write_status"])
 	}
@@ -167,14 +183,15 @@ func TestCampaignAggregateWithSegmentMetadataAndMarkdown(t *testing.T) {
 			},
 		},
 		"inventory": map[string]any{
-			"inventory_version":  "1",
-			"generated_at":       "2026-02-23T18:00:00Z",
-			"org":                "acme",
-			"tools":              []any{},
-			"methodology":        map[string]any{"wrkr_version": "devel", "scan_started_at": "", "scan_completed_at": "", "scan_duration_seconds": 0.0, "repo_count": 1, "file_count_processed": 1, "detectors": []any{}},
-			"approval_summary":   map[string]any{"approved_tools": 0, "unapproved_tools": 0, "unknown_tools": 0, "approved_percent": 0.0, "unapproved_percent": 0.0, "unknown_percent": 0.0, "unapproved_per_approved": nil},
-			"adoption_summary":   map[string]any{"org_wide": 0, "team_level": 0, "individual": 0, "one_off": 0},
-			"regulatory_summary": map[string]any{"by_regulation": []any{}, "by_control": []any{}},
+			"inventory_version":           "1",
+			"generated_at":                "2026-02-23T18:00:00Z",
+			"org":                         "acme",
+			"tools":                       []any{},
+			"methodology":                 map[string]any{"wrkr_version": "devel", "scan_started_at": "", "scan_completed_at": "", "scan_duration_seconds": 0.0, "repo_count": 1, "file_count_processed": 1, "detectors": []any{}},
+			"approval_summary":            map[string]any{"approved_tools": 0, "unapproved_tools": 0, "unknown_tools": 0, "approved_percent": 0.0, "unapproved_percent": 0.0, "unknown_percent": 0.0, "unapproved_per_approved": nil},
+			"security_visibility_summary": map[string]any{"reference_basis": "initial_scan", "approved_tools": 0, "known_unapproved_tools": 0, "unknown_to_security_tools": 0, "approved_agents": 0, "known_unapproved_agents": 0, "unknown_to_security_agents": 0, "unknown_to_security_write_capable_agents": 0},
+			"adoption_summary":            map[string]any{"org_wide": 0, "team_level": 0, "individual": 0, "one_off": 0},
+			"regulatory_summary":          map[string]any{"by_regulation": []any{}, "by_control": []any{}},
 			"privilege_budget": map[string]any{
 				"total_tools":             0,
 				"write_capable_tools":     0,

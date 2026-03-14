@@ -1,6 +1,6 @@
 ---
 name: cut-release
-description: Cut a new Wrkr release tag directly from main, monitor release/post-release validation, and run up to 2 hotfix PR loops when failures are actionable.
+description: Cut a new Wrkr release tag directly from main, monitor release and post-release validation, and run up to 2 hotfix PR loops when failures are actionable.
 disable-model-invocation: true
 ---
 
@@ -11,19 +11,20 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 ## Scope
 
 - Repository: `.`
-- Tag source branch: `main` only
-- No pre-release branch creation
-- No pre-release PR creation
-- Branch/PR flow is used only for hotfixes after failed checks
-- No changelog editing in this skill
+- Tag source branch: `main` only.
+- No pre-release branch creation.
+- No pre-release PR creation.
+- Branch and PR flow is used only for hotfixes after failed checks.
+- No changelog editing in this skill.
+- Default posture: when a release or post-release blocker is actionable from repo code, workflow config, docs, or install-path behavior, fix it in-loop and continue instead of stopping at the first failure.
 
 ## Input Contract
 
 - Mandatory input argument: `release_version`
 - Normalize to `vX.Y.Z`
-- If missing, resolve silently from first semantic version token in user request; otherwise:
+- If missing, resolve silently from the first semantic version token in the user request; otherwise:
   - if no tags exist, default to `v1.0.0`
-  - if tags exist, use latest tag + patch increment.
+  - if tags exist, use latest tag + patch increment
 
 ## Constants
 
@@ -34,13 +35,14 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 
 ## Safety Rules
 
-- Tag must always be created and pushed from `main`
-- `main` must be fast-forward synced with `origin/main` before each tag push
-- No force-push to tags
-- No destructive git commands
-- No commit amend unless explicitly requested
-- No changelog modifications
-- PR bodies/comments must use EOF heredoc (`--body-file - <<'EOF' ... EOF`)
+- Tag must always be created and pushed from `main`.
+- `main` must be fast-forward synced with `origin/main` before each tag push.
+- No force-push to tags.
+- No destructive git commands.
+- No commit amend unless explicitly requested.
+- No changelog modifications.
+- PR bodies and comments must use EOF heredoc (`--body-file - <<'EOF' ... EOF`).
+- Do not cut a second tag until the current tag either passes release plus post-release validation or is superseded by an intentional hotfix tag.
 
 ## Workflow
 
@@ -49,15 +51,17 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 1. `git fetch origin main`
 2. `git checkout main`
 3. `git pull --ff-only origin main`
-4. Ensure clean worktree (`git status --porcelain` must be empty)
-5. Ensure target tag does not already exist locally/remotely
+4. Ensure clean worktree:
+- `git status --porcelain` must be empty
+5. Ensure target tag does not already exist locally or remotely.
 6. Ensure release prerequisites are available:
 - `gh auth status`
 - `gh workflow view release --repo Clyra-AI/wrkr`
-- `gh secret list --repo Clyra-AI/wrkr | awk '{print $1}' | rg '^HOMEBREW_TAP_GITHUB_TOKEN$'`
-- if the secret check cannot be confirmed due permissions, continue with warning and rely on release workflow fail-closed check.
-- if the secret is confirmed missing, stop and report blocker (release workflow fails on tag pushes without this secret).
-7. Run local release preflight (mirror release workflow gate coverage):
+- check `HOMEBREW_TAP_GITHUB_TOKEN` availability with:
+  - `gh secret list --repo Clyra-AI/wrkr`
+- if the secret check cannot be confirmed due permission limits, continue with a warning and rely on the release workflow’s fail-closed validation step
+- if the secret is confirmed missing, stop and report blocker
+7. Run local release preflight matching the current Wrkr release workflow contract:
 - `make prepush-full`
 - `go test ./... -count=1`
 - `make test-docs-consistency`
@@ -73,10 +77,13 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 - `go test ./internal/scenarios -count=1 -tags=scenario`
 - `scripts/test_hardening_core.sh`
 - `scripts/test_perf_budgets.sh`
+- `scripts/run_agent_benchmarks.sh --output .tmp/release/agent-benchmarks-release.json`
 - `go test ./internal/integration/interop -count=1`
 - `make test-release-smoke`
 
-If any step fails, stop and report blocker.
+If any step fails:
+- if the failure is actionable from repo code, release workflow config, docs, or local environment config that this repo owns, implement the minimal fix set and rerun the full preflight
+- stop only for external, non-actionable, or safety blockers, or after `2` consecutive no-progress remediation passes
 
 ### Phase 1: Tag and Release Monitor
 
@@ -85,24 +92,28 @@ If any step fails, stop and report blocker.
 2. Push tag:
 - `git push origin <version>`
 3. Monitor GitHub workflow `release` for that tag until green (`RELEASE_TIMEOUT_MIN`)
-- confirm run URL and terminal status, for example:
+- capture run URL and terminal status using commands such as:
   - `gh run list --repo Clyra-AI/wrkr --workflow release --limit 5`
   - `gh run watch --repo Clyra-AI/wrkr <run-id>`
-4. If release run fails:
-- classify failure as actionable, transient/infra, or non-actionable
-- transient/infra: rerun workflow once, re-monitor
-- actionable: go to hotfix loop
-- non-actionable: stop with blocker report
+- prefer the tag-triggered run for `refs/tags/<version>`
+4. If the release workflow fails:
+- classify as:
+  - actionable repo or workflow failure
+  - flaky or transient infra failure
+  - non-actionable external blocker
+- for flaky or transient failures, rerun the workflow once and re-monitor
+- for actionable failures, go to the hotfix loop
+- for non-actionable blockers, stop and report
 
 ### Phase 2: Post-Release UAT
 
-1. Run full local UAT against released tag:
+1. Run full local UAT against the released tag:
 - `WRKR_UAT_RELEASE_VERSION=<version> bash scripts/test_uat_local.sh`
 2. If UAT is green, release is complete.
 3. If UAT fails:
 - classify actionable vs non-actionable
-- actionable: go to hotfix loop
-- non-actionable: stop with blocker report
+- actionable -> go to hotfix loop
+- non-actionable -> stop and report blocker
 
 ### Phase 3: Hotfix Loop (Only if Needed, Max 2)
 
@@ -116,11 +127,14 @@ For loop `r1..r2`:
 2. Create hotfix branch:
 - `git checkout -b codex/release-hotfix-<base-version>-r<rN>`
 
-3. Implement minimal fix for the identified failure.
+3. Implement the minimal fix set for the identified failure.
 
 4. Validate locally:
 - `make prepush-full`
-- rerun the failing lane locally (release lane or UAT subset as applicable)
+- rerun the failing lane locally:
+  - release workflow equivalent subset, or
+  - UAT subset, or
+  - install-path smoke subset, depending on the failure source
 
 5. Commit and push all unstaged files:
 - `git add -A`
@@ -133,34 +147,37 @@ For loop `r1..r2`:
 - `EOF`
 
 7. Monitor PR CI to green (`CI_TIMEOUT_MIN`):
-- required checks: `fast-lane`, `windows-smoke`
-- also monitor `CodeQL` run status when present
-- use `gh pr checks <number> --watch --interval 10`
+- required Wrkr PR checks: `fast-lane`, `scan-contract`, `wave-sequence`, `windows-smoke`
+- also monitor `CodeQL` when present
+- use non-interactive watch or polling such as:
+  - `gh pr checks <number> --watch --interval 10`
+- if CI fails and the failure is actionable, fix the full actionable set on the same branch, rerun `make prepush-full`, push, and continue
+- stop only for external, non-actionable, or safety blockers, or after `2` consecutive no-progress cycles
 
 8. Merge PR after green.
 
 9. Sync and monitor post-merge main CI:
 - `git checkout main`
 - `git pull --ff-only origin main`
-- monitor `main` and `CodeQL` workflows on `main` (`CI_TIMEOUT_MIN`)
-- use `gh run list --repo Clyra-AI/wrkr --branch main --limit 10`
-- then `gh run watch` for latest `main` and `CodeQL` run IDs
-- if post-merge main CI is red and actionable, continue same loop (counts against max)
+- monitor latest `main` runs, including `CodeQL` when present:
+  - `gh run list --repo Clyra-AI/wrkr --branch main --limit 10`
+  - `gh run watch --repo Clyra-AI/wrkr <run-id>`
+- if post-merge `main` CI is red and actionable, continue the same loop; it counts against the max hotfix loops
 
 10. Bump patch version:
 - `vX.Y.Z -> vX.Y.(Z+1)`
 
-11. Create/push new tag from `main` and monitor `release` workflow again:
-- tag from `main` only
+11. Create and push the new tag from `main`, then monitor `release` again:
+- tag must still be cut from `main` only
 - monitor until green (`RELEASE_TIMEOUT_MIN`)
 
 12. Rerun full UAT for the new tag:
 - `WRKR_UAT_RELEASE_VERSION=<new-version> bash scripts/test_uat_local.sh`
 
 13. Exit conditions:
-- if release + UAT green: success
-- if loop count exceeds 2: stop with blocker report
-- if non-actionable failure appears: stop with blocker report
+- if release plus UAT are green: success
+- if loop count exceeds `2`: stop with blocker report
+- if a non-actionable blocker appears: stop with blocker report
 
 ## Command Contract (JSON Required)
 
@@ -168,18 +185,32 @@ Capture release diagnostics using `wrkr` commands with `--json`, for example:
 
 - `wrkr scan --json`
 - `wrkr verify --chain --json`
+- `wrkr regress run --baseline <baseline-path> --json`
 
 ## EOF Rule (Mandatory)
 
-All PR body/comment text must be provided with heredoc EOF.  
+All PR body and comment text must be provided with heredoc EOF.  
 No inline multi-line `--body` strings.
+
+## CI and Release Policy
+
+- Pre-tag local gate must include `make prepush-full`.
+- Release workflow to monitor: `release`.
+- Release workflow terminal success requires the release workflow and post-release UAT to be green for the tag being shipped.
+- Hotfix PRs must satisfy Wrkr’s required PR checks:
+  - `fast-lane`
+  - `scan-contract`
+  - `wave-sequence`
+  - `windows-smoke`
+- Also monitor `CodeQL` when present on hotfix PRs or `main`, even though it is not one of the four merge-blocking checks in `.github/required-checks.json`.
+- Release and hotfix remediation policy: continue while failures are actionable and each cycle makes progress; stop after `2` consecutive no-progress cycles or when the blocker is external or safety-critical.
 
 ## Expected Output
 
 - Initial requested version and final shipped version
-- All tags pushed (with confirmation each was cut from `main`)
-- Release workflow run URL/status per tag
+- All tags pushed, with confirmation each was cut from `main`
+- Release workflow run URL and status per tag
 - UAT result per released tag
-- Hotfix branch/PR URLs and commit SHAs (if any)
+- Hotfix branch and PR URLs plus commit SHAs, if any
 - Loop count used
-- Final status: success or blocker with last failing gate
+- Final status: success or blocker with the last failing gate

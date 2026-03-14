@@ -295,4 +295,110 @@ func TestBuildResolvesInstanceScopedAgentContextForToolEntries(t *testing.T) {
 	if !reflect.DeepEqual(entry.DeploymentArtifacts, []string{".github/workflows/Deploy.yml"}) {
 		t.Fatalf("unexpected deployment_artifacts: %+v", entry.DeploymentArtifacts)
 	}
+	if entry.AgentInstanceID != instanceID {
+		t.Fatalf("expected agent_instance_id=%q, got %+v", instanceID, entry)
+	}
+	if entry.Location != "agents/main.py" {
+		t.Fatalf("expected location=agents/main.py, got %+v", entry)
+	}
+}
+
+func TestBuildCreatesSeparateInstanceScopedEntriesForAgentsInSameFile(t *testing.T) {
+	t.Parallel()
+
+	toolID := identity.ToolID("crewai", "agents/crew.py")
+	toolAgentID := identity.AgentID(toolID, "acme")
+	researchID := identity.AgentInstanceID("crewai", "agents/crew.py", "research_agent", 4, 9)
+	publishID := identity.AgentInstanceID("crewai", "agents/crew.py", "publisher_agent", 11, 16)
+
+	tools := []agginventory.Tool{{
+		ToolID:        toolID,
+		AgentID:       toolAgentID,
+		ToolType:      "crewai",
+		Org:           "acme",
+		Repos:         []string{"acme/source-only-agents"},
+		Permissions:   []string{"deploy.write", "search.read", "secret.read"},
+		ApprovalClass: "unapproved",
+		DataClass:     "database",
+	}}
+	agents := []agginventory.Agent{
+		{
+			AgentID:           identity.AgentID(researchID, "acme"),
+			AgentInstanceID:   researchID,
+			Framework:         "crewai",
+			Symbol:            "research_agent",
+			Org:               "acme",
+			Repo:              "acme/source-only-agents",
+			Location:          "agents/crew.py",
+			LocationRange:     &model.LocationRange{StartLine: 4, EndLine: 9},
+			BoundTools:        []string{"search.read"},
+			BoundDataSources:  []string{"warehouse.events"},
+			BoundAuthSurfaces: []string{"OPENAI_API_KEY"},
+		},
+		{
+			AgentID:           identity.AgentID(publishID, "acme"),
+			AgentInstanceID:   publishID,
+			Framework:         "crewai",
+			Symbol:            "publisher_agent",
+			Org:               "acme",
+			Repo:              "acme/source-only-agents",
+			Location:          "agents/crew.py",
+			LocationRange:     &model.LocationRange{StartLine: 11, EndLine: 16},
+			BoundTools:        []string{"deploy.write"},
+			BoundDataSources:  []string{"prod-db"},
+			BoundAuthSurfaces: []string{"GITHUB_TOKEN"},
+		},
+	}
+	findings := []model.Finding{
+		{
+			FindingType:   "agent_framework",
+			ToolType:      "crewai",
+			Location:      "agents/crew.py",
+			LocationRange: &model.LocationRange{StartLine: 4, EndLine: 9},
+			Repo:          "acme/source-only-agents",
+			Org:           "acme",
+			Permissions:   []string{"search.read", "secret.read"},
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "research_agent"},
+				{Key: "bound_tools", Value: "search.read"},
+				{Key: "data_sources", Value: "warehouse.events"},
+				{Key: "auth_surfaces", Value: "OPENAI_API_KEY"},
+			},
+		},
+		{
+			FindingType:   "agent_framework",
+			ToolType:      "crewai",
+			Location:      "agents/crew.py",
+			LocationRange: &model.LocationRange{StartLine: 11, EndLine: 16},
+			Repo:          "acme/source-only-agents",
+			Org:           "acme",
+			Permissions:   []string{"deploy.write", "secret.read"},
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "publisher_agent"},
+				{Key: "bound_tools", Value: "deploy.write"},
+				{Key: "data_sources", Value: "prod-db"},
+				{Key: "auth_surfaces", Value: "GITHUB_TOKEN"},
+			},
+		},
+	}
+
+	_, entries := Build(tools, agents, findings, nil)
+	if len(entries) != 2 {
+		t.Fatalf("expected two instance-scoped privilege entries, got %+v", entries)
+	}
+	if entries[0].AgentInstanceID != researchID || entries[1].AgentInstanceID != publishID {
+		t.Fatalf("unexpected entry ordering or identity: %+v", entries)
+	}
+	if !reflect.DeepEqual(entries[0].Permissions, []string{"search.read", "secret.read"}) {
+		t.Fatalf("unexpected first entry permissions: %+v", entries[0])
+	}
+	if !entries[1].WriteCapable {
+		t.Fatalf("expected second entry to be write-capable: %+v", entries[1])
+	}
+	if entries[0].WriteCapable {
+		t.Fatalf("expected first entry to stay non-write-capable: %+v", entries[0])
+	}
+	if entries[0].Symbol != "research_agent" || entries[1].Symbol != "publisher_agent" {
+		t.Fatalf("unexpected symbols: %+v", entries)
+	}
 }

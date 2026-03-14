@@ -1,14 +1,12 @@
-# PLAN WRKR_README_REFRAME: Locked README Rewrite, Contract Realignment, and Docs-Site Parity
+# PLAN WRKR_UNKNOWN_WRITE_CAPABLE_PATHS: Native Detection, Instance Identity, Security Visibility, and Claim Governance
 
-Date: 2026-03-11  
-Source of truth: user-provided main README rewrite dated 2026-03-11, `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`, and the observed repo/docs/runtime baseline from this planning run  
-Scope: Wrkr repository only. Planning artifact only. Two-wave plan. Wave 1 is contract/runtime correctness required to make the locked README commands truthful. Wave 2 is README/docs/OSS/distribution alignment around that locked README body.
+Date: 2026-03-14  
+Source of truth: user-provided recommended work items dated 2026-03-14, `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`, and the observed repo/runtime/docs baseline from this planning run  
+Scope: Wrkr repository only. Planning artifact only. Four-wave plan. Wave 1 closes source-level detection gaps. Wave 2 makes privilege reporting instance-accurate. Wave 3 adds a first-class `unknown_to_security` model. Wave 4 hardens `production_write` claim governance and aligns public/report workflows.
 
 ## Global Decisions (Locked)
 
-- The user-provided README markdown in Appendix A is a locked artifact. Implementation must copy it verbatim into `README.md` and must not paraphrase, reorder, or inject extra prose inside that locked body.
-- Because the locked README diverges from the current Wrkr README contract, implementation must introduce an explicit new Wrkr README contract or documented variant. Do not silently weaken tests/scripts without documenting the new contract.
-- Preserve Wrkr's deterministic, offline-first, fail-closed posture. No LLM calls, no dashboard-first scope, no default scan-data exfiltration, and no background services are allowed.
+- Preserve Wrkr's deterministic, offline-first, fail-closed posture. No LLM calls, no live runtime probing, no network dependency in default scan/risk/proof paths, and no default scan-data exfiltration are allowed.
 - Preserve architecture boundaries:
   - Source
   - Detection
@@ -17,47 +15,49 @@ Scope: Wrkr repository only. Planning artifact only. Two-wave plan. Wave 1 is co
   - Risk
   - Proof emission
   - Compliance mapping/evidence output
-- Keep Go core authoritative for runtime behavior. Docs-site remains a projection/onboarding surface only and must not duplicate Go scan/risk/proof logic.
-- Any runtime changes required by the locked README must be additive only. No public schema major bump and no exit-code changes are allowed.
-- `wrkr-regress-baseline.json` remains the canonical artifact emitted by `wrkr regress init`. Any support for raw scan-state baselines in `wrkr regress run` is an additive compatibility path only.
-- Pinned/reproducible install guidance remains mandatory in a canonical doc surface even though the locked README uses `go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest`.
-- Docs are executable contract. Any README/command/workflow change must ship with repo docs, docs-site projections, LLM projection files, and enforcement updates in the same implementation sequence.
-- OSS trust/support discoverability cannot disappear. If the locked README omits current governance/support content, that discoverability must move to canonical docs/docs-site surfaces rather than being dropped.
-- Required PR gates observed in-repo today are `fast-lane`, `scan-contract`, `wave-sequence`, and `windows-smoke`. Story-level lanes below add to, not replace, those gates.
-- First-value outcome for this plan:
-  - Developer: `wrkr scan --my-setup --json` -> `wrkr mcp-list --state ./.wrkr/last-scan.json --json` -> `wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json`
-  - Security/platform: `wrkr scan --github-org ... --json` -> `wrkr evidence ... --json` -> `wrkr verify --chain ... --json`
-- Time-to-value target after implementation:
-  - Developer local posture value in under 10 minutes from install.
-  - Security-team org posture handoff in one saved-state flow without README/docs drift.
+- Native source detection is required for LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, and MCP-client patterns in Python plus JS/TS. Structured parsing is mandatory; regex-only detection is not acceptable for framework source.
+- Declaration-file support under `.wrkr/agents/*` remains supported. Source-level detection is additive and must not reduce declaration coverage or precision.
+- Same file with multiple agents must emit separate deterministic agent instances ordered by `org`, `framework`, `file`, `symbol`, `start_line`, `end_line`.
+- `agent_privilege_map` becomes agent-instance anchored. `tool_id` remains for correlation, but it is no longer the identity anchor for privilege reporting.
+- Add a first-class additive field named `security_visibility_status` with values `approved`, `known_unapproved`, and `unknown_to_security`. Do not overload `approval_classification`.
+- `approval_classification` and `approval_summary` remain intact for approval-policy semantics. The new visibility model is separate and additive.
+- Agent-instance outputs are the source of truth for the claim "unknown write-capable AI paths". Tool-level rows may roll up visibility for inventory summaries, but all write-capable unknown counts must be derived from agent-instance rows.
+- Tool-level rollup precedence for `security_visibility_status` is:
+  - `unknown_to_security`
+  - `known_unapproved`
+  - `approved`
+- `production_write` remains a guarded subset of `write_capable`. Public/report workflows must default to `write_capable` unless `--production-targets` is configured and valid.
+- No public schema major bump or exit-code change is allowed in this plan. Contract changes must be additive, documented, and covered by compatibility tests.
+- README/docs/report copy may not promise source-level detection, instance-scoped privilege identity, or `production_write` claims unless the corresponding runtime behavior is implemented and covered by tests in the same wave.
+- `make prepush-full` is required for stories that alter architecture, risk, report claims, proof context, or failure semantics.
 
 ## Current Baseline (Observed)
 
-- `git status --short` was clean before this plan update.
-- `README.md` currently follows the old shared section model:
-  - `## Install`
-  - `## First 10 Minutes (Offline, No Setup)`
-  - `## Integration (One PR)`
-  - `## Command Surface`
-  - `## Trust and Project Relationship`
-  - `## Governance and Support`
-- `docs/contracts/readme_contract.md`, `scripts/check_docs_consistency.sh`, and `testinfra/hygiene/wave2_docs_contracts_test.go` currently enforce that old README section model, pinned Go install wording in `README.md`, docs-map linkage, and community health links in `README.md`.
-- `docs/map.md` currently requires README first-screen changes to update docs-site LLM projection files in the same change.
-- `docs-site/src/app/page.tsx` and `docs-site/public/llms.txt` still foreground `/scan`, `/docs/start-here`, `wrkr init`, and the current homepage messaging rather than the locked README narrative.
-- `docs/commands/regress.md` and `core/cli/regress.go` currently treat `wrkr-regress-baseline.json` as the only accepted `regress run` baseline input. `runRegressRun` loads only `regress.Baseline`.
-- `docs/commands/inventory.md` and the current README use `.wrkr/inventory-baseline.json` only for `inventory --diff`.
-- The locked README's CI example uses:
-  - `wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json`
-  - That example is not currently truthful against the CLI implementation and command docs.
-- `core/evidence/evidence.go` and existing tests confirm `eu-ai-act`, `soc2`, and `pci-dss` are supported framework IDs.
-- OSS trust baseline files already exist in-repo:
-  - `CONTRIBUTING.md`
-  - `CHANGELOG.md`
-  - `CODE_OF_CONDUCT.md`
-  - `SECURITY.md`
-  - issue templates under `.github/ISSUE_TEMPLATE/`
-  - `.github/pull_request_template.md`
-- `.github/required-checks.json` currently requires four merge-blocking checks:
+- `git status --short` was clean before generating this plan.
+- `core/detect/defaults/defaults.go` already registers framework detectors for LangChain, CrewAI, OpenAI, AutoGen, LlamaIndex, MCP-client, and custom agents.
+- Those framework detectors currently delegate to `core/detect/agentframework/detector.go`, which only parses declaration files (`json`, `yaml`, `toml`) and does not parse framework source code.
+- Existing agent framework tests in `core/detect/agentframework/*_test.go` validate declaration parsing, parse-error isolation, and deterministic multi-format behavior, but not Python or JS/TS source discovery.
+- `core/aggregate/inventory/inventory.go` already emits `inventory.agents[*].agent_instance_id` and deterministically sorts agent rows by `org/framework/instance/location`.
+- `inventory.agents[*]` currently lacks an explicit `symbol` or `name` field even though instance identity already depends on symbol/range metadata when present.
+- `core/aggregate/privilegebudget/budget.go` still builds `agent_privilege_map` by iterating `inventory.tools` and joining agent context by `AgentID` and tool-scoped fallback keys, which can collapse instance-level rows back onto tool identity.
+- `core/aggregate/inventory/privileges.go` does not yet expose `agent_instance_id` on `agent_privilege_map` entries.
+- `core/regress/regress.go` already supports instance-aware baseline matching in parts of the flow, but the user-facing privilege/report/export surfaces are not consistently instance-anchored end to end.
+- `core/report/build.go`, `core/report/campaign.go`, `core/export/appendix/export.go`, and `core/proofmap/proofmap.go` currently surface `approval_classification`, `unknown_tools`, and `production_write` data, but there is no explicit machine-readable concept for "security did not know this path existed before this scan/reference state".
+- `README.md` and `docs/trust/detection-coverage-matrix.md` already say Wrkr has native structured parsing for supported agent frameworks and deterministic instance-scoped privilege mapping, which is ahead of the current runtime implementation.
+- `README.md` also includes a public org-scan example with `production_write: true`, while the safe meaning of that claim depends on configured production targets.
+- `docs/commands/scan.md` documents `approval_classification` as `approved|unapproved|unknown`, but there is no corresponding `unknown_to_security` contract today.
+- `production_write` engine support already exists:
+  - `PrivilegeBudget.ProductionWrite` carries `configured`, `status`, and `count`
+  - `scan` supports `--production-targets` and `--production-targets-strict`
+  - `campaign` already suppresses `production_write_tools` when not configured
+- Existing test and enforcement surfaces are strong and should be reused:
+  - detector unit tests under `core/detect/*`
+  - inventory, privilege-budget, regress, report, proofmap, and CLI contract tests
+  - `internal/e2e/regress`
+  - `internal/e2e/campaign`
+  - scenario fixtures under `scenarios/wrkr/*`
+  - `make prepush`, `make prepush-full`, `make test-hardening`, `make test-chaos`, `make test-perf`, `make test-agent-benchmarks`, `make test-docs-consistency`
+- Required PR checks declared in `.github/required-checks.json` remain:
   - `fast-lane`
   - `scan-contract`
   - `wave-sequence`
@@ -65,853 +65,721 @@ Scope: Wrkr repository only. Planning artifact only. Two-wave plan. Wave 1 is co
 
 ## Exit Criteria
 
-1. `README.md` matches Appendix A exactly.
-2. Every command shown in Appendix A is truthful against current CLI behavior or an additive compatibility path implemented in the same rollout.
-3. `wrkr regress run --baseline <scan-state-path> --state <current-state> --json` works deterministically when `<scan-state-path>` is a saved scan snapshot copied to `.wrkr/inventory-baseline.json`, without breaking current `wrkr-regress-baseline.json` behavior.
-4. Existing regress exit codes and drift JSON contract remain stable.
-5. Wrkr README contract enforcement no longer depends on the old section model, and the new contract is documented rather than implied.
-6. Pinned/reproducible install guidance remains canonical and validated in install/release docs even though the locked README uses `@latest`.
-7. `docs/examples/*`, `docs/commands/*`, `docs/positioning.md`, `docs/map.md`, docs-site landing content, and LLM projection files align with the new README narrative and workflow examples.
-8. OSS trust/support discoverability remains explicit through canonical docs/docs-site/community-health surfaces even if absent from the main README.
-9. Required PR checks and story-level lanes below pass before merge.
+1. Repositories with real LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, or MCP-client source and no `.wrkr/agents/*` declarations still produce correct deterministic agent inventory.
+2. Multi-agent files emit separate stable agent instances with explicit `agent_instance_id`, `symbol`, and `location_range` in machine-readable outputs.
+3. `agent_privilege_map` is keyed and sorted by agent instance identity, not tool identity, while tool inventory rows remain unchanged for tool-level inventory use cases.
+4. Attack-path, proof, appendix export, report, and regress flows preserve distinct identities for multiple agents in the same file.
+5. Machine-readable outputs can truthfully report `unknown_to_security` separately from `approval_classification`, and the status is derived deterministically from approved/manifests plus prior reference state plus current scan inventory.
+6. Wrkr can emit a deterministic machine-readable count for `unknown_to_security` write-capable agent paths when a reference state is available.
+7. Public/report/evidence outputs never imply `production_write` posture unless production targets are configured and valid.
+8. Default public/report wording uses `write_capable` unless `--production-targets` is explicitly supplied.
+9. README, command docs, examples, and detection-coverage docs align with the implemented behavior in the same rollout.
+10. All story-level tests, matrix wiring, and required PR checks pass with no contract regressions.
 
 ## Public API and Contract Map
 
 Stable/public surfaces touched in this plan:
 
-- `README.md` landing copy, install flow, developer workflow, security-team workflow, positioning, and learn-more links.
-- `wrkr regress run --baseline <path> [--state <path>] --json`
-- `docs/examples/quickstart.md`
-- `docs/examples/personal-hygiene.md`
-- `docs/examples/security-team.md`
-- `docs/commands/scan.md`
-- `docs/commands/mcp-list.md`
-- `docs/commands/inventory.md`
-- `docs/commands/evidence.md`
-- `docs/commands/regress.md`
-- `docs/commands/index.md`
-- `docs/positioning.md`
-- Public docs-site landing and AI/LLM projection surfaces under `docs-site/src/app/page.tsx` and `docs-site/public/*`
+- `wrkr scan --json`
+  - `inventory.agents[*]`
+  - `inventory.tools[*]`
+  - `inventory.approval_summary`
+  - `inventory.privilege_budget`
+  - `agent_privilege_map[*]`
+  - optional `report`
+- `wrkr regress init --baseline <scan-state-path> --json`
+- `wrkr regress run --baseline <baseline-path-or-scan-state-path> --state <state-path> --json`
+- `wrkr report --json`
+- `wrkr campaign aggregate --json`
+- evidence bundle JSON/markdown outputs emitted from `wrkr evidence`
+- appendix and inventory export artifacts under `core/export/*`
+- public docs and examples:
+  - `README.md`
+  - `docs/commands/scan.md`
+  - `docs/commands/regress.md`
+  - `docs/commands/report.md`
+  - `docs/commands/campaign.md`
+  - `docs/commands/evidence.md`
+  - `docs/examples/security-team.md`
+  - `docs/examples/production-targets.v1.yaml`
+  - `docs/trust/detection-coverage-matrix.md`
+  - `docs/compliance/eu_ai_act_audit_readiness.md`
 
 Internal surfaces expected to change:
 
-- `core/cli/regress.go`
+- `core/detect/agentframework/*`
+- `core/detect/agentlangchain/*`
+- `core/detect/agentcrewai/*`
+- `core/detect/agentopenai/*`
+- `core/detect/agentautogen/*`
+- `core/detect/agentllamaindex/*`
+- `core/detect/agentmcpclient/*`
+- `core/detect/defaults/*`
+- `core/aggregate/inventory/*`
+- `core/aggregate/privilegebudget/*`
+- `core/cli/scan.go`
 - `core/regress/*`
-- `core/cli/root.go`
-- `internal/e2e/regress/*`
+- `core/report/*`
+- `core/proofmap/*`
+- `core/evidence/*`
+- `core/export/appendix/*`
+- `core/risk/*` when attack-path identity propagation needs additive context
+- `core/identity/*` only if helper expansion is required without changing current ID semantics
 - `testinfra/contracts/*`
-- `testinfra/hygiene/*`
-- `scripts/check_docs_consistency.sh`
-- `docs/contracts/readme_contract.md`
-- `docs/roadmap/cross-repo-readme-alignment.md`
-- `docs/map.md`
-- `docs/README.md`
-- `docs/install/minimal-dependencies.md`
-- `docs/trust/release-integrity.md`
-- `docs-site/public/llms.txt`
-- `docs-site/public/llm/*.md`
-- `docs-site/src/lib/*`
+- `internal/e2e/*`
+- `internal/scenarios/*`
+- `scenarios/wrkr/*`
 
 Shim/deprecation path:
 
-- `wrkr-regress-baseline.json` remains the canonical artifact emitted by `wrkr regress init`.
-- Raw scan-state baseline support in `wrkr regress run` is additive only and must not deprecate `regress init`.
-- The old README section model is deprecated for Wrkr landing content only after the new contract is documented and enforced.
-- Browser bootstrap at `/scan` remains available but becomes subordinate to CLI-first onboarding; it is not removed.
-- Pinned install remains canonical in install/release docs even though the locked README uses `@latest`.
+- `agent_privilege_map[*].tool_id` remains present for tool-inventory correlation during v1, but it is explicitly not the identity anchor for privilege rows after this rollout.
+- `agent_privilege_map[*].agent_id` remains present and continues to be the org-scoped canonical identity envelope. New consumers must key privilege rows on `agent_instance_id`.
+- `approval_classification=unknown` remains valid for approval-policy uncertainty. It must not be interpreted as `unknown_to_security`.
+- Existing declaration-file detection remains supported after source parsers land; declaration paths are not deprecated in this plan.
+- `production_write` remains in the machine-readable budget object, but public/report claims must downgrade to `write_capable` when targets are absent or invalid.
 
 Schema/versioning policy:
 
-- No scan/evidence schema major bump is planned.
-- Any `regress run` JSON additions must be additive, deterministic, and documented in `docs/commands/regress.md`.
-- Exit-code behavior remains unchanged.
-- If `docs/contracts/readme_contract.md` changes materially, the migration note must live in that doc and the cross-repo tracker must be updated in the same PR.
+- No schema major bump is planned.
+- All contract changes are additive only.
+- Preferred additive fields introduced by this plan:
+  - `inventory.agents[*].symbol`
+  - `inventory.agents[*].security_visibility_status`
+  - `inventory.tools[*].security_visibility_status`
+  - `agent_privilege_map[*].agent_instance_id`
+  - `agent_privilege_map[*].symbol`
+  - `agent_privilege_map[*].location`
+  - `agent_privilege_map[*].location_range`
+  - `agent_privilege_map[*].security_visibility_status`
+  - `inventory.security_visibility_summary`
+  - `campaign.metrics.unknown_to_security_tools`
+  - `campaign.metrics.unknown_to_security_agents`
+  - `campaign.metrics.unknown_to_security_write_capable_agents`
+  - additive report/proof/evidence summary fields for security visibility and reference basis
+- Existing fields remain stable:
+  - `approval_classification`
+  - `approval_summary`
+  - `write_capable`
+  - `production_write.status`
+  - `production_write.count`
+- If appendix export adds `agent_instance_id` columns, the new columns must be additive and documented without removing current columns.
 
 Machine-readable error expectations:
 
-- `wrkr regress run --baseline` missing path remains `invalid_input` with exit `6`.
-- Drift remains exit `5`.
-- If a provided baseline path is neither a valid regress baseline artifact nor a valid scan snapshot, Wrkr must fail closed with a stable machine-readable error envelope.
-- Existing supported regress workflows must retain stable `--json` payload shape and exit behavior.
+- No exit-code changes are allowed.
+- Source parser failures must remain deterministic and either emit additive parse findings or deterministic partial-result warnings; they must not suppress unrelated detector output.
+- Invalid `--production-targets` with `--production-targets-strict` continues to fail closed with `invalid_input` and exit `6`.
+- Invalid or missing `--production-targets` in non-strict mode continues to succeed with status/warning output, but no public/report workflow may upgrade wording to `production_write`.
+- Security-visibility derivation must always declare the reference basis used. If the basis is unavailable for a workflow that wants to claim `unknown_to_security`, the workflow must downgrade/suppress the claim rather than fabricate a count.
 
 ## Docs and OSS Readiness Baseline
 
 README first-screen contract:
 
-- `README.md` becomes a locked landing surface focused on:
-  - product one-liner
-  - install
-  - developer workflow
-  - security-team workflow
-  - why/value
-  - detection scope
-  - scope boundaries
-  - Gait relationship
-  - workflows
-  - command surface
-  - output/contracts
-  - security/privacy
-  - learn-more links
-- Because the locked body omits the current trust/governance footer, `README.md` is no longer the only OSS trust discoverability surface.
+- `README.md` currently claims native structured parsing for supported agent frameworks and shows a `production_write: true` example.
+- This plan treats `README.md` as executable contract. Runtime and docs must land together so those claims become truthful or are downgraded in the same rollout.
+- The default first-screen posture message after this plan is:
+  - `write_capable` is always claimable
+  - `production_write` is claimable only with configured production targets
+  - `unknown_to_security` is claimable only from the explicit visibility model with declared reference basis
 
 Integration-first docs flow:
 
-1. Main README points to `docs/commands/` and `docs/examples/`.
-2. `docs/examples/personal-hygiene.md` remains the canonical developer local-machine workflow.
-3. `docs/examples/security-team.md` remains the canonical security-team org/evidence workflow.
-4. `docs/commands/*.md` remain the canonical command contracts.
-5. `docs/install/minimal-dependencies.md` remains the canonical pinned/reproducible install guide.
-6. `docs/state_lifecycle.md` remains the canonical artifact path/lifecycle reference.
-7. Docs-site and LLM projections mirror the new README framing without inventing runtime behavior.
+1. `README.md` remains the landing surface.
+2. `docs/commands/scan.md` remains the canonical scan contract.
+3. `docs/commands/regress.md` remains the canonical baseline/reference workflow contract.
+4. `docs/commands/report.md`, `docs/commands/campaign.md`, and `docs/commands/evidence.md` remain the canonical report/evidence/public-output contracts.
+5. `docs/examples/security-team.md` remains the canonical security workflow.
+6. `docs/examples/production-targets.v1.yaml` remains the canonical production-target example.
+7. `docs/trust/detection-coverage-matrix.md` remains the canonical detection-scope explainer.
 
 Lifecycle path model:
 
-- `docs/state_lifecycle.md` remains canonical for:
-  - `.wrkr/last-scan.json`
-  - `.wrkr/inventory-baseline.json`
-  - `.wrkr/wrkr-regress-baseline.json`
-  - `.wrkr/wrkr-manifest.yaml`
-  - `.wrkr/proof-chain.json`
-  - evidence output directories
-- Even if the locked README no longer links `docs/state_lifecycle.md`, quickstart and command docs still must.
+- `.wrkr/last-scan.json` remains the canonical scan state snapshot.
+- `.wrkr/inventory-baseline.json` remains the compatible raw scan-snapshot baseline path.
+- `.wrkr/wrkr-regress-baseline.json` remains the canonical regress baseline artifact.
+- `.wrkr/proof-chain.json` remains the canonical proof-chain path.
+- production target policy remains an explicit user-supplied path, for example `./docs/examples/production-targets.v1.yaml`.
 
 Docs source-of-truth for this plan:
 
-- Landing copy: `README.md`
-- Install and release integrity: `docs/install/minimal-dependencies.md`, `docs/trust/release-integrity.md`
-- Command contracts: `docs/commands/*.md`
-- Workflow docs: `docs/examples/*.md`
-- Positioning and docs governance: `docs/positioning.md`, `docs/map.md`, `docs/README.md`, `docs/contracts/readme_contract.md`
-- Public projections: `docs-site/src/app/page.tsx`, `docs-site/public/llms.txt`, `docs-site/public/llm/*.md`
+- runtime contracts: `docs/commands/*.md`
+- operator/security workflows: `docs/examples/*.md`
+- landing message: `README.md`
+- detection trust narrative: `docs/trust/detection-coverage-matrix.md`
+- compliance workflow references: `docs/compliance/eu_ai_act_audit_readiness.md`
 
-OSS trust baseline:
+OSS readiness baseline:
 
-- `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, issue templates, and PR template remain mandatory.
-- Maintainer/support expectations must stay discoverable from canonical docs/docs-site surfaces because the locked README omits the current footer.
-- `docs/governance/content-visibility.md` remains authoritative for directory notice and review policy.
+- Existing OSS trust files are already present and remain mandatory:
+  - `CONTRIBUTING.md`
+  - `CHANGELOG.md`
+  - `CODE_OF_CONDUCT.md`
+  - `SECURITY.md`
+  - `.github/ISSUE_TEMPLATE/*`
+  - `.github/pull_request_template.md`
+- No new OSS trust files are required for this plan, but public wording changes must keep support and governance expectations aligned with current docs.
 
 ## Recommendation Traceability
 
 | Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story mapping |
 |---|---|---|---|---|---|
-| R1 | Replace `README.md` with the exact user-provided markdown | The user explicitly locked the landing copy | Tighten market-facing positioning and workflow framing | Clearer front-door message with lower copy ambiguity | W2-S02 |
-| R2 | Make every command example in the locked README truthful | The locked README is public contract, not aspirational copy | Contract-first delivery | Prevents immediate trust loss and support burden | W1-S01, W2-S02 |
-| R3 | Replace the old hard-coded README enforcement model with an explicit new Wrkr contract | Current tests/scripts would fail the locked README | Docs governance realignment | Keeps future README changes auditable rather than ad hoc | W2-S01 |
-| R4 | Preserve reproducible install and OSS trust discoverability outside the locked README body | The locked README drops current pinned-install/governance footer content | Split landing copy from deeper install/trust contract docs | Keeps release integrity and OSS trust intact without changing the locked README | W2-S04 |
-| R5 | Align docs-site and LLM projections with the new README | Current docs-site/LLM surfaces still project the old story | Distribution parity | Prevents repo/docs-site/assistant drift | W2-S03 |
-| R6 | Keep developer and security-team examples consistent across README and canonical docs | README links must land on truthful workflows | Workflow coherence | Lower onboarding friction and faster first value | W2-S02, W2-S03, W2-S04 |
+| R1 | Add native source parsers for Python and JS/TS agent code across LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, and MCP-client patterns | Current coverage is strongest on declaration files, not direct framework source | Broaden deterministic discovery coverage | Higher confidence discovery in real repos without `.wrkr/agents/*` | W1-S01 |
+| R2 | Detect agent instances from imports, constructors, registrations, tool bindings, and entrypoints | Framework source needs instance-aware extraction, not declaration-only detection | Move from config-first to source-aware posture discovery | Fewer false negatives and more accurate path inventory | W1-S01 |
+| R3 | Build `agent_privilege_map` from `inventory.agents` keyed by `agent_instance_id` | Tool identity still collapses multiple instances | Make privilege reporting match real execution units | Instance-accurate risk and proof surfaces | W2-S01 |
+| R4 | Preserve distinct agent identities through attack-path, proof, appendix export, and regress flows | A single collapsed identity breaks downstream evidence and drift logic | Propagate instance identity through the full pipeline | Trustworthy evidence and stable regression behavior | W2-S02 |
+| R5 | Introduce a first-class `unknown_to_security` concept separate from `approval_classification=unknown` | Current unknown approval is too weak for the claim | Add explicit security-visibility semantics | Truthful machine-readable "security did not know this existed" reporting | W3-S01 |
+| R6 | Surface the visibility model in inventory summary, report/campaign metrics, proof context, and evidence bundle summaries | The claim must exist in every decision/report surface that matters | Make visibility status operational, not hidden | Better executive/security reporting and proof portability | W3-S02 |
+| R7 | Treat `production_write` as a guarded claim requiring `--production-targets`, while `write_capable` stays always available | The current engine exists, but public/report claim safety depends on target config | Separate capability from environment-backed production claim | Safer public messaging and lower trust risk | W4-S01, W4-S02 |
 
 ## Test Matrix Wiring
 
 Fast lane:
 
 - `make lint-fast`
-- `make test-fast`
-- targeted `go test` for changed `core/cli`, `core/regress`, `testinfra/hygiene`, and `testinfra/contracts` packages
+- targeted `go test` for changed detection, aggregation, report, regress, proofmap, and CLI packages with `-count=1`
 
 Core CI lane:
 
 - `make prepush`
 - `make test-contracts`
 - `make test-docs-consistency`
-- `make test-docs-storyline`
 
 Acceptance lane:
 
 - `go test ./internal/scenarios -run '^TestScenarioContracts$' -count=1`
 - `go test ./internal/scenarios -count=1 -tags=scenario`
 - `go test ./internal/e2e/regress -count=1`
-- `scripts/run_v1_acceptance.sh --mode=local` for public CLI contract stories
-- `scripts/run_docs_smoke.sh`
-- `make docs-site-install`
-- `make docs-site-lint`
-- `make docs-site-build`
-- `make docs-site-check`
+- `go test ./internal/e2e/campaign -count=1`
+- machine-readable command runs such as:
+  - `wrkr scan --path <scenario> --json`
+  - `wrkr regress init --baseline <scan-state-path> --json`
+  - `wrkr regress run --baseline <baseline-path-or-scan-state-path> --state <state-path> --json`
+  - `wrkr campaign aggregate --input-glob '<glob>' --json`
 
 Cross-platform lane:
 
 - `windows-smoke`
-- existing `core-matrix` behavior on Ubuntu/macOS/Windows when Go code changes
+- existing Go matrix behavior on Ubuntu/macOS/Windows for CLI contract stories
 
 Risk lane:
 
 - `make prepush-full`
 - `make test-hardening`
 - `make test-chaos`
+- `make test-perf` for detection/aggregation hot paths
+- `make test-agent-benchmarks` for source-parser and agent-resolution performance regression checks
 
 Merge/release gating rule:
 
 - Required PR checks remain `fast-lane`, `scan-contract`, `wave-sequence`, and `windows-smoke`.
-- Any story touching public CLI/runtime behavior must also show green `make prepush-full` plus targeted contract/e2e evidence before merge.
-- Any story touching README/docs/docs-site must also show green docs consistency/storyline/docs-site checks in the same PR.
-- No release is allowed with unresolved drift between the locked README, canonical repo docs, and public docs-site/LLM projection surfaces.
+- Any story touching runtime contracts, proof context, regress logic, or report/public claims must also show green `make prepush-full`.
+- Any story adding or changing detection hot paths must also show green `make test-perf` and `make test-agent-benchmarks`.
+- Any story changing docs or examples must show green `make test-docs-consistency`.
+- No story may merge with unresolved drift between runtime behavior and README/command/example wording.
 
-## Epic W1-E1: Make Locked README CLI Examples Truthful
+## Epic W1-E1: Native Source-Level Agent Detection
 
-Objective: add only the runtime compatibility needed so the locked README's CI distribution example and workflow claims are accurate, while preserving current regress artifact behavior and deterministic exits.
+Objective: make Wrkr detect supported agent frameworks directly from deterministic Python and JS/TS source without relying on `.wrkr/agents/*` declarations, while keeping declaration coverage and precision intact.
 
-### Story W1-S01: Accept scan-state baselines in `wrkr regress run` as an additive compatibility path
+### Story W1-S01: Add deterministic source parsers and normalized agent emission for supported frameworks
 Priority: P0
 Tasks:
-- Add failing contract and e2e tests proving `wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json` works when the baseline file is a raw scan snapshot.
-- Extend baseline loading to detect and normalize either a persisted regress baseline artifact or a raw scan snapshot copied from `.wrkr/last-scan.json`.
-- Preserve current `wrkr regress init` output path and existing `wrkr-regress-baseline.json` behavior.
-- Keep JSON drift result shape and exit codes stable; if adding a baseline-type field, make it additive and deterministic.
-- Update `wrkr help`, `docs/commands/regress.md`, and any relevant compatibility docs to explain the two accepted baseline inputs and the preferred/canonical path.
+- Extend `core/detect/agentframework` so framework detectors can parse structured source surfaces in addition to declaration files.
+- Implement deterministic Python and JS/TS parsing for LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, and MCP-client patterns using imports, constructors, registrations, tool bindings, and entrypoint signals.
+- Normalize source-derived agents to the existing agent payload shape and add explicit additive fields for `symbol` and `location_range` where source metadata exists.
+- Preserve declaration-file support and deterministic deduplication when both declaration and source surfaces exist for the same agent.
+- Add source-only scenario fixtures with no `.wrkr/agents/*` files and expected outputs for each supported framework plus a mixed multi-agent file case.
+- Update the detection coverage matrix so docs clearly separate declaration-backed coverage from source-backed coverage.
 Repo paths:
-- `core/cli/regress.go`
-- `core/regress/*`
-- `core/cli/root.go`
-- `docs/commands/regress.md`
-- `internal/e2e/regress/*`
-- `testinfra/contracts/*`
+- `core/detect/agentframework/detector.go`
+- `core/detect/agentframework/*.go` (new source-parser helpers)
+- `core/detect/agentlangchain/*`
+- `core/detect/agentcrewai/*`
+- `core/detect/agentopenai/*`
+- `core/detect/agentautogen/*`
+- `core/detect/agentllamaindex/*`
+- `core/detect/agentmcpclient/*`
+- `core/detect/defaults/defaults.go`
+- `core/aggregate/inventory/inventory.go`
+- `core/cli/scan.go`
+- `core/detect/agentframework/detector_test.go`
+- `core/detect/agentlangchain/detector_test.go`
+- `core/detect/agentcrewai/detector_test.go`
+- `core/detect/agentopenai/detector_test.go`
+- `core/detect/agentautogen/detector_test.go`
+- `core/detect/agentllamaindex/detector_test.go`
+- `core/detect/agentmcpclient/detector_test.go`
+- `core/cli/scan_agent_context_test.go`
+- `docs/trust/detection-coverage-matrix.md`
+- `scenarios/wrkr/agent-source-frameworks/*` (new)
+- `internal/scenarios/coverage_map.json`
 Run commands:
-- `go test ./core/regress ./core/cli -count=1`
-- `go test ./internal/e2e/regress -count=1`
-- `go test ./testinfra/contracts -run 'TestRegressDriftExitCodeContract|TestScanContract_NoJSONOrExitRegressionAcrossWaves' -count=1`
-- `make test-contracts`
+- `go test ./core/detect/agentframework ./core/detect/agentlangchain ./core/detect/agentcrewai ./core/detect/agentopenai ./core/detect/agentautogen ./core/detect/agentllamaindex ./core/detect/agentmcpclient -count=1`
+- `go test ./core/aggregate/inventory ./core/cli -count=1`
+- `wrkr scan --path ./scenarios/wrkr/agent-source-frameworks/repos --json`
+- `make test-perf`
+- `make test-agent-benchmarks`
 - `make prepush-full`
-- `make test-hardening`
-- `make test-chaos`
 Test requirements:
-- CLI help/usage tests
-- `--json` stability tests for both baseline input forms
-- exit-code contract tests (`0`, `5`, `6`)
-- compatibility tests proving current regress baseline artifacts remain valid
-- additive raw scan-state baseline tests
-- determinism repeat-run tests for the same baseline/state pairs
-- machine-readable error envelope tests for invalid or ambiguous baseline files
+- parser unit tests for Python and JS/TS source extraction
+- deterministic multi-agent same-file ordering tests
+- declaration/source coexistence and deduplication tests
+- scenario/golden tests for source-only repos with no declaration files
+- compatibility tests proving existing declaration fixtures still pass unchanged
+- performance budget and benchmark checks for the new parser path
+- docs consistency update for the coverage matrix
 Matrix wiring:
-- Fast lane
-- Core CI lane
-- Acceptance lane
-- Cross-platform lane
-- Risk lane
+- Fast lane: targeted detector, inventory, and CLI tests
+- Core CI lane: `make prepush`
+- Acceptance lane: scenario contract tests plus `wrkr scan --path ./scenarios/wrkr/agent-source-frameworks/repos --json`
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make prepush-full`, `make test-perf`, `make test-agent-benchmarks`
 Acceptance criteria:
-- `wrkr regress run` accepts a raw scan snapshot baseline without requiring an intermediate `regress init`.
-- `wrkr regress run` continues to accept `wrkr-regress-baseline.json` without output or exit regression.
-- Invalid baseline files still fail closed with deterministic machine-readable errors.
-- `wrkr inventory --diff` behavior is unchanged.
-- Docs and help text correctly distinguish `inventory-baseline.json` versus `wrkr-regress-baseline.json`.
-Contract/API impact: additive public CLI contract expansion for `wrkr regress run --baseline`; no breaking change to existing flags, JSON keys, or exits.
-Versioning/migration impact: no schema version bump; if a new JSON field is added to disclose normalized baseline input type, it must be additive only and documented.
+- A repo containing supported framework source and no declaration files produces the expected agent inventory.
+- A single file with multiple agents yields separate deterministic detections with stable instance ordering.
+- Source-derived agents emit `framework`, `file`, `symbol`, `location_range`, bound tools, auth surfaces, and deployment hints when those signals exist.
+- Existing declaration-only fixtures retain current precision and deterministic ordering.
+- `docs/trust/detection-coverage-matrix.md` truthfully describes the new coverage and remaining deterministic limits.
+Contract/API impact:
+- Additive `inventory.agents[*].symbol` and continued additive `location_range` usage where metadata exists.
+- Additive source-derived evidence keys on `findings[*]` and agent context.
+Versioning/migration impact:
+- Additive only; no schema major bump.
+- Existing consumers must continue to accept declaration-only agents with missing `symbol`/`location_range`.
 Architecture constraints:
-- Keep CLI orchestration thin; baseline format detection belongs in focused regress/state parsing helpers, not in report or docs layers.
-- Preserve symmetric semantics: `inventory --diff` remains raw scan-state drift review, `regress run` remains policy/approval drift gate with additive convenience input handling.
-- Preserve deterministic ordering and cancellation propagation for file loads.
-- Do not add network calls or permissive fallback behavior.
+- Keep parsing inside the detection layer with thin orchestration and focused helpers for language parsing/normalization.
+- No source execution, no network lookups, and no runtime imports are allowed.
+- Ordering must be deterministic across files, frameworks, and source languages.
+- Keep extension points explicit so new frameworks can plug in without collapsing detector boundaries.
 ADR required: yes
 TDD first failing test(s):
-- Contract test: `regress run` accepts a raw scan snapshot baseline copied to `.wrkr/inventory-baseline.json`.
-- Regression test: existing `wrkr-regress-baseline.json` still yields identical drift output as before.
-- Error test: invalid baseline file fails closed with stable JSON error fields.
-Cost/perf impact: low
-Chaos/failure hypothesis: if the baseline path points to an unexpected but parseable JSON file, Wrkr must deterministically reject it rather than silently producing a no-drift result or an empty comparison.
-Dependencies: none
-Risks:
-- Ambiguous baseline auto-detection could weaken fail-closed behavior if the format discriminator is too loose.
-- Help/docs drift could leave users with two baseline concepts but only one clearly explained.
+- `core/detect/agentframework/detector_test.go` source-only framework cases
+- `core/cli/scan_agent_context_test.go` source-derived agent context case
+- new scenario contract for `scenarios/wrkr/agent-source-frameworks`
+Cost/perf impact: medium
+Chaos/failure hypothesis:
+- Malformed or partially supported source files must emit deterministic parse-error or partial-result signals without suppressing unrelated detections or reordering stable findings.
 
-## Epic W2-E1: Replace the Front Door Without Losing Contract or Trust
+## Epic W2-E2: Instance-Scoped Agent Privilege Identity
 
-Objective: roll out the exact user-supplied README copy and align all docs/distribution surfaces, while preserving reproducible install guidance, source-of-truth clarity, and OSS trust discoverability.
+Objective: make privilege, export, proof, and regress flows use agent-instance identity as the canonical reporting anchor so multiple agents in the same file remain distinct throughout the pipeline.
 
-### Story W2-S01: Introduce a documented Wrkr README contract that matches the locked README body
+### Story W2-S01: Re-key `agent_privilege_map` on `inventory.agents` and `agent_instance_id`
 Priority: P0
 Tasks:
-- Add failing docs-hygiene tests and/or consistency checks that express the new allowed Wrkr README structure and remove hard-coded dependence on the old section model.
-- Revise `docs/contracts/readme_contract.md` to describe the new Wrkr landing contract and whether the old shared section model becomes deprecated or remains as a separate variant.
-- Update `docs/roadmap/cross-repo-readme-alignment.md` to reflect the new contract stance for Proof/Gait and any required follow-up dates.
-- Update `scripts/check_docs_consistency.sh` and `testinfra/hygiene/wave2_docs_contracts_test.go` to enforce the new contract intentionally rather than by omission.
-- Record docs source-of-truth consequences in `docs/map.md` and `docs/README.md`.
+- Add required additive field `agent_instance_id` to `AgentPrivilegeMapEntry`.
+- Build `agent_privilege_map` by iterating `inventory.agents` and joining tool-level permission signals plus deployment/binding/auth context onto the matching agent instance row.
+- Add additive agent context fields needed for debugging/report joins: `symbol`, `location`, and `location_range`.
+- Preserve tool-level rows for `inventory.tools`, but stop using tool identity as the primary privilege-row dedupe key.
+- Update scan JSON contract tests and appendix/export surfaces that currently assume tool-scoped privilege identity.
 Repo paths:
-- `docs/contracts/readme_contract.md`
-- `docs/roadmap/cross-repo-readme-alignment.md`
-- `scripts/check_docs_consistency.sh`
-- `testinfra/hygiene/wave2_docs_contracts_test.go`
-- `docs/map.md`
-- `docs/README.md`
-- optional ADR path under `docs/decisions/`
+- `core/aggregate/privilegebudget/budget.go`
+- `core/aggregate/inventory/inventory.go`
+- `core/aggregate/inventory/privileges.go`
+- `core/cli/scan.go`
+- `core/aggregate/privilegebudget/budget_test.go`
+- `core/aggregate/inventory/inventory_test.go`
+- `core/cli/root_test.go`
+- `testinfra/contracts/story1_contracts_test.go`
+- `testinfra/contracts/story15_contracts_test.go`
+- `core/export/appendix/export.go`
+- `core/export/inventory/export_test.go`
 Run commands:
-- `go test ./testinfra/hygiene -run 'TestReadmeContractSectionsPresent|TestDocsSourceOfTruthSectionsPresent' -count=1`
-- `make test-docs-consistency`
-- `make test-docs-storyline`
-- `make prepush`
+- `go test ./core/aggregate/inventory ./core/aggregate/privilegebudget ./core/export/... ./core/cli -count=1`
+- `wrkr scan --path ./scenarios/wrkr/agent-source-frameworks/repos --json`
+- `make prepush-full`
 Test requirements:
-- docs consistency checks for the new README contract rules
-- README first-screen checks
-- docs source-of-truth mapping checks
-- OSS readiness checks ensuring support/discoverability is still enforced somewhere canonical
-- contract/hygiene tests for contract doc and cross-repo roadmap updates
+- additive schema/contract tests for `agent_privilege_map[*].agent_instance_id`
+- deterministic same-file multi-agent privilege-row tests
+- CLI `--json` stability tests
+- appendix/export snapshot compatibility tests
+- compatibility tests proving tool inventory remains stable while privilege identity becomes instance-scoped
 Matrix wiring:
-- Fast lane
-- Core CI lane
-- Acceptance lane
+- Fast lane: targeted aggregation, export, and CLI tests
+- Core CI lane: `make prepush`
+- Acceptance lane: `wrkr scan --path ./scenarios/wrkr/agent-source-frameworks/repos --json`
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make prepush-full`
 Acceptance criteria:
-- Wrkr README enforcement matches the intended new landing model and no longer depends on the old section names.
-- Contract docs explain where governance/support and pinned install requirements moved if they no longer live in `README.md`.
-- Cross-repo alignment tracker is explicit about Proof/Gait follow-ups instead of leaving silent divergence.
-- Docs consistency/hygiene tests fail if the new Wrkr landing contract drifts.
-Contract/API impact: public docs contract change for repo landing content; no CLI/runtime behavior change.
-Versioning/migration impact: docs-contract-only migration note required in `docs/contracts/readme_contract.md`.
+- Two agents in one file produce two stable `agent_privilege_map` rows with distinct `agent_instance_id` values.
+- Each privilege row carries joined write/exec/credential/deployment/binding context for that specific agent instance.
+- `tool_id` remains available for correlation, but row identity is clearly agent-instance based.
+- Existing tool inventory outputs remain stable for tool-level consumers.
+Contract/API impact:
+- Additive `agent_privilege_map[*].agent_instance_id`, `symbol`, `location`, and `location_range`.
+- `agent_privilege_map[*].tool_id` is retained but documented as correlation-only for privilege reporting.
+Versioning/migration impact:
+- Additive only; no schema major bump.
+- Existing consumers may continue reading `agent_id`, but new consumers must switch to `agent_instance_id` as the privilege-row key.
 Architecture constraints:
-- Keep docs governance explicit and auditable; do not weaken enforcement by deleting tests without replacement.
-- Preserve `docs/map.md` as the source-of-truth router for docs edits and validation.
-- Do not move product/runtime semantics into docs-site-only pages.
+- Keep aggregation logic focused in aggregation packages; do not push privilege-join logic into report or CLI layers.
+- Preserve explicit side-effect semantics and deterministic ordering.
+- Avoid hidden fallback behavior that silently collapses instance rows when instance metadata exists.
 ADR required: yes
 TDD first failing test(s):
-- Hygiene test expecting the new Wrkr README contract structure.
-- Consistency check failing until contract doc and tracker are updated.
+- `core/aggregate/privilegebudget/budget_test.go` same-file multi-agent privilege-row case
+- `core/cli/root_test.go` scan payload expectations for `agent_instance_id`
 Cost/perf impact: low
-Chaos/failure hypothesis: if the README contract changes without matching test/script updates, docs consistency and hygiene checks must fail before merge.
-Dependencies: W1-S01
-Risks:
-- Over-generalizing the new Wrkr README contract could create unnecessary cross-repo churn for Proof/Gait.
-- Under-specifying the new contract could make future README edits unreviewable.
+Chaos/failure hypothesis:
+- Missing legacy metadata or mixed old/new agent IDs must degrade via explicit compatibility fallback without collapsing distinct current instance rows or duplicating privilege counts.
 
-### Story W2-S02: Replace `README.md` with the exact locked markdown and align canonical repo docs to it
+### Story W2-S02: Preserve instance identity through regress, proof, appendix export, and attack-path/report joins
 Priority: P0
 Tasks:
-- Copy the Appendix A markdown verbatim into `README.md`; do not paraphrase, reorder, or inject extra prose inside the locked body.
-- Update workflow docs and command docs so the README links resolve and the referenced flows are consistent:
-  - `docs/examples/quickstart.md`
-  - `docs/examples/personal-hygiene.md`
-  - `docs/examples/security-team.md`
-  - `docs/commands/scan.md`
-  - `docs/commands/mcp-list.md`
-  - `docs/commands/inventory.md`
-  - `docs/commands/evidence.md`
-  - `docs/commands/regress.md`
-  - `docs/commands/index.md`
-  - `docs/positioning.md`
-- Align any linked examples to the locked README narrative, including developer-first flow, security-team flow, Gait relationship, and explicit scope boundaries.
-- Keep `docs/state_lifecycle.md` and pinned install guidance authoritative where the locked README is intentionally lighter.
-- Add or update README-first-screen validation so future edits cannot drift from the locked body without an intentional contract change.
+- Update regress baseline/build/compare logic so multi-agent same-file cases remain distinct through init/run flows while preserving legacy baseline compatibility.
+- Add `agent_instance_id` propagation to proof-map records and relationships wherever agent context exists.
+- Update appendix privilege exports and any report/attack-path joins that still rely on tool identity so downstream artifacts preserve agent-instance separation.
+- Add deterministic end-to-end fixtures for scan -> proof/evidence -> regress with two agents in one file.
+Repo paths:
+- `core/regress/regress.go`
+- `core/proofmap/proofmap.go`
+- `core/export/appendix/export.go`
+- `core/report/build.go`
+- `core/risk/risk.go`
+- `core/regress/regress_test.go`
+- `core/proofmap/proofmap_test.go`
+- `core/report/report_test.go`
+- `internal/e2e/regress/regress_e2e_test.go`
+- `scenarios/wrkr/agent-relationship-correlation/*`
+- `scenarios/wrkr/attack-path-correlation/*`
+- `internal/scenarios/coverage_map.json`
+Run commands:
+- `go test ./core/regress ./core/proofmap ./core/export/appendix ./core/report ./core/risk -count=1`
+- `go test ./internal/e2e/regress -count=1`
+- `wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json`
+- `wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json`
+- `make prepush-full`
+Test requirements:
+- regress compatibility/migration tests for legacy tool-scoped baselines
+- proof relationship tests with additive `agent_instance_id`
+- appendix export contract tests for new identity columns/fields
+- attack-path/report deterministic join tests for multiple agents in one file
+- end-to-end regress tests proving two instances survive the full flow
+Matrix wiring:
+- Fast lane: targeted regress, proofmap, report, and export tests
+- Core CI lane: `make prepush`
+- Acceptance lane: `go test ./internal/e2e/regress -count=1` plus regress JSON command runs
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make prepush-full`
+Acceptance criteria:
+- Regress init/run preserves distinct identities for multiple agents in one file.
+- Proof records and relationships include additive instance context when available.
+- Appendix privilege exports preserve instance-separated rows.
+- Attack-path/report joins do not collapse multiple same-file agents back to a single tool-scoped identity.
+Contract/API impact:
+- Additive `agent_instance_id` in proof/export/report surfaces where agent context is already exposed.
+- Legacy baseline compatibility remains documented and covered by tests.
+Versioning/migration impact:
+- Additive only.
+- Pre-instance baselines continue to reconcile to equivalent current identities with deterministic documented behavior.
+Architecture constraints:
+- Keep proof/report/export layers as consumers of aggregation identity, not owners of identity derivation.
+- Preserve symmetric semantics between baseline init and compare flows.
+- Keep fallback behavior explicit and testable.
+ADR required: yes
+TDD first failing test(s):
+- `core/regress/regress_test.go` same-file multi-agent drift preservation case
+- `core/proofmap/proofmap_test.go` additive instance context propagation case
+- `internal/e2e/regress/regress_e2e_test.go` end-to-end multi-agent baseline case
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Legacy baselines plus new multi-instance scans must not cause duplicate drift reasons, proof fan-out explosions, or report/export row instability.
+
+## Epic W3-E3: First-Class `unknown_to_security` Model
+
+Objective: add an explicit machine-readable security-visibility model that is separate from approval classification and is usable in inventory, regress, report, proof, and evidence workflows.
+
+### Story W3-S01: Add `security_visibility_status` and deterministic visibility summary to inventory and regress flows
+Priority: P0
+Tasks:
+- Introduce additive field `security_visibility_status` on agent rows, tool rows, and privilege rows with values `approved`, `known_unapproved`, and `unknown_to_security`.
+- Add additive `inventory.security_visibility_summary` with separate agent/tool counts and an explicit `unknown_to_security_write_capable_agents` count.
+- Add additive summary provenance such as `reference_basis` and optional `reference_path` so consumers know whether visibility came from approved manifests only, prior scan state, or regress baseline.
+- Derive row-level visibility from approved/manifests plus prior reference state plus current scan inventory, while preserving current `approval_classification` logic untouched.
+- Define tool-level rollup precedence from underlying agent-instance rows.
+- Ensure regress and scan flows can recompute the same visibility outcome deterministically from the same declared reference inputs.
+Repo paths:
+- `core/aggregate/inventory/inventory.go`
+- `core/aggregate/inventory/privileges.go`
+- `core/regress/regress.go`
+- `core/cli/scan.go`
+- `core/aggregate/inventory/inventory_test.go`
+- `core/regress/regress_test.go`
+- `core/cli/root_test.go`
+- `docs/commands/scan.md`
+- `docs/commands/regress.md`
+- `scenarios/wrkr/security-visibility-baseline/*` (new)
+- `internal/scenarios/coverage_map.json`
+Run commands:
+- `go test ./core/aggregate/inventory ./core/regress ./core/cli -count=1`
+- `wrkr scan --path ./scenarios/wrkr/security-visibility-baseline/repos --json`
+- `wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json`
+- `wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json`
+- `make prepush-full`
+Test requirements:
+- additive schema tests for new visibility fields and summary objects
+- deterministic visibility derivation tests for approved, known_unapproved, and unknown_to_security cases
+- compatibility tests proving `approval_classification` and `approval_summary` remain unchanged
+- regress baseline/reference provenance tests
+- CLI `--json` stability tests
+- fail-closed tests for missing or malformed explicit reference inputs used by visibility derivation
+Matrix wiring:
+- Fast lane: targeted inventory, regress, and CLI tests
+- Core CI lane: `make prepush`
+- Acceptance lane: scenario contract tests plus scan/regress JSON command runs
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make prepush-full`
+Acceptance criteria:
+- `security_visibility_status` is emitted separately from `approval_classification`.
+- Inventory summary exposes deterministic counts for `approved`, `known_unapproved`, and `unknown_to_security`.
+- Wrkr can emit a deterministic machine-readable count for unknown-to-security write-capable agent paths from the same reference inputs.
+- Tool-level visibility rollups are derived from agent-instance rows with documented precedence.
+- No existing `approval_classification` consumer is forced to migrate to the new field.
+Contract/API impact:
+- Additive `security_visibility_status` row fields and `inventory.security_visibility_summary`.
+- Additive provenance fields declaring the visibility reference basis.
+Versioning/migration impact:
+- Additive only.
+- Existing consumers may ignore the new visibility fields and continue using `approval_classification`.
+Architecture constraints:
+- Keep visibility derivation in aggregation/regress logic, not in docs/report-only layers.
+- Fail closed or downgrade claims when the required reference basis cannot be established.
+- Keep the derivation deterministic and auditable from explicit inputs.
+ADR required: yes
+TDD first failing test(s):
+- `core/aggregate/inventory/inventory_test.go` visibility-status derivation cases
+- `core/regress/regress_test.go` visibility reference-basis case
+- `core/cli/root_test.go` scan payload visibility summary case
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Ambiguous or missing reference basis must never silently classify rows as `known_unapproved`; outputs must either derive a deterministic basis or explicitly downgrade/suppress the claim.
+
+### Story W3-S02: Surface `unknown_to_security` through report, campaign, proof, evidence, and appendix outputs
+Priority: P1
+Tasks:
+- Extend campaign metrics, report summary data, proof-map metadata, evidence bundle summaries, and appendix exports to include explicit security-visibility counts and context.
+- Ensure report/public phrasing for "unknown write-capable AI paths" is backed by the new visibility summary and declared reference basis.
+- Add additive proof metadata/event context for `security_visibility_status` and visibility reference basis where agent context exists.
+- Update security-team and evidence docs so operators know where the new counts come from and how to interpret them.
+Repo paths:
+- `core/report/campaign.go`
+- `core/report/build.go`
+- `core/proofmap/proofmap.go`
+- `core/evidence/evidence.go`
+- `core/export/appendix/export.go`
+- `core/report/campaign_test.go`
+- `core/report/report_test.go`
+- `core/proofmap/proofmap_test.go`
+- `core/evidence/evidence_test.go`
+- `internal/e2e/campaign/campaign_e2e_test.go`
+- `docs/commands/campaign.md`
+- `docs/commands/evidence.md`
+- `docs/examples/security-team.md`
+Run commands:
+- `go test ./core/report ./core/proofmap ./core/evidence ./core/export/appendix -count=1`
+- `go test ./internal/e2e/campaign -count=1`
+- `wrkr campaign aggregate --input-glob './.tmp/campaign/*.json' --json`
+- `make prepush-full`
+Test requirements:
+- campaign/report/proof/evidence additive schema and golden tests
+- compatibility tests for existing approval and production-write metrics
+- proof relationship and metadata coverage tests
+- evidence bundle summary tests
+- campaign e2e tests for visibility metrics
+- docs consistency checks for updated campaign/evidence/security-team docs
+Matrix wiring:
+- Fast lane: targeted report, proofmap, evidence, export, and campaign tests
+- Core CI lane: `make prepush`
+- Acceptance lane: `go test ./internal/e2e/campaign -count=1` plus campaign JSON aggregation runs
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make prepush-full`
+Acceptance criteria:
+- Campaign/report/evidence outputs include explicit visibility counts and declared reference basis.
+- Proof records carry additive security-visibility context when agent context is available.
+- Evidence summaries can support the phrase "X unknown-to-security write-capable AI paths" without relying on `approval_classification=unknown`.
+- Existing approval and production-write metrics remain stable and documented.
+Contract/API impact:
+- Additive visibility metrics on report/campaign/evidence/proof surfaces.
+- Additive appendix export columns/fields for visibility status and instance identity as needed.
+Versioning/migration impact:
+- Additive only.
+- Existing campaign/report consumers continue to work without visibility-field awareness.
+Architecture constraints:
+- Report/evidence/proof layers consume visibility data from inventory/regress outputs; they do not re-derive it independently.
+- Keep portable evidence and proof-chain integrity intact.
+- Preserve deterministic ordering and byte stability for generated artifacts.
+ADR required: yes
+TDD first failing test(s):
+- `core/report/campaign_test.go` visibility-metric case
+- `core/proofmap/proofmap_test.go` visibility-context case
+- `core/evidence/evidence_test.go` evidence summary visibility case
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Campaign aggregation over mixed input artifacts must never synthesize unknown-to-security counts when reference-basis metadata is missing or incompatible.
+
+## Epic W4-E4: Production-Target-Backed `production_write` Claim Governance
+
+Objective: ensure Wrkr only makes `production_write` claims when production targets are explicitly configured, while keeping `write_capable` as the always-available capability signal.
+
+### Story W4-S01: Guard `production_write` claims in scan/report/public/campaign workflows
+Priority: P1
+Tasks:
+- Centralize claim-governance logic that inspects `PrivilegeBudget.ProductionWrite.Status` before report/public/campaign wording is rendered.
+- Keep the machine-readable `production_write` budget object intact, but ensure numeric or headline `production_write` claims appear only when targets are configured and valid.
+- Downgrade default wording to `write_capable` when targets are not configured or invalid, and keep explicit status/warnings visible.
+- Add report/public/campaign contract tests for configured, not configured, and invalid production-target states.
+Repo paths:
+- `core/cli/scan.go`
+- `core/report/build.go`
+- `core/report/campaign.go`
+- `core/cli/root_test.go`
+- `core/cli/campaign_test.go`
+- `core/cli/report_contract_test.go`
+- `core/report/report_test.go`
+- `core/report/campaign_test.go`
+- `docs/commands/report.md`
+- `docs/commands/campaign.md`
+Run commands:
+- `go test ./core/cli ./core/report -count=1`
+- `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --report-md --report-template public --json`
+- `wrkr campaign aggregate --input-glob './.tmp/campaign/*.json' --json`
+- `make prepush-full`
+Test requirements:
+- CLI/report/public template behavior tests
+- `--json` stability tests
+- campaign markdown/JSON guard tests
+- deterministic configured/not_configured/invalid status fixture coverage
+- machine-readable warning/claim downgrade tests
+Matrix wiring:
+- Fast lane: targeted CLI and report tests
+- Core CI lane: `make prepush`
+- Acceptance lane: scan/report/campaign JSON command runs
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make prepush-full`
+Acceptance criteria:
+- Public/report output never implies `production_write` without configured production targets.
+- Default output wording is `write_capable` unless `--production-targets` is supplied and valid.
+- Machine-readable `production_write` status remains available for automation even when public wording is downgraded.
+- Invalid target configuration never upgrades claim wording.
+Contract/API impact:
+- No exit-code change.
+- Possible additive report summary metadata documenting claim-governance state.
+Versioning/migration impact:
+- No breaking contract changes; wording and additive metadata only.
+Architecture constraints:
+- Keep claim-governance logic in report/CLI policy helpers, not scattered across templates.
+- Preserve deterministic wording selection for identical inputs.
+- Do not infer production targets from repo content; the path must remain explicit and opt-in.
+ADR required: no
+TDD first failing test(s):
+- `core/report/report_test.go` public report without production targets
+- `core/cli/root_test.go` scan report payload downgrade case
+- `core/cli/campaign_test.go` campaign summary guard case
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Mixed configured and unconfigured scan artifacts must never surface an aggregate `production_write` claim unless every required input is explicitly configured.
+
+### Story W4-S02: Document the production-target workflow and public claim rules
+Priority: P1
+Tasks:
+- Update README and command/example docs so `write_capable` is the default message and `production_write` is clearly presented as an explicit opt-in production-target workflow.
+- Refresh `docs/examples/production-targets.v1.yaml` so the example remains the canonical onboarding artifact for security teams.
+- Update security-team and compliance docs to explain when `production_write` is safe to state and when only `write_capable` is safe.
+- Ensure docs consistency checks enforce the same wording across README, command docs, and examples.
 Repo paths:
 - `README.md`
-- `docs/examples/quickstart.md`
-- `docs/examples/personal-hygiene.md`
-- `docs/examples/security-team.md`
 - `docs/commands/scan.md`
-- `docs/commands/mcp-list.md`
-- `docs/commands/inventory.md`
+- `docs/commands/report.md`
+- `docs/commands/campaign.md`
 - `docs/commands/evidence.md`
-- `docs/commands/regress.md`
-- `docs/commands/index.md`
-- `docs/positioning.md`
-- `docs/state_lifecycle.md`
-- `testinfra/hygiene/*`
+- `docs/examples/production-targets.v1.yaml`
+- `docs/examples/security-team.md`
+- `docs/compliance/eu_ai_act_audit_readiness.md`
+- `docs/trust/detection-coverage-matrix.md`
+- `testinfra/hygiene/*` if README/docs contract assertions need updates
 Run commands:
 - `make test-docs-consistency`
 - `make test-docs-storyline`
-- `scripts/run_docs_smoke.sh`
-- `go test ./testinfra/hygiene -count=1`
-- `make prepush`
+- `go test ./testinfra/... -count=1`
 Test requirements:
-- README first-screen checks, including exact-copy enforcement or locked-fragment enforcement
 - docs consistency checks
-- storyline/smoke checks for developer and security-team flows
-- integration-before-internals guidance checks for touched flows
-- version/install discoverability checks ensuring deeper pin/repro guidance remains reachable
+- storyline/smoke checks for updated workflow copy
+- README first-screen contract checks for claim wording
+- docs source-of-truth mapping checks for touched command/example docs
+- maintainer/support expectation checks if public wording materially changes user guidance
 Matrix wiring:
-- Fast lane
-- Core CI lane
-- Acceptance lane
+- Fast lane: targeted `go test ./testinfra/... -count=1`
+- Core CI lane: `make test-docs-consistency`
+- Acceptance lane: `make test-docs-storyline`
+- Cross-platform lane: none beyond existing required checks
+- Risk lane: not required unless runtime behavior changes in the same PR
 Acceptance criteria:
-- `README.md` matches Appendix A exactly.
-- All README links resolve to existing docs.
-- The developer flow (`scan --my-setup` -> `mcp-list` -> `inventory --diff`) and security-team flow (`scan --github-org` -> `evidence`) are consistent across README and `docs/examples`.
-- The README's `regress run` example is truthful because W1-S01 shipped first.
-- The README no longer overstates browser bootstrap or the old section-model promises.
-Contract/API impact: user-facing docs contract only, except for reliance on the additive `regress run` baseline compatibility from W1-S01.
-Versioning/migration impact: none beyond docs-contract migration already captured in W2-S01.
+- README and command docs use `write_capable` as the default public message.
+- Production-target workflow is explicit and points to the canonical example file.
+- Security-team/compliance docs explain that `production_write` requires configured targets.
+- Docs consistency checks prevent future drift back to unsafe wording.
+Contract/API impact:
+- Docs-only contract alignment for public wording and workflows.
+Versioning/migration impact:
+- None.
 Architecture constraints:
-- Preserve integration-before-internals ordering in docs.
-- Keep runtime truth anchored in Go CLI behavior and command docs, not marketing copy alone.
-- Do not widen product scope beyond current deterministic/file-based boundaries.
+- Keep docs aligned to implemented runtime behavior and canonical command contracts.
+- Do not introduce dashboard-first or SaaS-dependent workflow language.
 ADR required: no
 TDD first failing test(s):
-- README contract/hygiene check comparing `README.md` against the locked expected body or required verbatim sections.
-- Docs storyline smoke failing until linked examples and command docs align.
+- existing docs consistency/storyline checks updated to fail on stale `production_write` default wording
 Cost/perf impact: low
-Chaos/failure hypothesis: if the locked README is applied without updating linked docs, docs consistency and storyline smoke should fail before merge.
-Dependencies: W1-S01, W2-S01
-Risks:
-- Exact-copy enforcement can create noisy diffs if not paired with a clear contract update path.
-- Linked docs may accidentally preserve older terminology and cause partial drift.
-
-### Story W2-S03: Align docs-site landing and LLM projection surfaces with the new README narrative
-Priority: P1
-Tasks:
-- Update `docs-site/src/app/page.tsx` hero, quickstart, FAQ, and supporting callouts to match the locked README's positioning and command flow.
-- Update `docs-site/public/llms.txt` and the relevant `docs-site/public/llm/*.md` projections so assistant/crawler context reflects the new README, supported flows, and baseline semantics.
-- Keep `/scan` available but subordinate to CLI-first onboarding; remove dashboard-first emphasis from home and LLM projection copy.
-- Ensure docs-site navigation and links continue to surface canonical docs paths after the README rewrite.
-Repo paths:
-- `docs-site/src/app/page.tsx`
-- `docs-site/public/llms.txt`
-- `docs-site/public/llm/product.md`
-- `docs-site/public/llm/quickstart.md`
-- `docs-site/public/llm/contracts.md`
-- `docs-site/public/llm/faq.md`
-- `docs-site/src/lib/navigation.ts`
-- `docs-site/src/lib/scan-bootstrap.ts`
-- `docs-site/src/lib/scan-bootstrap.test.ts`
-Run commands:
-- `make test-docs-consistency`
-- `make docs-site-install`
-- `make docs-site-lint`
-- `make docs-site-build`
-- `make docs-site-check`
-- `make test-docs-storyline`
-Test requirements:
-- docs-site smoke checks
-- LLM projection consistency checks
-- README first-screen to docs-site projection checks
-- docs source-of-truth mapping checks when repo markdown and docs-site are both changed
-Matrix wiring:
-- Core CI lane
-- Acceptance lane
-Acceptance criteria:
-- Docs-site landing copy no longer conflicts with the new README framing.
-- LLM projection files reflect the new developer/security-team flows and supported command examples.
-- `/scan` remains available but is not positioned as the primary first-value path.
-- Docs-site build/smoke passes with the updated content.
-Contract/API impact: public docs-site and LLM projection content only; no CLI/runtime behavior change.
-Versioning/migration impact: none.
-Architecture constraints:
-- Docs-site remains a projection and onboarding surface only; no duplication of Go scan/risk/proof logic.
-- Preserve canonical docs routing and `/docs/start-here` install references where they remain authoritative.
-ADR required: no
-TDD first failing test(s):
-- Docs-site smoke or projection tests failing on old hero/quickstart/LLM content.
-Cost/perf impact: low
-Chaos/failure hypothesis: if README and docs-site diverge, docs-site projection and smoke checks must fail before merge.
-Dependencies: W2-S01, W2-S02
-Risks:
-- LLM projection files can drift separately from repo markdown if not updated in the same PR.
-- Overcorrecting away from `/scan` could accidentally hide an existing supported surface rather than simply de-emphasizing it.
-
-### Story W2-S04: Preserve reproducible install and OSS trust discoverability outside the locked README body
-Priority: P1
-Tasks:
-- Move or reinforce pinned/repro install guidance in `docs/install/minimal-dependencies.md` and `docs/trust/release-integrity.md` so it remains canonical even though the locked README uses `go install ...@latest`.
-- Update `docs/README.md`, `docs/map.md`, and/or docs-site navigation to make `CONTRIBUTING`, `SECURITY`, `CODE_OF_CONDUCT`, `CHANGELOG`, and support expectations easily discoverable without relying on `README.md`.
-- Update docs consistency/hygiene checks so they enforce the new locations for install reproducibility and OSS trust links.
-- Validate that published install-path parity/UAT guidance still points at the reproducible pinned path.
-Repo paths:
-- `docs/install/minimal-dependencies.md`
-- `docs/trust/release-integrity.md`
-- `docs/README.md`
-- `docs/map.md`
-- `CONTRIBUTING.md`
-- `CHANGELOG.md`
-- `SECURITY.md`
-- `CODE_OF_CONDUCT.md`
-- `scripts/check_docs_consistency.sh`
-- `testinfra/hygiene/wave2_docs_contracts_test.go`
-Run commands:
-- `make test-docs-consistency`
-- `make test-docs-storyline`
-- `scripts/test_uat_local.sh --skip-global-gates`
-- `go test ./testinfra/hygiene -run 'TestInstallDocsSmokeGoOnlyPath|TestCommunityHealthFilesAndLinks|TestDocsSourceOfTruthSectionsPresent' -count=1`
-Test requirements:
-- version/install discoverability checks
-- README first-screen vs install-doc split checks
-- OSS readiness checks for community health file discoverability
-- docs source-of-truth mapping checks
-- install-path UAT smoke where published parity is affected
-Matrix wiring:
-- Core CI lane
-- Acceptance lane
-Acceptance criteria:
-- Pinned/reproducible install guidance remains canonical and validated even though the main README uses `@latest`.
-- Community health and support links remain discoverable from canonical docs/docs-site surfaces.
-- Docs consistency tests enforce the new trust/install locations intentionally.
-- Release-integrity docs and UAT commands remain accurate.
-Contract/API impact: docs/distribution contract only.
-Versioning/migration impact: none.
-Architecture constraints:
-- Keep install/release-integrity guidance as audited documentation, not ad hoc README commentary.
-- Preserve docs source-of-truth separation between landing copy and reproducible install/release contract docs.
-ADR required: no
-TDD first failing test(s):
-- Hygiene test expecting reproducible install guidance in install docs rather than only README.
-- Hygiene test expecting OSS trust discoverability through the revised canonical docs surface.
-Cost/perf impact: low
-Chaos/failure hypothesis: if the README drops trust/install details without replacement, docs consistency and UAT smoke must fail before merge.
-Dependencies: W2-S01, W2-S02
-Risks:
-- Moving trust/install discoverability out of README could reduce discoverability if docs navigation is not updated at the same time.
-- UAT/docs parity could drift if pinned install guidance and release-integrity docs are updated separately.
+Chaos/failure hypothesis:
+- If docs drift from runtime claim-governance behavior, docs consistency/storyline checks must fail before merge rather than allow unsafe public guidance.
 
 ## Minimum-Now Sequence
 
-1. Implement W1-S01 so the locked README's `regress run` example is true before landing docs.
-2. Implement W2-S01 to redefine and enforce the Wrkr README contract intentionally.
-3. Implement W2-S02 to apply the exact README and align canonical repo docs/examples/command references.
-4. Implement W2-S04 to restore pinned-install and OSS trust discoverability around the new README.
-5. Implement W2-S03 after canonical repo markdown is final so docs-site and LLM projections mirror the shipped README.
+Wave 1:
 
-Parallelization after dependency checkpoints:
+- W1-S01 must land first.
+- Reason: source-level agent discovery is the coverage foundation for every later claim about unknown write-capable paths.
 
-- W2-S04 can run in parallel with late-stage W2-S03 once W2-S02 is stable.
-- No Wave 2 story should start before W1-S01 and W2-S01 because both define the runtime and contract truth the README depends on.
+Wave 2:
+
+- W2-S01 then W2-S02.
+- Reason: privilege, proof, regress, and attack-path/report surfaces must become instance-accurate before visibility metrics can be trusted.
+
+Wave 3:
+
+- W3-S01 then W3-S02.
+- Reason: the explicit `unknown_to_security` model depends on instance-accurate identity and must exist in inventory/regress before report/proof/evidence consumers can surface it.
+
+Wave 4:
+
+- W4-S01 then W4-S02.
+- Reason: public/report claim governance and docs alignment should harden the now-correct runtime behavior rather than mask incomplete implementation earlier in the sequence.
+
+Stop conditions between waves:
+
+- Do not start Wave 2 until source-only scenarios show stable agent instance output.
+- Do not start Wave 3 until same-file multi-agent privilege rows are distinct end to end.
+- Do not start Wave 4 until `unknown_to_security` counts are deterministic and surfaced machine-readably.
 
 ## Explicit Non-Goals
 
-- No implementation work in this planning artifact.
-- No Axym or Gait feature work beyond documentation of current relationship boundaries.
-- No dashboard-first, browser-first, or control-plane expansion.
-- No detection/risk/proof/compliance feature additions beyond what is required to make the locked README examples truthful.
-- No exit-code taxonomy changes.
-- No toolchain, dependency, or release-version pin changes.
-- No removal of `/scan`, `regress init`, or current docs-site capabilities; only positioning and compatibility alignment.
+- No live runtime traffic inspection, live MCP probing, or runtime agent execution.
+- No dashboard, hosted service, or default network dependency work.
+- No package vulnerability scanning or MCP-server vulnerability assessment features.
+- No change to Wrkr lifecycle-state values or exit-code meanings.
+- No removal of `approval_classification`, `approval_summary`, `tool_id`, or declaration-file support in v1.
+- No inference of production targets from repository content; production targets remain an explicit user-supplied policy input.
+- No broad docs-site redesign or marketing rewrite beyond what is necessary to keep public/runtime claims truthful in this repo.
 
 ## Definition of Done
 
-- Every story above is implemented in dependency order with required lanes green.
-- `README.md` equals Appendix A verbatim.
-- `wrkr regress run` supports both canonical regress baselines and raw scan-state baselines without breaking determinism, `--json`, or exit codes.
-- Docs contract, canonical repo docs, docs-site landing, and LLM projections all tell the same story.
-- Pinned install guidance and OSS trust/support discoverability remain canonical and validated.
-- `docs/map.md` and docs consistency/hygiene checks clearly define where future landing/install/trust edits belong.
-- No unresolved drift remains between repo markdown and public docs-site projection surfaces.
-- The working tree contains only intentional plan/implementation changes when the follow-up implementation starts.
-
-## Appendix A: Locked README Markdown
-
-````markdown
-# Wrkr
-
-Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
-
-Wrkr gives developers a fast, read-only inventory of their local AI setup and gives security teams an evidence-ready view of org-wide AI tooling posture. It discovers supported AI dev tools, MCP servers, and agent frameworks, maps what they can touch, shows what changed, and emits proof artifacts for audits and CI.
-
-Developer-first. Security-ready. Deterministic by default.
-
-Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command reference: [`docs/commands/`](docs/commands/) | Examples: [`docs/examples/`](docs/examples/)
-
-## Install
-
-### Homebrew
-
-```bash
-brew install Clyra-AI/tap/wrkr
-```
-
-### Go install
-
-
-```bash
-go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest
-
-```
-
-## Start Here
-
-### Developers
-
-Start with your own machine.
-
-```bash
-wrkr scan --my-setup --json
-wrkr mcp-list --state ./.wrkr/last-scan.json --json
-
-cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
-wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
-```
-
-In one flow, Wrkr answers:
-
-- What AI tools, agents, and MCP servers are configured in my local setup?
-- Which API-key environments are present without exposing secret values?
-- Which MCP servers are requesting access, over what transport, and with what trust status?
-- What changed since my last known-good snapshot?
-
-Abbreviated `scan --my-setup` example:
-
-```json
-{
-  "status": "ok",
-  "target": {
-    "mode": "my_setup"
-  },
-  "top_findings": [
-    {
-      "risk_score": 9.3,
-      "finding": {
-        "severity": "high",
-        "finding_type": "mcp_server",
-        "tool_type": "mcp",
-        "location": ".claude/settings.json"
-      }
-    },
-    {
-      "risk_score": 7.4,
-      "finding": {
-        "severity": "high",
-        "finding_type": "secret_presence",
-        "tool_type": "secret",
-        "location": "process:env"
-      }
-    },
-    {
-      "risk_score": 6.8,
-      "finding": {
-        "severity": "medium",
-        "finding_type": "tool_config",
-        "tool_type": "agent_project",
-        "location": "Projects/payments-bot/AGENTS.md"
-      }
-    }
-  ],
-  "warnings": [
-    "MCP visibility may be incomplete because these declaration files failed to parse: .codex/config.yaml"
-  ]
-}
-```
-
-Abbreviated `mcp-list` example:
-
-```json
-{
-  "status": "ok",
-  "rows": [
-    {
-      "server_name": "postgres-prod",
-      "transport": "stdio",
-      "requested_permissions": ["db.write"],
-      "privilege_surface": ["write"],
-      "gateway_coverage": "unprotected",
-      "trust_status": "unreviewed",
-      "risk_note": "Gateway posture is unprotected; review least-privilege controls."
-    },
-    {
-      "server_name": "slack",
-      "transport": "http",
-      "requested_permissions": ["network.access"],
-      "privilege_surface": ["read"],
-      "gateway_coverage": "protected",
-      "trust_status": "trusted",
-      "risk_note": "Static MCP declaration discovered; verify package pinning and trust."
-    }
-  ]
-}
-```
-
-Wrkr is not a vulnerability scanner. It inventories what is configured and what it can touch. Use dedicated tools such as Snyk for package and server vulnerability assessment.
-
-### Security Teams
-
-Then widen from personal hygiene to org posture.
-
-```bash
-wrkr scan --github-org acme --github-api https://api.github.com --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
-```
-
-Hosted scans usually need GitHub authentication for private repos and to avoid public API rate limits.
-
-Abbreviated org-scan example:
-
-```json
-{
-  "status": "ok",
-  "target": {
-    "mode": "org",
-    "value": "acme"
-  },
-  "top_findings": [
-    {
-      "risk_score": 9.7,
-      "finding": {
-        "rule_id": "WRKR-A004",
-        "severity": "critical",
-        "tool_type": "agent",
-        "location": "services/ops/agent.py"
-      }
-    }
-  ],
-  "inventory": {
-    "tools": 47,
-    "agents": 12
-  },
-  "agent_privilege_map": [
-    {
-      "agent_id": "wrkr:langchain:services/ops/agent.py:planner:42-88:acme",
-      "framework": "langchain",
-      "bound_tools": ["postgres-prod", "slack"],
-      "bound_data_sources": ["prod-db"],
-      "bound_auth_surfaces": ["OPENAI_API_KEY"],
-      "deployment_status": "deployed",
-      "production_write": true
-    }
-  ],
-  "compliance_summary": {
-    "frameworks": [
-      {
-        "framework": "soc2",
-        "mapped_finding_count": 12
-      },
-      {
-        "framework": "eu-ai-act",
-        "mapped_finding_count": 8
-      },
-      {
-        "framework": "pci-dss",
-        "mapped_finding_count": 5
-      }
-    ]
-  }
-}
-```
-
-Your developers are already using AI coding tools, agents, and MCP servers. That is not the problem. The problem is being unable to inventory them, map what they can touch, and prove they are governed.
-
-Wrkr scans your GitHub org, shows supported AI tools and agents with privilege mapping and policy gaps, and emits evidence bundles your team can hand to auditors. Your developers keep moving. You get the posture and the proof.
-
-## Why Wrkr
-
-AI tool usage is already happening across developer machines, repositories, MCP configs, and CI pipelines.
-
-Developers need fast answers:
-
-- What is configured on my machine?
-- What can it touch?
-- What changed since last scan?
-
-Security teams need organization-wide answers:
-
-- Which AI tools and agents exist across repos?
-- Which ones have production write, credential access, or broad execution privileges?
-- Which findings map to policy and compliance frameworks?
-- Can we hand an auditor a deterministic evidence bundle instead of a spreadsheet?
-
-Wrkr answers both without requiring runtime interception or moving scan data out of your environment.
-
-## What You Get
-
-- Local AI setup inventory for supported user-home config surfaces.
-- MCP server catalog with transport, requested permissions, trust overlay, and posture notes.
-- Org-wide inventory of AI tools, agent frameworks, CI execution patterns, and MCP declarations.
-- Deterministic, instance-scoped agent identity and privilege mapping.
-- Native structured parsing for supported agent frameworks including LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, MCP-client patterns, and conservative custom-agent scaffolds.
-- Relationship resolution from agents to tools, data sources, auth surfaces, and deployment artifacts.
-- Ranked findings, attack-path context, and posture scoring.
-- `inventory --diff` for drift review against a known-good snapshot.
-- Policy findings with stable rule IDs and remediation text.
-- Compliance mappings for EU AI Act, SOC 2, PCI-DSS, and related frameworks.
-- Signed evidence bundles for audit and CI workflows.
-- Native JSON, SARIF, and proof-friendly output contracts.
-
-## What Wrkr Detects
-
-Wrkr is deterministic and file-based by default.
-
-It detects supported signals from:
-
-- Local-machine setup rooted at the current user home directory.
-- Repository config and source surfaces.
-- GitHub repo and org acquisition targets.
-- MCP declarations and gateway posture.
-- AI tool configs for Claude, Cursor, Codex, Copilot, skills, and CI agent execution patterns.
-- Agent definitions and bindings from supported framework-native sources.
-- Deployment artifacts linking agents to Docker, Kubernetes, serverless, and CI/CD paths.
-- Prompt-channel and attack-path risk signals from static artifacts.
-
-## What Wrkr Does Not Do
-
-- It does not probe MCP endpoints live by default.
-- It does not replace package or vulnerability scanners.
-- It does not enforce runtime tool behavior or block agents.
-- It does not monitor live runtime traffic.
-- It does not use LLMs in scan, risk, or proof paths.
-
-Wrkr is the inventory and posture layer. Gait is the control layer when runtime enforcement is needed.
-
-## Works With Gait
-
-Wrkr discovers what is configured. Gait enforces what is allowed to execute.
-
-Use Wrkr when you want to answer:
-
-- What tools and agents exist?
-- What can they touch?
-- What changed?
-- Where are the policy and compliance gaps?
-
-Use Gait when you want to answer:
-
-- Should this action be allowed right now?
-- Should this tool be blocked, gated, or require approval?
-
-The two products complement each other. Wrkr gives you the inventory and evidence. Gait gives you runtime control.
-
-## Typical Workflows
-
-### Personal AI setup hygiene
-
-```bash
-wrkr scan --my-setup --json
-wrkr mcp-list --state ./.wrkr/last-scan.json --json
-cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
-wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
-```
-
-### Repo or org posture review
-
-```bash
-wrkr scan --github-org acme --github-api https://api.github.com --json
-wrkr report --top 5 --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json
-```
-
-### CI distribution
-
-```bash
-wrkr scan --path . --sarif --json
-wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
-```
-
-## Command Surface
-
-- `wrkr scan` scans local setup, repos, or GitHub orgs.
-- `wrkr mcp-list` projects MCP posture from saved state.
-- `wrkr inventory --diff` shows deterministic drift from baseline.
-- `wrkr report` renders ranked summaries from saved state.
-- `wrkr evidence` builds signed, compliance-ready evidence bundles.
-- `wrkr verify` verifies proof-chain integrity.
-- `wrkr regress` gates on drift and regressions.
-- `wrkr version` reports CLI version in human or JSON form.
-
-## Output And Contracts
-
-Wrkr treats machine-readable output and exit codes as product contracts.
-
-- `--json` emits stable machine-readable output.
-- `--sarif` emits SARIF `2.1.0` for security tooling and GitHub code scanning workflows.
-- Partial-result mode preserves findings when a detector or source path fails non-fatally.
-- `--timeout` and signal cancellation are enforced end-to-end.
-- Exit codes remain deterministic across success, runtime failure, verification failure, policy/schema violation, approval-required, regress drift, invalid input, dependency missing, and unsafe-operation-blocked paths.
-
-## Security And Privacy
-
-- Read-only by default.
-- No raw secret values are emitted in findings.
-- Local setup scans keep data in your environment.
-- Evidence is file-based, portable, and verifiable.
-- Same input, same output, barring explicit timestamps and version fields.
-
-## Learn More
-
-- Quickstart: [`docs/examples/quickstart.md`](docs/examples/quickstart.md)
-- Personal hygiene workflow: [`docs/examples/personal-hygiene.md`](docs/examples/personal-hygiene.md)
-- Security-team workflow: [`docs/examples/security-team.md`](docs/examples/security-team.md)
-- Scan command: [`docs/commands/scan.md`](docs/commands/scan.md)
-- MCP list: [`docs/commands/mcp-list.md`](docs/commands/mcp-list.md)
-- Inventory drift: [`docs/commands/inventory.md`](docs/commands/inventory.md)
-- Evidence bundles: [`docs/commands/evidence.md`](docs/commands/evidence.md)
-- Positioning: [`docs/positioning.md`](docs/positioning.md)
-````
+- Every recommendation above is mapped to implemented stories in dependency order.
+- All touched public contracts are additive, documented, and covered by tests.
+- `make prepush-full` passes for all runtime/proof/report/visibility stories.
+- `make test-hardening`, `make test-chaos`, and `make test-perf` pass where required by the story matrix.
+- `make test-agent-benchmarks` passes for source-detection changes.
+- `make test-docs-consistency` passes for all docs/public wording changes.
+- Scenario contracts, e2e flows, and contract tests are updated for every new public behavior.
+- README, command docs, examples, and trust docs are aligned with the implemented runtime behavior.
+- Required PR checks remain green: `fast-lane`, `scan-contract`, `wave-sequence`, `windows-smoke`.
+- Follow-up implementation must occur on a clean branch/worktree scope with this plan file as the only planning artifact change before `adhoc-implement`.

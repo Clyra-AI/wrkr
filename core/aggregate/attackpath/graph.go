@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 )
 
@@ -198,23 +199,31 @@ func nodeKind(finding model.Finding) string {
 }
 
 func nodeID(kind string, finding model.Finding) string {
-	return strings.Join([]string{
+	parts := []string{
 		kind,
 		strings.TrimSpace(finding.FindingType),
 		strings.TrimSpace(finding.ToolType),
 		strings.TrimSpace(finding.Location),
-	}, "::")
+	}
+	if identityComponent := findingIdentityComponent(finding); identityComponent != "" {
+		parts = append(parts, identityComponent)
+	}
+	return strings.Join(parts, "::")
 }
 
 func canonicalFindingKey(finding model.Finding) string {
-	return strings.Join([]string{
+	parts := []string{
 		strings.TrimSpace(finding.FindingType),
 		strings.TrimSpace(finding.RuleID),
 		strings.TrimSpace(finding.ToolType),
 		strings.TrimSpace(finding.Location),
 		strings.TrimSpace(finding.Repo),
 		fallbackOrg(finding.Org),
-	}, "|")
+	}
+	if identityComponent := findingIdentityComponent(finding); identityComponent != "" {
+		parts = append(parts[:4], append([]string{identityComponent}, parts[4:]...)...)
+	}
+	return strings.Join(parts, "|")
 }
 
 func newEdge(org string, repo string, from Node, to Node, rationale string) Edge {
@@ -242,8 +251,35 @@ func sortNodes(nodes []Node) {
 		if nodes[i].ToolType != nodes[j].ToolType {
 			return nodes[i].ToolType < nodes[j].ToolType
 		}
-		return nodes[i].Location < nodes[j].Location
+		if nodes[i].Location != nodes[j].Location {
+			return nodes[i].Location < nodes[j].Location
+		}
+		return nodes[i].NodeID < nodes[j].NodeID
 	})
+}
+
+func findingIdentityComponent(finding model.Finding) string {
+	if strings.TrimSpace(finding.FindingType) != "agent_framework" {
+		return ""
+	}
+	symbol := ""
+	for _, evidence := range finding.Evidence {
+		key := strings.ToLower(strings.TrimSpace(evidence.Key))
+		if key == "symbol" || key == "name" || key == "agent_name" {
+			symbol = strings.TrimSpace(evidence.Value)
+			break
+		}
+	}
+	startLine := 0
+	endLine := 0
+	if finding.LocationRange != nil {
+		startLine = finding.LocationRange.StartLine
+		endLine = finding.LocationRange.EndLine
+	}
+	if symbol == "" && startLine == 0 && endLine == 0 {
+		return ""
+	}
+	return identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
 }
 
 func agentRelationshipNodesAndEdges(org string, repo string, agentNode Node, finding model.Finding) ([]Node, []Edge) {

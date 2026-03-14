@@ -55,20 +55,24 @@ type CampaignDetector struct {
 }
 
 type CampaignMetrics struct {
-	ReposScanned          int      `json:"repos_scanned"`
-	ToolsDetectedTotal    int      `json:"tools_detected_total"`
-	WriteCapableTools     int      `json:"write_capable_tools"`
-	CredentialAccessTools int      `json:"credential_access_tools"`
-	ExecCapableTools      int      `json:"exec_capable_tools"`
-	ApprovedTools         int      `json:"approved_tools"`
-	UnapprovedTools       int      `json:"unapproved_tools"`
-	UnknownTools          int      `json:"unknown_tools"`
-	ApprovedPercent       float64  `json:"approved_percent"`
-	UnapprovedPercent     float64  `json:"unapproved_percent"`
-	UnknownPercent        float64  `json:"unknown_percent"`
-	UnapprovedPerApproved *float64 `json:"unapproved_per_approved"`
-	ProductionWriteStatus string   `json:"production_write_status"`
-	ProductionWriteTools  *int     `json:"production_write_tools"`
+	ReposScanned                        int      `json:"repos_scanned"`
+	ToolsDetectedTotal                  int      `json:"tools_detected_total"`
+	WriteCapableTools                   int      `json:"write_capable_tools"`
+	CredentialAccessTools               int      `json:"credential_access_tools"`
+	ExecCapableTools                    int      `json:"exec_capable_tools"`
+	ApprovedTools                       int      `json:"approved_tools"`
+	UnapprovedTools                     int      `json:"unapproved_tools"`
+	UnknownTools                        int      `json:"unknown_tools"`
+	UnknownToSecurityTools              int      `json:"unknown_to_security_tools"`
+	UnknownToSecurityAgents             int      `json:"unknown_to_security_agents"`
+	UnknownToSecurityWriteCapableAgents int      `json:"unknown_to_security_write_capable_agents"`
+	SecurityVisibilityReference         string   `json:"security_visibility_reference"`
+	ApprovedPercent                     float64  `json:"approved_percent"`
+	UnapprovedPercent                   float64  `json:"unapproved_percent"`
+	UnknownPercent                      float64  `json:"unknown_percent"`
+	UnapprovedPerApproved               *float64 `json:"unapproved_per_approved"`
+	ProductionWriteStatus               string   `json:"production_write_status"`
+	ProductionWriteTools                *int     `json:"production_write_tools"`
 }
 
 type CampaignScanResult struct {
@@ -117,6 +121,10 @@ func AggregateCampaignWithOptions(inputs []CampaignScanInput, generatedAt time.T
 	approvedTools := 0
 	unapprovedTools := 0
 	unknownTools := 0
+	unknownToSecurityTools := 0
+	unknownToSecurityAgents := 0
+	unknownToSecurityWriteCapableAgents := 0
+	securityVisibilityReference := "initial_scan"
 	productionStatus := agginventory.ProductionTargetsStatusConfigured
 	productionSum := 0
 	orgStats := map[string]*campaignOrgStats{}
@@ -152,6 +160,12 @@ func AggregateCampaignWithOptions(inputs []CampaignScanInput, generatedAt time.T
 			approvedTools += in.Inventory.ApprovalSummary.ApprovedTools
 			unapprovedTools += in.Inventory.ApprovalSummary.UnapprovedTools
 			unknownTools += in.Inventory.ApprovalSummary.UnknownTools
+			unknownToSecurityTools += in.Inventory.SecurityVisibility.UnknownToSecurityTools
+			unknownToSecurityAgents += in.Inventory.SecurityVisibility.UnknownToSecurityAgents
+			unknownToSecurityWriteCapableAgents += in.Inventory.SecurityVisibility.UnknownToSecurityWriteCapableAgents
+			if ref := strings.TrimSpace(in.Inventory.SecurityVisibility.ReferenceBasis); ref != "" && securityVisibilityReference == "initial_scan" {
+				securityVisibilityReference = ref
+			}
 		}
 		accumulateOrgStats(orgStats, in, toolCount)
 
@@ -206,20 +220,24 @@ func AggregateCampaignWithOptions(inputs []CampaignScanInput, generatedAt time.T
 			Detectors:          detectors,
 		},
 		Metrics: CampaignMetrics{
-			ReposScanned:          len(repos),
-			ToolsDetectedTotal:    totalTools,
-			WriteCapableTools:     writeCapable,
-			CredentialAccessTools: credentialAccess,
-			ExecCapableTools:      execCapable,
-			ApprovedTools:         approvedTools,
-			UnapprovedTools:       unapprovedTools,
-			UnknownTools:          unknownTools,
-			ApprovedPercent:       approvedPercent,
-			UnapprovedPercent:     unapprovedPercent,
-			UnknownPercent:        unknownPercent,
-			UnapprovedPerApproved: unapprovedPerApproved,
-			ProductionWriteStatus: productionStatus,
-			ProductionWriteTools:  productionWriteTools,
+			ReposScanned:                        len(repos),
+			ToolsDetectedTotal:                  totalTools,
+			WriteCapableTools:                   writeCapable,
+			CredentialAccessTools:               credentialAccess,
+			ExecCapableTools:                    execCapable,
+			ApprovedTools:                       approvedTools,
+			UnapprovedTools:                     unapprovedTools,
+			UnknownTools:                        unknownTools,
+			UnknownToSecurityTools:              unknownToSecurityTools,
+			UnknownToSecurityAgents:             unknownToSecurityAgents,
+			UnknownToSecurityWriteCapableAgents: unknownToSecurityWriteCapableAgents,
+			SecurityVisibilityReference:         securityVisibilityReference,
+			ApprovedPercent:                     approvedPercent,
+			UnapprovedPercent:                   unapprovedPercent,
+			UnknownPercent:                      unknownPercent,
+			UnapprovedPerApproved:               unapprovedPerApproved,
+			ProductionWriteStatus:               productionStatus,
+			ProductionWriteTools:                productionWriteTools,
 		},
 		Segments: segments,
 		Scans:    scans,
@@ -427,7 +445,7 @@ func RenderCampaignPublicMarkdown(artifact CampaignArtifact) string {
 	if artifact.Metrics.ProductionWriteTools != nil {
 		builder.WriteString(fmt.Sprintf("- %d tools matched configured production-write targets.\n", *artifact.Metrics.ProductionWriteTools))
 	} else {
-		builder.WriteString("- Production-write subset is not configured for this campaign.\n")
+		builder.WriteString(fmt.Sprintf("- Production targets are %s, so the safe public claim remains %d write-capable tools.\n", artifact.Metrics.ProductionWriteStatus, artifact.Metrics.WriteCapableTools))
 	}
 
 	builder.WriteString("\n## 2. Methodology\n\n")

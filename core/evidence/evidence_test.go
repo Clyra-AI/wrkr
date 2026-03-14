@@ -52,7 +52,7 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	if err := state.Save(statePath, snapshot); err != nil {
 		t.Fatalf("save state: %v", err)
 	}
-	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, nil, report, profile, posture, nil); err != nil {
 		t.Fatalf("emit scan records: %v", err)
 	}
 
@@ -147,7 +147,7 @@ func TestBuildEvidenceBundleIncludesPersonalInventoryAndMCPCatalogWhenPresent(t 
 	if err := state.Save(statePath, snapshot); err != nil {
 		t.Fatalf("save state: %v", err)
 	}
-	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC), findings, nil, report, profile, posture, nil); err != nil {
 		t.Fatalf("emit scan records: %v", err)
 	}
 
@@ -193,7 +193,7 @@ func TestVerifyChainPersonalSetupBundleRemainsCompatible(t *testing.T) {
 	if err := state.Save(statePath, snapshot); err != nil {
 		t.Fatalf("save state: %v", err)
 	}
-	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC), findings, nil, report, profile, posture, nil); err != nil {
 		t.Fatalf("emit scan records: %v", err)
 	}
 	if _, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: filepath.Join(tmp, "wrkr-evidence"), GeneratedAt: time.Date(2026, 3, 9, 13, 0, 0, 0, time.UTC)}); err != nil {
@@ -247,7 +247,7 @@ func TestEvidenceBundle_VerifiesWithAgentContextFields(t *testing.T) {
 	if err := state.Save(statePath, snapshot); err != nil {
 		t.Fatalf("save state: %v", err)
 	}
-	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, nil, report, profile, posture, nil); err != nil {
 		t.Fatalf("emit scan records: %v", err)
 	}
 
@@ -524,7 +524,7 @@ func TestBuildEvidenceFailsWhenStateSnapshotMissingRequiredSections(t *testing.T
 	report := risk.Score(findings, 5, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC))
 	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
 	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
-	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, nil, report, profile, posture, nil); err != nil {
 		t.Fatalf("emit scan records: %v", err)
 	}
 
@@ -570,7 +570,7 @@ func TestBuildEvidenceRejectsNonManagedNonEmptyOutputDir(t *testing.T) {
 	if err := state.Save(statePath, snapshot); err != nil {
 		t.Fatalf("save state: %v", err)
 	}
-	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, nil, report, profile, posture, nil); err != nil {
 		t.Fatalf("emit scan records: %v", err)
 	}
 
@@ -623,7 +623,7 @@ func TestBuildEvidenceClearsManagedOutputDirBeforeManifestHashing(t *testing.T) 
 	if err := state.Save(statePath, snapshot); err != nil {
 		t.Fatalf("save state: %v", err)
 	}
-	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, nil, report, profile, posture, nil); err != nil {
 		t.Fatalf("emit scan records: %v", err)
 	}
 
@@ -835,7 +835,7 @@ func createEvidenceStateWithProof(t *testing.T, tmp string) string {
 	if err := state.Save(statePath, snapshot); err != nil {
 		t.Fatalf("save state: %v", err)
 	}
-	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, report, profile, posture, nil); err != nil {
+	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, nil, report, profile, posture, nil); err != nil {
 		t.Fatalf("emit scan records: %v", err)
 	}
 	return statePath

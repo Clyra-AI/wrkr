@@ -2,6 +2,7 @@ package attackpath
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -120,6 +121,52 @@ func TestAttackPathNodeEdgeIDs_AreDeterministic(t *testing.T) {
 		if !reflect.DeepEqual(first, next) {
 			t.Fatalf("non-deterministic agent graph output at run %d", i+1)
 		}
+	}
+}
+
+func TestAttackGraph_SeparatesSameFileAgentsByInstanceIdentity(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{
+			FindingType:   "agent_framework",
+			ToolType:      "crewai",
+			Location:      "agents/crew.py",
+			LocationRange: &model.LocationRange{StartLine: 4, EndLine: 9},
+			Repo:          "repo",
+			Org:           "acme",
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "research_agent"},
+				{Key: "bound_tools", Value: "search.read"},
+			},
+		},
+		{
+			FindingType:   "agent_framework",
+			ToolType:      "crewai",
+			Location:      "agents/crew.py",
+			LocationRange: &model.LocationRange{StartLine: 11, EndLine: 16},
+			Repo:          "repo",
+			Org:           "acme",
+			Evidence: []model.Evidence{
+				{Key: "symbol", Value: "publisher_agent"},
+				{Key: "bound_tools", Value: "deploy.write"},
+			},
+		},
+	}
+
+	graphs := Build(findings)
+	if len(graphs) != 1 {
+		t.Fatalf("expected one graph, got %d", len(graphs))
+	}
+	graph := graphs[0]
+	entryCount := 0
+	for _, node := range graph.Nodes {
+		if strings.HasPrefix(node.NodeID, "entry::agent_framework::crewai::agents/crew.py::") {
+			entryCount++
+		}
+	}
+	if entryCount != 2 {
+		t.Fatalf("expected two distinct same-file agent entry nodes, got %#v", graph.Nodes)
 	}
 }
 

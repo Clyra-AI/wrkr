@@ -21,21 +21,23 @@ type ToolLocation struct {
 }
 
 type Agent struct {
-	AgentID                string               `json:"agent_id" yaml:"agent_id"`
-	AgentInstanceID        string               `json:"agent_instance_id" yaml:"agent_instance_id"`
-	Framework              string               `json:"framework" yaml:"framework"`
-	Org                    string               `json:"org" yaml:"org"`
-	Repo                   string               `json:"repo" yaml:"repo"`
-	Location               string               `json:"location" yaml:"location"`
-	LocationRange          *model.LocationRange `json:"location_range,omitempty" yaml:"location_range,omitempty"`
-	BoundTools             []string             `json:"bound_tools,omitempty" yaml:"bound_tools,omitempty"`
-	BoundDataSources       []string             `json:"bound_data_sources,omitempty" yaml:"bound_data_sources,omitempty"`
-	BoundAuthSurfaces      []string             `json:"bound_auth_surfaces,omitempty" yaml:"bound_auth_surfaces,omitempty"`
-	BindingEvidenceKeys    []string             `json:"binding_evidence_keys,omitempty" yaml:"binding_evidence_keys,omitempty"`
-	MissingBindings        []string             `json:"missing_bindings,omitempty" yaml:"missing_bindings,omitempty"`
-	DeploymentStatus       string               `json:"deployment_status,omitempty" yaml:"deployment_status,omitempty"`
-	DeploymentArtifacts    []string             `json:"deployment_artifacts,omitempty" yaml:"deployment_artifacts,omitempty"`
-	DeploymentEvidenceKeys []string             `json:"deployment_evidence_keys,omitempty" yaml:"deployment_evidence_keys,omitempty"`
+	AgentID                  string               `json:"agent_id" yaml:"agent_id"`
+	AgentInstanceID          string               `json:"agent_instance_id" yaml:"agent_instance_id"`
+	Framework                string               `json:"framework" yaml:"framework"`
+	Symbol                   string               `json:"symbol,omitempty" yaml:"symbol,omitempty"`
+	SecurityVisibilityStatus string               `json:"security_visibility_status,omitempty" yaml:"security_visibility_status,omitempty"`
+	Org                      string               `json:"org" yaml:"org"`
+	Repo                     string               `json:"repo" yaml:"repo"`
+	Location                 string               `json:"location" yaml:"location"`
+	LocationRange            *model.LocationRange `json:"location_range,omitempty" yaml:"location_range,omitempty"`
+	BoundTools               []string             `json:"bound_tools,omitempty" yaml:"bound_tools,omitempty"`
+	BoundDataSources         []string             `json:"bound_data_sources,omitempty" yaml:"bound_data_sources,omitempty"`
+	BoundAuthSurfaces        []string             `json:"bound_auth_surfaces,omitempty" yaml:"bound_auth_surfaces,omitempty"`
+	BindingEvidenceKeys      []string             `json:"binding_evidence_keys,omitempty" yaml:"binding_evidence_keys,omitempty"`
+	MissingBindings          []string             `json:"missing_bindings,omitempty" yaml:"missing_bindings,omitempty"`
+	DeploymentStatus         string               `json:"deployment_status,omitempty" yaml:"deployment_status,omitempty"`
+	DeploymentArtifacts      []string             `json:"deployment_artifacts,omitempty" yaml:"deployment_artifacts,omitempty"`
+	DeploymentEvidenceKeys   []string             `json:"deployment_evidence_keys,omitempty" yaml:"deployment_evidence_keys,omitempty"`
 }
 
 type AgentBindingContext struct {
@@ -53,28 +55,29 @@ type AgentDeploymentContext struct {
 }
 
 type Tool struct {
-	ToolID            string             `json:"tool_id" yaml:"tool_id"`
-	AgentID           string             `json:"agent_id" yaml:"agent_id"`
-	DiscoveryMethod   string             `json:"discovery_method" yaml:"discovery_method"`
-	ToolType          string             `json:"tool_type" yaml:"tool_type"`
-	ToolCategory      string             `json:"tool_category" yaml:"tool_category"`
-	ConfidenceScore   float64            `json:"confidence_score" yaml:"confidence_score"`
-	Org               string             `json:"org" yaml:"org"`
-	Repos             []string           `json:"repos" yaml:"repos"`
-	Locations         []ToolLocation     `json:"locations" yaml:"locations"`
-	Permissions       []string           `json:"permissions,omitempty" yaml:"permissions,omitempty"`
-	PermissionSurface PermissionSurface  `json:"permission_surface" yaml:"permission_surface"`
-	PermissionTier    string             `json:"permission_tier" yaml:"permission_tier"`
-	RiskTier          string             `json:"risk_tier" yaml:"risk_tier"`
-	AdoptionPattern   string             `json:"adoption_pattern" yaml:"adoption_pattern"`
-	RegulatoryMapping []RegulatoryStatus `json:"regulatory_mapping" yaml:"regulatory_mapping"`
-	EndpointClass     string             `json:"endpoint_class" yaml:"endpoint_class"`
-	DataClass         string             `json:"data_class" yaml:"data_class"`
-	AutonomyLevel     string             `json:"autonomy_level" yaml:"autonomy_level"`
-	RiskScore         float64            `json:"risk_score" yaml:"risk_score"`
-	ApprovalStatus    string             `json:"approval_status" yaml:"approval_status"`
-	ApprovalClass     string             `json:"approval_classification" yaml:"approval_classification"`
-	LifecycleState    string             `json:"lifecycle_state" yaml:"lifecycle_state"`
+	ToolID                   string             `json:"tool_id" yaml:"tool_id"`
+	AgentID                  string             `json:"agent_id" yaml:"agent_id"`
+	DiscoveryMethod          string             `json:"discovery_method" yaml:"discovery_method"`
+	ToolType                 string             `json:"tool_type" yaml:"tool_type"`
+	ToolCategory             string             `json:"tool_category" yaml:"tool_category"`
+	ConfidenceScore          float64            `json:"confidence_score" yaml:"confidence_score"`
+	Org                      string             `json:"org" yaml:"org"`
+	Repos                    []string           `json:"repos" yaml:"repos"`
+	Locations                []ToolLocation     `json:"locations" yaml:"locations"`
+	Permissions              []string           `json:"permissions,omitempty" yaml:"permissions,omitempty"`
+	PermissionSurface        PermissionSurface  `json:"permission_surface" yaml:"permission_surface"`
+	PermissionTier           string             `json:"permission_tier" yaml:"permission_tier"`
+	RiskTier                 string             `json:"risk_tier" yaml:"risk_tier"`
+	AdoptionPattern          string             `json:"adoption_pattern" yaml:"adoption_pattern"`
+	RegulatoryMapping        []RegulatoryStatus `json:"regulatory_mapping" yaml:"regulatory_mapping"`
+	EndpointClass            string             `json:"endpoint_class" yaml:"endpoint_class"`
+	DataClass                string             `json:"data_class" yaml:"data_class"`
+	AutonomyLevel            string             `json:"autonomy_level" yaml:"autonomy_level"`
+	RiskScore                float64            `json:"risk_score" yaml:"risk_score"`
+	ApprovalStatus           string             `json:"approval_status" yaml:"approval_status"`
+	ApprovalClass            string             `json:"approval_classification" yaml:"approval_classification"`
+	SecurityVisibilityStatus string             `json:"security_visibility_status,omitempty" yaml:"security_visibility_status,omitempty"`
+	LifecycleState           string             `json:"lifecycle_state" yaml:"lifecycle_state"`
 }
 
 type PermissionSurface struct {
@@ -107,10 +110,36 @@ type Inventory struct {
 	ApprovalSummary       ApprovalSummary                `json:"approval_summary" yaml:"approval_summary"`
 	AdoptionSummary       AdoptionSummary                `json:"adoption_summary" yaml:"adoption_summary"`
 	RegulatorySummary     RegulatorySummary              `json:"regulatory_summary" yaml:"regulatory_summary"`
+	SecurityVisibility    SecurityVisibilitySummary      `json:"security_visibility_summary" yaml:"security_visibility_summary"`
 	RepoExposureSummaries []exposure.RepoExposureSummary `json:"repo_exposure_summaries" yaml:"repo_exposure_summaries"`
 	PrivilegeBudget       PrivilegeBudget                `json:"privilege_budget" yaml:"privilege_budget"`
 	AgentPrivilegeMap     []AgentPrivilegeMapEntry       `json:"agent_privilege_map" yaml:"agent_privilege_map"`
 	Summary               Summary                        `json:"summary" yaml:"summary"`
+}
+
+const (
+	SecurityVisibilityApproved          = "approved"
+	SecurityVisibilityKnownUnapproved   = "known_unapproved"
+	SecurityVisibilityUnknownToSecurity = "unknown_to_security"
+)
+
+type SecurityVisibilitySummary struct {
+	ReferenceBasis                      string `json:"reference_basis" yaml:"reference_basis"`
+	ReferencePath                       string `json:"reference_path,omitempty" yaml:"reference_path,omitempty"`
+	ApprovedTools                       int    `json:"approved_tools" yaml:"approved_tools"`
+	KnownUnapprovedTools                int    `json:"known_unapproved_tools" yaml:"known_unapproved_tools"`
+	UnknownToSecurityTools              int    `json:"unknown_to_security_tools" yaml:"unknown_to_security_tools"`
+	ApprovedAgents                      int    `json:"approved_agents" yaml:"approved_agents"`
+	KnownUnapprovedAgents               int    `json:"known_unapproved_agents" yaml:"known_unapproved_agents"`
+	UnknownToSecurityAgents             int    `json:"unknown_to_security_agents" yaml:"unknown_to_security_agents"`
+	UnknownToSecurityWriteCapableAgents int    `json:"unknown_to_security_write_capable_agents" yaml:"unknown_to_security_write_capable_agents"`
+}
+
+type SecurityVisibilityReference struct {
+	ReferenceBasis        string
+	ReferencePath         string
+	KnownToolIDs          map[string]struct{}
+	KnownAgentInstanceIDs map[string]struct{}
 }
 
 type MethodologySummary struct {
@@ -253,6 +282,7 @@ func Build(input BuildInput) Inventory {
 			AgentID:                identity.AgentID(instanceID, findingOrg),
 			AgentInstanceID:        instanceID,
 			Framework:              framework,
+			Symbol:                 strings.TrimSpace(symbol),
 			Org:                    findingOrg,
 			Repo:                   strings.TrimSpace(finding.Repo),
 			Location:               strings.TrimSpace(finding.Location),
@@ -395,6 +425,7 @@ func Build(input BuildInput) Inventory {
 		ApprovalSummary:       approvalSummary,
 		AdoptionSummary:       adoptionSummary,
 		RegulatorySummary:     regulatorySummary,
+		SecurityVisibility:    SecurityVisibilitySummary{ReferenceBasis: "initial_scan"},
 		RepoExposureSummaries: append([]exposure.RepoExposureSummary(nil), input.RepoExposureSummaries...),
 		PrivilegeBudget: PrivilegeBudget{
 			TotalTools: summary.TotalTools,
@@ -406,6 +437,150 @@ func Build(input BuildInput) Inventory {
 		},
 		AgentPrivilegeMap: []AgentPrivilegeMapEntry{},
 		Summary:           summary,
+	}
+}
+
+func ApplySecurityVisibility(inv *Inventory, ref SecurityVisibilityReference) {
+	if inv == nil {
+		return
+	}
+	if ref.KnownToolIDs == nil {
+		ref.KnownToolIDs = map[string]struct{}{}
+	}
+	if ref.KnownAgentInstanceIDs == nil {
+		ref.KnownAgentInstanceIDs = map[string]struct{}{}
+	}
+	referenceBasis := strings.TrimSpace(ref.ReferenceBasis)
+	if referenceBasis == "" {
+		referenceBasis = "initial_scan"
+	}
+
+	agentStatusByTool := map[string][]string{}
+	for idx := range inv.Agents {
+		status := securityVisibilityForAgent(inv.Agents[idx], inv.Tools, ref)
+		inv.Agents[idx].SecurityVisibilityStatus = status
+		toolID := identity.ToolID(inv.Agents[idx].Framework, inv.Agents[idx].Location)
+		agentStatusByTool[toolID] = append(agentStatusByTool[toolID], status)
+	}
+
+	for idx := range inv.Tools {
+		status := securityVisibilityForTool(inv.Tools[idx], agentStatusByTool[inv.Tools[idx].ToolID], ref)
+		inv.Tools[idx].SecurityVisibilityStatus = status
+	}
+
+	summary := SecurityVisibilitySummary{
+		ReferenceBasis: referenceBasis,
+		ReferencePath:  strings.TrimSpace(ref.ReferencePath),
+	}
+	for _, agent := range inv.Agents {
+		switch strings.TrimSpace(agent.SecurityVisibilityStatus) {
+		case SecurityVisibilityApproved:
+			summary.ApprovedAgents++
+		case SecurityVisibilityKnownUnapproved:
+			summary.KnownUnapprovedAgents++
+		default:
+			summary.UnknownToSecurityAgents++
+		}
+	}
+	for _, tool := range inv.Tools {
+		switch strings.TrimSpace(tool.SecurityVisibilityStatus) {
+		case SecurityVisibilityApproved:
+			summary.ApprovedTools++
+		case SecurityVisibilityKnownUnapproved:
+			summary.KnownUnapprovedTools++
+		default:
+			summary.UnknownToSecurityTools++
+		}
+	}
+	inv.SecurityVisibility = summary
+}
+
+func ApplySecurityVisibilityToPrivilegeMap(inv *Inventory) {
+	if inv == nil {
+		return
+	}
+	statusByInstance := map[string]string{}
+	for _, agent := range inv.Agents {
+		statusByInstance[strings.TrimSpace(agent.AgentInstanceID)] = strings.TrimSpace(agent.SecurityVisibilityStatus)
+	}
+	for idx := range inv.AgentPrivilegeMap {
+		status := strings.TrimSpace(statusByInstance[strings.TrimSpace(inv.AgentPrivilegeMap[idx].AgentInstanceID)])
+		if status == "" {
+			status = strings.TrimSpace(inv.AgentPrivilegeMap[idx].ApprovalClassification)
+		}
+		inv.AgentPrivilegeMap[idx].SecurityVisibilityStatus = normalizeSecurityVisibilityStatus(status)
+	}
+	inv.SecurityVisibility.UnknownToSecurityWriteCapableAgents = 0
+	for _, entry := range inv.AgentPrivilegeMap {
+		if entry.WriteCapable && strings.TrimSpace(entry.SecurityVisibilityStatus) == SecurityVisibilityUnknownToSecurity {
+			inv.SecurityVisibility.UnknownToSecurityWriteCapableAgents++
+		}
+	}
+}
+
+func securityVisibilityForAgent(agent Agent, tools []Tool, ref SecurityVisibilityReference) string {
+	if agentApproved(agent, tools) {
+		return SecurityVisibilityApproved
+	}
+	if _, ok := ref.KnownAgentInstanceIDs[strings.TrimSpace(agent.AgentInstanceID)]; ok {
+		return SecurityVisibilityKnownUnapproved
+	}
+	toolID := identity.ToolID(agent.Framework, agent.Location)
+	if _, ok := ref.KnownToolIDs[toolID]; ok {
+		return SecurityVisibilityKnownUnapproved
+	}
+	return SecurityVisibilityUnknownToSecurity
+}
+
+func securityVisibilityForTool(tool Tool, agentStatuses []string, ref SecurityVisibilityReference) string {
+	if strings.TrimSpace(tool.ApprovalClass) == "approved" {
+		return SecurityVisibilityApproved
+	}
+	if len(agentStatuses) > 0 {
+		return rollupSecurityVisibility(agentStatuses)
+	}
+	if _, ok := ref.KnownToolIDs[strings.TrimSpace(tool.ToolID)]; ok {
+		return SecurityVisibilityKnownUnapproved
+	}
+	return SecurityVisibilityUnknownToSecurity
+}
+
+func agentApproved(agent Agent, tools []Tool) bool {
+	for _, tool := range tools {
+		if strings.TrimSpace(tool.ApprovalClass) != "approved" {
+			continue
+		}
+		if fallbackOrg(tool.Org) != fallbackOrg(agent.Org) {
+			continue
+		}
+		if strings.TrimSpace(tool.ToolID) == identity.ToolID(agent.Framework, agent.Location) {
+			return true
+		}
+	}
+	return false
+}
+
+func rollupSecurityVisibility(statuses []string) string {
+	best := SecurityVisibilityApproved
+	for _, status := range statuses {
+		switch normalizeSecurityVisibilityStatus(status) {
+		case SecurityVisibilityUnknownToSecurity:
+			return SecurityVisibilityUnknownToSecurity
+		case SecurityVisibilityKnownUnapproved:
+			best = SecurityVisibilityKnownUnapproved
+		}
+	}
+	return best
+}
+
+func normalizeSecurityVisibilityStatus(value string) string {
+	switch strings.TrimSpace(value) {
+	case SecurityVisibilityApproved:
+		return SecurityVisibilityApproved
+	case SecurityVisibilityKnownUnapproved:
+		return SecurityVisibilityKnownUnapproved
+	default:
+		return SecurityVisibilityUnknownToSecurity
 	}
 }
 
@@ -867,6 +1042,13 @@ func fallback(value, fallbackValue string) string {
 		return fallbackValue
 	}
 	return value
+}
+
+func fallbackOrg(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "local"
+	}
+	return strings.TrimSpace(value)
 }
 
 func normalizeDiscoveryMethod(value string) string {
