@@ -21,14 +21,14 @@ type sourcePlan struct {
 }
 
 type sourceProfile struct {
-	ImportMarkers        []string
-	RequiredImportedName []string
-	CallNames            []string
-	NameKeys             []string
-	ToolKeys             []string
-	DataKeys             []string
-	AuthKeys             []string
-	DeploymentKeys       []string
+	importMarkers        []string
+	requiredImportedName []string
+	callNames            []string
+	nameKeys             []string
+	toolKeys             []string
+	dataKeys             []string
+	authKeys             []string
+	deploymentKeys       []string
 }
 
 type importSummary struct {
@@ -63,8 +63,8 @@ func buildSourcePlans(configs []DetectorConfig) []sourcePlan {
 			DetectorID:    strings.TrimSpace(cfg.DetectorID),
 			Framework:     strings.TrimSpace(cfg.Framework),
 			Profile:       profile,
-			pythonPattern: buildSourceAssignmentPattern("python", profile.CallNames),
-			jsPattern:     buildSourceAssignmentPattern("javascript", profile.CallNames),
+			pythonPattern: buildSourceAssignmentPattern("python", profile.callNames),
+			jsPattern:     buildSourceAssignmentPattern("javascript", profile.callNames),
 		}
 	}
 
@@ -128,67 +128,67 @@ func sourceProfileForFramework(framework string) (sourceProfile, bool) {
 	switch strings.ToLower(strings.TrimSpace(framework)) {
 	case "langchain":
 		return sourceProfile{
-			ImportMarkers:  []string{"langchain", "@langchain"},
-			CallNames:      []string{"initializeAgentExecutorWithOptions", "create_openai_functions_agent", "create_openai_tools_agent", "create_react_agent", "createToolCallingAgent", "createReactAgent", "initialize_agent", "AgentExecutor", "StructuredChatAgent"},
-			NameKeys:       []string{"name", "agent_name", "agentName", "id"},
-			ToolKeys:       []string{"tools"},
-			DataKeys:       []string{"data_sources", "dataSources", "retriever", "retrievers", "knowledge_base", "knowledgeBase", "vector_store", "vectorStore", "memory", "datasets"},
-			AuthKeys:       []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
-			DeploymentKeys: []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
+			importMarkers:  []string{"langchain", "@langchain"},
+			callNames:      []string{"initializeAgentExecutorWithOptions", "create_openai_functions_agent", "create_openai_tools_agent", "create_react_agent", "createToolCallingAgent", "createReactAgent", "initialize_agent", "AgentExecutor", "StructuredChatAgent"},
+			nameKeys:       []string{"name", "agent_name", "agentName", "id"},
+			toolKeys:       []string{"tools"},
+			dataKeys:       []string{"data_sources", "dataSources", "retriever", "retrievers", "knowledge_base", "knowledgeBase", "vector_store", "vectorStore", "memory", "datasets"},
+			authKeys:       []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
+			deploymentKeys: []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
 		}, true
 	case "crewai":
 		return sourceProfile{
-			ImportMarkers:        []string{"crewai"},
-			RequiredImportedName: []string{"Agent"},
-			CallNames:            []string{"Agent"},
-			NameKeys:             []string{"name", "agent_name", "agentName", "role"},
-			ToolKeys:             []string{"tools"},
-			DataKeys:             []string{"data_sources", "dataSources", "knowledge_sources", "knowledgeSources", "memory"},
-			AuthKeys:             []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
-			DeploymentKeys:       []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
+			importMarkers:        []string{"crewai"},
+			requiredImportedName: []string{"Agent"},
+			callNames:            []string{"Agent"},
+			nameKeys:             []string{"name", "agent_name", "agentName", "role"},
+			toolKeys:             []string{"tools"},
+			dataKeys:             []string{"data_sources", "dataSources", "knowledge_sources", "knowledgeSources", "memory"},
+			authKeys:             []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
+			deploymentKeys:       []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
 		}, true
 	case "openai_agents":
 		return sourceProfile{
-			ImportMarkers:        []string{"@openai/agents", "agents"},
-			RequiredImportedName: []string{"Agent"},
-			CallNames:            []string{"Agent"},
-			NameKeys:             []string{"name", "agent_name", "agentName", "id"},
-			ToolKeys:             []string{"tools", "handoffs"},
-			DataKeys:             []string{"data_sources", "dataSources", "context", "knowledge", "memory"},
-			AuthKeys:             []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
-			DeploymentKeys:       []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
+			importMarkers:        []string{"@openai/agents", "agents"},
+			requiredImportedName: []string{"Agent"},
+			callNames:            []string{"Agent"},
+			nameKeys:             []string{"name", "agent_name", "agentName", "id"},
+			toolKeys:             []string{"tools", "handoffs"},
+			dataKeys:             []string{"data_sources", "dataSources", "context", "knowledge", "memory"},
+			authKeys:             []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
+			deploymentKeys:       []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
 		}, true
 	case "autogen":
 		return sourceProfile{
-			ImportMarkers:        []string{"autogen"},
-			RequiredImportedName: []string{"AssistantAgent", "UserProxyAgent", "ConversableAgent", "GroupChatManager"},
-			CallNames:            []string{"GroupChatManager", "AssistantAgent", "UserProxyAgent", "ConversableAgent"},
-			NameKeys:             []string{"name", "agent_name", "agentName"},
-			ToolKeys:             []string{"tools", "functions"},
-			DataKeys:             []string{"data_sources", "dataSources", "memory", "knowledge_base", "knowledgeBase"},
-			AuthKeys:             []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
-			DeploymentKeys:       []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
+			importMarkers:        []string{"autogen"},
+			requiredImportedName: []string{"AssistantAgent", "UserProxyAgent", "ConversableAgent", "GroupChatManager"},
+			callNames:            []string{"GroupChatManager", "AssistantAgent", "UserProxyAgent", "ConversableAgent"},
+			nameKeys:             []string{"name", "agent_name", "agentName"},
+			toolKeys:             []string{"tools", "functions"},
+			dataKeys:             []string{"data_sources", "dataSources", "memory", "knowledge_base", "knowledgeBase"},
+			authKeys:             []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
+			deploymentKeys:       []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
 		}, true
 	case "llamaindex":
 		return sourceProfile{
-			ImportMarkers:  []string{"llamaindex", "llama_index", "@llamaindex"},
-			CallNames:      []string{"FunctionAgent", "OpenAIAgent", "AgentRunner", "ReActAgent"},
-			NameKeys:       []string{"name", "agent_name", "agentName", "id"},
-			ToolKeys:       []string{"tools"},
-			DataKeys:       []string{"data_sources", "dataSources", "knowledge_base", "knowledgeBase", "memory", "retriever", "retrievers"},
-			AuthKeys:       []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
-			DeploymentKeys: []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
+			importMarkers:  []string{"llamaindex", "llama_index", "@llamaindex"},
+			callNames:      []string{"FunctionAgent", "OpenAIAgent", "AgentRunner", "ReActAgent"},
+			nameKeys:       []string{"name", "agent_name", "agentName", "id"},
+			toolKeys:       []string{"tools"},
+			dataKeys:       []string{"data_sources", "dataSources", "knowledge_base", "knowledgeBase", "memory", "retriever", "retrievers"},
+			authKeys:       []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
+			deploymentKeys: []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "workflow", "dockerfile", "manifest"},
 		}, true
 	case "mcp_client":
 		return sourceProfile{
-			ImportMarkers:        []string{"@modelcontextprotocol/sdk", "modelcontextprotocol", "mcp"},
-			RequiredImportedName: []string{"Client", "ClientSession", "MCPClient"},
-			CallNames:            []string{"ClientSession", "MCPClient", "Client"},
-			NameKeys:             []string{"name", "client_name", "clientName", "id"},
-			ToolKeys:             []string{"servers", "mcp_servers", "mcpServers", "tools"},
-			DataKeys:             []string{"resources", "data_sources", "dataSources"},
-			AuthKeys:             []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
-			DeploymentKeys:       []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "transport", "workflow"},
+			importMarkers:        []string{"@modelcontextprotocol/sdk", "modelcontextprotocol", "mcp"},
+			requiredImportedName: []string{"Client", "ClientSession", "MCPClient"},
+			callNames:            []string{"ClientSession", "MCPClient", "Client"},
+			nameKeys:             []string{"name", "client_name", "clientName", "id"},
+			toolKeys:             []string{"servers", "mcp_servers", "mcpServers", "tools"},
+			dataKeys:             []string{"resources", "data_sources", "dataSources"},
+			authKeys:             []string{"auth_surfaces", "authSurfaces", "auth", "credentials", "credential", "api_key", "apiKey", "token", "headers"},
+			deploymentKeys:       []string{"deployment_artifacts", "deploymentArtifacts", "entrypoint", "entryPoint", "transport", "workflow"},
 		}, true
 	default:
 		return sourceProfile{}, false
@@ -368,7 +368,7 @@ func splitJSImportNames(raw string) []string {
 func matchesSourceImports(imports importSummary, profile sourceProfile) bool {
 	moduleMatched := false
 	for _, module := range imports.Modules {
-		for _, marker := range profile.ImportMarkers {
+		for _, marker := range profile.importMarkers {
 			if strings.Contains(module, strings.ToLower(strings.TrimSpace(marker))) {
 				moduleMatched = true
 				break
@@ -381,11 +381,11 @@ func matchesSourceImports(imports importSummary, profile sourceProfile) bool {
 	if !moduleMatched {
 		return false
 	}
-	if len(profile.RequiredImportedName) == 0 {
+	if len(profile.requiredImportedName) == 0 {
 		return true
 	}
 	for _, name := range imports.Names {
-		for _, required := range profile.RequiredImportedName {
+		for _, required := range profile.requiredImportedName {
 			if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(required)) {
 				return true
 			}
@@ -503,20 +503,20 @@ func captureInvocation(lines []string, startLine, startCol int) (string, int) {
 }
 
 func sourceAgentSpec(rel, content, block, variableName, callName string, startLine, endLine int, profile sourceProfile) AgentSpec {
-	explicitName := firstNamedString(block, profile.NameKeys)
+	explicitName := firstNamedString(block, profile.nameKeys)
 	symbol := explicitName
 	if strings.TrimSpace(symbol) == "" {
 		symbol = strings.TrimSpace(variableName)
 	}
 
-	tools := extractNamedValues(block, profile.ToolKeys)
+	tools := extractNamedValues(block, profile.toolKeys)
 	if len(tools) == 0 && expectsPositionalTools(callName) {
 		tools = firstPositionalValues(block)
 	}
 
-	dataSources := extractNamedValues(block, profile.DataKeys)
-	authSurfaces := uniqueSorted(append(extractNamedValues(block, profile.AuthKeys), extractEnvVars(block)...))
-	deployment := extractNamedValues(block, profile.DeploymentKeys)
+	dataSources := extractNamedValues(block, profile.dataKeys)
+	authSurfaces := uniqueSorted(append(extractNamedValues(block, profile.authKeys), extractEnvVars(block)...))
+	deployment := extractNamedValues(block, profile.deploymentKeys)
 	deployment = append(deployment, deploymentHints(rel, content, block)...)
 	dataClass := inferSourceDataClass(dataSources, authSurfaces)
 	approvalStatus := firstNonEmpty(
