@@ -362,19 +362,11 @@ func frameworkFindingKey(finding model.Finding) string {
 			break
 		}
 	}
-	start := 0
-	end := 0
-	if finding.LocationRange != nil {
-		start = finding.LocationRange.StartLine
-		end = finding.LocationRange.EndLine
-	}
 	return strings.Join([]string{
 		strings.TrimSpace(finding.FindingType),
 		strings.TrimSpace(finding.ToolType),
 		strings.TrimSpace(finding.Location),
 		symbol,
-		fmt.Sprintf("%d", start),
-		fmt.Sprintf("%d", end),
 		strings.TrimSpace(finding.Repo),
 		strings.TrimSpace(finding.Org),
 	}, "::")
@@ -396,21 +388,27 @@ func mergeFrameworkFinding(current, incoming model.Finding) model.Finding {
 }
 
 func mergeEvidence(current, incoming []model.Evidence) []model.Evidence {
+	if len(current) == 0 {
+		return incoming
+	}
 	if len(incoming) == 0 {
 		return current
 	}
-	seen := map[string]model.Evidence{}
-	for _, item := range current {
-		key := strings.TrimSpace(item.Key) + "::" + strings.TrimSpace(item.Value)
-		seen[key] = item
+	grouped := map[string][]string{}
+	for _, item := range append(append([]model.Evidence(nil), current...), incoming...) {
+		key := strings.TrimSpace(item.Key)
+		if key == "" {
+			continue
+		}
+		grouped[key] = append(grouped[key], strings.TrimSpace(item.Value))
 	}
-	for _, item := range incoming {
-		key := strings.TrimSpace(item.Key) + "::" + strings.TrimSpace(item.Value)
-		seen[key] = item
-	}
-	out := make([]model.Evidence, 0, len(seen))
-	for _, item := range seen {
-		out = append(out, item)
+	out := make([]model.Evidence, 0, len(grouped))
+	for key, values := range grouped {
+		mergedValue := mergeEvidenceValue(key, values)
+		if key == "" {
+			continue
+		}
+		out = append(out, model.Evidence{Key: key, Value: mergedValue})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Key != out[j].Key {
@@ -419,6 +417,45 @@ func mergeEvidence(current, incoming []model.Evidence) []model.Evidence {
 		return out[i].Value < out[j].Value
 	})
 	return out
+}
+
+func mergeEvidenceValue(key string, values []string) string {
+	normalizedKey := strings.ToLower(strings.TrimSpace(key))
+	switch normalizedKey {
+	case "bound_tools", "data_sources", "auth_surfaces", "deployment_artifacts":
+		items := []string{}
+		for _, value := range values {
+			items = append(items, strings.Split(value, ",")...)
+		}
+		return strings.Join(uniqueSorted(items), ",")
+	case "dynamic_discovery", "kill_switch", "auto_deploy", "human_gate":
+		for _, value := range values {
+			if strings.EqualFold(strings.TrimSpace(value), "true") {
+				return "true"
+			}
+		}
+		return "false"
+	case "data_class":
+		for _, value := range values {
+			trimmed := strings.TrimSpace(value)
+			if trimmed != "" && trimmed != "unknown" && trimmed != "unclassified" {
+				return trimmed
+			}
+		}
+	case "approval_status", "deployment_status", "deployment_gate":
+		for _, value := range values {
+			trimmed := strings.TrimSpace(value)
+			if trimmed != "" && trimmed != "missing" && trimmed != "unknown" {
+				return trimmed
+			}
+		}
+	}
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func severityRank(value string) int {

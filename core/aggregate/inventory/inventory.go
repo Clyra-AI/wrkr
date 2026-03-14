@@ -550,6 +550,9 @@ func agentApproved(agent Agent, tools []Tool) bool {
 		if strings.TrimSpace(tool.ApprovalClass) != "approved" {
 			continue
 		}
+		if fallbackOrg(tool.Org) != fallbackOrg(agent.Org) {
+			continue
+		}
 		if strings.TrimSpace(tool.ToolID) == identity.ToolID(agent.Framework, agent.Location) {
 			return true
 		}
@@ -1039,6 +1042,13 @@ func fallback(value, fallbackValue string) string {
 		return fallbackValue
 	}
 	return value
+}
+
+func fallbackOrg(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "local"
+	}
+	return strings.TrimSpace(value)
 }
 
 func normalizeDiscoveryMethod(value string) string {

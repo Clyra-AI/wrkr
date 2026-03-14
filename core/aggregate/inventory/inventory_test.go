@@ -387,3 +387,31 @@ func TestApplySecurityVisibilitySeparatesApprovedKnownAndUnknown(t *testing.T) {
 		t.Fatalf("unexpected security visibility summary counts: %+v", inv.SecurityVisibility)
 	}
 }
+
+func TestApplySecurityVisibilityDoesNotBorrowApprovalAcrossOrgs(t *testing.T) {
+	t.Parallel()
+
+	inv := Inventory{
+		Agents: []Agent{
+			{AgentID: "wrkr:agent-a:acme", AgentInstanceID: "agent-a", Framework: "crewai", Org: "acme", Location: "agents/shared.py"},
+			{AgentID: "wrkr:agent-b:globex", AgentInstanceID: "agent-b", Framework: "crewai", Org: "globex", Location: "agents/shared.py"},
+		},
+		Tools: []Tool{
+			{ToolID: identity.ToolID("crewai", "agents/shared.py"), ToolType: "crewai", Org: "acme", ApprovalClass: "approved"},
+			{ToolID: identity.ToolID("crewai", "agents/shared.py"), ToolType: "crewai", Org: "globex", ApprovalClass: "unapproved"},
+		},
+	}
+
+	ApplySecurityVisibility(&inv, SecurityVisibilityReference{
+		ReferenceBasis:        "baseline_snapshot",
+		KnownToolIDs:          map[string]struct{}{},
+		KnownAgentInstanceIDs: map[string]struct{}{},
+	})
+
+	if inv.Agents[0].SecurityVisibilityStatus != SecurityVisibilityApproved {
+		t.Fatalf("expected acme agent approved, got %+v", inv.Agents[0])
+	}
+	if inv.Agents[1].SecurityVisibilityStatus != SecurityVisibilityUnknownToSecurity {
+		t.Fatalf("expected globex agent to stay unknown_to_security, got %+v", inv.Agents[1])
+	}
+}

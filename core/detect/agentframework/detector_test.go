@@ -216,6 +216,47 @@ publisher = Agent(
 	}
 }
 
+func TestDetectMany_MergesDeclarationAndSourceForSameAgentSymbol(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, ".wrkr/agents/langchain.json", `{
+  "agents": [
+    {
+      "name": "planner_agent",
+      "file": "agents/langchain_agent.py",
+      "tools": ["search.read"]
+    }
+  ]
+}`)
+	writeFile(t, root, "agents/langchain_agent.py", `from langchain.agents import create_react_agent
+import os
+
+planner = create_react_agent(
+    llm=llm,
+    name="planner_agent",
+    tools=["search.read", "deploy.write"],
+    auth_surfaces=[os.getenv("OPENAI_API_KEY")],
+)
+`)
+
+	findings, err := DetectMany(detect.Scope{Org: "acme", Repo: "payments", Root: root}, []DetectorConfig{
+		{DetectorID: "agentlangchain", Framework: "langchain", ConfigPath: ".wrkr/agents/langchain.json", Format: "json"},
+	})
+	if err != nil {
+		t.Fatalf("detect many: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected merged declaration/source finding, got %+v", findings)
+	}
+	if evidenceValue(findings[0], "auth_surfaces") != "OPENAI_API_KEY" {
+		t.Fatalf("expected merged source auth evidence, got %+v", findings[0].Evidence)
+	}
+	if evidenceValue(findings[0], "bound_tools") != "deploy.write,search.read" {
+		t.Fatalf("expected merged bound_tools evidence, got %+v", findings[0].Evidence)
+	}
+}
+
 func evidenceValue(finding model.Finding, key string) string {
 	target := strings.ToLower(strings.TrimSpace(key))
 	for _, evidence := range finding.Evidence {
