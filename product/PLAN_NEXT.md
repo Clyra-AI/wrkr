@@ -1,98 +1,74 @@
-# PLAN WRKR_UNKNOWN_WRITE_CAPABLE_PATHS: Native Detection, Instance Identity, Security Visibility, and Claim Governance
+# PLAN WRKR_RESIDUAL_HARDENING: Claim Governance, Instance Identity, and Supported Source Coverage
 
-Date: 2026-03-14  
-Source of truth: user-provided recommended work items dated 2026-03-14, `product/dev_guides.md`, `product/architecture_guides.md`, `AGENTS.md`, and the observed repo/runtime/docs baseline from this planning run  
-Scope: Wrkr repository only. Planning artifact only. Four-wave plan. Wave 1 closes source-level detection gaps. Wave 2 makes privilege reporting instance-accurate. Wave 3 adds a first-class `unknown_to_security` model. Wave 4 hardens `production_write` claim governance and aligns public/report workflows.
+Date: 2026-03-15
+Source of truth: user-provided recommended work items from 2026-03-15, `product/dev_guides.md`, `product/architecture_guides.md`, `product/wrkr.md`, and the observed repository baseline from this planning run
+Scope: Wrkr repository only. Planning artifact only. Residual hardening, claim-boundary tightening, and targeted coverage expansion for supported source-level agent detection, instance-scoped privilege identity, first-class security visibility, and production-target-backed production-write claims.
 
 ## Global Decisions (Locked)
 
-- Preserve Wrkr's deterministic, offline-first, fail-closed posture. No LLM calls, no live runtime probing, no network dependency in default scan/risk/proof paths, and no default scan-data exfiltration are allowed.
-- Preserve architecture boundaries:
+- Preserve Wrkr's deterministic, offline-first, fail-closed posture. No LLM calls, no live runtime probing, and no default scan-data exfiltration are allowed in scan, risk, regress, proof, or report paths.
+- Preserve the required architecture boundaries:
   - Source
   - Detection
   - Aggregation
   - Identity
   - Risk
   - Proof emission
-  - Compliance mapping/evidence output
-- Native source detection is required for LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, and MCP-client patterns in Python plus JS/TS. Structured parsing is mandatory; regex-only detection is not acceptable for framework source.
-- Declaration-file support under `.wrkr/agents/*` remains supported. Source-level detection is additive and must not reduce declaration coverage or precision.
-- Same file with multiple agents must emit separate deterministic agent instances ordered by `org`, `framework`, `file`, `symbol`, `start_line`, `end_line`.
-- `agent_privilege_map` becomes agent-instance anchored. `tool_id` remains for correlation, but it is no longer the identity anchor for privilege reporting.
-- Add a first-class additive field named `security_visibility_status` with values `approved`, `known_unapproved`, and `unknown_to_security`. Do not overload `approval_classification`.
-- `approval_classification` and `approval_summary` remain intact for approval-policy semantics. The new visibility model is separate and additive.
-- Agent-instance outputs are the source of truth for the claim "unknown write-capable AI paths". Tool-level rows may roll up visibility for inventory summaries, but all write-capable unknown counts must be derived from agent-instance rows.
-- Tool-level rollup precedence for `security_visibility_status` is:
-  - `unknown_to_security`
-  - `known_unapproved`
-  - `approved`
-- `production_write` remains a guarded subset of `write_capable`. Public/report workflows must default to `write_capable` unless `--production-targets` is configured and valid.
-- No public schema major bump or exit-code change is allowed in this plan. Contract changes must be additive, documented, and covered by compatibility tests.
-- README/docs/report copy may not promise source-level detection, instance-scoped privilege identity, or `production_write` claims unless the corresponding runtime behavior is implemented and covered by tests in the same wave.
-- `make prepush-full` is required for stories that alter architecture, risk, report claims, proof context, or failure semantics.
+  - Compliance mapping and evidence output
+- Keep public detection claims scoped to supported framework-native source parsing plus conservative custom scaffolds unless Wave 4 explicitly lands broader bespoke internal/custom source detection.
+- Treat `agent_instance_id` as the canonical consumer key for `agent_privilege_map` rows and downstream instance-scoped evidence. Keep `agent_id` for compatibility and rollup correlation only.
+- Treat `security_visibility_status` plus `reference_basis` as the only machine-readable basis for the claim "unknown to security." Do not use `approval_classification=unknown` as a proxy.
+- Treat `production_write` as a guarded subset of `write_capable`. Public and report wording must default to `write_capable` unless production targets are explicitly configured and valid.
+- Keep all contract changes additive. No schema major bump, no exit-code changes, and no compatibility-breaking field removals are allowed in this plan.
+- Follow TDD first. All behavior changes must start with failing tests, then implementation, then refactor.
+- Any story touching architecture boundaries, report semantics, proof context, regress semantics, or fail-closed behavior must run `make prepush-full`.
 
 ## Current Baseline (Observed)
 
 - `git status --short` was clean before generating this plan.
-- `core/detect/defaults/defaults.go` already registers framework detectors for LangChain, CrewAI, OpenAI, AutoGen, LlamaIndex, MCP-client, and custom agents.
-- Those framework detectors currently delegate to `core/detect/agentframework/detector.go`, which only parses declaration files (`json`, `yaml`, `toml`) and does not parse framework source code.
-- Existing agent framework tests in `core/detect/agentframework/*_test.go` validate declaration parsing, parse-error isolation, and deterministic multi-format behavior, but not Python or JS/TS source discovery.
-- `core/aggregate/inventory/inventory.go` already emits `inventory.agents[*].agent_instance_id` and deterministically sorts agent rows by `org/framework/instance/location`.
-- `inventory.agents[*]` currently lacks an explicit `symbol` or `name` field even though instance identity already depends on symbol/range metadata when present.
-- `core/aggregate/privilegebudget/budget.go` still builds `agent_privilege_map` by iterating `inventory.tools` and joining agent context by `AgentID` and tool-scoped fallback keys, which can collapse instance-level rows back onto tool identity.
-- `core/aggregate/inventory/privileges.go` does not yet expose `agent_instance_id` on `agent_privilege_map` entries.
-- `core/regress/regress.go` already supports instance-aware baseline matching in parts of the flow, but the user-facing privilege/report/export surfaces are not consistently instance-anchored end to end.
-- `core/report/build.go`, `core/report/campaign.go`, `core/export/appendix/export.go`, and `core/proofmap/proofmap.go` currently surface `approval_classification`, `unknown_tools`, and `production_write` data, but there is no explicit machine-readable concept for "security did not know this path existed before this scan/reference state".
-- `README.md` and `docs/trust/detection-coverage-matrix.md` already say Wrkr has native structured parsing for supported agent frameworks and deterministic instance-scoped privilege mapping, which is ahead of the current runtime implementation.
-- `README.md` also includes a public org-scan example with `production_write: true`, while the safe meaning of that claim depends on configured production targets.
-- `docs/commands/scan.md` documents `approval_classification` as `approved|unapproved|unknown`, but there is no corresponding `unknown_to_security` contract today.
-- `production_write` engine support already exists:
-  - `PrivilegeBudget.ProductionWrite` carries `configured`, `status`, and `count`
-  - `scan` supports `--production-targets` and `--production-targets-strict`
-  - `campaign` already suppresses `production_write_tools` when not configured
-- Existing test and enforcement surfaces are strong and should be reused:
-  - detector unit tests under `core/detect/*`
-  - inventory, privilege-budget, regress, report, proofmap, and CLI contract tests
-  - `internal/e2e/regress`
-  - `internal/e2e/campaign`
-  - scenario fixtures under `scenarios/wrkr/*`
-  - `make prepush`, `make prepush-full`, `make test-hardening`, `make test-chaos`, `make test-perf`, `make test-agent-benchmarks`, `make test-docs-consistency`
-- Required PR checks declared in `.github/required-checks.json` remain:
-  - `fast-lane`
-  - `scan-contract`
-  - `wave-sequence`
-  - `windows-smoke`
+- `core/detect/agentframework/source.go` already contains framework-specific Python and JS/TS source profiles for LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, and MCP-client patterns.
+- The supported framework detector packages already include source-only repo tests:
+  - `core/detect/agentlangchain/detector_test.go`
+  - `core/detect/agentcrewai/detector_test.go`
+  - `core/detect/agentopenai/detector_test.go`
+  - `core/detect/agentautogen/detector_test.go`
+  - `core/detect/agentllamaindex/detector_test.go`
+  - `core/detect/agentmcpclient/detector_test.go`
+- `core/detect/agentframework/detector_test.go` already includes deterministic same-file multi-agent source coverage.
+- `scenarios/wrkr/agent-source-frameworks/repos/source-only-agents` already exists and can be reused for higher-level release-gate coverage.
+- `core/detect/agentcustom` remains conservative custom scaffolding detection from declarations, not broad bespoke internal/custom source parsing.
+- `inventory.agents[*]` and `agent_privilege_map[*]` already expose additive `agent_instance_id`, `symbol`, `location_range`, and `security_visibility_status` fields in code and docs.
+- `core/proofmap/proofmap.go`, `core/report/build.go`, `core/report/campaign.go`, `core/export/appendix/export.go`, `core/cli/root_test.go`, and `docs/commands/scan.md` already reflect much of the instance-scoped and security-visibility model.
+- `core/report/report_test.go` already guards the `write_capable` fallback when production targets are not configured.
+- `internal/e2e/campaign/campaign_e2e_test.go` already checks additive `unknown_to_security_*` campaign metrics.
+- Residual risk is now mostly regression and claim drift:
+  - downstream compatibility surfaces such as `core/regress/regress.go` still center `agent_id` and `tool_id`, so instance identity can still be weakened later unless explicitly guarded
+  - public copy still needs tighter scoping so supported framework-native parsing is not mistaken for broad bespoke custom-source detection
+  - "unknown to security" and `production_write` wording must stay basis-aware as examples, templates, and downstream exports evolve
 
 ## Exit Criteria
 
-1. Repositories with real LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, or MCP-client source and no `.wrkr/agents/*` declarations still produce correct deterministic agent inventory.
-2. Multi-agent files emit separate stable agent instances with explicit `agent_instance_id`, `symbol`, and `location_range` in machine-readable outputs.
-3. `agent_privilege_map` is keyed and sorted by agent instance identity, not tool identity, while tool inventory rows remain unchanged for tool-level inventory use cases.
-4. Attack-path, proof, appendix export, report, and regress flows preserve distinct identities for multiple agents in the same file.
-5. Machine-readable outputs can truthfully report `unknown_to_security` separately from `approval_classification`, and the status is derived deterministically from approved/manifests plus prior reference state plus current scan inventory.
-6. Wrkr can emit a deterministic machine-readable count for `unknown_to_security` write-capable agent paths when a reference state is available.
-7. Public/report/evidence outputs never imply `production_write` posture unless production targets are configured and valid.
-8. Default public/report wording uses `write_capable` unless `--production-targets` is explicitly supplied.
-9. README, command docs, examples, and detection-coverage docs align with the implemented behavior in the same rollout.
-10. All story-level tests, matrix wiring, and required PR checks pass with no contract regressions.
+1. Supported framework source-only repos continue to produce correct deterministic agent inventory with stable ordering.
+2. Same-file multi-agent fixtures continue to emit distinct agent instances across `inventory.agents`, `agent_privilege_map`, report, proof, appendix export, evidence, and regress flows.
+3. No downstream consumer treats `agent_id` as the canonical privilege-row identity when `agent_instance_id` is available.
+4. Every external "unknown to security" claim maps back to `security_visibility_status` plus `reference_basis`.
+5. No report, proof, evidence, docs, or examples use `approval_classification=unknown` as a proxy for "unknown to security."
+6. Public and report output never imply `production_write` without configured and valid production targets.
+7. README, command docs, examples, and trust docs stay aligned with the implemented runtime claim boundary in the same rollout.
+8. Optional broader bespoke internal/custom source detection is either implemented with deterministic tests and updated copy or explicitly deferred with public wording kept scoped to supported frameworks plus conservative custom scaffolds.
 
 ## Public API and Contract Map
 
 Stable/public surfaces touched in this plan:
 
 - `wrkr scan --json`
-  - `inventory.agents[*]`
-  - `inventory.tools[*]`
-  - `inventory.approval_summary`
-  - `inventory.privilege_budget`
-  - `agent_privilege_map[*]`
-  - optional `report`
-- `wrkr regress init --baseline <scan-state-path> --json`
-- `wrkr regress run --baseline <baseline-path-or-scan-state-path> --state <state-path> --json`
 - `wrkr report --json`
+- `wrkr report --report-md`
 - `wrkr campaign aggregate --json`
-- evidence bundle JSON/markdown outputs emitted from `wrkr evidence`
-- appendix and inventory export artifacts under `core/export/*`
+- `wrkr regress init --baseline <path> --json`
+- `wrkr regress run --baseline <path> --state <path> --json`
+- `wrkr evidence --json`
+- appendix export artifacts under `core/export/appendix`
 - public docs and examples:
   - `README.md`
   - `docs/commands/scan.md`
@@ -103,141 +79,130 @@ Stable/public surfaces touched in this plan:
   - `docs/examples/security-team.md`
   - `docs/examples/production-targets.v1.yaml`
   - `docs/trust/detection-coverage-matrix.md`
-  - `docs/compliance/eu_ai_act_audit_readiness.md`
 
-Internal surfaces expected to change:
+Stable fields and semantics that must remain compatible:
+
+- `inventory.agents[*].agent_instance_id`
+- `inventory.agents[*].symbol`
+- `inventory.agents[*].location`
+- `inventory.agents[*].location_range`
+- `inventory.agents[*].security_visibility_status`
+- `inventory.tools[*].approval_classification`
+- `inventory.tools[*].security_visibility_status`
+- `inventory.security_visibility_summary.reference_basis`
+- `inventory.security_visibility_summary.unknown_to_security_write_capable_agents`
+- `agent_privilege_map[*].agent_instance_id`
+- `agent_privilege_map[*].agent_id`
+- `agent_privilege_map[*].tool_id`
+- `agent_privilege_map[*].production_write`
+- `privilege_budget.production_write`
+
+Internal surfaces expected to change or be audited:
 
 - `core/detect/agentframework/*`
-- `core/detect/agentlangchain/*`
-- `core/detect/agentcrewai/*`
-- `core/detect/agentopenai/*`
-- `core/detect/agentautogen/*`
-- `core/detect/agentllamaindex/*`
-- `core/detect/agentmcpclient/*`
 - `core/detect/defaults/*`
+- `core/detect/agentcustom/*`
 - `core/aggregate/inventory/*`
 - `core/aggregate/privilegebudget/*`
-- `core/cli/scan.go`
-- `core/regress/*`
-- `core/report/*`
 - `core/proofmap/*`
-- `core/evidence/*`
+- `core/report/*`
+- `core/regress/*`
 - `core/export/appendix/*`
-- `core/risk/*` when attack-path identity propagation needs additive context
-- `core/identity/*` only if helper expansion is required without changing current ID semantics
-- `testinfra/contracts/*`
+- `core/cli/*`
 - `internal/e2e/*`
 - `internal/scenarios/*`
-- `scenarios/wrkr/*`
+- `testinfra/contracts/*`
+- `testinfra/hygiene/*`
 
-Shim/deprecation path:
+Shim and deprecation policy:
 
-- `agent_privilege_map[*].tool_id` remains present for tool-inventory correlation during v1, but it is explicitly not the identity anchor for privilege rows after this rollout.
-- `agent_privilege_map[*].agent_id` remains present and continues to be the org-scoped canonical identity envelope. New consumers must key privilege rows on `agent_instance_id`.
-- `approval_classification=unknown` remains valid for approval-policy uncertainty. It must not be interpreted as `unknown_to_security`.
-- Existing declaration-file detection remains supported after source parsers land; declaration paths are not deprecated in this plan.
-- `production_write` remains in the machine-readable budget object, but public/report claims must downgrade to `write_capable` when targets are absent or invalid.
+- `agent_id` remains available for compatibility and lifecycle correlation, but new joins and row identity rules must use `agent_instance_id`.
+- `tool_id` remains available for tool correlation and legacy compatibility, not as the identity anchor for instance-scoped privilege rows.
+- `approval_classification=unknown` remains an approval-policy state only.
+- `production_write` remains machine-readable, but public/report wording must downgrade to `write_capable` when targets are missing, invalid, or not appropriate for the workflow.
 
-Schema/versioning policy:
+Schema and versioning policy:
 
 - No schema major bump is planned.
-- All contract changes are additive only.
-- Preferred additive fields introduced by this plan:
-  - `inventory.agents[*].symbol`
-  - `inventory.agents[*].security_visibility_status`
-  - `inventory.tools[*].security_visibility_status`
-  - `agent_privilege_map[*].agent_instance_id`
-  - `agent_privilege_map[*].symbol`
-  - `agent_privilege_map[*].location`
-  - `agent_privilege_map[*].location_range`
-  - `agent_privilege_map[*].security_visibility_status`
-  - `inventory.security_visibility_summary`
-  - `campaign.metrics.unknown_to_security_tools`
-  - `campaign.metrics.unknown_to_security_agents`
-  - `campaign.metrics.unknown_to_security_write_capable_agents`
-  - additive report/proof/evidence summary fields for security visibility and reference basis
-- Existing fields remain stable:
-  - `approval_classification`
-  - `approval_summary`
-  - `write_capable`
-  - `production_write.status`
-  - `production_write.count`
-- If appendix export adds `agent_instance_id` columns, the new columns must be additive and documented without removing current columns.
+- Contract changes must be additive only.
+- If regress payloads or appendix/report outputs need explicit `agent_instance_id` or `reference_basis` fields, add them without removing legacy fields.
+- Compatibility tests must continue to accept legacy baselines where instance identity is equivalent.
 
 Machine-readable error expectations:
 
-- No exit-code changes are allowed.
-- Source parser failures must remain deterministic and either emit additive parse findings or deterministic partial-result warnings; they must not suppress unrelated detector output.
-- Invalid `--production-targets` with `--production-targets-strict` continues to fail closed with `invalid_input` and exit `6`.
-- Invalid or missing `--production-targets` in non-strict mode continues to succeed with status/warning output, but no public/report workflow may upgrade wording to `production_write`.
-- Security-visibility derivation must always declare the reference basis used. If the basis is unavailable for a workflow that wants to claim `unknown_to_security`, the workflow must downgrade/suppress the claim rather than fabricate a count.
+- Exit-code contract remains unchanged: `0/1/2/3/4/5/6/7/8`.
+- Missing or invalid production targets in strict mode continue to fail closed with exit `6`.
+- Missing or inapplicable reference basis must suppress or downgrade "unknown to security" wording rather than invent a count or change the exit code.
+- Source parse errors must remain deterministic and isolated so one malformed source file does not suppress unrelated detections.
 
 ## Docs and OSS Readiness Baseline
 
 README first-screen contract:
 
-- `README.md` currently claims native structured parsing for supported agent frameworks and shows a `production_write: true` example.
-- This plan treats `README.md` as executable contract. Runtime and docs must land together so those claims become truthful or are downgraded in the same rollout.
-- The default first-screen posture message after this plan is:
-  - `write_capable` is always claimable
-  - `production_write` is claimable only with configured production targets
-  - `unknown_to_security` is claimable only from the explicit visibility model with declared reference basis
+- `README.md` must continue to tell the truth about what Wrkr can detect right now.
+- Supported framework-native source parsing is a valid claim.
+- Broad bespoke internal/custom source parsing is not a valid claim unless Wave 4 lands.
+- `write_capable` is a default-safe claim.
+- `production_write` is a configured-workflow claim only.
+- "Unknown to security" must always point back to the explicit visibility model and reference basis.
 
 Integration-first docs flow:
 
-1. `README.md` remains the landing surface.
-2. `docs/commands/scan.md` remains the canonical scan contract.
-3. `docs/commands/regress.md` remains the canonical baseline/reference workflow contract.
-4. `docs/commands/report.md`, `docs/commands/campaign.md`, and `docs/commands/evidence.md` remain the canonical report/evidence/public-output contracts.
-5. `docs/examples/security-team.md` remains the canonical security workflow.
-6. `docs/examples/production-targets.v1.yaml` remains the canonical production-target example.
-7. `docs/trust/detection-coverage-matrix.md` remains the canonical detection-scope explainer.
+1. `README.md`
+2. `docs/commands/scan.md`
+3. `docs/commands/regress.md`
+4. `docs/commands/report.md`
+5. `docs/commands/campaign.md`
+6. `docs/commands/evidence.md`
+7. `docs/examples/security-team.md`
+8. `docs/examples/production-targets.v1.yaml`
+9. `docs/trust/detection-coverage-matrix.md`
 
 Lifecycle path model:
 
-- `.wrkr/last-scan.json` remains the canonical scan state snapshot.
-- `.wrkr/inventory-baseline.json` remains the compatible raw scan-snapshot baseline path.
+- `.wrkr/last-scan.json` remains the canonical saved scan state.
+- `.wrkr/inventory-baseline.json` remains a compatible raw snapshot baseline input.
 - `.wrkr/wrkr-regress-baseline.json` remains the canonical regress baseline artifact.
 - `.wrkr/proof-chain.json` remains the canonical proof-chain path.
-- production target policy remains an explicit user-supplied path, for example `./docs/examples/production-targets.v1.yaml`.
+- Production target policy remains an explicit user-supplied file path.
 
 Docs source-of-truth for this plan:
 
-- runtime contracts: `docs/commands/*.md`
-- operator/security workflows: `docs/examples/*.md`
-- landing message: `README.md`
-- detection trust narrative: `docs/trust/detection-coverage-matrix.md`
-- compliance workflow references: `docs/compliance/eu_ai_act_audit_readiness.md`
+- runtime and CLI contracts: `docs/commands/*.md`
+- operator and security workflows: `docs/examples/*.md`
+- public landing copy: `README.md`
+- detection-scope trust narrative: `docs/trust/detection-coverage-matrix.md`
 
 OSS readiness baseline:
 
-- Existing OSS trust files are already present and remain mandatory:
+- Existing OSS trust files remain the baseline:
   - `CONTRIBUTING.md`
   - `CHANGELOG.md`
   - `CODE_OF_CONDUCT.md`
   - `SECURITY.md`
   - `.github/ISSUE_TEMPLATE/*`
   - `.github/pull_request_template.md`
-- No new OSS trust files are required for this plan, but public wording changes must keep support and governance expectations aligned with current docs.
+- No new OSS trust files are required for this plan.
 
 ## Recommendation Traceability
 
 | Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story mapping |
 |---|---|---|---|---|---|
-| R1 | Add native source parsers for Python and JS/TS agent code across LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, and MCP-client patterns | Current coverage is strongest on declaration files, not direct framework source | Broaden deterministic discovery coverage | Higher confidence discovery in real repos without `.wrkr/agents/*` | W1-S01 |
-| R2 | Detect agent instances from imports, constructors, registrations, tool bindings, and entrypoints | Framework source needs instance-aware extraction, not declaration-only detection | Move from config-first to source-aware posture discovery | Fewer false negatives and more accurate path inventory | W1-S01 |
-| R3 | Build `agent_privilege_map` from `inventory.agents` keyed by `agent_instance_id` | Tool identity still collapses multiple instances | Make privilege reporting match real execution units | Instance-accurate risk and proof surfaces | W2-S01 |
-| R4 | Preserve distinct agent identities through attack-path, proof, appendix export, and regress flows | A single collapsed identity breaks downstream evidence and drift logic | Propagate instance identity through the full pipeline | Trustworthy evidence and stable regression behavior | W2-S02 |
-| R5 | Introduce a first-class `unknown_to_security` concept separate from `approval_classification=unknown` | Current unknown approval is too weak for the claim | Add explicit security-visibility semantics | Truthful machine-readable "security did not know this existed" reporting | W3-S01 |
-| R6 | Surface the visibility model in inventory summary, report/campaign metrics, proof context, and evidence bundle summaries | The claim must exist in every decision/report surface that matters | Make visibility status operational, not hidden | Better executive/security reporting and proof portability | W3-S02 |
-| R7 | Treat `production_write` as a guarded claim requiring `--production-targets`, while `write_capable` stays always available | The current engine exists, but public/report claim safety depends on target config | Separate capability from environment-backed production claim | Safer public messaging and lower trust risk | W4-S01, W4-S02 |
+| R1 | Keep supported framework source parsers release-gated with source-only fixtures | The current claim is credible only if it cannot silently regress | Preserve implemented framework coverage | Stable discovery credibility | W3-S01 |
+| R2 | Keep same-file multi-agent source fixtures distinct and stable | The strongest supported-framework claim depends on instance-level precision | Preserve deterministic instance inventory | Trustworthy path discovery | W2-S02, W3-S01 |
+| R3 | Keep public detection copy scoped to supported frameworks unless broader custom-source detection ships | Current repo supports conservative custom scaffolds, not broad bespoke custom source parsing | Tighten public claim boundary | Avoid over-claiming and trust erosion | W3-S02, W4-S01 |
+| R4 | Treat `agent_instance_id` as the canonical downstream privilege-row key everywhere | Tool-level joins can collapse distinct same-file agents | Harden contract correctness | Instance-accurate proof and regress behavior | W2-S01 |
+| R5 | Keep end-to-end tests proving same-file identities survive scan, proof, export, report, and regress flows | Future refactors can reintroduce tool-scoped joins | Protect implemented behavior | Durable downstream correctness | W2-S02 |
+| R6 | Keep "unknown to security" tied to `security_visibility_status` and `reference_basis` | Approval semantics are not the same as security visibility | Make claim semantics first-class | Truthful posture reporting | W1-S01 |
+| R7 | Suppress or downgrade "unknown to security" when reference basis is unavailable or inappropriate | Unsupported workflows should not fabricate the claim | Fail-closed claim governance | Lower false-confidence risk | W1-S01 |
+| R8 | Keep `production_write` claims backed by valid production targets and default public wording to `write_capable` | Capability is broader than environment-backed production access | Harden claim discipline | Safer public/report posture messaging | W1-S02 |
 
 ## Test Matrix Wiring
 
 Fast lane:
 
 - `make lint-fast`
-- targeted `go test` for changed detection, aggregation, report, regress, proofmap, and CLI packages with `-count=1`
+- targeted `go test` package runs with `-count=1`
 
 Core CI lane:
 
@@ -247,62 +212,281 @@ Core CI lane:
 
 Acceptance lane:
 
-- `go test ./internal/scenarios -run '^TestScenarioContracts$' -count=1`
-- `go test ./internal/scenarios -count=1 -tags=scenario`
+- `make test-scenarios`
 - `go test ./internal/e2e/regress -count=1`
 - `go test ./internal/e2e/campaign -count=1`
-- machine-readable command runs such as:
-  - `wrkr scan --path <scenario> --json`
+- machine-readable command checks:
+  - `wrkr scan --path <fixture-root> --json`
   - `wrkr regress init --baseline <scan-state-path> --json`
-  - `wrkr regress run --baseline <baseline-path-or-scan-state-path> --state <state-path> --json`
+  - `wrkr regress run --baseline <baseline-path> --state <state-path> --json`
+  - `wrkr report --json`
   - `wrkr campaign aggregate --input-glob '<glob>' --json`
 
 Cross-platform lane:
 
-- `windows-smoke`
-- existing Go matrix behavior on Ubuntu/macOS/Windows for CLI contract stories
+- `go test ./core/cli -count=1`
+- required CI coverage for `windows-smoke`
 
 Risk lane:
 
 - `make prepush-full`
 - `make test-hardening`
 - `make test-chaos`
-- `make test-perf` for detection/aggregation hot paths
-- `make test-agent-benchmarks` for source-parser and agent-resolution performance regression checks
+- `make test-perf` when source-parsing breadth or hot-path cost changes materially
+- `make test-agent-benchmarks` when detector breadth or parse volume changes materially
 
-Merge/release gating rule:
+Merge and release gating rule:
 
-- Required PR checks remain `fast-lane`, `scan-contract`, `wave-sequence`, and `windows-smoke`.
-- Any story touching runtime contracts, proof context, regress logic, or report/public claims must also show green `make prepush-full`.
-- Any story adding or changing detection hot paths must also show green `make test-perf` and `make test-agent-benchmarks`.
-- Any story changing docs or examples must show green `make test-docs-consistency`.
-- No story may merge with unresolved drift between runtime behavior and README/command/example wording.
+- Waves 1 and 2 are merge-blocking P0 work and must not merge without green fast lane, core CI lane, acceptance lane, cross-platform lane, and any required risk-lane checks.
+- Wave 3 is merge-blocking for any release that publicly claims supported framework-native source parsing.
+- Wave 4 is optional and cannot merge with broader public copy unless its own detector, benchmark, docs, and precision gates are green in the same PR.
 
-## Epic W1-E1: Native Source-Level Agent Detection
+## Epic W1: Claim-Boundary Hardening
 
-Objective: make Wrkr detect supported agent frameworks directly from deterministic Python and JS/TS source without relying on `.wrkr/agents/*` declarations, while keeping declaration coverage and precision intact.
+Objective: Make external claims basis-aware and fail-closed for security visibility and production-write language before further expansion work.
 
-### Story W1-S01: Add deterministic source parsers and normalized agent emission for supported frameworks
+### Story W1-S01: Make security visibility the only basis for "unknown to security"
+
 Priority: P0
 Tasks:
-- Extend `core/detect/agentframework` so framework detectors can parse structured source surfaces in addition to declaration files.
-- Implement deterministic Python and JS/TS parsing for LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, and MCP-client patterns using imports, constructors, registrations, tool bindings, and entrypoint signals.
-- Normalize source-derived agents to the existing agent payload shape and add explicit additive fields for `symbol` and `location_range` where source metadata exists.
-- Preserve declaration-file support and deterministic deduplication when both declaration and source surfaces exist for the same agent.
-- Add source-only scenario fixtures with no `.wrkr/agents/*` files and expected outputs for each supported framework plus a mixed multi-agent file case.
-- Update the detection coverage matrix so docs clearly separate declaration-backed coverage from source-backed coverage.
+- Audit `core/aggregate/inventory/inventory.go`, `core/regress/regress.go`, `core/report/campaign.go`, `core/report/build.go`, and `core/proofmap/proofmap.go` so every external "unknown to security" claim derives from `security_visibility_status` plus `reference_basis`.
+- Add suppress-or-downgrade behavior for workflows where `reference_basis` is absent or not appropriate for the claim.
+- Keep approval semantics separate from visibility semantics in scan, report, proof, regress, evidence, and campaign outputs.
+- Update `docs/commands/scan.md`, `docs/commands/evidence.md`, `docs/commands/report.md`, `docs/commands/campaign.md`, and `docs/examples/security-team.md` to state the contract explicitly.
 Repo paths:
-- `core/detect/agentframework/detector.go`
-- `core/detect/agentframework/*.go` (new source-parser helpers)
-- `core/detect/agentlangchain/*`
-- `core/detect/agentcrewai/*`
-- `core/detect/agentopenai/*`
-- `core/detect/agentautogen/*`
-- `core/detect/agentllamaindex/*`
-- `core/detect/agentmcpclient/*`
-- `core/detect/defaults/defaults.go`
 - `core/aggregate/inventory/inventory.go`
+- `core/regress/regress.go`
+- `core/report/campaign.go`
+- `core/report/build.go`
+- `core/proofmap/proofmap.go`
+- `docs/commands/scan.md`
+- `docs/commands/evidence.md`
+- `docs/commands/report.md`
+- `docs/commands/campaign.md`
+- `docs/examples/security-team.md`
+Run commands:
+- `go test ./core/aggregate/inventory ./core/regress ./core/report ./core/proofmap ./core/cli -count=1`
+- `go test ./internal/e2e/campaign -count=1`
+- `make test-contracts`
+- `make test-docs-consistency`
+- `make prepush-full`
+Test requirements:
+- schema and artifact compatibility tests for any additive visibility fields
+- CLI `--json` stability tests for scan, report, campaign, and regress outputs
+- deterministic downgrade tests when `reference_basis` is absent or not valid for the workflow
+- docs consistency and README first-screen checks for touched claim language
+Matrix wiring:
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Cross-platform lane
+- Risk lane
+Acceptance criteria:
+- No output or docs surface uses `approval_classification=unknown` as a proxy for "unknown to security."
+- When a workflow lacks a usable `reference_basis`, Wrkr suppresses or downgrades the claim instead of fabricating `unknown_to_security` wording.
+- Machine-readable payloads continue to expose explicit visibility status and reference basis without exit-code changes.
+Contract/API impact:
+- Additive only. Existing approval fields remain unchanged; visibility-driven claims become the only allowed basis for external wording.
+Versioning/migration impact:
+- No schema major bump. Any new regress or proof fields are additive and legacy-compatible.
+Architecture constraints:
+- Keep visibility derivation inside aggregation, regress, report, and proof layers rather than spreading claim logic into docs-only code paths.
+- Preserve deterministic ordering and fail-closed wording when basis data is unavailable.
+- Do not leak raw source details directly into report/proof logic beyond existing normalized inventory context.
+ADR required: yes
+TDD first failing test(s):
+- add a failing regress test covering missing `reference_basis` downgrade behavior
+- add a failing report test ensuring approval-unknown does not render as security-unknown
+- add a failing proofmap test ensuring visibility context only appears when basis is explicit
+- extend `core/cli/campaign_test.go` with a failing basis-aware wording assertion
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- If a saved state or workflow lacks valid reference-basis context, Wrkr must degrade to neutral visibility wording while keeping deterministic machine-readable output and unchanged exit codes.
+
+### Story W1-S02: Keep `production_write` claims gated by valid production targets
+
+Priority: P0
+Tasks:
+- Audit `core/cli/scan.go`, `core/report/build.go`, `core/report/report_test.go`, `README.md`, `docs/commands/scan.md`, `docs/examples/production-targets.v1.yaml`, and `docs/examples/security-team.md` for wording that could imply `production_write` without configured targets.
+- Keep default user-facing and public/report language at `write_capable` unless `--production-targets` is configured and valid.
+- Preserve non-strict graceful degradation and strict fail-closed behavior for invalid production-target files.
+- Add regression tests for missing, invalid, and configured target workflows in CLI and report surfaces.
+Repo paths:
 - `core/cli/scan.go`
+- `core/report/build.go`
+- `core/report/report_test.go`
+- `README.md`
+- `docs/commands/scan.md`
+- `docs/examples/production-targets.v1.yaml`
+- `docs/examples/security-team.md`
+Run commands:
+- `go test ./core/report ./core/cli -count=1`
+- `make test-contracts`
+- `make test-docs-consistency`
+- `make prepush-full`
+Test requirements:
+- CLI `--json` stability tests for strict and non-strict production-target workflows
+- exit-code contract tests for invalid strict mode
+- markdown/report wording tests proving fallback to `write_capable`
+- docs storyline smoke for examples and README copy
+Matrix wiring:
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Cross-platform lane
+- Risk lane
+Acceptance criteria:
+- Public and report output never imply `production_write` when targets are missing, invalid, or not configured.
+- Default workflow language stays at `write_capable` unless valid production-target configuration is present.
+- Strict-mode exit `6` and non-strict warning behavior remain unchanged.
+Contract/API impact:
+- No new machine-readable contract is required; this story hardens wording and usage of the existing `production_write` budget contract.
+Versioning/migration impact:
+- None.
+Architecture constraints:
+- Keep policy loading and degradation behavior in the CLI and reporting layers explicit and deterministic.
+- Preserve symmetric semantics between configured and not-configured production-target states.
+- Do not let docs or templates outrun machine-readable truth.
+ADR required: no
+TDD first failing test(s):
+- extend `TestBuildSummaryUsesWriteCapableFallbackWhenProductionTargetsNotConfigured`
+- extend `TestScanProductionTargetsMissingNonStrictEmitsWarningAndNullCount`
+- add a failing public-report wording test for invalid production targets
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Invalid production-target configuration must never escalate public claims; it must either fail closed in strict mode or degrade explicitly in non-strict mode.
+
+## Epic W2: Instance-Scoped Privilege Contract Hardening
+
+Objective: Ensure `agent_instance_id` survives as the canonical identity across downstream consumers and same-file multi-agent flows.
+
+### Story W2-S01: Make `agent_instance_id` the canonical downstream privilege-row key
+
+Priority: P0
+Tasks:
+- Audit `core/aggregate/privilegebudget/budget.go`, `core/aggregate/inventory/privileges.go`, `core/aggregate/inventory/inventory.go`, `core/proofmap/proofmap.go`, `core/export/appendix/export.go`, `core/regress/regress.go`, and `core/report/build.go` for joins or summaries that can still collapse onto `tool_id` or `agent_id`.
+- Add additive `agent_instance_id` handling to downstream payloads where compatibility structs still expose only `agent_id` and `tool_id`.
+- Keep `agent_id` for compatibility while documenting that it is no longer the row identity.
+- Preserve deterministic sorting by org, framework, location, range, and instance identity.
+Repo paths:
+- `core/aggregate/privilegebudget/budget.go`
+- `core/aggregate/inventory/privileges.go`
+- `core/aggregate/inventory/inventory.go`
+- `core/proofmap/proofmap.go`
+- `core/export/appendix/export.go`
+- `core/regress/regress.go`
+- `core/report/build.go`
+- `docs/commands/scan.md`
+- `docs/commands/regress.md`
+- `docs/commands/report.md`
+Run commands:
+- `go test ./core/aggregate/privilegebudget ./core/aggregate/inventory ./core/proofmap ./core/export/appendix ./core/regress ./core/report ./core/cli -count=1`
+- `go test ./internal/e2e/regress -count=1`
+- `make test-contracts`
+- `make test-docs-consistency`
+- `make prepush-full`
+Test requirements:
+- additive schema and compatibility tests for any new regress or report fields
+- CLI `--json` stability tests for scan and regress
+- legacy-baseline compatibility tests
+- deterministic sort-order checks for same-file multi-agent payloads
+Matrix wiring:
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Cross-platform lane
+- Risk lane
+Acceptance criteria:
+- No downstream privilege-row consumer uses `agent_id` as the canonical identity when `agent_instance_id` is present.
+- Same-file multi-agent rows remain distinct in scan, report, proof, export, and regress outputs.
+- Legacy baselines remain compatible for equivalent instance identity.
+Contract/API impact:
+- Additive `agent_instance_id` propagation may be added to regress and related downstream outputs; legacy fields stay intact.
+Versioning/migration impact:
+- No schema major bump. Existing consumers may continue using `agent_id`, but docs must direct new consumers to `agent_instance_id`.
+Architecture constraints:
+- Keep instance identity resolution centralized in aggregation and identity helpers.
+- Avoid boundary leakage from proof/report back into raw-source parsing.
+- Preserve deterministic ordering and explicit side-effect semantics.
+ADR required: yes
+TDD first failing test(s):
+- extend `TestBuildCreatesSeparateInstanceScopedEntriesForAgentsInSameFile`
+- extend `TestMapFindingsKeepsSameFileAgentsDistinctByInstanceIdentity`
+- extend `TestCompareFlagsAdditionalInstanceBeyondLegacyBaseline`
+- add a failing CLI contract test for regress payload instance identity
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- If one consumer receives partial symbol or range metadata, Wrkr must still preserve distinct instance IDs when available and must not silently collapse rows back to tool scope.
+
+### Story W2-S02: Keep same-file multi-agent identity distinct end to end
+
+Priority: P0
+Tasks:
+- Extend scan, proof, appendix export, report, campaign, and regress tests so a same-file multi-agent fixture proves distinct rows survive every downstream transformation.
+- Reuse `scenarios/wrkr/agent-source-frameworks` or add a focused scenario fixture that keeps two agents in one file with different privilege posture.
+- Assert stable ordering, stable row counts, and byte-stable serialized artifacts across reruns.
+Repo paths:
+- `core/cli/scan_agent_context_test.go`
+- `core/proofmap/proofmap_test.go`
+- `core/export/appendix/export_test.go`
+- `core/report/report_test.go`
+- `core/regress/regress_test.go`
+- `internal/e2e/regress/regress_e2e_test.go`
+- `internal/e2e/campaign/campaign_e2e_test.go`
+- `scenarios/wrkr/agent-source-frameworks`
+- `testinfra/contracts`
+Run commands:
+- `go test ./core/cli ./core/proofmap ./core/export/appendix ./core/report ./core/regress -count=1`
+- `go test ./internal/e2e/regress ./internal/e2e/campaign -count=1`
+- `make test-scenarios`
+- `make test-contracts`
+- `make prepush-full`
+Test requirements:
+- scenario acceptance coverage for same-file multi-agent repositories
+- contract and golden updates for scan, export, and regress payloads
+- repeat-run determinism checks for serialized outputs
+Matrix wiring:
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Cross-platform lane
+- Risk lane
+Acceptance criteria:
+- The same fixture produces distinct instance-scoped rows across scan, report, proof, appendix export, and regress flows.
+- Ordering remains deterministic across reruns.
+- Evidence and export artifacts remain byte-stable unless intentionally updated.
+Contract/API impact:
+- No new contract beyond W2-S01; this story seals the behavior with regression coverage.
+Versioning/migration impact:
+- None beyond additive coverage updates.
+Architecture constraints:
+- Keep orchestration thin and reuse normalized inventory context rather than bespoke per-consumer identity reconstruction.
+- Preserve cancellation and timeout behavior for CLI flows while adding end-to-end assertions.
+ADR required: no
+TDD first failing test(s):
+- extend `TestScanPayload_SourceOnlyMultiAgentFileProducesSeparatePrivilegeRows`
+- extend `TestBuildWithOptionsDeterministicAndAnonymized`
+- extend `TestE2ERegressRunAcceptsLegacyBaselineForEquivalentInstanceIdentity` with same-file multi-agent expectations
+- add a failing report summary test for dual same-file agents
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Under repeated export, proof-map, and regress roundtrips, same-file multi-agent identity must stay distinct and byte-stable rather than collapsing or reordering.
+
+## Epic W3: Supported Framework Source-Detection Guardrails
+
+Objective: Keep the existing supported framework source-detection claim release-gated, precise, and clearly scoped.
+
+### Story W3-S01: Release-gate supported framework source parsers with source-only and precision fixtures
+
+Priority: P1
+Tasks:
+- Audit `core/detect/agentframework/source.go` and `core/detect/defaults/defaults.go` to keep supported framework profiles deterministic and explicitly registered.
+- Keep or expand per-framework source-only tests for LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, and MCP-client patterns.
+- Strengthen precision fixtures around tool bindings, auth surfaces, deployment artifacts, and same-file multi-agent cases.
+- Reuse `scenarios/wrkr/agent-source-frameworks` as the acceptance fixture for release gating.
+Repo paths:
+- `core/detect/agentframework/source.go`
+- `core/detect/defaults/defaults.go`
 - `core/detect/agentframework/detector_test.go`
 - `core/detect/agentlangchain/detector_test.go`
 - `core/detect/agentcrewai/detector_test.go`
@@ -310,476 +494,196 @@ Repo paths:
 - `core/detect/agentautogen/detector_test.go`
 - `core/detect/agentllamaindex/detector_test.go`
 - `core/detect/agentmcpclient/detector_test.go`
-- `core/cli/scan_agent_context_test.go`
-- `docs/trust/detection-coverage-matrix.md`
-- `scenarios/wrkr/agent-source-frameworks/*` (new)
-- `internal/scenarios/coverage_map.json`
+- `scenarios/wrkr/agent-source-frameworks`
 Run commands:
-- `go test ./core/detect/agentframework ./core/detect/agentlangchain ./core/detect/agentcrewai ./core/detect/agentopenai ./core/detect/agentautogen ./core/detect/agentllamaindex ./core/detect/agentmcpclient -count=1`
-- `go test ./core/aggregate/inventory ./core/cli -count=1`
-- `wrkr scan --path ./scenarios/wrkr/agent-source-frameworks/repos --json`
-- `make test-perf`
+- `go test ./core/detect/... -count=1`
+- `make test-scenarios`
 - `make test-agent-benchmarks`
 - `make prepush-full`
 Test requirements:
-- parser unit tests for Python and JS/TS source extraction
-- deterministic multi-agent same-file ordering tests
-- declaration/source coexistence and deduplication tests
-- scenario/golden tests for source-only repos with no declaration files
-- compatibility tests proving existing declaration fixtures still pass unchanged
-- performance budget and benchmark checks for the new parser path
-- docs consistency update for the coverage matrix
+- parser and detector unit tests with source-only fixtures
+- deterministic multi-agent ordering tests
+- scenario acceptance checks for source-only repos
+- benchmark checks when parser breadth or file-walk cost changes materially
 Matrix wiring:
-- Fast lane: targeted detector, inventory, and CLI tests
-- Core CI lane: `make prepush`
-- Acceptance lane: scenario contract tests plus `wrkr scan --path ./scenarios/wrkr/agent-source-frameworks/repos --json`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make prepush-full`, `make test-perf`, `make test-agent-benchmarks`
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Risk lane
 Acceptance criteria:
-- A repo containing supported framework source and no declaration files produces the expected agent inventory.
-- A single file with multiple agents yields separate deterministic detections with stable instance ordering.
-- Source-derived agents emit `framework`, `file`, `symbol`, `location_range`, bound tools, auth surfaces, and deployment hints when those signals exist.
-- Existing declaration-only fixtures retain current precision and deterministic ordering.
-- `docs/trust/detection-coverage-matrix.md` truthfully describes the new coverage and remaining deterministic limits.
+- Supported framework source-only repos continue to produce correct agent inventory with stable ordering.
+- Same-file multi-agent source fixtures continue to emit distinct agent instances.
+- Parse errors remain deterministic and isolated from unrelated detections.
 Contract/API impact:
-- Additive `inventory.agents[*].symbol` and continued additive `location_range` usage where metadata exists.
-- Additive source-derived evidence keys on `findings[*]` and agent context.
-Versioning/migration impact:
-- Additive only; no schema major bump.
-- Existing consumers must continue to accept declaration-only agents with missing `symbol`/`location_range`.
-Architecture constraints:
-- Keep parsing inside the detection layer with thin orchestration and focused helpers for language parsing/normalization.
-- No source execution, no network lookups, and no runtime imports are allowed.
-- Ordering must be deterministic across files, frameworks, and source languages.
-- Keep extension points explicit so new frameworks can plug in without collapsing detector boundaries.
-ADR required: yes
-TDD first failing test(s):
-- `core/detect/agentframework/detector_test.go` source-only framework cases
-- `core/cli/scan_agent_context_test.go` source-derived agent context case
-- new scenario contract for `scenarios/wrkr/agent-source-frameworks`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Malformed or partially supported source files must emit deterministic parse-error or partial-result signals without suppressing unrelated detections or reordering stable findings.
-
-## Epic W2-E2: Instance-Scoped Agent Privilege Identity
-
-Objective: make privilege, export, proof, and regress flows use agent-instance identity as the canonical reporting anchor so multiple agents in the same file remain distinct throughout the pipeline.
-
-### Story W2-S01: Re-key `agent_privilege_map` on `inventory.agents` and `agent_instance_id`
-Priority: P0
-Tasks:
-- Add required additive field `agent_instance_id` to `AgentPrivilegeMapEntry`.
-- Build `agent_privilege_map` by iterating `inventory.agents` and joining tool-level permission signals plus deployment/binding/auth context onto the matching agent instance row.
-- Add additive agent context fields needed for debugging/report joins: `symbol`, `location`, and `location_range`.
-- Preserve tool-level rows for `inventory.tools`, but stop using tool identity as the primary privilege-row dedupe key.
-- Update scan JSON contract tests and appendix/export surfaces that currently assume tool-scoped privilege identity.
-Repo paths:
-- `core/aggregate/privilegebudget/budget.go`
-- `core/aggregate/inventory/inventory.go`
-- `core/aggregate/inventory/privileges.go`
-- `core/cli/scan.go`
-- `core/aggregate/privilegebudget/budget_test.go`
-- `core/aggregate/inventory/inventory_test.go`
-- `core/cli/root_test.go`
-- `testinfra/contracts/story1_contracts_test.go`
-- `testinfra/contracts/story15_contracts_test.go`
-- `core/export/appendix/export.go`
-- `core/export/inventory/export_test.go`
-Run commands:
-- `go test ./core/aggregate/inventory ./core/aggregate/privilegebudget ./core/export/... ./core/cli -count=1`
-- `wrkr scan --path ./scenarios/wrkr/agent-source-frameworks/repos --json`
-- `make prepush-full`
-Test requirements:
-- additive schema/contract tests for `agent_privilege_map[*].agent_instance_id`
-- deterministic same-file multi-agent privilege-row tests
-- CLI `--json` stability tests
-- appendix/export snapshot compatibility tests
-- compatibility tests proving tool inventory remains stable while privilege identity becomes instance-scoped
-Matrix wiring:
-- Fast lane: targeted aggregation, export, and CLI tests
-- Core CI lane: `make prepush`
-- Acceptance lane: `wrkr scan --path ./scenarios/wrkr/agent-source-frameworks/repos --json`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make prepush-full`
-Acceptance criteria:
-- Two agents in one file produce two stable `agent_privilege_map` rows with distinct `agent_instance_id` values.
-- Each privilege row carries joined write/exec/credential/deployment/binding context for that specific agent instance.
-- `tool_id` remains available for correlation, but row identity is clearly agent-instance based.
-- Existing tool inventory outputs remain stable for tool-level consumers.
-Contract/API impact:
-- Additive `agent_privilege_map[*].agent_instance_id`, `symbol`, `location`, and `location_range`.
-- `agent_privilege_map[*].tool_id` is retained but documented as correlation-only for privilege reporting.
-Versioning/migration impact:
-- Additive only; no schema major bump.
-- Existing consumers may continue reading `agent_id`, but new consumers must switch to `agent_instance_id` as the privilege-row key.
-Architecture constraints:
-- Keep aggregation logic focused in aggregation packages; do not push privilege-join logic into report or CLI layers.
-- Preserve explicit side-effect semantics and deterministic ordering.
-- Avoid hidden fallback behavior that silently collapses instance rows when instance metadata exists.
-ADR required: yes
-TDD first failing test(s):
-- `core/aggregate/privilegebudget/budget_test.go` same-file multi-agent privilege-row case
-- `core/cli/root_test.go` scan payload expectations for `agent_instance_id`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Missing legacy metadata or mixed old/new agent IDs must degrade via explicit compatibility fallback without collapsing distinct current instance rows or duplicating privilege counts.
-
-### Story W2-S02: Preserve instance identity through regress, proof, appendix export, and attack-path/report joins
-Priority: P0
-Tasks:
-- Update regress baseline/build/compare logic so multi-agent same-file cases remain distinct through init/run flows while preserving legacy baseline compatibility.
-- Add `agent_instance_id` propagation to proof-map records and relationships wherever agent context exists.
-- Update appendix privilege exports and any report/attack-path joins that still rely on tool identity so downstream artifacts preserve agent-instance separation.
-- Add deterministic end-to-end fixtures for scan -> proof/evidence -> regress with two agents in one file.
-Repo paths:
-- `core/regress/regress.go`
-- `core/proofmap/proofmap.go`
-- `core/export/appendix/export.go`
-- `core/report/build.go`
-- `core/risk/risk.go`
-- `core/regress/regress_test.go`
-- `core/proofmap/proofmap_test.go`
-- `core/report/report_test.go`
-- `internal/e2e/regress/regress_e2e_test.go`
-- `scenarios/wrkr/agent-relationship-correlation/*`
-- `scenarios/wrkr/attack-path-correlation/*`
-- `internal/scenarios/coverage_map.json`
-Run commands:
-- `go test ./core/regress ./core/proofmap ./core/export/appendix ./core/report ./core/risk -count=1`
-- `go test ./internal/e2e/regress -count=1`
-- `wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json`
-- `wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json`
-- `make prepush-full`
-Test requirements:
-- regress compatibility/migration tests for legacy tool-scoped baselines
-- proof relationship tests with additive `agent_instance_id`
-- appendix export contract tests for new identity columns/fields
-- attack-path/report deterministic join tests for multiple agents in one file
-- end-to-end regress tests proving two instances survive the full flow
-Matrix wiring:
-- Fast lane: targeted regress, proofmap, report, and export tests
-- Core CI lane: `make prepush`
-- Acceptance lane: `go test ./internal/e2e/regress -count=1` plus regress JSON command runs
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make prepush-full`
-Acceptance criteria:
-- Regress init/run preserves distinct identities for multiple agents in one file.
-- Proof records and relationships include additive instance context when available.
-- Appendix privilege exports preserve instance-separated rows.
-- Attack-path/report joins do not collapse multiple same-file agents back to a single tool-scoped identity.
-Contract/API impact:
-- Additive `agent_instance_id` in proof/export/report surfaces where agent context is already exposed.
-- Legacy baseline compatibility remains documented and covered by tests.
-Versioning/migration impact:
-- Additive only.
-- Pre-instance baselines continue to reconcile to equivalent current identities with deterministic documented behavior.
-Architecture constraints:
-- Keep proof/report/export layers as consumers of aggregation identity, not owners of identity derivation.
-- Preserve symmetric semantics between baseline init and compare flows.
-- Keep fallback behavior explicit and testable.
-ADR required: yes
-TDD first failing test(s):
-- `core/regress/regress_test.go` same-file multi-agent drift preservation case
-- `core/proofmap/proofmap_test.go` additive instance context propagation case
-- `internal/e2e/regress/regress_e2e_test.go` end-to-end multi-agent baseline case
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Legacy baselines plus new multi-instance scans must not cause duplicate drift reasons, proof fan-out explosions, or report/export row instability.
-
-## Epic W3-E3: First-Class `unknown_to_security` Model
-
-Objective: add an explicit machine-readable security-visibility model that is separate from approval classification and is usable in inventory, regress, report, proof, and evidence workflows.
-
-### Story W3-S01: Add `security_visibility_status` and deterministic visibility summary to inventory and regress flows
-Priority: P0
-Tasks:
-- Introduce additive field `security_visibility_status` on agent rows, tool rows, and privilege rows with values `approved`, `known_unapproved`, and `unknown_to_security`.
-- Add additive `inventory.security_visibility_summary` with separate agent/tool counts and an explicit `unknown_to_security_write_capable_agents` count.
-- Add additive summary provenance such as `reference_basis` and optional `reference_path` so consumers know whether visibility came from approved manifests only, prior scan state, or regress baseline.
-- Derive row-level visibility from approved/manifests plus prior reference state plus current scan inventory, while preserving current `approval_classification` logic untouched.
-- Define tool-level rollup precedence from underlying agent-instance rows.
-- Ensure regress and scan flows can recompute the same visibility outcome deterministically from the same declared reference inputs.
-Repo paths:
-- `core/aggregate/inventory/inventory.go`
-- `core/aggregate/inventory/privileges.go`
-- `core/regress/regress.go`
-- `core/cli/scan.go`
-- `core/aggregate/inventory/inventory_test.go`
-- `core/regress/regress_test.go`
-- `core/cli/root_test.go`
-- `docs/commands/scan.md`
-- `docs/commands/regress.md`
-- `scenarios/wrkr/security-visibility-baseline/*` (new)
-- `internal/scenarios/coverage_map.json`
-Run commands:
-- `go test ./core/aggregate/inventory ./core/regress ./core/cli -count=1`
-- `wrkr scan --path ./scenarios/wrkr/security-visibility-baseline/repos --json`
-- `wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json`
-- `wrkr regress run --baseline ./.wrkr/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json`
-- `make prepush-full`
-Test requirements:
-- additive schema tests for new visibility fields and summary objects
-- deterministic visibility derivation tests for approved, known_unapproved, and unknown_to_security cases
-- compatibility tests proving `approval_classification` and `approval_summary` remain unchanged
-- regress baseline/reference provenance tests
-- CLI `--json` stability tests
-- fail-closed tests for missing or malformed explicit reference inputs used by visibility derivation
-Matrix wiring:
-- Fast lane: targeted inventory, regress, and CLI tests
-- Core CI lane: `make prepush`
-- Acceptance lane: scenario contract tests plus scan/regress JSON command runs
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make prepush-full`
-Acceptance criteria:
-- `security_visibility_status` is emitted separately from `approval_classification`.
-- Inventory summary exposes deterministic counts for `approved`, `known_unapproved`, and `unknown_to_security`.
-- Wrkr can emit a deterministic machine-readable count for unknown-to-security write-capable agent paths from the same reference inputs.
-- Tool-level visibility rollups are derived from agent-instance rows with documented precedence.
-- No existing `approval_classification` consumer is forced to migrate to the new field.
-Contract/API impact:
-- Additive `security_visibility_status` row fields and `inventory.security_visibility_summary`.
-- Additive provenance fields declaring the visibility reference basis.
-Versioning/migration impact:
-- Additive only.
-- Existing consumers may ignore the new visibility fields and continue using `approval_classification`.
-Architecture constraints:
-- Keep visibility derivation in aggregation/regress logic, not in docs/report-only layers.
-- Fail closed or downgrade claims when the required reference basis cannot be established.
-- Keep the derivation deterministic and auditable from explicit inputs.
-ADR required: yes
-TDD first failing test(s):
-- `core/aggregate/inventory/inventory_test.go` visibility-status derivation cases
-- `core/regress/regress_test.go` visibility reference-basis case
-- `core/cli/root_test.go` scan payload visibility summary case
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Ambiguous or missing reference basis must never silently classify rows as `known_unapproved`; outputs must either derive a deterministic basis or explicitly downgrade/suppress the claim.
-
-### Story W3-S02: Surface `unknown_to_security` through report, campaign, proof, evidence, and appendix outputs
-Priority: P1
-Tasks:
-- Extend campaign metrics, report summary data, proof-map metadata, evidence bundle summaries, and appendix exports to include explicit security-visibility counts and context.
-- Ensure report/public phrasing for "unknown write-capable AI paths" is backed by the new visibility summary and declared reference basis.
-- Add additive proof metadata/event context for `security_visibility_status` and visibility reference basis where agent context exists.
-- Update security-team and evidence docs so operators know where the new counts come from and how to interpret them.
-Repo paths:
-- `core/report/campaign.go`
-- `core/report/build.go`
-- `core/proofmap/proofmap.go`
-- `core/evidence/evidence.go`
-- `core/export/appendix/export.go`
-- `core/report/campaign_test.go`
-- `core/report/report_test.go`
-- `core/proofmap/proofmap_test.go`
-- `core/evidence/evidence_test.go`
-- `internal/e2e/campaign/campaign_e2e_test.go`
-- `docs/commands/campaign.md`
-- `docs/commands/evidence.md`
-- `docs/examples/security-team.md`
-Run commands:
-- `go test ./core/report ./core/proofmap ./core/evidence ./core/export/appendix -count=1`
-- `go test ./internal/e2e/campaign -count=1`
-- `wrkr campaign aggregate --input-glob './.tmp/campaign/*.json' --json`
-- `make prepush-full`
-Test requirements:
-- campaign/report/proof/evidence additive schema and golden tests
-- compatibility tests for existing approval and production-write metrics
-- proof relationship and metadata coverage tests
-- evidence bundle summary tests
-- campaign e2e tests for visibility metrics
-- docs consistency checks for updated campaign/evidence/security-team docs
-Matrix wiring:
-- Fast lane: targeted report, proofmap, evidence, export, and campaign tests
-- Core CI lane: `make prepush`
-- Acceptance lane: `go test ./internal/e2e/campaign -count=1` plus campaign JSON aggregation runs
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make prepush-full`
-Acceptance criteria:
-- Campaign/report/evidence outputs include explicit visibility counts and declared reference basis.
-- Proof records carry additive security-visibility context when agent context is available.
-- Evidence summaries can support the phrase "X unknown-to-security write-capable AI paths" without relying on `approval_classification=unknown`.
-- Existing approval and production-write metrics remain stable and documented.
-Contract/API impact:
-- Additive visibility metrics on report/campaign/evidence/proof surfaces.
-- Additive appendix export columns/fields for visibility status and instance identity as needed.
-Versioning/migration impact:
-- Additive only.
-- Existing campaign/report consumers continue to work without visibility-field awareness.
-Architecture constraints:
-- Report/evidence/proof layers consume visibility data from inventory/regress outputs; they do not re-derive it independently.
-- Keep portable evidence and proof-chain integrity intact.
-- Preserve deterministic ordering and byte stability for generated artifacts.
-ADR required: yes
-TDD first failing test(s):
-- `core/report/campaign_test.go` visibility-metric case
-- `core/proofmap/proofmap_test.go` visibility-context case
-- `core/evidence/evidence_test.go` evidence summary visibility case
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Campaign aggregation over mixed input artifacts must never synthesize unknown-to-security counts when reference-basis metadata is missing or incompatible.
-
-## Epic W4-E4: Production-Target-Backed `production_write` Claim Governance
-
-Objective: ensure Wrkr only makes `production_write` claims when production targets are explicitly configured, while keeping `write_capable` as the always-available capability signal.
-
-### Story W4-S01: Guard `production_write` claims in scan/report/public/campaign workflows
-Priority: P1
-Tasks:
-- Centralize claim-governance logic that inspects `PrivilegeBudget.ProductionWrite.Status` before report/public/campaign wording is rendered.
-- Keep the machine-readable `production_write` budget object intact, but ensure numeric or headline `production_write` claims appear only when targets are configured and valid.
-- Downgrade default wording to `write_capable` when targets are not configured or invalid, and keep explicit status/warnings visible.
-- Add report/public/campaign contract tests for configured, not configured, and invalid production-target states.
-Repo paths:
-- `core/cli/scan.go`
-- `core/report/build.go`
-- `core/report/campaign.go`
-- `core/cli/root_test.go`
-- `core/cli/campaign_test.go`
-- `core/cli/report_contract_test.go`
-- `core/report/report_test.go`
-- `core/report/campaign_test.go`
-- `docs/commands/report.md`
-- `docs/commands/campaign.md`
-Run commands:
-- `go test ./core/cli ./core/report -count=1`
-- `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --report-md --report-template public --json`
-- `wrkr campaign aggregate --input-glob './.tmp/campaign/*.json' --json`
-- `make prepush-full`
-Test requirements:
-- CLI/report/public template behavior tests
-- `--json` stability tests
-- campaign markdown/JSON guard tests
-- deterministic configured/not_configured/invalid status fixture coverage
-- machine-readable warning/claim downgrade tests
-Matrix wiring:
-- Fast lane: targeted CLI and report tests
-- Core CI lane: `make prepush`
-- Acceptance lane: scan/report/campaign JSON command runs
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make prepush-full`
-Acceptance criteria:
-- Public/report output never implies `production_write` without configured production targets.
-- Default output wording is `write_capable` unless `--production-targets` is supplied and valid.
-- Machine-readable `production_write` status remains available for automation even when public wording is downgraded.
-- Invalid target configuration never upgrades claim wording.
-Contract/API impact:
-- No exit-code change.
-- Possible additive report summary metadata documenting claim-governance state.
-Versioning/migration impact:
-- No breaking contract changes; wording and additive metadata only.
-Architecture constraints:
-- Keep claim-governance logic in report/CLI policy helpers, not scattered across templates.
-- Preserve deterministic wording selection for identical inputs.
-- Do not infer production targets from repo content; the path must remain explicit and opt-in.
-ADR required: no
-TDD first failing test(s):
-- `core/report/report_test.go` public report without production targets
-- `core/cli/root_test.go` scan report payload downgrade case
-- `core/cli/campaign_test.go` campaign summary guard case
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Mixed configured and unconfigured scan artifacts must never surface an aggregate `production_write` claim unless every required input is explicitly configured.
-
-### Story W4-S02: Document the production-target workflow and public claim rules
-Priority: P1
-Tasks:
-- Update README and command/example docs so `write_capable` is the default message and `production_write` is clearly presented as an explicit opt-in production-target workflow.
-- Refresh `docs/examples/production-targets.v1.yaml` so the example remains the canonical onboarding artifact for security teams.
-- Update security-team and compliance docs to explain when `production_write` is safe to state and when only `write_capable` is safe.
-- Ensure docs consistency checks enforce the same wording across README, command docs, and examples.
-Repo paths:
-- `README.md`
-- `docs/commands/scan.md`
-- `docs/commands/report.md`
-- `docs/commands/campaign.md`
-- `docs/commands/evidence.md`
-- `docs/examples/production-targets.v1.yaml`
-- `docs/examples/security-team.md`
-- `docs/compliance/eu_ai_act_audit_readiness.md`
-- `docs/trust/detection-coverage-matrix.md`
-- `testinfra/hygiene/*` if README/docs contract assertions need updates
-Run commands:
-- `make test-docs-consistency`
-- `make test-docs-storyline`
-- `go test ./testinfra/... -count=1`
-Test requirements:
-- docs consistency checks
-- storyline/smoke checks for updated workflow copy
-- README first-screen contract checks for claim wording
-- docs source-of-truth mapping checks for touched command/example docs
-- maintainer/support expectation checks if public wording materially changes user guidance
-Matrix wiring:
-- Fast lane: targeted `go test ./testinfra/... -count=1`
-- Core CI lane: `make test-docs-consistency`
-- Acceptance lane: `make test-docs-storyline`
-- Cross-platform lane: none beyond existing required checks
-- Risk lane: not required unless runtime behavior changes in the same PR
-Acceptance criteria:
-- README and command docs use `write_capable` as the default public message.
-- Production-target workflow is explicit and points to the canonical example file.
-- Security-team/compliance docs explain that `production_write` requires configured targets.
-- Docs consistency checks prevent future drift back to unsafe wording.
-Contract/API impact:
-- Docs-only contract alignment for public wording and workflows.
+- No public schema change is required; this story protects implemented behavior.
 Versioning/migration impact:
 - None.
 Architecture constraints:
-- Keep docs aligned to implemented runtime behavior and canonical command contracts.
-- Do not introduce dashboard-first or SaaS-dependent workflow language.
+- Keep detection logic isolated in detection packages.
+- Prefer explainable parsing and deterministic evidence over broad heuristic matching.
+- Maintain bounded file walking, deterministic ordering, and no hidden network dependencies.
 ADR required: no
 TDD first failing test(s):
-- existing docs consistency/storyline checks updated to fail on stale `production_write` default wording
+- extend `TestDetectMany_SourceOnlyMultiAgentFileYieldsStableSeparateDetections`
+- extend each `*Detector_SourceOnlyRepo` test with deterministic ordering and precision assertions
+- add a failing scenario assertion for the shared source-only fixture
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- If docs drift from runtime claim-governance behavior, docs consistency/storyline checks must fail before merge rather than allow unsafe public guidance.
+- A malformed file or partial import pattern in one supported framework must not suppress unrelated supported detections or destabilize ordering.
+
+### Story W3-S02: Keep public detection copy scoped to supported frameworks
+
+Priority: P1
+Tasks:
+- Audit `README.md`, `docs/trust/detection-coverage-matrix.md`, and `docs/commands/scan.md` so supported framework-native source parsing and conservative custom scaffolds are described separately.
+- Add docs consistency or storyline checks that fail if public copy implies bespoke internal/custom source detection without corresponding runtime support.
+- If Wave 4 is deferred, state that public scope remains supported frameworks plus conservative custom scaffolds.
+Repo paths:
+- `README.md`
+- `docs/trust/detection-coverage-matrix.md`
+- `docs/commands/scan.md`
+- `testinfra/hygiene`
+Run commands:
+- `make test-docs-consistency`
+- `make test-docs-storyline`
+- `make prepush`
+Test requirements:
+- docs consistency checks
+- README first-screen checks
+- integration-before-internals storyline smoke for touched flows
+Matrix wiring:
+- Fast lane
+- Core CI lane
+- Acceptance lane
+Acceptance criteria:
+- Public copy never implies broad bespoke internal/custom source detection unless Wave 4 lands in the same rollout.
+- Detection docs clearly distinguish supported framework-native source parsing from conservative custom scaffolding support.
+Contract/API impact:
+- Docs-only clarification of existing runtime scope.
+Versioning/migration impact:
+- None.
+Architecture constraints:
+- Docs remain an executable contract and must track runtime truth in the same PR.
+ADR required: no
+TDD first failing test(s):
+- add a failing docs-consistency check for unsupported broader custom-source wording
+- add a failing README first-screen assertion for scoped detection copy
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- If docs drift ahead of runtime support, docs consistency gates must fail before merge.
+
+## Epic W4: Optional Bespoke Custom-Source Expansion
+
+Objective: Provide a conditional path for broader bespoke internal/custom source detection only if product messaging is intentionally expanded.
+
+### Story W4-S01: Optionally add deterministic bespoke internal/custom source detection
+
+Priority: P2
+Tasks:
+- Make an explicit product decision before implementation: broaden the public claim beyond supported frameworks plus conservative custom scaffolds, or defer.
+- If approved, design an isolated deterministic detector path for bespoke internal/custom agent source patterns with conservative confidence and explainable evidence.
+- Add strong negative fixtures so ambiguous internal patterns fail closed to no finding instead of broad false positives.
+- Update `README.md` and `docs/trust/detection-coverage-matrix.md` in the same PR only if the detector ships and tests are green.
+Repo paths:
+- `core/detect/agentframework/source.go`
+- `core/detect/defaults/defaults.go`
+- `core/detect/agentcustom/detector.go`
+- `core/detect/agentcustom/detector_test.go`
+- `scenarios/wrkr/agent-source-frameworks`
+- `README.md`
+- `docs/trust/detection-coverage-matrix.md`
+- `testinfra/benchmarks/agents`
+Run commands:
+- `go test ./core/detect/... -count=1`
+- `make test-scenarios`
+- `make test-agent-benchmarks`
+- `make test-perf`
+- `make prepush-full`
+Test requirements:
+- positive and negative detector fixtures for bespoke internal/custom source patterns
+- determinism and precision tests that protect supported framework coverage
+- benchmark and performance checks for expanded parsing scope
+- docs consistency checks if public copy changes
+Matrix wiring:
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Risk lane
+Acceptance criteria:
+- If executed, broader custom/internal source detection is deterministic, precision-tested, and documented in the same rollout.
+- If not executed, public messaging remains scoped and no broader claim appears.
+- Supported framework coverage does not regress.
+Contract/API impact:
+- Any new custom-source findings must be additive and explainable; no existing supported-framework contract may be weakened.
+Versioning/migration impact:
+- None unless a new additive finding type or evidence key is introduced, in which case compatibility tests must be updated in the same PR.
+Architecture constraints:
+- Keep bespoke custom-source logic isolated behind a dedicated detector seam or tightly scoped extension point.
+- Preserve thin orchestration, bounded parsing, deterministic ordering, and extension points that reduce enterprise fork pressure.
+- Do not let risk or report layers parse raw source directly.
+ADR required: yes
+TDD first failing test(s):
+- add failing positive and negative custom-source detector fixtures
+- add a failing benchmark threshold test if parser breadth grows materially
+- add a failing docs-scope test that only passes when runtime support exists
+Cost/perf impact: medium
+Chaos/failure hypothesis:
+- Ambiguous bespoke internal source patterns must fail closed to no finding rather than creating noisy false-positive agent inventory.
+Dependencies:
+- Execute only after Waves 1 through 3 are complete and only with explicit product approval to broaden the claim.
 
 ## Minimum-Now Sequence
 
 Wave 1:
 
-- W1-S01 must land first.
-- Reason: source-level agent discovery is the coverage foundation for every later claim about unknown write-capable paths.
+- W1-S01
+- W1-S02
+
+Why first:
+
+- Claim-boundary hardening is the safest first move because public and report language must not outrun the runtime basis already in the repo.
 
 Wave 2:
 
-- W2-S01 then W2-S02.
-- Reason: privilege, proof, regress, and attack-path/report surfaces must become instance-accurate before visibility metrics can be trusted.
+- W2-S01
+- W2-S02
+
+Why second:
+
+- Instance-scoped downstream identity is contract and evidence correctness work. It must be locked before any further narrative about "unknown paths" or same-file agent discovery is amplified.
 
 Wave 3:
 
-- W3-S01 then W3-S02.
-- Reason: the explicit `unknown_to_security` model depends on instance-accurate identity and must exist in inventory/regress before report/proof/evidence consumers can surface it.
+- W3-S01
+- W3-S02
+
+Why third:
+
+- Once claim boundaries and instance identity are hardened, supported source parsing can be safely release-gated and publicly scoped without ambiguity.
 
 Wave 4:
 
-- W4-S01 then W4-S02.
-- Reason: public/report claim governance and docs alignment should harden the now-correct runtime behavior rather than mask incomplete implementation earlier in the sequence.
+- W4-S01
 
-Stop conditions between waves:
+Why optional:
 
-- Do not start Wave 2 until source-only scenarios show stable agent instance output.
-- Do not start Wave 3 until same-file multi-agent privilege rows are distinct end to end.
-- Do not start Wave 4 until `unknown_to_security` counts are deterministic and surfaced machine-readably.
+- This wave is only valuable if product positioning intentionally broadens beyond supported frameworks plus conservative custom scaffolds. It is not required for the safe residual-hardening release.
 
 ## Explicit Non-Goals
 
-- No live runtime traffic inspection, live MCP probing, or runtime agent execution.
-- No dashboard, hosted service, or default network dependency work.
-- No package vulnerability scanning or MCP-server vulnerability assessment features.
-- No change to Wrkr lifecycle-state values or exit-code meanings.
-- No removal of `approval_classification`, `approval_summary`, `tool_id`, or declaration-file support in v1.
-- No inference of production targets from repository content; production targets remain an explicit user-supplied policy input.
-- No broad docs-site redesign or marketing rewrite beyond what is necessary to keep public/runtime claims truthful in this repo.
+- No live runtime interception, probing, or telemetry collection.
+- No LLM-backed detection or scoring.
+- No major schema, exit-code, or lifecycle-model redesign.
+- No dashboard, UI, or hosted control-plane work.
+- No expansion of public custom-source claims unless Wave 4 is explicitly approved and implemented.
+- No vulnerability-scanner scope expansion beyond existing Wrkr boundaries.
 
 ## Definition of Done
 
-- Every recommendation above is mapped to implemented stories in dependency order.
-- All touched public contracts are additive, documented, and covered by tests.
-- `make prepush-full` passes for all runtime/proof/report/visibility stories.
-- `make test-hardening`, `make test-chaos`, and `make test-perf` pass where required by the story matrix.
-- `make test-agent-benchmarks` passes for source-detection changes.
-- `make test-docs-consistency` passes for all docs/public wording changes.
-- Scenario contracts, e2e flows, and contract tests are updated for every new public behavior.
-- README, command docs, examples, and trust docs are aligned with the implemented runtime behavior.
-- Required PR checks remain green: `fast-lane`, `scan-contract`, `wave-sequence`, `windows-smoke`.
-- Follow-up implementation must occur on a clean branch/worktree scope with this plan file as the only planning artifact change before `adhoc-implement`.
+- Every recommendation in this planning run maps to at least one story in this plan.
+- P0 claim-boundary and identity waves ship with docs, tests, and machine-readable contract checks in the same PRs.
+- Supported framework source parsing remains release-gated by source-only and same-file multi-agent fixtures.
+- `agent_instance_id` remains the canonical privilege-row key across downstream consumers.
+- "Unknown to security" is always tied to `security_visibility_status` plus `reference_basis`.
+- `production_write` is never implied without valid production-target configuration.
+- Required lanes are green for each merged story, including `make prepush-full` for architecture, report, regress, proof, or failure-semantics changes.

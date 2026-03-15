@@ -394,6 +394,55 @@ func TestCompareAllowsApprovedPermissionExpansion(t *testing.T) {
 	}
 }
 
+func TestCompareScopesInstanceMatchingToOrg(t *testing.T) {
+	t.Parallel()
+
+	baseline := Baseline{
+		Version: BaselineVersion,
+		Tools: []ToolState{
+			{
+				AgentID:         "wrkr:shared-instance:beta",
+				AgentInstanceID: "shared-instance",
+				ToolID:          "shared-instance",
+				Org:             "beta",
+				Status:          identity.StateRevoked,
+				ApprovalStatus:  "revoked",
+				Present:         false,
+			},
+			{
+				AgentID:         "wrkr:shared-instance:acme",
+				AgentInstanceID: "shared-instance",
+				ToolID:          "shared-instance",
+				Org:             "acme",
+				Status:          identity.StateActive,
+				ApprovalStatus:  "valid",
+				Present:         true,
+			},
+		},
+	}
+	current := state.Snapshot{
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       "wrkr:shared-instance:beta",
+			ToolID:        "shared-instance",
+			Org:           "beta",
+			Status:        identity.StateRevoked,
+			ApprovalState: "revoked",
+			Present:       true,
+		}},
+	}
+
+	result := Compare(baseline, current)
+	if !result.Drift {
+		t.Fatalf("expected revoked beta instance to match its org-scoped baseline, got %v", result.Reasons)
+	}
+	if len(result.Reasons) != 1 || result.Reasons[0].Code != ReasonRevokedToolReappeared {
+		t.Fatalf("expected revoked reappearance reason, got %v", result.Reasons)
+	}
+	if result.Reasons[0].Org != "beta" {
+		t.Fatalf("expected beta org attribution, got %+v", result.Reasons[0])
+	}
+}
+
 func TestCompareDeterministicForSameInput(t *testing.T) {
 	t.Parallel()
 
@@ -592,6 +641,70 @@ func TestCompareFlagsAdditionalInstanceBeyondLegacyBaseline(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected new_unapproved_tool reason, got %v", result.Reasons)
+	}
+}
+
+func TestBuildBaselineCarriesAgentInstanceIDAdditively(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{
+		Findings: []model.Finding{{
+			FindingType:   "tool_config",
+			ToolType:      "agentframework",
+			Location:      ".wrkr/agents/research.yaml",
+			LocationRange: &model.LocationRange{StartLine: 12, EndLine: 24},
+			Org:           "acme",
+			Repo:          "backend",
+			Evidence:      []model.Evidence{{Key: "symbol", Value: "research_agent"}},
+		}},
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       identity.AgentID(identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "research_agent", 12, 24), "acme"),
+			ToolID:        identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "research_agent", 12, 24),
+			Org:           "acme",
+			Status:        identity.StateUnderReview,
+			ApprovalState: "missing",
+			Present:       true,
+		}},
+	}
+
+	baseline := BuildBaseline(snapshot, time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC))
+	if len(baseline.Tools) != 1 {
+		t.Fatalf("expected one baseline tool, got %d", len(baseline.Tools))
+	}
+	if baseline.Tools[0].AgentInstanceID == "" {
+		t.Fatalf("expected additive agent_instance_id in baseline tool state, got %+v", baseline.Tools[0])
+	}
+}
+
+func TestCompareDriftReasonCarriesAgentInstanceID(t *testing.T) {
+	t.Parallel()
+
+	current := state.Snapshot{
+		Findings: []model.Finding{{
+			FindingType:   "tool_config",
+			ToolType:      "agentframework",
+			Location:      ".wrkr/agents/research.yaml",
+			LocationRange: &model.LocationRange{StartLine: 30, EndLine: 42},
+			Org:           "acme",
+			Repo:          "backend",
+			Evidence:      []model.Evidence{{Key: "symbol", Value: "ops_agent"}},
+		}},
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       identity.AgentID(identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "ops_agent", 30, 42), "acme"),
+			ToolID:        identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "ops_agent", 30, 42),
+			Org:           "acme",
+			Status:        identity.StateUnderReview,
+			ApprovalState: "missing",
+			Present:       true,
+		}},
+	}
+
+	result := Compare(Baseline{Version: BaselineVersion, Tools: []ToolState{}}, current)
+	if !result.Drift || len(result.Reasons) != 1 {
+		t.Fatalf("expected a single drift reason, got %+v", result)
+	}
+	if result.Reasons[0].AgentInstanceID == "" {
+		t.Fatalf("expected drift reason to carry additive agent_instance_id, got %+v", result.Reasons[0])
 	}
 }
 

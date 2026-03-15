@@ -121,10 +121,12 @@ func AggregateCampaignWithOptions(inputs []CampaignScanInput, generatedAt time.T
 	approvedTools := 0
 	unapprovedTools := 0
 	unknownTools := 0
-	unknownToSecurityTools := 0
-	unknownToSecurityAgents := 0
-	unknownToSecurityWriteCapableAgents := 0
-	securityVisibilityReference := "initial_scan"
+	unknownToSecurityToolsRaw := 0
+	unknownToSecurityAgentsRaw := 0
+	unknownToSecurityWriteCapableAgentsRaw := 0
+	securityVisibilityReference := "unavailable"
+	visibilityClaimsSupported := true
+	visibilityReferenceSeen := false
 	productionStatus := agginventory.ProductionTargetsStatusConfigured
 	productionSum := 0
 	orgStats := map[string]*campaignOrgStats{}
@@ -160,12 +162,19 @@ func AggregateCampaignWithOptions(inputs []CampaignScanInput, generatedAt time.T
 			approvedTools += in.Inventory.ApprovalSummary.ApprovedTools
 			unapprovedTools += in.Inventory.ApprovalSummary.UnapprovedTools
 			unknownTools += in.Inventory.ApprovalSummary.UnknownTools
-			unknownToSecurityTools += in.Inventory.SecurityVisibility.UnknownToSecurityTools
-			unknownToSecurityAgents += in.Inventory.SecurityVisibility.UnknownToSecurityAgents
-			unknownToSecurityWriteCapableAgents += in.Inventory.SecurityVisibility.UnknownToSecurityWriteCapableAgents
-			if ref := strings.TrimSpace(in.Inventory.SecurityVisibility.ReferenceBasis); ref != "" && securityVisibilityReference == "initial_scan" {
-				securityVisibilityReference = ref
+			if ref := strings.TrimSpace(in.Inventory.SecurityVisibility.ReferenceBasis); ref != "" {
+				if !visibilityReferenceSeen {
+					securityVisibilityReference = ref
+					visibilityReferenceSeen = true
+				}
+			} else {
+				visibilityClaimsSupported = false
 			}
+			unknownToSecurityToolsRaw += in.Inventory.SecurityVisibility.UnknownToSecurityTools
+			unknownToSecurityAgentsRaw += in.Inventory.SecurityVisibility.UnknownToSecurityAgents
+			unknownToSecurityWriteCapableAgentsRaw += in.Inventory.SecurityVisibility.UnknownToSecurityWriteCapableAgents
+		} else {
+			visibilityClaimsSupported = false
 		}
 		accumulateOrgStats(orgStats, in, toolCount)
 
@@ -205,6 +214,16 @@ func AggregateCampaignWithOptions(inputs []CampaignScanInput, generatedAt time.T
 	if productionStatus == agginventory.ProductionTargetsStatusConfigured {
 		value := productionSum
 		productionWriteTools = &value
+	}
+	unknownToSecurityTools := 0
+	unknownToSecurityAgents := 0
+	unknownToSecurityWriteCapableAgents := 0
+	if visibilityClaimsSupported && visibilityReferenceSeen {
+		unknownToSecurityTools = unknownToSecurityToolsRaw
+		unknownToSecurityAgents = unknownToSecurityAgentsRaw
+		unknownToSecurityWriteCapableAgents = unknownToSecurityWriteCapableAgentsRaw
+	} else {
+		securityVisibilityReference = "unavailable"
 	}
 	approvedPercent, unapprovedPercent, unknownPercent, unapprovedPerApproved := approvalRatios(approvedTools, unapprovedTools, unknownTools)
 	segments := buildSegments(orgStats, segmentMetadata)

@@ -244,7 +244,7 @@ It detects supported signals from:
 - GitHub repo and org acquisition targets.
 - MCP declarations and gateway posture.
 - AI tool configs for Claude, Cursor, Codex, Copilot, skills, and CI agent execution patterns.
-- Agent definitions and bindings from supported framework-native sources.
+- Agent definitions and bindings from supported framework-native sources, conservative custom-agent scaffolds, and explicit `wrkr:custom-agent` custom-source markers.
 - Deployment artifacts linking agents to Docker, Kubernetes, serverless, and CI/CD paths.
 - Prompt-channel and attack-path risk signals from static artifacts.
 

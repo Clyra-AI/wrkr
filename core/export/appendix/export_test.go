@@ -134,3 +134,39 @@ func TestWriteCSVCreatesDeterministicTables(t *testing.T) {
 		t.Fatalf("unexpected inventory csv path: %s", paths["inventory"])
 	}
 }
+
+func TestBuildKeepsSameFilePrivilegeRowsDistinctAndOrdered(t *testing.T) {
+	t.Parallel()
+
+	inv := agginventory.Inventory{
+		Org: "acme",
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentInstanceID: "custom-inst-b",
+				AgentID:         "wrkr:custom-inst-b:acme",
+				ToolID:          "custom_agent-a",
+				ToolType:        "custom_agent",
+				Org:             "acme",
+				Repos:           []string{"acme/backend"},
+				Permissions:     []string{"deploy.write"},
+			},
+			{
+				AgentInstanceID: "custom-inst-a",
+				AgentID:         "wrkr:custom-inst-a:acme",
+				ToolID:          "custom_agent-a",
+				ToolType:        "custom_agent",
+				Org:             "acme",
+				Repos:           []string{"acme/backend"},
+				Permissions:     []string{"search.read"},
+			},
+		},
+	}
+
+	out := Build(inv, time.Date(2026, 2, 23, 20, 30, 0, 0, time.UTC))
+	if len(out.PrivilegeRows) != 2 {
+		t.Fatalf("expected two privilege rows, got %+v", out.PrivilegeRows)
+	}
+	if out.PrivilegeRows[0].AgentInstanceID != "custom-inst-a" || out.PrivilegeRows[1].AgentInstanceID != "custom-inst-b" {
+		t.Fatalf("expected privilege rows sorted by agent_instance_id, got %+v", out.PrivilegeRows)
+	}
+}

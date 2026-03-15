@@ -33,7 +33,7 @@ wrkr report --top 5 --json
 ## How to frame the results
 
 - `scan` and `mcp-list` answer inventory, privilege, and trust-overlay questions.
-- `scan` is the place to count unknown-to-security write-capable paths; use `inventory.security_visibility_summary.unknown_to_security_write_capable_agents` for that machine-readable number.
+- `scan` is the place to count unknown-to-security write-capable paths; use `inventory.security_visibility_summary.unknown_to_security_write_capable_agents` only when `inventory.security_visibility_summary.reference_basis` is present for that run.
 - `report` gives the ranked operator summary for triage.
 - `evidence` and `verify` package the saved posture into portable proof artifacts for audit/compliance workflows.
 

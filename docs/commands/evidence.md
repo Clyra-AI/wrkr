@@ -64,6 +64,7 @@ Evidence bundle includes deterministic inventory exports at `inventory.json`, `i
 Evidence bundle includes deterministic compliance rollup export at `compliance-summary.json`.
 Evidence bundle includes deterministic attack-path artifact export at `attack-paths.json` when attack-path scoring is present in scan state.
 Evidence bundle report summaries now carry additive security-visibility context from the scan state, including `unknown_to_security` counts and the reference basis used to derive them.
+If the saved scan state does not carry a usable reference basis, Wrkr suppresses `unknown_to_security` wording in downstream summaries rather than inventing that claim.
 When the scanned target is `my_setup`, the bundle also includes `personal-inventory-snapshot.json`.
 When MCP declarations are present, the bundle also includes `mcp-catalog.json`.
 

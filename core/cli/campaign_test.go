@@ -165,6 +165,92 @@ func TestCampaignAggregateMissingInputGlobExit6(t *testing.T) {
 	}
 }
 
+func TestCampaignAggregateSuppressesUnknownToSecurityMetricsWithoutReferenceBasis(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	inputPath := filepath.Join(tmp, "scan.json")
+	scanPayload := map[string]any{
+		"status": "ok",
+		"target": map[string]any{"mode": "repo", "value": "acme/backend"},
+		"source_manifest": map[string]any{
+			"target": map[string]any{"mode": "repo", "value": "acme/backend"},
+			"repos": []any{
+				map[string]any{"repo": "acme/backend", "location": ".wrkr/materialized-sources/acme/backend", "source": "github_repo_materialized"},
+			},
+		},
+		"inventory": map[string]any{
+			"inventory_version": "1",
+			"generated_at":      "2026-02-23T18:00:00Z",
+			"org":               "acme",
+			"tools":             []any{},
+			"methodology":       map[string]any{"wrkr_version": "devel", "scan_started_at": "", "scan_completed_at": "", "scan_duration_seconds": 0.0, "repo_count": 1, "file_count_processed": 1, "detectors": []any{}},
+			"approval_summary":  map[string]any{"approved_tools": 0, "unapproved_tools": 0, "unknown_tools": 0, "approved_percent": 0.0, "unapproved_percent": 0.0, "unknown_percent": 0.0, "unapproved_per_approved": nil},
+			"security_visibility_summary": map[string]any{
+				"reference_basis":                          "",
+				"approved_tools":                           0,
+				"known_unapproved_tools":                   0,
+				"unknown_to_security_tools":                5,
+				"approved_agents":                          0,
+				"known_unapproved_agents":                  0,
+				"unknown_to_security_agents":               4,
+				"unknown_to_security_write_capable_agents": 2,
+			},
+			"adoption_summary":        map[string]any{"org_wide": 0, "team_level": 0, "individual": 0, "one_off": 0},
+			"regulatory_summary":      map[string]any{"by_regulation": []any{}, "by_control": []any{}},
+			"privilege_budget":        map[string]any{"total_tools": 0, "write_capable_tools": 0, "credential_access_tools": 0, "exec_capable_tools": 0, "production_write": map[string]any{"configured": false, "status": "not_configured", "count": nil}},
+			"agent_privilege_map":     []any{},
+			"summary":                 map[string]any{"total_tools": 0, "high_risk": 0, "medium_risk": 0, "low_risk": 0},
+			"repo_exposure_summaries": []any{},
+		},
+		"privilege_budget": map[string]any{
+			"total_tools":             0,
+			"write_capable_tools":     0,
+			"credential_access_tools": 0,
+			"exec_capable_tools":      0,
+			"production_write": map[string]any{
+				"configured": false,
+				"status":     "not_configured",
+				"count":      nil,
+			},
+		},
+		"findings": []any{},
+	}
+	payloadBytes, err := json.Marshal(scanPayload)
+	if err != nil {
+		t.Fatalf("marshal scan payload: %v", err)
+	}
+	if err := os.WriteFile(inputPath, payloadBytes, 0o600); err != nil {
+		t.Fatalf("write scan payload: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"campaign", "aggregate", "--input-glob", inputPath, "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("campaign aggregate failed: code=%d stderr=%s", code, errOut.String())
+	}
+
+	var envelope map[string]any
+	if err := json.Unmarshal(out.Bytes(), &envelope); err != nil {
+		t.Fatalf("parse campaign output: %v", err)
+	}
+	campaign, ok := envelope["campaign"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected campaign object: %v", envelope)
+	}
+	metrics, ok := campaign["metrics"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected metrics object: %v", campaign)
+	}
+	if metrics["unknown_to_security_tools"] != float64(0) {
+		t.Fatalf("expected unknown_to_security_tools to be suppressed when basis is missing, got %v", metrics["unknown_to_security_tools"])
+	}
+	if metrics["security_visibility_reference"] != "unavailable" {
+		t.Fatalf("expected security_visibility_reference=unavailable when basis is missing, got %v", metrics["security_visibility_reference"])
+	}
+}
+
 func TestCampaignAggregateWithSegmentMetadataAndMarkdown(t *testing.T) {
 	t.Parallel()
 
