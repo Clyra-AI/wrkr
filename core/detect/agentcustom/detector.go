@@ -561,22 +561,21 @@ func shouldSkipSourceFile(rel string) bool {
 	if lower == "" {
 		return true
 	}
-	for _, prefix := range []string{
-		".git/",
-		".wrkr/",
-		".tmp/",
-		"node_modules/",
-		"vendor/",
-		"dist/",
-		"build/",
-		".venv/",
-		"venv/",
-	} {
-		if strings.HasPrefix(lower, prefix) {
+	segments := strings.Split(lower, "/")
+	for _, segment := range segments[:max(0, len(segments)-1)] {
+		switch segment {
+		case ".git", ".wrkr", ".tmp", "node_modules", "vendor", "dist", "build", ".venv", "venv":
 			return true
 		}
 	}
 	return false
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func parseErrorFinding(scope detect.Scope, path string, format string, parseErr model.ParseError) model.Finding {

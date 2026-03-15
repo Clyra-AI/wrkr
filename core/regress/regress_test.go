@@ -394,6 +394,55 @@ func TestCompareAllowsApprovedPermissionExpansion(t *testing.T) {
 	}
 }
 
+func TestCompareScopesInstanceMatchingToOrg(t *testing.T) {
+	t.Parallel()
+
+	baseline := Baseline{
+		Version: BaselineVersion,
+		Tools: []ToolState{
+			{
+				AgentID:         "wrkr:shared-instance:beta",
+				AgentInstanceID: "shared-instance",
+				ToolID:          "shared-instance",
+				Org:             "beta",
+				Status:          identity.StateRevoked,
+				ApprovalStatus:  "revoked",
+				Present:         false,
+			},
+			{
+				AgentID:         "wrkr:shared-instance:acme",
+				AgentInstanceID: "shared-instance",
+				ToolID:          "shared-instance",
+				Org:             "acme",
+				Status:          identity.StateActive,
+				ApprovalStatus:  "valid",
+				Present:         true,
+			},
+		},
+	}
+	current := state.Snapshot{
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       "wrkr:shared-instance:beta",
+			ToolID:        "shared-instance",
+			Org:           "beta",
+			Status:        identity.StateRevoked,
+			ApprovalState: "revoked",
+			Present:       true,
+		}},
+	}
+
+	result := Compare(baseline, current)
+	if !result.Drift {
+		t.Fatalf("expected revoked beta instance to match its org-scoped baseline, got %v", result.Reasons)
+	}
+	if len(result.Reasons) != 1 || result.Reasons[0].Code != ReasonRevokedToolReappeared {
+		t.Fatalf("expected revoked reappearance reason, got %v", result.Reasons)
+	}
+	if result.Reasons[0].Org != "beta" {
+		t.Fatalf("expected beta org attribution, got %+v", result.Reasons[0])
+	}
+}
+
 func TestCompareDeterministicForSameInput(t *testing.T) {
 	t.Parallel()
 

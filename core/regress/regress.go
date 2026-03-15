@@ -265,7 +265,7 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 		item.Permissions = dedupeSortedPermissions(item.Permissions)
 		baseByAgent[item.AgentID] = item
 		if instanceID := strings.TrimSpace(item.AgentInstanceID); instanceID != "" {
-			baseByInstance[instanceID] = item
+			baseByInstance[baselineInstanceKey(item.Org, instanceID)] = item
 		}
 	}
 	reasons := make([]Reason, 0)
@@ -362,7 +362,7 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 
 func matchBaselineTool(baseByAgent map[string]ToolState, baseByInstance map[string]ToolState, legacyClaims map[string]struct{}, currentTool ToolState) (ToolState, bool) {
 	if instanceID := strings.TrimSpace(currentTool.AgentInstanceID); instanceID != "" {
-		if baseTool, exists := baseByInstance[instanceID]; exists {
+		if baseTool, exists := baseByInstance[baselineInstanceKey(currentTool.Org, instanceID)]; exists {
 			return baseTool, true
 		}
 	}
@@ -382,6 +382,10 @@ func matchBaselineTool(baseByAgent map[string]ToolState, baseByInstance map[stri
 	}
 	legacyClaims[legacyAgentID] = struct{}{}
 	return baseTool, true
+}
+
+func baselineInstanceKey(org, instanceID string) string {
+	return fallback(org, "local") + "::" + strings.TrimSpace(instanceID)
 }
 
 func dedupeSortedPermissions(values []string) []string {

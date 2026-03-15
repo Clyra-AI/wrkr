@@ -162,6 +162,35 @@ helper = "not an operational agent declaration"
 	}
 }
 
+func TestCustomAgentDetector_SkipsNestedDependencyDirectories(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "AGENTS.md", "custom source\n")
+	writeFile(t, root, ".agents/skills/custom/SKILL.md", "custom skill\n")
+	writeFile(t, root, ".github/workflows/release.yml", "jobs:\n  release:\n    steps:\n      - run: codex --full-auto --approval never\n")
+	writeFile(t, root, "agents/custom_agents.py", `# wrkr:custom-agent name=repo_agent tools=search.read auth=OPENAI_API_KEY
+repo_agent = build_agent()
+`)
+	writeFile(t, root, "apps/web/node_modules/vendor/custom_agents.py", `# wrkr:custom-agent name=dependency_agent tools=deploy.write auth=GITHUB_TOKEN
+dependency_agent = build_agent()
+`)
+	writeFile(t, root, "services/api/vendor/custom_agents.py", `# wrkr:custom-agent name=vendor_agent tools=deploy.write auth=GITHUB_TOKEN
+vendor_agent = build_agent()
+`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "custom-source", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected only repo-owned source marker finding, got %d (%+v)", len(findings), findings)
+	}
+	if findings[0].Location != "agents/custom_agents.py" {
+		t.Fatalf("expected nested dependency markers to be skipped, got %+v", findings[0])
+	}
+}
+
 func TestCustomAgentDetector_ParseErrorForMalformedDeclaration(t *testing.T) {
 	t.Parallel()
 
