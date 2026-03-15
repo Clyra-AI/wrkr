@@ -41,6 +41,8 @@ wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last
 ```
 
 Expected JSON keys include `status`, `baseline_path`, `tool_count` (init) and drift fields plus optional `summary_md_path` (run).
+Baseline `tools[*]` continue to expose `agent_id` and `tool_id`; additive `agent_instance_id` is now included when instance-scoped identity is available.
+Drift `reasons[*]` continue to expose `agent_id`/`tool_id` and now include additive `agent_instance_id` when the current state carries instance-scoped identity.
 When critical attack-path sets diverge above deterministic thresholds, `reasons` includes a single `critical_attack_path_drift` summary entry with machine-readable `attack_path_drift` details (`added`, `removed`, `score_changed`).
 
 Compatibility note:

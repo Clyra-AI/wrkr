@@ -53,4 +53,5 @@ wrkr campaign aggregate --input-glob './.tmp/campaign/*.json' --segment-metadata
 - Detector inventory and per-scan outputs are sorted and stable for fixed artifacts.
 - Production-write totals are emitted only when all contributing scans have configured production-target policy.
 - When production targets are not configured, public markdown stays at `write-capable` wording and reports production-target status rather than a production-write count.
+- Unknown-to-security campaign counts are emitted only when contributing scans carry a usable `security_visibility_reference`; otherwise Wrkr sets the reference to `unavailable` and suppresses those counts.
 - Segment outputs are deterministic, with explicit `unknown` buckets when metadata is absent.

@@ -89,10 +89,15 @@ For local-machine scans, `target.mode` is `my_setup`.
 `compliance_summary.frameworks[*].controls[*]` emits deterministic framework/control rollups with `mapped_rule_ids`, `finding_count`, and proof-derived coverage status.
 `inventory.methodology` emits machine-readable scan metadata (`wrkr_version`, timing, repo/file counts, detector inventory).
 `inventory.agents` is always present (possibly empty) and is deterministically sorted by org/framework/instance/location; agent entries may include additive `symbol`, `security_visibility_status`, and `location_range` when parser metadata is available.
+Source coverage remains intentionally scoped:
+- supported framework-native parsing covers LangChain, CrewAI, OpenAI Agents, AutoGen, LlamaIndex, and MCP-client patterns
+- conservative custom-agent scaffolds come from `.wrkr/agents/custom-agent.{yaml,yml,json,toml}`
+- explicit bespoke custom-source coverage uses `wrkr:custom-agent` annotations in Python or JS/TS source files
 `ranked_findings[*]` and `attack_paths[*]` now include deterministic agent-aware amplification and edge rationale when agent declarations expose deployment, delegation, dynamic discovery, or bound tool/data/auth/deploy chains.
 `inventory.tools[*]` includes deterministic `approval_classification` (`approved|unapproved|unknown`), and `inventory.approval_summary` emits aggregate approval-gap ratios for campaign/report workflows.
 `inventory.tools[*]`, `inventory.agents[*]`, and `agent_privilege_map[*]` also emit additive `security_visibility_status` (`approved|known_unapproved|unknown_to_security`) without overloading `approval_classification`.
 `inventory.security_visibility_summary` emits additive reference-basis and count fields including `unknown_to_security_write_capable_agents`.
+When a downstream workflow does not have a usable `reference_basis`, Wrkr suppresses `unknown_to_security` claims rather than fabricating them.
 `inventory.tools[*]` also emits report-ready `tool_category` and deterministic `confidence_score` (`0.00-1.00`) for inventory breakdown tables.
 `inventory.tools[*]` emits normalized `permission_surface`, `permission_tier`, `risk_tier`, `adoption_pattern`, and per-tool `regulatory_mapping` statuses.
 `inventory.adoption_summary` and `inventory.regulatory_summary` provide deterministic rollups for report section tables.

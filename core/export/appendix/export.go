@@ -231,6 +231,9 @@ func BuildWithOptions(inv agginventory.Inventory, now time.Time, opts BuildOptio
 		if privilegeRows[i].ToolType != privilegeRows[j].ToolType {
 			return privilegeRows[i].ToolType < privilegeRows[j].ToolType
 		}
+		if privilegeRows[i].AgentInstanceID != privilegeRows[j].AgentInstanceID {
+			return privilegeRows[i].AgentInstanceID < privilegeRows[j].AgentInstanceID
+		}
 		return privilegeRows[i].AgentID < privilegeRows[j].AgentID
 	})
 

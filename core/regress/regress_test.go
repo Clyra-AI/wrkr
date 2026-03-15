@@ -595,6 +595,70 @@ func TestCompareFlagsAdditionalInstanceBeyondLegacyBaseline(t *testing.T) {
 	}
 }
 
+func TestBuildBaselineCarriesAgentInstanceIDAdditively(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{
+		Findings: []model.Finding{{
+			FindingType:   "tool_config",
+			ToolType:      "agentframework",
+			Location:      ".wrkr/agents/research.yaml",
+			LocationRange: &model.LocationRange{StartLine: 12, EndLine: 24},
+			Org:           "acme",
+			Repo:          "backend",
+			Evidence:      []model.Evidence{{Key: "symbol", Value: "research_agent"}},
+		}},
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       identity.AgentID(identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "research_agent", 12, 24), "acme"),
+			ToolID:        identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "research_agent", 12, 24),
+			Org:           "acme",
+			Status:        identity.StateUnderReview,
+			ApprovalState: "missing",
+			Present:       true,
+		}},
+	}
+
+	baseline := BuildBaseline(snapshot, time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC))
+	if len(baseline.Tools) != 1 {
+		t.Fatalf("expected one baseline tool, got %d", len(baseline.Tools))
+	}
+	if baseline.Tools[0].AgentInstanceID == "" {
+		t.Fatalf("expected additive agent_instance_id in baseline tool state, got %+v", baseline.Tools[0])
+	}
+}
+
+func TestCompareDriftReasonCarriesAgentInstanceID(t *testing.T) {
+	t.Parallel()
+
+	current := state.Snapshot{
+		Findings: []model.Finding{{
+			FindingType:   "tool_config",
+			ToolType:      "agentframework",
+			Location:      ".wrkr/agents/research.yaml",
+			LocationRange: &model.LocationRange{StartLine: 30, EndLine: 42},
+			Org:           "acme",
+			Repo:          "backend",
+			Evidence:      []model.Evidence{{Key: "symbol", Value: "ops_agent"}},
+		}},
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       identity.AgentID(identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "ops_agent", 30, 42), "acme"),
+			ToolID:        identity.AgentInstanceID("agentframework", ".wrkr/agents/research.yaml", "ops_agent", 30, 42),
+			Org:           "acme",
+			Status:        identity.StateUnderReview,
+			ApprovalState: "missing",
+			Present:       true,
+		}},
+	}
+
+	result := Compare(Baseline{Version: BaselineVersion, Tools: []ToolState{}}, current)
+	if !result.Drift || len(result.Reasons) != 1 {
+		t.Fatalf("expected a single drift reason, got %+v", result)
+	}
+	if result.Reasons[0].AgentInstanceID == "" {
+		t.Fatalf("expected drift reason to carry additive agent_instance_id, got %+v", result.Reasons[0])
+	}
+}
+
 func TestCompareSummarizesCriticalAttackPathDrift(t *testing.T) {
 	t.Parallel()
 

@@ -102,6 +102,66 @@ auth_surfaces = ["token"]
 	}
 }
 
+func TestCustomAgentDetector_DetectsExplicitCustomSourceMarkersDeterministically(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "AGENTS.md", "custom source\n")
+	writeFile(t, root, ".agents/skills/custom/SKILL.md", "custom skill\n")
+	writeFile(t, root, ".github/workflows/release.yml", "jobs:\n  release:\n    steps:\n      - run: codex --full-auto --approval never\n")
+	writeFile(t, root, "agents/custom_agents.py", `# wrkr:custom-agent name=triage_agent tools=search.read,ticket.write data=crm.records auth=OPENAI_API_KEY
+triage = build_agent()
+
+# wrkr:custom-agent name=release_agent tools=deploy.write auth=GITHUB_TOKEN deploy=.github/workflows/release.yml auto_deploy=true human_gate=true
+release = build_agent()
+`)
+
+	scope := detect.Scope{Org: "acme", Repo: "custom-source", Root: root}
+	first, err := New().Detect(context.Background(), scope, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(first) != 2 {
+		t.Fatalf("expected two custom source findings, got %d (%+v)", len(first), first)
+	}
+	if first[0].FindingType != "agent_custom_source" || first[1].FindingType != "agent_custom_source" {
+		t.Fatalf("expected agent_custom_source findings, got %+v", first)
+	}
+	if evidenceValue(first[0], "symbol") == evidenceValue(first[1], "symbol") {
+		t.Fatalf("expected distinct source symbols, got %+v", first)
+	}
+	if evidenceValue(first[0], "bound_tools") == "" || evidenceValue(first[1], "deployment_artifacts") == "" {
+		t.Fatalf("expected explicit source annotation evidence, got %+v", first)
+	}
+
+	for i := 0; i < 8; i++ {
+		next, err := New().Detect(context.Background(), scope, detect.Options{})
+		if err != nil {
+			t.Fatalf("detect run %d: %v", i+1, err)
+		}
+		if !reflect.DeepEqual(first, next) {
+			t.Fatalf("non-deterministic source-marker output at run %d", i+1)
+		}
+	}
+}
+
+func TestCustomAgentDetector_FailsClosedForAmbiguousSourceMarkers(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "agents/custom_agents.py", `# wrkr:custom-agent name=notes_only
+helper = "not an operational agent declaration"
+`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "ambiguous", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected ambiguous marker to fail closed, got %+v", findings)
+	}
+}
+
 func TestCustomAgentDetector_ParseErrorForMalformedDeclaration(t *testing.T) {
 	t.Parallel()
 

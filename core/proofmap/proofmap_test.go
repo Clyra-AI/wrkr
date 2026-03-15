@@ -285,3 +285,42 @@ func TestMapFindingsIncludesSecurityVisibilityContextWhenProvided(t *testing.T) 
 		t.Fatalf("expected security visibility metadata, got %+v", records[0].Metadata)
 	}
 }
+
+func TestMapFindingsSuppressesSecurityVisibilityContextWithoutReferenceBasis(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
+	findings := []model.Finding{{
+		FindingType:   "agent_framework",
+		Severity:      model.SeverityHigh,
+		ToolType:      "langchain",
+		Location:      "agents/release.py",
+		LocationRange: &model.LocationRange{StartLine: 10, EndLine: 18},
+		Repo:          "repo",
+		Org:           "acme",
+		Evidence: []model.Evidence{
+			{Key: "symbol", Value: "release_agent"},
+		},
+	}}
+	instanceID := agentInstanceIDForFinding(findings[0])
+
+	records := MapFindings(findings, nil, SecurityVisibilityContext{
+		Summary: agginventory.SecurityVisibilitySummary{},
+		StatusByInstance: map[string]string{
+			instanceID: agginventory.SecurityVisibilityUnknownToSecurity,
+		},
+	}, now)
+	if len(records) != 1 {
+		t.Fatalf("expected one record, got %d", len(records))
+	}
+	if _, exists := records[0].Metadata["security_visibility_status"]; exists {
+		t.Fatalf("expected security visibility metadata to be suppressed without a reference basis, got %+v", records[0].Metadata)
+	}
+	context, ok := records[0].Event["agent_context"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected event.agent_context map, got %T", records[0].Event["agent_context"])
+	}
+	if _, exists := context["security_visibility_status"]; exists {
+		t.Fatalf("expected agent_context security visibility to be suppressed without a reference basis, got %+v", context)
+	}
+}

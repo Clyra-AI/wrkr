@@ -10,6 +10,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 - Repository and org configuration surfaces for Claude, Cursor, Codex, Copilot, MCP, WebMCP, A2A, and CI headless execution patterns.
 - First-class agent declarations and bindings from LangChain, CrewAI, OpenAI Agents, AutoGen, LlamaIndex, MCP-client, and conservative custom-agent scaffolding surfaces.
 - Direct Python and JS/TS source parsing for supported framework-native agent constructors, registrations, tool bindings, auth surfaces, and entrypoints when declaration files are absent.
+- Explicit bespoke custom-source markers via `wrkr:custom-agent` annotations in Python and JS/TS source files when operators want deterministic custom-agent source coverage without broad heuristics.
 - Prompt-channel override/poisoning patterns from static instruction surfaces with deterministic reason codes and evidence hashes.
 - Static policy/profile posture signals and ranked findings.
 - Deterministic inventory and risk outputs for both tools and agents, including agent-linked attack-path edges when bindings/deployments are declared in-repo.

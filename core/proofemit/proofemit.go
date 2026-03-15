@@ -135,16 +135,13 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, invento
 
 func proofVisibilityContext(inventory *agginventory.Inventory) proofmap.SecurityVisibilityContext {
 	context := proofmap.SecurityVisibilityContext{
-		Summary:          agginventory.SecurityVisibilitySummary{ReferenceBasis: "initial_scan"},
+		Summary:          agginventory.SecurityVisibilitySummary{},
 		StatusByInstance: map[string]string{},
 	}
 	if inventory == nil {
 		return context
 	}
 	context.Summary = inventory.SecurityVisibility
-	if strings.TrimSpace(context.Summary.ReferenceBasis) == "" {
-		context.Summary.ReferenceBasis = "initial_scan"
-	}
 	for _, agent := range inventory.Agents {
 		instanceID := strings.TrimSpace(agent.AgentInstanceID)
 		if instanceID == "" {

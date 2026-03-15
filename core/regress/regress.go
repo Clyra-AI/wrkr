@@ -39,14 +39,15 @@ type Baseline struct {
 }
 
 type ToolState struct {
-	AgentID        string   `json:"agent_id"`
-	ToolID         string   `json:"tool_id"`
-	Org            string   `json:"org"`
-	Status         string   `json:"status"`
-	ApprovalStatus string   `json:"approval_status"`
-	Present        bool     `json:"present"`
-	Permissions    []string `json:"permissions"`
-	LegacyAgentID  string   `json:"-"`
+	AgentID         string   `json:"agent_id"`
+	AgentInstanceID string   `json:"agent_instance_id,omitempty"`
+	ToolID          string   `json:"tool_id"`
+	Org             string   `json:"org"`
+	Status          string   `json:"status"`
+	ApprovalStatus  string   `json:"approval_status"`
+	Present         bool     `json:"present"`
+	Permissions     []string `json:"permissions"`
+	LegacyAgentID   string   `json:"-"`
 }
 
 type AttackPathState struct {
@@ -59,6 +60,7 @@ type AttackPathState struct {
 type Reason struct {
 	Code             string                  `json:"code"`
 	AgentID          string                  `json:"agent_id"`
+	AgentInstanceID  string                  `json:"agent_instance_id,omitempty"`
 	ToolID           string                  `json:"tool_id"`
 	Org              string                  `json:"org"`
 	Message          string                  `json:"message"`
@@ -118,13 +120,14 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 			continue
 		}
 		tool := &ToolState{
-			AgentID:        agentID,
-			ToolID:         strings.TrimSpace(item.ToolID),
-			Org:            fallback(item.Org, "local"),
-			Status:         fallback(item.Status, defaultLifecycleState),
-			ApprovalStatus: fallback(item.ApprovalState, defaultApprovalState),
-			Present:        item.Present,
-			Permissions:    []string{},
+			AgentID:         agentID,
+			AgentInstanceID: strings.TrimSpace(item.ToolID),
+			ToolID:          strings.TrimSpace(item.ToolID),
+			Org:             fallback(item.Org, "local"),
+			Status:          fallback(item.Status, defaultLifecycleState),
+			ApprovalStatus:  fallback(item.ApprovalState, defaultApprovalState),
+			Present:         item.Present,
+			Permissions:     []string{},
 		}
 		byAgent[agentID] = tool
 	}
@@ -139,19 +142,23 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 		item, exists := byAgent[agentID]
 		if !exists {
 			item = &ToolState{
-				AgentID:        agentID,
-				ToolID:         toolID,
-				Org:            org,
-				Status:         defaultLifecycleState,
-				ApprovalStatus: defaultApprovalState,
-				Present:        true,
-				Permissions:    []string{},
-				LegacyAgentID:  legacyAgentID,
+				AgentID:         agentID,
+				AgentInstanceID: toolID,
+				ToolID:          toolID,
+				Org:             org,
+				Status:          defaultLifecycleState,
+				ApprovalStatus:  defaultApprovalState,
+				Present:         true,
+				Permissions:     []string{},
+				LegacyAgentID:   legacyAgentID,
 			}
 			byAgent[agentID] = item
 		}
 		if strings.TrimSpace(item.ToolID) == "" {
 			item.ToolID = toolID
+		}
+		if strings.TrimSpace(item.AgentInstanceID) == "" {
+			item.AgentInstanceID = toolID
 		}
 		if strings.TrimSpace(item.LegacyAgentID) == "" {
 			item.LegacyAgentID = legacyAgentID
@@ -166,6 +173,9 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 		out = append(out, *item)
 	}
 	sort.Slice(out, func(i, j int) bool {
+		if out[i].AgentInstanceID != out[j].AgentInstanceID {
+			return out[i].AgentInstanceID < out[j].AgentInstanceID
+		}
 		if out[i].AgentID != out[j].AgentID {
 			return out[i].AgentID < out[j].AgentID
 		}
@@ -184,6 +194,9 @@ func SaveBaseline(path string, baseline Baseline) error {
 	}
 	baseline.Version = BaselineVersion
 	sort.Slice(baseline.Tools, func(i, j int) bool {
+		if baseline.Tools[i].AgentInstanceID != baseline.Tools[j].AgentInstanceID {
+			return baseline.Tools[i].AgentInstanceID < baseline.Tools[j].AgentInstanceID
+		}
 		if baseline.Tools[i].AgentID != baseline.Tools[j].AgentID {
 			return baseline.Tools[i].AgentID < baseline.Tools[j].AgentID
 		}
@@ -247,23 +260,28 @@ func LoadComparableBaseline(path string) (Baseline, error) {
 func Compare(baseline Baseline, current state.Snapshot) Result {
 	currentTools := SnapshotTools(current)
 	baseByAgent := map[string]ToolState{}
+	baseByInstance := map[string]ToolState{}
 	for _, item := range baseline.Tools {
 		item.Permissions = dedupeSortedPermissions(item.Permissions)
 		baseByAgent[item.AgentID] = item
+		if instanceID := strings.TrimSpace(item.AgentInstanceID); instanceID != "" {
+			baseByInstance[instanceID] = item
+		}
 	}
 	reasons := make([]Reason, 0)
 	legacyClaims := map[string]struct{}{}
 
 	for _, currentTool := range currentTools {
-		baseTool, exists := matchBaselineTool(baseByAgent, legacyClaims, currentTool)
+		baseTool, exists := matchBaselineTool(baseByAgent, baseByInstance, legacyClaims, currentTool)
 		if !exists {
 			if currentTool.Present && !isApproved(currentTool) {
 				reasons = append(reasons, Reason{
-					Code:    ReasonNewUnapprovedTool,
-					AgentID: currentTool.AgentID,
-					ToolID:  currentTool.ToolID,
-					Org:     currentTool.Org,
-					Message: "detected tool not present in approved baseline",
+					Code:            ReasonNewUnapprovedTool,
+					AgentID:         currentTool.AgentID,
+					AgentInstanceID: currentTool.AgentInstanceID,
+					ToolID:          currentTool.ToolID,
+					Org:             currentTool.Org,
+					Message:         "detected tool not present in approved baseline",
 				})
 			}
 			continue
@@ -271,11 +289,12 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 
 		if strings.TrimSpace(baseTool.Status) == identity.StateRevoked && currentTool.Present {
 			reasons = append(reasons, Reason{
-				Code:    ReasonRevokedToolReappeared,
-				AgentID: currentTool.AgentID,
-				ToolID:  currentTool.ToolID,
-				Org:     currentTool.Org,
-				Message: "revoked tool reappeared in current scan",
+				Code:            ReasonRevokedToolReappeared,
+				AgentID:         currentTool.AgentID,
+				AgentInstanceID: currentTool.AgentInstanceID,
+				ToolID:          currentTool.ToolID,
+				Org:             currentTool.Org,
+				Message:         "revoked tool reappeared in current scan",
 			})
 		}
 
@@ -284,6 +303,7 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 			reasons = append(reasons, Reason{
 				Code:             ReasonPermissionExpansion,
 				AgentID:          currentTool.AgentID,
+				AgentInstanceID:  currentTool.AgentInstanceID,
 				ToolID:           currentTool.ToolID,
 				Org:              currentTool.Org,
 				Message:          "tool permissions expanded without approval",
@@ -340,7 +360,12 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 	}
 }
 
-func matchBaselineTool(baseByAgent map[string]ToolState, legacyClaims map[string]struct{}, currentTool ToolState) (ToolState, bool) {
+func matchBaselineTool(baseByAgent map[string]ToolState, baseByInstance map[string]ToolState, legacyClaims map[string]struct{}, currentTool ToolState) (ToolState, bool) {
+	if instanceID := strings.TrimSpace(currentTool.AgentInstanceID); instanceID != "" {
+		if baseTool, exists := baseByInstance[instanceID]; exists {
+			return baseTool, true
+		}
+	}
 	if baseTool, exists := baseByAgent[currentTool.AgentID]; exists {
 		return baseTool, true
 	}
@@ -400,7 +425,15 @@ func normalizeBaseline(baseline Baseline) Baseline {
 	if strings.TrimSpace(baseline.Version) == "" {
 		baseline.Version = BaselineVersion
 	}
+	for i := range baseline.Tools {
+		if strings.TrimSpace(baseline.Tools[i].AgentInstanceID) == "" {
+			baseline.Tools[i].AgentInstanceID = strings.TrimSpace(baseline.Tools[i].ToolID)
+		}
+	}
 	sort.Slice(baseline.Tools, func(i, j int) bool {
+		if baseline.Tools[i].AgentInstanceID != baseline.Tools[j].AgentInstanceID {
+			return baseline.Tools[i].AgentInstanceID < baseline.Tools[j].AgentInstanceID
+		}
 		if baseline.Tools[i].AgentID != baseline.Tools[j].AgentID {
 			return baseline.Tools[i].AgentID < baseline.Tools[j].AgentID
 		}

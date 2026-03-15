@@ -269,6 +269,94 @@ func TestBuildSummaryUsesWriteCapableFallbackWhenProductionTargetsNotConfigured(
 	}
 }
 
+func TestBuildSummarySuppressesUnknownToSecurityHeadlineWithoutReferenceBasis(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC)
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			Inventory: &agginventory.Inventory{
+				PrivilegeBudget: agginventory.PrivilegeBudget{
+					TotalTools:        1,
+					WriteCapableTools: 1,
+				},
+				SecurityVisibility: agginventory.SecurityVisibilitySummary{
+					ReferenceBasis:                      "",
+					UnknownToSecurityTools:              3,
+					UnknownToSecurityAgents:             4,
+					UnknownToSecurityWriteCapableAgents: 2,
+				},
+			},
+			Findings: []model.Finding{{
+				FindingType: "tool_config",
+				Severity:    model.SeverityLow,
+				ToolType:    "codex",
+				Location:    ".codex/config.toml",
+				Repo:        "repo",
+				Org:         "acme",
+			}},
+		},
+		Template:     TemplateOperator,
+		ShareProfile: ShareProfileInternal,
+		GeneratedAt:  now,
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	joined := strings.Join(summary.Sections[0].Facts, "\n")
+	if strings.Contains(joined, "unknown_to_security_tools=3") {
+		t.Fatalf("expected unknown_to_security claim suppression without reference basis, got %v", summary.Sections[0].Facts)
+	}
+	if !strings.Contains(joined, "reference_basis unavailable") {
+		t.Fatalf("expected suppressed visibility wording, got %v", summary.Sections[0].Facts)
+	}
+}
+
+func TestBuildSummaryUsesWriteCapableFallbackWhenProductionTargetsInvalid(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC)
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			Inventory: &agginventory.Inventory{
+				PrivilegeBudget: agginventory.PrivilegeBudget{
+					TotalTools:        2,
+					WriteCapableTools: 1,
+					ProductionWrite: agginventory.ProductionWriteBudget{
+						Configured: false,
+						Status:     agginventory.ProductionTargetsStatusInvalid,
+						Count:      nil,
+					},
+				},
+				SecurityVisibility: agginventory.SecurityVisibilitySummary{ReferenceBasis: "initial_scan"},
+			},
+			Findings: []model.Finding{{
+				FindingType: "tool_config",
+				Severity:    model.SeverityLow,
+				ToolType:    "codex",
+				Location:    ".codex/config.toml",
+				Repo:        "repo",
+				Org:         "acme",
+			}},
+		},
+		Template:     TemplatePublic,
+		ShareProfile: ShareProfilePublic,
+		GeneratedAt:  now,
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	joined := strings.Join(summary.Sections[0].Facts, "\n")
+	if strings.Contains(joined, "production_write=") {
+		t.Fatalf("expected invalid production target status to keep public wording at write_capable, got %v", summary.Sections[0].Facts)
+	}
+	if !strings.Contains(joined, "write_capable=1") {
+		t.Fatalf("expected write_capable fallback in headline facts, got %v", summary.Sections[0].Facts)
+	}
+}
+
 func TestSanitizeProofReferencePublicRedactsCanonicalKeys(t *testing.T) {
 	t.Parallel()
 

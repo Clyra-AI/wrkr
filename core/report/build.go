@@ -165,12 +165,16 @@ func privilegeBudgetFromInventory(inv *agginventory.Inventory) agginventory.Priv
 
 func securityVisibilityFromInventory(inv *agginventory.Inventory) agginventory.SecurityVisibilitySummary {
 	if inv == nil {
-		return agginventory.SecurityVisibilitySummary{ReferenceBasis: "initial_scan"}
+		return agginventory.SecurityVisibilitySummary{}
 	}
-	if strings.TrimSpace(inv.SecurityVisibility.ReferenceBasis) == "" {
-		inv.SecurityVisibility.ReferenceBasis = "initial_scan"
+	if !hasSecurityVisibilityReference(inv.SecurityVisibility) {
+		return agginventory.SecurityVisibilitySummary{}
 	}
 	return inv.SecurityVisibility
+}
+
+func hasSecurityVisibilityReference(summary agginventory.SecurityVisibilitySummary) bool {
+	return strings.TrimSpace(summary.ReferenceBasis) != ""
 }
 
 func normalizePrivilegeBudget(in agginventory.PrivilegeBudget) agginventory.PrivilegeBudget {
@@ -637,8 +641,12 @@ func buildSections(
 		fmt.Sprintf("posture score %.2f (%s)", headline.Score, headline.Grade),
 		fmt.Sprintf("profile status %s at %.2f%%", headline.ComplianceStatus, headline.Compliance),
 		fmt.Sprintf("tools=%d write_capable=%d credential_access=%d exec_capable=%d", privilegeBudget.TotalTools, privilegeBudget.WriteCapableTools, privilegeBudget.CredentialAccessTools, privilegeBudget.ExecCapableTools),
-		fmt.Sprintf("security_visibility reference=%s unknown_to_security_tools=%d unknown_to_security_agents=%d unknown_to_security_write_capable_agents=%d", securityVisibility.ReferenceBasis, securityVisibility.UnknownToSecurityTools, securityVisibility.UnknownToSecurityAgents, securityVisibility.UnknownToSecurityWriteCapableAgents),
 		"profile compliance reflects controls evidenced in the current deterministic scan state",
+	}
+	if hasSecurityVisibilityReference(securityVisibility) {
+		headlineFacts = append(headlineFacts, fmt.Sprintf("security_visibility reference=%s unknown_to_security_tools=%d unknown_to_security_agents=%d unknown_to_security_write_capable_agents=%d", securityVisibility.ReferenceBasis, securityVisibility.UnknownToSecurityTools, securityVisibility.UnknownToSecurityAgents, securityVisibility.UnknownToSecurityWriteCapableAgents))
+	} else {
+		headlineFacts = append(headlineFacts, "security_visibility reference_basis unavailable; unknown_to_security claims suppressed until a saved-state basis is available")
 	}
 	headlineFacts = append(headlineFacts, compliance.ExplainRollupSummary(complianceSummary, 3)...)
 	if privilegeBudget.ProductionWrite.Configured && privilegeBudget.ProductionWrite.Count != nil {

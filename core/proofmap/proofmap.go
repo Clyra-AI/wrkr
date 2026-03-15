@@ -32,6 +32,10 @@ type SecurityVisibilityContext struct {
 	StatusByInstance map[string]string
 }
 
+func hasSecurityVisibilityReference(summary agginventory.SecurityVisibilitySummary) bool {
+	return strings.TrimSpace(summary.ReferenceBasis) != ""
+}
+
 func MapFindings(findings []model.Finding, profile *profileeval.Result, visibility SecurityVisibilityContext, now time.Time) []MappedRecord {
 	ordered := append([]model.Finding(nil), findings...)
 	model.SortFindings(ordered)
@@ -65,7 +69,7 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, visibili
 		if agentContext := agentContextForFinding(representative); len(agentContext) > 0 {
 			event["agent_id"] = agentIDForFinding(representative)
 			event["agent_context"] = agentContext
-			if instanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(instanceID) != "" {
+			if instanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(instanceID) != "" && hasSecurityVisibilityReference(visibility.Summary) {
 				if status := strings.TrimSpace(visibility.StatusByInstance[instanceID]); status != "" {
 					event["security_visibility_status"] = status
 					event["security_visibility_reference"] = visibility.Summary.ReferenceBasis
@@ -121,9 +125,11 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, visibili
 		if agentContext := agentContextForFinding(representative); len(agentContext) > 0 {
 			if agentInstanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(agentInstanceID) != "" {
 				metadata["agent_instance_id"] = agentInstanceID
-				if status := strings.TrimSpace(visibility.StatusByInstance[agentInstanceID]); status != "" {
-					metadata["security_visibility_status"] = status
-					metadata["security_visibility_reference"] = visibility.Summary.ReferenceBasis
+				if hasSecurityVisibilityReference(visibility.Summary) {
+					if status := strings.TrimSpace(visibility.StatusByInstance[agentInstanceID]); status != "" {
+						metadata["security_visibility_status"] = status
+						metadata["security_visibility_reference"] = visibility.Summary.ReferenceBasis
+					}
 				}
 			}
 			if framework, ok := agentContext["framework"].(string); ok && strings.TrimSpace(framework) != "" {
@@ -172,7 +178,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			event["agent_context"] = agentContext
 			findingMap := event["finding"].(map[string]any)
 			findingMap["agent_id"] = agentIDForFinding(item.Finding)
-			if instanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(instanceID) != "" {
+			if instanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(instanceID) != "" && hasSecurityVisibilityReference(visibility.Summary) {
 				if status := strings.TrimSpace(visibility.StatusByInstance[instanceID]); status != "" {
 					event["security_visibility_status"] = status
 					event["security_visibility_reference"] = visibility.Summary.ReferenceBasis
@@ -188,8 +194,10 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 		if agentContext := agentContextForFinding(item.Finding); len(agentContext) > 0 {
 			if agentInstanceID, ok := agentContext["agent_instance_id"].(string); ok && strings.TrimSpace(agentInstanceID) != "" {
 				metadata["agent_instance_id"] = agentInstanceID
-				if status := strings.TrimSpace(visibility.StatusByInstance[agentInstanceID]); status != "" {
-					metadata["security_visibility_status"] = status
+				if hasSecurityVisibilityReference(visibility.Summary) {
+					if status := strings.TrimSpace(visibility.StatusByInstance[agentInstanceID]); status != "" {
+						metadata["security_visibility_status"] = status
+					}
 				}
 			}
 			if framework, ok := agentContext["framework"].(string); ok && strings.TrimSpace(framework) != "" {
@@ -257,12 +265,14 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			"count": len(report.AttackPaths),
 			"top":   report.TopAttackPaths,
 		},
-		"security_visibility": map[string]any{
+	}
+	if hasSecurityVisibilityReference(visibility.Summary) {
+		postureEvent["security_visibility"] = map[string]any{
 			"reference_basis":                          visibility.Summary.ReferenceBasis,
 			"unknown_to_security_tools":                visibility.Summary.UnknownToSecurityTools,
 			"unknown_to_security_agents":               visibility.Summary.UnknownToSecurityAgents,
 			"unknown_to_security_write_capable_agents": visibility.Summary.UnknownToSecurityWriteCapableAgents,
-		},
+		}
 	}
 	records = append(records, MappedRecord{
 		RecordType:   "risk_assessment",

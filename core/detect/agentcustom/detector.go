@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -16,12 +17,24 @@ const detectorID = "agentcustom"
 
 const confidenceGate = 0.85
 
+const sourceMarkerPrefix = "wrkr:custom-agent"
+
+var (
+	pythonAssignPattern = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=`)
+	pythonFuncPattern   = regexp.MustCompile(`^\s*(?:async\s+)?def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(`)
+	pythonClassPattern  = regexp.MustCompile(`^\s*class\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(|:)`)
+	jsAssignPattern     = regexp.MustCompile(`^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=`)
+	jsFuncPattern       = regexp.MustCompile(`^\s*(?:export\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(`)
+	jsClassPattern      = regexp.MustCompile(`^\s*(?:export\s+)?class\s+([A-Za-z_$][A-Za-z0-9_$]*)\b`)
+)
+
 type Detector struct{}
 
 type customAgent struct {
 	Name       string   `json:"name" yaml:"name" toml:"name"`
 	File       string   `json:"file" yaml:"file" toml:"file"`
 	Tools      []string `json:"tools" yaml:"tools" toml:"tools"`
+	Data       []string `json:"data_sources" yaml:"data_sources" toml:"data_sources"`
 	Auth       []string `json:"auth_surfaces" yaml:"auth_surfaces" toml:"auth_surfaces"`
 	Deploy     []string `json:"deployment_artifacts" yaml:"deployment_artifacts" toml:"deployment_artifacts"`
 	AutoDeploy bool     `json:"auto_deploy" yaml:"auto_deploy" toml:"auto_deploy"`
@@ -100,6 +113,12 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			findings = append(findings, toFinding(scope, cfg.Path, agent, scored))
 		}
 	}
+
+	sourceFindings, err := detectSourceAnnotations(scope, workspaceSignals)
+	if err != nil {
+		return nil, err
+	}
+	findings = append(findings, sourceFindings...)
 
 	model.SortFindings(findings)
 	return findings, nil
@@ -206,6 +225,10 @@ func scoreSignals(workspace signalSet, agent customAgent) scoredSignals {
 		names["tool_binding_declared"] = 0.20
 		operational = true
 	}
+	if len(uniqueSorted(agent.Data)) > 0 {
+		names["data_binding_declared"] = 0.10
+		operational = true
+	}
 	if len(uniqueSorted(agent.Auth)) > 0 {
 		names["auth_binding_declared"] = 0.15
 		operational = true
@@ -267,6 +290,293 @@ func toFinding(scope detect.Scope, declarationPath string, agent customAgent, sc
 		Evidence:    evidence,
 		Remediation: "Keep custom-agent scaffolding gated by deterministic approval and explicit runtime controls.",
 	}
+}
+
+func detectSourceAnnotations(scope detect.Scope, workspace signalSet) ([]model.Finding, error) {
+	files, err := detect.WalkFiles(scope.Root)
+	if err != nil {
+		return nil, err
+	}
+
+	findings := make([]model.Finding, 0)
+	for _, rel := range files {
+		language := sourceLanguage(rel)
+		if language == "" || shouldSkipSourceFile(rel) {
+			continue
+		}
+
+		path := filepath.Join(scope.Root, filepath.FromSlash(rel))
+		// #nosec G304 -- detector reads source files within the selected repository root.
+		payload, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return nil, readErr
+		}
+		lines := strings.Split(string(payload), "\n")
+		for idx, line := range lines {
+			agent, ok := parseSourceAnnotation(rel, line)
+			if !ok {
+				continue
+			}
+			symbol, startLine, endLine := findSourceSymbol(lines, language, idx+1, agent.Name)
+			scored := scoreSourceSignals(workspace, agent, symbol != "")
+			if !meetsConfidenceGate(scored.score, scored.count, scored.operational) {
+				continue
+			}
+			findings = append(findings, toSourceFinding(scope, agent, symbol, startLine, endLine, idx+1, scored))
+		}
+	}
+
+	model.SortFindings(findings)
+	return findings, nil
+}
+
+func parseSourceAnnotation(rel, line string) (customAgent, bool) {
+	trimmed := strings.TrimSpace(line)
+	comment := ""
+	switch {
+	case strings.HasPrefix(trimmed, "#"):
+		comment = strings.TrimSpace(strings.TrimPrefix(trimmed, "#"))
+	case strings.HasPrefix(trimmed, "//"):
+		comment = strings.TrimSpace(strings.TrimPrefix(trimmed, "//"))
+	default:
+		return customAgent{}, false
+	}
+	if !strings.HasPrefix(strings.ToLower(comment), sourceMarkerPrefix) {
+		return customAgent{}, false
+	}
+
+	fields := strings.Fields(strings.TrimSpace(comment[len(sourceMarkerPrefix):]))
+	agent := customAgent{File: strings.TrimSpace(rel)}
+	for _, field := range fields {
+		key, value, ok := strings.Cut(field, "=")
+		if !ok {
+			continue
+		}
+		key = strings.ToLower(strings.TrimSpace(key))
+		value = strings.TrimSpace(value)
+		switch key {
+		case "name":
+			agent.Name = value
+		case "tools":
+			agent.Tools = parseCSVValues(value)
+		case "data", "data_sources":
+			agent.Data = parseCSVValues(value)
+		case "auth", "auth_surfaces":
+			agent.Auth = parseCSVValues(value)
+		case "deploy", "deployment_artifacts":
+			agent.Deploy = parseCSVValues(value)
+		case "auto_deploy":
+			agent.AutoDeploy = parseBoolValue(value)
+		case "human_gate":
+			agent.HumanGate = parseBoolValue(value)
+		}
+	}
+	if strings.TrimSpace(agent.Name) == "" {
+		return customAgent{}, false
+	}
+	return agent, true
+}
+
+func parseCSVValues(value string) []string {
+	parts := strings.Split(strings.TrimSpace(value), ",")
+	return uniqueSorted(parts)
+}
+
+func parseBoolValue(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "y", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func scoreSourceSignals(workspace signalSet, agent customAgent, hasSymbol bool) scoredSignals {
+	names := map[string]float64{
+		"custom_source_annotation": 0.55,
+	}
+	operational := false
+
+	for name := range workspace.Names {
+		switch name {
+		case "skill_pack_surface":
+			names[name] = 0.20
+		case "agent_instruction_surface":
+			names[name] = 0.15
+		case "headless_agent_runtime":
+			names[name] = 0.30
+			operational = true
+		}
+	}
+	if hasSymbol {
+		names["source_symbol_detected"] = 0.15
+	}
+	if len(uniqueSorted(agent.Tools)) > 0 {
+		names["tool_binding_declared"] = 0.20
+		operational = true
+	}
+	if len(uniqueSorted(agent.Data)) > 0 {
+		names["data_binding_declared"] = 0.10
+		operational = true
+	}
+	if len(uniqueSorted(agent.Auth)) > 0 {
+		names["auth_binding_declared"] = 0.15
+		operational = true
+	}
+	if len(uniqueSorted(agent.Deploy)) > 0 || agent.AutoDeploy {
+		names["deployment_signal_declared"] = 0.20
+		operational = true
+	}
+	if agent.AutoDeploy && agent.HumanGate {
+		names["deployment_gate_declared"] = 0.10
+	}
+
+	ordered := make([]string, 0, len(names))
+	score := 0.0
+	for name, weight := range names {
+		ordered = append(ordered, name)
+		score += weight
+	}
+	sort.Strings(ordered)
+	return scoredSignals{
+		names:       ordered,
+		score:       score,
+		count:       len(ordered),
+		operational: operational,
+	}
+}
+
+func toSourceFinding(scope detect.Scope, agent customAgent, symbol string, startLine, endLine, markerLine int, scored scoredSignals) model.Finding {
+	severity := model.SeverityLow
+	if contains(scored.names, "headless_agent_runtime") || len(uniqueSorted(agent.Deploy)) > 0 {
+		severity = model.SeverityMedium
+	}
+	if agent.AutoDeploy && !agent.HumanGate {
+		severity = model.SeverityHigh
+	}
+
+	evidence := []model.Evidence{
+		{Key: "reason_code", Value: "AGENT-CUSTOM-SOURCE"},
+		{Key: "confidence_score", Value: fmt.Sprintf("%.2f", scored.score)},
+		{Key: "confidence_gate", Value: fmt.Sprintf("%.2f", confidenceGate)},
+		{Key: "signal_count", Value: fmt.Sprintf("%d", scored.count)},
+		{Key: "signal_set", Value: strings.Join(scored.names, ",")},
+		{Key: "annotation_marker", Value: sourceMarkerPrefix},
+		{Key: "annotation_line", Value: fmt.Sprintf("%d", markerLine)},
+		{Key: "name", Value: strings.TrimSpace(agent.Name)},
+	}
+	if strings.TrimSpace(symbol) != "" {
+		evidence = append(evidence, model.Evidence{Key: "symbol", Value: strings.TrimSpace(symbol)})
+	}
+	if values := uniqueSorted(agent.Tools); len(values) > 0 {
+		evidence = append(evidence, model.Evidence{Key: "bound_tools", Value: strings.Join(values, ",")})
+	}
+	if values := uniqueSorted(agent.Data); len(values) > 0 {
+		evidence = append(evidence, model.Evidence{Key: "data_sources", Value: strings.Join(values, ",")})
+	}
+	if values := uniqueSorted(agent.Auth); len(values) > 0 {
+		evidence = append(evidence, model.Evidence{Key: "auth_surfaces", Value: strings.Join(values, ",")})
+	}
+	if values := uniqueSorted(agent.Deploy); len(values) > 0 {
+		evidence = append(evidence, model.Evidence{Key: "deployment_artifacts", Value: strings.Join(values, ",")})
+	}
+	if agent.AutoDeploy {
+		evidence = append(evidence, model.Evidence{Key: "deployment_status", Value: "auto_deploy"})
+	}
+	if agent.HumanGate {
+		evidence = append(evidence, model.Evidence{Key: "deployment_gate", Value: "enforced"})
+	}
+
+	locationRange := &model.LocationRange{StartLine: markerLine, EndLine: markerLine}
+	if startLine > 0 {
+		locationRange.StartLine = startLine
+		locationRange.EndLine = endLine
+	}
+
+	return model.Finding{
+		FindingType:     "agent_custom_source",
+		Severity:        severity,
+		DiscoveryMethod: model.DiscoveryMethodStatic,
+		ToolType:        "custom_agent",
+		Location:        strings.TrimSpace(agent.File),
+		LocationRange:   locationRange,
+		Repo:            strings.TrimSpace(scope.Repo),
+		Org:             fallbackOrg(scope.Org),
+		Detector:        detectorID,
+		Permissions:     derivePermissions(agent),
+		Evidence:        evidence,
+		Remediation:     "Keep bespoke custom-source agents explicitly annotated and gated by deterministic approval and runtime controls.",
+	}
+}
+
+func findSourceSymbol(lines []string, language string, markerIndex int, fallback string) (string, int, int) {
+	limit := markerIndex + 8
+	if limit > len(lines) {
+		limit = len(lines)
+	}
+	for idx := markerIndex; idx < limit; idx++ {
+		trimmed := strings.TrimSpace(lines[idx])
+		if trimmed == "" {
+			continue
+		}
+		switch language {
+		case "python":
+			if match := pythonAssignPattern.FindStringSubmatch(trimmed); len(match) == 2 {
+				return match[1], idx + 1, idx + 1
+			}
+			if match := pythonFuncPattern.FindStringSubmatch(trimmed); len(match) == 2 {
+				return match[1], idx + 1, idx + 1
+			}
+			if match := pythonClassPattern.FindStringSubmatch(trimmed); len(match) == 2 {
+				return match[1], idx + 1, idx + 1
+			}
+		default:
+			if match := jsAssignPattern.FindStringSubmatch(trimmed); len(match) == 2 {
+				return match[1], idx + 1, idx + 1
+			}
+			if match := jsFuncPattern.FindStringSubmatch(trimmed); len(match) == 2 {
+				return match[1], idx + 1, idx + 1
+			}
+			if match := jsClassPattern.FindStringSubmatch(trimmed); len(match) == 2 {
+				return match[1], idx + 1, idx + 1
+			}
+		}
+	}
+	return strings.TrimSpace(fallback), markerIndex + 1, markerIndex + 1
+}
+
+func sourceLanguage(rel string) string {
+	switch strings.ToLower(filepath.Ext(rel)) {
+	case ".py":
+		return "python"
+	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts":
+		return "javascript"
+	default:
+		return ""
+	}
+}
+
+func shouldSkipSourceFile(rel string) bool {
+	lower := strings.ToLower(strings.TrimSpace(rel))
+	if lower == "" {
+		return true
+	}
+	for _, prefix := range []string{
+		".git/",
+		".wrkr/",
+		".tmp/",
+		"node_modules/",
+		"vendor/",
+		"dist/",
+		"build/",
+		".venv/",
+		"venv/",
+	} {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func parseErrorFinding(scope detect.Scope, path string, format string, parseErr model.ParseError) model.Finding {
