@@ -88,11 +88,18 @@ var legacyNonToolArtifactTypes = map[string]struct{}{
 }
 
 func isBearingFinding(f Finding, allowlist map[string]struct{}) bool {
-	if strings.TrimSpace(f.ToolType) == "" {
+	normalizedToolType := normalizeIdentityScopeToken(f.ToolType)
+	if normalizedToolType == "" {
 		return false
 	}
-	_, allowed := allowlist[normalizeIdentityScopeToken(f.FindingType)]
-	return allowed
+	if _, allowed := allowlist[normalizeIdentityScopeToken(f.FindingType)]; allowed {
+		return true
+	}
+	if normalizeIdentityScopeToken(f.Detector) != "extension" {
+		return false
+	}
+	_, excluded := legacyNonToolArtifactTypes[normalizedToolType]
+	return !excluded
 }
 
 func normalizeIdentityScopeToken(value string) string {

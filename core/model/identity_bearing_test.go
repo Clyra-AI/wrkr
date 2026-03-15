@@ -87,6 +87,24 @@ func TestIsIdentityBearingFinding(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "extension finding with real tool type allowed",
+			in: Finding{
+				FindingType: "custom_extension_finding",
+				ToolType:    "custom_detector",
+				Detector:    "extension",
+			},
+			want: true,
+		},
+		{
+			name: "extension finding with non-tool type excluded",
+			in: Finding{
+				FindingType: "custom_secret_presence",
+				ToolType:    "secret",
+				Detector:    "extension",
+			},
+			want: false,
+		},
+		{
 			name: "missing tool type excluded",
 			in: Finding{
 				FindingType: "source_discovery",
@@ -142,6 +160,12 @@ func TestIsInventoryBearingFinding_UsesExplicitAllowlist(t *testing.T) {
 	}
 	if IsInventoryBearingFinding(Finding{FindingType: "secret_presence", ToolType: "secret"}) {
 		t.Fatal("expected secret_presence to be excluded from inventory-bearing classification")
+	}
+	if !IsInventoryBearingFinding(Finding{FindingType: "custom_extension_finding", ToolType: "custom_detector", Detector: "extension"}) {
+		t.Fatal("expected extension finding with real tool type to be inventory-bearing")
+	}
+	if IsInventoryBearingFinding(Finding{FindingType: "custom_extension_finding", ToolType: "secret", Detector: "extension"}) {
+		t.Fatal("expected extension finding with non-tool type to stay excluded from inventory-bearing classification")
 	}
 }
 
