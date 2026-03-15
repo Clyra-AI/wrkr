@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/Clyra-AI/wrkr/core/model"
 	profilemodel "github.com/Clyra-AI/wrkr/core/policy/profile"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/score"
@@ -44,9 +45,10 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", profileErr.Error(), exitRuntime)
 		}
 		profileResult := profileeval.Evaluate(profileDef, snapshot.Findings, nil)
+		identities := model.FilterLegacyArtifactIdentityRecords(snapshot.Identities)
 		computed := score.Compute(score.Input{
 			Findings:        snapshot.Findings,
-			Identities:      snapshot.Identities,
+			Identities:      identities,
 			ProfileResult:   profileResult,
 			TransitionCount: len(snapshot.Transitions),
 			Weights:         scoremodel.DefaultWeights(),

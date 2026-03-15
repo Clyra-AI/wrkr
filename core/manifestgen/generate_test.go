@@ -5,6 +5,7 @@ import (
 	"time"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -102,5 +103,44 @@ func TestGenerateUnderReviewRequiresIdentityData(t *testing.T) {
 
 	if _, err := GenerateUnderReview(state.Snapshot{}, time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC)); err == nil {
 		t.Fatal("expected error when state has no identities or inventory")
+	}
+}
+
+func TestGenerateUnderReviewOmitsLegacyNonToolIdentities(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 15, 10, 0, 0, 0, time.UTC)
+	snapshot := state.Snapshot{
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       identity.AgentID(identity.ToolID("source_repo", "acme/backend"), "acme"),
+				ToolID:        identity.ToolID("source_repo", "acme/backend"),
+				ToolType:      "source_repo",
+				Org:           "acme",
+				Status:        "active",
+				ApprovalState: "valid",
+				Present:       true,
+			},
+			{
+				AgentID:       identity.AgentID(identity.ToolID("codex", "AGENTS.md"), "acme"),
+				ToolID:        identity.ToolID("codex", "AGENTS.md"),
+				ToolType:      "codex",
+				Org:           "acme",
+				Status:        "active",
+				ApprovalState: "valid",
+				Present:       true,
+			},
+		},
+	}
+
+	generated, err := GenerateUnderReview(snapshot, now)
+	if err != nil {
+		t.Fatalf("generate under-review manifest: %v", err)
+	}
+	if len(generated.Identities) != 1 {
+		t.Fatalf("expected one real-tool identity after filtering legacy non-tool entries, got %+v", generated.Identities)
+	}
+	if generated.Identities[0].ToolType != "codex" {
+		t.Fatalf("expected codex identity to remain, got %+v", generated.Identities[0])
 	}
 }

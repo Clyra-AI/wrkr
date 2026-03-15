@@ -25,6 +25,7 @@ Acquisition behavior is fail-closed by target:
 - When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
 - The state snapshot is the authoritative commit point; auxiliary manifest/chain artifacts are emitted only after snapshot persistence succeeds.
+- For `--path` scans, detector file reads stay bounded to the selected repo root. Root-escaping symlinked config, env, workflow, and MCP files are rejected with deterministic `parse_error.kind=unsafe_path` diagnostics instead of being read.
 
 ## Flags
 
@@ -64,6 +65,7 @@ wrkr scan --my-setup --json
 ```
 
 This local/offline mode inventories supported user-home tool configs, selected environment key presence, and local agent project markers. Use it when a developer wants to answer "what AI tooling is already on this machine?" before widening to the org workflow.
+Environment-key presence and source bookkeeping stay in findings/risk output only; they do not become lifecycle identities, manifest identities, inventory agents, or regress tools.
 
 ## Security-team org example
 
@@ -144,6 +146,7 @@ Safe claim rule:
 - When production targets are missing or invalid, public/report wording must stay at `write_capable` and only expose production-target status, not a production-write count.
 
 Every discovered entity now emits `discovery_method: static` in both `findings` and `inventory.tools` for deterministic v1 schema compatibility.
+Saved lifecycle-bearing identities written beside scan state are intentionally narrower: real tool, agent, CI, skill, and MCP surfaces only. Posture/bookkeeping findings such as `secret_presence`, `source_discovery`, `policy_*`, and `parse_error` remain in findings/risk surfaces only.
 
 `--explain` also emits short compliance rollup lines derived from the same machine-readable `compliance_summary` contract.
 

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	proof "github.com/Clyra-AI/proof"
+	"github.com/Clyra-AI/wrkr/core/manifest"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1216,6 +1217,82 @@ func TestIdentityAndLifecycleCommands(t *testing.T) {
 	}
 	if _, ok := lifecyclePayload["identities"].([]any); !ok {
 		t.Fatalf("expected identities array in lifecycle payload: %v", lifecyclePayload)
+	}
+}
+
+func TestIdentityAndLifecycleCommandsFilterLegacyNonToolManifestEntries(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	manifestPath := manifest.ResolvePath(statePath)
+	loaded := manifest.Manifest{
+		Version: manifest.Version,
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       "wrkr:source-repo-aaaaaaaaaa:acme",
+				ToolID:        "source-repo-aaaaaaaaaa",
+				ToolType:      "source_repo",
+				Org:           "acme",
+				Status:        "under_review",
+				ApprovalState: "missing",
+				Present:       true,
+			},
+			{
+				AgentID:       "wrkr:codex-bbbbbbbbbb:acme",
+				ToolID:        "codex-bbbbbbbbbb",
+				ToolType:      "codex",
+				Org:           "acme",
+				Status:        "under_review",
+				ApprovalState: "missing",
+				Present:       true,
+			},
+		},
+	}
+	if err := manifest.Save(manifestPath, loaded); err != nil {
+		t.Fatalf("save manifest: %v", err)
+	}
+
+	var listOut bytes.Buffer
+	var listErr bytes.Buffer
+	if code := Run([]string{"identity", "list", "--state", statePath, "--json"}, &listOut, &listErr); code != 0 {
+		t.Fatalf("identity list failed: %d %s", code, listErr.String())
+	}
+	var listPayload map[string]any
+	if err := json.Unmarshal(listOut.Bytes(), &listPayload); err != nil {
+		t.Fatalf("parse identity list payload: %v", err)
+	}
+	identities, ok := listPayload["identities"].([]any)
+	if !ok || len(identities) != 1 {
+		t.Fatalf("expected one real-tool identity, got %v", listPayload["identities"])
+	}
+	identityPayload, ok := identities[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected identity payload type: %T", identities[0])
+	}
+	agentID, _ := identityPayload["agent_id"].(string)
+	if agentID != "wrkr:codex-bbbbbbbbbb:acme" {
+		t.Fatalf("expected codex identity only, got %v", identityPayload)
+	}
+
+	var lifecycleOut bytes.Buffer
+	var lifecycleErr bytes.Buffer
+	if code := Run([]string{"lifecycle", "--state", statePath, "--json"}, &lifecycleOut, &lifecycleErr); code != 0 {
+		t.Fatalf("lifecycle failed: %d %s", code, lifecycleErr.String())
+	}
+	var lifecyclePayload map[string]any
+	if err := json.Unmarshal(lifecycleOut.Bytes(), &lifecyclePayload); err != nil {
+		t.Fatalf("parse lifecycle payload: %v", err)
+	}
+	lifecycleIdentities, ok := lifecyclePayload["identities"].([]any)
+	if !ok || len(lifecycleIdentities) != 1 {
+		t.Fatalf("expected one lifecycle identity after filtering, got %v", lifecyclePayload["identities"])
+	}
+
+	var showOut bytes.Buffer
+	var showErr bytes.Buffer
+	if code := Run([]string{"identity", "show", "wrkr:source-repo-aaaaaaaaaa:acme", "--state", statePath, "--json"}, &showOut, &showErr); code != 6 {
+		t.Fatalf("expected filtered legacy identity to be not found, got %d stdout=%q stderr=%q", code, showOut.String(), showErr.String())
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -32,8 +33,9 @@ func GenerateUnderReview(snapshot state.Snapshot, generatedAt time.Time) (manife
 
 func recordsFromSnapshot(snapshot state.Snapshot, now time.Time) []manifest.IdentityRecord {
 	if len(snapshot.Identities) > 0 {
-		out := make([]manifest.IdentityRecord, 0, len(snapshot.Identities))
-		for _, record := range snapshot.Identities {
+		filtered := model.FilterLegacyArtifactIdentityRecords(snapshot.Identities)
+		out := make([]manifest.IdentityRecord, 0, len(filtered))
+		for _, record := range filtered {
 			item := record
 			item.Status = identity.StateUnderReview
 			item.Approval = manifest.Approval{}
@@ -43,8 +45,10 @@ func recordsFromSnapshot(snapshot state.Snapshot, now time.Time) []manifest.Iden
 			item.LastSeen = now.Format(time.RFC3339)
 			out = append(out, item)
 		}
-		sortRecords(out)
-		return out
+		if len(out) > 0 {
+			sortRecords(out)
+			return out
+		}
 	}
 
 	if snapshot.Inventory == nil {

@@ -1,12 +1,12 @@
 # wrkr-manifest.yaml Open Specification
 
-`wrkr-manifest.yaml` is an open, file-based interoperability contract for AI tool approval posture.
+`wrkr-manifest.yaml` is an open, file-based interoperability contract for real AI tool approval posture.
 
 ## Scope
 
 The specification defines how producers and consumers exchange approval posture without requiring Wrkr runtime linkage.
 
-- Deterministic representation of discovered tool identities and trust status.
+- Deterministic representation of discovered real-tool identities and trust status.
 - Policy-oriented exchange shape for approved, blocked, and review-pending tool declarations.
 - Backward-compatible schema evolution rules.
 
@@ -40,6 +40,7 @@ These fields are modeled in `schemas/v1/manifest/manifest.schema.json` as the po
 - identity status starts at `under_review`
 - approval state starts at `missing`
 - trust deficit remains until explicit lifecycle approval
+- only real tool-bearing identities are emitted; finding-only posture/bookkeeping signals such as `secret_presence`, `source_discovery`, `policy_*`, and `parse_error` stay outside the manifest identity profile
 
 Primary fields include `agent_id`, `tool_id`, `tool_type`, `org`, `repo`, `location`, `status`, `approval_status`, `first_seen`, `last_seen`, `present`, `data_class`, `endpoint_class`, `autonomy_level`, and `risk_score`.
 

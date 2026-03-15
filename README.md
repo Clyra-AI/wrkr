@@ -41,9 +41,11 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr
 In one flow, Wrkr answers:
 
 - What AI tools, agents, and MCP servers are configured in my local setup?
-- Which API-key environments are present without exposing secret values?
+- Which API-key environments are present without exposing secret values or creating approvable identities?
 - Which MCP servers are requesting access, over what transport, and with what trust status?
 - What changed since my last known-good snapshot?
+
+Environment-key presence and source-bookkeeping signals stay in findings and risk output. Lifecycle identities and approvals are reserved for real tool, agent, and MCP surfaces.
 
 Abbreviated `scan --my-setup` example:
 
@@ -222,7 +224,7 @@ Wrkr answers both without requiring runtime interception or moving scan data out
 - Local AI setup inventory for supported user-home config surfaces.
 - MCP server catalog with transport, requested permissions, trust overlay, and posture notes.
 - Org-wide inventory of AI tools, agent frameworks, CI execution patterns, and MCP declarations.
-- Deterministic, instance-scoped agent identity and privilege mapping.
+- Deterministic, instance-scoped identity and privilege mapping for real tool-bearing surfaces.
 - Native structured parsing for supported agent frameworks including LangChain, CrewAI, OpenAI Agents SDK, AutoGen, LlamaIndex, MCP-client patterns, and conservative custom-agent scaffolds.
 - First-class `security_visibility_status` for `approved`, `known_unapproved`, and `unknown_to_security` agent/tool paths.
 - Relationship resolution from agents to tools, data sources, auth surfaces, and deployment artifacts.
@@ -254,6 +256,7 @@ It detects supported signals from:
 - It does not replace package or vulnerability scanners.
 - It does not enforce runtime tool behavior or block agents.
 - It does not monitor live runtime traffic.
+- It does not turn environment-key presence or source-bookkeeping findings into approvable lifecycle identities.
 - It does not use LLMs in scan, risk, or proof paths.
 
 Wrkr is the inventory and posture layer. Gait is the control layer when runtime enforcement is needed.
@@ -329,6 +332,7 @@ Wrkr treats machine-readable output and exit codes as product contracts.
 - Read-only by default.
 - No raw secret values are emitted in findings.
 - Local setup scans keep data in your environment.
+- Local path scans stay bounded to the selected repo root; root-escaping symlinked config, env, workflow, and MCP files are rejected with explicit diagnostics instead of being read.
 - Evidence is file-based, portable, and verifiable.
 - Same input, same output, barring explicit timestamps and version fields.
 

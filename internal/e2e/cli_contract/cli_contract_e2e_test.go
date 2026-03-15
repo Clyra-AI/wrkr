@@ -115,6 +115,9 @@ func TestE2EIdentityTransitionWithoutReasonUsesDeterministicDefaultReason(t *tes
 	if err := os.MkdirAll(filepath.Join(reposPath, "alpha"), 0o755); err != nil {
 		t.Fatalf("mkdir repo fixture: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(reposPath, "alpha", "AGENTS.md"), []byte("alpha agent instructions\n"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md fixture: %v", err)
+	}
 
 	var scanOut bytes.Buffer
 	var scanErr bytes.Buffer

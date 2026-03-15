@@ -15,6 +15,7 @@ description: "Wrkr fail-closed safety, local-data handling defaults, and privacy
 
 - Scan data remains local by default.
 - Secret values are not extracted; only risk context is emitted.
+- Local path scans stay bounded to the selected repo root. Root-escaping symlinked config, env, workflow, and MCP files are rejected with explicit deterministic diagnostics instead of being read.
 
 ## Command anchors
 
@@ -33,6 +34,10 @@ No. Wrkr flags secret-risk context but does not extract and emit raw secret mate
 ### Can Wrkr run fully local for private repositories?
 
 Yes. Default scan and evidence workflows operate locally with file-based artifacts and no required data exfiltration path.
+
+### How does Wrkr handle symlinked files that point outside the selected repo root?
+
+Wrkr fails closed at the detector file boundary. Escaping symlinked config, env, workflow, and MCP files surface deterministic parse diagnostics (`parse_error.kind=unsafe_path`) and their outside-root content is not ingested.
 
 ### How does Wrkr prevent unsafe evidence operations?
 

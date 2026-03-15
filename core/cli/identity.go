@@ -12,6 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -61,6 +62,7 @@ func runIdentityList(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	loaded.Identities = model.FilterLegacyArtifactIdentityRecords(loaded.Identities)
 	identities := append([]manifest.IdentityRecord(nil), loaded.Identities...)
 	sort.Slice(identities, func(i, j int) bool { return identities[i].AgentID < identities[j].AgentID })
 	payload := map[string]any{"status": "ok", "identities": identities}
@@ -104,6 +106,7 @@ func runIdentityShow(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	loaded.Identities = model.FilterLegacyArtifactIdentityRecords(loaded.Identities)
 	var record *manifest.IdentityRecord
 	for i := range loaded.Identities {
 		if loaded.Identities[i].AgentID == agentID {
@@ -215,6 +218,7 @@ func runIdentityManualTransition(stateName, agentID, approver, scope, reason str
 	if err != nil {
 		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	loaded.Identities = model.FilterLegacyArtifactIdentityRecords(loaded.Identities)
 	now := time.Now().UTC().Truncate(time.Second)
 	nextManifest, transition, transitionErr := lifecycle.ApplyManualState(loaded, agentID, stateName, approver, scope, reason, expiresAt, now)
 	if transitionErr != nil {

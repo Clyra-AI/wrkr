@@ -180,6 +180,22 @@ func TestBuildSummaryHonorsExplicitTopZero(t *testing.T) {
 	}
 }
 
+func TestBuildLifecycleSummaryOmitsLegacyNonToolIdentities(t *testing.T) {
+	t.Parallel()
+
+	summary := buildLifecycleSummary(nil, []manifest.IdentityRecord{
+		{AgentID: "wrkr:source-repo-aaaaaaaaaa:acme", ToolID: "source-repo-aaaaaaaaaa", ToolType: "source_repo", Status: "under_review"},
+		{AgentID: "wrkr:codex-bbbbbbbbbb:acme", ToolID: "codex-bbbbbbbbbb", ToolType: "codex", Status: "revoked"},
+	}, nil)
+
+	if summary.IdentityCount != 1 {
+		t.Fatalf("expected only real-tool identities to count, got %+v", summary)
+	}
+	if summary.RevokedCount != 1 {
+		t.Fatalf("expected revoked count to reflect filtered real-tool identities, got %+v", summary)
+	}
+}
+
 func TestPrivilegeBudgetFromInventoryBackfillsMissingStatus(t *testing.T) {
 	t.Parallel()
 

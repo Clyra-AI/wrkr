@@ -121,6 +121,9 @@ func TestRegressDriftExitCodeContract(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(reposPath, "beta"), 0o755); err != nil {
 		t.Fatalf("mkdir beta fixture: %v", err)
 	}
+	if err := os.WriteFile(filepath.Join(reposPath, "beta", "AGENTS.md"), []byte("release agent instructions\n"), 0o600); err != nil {
+		t.Fatalf("write beta AGENTS.md fixture: %v", err)
+	}
 	scanOut.Reset()
 	scanErr.Reset()
 	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {

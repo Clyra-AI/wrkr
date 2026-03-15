@@ -424,6 +424,7 @@ func buildSecurityVisibilityReference(previousSnapshot *state.Snapshot, statePat
 func loadManifest(path string) (manifest.Manifest, error) {
 	loaded, err := manifest.Load(path)
 	if err == nil {
+		loaded.Identities = filterLegacyArtifactIdentities(loaded.Identities)
 		return loaded, nil
 	}
 	if errors.Is(err, os.ErrNotExist) || strings.Contains(strings.ToLower(err.Error()), "no such file") {
@@ -464,7 +465,7 @@ func loadLifecycleManifest(manifestPath, statePath string, previousSnapshot *sta
 }
 
 func manifestFromSnapshot(snapshot state.Snapshot, updatedAt time.Time) manifest.Manifest {
-	identities := append([]manifest.IdentityRecord(nil), snapshot.Identities...)
+	identities := filterLegacyArtifactIdentities(snapshot.Identities)
 	manifestOut := manifest.Manifest{
 		Version:    manifest.Version,
 		Identities: identities,
@@ -473,6 +474,20 @@ func manifestFromSnapshot(snapshot state.Snapshot, updatedAt time.Time) manifest
 		manifestOut.UpdatedAt = updatedAt.UTC().Truncate(time.Second).Format(time.RFC3339)
 	}
 	return manifestOut
+}
+
+func filterLegacyArtifactIdentities(records []manifest.IdentityRecord) []manifest.IdentityRecord {
+	filtered := model.FilterLegacyArtifactIdentityRecords(records)
+	sort.Slice(filtered, func(i, j int) bool {
+		if filtered[i].AgentID != filtered[j].AgentID {
+			return filtered[i].AgentID < filtered[j].AgentID
+		}
+		if filtered[i].Repo != filtered[j].Repo {
+			return filtered[i].Repo < filtered[j].Repo
+		}
+		return filtered[i].Location < filtered[j].Location
+	})
+	return filtered
 }
 
 func buildFindingContexts(report risk.Report) map[string]agginventory.ToolContext {
