@@ -38,7 +38,9 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	if detect.DirExists(scope.Root, ".claude") {
 		findings = append(findings, baseFinding(scope, ".claude", "claude config directory discovered", nil))
 	}
-	if detect.FileExists(scope.Root, "CLAUDE.md") {
+	if exists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, "CLAUDE.md"); parseErr != nil {
+		findings = append(findings, parseErrorFinding(scope, "CLAUDE.md", parseErr))
+	} else if exists {
 		findings = append(findings, baseFinding(scope, "CLAUDE.md", "claude instructions file discovered", nil))
 	}
 	if detect.DirExists(scope.Root, ".claude/commands") {
@@ -49,7 +51,12 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	}
 
 	for _, rel := range []string{".claude/settings.json", ".claude/settings.local.json", ".mcp.json"} {
-		if !detect.FileExists(scope.Root, rel) {
+		exists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, rel)
+		if parseErr != nil {
+			findings = append(findings, parseErrorFinding(scope, rel, parseErr))
+			continue
+		}
+		if !exists {
 			continue
 		}
 		var parsed settingsFile

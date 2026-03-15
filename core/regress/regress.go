@@ -114,11 +114,16 @@ func BuildBaseline(snapshot state.Snapshot, generatedAt time.Time) Baseline {
 
 func SnapshotTools(snapshot state.Snapshot) []ToolState {
 	byAgent := map[string]*ToolState{}
+	useInstanceIDs := false
 	for _, item := range snapshot.Identities {
+		if !model.IsLegacyArtifactIdentityCandidate(item.ToolType, item.ToolID, item.AgentID) {
+			continue
+		}
 		agentID := strings.TrimSpace(item.AgentID)
 		if agentID == "" {
 			continue
 		}
+		useInstanceIDs = true
 		tool := &ToolState{
 			AgentID:         agentID,
 			AgentInstanceID: strings.TrimSpace(item.ToolID),
@@ -132,7 +137,6 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 		byAgent[agentID] = tool
 	}
 
-	useInstanceIDs := len(snapshot.Identities) > 0
 	for _, finding := range snapshot.Findings {
 		if !model.IsIdentityBearingFinding(finding) {
 			continue
@@ -429,11 +433,17 @@ func normalizeBaseline(baseline Baseline) Baseline {
 	if strings.TrimSpace(baseline.Version) == "" {
 		baseline.Version = BaselineVersion
 	}
+	filtered := baseline.Tools[:0]
 	for i := range baseline.Tools {
 		if strings.TrimSpace(baseline.Tools[i].AgentInstanceID) == "" {
 			baseline.Tools[i].AgentInstanceID = strings.TrimSpace(baseline.Tools[i].ToolID)
 		}
+		if !model.IsLegacyArtifactIdentityCandidate("", baseline.Tools[i].ToolID, baseline.Tools[i].AgentID) {
+			continue
+		}
+		filtered = append(filtered, baseline.Tools[i])
 	}
+	baseline.Tools = filtered
 	sort.Slice(baseline.Tools, func(i, j int) bool {
 		if baseline.Tools[i].AgentInstanceID != baseline.Tools[j].AgentInstanceID {
 			return baseline.Tools[i].AgentInstanceID < baseline.Tools[j].AgentInstanceID

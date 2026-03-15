@@ -3,8 +3,6 @@ package secrets
 import (
 	"bufio"
 	"context"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -36,12 +34,18 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	}
 	candidates = append(candidates, envFiles...)
 	for _, rel := range candidates {
-		if !detect.FileExists(scope.Root, rel) {
+		exists, fileErr := detect.FileExistsWithinRoot(detectorID, scope.Root, rel)
+		if fileErr != nil {
+			findings = append(findings, parseErrorFinding(scope, rel, fileErr))
+			continue
+		}
+		if !exists {
 			continue
 		}
 		keys, parseErr := parseEnvKeys(scope.Root, rel)
 		if parseErr != nil {
-			return nil, parseErr
+			findings = append(findings, parseErrorFinding(scope, rel, parseErr))
+			continue
 		}
 		if len(keys) == 0 {
 			continue
@@ -69,7 +73,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	for _, rel := range workflowFiles {
 		keys, parseErr := parseWorkflowSecrets(scope.Root, rel)
 		if parseErr != nil {
-			return nil, parseErr
+			findings = append(findings, parseErrorFinding(scope, rel, parseErr))
+			continue
 		}
 		if len(keys) == 0 {
 			continue
@@ -86,12 +91,13 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		})
 	}
 
-	if detect.FileExists(scope.Root, "Jenkinsfile") {
+	if exists, fileErr := detect.FileExistsWithinRoot(detectorID, scope.Root, "Jenkinsfile"); fileErr != nil {
+		findings = append(findings, parseErrorFinding(scope, "Jenkinsfile", fileErr))
+	} else if exists {
 		keys, parseErr := parseWorkflowSecrets(scope.Root, "Jenkinsfile")
 		if parseErr != nil {
-			return nil, parseErr
-		}
-		if len(keys) > 0 {
+			findings = append(findings, parseErrorFinding(scope, "Jenkinsfile", parseErr))
+		} else if len(keys) > 0 {
 			findings = append(findings, model.Finding{
 				FindingType: "secret_presence",
 				Severity:    model.SeverityMedium,
@@ -109,10 +115,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	return findings, nil
 }
 
-func parseEnvKeys(root, rel string) ([]string, error) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- detector reads env files from selected repository root.
-	f, err := os.Open(path)
+func parseEnvKeys(root, rel string) ([]string, *model.ParseError) {
+	f, err := detect.OpenFileWithinRoot(detectorID, root, rel)
 	if err != nil {
 		return nil, err
 	}
@@ -137,16 +141,14 @@ func parseEnvKeys(root, rel string) ([]string, error) {
 		}
 	}
 	if scanErr := scanner.Err(); scanErr != nil {
-		return nil, scanErr
+		return nil, &model.ParseError{Kind: "file_read_error", Path: rel, Detector: detectorID, Message: scanErr.Error()}
 	}
 	keys = dedupe(keys)
 	return keys, nil
 }
 
-func parseWorkflowSecrets(root, rel string) ([]string, error) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- detector reads workflow files from selected repository root.
-	payload, err := os.ReadFile(path)
+func parseWorkflowSecrets(root, rel string) ([]string, *model.ParseError) {
+	payload, err := detect.ReadFileWithinRoot(detectorID, root, rel)
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +161,21 @@ func parseWorkflowSecrets(root, rel string) ([]string, error) {
 	}
 	keys = dedupe(keys)
 	return keys, nil
+}
+
+func parseErrorFinding(scope detect.Scope, location string, parseErr *model.ParseError) model.Finding {
+	parseErr.Detector = detectorID
+	return model.Finding{
+		FindingType: "parse_error",
+		Severity:    model.SeverityMedium,
+		ToolType:    "secret",
+		Location:    location,
+		Repo:        scope.Repo,
+		Org:         fallbackOrg(scope.Org),
+		Detector:    detectorID,
+		ParseError:  parseErr,
+		Remediation: "Keep secret-bearing files inside the selected repository root.",
+	}
 }
 
 func dedupe(in []string) []string {

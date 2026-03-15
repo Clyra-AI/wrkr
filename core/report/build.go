@@ -15,6 +15,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	templatespkg "github.com/Clyra-AI/wrkr/core/report/templates"
@@ -310,10 +311,10 @@ func buildProofReference(statePath string, top []risk.ScoredFinding) (ProofRefer
 func buildLifecycleSummary(m *manifest.Manifest, snapshotIdentities []manifest.IdentityRecord, transitions []lifecycle.Transition) LifecycleSummary {
 	identities := []manifest.IdentityRecord{}
 	if m != nil {
-		identities = append(identities, m.Identities...)
+		identities = append(identities, model.FilterLegacyArtifactIdentityRecords(m.Identities)...)
 	}
 	if len(identities) == 0 {
-		identities = append(identities, snapshotIdentities...)
+		identities = append(identities, model.FilterLegacyArtifactIdentityRecords(snapshotIdentities)...)
 	}
 
 	underReview := 0

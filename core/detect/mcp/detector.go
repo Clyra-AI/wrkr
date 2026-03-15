@@ -2,20 +2,16 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 
-	"github.com/BurntSushi/toml"
 	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/detect/mcp/enrich"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/supplychain"
-	"gopkg.in/yaml.v3"
 )
 
 const detectorID = "mcp"
@@ -65,7 +61,21 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 		".codex/config.yaml",
 	}
 	for _, rel := range paths {
-		if !detect.FileExists(scope.Root, rel) {
+		exists, fileErr := detect.FileExistsWithinRoot(detectorID, scope.Root, rel)
+		if fileErr != nil {
+			findings = append(findings, model.Finding{
+				FindingType: "parse_error",
+				Severity:    model.SeverityMedium,
+				ToolType:    "mcp",
+				Location:    rel,
+				Repo:        scope.Repo,
+				Org:         fallbackOrg(scope.Org),
+				Detector:    detectorID,
+				ParseError:  fileErr,
+			})
+			continue
+		}
+		if !exists {
 			continue
 		}
 		doc, parseErr := parseMCPDocument(scope.Root, rel)
@@ -143,26 +153,19 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 }
 
 func parseMCPDocument(root, rel string) (mcpDoc, *model.ParseError) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- parser reads repository files selected by user.
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return mcpDoc{}, &model.ParseError{Kind: "file_read_error", Path: rel, Detector: detectorID, Message: err.Error()}
-	}
-
 	var parsed mcpDoc
 	switch strings.ToLower(filepath.Ext(rel)) {
 	case ".json":
-		if decodeErr := json.Unmarshal(payload, &parsed); decodeErr != nil {
-			return mcpDoc{}, &model.ParseError{Kind: "parse_error", Format: "json", Path: rel, Detector: detectorID, Message: decodeErr.Error()}
+		if parseErr := detect.ParseJSONFileAllowUnknownFields(detectorID, root, rel, &parsed); parseErr != nil {
+			return mcpDoc{}, parseErr
 		}
 	case ".toml":
-		if _, decodeErr := toml.Decode(string(payload), &parsed); decodeErr != nil {
-			return mcpDoc{}, &model.ParseError{Kind: "parse_error", Format: "toml", Path: rel, Detector: detectorID, Message: decodeErr.Error()}
+		if parseErr := detect.ParseTOMLFileAllowUnknownFields(detectorID, root, rel, &parsed); parseErr != nil {
+			return mcpDoc{}, parseErr
 		}
 	case ".yaml", ".yml":
-		if decodeErr := yaml.Unmarshal(payload, &parsed); decodeErr != nil {
-			return mcpDoc{}, &model.ParseError{Kind: "parse_error", Format: "yaml", Path: rel, Detector: detectorID, Message: decodeErr.Error()}
+		if parseErr := detect.ParseYAMLFileAllowUnknownFields(detectorID, root, rel, &parsed); parseErr != nil {
+			return mcpDoc{}, parseErr
 		}
 	default:
 		return mcpDoc{}, nil

@@ -235,8 +235,12 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 		runJSONOK(t, "regress", "init", "--baseline", statePath, "--output", baselinePath, "--json")
 
 		altRoot := filepath.Join(t.TempDir(), "repos")
-		if err := os.MkdirAll(filepath.Join(altRoot, "empty-repo"), 0o755); err != nil {
+		altRepo := filepath.Join(altRoot, "drift-repo", "agent-plans")
+		if err := os.MkdirAll(altRepo, 0o755); err != nil {
 			t.Fatalf("mkdir alt repo: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(altRepo, "deploy.agent-script.json"), []byte(`{"steps":[{"tool":"deploy"}]}`), 0o600); err != nil {
+			t.Fatalf("write drift fixture: %v", err)
 		}
 		driftState := filepath.Join(t.TempDir(), "drift-state.json")
 		runJSONOK(t, "scan", "--path", altRoot, "--state", driftState, "--json")

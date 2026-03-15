@@ -73,3 +73,34 @@ func TestClaudeDetectorStillFailsMalformedJSON(t *testing.T) {
 	}
 	t.Fatalf("expected parse_error finding, got %+v", findings)
 }
+
+func TestClaudeDetectorRejectsExternalSymlinkedSettings(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".claude"), 0o755); err != nil {
+		t.Fatalf("mkdir .claude: %v", err)
+	}
+	target := filepath.Join(outside, "settings.json")
+	if err := os.WriteFile(target, []byte(`{"allowedTools":["bash"]}`), 0o600); err != nil {
+		t.Fatalf("write outside settings: %v", err)
+	}
+	if err := os.Symlink(target, filepath.Join(root, ".claude", "settings.json")); err != nil {
+		t.Skipf("symlinks unsupported in this environment: %v", err)
+	}
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Root: root, Repo: "repo", Org: "local"}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	for _, finding := range findings {
+		if finding.FindingType == "parse_error" && finding.Location == ".claude/settings.json" {
+			if finding.ParseError == nil || finding.ParseError.Kind != "unsafe_path" {
+				t.Fatalf("expected unsafe_path parse error, got %+v", finding.ParseError)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected unsafe_path parse_error finding, got %+v", findings)
+}

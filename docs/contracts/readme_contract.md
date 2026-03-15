@@ -67,9 +67,11 @@ Section requirements:
   - Include `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff`.
   - Keep deterministic `--json` command anchors.
   - Show one personal-setup output example and one org-scan output example.
+  - Clarify that environment-key presence and source bookkeeping remain finding-only signals, not approvable lifecycle identities.
 - Why Wrkr / What You Get / What Wrkr Detects / What Wrkr Does Not Do
   - Keep scope truthful to deterministic repo/config/CI plus local-machine discovery.
   - Preserve explicit non-goals such as no live MCP probing by default and no LLMs in scan/risk/proof paths.
+  - State that local path scans stay bounded to the selected repo root and reject root-escaping symlinked config/env/workflow/MCP files with explicit diagnostics.
 - Works With Gait
   - Clarify Wrkr vs Gait boundary without making Gait a requirement to run Wrkr.
 - Typical Workflows / Command Surface / Output And Contracts

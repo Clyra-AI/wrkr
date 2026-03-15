@@ -145,6 +145,53 @@ func TestE2EScanRepoRejectsUnmanagedMaterializedRoot(t *testing.T) {
 	}
 }
 
+func TestE2EScanPathMixedReposPreservesSafeFindingsWhenOneRepoIsUnsafe(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	statePath := filepath.Join(tmp, "state.json")
+	safeRepo := filepath.Join(reposPath, "alpha", ".codex")
+	unsafeRepo := filepath.Join(reposPath, "beta")
+	if err := os.MkdirAll(safeRepo, 0o755); err != nil {
+		t.Fatalf("mkdir safe repo: %v", err)
+	}
+	if err := os.MkdirAll(unsafeRepo, 0o755); err != nil {
+		t.Fatalf("mkdir unsafe repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(safeRepo, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write safe codex config: %v", err)
+	}
+	outside := filepath.Join(t.TempDir(), ".env")
+	if err := os.WriteFile(outside, []byte("OPENAI_API_KEY=redacted\n"), 0o600); err != nil {
+		t.Fatalf("write outside env: %v", err)
+	}
+	if err := os.Symlink(outside, filepath.Join(unsafeRepo, ".env")); err != nil {
+		t.Skipf("symlinks unsupported in this environment: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("path scan failed: %d (%s)", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse path scan payload: %v", err)
+	}
+	findings, ok := payload["findings"].([]any)
+	if !ok {
+		t.Fatalf("expected findings array, got %T", payload["findings"])
+	}
+	if !containsFinding(findings, "tool_config", "codex", "alpha", ".codex/config.toml", "") {
+		t.Fatalf("expected safe repo codex finding, got %v", findings)
+	}
+	if !containsFinding(findings, "parse_error", "secret", "beta", ".env", "unsafe_path") {
+		t.Fatalf("expected unsafe_path parse error for unsafe repo, got %v", findings)
+	}
+}
+
 func containsToolType(findings []any, want string) bool {
 	for _, item := range findings {
 		finding, ok := item.(map[string]any)
@@ -153,6 +200,26 @@ func containsToolType(findings []any, want string) bool {
 		}
 		toolType, _ := finding["tool_type"].(string)
 		if toolType == want {
+			return true
+		}
+	}
+	return false
+}
+
+func containsFinding(findings []any, findingType, toolType, repo, location, parseKind string) bool {
+	for _, item := range findings {
+		finding, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if finding["finding_type"] != findingType || finding["tool_type"] != toolType || finding["repo"] != repo || finding["location"] != location {
+			continue
+		}
+		if parseKind == "" {
+			return true
+		}
+		parseErr, ok := finding["parse_error"].(map[string]any)
+		if ok && parseErr["kind"] == parseKind {
 			return true
 		}
 	}

@@ -17,6 +17,7 @@ wrkr manifest generate [--state <path>] [--output <path>] [--json]
 ## Output contract
 
 `wrkr manifest generate` writes the identity profile (`version`, `updated_at`, `identities`) with deterministic ordering.
+Generated identities are limited to lifecycle-bearing real tool surfaces. Finding-only posture/bookkeeping signals such as `secret_presence`, `source_discovery`, `policy_*`, and `parse_error` remain readable in state snapshots but are not re-emitted as manifest identities.
 
 The open schema (`schemas/v1/manifest/manifest.schema.json`) also supports the policy profile with canonical fields:
 

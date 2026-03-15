@@ -25,17 +25,18 @@ func TestBuildBaselineAndLoadRoundTrip(t *testing.T) {
 	snapshot := state.Snapshot{
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/backend",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read"},
 			},
 		},
 		Identities: []manifest.IdentityRecord{
 			{
-				AgentID:       identity.AgentID(identity.ToolID("source_repo", "acme/backend"), "acme"),
-				ToolID:        identity.ToolID("source_repo", "acme/backend"),
+				AgentID:       identity.AgentID(identity.ToolID("codex", "AGENTS.md"), "acme"),
+				ToolID:        identity.ToolID("codex", "AGENTS.md"),
+				ToolType:      "codex",
 				Org:           "acme",
 				Status:        identity.StateActive,
 				ApprovalState: "valid",
@@ -90,17 +91,18 @@ func TestLoadComparableBaselineAcceptsScanSnapshot(t *testing.T) {
 		Version: state.SnapshotVersion,
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/backend",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read"},
 			},
 		},
 		Identities: []manifest.IdentityRecord{
 			{
-				AgentID:       identity.AgentID(identity.ToolID("source_repo", "acme/backend"), "acme"),
-				ToolID:        identity.ToolID("source_repo", "acme/backend"),
+				AgentID:       identity.AgentID(identity.ToolID("codex", "AGENTS.md"), "acme"),
+				ToolID:        identity.ToolID("codex", "AGENTS.md"),
+				ToolType:      "codex",
 				Org:           "acme",
 				Status:        identity.StateActive,
 				ApprovalState: "valid",
@@ -225,9 +227,9 @@ func TestCompareFlagsNewUnapprovedTool(t *testing.T) {
 	current := state.Snapshot{
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/new-repo",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read"},
 			},
@@ -248,7 +250,7 @@ func TestCompareFlagsNewUnapprovedTool(t *testing.T) {
 func TestCompareFlagsRevokedToolReappearance(t *testing.T) {
 	t.Parallel()
 
-	toolID := identity.ToolID("source_repo", "acme/backend")
+	toolID := identity.ToolID("codex", "AGENTS.md")
 	agentID := identity.AgentID(toolID, "acme")
 	baseline := Baseline{
 		Version: BaselineVersion,
@@ -266,9 +268,9 @@ func TestCompareFlagsRevokedToolReappearance(t *testing.T) {
 	current := state.Snapshot{
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/backend",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read"},
 			},
@@ -293,7 +295,7 @@ func TestCompareFlagsRevokedToolReappearance(t *testing.T) {
 func TestCompareFlagsUnapprovedPermissionExpansion(t *testing.T) {
 	t.Parallel()
 
-	toolID := identity.ToolID("source_repo", "acme/backend")
+	toolID := identity.ToolID("codex", "AGENTS.md")
 	agentID := identity.AgentID(toolID, "acme")
 	baseline := Baseline{
 		Version: BaselineVersion,
@@ -312,9 +314,9 @@ func TestCompareFlagsUnapprovedPermissionExpansion(t *testing.T) {
 	current := state.Snapshot{
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/backend",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read", "repo.actions.write"},
 			},
@@ -351,7 +353,7 @@ func TestCompareFlagsUnapprovedPermissionExpansion(t *testing.T) {
 func TestCompareAllowsApprovedPermissionExpansion(t *testing.T) {
 	t.Parallel()
 
-	toolID := identity.ToolID("source_repo", "acme/backend")
+	toolID := identity.ToolID("codex", "AGENTS.md")
 	agentID := identity.AgentID(toolID, "acme")
 	baseline := Baseline{
 		Version: BaselineVersion,
@@ -370,9 +372,9 @@ func TestCompareAllowsApprovedPermissionExpansion(t *testing.T) {
 	current := state.Snapshot{
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/backend",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read", "repo.actions.write"},
 			},
@@ -449,9 +451,9 @@ func TestCompareDeterministicForSameInput(t *testing.T) {
 	current := state.Snapshot{
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/backend",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read"},
 			},
@@ -471,9 +473,9 @@ func TestSnapshotToolsExcludesPolicyAndParseFindingTypes(t *testing.T) {
 	snapshot := state.Snapshot{
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/backend",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read"},
 			},
@@ -489,6 +491,12 @@ func TestSnapshotToolsExcludesPolicyAndParseFindingTypes(t *testing.T) {
 				Location:    ".github/workflows/ci.yml",
 				Org:         "acme",
 			},
+			{
+				FindingType: "secret_presence",
+				ToolType:    "secret",
+				Location:    ".env",
+				Org:         "acme",
+			},
 		},
 	}
 
@@ -496,7 +504,7 @@ func TestSnapshotToolsExcludesPolicyAndParseFindingTypes(t *testing.T) {
 	if len(tools) != 1 {
 		t.Fatalf("expected one tool after filtering policy/meta findings, got %d (%+v)", len(tools), tools)
 	}
-	if tools[0].ToolID != identity.ToolID("source_repo", "acme/backend") {
+	if tools[0].ToolID != identity.ToolID("codex", "AGENTS.md") {
 		t.Fatalf("unexpected remaining tool: %+v", tools[0])
 	}
 }
@@ -507,9 +515,9 @@ func TestCompareIgnoresPolicyOnlyBaselineDelta(t *testing.T) {
 	baselineSnapshot := state.Snapshot{
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/backend",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read"},
 			},
@@ -524,9 +532,9 @@ func TestCompareIgnoresPolicyOnlyBaselineDelta(t *testing.T) {
 	currentSnapshot := state.Snapshot{
 		Findings: []model.Finding{
 			{
-				FindingType: "source_discovery",
-				ToolType:    "source_repo",
-				Location:    "acme/backend",
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
 				Org:         "acme",
 				Permissions: []string{"repo.contents.read"},
 			},
@@ -641,6 +649,94 @@ func TestCompareFlagsAdditionalInstanceBeyondLegacyBaseline(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected new_unapproved_tool reason, got %v", result.Reasons)
+	}
+}
+
+func TestCompareIgnoresLegacyNonToolBaselineEntries(t *testing.T) {
+	t.Parallel()
+
+	realToolID := identity.ToolID("codex", "AGENTS.md")
+	legacySourceToolID := identity.ToolID("source_repo", "acme/backend")
+	legacySecretToolID := identity.ToolID("secret", "process:env")
+	baseline := Baseline{
+		Version: BaselineVersion,
+		Tools: []ToolState{
+			{
+				AgentID:        identity.AgentID(realToolID, "acme"),
+				ToolID:         realToolID,
+				Org:            "acme",
+				Status:         identity.StateUnderReview,
+				ApprovalStatus: "missing",
+				Present:        true,
+				Permissions:    []string{"repo.contents.read"},
+			},
+			{
+				AgentID:        identity.AgentID(legacySourceToolID, "acme"),
+				ToolID:         legacySourceToolID,
+				Org:            "acme",
+				Status:         identity.StateRevoked,
+				ApprovalStatus: "revoked",
+				Present:        false,
+			},
+			{
+				AgentID:        identity.AgentID(legacySecretToolID, "acme"),
+				ToolID:         legacySecretToolID,
+				Org:            "acme",
+				Status:         identity.StateRevoked,
+				ApprovalStatus: "revoked",
+				Present:        false,
+			},
+		},
+	}
+	current := state.Snapshot{
+		Findings: []model.Finding{
+			{
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
+				Org:         "acme",
+				Permissions: []string{"repo.contents.read"},
+			},
+			{
+				FindingType: "source_discovery",
+				ToolType:    "source_repo",
+				Location:    "acme/backend",
+				Org:         "acme",
+				Permissions: []string{"repo.contents.read"},
+			},
+			{
+				FindingType: "secret_presence",
+				ToolType:    "secret",
+				Location:    "process:env",
+				Org:         "acme",
+				Permissions: []string{"env.read"},
+			},
+		},
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       identity.AgentID(realToolID, "acme"),
+				ToolID:        realToolID,
+				ToolType:      "codex",
+				Org:           "acme",
+				Status:        identity.StateUnderReview,
+				ApprovalState: "missing",
+				Present:       true,
+			},
+			{
+				AgentID:       identity.AgentID(legacySourceToolID, "acme"),
+				ToolID:        legacySourceToolID,
+				ToolType:      "source_repo",
+				Org:           "acme",
+				Status:        identity.StateRevoked,
+				ApprovalState: "revoked",
+				Present:       true,
+			},
+		},
+	}
+
+	result := Compare(baseline, current)
+	if result.Drift {
+		t.Fatalf("expected no drift from legacy non-tool baseline entries, got %v", result.Reasons)
 	}
 }
 

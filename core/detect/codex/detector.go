@@ -30,7 +30,22 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	findings := make([]model.Finding, 0)
 
 	for _, rel := range []string{"AGENTS.md", "AGENTS.override.md"} {
-		if !detect.FileExists(scope.Root, rel) {
+		exists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, rel)
+		if parseErr != nil {
+			findings = append(findings, model.Finding{
+				FindingType: "parse_error",
+				Severity:    model.SeverityMedium,
+				ToolType:    "codex",
+				Location:    rel,
+				Repo:        scope.Repo,
+				Org:         fallbackOrg(scope.Org),
+				Detector:    detectorID,
+				ParseError:  parseErr,
+				Remediation: "Move Codex instruction files inside the selected repository root.",
+			})
+			continue
+		}
+		if !exists {
 			continue
 		}
 		findings = append(findings, model.Finding{
@@ -44,7 +59,19 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		})
 	}
 
-	if detect.FileExists(scope.Root, ".codex/config.toml") {
+	if exists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, ".codex/config.toml"); parseErr != nil {
+		findings = append(findings, model.Finding{
+			FindingType: "parse_error",
+			Severity:    model.SeverityMedium,
+			ToolType:    "codex",
+			Location:    ".codex/config.toml",
+			Repo:        scope.Repo,
+			Org:         fallbackOrg(scope.Org),
+			Detector:    detectorID,
+			ParseError:  parseErr,
+			Remediation: "Keep Codex configuration inside the selected repository root.",
+		})
+	} else if exists {
 		items, parseErr := parseConfig(scope, ".codex/config.toml", "toml")
 		if parseErr != nil {
 			findings = append(findings, *parseErr)
@@ -52,7 +79,19 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			findings = append(findings, items)
 		}
 	}
-	if detect.FileExists(scope.Root, ".codex/config.yaml") {
+	if exists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, ".codex/config.yaml"); parseErr != nil {
+		findings = append(findings, model.Finding{
+			FindingType: "parse_error",
+			Severity:    model.SeverityMedium,
+			ToolType:    "codex",
+			Location:    ".codex/config.yaml",
+			Repo:        scope.Repo,
+			Org:         fallbackOrg(scope.Org),
+			Detector:    detectorID,
+			ParseError:  parseErr,
+			Remediation: "Keep Codex configuration inside the selected repository root.",
+		})
+	} else if exists {
 		items, parseErr := parseConfig(scope, ".codex/config.yaml", "yaml")
 		if parseErr != nil {
 			findings = append(findings, *parseErr)

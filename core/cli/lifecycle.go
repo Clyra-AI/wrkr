@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -38,6 +39,7 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	loaded.Identities = model.FilterLegacyArtifactIdentityRecords(loaded.Identities)
 
 	identities := make([]manifest.IdentityRecord, 0, len(loaded.Identities))
 	for _, item := range loaded.Identities {

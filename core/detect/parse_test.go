@@ -150,3 +150,49 @@ func TestParseTOMLFileAllowUnknownFields(t *testing.T) {
 		t.Fatalf("unexpected parsed result: %#v", parsed)
 	}
 }
+
+func TestReadFileWithinRootRejectsSymlinkEscape(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := t.TempDir()
+	target := filepath.Join(outside, "cfg.json")
+	if err := os.WriteFile(target, []byte(`{"name":"outside"}`), 0o600); err != nil {
+		t.Fatalf("write outside fixture: %v", err)
+	}
+	mustSymlinkOrSkip(t, target, filepath.Join(root, "cfg.json"))
+
+	_, parseErr := ReadFileWithinRoot("detector", root, "cfg.json")
+	if parseErr == nil {
+		t.Fatal("expected unsafe_path parse error")
+	}
+	if parseErr.Kind != "unsafe_path" {
+		t.Fatalf("expected unsafe_path kind, got %#v", parseErr)
+	}
+}
+
+func TestReadFileWithinRootHandlesDanglingSymlinkDeterministically(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	mustSymlinkOrSkip(t, filepath.Join(root, "missing.json"), filepath.Join(root, "cfg.json"))
+
+	_, parseErr := ReadFileWithinRoot("detector", root, "cfg.json")
+	if parseErr == nil {
+		t.Fatal("expected file_not_found parse error")
+	}
+	if parseErr.Kind != "file_not_found" {
+		t.Fatalf("expected file_not_found kind, got %#v", parseErr)
+	}
+}
+
+func mustSymlinkOrSkip(t *testing.T, target, path string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir symlink parent: %v", err)
+	}
+	if err := os.Symlink(target, path); err != nil {
+		t.Skipf("symlinks unsupported in this environment: %v", err)
+	}
+}

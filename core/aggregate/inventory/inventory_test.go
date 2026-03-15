@@ -325,10 +325,26 @@ func TestInventoryBuild_IgnoresCorrelationOnlyFindings(t *testing.T) {
 			Repo:        "acme/backend",
 			Org:         "acme",
 		},
+		{
+			FindingType: "source_discovery",
+			ToolType:    "source_repo",
+			Location:    "acme/backend",
+			Repo:        "acme/backend",
+			Org:         "acme",
+		},
+		{
+			FindingType: "secret_presence",
+			ToolType:    "secret",
+			Location:    ".env",
+			Repo:        "acme/backend",
+			Org:         "acme",
+		},
 	}
 	contexts := map[string]ToolContext{
 		KeyForFinding(findings[0]): {RiskScore: 4.0, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
 		KeyForFinding(findings[1]): {RiskScore: 9.0, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
+		KeyForFinding(findings[2]): {RiskScore: 2.0, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
+		KeyForFinding(findings[3]): {RiskScore: 8.0, EndpointClass: "workspace", DataClass: "secrets", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
 	}
 
 	inv := Build(BuildInput{

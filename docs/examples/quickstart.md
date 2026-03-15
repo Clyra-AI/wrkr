@@ -34,7 +34,7 @@ Expected outputs:
 Common first surprises:
 
 - MCP servers requesting write or shell permissions from user-home config.
-- Environment key presence (`location=process:env`) without exposing raw values.
+- Environment key presence (`location=process:env`) without exposing raw values or turning that signal into an approvable identity.
 - Local `AGENTS.md` or `.agents/` project markers under common workspace roots.
 - `warnings` on `scan` or `mcp-list` explaining that known MCP declaration files failed to parse, so posture may be incomplete even when the command itself succeeded.
 

@@ -15,9 +15,9 @@ func TestObservedToolsExcludesPolicyAndParseFindingTypes(t *testing.T) {
 
 	findings := []source.Finding{
 		{
-			FindingType: "source_discovery",
-			ToolType:    "source_repo",
-			Location:    "acme/backend",
+			FindingType: "tool_config",
+			ToolType:    "codex",
+			Location:    "AGENTS.md",
 			Repo:        "acme/backend",
 			Org:         "acme",
 		},
@@ -35,6 +35,13 @@ func TestObservedToolsExcludesPolicyAndParseFindingTypes(t *testing.T) {
 			Repo:        "acme/backend",
 			Org:         "acme",
 		},
+		{
+			FindingType: "secret_presence",
+			ToolType:    "secret",
+			Location:    ".env",
+			Repo:        "acme/backend",
+			Org:         "acme",
+		},
 	}
 	contexts := map[string]agginventory.ToolContext{}
 	for _, finding := range findings {
@@ -45,7 +52,7 @@ func TestObservedToolsExcludesPolicyAndParseFindingTypes(t *testing.T) {
 	if len(observed) != 1 {
 		t.Fatalf("expected one identity-bearing observed tool, got %d (%+v)", len(observed), observed)
 	}
-	if observed[0].ToolType != "source_repo" {
+	if observed[0].ToolType != "codex" {
 		t.Fatalf("unexpected observed tool: %+v", observed[0])
 	}
 }
