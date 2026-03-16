@@ -19,7 +19,10 @@ func BuildActivation(targetMode string, ranked []risk.ScoredFinding, limit int) 
 	if strings.TrimSpace(targetMode) != activationTargetModeMySetup {
 		return nil
 	}
-	if limit <= 0 {
+	if limit == 0 {
+		return nil
+	}
+	if limit < 0 {
 		limit = activationDefaultLimit
 	}
 

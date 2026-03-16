@@ -105,3 +105,23 @@ func TestBuildActivationReturnsNilOutsideMySetup(t *testing.T) {
 		t.Fatalf("expected nil activation outside my_setup target, got %+v", activation)
 	}
 }
+
+func TestBuildActivationHonorsExplicitTopZero(t *testing.T) {
+	t.Parallel()
+
+	activation := BuildActivation("my_setup", []risk.ScoredFinding{
+		{
+			Score: 7.4,
+			Finding: model.Finding{
+				FindingType: "mcp_server",
+				Severity:    model.SeverityHigh,
+				ToolType:    "mcp",
+				Location:    ".mcp.json",
+				Repo:        "local-machine",
+			},
+		},
+	}, 0)
+	if activation != nil {
+		t.Fatalf("expected nil activation when top=0 explicitly suppresses findings, got %+v", activation)
+	}
+}
