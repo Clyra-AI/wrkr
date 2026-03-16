@@ -277,6 +277,75 @@ func TestScanMySetupFindsEnvironmentKeysAndProjectMarkers(t *testing.T) {
 	}
 }
 
+func TestScanMySetupActivationPrefersConcreteSignals(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+	t.Setenv("OPENAI_API_KEY", "redacted")
+
+	if err := os.MkdirAll(filepath.Join(tmpHome, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir codex: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpHome, ".codex", "config.toml"), []byte("model = \"gpt-5\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmpHome, ".claude"), 0o755); err != nil {
+		t.Fatalf("mkdir claude: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpHome, ".claude", "settings.json"), []byte(`{"allowedTools":["bash"]}`), 0o600); err != nil {
+		t.Fatalf("write claude settings: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--my-setup", "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("scan failed: %d %s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	activation, ok := payload["activation"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected activation payload for my_setup scan: %v", payload)
+	}
+	items, ok := activation["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected activation items, got %v", activation["items"])
+	}
+	for _, item := range items {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if row["tool_type"] == "policy" {
+			t.Fatalf("policy finding leaked into activation items: %v", items)
+		}
+	}
+
+	topFindings, ok := payload["top_findings"].([]any)
+	if !ok || len(topFindings) == 0 {
+		t.Fatalf("expected raw top_findings to remain present: %v", payload["top_findings"])
+	}
+	foundPolicyTopFinding := false
+	for _, item := range topFindings {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		finding, _ := row["finding"].(map[string]any)
+		if finding["tool_type"] == "policy" {
+			foundPolicyTopFinding = true
+			break
+		}
+	}
+	if !foundPolicyTopFinding {
+		t.Fatalf("expected raw top_findings to remain unchanged and still expose policy-ranked items: %v", topFindings)
+	}
+}
+
 func TestRunInvalidFlagReturnsExit6(t *testing.T) {
 	t.Parallel()
 

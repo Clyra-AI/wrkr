@@ -2,9 +2,9 @@
 
 Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
 
-Wrkr gives developers a fast, read-only inventory of their local AI setup and gives security teams an evidence-ready view of org-wide AI tooling posture. It discovers supported AI dev tools, MCP servers, and agent frameworks, maps what they can touch, shows what changed, and emits proof artifacts for audits and CI.
+Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and gives developers a deterministic local-machine hygiene path when they want to inspect their own setup first. It discovers supported AI dev tools, MCP servers, and agent frameworks, maps what they can touch, shows what changed, and emits proof artifacts for audits and CI.
 
-Developer-first. Security-ready. Deterministic by default.
+Security/platform-led. Developer hygiene included. Deterministic by default.
 
 Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command reference: [`docs/commands/`](docs/commands/) | Examples: [`docs/examples/`](docs/examples/)
 
@@ -26,7 +26,9 @@ go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest
 
 ## Start Here
 
-### Developers
+Recommended minimum-now public path: start with the security/platform workflow below when you need org posture and evidence. The developer-machine path remains available as a secondary self-serve hygiene flow.
+
+### Developers (Secondary local hygiene)
 
 Start with your own machine.
 
@@ -46,6 +48,7 @@ In one flow, Wrkr answers:
 - What changed since my last known-good snapshot?
 
 Environment-key presence and source-bookkeeping signals stay in findings and risk output. Lifecycle identities and approvals are reserved for real tool, agent, and MCP surfaces.
+For `scan --my-setup`, Wrkr also emits additive `activation.items` when concrete local tool, MCP, or secret signals exist so the first-value path stays concrete without mutating the raw `top_findings` ranking.
 
 Abbreviated `scan --my-setup` example:
 
@@ -86,7 +89,22 @@ Abbreviated `scan --my-setup` example:
   ],
   "warnings": [
     "MCP visibility may be incomplete because these declaration files failed to parse: .codex/config.yaml"
-  ]
+  ],
+  "activation": {
+    "target_mode": "my_setup",
+    "message": "Review 3 concrete local AI tool, MCP, or secret signal(s) first. Policy-only items remain in the raw ranking but are suppressed from this activation view.",
+    "eligible_count": 3,
+    "suppressed_policy_items": true,
+    "items": [
+      {
+        "rank": 1,
+        "risk_score": 9.3,
+        "finding_type": "mcp_server",
+        "tool_type": "mcp",
+        "location": ".claude/settings.json"
+      }
+    ]
+  }
 }
 ```
 
@@ -120,9 +138,9 @@ Abbreviated `mcp-list` example:
 
 Wrkr is not a vulnerability scanner. It inventories what is configured and what it can touch. Use dedicated tools such as Snyk for package and server vulnerability assessment.
 
-### Security Teams
+### Security Teams (Recommended first path)
 
-Then widen from personal hygiene to org posture.
+Start here when you need organization-wide posture, ranked risks, and compliance-ready proof artifacts.
 
 ```bash
 wrkr scan --github-org acme --github-api https://api.github.com --json

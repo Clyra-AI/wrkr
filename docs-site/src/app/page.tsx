@@ -5,28 +5,28 @@ import { canonicalUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Wrkr | Know Your AI Tooling Posture',
   description:
-    'Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.',
+    'Know what AI tools, agents, and MCP servers are configured in your org before they become unreviewed access, with a deterministic local-machine hygiene path available when needed.',
   alternates: {
     canonical: canonicalUrl('/'),
   },
 };
 
-const QUICKSTART = `# Developers: start on your own machine
+const QUICKSTART = `# Security and platform teams: start with org posture
+wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json
+
+# Developers: use the secondary local-machine hygiene path
 wrkr scan --my-setup --json
 wrkr mcp-list --state ./.wrkr/last-scan.json --json
 cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
-wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
-
-# Security teams: widen to org posture and evidence
-wrkr scan --github-org acme --github-api https://api.github.com --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json`;
+wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json`;
 
 const features = [
   {
-    title: 'Local Setup Inventory',
-    description: 'Start with your own machine to see supported AI configs, local agent project markers, and secret-presence signals.',
-    href: '/docs/examples/personal-hygiene',
+    title: 'Org Evidence',
+    description: 'Widen from local hygiene to GitHub org posture and emit deterministic evidence bundles for audit and CI.',
+    href: '/docs/examples/security-team',
   },
   {
     title: 'MCP Posture',
@@ -34,14 +34,14 @@ const features = [
     href: '/docs/commands/mcp-list',
   },
   {
-    title: 'Org Evidence',
-    description: 'Widen from local hygiene to GitHub org posture and emit deterministic evidence bundles for audit and CI.',
-    href: '/docs/examples/security-team',
-  },
-  {
     title: 'Workflow Drift Review',
     description: 'Use inventory drift for day-to-day review and regress gates when you need policy-grade change detection.',
     href: '/docs/commands/regress',
+  },
+  {
+    title: 'Local Setup Inventory',
+    description: 'Use the secondary local-machine path to inspect supported AI configs, project markers, and secret-presence signals.',
+    href: '/docs/examples/personal-hygiene',
   },
   {
     title: 'Command Contracts',
@@ -54,8 +54,8 @@ const features = [
     href: '/docs/positioning',
   },
   {
-    title: 'Browser Bootstrap',
-    description: 'Use the read-only browser handoff only when you want a secondary org-scan projection surface.',
+    title: 'Optional Browser Bootstrap',
+    description: 'Use the read-only browser handoff only when you explicitly want a secondary org-scan projection surface.',
     href: '/scan',
   },
 ];
@@ -63,7 +63,7 @@ const features = [
 const faqs = [
   {
     question: 'What is Wrkr in one sentence?',
-    answer: 'Wrkr gives developers a read-only inventory of local AI tooling and gives security teams an evidence-ready view of org-wide AI tooling posture.',
+    answer: 'Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps a deterministic local-machine hygiene path available for developers.',
   },
   {
     question: 'Does Wrkr require a hosted control plane?',
@@ -130,20 +130,20 @@ export default function HomePage() {
           <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent"> Before It Becomes Unreviewed Access.</span>
         </h1>
         <p className="text-xl text-gray-400 max-w-3xl mx-auto mb-4">
-          Wrkr gives developers a fast, read-only inventory of local AI setup and gives security teams an evidence-ready view of org-wide AI tooling posture.
+          Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps a deterministic local-machine hygiene path available for developers.
         </p>
         <p className="text-base text-gray-500 max-w-3xl mx-auto mb-8">
-          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI.
+          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI. Start with org posture and evidence; use the local-machine path when you want a secondary self-serve hygiene check.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/docs/examples/quickstart" className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
-            Start Here
-          </Link>
           <Link href="/docs/examples/security-team" className="px-6 py-3 bg-emerald-400 hover:bg-emerald-300 text-gray-950 font-semibold rounded-lg transition-colors">
             Security Team Flow
           </Link>
+          <Link href="/docs/examples/quickstart" className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
+            Start Here
+          </Link>
           <Link href="/scan" className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-100 font-semibold rounded-lg border border-gray-700 transition-colors">
-            Browser Bootstrap
+            Optional Browser Bootstrap
           </Link>
         </div>
         <p className="text-sm text-gray-500 mt-5">
@@ -151,7 +151,7 @@ export default function HomePage() {
           <Link href="/docs/start-here#install" className="text-cyan-300 hover:text-cyan-200">
             Start Here install
           </Link>
-          {' '}and the secondary browser handoff lives at{' '}
+          {' '}and the optional secondary browser handoff lives at{' '}
           <Link href="/scan" className="text-emerald-300 hover:text-emerald-200">
             /scan
           </Link>

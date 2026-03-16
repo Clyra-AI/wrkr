@@ -24,7 +24,7 @@
 - wrkr fix --top <n> --json
 
 ## When To Use
-- You need a developer-first, read-only inventory of local AI tooling before widening to repo or org posture.
+- You need a security/platform-led view of AI tooling posture across repos or orgs, with a secondary local-machine path available for developers.
 - You need deterministic inventory and evidence outputs for AI tooling declared across machines, repos, or org surfaces.
 - You need compliance-ready evidence outputs with explicit verification workflows.
 - You need CI gates for drift and regression with stable machine-readable reasons.

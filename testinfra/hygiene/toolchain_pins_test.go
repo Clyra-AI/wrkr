@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -15,6 +16,9 @@ func TestCheckToolchainPinsPassesWhenAligned(t *testing.T) {
 	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
 		gosecVersion:        "v2.23.0",
 		golangciLintVersion: "v2.0.1",
+		cosignVersion:       "v2.5.3",
+		syftVersion:         "v1.32.0",
+		grypeVersion:        "v0.99.1",
 	})
 	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
 	if err != nil {
@@ -28,6 +32,9 @@ func TestCheckToolchainPinsFailsOnDrift(t *testing.T) {
 	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
 		gosecVersion:        "v2.22.1",
 		golangciLintVersion: "v2.0.1",
+		cosignVersion:       "v2.5.3",
+		syftVersion:         "v1.32.0",
+		grypeVersion:        "v0.99.1",
 	})
 	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
 	if err == nil {
@@ -39,9 +46,58 @@ func TestCheckToolchainPinsFailsOnDrift(t *testing.T) {
 	}
 }
 
+func TestCheckToolchainPinsFailsOnReleaseIntegrityDrift(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
+		gosecVersion:        "v2.23.0",
+		golangciLintVersion: "v2.0.1",
+		cosignVersion:       "v2.4.3",
+		syftVersion:         "v1.32.0",
+		grypeVersion:        "v0.99.1",
+	})
+	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
+	if err == nil {
+		t.Fatal("expected checker to fail on release-integrity pin drift")
+	}
+	expected := "pin mismatch for cosign: expected v2.5.3 from product/dev_guides.md, found v2.4.3 in .github/workflows/release.yml"
+	if !strings.Contains(stderr, expected) {
+		t.Fatalf("expected deterministic mismatch message %q, got %q", expected, stderr)
+	}
+}
+
+func TestReleaseWorkflowUsesDocumentedReleaseIntegrityPins(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	devGuides := mustReadFile(t, filepath.Join(repoRoot, "product/dev_guides.md"))
+	releaseWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/release.yml"))
+
+	expectations := []struct {
+		tool       string
+		needle     string
+		valueLabel string
+	}{
+		{tool: "Syft", needle: "syft-version:", valueLabel: "Syft"},
+		{tool: "Grype", needle: "grype-version:", valueLabel: "Grype"},
+		{tool: "cosign", needle: "cosign-release:", valueLabel: "cosign"},
+	}
+
+	for _, item := range expectations {
+		expectedVersion := mustReadExpectedPin(t, devGuides, item.valueLabel)
+		expectedLine := item.needle + " " + expectedVersion
+		if !strings.Contains(releaseWorkflow, expectedLine) {
+			t.Fatalf("expected release workflow to contain %q for %s pin contract", expectedLine, item.tool)
+		}
+	}
+}
+
 type fixturePins struct {
 	gosecVersion        string
 	golangciLintVersion string
+	cosignVersion       string
+	syftVersion         string
+	grypeVersion        string
 }
 
 func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
@@ -62,6 +118,9 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 		"|------|----------------|",
 		"| gosec | `v2.23.0` |",
 		"| golangci-lint | `v2.0.1` |",
+		"| cosign | `v2.5.3` |",
+		"| Syft | `v1.32.0` |",
+		"| Grype | `v0.99.1` |",
 		"",
 	}, "\n"))
 
@@ -75,6 +134,23 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 		"",
 	}, "\n")
 	mustWriteFile(t, filepath.Join(root, ".github/workflows/pr.yml"), workflow)
+	releaseWorkflow := strings.Join([]string{
+		"name: release",
+		"jobs:",
+		"  release-artifacts:",
+		"    steps:",
+		"      - uses: anchore/sbom-action@v0",
+		"        with:",
+		"          syft-version: " + versions.syftVersion,
+		"      - uses: anchore/scan-action@v4",
+		"        with:",
+		"          grype-version: " + versions.grypeVersion,
+		"      - uses: sigstore/cosign-installer@v3",
+		"        with:",
+		"          cosign-release: " + versions.cosignVersion,
+		"",
+	}, "\n")
+	mustWriteFile(t, filepath.Join(root, ".github/workflows/release.yml"), releaseWorkflow)
 
 	return root
 }
@@ -92,6 +168,17 @@ func runToolchainPinCheck(t *testing.T, repoRoot string) (string, string, error)
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	return stdout.String(), stderr.String(), err
+}
+
+func mustReadExpectedPin(t *testing.T, content string, tool string) string {
+	t.Helper()
+
+	pattern := regexp.MustCompile(`(?m)^\|\s*` + regexp.QuoteMeta(tool) + `\s*\|\s*` + "`" + `([^` + "`" + `]+)` + "`" + `\s*\|`)
+	matches := pattern.FindStringSubmatch(content)
+	if len(matches) != 2 {
+		t.Fatalf("expected to find pinned version for %s", tool)
+	}
+	return matches[1]
 }
 
 func mustWriteFile(t *testing.T, path string, content string) {

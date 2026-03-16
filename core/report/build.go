@@ -71,11 +71,13 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	riskItems := buildRiskItems(topFindings)
 	attackPathSummary := buildAttackPathSummary(*riskReport)
 	attackPathFacts := buildAttackPathFacts(*riskReport)
+	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, top)
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
 		lifecycleSummary = sanitizeLifecycleSummaryPublic(lifecycleSummary)
 		riskItems = sanitizeRiskItemsPublic(riskItems)
+		activation = sanitizeActivationSummaryPublic(activation)
 	}
 
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
@@ -123,6 +125,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ComplianceSummary:  complianceSummary,
 		Proof:              proofRef,
 		NextActions:        nextActions,
+		Activation:         activation,
 	}
 
 	return summary, nil
@@ -899,6 +902,19 @@ func sanitizeRiskItemsPublic(in []RiskItem) []RiskItem {
 		out = append(out, copyItem)
 	}
 	return out
+}
+
+func sanitizeActivationSummaryPublic(in *ActivationSummary) *ActivationSummary {
+	if in == nil {
+		return nil
+	}
+	copySummary := *in
+	copySummary.Items = append([]ActivationItem(nil), in.Items...)
+	for idx := range copySummary.Items {
+		copySummary.Items[idx].Location = redactValue("loc", copySummary.Items[idx].Location, 8)
+		copySummary.Items[idx].Repo = redactValue("repo", copySummary.Items[idx].Repo, 6)
+	}
+	return &copySummary
 }
 
 func redactValue(prefix, value string, width int) string {

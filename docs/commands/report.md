@@ -33,6 +33,7 @@ Expected JSON keys: `status`, `generated_at`, `top_findings`, `attack_paths`, `t
 `summary.attack_paths` provides deterministic attack-path section metadata (`total`, `top_path_ids`) used in report templates and external appendix joins.
 `compliance_summary.frameworks[*].controls[*]` exposes additive framework/control/article rollups with deterministic `finding_count`, `mapped_rule_ids`, and coverage status.
 `summary.compliance_summary` mirrors the same machine-readable contract used by report markdown/PDF generation.
+When the saved scan target is `my_setup`, `summary.activation` exposes the same additive concrete-first activation view used by the local-machine scan flow.
 `summary.security_visibility` exposes additive reference-basis and `unknown_to_security` counts sourced from the saved scan state.
 When the saved scan state does not carry a usable `reference_basis`, report output suppresses `unknown_to_security` claims and surfaces `reference_basis unavailable` wording instead.
 

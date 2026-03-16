@@ -2,7 +2,7 @@
 
 ## What is Wrkr in one sentence?
 
-Wrkr gives developers a read-only inventory of local AI tooling and gives security teams an evidence-ready view of org-wide AI tooling posture.
+Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps a deterministic local-machine hygiene path available for developers.
 
 ## Is Wrkr deterministic?
 
@@ -14,7 +14,7 @@ No. Core scan and evidence workflows are local/file-based by default.
 
 ## Does Wrkr require setup for repo or org scans?
 
-`--my-setup` and `--path` are the zero-integration first-value paths. Hosted `--repo` and `--org` scans require explicit GitHub API configuration.
+Hosted `--repo` and `--org` scans require explicit GitHub API configuration and usually a token for private repos or rate-limit avoidance. `--my-setup` and `--path` remain the zero-integration local paths.
 
 ## Can Wrkr enforce runtime tool calls?
 

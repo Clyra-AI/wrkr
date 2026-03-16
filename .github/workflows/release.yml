@@ -166,6 +166,7 @@ jobs:
         with:
           path: ./dist
           output-file: dist/sbom.spdx.json
+          syft-version: v1.32.0
 
       - name: Scan with Grype
         uses: anchore/scan-action@v4
@@ -173,11 +174,12 @@ jobs:
           sbom: dist/sbom.spdx.json
           fail-build: true
           severity-cutoff: high
+          grype-version: v0.99.1
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
         with:
-          cosign-release: v2.4.3
+          cosign-release: v2.5.3
 
       - name: Sign checksums
         env:

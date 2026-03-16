@@ -178,6 +178,9 @@ func TestBuildSummaryHonorsExplicitTopZero(t *testing.T) {
 	if len(summary.TopRisks) != 0 {
 		t.Fatalf("expected zero top risks for explicit top=0, got %d", len(summary.TopRisks))
 	}
+	if summary.Activation != nil {
+		t.Fatalf("expected activation to be suppressed for explicit top=0, got %+v", summary.Activation)
+	}
 }
 
 func TestBuildLifecycleSummaryOmitsLegacyNonToolIdentities(t *testing.T) {

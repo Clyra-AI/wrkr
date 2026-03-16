@@ -79,3 +79,56 @@ func TestReportPDFDeterministicForFixedState(t *testing.T) {
 		t.Fatal("expected deterministic report pdf bytes for fixed state")
 	}
 }
+
+func TestReportMySetupSummaryIncludesActivationProjection(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+	t.Setenv("OPENAI_API_KEY", "redacted")
+
+	if err := os.MkdirAll(filepath.Join(tmpHome, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir codex: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpHome, ".codex", "config.toml"), []byte("model = \"gpt-5\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--my-setup", "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	var reportOut bytes.Buffer
+	var reportErr bytes.Buffer
+	if code := Run([]string{"report", "--state", statePath, "--json"}, &reportOut, &reportErr); code != 0 {
+		t.Fatalf("report failed: %d %s", code, reportErr.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(reportOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	summary, ok := payload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary object, got %T", payload["summary"])
+	}
+	activation, ok := summary["activation"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected activation summary, got %v", summary["activation"])
+	}
+	items, ok := activation["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected activation items in report summary, got %v", activation["items"])
+	}
+	for _, item := range items {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if row["tool_type"] == "policy" {
+			t.Fatalf("policy findings must not appear in report activation items: %v", items)
+		}
+	}
+}
