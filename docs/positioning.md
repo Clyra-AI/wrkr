@@ -7,7 +7,7 @@ description: "Wrkr positioning for technical buyers: where discovery/posture fit
 
 Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
 
-Wrkr gives developers a fast, read-only inventory of local AI setup and gives security teams an evidence-ready view of org-wide AI tooling posture. It stays deterministic, file-based, and standalone by default.
+Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps a deterministic local-machine hygiene path available for developers. It stays deterministic, file-based, and standalone by default.
 
 ## Category Position
 
@@ -22,8 +22,8 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 - Deterministic AI tooling posture scanner.
 - Command-first evidence and regress gate source.
 - Static discovery engine for repo/config/CI posture surfaces.
-- Zero-integration first value through local `--my-setup` and `--path` scans; hosted repo/org scans use explicit GitHub API configuration and typically a token to avoid rate limits or reach private repos.
-- Thin browser bootstrap at `/scan/` for read-only org scan handoff and summary projection when teams want a secondary browser handoff.
+- Minimum-now public launch path through hosted org posture and evidence flows; local `--my-setup` and `--path` scans remain available for zero-integration hygiene and repo-local inspection.
+- Thin browser bootstrap at `/scan/` for optional read-only org scan handoff and summary projection when teams explicitly want a secondary browser handoff.
 
 ## What Wrkr Is Not
 
@@ -36,8 +36,8 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 
 ## Persona Fit
 
-- Developer: start with `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff` to understand personal machine hygiene and local drift.
-- Security/platform team: use `wrkr scan --github-org`, `wrkr evidence`, `wrkr verify`, and optional `wrkr report` / `wrkr mcp-list` for org posture and compliance-ready handoff.
+- Security/platform team: start with `wrkr scan --github-org`, `wrkr evidence`, `wrkr verify`, and optional `wrkr report` / `wrkr mcp-list` for org posture and compliance-ready handoff.
+- Developer: use `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff` when you want personal machine hygiene and local drift review.
 - Buyer: CISO / VP Engineering
 - Consumer: CI pipelines and audit workflows
 

@@ -367,6 +367,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		payload["profile"] = profileResult
 		payload["posture_score"] = postureScore
 		payload["compliance_summary"] = complianceSummary
+		if activation := reportcore.BuildActivation(manifestOut.Target.Mode, riskReport.Ranked, 5); activation != nil {
+			payload["activation"] = activation
+		}
 	}
 	if *reportMD {
 		template, shareProfile, parseErr := parseReportTemplateShare(*reportTemplate, *reportShareProfile)

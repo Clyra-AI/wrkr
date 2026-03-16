@@ -5,9 +5,9 @@ import ScanBootstrapShell from '@/components/scan/ScanBootstrapShell';
 import { canonicalUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Wrkr Web Bootstrap',
+  title: 'Wrkr Optional Web Bootstrap',
   description:
-    'Read-only bootstrap shell for Wrkr org scans. Prepare a handoff, trigger the existing Wrkr contract, and project the returned summary artifact.',
+    'Optional read-only bootstrap shell for Wrkr org scans. Use it only when you want a secondary browser projection of an existing CLI/org-scan contract.',
   alternates: {
     canonical: canonicalUrl('/scan/'),
   },

@@ -1,47 +1,55 @@
-# PLAN WRKR_P1_BOUNDARY_REMEDIATION: Identity Scope and Repo-Root File Safety
+# PLAN WRKR_OSS_LAUNCH_ALIGNMENT: Release Integrity, Launch Positioning, and Optional Developer-First Activation
 
 Date: 2026-03-15
-Source of truth: user-provided review findings from 2026-03-15, `product/dev_guides.md`, `product/architecture_guides.md`, `product/wrkr.md`, `docs/specs/wrkr-manifest.md`, and `docs/state_lifecycle.md`
-Scope: Wrkr repository only. Planning artifact only. Fix the two verified release-blocking findings around identity-state scoping and detector file-boundary enforcement. No implementation work is performed in this plan.
+Source of truth: user-provided launch audit findings from 2026-03-15, `product/dev_guides.md`, `product/architecture_guides.md`, `product/wrkr.md`, `README.md`, `docs/examples/quickstart.md`, `docs/commands/scan.md`, `docs/trust/release-integrity.md`, and current docs-site landing/bootstrap surfaces.
+Scope: Wrkr repository only. Planning artifact only. Convert the verified launch-readiness recommendations into an execution-ready backlog plan that clears the current public OSS launch blockers without expanding Wrkr into hosted/dashboard scope.
 
 ## Global Decisions (Locked)
 
-- Preserve Wrkr's deterministic, offline-first, fail-closed behavior in default scan, risk, regress, proof, and evidence paths.
-- Keep the current exit-code contract unchanged: `0,1,2,3,4,5,6,7,8`.
-- Keep public JSON envelopes additive only. No field removals, no field retyping, and no schema major bump are allowed in this plan.
-- Treat lifecycle/inventory/manifest identities as real tool identities only. Posture-only and bookkeeping findings are not approvable identities.
-- Treat `secret_presence`, `source_discovery`, and similar non-tool surfaces as findings/risk signals only. They must not become manifest identities, inventory agents, or regress baseline tools.
-- Legacy state, manifest, and regress baseline artifacts that already contain non-tool identities must remain readable. Migration handling must prevent false drift or approval workflows without breaking file compatibility.
-- Repo-root boundary enforcement belongs in the shared detection/parsing layer. Do not duplicate symlink trust logic independently in each detector.
-- Detector file reads must never ingest content outside the selected repo root. Unsafe path resolution must fail closed at the file boundary with deterministic machine-readable signaling.
-- Architecture/risk/adapter/failure semantics work in this plan must run `make prepush-full`.
-- Boundary-sensitive and reliability-sensitive stories in this plan must also run `make test-hardening` and `make test-chaos`.
-- If shared parsing helpers materially increase detector hot-path work, run `make test-perf` and update performance notes in the PR.
-- Any PR implementing Stories `W1-S01`, `W1-S02`, or `W2-S01` requires an ADR because these stories change contract semantics and failure handling.
+- Preserve Wrkr's deterministic, offline-first, fail-closed behavior in default scan, risk, regress, proof, verify, and evidence paths.
+- Keep the stable CLI exit-code contract unchanged: `0,1,2,3,4,5,6,7,8`.
+- Keep public JSON envelopes backward-compatible. No field removals, retyping, or schema-major bumps are allowed in this plan.
+- Recommended minimum-now launch persona is `security/platform`. Developer local-hygiene remains supported, but it is not the primary public promise unless the optional Wave 2 runtime work also lands.
+- Release-integrity claims must be atomic across normative docs, workflow implementation, local enforcement scripts, hygiene tests, and release validation. No docs-only or workflow-only pin change may ship.
+- Browser `/scan` remains a thin read-only bootstrap/projection surface only. It must not imply hosted scan execution, persistent dashboard state, or a required server-side control plane.
+- If Wave 2 is implemented, it must use additive contract shape for developer-first activation output. Existing `findings`, `ranked_findings`, `top_findings`, and `summary` fields remain available and machine-readable.
+- Architecture, risk, adapter, report-selection, or failure-semantics changes in this plan must run `make prepush-full`.
+- Release-integrity, filesystem-boundary, or fault-path changes in this plan must run `make test-hardening` and `make test-chaos`.
+- Performance-sensitive changes in this plan must run `make test-perf`.
+- Any implementation PR for `W1-S01`, `W1-S02`, or `W2-S01` requires an ADR because those stories change release-contract enforcement or contract-facing CLI/report behavior.
 
 ## Current Baseline (Observed)
 
 - `git status --short --branch` was clean before generating this plan.
-- `product/dev_guides.md` and `product/architecture_guides.md` were present and readable.
-- `go build ./cmd/wrkr` completed successfully.
-- `go test ./... -count=1` completed successfully, including contract, scenario, and acceptance packages already wired in the repo.
-- Direct CLI verification showed the first finding is real:
-  - `wrkr scan --my-setup --json` emitted `secret` and `source_repo` entries as full manifest identities and inventory agents.
-  - A baseline created without `OPENAI_API_KEY` and rescanned with `OPENAI_API_KEY` caused `wrkr regress run --json` to return drift with `new_unapproved_tool` for `wrkr:secret-...`.
-- Direct CLI verification showed the second finding is real:
-  - A repo-owned symlinked `.codex/config.toml` pointing outside the selected repo root was parsed as valid Codex config during `wrkr scan --path --json`.
-  - A repo-owned symlinked `.env` pointing outside the selected repo root leaked external `credential_keys=OPENAI_API_KEY` into scan output.
-- Existing CI and release workflow coverage is already strong:
-  - `.github/workflows/main.yml`
-  - `.github/workflows/release.yml`
-  - `make prepush-full`
-  - `make test-contracts`
-  - `make test-scenarios`
-  - `make test-hardening`
-  - `make test-chaos`
-  - `make test-perf`
-- `sdk/python` is not present in this repository, so no SDK wrapper work is in scope for this plan.
-- OSS trust baseline files already exist:
+- `product/dev_guides.md` and `product/architecture_guides.md` were present, readable, and enforceable for testing, determinism, CI, TDD, chaos, frugal architecture, and boundary governance.
+- Output path validation passed:
+  - requested path: `product/PLAN_NEXT.md`
+  - resolved path stayed inside `/Users/tr/wrkr`
+- Core technical validation already completed successfully:
+  - `go build -o .tmp/wrkr ./cmd/wrkr`
+  - `go test ./... -count=1`
+  - `make test-docs-consistency test-docs-storyline`
+  - `make docs-site-install docs-site-lint docs-site-build docs-site-check`
+  - `make docs-site-audit-prod`
+- Deterministic scenario validation showed the product core is healthy:
+  - `./.tmp/wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json` returned `131` findings, `19` tools, `19` agents, and deterministic risk/compliance output.
+  - `./.tmp/wrkr evidence --frameworks eu-ai-act,soc2 --json` succeeded and produced deterministic report artifacts.
+  - `./.tmp/wrkr verify --chain --json` returned authenticated integrity (`verification_mode=chain_and_attestation`, `authenticity_status=verified`).
+- Verified fail-closed safety behavior is already strong:
+  - unsafe evidence output dirs returned exit `8` / `unsafe_operation_blocked`
+  - unmanaged materialized roots returned exit `8` / `unsafe_operation_blocked`
+  - root-escaping symlinked `.env` and `.codex/config.toml` produced `parse_error.kind=unsafe_path` with no secret leakage
+- Verified launch blockers from the audit remain real:
+  - `wrkr scan --my-setup --json` in the current environment found real tools but the first visible ranked output was dominated by policy IDs (`WRKR-005/006/007/001/002`) instead of concrete activation items.
+  - `wrkr mcp-list --state <my-setup-state> --json` returned `0` rows in the same local run, so the current public developer-first story does not reliably produce the promised first-run "aha".
+  - `.github/workflows/release.yml` installs `cosign v2.4.3` while `product/dev_guides.md` pins `v2.5.3`.
+  - release SBOM/vulnerability tooling is not enforced with the same exact-version rigor described in `product/dev_guides.md`.
+  - `scripts/check_toolchain_pins.sh` hard-fails only `gosec`, `golangci-lint`, and `.tool-versions` lines today.
+- Current public packaging still dilutes the strongest wedge:
+  - homepage gives similar prominence to `Start Here`, `Security Team Flow`, and `Browser Bootstrap`
+  - `/scan` currently markets "Trigger a read-only Wrkr org scan in about 60 seconds", which risks creating hosted-product expectations
+  - `docs/contracts/readme_contract.md` currently allows the landing README to remain developer-machine-first, which conflicts with the recommended minimum-now launch posture
+- Existing OSS trust baseline files already exist and do not need new artifacts for this plan:
   - `README.md`
   - `CONTRIBUTING.md`
   - `CHANGELOG.md`
@@ -52,127 +60,157 @@ Scope: Wrkr repository only. Planning artifact only. Fix the two verified releas
 
 ## Exit Criteria
 
-1. `wrkr scan`, `wrkr manifest generate`, `wrkr identity`, `wrkr lifecycle`, `wrkr evidence`, and `wrkr regress` treat only real tool identities as lifecycle-bearing state.
-2. `secret_presence`, `source_discovery`, and equivalent posture/bookkeeping findings remain in findings/risk surfaces but do not materialize into `snapshot.identities`, manifest identities, inventory agents, or `agent_privilege_map`.
-3. Legacy manifests, snapshots, and regress baselines containing non-tool identities remain readable and do not produce false `new_unapproved_tool`, `removed`, or approval-history drift.
-4. Detector file reads reject repo-owned symlinks that resolve outside `scope.Root` and never ingest outside-root config, env, workflow, or MCP content.
-5. Unsafe path handling remains deterministic, sorted, and machine-readable without changing the stable exit-code contract.
-6. `wrkr scan --json` on mixed safe/unsafe repo trees continues to return valid results for unaffected repos and surfaces explicit unsafe-path diagnostics for the offending files.
-7. README, command docs, lifecycle/spec docs, and quickstart examples match the implemented runtime semantics in the same rollout.
-8. All required fast, core CI, acceptance, cross-platform, and risk lanes for each story are green.
+1. Release workflow tool versions for signing, SBOM, and artifact vulnerability scanning are aligned with `product/dev_guides.md`, or the normative claim is narrowed in the same atomic change.
+2. Local enforcement and hygiene tests fail fast when release-critical tool pins drift from the documented contract.
+3. `README`, quickstart/docs-site landing, and scan command docs make the minimum-now launch persona explicit and no longer imply a broader developer-first promise than the shipped first-run experience supports.
+4. Hosted/org-scan prerequisites (`--github-api`, token expectations, rate-limit/privacy constraints) are visible on primary onboarding surfaces.
+5. `/scan` is clearly secondary and read-only, with no copy that implies hosted scanning, persistent state, or browser-authoritative runtime behavior.
+6. If Wave 2 is implemented, `my_setup` flows expose an additive first-value activation surface that promotes concrete tool/MCP/secret signals over abstract policy-only items when those concrete findings exist.
+7. All required fast, core CI, acceptance, cross-platform, docs, release-smoke, and risk lanes for the selected waves are green.
+8. The full validation set used in the audit is rerun before launch sign-off:
+  - `go test ./... -count=1`
+  - `make test-docs-consistency test-docs-storyline`
+  - `make docs-site-install docs-site-lint docs-site-build docs-site-check`
+  - `make docs-site-audit-prod`
+  - targeted `wrkr scan`, `wrkr report`, `wrkr evidence`, `wrkr verify`, and fail-closed path probes
 
 ## Public API and Contract Map
 
 Stable/public surfaces touched by this plan:
 
-- `wrkr scan --json`
-- `wrkr manifest generate --json`
-- `wrkr regress init --baseline <scan-state-path> --json`
-- `wrkr regress run --baseline <baseline-path> --state <state-path> --json`
-- `wrkr identity list --json`
-- `wrkr identity show <agent_id> --json`
-- `wrkr lifecycle --json`
-- JSON artifacts saved beside scan state:
-  - `.wrkr/last-scan.json`
-  - `.wrkr/wrkr-manifest.yaml`
-  - `.wrkr/wrkr-regress-baseline.json`
-  - `.wrkr/proof-chain.json`
-- User-facing docs/specs:
+- `wrkr scan --my-setup --json`
+- `wrkr report --json`
+- `wrkr mcp-list --json`
+- `wrkr verify --chain --json`
+- `wrkr version`
+- install and release-parity contract surfaces:
   - `README.md`
-  - `docs/commands/scan.md`
-  - `docs/commands/manifest.md`
-  - `docs/commands/regress.md`
-  - `docs/state_lifecycle.md`
-  - `docs/specs/wrkr-manifest.md`
+  - `docs/install/minimal-dependencies.md`
+  - `docs/trust/release-integrity.md`
+- onboarding and positioning surfaces:
   - `docs/examples/quickstart.md`
-  - `docs/trust/security-and-privacy.md`
+  - `docs/examples/security-team.md`
+  - `docs/commands/scan.md`
+  - `docs/positioning.md`
   - `docs/contracts/readme_contract.md`
+  - docs-site `/`
+  - docs-site `/docs/start-here`
+  - docs-site `/scan`
 
 Internal surfaces expected to change:
 
-- `core/model/identity_bearing.go`
-- `core/aggregate/inventory/*`
-- `core/cli/scan_helpers.go`
-- `core/regress/*`
-- `core/manifestgen/*`
-- `core/detect/parse.go`
-- `core/detect/codex/*`
-- `core/detect/claude/*`
-- `core/detect/secrets/*`
-- `core/detect/mcp/*`
-- targeted CLI, E2E, acceptance, scenario, contract, and hardening test files
+- `.github/workflows/release.yml`
+- `scripts/check_toolchain_pins.sh`
+- `testinfra/hygiene/toolchain_pins_test.go`
+- release/install validation helpers:
+  - `scripts/test_uat_local.sh`
+  - possibly `.github/workflows/main.yml` or `.github/workflows/pr.yml` if enforcement wiring changes
+- if Wave 2 is executed:
+  - `core/cli/scan.go`
+  - `core/cli/report.go`
+  - `core/report/build.go`
+  - `core/report/types.go`
+  - `core/cli/root_test.go`
+  - `core/cli/report_contract_test.go`
+  - `internal/e2e/cli_contract/cli_contract_e2e_test.go`
+  - `internal/scenarios/`
+- docs-site launch surfaces:
+  - `docs-site/src/app/page.tsx`
+  - `docs-site/src/app/scan/page.tsx`
+  - `docs-site/src/components/scan/ScanBootstrapShell.tsx`
+  - `docs-site/src/lib/navigation.ts`
+  - `docs-site/src/lib/docs.ts`
 
 Shim and deprecation path:
 
-- Existing artifact fields remain in place.
-- Legacy manifest/snapshot/baseline entries for non-tool identities remain readable.
-- New runtime behavior must exclude those legacy non-tool identities from fresh lifecycle synthesis and regress comparisons rather than rewriting the file format.
-- `agent_id` remains the stable identity field for real tool identities; this plan only tightens which findings are allowed to become identities.
+- Wave 1 does not require a user-facing shim; it tightens release/process enforcement only.
+- Wave 2, if implemented, must be additive:
+  - retain existing `findings`, `ranked_findings`, `top_findings`, and report summary structures
+  - add a new `my_setup`-specific activation surface rather than repurposing raw risk arrays by default
+  - allow docs to migrate from existing quickstart examples to the new activation surface without breaking automation consumers
+- Wave 3 updates docs and positioning only; it must not introduce hidden runtime requirements or hosted dependencies.
 
 Schema and versioning policy:
 
-- No schema major bump is planned.
-- If an additional machine-readable unsafe-path classification is added, it must be additive under the current `v1` line.
-- Any contract-facing field/value additions require matching docs and contract tests in the same PR.
-- Count or content changes caused by removing non-tool identities are treated as a bug fix to semantic correctness, not as a schema migration.
+- No schema-major bump is planned.
+- Wave 1 and Wave 3 should not change CLI JSON schemas.
+- Wave 2 may add new JSON fields or new nested summary sections only.
+- Any additive CLI/report field introduced in Wave 2 requires:
+  - docs update in the same PR
+  - fixture/golden updates
+  - compatibility tests proving older consumers can ignore the field
 
 Machine-readable error expectations:
 
-- Exit codes stay unchanged.
-- Whole-command exit behavior stays unchanged unless a pre-existing command already treats the affected path as fatal.
-- File-level repo-root escapes must not silently read external data.
-- Unsafe file handling must surface through deterministic parse or detector diagnostics with stable ordering in `--json` output.
-- Partial-failure behavior must remain explicit and sorted.
+- Existing CLI error envelope format and exit-code mapping remain unchanged.
+- Release pin enforcement failures surface via CI/hygiene tooling, not new CLI exit codes.
+- If Wave 2 adds activation output, absence must be deterministic:
+  - empty/omitted for non-`my_setup` targets
+  - explicit empty result or deterministic reason for `my_setup` when no qualifying concrete findings exist
+- Fail-closed behavior for filesystem ownership markers, unsafe symlinks, and missing hosted dependencies remains unchanged.
 
 ## Docs and OSS Readiness Baseline
 
-README first-screen contract:
+README first-screen contract for this plan:
 
-- README must describe Wrkr as discovering AI tool posture and generating deterministic proof artifacts.
-- README must not imply that environment-key presence or source bookkeeping becomes an approvable identity.
-- README must state that local path scans are bounded to the selected repo root and do not intentionally read files outside that boundary.
+- Minimum-now launch posture must lead with security/platform posture-and-proof value.
+- Developer local-hygiene may remain visible, but it must be framed as secondary unless Wave 2 also lands.
+- Primary public surfaces must explicitly state:
+  - Wrkr is CLI-first and file-based
+  - org scans require explicit GitHub API configuration
+  - private repos and rate-limit avoidance usually require a token
+  - `/scan` is not a hosted replacement for the CLI
+- If the README contract changes materially, `docs/contracts/readme_contract.md` must be updated in the same PR.
 
 Integration-first docs flow for this plan:
 
 1. `README.md`
-2. `docs/commands/scan.md`
-3. `docs/state_lifecycle.md`
-4. `docs/specs/wrkr-manifest.md`
-5. `docs/commands/manifest.md`
-6. `docs/commands/regress.md`
-7. `docs/examples/quickstart.md`
-8. `docs/trust/security-and-privacy.md`
-9. `docs/contracts/readme_contract.md`
+2. `docs/examples/security-team.md`
+3. `docs/commands/scan.md`
+4. `docs/examples/quickstart.md`
+5. `docs/install/minimal-dependencies.md`
+6. `docs/trust/release-integrity.md`
+7. `docs/positioning.md`
+8. `docs/contracts/readme_contract.md`
+9. `docs-site/src/app/page.tsx`
+10. `docs-site/src/app/scan/page.tsx`
+11. `docs-site/src/components/scan/ScanBootstrapShell.tsx`
 
 Lifecycle path model that docs must preserve:
 
-- `.wrkr/last-scan.json` is the authoritative scan snapshot.
-- `.wrkr/wrkr-manifest.yaml` is the lifecycle/approval manifest for real tool identities.
-- `.wrkr/wrkr-regress-baseline.json` is the canonical regress baseline artifact.
-- `.wrkr/proof-chain.json` remains the proof-chain path.
-- Findings can include risk-only/posture-only signals that never become identities.
+- `.wrkr/last-scan.json` remains the authoritative saved scan state.
+- `.wrkr/proof-chain.json` remains the proof-chain path verified by `wrkr verify --chain`.
+- `wrkr-evidence/` remains a user-selected output root subject to fail-closed ownership checks.
+- Browser/docs-site surfaces never replace the Go CLI as the authoritative scan/risk/proof runtime.
+- Hosted org acquisition remains an explicit source mode, not an automatic browser-managed flow.
 
 Docs source-of-truth mapping for this plan:
 
 - CLI/runtime behavior: `docs/commands/*.md`
-- lifecycle and artifact placement: `docs/state_lifecycle.md`
-- manifest contract scope: `docs/specs/wrkr-manifest.md`
-- public landing copy: `README.md`
-- security/boundary guarantees: `docs/trust/security-and-privacy.md`
-- README first-screen enforcement: `docs/contracts/readme_contract.md`
+- onboarding examples: `docs/examples/*.md`
+- install contract: `docs/install/minimal-dependencies.md`
+- release-integrity contract: `docs/trust/release-integrity.md`
+- product boundary framing: `docs/positioning.md`
+- README contract rules: `docs/contracts/readme_contract.md`
+- docs-site landing/secondary UX: `docs-site/src/app/*`, `docs-site/src/components/*`, `docs-site/src/lib/*`
 
-OSS readiness baseline:
+OSS trust baseline:
 
-- Existing trust files are sufficient for this plan.
-- No new maintainer policy or support-policy artifact is required.
-- User-visible behavior changes must still update the affected docs in the same PR.
+- Existing trust/support files are sufficient for this plan.
+- No new governance file is required.
+- Public-behavior changes must keep maintainer/support expectations explicit in README/docs-site surfaces.
+- Any change to install/release claims must keep `CHANGELOG.md` and public release guidance synchronized in the same PR.
 
 ## Recommendation Traceability
 
 | Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story mapping |
 |---|---|---|---|---|---|
-| R1 | Restrict lifecycle/inventory state to real tool identities | Transient env-key presence and source bookkeeping should not become approvable identities or regress blockers | Contract-first identity engine with explicit tool-bearing boundaries | More trustworthy approvals, lower false drift, stronger enterprise credibility | `W1-S01`, `W1-S02`, `W3-S01` |
-| R2 | Fail closed on symlinked files that escape the selected repo root | Untrusted repos must not coerce Wrkr into reading data outside the requested scan boundary | Boundary-enforced file access in the detection layer | Safer local scans, less false discovery, stronger privacy posture | `W2-S01`, `W2-S02`, `W3-S01` |
+| R1 | Align release workflow signing/SBOM/scanner versions to the normative pin contract | Current release pipeline claims and actual tooling drift on critical integrity surfaces | Enforcement-first release integrity | Stronger public trust, lower release-regression risk | `W1-S01`, `W1-S02` |
+| R2 | Extend hard-fail enforcement so future pin drift is caught before merge/release | Current checks enforce only a subset of the normative pin table | Contracts as executable governance | Prevents repeat drift and docs/workflow divergence | `W1-S02` |
+| R3 | Pick one minimum-now launch persona and make public onboarding match it | Current public packaging dilutes the strongest wedge and overpromises local first-run experience | Security/platform-led launch clarity | Sharper category story and lower expectation mismatch | `W3-S01` |
+| R4 | Keep org-scan auth and hosted-scope boundaries explicit on primary surfaces | Current copy risks implying zero-config org scans or browser-managed hosted behavior | Honest self-serve onboarding | Lower abandonment, fewer support escalations, better trust | `W3-S01`, `W3-S02` |
+| R5 | Demote `/scan` to secondary/experimental bootstrap positioning | `/scan` currently creates hosted-product expectations that Wrkr does not meet | Boundary-first packaging | Protects CLI-first identity and avoids wedge dilution | `W3-S02` |
+| R6 | If broader developer-first launch remains a goal, add an additive `my_setup` activation surface before promoting that promise | Current `my_setup` first-value experience is too policy-heavy to anchor a broad developer-first launch | Optional post-blocker activation improvement | Better individual-user onboarding without breaking raw contracts | `W2-S01` |
 
 ## Test Matrix Wiring
 
@@ -180,24 +218,26 @@ Fast lane:
 
 - `make lint-fast`
 - targeted `go test` package runs with `-count=1`
+- `scripts/check_toolchain_pins.sh`
 
 Core CI lane:
 
 - `make prepush`
-- `go test ./internal/integration -count=1` when integration helpers or cross-package behavior changes
+- targeted integration/e2e runs for touched flows
+- docs parity/storyline checks whenever user-facing surfaces change
 
 Acceptance lane:
 
 - `make test-scenarios`
-- targeted E2E/acceptance runs with `-count=1`
-- explicit CLI contract commands with `--json`
+- targeted `go test ./internal/e2e/... -count=1`
+- `scripts/test_uat_local.sh --skip-global-gates` for install/release-path changes
+- explicit CLI command probes with `--json`
 
 Cross-platform lane:
 
 - `go test ./core/cli -count=1`
-- `go test ./core/detect/... -count=1`
-- `go test ./core/regress -count=1`
-- symlink tests must skip cleanly on platforms/environments that do not support the fixture
+- `go test ./internal/e2e/cli_contract -count=1`
+- release/install-path validation on the same OS matrix already used by CI where applicable
 
 Risk lane:
 
@@ -205,374 +245,360 @@ Risk lane:
 - `make test-contracts`
 - `make test-hardening`
 - `make test-chaos`
-- `make test-perf` when detector helper hot-path cost changes materially
+- `make test-perf` when hot-path selection/report logic changes materially
 
 Merge/release gating rule:
 
-- Wave 1 and Wave 2 are release-blocking runtime fixes. They cannot merge without green fast, core CI, acceptance, cross-platform, and required risk-lane checks.
-- Wave 3 is release-blocking for any release that publishes the corrected semantics externally.
-- No implementation PR may land docs-only wording for these fixes before the corresponding runtime wave is green.
+- Wave 1 is release-blocking and must merge green before any public launch copy change ships.
+- Wave 2 is optional and must merge before any developer-first public promise is promoted again.
+- Wave 3 is required for the recommended minimum-now security/platform-led launch and must not merge ahead of Wave 1.
+- If Wave 2 is deferred, Wave 3 docs must explicitly avoid stronger developer-first claims.
 
-## Wave 1 - Epic W1: Identity-State Contract Correction
+## Wave 1 - Epic W1: Release Integrity Contract Alignment
 
-Objective: tighten the identity, inventory, manifest, and regress pipeline so only real tool identities participate in lifecycle and approval state.
+Objective: remove the documented-vs-implemented release pin drift and make future drift fail fast in local/CI enforcement.
 
-### Story W1-S01: Replace broad exclusion logic with authoritative real-tool allowlists
+### Story W1-S01: Align release signing, SBOM, and artifact scanner pins atomically
 
 Priority: P0
 Tasks:
-- Replace the current negative-filter approach in `core/model/identity_bearing.go` with explicit allowlists for lifecycle-bearing and inventory-bearing findings.
-- Encode `secret_presence`, `source_discovery`, `policy_check`, `policy_violation`, `parse_error`, and other posture/bookkeeping finding classes as non-bearing by default.
-- Keep the allowlist authoritative in one place and have downstream identity/inventory callers consume that shared policy instead of re-encoding it.
-- Add legacy compatibility filtering so older snapshots/manifests/baselines that already contain non-tool identities remain readable but are excluded from fresh identity synthesis and drift comparison.
-- Verify `observedTools`, `SnapshotTools`, `manifestgen.GenerateUnderReview`, and inventory builders all use the same authoritative semantics.
+- Inventory all release-integrity pin surfaces in this repo for `cosign`, `Syft`, and `Grype`.
+- Update `.github/workflows/release.yml` so the implemented release lane uses the exact versions required by `product/dev_guides.md`.
+- Prefer explicit versioned installation/invocation over implicit version resolution where the current action wrapper obscures tool versions.
+- Update any affected release-integrity docs/runbooks in the same change if the implementation mechanism changes.
+- Verify `scripts/test_uat_local.sh` and release-smoke flows still reflect the published install/release contract after the pin alignment.
 Repo paths:
-- `core/model/identity_bearing.go`
-- `core/cli/scan_helpers.go`
-- `core/regress/regress.go`
-- `core/manifestgen/generate.go`
-- `core/aggregate/inventory/inventory.go`
-- `core/model/identity_bearing_test.go`
-- `core/cli/scan_observed_tools_test.go`
-- `core/regress/regress_test.go`
-- `core/manifestgen/generate_test.go`
+- `.github/workflows/release.yml`
+- `product/dev_guides.md`
+- `docs/trust/release-integrity.md`
+- `docs/install/minimal-dependencies.md`
+- `scripts/test_uat_local.sh`
 Run commands:
-- `go test ./core/model ./core/aggregate/inventory ./core/cli ./core/regress ./core/manifestgen -count=1`
-- `make test-contracts`
+- `make lint-fast`
+- `go build -o .tmp/wrkr ./cmd/wrkr`
+- `scripts/check_toolchain_pins.sh`
+- `scripts/test_uat_local.sh --skip-global-gates`
+- scanner-specific built-artifact validation on the locally built artifact and/or release `dist/` payload
 - `make prepush-full`
-- `go run ./cmd/wrkr scan --my-setup --state ./.tmp/p1-identity-state.json --json`
-- `go run ./cmd/wrkr regress init --baseline ./.tmp/p1-identity-state.json --output ./.tmp/p1-identity-baseline.json --json`
-- `go run ./cmd/wrkr regress run --baseline ./.tmp/p1-identity-baseline.json --state ./.tmp/p1-identity-state.json --json`
 Test requirements:
-- unit allowlist tests for lifecycle-bearing and inventory-bearing helpers
-- regress compatibility tests for legacy baselines containing non-tool identities
-- manifest generation tests proving non-tool findings do not emit identity records
-- CLI `--json` stability tests for scan/regress/manifest when only non-tool findings change
-- contract tests if any machine-readable additive metadata is introduced
+- hygiene tests covering the aligned pin values
+- release workflow contract checks for exact version presence
+- built-artifact validation using the same scanner modes claimed by CI
+- docs/install/release parity checks when command text changes
+- no floating-version regressions in CI-critical tooling
 Matrix wiring:
-- Fast lane: `make lint-fast`; targeted `go test` packages above
+- Fast lane: `make lint-fast`; `scripts/check_toolchain_pins.sh`
 - Core CI lane: `make prepush`
-- Acceptance lane: `make test-scenarios`; targeted `go test ./internal/e2e/regress ./internal/e2e/manifest -count=1`
-- Cross-platform lane: `go test ./core/cli ./core/regress -count=1`
+- Acceptance lane: `scripts/test_uat_local.sh --skip-global-gates`
+- Cross-platform lane: existing CI matrix remains unchanged; verify no workflow/installer assumptions regress on Windows/macOS paths
 - Risk lane: `make prepush-full`; `make test-contracts`; `make test-hardening`
 Acceptance criteria:
-- `secret_presence` and `source_discovery` findings no longer create manifest identities, inventory agents, or `agent_privilege_map` rows.
-- A transient `OPENAI_API_KEY` change alone no longer yields `new_unapproved_tool` drift.
-- Legacy state and baseline files containing non-tool identities remain readable and do not fail closed as invalid input.
-- Output ordering stays deterministic.
+- `release.yml` no longer drifts from the normative `cosign`, `Syft`, and `Grype` versions claimed in `product/dev_guides.md`.
+- Release-smoke/install-path validation still passes after the change.
+- Public docs and release workflow describe the same install/release contract.
 Contract/API impact:
-- Tightens the semantic contract for which findings become lifecycle/inventory state.
-- JSON field names stay stable; only the set of materialized identities changes.
+- No CLI JSON or exit-code changes.
+- Release-integrity process contract becomes stricter and more explicit.
 Versioning/migration impact:
-- No schema major bump.
-- Legacy artifact compatibility must be preserved by runtime filtering rather than file-format rewrite.
+- No schema/version bump.
+- Existing release consumers keep the same artifact contract; only tool provenance/enforcement hardens.
 Architecture constraints:
-- Keep identity-bearing classification authoritative in the Go core model layer.
-- Do not duplicate allowlists across CLI, regress, manifest, or inventory code.
-- Use explicit helper names that make side effects and semantics clear.
-- Preserve deterministic ordering and offline defaults.
-- If inventory and lifecycle semantics intentionally differ, encode separate explicit helpers and tests rather than hidden branching.
+- Keep release-integrity enforcement thin and explicit; do not bury tool-version truth in multiple opaque wrappers.
+- Name any new helper functions/scripts by side effect (`install_*`, `validate_*`, `scan_*`) rather than generic verbs.
+- Preserve deterministic release semantics and explicit failure paths.
 ADR required: yes
 TDD first failing test(s):
-- `TestIsIdentityBearingFinding_UsesExplicitAllowlist`
-- `TestIsInventoryBearingFinding_UsesExplicitAllowlist`
-- `TestObservedToolsExcludesSecretPresenceAndSourceDiscovery`
-- `TestCompareIgnoresLegacyNonToolBaselineEntries`
+- extend `testinfra/hygiene/toolchain_pins_test.go` for `cosign`, `Syft`, and `Grype`
+- add/update release-workflow pin assertions before changing the workflow
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- Steady state: a `--my-setup` or `--path` scan with stable real tool findings yields no regress drift.
-- Fault: non-tool findings toggle on/off and legacy artifacts still contain non-tool identities.
-- Expected: no false `new_unapproved_tool` drift, no manifest pollution, deterministic sorted outputs, and exit `0` unless a real tool change exists.
+- Steady state: release smoke and scanner validation succeed with exact documented versions.
+- Fault: a pin drifts in workflow or docs.
+- Expected: hygiene/enforcement fails before merge or release publication.
+- Abort condition: any change introduces a hidden floating-version dependency.
 
-### Story W1-S02: Propagate corrected identity semantics through downstream CLI and artifact flows
+### Story W1-S02: Extend hard-fail enforcement and rerun the previously failing release lane
 
 Priority: P0
 Tasks:
-- Audit downstream consumers of `snapshot.Identities`, inventory agents, and regress baselines so report/evidence/identity/lifecycle flows do not reintroduce non-tool identities.
-- Add outside-in fixtures proving `wrkr identity list`, `wrkr lifecycle`, `wrkr manifest generate`, and `wrkr regress run` stay aligned after the allowlist change.
-- Update acceptance/scenario coverage so transient env-key presence and source bookkeeping remain finding-only across saved-state workflows.
-- Regenerate and review any deterministic goldens affected by the corrected semantic scope.
+- Extend `scripts/check_toolchain_pins.sh` so release-critical version claims are enforced, not merely documented.
+- Update or add hygiene/contract tests that fail on mismatched release pin surfaces.
+- Ensure the enforcement target list covers the real release paths used by Wrkr today.
+- Add scanner/signing pin checks to the same enforcement-first workflow used by `make lint-fast`.
+- Rerun the equivalent local release validation lane and capture the commands as the required validation baseline for implementation PRs.
 Repo paths:
-- `core/cli/root_test.go`
-- `core/cli/identity.go`
-- `core/cli/lifecycle.go`
-- `core/report/build.go`
-- `core/evidence/evidence.go`
-- `core/export/appendix/export.go`
-- `internal/e2e/regress/*`
-- `internal/e2e/manifest/*`
-- `internal/acceptance/*`
-- `internal/scenarios/*`
+- `scripts/check_toolchain_pins.sh`
+- `testinfra/hygiene/toolchain_pins_test.go`
+- `.github/workflows/release.yml`
+- `Makefile`
+- `product/dev_guides.md`
 Run commands:
-- `go test ./core/cli ./core/report ./core/evidence ./core/export/appendix -count=1`
-- `go test ./internal/e2e/regress ./internal/e2e/manifest -count=1`
-- `go test ./internal/acceptance -count=1`
-- `make test-scenarios`
+- `make lint-fast`
+- `go test ./testinfra/hygiene -count=1`
+- `go build -o .tmp/wrkr ./cmd/wrkr`
+- `scripts/test_uat_local.sh --skip-global-gates`
 - `make prepush-full`
 Test requirements:
-- CLI contract tests for `scan`, `manifest generate`, `identity`, `lifecycle`, and `regress` `--json` outputs
-- E2E tests for saved-state and baseline compatibility flows
-- acceptance/scenario fixtures covering transient env-key toggles and source bookkeeping
-- golden updates where deterministic counts or rows change because of corrected semantics
+- negative tests proving the enforcement script fails on mismatched release pins
+- hygiene coverage for the expanded enforced tool set
+- built-artifact validation rerun using the same scanner class claimed in the release lane
+- release-smoke rerun after enforcement changes
 Matrix wiring:
-- Fast lane: targeted `go test ./core/cli ./core/report ./core/evidence -count=1`
+- Fast lane: `make lint-fast`; `go test ./testinfra/hygiene -count=1`
 - Core CI lane: `make prepush`
-- Acceptance lane: `go test ./internal/e2e/regress ./internal/e2e/manifest -count=1`; `go test ./internal/acceptance -count=1`; `make test-scenarios`
-- Cross-platform lane: `go test ./core/cli -count=1`
-- Risk lane: `make prepush-full`; `make test-contracts`; `make test-hardening`
+- Acceptance lane: `scripts/test_uat_local.sh --skip-global-gates`
+- Cross-platform lane: verify new enforcement is shell-portable enough for existing CI usage
+- Risk lane: `make prepush-full`; `make test-contracts`; `make test-chaos`
 Acceptance criteria:
-- `wrkr identity list` and `wrkr lifecycle --json` no longer expose non-tool identities for the reviewed fixtures.
-- `wrkr manifest generate --json` emits only real tool identities from corrected scan state.
-- Evidence/report/export flows remain valid and deterministic after identity filtering.
-- Scenario and acceptance coverage encode the corrected semantics externally, not only in unit tests.
+- A release pin mismatch is caught by local/CI enforcement before release publication.
+- The same validation lane that previously allowed drift is rerun green after the fix.
+- `product/dev_guides.md`, workflow implementation, and enforcement tests all agree on the release-critical versions.
 Contract/API impact:
-- No public field removals.
-- Downstream identity-related counts and rows may change to reflect corrected semantics.
-Versioning/migration impact:
-- No schema version bump.
-- Count changes are documented as semantic bug fixes.
-Architecture constraints:
-- Keep downstream consumers thin; the classification decision must remain upstream and authoritative.
-- Avoid ad hoc filtering in each presentation/export layer unless it is explicitly contract-scoped and tested.
-- Preserve deterministic artifact ordering.
-ADR required: yes
-TDD first failing test(s):
-- `TestIdentityListOmitsNonToolFindingsFromScanState`
-- `TestManifestGenerateOmitsLegacyNonToolIdentities`
-- `TestE2ERegressRunIgnoresTransientSecretPresenceForToolDrift`
-- `TestAcceptanceMySetupSecretPresenceRemainsFindingOnly`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Steady state: downstream commands render saved scan state consistently.
-- Fault: corrected upstream identity filtering removes rows that old downstream assumptions expected.
-- Expected: downstream commands stay deterministic, artifact generation does not crash, and only true tool identities remain addressable.
-
-## Wave 2 - Epic W2: Repo-Root Boundary Enforcement for Detector File Access
-
-Objective: ensure detectors never read files outside the selected repo root, even when the repo contains symlinks pointing elsewhere.
-
-### Story W2-S01: Introduce shared boundary-safe file helpers for detector reads
-
-Priority: P0
-Tasks:
-- Add shared helper(s) in `core/detect/parse.go` for boundary-safe existence checks and file reads.
-- Resolve candidate paths with `Lstat` and `EvalSymlinks`, then reject any file whose final target escapes `scope.Root`.
-- Keep within-root symlinks deterministic and explicitly supported or explicitly rejected by the shared helper; do not leave mixed detector behavior.
-- Adopt the helper across structured parsing and direct read paths used by Codex, Claude, MCP, and secrets detectors.
-- Add a stable machine-readable unsafe-path classification for rejected outside-root file reads.
-Repo paths:
-- `core/detect/parse.go`
-- `core/detect/parse_test.go`
-- `core/detect/codex/detector.go`
-- `core/detect/codex/detector_test.go`
-- `core/detect/claude/detector.go`
-- `core/detect/claude/detector_test.go`
-- `core/detect/mcp/detector.go`
-- `core/detect/mcp/detector_test.go`
-- `core/detect/secrets/detector.go`
-- `core/detect/secrets/detector_test.go`
-Run commands:
-- `go test ./core/detect ./core/detect/codex ./core/detect/claude ./core/detect/mcp ./core/detect/secrets -count=1`
-- `make test-contracts`
-- `make test-hardening`
-- `make test-chaos`
-- `make test-perf`
-- `make prepush-full`
-Test requirements:
-- unit tests for boundary-safe helper behavior:
-  - outside-root symlink escape rejected
-  - in-root symlink behavior explicit and deterministic
-  - dangling symlink behavior deterministic
-  - symlink loop behavior deterministic
-- detector tests proving external `.codex/config.toml`, `.env`, `.mcp.json`, and Claude settings are not read
-- contract tests for any additive unsafe-path error classification
-- perf check if helper cost is measurable on detector hot paths
-Matrix wiring:
-- Fast lane: targeted `go test` packages above
-- Core CI lane: `make prepush`
-- Acceptance lane: targeted E2E/CLI scan checks from Wave 2 Story 2
-- Cross-platform lane: `go test ./core/detect/... -count=1`
-- Risk lane: `make prepush-full`; `make test-contracts`; `make test-hardening`; `make test-chaos`; `make test-perf`
-Acceptance criteria:
-- Root-escaping symlinked config/env/workflow files are not read.
-- Scan output never includes external `credential_keys`, approval policy, MCP, or Claude settings from outside the selected repo root.
-- Unsafe-path handling is deterministic and machine-readable.
-- Output ordering remains stable.
-Contract/API impact:
-- Adds a stable unsafe-path classification for file-level boundary violations.
-- Does not change the global exit-code contract.
-Versioning/migration impact:
-- Additive only.
-- No schema major bump.
-Architecture constraints:
-- Boundary enforcement must live in shared detector helpers, not bespoke detector code.
-- Helper names must make semantics explicit, such as `read within root` versus plain `read`.
-- Preserve bounded deterministic ordering and avoid unbounded retry or traversal behavior.
-- Keep extension points centralized so future detectors do not fork the trust model.
-ADR required: yes
-TDD first failing test(s):
-- `TestReadFileWithinRootRejectsSymlinkEscape`
-- `TestReadFileWithinRootHandlesDanglingSymlinkDeterministically`
-- `TestCodexDetectorRejectsExternalSymlinkedConfig`
-- `TestSecretsDetectorRejectsExternalSymlinkedEnv`
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Steady state: detector reads repo-owned config files only.
-- Fault: repo contains escape symlink, dangling symlink, or symlink loop.
-- Expected: no outside-root read occurs, the offending file is surfaced deterministically, unaffected files still scan, and the process does not hang.
-
-### Story W2-S02: Add end-to-end hardening coverage for unsafe repo-root file surfaces
-
-Priority: P1
-Tasks:
-- Add CLI/E2E tests that reproduce the reviewed path-scan escape cases with symlinked `.codex/config.toml` and `.env`.
-- Add mixed-repo fixtures so one unsafe repo does not suppress valid findings from sibling repos.
-- Extend hardening/chaos coverage to repeated scans and edge cases involving dangling links and loops.
-- Assert deterministic JSON ordering for the resulting findings, parse errors, and detector errors.
-Repo paths:
-- `core/cli/root_test.go`
-- `core/cli/scan_partial_errors_test.go`
-- `internal/e2e/source/source_e2e_test.go`
-- `internal/scenarios/*`
-- `scripts/test_hardening_core.sh`
-- `scripts/test_chaos_*.sh`
-Run commands:
-- `go test ./core/cli -count=1`
-- `go test ./internal/e2e/source -count=1`
-- `make test-hardening`
-- `make test-chaos`
-- `make prepush-full`
-Test requirements:
-- CLI `--json` stability tests for mixed safe/unsafe repo scans
-- E2E path-scan fixtures for symlink escape cases
-- hardening tests for repeated-run determinism
-- chaos tests for symlink loop and dangling-link failure modes
-- scenario fixture coverage if user-visible semantics are documented as outside-in behavior
-Matrix wiring:
-- Fast lane: targeted `go test ./core/cli -count=1`
-- Core CI lane: `make prepush`
-- Acceptance lane: `go test ./internal/e2e/source -count=1`; `make test-scenarios`
-- Cross-platform lane: `go test ./core/cli -count=1`
-- Risk lane: `make prepush-full`; `make test-hardening`; `make test-chaos`
-Acceptance criteria:
-- `wrkr scan --path --json` no longer ingests outside-root config or env content.
-- Mixed repo scans continue to return valid findings for safe repos.
-- Dangling links and loops fail deterministically without hangs or non-deterministic ordering.
-- The reviewed reproductions are encoded as permanent tests.
-Contract/API impact:
-- Reinforces the `scan --json` contract with explicit unsafe-path behavior and stable ordering.
-Versioning/migration impact:
-- None beyond the additive unsafe-path classification introduced in `W2-S01`.
-Architecture constraints:
-- Keep CLI behavior thin over detector-layer enforcement.
-- Do not introduce command-specific symlink handling that diverges from shared helper semantics.
-- Preserve explicit partial-failure behavior and deterministic ordering.
-ADR required: no
-TDD first failing test(s):
-- `TestScanPathRejectsExternalSymlinkedCodexConfig`
-- `TestScanPathRejectsExternalSymlinkedEnv`
-- `TestE2EScanPathMixedReposPreservesSafeFindingsWhenOneRepoIsUnsafe`
-- `TestChaosUnsafeSymlinkLoopDoesNotHang`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Steady state: a mixed path scan returns deterministic findings for all repos.
-- Fault: one repo contains escape/dangling/looping symlinks.
-- Expected: only the offending files surface deterministic diagnostics, safe repos still produce findings, and no hang or exit-code drift occurs.
-
-## Wave 3 - Epic W3: Docs and Contract Alignment
-
-Objective: align README, command docs, lifecycle docs, and manifest spec wording with the corrected runtime semantics.
-
-### Story W3-S01: Update docs to match real-tool identity scope and repo-root safety guarantees
-
-Priority: P1
-Tasks:
-- Update README first-screen wording so env-key presence and source bookkeeping are described as findings/risk signals, not approvable identities.
-- Update `docs/commands/scan.md` to document repo-root-safe file reads and root-escaping symlink rejection behavior.
-- Update `docs/state_lifecycle.md` and `docs/specs/wrkr-manifest.md` so the manifest identity profile is clearly scoped to real tool identities only.
-- Update `docs/commands/manifest.md`, `docs/commands/regress.md`, `docs/examples/quickstart.md`, and `docs/trust/security-and-privacy.md` to match the corrected semantics.
-- Update `docs/contracts/readme_contract.md` if the README first-screen contract needs new enforcement text.
-Repo paths:
-- `README.md`
-- `docs/commands/scan.md`
-- `docs/commands/manifest.md`
-- `docs/commands/regress.md`
-- `docs/state_lifecycle.md`
-- `docs/specs/wrkr-manifest.md`
-- `docs/examples/quickstart.md`
-- `docs/trust/security-and-privacy.md`
-- `docs/contracts/readme_contract.md`
-Run commands:
-- `make test-docs-consistency`
-- `scripts/run_docs_smoke.sh`
-- `go test ./testinfra/contracts ./testinfra/hygiene -count=1`
-Test requirements:
-- docs consistency checks
-- README first-screen checks
-- docs smoke checks for touched command/user flows
-- source-of-truth mapping checks if contract wording changes
-Matrix wiring:
-- Fast lane: `make test-docs-consistency`
-- Core CI lane: `go test ./testinfra/contracts ./testinfra/hygiene -count=1`
-- Acceptance lane: `scripts/run_docs_smoke.sh`
-- Cross-platform lane: none required beyond existing workflow coverage
-- Risk lane: none
-Acceptance criteria:
-- Docs do not imply that `secret_presence` or `source_discovery` become manifest identities or approval targets.
-- Docs explicitly state that root-escaping symlinked files are rejected and not read during repo scans.
-- README, command docs, lifecycle docs, and manifest spec all tell the same story.
-- Docs checks are green in the same PR as the runtime changes.
-Contract/API impact:
-- Docs and examples only; no runtime field changes.
+- No user-facing CLI contract change.
+- CI/release contract becomes executable for the release-critical tool subset.
 Versioning/migration impact:
 - None.
 Architecture constraints:
-- Docs must mirror runtime truth in the same PR.
-- Keep integration-first flow intact and avoid introducing new unsupported claims.
+- Enforcement must remain boring and auditable.
+- Keep the source of truth legible: one normative table, one enforcement surface, explicit tests.
+- Do not add clever parsing that reduces maintainability of the pin contract.
+ADR required: yes
+TDD first failing test(s):
+- negative enforcement test in `testinfra/hygiene/toolchain_pins_test.go`
+- failing shell-script assertion for a deliberately mismatched release pin
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Steady state: `make lint-fast` and hygiene tests pass when docs/workflow/enforcement agree.
+- Fault: a future PR changes one release pin surface but not the others.
+- Expected: local/CI gate fails before merge.
+- Abort condition: enforcement begins requiring network or non-deterministic state.
+
+## Wave 2 - Epic W2: Optional Developer-First Activation Contract
+
+Objective: if Wrkr wants to relaunch a broader developer-first story later, add an additive first-value surface for `my_setup` instead of overloading raw risk arrays.
+
+### Story W2-S01: Add an additive `my_setup` activation surface for concrete first-run signals
+
+Priority: P1
+Tasks:
+- Write an ADR deciding the additive contract shape for a `my_setup` activation surface in `scan --json` and `report --json`.
+- Implement deterministic selection rules that prefer concrete tool/MCP/secret/bookkeeping signals relevant to a developer's first run and exclude policy-only items when concrete items exist.
+- Scope the new surface to `target.mode=my_setup` only.
+- Keep existing raw `findings`, `ranked_findings`, `top_findings`, and report risk arrays intact for compatibility.
+- Update personal-hygiene/quickstart docs only if this wave is selected for implementation.
+Repo paths:
+- `core/cli/scan.go`
+- `core/cli/report.go`
+- `core/report/build.go`
+- `core/report/types.go`
+- `core/cli/root_test.go`
+- `core/cli/report_contract_test.go`
+- `internal/e2e/cli_contract/cli_contract_e2e_test.go`
+- `internal/scenarios/`
+- `docs/examples/personal-hygiene.md`
+- `docs/examples/quickstart.md`
+Run commands:
+- `make lint-fast`
+- `go test ./core/cli ./core/report -count=1`
+- `go test ./internal/e2e/cli_contract -count=1`
+- `make test-scenarios`
+- `go run ./cmd/wrkr scan --my-setup --json`
+- `go run ./cmd/wrkr report --json`
+- `make prepush-full`
+- `make test-perf`
+Test requirements:
+- CLI contract tests for additive `my_setup` activation output
+- help/usage and `--json` stability tests
+- compatibility tests proving older consumers can ignore the additive field
+- scenario fixtures showing concrete activation output when concrete findings exist
+- empty/degraded-path tests showing deterministic absence when no qualifying findings exist
+- docs/storyline smoke if docs examples change
+Matrix wiring:
+- Fast lane: `make lint-fast`; `go test ./core/cli ./core/report -count=1`
+- Core CI lane: `make prepush`
+- Acceptance lane: `make test-scenarios`; `go test ./internal/e2e/cli_contract -count=1`
+- Cross-platform lane: `go test ./core/cli -count=1`
+- Risk lane: `make prepush-full`; `make test-contracts`; `make test-hardening`; `make test-perf`
+Acceptance criteria:
+- `my_setup` runs with concrete tool/MCP/secret findings emit an additive activation surface containing concrete entries first.
+- Policy-only findings do not dominate the activation surface when concrete findings exist.
+- Raw ranking fields remain present and backward-compatible.
+- Non-`my_setup` targets do not emit misleading activation output.
+Contract/API impact:
+- Additive CLI/report JSON change only.
+- No exit-code or existing-field removal/retyping.
+Versioning/migration impact:
+- No schema-major bump.
+- Docs and fixtures must explain the additive field and keep legacy fields documented until at least one release cycle after adoption.
+Architecture constraints:
+- Keep selection logic in focused report/CLI shaping code, not spread across detectors.
+- Avoid coupling raw risk scoring to onboarding-specific projection logic.
+- Preserve explicit side-effect semantics and deterministic ordering.
+ADR required: yes
+TDD first failing test(s):
+- new failing CLI contract test for `my_setup` additive activation output
+- new report summary test for deterministic activation projection
+- scenario test proving concrete findings outrank policy-only items in the activation surface
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- Steady state: `my_setup` with concrete findings yields deterministic activation output.
+- Fault: only policy findings exist, or no qualifying concrete findings exist.
+- Expected: additive activation output is empty or explicit, not fabricated and not crashing downstream consumers.
+- Abort condition: implementation starts mutating raw risk ordering shared by non-`my_setup` flows without ADR approval.
+
+## Wave 3 - Epic W3: Launch Persona and Public Surface Realignment
+
+Objective: make the public/docs-site story match the recommended minimum-now launch posture and remove hosted-product expectations from browser-facing surfaces.
+
+### Story W3-S01: Reframe README, quickstart, and homepage around the security/platform wedge
+
+Priority: P0
+Tasks:
+- Update `README.md` and `docs/examples/quickstart.md` so the recommended minimum-now launch posture is clearly security/platform-led.
+- Keep developer local-hygiene supported, but move it to a secondary or explicitly scoped role unless Wave 2 is also shipping.
+- Make hosted/org auth prerequisites explicit in primary onboarding text.
+- Update `docs/examples/security-team.md`, `docs/commands/scan.md`, `docs/positioning.md`, and `docs/contracts/readme_contract.md` so contract docs and public copy agree.
+- Adjust docs-site landing CTA hierarchy to reflect the same lead persona and onboarding order.
+Repo paths:
+- `README.md`
+- `docs/examples/quickstart.md`
+- `docs/examples/security-team.md`
+- `docs/commands/scan.md`
+- `docs/positioning.md`
+- `docs/contracts/readme_contract.md`
+- `docs-site/src/app/page.tsx`
+- `docs-site/src/lib/navigation.ts`
+- `docs-site/src/lib/docs.ts`
+Run commands:
+- `make test-docs-consistency`
+- `make test-docs-storyline`
+- `make docs-site-install`
+- `make docs-site-lint`
+- `make docs-site-build`
+- `make docs-site-check`
+- `scripts/run_docs_smoke.sh --subset`
+Test requirements:
+- docs consistency and storyline checks
+- README first-screen contract checks
+- docs-site smoke tests
+- integration-before-internals guidance checks for touched onboarding flows
+- source-of-truth mapping checks when both repo docs and docs-site are changed
+Matrix wiring:
+- Fast lane: `make lint-fast`; `make test-docs-consistency`
+- Core CI lane: `make prepush`; `make test-docs-storyline`
+- Acceptance lane: `make docs-site-install`; `make docs-site-lint`; `make docs-site-build`; `make docs-site-check`
+- Cross-platform lane: docs changes rely on existing CI/docs lanes; no new platform contract
+- Risk lane: `make prepush-full` only if implementation also changes CLI/report behavior in the same PR
+Acceptance criteria:
+- Public landing surfaces no longer imply a broad developer-first promise that the current shipped first-run experience does not satisfy.
+- Org-scan auth and explicit-hosted-boundary guidance are visible on primary onboarding surfaces.
+- `docs/contracts/readme_contract.md` matches the chosen public positioning.
+Contract/API impact:
+- Docs/public-positioning contract only.
+- No CLI schema or exit-code changes.
+Versioning/migration impact:
+- None.
+Architecture constraints:
+- Preserve CLI-first authority and offline-default messaging.
+- Do not introduce copy that implies hidden backend orchestration or dashboard state.
+- Keep onboarding copy aligned to the actual runtime boundaries in `product/wrkr.md`.
 ADR required: no
 TDD first failing test(s):
-- README/docs contract checks for updated first-screen wording
-- docs consistency/parity checks for `scan`, `manifest`, and `regress`
+- docs consistency/storyline failure for outdated onboarding order
+- docs-site smoke failure for stale CTA/link expectations
+Cost/perf impact: low
+
+### Story W3-S02: Demote `/scan` to a clearly secondary read-only bootstrap surface
+
+Priority: P1
+Tasks:
+- Rewrite docs-site `/scan` hero and CTA language so it reads as optional/secondary, not as the primary happy path.
+- Tighten boundary copy around pasted JSON, browser projection, and no hosted scan execution.
+- Reduce or relocate homepage `/scan` CTA prominence so it does not sit beside the primary launch path as an equal promise.
+- Keep the shell deterministic and read-only while clarifying that the Go CLI remains authoritative.
+Repo paths:
+- `docs-site/src/app/page.tsx`
+- `docs-site/src/app/scan/page.tsx`
+- `docs-site/src/components/scan/ScanBootstrapShell.tsx`
+- `docs-site/src/components/scan/ScanStatusPanel.tsx`
+- `docs-site/src/components/scan/ScanStatusPanel.test.tsx`
+- `docs-site/src/lib/scan-bootstrap.ts`
+- `docs-site/src/lib/scan-bootstrap.test.ts`
+- `docs/positioning.md`
+Run commands:
+- `make docs-site-install`
+- `make docs-site-lint`
+- `make docs-site-build`
+- `make docs-site-check`
+- `make test-docs-consistency`
+- `make test-docs-storyline`
+Test requirements:
+- docs-site smoke tests for `/scan`
+- copy/contract tests around bootstrap state handling if link or state expectations change
+- docs consistency/storyline checks
+- boundary-language verification in positioning docs
+Matrix wiring:
+- Fast lane: `make test-docs-consistency`
+- Core CI lane: `make test-docs-storyline`
+- Acceptance lane: `make docs-site-install`; `make docs-site-lint`; `make docs-site-build`; `make docs-site-check`
+- Cross-platform lane: existing docs-site CI coverage
+- Risk lane: not required unless runtime behavior changes are bundled
+Acceptance criteria:
+- `/scan` no longer reads like a hosted scan runtime or dashboard.
+- Homepage no longer promotes Browser Bootstrap as a co-equal primary workflow.
+- Scan bootstrap boundaries remain explicit and test-covered.
+Contract/API impact:
+- Docs/docs-site/UI contract only.
+Versioning/migration impact:
+- None.
+Architecture constraints:
+- Keep browser behavior thin and projection-only.
+- Avoid copy that suggests the browser owns state, proof, or enforcement.
+- Do not add server dependencies in this story.
+ADR required: no
+TDD first failing test(s):
+- failing docs-site component test for outdated bootstrap labels/expectations
+- failing docs storyline check for stale CTA hierarchy
 Cost/perf impact: low
 
 ## Minimum-Now Sequence
 
-Wave 1:
+Recommended minimum-now launch path:
 
-1. Implement `W1-S01` first to establish the authoritative identity-bearing allowlist and legacy compatibility path.
-2. Implement `W1-S02` next to propagate the corrected semantics through CLI, saved-state, and outside-in acceptance surfaces.
+1. Implement Wave 1 completely.
+2. Implement Wave 3 completely.
+3. Re-run the full audit validation set and launch only with the security/platform-led public story.
+4. Explicitly defer Wave 2 unless the team wants to reintroduce a stronger developer-first promise.
 
-Wave 2:
+Broader developer-first launch path:
 
-3. Implement `W2-S01` after Wave 1 is green so file-boundary enforcement lands in one shared helper layer.
-4. Implement `W2-S02` immediately after `W2-S01` so the verified repros become permanent CLI/E2E/hardening coverage before docs are updated.
+1. Implement Wave 1 completely.
+2. Implement Wave 2 completely.
+3. Implement Wave 3 with developer-first copy only after the additive activation surface is shipped and documented.
+4. Re-run the full audit validation set before launch sign-off.
 
-Wave 3:
+Dependency notes:
 
-5. Implement `W3-S01` only after Waves 1 and 2 are green, so docs reflect final runtime behavior rather than interim wording.
-
-Implementation handoff note:
-
-- This plan is intended for `adhoc-implement` on a fresh branch.
-- The worktree was clean before generating this plan; implementation should start only if the working tree still contains no unrelated changes beyond this plan file.
+- Wave 1 is mandatory before any public launch change.
+- Wave 2 must precede any renewed developer-first copy.
+- Wave 3 may follow Wave 1 directly only if the public positioning stays security/platform-led.
 
 ## Explicit Non-Goals
 
-- No detector coverage expansion to new tools, providers, or runtime modes.
-- No change to the stable exit-code contract.
-- No schema major version bump.
-- No new networked or enrich-mode behavior.
-- No change to proof-chain signing or verify semantics beyond what falls out of corrected identity content.
-- No fix for unrelated review observations outside these two verified P1 findings.
-- No dashboard/UI/docs-site redesign work beyond contract-alignment docs updates required by these fixes.
+- No hosted scan backend, dashboard state store, or browser-authoritative runtime.
+- No new telemetry/data-exfiltration path.
+- No LLM usage in scan/risk/proof/evidence paths.
+- No change to stable CLI exit codes.
+- No package-vulnerability-scanner scope expansion in the Wrkr core runtime.
+- No cross-product feature work for Axym or Gait beyond already documented interoperability boundaries.
+- No cosmetic-only docs-site redesign unrelated to the launch blockers above.
 
 ## Definition of Done
 
-- Every user-provided recommendation maps to one or more stories in this plan.
-- Each story has concrete repo paths, commands, tests, acceptance criteria, and matrix wiring.
-- Contract-impacting stories preserve additive compatibility and document migration expectations.
-- Boundary-sensitive stories include authoritative shared-helper design, fail-closed semantics, and hardening/chaos coverage.
-- CLI-facing stories include explicit `--json` and exit-code invariants.
-- Docs updates are included for every user-visible semantic change.
-- Required ADR expectations are called out for architecture-impacting stories.
-- The execution order is dependency-driven: runtime semantics first, docs last.
+- All selected-wave stories are implemented with matching tests, matrix wiring, docs, and ADRs where required.
+- Release-integrity pins are aligned across docs, workflows, enforcement, and validation.
+- Public launch surfaces accurately reflect the selected launch persona and real runtime boundaries.
+- If Wave 2 is selected, additive `my_setup` activation output is documented, fixture-covered, and compatibility-tested.
+- Docs and docs-site checks pass, including README first-screen/storyline expectations.
+- The full audit validation matrix is rerun and captured in the implementation PR(s).
+- After planning, the only intentional working-tree modification is this plan file; implementation follow-up should start from a new branch via `adhoc-implement`.

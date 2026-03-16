@@ -21,9 +21,9 @@ Operational reporting notes:
 
 When to use:
 
-- You need deterministic, command-verifiable AI tooling posture signals.
-- You want a developer-first machine hygiene workflow before widening to the org view.
+- You need deterministic, command-verifiable AI tooling posture signals for platform or security reviews.
 - You need output contracts suitable for automation and audit workflows.
+- You want a secondary local-machine hygiene path for individual developer setup review.
 
 When not to use:
 

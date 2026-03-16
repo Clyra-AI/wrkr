@@ -63,8 +63,13 @@ Section requirements:
   - README may use a convenience `@latest` Go install path.
   - Pinned/reproducible install guidance must remain canonical in `docs/install/minimal-dependencies.md`.
 - Start Here
-  - Foreground developer local-machine workflow before the org/security-team workflow.
+  - Make the current launch persona explicit at the top of the section.
+  - Variant B may foreground either:
+    - a security/platform-led org posture workflow, or
+    - a developer-machine workflow
+    as long as the README, quickstart, and homepage agree.
   - Include `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff`.
+  - Include `wrkr scan --github-org`, `wrkr evidence`, and `wrkr verify` when security/platform-led launch copy is used.
   - Keep deterministic `--json` command anchors.
   - Show one personal-setup output example and one org-scan output example.
   - Clarify that environment-key presence and source bookkeeping remain finding-only signals, not approvable lifecycle identities.

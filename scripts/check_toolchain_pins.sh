@@ -89,6 +89,25 @@ extract_versions_from_file() {
   ' "$file"
 }
 
+extract_yaml_key_values() {
+  local key="$1"
+  local file="$2"
+  awk -v key="$key" '
+    {
+      line = $0
+      sub(/[[:space:]]*#.*/, "", line)
+      if (match(line, "^[[:space:]]*" key "[[:space:]]*:[[:space:]]*[^[:space:]]+")) {
+        value = substr(line, RSTART, RLENGTH)
+        sub("^[[:space:]]*" key "[[:space:]]*:[[:space:]]*", "", value)
+        gsub(/["'\''`]/, "", value)
+        if (value != "") {
+          print value
+        }
+      }
+    }
+  ' "$file"
+}
+
 check_enforced_pin() {
   local tool="$1"
   local module="$2"
@@ -106,6 +125,57 @@ check_enforced_pin() {
       observed_versions+=("$version")
       observed_sources+=("$file")
     done < <(extract_versions_from_file "$module" "$file")
+  done
+
+  if [[ ${#observed_versions[@]} -eq 0 ]]; then
+    echo "missing enforced pin for $tool in targets: ${pin_target_files[*]}" >&2
+    exit 3
+  fi
+
+  local -a unique_versions=()
+  for version in "${observed_versions[@]}"; do
+    if [[ ${#unique_versions[@]} -eq 0 ]] || ! contains_value "$version" "${unique_versions[@]}"; then
+      unique_versions+=("$version")
+    fi
+  done
+
+  if [[ ${#unique_versions[@]} -ne 1 ]]; then
+    echo "pin mismatch for $tool: expected $expected_version from $dev_guides_path, found multiple versions ${unique_versions[*]} in targets: ${pin_target_files[*]}" >&2
+    exit 3
+  fi
+
+  if [[ "${unique_versions[0]}" != "$expected_version" ]]; then
+    local actual_version="${unique_versions[0]}"
+    local source_path="${pin_target_files[0]}"
+    local idx
+    for idx in "${!observed_versions[@]}"; do
+      if [[ "${observed_versions[$idx]}" == "$actual_version" ]]; then
+        source_path="${observed_sources[$idx]}"
+        break
+      fi
+    done
+    echo "pin mismatch for $tool: expected $expected_version from $dev_guides_path, found $actual_version in $source_path" >&2
+    exit 3
+  fi
+}
+
+check_enforced_yaml_key() {
+  local tool="$1"
+  local key="$2"
+  local expected_version="$3"
+  local -a observed_versions=()
+  local -a observed_sources=()
+  local file
+  local version
+
+  for file in "${pin_target_files[@]}"; do
+    while IFS= read -r version; do
+      if [[ -z "$version" ]]; then
+        continue
+      fi
+      observed_versions+=("$version")
+      observed_sources+=("$file")
+    done < <(extract_yaml_key_values "$key" "$file")
   done
 
   if [[ ${#observed_versions[@]} -eq 0 ]]; then
@@ -185,5 +255,26 @@ if [[ -z "$golangci_lint_expected" ]]; then
   exit 3
 fi
 
+cosign_expected="$(read_expected_pin "cosign" || true)"
+if [[ -z "$cosign_expected" ]]; then
+  echo "missing expected pin in $dev_guides_path for cosign" >&2
+  exit 3
+fi
+
+syft_expected="$(read_expected_pin "Syft" || true)"
+if [[ -z "$syft_expected" ]]; then
+  echo "missing expected pin in $dev_guides_path for Syft" >&2
+  exit 3
+fi
+
+grype_expected="$(read_expected_pin "Grype" || true)"
+if [[ -z "$grype_expected" ]]; then
+  echo "missing expected pin in $dev_guides_path for Grype" >&2
+  exit 3
+fi
+
 check_enforced_pin "gosec" "github.com/securego/gosec/v2/cmd/gosec" "$gosec_expected"
 check_enforced_pin "golangci-lint" "github.com/golangci/golangci-lint/v2/cmd/golangci-lint" "$golangci_lint_expected"
+check_enforced_yaml_key "cosign" "cosign-release" "$cosign_expected"
+check_enforced_yaml_key "Syft" "syft-version" "$syft_expected"
+check_enforced_yaml_key "Grype" "grype-version" "$grype_expected"

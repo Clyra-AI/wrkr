@@ -66,6 +66,7 @@ wrkr scan --my-setup --json
 
 This local/offline mode inventories supported user-home tool configs, selected environment key presence, and local agent project markers. Use it when a developer wants to answer "what AI tooling is already on this machine?" before widening to the org workflow.
 Environment-key presence and source bookkeeping stay in findings/risk output only; they do not become lifecycle identities, manifest identities, inventory agents, or regress tools.
+For the current minimum-now launch posture, security/platform teams should start with the org example below; `--my-setup` remains the secondary local-machine path.
 
 ## Security-team org example
 
@@ -82,8 +83,9 @@ Private repos and public API rate-limit avoidance usually require a GitHub token
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
 ```
 
-Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, and optional `report` when summary output is requested.
+Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation` for `my_setup` targets, and optional `report` when summary output is requested.
 For local-machine scans, `target.mode` is `my_setup`.
+When `target.mode=my_setup`, `activation.items` projects concrete local tool, MCP, secret, and parse-error signals first without mutating the raw `top_findings` ranking. Policy-only items remain available in `ranked_findings` / `top_findings`.
 `warnings` is included when Wrkr can prove posture may be incomplete even though the scan succeeded, for example when known MCP-bearing declaration files failed to parse.
 `detector_errors` is included when non-fatal detector failures occur and partial scan results are preserved.
 `partial_result`, `source_errors`, and `source_degraded` are included when source acquisition/materialization has non-fatal failures.

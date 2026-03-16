@@ -71,6 +71,7 @@ These notes clarify how this repository currently enforces this standard. They d
 - In Wrkr today, hard-fail pin enforcement is implemented for:
   - `gosec`
   - `golangci-lint`
+  - release-integrity workflow pins for `cosign`, `Syft`, and `Grype`
   - `.tool-versions` lines for Go/Python/Node
 - Additional pins in this document remain normative targets and should be progressively added to automated enforcement.
 

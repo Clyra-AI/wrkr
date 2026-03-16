@@ -70,6 +70,7 @@ type Summary struct {
 	ComplianceSummary  compliance.RollupSummary               `json:"compliance_summary"`
 	Proof              ProofReference                         `json:"proof"`
 	NextActions        []ChecklistItem                        `json:"next_actions"`
+	Activation         *ActivationSummary                     `json:"activation,omitempty"`
 }
 
 type AttackPathSummary struct {
@@ -178,6 +179,26 @@ type RecordTypeCount struct {
 type ChecklistItem struct {
 	ID   string `json:"id"`
 	Text string `json:"text"`
+}
+
+type ActivationSummary struct {
+	TargetMode            string           `json:"target_mode"`
+	Message               string           `json:"message"`
+	EligibleCount         int              `json:"eligible_count"`
+	SuppressedPolicyItems bool             `json:"suppressed_policy_items,omitempty"`
+	Reason                string           `json:"reason,omitempty"`
+	Items                 []ActivationItem `json:"items"`
+}
+
+type ActivationItem struct {
+	Rank        int     `json:"rank"`
+	RiskScore   float64 `json:"risk_score"`
+	FindingType string  `json:"finding_type"`
+	ToolType    string  `json:"tool_type"`
+	Severity    string  `json:"severity"`
+	Location    string  `json:"location"`
+	Repo        string  `json:"repo"`
+	NextStep    string  `json:"next_step"`
 }
 
 func ParseTemplate(raw string) (Template, bool) {

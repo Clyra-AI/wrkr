@@ -1,0 +1,107 @@
+package report
+
+import (
+	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/risk"
+)
+
+func TestBuildActivationPrefersConcreteMySetupSignals(t *testing.T) {
+	t.Parallel()
+
+	activation := BuildActivation("my_setup", []risk.ScoredFinding{
+		{
+			Score: 8.1,
+			Finding: model.Finding{
+				FindingType: "policy_violation",
+				Severity:    model.SeverityMedium,
+				ToolType:    "policy",
+				Location:    "WRKR-005",
+				Repo:        "local-machine",
+			},
+		},
+		{
+			Score: 7.4,
+			Finding: model.Finding{
+				FindingType: "mcp_server",
+				Severity:    model.SeverityHigh,
+				ToolType:    "mcp",
+				Location:    ".mcp.json",
+				Repo:        "local-machine",
+			},
+		},
+		{
+			Score: 6.2,
+			Finding: model.Finding{
+				FindingType: "secret_presence",
+				Severity:    model.SeverityHigh,
+				ToolType:    "secret",
+				Location:    "process:env",
+				Repo:        "local-machine",
+			},
+		},
+		{
+			Score: 5.8,
+			Finding: model.Finding{
+				FindingType: "source_discovery",
+				Severity:    model.SeverityLow,
+				ToolType:    "source_repo",
+				Location:    "/Users/test",
+				Repo:        "local-machine",
+			},
+		},
+	}, 5)
+	if activation == nil {
+		t.Fatal("expected activation summary for my_setup target")
+	}
+	if !activation.SuppressedPolicyItems {
+		t.Fatal("expected policy-only findings to be suppressed when concrete items exist")
+	}
+	if activation.EligibleCount != 2 {
+		t.Fatalf("expected 2 eligible items, got %d", activation.EligibleCount)
+	}
+	if len(activation.Items) != 2 {
+		t.Fatalf("expected 2 activation items, got %d", len(activation.Items))
+	}
+	if activation.Items[0].ToolType == "policy" || activation.Items[1].ToolType == "policy" {
+		t.Fatalf("policy findings must not appear in activation items: %+v", activation.Items)
+	}
+	if activation.Items[0].FindingType != "mcp_server" {
+		t.Fatalf("expected first concrete activation item to preserve ranked order, got %+v", activation.Items[0])
+	}
+}
+
+func TestBuildActivationReturnsReasonWhenOnlyPolicyItemsExist(t *testing.T) {
+	t.Parallel()
+
+	activation := BuildActivation("my_setup", []risk.ScoredFinding{
+		{
+			Score: 8.1,
+			Finding: model.Finding{
+				FindingType: "policy_violation",
+				Severity:    model.SeverityMedium,
+				ToolType:    "policy",
+				Location:    "WRKR-005",
+				Repo:        "local-machine",
+			},
+		},
+	}, 5)
+	if activation == nil {
+		t.Fatal("expected activation summary for my_setup target")
+	}
+	if activation.Reason != activationReasonNoConcreteItems {
+		t.Fatalf("unexpected activation reason: %+v", activation)
+	}
+	if len(activation.Items) != 0 {
+		t.Fatalf("expected no activation items, got %+v", activation.Items)
+	}
+}
+
+func TestBuildActivationReturnsNilOutsideMySetup(t *testing.T) {
+	t.Parallel()
+
+	if activation := BuildActivation("path", nil, 5); activation != nil {
+		t.Fatalf("expected nil activation outside my_setup target, got %+v", activation)
+	}
+}

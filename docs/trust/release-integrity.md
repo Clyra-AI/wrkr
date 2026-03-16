@@ -10,6 +10,7 @@ description: "Release hardening checks, reproducibility expectations, and integr
 - Deterministic test gates in release workflow.
 - Contract and scenario validation before artifact generation.
 - SBOM generation and vulnerability scanning in release pipeline.
+- Exact release scanner/signing versions are pinned in CI and checked by local/CI hygiene gates.
 - `CHANGELOG.md` release-note entries updated before tag publication.
 
 ## Command anchors

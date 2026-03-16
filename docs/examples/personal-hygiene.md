@@ -13,12 +13,13 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr
 
 ## Expected JSON keys
 
-- `scan --my-setup`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `inventory`, `profile`, `posture_score`
+- `scan --my-setup`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, additive `activation`, `inventory`, `profile`, `posture_score`
 - `mcp-list`: `status`, `generated_at`, `rows`, optional `warnings`
 - `inventory --diff`: `status`, `drift_detected`, `baseline_path`, `added_count`, `removed_count`, `changed_count`
 
 ## What to look for
 
+- `activation.items` for the concrete local tool, MCP, and secret signals Wrkr wants you to review first.
 - High-privilege MCP servers requesting `shell` or write permissions from user-home configs.
 - `process:env` findings showing key presence without exposing secret values.
 - Local `AGENTS.md`, `.agents/`, `.claude/`, `.cursor/`, or `.codex/` project markers that widen the effective AI tooling surface.

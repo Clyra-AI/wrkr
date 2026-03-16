@@ -1,6 +1,6 @@
 # Security Team Org Inventory and Compliance Handoff
 
-Use this workflow when platform or security teams need to widen from developer hygiene into deterministic org posture, then package the result into compliance-ready evidence that can be verified offline.
+Use this workflow when platform or security teams need the recommended minimum-now Wrkr path: deterministic org posture first, then compliance-ready evidence that can be verified offline.
 
 ## Exact commands
 

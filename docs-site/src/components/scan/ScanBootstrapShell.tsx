@@ -19,6 +19,7 @@ import {
 } from '@/lib/scan-bootstrap';
 
 const STEP_COPY = [
+  'Use this only when you explicitly want a secondary browser projection.',
   'Define the GitHub org and keep the handoff read-only.',
   'Trigger an existing Wrkr org scan contract through the CLI or GitHub Action.',
   'Paste the returned JSON and review the projected summary without creating dashboard state.',
@@ -40,14 +41,13 @@ export default function ScanBootstrapShell() {
     <div className="not-prose space-y-8">
       <section className="overflow-hidden rounded-[2rem] border border-slate-700 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.22),_rgba(15,23,42,0.94)_42%),linear-gradient(160deg,_rgba(15,23,42,0.96),_rgba(2,6,23,0.98))] p-8 shadow-[0_36px_120px_rgba(2,6,23,0.55)]">
         <div className="max-w-4xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-cyan-200">Thin Org Bootstrap</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-cyan-200">Optional Thin Org Bootstrap</p>
           <h1 className="mt-4 text-4xl font-semibold leading-tight text-white lg:text-6xl">
-            Trigger a read-only Wrkr org scan in about 60 seconds.
+            Use a read-only browser bootstrap only when the CLI path is not enough.
           </h1>
           <p className="mt-6 max-w-3xl text-base leading-8 text-slate-200">
-            This page is a bootstrap shell, not a dashboard. It prepares an equivalent handoff for an existing Wrkr org scan,
-            then projects the returned machine-readable summary so a user can see the first result fast without reimplementing
-            scan or proof logic in Node.
+            This page is a bootstrap shell, not a dashboard and not a hosted scan runtime. It exists for teams that want an
+            optional browser projection of an existing Wrkr org scan after the Go CLI has already done the real work.
           </p>
           <div className="mt-8 flex flex-wrap gap-3 text-sm">
             <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-cyan-100">Read-only only</span>
@@ -68,12 +68,11 @@ export default function ScanBootstrapShell() {
 
       <section className="grid gap-6 xl:grid-cols-[1fr_1.1fr]">
         <div className="rounded-[1.75rem] border border-slate-800 bg-slate-900/70 p-6">
-          <h2 className="text-2xl font-semibold text-white">Prepare the handoff</h2>
-          <p className="mt-3 text-sm leading-7 text-slate-300">
-            Use the equivalent bootstrap request below when GitHub Pages is serving the docs site statically. When
-            `WRKR_DOCS_DEPLOY_MODE=server` is enabled, the same route can sit behind a callback-capable deployment without
-            changing the underlying Wrkr scan contract.
-          </p>
+                <h2 className="text-2xl font-semibold text-white">Prepare the handoff</h2>
+                <p className="mt-3 text-sm leading-7 text-slate-300">
+            Start with the CLI/docs workflow unless you explicitly need this secondary projection surface. When GitHub Pages is
+            serving the docs site statically, the request below stays read-only and only projects returned JSON.
+                </p>
 
           <label className="mt-6 block">
             <span className="text-xs uppercase tracking-[0.2em] text-slate-500">GitHub org</span>
@@ -101,7 +100,7 @@ export default function ScanBootstrapShell() {
               }`}
             >
               <span className="block text-xs uppercase tracking-[0.2em]">CLI handoff</span>
-              <span className="mt-2 block text-sm">Run `wrkr scan --github-org` locally or in CI, then paste the returned JSON.</span>
+                  <span className="mt-2 block text-sm">Run `wrkr scan --github-org` locally or in CI, then paste the returned JSON here.</span>
             </button>
             <button
               type="button"
@@ -113,7 +112,7 @@ export default function ScanBootstrapShell() {
               }`}
             >
               <span className="block text-xs uppercase tracking-[0.2em]">GitHub Action handoff</span>
-              <span className="mt-2 block text-sm">Use the existing Wrkr Action contract for a workflow-dispatched org scan.</span>
+                  <span className="mt-2 block text-sm">Use the existing Wrkr Action contract when you need an optional workflow-dispatched handoff.</span>
             </button>
           </div>
 
@@ -131,7 +130,7 @@ export default function ScanBootstrapShell() {
               <div>
                 <h2 className="text-2xl font-semibold text-white">Trigger the existing Wrkr contract</h2>
                 <p className="mt-2 text-sm leading-7 text-slate-300">
-                  The CLI remains the source of truth. The GitHub Action snippet is a thin wrapper over the same target contract.
+                  The CLI remains the source of truth. The GitHub Action snippet is a thin wrapper over the same target contract, not a different product path.
                 </p>
               </div>
               <Link href="/docs/commands/scan" className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-400 hover:text-cyan-100">
@@ -156,7 +155,7 @@ export default function ScanBootstrapShell() {
 
             <div className="mt-6 flex flex-wrap gap-3 text-sm">
               <Link href={buildDemoHref(org, 'success')} className="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-4 py-2 text-emerald-100 hover:border-emerald-300">
-                Load example summary
+                Load optional example
               </Link>
               <Link href={buildDemoHref(org, 'denied')} className="rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-2 text-amber-100 hover:border-amber-300">
                 Demo denied auth
@@ -176,8 +175,8 @@ export default function ScanBootstrapShell() {
           <div className="rounded-[1.75rem] border border-slate-800 bg-slate-900/70 p-6">
             <h2 className="text-2xl font-semibold text-white">Paste returned JSON</h2>
             <p className="mt-3 text-sm leading-7 text-slate-300">
-              Paste `wrkr scan --github-org ... --json` output here. The browser only projects a smaller summary view and never
-              replaces the original scan state.
+              Paste `wrkr scan --github-org ... --json` output here only when you want a browser summary. The browser never
+              replaces the original scan state and never runs the scan itself.
             </p>
             <textarea
               value={artifactInput}

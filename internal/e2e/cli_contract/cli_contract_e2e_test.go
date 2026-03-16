@@ -175,3 +175,66 @@ func TestE2EIdentityTransitionWithoutReasonUsesDeterministicDefaultReason(t *tes
 		t.Fatalf("unexpected default reason: %v", diffObj["reason"])
 	}
 }
+
+func TestE2EMySetupActivationProjectionRemainsAdditive(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+	t.Setenv("OPENAI_API_KEY", "redacted")
+
+	if err := os.MkdirAll(filepath.Join(tmpHome, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir codex: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpHome, ".codex", "config.toml"), []byte("model = \"gpt-5\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := cli.Run([]string{"scan", "--my-setup", "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, scanErr.String())
+	}
+	var scanPayload map[string]any
+	if err := json.Unmarshal(scanOut.Bytes(), &scanPayload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	activation, ok := scanPayload["activation"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing activation payload: %v", scanPayload)
+	}
+	items, ok := activation["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected activation items, got %v", activation["items"])
+	}
+	for _, item := range items {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if row["tool_type"] == "policy" {
+			t.Fatalf("policy findings must not appear in activation items: %v", items)
+		}
+	}
+	topFindings, ok := scanPayload["top_findings"].([]any)
+	if !ok || len(topFindings) == 0 {
+		t.Fatalf("expected raw top_findings to remain available: %v", scanPayload["top_findings"])
+	}
+
+	var reportOut bytes.Buffer
+	var reportErr bytes.Buffer
+	if code := cli.Run([]string{"report", "--state", statePath, "--json"}, &reportOut, &reportErr); code != 0 {
+		t.Fatalf("report failed: %d (%s)", code, reportErr.String())
+	}
+	var reportPayload map[string]any
+	if err := json.Unmarshal(reportOut.Bytes(), &reportPayload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	summary, ok := reportPayload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing summary payload: %v", reportPayload)
+	}
+	if _, ok := summary["activation"].(map[string]any); !ok {
+		t.Fatalf("expected additive activation summary: %v", summary)
+	}
+}
