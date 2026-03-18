@@ -67,9 +67,15 @@ func Scan(root string) ([]Finding, error) {
 		return nil, err
 	}
 
+	rootFS, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, fmt.Errorf("open workflow root %s: %w", root, err)
+	}
+	defer rootFS.Close()
+
 	findings := make([]Finding, 0)
 	for _, path := range files {
-		payload, err := os.ReadFile(path)
+		payload, err := rootFS.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read workflow %s: %w", path, err)
 		}
@@ -79,14 +85,8 @@ func Scan(root string) ([]Finding, error) {
 			return nil, fmt.Errorf("parse workflow %s: %w", path, err)
 		}
 
-		relPath, err := filepath.Rel(root, path)
-		if err != nil {
-			return nil, fmt.Errorf("relativize workflow path %s: %w", path, err)
-		}
-		relPath = filepath.ToSlash(relPath)
-
-		findings = append(findings, collectEnvFindings(relPath, "workflow env", wf.Env)...)
-		findings = append(findings, collectJobFindings(relPath, wf.Jobs)...)
+		findings = append(findings, collectEnvFindings(path, "workflow env", wf.Env)...)
+		findings = append(findings, collectJobFindings(path, wf.Jobs)...)
 	}
 
 	sort.Slice(findings, func(i, j int) bool {
@@ -128,7 +128,13 @@ func workflowFiles(root string) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("glob workflows %s: %w", pattern, err)
 		}
-		files = append(files, matches...)
+		for _, match := range matches {
+			relPath, err := filepath.Rel(root, match)
+			if err != nil {
+				return nil, fmt.Errorf("relativize workflow path %s: %w", match, err)
+			}
+			files = append(files, filepath.ToSlash(relPath))
+		}
 	}
 	sort.Strings(files)
 	return files, nil
