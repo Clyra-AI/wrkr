@@ -71,7 +71,9 @@ func Scan(root string) ([]Finding, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open workflow root %s: %w", root, err)
 	}
-	defer rootFS.Close()
+	defer func() {
+		_ = rootFS.Close()
+	}()
 
 	findings := make([]Finding, 0)
 	for _, path := range files {
