@@ -19,6 +19,7 @@ These notes clarify how this repository currently enforces this standard. They d
 - Wrkr enforces this via:
   - `scripts/check_toolchain_pins.sh`
   - `scripts/check_no_latest.sh`
+  - `scripts/check_actions_runtime.sh`
   - `scripts/check_branch_protection_contract.sh`
   - `testinfra/contracts` and `testinfra/hygiene` tests
 
@@ -614,6 +615,19 @@ Sequence:
   - all primary workflows include `concurrency` + `cancel-in-progress: true`.
   - path-filter contract fragments exist for expensive conditional lanes.
 - Any workflow rename/trigger change must update contract tests in the same PR.
+
+### GitHub Actions JavaScript Runtime Compatibility
+
+- Local Node toolchain policy and GitHub-hosted JavaScript action runtime policy are separate contracts.
+- For remediable JavaScript actions, pin to published Node24-ready refs and enforce them in the fast lane.
+- Disallow steady-state runtime escape hatches in tracked workflows:
+  - `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`
+  - `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION`
+- If an upstream action required for release/docs operations does not yet publish a Node24-ready release, the exception must be:
+  - explicit in repo docs
+  - bounded to the minimum required workflows
+  - revisited on each runtime-uplift PR
+  - accompanied by rerun evidence for the affected workflow class before merge
 
 ## Pre-Push Enforcement
 

@@ -36,3 +36,6 @@ docs-site/node_modules/
 docs-site/.next/
 docs-site/out/
 wrkr-out/
+
+# Local planning scratch
+product/PLAN_NEXT.md

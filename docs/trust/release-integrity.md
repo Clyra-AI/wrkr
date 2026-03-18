@@ -9,18 +9,36 @@ description: "Release hardening checks, reproducibility expectations, and integr
 
 - Deterministic test gates in release workflow.
 - Contract and scenario validation before artifact generation.
+- Node24-ready action refs on the release path for all remediable workflow helpers, enforced by `make lint-fast`.
 - SBOM generation and vulnerability scanning in release pipeline.
 - Exact release scanner/signing versions are pinned in CI and checked by local/CI hygiene gates.
 - `CHANGELOG.md` release-note entries updated before tag publication.
+- Current bounded release-path exceptions are explicit and reviewed during every runtime uplift:
+  - `Homebrew/actions/setup-homebrew@cced187498280712e078aaba62dc13a3e9cd80bf`
+  - `anchore/sbom-action@v0`
+  - `anchore/scan-action@v4`
 
 ## Command anchors
 
 ```bash
+make lint-fast
 go test ./... -count=1
 make test-contracts
 scripts/validate_contracts.sh
 make test-release-smoke
 ```
+
+## Workflow rerun evidence
+
+After changing release or docs workflow refs, rerun the affected workflow class on the branch and confirm the previous Node20 deprecation warning is gone for the upgraded refs:
+
+```bash
+gh workflow run release.yml --ref <branch>
+gh workflow run docs.yml --ref <branch>
+gh run watch --repo Clyra-AI/wrkr <run-id>
+```
+
+If a release-path helper still lacks a published Node24-ready upstream release, treat it as a bounded exception, document it in the same PR, and do not widen that exception set silently.
 
 ## Install-path UAT (release-candidate)
 
@@ -49,7 +67,7 @@ When using `wrkr verify --chain --json` as a release/promotion gate, inspect `ch
 
 ### Which checks should pass before trusting a Wrkr release?
 
-Deterministic test gates, contract validation, and integrity outputs (checksums/provenance) should all pass before promotion.
+Deterministic test gates, contract validation, Node24 runtime policy checks, and integrity outputs (checksums/provenance) should all pass before promotion.
 
 ### How do I verify artifact integrity after download?
 

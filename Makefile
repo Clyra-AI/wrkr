@@ -19,6 +19,7 @@ lint-fast:
 	@scripts/check_toolchain_pins.sh
 	@scripts/check_no_latest.sh
 	@scripts/check_repo_hygiene.sh
+	@scripts/check_actions_runtime.sh
 	@scripts/check_branch_protection_contract.sh
 	@$(GO) vet $(PKGS)
 
