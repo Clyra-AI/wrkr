@@ -46,6 +46,10 @@ jobs:
         working-directory: docs-site
         run: npm audit --omit=dev --audit-level=high
 
+      - name: Lint docs site
+        working-directory: docs-site
+        run: npm run lint
+
       - name: Build docs site
         working-directory: docs-site
         run: npm run build
