@@ -16,6 +16,21 @@ Wrkr is a deterministic, offline-first OSS CLI for AI tooling discovery, risk sc
 
 Node is not required for the default Go-only contribution path.
 
+## GitHub Actions Runtime Policy
+
+- Local Node `22+` is only for docs-site and maintainer tooling. It is not the same contract as the GitHub-hosted JavaScript runtime used by workflow actions.
+- Workflow action refs must stay on the audited Node24-ready set enforced by `scripts/check_actions_runtime.sh` and `make lint-fast`.
+- Steady-state overrides are prohibited:
+  - `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`
+  - `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION`
+- Current bounded exceptions are limited to upstream-maintained actions that do not yet publish a Node24-ready release:
+  - `actions/configure-pages@v5`
+  - `actions/deploy-pages@v4`
+  - `Homebrew/actions/setup-homebrew@cced187498280712e078aaba62dc13a3e9cd80bf`
+  - `anchore/sbom-action@v0`
+  - `anchore/scan-action@v4`
+- Do not add new exceptions silently. If an exception changes, update workflow YAML, tests, and docs in the same PR.
+
 ## Go-Only Contributor Path (Default)
 
 ```bash
@@ -58,14 +73,21 @@ This path is sufficient for most CLI/runtime changes and does not require Node.
 
 1. Keep scope tight and mapped to one story/contract change when possible.
 2. Run required local commands for your touched surfaces (at minimum fast + core lane anchors).
+3. If workflow refs change, rerun the affected workflow class on your branch and inspect it for the absence of the prior deprecation warning:
+   - `gh workflow run pr.yml --ref <branch>`
+   - `gh workflow run nightly.yml --ref <branch>`
+   - `gh workflow run release.yml --ref <branch>`
+   - `gh workflow run docs.yml --ref <branch>`
+   - `gh run watch --repo Clyra-AI/wrkr <run-id>`
+4. Document any bounded exception you touched and why no Node24-ready upstream release exists yet.
 3. Document contract impact:
    - CLI flags/help/JSON/exits changed?
    - schema/output changed?
    - docs updated in same change for user-visible behavior?
-4. Include command evidence in PR description (commands and pass/fail).
-5. If docs are touched, follow [`docs/map.md`](docs/map.md) and run docs validation bundle.
-6. For user-visible changes, update [`CHANGELOG.md`](CHANGELOG.md) under `Unreleased`.
-7. For `product/` or `.agents/skills/` changes, confirm policy conformance per [`docs/governance/content-visibility.md`](docs/governance/content-visibility.md).
+5. Include command evidence in PR description (commands and pass/fail).
+6. If docs are touched, follow [`docs/map.md`](docs/map.md) and run docs validation bundle.
+7. For user-visible changes, update [`CHANGELOG.md`](CHANGELOG.md) under `Unreleased`.
+8. For `product/` or `.agents/skills/` changes, confirm policy conformance per [`docs/governance/content-visibility.md`](docs/governance/content-visibility.md).
 
 Issue/PR templates:
 

@@ -23,23 +23,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6.3.0
         with:
           go-version: '1.26.1'
           check-latest: false
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6.2.0
         with:
           python-version: '3.13'
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6.3.0
         with:
           node-version: '22'
 
@@ -66,7 +66,7 @@ jobs:
 
       - name: Upload v1 acceptance scorecard
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: v1-acceptance-scorecard-release
           path: |
@@ -89,7 +89,7 @@ jobs:
 
       - name: Upload agent benchmark report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: agent-benchmark-release
           path: .tmp/release/agent-benchmarks-release.json
@@ -105,7 +105,7 @@ jobs:
           make test-release-smoke | tee .tmp/release/uat-prepublish-smoke.log
 
       - name: Install GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7.0.0
         with:
           distribution: goreleaser
           version: v2.13.3
@@ -151,7 +151,7 @@ jobs:
 
       - name: Upload release UAT logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: release-uat-local-logs
           path: |
@@ -177,7 +177,7 @@ jobs:
           grype-version: v0.99.1
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@v4.1.0
         with:
           cosign-release: v2.5.3
 
@@ -187,6 +187,6 @@ jobs:
         run: cosign sign-blob --yes --output-signature dist/checksums.txt.sig dist/checksums.txt
 
       - name: Generate provenance attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4.1.0
         with:
           subject-path: dist/*

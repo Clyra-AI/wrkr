@@ -160,7 +160,7 @@ func TestPRWorkflowPathFilterContract(t *testing.T) {
 	}
 	text := string(content)
 	for _, fragment := range []string{
-		"dorny/paths-filter@v3",
+		"dorny/paths-filter@v4.0.1",
 		"workflow_or_policy:",
 		"Skip deep scanners for non-code changes",
 	} {
