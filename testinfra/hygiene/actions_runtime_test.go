@@ -106,6 +106,59 @@ func TestCheckActionsRuntimeFailsOnUnsecureNodeOverrideEnv(t *testing.T) {
 	}
 }
 
+func TestCheckActionsRuntimeFailsOnDynamicOverrideEnv(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot := t.TempDir()
+	writeWorkflowFixture(t, fixtureRoot, ".github/workflows/pr.yml", strings.Join([]string{
+		"name: pr",
+		"jobs:",
+		"  fast-lane:",
+		"    runs-on: ubuntu-latest",
+		"    env:",
+		"      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: ${{ vars.unsecure_node }}",
+		"    steps:",
+		"      - name: Checkout",
+		"        uses: actions/checkout@v6.0.2",
+		"",
+	}, "\n"))
+
+	_, stderr, err := runActionsRuntimeCheck(t, fixtureRoot)
+	if err == nil {
+		t.Fatal("expected runtime check to fail on dynamic unsecure node override env")
+	}
+	expected := "disallowed override policy: .github/workflows/pr.yml -> ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=${{ vars.unsecure_node }}"
+	if !strings.Contains(stderr, expected) {
+		t.Fatalf("expected deterministic override message %q, got %q", expected, stderr)
+	}
+}
+
+func TestCheckActionsRuntimeFailsOnGithubEnvOverride(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot := t.TempDir()
+	writeWorkflowFixture(t, fixtureRoot, ".github/workflows/pr.yml", strings.Join([]string{
+		"name: pr",
+		"jobs:",
+		"  fast-lane:",
+		"    runs-on: ubuntu-latest",
+		"    steps:",
+		"      - name: Override runtime through GITHUB_ENV",
+		"        run: |",
+		"          echo \"FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true\" >> \"$GITHUB_ENV\"",
+		"",
+	}, "\n"))
+
+	_, stderr, err := runActionsRuntimeCheck(t, fixtureRoot)
+	if err == nil {
+		t.Fatal("expected runtime check to fail on GITHUB_ENV override writes")
+	}
+	expected := "disallowed override policy: .github/workflows/pr.yml -> FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true"
+	if !strings.Contains(stderr, expected) {
+		t.Fatalf("expected deterministic override message %q, got %q", expected, stderr)
+	}
+}
+
 func TestCheckActionsRuntimePassesOnNode24ReadyRefs(t *testing.T) {
 	t.Parallel()
 

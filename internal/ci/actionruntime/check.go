@@ -189,7 +189,7 @@ func collectEnvFindings(relPath, location string, values map[string]any) []Findi
 		if _, blocked := disallowedOverrideNames[key]; !blocked {
 			continue
 		}
-		if !isTruthyScalar(values[key]) {
+		if !shouldFlagOverrideValue(values[key]) {
 			continue
 		}
 		findings = append(findings, Finding{
@@ -239,17 +239,20 @@ func stepLabel(idx int, name string) string {
 	return fmt.Sprintf("%d", idx+1)
 }
 
-func isTruthyScalar(value any) bool {
+func shouldFlagOverrideValue(value any) bool {
 	switch typed := value.(type) {
 	case bool:
 		return typed
 	case string:
-		switch strings.ToLower(strings.TrimSpace(typed)) {
-		case "1", "true", "'true'", "\"true\"":
+		switch strings.ToLower(strings.Trim(strings.TrimSpace(typed), `"'`)) {
+		case "", "0", "false":
+			return false
+		default:
 			return true
 		}
+	default:
+		return true
 	}
-	return false
 }
 
 func normalizedScalar(value any) string {
@@ -278,14 +281,39 @@ func overrideSubjectFromRun(name, runText string) string {
 			candidate = strings.TrimSpace(strings.TrimPrefix(candidate, "export "))
 		}
 
-		if !strings.HasPrefix(candidate, name+"=") {
-			continue
+		if strings.HasPrefix(candidate, name+"=") {
+			return renderOverrideSubject(name, strings.TrimPrefix(candidate, name+"="))
 		}
-		value := strings.Trim(strings.TrimSpace(strings.TrimPrefix(candidate, name+"=")), `"'`)
-		switch strings.ToLower(value) {
-		case "1", "true":
-			return name + "=" + value
+
+		if strings.Contains(line, "GITHUB_ENV") {
+			idx := strings.Index(line, name+"=")
+			if idx >= 0 {
+				return renderOverrideSubject(name, line[idx+len(name)+1:])
+			}
 		}
 	}
 	return ""
+}
+
+func renderOverrideSubject(name, rawValue string) string {
+	value := normalizeOverrideValue(rawValue)
+	if value == "" {
+		return name + "=dynamic"
+	}
+	return name + "=" + value
+}
+
+func normalizeOverrideValue(rawValue string) string {
+	value := strings.TrimSpace(rawValue)
+	if idx := strings.Index(value, ">>"); idx >= 0 {
+		value = strings.TrimSpace(value[:idx])
+	}
+	if idx := strings.Index(value, "#"); idx >= 0 {
+		value = strings.TrimSpace(value[:idx])
+	}
+	value = strings.Trim(strings.TrimSpace(value), `"'`)
+	if value == "" {
+		return ""
+	}
+	return value
 }

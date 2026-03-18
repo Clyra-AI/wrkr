@@ -16,6 +16,7 @@ Execute this workflow for: "commit/push/open PR", "ship this branch", "merge aft
 - PR text must use heredoc EOF bodies (no inline `--body` strings).
 - Default posture: when a blocker is actionable from the repo, branch, or CI logs, fix it in-loop and continue instead of stopping at the first failure.
 - Do not stop merely because PR CI, passive review, merge propagation, or post-merge `main` CI is still in progress within the configured wait windows.
+- Do not stop while actionable errors remain in the current remediation loop. Keep iterating until the full actionable set for that cycle is fixed, rerun, and re-evaluated, and stop only for a true external, safety, timeout, or no-progress blocker.
 
 ## Preconditions
 
@@ -41,6 +42,7 @@ If preconditions fail, stop and report.
 - `make prepush-full`
 - If it fails for actionable repo, lint, test, contract, docs, workflow, or config issues, inspect the failures, implement the minimal fix set, and rerun until green.
 - In each remediation pass, fix all currently known actionable failures before rerunning, not just the first failure encountered.
+- Never stop after fixing only part of the known actionable set for the current pass when the remaining errors are still repo-fixable.
 - Stop only for non-actionable external blockers, unsafe repo state, or `2` consecutive no-progress remediation passes.
 
 4. Stage and commit all unstaged files on this branch:
@@ -68,6 +70,7 @@ If preconditions fail, stop and report.
 - flaky, infra, or transient failure
 - permission or external policy blocker
 - For actionable in-repo failures, fix the full actionable set on the PR branch, rerun `make prepush-full`, push, and continue the PR loop.
+- Do not stop the PR loop while actionable CI errors remain fixable in-repo for the current head.
 - For flaky or transient failures, rerun non-interactively when appropriate and continue.
 - For permission or external blockers, fix them only when the remedy is in-repo or branch-scoped; otherwise stop and report the blocker.
 
@@ -118,6 +121,7 @@ If preconditions fail, stop and report.
 - re-run the passive Codex review settle gate on the new latest PR head SHA
 - re-fetch unresolved threads and comments
 - Continue looping while unresolved actionable items remain and each cycle makes progress.
+- Do not stop merely because some actionable comments are already fixed; continue until no actionable comment remains for the current cycle.
 - Stop only if remaining blockers are external, non-actionable, safety-blocked, or if `2` consecutive cycles fail to reduce the actionable blocker set.
 
 10. Merge PR after green and review gate satisfied:
@@ -153,6 +157,7 @@ If preconditions fail, stop and report.
 - `git pull --ff-only origin main`
 - monitor post-merge CI again (`25 minutes`)
 - Continue while failures remain actionable and each cycle makes progress.
+- Do not stop a hotfix cycle while repo-fixable post-merge errors remain in scope for that branch.
 - Stop only for external or non-actionable blockers, safety blockers, or `2` consecutive no-progress hotfix cycles.
 
 14. Global wait rule:
