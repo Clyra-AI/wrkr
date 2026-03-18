@@ -6,7 +6,7 @@
     "dev": "next dev -p 3003",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx,.mjs --max-warnings=0",
     "test:smoke": "tsx --test src/lib/scan-bootstrap.test.ts src/components/scan/ScanStatusPanel.test.tsx"
   },
   "dependencies": {
