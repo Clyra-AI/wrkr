@@ -11,6 +11,9 @@ import (
 var (
 	beforePublishHookMu sync.Mutex
 	beforePublishHook   func(stageDir, targetDir, backupDir string) error
+
+	removeAllHookMu sync.Mutex
+	removeAllHook   func(path string) error
 )
 
 func validateOutputDirTarget(path string) error {
@@ -71,7 +74,7 @@ func createOutputStageDir(targetDir string) (string, error) {
 		return "", fmt.Errorf("create output stage dir: %w", err)
 	}
 	if err := writeOutputDirMarker(stageDir); err != nil {
-		_ = os.RemoveAll(stageDir)
+		_ = removeAll(stageDir)
 		return "", err
 	}
 	return stageDir, nil
@@ -112,7 +115,9 @@ func publishStagedOutput(stageDir string, targetDir string) error {
 	}
 
 	if movedTarget {
-		_ = os.RemoveAll(backupDir)
+		if err := removeAll(backupDir); err != nil {
+			return fmt.Errorf("remove backup output dir: %w", err)
+		}
 	}
 	return nil
 }
@@ -122,7 +127,7 @@ func restoreOutputDir(targetDir string, backupDir string, movedTarget bool) erro
 		return nil
 	}
 	if _, err := os.Lstat(targetDir); err == nil {
-		if removeErr := os.RemoveAll(targetDir); removeErr != nil {
+		if removeErr := removeAll(targetDir); removeErr != nil {
 			return fmt.Errorf("remove incomplete published dir: %w", removeErr)
 		}
 	} else if err != nil && !os.IsNotExist(err) {
@@ -153,6 +158,28 @@ func setBeforePublishHookForTest(hook func(stageDir, targetDir, backupDir string
 		beforePublishHookMu.Lock()
 		beforePublishHook = previous
 		beforePublishHookMu.Unlock()
+	}
+}
+
+func removeAll(path string) error {
+	removeAllHookMu.Lock()
+	hook := removeAllHook
+	removeAllHookMu.Unlock()
+	if hook != nil {
+		return hook(path)
+	}
+	return os.RemoveAll(path)
+}
+
+func setRemoveAllHookForTest(hook func(path string) error) func() {
+	removeAllHookMu.Lock()
+	previous := removeAllHook
+	removeAllHook = hook
+	removeAllHookMu.Unlock()
+	return func() {
+		removeAllHookMu.Lock()
+		removeAllHook = previous
+		removeAllHookMu.Unlock()
 	}
 }
 

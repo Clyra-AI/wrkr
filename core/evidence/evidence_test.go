@@ -748,6 +748,50 @@ func TestBuildPreservesPreviousManagedBundleWhenLateFailureOccurs(t *testing.T) 
 	}
 }
 
+func TestBuildFailsClosedWhenBackupCleanupFails(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+
+	if _, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("initial build evidence bundle: %v", err)
+	}
+
+	restore := setRemoveAllHookForTest(func(path string) error {
+		if strings.HasPrefix(filepath.Base(path), "."+filepath.Base(outputDir)+".backup-") {
+			return errors.New("synthetic backup cleanup failure")
+		}
+		return os.RemoveAll(path)
+	})
+	t.Cleanup(restore)
+
+	_, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 2, 20, 15, 0, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("expected build to fail when backup cleanup fails")
+	}
+	if !strings.Contains(err.Error(), "remove backup output dir") {
+		t.Fatalf("expected backup cleanup failure, got: %v", err)
+	}
+	if _, verifyErr := proof.VerifyBundle(outputDir, proof.BundleVerifyOpts{}); verifyErr != nil {
+		t.Fatalf("expected published bundle to remain valid when backup cleanup fails: %v", verifyErr)
+	}
+	if matches, globErr := filepath.Glob(backupDirPrefix(outputDir) + "*"); globErr != nil {
+		t.Fatalf("glob backup dirs: %v", globErr)
+	} else if len(matches) == 0 {
+		t.Fatal("expected backup dir to remain when cleanup fails")
+	}
+}
+
 func TestBuildEvidenceRejectsMarkerDirectory(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
