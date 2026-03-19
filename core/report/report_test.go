@@ -286,6 +286,15 @@ func TestBuildSummaryUsesWriteCapableFallbackWhenProductionTargetsNotConfigured(
 	if strings.Contains(joined, "production_write not configured") {
 		t.Fatalf("expected downgraded production-target wording, got %v", headlineFacts)
 	}
+	if !strings.Contains(joined, "bundled framework mappings stay available; profile compliance reflects only controls evidenced in the current deterministic scan state") {
+		t.Fatalf("expected evidence-state framing in headline facts, got %v", headlineFacts)
+	}
+	if !strings.Contains(joined, "bundled framework mappings are available; current findings do not map to bundled compliance controls yet") {
+		t.Fatalf("expected zero-mapping clarification in headline facts, got %v", headlineFacts)
+	}
+	if !strings.Contains(joined, "coverage still reflects only controls evidenced in the current scan state; remediate gaps, rescan, and regenerate report/evidence artifacts") {
+		t.Fatalf("expected deterministic next-action guidance in headline facts, got %v", headlineFacts)
+	}
 }
 
 func TestBuildSummarySuppressesUnknownToSecurityHeadlineWithoutReferenceBasis(t *testing.T) {

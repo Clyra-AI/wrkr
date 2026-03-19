@@ -1,6 +1,6 @@
 # Personal Machine Hygiene
 
-Use this workflow when a developer wants a deterministic answer to "what AI tooling is already configured on this machine, what MCP servers are asking for, and what changed since my last clean snapshot?"
+Use this workflow when a developer wants a deterministic answer to "what AI tooling is already configured on this machine, what MCP servers are asking for, and what changed since my last clean snapshot?" It is also a secondary fallback when the hosted org posture prerequisites are not ready yet.
 
 ## Exact commands
 

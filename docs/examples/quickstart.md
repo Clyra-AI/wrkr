@@ -2,7 +2,7 @@
 
 Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
 
-Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps a deterministic local-machine hygiene path for developers who want a secondary self-serve check. This quickstart leads with the minimum-now org posture path, then shows the local-machine flow.
+Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps deterministic zero-integration fallback paths available when hosted prerequisites are not ready yet. This quickstart leads with the minimum-now org posture path, then shows the fallback and developer-machine flows.
 
 ## Positioning
 
@@ -12,14 +12,17 @@ Wrkr is an AI-DSPM discovery and posture tool in the See -> Prove -> Control seq
 - Prove: proof-ready artifacts can flow into downstream evidence consumers.
 - Control: Gait is the optional runtime enforcement counterpart.
 
-The fastest minimum-now public value is `wrkr scan --github-org ... --json` followed by `wrkr evidence ... --json`. The zero-integration local-machine path remains available through `wrkr scan --my-setup --json`.
-
-For hosted source modes, `scan --repo` and `scan --org` require `--github-api` (or `WRKR_GITHUB_API_BASE`) and typically also need a GitHub token for private repos or to avoid public API rate limits.
-Token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
+The fastest minimum-now public value is `wrkr scan --github-org ... --json` followed by `wrkr evidence ... --json`. If hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first.
 
 Canonical local artifact paths are documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
 
 ## Security/platform posture first
+
+Hosted prerequisites for this path:
+
+- pass `--github-api https://api.github.com` (or set `WRKR_GITHUB_API_BASE`)
+- provide a GitHub token for private repos or to avoid public API rate limits
+- token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`
 
 ```bash
 wrkr scan --github-org acme --github-api https://api.github.com --json
@@ -33,7 +36,14 @@ Expected outputs:
 - `evidence`: `output_dir`, `manifest_path`, `chain_path`, `framework_coverage`
 - `verify`: `chain.intact=true`
 
-Hosted source modes require `--github-api` (or `WRKR_GITHUB_API_BASE`) and usually need a GitHub token for private repos or to avoid public rate limits.
+## If hosted prerequisites are not ready yet
+
+```bash
+wrkr scan --path ./your-repo --json
+wrkr scan --my-setup --json
+```
+
+Use `--path` when you want repo-local discovery with no hosted setup. Use `--my-setup` when you want developer-machine hygiene for local configs, MCP posture, and secret-presence signals.
 
 ## Developer-machine hygiene (secondary path)
 

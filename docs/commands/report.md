@@ -46,6 +46,7 @@ Public template behavior (`--template public --share-profile public`):
 - share-profile redaction is applied to public-facing risk/proof fields.
 
 `--explain` emits short deterministic compliance mapping lines sourced from the same `compliance_summary` payload.
+When current findings do not yet map to bundled controls, the explain/report summary says bundled framework mappings are available and that current coverage still reflects only evidence present in the saved scan state.
 
 ## Coverage semantics
 
@@ -53,4 +54,4 @@ Report compliance/posture values are derived from evidence present in the curren
 
 - Low compliance/coverage in report output indicates control evidence gaps in the scanned snapshot.
 - Low compliance/coverage does not imply Wrkr lacks framework support.
-- Use report findings as remediation priorities, then rerun deterministic scan/evidence/report commands to confirm improvement.
+- Use report findings as remediation priorities, then remediate gaps, rerun deterministic scan/evidence/report commands, and confirm improvement from the updated evidence state.

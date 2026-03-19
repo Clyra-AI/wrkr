@@ -42,13 +42,14 @@ When risk state includes attack-path scoring, evidence output includes determini
 
 - Low/0% coverage indicates documented control gaps in current evidence.
 - Low/0% does not imply Wrkr lacks support for that framework.
-- Treat low coverage as an action queue: remediate, rescan, and regenerate evidence.
+- Treat low coverage as an action queue: remediate, rescan, and regenerate report/evidence artifacts.
+- When current findings do not yet map to bundled controls, the generated report summary explicitly says framework mappings are still available and that the current state is evidence-sparse.
 
 Recommended low-coverage response:
 
 1. Run `wrkr report --top 5 --json` to prioritize the highest-risk missing controls.
 2. Complete control implementation or lifecycle approvals for the affected identities/tools.
-3. Re-run `wrkr scan --json`, then `wrkr evidence --frameworks ... --json` and compare updated `framework_coverage`.
+3. Re-run `wrkr scan --json`, then `wrkr evidence --frameworks ... --json` and `wrkr report --json`, and compare the updated `framework_coverage` plus report summary guidance.
 
 ### Unsafe output-path handling
 

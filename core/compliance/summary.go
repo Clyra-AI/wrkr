@@ -69,12 +69,42 @@ func ExplainRollupSummary(summary RollupSummary, limit int) []string {
 		}
 	}
 	if len(lines) == 0 {
-		lines = append(lines, "no findings currently map to bundled compliance controls")
+		lines = append(lines, "bundled framework mappings are available; current findings do not map to bundled compliance controls yet")
 	}
+
+	if guidance := explainEvidenceStateGuidance(summary); guidance != "" {
+		if limit > 0 && len(lines) >= limit {
+			out := append([]string(nil), lines[:limit-1]...)
+			out = append(out, guidance)
+			return out
+		}
+		lines = append(lines, guidance)
+	}
+
 	if limit > 0 && len(lines) > limit {
 		return append([]string(nil), lines[:limit]...)
 	}
 	return lines
+}
+
+func explainEvidenceStateGuidance(summary RollupSummary) string {
+	totalControls := 0
+	coveredControls := 0
+	totalMappedFindings := 0
+
+	for _, framework := range summary.Frameworks {
+		totalControls += framework.ControlCount
+		coveredControls += framework.CoveredCount
+		totalMappedFindings += framework.MappedFindingCount
+	}
+
+	if totalMappedFindings == 0 {
+		return "coverage still reflects only controls evidenced in the current scan state; remediate gaps, rescan, and regenerate report/evidence artifacts"
+	}
+	if totalControls > 0 && coveredControls*2 < totalControls {
+		return "coverage still reflects only controls evidenced in the current scan state; remediate gaps, rescan, and regenerate report/evidence artifacts"
+	}
+	return ""
 }
 
 func buildFrameworkRollup(frameworkDef *proof.Framework, result Result, ruleFindingIndex map[string]map[string]struct{}) FrameworkRollup {

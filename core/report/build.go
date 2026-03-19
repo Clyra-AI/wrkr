@@ -645,7 +645,7 @@ func buildSections(
 		fmt.Sprintf("posture score %.2f (%s)", headline.Score, headline.Grade),
 		fmt.Sprintf("profile status %s at %.2f%%", headline.ComplianceStatus, headline.Compliance),
 		fmt.Sprintf("tools=%d write_capable=%d credential_access=%d exec_capable=%d", privilegeBudget.TotalTools, privilegeBudget.WriteCapableTools, privilegeBudget.CredentialAccessTools, privilegeBudget.ExecCapableTools),
-		"profile compliance reflects controls evidenced in the current deterministic scan state",
+		"bundled framework mappings stay available; profile compliance reflects only controls evidenced in the current deterministic scan state",
 	}
 	if hasSecurityVisibilityReference(securityVisibility) {
 		headlineFacts = append(headlineFacts, fmt.Sprintf("security_visibility reference=%s unknown_to_security_tools=%d unknown_to_security_agents=%d unknown_to_security_write_capable_agents=%d", securityVisibility.ReferenceBasis, securityVisibility.UnknownToSecurityTools, securityVisibility.UnknownToSecurityAgents, securityVisibility.UnknownToSecurityWriteCapableAgents))

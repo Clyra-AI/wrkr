@@ -39,8 +39,9 @@ Wrkr does not perform live MCP probing or package vulnerability assessment in th
 
 ### Should I start with `wrkr scan --my-setup` or `wrkr scan --github-org`?
 
-Start with `wrkr scan --my-setup --json` when a developer wants immediate machine-hygiene visibility with no extra setup.
-Use `wrkr scan --github-org ... --github-api ... --json` when the goal is org posture, shared inventory review, or compliance handoff.
+For the current public launch, start with `wrkr scan --github-org ... --github-api ... --json` when the goal is org posture, shared inventory review, or compliance handoff.
+If hosted prerequisites are not ready yet, use `wrkr scan --path ./your-repo --json` as the zero-integration repo-local fallback or `wrkr scan --my-setup --json` for developer-machine hygiene.
+Developers doing only local checks can still start with `wrkr scan --my-setup --json`.
 
 ### Do I need Gait to use `wrkr mcp-list`?
 

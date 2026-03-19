@@ -1,464 +1,496 @@
-# PLAN WRKR_ARTIFACT_BOUNDARY_HARDENING: Release-Safe Artifact Consumers and Atomic Evidence Commit
+# PLAN WRKR_LAUNCH_EXPECTATION_ALIGNMENT: First-Run Evidence Semantics, Funnel Focus, and Install Trust
 
-Date: 2026-03-18
+Date: 2026-03-19
 Source of truth:
-- user-provided full-repo review findings dated 2026-03-18
+- user-provided launch audit findings dated 2026-03-19
 - `product/dev_guides.md`
 - `product/architecture_guides.md`
-- `core/cli/verify.go`
-- `core/cli/campaign.go`
-- `core/evidence/evidence.go`
-- `core/verify/verify.go`
-- `docs/commands/verify.md`
-- `docs/commands/campaign.md`
-- `docs/commands/evidence.md`
+- `README.md`
+- `docs/examples/quickstart.md`
+- `docs/examples/security-team.md`
+- `docs/examples/operator-playbooks.md`
 - `docs/commands/scan.md`
-- `docs/trust/proof-chain-verification.md`
+- `docs/commands/report.md`
+- `docs/commands/evidence.md`
+- `docs/install/minimal-dependencies.md`
+- `docs/positioning.md`
+- `docs/faq.md`
+- `docs/contracts/readme_contract.md`
 - `docs/state_lifecycle.md`
-- `schemas/v1/report/campaign-summary.schema.json`
-- `core/cli/root_test.go`
-- `core/cli/campaign_test.go`
-- `core/verify/verify_test.go`
-- `core/evidence/evidence_test.go`
-- `internal/e2e/campaign/campaign_e2e_test.go`
-- `testinfra/contracts/story7_contracts_test.go`
-Scope: Wrkr repository only. Planning artifact only. Remediate the three review-proven P1 artifact-boundary defects without weakening determinism, offline-first defaults, fail-closed behavior, schema stability, or exit-code stability.
+- `core/compliance/summary.go`
+- `core/report/build.go`
+- `core/cli/report.go`
+- `testinfra/hygiene/wave2_docs_contracts_test.go`
+- `scripts/check_docs_storyline.sh`
+- `scripts/check_docs_consistency.sh`
+Scope: Wrkr repository only. Planning artifact only. Close the top three launch risks from the 2026-03-19 audit without weakening determinism, offline-first defaults, fail-closed behavior, schema stability, exit-code stability, or README/docs contract enforcement.
 
 ## Global Decisions (Locked)
 
-- Treat this as contract/runtime correctness work first. Docs ship in the same story as the behavior they describe.
-- Preserve Wrkr CLI flags, JSON output keys, schema versioning posture, proof-record formats, and exit codes `0..8`.
-- `wrkr verify --chain --path <chain>` must treat the explicit chain path as the authority for verifier-key lookup unless the caller explicitly passed `--state`.
-- `wrkr campaign aggregate` will fail closed on degraded or partial scan artifacts in this plan. Do not introduce a permissive degraded-success mode in this wave.
-- `wrkr evidence` must build in a same-parent managed stage directory and only publish to the requested `--output` path after manifest generation, signing, and verification succeed.
-- No partial managed evidence bundle may remain visible at the final output path after any failure.
-- Preserve existing managed-path trust rules:
-  - evidence marker `.wrkr-evidence-managed`
-  - non-empty unmanaged output directories fail closed
-  - marker must remain a regular file
-- Keep `core/cli` thin. Authoritative logic belongs in focused packages for verify, campaign validation, evidence staging, and persistence.
-- Stories that touch CLI contract behavior, filesystem side effects, or failure semantics must run `make prepush-full`.
-- Reliability and failure-path stories must run `make test-hardening` and `make test-chaos`.
-- Evidence staging changes are performance-sensitive and must also run `make test-perf`.
-- No dashboard/docs-site scope, no `Clyra-AI/proof` API change, no new network paths, and no dashboard-first or polish-first work in this plan.
+- Treat this plan as contract/runtime clarity first, then docs/onboarding distribution. Earlier waves remove interpretation gaps before later waves tighten funnel copy.
+- Preserve Wrkr machine-readable contracts:
+  - `scan`, `report`, `evidence`, `verify`, and `version` JSON keys remain stable unless any new fields are strictly additive and optional.
+  - exit codes `0..8` remain unchanged.
+  - `compliance_summary` and `framework_coverage` remain stable public surfaces.
+- Keep `core/cli` thin. Authoritative compliance explanation logic belongs in `core/compliance` and report section assembly belongs in `core/report`.
+- Security/platform-led org posture remains the primary minimum-now launch persona. Developer hygiene remains a secondary path, and `--path` remains the explicit zero-integration fallback when hosted prerequisites are unavailable.
+- Preserve README Variant B (`Wrkr Landing v2`) unless the docs contract is explicitly revised in the same PR.
+- First-screen install surfaces must expose:
+  - Homebrew path
+  - pinned/reproducible Go path
+  - `wrkr version` verification
+  - convenience `@latest` only if it remains clearly secondary and contract-consistent
+- No dashboard-first scope, no hosted control-plane requirements, no new network defaults, and no changes to proof-record formats or compliance framework definitions in this plan.
+- Stories touching report/compliance semantics must run `make prepush-full`.
+- Docs and onboarding stories must update enforcement in the same PR via `testinfra/hygiene` and docs validation scripts.
 
 ## Current Baseline (Observed)
 
 - Planning inputs validated:
-  - `product/dev_guides.md` exists and is readable
-  - `product/architecture_guides.md` exists and is readable
-  - output path `product/PLAN_NEXT.md` resolves inside `/Users/tr/wrkr`
-- The review established three release-blocking artifact-boundary defects:
-  - `verify`: ambient `WRKR_STATE_PATH` can silently downgrade authenticated verification even when `--path` is explicit.
-  - `campaign aggregate`: syntactically valid but degraded scan artifacts can still produce a clean success envelope.
-  - `evidence`: failed builds can clear or replace a managed output directory with partial new contents.
-- Existing coverage is substantial but has specific gaps:
-  - `core/cli/root_test.go` already checks `chain_and_attestation` and `chain_only` outcomes, but not explicit `--path` precedence against ambient `WRKR_STATE_PATH`.
-  - `core/cli/campaign_test.go` covers happy-path aggregation and basic invalid input, but not `partial_result`, `source_degraded`, or `source_errors` rejection.
-  - `core/evidence/evidence_test.go` covers marker trust and unmanaged directory blocking, but not preservation of a prior good bundle during late-stage failure.
-- Current command docs already describe partial scan semantics upstream:
-  - `docs/commands/scan.md` documents `partial_result`, `source_errors`, and `source_degraded`.
-- Current downstream contract gap:
-  - `docs/commands/campaign.md` does not define how degraded scan artifacts should be handled.
-  - `schemas/v1/report/campaign-summary.schema.json` has no degraded-input metadata fields.
-- Current evidence docs promise fail-closed output ownership safety, but they do not yet promise staged or atomic publish semantics.
-- Review validation already established a healthy starting point:
-  - `go test ./...` passed during the review.
-  - `wrkr scan --path scenarios/wrkr/scan-mixed-org/repos --json`, `wrkr verify --chain --json`, and `wrkr regress init/run --json` reproduced baseline behavior.
-  - Synthetic repros confirmed the verify downgrade, campaign false-green path, and evidence partial-output leak.
+  - `product/dev_guides.md` exists and is readable.
+  - `product/architecture_guides.md` exists and is readable.
+  - output path `product/PLAN_NEXT.md` resolves inside `/Users/tr/wrkr`.
+- The worktree was clean before this plan rewrite.
+- Technical launch posture is healthy:
+  - `make lint-fast` passed during the audit.
+  - `go test ./... -count=1` passed during the audit.
+  - fail-closed behavior held for unmanaged evidence output, unmanaged materialized scan roots, degraded campaign inputs, and explicit `verify --path` precedence.
+- Current expectation gap is not parser correctness but interpretation:
+  - docs already state that low/zero compliance coverage is an evidence-state signal in `docs/commands/evidence.md`, `docs/commands/report.md`, `docs/examples/quickstart.md`, `docs/examples/operator-playbooks.md`, `docs/faq.md`, and `docs/positioning.md`
+  - human-readable report/explain output still emits `no findings currently map to bundled compliance controls` from `core/compliance/summary.go`, which can read like missing product support instead of sparse first-run evidence state
+- Current funnel gap is top-of-funnel dilution:
+  - `README.md` and `docs/examples/quickstart.md` foreground the security/platform path
+  - those same first-screen surfaces also mix developer hygiene, compliance handoff, and hosted prerequisites in a way that weakens the primary buyer story and can dead-end users who do not yet have GitHub API/token setup
+- Current install trust gap is first-screen discoverability:
+  - `README.md` uses the convenience `go install ...@latest` path
+  - pinned/reproducible install guidance is canonical but deeper in `docs/install/minimal-dependencies.md`
+  - current docs contract tests enforce latest-path visibility for landing README v2, but do not enforce first-screen pinned install discoverability or `wrkr version` verification
+- Existing enforcement relevant to this plan already exists:
+  - `testinfra/hygiene/wave2_docs_contracts_test.go`
+  - `scripts/check_docs_storyline.sh`
+  - `scripts/check_docs_consistency.sh`
+  - `scripts/check_docs_cli_parity.sh`
 
 ## Exit Criteria
 
-1. `wrkr verify --chain --path <chain> --json` produces the same verifier-key lookup and authenticity result regardless of ambient `WRKR_STATE_PATH` when `--state` is not passed.
-2. `wrkr campaign aggregate --input-glob ... --json` rejects degraded or partial scan artifacts deterministically with a stable `invalid_input` envelope and exit `6`.
-3. `wrkr evidence --frameworks ... --output <dir> --json` stages all bundle work outside the final target path and only publishes to the target after full bundle success.
-4. Failed evidence builds leave either:
-   - no bundle at the target path, or
-   - the prior valid managed bundle intact
-5. `docs/commands/verify.md`, `docs/commands/campaign.md`, `docs/commands/evidence.md`, and any touched trust/lifecycle docs match the implemented behavior in the same PR.
-6. No schema or version bump is required unless implementation proves it unavoidable; if that happens, the change must be additive, documented, and explicitly version-reviewed.
-7. Required tests and lanes for each story pass, including:
+1. First-run report/evidence human-readable surfaces no longer imply missing framework support when the real state is sparse evidence or zero mapped findings.
+2. `wrkr report --json` and `wrkr evidence --json` preserve existing stable keys and exits; any new interpretation field is additive and optional only.
+3. README, quickstart, positioning, FAQ, and security-team workflow docs present one explicit primary launch persona:
+   - security/platform org posture first
+   - developer hygiene secondary
+   - `--path` or `--my-setup` called out as fallback when hosted prerequisites are unavailable
+4. Hosted prerequisites (`--github-api`, likely token) appear adjacent to the first hosted org posture command instead of buried later in the flow.
+5. First-screen install guidance exposes Homebrew, a pinned/reproducible Go path, and `wrkr version` verification without removing the canonical authority of `docs/install/minimal-dependencies.md`.
+6. Docs contract enforcement is updated in the same PR so regressions in persona/fallback/install trust are caught automatically.
+7. Required lanes pass for each story, including:
    - `make lint-fast`
-   - `make test-contracts`
-   - `make prepush-full`
-   - `make test-hardening`
-   - `make test-chaos`
-   - `make test-perf` for the evidence story
+   - `go test ./testinfra/hygiene -count=1`
+   - `make prepush-full` for the runtime semantics story
+   - `scripts/check_docs_cli_parity.sh`
+   - `scripts/check_docs_storyline.sh`
+   - `scripts/check_docs_consistency.sh`
+   - `scripts/run_docs_smoke.sh`
+   - `scripts/test_uat_local.sh --skip-global-gates` for the install-trust story
+8. No schema or version bump is required unless implementation proves an additive optional explanatory field is necessary; any such addition must be explicitly documented and version-reviewed.
 
 ## Public API and Contract Map
 
 Stable/public surfaces touched by this plan:
 
 - CLI commands:
-  - `wrkr verify --chain`
-  - `wrkr campaign aggregate`
+  - `wrkr scan`
+  - `wrkr report`
   - `wrkr evidence`
-- Stable verify JSON keys:
-  - `status`
-  - `chain.path`
-  - `chain.intact`
-  - `chain.count`
-  - `chain.head_hash`
-  - `chain.reason`
-  - `chain.verification_mode`
-  - `chain.authenticity_status`
-- Stable campaign JSON success shape:
-  - `status`
-  - `campaign`
-- Stable evidence JSON success shape:
-  - `status`
-  - `output_dir`
-  - `frameworks`
-  - `manifest_path`
-  - `chain_path`
-  - `framework_coverage`
-  - `report_artifacts`
-- Stable exit-code and error-envelope expectations:
-  - `verify`: `verification_failure` exit `2`, `invalid_input` exit `6`
-  - `campaign`: `invalid_input` exit `6`, `runtime_failure` exit `1`
-  - `evidence`: `invalid_input` exit `6`, `runtime_failure` exit `1`, `unsafe_operation_blocked` exit `8`
-- Stable managed-output ownership contracts:
-  - `.wrkr-evidence-managed`
-  - non-empty unmanaged output dir fails closed
-  - marker must be a regular file
+  - `wrkr verify`
+  - `wrkr version`
+- Stable machine-readable surfaces:
+  - `scan`: `status`, `target`, `warnings`, `compliance_summary`
+  - `report`: `status`, `generated_at`, `top_findings`, `compliance_summary`, `summary`, `md_path`, `pdf_path`
+  - `evidence`: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`, `report_artifacts`
+  - `version`: `status`, `version`
+- Stable docs contract surfaces:
+  - README landing v2 section structure
+  - `docs/install/minimal-dependencies.md` as canonical pinned install contract
+  - `docs/examples/quickstart.md` as onboarding contract
+  - `docs/contracts/readme_contract.md` as README variant authority
+- Stable human-readable operator surfaces:
+  - report markdown/PDF summary sections
+  - compliance explanation lines
+  - README Start Here / Install sections
 
 Internal surfaces expected to change:
 
-- `core/cli/verify.go`
-- `core/cli/campaign.go`
-- `core/evidence/evidence.go`
-- likely new evidence staging helper:
-  - `core/evidence/stage.go`
-  - or a narrowly scoped reusable helper under `internal/`
-- tests:
-  - `core/cli/root_test.go`
-  - `core/cli/campaign_test.go`
-  - `core/verify/verify_test.go`
-  - `core/evidence/evidence_test.go`
-  - `internal/e2e/campaign/campaign_e2e_test.go`
-  - `testinfra/contracts/story7_contracts_test.go`
-- docs:
-  - `docs/commands/verify.md`
-  - `docs/commands/campaign.md`
-  - `docs/commands/evidence.md`
-  - `docs/commands/scan.md`
-  - `docs/trust/proof-chain-verification.md`
-  - `docs/state_lifecycle.md`
+- `core/compliance/summary.go`
+- `core/report/build.go`
+- `core/report/report_test.go`
+- `core/cli/wave3_compliance_test.go`
+- `internal/scenarios/wave3_compliance_scenario_test.go`
+- `README.md`
+- `docs/examples/quickstart.md`
+- `docs/examples/security-team.md`
+- `docs/examples/operator-playbooks.md`
+- `docs/commands/report.md`
+- `docs/commands/evidence.md`
+- `docs/positioning.md`
+- `docs/faq.md`
+- `docs/install/minimal-dependencies.md`
+- `docs/contracts/readme_contract.md`
+- `testinfra/hygiene/wave2_docs_contracts_test.go`
+- docs-site or LLM-surface mirrors if first-screen copy/install guidance is duplicated there:
+  - `docs-site/src/app/page.tsx`
+  - `docs-site/public/llm/quickstart.md`
+  - related docs-site start-here mirrors as needed
 
 Shim/deprecation path:
 
-- No CLI shim or deprecation path is planned for `verify` or `evidence`.
-- Degraded scan artifact acceptance in `campaign aggregate` is treated as unsafe undocumented behavior, not a supported contract.
-- Any future desire for an additive degraded-success path requires a separate plan and explicit schema review.
+- No CLI shim or flag deprecation is planned.
+- Convenience `@latest` install guidance may remain, but only as an explicitly secondary path after README/install contract review.
+- No deprecation is planned for `--my-setup` or `--path`; they remain public fallback/secondary paths.
 
 Schema/versioning policy:
 
 - Preferred implementation path: no schema changes and no version bump.
-- If campaign degraded-input metadata must become visible, it must be additive optional data under `schema_version: v1`.
-- No evidence bundle schema version change is planned.
+- If a new explanatory field is needed in report/evidence JSON, it must be additive and optional under existing structures.
+- No change to proof schemas, lifecycle schemas, or evidence bundle manifest schema is planned.
 
 Machine-readable error expectations:
 
-- `verify` keeps its current success and failure envelope fields; only precedence resolution changes.
-- `campaign aggregate` on degraded inputs should emit a stable `invalid_input` envelope naming the offending artifact and degraded markers.
-- `evidence` keeps existing error classes; failed builds must not leave a consumable partial target bundle.
+- `scan --org` / `scan --github-org` without configured GitHub API base continues to fail closed with `dependency_missing` exit `7`.
+- `report` keeps current `invalid_input` exit `6` and `runtime_failure` exit `1` behavior.
+- `evidence` keeps current `runtime_failure`, `invalid_input`, and `unsafe_operation_blocked` classes and exits.
+- This plan does not introduce new machine-readable error codes.
 
 ## Docs and OSS Readiness Baseline
 
 README first-screen contract:
 
-- Keep `README.md` focused on product value and the core `scan -> evidence -> verify` flow.
-- Do not add maintainer-only implementation detail to the README unless a public trust claim would otherwise be inaccurate.
+- `README.md` stays on landing README v2.
+- `## Install` must include:
+  - Homebrew
+  - pinned/reproducible Go install
+  - optional convenience latest path only if clearly secondary
+  - `wrkr version` verification
+- `## Start Here` must include:
+  - explicit launch persona: security/platform-led org posture first
+  - nearby hosted prerequisites for org posture
+  - developer hygiene as secondary path
+  - explicit zero-integration fallback (`--path` and/or `--my-setup`)
+- No first-screen copy may imply a hosted-only requirement to experience value.
 
 Integration-first docs flow for this plan:
 
-1. `docs/commands/scan.md`
-2. `docs/commands/campaign.md`
-3. `docs/commands/verify.md`
-4. `docs/trust/proof-chain-verification.md`
-5. `docs/commands/evidence.md`
-6. `docs/state_lifecycle.md`
+1. `README.md`
+2. `docs/examples/quickstart.md`
+3. `docs/examples/security-team.md`
+4. `docs/install/minimal-dependencies.md`
+5. `docs/commands/scan.md`
+6. `docs/commands/report.md`
+7. `docs/commands/evidence.md`
+8. `docs/faq.md`
+9. `docs/positioning.md`
 
 Lifecycle path model the docs must preserve:
 
-- `scan` creates authoritative state and proof-chain inputs.
-- `verify` authenticates from state or explicit chain path.
-- `campaign aggregate` consumes complete `scan --json` artifacts only.
-- `evidence` consumes saved state and publishes managed bundle outputs atomically.
+- `wrkr scan` creates `.wrkr/last-scan.json` and proof/lifecycle sidecars.
+- `wrkr report`, `wrkr evidence`, and `wrkr verify` are saved-state consumers.
+- Hosted org posture requires explicit GitHub API configuration.
+- `--path` remains the zero-integration repo-local fallback.
+- `--my-setup` remains the secondary local hygiene path.
 
 Docs source-of-truth mapping:
 
-- behavior authority: `core/cli/*`, `core/evidence/*`, `core/verify/*`
-- command docs: `docs/commands/*`
-- trust semantics: `docs/trust/proof-chain-verification.md`
-- lifecycle semantics: `docs/state_lifecycle.md`
+- behavior authority:
+  - `core/compliance/*`
+  - `core/report/*`
+  - `core/cli/*`
+- install authority:
+  - `docs/install/minimal-dependencies.md`
+- README contract authority:
+  - `docs/contracts/readme_contract.md`
+- docs enforcement:
+  - `testinfra/hygiene/wave2_docs_contracts_test.go`
+  - `scripts/check_docs_storyline.sh`
+  - `scripts/check_docs_consistency.sh`
+  - `scripts/check_docs_cli_parity.sh`
+- if docs-site or LLM surfaces are touched, they must mirror the selected first-screen wording and install contract in the same PR
 
-OSS readiness baseline:
+OSS trust baseline:
 
-- Existing trust files remain the baseline:
-  - `README.md`
+- Preserve and validate:
   - `CONTRIBUTING.md`
+  - `SECURITY.md`
   - `CHANGELOG.md`
   - `CODE_OF_CONDUCT.md`
-  - `SECURITY.md`
   - `.github/ISSUE_TEMPLATE/*`
   - `.github/pull_request_template.md`
-- No new OSS governance file is required by this plan.
+- No new community-health file is required in this plan.
+- Maintainer/support expectations remain explicit through existing support/security docs; this plan only aligns onboarding and trust discoverability.
 
 ## Recommendation Traceability
 
 | Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story mapping |
 |---|---|---|---|---|---|
-| R1 | Respect explicit `--path` over ambient `WRKR_STATE_PATH` in `verify` | Prevent silent downgrade from authenticated verification to structural-only success | Tighten command-boundary precedence and proof trustworthiness | Stronger release and promotion integrity with no contract sprawl | `W1-S01` |
-| R2 | Reject degraded or partial scan artifacts in `campaign aggregate` | Eliminate false-green org rollups from incomplete upstream acquisition | Fail closed at the artifact-consumer boundary | Safer automation and more trustworthy campaign summaries | `W1-S02` |
-| R3 | Stage and atomically publish evidence bundles | Prevent failed reruns from destroying or replacing the last known-good bundle with partial new contents | Crash-safe managed output semantics | Stronger evidence portability, operator trust, and audit confidence | `W2-S01` |
+| R1 | Reframe first-run compliance/report output so sparse evidence is not misread as missing framework support | Current human-readable wording can undercut trust even though machine-readable contracts are correct | First-run evidence semantics clarity with stable contracts | Stronger buyer confidence, lower support churn, better audit handoff comprehension | `W1-S01` |
+| R2 | Sharpen first-screen funnel around security/platform-led org posture and explicit fallback paths | Top-of-funnel copy currently dilutes the wedge and can dead-end users lacking hosted setup | Funnel focus and onboarding taxonomy alignment | Faster activation, clearer buyer story, lower setup confusion | `W2-S01` |
+| R3 | Surface pinned install and version verification at first screen | Security/platform buyers need reproducible install trust without hunting for deeper docs | Install-trust alignment with enforced discoverability | Stronger OSS trust, safer CI onboarding, better release credibility | `W2-S02` |
 
 ## Test Matrix Wiring
 
 | Lane | Required commands | Notes |
 |---|---|---|
-| Fast lane | `make lint-fast`; `make test-contracts`; targeted `go test ./core/cli ./core/verify ./core/evidence -count=1` | Minimum local and PR feedback loop |
-| Core CI lane | `make prepush-full`; `go test ./... -count=1` | Mandatory for all stories in this plan because failure semantics and filesystem side effects are touched |
-| Acceptance lane | `go test ./internal/e2e/verify -count=1`; `go test ./internal/e2e/campaign -count=1`; targeted contract suites | Outside-in confirmation for command behavior |
-| Cross-platform lane | existing `windows-smoke`; existing core matrix lanes | Required because env-var precedence, globbing, and filesystem publish behavior must stay portable |
-| Risk lane | `make test-hardening`; `make test-chaos`; `make test-perf` for evidence staging | Mandatory for all stories here; `make test-perf` is required only for `W2-S01` |
-| Merge/release gating rule | No story closes until fast, core, acceptance, and relevant risk lanes are green; docs parity checks must pass in the same PR as behavior changes | No docs-only or tests-only follow-up PRs |
+| Fast lane | `make lint-fast`; `go test ./core/compliance ./core/report ./core/cli ./testinfra/hygiene -count=1`; `scripts/check_docs_cli_parity.sh`; `scripts/check_docs_storyline.sh`; `scripts/check_docs_consistency.sh` | Minimum local and PR feedback loop for this plan |
+| Core CI lane | `make prepush-full`; `go test ./... -count=1` | Mandatory for `W1-S01`; rerun after wave integration to catch collateral drift |
+| Acceptance lane | `go test ./internal/scenarios -count=1 -tags=scenario`; `go test ./internal/acceptance -count=1`; `scripts/run_docs_smoke.sh` | Outside-in validation for report/evidence semantics and docs flow |
+| Cross-platform lane | existing `windows-smoke`; install smoke on supported OS matrix via release/install jobs | Required because install discoverability and shell instructions are public OSS surfaces |
+| Risk lane | `make test-contracts`; add `make test-hardening` / `make test-chaos` only if implementation expands report/evidence failure-path logic; add `make test-perf` only if artifact generation budgets change materially | Default risk lane here is contract-heavy rather than chaos-heavy |
+| Merge/release gating rule | Wave 1 must land before Wave 2. No story closes until its declared lanes are green and docs/test enforcement is updated in the same PR. `W2-S02` also requires `scripts/test_uat_local.sh --skip-global-gates` evidence. | No docs-only or tests-only cleanup PRs after behavior/copy changes |
 
-## Epic W1: Artifact Consumer Fail-Closed Corrections
+## Epic W1: First-Run Evidence Semantics
 
-Objective: remove the two false-confidence paths in artifact consumers before any broader distribution or docs work.
+Objective: remove the highest-risk expectation gap from first-run report/evidence output without changing core machine-readable compliance contracts.
 
-### Story W1-S01: Respect Explicit Verify Chain Path Over Ambient State Env
-Priority: P0
+### Story W1-S01: Make Sparse-Evidence Compliance Output Explicit and Actionable
+Priority: P1
 Tasks:
-- Add a failing CLI contract test that proves explicit `--path` ignores ambient `WRKR_STATE_PATH` when `--state` is not passed.
-- Refactor verifier-key lookup into an explicit precedence helper:
-  - explicit `--state`
-  - explicit `--path`
-  - resolved default state path
-- Keep `core/verify` as the authoritative verifier and preserve current success/failure JSON keys.
-- Update verify command and trust docs to state that explicit path lookup is authoritative unless `--state` is also provided.
-- Re-run deterministic verify contract and e2e checks.
+- Add failing tests that capture the intended first-run wording when bundled frameworks are present but `finding_count` / `mapped_finding_count` are zero or sparse.
+- Refine `compliance.ExplainRollupSummary` so human-readable output distinguishes:
+  - framework support exists
+  - current evidence is sparse or gap-heavy
+  - next operator action is remediation/rescan, not “enable support”
+- Update report headline/audit summary section assembly so the first-screen report facts reinforce evidence-state semantics rather than unsupported-sounding language.
+- Keep `compliance_summary` stable. If implementation needs extra explanatory data, add it only as an optional additive field in report/evidence summary payloads.
+- Update `docs/commands/report.md`, `docs/commands/evidence.md`, and `docs/examples/operator-playbooks.md` to mirror the exact runtime semantics and operator actions.
+- If audit markdown artifact text changes, update report markdown tests/goldens in the same story.
 Repo paths:
-- `core/cli/verify.go`
-- `core/cli/root_test.go`
-- `core/verify/verify_test.go`
-- `docs/commands/verify.md`
-- `docs/trust/proof-chain-verification.md`
-Run commands:
-- `go test ./core/cli ./core/verify -count=1`
-- `go test ./internal/e2e/verify -count=1`
-- `make test-contracts`
-- `scripts/check_docs_cli_parity.sh`
-- `scripts/check_docs_consistency.sh`
-- `make prepush-full`
-- `make test-hardening`
-- `make test-chaos`
-Test requirements:
-- CLI `--json` stability tests with and without ambient `WRKR_STATE_PATH`
-- exit-code contract checks for success, missing `--chain`, and invalid verifier-key material
-- machine-readable envelope tests for `verification_failure` and `invalid_input`
-- deterministic repeat-run test confirming path precedence does not alter stable output unexpectedly
-- docs parity and docs consistency checks for verify/trust docs
-Matrix wiring:
-- Fast lane: `go test ./core/cli ./core/verify -count=1`, `make lint-fast`, `make test-contracts`
-- Core CI lane: `make prepush-full`
-- Acceptance lane: `go test ./internal/e2e/verify -count=1`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make test-hardening`, `make test-chaos`
-Acceptance criteria:
-- Explicit `--path` verification yields the same `verification_mode` and `authenticity_status` regardless of ambient `WRKR_STATE_PATH` when `--state` is omitted.
-- Explicit `--state` continues to take precedence.
-- Success and failure JSON envelopes remain backward-compatible.
-- Updated docs describe the implemented precedence exactly.
-Contract/API impact:
-- Clarifies existing `verify` lookup precedence without adding flags, keys, or exit codes.
-Versioning/migration impact:
-- No schema change, no version bump, no migration path required.
-Architecture constraints:
-- Keep CLI as thin orchestration only.
-- Keep proof verification and authenticity logic authoritative in `core/verify`.
-- Do not let ambient env override more-specific explicit CLI input.
-- Preserve offline deterministic behavior.
-ADR required: no
-TDD first failing test(s):
-- `core/cli/root_test.go`: `TestVerifyExplicitChainPathIgnoresAmbientWRKRStatePath`
-- `core/cli/root_test.go`: `TestVerifyExplicitStateStillOverridesAmbientWRKRStatePath`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Fault: ambient `WRKR_STATE_PATH` points to missing or unrelated signing material while the user passes an explicit chain path.
-- Expected: verification still loads the key material associated with the explicit chain path and preserves authenticated results or existing stable failure envelopes.
-
-### Story W1-S02: Fail Closed On Degraded Campaign Scan Artifacts
-Priority: P0
-Tasks:
-- Add failing CLI and e2e tests for campaign inputs where `partial_result`, `source_degraded`, or `source_errors` are present.
-- Extend artifact validation in `campaign aggregate` so `status=ok` is necessary but not sufficient.
-- Reject degraded or partial scan artifacts with stable `invalid_input` output that names the offending artifact and reason markers.
-- Keep successful campaign output and `schemas/v1/report/campaign-summary.schema.json` unchanged for complete artifacts.
-- Update campaign docs and cross-link scan docs so upstream completeness requirements are explicit.
-Repo paths:
-- `core/cli/campaign.go`
-- `core/cli/campaign_test.go`
-- `internal/e2e/campaign/campaign_e2e_test.go`
-- `docs/commands/campaign.md`
-- `docs/commands/scan.md`
-Run commands:
-- `go test ./core/cli -count=1`
-- `go test ./internal/e2e/campaign -count=1`
-- `make test-contracts`
-- `scripts/check_docs_cli_parity.sh`
-- `scripts/check_docs_consistency.sh`
-- `make prepush-full`
-- `make test-hardening`
-- `make test-chaos`
-Test requirements:
-- deterministic fail-closed fixtures for `partial_result`, `source_degraded`, and `source_errors`
-- CLI `invalid_input` envelope tests with stable exit `6`
-- happy-path regression tests proving complete artifacts still aggregate unchanged
-- contract check that campaign summary schema and required success fields stay stable
-- docs consistency and CLI parity checks
-Matrix wiring:
-- Fast lane: `go test ./core/cli -count=1`, `make lint-fast`, `make test-contracts`
-- Core CI lane: `make prepush-full`
-- Acceptance lane: `go test ./internal/e2e/campaign -count=1`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make test-hardening`, `make test-chaos`
-Acceptance criteria:
-- `campaign aggregate` exits `6` with a stable `invalid_input` envelope when any matched artifact is degraded or partial.
-- Complete scan artifacts continue to aggregate with the same success payload shape and schema version.
-- Docs explicitly say campaign aggregation consumes complete `scan --json` artifacts only.
-Contract/API impact:
-- Narrows campaign input acceptance to complete artifacts while keeping success output stable.
-Versioning/migration impact:
-- No schema bump planned and no migration path required for complete-artifact consumers.
-Architecture constraints:
-- Validate at the CLI/artifact boundary, not in downstream rendering or docs alone.
-- Do not introduce a permissive degraded-success mode in this wave.
-- Preserve deterministic input ordering and stable error classes.
-ADR required: no
-TDD first failing test(s):
-- `core/cli/campaign_test.go`: `TestCampaignAggregateRejectsPartialResultArtifact`
-- `core/cli/campaign_test.go`: `TestCampaignAggregateRejectsDegradedArtifact`
-- `internal/e2e/campaign/campaign_e2e_test.go`: degraded scan fixture rejected with exit `6`
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Fault: matched scan artifact is syntactically valid JSON but semantically incomplete because source acquisition partially failed.
-- Expected: `campaign aggregate` rejects the artifact deterministically rather than producing a false-green summary.
-
-## Epic W2: Atomic Evidence Bundle Commit
-
-Objective: make evidence output crash-safe and operator-trustworthy by publishing only complete verified bundles.
-
-### Story W2-S01: Stage And Atomically Publish Evidence Bundles
-Priority: P0
-Tasks:
-- Add failing tests that prove:
-  - invalid late-stage builds do not leave partial target bundles
-  - a prior valid managed bundle survives a failed rerun intact
-- Introduce same-parent managed staging flow for `wrkr evidence`:
-  - validate target ownership and marker trust without clearing the target in place
-  - create a stage dir beside the target
-  - write all bundle files to the stage dir
-  - build manifest, sign bundle, and verify bundle in the stage dir
-  - swap stage into the final target only after full success
-  - clean stage and backup dirs deterministically on success and best-effort on failure
-- Keep side-effect semantics explicit in helper names and signatures.
-- Preserve existing error classes and managed-marker trust rules.
-- Update evidence and lifecycle docs so managed bundle publication semantics are explicit and auditable.
-Repo paths:
-- `core/evidence/evidence.go`
-- `core/evidence/stage.go`
-- `core/evidence/evidence_test.go`
-- `core/cli/root_test.go`
-- `testinfra/contracts/story7_contracts_test.go`
+- `core/compliance/summary.go`
+- `core/report/build.go`
+- `core/report/report_test.go`
+- `core/cli/wave3_compliance_test.go`
+- `internal/scenarios/wave3_compliance_scenario_test.go`
+- `docs/commands/report.md`
 - `docs/commands/evidence.md`
-- `docs/state_lifecycle.md`
-- `internal/atomicwrite/atomicwrite.go` only if a reusable swap helper is intentionally extracted there
+- `docs/examples/operator-playbooks.md`
 Run commands:
-- `go test ./core/evidence ./core/cli -count=1`
-- `go test ./testinfra/contracts -count=1`
+- `go test ./core/compliance ./core/report ./core/cli -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
 - `make test-contracts`
 - `scripts/check_docs_cli_parity.sh`
+- `scripts/check_docs_storyline.sh`
 - `scripts/check_docs_consistency.sh`
 - `make prepush-full`
-- `make test-hardening`
-- `make test-chaos`
-- `make test-perf`
 Test requirements:
-- keep existing non-empty unmanaged dir and marker trust tests green
-- add crash-safe publish tests for invalid framework and injected late failure paths
-- add preservation tests showing an earlier valid managed bundle remains intact after failed rerun
-- add any required contention tests if new staging helpers coordinate shared paths
-- run byte-stability repeat-run tests for successful bundles
-- verify digest and bundle verification determinism after staged publish
-- run docs parity and lifecycle consistency checks
+- report/compliance unit tests for sparse-evidence explanation wording
+- `--json` stability tests proving existing `compliance_summary` keys remain intact
+- scenario/acceptance checks confirming scan/report compliance summaries stay aligned
+- markdown/report artifact golden updates if wording changes
+- docs parity and storyline checks
 Matrix wiring:
-- Fast lane: `go test ./core/evidence ./core/cli -count=1`, `make lint-fast`, `make test-contracts`
-- Core CI lane: `make prepush-full`
-- Acceptance lane: `go test ./testinfra/contracts -count=1`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make test-hardening`, `make test-chaos`, `make test-perf`
+- Fast lane
+- Core CI lane
+- Acceptance lane
+- Risk lane (`make test-contracts`)
 Acceptance criteria:
-- Failed evidence builds never expose partial new bundle contents at the final target path.
-- If the target already contains a valid managed bundle, a later failed build leaves that prior bundle intact.
-- Successful builds still emit the documented files and JSON success envelope unchanged.
-- Managed marker rules, output ownership safety, and error-class mapping remain intact.
-- Docs describe staged publish semantics accurately.
+- Human-readable report/evidence/compliance explanation no longer says or implies that bundled framework support is absent when sparse evidence is the real condition.
+- Existing machine-readable `compliance_summary` and `framework_coverage` keys remain stable.
+- Report markdown/PDF and `--explain` output present deterministic next-action guidance for low/zero coverage.
+- Updated docs use the same semantics as generated runtime output.
 Contract/API impact:
-- Strengthens managed output publication semantics while leaving CLI success/failure envelope fields unchanged.
+- Existing JSON keys and exit codes remain stable.
+- Any new explanatory field must be additive and optional only.
 Versioning/migration impact:
-- No schema or CLI version bump planned.
+- No schema version bump planned.
+- If an additive optional field is introduced, document it in command docs and treat migration as none-required for current consumers.
 Architecture constraints:
-- Keep evidence staging and publish logic inside the evidence/compliance boundary.
-- Use same-parent staging to minimize cross-filesystem rename surprises.
-- Make destructive steps explicit in helper APIs.
-- Preserve fail-closed ownership checks and bundle verification before publish.
-- Ensure cancellation and failure cleanup never mutates unrelated user paths.
-ADR required: yes
+- `core/compliance` remains the authoritative layer for rollup/explanation logic.
+- `core/report` remains the authoritative layer for section assembly and template wording.
+- `core/cli` stays orchestration-only and must not duplicate compliance interpretation logic.
+- Preserve deterministic ordering and byte-stable artifact generation.
+ADR required: no
 TDD first failing test(s):
-- `core/evidence/evidence_test.go`: `TestBuildDoesNotLeavePartialBundleOnInvalidFramework`
-- `core/evidence/evidence_test.go`: `TestBuildPreservesPreviousManagedBundleWhenLateFailureOccurs`
-- `testinfra/contracts/story7_contracts_test.go`: staged publish exposes complete bundle only on success
-Cost/perf impact: medium
+- `core/report/report_test.go` sparse-evidence headline/summary expectation test
+- `core/cli/wave3_compliance_test.go` contract test for stable JSON with any additive explanation field
+- `internal/scenarios/wave3_compliance_scenario_test.go` parity test for scan/report compliance semantics
+Cost/perf impact: low
 Chaos/failure hypothesis:
-- Fault: bundle generation fails after several files are written, or after stage verification but before final swap.
-- Expected: the stage dir is cleaned or quarantined, the final target remains absent or continues to point to the prior good bundle, and no partial managed target bundle is exposed.
+- With a valid scan state that contains bundled frameworks but zero mapped findings, report/evidence still emit deterministic, actionable guidance and never imply missing framework support.
+Dependencies:
+- none
+Risks:
+- Additive explanation work can accidentally widen schema surface; mitigate by keeping changes human-readable-first and locking JSON tests before implementation.
+
+## Epic W2: Launch Funnel and Install Trust Alignment
+
+Objective: align first-screen launch copy and install trust around the chosen security/platform-led wedge while preserving deterministic fallback paths.
+
+### Story W2-S01: Align README and Quickstart Around One Launch Persona With Explicit Fallbacks
+Priority: P2
+Tasks:
+- Rewrite first-screen copy so `README.md`, `docs/examples/quickstart.md`, `docs/positioning.md`, `docs/faq.md`, and `docs/examples/security-team.md` all tell one consistent story:
+  - security/platform org posture first
+  - developer hygiene second
+  - `--path` or `--my-setup` as explicit fallback when hosted prerequisites are unavailable
+- Move hosted prerequisites (`--github-api`, likely token) next to the first org workflow command instead of leaving them as later caveats.
+- Keep deterministic `--json` command anchors and avoid adding hidden backend/setup requirements.
+- Update `docs/contracts/readme_contract.md` and `testinfra/hygiene/wave2_docs_contracts_test.go` so the chosen primary persona and fallback path are enforced automatically.
+- If first-screen wording is duplicated in docs-site or LLM mirrors, update those surfaces in the same PR.
+- Include PLG fields in the implementation PR description:
+  - `First value outcome`
+  - `Time-to-value target`
+  - `Activation signal`
+  - `Repeat usage signal`
+  - `Expansion path`
+  - `Friction removed`
+Repo paths:
+- `README.md`
+- `docs/examples/quickstart.md`
+- `docs/examples/security-team.md`
+- `docs/examples/personal-hygiene.md`
+- `docs/positioning.md`
+- `docs/faq.md`
+- `docs/contracts/readme_contract.md`
+- `testinfra/hygiene/wave2_docs_contracts_test.go`
+- `scripts/check_docs_storyline.sh`
+- `docs-site/src/app/page.tsx`
+- `docs-site/public/llm/quickstart.md`
+Run commands:
+- `go test ./testinfra/hygiene -count=1`
+- `scripts/check_docs_storyline.sh`
+- `scripts/check_docs_consistency.sh`
+- `scripts/check_docs_cli_parity.sh`
+- `scripts/run_docs_smoke.sh`
+- `make docs-site-build`
+- `make docs-site-check`
+Test requirements:
+- README first-screen contract checks
+- docs consistency/storyline checks
+- docs source-of-truth mapping checks when docs-site mirrors change
+- docs-site build/smoke validation if first-screen mirrors are touched
+Matrix wiring:
+- Fast lane
+- Acceptance lane
+- Cross-platform lane (existing docs/install smoke matrix if docs-site/install mirrors are touched)
+Acceptance criteria:
+- README and quickstart both state the primary launch persona explicitly and consistently.
+- Hosted prerequisite guidance appears adjacent to the first hosted org workflow.
+- At least one deterministic fallback path is visible before a user can dead-end on hosted setup.
+- README contract tests fail if persona or fallback discoverability regresses.
+- Any touched docs-site/LLM mirrors stay aligned with the same first-screen story.
+Contract/API impact:
+- Docs and README contract only; no CLI behavior or schema changes planned.
+Versioning/migration impact:
+- None.
+Architecture constraints:
+- Preserve README landing v2 structure unless the contract doc and tests are updated in the same PR.
+- Keep integration-before-internals ordering in onboarding docs.
+- Do not create conflicting first-screen narratives across README, quickstart, and positioning docs.
+ADR required: no
+TDD first failing test(s):
+- `testinfra/hygiene/wave2_docs_contracts_test.go` persona/fallback contract test
+- `scripts/check_docs_storyline.sh` quickstart/flow assertions if tokens change
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- When a user lacks GitHub API/token setup, the first-screen docs still route them to a deterministic fallback instead of a hosted-only dead end.
+Dependencies:
+- `W1-S01` must land first so docs reflect the finalized compliance/report semantics.
+Risks:
+- README and quickstart touch the same trust-sensitive surfaces as install guidance; sequence carefully to avoid conflicting copy churn.
+
+### Story W2-S02: Surface Pinned Install and Version Verification at First Screen
+Priority: P2
+Tasks:
+- Update `README.md` install guidance to show:
+  - Homebrew path
+  - pinned/reproducible Go install
+  - convenience latest path only if retained as clearly secondary
+  - `wrkr version` verification after install
+- Tighten `docs/contracts/readme_contract.md` and `testinfra/hygiene/wave2_docs_contracts_test.go` to require first-screen pinned install discoverability and version verification, not just deep-doc presence.
+- Keep `docs/install/minimal-dependencies.md` as the canonical pinned install contract and align any wording or examples needed there.
+- Update `docs/trust/release-integrity.md` and any docs-site install mirrors if the first-screen install contract changes.
+- Validate the published install path with local release UAT and an explicit `wrkr version --json` smoke command.
+- Include PLG fields in the implementation PR description:
+  - `First value outcome`
+  - `Time-to-value target`
+  - `Activation signal`
+  - `Repeat usage signal`
+  - `Expansion path`
+  - `Friction removed`
+Repo paths:
+- `README.md`
+- `docs/install/minimal-dependencies.md`
+- `docs/trust/release-integrity.md`
+- `docs/contracts/readme_contract.md`
+- `testinfra/hygiene/wave2_docs_contracts_test.go`
+- `docs-site/src/app/page.tsx`
+- `docs-site/public/llm/quickstart.md`
+Run commands:
+- `go build -o .tmp/wrkr ./cmd/wrkr`
+- `./.tmp/wrkr version --json`
+- `go test ./testinfra/hygiene -count=1`
+- `scripts/check_docs_consistency.sh`
+- `scripts/check_docs_storyline.sh`
+- `scripts/test_uat_local.sh --skip-global-gates`
+- `make docs-site-build`
+- `make docs-site-check`
+Test requirements:
+- version/install discoverability checks
+- README/install contract tests
+- docs consistency checks
+- local UAT validation for published install path
+- docs-site build/smoke if first-screen install mirrors are touched
+Matrix wiring:
+- Fast lane
+- Acceptance lane
+- Cross-platform lane
+Acceptance criteria:
+- README install section visibly includes a pinned/reproducible path and `wrkr version` verification.
+- If `@latest` remains, it is clearly secondary and contract-consistent with install docs.
+- Hygiene tests fail when first-screen pinned install or version verification discoverability regresses.
+- Local UAT install smoke passes with the updated install guidance.
+Contract/API impact:
+- Install/onboarding contract only; no CLI behavior change planned.
+Versioning/migration impact:
+- None.
+Architecture constraints:
+- `docs/install/minimal-dependencies.md` remains the canonical install authority.
+- Do not introduce conflicting pinned versions across README, install docs, and release-integrity docs.
+- Keep install commands deterministic and free of hidden helper dependencies.
+ADR required: no
+TDD first failing test(s):
+- `testinfra/hygiene/wave2_docs_contracts_test.go` install/version discoverability test
+- install-doc smoke assertions in docs consistency or UAT validation if needed
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- If latest-tag lookup becomes unavailable or undesirable for a buyer, first-screen docs still provide a deterministic pinned install path and local version verification.
+Dependencies:
+- `W2-S01` first, because both stories touch README contract surfaces and should not fork the first-screen narrative.
+Risks:
+- README contract tests currently encode landing-v2 latest-path assumptions; update tests and docs atomically to avoid temporary contract drift.
 
 ## Minimum-Now Sequence
 
-Wave 1:
-- `W1-S01` Respect explicit verify chain path precedence
-- `W1-S02` Reject degraded campaign scan artifacts
-- Exit wave only when verify and campaign docs/tests/contracts are all green in the same branch.
-
-Wave 2:
-- `W2-S01` Stage and atomically publish evidence bundles
-- Exit wave only when failure-injection tests prove prior bundle preservation or empty-target safety and docs reflect the new publish semantics.
-
-Dependency order rationale:
-
-- `W1-S01` and `W1-S02` are the smallest, highest-signal contract corrections and remove immediate false-confidence paths for proof verification and org rollups.
-- `W2-S01` is more invasive because it changes managed output publication semantics and requires staged filesystem behavior, hardening coverage, and likely an ADR.
-- Docs and contract updates remain coupled to each story rather than deferred to a later documentation-only wave.
+1. Wave 1: implement `W1-S01` and freeze the final first-run compliance/report semantics.
+2. Wave 2A: implement `W2-S01` after Wave 1 so the first-screen story matches the shipped runtime semantics.
+3. Wave 2B: implement `W2-S02` after `W2-S01` because both stories touch `README.md`, README contract tests, and possibly docs-site first-screen mirrors.
+4. Run full validation after each wave integration:
+   - Wave 1: runtime/report/docs contract lanes
+   - Wave 2: docs/onboarding/install/UAT lanes
+5. Only start `adhoc-implement` from a fresh branch after confirming the only expected dirty file from this planning turn is `product/PLAN_NEXT.md`.
 
 ## Explicit Non-Goals
 
-- No new CLI commands or flags.
-- No new exit codes.
-- No change to `scan` acquisition behavior beyond clarifying its existing degraded artifact fields where needed.
-- No permissive degraded-success campaign mode in this plan.
-- No changes to `Clyra-AI/proof` APIs, proof-record types, or chain schema.
-- No dashboard, docs-site UI, or packaging work.
-- No unrelated release workflow or CI modernization work.
+- No change to detector coverage, risk scoring, or compliance framework definitions.
+- No dashboard, hosted control plane, or browser-first onboarding redesign.
+- No new network dependency in default scan/report/evidence flows.
+- No change to proof record formats, chain semantics, or exit-code taxonomy.
+- No cross-repo toolchain or dependency pin remediation in this plan.
+- No docs-site visual redesign beyond mirror updates required to keep first-screen messaging/install contract aligned.
 
 ## Definition of Done
 
-- Every review recommendation maps to a completed story with passing tests and updated docs.
-- TDD evidence exists for each story through newly added or updated failing-first tests.
-- CLI `--json` behavior and exit-code contracts remain stable for successful paths and documented failure classes.
-- Campaign aggregation is fail-closed for degraded upstream artifacts.
-- Evidence output publication is staged and failure-safe at the final target path.
-- Docs parity and consistency checks pass in the same PR as code changes.
-- Required fast, core, acceptance, cross-platform, and risk lanes are green for each story.
-- Worktree after implementation is scoped to the planned files and any deliberate additive helper/ADR files only.
+- All three launch risks are mapped to implemented stories with deterministic acceptance criteria.
+- First-run compliance/report wording is no longer ambiguous about sparse evidence versus missing support.
+- README, quickstart, positioning, FAQ, and security-team docs are aligned on one primary launch persona and explicit fallback path.
+- README install section surfaces pinned install trust and version verification without conflicting with canonical install docs.
+- Docs/test enforcement is updated in the same PRs so persona/fallback/install trust regressions are caught automatically.
+- Relevant lanes are green for each story, including `make prepush-full` for Wave 1 and local install UAT for `W2-S02`.
+- No unexpected dirty files remain beyond the generated planning artifact before handoff to implementation.

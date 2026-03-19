@@ -2,7 +2,7 @@
 
 This page is the install contract source for environments that only have Go and standard shell tooling.
 
-The main README landing page may show a convenience `@latest` install path. This page remains the pinned and reproducible install contract for CI, release validation, and support.
+The main README landing page surfaces Homebrew, the pinned Go install path below, and `wrkr version --json` verification. If README keeps a convenience `@latest` path, it must remain explicitly secondary. This page remains the pinned and reproducible install contract for CI, release validation, and support.
 
 ## Go-only pinned install
 
@@ -29,9 +29,15 @@ This path uses `curl`, `sed`, and `head` only.
 brew install Clyra-AI/tap/wrkr
 ```
 
+## Verify the installed CLI
+
+```bash
+wrkr version --json
+```
+
 ## Release-smoke validation commands
 
-Install commands above are validated by release UAT:
+Install commands above are validated by release UAT together with the public `wrkr version --json` verification step:
 
 ```bash
 scripts/test_uat_local.sh --skip-global-gates
