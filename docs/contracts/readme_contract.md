@@ -59,15 +59,16 @@ Required sections:
 Section requirements:
 
 - Install
-  - Include Homebrew and Go install paths.
-  - README may use a convenience `@latest` Go install path.
+  - Include Homebrew and a pinned/reproducible Go install path on the first screen.
+  - Include `wrkr version` verification on the first screen.
+  - README may keep a convenience `@latest` Go install path only if it is explicitly secondary to the pinned path.
   - Pinned/reproducible install guidance must remain canonical in `docs/install/minimal-dependencies.md`.
 - Start Here
   - Make the current launch persona explicit at the top of the section.
-  - Variant B may foreground either:
-    - a security/platform-led org posture workflow, or
-    - a developer-machine workflow
-    as long as the README, quickstart, and homepage agree.
+  - For the current Wrkr launch, foreground the security/platform-led org posture workflow.
+  - Keep developer-machine hygiene as the secondary path.
+  - Place hosted prerequisites (`--github-api` and token guidance) adjacent to the first hosted org workflow.
+  - Include explicit deterministic fallback commands before hosted setup can dead-end (`wrkr scan --path` and/or `wrkr scan --my-setup`).
   - Include `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff`.
   - Include `wrkr scan --github-org`, `wrkr evidence`, and `wrkr verify` when security/platform-led launch copy is used.
   - Keep deterministic `--json` command anchors.
@@ -95,6 +96,7 @@ Section requirements:
 Run:
 
 ```bash
+go test ./testinfra/hygiene -count=1
 make test-docs-consistency
 make test-docs-storyline
 ```

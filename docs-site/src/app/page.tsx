@@ -5,16 +5,20 @@ import { canonicalUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Wrkr | Know Your AI Tooling Posture',
   description:
-    'Know what AI tools, agents, and MCP servers are configured in your org before they become unreviewed access, with a deterministic local-machine hygiene path available when needed.',
+    'Know what AI tools, agents, and MCP servers are configured in your org before they become unreviewed access, with deterministic repo-local and local-machine fallback paths when hosted setup is not ready yet.',
   alternates: {
     canonical: canonicalUrl('/'),
   },
 };
 
 const QUICKSTART = `# Security and platform teams: start with org posture
+# Hosted prerequisites: set --github-api and usually a GitHub token for private repos or rate limits
 wrkr scan --github-org acme --github-api https://api.github.com --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
+
+# If hosted prerequisites are not ready yet, use a deterministic fallback
+wrkr scan --path ./your-repo --json
 
 # Developers: use the secondary local-machine hygiene path
 wrkr scan --my-setup --json
@@ -133,7 +137,7 @@ export default function HomePage() {
           Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps a deterministic local-machine hygiene path available for developers.
         </p>
         <p className="text-base text-gray-500 max-w-3xl mx-auto mb-8">
-          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI. Start with org posture and evidence; use the local-machine path when you want a secondary self-serve hygiene check.
+          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI. Start with org posture and evidence when hosted prerequisites are ready; use repo-local or local-machine fallback paths when you need zero-integration first value.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/docs/examples/security-team" className="px-6 py-3 bg-emerald-400 hover:bg-emerald-300 text-gray-950 font-semibold rounded-lg transition-colors">
@@ -147,7 +151,7 @@ export default function HomePage() {
           </Link>
         </div>
         <p className="text-sm text-gray-500 mt-5">
-          Pinned install and release-parity commands live in{' '}
+          Homebrew, pinned Go install, optional secondary `@latest`, and `wrkr version --json` verification live in{' '}
           <Link href="/docs/start-here#install" className="text-cyan-300 hover:text-cyan-200">
             Start Here install
           </Link>

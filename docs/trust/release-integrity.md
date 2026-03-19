@@ -44,7 +44,7 @@ If a release-path helper still lacks a published Node24-ready upstream release, 
 
 Run install-path UAT locally before cutting a release tag:
 
-`README.md` may use a convenience install path for landing-page onboarding. Treat this page plus `docs/install/minimal-dependencies.md` as the authoritative pinned install and release-parity contract.
+Treat `README.md`, this page, and `docs/install/minimal-dependencies.md` as the shared install and release-parity contract: Homebrew, pinned Go install, `wrkr version --json` verification, and optional secondary `@latest` convenience guidance.
 
 ```bash
 # Full local gate set + source/release/homebrew-path checks
@@ -55,6 +55,12 @@ scripts/test_uat_local.sh --skip-global-gates
 
 # Validate exact public install commands (brew + pinned go install) for a published tag
 scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr
+```
+
+After any public install path, verify the installed CLI deterministically:
+
+```bash
+wrkr version --json
 ```
 
 ## Operational note

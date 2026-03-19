@@ -22,7 +22,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 - Deterministic AI tooling posture scanner.
 - Command-first evidence and regress gate source.
 - Static discovery engine for repo/config/CI posture surfaces.
-- Minimum-now public launch path through hosted org posture and evidence flows; local `--my-setup` and `--path` scans remain available for zero-integration hygiene and repo-local inspection.
+- Minimum-now public launch path through hosted org posture and evidence flows; when hosted prerequisites are unavailable, local `--path` and `--my-setup` scans remain the explicit zero-integration fallback.
 - Thin browser bootstrap at `/scan/` for optional read-only org scan handoff and summary projection when teams explicitly want a secondary browser handoff.
 
 ## What Wrkr Is Not
@@ -37,7 +37,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 ## Persona Fit
 
 - Security/platform team: start with `wrkr scan --github-org`, `wrkr evidence`, `wrkr verify`, and optional `wrkr report` / `wrkr mcp-list` for org posture and compliance-ready handoff.
-- Developer: use `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff` when you want personal machine hygiene and local drift review.
+- Developer: use `wrkr scan --path`, `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff` when you want repo-local or machine-local hygiene before moving to the hosted org flow.
 - Buyer: CISO / VP Engineering
 - Consumer: CI pipelines and audit workflows
 
@@ -48,6 +48,8 @@ wrkr scan --github-org acme --github-api https://api.github.com --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --json
 wrkr verify --chain --json
 ```
+
+If hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` and return to the org posture flow once GitHub access is configured.
 
 Low first-run `framework_coverage` is an evidence-state signal, not a parser failure. Wrkr measures what is currently documented in the scanned state.
 

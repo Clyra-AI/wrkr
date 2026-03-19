@@ -89,8 +89,12 @@ func TestExplainRollupSummaryUsesStableHumanText(t *testing.T) {
 	lines := ExplainRollupSummary(RollupSummary{
 		Frameworks: []FrameworkRollup{
 			{
-				FrameworkID: "soc2",
-				Title:       "SOC2",
+				FrameworkID:        "soc2",
+				Title:              "SOC2",
+				ControlCount:       2,
+				CoveredCount:       2,
+				CoveragePercent:    100,
+				MappedFindingCount: 2,
 				Controls: []ControlRollup{
 					{ControlID: "cc6", Title: "Logical Access", FindingCount: 2},
 					{ControlID: "cc7", Title: "Operations", FindingCount: 0},
@@ -100,6 +104,59 @@ func TestExplainRollupSummaryUsesStableHumanText(t *testing.T) {
 	}, 5)
 
 	expected := []string{"2 findings map to SOC2 CC6 (Logical Access)"}
+	if !reflect.DeepEqual(lines, expected) {
+		t.Fatalf("unexpected explain lines\nwant=%v\ngot=%v", expected, lines)
+	}
+}
+
+func TestExplainRollupSummaryClarifiesBundledSupportWhenMappingsAreZero(t *testing.T) {
+	t.Parallel()
+
+	lines := ExplainRollupSummary(RollupSummary{
+		Frameworks: []FrameworkRollup{
+			{
+				FrameworkID:        "soc2",
+				Title:              "SOC 2 AI Controls",
+				ControlCount:       3,
+				CoveredCount:       1,
+				CoveragePercent:    33.33,
+				MappedFindingCount: 0,
+			},
+		},
+	}, 5)
+
+	expected := []string{
+		"bundled framework mappings are available; current findings do not map to bundled compliance controls yet",
+		"coverage still reflects only controls evidenced in the current scan state; remediate gaps, rescan, and regenerate report/evidence artifacts",
+	}
+	if !reflect.DeepEqual(lines, expected) {
+		t.Fatalf("unexpected explain lines\nwant=%v\ngot=%v", expected, lines)
+	}
+}
+
+func TestExplainRollupSummaryAddsEvidenceGapGuidanceWhenCoverageIsLow(t *testing.T) {
+	t.Parallel()
+
+	lines := ExplainRollupSummary(RollupSummary{
+		Frameworks: []FrameworkRollup{
+			{
+				FrameworkID:        "soc2",
+				Title:              "SOC2",
+				ControlCount:       3,
+				CoveredCount:       1,
+				CoveragePercent:    33.33,
+				MappedFindingCount: 2,
+				Controls: []ControlRollup{
+					{ControlID: "cc6", Title: "Logical Access", FindingCount: 2},
+				},
+			},
+		},
+	}, 5)
+
+	expected := []string{
+		"2 findings map to SOC2 CC6 (Logical Access)",
+		"coverage still reflects only controls evidenced in the current scan state; remediate gaps, rescan, and regenerate report/evidence artifacts",
+	}
 	if !reflect.DeepEqual(lines, expected) {
 		t.Fatalf("unexpected explain lines\nwant=%v\ngot=%v", expected, lines)
 	}

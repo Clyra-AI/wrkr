@@ -4,14 +4,18 @@ Use this workflow when platform or security teams need the recommended minimum-n
 
 ## Exact commands
 
+Hosted prerequisites for this path:
+
+- pass `--github-api https://api.github.com` (or set `WRKR_GITHUB_API_BASE`)
+- provide a GitHub token for private repos or to avoid public API rate limits
+- token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`
+- if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first and return to this flow when GitHub access is configured
+
 ```bash
 wrkr scan --github-org acme --github-api https://api.github.com --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
-
-Hosted repo/org scans typically need GitHub authentication for private repos or to avoid public API rate limits.
-Token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 
 Optional deeper triage after the saved state exists:
 

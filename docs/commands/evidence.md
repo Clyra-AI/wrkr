@@ -38,14 +38,15 @@ Evidence output directories are fail-closed:
 
 - Coverage percent is an evidence-state signal, not a scanner capability claim.
 - Low/0% means controls are currently undocumented or missing in collected evidence.
-- Low coverage should trigger remediation work, then another deterministic scan/evidence run.
+- Low coverage should trigger remediation work, then another deterministic scan/evidence/report run.
+- Generated report artifacts use the same sparse-evidence wording as the human-readable `wrkr report` path: bundled framework mappings remain available even when current findings do not map to bundled controls yet.
 
 Recommended operator actions when coverage is low:
 
 1. Run `wrkr scan --json` against the intended scope and confirm findings were produced.
 2. Review prioritized risk/control gaps with `wrkr report --json`.
 3. Implement/remediate missing controls and approvals.
-4. Re-run `wrkr scan --json` and `wrkr evidence --frameworks ... --json` to measure updated evidence state.
+4. Re-run `wrkr scan --json`, `wrkr evidence --frameworks ... --json`, and `wrkr report --json` to measure updated evidence state.
 
 ## Example
 

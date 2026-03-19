@@ -13,6 +13,9 @@ func TestInstallDocsSmokeGoOnlyPath(t *testing.T) {
 	repoRoot := mustFindRepoRoot(t)
 	readme := mustReadFile(t, filepath.Join(repoRoot, "README.md"))
 	installDoc := mustReadFile(t, filepath.Join(repoRoot, "docs/install/minimal-dependencies.md"))
+	releaseIntegrity := mustReadFile(t, filepath.Join(repoRoot, "docs/trust/release-integrity.md"))
+	pinnedInstall := "go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"${WRKR_VERSION}\""
+	latestInstall := "go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest"
 
 	for _, forbidden := range []string{
 		"gh release view",
@@ -24,14 +27,29 @@ func TestInstallDocsSmokeGoOnlyPath(t *testing.T) {
 	}
 
 	if usesReadmeLandingV2(readme) {
-		if !strings.Contains(readme, "go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest") {
-			t.Fatal("landing README missing latest go install path")
+		for _, required := range []string{
+			"brew install Clyra-AI/tap/wrkr",
+			pinnedInstall,
+			"wrkr version --json",
+		} {
+			if !strings.Contains(readme, required) {
+				t.Fatalf("landing README missing install requirement %q", required)
+			}
+		}
+		if strings.Contains(readme, latestInstall) {
+			if !strings.Contains(readme, "Secondary convenience latest path") {
+				t.Fatal("landing README latest install path must be explicitly secondary")
+			}
+			if strings.Index(readme, pinnedInstall) > strings.Index(readme, latestInstall) {
+				t.Fatal("landing README pinned install path must appear before latest install path")
+			}
 		}
 	} else {
 		for _, required := range []string{
-			"go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"${WRKR_VERSION}\"",
+			pinnedInstall,
 			"curl -fsSL https://api.github.com/repos/Clyra-AI/wrkr/releases/latest",
 			"sed -nE",
+			"wrkr version --json",
 		} {
 			if !strings.Contains(readme, required) {
 				t.Fatalf("README missing install requirement %q", required)
@@ -41,12 +59,90 @@ func TestInstallDocsSmokeGoOnlyPath(t *testing.T) {
 
 	for _, required := range []string{
 		"Go-only pinned install",
-		"go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"${WRKR_VERSION}\"",
+		pinnedInstall,
 		"curl -fsSL https://api.github.com/repos/Clyra-AI/wrkr/releases/latest",
 		"sed -nE",
+		"wrkr version --json",
 	} {
 		if !strings.Contains(installDoc, required) {
 			t.Fatalf("install docs missing %q", required)
+		}
+	}
+	if !strings.Contains(releaseIntegrity, "wrkr version --json") {
+		t.Fatal("release integrity docs missing install verification command")
+	}
+}
+
+func TestLandingReadmeStartHerePersonaAndFallback(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	readme := mustReadFile(t, filepath.Join(repoRoot, "README.md"))
+	quickstart := mustReadFile(t, filepath.Join(repoRoot, "docs/examples/quickstart.md"))
+	securityTeam := mustReadFile(t, filepath.Join(repoRoot, "docs/examples/security-team.md"))
+	personalHygiene := mustReadFile(t, filepath.Join(repoRoot, "docs/examples/personal-hygiene.md"))
+
+	if !usesReadmeLandingV2(readme) {
+		return
+	}
+
+	for _, required := range []string{
+		"### Security Teams (Recommended first path)",
+		"Hosted prerequisites for this path:",
+		"`--github-api https://api.github.com`",
+		"If hosted prerequisites are not ready yet, start with one of these deterministic fallback paths:",
+		"wrkr scan --path ./your-repo --json",
+		"wrkr scan --my-setup --json",
+		"### Developers (Secondary local hygiene)",
+	} {
+		if !strings.Contains(readme, required) {
+			t.Fatalf("landing README missing persona/fallback requirement %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		"Hosted prerequisites for this path:",
+		"## If hosted prerequisites are not ready yet",
+		"wrkr scan --path ./your-repo --json",
+		"wrkr scan --my-setup --json",
+	} {
+		if !strings.Contains(quickstart, required) {
+			t.Fatalf("quickstart missing persona/fallback requirement %q", required)
+		}
+	}
+
+	if !strings.Contains(securityTeam, "if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first") {
+		t.Fatal("security-team workflow missing explicit hosted-prerequisite fallback")
+	}
+	if !strings.Contains(personalHygiene, "secondary fallback when the hosted org posture prerequisites are not ready yet") {
+		t.Fatal("personal-hygiene doc missing fallback positioning")
+	}
+}
+
+func TestDocsSiteQuickstartMirrorInstallAndFallback(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	homepage := mustReadFile(t, filepath.Join(repoRoot, "docs-site/src/app/page.tsx"))
+	quickstart := mustReadFile(t, filepath.Join(repoRoot, "docs-site/public/llm/quickstart.md"))
+
+	for _, required := range []string{
+		"wrkr scan --path ./your-repo --json",
+		"wrkr scan --my-setup --json",
+	} {
+		if !strings.Contains(homepage, required) {
+			t.Fatalf("docs-site homepage missing fallback requirement %q", required)
+		}
+	}
+	for _, required := range []string{
+		"brew install Clyra-AI/tap/wrkr",
+		"go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"${WRKR_VERSION}\"",
+		"wrkr version --json",
+		"wrkr scan --path ./your-repo --json",
+		"wrkr scan --my-setup --json",
+	} {
+		if !strings.Contains(quickstart, required) {
+			t.Fatalf("docs-site llm quickstart missing mirrored requirement %q", required)
 		}
 	}
 }

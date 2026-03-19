@@ -16,21 +16,55 @@ Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command refe
 brew install Clyra-AI/tap/wrkr
 ```
 
-### Go install
+### Go install (Pinned/reproducible)
 
+```bash
+WRKR_VERSION="v1.0.0"
+go install github.com/Clyra-AI/wrkr/cmd/wrkr@"${WRKR_VERSION}"
+```
+
+### Go install (Secondary convenience latest path)
 
 ```bash
 go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest
-
 ```
+
+### Verify the installed CLI
+
+```bash
+wrkr version --json
+```
+
+Canonical pinned install and release-parity guidance lives in [`docs/install/minimal-dependencies.md`](docs/install/minimal-dependencies.md).
 
 ## Start Here
 
-Recommended minimum-now public path: start with the security/platform workflow below when you need org posture and evidence. The developer-machine path remains available as a secondary self-serve hygiene flow.
+Security/platform-led launch path: start with the org posture workflow below when you want shared inventory, ranked risk, and compliance-ready evidence. If the hosted prerequisites are not ready yet, use the deterministic fallback paths below before returning to the org flow.
+
+### Security Teams (Recommended first path)
+
+Hosted prerequisites for this path:
+
+- pass `--github-api https://api.github.com` (or set `WRKR_GITHUB_API_BASE`)
+- provide a GitHub token for private repos or to avoid public API rate limits
+- token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`
+
+```bash
+wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json
+```
+
+If hosted prerequisites are not ready yet, start with one of these deterministic fallback paths:
+
+```bash
+wrkr scan --path ./your-repo --json
+wrkr scan --my-setup --json
+```
 
 ### Developers (Secondary local hygiene)
 
-Start with your own machine.
+Use this secondary flow when you want local machine hygiene first or when the hosted org posture prerequisites are not ready yet.
 
 ```bash
 wrkr scan --my-setup --json
@@ -137,17 +171,6 @@ Abbreviated `mcp-list` example:
 ```
 
 Wrkr is not a vulnerability scanner. It inventories what is configured and what it can touch. Use dedicated tools such as Snyk for package and server vulnerability assessment.
-
-### Security Teams (Recommended first path)
-
-Start here when you need organization-wide posture, ranked risks, and compliance-ready proof artifacts.
-
-```bash
-wrkr scan --github-org acme --github-api https://api.github.com --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
-```
-
-Hosted scans usually need GitHub authentication for private repos and to avoid public API rate limits.
 
 Abbreviated org-scan example:
 
