@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -165,8 +164,4 @@ func stageDirGlob(targetDir string) string {
 func backupDirPrefix(targetDir string) string {
 	cleanTarget := filepath.Clean(targetDir)
 	return filepath.Join(filepath.Dir(cleanTarget), "."+filepath.Base(cleanTarget)+".backup-")
-}
-
-func backupDirMatches(targetDir string, candidate string) bool {
-	return strings.HasPrefix(filepath.Clean(candidate), backupDirPrefix(targetDir))
 }
