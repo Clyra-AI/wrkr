@@ -31,6 +31,8 @@ wrkr verify --chain --state ./.tmp/state.json --json
 
 Proof verification is local and deterministic. Wrkr now always performs structural chain verification even when attestation or signature material verifies successfully.
 If no verifier key exists, success remains possible only with explicit structural-only JSON status (`chain.verification_mode = chain_only`, `chain.authenticity_status = unavailable`).
+When `--path` is passed without `--state`, Wrkr resolves verifier material beside that explicit chain path; ambient `WRKR_STATE_PATH` does not override it.
+When `--state` is also passed, verifier lookup stays anchored to the explicit state directory.
 Verification failures are blocking contract signals.
 
 ## Q&A

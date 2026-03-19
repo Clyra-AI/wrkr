@@ -330,6 +330,64 @@ func TestStory7EvidenceManifestExcludesOwnershipMarker(t *testing.T) {
 	}
 }
 
+func TestStory7EvidenceInvalidFrameworkDoesNotPublishPartialBundle(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	outputDir := filepath.Join(tmp, "evidence")
+
+	_ = runScanJSON(t, scanPath, statePath)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := cli.Run([]string{"evidence", "--frameworks", "unknown-framework", "--state", statePath, "--output", outputDir, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	if _, err := os.Stat(outputDir); !os.IsNotExist(err) {
+		t.Fatalf("expected no published output dir after invalid framework failure, got %v", err)
+	}
+}
+
+func TestStory7EvidencePreservesPublishedBundleOnFailedRerun(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	outputDir := filepath.Join(tmp, "evidence")
+
+	_ = runScanJSON(t, scanPath, statePath)
+
+	var firstOut bytes.Buffer
+	var firstErr bytes.Buffer
+	if code := cli.Run([]string{"evidence", "--frameworks", "soc2", "--state", statePath, "--output", outputDir, "--json"}, &firstOut, &firstErr); code != 0 {
+		t.Fatalf("initial evidence command failed: %d (%s)", code, firstErr.String())
+	}
+	manifestBefore, err := os.ReadFile(filepath.Join(outputDir, "manifest.json"))
+	if err != nil {
+		t.Fatalf("read initial manifest: %v", err)
+	}
+
+	var secondOut bytes.Buffer
+	var secondErr bytes.Buffer
+	code := cli.Run([]string{"evidence", "--frameworks", "unknown-framework", "--state", statePath, "--output", outputDir, "--json"}, &secondOut, &secondErr)
+	if code != 6 {
+		t.Fatalf("expected exit 6 on failed rerun, got %d stdout=%q stderr=%q", code, secondOut.String(), secondErr.String())
+	}
+	manifestAfter, err := os.ReadFile(filepath.Join(outputDir, "manifest.json"))
+	if err != nil {
+		t.Fatalf("read manifest after failed rerun: %v", err)
+	}
+	if !bytes.Equal(manifestBefore, manifestAfter) {
+		t.Fatalf("expected published manifest to remain unchanged after failed rerun")
+	}
+}
+
 func TestStory7CommandAnchorDeterminism(t *testing.T) {
 	t.Parallel()
 

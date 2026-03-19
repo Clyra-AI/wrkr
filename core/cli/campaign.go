@@ -36,6 +36,9 @@ func runCampaign(args []string, stdout io.Writer, stderr io.Writer) int {
 
 type campaignScanArtifact struct {
 	Status          string                       `json:"status"`
+	PartialResult   bool                         `json:"partial_result,omitempty"`
+	SourceDegraded  bool                         `json:"source_degraded,omitempty"`
+	SourceErrors    []source.RepoFailure         `json:"source_errors,omitempty"`
 	Target          source.Target                `json:"target"`
 	SourceManifest  source.Manifest              `json:"source_manifest"`
 	Inventory       *agginventory.Inventory      `json:"inventory,omitempty"`
@@ -91,8 +94,8 @@ func runCampaignAggregate(args []string, stdout io.Writer, stderr io.Writer) int
 		if err := json.Unmarshal(payload, &parsed); err != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", fmt.Sprintf("parse scan artifact %s: %v", scanPath, err), exitInvalidInput)
 		}
-		if strings.TrimSpace(parsed.Status) != "ok" {
-			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", fmt.Sprintf("scan artifact %s status must be ok", scanPath), exitInvalidInput)
+		if artifactErr := validateCampaignScanArtifact(scanPath, parsed); artifactErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", artifactErr.Error(), exitInvalidInput)
 		}
 		inputs = append(inputs, reportcore.CampaignScanInput{
 			Path:            filepath.ToSlash(filepath.Clean(scanPath)),
@@ -153,6 +156,26 @@ func runCampaignAggregate(args []string, stdout io.Writer, stderr io.Writer) int
 	}
 	_, _ = fmt.Fprintf(stdout, "wrkr campaign aggregate complete (%d scans)\n", artifact.Methodology.ScanCount)
 	return exitSuccess
+}
+
+func validateCampaignScanArtifact(scanPath string, parsed campaignScanArtifact) error {
+	if strings.TrimSpace(parsed.Status) != "ok" {
+		return fmt.Errorf("scan artifact %s status must be ok", scanPath)
+	}
+	incompleteReasons := make([]string, 0, 3)
+	if parsed.PartialResult {
+		incompleteReasons = append(incompleteReasons, "partial_result=true")
+	}
+	if parsed.SourceDegraded {
+		incompleteReasons = append(incompleteReasons, "source_degraded=true")
+	}
+	if len(parsed.SourceErrors) > 0 {
+		incompleteReasons = append(incompleteReasons, fmt.Sprintf("source_errors=%d", len(parsed.SourceErrors)))
+	}
+	if len(incompleteReasons) > 0 {
+		return fmt.Errorf("scan artifact %s must be complete; found %s", scanPath, strings.Join(incompleteReasons, ", "))
+	}
+	return nil
 }
 
 type campaignSegmentMetadataFile struct {

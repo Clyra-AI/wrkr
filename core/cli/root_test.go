@@ -1694,6 +1694,79 @@ func TestVerifyUsesStatePathVerifierKeyWhenChainPathOverrides(t *testing.T) {
 	}
 }
 
+func TestVerifyExplicitChainPathIgnoresAmbientWRKRStatePath(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	t.Setenv("WRKR_STATE_PATH", filepath.Join(tmp, "missing", "state.json"))
+	chainPath := filepath.Join(filepath.Dir(statePath), "proof-chain.json")
+
+	var verifyOut bytes.Buffer
+	var verifyErr bytes.Buffer
+	if code := Run([]string{"verify", "--chain", "--path", chainPath, "--json"}, &verifyOut, &verifyErr); code != 0 {
+		t.Fatalf("verify failed: %d stdout=%s stderr=%s", code, verifyOut.String(), verifyErr.String())
+	}
+
+	var verifyPayload map[string]any
+	if err := json.Unmarshal(verifyOut.Bytes(), &verifyPayload); err != nil {
+		t.Fatalf("parse verify payload: %v", err)
+	}
+	chainPayload, ok := verifyPayload["chain"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chain payload, got %T", verifyPayload["chain"])
+	}
+	if chainPayload["verification_mode"] != "chain_and_attestation" {
+		t.Fatalf("expected explicit --path to preserve attestation lookup, got %v", chainPayload["verification_mode"])
+	}
+	if chainPayload["authenticity_status"] != "verified" {
+		t.Fatalf("expected explicit --path to preserve verified authenticity, got %v", chainPayload["authenticity_status"])
+	}
+}
+
+func TestVerifyExplicitStateStillOverridesAmbientWRKRStatePath(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	t.Setenv("WRKR_STATE_PATH", filepath.Join(tmp, "missing", "state.json"))
+
+	var verifyOut bytes.Buffer
+	var verifyErr bytes.Buffer
+	if code := Run([]string{"verify", "--chain", "--state", statePath, "--json"}, &verifyOut, &verifyErr); code != 0 {
+		t.Fatalf("verify failed: %d stdout=%s stderr=%s", code, verifyOut.String(), verifyErr.String())
+	}
+
+	var verifyPayload map[string]any
+	if err := json.Unmarshal(verifyOut.Bytes(), &verifyPayload); err != nil {
+		t.Fatalf("parse verify payload: %v", err)
+	}
+	chainPayload, ok := verifyPayload["chain"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chain payload, got %T", verifyPayload["chain"])
+	}
+	if chainPayload["verification_mode"] != "chain_and_attestation" {
+		t.Fatalf("expected explicit --state to preserve attestation lookup, got %v", chainPayload["verification_mode"])
+	}
+	if chainPayload["authenticity_status"] != "verified" {
+		t.Fatalf("expected explicit --state to preserve verified authenticity, got %v", chainPayload["authenticity_status"])
+	}
+}
+
 func TestVerifyMissingVerifierKeyReturnsExplicitStructuralOnlyResult(t *testing.T) {
 	t.Parallel()
 

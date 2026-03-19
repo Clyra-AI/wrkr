@@ -89,6 +89,7 @@ When `target.mode=my_setup`, `activation.items` projects concrete local tool, MC
 `warnings` is included when Wrkr can prove posture may be incomplete even though the scan succeeded, for example when known MCP-bearing declaration files failed to parse.
 `detector_errors` is included when non-fatal detector failures occur and partial scan results are preserved.
 `partial_result`, `source_errors`, and `source_degraded` are included when source acquisition/materialization has non-fatal failures.
+Downstream `wrkr campaign aggregate` treats these completeness markers as fail-closed input signals and rejects such artifacts instead of producing a campaign summary from incomplete scans.
 `sarif.path` is included when `--sarif` output is requested.
 `compliance_summary.frameworks[*].controls[*]` emits deterministic framework/control rollups with `mapped_rule_ids`, `finding_count`, and proof-derived coverage status.
 `inventory.methodology` emits machine-readable scan metadata (`wrkr_version`, timing, repo/file counts, detector inventory).

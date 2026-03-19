@@ -9,6 +9,7 @@ wrkr campaign aggregate --input-glob '<glob>' [--output <path>] [--md] [--md-pat
 ## Purpose
 
 Aggregate multiple `wrkr scan --json` artifacts into one deterministic campaign summary for report headline metrics and methodology metadata.
+Campaign aggregation accepts complete scan artifacts only. Artifacts with `partial_result=true`, `source_degraded=true`, or non-empty `source_errors` are rejected as `invalid_input` instead of being summarized.
 
 ## Flags
 
@@ -44,12 +45,13 @@ wrkr campaign aggregate --input-glob './.tmp/campaign/*.json' --segment-metadata
 ## Exit codes
 
 - `0`: success
-- `6`: invalid input (missing/invalid glob, malformed artifact)
+- `6`: invalid input (missing/invalid glob, malformed artifact, or incomplete/degraded scan artifact)
 - `1`: runtime failure (read/write failure)
 
 ## Deterministic guarantees
 
 - Input file paths are sorted before aggregation.
+- Partial or degraded scan artifacts fail closed before aggregation.
 - Detector inventory and per-scan outputs are sorted and stable for fixed artifacts.
 - Production-write totals are emitted only when all contributing scans have configured production-target policy.
 - When production targets are not configured, public markdown stays at `write-capable` wording and reports production-target status rather than a production-write count.
