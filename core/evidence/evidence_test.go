@@ -3,6 +3,7 @@ package evidence
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -667,6 +668,130 @@ func TestBuildEvidenceClearsManagedOutputDirBeforeManifestHashing(t *testing.T) 
 	}
 }
 
+func TestBuildDoesNotLeavePartialBundleOnInvalidFramework(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+
+	_, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"not-a-framework"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("expected build to fail for unknown framework")
+	}
+	if _, statErr := os.Stat(outputDir); !os.IsNotExist(statErr) {
+		t.Fatalf("expected output dir to remain absent, got %v", statErr)
+	}
+	if matches, globErr := filepath.Glob(stageDirGlob(outputDir)); globErr != nil {
+		t.Fatalf("glob stage dirs: %v", globErr)
+	} else if len(matches) != 0 {
+		t.Fatalf("expected no leftover stage dirs, got %v", matches)
+	}
+	if matches, globErr := filepath.Glob(backupDirPrefix(outputDir) + "*"); globErr != nil {
+		t.Fatalf("glob backup dirs: %v", globErr)
+	} else if len(matches) != 0 {
+		t.Fatalf("expected no leftover backup dirs, got %v", matches)
+	}
+}
+
+func TestBuildPreservesPreviousManagedBundleWhenLateFailureOccurs(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+
+	if _, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("initial build evidence bundle: %v", err)
+	}
+	before := snapshotBundleTree(t, outputDir)
+
+	restore := setBeforePublishHookForTest(func(_, _, _ string) error {
+		return errors.New("synthetic publish failure")
+	})
+	t.Cleanup(restore)
+
+	_, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 2, 20, 15, 0, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("expected build to fail when publish hook aborts the swap")
+	}
+	if !strings.Contains(err.Error(), "before publish swap") {
+		t.Fatalf("expected publish swap failure, got: %v", err)
+	}
+
+	after := snapshotBundleTree(t, outputDir)
+	if !reflect.DeepEqual(before, after) {
+		t.Fatalf("expected previous managed bundle to remain intact\nbefore=%v\nafter=%v", before, after)
+	}
+	if matches, globErr := filepath.Glob(stageDirGlob(outputDir)); globErr != nil {
+		t.Fatalf("glob stage dirs: %v", globErr)
+	} else if len(matches) != 0 {
+		t.Fatalf("expected no leftover stage dirs, got %v", matches)
+	}
+	if matches, globErr := filepath.Glob(backupDirPrefix(outputDir) + "*"); globErr != nil {
+		t.Fatalf("glob backup dirs: %v", globErr)
+	} else if len(matches) != 0 {
+		t.Fatalf("expected no leftover backup dirs, got %v", matches)
+	}
+}
+
+func TestBuildFailsClosedWhenBackupCleanupFails(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+
+	if _, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("initial build evidence bundle: %v", err)
+	}
+
+	restore := setRemoveAllHookForTest(func(path string) error {
+		if strings.HasPrefix(filepath.Base(path), "."+filepath.Base(outputDir)+".backup-") {
+			return errors.New("synthetic backup cleanup failure")
+		}
+		return os.RemoveAll(path)
+	})
+	t.Cleanup(restore)
+
+	_, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 2, 20, 15, 0, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("expected build to fail when backup cleanup fails")
+	}
+	if !strings.Contains(err.Error(), "remove backup output dir") {
+		t.Fatalf("expected backup cleanup failure, got: %v", err)
+	}
+	if _, verifyErr := proof.VerifyBundle(outputDir, proof.BundleVerifyOpts{}); verifyErr != nil {
+		t.Fatalf("expected published bundle to remain valid when backup cleanup fails: %v", verifyErr)
+	}
+	if matches, globErr := filepath.Glob(backupDirPrefix(outputDir) + "*"); globErr != nil {
+		t.Fatalf("glob backup dirs: %v", globErr)
+	} else if len(matches) == 0 {
+		t.Fatal("expected backup dir to remain when cleanup fails")
+	}
+}
+
 func TestBuildEvidenceRejectsMarkerDirectory(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
@@ -839,4 +964,32 @@ func createEvidenceStateWithProof(t *testing.T, tmp string) string {
 		t.Fatalf("emit scan records: %v", err)
 	}
 	return statePath
+}
+
+func snapshotBundleTree(t *testing.T, root string) map[string]string {
+	t.Helper()
+
+	snapshot := map[string]string{}
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		payload, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		snapshot[filepath.ToSlash(rel)] = string(payload)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("snapshot bundle tree: %v", err)
+	}
+	return snapshot
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -165,6 +166,89 @@ func TestCampaignAggregateMissingInputGlobExit6(t *testing.T) {
 	}
 }
 
+func TestCampaignAggregateRejectsPartialResultArtifact(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	inputPath := filepath.Join(tmp, "scan.json")
+	scanPayload := map[string]any{
+		"status":         "ok",
+		"partial_result": true,
+		"target":         map[string]any{"mode": "repo", "value": "acme/backend"},
+		"source_manifest": map[string]any{
+			"target": map[string]any{"mode": "repo", "value": "acme/backend"},
+			"repos":  []any{},
+		},
+		"privilege_budget": map[string]any{},
+		"findings":         []any{},
+	}
+	writeCampaignArtifact(t, inputPath, scanPayload)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"campaign", "aggregate", "--input-glob", inputPath, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertCampaignInvalidInput(t, errOut.Bytes(), "partial_result=true")
+}
+
+func TestCampaignAggregateRejectsDegradedArtifact(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	inputPath := filepath.Join(tmp, "scan.json")
+	scanPayload := map[string]any{
+		"status":          "ok",
+		"source_degraded": true,
+		"target":          map[string]any{"mode": "repo", "value": "acme/backend"},
+		"source_manifest": map[string]any{
+			"target": map[string]any{"mode": "repo", "value": "acme/backend"},
+			"repos":  []any{},
+		},
+		"privilege_budget": map[string]any{},
+		"findings":         []any{},
+	}
+	writeCampaignArtifact(t, inputPath, scanPayload)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"campaign", "aggregate", "--input-glob", inputPath, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertCampaignInvalidInput(t, errOut.Bytes(), "source_degraded=true")
+}
+
+func TestCampaignAggregateRejectsArtifactsWithSourceErrors(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	inputPath := filepath.Join(tmp, "scan.json")
+	scanPayload := map[string]any{
+		"status": "ok",
+		"target": map[string]any{"mode": "repo", "value": "acme/backend"},
+		"source_manifest": map[string]any{
+			"target": map[string]any{"mode": "repo", "value": "acme/backend"},
+			"repos":  []any{},
+		},
+		"source_errors": []any{
+			map[string]any{"repo": "acme/backend", "reason": "connector_degraded"},
+		},
+		"privilege_budget": map[string]any{},
+		"findings":         []any{},
+	}
+	writeCampaignArtifact(t, inputPath, scanPayload)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"campaign", "aggregate", "--input-glob", inputPath, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertCampaignInvalidInput(t, errOut.Bytes(), "source_errors=1")
+}
+
 func TestCampaignAggregateSuppressesUnknownToSecurityMetricsWithoutReferenceBasis(t *testing.T) {
 	t.Parallel()
 
@@ -248,6 +332,41 @@ func TestCampaignAggregateSuppressesUnknownToSecurityMetricsWithoutReferenceBasi
 	}
 	if metrics["security_visibility_reference"] != "unavailable" {
 		t.Fatalf("expected security_visibility_reference=unavailable when basis is missing, got %v", metrics["security_visibility_reference"])
+	}
+}
+
+func writeCampaignArtifact(t *testing.T, path string, payload map[string]any) {
+	t.Helper()
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal campaign scan payload: %v", err)
+	}
+	if err := os.WriteFile(path, payloadBytes, 0o600); err != nil {
+		t.Fatalf("write campaign scan payload: %v", err)
+	}
+}
+
+func assertCampaignInvalidInput(t *testing.T, payload []byte, expectedFragment string) {
+	t.Helper()
+
+	var envelope map[string]any
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		t.Fatalf("parse campaign error payload: %v", err)
+	}
+	errorPayload, ok := envelope["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object in payload, got %v", envelope)
+	}
+	if errorPayload["code"] != "invalid_input" {
+		t.Fatalf("expected invalid_input code, got %v", errorPayload["code"])
+	}
+	if errorPayload["exit_code"] != float64(6) {
+		t.Fatalf("expected exit_code=6, got %v", errorPayload["exit_code"])
+	}
+	message, _ := errorPayload["message"].(string)
+	if !strings.Contains(message, expectedFragment) {
+		t.Fatalf("expected error message to contain %q, got %q", expectedFragment, message)
 	}
 }
 

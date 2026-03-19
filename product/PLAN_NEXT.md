@@ -1,202 +1,201 @@
-# PLAN WRKR_NODE24_ACTION_RUNTIME: GitHub Actions Node 20 Deprecation Remediation
+# PLAN WRKR_ARTIFACT_BOUNDARY_HARDENING: Release-Safe Artifact Consumers and Atomic Evidence Commit
 
 Date: 2026-03-18
 Source of truth:
-- user-provided GitHub Actions Node.js 20 deprecation notice dated 2026-03-18
-- `rg -n '^\s*uses:' .github/workflows/*.yml`
-- `.github/required-checks.json`
+- user-provided full-repo review findings dated 2026-03-18
 - `product/dev_guides.md`
 - `product/architecture_guides.md`
-Scope: Wrkr repository only. Planning artifact only. Remove Node20-backed GitHub Actions risk from active workflows without changing Wrkr CLI/runtime contracts or merge-blocking status names.
+- `core/cli/verify.go`
+- `core/cli/campaign.go`
+- `core/evidence/evidence.go`
+- `core/verify/verify.go`
+- `docs/commands/verify.md`
+- `docs/commands/campaign.md`
+- `docs/commands/evidence.md`
+- `docs/commands/scan.md`
+- `docs/trust/proof-chain-verification.md`
+- `docs/state_lifecycle.md`
+- `schemas/v1/report/campaign-summary.schema.json`
+- `core/cli/root_test.go`
+- `core/cli/campaign_test.go`
+- `core/verify/verify_test.go`
+- `core/evidence/evidence_test.go`
+- `internal/e2e/campaign/campaign_e2e_test.go`
+- `testinfra/contracts/story7_contracts_test.go`
+Scope: Wrkr repository only. Planning artifact only. Remediate the three review-proven P1 artifact-boundary defects without weakening determinism, offline-first defaults, fail-closed behavior, schema stability, or exit-code stability.
 
 ## Global Decisions (Locked)
 
-- Treat this as a workflow and release-contract remediation, not a product-runtime redesign.
-- Eliminate Node20-backed GitHub Actions usage from active repo workflows by upgrading or re-pinning to Node24-compatible action refs.
-- Do not rely on `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` as the steady-state fix. It may be used only as a short-lived proving aid if an implementation story explicitly scopes it and removes it before merge.
-- Preserve stable PR status names relied on by branch protection:
-  - `wave-sequence`
-  - `fast-lane`
-  - `scan-contract`
-  - `windows-smoke`
-- Preserve workflow names and semantic roles unless a later contract plan explicitly authorizes renames:
-  - `pr`
-  - `main`
-  - `nightly`
-  - `release`
-  - `docs`
-  - `wrkr-action-ci`
-  - `wrkr-sarif`
-- Treat workflow YAML, local enforcement scripts, contract tests, and contributor/release docs as one atomic contract. No workflow-only or docs-only remediation PR.
-- Keep CLI flags, JSON output, schema fields, proof-chain semantics, and exit codes `0..8` unchanged.
-- Stories touching workflow contract, release integrity, or CI failure semantics must include `make prepush-full`.
-- Reliability and release-risk stories in this plan must include `make test-hardening` and `make test-chaos`.
-- Performance-sensitive stories in this plan must include `make test-perf`.
-- Floating `@latest` remains prohibited. Implementation must use auditable action refs and preserve deterministic workflow behavior.
+- Treat this as contract/runtime correctness work first. Docs ship in the same story as the behavior they describe.
+- Preserve Wrkr CLI flags, JSON output keys, schema versioning posture, proof-record formats, and exit codes `0..8`.
+- `wrkr verify --chain --path <chain>` must treat the explicit chain path as the authority for verifier-key lookup unless the caller explicitly passed `--state`.
+- `wrkr campaign aggregate` will fail closed on degraded or partial scan artifacts in this plan. Do not introduce a permissive degraded-success mode in this wave.
+- `wrkr evidence` must build in a same-parent managed stage directory and only publish to the requested `--output` path after manifest generation, signing, and verification succeed.
+- No partial managed evidence bundle may remain visible at the final output path after any failure.
+- Preserve existing managed-path trust rules:
+  - evidence marker `.wrkr-evidence-managed`
+  - non-empty unmanaged output directories fail closed
+  - marker must remain a regular file
+- Keep `core/cli` thin. Authoritative logic belongs in focused packages for verify, campaign validation, evidence staging, and persistence.
+- Stories that touch CLI contract behavior, filesystem side effects, or failure semantics must run `make prepush-full`.
+- Reliability and failure-path stories must run `make test-hardening` and `make test-chaos`.
+- Evidence staging changes are performance-sensitive and must also run `make test-perf`.
+- No dashboard/docs-site scope, no `Clyra-AI/proof` API change, no new network paths, and no dashboard-first or polish-first work in this plan.
 
 ## Current Baseline (Observed)
 
-- `git status --short --branch` was clean before generating this plan.
-- `product/dev_guides.md` and `product/architecture_guides.md` were present, readable, and enforceable for testing, CI gating, determinism, contract stability, TDD, chaos, frugal architecture, and boundary governance.
-- Output path validation passed:
-  - requested path: `product/PLAN_NEXT.md`
-  - resolved path stayed inside `/Users/tr/wrkr`
-- Local workflow inventory shows active Node20-era action refs on real merge and release surfaces:
-  - `actions/checkout@v4` appears in:
-    - `.github/workflows/docs.yml`
-    - `.github/workflows/main.yml`
-    - `.github/workflows/nightly.yml`
-    - `.github/workflows/pr.yml`
-    - `.github/workflows/release.yml`
-    - `.github/workflows/wrkr-action-ci.yml`
-    - `.github/workflows/wrkr-sarif.yml`
-  - `actions/setup-go@v5` appears in:
-    - `.github/workflows/main.yml`
-    - `.github/workflows/nightly.yml`
-    - `.github/workflows/pr.yml`
-    - `.github/workflows/release.yml`
-    - `.github/workflows/wrkr-action-ci.yml`
-    - `.github/workflows/wrkr-sarif.yml`
-- Additional JavaScript actions on active repo workflows that may fall into the same Node20-to-Node24 compatibility wave include:
-  - `actions/setup-python@v5`
-  - `actions/setup-node@v4`
-  - `actions/upload-artifact@v4`
-  - `actions/configure-pages@v5`
-  - `actions/upload-pages-artifact@v3`
-  - `actions/deploy-pages@v4`
-  - `actions/attest-build-provenance@v2`
-  - `dorny/paths-filter@v3`
-  - `github/codeql-action/init@v3`
-  - `github/codeql-action/upload-sarif@v3`
-  - `goreleaser/goreleaser-action@v6`
-  - `anchore/sbom-action@v0`
-  - `anchore/scan-action@v4`
-  - `sigstore/cosign-installer@v3`
-  - `Homebrew/actions/setup-homebrew@cced187498280712e078aaba62dc13a3e9cd80bf`
-- The user-provided deprecation notice explicitly names `actions/checkout@v4` and `actions/setup-go@v5` as Node20-backed actions that GitHub Actions will force to Node24 starting June 2, 2026.
-- Current required PR checks remain stable and contract-bound via `.github/required-checks.json`:
-  - `fast-lane`
-  - `scan-contract`
-  - `wave-sequence`
-  - `windows-smoke`
-- Existing local enforcement is strong for tool pins and required-check contracts:
-  - `scripts/check_toolchain_pins.sh`
-  - `scripts/check_no_latest.sh`
-  - `scripts/check_branch_protection_contract.sh`
-  - `testinfra/contracts/story0_contracts_test.go`
-  - `testinfra/hygiene/toolchain_pins_test.go`
-- Existing enforcement does not yet hard-fail on Node20-backed GitHub Action refs or unauthorized `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` usage.
-- `CONTRIBUTING.md` documents local Go/Python/Node requirements, but it does not currently explain the GitHub Actions JavaScript runtime compatibility baseline or the policy for temporary Node24 force flags.
-- `docs/trust/release-integrity.md` documents release smoke, SBOM, scanning, signing, and install-path UAT, but it does not yet state that release trust depends on Node24-ready GitHub Actions refs on the release path.
+- Planning inputs validated:
+  - `product/dev_guides.md` exists and is readable
+  - `product/architecture_guides.md` exists and is readable
+  - output path `product/PLAN_NEXT.md` resolves inside `/Users/tr/wrkr`
+- The review established three release-blocking artifact-boundary defects:
+  - `verify`: ambient `WRKR_STATE_PATH` can silently downgrade authenticated verification even when `--path` is explicit.
+  - `campaign aggregate`: syntactically valid but degraded scan artifacts can still produce a clean success envelope.
+  - `evidence`: failed builds can clear or replace a managed output directory with partial new contents.
+- Existing coverage is substantial but has specific gaps:
+  - `core/cli/root_test.go` already checks `chain_and_attestation` and `chain_only` outcomes, but not explicit `--path` precedence against ambient `WRKR_STATE_PATH`.
+  - `core/cli/campaign_test.go` covers happy-path aggregation and basic invalid input, but not `partial_result`, `source_degraded`, or `source_errors` rejection.
+  - `core/evidence/evidence_test.go` covers marker trust and unmanaged directory blocking, but not preservation of a prior good bundle during late-stage failure.
+- Current command docs already describe partial scan semantics upstream:
+  - `docs/commands/scan.md` documents `partial_result`, `source_errors`, and `source_degraded`.
+- Current downstream contract gap:
+  - `docs/commands/campaign.md` does not define how degraded scan artifacts should be handled.
+  - `schemas/v1/report/campaign-summary.schema.json` has no degraded-input metadata fields.
+- Current evidence docs promise fail-closed output ownership safety, but they do not yet promise staged or atomic publish semantics.
+- Review validation already established a healthy starting point:
+  - `go test ./...` passed during the review.
+  - `wrkr scan --path scenarios/wrkr/scan-mixed-org/repos --json`, `wrkr verify --chain --json`, and `wrkr regress init/run --json` reproduced baseline behavior.
+  - Synthetic repros confirmed the verify downgrade, campaign false-green path, and evidence partial-output leak.
 
 ## Exit Criteria
 
-1. No active workflow in `.github/workflows/*.yml` uses a known Node20-backed action ref on PR, main, nightly, release, docs, or auxiliary contract lanes, or any approved exception is explicitly bounded and non-merge-blocking.
-2. Required PR status names remain exactly:
-   - `wave-sequence`
-   - `fast-lane`
-   - `scan-contract`
-   - `windows-smoke`
-3. `pr.yml`, `main.yml`, `nightly.yml`, `release.yml`, `docs.yml`, `wrkr-action-ci.yml`, and `wrkr-sarif.yml` all pass with the upgraded action set.
-4. The workflow class that previously produced the Node20 deprecation warning is rerun and no longer emits the same deprecation annotation for the upgraded refs.
-5. Local and CI enforcement fail deterministically if deprecated action refs or disallowed Node24 force flags are reintroduced.
-6. `CONTRIBUTING.md`, `docs/trust/release-integrity.md`, and any touched policy docs describe the same implemented workflow contract.
-7. Wrkr CLI behavior, JSON output, schemas, and exit codes remain unchanged.
+1. `wrkr verify --chain --path <chain> --json` produces the same verifier-key lookup and authenticity result regardless of ambient `WRKR_STATE_PATH` when `--state` is not passed.
+2. `wrkr campaign aggregate --input-glob ... --json` rejects degraded or partial scan artifacts deterministically with a stable `invalid_input` envelope and exit `6`.
+3. `wrkr evidence --frameworks ... --output <dir> --json` stages all bundle work outside the final target path and only publishes to the target after full bundle success.
+4. Failed evidence builds leave either:
+   - no bundle at the target path, or
+   - the prior valid managed bundle intact
+5. `docs/commands/verify.md`, `docs/commands/campaign.md`, `docs/commands/evidence.md`, and any touched trust/lifecycle docs match the implemented behavior in the same PR.
+6. No schema or version bump is required unless implementation proves it unavoidable; if that happens, the change must be additive, documented, and explicitly version-reviewed.
+7. Required tests and lanes for each story pass, including:
+   - `make lint-fast`
+   - `make test-contracts`
+   - `make prepush-full`
+   - `make test-hardening`
+   - `make test-chaos`
+   - `make test-perf` for the evidence story
 
 ## Public API and Contract Map
 
 Stable/public surfaces touched by this plan:
 
-- Required PR status checks:
-  - `wave-sequence`
-  - `fast-lane`
-  - `scan-contract`
-  - `windows-smoke`
-- Release workflow identity and release-trust contract:
-  - workflow name `release`
-  - job name `release-artifacts`
-- CLI and machine-readable product contracts:
-  - CLI flags
-  - JSON keys
-  - schema fields
-  - proof-chain behavior
-  - exit codes `0..8`
-- Contributor and trust docs if updated:
-  - `CONTRIBUTING.md`
-  - `docs/trust/release-integrity.md`
+- CLI commands:
+  - `wrkr verify --chain`
+  - `wrkr campaign aggregate`
+  - `wrkr evidence`
+- Stable verify JSON keys:
+  - `status`
+  - `chain.path`
+  - `chain.intact`
+  - `chain.count`
+  - `chain.head_hash`
+  - `chain.reason`
+  - `chain.verification_mode`
+  - `chain.authenticity_status`
+- Stable campaign JSON success shape:
+  - `status`
+  - `campaign`
+- Stable evidence JSON success shape:
+  - `status`
+  - `output_dir`
+  - `frameworks`
+  - `manifest_path`
+  - `chain_path`
+  - `framework_coverage`
+  - `report_artifacts`
+- Stable exit-code and error-envelope expectations:
+  - `verify`: `verification_failure` exit `2`, `invalid_input` exit `6`
+  - `campaign`: `invalid_input` exit `6`, `runtime_failure` exit `1`
+  - `evidence`: `invalid_input` exit `6`, `runtime_failure` exit `1`, `unsafe_operation_blocked` exit `8`
+- Stable managed-output ownership contracts:
+  - `.wrkr-evidence-managed`
+  - non-empty unmanaged output dir fails closed
+  - marker must be a regular file
 
 Internal surfaces expected to change:
 
-- `.github/workflows/*.yml`
-- workflow validation and hygiene scripts:
-  - `scripts/check_branch_protection_contract.sh`
-  - `scripts/check_no_latest.sh`
-  - `scripts/check_repo_hygiene.sh`
-  - new or extended GitHub Actions runtime enforcement script under `scripts/`
-- workflow contract and hygiene tests:
-  - `testinfra/contracts/story0_contracts_test.go`
-  - `testinfra/hygiene/toolchain_pins_test.go`
-  - new or extended tests under `testinfra/hygiene/`
-- if normative policy language is added:
-  - `product/dev_guides.md`
+- `core/cli/verify.go`
+- `core/cli/campaign.go`
+- `core/evidence/evidence.go`
+- likely new evidence staging helper:
+  - `core/evidence/stage.go`
+  - or a narrowly scoped reusable helper under `internal/`
+- tests:
+  - `core/cli/root_test.go`
+  - `core/cli/campaign_test.go`
+  - `core/verify/verify_test.go`
+  - `core/evidence/evidence_test.go`
+  - `internal/e2e/campaign/campaign_e2e_test.go`
+  - `testinfra/contracts/story7_contracts_test.go`
+- docs:
+  - `docs/commands/verify.md`
+  - `docs/commands/campaign.md`
+  - `docs/commands/evidence.md`
+  - `docs/commands/scan.md`
+  - `docs/trust/proof-chain-verification.md`
+  - `docs/state_lifecycle.md`
 
 Shim/deprecation path:
 
-- No CLI or schema shim is required.
-- `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` is not acceptable as the steady-state repo contract.
-- If a third-party action lacks a Node24-ready release, implementation must either replace it in the same wave or document a bounded exception with explicit follow-up; do not silently depend on GitHub's forced runtime switch.
+- No CLI shim or deprecation path is planned for `verify` or `evidence`.
+- Degraded scan artifact acceptance in `campaign aggregate` is treated as unsafe undocumented behavior, not a supported contract.
+- Any future desire for an additive degraded-success path requires a separate plan and explicit schema review.
 
 Schema/versioning policy:
 
-- No CLI schema version bump is expected.
-- No JSON or proof artifact migration is expected.
-- Workflow and docs contract changes move atomically with tests and enforcement.
+- Preferred implementation path: no schema changes and no version bump.
+- If campaign degraded-input metadata must become visible, it must be additive optional data under `schema_version: v1`.
+- No evidence bundle schema version change is planned.
 
 Machine-readable error expectations:
 
-- No new CLI error envelope or exit-code behavior is introduced.
-- CI failure remains visible through existing workflow/job names and deterministic script stderr.
-- Any new enforcement check must emit stable failure text naming:
-  - offending workflow file
-  - offending action ref
-  - whether the issue is deprecated runtime use or disallowed override policy
+- `verify` keeps its current success and failure envelope fields; only precedence resolution changes.
+- `campaign aggregate` on degraded inputs should emit a stable `invalid_input` envelope naming the offending artifact and degraded markers.
+- `evidence` keeps existing error classes; failed builds must not leave a consumable partial target bundle.
 
 ## Docs and OSS Readiness Baseline
 
-README first-screen contract for this plan:
+README first-screen contract:
 
-- `README.md` remains product/value-first unless a public release-trust claim must be clarified for accuracy.
-- Contributor CI/runtime policy belongs primarily in:
-  - `CONTRIBUTING.md`
-  - `docs/trust/release-integrity.md`
-- Do not crowd the README first screen with maintainer-only workflow details unless public trust claims would otherwise be misleading.
+- Keep `README.md` focused on product value and the core `scan -> evidence -> verify` flow.
+- Do not add maintainer-only implementation detail to the README unless a public trust claim would otherwise be inaccurate.
 
 Integration-first docs flow for this plan:
 
-1. `CONTRIBUTING.md`
-2. `docs/trust/release-integrity.md`
-3. `README.md` only if public trust/install wording changes
-4. `product/dev_guides.md` if a normative GitHub Actions runtime policy is added
+1. `docs/commands/scan.md`
+2. `docs/commands/campaign.md`
+3. `docs/commands/verify.md`
+4. `docs/trust/proof-chain-verification.md`
+5. `docs/commands/evidence.md`
+6. `docs/state_lifecycle.md`
 
-Lifecycle path model that docs must preserve:
+Lifecycle path model the docs must preserve:
 
-- `pull_request` remains the merge-blocking contract path.
-- `main.yml` remains the post-merge continuity path.
-- `nightly.yml` remains the broader risk lane.
-- `release.yml` remains the release/distribution trust authority.
-- `docs.yml` remains the docs deployment authority.
-- Docs must describe this as a CI/release lifecycle contract, not a user-facing runtime dependency.
+- `scan` creates authoritative state and proof-chain inputs.
+- `verify` authenticates from state or explicit chain path.
+- `campaign aggregate` consumes complete `scan --json` artifacts only.
+- `evidence` consumes saved state and publishes managed bundle outputs atomically.
 
-Docs source-of-truth mapping for this plan:
+Docs source-of-truth mapping:
 
-- contributor setup and CI policy: `CONTRIBUTING.md`
-- release trust and install-path validation: `docs/trust/release-integrity.md`
-- normative CI/process policy: `product/dev_guides.md`
-- implementation truth: `.github/workflows/*.yml`
+- behavior authority: `core/cli/*`, `core/evidence/*`, `core/verify/*`
+- command docs: `docs/commands/*`
+- trust semantics: `docs/trust/proof-chain-verification.md`
+- lifecycle semantics: `docs/state_lifecycle.md`
 
-OSS trust baseline:
+OSS readiness baseline:
 
-- Existing trust files already exist and remain the baseline:
+- Existing trust files remain the baseline:
   - `README.md`
   - `CONTRIBUTING.md`
   - `CHANGELOG.md`
@@ -204,409 +203,262 @@ OSS trust baseline:
   - `SECURITY.md`
   - `.github/ISSUE_TEMPLATE/*`
   - `.github/pull_request_template.md`
-- No new governance file is required unless an action replacement changes maintainer or support expectations materially.
+- No new OSS governance file is required by this plan.
 
 ## Recommendation Traceability
 
 | Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story mapping |
 |---|---|---|---|---|---|
-| R1 | Remove Node20-backed GitHub Action refs from active workflows | GitHub will force Node24 for JavaScript actions starting June 2, 2026; deprecated refs become release and CI risk | Workflow contract correction | Prevents CI/release breakage and future trust erosion | `W1-S01`, `W1-S02`, `W1-S03` |
-| R2 | Preserve branch-protection status names and workflow semantics during the uplift | Required checks are stable contract surfaces | Contract-preserving remediation | Avoids accidental branch protection or automation regressions | `W1-S01`, `W1-S02`, `W1-S03` |
-| R3 | Add hard-fail guardrails so deprecated action refs cannot re-enter | Current enforcement does not catch Node20-backed action refs | Enforcement-first governance | Prevents repeat drift and late discovery during release | `W1-S04` |
-| R4 | Prefer native Node24-ready action upgrades over permanent force flags | Global force flags hide compatibility gaps instead of proving them closed | Explicit compatibility and fail-closed policy | Lower operational surprise and clearer support boundary | `W1-S02`, `W1-S03`, `W1-S04` |
-| R5 | Align contributor and release-trust docs with the implemented workflow policy | Docs currently do not explain GitHub Actions JavaScript runtime baseline | Docs and trust consistency | Better maintainer onboarding and public release trust | `W2-S01` |
+| R1 | Respect explicit `--path` over ambient `WRKR_STATE_PATH` in `verify` | Prevent silent downgrade from authenticated verification to structural-only success | Tighten command-boundary precedence and proof trustworthiness | Stronger release and promotion integrity with no contract sprawl | `W1-S01` |
+| R2 | Reject degraded or partial scan artifacts in `campaign aggregate` | Eliminate false-green org rollups from incomplete upstream acquisition | Fail closed at the artifact-consumer boundary | Safer automation and more trustworthy campaign summaries | `W1-S02` |
+| R3 | Stage and atomically publish evidence bundles | Prevent failed reruns from destroying or replacing the last known-good bundle with partial new contents | Crash-safe managed output semantics | Stronger evidence portability, operator trust, and audit confidence | `W2-S01` |
 
 ## Test Matrix Wiring
 
-Fast lane:
+| Lane | Required commands | Notes |
+|---|---|---|
+| Fast lane | `make lint-fast`; `make test-contracts`; targeted `go test ./core/cli ./core/verify ./core/evidence -count=1` | Minimum local and PR feedback loop |
+| Core CI lane | `make prepush-full`; `go test ./... -count=1` | Mandatory for all stories in this plan because failure semantics and filesystem side effects are touched |
+| Acceptance lane | `go test ./internal/e2e/verify -count=1`; `go test ./internal/e2e/campaign -count=1`; targeted contract suites | Outside-in confirmation for command behavior |
+| Cross-platform lane | existing `windows-smoke`; existing core matrix lanes | Required because env-var precedence, globbing, and filesystem publish behavior must stay portable |
+| Risk lane | `make test-hardening`; `make test-chaos`; `make test-perf` for evidence staging | Mandatory for all stories here; `make test-perf` is required only for `W2-S01` |
+| Merge/release gating rule | No story closes until fast, core, acceptance, and relevant risk lanes are green; docs parity checks must pass in the same PR as behavior changes | No docs-only or tests-only follow-up PRs |
 
-- `make lint-fast`
-- `make test-contracts`
-- `go test ./testinfra/contracts -count=1`
-- `go test ./testinfra/hygiene -count=1`
+## Epic W1: Artifact Consumer Fail-Closed Corrections
 
-Core CI lane:
+Objective: remove the two false-confidence paths in artifact consumers before any broader distribution or docs work.
 
-- `make prepush-full`
-- `.github/workflows/main.yml` `core-matrix-*`
-
-Acceptance lane:
-
-- `.github/workflows/main.yml`:
-  - `acceptance`
-  - `docs-smoke`
-  - `v1-acceptance`
-- `scripts/run_v1_acceptance.sh --mode=main`
-
-Cross-platform lane:
-
-- `.github/workflows/pr.yml` `windows-smoke`
-- `.github/workflows/main.yml` `core-matrix-macos-latest`
-- `.github/workflows/main.yml` `core-matrix-windows-latest`
-
-Risk lane:
-
-- `.github/workflows/nightly.yml` `risk-lane`
-- `.github/workflows/release.yml` `release-artifacts` for release-facing workflow changes
-- `make test-hardening`
-- `make test-chaos`
-- `make test-perf`
-
-Merge/release gating rule:
-
-- Do not merge until `wave-sequence`, `fast-lane`, `scan-contract`, and `windows-smoke` are green.
-- Do not merge workflow-runtime remediation until the affected workflow class has been rerun on-branch and no longer emits the Node20 deprecation annotation for the upgraded refs.
-- Release/docs workflow changes do not ship without a green rerun of `release.yml` and, when touched, `docs.yml`.
-
-## Epic W1: Workflow Contract and Node24 Action Runtime Remediation
-
-Objective: Remove Node20-backed GitHub Actions risk from all active workflow classes while preserving required status names, release semantics, and deterministic enforcement.
-
-### Story W1-S01: Confirm affected workflow inventory and deprecation signature
+### Story W1-S01: Respect Explicit Verify Chain Path Over Ambient State Env
 Priority: P0
 Tasks:
-- Capture a full `uses:` inventory across `.github/workflows/*.yml`.
-- Classify each action surface by workflow class:
-  - merge-blocking PR
-  - post-merge main
-  - nightly risk
-  - release/distribution
-  - docs deployment
-  - auxiliary/manual
-- Record which actions are directly named in the deprecation notice and which additional JS actions are likely part of the same runtime-risk wave.
-- Freeze the stable contract surfaces that must not change:
-  - required PR status names
-  - workflow names
-  - release job name
-- Identify any third-party actions that may require replacement rather than simple version uplift.
+- Add a failing CLI contract test that proves explicit `--path` ignores ambient `WRKR_STATE_PATH` when `--state` is not passed.
+- Refactor verifier-key lookup into an explicit precedence helper:
+  - explicit `--state`
+  - explicit `--path`
+  - resolved default state path
+- Keep `core/verify` as the authoritative verifier and preserve current success/failure JSON keys.
+- Update verify command and trust docs to state that explicit path lookup is authoritative unless `--state` is also provided.
+- Re-run deterministic verify contract and e2e checks.
 Repo paths:
-- `.github/workflows/*.yml`
-- `.github/required-checks.json`
-- `scripts/check_branch_protection_contract.sh`
-- `testinfra/contracts/story0_contracts_test.go`
-- `testinfra/hygiene/`
+- `core/cli/verify.go`
+- `core/cli/root_test.go`
+- `core/verify/verify_test.go`
+- `docs/commands/verify.md`
+- `docs/trust/proof-chain-verification.md`
 Run commands:
-- `rg -n '^\s*uses:' .github/workflows/*.yml`
-- `cat .github/required-checks.json`
-- `scripts/check_branch_protection_contract.sh`
-- `go test ./testinfra/contracts -count=1`
-- `gh run list --repo Clyra-AI/wrkr --limit 20`
-Test requirements:
-- Preserve evidence of the pre-change workflow inventory.
-- Add or update a failing hygiene/contract test that encodes the known deprecated refs before editing workflow YAML.
-- Keep required-check and workflow-name contract tests green after the inventory baseline is frozen.
-Matrix wiring:
-- Fast lane: contract metadata and failing-test-first inventory work
-- Core CI lane: metadata only
-- Acceptance lane: none
-- Cross-platform lane: n/a
-- Risk lane: warning signature evidence only
-Acceptance criteria:
-- Every workflow file and `uses:` surface is inventoried.
-- Stable required PR checks and release workflow identity are explicitly frozen.
-- Any action that needs replacement rather than upgrade is identified before implementation starts.
-Architecture constraints:
-- Treat workflow YAML and branch protection as contract surfaces, not incidental config.
-- No workflow rename or status-name changes in this story.
-- Keep inventory work thin and evidence-first.
-ADR required: no
-TDD first failing test(s):
-- Add a hygiene/contract fixture that fails when `actions/checkout@v4` or `actions/setup-go@v5` remain on protected workflow surfaces without an approved exception.
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If one workflow file or action surface is missed, the repo will appear remediated on core PR lanes while still carrying latent release/docs/nightly Node20 risk.
-
-### Story W1-S02: Upgrade merge-blocking and mainline workflows to Node24-ready action refs
-Priority: P0
-Dependencies:
-- `W1-S01`
-Tasks:
-- Upgrade or re-pin deprecated action refs in:
-  - `.github/workflows/pr.yml`
-  - `.github/workflows/main.yml`
-  - `.github/workflows/nightly.yml`
-  - `.github/workflows/wrkr-action-ci.yml`
-  - `.github/workflows/wrkr-sarif.yml`
-- Validate action surfaces that influence merge-blocking and core CI behavior:
-  - `actions/checkout`
-  - `actions/setup-go`
-  - `actions/setup-python`
-  - `actions/setup-node`
-  - `actions/upload-artifact`
-  - `dorny/paths-filter`
-  - `github/codeql-action/*`
-- Preserve:
-  - job names
-  - triggers
-  - concurrency blocks
-  - required-check mapping
-- Rerun required PR checks and at least one main/nightly-equivalent validation on the upgraded branch.
-Repo paths:
-- `.github/workflows/pr.yml`
-- `.github/workflows/main.yml`
-- `.github/workflows/nightly.yml`
-- `.github/workflows/wrkr-action-ci.yml`
-- `.github/workflows/wrkr-sarif.yml`
-- `.github/required-checks.json`
-- `scripts/check_branch_protection_contract.sh`
-- `testinfra/contracts/story0_contracts_test.go`
-- `testinfra/hygiene/`
-Run commands:
-- `make lint-fast`
+- `go test ./core/cli ./core/verify -count=1`
+- `go test ./internal/e2e/verify -count=1`
 - `make test-contracts`
+- `scripts/check_docs_cli_parity.sh`
+- `scripts/check_docs_consistency.sh`
 - `make prepush-full`
 - `make test-hardening`
 - `make test-chaos`
-- `make test-perf`
-- `gh run list --repo Clyra-AI/wrkr --workflow pr --limit 10`
-- `gh run watch --repo Clyra-AI/wrkr <run-id>`
-- `gh workflow run nightly.yml --ref <branch>`
-- `gh run watch --repo Clyra-AI/wrkr <nightly-run-id>`
 Test requirements:
-- workflow contract tests
-- hygiene checks for deprecated action refs and override policy
-- branch protection contract tests
-- deterministic failure-message checks for any new enforcement script
-- rerun of merge-blocking PR checks plus a nightly-equivalent lane
+- CLI `--json` stability tests with and without ambient `WRKR_STATE_PATH`
+- exit-code contract checks for success, missing `--chain`, and invalid verifier-key material
+- machine-readable envelope tests for `verification_failure` and `invalid_input`
+- deterministic repeat-run test confirming path precedence does not alter stable output unexpectedly
+- docs parity and docs consistency checks for verify/trust docs
 Matrix wiring:
-- Fast lane: `wave-sequence`, `fast-lane`, `scan-contract`
-- Core CI lane: `main` `core-matrix-*`
-- Acceptance lane: `main` `acceptance`, `v1-acceptance`
-- Cross-platform lane: `windows-smoke`, `core-matrix-macos-latest`, `core-matrix-windows-latest`
-- Risk lane: `nightly` `risk-lane`, `make test-hardening`, `make test-chaos`, `make test-perf`
-Acceptance criteria:
-- No deprecated action refs remain on merge-blocking, mainline, nightly, action-contract, or SARIF workflow surfaces.
-- Required PR status names are unchanged.
-- Rerun PR and main/nightly validations complete without the same Node20 deprecation annotation on upgraded refs.
-Contract/API impact:
-- Stable workflow status names and workflow semantics remain unchanged.
-- No CLI or schema impact.
-Architecture constraints:
-- Preserve fail-closed gates and exact workflow purposes.
-- Prefer direct Node24-ready upgrades over temporary force flags.
-- Keep validation logic side-effect-free and deterministic.
-ADR required: no
-TDD first failing test(s):
-- Extend hygiene/contract tests to fail on old refs in `pr.yml`, `main.yml`, `nightly.yml`, `wrkr-action-ci.yml`, and `wrkr-sarif.yml` before editing the workflow files.
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- An action upgrade may alter path-filter, artifact, or setup semantics differently across Linux/macOS/Windows and only surface after merge if the cross-platform lanes are not rerun.
-
-### Story W1-S03: Upgrade release and docs/distribution workflows to Node24-ready action refs
-Priority: P0
-Dependencies:
-- `W1-S01`
-Tasks:
-- Upgrade or re-pin deprecated action refs in:
-  - `.github/workflows/release.yml`
-  - `.github/workflows/docs.yml`
-- Validate third-party and release-trust action surfaces:
-  - `actions/setup-python`
-  - `actions/setup-node`
-  - `actions/upload-artifact`
-  - `actions/configure-pages`
-  - `actions/upload-pages-artifact`
-  - `actions/deploy-pages`
-  - `goreleaser/goreleaser-action`
-  - `anchore/sbom-action`
-  - `anchore/scan-action`
-  - `sigstore/cosign-installer`
-  - `actions/attest-build-provenance`
-  - `Homebrew/actions/setup-homebrew`
-- Preserve release and docs workflow semantics:
-  - `release-artifacts` job purpose
-  - release smoke/install-path parity
-  - provenance/signing/SBOM/vulnerability scan sequence
-  - GitHub Pages deployment flow
-- Rerun `release.yml` and `docs.yml` on the branch and inspect annotations/logs for lingering Node20 deprecation warnings.
-Repo paths:
-- `.github/workflows/release.yml`
-- `.github/workflows/docs.yml`
-- `docs/trust/release-integrity.md`
-- `CONTRIBUTING.md`
-- `scripts/test_uat_local.sh`
-- `Makefile`
-- `testinfra/contracts/`
-- `testinfra/hygiene/`
-Run commands:
-- `make lint-fast`
-- `make test-contracts`
-- `make prepush-full`
-- `make test-hardening`
-- `make test-chaos`
-- `make test-perf`
-- `make test-release-smoke`
-- `scripts/test_uat_local.sh --skip-global-gates`
-- `gh workflow run docs.yml --ref <branch>`
-- `gh workflow run release.yml --ref <branch>`
-- `gh run watch --repo Clyra-AI/wrkr <run-id>`
-Test requirements:
-- release smoke and install-path UAT
-- workflow contract and hygiene tests
-- deterministic release helper behavior
-- rerun of docs and release workflows with annotation inspection
-- docs consistency checks if release-trust docs change
-Matrix wiring:
-- Fast lane: `fast-lane`, `scan-contract`
-- Core CI lane: `main` `docs-smoke`
-- Acceptance lane: `main` `v1-acceptance`
-- Cross-platform lane: rerun `windows-smoke` if release helper or install-path behavior changes
-- Risk lane: `release` `release-artifacts`, `nightly` `risk-lane`, `make test-hardening`, `make test-chaos`, `make test-perf`
-Acceptance criteria:
-- `release.yml` and `docs.yml` no longer use deprecated Node20-backed action refs.
-- Branch reruns of release/docs flows pass without the same Node20 deprecation annotation.
-- Release signing, provenance, SBOM, vulnerability scanning, and install-path parity semantics remain intact.
-Contract/API impact:
-- Release workflow identity and install-path trust contract remain stable.
-- No CLI or schema impact.
-Architecture constraints:
-- Do not weaken release gates, signing, scanning, or docs deployment behavior.
-- Keep workflow behavior deterministic and auditable.
-- If a third-party action needs replacement, preserve equivalent side-effect semantics and document the rationale in the same PR.
-ADR required: no
-TDD first failing test(s):
-- Extend hygiene/contract tests to fail on old refs in `release.yml` and `docs.yml` before editing the workflow files.
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- A release/docs action upgrade can silently change auth, artifact paths, or page deploy behavior and only surface during release or docs publication if those workflows are not rerun directly.
-
-### Story W1-S04: Add hard-fail enforcement for GitHub Actions JavaScript runtime compatibility
-Priority: P0
-Dependencies:
-- `W1-S01`
-Tasks:
-- Add or extend a deterministic repo check that flags:
-  - known Node20-backed action refs
-  - unapproved `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`
-  - unapproved `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION`
-- Wire the check into the existing fast governance path:
-  - `make lint-fast`
-  - repo hygiene script chain
-- Add test fixtures covering:
-  - blocked deprecated refs
-  - approved clean refs
-  - blocked steady-state force flags
-  - any explicit bounded exception mechanism if needed
-- Ensure failure output is stable and names the offending workflow path and action ref.
-Repo paths:
-- `scripts/`
-- `Makefile`
-- `testinfra/hygiene/`
-- `testinfra/contracts/`
-- `product/dev_guides.md`
-Run commands:
-- `make lint-fast`
-- `go test ./testinfra/hygiene -count=1`
-- `go test ./testinfra/contracts -count=1`
-- `make prepush-full`
-Test requirements:
-- deterministic allow/block fixtures
-- reason-string stability checks
-- parser behavior tests against representative workflow YAML
-- required-check contract tests proving enforcement does not change status names
-Matrix wiring:
-- Fast lane: `fast-lane`, `scan-contract`
+- Fast lane: `go test ./core/cli ./core/verify -count=1`, `make lint-fast`, `make test-contracts`
 - Core CI lane: `make prepush-full`
-- Acceptance lane: none beyond green PR/main flows
+- Acceptance lane: `go test ./internal/e2e/verify -count=1`
 - Cross-platform lane: `windows-smoke`
-- Risk lane: `nightly` `risk-lane`
+- Risk lane: `make test-hardening`, `make test-chaos`
 Acceptance criteria:
-- Repo fails before merge when deprecated action refs or disallowed force flags are introduced.
-- Enforcement messages are deterministic and actionable.
-- Existing required-check and release-contract tests remain green.
+- Explicit `--path` verification yields the same `verification_mode` and `authenticity_status` regardless of ambient `WRKR_STATE_PATH` when `--state` is omitted.
+- Explicit `--state` continues to take precedence.
+- Success and failure JSON envelopes remain backward-compatible.
+- Updated docs describe the implemented precedence exactly.
+Contract/API impact:
+- Clarifies existing `verify` lookup precedence without adding flags, keys, or exit codes.
+Versioning/migration impact:
+- No schema change, no version bump, no migration path required.
 Architecture constraints:
-- Prefer structured parsing over brittle regex-only validation for workflow semantics.
-- Keep the enforcement surface thin, explicit, and side-effect-free.
-- Do not add hidden network dependency or stateful caching to hygiene checks.
+- Keep CLI as thin orchestration only.
+- Keep proof verification and authenticity logic authoritative in `core/verify`.
+- Do not let ambient env override more-specific explicit CLI input.
+- Preserve offline deterministic behavior.
 ADR required: no
 TDD first failing test(s):
-- Add blocked fixtures for `actions/checkout@v4`, `actions/setup-go@v5`, and a workflow file containing `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` before implementing the enforcement check.
+- `core/cli/root_test.go`: `TestVerifyExplicitChainPathIgnoresAmbientWRKRStatePath`
+- `core/cli/root_test.go`: `TestVerifyExplicitStateStillOverridesAmbientWRKRStatePath`
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- Without hard-fail enforcement, future workflow edits can silently reintroduce deprecated refs and the repo will rediscover the problem only during release or external GitHub platform cutover.
+- Fault: ambient `WRKR_STATE_PATH` points to missing or unrelated signing material while the user passes an explicit chain path.
+- Expected: verification still loads the key material associated with the explicit chain path and preserves authenticated results or existing stable failure envelopes.
 
-## Epic W2: Docs and Maintainer Repeatability
-
-Objective: Keep contributor and release-trust documentation aligned with the new workflow-runtime contract so maintainers do not reintroduce deprecated action behavior.
-
-### Story W2-S01: Update contributor, release-trust, and normative policy docs for Node24 workflow readiness
-Priority: P1
-Dependencies:
-- `W1-S02`
-- `W1-S03`
-- `W1-S04`
+### Story W1-S02: Fail Closed On Degraded Campaign Scan Artifacts
+Priority: P0
 Tasks:
-- Update `CONTRIBUTING.md` with the GitHub Actions JavaScript runtime compatibility baseline and the distinction between:
-  - local Node toolchain for docs-site
-  - GitHub Actions JavaScript runtime for CI workflows
-- Update `docs/trust/release-integrity.md` so release trust claims explicitly assume a Node24-ready action set on the release path.
-- If needed, extend `product/dev_guides.md` with a normative rule covering:
-  - GitHub Actions JavaScript runtime compatibility
-  - update procedure for JS actions when GitHub deprecates a runtime
-  - policy for temporary force flags
-- Add exact validation commands and rerun expectations to the touched docs.
+- Add failing CLI and e2e tests for campaign inputs where `partial_result`, `source_degraded`, or `source_errors` are present.
+- Extend artifact validation in `campaign aggregate` so `status=ok` is necessary but not sufficient.
+- Reject degraded or partial scan artifacts with stable `invalid_input` output that names the offending artifact and reason markers.
+- Keep successful campaign output and `schemas/v1/report/campaign-summary.schema.json` unchanged for complete artifacts.
+- Update campaign docs and cross-link scan docs so upstream completeness requirements are explicit.
 Repo paths:
-- `CONTRIBUTING.md`
-- `docs/trust/release-integrity.md`
-- `product/dev_guides.md`
-- `README.md` only if public release-trust copy must be corrected
+- `core/cli/campaign.go`
+- `core/cli/campaign_test.go`
+- `internal/e2e/campaign/campaign_e2e_test.go`
+- `docs/commands/campaign.md`
+- `docs/commands/scan.md`
 Run commands:
-- `make test-docs-consistency`
-- `make test-docs-storyline`
-- `make docs-site-install`
-- `make docs-site-lint`
-- `make docs-site-build`
-- `make docs-site-check`
-- `make lint-fast`
+- `go test ./core/cli -count=1`
+- `go test ./internal/e2e/campaign -count=1`
+- `make test-contracts`
+- `scripts/check_docs_cli_parity.sh`
+- `scripts/check_docs_consistency.sh`
+- `make prepush-full`
+- `make test-hardening`
+- `make test-chaos`
 Test requirements:
-- docs consistency checks
-- storyline/smoke checks
-- docs source-of-truth mapping checks when policy and docs both change
-- README first-screen checks if README copy changes
+- deterministic fail-closed fixtures for `partial_result`, `source_degraded`, and `source_errors`
+- CLI `invalid_input` envelope tests with stable exit `6`
+- happy-path regression tests proving complete artifacts still aggregate unchanged
+- contract check that campaign summary schema and required success fields stay stable
+- docs consistency and CLI parity checks
 Matrix wiring:
-- Fast lane: docs consistency + `make lint-fast`
-- Core CI lane: `main` `docs-smoke`
-- Acceptance lane: n/a unless docs-site user flow changes materially
-- Cross-platform lane: n/a
-- Risk lane: none beyond existing release/docs validation
+- Fast lane: `go test ./core/cli -count=1`, `make lint-fast`, `make test-contracts`
+- Core CI lane: `make prepush-full`
+- Acceptance lane: `go test ./internal/e2e/campaign -count=1`
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make test-hardening`, `make test-chaos`
 Acceptance criteria:
-- Contributor, trust, and normative policy docs describe the same implemented Node24-ready workflow contract.
-- Docs distinguish local Node contribution requirements from GitHub Actions JavaScript runtime policy.
-- No touched doc contradicts the actual workflow YAML or enforcement rules.
+- `campaign aggregate` exits `6` with a stable `invalid_input` envelope when any matched artifact is degraded or partial.
+- Complete scan artifacts continue to aggregate with the same success payload shape and schema version.
+- Docs explicitly say campaign aggregation consumes complete `scan --json` artifacts only.
+Contract/API impact:
+- Narrows campaign input acceptance to complete artifacts while keeping success output stable.
+Versioning/migration impact:
+- No schema bump planned and no migration path required for complete-artifact consumers.
 Architecture constraints:
-- Docs cannot promise compatibility that workflow YAML and tests do not enforce.
-- Keep public trust wording precise and scoped to implemented behavior.
+- Validate at the CLI/artifact boundary, not in downstream rendering or docs alone.
+- Do not introduce a permissive degraded-success mode in this wave.
+- Preserve deterministic input ordering and stable error classes.
 ADR required: no
 TDD first failing test(s):
-- Update docs consistency/storyline expectations before editing the prose so the doc contract goes red first.
+- `core/cli/campaign_test.go`: `TestCampaignAggregateRejectsPartialResultArtifact`
+- `core/cli/campaign_test.go`: `TestCampaignAggregateRejectsDegradedArtifact`
+- `internal/e2e/campaign/campaign_e2e_test.go`: degraded scan fixture rejected with exit `6`
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- If docs lag the workflow contract, maintainers may reintroduce temporary force flags or stale action majors under the false assumption that the repo still permits them.
+- Fault: matched scan artifact is syntactically valid JSON but semantically incomplete because source acquisition partially failed.
+- Expected: `campaign aggregate` rejects the artifact deterministically rather than producing a false-green summary.
+
+## Epic W2: Atomic Evidence Bundle Commit
+
+Objective: make evidence output crash-safe and operator-trustworthy by publishing only complete verified bundles.
+
+### Story W2-S01: Stage And Atomically Publish Evidence Bundles
+Priority: P0
+Tasks:
+- Add failing tests that prove:
+  - invalid late-stage builds do not leave partial target bundles
+  - a prior valid managed bundle survives a failed rerun intact
+- Introduce same-parent managed staging flow for `wrkr evidence`:
+  - validate target ownership and marker trust without clearing the target in place
+  - create a stage dir beside the target
+  - write all bundle files to the stage dir
+  - build manifest, sign bundle, and verify bundle in the stage dir
+  - swap stage into the final target only after full success
+  - clean stage and backup dirs deterministically on success and best-effort on failure
+- Keep side-effect semantics explicit in helper names and signatures.
+- Preserve existing error classes and managed-marker trust rules.
+- Update evidence and lifecycle docs so managed bundle publication semantics are explicit and auditable.
+Repo paths:
+- `core/evidence/evidence.go`
+- `core/evidence/stage.go`
+- `core/evidence/evidence_test.go`
+- `core/cli/root_test.go`
+- `testinfra/contracts/story7_contracts_test.go`
+- `docs/commands/evidence.md`
+- `docs/state_lifecycle.md`
+- `internal/atomicwrite/atomicwrite.go` only if a reusable swap helper is intentionally extracted there
+Run commands:
+- `go test ./core/evidence ./core/cli -count=1`
+- `go test ./testinfra/contracts -count=1`
+- `make test-contracts`
+- `scripts/check_docs_cli_parity.sh`
+- `scripts/check_docs_consistency.sh`
+- `make prepush-full`
+- `make test-hardening`
+- `make test-chaos`
+- `make test-perf`
+Test requirements:
+- keep existing non-empty unmanaged dir and marker trust tests green
+- add crash-safe publish tests for invalid framework and injected late failure paths
+- add preservation tests showing an earlier valid managed bundle remains intact after failed rerun
+- add any required contention tests if new staging helpers coordinate shared paths
+- run byte-stability repeat-run tests for successful bundles
+- verify digest and bundle verification determinism after staged publish
+- run docs parity and lifecycle consistency checks
+Matrix wiring:
+- Fast lane: `go test ./core/evidence ./core/cli -count=1`, `make lint-fast`, `make test-contracts`
+- Core CI lane: `make prepush-full`
+- Acceptance lane: `go test ./testinfra/contracts -count=1`
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make test-hardening`, `make test-chaos`, `make test-perf`
+Acceptance criteria:
+- Failed evidence builds never expose partial new bundle contents at the final target path.
+- If the target already contains a valid managed bundle, a later failed build leaves that prior bundle intact.
+- Successful builds still emit the documented files and JSON success envelope unchanged.
+- Managed marker rules, output ownership safety, and error-class mapping remain intact.
+- Docs describe staged publish semantics accurately.
+Contract/API impact:
+- Strengthens managed output publication semantics while leaving CLI success/failure envelope fields unchanged.
+Versioning/migration impact:
+- No schema or CLI version bump planned.
+Architecture constraints:
+- Keep evidence staging and publish logic inside the evidence/compliance boundary.
+- Use same-parent staging to minimize cross-filesystem rename surprises.
+- Make destructive steps explicit in helper APIs.
+- Preserve fail-closed ownership checks and bundle verification before publish.
+- Ensure cancellation and failure cleanup never mutates unrelated user paths.
+ADR required: yes
+TDD first failing test(s):
+- `core/evidence/evidence_test.go`: `TestBuildDoesNotLeavePartialBundleOnInvalidFramework`
+- `core/evidence/evidence_test.go`: `TestBuildPreservesPreviousManagedBundleWhenLateFailureOccurs`
+- `testinfra/contracts/story7_contracts_test.go`: staged publish exposes complete bundle only on success
+Cost/perf impact: medium
+Chaos/failure hypothesis:
+- Fault: bundle generation fails after several files are written, or after stage verification but before final swap.
+- Expected: the stage dir is cleaned or quarantined, the final target remains absent or continues to point to the prior good bundle, and no partial managed target bundle is exposed.
 
 ## Minimum-Now Sequence
 
-1. Reconfirm the Node20 deprecation signature and freeze the affected workflow/action inventory.
-2. Add the failing hygiene/contract test(s) for deprecated action refs and disallowed force flags.
-3. Upgrade merge-blocking and mainline workflows (`pr.yml`, `main.yml`, `nightly.yml`, `wrkr-action-ci.yml`, `wrkr-sarif.yml`).
-4. Upgrade release/docs workflows (`release.yml`, `docs.yml`) and preserve release/deploy semantics.
-5. Rerun required PR checks, main/nightly validation, and branch-triggered or workflow-dispatch release/docs lanes until the deprecation annotation is gone.
-6. Wire permanent enforcement into the fast governance path.
-7. Update contributor/release-trust/normative docs and rerun docs validation.
+Wave 1:
+- `W1-S01` Respect explicit verify chain path precedence
+- `W1-S02` Reject degraded campaign scan artifacts
+- Exit wave only when verify and campaign docs/tests/contracts are all green in the same branch.
+
+Wave 2:
+- `W2-S01` Stage and atomically publish evidence bundles
+- Exit wave only when failure-injection tests prove prior bundle preservation or empty-target safety and docs reflect the new publish semantics.
+
+Dependency order rationale:
+
+- `W1-S01` and `W1-S02` are the smallest, highest-signal contract corrections and remove immediate false-confidence paths for proof verification and org rollups.
+- `W2-S01` is more invasive because it changes managed output publication semantics and requires staged filesystem behavior, hardening coverage, and likely an ADR.
+- Docs and contract updates remain coupled to each story rather than deferred to a later documentation-only wave.
 
 ## Explicit Non-Goals
 
-- No CLI feature work, schema evolution, or exit-code changes.
-- No workflow rename, required-check rename, or branch-protection redesign.
-- No permanent repo-wide use of `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`.
-- No unrelated CI redesign, toolchain refresh, or release-pipeline simplification outside the Node20 remediation scope.
-- No weakening of SBOM, vulnerability scanning, signing, provenance, or install-path UAT gates.
+- No new CLI commands or flags.
+- No new exit codes.
+- No change to `scan` acquisition behavior beyond clarifying its existing degraded artifact fields where needed.
+- No permissive degraded-success campaign mode in this plan.
+- No changes to `Clyra-AI/proof` APIs, proof-record types, or chain schema.
+- No dashboard, docs-site UI, or packaging work.
+- No unrelated release workflow or CI modernization work.
 
 ## Definition of Done
 
-- All active workflow surfaces in `.github/workflows/*.yml` are on Node24-compatible action refs or an explicitly bounded exception path.
-- `wave-sequence`, `fast-lane`, `scan-contract`, and `windows-smoke` remain unchanged and green.
-- The workflow class that previously emitted the Node20 deprecation warning has been rerun and no longer emits that warning for the upgraded refs.
-- `release.yml` and `docs.yml` reruns are green after the uplift.
-- A hard-fail local/CI enforcement check prevents deprecated action refs or disallowed force flags from re-entering.
-- `CONTRIBUTING.md`, `docs/trust/release-integrity.md`, and any touched policy docs match the implemented workflow/runtime contract.
-- Wrkr CLI behavior, JSON output, schemas, and exit codes are unchanged.
+- Every review recommendation maps to a completed story with passing tests and updated docs.
+- TDD evidence exists for each story through newly added or updated failing-first tests.
+- CLI `--json` behavior and exit-code contracts remain stable for successful paths and documented failure classes.
+- Campaign aggregation is fail-closed for degraded upstream artifacts.
+- Evidence output publication is staged and failure-safe at the final target path.
+- Docs parity and consistency checks pass in the same PR as code changes.
+- Required fast, core, acceptance, cross-platform, and risk lanes are green for each story.
+- Worktree after implementation is scoped to the planned files and any deliberate additive helper/ADR files only.

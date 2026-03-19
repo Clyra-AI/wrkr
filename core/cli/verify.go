@@ -38,15 +38,7 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "verify does not accept positional arguments", exitInvalidInput)
 	}
 
-	resolvedStatePath := state.ResolvePath(*statePathFlag)
-	chainPath := strings.TrimSpace(*chainPathFlag)
-	if chainPath == "" {
-		chainPath = proofemit.ChainPath(resolvedStatePath)
-	}
-	keyLookupPath := chainPath
-	if strings.TrimSpace(*chainPathFlag) == "" || strings.TrimSpace(*statePathFlag) != "" || strings.TrimSpace(os.Getenv("WRKR_STATE_PATH")) != "" {
-		keyLookupPath = resolvedStatePath
-	}
+	chainPath, keyLookupPath := resolveVerifyPaths(*statePathFlag, *chainPathFlag)
 	var (
 		result verifycore.Result
 		err    error
@@ -89,6 +81,18 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintf(stdout, "wrkr verify chain intact records=%d\n", result.Count)
 	return exitSuccess
+}
+
+func resolveVerifyPaths(statePathFlag string, chainPathFlag string) (chainPath string, keyLookupPath string) {
+	resolvedStatePath := state.ResolvePath(statePathFlag)
+	explicitChainPath := strings.TrimSpace(chainPathFlag)
+	if explicitChainPath == "" {
+		return proofemit.ChainPath(resolvedStatePath), resolvedStatePath
+	}
+	if strings.TrimSpace(statePathFlag) != "" {
+		return explicitChainPath, resolvedStatePath
+	}
+	return explicitChainPath, explicitChainPath
 }
 
 func emitVerificationFailure(stderr io.Writer, jsonOut bool, reason string, breakIndex int, breakPoint, detail string) int {

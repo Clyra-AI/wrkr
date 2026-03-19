@@ -17,7 +17,7 @@ Wrkr uses two path classes:
 | Regress baseline | `.wrkr/wrkr-regress-baseline.json` | `wrkr regress init` (default output) | Defaults to the same directory as state. |
 | Identity manifest | `.wrkr/wrkr-manifest.yaml` | `wrkr scan`, `wrkr manifest generate` | Lifecycle/approval baseline contract for real tool identities only. |
 | Proof chain | `.wrkr/proof-chain.json` | `wrkr scan` / `wrkr evidence` | Verifiable signed record chain. |
-| Evidence bundle | `wrkr-evidence/` | `wrkr evidence` | User-supplied `--output` is allowed; unsafe non-managed non-empty paths fail closed. |
+| Evidence bundle | `wrkr-evidence/` | `wrkr evidence` | User-supplied `--output` is allowed; unsafe non-managed non-empty paths fail closed. Wrkr stages bundle writes in a same-parent temporary directory and only publishes after manifest/sign/verify success. |
 | Human report artifacts | user-selected (`.tmp/*.md`, `.tmp/*.pdf`) | `wrkr report`, `wrkr regress run --summary-md`, `wrkr lifecycle --summary-md` | Keep separate from managed `.wrkr/` contract artifacts. |
 
 ## Identity scope
@@ -31,7 +31,7 @@ Wrkr uses two path classes:
 1. `wrkr scan` writes/refreshes `.wrkr/last-scan.json`, `.wrkr/wrkr-manifest.yaml`, `.wrkr/proof-chain.json`.
 2. `wrkr regress init` snapshots current state into `.wrkr/wrkr-regress-baseline.json` (unless `--output` overrides).
 3. `wrkr regress run` compares current state vs baseline and returns deterministic drift reasons.
-4. `wrkr evidence` consumes state and emits evidence bundle outputs while preserving chain continuity.
+4. `wrkr evidence` consumes state and emits evidence bundle outputs while preserving chain continuity and only publishing a complete verified bundle to the requested output path.
 5. `wrkr verify --chain` validates proof-chain integrity from the state directory.
 
 ## Command links

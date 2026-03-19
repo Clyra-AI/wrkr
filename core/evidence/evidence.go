@@ -142,12 +142,28 @@ func Build(in BuildInput) (BuildResult, error) {
 	if outputDir == "" {
 		outputDir = "wrkr-evidence"
 	}
-	if err := resetOutputDir(outputDir); err != nil {
+	targetOutputDir := outputDir
+	if err := validateOutputDirTarget(targetOutputDir); err != nil {
 		if isOutputDirSafetyError(err) {
 			return BuildResult{}, classifyError(ErrorClassUnsafeOperationBlocked, err)
 		}
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
+	stageDir, err := createOutputStageDir(targetOutputDir)
+	if err != nil {
+		if isOutputDirSafetyError(err) {
+			return BuildResult{}, classifyError(ErrorClassUnsafeOperationBlocked, err)
+		}
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+	}
+	stagePublished := false
+	defer func() {
+		if stagePublished {
+			return
+		}
+		_ = os.RemoveAll(stageDir)
+	}()
+	outputDir = stageDir
 
 	generatedAt := in.GeneratedAt
 	if generatedAt.IsZero() {
@@ -322,11 +338,16 @@ func Build(in BuildInput) (BuildResult, error) {
 	if _, err := proof.VerifyBundle(outputDir, proof.BundleVerifyOpts{}); err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "verify bundle integrity: %w", err)
 	}
+	if err := publishStagedOutput(stageDir, targetOutputDir); err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "publish evidence bundle: %w", err)
+	}
+	stagePublished = true
+	reportArtifacts = rebaseArtifactPaths(reportArtifacts, stageDir, targetOutputDir)
 
 	return BuildResult{
-		OutputDir:         outputDir,
+		OutputDir:         targetOutputDir,
 		Frameworks:        frameworks,
-		ManifestPath:      filepath.Join(outputDir, "manifest.json"),
+		ManifestPath:      filepath.Join(targetOutputDir, "manifest.json"),
 		ChainPath:         chainPath,
 		FrameworkCoverage: coverage,
 		ReportArtifacts:   reportArtifacts,
@@ -452,63 +473,6 @@ func writeJSONL(path string, records []proof.Record) error {
 	return nil
 }
 
-func resetOutputDir(path string) error {
-	path = filepath.Clean(path)
-	info, err := os.Lstat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(path, 0o750); err != nil {
-				return fmt.Errorf("mkdir output dir: %w", err)
-			}
-			return writeOutputDirMarker(path)
-		}
-		return fmt.Errorf("lstat output dir: %w", err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return newOutputDirSafetyError("output dir must not be a symlink: %s", path)
-	}
-	if !info.IsDir() {
-		return newOutputDirSafetyError("output dir is not a directory: %s", path)
-	}
-	entries, err := os.ReadDir(path)
-	if err != nil {
-		return fmt.Errorf("read output dir: %w", err)
-	}
-	if len(entries) == 0 {
-		return writeOutputDirMarker(path)
-	}
-
-	markerPath := filepath.Join(path, outputDirMarkerFile)
-	markerInfo, err := os.Lstat(markerPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return newOutputDirSafetyError("output dir is not empty and not managed by wrkr evidence: %s", path)
-		}
-		return fmt.Errorf("stat output dir marker: %w", err)
-	}
-	if !markerInfo.Mode().IsRegular() {
-		return newOutputDirSafetyError("output dir marker is not a regular file: %s", markerPath)
-	}
-	markerPayload, err := os.ReadFile(markerPath) // #nosec G304 -- marker path is deterministic under the selected local output directory.
-	if err != nil {
-		return fmt.Errorf("read output dir marker: %w", err)
-	}
-	if string(markerPayload) != outputDirMarkerContent {
-		return newOutputDirSafetyError("output dir marker content is invalid: %s", markerPath)
-	}
-
-	for _, entry := range entries {
-		if entry.Name() == outputDirMarkerFile {
-			continue
-		}
-		entryPath := filepath.Join(path, entry.Name())
-		if err := os.RemoveAll(entryPath); err != nil {
-			return fmt.Errorf("clear output dir entry %s: %w", entryPath, err)
-		}
-	}
-	return nil
-}
-
 func writeOutputDirMarker(path string) error {
 	markerPath := filepath.Join(path, outputDirMarkerFile)
 	if err := os.WriteFile(markerPath, []byte(outputDirMarkerContent), 0o600); err != nil {
@@ -542,6 +506,22 @@ func hasScanEvidenceRecords(records []proof.Record) bool {
 		}
 	}
 	return false
+}
+
+func rebaseArtifactPaths(paths []string, fromRoot string, toRoot string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	rebased := make([]string, 0, len(paths))
+	for _, rawPath := range paths {
+		rel, err := filepath.Rel(fromRoot, rawPath)
+		if err != nil {
+			rebased = append(rebased, rawPath)
+			continue
+		}
+		rebased = append(rebased, filepath.Join(toRoot, rel))
+	}
+	return rebased
 }
 
 func buildManifestEntries(outputDir string) ([]proof.BundleManifestEntry, error) {

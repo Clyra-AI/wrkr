@@ -20,6 +20,8 @@ Evidence output directories are fail-closed:
 - Wrkr writes ownership marker `.wrkr-evidence-managed` in managed directories.
 - A non-empty, non-managed output directory is blocked.
 - Marker path must be a regular file; symlink or directory markers are blocked.
+- Wrkr builds bundles in a same-parent staged directory and publishes to `--output` only after manifest generation, signing, and bundle verification succeed.
+- If a build fails, Wrkr leaves the prior managed bundle intact or leaves the target path absent; it does not expose a partial new bundle at the final target path.
 - Unsafe output directory usage returns exit code `8` with error code `unsafe_operation_blocked`.
 
 ## Error classification contract

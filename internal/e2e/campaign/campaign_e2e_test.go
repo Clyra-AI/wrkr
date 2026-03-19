@@ -73,6 +73,61 @@ func TestE2ECampaignAggregateFromScanArtifacts(t *testing.T) {
 	}
 }
 
+func TestE2ECampaignAggregateRejectsPartialScanArtifacts(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	if err := os.MkdirAll(filepath.Join(reposPath, "alpha"), 0o755); err != nil {
+		t.Fatalf("mkdir alpha repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(reposPath, "alpha", "AGENTS.md"), []byte("# alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha AGENTS.md: %v", err)
+	}
+
+	scanPath := filepath.Join(tmp, "scan.json")
+	runScanAndPersistJSON(t, reposPath, filepath.Join(tmp, "state.json"), scanPath)
+
+	payload, err := os.ReadFile(scanPath)
+	if err != nil {
+		t.Fatalf("read scan artifact: %v", err)
+	}
+	var artifact map[string]any
+	if err := json.Unmarshal(payload, &artifact); err != nil {
+		t.Fatalf("parse scan artifact: %v", err)
+	}
+	artifact["partial_result"] = true
+	artifact["source_degraded"] = true
+	artifact["source_errors"] = []any{
+		map[string]any{"repo": "alpha", "reason": "connector_degraded: synthetic repro"},
+	}
+	mutated, err := json.Marshal(artifact)
+	if err != nil {
+		t.Fatalf("marshal scan artifact: %v", err)
+	}
+	if err := os.WriteFile(scanPath, mutated, 0o600); err != nil {
+		t.Fatalf("write mutated scan artifact: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := cli.Run([]string{"campaign", "aggregate", "--input-glob", scanPath, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6 for partial scan artifact, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	var errorPayload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &errorPayload); err != nil {
+		t.Fatalf("parse campaign error payload: %v", err)
+	}
+	errObj, ok := errorPayload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %v", errorPayload)
+	}
+	if errObj["code"] != "invalid_input" {
+		t.Fatalf("expected invalid_input code, got %v", errObj["code"])
+	}
+}
+
 func runScanAndPersistJSON(t *testing.T, scanPath, statePath, outputPath string) {
 	t.Helper()
 
