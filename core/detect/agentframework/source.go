@@ -523,6 +523,8 @@ func sourceAgentSpec(rel, content, block, variableName, callName string, startLi
 		firstNamedString(block, []string{"approval_status", "approvalStatus"}),
 		"missing",
 	)
+	approvalSource := firstNamedString(block, []string{"approval_source", "approvalSource"})
+	proofRequirement := firstNamedString(block, []string{"proof_requirement", "proofRequirement"})
 
 	return AgentSpec{
 		Name:             symbol,
@@ -535,6 +537,8 @@ func sourceAgentSpec(rel, content, block, variableName, callName string, startLi
 		Deployment:       uniqueSorted(deployment),
 		DataClass:        dataClass,
 		ApprovalStatus:   approvalStatus,
+		ApprovalSource:   approvalSource,
+		ProofRequirement: proofRequirement,
 		DynamicDiscovery: hasAnyKeyword(block, "handoff", "handoffs", "delegate", "delegation", "dynamic_discovery", "discover_tools", "tool_registry", "register_tool"),
 		KillSwitch:       extractNamedBool(block, []string{"kill_switch", "killSwitch"}),
 		AutoDeploy:       extractNamedBool(block, []string{"auto_deploy", "autoDeploy"}),
@@ -564,6 +568,8 @@ func sourceFinding(scope detect.Scope, plan sourcePlan, agent AgentSpec, languag
 		{Key: "deployment_status", Value: deploymentStatus},
 		{Key: "data_class", Value: fallback(strings.TrimSpace(agent.DataClass), "unknown")},
 		{Key: "approval_status", Value: fallback(strings.TrimSpace(agent.ApprovalStatus), "missing")},
+		{Key: "approval_source", Value: normalizeApprovalSource(agent)},
+		{Key: "proof_requirement", Value: normalizeProofRequirement(agent, deploymentStatus)},
 		{Key: "dynamic_discovery", Value: fmt.Sprintf("%t", agent.DynamicDiscovery)},
 		{Key: "kill_switch", Value: fmt.Sprintf("%t", agent.KillSwitch)},
 		{Key: "auto_deploy", Value: fmt.Sprintf("%t", agent.AutoDeploy)},

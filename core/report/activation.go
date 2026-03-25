@@ -217,7 +217,7 @@ func classifyGovernFirstClass(entry agginventory.AgentPrivilegeMapEntry) string 
 		return activationClassProductionBacked
 	case entry.WriteCapable && strings.TrimSpace(entry.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity:
 		return activationClassUnknownWrite
-	case entry.WriteCapable && isApprovalGap(entry.ApprovalClassification):
+	case entry.WriteCapable && isApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons):
 		return activationClassApprovalGap
 	case entry.WriteCapable:
 		return activationClassGovernFirst
@@ -268,6 +268,18 @@ func governFirstNextStep(class string) string {
 	}
 }
 
+func isApprovalGap(status string, reasons []string) bool {
+	if len(reasons) > 0 {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "", "unknown", "unapproved":
+		return true
+	default:
+		return false
+	}
+}
+
 func firstRepo(entry agginventory.AgentPrivilegeMapEntry) string {
 	if len(entry.Repos) == 0 {
 		return ""
@@ -282,13 +294,4 @@ func activationToolType(entry agginventory.AgentPrivilegeMapEntry) string {
 		return strings.TrimSpace(entry.Framework)
 	}
 	return strings.TrimSpace(entry.ToolType)
-}
-
-func isApprovalGap(status string) bool {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "", "unknown", "unapproved":
-		return true
-	default:
-		return false
-	}
 }

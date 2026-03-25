@@ -250,6 +250,54 @@ func TestBuildIncludesAgentLayerContextDeterministically(t *testing.T) {
 	}
 }
 
+func TestBuildDerivesOperationalOwnerAndApprovalGapReasons(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{
+		{
+			ToolID:      "workflow-1",
+			AgentID:     identity.AgentID(identity.ToolID("compiled_action", ".github/workflows/release.yml"), "local"),
+			ToolType:    "compiled_action",
+			Org:         "local",
+			Repos:       []string{"alpha-service", "beta-service"},
+			Permissions: []string{"deploy.write", "pull_request.write"},
+			Locations: []agginventory.ToolLocation{
+				{Repo: "alpha-service", Location: ".github/workflows/release.yml", Owner: "@local/alpha", OwnerSource: "codeowners", OwnershipStatus: "explicit"},
+				{Repo: "beta-service", Location: ".github/workflows/release.yml", Owner: "@local/beta", OwnerSource: "codeowners", OwnershipStatus: "explicit"},
+			},
+		},
+	}
+	findings := []model.Finding{
+		{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "alpha-service",
+			Org:         "local",
+			Permissions: []string{"deploy.write", "pull_request.write"},
+			Evidence: []model.Evidence{
+				{Key: "auto_deploy", Value: "true"},
+				{Key: "approval_source", Value: "missing"},
+				{Key: "deployment_gate", Value: "ambiguous"},
+				{Key: "proof_requirement", Value: "missing"},
+			},
+		},
+	}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one privilege entry, got %+v", entries)
+	}
+	if entries[0].OwnershipStatus != "unresolved" || entries[0].OwnerSource != "multi_repo_conflict" {
+		t.Fatalf("expected unresolved operational owner, got %+v", entries[0])
+	}
+	for _, reason := range []string{"approval_source_missing", "deployment_gate_ambiguous", "proof_requirement_missing"} {
+		if !containsString(entries[0].ApprovalGapReasons, reason) {
+			t.Fatalf("expected approval gap reason %q in %+v", reason, entries[0].ApprovalGapReasons)
+		}
+	}
+}
+
 func TestBuildResolvesInstanceScopedAgentContextForToolEntries(t *testing.T) {
 	t.Parallel()
 

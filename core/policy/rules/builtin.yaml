@@ -36,15 +36,15 @@ rules:
     kind: prompt_channel_governance
     version: 1
   - id: WRKR-A001
-    title: Agent approval posture must be explicit
+    title: Agent approval posture must be explicit and sourced
     severity: high
-    remediation: Mark each discovered agent as approved or add a deterministic approval workflow.
+    remediation: Mark each discovered agent as approved and declare the static approval source.
     kind: agent_approval_required
     version: 1
   - id: WRKR-A002
-    title: Production-write agents require human gate
+    title: Production-write agents require human gate and proof requirements
     severity: high
-    remediation: Add an explicit human gate before production-write or auto-deploy agent execution.
+    remediation: Add an explicit human gate and proof requirement before production-write or auto-deploy agent execution.
     kind: agent_prod_write_human_gate
     version: 1
   - id: WRKR-A003
@@ -84,9 +84,9 @@ rules:
     kind: agent_data_classification_required
     version: 1
   - id: WRKR-A009
-    title: Auto-deploy paths require deployment gate controls
+    title: Auto-deploy paths require explicit deployment gate controls
     severity: low
-    remediation: Add deterministic deployment gate metadata for auto-deploying agents.
+    remediation: Add deterministic deployment gate metadata and avoid ambiguous gate declarations for auto-deploying agents.
     kind: agent_auto_deploy_gate
     version: 1
   - id: WRKR-A010

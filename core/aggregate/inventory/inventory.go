@@ -15,9 +15,11 @@ import (
 )
 
 type ToolLocation struct {
-	Repo     string `json:"repo" yaml:"repo"`
-	Location string `json:"location" yaml:"location"`
-	Owner    string `json:"owner" yaml:"owner"`
+	Repo            string `json:"repo" yaml:"repo"`
+	Location        string `json:"location" yaml:"location"`
+	Owner           string `json:"owner" yaml:"owner"`
+	OwnerSource     string `json:"owner_source,omitempty" yaml:"owner_source,omitempty"`
+	OwnershipStatus string `json:"ownership_status,omitempty" yaml:"ownership_status,omitempty"`
 }
 
 type Agent struct {
@@ -300,11 +302,17 @@ func Build(input BuildInput) Inventory {
 		if finding.Repo != "" {
 			item.repoSet[finding.Repo] = struct{}{}
 		}
-		owner := owners.ResolveOwner(repoRoot(input.Manifest, finding.Repo), finding.Repo, findingOrg, finding.Location)
+		owner := owners.Resolve(repoRoot(input.Manifest, finding.Repo), finding.Repo, findingOrg, finding.Location)
 		locKey := finding.Repo + "::" + finding.Location
 		if _, exists := item.locSet[locKey]; !exists {
 			item.locSet[locKey] = struct{}{}
-			item.tool.Locations = append(item.tool.Locations, ToolLocation{Repo: finding.Repo, Location: finding.Location, Owner: owner})
+			item.tool.Locations = append(item.tool.Locations, ToolLocation{
+				Repo:            finding.Repo,
+				Location:        finding.Location,
+				Owner:           owner.Owner,
+				OwnerSource:     owner.OwnerSource,
+				OwnershipStatus: owner.OwnershipStatus,
+			})
 		}
 		for _, permission := range finding.Permissions {
 			trimmed := strings.TrimSpace(permission)
@@ -348,6 +356,12 @@ func Build(input BuildInput) Inventory {
 			}
 			if item.tool.Locations[i].Location != item.tool.Locations[j].Location {
 				return item.tool.Locations[i].Location < item.tool.Locations[j].Location
+			}
+			if item.tool.Locations[i].OwnerSource != item.tool.Locations[j].OwnerSource {
+				return item.tool.Locations[i].OwnerSource < item.tool.Locations[j].OwnerSource
+			}
+			if item.tool.Locations[i].OwnershipStatus != item.tool.Locations[j].OwnershipStatus {
+				return item.tool.Locations[i].OwnershipStatus < item.tool.Locations[j].OwnershipStatus
 			}
 			return item.tool.Locations[i].Owner < item.tool.Locations[j].Owner
 		})

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/detect/workflowcap"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk/autonomy"
 )
@@ -45,12 +46,32 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			return nil, readErr
 		}
 		content := string(payload)
+		workflowAnalysis, workflowErr := workflowcap.Analyze(rel, payload)
 		signals := autonomy.Signals{
-			Tool:            detectTool(content),
-			Headless:        isHeadlessInvocation(content),
-			HasApprovalGate: hasApprovalGate(content),
-			HasSecretAccess: hasSecretAccess(content),
-			DangerousFlags:  hasDangerousFlags(content),
+			Tool:            workflowAnalysis.Tool,
+			Headless:        workflowAnalysis.Headless,
+			HasApprovalGate: workflowAnalysis.HasApprovalGate,
+			HasSecretAccess: workflowAnalysis.HasSecretAccess,
+			DangerousFlags:  workflowAnalysis.DangerousFlags,
+		}
+		if workflowErr != nil {
+			signals.Tool = detectTool(content)
+			signals.Headless = isHeadlessInvocation(content)
+			signals.HasApprovalGate = hasApprovalGate(content)
+			signals.HasSecretAccess = hasSecretAccess(content)
+			signals.DangerousFlags = hasDangerousFlags(content)
+		}
+		if signals.Tool == "" {
+			signals.Tool = detectTool(content)
+		}
+		if !signals.Headless {
+			signals.Headless = isHeadlessInvocation(content)
+		}
+		if !signals.HasSecretAccess {
+			signals.HasSecretAccess = hasSecretAccess(content)
+		}
+		if !signals.DangerousFlags {
+			signals.DangerousFlags = hasDangerousFlags(content)
 		}
 		if !signals.Headless && signals.Tool == "" {
 			continue
@@ -60,6 +81,20 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		checkResult := model.CheckResultPass
 		if signals.Headless && signals.HasSecretAccess && !signals.HasApprovalGate {
 			checkResult = model.CheckResultFail
+		}
+		evidence := []model.Evidence{
+			{Key: "tool", Value: signals.Tool},
+			{Key: "headless", Value: boolString(signals.Headless)},
+			{Key: "approval_gate", Value: boolString(signals.HasApprovalGate)},
+			{Key: "secret_access", Value: boolString(signals.HasSecretAccess)},
+			{Key: "dangerous_flags", Value: boolString(signals.DangerousFlags)},
+		}
+		if workflowErr == nil {
+			evidence = append(evidence, workflowAnalysis.Evidence...)
+		}
+		permissions := permissionsFromSignals(signals)
+		if workflowErr == nil {
+			permissions = append(permissions, workflowAnalysis.Capabilities...)
 		}
 		findings = append(findings, model.Finding{
 			FindingType: "ci_autonomy",
@@ -71,14 +106,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			Org:         fallbackOrg(scope.Org),
 			Detector:    detectorID,
 			Autonomy:    level,
-			Permissions: permissionsFromSignals(signals),
-			Evidence: []model.Evidence{
-				{Key: "tool", Value: signals.Tool},
-				{Key: "headless", Value: boolString(signals.Headless)},
-				{Key: "approval_gate", Value: boolString(signals.HasApprovalGate)},
-				{Key: "secret_access", Value: boolString(signals.HasSecretAccess)},
-				{Key: "dangerous_flags", Value: boolString(signals.DangerousFlags)},
-			},
+			Permissions: uniqueStrings(permissions),
+			Evidence:    evidence,
 			Remediation: "Require approval gates for headless agent workflows that can access secrets.",
 		})
 	}
@@ -155,6 +184,29 @@ func permissionsFromSignals(signals autonomy.Signals) []string {
 		perms = append(perms, "headless.execute")
 	}
 	return perms
+}
+
+func uniqueStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	set := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		set[trimmed] = struct{}{}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(set))
+	for value := range set {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func boolString(v bool) string {

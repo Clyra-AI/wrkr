@@ -65,33 +65,61 @@ func applyRule(rule policy.Rule, findings []model.Finding) (bool, string) {
 		if len(agents) == 0 {
 			return legacyRuleResult("require_tool_config", findings)
 		}
-		approvalGaps := 0
+		approvalStatusMissing := 0
+		approvalSourceMissing := 0
+		approvalSourceAmbiguous := 0
 		for _, finding := range agents {
 			status := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "approval_status")))
 			if status == "" {
 				status = "missing"
 			}
 			if status != "approved" && status != "valid" {
-				approvalGaps++
+				approvalStatusMissing++
+			}
+			switch normalizeEvidenceState(evidenceValue(finding, "approval_source"), "missing") {
+			case "missing":
+				approvalSourceMissing++
+			case "ambiguous":
+				approvalSourceAmbiguous++
 			}
 		}
-		return approvalGaps == 0, fmt.Sprintf("agent_count=%d,approval_gaps=%d", len(agents), approvalGaps)
+		return approvalStatusMissing == 0 && approvalSourceMissing == 0 && approvalSourceAmbiguous == 0,
+			fmt.Sprintf(
+				"agent_count=%d,approval_status_missing=%d,approval_source_missing=%d,approval_source_ambiguous=%d",
+				len(agents),
+				approvalStatusMissing,
+				approvalSourceMissing,
+				approvalSourceAmbiguous,
+			)
 	case "agent_prod_write_human_gate":
 		agents := agentFindings(findings)
 		if len(agents) == 0 {
 			return legacyRuleResult("block_secret_presence", findings)
 		}
 		violations := 0
+		proofRequirementMissing := 0
 		for _, finding := range agents {
 			deployment := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "deployment_status")))
 			autoDeploy := boolEvidence(finding, "auto_deploy")
-			humanGate := boolEvidenceWithDefault(finding, "human_gate", true)
+			humanGate := boolEvidenceWithDefault(finding, "human_gate", false)
 			if hasWriteLikePermission(finding.Permissions) && (deployment == "deployed" || autoDeploy) && !humanGate {
 				violations++
 			}
+			if hasWriteLikePermission(finding.Permissions) && (deployment == "deployed" || autoDeploy) {
+				switch normalizeEvidenceState(evidenceValue(finding, "proof_requirement"), "missing") {
+				case "missing", "ambiguous":
+					proofRequirementMissing++
+				}
+			}
 		}
 		secretCount := countType(findings, "secret_presence")
-		return violations == 0 && secretCount == 0, fmt.Sprintf("prod_write_without_human_gate=%d,secret_presence=%d", violations, secretCount)
+		return violations == 0 && secretCount == 0 && proofRequirementMissing == 0,
+			fmt.Sprintf(
+				"prod_write_without_human_gate=%d,proof_requirement_missing=%d,secret_presence=%d",
+				violations,
+				proofRequirementMissing,
+				secretCount,
+			)
 	case "agent_secret_controls":
 		agents := agentFindings(findings)
 		if len(agents) == 0 {
@@ -180,19 +208,20 @@ func applyRule(rule policy.Rule, findings []model.Finding) (bool, string) {
 			return legacyRuleResult("credential_refs_reviewed", findings)
 		}
 		violations := 0
+		ambiguous := 0
 		for _, finding := range agents {
 			if !boolEvidence(finding, "auto_deploy") {
 				continue
 			}
-			gate := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "deployment_gate")))
-			if gate == "" && boolEvidenceWithDefault(finding, "human_gate", false) {
-				gate = "enforced"
-			}
+			gate := normalizeEvidenceState(evidenceValue(finding, "deployment_gate"), "missing")
 			if gate != "approved" && gate != "enforced" {
 				violations++
 			}
+			if gate == "ambiguous" {
+				ambiguous++
+			}
 		}
-		return violations == 0, fmt.Sprintf("auto_deploy_gate_gaps=%d", violations)
+		return violations == 0, fmt.Sprintf("auto_deploy_gate_gaps=%d,auto_deploy_gate_ambiguous=%d", violations, ambiguous)
 	case "agent_autodeploy_without_human_gate":
 		agents := agentFindings(findings)
 		if len(agents) == 0 {
@@ -425,4 +454,17 @@ func hasSecretSignal(finding model.Finding) bool {
 	}
 	authSurfaces := strings.ToLower(strings.TrimSpace(evidenceValue(finding, "auth_surfaces")))
 	return strings.Contains(authSurfaces, "secret") || strings.Contains(authSurfaces, "token") || strings.Contains(authSurfaces, "credential")
+}
+
+func normalizeEvidenceState(value string, missing string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if normalized == "" {
+		return missing
+	}
+	switch normalized {
+	case "approved", "enforced", "open", "missing", "ambiguous", "manual_approval_step", "environment", "workflow_dispatch", "evidence", "attestation", "not_applicable":
+		return normalized
+	default:
+		return normalized
+	}
 }

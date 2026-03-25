@@ -12,8 +12,23 @@ type rule struct {
 	owner   string
 }
 
-// ResolveOwner derives ownership from CODEOWNERS with deterministic fallback.
-func ResolveOwner(root, repo, org, location string) string {
+const (
+	OwnerSourceCodeowners   = "codeowners"
+	OwnerSourceRepoFallback = "repo_fallback"
+	OwnerSourceConflict     = "multi_repo_conflict"
+
+	OwnershipStatusExplicit   = "explicit"
+	OwnershipStatusInferred   = "inferred"
+	OwnershipStatusUnresolved = "unresolved"
+)
+
+type Resolution struct {
+	Owner           string
+	OwnerSource     string
+	OwnershipStatus string
+}
+
+func Resolve(root, repo, org, location string) Resolution {
 	rules := loadCodeowners(root)
 	normalized := normalizePath(location)
 	owner := ""
@@ -23,9 +38,26 @@ func ResolveOwner(root, repo, org, location string) string {
 		}
 	}
 	if owner != "" {
-		return owner
+		return Resolution{
+			Owner:           owner,
+			OwnerSource:     OwnerSourceCodeowners,
+			OwnershipStatus: OwnershipStatusExplicit,
+		}
 	}
-	return fallbackOwner(repo, org)
+	status := OwnershipStatusInferred
+	if strings.TrimSpace(repo) == "" {
+		status = OwnershipStatusUnresolved
+	}
+	return Resolution{
+		Owner:           FallbackOwner(repo, org),
+		OwnerSource:     OwnerSourceRepoFallback,
+		OwnershipStatus: status,
+	}
+}
+
+// ResolveOwner derives ownership from CODEOWNERS with deterministic fallback.
+func ResolveOwner(root, repo, org, location string) string {
+	return Resolve(root, repo, org, location).Owner
 }
 
 func loadCodeowners(root string) []rule {
@@ -82,7 +114,7 @@ func matchPattern(pattern, path string) bool {
 	return strings.HasSuffix(path, pattern)
 }
 
-func fallbackOwner(repo, org string) string {
+func FallbackOwner(repo, org string) string {
 	trimmedRepo := strings.TrimSpace(repo)
 	team := "owners"
 	if trimmedRepo != "" {

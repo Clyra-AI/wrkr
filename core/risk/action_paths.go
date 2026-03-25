@@ -25,6 +25,15 @@ type ActionPath struct {
 	ToolType                 string   `json:"tool_type"`
 	Location                 string   `json:"location,omitempty"`
 	WriteCapable             bool     `json:"write_capable"`
+	OperationalOwner         string   `json:"operational_owner,omitempty"`
+	OwnerSource              string   `json:"owner_source,omitempty"`
+	OwnershipStatus          string   `json:"ownership_status,omitempty"`
+	ApprovalGapReasons       []string `json:"approval_gap_reasons,omitempty"`
+	PullRequestWrite         bool     `json:"pull_request_write,omitempty"`
+	MergeExecute             bool     `json:"merge_execute,omitempty"`
+	DeployWrite              bool     `json:"deploy_write,omitempty"`
+	DeliveryChainStatus      string   `json:"delivery_chain_status,omitempty"`
+	ProductionTargetStatus   string   `json:"production_target_status,omitempty"`
 	ProductionWrite          bool     `json:"production_write"`
 	ApprovalGap              bool     `json:"approval_gap"`
 	SecurityVisibilityStatus string   `json:"security_visibility_status,omitempty"`
@@ -68,8 +77,17 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 			ToolType:                 actionPathToolType(entry),
 			Location:                 strings.TrimSpace(entry.Location),
 			WriteCapable:             entry.WriteCapable,
+			OperationalOwner:         strings.TrimSpace(entry.OperationalOwner),
+			OwnerSource:              strings.TrimSpace(entry.OwnerSource),
+			OwnershipStatus:          strings.TrimSpace(entry.OwnershipStatus),
+			ApprovalGapReasons:       append([]string(nil), entry.ApprovalGapReasons...),
+			PullRequestWrite:         entry.PullRequestWrite,
+			MergeExecute:             entry.MergeExecute,
+			DeployWrite:              entry.DeployWrite,
+			DeliveryChainStatus:      strings.TrimSpace(entry.DeliveryChainStatus),
+			ProductionTargetStatus:   strings.TrimSpace(entry.ProductionTargetStatus),
 			ProductionWrite:          entry.ProductionWrite,
-			ApprovalGap:              actionPathApprovalGap(entry.ApprovalClassification),
+			ApprovalGap:              actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons),
 			SecurityVisibilityStatus: strings.TrimSpace(entry.SecurityVisibilityStatus),
 			CredentialAccess:         entry.CredentialAccess,
 			DeploymentStatus:         strings.TrimSpace(entry.DeploymentStatus),
@@ -100,6 +118,11 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 		if pi != pj {
 			return pi < pj
 		}
+		ci := deliveryChainPriority(paths[i].DeliveryChainStatus)
+		cj := deliveryChainPriority(paths[j].DeliveryChainStatus)
+		if ci != cj {
+			return ci < cj
+		}
 		if paths[i].RiskScore != paths[j].RiskScore {
 			return paths[i].RiskScore > paths[j].RiskScore
 		}
@@ -126,23 +149,36 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 }
 
 func shouldIncludeActionPath(entry agginventory.AgentPrivilegeMapEntry) bool {
-	return entry.WriteCapable || entry.CredentialAccess || entry.ProductionWrite || actionPathApprovalGap(entry.ApprovalClassification)
+	return entry.WriteCapable ||
+		entry.CredentialAccess ||
+		entry.ProductionWrite ||
+		entry.PullRequestWrite ||
+		entry.MergeExecute ||
+		entry.DeployWrite ||
+		actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons)
 }
 
 func actionPathRecommendedAction(entry agginventory.AgentPrivilegeMapEntry) string {
 	switch {
 	case entry.ProductionWrite:
 		return "control"
-	case actionPathApprovalGap(entry.ApprovalClassification):
+	case actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons):
 		return "approval"
-	case entry.CredentialAccess || strings.EqualFold(strings.TrimSpace(entry.DeploymentStatus), "deployed"):
+	case entry.CredentialAccess ||
+		strings.EqualFold(strings.TrimSpace(entry.DeploymentStatus), "deployed") ||
+		entry.PullRequestWrite ||
+		entry.MergeExecute ||
+		entry.DeployWrite:
 		return "proof"
 	default:
 		return "inventory"
 	}
 }
 
-func actionPathApprovalGap(status string) bool {
+func actionPathApprovalGap(status string, reasons []string) bool {
+	if len(reasons) > 0 {
+		return true
+	}
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "", "unknown", "unapproved":
 		return true
@@ -161,6 +197,25 @@ func actionPriority(action string) int {
 		return 2
 	case "inventory":
 		return 3
+	default:
+		return 99
+	}
+}
+
+func deliveryChainPriority(status string) int {
+	switch strings.TrimSpace(status) {
+	case "pr_merge_deploy":
+		return 0
+	case "merge_deploy":
+		return 1
+	case "pr_merge":
+		return 2
+	case "deploy_only":
+		return 3
+	case "pr_only":
+		return 4
+	case "merge_only":
+		return 5
 	default:
 		return 99
 	}

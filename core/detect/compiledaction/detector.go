@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/detect/workflowcap"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"gopkg.in/yaml.v3"
 )
@@ -72,6 +73,14 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			continue
 		}
 
+		path := filepath.Join(scope.Root, filepath.FromSlash(rel))
+		// #nosec G304 -- detector reads workflow/plan definitions from selected root.
+		payload, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return nil, readErr
+		}
+		workflowAnalysis, workflowErr := workflowcap.Analyze(rel, payload)
+
 		doc, parseErr := parseActionDocument(scope.Root, rel)
 		if parseErr != nil {
 			findings = append(findings, model.Finding{
@@ -89,11 +98,9 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 
 		if isEmptyAction(doc) {
 			if strings.HasPrefix(rel, ".github/workflows/") {
-				path := filepath.Join(scope.Root, filepath.FromSlash(rel))
-				// #nosec G304 -- detector reads workflow from selected repository root.
-				payload, readErr := os.ReadFile(path)
-				if readErr != nil {
-					return nil, readErr
+				if workflowErr == nil && len(workflowAnalysis.Capabilities) > 0 {
+					findings = append(findings, workflowFinding(scope, rel, workflowAnalysis))
+					continue
 				}
 				if strings.Contains(string(payload), "gait eval --script") {
 					findings = append(findings, model.Finding{
@@ -104,6 +111,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 						Repo:        scope.Repo,
 						Org:         fallbackOrg(scope.Org),
 						Detector:    detectorID,
+						Permissions: nil,
 						Evidence: []model.Evidence{
 							{Key: "step_count", Value: "1"},
 							{Key: "tool_sequence", Value: "gait.eval.script"},
@@ -123,6 +131,17 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			}
 		}
 		sort.Strings(sequence)
+		evidence := []model.Evidence{
+			{Key: "step_count", Value: fmt.Sprintf("%d", len(doc.Steps))},
+			{Key: "tool_sequence", Value: strings.Join(sequence, ",")},
+			{Key: "risk_classes", Value: strings.Join(doc.RiskClasses, ",")},
+			{Key: "approval_source", Value: doc.ApprovalSource},
+		}
+		permissions := []string(nil)
+		if workflowErr == nil {
+			evidence = append(evidence, workflowAnalysis.Evidence...)
+			permissions = append(permissions, workflowAnalysis.Capabilities...)
+		}
 		findings = append(findings, model.Finding{
 			FindingType: "compiled_action",
 			Severity:    model.SeverityMedium,
@@ -131,12 +150,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			Repo:        scope.Repo,
 			Org:         fallbackOrg(scope.Org),
 			Detector:    detectorID,
-			Evidence: []model.Evidence{
-				{Key: "step_count", Value: fmt.Sprintf("%d", len(doc.Steps))},
-				{Key: "tool_sequence", Value: strings.Join(sequence, ",")},
-				{Key: "risk_classes", Value: strings.Join(doc.RiskClasses, ",")},
-				{Key: "approval_source", Value: doc.ApprovalSource},
-			},
+			Permissions: uniqueStrings(permissions),
+			Evidence:    evidence,
 		})
 	}
 
@@ -178,4 +193,61 @@ func fallbackOrg(org string) string {
 		return "local"
 	}
 	return org
+}
+
+func workflowFinding(scope detect.Scope, rel string, analysis workflowcap.Result) model.Finding {
+	severity := model.SeverityMedium
+	if containsAny(analysis.Capabilities, "merge.execute", "deploy.write", "db.write", "iac.write") {
+		severity = model.SeverityHigh
+	}
+	evidence := append([]model.Evidence{
+		{Key: "step_count", Value: fmt.Sprintf("%d", analysis.StepCount)},
+	}, analysis.Evidence...)
+	return model.Finding{
+		FindingType: "compiled_action",
+		Severity:    severity,
+		ToolType:    "compiled_action",
+		Location:    rel,
+		Repo:        scope.Repo,
+		Org:         fallbackOrg(scope.Org),
+		Detector:    detectorID,
+		Permissions: uniqueStrings(analysis.Capabilities),
+		Evidence:    evidence,
+	}
+}
+
+func containsAny(values []string, needles ...string) bool {
+	set := map[string]struct{}{}
+	for _, value := range values {
+		set[strings.TrimSpace(value)] = struct{}{}
+	}
+	for _, needle := range needles {
+		if _, ok := set[strings.TrimSpace(needle)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func uniqueStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	set := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		set[trimmed] = struct{}{}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(set))
+	for value := range set {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }

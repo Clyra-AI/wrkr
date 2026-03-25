@@ -177,6 +177,12 @@ func targetImpact(node aggattack.Node) float64 {
 		return 3.4
 	case "agent_deploy_artifact":
 		return 3.1
+	case "workflow_pull_request":
+		return 2.7
+	case "workflow_merge_capability":
+		return 3.0
+	case "workflow_deploy_capability":
+		return 3.2
 	case "agent_data_binding":
 		return 2.8
 	case "secret_presence":
@@ -211,6 +217,15 @@ func edgeRationaleBonus(edges []aggattack.Edge) (float64, []string) {
 		case "agent_to_auth_surface":
 			bonus += 0.7
 			reasons = append(reasons, "edge_rationale=agent_to_auth_surface")
+		case "workflow_to_pull_request":
+			bonus += 0.4
+			reasons = append(reasons, "edge_rationale=workflow_to_pull_request")
+		case "workflow_to_merge":
+			bonus += 0.6
+			reasons = append(reasons, "edge_rationale=workflow_to_merge")
+		case "workflow_to_deploy":
+			bonus += 0.8
+			reasons = append(reasons, "edge_rationale=workflow_to_deploy")
 		}
 	}
 	return bonus, reasons
