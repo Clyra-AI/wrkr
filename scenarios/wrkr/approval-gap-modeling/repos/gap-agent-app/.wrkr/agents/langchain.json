@@ -1,0 +1,12 @@
+{
+  "agents": [
+    {
+      "name": "release_agent",
+      "file": "agents/release.py",
+      "tools": ["deploy.write"],
+      "deployment_artifacts": [".github/workflows/release.yml"],
+      "auto_deploy": true,
+      "human_gate": true
+    }
+  ]
+}

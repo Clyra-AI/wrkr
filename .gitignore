@@ -25,6 +25,9 @@ venv/
 !scenarios/wrkr/agent-relationship-correlation/repos/correlated-agent-app/.wrkr/
 !scenarios/wrkr/agent-relationship-correlation/repos/correlated-agent-app/.wrkr/agents/
 !scenarios/wrkr/agent-relationship-correlation/repos/correlated-agent-app/.wrkr/agents/mcp-client.yaml
+!scenarios/wrkr/approval-gap-modeling/repos/gap-agent-app/.wrkr/
+!scenarios/wrkr/approval-gap-modeling/repos/gap-agent-app/.wrkr/agents/
+!scenarios/wrkr/approval-gap-modeling/repos/gap-agent-app/.wrkr/agents/langchain.json
 !testinfra/benchmarks/agents/fixtures/**/.wrkr/
 !testinfra/benchmarks/agents/fixtures/**/.wrkr/**
 *.sarif
