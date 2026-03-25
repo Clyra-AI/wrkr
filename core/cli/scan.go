@@ -146,13 +146,21 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	defer cancel()
 	scanStartedAt := time.Now().UTC().Truncate(time.Second)
 	progress := newScanProgressReporter(*jsonOut && !*quiet && targetMode == config.TargetOrg, stderr)
+	emitScanFailure := func(err error) int {
+		progress.Flush()
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+	}
+	emitScanError := func(code, message string, exitCode int) int {
+		progress.Flush()
+		return emitError(stderr, jsonRequested || *jsonOut, code, message, exitCode)
+	}
 	manifestOut, findings, err := acquireSources(ctx, targetMode, targetValue, *githubBaseURL, *githubToken, acquireOptions{
 		StatePath: statePath,
 		Progress:  progress,
 		Resume:    *resume,
 	})
 	if err != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+		return emitScanFailure(err)
 	}
 
 	scopes := detectorScopes(manifestOut)
@@ -160,18 +168,18 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if len(scopes) > 0 {
 		registry, regErr := detectdefaults.Registry()
 		if regErr != nil {
-			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, regErr)
+			return emitScanFailure(regErr)
 		}
 		detected, runErr := registry.Run(ctx, scopes, detect.Options{Enrich: *enrich})
 		if runErr != nil {
-			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, runErr)
+			return emitScanFailure(runErr)
 		}
 		findings = append(findings, detected.Findings...)
 		detectorErrors = append(detectorErrors, detected.DetectorErrors...)
 
 		policyFindings, policyErr := evaluatePolicies(scopes, findings, strings.TrimSpace(*policyPath))
 		if policyErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", policyErr.Error(), exitPolicyViolation)
+			return emitScanError("policy_schema_violation", policyErr.Error(), exitPolicyViolation)
 		}
 		findings = append(findings, policyFindings...)
 	}
@@ -179,7 +187,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 
 	previousSnapshot, loadPreviousErr := loadPreviousSnapshot(statePath, strings.TrimSpace(*baselinePath))
 	if loadPreviousErr != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, loadPreviousErr)
+		return emitScanFailure(loadPreviousErr)
 	}
 
 	now := time.Now().UTC().Truncate(time.Second)
@@ -193,7 +201,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	manifestPath := manifest.ResolvePath(statePath)
 	previousManifest, manifestErr := loadLifecycleManifest(manifestPath, statePath, previousSnapshot)
 	if manifestErr != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, manifestErr)
+		return emitScanFailure(manifestErr)
 	}
 
 	baseContexts := buildFindingContexts(riskReport)
@@ -222,7 +230,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if approvedToolsPolicyPath := strings.TrimSpace(*approvedToolsPath); approvedToolsPolicyPath != "" {
 		approvedCfg, approvedErr := approvedtools.Load(approvedToolsPolicyPath)
 		if approvedErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", approvedErr.Error(), exitInvalidInput)
+			return emitScanError("invalid_input", approvedErr.Error(), exitInvalidInput)
 		}
 		if approvedCfg.HasRules() {
 			agginventory.ReclassifyApprovalWithMatcher(&inventoryOut, func(tool agginventory.Tool) bool {
@@ -244,7 +252,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		cfg, cfgErr := productiontargets.Load(productionTargetsFile)
 		if cfgErr != nil {
 			if *productionTargetsStrict {
-				return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", cfgErr.Error(), exitInvalidInput)
+				return emitScanError("invalid_input", cfgErr.Error(), exitInvalidInput)
 			}
 			productionWriteStatus = agginventory.ProductionTargetsStatusInvalid
 			productionTargetWarnings = append(productionTargetWarnings, fmt.Sprintf("production targets not applied: %v", cfgErr))
@@ -266,11 +274,11 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 
 	profileDef, profileErr := profilemodel.Builtin(*profileName)
 	if profileErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", profileErr.Error(), exitUnsafeBlocked)
+		return emitScanError("unsafe_operation_blocked", profileErr.Error(), exitUnsafeBlocked)
 	}
 	profileDef, profileErr = profilemodel.WithOverrides(profileDef, strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))
 	if profileErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", profileErr.Error(), exitPolicyViolation)
+		return emitScanError("policy_schema_violation", profileErr.Error(), exitPolicyViolation)
 	}
 	var previousProfile *profileeval.Result
 	if previousSnapshot != nil && previousSnapshot.Profile != nil {
@@ -281,7 +289,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 
 	weights, weightErr := score.LoadWeights(strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))
 	if weightErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", weightErr.Error(), exitPolicyViolation)
+		return emitScanError("policy_schema_violation", weightErr.Error(), exitPolicyViolation)
 	}
 	var previousScore *score.Result
 	if previousSnapshot != nil && previousSnapshot.PostureScore != nil {
@@ -309,34 +317,34 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Transitions:  transitions,
 	}
 	if err := state.Save(statePath, snapshot); err != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+		return emitScanFailure(err)
 	}
 	chainPath := lifecycle.ChainPath(statePath)
 	chain, chainErr := lifecycle.LoadChain(chainPath)
 	if chainErr != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, chainErr)
+		return emitScanFailure(chainErr)
 	}
 	for _, transition := range transitions {
 		if err := lifecycle.AppendTransitionRecord(chain, transition, "lifecycle_transition"); err != nil {
-			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+			return emitScanFailure(err)
 		}
 	}
 	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+		return emitScanFailure(err)
 	}
 	if _, err := proofemit.EmitScan(statePath, now, findings, &inventoryOut, riskReport, profileResult, postureScore, transitions); err != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+		return emitScanFailure(err)
 	}
 	proofChain, err := proofemit.LoadChain(proofemit.ChainPath(statePath))
 	if err != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+		return emitScanFailure(err)
 	}
 	complianceSummary, err := compliance.BuildRollupSummary(findings, proofChain)
 	if err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", err.Error(), exitPolicyViolation)
+		return emitScanError("policy_schema_violation", err.Error(), exitPolicyViolation)
 	}
 	if err := manifest.Save(manifestPath, nextManifest); err != nil {
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+		return emitScanFailure(err)
 	}
 
 	payload := map[string]any{
@@ -395,7 +403,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if *reportMD {
 		template, shareProfile, parseErr := parseReportTemplateShare(*reportTemplate, *reportShareProfile)
 		if parseErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseErr.Error(), exitInvalidInput)
+			return emitScanError("invalid_input", parseErr.Error(), exitInvalidInput)
 		}
 		manifestCopy := nextManifest
 		_, mdOutPath, _, reportErr := generateReportArtifacts(reportArtifactOptions{
@@ -411,9 +419,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		})
 		if reportErr != nil {
 			if isArtifactPathError(reportErr) {
-				return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", reportErr.Error(), exitInvalidInput)
+				return emitScanError("invalid_input", reportErr.Error(), exitInvalidInput)
 			}
-			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, reportErr)
+			return emitScanFailure(reportErr)
 		}
 		scanReportPath = mdOutPath
 		payload["report"] = map[string]any{
@@ -425,11 +433,11 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if *sarifOut {
 		path, pathErr := resolveArtifactOutputPath(*sarifPath)
 		if pathErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", pathErr.Error(), exitInvalidInput)
+			return emitScanError("invalid_input", pathErr.Error(), exitInvalidInput)
 		}
 		report := exportsarif.Build(findings, wrkrVersion())
 		if writeErr := exportsarif.Write(path, report); writeErr != nil {
-			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, writeErr)
+			return emitScanFailure(writeErr)
 		}
 		scanSARIFPath = path
 		payload["sarif"] = map[string]any{
@@ -439,7 +447,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 
 	if jsonSink.enabled() {
 		if err := jsonSink.writePayload(payload); err != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+			return emitScanError("runtime_failure", err.Error(), exitRuntime)
 		}
 		progress.Flush()
 		if *jsonOut {

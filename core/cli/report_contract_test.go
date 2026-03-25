@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -302,5 +303,119 @@ func TestReportIncludesActionPathsProjection(t *testing.T) {
 	}
 	if _, ok := summary["action_paths"].([]any); !ok {
 		t.Fatalf("expected summary action_paths, got %v", summary["action_paths"])
+	}
+}
+
+func TestReportPublicShareRedactsActionPathProjection(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	snapshot := map[string]any{
+		"version": "v1",
+		"target": map[string]any{
+			"mode":  "org",
+			"value": "acme",
+		},
+		"inventory": map[string]any{},
+		"risk_report": map[string]any{
+			"generated_at":    "2026-03-25T12:00:00Z",
+			"top_findings":    []any{},
+			"ranked_findings": []any{},
+			"action_paths": []any{
+				map[string]any{
+					"path_id":                    "apc-123456",
+					"org":                        "acme",
+					"repo":                       "payments",
+					"agent_id":                   "wrkr:alpha:acme",
+					"tool_type":                  "langchain",
+					"location":                   "agents/payments.py",
+					"risk_score":                 8.8,
+					"attack_path_score":          9.1,
+					"recommended_action":         "control",
+					"matched_production_targets": []any{"deploy/prod"},
+				},
+			},
+			"action_path_to_control_first": map[string]any{
+				"summary": map[string]any{
+					"total_paths":                    1,
+					"write_capable_paths":            1,
+					"production_target_backed_paths": 1,
+					"govern_first_paths":             0,
+				},
+				"path": map[string]any{
+					"path_id":            "apc-123456",
+					"org":                "acme",
+					"repo":               "payments",
+					"agent_id":           "wrkr:alpha:acme",
+					"tool_type":          "langchain",
+					"location":           "agents/payments.py",
+					"recommended_action": "control",
+				},
+			},
+		},
+	}
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal state payload: %v", err)
+	}
+	if err := os.WriteFile(statePath, append(payload, '\n'), 0o600); err != nil {
+		t.Fatalf("write state payload: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"report", "--state", statePath, "--template", "public", "--share-profile", "public", "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+
+	var reportPayload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &reportPayload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	actionPaths, ok := reportPayload["action_paths"].([]any)
+	if !ok || len(actionPaths) != 1 {
+		t.Fatalf("expected one action path, got %v", reportPayload["action_paths"])
+	}
+	firstPath, ok := actionPaths[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected action path type: %T", actionPaths[0])
+	}
+	for key, prefix := range map[string]string{
+		"path_id":  "path-",
+		"org":      "org-",
+		"repo":     "repo-",
+		"agent_id": "agent-",
+		"location": "loc-",
+	} {
+		value, _ := firstPath[key].(string)
+		if !strings.HasPrefix(value, prefix) {
+			t.Fatalf("expected %s to be redacted with prefix %q, got %q", key, prefix, value)
+		}
+	}
+	targets, ok := firstPath["matched_production_targets"].([]any)
+	if !ok || len(targets) != 1 {
+		t.Fatalf("expected one redacted production target, got %v", firstPath["matched_production_targets"])
+	}
+	targetValue, _ := targets[0].(string)
+	if !strings.HasPrefix(targetValue, "target-") {
+		t.Fatalf("expected redacted production target, got %q", targetValue)
+	}
+
+	summary, ok := reportPayload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary object, got %T", reportPayload["summary"])
+	}
+	controlFirst, ok := summary["action_path_to_control_first"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary action_path_to_control_first, got %v", summary["action_path_to_control_first"])
+	}
+	path, ok := controlFirst["path"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected control-first path object, got %v", controlFirst["path"])
+	}
+	repo, _ := path["repo"].(string)
+	if !strings.HasPrefix(repo, "repo-") {
+		t.Fatalf("expected redacted control-first repo, got %q", repo)
 	}
 }

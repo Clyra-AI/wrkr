@@ -81,6 +81,7 @@ func (r *scanProgressReporter) Flush() {
 	}
 	r.mu.Lock()
 	lines := append([]string(nil), r.lines...)
+	r.lines = nil
 	r.mu.Unlock()
 	for _, line := range lines {
 		_, _ = fmt.Fprintln(r.stderr, line)

@@ -668,10 +668,7 @@ func TestScanRepoAndOrgRequireGitHubAPI(t *testing.T) {
 				t.Fatalf("expected no stdout on dependency error, got %q", out.String())
 			}
 
-			var payload map[string]any
-			if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
-				t.Fatalf("parse error payload: %v", err)
-			}
+			payload := parseTrailingJSONEnvelope(t, errOut.Bytes())
 			errorPayload, ok := payload["error"].(map[string]any)
 			if !ok {
 				t.Fatalf("expected error object, got %v", payload)
@@ -709,10 +706,7 @@ func TestScanRepoAndOrgWithUnreachableGitHubAPIReturnRuntimeFailure(t *testing.T
 				t.Fatalf("expected no stdout on runtime error, got %q", out.String())
 			}
 
-			var payload map[string]any
-			if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
-				t.Fatalf("parse error payload: %v", err)
-			}
+			payload := parseTrailingJSONEnvelope(t, errOut.Bytes())
 			errorPayload, ok := payload["error"].(map[string]any)
 			if !ok {
 				t.Fatalf("expected error object, got %v", payload)

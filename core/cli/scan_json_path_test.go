@@ -175,10 +175,7 @@ func TestScanJSONPathWriteFailureReturnsRuntimeFailure(t *testing.T) {
 func assertErrorEnvelopeCode(t *testing.T, payload []byte, expectedCode string, expectedExit int) {
 	t.Helper()
 
-	var envelope map[string]any
-	if err := json.Unmarshal(payload, &envelope); err != nil {
-		t.Fatalf("parse error payload: %v (%q)", err, string(payload))
-	}
+	envelope := parseTrailingJSONEnvelope(t, payload)
 	errorPayload, ok := envelope["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error payload, got %v", envelope)
@@ -189,4 +186,22 @@ func assertErrorEnvelopeCode(t *testing.T, payload []byte, expectedCode string, 
 	if errorPayload["exit_code"] != float64(expectedExit) {
 		t.Fatalf("expected exit_code=%d, got %v", expectedExit, errorPayload["exit_code"])
 	}
+}
+
+func parseTrailingJSONEnvelope(t *testing.T, payload []byte) map[string]any {
+	t.Helper()
+
+	lines := strings.Split(strings.TrimSpace(string(payload)), "\n")
+	for idx := len(lines) - 1; idx >= 0; idx-- {
+		line := strings.TrimSpace(lines[idx])
+		if line == "" {
+			continue
+		}
+		var envelope map[string]any
+		if err := json.Unmarshal([]byte(line), &envelope); err == nil {
+			return envelope
+		}
+	}
+	t.Fatalf("parse error payload: no trailing json envelope in %q", string(payload))
+	return nil
 }

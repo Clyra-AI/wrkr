@@ -3,7 +3,6 @@ package cli
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -115,10 +114,7 @@ func TestScanOrgTimeoutDuringAcquireReturnsTimeoutError(t *testing.T) {
 func assertErrorCode(t *testing.T, payload []byte, expected string) {
 	t.Helper()
 
-	var envelope map[string]any
-	if err := json.Unmarshal(payload, &envelope); err != nil {
-		t.Fatalf("parse error payload: %v (%q)", err, string(payload))
-	}
+	envelope := parseTrailingJSONEnvelope(t, payload)
 	errorPayload, ok := envelope["error"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected error object in payload, got %v", envelope)

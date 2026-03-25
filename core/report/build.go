@@ -78,6 +78,8 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		lifecycleSummary = sanitizeLifecycleSummaryPublic(lifecycleSummary)
 		riskItems = sanitizeRiskItemsPublic(riskItems)
 		activation = sanitizeActivationSummaryPublic(activation)
+		riskReport.ActionPaths = sanitizeActionPathsPublic(riskReport.ActionPaths)
+		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublic(riskReport.ActionPathToControlFirst)
 	}
 
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
@@ -917,6 +919,47 @@ func sanitizeActivationSummaryPublic(in *ActivationSummary) *ActivationSummary {
 		copySummary.Items[idx].Repo = redactValue("repo", copySummary.Items[idx].Repo, 6)
 	}
 	return &copySummary
+}
+
+func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]risk.ActionPath, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.PathID = redactValue("path", copyItem.PathID, 8)
+		copyItem.Org = redactValue("org", copyItem.Org, 6)
+		copyItem.Repo = redactValue("repo", copyItem.Repo, 6)
+		copyItem.AgentID = redactValue("agent", copyItem.AgentID, 8)
+		copyItem.Location = redactValue("loc", copyItem.Location, 8)
+		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
+		for _, target := range copyItem.MatchedProductionTargets {
+			redacted := redactValue("target", target, 8)
+			if redacted == "" {
+				continue
+			}
+			targets = append(targets, redacted)
+		}
+		copyItem.MatchedProductionTargets = targets
+		out = append(out, copyItem)
+	}
+	return out
+}
+
+func sanitizeActionPathToControlFirstPublic(in *risk.ActionPathToControlFirst) *risk.ActionPathToControlFirst {
+	if in == nil {
+		return nil
+	}
+	copySummary := in.Summary
+	paths := sanitizeActionPathsPublic([]risk.ActionPath{in.Path})
+	if len(paths) == 0 {
+		return &risk.ActionPathToControlFirst{Summary: copySummary}
+	}
+	return &risk.ActionPathToControlFirst{
+		Summary: copySummary,
+		Path:    paths[0],
+	}
 }
 
 func redactValue(prefix, value string, width int) string {
