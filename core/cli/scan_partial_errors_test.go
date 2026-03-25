@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -128,6 +129,102 @@ func TestScanOrgMaterializationFailureReturnsPartialResult(t *testing.T) {
 	}
 	if degraded, ok := payload["source_degraded"].(bool); !ok || degraded {
 		t.Fatalf("expected source_degraded=false for non-degraded failure, got %v", payload["source_degraded"])
+	}
+}
+
+func TestScanPathWorkflowPermissionDeniedSurfaced(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based permission fixture is not portable on windows")
+	}
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	if err := os.MkdirAll(filepath.Join(reposPath, "alpha", ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir alpha codex dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(reposPath, "alpha", ".codex", "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write alpha codex config: %v", err)
+	}
+	workflowDir := filepath.Join(reposPath, "beta", ".github", "workflows")
+	if err := os.MkdirAll(workflowDir, 0o755); err != nil {
+		t.Fatalf("mkdir beta workflow dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workflowDir, "release.yml"), []byte("name: release\n"), 0o600); err != nil {
+		t.Fatalf("write workflow fixture: %v", err)
+	}
+	if err := os.Chmod(workflowDir, 0o000); err != nil {
+		t.Skipf("chmod unsupported in current environment: %v", err)
+	}
+	defer func() {
+		_ = os.Chmod(workflowDir, 0o755)
+	}()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	statePath := filepath.Join(tmp, "state.json")
+	code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("scan failed unexpectedly: exit=%d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan output: %v", err)
+	}
+	detectorErrors, ok := payload["detector_errors"].([]any)
+	if !ok || len(detectorErrors) == 0 {
+		t.Fatalf("expected detector_errors in payload, got %v", payload["detector_errors"])
+	}
+	found := false
+	for _, item := range detectorErrors {
+		detectorErr, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if detectorErr["repo"] == "beta" && detectorErr["code"] == "permission_denied" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected permission_denied detector error for beta, got %v", detectorErrors)
+	}
+}
+
+func TestScanExplainCallsOutPermissionIncompletePosture(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based permission fixture is not portable on windows")
+	}
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	workflowDir := filepath.Join(reposPath, "beta", ".github", "workflows")
+	if err := os.MkdirAll(workflowDir, 0o755); err != nil {
+		t.Fatalf("mkdir workflow dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workflowDir, "release.yml"), []byte("name: release\n"), 0o600); err != nil {
+		t.Fatalf("write workflow fixture: %v", err)
+	}
+	if err := os.Chmod(workflowDir, 0o000); err != nil {
+		t.Skipf("chmod unsupported in current environment: %v", err)
+	}
+	defer func() {
+		_ = os.Chmod(workflowDir, 0o755)
+	}()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	statePath := filepath.Join(tmp, "state.json")
+	code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--explain"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("scan failed unexpectedly: exit=%d stderr=%s", code, errOut.String())
+	}
+	if !strings.Contains(out.String(), "scan completeness: some files or directories could not be read") {
+		t.Fatalf("expected explain output to mention incomplete visibility, got %q", out.String())
 	}
 }
 

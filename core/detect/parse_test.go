@@ -3,6 +3,7 @@ package detect
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -183,6 +184,34 @@ func TestReadFileWithinRootHandlesDanglingSymlinkDeterministically(t *testing.T)
 	}
 	if parseErr.Kind != "file_not_found" {
 		t.Fatalf("expected file_not_found kind, got %#v", parseErr)
+	}
+}
+
+func TestReadFileWithinRootPermissionDenied(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based permission fixture is not portable on windows")
+	}
+
+	root := t.TempDir()
+	path := filepath.Join(root, "cfg.json")
+	if err := os.WriteFile(path, []byte(`{"name":"blocked"}`), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	if err := os.Chmod(path, 0o000); err != nil {
+		t.Skipf("chmod unsupported in current environment: %v", err)
+	}
+	defer func() {
+		_ = os.Chmod(path, 0o600)
+	}()
+
+	_, parseErr := ReadFileWithinRoot("detector", root, "cfg.json")
+	if parseErr == nil {
+		t.Fatal("expected permission parse error")
+	}
+	if parseErr.Kind != "parse_error" {
+		t.Fatalf("expected parse_error kind, got %#v", parseErr)
 	}
 }
 

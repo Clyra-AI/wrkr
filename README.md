@@ -48,12 +48,17 @@ Hosted prerequisites for this path:
 - pass `--github-api https://api.github.com` (or set `WRKR_GITHUB_API_BASE`)
 - provide a GitHub token for private repos or to avoid public API rate limits
 - token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`
+- fine-grained PAT guidance: select only the target repositories and grant read-only repository metadata plus read-only repository contents so Wrkr can call the exact GitHub endpoints it uses (`GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`, `GET /repos/{owner}/{repo}/git/blobs/{sha}`)
+- large-org runbook: [`docs/examples/security-team.md`](docs/examples/security-team.md)
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
+
+`--json` keeps stdout reserved for the final machine-readable payload. `--json-path` adds a byte-identical JSON artifact on disk, hosted org scans surface deterministic progress/retry/completion lines on stderr without polluting stdout JSON, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted.
+If a hosted org scan is interrupted, rerun the same target with `--resume`. Treat `partial_result`, `source_errors`, or `source_degraded` as incomplete posture output and rerun after rate limits, permission issues, or upstream failures are resolved.
 
 If hosted prerequisites are not ready yet, start with one of these deterministic fallback paths:
 
@@ -363,6 +368,7 @@ wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last
 Wrkr treats machine-readable output and exit codes as product contracts.
 
 - `--json` emits stable machine-readable output.
+- `--json-path` writes the same final machine-readable scan payload to disk without changing the `--json` stdout contract.
 - `--sarif` emits SARIF `2.1.0` for security tooling and GitHub code scanning workflows.
 - Partial-result mode preserves findings when a detector or source path fails non-fatally.
 - `--timeout` and signal cancellation are enforced end-to-end.

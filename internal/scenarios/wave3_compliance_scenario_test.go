@@ -38,11 +38,11 @@ func TestScenarioComplianceExplainClarifiesEvidenceState(t *testing.T) {
 	reportExplain := runScenarioCommandText(t, []string{"report", "--state", statePath, "--explain"})
 
 	for _, output := range []string{scanExplain, reportExplain} {
-		if !strings.Contains(output, "bundled framework mappings are available; current findings do not map to bundled compliance controls yet") {
-			t.Fatalf("expected evidence-state clarification in explain output, got %q", output)
-		}
 		if !strings.Contains(output, "coverage still reflects only controls evidenced in the current scan state; remediate gaps, rescan, and regenerate report/evidence artifacts") {
 			t.Fatalf("expected deterministic next-action guidance in explain output, got %q", output)
+		}
+		if !strings.Contains(output, "compliance: ") {
+			t.Fatalf("expected explain output to include compliance mapping lines, got %q", output)
 		}
 	}
 }

@@ -90,20 +90,9 @@ func TestScenario_AgentPolicyOutcomes(t *testing.T) {
 	if !hasCustomFinding {
 		t.Fatalf("expected agent_custom_scaffold finding in scenario output, got %v", findings)
 	}
-	requiredRuleAliases := [][]string{
-		{"WRKR-A001", "WRKR-001"},
-		{"WRKR-A010", "WRKR-010"},
-	}
-	for _, aliases := range requiredRuleAliases {
-		found := false
-		for _, alias := range aliases {
-			if violations[alias] {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Fatalf("expected policy_violation for one of %v, got %v", aliases, violations)
+	for _, ruleID := range []string{"WRKR-A001", "WRKR-A010"} {
+		if !violations[ruleID] {
+			t.Fatalf("expected canonical policy_violation for %s, got %v", ruleID, violations)
 		}
 	}
 }

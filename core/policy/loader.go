@@ -21,8 +21,12 @@ func LoadRules(customPolicyPath, repoRoot string) ([]Rule, error) {
 	}
 
 	rulesByID := map[string]Rule{}
+	protectedBuiltin := map[string]struct{}{}
 	for _, rule := range builtin {
 		rulesByID[rule.ID] = rule
+		if isBundledComplianceRuleID(rule.ID) {
+			protectedBuiltin[rule.ID] = struct{}{}
+		}
 	}
 
 	paths := make([]string, 0, 2)
@@ -42,6 +46,9 @@ func LoadRules(customPolicyPath, repoRoot string) ([]Rule, error) {
 			return nil, loadErr
 		}
 		for _, rule := range custom {
+			if _, ok := protectedBuiltin[rule.ID]; ok {
+				return nil, fmt.Errorf("custom policy rules must not override bundled compliance-mapped rule %s in %s", rule.ID, path)
+			}
 			rulesByID[rule.ID] = rule
 		}
 	}

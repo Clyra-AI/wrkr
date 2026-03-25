@@ -3,6 +3,7 @@ package report
 import (
 	"testing"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -51,7 +52,7 @@ func TestBuildActivationPrefersConcreteMySetupSignals(t *testing.T) {
 				Repo:        "local-machine",
 			},
 		},
-	}, 5)
+	}, nil, 5)
 	if activation == nil {
 		t.Fatal("expected activation summary for my_setup target")
 	}
@@ -86,7 +87,7 @@ func TestBuildActivationReturnsReasonWhenOnlyPolicyItemsExist(t *testing.T) {
 				Repo:        "local-machine",
 			},
 		},
-	}, 5)
+	}, nil, 5)
 	if activation == nil {
 		t.Fatal("expected activation summary for my_setup target")
 	}
@@ -101,8 +102,12 @@ func TestBuildActivationReturnsReasonWhenOnlyPolicyItemsExist(t *testing.T) {
 func TestBuildActivationReturnsNilOutsideMySetup(t *testing.T) {
 	t.Parallel()
 
-	if activation := BuildActivation("path", nil, 5); activation != nil {
-		t.Fatalf("expected nil activation outside my_setup target, got %+v", activation)
+	activation := BuildActivation("path", nil, nil, 5)
+	if activation == nil {
+		t.Fatal("expected deterministic empty activation summary for path target")
+	}
+	if activation.Reason != activationReasonNoGovernFirst {
+		t.Fatalf("unexpected activation reason: %+v", activation)
 	}
 }
 
@@ -120,8 +125,54 @@ func TestBuildActivationHonorsExplicitTopZero(t *testing.T) {
 				Repo:        "local-machine",
 			},
 		},
-	}, 0)
+	}, nil, 0)
 	if activation != nil {
 		t.Fatalf("expected nil activation when top=0 explicitly suppresses findings, got %+v", activation)
+	}
+}
+
+func TestBuildActivationAddsGovernFirstOrgItems(t *testing.T) {
+	t.Parallel()
+
+	inventory := &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                "wrkr:alpha:acme",
+				Framework:              "langchain",
+				Repos:                  []string{"payments"},
+				Location:               "agents/payments.py",
+				RiskScore:              8.6,
+				WriteCapable:           true,
+				ProductionWrite:        true,
+				ApprovalClassification: "approved",
+			},
+			{
+				AgentID:                  "wrkr:beta:acme",
+				Framework:                "crewai",
+				Repos:                    []string{"ops"},
+				Location:                 "crews/ops.py",
+				RiskScore:                7.1,
+				WriteCapable:             true,
+				SecurityVisibilityStatus: agginventory.SecurityVisibilityUnknownToSecurity,
+				ApprovalClassification:   "unknown",
+			},
+		},
+	}
+
+	activation := BuildActivation("org", nil, inventory, 5)
+	if activation == nil {
+		t.Fatal("expected activation summary for org target")
+	}
+	if activation.TargetMode != "org" {
+		t.Fatalf("unexpected target mode: %+v", activation)
+	}
+	if activation.EligibleCount != 2 || len(activation.Items) != 2 {
+		t.Fatalf("expected 2 govern-first items, got %+v", activation)
+	}
+	if activation.Items[0].ItemClass != activationClassProductionBacked {
+		t.Fatalf("expected production-target-backed item first, got %+v", activation.Items[0])
+	}
+	if activation.Items[1].ItemClass != activationClassUnknownWrite {
+		t.Fatalf("expected unknown-to-security item second, got %+v", activation.Items[1])
 	}
 }

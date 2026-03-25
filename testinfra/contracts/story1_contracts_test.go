@@ -61,6 +61,8 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	}
 	got := sortedKeys(payload)
 	want := []string{
+		"action_path_to_control_first",
+		"action_paths",
 		"agent_privilege_map",
 		"attack_paths",
 		"compliance_summary",

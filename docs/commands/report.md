@@ -29,11 +29,13 @@ wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
 wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --share-profile public --json
 ```
 
-Expected JSON keys: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `compliance_summary`, `summary`, `md_path`, `pdf_path`.
+Expected JSON keys: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `compliance_summary`, `summary`, `md_path`, `pdf_path`.
 `summary.attack_paths` provides deterministic attack-path section metadata (`total`, `top_path_ids`) used in report templates and external appendix joins.
 `compliance_summary.frameworks[*].controls[*]` exposes additive framework/control/article rollups with deterministic `finding_count`, `mapped_rule_ids`, and coverage status.
 `summary.compliance_summary` mirrors the same machine-readable contract used by report markdown/PDF generation.
 When the saved scan target is `my_setup`, `summary.activation` exposes the same additive concrete-first activation view used by the local-machine scan flow.
+When the saved scan target is `org` or `path`, `summary.activation` exposes the additive govern-first candidate path view used by the scan flow.
+`summary.action_paths` and top-level `action_paths` expose the ranked govern-first path objects, and `summary.action_path_to_control_first` / top-level `action_path_to_control_first` expose one prioritized path with deterministic summary counts.
 `summary.security_visibility` exposes additive reference-basis and `unknown_to_security` counts sourced from the saved scan state.
 When the saved scan state does not carry a usable `reference_basis`, report output suppresses `unknown_to_security` claims and surfaces `reference_basis unavailable` wording instead.
 

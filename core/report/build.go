@@ -71,7 +71,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	riskItems := buildRiskItems(topFindings)
 	attackPathSummary := buildAttackPathSummary(*riskReport)
 	attackPathFacts := buildAttackPathFacts(*riskReport)
-	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, top)
+	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, top)
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -107,25 +107,27 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 
 	summary := Summary{
-		SummaryVersion:     SummaryVersion,
-		GeneratedAt:        now.Format(time.RFC3339),
-		Template:           string(template),
-		ShareProfile:       string(shareProfile),
-		SectionOrder:       sectionOrder,
-		Sections:           sections,
-		Headline:           headline,
-		Methodology:        methodology,
-		TopRisks:           riskItems,
-		PrivilegeBudget:    privilegeBudget,
-		SecurityVisibility: securityVisibility,
-		Deltas:             deltas,
-		Lifecycle:          lifecycleSummary,
-		RegressDrift:       regressSummary,
-		AttackPaths:        attackPathSummary,
-		ComplianceSummary:  complianceSummary,
-		Proof:              proofRef,
-		NextActions:        nextActions,
-		Activation:         activation,
+		SummaryVersion:           SummaryVersion,
+		GeneratedAt:              now.Format(time.RFC3339),
+		Template:                 string(template),
+		ShareProfile:             string(shareProfile),
+		SectionOrder:             sectionOrder,
+		Sections:                 sections,
+		Headline:                 headline,
+		Methodology:              methodology,
+		TopRisks:                 riskItems,
+		PrivilegeBudget:          privilegeBudget,
+		SecurityVisibility:       securityVisibility,
+		Deltas:                   deltas,
+		Lifecycle:                lifecycleSummary,
+		RegressDrift:             regressSummary,
+		AttackPaths:              attackPathSummary,
+		ComplianceSummary:        complianceSummary,
+		Proof:                    proofRef,
+		NextActions:              nextActions,
+		Activation:               activation,
+		ActionPaths:              riskReport.ActionPaths,
+		ActionPathToControlFirst: riskReport.ActionPathToControlFirst,
 	}
 
 	return summary, nil

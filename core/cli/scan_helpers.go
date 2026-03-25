@@ -36,6 +36,12 @@ type materializedRootSafetyError struct {
 	message string
 }
 
+type acquireOptions struct {
+	StatePath string
+	Progress  *scanProgressReporter
+	Resume    bool
+}
+
 func (e *materializedRootSafetyError) Error() string {
 	if e == nil {
 		return ""
@@ -99,18 +105,38 @@ func resolveScanTargetInput(repo, orgInput, githubOrgInput, pathInput string, my
 	return targets[0].Mode, targets[0].Value, nil
 }
 
-func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBaseURL, githubToken, statePath string) (source.Manifest, []source.Finding, error) {
+func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBaseURL, githubToken string, opts acquireOptions) (source.Manifest, []source.Finding, error) {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return source.Manifest{}, nil, ctxErr
 	}
 
 	connector := github.NewConnector(githubBaseURL, githubToken, nil)
+	connector.SetRetryHandler(func(event github.RetryEvent) {
+		if opts.Progress == nil {
+			return
+		}
+		opts.Progress.Retry(event.Attempt, event.Delay, event.StatusCode)
+	})
+	connector.SetCooldownHandler(func(event github.CooldownEvent) {
+		if opts.Progress == nil {
+			return
+		}
+		opts.Progress.Cooldown(event.Delay, event.Until)
+	})
 
 	manifestOut := source.Manifest{Target: source.Target{Mode: string(mode), Value: value}}
 	var findings []source.Finding
 	materializeRoot := ""
 	if mode == config.TargetRepo || mode == config.TargetOrg {
-		root, err := prepareMaterializedRoot(statePath)
+		var (
+			root string
+			err  error
+		)
+		if mode == config.TargetOrg && opts.Resume {
+			root, err = prepareMaterializedRootForResume(opts.StatePath)
+		} else {
+			root, err = prepareMaterializedRoot(opts.StatePath)
+		}
 		if err != nil {
 			return source.Manifest{}, nil, err
 		}
@@ -150,35 +176,18 @@ func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBa
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return source.Manifest{}, nil, ctxErr
 		}
-		repos, failures, err := org.Acquire(ctx, value, connector, connector)
+		repos, failures, err := org.AcquireMaterialized(ctx, value, connector, connector, org.AcquireMaterializedOptions{
+			StatePath:        opts.StatePath,
+			MaterializedRoot: materializeRoot,
+			Resume:           opts.Resume,
+			Progress:         opts.Progress,
+		})
 		if err != nil {
 			return source.Manifest{}, nil, err
 		}
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return source.Manifest{}, nil, ctxErr
-		}
-		materializedRepos := make([]source.RepoManifest, 0, len(repos))
-		for _, repoManifest := range repos {
-			if ctxErr := ctx.Err(); ctxErr != nil {
-				return source.Manifest{}, nil, ctxErr
-			}
-			materialized, materializeErr := connector.MaterializeRepo(ctx, repoManifest.Repo, materializeRoot)
-			if materializeErr != nil {
-				reason := materializeErr.Error()
-				if github.IsDegradedError(materializeErr) {
-					reason = "connector_degraded: " + reason
-				}
-				failures = append(failures, source.RepoFailure{
-					Repo:   repoManifest.Repo,
-					Reason: reason,
-				})
-				continue
-			}
-			materializedRepos = append(materializedRepos, materialized)
-		}
-		manifestOut.Repos = materializedRepos
+		manifestOut.Repos = repos
 		manifestOut.Failures = failures
-		for _, repoManifest := range materializedRepos {
+		for _, repoManifest := range repos {
 			findings = append(findings, sourceFinding(repoManifest, value, "repo.contents.read"))
 		}
 	case config.TargetPath:
@@ -221,13 +230,25 @@ func prepareMaterializedRoot(statePath string) (string, error) {
 		return "", fmt.Errorf("state path is required for materialized source acquisition")
 	}
 	root := filepath.Join(filepath.Dir(cleanState), "materialized-sources")
-	if err := resetManagedMaterializedRoot(root); err != nil {
+	if err := prepareManagedMaterializedRoot(root, true); err != nil {
 		return "", err
 	}
 	return root, nil
 }
 
-func resetManagedMaterializedRoot(root string) error {
+func prepareMaterializedRootForResume(statePath string) (string, error) {
+	cleanState := filepath.Clean(strings.TrimSpace(statePath))
+	if cleanState == "" || cleanState == "." {
+		return "", fmt.Errorf("state path is required for materialized source acquisition")
+	}
+	root := filepath.Join(filepath.Dir(cleanState), "materialized-sources")
+	if err := prepareManagedMaterializedRoot(root, false); err != nil {
+		return "", err
+	}
+	return root, nil
+}
+
+func prepareManagedMaterializedRoot(root string, reset bool) error {
 	info, err := os.Lstat(root)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -269,6 +290,9 @@ func resetManagedMaterializedRoot(root string) error {
 	}
 	if string(markerPayload) != materializedRootMarkerContent {
 		return newMaterializedRootSafetyError("materialized source root marker content is invalid: %s", markerPath)
+	}
+	if !reset {
+		return nil
 	}
 
 	for _, entry := range entries {

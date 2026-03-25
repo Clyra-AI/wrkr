@@ -49,26 +49,34 @@ func TestLoadRulesMergesCustomPolicy(t *testing.T) {
 func TestLoadRulesNormalizesAgentNamespaceIDs(t *testing.T) {
 	t.Parallel()
 
-	tmp := t.TempDir()
-	custom := filepath.Join(tmp, "wrkr-policy.yaml")
-	payload := []byte("rules:\n  - id: wrkr-a001\n    title: Agent namespace\n    severity: low\n    remediation: custom\n    kind: skill_sprawl_exec_ratio\n    version: 1\n")
-	if err := os.WriteFile(custom, payload, 0o600); err != nil {
-		t.Fatalf("write custom policy: %v", err)
-	}
-
-	rules, err := LoadRules(custom, "")
+	rules, err := parseRulePack([]byte("rules:\n  - id: wrkr-a001\n    title: Agent namespace\n    severity: low\n    remediation: custom\n    kind: skill_sprawl_exec_ratio\n    version: 1\n"), "inline test")
 	if err != nil {
-		t.Fatalf("load merged rules: %v", err)
+		t.Fatalf("parse rule pack: %v", err)
 	}
 	found := false
 	for _, rule := range rules {
-		if rule.ID == "WRKR-001" {
+		if rule.ID == "WRKR-A001" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected canonical WRKR-001 rule id, got %+v", rules)
+		t.Fatalf("expected canonical WRKR-A001 rule id, got %+v", rules)
+	}
+}
+
+func TestLoadRulesRejectsCustomOverrideOfBundledComplianceRule(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	custom := filepath.Join(tmp, "wrkr-policy.yaml")
+	payload := []byte("rules:\n  - id: WRKR-001\n    title: Override Agent Approval\n    severity: low\n    remediation: custom\n    kind: skill_sprawl_exec_ratio\n    version: 1\n")
+	if err := os.WriteFile(custom, payload, 0o600); err != nil {
+		t.Fatalf("write custom policy: %v", err)
+	}
+
+	if _, err := LoadRules(custom, ""); err == nil {
+		t.Fatal("expected bundled compliance rule override to fail")
 	}
 }
 

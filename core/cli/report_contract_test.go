@@ -132,3 +132,175 @@ func TestReportMySetupSummaryIncludesActivationProjection(t *testing.T) {
 		}
 	}
 }
+
+func TestReportOrgSummaryIncludesGovernFirstActivationProjection(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	snapshot := map[string]any{
+		"version": "v1",
+		"target": map[string]any{
+			"mode":  "org",
+			"value": "acme",
+		},
+		"inventory": map[string]any{
+			"agent_privilege_map": []any{
+				map[string]any{
+					"agent_id":                   "wrkr:alpha:acme",
+					"framework":                  "langchain",
+					"repos":                      []any{"payments"},
+					"location":                   "agents/payments.py",
+					"risk_score":                 8.8,
+					"write_capable":              true,
+					"production_write":           true,
+					"approval_classification":    "approved",
+					"security_visibility_status": "approved",
+				},
+			},
+		},
+		"risk_report": map[string]any{
+			"generated_at":    "2026-03-25T12:00:00Z",
+			"top_findings":    []any{},
+			"ranked_findings": []any{},
+		},
+	}
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal state payload: %v", err)
+	}
+	if err := os.WriteFile(statePath, append(payload, '\n'), 0o600); err != nil {
+		t.Fatalf("write state payload: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"report", "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+
+	var reportPayload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &reportPayload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	summary, ok := reportPayload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary object, got %T", reportPayload["summary"])
+	}
+	activation, ok := summary["activation"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected activation summary, got %v", summary["activation"])
+	}
+	items, ok := activation["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("expected one govern-first activation item, got %v", activation["items"])
+	}
+	first, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected activation item type: %T", items[0])
+	}
+	if first["item_class"] != "production_target_backed" {
+		t.Fatalf("expected production_target_backed item class, got %v", first["item_class"])
+	}
+}
+
+func TestReportIncludesActionPathsProjection(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	snapshot := map[string]any{
+		"version": "v1",
+		"target": map[string]any{
+			"mode":  "org",
+			"value": "acme",
+		},
+		"inventory": map[string]any{
+			"agent_privilege_map": []any{
+				map[string]any{
+					"agent_id":                   "wrkr:alpha:acme",
+					"framework":                  "langchain",
+					"org":                        "acme",
+					"repos":                      []any{"payments"},
+					"location":                   "agents/payments.py",
+					"risk_score":                 8.8,
+					"write_capable":              true,
+					"production_write":           true,
+					"approval_classification":    "approved",
+					"security_visibility_status": "approved",
+				},
+			},
+		},
+		"risk_report": map[string]any{
+			"generated_at":    "2026-03-25T12:00:00Z",
+			"top_findings":    []any{},
+			"ranked_findings": []any{},
+			"attack_paths": []any{
+				map[string]any{
+					"org":        "acme",
+					"repo":       "payments",
+					"path_score": 9.1,
+				},
+			},
+			"action_paths": []any{
+				map[string]any{
+					"path_id":            "apc-123456",
+					"org":                "acme",
+					"repo":               "payments",
+					"recommended_action": "control",
+					"write_capable":      true,
+					"production_write":   true,
+					"attack_path_score":  9.1,
+					"risk_score":         8.8,
+					"tool_type":          "langchain",
+					"location":           "agents/payments.py",
+				},
+			},
+			"action_path_to_control_first": map[string]any{
+				"summary": map[string]any{
+					"total_paths":                    1,
+					"write_capable_paths":            1,
+					"production_target_backed_paths": 1,
+					"govern_first_paths":             0,
+				},
+				"path": map[string]any{
+					"path_id":            "apc-123456",
+					"org":                "acme",
+					"repo":               "payments",
+					"recommended_action": "control",
+				},
+			},
+		},
+	}
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal state payload: %v", err)
+	}
+	if err := os.WriteFile(statePath, append(payload, '\n'), 0o600); err != nil {
+		t.Fatalf("write state payload: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"report", "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+
+	var reportPayload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &reportPayload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	if _, ok := reportPayload["action_paths"].([]any); !ok {
+		t.Fatalf("expected top-level action_paths, got %v", reportPayload["action_paths"])
+	}
+	if _, ok := reportPayload["action_path_to_control_first"].(map[string]any); !ok {
+		t.Fatalf("expected top-level action_path_to_control_first, got %v", reportPayload["action_path_to_control_first"])
+	}
+	summary, ok := reportPayload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary object, got %T", reportPayload["summary"])
+	}
+	if _, ok := summary["action_paths"].([]any); !ok {
+		t.Fatalf("expected summary action_paths, got %v", summary["action_paths"])
+	}
+}

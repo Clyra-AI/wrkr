@@ -22,19 +22,21 @@ import (
 )
 
 type reportPayload struct {
-	Status             string                       `json:"status"`
-	GeneratedAt        string                       `json:"generated_at"`
-	TopFindings        []risk.ScoredFinding         `json:"top_findings"`
-	AttackPaths        any                          `json:"attack_paths,omitempty"`
-	TopAttackPaths     any                          `json:"top_attack_paths,omitempty"`
-	TotalTools         int                          `json:"total_tools"`
-	ToolTypeBreakdown  []toolTypeCount              `json:"tool_type_breakdown"`
-	ComplianceGapCount int                          `json:"compliance_gap_count"`
-	ComplianceSummary  compliance.RollupSummary     `json:"compliance_summary"`
-	PrivilegeBudget    agginventory.PrivilegeBudget `json:"privilege_budget"`
-	Summary            reportcore.Summary           `json:"summary"`
-	MDPath             string                       `json:"md_path,omitempty"`
-	PDFPath            string                       `json:"pdf_path,omitempty"`
+	Status                   string                       `json:"status"`
+	GeneratedAt              string                       `json:"generated_at"`
+	TopFindings              []risk.ScoredFinding         `json:"top_findings"`
+	AttackPaths              any                          `json:"attack_paths,omitempty"`
+	TopAttackPaths           any                          `json:"top_attack_paths,omitempty"`
+	ActionPaths              any                          `json:"action_paths,omitempty"`
+	ActionPathToControlFirst any                          `json:"action_path_to_control_first,omitempty"`
+	TotalTools               int                          `json:"total_tools"`
+	ToolTypeBreakdown        []toolTypeCount              `json:"tool_type_breakdown"`
+	ComplianceGapCount       int                          `json:"compliance_gap_count"`
+	ComplianceSummary        compliance.RollupSummary     `json:"compliance_summary"`
+	PrivilegeBudget          agginventory.PrivilegeBudget `json:"privilege_budget"`
+	Summary                  reportcore.Summary           `json:"summary"`
+	MDPath                   string                       `json:"md_path,omitempty"`
+	PDFPath                  string                       `json:"pdf_path,omitempty"`
 }
 
 type toolTypeCount struct {
@@ -150,17 +152,19 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	totalTools, typeBreakdown := inventorySummary(snapshot.Inventory)
 	payload := reportPayload{
-		Status:             "ok",
-		GeneratedAt:        summary.GeneratedAt,
-		TopFindings:        top,
-		AttackPaths:        riskReport.AttackPaths,
-		TopAttackPaths:     riskReport.TopAttackPaths,
-		TotalTools:         totalTools,
-		ToolTypeBreakdown:  typeBreakdown,
-		ComplianceGapCount: profileGapCount(snapshot),
-		ComplianceSummary:  summary.ComplianceSummary,
-		PrivilegeBudget:    summary.PrivilegeBudget,
-		Summary:            summary,
+		Status:                   "ok",
+		GeneratedAt:              summary.GeneratedAt,
+		TopFindings:              top,
+		AttackPaths:              riskReport.AttackPaths,
+		TopAttackPaths:           riskReport.TopAttackPaths,
+		ActionPaths:              riskReport.ActionPaths,
+		ActionPathToControlFirst: riskReport.ActionPathToControlFirst,
+		TotalTools:               totalTools,
+		ToolTypeBreakdown:        typeBreakdown,
+		ComplianceGapCount:       profileGapCount(snapshot),
+		ComplianceSummary:        summary.ComplianceSummary,
+		PrivilegeBudget:          summary.PrivilegeBudget,
+		Summary:                  summary,
 	}
 
 	payload.MDPath = mdOutPath
