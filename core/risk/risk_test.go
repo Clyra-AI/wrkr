@@ -308,6 +308,61 @@ func TestBuildActionPathsRanksAndSelectsControlFirst(t *testing.T) {
 	}
 }
 
+func TestBuildActionPathsCarriesDeliveryChainMetadata(t *testing.T) {
+	t.Parallel()
+
+	inventory := &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                "wrkr:workflow-full:acme",
+				Framework:              "compiled_action",
+				Org:                    "acme",
+				Repos:                  []string{"payments-prod"},
+				Location:               ".github/workflows/release.yml",
+				RiskScore:              8.1,
+				ApprovalClassification: "approved",
+				PullRequestWrite:       true,
+				MergeExecute:           true,
+				DeployWrite:            true,
+				DeliveryChainStatus:    "pr_merge_deploy",
+				ProductionTargetStatus: agginventory.ProductionTargetsStatusNotConfigured,
+			},
+			{
+				AgentID:                "wrkr:workflow-pr:acme",
+				Framework:              "compiled_action",
+				Org:                    "acme",
+				Repos:                  []string{"payments-prod"},
+				Location:               ".github/workflows/pr.yml",
+				RiskScore:              8.1,
+				ApprovalClassification: "approved",
+				PullRequestWrite:       true,
+				DeliveryChainStatus:    "pr_only",
+				ProductionTargetStatus: agginventory.ProductionTargetsStatusNotConfigured,
+			},
+		},
+	}
+
+	actionPaths, choice := BuildActionPaths(nil, inventory)
+	if len(actionPaths) != 2 {
+		t.Fatalf("expected 2 action paths, got %+v", actionPaths)
+	}
+	if actionPaths[0].DeliveryChainStatus != "pr_merge_deploy" {
+		t.Fatalf("expected full delivery chain first, got %+v", actionPaths[0])
+	}
+	if !actionPaths[0].PullRequestWrite || !actionPaths[0].MergeExecute || !actionPaths[0].DeployWrite {
+		t.Fatalf("expected delivery chain booleans on first path, got %+v", actionPaths[0])
+	}
+	if actionPaths[0].ProductionTargetStatus != agginventory.ProductionTargetsStatusNotConfigured {
+		t.Fatalf("expected production target status to carry through, got %+v", actionPaths[0])
+	}
+	if actionPaths[0].RecommendedAction != "proof" {
+		t.Fatalf("expected proof recommendation without production backing, got %+v", actionPaths[0])
+	}
+	if choice == nil || choice.Path.DeliveryChainStatus != "pr_merge_deploy" {
+		t.Fatalf("expected control-first selection to preserve delivery metadata, got %+v", choice)
+	}
+}
+
 func TestScoreKeepsSameFileAgentsDistinctByInstanceIdentity(t *testing.T) {
 	t.Parallel()
 

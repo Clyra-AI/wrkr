@@ -129,6 +129,15 @@ func buildRepoGraph(org string, repo string, findings []model.Finding) Graph {
 				addEdge(synthetic)
 			}
 		}
+		if strings.TrimSpace(finding.FindingType) == "ci_autonomy" || strings.TrimSpace(finding.FindingType) == "compiled_action" {
+			syntheticNodes, syntheticEdges := workflowRelationshipNodesAndEdges(org, repo, node, finding)
+			for _, synthetic := range syntheticNodes {
+				addNode(synthetic)
+			}
+			for _, synthetic := range syntheticEdges {
+				addEdge(synthetic)
+			}
+		}
 	}
 
 	sortNodes(entryNodes)
@@ -353,6 +362,37 @@ func syntheticNode(org, repo, kind, findingType, toolType, location, canonicalKe
 		Location:    node.Location,
 	})
 	return node
+}
+
+func workflowRelationshipNodesAndEdges(org string, repo string, workflowNode Node, finding model.Finding) ([]Node, []Edge) {
+	type capabilityTarget struct {
+		findingType string
+		rationale   string
+	}
+	targetsByCapability := map[string]capabilityTarget{
+		"pull_request.write": {findingType: "workflow_pull_request", rationale: "workflow_to_pull_request"},
+		"merge.execute":      {findingType: "workflow_merge_capability", rationale: "workflow_to_merge"},
+		"deploy.write":       {findingType: "workflow_deploy_capability", rationale: "workflow_to_deploy"},
+	}
+
+	nodes := make([]Node, 0, len(finding.Permissions))
+	edges := make([]Edge, 0, len(finding.Permissions))
+	seen := map[string]struct{}{}
+	for _, permission := range finding.Permissions {
+		capability := strings.ToLower(strings.TrimSpace(permission))
+		target, ok := targetsByCapability[capability]
+		if !ok {
+			continue
+		}
+		if _, exists := seen[capability]; exists {
+			continue
+		}
+		seen[capability] = struct{}{}
+		node := syntheticNode(org, repo, "target", target.findingType, capability, finding.Location, workflowNode.CanonicalKey+"|workflow:"+capability)
+		nodes = append(nodes, node)
+		edges = append(edges, newEdge(org, repo, workflowNode, node, target.rationale))
+	}
+	return nodes, edges
 }
 
 func splitEvidenceList(finding model.Finding, key string) []string {

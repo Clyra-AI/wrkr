@@ -48,6 +48,15 @@ type AgentPrivilegeMapEntry struct {
 	DeploymentStatus         string               `json:"deployment_status,omitempty" yaml:"deployment_status,omitempty"`
 	DeploymentArtifacts      []string             `json:"deployment_artifacts,omitempty" yaml:"deployment_artifacts,omitempty"`
 	DeploymentEvidenceKeys   []string             `json:"deployment_evidence_keys,omitempty" yaml:"deployment_evidence_keys,omitempty"`
+	OperationalOwner         string               `json:"operational_owner,omitempty" yaml:"operational_owner,omitempty"`
+	OwnerSource              string               `json:"owner_source,omitempty" yaml:"owner_source,omitempty"`
+	OwnershipStatus          string               `json:"ownership_status,omitempty" yaml:"ownership_status,omitempty"`
+	ApprovalGapReasons       []string             `json:"approval_gap_reasons,omitempty" yaml:"approval_gap_reasons,omitempty"`
+	PullRequestWrite         bool                 `json:"pull_request_write,omitempty" yaml:"pull_request_write,omitempty"`
+	MergeExecute             bool                 `json:"merge_execute,omitempty" yaml:"merge_execute,omitempty"`
+	DeployWrite              bool                 `json:"deploy_write,omitempty" yaml:"deploy_write,omitempty"`
+	DeliveryChainStatus      string               `json:"delivery_chain_status,omitempty" yaml:"delivery_chain_status,omitempty"`
+	ProductionTargetStatus   string               `json:"production_target_status,omitempty" yaml:"production_target_status,omitempty"`
 	WriteCapable             bool                 `json:"write_capable" yaml:"write_capable"`
 	CredentialAccess         bool                 `json:"credential_access" yaml:"credential_access"`
 	ExecCapable              bool                 `json:"exec_capable" yaml:"exec_capable"`

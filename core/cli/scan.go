@@ -269,6 +269,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if !inventoryOut.PrivilegeBudget.ProductionWrite.Configured {
 		inventoryOut.PrivilegeBudget.ProductionWrite.Count = nil
 	}
+	for idx := range inventoryOut.AgentPrivilegeMap {
+		inventoryOut.AgentPrivilegeMap[idx].ProductionTargetStatus = productionWriteStatus
+	}
 	agginventory.ApplySecurityVisibilityToPrivilegeMap(&inventoryOut)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, &inventoryOut)
 

@@ -110,7 +110,7 @@ Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `t
 For local-machine scans, `target.mode` is `my_setup`.
 When `target.mode=my_setup`, `activation.items` projects concrete local tool, MCP, secret, and parse-error signals first without mutating the raw `top_findings` ranking. Policy-only items remain available in `ranked_findings` / `top_findings`.
 When `target.mode=org` or `target.mode=path`, `activation.items` projects govern-first candidate paths from the saved privilege map and adds `item_class` values such as `production_target_backed`, `unknown_to_security_write_path`, `approval_gap_path`, and `govern_first_candidate`.
-`action_paths[*]` combines path identity, write capability, approval gap, security visibility, credential/deployment posture, attack-path score, and a stable `recommended_action` enum of `inventory|approval|proof|control`.
+`action_paths[*]` combines path identity, write capability, approval gap, security visibility, credential/deployment posture, delivery-chain metadata (`pull_request_write`, `merge_execute`, `deploy_write`, `delivery_chain_status`), production-target truth (`production_target_status`, `production_write`), attack-path score, and a stable `recommended_action` enum of `inventory|approval|proof|control`.
 `action_path_to_control_first` exposes one prioritized path plus deterministic summary counts (`total_paths`, `write_capable_paths`, `production_target_backed_paths`, `govern_first_paths`) without removing the legacy `attack_paths` surfaces.
 `warnings` is included when Wrkr can prove posture may be incomplete even though the scan succeeded, for example when known MCP-bearing declaration files failed to parse.
 `detector_errors` is included when non-fatal detector failures occur and partial scan results are preserved.
@@ -128,6 +128,9 @@ Source coverage remains intentionally scoped:
 `ranked_findings[*]` and `attack_paths[*]` now include deterministic agent-aware amplification and edge rationale when agent declarations expose deployment, delegation, dynamic discovery, or bound tool/data/auth/deploy chains.
 `inventory.tools[*]` includes deterministic `approval_classification` (`approved|unapproved|unknown`), and `inventory.approval_summary` emits aggregate approval-gap ratios for campaign/report workflows.
 `inventory.tools[*]`, `inventory.agents[*]`, and `agent_privilege_map[*]` also emit additive `security_visibility_status` (`approved|known_unapproved|unknown_to_security`) without overloading `approval_classification`.
+Workflow-backed findings may emit additive first-class workflow capabilities such as `repo.write`, `pull_request.write`, `merge.execute`, `deploy.write`, `db.write`, and `iac.write`. Each capability remains static-only and is paired with `workflow_capability.*` evidence showing which workflow permission or step pattern produced the claim.
+`inventory.tools[*].locations[*]` preserves the legacy `owner` string and adds `owner_source` plus `ownership_status` so CODEOWNERS-backed ownership stays distinguishable from deterministic fallback.
+`agent_privilege_map[*]` and `action_paths[*]` add `operational_owner`, additive ownership provenance, and `approval_gap_reasons` so governance-first paths can show who should act next and why the approval model is incomplete.
 `inventory.security_visibility_summary` emits additive reference-basis and count fields including `unknown_to_security_write_capable_agents`.
 When a downstream workflow does not have a usable `reference_basis`, Wrkr suppresses `unknown_to_security` claims rather than fabricating them.
 `inventory.tools[*]` also emits report-ready `tool_category` and deterministic `confidence_score` (`0.00-1.00`) for inventory breakdown tables.

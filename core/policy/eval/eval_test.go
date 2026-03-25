@@ -105,11 +105,40 @@ func TestPolicyEval_WRKRA001_NoApprovalFails(t *testing.T) {
 		Evidence: []model.Evidence{
 			{Key: "symbol", Value: "release_agent"},
 			{Key: "approval_status", Value: "missing"},
+			{Key: "approval_source", Value: "missing"},
 		},
 	}}
 	out := Evaluate("repo", "org", findings, rules)
 	if !hasViolation(out, "WRKR-A001") {
 		t.Fatalf("expected WRKR-A001 violation, got %+v", out)
+	}
+}
+
+func TestPolicyEval_WRKRA001_MissingApprovalSourceFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	rules := []policy.Rule{{
+		ID:          "WRKR-A001",
+		Title:       "approval required",
+		Severity:    "high",
+		Kind:        "agent_approval_required",
+		Remediation: "set approval_source",
+		Version:     1,
+	}}
+	findings := []model.Finding{{
+		FindingType: "agent_framework",
+		ToolType:    "langchain",
+		Location:    "agents/release.py",
+		Evidence: []model.Evidence{
+			{Key: "symbol", Value: "release_agent"},
+			{Key: "approval_status", Value: "approved"},
+			{Key: "approval_source", Value: "missing"},
+		},
+	}}
+
+	out := Evaluate("repo", "org", findings, rules)
+	if !hasViolation(out, "WRKR-A001") {
+		t.Fatalf("expected WRKR-A001 violation when approval_source is missing, got %+v", out)
 	}
 }
 
@@ -161,6 +190,7 @@ func TestPolicyEval_WRKR002_AgentProdWriteAlsoChecksSecretPresence(t *testing.T)
 				{Key: "symbol", Value: "release_agent"},
 				{Key: "deployment_status", Value: "deployed"},
 				{Key: "human_gate", Value: "true"},
+				{Key: "proof_requirement", Value: "attestation"},
 			},
 		},
 		{
@@ -175,7 +205,37 @@ func TestPolicyEval_WRKR002_AgentProdWriteAlsoChecksSecretPresence(t *testing.T)
 	}
 }
 
-func TestPolicyEval_WRKRA009_UsesHumanGateFallbackWithoutDeploymentGate(t *testing.T) {
+func TestPolicyEval_WRKRA002_MissingProofRequirementFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	rules := []policy.Rule{{
+		ID:          "WRKR-A002",
+		Title:       "production write agents require human gate and proof requirements",
+		Severity:    "high",
+		Kind:        "agent_prod_write_human_gate",
+		Remediation: "declare proof requirement",
+		Version:     1,
+	}}
+	findings := []model.Finding{{
+		FindingType: "agent_framework",
+		ToolType:    "langchain",
+		Location:    "agents/release.py",
+		Permissions: []string{"deploy.write"},
+		Evidence: []model.Evidence{
+			{Key: "symbol", Value: "release_agent"},
+			{Key: "deployment_status", Value: "deployed"},
+			{Key: "human_gate", Value: "true"},
+			{Key: "proof_requirement", Value: "missing"},
+		},
+	}}
+
+	out := Evaluate("repo", "org", findings, rules)
+	if !hasViolation(out, "WRKR-A002") {
+		t.Fatalf("expected WRKR-A002 violation when proof_requirement is missing, got %+v", out)
+	}
+}
+
+func TestPolicyEval_WRKRA009_RequiresExplicitGateSource(t *testing.T) {
 	t.Parallel()
 
 	rules := []policy.Rule{{
@@ -194,6 +254,8 @@ func TestPolicyEval_WRKRA009_UsesHumanGateFallbackWithoutDeploymentGate(t *testi
 			{Key: "symbol", Value: "release_agent"},
 			{Key: "auto_deploy", Value: "true"},
 			{Key: "human_gate", Value: "true"},
+			{Key: "approval_source", Value: "manual_approval_step"},
+			{Key: "deployment_gate", Value: "enforced"},
 		},
 	}}
 
@@ -226,8 +288,10 @@ func TestPolicyEval_AgentRuleKindsDeterministicPassFail(t *testing.T) {
 		Evidence: []model.Evidence{
 			{Key: "symbol", Value: "ops_agent"},
 			{Key: "approval_status", Value: "approved"},
+			{Key: "approval_source", Value: "manual_approval_step"},
 			{Key: "deployment_status", Value: "deployed"},
 			{Key: "human_gate", Value: "true"},
+			{Key: "proof_requirement", Value: "attestation"},
 			{Key: "secret_control", Value: "managed"},
 			{Key: "external_network", Value: "true"},
 			{Key: "egress_policy", Value: "enforced"},

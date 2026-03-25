@@ -12,7 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/model"
 )
 
-func TestDetect_DefaultsDeploymentGateFromHumanGate(t *testing.T) {
+func TestDetect_DefaultsDeploymentGateToAmbiguousWithoutApprovalSource(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -36,8 +36,8 @@ func TestDetect_DefaultsDeploymentGateFromHumanGate(t *testing.T) {
 	if len(findings) != 1 {
 		t.Fatalf("expected one finding, got %d", len(findings))
 	}
-	if value := evidenceValue(findings[0], "deployment_gate"); value != "enforced" {
-		t.Fatalf("expected deployment_gate=enforced, got %q", value)
+	if value := evidenceValue(findings[0], "deployment_gate"); value != "ambiguous" {
+		t.Fatalf("expected deployment_gate=ambiguous, got %q", value)
 	}
 }
 
@@ -68,6 +68,40 @@ func TestDetect_UsesExplicitDeploymentGate(t *testing.T) {
 	}
 	if value := evidenceValue(findings[0], "deployment_gate"); value != "approved" {
 		t.Fatalf("expected deployment_gate=approved, got %q", value)
+	}
+}
+
+func TestDetect_EmitsApprovalSourceAndProofRequirement(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	configPath := ".wrkr/agents/langchain.yaml"
+	writeFile(t, root, configPath, `agents:
+  - name: release_agent
+    file: agents/release.py
+    auto_deploy: true
+    human_gate: true
+    approval_source: manual_approval_step
+    proof_requirement: attestation
+`)
+
+	findings, err := Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, DetectorConfig{
+		DetectorID: "agentframework_langchain",
+		Framework:  "langchain",
+		ConfigPath: configPath,
+		Format:     "yaml",
+	})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one finding, got %d", len(findings))
+	}
+	if value := evidenceValue(findings[0], "approval_source"); value != "manual_approval_step" {
+		t.Fatalf("expected approval_source=manual_approval_step, got %q", value)
+	}
+	if value := evidenceValue(findings[0], "proof_requirement"); value != "attestation" {
+		t.Fatalf("expected proof_requirement=attestation, got %q", value)
 	}
 }
 

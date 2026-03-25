@@ -987,6 +987,123 @@ func TestScanProductionTargetsMissingStrictFails(t *testing.T) {
 	}
 }
 
+func TestScanActionPathsCarryDeliveryChainAndProductionTargetStatus(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name                string
+		productionTargets   string
+		wantStatus          string
+		wantProductionWrite bool
+		wantAction          string
+	}{
+		{
+			name: "configured",
+			productionTargets: `
+schema_version: v1
+targets:
+  repos:
+    exact:
+      - payments-prod
+`,
+			wantStatus:          "configured",
+			wantProductionWrite: true,
+			wantAction:          "control",
+		},
+		{
+			name:                "not configured",
+			productionTargets:   "",
+			wantStatus:          "not_configured",
+			wantProductionWrite: false,
+			wantAction:          "approval",
+		},
+		{
+			name:                "invalid",
+			productionTargets:   "schema_version: v2\n",
+			wantStatus:          "invalid",
+			wantProductionWrite: false,
+			wantAction:          "approval",
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			tmp := t.TempDir()
+			reposPath := filepath.Join(tmp, "repos")
+			repoPath := filepath.Join(reposPath, "payments-prod")
+			if err := os.MkdirAll(filepath.Join(repoPath, ".github", "workflows"), 0o755); err != nil {
+				t.Fatalf("mkdir workflow dir: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(repoPath, ".github", "workflows", "release.yml"), []byte(`name: release
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: codex --full-auto --approval never
+      - run: gh pr merge --auto "$PR_URL"
+      - run: kubectl apply -f k8s/
+`), 0o600); err != nil {
+				t.Fatalf("write workflow: %v", err)
+			}
+
+			args := []string{"scan", "--path", reposPath, "--state", filepath.Join(tmp, "state.json"), "--json"}
+			if tc.productionTargets != "" {
+				targetsPath := filepath.Join(tmp, "production-targets.yaml")
+				if err := os.WriteFile(targetsPath, []byte(tc.productionTargets), 0o600); err != nil {
+					t.Fatalf("write production targets: %v", err)
+				}
+				args = append(args, "--production-targets", targetsPath)
+			}
+
+			var out bytes.Buffer
+			var errOut bytes.Buffer
+			code := Run(args, &out, &errOut)
+			if code != 0 {
+				t.Fatalf("scan failed: %d %s", code, errOut.String())
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+				t.Fatalf("parse scan output: %v", err)
+			}
+			actionPaths, ok := payload["action_paths"].([]any)
+			if !ok || len(actionPaths) == 0 {
+				t.Fatalf("expected action_paths payload, got %v", payload["action_paths"])
+			}
+			first, ok := actionPaths[0].(map[string]any)
+			if !ok {
+				t.Fatalf("unexpected action path payload: %T", actionPaths[0])
+			}
+			for _, key := range []string{"pull_request_write", "merge_execute", "deploy_write"} {
+				if first[key] != true {
+					t.Fatalf("expected %s=true, got %v", key, first[key])
+				}
+			}
+			if first["delivery_chain_status"] != "pr_merge_deploy" {
+				t.Fatalf("expected full delivery chain status, got %v", first["delivery_chain_status"])
+			}
+			if first["production_target_status"] != tc.wantStatus {
+				t.Fatalf("expected production_target_status=%s, got %v", tc.wantStatus, first["production_target_status"])
+			}
+			if first["production_write"] != tc.wantProductionWrite {
+				t.Fatalf("expected production_write=%t, got %v", tc.wantProductionWrite, first["production_write"])
+			}
+			if first["recommended_action"] != tc.wantAction {
+				t.Fatalf("expected recommended_action=%s, got %v", tc.wantAction, first["recommended_action"])
+			}
+		})
+	}
+}
+
 func TestScanProductionTargetsStrictWithoutPathFails(t *testing.T) {
 	t.Parallel()
 

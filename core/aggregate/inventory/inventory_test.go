@@ -1,6 +1,8 @@
 package inventory
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -130,6 +132,46 @@ func TestBuildMethodologyMetadataPassThrough(t *testing.T) {
 	}
 	if inv.Tools[0].PermissionTier != "none" || inv.Tools[0].RiskTier != "low" {
 		t.Fatalf("unexpected permission/risk tiers: %+v", inv.Tools[0])
+	}
+}
+
+func TestBuildAddsOwnershipProvenanceToToolLocations(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "CODEOWNERS"), []byte(".github/workflows/* @acme/security\n"), 0o600); err != nil {
+		t.Fatalf("write CODEOWNERS: %v", err)
+	}
+	manifest := source.Manifest{
+		Target: source.Target{Mode: "repo", Value: "acme/payments-prod"},
+		Repos:  []source.RepoManifest{{Repo: "acme/payments-prod", Location: repoRoot}},
+	}
+	findings := []model.Finding{
+		{FindingType: "ci_autonomy", ToolType: "ci_agent", Location: ".github/workflows/release.yml", Repo: "acme/payments-prod", Org: "acme"},
+		{FindingType: "compiled_action", ToolType: "compiled_action", Location: ".github/workflows/release.yml", Repo: "acme/payments-prod", Org: "acme"},
+	}
+	ctx := map[string]ToolContext{
+		KeyForFinding(findings[0]): {RiskScore: 8.2, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "headless_auto", ApprovalStatus: "missing", LifecycleState: identity.StateDiscovered},
+		KeyForFinding(findings[1]): {RiskScore: 7.8, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "headless_auto", ApprovalStatus: "missing", LifecycleState: identity.StateDiscovered},
+	}
+
+	inv := Build(BuildInput{
+		Manifest:              manifest,
+		Findings:              findings,
+		Contexts:              ctx,
+		RepoExposureSummaries: []exposure.RepoExposureSummary{},
+		GeneratedAt:           time.Date(2026, 3, 25, 12, 0, 0, 0, time.UTC),
+	})
+
+	if len(inv.Tools) == 0 || len(inv.Tools[0].Locations) == 0 {
+		t.Fatalf("expected tool locations, got %+v", inv.Tools)
+	}
+	location := inv.Tools[0].Locations[0]
+	if location.Owner != "@acme/security" {
+		t.Fatalf("expected CODEOWNERS owner, got %+v", location)
+	}
+	if location.OwnerSource != "codeowners" || location.OwnershipStatus != "explicit" {
+		t.Fatalf("expected explicit CODEOWNERS provenance, got %+v", location)
 	}
 }
 

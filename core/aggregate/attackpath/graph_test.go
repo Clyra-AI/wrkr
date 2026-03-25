@@ -124,6 +124,48 @@ func TestAttackPathNodeEdgeIDs_AreDeterministic(t *testing.T) {
 	}
 }
 
+func TestAttackGraph_IncludesWorkflowDeliveryCapabilityEdges(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{
+			FindingType: "prompt_channel_override",
+			ToolType:    "prompt_channel",
+			Location:    "AGENTS.md",
+			Repo:        "repo",
+			Org:         "acme",
+		},
+		{
+			FindingType: "ci_autonomy",
+			ToolType:    "ci_agent",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "repo",
+			Org:         "acme",
+			Permissions: []string{"pull_request.write", "merge.execute", "deploy.write"},
+		},
+	}
+
+	graphs := Build(findings)
+	if len(graphs) != 1 {
+		t.Fatalf("expected one graph, got %d", len(graphs))
+	}
+	graph := graphs[0]
+	for _, want := range []string{
+		"target::workflow_pull_request::pull_request.write::.github/workflows/release.yml",
+		"target::workflow_merge_capability::merge.execute::.github/workflows/release.yml",
+		"target::workflow_deploy_capability::deploy.write::.github/workflows/release.yml",
+	} {
+		if !hasNode(graph.Nodes, want) {
+			t.Fatalf("expected workflow capability node %s in graph: %#v", want, graph.Nodes)
+		}
+	}
+	for _, want := range []string{"workflow_to_pull_request", "workflow_to_merge", "workflow_to_deploy"} {
+		if !hasEdgeRationale(graph.Edges, want) {
+			t.Fatalf("expected workflow rationale %s in graph edges: %#v", want, graph.Edges)
+		}
+	}
+}
+
 func TestAttackGraph_SeparatesSameFileAgentsByInstanceIdentity(t *testing.T) {
 	t.Parallel()
 

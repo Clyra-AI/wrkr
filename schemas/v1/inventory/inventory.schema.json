@@ -72,7 +72,9 @@
               "properties": {
                 "repo": {"type": "string"},
                 "location": {"type": "string"},
-                "owner": {"type": "string"}
+                "owner": {"type": "string"},
+                "owner_source": {"type": "string", "enum": ["codeowners", "repo_fallback", "multi_repo_conflict"]},
+                "ownership_status": {"type": "string", "enum": ["explicit", "inferred", "unresolved"]}
               }
             }
           },
@@ -298,6 +300,15 @@
           "deployment_status": {"type": "string", "enum": ["unknown", "deployed", "ambiguous"]},
           "deployment_artifacts": {"type": "array", "items": {"type": "string"}},
           "deployment_evidence_keys": {"type": "array", "items": {"type": "string"}},
+          "operational_owner": {"type": "string"},
+          "owner_source": {"type": "string", "enum": ["codeowners", "repo_fallback", "multi_repo_conflict"]},
+          "ownership_status": {"type": "string", "enum": ["explicit", "inferred", "unresolved"]},
+          "approval_gap_reasons": {"type": "array", "items": {"type": "string"}},
+          "pull_request_write": {"type": "boolean"},
+          "merge_execute": {"type": "boolean"},
+          "deploy_write": {"type": "boolean"},
+          "delivery_chain_status": {"type": "string", "enum": ["none", "pr_only", "merge_only", "deploy_only", "pr_merge", "merge_deploy", "pr_merge_deploy"]},
+          "production_target_status": {"type": "string", "enum": ["configured", "not_configured", "invalid"]},
           "write_capable": {"type": "boolean"},
           "credential_access": {"type": "boolean"},
           "exec_capable": {"type": "boolean"},

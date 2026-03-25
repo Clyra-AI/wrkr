@@ -21,6 +21,8 @@ type AgentSpec struct {
 	Deployment       []string `json:"deployment_artifacts" yaml:"deployment_artifacts" toml:"deployment_artifacts"`
 	DataClass        string   `json:"data_class" yaml:"data_class" toml:"data_class"`
 	ApprovalStatus   string   `json:"approval_status" yaml:"approval_status" toml:"approval_status"`
+	ApprovalSource   string   `json:"approval_source" yaml:"approval_source" toml:"approval_source"`
+	ProofRequirement string   `json:"proof_requirement" yaml:"proof_requirement" toml:"proof_requirement"`
 	DynamicDiscovery bool     `json:"dynamic_discovery" yaml:"dynamic_discovery" toml:"dynamic_discovery"`
 	KillSwitch       bool     `json:"kill_switch" yaml:"kill_switch" toml:"kill_switch"`
 	AutoDeploy       bool     `json:"auto_deploy" yaml:"auto_deploy" toml:"auto_deploy"`
@@ -196,6 +198,8 @@ func frameworkFinding(scope detect.Scope, cfg DetectorConfig, agent AgentSpec) m
 		{Key: "deployment_status", Value: deploymentStatus},
 		{Key: "data_class", Value: fallback(strings.TrimSpace(agent.DataClass), "unknown")},
 		{Key: "approval_status", Value: fallback(strings.TrimSpace(agent.ApprovalStatus), "missing")},
+		{Key: "approval_source", Value: normalizeApprovalSource(agent)},
+		{Key: "proof_requirement", Value: normalizeProofRequirement(agent, deploymentStatus)},
 		{Key: "dynamic_discovery", Value: fmt.Sprintf("%t", agent.DynamicDiscovery)},
 		{Key: "kill_switch", Value: fmt.Sprintf("%t", agent.KillSwitch)},
 		{Key: "auto_deploy", Value: fmt.Sprintf("%t", agent.AutoDeploy)},
@@ -329,10 +333,35 @@ func deriveDeploymentGate(agent AgentSpec) string {
 	if !agent.AutoDeploy {
 		return ""
 	}
-	if agent.HumanGate {
+	if agent.HumanGate && normalizeApprovalSource(agent) != "missing" {
 		return "enforced"
 	}
+	if agent.HumanGate {
+		return "ambiguous"
+	}
+	return "open"
+}
+
+func normalizeApprovalSource(agent AgentSpec) string {
+	explicit := strings.ToLower(strings.TrimSpace(agent.ApprovalSource))
+	if explicit != "" {
+		return explicit
+	}
+	if agent.AutoDeploy {
+		return "missing"
+	}
 	return "missing"
+}
+
+func normalizeProofRequirement(agent AgentSpec, deploymentStatus string) string {
+	explicit := strings.ToLower(strings.TrimSpace(agent.ProofRequirement))
+	if explicit != "" {
+		return explicit
+	}
+	if agent.AutoDeploy || deploymentStatus == "deployed" {
+		return "missing"
+	}
+	return "not_applicable"
 }
 
 func mergeFrameworkFindings(findings []model.Finding) []model.Finding {

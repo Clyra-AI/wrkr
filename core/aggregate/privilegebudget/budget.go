@@ -8,6 +8,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/owners"
 	"github.com/Clyra-AI/wrkr/core/policy/productiontargets"
 )
 
@@ -78,6 +79,9 @@ func Build(
 			writeCapable := hasAnyPermission(tool.Permissions, writeSet)
 			credentialAccess := hasCredentialAccess(tool)
 			execCapable := hasExecPermission(tool.Permissions)
+			pullRequestWrite := hasExactPermission(tool.Permissions, "pull_request.write")
+			mergeExecute := hasExactPermission(tool.Permissions, "merge.execute")
+			deployWrite := hasExactPermission(tool.Permissions, "deploy.write")
 
 			matchedTargets := []string{}
 			productionWrite := false
@@ -92,6 +96,8 @@ func Build(
 			if deploymentStatus == "" {
 				deploymentStatus = "unknown"
 			}
+			approvalReasons := approvalGapReasons(signalsByAgent[tool.AgentID], tool.Permissions, deploymentStatus)
+			owner := resolveOperationalOwner(tool, tool.Repos, "", tool.Org)
 
 			entries = append(entries, agginventory.AgentPrivilegeMapEntry{
 				AgentID:                  tool.AgentID,
@@ -101,6 +107,7 @@ func Build(
 				Org:                      tool.Org,
 				Repos:                    cloneStringSlice(tool.Repos),
 				Permissions:              cloneStringSlice(tool.Permissions),
+				Location:                 primaryLocation(tool),
 				EndpointClass:            tool.EndpointClass,
 				DataClass:                tool.DataClass,
 				AutonomyLevel:            tool.AutonomyLevel,
@@ -114,6 +121,15 @@ func Build(
 				DeploymentStatus:         deploymentStatus,
 				DeploymentArtifacts:      cloneStringSlice(agentContext.DeploymentArtifacts),
 				DeploymentEvidenceKeys:   cloneStringSlice(agentContext.DeploymentEvidenceKeys),
+				OperationalOwner:         owner.Owner,
+				OwnerSource:              owner.OwnerSource,
+				OwnershipStatus:          owner.OwnershipStatus,
+				ApprovalGapReasons:       approvalReasons,
+				PullRequestWrite:         pullRequestWrite,
+				MergeExecute:             mergeExecute,
+				DeployWrite:              deployWrite,
+				DeliveryChainStatus:      deliveryChainStatus(pullRequestWrite, mergeExecute, deployWrite),
+				ProductionTargetStatus:   currentProductionTargetStatus(productionConfigured),
 				WriteCapable:             writeCapable,
 				CredentialAccess:         credentialAccess,
 				ExecCapable:              execCapable,
@@ -231,6 +247,9 @@ func buildInstanceEntries(
 		writeCapable := hasAnyPermission(permissions, writeSet)
 		credentialAccess := hasCredentialAccessForSurface(dataClass, permissions, agent.BoundAuthSurfaces)
 		execCapable := hasExecPermission(permissions)
+		pullRequestWrite := hasExactPermission(permissions, "pull_request.write")
+		mergeExecute := hasExactPermission(permissions, "merge.execute")
+		deployWrite := hasExactPermission(permissions, "deploy.write")
 		matchedTargets := []string{}
 		productionWrite := false
 		if productionConfigured && productionRules != nil && writeCapable {
@@ -242,6 +261,8 @@ func buildInstanceEntries(
 		if deploymentStatus == "" {
 			deploymentStatus = "unknown"
 		}
+		approvalReasons := approvalGapReasons(signals, permissions, deploymentStatus)
+		owner := resolveOperationalOwner(tool, repos, strings.TrimSpace(agent.Location), org)
 
 		entries = append(entries, agginventory.AgentPrivilegeMapEntry{
 			AgentID:                  strings.TrimSpace(agent.AgentID),
@@ -268,6 +289,15 @@ func buildInstanceEntries(
 			DeploymentStatus:         deploymentStatus,
 			DeploymentArtifacts:      cloneStringSlice(agent.DeploymentArtifacts),
 			DeploymentEvidenceKeys:   cloneStringSlice(agent.DeploymentEvidenceKeys),
+			OperationalOwner:         owner.Owner,
+			OwnerSource:              owner.OwnerSource,
+			OwnershipStatus:          owner.OwnershipStatus,
+			ApprovalGapReasons:       approvalReasons,
+			PullRequestWrite:         pullRequestWrite,
+			MergeExecute:             mergeExecute,
+			DeployWrite:              deployWrite,
+			DeliveryChainStatus:      deliveryChainStatus(pullRequestWrite, mergeExecute, deployWrite),
+			ProductionTargetStatus:   currentProductionTargetStatus(productionConfigured),
 			WriteCapable:             writeCapable,
 			CredentialAccess:         credentialAccess,
 			ExecCapable:              execCapable,
@@ -608,6 +638,259 @@ func hasCredentialAccessForSurface(dataClass string, permissions []string, authS
 func hasExecPermission(permissions []string) bool {
 	for _, permission := range permissions {
 		if normalizeToken(permission) == "proc.exec" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasExactPermission(permissions []string, target string) bool {
+	target = normalizeToken(target)
+	for _, permission := range permissions {
+		if normalizeToken(permission) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func deliveryChainStatus(pullRequestWrite, mergeExecute, deployWrite bool) string {
+	switch {
+	case pullRequestWrite && mergeExecute && deployWrite:
+		return "pr_merge_deploy"
+	case mergeExecute && deployWrite:
+		return "merge_deploy"
+	case pullRequestWrite && mergeExecute:
+		return "pr_merge"
+	case deployWrite:
+		return "deploy_only"
+	case pullRequestWrite:
+		return "pr_only"
+	case mergeExecute:
+		return "merge_only"
+	default:
+		return "none"
+	}
+}
+
+func currentProductionTargetStatus(productionConfigured bool) string {
+	if productionConfigured {
+		return agginventory.ProductionTargetsStatusConfigured
+	}
+	return agginventory.ProductionTargetsStatusNotConfigured
+}
+
+func resolveOperationalOwner(tool agginventory.Tool, repos []string, location string, org string) owners.Resolution {
+	type candidate struct {
+		owner           string
+		ownerSource     string
+		ownershipStatus string
+	}
+	candidates := map[string]candidate{}
+	trimmedLocation := strings.TrimSpace(location)
+	for _, item := range tool.Locations {
+		if trimmedLocation != "" && strings.TrimSpace(item.Location) != trimmedLocation {
+			continue
+		}
+		if len(repos) > 0 && !containsString(repos, item.Repo) {
+			continue
+		}
+		key := strings.Join([]string{
+			strings.TrimSpace(item.Owner),
+			strings.TrimSpace(item.OwnerSource),
+			strings.TrimSpace(item.OwnershipStatus),
+		}, "|")
+		candidates[key] = candidate{
+			owner:           strings.TrimSpace(item.Owner),
+			ownerSource:     strings.TrimSpace(item.OwnerSource),
+			ownershipStatus: strings.TrimSpace(item.OwnershipStatus),
+		}
+	}
+	if len(candidates) == 0 {
+		return fallbackOperationalOwner(repos, org)
+	}
+
+	ownerSet := map[string]candidate{}
+	for _, item := range candidates {
+		current, exists := ownerSet[item.owner]
+		if !exists || ownershipPriority(item.ownershipStatus) < ownershipPriority(current.ownershipStatus) {
+			ownerSet[item.owner] = item
+		}
+	}
+	if len(ownerSet) == 1 {
+		for _, item := range ownerSet {
+			return owners.Resolution{
+				Owner:           item.owner,
+				OwnerSource:     item.ownerSource,
+				OwnershipStatus: item.ownershipStatus,
+			}
+		}
+	}
+
+	fallback := fallbackOperationalOwner(repos, org)
+	fallback.OwnerSource = owners.OwnerSourceConflict
+	fallback.OwnershipStatus = owners.OwnershipStatusUnresolved
+	return fallback
+}
+
+func fallbackOperationalOwner(repos []string, org string) owners.Resolution {
+	repo := ""
+	if len(repos) > 0 {
+		sortedRepos := append([]string(nil), repos...)
+		sort.Strings(sortedRepos)
+		repo = strings.TrimSpace(sortedRepos[0])
+	}
+	status := owners.OwnershipStatusInferred
+	if repo == "" {
+		status = owners.OwnershipStatusUnresolved
+	}
+	return owners.Resolution{
+		Owner:           owners.FallbackOwner(repo, org),
+		OwnerSource:     owners.OwnerSourceRepoFallback,
+		OwnershipStatus: status,
+	}
+}
+
+func primaryLocation(tool agginventory.Tool) string {
+	if len(tool.Locations) == 0 {
+		return ""
+	}
+	locations := append([]agginventory.ToolLocation(nil), tool.Locations...)
+	sort.Slice(locations, func(i, j int) bool {
+		if locations[i].Repo != locations[j].Repo {
+			return locations[i].Repo < locations[j].Repo
+		}
+		return locations[i].Location < locations[j].Location
+	})
+	return strings.TrimSpace(locations[0].Location)
+}
+
+func containsString(values []string, target string) bool {
+	target = strings.TrimSpace(target)
+	for _, value := range values {
+		if strings.TrimSpace(value) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func ownershipPriority(status string) int {
+	switch strings.TrimSpace(status) {
+	case owners.OwnershipStatusExplicit:
+		return 0
+	case owners.OwnershipStatusInferred:
+		return 1
+	default:
+		return 2
+	}
+}
+
+func approvalGapReasons(signals findingSignals, permissions []string, deploymentStatus string) []string {
+	reasons := []string{}
+	hasDeliveryPath := hasWriteLikePermission(permissions) ||
+		hasExactPermission(permissions, "pull_request.write") ||
+		hasExactPermission(permissions, "merge.execute") ||
+		hasExactPermission(permissions, "deploy.write") ||
+		strings.TrimSpace(deploymentStatus) == "deployed" ||
+		boolSignalState(signals.EvidenceKV["auto_deploy"]) == "true"
+	if !hasDeliveryPath {
+		return nil
+	}
+
+	switch stringSignalState(signals.EvidenceKV["approval_source"], "missing") {
+	case "missing":
+		reasons = append(reasons, "approval_source_missing")
+	case "ambiguous":
+		reasons = append(reasons, "approval_source_ambiguous")
+	}
+
+	switch stringSignalState(signals.EvidenceKV["deployment_gate"], "missing") {
+	case "missing":
+		reasons = append(reasons, "deployment_gate_missing")
+	case "open":
+		reasons = append(reasons, "deployment_gate_open")
+	case "ambiguous":
+		reasons = append(reasons, "deployment_gate_ambiguous")
+	}
+
+	if boolSignalState(signals.EvidenceKV["auto_deploy"]) == "true" {
+		switch boolSignalState(signals.EvidenceKV["human_gate"]) {
+		case "missing":
+			reasons = append(reasons, "human_gate_missing")
+		case "false":
+			reasons = append(reasons, "auto_deploy_without_human_gate")
+		case "mixed":
+			reasons = append(reasons, "human_gate_ambiguous")
+		}
+	}
+
+	switch stringSignalState(signals.EvidenceKV["proof_requirement"], "missing") {
+	case "missing":
+		reasons = append(reasons, "proof_requirement_missing")
+	case "ambiguous":
+		reasons = append(reasons, "proof_requirement_ambiguous")
+	}
+
+	if len(reasons) == 0 {
+		return nil
+	}
+	return dedupeSortedPreserveCase(reasons)
+}
+
+func stringSignalState(values []string, missing string) string {
+	if len(values) == 0 {
+		return missing
+	}
+	normalized := dedupeSorted(values)
+	if len(normalized) == 1 {
+		return normalized[0]
+	}
+	if len(normalized) == 2 {
+		onlyMissing := 0
+		for _, value := range normalized {
+			if value == missing {
+				onlyMissing++
+			}
+		}
+		if onlyMissing == 1 {
+			for _, value := range normalized {
+				if value != missing {
+					return value
+				}
+			}
+		}
+	}
+	return "ambiguous"
+}
+
+func boolSignalState(values []string) string {
+	if len(values) == 0 {
+		return "missing"
+	}
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		switch strings.TrimSpace(strings.ToLower(value)) {
+		case "true", "1", "yes", "enabled":
+			seen["true"] = struct{}{}
+		case "false", "0", "no", "disabled":
+			seen["false"] = struct{}{}
+		default:
+			seen["mixed"] = struct{}{}
+		}
+	}
+	if len(seen) == 1 {
+		for value := range seen {
+			return value
+		}
+	}
+	return "mixed"
+}
+
+func hasWriteLikePermission(permissions []string) bool {
+	for _, permission := range permissions {
+		normalized := strings.ToLower(strings.TrimSpace(permission))
+		if strings.Contains(normalized, "write") || strings.Contains(normalized, "deploy") || normalized == "merge.execute" {
 			return true
 		}
 	}
