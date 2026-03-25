@@ -23,12 +23,16 @@ Hosted prerequisites for this path:
 - pass `--github-api https://api.github.com` (or set `WRKR_GITHUB_API_BASE`)
 - provide a GitHub token for private repos or to avoid public API rate limits
 - token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`
+- fine-grained PAT guidance: select only the target repositories and grant read-only repository metadata plus read-only repository contents
+- connector endpoints: `GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`, `GET /repos/{owner}/{repo}/git/blobs/{sha}`
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json
 wrkr verify --chain --json
 ```
+
+If a hosted run is interrupted, rerun the same target with `--resume`. Retry/cooldown/resume progress stays on stderr in `--json` mode, and `partial_result` / `source_errors` means the posture output is incomplete until the run is repeated successfully.
 
 Expected outputs:
 

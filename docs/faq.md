@@ -23,6 +23,8 @@ No. Core operation is local and file-based by default.
 
 `--path` is the zero-integration first-value path. Hosted `--repo` and `--org` scans require explicit GitHub API configuration via `--github-api` or `WRKR_GITHUB_API_BASE`, and they usually also need a GitHub token for private repos or to avoid public API rate limits. Token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 
+For hosted org runs, the least-privilege fine-grained PAT recipe is: select only the target repositories, grant read-only repository metadata, and grant read-only repository contents. That matches the exact endpoints Wrkr calls: `GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`, and `GET /repos/{owner}/{repo}/git/blobs/{sha}`.
+
 ### Does Wrkr replace runtime enforcement?
 
 No. Wrkr is discovery/posture. Runtime enforcement is a separate control layer.
@@ -42,6 +44,14 @@ Wrkr does not perform live MCP probing or package vulnerability assessment in th
 For the current public launch, start with `wrkr scan --github-org ... --github-api ... --json` when the goal is org posture, shared inventory review, or compliance handoff.
 If hosted prerequisites are not ready yet, use `wrkr scan --path ./your-repo --json` as the zero-integration repo-local fallback or `wrkr scan --my-setup --json` for developer-machine hygiene.
 Developers doing only local checks can still start with `wrkr scan --my-setup --json`.
+
+For larger orgs, prefer the opinionated path:
+
+```bash
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+```
+
+If the run is interrupted, rerun the same target with `--resume`. If `partial_result`, `source_errors`, or `source_degraded` is present, treat the result as incomplete until the hosted scan finishes cleanly.
 
 ### Do I need Gait to use `wrkr mcp-list`?
 

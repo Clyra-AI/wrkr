@@ -94,8 +94,8 @@ func TestScanAndReportExplainIncludeComplianceRollupLines(t *testing.T) {
 	if !strings.Contains(scanExplain.String(), "compliance: ") {
 		t.Fatalf("expected scan explain output to include compliance lines, got %q", scanExplain.String())
 	}
-	if !strings.Contains(scanExplain.String(), "bundled framework mappings are available; current findings do not map to bundled compliance controls yet") {
-		t.Fatalf("expected scan explain output to clarify sparse evidence state, got %q", scanExplain.String())
+	if !strings.Contains(scanExplain.String(), "coverage still reflects only controls evidenced in the current scan state; remediate gaps, rescan, and regenerate report/evidence artifacts") {
+		t.Fatalf("expected scan explain output to include next-action guidance, got %q", scanExplain.String())
 	}
 	if strings.Contains(scanExplain.String(), "no findings currently map to bundled compliance controls") {
 		t.Fatalf("expected scan explain output to stop implying missing framework support, got %q", scanExplain.String())

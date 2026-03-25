@@ -112,10 +112,10 @@ func TestScenarioPolicyCheckContracts(t *testing.T) {
 	}
 
 	expectations := map[string]string{
-		"WRKR-001": "fail",
-		"WRKR-002": "fail",
-		"WRKR-004": "pass",
-		"WRKR-099": "fail",
+		"WRKR-A001": "fail",
+		"WRKR-A002": "fail",
+		"WRKR-A004": "pass",
+		"WRKR-099":  "fail",
 	}
 	for ruleID, want := range expectations {
 		if got := ruleResults[ruleID]; got != want {

@@ -36,12 +36,14 @@ type RepoAggregate struct {
 }
 
 type Report struct {
-	GeneratedAt    string                  `json:"generated_at"`
-	TopN           []ScoredFinding         `json:"top_findings"`
-	Ranked         []ScoredFinding         `json:"ranked_findings"`
-	Repos          []RepoAggregate         `json:"repo_risk"`
-	AttackPaths    []riskattack.ScoredPath `json:"attack_paths,omitempty"`
-	TopAttackPaths []riskattack.ScoredPath `json:"top_attack_paths,omitempty"`
+	GeneratedAt              string                    `json:"generated_at"`
+	TopN                     []ScoredFinding           `json:"top_findings"`
+	Ranked                   []ScoredFinding           `json:"ranked_findings"`
+	Repos                    []RepoAggregate           `json:"repo_risk"`
+	AttackPaths              []riskattack.ScoredPath   `json:"attack_paths,omitempty"`
+	TopAttackPaths           []riskattack.ScoredPath   `json:"top_attack_paths,omitempty"`
+	ActionPaths              []ActionPath              `json:"action_paths,omitempty"`
+	ActionPathToControlFirst *ActionPathToControlFirst `json:"action_path_to_control_first,omitempty"`
 }
 
 type promptCooccurrence struct {

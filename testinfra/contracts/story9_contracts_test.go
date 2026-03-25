@@ -109,6 +109,23 @@ func TestStory9PublicShareSanitizationContract(t *testing.T) {
 	if chainPath != "redacted://proof-chain.json" {
 		t.Fatalf("expected redacted public proof chain path, got %q", chainPath)
 	}
+	actionPaths, _ := payload["action_paths"].([]any)
+	if len(actionPaths) == 0 {
+		t.Fatalf("expected public action_paths projection")
+	}
+	firstPath, _ := actionPaths[0].(map[string]any)
+	for key, prefix := range map[string]string{
+		"path_id":  "path-",
+		"org":      "org-",
+		"repo":     "repo-",
+		"agent_id": "agent-",
+		"location": "loc-",
+	} {
+		value, _ := firstPath[key].(string)
+		if !strings.HasPrefix(value, prefix) {
+			t.Fatalf("expected redacted public action path %s, got %q", key, value)
+		}
+	}
 }
 
 func TestStory9IntegratedSummaryArtifactHooks(t *testing.T) {

@@ -71,13 +71,15 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	riskItems := buildRiskItems(topFindings)
 	attackPathSummary := buildAttackPathSummary(*riskReport)
 	attackPathFacts := buildAttackPathFacts(*riskReport)
-	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, top)
+	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, top)
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
 		lifecycleSummary = sanitizeLifecycleSummaryPublic(lifecycleSummary)
 		riskItems = sanitizeRiskItemsPublic(riskItems)
 		activation = sanitizeActivationSummaryPublic(activation)
+		riskReport.ActionPaths = sanitizeActionPathsPublic(riskReport.ActionPaths)
+		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublic(riskReport.ActionPathToControlFirst)
 	}
 
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
@@ -107,25 +109,27 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 
 	summary := Summary{
-		SummaryVersion:     SummaryVersion,
-		GeneratedAt:        now.Format(time.RFC3339),
-		Template:           string(template),
-		ShareProfile:       string(shareProfile),
-		SectionOrder:       sectionOrder,
-		Sections:           sections,
-		Headline:           headline,
-		Methodology:        methodology,
-		TopRisks:           riskItems,
-		PrivilegeBudget:    privilegeBudget,
-		SecurityVisibility: securityVisibility,
-		Deltas:             deltas,
-		Lifecycle:          lifecycleSummary,
-		RegressDrift:       regressSummary,
-		AttackPaths:        attackPathSummary,
-		ComplianceSummary:  complianceSummary,
-		Proof:              proofRef,
-		NextActions:        nextActions,
-		Activation:         activation,
+		SummaryVersion:           SummaryVersion,
+		GeneratedAt:              now.Format(time.RFC3339),
+		Template:                 string(template),
+		ShareProfile:             string(shareProfile),
+		SectionOrder:             sectionOrder,
+		Sections:                 sections,
+		Headline:                 headline,
+		Methodology:              methodology,
+		TopRisks:                 riskItems,
+		PrivilegeBudget:          privilegeBudget,
+		SecurityVisibility:       securityVisibility,
+		Deltas:                   deltas,
+		Lifecycle:                lifecycleSummary,
+		RegressDrift:             regressSummary,
+		AttackPaths:              attackPathSummary,
+		ComplianceSummary:        complianceSummary,
+		Proof:                    proofRef,
+		NextActions:              nextActions,
+		Activation:               activation,
+		ActionPaths:              riskReport.ActionPaths,
+		ActionPathToControlFirst: riskReport.ActionPathToControlFirst,
 	}
 
 	return summary, nil
@@ -915,6 +919,47 @@ func sanitizeActivationSummaryPublic(in *ActivationSummary) *ActivationSummary {
 		copySummary.Items[idx].Repo = redactValue("repo", copySummary.Items[idx].Repo, 6)
 	}
 	return &copySummary
+}
+
+func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]risk.ActionPath, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.PathID = redactValue("path", copyItem.PathID, 8)
+		copyItem.Org = redactValue("org", copyItem.Org, 6)
+		copyItem.Repo = redactValue("repo", copyItem.Repo, 6)
+		copyItem.AgentID = redactValue("agent", copyItem.AgentID, 8)
+		copyItem.Location = redactValue("loc", copyItem.Location, 8)
+		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
+		for _, target := range copyItem.MatchedProductionTargets {
+			redacted := redactValue("target", target, 8)
+			if redacted == "" {
+				continue
+			}
+			targets = append(targets, redacted)
+		}
+		copyItem.MatchedProductionTargets = targets
+		out = append(out, copyItem)
+	}
+	return out
+}
+
+func sanitizeActionPathToControlFirstPublic(in *risk.ActionPathToControlFirst) *risk.ActionPathToControlFirst {
+	if in == nil {
+		return nil
+	}
+	copySummary := in.Summary
+	paths := sanitizeActionPathsPublic([]risk.ActionPath{in.Path})
+	if len(paths) == 0 {
+		return &risk.ActionPathToControlFirst{Summary: copySummary}
+	}
+	return &risk.ActionPathToControlFirst{
+		Summary: copySummary,
+		Path:    paths[0],
+	}
 }
 
 func redactValue(prefix, value string, width int) string {

@@ -3,8 +3,12 @@ package clicontracte2e
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/cli"
@@ -236,5 +240,50 @@ func TestE2EMySetupActivationProjectionRemainsAdditive(t *testing.T) {
 	}
 	if _, ok := summary["activation"].(map[string]any); !ok {
 		t.Fatalf("expected additive activation summary: %v", summary)
+	}
+}
+
+func TestE2EOrgJSONProgressStaysOnStderr(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"}]`)
+		case "/repos/acme/a":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/a","default_branch":"main"}`)
+		case "/repos/acme/a/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[]}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := cli.Run([]string{
+		"scan",
+		"--org", "acme",
+		"--github-api", server.URL,
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	if payload["status"] != "ok" {
+		t.Fatalf("unexpected scan payload: %v", payload)
+	}
+	if strings.Contains(out.String(), "progress target=org") {
+		t.Fatalf("expected progress output to stay off stdout, got %q", out.String())
+	}
+	if !strings.Contains(errOut.String(), "progress target=org event=complete repo_total=1 completed=1 failed=0") {
+		t.Fatalf("expected stderr completion progress, got %q", errOut.String())
 	}
 }

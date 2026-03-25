@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
 ```
 
 Exactly one target source is required: `--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`.
@@ -30,6 +30,8 @@ Acquisition behavior is fail-closed by target:
 ## Flags
 
 - `--json`
+- `--json-path`
+- `--resume`
 - `--explain`
 - `--quiet`
 - `--repo`
@@ -71,11 +73,32 @@ For the current minimum-now launch posture, security/platform teams should start
 ## Security-team org example
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr scan --github-org acme --github-api https://api.github.com --json --json-path ./.wrkr/scan.json
 ```
 
 `--github-org` is the additive alias for `--org`. Use it when security or platform teams need the deterministic saved-state input for `wrkr report`, `wrkr evidence`, `wrkr mcp-list`, or `wrkr inventory --diff`.
 Private repos and public API rate-limit avoidance usually require a GitHub token even when `--github-api` is set.
+Wrkr's hosted connector currently calls these GitHub REST endpoints:
+
+- `GET /orgs/{org}/repos?per_page=100&page=N`
+- `GET /repos/{owner}/{repo}`
+- `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`
+- `GET /repos/{owner}/{repo}/git/blobs/{sha}`
+
+Fine-grained PAT guidance for the selected repositories:
+
+- repository metadata: read-only
+- repository contents: read-only
+
+Opinionated large-org command path:
+
+```bash
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+```
+
+When `--json` is set for hosted org scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, and completion lines to stderr only. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file.
+`--resume` is supported only for `--org` / `--github-org` scans. Wrkr stores internal checkpoint metadata under the scan-state directory in `org-checkpoints/` and reuses already-materialized repositories only when the checkpoint target, repo set, and materialized-root path still match the current org scan.
+If a run is interrupted after some repositories are checkpointed, rerun the same target with `--resume` and keep the same `--state` path. If `partial_result`, `source_errors`, or `source_degraded` is present, treat the scan as incomplete and rerun after the blocking condition is resolved.
 
 ## Repo/path example
 
@@ -83,12 +106,16 @@ Private repos and public API rate-limit avoidance usually require a GitHub token
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
 ```
 
-Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation` for `my_setup` targets, and optional `report` when summary output is requested.
+Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
 For local-machine scans, `target.mode` is `my_setup`.
 When `target.mode=my_setup`, `activation.items` projects concrete local tool, MCP, secret, and parse-error signals first without mutating the raw `top_findings` ranking. Policy-only items remain available in `ranked_findings` / `top_findings`.
+When `target.mode=org` or `target.mode=path`, `activation.items` projects govern-first candidate paths from the saved privilege map and adds `item_class` values such as `production_target_backed`, `unknown_to_security_write_path`, `approval_gap_path`, and `govern_first_candidate`.
+`action_paths[*]` combines path identity, write capability, approval gap, security visibility, credential/deployment posture, attack-path score, and a stable `recommended_action` enum of `inventory|approval|proof|control`.
+`action_path_to_control_first` exposes one prioritized path plus deterministic summary counts (`total_paths`, `write_capable_paths`, `production_target_backed_paths`, `govern_first_paths`) without removing the legacy `attack_paths` surfaces.
 `warnings` is included when Wrkr can prove posture may be incomplete even though the scan succeeded, for example when known MCP-bearing declaration files failed to parse.
 `detector_errors` is included when non-fatal detector failures occur and partial scan results are preserved.
 `partial_result`, `source_errors`, and `source_degraded` are included when source acquisition/materialization has non-fatal failures.
+When filesystem permission or stat failures prevent full detector coverage, `detector_errors[*].code` stays explicit (`permission_denied`, `path_not_found`) and `--explain` calls out that scan completeness may be reduced.
 Downstream `wrkr campaign aggregate` treats these completeness markers as fail-closed input signals and rejects such artifacts instead of producing a campaign summary from incomplete scans.
 `sarif.path` is included when `--sarif` output is requested.
 `compliance_summary.frameworks[*].controls[*]` emits deterministic framework/control rollups with `mapped_rule_ids`, `finding_count`, and proof-derived coverage status.
@@ -125,6 +152,7 @@ Retry/degradation contract:
 - GitHub connector retries retryable failures with bounded jittered backoff.
 - HTTP `429` honors `Retry-After` and `X-RateLimit-Reset` wait semantics before retry.
 - Repeated transient failures trigger connector cooldown degradation; scan surfaces this in partial-result output (`source_degraded=true` when applicable).
+- In `--json` org mode, retry/cooldown/resume/completion operator progress is emitted to stderr only; stdout remains reserved for the final JSON payload.
 
 SARIF contract:
 

@@ -2,30 +2,47 @@ package report
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
 const (
 	activationTargetModeMySetup     = "my_setup"
+	activationTargetModeOrg         = "org"
+	activationTargetModePath        = "path"
 	activationDefaultLimit          = 5
 	activationReasonNoConcreteItems = "no_concrete_activation_items"
+	activationReasonNoGovernFirst   = "no_govern_first_activation_items"
+
+	activationClassProductionBacked = "production_target_backed"
+	activationClassUnknownWrite     = "unknown_to_security_write_path"
+	activationClassApprovalGap      = "approval_gap_path"
+	activationClassGovernFirst      = "govern_first_candidate"
 )
 
 // BuildActivation projects a first-value view for local-machine scans without mutating raw risk ranking.
-func BuildActivation(targetMode string, ranked []risk.ScoredFinding, limit int) *ActivationSummary {
-	if strings.TrimSpace(targetMode) != activationTargetModeMySetup {
-		return nil
-	}
+func BuildActivation(targetMode string, ranked []risk.ScoredFinding, inventory *agginventory.Inventory, limit int) *ActivationSummary {
 	if limit == 0 {
 		return nil
 	}
 	if limit < 0 {
 		limit = activationDefaultLimit
 	}
+	switch strings.TrimSpace(targetMode) {
+	case activationTargetModeMySetup:
+		return buildMySetupActivation(ranked, limit)
+	case activationTargetModeOrg, activationTargetModePath:
+		return buildGovernFirstActivation(strings.TrimSpace(targetMode), inventory, limit)
+	default:
+		return nil
+	}
+}
 
+func buildMySetupActivation(ranked []risk.ScoredFinding, limit int) *ActivationSummary {
 	items := make([]ActivationItem, 0, limit)
 	eligibleCount := 0
 	suppressedPolicyItems := false
@@ -78,6 +95,84 @@ func BuildActivation(targetMode string, ranked []risk.ScoredFinding, limit int) 
 	}
 }
 
+func buildGovernFirstActivation(targetMode string, inventory *agginventory.Inventory, limit int) *ActivationSummary {
+	if inventory == nil {
+		return &ActivationSummary{
+			TargetMode:    targetMode,
+			Message:       "No govern-first candidate paths were ranked for activation.",
+			EligibleCount: 0,
+			Reason:        activationReasonNoGovernFirst,
+			Items:         []ActivationItem{},
+		}
+	}
+
+	entries := append([]agginventory.AgentPrivilegeMapEntry(nil), inventory.AgentPrivilegeMap...)
+	sort.Slice(entries, func(i, j int) bool {
+		ai, bi := activationClassPriority(classifyGovernFirstClass(entries[i])), activationClassPriority(classifyGovernFirstClass(entries[j]))
+		if ai != bi {
+			return ai < bi
+		}
+		if entries[i].RiskScore != entries[j].RiskScore {
+			return entries[i].RiskScore > entries[j].RiskScore
+		}
+		if entries[i].Org != entries[j].Org {
+			return entries[i].Org < entries[j].Org
+		}
+		if firstRepo(entries[i]) != firstRepo(entries[j]) {
+			return firstRepo(entries[i]) < firstRepo(entries[j])
+		}
+		if entries[i].Location != entries[j].Location {
+			return entries[i].Location < entries[j].Location
+		}
+		return entries[i].AgentID < entries[j].AgentID
+	})
+
+	items := make([]ActivationItem, 0, limit)
+	eligibleCount := 0
+	for _, entry := range entries {
+		class := classifyGovernFirstClass(entry)
+		if class == "" {
+			continue
+		}
+		eligibleCount++
+		if len(items) >= limit {
+			continue
+		}
+		items = append(items, ActivationItem{
+			Rank:                     len(items) + 1,
+			RiskScore:                entry.RiskScore,
+			FindingType:              "activation_path",
+			ToolType:                 activationToolType(entry),
+			Severity:                 governFirstSeverity(entry, class),
+			Location:                 strings.TrimSpace(entry.Location),
+			Repo:                     firstRepo(entry),
+			NextStep:                 governFirstNextStep(class),
+			ItemClass:                class,
+			WriteCapable:             entry.WriteCapable,
+			ProductionWrite:          entry.ProductionWrite,
+			ApprovalClassification:   strings.TrimSpace(entry.ApprovalClassification),
+			SecurityVisibilityStatus: strings.TrimSpace(entry.SecurityVisibilityStatus),
+		})
+	}
+
+	if eligibleCount == 0 {
+		return &ActivationSummary{
+			TargetMode:    targetMode,
+			Message:       "No govern-first candidate paths were ranked for activation.",
+			EligibleCount: 0,
+			Reason:        activationReasonNoGovernFirst,
+			Items:         []ActivationItem{},
+		}
+	}
+
+	return &ActivationSummary{
+		TargetMode:    targetMode,
+		Message:       fmt.Sprintf("Review %d govern-first candidate path(s) first.", eligibleCount),
+		EligibleCount: eligibleCount,
+		Items:         items,
+	}
+}
+
 func isPolicyOnlyActivationFinding(finding model.Finding) bool {
 	if strings.TrimSpace(finding.ToolType) == "policy" {
 		return true
@@ -113,5 +208,87 @@ func activationNextStep(finding model.Finding) string {
 		return "Inspect this local tool or project config to confirm intended behavior."
 	default:
 		return "Inspect this local AI tooling signal and decide whether it matches your intended setup."
+	}
+}
+
+func classifyGovernFirstClass(entry agginventory.AgentPrivilegeMapEntry) string {
+	switch {
+	case entry.ProductionWrite:
+		return activationClassProductionBacked
+	case entry.WriteCapable && strings.TrimSpace(entry.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity:
+		return activationClassUnknownWrite
+	case entry.WriteCapable && isApprovalGap(entry.ApprovalClassification):
+		return activationClassApprovalGap
+	case entry.WriteCapable:
+		return activationClassGovernFirst
+	default:
+		return ""
+	}
+}
+
+func activationClassPriority(class string) int {
+	switch class {
+	case activationClassProductionBacked:
+		return 0
+	case activationClassUnknownWrite:
+		return 1
+	case activationClassApprovalGap:
+		return 2
+	case activationClassGovernFirst:
+		return 3
+	default:
+		return 99
+	}
+}
+
+func governFirstSeverity(entry agginventory.AgentPrivilegeMapEntry, class string) string {
+	switch class {
+	case activationClassProductionBacked, activationClassUnknownWrite:
+		return model.SeverityHigh
+	case activationClassApprovalGap:
+		return model.SeverityMedium
+	default:
+		if entry.RiskScore >= 7 {
+			return model.SeverityMedium
+		}
+		return model.SeverityLow
+	}
+}
+
+func governFirstNextStep(class string) string {
+	switch class {
+	case activationClassProductionBacked:
+		return "Review this production-target-backed write path and decide whether proof or control should land first."
+	case activationClassUnknownWrite:
+		return "Inventory this unknown-to-security write-capable path and assign an explicit review owner."
+	case activationClassApprovalGap:
+		return "Close the approval gap on this write-capable path before wider rollout."
+	default:
+		return "Start governance review on this write-capable path and confirm the intended ownership."
+	}
+}
+
+func firstRepo(entry agginventory.AgentPrivilegeMapEntry) string {
+	if len(entry.Repos) == 0 {
+		return ""
+	}
+	repos := append([]string(nil), entry.Repos...)
+	sort.Strings(repos)
+	return repos[0]
+}
+
+func activationToolType(entry agginventory.AgentPrivilegeMapEntry) string {
+	if strings.TrimSpace(entry.Framework) != "" {
+		return strings.TrimSpace(entry.Framework)
+	}
+	return strings.TrimSpace(entry.ToolType)
+}
+
+func isApprovalGap(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "", "unknown", "unapproved":
+		return true
+	default:
+		return false
 	}
 }

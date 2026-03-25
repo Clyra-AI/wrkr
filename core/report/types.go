@@ -7,6 +7,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/regress"
+	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -52,25 +53,27 @@ type BuildInput struct {
 }
 
 type Summary struct {
-	SummaryVersion     string                                 `json:"summary_version"`
-	GeneratedAt        string                                 `json:"generated_at"`
-	Template           string                                 `json:"template"`
-	ShareProfile       string                                 `json:"share_profile"`
-	SectionOrder       []string                               `json:"section_order"`
-	Sections           []Section                              `json:"sections"`
-	Headline           Headline                               `json:"headline"`
-	Methodology        Methodology                            `json:"methodology"`
-	TopRisks           []RiskItem                             `json:"top_risks"`
-	PrivilegeBudget    agginventory.PrivilegeBudget           `json:"privilege_budget"`
-	SecurityVisibility agginventory.SecurityVisibilitySummary `json:"security_visibility"`
-	Deltas             DeltaSummary                           `json:"deltas"`
-	Lifecycle          LifecycleSummary                       `json:"lifecycle"`
-	RegressDrift       *RegressSummary                        `json:"regress_drift,omitempty"`
-	AttackPaths        AttackPathSummary                      `json:"attack_paths"`
-	ComplianceSummary  compliance.RollupSummary               `json:"compliance_summary"`
-	Proof              ProofReference                         `json:"proof"`
-	NextActions        []ChecklistItem                        `json:"next_actions"`
-	Activation         *ActivationSummary                     `json:"activation,omitempty"`
+	SummaryVersion           string                                 `json:"summary_version"`
+	GeneratedAt              string                                 `json:"generated_at"`
+	Template                 string                                 `json:"template"`
+	ShareProfile             string                                 `json:"share_profile"`
+	SectionOrder             []string                               `json:"section_order"`
+	Sections                 []Section                              `json:"sections"`
+	Headline                 Headline                               `json:"headline"`
+	Methodology              Methodology                            `json:"methodology"`
+	TopRisks                 []RiskItem                             `json:"top_risks"`
+	PrivilegeBudget          agginventory.PrivilegeBudget           `json:"privilege_budget"`
+	SecurityVisibility       agginventory.SecurityVisibilitySummary `json:"security_visibility"`
+	Deltas                   DeltaSummary                           `json:"deltas"`
+	Lifecycle                LifecycleSummary                       `json:"lifecycle"`
+	RegressDrift             *RegressSummary                        `json:"regress_drift,omitempty"`
+	AttackPaths              AttackPathSummary                      `json:"attack_paths"`
+	ComplianceSummary        compliance.RollupSummary               `json:"compliance_summary"`
+	Proof                    ProofReference                         `json:"proof"`
+	NextActions              []ChecklistItem                        `json:"next_actions"`
+	Activation               *ActivationSummary                     `json:"activation,omitempty"`
+	ActionPaths              []risk.ActionPath                      `json:"action_paths,omitempty"`
+	ActionPathToControlFirst *risk.ActionPathToControlFirst         `json:"action_path_to_control_first,omitempty"`
 }
 
 type AttackPathSummary struct {
@@ -191,14 +194,19 @@ type ActivationSummary struct {
 }
 
 type ActivationItem struct {
-	Rank        int     `json:"rank"`
-	RiskScore   float64 `json:"risk_score"`
-	FindingType string  `json:"finding_type"`
-	ToolType    string  `json:"tool_type"`
-	Severity    string  `json:"severity"`
-	Location    string  `json:"location"`
-	Repo        string  `json:"repo"`
-	NextStep    string  `json:"next_step"`
+	Rank                     int     `json:"rank"`
+	RiskScore                float64 `json:"risk_score"`
+	FindingType              string  `json:"finding_type"`
+	ToolType                 string  `json:"tool_type"`
+	Severity                 string  `json:"severity"`
+	Location                 string  `json:"location"`
+	Repo                     string  `json:"repo"`
+	NextStep                 string  `json:"next_step"`
+	ItemClass                string  `json:"item_class,omitempty"`
+	WriteCapable             bool    `json:"write_capable,omitempty"`
+	ProductionWrite          bool    `json:"production_write,omitempty"`
+	ApprovalClassification   string  `json:"approval_classification,omitempty"`
+	SecurityVisibilityStatus string  `json:"security_visibility_status,omitempty"`
 }
 
 func ParseTemplate(raw string) (Template, bool) {

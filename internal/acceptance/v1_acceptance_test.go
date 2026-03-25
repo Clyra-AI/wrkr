@@ -471,7 +471,7 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 				rules[ruleID] = result
 			}
 		}
-		want := map[string]string{"WRKR-001": "fail", "WRKR-002": "fail", "WRKR-004": "pass", "WRKR-099": "fail"}
+		want := map[string]string{"WRKR-A001": "fail", "WRKR-A002": "fail", "WRKR-A004": "pass", "WRKR-099": "fail"}
 		for ruleID, expected := range want {
 			if got := rules[ruleID]; got != expected {
 				t.Fatalf("unexpected result for %s: got %q want %q (all=%v)", ruleID, got, expected, rules)
@@ -751,7 +751,7 @@ func runJSONAnyCode(t *testing.T, expectedCode int, args ...string) map[string]a
 		}
 		return payload
 	}
-	if errOut.Len() != 0 {
+	if errOut.Len() != 0 && !allowJSONProgressStderr(args, errOut.String()) {
 		t.Fatalf("expected empty stderr for %v, got %q", args, errOut.String())
 	}
 	payload := map[string]any{}
@@ -759,6 +759,39 @@ func runJSONAnyCode(t *testing.T, expectedCode int, args ...string) map[string]a
 		t.Fatalf("parse JSON payload for %v: %v (%q)", args, err, out.String())
 	}
 	return payload
+}
+
+func allowJSONProgressStderr(args []string, stderr string) bool {
+	if len(args) == 0 || args[0] != "scan" {
+		return false
+	}
+	if !hasArg(args, "--json") {
+		return false
+	}
+	if !hasArg(args, "--org") && !hasArg(args, "--github-org") {
+		return false
+	}
+
+	scanner := bufio.NewScanner(strings.NewReader(stderr))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "progress target=org ") {
+			return false
+		}
+	}
+	return scanner.Err() == nil
+}
+
+func hasArg(args []string, want string) bool {
+	for _, arg := range args {
+		if arg == want || strings.HasPrefix(arg, want+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeAcceptanceVolatile(input map[string]any) map[string]any {

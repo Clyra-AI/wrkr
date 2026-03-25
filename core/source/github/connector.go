@@ -43,6 +43,19 @@ type Connector struct {
 	cooldownUntil       time.Time
 	nowFn               func() time.Time
 	sleepFn             func(context.Context, time.Duration) error
+	onRetry             func(RetryEvent)
+	onCooldown          func(CooldownEvent)
+}
+
+type RetryEvent struct {
+	Attempt    int
+	StatusCode int
+	Delay      time.Duration
+}
+
+type CooldownEvent struct {
+	Delay time.Duration
+	Until time.Time
 }
 
 func NewConnector(baseURL, token string, client HTTPClient) *Connector {
@@ -61,6 +74,20 @@ func NewConnector(baseURL, token string, client HTTPClient) *Connector {
 		nowFn:            time.Now,
 		sleepFn:          sleepWithContext,
 	}
+}
+
+func (c *Connector) SetRetryHandler(fn func(RetryEvent)) {
+	if c == nil {
+		return
+	}
+	c.onRetry = fn
+}
+
+func (c *Connector) SetCooldownHandler(fn func(CooldownEvent)) {
+	if c == nil {
+		return
+	}
+	c.onCooldown = fn
 }
 
 // DegradedError indicates connector circuit-breaker degradation.
@@ -357,6 +384,7 @@ func safeJoin(root, rel string) (string, error) {
 
 func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte, error) {
 	if degradeErr := c.checkDegraded(); degradeErr != nil {
+		c.emitCooldown(0, degradeErr)
 		return nil, degradeErr
 	}
 
@@ -377,6 +405,7 @@ func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte
 
 		resp, err := c.HTTPClient.Do(req)
 		retryDelay := c.jitteredBackoff(attempt)
+		statusCode := 0
 		if err != nil {
 			lastErr = fmt.Errorf("request failed: %w", err)
 		} else {
@@ -393,6 +422,7 @@ func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte
 				c.resetFailureStreak()
 				return nil, fmt.Errorf("github API status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 			}
+			statusCode = resp.StatusCode
 			retryDelay = c.retryDelayForResponse(resp, attempt)
 			lastErr = fmt.Errorf("github API transient status %d", resp.StatusCode)
 		}
@@ -400,6 +430,7 @@ func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte
 		if attempt == c.MaxRetries {
 			break
 		}
+		c.emitRetry(attempt+1, retryDelay, statusCode)
 		if sleepErr := c.sleep(ctx, retryDelay); sleepErr != nil {
 			return nil, sleepErr
 		}
@@ -407,7 +438,9 @@ func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte
 	if lastErr == nil {
 		lastErr = errors.New("request failed")
 	}
-	return nil, c.recordFailure(lastErr)
+	recordedErr := c.recordFailure(lastErr)
+	c.emitCooldown(0, recordedErr)
+	return nil, recordedErr
 }
 
 func (c *Connector) now() time.Time {
@@ -584,6 +617,38 @@ func (c *Connector) recordFailure(lastErr error) error {
 		CooldownUntil: c.cooldownUntil,
 		Cause:         lastErr.Error(),
 	}
+}
+
+func (c *Connector) emitRetry(attempt int, delay time.Duration, statusCode int) {
+	if c == nil || c.onRetry == nil {
+		return
+	}
+	c.onRetry(RetryEvent{
+		Attempt:    attempt,
+		StatusCode: statusCode,
+		Delay:      delay,
+	})
+}
+
+func (c *Connector) emitCooldown(delay time.Duration, err error) {
+	if c == nil || c.onCooldown == nil {
+		return
+	}
+	var degraded *DegradedError
+	if !errors.As(err, &degraded) {
+		return
+	}
+	wait := delay
+	if wait <= 0 && !degraded.CooldownUntil.IsZero() {
+		wait = time.Until(degraded.CooldownUntil)
+		if wait < 0 {
+			wait = 0
+		}
+	}
+	c.onCooldown(CooldownEvent{
+		Delay: wait,
+		Until: degraded.CooldownUntil,
+	})
 }
 
 func sleepWithContext(ctx context.Context, duration time.Duration) error {

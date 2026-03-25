@@ -9,13 +9,27 @@ Hosted prerequisites for this path:
 - pass `--github-api https://api.github.com` (or set `WRKR_GITHUB_API_BASE`)
 - provide a GitHub token for private repos or to avoid public API rate limits
 - token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`
+- fine-grained PAT guidance: select only the target repositories and grant read-only repository metadata plus read-only repository contents
+- connector endpoints: `GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`, `GET /repos/{owner}/{repo}/git/blobs/{sha}`
 - if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first and return to this flow when GitHub access is configured
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
+
+If a hosted org scan is interrupted, rerun the same target with `--resume` to reuse checkpointed materialization state under the scan-state directory:
+
+```bash
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --resume --json --json-path ./.wrkr/scan.json
+```
+
+Interpretation notes:
+
+- retry, cooldown, resume, and completion progress lines are additive stderr-only operator UX in `--json` mode
+- `partial_result`, `source_errors`, or `source_degraded` means the org posture is incomplete and should be rerun before downstream campaign-style aggregation
+- `org-checkpoints/` is resumability metadata beside the scan state, not a proof artifact
 
 Optional deeper triage after the saved state exists:
 

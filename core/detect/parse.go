@@ -152,6 +152,22 @@ func DirExists(root, rel string) bool {
 }
 
 func Glob(root, pattern string) ([]string, error) {
+	if strings.ContainsAny(pattern, "*?[") {
+		prefix := globLiteralPrefix(pattern)
+		if prefix != "." {
+			path, info, err := resolveWithinRoot(root, prefix)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return []string{}, nil
+				}
+				return nil, err
+			}
+			if !info.IsDir() {
+				return nil, fmt.Errorf("glob prefix is not a directory: %s", filepath.ToSlash(prefix))
+			}
+			_ = path
+		}
+	}
 	items, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern)))
 	if err != nil {
 		return nil, err
@@ -166,6 +182,24 @@ func Glob(root, pattern string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+func globLiteralPrefix(pattern string) string {
+	parts := strings.Split(filepath.ToSlash(pattern), "/")
+	prefix := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if strings.ContainsAny(part, "*?[") {
+			break
+		}
+		if part == "" {
+			continue
+		}
+		prefix = append(prefix, part)
+	}
+	if len(prefix) == 0 {
+		return "."
+	}
+	return filepath.ToSlash(filepath.Join(prefix...))
 }
 
 func WalkFiles(root string) ([]string, error) {

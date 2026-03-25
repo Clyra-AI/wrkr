@@ -4,7 +4,9 @@ import (
 	"testing"
 	"time"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/model"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
 
 func TestScoreOrdersHeadlessHigherThanInteractive(t *testing.T) {
@@ -250,6 +252,59 @@ func TestMCPEnrichUnavailableDoesNotAlterTrustDeficit(t *testing.T) {
 	}
 	if unavailable.Ranked[0].TrustDeficit != base.Ranked[0].TrustDeficit {
 		t.Fatalf("expected unavailable enrich to not alter trust deficit, base=%.2f unavailable=%.2f", base.Ranked[0].TrustDeficit, unavailable.Ranked[0].TrustDeficit)
+	}
+}
+
+func TestBuildActionPathsRanksAndSelectsControlFirst(t *testing.T) {
+	t.Parallel()
+
+	inventory := &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                  "wrkr:alpha:acme",
+				Framework:                "langchain",
+				Org:                      "acme",
+				Repos:                    []string{"payments"},
+				Location:                 "agents/payments.py",
+				RiskScore:                8.8,
+				WriteCapable:             true,
+				ProductionWrite:          true,
+				ApprovalClassification:   "approved",
+				SecurityVisibilityStatus: "approved",
+			},
+			{
+				AgentID:                  "wrkr:beta:acme",
+				Framework:                "crewai",
+				Org:                      "acme",
+				Repos:                    []string{"ops"},
+				Location:                 "crews/ops.py",
+				RiskScore:                7.4,
+				WriteCapable:             true,
+				ApprovalClassification:   "unknown",
+				SecurityVisibilityStatus: agginventory.SecurityVisibilityUnknownToSecurity,
+			},
+		},
+	}
+	attackPaths := []riskattack.ScoredPath{
+		{Org: "acme", Repo: "payments", PathScore: 9.1},
+		{Org: "acme", Repo: "ops", PathScore: 6.5},
+	}
+
+	actionPaths, choice := BuildActionPaths(attackPaths, inventory)
+	if len(actionPaths) != 2 {
+		t.Fatalf("expected 2 action paths, got %+v", actionPaths)
+	}
+	if choice == nil {
+		t.Fatal("expected action_path_to_control_first")
+	}
+	if actionPaths[0].RecommendedAction != "control" {
+		t.Fatalf("expected control-ranked action path first, got %+v", actionPaths[0])
+	}
+	if choice.Path.RecommendedAction != "control" {
+		t.Fatalf("expected control-first choice, got %+v", choice.Path)
+	}
+	if choice.Summary.TotalPaths != 2 || choice.Summary.WriteCapablePaths != 2 || choice.Summary.ProductionTargetBackedPaths != 1 {
+		t.Fatalf("unexpected action-path summary: %+v", choice.Summary)
 	}
 }
 

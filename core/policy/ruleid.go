@@ -3,6 +3,7 @@ package policy
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -52,5 +53,25 @@ func RuleIDAliases(id string) []string {
 
 func canonicalRuleFamilyIDFromNormalized(normalized string) string {
 	suffix := strings.TrimPrefix(strings.TrimPrefix(normalized, "WRKR-"), "A")
+	if isBundledComplianceRuleSuffix(suffix) {
+		return "WRKR-A" + suffix
+	}
 	return "WRKR-" + suffix
+}
+
+func isBundledComplianceRuleID(id string) bool {
+	normalized, err := NormalizeRuleID(id)
+	if err != nil {
+		return false
+	}
+	suffix := strings.TrimPrefix(strings.TrimPrefix(normalized, "WRKR-"), "A")
+	return isBundledComplianceRuleSuffix(suffix)
+}
+
+func isBundledComplianceRuleSuffix(suffix string) bool {
+	number, err := strconv.Atoi(strings.TrimSpace(suffix))
+	if err != nil {
+		return false
+	}
+	return number >= 1 && number <= 10
 }

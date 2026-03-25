@@ -114,7 +114,7 @@ func TestScenarioEpic7PolicyOutcomesAndProofRecords(t *testing.T) {
 		}
 	}
 
-	want := map[string]string{"WRKR-001": "fail", "WRKR-002": "fail", "WRKR-004": "pass", "WRKR-099": "fail"}
+	want := map[string]string{"WRKR-A001": "fail", "WRKR-A002": "fail", "WRKR-A004": "pass", "WRKR-099": "fail"}
 	for ruleID, expected := range want {
 		if got := rules[ruleID]; got != expected {
 			t.Fatalf("unexpected policy outcome for %s: got %q want %q (all=%v)", ruleID, got, expected, rules)
