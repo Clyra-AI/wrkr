@@ -69,7 +69,7 @@ func TestScanResumeMissingCheckpointReturnsInvalidInput(t *testing.T) {
 func TestScanResumeMismatchReturnsInvalidInput(t *testing.T) {
 	t.Parallel()
 
-	var repoList string = `[{"full_name":"acme/a"}]`
+	repoList := `[{"full_name":"acme/a"}]`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/orgs/acme/repos":
