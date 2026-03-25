@@ -205,6 +205,9 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 
 		jobApprovalSource := ""
 		jobDeploymentGate := ""
+		jobHasDeliverySurface := false
+		jobHasGovernanceSurface := false
+		jobProofRequirements := map[string]struct{}{}
 		if strings.TrimSpace(job.Environment.Name) != "" {
 			jobApprovalSource = "environment"
 			jobDeploymentGate = "ambiguous"
@@ -212,14 +215,20 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 
 		for _, step := range job.Steps {
 			result.StepCount++
+			stepTool := detectTool(step)
 			if result.Tool == "" {
-				result.Tool = detectTool(step)
+				result.Tool = stepTool
+			}
+			if stepTool != "" {
+				jobHasGovernanceSurface = true
 			}
 			if isHeadlessStep(step) {
 				result.Headless = true
+				jobHasGovernanceSurface = true
 			}
 			if hasDangerousFlags(step) {
 				result.DangerousFlags = true
+				jobHasGovernanceSurface = true
 			}
 			if stepHasSecretAccess(step, job.Env) {
 				result.HasSecretAccess = true
@@ -227,18 +236,22 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 
 			if reason := mergeExecuteReason(step); reason != "" && (perms.allows("contents") || perms.allows("pull-requests")) {
 				addCapabilityReason(capabilityReasons, "merge.execute", reason)
+				jobHasDeliverySurface = true
 				hasDeliverySurface = true
 			}
 			if reason := deployWriteReason(step); reason != "" {
 				addCapabilityReason(capabilityReasons, "deploy.write", reason)
+				jobHasDeliverySurface = true
 				hasDeliverySurface = true
 			}
 			if reason := dbWriteReason(step); reason != "" {
 				addCapabilityReason(capabilityReasons, "db.write", reason)
+				jobHasDeliverySurface = true
 				hasDeliverySurface = true
 			}
 			if reason := iacWriteReason(step); reason != "" {
 				addCapabilityReason(capabilityReasons, "iac.write", reason)
+				jobHasDeliverySurface = true
 				hasDeliverySurface = true
 			}
 
@@ -248,29 +261,34 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 				result.HasApprovalGate = true
 			}
 			if requirement := proofRequirement(step); requirement != "" {
-				proofRequirements[requirement] = struct{}{}
+				jobProofRequirements[requirement] = struct{}{}
 			}
 		}
 
-		if jobApprovalSource == "" {
-			if containsTrigger(result.Triggers, "workflow_dispatch") {
-				jobApprovalSource = "workflow_dispatch"
-			} else if hasDeliverySurface {
-				jobApprovalSource = "missing"
+		if jobHasDeliverySurface || jobHasGovernanceSurface {
+			if jobApprovalSource == "" {
+				if containsTrigger(result.Triggers, "workflow_dispatch") {
+					jobApprovalSource = "workflow_dispatch"
+				} else {
+					jobApprovalSource = "missing"
+				}
 			}
-		}
-		if jobDeploymentGate == "" {
-			if hasDeliverySurface {
+			if jobHasDeliverySurface && jobDeploymentGate == "" {
 				jobDeploymentGate = "open"
-			} else {
-				jobDeploymentGate = "missing"
 			}
-		}
-		if jobApprovalSource != "" {
-			approvalSources[jobApprovalSource] = struct{}{}
-		}
-		if jobDeploymentGate != "" {
-			deploymentGates[jobDeploymentGate] = struct{}{}
+			if len(jobProofRequirements) == 0 {
+				proofRequirements["missing"] = struct{}{}
+			} else {
+				for requirement := range jobProofRequirements {
+					proofRequirements[requirement] = struct{}{}
+				}
+			}
+			if jobApprovalSource != "" {
+				approvalSources[jobApprovalSource] = struct{}{}
+			}
+			if jobHasDeliverySurface && jobDeploymentGate != "" {
+				deploymentGates[jobDeploymentGate] = struct{}{}
+			}
 		}
 	}
 
@@ -569,9 +587,6 @@ func chooseApprovalSource(values map[string]struct{}) string {
 	if len(values) == 0 {
 		return "missing"
 	}
-	if _, ok := values["manual_approval_step"]; ok {
-		return "manual_approval_step"
-	}
 	if len(values) == 1 {
 		return sortedSet(values)[0]
 	}
@@ -582,20 +597,17 @@ func chooseDeploymentGate(values map[string]struct{}) string {
 	if len(values) == 0 {
 		return "missing"
 	}
-	if _, ok := values["approved"]; ok {
-		return "approved"
+	if len(values) == 1 {
+		return sortedSet(values)[0]
 	}
-	if _, ok := values["ambiguous"]; ok {
-		return "ambiguous"
-	}
-	if _, ok := values["open"]; ok {
-		return "open"
-	}
-	return sortedSet(values)[0]
+	return "ambiguous"
 }
 
 func chooseProofRequirement(values map[string]struct{}) string {
 	if len(values) == 0 {
+		return "missing"
+	}
+	if _, ok := values["missing"]; ok {
 		return "missing"
 	}
 	if _, ok := values["attestation"]; ok {

@@ -90,6 +90,102 @@ func TestAnalyzeMalformedWorkflowReturnsParseError(t *testing.T) {
 	}
 }
 
+func TestAnalyzeTreatsMixedDeliveryGovernanceAsAmbiguous(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: release
+on:
+  push:
+    branches: [main]
+jobs:
+  approved:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: trstringer/manual-approval@v1
+      - run: kubectl apply -f k8s/
+      - run: wrkr evidence --state .wrkr/approved.json
+  ungated:
+    runs-on: ubuntu-latest
+    steps:
+      - run: kubectl apply -f k8s/
+      - run: wrkr evidence --state .wrkr/ungated.json
+`)
+
+	result, parseErr := Analyze(".github/workflows/release.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if result.DeploymentGate != "ambiguous" {
+		t.Fatalf("expected ambiguous deployment gate, got %q", result.DeploymentGate)
+	}
+	if result.ApprovalSource != "ambiguous" {
+		t.Fatalf("expected ambiguous approval source, got %q", result.ApprovalSource)
+	}
+}
+
+func TestAnalyzeMarksMissingProofWhenDeliveryPathLacksEvidence(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: release
+on:
+  push:
+    branches: [main]
+jobs:
+  covered:
+    runs-on: ubuntu-latest
+    steps:
+      - run: kubectl apply -f k8s/
+      - run: wrkr evidence --state .wrkr/covered.json
+  uncovered:
+    runs-on: ubuntu-latest
+    steps:
+      - run: kubectl apply -f k8s/
+`)
+
+	result, parseErr := Analyze(".github/workflows/release.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if result.ProofRequirement != "missing" {
+		t.Fatalf("expected missing proof requirement, got %q", result.ProofRequirement)
+	}
+}
+
+func TestAnalyzeIgnoresNonDeliveryJobsWhenAggregatingGovernance(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: release
+on:
+  push:
+    branches: [main]
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: trstringer/manual-approval@v1
+      - run: kubectl apply -f k8s/
+      - run: wrkr evidence --state .wrkr/release.json
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: go test ./...
+`)
+
+	result, parseErr := Analyze(".github/workflows/release.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if result.DeploymentGate != "approved" {
+		t.Fatalf("expected approved deployment gate, got %q", result.DeploymentGate)
+	}
+	if result.ApprovalSource != "manual_approval_step" {
+		t.Fatalf("expected manual approval source, got %q", result.ApprovalSource)
+	}
+	if result.ProofRequirement != "evidence" {
+		t.Fatalf("expected evidence proof requirement, got %q", result.ProofRequirement)
+	}
+}
+
 func evidenceValue(result Result, key string) string {
 	for _, evidence := range result.Evidence {
 		if evidence.Key == key {
