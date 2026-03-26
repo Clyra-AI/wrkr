@@ -21,6 +21,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/gaitpolicy"
 	"github.com/Clyra-AI/wrkr/core/detect/mcp"
 	"github.com/Clyra-AI/wrkr/core/detect/mcpgateway"
+	"github.com/Clyra-AI/wrkr/core/detect/nonhumanidentity"
 	"github.com/Clyra-AI/wrkr/core/detect/promptchannel"
 	"github.com/Clyra-AI/wrkr/core/detect/secrets"
 	"github.com/Clyra-AI/wrkr/core/detect/skills"
@@ -46,6 +47,7 @@ func Registry() (*detect.Registry, error) {
 		mcp.New(),
 		workstation.New(),
 		mcpgateway.New(),
+		nonhumanidentity.New(),
 		webmcp.New(),
 		promptchannel.New(),
 		skills.New(),

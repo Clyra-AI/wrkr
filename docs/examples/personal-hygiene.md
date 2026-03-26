@@ -5,7 +5,7 @@ Use this workflow when a developer wants a deterministic answer to "what AI tool
 ## Exact commands
 
 ```bash
-wrkr scan --my-setup --json
+wrkr scan --my-setup --approved-tools ./docs/examples/approved-tools.v1.yaml --json
 wrkr mcp-list --state ./.wrkr/last-scan.json --json
 cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
 wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
@@ -21,6 +21,7 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr
 
 - `activation.items` for the concrete local tool, MCP, and secret signals Wrkr wants you to review first.
 - High-privilege MCP servers requesting `shell` or write permissions from user-home configs.
+- `inventory.local_governance` showing whether local tool/config usage is sanctioned, unsanctioned, or unavailable because no approved-tools baseline was provided.
 - `process:env` findings showing key presence without exposing secret values.
 - Local `AGENTS.md`, `.agents/`, `.claude/`, `.cursor/`, or `.codex/` project markers that widen the effective AI tooling surface.
 - `warnings` on `mcp-list` showing that known MCP-bearing config files failed to parse, which means a zero-row MCP catalog is incomplete rather than clean.

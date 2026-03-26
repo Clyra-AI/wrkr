@@ -48,7 +48,7 @@ func TestDetectLocalMachineEnvAndProjectSignals(t *testing.T) {
 		switch {
 		case finding.Location == "process:env":
 			foundEnv = true
-		case finding.ToolType == "agent_project":
+		case finding.ToolType == "codex":
 			foundProject = true
 		}
 	}

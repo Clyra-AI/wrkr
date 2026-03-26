@@ -13,6 +13,11 @@ import (
 
 const detectorID = "workstation"
 
+type markerSpec struct {
+	Path     string
+	ToolType string
+}
+
 type Detector struct{}
 
 func New() Detector { return Detector{} }
@@ -32,16 +37,27 @@ var envKeyMatchers = []string{
 	"OPENROUTER_API_KEY",
 }
 
-var projectMarkers = []string{
-	"AGENTS.md",
-	"AGENTS.override.md",
-	"CLAUDE.md",
-	".claude",
-	".agents",
-	".codex/config.toml",
-	".codex/config.yaml",
-	".cursor/mcp.json",
-	".mcp.json",
+var homeMarkers = []markerSpec{
+	{Path: ".codex/config.toml", ToolType: "codex"},
+	{Path: ".codex/config.yaml", ToolType: "codex"},
+	{Path: ".codex/config.yml", ToolType: "codex"},
+	{Path: ".claude/settings.json", ToolType: "claude"},
+	{Path: ".claude/settings.local.json", ToolType: "claude"},
+	{Path: ".cursor/mcp.json", ToolType: "cursor"},
+	{Path: ".mcp.json", ToolType: "mcp"},
+}
+
+var projectMarkers = []markerSpec{
+	{Path: "AGENTS.md", ToolType: "codex"},
+	{Path: "AGENTS.override.md", ToolType: "codex"},
+	{Path: "CLAUDE.md", ToolType: "claude"},
+	{Path: ".claude", ToolType: "claude"},
+	{Path: ".agents", ToolType: "skill"},
+	{Path: ".codex/config.toml", ToolType: "codex"},
+	{Path: ".codex/config.yaml", ToolType: "codex"},
+	{Path: ".codex/config.yml", ToolType: "codex"},
+	{Path: ".cursor/mcp.json", ToolType: "cursor"},
+	{Path: ".mcp.json", ToolType: "mcp"},
 }
 
 func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
@@ -80,6 +96,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	if err != nil {
 		return nil, err
 	}
+	findings = append(findings, homeMarkerHits(home)...)
 	findings = append(findings, projects...)
 	model.SortFindings(findings)
 	return findings, nil
@@ -124,7 +141,7 @@ func discoverProjects(home string) ([]model.Finding, error) {
 				continue
 			}
 			projectRoot := filepath.Join(rootPath, projectName)
-			markers := projectMarkerHits(projectRoot, rootName, projectName)
+			markers := markerHits(projectRoot, rootName, projectName, projectMarkers)
 			findings = append(findings, markers...)
 		}
 	}
@@ -132,24 +149,32 @@ func discoverProjects(home string) ([]model.Finding, error) {
 	return findings, nil
 }
 
-func projectMarkerHits(projectRoot, workspaceRoot, projectName string) []model.Finding {
+func homeMarkerHits(home string) []model.Finding {
+	return markerHits(home, "", "", homeMarkers)
+}
+
+func markerHits(root, workspaceRoot, projectName string, markers []markerSpec) []model.Finding {
 	findings := make([]model.Finding, 0)
-	for _, marker := range projectMarkers {
-		if !detect.FileExists(projectRoot, marker) && !detect.DirExists(projectRoot, marker) {
+	for _, marker := range markers {
+		if !detect.FileExists(root, marker.Path) && !detect.DirExists(root, marker.Path) {
 			continue
+		}
+		location := marker.Path
+		if workspaceRoot != "" || projectName != "" {
+			location = filepath.ToSlash(filepath.Join(workspaceRoot, projectName, marker.Path))
 		}
 		findings = append(findings, model.Finding{
 			FindingType: "tool_config",
 			Severity:    model.SeverityLow,
-			ToolType:    "agent_project",
-			Location:    filepath.ToSlash(filepath.Join(workspaceRoot, projectName, marker)),
+			ToolType:    marker.ToolType,
+			Location:    location,
 			Repo:        "local-machine",
 			Org:         "local",
 			Detector:    detectorID,
 			Evidence: []model.Evidence{
 				{Key: "project_name", Value: projectName},
 				{Key: "workspace_root", Value: workspaceRoot},
-				{Key: "marker", Value: marker},
+				{Key: "marker", Value: marker.Path},
 			},
 			Remediation: "Review local agent project boundaries and ensure tool access is intentional.",
 		})

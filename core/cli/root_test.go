@@ -265,7 +265,7 @@ func TestScanMySetupFindsEnvironmentKeysAndProjectMarkers(t *testing.T) {
 		if finding["location"] == "process:env" {
 			foundEnv = true
 		}
-		if finding["tool_type"] == "agent_project" {
+		if finding["tool_type"] == "codex" {
 			foundProject = true
 		}
 	}
@@ -273,7 +273,7 @@ func TestScanMySetupFindsEnvironmentKeysAndProjectMarkers(t *testing.T) {
 		t.Fatal("expected process env finding")
 	}
 	if !foundProject {
-		t.Fatal("expected agent project finding")
+		t.Fatal("expected codex project finding")
 	}
 }
 

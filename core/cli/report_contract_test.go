@@ -333,6 +333,9 @@ func TestReportPublicShareRedactsActionPathProjection(t *testing.T) {
 					"risk_score":                 8.8,
 					"attack_path_score":          9.1,
 					"recommended_action":         "control",
+					"execution_identity":         "github_app",
+					"execution_identity_type":    "github_app",
+					"execution_identity_status":  "known",
 					"matched_production_targets": []any{"deploy/prod"},
 				},
 			},
@@ -382,11 +385,12 @@ func TestReportPublicShareRedactsActionPathProjection(t *testing.T) {
 		t.Fatalf("unexpected action path type: %T", actionPaths[0])
 	}
 	for key, prefix := range map[string]string{
-		"path_id":  "path-",
-		"org":      "org-",
-		"repo":     "repo-",
-		"agent_id": "agent-",
-		"location": "loc-",
+		"path_id":            "path-",
+		"org":                "org-",
+		"repo":               "repo-",
+		"agent_id":           "agent-",
+		"location":           "loc-",
+		"execution_identity": "identity-",
 	} {
 		value, _ := firstPath[key].(string)
 		if !strings.HasPrefix(value, prefix) {

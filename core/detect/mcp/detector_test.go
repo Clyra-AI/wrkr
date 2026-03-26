@@ -229,3 +229,59 @@ func TestDetectMCPRejectsExternalSymlinkedConfig(t *testing.T) {
 		t.Fatalf("expected unsafe_path parse error, got %+v", findings[0].ParseError)
 	}
 }
+
+func TestDetectMCPActionSurfacePermissions(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	payload := []byte(`{
+  "mcpServers": {
+    "reader": {"command":"npx","args":["-y","reader@1"],"permissions":["read"]},
+    "writer": {"command":"npx","args":["-y","writer@1"],"permissions":["write","shell.exec"]},
+    "admin": {"command":"npx","args":["-y","admin@1"],"privilegeSurface":["admin"]}
+  }
+}`)
+	if err := os.WriteFile(filepath.Join(root, ".mcp.json"), payload, 0o600); err != nil {
+		t.Fatalf("write mcp file: %v", err)
+	}
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "repo", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect mcp: %v", err)
+	}
+
+	byServer := map[string]model.Finding{}
+	for _, finding := range findings {
+		byServer[evidenceValueForServer(finding)] = finding
+	}
+	if !reflect.DeepEqual(byServer["reader"].Permissions, []string{"mcp.access", "mcp.read"}) {
+		t.Fatalf("unexpected reader permissions: %+v", byServer["reader"].Permissions)
+	}
+	if !reflect.DeepEqual(byServer["writer"].Permissions, []string{"mcp.access", "mcp.read", "mcp.write"}) {
+		t.Fatalf("unexpected writer permissions: %+v", byServer["writer"].Permissions)
+	}
+	if !reflect.DeepEqual(byServer["admin"].Permissions, []string{"mcp.access", "mcp.admin", "mcp.read", "mcp.write"}) {
+		t.Fatalf("unexpected admin permissions: %+v", byServer["admin"].Permissions)
+	}
+	if declared := evidenceValue(byServer["admin"], "declared_action_surface"); declared != "read,write,admin" {
+		t.Fatalf("expected declared_action_surface=read,write,admin, got %q", declared)
+	}
+}
+
+func evidenceValueForServer(finding model.Finding) string {
+	for _, item := range finding.Evidence {
+		if item.Key == "server" {
+			return item.Value
+		}
+	}
+	return ""
+}
+
+func evidenceValue(finding model.Finding, key string) string {
+	for _, item := range finding.Evidence {
+		if item.Key == key {
+			return item.Value
+		}
+	}
+	return ""
+}

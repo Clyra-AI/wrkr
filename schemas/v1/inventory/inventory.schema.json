@@ -114,6 +114,23 @@
         }
       }
     },
+    "non_human_identities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["identity_id", "identity_type", "subject", "source", "org", "repo", "location"],
+        "properties": {
+          "identity_id": {"type": "string"},
+          "identity_type": {"type": "string", "enum": ["github_app", "bot_user", "service_account", "unknown"]},
+          "subject": {"type": "string"},
+          "source": {"type": "string"},
+          "org": {"type": "string"},
+          "repo": {"type": "string"},
+          "location": {"type": "string"},
+          "confidence": {"type": "string", "enum": ["high", "low"]}
+        }
+      }
+    },
     "methodology": {
       "type": "object",
       "required": ["wrkr_version", "scan_started_at", "scan_completed_at", "scan_duration_seconds", "repo_count", "file_count_processed", "detectors"],
@@ -238,6 +255,18 @@
             }
           }
         }
+      }
+    },
+    "local_governance": {
+      "type": "object",
+      "required": ["reference_basis", "status", "sanctioned_tools", "unsanctioned_tools", "unknown_tools"],
+      "properties": {
+        "reference_basis": {"type": "string", "enum": ["approved_tools_policy", "unavailable"]},
+        "reference_path": {"type": "string"},
+        "status": {"type": "string", "enum": ["configured", "unavailable"]},
+        "sanctioned_tools": {"type": "integer"},
+        "unsanctioned_tools": {"type": "integer"},
+        "unknown_tools": {"type": "integer"}
       }
     },
     "privilege_budget": {

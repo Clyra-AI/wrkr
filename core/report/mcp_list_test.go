@@ -139,3 +139,89 @@ func TestBuildMCPListWarnsWhenKnownMCPDeclarationFilesFailToParse(t *testing.T) 
 		t.Fatalf("expected warning to name suppressed MCP declaration paths, got %v", payload.Warnings)
 	}
 }
+
+func TestBuildMCPListHighlightsUnprotectedAdminSurface(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPList(state.Snapshot{
+		Findings: []source.Finding{
+			{
+				FindingType: "mcp_server",
+				Severity:    model.SeverityHigh,
+				ToolType:    "mcp",
+				Location:    ".mcp.json",
+				Repo:        "local-machine",
+				Org:         "local",
+				Permissions: []string{"mcp.access", "mcp.read", "mcp.write", "mcp.admin"},
+				Evidence: []model.Evidence{
+					{Key: "server", Value: "admin-surface"},
+					{Key: "transport", Value: "stdio"},
+					{Key: "declared_action_surface", Value: "read,write,admin"},
+				},
+			},
+			{
+				FindingType: "mcp_gateway_posture",
+				ToolType:    "mcp",
+				Location:    ".mcp.json",
+				Repo:        "local-machine",
+				Org:         "local",
+				Evidence: []model.Evidence{
+					{Key: "declaration_name", Value: "admin-surface"},
+					{Key: "coverage", Value: "unprotected"},
+				},
+			},
+		},
+	}, time.Time{}, "", false)
+
+	if len(payload.Rows) != 1 {
+		t.Fatalf("expected one row, got %d", len(payload.Rows))
+	}
+	if !strings.Contains(payload.Rows[0].RiskNote, "admin-capable") || !strings.Contains(payload.Rows[0].RiskNote, "unprotected") {
+		t.Fatalf("expected admin-capable unprotected risk note, got %q", payload.Rows[0].RiskNote)
+	}
+}
+
+func TestBuildMCPListPrefersServerScopedDeclaredActionSurface(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPList(state.Snapshot{
+		Inventory: &agginventory.Inventory{
+			GeneratedAt: "2026-03-09T00:00:00Z",
+			Tools: []agginventory.Tool{
+				{
+					ToolType: "mcp",
+					Org:      "local",
+					Locations: []agginventory.ToolLocation{
+						{Repo: "local-machine", Location: ".mcp.json"},
+					},
+					PermissionSurface: agginventory.PermissionSurface{Read: true, Write: true, Admin: true},
+				},
+			},
+		},
+		Findings: []source.Finding{
+			{
+				FindingType: "mcp_server",
+				Severity:    model.SeverityMedium,
+				ToolType:    "mcp",
+				Location:    ".mcp.json",
+				Repo:        "local-machine",
+				Org:         "local",
+				Evidence: []model.Evidence{
+					{Key: "server", Value: "read-only"},
+					{Key: "transport", Value: "stdio"},
+					{Key: "declared_action_surface", Value: "read"},
+				},
+			},
+		},
+	}, time.Time{}, "", false)
+
+	if len(payload.Rows) != 1 {
+		t.Fatalf("expected one row, got %d", len(payload.Rows))
+	}
+	if got := payload.Rows[0].PrivilegeSurface; len(got) != 1 || got[0] != "read" {
+		t.Fatalf("expected server-scoped privilege surface [read], got %v", got)
+	}
+	if strings.Contains(payload.Rows[0].RiskNote, "admin-capable") {
+		t.Fatalf("expected row risk note to avoid unioned admin surface, got %q", payload.Rows[0].RiskNote)
+	}
+}

@@ -110,7 +110,7 @@ Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `t
 For local-machine scans, `target.mode` is `my_setup`.
 When `target.mode=my_setup`, `activation.items` projects concrete local tool, MCP, secret, and parse-error signals first without mutating the raw `top_findings` ranking. Policy-only items remain available in `ranked_findings` / `top_findings`.
 When `target.mode=org` or `target.mode=path`, `activation.items` projects govern-first candidate paths from the saved privilege map and adds `item_class` values such as `production_target_backed`, `unknown_to_security_write_path`, `approval_gap_path`, and `govern_first_candidate`.
-`action_paths[*]` combines path identity, write capability, approval gap, security visibility, credential/deployment posture, delivery-chain metadata (`pull_request_write`, `merge_execute`, `deploy_write`, `delivery_chain_status`), production-target truth (`production_target_status`, `production_write`), attack-path score, and a stable `recommended_action` enum of `inventory|approval|proof|control`.
+`action_paths[*]` combines path identity, write capability, approval gap, security visibility, credential/deployment posture, delivery-chain metadata (`pull_request_write`, `merge_execute`, `deploy_write`, `delivery_chain_status`), production-target truth (`production_target_status`, `production_write`), additive execution-identity fields (`execution_identity`, `execution_identity_type`, `execution_identity_source`, `execution_identity_status`, `execution_identity_rationale`), attack-path score, and a stable `recommended_action` enum of `inventory|approval|proof|control`.
 `action_path_to_control_first` exposes one prioritized path plus deterministic summary counts (`total_paths`, `write_capable_paths`, `production_target_backed_paths`, `govern_first_paths`) without removing the legacy `attack_paths` surfaces.
 `warnings` is included when Wrkr can prove posture may be incomplete even though the scan succeeded, for example when known MCP-bearing declaration files failed to parse.
 `detector_errors` is included when non-fatal detector failures occur and partial scan results are preserved.
@@ -132,6 +132,8 @@ Workflow-backed findings may emit additive first-class workflow capabilities suc
 `inventory.tools[*].locations[*]` preserves the legacy `owner` string and adds `owner_source` plus `ownership_status` so CODEOWNERS-backed ownership stays distinguishable from deterministic fallback.
 `agent_privilege_map[*]` and `action_paths[*]` add `operational_owner`, additive ownership provenance, and `approval_gap_reasons` so governance-first paths can show who should act next and why the approval model is incomplete.
 `inventory.security_visibility_summary` emits additive reference-basis and count fields including `unknown_to_security_write_capable_agents`.
+`inventory.local_governance` is emitted for `--my-setup` scans so workstation tool/config discoveries can be compared against an `--approved-tools` baseline without turning secret-presence signals into lifecycle identities.
+`inventory.non_human_identities[*]` is emitted when static repo evidence shows durable GitHub App, bot-user, or service-account execution identities behind AI-enabled delivery paths.
 When a downstream workflow does not have a usable `reference_basis`, Wrkr suppresses `unknown_to_security` claims rather than fabricating them.
 `inventory.tools[*]` also emits report-ready `tool_category` and deterministic `confidence_score` (`0.00-1.00`) for inventory breakdown tables.
 `inventory.tools[*]` emits normalized `permission_surface`, `permission_tier`, `risk_tier`, `adoption_pattern`, and per-tool `regulatory_mapping` statuses.
@@ -139,6 +141,7 @@ When a downstream workflow does not have a usable `reference_basis`, Wrkr suppre
 `agent_privilege_map[*]` is instance-scoped and includes additive `agent_instance_id`, `symbol`, `location`, and `location_range` fields for multi-agent same-file repos.
 `--approved-tools <path>` accepts a schema-validated YAML policy (`schemas/v1/policy/approved-tools.schema.json`) for explicit approved-list matching (`tool_ids`, `agent_ids`, `tool_types`, `orgs`, `repos` via exact/prefix sets).
 Invalid `--approved-tools` policy files fail closed with `invalid_input` (exit `6`).
+For `--my-setup`, omitting `--approved-tools` keeps `inventory.local_governance.reference_basis=unavailable` instead of fabricating sanctioned or unsanctioned local claims.
 For `--repo` and `--org` scans, `source_manifest.repos[*].source` is `github_repo_materialized`, and `source_manifest.repos[*].location` points to the deterministic materialized local root used for detector execution.
 Prompt-channel findings use stable reason codes and evidence hashes only (`pattern_family`, `evidence_snippet_hash`, `location_class`, `confidence_class`) and do not emit raw secret values.
 When `--enrich` is enabled, MCP findings include enrich provenance and quality fields: `source`, `as_of`, `package`, `version`, `advisory_count`, `registry_status`, `enrich_quality` (`ok|partial|stale|unavailable`), `advisory_schema`, `registry_schema`, and `enrich_errors`.
@@ -189,6 +192,7 @@ Emerging discovery surfaces are static-only in default deterministic mode:
 - WebMCP detection uses repository HTML/JS/route files only.
 - A2A detection uses repo-hosted agent-card JSON files only.
 - MCP gateway posture is derived from local config files only.
+- Non-human execution identities are derived from static workflow/config signals only.
 - No live endpoint probing is performed by default.
 
 Wrkr stays in the See boundary: it inventories and scores tools plus agents from files and CI declarations, but it does not enforce runtime side effects or execute agent workflows.

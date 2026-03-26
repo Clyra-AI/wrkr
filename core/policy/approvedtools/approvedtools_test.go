@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"runtime"
 	"testing"
+
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 )
 
 func TestLoadNormalizesPolicyAndMatchesCandidate(t *testing.T) {
@@ -85,5 +87,56 @@ func TestEmbeddedSchemaMatchesCanonicalContract(t *testing.T) {
 	}
 	if !reflect.DeepEqual(canonical, embedded) {
 		t.Fatal("embedded approved tools schema drifted from canonical schema contract")
+	}
+}
+
+func TestCompareLocalInventoryBuildsGovernanceSummaryAndGapFindings(t *testing.T) {
+	t.Parallel()
+
+	inv := agginventory.Inventory{
+		Tools: []agginventory.Tool{
+			{
+				ToolID:         "wrkr:codex:.codex/config.toml",
+				ToolType:       "codex",
+				Org:            "local",
+				Repos:          []string{"local-machine"},
+				ApprovalClass:  "approved",
+				PermissionTier: "read",
+				Locations:      []agginventory.ToolLocation{{Repo: "local-machine", Location: ".codex/config.toml", Owner: "@local"}},
+			},
+			{
+				ToolID:         "wrkr:cursor:.cursor/mcp.json",
+				ToolType:       "cursor",
+				Org:            "local",
+				Repos:          []string{"local-machine"},
+				ApprovalClass:  "unapproved",
+				PermissionTier: "write",
+				Locations:      []agginventory.ToolLocation{{Repo: "local-machine", Location: ".cursor/mcp.json", Owner: "@local"}},
+			},
+		},
+	}
+
+	findings := CompareLocalInventory(&inv, true, "/tmp/approved-tools.yaml")
+	if inv.LocalGovernance == nil {
+		t.Fatal("expected local governance summary")
+	}
+	if inv.LocalGovernance.SanctionedTools != 1 || inv.LocalGovernance.UnsanctionedTools != 1 {
+		t.Fatalf("unexpected local governance summary: %+v", inv.LocalGovernance)
+	}
+	if len(findings) != 1 || findings[0].FindingType != "local_governance_gap" || findings[0].ToolType != "cursor" {
+		t.Fatalf("expected one cursor governance gap finding, got %+v", findings)
+	}
+}
+
+func TestCompareLocalInventoryMarksReferenceUnavailableWithoutBaseline(t *testing.T) {
+	t.Parallel()
+
+	inv := agginventory.Inventory{}
+	findings := CompareLocalInventory(&inv, false, "")
+	if len(findings) != 0 {
+		t.Fatalf("expected no findings without baseline, got %+v", findings)
+	}
+	if inv.LocalGovernance == nil || inv.LocalGovernance.ReferenceBasis != LocalGovernanceBasisUnavailable {
+		t.Fatalf("expected unavailable local governance basis, got %+v", inv.LocalGovernance)
 	}
 }
