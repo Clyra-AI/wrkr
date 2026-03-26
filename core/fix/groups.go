@@ -45,6 +45,9 @@ func SplitPlanForPRs(plan Plan, maxPRs int) []PRGroup {
 			Plan:  groupPlan,
 		})
 	}
+	for idx := range groups {
+		groups[idx].Total = len(groups)
+	}
 	sort.Slice(groups, func(i, j int) bool { return groups[i].Index < groups[j].Index })
 	return groups
 }

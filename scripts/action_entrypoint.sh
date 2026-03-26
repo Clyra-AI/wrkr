@@ -45,6 +45,29 @@ run_wrkr() {
   exit 7
 }
 
+resolve_repo_target_from_config() {
+  local path="$1"
+  python3 - "$path" <<'PY'
+import json
+import pathlib
+import sys
+
+try:
+    payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+except Exception:
+    print("")
+    raise SystemExit(0)
+
+target = payload.get("default_target") or {}
+mode = str(target.get("mode") or "").strip()
+value = str(target.get("value") or "").strip()
+if mode == "repo" and value:
+    print(value)
+else:
+    print("")
+PY
+}
+
 scan_args=(--json)
 
 if [[ -n "${target_mode}" && -z "${target_value}" ]]; then
@@ -79,6 +102,7 @@ if [[ -n "${target_mode}" && -n "${target_value}" ]]; then
   esac
 elif [[ -n "${config_path}" ]]; then
   scan_args+=(--config "${config_path}")
+  resolved_repo_target="$(resolve_repo_target_from_config "${config_path}")"
 elif [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
   scan_args+=(--repo "${GITHUB_REPOSITORY}")
 else
