@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess  # nosec B404 -- deterministic local git subprocesses only; shell is never used.
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
@@ -65,7 +65,8 @@ def bump_version(version: str, bump: str) -> str:
 
 def run_git(repo_root: Path, *args: str) -> str:
     cmd = ["git", "-C", str(repo_root), *args]
-    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)  # nosec B603 -- local trusted git invocation with fixed argv.
+    # Local trusted git invocation with fixed argv; shell is never used.
+    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)  # nosec B603
     if proc.returncode != 0:
         detail = proc.stderr.strip() or proc.stdout.strip() or "git command failed"
         raise RuntimeError(f"{' '.join(cmd)}: {detail}")
@@ -81,7 +82,8 @@ def latest_semver_tag(repo_root: Path) -> str:
 
 
 def has_changes_since(repo_root: Path, ref: str) -> bool:
-    proc = subprocess.run(  # nosec B603,B607 -- local trusted git invocation with fixed argv and no shell.
+    # Local trusted git invocation with fixed argv; shell is never used.
+    proc = subprocess.run(  # nosec B603,B607
         ["git", "-C", str(repo_root), "diff", "--quiet", f"{ref}..HEAD", "--"],
         check=False,
         capture_output=True,
