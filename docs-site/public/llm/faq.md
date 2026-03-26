@@ -34,7 +34,7 @@ Use `wrkr regress run`. It accepts a saved regress baseline or a raw saved scan 
 
 ## How do I produce verifiable compliance evidence?
 
-Use `wrkr evidence --frameworks ... --json` and verify with `wrkr verify --chain --json`. Success JSON includes `chain.verification_mode` and `chain.authenticity_status`; invalid verifier-key material is a verification failure.
+Use `wrkr evidence --frameworks ... --json` and verify with `wrkr verify --chain --json`. `wrkr evidence` now fails closed when the saved proof chain is malformed or tampered, while `wrkr verify --chain --json` remains the explicit machine gate. Success JSON includes `chain.verification_mode` and `chain.authenticity_status`; invalid verifier-key material is a verification failure.
 
 ## Why can framework coverage be low on the first run?
 

@@ -33,6 +33,7 @@
 - `revoke` -> `manual_transition_revoked`
 
 Manual transitions to `under_review`, `deprecated`, or `revoked` always normalize `approval_status` away from `valid` (`approval_status=revoked`).
+Manual transitions are fail closed across manifest posture, lifecycle history, and proof history: if a downstream write or proof-emission step fails, Wrkr returns `runtime_failure` and restores the prior committed state instead of leaving a partial approval or review result behind.
 
 ## Examples
 

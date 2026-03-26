@@ -32,7 +32,10 @@ wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --jso
 wrkr verify --chain --json
 ```
 
+`wrkr evidence` now fails closed when the saved proof chain is malformed or tampered, and `wrkr verify --chain --json` remains the explicit integrity gate for CI and operator workflows.
+
 If a hosted run is interrupted, rerun the same target with `--resume`. Retry/cooldown/resume progress stays on stderr in `--json` mode, and `partial_result` / `source_errors` means the posture output is incomplete until the run is repeated successfully.
+Resumed hosted scans also revalidate checkpoint files and reused materialized repo roots before detector execution, so symlink-swapped resume state is blocked as unsafe.
 
 Expected outputs:
 
@@ -79,6 +82,8 @@ Optional enrich-mode note:
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json
 wrkr verify --chain --json
 ```
+
+`wrkr evidence` does not replace `wrkr verify --chain --json`; it now reuses the same proof-chain prerequisite and aborts before publish when saved proof state is malformed or tampered.
 
 Expected outputs:
 

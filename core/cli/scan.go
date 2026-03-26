@@ -137,6 +137,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		)
 	}
 	statePath := state.ResolvePath(*statePathFlag)
+	artifactPreflight, preflightErr := preflightScanArtifacts(*reportMD, *reportMDPath, *reportTemplate, *reportShareProfile, *sarifOut, *sarifPath)
+	if preflightErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", preflightErr.Error(), exitInvalidInput)
+	}
 
 	ctx := parentCtx
 	cancel := func() {}
@@ -417,10 +421,6 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		}
 	}
 	if *reportMD {
-		template, shareProfile, parseErr := parseReportTemplateShare(*reportTemplate, *reportShareProfile)
-		if parseErr != nil {
-			return emitScanError("invalid_input", parseErr.Error(), exitInvalidInput)
-		}
 		manifestCopy := nextManifest
 		_, mdOutPath, _, reportErr := generateReportArtifacts(reportArtifactOptions{
 			StatePath:        statePath,
@@ -428,10 +428,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			PreviousSnapshot: previousSnapshot,
 			Manifest:         &manifestCopy,
 			Top:              *reportTop,
-			Template:         template,
-			ShareProfile:     shareProfile,
+			Template:         artifactPreflight.ReportTemplate,
+			ShareProfile:     artifactPreflight.ReportShareProfile,
 			WriteMarkdown:    true,
-			MarkdownPath:     *reportMDPath,
+			MarkdownPath:     artifactPreflight.ReportPath,
 		})
 		if reportErr != nil {
 			if isArtifactPathError(reportErr) {
@@ -442,22 +442,18 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		scanReportPath = mdOutPath
 		payload["report"] = map[string]any{
 			"md_path":       mdOutPath,
-			"template":      string(template),
-			"share_profile": string(shareProfile),
+			"template":      string(artifactPreflight.ReportTemplate),
+			"share_profile": string(artifactPreflight.ReportShareProfile),
 		}
 	}
 	if *sarifOut {
-		path, pathErr := resolveArtifactOutputPath(*sarifPath)
-		if pathErr != nil {
-			return emitScanError("invalid_input", pathErr.Error(), exitInvalidInput)
-		}
 		report := exportsarif.Build(findings, wrkrVersion())
-		if writeErr := exportsarif.Write(path, report); writeErr != nil {
+		if writeErr := exportsarif.Write(artifactPreflight.SARIFPath, report); writeErr != nil {
 			return emitScanFailure(writeErr)
 		}
-		scanSARIFPath = path
+		scanSARIFPath = artifactPreflight.SARIFPath
 		payload["sarif"] = map[string]any{
-			"path": path,
+			"path": artifactPreflight.SARIFPath,
 		}
 	}
 
@@ -505,6 +501,38 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	progress.Flush()
 	_, _ = fmt.Fprintln(stdout, "wrkr scan complete")
 	return exitSuccess
+}
+
+type scanArtifactPreflight struct {
+	ReportTemplate     reportcore.Template
+	ReportShareProfile reportcore.ShareProfile
+	ReportPath         string
+	SARIFPath          string
+}
+
+func preflightScanArtifacts(reportEnabled bool, reportPath, reportTemplateRaw, reportShareProfileRaw string, sarifEnabled bool, sarifPath string) (scanArtifactPreflight, error) {
+	preflight := scanArtifactPreflight{}
+	if reportEnabled {
+		template, shareProfile, err := parseReportTemplateShare(reportTemplateRaw, reportShareProfileRaw)
+		if err != nil {
+			return scanArtifactPreflight{}, err
+		}
+		path, err := resolveArtifactOutputPath(reportPath)
+		if err != nil {
+			return scanArtifactPreflight{}, err
+		}
+		preflight.ReportTemplate = template
+		preflight.ReportShareProfile = shareProfile
+		preflight.ReportPath = path
+	}
+	if sarifEnabled {
+		path, err := resolveArtifactOutputPath(sarifPath)
+		if err != nil {
+			return scanArtifactPreflight{}, err
+		}
+		preflight.SARIFPath = path
+	}
+	return preflight, nil
 }
 
 func emitScanRuntimeError(stderr io.Writer, jsonOut bool, err error) int {

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/cli"
@@ -145,6 +146,63 @@ func TestE2EScanRepoRejectsUnmanagedMaterializedRoot(t *testing.T) {
 	}
 }
 
+func TestE2EScanOrgResumeRejectsSymlinkSwappedRepoRoot(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	outside := filepath.Join(tmp, "outside-repo")
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatalf("mkdir outside repo: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/backend"}]`)
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main"}`)
+		case "/repos/acme/backend/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":".codex/config.toml","type":"blob","sha":"blob-1"}]}`)
+		case "/repos/acme/backend/git/blobs/blob-1":
+			blob := base64.StdEncoding.EncodeToString([]byte("approval_policy = \"never\"\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, blob)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	var firstOut bytes.Buffer
+	var firstErr bytes.Buffer
+	if code := cli.Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", statePath, "--json"}, &firstOut, &firstErr); code != 0 {
+		t.Fatalf("initial org scan failed: %d (%s)", code, firstErr.String())
+	}
+
+	materializedRepo := filepath.Join(filepath.Dir(statePath), "materialized-sources", "acme", "backend")
+	if err := os.RemoveAll(materializedRepo); err != nil {
+		t.Fatalf("remove materialized repo: %v", err)
+	}
+	if err := os.Symlink(outside, materializedRepo); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := cli.Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", statePath, "--resume", "--json"}, &out, &errOut)
+	if code != 8 {
+		t.Fatalf("expected exit 8 for symlink-swapped resume root, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	payload := parseTrailingJSONEnvelope(t, errOut.Bytes())
+	errObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object payload: %v", payload)
+	}
+	if errObj["code"] != "unsafe_operation_blocked" {
+		t.Fatalf("expected unsafe_operation_blocked code, got %v", errObj["code"])
+	}
+}
+
 func TestE2EScanPathMixedReposPreservesSafeFindingsWhenOneRepoIsUnsafe(t *testing.T) {
 	t.Parallel()
 
@@ -224,4 +282,22 @@ func containsFinding(findings []any, findingType, toolType, repo, location, pars
 		}
 	}
 	return false
+}
+
+func parseTrailingJSONEnvelope(t *testing.T, payload []byte) map[string]any {
+	t.Helper()
+
+	lines := strings.Split(strings.TrimSpace(string(payload)), "\n")
+	for idx := len(lines) - 1; idx >= 0; idx-- {
+		line := strings.TrimSpace(lines[idx])
+		if line == "" {
+			continue
+		}
+		var envelope map[string]any
+		if err := json.Unmarshal([]byte(line), &envelope); err == nil {
+			return envelope
+		}
+	}
+	t.Fatalf("parse trailing json envelope: no json object in %q", string(payload))
+	return nil
 }

@@ -20,11 +20,17 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 
 ## Input Contract
 
-- Mandatory input argument: `release_version`
-- Normalize to `vX.Y.Z`
-- If missing, resolve silently from the first semantic version token in the user request; otherwise:
+- Optional input argument: `release_version`
+- Normalize explicit versions to `vX.Y.Z`
+- If `release_version` is missing, resolve it before any tag existence checks with:
+  - `python3 scripts/resolve_release_version.py --json`
+- Resolution contract for `scripts/resolve_release_version.py`:
   - if no tags exist, default to `v1.0.0`
-  - if tags exist, use latest tag + patch increment
+  - `[semver:major]`, `[semver:minor]`, or `[semver:patch]` markers in `CHANGELOG.md` `## [Unreleased]` entries override section-based inference
+  - `major`: any non-placeholder `### Removed` entry, or any `BREAKING:` / `BREAKING CHANGE` marker in `Unreleased`
+  - `minor`: any non-placeholder `### Added` entry in `Unreleased`
+  - `patch`: any non-placeholder `### Changed`, `### Fixed`, `### Security`, or `### Deprecated` entry in `Unreleased`
+  - if changes exist since the latest tag but `CHANGELOG.md` does not provide a releasable semver signal, stop and report a blocker instead of inventing a patch bump
 
 ## Constants
 
@@ -53,15 +59,19 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 3. `git pull --ff-only origin main`
 4. Ensure clean worktree:
 - `git status --porcelain` must be empty
-5. Ensure target tag does not already exist locally or remotely.
-6. Ensure release prerequisites are available:
+5. Resolve the target version:
+- if the user provided `release_version`, normalize it
+- otherwise run `python3 scripts/resolve_release_version.py --json` and capture `version`, `bump`, `base_tag`, and `reason`
+- if the resolver fails because `CHANGELOG.md` has no releasable semver signal, stop and report the blocker; do not edit the changelog in this skill
+6. Ensure target tag does not already exist locally or remotely.
+7. Ensure release prerequisites are available:
 - `gh auth status`
 - `gh workflow view release --repo Clyra-AI/wrkr`
 - check `HOMEBREW_TAP_GITHUB_TOKEN` availability with:
   - `gh secret list --repo Clyra-AI/wrkr`
 - if the secret check cannot be confirmed due permission limits, continue with a warning and rely on the release workflow’s fail-closed validation step
 - if the secret is confirmed missing, stop and report blocker
-7. Run local release preflight matching the current Wrkr release workflow contract:
+8. Run local release preflight matching the current Wrkr release workflow contract:
 - `make prepush-full`
 - `go test ./... -count=1`
 - `make test-docs-consistency`
@@ -207,7 +217,7 @@ No inline multi-line `--body` strings.
 
 ## Expected Output
 
-- Initial requested version and final shipped version
+- Initial requested version, resolved bump kind/source/reason, and final shipped version
 - All tags pushed, with confirmation each was cut from `main`
 - Release workflow run URL and status per tag
 - UAT result per released tag

@@ -49,3 +49,15 @@ Use code-based branching with non-zero fail semantics. Keep a simple rule: `0` p
 ### What changed in `verify --chain` failure handling?
 
 `wrkr verify --chain --json` now fails with exit code `2` for malformed chains, structural integrity failures, and invalid/unreadable verifier-key material. When no verifier key exists, success remains possible only with explicit JSON status (`chain.verification_mode = chain_only`, `chain.authenticity_status = unavailable`).
+
+### How does `wrkr evidence` behave when the saved proof chain is malformed or tampered?
+
+`wrkr evidence --json` fails with exit code `1` and error code `runtime_failure` because proof-chain integrity is a runtime prerequisite for bundle staging and publish. Use `wrkr verify --chain --json` as the explicit CI/operator integrity gate.
+
+### How do manual identity transitions fail when lifecycle or proof persistence breaks?
+
+`wrkr identity approve|review|deprecate|revoke --json` fails with exit code `1` and error code `runtime_failure`. Wrkr restores the prior committed manifest, lifecycle, and proof state instead of leaving a partial transition behind.
+
+### What happens when `scan` gets an invalid report or SARIF output path?
+
+`wrkr scan --json` fails with exit code `6` and error code `invalid_input`. Wrkr now validates scan-owned artifact paths before the managed `.wrkr` state or proof artifacts are written.

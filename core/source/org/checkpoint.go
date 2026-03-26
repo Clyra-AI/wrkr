@@ -186,11 +186,21 @@ func newCheckpointManager(path string, org string, repos []string, materializedR
 }
 
 func loadCheckpointManager(path string) (*checkpointManager, error) {
-	payload, err := os.ReadFile(path) // #nosec G304 -- checkpoint path is deterministic under the selected state directory.
+	info, err := os.Lstat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, newCheckpointInputError("resume checkpoint does not exist: %s", path)
 		}
+		return nil, fmt.Errorf("lstat org checkpoint: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, newCheckpointSafetyError("resume checkpoint file must not be a symlink: %s", path)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, newCheckpointSafetyError("resume checkpoint file is not a regular file: %s", path)
+	}
+	payload, err := os.ReadFile(path) // #nosec G304 -- checkpoint path is deterministic under the selected state directory.
+	if err != nil {
 		return nil, fmt.Errorf("read org checkpoint: %w", err)
 	}
 	var state checkpointState

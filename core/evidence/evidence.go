@@ -19,6 +19,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/state"
+	verifycore "github.com/Clyra-AI/wrkr/core/verify"
 	"gopkg.in/yaml.v3"
 )
 
@@ -107,6 +108,36 @@ func isOutputDirSafetyError(err error) bool {
 	return errors.As(err, &target)
 }
 
+func verifyProofChainPrerequisite(statePath string, chainPath string) error {
+	var (
+		result verifycore.Result
+		err    error
+	)
+	if publicKey, keyErr := proofemit.LoadVerifierKey(statePath); keyErr == nil {
+		result, err = verifycore.ChainWithPublicKey(chainPath, publicKey)
+	} else {
+		result, err = verifycore.Chain(chainPath)
+	}
+	if err != nil {
+		return err
+	}
+	if result.Intact {
+		return nil
+	}
+
+	reason := strings.TrimSpace(result.Reason)
+	if reason == "" {
+		reason = "proof chain is not intact"
+	}
+	if result.BreakIndex >= 0 {
+		if breakPoint := strings.TrimSpace(result.BreakPoint); breakPoint != "" {
+			return fmt.Errorf("%s at index %d (%s)", reason, result.BreakIndex, breakPoint)
+		}
+		return fmt.Errorf("%s at index %d", reason, result.BreakIndex)
+	}
+	return fmt.Errorf("%s", reason)
+}
+
 func Build(in BuildInput) (BuildResult, error) {
 	resolvedStatePath := state.ResolvePath(strings.TrimSpace(in.StatePath))
 	snapshot, err := state.Load(resolvedStatePath)
@@ -119,6 +150,9 @@ func Build(in BuildInput) (BuildResult, error) {
 			return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load proof chain: proof chain file does not exist: %s", chainPath)
 		}
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load proof chain: stat chain file: %w", err)
+	}
+	if err := verifyProofChainPrerequisite(resolvedStatePath, chainPath); err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "verify proof chain: %w", err)
 	}
 	chain, err := proofemit.LoadChain(chainPath)
 	if err != nil {

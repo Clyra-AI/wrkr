@@ -422,6 +422,87 @@ func TestBuildEvidenceFailsWhenProofChainHasNoScanEvidenceRecords(t *testing.T) 
 	}
 }
 
+func TestBuildRejectsTamperedProofChain(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+
+	initial, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 3, 9, 13, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build initial evidence bundle: %v", err)
+	}
+	manifestBefore, err := os.ReadFile(initial.ManifestPath)
+	if err != nil {
+		t.Fatalf("read initial manifest: %v", err)
+	}
+
+	chainPath := proofemit.ChainPath(statePath)
+	chain, err := proofemit.LoadChain(chainPath)
+	if err != nil {
+		t.Fatalf("load proof chain: %v", err)
+	}
+	chain.HeadHash = "sha256:tampered"
+	if err := proofemit.SaveChain(chainPath, chain); err != nil {
+		t.Fatalf("save tampered chain: %v", err)
+	}
+
+	_, err = Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 3, 9, 14, 0, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("expected tampered proof chain to fail evidence build")
+	}
+	if !strings.Contains(err.Error(), "verify proof chain") {
+		t.Fatalf("expected proof verification failure, got: %v", err)
+	}
+
+	manifestAfter, err := os.ReadFile(initial.ManifestPath)
+	if err != nil {
+		t.Fatalf("read preserved manifest: %v", err)
+	}
+	if string(manifestBefore) != string(manifestAfter) {
+		t.Fatalf("expected managed evidence output to remain unchanged after failed proof verification")
+	}
+}
+
+func TestBuildRejectsMalformedProofChainBeforeStagePublish(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	chainPath := proofemit.ChainPath(statePath)
+	if err := os.WriteFile(chainPath, []byte("{invalid-json"), 0o600); err != nil {
+		t.Fatalf("write malformed chain: %v", err)
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	_, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 3, 9, 14, 0, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("expected malformed proof chain to fail evidence build")
+	}
+	if !strings.Contains(err.Error(), "verify proof chain") {
+		t.Fatalf("expected proof verification failure, got: %v", err)
+	}
+	if _, statErr := os.Stat(outputDir); !os.IsNotExist(statErr) {
+		t.Fatalf("expected no published output dir after malformed proof chain, got %v", statErr)
+	}
+}
+
 func TestBuildEvidenceFailsWhenSigningKeyMissing(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()

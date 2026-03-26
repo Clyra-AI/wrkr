@@ -21,10 +21,12 @@ Acquisition behavior is fail-closed by target:
   - Wrkr-managed roots include marker `.wrkr-materialized-sources-managed`.
   - Non-empty roots without a valid marker are blocked (no recursive cleanup).
   - Marker must be a regular file with expected content; symlink/directory/invalid marker content is blocked.
+  - On `--resume`, previously materialized repo directories and checkpoint files must also be regular in-root artifacts; symlink-swapped repo roots or checkpoint files are blocked.
   - Ownership violations return `unsafe_operation_blocked` (exit `8`).
 - When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
 - The state snapshot is the authoritative commit point; auxiliary manifest/chain artifacts are emitted only after snapshot persistence succeeds.
+- Invalid scan-owned artifact paths such as `--report-md-path` and `--sarif-path` are preflight-validated before the authoritative commit point; `invalid_input` on those paths must leave managed state and proof artifacts untouched.
 - For `--path` scans, detector file reads stay bounded to the selected repo root. Root-escaping symlinked config, env, workflow, and MCP files are rejected with deterministic `parse_error.kind=unsafe_path` diagnostics instead of being read.
 
 ## Flags
@@ -98,6 +100,7 @@ wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/
 
 When `--json` is set for hosted org scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, and completion lines to stderr only. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file.
 `--resume` is supported only for `--org` / `--github-org` scans. Wrkr stores internal checkpoint metadata under the scan-state directory in `org-checkpoints/` and reuses already-materialized repositories only when the checkpoint target, repo set, and materialized-root path still match the current org scan.
+Resume also revalidates that checkpoint files and reused repo roots are still trusted local artifacts under the managed materialized root; symlink-swapped entries fail closed as `unsafe_operation_blocked`.
 If a run is interrupted after some repositories are checkpointed, rerun the same target with `--resume` and keep the same `--state` path. If `partial_result`, `source_errors`, or `source_degraded` is present, treat the scan as incomplete and rerun after the blocking condition is resolved.
 
 ## Repo/path example

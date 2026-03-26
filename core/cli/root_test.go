@@ -3,13 +3,18 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	proof "github.com/Clyra-AI/proof"
+	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/proofemit"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1166,6 +1171,74 @@ func TestScanProductionTargetsStrictWithoutPathPrecedesDependencyChecks(t *testi
 	}
 }
 
+func TestScanInvalidReportPathDoesNotWriteManagedState(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "alpha", ".codex")
+	if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--report-md", "--report-md-path", tmp, "--json"}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected invalid input exit, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+	for _, path := range []string{
+		statePath,
+		manifest.ResolvePath(statePath),
+		lifecycle.ChainPath(statePath),
+		proofemit.ChainPath(statePath),
+		proofemit.ChainAttestationPath(proofemit.ChainPath(statePath)),
+	} {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expected no managed artifact at %s, got err=%v", path, err)
+		}
+	}
+}
+
+func TestScanInvalidSarifPathDoesNotWriteManagedState(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "alpha", ".codex")
+	if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--sarif", "--sarif-path", tmp, "--json"}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected invalid input exit, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+	for _, path := range []string{
+		statePath,
+		manifest.ResolvePath(statePath),
+		lifecycle.ChainPath(statePath),
+		proofemit.ChainPath(statePath),
+		proofemit.ChainAttestationPath(proofemit.ChainPath(statePath)),
+	} {
+		if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expected no managed artifact at %s, got err=%v", path, err)
+		}
+	}
+}
+
 func TestReportExportScoreCommands(t *testing.T) {
 	t.Parallel()
 
@@ -1580,6 +1653,104 @@ func TestIdentityNonApprovedTransitionsUseDeterministicDefaultReasonAndRevokeApp
 	}
 }
 
+func TestIdentityApproveRollbackOnProofChainParseFailure(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	agentID := scanIdentityAgentID(t, statePath)
+
+	manifestPath := manifest.ResolvePath(statePath)
+	lifecyclePath := lifecycle.ChainPath(statePath)
+	proofChainPath := proofemit.ChainPath(statePath)
+
+	if err := os.WriteFile(proofChainPath, []byte("{broken-json"), 0o600); err != nil {
+		t.Fatalf("write malformed proof chain: %v", err)
+	}
+
+	manifestBefore := readOptionalTestFile(t, manifestPath)
+	lifecycleBefore := readOptionalTestFile(t, lifecyclePath)
+	proofBefore := readOptionalTestFile(t, proofChainPath)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"identity", "approve", agentID, "--approver", "@maria", "--scope", "read-only", "--expires", "90d", "--state", statePath, "--json"}, &out, &errOut)
+	if code != exitRuntime {
+		t.Fatalf("expected runtime failure, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	envelope := parseTrailingJSONEnvelope(t, errOut.Bytes())
+	errObj, ok := envelope["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %v", envelope)
+	}
+	if errObj["code"] != "runtime_failure" {
+		t.Fatalf("expected runtime_failure, got %v", errObj["code"])
+	}
+
+	assertOptionalTestFileEquals(t, manifestPath, manifestBefore)
+	assertOptionalTestFileEquals(t, lifecyclePath, lifecycleBefore)
+	assertOptionalTestFileEquals(t, proofChainPath, proofBefore)
+}
+
+func TestIdentityReviewRollbackOnProofEmitFailure(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	agentID := scanIdentityAgentID(t, statePath)
+
+	var approveOut bytes.Buffer
+	var approveErr bytes.Buffer
+	if code := Run([]string{"identity", "approve", agentID, "--approver", "@maria", "--scope", "read-only", "--expires", "90d", "--state", statePath, "--json"}, &approveOut, &approveErr); code != 0 {
+		t.Fatalf("identity approve failed: %d %s", code, approveErr.String())
+	}
+
+	manifestPath := manifest.ResolvePath(statePath)
+	lifecyclePath := lifecycle.ChainPath(statePath)
+	proofChainPath := proofemit.ChainPath(statePath)
+	proofAttestationPath := proofemit.ChainAttestationPath(proofChainPath)
+	signingKeyPath := proofemit.SigningKeyPath(statePath)
+
+	manifestBefore := readOptionalTestFile(t, manifestPath)
+	lifecycleBefore := readOptionalTestFile(t, lifecyclePath)
+	proofBefore := readOptionalTestFile(t, proofChainPath)
+	attestationBefore := readOptionalTestFile(t, proofAttestationPath)
+	signingKeyBefore := readOptionalTestFile(t, signingKeyPath)
+
+	var injected atomic.Bool
+	restore := atomicwrite.SetBeforeRenameHookForTest(func(targetPath string, _ string) error {
+		if filepath.Clean(targetPath) != filepath.Clean(proofChainPath) {
+			return nil
+		}
+		if injected.CompareAndSwap(false, true) {
+			return errors.New("simulated interruption before proof chain rename")
+		}
+		return nil
+	})
+	defer restore()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"identity", "review", agentID, "--state", statePath, "--json"}, &out, &errOut)
+	if code != exitRuntime {
+		t.Fatalf("expected runtime failure, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	envelope := parseTrailingJSONEnvelope(t, errOut.Bytes())
+	errObj, ok := envelope["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object, got %v", envelope)
+	}
+	if errObj["code"] != "runtime_failure" {
+		t.Fatalf("expected runtime_failure, got %v", errObj["code"])
+	}
+
+	assertOptionalTestFileEquals(t, manifestPath, manifestBefore)
+	assertOptionalTestFileEquals(t, lifecyclePath, lifecycleBefore)
+	assertOptionalTestFileEquals(t, proofChainPath, proofBefore)
+	assertOptionalTestFileEquals(t, proofAttestationPath, attestationBefore)
+	assertOptionalTestFileEquals(t, signingKeyPath, signingKeyBefore)
+}
+
 func TestVerifyAndEvidenceCommands(t *testing.T) {
 	t.Parallel()
 
@@ -1699,6 +1870,69 @@ func TestVerifyTamperedChainReturnsExit2(t *testing.T) {
 	}
 	if errObject["code"] != "verification_failure" {
 		t.Fatalf("unexpected verification error code: %v", errObject["code"])
+	}
+}
+
+func TestEvidenceJSONTamperedChainReturnsRuntimeFailure(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	chainPath := filepath.Join(filepath.Dir(statePath), "proof-chain.json")
+	payload, err := os.ReadFile(chainPath)
+	if err != nil {
+		t.Fatalf("read chain: %v", err)
+	}
+	var chain proof.Chain
+	if err := json.Unmarshal(payload, &chain); err != nil {
+		t.Fatalf("parse chain json: %v", err)
+	}
+	chain.HeadHash = "sha256:tampered"
+	mutated, err := json.MarshalIndent(chain, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal tampered chain: %v", err)
+	}
+	mutated = append(mutated, '\n')
+	if err := os.WriteFile(chainPath, mutated, 0o600); err != nil {
+		t.Fatalf("write tampered chain: %v", err)
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	var evidenceOut bytes.Buffer
+	var evidenceErr bytes.Buffer
+	code := Run([]string{"evidence", "--frameworks", "soc2", "--state", statePath, "--output", outputDir, "--json"}, &evidenceOut, &evidenceErr)
+	if code != 1 {
+		t.Fatalf("expected exit 1 for tampered chain evidence build, got %d stdout=%q stderr=%q", code, evidenceOut.String(), evidenceErr.String())
+	}
+	if evidenceOut.Len() != 0 {
+		t.Fatalf("expected no stdout on runtime failure, got %q", evidenceOut.String())
+	}
+	var errorPayload map[string]any
+	if err := json.Unmarshal(evidenceErr.Bytes(), &errorPayload); err != nil {
+		t.Fatalf("parse evidence error payload: %v", err)
+	}
+	errObject, ok := errorPayload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object payload: %v", errorPayload)
+	}
+	if errObject["code"] != "runtime_failure" {
+		t.Fatalf("unexpected evidence error code: %v", errObject["code"])
+	}
+	message, _ := errObject["message"].(string)
+	if !strings.Contains(message, "verify proof chain") {
+		t.Fatalf("expected proof verification detail, got %q", message)
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "manifest.json")); !os.IsNotExist(err) {
+		t.Fatalf("expected no published evidence manifest after tampered proof chain, got %v", err)
 	}
 }
 
@@ -2309,6 +2543,63 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func scanIdentityAgentID(t *testing.T, statePath string) string {
+	t.Helper()
+
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(scanOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	inventoryPayload, ok := payload["inventory"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected inventory payload, got %T", payload["inventory"])
+	}
+	tools, ok := inventoryPayload["tools"].([]any)
+	if !ok || len(tools) == 0 {
+		t.Fatalf("expected inventory tools, got %v", inventoryPayload["tools"])
+	}
+	firstTool, ok := tools[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected first tool shape: %T", tools[0])
+	}
+	agentID, _ := firstTool["agent_id"].(string)
+	if agentID == "" {
+		t.Fatalf("missing agent_id in inventory tool: %v", firstTool)
+	}
+	return agentID
+}
+
+func readOptionalTestFile(t *testing.T, path string) []byte {
+	t.Helper()
+
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		t.Fatalf("read file %s: %v", path, err)
+	}
+	return payload
+}
+
+func assertOptionalTestFileEquals(t *testing.T, path string, want []byte) {
+	t.Helper()
+
+	got := readOptionalTestFile(t, path)
+	if !bytes.Equal(got, want) {
+		t.Fatalf("expected %s to remain unchanged", path)
+	}
 }
 
 func mustFindRepoRoot(t *testing.T) string {

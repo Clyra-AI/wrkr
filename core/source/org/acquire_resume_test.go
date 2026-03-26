@@ -197,6 +197,120 @@ func TestAcquireMaterializedResumeMismatchFailsClosed(t *testing.T) {
 	}
 }
 
+func TestAcquireMaterializedResumeRejectsSymlinkedRepoRoot(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	materializedRoot := filepath.Join(tmp, "materialized-sources")
+	first := &trackingMaterializer{t: t, root: materializedRoot}
+	if _, _, err := AcquireMaterialized(
+		context.Background(),
+		"acme",
+		fakeLister{repos: []string{"acme/a"}},
+		first,
+		AcquireMaterializedOptions{
+			StatePath:        statePath,
+			MaterializedRoot: materializedRoot,
+			WorkerCount:      1,
+		},
+	); err != nil {
+		t.Fatalf("initial acquire materialized: %v", err)
+	}
+
+	location := filepath.Join(materializedRoot, "acme", "a")
+	if err := os.RemoveAll(location); err != nil {
+		t.Fatalf("remove materialized repo: %v", err)
+	}
+	outside := filepath.Join(tmp, "outside-repo")
+	if err := os.MkdirAll(outside, 0o750); err != nil {
+		t.Fatalf("mkdir outside repo: %v", err)
+	}
+	if err := os.Symlink(outside, location); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	second := &trackingMaterializer{t: t, root: materializedRoot}
+	_, _, err := AcquireMaterialized(
+		context.Background(),
+		"acme",
+		fakeLister{repos: []string{"acme/a"}},
+		second,
+		AcquireMaterializedOptions{
+			StatePath:        statePath,
+			MaterializedRoot: materializedRoot,
+			Resume:           true,
+			WorkerCount:      1,
+		},
+	)
+	if err == nil {
+		t.Fatal("expected symlinked resume repo root to fail")
+	}
+	if !IsCheckpointSafetyError(err) {
+		t.Fatalf("expected checkpoint safety error, got %v", err)
+	}
+	if second.callCount != 0 {
+		t.Fatalf("expected no materializer calls on rejected resume root, got %d", second.callCount)
+	}
+}
+
+func TestAcquireMaterializedResumeRejectsSymlinkedCheckpointFile(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	materializedRoot := filepath.Join(tmp, "materialized-sources")
+	first := &trackingMaterializer{t: t, root: materializedRoot}
+	if _, _, err := AcquireMaterialized(
+		context.Background(),
+		"acme",
+		fakeLister{repos: []string{"acme/a"}},
+		first,
+		AcquireMaterializedOptions{
+			StatePath:        statePath,
+			MaterializedRoot: materializedRoot,
+			WorkerCount:      1,
+		},
+	); err != nil {
+		t.Fatalf("initial acquire materialized: %v", err)
+	}
+
+	checkpointFile, err := checkpointPath(statePath, "acme")
+	if err != nil {
+		t.Fatalf("checkpoint path: %v", err)
+	}
+	external := filepath.Join(tmp, "external-checkpoint.json")
+	if err := os.WriteFile(external, []byte("{\"version\":\"v1\",\"org\":\"acme\",\"materialized_root\":\"materialized-sources\",\"repos\":[\"acme/a\"],\"completed_repos\":[\"acme/a\"]}\n"), 0o600); err != nil {
+		t.Fatalf("write external checkpoint: %v", err)
+	}
+	if err := os.Remove(checkpointFile); err != nil {
+		t.Fatalf("remove checkpoint file: %v", err)
+	}
+	if err := os.Symlink(external, checkpointFile); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	second := &trackingMaterializer{t: t, root: materializedRoot}
+	_, _, err = AcquireMaterialized(
+		context.Background(),
+		"acme",
+		fakeLister{repos: []string{"acme/a"}},
+		second,
+		AcquireMaterializedOptions{
+			StatePath:        statePath,
+			MaterializedRoot: materializedRoot,
+			Resume:           true,
+			WorkerCount:      1,
+		},
+	)
+	if err == nil {
+		t.Fatal("expected symlinked checkpoint file to fail")
+	}
+	if !IsCheckpointSafetyError(err) {
+		t.Fatalf("expected checkpoint safety error, got %v", err)
+	}
+}
+
 func TestCheckpointWriteRemainsAtomicOnInterruptedRename(t *testing.T) {
 	t.Parallel()
 

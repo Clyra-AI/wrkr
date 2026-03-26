@@ -224,26 +224,41 @@ func runIdentityManualTransition(stateName, agentID, approver, scope, reason str
 	if transitionErr != nil {
 		return emitError(stderr, jsonOut, "invalid_input", transitionErr.Error(), exitInvalidInput)
 	}
-	if err := manifest.Save(manifestPath, nextManifest); err != nil {
-		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	eventType := "lifecycle_transition"
+	if stateName == identity.StateApproved || stateName == identity.StateActive {
+		eventType = "approval"
 	}
+
 	chainPath := lifecycle.ChainPath(statePath)
 	chain, chainErr := lifecycle.LoadChain(chainPath)
 	if chainErr != nil {
 		return emitError(stderr, jsonOut, "runtime_failure", chainErr.Error(), exitRuntime)
 	}
-	eventType := "lifecycle_transition"
-	if stateName == identity.StateApproved || stateName == identity.StateActive {
-		eventType = "approval"
-	}
 	if err := lifecycle.AppendTransitionRecord(chain, transition, eventType); err != nil {
 		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
-	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
+	proofChainPath := proofemit.ChainPath(statePath)
+	if _, err := proofemit.LoadChain(proofChainPath); err != nil {
 		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	snapshots, snapshotErr := captureManagedArtifacts(
+		proofChainPath,
+		proofemit.ChainAttestationPath(proofChainPath),
+		chainPath,
+		manifestPath,
+		proofemit.SigningKeyPath(statePath),
+	)
+	if snapshotErr != nil {
+		return emitError(stderr, jsonOut, "runtime_failure", snapshotErr.Error(), exitRuntime)
+	}
+	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
+		return emitRolledBackRuntimeFailure(stderr, jsonOut, err, snapshots)
+	}
 	if err := proofemit.EmitIdentityTransition(statePath, transition, eventType); err != nil {
-		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		return emitRolledBackRuntimeFailure(stderr, jsonOut, err, snapshots)
+	}
+	if err := manifest.Save(manifestPath, nextManifest); err != nil {
+		return emitRolledBackRuntimeFailure(stderr, jsonOut, err, snapshots)
 	}
 	payload := map[string]any{"status": "ok", "transition": transition}
 	if jsonOut {
