@@ -254,6 +254,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		for _, repo := range riskReport.Repos {
 			repoRisk[repo.Org+"::"+repo.Repo] = repo.Score
 		}
+		repoExposure = aggexposure.Build(findings, repoRisk)
+		inventoryOut.RepoExposureSummaries = append([]aggexposure.RepoExposureSummary(nil), repoExposure...)
 	}
 	agginventory.ApplySecurityVisibility(&inventoryOut, buildSecurityVisibilityReference(previousSnapshot, statePath, strings.TrimSpace(*baselinePath)))
 	var productionTargets *productiontargets.Config

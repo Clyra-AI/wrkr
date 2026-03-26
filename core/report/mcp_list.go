@@ -65,9 +65,9 @@ func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath st
 		serverName := fallbackString(evidence["server"], strings.TrimSpace(finding.Location))
 		rowKey := mcpRowKey(finding.Org, finding.Repo, finding.Location, serverName)
 		toolKey := mcpToolKey(finding.Org, finding.Repo, finding.Location)
-		privilegeSurface := append([]string(nil), toolSurfaces[toolKey]...)
+		privilegeSurface := declaredActionSurface(evidence["declared_action_surface"])
 		if len(privilegeSurface) == 0 {
-			privilegeSurface = declaredActionSurface(evidence["declared_action_surface"])
+			privilegeSurface = append([]string(nil), toolSurfaces[toolKey]...)
 		}
 		trustStatus := overlay[strings.ToLower(strings.TrimSpace(serverName))]
 		if trustStatus == "" {
