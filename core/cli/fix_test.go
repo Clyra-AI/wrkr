@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/config"
 	githubpr "github.com/Clyra-AI/wrkr/core/github/pr"
+	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/source"
@@ -150,6 +153,134 @@ func TestFixOpenPRWritesRemediationArtifacts(t *testing.T) {
 	}
 }
 
+func TestFixApplyRequiresOpenPR(t *testing.T) {
+	statePath := writeApplyStateFixture(t)
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"fix", "--state", statePath, "--apply", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+}
+
+func TestFixApplyFailsClosedWhenNoApplyCapableRemediations(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := writeFixStateFixture(t)
+	configPath := filepath.Join(tmp, "config.json")
+
+	cfg := config.Default()
+	cfg.DefaultTarget = config.Target{Mode: config.TargetRepo, Value: "acme/backend"}
+	cfg.Auth.Scan.Token = "scan-read-token"
+	cfg.Auth.Fix.Token = "fix-write-token"
+	if err := config.Save(configPath, cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	stub := &stubPRAPI{}
+	previousClient := newGitHubPRClient
+	newGitHubPRClient = func(_, _ string) githubpr.API { return stub }
+	t.Cleanup(func() { newGitHubPRClient = previousClient })
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"fix", "--state", statePath, "--config", configPath, "--apply", "--open-pr", "--repo", "acme/backend", "--json"}, &out, &errOut)
+	if code != 8 {
+		t.Fatalf("expected exit 8, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+}
+
+func TestFixApplyOpenPRWritesSupportedRepoFile(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := writeApplyStateFixture(t)
+	configPath := filepath.Join(tmp, "config.json")
+
+	cfg := config.Default()
+	cfg.DefaultTarget = config.Target{Mode: config.TargetRepo, Value: "acme/backend"}
+	cfg.Auth.Scan.Token = "scan-read-token"
+	cfg.Auth.Fix.Token = "fix-write-token"
+	if err := config.Save(configPath, cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	stub := &stubPRAPI{}
+	previousClient := newGitHubPRClient
+	newGitHubPRClient = func(_, _ string) githubpr.API { return stub }
+	t.Cleanup(func() { newGitHubPRClient = previousClient })
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"fix", "--state", statePath, "--config", configPath, "--apply", "--open-pr", "--repo", "acme/backend", "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected success, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse payload: %v", err)
+	}
+	if payload["mode"] != "apply" {
+		t.Fatalf("expected mode=apply, got %v", payload["mode"])
+	}
+	if payload["apply_supported_count"] != float64(1) {
+		t.Fatalf("expected apply_supported_count=1, got %v", payload["apply_supported_count"])
+	}
+	artifacts, ok := payload["remediation_artifacts"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected remediation_artifacts, got %v", payload["remediation_artifacts"])
+	}
+	paths, ok := artifacts["paths"].([]any)
+	if !ok {
+		t.Fatalf("expected artifact paths array, got %T", artifacts["paths"])
+	}
+	foundManifest := false
+	for _, item := range paths {
+		if item.(string) == ".wrkr/wrkr-manifest.yaml" {
+			foundManifest = true
+		}
+	}
+	if !foundManifest {
+		t.Fatalf("expected apply artifacts to include .wrkr/wrkr-manifest.yaml, got %v", paths)
+	}
+}
+
+func TestFixOpenPRMaxPRsPublishesMultiplePullRequests(t *testing.T) {
+	tmp := t.TempDir()
+	statePath := writeFixStateFixture(t)
+	configPath := filepath.Join(tmp, "config.json")
+
+	cfg := config.Default()
+	cfg.DefaultTarget = config.Target{Mode: config.TargetRepo, Value: "acme/backend"}
+	cfg.Auth.Scan.Token = "scan-read-token"
+	cfg.Auth.Fix.Token = "fix-write-token"
+	if err := config.Save(configPath, cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	stub := &stubPRAPI{}
+	previousClient := newGitHubPRClient
+	newGitHubPRClient = func(_, _ string) githubpr.API { return stub }
+	t.Cleanup(func() { newGitHubPRClient = previousClient })
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"fix", "--state", statePath, "--config", configPath, "--open-pr", "--max-prs", "2", "--repo", "acme/backend", "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected success, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse payload: %v", err)
+	}
+	prs, ok := payload["pull_requests"].([]any)
+	if !ok || len(prs) != 2 {
+		t.Fatalf("expected two pull_requests, got %v", payload["pull_requests"])
+	}
+	if stub.createCalls != 2 {
+		t.Fatalf("expected two PR creates, got %d", stub.createCalls)
+	}
+}
+
 func TestFixHelpMatchesBehaviorContract(t *testing.T) {
 	t.Parallel()
 
@@ -220,6 +351,73 @@ func writeFixStateFixture(t *testing.T) string {
 	return statePath
 }
 
+func writeApplyStateFixture(t *testing.T) string {
+	t.Helper()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	now := "2026-03-26T12:00:00Z"
+	snapshot := state.Snapshot{
+		Version: state.SnapshotVersion,
+		Target:  source.Target{Mode: "repo", Value: "acme/backend"},
+		Findings: []model.Finding{
+			{FindingType: "tool_config", Severity: model.SeverityMedium, ToolType: "codex", Location: ".codex/config.toml", Repo: "backend", Org: "acme"},
+		},
+		RiskReport: &risk.Report{
+			GeneratedAt: now,
+			Ranked: []risk.ScoredFinding{
+				{Score: 7.7, Finding: model.Finding{FindingType: "tool_config", Severity: model.SeverityMedium, ToolType: "codex", Location: ".codex/config.toml", Repo: "backend", Org: "acme"}},
+			},
+		},
+		Inventory: &agginventory.Inventory{
+			Org: "acme",
+			Tools: []agginventory.Tool{
+				{
+					ToolID:          "codex-config",
+					AgentID:         "wrkr:codex-config:acme",
+					ToolType:        "codex",
+					Org:             "acme",
+					DataClass:       "source_code",
+					EndpointClass:   "fs.read",
+					AutonomyLevel:   "interactive",
+					RiskScore:       7.7,
+					ApprovalStatus:  "missing",
+					ApprovalClass:   "under_review",
+					LifecycleState:  "discovered",
+					DiscoveryMethod: "static",
+					Locations: []agginventory.ToolLocation{
+						{Repo: "backend", Location: ".codex/config.toml"},
+					},
+				},
+			},
+		},
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       "wrkr:codex-config:acme",
+				ToolID:        "codex-config",
+				ToolType:      "codex",
+				Org:           "acme",
+				Repo:          "backend",
+				Location:      ".codex/config.toml",
+				Status:        "discovered",
+				ApprovalState: "missing",
+				FirstSeen:     now,
+				LastSeen:      now,
+				Present:       true,
+				DataClass:     "source_code",
+				EndpointClass: "fs.read",
+				AutonomyLevel: "interactive",
+				RiskScore:     7.7,
+			},
+		},
+	}
+
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save apply state fixture: %v", err)
+	}
+	return statePath
+}
+
 func mustRepoRoot(t *testing.T) string {
 	t.Helper()
 
@@ -243,6 +441,7 @@ func mustRepoRoot(t *testing.T) string {
 type stubPRAPI struct {
 	ensureFileCalls int
 	paths           []string
+	createCalls     int
 }
 
 func (s *stubPRAPI) EnsureHeadRef(context.Context, string, string, string, string) error {
@@ -260,12 +459,13 @@ func (s *stubPRAPI) ListOpenByHead(context.Context, string, string, string, stri
 }
 
 func (s *stubPRAPI) Create(context.Context, string, string, githubpr.CreateRequest) (githubpr.PullRequest, error) {
+	s.createCalls++
 	return githubpr.PullRequest{
-		Number: 11,
-		URL:    "https://example.test/pr/11",
+		Number: 10 + s.createCalls,
+		URL:    fmt.Sprintf("https://example.test/pr/%d", 10+s.createCalls),
 		Title:  "wrkr remediation",
 		Body:   "body",
-		Head:   "wrkr-bot/remediation/acme-backend/adhoc/abc",
+		Head:   fmt.Sprintf("wrkr-bot/remediation/acme-backend/adhoc/%02d", s.createCalls),
 		Base:   "main",
 	}, nil
 }

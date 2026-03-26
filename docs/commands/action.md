@@ -11,6 +11,22 @@ wrkr action pr-comment --changed-paths '<paths>' --risk-delta <delta> --complian
 
 Deterministically evaluate PR relevance and optionally publish an idempotent GitHub PR comment for relevant AI-tooling/config changes.
 
+## Behavior contract
+
+wrkr action is the current shipped CLI-first automation surface for PR relevance and PR comment workflows.
+Any packaged GitHub Action surface must wrap these CLI contracts rather than duplicating business logic.
+
+## Packaged action surface
+
+Wrkr now ships a repo-root `action.yml` composite action that wraps the same CLI contracts through `scripts/action_entrypoint.sh`.
+
+```yaml
+- uses: Clyra-AI/wrkr@v1.0.0
+  with:
+    mode: scheduled
+    remediation_mode: summary_only
+```
+
 ## Subcommands
 
 - `pr-mode`: computes comment/block decision only; no network writes.
@@ -48,6 +64,16 @@ wrkr action pr-mode --changed-paths ".codex/config.toml,docs/faq.md" --risk-delt
 wrkr action pr-comment --changed-paths ".codex/config.toml" --risk-delta 2.8 --compliance-delta -1.1 --owner Clyra-AI --repo wrkr --pr-number 49 --github-token "$GITHUB_TOKEN" --json
 ```
 
+```yaml
+- uses: Clyra-AI/wrkr@v1.0.0
+  with:
+    mode: scheduled
+    target_mode: repo
+    target_value: acme/backend
+    remediation_mode: apply
+    remediation_max_prs: "2"
+```
+
 ## Expected JSON keys
 
 - `status`
@@ -73,3 +99,4 @@ wrkr action pr-comment --changed-paths ".codex/config.toml" --risk-delta 2.8 --c
 - Relevant-path filtering uses deterministic path-prefix rules.
 - Comment upsert is idempotent by fingerprint marker.
 - Repeated runs with the same inputs produce the same PR mode decision and comment body.
+- Packaged `action.yml` execution remains a thin wrapper over the CLI and emits deterministic action outputs for mode, summary path, posture score, trend delta, and compliance delta.

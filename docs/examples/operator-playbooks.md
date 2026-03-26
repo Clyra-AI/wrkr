@@ -19,15 +19,16 @@ wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --sha
 wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
 ```
 
-Use internal profile for engineering/security reviews. Use public profile for external packets with deterministic redaction.
+Use internal profile for engineering/security reviews. Use public profile for external packets with deterministic redaction. The exec PDF path now wraps and paginates long content so the executive summary stays board-ready when the acceptance fixtures are green.
 
 ## Fix workflow
 
 ```bash
 wrkr fix --top 3 --json
+wrkr fix --top 3 --apply --open-pr --max-prs 2 --repo acme/backend --json
 ```
 
-Check `remediation_count`, deterministic `fingerprint`, and unsupported finding reasons.
+Check `remediation_count`, deterministic `fingerprint`, `apply_supported`, and unsupported finding reasons. Use preview mode for broad deterministic guidance and `--apply` only when you want supported repo-file changes published via PRs.
 
 ## Evidence workflow
 

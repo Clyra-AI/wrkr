@@ -5,8 +5,43 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestActionHelpStatesCLIFirstSurface(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"action", "--help"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d stderr=%q", code, errOut.String())
+	}
+
+	helpText := errOut.String()
+	for _, sentence := range []string{actionBehaviorContractSentenceOne, actionBehaviorContractSentenceTwo} {
+		if !strings.Contains(helpText, sentence) {
+			t.Fatalf("action help missing behavior contract sentence %q", sentence)
+		}
+	}
+
+	repoRoot := mustRepoRoot(t)
+	docsText, err := os.ReadFile(filepath.Join(repoRoot, "docs/commands/action.md"))
+	if err != nil {
+		t.Fatalf("read action docs: %v", err)
+	}
+	for _, sentence := range []string{actionBehaviorContractSentenceOne, actionBehaviorContractSentenceTwo} {
+		if !strings.Contains(string(docsText), sentence) {
+			t.Fatalf("docs/commands/action.md missing behavior contract sentence %q", sentence)
+		}
+	}
+	if strings.Contains(helpText, "wrkr-action@v1") {
+		t.Fatal("action help must not claim packaged-action distribution directly")
+	}
+}
 
 func TestActionPRModeJSON(t *testing.T) {
 	t.Parallel()

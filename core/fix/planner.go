@@ -41,15 +41,16 @@ func BuildPlan(ranked []risk.ScoredFinding, top int) (Plan, error) {
 		}
 
 		remediations = append(remediations, Remediation{
-			ID:            remediationID(candidate, template.ID),
-			TemplateID:    template.ID,
-			Category:      template.Category,
-			RuleID:        strings.TrimSpace(candidate.Finding.RuleID),
-			Title:         template.Title,
-			Rationale:     rationale(candidate),
-			CommitMessage: commitMessage(template, candidate),
-			PatchPreview:  patchPreview(template, candidate),
-			Finding:       candidate.Finding,
+			ID:             remediationID(candidate, template.ID),
+			TemplateID:     template.ID,
+			Category:       template.Category,
+			RuleID:         strings.TrimSpace(candidate.Finding.RuleID),
+			ApplySupported: applySupportedTemplate(template.ID),
+			Title:          template.Title,
+			Rationale:      rationale(candidate),
+			CommitMessage:  commitMessage(template, candidate),
+			PatchPreview:   patchPreview(template, candidate),
+			Finding:        candidate.Finding,
 		})
 	}
 
@@ -165,4 +166,13 @@ func patchPreview(template Template, candidate risk.ScoredFinding) string {
 		lines = append(lines, "+# rule: "+strings.ToUpper(ruleID))
 	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+func applySupportedTemplate(templateID string) bool {
+	switch strings.TrimSpace(templateID) {
+	case "MANIFEST-GENERATE":
+		return true
+	default:
+		return false
+	}
 }

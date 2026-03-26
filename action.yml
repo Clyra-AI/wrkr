@@ -71,7 +71,7 @@ runs:
   using: composite
   steps:
     - id: run
-      name: Run wrkr-action entrypoint
+      name: Run wrkr action entrypoint
       shell: bash
       env:
         WRKR_ACTION_BLOCK_THRESHOLD: ${{ inputs.block_threshold }}
@@ -81,4 +81,4 @@ runs:
         WRKR_ACTION_REMEDIATION_MAX_PRS: ${{ inputs.remediation_max_prs }}
       run: |
         set -euo pipefail
-        "${{ github.action_path }}/entrypoint.sh" "${{ inputs.mode }}" "${{ inputs.top }}" "${{ inputs.target_mode }}" "${{ inputs.target_value }}" "${{ inputs.config_path }}" "${{ inputs.sarif_path }}"
+        "${{ github.action_path }}/scripts/action_entrypoint.sh" "${{ inputs.mode }}" "${{ inputs.top }}" "${{ inputs.target_mode }}" "${{ inputs.target_value }}" "${{ inputs.config_path }}" "${{ inputs.sarif_path }}"

@@ -44,6 +44,11 @@ type toolTypeCount struct {
 	Count    int    `json:"count"`
 }
 
+const (
+	reportBehaviorContractSentenceOne = "wrkr report renders deterministic summaries from saved scan state without changing JSON or exit-code contracts."
+	reportBehaviorContractSentenceTwo = "wrkr report --pdf writes a deterministic PDF artifact with wrapped, paginated executive-summary output; the board-ready claim is acceptance-backed by explicit executive report fixtures."
+)
+
 func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	jsonRequested := wantsJSONOutput(args)
 	fs := flag.NewFlagSet("report", flag.ContinueOnError)
@@ -65,6 +70,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	statePathFlag := fs.String("state", "", "state file path override")
 	baselinePath := fs.String("baseline", "", "optional regress baseline for drift summary")
 	previousStatePath := fs.String("previous-state", "", "optional previous state for risk trend delta")
+	fs.Usage = func() {
+		writeReportUsage(fs.Output(), fs)
+	}
 
 	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
 		return code
@@ -193,6 +201,18 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintln(stdout, "wrkr report complete")
 	return exitSuccess
+}
+
+func writeReportUsage(out io.Writer, fs *flag.FlagSet) {
+	_, _ = fmt.Fprintln(out, "Usage of report:")
+	_, _ = fmt.Fprintln(out, "  wrkr report [flags]")
+	_, _ = fmt.Fprintln(out, "")
+	_, _ = fmt.Fprintln(out, "Behavior contract:")
+	_, _ = fmt.Fprintln(out, "  "+reportBehaviorContractSentenceOne)
+	_, _ = fmt.Fprintln(out, "  "+reportBehaviorContractSentenceTwo)
+	_, _ = fmt.Fprintln(out, "")
+	_, _ = fmt.Fprintln(out, "Flags:")
+	fs.PrintDefaults()
 }
 
 func parseReportGeneratedAt(raw string) time.Time {

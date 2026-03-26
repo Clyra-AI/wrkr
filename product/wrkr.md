@@ -56,10 +56,10 @@ Wrkr is an open-source Go CLI and AI-DSPM scanner that discovers AI development 
 ### Core loop (the "10-minute time-to-value"):
 
 ```
-Install → Connect → Scan → See → Fix → Prove
-  brew     GitHub    auto    inventory   PRs    proof
-  install  API/base  detect  + risks     to     records
-  Clyra-AI/tap/  + token            ranked     fix    + bundle
+Install → Scan → See → Prove → Verify → Regress
+  brew     local/    detect  inventory   evidence  chain    drift
+  install  GitHub    + rank  + posture   + bundle  intact   gates
+  Clyra-AI/tap/  target            risks           checks
   wrkr
 ```
 
@@ -377,22 +377,21 @@ Alex heard about Wrkr on Reddit or at a meetup. Runs `wrkr scan` on a Friday aft
 - Bundle is versioned, timestamped, and cryptographically signed (Ed25519)
 - Bundle contains proof records verifiable with standalone `proof verify` CLI
 
-### FR6: Remediation PRs
+### FR6: Remediation Plans, Explicit Apply Mode, and Deterministic Multi-PR Publication
 
-- For top findings, generate and open GitHub PRs that fix the specific issue
-- Supported remediations: version pinning (hooks, MCP servers), MCP server package pinning (replace floating `npx -y @pkg` with pinned version + lockfile, flag known-vulnerable packages), manifest generation (`wrkr-manifest.yaml`), secret removal (replace with reference), CI gate addition, autonomy downgrade (replace YOLO/full-auto configs with gated equivalents, add required reviewers to CI workflows running headless agents), skill hardening (add `disable-model-invocation: true` to side-effect skills, restrict `allowed-tools` to minimum required set, add deny-list hooks for destructive commands)
-- PRs include: description of finding, risk score, what the fix does, link to Wrkr docs
-- PRs are opened from a `wrkr-bot` GitHub account or configurable identity
-- **Scheduled mode auto-opens PRs (Dependabot pattern).** When running on a weekly schedule (via `wrkr-action` or cron), Wrkr opens up to N remediation PRs automatically (default: 3, configurable). Teams merge them like dependency bumps. This creates a recurring weekly cadence — Wrkr produces work that demands response, not just a report that can be ignored.
-- **Secondary PR triggers (post-initial-remediation cadence).** After the top findings are remediated (typically weeks 2-4), PR volume doesn't go to zero. Secondary triggers maintain the cadence: (1) newly discovered tools from team changes, new repos, or newly added skills/MCP servers; (2) approval expiry renewals — 90-day default means ~2 renewal PRs/week for a 47-tool org, starting month 3; (3) agent config drift — pinned versions that fall behind upstream, skills with updated `allowed-tools` grants, MCP server endpoint changes; (4) posture baseline violations from `wrkr regress` (new unapproved tools or permission changes). The initial discovery scan is the highest-volume week. After that, the PR cadence normalizes to 1-3 PRs/week from secondary triggers.
+- `wrkr fix` computes deterministic remediation plans from saved scan state and emits machine-readable plan metadata plus patch previews.
+- When `--open-pr` is set, Wrkr publishes deterministic preview PRs for the target repo.
+- When `--apply` is added, Wrkr writes supported repo files in those PRs instead of preview artifacts only; unsupported or ambiguous targets fail closed.
+- `--max-prs` splits remediation publication across deterministic PR groups so repeated runs reuse the same branches and PRs.
+- Supported current apply surface centers on deterministic manifest generation, while preview mode remains available for broader remediation guidance.
 
 ### FR7: CI Integration
 
-- Provide GitHub Action: `Clyra-AI/wrkr-action@v1`
-- **Scheduled mode (e.g., weekly):** Full org scan → posture delta since last scan → auto-open remediation PRs (FR6). This is the primary engagement loop — Wrkr produces work and a weekly narrative without anyone running a command. The GitHub Action running on a user's own CI cron is free (self-hosted). Slack/webhook notifications, dashboard trending, and managed scheduling are Pro features.
-- **PR mode (on pull request):** When a PR modifies AI tool configs (`.claude/`, `.mcp.json`, `CLAUDE.md`, `.cursor/rules/`, `.cursor/mcp.json`, `.codex/`, `.github/copilot-instructions.md`, `.github/copilot-setup-steps.yml`, `.vscode/mcp.json`, `AGENTS.md`, `AGENTS.override.md`, `.claude/skills/`, `.agents/skills/`, `mcp.json`, `.github/workflows/` with AI tool invocations, AI deps), the action comments on the PR with: what changed, risk delta (score before/after), whether the change requires approval, and whether it violates the posture baseline. This puts Wrkr in the developer's workflow on every relevant PR, not just a cron job.
-- **Posture score trending:** Each scheduled scan records a composite posture score. The action reports the delta: "AI posture score: 6.2 → 7.8 (+1.6 this month). 3 findings remediated, 1 new skill added (approved)." This gives the CISO a recurring narrative, not a one-time inventory.
-- Action optionally blocks merge for high-risk changes (configurable threshold)
+- Current shipped action surface is CLI-first: `wrkr action pr-mode` and `wrkr action pr-comment`.
+- Wrkr now ships a packaged repo-root `action.yml` composite action that wraps the CLI through `scripts/action_entrypoint.sh`.
+- PR mode (on pull request) can comment deterministically when AI tool configs change and can optionally surface merge-blocking posture deltas.
+- Scheduled mode can produce deterministic posture delta text and summary artifact references without introducing a managed control plane.
+- Scheduled remediation dispatch is available for repo-targeted runs when `remediation_mode=apply` is explicitly requested; non-repo targets fail closed for remediation dispatch.
 
 ### FR8: CLI Experience
 
@@ -407,10 +406,10 @@ Alex heard about Wrkr on Reddit or at a meetup. Runs `wrkr scan` on a Friday aft
 - `wrkr scan --production-targets <path>` — apply deterministic production target rules and emit a privilege budget (`write_capable_tools`, `credential_access_tools`, `exec_capable_tools`, `production_write.status`, `production_write.count`) plus per-agent privilege map
 - `wrkr scan --production-targets-strict` — fail-closed mode for policy loading; missing/invalid production target files return non-zero instead of warning-only fallback
 - `wrkr scan --diff` — incremental, shows changes since last scan for the selected target. Previous scan state is stored in `.wrkr/last-scan.json` locally. In CI, the previous scan can be loaded from a committed proof chain artifact or a cache key. Comparison is keyed on `(tool_type, location, org)` tuples.
-- `wrkr report` — render risk report to terminal (default) or PDF
+- `wrkr report` — render risk report to terminal (default), markdown, or deterministic PDF artifact
 - `wrkr score` — compute posture score (0-100), grade (`A`-`F`), weighted breakdown, and trend delta from latest scan state
 - `wrkr evidence --frameworks [list]` — generate compliance bundle with proof records
-- `wrkr fix --top N` — open remediation PRs for top N findings
+- `wrkr fix --top N` — plan deterministic remediations and, with `--open-pr`, publish preview artifacts in one remediation PR for the target repo
 - `wrkr manifest generate` — create `wrkr-manifest.yaml` for a repo (declaration of approved AI tools)
 - `wrkr verify --chain` — verify proof chain integrity (delegates to `Clyra-AI/proof`)
 - `wrkr regress init --baseline [scan-path]` — establish approved posture baseline from a known-good scan
@@ -547,7 +546,7 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
 6. **Feed the governance loop.** Wrkr scan findings flow as proof records into Axym's compliance mapping. Wrkr's structured risk tags (`risk_class`, `endpoint_class`, `data_class`) map directly to Gait's policy matching fields, enabling automatic policy rule generation from discovery results. Every Wrkr scan strengthens the full See → Prove → Control sequence.
 7. **Never let a remediated risk recur.** The posture regression pattern (`wrkr regress`) converts a clean scan into a permanent CI fixture. Once a team remediates findings and establishes an approved baseline, CI fails if unapproved tools reappear. A scan report is disposable. A CI gate is permanent.
 8. **One identity per tool, across the governance stack.** Every discovered AI tool gets a persistent, deterministic identity that follows it from Wrkr (discovery) through Gait (enforcement) to Axym (evidence). No mapping tables, no translation layers — the agent ID is the connective tissue between See, Control, and Prove.
-9. **Create work, not reports.** The discovery scan is the hook. The weekly PR cadence is the retention. Wrkr in scheduled mode auto-opens remediation PRs, flags expired approvals, and posts posture deltas — producing recurring work that demands response. A scan report is disposable. A PR that requires merging is an engagement loop. The Dependabot pattern: teams merge Wrkr PRs like dependency bumps, weekly, without thinking about it.
+9. **Create durable follow-up work, not disposable screenshots.** The discovery scan is the hook. Evidence bundles, proof verification, regress baselines, deterministic PR-mode comments, and explicit apply-mode remediation PRs keep posture review connected to real workflows without hiding side effects.
 
 ## Non-Goals (v1)
 
@@ -555,7 +554,7 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
 2. **Not an enforcement engine.** Wrkr discovers and reports. It does not block or terminate agent actions. Enforcement is Gait's job.
 3. **Not a compliance mapper (deep).** Wrkr maps scan findings to framework controls for evidence bundles. Deep compliance mapping, gap detection, and audit bundle assembly are Axym's job. Wrkr's evidence output can be ingested by Axym for richer compliance packages.
 4. **Not an LLM observability tool.** Wrkr does not trace LLM calls, measure latency, or evaluate output quality. That's LangSmith/Arize territory.
-5. **Not a SaaS product (v1).** The open-source CLI is the product. The GitHub Action running on a user's own CI cron is also free (self-hosted scheduling). Wrkr Pro (dashboard, Slack/webhook notifications, managed scheduling, SIEM export) is the commercial extension, built later. The line is: **self-hosted CLI and CI are free, managed orchestration and notifications are Pro.**
+5. **Not a SaaS product (v1).** The open-source CLI and packaged self-hosted action are the product. Managed orchestration, notifications, and dashboards remain future commercial extensions.
 6. **Not cross-platform on day one.** GitHub is the only supported source in v1.
 7. **Not a marketplace.** Wrkr does not host, distribute, or recommend AI tools. It inventories what you already have.
 8. **Not AI-powered.** The scanner uses deterministic pattern matching, not LLMs. This is deliberate — a governance tool that hallucinates findings is worse than no tool at all.
@@ -575,9 +574,9 @@ A new user with a GitHub org of 50+ repos can:
 - See a ranked risk report with top 5 findings (configurable via `--top N`)
 - Total elapsed time: under 10 minutes
 
-### AC2: The "CISO Slide"
+### AC2: The "Board-Ready Executive Summary"
 
-The output of `wrkr report --pdf` produces a one-page summary that a CISO can present to a board, containing: total AI tools discovered, breakdown by type, top 5 risks, and compliance gap count.
+The output of `wrkr report --pdf` produces a wrapped, paginated executive summary that a CISO can present to a board, containing: total AI tools discovered, breakdown by type, top risks, compliance gap count, and deterministic next actions. The board-ready claim is backed by explicit acceptance fixtures.
 
 ### AC3: The "Auditor Package"
 
@@ -585,7 +584,7 @@ The output of `wrkr evidence --frameworks eu-ai-act,soc2` produces a directory t
 
 ### AC4: The "Fix It" Loop
 
-`wrkr fix --top 3` opens 3 GitHub PRs that each: describe the finding, explain the risk, and make a specific code change (pin a version, add a manifest, remove a key). PRs pass basic CI checks.
+`wrkr fix --top 3` emits deterministic remediation plans with machine-readable metadata, patch previews, and explicit unsupported reason codes. When `--apply --open-pr` is set for supported templates, Wrkr creates or updates remediation PRs containing real repo-file changes. `--max-prs` can split publication deterministically across multiple PRs.
 
 ### AC5: The "Detector Test"
 
@@ -653,7 +652,7 @@ Given a fixed fixture scan state and fixed score weights, `wrkr score --json` em
 
 ### AC21: The "Shareable Summary"
 
-Running `wrkr report --md --pdf --json` on a fixed scan state emits deterministic markdown and PDF artifacts with stable section ordering, deterministic proof references, clear delta summaries, and prioritized next actions. Repeated runs with identical inputs produce equivalent payload content (excluding explicit output path and timestamp fields), and both artifacts remain audience-ready for operator and board workflows.
+Running `wrkr report --md --pdf --json` on a fixed scan state emits deterministic markdown and PDF artifacts with stable section ordering, deterministic proof references, clear delta summaries, prioritized next actions, and wrapped/paginated executive output. Repeated runs with identical inputs produce equivalent payload content (excluding explicit output path and timestamp fields), and the artifacts remain suitable for operator and board workflows.
 
 ### AC22: The "Discovery Method Contract"
 
@@ -803,9 +802,9 @@ Compliance Mapper:
 | Config parsing | `gopkg.in/yaml.v3`, `encoding/json`, `BurntSushi/toml` | Parse AI tool configs as structured data. No regex heroics. |
 | Pattern matching | Custom detectors with Go AST parsing where needed (`go/parser` for Go, `smacker/go-tree-sitter` for multi-lang) | Deterministic detection. Each detector is a pure function: `files → findings`. |
 | Risk scoring | Weighted formula, configurable via YAML | No ML. No LLM. Auditable math. |
-| PDF generation | `jung-kurt/gofpdf` or `pdfcpu` | For the "CISO slide" report output. Pure Go, no external dependencies. |
+| PDF generation | deterministic internal renderer (pinned Go-only implementation) | For shareable, board-ready executive summary artifacts. Pure Go, no external dependencies. |
 | Signing | Via `Clyra-AI/proof` (Ed25519 default, cosign for Sigstore alignment) | Evidence bundles and proof records are signed for tamper evidence. |
-| CI distribution | GitHub Action (`Clyra-AI/wrkr-action@v1`) | Primary distribution channel. Also Docker image for other CI systems. |
+| CI distribution | CLI action subcommands + packaged repo-root composite action | Current shipped automation surface without duplicating CLI logic. |
 | Testing | Go stdlib `testing` + `testify` | Consistent with Gait, Axym, and Clyra-AI/proof. |
 | Distribution | `goreleaser` → Homebrew tap (`Clyra-AI/tap/wrkr`) + GitHub releases + Docker image | Single static binary for every platform. |
 
@@ -1156,5 +1155,5 @@ Distribution:
 | Compliance mappings need legal review | High | Medium | Ship as "informational, not legal advice." Framework definitions live in `Clyra-AI/proof` and benefit from review across all three products. Validated mappings in Pro tier. |
 | Wrkr findings don't integrate with compliance tools | Low | Medium | Proof records in shared `Clyra-AI/proof` format. Axym ingests them directly. GRC platforms can consume proof records via standard import. One format, zero translation. |
 | Agent Skills standard adoption outpaces Wrkr's skill scanning | Medium | Medium | Already realized: Anthropic published Agent Skills as an open standard (agentskills.io), adopted by Codex, Copilot, Cursor, and Antigravity. Wrkr's `SkillDetector` scans the standardized `SKILL.md` format across all tools with one parser. First-mover advantage is in risk scoring and remediation depth, not format support. |
-| Wrkr becomes a one-off scan tool (run once, screenshot for CISO, forget) | High | High | Primary mitigation: Dependabot-pattern auto-PRs in scheduled mode create recurring work that demands response. Secondary: identity approval expiry (90-day default) forces periodic re-engagement (~2 renewal tasks/week for a 47-tool org). Tertiary: PR-level change detection puts Wrkr in the developer workflow on every relevant PR, not just a cron job. The discovery scan is the hook; the weekly PR cadence is the retention. |
-| Free/paid line is undefined — risk of giving away too much or gating too early | Medium | High | v1 free: CLI scan, risk report, remediation PRs, proof records, evidence bundle, posture regression, self-hosted GitHub Action on cron — everything a solo engineer or small team needs. Pro: dashboard (inventory browser, risk trends), Slack/webhook notifications, managed scheduling, approval workflows, SIEM export, SSO/RBAC, multi-org support. The line is: **self-hosted CLI and CI are free, managed orchestration and notifications are Pro.** The scan itself never requires a license. Revenue comes from the management layer that Maria (CISO) needs, not the scanning layer that Sam (engineer) runs. Validate with design partners in weeks 9-12 — if the free tier is too rich, tighten; if it gates adoption, loosen. |
+| Wrkr becomes a one-off scan tool (run once, screenshot for CISO, forget) | High | High | Primary mitigation: regress baselines, proof verification, and PR-mode review surfaces keep posture review attached to CI and operator workflows. Secondary: identity approval expiry creates explicit renewal tasks. Tertiary: scenario-first onboarding makes the first value path legible before wider rollout. |
+| Free/paid line is undefined — risk of giving away too much or gating too early | Medium | High | v1 free: CLI scan, risk report, proof records, evidence bundle, posture regression, and self-hosted automation wrappers. Pro: dashboard (inventory browser, risk trends), Slack/webhook notifications, managed scheduling, approval workflows, SIEM export, SSO/RBAC, multi-org support. The line is: **self-hosted CLI and deterministic CI are free, managed orchestration and notifications are Pro.** The scan itself never requires a license. Revenue comes from the management layer that Maria (CISO) needs, not the scanning layer that Sam (engineer) runs. Validate with design partners in weeks 9-12 — if the free tier is too rich, tighten; if it gates adoption, loosen. |

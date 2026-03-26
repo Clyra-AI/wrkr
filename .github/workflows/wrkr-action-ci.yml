@@ -3,7 +3,9 @@ name: wrkr-action-ci
 on:
   pull_request:
     paths:
+      - 'action.yml'
       - 'action/**'
+      - 'scripts/action_entrypoint.sh'
       - 'core/action/**'
       - 'internal/e2e/action/**'
       - '.github/workflows/wrkr-action-ci.yml'
@@ -11,7 +13,9 @@ on:
     branches:
       - main
     paths:
+      - 'action.yml'
       - 'action/**'
+      - 'scripts/action_entrypoint.sh'
       - 'core/action/**'
       - 'internal/e2e/action/**'
       - '.github/workflows/wrkr-action-ci.yml'

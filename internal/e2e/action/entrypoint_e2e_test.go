@@ -77,6 +77,22 @@ func TestActionMetadataIncludesExplicitTargetInputs(t *testing.T) {
 	}
 }
 
+func TestRootActionMetadataIncludesOutputsAndRemediationInputs(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	payload, err := os.ReadFile(filepath.Join(repoRoot, "action.yml"))
+	if err != nil {
+		t.Fatalf("read root action metadata: %v", err)
+	}
+	content := string(payload)
+	for _, token := range []string{"remediation_mode", "remediation_max_prs", "summary_path", "posture_score", "trend_delta", "compliance_delta"} {
+		if !strings.Contains(content, token) {
+			t.Fatalf("expected root action metadata to include %q", token)
+		}
+	}
+}
+
 func TestEntrypointE2ERejectsIncompleteExplicitTargetInputs(t *testing.T) {
 	t.Parallel()
 
@@ -205,6 +221,56 @@ func TestEntrypointPRModeFallsBackToEventPathsWhenGitDiffFails(t *testing.T) {
 	}
 	if !strings.Contains(lines[3], "--changed-paths .codex/config.toml") {
 		t.Fatalf("expected changed paths fallback from event payload, got %q", lines[3])
+	}
+}
+
+func TestEntrypointScheduledApplyInvokesFixForRepoTargets(t *testing.T) {
+	t.Parallel()
+
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available in test environment")
+	}
+
+	repoRoot := mustFindRepoRoot(t)
+	tmp := t.TempDir()
+	binDir := filepath.Join(tmp, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin dir: %v", err)
+	}
+
+	logPath := filepath.Join(tmp, "wrkr.log")
+	wrkrPath := filepath.Join(binDir, "wrkr")
+	wrkrScript := "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"${WRKR_LOG}\"\nif [[ \"$1\" == \"scan\" ]]; then printf '{\"profile\":{\"delta_percent\":-1.25}}'; elif [[ \"$1\" == \"score\" ]]; then printf '{\"score\":81.4,\"trend_delta\":1.6}'; else printf '{\"status\":\"ok\"}'; fi\n"
+	if err := os.WriteFile(wrkrPath, []byte(wrkrScript), 0o755); err != nil {
+		t.Fatalf("write wrkr stub: %v", err)
+	}
+
+	cmd := exec.Command(bashPath, filepath.Join(repoRoot, "scripts", "action_entrypoint.sh"), "scheduled", "5", "", "", "")
+	cmd.Dir = repoRoot
+	cmd.Env = append(os.Environ(),
+		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"WRKR_LOG="+logPath,
+		"GITHUB_REPOSITORY=acme/backend",
+		"WRKR_ACTION_REMEDIATION_MODE=apply",
+		"WRKR_ACTION_REMEDIATION_MAX_PRS=2",
+		"GITHUB_TOKEN=fix-token",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run entrypoint: %v output=%s", err, out)
+	}
+
+	loggedBytes, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read wrkr log: %v", err)
+	}
+	lines := nonEmptyLines(string(loggedBytes))
+	if len(lines) != 4 {
+		t.Fatalf("expected four wrkr invocations, got %d (%v)", len(lines), lines)
+	}
+	if !strings.Contains(lines[3], "fix --top 5 --apply --open-pr --max-prs 2 --repo acme/backend") {
+		t.Fatalf("expected scheduled apply invocation, got %q", lines[3])
 	}
 }
 

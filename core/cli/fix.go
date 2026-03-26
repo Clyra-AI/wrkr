@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -24,8 +25,8 @@ var newGitHubPRClient = func(baseURL, token string) githubpr.API {
 }
 
 const (
-	fixBehaviorContractSentenceOne = "wrkr fix computes a deterministic remediation plan from existing scan state and emits plan metadata; it does not mutate repository files unless --open-pr is set."
-	fixBehaviorContractSentenceTwo = "When --open-pr is set, wrkr fix writes deterministic artifacts under .wrkr/remediations/<fingerprint>/ and then creates or updates one remediation PR for the target repo."
+	fixBehaviorContractSentenceOne = "wrkr fix computes a deterministic remediation plan from existing scan state and emits plan metadata; preview mode does not mutate repository files."
+	fixBehaviorContractSentenceTwo = "When --open-pr is set, wrkr fix publishes deterministic preview PRs for the target repo; add --apply to write supported repo files instead of preview artifacts only."
 )
 
 func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -44,6 +45,8 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 	statePathFlag := fs.String("state", "", "state file path override")
 	configPathFlag := fs.String("config", "", "config file path override")
 	openPR := fs.Bool("open-pr", false, "open or update a remediation pull request")
+	applyMode := fs.Bool("apply", false, "write supported repo files in PRs instead of preview artifacts only")
+	maxPRs := fs.Int("max-prs", 1, "maximum number of remediation PRs to create or update")
 	repoTarget := fs.String("repo", "", "owner/repo target for PR operations")
 	baseBranch := fs.String("base", "main", "base branch for PR operations")
 	botIdentity := fs.String("bot", "wrkr-bot", "bot identity for deterministic branch metadata")
@@ -64,6 +67,15 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 	if *top <= 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--top must be greater than zero", exitInvalidInput)
 	}
+	if *maxPRs <= 0 {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--max-prs must be greater than zero", exitInvalidInput)
+	}
+	if *applyMode && !*openPR {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--apply requires --open-pr", exitInvalidInput)
+	}
+	if *maxPRs > 1 && !*openPR {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--max-prs requires --open-pr", exitInvalidInput)
+	}
 	if *quiet && *explain && !*jsonOut {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--quiet and --explain cannot be used together", exitInvalidInput)
 	}
@@ -80,6 +92,7 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	payload := map[string]any{
 		"status":               "ok",
+		"mode":                 "preview",
 		"requested_top":        plan.RequestedTop,
 		"fingerprint":          plan.Fingerprint,
 		"remediation_count":    len(plan.Remediations),
@@ -87,9 +100,20 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 		"remediations":         plan.Remediations,
 		"unsupported_findings": plan.Skipped,
 	}
+	if *applyMode {
+		payload["mode"] = "apply"
+		payload["apply_supported_count"] = len(fix.ApplyCapablePlan(plan).Remediations)
+	}
 
 	if *openPR {
-		if len(plan.Remediations) == 0 {
+		publicationPlan := plan
+		if *applyMode {
+			publicationPlan = fix.ApplyCapablePlan(plan)
+		}
+		if len(publicationPlan.Remediations) == 0 {
+			if *applyMode {
+				return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", fix.ErrNoApplyCapableRemediations.Error(), exitUnsafeBlocked)
+			}
 			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", "no fixable findings available for PR generation", exitUnsafeBlocked)
 		}
 		repoValue, err := resolvePRRepo(*repoTarget, snapshot)
@@ -111,66 +135,33 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 
 		title := strings.TrimSpace(*prTitle)
-		if title == "" {
-			title = fmt.Sprintf("wrkr remediation: %s (%s)", repoValue, plan.Fingerprint[:8])
-		}
-		branch := githubpr.BranchName(*botIdentity, repoValue, *scheduleKey, plan.Fingerprint)
-		artifacts, artifactErr := fix.BuildPRArtifacts(plan)
-		if artifactErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", artifactErr.Error(), exitRuntime)
-		}
-		if len(artifacts) == 0 {
-			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", "no remediation artifacts generated for PR operation", exitUnsafeBlocked)
-		}
-		body := remediationPRBody(repoValue, plan)
 		prClient := newGitHubPRClient(*githubAPI, token)
-
-		if err := prClient.EnsureHeadRef(context.Background(), owner, repo, branch, strings.TrimSpace(*baseBranch)); err != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
-		}
-		changedCount := 0
-		artifactPaths := make([]string, 0, len(artifacts))
-		for _, artifact := range artifacts {
-			changed, writeErr := prClient.EnsureFileContent(
-				context.Background(),
-				owner,
-				repo,
-				branch,
-				artifact.Path,
-				artifact.CommitMessage,
-				artifact.Content,
-			)
-			if writeErr != nil {
-				return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", writeErr.Error(), exitRuntime)
+		publications, artifactCount, changedCount, artifactPaths, publishErr := publishRemediationPRs(
+			context.Background(),
+			prClient,
+			snapshot,
+			owner,
+			repo,
+			repoValue,
+			strings.TrimSpace(*baseBranch),
+			title,
+			*botIdentity,
+			*scheduleKey,
+			fix.SplitPlanForPRs(publicationPlan, *maxPRs),
+			*applyMode,
+		)
+		if publishErr != nil {
+			if errors.Is(publishErr, fix.ErrNoApplyCapableRemediations) {
+				return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", publishErr.Error(), exitUnsafeBlocked)
 			}
-			if changed {
-				changedCount++
-			}
-			artifactPaths = append(artifactPaths, artifact.Path)
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", publishErr.Error(), exitRuntime)
 		}
-
-		result, prErr := githubpr.Upsert(context.Background(), prClient, githubpr.UpsertInput{
-			Owner:       owner,
-			Repo:        repo,
-			HeadBranch:  branch,
-			BaseBranch:  strings.TrimSpace(*baseBranch),
-			Title:       title,
-			Body:        body,
-			Fingerprint: plan.Fingerprint,
-		})
-		if prErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", prErr.Error(), exitRuntime)
+		if len(publications) == 1 {
+			payload["pull_request"] = publications[0]
 		}
-
-		payload["pull_request"] = map[string]any{
-			"action":      result.Action,
-			"number":      result.PullRequest.Number,
-			"url":         result.PullRequest.URL,
-			"head_branch": result.PullRequest.Head,
-			"base_branch": result.PullRequest.Base,
-		}
+		payload["pull_requests"] = publications
 		payload["remediation_artifacts"] = map[string]any{
-			"count":         len(artifacts),
+			"count":         artifactCount,
 			"changed_count": changedCount,
 			"paths":         artifactPaths,
 		}
@@ -205,6 +196,7 @@ func writeFixUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "PR prerequisites:")
 	_, _ = fmt.Fprintln(out, "  - --repo owner/repo (or repo-target state)")
 	_, _ = fmt.Fprintln(out, "  - writable fix profile token via config or --fix-token")
+	_, _ = fmt.Fprintln(out, "  - add --apply to publish supported repo-file changes instead of preview artifacts only")
 	_, _ = fmt.Fprintln(out, "")
 	_, _ = fmt.Fprintln(out, "Flags:")
 	fs.PrintDefaults()
@@ -273,4 +265,120 @@ func remediationPRBody(repo string, plan fix.Plan) string {
 	}
 	lines = append(lines, "", "<!-- wrkr-fingerprint:"+plan.Fingerprint+" -->")
 	return strings.Join(lines, "\n")
+}
+
+func publishRemediationPRs(
+	ctx context.Context,
+	prClient githubpr.API,
+	snapshot state.Snapshot,
+	owner string,
+	repo string,
+	repoValue string,
+	baseBranch string,
+	title string,
+	botIdentity string,
+	scheduleKey string,
+	groups []fix.PRGroup,
+	applyMode bool,
+) ([]map[string]any, int, int, []string, error) {
+	publications := make([]map[string]any, 0, len(groups))
+	totalArtifacts := 0
+	totalChanged := 0
+	allPaths := make([]string, 0)
+
+	for _, group := range groups {
+		artifacts, err := remediationArtifactsForGroup(snapshot, group, applyMode)
+		if err != nil {
+			return nil, 0, 0, nil, err
+		}
+		branch := githubpr.BranchName(botIdentity, repoValue, groupScheduleKey(scheduleKey, group), group.Plan.Fingerprint)
+		if err := prClient.EnsureHeadRef(ctx, owner, repo, branch, baseBranch); err != nil {
+			return nil, 0, 0, nil, err
+		}
+		changedCount := 0
+		groupPaths := make([]string, 0, len(artifacts))
+		for _, artifact := range artifacts {
+			changed, writeErr := prClient.EnsureFileContent(ctx, owner, repo, branch, artifact.Path, artifact.CommitMessage, artifact.Content)
+			if writeErr != nil {
+				return nil, 0, 0, nil, writeErr
+			}
+			if changed {
+				changedCount++
+			}
+			groupPaths = append(groupPaths, artifact.Path)
+			allPaths = append(allPaths, artifact.Path)
+		}
+		result, err := githubpr.Upsert(ctx, prClient, githubpr.UpsertInput{
+			Owner:       owner,
+			Repo:        repo,
+			HeadBranch:  branch,
+			BaseBranch:  baseBranch,
+			Title:       remediationPRTitle(title, repoValue, group),
+			Body:        remediationPRBody(repoValue, group.Plan),
+			Fingerprint: group.Plan.Fingerprint,
+		})
+		if err != nil {
+			return nil, 0, 0, nil, err
+		}
+
+		publications = append(publications, map[string]any{
+			"action":         result.Action,
+			"number":         result.PullRequest.Number,
+			"url":            result.PullRequest.URL,
+			"head_branch":    result.PullRequest.Head,
+			"base_branch":    result.PullRequest.Base,
+			"group_index":    group.Index + 1,
+			"group_total":    group.Total,
+			"mode":           publicationModeValue(applyMode),
+			"artifact_count": len(artifacts),
+			"changed_count":  changedCount,
+			"paths":          groupPaths,
+		})
+		totalArtifacts += len(artifacts)
+		totalChanged += changedCount
+	}
+	sort.Strings(allPaths)
+	return publications, totalArtifacts, totalChanged, allPaths, nil
+}
+
+func remediationArtifactsForGroup(snapshot state.Snapshot, group fix.PRGroup, applyMode bool) ([]fix.PRArtifact, error) {
+	previewArtifacts, err := fix.BuildPRArtifacts(group.Plan)
+	if err != nil {
+		return nil, err
+	}
+	if !applyMode {
+		return previewArtifacts, nil
+	}
+	applyArtifacts, err := fix.BuildApplyArtifacts(snapshot, group.Plan)
+	if err != nil {
+		return nil, err
+	}
+	artifacts := append(applyArtifacts, previewArtifacts...)
+	sort.Slice(artifacts, func(i, j int) bool { return artifacts[i].Path < artifacts[j].Path })
+	return artifacts, nil
+}
+
+func remediationPRTitle(rawTitle string, repoValue string, group fix.PRGroup) string {
+	title := strings.TrimSpace(rawTitle)
+	if title == "" {
+		title = fmt.Sprintf("wrkr remediation: %s (%s)", repoValue, group.Plan.Fingerprint[:8])
+	}
+	if group.Total <= 1 {
+		return title
+	}
+	return fmt.Sprintf("%s [%d/%d]", title, group.Index+1, group.Total)
+}
+
+func groupScheduleKey(scheduleKey string, group fix.PRGroup) string {
+	if group.Total <= 1 {
+		return scheduleKey
+	}
+	return fmt.Sprintf("%s-g%02dof%02d", strings.TrimSpace(scheduleKey), group.Index+1, group.Total)
+}
+
+func publicationModeValue(applyMode bool) string {
+	if applyMode {
+		return "apply"
+	}
+	return "preview"
 }

@@ -2,11 +2,16 @@ package fixintegration
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/fix"
+	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	"github.com/Clyra-AI/wrkr/core/source"
+	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 func TestIntegrationBuildPlanProducesTopThreeDeterministicRemediations(t *testing.T) {
@@ -64,5 +69,84 @@ func TestIntegrationUnsupportedFindingsReturnReasonCodes(t *testing.T) {
 	}
 	if plan.Skipped[0].ReasonCode != fix.ReasonUnsupportedFindingType {
 		t.Fatalf("expected unsupported reason code, got %+v", plan.Skipped[0])
+	}
+}
+
+func TestIntegrationBuildApplyArtifactsProducesManifestFile(t *testing.T) {
+	t.Parallel()
+
+	now := "2026-03-26T12:00:00Z"
+	snapshot := state.Snapshot{
+		Version: state.SnapshotVersion,
+		Target:  source.Target{Mode: "repo", Value: "acme/backend"},
+		Inventory: &agginventory.Inventory{
+			Org: "acme",
+			Tools: []agginventory.Tool{
+				{
+					ToolID:          "codex-config",
+					AgentID:         "wrkr:codex-config:acme",
+					ToolType:        "codex",
+					Org:             "acme",
+					DiscoveryMethod: "static",
+					EndpointClass:   "fs.read",
+					DataClass:       "source_code",
+					AutonomyLevel:   "interactive",
+					RiskScore:       7.7,
+					ApprovalStatus:  "missing",
+					ApprovalClass:   "under_review",
+					LifecycleState:  "discovered",
+					Locations: []agginventory.ToolLocation{
+						{Repo: "backend", Location: ".codex/config.toml"},
+					},
+				},
+			},
+		},
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       "wrkr:codex-config:acme",
+				ToolID:        "codex-config",
+				ToolType:      "codex",
+				Org:           "acme",
+				Repo:          "backend",
+				Location:      ".codex/config.toml",
+				Status:        "discovered",
+				ApprovalState: "missing",
+				FirstSeen:     now,
+				LastSeen:      now,
+				Present:       true,
+				DataClass:     "source_code",
+				EndpointClass: "fs.read",
+				AutonomyLevel: "interactive",
+				RiskScore:     7.7,
+			},
+		},
+		RiskReport: &risk.Report{GeneratedAt: now},
+	}
+	plan := fix.Plan{
+		RequestedTop: 1,
+		Remediations: []fix.Remediation{
+			{
+				ID:             "apply-manifest",
+				TemplateID:     "MANIFEST-GENERATE",
+				Category:       "manifest_generation",
+				ApplySupported: true,
+				CommitMessage:  "fix(manifest): regenerate manifest",
+				Finding:        model.Finding{FindingType: "tool_config", ToolType: "codex", Location: ".codex/config.toml", Repo: "backend", Org: "acme"},
+			},
+		},
+	}
+
+	artifacts, err := fix.BuildApplyArtifacts(snapshot, plan)
+	if err != nil {
+		t.Fatalf("build apply artifacts: %v", err)
+	}
+	if len(artifacts) != 1 {
+		t.Fatalf("expected one apply artifact, got %d", len(artifacts))
+	}
+	if artifacts[0].Path != ".wrkr/wrkr-manifest.yaml" {
+		t.Fatalf("unexpected apply artifact path %q", artifacts[0].Path)
+	}
+	if !strings.Contains(string(artifacts[0].Content), "agent_id: wrkr:codex-config:acme") {
+		t.Fatalf("unexpected apply manifest content: %s", artifacts[0].Content)
 	}
 }

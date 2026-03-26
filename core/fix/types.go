@@ -27,15 +27,16 @@ type Plan struct {
 
 // Remediation describes one deterministic patch preview and commit intent.
 type Remediation struct {
-	ID            string        `json:"id"`
-	TemplateID    string        `json:"template_id"`
-	Category      string        `json:"category"`
-	RuleID        string        `json:"rule_id,omitempty"`
-	Title         string        `json:"title"`
-	Rationale     string        `json:"rationale"`
-	CommitMessage string        `json:"commit_message"`
-	PatchPreview  string        `json:"patch_preview"`
-	Finding       model.Finding `json:"finding"`
+	ID             string        `json:"id"`
+	TemplateID     string        `json:"template_id"`
+	Category       string        `json:"category"`
+	RuleID         string        `json:"rule_id,omitempty"`
+	ApplySupported bool          `json:"apply_supported,omitempty"`
+	Title          string        `json:"title"`
+	Rationale      string        `json:"rationale"`
+	CommitMessage  string        `json:"commit_message"`
+	PatchPreview   string        `json:"patch_preview"`
+	Finding        model.Finding `json:"finding"`
 }
 
 // Skipped is emitted for non-fixable findings with explicit reason codes.
