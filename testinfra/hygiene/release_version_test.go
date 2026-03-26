@@ -124,6 +124,56 @@ func TestResolveReleaseVersionHonorsExplicitMarkerOverrides(t *testing.T) {
 	}
 }
 
+func TestResolveReleaseVersionIgnoresPrereleaseTags(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initTaggedReleaseFixtureRepo(t, "v1.2.3")
+	runCommand(t, repoRoot, "git", "tag", "v2.0.0-rc1")
+	writeFixtureFile(t, repoRoot, "README.md", "stable tag change\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+		map[string][]string{
+			"Fixed": {"stabilize release resolver tag selection"},
+		},
+	))
+	commitAll(t, repoRoot, "fix: stabilize release resolver tag selection")
+
+	result := runReleaseVersionResolver(t, repoRoot)
+	if result.Version != "v1.2.4" {
+		t.Fatalf("expected prerelease tags to be ignored in favor of v1.2.4, got %s", result.Version)
+	}
+	if result.BaseTag != "v1.2.3" {
+		t.Fatalf("expected stable base tag v1.2.3, got %s", result.BaseTag)
+	}
+}
+
+func TestResolveReleaseVersionIgnoresUnmergedTags(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initTaggedReleaseFixtureRepo(t, "v1.2.3")
+
+	runCommand(t, repoRoot, "git", "checkout", "-b", "release-preview")
+	writeFixtureFile(t, repoRoot, "preview.txt", "preview branch only\n")
+	commitAll(t, repoRoot, "chore: preview-only commit")
+	runCommand(t, repoRoot, "git", "tag", "v9.9.9")
+
+	runCommand(t, repoRoot, "git", "checkout", "main")
+	writeFixtureFile(t, repoRoot, "README.md", "mainline change\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+		map[string][]string{
+			"Fixed": {"keep release numbering on the mainline tag lineage"},
+		},
+	))
+	commitAll(t, repoRoot, "fix: keep release numbering on mainline")
+
+	result := runReleaseVersionResolver(t, repoRoot)
+	if result.Version != "v1.2.4" {
+		t.Fatalf("expected unmerged tags to be ignored in favor of v1.2.4, got %s", result.Version)
+	}
+	if result.BaseTag != "v1.2.3" {
+		t.Fatalf("expected reachable base tag v1.2.3, got %s", result.BaseTag)
+	}
+}
+
 func TestResolveReleaseVersionFailsClosedWithoutSignal(t *testing.T) {
 	t.Parallel()
 

@@ -74,11 +74,12 @@ def run_git(repo_root: Path, *args: str) -> str:
 
 
 def latest_semver_tag(repo_root: Path) -> str:
-    output = run_git(repo_root, "tag", "--list", "v[0-9]*.[0-9]*.[0-9]*", "--sort=-version:refname")
-    lines = output.splitlines()
-    if not lines:
-        return ""
-    return lines[0]
+    output = run_git(repo_root, "tag", "--merged", "HEAD", "--sort=-version:refname")
+    for line in output.splitlines():
+        candidate = line.strip()
+        if SEMVER_RE.fullmatch(candidate):
+            return candidate
+    return ""
 
 
 def has_changes_since(repo_root: Path, ref: str) -> bool:
