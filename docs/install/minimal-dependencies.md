@@ -35,6 +35,14 @@ brew install Clyra-AI/tap/wrkr
 wrkr version --json
 ```
 
+## Recommended first-value after install
+
+Start with the curated scenario when you want the evaluator-safe first path and want to avoid repo-root fixture noise from Wrkr's own scenarios and tests:
+
+```bash
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+```
+
 ## Release-smoke validation commands
 
 Install commands above are validated by release UAT together with the public `wrkr version --json` verification step:

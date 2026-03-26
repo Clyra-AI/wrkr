@@ -81,6 +81,54 @@ func TestReportPDFDeterministicForFixedState(t *testing.T) {
 	}
 }
 
+func TestReportHelpMatchesBehaviorContract(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"report", "--help"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d stderr=%q", code, errOut.String())
+	}
+
+	helpText := errOut.String()
+	for _, sentence := range []string{reportBehaviorContractSentenceOne, reportBehaviorContractSentenceTwo} {
+		if !strings.Contains(helpText, sentence) {
+			t.Fatalf("report help missing behavior contract sentence %q", sentence)
+		}
+	}
+
+	repoRoot := mustRepoRoot(t)
+	docsText, err := os.ReadFile(filepath.Join(repoRoot, "docs/commands/report.md"))
+	if err != nil {
+		t.Fatalf("read report docs: %v", err)
+	}
+	for _, sentence := range []string{reportBehaviorContractSentenceOne, reportBehaviorContractSentenceTwo} {
+		if !strings.Contains(string(docsText), sentence) {
+			t.Fatalf("docs/commands/report.md missing behavior contract sentence %q", sentence)
+		}
+	}
+}
+
+func TestRenderSimplePDFWrapsAndPaginatesLongContent(t *testing.T) {
+	t.Parallel()
+
+	lines := []string{
+		strings.Repeat("long-line-segment ", 16) + "tail-marker",
+	}
+	for i := 0; i < 80; i++ {
+		lines = append(lines, "section line "+strings.Repeat("x", 24))
+	}
+
+	payload := string(renderSimplePDF(lines))
+	if !strings.Contains(payload, "/Count 2") {
+		t.Fatalf("expected multi-page PDF payload, got %q", payload)
+	}
+	if !strings.Contains(payload, "tail-marker") {
+		t.Fatalf("expected wrapped content to preserve tail marker, got %q", payload)
+	}
+}
+
 func TestReportMySetupSummaryIncludesActivationProjection(t *testing.T) {
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)

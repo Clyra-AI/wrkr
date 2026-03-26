@@ -11,13 +11,20 @@ export const metadata: Metadata = {
   },
 };
 
-const QUICKSTART = `# Security and platform teams: start with org posture
+const QUICKSTART = `# Evaluator-safe first pass: use the curated scenario
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
+wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
+
+# Security and platform teams: widen to org posture next
 # Hosted prerequisites: set --github-api and usually a GitHub token for private repos or rate limits
 wrkr scan --github-org acme --github-api https://api.github.com --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 
-# If hosted prerequisites are not ready yet, use a deterministic fallback
+# If hosted prerequisites are not ready yet after the scenario run, use a deterministic fallback
 wrkr scan --path ./your-repo --json
 
 # Developers: use the secondary local-machine hygiene path
@@ -137,7 +144,7 @@ export default function HomePage() {
           Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps a deterministic local-machine hygiene path available for developers.
         </p>
         <p className="text-base text-gray-500 max-w-3xl mx-auto mb-8">
-          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI. Start with org posture and evidence when hosted prerequisites are ready; use repo-local or local-machine fallback paths when you need zero-integration first value.
+          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI. Start with the curated scenario when you want the evaluator-safe path, then widen to org posture when hosted prerequisites are ready; use repo-local or local-machine fallback paths when you need zero-integration first value and want to avoid repo-root fixture noise in the Wrkr repo itself.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/docs/examples/security-team" className="px-6 py-3 bg-emerald-400 hover:bg-emerald-300 text-gray-950 font-semibold rounded-lg transition-colors">

@@ -39,7 +39,21 @@ Canonical pinned install and release-parity guidance lives in [`docs/install/min
 
 ## Start Here
 
-Security/platform-led launch path: start with the org posture workflow below when you want shared inventory, ranked risk, and compliance-ready evidence. If the hosted prerequisites are not ready yet, use the deterministic fallback paths below before returning to the org flow.
+Start with the curated scenario flow when you want the fastest evaluator-safe demo, then widen to org posture once you are ready for hosted acquisition. If the hosted prerequisites are not ready yet, use the deterministic fallback paths below before returning to the org flow.
+
+### Evaluators (Recommended first path)
+
+Use the curated scenario bundle first when you want copy-pasteable discovery, evidence, verify, and regress output without the repo-root fixture noise that shows up if you scan the Wrkr repository root directly.
+
+```bash
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
+wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
+```
+
+This curated path is the recommended first-value workflow for evaluation because it avoids repo-root fixture noise from Wrkr's own scenario, docs, and test fixtures while still showing the shipped wedge: discovery, posture, evidence, verification, and regression gates.
 
 ### Security Teams (Recommended first path)
 
@@ -60,6 +74,8 @@ wrkr verify --chain --state ./.wrkr/last-scan.json --json
 `--json` keeps stdout reserved for the final machine-readable payload. `--json-path` adds a byte-identical JSON artifact on disk, hosted org scans surface deterministic progress/retry/completion lines on stderr without polluting stdout JSON, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted.
 If a hosted org scan is interrupted, rerun the same target with `--resume`. Treat `partial_result`, `source_errors`, or `source_degraded` as incomplete posture output and rerun after rate limits, permission issues, or upstream failures are resolved.
 `wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain` remains the explicit operator/CI integrity gate. `--resume` also revalidates checkpoint files and reused materialized repo roots so symlink-swapped entries fail closed instead of being treated as trusted scan roots.
+
+If you are evaluating Wrkr itself, prefer the curated scenario above before scanning the repository root. The Wrkr repo contains scenario and test fixtures, so repo-root fixture noise can overwhelm the posture score and hide the intended first-value path.
 
 If hosted prerequisites are not ready yet, start with one of these deterministic fallback paths:
 
@@ -278,8 +294,11 @@ Wrkr answers both without requiring runtime interception or moving scan data out
 - Ranked findings, attack-path context, and posture scoring.
 - `inventory --diff` for drift review against a known-good snapshot.
 - Policy findings with stable rule IDs and remediation text.
+- Explicit `wrkr fix --apply` support for supported repo-file changes, with preview mode preserved for unsupported targets and `--max-prs` for deterministic grouping.
+- Packaged GitHub Action support through the repo-root `action.yml`, wrapping the same CLI contracts for scheduled scans, PR comments, SARIF, and repo-targeted remediation dispatch.
 - Compliance mappings for EU AI Act, SOC 2, PCI-DSS, and related frameworks.
 - Signed evidence bundles for audit and CI workflows.
+- Wrapped, paginated PDF executive summaries suitable for board-ready sharing when the acceptance fixtures stay green.
 - Native JSON, SARIF, and proof-friendly output contracts.
 
 ## What Wrkr Detects
@@ -361,9 +380,11 @@ wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last
 - `wrkr mcp-list` projects MCP posture from saved state.
 - `wrkr inventory --diff` shows deterministic drift from baseline.
 - `wrkr report` renders ranked summaries from saved state.
+- `wrkr fix` plans deterministic remediations, supports explicit apply mode for supported repo files, and can split publication across deterministic PR groups.
 - `wrkr evidence` builds signed, compliance-ready evidence bundles.
 - `wrkr verify` verifies proof-chain integrity.
 - `wrkr regress` gates on drift and regressions.
+- `action.yml` packages the scheduled/PR/SARIF automation wrapper around the CLI.
 - `wrkr version` reports CLI version in human or JSON form.
 
 ## Output And Contracts

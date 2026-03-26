@@ -19,11 +19,13 @@ For editing/validation workflow, see [`docs/map.md`](map.md).
 ## Start Here
 
 1. `README.md` for product overview and first-run value.
-2. `docs/concepts/mental_model.md` for boundary and workflow model.
-3. `docs/architecture.md` for deterministic pipeline boundaries.
-4. `docs/integration_checklist.md` for adoption in CI.
-5. `docs/commands/index.md` for command contract references.
-6. `docs/install/minimal-dependencies.md` for the pinned/reproducible install contract.
+2. `docs/examples/quickstart.md` for the evaluator-safe scenario-first workflow.
+3. `docs/examples/security-team.md` for the hosted org posture path after the scenario pass.
+4. `docs/concepts/mental_model.md` for boundary and workflow model.
+5. `docs/architecture.md` for deterministic pipeline boundaries.
+6. `docs/integration_checklist.md` for adoption in CI.
+7. `docs/commands/index.md` for command contract references.
+8. `docs/install/minimal-dependencies.md` for the pinned/reproducible install contract.
 
 ## Technical Foundations
 

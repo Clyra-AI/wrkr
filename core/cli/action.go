@@ -13,12 +13,17 @@ import (
 	"github.com/Clyra-AI/wrkr/core/github/pr"
 )
 
+const (
+	actionBehaviorContractSentenceOne = "wrkr action is the current shipped CLI-first automation surface for PR relevance and PR comment workflows."
+	actionBehaviorContractSentenceTwo = "Any packaged GitHub Action surface must wrap these CLI contracts rather than duplicating business logic."
+)
+
 func runAction(args []string, stdout io.Writer, stderr io.Writer) int {
 	if len(args) == 0 {
 		return emitError(stderr, wantsJSONOutput(args), "invalid_input", "action subcommand is required", exitInvalidInput)
 	}
 	if isHelpFlag(args[0]) {
-		_, _ = fmt.Fprintln(stderr, "Usage of wrkr action: action <pr-mode|pr-comment> [flags]")
+		writeActionUsage(stderr)
 		return exitSuccess
 	}
 
@@ -180,4 +185,13 @@ func parseChangedPaths(raw string) []string {
 		out = append(out, trimmed)
 	}
 	return out
+}
+
+func writeActionUsage(out io.Writer) {
+	_, _ = fmt.Fprintln(out, "Usage of wrkr action:")
+	_, _ = fmt.Fprintln(out, "  wrkr action <pr-mode|pr-comment> [flags]")
+	_, _ = fmt.Fprintln(out, "")
+	_, _ = fmt.Fprintln(out, "Behavior contract:")
+	_, _ = fmt.Fprintln(out, "  "+actionBehaviorContractSentenceOne)
+	_, _ = fmt.Fprintln(out, "  "+actionBehaviorContractSentenceTwo)
 }

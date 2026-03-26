@@ -21,6 +21,7 @@ Edit canonical documentation in repository markdown first (`README.md` + `docs/`
 
 README first-screen or quickstart changes should also update the affected docs-site LLM projection files (`docs-site/public/llms.txt`, `docs-site/public/llm/*.md`) in the same change.
 If the Wrkr README uses the landing-page Variant B contract, install and OSS trust/support details may live in canonical docs (`docs/install/*`, `docs/README.md`, `docs/trust/*`) instead of the README footer.
+Public contract wording changes should update `CHANGELOG.md` under `Unreleased` in the same change, even when runtime JSON, exit-code, and schema contracts stay unchanged.
 
 ## Required validation bundle
 

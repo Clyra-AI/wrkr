@@ -2,7 +2,7 @@
 
 Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
 
-Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps deterministic zero-integration fallback paths available when hosted prerequisites are not ready yet. This quickstart leads with the minimum-now org posture path, then shows the fallback and developer-machine flows.
+Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps deterministic zero-integration fallback paths available when hosted prerequisites are not ready yet. This quickstart leads with the evaluator-safe scenario flow, then widens to the org posture path and local fallback flows.
 
 ## Positioning
 
@@ -12,9 +12,23 @@ Wrkr is an AI-DSPM discovery and posture tool in the See -> Prove -> Control seq
 - Prove: proof-ready artifacts can flow into downstream evidence consumers.
 - Control: Gait is the optional runtime enforcement counterpart.
 
-The fastest minimum-now public value is `wrkr scan --github-org ... --json` followed by `wrkr evidence ... --json`. If hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first.
+The fastest minimum-now public value is the curated scenario path below. If hosted prerequisites are not ready yet after that, use the repo-local or local-machine fallback section later in this guide.
 
 Canonical local artifact paths are documented in [`docs/state_lifecycle.md`](../state_lifecycle.md).
+
+## Evaluator-safe scenario first
+
+Use the curated scenario bundle when you want a clean first pass through discovery, evidence, verify, and regress without the repo-root fixture noise in the Wrkr repository itself.
+
+```bash
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
+wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
+```
+
+Use this flow first when you want the evaluator-safe path. It avoids repo-root fixture noise from Wrkr's own scenarios, docs, and tests while still exercising the shipped wedge.
 
 ## Security/platform posture first
 
@@ -36,6 +50,8 @@ wrkr verify --chain --json
 
 If a hosted run is interrupted, rerun the same target with `--resume`. Retry/cooldown/resume progress stays on stderr in `--json` mode, and `partial_result` / `source_errors` means the posture output is incomplete until the run is repeated successfully.
 Resumed hosted scans also revalidate checkpoint files and reused materialized repo roots before detector execution, so symlink-swapped resume state is blocked as unsafe.
+
+If you scan the Wrkr repo root during evaluation, expect repo-root fixture noise because the repo includes intentionally noisy scenario and test fixtures. Use the curated scenario path above first, then move to your own repo or org target.
 
 Expected outputs:
 

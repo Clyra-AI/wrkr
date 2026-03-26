@@ -13,10 +13,16 @@ go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest
 wrkr version --json
 ```
 
-For the current public launch, the recommended first path is security/platform org posture and evidence. `wrkr scan --path ./your-repo --json` and `wrkr scan --my-setup --json` remain the zero-integration fallback paths when hosted setup is not ready yet.
+For the current public launch, the recommended first path is the curated scenario flow below, then security/platform org posture and evidence. Repo-local and local-machine fallbacks remain available later in the flow when hosted setup is not ready yet.
 When concrete local tool, MCP, or secret signals exist, `scan --my-setup --json` also emits additive `activation.items` so the local-machine path stays concrete without mutating the raw risk ranking.
 
 ```bash
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
+wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
+
 # Hosted prerequisites: set --github-api and usually a GitHub token for private repos or rate limits
 wrkr scan --github-org acme --github-api https://api.github.com --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
@@ -29,6 +35,7 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr
 ```
 
 `wrkr evidence` now fails closed when the saved proof chain is malformed or tampered, and `wrkr verify --chain --json` remains the explicit machine gate for integrity.
+Use the curated scenario first when you want the evaluator-safe path because it avoids repo-root fixture noise from Wrkr's own scenarios, docs, and test fixtures.
 
 Use these next when you want deeper triage:
 
