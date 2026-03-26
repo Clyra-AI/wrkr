@@ -473,3 +473,46 @@ func TestApplySecurityVisibilityDoesNotBorrowApprovalAcrossOrgs(t *testing.T) {
 		t.Fatalf("expected globex agent to stay unknown_to_security, got %+v", inv.Agents[1])
 	}
 }
+
+func TestInventoryBuildAddsNonHumanIdentitiesAdditively(t *testing.T) {
+	t.Parallel()
+
+	manifest := source.Manifest{
+		Target: source.Target{Mode: "repo", Value: "acme/backend"},
+		Repos:  []source.RepoManifest{{Repo: "acme/backend", Location: t.TempDir()}},
+	}
+	findings := []model.Finding{
+		{FindingType: "tool_config", ToolType: "codex", Location: "AGENTS.md", Repo: "acme/backend", Org: "acme"},
+		{
+			FindingType: "non_human_identity",
+			ToolType:    "non_human_identity",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "acme/backend",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "identity_type", Value: "github_app"},
+				{Key: "subject", Value: "github_app"},
+				{Key: "source", Value: "workflow_static_signal"},
+				{Key: "confidence", Value: "high"},
+			},
+		},
+	}
+	ctx := map[string]ToolContext{
+		KeyForFinding(findings[0]): {RiskScore: 4.1, EndpointClass: "workspace", DataClass: "code", AutonomyLevel: "interactive", ApprovalStatus: "missing", LifecycleState: "discovered"},
+	}
+
+	inv := Build(BuildInput{
+		Manifest:              manifest,
+		Findings:              findings,
+		Contexts:              ctx,
+		RepoExposureSummaries: []exposure.RepoExposureSummary{},
+		GeneratedAt:           time.Date(2026, 3, 26, 10, 0, 0, 0, time.UTC),
+	})
+
+	if len(inv.Tools) != 1 {
+		t.Fatalf("expected tool inventory unchanged, got %+v", inv.Tools)
+	}
+	if len(inv.NonHumanIdentities) != 1 || inv.NonHumanIdentities[0].IdentityType != "github_app" {
+		t.Fatalf("expected additive non-human identity inventory, got %+v", inv.NonHumanIdentities)
+	}
+}

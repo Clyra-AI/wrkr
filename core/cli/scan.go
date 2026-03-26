@@ -227,12 +227,14 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		RepoExposureSummaries: repoExposure,
 		GeneratedAt:           now,
 	})
+	approvedConfigured := false
 	if approvedToolsPolicyPath := strings.TrimSpace(*approvedToolsPath); approvedToolsPolicyPath != "" {
 		approvedCfg, approvedErr := approvedtools.Load(approvedToolsPolicyPath)
 		if approvedErr != nil {
 			return emitScanError("invalid_input", approvedErr.Error(), exitInvalidInput)
 		}
 		if approvedCfg.HasRules() {
+			approvedConfigured = true
 			agginventory.ReclassifyApprovalWithMatcher(&inventoryOut, func(tool agginventory.Tool) bool {
 				return approvedCfg.Match(approvedtools.ToolCandidate{
 					ToolID:   tool.ToolID,
@@ -242,6 +244,15 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 					Repos:    tool.Repos,
 				})
 			})
+		}
+	}
+	if targetMode == config.TargetMySetup {
+		findings = append(findings, approvedtools.CompareLocalInventory(&inventoryOut, approvedConfigured, strings.TrimSpace(*approvedToolsPath))...)
+		source.SortFindings(findings)
+		riskReport = risk.Score(findings, 5, now)
+		repoRisk = map[string]float64{}
+		for _, repo := range riskReport.Repos {
+			repoRisk[repo.Org+"::"+repo.Repo] = repo.Score
 		}
 	}
 	agginventory.ApplySecurityVisibility(&inventoryOut, buildSecurityVisibilityReference(previousSnapshot, statePath, strings.TrimSpace(*baselinePath)))

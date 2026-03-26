@@ -414,6 +414,12 @@ func privilegeLevel(finding model.Finding) float64 {
 	for _, permission := range finding.Permissions {
 		normalized := strings.ToLower(strings.TrimSpace(permission))
 		switch {
+		case normalized == "mcp.admin":
+			level += 2.4
+		case normalized == "mcp.write":
+			level += 1.8
+		case normalized == "mcp.read":
+			level += 0.8
 		case strings.Contains(normalized, "proc.exec"):
 			level += 2.4
 		case strings.Contains(normalized, "filesystem.write"):

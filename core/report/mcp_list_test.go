@@ -139,3 +139,44 @@ func TestBuildMCPListWarnsWhenKnownMCPDeclarationFilesFailToParse(t *testing.T) 
 		t.Fatalf("expected warning to name suppressed MCP declaration paths, got %v", payload.Warnings)
 	}
 }
+
+func TestBuildMCPListHighlightsUnprotectedAdminSurface(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPList(state.Snapshot{
+		Findings: []source.Finding{
+			{
+				FindingType: "mcp_server",
+				Severity:    model.SeverityHigh,
+				ToolType:    "mcp",
+				Location:    ".mcp.json",
+				Repo:        "local-machine",
+				Org:         "local",
+				Permissions: []string{"mcp.access", "mcp.read", "mcp.write", "mcp.admin"},
+				Evidence: []model.Evidence{
+					{Key: "server", Value: "admin-surface"},
+					{Key: "transport", Value: "stdio"},
+					{Key: "declared_action_surface", Value: "read,write,admin"},
+				},
+			},
+			{
+				FindingType: "mcp_gateway_posture",
+				ToolType:    "mcp",
+				Location:    ".mcp.json",
+				Repo:        "local-machine",
+				Org:         "local",
+				Evidence: []model.Evidence{
+					{Key: "declaration_name", Value: "admin-surface"},
+					{Key: "coverage", Value: "unprotected"},
+				},
+			},
+		},
+	}, time.Time{}, "", false)
+
+	if len(payload.Rows) != 1 {
+		t.Fatalf("expected one row, got %d", len(payload.Rows))
+	}
+	if !strings.Contains(payload.Rows[0].RiskNote, "admin-capable") || !strings.Contains(payload.Rows[0].RiskNote, "unprotected") {
+		t.Fatalf("expected admin-capable unprotected risk note, got %q", payload.Rows[0].RiskNote)
+	}
+}

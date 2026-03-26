@@ -23,11 +23,15 @@ func New() Detector { return Detector{} }
 func (Detector) ID() string { return detectorID }
 
 type serverDef struct {
-	Command   string            `json:"command" yaml:"command" toml:"command"`
-	Args      []string          `json:"args" yaml:"args" toml:"args"`
-	URL       string            `json:"url" yaml:"url" toml:"url"`
-	Transport string            `json:"transport" yaml:"transport" toml:"transport"`
-	Env       map[string]string `json:"env" yaml:"env" toml:"env"`
+	Command          string            `json:"command" yaml:"command" toml:"command"`
+	Args             []string          `json:"args" yaml:"args" toml:"args"`
+	URL              string            `json:"url" yaml:"url" toml:"url"`
+	Transport        string            `json:"transport" yaml:"transport" toml:"transport"`
+	Env              map[string]string `json:"env" yaml:"env" toml:"env"`
+	Permissions      []string          `json:"permissions" yaml:"permissions" toml:"permissions"`
+	PrivilegeSurface []string          `json:"privilegeSurface" yaml:"privilegeSurface" toml:"privilege_surface"`
+	Access           string            `json:"access" yaml:"access" toml:"access"`
+	Mode             string            `json:"mode" yaml:"mode" toml:"mode"`
 }
 
 type mcpDoc struct {
@@ -97,6 +101,7 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 			transport := inferTransport(server)
 			credentialRefs := countCredentialRefs(server)
 			pinned := isPinned(server)
+			actionSurface := deriveDeclaredActionSurface(server)
 			trustScore := supplychain.ScoreMCP(supplychain.MCPInput{
 				Transport:      transport,
 				Pinned:         pinned,
@@ -111,6 +116,7 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 				{Key: "lockfile", Value: fmt.Sprintf("%t", lockfilePresent)},
 				{Key: "credential_refs", Value: fmt.Sprintf("%d", credentialRefs)},
 				{Key: "trust_score", Value: fmt.Sprintf("%.1f", trustScore)},
+				{Key: "declared_action_surface", Value: fallbackValue(strings.Join(actionSurface, ","), "unknown")},
 			}
 			if options.Enrich {
 				pkg, version := extractPackageVersion(server)
@@ -133,6 +139,8 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 					model.Evidence{Key: "registry_status", Value: enrichResult.RegistryStatus},
 				)
 			}
+			permissions := []string{"mcp.access"}
+			permissions = append(permissions, actionSurfacePermissions(actionSurface)...)
 			findings = append(findings, model.Finding{
 				FindingType: "mcp_server",
 				Severity:    severity,
@@ -141,7 +149,7 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 				Repo:        scope.Repo,
 				Org:         fallbackOrg(scope.Org),
 				Detector:    detectorID,
-				Permissions: []string{"mcp.access"},
+				Permissions: permissions,
 				Evidence:    evidence,
 				Remediation: "Pin MCP server package versions and remove credential-bearing transports where possible.",
 			})
@@ -289,6 +297,80 @@ func fallbackOrg(org string) string {
 		return "local"
 	}
 	return org
+}
+
+func deriveDeclaredActionSurface(server serverDef) []string {
+	set := map[string]struct{}{}
+	addActionSurfaceTokens(set, server.Permissions)
+	addActionSurfaceTokens(set, server.PrivilegeSurface)
+	addActionSurfaceTokens(set, []string{server.Access, server.Mode})
+	if len(set) == 0 {
+		return nil
+	}
+	if _, ok := set["admin"]; ok {
+		set["read"] = struct{}{}
+		set["write"] = struct{}{}
+	}
+	if _, ok := set["write"]; ok {
+		set["read"] = struct{}{}
+	}
+	out := make([]string, 0, len(set))
+	for _, item := range []string{"read", "write", "admin"} {
+		if _, ok := set[item]; ok {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func addActionSurfaceTokens(out map[string]struct{}, values []string) {
+	for _, value := range values {
+		if token := normalizeActionSurfaceToken(value); token != "" {
+			out[token] = struct{}{}
+		}
+	}
+}
+
+func normalizeActionSurfaceToken(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	switch {
+	case normalized == "":
+		return ""
+	case strings.Contains(normalized, "admin"),
+		strings.Contains(normalized, "root"),
+		strings.Contains(normalized, "owner"),
+		strings.Contains(normalized, "manage"),
+		strings.Contains(normalized, "configure"):
+		return "admin"
+	case strings.Contains(normalized, "write"),
+		strings.Contains(normalized, "edit"),
+		strings.Contains(normalized, "delete"),
+		strings.Contains(normalized, "shell"),
+		strings.Contains(normalized, "exec"),
+		strings.Contains(normalized, "run"),
+		strings.Contains(normalized, "deploy"):
+		return "write"
+	case strings.Contains(normalized, "read"),
+		strings.Contains(normalized, "list"),
+		strings.Contains(normalized, "query"),
+		strings.Contains(normalized, "search"),
+		strings.Contains(normalized, "fetch"),
+		strings.Contains(normalized, "browse"):
+		return "read"
+	default:
+		return ""
+	}
+}
+
+func actionSurfacePermissions(surface []string) []string {
+	if len(surface) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(surface))
+	for _, item := range surface {
+		out = append(out, "mcp."+item)
+	}
+	return out
 }
 
 func sortedServerNames(in map[string]serverDef) []string {

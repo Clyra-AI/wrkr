@@ -66,6 +66,9 @@ func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath st
 		rowKey := mcpRowKey(finding.Org, finding.Repo, finding.Location, serverName)
 		toolKey := mcpToolKey(finding.Org, finding.Repo, finding.Location)
 		privilegeSurface := append([]string(nil), toolSurfaces[toolKey]...)
+		if len(privilegeSurface) == 0 {
+			privilegeSurface = declaredActionSurface(evidence["declared_action_surface"])
+		}
 		trustStatus := overlay[strings.ToLower(strings.TrimSpace(serverName))]
 		if trustStatus == "" {
 			trustStatus = MCPTrustUnavailable
@@ -81,7 +84,7 @@ func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath st
 			PrivilegeSurface:     privilegeSurface,
 			GatewayCoverage:      fallbackString(gatewayCoverage[rowKey], "unknown"),
 			TrustStatus:          trustStatus,
-			RiskNote:             buildMCPRiskNote(finding, trustStatus, fallbackString(gatewayCoverage[rowKey], "unknown")),
+			RiskNote:             buildMCPRiskNote(finding, trustStatus, fallbackString(gatewayCoverage[rowKey], "unknown"), privilegeSurface),
 		}
 		rows = append(rows, row)
 	}
@@ -266,12 +269,24 @@ func privilegeSurfaceList(surface agginventory.PermissionSurface, permissions []
 	return items
 }
 
-func buildMCPRiskNote(finding model.Finding, trustStatus, gatewayCoverage string) string {
+func buildMCPRiskNote(finding model.Finding, trustStatus, gatewayCoverage string, privilegeSurface []string) string {
+	surfaceLabel := ""
+	switch {
+	case containsString(privilegeSurface, "admin"):
+		surfaceLabel = "admin-capable"
+	case containsString(privilegeSurface, "write"):
+		surfaceLabel = "write-capable"
+	case containsString(privilegeSurface, "read"):
+		surfaceLabel = "read-capable"
+	}
 	switch trustStatus {
 	case MCPTrustBlocked:
 		return "Gait trust overlay marks this server blocked."
 	case MCPTrustUnavailable:
 		if gatewayCoverage == "unprotected" {
+			if surfaceLabel != "" {
+				return "No local Gait trust overlay; gateway posture is unprotected for a " + surfaceLabel + " MCP surface."
+			}
 			return "No local Gait trust overlay; gateway posture is unprotected."
 		}
 		return "No local Gait trust overlay; static discovery only."
@@ -279,9 +294,24 @@ func buildMCPRiskNote(finding model.Finding, trustStatus, gatewayCoverage string
 
 	switch gatewayCoverage {
 	case "unprotected":
+		if surfaceLabel != "" {
+			return "Gateway posture is unprotected for a " + surfaceLabel + " MCP surface."
+		}
 		return "Gateway posture is unprotected; review least-privilege controls."
 	case "unknown":
+		if surfaceLabel != "" {
+			return "Gateway posture is unknown; verify transport and " + surfaceLabel + " access scope."
+		}
 		return "Gateway posture is unknown; verify transport and access scope."
+	}
+
+	switch surfaceLabel {
+	case "admin-capable":
+		return "Static MCP declaration advertises an admin-capable surface; verify package pinning and trust."
+	case "write-capable":
+		return "Static MCP declaration advertises a write-capable surface; verify least-privilege controls."
+	case "read-capable":
+		return "Static MCP declaration advertises a read-capable surface; verify package pinning and trust."
 	}
 
 	switch strings.ToLower(strings.TrimSpace(finding.Severity)) {
@@ -292,6 +322,33 @@ func buildMCPRiskNote(finding model.Finding, trustStatus, gatewayCoverage string
 	default:
 		return "Static MCP declaration discovered; verify package pinning and trust."
 	}
+}
+
+func declaredActionSurface(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	items := strings.Split(strings.TrimSpace(raw), ",")
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		switch trimmed := strings.TrimSpace(item); trimmed {
+		case "read", "write", "admin":
+			out = append(out, trimmed)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == strings.TrimSpace(target) {
+			return true
+		}
+	}
+	return false
 }
 
 func loadMCPTrustOverlay(rawPath string, allowAmbientOverlay bool) (map[string]string, []string) {

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ops-admin": {
+      "command": "npx",
+      "args": ["-y", "ops-admin@1"],
+      "privilegeSurface": ["admin"]
+    }
+  }
+}

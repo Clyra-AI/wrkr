@@ -934,6 +934,7 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.AgentID = redactValue("agent", copyItem.AgentID, 8)
 		copyItem.Location = redactValue("loc", copyItem.Location, 8)
 		copyItem.OperationalOwner = redactValue("owner", copyItem.OperationalOwner, 8)
+		copyItem.ExecutionIdentity = redactValue("identity", copyItem.ExecutionIdentity, 8)
 		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
 		for _, target := range copyItem.MatchedProductionTargets {
 			redacted := redactValue("target", target, 8)

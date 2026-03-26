@@ -102,17 +102,39 @@ type Summary struct {
 	LowRisk    int `json:"low_risk" yaml:"low_risk"`
 }
 
+type LocalGovernanceSummary struct {
+	ReferenceBasis    string `json:"reference_basis" yaml:"reference_basis"`
+	ReferencePath     string `json:"reference_path,omitempty" yaml:"reference_path,omitempty"`
+	Status            string `json:"status" yaml:"status"`
+	SanctionedTools   int    `json:"sanctioned_tools" yaml:"sanctioned_tools"`
+	UnsanctionedTools int    `json:"unsanctioned_tools" yaml:"unsanctioned_tools"`
+	UnknownTools      int    `json:"unknown_tools" yaml:"unknown_tools"`
+}
+
+type NonHumanIdentity struct {
+	IdentityID   string `json:"identity_id" yaml:"identity_id"`
+	IdentityType string `json:"identity_type" yaml:"identity_type"`
+	Subject      string `json:"subject" yaml:"subject"`
+	Source       string `json:"source" yaml:"source"`
+	Org          string `json:"org" yaml:"org"`
+	Repo         string `json:"repo" yaml:"repo"`
+	Location     string `json:"location" yaml:"location"`
+	Confidence   string `json:"confidence,omitempty" yaml:"confidence,omitempty"`
+}
+
 type Inventory struct {
 	InventoryVersion      string                         `json:"inventory_version" yaml:"inventory_version"`
 	GeneratedAt           string                         `json:"generated_at" yaml:"generated_at"`
 	Org                   string                         `json:"org" yaml:"org"`
 	Agents                []Agent                        `json:"agents" yaml:"agents"`
 	Tools                 []Tool                         `json:"tools" yaml:"tools"`
+	NonHumanIdentities    []NonHumanIdentity             `json:"non_human_identities,omitempty" yaml:"non_human_identities,omitempty"`
 	Methodology           MethodologySummary             `json:"methodology" yaml:"methodology"`
 	ApprovalSummary       ApprovalSummary                `json:"approval_summary" yaml:"approval_summary"`
 	AdoptionSummary       AdoptionSummary                `json:"adoption_summary" yaml:"adoption_summary"`
 	RegulatorySummary     RegulatorySummary              `json:"regulatory_summary" yaml:"regulatory_summary"`
 	SecurityVisibility    SecurityVisibilitySummary      `json:"security_visibility_summary" yaml:"security_visibility_summary"`
+	LocalGovernance       *LocalGovernanceSummary        `json:"local_governance,omitempty" yaml:"local_governance,omitempty"`
 	RepoExposureSummaries []exposure.RepoExposureSummary `json:"repo_exposure_summaries" yaml:"repo_exposure_summaries"`
 	PrivilegeBudget       PrivilegeBudget                `json:"privilege_budget" yaml:"privilege_budget"`
 	AgentPrivilegeMap     []AgentPrivilegeMapEntry       `json:"agent_privilege_map" yaml:"agent_privilege_map"`
@@ -225,6 +247,7 @@ func Build(input BuildInput) Inventory {
 		generatedAt = time.Now().UTC().Truncate(time.Second)
 	}
 	org := deriveOrg(input.Manifest)
+	nonHumanIdentities := collectNonHumanIdentities(input.Findings, org)
 
 	type accumulator struct {
 		tool          Tool
@@ -435,6 +458,7 @@ func Build(input BuildInput) Inventory {
 		Org:                   org,
 		Agents:                agents,
 		Tools:                 tools,
+		NonHumanIdentities:    nonHumanIdentities,
 		Methodology:           normalizeMethodology(input.Methodology),
 		ApprovalSummary:       approvalSummary,
 		AdoptionSummary:       adoptionSummary,
@@ -452,6 +476,58 @@ func Build(input BuildInput) Inventory {
 		AgentPrivilegeMap: []AgentPrivilegeMapEntry{},
 		Summary:           summary,
 	}
+}
+
+func collectNonHumanIdentities(findings []model.Finding, fallbackOrgValue string) []NonHumanIdentity {
+	items := make([]NonHumanIdentity, 0)
+	seen := map[string]struct{}{}
+	for _, finding := range findings {
+		if strings.TrimSpace(finding.FindingType) != "non_human_identity" {
+			continue
+		}
+		evidence := map[string]string{}
+		for _, item := range finding.Evidence {
+			evidence[strings.TrimSpace(item.Key)] = strings.TrimSpace(item.Value)
+		}
+		key := strings.Join([]string{
+			fallback(strings.TrimSpace(finding.Org), fallbackOrgValue),
+			strings.TrimSpace(finding.Repo),
+			strings.TrimSpace(finding.Location),
+			strings.TrimSpace(evidence["identity_type"]),
+			strings.TrimSpace(evidence["subject"]),
+			strings.TrimSpace(evidence["source"]),
+		}, "|")
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		items = append(items, NonHumanIdentity{
+			IdentityID:   key,
+			IdentityType: strings.TrimSpace(evidence["identity_type"]),
+			Subject:      strings.TrimSpace(evidence["subject"]),
+			Source:       strings.TrimSpace(evidence["source"]),
+			Org:          fallback(strings.TrimSpace(finding.Org), fallbackOrgValue),
+			Repo:         strings.TrimSpace(finding.Repo),
+			Location:     strings.TrimSpace(finding.Location),
+			Confidence:   strings.TrimSpace(evidence["confidence"]),
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Org != items[j].Org {
+			return items[i].Org < items[j].Org
+		}
+		if items[i].Repo != items[j].Repo {
+			return items[i].Repo < items[j].Repo
+		}
+		if items[i].IdentityType != items[j].IdentityType {
+			return items[i].IdentityType < items[j].IdentityType
+		}
+		if items[i].Subject != items[j].Subject {
+			return items[i].Subject < items[j].Subject
+		}
+		return items[i].Location < items[j].Location
+	})
+	return items
 }
 
 func ApplySecurityVisibility(inv *Inventory, ref SecurityVisibilityReference) {

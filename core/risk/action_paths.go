@@ -3,6 +3,7 @@ package risk
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -18,31 +19,36 @@ type ActionPathSummary struct {
 }
 
 type ActionPath struct {
-	PathID                   string   `json:"path_id"`
-	Org                      string   `json:"org"`
-	Repo                     string   `json:"repo"`
-	AgentID                  string   `json:"agent_id,omitempty"`
-	ToolType                 string   `json:"tool_type"`
-	Location                 string   `json:"location,omitempty"`
-	WriteCapable             bool     `json:"write_capable"`
-	OperationalOwner         string   `json:"operational_owner,omitempty"`
-	OwnerSource              string   `json:"owner_source,omitempty"`
-	OwnershipStatus          string   `json:"ownership_status,omitempty"`
-	ApprovalGapReasons       []string `json:"approval_gap_reasons,omitempty"`
-	PullRequestWrite         bool     `json:"pull_request_write,omitempty"`
-	MergeExecute             bool     `json:"merge_execute,omitempty"`
-	DeployWrite              bool     `json:"deploy_write,omitempty"`
-	DeliveryChainStatus      string   `json:"delivery_chain_status,omitempty"`
-	ProductionTargetStatus   string   `json:"production_target_status,omitempty"`
-	ProductionWrite          bool     `json:"production_write"`
-	ApprovalGap              bool     `json:"approval_gap"`
-	SecurityVisibilityStatus string   `json:"security_visibility_status,omitempty"`
-	CredentialAccess         bool     `json:"credential_access"`
-	DeploymentStatus         string   `json:"deployment_status,omitempty"`
-	AttackPathScore          float64  `json:"attack_path_score"`
-	RiskScore                float64  `json:"risk_score"`
-	RecommendedAction        string   `json:"recommended_action"`
-	MatchedProductionTargets []string `json:"matched_production_targets,omitempty"`
+	PathID                     string   `json:"path_id"`
+	Org                        string   `json:"org"`
+	Repo                       string   `json:"repo"`
+	AgentID                    string   `json:"agent_id,omitempty"`
+	ToolType                   string   `json:"tool_type"`
+	Location                   string   `json:"location,omitempty"`
+	WriteCapable               bool     `json:"write_capable"`
+	OperationalOwner           string   `json:"operational_owner,omitempty"`
+	OwnerSource                string   `json:"owner_source,omitempty"`
+	OwnershipStatus            string   `json:"ownership_status,omitempty"`
+	ApprovalGapReasons         []string `json:"approval_gap_reasons,omitempty"`
+	PullRequestWrite           bool     `json:"pull_request_write,omitempty"`
+	MergeExecute               bool     `json:"merge_execute,omitempty"`
+	DeployWrite                bool     `json:"deploy_write,omitempty"`
+	DeliveryChainStatus        string   `json:"delivery_chain_status,omitempty"`
+	ProductionTargetStatus     string   `json:"production_target_status,omitempty"`
+	ProductionWrite            bool     `json:"production_write"`
+	ApprovalGap                bool     `json:"approval_gap"`
+	SecurityVisibilityStatus   string   `json:"security_visibility_status,omitempty"`
+	CredentialAccess           bool     `json:"credential_access"`
+	DeploymentStatus           string   `json:"deployment_status,omitempty"`
+	ExecutionIdentity          string   `json:"execution_identity,omitempty"`
+	ExecutionIdentityType      string   `json:"execution_identity_type,omitempty"`
+	ExecutionIdentitySource    string   `json:"execution_identity_source,omitempty"`
+	ExecutionIdentityStatus    string   `json:"execution_identity_status,omitempty"`
+	ExecutionIdentityRationale string   `json:"execution_identity_rationale,omitempty"`
+	AttackPathScore            float64  `json:"attack_path_score"`
+	RiskScore                  float64  `json:"risk_score"`
+	RecommendedAction          string   `json:"recommended_action"`
+	MatchedProductionTargets   []string `json:"matched_production_targets,omitempty"`
 }
 
 type ActionPathToControlFirst struct {
@@ -69,32 +75,38 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 		if !shouldIncludeActionPath(entry) {
 			continue
 		}
+		executionIdentity, executionIdentityType, executionIdentitySource, executionIdentityStatus, executionIdentityRationale := correlateExecutionIdentity(entry, inventory.NonHumanIdentities)
 		path := ActionPath{
-			PathID:                   actionPathID(entry),
-			Org:                      strings.TrimSpace(entry.Org),
-			Repo:                     firstRepoFromEntry(entry),
-			AgentID:                  strings.TrimSpace(entry.AgentID),
-			ToolType:                 actionPathToolType(entry),
-			Location:                 strings.TrimSpace(entry.Location),
-			WriteCapable:             entry.WriteCapable,
-			OperationalOwner:         strings.TrimSpace(entry.OperationalOwner),
-			OwnerSource:              strings.TrimSpace(entry.OwnerSource),
-			OwnershipStatus:          strings.TrimSpace(entry.OwnershipStatus),
-			ApprovalGapReasons:       append([]string(nil), entry.ApprovalGapReasons...),
-			PullRequestWrite:         entry.PullRequestWrite,
-			MergeExecute:             entry.MergeExecute,
-			DeployWrite:              entry.DeployWrite,
-			DeliveryChainStatus:      strings.TrimSpace(entry.DeliveryChainStatus),
-			ProductionTargetStatus:   strings.TrimSpace(entry.ProductionTargetStatus),
-			ProductionWrite:          entry.ProductionWrite,
-			ApprovalGap:              actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons),
-			SecurityVisibilityStatus: strings.TrimSpace(entry.SecurityVisibilityStatus),
-			CredentialAccess:         entry.CredentialAccess,
-			DeploymentStatus:         strings.TrimSpace(entry.DeploymentStatus),
-			AttackPathScore:          attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
-			RiskScore:                entry.RiskScore,
-			RecommendedAction:        actionPathRecommendedAction(entry),
-			MatchedProductionTargets: append([]string(nil), entry.MatchedProductionTargets...),
+			PathID:                     actionPathID(entry),
+			Org:                        strings.TrimSpace(entry.Org),
+			Repo:                       firstRepoFromEntry(entry),
+			AgentID:                    strings.TrimSpace(entry.AgentID),
+			ToolType:                   actionPathToolType(entry),
+			Location:                   strings.TrimSpace(entry.Location),
+			WriteCapable:               entry.WriteCapable,
+			OperationalOwner:           strings.TrimSpace(entry.OperationalOwner),
+			OwnerSource:                strings.TrimSpace(entry.OwnerSource),
+			OwnershipStatus:            strings.TrimSpace(entry.OwnershipStatus),
+			ApprovalGapReasons:         append([]string(nil), entry.ApprovalGapReasons...),
+			PullRequestWrite:           entry.PullRequestWrite,
+			MergeExecute:               entry.MergeExecute,
+			DeployWrite:                entry.DeployWrite,
+			DeliveryChainStatus:        strings.TrimSpace(entry.DeliveryChainStatus),
+			ProductionTargetStatus:     strings.TrimSpace(entry.ProductionTargetStatus),
+			ProductionWrite:            entry.ProductionWrite,
+			ApprovalGap:                actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons),
+			SecurityVisibilityStatus:   strings.TrimSpace(entry.SecurityVisibilityStatus),
+			CredentialAccess:           entry.CredentialAccess,
+			DeploymentStatus:           strings.TrimSpace(entry.DeploymentStatus),
+			ExecutionIdentity:          executionIdentity,
+			ExecutionIdentityType:      executionIdentityType,
+			ExecutionIdentitySource:    executionIdentitySource,
+			ExecutionIdentityStatus:    executionIdentityStatus,
+			ExecutionIdentityRationale: executionIdentityRationale,
+			AttackPathScore:            attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
+			RiskScore:                  entry.RiskScore,
+			RecommendedAction:          actionPathRecommendedAction(entry),
+			MatchedProductionTargets:   append([]string(nil), entry.MatchedProductionTargets...),
 		}
 		paths = append(paths, path)
 		summary.TotalPaths++
@@ -247,4 +259,46 @@ func actionPathID(entry agginventory.AgentPrivilegeMapEntry) string {
 	}
 	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
 	return "apc-" + hex.EncodeToString(sum[:6])
+}
+
+func correlateExecutionIdentity(entry agginventory.AgentPrivilegeMapEntry, identities []agginventory.NonHumanIdentity) (string, string, string, string, string) {
+	if len(identities) == 0 {
+		return "", "", "", "unknown", "no static non-human identity evidence matched this path"
+	}
+	matches := make([]agginventory.NonHumanIdentity, 0)
+	for _, identity := range identities {
+		if strings.TrimSpace(identity.Org) != strings.TrimSpace(entry.Org) {
+			continue
+		}
+		if strings.TrimSpace(identity.Repo) != firstRepoFromEntry(entry) {
+			continue
+		}
+		if strings.TrimSpace(identity.Location) != strings.TrimSpace(entry.Location) {
+			continue
+		}
+		matches = append(matches, identity)
+	}
+	if len(matches) == 0 {
+		return "", "", "", "unknown", "no static non-human identity evidence matched this path"
+	}
+	if len(matches) == 1 {
+		if strings.TrimSpace(matches[0].IdentityType) == "unknown" {
+			return "", "unknown", strings.TrimSpace(matches[0].Source), "unknown", "static identity evidence stayed ambiguous for this path"
+		}
+		return strings.TrimSpace(matches[0].Subject), strings.TrimSpace(matches[0].IdentityType), strings.TrimSpace(matches[0].Source), "known", "static workflow identity evidence matched this path"
+	}
+	unique := map[string]agginventory.NonHumanIdentity{}
+	for _, item := range matches {
+		key := strings.Join([]string{item.IdentityType, item.Subject, item.Source}, "|")
+		unique[key] = item
+	}
+	if len(unique) == 1 {
+		for _, item := range unique {
+			if strings.TrimSpace(item.IdentityType) == "unknown" {
+				return "", "unknown", strings.TrimSpace(item.Source), "unknown", "static identity evidence stayed ambiguous for this path"
+			}
+			return strings.TrimSpace(item.Subject), strings.TrimSpace(item.IdentityType), strings.TrimSpace(item.Source), "known", "static workflow identity evidence matched this path"
+		}
+	}
+	return "", "ambiguous", "", "ambiguous", fmt.Sprintf("%d non-human identity candidates matched this path", len(unique))
 }
