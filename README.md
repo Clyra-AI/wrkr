@@ -59,6 +59,7 @@ wrkr verify --chain --state ./.wrkr/last-scan.json --json
 
 `--json` keeps stdout reserved for the final machine-readable payload. `--json-path` adds a byte-identical JSON artifact on disk, hosted org scans surface deterministic progress/retry/completion lines on stderr without polluting stdout JSON, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted.
 If a hosted org scan is interrupted, rerun the same target with `--resume`. Treat `partial_result`, `source_errors`, or `source_degraded` as incomplete posture output and rerun after rate limits, permission issues, or upstream failures are resolved.
+`wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain` remains the explicit operator/CI integrity gate. `--resume` also revalidates checkpoint files and reused materialized repo roots so symlink-swapped entries fail closed instead of being treated as trusted scan roots.
 
 If hosted prerequisites are not ready yet, start with one of these deterministic fallback paths:
 
@@ -344,6 +345,8 @@ wrkr report --top 5 --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
+
+Treat malformed or tampered proof state as a hard blocker: `wrkr evidence` now fails closed before publish, and `wrkr verify --chain --json` remains the explicit machine gate to run in CI or release promotion flows.
 
 ### CI distribution
 

@@ -17,6 +17,8 @@ wrkr evidence --frameworks <comma-separated-frameworks> [--output <dir>] [--stat
 
 Evidence output directories are fail-closed:
 
+- Wrkr verifies the saved proof chain before any staged bundle write or publish step.
+- Malformed or tampered proof chains fail closed before a new bundle is staged or published.
 - Wrkr writes ownership marker `.wrkr-evidence-managed` in managed directories.
 - A non-empty, non-managed output directory is blocked.
 - Marker path must be a regular file; symlink or directory markers are blocked.
@@ -28,7 +30,7 @@ Evidence output directories are fail-closed:
 
 `wrkr evidence --json` emits stable machine-readable error classes:
 
-- `runtime_failure` (exit `1`) for runtime/environment/state prerequisites (for example missing state snapshot/proof chain/signing material).
+- `runtime_failure` (exit `1`) for runtime/environment/state prerequisites (for example missing state snapshot/proof chain/signing material, or malformed/tampered proof chains).
 - `invalid_input` (exit `6`) for caller-controlled invalid arguments (for example unknown framework IDs).
 - `unsafe_operation_blocked` (exit `8`) for output-path ownership/marker safety violations.
 
@@ -60,7 +62,8 @@ Security-team handoff example:
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
 ```
 
-Pair this with the saved-state `wrkr report` and `wrkr verify` flow documented in [`docs/examples/security-team.md`](../examples/security-team.md).
+Pair this with the saved-state `wrkr report` and explicit proof-chain verification flow documented in [`docs/examples/security-team.md`](../examples/security-team.md).
+`wrkr evidence` now requires the saved proof chain to be intact before it will stage or publish a bundle; it does not replace the explicit operator or CI proof-chain verification gate.
 
 Expected JSON keys: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`, `report_artifacts`.
 Evidence bundle includes deterministic inventory exports at `inventory.json`, `inventory-snapshot.json`, and `inventory.yaml`.
@@ -71,6 +74,6 @@ If the saved scan state does not carry a usable reference basis, Wrkr suppresses
 When the scanned target is `my_setup`, the bundle also includes `personal-inventory-snapshot.json`.
 When MCP declarations are present, the bundle also includes `mcp-catalog.json`.
 
-Wrkr evidence packages saved posture into proof artifacts; it does not replace package vulnerability or server-hardening scanners. Gait interoperability remains optional and downstream of this file-based output.
+Wrkr evidence packages saved posture into proof artifacts; it does not replace the explicit proof-chain verification gate, package vulnerability scanners, or server-hardening scanners. Gait interoperability remains optional and downstream of this file-based output.
 
 Canonical state and proof-chain path behavior: [`docs/state_lifecycle.md`](../state_lifecycle.md).

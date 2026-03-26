@@ -30,6 +30,7 @@ wrkr verify --chain --state ./.tmp/state.json --json
 ## Notes
 
 Proof verification is local and deterministic. Wrkr now always performs structural chain verification even when attestation or signature material verifies successfully.
+`wrkr evidence` reuses this verification runtime as a fail-closed prerequisite before it stages or publishes a bundle, but it still returns evidence-specific `runtime_failure` errors rather than `verify`'s exit `2` contract.
 If no verifier key exists, success remains possible only with explicit structural-only JSON status (`chain.verification_mode = chain_only`, `chain.authenticity_status = unavailable`).
 When `--path` is passed without `--state`, Wrkr resolves verifier material beside that explicit chain path; ambient `WRKR_STATE_PATH` does not override it.
 When `--state` is also passed, verifier lookup stays anchored to the explicit state directory.
@@ -48,3 +49,7 @@ Exit code `2` indicates verification failure and should fail CI immediately.
 ### How do I gate merges on proof integrity?
 
 Run `wrkr verify --chain --json` in CI and require exit code `0` before continuing to promotion or merge.
+
+### Does `wrkr evidence` replace `wrkr verify --chain`?
+
+No. `wrkr evidence` now fails closed when the saved proof chain is malformed or tampered, but `wrkr verify --chain --json` remains the explicit operator and CI integrity gate.

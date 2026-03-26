@@ -19,6 +19,8 @@ wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
 
+`wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain --json` remains the explicit operator/CI integrity gate.
+
 If a hosted org scan is interrupted, rerun the same target with `--resume` to reuse checkpointed materialization state under the scan-state directory:
 
 ```bash
@@ -30,6 +32,7 @@ Interpretation notes:
 - retry, cooldown, resume, and completion progress lines are additive stderr-only operator UX in `--json` mode
 - `partial_result`, `source_errors`, or `source_degraded` means the org posture is incomplete and should be rerun before downstream campaign-style aggregation
 - `org-checkpoints/` is resumability metadata beside the scan state, not a proof artifact
+- `--resume` revalidates checkpoint files and reused materialized repo roots before detector execution, so symlink-swapped resume state is blocked as unsafe
 
 Optional deeper triage after the saved state exists:
 
@@ -53,7 +56,7 @@ wrkr report --top 5 --json
 - `scan` and `mcp-list` answer inventory, privilege, and trust-overlay questions.
 - `scan` is the place to count unknown-to-security write-capable paths; use `inventory.security_visibility_summary.unknown_to_security_write_capable_agents` only when `inventory.security_visibility_summary.reference_basis` is present for that run.
 - `report` gives the ranked operator summary for triage.
-- `evidence` and `verify` package the saved posture into portable proof artifacts for audit/compliance workflows.
+- `evidence` packages the saved posture into portable proof artifacts only when the saved proof chain is intact, and `verify` remains the explicit machine gate for proof integrity.
 
 ## Scope boundary
 

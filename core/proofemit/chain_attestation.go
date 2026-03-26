@@ -41,6 +41,10 @@ func chainAttestationPath(path string) string {
 	return filepath.Join(dir, "proof-chain.attestation.json")
 }
 
+func ChainAttestationPath(path string) string {
+	return chainAttestationPath(path)
+}
+
 func saveChainAttestation(chainPath string, recordCount int, headHash string, key signing.SigningKey) error {
 	payload, err := os.ReadFile(chainPath) // #nosec G304 -- attestation is bound to the explicit local proof chain path.
 	if err != nil {

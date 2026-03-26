@@ -184,21 +184,46 @@ func AcquireMaterialized(
 
 func manifestFromCheckpoint(repo string, materializedRoot string) (source.RepoManifest, error) {
 	location := filepath.Join(materializedRoot, filepath.FromSlash(strings.TrimSpace(repo)))
-	info, err := os.Stat(location)
+	info, err := os.Lstat(location)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return source.RepoManifest{}, newCheckpointInputError("resume checkpoint repo materialization missing: %s", repo)
 		}
-		return source.RepoManifest{}, fmt.Errorf("stat resumed repo materialization %s: %w", location, err)
+		return source.RepoManifest{}, fmt.Errorf("lstat resumed repo materialization %s: %w", location, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return source.RepoManifest{}, newCheckpointSafetyError("resume checkpoint repo materialization must not be a symlink: %s", location)
 	}
 	if !info.IsDir() {
 		return source.RepoManifest{}, newCheckpointInputError("resume checkpoint repo materialization is not a directory: %s", location)
+	}
+	canonicalRoot, err := filepath.EvalSymlinks(materializedRoot)
+	if err != nil {
+		return source.RepoManifest{}, fmt.Errorf("resolve materialized root %s: %w", materializedRoot, err)
+	}
+	resolvedLocation, err := filepath.EvalSymlinks(location)
+	if err != nil {
+		return source.RepoManifest{}, fmt.Errorf("resolve resumed repo materialization %s: %w", location, err)
+	}
+	if !materializedLocationWithinRoot(canonicalRoot, resolvedLocation) {
+		return source.RepoManifest{}, newCheckpointSafetyError("resume checkpoint repo materialization escapes managed root: %s", location)
 	}
 	return source.RepoManifest{
 		Repo:     strings.TrimSpace(repo),
 		Location: filepath.ToSlash(location),
 		Source:   "github_repo_materialized",
 	}, nil
+}
+
+func materializedLocationWithinRoot(root string, candidate string) bool {
+	rel, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func sortMaterialized(repos []source.RepoManifest, failures []source.RepoFailure) {
