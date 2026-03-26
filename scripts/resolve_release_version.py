@@ -82,19 +82,8 @@ def latest_semver_tag(repo_root: Path) -> str:
 
 
 def has_changes_since(repo_root: Path, ref: str) -> bool:
-    # Local trusted git invocation with fixed argv; shell is never used.
-    proc = subprocess.run(  # nosec B603,B607
-        ["git", "-C", str(repo_root), "diff", "--quiet", f"{ref}..HEAD", "--"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode == 0:
-        return False
-    if proc.returncode == 1:
-        return True
-    detail = proc.stderr.strip() or proc.stdout.strip() or "git diff failed"
-    raise RuntimeError(f"git diff --quiet {ref}..HEAD --: {detail}")
+    output = run_git(repo_root, "diff", "--name-only", f"{ref}..HEAD", "--")
+    return bool(output.splitlines())
 
 
 def parse_unreleased_entries(changelog_path: Path) -> list[dict[str, str]]:
