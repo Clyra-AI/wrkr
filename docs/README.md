@@ -45,6 +45,7 @@ For editing/validation workflow, see [`docs/map.md`](map.md).
 - Compatibility matrix: `docs/contracts/compatibility_matrix.md`
 - README cross-repo contract: `docs/contracts/readme_contract.md`
 - Install contract: `docs/install/minimal-dependencies.md`
+- Changelog and release versioning: `docs/trust/changelog-and-release-versioning.md`
 - Deterministic guarantees: `docs/trust/deterministic-guarantees.md`
 - goja AST-only guardrails: `docs/trust/goja-ast-only.md`
 - MCP enrich quality model: `docs/trust/mcp-enrich-quality-model.md`

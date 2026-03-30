@@ -31,7 +31,7 @@ Execute this workflow for: "implement this plan file", "run plan from <path>", o
 - `Global Decisions (Locked)`
 - `Exit Criteria`
 - `Test Matrix Wiring`
-- Story sections with `Tasks`, `Repo paths`, `Run commands`, `Test requirements`, `Matrix wiring`, `Acceptance criteria`
+- Story sections with `Tasks`, `Repo paths`, `Run commands`, `Test requirements`, `Matrix wiring`, `Acceptance criteria`, `Changelog impact`, `Changelog section`, and `Draft changelog entry`
 - If plan defines Wave 1/Wave 2 sequencing (or this can be inferred from story intent), Wave 1 must complete before Wave 2.
 - If structure is incomplete, stop and report missing sections
 
@@ -68,6 +68,11 @@ Rules:
 3. Implement one story at a time (no parallel story execution).
 4. For each story:
 - implement scoped code/docs/tests only
+- if story `Changelog impact: required`, update `CHANGELOG.md` `## [Unreleased]` in the same story:
+  - place the story `Draft changelog entry` under the declared `Changelog section`
+  - prepend the declared `Semver marker override` only when it is not `none`
+  - keep the entry operator-facing and do not finalize versioned release sections during implementation
+- if story `Changelog impact: not required`, do not add a changelog entry for that story
 - run story `Run commands`
 - run story `Test requirements`
 - run story `Matrix wiring` lanes
@@ -184,6 +189,7 @@ No story is complete if any required lane is skipped or failing.
 - Do not claim tests ran if they were not run.
 - Tests must use temp dirs for generated artifacts; do not leak test outputs into tracked source paths.
 - If docs/CLI drift occurs due to user-visible changes, patch docs in same story.
+- Do not invent changelog policy during implementation; if changelog fields are missing, ambiguous, or clearly inconsistent with story scope, stop and require a plan update.
 - If both waves are in scope, keep Wave 2 blocked until Wave 1 passes required evidence gates.
 
 ## Blocker Handling
@@ -209,6 +215,7 @@ Implementation is complete only when all are true:
 
 - Execution summary: completed/deferred/blocked stories
 - Change log: key files per story
+- Changelog updates: story IDs plus `CHANGELOG.md` `Unreleased` entries added or intentionally skipped
 - Validation log: commands and pass/fail
 - Revalidation report: acceptance criteria + DoD + exit criteria (`met/not met` with evidence)
 - Residual risk: remaining gaps and next required actions

@@ -49,21 +49,28 @@ If these are missing, stop and output a gap note instead of inventing details.
 5. Prioritize using `P0/P1/P2` based on contract risk reduction, moat expansion, adoption leverage, and sequencing dependency.
 6. Produce execution-ready epics and stories.
 7. For every story, include concrete tasks, repo paths, run commands, acceptance criteria, test requirements, CI matrix wiring, and architecture governance fields.
-8. Add `Public API and Contract Map` with stable/internal surfaces, shim/deprecation plan, schema/versioning policy, and machine-readable error expectations.
-9. Add `Docs and OSS Readiness Baseline` with README first-screen contract, integration-first docs flow, lifecycle path model, docs source-of-truth, and OSS trust baseline files.
-10. Build a plan-level test matrix section mapping stories to CI lanes (fast, integration, acceptance, cross-platform).
-11. Ensure each story defines tests based on work type (schema, CLI, gate/policy, determinism, runtime, SDK, docs/examples).
-12. Add explicit boundaries and non-goals to prevent scope drift.
-13. Add delivery sequencing section (phase/week-based minimum-now path) with explicit wave order:
+8. For every story, classify changelog intent deterministically:
+- `Changelog impact: required` when the story changes user-visible behavior, public contract wording, CLI/help/JSON/exits, install/distribution UX, docs/governance/trust surfaces, or explicitly touches `CHANGELOG.md`
+- `Changelog impact: not required` only for purely internal implementation details with no user-visible, public-contract, or OSS-governance effect
+- `Changelog section:` one of `Added|Changed|Deprecated|Removed|Fixed|Security|none`
+- `Draft changelog entry:` required when impact is `required`; write a single operator-facing bullet body without the leading `-`
+- `Semver marker override:` optional; allowed values `none`, `[semver:patch]`, `[semver:minor]`, `[semver:major]`; use only when section-based semver inference would be wrong
+9. Add `Public API and Contract Map` with stable/internal surfaces, shim/deprecation plan, schema/versioning policy, and machine-readable error expectations.
+10. Add `Docs and OSS Readiness Baseline` with README first-screen contract, integration-first docs flow, lifecycle path model, docs source-of-truth, and OSS trust baseline files.
+11. Build a plan-level test matrix section mapping stories to CI lanes (fast, integration, acceptance, cross-platform).
+12. Ensure each story defines tests based on work type (schema, CLI, gate/policy, determinism, runtime, SDK, docs/examples).
+13. Add explicit boundaries and non-goals to prevent scope drift.
+14. Add delivery sequencing section (phase/week-based minimum-now path) with explicit wave order:
 - Wave 1: contract/runtime correctness and architecture boundaries
 - Wave 2: docs, OSS hygiene, distribution UX
-14. Add definition of done and release/exit gate criteria.
-15. Write full plan to target file, overwriting prior contents.
+15. Add definition of done and release/exit gate criteria.
+16. Write full plan to target file, overwriting prior contents.
 
 ## Handoff Contract (Planning -> Implementation)
 
 - This skill intentionally leaves the generated plan file modified in the working tree.
 - Expected follow-up is `backlog-implement` using that plan file on a new branch.
+- Generated plans must leave explicit story-level changelog fields so implementation can update `CHANGELOG.md` `## [Unreleased]` without re-deciding semver intent.
 - If additional dirty files exist beyond the plan output, stop and scope/clean before implementation.
 
 ## Non-Negotiables
@@ -196,6 +203,10 @@ Story template (required fields):
 - `Test requirements:`
 - `Matrix wiring:`
 - `Acceptance criteria:`
+- `Changelog impact: required|not required`
+- `Changelog section: Added|Changed|Deprecated|Removed|Fixed|Security|none`
+- `Draft changelog entry:` (required when `Changelog impact: required`; entry text only, no leading `-`)
+- `Semver marker override: none|[semver:patch]|[semver:minor]|[semver:major]`
 - `Contract/API impact:` (required for CLI/schema/sdk/library stories)
 - `Versioning/migration impact:` (required for schema/contract changes)
 - `Architecture constraints:`
@@ -218,6 +229,9 @@ Before finalizing, verify:
 - Paths are real and repo-relevant.
 - Test requirements match story work type.
 - Matrix wiring is present for every story.
+- Every story includes an explicit changelog decision.
+- Stories marked `Changelog impact: required` include a valid changelog section and draft entry.
+- Stories touching CLI/contracts/docs/install/governance/trust surfaces are not left without changelog guidance.
 - Every story maps to enforceable rules from both guides (`dev_guides.md`, `architecture_guides.md`).
 - High-risk stories include hardening/chaos lane wiring.
 - CLI contract stories include explicit `--json` and exit-code invariants.

@@ -12,7 +12,7 @@ description: "Release hardening checks, reproducibility expectations, and integr
 - Node24-ready action refs on the release path for all remediable workflow helpers, enforced by `make lint-fast`.
 - SBOM generation and vulnerability scanning in release pipeline.
 - Exact release scanner/signing versions are pinned in CI and checked by local/CI hygiene gates.
-- `CHANGELOG.md` release-note entries updated before tag publication.
+- `CHANGELOG.md` release-note entries finalized before tag publication with `scripts/finalize_release_changelog.py`, and tag builds verify them with `scripts/validate_release_changelog.py`.
 - Current bounded release-path exceptions are explicit and reviewed during every runtime uplift:
   - `Homebrew/actions/setup-homebrew@cced187498280712e078aaba62dc13a3e9cd80bf`
   - `anchore/sbom-action@v0`
@@ -22,6 +22,9 @@ description: "Release hardening checks, reproducibility expectations, and integr
 
 ```bash
 make lint-fast
+python3 scripts/resolve_release_version.py --json
+python3 scripts/finalize_release_changelog.py --json
+python3 scripts/validate_release_changelog.py --release-version v1.0.0 --json
 go test ./... -count=1
 make test-contracts
 scripts/validate_contracts.sh
@@ -56,6 +59,20 @@ scripts/test_uat_local.sh --skip-global-gates
 # Validate exact public install commands (brew + pinned go install) for a published tag
 scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr
 ```
+
+## Changelog finalization
+
+Before tagging a release, resolve the next version from `## [Unreleased]`, then finalize the changelog and validate that the prepared versioned section matches the intended tag:
+
+```bash
+python3 scripts/resolve_release_version.py --json
+python3 scripts/finalize_release_changelog.py --json
+python3 scripts/validate_release_changelog.py --release-version v1.0.0 --json
+```
+
+The finalizer promotes releasable `Unreleased` entries into `## [vX.Y.Z] - YYYY-MM-DD`, adds a hidden semver hint for CI validation, and resets `Unreleased` to the canonical empty template so the next release only considers new entries. Commit that changelog update before creating the tag; the tag workflow validates the changelog content from the tagged commit itself.
+
+For the full changelog ownership model, planning/implementation handoff, and file/script reference, see [`docs/trust/changelog-and-release-versioning.md`](changelog-and-release-versioning.md).
 
 After any public install path, verify the installed CLI deterministically:
 
