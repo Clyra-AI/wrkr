@@ -1,8 +1,8 @@
 # Wrkr
 
-Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
+Find the bounded AI-connected software-delivery paths in your repos and org, rank the riskiest ones first, and emit offline-verifiable proof before they become unreviewed access.
 
-Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and gives developers a deterministic local-machine hygiene path when they want to inspect their own setup first. It discovers supported AI dev tools, MCP servers, and agent frameworks, maps what they can touch, shows what changed, and emits proof artifacts for audits and CI.
+Wrkr gives security and platform teams a deterministic, evidence-ready view of static AI tooling posture and gives developers a local-machine hygiene path when they want to inspect their own setup first. It discovers supported AI dev tools, MCP servers, and agent frameworks, shows what can write, highlights what to review or control first, and emits proof artifacts for audits and CI. Wrkr stays in the static posture boundary: it does not claim runtime observation or control-layer enforcement.
 
 Security/platform-led. Developer hygiene included. Deterministic by default.
 
@@ -66,12 +66,12 @@ Hosted prerequisites for this path:
 - large-org runbook: [`docs/examples/security-team.md`](docs/examples/security-team.md)
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
 
-`--json` keeps stdout reserved for the final machine-readable payload. `--json-path` adds a byte-identical JSON artifact on disk, hosted org scans surface deterministic progress/retry/completion lines on stderr without polluting stdout JSON, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted.
+`--json` keeps stdout reserved for the final machine-readable payload. `--json-path` adds a byte-identical JSON artifact on disk, hosted org scans surface deterministic progress/retry/completion lines on stderr without polluting stdout JSON, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted. `--profile assessment` narrows the govern-first readout for customer-style scans without changing raw findings, proof chains, or exit codes.
 If a hosted org scan is interrupted, rerun the same target with `--resume`. Treat `partial_result`, `source_errors`, or `source_degraded` as incomplete posture output and rerun after rate limits, permission issues, or upstream failures are resolved.
 `wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain` remains the explicit operator/CI integrity gate. `--resume` also revalidates checkpoint files and reused materialized repo roots so symlink-swapped entries fail closed instead of being treated as trusted scan roots.
 

@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestScanJSONOrgProgressEmitsToStderrOnly(t *testing.T) {
@@ -115,6 +117,56 @@ func TestScanJSONQuietSuppressesProgressLines(t *testing.T) {
 	}
 }
 
+func TestScanJSONOrgProgressIsVisibleBeforeCommandCompletion(t *testing.T) {
+	t.Parallel()
+
+	releaseRepo := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"}]`)
+		case "/repos/acme/a":
+			<-releaseRepo
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/a","default_branch":"main"}`)
+		case "/repos/acme/a/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[]}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	var out bytes.Buffer
+	errOut := newLiveBuffer()
+	done := make(chan int, 1)
+	go func() {
+		done <- Run([]string{
+			"scan",
+			"--org", "acme",
+			"--github-api", server.URL,
+			"--state", statePath,
+			"--json",
+		}, &out, errOut)
+	}()
+
+	const want = "progress target=org event=repo_materialize repo_index=1 repo_total=1 repo=acme/a"
+	if !errOut.waitFor(want, 2*time.Second) {
+		t.Fatalf("expected live stderr progress before completion, got %q", errOut.String())
+	}
+	select {
+	case code := <-done:
+		t.Fatalf("expected scan to remain in flight while progress was visible, got code=%d stderr=%q", code, errOut.String())
+	default:
+	}
+
+	close(releaseRepo)
+	code := <-done
+	if code != exitSuccess {
+		t.Fatalf("scan failed: code=%d stderr=%s", code, errOut.String())
+	}
+}
+
 func TestScanJSONPathAndProgressRemainCompatible(t *testing.T) {
 	t.Parallel()
 
@@ -196,5 +248,50 @@ func TestScanJSONProgressFlushesOnErrorExit(t *testing.T) {
 	}
 	if !strings.Contains(errOut.String(), "progress target=org event=complete repo_total=1 completed=1 failed=0") {
 		t.Fatalf("expected completion progress line on error exit, got %q", errOut.String())
+	}
+}
+
+type liveBuffer struct {
+	mu     sync.Mutex
+	buf    bytes.Buffer
+	writes chan struct{}
+}
+
+func newLiveBuffer() *liveBuffer {
+	return &liveBuffer{writes: make(chan struct{}, 32)}
+}
+
+func (b *liveBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	n, err := b.buf.Write(p)
+	select {
+	case b.writes <- struct{}{}:
+	default:
+	}
+	return n, err
+}
+
+func (b *liveBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func (b *liveBuffer) waitFor(substring string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		if strings.Contains(b.String(), substring) {
+			return true
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return false
+		}
+		select {
+		case <-b.writes:
+		case <-time.After(remaining):
+			return strings.Contains(b.String(), substring)
+		}
 	}
 }

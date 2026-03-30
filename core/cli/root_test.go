@@ -749,6 +749,78 @@ func TestScanIncludesInventoryProfileAndScore(t *testing.T) {
 	}
 }
 
+func TestScanAssessmentProfileSharpensGovernFirstOutputWithoutChangingRawFindings(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	for _, repo := range []string{"payments-prod", "sample-app"} {
+		workflowDir := filepath.Join(reposPath, repo, ".github", "workflows")
+		if err := os.MkdirAll(workflowDir, 0o755); err != nil {
+			t.Fatalf("mkdir workflow dir: %v", err)
+		}
+		workflowName := "release.yml"
+		if repo == "sample-app" {
+			workflowName = "sample-release.yml"
+		}
+		if err := os.WriteFile(filepath.Join(workflowDir, workflowName), []byte(`name: release
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: codex --full-auto --approval never
+      - run: gh pr merge --auto "$PR_URL"
+      - run: kubectl apply -f k8s/
+`), 0o600); err != nil {
+			t.Fatalf("write workflow: %v", err)
+		}
+	}
+
+	runScan := func(profile string) map[string]any {
+		t.Helper()
+		var out bytes.Buffer
+		var errOut bytes.Buffer
+		code := Run([]string{"scan", "--path", reposPath, "--state", filepath.Join(tmp, profile+".json"), "--profile", profile, "--json"}, &out, &errOut)
+		if code != 0 {
+			t.Fatalf("scan failed for profile %s: %d %s", profile, code, errOut.String())
+		}
+		payload := map[string]any{}
+		if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+			t.Fatalf("parse scan output for profile %s: %v", profile, err)
+		}
+		return payload
+	}
+
+	standard := runScan("standard")
+	assessment := runScan("assessment")
+
+	standardFindings, _ := standard["findings"].([]any)
+	assessmentFindings, _ := assessment["findings"].([]any)
+	if len(standardFindings) != len(assessmentFindings) {
+		t.Fatalf("expected raw findings to remain unchanged, standard=%d assessment=%d", len(standardFindings), len(assessmentFindings))
+	}
+
+	standardPaths, _ := standard["action_paths"].([]any)
+	assessmentPaths, _ := assessment["action_paths"].([]any)
+	if len(standardPaths) <= len(assessmentPaths) {
+		t.Fatalf("expected assessment profile to sharpen govern-first action_paths, standard=%d assessment=%d", len(standardPaths), len(assessmentPaths))
+	}
+
+	profilePayload, ok := assessment["profile"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected profile payload, got %v", assessment["profile"])
+	}
+	if profilePayload["profile"] != "assessment" {
+		t.Fatalf("expected profile=assessment, got %v", profilePayload["profile"])
+	}
+}
+
 func TestScanIncludesPrivilegeBudgetAndAgentMap(t *testing.T) {
 	t.Parallel()
 
@@ -1020,14 +1092,14 @@ targets:
 			productionTargets:   "",
 			wantStatus:          "not_configured",
 			wantProductionWrite: false,
-			wantAction:          "approval",
+			wantAction:          "proof",
 		},
 		{
 			name:                "invalid",
 			productionTargets:   "schema_version: v2\n",
 			wantStatus:          "invalid",
 			wantProductionWrite: false,
-			wantAction:          "approval",
+			wantAction:          "proof",
 		},
 	}
 

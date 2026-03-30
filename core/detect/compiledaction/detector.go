@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -73,11 +72,19 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			continue
 		}
 
-		path := filepath.Join(scope.Root, filepath.FromSlash(rel))
-		// #nosec G304 -- detector reads workflow/plan definitions from selected root.
-		payload, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return nil, readErr
+		payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
+		if parseErr != nil {
+			findings = append(findings, model.Finding{
+				FindingType: "parse_error",
+				Severity:    model.SeverityMedium,
+				ToolType:    "compiled_action",
+				Location:    rel,
+				Repo:        scope.Repo,
+				Org:         fallbackOrg(scope.Org),
+				Detector:    detectorID,
+				ParseError:  parseErr,
+			})
+			continue
 		}
 		workflowAnalysis, workflowErr := workflowcap.Analyze(rel, payload)
 
@@ -160,11 +167,9 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 }
 
 func parseActionDocument(root, rel string) (actionDoc, *model.ParseError) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- detector reads workflow/plan definitions from selected root.
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return actionDoc{}, &model.ParseError{Kind: "file_read_error", Path: rel, Detector: detectorID, Message: err.Error()}
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if parseErr != nil {
+		return actionDoc{}, parseErr
 	}
 
 	var doc actionDoc

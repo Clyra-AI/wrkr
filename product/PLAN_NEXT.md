@@ -1,974 +1,1180 @@
-# PLAN WRKR_LAUNCH_TRUTH_RESET: Narrow Launch to the Shipped Discovery, Proof, and Regress Wedge
+# PLAN WRKR_FIRST_OFFER_GOVERN_FIRST: Customer-Ready Bounded AI Action Exposure Assessment
 
-Date: 2026-03-26
+Date: 2026-03-30
 Source of truth:
-- user-provided audit findings dated 2026-03-26
+- user-provided "Wrkr First-Offer Work Items" dated 2026-03-30
+- `AGENTS.md`
 - `product/dev_guides.md`
 - `product/architecture_guides.md`
-- `AGENTS.md`
-- `README.md`
 - `product/wrkr.md`
-- `docs/concepts/mental_model.md`
-- `docs/positioning.md`
-- `docs/commands/action.md`
-- `docs/commands/fix.md`
-- `docs/commands/report.md`
+- `Makefile`
+- `README.md`
 - `docs/commands/scan.md`
-- `docs/commands/evidence.md`
-- `docs/examples/quickstart.md`
+- `docs/commands/report.md`
 - `docs/examples/security-team.md`
 - `docs/examples/operator-playbooks.md`
-- `docs/state_lifecycle.md`
-- `docs/failure_taxonomy_exit_codes.md`
-- `docs/trust/security-and-privacy.md`
-- `core/cli/action.go`
-- `core/cli/fix.go`
-- `core/fix/artifacts.go`
-- `core/cli/report.go`
-- `core/cli/report_pdf.go`
-- `core/evidence/stage.go`
-- `core/cli/scan_helpers.go`
-- `internal/e2e/source/source_e2e_test.go`
-- `.github/required-checks.json`
-Scope: Wrkr repository only. Planning artifact only. Convert the 2026-03-26 audit recommendations into an execution-ready backlog that moves Wrkr from broad-launch no-go to narrow-launch go without weakening determinism, offline-first defaults, fail-closed policy enforcement, schema stability, exit-code stability, or the authoritative Go-core architecture.
+- `core/aggregate/inventory/inventory.go`
+- `core/aggregate/privilegebudget/budget.go`
+- `core/cli/scan.go`
+- `core/cli/scan_progress.go`
+- `core/detect/parse.go`
+- `core/owners/owners.go`
+- `core/report/activation.go`
+- `core/report/build.go`
+- `core/report/types.go`
+- `core/risk/action_paths.go`
+- `core/risk/risk.go`
+- `internal/scenarios`
+- `scenarios/wrkr`
+- `testinfra/contracts`
+Scope: Wrkr repository only. Planning artifact only. Align the shipped product to the first prospect offer: find bounded AI-connected software-delivery action paths, rank the riskiest ones first, emit offline-verifiable proof, recommend what to control first, and stay usable on real customer repos and larger org scans. Runtime provenance, live action observation, and control-layer enforcement remain out of scope.
 
 ## Global Decisions (Locked)
 
-- This is a planning-only change. No implementation work is in scope for this artifact.
-- Minimum-now sequencing is opinionated: ship a narrower, honest OSS launch before attempting to restore broad-launch claims.
-- The minimum-now public product is:
-  - deterministic discovery
-  - posture/risk ranking
-  - evidence generation
-  - proof verification
-  - regress/baseline gating
-- The minimum-now public product is not:
-  - a direct auto-remediation system
-  - a packaged GitHub Action distribution surface
-  - a board-ready executive PDF reporting system
-- Public copy must not exceed shipped behavior. Docs, README, PRD, command help, examples, and docs-site entry points are treated as contract surfaces.
-- `wrkr fix` remains a plan-and-preview surface unless and until an additive explicit apply mode is implemented:
-  - current stable behavior is remediation planning
-  - current `--open-pr` behavior is deterministic artifact generation under `.wrkr/remediations/<fingerprint>/` plus one PR update/create path
-  - no public claim may say that current Wrkr directly edits target repo files or opens one PR per finding
-- `wrkr action pr-mode` and `wrkr action pr-comment` remain the only currently shipped action surfaces unless and until a real `action.yml` package is introduced.
-- `wrkr report --pdf` remains a stable deterministic artifact surface, but no public claim may describe it as board-ready until pagination, wrapping, and executive acceptance fixtures exist.
-- Contract/runtime correctness and architecture-boundary work must precede later docs/onboarding/distribution waves when actual implementation is required.
-- All behavior changes must preserve:
-  - deterministic default execution
-  - offline-first local fallback
-  - fail-closed policy and filesystem safety
-  - stable JSON and exit-code contracts unless an ADR explicitly approves additive evolution
-- Thin orchestration remains in `core/cli/*`; focused packages/helpers should carry parsing, persistence, rendering, fix-apply, and action-wrapper behavior.
-- Stories that touch architecture, adapters, failure semantics, or public CLI contracts must run `make prepush-full`.
-- Reliability/fault-tolerance stories must run `make test-hardening` and `make test-chaos`.
-- Performance-sensitive stories must run `make test-perf`.
-- No dashboard-first or managed-service-first scope belongs in this plan.
+- This file is planning-only. No implementation work is in scope for this artifact.
+- The first-offer product claim is static posture plus offline-verifiable proof for bounded software-delivery AI action paths. It is not runtime provenance, live action observation, selective gating, or enforcement.
+- Raw findings, inventory records, proof records, exit codes, and existing `attack_paths` surfaces stay intact unless a story explicitly adds an additive field. Govern-first sharpening happens in `activation`, `action_paths`, `action_path_to_control_first`, assessment-specific report summaries, and ranking order only.
+- Add an additive `assessment` profile for bounded customer scans instead of mutating the semantics of existing `baseline|standard|strict` profiles.
+- The `assessment` profile may narrow or downweight only govern-first prioritization surfaces. It must not delete or mutate raw findings, proof records, or machine-readable evidence emitted for the same scan input.
+- `action_paths[*].path_id` remains an opaque deterministic lowercase hex identifier. The exact hash inputs may evolve to improve uniqueness, but repeat-run stability and uniqueness are mandatory.
+- `recommended_action` remains a stable four-value enum: `inventory`, `approval`, `proof`, `control`.
+- `--json` stdout is a hard contract. Hosted/org progress is allowed only on stderr and must never pollute stdout JSON or `--json-path` byte identity.
+- Real-world regression checks must use frozen deterministic fixtures or materialized subset snapshots under repo control; no CI step may depend on live external repo state.
+- Thin orchestration stays in `core/cli/*`. Deterministic correlation belongs in `core/aggregate/*`, path ranking and grouping in `core/risk/*`, ownership logic in `core/owners/*`, detector error surfacing in `core/detect/*`, and rendering/template logic in `core/report/*`.
+- Stories that touch architecture boundaries, risk logic, report contracts, adapters, or failure semantics must run `make prepush-full`.
+- Reliability, retry, progress, resume, or failure-surfacing stories must also run `make test-hardening` and `make test-chaos`.
+- Performance-sensitive stories that add grouping, ranking, or broader scenario coverage must run `make test-perf`.
+- Public docs, CLI help, markdown reports, and templates must stay explicit about Wrkr's claim boundary: what was found, what can write, what should be reviewed first, and what proof artifacts were produced.
+- Wave ordering is dependency-driven. Contract/runtime correctness ships before later docs polish, OSS trust wording, and broader CISO-friendly summaries.
 
 ## Current Baseline (Observed)
 
 - Preconditions validated:
   - `product/dev_guides.md` exists and is readable
   - `product/architecture_guides.md` exists and is readable
-  - output path `product/PLAN_NEXT.md` resolves inside `/Users/tr/wrkr`
-  - output path parent is writable
-- Repository worktree was clean before this plan rewrite.
-- OSS trust baseline files are present:
-  - `CONTRIBUTING.md`
-  - `CHANGELOG.md`
-  - `CODE_OF_CONDUCT.md`
-  - `SECURITY.md`
-- Core engineering baseline is strong:
-  - `go build -o .tmp/wrkr ./cmd/wrkr`
-  - `go test ./... -count=1`
-  - `make lint-fast`
-  - `make test-docs-consistency`
-- The shipped discovery/evidence loop is real and validated:
-  - `wrkr scan --path . --state ./.tmp/audit_run/repo-state.json --json`
-  - `wrkr evidence --frameworks eu-ai-act,soc2 --state ./.tmp/audit_run/repo-state.json --output ./.tmp/audit_run/evidence --json`
-  - `wrkr verify --chain --state ./.tmp/audit_run/repo-state.json --json`
-  - `wrkr regress init --baseline ./.tmp/audit_run/repo-state.json --output ./.tmp/audit_run/baseline.json --json`
-  - `wrkr regress run --baseline ./.tmp/audit_run/baseline.json --state ./.tmp/audit_run/repo-state.json --json`
-- Aha path baseline:
-  - curated scenario scan produced `131` findings, `19` tools, `19` agents, and immediately legible top risks
-  - repo-root scan produced `6769` findings and an `F` posture score because internal scenario/test fixtures dominate the result
-- `wrkr fix` current behavior baseline:
-  - `wrkr fix --top 3 --state ./.tmp/audit_scenario/state.json --json` produced remediation records with `patch_preview`
-  - `docs/commands/fix.md` and `core/cli/fix.go` describe deterministic remediation artifacts and one PR update/create path
-  - `core/fix/artifacts.go` writes `plan.json` plus `.patch` preview files under `.wrkr/remediations/<fingerprint>/`
-- Action/distribution baseline:
-  - `docs/commands/action.md` documents CLI subcommands `pr-mode` and `pr-comment`
-  - repo search found no packaged GitHub Action entrypoint such as `action.yml`
-- Executive PDF baseline:
-  - generated markdown report length was `86` lines
-  - `core/cli/report_pdf.go` currently renders a single-page PDF, steps fixed `0 -16 Td`, and truncates each line to `110` characters
-- Filesystem safety baseline is strong and already validated in docs, code, tests, and live probes:
-  - unmanaged materialized roots are blocked
-  - non-managed evidence output directories are blocked
-  - evidence markers reject directory and symlink forms
+  - output path resolves inside `/Users/tr/wrkr`
+  - repository worktree was clean before the plan rewrite
+- Required repo gates already exist and are enforceable:
+  - `make prepush`
+  - `make prepush-full`
+  - `make test-risk-lane`
+  - `make test-hardening`
+  - `make test-chaos`
+  - `make test-perf`
+  - `scripts/run_v1_acceptance.sh --mode=local`
+- `docs/commands/scan.md` and `docs/commands/report.md` already treat `action_paths`, `action_path_to_control_first`, delivery-chain metadata, ownership metadata, execution-identity metadata, and `recommended_action` as public machine-readable surfaces.
+- `core/risk/action_paths.go` already emits govern-first projections, but `actionPathID` currently hashes only `agent_id`, `org`, first repo, location, and `recommended_action`, which leaves duplicate/collision risk when repeated privilege-map entries differ on omitted dimensions.
+- `core/report/types.go` and `core/report/build.go` already expose `ActionPaths`, `ActionPathToControlFirst`, and `Activation`, but the summary remains finding-first through `TopRisks` and section ordering instead of prospect-offer-first.
+- `core/cli/scan_progress.go` buffers progress lines in memory and only writes them on `Flush()`, so long org scans do not look live while the scan is still running.
+- `core/detect/parse.go` already provides error-bearing helpers, but priority detectors still rely on `FileExists`, `DirExists`, or direct `os.ReadFile`, so permission/stat failures are not surfaced consistently.
+- Existing scenario and contract coverage gives a strong starting harness:
+  - `internal/scenarios/action_path_to_control_first_scenario_test.go`
+  - `internal/scenarios/delivery_chain_correlation_scenario_test.go`
+  - `internal/scenarios/approval_gap_modeling_scenario_test.go`
+  - `internal/scenarios/ownership_quality_scenario_test.go`
+  - `internal/scenarios/identity_to_action_path_scenario_test.go`
+  - `internal/scenarios/nonhuman_identity_inventory_scenario_test.go`
+  - `internal/scenarios/permission_failure_surfacing_scenario_test.go`
+  - `testinfra/contracts/story1_contracts_test.go`
+  - `core/cli/report_contract_test.go`
+- Current scan docs only advertise `--profile baseline|standard|strict`; there is no bounded assessment-specific profile or report mode today.
+- User-provided real-scan feedback shows the remaining offer gap clearly:
+  - duplicate `action_paths` rows weaken trust
+  - top summaries are still dominated by generic `secret_presence` findings
+  - many paths collapse to `recommended_action=approval`
+  - sample/test/vendor noise overwhelms govern-first output on real repos
+  - top paths often land on fallback ownership or `execution_identity_status=unknown`
 
 ## Exit Criteria
 
-1. The public minimum-now launch story is consistent across `README.md`, `product/wrkr.md`, command docs, examples, and docs-site entry points:
-   - discovery
-   - posture/risk
-   - evidence
-   - verify
-   - regress
-2. No public source claims that current Wrkr:
-   - directly fixes repository files for top findings
-   - opens one PR per finding
-   - ships `Clyra-AI/wrkr-action@v1`
-   - produces a board-ready PDF artifact
-   unless the corresponding later wave has completed and its acceptance tests are green.
-3. The evaluator-safe first-value path is scenario-first, integration-first, and explicit about repo-root fixture noise.
-4. `wrkr fix`, `wrkr action`, and `wrkr report --pdf` help/docs/runtime wording are aligned to actual shipped behavior.
-5. CI contains automated drift guards that fail when launch copy regresses into overclaiming before the runtime exists.
-6. Minimum-now narrow launch can be approved after Wave 1 and Wave 2 only.
-7. Broad-launch claims may be restored only after Wave 3, Wave 4, and Wave 5 complete in order.
-8. Every story has deterministic, testable acceptance criteria, explicit lane wiring, and guide-compliant architecture constraints.
+1. `action_paths` are unique and deterministic for a given scan input: `len(action_paths) == len(unique(path_id))`, `path_id` repeat-runs are byte-stable, and duplicate privilege-map inputs do not emit duplicate action rows.
+2. When AI action paths are present, top scan/report/readout surfaces lead with those paths before generic `secret_presence` findings, while raw findings remain available unchanged.
+3. `recommended_action` deterministically spans all four values (`inventory|approval|proof|control`) across scenario fixtures, and top-ranked paths land in the expected class.
+4. `wrkr scan --profile assessment --json` sharpens govern-first output for sample-heavy, test-heavy, vendored, and generated-noise repos without mutating raw findings, proof chains, or exit codes.
+5. Hosted/org scans emit progress, retry, cooldown, resume, and completion lines to stderr during execution rather than only at completion.
+6. Permission and stat failures from priority detectors surface in JSON and explain-mode as incomplete-visibility signals instead of silent omission.
+7. Customer-facing report/readout layers lead with governable path counts, write-capable path counts, production-target-backed path counts, top path to control first, top identity-backed path, and proof artifact location.
+8. Ownership weakness and non-human identity weakness are first-class surfaces: `ownerless_exposure`, `identity_exposure_summary`, `identity_to_review_first`, and `identity_to_revoke_first` are additive, deterministic, and contract-tested.
+9. `action_paths[*]` expose richer semantics (`business_state_surface`, shared-identity / standing-privilege heuristics), and `exposure_groups` collapse repetitive path rows without removing raw `action_paths`.
+10. README, command docs, templates, and generated summaries never imply runtime provenance, live observation, or enforcement, and those wording guarantees are enforced by docs/template contracts.
+11. Real-world scenario packs and report-usefulness contracts stay green in CI and fail whenever AI-path-present output regresses back to generic finding-first readouts.
 
 ## Public API and Contract Map
 
 Stable/public surfaces today:
 
-- `wrkr scan`
-- `wrkr evidence`
-- `wrkr verify --chain`
-- `wrkr regress init`
-- `wrkr regress run`
-- `wrkr report`
-- `wrkr score`
-- `wrkr inventory`
-- `wrkr mcp-list`
-- `wrkr fix`
-- `wrkr action pr-mode`
-- `wrkr action pr-comment`
+- `wrkr scan --json`
+- `wrkr report --json`
+- `wrkr report --md`
+- `wrkr report --pdf`
+- `docs/commands/scan.md`
+- `docs/commands/report.md`
+- Public scan/report JSON keys already documented for:
+  - `findings`
+  - `ranked_findings`
+  - `top_findings`
+  - `attack_paths`
+  - `top_attack_paths`
+  - `action_paths`
+  - `action_path_to_control_first`
+  - `activation`
+  - `inventory`
+  - `profile`
+- `recommended_action` stays a stable enum surface.
+- Hosted/org progress stays an operator-only stderr side channel when `--json` is set. Stdout JSON and `--json-path` must remain byte-identical.
 
-Stable/public contract expectations today:
+Planned additive surfaces in this plan:
 
-- `wrkr scan`, `wrkr evidence`, `wrkr verify`, `wrkr regress`, and `wrkr report` remain the core OSS value path.
-- `wrkr fix` current stable contract is:
-  - plan deterministic remediations
-  - emit machine-readable plan metadata
-  - optionally create or update one PR containing remediation artifacts and patch previews
-- `wrkr action` current stable contract is:
-  - CLI relevance/filter/comment logic only
-  - no packaged GitHub Action surface yet
-- `wrkr report --pdf` current stable contract is:
-  - deterministic PDF file generation
-  - no public quality guarantee beyond deterministic artifact output
+- `scan --profile assessment`
+- report/summary additive `assessment_summary` for path-centric customer readouts
+- additive report/summary fields:
+  - `identity_exposure_summary`
+  - `identity_to_review_first`
+  - `identity_to_revoke_first`
+  - `ownerless_exposure`
+  - `exposure_groups`
+- additive `action_paths[*]` fields:
+  - `business_state_surface`
+  - `shared_execution_identity`
+  - `standing_privilege`
 
-Internal surfaces expected to change in later waves:
+Internal implementation surfaces expected to change:
 
-- `core/cli/fix.go`
-- `core/fix/*`
-- `core/github/pr/*`
-- `core/cli/action.go`
-- `core/action/*`
-- `core/cli/report_pdf.go`
-- `core/cli/report_artifacts.go`
-- docs and examples tied to those surfaces
-- new packaging files for GitHub Action distribution if Wave 4 lands
+- `core/aggregate/inventory/*`
+- `core/aggregate/privilegebudget/*`
+- `core/cli/scan.go`
+- `core/cli/scan_progress.go`
+- `core/detect/*`
+- `core/owners/*`
+- `core/report/*`
+- `core/risk/*`
+- `internal/scenarios/*`
+- `testinfra/contracts/*`
 
-Shim/deprecation path:
+Shim and deprecation path:
 
-- Wave 1 and Wave 2 are docs/help/enforcement alignment only; no runtime deprecations are needed.
-- If Wave 3 lands, preserve current preview semantics for `wrkr fix` and add explicit apply semantics under a new flag or subcommand. Do not silently change current preview behavior.
-- If Wave 4 lands, packaged action behavior must wrap existing CLI logic rather than duplicate it. CLI remains the authoritative engine.
-- If Wave 5 lands, keep `--pdf` and `pdf_path` stable while replacing internal rendering mechanics.
+- `attack_paths`, `top_attack_paths`, `findings`, `ranked_findings`, and `top_findings` remain available; no removal or rename is allowed in this plan.
+- Existing `baseline|standard|strict` profile semantics remain unchanged. `assessment` is additive.
+- Existing report templates remain valid. Assessment-specific summary facts are additive within the current report pipeline; if a dedicated template alias becomes necessary later, it must be additive rather than a replacement.
+- `path_id` remains opaque. Downstream consumers must not parse business meaning from it.
 
-Schema/versioning policy:
+Schema and versioning policy:
 
-- Wave 1 and Wave 2 should not change JSON keys, exit codes, or schema versions.
-- Wave 3 and Wave 4 may add flags or additive JSON fields, but must not rename or remove existing keys without:
-  - ADR approval
-  - docs updates
-  - compatibility tests
-- Wave 5 may change PDF bytes relative to prior goldens, but must preserve repeat-run determinism for a fixed version/input pair and keep CLI JSON/path contracts stable.
+- No proof-record type changes in this plan. `scan_finding` and `risk_assessment` remain the proof primitives.
+- JSON and markdown/pdf report additions must be additive only.
+- No exit-code changes are allowed.
+- Raw findings remain unchanged under the new bounded assessment mode; only govern-first ranking/projection layers may narrow.
+- Any fixture or golden that pins exact `path_id` values must be updated together with the uniqueness hardening change.
 
 Machine-readable error expectations:
 
-- No wave in this plan is allowed to weaken current exit-code stability.
-- Any Wave 3 apply-mode or Wave 4 packaged-action work must preserve machine-readable error envelopes for automation consumers.
-- Safety failures in future fix/apply/action scheduling work must fail closed, not silently downgrade into warnings.
+- Permission/stat failures must emit visible parse/detector errors and incomplete-visibility hints in JSON / explain output.
+- Ambiguous high-risk conditions fail closed; Wrkr must not invent ownership, execution identity, or production-write claims when evidence is missing.
+- Noise suppression under `assessment` must never hide raw evidence; it only narrows customer-facing prioritization surfaces.
 
 ## Docs and OSS Readiness Baseline
 
 README first-screen contract:
 
-- Must answer, in the first screen:
-  - what Wrkr does
-  - who it is for
-  - the recommended first-value quickstart
-  - the hosted-org prerequisites
-  - the deterministic local fallback
-- Must lead with the shipped wedge:
-  - discovery
-  - risk ranking
-  - evidence
-  - verify
-  - regress
-- Must not lead with:
-  - auto-remediation
-  - weekly PR cadence
-  - packaged GitHub Action
-  - executive PDF reporting
+- Lead with the first-offer promise: bounded AI-connected software-delivery action paths, risky ones first, offline-verifiable proof, and what to control first.
+- Keep first-screen examples evaluator-safe and org-scan-safe.
+- Preserve the existing local/offline fallback story.
+- Do not lead with runtime provenance, live observation, or enforcement claims.
 
 Integration-first docs flow:
 
-- Preferred evaluator path:
-  - `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json`
-  - `wrkr evidence ... --json`
-  - `wrkr verify --chain --json`
-  - `wrkr regress ... --json`
-- Recommended security/platform production path:
-  - `wrkr scan --github-org ... --json`
-  - `wrkr evidence ... --json`
-  - `wrkr verify --chain --json`
-- `wrkr fix`, `wrkr action`, and `wrkr report --pdf` are follow-on surfaces, not first-screen adoption anchors.
+- Evaluator quickstart after this plan lands:
+  - `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --json`
+  - `wrkr report --state ./.wrkr/last-scan.json --md --md-path ./.tmp/assessment.md --template operator --json`
+  - `wrkr evidence --frameworks eu-ai-act,soc2 --state ./.wrkr/last-scan.json --output ./.tmp/evidence --json`
+  - `wrkr verify --chain --state ./.wrkr/last-scan.json --json`
+- Security-team org flow after this plan lands:
+  - `wrkr scan --github-org <org> --github-api https://api.github.com --profile assessment --json --json-path ./.wrkr/scan.json`
+  - `wrkr report --state ./.wrkr/last-scan.json --md --md-path ./.wrkr/assessment.md --template operator --json`
+- `wrkr report` remains a saved-state renderer. It does not become a live observation surface.
 
 Lifecycle path model:
 
-- Managed authoritative state remains under `.wrkr/`
-- Scenario/demo docs must distinguish:
-  - discovery/proof lifecycle state
-  - fix preview artifacts
-  - future apply-mode behavior if later waves land
-  - CLI action surfaces vs future packaged action surface
+- The assessment narrative is still static and file-based:
+  - discovery
+  - privilege and delivery-path correlation
+  - govern-first ranking
+  - offline proof generation
+  - deterministic review recommendations
+- No story in this plan may change that model into runtime observation or enforcement.
 
 Docs source-of-truth mapping:
 
-- Product scope and persona story: `product/wrkr.md`
-- Top-level first screen: `README.md`
-- Command semantics: `docs/commands/*.md`
-- Evaluator and operator flows: `docs/examples/*.md`
-- Path model and failure semantics: `docs/state_lifecycle.md`, `docs/failure_taxonomy_exit_codes.md`
-- Positioning and mental model: `docs/positioning.md`, `docs/concepts/mental_model.md`
+- Product promise: `product/wrkr.md`
+- First-screen operator copy: `README.md`
+- Scan contract and examples: `docs/commands/scan.md`
+- Report contract and examples: `docs/commands/report.md`
+- Operator/customer flow: `docs/examples/security-team.md`, `docs/examples/operator-playbooks.md`
+- Static trust boundary: `README.md`, `docs/commands/scan.md`, `docs/commands/report.md`
 
 OSS trust baseline:
 
-- Keep existing trust files aligned with any public behavior changes:
-  - `CONTRIBUTING.md`
-  - `CHANGELOG.md`
-  - `CODE_OF_CONDUCT.md`
-  - `SECURITY.md`
-- Issue and PR templates are currently absent and not part of the minimum-now blocker set.
-- If Wave 2 expands public maintainer/support expectations, update `CONTRIBUTING.md` and `SECURITY.md` in the same PR.
+- `CHANGELOG.md` must be updated for every story marked `Changelog impact: required`.
+- Public behavior changes that affect command help, report wording, or support expectations must keep `CONTRIBUTING.md` and `SECURITY.md` aligned when applicable.
+- No story may weaken the repo's deterministic/offline-first trust posture.
 
 ## Recommendation Traceability
 
-| Recommendation ID | Recommendation | Story mapping |
-|---|---|---|
-| REC-01 | Keep launch copy centered on discovery, posture, evidence, verify, and regress | W1-S1, W2-S1 |
-| REC-02 | Narrow persona promises to “see, rank, prove” until remediation/distribution catches up | W1-S1, W1-S3 |
-| REC-03 | Preserve honest prerequisite framing for org posture and local fallback | W1-S1, W2-S1 |
-| REC-04 | Put the curated scenario demo path more prominently in public onboarding | W2-S1 |
-| REC-05 | Either ship true file-targeted remediation PRs or stop claiming that current Wrkr fixes the issue directly | W1-S2, W3-S1, W3-S2 |
-| REC-06 | Either ship a real packaged GitHub Action and scheduled mode or position v1 as CLI-first | W1-S3, W4-S1, W4-S2 |
-| REC-07 | Either build proper PDF rendering or stop promising a board-ready PDF | W1-S2, W5-S1, W5-S2 |
-| REC-08 | Convert broad-launch no-go into narrow-launch go with explicit wave order | W1-S1, W2-S1, Minimum-Now Sequence |
+| # | Recommendation | Strategic direction / moat | Story IDs |
+|---|---|---|---|
+| 1 | Fix duplicate `action_paths` | Contract correctness and trust in govern-first output | `FO-01`, `FO-14` |
+| 2 | Make output path-first, not finding-first | Customer-ready prioritization around risky AI paths | `FO-04`, `FO-15` |
+| 3 | Make `recommended_action` useful | Decision-ready next steps instead of blunt approval-only output | `FO-05` |
+| 4 | Add a bounded assessment profile | Sharper customer readout without losing raw evidence | `FO-06`, `FO-14` |
+| 5 | Add an AI-first report mode for scans | First-offer packaging for customer readouts | `FO-07`, `FO-08` |
+| 6 | Make org-scan progress actually live | Operator trust and usability on long org scans | `FO-02` |
+| 7 | Normalize stat/permission-failure surfacing | Honest completeness signaling when visibility is partial | `FO-03` |
+| 8 | Improve ownership quality in govern-first surfaces | Clearer control targets and stronger governance story | `FO-09` |
+| 9 | Improve execution-identity usefulness | Actor-centric actionability on top risky paths | `FO-10` |
+| 10 | Add `identity_exposure_summary` | Cleaner non-human identity wedge for CISOs | `FO-10` |
+| 11 | Add `identity_to_review_first` / `identity_to_revoke_first` | Concrete actor review and revocation priorities | `FO-11` |
+| 12 | Add `shared_execution_identity` / `standing_privilege` heuristics | Strong durable-risk storyline for reused identities | `FO-11` |
+| 13 | Add `ownerless_exposure` headline metrics | Explicit top-line ownership pain statement | `FO-09` |
+| 14 | Add `business_state_surface` classification | Differentiate code change from real-system change | `FO-12` |
+| 15 | Add clustered `exposure_groups` | Collapse repetitive path rows into executive-ready groupings | `FO-13` |
+| 16 | Add real-world noise scenarios | Keep the product sharp on realistic repos, not only synthetic fixtures | `FO-14` |
+| 17 | Add report-usefulness contracts | GTM/readout quality becomes a test gate, not a hope | `FO-04`, `FO-15` |
+| 18 | Keep claim boundaries explicit in reports and docs | Preserve trust by staying inside Wrkr's static-proof boundary | `FO-08` |
 
 ## Test Matrix Wiring
 
-Fast lane:
+| Lane | Purpose | Commands / Evidence |
+|---|---|---|
+| Fast lane | Author feedback and required PR quick signal | `make lint-fast`; targeted `go test ... -count=1`; `make build` |
+| Core CI lane | Full contract, CLI, architecture, and failure-semantic gate | `make prepush`; `make prepush-full` for risk/CLI/architecture/failure changes |
+| Acceptance lane | Outside-in scenarios, contracts, and evaluator scorecard | `make test-contracts`; `make test-scenarios`; `scripts/run_v1_acceptance.sh --mode=local` |
+| Cross-platform lane | Windows and cross-platform CLI safety | required `windows-smoke` workflow plus any targeted Go tests that must stay Windows-safe |
+| Risk lane | Ranking, profile, ownership, identity, and report hardening | `make test-risk-lane`; targeted scenario/contract/golden updates |
 
-- `make prepush`
-- `make test-docs-consistency`
+Merge and release gating rule:
 
-Core CI lane:
+- Required PR checks remain exactly `fast-lane` and `windows-smoke`.
+- Stories marked with `Core CI lane: required` must not merge unless `make prepush-full` passes locally and the equivalent CI lanes are green.
+- Stories marked with `Risk lane: required` must also pass `make test-risk-lane`.
+- Docs/CLI/report wording stories must pass `make test-docs-consistency` and `make test-docs-storyline`.
+- No story may merge with failing scenario, contract, or docs parity tests.
 
-- `make prepush-full`
+## Epic WRKR-FO-EPIC-1: Contract Correctness and Operator Trust Foundation
 
-Acceptance lane:
+Objective: make the govern-first substrate believable before re-ranking or packaging it. This epic fixes duplicate paths, makes org progress live, and ensures incomplete detector visibility is surfaced honestly.
 
-- `scripts/run_v1_acceptance.sh --mode=local`
-- scoped `go test ./internal/e2e/... -count=1`
-- scoped `go test ./internal/integration/... -count=1`
-
-Cross-platform lane:
-
-- `windows-smoke`
-- any repo-root CLI smoke already required by `.github/required-checks.json`
-
-Risk lane:
-
-- `make test-risk-lane`
-- required for Wave 3, Wave 4 scheduled-mode work, and any story that changes failure semantics or stateful orchestration
-
-Merge/release gating rule:
-
-- `fast-lane` and `windows-smoke` remain required PR checks.
-- Stories that touch architecture, adapters, failure semantics, or public CLI behavior must also be wired to `make prepush-full` before merge.
-- Stories that add stateful remediation apply flows, scheduled action flows, or deterministic rendering changes must not merge until scoped acceptance and risk lanes are green.
-- Broad-launch claims may not be restored until all dependent later-wave stories are complete and their scoped gates are green.
-
-## Epic Wave 1: Contract-Truth Launch Reset
-
-Objective: Close the P0 launch blockers by making every public statement match the shipped discovery/evidence CLI and by preventing copy drift from reintroducing unshipped claims.
-
-### Story W1-S1: Reset First-Screen Positioning and Persona Promises to the Shipped Wedge
-
+### Story FO-01: Deduplicate action paths and harden path identity
 Priority: P0
 Tasks:
-- Rewrite README first-screen copy to lead with discovery, posture, evidence, verify, and regress.
-- Rewrite `product/wrkr.md` positioning/persona language so minimum-now v1 is CLI-first and discovery-first.
-- Update `docs/positioning.md`, `docs/concepts/mental_model.md`, and related examples to remove broad-launch overclaiming.
-- Make the curated scenario flow the explicit evaluator-first quickstart above repo-root scanning.
-- Add or extend docs/hygiene enforcement so required first-screen elements and forbidden overclaim phrases are tested.
+- Dedupe privilege-budget-to-action-path projection so repeated findings for the same govern-first path emit exactly one action row.
+- Expand `actionPathID` inputs to include the identity dimensions needed to avoid collisions while keeping the output opaque and deterministic.
+- Keep `action_path_to_control_first` selection tied to the deduped action-path set.
+- Freeze a deterministic agent-ecosystem-subset regression fixture so the duplicate-path bug is testable without live network dependency.
 Repo paths:
-- `README.md`
-- `product/wrkr.md`
-- `docs/positioning.md`
-- `docs/concepts/mental_model.md`
-- `docs/examples/quickstart.md`
-- `docs/examples/security-team.md`
-- `docs/README.md`
-- `testinfra/hygiene`
-- `scripts/check_docs_storyline.sh`
-Run commands:
-- `make test-docs-consistency`
-- `scripts/run_docs_smoke.sh --subset`
-- `go test ./testinfra/hygiene -count=1`
-Test requirements:
-- docs consistency checks
-- docs storyline/smoke checks
-- README first-screen contract checks
-- docs source-of-truth mapping checks
-Matrix wiring:
-- Fast lane: `make test-docs-consistency`
-- Core CI lane: `go test ./testinfra/hygiene -count=1`
-- Acceptance lane: not required
-- Cross-platform lane: `windows-smoke`
-- Risk lane: not required
-Acceptance criteria:
-- README and PRD first screen no longer present Wrkr as an auto-remediation or packaged-action product.
-- The recommended first-value path is scenario-first and integration-first.
-- Public positioning consistently describes Wrkr as the See/discovery boundary.
-- Automated docs/hygiene checks fail if forbidden overclaim phrases reappear.
-Contract/API impact:
-- Docs-only public contract alignment; no JSON, exit-code, or schema change.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Preserve the discovery vs control boundary.
-- Keep the Go CLI and file-based artifacts as the authoritative product center.
-- Maintain integration-first guidance rather than internals-first guidance.
-ADR required: no
-TDD first failing test(s):
-- Add a failing docs/hygiene assertion for required README first-screen elements.
-- Add a failing forbidden-phrase assertion for packaged action, direct fix, and board-ready PDF claims.
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If launch copy drifts back toward broad-launch overclaims, docs/hygiene gates fail before merge.
-
-### Story W1-S2: Align `wrkr fix` and `wrkr report --pdf` Contracts to Runtime Truth
-
-Priority: P0
-Tasks:
-- Update `docs/commands/fix.md`, `product/wrkr.md`, and operator examples to describe current preview-plan behavior accurately.
-- Update `docs/commands/report.md` and product language to stop claiming current PDF output is board-ready.
-- Tighten CLI help text in `core/cli/fix.go` and any related help surfaces if wording still implies direct apply semantics.
-- Add help/usage and docs parity tests for the clarified `fix` and `report` contracts.
-Repo paths:
-- `docs/commands/fix.md`
-- `docs/commands/report.md`
-- `docs/examples/operator-playbooks.md`
-- `product/wrkr.md`
-- `README.md`
-- `core/cli/fix.go`
-- `core/cli/report.go`
-- `core/cli/root_test.go`
-- `core/cli/report_contract_test.go`
-Run commands:
-- `go test ./core/cli -run 'TestFix|TestReport' -count=1`
-- `make test-docs-consistency`
-- `make prepush`
-Test requirements:
-- help/usage tests
-- docs CLI parity tests
-- machine-readable contract stability tests to confirm no JSON/exit regressions
-- docs storyline/smoke checks for user-facing flow wording
-Matrix wiring:
-- Fast lane: `make prepush`
-- Core CI lane: `make test-docs-consistency`
-- Acceptance lane: not required
-- Cross-platform lane: `windows-smoke`
-- Risk lane: not required
-Acceptance criteria:
-- No public source states that `wrkr fix --top 3` directly edits repo files or opens one PR per finding under current behavior.
-- No public source states that the current `--pdf` output is board-ready.
-- CLI help and docs say the same thing about `fix` and `report --pdf`.
-- Existing JSON keys and exit codes remain unchanged.
-Contract/API impact:
-- Help text and docs wording only; current CLI runtime envelopes stay stable.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Preserve explicit side-effect semantics.
-- Do not imply `apply` where the current behavior is `plan` or `preview`.
-- Keep the reporting contract deterministic and file-based.
-ADR required: no
-TDD first failing test(s):
-- Add a failing CLI help/usage test that checks the `fix` contract sentence.
-- Add a failing docs parity/storyline test that forbids board-ready PDF language.
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If runtime help or docs diverge, help/usage or docs parity tests fail before merge.
-
-### Story W1-S3: Align Action and Distribution Claims to the Actually Shipped CLI Surface
-
-Priority: P0
-Tasks:
-- Remove or gate product and README claims that imply `Clyra-AI/wrkr-action@v1` currently exists.
-- Rewrite `docs/commands/action.md` and related references to position CLI `pr-mode` / `pr-comment` as the current shipped surface.
-- Add a guardrail test that prevents packaged-action claims from appearing unless an actual `action.yml` exists in the repo.
-- Keep future packaged-action intent documented only as roadmap/follow-on scope, not as current product truth.
-Repo paths:
-- `product/wrkr.md`
-- `README.md`
-- `docs/commands/action.md`
-- `docs/commands/index.md`
-- `core/cli/action.go`
-- `core/cli/root_test.go`
-- `testinfra/hygiene`
-Run commands:
-- `go test ./core/cli -run 'TestAction' -count=1`
-- `go test ./testinfra/hygiene -count=1`
-- `make test-docs-consistency`
-Test requirements:
-- help/usage tests
-- docs consistency checks
-- docs/source-of-truth guard that forbids packaged-action claims before packaging exists
-Matrix wiring:
-- Fast lane: `make test-docs-consistency`
-- Core CI lane: `go test ./core/cli -run 'TestAction' -count=1`
-- Acceptance lane: not required
-- Cross-platform lane: `windows-smoke`
-- Risk lane: not required
-Acceptance criteria:
-- No current public source claims packaged action availability.
-- Current docs clearly state that action support today is CLI-based.
-- A guardrail test fails if the packaged-action claim returns before the package exists.
-Contract/API impact:
-- Docs/help alignment only; current CLI JSON and exit contracts remain unchanged.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Future packaging must wrap the CLI engine rather than copy logic.
-- Keep the distribution layer thin and deterministic.
-ADR required: no
-TDD first failing test(s):
-- Add a failing hygiene test that checks for `action.yml` before allowing packaged-action wording.
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If a future docs change reintroduces packaged-action claims without runtime packaging, hygiene tests fail before merge.
-
-## Epic Wave 2: Aha-First OSS Onboarding
-
-Objective: Convert the current strong curated-scenario experience into the official first-value onboarding path and prevent evaluators from mistaking repo-fixture noise for product failure.
-
-### Story W2-S1: Promote the Evaluator-Safe Scenario Demo Path and Explain Repo-Root Noise
-
-Priority: P1
-Tasks:
-- Move the curated scenario command path higher than repo-root scan references in onboarding docs.
-- Add explicit explanation for why scanning the Wrkr repo root is noisy.
-- Keep org prerequisites honest and local fallback explicit.
-- Refresh example outputs/screenshots/snippets so they use the scenario path where that helps first value.
-Repo paths:
-- `README.md`
-- `docs/examples/quickstart.md`
-- `docs/examples/security-team.md`
-- `docs/README.md`
-- `docs/map.md`
-- `docs/install/minimal-dependencies.md`
-Run commands:
-- `make test-docs-consistency`
-- `scripts/run_docs_smoke.sh --subset`
-- `scripts/test_uat_local.sh --skip-global-gates`
-Test requirements:
-- docs consistency checks
-- docs storyline/smoke checks for user-flow order
-- version/install discoverability checks (`wrkr version`, pinned install guidance)
-- quickstart smoke for the promoted evaluator path
-Matrix wiring:
-- Fast lane: `make test-docs-consistency`
-- Core CI lane: `scripts/run_docs_smoke.sh --subset`
-- Acceptance lane: `scripts/test_uat_local.sh --skip-global-gates`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: not required
-Acceptance criteria:
-- First-value evaluator flow uses the curated scenario path.
-- Repo-root fixture noise is explicitly explained where needed.
-- Hosted org prerequisites and deterministic local fallback remain easy to find.
-- Install and `wrkr version --json` verification remain prominent.
-Contract/API impact:
-- Docs-only onboarding change; runtime contracts unchanged.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Keep offline-first fallback explicit.
-- Do not imply any runtime behavior that the core CLI does not currently provide.
-- Preserve integration-before-internals ordering.
-ADR required: no
-TDD first failing test(s):
-- Add a failing docs storyline test for scenario-first onboarding order.
-- Add a failing quickstart smoke assertion that the evaluator path remains copy-pasteable.
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If future edits bury the first-value path behind repo-root scans or hosted prerequisites, docs smoke and UAT checks fail.
-
-### Story W2-S2: Add Automated Launch-Truth Drift Guards to Docs and Hygiene
-
-Priority: P1
-Tasks:
-- Codify the launch-truth contract in `testinfra/hygiene` and/or docs consistency scripts.
-- Enforce required README first-screen sections and forbidden overclaim phrases.
-- Add docs source-of-truth mapping checks for `README.md`, `product/wrkr.md`, and command docs.
-- Ensure `CHANGELOG.md` update expectations are explicit when public behavior wording changes.
-Repo paths:
-- `testinfra/hygiene`
-- `scripts/check_docs_storyline.sh`
-- `scripts/check_docs_consistency.sh`
-- `README.md`
-- `product/wrkr.md`
-- `CHANGELOG.md`
-Run commands:
-- `go test ./testinfra/hygiene -count=1`
-- `make test-docs-consistency`
-- `make prepush`
-Test requirements:
-- docs consistency checks
-- README first-screen checks
-- integration-before-internals guidance checks
-- docs source-of-truth mapping checks
-- OSS readiness checks for touched trust files
-Matrix wiring:
-- Fast lane: `make prepush`
-- Core CI lane: `go test ./testinfra/hygiene -count=1`
-- Acceptance lane: not required
-- Cross-platform lane: `windows-smoke`
-- Risk lane: not required
-Acceptance criteria:
-- CI fails if forbidden claims return before the corresponding runtime/package wave is complete.
-- Docs source-of-truth drift is detectable and merge-blocking.
-- `CHANGELOG.md` expectations are explicit for public contract wording changes.
-Contract/API impact:
-- Internal enforcement only; no public runtime contract change.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Keep enforcement thin and auditable.
-- Avoid brittle copy-locking beyond explicit contract phrases and required sections.
-- Favor focused hygiene tests over ad hoc shell greps where practical.
-ADR required: no
-TDD first failing test(s):
-- Add failing hygiene tests for forbidden `fix`, `action`, and `board-ready PDF` claims.
-- Add failing source-of-truth drift tests for README/product/command-doc alignment.
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If launch copy regresses during fast-moving follow-on work, hygiene gates catch it before public docs diverge.
-
-## Epic Wave 3: Remediation Engine from Patch Preview to Real Repo Mutation
-
-Objective: Restore future remediation claims only by shipping an explicit, fail-closed apply mode that edits real target files rather than only emitting patch previews.
-
-### Story W3-S1: Introduce Explicit Fix Apply Mode with Fail-Closed Target Resolution
-
-Priority: P1
-Tasks:
-- Write an ADR for `plan` versus `apply` semantics so the public contract remains explicit and symmetric.
-- Keep current preview mode stable and add a new explicit apply surface for supported remediation templates.
-- Implement deterministic target resolution for supported fix types and block ambiguous or unsafe targets.
-- Ensure apply mode produces real repo file diffs in PRs, not only `.patch` artifacts.
-- Update docs/help and add compatibility notes for preview versus apply behavior.
-Repo paths:
-- `core/cli/fix.go`
-- `core/fix/planner.go`
-- `core/fix/artifacts.go`
-- `core/fix/*`
-- `core/github/pr/*`
-- `docs/commands/fix.md`
-- `docs/examples/operator-playbooks.md`
-- `internal/integration/fix`
-- `internal/e2e/github_pr`
+- `core/aggregate/privilegebudget/budget.go`
+- `core/risk/action_paths.go`
+- `core/risk/action_paths_test.go`
+- `internal/scenarios`
+- `scenarios/wrkr`
 - `testinfra/contracts`
 Run commands:
+- `go test ./core/aggregate/privilegebudget ./core/risk -count=1`
+- `go test ./testinfra/contracts -count=1`
+- `go test ./internal/scenarios -run 'TestActionPathToControlFirstScenario|TestDeliveryChainCorrelationScenario' -count=1 -tags=scenario`
 - `make prepush-full`
+Test requirements:
+- contract assertion that `len(action_paths) == len(unique(path_id))`
+- repeated-finding fixture that previously emitted duplicate rows
+- byte-stable repeat-run assertion for deduped `path_id`
+- frozen real-world regression fixture based on the scanned agent-ecosystem subset
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- repeated findings for the same govern-first path yield one `action_paths` row and one unique `path_id`
+- `action_path_to_control_first.path.path_id` always references a row present in `action_paths`
+- no raw findings, proof records, or inventory rows are deleted to achieve dedupe
+- repeat runs against the same fixture produce identical `path_id` values and ordering
+Changelog impact: required
+Changelog section: Fixed
+Draft changelog entry: Deduplicated govern-first `action_paths` so each deterministic action path emits one unique `path_id` row per scan.
+Semver marker override: none
+Contract/API impact: `action_paths[*].path_id` remains an opaque hex string; exact hash inputs change to improve uniqueness and determinism.
+Versioning/migration impact: No schema version bump; update contract goldens or fixtures that pin exact `path_id` values.
+Architecture constraints:
+- keep dedupe logic at the privilege-budget/action-path projection boundary
+- preserve raw findings, inventory, and proof emission unchanged
+- deterministic ordering must remain explicit after dedupe
+ADR required: no
+TDD first failing test(s):
+- `core/risk/action_paths_test.go`: duplicate privilege-map entries still emit one path
+- `testinfra/contracts`: `action_paths` unique `path_id` invariant
+Cost/perf impact: low
+Chaos/failure hypothesis: If mixed repo scans emit repeated or partially-correlated privilege-map entries, Wrkr must collapse them deterministically into one govern-first path instead of duplicating customer-visible action rows.
+
+### Story FO-02: Stream org-scan progress to stderr during execution
+Priority: P0
+Tasks:
+- Replace buffered progress accumulation with immediate event emission to stderr.
+- Emit repo discovery, materialization, retry, cooldown, resume, and completion lines as the scan advances.
+- Preserve `--json` stdout contract and `--json-path` byte identity while progress streams live on stderr.
+- Add tests that prove progress is observable before command completion.
+Repo paths:
+- `core/cli/scan_progress.go`
+- `core/cli/scan.go`
+- `core/cli/scan_progress_test.go`
+- `core/cli/scan_resume_test.go`
+Run commands:
+- `go test ./core/cli -run 'TestScanProgress|TestScanResume' -count=1`
 - `make test-hardening`
 - `make test-chaos`
-- `go test ./internal/integration/fix -count=1`
-- `go test ./internal/e2e/github_pr -count=1`
-Test requirements:
-- help/usage tests
-- `--json` stability tests
-- exit-code contract tests
-- machine-readable error envelope tests
-- deterministic allow/block fixtures for target resolution
-- fail-closed ambiguous-target tests
-- reason-code stability checks
-- byte-stability repeat-run tests for generated branch/file sets
-- crash-safe and atomic-write tests for any local staging state
-Matrix wiring:
-- Fast lane: `make prepush`
-- Core CI lane: `make prepush-full`
-- Acceptance lane: `go test ./internal/integration/fix -count=1` and `go test ./internal/e2e/github_pr -count=1`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make test-hardening` and `make test-chaos`
-Acceptance criteria:
-- Supported fix templates can produce actual repo file edits under an explicit apply surface.
-- Current preview behavior remains available and unchanged for existing consumers.
-- Ambiguous or unsafe targets fail closed with deterministic machine-readable errors.
-- PRs created by apply mode show real changed files rather than only preview artifacts.
-Contract/API impact:
-- Additive CLI surface and additive JSON fields may be introduced.
-- Existing preview-mode keys and exit codes must remain stable.
-Versioning/migration impact:
-- No schema bump planned.
-- Additive migration note required in docs and changelog.
-Architecture constraints:
-- Thin CLI orchestration with focused apply logic packages.
-- Explicit side-effect semantics in API naming (`plan` vs `apply`).
-- Cancellation/timeout propagation for PR and network operations.
-- Extension points for additional remediation templates without enterprise fork pressure.
-ADR required: yes
-TDD first failing test(s):
-- Add a failing CLI contract test for the new apply surface.
-- Add a failing integration test showing a supported remediation produces a real target-file diff.
-- Add a failing fail-closed test for ambiguous patch targets.
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- If network or file-apply steps fail mid-run, the command must not claim a successful applied remediation or leave partially staged state behind.
-
-### Story W3-S2: Add Deterministic Multi-PR Orchestration and Idempotent Remediation Cadence
-
-Priority: P2
-Tasks:
-- Add an explicit control for splitting top findings across up to `N` PRs.
-- Make branch naming, grouping, and PR reuse deterministic across repeated runs.
-- Ensure scheduled or repeated executions update existing PRs instead of spamming duplicates.
-- Document multi-PR behavior and cap semantics.
-Repo paths:
-- `core/cli/fix.go`
-- `core/github/pr/upsert.go`
-- `core/fix/*`
-- `docs/commands/fix.md`
-- `internal/e2e/github_pr`
-- `testinfra/contracts`
-Run commands:
 - `make prepush-full`
-- `make test-hardening`
-- `go test ./internal/e2e/github_pr -count=1`
-- `make test-contracts`
 Test requirements:
-- CLI help/usage tests
-- deterministic grouping and branch-name tests
-- idempotent rerun tests
-- machine-readable result envelope tests
-- concurrency/contention tests where repeated runs touch the same repo target
+- progress tests that assert lines appear before command completion
+- retry/cooldown/resume tests that keep stdout JSON clean
+- cancellation and interrupted-run coverage for org resume
+- smoke path for multi-repo org/path scans
 Matrix wiring:
-- Fast lane: `make prepush`
-- Core CI lane: `make prepush-full`
-- Acceptance lane: `go test ./internal/e2e/github_pr -count=1`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make test-hardening`
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
 Acceptance criteria:
-- A configured top-N run can deterministically create or update up to N PRs.
-- Repeated runs with the same inputs do not create duplicate PRs.
-- PR grouping order is deterministic and documented.
-Contract/API impact:
-- Additive controls only; existing preview/apply semantics must remain stable.
-Versioning/migration impact:
-- None beyond additive docs/changelog updates.
+- org-scan progress lines appear on stderr while the command is still executing
+- stdout remains reserved for final JSON when `--json` is enabled
+- `--quiet` still suppresses progress lines
+- retry, cooldown, resume, and completion events remain deterministic and parseable
+Changelog impact: required
+Changelog section: Changed
+Draft changelog entry: Org scans now stream deterministic progress events to stderr during execution while preserving stdout JSON contracts.
+Semver marker override: none
+Contract/API impact: stderr progress becomes truly live; stdout JSON and `--json-path` contracts remain unchanged.
+Versioning/migration impact: No schema migration.
 Architecture constraints:
-- Keep orchestration deterministic and stateless beyond explicit repo/branch state.
-- No hidden background scheduling or out-of-band coordination.
+- keep progress emission as thin CLI orchestration
+- do not leak scan state mutation into report/risk layers
+- cancellation and timeout behavior must propagate without buffering surprises
 ADR required: no
 TDD first failing test(s):
-- Add a failing e2e test for deterministic multi-PR grouping.
-- Add a failing idempotency test for repeated runs against the same target repo.
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Concurrent or repeated scheduled runs must not diverge grouping order or create duplicate remediation PRs.
+- `core/cli/scan_progress_test.go`: progress lines visible before completion
+- `core/cli/scan_resume_test.go`: resume emits live progress without corrupting JSON
+Cost/perf impact: low
+Chaos/failure hypothesis: Under retries, cooldowns, resume, and cancellation, Wrkr must keep operator progress live on stderr and never contaminate stdout JSON or deadlock on buffered output.
 
-## Epic Wave 4: Packaged Action and Scheduled Distribution
+### Story FO-03: Normalize stat and permission failure surfacing across priority detectors
+Priority: P0
+Tasks:
+- Replace remaining bool-only existence checks and direct `os.ReadFile` paths in priority detectors with error-bearing helper calls where scan completeness matters.
+- Standardize detector behavior so permission denied, unsafe path, and stat failures surface as parse/detector errors instead of silent absence.
+- Add explain-mode messaging for incomplete visibility when detector access failed.
+- Keep secret values scrubbed and fail closed for unsafe root-escaping paths.
+Repo paths:
+- `core/detect/parse.go`
+- `core/detect/agentframework/detector.go`
+- `core/detect/agentcustom/detector.go`
+- `core/detect/ciagent/detector.go`
+- `core/detect/compiledaction/detector.go`
+- `core/detect/workstation/detector.go`
+- `internal/scenarios/permission_failure_surfacing_scenario_test.go`
+Run commands:
+- `go test ./core/detect/... -count=1`
+- `go test ./internal/scenarios -run 'TestPermissionFailureSurfacingScenario' -count=1 -tags=scenario`
+- `go test ./core/cli -run 'TestScanPartialErrors' -count=1`
+- `make prepush-full`
+Test requirements:
+- permission-denied fixtures producing visible parse/detector errors in JSON
+- explain-mode messaging that calls out incomplete visibility
+- unsafe-path regression tests for root-escaping symlinked files
+- deterministic failure-shape assertions across priority detectors
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- the listed priority detectors surface permission/stat failures through parse or detector errors rather than silently dropping evidence
+- explain-mode mentions incomplete visibility when relevant
+- secret values remain scrubbed even when read attempts fail
+- unsafe or root-escaping paths still fail closed
+Changelog impact: required
+Changelog section: Fixed
+Draft changelog entry: Priority detectors now surface permission and stat failures consistently in scan output so incomplete visibility is explicit.
+Semver marker override: none
+Contract/API impact: additive incomplete-visibility errors and warnings become more consistent; no exit-code changes.
+Versioning/migration impact: No schema migration; contract goldens update for additive error details.
+Architecture constraints:
+- centralize file-read semantics in `core/detect/parse.go`
+- keep detector packages focused on structured parsing, not bespoke filesystem policy
+- preserve fail-closed unsafe-path handling
+ADR required: no
+TDD first failing test(s):
+- `internal/scenarios/permission_failure_surfacing_scenario_test.go`: permission-denied paths are visible in JSON
+- detector unit tests for parse-error propagation from helper APIs
+Cost/perf impact: low
+Chaos/failure hypothesis: If filesystem access is partially denied during a scan, Wrkr must say visibility is incomplete instead of pretending the repo was clean.
 
-Objective: Restore future distribution claims only by shipping a real GitHub Action package that wraps the CLI and by adding scheduled governance delivery in a deterministic, fail-closed way.
+## Epic WRKR-FO-EPIC-2: Govern-First Prioritization and Bounded Assessment
 
-### Story W4-S1: Package `wrkr-action` as a Real GitHub Action Wrapper
+Objective: move the customer-visible output from generic finding-first security summaries to bounded AI action-path prioritization without mutating raw evidence.
 
+### Story FO-04: Make ranking and activation path-first when AI action paths exist
 Priority: P1
 Tasks:
-- Add a real `action.yml` package surface.
-- Implement a thin action entrypoint that wraps the existing CLI `action` logic.
-- Document action inputs, outputs, and token requirements.
-- Add packaging smoke tests and e2e coverage for PR comment mode.
+- Re-rank report and scan summary surfaces so `action_paths` and `action_path_to_control_first` lead when govern-first paths exist.
+- Downrank generic workflow secret findings unless they directly support a top AI action path.
+- Keep `findings`, `ranked_findings`, and `top_findings` available unchanged for operators and automation.
+- Add report-usefulness assertions that fail when AI-path-present scenarios still lead with generic `secret_presence`.
 Repo paths:
-- `action.yml`
-- `scripts/action_entrypoint.sh`
-- `docs/commands/action.md`
-- `README.md`
-- `internal/e2e/action`
-- `testinfra/contracts`
-Run commands:
-- `make prepush-full`
-- `go test ./internal/e2e/action -count=1`
-- `make test-contracts`
-- `make test-docs-consistency`
-Test requirements:
-- wrapper error-mapping tests
-- adapter parity/conformance tests
-- action output contract tests
-- docs consistency and example checks
-- idempotent PR comment update tests
-Matrix wiring:
-- Fast lane: `make prepush`
-- Core CI lane: `make prepush-full`
-- Acceptance lane: `go test ./internal/e2e/action -count=1`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: not required
-Acceptance criteria:
-- The repo contains a real GitHub Action package.
-- The packaged action wraps CLI `pr-mode` / `pr-comment` behavior without duplicating business logic.
-- Relevant PR changes produce deterministic, idempotent comment updates.
-- Docs can truthfully reference a packaged action surface after merge.
-Contract/API impact:
-- Additive packaged distribution surface.
-- Existing CLI contracts remain authoritative and stable.
-Versioning/migration impact:
-- None; new distribution surface only.
-Architecture constraints:
-- Thin orchestration wrapper only.
-- Explicit token and error mapping.
-- No drift between package behavior and CLI engine behavior.
-ADR required: yes
-TDD first failing test(s):
-- Add a failing e2e test that expects `action.yml` and packaged PR-comment behavior.
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- Missing token or irrelevant change sets must deterministically skip or fail with machine-readable output, never create comment spam.
-
-### Story W4-S2: Add Scheduled Governance Mode with Posture Delta and Controlled Remediation Dispatch
-
-Priority: P2
-Tasks:
-- Introduce scheduled-mode inputs/outputs for posture delta, summary artifact paths, and repeat-run behavior.
-- Make scheduled mode dependent on the CLI scan/report/evidence flow rather than bespoke logic.
-- Gate remediation dispatch on Wave 3 completion so scheduled runs do not overclaim direct fixes.
-- Add acceptance coverage for summary-only and remediation-enabled scheduled runs.
-Repo paths:
-- `action.yml`
-- `core/cli/action.go`
-- `core/action/*`
-- `docs/commands/action.md`
-- `README.md`
-- `internal/e2e/action`
-- `.github/workflows/wrkr-action-ci.yml`
-Run commands:
-- `make prepush-full`
-- `make test-hardening`
-- `go test ./internal/e2e/action -count=1`
-- `scripts/run_v1_acceptance.sh --mode=local`
-- `make test-docs-consistency`
-Test requirements:
-- action output contract tests
-- lifecycle/repeat-run tests
-- idempotency tests
-- machine-readable error envelope tests
-- docs consistency and quickstart/storyline checks if usage changes
-- hardening coverage for scheduled orchestration failure paths
-Matrix wiring:
-- Fast lane: `make prepush`
-- Core CI lane: `make prepush-full`
-- Acceptance lane: `go test ./internal/e2e/action -count=1` and `scripts/run_v1_acceptance.sh --mode=local`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make test-hardening`
-Acceptance criteria:
-- Scheduled mode emits deterministic posture delta and summary artifact references.
-- Summary-only scheduled runs work before remediation dispatch is enabled.
-- Remediation dispatch is unavailable or explicitly disabled until Wave 3 apply mode exists.
-- Repeated scheduled runs remain idempotent.
-Contract/API impact:
-- Additive action inputs/outputs only.
-Versioning/migration impact:
-- None beyond additive docs/changelog updates.
-Architecture constraints:
-- Keep scheduled mode as thin orchestration over existing CLI flows.
-- Propagate cancellation and timeout semantics.
-- Avoid hidden background state or service dependencies.
-ADR required: yes
-TDD first failing test(s):
-- Add a failing scheduled-mode acceptance fixture.
-- Add a failing idempotent rerun test for scheduled summary output.
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Partial scan/evidence/report failures in scheduled mode must surface deterministic failure classes and must not emit false success summaries or remediation claims.
-
-## Epic Wave 5: Executive PDF and Report Delivery Hardening
-
-Objective: Restore future board-ready reporting claims only by replacing the current single-page/truncating PDF renderer with a deterministic, wrapped, paginated renderer and explicit acceptance fixtures.
-
-### Story W5-S1: Replace the Single-Page PDF Renderer with Wrapped, Paginated Deterministic Output
-
-Priority: P2
-Tasks:
-- Select and document a deterministic rendering approach that supports wrapping and pagination.
-- Replace current one-page/truncating behavior in `core/cli/report_pdf.go`.
-- Preserve `--pdf` and `pdf_path` public contract stability.
-- Add pagination, wrapping, and repeat-run determinism tests.
-- Update report docs to describe actual artifact quality guarantees.
-Repo paths:
-- `core/cli/report_pdf.go`
-- `core/cli/report_artifacts.go`
-- `docs/commands/report.md`
-- `product/wrkr.md`
+- `core/risk/risk.go`
+- `core/report/build.go`
+- `core/report/activation.go`
+- `core/report/report_test.go`
 - `core/cli/report_contract_test.go`
 - `testinfra/contracts`
+- `internal/scenarios`
 Run commands:
-- `make prepush-full`
-- `make test-contracts`
-- `go test ./core/cli -run 'TestReportPDF|TestReportContract' -count=1`
-- `scripts/run_v1_acceptance.sh --mode=local`
+- `go test ./core/risk ./core/report ./core/cli -count=1`
+- `go test ./testinfra/contracts -count=1`
+- `go test ./internal/scenarios -run 'TestActionPathToControlFirstScenario|TestDeliveryChainCorrelationScenario' -count=1 -tags=scenario`
+- `make test-risk-lane`
 Test requirements:
-- byte-stability repeat-run tests
-- pagination/wrapping fixture or golden tests
-- CLI help/usage tests if wording changes
-- docs consistency checks
-- acceptance coverage for a long multi-section report fixture
+- report contracts where AI paths exist and top summary lines reference them before generic `secret_presence`
+- scenario fixtures proving AI-path-first ranking
+- stable ordering tests for equal-score path cases
+- usefulness contracts that fail on secret-dominated summaries when AI paths are present
 Matrix wiring:
-- Fast lane: `make prepush`
-- Core CI lane: `make prepush-full`
-- Acceptance lane: `scripts/run_v1_acceptance.sh --mode=local`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: not required
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
 Acceptance criteria:
-- Long summaries no longer silently fall off-page.
-- Critical report content is wrapped or paginated rather than truncated away.
-- Fixed-input PDF generation remains deterministic within the version.
-- CLI JSON/path contracts remain unchanged.
-Contract/API impact:
-- Artifact-quality improvement only; flag and JSON contracts stay stable.
-Versioning/migration impact:
-- No JSON/schema bump.
-- One-time PDF golden refresh is acceptable and must be documented in the same PR.
+- customer-visible summary ordering leads with govern-first paths whenever they exist
+- generic secret findings remain present but no longer dominate top summary/readout layers without path linkage
+- `action_path_to_control_first` is aligned with the top-ranked govern-first path story
+- tie-breaking remains deterministic
+Changelog impact: required
+Changelog section: Changed
+Draft changelog entry: Scan and report summaries now prioritize govern-first AI action paths ahead of generic supporting findings when risky paths are present.
+Semver marker override: none
+Contract/API impact: ranking and summary emphasis change; raw finding surfaces remain available and unchanged.
+Versioning/migration impact: No schema migration; contract goldens update for deterministic ranking order changes.
 Architecture constraints:
-- Deterministic rendering only.
-- Any new dependency must be pinned and justified.
-- No runtime network/font/download dependency is allowed.
-ADR required: yes
-TDD first failing test(s):
-- Add a failing PDF contract test for a multi-page or long-line fixture that current renderer cannot represent correctly.
-Cost/perf impact: medium
-Chaos/failure hypothesis:
-- Oversized or unusually formatted reports must degrade deterministically or fail explicitly; they must never emit corrupted partial PDFs.
-
-### Story W5-S2: Add Executive Report Acceptance Fixtures and Restore the Board-Ready Claim Only After Passing
-
-Priority: P2
-Tasks:
-- Add explicit acceptance fixtures for a one-page executive summary and a longer detailed report.
-- Define measurable acceptance checks for visibility of key metrics and section coverage.
-- Restore product/README claim language only after those fixtures and render checks are green.
-- Update changelog/docs to record the claim restoration.
-Repo paths:
-- `internal/acceptance`
-- `product/wrkr.md`
-- `README.md`
-- `docs/commands/report.md`
-- `CHANGELOG.md`
-Run commands:
-- `scripts/run_v1_acceptance.sh --mode=local`
-- `make test-docs-consistency`
-- `go test ./internal/acceptance -count=1`
-Test requirements:
-- acceptance fixtures
-- docs consistency checks
-- README first-screen checks
-- changelog/docs source-of-truth checks for restored claims
-Matrix wiring:
-- Fast lane: `make test-docs-consistency`
-- Core CI lane: `go test ./internal/acceptance -count=1`
-- Acceptance lane: `scripts/run_v1_acceptance.sh --mode=local`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: not required
-Acceptance criteria:
-- Executive report fixtures prove the board-ready claim with explicit checks.
-- Public claim restoration happens only in the same PR that adds the passing acceptance fixtures.
-- README/product/report docs remain aligned.
-Contract/API impact:
-- Docs/positioning only after runtime acceptance proves the capability.
-Versioning/migration impact:
-- None.
-Architecture constraints:
-- Claim restoration must be evidence-backed and test-backed, not copy-led.
-- Keep the report renderer deterministic and offline-safe.
+- keep ranking logic in `core/risk` and summary projection in `core/report`
+- do not mutate raw findings to achieve customer-ready ordering
+- keep tie-break rules explicit and testable
 ADR required: no
 TDD first failing test(s):
-- Add a failing acceptance check for executive summary visibility before restoring the claim.
+- `core/report/report_test.go`: top summary lines lead with AI paths when present
+- `testinfra/contracts`: AI-path-present scenarios fail if top content is generic secret-first
 Cost/perf impact: low
-Chaos/failure hypothesis:
-- If the renderer regresses after claim restoration, acceptance fixtures fail before release and the claim is blocked from reappearing.
+Chaos/failure hypothesis: When both AI paths and generic support findings are present, Wrkr must still surface the govern-first path first instead of reverting to noisy generic headlines.
+Dependencies:
+- `FO-01`
+
+### Story FO-05: Make `recommended_action` a real decision surface
+Priority: P1
+Tasks:
+- Rework `recommended_action` derivation so `inventory`, `approval`, `proof`, and `control` are all meaningfully reachable.
+- Base the decision on write capability, delivery-chain status, deployment status, ownership quality, credential access, approval-gap type, and execution-identity confidence.
+- Keep the enum stable while improving deterministic class boundaries.
+- Add fixtures that explicitly exercise all four recommendation classes.
+Repo paths:
+- `core/risk/action_paths.go`
+- `core/risk/action_paths_test.go`
+- `internal/scenarios`
+- `testinfra/contracts`
+Run commands:
+- `go test ./core/risk -count=1`
+- `go test ./internal/scenarios -run 'TestApprovalGapModelingScenario|TestDeliveryChainCorrelationScenario|TestIdentityToActionPathScenario' -count=1 -tags=scenario`
+- `go test ./testinfra/contracts -count=1`
+- `make test-risk-lane`
+Test requirements:
+- scenario fixtures that deterministically produce all four recommendation classes
+- contract tests on `action_paths[*].recommended_action`
+- stable priority-order tests across equal-risk paths
+- rationale coverage for approval-gap type and identity confidence
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- all four `recommended_action` values are reachable in deterministic fixtures
+- top risky paths no longer collapse to `approval` by default
+- the recommendation reflects delivery-chain, production, identity, and ownership context
+- public enum values remain unchanged
+Changelog impact: required
+Changelog section: Changed
+Draft changelog entry: Govern-first `recommended_action` output now differentiates inventory, approval, proof, and control based on path context instead of collapsing most paths to approval.
+Semver marker override: none
+Contract/API impact: stable enum, changed classification logic.
+Versioning/migration impact: No schema migration; update contract and scenario goldens for new class distribution.
+Architecture constraints:
+- keep recommendation derivation deterministic and local to `core/risk/action_paths.go`
+- do not leak report wording rules into risk classification
+- preserve stable enum values
+ADR required: no
+TDD first failing test(s):
+- `core/risk/action_paths_test.go`: four deterministic recommendation classes
+- scenario tests covering each class and the correct priority ordering
+Cost/perf impact: low
+Chaos/failure hypothesis: If ownership or identity evidence is weak, Wrkr must still choose the right next action deterministically instead of collapsing the path into a generic approval bucket.
+Dependencies:
+- `FO-01`
+
+### Story FO-06: Add additive `assessment` profile for bounded customer scans
+Priority: P1
+Tasks:
+- Add `assessment` as an additive scan profile with deterministic weighting/filter behavior for govern-first surfaces.
+- Downweight or exclude `examples/`, `tests/`, `.venv/`, generated/vendor-like paths, and non-production-like sample content from `activation`, `action_paths`, and top report/readout layers only.
+- Keep raw findings, inventory evidence, proof records, and explain output intact.
+- Make the same bounded profile available to report building via saved scan state.
+Repo paths:
+- `core/aggregate/inventory/inventory.go`
+- `core/aggregate/privilegebudget/budget.go`
+- `core/cli/scan.go`
+- `core/risk/action_paths.go`
+- `core/report/build.go`
+- `docs/commands/scan.md`
+- `internal/scenarios`
+- `testinfra/contracts`
+Run commands:
+- `go test ./core/aggregate/... ./core/risk ./core/report ./core/cli -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+- `go test ./testinfra/contracts -count=1`
+- `scripts/run_v1_acceptance.sh --mode=local`
+- `make prepush-full`
+Test requirements:
+- scenario fixtures for sample-heavy, test-heavy, and vendored noise repos
+- comparison tests proving govern-first output sharpens while raw findings remain unchanged
+- CLI help/usage tests for the additive profile
+- contract tests for saved-state report behavior under `profile=assessment`
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- `scan --profile assessment` is accepted and documented
+- bounded assessment suppresses noise only in govern-first surfaces, not in raw findings or proof data
+- saved-state report output respects the bounded profile
+- deterministic output remains stable across repeat runs
+Changelog impact: required
+Changelog section: Added
+Draft changelog entry: Added an `assessment` scan profile that sharpens govern-first action-path output for customer readouts while keeping raw findings and proof artifacts unchanged.
+Semver marker override: [semver:minor]
+Contract/API impact: additive new profile value; existing profile semantics remain unchanged.
+Versioning/migration impact: No schema migration; CLI docs/help and profile contract tests must be updated in the same change.
+Architecture constraints:
+- isolate noise classification in aggregation/risk projection helpers
+- keep scan CLI orchestration thin
+- do not let the profile mutate proof emission or raw finding collection
+ADR required: no
+TDD first failing test(s):
+- CLI contract test for `--profile assessment`
+- scenario comparison test proving raw findings stability with sharper govern-first surfaces
+Cost/perf impact: medium
+Chaos/failure hypothesis: In sample-heavy or vendored repos, Wrkr must narrow customer-readout noise without losing the underlying evidence operators still need.
+Dependencies:
+- `FO-01`
+- `FO-04`
+- `FO-05`
+
+## Epic WRKR-FO-EPIC-3: Customer-Ready Assessment Report and Claim Boundary
+
+Objective: turn the improved govern-first substrate into a customer-facing readout that says what matters first, what to control first, and nothing beyond Wrkr's static-proof boundary.
+
+### Story FO-07: Add AI-first assessment summary to report output
+Priority: P1
+Tasks:
+- Add an additive `assessment_summary` block and markdown/template rendering that lead with governable AI path count, write-capable path count, production-target-backed path count, top path to govern first, top execution-identity-backed path, and offline proof artifact path.
+- Make the operator report read path-centric for customer scans while keeping existing report templates valid.
+- Ensure `action_paths`, `action_path_to_control_first`, and assessment headline facts are aligned.
+- Add comparison fixtures against the existing operator report using the agent-ecosystem subset regression fixture.
+Repo paths:
+- `core/report/build.go`
+- `core/report/types.go`
+- `core/report/templates`
+- `core/report/render_markdown.go`
+- `core/cli/report.go`
+- `docs/commands/report.md`
+- `internal/scenarios`
+- `testinfra/contracts`
+Run commands:
+- `go test ./core/report ./core/cli -count=1`
+- `go test ./testinfra/contracts -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+- `make test-docs-consistency`
+- `make prepush-full`
+Test requirements:
+- contract tests for additive `assessment_summary`
+- markdown/template golden updates for AI-first readouts
+- comparison tests against current operator report using the frozen agent-ecosystem subset
+- JSON stability tests proving existing fields still exist
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- assessment-oriented reports lead with path-centric counts and top control recommendation
+- `assessment_summary` is additive and deterministic
+- proof artifact path is surfaced without implying live observation
+- existing report consumers still receive prior fields unchanged
+Changelog impact: required
+Changelog section: Added
+Draft changelog entry: Added an AI-first assessment summary to report output so customer readouts lead with governable paths, top control targets, and offline proof location.
+Semver marker override: [semver:minor]
+Contract/API impact: additive report summary fields and template content; existing keys remain.
+Versioning/migration impact: No schema migration; markdown/PDF goldens and report docs update in the same change.
+Architecture constraints:
+- keep render-neutral summary construction in `core/report/build.go`
+- templates render precomputed facts instead of recomputing ranking logic
+- preserve deterministic markdown and PDF generation
+ADR required: no
+TDD first failing test(s):
+- `core/report/report_test.go`: `assessment_summary` is present and path-centric
+- `core/cli/report_contract_test.go`: top-level report payload keeps prior fields and adds the new summary block
+Cost/perf impact: low
+Chaos/failure hypothesis: If path data is present but some identity or proof metadata is missing, the assessment summary must degrade honestly without reverting to generic finding-first wording.
+Dependencies:
+- `FO-04`
+- `FO-05`
+- `FO-06`
+
+### Story FO-08: Lock report and docs wording to Wrkr's static posture boundary
+Priority: P1
+Tasks:
+- Audit report summary wording, templates, README, and scan/report command docs for drift into runtime provenance, live observation, or control-layer enforcement claims.
+- Update operator/customer readout language so it says what Wrkr found, what can write, what should be reviewed first, and what proof artifacts were generated.
+- Add wording contracts and docs consistency checks that fail if templates or docs overclaim.
+- Keep the first-offer story explicit in README and command docs.
+Repo paths:
+- `core/report/build.go`
+- `core/report/templates`
+- `README.md`
+- `docs/commands/report.md`
+- `docs/commands/scan.md`
+- `docs/examples/security-team.md`
+- `docs/examples/operator-playbooks.md`
+- `testinfra/contracts`
+Run commands:
+- `make test-docs-consistency`
+- `make test-docs-storyline`
+- `go test ./core/report ./core/cli ./testinfra/contracts -count=1`
+- `make prepush-full`
+Test requirements:
+- wording contracts for templates and summaries
+- docs parity and storyline checks
+- README first-screen checks for bounded first-offer promise
+- report/template tests that reject runtime observation or enforcement language
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: not required
+Acceptance criteria:
+- no touched doc, template, or generated summary implies runtime `what actually happened`
+- no touched surface implies selective gating or enforcement
+- README and command docs clearly state the bounded assessment promise
+- docs and templates stay aligned with actual runtime behavior
+Changelog impact: required
+Changelog section: Changed
+Draft changelog entry: Clarified scan and report wording so Wrkr's customer-facing output stays explicitly scoped to static posture, risky paths, and offline-verifiable proof.
+Semver marker override: none
+Contract/API impact: wording-only on public docs/template surfaces; no schema change.
+Versioning/migration impact: No migration.
+Architecture constraints:
+- treat docs and templates as executable contract surfaces
+- keep wording enforcement close to docs/template tests rather than ad hoc review
+- do not change runtime semantics to fit copy
+ADR required: no
+TDD first failing test(s):
+- docs/template contract that fails on banned runtime or enforcement wording
+- README first-screen contract test for bounded first-offer promise
+Cost/perf impact: low
+Chaos/failure hypothesis: If future copy drifts into runtime or enforcement claims, docs/template contracts must fail before merge rather than rely on manual review.
+Dependencies:
+- `FO-07`
+
+## Epic WRKR-FO-EPIC-4: Ownership and Identity Action Targets
+
+Objective: make the top risky paths answer the natural buyer question: who owns this, which non-human identity backs it, and what actor should we review or revoke first.
+
+### Story FO-09: Elevate ownership quality and ownerless exposure in govern-first surfaces
+Priority: P2
+Tasks:
+- Use `owner_source` and `ownership_status` directly in ranking and summary wording.
+- Add additive `ownerless_exposure` summary counts for explicit owner, inferred owner, unresolved owner, and multi-repo conflict owner.
+- Prefer `needs owner clarification` messaging when ownership is weak instead of silently accepting fallback owners.
+- Ensure ownership weakness can raise a path in govern-first prioritization.
+Repo paths:
+- `core/owners/owners.go`
+- `core/aggregate/inventory/inventory.go`
+- `core/aggregate/privilegebudget/budget.go`
+- `core/report/build.go`
+- `core/report/activation.go`
+- `internal/scenarios/ownership_quality_scenario_test.go`
+- `testinfra/contracts`
+Run commands:
+- `go test ./core/owners ./core/aggregate/inventory ./core/aggregate/privilegebudget ./core/report -count=1`
+- `go test ./internal/scenarios -run 'TestOwnershipQualityScenario' -count=1 -tags=scenario`
+- `go test ./testinfra/contracts -count=1`
+- `make test-risk-lane`
+Test requirements:
+- fixtures with explicit, inferred, unresolved, and multi-repo-conflict ownership
+- report assertions that ownership quality changes wording and priority
+- contract tests for additive `ownerless_exposure`
+- stable ordering tests when ownership quality is the differentiator
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- top govern-first surfaces clearly distinguish explicit, inferred, unresolved, and conflicting ownership
+- unresolved ownership can elevate a risky path and produces `needs owner clarification` messaging
+- `ownerless_exposure` is additive and deterministic
+- fallback ownership is no longer treated as equally strong as explicit ownership
+Changelog impact: required
+Changelog section: Changed
+Draft changelog entry: Govern-first summaries now highlight ownership quality and ownerless exposure so unresolved or conflicting ownership is explicit in top action paths.
+Semver marker override: none
+Contract/API impact: additive ownership summary fields and ranking emphasis.
+Versioning/migration impact: No schema migration; update report and contract goldens for new ownership wording and counts.
+Architecture constraints:
+- keep ownership resolution authoritative in `core/owners`
+- use aggregation/risk layers for ranking, not ad hoc report-only overrides
+- do not fabricate strong ownership from weak evidence
+ADR required: no
+TDD first failing test(s):
+- `internal/scenarios/ownership_quality_scenario_test.go`: weak ownership changes wording and priority
+- contract test for `ownerless_exposure` summary counts
+Cost/perf impact: low
+Chaos/failure hypothesis: If CODEOWNERS or repo provenance are ambiguous, Wrkr must say ownership is weak and prioritize clarification instead of inventing confidence.
+Dependencies:
+- `FO-04`
+- `FO-06`
+
+### Story FO-10: Improve execution-identity correlation and add `identity_exposure_summary`
+Priority: P2
+Tasks:
+- Tighten static matching between workflow-backed non-human identity evidence and top action paths using repo, workflow, and location context.
+- Reduce avoidable `execution_identity_status=unknown` while preserving honest ambiguity when correlation is insufficient.
+- Add additive `identity_exposure_summary` counts for total non-human identities observed, identities backing write-capable paths, identities backing deploy-capable paths, identities with unresolved ownership, and identities with unknown execution correlation.
+- Surface the summary in report/readout layers next to govern-first path output.
+Repo paths:
+- `core/detect/nonhumanidentity/detector.go`
+- `core/risk/action_paths.go`
+- `core/report/build.go`
+- `core/report/types.go`
+- `core/aggregate/inventory/inventory.go`
+- `internal/scenarios/identity_to_action_path_scenario_test.go`
+- `internal/scenarios/nonhuman_identity_inventory_scenario_test.go`
+- `testinfra/contracts`
+Run commands:
+- `go test ./core/detect/nonhumanidentity ./core/risk ./core/report ./core/aggregate/inventory -count=1`
+- `go test ./internal/scenarios -run 'TestIdentityToActionPathScenario|TestNonHumanIdentityInventoryScenario' -count=1 -tags=scenario`
+- `go test ./testinfra/contracts -count=1`
+- `make test-risk-lane`
+Test requirements:
+- fixtures where GitHub App, bot, or service-account evidence maps to top-ranked paths
+- report/state contracts for `identity_exposure_summary`
+- additive execution-identity field assertions on top govern-first paths
+- stable ambiguity tests when correlation is still insufficient
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- top risky paths resolve more non-human identities when evidence exists
+- `execution_identity_status=unknown` remains only when correlation is genuinely ambiguous
+- `identity_exposure_summary` is additive and deterministic
+- report/readout layers surface identity-backed path counts and weak-correlation counts
+Changelog impact: required
+Changelog section: Added
+Draft changelog entry: Added identity exposure summaries and improved correlation between top govern-first paths and non-human execution identities.
+Semver marker override: [semver:minor]
+Contract/API impact: additive summary fields and improved execution-identity correlation on existing path objects.
+Versioning/migration impact: No schema migration; update path/report contract goldens for additive identity fields.
+Architecture constraints:
+- keep identity evidence collection in detection/inventory layers
+- keep final path correlation deterministic in `core/risk`
+- preserve ambiguous outcomes instead of overfitting weak matches
+ADR required: no
+TDD first failing test(s):
+- `internal/scenarios/identity_to_action_path_scenario_test.go`: path maps to the right identity when evidence exists
+- contract test for `identity_exposure_summary`
+Cost/perf impact: medium
+Chaos/failure hypothesis: If workflow identity evidence is partial or ambiguous, Wrkr must reduce avoidable unknowns without inventing false positive identity matches.
+Dependencies:
+- `FO-05`
+- `FO-07`
+
+### Story FO-11: Rank identities to review or revoke first and flag standing privilege reuse
+Priority: P2
+Tasks:
+- Add deterministic ranking logic for `identity_to_review_first` and `identity_to_revoke_first`.
+- Score identities by write-capable path count, deploy/db/admin path count, unknown-to-security count, unresolved ownership, and ambiguous execution correlation.
+- Add `shared_execution_identity` and `standing_privilege` heuristics for identities reused across repos, workflows, or risky paths.
+- Surface those identity-first actions in report/readout layers without removing raw path detail.
+Repo paths:
+- `core/risk`
+- `core/detect/nonhumanidentity/detector.go`
+- `core/report/build.go`
+- `core/report/types.go`
+- `internal/scenarios`
+- `testinfra/contracts`
+Run commands:
+- `go test ./core/risk ./core/detect/nonhumanidentity ./core/report -count=1`
+- `go test ./internal/scenarios -run 'TestIdentityToActionPathScenario|TestNonHumanIdentityInventoryScenario' -count=1 -tags=scenario`
+- `go test ./testinfra/contracts -count=1`
+- `make test-risk-lane`
+Test requirements:
+- scenarios where one identity clearly ranks above others for review or revocation
+- stable ordering tests for equal-score ties
+- fixtures where one bot/app/service account spans multiple risky repos or paths
+- summary/report assertions for shared-identity exposure flags
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- report/readout layers expose deterministic `identity_to_review_first` and `identity_to_revoke_first`
+- reused high-risk identities are flagged with additive shared/standing-privilege heuristics
+- tie-breaking is stable and documented
+- raw `action_paths` remain available for drill-down
+Changelog impact: required
+Changelog section: Added
+Draft changelog entry: Added identity-first review and revoke recommendations plus shared-identity standing-privilege signals for reused risky execution identities.
+Semver marker override: [semver:minor]
+Contract/API impact: additive identity-first action targets and heuristics.
+Versioning/migration impact: No schema migration; update report and contract goldens for additive identity ranking fields.
+Architecture constraints:
+- keep identity ranking logic inside `core/risk`
+- do not duplicate path ranking logic in report templates
+- heuristic flags must be evidence-backed and deterministic
+ADR required: no
+TDD first failing test(s):
+- risk/report test proving one identity ranks first for review/revocation
+- stable tie-order test for equal-score identities
+Cost/perf impact: medium
+Chaos/failure hypothesis: When one non-human identity quietly backs too many risky paths, Wrkr must say so deterministically instead of burying that exposure in individual path rows.
+Dependencies:
+- `FO-10`
+
+## Epic WRKR-FO-EPIC-5: Better Path Semantics and Grouped Exposures
+
+Objective: make path output say what kind of state can change and collapse repetitive rows into higher-level exposure groups that are easier to review with customers.
+
+### Story FO-12: Add `business_state_surface` classification to action paths
+Priority: P2
+Tasks:
+- Classify action paths by the kind of state they can change: `code`, `deploy`, `db`, `ticketing`, `admin_api`, `saas_write`, `workflow_control`.
+- Extend workflow capability and MCP-derived evidence only as needed to support those classes deterministically.
+- Add the field to `action_paths` and make it usable in report/readout wording.
+- Keep classification explainable and tied to concrete static evidence.
+Repo paths:
+- `core/risk/action_paths.go`
+- `core/detect/workflowcap/analyze.go`
+- `core/detect/mcp/detector.go`
+- `core/risk/action_paths_test.go`
+- `internal/scenarios`
+- `testinfra/contracts`
+Run commands:
+- `go test ./core/detect/workflowcap ./core/detect/mcp ./core/risk -count=1`
+- `go test ./internal/scenarios -run 'TestWorkflowCapabilitiesScenario' -count=1 -tags=scenario`
+- `go test ./testinfra/contracts -count=1`
+- `make test-risk-lane`
+Test requirements:
+- fixture coverage for each classified surface
+- report assertions surfacing non-code state changes clearly
+- additive contract tests for `business_state_surface`
+- stable precedence tests when a path qualifies for multiple surfaces
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- each requested surface class is emitted by at least one deterministic fixture
+- action paths clearly distinguish code-only paths from deploy/db/admin/ticketing/SaaS-write paths
+- classification remains additive and explainable
+- precedence is stable when multiple signals are present
+Changelog impact: required
+Changelog section: Added
+Draft changelog entry: Action paths now classify the business state they can change so deploy, database, admin, and other non-code write paths are explicit.
+Semver marker override: [semver:minor]
+Contract/API impact: additive `business_state_surface` field on action paths.
+Versioning/migration impact: No schema migration; contract goldens update for additive path field.
+Architecture constraints:
+- keep surface classification in risk logic using detector-provided evidence
+- avoid regex-only or report-only inference
+- preserve explainability from capability evidence to final class
+ADR required: no
+TDD first failing test(s):
+- `core/risk/action_paths_test.go`: each business-state surface class is reachable
+- scenario test for non-code state changes in top report output
+Cost/perf impact: medium
+Chaos/failure hypothesis: If a path can modify non-code business state, Wrkr must classify that deterministically instead of leaving customer messaging stuck at generic write access.
+Dependencies:
+- `FO-05`
+
+### Story FO-13: Add grouped `exposure_groups` on top of raw action paths
+Priority: P2
+Tasks:
+- Add deterministic grouping logic that clusters repetitive `action_paths` by repo, framework/tool, execution identity, delivery-chain status, and business-state surface.
+- Expose grouped objects as additive `exposure_groups` without removing raw `action_paths`.
+- Make report output able to summarize grouped exposures before drilling into path rows.
+- Keep ordering and group IDs stable for equal-input runs.
+Repo paths:
+- `core/risk`
+- `core/report/build.go`
+- `core/report/types.go`
+- `core/cli/report.go`
+- `internal/scenarios`
+- `testinfra/contracts`
+Run commands:
+- `go test ./core/risk ./core/report ./core/cli -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+- `go test ./testinfra/contracts -count=1`
+- `make prepush-full`
+- `make test-perf`
+Test requirements:
+- scenario outputs showing repetitive paths collapsed into stable groups
+- additive contract tests for `exposure_groups`
+- stable group-ordering tests for equal-score ties
+- perf checks ensuring grouping does not regress large org scans materially
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- repetitive path rows collapse into stable `exposure_groups`
+- raw `action_paths` remain unchanged and available for detail
+- group ordering is deterministic
+- grouping overhead stays inside accepted perf budgets
+Changelog impact: required
+Changelog section: Added
+Draft changelog entry: Added grouped exposure summaries on top of raw action paths so repeated risky paths can be reviewed as stable clusters.
+Semver marker override: [semver:minor]
+Contract/API impact: additive `exposure_groups` surface in report/readout payloads.
+Versioning/migration impact: No schema migration; contract and report goldens update for additive group objects.
+Architecture constraints:
+- grouping logic belongs in `core/risk`, not templates
+- raw path detail stays authoritative
+- ordering and group identity must be explicit and deterministic
+ADR required: no
+TDD first failing test(s):
+- risk/report test proving repetitive paths collapse into one stable exposure group
+- perf regression test for grouping on larger fixture sets
+Cost/perf impact: medium
+Chaos/failure hypothesis: If many similar risky paths exist across a repo or identity, Wrkr must summarize them into stable groups without hiding the underlying evidence.
+Dependencies:
+- `FO-12`
+
+## Epic WRKR-FO-EPIC-6: Real-World Regression Harness
+
+Objective: turn the first-offer quality bar into executable evidence so realistic noise, duplicate paths, and weak summaries fail automatically before release.
+
+### Story FO-14: Add real-world first-offer scenario packs
+Priority: P2
+Tasks:
+- Create scenario packs for sample-heavy repos, test-heavy repos, vendored `.venv` noise, mixed MCP plus workflows plus agents, mixed ownership quality, and duplicated-path regressions.
+- Freeze any real-world-inspired subset used for regression into deterministic repo-local fixtures or snapshot state.
+- Wire new scenarios into the coverage map and acceptance harness.
+- Use these scenarios as the baseline for `assessment` profile and dedupe correctness checks.
+Repo paths:
+- `scenarios/wrkr`
+- `internal/scenarios`
+- `internal/scenarios/coverage_map.json`
+- `testinfra/contracts`
+Run commands:
+- `scripts/validate_scenarios.sh`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+- `go test ./testinfra/contracts -count=1`
+- `scripts/run_v1_acceptance.sh --mode=local`
+- `make test-perf`
+Test requirements:
+- scenario CLI goldens for each new pack
+- coverage-map updates for new scenario intent
+- deterministic snapshot fixtures for real-world-inspired subsets
+- comparison coverage for standard vs assessment profile outputs
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- all requested real-world noise and duplication classes have deterministic scenario coverage
+- no scenario depends on live network state
+- scenario goldens clearly show the first-offer sharpened govern-first outputs
+- coverage map and validation scripts stay green
+Changelog impact: not required
+Changelog section: none
+Semver marker override: none
+Architecture constraints:
+- scenarios remain outside-in fixtures, not implementation-specific unit tests
+- frozen subsets must preserve determinism and repo portability
+- scenario packs should reflect customer reality without widening product scope
+ADR required: no
+TDD first failing test(s):
+- new scenario contracts for sample-heavy, test-heavy, vendored, mixed-identity, and duplicate-path cases
+- coverage map assertions for the new scenario packs
+Cost/perf impact: medium
+Chaos/failure hypothesis: If realistic repos contain lots of sample, test, or vendor noise, the scenario harness must catch any regression that reintroduces noisy govern-first output.
+Dependencies:
+- `FO-01`
+- `FO-06`
+
+### Story FO-15: Add report-usefulness contracts for AI-path-first output
+Priority: P2
+Tasks:
+- Add contract tests that fail when top report lines are dominated by generic workflow secret findings while AI action paths are present.
+- Add golden report outputs for AI-path-present scenarios and assert `action_path_to_control_first` points at the expected govern-first path.
+- Wire usefulness assertions through `core/cli`, `core/report`, and `testinfra/contracts`.
+- Keep the check focused on prioritization quality, not on brittle prose matching alone.
+Repo paths:
+- `testinfra/contracts`
+- `core/cli`
+- `core/report`
+- `internal/scenarios`
+- `docs/commands/report.md`
+Run commands:
+- `go test ./testinfra/contracts ./core/cli ./core/report -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario`
+- `scripts/run_v1_acceptance.sh --mode=local`
+- `make test-docs-consistency`
+- `make prepush-full`
+Test requirements:
+- golden report outputs for AI-path-present scenarios
+- assertions on top summary content and `action_path_to_control_first`
+- contract tests that reject secret-dominated summaries when AI paths exist
+- docs/report checks ensuring examples stay aligned with the sharpened output
+Matrix wiring:
+- Fast lane: required
+- Core CI lane: required
+- Acceptance lane: required
+- Cross-platform lane: required
+- Risk lane: required
+Acceptance criteria:
+- usefulness contracts fail when AI-path-present output regresses to generic finding-first summaries
+- `action_path_to_control_first` stays aligned with report headline facts
+- report goldens are stable and deterministic
+- docs examples reflect the same prioritization order the runtime emits
+Changelog impact: not required
+Changelog section: none
+Semver marker override: none
+Architecture constraints:
+- usefulness checks should validate structured report facts first and prose second
+- keep contracts deterministic and resilient to incidental copy edits
+- do not hide regressions behind overly broad golden updates
+ADR required: no
+TDD first failing test(s):
+- contract test that fails when AI paths exist but generic secret findings lead the report
+- golden test for `action_path_to_control_first` alignment
+Cost/perf impact: low
+Chaos/failure hypothesis: If later ranking or report changes drift back toward noisy generic findings, usefulness contracts must fail before customer output regresses.
+Dependencies:
+- `FO-04`
+- `FO-07`
+- `FO-14`
 
 ## Minimum-Now Sequence
 
-Wave 1:
-- W1-S1
-- W1-S2
-- W1-S3
+Wave 1: contract correctness and live operator trust
 
-Wave 2:
-- W2-S1
-- W2-S2
+- `FO-01` Deduplicate action paths and harden path identity
+- `FO-02` Stream org-scan progress to stderr during execution
+- `FO-03` Normalize stat and permission failure surfacing across priority detectors
 
-Wave 3:
-- W3-S1
-- W3-S2
+Wave 2: govern-first prioritization and bounded customer assessment
 
-Wave 4:
-- W4-S1
-- W4-S2
+- `FO-04` Make ranking and activation path-first when AI action paths exist
+- `FO-05` Make `recommended_action` a real decision surface
+- `FO-06` Add additive `assessment` profile for bounded customer scans
 
-Wave 5:
-- W5-S1
-- W5-S2
+Wave 3: customer-facing readout and claim boundary lock
 
-Dependency-driven execution order:
+- `FO-07` Add AI-first assessment summary to report output
+- `FO-08` Lock report and docs wording to Wrkr's static posture boundary
 
-1. Complete Wave 1 first. This removes the release-blocking contract mismatch between shipped behavior and public claims.
-2. Complete Wave 2 second. This improves evaluator aha and adds docs/hygiene guardrails so the minimum-now launch remains stable.
-3. Stop after Waves 1 and 2 for the minimum-now launch. This is the narrow-launch go point.
-4. Execute Wave 3 only when the team wants to restore direct-remediation claims and is ready to add explicit apply semantics.
-5. Execute Wave 4 only after Wave 3 if scheduled remediation or packaged-action claims are to be restored.
-6. Execute Wave 5 only when the team wants to restore board-ready PDF claims.
-7. Do not restore any broad-launch copy until the dependent later wave is complete and its scoped acceptance/tests are green.
+Wave 4: ownership and identity actionability
+
+- `FO-09` Elevate ownership quality and ownerless exposure in govern-first surfaces
+- `FO-10` Improve execution-identity correlation and add `identity_exposure_summary`
+- `FO-11` Rank identities to review or revoke first and flag standing privilege reuse
+
+Wave 5: better path semantics and grouped exposure review
+
+- `FO-12` Add `business_state_surface` classification to action paths
+- `FO-13` Add grouped `exposure_groups` on top of raw action paths
+
+Wave 6: regression lock-in for realistic customer output
+
+- `FO-14` Add real-world first-offer scenario packs
+- `FO-15` Add report-usefulness contracts for AI-path-first output
+
+Minimum-now first-offer ship point:
+
+- After Waves 1 through 3 are green, Wrkr is aligned to the shortest-path first offer from the recommendation set:
+  - deduped paths
+  - live-feeling org UX
+  - honest partial-visibility surfacing
+  - path-first prioritization
+  - meaningful `recommended_action`
+  - bounded assessment profile
+  - AI-first readout with claim boundaries locked
+
+Broader CISO-strengthening work:
+
+- Waves 4 through 6 deepen ownership, identity, business-state, grouping, and regression hardness without widening Wrkr into runtime provenance or enforcement.
 
 ## Explicit Non-Goals
 
-- No dashboard-first scope.
-- No managed control-plane or hosted service work.
-- No runtime enforcement or Gait product work in this repo.
-- No weakening of existing determinism, offline-first defaults, or fail-closed semantics.
-- No silent mutation of `wrkr fix` semantics without an explicit additive apply-mode contract.
-- No packaged-action claim restoration before a real package exists.
-- No board-ready PDF claim restoration before renderer and acceptance work land.
-- No issue/PR-template or other OSS-polish-only work as a primary blocker unless later waves explicitly expand maintainer workflow scope.
+- Runtime provenance, live action observation, or claims about what actually happened
+- Selective gating, approval enforcement, or control-layer execution
+- Any LLM or remote inference in scan, risk, or proof paths
+- Mutation of raw findings to achieve customer-ready summaries
+- Removal or renaming of existing `findings`, `attack_paths`, or `action_paths` surfaces
+- Dashboard-first, managed-service-first, or browser-only scope
+- Package/server vulnerability scanning beyond Wrkr's existing static posture role
+- Unpinned or live-network-dependent regression fixtures in CI
 
 ## Definition of Done
 
-- Every audit recommendation maps to at least one story in this plan.
-- Wave 1 and Wave 2 together are sufficient to move Wrkr from broad-launch no-go to narrow-launch go.
-- After Wave 1 and Wave 2:
-  - README, PRD, docs, examples, and help text consistently match shipped behavior
-  - evaluator onboarding is scenario-first and explicit about repo-root fixture noise
-  - docs/hygiene guardrails block overclaim regression
-  - no JSON, exit-code, or schema regressions were introduced
-- Later-wave claims are restored only after their corresponding implementation and acceptance stories pass.
-- Every implementation story in this plan has:
-  - repo-real paths
-  - deterministic acceptance criteria
-  - explicit lane wiring
-  - guide-compliant architecture constraints
-  - TDD-first failing tests
-  - documented cost/perf impact
-  - a chaos/failure hypothesis when risk-bearing
+- Every recommendation in the input set maps to at least one implemented story and a green acceptance signal.
+- All stories preserve deterministic, offline-first, fail-closed behavior and keep proof-record contracts intact.
+- Every story marked `Changelog impact: required` lands with `CHANGELOG.md` updated under `## [Unreleased]`.
+- CLI/help/docs/report wording changes ship in the same PR as runtime changes.
+- `make prepush-full` is green for architecture/risk/CLI/failure-semantic stories.
+- `make test-risk-lane` is green for ranking, profile, ownership, identity, grouping, and report usefulness stories.
+- `make test-docs-consistency` and `make test-docs-storyline` are green for docs/template/report wording stories.
+- Acceptance and scenario goldens prove:
+  - unique deterministic `action_paths`
+  - AI-path-first summaries
+  - useful `recommended_action`
+  - bounded `assessment` profile noise suppression with raw findings unchanged
+  - explicit ownership and identity weakness
+  - stable grouped exposure semantics
+- README, docs, and generated reports stay inside Wrkr's static-posture and offline-proof claim boundary.
+- Merge-required checks remain `fast-lane` and `windows-smoke`, and no story merges with broken contract, scenario, docs, or cross-platform signals.

@@ -25,7 +25,7 @@ const (
 )
 
 // BuildActivation projects a first-value view for local-machine scans without mutating raw risk ranking.
-func BuildActivation(targetMode string, ranked []risk.ScoredFinding, inventory *agginventory.Inventory, limit int) *ActivationSummary {
+func BuildActivation(targetMode string, ranked []risk.ScoredFinding, inventory *agginventory.Inventory, actionPaths []risk.ActionPath, limit int) *ActivationSummary {
 	if limit == 0 {
 		return nil
 	}
@@ -36,9 +36,51 @@ func BuildActivation(targetMode string, ranked []risk.ScoredFinding, inventory *
 	case activationTargetModeMySetup:
 		return buildMySetupActivation(ranked, limit)
 	case activationTargetModeOrg, activationTargetModePath:
+		if len(actionPaths) > 0 {
+			return buildGovernFirstActivationFromPaths(strings.TrimSpace(targetMode), actionPaths, limit)
+		}
 		return buildGovernFirstActivation(strings.TrimSpace(targetMode), inventory, limit)
 	default:
 		return nil
+	}
+}
+
+func buildGovernFirstActivationFromPaths(targetMode string, paths []risk.ActionPath, limit int) *ActivationSummary {
+	items := make([]ActivationItem, 0, min(limit, len(paths)))
+	for idx, path := range paths {
+		if idx >= limit {
+			break
+		}
+		items = append(items, ActivationItem{
+			Rank:                     idx + 1,
+			RiskScore:                path.RiskScore,
+			FindingType:              "activation_path",
+			ToolType:                 path.ToolType,
+			Severity:                 governFirstPathSeverity(path),
+			Location:                 strings.TrimSpace(path.Location),
+			Repo:                     strings.TrimSpace(path.Repo),
+			NextStep:                 governFirstPathNextStep(path),
+			ItemClass:                classifyGovernFirstActionPath(path),
+			WriteCapable:             path.WriteCapable,
+			ProductionWrite:          path.ProductionWrite,
+			ApprovalClassification:   path.RecommendedAction,
+			SecurityVisibilityStatus: strings.TrimSpace(path.SecurityVisibilityStatus),
+		})
+	}
+	if len(items) == 0 {
+		return &ActivationSummary{
+			TargetMode:    targetMode,
+			Message:       "No govern-first candidate paths were ranked for activation.",
+			EligibleCount: 0,
+			Reason:        activationReasonNoGovernFirst,
+			Items:         []ActivationItem{},
+		}
+	}
+	return &ActivationSummary{
+		TargetMode:    targetMode,
+		Message:       fmt.Sprintf("Review %d govern-first candidate path(s) first.", len(paths)),
+		EligibleCount: len(paths),
+		Items:         items,
 	}
 }
 
@@ -266,6 +308,49 @@ func governFirstNextStep(class string) string {
 	default:
 		return "Start governance review on this write-capable path and confirm the intended ownership."
 	}
+}
+
+func classifyGovernFirstActionPath(path risk.ActionPath) string {
+	switch {
+	case path.ProductionWrite:
+		return activationClassProductionBacked
+	case path.WriteCapable && strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity:
+		return activationClassUnknownWrite
+	case path.WriteCapable && strings.TrimSpace(path.RecommendedAction) == "approval":
+		return activationClassApprovalGap
+	default:
+		return activationClassGovernFirst
+	}
+}
+
+func governFirstPathSeverity(path risk.ActionPath) string {
+	return governFirstSeverity(agginventory.AgentPrivilegeMapEntry{
+		RiskScore:                path.RiskScore,
+		WriteCapable:             path.WriteCapable,
+		ProductionWrite:          path.ProductionWrite,
+		ApprovalGapReasons:       append([]string(nil), path.ApprovalGapReasons...),
+		SecurityVisibilityStatus: path.SecurityVisibilityStatus,
+	}, classifyGovernFirstActionPath(path))
+}
+
+func governFirstPathNextStep(path risk.ActionPath) string {
+	switch strings.TrimSpace(path.RecommendedAction) {
+	case "control":
+		return "apply the highest-priority control on this write-capable path and rescan to confirm reduced exposure"
+	case "approval":
+		return "add or tighten deterministic human approval gates on this path before allowing further automation"
+	case "proof":
+		return "collect stronger identity, ownership, or deployment proof for this path before approving it"
+	default:
+		return "inventory and review this path before expanding its privileges"
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func isApprovalGap(status string, reasons []string) bool {

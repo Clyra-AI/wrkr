@@ -11,7 +11,6 @@ import (
 type scanProgressReporter struct {
 	enabled bool
 	stderr  io.Writer
-	lines   []string
 	mu      sync.Mutex
 }
 
@@ -19,7 +18,6 @@ func newScanProgressReporter(enabled bool, stderr io.Writer) *scanProgressReport
 	return &scanProgressReporter{
 		enabled: enabled,
 		stderr:  stderr,
-		lines:   []string{},
 	}
 }
 
@@ -76,23 +74,15 @@ func (r *scanProgressReporter) Complete(total, completed, failed int) {
 }
 
 func (r *scanProgressReporter) Flush() {
-	if r == nil || !r.enabled || r.stderr == nil {
-		return
-	}
-	r.mu.Lock()
-	lines := append([]string(nil), r.lines...)
-	r.lines = nil
-	r.mu.Unlock()
-	for _, line := range lines {
-		_, _ = fmt.Fprintln(r.stderr, line)
-	}
+	// Progress now streams as events happen; Flush remains as a no-op for callers.
 }
 
 func (r *scanProgressReporter) add(format string, args ...any) {
-	if r == nil || !r.enabled {
+	if r == nil || !r.enabled || r.stderr == nil {
 		return
 	}
+	line := fmt.Sprintf(format, args...)
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.lines = append(r.lines, fmt.Sprintf(format, args...))
+	_, _ = fmt.Fprintln(r.stderr, line)
 }

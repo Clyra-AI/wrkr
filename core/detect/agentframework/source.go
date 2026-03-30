@@ -2,7 +2,6 @@ package agentframework
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -101,11 +100,9 @@ func detectFromSource(scope detect.Scope, plans []sourcePlan) ([]model.Finding, 
 			continue
 		}
 
-		path := filepath.Join(scope.Root, filepath.FromSlash(rel))
-		// #nosec G304 -- detector reads source files from the selected repository root.
-		payload, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return nil, fmt.Errorf("read source file %s: %w", rel, readErr)
+		payload, parseErr := detect.ReadFileWithinRoot(planDetectorID(plans), scope.Root, rel)
+		if parseErr != nil {
+			return nil, detect.ParseErrorAsError(parseErr)
 		}
 		content := string(payload)
 		imports := parseImportSummary(language, content)
@@ -122,6 +119,13 @@ func detectFromSource(scope detect.Scope, plans []sourcePlan) ([]model.Finding, 
 	}
 
 	return findings, nil
+}
+
+func planDetectorID(plans []sourcePlan) string {
+	if len(plans) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(plans[0].DetectorID)
 }
 
 func sourceProfileForFramework(framework string) (sourceProfile, bool) {

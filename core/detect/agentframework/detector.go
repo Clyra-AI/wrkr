@@ -57,7 +57,12 @@ func DetectMany(scope detect.Scope, configs []DetectorConfig) ([]model.Finding, 
 
 	findings := make([]model.Finding, 0)
 	for _, cfg := range normalized {
-		if !detect.FileExists(scope.Root, cfg.ConfigPath) {
+		exists, parseErr := detect.FileExistsWithinRoot(cfg.DetectorID, scope.Root, cfg.ConfigPath)
+		if parseErr != nil {
+			findings = append(findings, parseErrorFinding(scope, cfg, *parseErr))
+			continue
+		}
+		if !exists {
 			continue
 		}
 		fileFindings := detectOne(scope, cfg)

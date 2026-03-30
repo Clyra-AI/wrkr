@@ -13,7 +13,10 @@ import (
 	"sort"
 	"testing"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/cli"
+	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
 
 func TestConfigSchemaPresent(t *testing.T) {
@@ -159,6 +162,43 @@ func TestInvalidInputEnvelopeContract(t *testing.T) {
 	}
 	if errObj["exit_code"] != float64(6) {
 		t.Fatalf("unexpected error exit envelope: %v", errObj["exit_code"])
+	}
+}
+
+func TestActionPathsRemainUniqueForFrozenAgentEcosystemSubset(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	payload, err := os.ReadFile(filepath.Join(repoRoot, "scenarios", "wrkr", "first-offer-agent-ecosystem-subset", "action_path_fixture.json"))
+	if err != nil {
+		t.Fatalf("read action-path fixture: %v", err)
+	}
+
+	var fixture struct {
+		AttackPaths []riskattack.ScoredPath `json:"attack_paths"`
+		Inventory   agginventory.Inventory  `json:"inventory"`
+	}
+	if err := json.Unmarshal(payload, &fixture); err != nil {
+		t.Fatalf("parse action-path fixture: %v", err)
+	}
+
+	paths, choice := risk.BuildActionPaths(fixture.AttackPaths, &fixture.Inventory)
+	if len(paths) != 2 {
+		t.Fatalf("expected frozen subset fixture to collapse to 2 action paths, got %+v", paths)
+	}
+	if choice == nil {
+		t.Fatal("expected action_path_to_control_first output for frozen subset fixture")
+	}
+
+	seen := map[string]struct{}{}
+	for _, path := range paths {
+		if _, ok := seen[path.PathID]; ok {
+			t.Fatalf("expected unique path_id values, got duplicate %s in %+v", path.PathID, paths)
+		}
+		seen[path.PathID] = struct{}{}
+	}
+	if choice.Path.PathID != paths[0].PathID {
+		t.Fatalf("expected control-first path to reference sorted action_paths row, choice=%+v paths=%+v", choice.Path, paths)
 	}
 }
 

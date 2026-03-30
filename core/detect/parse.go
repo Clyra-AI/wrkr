@@ -143,6 +143,26 @@ func FileExistsWithinRoot(detectorID, root, rel string) (bool, *model.ParseError
 	return !info.IsDir(), nil
 }
 
+func DirExistsWithinRoot(detectorID, root, rel string) (bool, *model.ParseError) {
+	candidate := filepath.Join(strings.TrimSpace(root), filepath.FromSlash(rel))
+	candidateInfo, lstatErr := os.Lstat(candidate)
+	if lstatErr != nil {
+		if os.IsNotExist(lstatErr) {
+			return false, nil
+		}
+		return false, newReadParseError(detectorID, rel, "", lstatErr)
+	}
+
+	info, err := statWithinRoot(root, rel)
+	if err != nil {
+		if os.IsNotExist(err) && candidateInfo.Mode()&os.ModeSymlink == 0 {
+			return false, nil
+		}
+		return false, newReadParseError(detectorID, rel, "", err)
+	}
+	return info.IsDir(), nil
+}
+
 func DirExists(root, rel string) bool {
 	info, err := statWithinRoot(root, rel)
 	if err != nil {
@@ -321,6 +341,9 @@ func newReadParseError(detectorID, rel, format string, err error) *model.ParseEr
 	if os.IsNotExist(err) {
 		kind = "file_not_found"
 	}
+	if os.IsPermission(err) {
+		kind = "permission_denied"
+	}
 	if errors.Is(err, errUnsafePath) {
 		kind = "unsafe_path"
 	}
@@ -335,4 +358,20 @@ func newReadParseError(detectorID, rel, format string, err error) *model.ParseEr
 
 func newParseError(detectorID, rel, format string, err error) *model.ParseError {
 	return newReadParseError(detectorID, rel, format, err)
+}
+
+func ParseErrorAsError(parseErr *model.ParseError) error {
+	if parseErr == nil {
+		return nil
+	}
+	path := strings.TrimSpace(parseErr.Path)
+	message := strings.TrimSpace(parseErr.Message)
+	switch {
+	case path == "":
+		return errors.New(message)
+	case message == "":
+		return errors.New(path)
+	default:
+		return fmt.Errorf("%s: %s", path, message)
+	}
 }

@@ -70,7 +70,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	approvedToolsPath := fs.String("approved-tools", "", "optional approved tools policy file")
 	productionTargetsPath := fs.String("production-targets", "", "optional production target rules file")
 	productionTargetsStrict := fs.Bool("production-targets-strict", false, "fail scan when production target rules cannot be loaded")
-	profileName := fs.String("profile", "standard", "posture profile [baseline|standard|strict]")
+	profileName := fs.String("profile", "standard", "posture profile [baseline|standard|strict|assessment]")
 	githubBaseURL := fs.String("github-api", strings.TrimSpace(os.Getenv("WRKR_GITHUB_API_BASE")), "github api base url")
 	githubToken := fs.String("github-token", "", "github token override")
 	reportMD := fs.Bool("report-md", false, "emit deterministic markdown summary artifact after scan")
@@ -306,6 +306,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		previousProfile = &copyResult
 	}
 	profileResult := profileeval.Evaluate(profileDef, findings, previousProfile)
+	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileResult.ProfileName, riskReport.ActionPaths)
 
 	weights, weightErr := score.LoadWeights(strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))
 	if weightErr != nil {
@@ -416,7 +417,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		payload["profile"] = profileResult
 		payload["posture_score"] = postureScore
 		payload["compliance_summary"] = complianceSummary
-		if activation := reportcore.BuildActivation(manifestOut.Target.Mode, riskReport.Ranked, &inventoryOut, 5); activation != nil {
+		if activation := reportcore.BuildActivation(manifestOut.Target.Mode, riskReport.Ranked, &inventoryOut, riskReport.ActionPaths, 5); activation != nil {
 			payload["activation"] = activation
 		}
 	}

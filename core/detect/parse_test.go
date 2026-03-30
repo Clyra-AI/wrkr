@@ -210,8 +210,8 @@ func TestReadFileWithinRootPermissionDenied(t *testing.T) {
 	if parseErr == nil {
 		t.Fatal("expected permission parse error")
 	}
-	if parseErr.Kind != "parse_error" {
-		t.Fatalf("expected parse_error kind, got %#v", parseErr)
+	if parseErr.Kind != "permission_denied" {
+		t.Fatalf("expected permission_denied kind, got %#v", parseErr)
 	}
 }
 

@@ -60,6 +60,7 @@ type Summary struct {
 	SectionOrder             []string                               `json:"section_order"`
 	Sections                 []Section                              `json:"sections"`
 	Headline                 Headline                               `json:"headline"`
+	AssessmentSummary        *AssessmentSummary                     `json:"assessment_summary,omitempty"`
 	Methodology              Methodology                            `json:"methodology"`
 	TopRisks                 []RiskItem                             `json:"top_risks"`
 	PrivilegeBudget          agginventory.PrivilegeBudget           `json:"privilege_budget"`
@@ -97,6 +98,15 @@ type Headline struct {
 	Compliance       float64 `json:"compliance_percent"`
 }
 
+type AssessmentSummary struct {
+	GovernablePathCount        int              `json:"governable_path_count"`
+	WriteCapablePathCount      int              `json:"write_capable_path_count"`
+	ProductionBackedPathCount  int              `json:"production_target_backed_path_count"`
+	TopPathToControlFirst      *risk.ActionPath `json:"top_path_to_control_first,omitempty"`
+	TopExecutionIdentityBacked *risk.ActionPath `json:"top_execution_identity_backed_path,omitempty"`
+	ProofChainPath             string           `json:"proof_chain_path,omitempty"`
+}
+
 type Methodology struct {
 	WrkrVersion         string   `json:"wrkr_version"`
 	ScanStartedAt       string   `json:"scan_started_at"`
@@ -111,17 +121,21 @@ type Methodology struct {
 }
 
 type RiskItem struct {
-	Rank         int      `json:"rank"`
-	CanonicalKey string   `json:"canonical_key"`
-	Score        float64  `json:"risk_score"`
-	FindingType  string   `json:"finding_type"`
-	Severity     string   `json:"severity"`
-	ToolType     string   `json:"tool_type"`
-	Org          string   `json:"org"`
-	Repo         string   `json:"repo"`
-	Location     string   `json:"location"`
-	Rationale    []string `json:"rationale"`
-	Remediation  string   `json:"remediation"`
+	Rank              int      `json:"rank"`
+	CanonicalKey      string   `json:"canonical_key"`
+	Score             float64  `json:"risk_score"`
+	FindingType       string   `json:"finding_type"`
+	Severity          string   `json:"severity"`
+	ToolType          string   `json:"tool_type"`
+	Org               string   `json:"org"`
+	Repo              string   `json:"repo"`
+	Location          string   `json:"location"`
+	PathID            string   `json:"path_id,omitempty"`
+	RecommendedAction string   `json:"recommended_action,omitempty"`
+	WriteCapable      bool     `json:"write_capable,omitempty"`
+	ProductionWrite   bool     `json:"production_write,omitempty"`
+	Rationale         []string `json:"rationale"`
+	Remediation       string   `json:"remediation"`
 }
 
 type DeltaSummary struct {

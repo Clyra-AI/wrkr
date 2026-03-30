@@ -96,7 +96,11 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	if err != nil {
 		return nil, err
 	}
-	findings = append(findings, homeMarkerHits(home)...)
+	homeFindings, err := homeMarkerHits(home)
+	if err != nil {
+		return nil, err
+	}
+	findings = append(findings, homeFindings...)
 	findings = append(findings, projects...)
 	model.SortFindings(findings)
 	return findings, nil
@@ -141,7 +145,10 @@ func discoverProjects(home string) ([]model.Finding, error) {
 				continue
 			}
 			projectRoot := filepath.Join(rootPath, projectName)
-			markers := markerHits(projectRoot, rootName, projectName, projectMarkers)
+			markers, err := markerHits(projectRoot, rootName, projectName, projectMarkers)
+			if err != nil {
+				return nil, err
+			}
 			findings = append(findings, markers...)
 		}
 	}
@@ -149,14 +156,22 @@ func discoverProjects(home string) ([]model.Finding, error) {
 	return findings, nil
 }
 
-func homeMarkerHits(home string) []model.Finding {
+func homeMarkerHits(home string) ([]model.Finding, error) {
 	return markerHits(home, "", "", homeMarkers)
 }
 
-func markerHits(root, workspaceRoot, projectName string, markers []markerSpec) []model.Finding {
+func markerHits(root, workspaceRoot, projectName string, markers []markerSpec) ([]model.Finding, error) {
 	findings := make([]model.Finding, 0)
 	for _, marker := range markers {
-		if !detect.FileExists(root, marker.Path) && !detect.DirExists(root, marker.Path) {
+		fileExists, fileErr := detect.FileExistsWithinRoot(detectorID, root, marker.Path)
+		if fileErr != nil {
+			return nil, detect.ParseErrorAsError(fileErr)
+		}
+		dirExists, dirErr := detect.DirExistsWithinRoot(detectorID, root, marker.Path)
+		if dirErr != nil {
+			return nil, detect.ParseErrorAsError(dirErr)
+		}
+		if !fileExists && !dirExists {
 			continue
 		}
 		location := marker.Path
@@ -179,7 +194,7 @@ func markerHits(root, workspaceRoot, projectName string, markers []markerSpec) [
 			Remediation: "Review local agent project boundaries and ensure tool access is intentional.",
 		})
 	}
-	return findings
+	return findings, nil
 }
 
 func fallbackOrg(org string) string {

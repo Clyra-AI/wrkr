@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
 ```
 
 Exactly one target source is required: `--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`.
@@ -106,7 +106,7 @@ If a run is interrupted after some repositories are checkpointed, rerun the same
 ## Repo/path example
 
 ```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
 ```
 
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
@@ -115,6 +115,7 @@ When `target.mode=my_setup`, `activation.items` projects concrete local tool, MC
 When `target.mode=org` or `target.mode=path`, `activation.items` projects govern-first candidate paths from the saved privilege map and adds `item_class` values such as `production_target_backed`, `unknown_to_security_write_path`, `approval_gap_path`, and `govern_first_candidate`.
 `action_paths[*]` combines path identity, write capability, approval gap, security visibility, credential/deployment posture, delivery-chain metadata (`pull_request_write`, `merge_execute`, `deploy_write`, `delivery_chain_status`), production-target truth (`production_target_status`, `production_write`), additive execution-identity fields (`execution_identity`, `execution_identity_type`, `execution_identity_source`, `execution_identity_status`, `execution_identity_rationale`), attack-path score, and a stable `recommended_action` enum of `inventory|approval|proof|control`.
 `action_path_to_control_first` exposes one prioritized path plus deterministic summary counts (`total_paths`, `write_capable_paths`, `production_target_backed_paths`, `govern_first_paths`) without removing the legacy `attack_paths` surfaces.
+`--profile assessment` narrows govern-first surfaces such as `action_paths`, `action_path_to_control_first`, activation, and report summaries for sample/test/vendor-style noise while leaving raw `findings`, proof output, and exit codes unchanged.
 `warnings` is included when Wrkr can prove posture may be incomplete even though the scan succeeded, for example when known MCP-bearing declaration files failed to parse.
 `detector_errors` is included when non-fatal detector failures occur and partial scan results are preserved.
 `partial_result`, `source_errors`, and `source_degraded` are included when source acquisition/materialization has non-fatal failures.
@@ -198,7 +199,7 @@ Emerging discovery surfaces are static-only in default deterministic mode:
 - Non-human execution identities are derived from static workflow/config signals only.
 - No live endpoint probing is performed by default.
 
-Wrkr stays in the See boundary: it inventories and scores tools plus agents from files and CI declarations, but it does not enforce runtime side effects or execute agent workflows.
+Wrkr stays in the See boundary: it inventories and scores tools plus agents from files and CI declarations, but it does not claim runtime observation, enforce runtime side effects, or execute agent workflows.
 Wrkr also does not assess package or MCP-server vulnerabilities in this path; use dedicated scanners such as Snyk for that class of assessment.
 Gait is optional interoperability for control-layer decisions, not a prerequisite for `scan`.
 

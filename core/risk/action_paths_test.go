@@ -1,9 +1,12 @@
 package risk
 
 import (
+	"maps"
 	"testing"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/model"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
 
 func TestBuildActionPathsCorrelatesExecutionIdentity(t *testing.T) {
@@ -73,4 +76,236 @@ func TestBuildActionPathsLeavesConflictingExecutionIdentityAmbiguous(t *testing.
 	if paths[0].ExecutionIdentityStatus != "ambiguous" || paths[0].ExecutionIdentity != "" {
 		t.Fatalf("expected ambiguous execution identity, got %+v", paths[0])
 	}
+}
+
+func TestBuildActionPathsDeduplicatesRepeatedEntriesAndStabilizesPathID(t *testing.T) {
+	t.Parallel()
+
+	inventory := &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                  "wrkr:compiled_action:acme",
+				AgentInstanceID:          "workflow-release",
+				ToolID:                   "compiled_action:.github/workflows/release.yml#release",
+				Framework:                "compiled_action",
+				Symbol:                   "release",
+				Org:                      "acme",
+				Repos:                    []string{"acme/release"},
+				Location:                 ".github/workflows/release.yml",
+				LocationRange:            &model.LocationRange{StartLine: 1, EndLine: 18},
+				RiskScore:                8.9,
+				WriteCapable:             true,
+				CredentialAccess:         true,
+				PullRequestWrite:         true,
+				MergeExecute:             true,
+				DeployWrite:              true,
+				DeliveryChainStatus:      "pr_merge_deploy",
+				ProductionTargetStatus:   agginventory.ProductionTargetsStatusConfigured,
+				ProductionWrite:          true,
+				MatchedProductionTargets: []string{"cluster/prod"},
+				ApprovalClassification:   "approved",
+				ApprovalGapReasons:       []string{"deployment_gate_missing"},
+			},
+			{
+				AgentID:                  "wrkr:compiled_action:acme",
+				AgentInstanceID:          "workflow-release",
+				ToolID:                   "compiled_action:.github/workflows/release.yml#release",
+				Framework:                "compiled_action",
+				Symbol:                   "release",
+				Org:                      "acme",
+				Repos:                    []string{"acme/release"},
+				Location:                 ".github/workflows/release.yml",
+				LocationRange:            &model.LocationRange{StartLine: 1, EndLine: 18},
+				RiskScore:                8.4,
+				WriteCapable:             true,
+				CredentialAccess:         false,
+				PullRequestWrite:         true,
+				MergeExecute:             true,
+				DeployWrite:              true,
+				DeliveryChainStatus:      "pr_merge_deploy",
+				ProductionTargetStatus:   agginventory.ProductionTargetsStatusConfigured,
+				ProductionWrite:          true,
+				MatchedProductionTargets: []string{"cluster/prod"},
+				ApprovalClassification:   "approved",
+				ApprovalGapReasons:       []string{"approval_source_missing"},
+			},
+		},
+	}
+	attackPaths := []riskattack.ScoredPath{{Org: "acme", Repo: "acme/release", PathScore: 9.2}}
+
+	firstPaths, firstChoice := BuildActionPaths(attackPaths, inventory)
+	secondPaths, secondChoice := BuildActionPaths(attackPaths, inventory)
+
+	if len(firstPaths) != 1 {
+		t.Fatalf("expected duplicate entries to collapse into one action path, got %+v", firstPaths)
+	}
+	if firstChoice == nil {
+		t.Fatal("expected control-first choice after dedupe")
+	}
+	if firstChoice.Path.PathID != firstPaths[0].PathID {
+		t.Fatalf("expected control-first choice to reference deduped path row, choice=%+v paths=%+v", firstChoice.Path, firstPaths)
+	}
+	if firstPaths[0].PathID != secondPaths[0].PathID {
+		t.Fatalf("expected path_id to remain stable across repeat runs, first=%s second=%s", firstPaths[0].PathID, secondPaths[0].PathID)
+	}
+	if !maps.Equal(sliceToSet(firstPaths[0].ApprovalGapReasons), sliceToSet([]string{"approval_source_missing", "deployment_gate_missing"})) {
+		t.Fatalf("expected merged approval gap reasons, got %+v", firstPaths[0].ApprovalGapReasons)
+	}
+	if secondChoice == nil || secondChoice.Path.PathID != secondPaths[0].PathID {
+		t.Fatalf("expected repeat run control-first choice to reference deduped path, choice=%+v paths=%+v", secondChoice, secondPaths)
+	}
+}
+
+func TestBuildActionPathsUsesHiddenIdentityDimensionsForUniquePathIDs(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                "wrkr:compiled_action:acme",
+				AgentInstanceID:        "workflow-release",
+				ToolID:                 "compiled_action:.github/workflows/release.yml#release",
+				Framework:              "compiled_action",
+				Symbol:                 "release",
+				Org:                    "acme",
+				Repos:                  []string{"acme/release"},
+				Location:               ".github/workflows/release.yml",
+				LocationRange:          &model.LocationRange{StartLine: 1, EndLine: 18},
+				RiskScore:              8.9,
+				WriteCapable:           true,
+				PullRequestWrite:       true,
+				MergeExecute:           true,
+				DeployWrite:            true,
+				DeliveryChainStatus:    "pr_merge_deploy",
+				ProductionTargetStatus: agginventory.ProductionTargetsStatusConfigured,
+				ProductionWrite:        true,
+				ApprovalClassification: "approved",
+			},
+			{
+				AgentID:                "wrkr:compiled_action:acme",
+				AgentInstanceID:        "workflow-preview",
+				ToolID:                 "compiled_action:.github/workflows/release.yml#preview",
+				Framework:              "compiled_action",
+				Symbol:                 "preview",
+				Org:                    "acme",
+				Repos:                  []string{"acme/release"},
+				Location:               ".github/workflows/release.yml",
+				LocationRange:          &model.LocationRange{StartLine: 20, EndLine: 36},
+				RiskScore:              7.1,
+				WriteCapable:           true,
+				PullRequestWrite:       true,
+				MergeExecute:           true,
+				DeployWrite:            true,
+				DeliveryChainStatus:    "pr_merge_deploy",
+				ProductionTargetStatus: agginventory.ProductionTargetsStatusConfigured,
+				ProductionWrite:        true,
+				ApprovalClassification: "approved",
+			},
+		},
+	})
+
+	if len(paths) != 2 {
+		t.Fatalf("expected distinct workflow instances to stay separate, got %+v", paths)
+	}
+	if paths[0].PathID == paths[1].PathID {
+		t.Fatalf("expected hidden identity dimensions to keep path_ids unique, got %+v", paths)
+	}
+}
+
+func TestBuildActionPathsExercisesAllRecommendedActionClasses(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                  "wrkr:prod:acme",
+				Framework:                "compiled_action",
+				Org:                      "acme",
+				Repos:                    []string{"acme/prod"},
+				Location:                 ".github/workflows/release.yml",
+				RiskScore:                9.2,
+				WriteCapable:             true,
+				PullRequestWrite:         true,
+				MergeExecute:             true,
+				DeployWrite:              true,
+				ProductionWrite:          true,
+				DeliveryChainStatus:      "pr_merge_deploy",
+				ProductionTargetStatus:   agginventory.ProductionTargetsStatusConfigured,
+				ApprovalClassification:   "approved",
+				OwnershipStatus:          "explicit",
+				SecurityVisibilityStatus: agginventory.SecurityVisibilityApproved,
+			},
+			{
+				AgentID:                  "wrkr:approval:acme",
+				Framework:                "compiled_action",
+				Org:                      "acme",
+				Repos:                    []string{"acme/release"},
+				Location:                 ".github/workflows/review.yml",
+				RiskScore:                8.4,
+				WriteCapable:             true,
+				PullRequestWrite:         true,
+				DeliveryChainStatus:      "pr_only",
+				ApprovalClassification:   "unknown",
+				ApprovalGapReasons:       []string{"approval_source_missing"},
+				OwnershipStatus:          "explicit",
+				SecurityVisibilityStatus: agginventory.SecurityVisibilityApproved,
+			},
+			{
+				AgentID:                  "wrkr:proof:acme",
+				Framework:                "compiled_action",
+				Org:                      "acme",
+				Repos:                    []string{"acme/staging"},
+				Location:                 ".github/workflows/staging.yml",
+				RiskScore:                7.3,
+				WriteCapable:             true,
+				PullRequestWrite:         true,
+				MergeExecute:             true,
+				DeployWrite:              true,
+				DeliveryChainStatus:      "pr_merge_deploy",
+				ApprovalClassification:   "approved",
+				OwnershipStatus:          "unresolved",
+				SecurityVisibilityStatus: agginventory.SecurityVisibilityUnknownToSecurity,
+			},
+			{
+				AgentID:                  "wrkr:inventory:acme",
+				Framework:                "langchain",
+				Org:                      "acme",
+				Repos:                    []string{"acme/lab"},
+				Location:                 "agents/lab.py",
+				RiskScore:                5.1,
+				WriteCapable:             true,
+				ApprovalClassification:   "approved",
+				OwnershipStatus:          "explicit",
+				SecurityVisibilityStatus: agginventory.SecurityVisibilityApproved,
+			},
+		},
+		NonHumanIdentities: []agginventory.NonHumanIdentity{
+			{IdentityID: "prod", IdentityType: "github_app", Subject: "prod-app", Source: "workflow_static_signal", Org: "acme", Repo: "acme/prod", Location: ".github/workflows/release.yml"},
+			{IdentityID: "approval", IdentityType: "github_app", Subject: "approval-app", Source: "workflow_static_signal", Org: "acme", Repo: "acme/release", Location: ".github/workflows/review.yml"},
+			{IdentityID: "inventory", IdentityType: "service_account", Subject: "inventory-sa", Source: "workflow_static_signal", Org: "acme", Repo: "acme/lab", Location: "agents/lab.py"},
+		},
+	})
+
+	if len(paths) != 4 {
+		t.Fatalf("expected four action paths, got %+v", paths)
+	}
+	got := sliceToSet([]string{
+		paths[0].RecommendedAction,
+		paths[1].RecommendedAction,
+		paths[2].RecommendedAction,
+		paths[3].RecommendedAction,
+	})
+	for _, want := range []string{"control", "approval", "proof", "inventory"} {
+		if _, ok := got[want]; !ok {
+			t.Fatalf("expected recommended_action=%s to be reachable, got %+v", want, paths)
+		}
+	}
+}
+
+func sliceToSet(values []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		out[value] = struct{}{}
+	}
+	return out
 }
