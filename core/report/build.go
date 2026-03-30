@@ -52,6 +52,14 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		generated := risk.Score(in.Snapshot.Findings, top, now)
 		riskReport = &generated
 	}
+	if len(riskReport.ActionPaths) == 0 && in.Snapshot.Inventory != nil {
+		riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, in.Snapshot.Inventory)
+	}
+	profileName := ""
+	if in.Snapshot.Profile != nil {
+		profileName = in.Snapshot.Profile.ProfileName
+	}
+	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileName, riskReport.ActionPaths)
 	topFindings := SelectTopFindings(*riskReport, top)
 
 	proofRef, err := buildProofReference(in.StatePath, topFindings)
@@ -68,10 +76,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	deltas := buildDeltaSummary(in.Snapshot, in.PreviousSnapshot, top)
 	headline := buildHeadline(in.Snapshot)
 	methodology := buildMethodology(in.Snapshot)
-	riskItems := buildRiskItems(topFindings)
+	riskItems := buildRiskItems(topFindings, riskReport.ActionPaths)
 	attackPathSummary := buildAttackPathSummary(*riskReport)
 	attackPathFacts := buildAttackPathFacts(*riskReport)
-	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, top)
+	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
+	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, proofRef)
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -80,6 +89,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		activation = sanitizeActivationSummaryPublic(activation)
 		riskReport.ActionPaths = sanitizeActionPathsPublic(riskReport.ActionPaths)
 		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublic(riskReport.ActionPathToControlFirst)
+		assessmentSummary = sanitizeAssessmentSummaryPublic(assessmentSummary)
 	}
 
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
@@ -116,6 +126,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		SectionOrder:             sectionOrder,
 		Sections:                 sections,
 		Headline:                 headline,
+		AssessmentSummary:        assessmentSummary,
 		Methodology:              methodology,
 		TopRisks:                 riskItems,
 		PrivilegeBudget:          privilegeBudget,
@@ -520,7 +531,10 @@ func buildMethodology(snapshot state.Snapshot) Methodology {
 	return methodology
 }
 
-func buildRiskItems(findings []risk.ScoredFinding) []RiskItem {
+func buildRiskItems(findings []risk.ScoredFinding, actionPaths []risk.ActionPath) []RiskItem {
+	if len(actionPaths) > 0 {
+		return buildActionPathRiskItems(actionPaths)
+	}
 	out := make([]RiskItem, 0, len(findings))
 	for idx, finding := range findings {
 		remediation := strings.TrimSpace(finding.Finding.Remediation)
@@ -544,6 +558,43 @@ func buildRiskItems(findings []risk.ScoredFinding) []RiskItem {
 	return out
 }
 
+func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
+	out := make([]RiskItem, 0, len(paths))
+	for idx, path := range paths {
+		rationale := []string{
+			fmt.Sprintf("recommended_action=%s", strings.TrimSpace(path.RecommendedAction)),
+			fmt.Sprintf("delivery_chain_status=%s", strings.TrimSpace(path.DeliveryChainStatus)),
+		}
+		if path.ProductionWrite {
+			rationale = append(rationale, "production_write=true")
+		}
+		if strings.TrimSpace(path.ExecutionIdentityStatus) != "" {
+			rationale = append(rationale, fmt.Sprintf("execution_identity_status=%s", strings.TrimSpace(path.ExecutionIdentityStatus)))
+		}
+		if strings.TrimSpace(path.OwnershipStatus) != "" {
+			rationale = append(rationale, fmt.Sprintf("ownership_status=%s", strings.TrimSpace(path.OwnershipStatus)))
+		}
+		out = append(out, RiskItem{
+			Rank:              idx + 1,
+			CanonicalKey:      strings.TrimSpace(path.PathID),
+			Score:             round2(math.Max(path.AttackPathScore, path.RiskScore)),
+			FindingType:       "action_path",
+			Severity:          actionPathSeverity(path),
+			ToolType:          strings.TrimSpace(path.ToolType),
+			Org:               strings.TrimSpace(path.Org),
+			Repo:              strings.TrimSpace(path.Repo),
+			Location:          strings.TrimSpace(path.Location),
+			PathID:            strings.TrimSpace(path.PathID),
+			RecommendedAction: strings.TrimSpace(path.RecommendedAction),
+			WriteCapable:      path.WriteCapable,
+			ProductionWrite:   path.ProductionWrite,
+			Rationale:         rationale,
+			Remediation:       actionPathRemediation(path),
+		})
+	}
+	return out
+}
+
 func defaultRemediation(findingType string) string {
 	switch strings.TrimSpace(findingType) {
 	case "policy_violation":
@@ -560,9 +611,13 @@ func defaultRemediation(findingType string) string {
 func buildNextActions(risks []RiskItem, lifecycleSummary LifecycleSummary, regressSummary *RegressSummary) []ChecklistItem {
 	actions := make([]ChecklistItem, 0, 4)
 	if len(risks) > 0 {
+		text := fmt.Sprintf("triage highest risk finding %s (score %.2f)", risks[0].CanonicalKey, risks[0].Score)
+		if risks[0].FindingType == "action_path" {
+			text = fmt.Sprintf("review govern-first path %s in %s:%s (action=%s score=%.2f)", risks[0].PathID, risks[0].Repo, risks[0].Location, risks[0].RecommendedAction, risks[0].Score)
+		}
 		actions = append(actions, ChecklistItem{
 			ID:   "action_top_risk",
-			Text: fmt.Sprintf("triage highest risk finding %s (score %.2f)", risks[0].CanonicalKey, risks[0].Score),
+			Text: text,
 		})
 	}
 	if lifecycleSummary.PendingActionCount > 0 {
@@ -605,6 +660,10 @@ func buildSections(
 ) []Section {
 	riskFacts := make([]string, 0, len(risks))
 	for _, item := range risks {
+		if item.FindingType == "action_path" {
+			riskFacts = append(riskFacts, fmt.Sprintf("#%d %.2f action_path [%s] action=%s repo=%s location=%s", item.Rank, item.Score, item.Severity, item.RecommendedAction, item.Repo, item.Location))
+			continue
+		}
 		riskFacts = append(riskFacts, fmt.Sprintf("#%d %.2f %s [%s] %s", item.Rank, item.Score, item.FindingType, item.Severity, item.Location))
 	}
 	riskFacts = append(riskFacts, attackPathFacts...)
@@ -650,6 +709,7 @@ func buildSections(
 		fmt.Sprintf("profile status %s at %.2f%%", headline.ComplianceStatus, headline.Compliance),
 		fmt.Sprintf("tools=%d write_capable=%d credential_access=%d exec_capable=%d", privilegeBudget.TotalTools, privilegeBudget.WriteCapableTools, privilegeBudget.CredentialAccessTools, privilegeBudget.ExecCapableTools),
 		"bundled framework mappings stay available; profile compliance reflects only controls evidenced in the current deterministic scan state",
+		"report scope stays at static posture and offline-verifiable proof; it does not claim runtime observation or control-layer enforcement",
 	}
 	if hasSecurityVisibilityReference(securityVisibility) {
 		headlineFacts = append(headlineFacts, fmt.Sprintf("security_visibility reference=%s unknown_to_security_tools=%d unknown_to_security_agents=%d unknown_to_security_write_capable_agents=%d", securityVisibility.ReferenceBasis, securityVisibility.UnknownToSecurityTools, securityVisibility.UnknownToSecurityAgents, securityVisibility.UnknownToSecurityWriteCapableAgents))
@@ -841,6 +901,59 @@ func buildAttackPathFacts(report risk.Report) []string {
 	return facts
 }
 
+func buildAssessmentSummary(paths []risk.ActionPath, controlFirst *risk.ActionPathToControlFirst, proof ProofReference) *AssessmentSummary {
+	if len(paths) == 0 {
+		return nil
+	}
+	summary := &AssessmentSummary{
+		GovernablePathCount:       len(paths),
+		WriteCapablePathCount:     0,
+		ProductionBackedPathCount: 0,
+		ProofChainPath:            proof.ChainPath,
+	}
+	for _, path := range paths {
+		if path.WriteCapable {
+			summary.WriteCapablePathCount++
+		}
+		if path.ProductionWrite {
+			summary.ProductionBackedPathCount++
+		}
+		if summary.TopExecutionIdentityBacked == nil && strings.TrimSpace(path.ExecutionIdentityStatus) == "known" {
+			candidate := path
+			summary.TopExecutionIdentityBacked = &candidate
+		}
+	}
+	if controlFirst != nil {
+		candidate := controlFirst.Path
+		summary.TopPathToControlFirst = &candidate
+	}
+	return summary
+}
+
+func actionPathSeverity(path risk.ActionPath) string {
+	switch strings.TrimSpace(path.RecommendedAction) {
+	case "control":
+		return model.SeverityHigh
+	case "approval", "proof":
+		return model.SeverityMedium
+	default:
+		return model.SeverityLow
+	}
+}
+
+func actionPathRemediation(path risk.ActionPath) string {
+	switch strings.TrimSpace(path.RecommendedAction) {
+	case "control":
+		return "apply the highest-priority control on this write-capable path and rescan to confirm reduced exposure"
+	case "approval":
+		return "add or tighten deterministic human approval gates on this path before allowing further automation"
+	case "proof":
+		return "collect stronger identity, ownership, or deployment proof for this path before approving it"
+	default:
+		return "inventory and review this path before expanding its privileges"
+	}
+}
+
 func buildComplianceSummary(statePath string, findings []source.Finding) (compliance.RollupSummary, error) {
 	chainPath := proofemit.ChainPath(state.ResolvePath(strings.TrimSpace(statePath)))
 	chain, err := proofemit.LoadChain(chainPath)
@@ -903,6 +1016,7 @@ func sanitizeRiskItemsPublic(in []RiskItem) []RiskItem {
 		copyItem.Location = redactValue("loc", copyItem.Location, 8)
 		copyItem.Repo = redactValue("repo", copyItem.Repo, 6)
 		copyItem.Org = redactValue("org", copyItem.Org, 6)
+		copyItem.PathID = redactValue("path", copyItem.PathID, 8)
 		out = append(out, copyItem)
 	}
 	return out
@@ -962,6 +1076,27 @@ func sanitizeActionPathToControlFirstPublic(in *risk.ActionPathToControlFirst) *
 		Summary: copySummary,
 		Path:    paths[0],
 	}
+}
+
+func sanitizeAssessmentSummaryPublic(in *AssessmentSummary) *AssessmentSummary {
+	if in == nil {
+		return nil
+	}
+	copySummary := *in
+	if in.TopPathToControlFirst != nil {
+		paths := sanitizeActionPathsPublic([]risk.ActionPath{*in.TopPathToControlFirst})
+		if len(paths) == 1 {
+			copySummary.TopPathToControlFirst = &paths[0]
+		}
+	}
+	if in.TopExecutionIdentityBacked != nil {
+		paths := sanitizeActionPathsPublic([]risk.ActionPath{*in.TopExecutionIdentityBacked})
+		if len(paths) == 1 {
+			copySummary.TopExecutionIdentityBacked = &paths[0]
+		}
+	}
+	copySummary.ProofChainPath = sanitizeProofReferencePublic(ProofReference{ChainPath: in.ProofChainPath}).ChainPath
+	return &copySummary
 }
 
 func redactValue(prefix, value string, width int) string {

@@ -8,7 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- [semver:minor] Added an `assessment` scan profile that sharpens govern-first action-path output for customer readouts while keeping raw findings and proof artifacts unchanged.
+- [semver:minor] Added an AI-first assessment summary to report output so customer readouts lead with governable paths, top control targets, and offline proof location.
 
 ### Changed
 
@@ -17,6 +18,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `scripts/resolve_release_version.py` now validates explicit release versions against the changelog-derived semver bump instead of accepting mismatched manual versions.
 - Planning skills now require every story to declare changelog impact, target changelog section, and draft `Unreleased` entry so release semver can be derived deterministically from implemented work.
 - Implementation skills now apply those planned changelog fields to `CHANGELOG.md` `## [Unreleased]` instead of re-deciding release-note scope during implementation.
+- Org scans now stream deterministic progress events to stderr during execution while preserving stdout JSON contracts.
+- Scan and report summaries now prioritize govern-first AI action paths ahead of generic supporting findings when risky paths are present.
+- Govern-first `recommended_action` output now differentiates inventory, approval, proof, and control based on path context instead of collapsing most paths to approval.
+- Clarified scan and report wording so Wrkr's customer-facing output stays explicitly scoped to static posture, risky paths, and offline-verifiable proof.
 
 ### Deprecated
 
@@ -28,7 +33,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- Deduplicated govern-first `action_paths` so each deterministic action path emits one unique `path_id` row per scan.
+- Priority detectors now surface permission and stat failures consistently in scan output so incomplete visibility is explicit.
 
 
 ## Changelog maintenance process

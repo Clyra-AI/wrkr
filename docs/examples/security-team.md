@@ -14,7 +14,7 @@ Hosted prerequisites for this path:
 - if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first and return to this flow when GitHub access is configured
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
@@ -54,8 +54,10 @@ wrkr report --top 5 --json
 ## How to frame the results
 
 - `scan` and `mcp-list` answer inventory, privilege, and trust-overlay questions.
+- `scan --profile assessment` gives the bounded customer-readout view of risky write paths first while leaving raw findings and proof artifacts intact.
 - `scan` is the place to count unknown-to-security write-capable paths; use `inventory.security_visibility_summary.unknown_to_security_write_capable_agents` only when `inventory.security_visibility_summary.reference_basis` is present for that run.
 - `report` gives the ranked operator summary for triage.
+- `report` is a saved-state renderer for static posture and offline proof artifacts; it is not a live observation surface.
 - `evidence` packages the saved posture into portable proof artifacts only when the saved proof chain is intact, and `verify` remains the explicit machine gate for proof integrity.
 
 ## Scope boundary

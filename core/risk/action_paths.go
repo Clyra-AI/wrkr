@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/model"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
 
@@ -70,55 +72,19 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 	}
 
 	paths := make([]ActionPath, 0, len(inventory.AgentPrivilegeMap))
-	summary := ActionPathSummary{}
+	pathIndexByKey := map[string]int{}
 	for _, entry := range inventory.AgentPrivilegeMap {
 		if !shouldIncludeActionPath(entry) {
 			continue
 		}
-		executionIdentity, executionIdentityType, executionIdentitySource, executionIdentityStatus, executionIdentityRationale := correlateExecutionIdentity(entry, inventory.NonHumanIdentities)
-		path := ActionPath{
-			PathID:                     actionPathID(entry),
-			Org:                        strings.TrimSpace(entry.Org),
-			Repo:                       firstRepoFromEntry(entry),
-			AgentID:                    strings.TrimSpace(entry.AgentID),
-			ToolType:                   actionPathToolType(entry),
-			Location:                   strings.TrimSpace(entry.Location),
-			WriteCapable:               entry.WriteCapable,
-			OperationalOwner:           strings.TrimSpace(entry.OperationalOwner),
-			OwnerSource:                strings.TrimSpace(entry.OwnerSource),
-			OwnershipStatus:            strings.TrimSpace(entry.OwnershipStatus),
-			ApprovalGapReasons:         append([]string(nil), entry.ApprovalGapReasons...),
-			PullRequestWrite:           entry.PullRequestWrite,
-			MergeExecute:               entry.MergeExecute,
-			DeployWrite:                entry.DeployWrite,
-			DeliveryChainStatus:        strings.TrimSpace(entry.DeliveryChainStatus),
-			ProductionTargetStatus:     strings.TrimSpace(entry.ProductionTargetStatus),
-			ProductionWrite:            entry.ProductionWrite,
-			ApprovalGap:                actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons),
-			SecurityVisibilityStatus:   strings.TrimSpace(entry.SecurityVisibilityStatus),
-			CredentialAccess:           entry.CredentialAccess,
-			DeploymentStatus:           strings.TrimSpace(entry.DeploymentStatus),
-			ExecutionIdentity:          executionIdentity,
-			ExecutionIdentityType:      executionIdentityType,
-			ExecutionIdentitySource:    executionIdentitySource,
-			ExecutionIdentityStatus:    executionIdentityStatus,
-			ExecutionIdentityRationale: executionIdentityRationale,
-			AttackPathScore:            attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
-			RiskScore:                  entry.RiskScore,
-			RecommendedAction:          actionPathRecommendedAction(entry),
-			MatchedProductionTargets:   append([]string(nil), entry.MatchedProductionTargets...),
+		key := actionPathIdentityKey(entry)
+		path := buildActionPath(entry, attackScoreByRepo, inventory.NonHumanIdentities)
+		if idx, ok := pathIndexByKey[key]; ok {
+			paths[idx] = mergeActionPath(paths[idx], path)
+			continue
 		}
+		pathIndexByKey[key] = len(paths)
 		paths = append(paths, path)
-		summary.TotalPaths++
-		if path.WriteCapable {
-			summary.WriteCapablePaths++
-		}
-		if path.ProductionWrite {
-			summary.ProductionTargetBackedPaths++
-		}
-		if path.RecommendedAction != "control" {
-			summary.GovernFirstPaths++
-		}
 	}
 	if len(paths) == 0 {
 		return nil, nil
@@ -153,11 +119,53 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 		return paths[i].PathID < paths[j].PathID
 	})
 
+	summary := summarizeActionPaths(paths)
 	choice := &ActionPathToControlFirst{
 		Summary: summary,
 		Path:    paths[0],
 	}
 	return paths, choice
+}
+
+func buildActionPath(
+	entry agginventory.AgentPrivilegeMapEntry,
+	attackScoreByRepo map[string]float64,
+	identities []agginventory.NonHumanIdentity,
+) ActionPath {
+	executionIdentity, executionIdentityType, executionIdentitySource, executionIdentityStatus, executionIdentityRationale := correlateExecutionIdentity(entry, identities)
+	path := ActionPath{
+		PathID:                     actionPathID(entry),
+		Org:                        strings.TrimSpace(entry.Org),
+		Repo:                       firstRepoFromEntry(entry),
+		AgentID:                    strings.TrimSpace(entry.AgentID),
+		ToolType:                   actionPathToolType(entry),
+		Location:                   strings.TrimSpace(entry.Location),
+		WriteCapable:               entry.WriteCapable,
+		OperationalOwner:           strings.TrimSpace(entry.OperationalOwner),
+		OwnerSource:                strings.TrimSpace(entry.OwnerSource),
+		OwnershipStatus:            strings.TrimSpace(entry.OwnershipStatus),
+		ApprovalGapReasons:         dedupeSortedStrings(entry.ApprovalGapReasons),
+		PullRequestWrite:           entry.PullRequestWrite,
+		MergeExecute:               entry.MergeExecute,
+		DeployWrite:                entry.DeployWrite,
+		DeliveryChainStatus:        strings.TrimSpace(entry.DeliveryChainStatus),
+		ProductionTargetStatus:     strings.TrimSpace(entry.ProductionTargetStatus),
+		ProductionWrite:            entry.ProductionWrite,
+		ApprovalGap:                actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons),
+		SecurityVisibilityStatus:   strings.TrimSpace(entry.SecurityVisibilityStatus),
+		CredentialAccess:           entry.CredentialAccess,
+		DeploymentStatus:           strings.TrimSpace(entry.DeploymentStatus),
+		ExecutionIdentity:          executionIdentity,
+		ExecutionIdentityType:      executionIdentityType,
+		ExecutionIdentitySource:    executionIdentitySource,
+		ExecutionIdentityStatus:    executionIdentityStatus,
+		ExecutionIdentityRationale: executionIdentityRationale,
+		AttackPathScore:            attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
+		RiskScore:                  entry.RiskScore,
+		MatchedProductionTargets:   dedupeSortedStrings(entry.MatchedProductionTargets),
+	}
+	path.RecommendedAction = recommendedActionForPath(path)
+	return path
 }
 
 func shouldIncludeActionPath(entry agginventory.AgentPrivilegeMapEntry) bool {
@@ -170,17 +178,27 @@ func shouldIncludeActionPath(entry agginventory.AgentPrivilegeMapEntry) bool {
 		actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons)
 }
 
-func actionPathRecommendedAction(entry agginventory.AgentPrivilegeMapEntry) string {
+func recommendedActionForPath(path ActionPath) string {
+	weakIdentity := strings.TrimSpace(path.ExecutionIdentityStatus) == "" ||
+		strings.TrimSpace(path.ExecutionIdentityStatus) == "unknown" ||
+		strings.TrimSpace(path.ExecutionIdentityStatus) == "ambiguous"
+	weakOwnership := strings.TrimSpace(path.OwnershipStatus) == "" ||
+		strings.TrimSpace(path.OwnershipStatus) == "unresolved"
+	hasDeliveryPath := strings.TrimSpace(path.DeliveryChainStatus) != "" &&
+		strings.TrimSpace(path.DeliveryChainStatus) != "none"
+	unknownToSecurity := strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity
+
 	switch {
-	case entry.ProductionWrite:
+	case path.ProductionWrite:
 		return "control"
-	case actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons):
+	case path.ApprovalGap && !weakIdentity && !weakOwnership && !unknownToSecurity:
 		return "approval"
-	case entry.CredentialAccess ||
-		strings.EqualFold(strings.TrimSpace(entry.DeploymentStatus), "deployed") ||
-		entry.PullRequestWrite ||
-		entry.MergeExecute ||
-		entry.DeployWrite:
+	case path.CredentialAccess ||
+		strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") ||
+		hasDeliveryPath ||
+		unknownToSecurity ||
+		weakIdentity ||
+		weakOwnership:
 		return "proof"
 	default:
 		return "inventory"
@@ -250,15 +268,341 @@ func actionPathToolType(entry agginventory.AgentPrivilegeMapEntry) string {
 }
 
 func actionPathID(entry agginventory.AgentPrivilegeMapEntry) string {
+	return hashActionPathIdentity(actionPathIdentityKey(entry))
+}
+
+func actionPathIdentityKey(entry agginventory.AgentPrivilegeMapEntry) string {
 	parts := []string{
-		strings.TrimSpace(entry.AgentID),
 		strings.TrimSpace(entry.Org),
-		firstRepoFromEntry(entry),
+		strings.Join(dedupeSortedStrings(entry.Repos), ","),
+		strings.TrimSpace(entry.AgentID),
+		strings.TrimSpace(entry.AgentInstanceID),
+		strings.TrimSpace(entry.ToolID),
+		actionPathToolType(entry),
+		strings.TrimSpace(entry.Symbol),
 		strings.TrimSpace(entry.Location),
-		actionPathRecommendedAction(entry),
+		locationRangeKey(entry.LocationRange),
 	}
-	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
+	return strings.Join(parts, "|")
+}
+
+func hashActionPathIdentity(identity string) string {
+	sum := sha256.Sum256([]byte(identity))
 	return "apc-" + hex.EncodeToString(sum[:6])
+}
+
+func locationRangeKey(locationRange *model.LocationRange) string {
+	if locationRange == nil {
+		return ""
+	}
+	return strconv.Itoa(locationRange.StartLine) + ":" + strconv.Itoa(locationRange.EndLine)
+}
+
+func mergeActionPath(current, incoming ActionPath) ActionPath {
+	merged := current
+	merged.WriteCapable = current.WriteCapable || incoming.WriteCapable
+	merged.PullRequestWrite = current.PullRequestWrite || incoming.PullRequestWrite
+	merged.MergeExecute = current.MergeExecute || incoming.MergeExecute
+	merged.DeployWrite = current.DeployWrite || incoming.DeployWrite
+	merged.ProductionWrite = current.ProductionWrite || incoming.ProductionWrite
+	merged.ApprovalGap = current.ApprovalGap || incoming.ApprovalGap
+	merged.CredentialAccess = current.CredentialAccess || incoming.CredentialAccess
+	merged.DeliveryChainStatus = actionPathDeliveryChainStatus(merged.PullRequestWrite, merged.MergeExecute, merged.DeployWrite)
+	merged.AttackPathScore = maxFloat64(current.AttackPathScore, incoming.AttackPathScore)
+	merged.RiskScore = maxFloat64(current.RiskScore, incoming.RiskScore)
+	merged.ApprovalGapReasons = dedupeSortedStrings(append(append([]string(nil), current.ApprovalGapReasons...), incoming.ApprovalGapReasons...))
+	merged.MatchedProductionTargets = dedupeSortedStrings(append(append([]string(nil), current.MatchedProductionTargets...), incoming.MatchedProductionTargets...))
+	merged.ProductionTargetStatus = mergeProductionTargetStatus(current.ProductionTargetStatus, incoming.ProductionTargetStatus)
+	merged.SecurityVisibilityStatus = mergeSecurityVisibilityStatus(current.SecurityVisibilityStatus, incoming.SecurityVisibilityStatus)
+	merged.DeploymentStatus = mergeDeploymentStatus(current.DeploymentStatus, incoming.DeploymentStatus)
+	merged.OperationalOwner, merged.OwnerSource, merged.OwnershipStatus = mergeOperationalOwner(current, incoming)
+	merged.ExecutionIdentity, merged.ExecutionIdentityType, merged.ExecutionIdentitySource, merged.ExecutionIdentityStatus, merged.ExecutionIdentityRationale = mergeExecutionIdentity(current, incoming)
+	merged.RecommendedAction = recommendedActionForPath(merged)
+	return merged
+}
+
+func summarizeActionPaths(paths []ActionPath) ActionPathSummary {
+	summary := ActionPathSummary{TotalPaths: len(paths)}
+	for _, path := range paths {
+		if path.WriteCapable {
+			summary.WriteCapablePaths++
+		}
+		if path.ProductionWrite {
+			summary.ProductionTargetBackedPaths++
+		}
+		if path.RecommendedAction != "control" {
+			summary.GovernFirstPaths++
+		}
+	}
+	return summary
+}
+
+func ApplyGovernFirstProfile(profileName string, paths []ActionPath) ([]ActionPath, *ActionPathToControlFirst) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	filtered := append([]ActionPath(nil), paths...)
+	if strings.EqualFold(strings.TrimSpace(profileName), "assessment") {
+		filtered = make([]ActionPath, 0, len(paths))
+		for _, path := range paths {
+			if assessmentSuppressesPath(path) {
+				continue
+			}
+			filtered = append(filtered, path)
+		}
+	}
+	return filtered, buildActionPathChoice(filtered)
+}
+
+func buildActionPathChoice(paths []ActionPath) *ActionPathToControlFirst {
+	if len(paths) == 0 {
+		return nil
+	}
+	return &ActionPathToControlFirst{
+		Summary: summarizeActionPaths(paths),
+		Path:    paths[0],
+	}
+}
+
+func dedupeSortedStrings(values []string) []string {
+	set := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		set[trimmed] = struct{}{}
+	}
+	out := make([]string, 0, len(set))
+	for value := range set {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func actionPathDeliveryChainStatus(pullRequestWrite, mergeExecute, deployWrite bool) string {
+	switch {
+	case pullRequestWrite && mergeExecute && deployWrite:
+		return "pr_merge_deploy"
+	case mergeExecute && deployWrite:
+		return "merge_deploy"
+	case pullRequestWrite && mergeExecute:
+		return "pr_merge"
+	case deployWrite:
+		return "deploy_only"
+	case pullRequestWrite:
+		return "pr_only"
+	case mergeExecute:
+		return "merge_only"
+	default:
+		return "none"
+	}
+}
+
+func assessmentSuppressesPath(path ActionPath) bool {
+	for _, value := range []string{path.Repo, path.Location} {
+		if value == "" {
+			continue
+		}
+		for _, segment := range assessmentSegments(value) {
+			if assessmentSuppressionToken(segment) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func assessmentSegments(value string) []string {
+	raw := strings.ToLower(strings.TrimSpace(value))
+	if raw == "" {
+		return nil
+	}
+
+	segments := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(segments)*4)
+	for _, segment := range segments {
+		for _, candidate := range assessmentSegmentCandidates(segment) {
+			if _, ok := seen[candidate]; ok {
+				continue
+			}
+			seen[candidate] = struct{}{}
+			out = append(out, candidate)
+		}
+	}
+	return out
+}
+
+func assessmentSegmentCandidates(segment string) []string {
+	segment = strings.TrimSpace(segment)
+	if segment == "" {
+		return nil
+	}
+
+	candidates := []string{segment}
+	trimmed := strings.Trim(segment, " ._-")
+	if trimmed != "" && trimmed != segment {
+		candidates = append(candidates, trimmed)
+	}
+	if trimmed != "" {
+		parts := strings.FieldsFunc(trimmed, func(r rune) bool {
+			return r == '-' || r == '_' || r == '.'
+		})
+		for _, part := range parts {
+			if part == "" || part == trimmed {
+				continue
+			}
+			candidates = append(candidates, part)
+		}
+		if dot := strings.LastIndex(trimmed, "."); dot > 0 {
+			base := trimmed[:dot]
+			if base != "" && base != trimmed {
+				candidates = append(candidates, base)
+			}
+		}
+	}
+	return candidates
+}
+
+func assessmentSuppressionToken(value string) bool {
+	switch value {
+	case "examples", "example", "sample", "samples", "demo", "tests", "test", "testdata", "fixtures", "vendor", "node_modules", ".venv", "venv", "generated", "__generated__":
+		return true
+	default:
+		return false
+	}
+}
+
+func mergeProductionTargetStatus(current, incoming string) string {
+	switch {
+	case strings.TrimSpace(current) == agginventory.ProductionTargetsStatusInvalid || strings.TrimSpace(incoming) == agginventory.ProductionTargetsStatusInvalid:
+		return agginventory.ProductionTargetsStatusInvalid
+	case strings.TrimSpace(current) == agginventory.ProductionTargetsStatusConfigured || strings.TrimSpace(incoming) == agginventory.ProductionTargetsStatusConfigured:
+		return agginventory.ProductionTargetsStatusConfigured
+	case strings.TrimSpace(current) != "":
+		return strings.TrimSpace(current)
+	default:
+		return strings.TrimSpace(incoming)
+	}
+}
+
+func mergeSecurityVisibilityStatus(current, incoming string) string {
+	if securityVisibilityPriority(incoming) < securityVisibilityPriority(current) {
+		return strings.TrimSpace(incoming)
+	}
+	return strings.TrimSpace(current)
+}
+
+func securityVisibilityPriority(status string) int {
+	switch strings.TrimSpace(status) {
+	case agginventory.SecurityVisibilityUnknownToSecurity:
+		return 0
+	case agginventory.SecurityVisibilityKnownUnapproved:
+		return 1
+	case agginventory.SecurityVisibilityApproved:
+		return 2
+	case "":
+		return 3
+	default:
+		return 4
+	}
+}
+
+func mergeDeploymentStatus(current, incoming string) string {
+	currentNormalized := strings.TrimSpace(current)
+	incomingNormalized := strings.TrimSpace(incoming)
+	switch {
+	case strings.EqualFold(currentNormalized, "deployed") || strings.EqualFold(incomingNormalized, "deployed"):
+		return "deployed"
+	case currentNormalized == "" || strings.EqualFold(currentNormalized, "unknown"):
+		return incomingNormalized
+	case incomingNormalized == "" || strings.EqualFold(incomingNormalized, "unknown"):
+		return currentNormalized
+	case currentNormalized <= incomingNormalized:
+		return currentNormalized
+	default:
+		return incomingNormalized
+	}
+}
+
+func mergeOperationalOwner(current, incoming ActionPath) (string, string, string) {
+	currentPriority := ownershipPriority(current.OwnershipStatus)
+	incomingPriority := ownershipPriority(incoming.OwnershipStatus)
+	switch {
+	case incomingPriority < currentPriority:
+		return incoming.OperationalOwner, incoming.OwnerSource, incoming.OwnershipStatus
+	case currentPriority < incomingPriority:
+		return current.OperationalOwner, current.OwnerSource, current.OwnershipStatus
+	default:
+		return canonicalString(current.OperationalOwner, incoming.OperationalOwner),
+			canonicalString(current.OwnerSource, incoming.OwnerSource),
+			canonicalString(current.OwnershipStatus, incoming.OwnershipStatus)
+	}
+}
+
+func ownershipPriority(status string) int {
+	switch strings.TrimSpace(status) {
+	case "explicit":
+		return 0
+	case "inferred":
+		return 1
+	case "unresolved":
+		return 2
+	case "":
+		return 3
+	default:
+		return 4
+	}
+}
+
+func mergeExecutionIdentity(current, incoming ActionPath) (string, string, string, string, string) {
+	currentStatus := strings.TrimSpace(current.ExecutionIdentityStatus)
+	incomingStatus := strings.TrimSpace(incoming.ExecutionIdentityStatus)
+	switch {
+	case currentStatus == "ambiguous" || incomingStatus == "ambiguous":
+		return "", "ambiguous", "", "ambiguous", "multiple non-human identity candidates matched this path"
+	case currentStatus == "known" && incomingStatus == "known":
+		if current.ExecutionIdentity == incoming.ExecutionIdentity &&
+			current.ExecutionIdentityType == incoming.ExecutionIdentityType &&
+			current.ExecutionIdentitySource == incoming.ExecutionIdentitySource {
+			return current.ExecutionIdentity, current.ExecutionIdentityType, current.ExecutionIdentitySource, "known", current.ExecutionIdentityRationale
+		}
+		return "", "ambiguous", "", "ambiguous", "multiple non-human identity candidates matched this path"
+	case currentStatus == "known":
+		return current.ExecutionIdentity, current.ExecutionIdentityType, current.ExecutionIdentitySource, currentStatus, current.ExecutionIdentityRationale
+	case incomingStatus == "known":
+		return incoming.ExecutionIdentity, incoming.ExecutionIdentityType, incoming.ExecutionIdentitySource, incomingStatus, incoming.ExecutionIdentityRationale
+	case currentStatus == "":
+		return incoming.ExecutionIdentity, incoming.ExecutionIdentityType, incoming.ExecutionIdentitySource, incomingStatus, incoming.ExecutionIdentityRationale
+	default:
+		return current.ExecutionIdentity, current.ExecutionIdentityType, current.ExecutionIdentitySource, currentStatus, current.ExecutionIdentityRationale
+	}
+}
+
+func canonicalString(current, incoming string) string {
+	current = strings.TrimSpace(current)
+	incoming = strings.TrimSpace(incoming)
+	switch {
+	case current == "":
+		return incoming
+	case incoming == "":
+		return current
+	case current <= incoming:
+		return current
+	default:
+		return incoming
+	}
+}
+
+func maxFloat64(current, incoming float64) float64 {
+	if incoming > current {
+		return incoming
+	}
+	return current
 }
 
 func correlateExecutionIdentity(entry agginventory.AgentPrivilegeMapEntry, identities []agginventory.NonHumanIdentity) (string, string, string, string, string) {

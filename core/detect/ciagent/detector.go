@@ -2,8 +2,6 @@ package ciagent
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -32,18 +30,20 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		return nil, wfErr
 	}
 	files = append(files, workflowFiles...)
-	if detect.FileExists(scope.Root, "Jenkinsfile") {
+	jenkinsfileExists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, "Jenkinsfile")
+	if parseErr != nil {
+		return nil, detect.ParseErrorAsError(parseErr)
+	}
+	if jenkinsfileExists {
 		files = append(files, "Jenkinsfile")
 	}
 	sort.Strings(files)
 
 	findings := make([]model.Finding, 0)
 	for _, rel := range files {
-		path := filepath.Join(scope.Root, filepath.FromSlash(rel))
-		// #nosec G304 -- detector reads workflow definitions from selected repository root.
-		payload, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return nil, readErr
+		payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
+		if parseErr != nil {
+			return nil, detect.ParseErrorAsError(parseErr)
 		}
 		content := string(payload)
 		workflowAnalysis, workflowErr := workflowcap.Analyze(rel, payload)

@@ -5,10 +5,10 @@ Canonical local artifact locations are documented in [`docs/state_lifecycle.md`]
 ## Scan workflow
 
 ```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile standard --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
 ```
 
-Check `top_findings`, `attack_paths`, `top_attack_paths`, `repo_exposure_summaries`, `profile`, and optional `report.md_path`.
+Check `top_findings`, additive `action_paths`, additive `action_path_to_control_first`, `attack_paths`, `top_attack_paths`, `repo_exposure_summaries`, `profile`, and optional `report.md_path`.
 For prompt-channel and enrich-enabled MCP findings, confirm stable evidence metadata fields are present (`pattern_family`, `evidence_snippet_hash`, `enrich_quality`, `as_of`, `source`).
 
 ## Shareable report workflow
@@ -20,6 +20,7 @@ wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
 ```
 
 Use internal profile for engineering/security reviews. Use public profile for external packets with deterministic redaction. The exec PDF path now wraps and paginates long content so the executive summary stays board-ready when the acceptance fixtures are green.
+The report path is static and saved-state based: it summarizes risky write paths, proof artifacts, and governance priorities without claiming runtime observation or control-layer enforcement.
 
 ## Fix workflow
 

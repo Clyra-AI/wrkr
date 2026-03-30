@@ -354,6 +354,127 @@ func TestReportIncludesActionPathsProjection(t *testing.T) {
 	}
 }
 
+func TestReportAssessmentSummaryPrioritizesGovernFirstPaths(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	snapshot := map[string]any{
+		"version": "v1",
+		"target": map[string]any{
+			"mode":  "org",
+			"value": "acme",
+		},
+		"profile": map[string]any{
+			"profile": "assessment",
+		},
+		"inventory": map[string]any{},
+		"risk_report": map[string]any{
+			"generated_at": "2026-03-25T12:00:00Z",
+			"top_findings": []any{
+				map[string]any{
+					"canonical_key": "secret|1",
+					"risk_score":    9.5,
+					"finding": map[string]any{
+						"finding_type": "secret_presence",
+						"severity":     "high",
+						"tool_type":    "secret",
+						"org":          "acme",
+						"repo":         "payments",
+						"location":     ".env",
+					},
+				},
+			},
+			"ranked_findings": []any{
+				map[string]any{
+					"canonical_key": "secret|1",
+					"risk_score":    9.5,
+					"finding": map[string]any{
+						"finding_type": "secret_presence",
+						"severity":     "high",
+						"tool_type":    "secret",
+						"org":          "acme",
+						"repo":         "payments",
+						"location":     ".env",
+					},
+				},
+			},
+			"action_paths": []any{
+				map[string]any{
+					"path_id":                   "apc-123456",
+					"org":                       "acme",
+					"repo":                      "payments",
+					"recommended_action":        "control",
+					"write_capable":             true,
+					"production_write":          true,
+					"attack_path_score":         9.1,
+					"risk_score":                8.8,
+					"tool_type":                 "langchain",
+					"location":                  "agents/payments.py",
+					"execution_identity_status": "known",
+				},
+			},
+			"action_path_to_control_first": map[string]any{
+				"summary": map[string]any{
+					"total_paths":                    1,
+					"write_capable_paths":            1,
+					"production_target_backed_paths": 1,
+					"govern_first_paths":             0,
+				},
+				"path": map[string]any{
+					"path_id":                   "apc-123456",
+					"org":                       "acme",
+					"repo":                      "payments",
+					"recommended_action":        "control",
+					"write_capable":             true,
+					"production_write":          true,
+					"attack_path_score":         9.1,
+					"risk_score":                8.8,
+					"tool_type":                 "langchain",
+					"location":                  "agents/payments.py",
+					"execution_identity_status": "known",
+				},
+			},
+		},
+	}
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal state payload: %v", err)
+	}
+	if err := os.WriteFile(statePath, append(payload, '\n'), 0o600); err != nil {
+		t.Fatalf("write state payload: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"report", "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+
+	var reportPayload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &reportPayload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	if _, ok := reportPayload["assessment_summary"].(map[string]any); !ok {
+		t.Fatalf("expected top-level assessment_summary, got %v", reportPayload["assessment_summary"])
+	}
+	summary, ok := reportPayload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary object, got %T", reportPayload["summary"])
+	}
+	topRisks, ok := summary["top_risks"].([]any)
+	if !ok || len(topRisks) == 0 {
+		t.Fatalf("expected top_risks payload, got %v", summary["top_risks"])
+	}
+	first, ok := topRisks[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected top_risks item type: %T", topRisks[0])
+	}
+	if first["finding_type"] != "action_path" {
+		t.Fatalf("expected action_path to lead top_risks when action_paths exist, got %v", first)
+	}
+}
+
 func TestReportPublicShareRedactsActionPathProjection(t *testing.T) {
 	t.Parallel()
 

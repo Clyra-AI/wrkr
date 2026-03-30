@@ -3,7 +3,6 @@ package agentcustom
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -75,7 +74,11 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 	}
 
 	for _, cfg := range configs {
-		if !detect.FileExists(scope.Root, cfg.Path) {
+		exists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, cfg.Path)
+		if parseErr != nil {
+			return nil, detect.ParseErrorAsError(parseErr)
+		}
+		if !exists {
 			continue
 		}
 
@@ -154,8 +157,15 @@ func parseConfig(root, rel, format string) (declaration, *model.ParseError) {
 func detectWorkspaceSignals(scope detect.Scope) (signalSet, error) {
 	signals := signalSet{Names: map[string]struct{}{}}
 
-	if detect.FileExists(scope.Root, "AGENTS.md") || detect.FileExists(scope.Root, "AGENTS.override.md") || detect.FileExists(scope.Root, "CLAUDE.md") || detect.FileExists(scope.Root, ".claude/CLAUDE.md") {
-		signals.Names["agent_instruction_surface"] = struct{}{}
+	for _, rel := range []string{"AGENTS.md", "AGENTS.override.md", "CLAUDE.md", ".claude/CLAUDE.md"} {
+		exists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, rel)
+		if parseErr != nil {
+			return signalSet{}, detect.ParseErrorAsError(parseErr)
+		}
+		if exists {
+			signals.Names["agent_instruction_surface"] = struct{}{}
+			break
+		}
 	}
 
 	skillPaths, err := detect.Glob(scope.Root, ".agents/skills/*/SKILL.md")
@@ -174,17 +184,19 @@ func detectWorkspaceSignals(scope detect.Scope) (signalSet, error) {
 	if err != nil {
 		return signalSet{}, err
 	}
-	if detect.FileExists(scope.Root, "Jenkinsfile") {
+	jenkinsfileExists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, "Jenkinsfile")
+	if parseErr != nil {
+		return signalSet{}, detect.ParseErrorAsError(parseErr)
+	}
+	if jenkinsfileExists {
 		workflowFiles = append(workflowFiles, "Jenkinsfile")
 	}
 	sort.Strings(workflowFiles)
 
 	for _, rel := range workflowFiles {
-		path := filepath.Join(scope.Root, filepath.FromSlash(rel))
-		// #nosec G304 -- reads workflow definitions from the selected repository root.
-		payload, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return signalSet{}, readErr
+		payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
+		if parseErr != nil {
+			return signalSet{}, detect.ParseErrorAsError(parseErr)
 		}
 		lower := strings.ToLower(string(payload))
 		if strings.Contains(lower, "codex --full-auto") || strings.Contains(lower, "claude -p") || strings.Contains(lower, "claude code -p") || strings.Contains(lower, "gait eval --script") {
@@ -194,6 +206,42 @@ func detectWorkspaceSignals(scope detect.Scope) (signalSet, error) {
 	}
 
 	return signals, nil
+}
+
+func detectSourceAnnotations(scope detect.Scope, workspace signalSet) ([]model.Finding, error) {
+	files, err := detect.WalkFiles(scope.Root)
+	if err != nil {
+		return nil, err
+	}
+
+	findings := make([]model.Finding, 0)
+	for _, rel := range files {
+		language := sourceLanguage(rel)
+		if language == "" || shouldSkipSourceFile(rel) {
+			continue
+		}
+
+		payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
+		if parseErr != nil {
+			return nil, detect.ParseErrorAsError(parseErr)
+		}
+		lines := strings.Split(string(payload), "\n")
+		for idx, line := range lines {
+			agent, ok := parseSourceAnnotation(rel, line)
+			if !ok {
+				continue
+			}
+			symbol, startLine, endLine := findSourceSymbol(lines, language, idx+1, agent.Name)
+			scored := scoreSourceSignals(workspace, agent, symbol != "")
+			if !meetsConfidenceGate(scored.score, scored.count, scored.operational) {
+				continue
+			}
+			findings = append(findings, toSourceFinding(scope, agent, symbol, startLine, endLine, idx+1, scored))
+		}
+	}
+
+	model.SortFindings(findings)
+	return findings, nil
 }
 
 type scoredSignals struct {
@@ -290,44 +338,6 @@ func toFinding(scope detect.Scope, declarationPath string, agent customAgent, sc
 		Evidence:    evidence,
 		Remediation: "Keep custom-agent scaffolding gated by deterministic approval and explicit runtime controls.",
 	}
-}
-
-func detectSourceAnnotations(scope detect.Scope, workspace signalSet) ([]model.Finding, error) {
-	files, err := detect.WalkFiles(scope.Root)
-	if err != nil {
-		return nil, err
-	}
-
-	findings := make([]model.Finding, 0)
-	for _, rel := range files {
-		language := sourceLanguage(rel)
-		if language == "" || shouldSkipSourceFile(rel) {
-			continue
-		}
-
-		path := filepath.Join(scope.Root, filepath.FromSlash(rel))
-		// #nosec G304 -- detector reads source files within the selected repository root.
-		payload, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return nil, readErr
-		}
-		lines := strings.Split(string(payload), "\n")
-		for idx, line := range lines {
-			agent, ok := parseSourceAnnotation(rel, line)
-			if !ok {
-				continue
-			}
-			symbol, startLine, endLine := findSourceSymbol(lines, language, idx+1, agent.Name)
-			scored := scoreSourceSignals(workspace, agent, symbol != "")
-			if !meetsConfidenceGate(scored.score, scored.count, scored.operational) {
-				continue
-			}
-			findings = append(findings, toSourceFinding(scope, agent, symbol, startLine, endLine, idx+1, scored))
-		}
-	}
-
-	model.SortFindings(findings)
-	return findings, nil
 }
 
 func parseSourceAnnotation(rel, line string) (customAgent, bool) {

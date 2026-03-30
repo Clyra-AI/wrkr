@@ -52,7 +52,7 @@ func TestBuildActivationPrefersConcreteMySetupSignals(t *testing.T) {
 				Repo:        "local-machine",
 			},
 		},
-	}, nil, 5)
+	}, nil, nil, 5)
 	if activation == nil {
 		t.Fatal("expected activation summary for my_setup target")
 	}
@@ -87,7 +87,7 @@ func TestBuildActivationReturnsReasonWhenOnlyPolicyItemsExist(t *testing.T) {
 				Repo:        "local-machine",
 			},
 		},
-	}, nil, 5)
+	}, nil, nil, 5)
 	if activation == nil {
 		t.Fatal("expected activation summary for my_setup target")
 	}
@@ -102,7 +102,7 @@ func TestBuildActivationReturnsReasonWhenOnlyPolicyItemsExist(t *testing.T) {
 func TestBuildActivationReturnsNilOutsideMySetup(t *testing.T) {
 	t.Parallel()
 
-	activation := BuildActivation("path", nil, nil, 5)
+	activation := BuildActivation("path", nil, nil, nil, 5)
 	if activation == nil {
 		t.Fatal("expected deterministic empty activation summary for path target")
 	}
@@ -125,7 +125,7 @@ func TestBuildActivationHonorsExplicitTopZero(t *testing.T) {
 				Repo:        "local-machine",
 			},
 		},
-	}, nil, 0)
+	}, nil, nil, 0)
 	if activation != nil {
 		t.Fatalf("expected nil activation when top=0 explicitly suppresses findings, got %+v", activation)
 	}
@@ -159,7 +159,7 @@ func TestBuildActivationAddsGovernFirstOrgItems(t *testing.T) {
 		},
 	}
 
-	activation := BuildActivation("org", nil, inventory, 5)
+	activation := BuildActivation("org", nil, inventory, nil, 5)
 	if activation == nil {
 		t.Fatal("expected activation summary for org target")
 	}

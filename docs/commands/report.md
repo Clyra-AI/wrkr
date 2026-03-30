@@ -35,14 +35,17 @@ wrkr report renders deterministic summaries from saved scan state without changi
 wrkr report --pdf writes a deterministic PDF artifact with wrapped, paginated executive-summary output; the board-ready claim is acceptance-backed by explicit executive report fixtures.
 
 Expected JSON keys: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `compliance_summary`, `summary`, `md_path`, `pdf_path`.
+`assessment_summary` is additive at the top level and under `summary` when govern-first action paths are present; it leads with governable-path counts, the top path to control first, the strongest identity-backed path, and the saved proof-chain path.
 `summary.attack_paths` provides deterministic attack-path section metadata (`total`, `top_path_ids`) used in report templates and external appendix joins.
 `compliance_summary.frameworks[*].controls[*]` exposes additive framework/control/article rollups with deterministic `finding_count`, `mapped_rule_ids`, and coverage status.
 `summary.compliance_summary` mirrors the same machine-readable contract used by report markdown/PDF generation.
 When the saved scan target is `my_setup`, `summary.activation` exposes the same additive concrete-first activation view used by the local-machine scan flow.
 When the saved scan target is `org` or `path`, `summary.activation` exposes the additive govern-first candidate path view used by the scan flow.
 `summary.action_paths` and top-level `action_paths` expose the ranked govern-first path objects, including additive delivery-chain fields such as `pull_request_write`, `merge_execute`, `deploy_write`, `delivery_chain_status`, and `production_target_status`, ownership/governance fields such as `operational_owner`, `owner_source`, `ownership_status`, and `approval_gap_reasons`, plus additive execution-identity fields such as `execution_identity`, `execution_identity_type`, `execution_identity_source`, `execution_identity_status`, and `execution_identity_rationale`. `summary.action_path_to_control_first` / top-level `action_path_to_control_first` expose one prioritized path with deterministic summary counts.
+`summary.top_risks` becomes path-first when govern-first `action_paths` exist, but the raw `top_findings` payload remains unchanged for operators and automation.
 `summary.security_visibility` exposes additive reference-basis and `unknown_to_security` counts sourced from the saved scan state.
 When the saved scan state does not carry a usable `reference_basis`, report output suppresses `unknown_to_security` claims and surfaces `reference_basis unavailable` wording instead.
+`wrkr report` renders from saved scan state only. It summarizes static posture, risky write paths, and proof artifacts; it does not claim live runtime observation or control-layer enforcement.
 
 Public template behavior (`--template public --share-profile public`):
 
