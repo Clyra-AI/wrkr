@@ -178,18 +178,6 @@ func shouldIncludeActionPath(entry agginventory.AgentPrivilegeMapEntry) bool {
 		actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons)
 }
 
-func actionPathRecommendedAction(entry agginventory.AgentPrivilegeMapEntry) string {
-	return recommendedActionForPath(ActionPath{
-		ProductionWrite:  entry.ProductionWrite,
-		ApprovalGap:      actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons),
-		CredentialAccess: entry.CredentialAccess,
-		DeploymentStatus: strings.TrimSpace(entry.DeploymentStatus),
-		PullRequestWrite: entry.PullRequestWrite,
-		MergeExecute:     entry.MergeExecute,
-		DeployWrite:      entry.DeployWrite,
-	})
-}
-
 func recommendedActionForPath(path ActionPath) string {
 	weakIdentity := strings.TrimSpace(path.ExecutionIdentityStatus) == "" ||
 		strings.TrimSpace(path.ExecutionIdentityStatus) == "unknown" ||
