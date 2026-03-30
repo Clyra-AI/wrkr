@@ -41,11 +41,25 @@ func TestBuildActionPathsRaisesWeakOwnershipAndClassifiesBusinessStateSurface(t 
 				OwnershipStatus:          "explicit",
 				SecurityVisibilityStatus: agginventory.SecurityVisibilityApproved,
 			},
+			{
+				AgentID:                  "wrkr:three:acme",
+				Framework:                "ci_agent",
+				Org:                      "acme",
+				Repos:                    []string{"acme/iac"},
+				Location:                 ".github/workflows/iac.yml",
+				RiskScore:                7.5,
+				WriteCapable:             true,
+				Permissions:              []string{"iac.write"},
+				ApprovalClassification:   "approved",
+				OwnerSource:              "codeowners",
+				OwnershipStatus:          "explicit",
+				SecurityVisibilityStatus: agginventory.SecurityVisibilityApproved,
+			},
 		},
 	})
 
-	if len(paths) != 2 {
-		t.Fatalf("expected two paths, got %+v", paths)
+	if len(paths) != 3 {
+		t.Fatalf("expected three paths, got %+v", paths)
 	}
 	if paths[0].OwnershipStatus != "unresolved" {
 		t.Fatalf("expected weak ownership path to sort first, got %+v", paths)
@@ -55,6 +69,9 @@ func TestBuildActionPathsRaisesWeakOwnershipAndClassifiesBusinessStateSurface(t 
 	}
 	if paths[1].BusinessStateSurface != "code" {
 		t.Fatalf("expected code business_state_surface, got %+v", paths[1])
+	}
+	if paths[2].BusinessStateSurface != "code" {
+		t.Fatalf("expected iac.write business_state_surface=code, got %+v", paths[2])
 	}
 }
 
@@ -189,5 +206,53 @@ func TestBuildExposureGroupsCollapsesStableClusters(t *testing.T) {
 	}
 	if len(first[0].PathIDs) != 2 {
 		t.Fatalf("expected both path ids to remain visible in group, got %+v", first[0])
+	}
+}
+
+func TestBuildIdentityExposureSummarySeparatesOrgs(t *testing.T) {
+	t.Parallel()
+
+	paths := DecorateActionPaths([]ActionPath{
+		{
+			Org:                     "acme",
+			Repo:                    "acme/release",
+			WriteCapable:            true,
+			OwnershipStatus:         "explicit",
+			ExecutionIdentity:       "release-app",
+			ExecutionIdentityType:   "github_app",
+			ExecutionIdentitySource: "workflow_static_signal",
+			ExecutionIdentityStatus: "known",
+		},
+		{
+			Org:                     "globex",
+			Repo:                    "globex/release",
+			WriteCapable:            true,
+			OwnershipStatus:         "explicit",
+			ExecutionIdentity:       "release-app",
+			ExecutionIdentityType:   "github_app",
+			ExecutionIdentitySource: "workflow_static_signal",
+			ExecutionIdentityStatus: "known",
+		},
+	})
+
+	summary := BuildIdentityExposureSummary(paths, &agginventory.Inventory{
+		NonHumanIdentities: []agginventory.NonHumanIdentity{
+			{Org: "acme", Subject: "release-app", IdentityType: "github_app", Source: "workflow_static_signal"},
+			{Org: "globex", Subject: "release-app", IdentityType: "github_app", Source: "workflow_static_signal"},
+		},
+	})
+	if summary == nil {
+		t.Fatal("expected identity exposure summary")
+	}
+	if summary.TotalNonHumanIdentitiesObserved != 2 {
+		t.Fatalf("expected org-scoped identity totals=2, got %+v", summary)
+	}
+
+	review, revoke := BuildIdentityActionTargets(paths)
+	if review == nil || revoke == nil {
+		t.Fatalf("expected org-scoped review and revoke targets, got review=%+v revoke=%+v", review, revoke)
+	}
+	if review.SharedExecutionIdentity || revoke.SharedExecutionIdentity {
+		t.Fatalf("expected org-scoped identities to avoid cross-org shared markers, review=%+v revoke=%+v", review, revoke)
 	}
 }

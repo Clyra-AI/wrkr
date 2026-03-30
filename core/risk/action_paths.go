@@ -797,7 +797,7 @@ func hasSaaSWriteSurface(permissions, boundTools []string) bool {
 			case strings.HasPrefix(value, "mcp.write"),
 				strings.HasPrefix(value, "crm."),
 				strings.HasPrefix(value, "saas."),
-				strings.HasSuffix(value, ".write") && !strings.HasPrefix(value, "repo.") && !strings.HasPrefix(value, "pull_request.") && !strings.HasPrefix(value, "deploy.") && !strings.HasPrefix(value, "db.") && !strings.HasPrefix(value, "ticket."):
+				strings.HasSuffix(value, ".write") && !strings.HasPrefix(value, "repo.") && !strings.HasPrefix(value, "pull_request.") && !strings.HasPrefix(value, "deploy.") && !strings.HasPrefix(value, "db.") && !strings.HasPrefix(value, "ticket.") && !strings.HasPrefix(value, "iac."):
 				return true
 			}
 		}

@@ -393,6 +393,7 @@ func actionPathIdentitySummaryKey(path ActionPath) string {
 		return ""
 	}
 	return strings.Join([]string{
+		strings.TrimSpace(path.Org),
 		strings.TrimSpace(path.ExecutionIdentity),
 		strings.TrimSpace(path.ExecutionIdentityType),
 		strings.TrimSpace(path.ExecutionIdentitySource),
@@ -405,6 +406,7 @@ func inventoryIdentityKey(identity agginventory.NonHumanIdentity) string {
 		return ""
 	}
 	return strings.Join([]string{
+		strings.TrimSpace(identity.Org),
 		subject,
 		strings.TrimSpace(identity.IdentityType),
 		strings.TrimSpace(identity.Source),
