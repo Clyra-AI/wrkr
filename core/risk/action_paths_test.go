@@ -302,6 +302,42 @@ func TestBuildActionPathsExercisesAllRecommendedActionClasses(t *testing.T) {
 	}
 }
 
+func TestApplyGovernFirstProfileAssessmentSuppressesAllCandidates(t *testing.T) {
+	t.Parallel()
+
+	paths := []ActionPath{
+		{PathID: "one", Repo: "acme/example-repo", Location: "examples/demo-agent/config.yaml", RecommendedAction: "proof"},
+		{PathID: "two", Repo: "acme/vendor-tools", Location: "vendor/agent/config.yaml", RecommendedAction: "inventory"},
+	}
+
+	filtered, choice := ApplyGovernFirstProfile("assessment", paths)
+
+	if len(filtered) != 0 {
+		t.Fatalf("expected assessment profile to suppress all candidates, got %+v", filtered)
+	}
+	if choice != nil {
+		t.Fatalf("expected no control-first choice when all assessment candidates are suppressed, got %+v", choice)
+	}
+}
+
+func TestAssessmentSuppressesPathMatchesSegmentsOnly(t *testing.T) {
+	t.Parallel()
+
+	if assessmentSuppressesPath(ActionPath{
+		Repo:     "acme/latest-service",
+		Location: "services/contest-runner/main.go",
+	}) {
+		t.Fatal("expected segment-aware suppression to ignore substring-only matches like latest/contest")
+	}
+
+	if !assessmentSuppressesPath(ActionPath{
+		Repo:     "acme/platform",
+		Location: "services/demo-runner/generated.go",
+	}) {
+		t.Fatal("expected assessment suppression to match demo/generated path segments")
+	}
+}
+
 func sliceToSet(values []string) map[string]struct{} {
 	out := make(map[string]struct{}, len(values))
 	for _, value := range values {

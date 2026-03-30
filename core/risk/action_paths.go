@@ -343,15 +343,12 @@ func ApplyGovernFirstProfile(profileName string, paths []ActionPath) ([]ActionPa
 	}
 	filtered := append([]ActionPath(nil), paths...)
 	if strings.EqualFold(strings.TrimSpace(profileName), "assessment") {
-		candidates := make([]ActionPath, 0, len(paths))
+		filtered = make([]ActionPath, 0, len(paths))
 		for _, path := range paths {
 			if assessmentSuppressesPath(path) {
 				continue
 			}
-			candidates = append(candidates, path)
-		}
-		if len(candidates) > 0 {
-			filtered = candidates
+			filtered = append(filtered, path)
 		}
 	}
 	return filtered, buildActionPathChoice(filtered)
@@ -404,17 +401,80 @@ func actionPathDeliveryChainStatus(pullRequestWrite, mergeExecute, deployWrite b
 }
 
 func assessmentSuppressesPath(path ActionPath) bool {
-	for _, value := range []string{strings.ToLower(strings.TrimSpace(path.Repo)), strings.ToLower(strings.TrimSpace(path.Location))} {
+	for _, value := range []string{path.Repo, path.Location} {
 		if value == "" {
 			continue
 		}
-		for _, token := range []string{"examples", "example", "sample", "samples", "demo", "tests", "test", "testdata", "fixtures", "vendor", "node_modules", ".venv", "venv", "generated", "__generated__"} {
-			if strings.Contains(value, token) {
+		for _, segment := range assessmentSegments(value) {
+			if assessmentSuppressionToken(segment) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func assessmentSegments(value string) []string {
+	raw := strings.ToLower(strings.TrimSpace(value))
+	if raw == "" {
+		return nil
+	}
+
+	segments := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == '/' || r == '\\'
+	})
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(segments)*4)
+	for _, segment := range segments {
+		for _, candidate := range assessmentSegmentCandidates(segment) {
+			if _, ok := seen[candidate]; ok {
+				continue
+			}
+			seen[candidate] = struct{}{}
+			out = append(out, candidate)
+		}
+	}
+	return out
+}
+
+func assessmentSegmentCandidates(segment string) []string {
+	segment = strings.TrimSpace(segment)
+	if segment == "" {
+		return nil
+	}
+
+	candidates := []string{segment}
+	trimmed := strings.Trim(segment, " ._-")
+	if trimmed != "" && trimmed != segment {
+		candidates = append(candidates, trimmed)
+	}
+	if trimmed != "" {
+		parts := strings.FieldsFunc(trimmed, func(r rune) bool {
+			return r == '-' || r == '_' || r == '.'
+		})
+		for _, part := range parts {
+			if part == "" || part == trimmed {
+				continue
+			}
+			candidates = append(candidates, part)
+		}
+		if dot := strings.LastIndex(trimmed, "."); dot > 0 {
+			base := trimmed[:dot]
+			if base != "" && base != trimmed {
+				candidates = append(candidates, base)
+			}
+		}
+	}
+	return candidates
+}
+
+func assessmentSuppressionToken(value string) bool {
+	switch value {
+	case "examples", "example", "sample", "samples", "demo", "tests", "test", "testdata", "fixtures", "vendor", "node_modules", ".venv", "venv", "generated", "__generated__":
+		return true
+	default:
+		return false
+	}
 }
 
 func mergeProductionTargetStatus(current, incoming string) string {
