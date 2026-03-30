@@ -7,14 +7,14 @@ import json
 import sys
 from pathlib import Path
 
-from release_changelog import resolve_release_plan
+from release_changelog import finalize_changelog
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Resolve the next Wrkr release version deterministically from an "
-            "explicit version or CHANGELOG.md Unreleased entries."
+            "Promote CHANGELOG.md Unreleased entries into a versioned release "
+            "section and reset Unreleased for the next release cycle."
         )
     )
     parser.add_argument(
@@ -24,22 +24,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--release-version",
-        help="explicit release version to normalize to vX.Y.Z",
+        help="explicit release version to validate and finalize as vX.Y.Z",
+    )
+    parser.add_argument(
+        "--release-date",
+        help="explicit ISO date for the versioned changelog section (YYYY-MM-DD)",
     )
     parser.add_argument(
         "--json",
         action="store_true",
-        help="print a JSON object instead of the resolved version only",
+        help="print a JSON object instead of a short human-readable summary",
     )
     return parser.parse_args()
-
-
-def emit(payload: dict[str, str], as_json: bool) -> int:
-    if as_json:
-        print(json.dumps(payload, sort_keys=True))
-    else:
-        print(payload["version"])
-    return 0
 
 
 def main() -> int:
@@ -47,11 +43,16 @@ def main() -> int:
     repo_root = Path(args.repo_root).resolve()
 
     try:
-        payload = resolve_release_plan(repo_root, args.release_version)
-        return emit(payload, args.json)
+        payload = finalize_changelog(repo_root, args.release_version, args.release_date)
     except (RuntimeError, ValueError) as err:
-        print(f"resolve_release_version: {err}", file=sys.stderr)
+        print(f"finalize_release_changelog: {err}", file=sys.stderr)
         return 1
+
+    if args.json:
+        print(json.dumps(payload, sort_keys=True))
+    else:
+        print(f"{payload['version']} ({payload['bump']})")
+    return 0
 
 
 if __name__ == "__main__":

@@ -40,7 +40,7 @@ Execute this workflow for: "implement the plan", "execute PLAN_NEXT", "ship plan
 - `Global Decisions (Locked)`
 - `Exit Criteria`
 - `Test Matrix Wiring`
-- Story-level `Tasks`, `Repo paths`, `Run commands`, `Test requirements`, `Matrix wiring`, `Acceptance criteria`
+- Story-level `Tasks`, `Repo paths`, `Run commands`, `Test requirements`, `Matrix wiring`, `Acceptance criteria`, `Changelog impact`, `Changelog section`, and `Draft changelog entry`
 - If running in `epic-only` mode:
 - Selected epic exists and can be resolved uniquely from `epic_number`.
 - Every story in the selected epic contains required story-level fields.
@@ -92,6 +92,11 @@ Rules:
 
 3. Execute one story at a time:
 - Implement only scoped story changes.
+- If story `Changelog impact: required`, update `CHANGELOG.md` `## [Unreleased]` in the same story:
+  - place the story `Draft changelog entry` under the declared `Changelog section`
+  - prepend the declared `Semver marker override` only when it is not `none`
+  - keep the entry operator-facing and do not finalize versioned release sections during implementation
+- If story `Changelog impact: not required`, do not add a changelog entry for that story.
 - Update tests required by story type.
 - Update docs surgically only if user-facing behavior changed.
 - Do not start next story until current story is validated.
@@ -228,6 +233,7 @@ If story is internal-only and behavior is unchanged, do not force doc churn.
 - No silent skips of required checks.
 - Tests must use temp output paths (no artifact leakage into source tree).
 - If code/docs drift is introduced by user-facing change, patch docs in same story.
+- Do not invent changelog policy during implementation; if changelog fields are missing, ambiguous, or clearly inconsistent with story scope, stop and require a plan update.
 - If both waves are in scope, keep Wave 2 blocked until Wave 1 passes required evidence gates.
 
 ## Blocker Handling

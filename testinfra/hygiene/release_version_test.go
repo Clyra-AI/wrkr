@@ -9,12 +9,14 @@ import (
 	"testing"
 )
 
-type releaseVersionResult struct {
-	BaseTag string `json:"base_tag"`
-	Bump    string `json:"bump"`
-	Reason  string `json:"reason"`
-	Source  string `json:"source"`
-	Version string `json:"version"`
+type changelogReleaseResult struct {
+	BaseTag     string `json:"base_tag"`
+	Bump        string `json:"bump"`
+	Reason      string `json:"reason"`
+	ReleaseDate string `json:"release_date"`
+	Source      string `json:"source"`
+	Status      string `json:"status"`
+	Version     string `json:"version"`
 }
 
 func TestResolveReleaseVersionBootstrapsWithoutTags(t *testing.T) {
@@ -124,6 +126,27 @@ func TestResolveReleaseVersionHonorsExplicitMarkerOverrides(t *testing.T) {
 	}
 }
 
+func TestResolveReleaseVersionRejectsExplicitMismatch(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initTaggedReleaseFixtureRepo(t, "v1.2.3")
+	writeFixtureFile(t, repoRoot, "README.md", "patch change\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+		map[string][]string{
+			"Fixed": {"tightened proof-chain verification failure handling"},
+		},
+	))
+	commitAll(t, repoRoot, "fix: tighten proof-chain verification")
+
+	_, stderr, err := runReleaseVersionResolverRaw(t, repoRoot, "--release-version", "v1.3.0")
+	if err == nil {
+		t.Fatal("expected explicit version mismatch to fail")
+	}
+	if !strings.Contains(stderr, "does not match changelog-derived v1.2.4") {
+		t.Fatalf("expected mismatch stderr, got %q", stderr)
+	}
+}
+
 func TestResolveReleaseVersionIgnoresPrereleaseTags(t *testing.T) {
 	t.Parallel()
 
@@ -192,6 +215,134 @@ func TestResolveReleaseVersionFailsClosedWithoutSignal(t *testing.T) {
 	}
 }
 
+func TestFinalizeReleaseChangelogPromotesEntriesAndResetsUnreleased(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initTaggedReleaseFixtureRepo(t, "v1.2.3")
+	writeFixtureFile(t, repoRoot, "README.md", "release prep\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+		map[string][]string{
+			"Added": {"[semver:patch] operator wording cleanup only"},
+			"Fixed": {"tightened proof-chain verification failure handling"},
+		},
+	))
+	commitAll(t, repoRoot, "docs: stage release changelog")
+
+	result := runFinalizeReleaseChangelog(t, repoRoot, "--release-date", "2026-03-27")
+	if result.Version != "v1.2.4" {
+		t.Fatalf("expected finalized version v1.2.4, got %s", result.Version)
+	}
+	if result.Bump != "patch" {
+		t.Fatalf("expected finalized patch bump, got %s", result.Bump)
+	}
+	if result.ReleaseDate != "2026-03-27" {
+		t.Fatalf("expected release date 2026-03-27, got %s", result.ReleaseDate)
+	}
+
+	changelog := mustReadFile(t, filepath.Join(repoRoot, "CHANGELOG.md"))
+	for _, required := range []string{
+		"## [Unreleased]",
+		"### Deprecated",
+		"### Removed",
+		"## [v1.2.4] - 2026-03-27",
+		"<!-- release-semver: patch -->",
+		"- operator wording cleanup only",
+		"- tightened proof-chain verification failure handling",
+	} {
+		if !strings.Contains(changelog, required) {
+			t.Fatalf("expected finalized changelog to contain %q", required)
+		}
+	}
+	if strings.Contains(changelog, "[semver:patch]") {
+		t.Fatal("expected semver control marker to be stripped from finalized release notes")
+	}
+	unreleased := strings.SplitN(strings.SplitN(changelog, "## [v1.2.4] - 2026-03-27", 2)[0], "## Changelog maintenance process", 2)[0]
+	if strings.Contains(unreleased, "operator wording cleanup only") {
+		t.Fatal("expected promoted release notes to be removed from Unreleased")
+	}
+}
+
+func TestValidateReleaseChangelogMatchesVersionedSection(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initTaggedReleaseFixtureRepo(t, "v1.2.3")
+	writeFixtureFile(t, repoRoot, "README.md", "release prep\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+		map[string][]string{
+			"Fixed": {"tightened proof-chain verification failure handling"},
+		},
+	))
+	commitAll(t, repoRoot, "docs: stage release changelog")
+
+	runFinalizeReleaseChangelog(t, repoRoot, "--release-date", "2026-03-27")
+	result := runValidateReleaseChangelog(t, repoRoot, "v1.2.4")
+	if result.Status != "ok" {
+		t.Fatalf("expected validate status ok, got %s", result.Status)
+	}
+	if result.Bump != "patch" {
+		t.Fatalf("expected validate bump patch, got %s", result.Bump)
+	}
+	if result.BaseTag != "v1.2.3" {
+		t.Fatalf("expected validate base tag v1.2.3, got %s", result.BaseTag)
+	}
+}
+
+func TestValidateReleaseChangelogFailsWhenUnreleasedStillHasEntries(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initTaggedReleaseFixtureRepo(t, "v1.2.3")
+	writeFixtureFile(t, repoRoot, "README.md", "release prep\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+		map[string][]string{
+			"Fixed": {"tightened proof-chain verification failure handling"},
+		},
+	))
+	commitAll(t, repoRoot, "docs: stage release changelog")
+
+	runFinalizeReleaseChangelog(t, repoRoot, "--release-date", "2026-03-27")
+	addUnreleasedEntry(t, repoRoot, "Changed", "post-finalization drift should fail validation")
+
+	_, stderr, err := runValidateReleaseChangelogRaw(t, repoRoot, "v1.2.4")
+	if err == nil {
+		t.Fatal("expected validate script to fail when Unreleased is not reset")
+	}
+	if !strings.Contains(stderr, "Unreleased still contains releasable entries") {
+		t.Fatalf("expected unreleased-reset failure, got %q", stderr)
+	}
+}
+
+func TestResolveReleaseVersionAfterFinalizedReleaseOnlyUsesNewUnreleasedEntries(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initTaggedReleaseFixtureRepo(t, "v1.2.3")
+	writeFixtureFile(t, repoRoot, "README.md", "release prep\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+		map[string][]string{
+			"Fixed": {"tightened proof-chain verification failure handling"},
+		},
+	))
+	commitAll(t, repoRoot, "docs: stage release changelog")
+
+	runFinalizeReleaseChangelog(t, repoRoot, "--release-date", "2026-03-27")
+	commitAll(t, repoRoot, "docs: finalize v1.2.4 changelog")
+	runCommand(t, repoRoot, "git", "tag", "v1.2.4")
+
+	writeFixtureFile(t, repoRoot, "README.md", "next release prep\n")
+	addUnreleasedEntry(t, repoRoot, "Added", "new org-wide approval-gap summary")
+	commitAll(t, repoRoot, "feat: add org-wide approval-gap summary")
+
+	result := runReleaseVersionResolver(t, repoRoot)
+	if result.Version != "v1.3.0" {
+		t.Fatalf("expected next release version v1.3.0, got %s", result.Version)
+	}
+	if result.BaseTag != "v1.2.4" {
+		t.Fatalf("expected next base tag v1.2.4, got %s", result.BaseTag)
+	}
+	if result.Bump != "minor" {
+		t.Fatalf("expected next bump minor, got %s", result.Bump)
+	}
+}
+
 func TestCutReleaseSkillReferencesDeterministicResolver(t *testing.T) {
 	t.Parallel()
 
@@ -201,6 +352,8 @@ func TestCutReleaseSkillReferencesDeterministicResolver(t *testing.T) {
 
 	for _, token := range []string{
 		"python3 scripts/resolve_release_version.py --json",
+		"python3 scripts/finalize_release_changelog.py --release-version <version> --json",
+		"python3 scripts/validate_release_changelog.py --release-version <version> --json",
 		"[semver:major]",
 		"[semver:minor]",
 		"[semver:patch]",
@@ -209,6 +362,16 @@ func TestCutReleaseSkillReferencesDeterministicResolver(t *testing.T) {
 		if !strings.Contains(skill, token) {
 			t.Fatalf("expected cut-release skill to reference %q", token)
 		}
+	}
+}
+
+func TestReleaseWorkflowValidatesVersionedChangelog(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	workflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/release.yml"))
+	if !strings.Contains(workflow, "python3 scripts/validate_release_changelog.py --release-version \"${GITHUB_REF_NAME}\" --json") {
+		t.Fatal("release workflow must validate the finalized changelog against the release tag")
 	}
 }
 
@@ -255,7 +418,30 @@ func fixtureChangelog(entries map[string][]string) string {
 		lines = append(lines, "")
 	}
 
+	lines = append(
+		lines,
+		"## Changelog maintenance process",
+		"",
+		"1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.",
+		"2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section.",
+		"3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` before or during the tag workflow.",
+	)
+
 	return strings.Join(lines, "\n")
+}
+
+func addUnreleasedEntry(t *testing.T, repoRoot string, section string, entry string) {
+	t.Helper()
+
+	path := filepath.Join(repoRoot, "CHANGELOG.md")
+	changelog := mustReadFile(t, path)
+	marker := "### " + section + "\n\n- (none yet)"
+	replacement := "### " + section + "\n\n- " + entry
+	updated := strings.Replace(changelog, marker, replacement, 1)
+	if updated == changelog {
+		t.Fatalf("could not add unreleased entry for section %s", section)
+	}
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", updated)
 }
 
 func commitAll(t *testing.T, repoRoot string, message string) {
@@ -277,7 +463,7 @@ func writeFixtureFile(t *testing.T, repoRoot string, relPath string, content str
 	}
 }
 
-func runReleaseVersionResolver(t *testing.T, repoRoot string) releaseVersionResult {
+func runReleaseVersionResolver(t *testing.T, repoRoot string) changelogReleaseResult {
 	t.Helper()
 
 	stdout, stderr, err := runReleaseVersionResolverRaw(t, repoRoot)
@@ -285,14 +471,56 @@ func runReleaseVersionResolver(t *testing.T, repoRoot string) releaseVersionResu
 		t.Fatalf("run release version resolver: %v\nstderr=%s", err, stderr)
 	}
 
-	var result releaseVersionResult
+	var result changelogReleaseResult
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
 		t.Fatalf("parse resolver json: %v\nstdout=%s", err, stdout)
 	}
 	return result
 }
 
-func runReleaseVersionResolverRaw(t *testing.T, repoRoot string) (string, string, error) {
+func runReleaseVersionResolverRaw(t *testing.T, repoRoot string, args ...string) (string, string, error) {
+	t.Helper()
+
+	return runPythonScript(t, repoRoot, "resolve_release_version.py", args...)
+}
+
+func runFinalizeReleaseChangelog(t *testing.T, repoRoot string, args ...string) changelogReleaseResult {
+	t.Helper()
+
+	stdout, stderr, err := runPythonScript(t, repoRoot, "finalize_release_changelog.py", args...)
+	if err != nil {
+		t.Fatalf("run finalize release changelog: %v\nstderr=%s", err, stderr)
+	}
+
+	var result changelogReleaseResult
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("parse finalize json: %v\nstdout=%s", err, stdout)
+	}
+	return result
+}
+
+func runValidateReleaseChangelog(t *testing.T, repoRoot string, releaseVersion string) changelogReleaseResult {
+	t.Helper()
+
+	stdout, stderr, err := runValidateReleaseChangelogRaw(t, repoRoot, releaseVersion)
+	if err != nil {
+		t.Fatalf("run validate release changelog: %v\nstderr=%s", err, stderr)
+	}
+
+	var result changelogReleaseResult
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("parse validate json: %v\nstdout=%s", err, stdout)
+	}
+	return result
+}
+
+func runValidateReleaseChangelogRaw(t *testing.T, repoRoot string, releaseVersion string) (string, string, error) {
+	t.Helper()
+
+	return runPythonScript(t, repoRoot, "validate_release_changelog.py", "--release-version", releaseVersion)
+}
+
+func runPythonScript(t *testing.T, repoRoot string, scriptName string, args ...string) (string, string, error) {
 	t.Helper()
 
 	pythonPath, err := exec.LookPath("python3")
@@ -300,8 +528,9 @@ func runReleaseVersionResolverRaw(t *testing.T, repoRoot string) (string, string
 		t.Skip("python3 not available in test environment")
 	}
 
-	scriptPath := filepath.Join(mustFindRepoRoot(t), "scripts/resolve_release_version.py")
-	cmd := exec.Command(pythonPath, scriptPath, "--repo-root", repoRoot, "--json")
+	scriptPath := filepath.Join(mustFindRepoRoot(t), "scripts", scriptName)
+	cmdArgs := append([]string{scriptPath, "--repo-root", repoRoot, "--json"}, args...)
+	cmd := exec.Command(pythonPath, cmdArgs...)
 	output, err := cmd.CombinedOutput()
 	text := strings.TrimSpace(string(output))
 	if err != nil {

@@ -12,6 +12,38 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Release prep now uses `scripts/finalize_release_changelog.py` to promote `## [Unreleased]` entries into a dated versioned section and reset `Unreleased` for the next cycle.
+- Tag workflows now use `scripts/validate_release_changelog.py` to fail closed when the prepared versioned changelog section does not match the release tag.
+- `scripts/resolve_release_version.py` now validates explicit release versions against the changelog-derived semver bump instead of accepting mismatched manual versions.
+- Planning skills now require every story to declare changelog impact, target changelog section, and draft `Unreleased` entry so release semver can be derived deterministically from implemented work.
+- Implementation skills now apply those planned changelog fields to `CHANGELOG.md` `## [Unreleased]` instead of re-deciding release-note scope during implementation.
+
+### Deprecated
+
+- (none yet)
+
+### Removed
+
+- (none yet)
+
+### Fixed
+
+- (none yet)
+
+
+## Changelog maintenance process
+
+1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.
+2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and commit that changelog update in the same release-prep commit that will be tagged.
+3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on that release-prep commit before or during the tag workflow.
+4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
+5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.0.11] - 2026-03-26
+<!-- release-semver: patch -->
+
+### Changed
+
 - Public contract wording changes now count as changelog-worthy changes under `Unreleased`, even when JSON, exit-code, and schema contracts stay unchanged.
 - README, quickstart, docs-site, and PRD onboarding now lead with the evaluator-safe scenario path and explicitly explain repo-root fixture noise before widening to hosted org posture.
 - `wrkr fix` now supports explicit `--apply` mode for supported repo-file changes, additive `--max-prs` deterministic PR grouping, and additive machine-readable publication details while preserving preview mode semantics.
@@ -34,10 +66,3 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Security
 
 - (none yet)
-
-## Changelog maintenance process
-
-1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.
-2. Before release tagging, promote relevant entries from `Unreleased` into a versioned section (for example `## [v1.0.1] - 2026-03-04`).
-3. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
-4. Link release notes and tag artifacts to the finalized changelog section.

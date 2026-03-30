@@ -15,7 +15,7 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 - No pre-release branch creation.
 - No pre-release PR creation.
 - Branch and PR flow is used only for hotfixes after failed checks.
-- No changelog editing in this skill.
+- Deterministic changelog finalization is allowed only through the release helper scripts below.
 - Default posture: when a release or post-release blocker is actionable from repo code, workflow config, docs, or install-path behavior, fix it in-loop and continue instead of stopping at the first failure.
 
 ## Input Contract
@@ -46,7 +46,7 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 - No force-push to tags.
 - No destructive git commands.
 - No commit amend unless explicitly requested.
-- No changelog modifications.
+- Do not hand-edit `CHANGELOG.md`; use `python3 scripts/finalize_release_changelog.py --json`.
 - PR bodies and comments must use EOF heredoc (`--body-file - <<'EOF' ... EOF`).
 - Do not cut a second tag until the current tag either passes release plus post-release validation or is superseded by an intentional hotfix tag.
 
@@ -62,16 +62,20 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 5. Resolve the target version:
 - if the user provided `release_version`, normalize it
 - otherwise run `python3 scripts/resolve_release_version.py --json` and capture `version`, `bump`, `base_tag`, and `reason`
-- if the resolver fails because `CHANGELOG.md` has no releasable semver signal, stop and report the blocker; do not edit the changelog in this skill
-6. Ensure target tag does not already exist locally or remotely.
-7. Ensure release prerequisites are available:
+- if the resolver fails because `CHANGELOG.md` has no releasable semver signal, stop and report the blocker
+6. Finalize the changelog for the resolved version before any tag checks:
+- `python3 scripts/finalize_release_changelog.py --release-version <version> --json`
+- `python3 scripts/validate_release_changelog.py --release-version <version> --json`
+- if `CHANGELOG.md` changes, review the diff, commit the finalized changelog on `main`, and continue from that committed release-prep state before tagging
+7. Ensure target tag does not already exist locally or remotely.
+8. Ensure release prerequisites are available:
 - `gh auth status`
 - `gh workflow view release --repo Clyra-AI/wrkr`
 - check `HOMEBREW_TAP_GITHUB_TOKEN` availability with:
   - `gh secret list --repo Clyra-AI/wrkr`
 - if the secret check cannot be confirmed due permission limits, continue with a warning and rely on the release workflow’s fail-closed validation step
 - if the secret is confirmed missing, stop and report blocker
-8. Run local release preflight matching the current Wrkr release workflow contract:
+9. Run local release preflight matching the current Wrkr release workflow contract:
 - `make prepush-full`
 - `go test ./... -count=1`
 - `make test-docs-consistency`
