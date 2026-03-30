@@ -55,5 +55,17 @@
   ],
   "AC27": [
     "TestScenario_AgentPolicyOutcomes"
+  ],
+  "FO14-duplicate": [
+    "TestScenarioFirstOfferDuplicatePathFixture"
+  ],
+  "FO14-mixed-governance": [
+    "TestScenarioFirstOfferMixedGovernanceReportUsefulness"
+  ],
+  "FO14-noise-pack": [
+    "TestScenarioFirstOfferNoisePackAssessmentSharpening"
+  ],
+  "FO15-usefulness": [
+    "TestScenarioFirstOfferMixedGovernanceReportUsefulness"
   ]
 }

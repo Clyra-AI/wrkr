@@ -31,8 +31,40 @@ func RenderMarkdown(summary Summary) string {
 				summary.AssessmentSummary.TopExecutionIdentityBacked.Location,
 			))
 		}
+		if summary.AssessmentSummary.OwnerlessExposure != nil {
+			builder.WriteString(fmt.Sprintf("- Ownerless exposure: explicit=%d inferred=%d unresolved=%d conflict=%d\n",
+				summary.AssessmentSummary.OwnerlessExposure.ExplicitOwnerPaths,
+				summary.AssessmentSummary.OwnerlessExposure.InferredOwnerPaths,
+				summary.AssessmentSummary.OwnerlessExposure.UnresolvedOwnerPaths,
+				summary.AssessmentSummary.OwnerlessExposure.ConflictOwnerPaths,
+			))
+		}
+		if summary.AssessmentSummary.IdentityExposureSummary != nil {
+			builder.WriteString(fmt.Sprintf("- Identity exposure: total=%d write-backed=%d deploy-backed=%d unresolved-owner=%d unknown-correlation=%d\n",
+				summary.AssessmentSummary.IdentityExposureSummary.TotalNonHumanIdentitiesObserved,
+				summary.AssessmentSummary.IdentityExposureSummary.IdentitiesBackingWriteCapablePaths,
+				summary.AssessmentSummary.IdentityExposureSummary.IdentitiesBackingDeployCapablePaths,
+				summary.AssessmentSummary.IdentityExposureSummary.IdentitiesWithUnresolvedOwnership,
+				summary.AssessmentSummary.IdentityExposureSummary.IdentitiesWithUnknownExecutionLinked,
+			))
+		}
+		if summary.AssessmentSummary.IdentityToReviewFirst != nil {
+			builder.WriteString(fmt.Sprintf("- Identity to review first: %s (%s)\n",
+				summary.AssessmentSummary.IdentityToReviewFirst.ExecutionIdentity,
+				summary.AssessmentSummary.IdentityToReviewFirst.ExecutionIdentityType,
+			))
+		}
+		if summary.AssessmentSummary.IdentityToRevokeFirst != nil {
+			builder.WriteString(fmt.Sprintf("- Identity to revoke first: %s (%s)\n",
+				summary.AssessmentSummary.IdentityToRevokeFirst.ExecutionIdentity,
+				summary.AssessmentSummary.IdentityToRevokeFirst.ExecutionIdentityType,
+			))
+		}
 		if summary.AssessmentSummary.ProofChainPath != "" {
 			builder.WriteString(fmt.Sprintf("- Proof chain: %s\n", summary.AssessmentSummary.ProofChainPath))
+		}
+		if len(summary.ExposureGroups) > 0 {
+			builder.WriteString(fmt.Sprintf("- Exposure groups: %d\n", len(summary.ExposureGroups)))
 		}
 		builder.WriteString("\n")
 	}

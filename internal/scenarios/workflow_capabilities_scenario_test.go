@@ -39,6 +39,20 @@ func TestWorkflowCapabilitiesScenario(t *testing.T) {
 			t.Fatalf("expected permission %q in %v", required, permissions)
 		}
 	}
+
+	actionPaths, ok := payload["action_paths"].([]any)
+	if !ok || len(actionPaths) == 0 {
+		t.Fatalf("expected action_paths payload, got %v", payload["action_paths"])
+	}
+	for _, item := range actionPaths {
+		path, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if path["business_state_surface"] != "db" {
+			t.Fatalf("expected db business_state_surface, got %v", path)
+		}
+	}
 }
 
 func containsString(values []string, target string) bool {

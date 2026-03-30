@@ -75,6 +75,7 @@ type Summary struct {
 	Activation               *ActivationSummary                     `json:"activation,omitempty"`
 	ActionPaths              []risk.ActionPath                      `json:"action_paths,omitempty"`
 	ActionPathToControlFirst *risk.ActionPathToControlFirst         `json:"action_path_to_control_first,omitempty"`
+	ExposureGroups           []risk.ExposureGroup                   `json:"exposure_groups,omitempty"`
 }
 
 type AttackPathSummary struct {
@@ -99,12 +100,16 @@ type Headline struct {
 }
 
 type AssessmentSummary struct {
-	GovernablePathCount        int              `json:"governable_path_count"`
-	WriteCapablePathCount      int              `json:"write_capable_path_count"`
-	ProductionBackedPathCount  int              `json:"production_target_backed_path_count"`
-	TopPathToControlFirst      *risk.ActionPath `json:"top_path_to_control_first,omitempty"`
-	TopExecutionIdentityBacked *risk.ActionPath `json:"top_execution_identity_backed_path,omitempty"`
-	ProofChainPath             string           `json:"proof_chain_path,omitempty"`
+	GovernablePathCount        int                           `json:"governable_path_count"`
+	WriteCapablePathCount      int                           `json:"write_capable_path_count"`
+	ProductionBackedPathCount  int                           `json:"production_target_backed_path_count"`
+	TopPathToControlFirst      *risk.ActionPath              `json:"top_path_to_control_first,omitempty"`
+	TopExecutionIdentityBacked *risk.ActionPath              `json:"top_execution_identity_backed_path,omitempty"`
+	OwnerlessExposure          *risk.OwnerlessExposure       `json:"ownerless_exposure,omitempty"`
+	IdentityExposureSummary    *risk.IdentityExposureSummary `json:"identity_exposure_summary,omitempty"`
+	IdentityToReviewFirst      *risk.IdentityActionTarget    `json:"identity_to_review_first,omitempty"`
+	IdentityToRevokeFirst      *risk.IdentityActionTarget    `json:"identity_to_revoke_first,omitempty"`
+	ProofChainPath             string                        `json:"proof_chain_path,omitempty"`
 }
 
 type Methodology struct {

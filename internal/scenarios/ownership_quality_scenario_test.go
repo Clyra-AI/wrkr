@@ -12,7 +12,8 @@ func TestOwnershipQualityScenario(t *testing.T) {
 
 	repoRoot := mustFindRepoRoot(t)
 	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "ownership-quality", "repos")
-	payload := runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", filepath.Join(t.TempDir(), "state.json"), "--json"})
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	payload := runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
 
 	agentMap, ok := payload["agent_privilege_map"].([]any)
 	if !ok || len(agentMap) == 0 {
@@ -41,6 +42,35 @@ func TestOwnershipQualityScenario(t *testing.T) {
 	}
 	if unresolved["ownership_status"] != "unresolved" {
 		t.Fatalf("expected unresolved ownership status, got %v", unresolved)
+	}
+
+	actionPaths, ok := payload["action_paths"].([]any)
+	if !ok || len(actionPaths) == 0 {
+		t.Fatalf("expected action_paths payload, got %v", payload["action_paths"])
+	}
+	firstPath, ok := actionPaths[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected action path type: %T", actionPaths[0])
+	}
+	if firstPath["owner_source"] != "multi_repo_conflict" {
+		t.Fatalf("expected weak ownership path to rank first, got %v", firstPath)
+	}
+
+	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--json"})
+	summary, ok := reportPayload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected report summary, got %T", reportPayload["summary"])
+	}
+	assessmentSummary, ok := summary["assessment_summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected report assessment_summary, got %v", summary["assessment_summary"])
+	}
+	ownerlessExposure, ok := assessmentSummary["ownerless_exposure"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ownerless_exposure summary, got %v", assessmentSummary["ownerless_exposure"])
+	}
+	if ownerlessExposure["conflict_owner_paths"] == float64(0) {
+		t.Fatalf("expected conflict_owner_paths > 0, got %v", ownerlessExposure)
 	}
 }
 

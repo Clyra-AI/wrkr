@@ -368,7 +368,15 @@ func TestReportAssessmentSummaryPrioritizesGovernFirstPaths(t *testing.T) {
 		"profile": map[string]any{
 			"profile": "assessment",
 		},
-		"inventory": map[string]any{},
+		"inventory": map[string]any{
+			"non_human_identities": []any{
+				map[string]any{
+					"identity_type": "github_app",
+					"subject":       "github_app",
+					"source":        "workflow_static_signal",
+				},
+			},
+		},
 		"risk_report": map[string]any{
 			"generated_at": "2026-03-25T12:00:00Z",
 			"top_findings": []any{
@@ -411,6 +419,9 @@ func TestReportAssessmentSummaryPrioritizesGovernFirstPaths(t *testing.T) {
 					"risk_score":                8.8,
 					"tool_type":                 "langchain",
 					"location":                  "agents/payments.py",
+					"execution_identity":        "github_app",
+					"execution_identity_type":   "github_app",
+					"execution_identity_source": "workflow_static_signal",
 					"execution_identity_status": "known",
 				},
 			},
@@ -432,6 +443,9 @@ func TestReportAssessmentSummaryPrioritizesGovernFirstPaths(t *testing.T) {
 					"risk_score":                8.8,
 					"tool_type":                 "langchain",
 					"location":                  "agents/payments.py",
+					"execution_identity":        "github_app",
+					"execution_identity_type":   "github_app",
+					"execution_identity_source": "workflow_static_signal",
 					"execution_identity_status": "known",
 				},
 			},
@@ -458,9 +472,21 @@ func TestReportAssessmentSummaryPrioritizesGovernFirstPaths(t *testing.T) {
 	if _, ok := reportPayload["assessment_summary"].(map[string]any); !ok {
 		t.Fatalf("expected top-level assessment_summary, got %v", reportPayload["assessment_summary"])
 	}
+	if _, ok := reportPayload["exposure_groups"].([]any); !ok {
+		t.Fatalf("expected top-level exposure_groups, got %v", reportPayload["exposure_groups"])
+	}
 	summary, ok := reportPayload["summary"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected summary object, got %T", reportPayload["summary"])
+	}
+	assessmentSummary, ok := summary["assessment_summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary assessment_summary, got %v", summary["assessment_summary"])
+	}
+	for _, key := range []string{"ownerless_exposure", "identity_exposure_summary", "identity_to_review_first", "identity_to_revoke_first"} {
+		if _, present := assessmentSummary[key]; !present {
+			t.Fatalf("expected assessment_summary key %q, got %v", key, assessmentSummary)
+		}
 	}
 	topRisks, ok := summary["top_risks"].([]any)
 	if !ok || len(topRisks) == 0 {
@@ -590,5 +616,29 @@ func TestReportPublicShareRedactsActionPathProjection(t *testing.T) {
 	repo, _ := path["repo"].(string)
 	if !strings.HasPrefix(repo, "repo-") {
 		t.Fatalf("expected redacted control-first repo, got %q", repo)
+	}
+	assessmentSummary, ok := summary["assessment_summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary assessment_summary, got %v", summary["assessment_summary"])
+	}
+	reviewFirst, ok := assessmentSummary["identity_to_review_first"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected redacted identity_to_review_first, got %v", assessmentSummary["identity_to_review_first"])
+	}
+	identityValue, _ := reviewFirst["execution_identity"].(string)
+	if !strings.HasPrefix(identityValue, "identity-") {
+		t.Fatalf("expected redacted review identity, got %q", identityValue)
+	}
+	exposureGroups, ok := reportPayload["exposure_groups"].([]any)
+	if !ok || len(exposureGroups) == 0 {
+		t.Fatalf("expected redacted exposure_groups, got %v", reportPayload["exposure_groups"])
+	}
+	firstGroup, ok := exposureGroups[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected exposure_groups item type: %T", exposureGroups[0])
+	}
+	groupID, _ := firstGroup["group_id"].(string)
+	if !strings.HasPrefix(groupID, "group-") {
+		t.Fatalf("expected redacted exposure group id, got %q", groupID)
 	}
 }
