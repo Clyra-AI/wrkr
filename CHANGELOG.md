@@ -10,6 +10,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:minor] Added an `assessment` scan profile that sharpens govern-first action-path output for customer readouts while keeping raw findings and proof artifacts unchanged.
 - [semver:minor] Added an AI-first assessment summary to report output so customer readouts lead with governable paths, top control targets, and offline proof location.
+- [semver:minor] Added identity exposure summaries and first-review or first-revoke recommendations for non-human execution identities backing risky govern-first paths.
+- [semver:minor] Action paths now classify the business state they can change and flag shared or standing-privilege identity reuse on repeated risky paths.
+- [semver:minor] Added grouped `exposure_groups` summaries so repeated risky paths can be reviewed as stable report clusters without hiding raw path detail.
 
 ### Changed
 
@@ -22,6 +25,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Scan and report summaries now prioritize govern-first AI action paths ahead of generic supporting findings when risky paths are present.
 - Govern-first `recommended_action` output now differentiates inventory, approval, proof, and control based on path context instead of collapsing most paths to approval.
 - Clarified scan and report wording so Wrkr's customer-facing output stays explicitly scoped to static posture, risky paths, and offline-verifiable proof.
+- Govern-first summaries now highlight ownership quality and ownerless exposure so unresolved or conflicting ownership is explicit in top action paths.
 
 ### Deprecated
 

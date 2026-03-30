@@ -1,0 +1,12 @@
+name: release
+on: push
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: codex --full-auto --approval never
+      - run: gh pr merge --auto "$PR_URL"
+      - run: kubectl apply -f k8s/

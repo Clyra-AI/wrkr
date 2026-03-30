@@ -80,7 +80,8 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	attackPathSummary := buildAttackPathSummary(*riskReport)
 	attackPathFacts := buildAttackPathFacts(*riskReport)
 	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
-	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, proofRef)
+	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
+	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -89,6 +90,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		activation = sanitizeActivationSummaryPublic(activation)
 		riskReport.ActionPaths = sanitizeActionPathsPublic(riskReport.ActionPaths)
 		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublic(riskReport.ActionPathToControlFirst)
+		exposureGroups = sanitizeExposureGroupsPublic(exposureGroups)
 		assessmentSummary = sanitizeAssessmentSummaryPublic(assessmentSummary)
 	}
 
@@ -141,6 +143,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		Activation:               activation,
 		ActionPaths:              riskReport.ActionPaths,
 		ActionPathToControlFirst: riskReport.ActionPathToControlFirst,
+		ExposureGroups:           exposureGroups,
 	}
 
 	return summary, nil
@@ -564,6 +567,7 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 		rationale := []string{
 			fmt.Sprintf("recommended_action=%s", strings.TrimSpace(path.RecommendedAction)),
 			fmt.Sprintf("delivery_chain_status=%s", strings.TrimSpace(path.DeliveryChainStatus)),
+			fmt.Sprintf("business_state_surface=%s", strings.TrimSpace(path.BusinessStateSurface)),
 		}
 		if path.ProductionWrite {
 			rationale = append(rationale, "production_write=true")
@@ -573,6 +577,12 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 		}
 		if strings.TrimSpace(path.OwnershipStatus) != "" {
 			rationale = append(rationale, fmt.Sprintf("ownership_status=%s", strings.TrimSpace(path.OwnershipStatus)))
+		}
+		if path.SharedExecutionIdentity {
+			rationale = append(rationale, "shared_execution_identity=true")
+		}
+		if path.StandingPrivilege {
+			rationale = append(rationale, "standing_privilege=true")
 		}
 		out = append(out, RiskItem{
 			Rank:              idx + 1,
@@ -901,14 +911,19 @@ func buildAttackPathFacts(report risk.Report) []string {
 	return facts
 }
 
-func buildAssessmentSummary(paths []risk.ActionPath, controlFirst *risk.ActionPathToControlFirst, proof ProofReference) *AssessmentSummary {
+func buildAssessmentSummary(paths []risk.ActionPath, controlFirst *risk.ActionPathToControlFirst, inventory *agginventory.Inventory, proof ProofReference) *AssessmentSummary {
 	if len(paths) == 0 {
 		return nil
 	}
+	identityToReviewFirst, identityToRevokeFirst := risk.BuildIdentityActionTargets(paths)
 	summary := &AssessmentSummary{
 		GovernablePathCount:       len(paths),
 		WriteCapablePathCount:     0,
 		ProductionBackedPathCount: 0,
+		OwnerlessExposure:         risk.BuildOwnerlessExposure(paths),
+		IdentityExposureSummary:   risk.BuildIdentityExposureSummary(paths, inventory),
+		IdentityToReviewFirst:     identityToReviewFirst,
+		IdentityToRevokeFirst:     identityToRevokeFirst,
 		ProofChainPath:            proof.ChainPath,
 	}
 	for _, path := range paths {
@@ -942,6 +957,9 @@ func actionPathSeverity(path risk.ActionPath) string {
 }
 
 func actionPathRemediation(path risk.ActionPath) string {
+	if strings.TrimSpace(path.OwnerSource) == "multi_repo_conflict" || strings.TrimSpace(path.OwnershipStatus) == "unresolved" {
+		return "needs owner clarification before this path should be approved, delegated, or expanded"
+	}
 	switch strings.TrimSpace(path.RecommendedAction) {
 	case "control":
 		return "apply the highest-priority control on this write-capable path and rescan to confirm reduced exposure"
@@ -1078,6 +1096,25 @@ func sanitizeActionPathToControlFirstPublic(in *risk.ActionPathToControlFirst) *
 	}
 }
 
+func sanitizeExposureGroupsPublic(in []risk.ExposureGroup) []risk.ExposureGroup {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]risk.ExposureGroup, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.GroupID = redactValue("group", copyItem.GroupID, 8)
+		copyItem.Org = redactValue("org", copyItem.Org, 6)
+		copyItem.ExecutionIdentity = redactValue("identity", copyItem.ExecutionIdentity, 8)
+		copyItem.ExampleRepo = redactValue("repo", copyItem.ExampleRepo, 6)
+		copyItem.ExampleLocation = redactValue("loc", copyItem.ExampleLocation, 8)
+		copyItem.Repos = redactStringSlice(copyItem.Repos, "repo")
+		copyItem.PathIDs = redactStringSlice(copyItem.PathIDs, "path")
+		out = append(out, copyItem)
+	}
+	return out
+}
+
 func sanitizeAssessmentSummaryPublic(in *AssessmentSummary) *AssessmentSummary {
 	if in == nil {
 		return nil
@@ -1095,8 +1132,30 @@ func sanitizeAssessmentSummaryPublic(in *AssessmentSummary) *AssessmentSummary {
 			copySummary.TopExecutionIdentityBacked = &paths[0]
 		}
 	}
+	if in.IdentityToReviewFirst != nil {
+		copyTarget := *in.IdentityToReviewFirst
+		copyTarget.ExecutionIdentity = redactValue("identity", copyTarget.ExecutionIdentity, 8)
+		copySummary.IdentityToReviewFirst = &copyTarget
+	}
+	if in.IdentityToRevokeFirst != nil {
+		copyTarget := *in.IdentityToRevokeFirst
+		copyTarget.ExecutionIdentity = redactValue("identity", copyTarget.ExecutionIdentity, 8)
+		copySummary.IdentityToRevokeFirst = &copyTarget
+	}
 	copySummary.ProofChainPath = sanitizeProofReferencePublic(ProofReference{ChainPath: in.ProofChainPath}).ChainPath
 	return &copySummary
+}
+
+func redactStringSlice(values []string, prefix string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		redacted := redactValue(prefix, value, 8)
+		if redacted == "" {
+			continue
+		}
+		out = append(out, redacted)
+	}
+	return out
 }
 
 func redactValue(prefix, value string, width int) string {

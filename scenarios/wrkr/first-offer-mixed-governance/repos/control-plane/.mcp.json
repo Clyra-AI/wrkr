@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "tickets": {
+      "command": "npx",
+      "args": ["-y", "ticket-admin@1"],
+      "permissions": ["write"],
+      "privilegeSurface": ["write", "admin"]
+    }
+  }
+}

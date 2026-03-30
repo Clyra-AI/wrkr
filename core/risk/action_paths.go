@@ -47,6 +47,9 @@ type ActionPath struct {
 	ExecutionIdentitySource    string   `json:"execution_identity_source,omitempty"`
 	ExecutionIdentityStatus    string   `json:"execution_identity_status,omitempty"`
 	ExecutionIdentityRationale string   `json:"execution_identity_rationale,omitempty"`
+	BusinessStateSurface       string   `json:"business_state_surface,omitempty"`
+	SharedExecutionIdentity    bool     `json:"shared_execution_identity,omitempty"`
+	StandingPrivilege          bool     `json:"standing_privilege,omitempty"`
 	AttackPathScore            float64  `json:"attack_path_score"`
 	RiskScore                  float64  `json:"risk_score"`
 	RecommendedAction          string   `json:"recommended_action"`
@@ -89,12 +92,18 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 	if len(paths) == 0 {
 		return nil, nil
 	}
+	paths = DecorateActionPaths(paths)
 
 	sort.Slice(paths, func(i, j int) bool {
 		pi := actionPriority(paths[i].RecommendedAction)
 		pj := actionPriority(paths[j].RecommendedAction)
 		if pi != pj {
 			return pi < pj
+		}
+		oi := governFirstOwnershipPriority(paths[i])
+		oj := governFirstOwnershipPriority(paths[j])
+		if oi != oj {
+			return oi < oj
 		}
 		ci := deliveryChainPriority(paths[i].DeliveryChainStatus)
 		cj := deliveryChainPriority(paths[j].DeliveryChainStatus)
@@ -160,6 +169,7 @@ func buildActionPath(
 		ExecutionIdentitySource:    executionIdentitySource,
 		ExecutionIdentityStatus:    executionIdentityStatus,
 		ExecutionIdentityRationale: executionIdentityRationale,
+		BusinessStateSurface:       classifyBusinessStateSurface(entry),
 		AttackPathScore:            attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
 		RiskScore:                  entry.RiskScore,
 		MatchedProductionTargets:   dedupeSortedStrings(entry.MatchedProductionTargets),
@@ -183,7 +193,8 @@ func recommendedActionForPath(path ActionPath) string {
 		strings.TrimSpace(path.ExecutionIdentityStatus) == "unknown" ||
 		strings.TrimSpace(path.ExecutionIdentityStatus) == "ambiguous"
 	weakOwnership := strings.TrimSpace(path.OwnershipStatus) == "" ||
-		strings.TrimSpace(path.OwnershipStatus) == "unresolved"
+		strings.TrimSpace(path.OwnershipStatus) == "unresolved" ||
+		strings.TrimSpace(path.OwnerSource) == "multi_repo_conflict"
 	hasDeliveryPath := strings.TrimSpace(path.DeliveryChainStatus) != "" &&
 		strings.TrimSpace(path.DeliveryChainStatus) != "none"
 	unknownToSecurity := strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity
@@ -317,6 +328,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.DeploymentStatus = mergeDeploymentStatus(current.DeploymentStatus, incoming.DeploymentStatus)
 	merged.OperationalOwner, merged.OwnerSource, merged.OwnershipStatus = mergeOperationalOwner(current, incoming)
 	merged.ExecutionIdentity, merged.ExecutionIdentityType, merged.ExecutionIdentitySource, merged.ExecutionIdentityStatus, merged.ExecutionIdentityRationale = mergeExecutionIdentity(current, incoming)
+	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
 	merged.RecommendedAction = recommendedActionForPath(merged)
 	return merged
 }
@@ -559,6 +571,21 @@ func ownershipPriority(status string) int {
 	}
 }
 
+func governFirstOwnershipPriority(path ActionPath) int {
+	switch {
+	case strings.TrimSpace(path.OwnerSource) == "multi_repo_conflict":
+		return 0
+	case strings.TrimSpace(path.OwnershipStatus) == "unresolved":
+		return 1
+	case strings.TrimSpace(path.OwnershipStatus) == "inferred":
+		return 2
+	case strings.TrimSpace(path.OwnershipStatus) == "explicit":
+		return 3
+	default:
+		return 4
+	}
+}
+
 func mergeExecutionIdentity(current, incoming ActionPath) (string, string, string, string, string) {
 	currentStatus := strings.TrimSpace(current.ExecutionIdentityStatus)
 	incomingStatus := strings.TrimSpace(incoming.ExecutionIdentityStatus)
@@ -614,7 +641,7 @@ func correlateExecutionIdentity(entry agginventory.AgentPrivilegeMapEntry, ident
 		if strings.TrimSpace(identity.Org) != strings.TrimSpace(entry.Org) {
 			continue
 		}
-		if strings.TrimSpace(identity.Repo) != firstRepoFromEntry(entry) {
+		if !entryContainsRepo(entry, identity.Repo) {
 			continue
 		}
 		if strings.TrimSpace(identity.Location) != strings.TrimSpace(entry.Location) {
@@ -645,4 +672,135 @@ func correlateExecutionIdentity(entry agginventory.AgentPrivilegeMapEntry, ident
 		}
 	}
 	return "", "ambiguous", "", "ambiguous", fmt.Sprintf("%d non-human identity candidates matched this path", len(unique))
+}
+
+func entryContainsRepo(entry agginventory.AgentPrivilegeMapEntry, repo string) bool {
+	repo = strings.TrimSpace(repo)
+	if repo == "" {
+		return false
+	}
+	for _, candidate := range entry.Repos {
+		if strings.TrimSpace(candidate) == repo {
+			return true
+		}
+	}
+	return firstRepoFromEntry(entry) == repo
+}
+
+func classifyBusinessStateSurface(entry agginventory.AgentPrivilegeMapEntry) string {
+	permissions := normalizeGovernFirstTokens(entry.Permissions)
+	boundTools := normalizeGovernFirstTokens(entry.BoundTools)
+	dataClass := strings.TrimSpace(entry.DataClass)
+
+	switch {
+	case hasGovernFirstPrefix(permissions, "mcp.admin") || hasGovernFirstToken(permissions, "admin"):
+		return "admin_api"
+	case hasGovernFirstToken(permissions, "db.write") || strings.EqualFold(dataClass, "database"):
+		return "db"
+	case entry.DeployWrite || entry.ProductionWrite || hasGovernFirstToken(permissions, "deploy.write"):
+		return "deploy"
+	case hasTicketingSurface(permissions, boundTools):
+		return "ticketing"
+	case hasSaaSWriteSurface(permissions, boundTools):
+		return "saas_write"
+	case entry.MergeExecute:
+		return "workflow_control"
+	case hasGovernFirstToken(permissions, "repo.write"), hasGovernFirstToken(permissions, "pull_request.write"), hasGovernFirstToken(permissions, "iac.write"):
+		return "code"
+	default:
+		return "code"
+	}
+}
+
+func mergeBusinessStateSurface(current, incoming string) string {
+	if businessStateSurfacePriority(incoming) < businessStateSurfacePriority(current) {
+		return strings.TrimSpace(incoming)
+	}
+	return strings.TrimSpace(current)
+}
+
+func businessStateSurfacePriority(surface string) int {
+	switch strings.TrimSpace(surface) {
+	case "admin_api":
+		return 0
+	case "db":
+		return 1
+	case "deploy":
+		return 2
+	case "ticketing":
+		return 3
+	case "saas_write":
+		return 4
+	case "workflow_control":
+		return 5
+	case "code":
+		return 6
+	case "":
+		return 7
+	default:
+		return 8
+	}
+}
+
+func normalizeGovernFirstTokens(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.ToLower(strings.TrimSpace(value))
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	return dedupeSortedStrings(out)
+}
+
+func hasGovernFirstToken(values []string, target string) bool {
+	target = strings.ToLower(strings.TrimSpace(target))
+	for _, value := range values {
+		if strings.TrimSpace(value) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func hasGovernFirstPrefix(values []string, prefix string) bool {
+	prefix = strings.ToLower(strings.TrimSpace(prefix))
+	for _, value := range values {
+		if strings.HasPrefix(strings.TrimSpace(value), prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasTicketingSurface(permissions, boundTools []string) bool {
+	for _, values := range [][]string{permissions, boundTools} {
+		for _, value := range values {
+			switch {
+			case strings.Contains(value, "ticket.write"),
+				strings.Contains(value, "jira"),
+				strings.Contains(value, "linear"),
+				strings.Contains(value, "issue.write"):
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasSaaSWriteSurface(permissions, boundTools []string) bool {
+	for _, values := range [][]string{permissions, boundTools} {
+		for _, value := range values {
+			switch {
+			case strings.HasPrefix(value, "mcp.write"),
+				strings.HasPrefix(value, "crm."),
+				strings.HasPrefix(value, "saas."),
+				strings.HasSuffix(value, ".write") && !strings.HasPrefix(value, "repo.") && !strings.HasPrefix(value, "pull_request.") && !strings.HasPrefix(value, "deploy.") && !strings.HasPrefix(value, "db.") && !strings.HasPrefix(value, "ticket."):
+				return true
+			}
+		}
+	}
+	return false
 }

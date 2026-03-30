@@ -1,0 +1,108 @@
+{
+  "attack_paths": [
+    {
+      "org": "acme",
+      "repo": "acme/release",
+      "path_score": 9.2
+    }
+  ],
+  "inventory": {
+    "agent_privilege_map": [
+      {
+        "agent_id": "wrkr:compiled_action:acme",
+        "agent_instance_id": "workflow-release",
+        "tool_id": "compiled_action:.github/workflows/release.yml#release",
+        "tool_type": "compiled_action",
+        "framework": "compiled_action",
+        "symbol": "release",
+        "org": "acme",
+        "repos": [
+          "acme/release"
+        ],
+        "permissions": [
+          "pull_request.write",
+          "merge.execute",
+          "deploy.write"
+        ],
+        "location": ".github/workflows/release.yml",
+        "location_range": {
+          "start_line": 1,
+          "end_line": 18
+        },
+        "endpoint_class": "workspace",
+        "data_class": "code",
+        "autonomy_level": "headless_auto",
+        "risk_score": 8.9,
+        "approval_classification": "approved",
+        "approval_gap_reasons": [
+          "deployment_gate_missing"
+        ],
+        "pull_request_write": true,
+        "merge_execute": true,
+        "deploy_write": true,
+        "delivery_chain_status": "pr_merge_deploy",
+        "production_target_status": "configured",
+        "write_capable": true,
+        "credential_access": true,
+        "exec_capable": true,
+        "production_write": true,
+        "matched_production_targets": [
+          "cluster/prod"
+        ]
+      },
+      {
+        "agent_id": "wrkr:compiled_action:acme",
+        "agent_instance_id": "workflow-release",
+        "tool_id": "compiled_action:.github/workflows/release.yml#release",
+        "tool_type": "compiled_action",
+        "framework": "compiled_action",
+        "symbol": "release",
+        "org": "acme",
+        "repos": [
+          "acme/release"
+        ],
+        "permissions": [
+          "pull_request.write",
+          "merge.execute",
+          "deploy.write"
+        ],
+        "location": ".github/workflows/release.yml",
+        "location_range": {
+          "start_line": 1,
+          "end_line": 18
+        },
+        "endpoint_class": "workspace",
+        "data_class": "code",
+        "autonomy_level": "headless_auto",
+        "risk_score": 8.4,
+        "approval_classification": "approved",
+        "approval_gap_reasons": [
+          "approval_source_missing"
+        ],
+        "pull_request_write": true,
+        "merge_execute": true,
+        "deploy_write": true,
+        "delivery_chain_status": "pr_merge_deploy",
+        "production_target_status": "configured",
+        "write_capable": true,
+        "credential_access": false,
+        "exec_capable": true,
+        "production_write": true,
+        "matched_production_targets": [
+          "cluster/prod"
+        ]
+      }
+    ],
+    "non_human_identities": [
+      {
+        "identity_id": "release-app",
+        "identity_type": "github_app",
+        "subject": "release-app[bot]",
+        "source": "workflow_static_signal",
+        "org": "acme",
+        "repo": "acme/release",
+        "location": ".github/workflows/release.yml"
+      }
+    ]
+  }
+}
