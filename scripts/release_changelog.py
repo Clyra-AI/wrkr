@@ -6,6 +6,7 @@ import re
 import subprocess  # nosec B404
 from datetime import date
 from pathlib import Path
+from typing import cast
 
 
 SEMVER_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
@@ -228,7 +229,7 @@ def sanitize_release_entry(text: str) -> str:
 
 
 def group_release_entries(entries: list[dict[str, str]]) -> dict[str, list[str]]:
-    grouped = {section: [] for section in SECTION_ORDER}
+    grouped: dict[str, list[str]] = {section: [] for section in SECTION_ORDER}
     for entry in entries:
         section = SECTION_NAME_MAP.get(entry["section"], canonical_section_name(entry["section"]))
         cleaned = sanitize_release_entry(entry["text"])
@@ -295,7 +296,7 @@ def resolve_release_plan(repo_root: Path, release_version: str | None = None) ->
         if not has_changes_since(repo_root, latest_tag):
             raise RuntimeError(f"no changes found since {latest_tag}; refusing to invent a new release version")
 
-        entries = parse_unreleased_block(changelog_path)["entries"]
+        entries = cast(list[dict[str, str]], parse_unreleased_block(changelog_path)["entries"])
         bump, reason = classify_bump(entries)
         expected_version = bump_version(latest_tag, bump)
         if version != expected_version:
@@ -322,7 +323,7 @@ def resolve_release_plan(repo_root: Path, release_version: str | None = None) ->
     if not has_changes_since(repo_root, latest_tag):
         raise RuntimeError(f"no changes found since {latest_tag}; refusing to invent a new release version")
 
-    entries = parse_unreleased_block(changelog_path)["entries"]
+    entries = cast(list[dict[str, str]], parse_unreleased_block(changelog_path)["entries"])
     bump, reason = classify_bump(entries)
     version = bump_version(latest_tag, bump)
     return {
@@ -345,7 +346,7 @@ def finalize_changelog(repo_root: Path, release_version: str | None = None, rele
 
     unreleased_start, unreleased_end = find_unreleased_block(lines)
     unreleased = parse_block(lines, unreleased_start, unreleased_end)
-    unreleased_entries = unreleased["entries"]
+    unreleased_entries = cast(list[dict[str, str]], unreleased["entries"])
     if not unreleased_entries:
         raise RuntimeError("CHANGELOG.md Unreleased has no releasable entries to promote")
 
@@ -382,7 +383,7 @@ def validate_release_changelog(repo_root: Path, release_version: str) -> dict[st
     changelog_path = repo_root / "CHANGELOG.md"
 
     released = parse_versioned_block(changelog_path, normalized_version)
-    release_entries = released["entries"]
+    release_entries = cast(list[dict[str, str]], released["entries"])
     if not release_entries:
         raise RuntimeError(f"versioned changelog section for {normalized_version} has no releasable entries")
 
@@ -411,7 +412,8 @@ def validate_release_changelog(repo_root: Path, release_version: str) -> dict[st
     if unreleased["entries"]:
         raise RuntimeError("CHANGELOG.md Unreleased still contains releasable entries after release finalization")
 
-    missing_sections = [section for section in SECTION_ORDER if section not in unreleased["sections_present"]]
+    unreleased_sections = cast(list[str], unreleased["sections_present"])
+    missing_sections = [section for section in SECTION_ORDER if section not in unreleased_sections]
     if missing_sections:
         raise RuntimeError(
             f"CHANGELOG.md Unreleased is missing canonical sections after release finalization: {', '.join(missing_sections)}"

@@ -434,11 +434,11 @@ func addUnreleasedEntry(t *testing.T, repoRoot string, section string, entry str
 	t.Helper()
 
 	path := filepath.Join(repoRoot, "CHANGELOG.md")
-	changelog := mustReadFile(t, path)
+	normalized := strings.ReplaceAll(mustReadFile(t, path), "\r\n", "\n")
 	marker := "### " + section + "\n\n- (none yet)"
 	replacement := "### " + section + "\n\n- " + entry
-	updated := strings.Replace(changelog, marker, replacement, 1)
-	if updated == changelog {
+	updated := strings.Replace(normalized, marker, replacement, 1)
+	if updated == normalized {
 		t.Fatalf("could not add unreleased entry for section %s", section)
 	}
 	writeFixtureFile(t, repoRoot, "CHANGELOG.md", updated)
