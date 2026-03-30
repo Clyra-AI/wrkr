@@ -262,6 +262,33 @@ func TestFinalizeReleaseChangelogPromotesEntriesAndResetsUnreleased(t *testing.T
 	}
 }
 
+func TestFinalizeReleaseChangelogFailsClosedOnUnknownUnreleasedSections(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initTaggedReleaseFixtureRepo(t, "v1.2.3")
+	writeFixtureFile(t, repoRoot, "README.md", "release prep\n")
+	changelog := strings.Replace(
+		fixtureChangelog(
+			map[string][]string{
+				"Fixed": {"tightened proof-chain verification failure handling"},
+			},
+		),
+		"## Changelog maintenance process",
+		"### Notes\n\n- this entry sits under an unknown section\n\n## Changelog maintenance process",
+		1,
+	)
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", changelog)
+	commitAll(t, repoRoot, "docs: stage malformed release changelog")
+
+	_, stderr, err := runFinalizeReleaseChangelogRaw(t, repoRoot, "--release-date", "2026-03-27")
+	if err == nil {
+		t.Fatal("expected finalize to fail on unknown unreleased sections")
+	}
+	if !strings.Contains(stderr, "releasable entries under unknown sections: Notes") {
+		t.Fatalf("expected unknown-section failure, got %q", stderr)
+	}
+}
+
 func TestValidateReleaseChangelogMatchesVersionedSection(t *testing.T) {
 	t.Parallel()
 
@@ -487,7 +514,7 @@ func runReleaseVersionResolverRaw(t *testing.T, repoRoot string, args ...string)
 func runFinalizeReleaseChangelog(t *testing.T, repoRoot string, args ...string) changelogReleaseResult {
 	t.Helper()
 
-	stdout, stderr, err := runPythonScript(t, repoRoot, "finalize_release_changelog.py", args...)
+	stdout, stderr, err := runFinalizeReleaseChangelogRaw(t, repoRoot, args...)
 	if err != nil {
 		t.Fatalf("run finalize release changelog: %v\nstderr=%s", err, stderr)
 	}
@@ -497,6 +524,12 @@ func runFinalizeReleaseChangelog(t *testing.T, repoRoot string, args ...string) 
 		t.Fatalf("parse finalize json: %v\nstdout=%s", err, stdout)
 	}
 	return result
+}
+
+func runFinalizeReleaseChangelogRaw(t *testing.T, repoRoot string, args ...string) (string, string, error) {
+	t.Helper()
+
+	return runPythonScript(t, repoRoot, "finalize_release_changelog.py", args...)
 }
 
 func runValidateReleaseChangelog(t *testing.T, repoRoot string, releaseVersion string) changelogReleaseResult {

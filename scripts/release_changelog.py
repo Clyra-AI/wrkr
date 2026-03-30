@@ -140,6 +140,7 @@ def find_first_version_start(lines: list[str]) -> int | None:
 def parse_block(lines: list[str], start: int, end: int) -> dict[str, object]:
     entries: list[dict[str, str]] = []
     sections_present: list[str] = []
+    unknown_sections_with_entries: list[str] = []
     semver_hint = ""
     current_section = ""
 
@@ -164,10 +165,13 @@ def parse_block(lines: list[str], start: int, end: int) -> dict[str, object]:
         if not entry or NONE_RE.match(entry):
             continue
         entries.append({"section": current_section.lower(), "text": entry})
+        if current_section and current_section not in SECTION_NAME_MAP.values() and current_section not in unknown_sections_with_entries:
+            unknown_sections_with_entries.append(current_section)
 
     return {
         "entries": entries,
         "sections_present": sections_present,
+        "unknown_sections_with_entries": unknown_sections_with_entries,
         "semver_hint": semver_hint,
     }
 
@@ -347,8 +351,14 @@ def finalize_changelog(repo_root: Path, release_version: str | None = None, rele
     unreleased_start, unreleased_end = find_unreleased_block(lines)
     unreleased = parse_block(lines, unreleased_start, unreleased_end)
     unreleased_entries = cast(list[dict[str, str]], unreleased["entries"])
+    unknown_sections = cast(list[str], unreleased["unknown_sections_with_entries"])
     if not unreleased_entries:
         raise RuntimeError("CHANGELOG.md Unreleased has no releasable entries to promote")
+    if unknown_sections:
+        raise RuntimeError(
+            "CHANGELOG.md Unreleased has releasable entries under unknown sections: "
+            + ", ".join(unknown_sections)
+        )
 
     maintenance_block = find_maintenance_block(lines)
     first_version_start = find_first_version_start(lines)
@@ -384,8 +394,14 @@ def validate_release_changelog(repo_root: Path, release_version: str) -> dict[st
 
     released = parse_versioned_block(changelog_path, normalized_version)
     release_entries = cast(list[dict[str, str]], released["entries"])
+    unknown_sections = cast(list[str], released["unknown_sections_with_entries"])
     if not release_entries:
         raise RuntimeError(f"versioned changelog section for {normalized_version} has no releasable entries")
+    if unknown_sections:
+        raise RuntimeError(
+            f"versioned changelog section for {normalized_version} has releasable entries under unknown sections: "
+            + ", ".join(unknown_sections)
+        )
 
     release_date = str(released.get("release_date", "")).strip()
     if not release_date:
