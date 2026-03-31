@@ -8,11 +8,46 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added an `assessment` scan profile that sharpens govern-first action-path output for customer readouts while keeping raw findings and proof artifacts unchanged.
-- [semver:minor] Added an AI-first assessment summary to report output so customer readouts lead with governable paths, top control targets, and offline proof location.
-- [semver:minor] Added identity exposure summaries and first-review or first-revoke recommendations for non-human execution identities backing risky govern-first paths.
-- [semver:minor] Action paths now classify the business state they can change and flag shared or standing-privilege identity reuse on repeated risky paths.
-- [semver:minor] Added grouped `exposure_groups` summaries so repeated risky paths can be reviewed as stable report clusters without hiding raw path detail.
+- (none yet)
+
+### Changed
+
+- (none yet)
+
+### Deprecated
+
+- (none yet)
+
+### Removed
+
+- (none yet)
+
+### Fixed
+
+- (none yet)
+
+### Security
+
+- (none yet)
+
+## Changelog maintenance process
+
+1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.
+2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and commit that changelog update in the same release-prep commit that will be tagged.
+3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on that release-prep commit before or during the tag workflow.
+4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
+5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.1.0] - 2026-03-31
+<!-- release-semver: minor -->
+
+### Added
+
+- Added an `assessment` scan profile that sharpens govern-first action-path output for customer readouts while keeping raw findings and proof artifacts unchanged.
+- Added an AI-first assessment summary to report output so customer readouts lead with governable paths, top control targets, and offline proof location.
+- Added identity exposure summaries and first-review or first-revoke recommendations for non-human execution identities backing risky govern-first paths.
+- Action paths now classify the business state they can change and flag shared or standing-privilege identity reuse on repeated risky paths.
+- Added grouped `exposure_groups` summaries so repeated risky paths can be reviewed as stable report clusters without hiding raw path detail.
 
 ### Changed
 
@@ -29,14 +64,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Govern-first summaries now highlight ownership quality and ownerless exposure so unresolved or conflicting ownership is explicit in top action paths.
 - Updated scan, evidence, campaign, and extension-detector docs plus regression coverage to match the hardened contract and boundary behavior.
 
-### Deprecated
-
-- (none yet)
-
-### Removed
-
-- (none yet)
-
 ### Fixed
 
 - Deduplicated govern-first `action_paths` so each deterministic action path emits one unique `path_id` row per scan.
@@ -44,15 +71,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Made scan artifact publication transactional so failed late writes no longer leave mixed state, proof, and manifest generations on disk.
 - `wrkr campaign aggregate` now rejects non-scan JSON and incomplete artifacts with stable `invalid_input` errors instead of summarizing them as posture evidence.
 - Repo-local extension detectors now stay on additive finding surfaces by default and no longer create implicit tool identities, action paths, or regress state.
-
-
-## Changelog maintenance process
-
-1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.
-2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and commit that changelog update in the same release-prep commit that will be tagged.
-3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on that release-prep commit before or during the tag workflow.
-4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
-5. Link release notes and tag artifacts to the finalized changelog section.
 
 ## [v1.0.11] - 2026-03-26
 <!-- release-semver: patch -->
