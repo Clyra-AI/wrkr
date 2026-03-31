@@ -11,6 +11,8 @@ coverage/
 # Python virtualenvs
 .venv/
 venv/
+__pycache__/
+*.pyc
 
 # Local analysis scratch
 .tmp/

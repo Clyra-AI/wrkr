@@ -2,6 +2,7 @@ package risk
 
 import (
 	"maps"
+	"regexp"
 	"testing"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -147,6 +148,9 @@ func TestBuildActionPathsDeduplicatesRepeatedEntriesAndStabilizesPathID(t *testi
 	}
 	if firstPaths[0].PathID != secondPaths[0].PathID {
 		t.Fatalf("expected path_id to remain stable across repeat runs, first=%s second=%s", firstPaths[0].PathID, secondPaths[0].PathID)
+	}
+	if !regexp.MustCompile("^" + actionPathIDPrefix + "[0-9a-f]{12}$").MatchString(firstPaths[0].PathID) {
+		t.Fatalf("expected opaque apc-<hex> path_id, got %q", firstPaths[0].PathID)
 	}
 	if !maps.Equal(sliceToSet(firstPaths[0].ApprovalGapReasons), sliceToSet([]string{"approval_source_missing", "deployment_gate_missing"})) {
 		t.Fatalf("expected merged approval gap reasons, got %+v", firstPaths[0].ApprovalGapReasons)

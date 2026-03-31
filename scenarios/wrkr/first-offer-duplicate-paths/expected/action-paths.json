@@ -1,0 +1,35 @@
+{
+  "action_path_count": 1,
+  "action_paths": [
+    {
+      "path_id": "apc-b0063bf5194e",
+      "repo": "acme/release",
+      "tool_type": "compiled_action",
+      "recommended_action": "control",
+      "delivery_chain_status": "pr_merge_deploy",
+      "production_target_status": "configured",
+      "production_write": true,
+      "execution_identity_status": "known",
+      "business_state_surface": "deploy"
+    }
+  ],
+  "control_first": {
+    "summary": {
+      "total_paths": 1,
+      "write_capable_paths": 1,
+      "production_target_backed_paths": 1,
+      "govern_first_paths": 0
+    },
+    "path": {
+      "path_id": "apc-b0063bf5194e",
+      "repo": "acme/release",
+      "tool_type": "compiled_action",
+      "recommended_action": "control",
+      "delivery_chain_status": "pr_merge_deploy",
+      "production_target_status": "configured",
+      "production_write": true,
+      "execution_identity_status": "known",
+      "business_state_surface": "deploy"
+    }
+  }
+}

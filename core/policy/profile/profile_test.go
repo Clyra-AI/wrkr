@@ -8,7 +8,7 @@ import (
 
 func TestBuiltinProfilesLoad(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"baseline", "standard", "strict"} {
+	for _, name := range []string{"baseline", "standard", "strict", "assessment"} {
 		loaded, err := Builtin(name)
 		if err != nil {
 			t.Fatalf("load %s: %v", name, err)

@@ -1,0 +1,171 @@
+{
+  "status": "ok",
+  "top_risk_types": [
+    "action_path",
+    "action_path",
+    "action_path",
+    "action_path",
+    "action_path"
+  ],
+  "action_paths": [
+    {
+      "path_id": "apc-8ec8602cb415",
+      "repo": "control-plane",
+      "tool_type": "mcp",
+      "recommended_action": "proof",
+      "owner_source": "repo_fallback",
+      "ownership_status": "inferred",
+      "business_state_surface": "admin_api"
+    },
+    {
+      "path_id": "apc-c042aea2cf0d",
+      "repo": "control-plane",
+      "tool_type": "claude",
+      "recommended_action": "proof",
+      "owner_source": "repo_fallback",
+      "ownership_status": "inferred",
+      "business_state_surface": "code"
+    },
+    {
+      "path_id": "apc-b75aac3d0e0f",
+      "repo": "control-plane",
+      "tool_type": "ci_agent",
+      "recommended_action": "proof",
+      "owner_source": "codeowners",
+      "ownership_status": "explicit",
+      "business_state_surface": "deploy"
+    },
+    {
+      "path_id": "apc-dfc2afa9f348",
+      "repo": "control-plane",
+      "tool_type": "compiled_action",
+      "recommended_action": "proof",
+      "owner_source": "codeowners",
+      "ownership_status": "explicit",
+      "business_state_surface": "deploy"
+    },
+    {
+      "path_id": "apc-c5d25a74d87f",
+      "repo": "control-plane",
+      "tool_type": "codex",
+      "recommended_action": "proof",
+      "owner_source": "codeowners",
+      "ownership_status": "explicit",
+      "business_state_surface": "code"
+    }
+  ],
+  "control_first": {
+    "summary": {
+      "total_paths": 5,
+      "write_capable_paths": 2,
+      "production_target_backed_paths": 0,
+      "govern_first_paths": 5
+    },
+    "path": {
+      "path_id": "apc-8ec8602cb415",
+      "repo": "control-plane",
+      "tool_type": "mcp",
+      "recommended_action": "proof",
+      "business_state_surface": "admin_api"
+    }
+  },
+  "assessment_summary": {
+    "governable_path_count": 5,
+    "write_capable_path_count": 2,
+    "production_target_backed_path_count": 0,
+    "ownerless_exposure": {
+      "explicit_owner_paths": 3,
+      "inferred_owner_paths": 2,
+      "unresolved_owner_paths": 0,
+      "conflict_owner_paths": 0
+    },
+    "identity_exposure_summary": {
+      "total_non_human_identities_observed": 1,
+      "identities_backing_write_capable_paths": 1,
+      "identities_backing_deploy_capable_paths": 1,
+      "identities_with_unresolved_ownership": 0,
+      "identities_with_unknown_execution_correlation": 0
+    },
+    "identity_to_review_first": {
+      "execution_identity": "github_app",
+      "path_count": 2,
+      "write_capable_path_count": 2,
+      "shared_execution_identity": true,
+      "standing_privilege": true
+    },
+    "identity_to_revoke_first": {
+      "execution_identity": "github_app",
+      "path_count": 2,
+      "write_capable_path_count": 2,
+      "shared_execution_identity": true,
+      "standing_privilege": true
+    }
+  },
+  "exposure_groups": [
+    {
+      "group_id": "grp-3a20c8da7e14",
+      "tool_types": [
+        "ci_agent"
+      ],
+      "delivery_chain_status": "pr_merge_deploy",
+      "business_state_surface": "deploy",
+      "recommended_action": "proof",
+      "path_count": 1,
+      "path_ids": [
+        "apc-b75aac3d0e0f"
+      ]
+    },
+    {
+      "group_id": "grp-7e6a6b3e28e1",
+      "tool_types": [
+        "compiled_action"
+      ],
+      "delivery_chain_status": "pr_merge_deploy",
+      "business_state_surface": "deploy",
+      "recommended_action": "proof",
+      "path_count": 1,
+      "path_ids": [
+        "apc-dfc2afa9f348"
+      ]
+    },
+    {
+      "group_id": "grp-8e8eda37541f",
+      "tool_types": [
+        "mcp"
+      ],
+      "delivery_chain_status": "none",
+      "business_state_surface": "admin_api",
+      "recommended_action": "proof",
+      "path_count": 1,
+      "path_ids": [
+        "apc-8ec8602cb415"
+      ]
+    },
+    {
+      "group_id": "grp-aad4685fbe27",
+      "tool_types": [
+        "codex"
+      ],
+      "delivery_chain_status": "none",
+      "business_state_surface": "code",
+      "recommended_action": "proof",
+      "path_count": 1,
+      "path_ids": [
+        "apc-c5d25a74d87f"
+      ]
+    },
+    {
+      "group_id": "grp-dcc0871efb50",
+      "tool_types": [
+        "claude"
+      ],
+      "delivery_chain_status": "none",
+      "business_state_surface": "code",
+      "recommended_action": "proof",
+      "path_count": 1,
+      "path_ids": [
+        "apc-c042aea2cf0d"
+      ]
+    }
+  ]
+}

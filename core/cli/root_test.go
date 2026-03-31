@@ -100,6 +100,9 @@ func TestRunHelpSubcommandAliasReturnsExit0(t *testing.T) {
 	if !strings.Contains(errOut.String(), "Usage of scan:") {
 		t.Fatalf("expected scan usage for help subcommand alias, got %q", errOut.String())
 	}
+	if !strings.Contains(errOut.String(), "posture profile [baseline|standard|strict|assessment]") {
+		t.Fatalf("expected scan help to mention the assessment profile, got %q", errOut.String())
+	}
 }
 
 func TestRunSubcommandHelpReturnsExit0(t *testing.T) {

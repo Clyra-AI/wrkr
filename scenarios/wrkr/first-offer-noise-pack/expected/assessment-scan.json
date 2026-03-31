@@ -1,0 +1,25 @@
+{
+  "status": "ok",
+  "findings_count": 120,
+  "top_finding_types": [
+    "ci_autonomy",
+    "ci_autonomy",
+    "ci_autonomy",
+    "ci_autonomy",
+    "ci_autonomy"
+  ],
+  "action_path_count": 0,
+  "action_paths": [],
+  "control_first": null,
+  "activation": {
+    "eligible_count": 10,
+    "message": "Review 10 govern-first candidate path(s) first.",
+    "item_classes": [
+      "unknown_to_security_write_path",
+      "unknown_to_security_write_path",
+      "unknown_to_security_write_path",
+      "unknown_to_security_write_path",
+      "unknown_to_security_write_path"
+    ]
+  }
+}

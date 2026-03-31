@@ -31,8 +31,12 @@ func TestScenarioContracts(t *testing.T) {
 		"scenarios/wrkr/agent-relationship-correlation/repos",
 		"scenarios/wrkr/agent-policy-outcomes/repos",
 		"scenarios/wrkr/first-offer-noise-pack/repos",
+		"scenarios/wrkr/first-offer-noise-pack/expected/standard-scan.json",
+		"scenarios/wrkr/first-offer-noise-pack/expected/assessment-scan.json",
 		"scenarios/wrkr/first-offer-mixed-governance/repos",
+		"scenarios/wrkr/first-offer-mixed-governance/expected/assessment-report.json",
 		"scenarios/wrkr/first-offer-duplicate-paths/action_path_fixture.json",
+		"scenarios/wrkr/first-offer-duplicate-paths/expected/action-paths.json",
 		"scenarios/cross-product/proof-record-interop/records-from-all-3.jsonl",
 		"scenarios/cross-product/proof-record-interop/expected.yaml",
 		"internal/scenarios/coverage_map.json",
@@ -108,7 +112,7 @@ func TestScenarioContracts(t *testing.T) {
 		t.Fatalf("parse coverage map: %v", err)
 	}
 
-	requiredMappings := []string{"FR11", "FR12", "FR13", "FR14", "FR15", "AC10", "AC11", "AC15", "AC18", "AC19", "AC20", "AC21", "AC22", "AC23", "AC24", "AC25", "AC26", "AC27"}
+	requiredMappings := []string{"FR11", "FR12", "FR13", "FR14", "FR15", "AC10", "AC11", "AC15", "AC18", "AC19", "AC20", "AC21", "AC22", "AC23", "AC24", "AC25", "AC26", "AC27", "FO14-duplicate", "FO14-mixed-governance", "FO14-noise-pack", "FO15-usefulness"}
 	testSymbols := scenarioTestSymbols(t, repoRoot)
 	for _, key := range requiredMappings {
 		mapped, ok := coverage[key]

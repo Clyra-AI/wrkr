@@ -35,6 +35,58 @@ func TestSelectTopFindingsDeterministic(t *testing.T) {
 	}
 }
 
+func TestBuildRiskItemsPrefersActionPathsWhenPresent(t *testing.T) {
+	t.Parallel()
+
+	findings := []risk.ScoredFinding{{
+		CanonicalKey: "secret_presence|workflow|ci|.github/workflows/release.yml|payments|acme",
+		Score:        9.9,
+		Finding: model.Finding{
+			FindingType: "secret_presence",
+			Severity:    model.SeverityHigh,
+			ToolType:    "secret",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "payments",
+			Org:         "acme",
+		},
+	}}
+	actionPaths := []risk.ActionPath{{
+		PathID:               "apc-123456789abc",
+		Org:                  "acme",
+		Repo:                 "payments",
+		ToolType:             "compiled_action",
+		Location:             ".github/workflows/release.yml",
+		WriteCapable:         true,
+		OwnerSource:          "codeowners",
+		OwnershipStatus:      "explicit",
+		DeliveryChainStatus:  "pr_merge_deploy",
+		BusinessStateSurface: "deploy",
+		RiskScore:            8.8,
+		RecommendedAction:    "proof",
+	}}
+
+	items := buildRiskItems(findings, actionPaths)
+	if len(items) != 1 {
+		t.Fatalf("expected one action-path risk item, got %+v", items)
+	}
+	if items[0].FindingType != "action_path" {
+		t.Fatalf("expected action_path to lead when action paths exist, got %+v", items[0])
+	}
+	if items[0].PathID != actionPaths[0].PathID {
+		t.Fatalf("expected path id %q, got %+v", actionPaths[0].PathID, items[0])
+	}
+	for _, required := range []string{
+		"recommended_action=proof",
+		"delivery_chain_status=pr_merge_deploy",
+		"business_state_surface=deploy",
+		"ownership_status=explicit",
+	} {
+		if !containsStringValue(items[0].Rationale, required) {
+			t.Fatalf("expected rationale to include %q, got %+v", required, items[0].Rationale)
+		}
+	}
+}
+
 func TestRenderMarkdownStableForFixedSummary(t *testing.T) {
 	t.Parallel()
 
@@ -100,6 +152,83 @@ func TestBuildSummaryRejectsUnknownTemplateAndShareProfile(t *testing.T) {
 	_, err = BuildSummary(BuildInput{Template: TemplateOperator, ShareProfile: ShareProfile("external")})
 	if err == nil {
 		t.Fatal("expected unknown share profile error")
+	}
+}
+
+func TestBuildAssessmentSummaryIsPathCentricAndDeterministic(t *testing.T) {
+	t.Parallel()
+
+	paths := []risk.ActionPath{
+		{
+			PathID:               "apc-aaaaaaaaaaaa",
+			Repo:                 "control-plane",
+			ToolType:             "mcp",
+			RecommendedAction:    "proof",
+			OwnerSource:          "repo_fallback",
+			OwnershipStatus:      "inferred",
+			BusinessStateSurface: "admin_api",
+			RiskScore:            9.6,
+		},
+		{
+			PathID:                  "apc-bbbbbbbbbbbb",
+			Repo:                    "control-plane",
+			ToolType:                "ci_agent",
+			RecommendedAction:       "proof",
+			WriteCapable:            true,
+			OwnerSource:             "codeowners",
+			OwnershipStatus:         "explicit",
+			BusinessStateSurface:    "deploy",
+			ExecutionIdentity:       "github_app",
+			ExecutionIdentityType:   "github_app",
+			ExecutionIdentitySource: "workflow_static_signal",
+			ExecutionIdentityStatus: "known",
+			RiskScore:               10,
+		},
+	}
+	controlFirst := &risk.ActionPathToControlFirst{
+		Summary: risk.ActionPathSummary{
+			TotalPaths:        2,
+			WriteCapablePaths: 1,
+			GovernFirstPaths:  2,
+		},
+		Path: paths[0],
+	}
+	inventory := &agginventory.Inventory{
+		NonHumanIdentities: []agginventory.NonHumanIdentity{{
+			IdentityID:   "one",
+			IdentityType: "github_app",
+			Subject:      "github_app",
+			Source:       "workflow_static_signal",
+		}},
+	}
+
+	summary := buildAssessmentSummary(paths, controlFirst, inventory, ProofReference{ChainPath: "state/proof-chain.json"})
+	if summary == nil {
+		t.Fatal("expected assessment summary")
+	}
+	if summary.GovernablePathCount != 2 || summary.WriteCapablePathCount != 1 || summary.ProductionBackedPathCount != 0 {
+		t.Fatalf("unexpected assessment counts: %+v", summary)
+	}
+	if summary.TopPathToControlFirst == nil || summary.TopPathToControlFirst.PathID != paths[0].PathID {
+		t.Fatalf("expected top path to control first to point at %q, got %+v", paths[0].PathID, summary.TopPathToControlFirst)
+	}
+	if summary.TopExecutionIdentityBacked == nil || summary.TopExecutionIdentityBacked.PathID != paths[1].PathID {
+		t.Fatalf("expected top execution-identity-backed path to point at %q, got %+v", paths[1].PathID, summary.TopExecutionIdentityBacked)
+	}
+	if summary.OwnerlessExposure == nil || summary.OwnerlessExposure.ExplicitOwnerPaths != 1 || summary.OwnerlessExposure.InferredOwnerPaths != 1 {
+		t.Fatalf("expected ownerless exposure rollup, got %+v", summary.OwnerlessExposure)
+	}
+	if summary.IdentityExposureSummary == nil || summary.IdentityExposureSummary.TotalNonHumanIdentitiesObserved != 1 || summary.IdentityExposureSummary.IdentitiesBackingWriteCapablePaths != 1 {
+		t.Fatalf("expected identity exposure summary, got %+v", summary.IdentityExposureSummary)
+	}
+	if summary.IdentityToReviewFirst == nil || summary.IdentityToReviewFirst.ExecutionIdentity != "github_app" {
+		t.Fatalf("expected review-first identity target, got %+v", summary.IdentityToReviewFirst)
+	}
+	if summary.IdentityToRevokeFirst == nil || summary.IdentityToRevokeFirst.ExecutionIdentity != "github_app" {
+		t.Fatalf("expected revoke-first identity target, got %+v", summary.IdentityToRevokeFirst)
+	}
+	if summary.ProofChainPath != "state/proof-chain.json" {
+		t.Fatalf("expected proof chain path to be preserved, got %q", summary.ProofChainPath)
 	}
 }
 
@@ -241,6 +370,15 @@ func TestPrivilegeBudgetFromInventoryConfiguredBackfillsMissingCount(t *testing.
 	if got.ProductionWrite.Count == nil || *got.ProductionWrite.Count != 0 {
 		t.Fatalf("expected configured production count to default to 0, got %v", got.ProductionWrite.Count)
 	}
+}
+
+func containsStringValue(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBuildSummaryUsesWriteCapableFallbackWhenProductionTargetsNotConfigured(t *testing.T) {
