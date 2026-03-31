@@ -381,6 +381,10 @@ func TestCutReleaseSkillReferencesDeterministicResolver(t *testing.T) {
 		"python3 scripts/resolve_release_version.py --json",
 		"python3 scripts/finalize_release_changelog.py --release-version <version> --json",
 		"python3 scripts/validate_release_changelog.py --release-version <version> --json",
+		"release-prep PR",
+		"git checkout -b codex/release-prep-<version>",
+		"gh pr create --base main --head codex/release-prep-<version>",
+		"gh pr merge",
 		"[semver:major]",
 		"[semver:minor]",
 		"[semver:patch]",
@@ -450,11 +454,29 @@ func fixtureChangelog(entries map[string][]string) string {
 		"## Changelog maintenance process",
 		"",
 		"1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.",
-		"2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section.",
-		"3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` before or during the tag workflow.",
+		"2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and land that change through a release-prep PR.",
+		"3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged main before or during the tag workflow.",
 	)
 
 	return strings.Join(lines, "\n")
+}
+
+func TestReleaseDocsReferenceReleasePrepPRFlow(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	for _, relPath := range []string{
+		"CHANGELOG.md",
+		"CONTRIBUTING.md",
+		"docs/map.md",
+		"docs/trust/changelog-and-release-versioning.md",
+		"docs/trust/release-integrity.md",
+	} {
+		content := mustReadFile(t, filepath.Join(repoRoot, relPath))
+		if !strings.Contains(content, "release-prep PR") {
+			t.Fatalf("expected %s to mention release-prep PR flow", relPath)
+		}
+	}
 }
 
 func addUnreleasedEntry(t *testing.T, repoRoot string, section string, entry string) {

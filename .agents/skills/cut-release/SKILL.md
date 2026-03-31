@@ -12,9 +12,8 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 
 - Repository: `.`
 - Tag source branch: `main` only.
-- No pre-release branch creation.
-- No pre-release PR creation.
-- Branch and PR flow is used only for hotfixes after failed checks.
+- Allow one short-lived release-prep branch and PR only for finalized changelog publication before tagging.
+- Branch and PR flow is otherwise used only for hotfixes after failed checks.
 - Deterministic changelog finalization is allowed only through the release helper scripts below.
 - Default posture: when a release or post-release blocker is actionable from repo code, workflow config, docs, or install-path behavior, fix it in-loop and continue instead of stopping at the first failure.
 
@@ -43,6 +42,7 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 
 - Tag must always be created and pushed from `main`.
 - `main` must be fast-forward synced with `origin/main` before each tag push.
+- Do not bypass branch protection on `main`; use the release-prep PR path when changelog finalization changes files.
 - No force-push to tags.
 - No destructive git commands.
 - No commit amend unless explicitly requested.
@@ -66,7 +66,29 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 6. Finalize the changelog for the resolved version before any tag checks:
 - `python3 scripts/finalize_release_changelog.py --release-version <version> --json`
 - `python3 scripts/validate_release_changelog.py --release-version <version> --json`
-- if `CHANGELOG.md` changes, review the diff, commit the finalized changelog on `main`, and continue from that committed release-prep state before tagging
+- if `CHANGELOG.md` changes:
+  - create release-prep branch from current `main`:
+    - `git checkout -b codex/release-prep-<version>`
+  - commit only the finalized changelog there:
+    - `git add CHANGELOG.md`
+    - `git commit -m "chore: finalize changelog for <version>"`
+  - push branch:
+    - `git push -u origin codex/release-prep-<version>`
+  - open release-prep PR using EOF body:
+    - `gh pr create --base main --head codex/release-prep-<version> --title "chore: finalize changelog for <version>" --body-file - <<'EOF'`
+    - include: problem, root cause, fix, validation
+    - `EOF`
+  - monitor PR CI to green (`CI_TIMEOUT_MIN`)
+    - required Wrkr PR checks: `fast-lane`, `scan-contract`, `wave-sequence`, `windows-smoke`
+    - also monitor `CodeQL` when present
+    - use non-interactive watch or polling such as:
+      - `gh pr checks <number> --watch --interval 10`
+  - merge the release-prep PR after green:
+    - `gh pr merge <number> --rebase --delete-branch`
+  - sync `main` to the merged commit before continuing:
+    - `git checkout main`
+    - `git pull --ff-only origin main`
+  - rerun `python3 scripts/validate_release_changelog.py --release-version <version> --json` on merged `main`
 7. Ensure target tag does not already exist locally or remotely.
 8. Ensure release prerequisites are available:
 - `gh auth status`

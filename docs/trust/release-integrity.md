@@ -70,7 +70,7 @@ python3 scripts/finalize_release_changelog.py --json
 python3 scripts/validate_release_changelog.py --release-version v1.0.0 --json
 ```
 
-The finalizer promotes releasable `Unreleased` entries into `## [vX.Y.Z] - YYYY-MM-DD`, adds a hidden semver hint for CI validation, and resets `Unreleased` to the canonical empty template so the next release only considers new entries. Commit that changelog update before creating the tag; the tag workflow validates the changelog content from the tagged commit itself.
+The finalizer promotes releasable `Unreleased` entries into `## [vX.Y.Z] - YYYY-MM-DD`, adds a hidden semver hint for CI validation, and resets `Unreleased` to the canonical empty template so the next release only considers new entries. Publish that changelog update through a short-lived release-prep PR before creating the tag; the tag workflow validates the changelog content from the tagged commit itself.
 
 For the full changelog ownership model, planning/implementation handoff, and file/script reference, see [`docs/trust/changelog-and-release-versioning.md`](changelog-and-release-versioning.md).
 

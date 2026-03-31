@@ -88,7 +88,7 @@ This path is sufficient for most CLI/runtime changes and does not require Node.
 6. If docs are touched, follow [`docs/map.md`](docs/map.md) and run docs validation bundle.
 7. For user-visible changes, update [`CHANGELOG.md`](CHANGELOG.md) under `Unreleased`.
    Public contract wording changes in `README.md`, command help, `docs/`, `product/`, or docs-site projections count even when JSON, exit codes, and schemas stay unchanged.
-   Maintainers finalize `Unreleased` into a versioned section immediately before tagging with `python3 scripts/finalize_release_changelog.py --json` and commit that release-prep changelog update before creating the tag.
+   Maintainers finalize `Unreleased` into a versioned section immediately before tagging with `python3 scripts/finalize_release_changelog.py --json`, publish that change through a short-lived release-prep PR, merge it to `main`, and only then create the tag from merged `main`.
 8. For `product/` or `.agents/skills/` changes, confirm policy conformance per [`docs/governance/content-visibility.md`](docs/governance/content-visibility.md).
 
 Issue/PR templates:

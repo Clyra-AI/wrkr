@@ -18,8 +18,8 @@ Instead, maintainers and implementation agents stage operator-facing release not
 1. Planning decides whether each story needs a changelog entry.
 2. Implementation updates `CHANGELOG.md` `## [Unreleased]` for stories that require it.
 3. Release prep resolves the next version from `Unreleased`.
-4. Release prep finalizes the changelog into a dated versioned section.
-5. The finalized changelog change is committed before tagging.
+4. Release prep finalizes the changelog into a dated versioned section on a short-lived release-prep branch.
+5. That release-prep PR is merged to `main`.
 6. The tag-triggered release workflow validates that the tagged commit's changelog matches the tag.
 7. `Unreleased` is empty again, so the next release only considers new changes.
 
@@ -146,7 +146,22 @@ Validate the prepared release version:
 python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json
 ```
 
-Then commit the finalized changelog update on the release-prep commit before creating the tag.
+Then publish that finalized changelog update through a release-prep PR before creating the tag:
+
+```bash
+git checkout -b codex/release-prep-vX.Y.Z
+git add CHANGELOG.md
+git commit -m "chore: finalize changelog for vX.Y.Z"
+git push -u origin codex/release-prep-vX.Y.Z
+gh pr create --base main --head codex/release-prep-vX.Y.Z --title "chore: finalize changelog for vX.Y.Z" --body-file - <<'EOF'
+...
+EOF
+gh pr checks <number> --watch --interval 10
+gh pr merge <number> --rebase --delete-branch
+git checkout main
+git pull --ff-only origin main
+python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json
+```
 
 ### 4. After finalization
 
@@ -262,7 +277,7 @@ It now requires:
 - resolving the version from changelog state
 - finalizing the changelog
 - validating the prepared version
-- committing that changelog-prep state before tagging
+- landing that changelog-prep state through a release-prep PR before tagging
 
 ### `.agents/skills/adhoc-plan/SKILL.md` and `.agents/skills/backlog-plan/SKILL.md`
 
