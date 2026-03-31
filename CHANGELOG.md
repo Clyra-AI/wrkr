@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- (none yet)
+- [semver:patch] Release prep now lands finalized changelog updates through a short-lived release-prep PR before tagging when `main` is protected.
 
 ### Deprecated
 
@@ -33,8 +33,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## Changelog maintenance process
 
 1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.
-2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and commit that changelog update in the same release-prep commit that will be tagged.
-3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on that release-prep commit before or during the tag workflow.
+2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and publish that change through a short-lived release-prep PR.
+3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 
