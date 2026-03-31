@@ -1,0 +1,55 @@
+{
+  "status": "ok",
+  "findings_count": 120,
+  "top_finding_types": [
+    "ci_autonomy",
+    "ci_autonomy",
+    "ci_autonomy",
+    "ci_autonomy",
+    "ci_autonomy"
+  ],
+  "action_path_count": 2,
+  "action_paths": [
+    {
+      "path_id": "apc-911d5b0cdab4",
+      "repo": "example-sandbox",
+      "tool_type": "compiled_action",
+      "recommended_action": "proof",
+      "owner_source": "multi_repo_conflict",
+      "ownership_status": "unresolved",
+      "business_state_surface": "deploy"
+    },
+    {
+      "path_id": "apc-ea49974b9122",
+      "repo": "example-sandbox",
+      "tool_type": "ci_agent",
+      "recommended_action": "proof",
+      "owner_source": "multi_repo_conflict",
+      "ownership_status": "unresolved",
+      "business_state_surface": "deploy"
+    }
+  ],
+  "control_first": {
+    "summary": {
+      "total_paths": 2,
+      "write_capable_paths": 2,
+      "production_target_backed_paths": 0,
+      "govern_first_paths": 2
+    },
+    "path": {
+      "path_id": "apc-911d5b0cdab4",
+      "repo": "example-sandbox",
+      "tool_type": "compiled_action",
+      "recommended_action": "proof",
+      "business_state_surface": "deploy"
+    }
+  },
+  "activation": {
+    "eligible_count": 2,
+    "message": "Review 2 govern-first candidate path(s) first.",
+    "item_classes": [
+      "unknown_to_security_write_path",
+      "unknown_to_security_write_path"
+    ]
+  }
+}

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"testing"
 
@@ -194,6 +195,9 @@ func TestActionPathsRemainUniqueForFrozenAgentEcosystemSubset(t *testing.T) {
 	for _, path := range paths {
 		if _, ok := seen[path.PathID]; ok {
 			t.Fatalf("expected unique path_id values, got duplicate %s in %+v", path.PathID, paths)
+		}
+		if !regexp.MustCompile(`^apc-[0-9a-f]{12}$`).MatchString(path.PathID) {
+			t.Fatalf("expected opaque deterministic path_id format apc-<hex>, got %q", path.PathID)
 		}
 		seen[path.PathID] = struct{}{}
 	}

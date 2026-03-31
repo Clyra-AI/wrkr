@@ -13,6 +13,8 @@ import (
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
 
+const actionPathIDPrefix = "apc-"
+
 type ActionPathSummary struct {
 	TotalPaths                  int `json:"total_paths"`
 	WriteCapablePaths           int `json:"write_capable_paths"`
@@ -299,7 +301,7 @@ func actionPathIdentityKey(entry agginventory.AgentPrivilegeMapEntry) string {
 
 func hashActionPathIdentity(identity string) string {
 	sum := sha256.Sum256([]byte(identity))
-	return "apc-" + hex.EncodeToString(sum[:6])
+	return actionPathIDPrefix + hex.EncodeToString(sum[:6])
 }
 
 func locationRangeKey(locationRange *model.LocationRange) string {
