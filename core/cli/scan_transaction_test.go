@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
@@ -143,6 +144,10 @@ func TestScanLateSARIFWriteFailureRollsBackManagedArtifacts(t *testing.T) {
 
 func TestScanLateJSONPathWriteFailureRollsBackManagedArtifacts(t *testing.T) {
 	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based write failure fixture is not portable on windows")
+	}
 
 	tmp := t.TempDir()
 	reposPath := filepath.Join(tmp, "repos")

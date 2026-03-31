@@ -15,7 +15,7 @@ import (
 )
 
 const version = "v2"
-const tokenFileName = ".wrkr-managed-token"
+const tokenFileName = ".wrkr-managed-token" // #nosec G101 -- filename constant for local token storage, not credential material.
 
 type payload struct {
 	Version    string `json:"version"`
