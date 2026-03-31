@@ -4,6 +4,7 @@ package scenarios
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -344,6 +345,9 @@ func requireIntValue(t *testing.T, payload map[string]any, key string) int {
 	t.Helper()
 	switch value := payload[key].(type) {
 	case float64:
+		if value != math.Trunc(value) {
+			t.Fatalf("expected %s integer value, got %v", key, value)
+		}
 		return int(value)
 	case int:
 		return value
