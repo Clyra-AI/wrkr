@@ -12,8 +12,17 @@ import (
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 )
 
+func skipNonPortableChmodWriteFailureFixture(t *testing.T) {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based write failure fixture is not portable on windows")
+	}
+}
+
 func TestScanLateReportWriteFailureRollsBackManagedArtifacts(t *testing.T) {
 	t.Parallel()
+	skipNonPortableChmodWriteFailureFixture(t)
 
 	tmp := t.TempDir()
 	reposPath := filepath.Join(tmp, "repos")
@@ -79,6 +88,7 @@ func TestScanLateReportWriteFailureRollsBackManagedArtifacts(t *testing.T) {
 
 func TestScanLateSARIFWriteFailureRollsBackManagedArtifacts(t *testing.T) {
 	t.Parallel()
+	skipNonPortableChmodWriteFailureFixture(t)
 
 	tmp := t.TempDir()
 	reposPath := filepath.Join(tmp, "repos")
@@ -144,10 +154,7 @@ func TestScanLateSARIFWriteFailureRollsBackManagedArtifacts(t *testing.T) {
 
 func TestScanLateJSONPathWriteFailureRollsBackManagedArtifacts(t *testing.T) {
 	t.Parallel()
-
-	if runtime.GOOS == "windows" {
-		t.Skip("chmod-based write failure fixture is not portable on windows")
-	}
+	skipNonPortableChmodWriteFailureFixture(t)
 
 	tmp := t.TempDir()
 	reposPath := filepath.Join(tmp, "repos")
