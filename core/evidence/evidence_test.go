@@ -22,6 +22,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 	verifycore "github.com/Clyra-AI/wrkr/core/verify"
+	"github.com/Clyra-AI/wrkr/internal/managedmarker"
 )
 
 func TestBuildEvidenceBundle(t *testing.T) {
@@ -945,6 +946,60 @@ func TestBuildEvidenceRejectsMarkerWithInvalidContent(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "marker content is invalid") {
 		t.Fatalf("expected marker content error, got: %v", err)
+	}
+}
+
+func TestBuildEvidenceRejectsForgedLegacyMarker(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		t.Fatalf("mkdir output dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, outputDirMarkerFile), []byte(outputDirMarkerContent), 0o600); err != nil {
+		t.Fatalf("write forged legacy marker: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, "unrelated.txt"), []byte("do-not-delete"), 0o600); err != nil {
+		t.Fatalf("write unrelated file: %v", err)
+	}
+
+	_, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC)})
+	if err == nil {
+		t.Fatal("expected forged legacy marker to be rejected")
+	}
+	if !strings.Contains(err.Error(), "marker content is invalid") {
+		t.Fatalf("expected marker content error, got: %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(outputDir, "unrelated.txt")); statErr != nil {
+		t.Fatalf("expected unrelated file to remain, got: %v", statErr)
+	}
+}
+
+func TestBuildEvidenceMigratesLegacyManagedBundle(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	if _, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 14, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatalf("initial build evidence bundle: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, outputDirMarkerFile), []byte(outputDirMarkerContent), 0o600); err != nil {
+		t.Fatalf("rewrite legacy marker: %v", err)
+	}
+
+	if _, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: time.Date(2026, 2, 20, 15, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatalf("migrate legacy managed bundle: %v", err)
+	}
+
+	payload, err := os.ReadFile(filepath.Join(outputDir, outputDirMarkerFile))
+	if err != nil {
+		t.Fatalf("read migrated marker: %v", err)
+	}
+	if err := managedmarker.ValidatePayload(statePath, outputDir, outputDirMarkerKind, payload); err != nil {
+		t.Fatalf("expected migrated signed marker, got: %v", err)
 	}
 }
 

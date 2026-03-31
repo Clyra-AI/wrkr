@@ -4,8 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	proof "github.com/Clyra-AI/proof"
+	"github.com/Clyra-AI/wrkr/internal/managedmarker"
 )
 
 var (
@@ -17,6 +21,10 @@ var (
 )
 
 func validateOutputDirTarget(path string) error {
+	return validateOutputDirTargetWithState(path, "")
+}
+
+func validateOutputDirTargetWithState(path string, statePath string) error {
 	cleanPath := filepath.Clean(path)
 	info, err := os.Lstat(cleanPath)
 	if err != nil {
@@ -38,10 +46,10 @@ func validateOutputDirTarget(path string) error {
 	if len(entries) == 0 {
 		return nil
 	}
-	return validateManagedOutputDir(cleanPath)
+	return validateManagedOutputDir(cleanPath, statePath)
 }
 
-func validateManagedOutputDir(path string) error {
+func validateManagedOutputDir(path string, statePath string) error {
 	markerPath := filepath.Join(path, outputDirMarkerFile)
 	markerInfo, err := os.Lstat(markerPath)
 	if err != nil {
@@ -57,13 +65,27 @@ func validateManagedOutputDir(path string) error {
 	if err != nil {
 		return fmt.Errorf("read output dir marker: %w", err)
 	}
-	if string(markerPayload) != outputDirMarkerContent {
-		return newOutputDirSafetyError("output dir marker content is invalid: %s", markerPath)
+	if strings.TrimSpace(statePath) != "" {
+		if validateErr := managedmarker.ValidatePayload(statePath, path, outputDirMarkerKind, markerPayload); validateErr == nil {
+			return nil
+		}
+	}
+	if string(markerPayload) == outputDirMarkerContent {
+		if legacyErr := validateLegacyManagedOutputDir(path); legacyErr == nil {
+			return nil
+		}
+	}
+	return newOutputDirSafetyError("output dir marker content is invalid: %s", markerPath)
+}
+
+func validateLegacyManagedOutputDir(path string) error {
+	if _, err := proof.VerifyBundle(path, proof.BundleVerifyOpts{}); err != nil {
+		return fmt.Errorf("verify legacy managed output dir: %w", err)
 	}
 	return nil
 }
 
-func createOutputStageDir(targetDir string) (string, error) {
+func createOutputStageDir(targetDir string, statePath string) (string, error) {
 	cleanTarget := filepath.Clean(targetDir)
 	parentDir := filepath.Dir(cleanTarget)
 	if err := os.MkdirAll(parentDir, 0o750); err != nil {
@@ -73,7 +95,7 @@ func createOutputStageDir(targetDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create output stage dir: %w", err)
 	}
-	if err := writeOutputDirMarker(stageDir); err != nil {
+	if err := writeOutputDirMarker(statePath, stageDir, cleanTarget); err != nil {
 		_ = removeAll(stageDir)
 		return "", err
 	}

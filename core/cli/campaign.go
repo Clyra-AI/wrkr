@@ -90,11 +90,15 @@ func runCampaignAggregate(args []string, stdout io.Writer, stderr io.Writer) int
 		if readErr != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("read scan artifact %s: %v", scanPath, readErr), exitRuntime)
 		}
+		var raw map[string]any
+		if err := json.Unmarshal(payload, &raw); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", fmt.Sprintf("parse scan artifact %s: %v", scanPath, err), exitInvalidInput)
+		}
 		var parsed campaignScanArtifact
 		if err := json.Unmarshal(payload, &parsed); err != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", fmt.Sprintf("parse scan artifact %s: %v", scanPath, err), exitInvalidInput)
 		}
-		if artifactErr := validateCampaignScanArtifact(scanPath, parsed); artifactErr != nil {
+		if artifactErr := validateCampaignScanArtifact(scanPath, raw, parsed); artifactErr != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", artifactErr.Error(), exitInvalidInput)
 		}
 		inputs = append(inputs, reportcore.CampaignScanInput{
@@ -158,7 +162,7 @@ func runCampaignAggregate(args []string, stdout io.Writer, stderr io.Writer) int
 	return exitSuccess
 }
 
-func validateCampaignScanArtifact(scanPath string, parsed campaignScanArtifact) error {
+func validateCampaignScanArtifact(scanPath string, raw map[string]any, parsed campaignScanArtifact) error {
 	if strings.TrimSpace(parsed.Status) != "ok" {
 		return fmt.Errorf("scan artifact %s status must be ok", scanPath)
 	}
@@ -175,7 +179,49 @@ func validateCampaignScanArtifact(scanPath string, parsed campaignScanArtifact) 
 	if len(incompleteReasons) > 0 {
 		return fmt.Errorf("scan artifact %s must be complete; found %s", scanPath, strings.Join(incompleteReasons, ", "))
 	}
+	if err := validateCampaignTargetObject(scanPath, "target", raw["target"]); err != nil {
+		return err
+	}
+	sourceManifest, ok := raw["source_manifest"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("scan artifact %s missing source_manifest object", scanPath)
+	}
+	if err := validateCampaignTargetObject(scanPath, "source_manifest.target", sourceManifest["target"]); err != nil {
+		return err
+	}
+	if repos, ok := sourceManifest["repos"].([]any); !ok || repos == nil {
+		return fmt.Errorf("scan artifact %s missing source_manifest.repos array", scanPath)
+	}
+	if _, ok := raw["inventory"].(map[string]any); !ok {
+		return fmt.Errorf("scan artifact %s missing inventory object", scanPath)
+	}
+	if _, ok := raw["privilege_budget"].(map[string]any); !ok {
+		return fmt.Errorf("scan artifact %s missing privilege_budget object", scanPath)
+	}
+	if _, ok := raw["findings"].([]any); !ok {
+		return fmt.Errorf("scan artifact %s missing findings array", scanPath)
+	}
 	return nil
+}
+
+func validateCampaignTargetObject(scanPath string, label string, value any) error {
+	target, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("scan artifact %s missing %s object", scanPath, label)
+	}
+	mode, _ := target["mode"].(string)
+	if strings.TrimSpace(mode) == "" {
+		return fmt.Errorf("scan artifact %s missing %s.mode", scanPath, label)
+	}
+	rawValue, _ := target["value"].(string)
+	if campaignTargetRequiresValue(mode) && strings.TrimSpace(rawValue) == "" {
+		return fmt.Errorf("scan artifact %s missing %s.value", scanPath, label)
+	}
+	return nil
+}
+
+func campaignTargetRequiresValue(mode string) bool {
+	return strings.TrimSpace(mode) != "my_setup"
 }
 
 type campaignSegmentMetadataFile struct {

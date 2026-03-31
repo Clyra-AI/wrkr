@@ -247,6 +247,31 @@ func TestCompareFlagsNewUnapprovedTool(t *testing.T) {
 	}
 }
 
+func TestCompareIgnoresExtensionFindingsByDefault(t *testing.T) {
+	t.Parallel()
+
+	current := state.Snapshot{
+		Findings: []model.Finding{
+			{
+				FindingType: "custom_extension_finding",
+				ToolType:    "custom_detector",
+				Detector:    "extension",
+				Location:    "README.md",
+				Org:         "acme",
+				Repo:        "repo",
+			},
+		},
+	}
+
+	if tools := SnapshotTools(current); len(tools) != 0 {
+		t.Fatalf("expected extension finding to stay out of baseline tools, got %+v", tools)
+	}
+	result := Compare(Baseline{Version: BaselineVersion, Tools: []ToolState{}}, current)
+	if result.Drift {
+		t.Fatalf("expected no drift for extension-only finding, got %+v", result)
+	}
+}
+
 func TestCompareFlagsRevokedToolReappearance(t *testing.T) {
 	t.Parallel()
 

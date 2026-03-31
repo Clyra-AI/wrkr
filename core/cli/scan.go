@@ -337,35 +337,62 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Identities:   nextManifest.Identities,
 		Transitions:  transitions,
 	}
-	if err := state.Save(statePath, snapshot); err != nil {
-		return emitScanFailure(err)
-	}
 	chainPath := lifecycle.ChainPath(statePath)
+	proofChainPath := proofemit.ChainPath(statePath)
+	managedSnapshots, snapshotErr := captureManagedArtifacts(
+		statePath,
+		manifestPath,
+		chainPath,
+		proofChainPath,
+		proofemit.ChainAttestationPath(proofChainPath),
+		proofemit.SigningKeyPath(statePath),
+		artifactPreflight.ReportPath,
+		artifactPreflight.SARIFPath,
+		jsonSink.outputPath,
+	)
+	if snapshotErr != nil {
+		return emitScanFailure(snapshotErr)
+	}
+	emitRolledBackScanFailure := func(err error) int {
+		progress.Flush()
+		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, managedSnapshots)
+	}
+	emitRolledBackScanError := func(code, message string, exitCode int) int {
+		progress.Flush()
+		if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%s (rollback restore failed: %v)", message, restoreErr), exitRuntime)
+		}
+		return emitError(stderr, jsonRequested || *jsonOut, code, message, exitCode)
+	}
+
+	if err := state.Save(statePath, snapshot); err != nil {
+		return emitRolledBackScanFailure(err)
+	}
 	chain, chainErr := lifecycle.LoadChain(chainPath)
 	if chainErr != nil {
-		return emitScanFailure(chainErr)
+		return emitRolledBackScanFailure(chainErr)
 	}
 	for _, transition := range transitions {
 		if err := lifecycle.AppendTransitionRecord(chain, transition, "lifecycle_transition"); err != nil {
-			return emitScanFailure(err)
+			return emitRolledBackScanFailure(err)
 		}
 	}
 	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
-		return emitScanFailure(err)
+		return emitRolledBackScanFailure(err)
 	}
 	if _, err := proofemit.EmitScan(statePath, now, findings, &inventoryOut, riskReport, profileResult, postureScore, transitions); err != nil {
-		return emitScanFailure(err)
+		return emitRolledBackScanFailure(err)
 	}
-	proofChain, err := proofemit.LoadChain(proofemit.ChainPath(statePath))
+	proofChain, err := proofemit.LoadChain(proofChainPath)
 	if err != nil {
-		return emitScanFailure(err)
+		return emitRolledBackScanFailure(err)
 	}
 	complianceSummary, err := compliance.BuildRollupSummary(findings, proofChain)
 	if err != nil {
-		return emitScanError("policy_schema_violation", err.Error(), exitPolicyViolation)
+		return emitRolledBackScanError("policy_schema_violation", err.Error(), exitPolicyViolation)
 	}
 	if err := manifest.Save(manifestPath, nextManifest); err != nil {
-		return emitScanFailure(err)
+		return emitRolledBackScanFailure(err)
 	}
 
 	payload := map[string]any{
@@ -436,9 +463,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		})
 		if reportErr != nil {
 			if isArtifactPathError(reportErr) {
-				return emitScanError("invalid_input", reportErr.Error(), exitInvalidInput)
+				return emitRolledBackScanError("invalid_input", reportErr.Error(), exitInvalidInput)
 			}
-			return emitScanFailure(reportErr)
+			return emitRolledBackScanFailure(reportErr)
 		}
 		scanReportPath = mdOutPath
 		payload["report"] = map[string]any{
@@ -450,7 +477,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if *sarifOut {
 		report := exportsarif.Build(findings, wrkrVersion())
 		if writeErr := exportsarif.Write(artifactPreflight.SARIFPath, report); writeErr != nil {
-			return emitScanFailure(writeErr)
+			return emitRolledBackScanFailure(writeErr)
 		}
 		scanSARIFPath = artifactPreflight.SARIFPath
 		payload["sarif"] = map[string]any{
@@ -460,7 +487,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 
 	if jsonSink.enabled() {
 		if err := jsonSink.writePayload(payload); err != nil {
-			return emitScanError("runtime_failure", err.Error(), exitRuntime)
+			return emitRolledBackScanError("runtime_failure", err.Error(), exitRuntime)
 		}
 		progress.Flush()
 		if *jsonOut {

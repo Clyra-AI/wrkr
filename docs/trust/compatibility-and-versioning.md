@@ -16,6 +16,8 @@ description: "How Wrkr maintains command, schema, and exit-code compatibility ac
 - Schema evolution is managed under `schemas/v1/`.
 - Manifest spec versioning is defined in `docs/specs/wrkr-manifest.md`.
 - `regress` baseline compatibility remains in `v1` for legacy baselines created before instance identities. Equivalent current identities reconcile automatically; additive JSON fields remain the preferred evolution path.
+- Stricter rejection of invalid inputs that never matched the documented command contract, such as non-scan JSON passed to `wrkr campaign aggregate`, is treated as a compatibility-preserving bug fix inside the current major line.
+- Repo-local extension detector findings remain additive by default; their prior implicit promotion into authoritative inventory, lifecycle, and regress state is not a stable compatibility guarantee.
 
 ## Command anchors
 
@@ -42,3 +44,7 @@ Wrkr reconciles legacy `v1` baseline agent IDs against equivalent current instan
 ### How should agents handle unknown fields in Wrkr JSON?
 
 Ignore unknown optional fields and fail only when required contract fields are missing or invalid.
+
+### Does rejecting non-scan JSON in `wrkr campaign aggregate` require a new version line?
+
+No. Campaign aggregation is documented to consume complete `wrkr scan --json` artifacts only, so rejecting other `status=ok` envelopes is a current-line contract fix rather than a versioned breaking change.

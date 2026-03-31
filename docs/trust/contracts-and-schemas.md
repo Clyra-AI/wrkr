@@ -23,6 +23,7 @@ wrkr verify --chain --json
 ## Compatibility posture
 
 Within the same major contract line, additive fields are expected to remain backward compatible for consumers that ignore unknown optional fields.
+Command-specific validators may still reject inputs that never matched the documented contract, for example non-scan JSON passed to `wrkr campaign aggregate`.
 
 ## Q&A
 
@@ -37,3 +38,7 @@ Schemas live in `schemas/v1/`, while command and flag contracts are documented u
 ### How should I design consumers to remain compatible over time?
 
 Treat additive optional fields as non-breaking, validate required fields strictly, and pin expected schema/manifest versions in CI checks.
+
+### Which JSON artifacts are valid inputs to `wrkr campaign aggregate`?
+
+Only complete `wrkr scan --json` artifacts. Other `status=ok` envelopes from commands such as `wrkr version` or `wrkr report` are not valid campaign inputs.

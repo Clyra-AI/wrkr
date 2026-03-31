@@ -249,6 +249,71 @@ func TestCampaignAggregateRejectsArtifactsWithSourceErrors(t *testing.T) {
 	assertCampaignInvalidInput(t, errOut.Bytes(), "source_errors=1")
 }
 
+func TestCampaignAggregateRejectsVersionEnvelope(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	inputPath := filepath.Join(tmp, "version.json")
+	writeCampaignArtifact(t, inputPath, map[string]any{
+		"status":  "ok",
+		"version": "devel",
+	})
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"campaign", "aggregate", "--input-glob", inputPath, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertCampaignInvalidInput(t, errOut.Bytes(), "missing target object")
+}
+
+func TestCampaignAggregateRejectsReportEnvelope(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	inputPath := filepath.Join(tmp, "report.json")
+	writeCampaignArtifact(t, inputPath, map[string]any{
+		"status":       "ok",
+		"generated_at": "2026-03-31T00:00:00Z",
+		"top_findings": []any{},
+		"summary":      map[string]any{},
+	})
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"campaign", "aggregate", "--input-glob", inputPath, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertCampaignInvalidInput(t, errOut.Bytes(), "missing target object")
+}
+
+func TestCampaignAggregateRejectsArtifactMissingInventoryContract(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	inputPath := filepath.Join(tmp, "scan.json")
+	writeCampaignArtifact(t, inputPath, map[string]any{
+		"status": "ok",
+		"target": map[string]any{"mode": "repo", "value": "acme/backend"},
+		"source_manifest": map[string]any{
+			"target": map[string]any{"mode": "repo", "value": "acme/backend"},
+			"repos":  []any{},
+		},
+		"privilege_budget": map[string]any{},
+		"findings":         []any{},
+	})
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"campaign", "aggregate", "--input-glob", inputPath, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertCampaignInvalidInput(t, errOut.Bytes(), "missing inventory object")
+}
+
 func TestCampaignAggregateSuppressesUnknownToSecurityMetricsWithoutReferenceBasis(t *testing.T) {
 	t.Parallel()
 
