@@ -20,6 +20,7 @@ import (
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/state"
 	verifycore "github.com/Clyra-AI/wrkr/core/verify"
+	"github.com/Clyra-AI/wrkr/internal/managedmarker"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,6 +42,7 @@ type BuildResult struct {
 
 const outputDirMarkerFile = ".wrkr-evidence-managed"
 const outputDirMarkerContent = "managed by wrkr evidence build\n"
+const outputDirMarkerKind = "evidence_output"
 
 type ErrorClass string
 
@@ -177,13 +179,13 @@ func Build(in BuildInput) (BuildResult, error) {
 		outputDir = "wrkr-evidence"
 	}
 	targetOutputDir := outputDir
-	if err := validateOutputDirTarget(targetOutputDir); err != nil {
+	if err := validateOutputDirTargetWithState(targetOutputDir, resolvedStatePath); err != nil {
 		if isOutputDirSafetyError(err) {
 			return BuildResult{}, classifyError(ErrorClassUnsafeOperationBlocked, err)
 		}
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
-	stageDir, err := createOutputStageDir(targetOutputDir)
+	stageDir, err := createOutputStageDir(targetOutputDir, resolvedStatePath)
 	if err != nil {
 		if isOutputDirSafetyError(err) {
 			return BuildResult{}, classifyError(ErrorClassUnsafeOperationBlocked, err)
@@ -507,9 +509,13 @@ func writeJSONL(path string, records []proof.Record) error {
 	return nil
 }
 
-func writeOutputDirMarker(path string) error {
+func writeOutputDirMarker(statePath string, path string, targetPath string) error {
 	markerPath := filepath.Join(path, outputDirMarkerFile)
-	if err := os.WriteFile(markerPath, []byte(outputDirMarkerContent), 0o600); err != nil {
+	payload, err := managedmarker.BuildPayload(statePath, targetPath, outputDirMarkerKind)
+	if err != nil {
+		return fmt.Errorf("build output dir marker: %w", err)
+	}
+	if err := os.WriteFile(markerPath, payload, 0o600); err != nil {
 		return fmt.Errorf("write output dir marker: %w", err)
 	}
 	return nil

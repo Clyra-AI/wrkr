@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/internal/managedmarker"
 )
 
 func TestPrepareMaterializedRootRejectsNonManagedNonEmptyDir(t *testing.T) {
@@ -43,7 +45,11 @@ func TestPrepareMaterializedRootRejectsMarkerSymlink(t *testing.T) {
 	if err := os.MkdirAll(root, 0o750); err != nil {
 		t.Fatalf("mkdir root: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "marker-target.txt"), []byte(materializedRootMarkerContent), 0o600); err != nil {
+	payload, err := managedmarker.BuildPayload(statePath, root, materializedRootMarkerKind)
+	if err != nil {
+		t.Fatalf("build marker target: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "marker-target.txt"), payload, 0o600); err != nil {
 		t.Fatalf("write marker target: %v", err)
 	}
 	if err := os.Symlink("marker-target.txt", filepath.Join(root, materializedRootMarkerFile)); err != nil {
@@ -53,7 +59,7 @@ func TestPrepareMaterializedRootRejectsMarkerSymlink(t *testing.T) {
 		t.Fatalf("write stale file: %v", err)
 	}
 
-	_, err := prepareMaterializedRoot(statePath)
+	_, err = prepareMaterializedRoot(statePath)
 	if err == nil {
 		t.Fatal("expected marker symlink to be rejected")
 	}
@@ -71,7 +77,11 @@ func TestPrepareMaterializedRootResetsManagedRoot(t *testing.T) {
 	if err := os.MkdirAll(root, 0o750); err != nil {
 		t.Fatalf("mkdir root: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, materializedRootMarkerFile), []byte(materializedRootMarkerContent), 0o600); err != nil {
+	payload, err := managedmarker.BuildPayload(statePath, root, materializedRootMarkerKind)
+	if err != nil {
+		t.Fatalf("build marker: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, materializedRootMarkerFile), payload, 0o600); err != nil {
 		t.Fatalf("write marker: %v", err)
 	}
 	stalePath := filepath.Join(root, "stale.txt")
@@ -91,8 +101,33 @@ func TestPrepareMaterializedRootResetsManagedRoot(t *testing.T) {
 	}
 	if markerPayload, readErr := os.ReadFile(filepath.Join(root, materializedRootMarkerFile)); readErr != nil {
 		t.Fatalf("read marker: %v", readErr)
-	} else if string(markerPayload) != materializedRootMarkerContent {
-		t.Fatalf("unexpected marker content: %q", string(markerPayload))
+	} else if err := managedmarker.ValidatePayload(statePath, root, materializedRootMarkerKind, markerPayload); err != nil {
+		t.Fatalf("expected signed managed marker, got: %v", err)
+	}
+}
+
+func TestPrepareMaterializedRootRejectsLegacyMarkerContent(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "last-scan.json")
+	root := filepath.Join(filepath.Dir(statePath), "materialized-sources")
+	if err := os.MkdirAll(root, 0o750); err != nil {
+		t.Fatalf("mkdir root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, materializedRootMarkerFile), []byte(materializedRootMarkerContent), 0o600); err != nil {
+		t.Fatalf("write legacy marker: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "stale.txt"), []byte("stale"), 0o600); err != nil {
+		t.Fatalf("write stale file: %v", err)
+	}
+
+	_, err := prepareMaterializedRoot(statePath)
+	if err == nil {
+		t.Fatal("expected legacy marker content to be rejected")
+	}
+	if !isMaterializedRootSafetyError(err) {
+		t.Fatalf("expected materialized root safety error, got: %v", err)
 	}
 }
 

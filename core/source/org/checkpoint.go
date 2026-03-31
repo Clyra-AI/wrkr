@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
+	"github.com/Clyra-AI/wrkr/internal/managedmarker"
 )
 
 const (
@@ -18,6 +19,7 @@ const (
 	checkpointRootName      = "org-checkpoints"
 	checkpointMarkerFile    = ".wrkr-org-checkpoints-managed"
 	checkpointMarkerContent = "managed by wrkr org checkpoints\n"
+	checkpointMarkerKind    = "org_checkpoint_root"
 )
 
 type checkpointInputError struct {
@@ -95,7 +97,7 @@ func prepareCheckpointRoot(statePath string) (string, error) {
 			if err := os.MkdirAll(root, 0o750); err != nil {
 				return "", fmt.Errorf("create org checkpoint root: %w", err)
 			}
-			if err := writeCheckpointMarker(root); err != nil {
+			if err := writeCheckpointMarker(cleanState, root); err != nil {
 				return "", err
 			}
 			return root, nil
@@ -114,7 +116,7 @@ func prepareCheckpointRoot(statePath string) (string, error) {
 		return "", fmt.Errorf("read org checkpoint root: %w", err)
 	}
 	if len(entries) == 0 {
-		if err := writeCheckpointMarker(root); err != nil {
+		if err := writeCheckpointMarker(cleanState, root); err != nil {
 			return "", err
 		}
 		return root, nil
@@ -135,15 +137,19 @@ func prepareCheckpointRoot(statePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read org checkpoint root marker: %w", err)
 	}
-	if string(payload) != checkpointMarkerContent {
+	if err := managedmarker.ValidatePayload(cleanState, root, checkpointMarkerKind, payload); err != nil {
 		return "", newCheckpointSafetyError("org checkpoint root marker content is invalid: %s", markerPath)
 	}
 	return root, nil
 }
 
-func writeCheckpointMarker(root string) error {
+func writeCheckpointMarker(statePath string, root string) error {
 	markerPath := filepath.Join(root, checkpointMarkerFile)
-	if err := os.WriteFile(markerPath, []byte(checkpointMarkerContent), 0o600); err != nil {
+	payload, err := managedmarker.BuildPayload(statePath, root, checkpointMarkerKind)
+	if err != nil {
+		return fmt.Errorf("build org checkpoint root marker: %w", err)
+	}
+	if err := os.WriteFile(markerPath, payload, 0o600); err != nil {
 		return fmt.Errorf("write org checkpoint root marker: %w", err)
 	}
 	return nil

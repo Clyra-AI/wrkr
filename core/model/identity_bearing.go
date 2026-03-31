@@ -92,14 +92,8 @@ func isBearingFinding(f Finding, allowlist map[string]struct{}) bool {
 	if normalizedToolType == "" {
 		return false
 	}
-	if _, allowed := allowlist[normalizeIdentityScopeToken(f.FindingType)]; allowed {
-		return true
-	}
-	if normalizeIdentityScopeToken(f.Detector) != "extension" {
-		return false
-	}
-	_, excluded := legacyNonToolArtifactTypes[normalizedToolType]
-	return !excluded
+	_, allowed := allowlist[normalizeIdentityScopeToken(f.FindingType)]
+	return allowed
 }
 
 func normalizeIdentityScopeToken(value string) string {

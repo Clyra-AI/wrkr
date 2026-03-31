@@ -704,9 +704,11 @@ func TestScanRepoAndOrgWithUnreachableGitHubAPIReturnRuntimeFailure(t *testing.T
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			tmp := t.TempDir()
+			args := append(append([]string{}, tc.args...), "--state", filepath.Join(tmp, "state.json"))
 			var out bytes.Buffer
 			var errOut bytes.Buffer
-			code := Run(tc.args, &out, &errOut)
+			code := Run(args, &out, &errOut)
 			if code != 1 {
 				t.Fatalf("expected exit 1, got %d", code)
 			}

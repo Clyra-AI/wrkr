@@ -27,6 +27,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Clarified the public `action_paths[*].path_id` contract and aligned docs and contract tests with the shipped deterministic identifier format.
 - Clarified scan and report wording so Wrkr's customer-facing output stays explicitly scoped to static posture, risky paths, and offline-verifiable proof.
 - Govern-first summaries now highlight ownership quality and ownerless exposure so unresolved or conflicting ownership is explicit in top action paths.
+- Updated scan, evidence, campaign, and extension-detector docs plus regression coverage to match the hardened contract and boundary behavior.
 
 ### Deprecated
 
@@ -40,6 +41,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Deduplicated govern-first `action_paths` so each deterministic action path emits one unique `path_id` row per scan.
 - Priority detectors now surface permission and stat failures consistently in scan output so incomplete visibility is explicit.
+- Made scan artifact publication transactional so failed late writes no longer leave mixed state, proof, and manifest generations on disk.
+- `wrkr campaign aggregate` now rejects non-scan JSON and incomplete artifacts with stable `invalid_input` errors instead of summarizing them as posture evidence.
+- Repo-local extension detectors now stay on additive finding surfaces by default and no longer create implicit tool identities, action paths, or regress state.
 
 
 ## Changelog maintenance process
@@ -75,5 +79,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `wrkr regress run` now reconciles legacy `v1` baselines created before instance identities when the current identity is equivalent.
 
 ### Security
-
-- (none yet)
+- Hardened managed output and scan-owned directory ownership checks so forged marker files can no longer authorize destructive reuse of caller-selected paths.

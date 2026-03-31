@@ -27,10 +27,12 @@ import (
 	"github.com/Clyra-AI/wrkr/core/source/localsetup"
 	"github.com/Clyra-AI/wrkr/core/source/org"
 	"github.com/Clyra-AI/wrkr/core/state"
+	"github.com/Clyra-AI/wrkr/internal/managedmarker"
 )
 
 const materializedRootMarkerFile = ".wrkr-materialized-sources-managed"
 const materializedRootMarkerContent = "managed by wrkr scan materialized sources\n"
+const materializedRootMarkerKind = "scan_materialized_root"
 
 type materializedRootSafetyError struct {
 	message string
@@ -230,7 +232,7 @@ func prepareMaterializedRoot(statePath string) (string, error) {
 		return "", fmt.Errorf("state path is required for materialized source acquisition")
 	}
 	root := filepath.Join(filepath.Dir(cleanState), "materialized-sources")
-	if err := prepareManagedMaterializedRoot(root, true); err != nil {
+	if err := prepareManagedMaterializedRoot(root, cleanState, true); err != nil {
 		return "", err
 	}
 	return root, nil
@@ -242,20 +244,20 @@ func prepareMaterializedRootForResume(statePath string) (string, error) {
 		return "", fmt.Errorf("state path is required for materialized source acquisition")
 	}
 	root := filepath.Join(filepath.Dir(cleanState), "materialized-sources")
-	if err := prepareManagedMaterializedRoot(root, false); err != nil {
+	if err := prepareManagedMaterializedRoot(root, cleanState, false); err != nil {
 		return "", err
 	}
 	return root, nil
 }
 
-func prepareManagedMaterializedRoot(root string, reset bool) error {
+func prepareManagedMaterializedRoot(root string, statePath string, reset bool) error {
 	info, err := os.Lstat(root)
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err := os.MkdirAll(root, 0o750); err != nil {
 				return fmt.Errorf("create materialized source root: %w", err)
 			}
-			return writeMaterializedRootMarker(root)
+			return writeMaterializedRootMarker(statePath, root)
 		}
 		return fmt.Errorf("lstat materialized source root: %w", err)
 	}
@@ -270,7 +272,7 @@ func prepareManagedMaterializedRoot(root string, reset bool) error {
 		return fmt.Errorf("read materialized source root: %w", err)
 	}
 	if len(entries) == 0 {
-		return writeMaterializedRootMarker(root)
+		return writeMaterializedRootMarker(statePath, root)
 	}
 
 	markerPath := filepath.Join(root, materializedRootMarkerFile)
@@ -288,7 +290,7 @@ func prepareManagedMaterializedRoot(root string, reset bool) error {
 	if err != nil {
 		return fmt.Errorf("read materialized source root marker: %w", err)
 	}
-	if string(markerPayload) != materializedRootMarkerContent {
+	if err := managedmarker.ValidatePayload(statePath, root, materializedRootMarkerKind, markerPayload); err != nil {
 		return newMaterializedRootSafetyError("materialized source root marker content is invalid: %s", markerPath)
 	}
 	if !reset {
@@ -307,9 +309,13 @@ func prepareManagedMaterializedRoot(root string, reset bool) error {
 	return nil
 }
 
-func writeMaterializedRootMarker(root string) error {
+func writeMaterializedRootMarker(statePath string, root string) error {
 	markerPath := filepath.Join(root, materializedRootMarkerFile)
-	if err := os.WriteFile(markerPath, []byte(materializedRootMarkerContent), 0o600); err != nil {
+	payload, err := managedmarker.BuildPayload(statePath, root, materializedRootMarkerKind)
+	if err != nil {
+		return fmt.Errorf("build materialized source root marker: %w", err)
+	}
+	if err := os.WriteFile(markerPath, payload, 0o600); err != nil {
 		return fmt.Errorf("write materialized source root marker: %w", err)
 	}
 	return nil

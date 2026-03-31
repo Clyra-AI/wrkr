@@ -43,4 +43,31 @@ func TestScenarioExtensionDetectorExecution(t *testing.T) {
 	if !foundCustom {
 		t.Fatalf("expected custom_extension_finding in scenario output, got %v", findings)
 	}
+
+	if inventoryValue, ok := payload["inventory"].(map[string]any); ok {
+		if tools, ok := inventoryValue["tools"].([]any); ok {
+			for _, item := range tools {
+				tool, castOK := item.(map[string]any)
+				if castOK && tool["tool_type"] == "custom_detector" {
+					t.Fatalf("expected custom extension finding to stay off inventory tool surfaces, got %v", tool)
+				}
+			}
+		}
+	}
+	if rows, ok := payload["agent_privilege_map"].([]any); ok {
+		for _, item := range rows {
+			row, castOK := item.(map[string]any)
+			if castOK && row["tool_type"] == "custom_detector" {
+				t.Fatalf("expected custom extension finding to stay off agent privilege map, got %v", row)
+			}
+		}
+	}
+	if paths, ok := payload["action_paths"].([]any); ok {
+		for _, item := range paths {
+			path, castOK := item.(map[string]any)
+			if castOK && path["tool_type"] == "custom_detector" {
+				t.Fatalf("expected custom extension finding to stay off action paths, got %v", path)
+			}
+		}
+	}
 }

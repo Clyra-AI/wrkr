@@ -38,4 +38,5 @@ Wrkr supports deterministic file-based detector extensions via repository-local 
 - Descriptors are loaded and validated with strict typed parsing.
 - Descriptor IDs are deterministically ordered before emission.
 - Invalid descriptors fail closed as detector errors with stable code/class (`invalid_extension_descriptor`, `extension`).
-- Extension findings are additive and do not bypass built-in detector/risk/proof boundaries.
+- Extension findings are additive and remain on raw finding and risk-report surfaces by default.
+- Extension descriptors do not create inventory tools, lifecycle identities, regress tools, `agent_privilege_map` rows, or `action_paths` unless a future explicit contract introduces that capability.

@@ -18,15 +18,16 @@ Acquisition behavior is fail-closed by target:
 - `--github-org` is an additive alias for `--org`.
 - `--repo` and `--org` materialize repository contents into a deterministic local workspace under the scan state directory before detectors run.
 - Materialized workspace root (`materialized-sources/`) is ownership-gated:
-  - Wrkr-managed roots include marker `.wrkr-materialized-sources-managed`.
+  - Wrkr-managed roots include marker `.wrkr-materialized-sources-managed` with state-bound provenance, not just a static marker body.
   - Non-empty roots without a valid marker are blocked (no recursive cleanup).
-  - Marker must be a regular file with expected content; symlink/directory/invalid marker content is blocked.
+  - Marker must be a regular file with valid state-bound marker payload; symlink/directory/legacy-static/invalid marker content is blocked.
   - On `--resume`, previously materialized repo directories and checkpoint files must also be regular in-root artifacts; symlink-swapped repo roots or checkpoint files are blocked.
   - Ownership violations return `unsafe_operation_blocked` (exit `8`).
 - When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
-- The state snapshot is the authoritative commit point; auxiliary manifest/chain artifacts are emitted only after snapshot persistence succeeds.
-- Invalid scan-owned artifact paths such as `--report-md-path` and `--sarif-path` are preflight-validated before the authoritative commit point; `invalid_input` on those paths must leave managed state and proof artifacts untouched.
+- Scan-owned managed artifacts are published transactionally: state snapshot, lifecycle chain, proof chain/attestation, manifest, and any requested `--json-path`, `--report-md-path`, or `--sarif-path` sidecars commit as one generation.
+- Invalid scan-owned artifact paths such as `--report-md-path` and `--sarif-path` are preflight-validated before any managed artifact mutation.
+- Late write failures after preflight still fail closed and roll managed artifacts back to the previous committed generation instead of leaving mixed state/proof/manifest outputs behind.
 - For `--path` scans, detector file reads stay bounded to the selected repo root. Root-escaping symlinked config, env, workflow, and MCP files are rejected with deterministic `parse_error.kind=unsafe_path` diagnostics instead of being read.
 
 ## Flags
@@ -204,5 +205,5 @@ Wrkr stays in the See boundary: it inventories and scores tools plus agents from
 Wrkr also does not assess package or MCP-server vulnerabilities in this path; use dedicated scanners such as Snyk for that class of assessment.
 Gait is optional interoperability for control-layer decisions, not a prerequisite for `scan`.
 
-Custom extension detectors are loaded from `.wrkr/detectors/extensions.json` when present in scanned repositories. See [`docs/extensions/detectors.md`](../extensions/detectors.md).
+Custom extension detectors are loaded from `.wrkr/detectors/extensions.json` when present in scanned repositories. Their findings remain on additive finding and risk surfaces only by default; they do not create authoritative inventory, lifecycle, regress, or action-path state unless a future explicit contract says so. See [`docs/extensions/detectors.md`](../extensions/detectors.md).
 Canonical state and artifact lifecycle: [`docs/state_lifecycle.md`](../state_lifecycle.md).
