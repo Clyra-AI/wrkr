@@ -20,10 +20,6 @@ var (
 	removeAllHook   func(path string) error
 )
 
-func validateOutputDirTarget(path string) error {
-	return validateOutputDirTargetWithState(path, "")
-}
-
 func validateOutputDirTargetWithState(path string, statePath string) error {
 	cleanPath := filepath.Clean(path)
 	info, err := os.Lstat(cleanPath)
