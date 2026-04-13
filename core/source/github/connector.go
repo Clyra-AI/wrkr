@@ -723,10 +723,6 @@ func sleepWithContext(ctx context.Context, duration time.Duration) error {
 	}
 }
 
-func isRetryable(code int) bool {
-	return code == http.StatusTooManyRequests || code == http.StatusForbidden || code >= 500
-}
-
 type responseClassification struct {
 	Retryable   bool
 	RateLimited bool

@@ -264,25 +264,6 @@ func actionPriority(action string) int {
 	}
 }
 
-func deliveryChainPriority(status string) int {
-	switch strings.TrimSpace(status) {
-	case "pr_merge_deploy":
-		return 0
-	case "merge_deploy":
-		return 1
-	case "pr_merge":
-		return 2
-	case "deploy_only":
-		return 3
-	case "pr_only":
-		return 4
-	case "merge_only":
-		return 5
-	default:
-		return 99
-	}
-}
-
 func firstRepoFromEntry(entry agginventory.AgentPrivilegeMapEntry) string {
 	if len(entry.Repos) == 0 {
 		return ""
@@ -587,21 +568,6 @@ func ownershipPriority(status string) int {
 	case "unresolved":
 		return 2
 	case "":
-		return 3
-	default:
-		return 4
-	}
-}
-
-func governFirstOwnershipPriority(path ActionPath) int {
-	switch {
-	case strings.TrimSpace(path.OwnerSource) == "multi_repo_conflict":
-		return 0
-	case strings.TrimSpace(path.OwnershipStatus) == "unresolved":
-		return 1
-	case strings.TrimSpace(path.OwnershipStatus) == "inferred":
-		return 2
-	case strings.TrimSpace(path.OwnershipStatus) == "explicit":
 		return 3
 	default:
 		return 4

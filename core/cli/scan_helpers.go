@@ -260,9 +260,7 @@ func acquireSources(ctx context.Context, targets []config.Target, githubBaseURL,
 				continue
 			}
 		}
-		for _, failure := range targetManifest.Failures {
-			manifestOut.Failures = append(manifestOut.Failures, failure)
-		}
+		manifestOut.Failures = append(manifestOut.Failures, targetManifest.Failures...)
 		for _, repoManifest := range targetManifest.Repos {
 			key := repoIdentityKey(repoManifest)
 			if _, ok := seenRepos[key]; ok {
