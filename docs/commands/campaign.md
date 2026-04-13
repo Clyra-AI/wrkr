@@ -11,6 +11,7 @@ wrkr campaign aggregate --input-glob '<glob>' [--output <path>] [--md] [--md-pat
 Aggregate multiple `wrkr scan --json` artifacts into one deterministic campaign summary for report headline metrics and methodology metadata.
 Campaign aggregation accepts complete scan artifacts only. Artifacts with `partial_result=true`, `source_degraded=true`, or non-empty `source_errors` are rejected as `invalid_input` instead of being summarized.
 Artifacts must also carry the expected scan contract fields (`target`, `source_manifest`, `inventory`, `privilege_budget`, and `findings`); generic `status=ok` JSON from other commands is rejected as `invalid_input`.
+Campaign aggregation currently accepts single-target scan artifacts only. Multi-target artifacts with `target.mode=multi` are rejected as `invalid_input` until campaign org-bucketing semantics are explicitly expanded.
 
 ## Flags
 

@@ -33,6 +33,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
 	sourcegithub "github.com/Clyra-AI/wrkr/core/source/github"
+	"github.com/Clyra-AI/wrkr/core/source/localsetup"
 	sourceorg "github.com/Clyra-AI/wrkr/core/source/org"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -114,8 +115,6 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 	}
-	target := manifestTargetFromTargets(targets)
-	targetMode := target.Mode
 	if *resume && !allTargetsAreOrg(targets) {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--resume is only supported when every requested target is an org target", exitInvalidInput)
 	}
@@ -255,8 +254,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			})
 		}
 	}
-	if targetMode == string(config.TargetMySetup) {
-		findings = append(findings, approvedtools.CompareLocalInventory(&inventoryOut, approvedConfigured, strings.TrimSpace(*approvedToolsPath))...)
+	if anyTargetIsMySetup(targets) {
+		localInventory := inventoryLocalMachineSlice(inventoryOut)
+		findings = append(findings, approvedtools.CompareLocalInventory(&localInventory, approvedConfigured, strings.TrimSpace(*approvedToolsPath))...)
+		inventoryOut.LocalGovernance = localInventory.LocalGovernance
 		source.SortFindings(findings)
 		riskReport = risk.Score(findings, 5, now)
 		repoRisk = map[string]float64{}
@@ -538,6 +539,31 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	progress.Flush()
 	_, _ = fmt.Fprintln(stdout, "wrkr scan complete")
 	return exitSuccess
+}
+
+func inventoryLocalMachineSlice(inv agginventory.Inventory) agginventory.Inventory {
+	local := inv
+	local.Tools = make([]agginventory.Tool, 0, len(inv.Tools))
+	for _, tool := range inv.Tools {
+		if toolTouchesLocalMachine(tool) {
+			local.Tools = append(local.Tools, tool)
+		}
+	}
+	return local
+}
+
+func toolTouchesLocalMachine(tool agginventory.Tool) bool {
+	for _, repo := range tool.Repos {
+		if strings.TrimSpace(repo) == localsetup.RepoName {
+			return true
+		}
+	}
+	for _, location := range tool.Locations {
+		if strings.TrimSpace(location.Repo) == localsetup.RepoName {
+			return true
+		}
+	}
+	return false
 }
 
 type scanArtifactPreflight struct {

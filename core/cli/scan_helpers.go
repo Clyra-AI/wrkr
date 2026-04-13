@@ -383,6 +383,15 @@ func anyTargetIsOrg(targets []config.Target) bool {
 	return false
 }
 
+func anyTargetIsMySetup(targets []config.Target) bool {
+	for _, target := range targets {
+		if target.Mode == config.TargetMySetup {
+			return true
+		}
+	}
+	return false
+}
+
 func anyTargetNeedsGitHub(targets []config.Target) bool {
 	for _, target := range targets {
 		if target.Mode == config.TargetRepo || target.Mode == config.TargetOrg {
