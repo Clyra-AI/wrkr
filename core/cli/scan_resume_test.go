@@ -140,7 +140,7 @@ func TestScanResumeSuccessEmitsResumeProgress(t *testing.T) {
 	if payload["status"] != "ok" {
 		t.Fatalf("unexpected payload: %v", payload)
 	}
-	if !strings.Contains(errOut.String(), "progress target=org event=resume repo_total=1 completed=1 pending=0") {
+	if !strings.Contains(errOut.String(), "progress target=org org=acme event=resume repo_total=1 completed=1 pending=0") {
 		t.Fatalf("expected resume progress line, got %q", errOut.String())
 	}
 }

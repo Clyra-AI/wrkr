@@ -213,6 +213,9 @@ func validateCampaignTargetObject(scanPath string, label string, value any) erro
 	if strings.TrimSpace(mode) == "" {
 		return fmt.Errorf("scan artifact %s missing %s.mode", scanPath, label)
 	}
+	if strings.TrimSpace(mode) == source.TargetModeMulti {
+		return fmt.Errorf("scan artifact %s uses %s.mode=%s, which campaign aggregate does not support; provide single-target scan artifacts instead", scanPath, label, source.TargetModeMulti)
+	}
 	rawValue, _ := target["value"].(string)
 	if campaignTargetRequiresValue(mode) && strings.TrimSpace(rawValue) == "" {
 		return fmt.Errorf("scan artifact %s missing %s.value", scanPath, label)
@@ -221,7 +224,12 @@ func validateCampaignTargetObject(scanPath string, label string, value any) erro
 }
 
 func campaignTargetRequiresValue(mode string) bool {
-	return strings.TrimSpace(mode) != "my_setup"
+	switch strings.TrimSpace(mode) {
+	case "my_setup":
+		return false
+	default:
+		return true
+	}
 }
 
 type campaignSegmentMetadataFile struct {

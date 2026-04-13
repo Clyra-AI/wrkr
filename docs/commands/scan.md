@@ -3,10 +3,13 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
 ```
 
-Exactly one target source is required: `--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`.
+Use either one legacy target source (`--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`) or one or more repeatable `--target <mode>:<value>` flags.
+Legacy target flags remain supported as one-entry shims and cannot be combined with `--target` in the same invocation.
+Supported `--target` modes are `repo`, `org`, `path`, and `my_setup`.
+For `my_setup`, use `--target my_setup:local-machine`.
 
 Acquisition behavior is fail-closed by target:
 
@@ -16,6 +19,7 @@ Acquisition behavior is fail-closed by target:
 - `--repo` and `--org` require real GitHub acquisition via `--github-api` or `WRKR_GITHUB_API_BASE`.
 - Hosted GitHub token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 - `--github-org` is an additive alias for `--org`.
+- Explicit multi-target scans set `target.mode=multi` and add deterministic `targets[]` arrays to the top-level scan payload, saved state snapshot, and `source_manifest`.
 - `--repo` and `--org` materialize repository contents into a deterministic local workspace under the scan state directory before detectors run.
 - Materialized workspace root (`materialized-sources/`) is ownership-gated:
   - Wrkr-managed roots include marker `.wrkr-materialized-sources-managed` with state-bound provenance, not just a static marker body.
@@ -42,6 +46,7 @@ Acquisition behavior is fail-closed by target:
 - `--github-org`
 - `--path`
 - `--my-setup`
+- `--target`
 - `--timeout`
 - `--diff`
 - `--enrich`
@@ -100,9 +105,16 @@ wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/
 ```
 
 When `--json` is set for hosted org scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, and completion lines to stderr only. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file.
-`--resume` is supported only for `--org` / `--github-org` scans. Wrkr stores internal checkpoint metadata under the scan-state directory in `org-checkpoints/` and reuses already-materialized repositories only when the checkpoint target, repo set, and materialized-root path still match the current org scan.
+`--resume` is supported only when every requested target is an org target. Wrkr stores internal checkpoint metadata under the scan-state directory in `org-checkpoints/` and reuses already-materialized repositories only when the checkpoint target set, per-org repo sets, and materialized-root path still match the current org-target scan.
 Resume also revalidates that checkpoint files and reused repo roots are still trusted local artifacts under the managed materialized root; symlink-swapped entries fail closed as `unsafe_operation_blocked`.
+Mixed target sets such as org-plus-path scans fail closed with `invalid_input` when `--resume` is requested.
 If a run is interrupted after some repositories are checkpointed, rerun the same target with `--resume` and keep the same `--state` path. If `partial_result`, `source_errors`, or `source_degraded` is present, treat the scan as incomplete and rerun after the blocking condition is resolved.
+
+Mixed target example:
+
+```bash
+wrkr scan --target org:acme --target path:./repos --github-api https://api.github.com --json
+```
 
 ## Repo/path example
 
@@ -111,10 +123,11 @@ wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --re
 ```
 
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
+Explicit multi-target runs also emit additive `targets[]` arrays at the top level and inside `source_manifest`, and saved state snapshots preserve the same additive `targets[]` contract.
 For local-machine scans, `target.mode` is `my_setup`.
 When `target.mode=my_setup`, `activation.items` projects concrete local tool, MCP, secret, and parse-error signals first without mutating the raw `top_findings` ranking. Policy-only items remain available in `ranked_findings` / `top_findings`.
-When `target.mode=org` or `target.mode=path`, `activation.items` projects govern-first candidate paths from the saved privilege map and adds `item_class` values such as `production_target_backed`, `unknown_to_security_write_path`, `approval_gap_path`, and `govern_first_candidate`.
-`action_paths[*]` combines path identity, write capability, approval gap, security visibility, credential/deployment posture, delivery-chain metadata (`pull_request_write`, `merge_execute`, `deploy_write`, `delivery_chain_status`), production-target truth (`production_target_status`, `production_write`), additive execution-identity fields (`execution_identity`, `execution_identity_type`, `execution_identity_source`, `execution_identity_status`, `execution_identity_rationale`), attack-path score, and a stable `recommended_action` enum of `inventory|approval|proof|control`.
+When `target.mode=org`, `target.mode=path`, or `target.mode=multi`, `activation.items` projects govern-first candidate paths from the saved privilege map and adds `item_class` values such as `production_target_backed`, `unknown_to_security_write_path`, `approval_gap_path`, and `govern_first_candidate`.
+`action_paths[*]` combines path identity, write capability, approval gap, security visibility, credential/deployment posture, delivery-chain metadata (`pull_request_write`, `merge_execute`, `deploy_write`, `delivery_chain_status`), additive workflow trigger posture (`workflow_trigger_class` such as `scheduled`, `workflow_dispatch`, or `deploy_pipeline`), production-target truth (`production_target_status`, `production_write`), additive execution-identity fields (`execution_identity`, `execution_identity_type`, `execution_identity_source`, `execution_identity_status`, `execution_identity_rationale`), attack-path score, and a stable `recommended_action` enum of `inventory|approval|proof|control`.
 `action_paths[*].path_id` is an opaque deterministic identifier currently emitted in `apc-<hex>` form. Treat it as a stable join key only; do not parse business meaning from its string format.
 `action_path_to_control_first` exposes one prioritized path plus deterministic summary counts (`total_paths`, `write_capable_paths`, `production_target_backed_paths`, `govern_first_paths`) without removing the legacy `attack_paths` surfaces.
 `--profile assessment` narrows govern-first surfaces such as `action_paths`, `action_path_to_control_first`, activation, and report summaries for sample/test/vendor-style noise while leaving raw `findings`, proof output, and exit codes unchanged.
@@ -162,7 +175,9 @@ Timeout/cancellation contract:
 Retry/degradation contract:
 
 - GitHub connector retries retryable failures with bounded jittered backoff.
-- HTTP `429` honors `Retry-After` and `X-RateLimit-Reset` wait semantics before retry.
+- HTTP `429` and recognizable rate-limit `403` responses retry deterministically.
+- When GitHub supplies `Retry-After` or `X-RateLimit-Reset`, Wrkr uses that observed window before retrying.
+- Exhausted hosted throttling keeps exit code `1` but emits JSON error code `rate_limited` so automation can distinguish retryable wait conditions from generic runtime failure.
 - Repeated transient failures trigger connector cooldown degradation; scan surfaces this in partial-result output (`source_degraded=true` when applicable).
 - In `--json` org mode, retry/cooldown/resume/completion operator progress is emitted to stderr only; stdout remains reserved for the final JSON payload.
 

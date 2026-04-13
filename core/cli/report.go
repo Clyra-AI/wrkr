@@ -18,12 +18,14 @@ import (
 	"github.com/Clyra-AI/wrkr/core/regress"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 type reportPayload struct {
 	Status                   string                       `json:"status"`
 	GeneratedAt              string                       `json:"generated_at"`
+	Targets                  []source.Target              `json:"targets,omitempty"`
 	TopFindings              []risk.ScoredFinding         `json:"top_findings"`
 	AttackPaths              any                          `json:"attack_paths,omitempty"`
 	TopAttackPaths           any                          `json:"top_attack_paths,omitempty"`
@@ -177,6 +179,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		ComplianceSummary:        summary.ComplianceSummary,
 		PrivilegeBudget:          summary.PrivilegeBudget,
 		Summary:                  summary,
+	}
+	if len(snapshot.Targets) > 0 {
+		payload.Targets = snapshot.Targets
 	}
 
 	payload.MDPath = mdOutPath

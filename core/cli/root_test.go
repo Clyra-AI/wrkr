@@ -1097,14 +1097,14 @@ targets:
 			productionTargets:   "",
 			wantStatus:          "not_configured",
 			wantProductionWrite: false,
-			wantAction:          "proof",
+			wantAction:          "control",
 		},
 		{
 			name:                "invalid",
 			productionTargets:   "schema_version: v2\n",
 			wantStatus:          "invalid",
 			wantProductionWrite: false,
-			wantAction:          "proof",
+			wantAction:          "control",
 		},
 	}
 

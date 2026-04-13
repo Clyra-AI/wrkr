@@ -44,6 +44,20 @@ type acquireOptions struct {
 	Resume    bool
 }
 
+type repeatedStringFlag []string
+
+func (f *repeatedStringFlag) String() string {
+	if f == nil || len(*f) == 0 {
+		return ""
+	}
+	return strings.Join(*f, ",")
+}
+
+func (f *repeatedStringFlag) Set(value string) error {
+	*f = append(*f, value)
+	return nil
+}
+
 func (e *materializedRootSafetyError) Error() string {
 	if e == nil {
 		return ""
@@ -60,27 +74,41 @@ func isMaterializedRootSafetyError(err error) bool {
 	return errors.As(err, &target)
 }
 
-func resolveScanTarget(repo, orgInput, githubOrgInput, pathInput string, mySetup bool, configPath string) (config.TargetMode, string, config.Config, error) {
-	mode, value, err := resolveScanTargetInput(repo, orgInput, githubOrgInput, pathInput, mySetup)
-	if err == nil {
-		return mode, value, config.Default(), nil
+func resolveScanTargets(repo, orgInput, githubOrgInput, pathInput string, mySetup bool, explicitTargets []string, configPath string) ([]config.Target, config.Config, error) {
+	hasLegacyInputs := strings.TrimSpace(repo) != "" || strings.TrimSpace(orgInput) != "" || strings.TrimSpace(githubOrgInput) != "" || strings.TrimSpace(pathInput) != "" || mySetup
+	legacyTargets, legacyErr := resolveLegacyScanTargets(repo, orgInput, githubOrgInput, pathInput, mySetup)
+	if len(explicitTargets) > 0 {
+		if len(legacyTargets) > 0 {
+			return nil, config.Config{}, fmt.Errorf("cannot combine legacy scan target flags with --target; use one style per command")
+		}
+		if legacyErr != nil && hasLegacyInputs {
+			return nil, config.Config{}, legacyErr
+		}
+		targets, err := parseExplicitScanTargets(explicitTargets)
+		if err != nil {
+			return nil, config.Config{}, err
+		}
+		return targets, config.Default(), nil
 	}
-	if strings.TrimSpace(repo) != "" || strings.TrimSpace(orgInput) != "" || strings.TrimSpace(githubOrgInput) != "" || strings.TrimSpace(pathInput) != "" || mySetup {
-		return "", "", config.Config{}, err
+	if legacyErr != nil && hasLegacyInputs {
+		return nil, config.Config{}, legacyErr
+	}
+	if len(legacyTargets) > 0 {
+		return legacyTargets, config.Default(), nil
 	}
 
 	resolvedPath, pathErr := config.ResolvePath(configPath)
 	if pathErr != nil {
-		return "", "", config.Config{}, pathErr
+		return nil, config.Config{}, pathErr
 	}
 	cfg, loadErr := config.Load(resolvedPath)
 	if loadErr != nil {
-		return "", "", config.Config{}, fmt.Errorf("no target provided and no usable config default target (%v)", loadErr)
+		return nil, config.Config{}, fmt.Errorf("no target provided and no usable config default target (%v)", loadErr)
 	}
-	return cfg.DefaultTarget.Mode, cfg.DefaultTarget.Value, cfg, nil
+	return []config.Target{cfg.DefaultTarget}, cfg, nil
 }
 
-func resolveScanTargetInput(repo, orgInput, githubOrgInput, pathInput string, mySetup bool) (config.TargetMode, string, error) {
+func resolveLegacyScanTargets(repo, orgInput, githubOrgInput, pathInput string, mySetup bool) ([]config.Target, error) {
 	targets := make([]config.Target, 0, 4)
 	if strings.TrimSpace(repo) != "" {
 		targets = append(targets, config.Target{Mode: config.TargetRepo, Value: strings.TrimSpace(repo)})
@@ -98,43 +126,90 @@ func resolveScanTargetInput(repo, orgInput, githubOrgInput, pathInput string, my
 		targets = append(targets, config.Target{Mode: config.TargetMySetup, Value: localsetup.TargetValue})
 	}
 
+	if len(targets) == 0 {
+		return nil, nil
+	}
 	if len(targets) != 1 {
-		return "", "", fmt.Errorf("exactly one target source is required: use one of --repo, --org, --github-org, --path, --my-setup")
+		return nil, fmt.Errorf("exactly one target source is required: use one of --repo, --org, --github-org, --path, --my-setup")
 	}
 	if err := config.ValidateTarget(targets[0].Mode, targets[0].Value); err != nil {
-		return "", "", err
+		return nil, err
 	}
-	return targets[0].Mode, targets[0].Value, nil
+	return targets, nil
 }
 
-func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBaseURL, githubToken string, opts acquireOptions) (source.Manifest, []source.Finding, error) {
+func parseExplicitScanTargets(rawTargets []string) ([]config.Target, error) {
+	targets := make([]config.Target, 0, len(rawTargets))
+	for _, raw := range rawTargets {
+		target, err := parseExplicitScanTarget(raw)
+		if err != nil {
+			return nil, err
+		}
+		targets = append(targets, target)
+	}
+	return normalizeScanTargets(targets), nil
+}
+
+func parseExplicitScanTarget(raw string) (config.Target, error) {
+	modeRaw, valueRaw, ok := strings.Cut(strings.TrimSpace(raw), ":")
+	if !ok {
+		return config.Target{}, fmt.Errorf("--target values must use <mode>:<value>")
+	}
+	mode := config.TargetMode(strings.TrimSpace(modeRaw))
+	value := strings.TrimSpace(valueRaw)
+	if mode == config.TargetMySetup {
+		if value != localsetup.TargetValue {
+			return config.Target{}, fmt.Errorf("--target my_setup must use value %q", localsetup.TargetValue)
+		}
+	}
+	if err := config.ValidateTarget(mode, value); err != nil {
+		return config.Target{}, err
+	}
+	return config.Target{Mode: mode, Value: value}, nil
+}
+
+func normalizeScanTargets(targets []config.Target) []config.Target {
+	if len(targets) == 0 {
+		return nil
+	}
+	normalized := append([]config.Target(nil), targets...)
+	sort.Slice(normalized, func(i, j int) bool {
+		if normalized[i].Mode == normalized[j].Mode {
+			return normalized[i].Value < normalized[j].Value
+		}
+		return normalized[i].Mode < normalized[j].Mode
+	})
+	deduped := make([]config.Target, 0, len(normalized))
+	for _, target := range normalized {
+		if len(deduped) > 0 && deduped[len(deduped)-1] == target {
+			continue
+		}
+		deduped = append(deduped, target)
+	}
+	return deduped
+}
+
+func acquireSources(ctx context.Context, targets []config.Target, githubBaseURL, githubToken string, opts acquireOptions) (source.Manifest, []source.Finding, error) {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return source.Manifest{}, nil, ctxErr
 	}
+	targets = normalizeScanTargets(targets)
+	if len(targets) == 0 {
+		return source.Manifest{}, nil, fmt.Errorf("at least one scan target is required")
+	}
 
 	connector := github.NewConnector(githubBaseURL, githubToken, nil)
-	connector.SetRetryHandler(func(event github.RetryEvent) {
-		if opts.Progress == nil {
-			return
-		}
-		opts.Progress.Retry(event.Attempt, event.Delay, event.StatusCode)
-	})
-	connector.SetCooldownHandler(func(event github.CooldownEvent) {
-		if opts.Progress == nil {
-			return
-		}
-		opts.Progress.Cooldown(event.Delay, event.Until)
-	})
-
-	manifestOut := source.Manifest{Target: source.Target{Mode: string(mode), Value: value}}
-	var findings []source.Finding
+	manifestOut := source.Manifest{
+		Target:  manifestTargetFromTargets(targets),
+		Targets: manifestTargets(targets),
+	}
 	materializeRoot := ""
-	if mode == config.TargetRepo || mode == config.TargetOrg {
+	if targetsNeedMaterializedRoot(targets) {
 		var (
 			root string
 			err  error
 		)
-		if mode == config.TargetOrg && opts.Resume {
+		if opts.Resume {
 			root, err = prepareMaterializedRootForResume(opts.StatePath)
 		} else {
 			root, err = prepareMaterializedRoot(opts.StatePath)
@@ -144,9 +219,243 @@ func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBa
 		}
 		materializeRoot = root
 	}
+	if opts.Resume {
+		if !allTargetsAreOrg(targets) {
+			return source.Manifest{}, nil, fmt.Errorf("--resume is only supported when every requested target is an org target")
+		}
+		targetSet := make([]string, 0, len(targets))
+		for _, target := range targets {
+			targetSet = append(targetSet, target.Value)
+		}
+		if err := org.ValidateTargetSet(opts.StatePath, targetSet, materializeRoot); err != nil {
+			return source.Manifest{}, nil, err
+		}
+	} else if allTargetsAreOrg(targets) {
+		targetSet := make([]string, 0, len(targets))
+		for _, target := range targets {
+			targetSet = append(targetSet, target.Value)
+		}
+		if err := org.SaveTargetSet(opts.StatePath, targetSet, materializeRoot); err != nil {
+			return source.Manifest{}, nil, err
+		}
+	}
 
-	sourceFinding := func(repoManifest source.RepoManifest, orgName, permission string) source.Finding {
-		return source.Finding{
+	seenRepos := map[string]struct{}{}
+	for _, target := range targets {
+		targetManifest, err := acquireTarget(ctx, connector, target, githubBaseURL, githubToken, materializeRoot, opts)
+		if err != nil {
+			if shouldRetryOrgTargetWithoutResume(targets, target, opts.Resume, err) {
+				retryOpts := opts
+				retryOpts.Resume = false
+				targetManifest, err = acquireTarget(ctx, connector, target, githubBaseURL, githubToken, materializeRoot, retryOpts)
+			}
+			if err != nil {
+				if len(targets) == 1 || isTargetAcquisitionFatal(err) {
+					return source.Manifest{}, nil, err
+				}
+				manifestOut.Failures = append(manifestOut.Failures, source.RepoFailure{
+					Repo:   renderScanTarget(target),
+					Reason: err.Error(),
+				})
+				continue
+			}
+		}
+		manifestOut.Failures = append(manifestOut.Failures, targetManifest.Failures...)
+		for _, repoManifest := range targetManifest.Repos {
+			key := repoIdentityKey(repoManifest)
+			if _, ok := seenRepos[key]; ok {
+				continue
+			}
+			seenRepos[key] = struct{}{}
+			manifestOut.Repos = append(manifestOut.Repos, repoManifest)
+		}
+	}
+
+	manifestOut = source.SortManifest(manifestOut)
+	findings := buildSourceFindings(manifestOut.Repos)
+	source.SortFindings(findings)
+	return manifestOut, findings, nil
+}
+
+func acquireTarget(ctx context.Context, connector *github.Connector, target config.Target, githubBaseURL, githubToken, materializeRoot string, opts acquireOptions) (source.Manifest, error) {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return source.Manifest{}, ctxErr
+	}
+	manifestOut := source.Manifest{Target: source.Target{Mode: string(target.Mode), Value: target.Value}}
+	switch target.Mode {
+	case config.TargetRepo:
+		repoManifest, err := connector.AcquireRepo(ctx, target.Value)
+		if err != nil {
+			return source.Manifest{}, err
+		}
+		materialized, materializeErr := connector.MaterializeRepo(ctx, repoManifest.Repo, materializeRoot)
+		if materializeErr != nil {
+			return source.Manifest{}, fmt.Errorf("materialize repo %s: %w", repoManifest.Repo, materializeErr)
+		}
+		manifestOut.Repos = []source.RepoManifest{materialized}
+	case config.TargetOrg:
+		connector.SetRetryHandler(func(event github.RetryEvent) {
+			if opts.Progress == nil {
+				return
+			}
+			opts.Progress.Retry(target.Value, event.Attempt, event.Delay, event.StatusCode)
+		})
+		connector.SetCooldownHandler(func(event github.CooldownEvent) {
+			if opts.Progress == nil {
+				return
+			}
+			opts.Progress.Cooldown(target.Value, event.Delay, event.Until)
+		})
+		repos, failures, err := org.AcquireMaterialized(ctx, target.Value, connector, connector, org.AcquireMaterializedOptions{
+			StatePath:        opts.StatePath,
+			MaterializedRoot: materializeRoot,
+			Resume:           opts.Resume,
+			Progress:         opts.Progress,
+		})
+		if err != nil {
+			return source.Manifest{}, err
+		}
+		manifestOut.Repos = repos
+		manifestOut.Failures = failures
+	case config.TargetPath:
+		repos, err := local.Acquire(target.Value)
+		if err != nil {
+			return source.Manifest{}, err
+		}
+		manifestOut.Repos = repos
+	case config.TargetMySetup:
+		repos, err := localsetup.Acquire()
+		if err != nil {
+			return source.Manifest{}, err
+		}
+		manifestOut.Repos = repos
+	default:
+		return source.Manifest{}, fmt.Errorf("unsupported target mode %q", target.Mode)
+	}
+	return source.SortManifest(manifestOut), nil
+}
+
+func manifestTargetFromTargets(targets []config.Target) source.Target {
+	if len(targets) == 1 {
+		return source.Target{Mode: string(targets[0].Mode), Value: targets[0].Value}
+	}
+	return source.Target{Mode: source.TargetModeMulti}
+}
+
+func manifestTargets(targets []config.Target) []source.Target {
+	if len(targets) <= 1 {
+		return nil
+	}
+	out := make([]source.Target, 0, len(targets))
+	for _, target := range targets {
+		out = append(out, source.Target{Mode: string(target.Mode), Value: target.Value})
+	}
+	return source.SortTargets(out)
+}
+
+func targetsNeedMaterializedRoot(targets []config.Target) bool {
+	for _, target := range targets {
+		if target.Mode == config.TargetRepo || target.Mode == config.TargetOrg {
+			return true
+		}
+	}
+	return false
+}
+
+func allTargetsAreOrg(targets []config.Target) bool {
+	if len(targets) == 0 {
+		return false
+	}
+	for _, target := range targets {
+		if target.Mode != config.TargetOrg {
+			return false
+		}
+	}
+	return true
+}
+
+func anyTargetIsOrg(targets []config.Target) bool {
+	for _, target := range targets {
+		if target.Mode == config.TargetOrg {
+			return true
+		}
+	}
+	return false
+}
+
+func anyTargetIsMySetup(targets []config.Target) bool {
+	for _, target := range targets {
+		if target.Mode == config.TargetMySetup {
+			return true
+		}
+	}
+	return false
+}
+
+func anyTargetNeedsGitHub(targets []config.Target) bool {
+	for _, target := range targets {
+		if target.Mode == config.TargetRepo || target.Mode == config.TargetOrg {
+			return true
+		}
+	}
+	return false
+}
+
+func renderScanTarget(target config.Target) string {
+	return fmt.Sprintf("%s:%s", target.Mode, target.Value)
+}
+
+func renderScanTargetSet(targets []config.Target) string {
+	rendered := make([]string, 0, len(targets))
+	for _, target := range targets {
+		rendered = append(rendered, renderScanTarget(target))
+	}
+	return strings.Join(rendered, ",")
+}
+
+func shouldRetryOrgTargetWithoutResume(targets []config.Target, target config.Target, resume bool, err error) bool {
+	return resume && len(targets) > 1 && target.Mode == config.TargetOrg && org.IsCheckpointMissingError(err)
+}
+
+func isTargetAcquisitionFatal(err error) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return true
+	case isMaterializedRootSafetyError(err):
+		return true
+	case org.IsCheckpointSafetyError(err), org.IsCheckpointInputError(err):
+		return true
+	default:
+		return false
+	}
+}
+
+func repoIdentityKey(repo source.RepoManifest) string {
+	if strings.HasPrefix(strings.TrimSpace(repo.Source), "github_") {
+		return "github:" + strings.ToLower(strings.TrimSpace(repo.Repo))
+	}
+	location := filepath.Clean(filepath.FromSlash(strings.TrimSpace(repo.Location)))
+	if abs, err := filepath.Abs(location); err == nil {
+		location = abs
+	}
+	if resolved, err := filepath.EvalSymlinks(location); err == nil {
+		location = resolved
+	}
+	return strings.TrimSpace(repo.Source) + ":" + filepath.ToSlash(location)
+}
+
+func buildSourceFindings(repos []source.RepoManifest) []source.Finding {
+	findings := make([]source.Finding, 0, len(repos))
+	for _, repoManifest := range repos {
+		orgName := "local"
+		permission := "filesystem.read"
+		if strings.HasPrefix(strings.TrimSpace(repoManifest.Source), "github_") {
+			orgName = repoOwner(repoManifest.Repo)
+			permission = "repo.contents.read"
+		}
+		findings = append(findings, source.Finding{
 			FindingType: "source_discovery",
 			Severity:    "low",
 			ToolType:    "source_repo",
@@ -155,75 +464,17 @@ func acquireSources(ctx context.Context, mode config.TargetMode, value, githubBa
 			Org:         orgName,
 			Permissions: []string{permission},
 			Detector:    "source",
-		}
-	}
-
-	switch mode {
-	case config.TargetRepo:
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return source.Manifest{}, nil, ctxErr
-		}
-		repoManifest, err := connector.AcquireRepo(ctx, value)
-		if err != nil {
-			return source.Manifest{}, nil, err
-		}
-		materialized, materializeErr := connector.MaterializeRepo(ctx, repoManifest.Repo, materializeRoot)
-		if materializeErr != nil {
-			return source.Manifest{}, nil, fmt.Errorf("materialize repo %s: %w", repoManifest.Repo, materializeErr)
-		}
-		manifestOut.Repos = []source.RepoManifest{materialized}
-		owner := strings.Split(value, "/")[0]
-		findings = append(findings, sourceFinding(materialized, owner, "repo.contents.read"))
-	case config.TargetOrg:
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return source.Manifest{}, nil, ctxErr
-		}
-		repos, failures, err := org.AcquireMaterialized(ctx, value, connector, connector, org.AcquireMaterializedOptions{
-			StatePath:        opts.StatePath,
-			MaterializedRoot: materializeRoot,
-			Resume:           opts.Resume,
-			Progress:         opts.Progress,
 		})
-		if err != nil {
-			return source.Manifest{}, nil, err
-		}
-		manifestOut.Repos = repos
-		manifestOut.Failures = failures
-		for _, repoManifest := range repos {
-			findings = append(findings, sourceFinding(repoManifest, value, "repo.contents.read"))
-		}
-	case config.TargetPath:
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return source.Manifest{}, nil, ctxErr
-		}
-		repos, err := local.Acquire(value)
-		if err != nil {
-			return source.Manifest{}, nil, err
-		}
-		manifestOut.Repos = repos
-		for _, repoManifest := range repos {
-			repoManifest.Location = filepath.ToSlash(repoManifest.Location)
-			findings = append(findings, sourceFinding(repoManifest, "local", "filesystem.read"))
-		}
-	case config.TargetMySetup:
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return source.Manifest{}, nil, ctxErr
-		}
-		repos, err := localsetup.Acquire()
-		if err != nil {
-			return source.Manifest{}, nil, err
-		}
-		manifestOut.Repos = repos
-		for _, repoManifest := range repos {
-			findings = append(findings, sourceFinding(repoManifest, "local", "filesystem.read"))
-		}
-	default:
-		return source.Manifest{}, nil, fmt.Errorf("unsupported target mode %q", mode)
 	}
+	return findings
+}
 
-	manifestOut = source.SortManifest(manifestOut)
-	source.SortFindings(findings)
-	return manifestOut, findings, nil
+func repoOwner(repo string) string {
+	parts := strings.Split(strings.TrimSpace(repo), "/")
+	if len(parts) > 1 && strings.TrimSpace(parts[0]) != "" {
+		return parts[0]
+	}
+	return "local"
 }
 
 func prepareMaterializedRoot(statePath string) (string, error) {
@@ -349,37 +600,32 @@ func detectorScopes(manifestOut source.Manifest) []detect.Scope {
 		if location == "" {
 			continue
 		}
-		orgName := deriveOrg(manifestOut.Target, repo)
+		orgName := deriveOrg(repo)
 		scopes = append(scopes, detect.Scope{
 			Org:        orgName,
 			Repo:       repo.Repo,
 			Root:       location,
-			TargetMode: strings.TrimSpace(manifestOut.Target.Mode),
+			TargetMode: scopeTargetMode(manifestOut.Target, repo),
 		})
 	}
 	return scopes
 }
 
-func deriveOrg(target source.Target, repo source.RepoManifest) string {
-	switch target.Mode {
-	case string(config.TargetOrg):
-		if strings.TrimSpace(target.Value) == "" {
-			return "local"
-		}
-		return target.Value
-	case string(config.TargetRepo):
-		parts := strings.Split(repo.Repo, "/")
-		if len(parts) > 1 && strings.TrimSpace(parts[0]) != "" {
-			return parts[0]
-		}
-		parts = strings.Split(target.Value, "/")
-		if len(parts) > 1 {
-			return parts[0]
-		}
-	default:
-		return "local"
+func deriveOrg(repo source.RepoManifest) string {
+	if strings.HasPrefix(strings.TrimSpace(repo.Source), "github_") {
+		return repoOwner(repo.Repo)
 	}
 	return "local"
+}
+
+func scopeTargetMode(target source.Target, repo source.RepoManifest) string {
+	if strings.TrimSpace(repo.Source) == "local_machine" {
+		return string(config.TargetMySetup)
+	}
+	if strings.TrimSpace(repo.Source) == "local_path" {
+		return string(config.TargetPath)
+	}
+	return strings.TrimSpace(target.Mode)
 }
 
 func loadPreviousSnapshot(statePath, baselinePath string) (*state.Snapshot, error) {

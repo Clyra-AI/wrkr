@@ -56,7 +56,10 @@ for code in sorted(set(exit_codes), key=int):
         print(f"docs/commands/root.md missing exit code `{code}`", file=sys.stderr)
         sys.exit(3)
 
-flag_pattern = re.compile(r'fs\.(?:Bool|String|Int|Duration)\("([a-z0-9-]+)"')
+flag_patterns = (
+    re.compile(r'fs\.(?:Bool|String|Int|Duration)\("([a-z0-9-]+)"'),
+    re.compile(r'fs\.Var\([^,]+,\s*"([a-z0-9-]+)"'),
+)
 
 source_to_doc = {
     "core/cli/root.go": "docs/commands/root.md",
@@ -77,7 +80,11 @@ source_to_doc = {
 }
 
 def extract_flags(path: pathlib.Path) -> set[str]:
-    return set(flag_pattern.findall(path.read_text(encoding="utf-8")))
+    text = path.read_text(encoding="utf-8")
+    flags: set[str] = set()
+    for pattern in flag_patterns:
+        flags.update(pattern.findall(text))
+    return flags
 
 for source_path, doc_path in source_to_doc.items():
     source_flags = extract_flags(repo / source_path)

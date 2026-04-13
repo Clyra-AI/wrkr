@@ -9,28 +9,10 @@
   ],
   "action_paths": [
     {
-      "path_id": "apc-8ec8602cb415",
-      "repo": "control-plane",
-      "tool_type": "mcp",
-      "recommended_action": "proof",
-      "owner_source": "repo_fallback",
-      "ownership_status": "inferred",
-      "business_state_surface": "admin_api"
-    },
-    {
-      "path_id": "apc-c042aea2cf0d",
-      "repo": "control-plane",
-      "tool_type": "claude",
-      "recommended_action": "proof",
-      "owner_source": "repo_fallback",
-      "ownership_status": "inferred",
-      "business_state_surface": "code"
-    },
-    {
       "path_id": "apc-b75aac3d0e0f",
       "repo": "control-plane",
       "tool_type": "ci_agent",
-      "recommended_action": "proof",
+      "recommended_action": "control",
       "owner_source": "codeowners",
       "ownership_status": "explicit",
       "business_state_surface": "deploy"
@@ -39,16 +21,34 @@
       "path_id": "apc-dfc2afa9f348",
       "repo": "control-plane",
       "tool_type": "compiled_action",
-      "recommended_action": "proof",
+      "recommended_action": "control",
       "owner_source": "codeowners",
       "ownership_status": "explicit",
       "business_state_surface": "deploy"
     },
     {
+      "path_id": "apc-8ec8602cb415",
+      "repo": "control-plane",
+      "tool_type": "mcp",
+      "recommended_action": "inventory",
+      "owner_source": "repo_fallback",
+      "ownership_status": "inferred",
+      "business_state_surface": "admin_api"
+    },
+    {
+      "path_id": "apc-c042aea2cf0d",
+      "repo": "control-plane",
+      "tool_type": "claude",
+      "recommended_action": "inventory",
+      "owner_source": "repo_fallback",
+      "ownership_status": "inferred",
+      "business_state_surface": "code"
+    },
+    {
       "path_id": "apc-c5d25a74d87f",
       "repo": "control-plane",
       "tool_type": "codex",
-      "recommended_action": "proof",
+      "recommended_action": "inventory",
       "owner_source": "codeowners",
       "ownership_status": "explicit",
       "business_state_surface": "code"
@@ -59,14 +59,14 @@
       "total_paths": 5,
       "write_capable_paths": 2,
       "production_target_backed_paths": 0,
-      "govern_first_paths": 5
+      "govern_first_paths": 3
     },
     "path": {
-      "path_id": "apc-8ec8602cb415",
+      "path_id": "apc-b75aac3d0e0f",
       "repo": "control-plane",
-      "tool_type": "mcp",
-      "recommended_action": "proof",
-      "business_state_surface": "admin_api"
+      "tool_type": "ci_agent",
+      "recommended_action": "control",
+      "business_state_surface": "deploy"
     }
   },
   "assessment_summary": {
@@ -88,14 +88,14 @@
     },
     "identity_to_review_first": {
       "execution_identity": "github_app",
-      "path_count": 2,
+      "path_count": 5,
       "write_capable_path_count": 2,
       "shared_execution_identity": true,
       "standing_privilege": true
     },
     "identity_to_revoke_first": {
       "execution_identity": "github_app",
-      "path_count": 2,
+      "path_count": 5,
       "write_capable_path_count": 2,
       "shared_execution_identity": true,
       "standing_privilege": true
@@ -103,65 +103,65 @@
   },
   "exposure_groups": [
     {
-      "group_id": "grp-3a20c8da7e14",
-      "tool_types": [
-        "ci_agent"
-      ],
-      "delivery_chain_status": "pr_merge_deploy",
-      "business_state_surface": "deploy",
-      "recommended_action": "proof",
-      "path_count": 1,
-      "path_ids": [
-        "apc-b75aac3d0e0f"
-      ]
-    },
-    {
-      "group_id": "grp-7e6a6b3e28e1",
+      "group_id": "grp-9163924b96c1",
       "tool_types": [
         "compiled_action"
       ],
       "delivery_chain_status": "pr_merge_deploy",
       "business_state_surface": "deploy",
-      "recommended_action": "proof",
+      "recommended_action": "control",
       "path_count": 1,
       "path_ids": [
         "apc-dfc2afa9f348"
       ]
     },
     {
-      "group_id": "grp-8e8eda37541f",
+      "group_id": "grp-a20645f2f180",
+      "tool_types": [
+        "ci_agent"
+      ],
+      "delivery_chain_status": "pr_merge_deploy",
+      "business_state_surface": "deploy",
+      "recommended_action": "control",
+      "path_count": 1,
+      "path_ids": [
+        "apc-b75aac3d0e0f"
+      ]
+    },
+    {
+      "group_id": "grp-0f5f1056ae6a",
       "tool_types": [
         "mcp"
       ],
       "delivery_chain_status": "none",
       "business_state_surface": "admin_api",
-      "recommended_action": "proof",
+      "recommended_action": "inventory",
       "path_count": 1,
       "path_ids": [
         "apc-8ec8602cb415"
       ]
     },
     {
-      "group_id": "grp-aad4685fbe27",
+      "group_id": "grp-10f25003ffcd",
       "tool_types": [
         "codex"
       ],
       "delivery_chain_status": "none",
       "business_state_surface": "code",
-      "recommended_action": "proof",
+      "recommended_action": "inventory",
       "path_count": 1,
       "path_ids": [
         "apc-c5d25a74d87f"
       ]
     },
     {
-      "group_id": "grp-dcc0871efb50",
+      "group_id": "grp-2ece6ea34afc",
       "tool_types": [
         "claude"
       ],
       "delivery_chain_status": "none",
       "business_state_surface": "code",
-      "recommended_action": "proof",
+      "recommended_action": "inventory",
       "path_count": 1,
       "path_ids": [
         "apc-c042aea2cf0d"

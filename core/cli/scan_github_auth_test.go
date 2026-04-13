@@ -99,7 +99,7 @@ func TestScanHostedRateLimitFailureMessageIncludesAuthGuidance(t *testing.T) {
 	if code != exitRuntime {
 		t.Fatalf("expected exit %d, got %d (%s)", exitRuntime, code, errOut.String())
 	}
-	assertErrorCode(t, errOut.Bytes(), "runtime_failure")
+	assertErrorCode(t, errOut.Bytes(), "rate_limited")
 
 	var envelope map[string]any
 	if err := json.Unmarshal(errOut.Bytes(), &envelope); err != nil {
@@ -107,8 +107,19 @@ func TestScanHostedRateLimitFailureMessageIncludesAuthGuidance(t *testing.T) {
 	}
 	errorPayload := envelope["error"].(map[string]any)
 	message := errorPayload["message"].(string)
-	if !strings.Contains(message, "WRKR_GITHUB_TOKEN") || !strings.Contains(message, "--github-token") {
-		t.Fatalf("expected actionable auth guidance, got %q", message)
+	for _, want := range []string{
+		"status=403",
+		"rate limit exhausted after 3 attempt(s)",
+		"WRKR_GITHUB_TOKEN",
+		"--github-token",
+		"reset window",
+	} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("expected actionable rate-limit guidance %q, got %q", want, message)
+		}
+	}
+	if errorPayload["exit_code"] != float64(exitRuntime) {
+		t.Fatalf("expected runtime exit code to stay %d, got %v", exitRuntime, errorPayload["exit_code"])
 	}
 }
 

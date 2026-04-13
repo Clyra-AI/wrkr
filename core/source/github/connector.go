@@ -45,6 +45,7 @@ type Connector struct {
 	sleepFn             func(context.Context, time.Duration) error
 	onRetry             func(RetryEvent)
 	onCooldown          func(CooldownEvent)
+	cooldownErr         error
 }
 
 type RetryEvent struct {
@@ -94,10 +95,14 @@ func (c *Connector) SetCooldownHandler(fn func(CooldownEvent)) {
 type DegradedError struct {
 	CooldownUntil time.Time
 	Cause         string
+	Err           error
 }
 
 func (e *DegradedError) Error() string {
 	cause := strings.TrimSpace(e.Cause)
+	if cause == "" && e.Err != nil {
+		cause = strings.TrimSpace(e.Err.Error())
+	}
 	if cause == "" {
 		cause = "upstream transient failures exceeded threshold"
 	}
@@ -107,10 +112,47 @@ func (e *DegradedError) Error() string {
 	return fmt.Sprintf("connector degraded until %s: %s", e.CooldownUntil.UTC().Format(time.RFC3339), cause)
 }
 
+func (e *DegradedError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
 // IsDegradedError reports whether err represents connector degradation.
 func IsDegradedError(err error) bool {
 	var degraded *DegradedError
 	return errors.As(err, &degraded)
+}
+
+type RateLimitedError struct {
+	StatusCode int
+	Attempts   int
+	Evidence   string
+	Message    string
+}
+
+func (e *RateLimitedError) Error() string {
+	if e == nil {
+		return ""
+	}
+	parts := []string{fmt.Sprintf("github API rate limit exhausted after %d attempt(s)", e.Attempts)}
+	if e.StatusCode != 0 {
+		parts = append(parts, fmt.Sprintf("status=%d", e.StatusCode))
+	}
+	if evidence := strings.TrimSpace(e.Evidence); evidence != "" {
+		parts = append(parts, "evidence="+evidence)
+	}
+	if message := strings.TrimSpace(e.Message); message != "" {
+		parts = append(parts, "upstream_message="+message)
+	}
+	return strings.Join(parts, "; ")
+}
+
+// IsRateLimitedError reports whether err represents exhausted hosted throttling.
+func IsRateLimitedError(err error) bool {
+	var target *RateLimitedError
+	return errors.As(err, &target)
 }
 
 func (c *Connector) AcquireRepo(ctx context.Context, repo string) (source.RepoManifest, error) {
@@ -418,13 +460,23 @@ func (c *Connector) doGETWithRetry(ctx context.Context, endpoint string) ([]byte
 				c.recordSuccess()
 				return body, nil
 			}
-			if !isRetryable(resp.StatusCode) {
+			classification := classifyResponse(resp, body)
+			if !classification.Retryable {
 				c.resetFailureStreak()
-				return nil, fmt.Errorf("github API status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+				return nil, formatStatusError(resp.StatusCode, classification.Message)
 			}
 			statusCode = resp.StatusCode
-			retryDelay = c.retryDelayForResponse(resp, attempt)
-			lastErr = fmt.Errorf("github API transient status %d", resp.StatusCode)
+			retryDelay = c.retryDelayForResponse(resp, classification.RateLimited, attempt)
+			if classification.RateLimited {
+				lastErr = &RateLimitedError{
+					StatusCode: resp.StatusCode,
+					Attempts:   attempt + 1,
+					Evidence:   classification.Evidence,
+					Message:    classification.Message,
+				}
+			} else {
+				lastErr = fmt.Errorf("github API transient status %d", resp.StatusCode)
+			}
 		}
 
 		if attempt == c.MaxRetries {
@@ -495,11 +547,11 @@ func (c *Connector) jitteredBackoff(attempt int) time.Duration {
 	return delay
 }
 
-func (c *Connector) retryDelayForResponse(resp *http.Response, attempt int) time.Duration {
+func (c *Connector) retryDelayForResponse(resp *http.Response, rateLimited bool, attempt int) time.Duration {
 	if resp == nil {
 		return c.jitteredBackoff(attempt)
 	}
-	if resp.StatusCode != http.StatusTooManyRequests {
+	if !rateLimited {
 		return c.jitteredBackoff(attempt)
 	}
 
@@ -569,10 +621,12 @@ func (c *Connector) checkDegraded() error {
 		return &DegradedError{
 			CooldownUntil: c.cooldownUntil,
 			Cause:         "cooldown active after repeated upstream failures",
+			Err:           c.cooldownErr,
 		}
 	}
 	c.cooldownUntil = time.Time{}
 	c.consecutiveFailures = 0
+	c.cooldownErr = nil
 	return nil
 }
 
@@ -581,12 +635,14 @@ func (c *Connector) recordSuccess() {
 	defer c.mu.Unlock()
 	c.consecutiveFailures = 0
 	c.cooldownUntil = time.Time{}
+	c.cooldownErr = nil
 }
 
 func (c *Connector) resetFailureStreak() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.consecutiveFailures = 0
+	c.cooldownErr = nil
 }
 
 func (c *Connector) recordFailure(lastErr error) error {
@@ -613,9 +669,11 @@ func (c *Connector) recordFailure(lastErr error) error {
 
 	c.cooldownUntil = c.now().Add(cooldown)
 	c.consecutiveFailures = 0
+	c.cooldownErr = lastErr
 	return &DegradedError{
 		CooldownUntil: c.cooldownUntil,
 		Cause:         lastErr.Error(),
+		Err:           lastErr,
 	}
 }
 
@@ -665,8 +723,116 @@ func sleepWithContext(ctx context.Context, duration time.Duration) error {
 	}
 }
 
-func isRetryable(code int) bool {
-	return code == http.StatusTooManyRequests || code >= 500
+type responseClassification struct {
+	Retryable   bool
+	RateLimited bool
+	Evidence    string
+	Message     string
+}
+
+func classifyResponse(resp *http.Response, body []byte) responseClassification {
+	message := extractAPIMessage(body)
+	if resp == nil {
+		return responseClassification{Message: message}
+	}
+
+	switch {
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return responseClassification{
+			Retryable:   true,
+			RateLimited: true,
+			Evidence:    summarizeRateLimitEvidence(resp, body),
+			Message:     message,
+		}
+	case resp.StatusCode >= 500:
+		return responseClassification{
+			Retryable: true,
+			Message:   message,
+		}
+	case resp.StatusCode == http.StatusForbidden:
+		evidence := summarizeRateLimitEvidence(resp, body)
+		if evidence == "" {
+			return responseClassification{Message: message}
+		}
+		return responseClassification{
+			Retryable:   true,
+			RateLimited: true,
+			Evidence:    evidence,
+			Message:     message,
+		}
+	default:
+		return responseClassification{Message: message}
+	}
+}
+
+func summarizeRateLimitEvidence(resp *http.Response, body []byte) string {
+	if resp == nil {
+		return ""
+	}
+
+	evidence := make([]string, 0, 4)
+	if strings.TrimSpace(resp.Header.Get("Retry-After")) != "" {
+		evidence = append(evidence, "retry_after_header")
+	}
+	if strings.TrimSpace(resp.Header.Get("X-RateLimit-Reset")) != "" {
+		evidence = append(evidence, "x_ratelimit_reset_header")
+	}
+	if strings.TrimSpace(resp.Header.Get("X-RateLimit-Remaining")) == "0" {
+		evidence = append(evidence, "x_ratelimit_remaining=0")
+	}
+	if phrase := matchedRateLimitPhrase(body); phrase != "" {
+		evidence = append(evidence, "body="+phrase)
+	}
+	return strings.Join(evidence, ",")
+}
+
+func matchedRateLimitPhrase(body []byte) string {
+	lower := strings.ToLower(strings.TrimSpace(string(body)))
+	for _, phrase := range []string{
+		"secondary rate limit",
+		"rate limit exceeded",
+		"rate limited",
+		"rate limit",
+	} {
+		if strings.Contains(lower, phrase) {
+			return phrase
+		}
+	}
+	return ""
+}
+
+func extractAPIMessage(body []byte) string {
+	trimmed := strings.TrimSpace(string(body))
+	if trimmed == "" {
+		return ""
+	}
+
+	var payload struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &payload); err == nil && strings.TrimSpace(payload.Message) != "" {
+		return sanitizeErrorMessage(payload.Message)
+	}
+	return sanitizeErrorMessage(trimmed)
+}
+
+func sanitizeErrorMessage(raw string) string {
+	parts := strings.Fields(strings.TrimSpace(raw))
+	if len(parts) == 0 {
+		return ""
+	}
+	message := strings.Join(parts, " ")
+	if len(message) > 240 {
+		return message[:240] + "..."
+	}
+	return message
+}
+
+func formatStatusError(statusCode int, message string) error {
+	if strings.TrimSpace(message) == "" {
+		return fmt.Errorf("github API status %d", statusCode)
+	}
+	return fmt.Errorf("github API status %d: %s", statusCode, message)
 }
 
 func normalizeRepo(repo string) (string, error) {

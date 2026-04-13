@@ -50,6 +50,7 @@ type ExposureGroup struct {
 	ExecutionIdentityType    string   `json:"execution_identity_type,omitempty"`
 	ExecutionIdentityStatus  string   `json:"execution_identity_status,omitempty"`
 	DeliveryChainStatus      string   `json:"delivery_chain_status,omitempty"`
+	WorkflowTriggerClass     string   `json:"workflow_trigger_class,omitempty"`
 	BusinessStateSurface     string   `json:"business_state_surface,omitempty"`
 	RecommendedAction        string   `json:"recommended_action"`
 	SharedExecutionIdentity  bool     `json:"shared_execution_identity"`
@@ -240,6 +241,7 @@ func BuildExposureGroups(paths []ActionPath) []ExposureGroup {
 					ExecutionIdentityType:   strings.TrimSpace(path.ExecutionIdentityType),
 					ExecutionIdentityStatus: strings.TrimSpace(path.ExecutionIdentityStatus),
 					DeliveryChainStatus:     strings.TrimSpace(path.DeliveryChainStatus),
+					WorkflowTriggerClass:    strings.TrimSpace(path.WorkflowTriggerClass),
 					BusinessStateSurface:    strings.TrimSpace(path.BusinessStateSurface),
 					RecommendedAction:       strings.TrimSpace(path.RecommendedAction),
 					SharedExecutionIdentity: path.SharedExecutionIdentity,
@@ -422,6 +424,7 @@ func exposureGroupKey(path ActionPath) string {
 		strings.TrimSpace(path.ExecutionIdentity),
 		strings.TrimSpace(path.ExecutionIdentityType),
 		strings.TrimSpace(path.DeliveryChainStatus),
+		strings.TrimSpace(path.WorkflowTriggerClass),
 		strings.TrimSpace(path.BusinessStateSurface),
 		strings.TrimSpace(path.RecommendedAction),
 	}, "|")

@@ -52,8 +52,22 @@ func TestOwnershipQualityScenario(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected action path type: %T", actionPaths[0])
 	}
-	if firstPath["owner_source"] != "multi_repo_conflict" {
-		t.Fatalf("expected weak ownership path to rank first, got %v", firstPath)
+	if firstPath["recommended_action"] != "control" {
+		t.Fatalf("expected strongest control-first path to rank first, got %v", firstPath)
+	}
+	foundWeakOwnership := false
+	for _, item := range actionPaths {
+		row, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if row["owner_source"] == "multi_repo_conflict" {
+			foundWeakOwnership = true
+			break
+		}
+	}
+	if !foundWeakOwnership {
+		t.Fatalf("expected weak ownership path to remain visible, got %v", actionPaths)
 	}
 
 	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--json"})

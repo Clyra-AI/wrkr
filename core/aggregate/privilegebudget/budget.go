@@ -20,6 +20,12 @@ type findingSignals struct {
 	Values      []string
 }
 
+type ownershipCandidate struct {
+	owner           string
+	ownerSource     string
+	ownershipStatus string
+}
+
 func Build(
 	tools []agginventory.Tool,
 	agents []agginventory.Agent,
@@ -97,6 +103,7 @@ func Build(
 				deploymentStatus = "unknown"
 			}
 			approvalReasons := approvalGapReasons(signalsByAgent[tool.AgentID], tool.Permissions, deploymentStatus)
+			triggerClass := workflowTriggerClass(signalsByAgent[tool.AgentID], tool.Permissions, deploymentStatus, deployWrite, productionWrite)
 			owner := resolveOperationalOwner(tool, tool.Repos, "", tool.Org)
 
 			entries = append(entries, agginventory.AgentPrivilegeMapEntry{
@@ -121,6 +128,7 @@ func Build(
 				DeploymentStatus:         deploymentStatus,
 				DeploymentArtifacts:      cloneStringSlice(agentContext.DeploymentArtifacts),
 				DeploymentEvidenceKeys:   cloneStringSlice(agentContext.DeploymentEvidenceKeys),
+				WorkflowTriggerClass:     triggerClass,
 				OperationalOwner:         owner.Owner,
 				OwnerSource:              owner.OwnerSource,
 				OwnershipStatus:          owner.OwnershipStatus,
@@ -262,6 +270,7 @@ func buildInstanceEntries(
 			deploymentStatus = "unknown"
 		}
 		approvalReasons := approvalGapReasons(signals, permissions, deploymentStatus)
+		triggerClass := workflowTriggerClass(signals, permissions, deploymentStatus, deployWrite, productionWrite)
 		owner := resolveOperationalOwner(tool, repos, strings.TrimSpace(agent.Location), org)
 
 		entries = append(entries, agginventory.AgentPrivilegeMapEntry{
@@ -289,6 +298,7 @@ func buildInstanceEntries(
 			DeploymentStatus:         deploymentStatus,
 			DeploymentArtifacts:      cloneStringSlice(agent.DeploymentArtifacts),
 			DeploymentEvidenceKeys:   cloneStringSlice(agent.DeploymentEvidenceKeys),
+			WorkflowTriggerClass:     triggerClass,
 			OperationalOwner:         owner.Owner,
 			OwnerSource:              owner.OwnerSource,
 			OwnershipStatus:          owner.OwnershipStatus,
@@ -681,12 +691,7 @@ func currentProductionTargetStatus(productionConfigured bool) string {
 }
 
 func resolveOperationalOwner(tool agginventory.Tool, repos []string, location string, org string) owners.Resolution {
-	type candidate struct {
-		owner           string
-		ownerSource     string
-		ownershipStatus string
-	}
-	candidates := map[string]candidate{}
+	candidates := map[string]ownershipCandidate{}
 	trimmedLocation := strings.TrimSpace(location)
 	for _, item := range tool.Locations {
 		if trimmedLocation != "" && strings.TrimSpace(item.Location) != trimmedLocation {
@@ -700,7 +705,7 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 			strings.TrimSpace(item.OwnerSource),
 			strings.TrimSpace(item.OwnershipStatus),
 		}, "|")
-		candidates[key] = candidate{
+		candidates[key] = ownershipCandidate{
 			owner:           strings.TrimSpace(item.Owner),
 			ownerSource:     strings.TrimSpace(item.OwnerSource),
 			ownershipStatus: strings.TrimSpace(item.OwnershipStatus),
@@ -710,12 +715,28 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 		return fallbackOperationalOwner(repos, org)
 	}
 
-	ownerSet := map[string]candidate{}
+	ownerSet := map[string]ownershipCandidate{}
 	for _, item := range candidates {
 		current, exists := ownerSet[item.owner]
 		if !exists || ownershipPriority(item.ownershipStatus) < ownershipPriority(current.ownershipStatus) {
 			ownerSet[item.owner] = item
 		}
+	}
+	explicitOwners := filterOwnershipCandidates(ownerSet, owners.OwnershipStatusExplicit)
+	if len(explicitOwners) == 1 {
+		for _, item := range explicitOwners {
+			return owners.Resolution{
+				Owner:           item.owner,
+				OwnerSource:     item.ownerSource,
+				OwnershipStatus: item.ownershipStatus,
+			}
+		}
+	}
+	if len(explicitOwners) > 1 {
+		fallback := fallbackOperationalOwner(repos, org)
+		fallback.OwnerSource = owners.OwnerSourceConflict
+		fallback.OwnershipStatus = owners.OwnershipStatusUnresolved
+		return fallback
 	}
 	if len(ownerSet) == 1 {
 		for _, item := range ownerSet {
@@ -731,6 +752,16 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 	fallback.OwnerSource = owners.OwnerSourceConflict
 	fallback.OwnershipStatus = owners.OwnershipStatusUnresolved
 	return fallback
+}
+
+func filterOwnershipCandidates(candidates map[string]ownershipCandidate, status string) map[string]ownershipCandidate {
+	filtered := map[string]ownershipCandidate{}
+	for key, item := range candidates {
+		if strings.TrimSpace(item.ownershipStatus) == strings.TrimSpace(status) {
+			filtered[key] = item
+		}
+	}
+	return filtered
 }
 
 func fallbackOperationalOwner(repos []string, org string) owners.Resolution {
@@ -836,6 +867,50 @@ func approvalGapReasons(signals findingSignals, permissions []string, deployment
 		return nil
 	}
 	return dedupeSortedPreserveCase(reasons)
+}
+
+func workflowTriggerClass(
+	signals findingSignals,
+	permissions []string,
+	deploymentStatus string,
+	deployWrite bool,
+	productionWrite bool,
+) string {
+	if productionWrite || deployWrite || hasExactPermission(permissions, "deploy.write") || strings.TrimSpace(deploymentStatus) == "deployed" {
+		return "deploy_pipeline"
+	}
+	triggers := splitNormalizedSignalValues(signals.EvidenceKV["workflow_triggers"])
+	switch {
+	case containsNormalizedValue(triggers, "schedule"):
+		return "scheduled"
+	case containsNormalizedValue(triggers, "workflow_dispatch"):
+		return "workflow_dispatch"
+	default:
+		return ""
+	}
+}
+
+func splitNormalizedSignalValues(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		for _, part := range strings.Split(strings.TrimSpace(value), ",") {
+			normalized := normalizeToken(part)
+			if normalized != "" {
+				out = append(out, normalized)
+			}
+		}
+	}
+	return dedupeSorted(out)
+}
+
+func containsNormalizedValue(values []string, target string) bool {
+	target = normalizeToken(target)
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func stringSignalState(values []string, missing string) string {

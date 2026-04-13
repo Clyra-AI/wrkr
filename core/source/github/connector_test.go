@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -428,6 +429,111 @@ func TestConnectorHonorsRetryAfter429(t *testing.T) {
 	}
 	if len(slept) == 0 || slept[0] != 4*time.Second {
 		t.Fatalf("expected retry-after sleep of 4s, got %v", slept)
+	}
+}
+
+func TestConnectorRetriesRecognizedRateLimit403(t *testing.T) {
+	t.Parallel()
+
+	var attempts int32
+	var slept []time.Duration
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		current := atomic.AddInt32(&attempts, 1)
+		if current == 1 {
+			w.Header().Set("Retry-After", "2")
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = fmt.Fprint(w, `{"message":"API rate limit exceeded for this token"}`)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"full_name":"acme/backend"}`)
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "", server.Client())
+	connector.MaxRetries = 2
+	connector.sleepFn = func(_ context.Context, duration time.Duration) error {
+		slept = append(slept, duration)
+		return nil
+	}
+
+	if _, err := connector.AcquireRepo(context.Background(), "acme/backend"); err != nil {
+		t.Fatalf("acquire repo: %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("expected two attempts, got %d", attempts)
+	}
+	if len(slept) == 0 || slept[0] != 2*time.Second {
+		t.Fatalf("expected retry-after sleep of 2s, got %v", slept)
+	}
+}
+
+func TestConnectorDoesNotRetryNonRateLimit403(t *testing.T) {
+	t.Parallel()
+
+	var attempts int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = fmt.Fprint(w, `{"message":"resource not accessible by integration"}`)
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "", server.Client())
+	connector.MaxRetries = 2
+	connector.sleepFn = func(_ context.Context, _ time.Duration) error {
+		t.Fatal("unexpected sleep for non-rate-limit 403")
+		return nil
+	}
+
+	_, err := connector.AcquireRepo(context.Background(), "acme/backend")
+	if err == nil {
+		t.Fatal("expected non-rate-limit 403 to fail")
+	}
+	if attempts != 1 {
+		t.Fatalf("expected one attempt, got %d", attempts)
+	}
+	if IsRateLimitedError(err) {
+		t.Fatalf("expected non-rate-limit 403 to avoid rate-limit classification, got %v", err)
+	}
+}
+
+func TestConnectorReturnsRateLimitedErrorWhenRetriesExhausted(t *testing.T) {
+	t.Parallel()
+
+	var attempts int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&attempts, 1)
+		w.Header().Set("X-RateLimit-Reset", "1700000015")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = fmt.Fprint(w, `{"message":"secondary rate limit"}`)
+	}))
+	defer server.Close()
+
+	now := time.Unix(1_700_000_000, 0)
+	connector := NewConnector(server.URL, "", server.Client())
+	connector.MaxRetries = 1
+	connector.nowFn = func() time.Time { return now }
+	connector.sleepFn = func(_ context.Context, _ time.Duration) error { return nil }
+
+	_, err := connector.AcquireRepo(context.Background(), "acme/backend")
+	if err == nil {
+		t.Fatal("expected rate-limited failure")
+	}
+	var rateLimited *RateLimitedError
+	if !errors.As(err, &rateLimited) {
+		t.Fatalf("expected RateLimitedError, got %v", err)
+	}
+	if rateLimited.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", rateLimited.StatusCode)
+	}
+	if rateLimited.Attempts != 2 {
+		t.Fatalf("expected 2 attempts, got %d", rateLimited.Attempts)
+	}
+	if !strings.Contains(rateLimited.Evidence, "x_ratelimit_reset_header") || !strings.Contains(rateLimited.Evidence, "body=secondary rate limit") {
+		t.Fatalf("expected rate-limit evidence, got %q", rateLimited.Evidence)
+	}
+	if attempts != 2 {
+		t.Fatalf("expected 2 attempts, got %d", attempts)
 	}
 }
 

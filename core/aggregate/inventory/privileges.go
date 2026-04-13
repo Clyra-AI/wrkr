@@ -48,6 +48,7 @@ type AgentPrivilegeMapEntry struct {
 	DeploymentStatus         string               `json:"deployment_status,omitempty" yaml:"deployment_status,omitempty"`
 	DeploymentArtifacts      []string             `json:"deployment_artifacts,omitempty" yaml:"deployment_artifacts,omitempty"`
 	DeploymentEvidenceKeys   []string             `json:"deployment_evidence_keys,omitempty" yaml:"deployment_evidence_keys,omitempty"`
+	WorkflowTriggerClass     string               `json:"workflow_trigger_class,omitempty" yaml:"workflow_trigger_class,omitempty"`
 	OperationalOwner         string               `json:"operational_owner,omitempty" yaml:"operational_owner,omitempty"`
 	OwnerSource              string               `json:"owner_source,omitempty" yaml:"owner_source,omitempty"`
 	OwnershipStatus          string               `json:"ownership_status,omitempty" yaml:"ownership_status,omitempty"`

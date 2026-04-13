@@ -21,52 +21,57 @@ func newScanProgressReporter(enabled bool, stderr io.Writer) *scanProgressReport
 	}
 }
 
-func (r *scanProgressReporter) RepoDiscovery(total int) {
-	r.add("progress target=org event=repo_discovery repo_total=%d", total)
+func (r *scanProgressReporter) RepoDiscovery(org string, total int) {
+	r.add("progress target=org org=%s event=repo_discovery repo_total=%d", strings.TrimSpace(org), total)
 }
 
-func (r *scanProgressReporter) RepoMaterialize(index, total int, repo string) {
+func (r *scanProgressReporter) RepoMaterialize(org string, index, total int, repo string) {
 	r.add(
-		"progress target=org event=repo_materialize repo_index=%d repo_total=%d repo=%s",
+		"progress target=org org=%s event=repo_materialize repo_index=%d repo_total=%d repo=%s",
+		strings.TrimSpace(org),
 		index,
 		total,
 		strings.TrimSpace(repo),
 	)
 }
 
-func (r *scanProgressReporter) Retry(attempt int, delay time.Duration, statusCode int) {
+func (r *scanProgressReporter) Retry(org string, attempt int, delay time.Duration, statusCode int) {
 	r.add(
-		"progress target=org event=retry attempt=%d delay_ms=%d status=%d",
+		"progress target=org org=%s event=retry attempt=%d delay_ms=%d status=%d",
+		strings.TrimSpace(org),
 		attempt,
 		delay.Milliseconds(),
 		statusCode,
 	)
 }
 
-func (r *scanProgressReporter) Cooldown(delay time.Duration, until time.Time) {
+func (r *scanProgressReporter) Cooldown(org string, delay time.Duration, until time.Time) {
 	if until.IsZero() {
-		r.add("progress target=org event=cooldown wait_ms=%d", delay.Milliseconds())
+		r.add("progress target=org org=%s event=cooldown wait_ms=%d", strings.TrimSpace(org), delay.Milliseconds())
 		return
 	}
 	r.add(
-		"progress target=org event=cooldown wait_ms=%d until=%s",
+		"progress target=org org=%s event=cooldown wait_ms=%d until=%s",
+		strings.TrimSpace(org),
 		delay.Milliseconds(),
 		until.UTC().Format(time.RFC3339),
 	)
 }
 
-func (r *scanProgressReporter) Resume(total, completed, pending int) {
+func (r *scanProgressReporter) Resume(org string, total, completed, pending int) {
 	r.add(
-		"progress target=org event=resume repo_total=%d completed=%d pending=%d",
+		"progress target=org org=%s event=resume repo_total=%d completed=%d pending=%d",
+		strings.TrimSpace(org),
 		total,
 		completed,
 		pending,
 	)
 }
 
-func (r *scanProgressReporter) Complete(total, completed, failed int) {
+func (r *scanProgressReporter) Complete(org string, total, completed, failed int) {
 	r.add(
-		"progress target=org event=complete repo_total=%d completed=%d failed=%d",
+		"progress target=org org=%s event=complete repo_total=%d completed=%d failed=%d",
+		strings.TrimSpace(org),
 		total,
 		completed,
 		failed,

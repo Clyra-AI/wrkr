@@ -70,14 +70,57 @@ func TestScanJSONOrgProgressEmitsToStderrOnly(t *testing.T) {
 
 	stderrText := errOut.String()
 	for _, want := range []string{
-		"progress target=org event=repo_discovery repo_total=2",
-		"progress target=org event=repo_materialize repo_index=1 repo_total=2 repo=acme/a",
-		"progress target=org event=retry attempt=1 delay_ms=0 status=429",
-		"progress target=org event=complete repo_total=2 completed=2 failed=0",
+		"progress target=org org=acme event=repo_discovery repo_total=2",
+		"progress target=org org=acme event=repo_materialize repo_index=1 repo_total=2 repo=acme/a",
+		"progress target=org org=acme event=retry attempt=1 delay_ms=0 status=429",
+		"progress target=org org=acme event=complete repo_total=2 completed=2 failed=0",
 	} {
 		if !strings.Contains(stderrText, want) {
 			t.Fatalf("expected stderr progress to contain %q, got %q", want, stderrText)
 		}
+	}
+}
+
+func TestScanJSONOrgProgressEmitsRecognized403RateLimitRetries(t *testing.T) {
+	t.Parallel()
+
+	var repoRetryAttempts int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"}]`)
+		case "/repos/acme/a":
+			repoRetryAttempts++
+			if repoRetryAttempts == 1 {
+				w.Header().Set("Retry-After", "0")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = fmt.Fprint(w, `{"message":"API rate limit exceeded"}`)
+				return
+			}
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/a","default_branch":"main"}`)
+		case "/repos/acme/a/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[]}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--org", "acme",
+		"--github-api", server.URL,
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("scan failed: code=%d stderr=%s", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "progress target=org org=acme event=retry attempt=1 delay_ms=0 status=403") {
+		t.Fatalf("expected 403 retry progress line, got %q", errOut.String())
 	}
 }
 
@@ -150,7 +193,7 @@ func TestScanJSONOrgProgressIsVisibleBeforeCommandCompletion(t *testing.T) {
 		}, &out, errOut)
 	}()
 
-	const want = "progress target=org event=repo_materialize repo_index=1 repo_total=1 repo=acme/a"
+	const want = "progress target=org org=acme event=repo_materialize repo_index=1 repo_total=1 repo=acme/a"
 	if !errOut.waitFor(want, 2*time.Second) {
 		t.Fatalf("expected live stderr progress before completion, got %q", errOut.String())
 	}
@@ -208,7 +251,7 @@ func TestScanJSONPathAndProgressRemainCompatible(t *testing.T) {
 	if !bytes.Equal(out.Bytes(), filePayload) {
 		t.Fatalf("expected stdout and file payloads to match")
 	}
-	if !strings.Contains(errOut.String(), "progress target=org event=complete repo_total=1 completed=1 failed=0") {
+	if !strings.Contains(errOut.String(), "progress target=org org=acme event=complete repo_total=1 completed=1 failed=0") {
 		t.Fatalf("expected completion progress line, got %q", errOut.String())
 	}
 }
@@ -246,7 +289,7 @@ func TestScanJSONProgressFlushesOnErrorExit(t *testing.T) {
 	if code != exitInvalidInput {
 		t.Fatalf("expected invalid input exit, got %d stderr=%s", code, errOut.String())
 	}
-	if !strings.Contains(errOut.String(), "progress target=org event=complete repo_total=1 completed=1 failed=0") {
+	if !strings.Contains(errOut.String(), "progress target=org org=acme event=complete repo_total=1 completed=1 failed=0") {
 		t.Fatalf("expected completion progress line on error exit, got %q", errOut.String())
 	}
 }

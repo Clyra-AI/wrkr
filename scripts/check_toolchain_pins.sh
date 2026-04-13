@@ -223,7 +223,7 @@ fi
 resolve_pin_target_files
 
 expected=(
-  "golang 1.26.1"
+  "golang 1.26.2"
   "python 3.13.1"
   "nodejs 22.14.0"
 )
@@ -234,12 +234,12 @@ for line in "${expected[@]}"; do
   fi
 done
 
-if grep -Eq '^go 1\.26\.1$' go.mod; then
+if grep -Eq '^go 1\.26\.2$' go.mod; then
   :
-elif grep -Eq '^toolchain go1\.26\.1$' go.mod; then
+elif grep -Eq '^toolchain go1\.26\.2$' go.mod; then
   :
 else
-  echo "go.mod must pin go toolchain version 1.26.1 (toolchain or go directive)" >&2
+  echo "go.mod must pin go toolchain version 1.26.2 (toolchain or go directive)" >&2
   exit 3
 fi
 

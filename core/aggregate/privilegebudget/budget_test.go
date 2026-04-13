@@ -298,6 +298,69 @@ func TestBuildDerivesOperationalOwnerAndApprovalGapReasons(t *testing.T) {
 	}
 }
 
+func TestBuildPrefersExplicitOwnerOverFallbackConflict(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{
+		{
+			ToolID:      "workflow-2",
+			AgentID:     identity.AgentID(identity.ToolID("compiled_action", ".github/workflows/deploy.yml"), "local"),
+			ToolType:    "compiled_action",
+			Org:         "local",
+			Repos:       []string{"alpha-service", "beta-service"},
+			Permissions: []string{"deploy.write"},
+			Locations: []agginventory.ToolLocation{
+				{Repo: "alpha-service", Location: ".github/workflows/deploy.yml", Owner: "@local/security", OwnerSource: "codeowners", OwnershipStatus: "explicit"},
+				{Repo: "beta-service", Location: ".github/workflows/deploy.yml", Owner: "@local/beta", OwnerSource: "repo_fallback", OwnershipStatus: "inferred"},
+			},
+		},
+	}
+
+	_, entries := Build(tools, nil, nil, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one privilege entry, got %+v", entries)
+	}
+	if entries[0].OperationalOwner != "@local/security" || entries[0].OwnerSource != "codeowners" || entries[0].OwnershipStatus != "explicit" {
+		t.Fatalf("expected explicit owner to win over fallback conflict, got %+v", entries[0])
+	}
+}
+
+func TestBuildDerivesWorkflowTriggerClass(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{
+		{
+			ToolID:      "workflow-3",
+			AgentID:     identity.AgentID(identity.ToolID("compiled_action", ".github/workflows/nightly.yml"), "local"),
+			ToolType:    "compiled_action",
+			Org:         "local",
+			Repos:       []string{"alpha-service"},
+			Permissions: []string{"pull_request.write"},
+		},
+	}
+	findings := []model.Finding{
+		{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    ".github/workflows/nightly.yml",
+			Repo:        "alpha-service",
+			Org:         "local",
+			Permissions: []string{"pull_request.write"},
+			Evidence: []model.Evidence{
+				{Key: "workflow_triggers", Value: "schedule,workflow_dispatch"},
+			},
+		},
+	}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one privilege entry, got %+v", entries)
+	}
+	if entries[0].WorkflowTriggerClass != "scheduled" {
+		t.Fatalf("expected scheduled workflow trigger class, got %+v", entries[0])
+	}
+}
+
 func TestBuildResolvesInstanceScopedAgentContextForToolEntries(t *testing.T) {
 	t.Parallel()
 

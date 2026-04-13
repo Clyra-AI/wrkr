@@ -249,6 +249,44 @@ func TestCampaignAggregateRejectsArtifactsWithSourceErrors(t *testing.T) {
 	assertCampaignInvalidInput(t, errOut.Bytes(), "source_errors=1")
 }
 
+func TestCampaignAggregateRejectsMultiTargetArtifact(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	inputPath := filepath.Join(tmp, "scan.json")
+	scanPayload := map[string]any{
+		"status": "ok",
+		"target": map[string]any{"mode": "multi"},
+		"targets": []any{
+			map[string]any{"mode": "org", "value": "acme"},
+			map[string]any{"mode": "org", "value": "beta"},
+		},
+		"source_manifest": map[string]any{
+			"target": map[string]any{"mode": "multi"},
+			"targets": []any{
+				map[string]any{"mode": "org", "value": "acme"},
+				map[string]any{"mode": "org", "value": "beta"},
+			},
+			"repos": []any{
+				map[string]any{"repo": "acme/backend", "location": ".wrkr/materialized-sources/acme/backend", "source": "github_repo_materialized"},
+				map[string]any{"repo": "beta/frontend", "location": ".wrkr/materialized-sources/beta/frontend", "source": "github_repo_materialized"},
+			},
+		},
+		"inventory":        map[string]any{},
+		"privilege_budget": map[string]any{},
+		"findings":         []any{},
+	}
+	writeCampaignArtifact(t, inputPath, scanPayload)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"campaign", "aggregate", "--input-glob", inputPath, "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertCampaignInvalidInput(t, errOut.Bytes(), "target.mode=multi")
+}
+
 func TestCampaignAggregateRejectsVersionEnvelope(t *testing.T) {
 	t.Parallel()
 

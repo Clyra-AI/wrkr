@@ -8,11 +8,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- Added repeatable `wrkr scan --target <mode>:<value>` support so one scan can combine multiple hosted and local targets while preserving legacy single-target flags.
+- Wrkr can now scan multiple hosted orgs and local repository roots in one deterministic run, producing a single proof/state/report generation with explicit per-target failures when needed.
 
 ### Changed
 
 - [semver:patch] Release prep now lands finalized changelog updates through a short-lived release-prep PR before tagging when `main` is protected.
+- Hosted GitHub scans now emit a dedicated `rate_limited` JSON error code after bounded retry exhaustion while keeping the documented runtime exit code unchanged.
+- Multi-org scans now expose clearer per-target progress and fail-closed resume behavior, including explicit rejection of unsupported mixed-target resume combinations.
+- Govern-first summaries now highlight stronger workflow identity and ownership evidence, with unresolved or conflicting ownership treated as a higher-priority governance signal.
+- Workflow-backed govern-first paths and summaries now expose static trigger posture such as scheduled, workflow-dispatch, and deploy-pipeline backed execution when it changes governance urgency.
+- Govern-first ranking now prioritizes the most urgent write, deploy, production-backed, and approval-gap paths first while keeping weaker paths visible lower in the ranked output.
+- `recommended_action` now separates visibility, approval, proof, and control-first path classes more sharply on real-world govern-first scans and report summaries.
 
 ### Deprecated
 
@@ -24,11 +31,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- Hosted GitHub scans now retry recognizable rate-limit `403` responses using the observed reset window instead of failing immediately as generic runtime errors.
 
 ### Security
 
-- (none yet)
+- Raised Wrkr's enforced Go toolchain floor to 1.26.2 across local, CI, and nightly scanner surfaces to clear called standard-library vulnerabilities flagged by nightly `govulncheck`.
 
 ## Changelog maintenance process
 

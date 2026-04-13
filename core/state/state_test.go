@@ -30,6 +30,10 @@ func TestStateIntegrationRoundTrip(t *testing.T) {
 
 	snapshot := Snapshot{
 		Target: source.Target{Mode: "repo", Value: "acme/backend"},
+		Targets: []source.Target{
+			{Mode: "org", Value: "acme"},
+			{Mode: "path", Value: "./repos"},
+		},
 		Findings: []source.Finding{
 			{ToolType: "source_repo", Location: "acme/backend", Org: "acme", Permissions: []string{"repo.contents.read"}},
 		},
@@ -44,6 +48,9 @@ func TestStateIntegrationRoundTrip(t *testing.T) {
 	}
 	if loaded.Target.Value != "acme/backend" {
 		t.Fatalf("unexpected target: %+v", loaded.Target)
+	}
+	if len(loaded.Targets) != 2 || loaded.Targets[0].Mode != "org" || loaded.Targets[1].Mode != "path" {
+		t.Fatalf("unexpected additive targets: %+v", loaded.Targets)
 	}
 
 	first, err := os.ReadFile(path)

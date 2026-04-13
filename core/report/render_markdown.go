@@ -19,16 +19,18 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString(fmt.Sprintf("- Write-capable paths: %d\n", summary.AssessmentSummary.WriteCapablePathCount))
 		builder.WriteString(fmt.Sprintf("- Production-target-backed paths: %d\n", summary.AssessmentSummary.ProductionBackedPathCount))
 		if summary.AssessmentSummary.TopPathToControlFirst != nil {
-			builder.WriteString(fmt.Sprintf("- Top path to control first: %s %s (%s)\n",
+			builder.WriteString(fmt.Sprintf("- Top path to control first: %s %s (%s%s)\n",
 				summary.AssessmentSummary.TopPathToControlFirst.Repo,
 				summary.AssessmentSummary.TopPathToControlFirst.Location,
 				summary.AssessmentSummary.TopPathToControlFirst.RecommendedAction,
+				renderTriggerClassSuffix(summary.AssessmentSummary.TopPathToControlFirst.WorkflowTriggerClass),
 			))
 		}
 		if summary.AssessmentSummary.TopExecutionIdentityBacked != nil {
-			builder.WriteString(fmt.Sprintf("- Top identity-backed path: %s %s\n",
+			builder.WriteString(fmt.Sprintf("- Top identity-backed path: %s %s%s\n",
 				summary.AssessmentSummary.TopExecutionIdentityBacked.Repo,
 				summary.AssessmentSummary.TopExecutionIdentityBacked.Location,
+				renderTriggerClassSuffix(summary.AssessmentSummary.TopExecutionIdentityBacked.WorkflowTriggerClass),
 			))
 		}
 		if summary.AssessmentSummary.OwnerlessExposure != nil {
@@ -87,6 +89,13 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 	return builder.String()
+}
+
+func renderTriggerClassSuffix(triggerClass string) string {
+	if strings.TrimSpace(triggerClass) == "" {
+		return ""
+	}
+	return ", trigger=" + strings.TrimSpace(triggerClass)
 }
 
 func MarkdownLines(markdown string) []string {
