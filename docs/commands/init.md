@@ -7,7 +7,7 @@ wrkr init [--non-interactive] (--repo <owner/repo> | --org <org> | --path <dir>)
 ```
 
 `wrkr init` still persists one default target in config in this wave.
-Multi-target scans are driven explicitly at runtime with repeatable `wrkr scan --target <mode>:<value>` flags rather than config defaults.
+Multi-target scans are driven explicitly at runtime through the `wrkr scan` target-set syntax rather than config defaults.
 
 ## Flags
 
