@@ -18,10 +18,10 @@ type RepoMaterializer interface {
 }
 
 type ProgressReporter interface {
-	RepoDiscovery(total int)
-	RepoMaterialize(index, total int, repo string)
-	Resume(total, completed, pending int)
-	Complete(total, completed, failed int)
+	RepoDiscovery(org string, total int)
+	RepoMaterialize(org string, index, total int, repo string)
+	Resume(org string, total, completed, pending int)
+	Complete(org string, total, completed, failed int)
 }
 
 type AcquireMaterializedOptions struct {
@@ -57,7 +57,7 @@ func AcquireMaterialized(
 	repoNames = uniqueSortedStrings(repoNames)
 	totalRepos := len(repoNames)
 	if opts.Progress != nil {
-		opts.Progress.RepoDiscovery(totalRepos)
+		opts.Progress.RepoDiscovery(org, totalRepos)
 	}
 
 	checkpointFile, err := checkpointPath(opts.StatePath, org)
@@ -94,11 +94,11 @@ func AcquireMaterialized(
 		pendingJobs = append(pendingJobs, materializeJob{repo: repo, index: idx + 1})
 	}
 	if opts.Resume && opts.Progress != nil {
-		opts.Progress.Resume(totalRepos, len(repos), len(pendingJobs))
+		opts.Progress.Resume(org, totalRepos, len(repos), len(pendingJobs))
 	}
 	if len(pendingJobs) == 0 {
 		if opts.Progress != nil {
-			opts.Progress.Complete(totalRepos, len(repos), 0)
+			opts.Progress.Complete(org, totalRepos, len(repos), 0)
 		}
 		sortMaterialized(repos, failures)
 		return repos, failures, nil
@@ -148,7 +148,7 @@ func AcquireMaterialized(
 	go func() {
 		for _, job := range pendingJobs {
 			if opts.Progress != nil {
-				opts.Progress.RepoMaterialize(job.index, totalRepos, job.repo)
+				opts.Progress.RepoMaterialize(org, job.index, totalRepos, job.repo)
 			}
 			jobs <- job
 		}
@@ -176,7 +176,7 @@ func AcquireMaterialized(
 		return nil, nil, fatalErr
 	}
 	if opts.Progress != nil {
-		opts.Progress.Complete(totalRepos, len(repos), len(failures))
+		opts.Progress.Complete(org, totalRepos, len(repos), len(failures))
 	}
 	sortMaterialized(repos, failures)
 	return repos, failures, nil

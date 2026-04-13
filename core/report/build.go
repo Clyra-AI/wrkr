@@ -569,6 +569,9 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 			fmt.Sprintf("delivery_chain_status=%s", strings.TrimSpace(path.DeliveryChainStatus)),
 			fmt.Sprintf("business_state_surface=%s", strings.TrimSpace(path.BusinessStateSurface)),
 		}
+		if strings.TrimSpace(path.WorkflowTriggerClass) != "" {
+			rationale = append(rationale, fmt.Sprintf("workflow_trigger_class=%s", strings.TrimSpace(path.WorkflowTriggerClass)))
+		}
 		if path.ProductionWrite {
 			rationale = append(rationale, "production_write=true")
 		}
@@ -962,13 +965,16 @@ func actionPathRemediation(path risk.ActionPath) string {
 	}
 	switch strings.TrimSpace(path.RecommendedAction) {
 	case "control":
+		if strings.TrimSpace(path.WorkflowTriggerClass) == "deploy_pipeline" {
+			return "apply the highest-priority control on this deploy-pipeline backed path and rescan to confirm reduced exposure"
+		}
 		return "apply the highest-priority control on this write-capable path and rescan to confirm reduced exposure"
 	case "approval":
 		return "add or tighten deterministic human approval gates on this path before allowing further automation"
 	case "proof":
-		return "collect stronger identity, ownership, or deployment proof for this path before approving it"
+		return "collect stronger identity, ownership, trigger-posture, or deployment proof for this path before approving it"
 	default:
-		return "inventory and review this path before expanding its privileges"
+		return "inventory this visibility-first path before expanding its privileges"
 	}
 }
 

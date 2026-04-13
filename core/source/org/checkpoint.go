@@ -20,10 +20,12 @@ const (
 	checkpointMarkerFile    = ".wrkr-org-checkpoints-managed"
 	checkpointMarkerContent = "managed by wrkr org checkpoints\n"
 	checkpointMarkerKind    = "org_checkpoint_root"
+	targetSetFileName       = "_target_set.json"
 )
 
 type checkpointInputError struct {
 	message string
+	missing bool
 }
 
 func (e *checkpointInputError) Error() string {
@@ -49,6 +51,11 @@ func IsCheckpointInputError(err error) bool {
 	return errors.As(err, &target)
 }
 
+func IsCheckpointMissingError(err error) bool {
+	var target *checkpointInputError
+	return errors.As(err, &target) && target.missing
+}
+
 func IsCheckpointSafetyError(err error) bool {
 	var target *checkpointSafetyError
 	return errors.As(err, &target)
@@ -56,6 +63,10 @@ func IsCheckpointSafetyError(err error) bool {
 
 func newCheckpointInputError(format string, args ...any) error {
 	return &checkpointInputError{message: fmt.Sprintf(format, args...)}
+}
+
+func newCheckpointMissingError(format string, args ...any) error {
+	return &checkpointInputError{message: fmt.Sprintf(format, args...), missing: true}
 }
 
 func newCheckpointSafetyError(format string, args ...any) error {
@@ -74,6 +85,12 @@ type checkpointManager struct {
 	path  string
 	state checkpointState
 	mu    sync.Mutex
+}
+
+type targetSetState struct {
+	Version          string   `json:"version"`
+	Targets          []string `json:"targets"`
+	MaterializedRoot string   `json:"materialized_root"`
 }
 
 func checkpointPath(statePath, org string) (string, error) {
@@ -195,7 +212,7 @@ func loadCheckpointManager(path string) (*checkpointManager, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, newCheckpointInputError("resume checkpoint does not exist: %s", path)
+			return nil, newCheckpointMissingError("resume checkpoint does not exist: %s", path)
 		}
 		return nil, fmt.Errorf("lstat org checkpoint: %w", err)
 	}
@@ -221,6 +238,84 @@ func loadCheckpointManager(path string) (*checkpointManager, error) {
 		state.Version = checkpointVersion
 	}
 	return &checkpointManager{path: path, state: state}, nil
+}
+
+func targetSetPath(statePath string) (string, error) {
+	root, err := prepareCheckpointRoot(statePath)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, targetSetFileName), nil
+}
+
+func SaveTargetSet(statePath string, targets []string, materializedRoot string) error {
+	path, err := targetSetPath(statePath)
+	if err != nil {
+		return err
+	}
+	state := targetSetState{
+		Version:          checkpointVersion,
+		Targets:          uniqueSortedStrings(targets),
+		MaterializedRoot: filepath.Clean(strings.TrimSpace(materializedRoot)),
+	}
+	payload, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal target-set checkpoint: %w", err)
+	}
+	payload = append(payload, '\n')
+	if err := atomicwrite.WriteFile(path, payload, 0o600); err != nil {
+		return fmt.Errorf("write target-set checkpoint: %w", err)
+	}
+	return nil
+}
+
+func ValidateTargetSet(statePath string, targets []string, materializedRoot string) error {
+	path, err := targetSetPath(statePath)
+	if err != nil {
+		return err
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return newCheckpointMissingError("resume target-set checkpoint does not exist: %s", path)
+		}
+		return fmt.Errorf("lstat target-set checkpoint: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return newCheckpointSafetyError("resume target-set checkpoint must not be a symlink: %s", path)
+	}
+	if !info.Mode().IsRegular() {
+		return newCheckpointSafetyError("resume target-set checkpoint is not a regular file: %s", path)
+	}
+	payload, err := os.ReadFile(path) // #nosec G304 -- checkpoint path is deterministic under the selected state directory.
+	if err != nil {
+		return fmt.Errorf("read target-set checkpoint: %w", err)
+	}
+	var state targetSetState
+	if err := json.Unmarshal(payload, &state); err != nil {
+		return newCheckpointInputError("parse target-set checkpoint %s: %v", path, err)
+	}
+	if state.Version == "" {
+		state.Version = checkpointVersion
+	}
+	if state.Version != checkpointVersion {
+		return newCheckpointInputError("resume target-set checkpoint version mismatch: have %s want %s", state.Version, checkpointVersion)
+	}
+	wantTargets := uniqueSortedStrings(targets)
+	haveTargets := uniqueSortedStrings(state.Targets)
+	if len(wantTargets) != len(haveTargets) {
+		return newCheckpointInputError("resume target-set checkpoint mismatch: have %d targets want %d", len(haveTargets), len(wantTargets))
+	}
+	for i := range wantTargets {
+		if wantTargets[i] != haveTargets[i] {
+			return newCheckpointInputError("resume target-set checkpoint mismatch: target list changed")
+		}
+	}
+	cleanRoot := filepath.Clean(strings.TrimSpace(materializedRoot))
+	if filepath.Clean(strings.TrimSpace(state.MaterializedRoot)) != cleanRoot {
+		return newCheckpointInputError("resume target-set checkpoint materialized root mismatch: have %s want %s", state.MaterializedRoot, cleanRoot)
+	}
+	return nil
 }
 
 func (m *checkpointManager) validate(org string, repos []string, materializedRoot string) error {

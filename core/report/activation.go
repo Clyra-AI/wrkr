@@ -14,6 +14,7 @@ const (
 	activationTargetModeMySetup     = "my_setup"
 	activationTargetModeOrg         = "org"
 	activationTargetModePath        = "path"
+	activationTargetModeMulti       = "multi"
 	activationDefaultLimit          = 5
 	activationReasonNoConcreteItems = "no_concrete_activation_items"
 	activationReasonNoGovernFirst   = "no_govern_first_activation_items"
@@ -35,7 +36,7 @@ func BuildActivation(targetMode string, ranked []risk.ScoredFinding, inventory *
 	switch strings.TrimSpace(targetMode) {
 	case activationTargetModeMySetup:
 		return buildMySetupActivation(ranked, limit)
-	case activationTargetModeOrg, activationTargetModePath:
+	case activationTargetModeOrg, activationTargetModePath, activationTargetModeMulti:
 		if len(actionPaths) > 0 {
 			return buildGovernFirstActivationFromPaths(strings.TrimSpace(targetMode), actionPaths, limit)
 		}

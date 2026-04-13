@@ -221,7 +221,12 @@ func validateCampaignTargetObject(scanPath string, label string, value any) erro
 }
 
 func campaignTargetRequiresValue(mode string) bool {
-	return strings.TrimSpace(mode) != "my_setup"
+	switch strings.TrimSpace(mode) {
+	case "my_setup", source.TargetModeMulti:
+		return false
+	default:
+		return true
+	}
 }
 
 type campaignSegmentMetadataFile struct {

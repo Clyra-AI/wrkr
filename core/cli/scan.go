@@ -32,6 +32,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
+	sourcegithub "github.com/Clyra-AI/wrkr/core/source/github"
 	sourceorg "github.com/Clyra-AI/wrkr/core/source/org"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -60,6 +61,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	githubOrgTarget := fs.String("github-org", "", "scan an organization (alias for --org)")
 	mySetup := fs.Bool("my-setup", false, "scan the local machine setup for AI tool posture")
 	pathTarget := fs.String("path", "", "scan local pre-cloned repositories")
+	var explicitTargets repeatedStringFlag
+	fs.Var(&explicitTargets, "target", "repeatable scan target <mode>:<value>")
 	timeout := fs.Duration("timeout", 0, "optional scan timeout (0 disables)")
 	diffMode := fs.Bool("diff", false, "show only changes since previous scan")
 	enrich := fs.Bool("enrich", false, "enable non-deterministic enrichment lookups (network required)")
@@ -102,17 +105,19 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		)
 	}
 
-	hasExplicitTarget := strings.TrimSpace(*repo) != "" || strings.TrimSpace(*orgTarget) != "" || strings.TrimSpace(*githubOrgTarget) != "" || strings.TrimSpace(*pathTarget) != "" || *mySetup
+	hasExplicitTarget := strings.TrimSpace(*repo) != "" || strings.TrimSpace(*orgTarget) != "" || strings.TrimSpace(*githubOrgTarget) != "" || strings.TrimSpace(*pathTarget) != "" || *mySetup || len(explicitTargets) > 0
 	loadedCfg, hasLoadedCfg, cfgLoadErr := loadOptionalScanConfig(*configPathFlag, hasExplicitTarget)
 	if cfgLoadErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", cfgLoadErr.Error(), exitRuntime)
 	}
-	targetMode, targetValue, cfg, err := resolveScanTarget(*repo, *orgTarget, *githubOrgTarget, *pathTarget, *mySetup, *configPathFlag)
+	targets, cfg, err := resolveScanTargets(*repo, *orgTarget, *githubOrgTarget, *pathTarget, *mySetup, explicitTargets, *configPathFlag)
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 	}
-	if *resume && targetMode != config.TargetOrg {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--resume is only supported with --org or --github-org scans", exitInvalidInput)
+	target := manifestTargetFromTargets(targets)
+	targetMode := target.Mode
+	if *resume && !allTargetsAreOrg(targets) {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--resume is only supported when every requested target is an org target", exitInvalidInput)
 	}
 	if hasLoadedCfg {
 		cfg.Auth = loadedCfg.Auth
@@ -127,7 +132,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			exitDependencyMissing,
 		)
 	}
-	if (targetMode == config.TargetRepo || targetMode == config.TargetOrg) && strings.TrimSpace(*githubBaseURL) == "" {
+	if anyTargetNeedsGitHub(targets) && strings.TrimSpace(*githubBaseURL) == "" {
 		return emitError(
 			stderr,
 			jsonRequested || *jsonOut,
@@ -149,7 +154,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	defer cancel()
 	scanStartedAt := time.Now().UTC().Truncate(time.Second)
-	progress := newScanProgressReporter(*jsonOut && !*quiet && targetMode == config.TargetOrg, stderr)
+	progress := newScanProgressReporter(*jsonOut && !*quiet && anyTargetIsOrg(targets), stderr)
 	emitScanFailure := func(err error) int {
 		progress.Flush()
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
@@ -158,7 +163,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		progress.Flush()
 		return emitError(stderr, jsonRequested || *jsonOut, code, message, exitCode)
 	}
-	manifestOut, findings, err := acquireSources(ctx, targetMode, targetValue, *githubBaseURL, *githubToken, acquireOptions{
+	manifestOut, findings, err := acquireSources(ctx, targets, *githubBaseURL, *githubToken, acquireOptions{
 		StatePath: statePath,
 		Progress:  progress,
 		Resume:    *resume,
@@ -250,7 +255,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			})
 		}
 	}
-	if targetMode == config.TargetMySetup {
+	if targetMode == string(config.TargetMySetup) {
 		findings = append(findings, approvedtools.CompareLocalInventory(&inventoryOut, approvedConfigured, strings.TrimSpace(*approvedToolsPath))...)
 		source.SortFindings(findings)
 		riskReport = risk.Score(findings, 5, now)
@@ -329,6 +334,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	snapshot := state.Snapshot{
 		Version:      state.SnapshotVersion,
 		Target:       manifestOut.Target,
+		Targets:      manifestOut.Targets,
 		Findings:     findings,
 		Inventory:    &inventoryOut,
 		RiskReport:   &riskReport,
@@ -399,6 +405,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		"status":          "ok",
 		"target":          manifestOut.Target,
 		"source_manifest": manifestOut,
+	}
+	if len(manifestOut.Targets) > 0 {
+		payload["targets"] = manifestOut.Targets
 	}
 	if len(manifestOut.Failures) > 0 {
 		payload["partial_result"] = true
@@ -511,7 +520,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	if *explain {
 		progress.Flush()
-		_, _ = fmt.Fprintf(stdout, "wrkr scan completed for %s:%s (profile=%s score=%.2f grade=%s)\n", targetMode, targetValue, profileResult.ProfileName, postureScore.Score, postureScore.Grade)
+		_, _ = fmt.Fprintf(stdout, "wrkr scan completed for %s (profile=%s score=%.2f grade=%s)\n", renderScanTargetSet(targets), profileResult.ProfileName, postureScore.Score, postureScore.Grade)
 		if hasIncompleteFilesystemVisibility(detectorErrors, manifestOut.Failures) {
 			_, _ = fmt.Fprintln(stdout, "scan completeness: some files or directories could not be read; review detector_errors/source_errors for permission or stat failures.")
 		}
@@ -575,6 +584,8 @@ func emitScanRuntimeError(stderr io.Writer, jsonOut bool, err error) int {
 		return emitError(stderr, jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
 	case sourceorg.IsCheckpointInputError(err):
 		return emitError(stderr, jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	case sourcegithub.IsRateLimitedError(err):
+		return emitError(stderr, jsonOut, "rate_limited", scanRateLimitedMessage(err), exitRuntime)
 	default:
 		return emitError(stderr, jsonOut, "runtime_failure", scanRuntimeErrorMessage(err), exitRuntime)
 	}
@@ -616,12 +627,14 @@ func scanRuntimeErrorMessage(err error) string {
 	if err == nil {
 		return ""
 	}
-	message := err.Error()
-	lower := strings.ToLower(message)
-	if strings.Contains(message, "github API status 403") && strings.Contains(lower, "rate limit") {
-		return message + "; authenticate hosted scans with --github-token, config auth.scan.token, WRKR_GITHUB_TOKEN, or GITHUB_TOKEN"
+	return err.Error()
+}
+
+func scanRateLimitedMessage(err error) string {
+	if err == nil {
+		return ""
 	}
-	return message
+	return err.Error() + "; authenticate hosted scans with --github-token, config auth.scan.token, WRKR_GITHUB_TOKEN, or GITHUB_TOKEN; wait for the reported GitHub reset window before retrying"
 }
 
 func hasIncompleteFilesystemVisibility(detectorErrors []detect.DetectorError, sourceFailures []source.RepoFailure) bool {

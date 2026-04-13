@@ -10,6 +10,7 @@ import (
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/owners"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
 
@@ -44,6 +45,7 @@ type ActionPath struct {
 	SecurityVisibilityStatus   string   `json:"security_visibility_status,omitempty"`
 	CredentialAccess           bool     `json:"credential_access"`
 	DeploymentStatus           string   `json:"deployment_status,omitempty"`
+	WorkflowTriggerClass       string   `json:"workflow_trigger_class,omitempty"`
 	ExecutionIdentity          string   `json:"execution_identity,omitempty"`
 	ExecutionIdentityType      string   `json:"execution_identity_type,omitempty"`
 	ExecutionIdentitySource    string   `json:"execution_identity_source,omitempty"`
@@ -102,15 +104,15 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 		if pi != pj {
 			return pi < pj
 		}
-		oi := governFirstOwnershipPriority(paths[i])
-		oj := governFirstOwnershipPriority(paths[j])
-		if oi != oj {
-			return oi < oj
+		wi := governFirstPriorityScore(paths[i])
+		wj := governFirstPriorityScore(paths[j])
+		if wi != wj {
+			return wi > wj
 		}
-		ci := deliveryChainPriority(paths[i].DeliveryChainStatus)
-		cj := deliveryChainPriority(paths[j].DeliveryChainStatus)
-		if ci != cj {
-			return ci < cj
+		ti := workflowTriggerPriority(paths[i].WorkflowTriggerClass)
+		tj := workflowTriggerPriority(paths[j].WorkflowTriggerClass)
+		if ti != tj {
+			return ti < tj
 		}
 		if paths[i].RiskScore != paths[j].RiskScore {
 			return paths[i].RiskScore > paths[j].RiskScore
@@ -166,6 +168,7 @@ func buildActionPath(
 		SecurityVisibilityStatus:   strings.TrimSpace(entry.SecurityVisibilityStatus),
 		CredentialAccess:           entry.CredentialAccess,
 		DeploymentStatus:           strings.TrimSpace(entry.DeploymentStatus),
+		WorkflowTriggerClass:       strings.TrimSpace(entry.WorkflowTriggerClass),
 		ExecutionIdentity:          executionIdentity,
 		ExecutionIdentityType:      executionIdentityType,
 		ExecutionIdentitySource:    executionIdentitySource,
@@ -200,15 +203,31 @@ func recommendedActionForPath(path ActionPath) string {
 	hasDeliveryPath := strings.TrimSpace(path.DeliveryChainStatus) != "" &&
 		strings.TrimSpace(path.DeliveryChainStatus) != "none"
 	unknownToSecurity := strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity
+	highImpact := actionPathHighImpact(path) || strings.TrimSpace(path.WorkflowTriggerClass) == "deploy_pipeline"
+	visibilityOnly := !path.WriteCapable &&
+		!path.CredentialAccess &&
+		!path.DeployWrite &&
+		!path.PullRequestWrite &&
+		!path.MergeExecute &&
+		!path.ProductionWrite
+	strongIdentity := !weakIdentity
+	strongOwnership := !weakOwnership
 
 	switch {
 	case path.ProductionWrite:
 		return "control"
-	case path.ApprovalGap && !weakIdentity && !weakOwnership && !unknownToSecurity:
+	case highImpact && path.WriteCapable && (path.DeployWrite || path.MergeExecute || path.CredentialAccess || unknownToSecurity || weakIdentity || weakOwnership):
+		return "control"
+	case path.ApprovalGap && strongIdentity && strongOwnership && !unknownToSecurity:
 		return "approval"
+	case visibilityOnly:
+		return "inventory"
+	case unknownToSecurity && !path.CredentialAccess && !highImpact && !path.ApprovalGap:
+		return "inventory"
 	case path.CredentialAccess ||
 		strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") ||
 		hasDeliveryPath ||
+		strings.TrimSpace(path.WorkflowTriggerClass) != "" ||
 		unknownToSecurity ||
 		weakIdentity ||
 		weakOwnership:
@@ -328,6 +347,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.ProductionTargetStatus = mergeProductionTargetStatus(current.ProductionTargetStatus, incoming.ProductionTargetStatus)
 	merged.SecurityVisibilityStatus = mergeSecurityVisibilityStatus(current.SecurityVisibilityStatus, incoming.SecurityVisibilityStatus)
 	merged.DeploymentStatus = mergeDeploymentStatus(current.DeploymentStatus, incoming.DeploymentStatus)
+	merged.WorkflowTriggerClass = mergeWorkflowTriggerClass(current.WorkflowTriggerClass, incoming.WorkflowTriggerClass)
 	merged.OperationalOwner, merged.OwnerSource, merged.OwnershipStatus = mergeOperationalOwner(current, incoming)
 	merged.ExecutionIdentity, merged.ExecutionIdentityType, merged.ExecutionIdentitySource, merged.ExecutionIdentityStatus, merged.ExecutionIdentityRationale = mergeExecutionIdentity(current, incoming)
 	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
@@ -588,6 +608,83 @@ func governFirstOwnershipPriority(path ActionPath) int {
 	}
 }
 
+func governFirstPriorityScore(path ActionPath) int {
+	score := 0
+	if path.ProductionWrite {
+		score += 15
+	}
+	if path.DeployWrite {
+		score += 10
+	}
+	if path.MergeExecute {
+		score += 8
+	}
+	if path.PullRequestWrite {
+		score += 6
+	}
+	if path.WriteCapable {
+		score += 5
+	}
+	if path.CredentialAccess {
+		score += 4
+	}
+	if path.ApprovalGap {
+		score += 4
+	}
+	if strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity {
+		score += 4
+	}
+	switch strings.TrimSpace(path.ExecutionIdentityStatus) {
+	case "known":
+		score += 3
+	case "ambiguous", "unknown", "":
+		score += 2
+	}
+	switch strings.TrimSpace(path.OwnershipStatus) {
+	case owners.OwnershipStatusUnresolved:
+		score += 3
+	case owners.OwnershipStatusInferred:
+		score += 1
+	}
+	if strings.TrimSpace(path.OwnerSource) == owners.OwnerSourceConflict {
+		score += 4
+	}
+	switch strings.TrimSpace(path.WorkflowTriggerClass) {
+	case "deploy_pipeline":
+		score += 5
+	case "scheduled":
+		score += 3
+	case "workflow_dispatch":
+		score += 1
+	}
+	if actionPathHighImpact(path) {
+		score += 4
+	}
+	return score
+}
+
+func workflowTriggerPriority(triggerClass string) int {
+	switch strings.TrimSpace(triggerClass) {
+	case "deploy_pipeline":
+		return 0
+	case "scheduled":
+		return 1
+	case "workflow_dispatch":
+		return 2
+	case "":
+		return 3
+	default:
+		return 4
+	}
+}
+
+func mergeWorkflowTriggerClass(current, incoming string) string {
+	if workflowTriggerPriority(incoming) < workflowTriggerPriority(current) {
+		return strings.TrimSpace(incoming)
+	}
+	return strings.TrimSpace(current)
+}
+
 func mergeExecutionIdentity(current, incoming ActionPath) (string, string, string, string, string) {
 	currentStatus := strings.TrimSpace(current.ExecutionIdentityStatus)
 	incomingStatus := strings.TrimSpace(incoming.ExecutionIdentityStatus)
@@ -639,6 +736,7 @@ func correlateExecutionIdentity(entry agginventory.AgentPrivilegeMapEntry, ident
 		return "", "", "", "unknown", "no static non-human identity evidence matched this path"
 	}
 	matches := make([]agginventory.NonHumanIdentity, 0)
+	repoScopedMatches := make([]agginventory.NonHumanIdentity, 0)
 	for _, identity := range identities {
 		if strings.TrimSpace(identity.Org) != strings.TrimSpace(entry.Org) {
 			continue
@@ -646,13 +744,14 @@ func correlateExecutionIdentity(entry agginventory.AgentPrivilegeMapEntry, ident
 		if !entryContainsRepo(entry, identity.Repo) {
 			continue
 		}
+		repoScopedMatches = append(repoScopedMatches, identity)
 		if strings.TrimSpace(identity.Location) != strings.TrimSpace(entry.Location) {
 			continue
 		}
 		matches = append(matches, identity)
 	}
 	if len(matches) == 0 {
-		return "", "", "", "unknown", "no static non-human identity evidence matched this path"
+		return correlateRepoScopedIdentity(repoScopedMatches)
 	}
 	if len(matches) == 1 {
 		if strings.TrimSpace(matches[0].IdentityType) == "unknown" {
@@ -674,6 +773,26 @@ func correlateExecutionIdentity(entry agginventory.AgentPrivilegeMapEntry, ident
 		}
 	}
 	return "", "ambiguous", "", "ambiguous", fmt.Sprintf("%d non-human identity candidates matched this path", len(unique))
+}
+
+func correlateRepoScopedIdentity(matches []agginventory.NonHumanIdentity) (string, string, string, string, string) {
+	if len(matches) == 0 {
+		return "", "", "", "unknown", "no static non-human identity evidence matched this path"
+	}
+	unique := map[string]agginventory.NonHumanIdentity{}
+	for _, item := range matches {
+		key := strings.Join([]string{item.IdentityType, item.Subject, item.Source}, "|")
+		unique[key] = item
+	}
+	if len(unique) == 1 {
+		for _, item := range unique {
+			if strings.TrimSpace(item.IdentityType) == "unknown" {
+				return "", "unknown", strings.TrimSpace(item.Source), "unknown", "repo-scoped static identity evidence stayed ambiguous for this path"
+			}
+			return strings.TrimSpace(item.Subject), strings.TrimSpace(item.IdentityType), strings.TrimSpace(item.Source), "known", "repo-scoped static workflow identity evidence matched this path"
+		}
+	}
+	return "", "ambiguous", "", "ambiguous", fmt.Sprintf("%d repo-scoped non-human identity candidates matched this path", len(unique))
 }
 
 func entryContainsRepo(entry agginventory.AgentPrivilegeMapEntry, repo string) bool {

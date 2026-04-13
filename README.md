@@ -74,6 +74,14 @@ wrkr verify --chain --state ./.wrkr/last-scan.json --json
 `--json` keeps stdout reserved for the final machine-readable payload. `--json-path` adds a byte-identical JSON artifact on disk, hosted org scans surface deterministic progress/retry/completion lines on stderr without polluting stdout JSON, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted. `--profile assessment` narrows the govern-first readout for customer-style scans without changing raw findings, proof chains, or exit codes.
 If a hosted org scan is interrupted, rerun the same target with `--resume`. Treat `partial_result`, `source_errors`, or `source_degraded` as incomplete posture output and rerun after rate limits, permission issues, or upstream failures are resolved.
 `wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain` remains the explicit operator/CI integrity gate. `--resume` also revalidates checkpoint files and reused materialized repo roots so symlink-swapped entries fail closed instead of being treated as trusted scan roots.
+When one run needs both hosted and local scope, use repeatable `--target` flags:
+
+```bash
+wrkr scan --target org:acme --target path:./your-repos --github-api https://api.github.com --json
+```
+
+Explicit multi-target scans add deterministic `targets[]` arrays to the scan payload, saved state, and source manifest.
+`wrkr init` still persists one default target in this wave, so multi-target defaults are intentionally not stored in config yet.
 
 If you are evaluating Wrkr itself, prefer the curated scenario above before scanning the repository root. The Wrkr repo contains scenario and test fixtures, so repo-root fixture noise can overwhelm the posture score and hide the intended first-value path.
 

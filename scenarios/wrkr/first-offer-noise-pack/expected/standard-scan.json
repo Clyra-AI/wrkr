@@ -14,7 +14,7 @@
       "path_id": "apc-911d5b0cdab4",
       "repo": "example-sandbox",
       "tool_type": "compiled_action",
-      "recommended_action": "proof",
+      "recommended_action": "control",
       "owner_source": "multi_repo_conflict",
       "ownership_status": "unresolved",
       "business_state_surface": "deploy"
@@ -23,7 +23,7 @@
       "path_id": "apc-ea49974b9122",
       "repo": "example-sandbox",
       "tool_type": "ci_agent",
-      "recommended_action": "proof",
+      "recommended_action": "control",
       "owner_source": "multi_repo_conflict",
       "ownership_status": "unresolved",
       "business_state_surface": "deploy"
@@ -34,13 +34,13 @@
       "total_paths": 2,
       "write_capable_paths": 2,
       "production_target_backed_paths": 0,
-      "govern_first_paths": 2
+      "govern_first_paths": 0
     },
     "path": {
       "path_id": "apc-911d5b0cdab4",
       "repo": "example-sandbox",
       "tool_type": "compiled_action",
-      "recommended_action": "proof",
+      "recommended_action": "control",
       "business_state_surface": "deploy"
     }
   },

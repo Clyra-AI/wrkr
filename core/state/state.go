@@ -23,6 +23,7 @@ const SnapshotVersion = "v1"
 type Snapshot struct {
 	Version      string                    `json:"version"`
 	Target       source.Target             `json:"target"`
+	Targets      []source.Target           `json:"targets,omitempty"`
 	Findings     []source.Finding          `json:"findings"`
 	Inventory    *agginventory.Inventory   `json:"inventory,omitempty"`
 	RiskReport   *risk.Report              `json:"risk_report,omitempty"`
@@ -44,6 +45,7 @@ func ResolvePath(explicit string) string {
 
 func Save(path string, snapshot Snapshot) error {
 	snapshot.Version = SnapshotVersion
+	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	source.SortFindings(snapshot.Findings)
 	payload, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
@@ -69,6 +71,7 @@ func Load(path string) (Snapshot, error) {
 	if snapshot.Version == "" {
 		snapshot.Version = SnapshotVersion
 	}
+	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	source.SortFindings(snapshot.Findings)
 	return snapshot, nil
 }

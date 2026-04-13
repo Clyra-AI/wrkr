@@ -283,7 +283,7 @@ func TestE2EOrgJSONProgressStaysOnStderr(t *testing.T) {
 	if strings.Contains(out.String(), "progress target=org") {
 		t.Fatalf("expected progress output to stay off stdout, got %q", out.String())
 	}
-	if !strings.Contains(errOut.String(), "progress target=org event=complete repo_total=1 completed=1 failed=0") {
+	if !strings.Contains(errOut.String(), "progress target=org org=acme event=complete repo_total=1 completed=1 failed=0") {
 		t.Fatalf("expected stderr completion progress, got %q", errOut.String())
 	}
 }

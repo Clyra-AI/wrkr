@@ -12,6 +12,8 @@ type Target struct {
 	Value string `json:"value"`
 }
 
+const TargetModeMulti = "multi"
+
 // RepoManifest identifies a repository acquisition result.
 type RepoManifest struct {
 	Repo     string `json:"repo"`
@@ -28,6 +30,7 @@ type RepoFailure struct {
 // Manifest is the deterministic source acquisition output.
 type Manifest struct {
 	Target   Target         `json:"target"`
+	Targets  []Target       `json:"targets,omitempty"`
 	Repos    []RepoManifest `json:"repos"`
 	Failures []RepoFailure  `json:"failures,omitempty"`
 }
@@ -36,6 +39,7 @@ type Manifest struct {
 type Finding = model.Finding
 
 func SortManifest(m Manifest) Manifest {
+	m.Targets = SortTargets(m.Targets)
 	sort.Slice(m.Repos, func(i, j int) bool {
 		if m.Repos[i].Repo == m.Repos[j].Repo {
 			if m.Repos[i].Location == m.Repos[j].Location {
@@ -52,6 +56,20 @@ func SortManifest(m Manifest) Manifest {
 		return m.Failures[i].Repo < m.Failures[j].Repo
 	})
 	return m
+}
+
+func SortTargets(targets []Target) []Target {
+	if len(targets) == 0 {
+		return nil
+	}
+	sorted := append([]Target(nil), targets...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Mode == sorted[j].Mode {
+			return sorted[i].Value < sorted[j].Value
+		}
+		return sorted[i].Mode < sorted[j].Mode
+	})
+	return sorted
 }
 
 func SortFindings(findings []Finding) {

@@ -116,6 +116,31 @@ func TestRenderMarkdownStableForFixedSummary(t *testing.T) {
 	}
 }
 
+func TestRenderMarkdownIncludesTriggerPostureOnTopPaths(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		GeneratedAt:  "2026-02-21T12:00:00Z",
+		Template:     "operator",
+		ShareProfile: "internal",
+		AssessmentSummary: &AssessmentSummary{
+			GovernablePathCount:   1,
+			WriteCapablePathCount: 1,
+			TopPathToControlFirst: &risk.ActionPath{
+				Repo:                 "acme/release",
+				Location:             ".github/workflows/nightly.yml",
+				RecommendedAction:    "control",
+				WorkflowTriggerClass: "scheduled",
+			},
+		},
+	}
+
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, "trigger=scheduled") {
+		t.Fatalf("expected markdown to surface trigger posture, got %q", markdown)
+	}
+}
+
 func TestPublicSanitizeFindingsRedactsLocationRepoOrg(t *testing.T) {
 	t.Parallel()
 

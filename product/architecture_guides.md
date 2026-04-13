@@ -258,6 +258,7 @@ Use this matrix to preserve deterministic failure semantics when changing runtim
 |---|---|---|
 | `scan --repo/--org` without configured GitHub API base (`--github-api`/`WRKR_GITHUB_API_BASE`) | Fail closed | exit `7`, error code `dependency_missing` |
 | `scan --repo/--org` with unreachable `--github-api` endpoint | Fail closed | exit `1`, error code `runtime_failure` |
+| `scan --repo/--org` with bounded-retry hosted throttling exhaustion (`429` or recognizable rate-limit `403`) | Fail closed with machine-readable retry/wait signal | exit `1`, error code `rate_limited` |
 | `scan --enrich` without explicit network source | Fail closed | exit `7`, error code `dependency_missing` |
 | `scan --policy` file/schema/evaluation violation | Fail closed | exit `3`, error code `policy_schema_violation` |
 | `scan --approved-tools` invalid policy file/schema | Fail closed | exit `6`, error code `invalid_input` |
