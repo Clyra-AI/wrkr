@@ -42,7 +42,7 @@ Wrkr does not perform live MCP probing or package vulnerability assessment in th
 ### Should I start with `wrkr scan --my-setup` or `wrkr scan --github-org`?
 
 For the current public launch, start with `wrkr scan --github-org ... --github-api ... --json` when the goal is org posture, shared inventory review, or compliance handoff.
-If hosted prerequisites are not ready yet, use `wrkr scan --path ./your-repo --json` as the zero-integration repo-local fallback or `wrkr scan --my-setup --json` for developer-machine hygiene.
+If hosted prerequisites are not ready yet, use `wrkr scan --path ./your-repo --json` as the zero-integration repo-local fallback or `wrkr scan --my-setup --json` for developer-machine hygiene. `--path` scans the selected directory itself when that directory is the repo root with signals such as `.git`, `go.mod`, `AGENTS.md`, or `.codex/`; it scans immediate child repos instead when you point it at a bundle root such as `./scenarios/wrkr/scan-mixed-org/repos`.
 Developers doing only local checks can still start with `wrkr scan --my-setup --json`.
 
 For larger orgs, prefer the opinionated path:

@@ -91,10 +91,6 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if *timeout < 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--timeout must be >= 0", exitInvalidInput)
 	}
-	jsonSink, jsonSinkErr := newJSONOutputSink(*jsonOut, *jsonPath, stdout)
-	if jsonSinkErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonSinkErr.Error(), exitInvalidInput)
-	}
 	productionTargetsFile := strings.TrimSpace(*productionTargetsPath)
 	if *productionTargetsStrict && productionTargetsFile == "" {
 		return emitError(
@@ -140,11 +136,24 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			exitDependencyMissing,
 		)
 	}
-	statePath := state.ResolvePath(*statePathFlag)
-	artifactPreflight, preflightErr := preflightScanArtifacts(*reportMD, *reportMDPath, *reportTemplate, *reportShareProfile, *sarifOut, *sarifPath)
+	artifactPreflight, preflightErr := preflightScanArtifacts(
+		state.ResolvePath(*statePathFlag),
+		*jsonPath,
+		*reportMD,
+		*reportMDPath,
+		*reportTemplate,
+		*reportShareProfile,
+		*sarifOut,
+		*sarifPath,
+	)
 	if preflightErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", preflightErr.Error(), exitInvalidInput)
 	}
+	jsonSink, jsonSinkErr := newJSONOutputSink(*jsonOut, artifactPreflight.JSONPath, stdout)
+	if jsonSinkErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonSinkErr.Error(), exitInvalidInput)
+	}
+	statePath := artifactPreflight.StatePath
 
 	ctx := parentCtx
 	cancel := func() {}
@@ -206,7 +215,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		repoRisk[repo.Org+"::"+repo.Repo] = repo.Score
 	}
 
-	manifestPath := manifest.ResolvePath(statePath)
+	manifestPath := artifactPreflight.ManifestPath
 	previousManifest, manifestErr := loadLifecycleManifest(manifestPath, statePath, previousSnapshot)
 	if manifestErr != nil {
 		return emitScanFailure(manifestErr)
@@ -344,15 +353,15 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Identities:   nextManifest.Identities,
 		Transitions:  transitions,
 	}
-	chainPath := lifecycle.ChainPath(statePath)
-	proofChainPath := proofemit.ChainPath(statePath)
+	chainPath := artifactPreflight.LifecyclePath
+	proofChainPath := artifactPreflight.ProofChainPath
 	managedSnapshots, snapshotErr := captureManagedArtifacts(
 		statePath,
 		manifestPath,
 		chainPath,
 		proofChainPath,
-		proofemit.ChainAttestationPath(proofChainPath),
-		proofemit.SigningKeyPath(statePath),
+		artifactPreflight.ProofAttestationPath,
+		artifactPreflight.SigningKeyPath,
 		artifactPreflight.ReportPath,
 		artifactPreflight.SARIFPath,
 		jsonSink.outputPath,
@@ -567,14 +576,84 @@ func toolTouchesLocalMachine(tool agginventory.Tool) bool {
 }
 
 type scanArtifactPreflight struct {
-	ReportTemplate     reportcore.Template
-	ReportShareProfile reportcore.ShareProfile
-	ReportPath         string
-	SARIFPath          string
+	StatePath            string
+	ManifestPath         string
+	LifecyclePath        string
+	ProofChainPath       string
+	ProofAttestationPath string
+	SigningKeyPath       string
+	JSONPath             string
+	ReportTemplate       reportcore.Template
+	ReportShareProfile   reportcore.ShareProfile
+	ReportPath           string
+	SARIFPath            string
 }
 
-func preflightScanArtifacts(reportEnabled bool, reportPath, reportTemplateRaw, reportShareProfileRaw string, sarifEnabled bool, sarifPath string) (scanArtifactPreflight, error) {
+func preflightScanArtifacts(statePathRaw, jsonPath string, reportEnabled bool, reportPath, reportTemplateRaw, reportShareProfileRaw string, sarifEnabled bool, sarifPath string) (scanArtifactPreflight, error) {
 	preflight := scanArtifactPreflight{}
+	statePath, err := normalizeManagedArtifactPath(statePathRaw)
+	if err != nil {
+		return scanArtifactPreflight{}, err
+	}
+	manifestPath, err := normalizeManagedArtifactPath(manifest.ResolvePath(statePath))
+	if err != nil {
+		return scanArtifactPreflight{}, err
+	}
+	lifecyclePath, err := normalizeManagedArtifactPath(lifecycle.ChainPath(statePath))
+	if err != nil {
+		return scanArtifactPreflight{}, err
+	}
+	proofChainPath, err := normalizeManagedArtifactPath(proofemit.ChainPath(statePath))
+	if err != nil {
+		return scanArtifactPreflight{}, err
+	}
+	proofAttestationPath, err := normalizeManagedArtifactPath(proofemit.ChainAttestationPath(proofChainPath))
+	if err != nil {
+		return scanArtifactPreflight{}, err
+	}
+	signingKeyPath, err := normalizeManagedArtifactPath(proofemit.SigningKeyPath(statePath))
+	if err != nil {
+		return scanArtifactPreflight{}, err
+	}
+
+	preflight.StatePath = statePath
+	preflight.ManifestPath = manifestPath
+	preflight.LifecyclePath = lifecyclePath
+	preflight.ProofChainPath = proofChainPath
+	preflight.ProofAttestationPath = proofAttestationPath
+	preflight.SigningKeyPath = signingKeyPath
+
+	entries := make([]scanArtifactPathEntry, 0, 9)
+	for _, item := range []struct {
+		label string
+		path  string
+	}{
+		{label: "--state", path: preflight.StatePath},
+		{label: "manifest", path: preflight.ManifestPath},
+		{label: "lifecycle chain", path: preflight.LifecyclePath},
+		{label: "proof chain", path: preflight.ProofChainPath},
+		{label: "proof attestation", path: preflight.ProofAttestationPath},
+		{label: "proof signing key", path: preflight.SigningKeyPath},
+	} {
+		entry, entryErr := newScanArtifactPathEntry(item.label, item.path)
+		if entryErr != nil {
+			return scanArtifactPreflight{}, entryErr
+		}
+		entries = append(entries, entry)
+	}
+
+	if strings.TrimSpace(jsonPath) != "" {
+		path, err := resolveArtifactOutputPath(jsonPath)
+		if err != nil {
+			return scanArtifactPreflight{}, err
+		}
+		preflight.JSONPath = path
+		entry, entryErr := newScanArtifactPathEntry("--json-path", path)
+		if entryErr != nil {
+			return scanArtifactPreflight{}, entryErr
+		}
+		entries = append(entries, entry)
+	}
 	if reportEnabled {
 		template, shareProfile, err := parseReportTemplateShare(reportTemplateRaw, reportShareProfileRaw)
 		if err != nil {
@@ -587,6 +666,11 @@ func preflightScanArtifacts(reportEnabled bool, reportPath, reportTemplateRaw, r
 		preflight.ReportTemplate = template
 		preflight.ReportShareProfile = shareProfile
 		preflight.ReportPath = path
+		entry, entryErr := newScanArtifactPathEntry("--report-md-path", path)
+		if entryErr != nil {
+			return scanArtifactPreflight{}, entryErr
+		}
+		entries = append(entries, entry)
 	}
 	if sarifEnabled {
 		path, err := resolveArtifactOutputPath(sarifPath)
@@ -594,6 +678,14 @@ func preflightScanArtifacts(reportEnabled bool, reportPath, reportTemplateRaw, r
 			return scanArtifactPreflight{}, err
 		}
 		preflight.SARIFPath = path
+		entry, entryErr := newScanArtifactPathEntry("--sarif-path", path)
+		if entryErr != nil {
+			return scanArtifactPreflight{}, entryErr
+		}
+		entries = append(entries, entry)
+	}
+	if err := detectScanArtifactPathCollisions(entries); err != nil {
+		return scanArtifactPreflight{}, err
 	}
 	return preflight, nil
 }

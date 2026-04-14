@@ -14,6 +14,10 @@ For `my_setup`, use `--target my_setup:local-machine`.
 Acquisition behavior is fail-closed by target:
 
 - `--path` runs fully local/offline.
+- `--path` supports two deterministic interpretations:
+  - `repo_root`: scan the selected directory itself as one repo when it carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, `.codex/`, `.github/`, or other supported tool/config markers.
+  - `repo_set`: scan the immediate non-hidden child repos when the selected directory is a bundle root without repo-root signals, such as `./scenarios/wrkr/scan-mixed-org/repos`.
+- `repo_set` child repos are enumerated in deterministic lexical order by repo name.
 - `--my-setup` runs fully local/offline against the local machine setup rooted at the current user home directory.
   It inspects supported user-home tool configs, selected environment key names, and common workspace roots for local agent project markers without emitting raw secret values.
 - `--repo` and `--org` require real GitHub acquisition via `--github-api` or `WRKR_GITHUB_API_BASE`.
@@ -31,6 +35,7 @@ Acquisition behavior is fail-closed by target:
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
 - Scan-owned managed artifacts are published transactionally: state snapshot, lifecycle chain, proof chain/attestation, manifest, and any requested `--json-path`, `--report-md-path`, or `--sarif-path` sidecars commit as one generation.
 - Invalid scan-owned artifact paths such as `--report-md-path` and `--sarif-path` are preflight-validated before any managed artifact mutation.
+- `--json-path`, `--report-md-path`, and `--sarif-path` must stay unique from one another and from Wrkr-managed artifacts derived from `--state`; collisions fail closed with `invalid_input` (exit `6`) before any scan-managed artifact is written.
 - Late write failures after preflight still fail closed and roll managed artifacts back to the previous committed generation instead of leaving mixed state/proof/manifest outputs behind.
 - For `--path` scans, detector file reads stay bounded to the selected repo root. Root-escaping symlinked config, env, workflow, and MCP files are rejected with deterministic `parse_error.kind=unsafe_path` diagnostics instead of being read.
 
@@ -104,7 +109,7 @@ Opinionated large-org command path:
 wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 ```
 
-When `--json` is set for hosted org scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, and completion lines to stderr only. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file.
+When `--json` is set for hosted org scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, and completion lines to stderr only. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file. Any requested `--json-path`, `--report-md-path`, or `--sarif-path` must be unique from one another and from scan-managed `--state` sibling artifacts.
 `--resume` is supported only when every requested target is an org target. Wrkr stores internal checkpoint metadata under the scan-state directory in `org-checkpoints/` and reuses already-materialized repositories only when the checkpoint target set, per-org repo sets, and materialized-root path still match the current org-target scan.
 Resume also revalidates that checkpoint files and reused repo roots are still trusted local artifacts under the managed materialized root; symlink-swapped entries fail closed as `unsafe_operation_blocked`.
 Mixed target sets such as org-plus-path scans fail closed with `invalid_input` when `--resume` is requested.
@@ -122,6 +127,7 @@ wrkr scan --target org:acme --target path:./repos --github-api https://api.githu
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
 ```
 
+This is the canonical `repo_set` example for `--path`: the selected directory is a bundle of immediate child repos, so Wrkr preserves per-child repo manifests and deterministic ordering instead of collapsing the bundle into one repo.
 Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
 Explicit multi-target runs also emit additive `targets[]` arrays at the top level and inside `source_manifest`, and saved state snapshots preserve the same additive `targets[]` contract.
 For local-machine scans, `target.mode` is `my_setup`.

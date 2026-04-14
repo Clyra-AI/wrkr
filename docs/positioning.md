@@ -49,7 +49,7 @@ wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --json
 wrkr verify --chain --json
 ```
 
-If hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` and return to the org posture flow once GitHub access is configured.
+If hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` and return to the org posture flow once GitHub access is configured. `--path` scans the selected directory itself when it is the repo root and uses bundle roots such as `./scenarios/wrkr/scan-mixed-org/repos` when you want immediate child repos scanned as a repo-set.
 
 Low first-run `framework_coverage` is an evidence-state signal, not a parser failure. Wrkr measures what is currently documented in the scanned state.
 

@@ -11,7 +11,7 @@ Hosted prerequisites for this path:
 - token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`
 - fine-grained PAT guidance: select only the target repositories and grant read-only repository metadata plus read-only repository contents
 - connector endpoints: `GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`, `GET /repos/{owner}/{repo}/git/blobs/{sha}`
-- if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first and return to this flow when GitHub access is configured
+- if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first and return to this flow when GitHub access is configured; `--path` scans the selected directory itself when it is the repo root and uses bundle roots like `./scenarios/wrkr/scan-mixed-org/repos` when you want a deterministic repo-set
 
 ```bash
 wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif

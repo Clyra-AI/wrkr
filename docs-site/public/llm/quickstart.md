@@ -35,7 +35,8 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr
 ```
 
 `wrkr evidence` now fails closed when the saved proof chain is malformed or tampered, and `wrkr verify --chain --json` remains the explicit machine gate for integrity.
-Use the curated scenario first when you want the evaluator-safe path because it avoids repo-root fixture noise from Wrkr's own scenarios, docs, and test fixtures.
+Use the curated scenario first when you want the evaluator-safe path because it avoids repo-root fixture noise from Wrkr's own scenarios, docs, and test fixtures. That scenario path is the canonical `repo_set` example for `--path`: Wrkr scans the immediate child repos in the bundle instead of treating the bundle root as one repo.
+Use `wrkr scan --path ./your-repo --json` when the selected directory itself is the repo root and carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, or `.codex/`. Use a bundle root like `./scenarios/wrkr/scan-mixed-org/repos` when you want immediate child repos scanned as a deterministic repo-set.
 
 Use these next when you want deeper triage:
 

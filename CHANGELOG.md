@@ -20,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Workflow-backed govern-first paths and summaries now expose static trigger posture such as scheduled, workflow-dispatch, and deploy-pipeline backed execution when it changes governance urgency.
 - Govern-first ranking now prioritizes the most urgent write, deploy, production-backed, and approval-gap paths first while keeping weaker paths visible lower in the ranked output.
 - `recommended_action` now separates visibility, approval, proof, and control-first path classes more sharply on real-world govern-first scans and report summaries.
+- Clarified repo-local contributor and agent guidance so Wrkr now delegates Go toolchain authority to the enforced 1.26.2 floor in `go.mod` and the development standards.
 
 ### Deprecated
 
@@ -32,6 +33,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - Hosted GitHub scans now retry recognizable rate-limit `403` responses using the observed reset window instead of failing immediately as generic runtime errors.
+- Blocked scan sidecar output paths from aliasing managed state and proof artifacts, so invalid configurations now fail fast instead of corrupting saved scan state.
+- Made `wrkr scan --path` honor single-repo root inputs while preserving deterministic repo-set scans for scenario bundles and local multi-repo roots.
 
 ### Security
 
