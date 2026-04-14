@@ -66,6 +66,32 @@ func TestCheckToolchainPinsFailsOnReleaseIntegrityDrift(t *testing.T) {
 	}
 }
 
+func TestCheckToolchainPinsFailsWhenAgentsPinsExplicitGoVersion(t *testing.T) {
+	t.Parallel()
+
+	fixtureRoot := writeToolchainPinFixture(t, fixturePins{
+		gosecVersion:        "v2.23.0",
+		golangciLintVersion: "v2.0.1",
+		cosignVersion:       "v2.5.3",
+		syftVersion:         "v1.32.0",
+		grypeVersion:        "v0.99.1",
+		agentsContent: strings.Join([]string{
+			"# AGENTS.md",
+			"",
+			"- Go `1.26.1`",
+			"",
+		}, "\n"),
+	})
+	_, stderr, err := runToolchainPinCheck(t, fixtureRoot)
+	if err == nil {
+		t.Fatal("expected checker to fail when AGENTS.md pins an explicit Go version")
+	}
+	expected := "AGENTS.md must delegate Go toolchain authority to go.mod and product/dev_guides.md; remove explicit Go version literals"
+	if !strings.Contains(stderr, expected) {
+		t.Fatalf("expected deterministic AGENTS drift message %q, got %q", expected, stderr)
+	}
+}
+
 func TestReleaseWorkflowUsesDocumentedReleaseIntegrityPins(t *testing.T) {
 	t.Parallel()
 
@@ -98,6 +124,7 @@ type fixturePins struct {
 	cosignVersion       string
 	syftVersion         string
 	grypeVersion        string
+	agentsContent       string
 }
 
 func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
@@ -123,6 +150,16 @@ func writeToolchainPinFixture(t *testing.T, versions fixturePins) string {
 		"| Grype | `v0.99.1` |",
 		"",
 	}, "\n"))
+	agentsContent := versions.agentsContent
+	if agentsContent == "" {
+		agentsContent = strings.Join([]string{
+			"# AGENTS.md",
+			"",
+			"- Go: follow `go.mod` for the enforced floor and `product/dev_guides.md` for the org-wide version policy.",
+			"",
+		}, "\n")
+	}
+	mustWriteFile(t, filepath.Join(root, "AGENTS.md"), agentsContent)
 
 	workflow := strings.Join([]string{
 		"name: fixture",

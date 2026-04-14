@@ -69,6 +69,7 @@ Section requirements:
   - Keep developer-machine hygiene as the secondary path.
   - Place hosted prerequisites (`--github-api` and token guidance) adjacent to the first hosted org workflow.
   - Include explicit deterministic fallback commands before hosted setup can dead-end (`wrkr scan --path` and/or `wrkr scan --my-setup`).
+  - Explain the dual `wrkr scan --path` contract: repo-root fallback for one selected repo, and bundle-root repo-set behavior for paths such as `./scenarios/wrkr/*/repos`.
   - Include `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff`.
   - Include `wrkr scan --github-org`, `wrkr evidence`, and `wrkr verify` when security/platform-led launch copy is used.
   - Keep deterministic `--json` command anchors.

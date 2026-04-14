@@ -18,6 +18,12 @@ type managedArtifactSnapshot struct {
 	perm    os.FileMode
 }
 
+type scanArtifactPathEntry struct {
+	label string
+	path  string
+	key   string
+}
+
 func captureManagedArtifacts(paths ...string) ([]managedArtifactSnapshot, error) {
 	snapshots := make([]managedArtifactSnapshot, 0, len(paths))
 	seen := map[string]struct{}{}
@@ -61,6 +67,107 @@ func captureManagedArtifact(path string) (managedArtifactSnapshot, error) {
 		payload: payload,
 		perm:    info.Mode().Perm(),
 	}, nil
+}
+
+func normalizeManagedArtifactPath(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("scan artifact path must not be empty")
+	}
+	return filepath.Clean(trimmed), nil
+}
+
+func newScanArtifactPathEntry(label, path string) (scanArtifactPathEntry, error) {
+	key, err := canonicalArtifactPath(path)
+	if err != nil {
+		return scanArtifactPathEntry{}, err
+	}
+	return scanArtifactPathEntry{
+		label: label,
+		path:  path,
+		key:   key,
+	}, nil
+}
+
+func canonicalArtifactPath(raw string) (string, error) {
+	cleanPath := filepath.Clean(strings.TrimSpace(raw))
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve artifact output path: %w", err)
+	}
+	return resolveArtifactPath(absPath)
+}
+
+func resolveArtifactPath(absPath string) (string, error) {
+	missingTail := make([]string, 0, 4)
+	candidate := absPath
+	for {
+		resolved, err := filepath.EvalSymlinks(candidate)
+		if err == nil {
+			for i := len(missingTail) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, missingTail[i])
+			}
+			return filepath.Clean(resolved), nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("resolve artifact output path: %w", err)
+		}
+
+		parent := filepath.Dir(candidate)
+		if parent == candidate {
+			for i := len(missingTail) - 1; i >= 0; i-- {
+				candidate = filepath.Join(candidate, missingTail[i])
+			}
+			return filepath.Clean(candidate), nil
+		}
+
+		missingTail = append(missingTail, filepath.Base(candidate))
+		candidate = parent
+	}
+}
+
+func detectScanArtifactPathCollisions(entries []scanArtifactPathEntry) error {
+	byKey := make(map[string][]scanArtifactPathEntry, len(entries))
+	keyOrder := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if strings.TrimSpace(entry.key) == "" {
+			continue
+		}
+		if _, ok := byKey[entry.key]; !ok {
+			keyOrder = append(keyOrder, entry.key)
+		}
+		byKey[entry.key] = append(byKey[entry.key], entry)
+	}
+
+	conflicts := make([]string, 0)
+	for _, key := range keyOrder {
+		group := byKey[key]
+		if len(group) < 2 {
+			continue
+		}
+		labels := make([]string, 0, len(group))
+		for _, entry := range group {
+			labels = append(labels, entry.label)
+		}
+		conflicts = append(conflicts, fmt.Sprintf("%s resolve to the same path %s", humanArtifactLabelList(labels), key))
+	}
+	if len(conflicts) == 0 {
+		return nil
+	}
+	return fmt.Errorf("scan artifact path collision: %s", strings.Join(conflicts, "; "))
+}
+
+func humanArtifactLabelList(labels []string) string {
+	switch len(labels) {
+	case 0:
+		return ""
+	case 1:
+		return labels[0]
+	case 2:
+		return labels[0] + " and " + labels[1]
+	default:
+		return strings.Join(labels[:len(labels)-1], ", ") + ", and " + labels[len(labels)-1]
+	}
 }
 
 func restoreManagedArtifacts(snapshots []managedArtifactSnapshot) error {

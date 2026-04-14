@@ -243,6 +243,21 @@ else
   exit 3
 fi
 
+if [[ ! -f AGENTS.md ]]; then
+  echo "missing AGENTS.md" >&2
+  exit 3
+fi
+
+if grep -Eq 'Go `[0-9]+\.[0-9]+(\.[0-9]+)?`' AGENTS.md; then
+  echo "AGENTS.md must delegate Go toolchain authority to go.mod and product/dev_guides.md; remove explicit Go version literals" >&2
+  exit 3
+fi
+
+if ! grep -Fq '`go.mod`' AGENTS.md || ! grep -Fq '`product/dev_guides.md`' AGENTS.md; then
+  echo "AGENTS.md must point Go toolchain authority at go.mod and product/dev_guides.md" >&2
+  exit 3
+fi
+
 gosec_expected="$(read_expected_pin "gosec" || true)"
 if [[ -z "$gosec_expected" ]]; then
   echo "missing expected pin in $dev_guides_path for gosec" >&2

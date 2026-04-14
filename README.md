@@ -54,6 +54,7 @@ wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/la
 ```
 
 This curated path is the recommended first-value workflow for evaluation because it avoids repo-root fixture noise from Wrkr's own scenario, docs, and test fixtures while still showing the shipped wedge: discovery, posture, evidence, verification, and regression gates.
+`--path` is explicit now: point it at a repo root when the selected directory itself carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, `.codex/`, or `.github/`; point it at `./scenarios/wrkr/scan-mixed-org/repos` or another bundle root when you want Wrkr to scan immediate child repos as a deterministic repo-set.
 
 ### Security Teams (Recommended first path)
 
@@ -71,7 +72,7 @@ wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
 
-`--json` keeps stdout reserved for the final machine-readable payload. `--json-path` adds a byte-identical JSON artifact on disk, hosted org scans surface deterministic progress/retry/completion lines on stderr without polluting stdout JSON, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted. `--profile assessment` narrows the govern-first readout for customer-style scans without changing raw findings, proof chains, or exit codes.
+`--json` keeps stdout reserved for the final machine-readable payload. `--json-path` adds a byte-identical JSON artifact on disk, hosted org scans surface deterministic progress/retry/completion lines on stderr without polluting stdout JSON, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted. `--json-path`, `--report-md-path`, and `--sarif-path` must each stay unique and must not alias `--state` or Wrkr-managed sibling artifacts; collisions now fail closed with `invalid_input` before any scan state is mutated. `--profile assessment` narrows the govern-first readout for customer-style scans without changing raw findings, proof chains, or exit codes.
 If a hosted org scan is interrupted, rerun the same target with `--resume`. Treat `partial_result`, `source_errors`, or `source_degraded` as incomplete posture output and rerun after rate limits, permission issues, or upstream failures are resolved.
 `wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain` remains the explicit operator/CI integrity gate. `--resume` also revalidates checkpoint files and reused materialized repo roots so symlink-swapped entries fail closed instead of being treated as trusted scan roots.
 When one run needs both hosted and local scope, use repeatable `--target` flags:
@@ -91,6 +92,8 @@ If hosted prerequisites are not ready yet, start with one of these deterministic
 wrkr scan --path ./your-repo --json
 wrkr scan --my-setup --json
 ```
+
+Use `./your-repo` when the selected directory itself is the repo root. Use a bundle root like `./scenarios/wrkr/scan-mixed-org/repos` when the selected directory is intentionally a set of immediate child repos.
 
 ### Developers (Secondary local hygiene)
 
@@ -400,7 +403,7 @@ wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last
 Wrkr treats machine-readable output and exit codes as product contracts.
 
 - `--json` emits stable machine-readable output.
-- `--json-path` writes the same final machine-readable scan payload to disk without changing the `--json` stdout contract.
+- `--json-path` writes the same final machine-readable scan payload to disk without changing the `--json` stdout contract, and every requested sidecar path must stay unique from `--state` and other scan-owned artifacts.
 - `--sarif` emits SARIF `2.1.0` for security tooling and GitHub code scanning workflows.
 - Partial-result mode preserves findings when a detector or source path fails non-fatally.
 - `--timeout` and signal cancellation are enforced end-to-end.

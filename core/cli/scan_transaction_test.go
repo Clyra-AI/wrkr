@@ -212,3 +212,58 @@ func TestScanLateJSONPathWriteFailureRollsBackManagedArtifacts(t *testing.T) {
 	assertOptionalTestFileEquals(t, attestationPath, attestationBefore)
 	assertOptionalTestFileEquals(t, signingKeyPath, signingKeyBefore)
 }
+
+func TestScanRejectedJSONPathAliasPreservesManagedArtifacts(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "alpha", ".codex")
+	if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	var initialOut bytes.Buffer
+	var initialErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &initialOut, &initialErr); code != exitSuccess {
+		t.Fatalf("initial scan failed: %d stdout=%q stderr=%q", code, initialOut.String(), initialErr.String())
+	}
+
+	manifestPath := manifest.ResolvePath(statePath)
+	lifecyclePath := lifecycle.ChainPath(statePath)
+	proofPath := proofemit.ChainPath(statePath)
+	attestationPath := proofemit.ChainAttestationPath(proofPath)
+	signingKeyPath := proofemit.SigningKeyPath(statePath)
+
+	stateBefore := readOptionalTestFile(t, statePath)
+	manifestBefore := readOptionalTestFile(t, manifestPath)
+	lifecycleBefore := readOptionalTestFile(t, lifecyclePath)
+	proofBefore := readOptionalTestFile(t, proofPath)
+	attestationBefore := readOptionalTestFile(t, attestationPath)
+	signingKeyBefore := readOptionalTestFile(t, signingKeyPath)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--path", reposPath,
+		"--state", statePath,
+		"--json",
+		"--json-path", statePath,
+	}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected invalid input exit, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+
+	assertOptionalTestFileEquals(t, statePath, stateBefore)
+	assertOptionalTestFileEquals(t, manifestPath, manifestBefore)
+	assertOptionalTestFileEquals(t, lifecyclePath, lifecycleBefore)
+	assertOptionalTestFileEquals(t, proofPath, proofBefore)
+	assertOptionalTestFileEquals(t, attestationPath, attestationBefore)
+	assertOptionalTestFileEquals(t, signingKeyPath, signingKeyBefore)
+}

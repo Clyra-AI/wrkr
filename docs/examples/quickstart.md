@@ -29,6 +29,7 @@ wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/la
 ```
 
 Use this flow first when you want the evaluator-safe path. It avoids repo-root fixture noise from Wrkr's own scenarios, docs, and tests while still exercising the shipped wedge.
+This is the canonical `repo_set` path example: Wrkr scans the immediate child repos under `./scenarios/wrkr/scan-mixed-org/repos` in deterministic order instead of treating that bundle root as one repo.
 
 ## Security/platform posture first
 
@@ -66,7 +67,7 @@ wrkr scan --path ./your-repo --json
 wrkr scan --my-setup --json
 ```
 
-Use `--path` when you want repo-local discovery with no hosted setup. Use `--my-setup` when you want developer-machine hygiene for local configs, MCP posture, and secret-presence signals.
+Use `--path` when you want repo-local discovery with no hosted setup. When `./your-repo` itself is the repo root and carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, or `.codex/`, Wrkr scans that directory as one repo. Use a bundle root like `./scenarios/wrkr/scan-mixed-org/repos` when you want Wrkr to scan immediate child repos as a repo-set. Use `--my-setup` when you want developer-machine hygiene for local configs, MCP posture, and secret-presence signals.
 
 ## Developer-machine hygiene (secondary path)
 

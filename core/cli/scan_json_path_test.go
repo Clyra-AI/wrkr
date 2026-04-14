@@ -8,6 +8,10 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/lifecycle"
+	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/proofemit"
 )
 
 func TestScanJSONPathWritesByteIdenticalPayloadToStdoutAndFile(t *testing.T) {
@@ -130,6 +134,161 @@ func TestScanJSONPathRejectsDirectory(t *testing.T) {
 		t.Fatalf("expected exit %d, got %d (%s)", exitInvalidInput, code, errOut.String())
 	}
 	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+}
+
+func TestScanJSONPathRejectsAliasWithStatePathBeforeWritingManagedArtifacts(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "alpha", ".codex")
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--path", reposPath,
+		"--state", statePath,
+		"--json",
+		"--json-path", statePath,
+	}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected exit %d, got %d stdout=%q stderr=%q", exitInvalidInput, code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+
+	envelope := parseTrailingJSONEnvelope(t, errOut.Bytes())
+	errorPayload, ok := envelope["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", envelope)
+	}
+	message, _ := errorPayload["message"].(string)
+	for _, want := range []string{"--state", "--json-path"} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("expected error message %q to mention %s", message, want)
+		}
+	}
+
+	for _, path := range []string{
+		statePath,
+		manifest.ResolvePath(statePath),
+		lifecycle.ChainPath(statePath),
+		proofemit.ChainPath(statePath),
+		proofemit.ChainAttestationPath(proofemit.ChainPath(statePath)),
+		proofemit.SigningKeyPath(statePath),
+	} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("expected %s to remain absent after rejected collision, got err=%v", path, err)
+		}
+	}
+}
+
+func TestScanJSONPathRejectsAliasViaSymlinkedParentPath(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink fixture is not portable on windows")
+	}
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "alpha", ".codex")
+	realDir := filepath.Join(tmp, "real")
+	linkDir := filepath.Join(tmp, "link")
+	if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+	if err := os.MkdirAll(realDir, 0o755); err != nil {
+		t.Fatalf("mkdir real dir: %v", err)
+	}
+	if err := os.Symlink(realDir, linkDir); err != nil {
+		t.Skipf("symlink unsupported in current environment: %v", err)
+	}
+
+	statePath := filepath.Join(realDir, "state.json")
+	jsonPath := filepath.Join(linkDir, "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--path", reposPath,
+		"--state", statePath,
+		"--json",
+		"--json-path", jsonPath,
+	}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected exit %d, got %d stdout=%q stderr=%q", exitInvalidInput, code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+
+	envelope := parseTrailingJSONEnvelope(t, errOut.Bytes())
+	errorPayload, ok := envelope["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", envelope)
+	}
+	message, _ := errorPayload["message"].(string)
+	for _, want := range []string{"--state", "--json-path"} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("expected error message %q to mention %s", message, want)
+		}
+	}
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Fatalf("expected %s to remain absent after rejected collision, got err=%v", statePath, err)
+	}
+}
+
+func TestScanJSONPathRejectsAliasWithReportPath(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "alpha", ".codex")
+	statePath := filepath.Join(tmp, "state.json")
+	sidecarPath := filepath.Join(tmp, "scan-artifact.json")
+	if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--path", reposPath,
+		"--state", statePath,
+		"--json",
+		"--json-path", sidecarPath,
+		"--report-md",
+		"--report-md-path", sidecarPath,
+	}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected exit %d, got %d stdout=%q stderr=%q", exitInvalidInput, code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+
+	envelope := parseTrailingJSONEnvelope(t, errOut.Bytes())
+	errorPayload, ok := envelope["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", envelope)
+	}
+	message, _ := errorPayload["message"].(string)
+	for _, want := range []string{"--json-path", "--report-md-path"} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("expected error message %q to mention %s", message, want)
+		}
+	}
 }
 
 func TestScanJSONPathWriteFailureReturnsRuntimeFailure(t *testing.T) {

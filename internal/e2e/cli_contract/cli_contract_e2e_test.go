@@ -287,3 +287,174 @@ func TestE2EOrgJSONProgressStaysOnStderr(t *testing.T) {
 		t.Fatalf("expected stderr completion progress, got %q", errOut.String())
 	}
 }
+
+func TestE2EScanRejectedArtifactAliasLeavesSavedStateUsableForEvidence(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "alpha", ".codex")
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("initial scan failed: %d (%s)", code, scanErr.String())
+	}
+
+	var rejectedOut bytes.Buffer
+	var rejectedErr bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json", "--json-path", statePath}, &rejectedOut, &rejectedErr); code != 6 {
+		t.Fatalf("expected invalid-input collision rejection, got %d stdout=%q stderr=%q", code, rejectedOut.String(), rejectedErr.String())
+	}
+
+	var rejectedPayload map[string]any
+	if err := json.Unmarshal(rejectedErr.Bytes(), &rejectedPayload); err != nil {
+		t.Fatalf("parse rejected scan payload: %v", err)
+	}
+	errObj, ok := rejectedPayload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing error payload: %v", rejectedPayload)
+	}
+	if errObj["code"] != "invalid_input" {
+		t.Fatalf("unexpected rejected scan code: %v", errObj["code"])
+	}
+
+	outputDir := filepath.Join(tmp, "evidence")
+	var evidenceOut bytes.Buffer
+	var evidenceErr bytes.Buffer
+	if code := cli.Run([]string{"evidence", "--frameworks", "soc2", "--state", statePath, "--output", outputDir, "--json"}, &evidenceOut, &evidenceErr); code != 0 {
+		t.Fatalf("evidence failed after rejected collision: %d stdout=%q stderr=%q", code, evidenceOut.String(), evidenceErr.String())
+	}
+
+	var evidencePayload map[string]any
+	if err := json.Unmarshal(evidenceOut.Bytes(), &evidencePayload); err != nil {
+		t.Fatalf("parse evidence payload: %v", err)
+	}
+	if evidencePayload["status"] != "ok" {
+		t.Fatalf("unexpected evidence payload: %v", evidencePayload)
+	}
+	if _, err := os.Stat(filepath.Join(outputDir, "manifest.json")); err != nil {
+		t.Fatalf("expected manifest.json after evidence run: %v", err)
+	}
+}
+
+func TestE2EScanPathRepoRootFallbackFindsRootSignals(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := filepath.Join(t.TempDir(), "fallback-repo")
+	if err := os.MkdirAll(repoRoot, 0o755); err != nil {
+		t.Fatalf("mkdir repo root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "AGENTS.md"), []byte("agent instructions\n"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", repoRoot, "--state", filepath.Join(t.TempDir(), "state.json"), "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	sourceManifest, ok := payload["source_manifest"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected source_manifest object, got %T", payload["source_manifest"])
+	}
+	repos, ok := sourceManifest["repos"].([]any)
+	if !ok || len(repos) != 1 {
+		t.Fatalf("expected one repo manifest entry, got %v", sourceManifest["repos"])
+	}
+	firstRepo, ok := repos[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected repo manifest shape: %T", repos[0])
+	}
+	if firstRepo["repo"] != "fallback-repo" {
+		t.Fatalf("expected repo name fallback-repo, got %v", firstRepo["repo"])
+	}
+
+	findings, ok := payload["findings"].([]any)
+	if !ok {
+		t.Fatalf("expected findings array, got %T", payload["findings"])
+	}
+	foundRootSignal := false
+	for _, item := range findings {
+		finding, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if finding["location"] == "AGENTS.md" && finding["repo"] == "fallback-repo" {
+			foundRootSignal = true
+			break
+		}
+	}
+	if !foundRootSignal {
+		t.Fatalf("expected root-level AGENTS.md finding in payload: %v", findings)
+	}
+}
+
+func TestE2EScanScenarioBundlePathKeepsPerChildRepoOrdering(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindCLIContractRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	statePath := filepath.Join(t.TempDir(), "state.json")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	sourceManifest, ok := payload["source_manifest"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected source_manifest object, got %T", payload["source_manifest"])
+	}
+	repos, ok := sourceManifest["repos"].([]any)
+	if !ok || len(repos) < 4 {
+		t.Fatalf("expected shipped scenario bundle repos, got %v", sourceManifest["repos"])
+	}
+
+	wantOrder := []string{"backend", "data-pipeline", "experiments", "frontend", "infra"}
+	for idx, want := range wantOrder {
+		repo, ok := repos[idx].(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected repo manifest shape at %d: %T", idx, repos[idx])
+		}
+		if repo["repo"] != want {
+			t.Fatalf("expected repo %q at index %d, got %v", want, idx, repo["repo"])
+		}
+	}
+}
+
+func mustFindCLIContractRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	for {
+		if _, statErr := os.Stat(filepath.Join(wd, "go.mod")); statErr == nil {
+			return wd
+		}
+		next := filepath.Dir(wd)
+		if next == wd {
+			t.Fatal("could not find repo root")
+		}
+		wd = next
+	}
+}
