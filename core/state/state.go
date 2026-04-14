@@ -58,7 +58,7 @@ func Save(path string, snapshot Snapshot) error {
 	return nil
 }
 
-func Load(path string) (Snapshot, error) {
+func loadSnapshot(path string) (Snapshot, error) {
 	// #nosec G304 -- caller controls state path selection; reading that explicit path is intended.
 	payload, err := os.ReadFile(path)
 	if err != nil {
@@ -70,6 +70,18 @@ func Load(path string) (Snapshot, error) {
 	}
 	if snapshot.Version == "" {
 		snapshot.Version = SnapshotVersion
+	}
+	return snapshot, nil
+}
+
+func LoadRaw(path string) (Snapshot, error) {
+	return loadSnapshot(path)
+}
+
+func Load(path string) (Snapshot, error) {
+	snapshot, err := loadSnapshot(path)
+	if err != nil {
+		return Snapshot{}, err
 	}
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	source.SortFindings(snapshot.Findings)

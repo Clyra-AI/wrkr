@@ -63,6 +63,12 @@ type authenticityResult struct {
 	AuthenticityStatus string
 }
 
+type loadedChain struct {
+	path    string
+	payload []byte
+	chain   *proof.Chain
+}
+
 func (e *ChainError) Error() string {
 	if e == nil || e.Err == nil {
 		return ""
@@ -97,11 +103,11 @@ func Chain(path string) (Result, error) {
 	if trimmed == "" {
 		return Result{}, classifyError(ErrorCodeInvalidInput, fmt.Errorf("chain path is required"))
 	}
-	chain, err := loadChain(trimmed)
+	loaded, err := loadChain(trimmed)
 	if err != nil {
 		return Result{}, err
 	}
-	result, err := verifyLoadedChain(chain)
+	result, err := verifyLoadedChain(loaded.chain)
 	if err != nil {
 		return Result{}, err
 	}
@@ -116,23 +122,19 @@ func ChainWithPublicKey(path string, publicKey proof.PublicKey) (Result, error) 
 	if trimmed == "" {
 		return Result{}, classifyError(ErrorCodeInvalidInput, fmt.Errorf("chain path is required"))
 	}
-	if auth, err := verifyByAttestation(trimmed, publicKey); err == nil {
-		chain, loadErr := loadChain(trimmed)
-		if loadErr != nil {
-			return Result{}, loadErr
-		}
-		verified, verifyErr := verifyLoadedChain(chain)
+	loaded, err := loadChain(trimmed)
+	if err != nil {
+		return Result{}, err
+	}
+	if auth, err := verifyByAttestation(loaded, publicKey); err == nil {
+		verified, verifyErr := verifyLoadedChain(loaded.chain)
 		if verifyErr != nil {
 			return Result{}, verifyErr
 		}
 		return applyAuthenticity(verified, auth), nil
 	} else if !errors.Is(err, errNoChainAttestation) {
-		chain, loadErr := loadChain(trimmed)
-		if loadErr != nil {
-			return Result{}, loadErr
-		}
-		if auth, sigErr := verifyBySignature(chain, publicKey); sigErr == nil {
-			verified, verifyErr := verifyLoadedChain(chain)
+		if auth, sigErr := verifyBySignature(loaded.chain, publicKey); sigErr == nil {
+			verified, verifyErr := verifyLoadedChain(loaded.chain)
 			if verifyErr != nil {
 				return Result{}, verifyErr
 			}
@@ -142,12 +144,8 @@ func ChainWithPublicKey(path string, publicKey proof.PublicKey) (Result, error) 
 		}
 		return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain attestation: %w", err))
 	}
-	chain, err := loadChain(trimmed)
-	if err != nil {
-		return Result{}, err
-	}
-	if auth, err := verifyBySignature(chain, publicKey); err == nil {
-		verified, verifyErr := verifyLoadedChain(chain)
+	if auth, err := verifyBySignature(loaded.chain, publicKey); err == nil {
+		verified, verifyErr := verifyLoadedChain(loaded.chain)
 		if verifyErr != nil {
 			return Result{}, verifyErr
 		}
@@ -155,7 +153,7 @@ func ChainWithPublicKey(path string, publicKey proof.PublicKey) (Result, error) 
 	} else if !errors.Is(err, errNoChainSignature) {
 		return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain signature: %w", err))
 	}
-	verified, verifyErr := verifyLoadedChain(chain)
+	verified, verifyErr := verifyLoadedChain(loaded.chain)
 	if verifyErr != nil {
 		return Result{}, verifyErr
 	}
@@ -165,7 +163,7 @@ func ChainWithPublicKey(path string, publicKey proof.PublicKey) (Result, error) 
 	}), nil
 }
 
-func loadChain(path string) (*proof.Chain, error) {
+func loadChain(path string) (*loadedChain, error) {
 	payload, err := os.ReadFile(path) // #nosec G304 -- verify reads explicit local path provided by CLI flags/state.
 	if err != nil {
 		return nil, classifyError(ErrorCodeReadChain, fmt.Errorf("read chain: %w", err))
@@ -174,7 +172,11 @@ func loadChain(path string) (*proof.Chain, error) {
 	if err := json.Unmarshal(payload, &chain); err != nil {
 		return nil, classifyError(ErrorCodeParseChain, fmt.Errorf("parse chain: %w", err))
 	}
-	return &chain, nil
+	return &loadedChain{
+		path:    path,
+		payload: payload,
+		chain:   &chain,
+	}, nil
 }
 
 type chainAttestation struct {
@@ -194,15 +196,14 @@ type chainAttestationPayload struct {
 	HeadHash    string `json:"head_hash"`
 }
 
-func verifyByAttestation(path string, publicKey proof.PublicKey) (authenticityResult, error) {
+func verifyByAttestation(loaded *loadedChain, publicKey proof.PublicKey) (authenticityResult, error) {
 	if len(publicKey.Public) == 0 {
 		return authenticityResult{}, errNoChainAttestation
 	}
-	chainPayload, err := os.ReadFile(path) // #nosec G304 -- attestation binds to the explicit local proof chain path.
-	if err != nil {
+	if loaded == nil || len(loaded.payload) == 0 {
 		return authenticityResult{}, errNoChainAttestation
 	}
-	attestationPayload, err := os.ReadFile(attestationPath(path)) // #nosec G304 -- attestation file lives beside the explicit local proof chain path.
+	attestationPayload, err := os.ReadFile(attestationPath(loaded.path)) // #nosec G304 -- attestation file lives beside the explicit local proof chain path.
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return authenticityResult{}, errNoChainAttestation
@@ -213,7 +214,7 @@ func verifyByAttestation(path string, publicKey proof.PublicKey) (authenticityRe
 	if err := json.Unmarshal(attestationPayload, &attestation); err != nil {
 		return authenticityResult{}, err
 	}
-	if attestation.ChainSHA != digestBytes(chainPayload) || attestation.ChainBytes != int64(len(chainPayload)) {
+	if attestation.ChainSHA != digestBytes(loaded.payload) || attestation.ChainBytes != int64(len(loaded.payload)) {
 		return authenticityResult{}, fmt.Errorf("attested chain digest mismatch")
 	}
 	digest, err := digestAttestationPayload(chainAttestationPayload{

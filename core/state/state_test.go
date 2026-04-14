@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync/atomic"
 	"testing"
 
@@ -66,6 +67,45 @@ func TestStateIntegrationRoundTrip(t *testing.T) {
 	}
 	if string(first) != string(second) {
 		t.Fatalf("state file must be byte-stable\nfirst: %s\nsecond: %s", first, second)
+	}
+}
+
+func TestLoadRawMatchesLoadForCanonicalSnapshot(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "state.json")
+
+	snapshot := Snapshot{
+		Target: source.Target{Mode: "repo", Value: "acme/backend"},
+		Targets: []source.Target{
+			{Mode: "path", Value: "./repos"},
+			{Mode: "org", Value: "acme"},
+		},
+		Findings: []source.Finding{
+			{
+				ToolType:    "source_repo",
+				Location:    "acme/backend",
+				Org:         "acme",
+				Severity:    "high",
+				Permissions: []string{"repo.contents.read", "repo.contents.read"},
+			},
+		},
+	}
+	if err := Save(path, snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	rawLoaded, err := LoadRaw(path)
+	if err != nil {
+		t.Fatalf("load raw snapshot: %v", err)
+	}
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load snapshot: %v", err)
+	}
+	if !reflect.DeepEqual(rawLoaded, loaded) {
+		t.Fatalf("expected raw load to match canonical load for saved snapshot\nraw=%+v\nload=%+v", rawLoaded, loaded)
 	}
 }
 

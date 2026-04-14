@@ -143,6 +143,12 @@ try:
     if rc != 0:
         errors.append(f'regress init failed with exit {rc}: {stderr}')
 
+    # The scan/setup phase above performs substantial filesystem work. Let the
+    # system settle before measuring short-lived command latency so the budgets
+    # reflect steady-state command responsiveness rather than immediate
+    # post-setup I/O carryover on shared or thermally constrained runners.
+    time.sleep(10)
+
     command_budgets = runtime_contract.get('commands', {})
 
     enforce_command_budget(
