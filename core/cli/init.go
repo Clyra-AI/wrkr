@@ -144,7 +144,7 @@ func buildInitNextStep(configPath string, target config.Target, hostedConfigured
 		if hostedConfigured {
 			return scanCommand
 		}
-		return fmt.Sprintf("Configure hosted acquisition with --github-api, config hosted_source.github_api_base, or WRKR_GITHUB_API_BASE, then run %s", scanCommand)
+		return fmt.Sprintf("Configure hosted acquisition with --github-api, config github_api_base, or WRKR_GITHUB_API_BASE, then run %s", scanCommand)
 	default:
 		return scanCommand
 	}
