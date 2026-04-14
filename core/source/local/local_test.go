@@ -3,6 +3,7 @@ package local
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -58,5 +59,42 @@ func TestAcquireTreatsRootSignalsAsSingleRepo(t *testing.T) {
 	}
 	if repos[0].Location != filepath.ToSlash(tmp) {
 		t.Fatalf("expected repo root location %s, got %s", filepath.ToSlash(tmp), repos[0].Location)
+	}
+}
+
+func TestAcquireIgnoresUnreadableRepoRootSignalProbe(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based permission fixture is not portable on windows")
+	}
+
+	tmp := t.TempDir()
+	for _, name := range []string{"zeta", "alpha"} {
+		if err := os.MkdirAll(filepath.Join(tmp, name), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", name, err)
+		}
+	}
+
+	lockedSignalDir := filepath.Join(tmp, ".vscode")
+	if err := os.MkdirAll(lockedSignalDir, 0o700); err != nil {
+		t.Fatalf("mkdir locked signal dir: %v", err)
+	}
+	if err := os.Chmod(lockedSignalDir, 0o600); err != nil {
+		t.Skipf("chmod unsupported in current environment: %v", err)
+	}
+	defer func() {
+		_ = os.Chmod(lockedSignalDir, 0o700)
+	}()
+
+	repos, err := Acquire(tmp)
+	if err != nil {
+		t.Fatalf("expected unreadable optional signal probe to be ignored, got %v", err)
+	}
+	if len(repos) != 2 {
+		t.Fatalf("expected 2 repos, got %d (%+v)", len(repos), repos)
+	}
+	if repos[0].Repo != "alpha" || repos[1].Repo != "zeta" {
+		t.Fatalf("unexpected order: %+v", repos)
 	}
 }

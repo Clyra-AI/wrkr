@@ -95,30 +95,35 @@ func canonicalArtifactPath(raw string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve artifact output path: %w", err)
 	}
+	return resolveArtifactPath(absPath)
+}
 
-	info, err := os.Lstat(absPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return absPath, nil
+func resolveArtifactPath(absPath string) (string, error) {
+	missingTail := make([]string, 0, 4)
+	candidate := absPath
+	for {
+		resolved, err := filepath.EvalSymlinks(candidate)
+		if err == nil {
+			for i := len(missingTail) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, missingTail[i])
+			}
+			return filepath.Clean(resolved), nil
 		}
-		return "", fmt.Errorf("stat artifact output path: %w", err)
-	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		return absPath, nil
-	}
+		if !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("resolve artifact output path: %w", err)
+		}
 
-	targetPath, err := os.Readlink(absPath)
-	if err != nil {
-		return "", fmt.Errorf("read artifact output symlink target: %w", err)
-	}
-	if !filepath.IsAbs(targetPath) {
-		parentDir, err := filepath.EvalSymlinks(filepath.Dir(absPath))
-		if err != nil {
-			return "", fmt.Errorf("resolve artifact output symlink parent: %w", err)
+		parent := filepath.Dir(candidate)
+		if parent == candidate {
+			for i := len(missingTail) - 1; i >= 0; i-- {
+				candidate = filepath.Join(candidate, missingTail[i])
+			}
+			return filepath.Clean(candidate), nil
 		}
-		targetPath = filepath.Join(parentDir, targetPath)
+
+		missingTail = append(missingTail, filepath.Base(candidate))
+		candidate = parent
 	}
-	return filepath.Clean(targetPath), nil
 }
 
 func detectScanArtifactPathCollisions(entries []scanArtifactPathEntry) error {

@@ -1,11 +1,13 @@
 package local
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/Clyra-AI/wrkr/core/source"
 )
@@ -86,6 +88,9 @@ func hasRepoRootSignals(root string) (bool, error) {
 	for _, rel := range repoRootSignals {
 		exists, err := pathExists(filepath.Join(root, rel))
 		if err != nil {
+			if errors.Is(err, os.ErrPermission) || errors.Is(err, syscall.ENOTDIR) {
+				continue
+			}
 			return false, err
 		}
 		if exists {
