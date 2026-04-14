@@ -113,3 +113,44 @@ func TestScanAndReportExplainIncludeComplianceRollupLines(t *testing.T) {
 		t.Fatalf("expected report explain output to include next-action guidance, got %q", reportExplain.String())
 	}
 }
+
+func TestEvidenceJSONCoverageNoteClarifiesEvidenceGapState(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "policy-check", "repos")
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	outputDir := filepath.Join(tmp, "evidence")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	var evidenceOut bytes.Buffer
+	var evidenceErr bytes.Buffer
+	if code := Run([]string{"evidence", "--frameworks", "eu-ai-act,soc2", "--state", statePath, "--output", outputDir, "--json"}, &evidenceOut, &evidenceErr); code != 0 {
+		t.Fatalf("evidence failed: %d %s", code, evidenceErr.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(evidenceOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse evidence payload: %v", err)
+	}
+	coverageNote, ok := payload["coverage_note"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected coverage_note object, got %T", payload["coverage_note"])
+	}
+	message, _ := coverageNote["message"].(string)
+	for _, want := range []string{
+		"framework_coverage reflects only controls evidenced in the current scanned state",
+		"evidence gaps",
+		"unsupported framework parsing",
+	} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("expected coverage note message to contain %q, got %q", want, message)
+		}
+	}
+}

@@ -65,7 +65,8 @@ wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json
 Pair this with the saved-state `wrkr report` and explicit proof-chain verification flow documented in [`docs/examples/security-team.md`](../examples/security-team.md).
 `wrkr evidence` now requires the saved proof chain to be intact before it will stage or publish a bundle; it does not replace the explicit operator or CI proof-chain verification gate.
 
-Expected JSON keys: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`, `report_artifacts`.
+Expected JSON keys: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`, additive `coverage_note`, `report_artifacts`.
+`coverage_note` is the machine-readable interpretation companion for `framework_coverage`: it states that coverage reflects only controls evidenced in the current scanned state and that low or zero first-run coverage indicates evidence gaps rather than unsupported framework parsing.
 Evidence bundle includes deterministic inventory exports at `inventory.json`, `inventory-snapshot.json`, and `inventory.yaml`.
 Evidence bundle includes deterministic compliance rollup export at `compliance-summary.json`.
 Evidence bundle includes deterministic attack-path artifact export at `attack-paths.json` when attack-path scoring is present in scan state.

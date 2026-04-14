@@ -21,6 +21,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Govern-first ranking now prioritizes the most urgent write, deploy, production-backed, and approval-gap paths first while keeping weaker paths visible lower in the ranked output.
 - `recommended_action` now separates visibility, approval, proof, and control-first path classes more sharply on real-world govern-first scans and report summaries.
 - Clarified repo-local contributor and agent guidance so Wrkr now delegates Go toolchain authority to the enforced 1.26.2 floor in `go.mod` and the development standards.
+- Added config-backed hosted GitHub API base support to `wrkr init` and `wrkr scan` so org-first onboarding can be configured once without weakening the existing fail-closed hosted-scan contract.
+- Added explicit `coverage_note` guidance to `wrkr evidence --json` so low first-run framework coverage is framed as an evidence gap rather than unsupported framework parsing.
+- Reconciled the public launch docs so hosted org posture is the primary first-screen path, with the evaluator-safe scenario preserved as the explicit fallback and demo flow.
+- Updated first-run evidence docs and docs-site mirrors so evidence-gap guidance sits directly beside the first evidence workflows instead of appearing later as a separate clarification.
 
 ### Deprecated
 

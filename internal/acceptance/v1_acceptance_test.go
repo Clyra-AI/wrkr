@@ -40,12 +40,16 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 		statePath := filepath.Join(tmp, "state.json")
 		githubAPI := newAcceptanceGitHubAPIServer(t)
 
-		initPayload := runJSONOK(t, "init", "--non-interactive", "--org", "acme", "--config", configPath, "--json")
+		initPayload := runJSONOK(t, "init", "--non-interactive", "--org", "acme", "--github-api", githubAPI, "--config", configPath, "--json")
 		if initPayload["status"] != "ok" {
 			t.Fatalf("unexpected init payload: %v", initPayload)
 		}
+		hostedSource, ok := initPayload["hosted_source"].(map[string]any)
+		if !ok || hostedSource["github_api_configured"] != true {
+			t.Fatalf("expected configured hosted source payload, got %v", initPayload["hosted_source"])
+		}
 
-		scanPayload := runJSONOK(t, "scan", "--org", "acme", "--github-api", githubAPI, "--state", statePath, "--json")
+		scanPayload := runJSONOK(t, "scan", "--config", configPath, "--state", statePath, "--json")
 		requireKey(t, scanPayload, "inventory")
 		topFindings, ok := scanPayload["top_findings"].([]any)
 		if !ok || len(topFindings) == 0 {
@@ -69,6 +73,7 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 		payload := runJSONOK(t, "evidence", "--frameworks", "eu-ai-act,soc2", "--state", statePath, "--output", evidenceDir, "--json")
 		requireKey(t, payload, "manifest_path")
 		requireKey(t, payload, "chain_path")
+		requireKey(t, payload, "coverage_note")
 
 		verifyPayload := runJSONOK(t, "verify", "--chain", "--state", statePath, "--json")
 		chain, ok := verifyPayload["chain"].(map[string]any)
@@ -768,7 +773,7 @@ func allowJSONProgressStderr(args []string, stderr string) bool {
 	if !hasArg(args, "--json") {
 		return false
 	}
-	if !hasArg(args, "--org") && !hasArg(args, "--github-org") {
+	if !hasArg(args, "--org") && !hasArg(args, "--github-org") && !hasArg(args, "--config") {
 		return false
 	}
 

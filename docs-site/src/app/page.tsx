@@ -11,20 +11,22 @@ export const metadata: Metadata = {
   },
 };
 
-const QUICKSTART = `# Evaluator-safe first pass: use the curated scenario
+const QUICKSTART = `# Security and platform teams: use hosted org posture first when prerequisites are ready
+wrkr init --non-interactive --org acme --github-api https://api.github.com --json
+wrkr scan --config ~/.wrkr/config.json --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json
+
+# Low or zero first-run framework_coverage means the current state is evidence sparse, not that parsing is broken
+
+# Evaluator-safe scenario fallback when hosted prerequisites are not ready yet
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
 wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
 
-# Security and platform teams: widen to org posture next
-# Hosted prerequisites: set --github-api and usually a GitHub token for private repos or rate limits
-wrkr scan --github-org acme --github-api https://api.github.com --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json
-
-# If hosted prerequisites are not ready yet after the scenario run, use a deterministic fallback
+# If hosted prerequisites are still not ready yet, use a deterministic local fallback
 wrkr scan --path ./your-repo --json
 
 # Developers: use the secondary local-machine hygiene path
@@ -144,7 +146,7 @@ export default function HomePage() {
           Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps a deterministic local-machine hygiene path available for developers.
         </p>
         <p className="text-base text-gray-500 max-w-3xl mx-auto mb-8">
-          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI. Start with the curated scenario when you want the evaluator-safe path, then widen to org posture when hosted prerequisites are ready; use repo-local or local-machine fallback paths when you need zero-integration first value and want to avoid repo-root fixture noise in the Wrkr repo itself.
+          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI. Start with hosted org posture when GitHub access is ready; use the curated scenario and local fallback paths when hosted prerequisites are not ready yet or when you want an evaluator-safe demo that avoids repo-root fixture noise in the Wrkr repo itself.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/docs/examples/security-team" className="px-6 py-3 bg-emerald-400 hover:bg-emerald-300 text-gray-950 font-semibold rounded-lg transition-colors">
@@ -237,8 +239,8 @@ export default function HomePage() {
       </div>
 
       <div className="text-center py-12 border-t border-gray-800">
-        <h2 className="text-2xl font-bold text-white mb-4">Start with your machine. Widen to your org only when you need posture and proof.</h2>
-        <p className="text-gray-400 mb-6">Use command-first docs that developers, security teams, and assistants can all validate against the same deterministic CLI outputs.</p>
+        <h2 className="text-2xl font-bold text-white mb-4">Start with your org when hosted access is ready. Fall back to the scenario or local paths when it is not.</h2>
+        <p className="text-gray-400 mb-6">Use command-first docs that developers, security teams, and assistants can all validate against the same deterministic CLI outputs and the same evidence-gap framing.</p>
         <Link href="/docs" className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
           Open Documentation
         </Link>

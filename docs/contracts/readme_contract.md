@@ -66,12 +66,14 @@ Section requirements:
 - Start Here
   - Make the current launch persona explicit at the top of the section.
   - For the current Wrkr launch, foreground the security/platform-led org posture workflow.
+  - If an evaluator-safe scenario is shown, present it as an explicit fallback/demo path after the hosted org posture workflow rather than as the primary launch path.
   - Keep developer-machine hygiene as the secondary path.
   - Place hosted prerequisites (`--github-api` and token guidance) adjacent to the first hosted org workflow.
+  - If `wrkr init` is used for hosted onboarding, keep it immediately adjacent to the first hosted scan command and make the `wrkr scan --config ...` follow-on path explicit.
   - Include explicit deterministic fallback commands before hosted setup can dead-end (`wrkr scan --path` and/or `wrkr scan --my-setup`).
   - Explain the dual `wrkr scan --path` contract: repo-root fallback for one selected repo, and bundle-root repo-set behavior for paths such as `./scenarios/wrkr/*/repos`.
   - Include `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff`.
-  - Include `wrkr scan --github-org`, `wrkr evidence`, and `wrkr verify` when security/platform-led launch copy is used.
+  - Include `wrkr init`, `wrkr scan --github-org` or `wrkr scan --config ...`, `wrkr evidence`, and `wrkr verify` when security/platform-led launch copy is used.
   - Keep deterministic `--json` command anchors.
   - Show one personal-setup output example and one org-scan output example.
   - Clarify that environment-key presence and source bookkeeping remain finding-only signals, not approvable lifecycle identities.

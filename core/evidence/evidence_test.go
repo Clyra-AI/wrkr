@@ -88,6 +88,15 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	if len(result.ReportArtifacts) == 0 {
 		t.Fatal("expected report artifacts to be recorded in build result")
 	}
+	if result.CoverageNote.Basis != "evidenced_controls_only" {
+		t.Fatalf("unexpected coverage note basis: %+v", result.CoverageNote)
+	}
+	if result.CoverageNote.LowCoverageMeans != "evidence_gap" {
+		t.Fatalf("unexpected coverage note low_coverage_means: %+v", result.CoverageNote)
+	}
+	if len(result.CoverageNote.RecommendedActions) == 0 {
+		t.Fatalf("expected recommended actions in coverage note, got %+v", result.CoverageNote)
+	}
 }
 
 func TestBuildEvidenceBundleIncludesPersonalInventoryAndMCPCatalogWhenPresent(t *testing.T) {

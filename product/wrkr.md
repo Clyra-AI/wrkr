@@ -260,8 +260,8 @@ Sam owns the internal developer platform. 180 engineers. Sam standardized on Cla
 **Sam's workflow with Wrkr:**
 
 1. `brew install Clyra-AI/tap/wrkr`
-2. `wrkr init` (configure GitHub org, scan targets)
-3. `wrkr scan` (10 minutes)
+2. `wrkr init --github-api https://api.github.com` (configure GitHub org, hosted scan source, scan targets)
+3. `wrkr scan --config ...` (10 minutes)
 4. Reviews inventory and risk report in terminal
 5. `wrkr fix --top 3` (opens 3 PRs)
 6. `wrkr evidence --frameworks eu-ai-act,soc2` (generates bundle with proof records)
@@ -395,7 +395,7 @@ Alex heard about Wrkr on Reddit or at a meetup. Runs `wrkr scan` on a Friday aft
 
 ### FR8: CLI Experience
 
-- `wrkr init` — interactive setup (GitHub token, default scan target, scan preferences)
+- `wrkr init` — interactive setup (GitHub token profiles, default scan target, hosted GitHub API base)
 - `wrkr scan --repo <owner/repo>` — single-repo scan, produces inventory + risk report + proof records
 - `wrkr scan --org <org>` — full org scan across all repositories, produces inventory + risk report + proof records
 - `wrkr scan` — scan using configured default target from `wrkr init` (repo or org). Errors if no default is configured and no target flag is provided.
@@ -568,8 +568,8 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
 A new user with a GitHub org of 50+ repos can:
 
 - Install Wrkr (`brew install Clyra-AI/tap/wrkr`)
-- Run `wrkr init` with a GitHub token
-- Run `wrkr scan --org <org>`
+- Run `wrkr init --org <org> --github-api https://api.github.com`
+- Run `wrkr scan --config <path>`
 - See a complete AI tool inventory in their terminal
 - See a ranked risk report with top 5 findings (configurable via `--top N`)
 - Total elapsed time: under 10 minutes

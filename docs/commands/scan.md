@@ -20,7 +20,8 @@ Acquisition behavior is fail-closed by target:
 - `repo_set` child repos are enumerated in deterministic lexical order by repo name.
 - `--my-setup` runs fully local/offline against the local machine setup rooted at the current user home directory.
   It inspects supported user-home tool configs, selected environment key names, and common workspace roots for local agent project markers without emitting raw secret values.
-- `--repo` and `--org` require real GitHub acquisition via `--github-api` or `WRKR_GITHUB_API_BASE`.
+- `--repo` and `--org` require real GitHub acquisition via `--github-api`, config `github_api_base`, or `WRKR_GITHUB_API_BASE`.
+- Hosted GitHub API base resolution order is: `--github-api`, config `github_api_base`, then `WRKR_GITHUB_API_BASE`.
 - Hosted GitHub token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 - `--github-org` is an additive alias for `--org`.
 - Explicit multi-target scans set `target.mode=multi` and add deterministic `targets[]` arrays to the top-level scan payload, saved state snapshot, and `source_manifest`.
@@ -91,6 +92,13 @@ wrkr scan --github-org acme --github-api https://api.github.com --json --json-pa
 
 `--github-org` is the additive alias for `--org`. Use it when security or platform teams need the deterministic saved-state input for `wrkr report`, `wrkr evidence`, `wrkr mcp-list`, or `wrkr inventory --diff`.
 Private repos and public API rate-limit avoidance usually require a GitHub token even when `--github-api` is set.
+If you already configured the hosted source and target with `wrkr init`, you can reuse them:
+
+```bash
+wrkr init --org acme --github-api https://api.github.com --json
+wrkr scan --config ~/.wrkr/config.json --json
+```
+
 Wrkr's hosted connector currently calls these GitHub REST endpoints:
 
 - `GET /orgs/{org}/repos?per_page=100&page=N`
