@@ -14,17 +14,19 @@ Hosted prerequisites for this path:
 - if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first and return to this flow when GitHub access is configured; `--path` scans the selected directory itself when it is the repo root and uses bundle roots like `./scenarios/wrkr/scan-mixed-org/repos` when you want a deterministic repo-set
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr init --non-interactive --org acme --github-api https://api.github.com --json
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
 
 `wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain --json` remains the explicit operator/CI integrity gate.
+`wrkr init` can now persist the hosted GitHub API base together with the default org target, so the follow-on `wrkr scan --config ...` path stays copy-pasteable without repeating `--github-api` on every run.
 
 If a hosted org scan is interrupted, rerun the same target with `--resume` to reuse checkpointed materialization state under the scan-state directory:
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --resume --json --json-path ./.wrkr/scan.json
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --resume --json --json-path ./.wrkr/scan.json
 ```
 
 Interpretation notes:
@@ -43,10 +45,11 @@ wrkr report --top 5 --json
 
 ## Expected JSON keys
 
-- `scan --github-org`: `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`
+- `scan` (hosted org mode): `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`
   - `inventory.security_visibility_summary` gives you the additive `unknown_to_security` counts and reference basis for that run
   - `agent_privilege_map[*]` is instance-scoped and includes `agent_instance_id`, `write_capable`, and `security_visibility_status`
 - `evidence`: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`
+- `evidence.coverage_note`: additive interpretation for low/zero first-run coverage; treat it as an evidence-gap signal, not unsupported framework parsing
 - `verify`: `status`, `chain`
 - `mcp-list`: `status`, `generated_at`, `rows`, optional `warnings`
 - `report`: `status`, `generated_at`, `top_findings`, `total_tools`, `summary`
@@ -59,6 +62,7 @@ wrkr report --top 5 --json
 - `report` gives the ranked operator summary for triage.
 - `report` is a saved-state renderer for static posture and offline proof artifacts; it is not a live observation surface.
 - `evidence` packages the saved posture into portable proof artifacts only when the saved proof chain is intact, and `verify` remains the explicit machine gate for proof integrity.
+- `coverage_note` is the machine-readable companion to `framework_coverage`; use it when handing results to operators or downstream automation so sparse first-run evidence is framed as a remediation queue instead of a parser failure.
 
 ## Scope boundary
 

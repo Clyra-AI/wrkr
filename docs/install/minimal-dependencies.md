@@ -37,7 +37,14 @@ wrkr version --json
 
 ## Recommended first-value after install
 
-Start with the curated scenario when you want the evaluator-safe first path and want to avoid repo-root fixture noise from Wrkr's own scenarios and tests:
+Start with hosted org posture when GitHub access is ready:
+
+```bash
+wrkr init --non-interactive --org acme --github-api https://api.github.com --json
+wrkr scan --config ~/.wrkr/config.json --json
+```
+
+If hosted prerequisites are not ready yet, use the evaluator-safe scenario fallback and return to the hosted org path later:
 
 ```bash
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json

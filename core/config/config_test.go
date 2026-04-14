@@ -44,6 +44,7 @@ func TestSaveLoadDeterministicRoundTrip(t *testing.T) {
 	cfg.DefaultTarget = Target{Mode: TargetRepo, Value: "acme/backend"}
 	cfg.Auth.Scan.Token = "scan-token"
 	cfg.Auth.Fix.Token = "fix-token"
+	cfg.GitHubAPIBase = "https://api.github.com"
 
 	if err := Save(path, cfg); err != nil {
 		t.Fatalf("save config: %v", err)
@@ -57,6 +58,9 @@ func TestSaveLoadDeterministicRoundTrip(t *testing.T) {
 	}
 	if loaded.DefaultTarget.Mode != TargetRepo || loaded.DefaultTarget.Value != "acme/backend" {
 		t.Fatalf("unexpected default target: %+v", loaded.DefaultTarget)
+	}
+	if loaded.GitHubAPIBase != "https://api.github.com" {
+		t.Fatalf("unexpected github api base: %q", loaded.GitHubAPIBase)
 	}
 
 	first, err := os.ReadFile(path)
@@ -83,5 +87,27 @@ func TestResolvePathWithEnv(t *testing.T) {
 	}
 	if path != "/tmp/wrkr-config.json" {
 		t.Fatalf("unexpected env path: %q", path)
+	}
+}
+
+func TestLoadOlderConfigWithoutGitHubAPIBase(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "config.json")
+	payload := []byte("{\n  \"version\": \"v1\",\n  \"auth\": {\n    \"scan\": {},\n    \"fix\": {}\n  },\n  \"default_target\": {\n    \"mode\": \"org\",\n    \"value\": \"acme\"\n  }\n}\n")
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if loaded.GitHubAPIBase != "" {
+		t.Fatalf("expected empty github api base, got %q", loaded.GitHubAPIBase)
+	}
+	if loaded.DefaultTarget.Mode != TargetOrg || loaded.DefaultTarget.Value != "acme" {
+		t.Fatalf("unexpected default target: %+v", loaded.DefaultTarget)
 	}
 }

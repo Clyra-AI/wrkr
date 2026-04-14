@@ -14,7 +14,7 @@ No. Core scan and evidence workflows are local/file-based by default.
 
 ## Does Wrkr require setup for repo or org scans?
 
-Hosted `--repo` and `--org` scans require explicit GitHub API configuration and usually a token for private repos or rate-limit avoidance. `--my-setup` and `--path` remain the zero-integration local paths.
+Hosted `--repo` and `--org` scans require explicit GitHub API configuration and usually a token for private repos or rate-limit avoidance. `wrkr init` can persist the hosted GitHub API base together with the default org target, and `--my-setup`, `--path`, and the curated scenario remain the zero-integration fallback paths.
 
 ## Can Wrkr enforce runtime tool calls?
 
@@ -38,4 +38,4 @@ Use `wrkr evidence --frameworks ... --json` and verify with `wrkr verify --chain
 
 ## Why can framework coverage be low on the first run?
 
-`framework_coverage` reflects the controls and approvals currently evidenced in the scanned state. Low or zero coverage means more evidence work is needed; it does not mean the framework is unsupported.
+`framework_coverage` reflects the controls and approvals currently evidenced in the scanned state. Low or zero coverage means more evidence work is needed; it does not mean the framework is unsupported. `wrkr evidence --json` also emits additive `coverage_note` guidance with the same interpretation.

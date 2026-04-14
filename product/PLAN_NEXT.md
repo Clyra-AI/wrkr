@@ -1,417 +1,547 @@
-# PLAN Adhoc: scan path contract hardening, managed artifact safety, and repo-local toolchain alignment
+# PLAN Adhoc: launch onboarding alignment, evidence framing, and hosted org activation
 
-Date: 2026-04-13
+Date: 2026-04-14
 Source of truth:
-- user-provided full-repo code review findings in this run
+- user-provided 2026-04-14 launch audit findings and recommendations for this run
 - `product/dev_guides.md`
 - `product/architecture_guides.md`
-Scope: Planning only for the release-blocking `scan --path` contract mismatch, scan sidecar artifact collision safety, and the AGENTS/go toolchain drift. No implementation work is performed in this plan.
+Scope: Planning only for the current launch-risk follow-up backlog in Wrkr OSS. This plan converts the audit recommendations into implementation-ready waves covering onboarding taxonomy drift, low first-run evidence coverage optics, and hosted org setup friction. No implementation work is performed in this plan.
 
 ## Global Decisions (Locked)
 
-- Treat the two scan findings as Wave 1 release blockers. They change real command behavior today and must land before any new outward-facing scan/report/evidence work.
-- Preserve Wrkr's core contracts:
-  - deterministic behavior
-  - offline-first defaults for local path scans
-  - fail-closed behavior for unsafe or ambiguous artifact/output configurations
-  - stable exit code integers and machine-readable envelopes
-- Keep existing numeric exit codes unchanged. For scan artifact aliasing, use the existing `invalid_input` envelope and exit code `6` rather than inventing a new exit code.
-- Preserve the public repo-local fallback `wrkr scan --path ./your-repo --json`.
-- Preserve current local repo-set workflows and shipped scenario bundle usage under `scenarios/wrkr/*/repos`.
-- Define one explicit `--path` contract that supports both:
-  - `repo_root`: the selected directory itself is scanned as one repo when it contains qualifying root-level repo signals
-  - `repo_set`: the selected directory is scanned as a set of immediate child repos only when it lacks qualifying root-level repo signals and contains one or more non-hidden child directories
-- Centralize the `repo_root` vs `repo_set` classifier in the Source layer and back it with deterministic fixtures. Do not spread heuristic decisions into detector code.
-- Preflight all managed and optional scan artifact paths as one canonical set before the first write:
-  - state snapshot
-  - manifest
-  - lifecycle chain
-  - proof chain
-  - proof attestation
-  - signing key
-  - optional `--json-path`
-  - optional `--report-md-path`
-  - optional `--sarif-path`
-- Any collision among those paths, or between optional outputs themselves, must fail before mutation.
-- Do not change schema versions in this plan. Any behavior change must fit the current `v1` scan/state/inventory/proof contracts.
-- Replace the stale literal Go floor in `AGENTS.md` with a single-source-of-truth model: the repo-local guide should delegate to `go.mod` and `product/dev_guides.md`, and enforcement must catch future drift.
+- Treat the current repo as technically launchable. This backlog is adoption-leverage and launch-clarity work, not release-blocking defect triage.
+- Preserve Wrkr's non-negotiable contracts:
+  - deterministic scan/risk/proof behavior by default
+  - offline-first local fallback paths
+  - fail-closed behavior on ambiguous or unsafe paths
+  - stable numeric exit codes and machine-readable envelopes
+  - file-based, offline-verifiable proof artifacts
+- Keep the product boundary truthful:
+  - Wrkr remains static posture, discovery, evidence, and regress
+  - no runtime enforcement, no control-plane dependency, no vuln-scanner positioning
+- Canonical launch taxonomy for minimum-now OSS:
+  - security/platform-led hosted org posture is the primary public path when prerequisites are available
+  - evaluator-safe scenario is an explicit demo and hosted-prereq fallback path
+  - developer-machine hygiene remains secondary and local
+- Reduce hosted-org friction through the existing CLI/config surface only. Do not add any dashboard-first, control-plane, or background-service scope.
+- Keep `framework_coverage` semantics unchanged. Improve interpretation and placement, not the underlying math.
+- Any config changes must be additive and backward compatible within current config version `v1`.
+- Do not expand `wrkr init` into multi-target persistence in this plan. One default target remains the locked config model.
+- Runtime and contract stories must land before docs/onboarding/distribution stories that depend on them.
+- Every story in this plan is user-visible or OSS-governance-visible, so every story requires a changelog decision and a `CHANGELOG.md` update during implementation.
 
 ## Current Baseline (Observed)
 
-- [core/source/local/local.go](/Users/tr/wrkr/core/source/local/local.go:13) treats `--path` as a directory of repos and enumerates immediate child directories only.
-- [core/source/local/local_test.go](/Users/tr/wrkr/core/source/local/local_test.go:9) validates only the repo-set behavior; there is no single-repo-root coverage.
-- Public docs repeatedly advertise single-repo-root usage:
-  - [README.md](/Users/tr/wrkr/README.md:91)
-  - [docs/commands/scan.md](/Users/tr/wrkr/docs/commands/scan.md:35)
-  - [docs/examples/quickstart.md](/Users/tr/wrkr/docs/examples/quickstart.md:65)
-  - [docs/faq.md](/Users/tr/wrkr/docs/faq.md:45)
-  - [docs/examples/security-team.md](/Users/tr/wrkr/docs/examples/security-team.md:14)
-- The existing shipped scenario path `./scenarios/wrkr/scan-mixed-org/repos` relies on the current repo-set interpretation, so the fix must preserve that supported workflow.
-- [core/cli/scan.go](/Users/tr/wrkr/core/cli/scan.go:94) resolves optional sidecar outputs, but [core/cli/scan.go](/Users/tr/wrkr/core/cli/scan.go:349) does not reject alias collisions with managed artifacts before writes begin.
-- [core/cli/jsonmode.go](/Users/tr/wrkr/core/cli/jsonmode.go:37) and [core/cli/report.go](/Users/tr/wrkr/core/cli/report.go:262) validate file-path shape, not artifact identity uniqueness.
-- Reproduced failure path:
-  - `wrkr scan --path "$tmp/root" --state "$tmp/state.json" --json-path "$tmp/state.json" --json` exits `0`
-  - the saved `state.json` is overwritten with final scan payload keys like `status` and `top_findings`
-  - `wrkr evidence --frameworks soc2 --state "$tmp/state.json" --output "$tmp/evidence" --json` then fails because `risk_report` is missing
-- [AGENTS.md](/Users/tr/wrkr/AGENTS.md:108) still says Go `1.26.1`, while [go.mod](/Users/tr/wrkr/go.mod:3), [product/dev_guides.md](/Users/tr/wrkr/product/dev_guides.md:135), and CI pins are already on `1.26.2`.
-- Working tree baseline is clean, so follow-on implementation can branch cleanly from the generated plan.
+- The end-to-end shipped loop is real and working today:
+  - `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json`
+  - `wrkr evidence --frameworks eu-ai-act,soc2 --state <state> --output <dir> --json`
+  - `wrkr verify --chain --state <state> --json`
+  - `wrkr regress init/run --json`
+- The audit run on the curated scenario produced:
+  - `19` tools
+  - `19` identities
+  - `131` findings
+  - posture score `56.74` (`F`)
+  - profile compliance `43.75% fail`
+  - `19` unknown-to-security tools
+  - `3` unknown-to-security write-capable agents
+- Full-repo validation succeeded in the audit run:
+  - `go test ./...`
+  - acceptance
+  - e2e
+  - integration
+  - scenarios
+- Public launch surfaces are split today:
+  - `README.md` leads with the evaluator-safe scenario path and only then widens to the security-team org path
+  - `docs/examples/quickstart.md` also foregrounds evaluator-safe scenario first
+  - `docs/install/minimal-dependencies.md` recommends the scenario path as first value after install
+  - `product/wrkr.md` describes Sam's workflow and AC1 as `wrkr init` -> `wrkr scan --org`
+  - `docs/contracts/readme_contract.md` says the current Wrkr launch should foreground the security/platform-led org posture workflow
+- Hosted org friction is real in the current contract:
+  - `wrkr scan --org` and `wrkr scan --github-org` require `--github-api` or `WRKR_GITHUB_API_BASE`
+  - `core/cli/init.go` only persists `default_target`, `scan-token`, and `fix-token`
+  - `core/config/config.go` has no hosted acquisition config beyond tokens
+  - `docs/commands/init.md` has no `--github-api` support today
+- Evidence coverage explanation exists, but it is unevenly placed:
+  - `docs/commands/evidence.md`
+  - `docs/examples/quickstart.md`
+  - `docs/faq.md`
+  - `docs/positioning.md`
+  already clarify that low/zero `framework_coverage` is an evidence-gap signal
+  - `README.md` and the first hosted-org evidence touchpoints do not place that explanation adjacent to the first evidence command
+  - `core/cli/evidence.go` emits only numeric `framework_coverage` in `--json`, with no additive interpretation fields
+- Existing compliance explain/report behavior already contains the right wording:
+  - `core/cli/wave3_compliance_test.go` asserts that explain output says coverage reflects only controls evidenced in current scan state and should trigger remediation/rescan
+- Safety posture is strong and should not be weakened:
+  - proof-chain prerequisite checks in `core/evidence/evidence.go`
+  - managed-marker and staged publish safety in `core/evidence/stage.go`
+  - managed-root and symlink rejection in `internal/e2e/source/source_e2e_test.go`
+- Working tree baseline is clean, so follow-on implementation can start from the generated plan file without hidden unrelated edits.
 
 ## Exit Criteria
 
-- `wrkr scan --path <single-repo-root> --json` emits one repo in `source_manifest.repos`, detects root-level config files such as `AGENTS.md`, and no longer returns an empty false-negative result for qualifying repo roots.
-- Existing repo-set fixtures and scenario bundle paths still scan as multiple repos with deterministic repo naming and order.
-- `wrkr scan` rejects any collision among managed artifact paths and optional output paths with `invalid_input` and exit code `6` before mutating state/proof/manifest artifacts.
-- Rejected collision runs preserve the previous committed managed artifact generation, or preserve artifact absence if no prior generation existed.
-- README and command docs explain the final `--path` contract without ambiguity and keep the repo-local fallback first-value path copy-pasteable.
-- `AGENTS.md` no longer conflicts with the enforced Go floor, and an automated check prevents recurrence.
-- Validation passes on the mapped lanes:
-  - `make lint-fast`
-  - `make test-fast`
-  - `make test-contracts`
-  - `make test-scenarios`
-  - `make prepush-full`
-  - `make test-hardening`
-  - `make test-chaos`
-  - docs consistency/storyline/smoke checks for touched flows
+- `wrkr init` can persist hosted-org scan defaults needed for the primary launch path:
+  - default org target
+  - hosted GitHub API base
+  - scan/fix auth profile tokens
+- `wrkr scan --config <path> --json` can resolve the default org target and hosted GitHub API base from config when flags are omitted.
+- Hosted source precedence is deterministic, documented, and tested.
+- Missing hosted acquisition config still fails closed with the same machine-readable class and numeric exit code family; the error guidance becomes more actionable without weakening the gate.
+- `wrkr evidence --json` preserves the current `framework_coverage` numbers and adds an explicit additive interpretation surface so low/zero first-run coverage is not misread as unsupported framework coverage.
+- README, install docs, quickstart, security-team docs, FAQ, positioning, and PRD all use one canonical launch taxonomy:
+  - org posture first when prerequisites are available
+  - evaluator-safe scenario as explicit fallback/demo path
+  - `--my-setup` as secondary local hygiene
+- Evidence-gap guidance appears immediately adjacent to the first evidence touchpoints in first-screen docs and examples.
+- Docs, CLI contract, acceptance, and release-smoke gates pass on the touched surfaces.
 
 ## Public API and Contract Map
 
 - Stable public surfaces:
+  - `wrkr init`
   - `wrkr scan`
-  - the `--path` flag itself
-  - existing exit code integers `0..8`
-  - scan JSON top-level contract for valid runs
-  - saved scan state/proof artifact locations beside `--state`
-  - downstream command flow: `scan -> report/evidence/regress/verify`
-- Changed public surfaces in this plan:
-  - `--path` now has an explicit dual contract: deterministic `repo_root` or deterministic `repo_set`
-  - previously accepted aliasing sidecar configurations become hard `invalid_input` failures before mutation
+  - `wrkr evidence`
+  - `wrkr report`
+  - `wrkr verify`
+  - `wrkr regress`
+  - exit code integers and existing error classes
+  - `framework_coverage` numeric semantics
+  - state/proof lifecycle rooted at `--state`
+  - local fallback paths `--path` and `--my-setup`
+- Additive public surfaces planned in this backlog:
+  - `wrkr init --github-api <url>`
+  - additive config field for hosted GitHub API base
+  - additive `init --json` fields exposing hosted-source configuration state and next-step guidance
+  - additive `evidence --json` coverage interpretation fields
 - Internal surfaces:
-  - local path classifier logic in `core/source/local`
-  - managed artifact collision preflight helper(s) in `core/cli`
-  - AGENTS/toolchain drift enforcement in hygiene scripts/tests
-- Shim/deprecation path:
-  - no new scan flags are introduced
-  - no deprecation notice is added for current repo-set usage
-  - repo-set behavior remains supported under `--path` for shipped scenarios and local multi-repo roots
-- Schema/versioning policy:
-  - stay on current scan/state/inventory/proof schema versions
-  - no JSON keys are removed
-  - no schema bump is allowed for these fixes
-  - if any additive metadata is proposed during implementation, it must be acceptance-backed and documented as additive only
+  - `core/config/*`
+  - `core/cli/init.go`
+  - `core/cli/scan.go`
+  - `core/cli/scan_helpers.go`
+  - `core/cli/evidence.go`
+  - docs parity/storyline/hygiene checks
+- Shim and deprecation path:
+  - existing explicit `--github-api` usage remains valid
+  - `WRKR_GITHUB_API_BASE` remains valid
+  - scenario-first evaluator flow remains supported as an explicit fallback/demo path
+  - no existing flag is removed in this plan
+- Schema and versioning policy:
+  - remain on current CLI/state/evidence schema versions
+  - config stays at version `v1`
+  - config additions must be backward compatible when loading older configs
+  - no JSON key removals or meaning changes for existing keys
 - Machine-readable error expectations:
-  - artifact path alias collision -> `invalid_input`, exit `6`
-  - invalid sidecar path shape stays `invalid_input`, exit `6`
-  - valid repo-root `--path` scan still exits `0` and returns the standard scan payload
-  - valid repo-set `--path` scan still exits `0` and returns the standard scan payload
+  - missing hosted GitHub API base after all allowed resolution sources remain exhausted -> fail closed with existing dependency-missing contract
+  - missing/invalid state or proof-chain prerequisites for `evidence` remain runtime failures
+  - low/zero `framework_coverage` remains success-path output, not an error-path output
 
 ## Docs and OSS Readiness Baseline
 
-- README first screen must continue to present `wrkr scan --path ./your-repo --json` as the local/offline fallback.
-- `docs/commands/scan.md` is the command-contract source of truth for:
-  - `repo_root` vs `repo_set` path semantics
-  - sidecar uniqueness/fail-closed rules
-  - downstream lifecycle path from saved scan state into evidence/report/regress
-- `docs/examples/quickstart.md`, `docs/examples/security-team.md`, `docs/faq.md`, and `docs/positioning.md` mirror the command contract but must not redefine it.
-- Integration-first flow for touched docs:
-  - show the working `scan --path` repo-root flow first
-  - explain repo-set/scenario-bundle usage second
-  - explain fail-closed output-path rules before report/evidence examples
-- Lifecycle path model for touched docs:
+- README first-screen contract:
+  - must state what Wrkr is, who the current launch is for, and which workflow to run first
+  - must keep hosted prerequisites adjacent to the first hosted org example
+  - must preserve explicit deterministic fallback commands before hosted setup can dead-end
+- Integration-first docs flow for touched surfaces:
+  - install
+  - first run
+  - evidence/verify
+  - regress
+  - only then deeper concepts
+- Lifecycle path model:
   - saved scan state is the canonical handoff artifact
-  - optional sidecars are additive and must never replace or alias that handoff artifact
-- OSS/governance trust baseline:
-  - `CHANGELOG.md`: required updates for all three stories
-  - `AGENTS.md`: updated as repo-local contributor/agent guidance
-  - `CONTRIBUTING.md`: verify no content change is required; explicitly defer if unchanged
-  - `SECURITY.md`: verify no content change is required; explicitly defer if unchanged
+  - report/evidence/verify/regress are downstream of saved state
+  - optional JSON/markdown/SARIF sidecars are additive, not canonical
+- Docs source-of-truth expectations:
+  - `docs/commands/*.md` are command contract anchors
+  - `docs/examples/*.md` are workflow anchors
+  - `docs/contracts/readme_contract.md` governs README first-screen behavior
+  - `docs/install/minimal-dependencies.md` governs install/release parity guidance
+- OSS trust baseline files for touched behavior:
+  - `CHANGELOG.md` is required for every story in this plan
+  - `CONTRIBUTING.md` must be checked for impact and updated only if contributor workflow meaning changes
+  - `SECURITY.md` must be checked for impact and updated only if security-reporting expectations change
+  - no maintainer-support promises are expanded in this plan
 
 ## Recommendation Traceability
 
-| Recommendation | Why | Story IDs |
-|---|---|---|
-| Fix the public `scan --path` contract so it actually scans the supplied repo root | Current implementation silently misses root-level files while docs tell users to scan a repo root directly | W1-S1 |
-| Reject sidecar output paths that alias managed scan artifacts | Current scan can succeed while clobbering its own saved state and breaking downstream commands | W1-S2 |
-| Align the repo-local toolchain contract in `AGENTS.md` with the enforced Go floor | Current repo-local guidance conflicts with `go.mod`, CI, and the normative dev guide | W2-S1 |
+| Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story IDs |
+|---|---|---|---|---|---|
+| R1 | Unify the launch taxonomy so the public story stops oscillating between evaluator-safe scenario first and hosted org posture first | The current split weakens buyer confidence and makes self-serve evaluation feel inconsistent | One canonical OSS onboarding story with honest fallback paths | Sharper category wedge and lower evaluator confusion | W1-S1, W2-S1 |
+| R2 | Make low/zero first-run `framework_coverage` unmistakably read as an evidence gap, not a parser/capability failure | The current math is correct, but the interpretation is not adjacent enough to first evidence touchpoints | Evidence-state clarity without changing score/coverage semantics | Higher trust in proof artifacts and better remediation follow-through | W1-S2, W2-S2 |
+| R3 | Reduce hosted org setup friction on the primary path using existing CLI/config surfaces | The current primary path requires more manual setup than the smoother local/synthetic flows | Self-serve hosted-org onboarding through additive config and exact next-step guidance | Better AC1 credibility and better expansion from evaluator to team/org usage | W1-S1 |
 
 ## Test Matrix Wiring
 
 - Fast lane:
+  - targeted Go tests in `core/config`, `core/cli`, and any focused docs/hygiene checks
   - `make lint-fast`
-  - focused unit tests in `core/source/local`, `core/cli`, and hygiene tests
-  - docs parity/storyline checks for touched command/docs flows
+  - docs parity/storyline checks for touched README/commands/examples
 - Core CI lane:
   - `make prepush`
   - `make test-contracts`
-  - `make test-scenarios`
+  - targeted scenario or CLI contract suites as applicable
 - Acceptance lane:
-  - targeted `internal/e2e/cli_contract` coverage for repo-root `--path`
-  - targeted end-to-end safety coverage proving rejected alias collisions do not poison downstream evidence/report/regress flows
+  - targeted `internal/acceptance` subtests for AC01 and AC03
+  - targeted `internal/e2e/init` and CLI contract coverage for touched flows
 - Cross-platform lane:
-  - `windows-smoke`
-  - targeted path-classification and path-collision tests must avoid POSIX-only assumptions
+  - `windows-smoke` for any Go/config/CLI behavior change
+  - avoid platform-specific path assumptions in config/init tests
 - Risk lane:
-  - `make prepush-full`
-  - `make test-hardening`
-  - `make test-chaos`
+  - `make prepush-full` for runtime/contract stories
+  - add `make test-hardening` and `make test-chaos` only if implementation changes failure-class behavior beyond the documented hosted-source resolution and evidence-note additions
 - Merge/release gating rule:
-  - both Wave 1 stories are required before the next release candidate or release tag
-  - no CLI/docs/contract story closes without docs and changelog landing in the same PR
-  - no fail-closed artifact safety story closes without hardening/chaos coverage
+  - Wave 1 stories must land before Wave 2 docs stories that depend on them
+  - no public docs story closes without docs parity/storyline/smoke coverage
+  - no runtime story closes without acceptance or e2e coverage on the touched path
+  - if install guidance changes, release smoke/UAT parity must be rerun before merge or release cut
 
-## Epic W1: Scan Contract and State-Safety Blockers
+## Epic W1: Hosted Org Activation Contract and Evidence Interpretation
 
-Objective: remove the two release-blocking scan defects without weakening deterministic local/offline behavior or the existing repo-set scenario workflows.
+Objective: reduce real friction on the primary security/platform launch path and make first-run evidence semantics explicit in machine-readable output, without changing Wrkr's deterministic evidence math or exit behavior.
 
-### Story W1-S1: Make `scan --path` deterministic for both single repo roots and repo-set directories
+### Story W1-S1: Persist hosted org acquisition defaults in `init` and consume them in `scan`
 
-Priority: P0
+Priority: P1
 Tasks:
-- Add an explicit path-target classifier in the Source layer that determines `repo_root` vs `repo_set` from deterministic root-level signals.
-- Scan the selected directory itself as one repo when it qualifies as a repo root.
-- Preserve immediate-child repo-set enumeration when the selected directory is a shipped or user-managed repo bundle root.
-- Keep deterministic repo naming, ordering, and deduplication across both modes.
-- Add contract fixtures for:
-  - root-level `AGENTS.md` / `.codex` repo-root scans
-  - existing multi-repo bundle directories under `scenarios/wrkr/*/repos`
-- Update README and command/example docs so repo-root and repo-set semantics are explicit and non-conflicting.
+- Extend persisted config with an additive hosted GitHub API base field.
+- Add `--github-api` to `wrkr init` so the primary hosted-org path can be configured once.
+- Keep config backward compatible and deterministic under current config version `v1`.
+- Update `wrkr scan` hosted-source resolution so it can consume:
+  - explicit `--github-api`
+  - config-persisted hosted API base
+  - `WRKR_GITHUB_API_BASE`
+- Align precedence with the existing token-resolution style and document it explicitly.
+- Add additive `init --json` fields that expose hosted-source configuration state and deterministic next-step guidance for the chosen target.
+- Keep existing explicit `--github-api` and env-driven workflows fully valid.
+- Improve missing-hosted-source guidance so a fail-closed run points users to the valid flag/config/env remedies without changing the fail-closed class.
+- Update PRD, command docs, and workflow examples to reflect the new hosted-org setup contract.
 Repo paths:
-- `core/source/local/local.go`
-- `core/source/local/local_test.go`
+- `core/config/config.go`
+- `core/config/config_test.go`
+- `core/cli/init.go`
+- `core/cli/scan.go`
+- `core/cli/scan_helpers.go`
+- `core/cli/root.go`
 - `core/cli/root_test.go`
-- `core/cli/scan_contract_fix_test.go`
-- `internal/e2e/cli_contract/cli_contract_e2e_test.go`
-- `README.md`
+- `core/cli/scan_github_auth_test.go`
+- `internal/e2e/init/init_e2e_test.go`
+- `internal/acceptance/v1_acceptance_test.go`
+- `docs/commands/init.md`
 - `docs/commands/scan.md`
+- `docs/examples/security-team.md`
+- `docs/examples/quickstart.md`
+- `docs/faq.md`
+- `README.md`
+- `product/wrkr.md`
+- `CHANGELOG.md`
+Run commands:
+- `go test ./core/config ./core/cli ./internal/e2e/init -count=1`
+- `go test ./internal/acceptance -count=1 -run 'TestV1AcceptanceMatrix/AC01_org_scan_flow_outputs_inventory_and_top_findings'`
+- `make test-contracts`
+- `make prepush-full`
+- `scripts/check_docs_cli_parity.sh`
+- `scripts/check_docs_storyline.sh`
+Test requirements:
+- Schema/artifact changes:
+  - config round-trip and byte-stability tests
+  - backward-compat load tests for older config files without the new hosted field
+- CLI behavior changes:
+  - help/usage coverage for `init`
+  - `--json` stability tests for additive `init --json` fields
+  - exit-code and error-envelope tests for hosted-source resolution when config/flag/env are present or missing
+- Acceptance/E2E:
+  - `init` followed by hosted `scan` using config-backed API base
+  - AC01 org scan flow remains green
+- Docs/examples changes:
+  - docs consistency checks
+  - storyline checks
+  - README first-screen checks for hosted prerequisites
+Matrix wiring:
+- Fast lane: targeted `core/config`, `core/cli`, `internal/e2e/init`, docs parity
+- Core CI lane: `make prepush`, `make test-contracts`
+- Acceptance lane: targeted AC01 plus `internal/e2e/init`
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make prepush-full`
+Acceptance criteria:
+- `wrkr init --non-interactive --org acme --github-api https://api.github.com --config <path> --json` succeeds and persists the hosted API base in config.
+- `wrkr scan --config <path> --state <state> --json` can resolve the default org target and hosted API base without needing `--github-api` again.
+- Explicit `--github-api` still overrides config when both are present.
+- Existing configs without the new field still load and behave correctly.
+- Hosted scans with no usable API base anywhere still fail closed with the existing dependency-missing contract family.
+Changelog impact: required
+Changelog section: Changed
+Draft changelog entry: Added config-backed hosted GitHub API base support to `wrkr init` and `wrkr scan` so org-first onboarding can be configured once without weakening the existing fail-closed hosted-scan contract.
+Semver marker override: none
+Contract/API impact:
+- Additive `init` flag: `--github-api`
+- Additive config field for hosted GitHub API base
+- Additive `init --json` fields for hosted-source config state and next-step guidance
+- Additive hosted-source resolution path in `scan`
+Versioning/migration impact:
+- Config remains version `v1`
+- Existing config files must continue to load without migration steps
+- No existing JSON keys or exit codes are removed or renumbered
+Architecture constraints:
+- Keep hosted-source resolution in thin CLI/config orchestration; do not leak hosted-config logic into source or detector packages.
+- Preserve explicit side-effect semantics in API naming and precedence handling.
+- Keep cancellation and timeout propagation unchanged through hosted scan flows.
+- Keep the config extension narrow enough to avoid enterprise-fork pressure for basic onboarding defaults.
+ADR required: yes
+TDD first failing test(s):
+- `core/config/config_test.go` config round-trip with additive hosted API base
+- `internal/e2e/init/init_e2e_test.go` config-backed org scan without env-provided API base
+- `core/cli/scan_github_auth_test.go` precedence and missing-hosted-source failure guidance
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- If precedence is wrong, stale config could override explicit user intent or hide missing hosted prerequisites.
+- If config compatibility breaks, previously initialized installs could fail before scan starts.
+
+### Story W1-S2: Add explicit coverage interpretation to `wrkr evidence --json` without changing `framework_coverage`
+
+Priority: P1
+Tasks:
+- Add additive machine-readable interpretation fields to `wrkr evidence --json` that explain what `framework_coverage` means.
+- Reuse the already-shipped coverage guidance wording so CLI JSON, docs, and report/explain language stay aligned.
+- Keep `framework_coverage` values and framework ordering unchanged.
+- Keep success/failure classes unchanged for low/zero first-run coverage.
+- Update command docs and examples to consume the new additive interpretation keys.
+- Add contract tests so the new keys remain additive and deterministic.
+Repo paths:
+- `core/cli/evidence.go`
+- `core/evidence/evidence.go`
+- `core/cli/root_test.go`
+- `core/cli/wave3_compliance_test.go`
+- `internal/scenarios/epic4_scenario_test.go`
+- `internal/acceptance/v1_acceptance_test.go`
+- `docs/commands/evidence.md`
+- `docs/examples/quickstart.md`
+- `docs/examples/security-team.md`
+- `docs/examples/operator-playbooks.md`
+- `docs/faq.md`
+- `docs/positioning.md`
+- `CHANGELOG.md`
+Run commands:
+- `go test ./core/cli ./core/evidence -count=1`
+- `go test ./internal/scenarios -count=1 -tags=scenario -run 'TestScenarioEvidenceBundleIncludesProfileAndPosture'`
+- `go test ./internal/acceptance -count=1 -run 'TestV1AcceptanceMatrix/AC03_evidence_bundle_signed_and_verifiable'`
+- `make test-contracts`
+- `scripts/check_docs_cli_parity.sh`
+- `scripts/check_docs_storyline.sh`
+Test requirements:
+- CLI behavior changes:
+  - `--json` stability tests for additive evidence keys
+  - exit-code invariants proving low/zero coverage remains a success-path result
+  - machine-readable envelope tests for malformed/tampered chain prerequisites remain unchanged
+- Contract changes:
+  - additive JSON-key assertions only
+  - determinism tests proving repeat runs emit the same coverage interpretation wording for the same state
+- Scenario/spec tests:
+  - evidence bundle output still carries profile/posture artifacts
+  - coverage interpretation remains consistent with explain/report wording
+- Docs/examples changes:
+  - docs consistency checks
+  - workflow docs use the same interpretation sentence as the JSON note
+Matrix wiring:
+- Fast lane: targeted `core/cli`, `core/evidence`, docs parity
+- Core CI lane: `make prepush`, `make test-contracts`
+- Acceptance lane: targeted AC03 and the scenario evidence suite
+- Cross-platform lane: `windows-smoke`
+- Risk lane: `make prepush-full`
+Acceptance criteria:
+- `wrkr evidence --frameworks eu-ai-act,soc2 --state <state> --output <dir> --json` still emits the current numeric `framework_coverage` map.
+- The same JSON payload now also emits additive interpretation fields that explicitly say coverage reflects controls evidenced in the current scanned state and that low/zero first-run coverage indicates evidence gaps rather than unsupported framework parsing.
+- Existing low-coverage runs still exit `0`.
+- Malformed/tampered chain runs still fail with the same runtime/verification behavior they have today.
+Changelog impact: required
+Changelog section: Changed
+Draft changelog entry: Added explicit coverage-interpretation fields to `wrkr evidence --json` so low first-run framework coverage is framed as an evidence gap rather than a parser or framework-support failure.
+Semver marker override: none
+Contract/API impact:
+- Additive `evidence --json` output fields only
+- No existing key removal or exit-code change
+Versioning/migration impact:
+- No schema/version bump
+- Existing automation that ignores unknown JSON keys remains compatible
+Architecture constraints:
+- Keep interpretation logic close to CLI/report contract surfaces; do not change compliance-rollup math or proof generation.
+- Preserve deterministic wording and field ordering for identical inputs.
+- Avoid thresholds or heuristics that could imply unsupported new policy logic.
+ADR required: yes
+TDD first failing test(s):
+- `core/cli/root_test.go` or a dedicated evidence JSON contract test for additive coverage interpretation fields
+- `core/cli/wave3_compliance_test.go` alignment checks between explain wording and the new JSON note
+- `internal/acceptance/v1_acceptance_test.go` targeted AC03 assertion for additive interpretation fields
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- If the additive note diverges from numeric coverage semantics, automation and operator trust will drift.
+- If interpretation fields are emitted inconsistently across equivalent runs, the CLI JSON contract becomes noisy.
+
+## Epic W2: Launch Taxonomy and First-Run Docs Alignment
+
+Objective: remove the public-message split, keep the evaluator-safe fallback honest and explicit, and place evidence-gap interpretation exactly where new users first encounter it.
+
+### Story W2-S1: Reconcile first-screen launch taxonomy across README, install docs, quickstart, security-team docs, FAQ, and PRD
+
+Priority: P1
+Tasks:
+- Make one canonical launch ordering explicit across public surfaces:
+  - org posture first when hosted prerequisites are ready
+  - evaluator-safe scenario fallback/demo path second
+  - `--my-setup` secondary local hygiene path
+- Align README, install docs, quickstart, security-team docs, FAQ, positioning, and PRD so they no longer contradict one another.
+- Keep the evaluator-safe scenario path prominent as a fallback, but stop presenting it as the unconditional first-screen recommendation when the launch persona is security/platform-led.
+- Update any README first-screen contract checks that still encode the old story.
+- Verify install-path wording and `wrkr version --json` discoverability remain intact when editing first-screen docs.
+Repo paths:
+- `README.md`
+- `docs/install/minimal-dependencies.md`
 - `docs/examples/quickstart.md`
 - `docs/examples/security-team.md`
 - `docs/faq.md`
 - `docs/positioning.md`
 - `docs/contracts/readme_contract.md`
+- `product/wrkr.md`
 - `CHANGELOG.md`
 Run commands:
-- `go test ./core/source/local ./core/cli ./internal/e2e/cli_contract -count=1`
-- `make test-contracts`
-- `make test-scenarios`
-- `scripts/check_docs_cli_parity.sh`
-- `scripts/check_docs_storyline.sh`
-- `scripts/run_docs_smoke.sh --subset`
+- `go test ./testinfra/hygiene -count=1`
+- `make test-docs-consistency`
+- `make test-docs-storyline`
+- `scripts/run_docs_smoke.sh`
+- `scripts/test_uat_local.sh --skip-global-gates`
 Test requirements:
-- CLI behavior changes:
-  - `--json` stability tests for repo-root and repo-set path scans
-  - exit-code contract tests remain `0` for valid repo-root and repo-set scans
-  - machine-readable scan payload assertions for `source_manifest.repos`
-- Scenario/spec tests:
-  - outside-in fixture validating a single repo root with only root-level signals
-  - regression fixture validating existing multi-repo bundle behavior
 - Docs/examples changes:
   - docs consistency checks
-  - README first-screen contract checks
-  - integration-before-internals guidance checks for the updated fallback flow
+  - storyline/smoke checks when the user flow changes
+  - README first-screen checks
+  - integration-before-internals guidance checks
+  - version/install discoverability checks for `wrkr version` and minimal-dependency guidance
+- OSS readiness changes:
+  - verify `CHANGELOG.md` updates
+  - verify no additional maintainer/support-policy file change is needed
 Matrix wiring:
-- Fast lane: focused `core/source/local` and `core/cli` tests plus docs parity
-- Core CI lane: `make prepush`, `make test-contracts`, `make test-scenarios`
-- Acceptance lane: `go test ./internal/e2e/cli_contract -count=1`
-- Cross-platform lane: `windows-smoke` plus targeted path-behavior assertions that avoid platform-specific separators in expectations
-- Risk lane: `make prepush-full`
-Acceptance criteria:
-- A temp repo with only a root `AGENTS.md` scanned via `wrkr scan --path <repo-root> --json` produces one repo manifest entry and at least one root-level finding.
-- Existing scenario-bundle paths under `scenarios/wrkr/*/repos` still produce per-child repo manifests with deterministic ordering.
-- No detector-layer code is required to guess path mode.
-- README and docs no longer describe `--path` in conflicting ways.
-Changelog impact: required
-Changelog section: Fixed
-Draft changelog entry: Made `wrkr scan --path` honor single-repo root inputs while preserving deterministic repo-set scans for scenario bundles and local multi-repo roots.
-Semver marker override: none
-Contract/API impact:
-- Public `--path` behavior is corrected and explicitly defined.
-- No new flags or exit codes are introduced.
-Versioning/migration impact:
-- No schema/version bump.
-- Automation that accidentally relied on false-negative empty results from single-repo-root scans will now receive the correct repo findings and state.
-Architecture constraints:
-- Keep path-mode classification inside the Source boundary.
-- Use thin orchestration with focused packages; do not leak path classification into detectors or reporting.
-- Preserve explicit side-effect semantics and deterministic ordering.
-- Preserve cancellation/timeout propagation through the local acquisition path.
-- Keep the classifier extensible so future repo-root signal additions do not require broad detector rewrites.
-ADR required: yes
-TDD first failing test(s):
-- `core/source/local/local_test.go` single-repo-root fixture
-- `core/cli/root_test.go` or a dedicated scan path contract test for `wrkr scan --path <repo-root> --json`
-- `internal/e2e/cli_contract/cli_contract_e2e_test.go` repo-root fallback example
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If the classifier over-classifies repo bundles as single repos, per-repo ownership/risk output collapses.
-- If it under-classifies single repo roots as bundles, the public fallback remains a silent false negative.
-
-### Story W1-S2: Fail closed when scan sidecar outputs alias managed artifacts
-
-Priority: P0
-Tasks:
-- Add one canonical scan-artifact preflight that resolves every managed and optional artifact path before the first write.
-- Reject collisions among:
-  - `--state`
-  - manifest path
-  - lifecycle chain
-  - proof chain
-  - proof attestation
-  - proof signing key
-  - `--json-path`
-  - `--report-md-path`
-  - `--sarif-path`
-- Return a deterministic `invalid_input` error that identifies the conflicting path pair(s).
-- Preserve the existing atomic rollback model for late write failures after successful preflight.
-- Add regression tests proving a rejected collision does not poison downstream `evidence`, `report`, `inventory`, or `regress` flows.
-Repo paths:
-- `core/cli/scan.go`
-- `core/cli/jsonmode.go`
-- `core/cli/managed_artifacts.go`
-- `core/cli/report.go`
-- `core/cli/scan_json_path_test.go`
-- `core/cli/scan_transaction_test.go`
-- `core/cli/root_test.go`
-- `internal/e2e/cli_contract/cli_contract_e2e_test.go`
-- `docs/commands/scan.md`
-- `README.md`
-- `CHANGELOG.md`
-Run commands:
-- `go test ./core/cli ./internal/e2e/cli_contract -count=1`
-- `make test-contracts`
-- `make test-hardening`
-- `make test-chaos`
-- `make prepush-full`
-Test requirements:
-- CLI behavior changes:
-  - `--json` stability tests for rejected alias collisions
-  - exit-code contract tests for `invalid_input` / exit `6`
-  - machine-readable error envelope tests naming the collision
-- Gate/policy/fail-closed changes:
-  - deterministic alias-collision fixtures for state/json/report/SARIF/proof path pairs
-  - tests proving rejection happens before managed artifact mutation
-- Job runtime/state/concurrency changes:
-  - rollback preservation tests for preexisting state/proof artifacts
-  - interrupted/failing write tests must still preserve the previous generation after successful preflight
-- Docs/examples changes:
-  - docs consistency checks for updated sidecar rules
-Matrix wiring:
-- Fast lane: focused `core/cli` tests
-- Core CI lane: `make test-contracts`
-- Acceptance lane: targeted CLI/e2e flow proving rejected collisions do not break a follow-on `wrkr evidence` or `wrkr inventory`
-- Cross-platform lane: path-collision tests must normalize absolute/canonical path handling across Windows and POSIX
-- Risk lane: `make prepush-full`, `make test-hardening`, `make test-chaos`
-Acceptance criteria:
-- `wrkr scan --json-path <state-path>` fails with `invalid_input` and exit `6` before mutating scan state.
-- Sidecar-to-sidecar duplicates such as `--json-path` == `--report-md-path` also fail closed.
-- Valid unique sidecar paths continue to work without JSON/exit-code drift.
-- A previously valid saved state remains usable by downstream commands after a rejected collision run.
-Changelog impact: required
-Changelog section: Fixed
-Draft changelog entry: Blocked scan sidecar output paths from aliasing managed state and proof artifacts, so invalid configurations now fail fast instead of corrupting saved scan state.
-Semver marker override: none
-Contract/API impact:
-- Previously accepted but unsafe aliasing output configurations now return `invalid_input` with exit `6`.
-- Valid scan contracts are unchanged.
-Versioning/migration impact:
-- No schema/version bump.
-- Automation using colliding output paths must switch to unique sidecar paths.
-Architecture constraints:
-- Keep collision detection in CLI orchestration, not in lower-level state/proof writers.
-- Resolve and compare canonical paths once up front.
-- Preserve explicit plan/apply style semantics: preflight first, mutate second.
-- Keep the atomic-write and rollback boundaries authoritative.
-- Preserve cancellation/timeout propagation and deterministic error reporting.
-ADR required: yes
-TDD first failing test(s):
-- `core/cli/scan_json_path_test.go` alias collision case
-- `core/cli/scan_transaction_test.go` preservation case for preexisting managed artifacts
-- `internal/e2e/cli_contract/cli_contract_e2e_test.go` rejected-collision then downstream-command sanity flow
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If any managed/optional alias escapes preflight, a nominally successful scan can still overwrite its own canonical handoff artifact and break downstream evidence/report/regress commands.
-
-## Epic W2: Repo-Local Toolchain Contract Hygiene
-
-Objective: remove contributor/agent guidance drift and prevent the repo-local Go floor from diverging again from authoritative enforcement surfaces.
-
-### Story W2-S1: Delegate AGENTS toolchain authority to enforced sources and add a drift check
-
-Priority: P2
-Tasks:
-- Replace the stale literal Go `1.26.1` declaration in `AGENTS.md` with repo-local guidance that points to `go.mod` and `product/dev_guides.md` as the authoritative toolchain floor.
-- Add an enforcement check so `AGENTS.md` cannot drift back to a conflicting explicit Go floor without failing CI/local hygiene.
-- Keep the guidance readable for both human contributors and repo-local coding agents.
-Repo paths:
-- `AGENTS.md`
-- `scripts/check_toolchain_pins.sh`
-- `testinfra/hygiene/toolchain_pins_test.go`
-- `CHANGELOG.md`
-Run commands:
-- `scripts/check_toolchain_pins.sh`
-- `go test ./testinfra/hygiene -count=1`
-- `make lint-fast`
-Test requirements:
-- Docs/governance changes:
-  - enforcement-first drift check for AGENTS vs authoritative toolchain sources
-  - no runtime or schema contract changes
-- Toolchain/runtime/security scanner changes:
-  - none beyond contributor guidance alignment and enforcement
-Matrix wiring:
-- Fast lane: `make lint-fast`, `go test ./testinfra/hygiene -count=1`
-- Core CI lane: covered by `make prepush`
-- Acceptance lane: not required
-- Cross-platform lane: keep the drift check in portable shell or Go test logic
+- Fast lane: docs parity and hygiene checks
+- Core CI lane: docs consistency and storyline
+- Acceptance lane: not required beyond docs/storyline because no runtime behavior changes in this story
+- Cross-platform lane: not required beyond existing docs smoke because no platform-sensitive runtime changes are introduced
 - Risk lane: not required
 Acceptance criteria:
-- `AGENTS.md` no longer claims Go `1.26.1`.
-- CI/local hygiene fails if AGENTS introduces a conflicting explicit Go floor in the future.
-- No runtime behavior, JSON payload, schema, or exit code changes occur.
+- README, quickstart, install docs, security-team docs, FAQ, and PRD all describe the same canonical launch ordering.
+- The evaluator-safe scenario path remains present and explicit, but is clearly labeled as fallback/demo rather than the canonical security/platform first path.
+- Hosted prerequisites sit adjacent to the first hosted org example on the public first-screen surfaces.
+- `wrkr version --json` verification remains on the first install screen.
 Changelog impact: required
 Changelog section: Changed
-Draft changelog entry: Clarified repo-local contributor and agent guidance so Wrkr now delegates Go toolchain authority to the enforced 1.26.2 floor in `go.mod` and the development standards.
+Draft changelog entry: Reconciled the public launch docs so hosted org posture is the primary first-screen path, with the evaluator-safe scenario preserved as the explicit fallback and demo flow.
 Semver marker override: none
 Contract/API impact:
-- Contributor/agent governance guidance only.
-- No runtime public API change.
+- Docs-only clarification of existing and newly-additive runtime behavior
+- No CLI or schema change in this story
 Versioning/migration impact:
-- None.
+- None
 Architecture constraints:
-- Keep one authoritative toolchain source of truth.
-- Prefer enforceable delegation over duplicated mutable version strings across governance docs.
+- Do not introduce docs claims that exceed the actual CLI/runtime contract.
+- Keep README and docs examples aligned with `docs/commands/*.md` command sources of truth.
 ADR required: no
 TDD first failing test(s):
-- `testinfra/hygiene/toolchain_pins_test.go` or a dedicated AGENTS/toolchain drift fixture
+- `go test ./testinfra/hygiene -count=1`
+- docs storyline checks that encode the first-screen ordering
 Cost/perf impact: low
 Chaos/failure hypothesis:
-- If AGENTS drifts again, contributors and local agents can debug under an unsupported Go floor and reproduce different outcomes than CI.
+- None; docs-only story. The failure mode is contract drift between public surfaces, which must be caught by docs/hygiene checks.
+
+### Story W2-S2: Put evidence-gap framing directly beside the first evidence touchpoints and operator handoff paths
+
+Priority: P1
+Tasks:
+- Update README, quickstart, security-team docs, operator playbooks, and command docs so the first evidence touchpoints explain low/zero first-run coverage immediately.
+- Mirror the additive `evidence --json` interpretation wording from W1-S2 in the docs so public copy, machine-readable output, and operator playbooks use one sentence.
+- Add explicit next-step guidance near the first evidence examples:
+  - review top risks
+  - remediate missing controls/approvals
+  - rerun scan/evidence/report
+- Make sure no touched doc implies low coverage means missing parser support or missing framework support.
+- Add or tighten docs/hygiene checks so this guidance stays adjacent to first evidence workflows.
+Repo paths:
+- `README.md`
+- `docs/examples/quickstart.md`
+- `docs/examples/security-team.md`
+- `docs/commands/evidence.md`
+- `docs/examples/operator-playbooks.md`
+- `docs/faq.md`
+- `docs/positioning.md`
+- `docs/intent/generate-compliance-evidence-from-scans.md`
+- `CHANGELOG.md`
+Run commands:
+- `go test ./testinfra/hygiene -count=1`
+- `make test-docs-consistency`
+- `make test-docs-storyline`
+- `scripts/run_docs_smoke.sh`
+Test requirements:
+- Docs/examples changes:
+  - docs consistency checks
+  - storyline/smoke checks for evidence workflow changes
+  - README and quickstart checks for first evidence command adjacency
+  - docs source-of-truth mapping checks when both commands and examples are touched
+- API/contract lifecycle changes:
+  - confirm docs examples reflect the additive `evidence --json` fields from W1-S2 exactly
+Matrix wiring:
+- Fast lane: docs parity and hygiene checks
+- Core CI lane: docs consistency and storyline
+- Acceptance lane: not required beyond docs/hygiene because runtime acceptance coverage lands in W1-S2
+- Cross-platform lane: not required
+- Risk lane: not required
+Acceptance criteria:
+- The first evidence command shown in README, quickstart, and security-team docs is immediately followed by evidence-gap interpretation and next actions.
+- Operator playbooks and evidence command docs use the same wording as the shipped additive JSON note.
+- No touched doc frames low/zero `framework_coverage` as parser failure or unsupported framework support.
+Changelog impact: required
+Changelog section: Changed
+Draft changelog entry: Updated first-run evidence docs to explain low framework coverage as an evidence-state gap and to place remediation guidance directly beside the first evidence workflows.
+Semver marker override: none
+Contract/API impact:
+- Docs-only clarification of the additive evidence JSON interpretation shipped in W1-S2
+Versioning/migration impact:
+- None
+Architecture constraints:
+- Keep docs claims strictly downstream of the shipped CLI contract.
+- Do not fork wording across docs surfaces; use one stable interpretation sentence.
+ADR required: no
+TDD first failing test(s):
+- `go test ./testinfra/hygiene -count=1`
+- docs storyline checks that assert evidence-gap guidance adjacency
+Cost/perf impact: low
+Chaos/failure hypothesis:
+- None; docs-only story. The failure mode is message drift across README, examples, and command docs.
 
 ## Minimum-Now Sequence
 
-1. Wave 1, Story W1-S2: block artifact-path alias collisions before any further scan contract work lands. This removes the state-clobbering failure mode immediately.
-2. Wave 1, Story W1-S1: fix the public `--path` contract while preserving repo-set behavior used by shipped scenarios and existing docs.
-3. Wave 2, Story W2-S1: clean up AGENTS toolchain drift and add recurrence protection after the runtime blockers are gone.
+1. Wave 1
+   - W1-S1 first. The hosted-org onboarding contract must exist before public docs can honestly foreground it.
+   - W1-S2 second. The additive evidence interpretation must ship before docs can rely on it.
+2. Wave 2
+   - W2-S1 after W1-S1. Public first-screen docs should describe the real hosted onboarding contract, not the old split story.
+   - W2-S2 after W1-S2 and W2-S1. The evidence framing should quote the shipped runtime interpretation and sit inside the canonical launch ordering.
 
 ## Explicit Non-Goals
 
-- No new scan flags or schema versions.
-- No change to hosted GitHub acquisition behavior, rate limiting, or PR publishing.
-- No docs-site redesign or broader docs IA rewrite.
-- No changes to proof formats, lifecycle state model, or report templates beyond what is required to keep docs/flows accurate.
-- No Go toolchain uplift work in runtime/CI surfaces; the authoritative floor is already `1.26.2` and this plan only fixes repo-local drift.
+- No dashboard, browser handoff redesign, or SaaS control plane work
+- No change to risk scoring math, posture score weights, or `framework_coverage` calculation
+- No new scanner surfaces, no live probing by default, and no runtime enforcement scope
+- No multi-target persistence in `wrkr init`
+- No package- or server-vulnerability scanning scope expansion
+- No release engineering/toolchain pin work unless it is directly required by implementation of the above stories
 
 ## Definition of Done
 
-- Every recommendation maps to at least one shipped story outcome.
-- Wave 1 stories land with:
-  - code
-  - tests
-  - docs
-  - changelog
-  - CI wiring
-- `--path` repo-root and repo-set behavior are both deterministic and acceptance-backed.
-- Artifact-path aliasing fails fast before mutation and is covered by hardening/chaos-aware tests.
-- `AGENTS.md` no longer conflicts with enforced toolchain authority and future drift is automatically caught.
-- Required PR checks remain green:
-  - `fast-lane`
-  - `windows-smoke`
-- No dirty files remain beyond the intended implementation changes and the updated plan/changelog/docs artifacts.
+- Every audit recommendation in this run maps to one or more completed stories in this plan.
+- Runtime/contract stories land before the docs stories that describe them.
+- Every story ships with:
+  - explicit changelog intent
+  - tests at the right level
+  - matrix wiring
+  - acceptance criteria proven by commands or gated checks
+- Public docs, install docs, examples, and PRD no longer contradict one another on the minimum-now launch path.
+- Hosted org onboarding is materially simpler through existing CLI/config surfaces and remains fail closed when prerequisites are missing.
+- Evidence coverage semantics are explicit in both machine-readable output and first-run docs.
+- `CHANGELOG.md` is updated in the same implementation PRs.
+- If follow-on implementation with `adhoc-implement` finds additional dirty files beyond the generated plan file, scope/clean that state before proceeding on a new branch.

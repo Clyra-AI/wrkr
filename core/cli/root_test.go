@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	proof "github.com/Clyra-AI/proof"
+	"github.com/Clyra-AI/wrkr/core/config"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
@@ -507,6 +508,65 @@ func TestInitNonInteractiveWritesConfig(t *testing.T) {
 	}
 	if payload["status"] != "ok" {
 		t.Fatalf("unexpected status: %v", payload["status"])
+	}
+	hostedSource, ok := payload["hosted_source"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected hosted_source payload, got %T", payload["hosted_source"])
+	}
+	if hostedSource["github_api_configured"] != false {
+		t.Fatalf("expected github_api_configured=false, got %v", hostedSource["github_api_configured"])
+	}
+	nextStep, _ := payload["next_step"].(string)
+	if !strings.Contains(nextStep, "Configure hosted acquisition") {
+		t.Fatalf("expected missing hosted-source guidance, got %q", nextStep)
+	}
+}
+
+func TestInitNonInteractiveWritesHostedGitHubAPIBase(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	configPath := filepath.Join(tmp, "config.json")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"init",
+		"--non-interactive",
+		"--org", "acme",
+		"--github-api", "https://api.github.com",
+		"--config", configPath,
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d with stderr %q", code, errOut.String())
+	}
+
+	loaded, err := config.Load(configPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if loaded.GitHubAPIBase != "https://api.github.com" {
+		t.Fatalf("unexpected github api base: %q", loaded.GitHubAPIBase)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse json output: %v", err)
+	}
+	hostedSource, ok := payload["hosted_source"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected hosted_source payload, got %T", payload["hosted_source"])
+	}
+	if hostedSource["github_api_configured"] != true {
+		t.Fatalf("expected github_api_configured=true, got %v", hostedSource["github_api_configured"])
+	}
+	if hostedSource["github_api_base"] != "https://api.github.com" {
+		t.Fatalf("unexpected hosted source payload: %v", hostedSource)
+	}
+	nextStep, _ := payload["next_step"].(string)
+	if !strings.Contains(nextStep, "wrkr scan --config") {
+		t.Fatalf("expected next_step to point at config-backed scan, got %q", nextStep)
 	}
 }
 
@@ -1877,6 +1937,16 @@ func TestVerifyAndEvidenceCommands(t *testing.T) {
 	}
 	if evidencePayload["status"] != "ok" {
 		t.Fatalf("unexpected evidence status: %v", evidencePayload["status"])
+	}
+	coverageNote, ok := evidencePayload["coverage_note"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected coverage_note payload, got %T", evidencePayload["coverage_note"])
+	}
+	if coverageNote["basis"] != "evidenced_controls_only" {
+		t.Fatalf("unexpected coverage note: %v", coverageNote)
+	}
+	if coverageNote["low_coverage_means"] != "evidence_gap" {
+		t.Fatalf("unexpected low coverage meaning: %v", coverageNote["low_coverage_means"])
 	}
 	if _, err := os.Stat(filepath.Join(outputDir, "manifest.json")); err != nil {
 		t.Fatalf("expected manifest.json in evidence output: %v", err)

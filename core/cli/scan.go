@@ -75,7 +75,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	productionTargetsPath := fs.String("production-targets", "", "optional production target rules file")
 	productionTargetsStrict := fs.Bool("production-targets-strict", false, "fail scan when production target rules cannot be loaded")
 	profileName := fs.String("profile", "standard", "posture profile [baseline|standard|strict|assessment]")
-	githubBaseURL := fs.String("github-api", strings.TrimSpace(os.Getenv("WRKR_GITHUB_API_BASE")), "github api base url")
+	githubBaseURL := fs.String("github-api", "", "github api base url")
 	githubToken := fs.String("github-token", "", "github token override")
 	reportMD := fs.Bool("report-md", false, "emit deterministic markdown summary artifact after scan")
 	reportMDPath := fs.String("report-md-path", "wrkr-scan-summary.md", "scan summary markdown output path")
@@ -116,14 +116,16 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	if hasLoadedCfg {
 		cfg.Auth = loadedCfg.Auth
+		cfg.GitHubAPIBase = loadedCfg.GitHubAPIBase
 	}
+	*githubBaseURL = resolveScanGitHubAPIBase(*githubBaseURL, cfg)
 	*githubToken = resolveScanGitHubToken(*githubToken, cfg)
 	if *enrich && strings.TrimSpace(*githubBaseURL) == "" {
 		return emitError(
 			stderr,
 			jsonRequested || *jsonOut,
 			"dependency_missing",
-			"--enrich requires a reachable network source; set --github-api or WRKR_GITHUB_API_BASE",
+			"--enrich requires a reachable network source; set --github-api, configure github_api_base in wrkr init config, or set WRKR_GITHUB_API_BASE",
 			exitDependencyMissing,
 		)
 	}
@@ -132,7 +134,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			stderr,
 			jsonRequested || *jsonOut,
 			"dependency_missing",
-			"--repo and --org scans require --github-api or WRKR_GITHUB_API_BASE",
+			"--repo and --org scans require --github-api, config github_api_base, or WRKR_GITHUB_API_BASE",
 			exitDependencyMissing,
 		)
 	}
@@ -715,6 +717,19 @@ func resolveScanGitHubToken(explicit string, cfg config.Config) string {
 		strings.TrimSpace(cfg.Auth.Scan.Token),
 		strings.TrimSpace(os.Getenv("WRKR_GITHUB_TOKEN")),
 		strings.TrimSpace(os.Getenv("GITHUB_TOKEN")),
+	} {
+		if candidate != "" {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func resolveScanGitHubAPIBase(explicit string, cfg config.Config) string {
+	for _, candidate := range []string{
+		strings.TrimSpace(explicit),
+		strings.TrimSpace(cfg.GitHubAPIBase),
+		strings.TrimSpace(os.Getenv("WRKR_GITHUB_API_BASE")),
 	} {
 		if candidate != "" {
 			return candidate

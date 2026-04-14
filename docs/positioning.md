@@ -36,7 +36,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 
 ## Persona Fit
 
-- Security/platform team: start with `wrkr scan --github-org`, `wrkr evidence`, `wrkr verify`, and optional `wrkr report` / `wrkr mcp-list` for org posture and compliance-ready handoff.
+- Security/platform team: start with `wrkr init --org ... --github-api ...`, then `wrkr scan --config ...`, `wrkr evidence`, `wrkr verify`, and optional `wrkr report` / `wrkr mcp-list` for org posture and compliance-ready handoff.
 - Developer: use `wrkr scan --path`, `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff` when you want repo-local or machine-local hygiene before moving to the hosted org flow.
 - Buyer: CISO / VP Engineering
 - Consumer: CI pipelines and audit workflows
@@ -44,14 +44,15 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 ## Proof Point Workflow
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --json
+wrkr init --non-interactive --org acme --github-api https://api.github.com --json
+wrkr scan --config ~/.wrkr/config.json --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --json
 wrkr verify --chain --json
 ```
 
 If hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` and return to the org posture flow once GitHub access is configured. `--path` scans the selected directory itself when it is the repo root and uses bundle roots such as `./scenarios/wrkr/scan-mixed-org/repos` when you want immediate child repos scanned as a repo-set.
 
-Low first-run `framework_coverage` is an evidence-state signal, not a parser failure. Wrkr measures what is currently documented in the scanned state.
+Low first-run `framework_coverage` is an evidence-state signal, not a parser failure. Wrkr measures what is currently documented in the scanned state, and `wrkr evidence --json` now emits additive `coverage_note` guidance with the same interpretation for operator and automation handoffs.
 
 ## Boundary With Gait and Vulnerability Scanners
 

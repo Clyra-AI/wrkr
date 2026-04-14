@@ -39,22 +39,7 @@ Canonical pinned install and release-parity guidance lives in [`docs/install/min
 
 ## Start Here
 
-Start with the curated scenario flow when you want the fastest evaluator-safe demo, then widen to org posture once you are ready for hosted acquisition. If the hosted prerequisites are not ready yet, use the deterministic fallback paths below before returning to the org flow.
-
-### Evaluators (Recommended first path)
-
-Use the curated scenario bundle first when you want copy-pasteable discovery, evidence, verify, and regress output without the repo-root fixture noise that shows up if you scan the Wrkr repository root directly.
-
-```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json
-wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
-```
-
-This curated path is the recommended first-value workflow for evaluation because it avoids repo-root fixture noise from Wrkr's own scenario, docs, and test fixtures while still showing the shipped wedge: discovery, posture, evidence, verification, and regression gates.
-`--path` is explicit now: point it at a repo root when the selected directory itself carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, `.codex/`, or `.github/`; point it at `./scenarios/wrkr/scan-mixed-org/repos` or another bundle root when you want Wrkr to scan immediate child repos as a deterministic repo-set.
+Start with the security/platform org posture flow when hosted prerequisites are ready. If they are not ready yet, use the evaluator-safe scenario or the deterministic local fallback paths below, then return to the hosted org flow once GitHub access is configured.
 
 ### Security Teams (Recommended first path)
 
@@ -67,14 +52,17 @@ Hosted prerequisites for this path:
 - large-org runbook: [`docs/examples/security-team.md`](docs/examples/security-team.md)
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr init --non-interactive --org acme --github-api https://api.github.com --json
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```
 
 `--json` keeps stdout reserved for the final machine-readable payload. `--json-path` adds a byte-identical JSON artifact on disk, hosted org scans surface deterministic progress/retry/completion lines on stderr without polluting stdout JSON, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted. `--json-path`, `--report-md-path`, and `--sarif-path` must each stay unique and must not alias `--state` or Wrkr-managed sibling artifacts; collisions now fail closed with `invalid_input` before any scan state is mutated. `--profile assessment` narrows the govern-first readout for customer-style scans without changing raw findings, proof chains, or exit codes.
+`wrkr init` can now persist the hosted GitHub API base together with the default org target, so the follow-on `wrkr scan --config ...` path stays copy-pasteable without repeating `--github-api` on every run.
 If a hosted org scan is interrupted, rerun the same target with `--resume`. Treat `partial_result`, `source_errors`, or `source_degraded` as incomplete posture output and rerun after rate limits, permission issues, or upstream failures are resolved.
 `wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain` remains the explicit operator/CI integrity gate. `--resume` also revalidates checkpoint files and reused materialized repo roots so symlink-swapped entries fail closed instead of being treated as trusted scan roots.
+Low or zero first-run `framework_coverage` means the current hosted scan state is evidence sparse. Treat it as an evidence gap, not a parser failure, and use the additive `coverage_note` in `wrkr evidence --json` when handing results to operators or automation.
 When one run needs both hosted and local scope, use repeatable `--target` flags:
 
 ```bash
@@ -84,9 +72,25 @@ wrkr scan --target org:acme --target path:./your-repos --github-api https://api.
 Explicit multi-target scans add deterministic `targets[]` arrays to the scan payload, saved state, and source manifest.
 `wrkr init` still persists one default target in this wave, so multi-target defaults are intentionally not stored in config yet.
 
-If you are evaluating Wrkr itself, prefer the curated scenario above before scanning the repository root. The Wrkr repo contains scenario and test fixtures, so repo-root fixture noise can overwhelm the posture score and hide the intended first-value path.
+If you are evaluating Wrkr itself, prefer the evaluator-safe scenario fallback below before scanning the repository root. The Wrkr repo contains scenario and test fixtures, so repo-root fixture noise can overwhelm the posture score and hide the intended first-value path.
 
-If hosted prerequisites are not ready yet, start with one of these deterministic fallback paths:
+### Evaluators (Fallback and demo path)
+
+Use the curated scenario bundle when you want a clean evaluator-safe pass through discovery, evidence, verify, and regress without the repo-root fixture noise that shows up if you scan the Wrkr repository root directly.
+
+```bash
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
+wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
+wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
+```
+
+This curated path is the recommended fallback and demo workflow when hosted prerequisites are not ready yet or when you want to show the shipped wedge without repo-root fixture noise from Wrkr's own scenario, docs, and test fixtures.
+`--path` is explicit now: point it at a repo root when the selected directory itself carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, `.codex/`, or `.github/`; point it at `./scenarios/wrkr/scan-mixed-org/repos` or another bundle root when you want Wrkr to scan immediate child repos as a deterministic repo-set.
+Low or zero first-run `framework_coverage` in this evaluator path is still an evidence-gap signal. It means the current state lacks documented controls or approvals, not that the framework mapping is unsupported.
+
+If hosted prerequisites are still not ready yet after the evaluator-safe scenario, start with one of these deterministic local fallback paths:
 
 ```bash
 wrkr scan --path ./your-repo --json

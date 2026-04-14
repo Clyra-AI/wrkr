@@ -62,6 +62,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 			"manifest_path":      result.ManifestPath,
 			"chain_path":         result.ChainPath,
 			"framework_coverage": result.FrameworkCoverage,
+			"coverage_note":      result.CoverageNote,
 			"report_artifacts":   result.ReportArtifacts,
 		})
 		return exitSuccess

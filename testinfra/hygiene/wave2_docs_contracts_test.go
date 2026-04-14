@@ -90,7 +90,7 @@ func TestLandingReadmeStartHerePersonaAndFallback(t *testing.T) {
 		"### Security Teams (Recommended first path)",
 		"Hosted prerequisites for this path:",
 		"`--github-api https://api.github.com`",
-		"If hosted prerequisites are not ready yet, start with one of these deterministic fallback paths:",
+		"If hosted prerequisites are still not ready yet after the evaluator-safe scenario, start with one of these deterministic local fallback paths:",
 		"wrkr scan --path ./your-repo --json",
 		"wrkr scan --my-setup --json",
 		"### Developers (Secondary local hygiene)",
@@ -98,6 +98,9 @@ func TestLandingReadmeStartHerePersonaAndFallback(t *testing.T) {
 		if !strings.Contains(readme, required) {
 			t.Fatalf("landing README missing persona/fallback requirement %q", required)
 		}
+	}
+	if strings.Index(readme, "### Security Teams (Recommended first path)") > strings.Index(readme, "### Evaluators") {
+		t.Fatal("landing README must foreground the security-team org posture path before the evaluator fallback")
 	}
 
 	for _, required := range []string{
@@ -109,6 +112,9 @@ func TestLandingReadmeStartHerePersonaAndFallback(t *testing.T) {
 		if !strings.Contains(quickstart, required) {
 			t.Fatalf("quickstart missing persona/fallback requirement %q", required)
 		}
+	}
+	if strings.Index(quickstart, "## Security/platform posture first") > strings.Index(quickstart, "## Evaluator-safe scenario fallback") {
+		t.Fatal("quickstart must foreground the security/platform org posture flow before the evaluator fallback")
 	}
 
 	if !strings.Contains(securityTeam, "if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first") {
@@ -138,6 +144,7 @@ func TestDocsSiteQuickstartMirrorInstallAndFallback(t *testing.T) {
 		"brew install Clyra-AI/tap/wrkr",
 		"go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"${WRKR_VERSION}\"",
 		"wrkr version --json",
+		"wrkr init --non-interactive --org acme --github-api https://api.github.com --json",
 		"wrkr scan --path ./your-repo --json",
 		"wrkr scan --my-setup --json",
 	} {

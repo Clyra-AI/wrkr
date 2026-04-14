@@ -45,6 +45,7 @@ type Config struct {
 	Version       string       `json:"version"`
 	Auth          AuthProfiles `json:"auth"`
 	DefaultTarget Target       `json:"default_target"`
+	GitHubAPIBase string       `json:"github_api_base,omitempty"`
 }
 
 func Default() Config {
@@ -58,6 +59,7 @@ func Default() Config {
 }
 
 func Validate(cfg Config) error {
+	cfg.GitHubAPIBase = strings.TrimSpace(cfg.GitHubAPIBase)
 	if cfg.Version == "" {
 		return errors.New("config version is required")
 	}
@@ -114,6 +116,7 @@ func ResolvePath(explicit string) (string, error) {
 
 // Save writes config deterministically.
 func Save(path string, cfg Config) error {
+	cfg.GitHubAPIBase = strings.TrimSpace(cfg.GitHubAPIBase)
 	if err := Validate(cfg); err != nil {
 		return err
 	}

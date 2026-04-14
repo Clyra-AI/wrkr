@@ -37,7 +37,15 @@ type BuildResult struct {
 	ManifestPath      string             `json:"manifest_path"`
 	ChainPath         string             `json:"chain_path"`
 	FrameworkCoverage map[string]float64 `json:"framework_coverage"`
+	CoverageNote      CoverageNote       `json:"coverage_note"`
 	ReportArtifacts   []string           `json:"report_artifacts"`
+}
+
+type CoverageNote struct {
+	Basis              string   `json:"basis"`
+	LowCoverageMeans   string   `json:"low_coverage_means"`
+	Message            string   `json:"message"`
+	RecommendedActions []string `json:"recommended_actions"`
 }
 
 const outputDirMarkerFile = ".wrkr-evidence-managed"
@@ -386,8 +394,21 @@ func Build(in BuildInput) (BuildResult, error) {
 		ManifestPath:      filepath.Join(targetOutputDir, "manifest.json"),
 		ChainPath:         chainPath,
 		FrameworkCoverage: coverage,
+		CoverageNote:      defaultCoverageNote(),
 		ReportArtifacts:   reportArtifacts,
 	}, nil
+}
+
+func defaultCoverageNote() CoverageNote {
+	return CoverageNote{
+		Basis:            "evidenced_controls_only",
+		LowCoverageMeans: "evidence_gap",
+		Message:          "framework_coverage reflects only controls evidenced in the current scanned state; low or zero first-run coverage indicates evidence gaps rather than unsupported framework parsing.",
+		RecommendedActions: []string{
+			"Run wrkr report --top 5 --json to prioritize missing controls and approvals.",
+			"Remediate the highest-priority gaps and rerun wrkr scan, wrkr evidence, and wrkr report with the same deterministic inputs.",
+		},
+	}
 }
 
 func normalizeFrameworks(in []string) []string {

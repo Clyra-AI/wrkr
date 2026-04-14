@@ -27,6 +27,7 @@ func runInit(args []string, stdout io.Writer, stderr io.Writer) int {
 	repo := fs.String("repo", "", "default scan target owner/repo")
 	org := fs.String("org", "", "default scan target org")
 	path := fs.String("path", "", "default scan target local path")
+	githubAPI := fs.String("github-api", "", "github api base url for hosted repo/org scans")
 	scanToken := fs.String("scan-token", "", "read-only token for scan profile")
 	fixToken := fs.String("fix-token", "", "read-write token for fix profile")
 	configPathFlag := fs.String("config", "", "config file path override")
@@ -68,12 +69,14 @@ func runInit(args []string, stdout io.Writer, stderr io.Writer) int {
 	cfg.Auth.Scan.Token = strings.TrimSpace(*scanToken)
 	cfg.Auth.Fix.Token = strings.TrimSpace(*fixToken)
 	cfg.DefaultTarget = config.Target{Mode: mode, Value: strings.TrimSpace(value)}
+	cfg.GitHubAPIBase = strings.TrimSpace(*githubAPI)
 
 	if err := config.Save(configPath, cfg); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 
 	if *jsonOut {
+		hostedConfigured := cfg.GitHubAPIBase != ""
 		_ = json.NewEncoder(stdout).Encode(map[string]any{
 			"status":      "ok",
 			"config_path": configPath,
@@ -85,6 +88,11 @@ func runInit(args []string, stdout io.Writer, stderr io.Writer) int {
 				"scan": map[string]any{"token_configured": cfg.Auth.Scan.Token != ""},
 				"fix":  map[string]any{"token_configured": cfg.Auth.Fix.Token != ""},
 			},
+			"hosted_source": map[string]any{
+				"github_api_base":       cfg.GitHubAPIBase,
+				"github_api_configured": hostedConfigured,
+			},
+			"next_step": buildInitNextStep(configPath, cfg.DefaultTarget, hostedConfigured),
 		})
 		return exitSuccess
 	}
@@ -127,4 +135,17 @@ func resolveTarget(repo, org, path string) (config.TargetMode, string, error) {
 		return "", "", err
 	}
 	return targets[0].Mode, targets[0].Value, nil
+}
+
+func buildInitNextStep(configPath string, target config.Target, hostedConfigured bool) string {
+	scanCommand := fmt.Sprintf("wrkr scan --config %s --json", configPath)
+	switch target.Mode {
+	case config.TargetRepo, config.TargetOrg:
+		if hostedConfigured {
+			return scanCommand
+		}
+		return fmt.Sprintf("Configure hosted acquisition with --github-api, config hosted_source.github_api_base, or WRKR_GITHUB_API_BASE, then run %s", scanCommand)
+	default:
+		return scanCommand
+	}
 }

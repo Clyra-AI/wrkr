@@ -37,10 +37,11 @@ Check `remediation_count`, deterministic `fingerprint`, `apply_supported`, and u
 wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json
 ```
 
-Check `framework_coverage`, `report_artifacts`, and manifest/chain paths.
+Check `framework_coverage`, additive `coverage_note`, `report_artifacts`, and manifest/chain paths.
 When risk state includes attack-path scoring, evidence output includes deterministic `attack-paths.json`.
 
 `framework_coverage` reflects evidence currently present in scanned state.
+`coverage_note` is the additive machine-readable interpretation of that value and should be preferred when you need to explain low/zero first-run coverage to operators or downstream automation.
 
 - Low/0% coverage indicates documented control gaps in current evidence.
 - Low/0% does not imply Wrkr lacks support for that framework.

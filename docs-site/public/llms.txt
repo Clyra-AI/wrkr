@@ -7,6 +7,7 @@
 - https://clyra-ai.github.io/wrkr/
 
 ## Core Commands
+- wrkr init --org <org> --github-api <url> --json
 - wrkr --help
 - wrkr help <command>
 - wrkr scan --my-setup --json
@@ -24,7 +25,7 @@
 - wrkr fix --top <n> --json
 
 ## When To Use
-- You need a security/platform-led view of AI tooling posture across repos or orgs, with a secondary local-machine path available for developers.
+- You need a security/platform-led view of AI tooling posture across repos or orgs, with hosted org posture as the primary path and deterministic scenario/local fallbacks when hosted setup is not ready yet.
 - You need deterministic inventory and evidence outputs for AI tooling declared across machines, repos, or org surfaces.
 - You need compliance-ready evidence outputs with explicit verification workflows.
 - You need CI gates for drift and regression with stable machine-readable reasons.
@@ -41,9 +42,9 @@
 - Deterministic JSON contracts and stable exit-code semantics.
 - No secret-value extraction; only risk context signals.
 - Proof-chain verification support for evidence integrity checks; `wrkr evidence` now fails closed on malformed or tampered saved proof chains, while `verify --chain --json` remains the explicit machine gate and reports `chain.verification_mode` and `chain.authenticity_status`.
-- Local `--my-setup` and `--path` scans are the no-integration first-value paths; `--repo`, `--org`, and `--github-org` require explicit GitHub API configuration.
+- Hosted org posture is the primary first-run path when prerequisites are ready; local `--my-setup`, repo-local `--path`, and the curated scenario remain deterministic fallback paths when hosted setup is not ready yet.
 - Resumed hosted org scans revalidate checkpoint files and reused materialized repo roots before detector execution, so symlink-swapped resume state is blocked as unsafe.
-- Low or zero `framework_coverage` reflects the controls currently evidenced in the scanned state, not missing parser support.
+- Low or zero `framework_coverage` reflects the controls currently evidenced in the scanned state, not missing parser support, and `wrkr evidence --json` emits additive `coverage_note` guidance with the same interpretation.
 - Evidence bundles include deterministic inventory artifacts: inventory.json, inventory-snapshot.json, inventory.yaml.
 - Wrkr runs standalone; Gait is the optional control-layer counterpart.
 - Wrkr does not replace vulnerability scanners such as Snyk.
