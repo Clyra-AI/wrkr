@@ -124,10 +124,14 @@ fi
 
 risk_cmd="make test-contracts && scripts/validate_scenarios.sh && go test ./internal/scenarios -count=1 -tags=scenario && go test ./internal/integration/interop -count=1"
 if [[ "$mode" == "nightly" || "$mode" == "release" ]]; then
-  risk_cmd+=" && scripts/test_hardening_core.sh && scripts/test_perf_budgets.sh"
+  # Nightly/release pipelines enforce performance budgets as a separate
+  # dedicated gate after acceptance. Keep the acceptance risk lane focused on
+  # functional risk-path coverage and hardening so perf measurements do not run
+  # inside a compounded long-running lane and then immediately rerun again.
+  risk_cmd+=" && scripts/test_hardening_core.sh"
 fi
 if run_cmd "lane_risk" "$risk_cmd"; then
-  lane_risk="pass"
+ lane_risk="pass"
 fi
 
 scorecard_json=".tmp/release/v1-scorecard.json"
