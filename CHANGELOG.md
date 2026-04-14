@@ -8,47 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
-
-### Changed
-
-- (none yet)
-
-### Deprecated
-
-- (none yet)
-
-### Removed
-
-- (none yet)
-
-### Fixed
-
-- (none yet)
-
-### Security
-
-- (none yet)
-
-## Changelog maintenance process
-
-1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.
-2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and publish that change through a short-lived release-prep PR.
-3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
-4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
-5. Link release notes and tag artifacts to the finalized changelog section.
-
-## [v1.0.0] - 2026-04-14
-<!-- release-semver: bootstrap -->
-
-### Added
-
 - Added repeatable `wrkr scan --target <mode>:<value>` support so one scan can combine multiple hosted and local targets while preserving legacy single-target flags.
 - Wrkr can now scan multiple hosted orgs and local repository roots in one deterministic run, producing a single proof/state/report generation with explicit per-target failures when needed.
 
 ### Changed
 
-- Release prep now lands finalized changelog updates through a short-lived release-prep PR before tagging when `main` is protected.
+- [semver:patch] Release prep now lands finalized changelog updates through a short-lived release-prep PR before tagging when `main` is protected.
 - Hosted GitHub scans now emit a dedicated `rate_limited` JSON error code after bounded retry exhaustion while keeping the documented runtime exit code unchanged.
 - Multi-org scans now expose clearer per-target progress and fail-closed resume behavior, including explicit rejection of unsupported mixed-target resume combinations.
 - Govern-first summaries now highlight stronger workflow identity and ownership evidence, with unresolved or conflicting ownership treated as a higher-priority governance signal.
@@ -61,6 +26,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Reconciled the public launch docs so hosted org posture is the primary first-screen path, with the evaluator-safe scenario preserved as the explicit fallback and demo flow.
 - Updated first-run evidence docs and docs-site mirrors so evidence-gap guidance sits directly beside the first evidence workflows instead of appearing later as a separate clarification.
 
+### Deprecated
+
+- (none yet)
+
+### Removed
+
+- (none yet)
+
 ### Fixed
 
 - Hosted GitHub scans now retry recognizable rate-limit `403` responses using the observed reset window instead of failing immediately as generic runtime errors.
@@ -70,6 +43,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Security
 
 - Raised Wrkr's enforced Go toolchain floor to 1.26.2 across local, CI, and nightly scanner surfaces to clear called standard-library vulnerabilities flagged by nightly `govulncheck`.
+
+## Changelog maintenance process
+
+1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.
+2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and publish that change through a short-lived release-prep PR.
+3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
+4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
+5. Link release notes and tag artifacts to the finalized changelog section.
 
 ## [v1.1.0] - 2026-03-31
 <!-- release-semver: minor -->
