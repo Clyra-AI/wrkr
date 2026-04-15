@@ -8,6 +8,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
+	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
@@ -155,5 +158,149 @@ func TestStateSaveIsAtomicUnderInterruption(t *testing.T) {
 	}
 	if _, err := Load(path); err != nil {
 		t.Fatalf("expected state file to remain parseable after interruption: %v", err)
+	}
+}
+
+func TestLoadScoreViewPreservesStoredScoreAndAttackPaths(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "state.json")
+	snapshot := Snapshot{
+		Findings: []source.Finding{
+			{ToolType: "source_repo", Location: "acme/backend", Org: "acme", Repo: "backend"},
+		},
+		PostureScore: &score.Result{
+			Score: 81.4,
+			Grade: "B",
+		},
+		RiskReport: &risk.Report{
+			AttackPaths: []riskattack.ScoredPath{
+				{
+					PathID:          "path-a",
+					Org:             "acme",
+					Repo:            "backend",
+					PathScore:       9.1,
+					EntryNodeID:     "entry-a",
+					TargetNodeID:    "target-a",
+					EntryExposure:   3.0,
+					PivotPrivilege:  2.5,
+					TargetImpact:    3.6,
+					EdgeRationale:   []string{"agent_to_auth_surface"},
+					Explain:         []string{"entry_exposure=3.00"},
+					SourceFindings:  []string{"finding-a"},
+					GenerationModel: "wrkr_attack_path_v1",
+				},
+			},
+			TopAttackPaths: []riskattack.ScoredPath{
+				{
+					PathID:          "path-b",
+					Org:             "acme",
+					Repo:            "backend",
+					PathScore:       8.4,
+					EntryNodeID:     "entry-b",
+					TargetNodeID:    "target-b",
+					EntryExposure:   2.8,
+					PivotPrivilege:  2.2,
+					TargetImpact:    3.4,
+					EdgeRationale:   []string{"tool_to_auth_surface"},
+					Explain:         []string{"entry_exposure=2.80"},
+					SourceFindings:  []string{"finding-b"},
+					GenerationModel: "wrkr_attack_path_v1",
+				},
+			},
+		},
+	}
+	if err := Save(path, snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	view, err := LoadScoreView(path)
+	if err != nil {
+		t.Fatalf("load score view: %v", err)
+	}
+	if view.PostureScore == nil || view.PostureScore.Score != 81.4 {
+		t.Fatalf("unexpected stored score view: %+v", view.PostureScore)
+	}
+	if len(view.AttackPaths) != 1 || view.AttackPaths[0].PathID != "path-a" {
+		t.Fatalf("unexpected attack paths: %+v", view.AttackPaths)
+	}
+	if len(view.TopAttackPaths) != 1 || view.TopAttackPaths[0].PathID != "path-b" {
+		t.Fatalf("unexpected top attack paths: %+v", view.TopAttackPaths)
+	}
+}
+
+func TestLoadScoreViewRejectsMalformedFindings(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		payload string
+	}{
+		{
+			name: "string",
+			payload: `{
+  "version": "v1",
+  "findings": "bad",
+  "posture_score": {
+    "score": 82.5,
+    "grade": "B"
+  }
+}`,
+		},
+		{
+			name: "number",
+			payload: `{
+  "version": "v1",
+  "findings": 42,
+  "posture_score": {
+    "score": 82.5,
+    "grade": "B"
+  }
+}`,
+		},
+		{
+			name: "missing",
+			payload: `{
+  "version": "v1",
+  "posture_score": {
+    "score": 82.5,
+    "grade": "B"
+  }
+}`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "state.json")
+			if err := os.WriteFile(path, []byte(tc.payload), 0o600); err != nil {
+				t.Fatalf("write malformed snapshot: %v", err)
+			}
+
+			if _, err := LoadScoreView(path); err == nil {
+				t.Fatal("expected malformed findings to fail score view load")
+			}
+		})
+	}
+}
+
+func TestLoadScoreViewRejectsMalformedIdentitiesPrimitive(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "state.json")
+	payload := []byte(`{
+  "version": "v1",
+  "identities": true,
+  "posture_score": {
+    "score": 82.5,
+    "grade": "B"
+  }
+}`)
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("write malformed snapshot: %v", err)
+	}
+
+	if _, err := LoadScoreView(path); err == nil {
+		t.Fatal("expected malformed identities to fail score view load")
 	}
 }

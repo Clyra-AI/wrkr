@@ -1,547 +1,290 @@
-# PLAN Adhoc: launch onboarding alignment, evidence framing, and hosted org activation
+# PLAN Adhoc: fail-closed cached posture score validation
 
 Date: 2026-04-14
 Source of truth:
-- user-provided 2026-04-14 launch audit findings and recommendations for this run
+- user-provided recommendation to fix the PR `#140` review feedback at `https://github.com/Clyra-AI/wrkr/pull/140#discussion_r3081985875`
 - `product/dev_guides.md`
 - `product/architecture_guides.md`
-Scope: Planning only for the current launch-risk follow-up backlog in Wrkr OSS. This plan converts the audit recommendations into implementation-ready waves covering onboarding taxonomy drift, low first-run evidence coverage optics, and hosted org setup friction. No implementation work is performed in this plan.
+Scope: Planning only for the follow-up patch that restores full snapshot validation before `wrkr score` trusts cached `posture_score`, while preserving deterministic behavior and the no-recompute performance win for valid state files. No implementation work is performed in this plan.
 
 ## Global Decisions (Locked)
 
-- Treat the current repo as technically launchable. This backlog is adoption-leverage and launch-clarity work, not release-blocking defect triage.
+- This plan is a follow-up to merged PR `#140` on 2026-04-14. Do not revert the cached-score fast path outright; fix the correctness gap inside the existing design direction.
 - Preserve Wrkr's non-negotiable contracts:
-  - deterministic scan/risk/proof behavior by default
-  - offline-first local fallback paths
-  - fail-closed behavior on ambiguous or unsafe paths
-  - stable numeric exit codes and machine-readable envelopes
-  - file-based, offline-verifiable proof artifacts
-- Keep the product boundary truthful:
-  - Wrkr remains static posture, discovery, evidence, and regress
-  - no runtime enforcement, no control-plane dependency, no vuln-scanner positioning
-- Canonical launch taxonomy for minimum-now OSS:
-  - security/platform-led hosted org posture is the primary public path when prerequisites are available
-  - evaluator-safe scenario is an explicit demo and hosted-prereq fallback path
-  - developer-machine hygiene remains secondary and local
-- Reduce hosted-org friction through the existing CLI/config surface only. Do not add any dashboard-first, control-plane, or background-service scope.
-- Keep `framework_coverage` semantics unchanged. Improve interpretation and placement, not the underlying math.
-- Any config changes must be additive and backward compatible within current config version `v1`.
-- Do not expand `wrkr init` into multi-target persistence in this plan. One default target remains the locked config model.
-- Runtime and contract stories must land before docs/onboarding/distribution stories that depend on them.
-- Every story in this plan is user-visible or OSS-governance-visible, so every story requires a changelog decision and a `CHANGELOG.md` update during implementation.
+  - deterministic scan, score, and proof behavior
+  - offline-first local execution
+  - fail-closed handling for ambiguous or malformed runtime state
+  - stable numeric exit codes and machine-readable error envelopes
+  - portable file-based state and proof artifacts
+- Preserve the current public `wrkr score` surface:
+  - existing flags
+  - success JSON keys and meanings
+  - score math, grade thresholds, and weighted breakdown semantics
+  - additive attack-path passthrough when present in saved state
+- Keep malformed saved state on the existing runtime-failure family:
+  - error code `runtime_failure`
+  - exit code `1`
+- Keep state snapshot version `v1`; this is a validation-behavior correction, not a schema or migration project.
+- Keep orchestration thin:
+  - `core/cli/score.go` may coordinate flag parsing and output shaping
+  - full snapshot structural validation belongs in `core/state` or a tightly scoped helper, not in ad hoc CLI-only JSON checks
+- Performance remains a release gate. Any extra validation on the cached-score path must be paired with measurable perf evidence so the release risk lane stays green.
+- Docs and changelog updates are required because this restores a user-visible fail-closed contract on a public command.
 
 ## Current Baseline (Observed)
 
-- The end-to-end shipped loop is real and working today:
-  - `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json`
-  - `wrkr evidence --frameworks eu-ai-act,soc2 --state <state> --output <dir> --json`
-  - `wrkr verify --chain --state <state> --json`
-  - `wrkr regress init/run --json`
-- The audit run on the curated scenario produced:
-  - `19` tools
-  - `19` identities
-  - `131` findings
-  - posture score `56.74` (`F`)
-  - profile compliance `43.75% fail`
-  - `19` unknown-to-security tools
-  - `3` unknown-to-security write-capable agents
-- Full-repo validation succeeded in the audit run:
-  - `go test ./...`
-  - acceptance
-  - e2e
-  - integration
-  - scenarios
-- Public launch surfaces are split today:
-  - `README.md` leads with the evaluator-safe scenario path and only then widens to the security-team org path
-  - `docs/examples/quickstart.md` also foregrounds evaluator-safe scenario first
-  - `docs/install/minimal-dependencies.md` recommends the scenario path as first value after install
-  - `product/wrkr.md` describes Sam's workflow and AC1 as `wrkr init` -> `wrkr scan --org`
-  - `docs/contracts/readme_contract.md` says the current Wrkr launch should foreground the security/platform-led org posture workflow
-- Hosted org friction is real in the current contract:
-  - `wrkr scan --org` and `wrkr scan --github-org` require `--github-api` or `WRKR_GITHUB_API_BASE`
-  - `core/cli/init.go` only persists `default_target`, `scan-token`, and `fix-token`
-  - `core/config/config.go` has no hosted acquisition config beyond tokens
-  - `docs/commands/init.md` has no `--github-api` support today
-- Evidence coverage explanation exists, but it is unevenly placed:
-  - `docs/commands/evidence.md`
-  - `docs/examples/quickstart.md`
-  - `docs/faq.md`
-  - `docs/positioning.md`
-  already clarify that low/zero `framework_coverage` is an evidence-gap signal
-  - `README.md` and the first hosted-org evidence touchpoints do not place that explanation adjacent to the first evidence command
-  - `core/cli/evidence.go` emits only numeric `framework_coverage` in `--json`, with no additive interpretation fields
-- Existing compliance explain/report behavior already contains the right wording:
-  - `core/cli/wave3_compliance_test.go` asserts that explain output says coverage reflects only controls evidenced in current scan state and should trigger remediation/rescan
-- Safety posture is strong and should not be weakened:
-  - proof-chain prerequisite checks in `core/evidence/evidence.go`
-  - managed-marker and staged publish safety in `core/evidence/stage.go`
-  - managed-root and symlink rejection in `internal/e2e/source/source_e2e_test.go`
-- Working tree baseline is clean, so follow-on implementation can start from the generated plan file without hidden unrelated edits.
+- `core/cli/score.go` currently reads a partial `storedScoreState` payload from disk and returns cached `posture_score` when present, without validating the entire `state.Snapshot`.
+- `core/state/state.go` defines the full `state.Snapshot` contract and already reports `read state` or `parse state` failures from `LoadRaw` and `Load`.
+- `core/cli/score_test.go` currently proves the minimal cached-score success path only. It does not cover malformed `findings`, `identities`, or `risk_report` sections coexisting with a valid cached score.
+- `core/cli/root_test.go` and `internal/e2e/score/score_e2e_test.go` verify valid `score` command behavior, but they do not assert fail-closed handling for corrupted saved state.
+- `internal/acceptance/v1_acceptance_test.go` AC20 verifies deterministic repeated `wrkr score --json` output for valid snapshots, but not malformed-state rejection.
+- `docs/commands/score.md` documents flags and success JSON keys only. It does not call out malformed state behavior.
+- `docs/failure_taxonomy_exit_codes.md` documents general runtime-failure behavior, but it does not include a `wrkr score` malformed-state example.
+- `schemas/v1/score/score.schema.json` covers only the success payload shape. No success-schema expansion is needed for this fix.
+- `scripts/test_perf_budgets.sh` already budgets short-lived `wrkr score --json` latency, so this follow-up must re-prove the cached-score path stays within current release expectations.
 
 ## Exit Criteria
 
-- `wrkr init` can persist hosted-org scan defaults needed for the primary launch path:
-  - default org target
-  - hosted GitHub API base
-  - scan/fix auth profile tokens
-- `wrkr scan --config <path> --json` can resolve the default org target and hosted GitHub API base from config when flags are omitted.
-- Hosted source precedence is deterministic, documented, and tested.
-- Missing hosted acquisition config still fails closed with the same machine-readable class and numeric exit code family; the error guidance becomes more actionable without weakening the gate.
-- `wrkr evidence --json` preserves the current `framework_coverage` numbers and adds an explicit additive interpretation surface so low/zero first-run coverage is not misread as unsupported framework coverage.
-- README, install docs, quickstart, security-team docs, FAQ, positioning, and PRD all use one canonical launch taxonomy:
-  - org posture first when prerequisites are available
-  - evaluator-safe scenario as explicit fallback/demo path
-  - `--my-setup` as secondary local hygiene
-- Evidence-gap guidance appears immediately adjacent to the first evidence touchpoints in first-screen docs and examples.
-- Docs, CLI contract, acceptance, and release-smoke gates pass on the touched surfaces.
+- `wrkr score --state <path> --json` returns the same success payload for valid saved snapshots that already contain `posture_score`.
+- A malformed or type-invalid `state.Snapshot` that still includes `posture_score` fails closed with `runtime_failure` and exit code `1` instead of returning stale cached success output.
+- The implementation validates the full snapshot contract before success without recomputing score when a valid cached posture score is present.
+- Cached `risk_report.attack_paths` and `risk_report.top_attack_paths` remain pass-through compatible on valid saved state.
+- Valid snapshots without cached `posture_score` still use the recompute path and preserve existing output semantics.
+- Score command perf budgets remain green in the release perf lane after the validation change.
+- CLI contract tests, e2e coverage, acceptance coverage, docs consistency checks, and changelog updates all pass.
 
 ## Public API and Contract Map
 
 - Stable public surfaces:
-  - `wrkr init`
-  - `wrkr scan`
-  - `wrkr evidence`
-  - `wrkr report`
-  - `wrkr verify`
-  - `wrkr regress`
-  - exit code integers and existing error classes
-  - `framework_coverage` numeric semantics
-  - state/proof lifecycle rooted at `--state`
-  - local fallback paths `--path` and `--my-setup`
-- Additive public surfaces planned in this backlog:
-  - `wrkr init --github-api <url>`
-  - additive config field for hosted GitHub API base
-  - additive `init --json` fields exposing hosted-source configuration state and next-step guidance
-  - additive `evidence --json` coverage interpretation fields
-- Internal surfaces:
-  - `core/config/*`
-  - `core/cli/init.go`
-  - `core/cli/scan.go`
-  - `core/cli/scan_helpers.go`
-  - `core/cli/evidence.go`
-  - docs parity/storyline/hygiene checks
+  - `wrkr score [--state <path>] [--json] [--quiet] [--explain]`
+  - success JSON keys: `score`, `grade`, `breakdown`, `weighted_breakdown`, `weights`, `trend_delta`
+  - optional success JSON keys: `attack_paths`, `top_attack_paths`
+  - runtime error envelope contract on stderr for unreadable or malformed state
+  - exit code `1` for `runtime_failure`
+  - state snapshot version `v1`
+- Internal surfaces expected to change:
+  - `core/cli/score.go`
+  - `core/state/state.go` or a new focused validation helper under `core/state`
+  - targeted score command tests and perf validation coverage
 - Shim and deprecation path:
-  - existing explicit `--github-api` usage remains valid
-  - `WRKR_GITHUB_API_BASE` remains valid
-  - scenario-first evaluator flow remains supported as an explicit fallback/demo path
-  - no existing flag is removed in this plan
+  - none
+  - no flag removals
+  - no output key removals
+  - no config or snapshot migration shims
 - Schema and versioning policy:
-  - remain on current CLI/state/evidence schema versions
-  - config stays at version `v1`
-  - config additions must be backward compatible when loading older configs
-  - no JSON key removals or meaning changes for existing keys
+  - `schemas/v1/score/score.schema.json` remains unchanged
+  - `state.Snapshot` remains `v1`
+  - no migration is planned because corrupted snapshots must be repaired or regenerated, not auto-coerced
 - Machine-readable error expectations:
-  - missing hosted GitHub API base after all allowed resolution sources remain exhausted -> fail closed with existing dependency-missing contract
-  - missing/invalid state or proof-chain prerequisites for `evidence` remain runtime failures
-  - low/zero `framework_coverage` remains success-path output, not an error-path output
+  - invalid JSON or type-invalid full snapshots at `--state` return stderr JSON with `error.code=runtime_failure` and `error.exit_code=1`
+  - valid snapshots with cached score return unchanged success JSON on stdout
+  - valid snapshots without cached score continue to recompute and return unchanged success JSON on stdout
 
 ## Docs and OSS Readiness Baseline
 
-- README first-screen contract:
-  - must state what Wrkr is, who the current launch is for, and which workflow to run first
-  - must keep hosted prerequisites adjacent to the first hosted org example
-  - must preserve explicit deterministic fallback commands before hosted setup can dead-end
-- Integration-first docs flow for touched surfaces:
-  - install
-  - first run
-  - evidence/verify
-  - regress
-  - only then deeper concepts
-- Lifecycle path model:
-  - saved scan state is the canonical handoff artifact
-  - report/evidence/verify/regress are downstream of saved state
-  - optional JSON/markdown/SARIF sidecars are additive, not canonical
-- Docs source-of-truth expectations:
-  - `docs/commands/*.md` are command contract anchors
-  - `docs/examples/*.md` are workflow anchors
-  - `docs/contracts/readme_contract.md` governs README first-screen behavior
-  - `docs/install/minimal-dependencies.md` governs install/release parity guidance
-- OSS trust baseline files for touched behavior:
-  - `CHANGELOG.md` is required for every story in this plan
-  - `CONTRIBUTING.md` must be checked for impact and updated only if contributor workflow meaning changes
-  - `SECURITY.md` must be checked for impact and updated only if security-reporting expectations change
-  - no maintainer-support promises are expanded in this plan
+- `docs/commands/score.md` is the command contract source of truth and must describe malformed state behavior once the runtime fix lands.
+- `docs/failure_taxonomy_exit_codes.md` should be updated if the implementation adds an operator-facing example for cached-score validation failures.
+- README first-screen onboarding is out of scope; this is a command-contract correction, not a launch-story rewrite.
+- `CHANGELOG.md` must record the restored fail-closed `wrkr score` behavior under `## [Unreleased]`.
+- `CONTRIBUTING.md` and `SECURITY.md` should be checked for impact, but no update is expected unless contributor workflow or disclosure guidance changes.
+- Docs flow for this work stays integration-first:
+  - `docs/commands/score.md` for the command contract
+  - `docs/failure_taxonomy_exit_codes.md` for exit semantics
+  - `CHANGELOG.md` for user-visible release notes
 
 ## Recommendation Traceability
 
 | Rec ID | Recommendation | Why | Strategic direction | Expected moat/benefit | Story IDs |
 |---|---|---|---|---|---|
-| R1 | Unify the launch taxonomy so the public story stops oscillating between evaluator-safe scenario first and hosted org posture first | The current split weakens buyer confidence and makes self-serve evaluation feel inconsistent | One canonical OSS onboarding story with honest fallback paths | Sharper category wedge and lower evaluator confusion | W1-S1, W2-S1 |
-| R2 | Make low/zero first-run `framework_coverage` unmistakably read as an evidence gap, not a parser/capability failure | The current math is correct, but the interpretation is not adjacent enough to first evidence touchpoints | Evidence-state clarity without changing score/coverage semantics | Higher trust in proof artifacts and better remediation follow-through | W1-S2, W2-S2 |
-| R3 | Reduce hosted org setup friction on the primary path using existing CLI/config surfaces | The current primary path requires more manual setup than the smoother local/synthetic flows | Self-serve hosted-org onboarding through additive config and exact next-step guidance | Better AC1 credibility and better expansion from evaluator to team/org usage | W1-S1 |
+| R1 | Validate the full saved scan snapshot before trusting cached `posture_score` | Prevent corrupted or hand-edited state files from returning stale success output | Restore fail-closed score correctness without abandoning the cached-score performance path | Stronger CI and release trust in posture outputs | W1-S1 |
+| R2 | Document and regression-test the restored cached-score contract | Keep future perf work from silently reintroducing partial-state success behavior | Make contract and release expectations explicit in docs, tests, and changelog | Better long-term contract stability and contributor clarity | W2-S1 |
 
 ## Test Matrix Wiring
 
 - Fast lane:
-  - targeted Go tests in `core/config`, `core/cli`, and any focused docs/hygiene checks
-  - `make lint-fast`
-  - docs parity/storyline checks for touched README/commands/examples
+  - `go test ./core/state ./core/cli -count=1`
+  - `scripts/check_docs_consistency.sh`
 - Core CI lane:
   - `make prepush`
   - `make test-contracts`
-  - targeted scenario or CLI contract suites as applicable
 - Acceptance lane:
-  - targeted `internal/acceptance` subtests for AC01 and AC03
-  - targeted `internal/e2e/init` and CLI contract coverage for touched flows
+  - `go test ./internal/e2e/score -count=1`
+  - `go test ./internal/acceptance -count=1 -run 'TestV1AcceptanceMatrix/AC20_posture_score_deterministic_command_output'`
 - Cross-platform lane:
-  - `windows-smoke` for any Go/config/CLI behavior change
-  - avoid platform-specific path assumptions in config/init tests
+  - `windows-smoke`
+  - keep state-path handling and stderr/stdout contract assertions platform-neutral
 - Risk lane:
-  - `make prepush-full` for runtime/contract stories
-  - add `make test-hardening` and `make test-chaos` only if implementation changes failure-class behavior beyond the documented hosted-source resolution and evidence-note additions
+  - `make prepush-full`
+  - `make test-hardening`
+  - `make test-chaos`
+  - `make test-perf`
+  - `scripts/test_perf_budgets.sh`
+  - `scripts/run_v1_acceptance.sh --mode=release`
 - Merge/release gating rule:
-  - Wave 1 stories must land before Wave 2 docs stories that depend on them
-  - no public docs story closes without docs parity/storyline/smoke coverage
-  - no runtime story closes without acceptance or e2e coverage on the touched path
-  - if install guidance changes, release smoke/UAT parity must be rerun before merge or release cut
+  - Wave 1 runtime correctness must land before Wave 2 docs and changelog closure
+  - no story closes without its declared lane coverage
+  - any runtime fix that regresses score perf budgets blocks merge until corrected or re-scoped
 
-## Epic W1: Hosted Org Activation Contract and Evidence Interpretation
+## Epic W1: Score Snapshot Validation Contract
 
-Objective: reduce real friction on the primary security/platform launch path and make first-run evidence semantics explicit in machine-readable output, without changing Wrkr's deterministic evidence math or exit behavior.
+Objective: restore fail-closed `wrkr score` behavior for malformed saved state while preserving the cached-score no-recompute path and release perf viability.
 
-### Story W1-S1: Persist hosted org acquisition defaults in `init` and consume them in `scan`
+### Story W1-S1: Validate full snapshot structure before returning cached score success
 
-Priority: P1
+Priority: P0
 Tasks:
-- Extend persisted config with an additive hosted GitHub API base field.
-- Add `--github-api` to `wrkr init` so the primary hosted-org path can be configured once.
-- Keep config backward compatible and deterministic under current config version `v1`.
-- Update `wrkr scan` hosted-source resolution so it can consume:
-  - explicit `--github-api`
-  - config-persisted hosted API base
-  - `WRKR_GITHUB_API_BASE`
-- Align precedence with the existing token-resolution style and document it explicitly.
-- Add additive `init --json` fields that expose hosted-source configuration state and deterministic next-step guidance for the chosen target.
-- Keep existing explicit `--github-api` and env-driven workflows fully valid.
-- Improve missing-hosted-source guidance so a fail-closed run points users to the valid flag/config/env remedies without changing the fail-closed class.
-- Update PRD, command docs, and workflow examples to reflect the new hosted-org setup contract.
+- Refactor score state loading so the command validates the full `state.Snapshot` contract before returning success from cached `posture_score`.
+- Keep cached-score behavior focused on avoiding unnecessary recomputation, not on tolerating partial or malformed saved state.
+- Prefer a single-read validation/extraction path when practical; if a two-pass decode is required for correctness, document it in code comments and prove it stays inside current perf budgets.
+- Preserve pass-through handling for cached attack-path data on valid snapshots.
+- Add fail-closed tests for malformed `findings`, malformed `identities`, and malformed `risk_report` structures when cached `posture_score` is present.
+- Add parity coverage so valid cached-score snapshots still produce the same JSON and explain output as before.
+- Re-run release perf validation because this story touches a measured hot path.
 Repo paths:
-- `core/config/config.go`
-- `core/config/config_test.go`
-- `core/cli/init.go`
-- `core/cli/scan.go`
-- `core/cli/scan_helpers.go`
-- `core/cli/root.go`
+- `core/cli/score.go`
+- `core/state/state.go`
+- `core/cli/score_test.go`
 - `core/cli/root_test.go`
-- `core/cli/scan_github_auth_test.go`
-- `internal/e2e/init/init_e2e_test.go`
+- `internal/e2e/score/score_e2e_test.go`
 - `internal/acceptance/v1_acceptance_test.go`
-- `docs/commands/init.md`
-- `docs/commands/scan.md`
-- `docs/examples/security-team.md`
-- `docs/examples/quickstart.md`
-- `docs/faq.md`
-- `README.md`
-- `product/wrkr.md`
-- `CHANGELOG.md`
+- `scripts/test_perf_budgets.sh`
 Run commands:
-- `go test ./core/config ./core/cli ./internal/e2e/init -count=1`
-- `go test ./internal/acceptance -count=1 -run 'TestV1AcceptanceMatrix/AC01_org_scan_flow_outputs_inventory_and_top_findings'`
+- `go test ./core/state ./core/cli -count=1`
+- `go test ./internal/e2e/score -count=1`
+- `go test ./internal/acceptance -count=1 -run 'TestV1AcceptanceMatrix/AC20_posture_score_deterministic_command_output'`
 - `make test-contracts`
 - `make prepush-full`
-- `scripts/check_docs_cli_parity.sh`
-- `scripts/check_docs_storyline.sh`
-Test requirements:
-- Schema/artifact changes:
-  - config round-trip and byte-stability tests
-  - backward-compat load tests for older config files without the new hosted field
-- CLI behavior changes:
-  - help/usage coverage for `init`
-  - `--json` stability tests for additive `init --json` fields
-  - exit-code and error-envelope tests for hosted-source resolution when config/flag/env are present or missing
-- Acceptance/E2E:
-  - `init` followed by hosted `scan` using config-backed API base
-  - AC01 org scan flow remains green
-- Docs/examples changes:
-  - docs consistency checks
-  - storyline checks
-  - README first-screen checks for hosted prerequisites
-Matrix wiring:
-- Fast lane: targeted `core/config`, `core/cli`, `internal/e2e/init`, docs parity
-- Core CI lane: `make prepush`, `make test-contracts`
-- Acceptance lane: targeted AC01 plus `internal/e2e/init`
-- Cross-platform lane: `windows-smoke`
-- Risk lane: `make prepush-full`
-Acceptance criteria:
-- `wrkr init --non-interactive --org acme --github-api https://api.github.com --config <path> --json` succeeds and persists the hosted API base in config.
-- `wrkr scan --config <path> --state <state> --json` can resolve the default org target and hosted API base without needing `--github-api` again.
-- Explicit `--github-api` still overrides config when both are present.
-- Existing configs without the new field still load and behave correctly.
-- Hosted scans with no usable API base anywhere still fail closed with the existing dependency-missing contract family.
-Changelog impact: required
-Changelog section: Changed
-Draft changelog entry: Added config-backed hosted GitHub API base support to `wrkr init` and `wrkr scan` so org-first onboarding can be configured once without weakening the existing fail-closed hosted-scan contract.
-Semver marker override: none
-Contract/API impact:
-- Additive `init` flag: `--github-api`
-- Additive config field for hosted GitHub API base
-- Additive `init --json` fields for hosted-source config state and next-step guidance
-- Additive hosted-source resolution path in `scan`
-Versioning/migration impact:
-- Config remains version `v1`
-- Existing config files must continue to load without migration steps
-- No existing JSON keys or exit codes are removed or renumbered
-Architecture constraints:
-- Keep hosted-source resolution in thin CLI/config orchestration; do not leak hosted-config logic into source or detector packages.
-- Preserve explicit side-effect semantics in API naming and precedence handling.
-- Keep cancellation and timeout propagation unchanged through hosted scan flows.
-- Keep the config extension narrow enough to avoid enterprise-fork pressure for basic onboarding defaults.
-ADR required: yes
-TDD first failing test(s):
-- `core/config/config_test.go` config round-trip with additive hosted API base
-- `internal/e2e/init/init_e2e_test.go` config-backed org scan without env-provided API base
-- `core/cli/scan_github_auth_test.go` precedence and missing-hosted-source failure guidance
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If precedence is wrong, stale config could override explicit user intent or hide missing hosted prerequisites.
-- If config compatibility breaks, previously initialized installs could fail before scan starts.
-
-### Story W1-S2: Add explicit coverage interpretation to `wrkr evidence --json` without changing `framework_coverage`
-
-Priority: P1
-Tasks:
-- Add additive machine-readable interpretation fields to `wrkr evidence --json` that explain what `framework_coverage` means.
-- Reuse the already-shipped coverage guidance wording so CLI JSON, docs, and report/explain language stay aligned.
-- Keep `framework_coverage` values and framework ordering unchanged.
-- Keep success/failure classes unchanged for low/zero first-run coverage.
-- Update command docs and examples to consume the new additive interpretation keys.
-- Add contract tests so the new keys remain additive and deterministic.
-Repo paths:
-- `core/cli/evidence.go`
-- `core/evidence/evidence.go`
-- `core/cli/root_test.go`
-- `core/cli/wave3_compliance_test.go`
-- `internal/scenarios/epic4_scenario_test.go`
-- `internal/acceptance/v1_acceptance_test.go`
-- `docs/commands/evidence.md`
-- `docs/examples/quickstart.md`
-- `docs/examples/security-team.md`
-- `docs/examples/operator-playbooks.md`
-- `docs/faq.md`
-- `docs/positioning.md`
-- `CHANGELOG.md`
-Run commands:
-- `go test ./core/cli ./core/evidence -count=1`
-- `go test ./internal/scenarios -count=1 -tags=scenario -run 'TestScenarioEvidenceBundleIncludesProfileAndPosture'`
-- `go test ./internal/acceptance -count=1 -run 'TestV1AcceptanceMatrix/AC03_evidence_bundle_signed_and_verifiable'`
-- `make test-contracts`
-- `scripts/check_docs_cli_parity.sh`
-- `scripts/check_docs_storyline.sh`
+- `make test-hardening`
+- `make test-chaos`
+- `make test-perf`
+- `scripts/test_perf_budgets.sh`
+- `scripts/run_v1_acceptance.sh --mode=release`
 Test requirements:
 - CLI behavior changes:
-  - `--json` stability tests for additive evidence keys
-  - exit-code invariants proving low/zero coverage remains a success-path result
-  - machine-readable envelope tests for malformed/tampered chain prerequisites remain unchanged
-- Contract changes:
-  - additive JSON-key assertions only
-  - determinism tests proving repeat runs emit the same coverage interpretation wording for the same state
-- Scenario/spec tests:
-  - evidence bundle output still carries profile/posture artifacts
-  - coverage interpretation remains consistent with explain/report wording
-- Docs/examples changes:
-  - docs consistency checks
-  - workflow docs use the same interpretation sentence as the JSON note
+  - add exit-code and error-envelope tests for malformed saved state that still contains cached `posture_score`
+  - keep `--json`, `--quiet`, and `--explain` behavior unchanged for valid snapshots
+- Gate and fail-closed changes:
+  - deterministic fixtures where cached score coexists with invalid `findings`
+  - deterministic fixtures where cached score coexists with invalid `identities`
+  - deterministic fixtures where cached score coexists with invalid `risk_report`
+  - ensure no stdout success payload is emitted on malformed-state failure paths
+- Determinism and perf:
+  - repeat-run parity tests for valid cached-score snapshots
+  - cached-score perf validation in the release budget lane
+- Contract checks:
+  - keep success payload schema unchanged
+  - preserve `runtime_failure` classification for malformed state reads
 Matrix wiring:
-- Fast lane: targeted `core/cli`, `core/evidence`, docs parity
+- Fast lane: `go test ./core/state ./core/cli -count=1`
 - Core CI lane: `make prepush`, `make test-contracts`
-- Acceptance lane: targeted AC03 and the scenario evidence suite
+- Acceptance lane: targeted `internal/e2e/score` and AC20 score command coverage
 - Cross-platform lane: `windows-smoke`
-- Risk lane: `make prepush-full`
+- Risk lane: `make prepush-full`, `make test-hardening`, `make test-chaos`, `make test-perf`, `scripts/test_perf_budgets.sh`
 Acceptance criteria:
-- `wrkr evidence --frameworks eu-ai-act,soc2 --state <state> --output <dir> --json` still emits the current numeric `framework_coverage` map.
-- The same JSON payload now also emits additive interpretation fields that explicitly say coverage reflects controls evidenced in the current scanned state and that low/zero first-run coverage indicates evidence gaps rather than unsupported framework parsing.
-- Existing low-coverage runs still exit `0`.
-- Malformed/tampered chain runs still fail with the same runtime/verification behavior they have today.
+- A saved state fixture with valid cached `posture_score` plus `"findings": "bad"` returns `runtime_failure` and exit `1`
+- Equivalent malformed fixtures for `identities` and `risk_report` also fail closed
+- A valid saved snapshot with cached `posture_score` still returns the existing success JSON keys and values
+- A valid saved snapshot without cached score still recomputes and returns the existing success JSON keys and values
+- Release perf validation remains green after the fix
 Changelog impact: required
-Changelog section: Changed
-Draft changelog entry: Added explicit coverage-interpretation fields to `wrkr evidence --json` so low first-run framework coverage is framed as an evidence gap rather than a parser or framework-support failure.
+Changelog section: Fixed
+Draft changelog entry: `wrkr score` now validates the full saved scan snapshot before reusing cached posture scores, so malformed state files fail closed instead of returning stale success output.
 Semver marker override: none
-Contract/API impact:
-- Additive `evidence --json` output fields only
-- No existing key removal or exit-code change
-Versioning/migration impact:
-- No schema/version bump
-- Existing automation that ignores unknown JSON keys remains compatible
+Contract/API impact: Restores the public `wrkr score` runtime contract so malformed saved state fails with `runtime_failure` even when cached score data is present; success payload schema and flags stay unchanged.
+Versioning/migration impact: No schema or state version bump. Corrupted or hand-edited state files must be repaired or regenerated rather than relied on for cached success output.
 Architecture constraints:
-- Keep interpretation logic close to CLI/report contract surfaces; do not change compliance-rollup math or proof generation.
-- Preserve deterministic wording and field ordering for identical inputs.
-- Avoid thresholds or heuristics that could imply unsupported new policy logic.
-ADR required: yes
+- Keep CLI orchestration thin and move structural validation into `core/state` or a similarly focused helper
+- Avoid partial-state success behavior anywhere the full snapshot contract is required
+- Preserve explicit side-effect-free semantics in helper names and signatures
+- Keep helper semantics symmetric with existing `LoadRaw` and `Load` behavior instead of inventing a score-only parsing exception
+- Keep deterministic ordering and score math unchanged for valid snapshots
+- Do not introduce new timeout, cancellation, or background-work blind spots on the command path
+- Prefer a reusable validation entry point that other state-consuming commands can adopt without copying score-specific logic
+- Minimize extra decoding work or prove any added decode cost stays within current perf budgets
+ADR required: no
 TDD first failing test(s):
-- `core/cli/root_test.go` or a dedicated evidence JSON contract test for additive coverage interpretation fields
-- `core/cli/wave3_compliance_test.go` alignment checks between explain wording and the new JSON note
-- `internal/acceptance/v1_acceptance_test.go` targeted AC03 assertion for additive interpretation fields
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- If the additive note diverges from numeric coverage semantics, automation and operator trust will drift.
-- If interpretation fields are emitted inconsistently across equivalent runs, the CLI JSON contract becomes noisy.
+- `TestScoreJSONFailsClosedWhenCachedScoreStateContainsMalformedFindings`
+- `TestScoreJSONFailsClosedWhenCachedScoreStateContainsMalformedIdentities`
+- `TestScoreJSONFailsClosedWhenCachedScoreStateContainsMalformedRiskReport`
+- `TestE2EScoreJSONFailsClosedOnMalformedStateWithCachedScore`
+Cost/perf impact: medium
+Chaos/failure hypothesis: If a saved snapshot is truncated, hand-edited, or partially corrupted but still carries cached score data, `wrkr score` must return `runtime_failure` without emitting stale success output; if the validation approach regresses short-lived command latency beyond budget, perf lanes must fail before merge.
 
-## Epic W2: Launch Taxonomy and First-Run Docs Alignment
+## Epic W2: Docs and Release Note Alignment
 
-Objective: remove the public-message split, keep the evaluator-safe fallback honest and explicit, and place evidence-gap interpretation exactly where new users first encounter it.
+Objective: make the restored cached-score validation contract explicit in operator docs and release notes so the follow-up stays visible and durable.
 
-### Story W2-S1: Reconcile first-screen launch taxonomy across README, install docs, quickstart, security-team docs, FAQ, and PRD
+### Story W2-S1: Align score docs, failure taxonomy, and changelog with the restored fail-closed contract
 
 Priority: P1
 Tasks:
-- Make one canonical launch ordering explicit across public surfaces:
-  - org posture first when hosted prerequisites are ready
-  - evaluator-safe scenario fallback/demo path second
-  - `--my-setup` secondary local hygiene path
-- Align README, install docs, quickstart, security-team docs, FAQ, positioning, and PRD so they no longer contradict one another.
-- Keep the evaluator-safe scenario path prominent as a fallback, but stop presenting it as the unconditional first-screen recommendation when the launch persona is security/platform-led.
-- Update any README first-screen contract checks that still encode the old story.
-- Verify install-path wording and `wrkr version --json` discoverability remain intact when editing first-screen docs.
+- Update `docs/commands/score.md` to state that malformed saved state fails with `runtime_failure` instead of returning cached success.
+- Add or refresh a focused example in `docs/failure_taxonomy_exit_codes.md` if the runtime fix introduces a clearer operator-facing malformed-state path.
+- Add the `CHANGELOG.md` `## [Unreleased]` entry for the user-visible behavior correction.
+- Keep docs wording precise: valid cached-score snapshots stay fast and schema-stable; malformed snapshots fail closed.
+- Re-run docs contract checks after the runtime story lands so wording matches shipped behavior exactly.
 Repo paths:
-- `README.md`
-- `docs/install/minimal-dependencies.md`
-- `docs/examples/quickstart.md`
-- `docs/examples/security-team.md`
-- `docs/faq.md`
-- `docs/positioning.md`
-- `docs/contracts/readme_contract.md`
-- `product/wrkr.md`
+- `docs/commands/score.md`
+- `docs/failure_taxonomy_exit_codes.md`
 - `CHANGELOG.md`
 Run commands:
-- `go test ./testinfra/hygiene -count=1`
-- `make test-docs-consistency`
-- `make test-docs-storyline`
-- `scripts/run_docs_smoke.sh`
-- `scripts/test_uat_local.sh --skip-global-gates`
+- `scripts/check_docs_consistency.sh`
+- `scripts/check_docs_cli_parity.sh`
+- `go test ./core/cli -count=1`
+- `make prepush`
 Test requirements:
-- Docs/examples changes:
+- Docs and examples:
   - docs consistency checks
-  - storyline/smoke checks when the user flow changes
-  - README first-screen checks
-  - integration-before-internals guidance checks
-  - version/install discoverability checks for `wrkr version` and minimal-dependency guidance
-- OSS readiness changes:
-  - verify `CHANGELOG.md` updates
-  - verify no additional maintainer/support-policy file change is needed
+  - docs CLI parity checks
+  - ensure score docs mention the malformed-state runtime-failure contract without inventing new flags or schema keys
+- OSS readiness:
+  - verify `CHANGELOG.md` includes the user-visible fix under `## [Unreleased]`
+  - confirm no README or contributor workflow drift is introduced by this narrower contract update
 Matrix wiring:
-- Fast lane: docs parity and hygiene checks
-- Core CI lane: docs consistency and storyline
-- Acceptance lane: not required beyond docs/storyline because no runtime behavior changes in this story
-- Cross-platform lane: not required beyond existing docs smoke because no platform-sensitive runtime changes are introduced
-- Risk lane: not required
+- Fast lane: `scripts/check_docs_consistency.sh`, `scripts/check_docs_cli_parity.sh`
+- Core CI lane: `make prepush`
+- Acceptance lane: inherit W1-S1 command contract reruns if docs wording changes the described behavior surface
+- Cross-platform lane: none beyond inherited required checks because this story is docs and release-note only
+- Risk lane: not required beyond W1-S1 because this story does not change runtime behavior
 Acceptance criteria:
-- README, quickstart, install docs, security-team docs, FAQ, and PRD all describe the same canonical launch ordering.
-- The evaluator-safe scenario path remains present and explicit, but is clearly labeled as fallback/demo rather than the canonical security/platform first path.
-- Hosted prerequisites sit adjacent to the first hosted org example on the public first-screen surfaces.
-- `wrkr version --json` verification remains on the first install screen.
+- `docs/commands/score.md` explicitly documents malformed-state failure behavior
+- `docs/failure_taxonomy_exit_codes.md` remains aligned if touched
+- `CHANGELOG.md` contains an operator-facing `Unreleased` entry for the fix
+- Docs contract checks pass without drift
 Changelog impact: required
 Changelog section: Changed
-Draft changelog entry: Reconciled the public launch docs so hosted org posture is the primary first-screen path, with the evaluator-safe scenario preserved as the explicit fallback and demo flow.
+Draft changelog entry: Clarified the `wrkr score` command contract so malformed saved state is documented as a fail-closed runtime failure while valid cached-score output remains unchanged.
 Semver marker override: none
-Contract/API impact:
-- Docs-only clarification of existing and newly-additive runtime behavior
-- No CLI or schema change in this story
-Versioning/migration impact:
-- None
 Architecture constraints:
-- Do not introduce docs claims that exceed the actual CLI/runtime contract.
-- Keep README and docs examples aligned with `docs/commands/*.md` command sources of truth.
+- Do not promise partial-state recovery, auto-repair, or schema changes that the runtime fix does not implement
+- Keep docs source-of-truth ordering explicit: command doc, failure taxonomy, changelog
+- Preserve operator-facing wording and stable contract terminology
 ADR required: no
 TDD first failing test(s):
-- `go test ./testinfra/hygiene -count=1`
-- docs storyline checks that encode the first-screen ordering
+- `scripts/check_docs_consistency.sh`
+- `scripts/check_docs_cli_parity.sh`
 Cost/perf impact: low
-Chaos/failure hypothesis:
-- None; docs-only story. The failure mode is contract drift between public surfaces, which must be caught by docs/hygiene checks.
-
-### Story W2-S2: Put evidence-gap framing directly beside the first evidence touchpoints and operator handoff paths
-
-Priority: P1
-Tasks:
-- Update README, quickstart, security-team docs, operator playbooks, and command docs so the first evidence touchpoints explain low/zero first-run coverage immediately.
-- Mirror the additive `evidence --json` interpretation wording from W1-S2 in the docs so public copy, machine-readable output, and operator playbooks use one sentence.
-- Add explicit next-step guidance near the first evidence examples:
-  - review top risks
-  - remediate missing controls/approvals
-  - rerun scan/evidence/report
-- Make sure no touched doc implies low coverage means missing parser support or missing framework support.
-- Add or tighten docs/hygiene checks so this guidance stays adjacent to first evidence workflows.
-Repo paths:
-- `README.md`
-- `docs/examples/quickstart.md`
-- `docs/examples/security-team.md`
-- `docs/commands/evidence.md`
-- `docs/examples/operator-playbooks.md`
-- `docs/faq.md`
-- `docs/positioning.md`
-- `docs/intent/generate-compliance-evidence-from-scans.md`
-- `CHANGELOG.md`
-Run commands:
-- `go test ./testinfra/hygiene -count=1`
-- `make test-docs-consistency`
-- `make test-docs-storyline`
-- `scripts/run_docs_smoke.sh`
-Test requirements:
-- Docs/examples changes:
-  - docs consistency checks
-  - storyline/smoke checks for evidence workflow changes
-  - README and quickstart checks for first evidence command adjacency
-  - docs source-of-truth mapping checks when both commands and examples are touched
-- API/contract lifecycle changes:
-  - confirm docs examples reflect the additive `evidence --json` fields from W1-S2 exactly
-Matrix wiring:
-- Fast lane: docs parity and hygiene checks
-- Core CI lane: docs consistency and storyline
-- Acceptance lane: not required beyond docs/hygiene because runtime acceptance coverage lands in W1-S2
-- Cross-platform lane: not required
-- Risk lane: not required
-Acceptance criteria:
-- The first evidence command shown in README, quickstart, and security-team docs is immediately followed by evidence-gap interpretation and next actions.
-- Operator playbooks and evidence command docs use the same wording as the shipped additive JSON note.
-- No touched doc frames low/zero `framework_coverage` as parser failure or unsupported framework support.
-Changelog impact: required
-Changelog section: Changed
-Draft changelog entry: Updated first-run evidence docs to explain low framework coverage as an evidence-state gap and to place remediation guidance directly beside the first evidence workflows.
-Semver marker override: none
-Contract/API impact:
-- Docs-only clarification of the additive evidence JSON interpretation shipped in W1-S2
-Versioning/migration impact:
-- None
-Architecture constraints:
-- Keep docs claims strictly downstream of the shipped CLI contract.
-- Do not fork wording across docs surfaces; use one stable interpretation sentence.
-ADR required: no
-TDD first failing test(s):
-- `go test ./testinfra/hygiene -count=1`
-- docs storyline checks that assert evidence-gap guidance adjacency
-Cost/perf impact: low
-Chaos/failure hypothesis:
-- None; docs-only story. The failure mode is message drift across README, examples, and command docs.
+Dependencies:
+- `W1-S1`
 
 ## Minimum-Now Sequence
 
-1. Wave 1
-   - W1-S1 first. The hosted-org onboarding contract must exist before public docs can honestly foreground it.
-   - W1-S2 second. The additive evidence interpretation must ship before docs can rely on it.
-2. Wave 2
-   - W2-S1 after W1-S1. Public first-screen docs should describe the real hosted onboarding contract, not the old split story.
-   - W2-S2 after W1-S2 and W2-S1. The evidence framing should quote the shipped runtime interpretation and sit inside the canonical launch ordering.
+1. Wave 1: implement `W1-S1` first so cached-score validation and perf evidence are settled before any docs or changelog wording is finalized.
+2. Wave 2: complete `W2-S1` after the runtime contract is green, then re-run docs checks and confirm the `Unreleased` entry matches the shipped behavior.
 
 ## Explicit Non-Goals
 
-- No dashboard, browser handoff redesign, or SaaS control plane work
-- No change to risk scoring math, posture score weights, or `framework_coverage` calculation
-- No new scanner surfaces, no live probing by default, and no runtime enforcement scope
-- No multi-target persistence in `wrkr init`
-- No package- or server-vulnerability scanning scope expansion
-- No release engineering/toolchain pin work unless it is directly required by implementation of the above stories
+- No new `wrkr score` flags or output keys
+- No state snapshot version bump or migration layer
+- No score algorithm, weights, or grade-threshold changes
+- No broad state-file repair or auto-healing feature
+- No revert of PR `#140` beyond the targeted cached-score validation correction
+- No README or onboarding flow rewrite
 
 ## Definition of Done
 
-- Every audit recommendation in this run maps to one or more completed stories in this plan.
-- Runtime/contract stories land before the docs stories that describe them.
-- Every story ships with:
-  - explicit changelog intent
-  - tests at the right level
-  - matrix wiring
-  - acceptance criteria proven by commands or gated checks
-- Public docs, install docs, examples, and PRD no longer contradict one another on the minimum-now launch path.
-- Hosted org onboarding is materially simpler through existing CLI/config surfaces and remains fail closed when prerequisites are missing.
-- Evidence coverage semantics are explicit in both machine-readable output and first-run docs.
-- `CHANGELOG.md` is updated in the same implementation PRs.
-- If follow-on implementation with `adhoc-implement` finds additional dirty files beyond the generated plan file, scope/clean that state before proceeding on a new branch.
+- Every recommendation in this plan maps to an implemented story with tests, lane wiring, and changelog guidance
+- `wrkr score` fails closed on malformed cached-score state and remains schema-stable on valid state
+- Release perf and acceptance lanes pass after the validation change
+- Docs and changelog reflect the shipped runtime behavior
+- No unrelated files are left dirty beyond the generated plan during the planning handoff
