@@ -42,6 +42,7 @@ type ScoreView struct {
 	TransitionCount int
 	AttackPaths     []riskattack.ScoredPath
 	TopAttackPaths  []riskattack.ScoredPath
+	HasRiskReport   bool
 }
 
 type scoreSnapshotEnvelope struct {
@@ -146,6 +147,7 @@ func LoadScoreView(path string) (ScoreView, error) {
 		if report != nil {
 			view.AttackPaths = report.AttackPaths
 			view.TopAttackPaths = report.TopAttackPaths
+			view.HasRiskReport = true
 		}
 		return view, nil
 	}
@@ -169,17 +171,18 @@ func LoadScoreView(path string) (ScoreView, error) {
 		TransitionCount: len(snapshot.Transitions),
 		AttackPaths:     attackPaths,
 		TopAttackPaths:  topAttackPaths,
+		HasRiskReport:   snapshot.RiskReport != nil,
 	}, nil
 }
 
 func validateCachedScoreSnapshot(envelope scoreSnapshotEnvelope) (*scoreRiskReportEnvelope, error) {
-	if err := validateRawShape(envelope.Target, rawObject, rawNull); err != nil {
+	if err := validateRequiredRawShape(envelope.Target, rawObject, rawNull); err != nil {
 		return nil, err
 	}
 	if err := validateRawShape(envelope.Targets, rawArray, rawNull); err != nil {
 		return nil, err
 	}
-	if err := validateRawShape(envelope.Findings, rawArray, rawNull); err != nil {
+	if err := validateRequiredRawShape(envelope.Findings, rawArray, rawNull); err != nil {
 		return nil, err
 	}
 	if err := validateRawShape(envelope.Inventory, rawObject, rawNull); err != nil {
@@ -241,6 +244,19 @@ func validateRawShape(raw json.RawMessage, allowed ...rawShapeKind) error {
 	kind := detectRawShape(raw)
 	if kind == "" {
 		return nil
+	}
+	for _, candidate := range allowed {
+		if kind == candidate {
+			return nil
+		}
+	}
+	return fmt.Errorf("unexpected JSON %s", kind)
+}
+
+func validateRequiredRawShape(raw json.RawMessage, allowed ...rawShapeKind) error {
+	kind := detectRawShape(raw)
+	if kind == "" {
+		return fmt.Errorf("missing required JSON value")
 	}
 	for _, candidate := range allowed {
 		if kind == candidate {

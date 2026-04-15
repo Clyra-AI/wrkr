@@ -258,6 +258,16 @@ func TestLoadScoreViewRejectsMalformedFindings(t *testing.T) {
   }
 }`,
 		},
+		{
+			name: "missing",
+			payload: `{
+  "version": "v1",
+  "posture_score": {
+    "score": 82.5,
+    "grade": "B"
+  }
+}`,
+		},
 	}
 
 	for _, tc := range cases {

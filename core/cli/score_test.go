@@ -11,6 +11,7 @@ import (
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
+	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -155,6 +156,40 @@ func TestScoreJSONFailsClosedWhenCachedScoreStateContainsMalformedFindings(t *te
 }`)
 }
 
+func TestScoreJSONFailsClosedWhenCachedScoreStateIsMissingFindings(t *testing.T) {
+	t.Parallel()
+
+	assertMalformedCachedScoreStateRuntimeFailure(t, `{
+  "version": "v1",
+  "posture_score": {
+    "score": 82.5,
+    "grade": "B",
+    "breakdown": {
+      "policy_pass_rate": 90,
+      "approval_coverage": 80,
+      "severity_distribution": 70,
+      "profile_compliance": 60,
+      "drift_rate": 50
+    },
+    "weighted_breakdown": {
+      "policy_pass_rate": 27,
+      "approval_coverage": 16,
+      "severity_distribution": 14,
+      "profile_compliance": 12,
+      "drift_rate": 10
+    },
+    "weights": {
+      "policy_pass_rate": 30,
+      "approval_coverage": 20,
+      "severity_distribution": 20,
+      "profile_compliance": 20,
+      "drift_rate": 10
+    },
+    "trend_delta": 1.5
+  }
+}`)
+}
+
 func TestScoreJSONFailsClosedWhenCachedScoreStateContainsMalformedIdentities(t *testing.T) {
 	t.Parallel()
 
@@ -223,6 +258,45 @@ func TestScoreJSONFailsClosedWhenCachedScoreStateContainsMalformedRiskReport(t *
     "trend_delta": 1.5
   }
 }`)
+}
+
+func TestScoreJSONKeepsEmptyAttackPathArraysFromStoredState(t *testing.T) {
+	t.Parallel()
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	snapshot := state.Snapshot{
+		Findings: []source.Finding{
+			{ToolType: "source_repo", Location: "acme/backend", Org: "acme", Repo: "backend"},
+		},
+		PostureScore: &score.Result{
+			Score: 82.5,
+			Grade: "B",
+		},
+		RiskReport: &risk.Report{
+			AttackPaths:    []riskattack.ScoredPath{},
+			TopAttackPaths: []riskattack.ScoredPath{},
+		},
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("write state: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if code := Run([]string{"score", "--state", statePath, "--json"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("score failed: %d %s", code, stderr.String())
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("parse score payload: %v", err)
+	}
+	if _, present := got["attack_paths"]; !present {
+		t.Fatalf("expected attack_paths key to remain present, got %v", got)
+	}
+	if _, present := got["top_attack_paths"]; !present {
+		t.Fatalf("expected top_attack_paths key to remain present, got %v", got)
+	}
 }
 
 func assertMalformedCachedScoreStateRuntimeFailure(t *testing.T, payload string) {

@@ -74,7 +74,7 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 			"weights":            result.Weights,
 			"trend_delta":        result.TrendDelta,
 		}
-		if attackPaths != nil || topAttackPaths != nil {
+		if snapshot.HasRiskReport || attackPaths != nil || topAttackPaths != nil {
 			payload["attack_paths"] = attackPaths
 			payload["top_attack_paths"] = topAttackPaths
 		}
