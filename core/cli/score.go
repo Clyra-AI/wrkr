@@ -42,10 +42,8 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 	result := snapshot.PostureScore
 	var attackPaths any
 	var topAttackPaths any
-	if len(snapshot.AttackPaths) != 0 {
+	if snapshot.HasRiskReport {
 		attackPaths = snapshot.AttackPaths
-	}
-	if len(snapshot.TopAttackPaths) != 0 {
 		topAttackPaths = snapshot.TopAttackPaths
 	}
 	if result == nil {
