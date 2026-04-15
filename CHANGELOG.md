@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- (none yet)
+- Clarified the `wrkr score` command contract so malformed saved state is documented as a fail-closed runtime failure while valid cached-score output remains unchanged.
 
 ### Deprecated
 
@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- `wrkr score` now validates the full saved scan snapshot before reusing cached posture scores, so malformed state files fail closed instead of returning stale success output.
 
 ### Security
 
