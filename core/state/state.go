@@ -176,7 +176,7 @@ func LoadScoreView(path string) (ScoreView, error) {
 }
 
 func validateCachedScoreSnapshot(envelope scoreSnapshotEnvelope) (*scoreRiskReportEnvelope, error) {
-	if err := validateRequiredRawShape(envelope.Target, rawObject, rawNull); err != nil {
+	if err := validateRequiredRawShape(envelope.Target, rawObject); err != nil {
 		return nil, err
 	}
 	if err := validateRawShape(envelope.Targets, rawArray, rawNull); err != nil {

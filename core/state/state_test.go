@@ -304,3 +304,25 @@ func TestLoadScoreViewRejectsMalformedIdentitiesPrimitive(t *testing.T) {
 		t.Fatal("expected malformed identities to fail score view load")
 	}
 }
+
+func TestLoadScoreViewRejectsNullTargetInCachedSnapshot(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "state.json")
+	payload := []byte(`{
+  "version": "v1",
+  "target": null,
+  "findings": [],
+  "posture_score": {
+    "score": 82.5,
+    "grade": "B"
+  }
+}`)
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("write malformed snapshot: %v", err)
+	}
+
+	if _, err := LoadScoreView(path); err == nil {
+		t.Fatal("expected null target to fail score view load")
+	}
+}
