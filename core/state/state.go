@@ -231,6 +231,7 @@ type rawShapeKind string
 
 const (
 	rawArray  rawShapeKind = "array"
+	rawOther  rawShapeKind = "other"
 	rawNull   rawShapeKind = "null"
 	rawObject rawShapeKind = "object"
 	rawString rawShapeKind = "string"
@@ -265,6 +266,6 @@ func detectRawShape(raw json.RawMessage) rawShapeKind {
 	case '"':
 		return rawString
 	default:
-		return ""
+		return rawOther
 	}
 }

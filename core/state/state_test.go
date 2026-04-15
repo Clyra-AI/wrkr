@@ -232,10 +232,55 @@ func TestLoadScoreViewPreservesStoredScoreAndAttackPaths(t *testing.T) {
 func TestLoadScoreViewRejectsMalformedFindings(t *testing.T) {
 	t.Parallel()
 
+	cases := []struct {
+		name    string
+		payload string
+	}{
+		{
+			name: "string",
+			payload: `{
+  "version": "v1",
+  "findings": "bad",
+  "posture_score": {
+    "score": 82.5,
+    "grade": "B"
+  }
+}`,
+		},
+		{
+			name: "number",
+			payload: `{
+  "version": "v1",
+  "findings": 42,
+  "posture_score": {
+    "score": 82.5,
+    "grade": "B"
+  }
+}`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "state.json")
+			if err := os.WriteFile(path, []byte(tc.payload), 0o600); err != nil {
+				t.Fatalf("write malformed snapshot: %v", err)
+			}
+
+			if _, err := LoadScoreView(path); err == nil {
+				t.Fatal("expected malformed findings to fail score view load")
+			}
+		})
+	}
+}
+
+func TestLoadScoreViewRejectsMalformedIdentitiesPrimitive(t *testing.T) {
+	t.Parallel()
+
 	path := filepath.Join(t.TempDir(), "state.json")
 	payload := []byte(`{
   "version": "v1",
-  "findings": "bad",
+  "identities": true,
   "posture_score": {
     "score": 82.5,
     "grade": "B"
@@ -246,6 +291,6 @@ func TestLoadScoreViewRejectsMalformedFindings(t *testing.T) {
 	}
 
 	if _, err := LoadScoreView(path); err == nil {
-		t.Fatal("expected malformed findings to fail score view load")
+		t.Fatal("expected malformed identities to fail score view load")
 	}
 }
