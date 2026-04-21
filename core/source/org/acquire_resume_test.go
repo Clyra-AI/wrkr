@@ -192,6 +192,7 @@ func TestAcquireMaterializedReportsMaterializeProgressInDispatchOrder(t *testing
 	}
 
 	var starts []string
+	startPositions := make(map[string]int)
 	for _, event := range strings.Split(progress.joined(), "\n") {
 		if strings.HasPrefix(event, "repo_materialize org=") {
 			starts = append(starts, event)
@@ -205,6 +206,35 @@ func TestAcquireMaterializedReportsMaterializeProgressInDispatchOrder(t *testing
 	if strings.Join(starts, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("expected dispatch-ordered materialize progress, got:\n%s", strings.Join(starts, "\n"))
 	}
+
+	events := strings.Split(progress.joined(), "\n")
+	for idx, event := range events {
+		if strings.HasPrefix(event, "repo_materialize org=") {
+			startPositions[repoFromProgressEvent(event)] = idx
+		}
+	}
+	for idx, event := range events {
+		if !strings.HasPrefix(event, "repo_materialize_done org=") {
+			continue
+		}
+		repo := repoFromProgressEvent(event)
+		startIdx, ok := startPositions[repo]
+		if !ok {
+			t.Fatalf("expected materialize start before done for %s, got:\n%s", repo, progress.joined())
+		}
+		if startIdx > idx {
+			t.Fatalf("expected materialize start before done for %s, got:\n%s", repo, progress.joined())
+		}
+	}
+}
+
+func repoFromProgressEvent(event string) string {
+	for _, field := range strings.Fields(event) {
+		if strings.HasPrefix(field, "repo=") {
+			return strings.TrimPrefix(field, "repo=")
+		}
+	}
+	return ""
 }
 
 func TestAcquireMaterializedProgressReportsCompletedRepos(t *testing.T) {

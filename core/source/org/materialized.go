@@ -36,6 +36,7 @@ type AcquireMaterializedOptions struct {
 type materializeJob struct {
 	repo  string
 	index int
+	start chan struct{}
 }
 
 type materializeResult struct {
@@ -125,6 +126,12 @@ func AcquireMaterialized(
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
+				select {
+				case <-ctx.Done():
+					results <- materializeResult{fatalErr: ctx.Err(), repo: job.repo}
+					continue
+				case <-job.start:
+				}
 				manifest, materializeErr := materializer.MaterializeRepo(ctx, job.repo, opts.MaterializedRoot)
 				if materializeErr != nil {
 					if errors.Is(materializeErr, context.Canceled) || errors.Is(materializeErr, context.DeadlineExceeded) {
@@ -150,10 +157,12 @@ func AcquireMaterialized(
 
 	go func() {
 		defer close(jobs)
-		for _, job := range pendingJobs {
+		for _, pendingJob := range pendingJobs {
 			if ctx.Err() != nil {
 				return
 			}
+			job := pendingJob
+			job.start = make(chan struct{})
 			select {
 			case <-ctx.Done():
 				return
@@ -161,6 +170,7 @@ func AcquireMaterialized(
 				if opts.Progress != nil {
 					opts.Progress.RepoMaterialize(org, job.index, totalRepos, job.repo)
 				}
+				close(job.start)
 			}
 		}
 	}()
