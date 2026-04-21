@@ -419,11 +419,18 @@ func shouldMaterializeBlob(rel string) bool {
 	if normalized == "" {
 		return false
 	}
-	if shouldSkipMaterializedTraversal(normalized) {
+	if hasBlockedMaterializedTraversal(normalized) {
 		return false
 	}
 
 	base := path.Base(normalized)
+	if isSparseDetectorCandidate(normalized, base) {
+		return true
+	}
+	if shouldSkipMaterializedTraversal(normalized) {
+		return false
+	}
+
 	switch base {
 	case "agents.md", "agents.override.md", "claude.md", ".cursorrules", ".mcp.json", "mcp.json", "managed-mcp.json",
 		"jenkinsfile", "go.mod", "go.sum", "package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
@@ -440,6 +447,13 @@ func shouldMaterializeBlob(rel string) bool {
 	if strings.HasPrefix(base, "docker-compose") || strings.HasPrefix(base, "compose.") {
 		return true
 	}
+	if !isSparseSourceExtension(path.Ext(normalized)) {
+		return false
+	}
+	return true
+}
+
+func isSparseDetectorCandidate(normalized, base string) bool {
 	if isSparseMCPGatewayCandidate(normalized) {
 		return true
 	}
@@ -481,11 +495,7 @@ func shouldMaterializeBlob(rel string) bool {
 			return true
 		}
 	}
-
-	if !isSparseSourceExtension(path.Ext(normalized)) {
-		return false
-	}
-	return true
+	return false
 }
 
 func isSparseCompiledActionPath(rel string) bool {
@@ -556,11 +566,22 @@ func isSparseMCPGatewayCandidate(rel string) bool {
 	}
 }
 
+func hasBlockedMaterializedTraversal(rel string) bool {
+	parts := strings.Split(rel, "/")
+	for _, part := range parts {
+		switch part {
+		case "", ".", "..", ".git", "node_modules", "vendor", ".venv", "venv":
+			return true
+		}
+	}
+	return false
+}
+
 func shouldSkipMaterializedTraversal(rel string) bool {
 	parts := strings.Split(rel, "/")
 	for _, part := range parts {
 		switch part {
-		case "", ".", "..", ".git", "node_modules", "vendor", "dist", "build", "target", ".venv", "venv", ".next", "coverage":
+		case "dist", "build", "target", ".next", "coverage":
 			return true
 		}
 	}
