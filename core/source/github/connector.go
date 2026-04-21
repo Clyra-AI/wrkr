@@ -440,7 +440,10 @@ func shouldMaterializeBlob(rel string) bool {
 	if strings.HasPrefix(base, "docker-compose") || strings.HasPrefix(base, "compose.") {
 		return true
 	}
-	if strings.HasPrefix(base, "mcp-gateway.") {
+	if isSparseMCPGatewayCandidate(normalized) {
+		return true
+	}
+	if isSparseCompiledActionPath(normalized) {
 		return true
 	}
 
@@ -497,6 +500,33 @@ func shouldMaterializeBlob(rel string) bool {
 		}
 	}
 	return false
+}
+
+func isSparseCompiledActionPath(rel string) bool {
+	return strings.HasPrefix(rel, "workflows/") ||
+		strings.HasPrefix(rel, "agent-plans/") ||
+		strings.HasSuffix(rel, ".agent-script.json") ||
+		strings.HasSuffix(rel, ".ptc.json")
+}
+
+func isSparseMCPGatewayCandidate(rel string) bool {
+	ext := path.Ext(rel)
+	if ext != ".json" && ext != ".yaml" && ext != ".yml" && ext != ".toml" {
+		return false
+	}
+	base := path.Base(rel)
+	switch {
+	case strings.Contains(base, "mcp-gateway"), strings.Contains(base, "mcpgateway"), strings.Contains(base, "mintmcp"):
+		return true
+	case strings.HasPrefix(base, "docker-compose"):
+		return true
+	case strings.Contains(base, "kong") && strings.Contains(rel, "mcp"):
+		return true
+	case strings.Contains(base, "docker") && strings.Contains(rel, "mcp"):
+		return true
+	default:
+		return false
+	}
 }
 
 func shouldSkipMaterializedTraversal(rel string) bool {
