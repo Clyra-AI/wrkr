@@ -452,6 +452,9 @@ func shouldMaterializeBlob(rel string) bool {
 	if isSparsePromptSurface(normalized) {
 		return true
 	}
+	if isSparseWellKnownPath(normalized) {
+		return true
+	}
 
 	for _, prefix := range []string{
 		".claude/",
@@ -460,7 +463,6 @@ func shouldMaterializeBlob(rel string) bool {
 		".agents/",
 		".github/workflows/",
 		".gait/",
-		".well-known/",
 		".wrkr/agents/",
 	} {
 		if strings.HasPrefix(normalized, prefix) {
@@ -519,6 +521,10 @@ func isSparsePromptSurface(rel string) bool {
 		return hasSparseTextLikeExtension(rel)
 	}
 	return false
+}
+
+func isSparseWellKnownPath(rel string) bool {
+	return strings.HasPrefix(rel, ".well-known/") || strings.Contains(rel, "/.well-known/")
 }
 
 func hasSparseTextLikeExtension(rel string) bool {

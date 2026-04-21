@@ -258,7 +258,7 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 			if r.URL.Query().Get("recursive") != "1" {
 				t.Fatalf("expected recursive=1, got %q", r.URL.Query().Get("recursive"))
 			}
-			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-1"},{"path":".codex/config.toml","type":"blob","sha":"sha-2"},{"path":"package-lock.json","type":"blob","sha":"sha-lock"},{"path":".github/dependabot.yml","type":"blob","sha":"sha-github"},{"path":"agent-plans/deploy.ptc.json","type":"blob","sha":"sha-compiled"},{"path":"config/mcpgateway.yaml","type":"blob","sha":"sha-gateway"},{"path":".env.production","type":"blob","sha":"sha-env"},{"path":"prompts/system.md","type":"blob","sha":"sha-prompt-md"},{"path":"instructions/policy.yaml","type":"blob","sha":"sha-prompt-yaml"},{"path":"src/main.py","type":"blob","sha":"sha-source-py"},{"path":"crews/ops.py","type":"blob","sha":"sha-source-generic"},{"path":"vendor/agent.py","type":"blob","sha":"sha-vendor-source"},{"path":"docs/changelog.txt","type":"blob","sha":"sha-skip"}]}`)
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-1"},{"path":".codex/config.toml","type":"blob","sha":"sha-2"},{"path":"package-lock.json","type":"blob","sha":"sha-lock"},{"path":".github/dependabot.yml","type":"blob","sha":"sha-github"},{"path":"agent-plans/deploy.ptc.json","type":"blob","sha":"sha-compiled"},{"path":"config/mcpgateway.yaml","type":"blob","sha":"sha-gateway"},{"path":"apps/api/.well-known/webmcp.json","type":"blob","sha":"sha-nested-webmcp"},{"path":"services/foo/.well-known/agent-card.json","type":"blob","sha":"sha-nested-agent-card"},{"path":".env.production","type":"blob","sha":"sha-env"},{"path":"prompts/system.md","type":"blob","sha":"sha-prompt-md"},{"path":"instructions/policy.yaml","type":"blob","sha":"sha-prompt-yaml"},{"path":"src/main.py","type":"blob","sha":"sha-source-py"},{"path":"crews/ops.py","type":"blob","sha":"sha-source-generic"},{"path":"vendor/agent.py","type":"blob","sha":"sha-vendor-source"},{"path":"docs/changelog.txt","type":"blob","sha":"sha-skip"}]}`)
 		case "/repos/acme/backend/git/blobs/sha-1":
 			payload := base64.StdEncoding.EncodeToString([]byte("# agents\n"))
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
@@ -276,6 +276,12 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
 		case "/repos/acme/backend/git/blobs/sha-gateway":
 			payload := base64.StdEncoding.EncodeToString([]byte("gateway:\n  default_action: deny\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-nested-webmcp":
+			payload := base64.StdEncoding.EncodeToString([]byte("{\"name\":\"api-webmcp\",\"tools\":[]}\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-nested-agent-card":
+			payload := base64.StdEncoding.EncodeToString([]byte("{\"name\":\"foo-agent\",\"url\":\"https://example.invalid/a2a\"}\n"))
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
 		case "/repos/acme/backend/git/blobs/sha-env":
 			payload := base64.StdEncoding.EncodeToString([]byte("OPENAI_API_KEY=redacted\n"))
@@ -337,6 +343,12 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "config", "mcpgateway.yaml")); err != nil {
 		t.Fatalf("expected materialized MCP gateway config: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "apps", "api", ".well-known", "webmcp.json")); err != nil {
+		t.Fatalf("expected materialized nested WebMCP declaration: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "services", "foo", ".well-known", "agent-card.json")); err != nil {
+		t.Fatalf("expected materialized nested A2A declaration: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", ".env.production")); err != nil {
 		t.Fatalf("expected materialized env file: %v", err)
