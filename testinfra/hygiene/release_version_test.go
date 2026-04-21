@@ -210,10 +210,11 @@ func TestResolveReleaseVersionFallsBackToExistingTagsWithoutMergedTags(t *testin
 
 	runCommand(t, repoRoot, "git", "checkout", "main")
 	writeFixtureFile(t, repoRoot, "README.md", "mainline release prep\n")
-	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelogWithRelease(
 		map[string][]string{
 			"Fixed": {"keep release numbering when historic tags are not merged into main"},
 		},
+		"v1.1.1",
 	))
 	commitAll(t, repoRoot, "fix: keep release numbering after lineage reset")
 
@@ -223,6 +224,98 @@ func TestResolveReleaseVersionFallsBackToExistingTagsWithoutMergedTags(t *testin
 	}
 	if result.BaseTag != "v1.1.1" {
 		t.Fatalf("expected fallback base tag v1.1.1, got %s", result.BaseTag)
+	}
+}
+
+func TestResolveReleaseVersionFallbackIgnoresTagsOutsideChangelogLineage(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initReleaseFixtureRepo(t)
+
+	runCommand(t, repoRoot, "git", "checkout", "--orphan", "release-history")
+	writeFixtureFile(t, repoRoot, "README.md", "prior release history\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(nil))
+	commitAll(t, repoRoot, "chore: prior release history")
+	runCommand(t, repoRoot, "git", "tag", "v1.1.1")
+
+	runCommand(t, repoRoot, "git", "checkout", "main")
+	runCommand(t, repoRoot, "git", "checkout", "-b", "release-preview")
+	writeFixtureFile(t, repoRoot, "preview.txt", "preview branch only\n")
+	commitAll(t, repoRoot, "chore: preview-only release")
+	runCommand(t, repoRoot, "git", "tag", "v9.9.9")
+
+	runCommand(t, repoRoot, "git", "checkout", "main")
+	writeFixtureFile(t, repoRoot, "README.md", "mainline release prep\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelogWithRelease(
+		map[string][]string{
+			"Fixed": {"keep release numbering on the documented release lineage"},
+		},
+		"v1.1.1",
+	))
+	commitAll(t, repoRoot, "fix: keep release numbering on release lineage")
+
+	result := runReleaseVersionResolver(t, repoRoot)
+	if result.Version != "v1.1.2" {
+		t.Fatalf("expected changelog-lineage fallback to yield v1.1.2, got %s", result.Version)
+	}
+	if result.BaseTag != "v1.1.1" {
+		t.Fatalf("expected changelog-lineage base tag v1.1.1, got %s", result.BaseTag)
+	}
+}
+
+func TestResolveReleaseVersionFailsClosedForUnreachableTagsOutsideChangelogLineage(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initReleaseFixtureRepo(t)
+
+	runCommand(t, repoRoot, "git", "checkout", "-b", "release-preview")
+	writeFixtureFile(t, repoRoot, "preview.txt", "preview branch only\n")
+	commitAll(t, repoRoot, "chore: preview-only release")
+	runCommand(t, repoRoot, "git", "tag", "v9.9.9")
+
+	runCommand(t, repoRoot, "git", "checkout", "main")
+	writeFixtureFile(t, repoRoot, "README.md", "mainline release prep\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+		map[string][]string{
+			"Fixed": {"refuse unreachable preview tags outside release lineage"},
+		},
+	))
+	commitAll(t, repoRoot, "fix: refuse preview release tag fallback")
+
+	_, stderr, err := runReleaseVersionResolverRaw(t, repoRoot)
+	if err == nil {
+		t.Fatal("expected resolver to fail closed for unreachable tags outside changelog lineage")
+	}
+	if !strings.Contains(stderr, "semantic version tags exist but none are reachable from HEAD or documented in CHANGELOG.md release lineage") {
+		t.Fatalf("expected release-lineage failure, got %q", stderr)
+	}
+}
+
+func TestValidateReleaseChangelogFallbackIgnoresTagsOutsideChangelogLineage(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initReleaseFixtureRepo(t)
+
+	runCommand(t, repoRoot, "git", "checkout", "--orphan", "release-history")
+	writeFixtureFile(t, repoRoot, "README.md", "prior release history\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(nil))
+	commitAll(t, repoRoot, "chore: prior release history")
+	runCommand(t, repoRoot, "git", "tag", "v1.1.1")
+
+	runCommand(t, repoRoot, "git", "checkout", "main")
+	runCommand(t, repoRoot, "git", "checkout", "-b", "release-preview")
+	writeFixtureFile(t, repoRoot, "preview.txt", "preview branch only\n")
+	commitAll(t, repoRoot, "chore: preview-only release")
+	runCommand(t, repoRoot, "git", "tag", "v9.9.9")
+
+	runCommand(t, repoRoot, "git", "checkout", "main")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureFinalizedChangelog("v1.1.2", "v1.1.1"))
+	commitAll(t, repoRoot, "chore: finalize changelog")
+	runCommand(t, repoRoot, "git", "tag", "v1.1.2")
+
+	result := runValidateReleaseChangelog(t, repoRoot, "v1.1.2")
+	if result.BaseTag != "v1.1.1" {
+		t.Fatalf("expected changelog-lineage validation base tag v1.1.1, got %s", result.BaseTag)
 	}
 }
 
@@ -488,6 +581,44 @@ func fixtureChangelog(entries map[string][]string) string {
 	)
 
 	return strings.Join(lines, "\n")
+}
+
+func fixtureChangelogWithRelease(entries map[string][]string, releaseVersion string) string {
+	return fixtureChangelog(entries) + "\n\n" + fixtureReleaseBlock(releaseVersion)
+}
+
+func fixtureFinalizedChangelog(releaseVersion string, previousVersion string) string {
+	sections := []string{"Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"}
+	lines := []string{
+		"# Changelog",
+		"",
+		"## [Unreleased]",
+		"",
+	}
+	for _, section := range sections {
+		lines = append(lines, "### "+section, "", "- (none yet)", "")
+	}
+	lines = append(lines, "## Changelog maintenance process", "")
+	lines = append(lines,
+		"1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.",
+		"2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and land that change through a release-prep PR.",
+		"3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged main before or during the tag workflow.",
+		"",
+	)
+	lines = append(lines, strings.Split(fixtureReleaseBlock(releaseVersion), "\n")...)
+	lines = append(lines, strings.Split(fixtureReleaseBlock(previousVersion), "\n")...)
+	return strings.Join(lines, "\n")
+}
+
+func fixtureReleaseBlock(version string) string {
+	return strings.Join([]string{
+		"## [" + version + "] - 2026-04-01",
+		"<!-- release-semver: patch -->",
+		"",
+		"### Fixed",
+		"",
+		"- keep release numbering on the documented release lineage",
+	}, "\n")
 }
 
 func TestReleaseDocsReferenceReleasePrepPRFlow(t *testing.T) {

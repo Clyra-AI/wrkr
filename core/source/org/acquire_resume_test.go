@@ -68,6 +68,12 @@ type recordingProgress struct {
 	events []string
 }
 
+type delayingStartProgress struct {
+	recordingProgress
+	delayRepo string
+	delay     time.Duration
+}
+
 func (p *recordingProgress) RepoDiscovery(org string, total int) {
 	p.add("repo_discovery org=" + org + " total=" + strconv.Itoa(total))
 }
@@ -98,6 +104,13 @@ func (p *recordingProgress) joined() string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return strings.Join(p.events, "\n")
+}
+
+func (p *delayingStartProgress) RepoMaterialize(org string, index, total int, repo string) {
+	if repo == p.delayRepo {
+		time.Sleep(p.delay)
+	}
+	p.recordingProgress.RepoMaterialize(org, index, total, repo)
 }
 
 func TestAcquireMaterializedUsesBoundedConcurrencyAndDeterministicOrder(t *testing.T) {
@@ -144,6 +157,53 @@ func TestAcquireMaterializedUsesBoundedConcurrencyAndDeterministicOrder(t *testi
 	}
 	if materializer.maxConcurrent != 2 {
 		t.Fatalf("expected bounded concurrency of 2, got %d", materializer.maxConcurrent)
+	}
+}
+
+func TestAcquireMaterializedReportsMaterializeProgressInDispatchOrder(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	materializedRoot := filepath.Join(tmp, "materialized-sources")
+	progress := &delayingStartProgress{
+		delayRepo: "acme/a",
+		delay:     30 * time.Millisecond,
+	}
+	materializer := &trackingMaterializer{t: t, root: materializedRoot}
+
+	_, failures, err := AcquireMaterialized(
+		context.Background(),
+		"acme",
+		fakeLister{repos: []string{"acme/c", "acme/a", "acme/b"}},
+		materializer,
+		AcquireMaterializedOptions{
+			StatePath:        statePath,
+			MaterializedRoot: materializedRoot,
+			WorkerCount:      3,
+			Progress:         progress,
+		},
+	)
+	if err != nil {
+		t.Fatalf("acquire materialized: %v", err)
+	}
+	if len(failures) != 0 {
+		t.Fatalf("expected no failures, got %+v", failures)
+	}
+
+	var starts []string
+	for _, event := range strings.Split(progress.joined(), "\n") {
+		if strings.HasPrefix(event, "repo_materialize org=") {
+			starts = append(starts, event)
+		}
+	}
+	want := []string{
+		"repo_materialize org=acme repo=acme/a index=1 total=3",
+		"repo_materialize org=acme repo=acme/b index=2 total=3",
+		"repo_materialize org=acme repo=acme/c index=3 total=3",
+	}
+	if strings.Join(starts, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("expected dispatch-ordered materialize progress, got:\n%s", strings.Join(starts, "\n"))
 	}
 }
 
