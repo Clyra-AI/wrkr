@@ -426,7 +426,8 @@ func shouldMaterializeBlob(rel string) bool {
 	base := path.Base(normalized)
 	switch base {
 	case "agents.md", "agents.override.md", "claude.md", ".cursorrules", ".mcp.json", "mcp.json", "managed-mcp.json",
-		"jenkinsfile", "go.mod", "package.json", "pyproject.toml", "cargo.toml", "gemfile", "pom.xml",
+		"jenkinsfile", "go.mod", "go.sum", "package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+		"pyproject.toml", "poetry.lock", "uv.lock", "cargo.toml", "gemfile", "pom.xml",
 		"build.gradle", "build.gradle.kts", "composer.json", "dockerfile", "gait.yaml":
 		return true
 	}
@@ -463,8 +464,11 @@ func shouldMaterializeBlob(rel string) bool {
 	if strings.HasPrefix(normalized, ".vscode/") && strings.Contains(base, "mcp") {
 		return true
 	}
-	if strings.HasPrefix(normalized, ".github/") && strings.Contains(base, "copilot") {
-		return true
+	if strings.HasPrefix(normalized, ".github/") {
+		ext := path.Ext(normalized)
+		if ext == ".json" || ext == ".yaml" || ext == ".yml" || strings.Contains(base, "copilot") {
+			return true
+		}
 	}
 
 	if !isSparseSourceExtension(path.Ext(normalized)) {
