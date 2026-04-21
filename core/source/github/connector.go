@@ -483,29 +483,7 @@ func shouldMaterializeBlob(rel string) bool {
 	if !isSparseSourceExtension(path.Ext(normalized)) {
 		return false
 	}
-	for _, token := range []string{
-		"agent",
-		"autogen",
-		"claude",
-		"codex",
-		"copilot",
-		"crewai",
-		"cursor",
-		"langchain",
-		"llama",
-		"llm",
-		"mcp",
-		"openai",
-		"prompt",
-		"register",
-		"route",
-		"webmcp",
-	} {
-		if strings.Contains(normalized, token) {
-			return true
-		}
-	}
-	return false
+	return true
 }
 
 func isSparseCompiledActionPath(rel string) bool {
