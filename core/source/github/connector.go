@@ -469,6 +469,9 @@ func isSparseDetectorCandidate(normalized, base string) bool {
 	if isSparseWellKnownPath(normalized) {
 		return true
 	}
+	if isSparseAgentCardPath(base) {
+		return true
+	}
 
 	for _, prefix := range []string{
 		".claude/",
@@ -535,6 +538,10 @@ func isSparsePromptSurface(rel string) bool {
 
 func isSparseWellKnownPath(rel string) bool {
 	return strings.HasPrefix(rel, ".well-known/") || strings.Contains(rel, "/.well-known/")
+}
+
+func isSparseAgentCardPath(base string) bool {
+	return base == "agent.json" || base == "agent-card.json"
 }
 
 func hasSparseTextLikeExtension(rel string) bool {
