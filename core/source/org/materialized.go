@@ -151,16 +151,16 @@ func AcquireMaterialized(
 	go func() {
 		defer close(jobs)
 		for _, job := range pendingJobs {
-			select {
-			case <-ctx.Done():
-				return
-			case jobs <- job:
-			}
 			if ctx.Err() != nil {
 				return
 			}
 			if opts.Progress != nil {
 				opts.Progress.RepoMaterialize(org, job.index, totalRepos, job.repo)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case jobs <- job:
 			}
 		}
 	}()

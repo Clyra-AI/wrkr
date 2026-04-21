@@ -125,6 +125,33 @@ func TestAcquireKeepsGitRootAsSingleRepo(t *testing.T) {
 	}
 }
 
+func TestAcquireWeakRootWithOneSignaledChildScansRoot(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "AGENTS.md"), []byte("root instructions\n"), 0o600); err != nil {
+		t.Fatalf("write root signal: %v", err)
+	}
+	child := filepath.Join(tmp, "child")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatalf("mkdir child: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(child, "AGENTS.md"), []byte("child instructions\n"), 0o600); err != nil {
+		t.Fatalf("write child signal: %v", err)
+	}
+
+	repos, err := Acquire(tmp)
+	if err != nil {
+		t.Fatalf("acquire weak root: %v", err)
+	}
+	if len(repos) != 1 {
+		t.Fatalf("expected root-only repo, got %d: %+v", len(repos), repos)
+	}
+	if repos[0].Location != filepath.ToSlash(tmp) {
+		t.Fatalf("expected root repo path %q, got %+v", tmp, repos[0])
+	}
+}
+
 func TestAcquireWithOptionsReportsPathProgress(t *testing.T) {
 	t.Parallel()
 

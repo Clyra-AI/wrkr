@@ -88,6 +88,9 @@ func AcquireWithOptions(ctx context.Context, root string, opts AcquireOptions) (
 		return nil, err
 	}
 	if len(immediate) > 0 && immediateSignalCount > 0 {
+		if rootHasSignals && immediateSignalCount < 2 {
+			return []source.RepoManifest{repoManifestForRoot(root)}, nil
+		}
 		emitPathProgress(opts.Progress, root, immediate)
 		return immediate, nil
 	}

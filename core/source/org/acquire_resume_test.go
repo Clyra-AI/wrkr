@@ -238,7 +238,7 @@ func TestAcquireMaterializedStopsProgressDispatchAfterContextDone(t *testing.T) 
 	}
 
 	events := progress.joined()
-	if strings.Contains(events, "repo=acme/b") || strings.Contains(events, "repo=acme/c") {
+	if strings.Contains(events, "repo=acme/c") {
 		t.Fatalf("expected progress to stop dispatching after cancellation, got:\n%s", events)
 	}
 	if !strings.Contains(events, wantFirst) {
