@@ -81,7 +81,13 @@ func TestAcquireDiscoversNestedOrgCloneRepos(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	for _, repo := range []string{"Activity-Insights/api", "Activity-Insights/web"} {
+	for _, repo := range []string{
+		"Activity-Insights/api",
+		"Activity-Insights/build",
+		"Activity-Insights/dist",
+		"Activity-Insights/target",
+		"Activity-Insights/web",
+	} {
 		if err := os.MkdirAll(filepath.Join(tmp, repo, ".codex"), 0o755); err != nil {
 			t.Fatalf("mkdir repo %s: %v", repo, err)
 		}
@@ -103,11 +109,19 @@ func TestAcquireDiscoversNestedOrgCloneRepos(t *testing.T) {
 	if err != nil {
 		t.Fatalf("acquire nested org clone: %v", err)
 	}
-	if len(repos) != 2 {
+	if len(repos) != 5 {
 		t.Fatalf("expected nested repo roots, got %+v", repos)
 	}
-	if repos[0].Repo != "Activity-Insights/api" || repos[1].Repo != "Activity-Insights/web" {
-		t.Fatalf("unexpected nested repo identities: %+v", repos)
+	for idx, want := range []string{
+		"Activity-Insights/api",
+		"Activity-Insights/build",
+		"Activity-Insights/dist",
+		"Activity-Insights/target",
+		"Activity-Insights/web",
+	} {
+		if repos[idx].Repo != want {
+			t.Fatalf("expected repo %d to be %s, got %+v", idx, want, repos)
+		}
 	}
 }
 

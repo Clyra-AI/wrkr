@@ -24,7 +24,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- Release version tooling now ignores unrelated non-ancestor semantic tags when falling back to historic release tags, limiting fallback selection to the documented changelog release lineage.
+- `wrkr scan --path` now preserves nested local repositories named `build`, `dist`, or `target` instead of pruning those valid repo roots as generated directories.
 
 ### Security
 

@@ -56,21 +56,69 @@ def run_git(repo_root: Path, *args: str) -> str:
 
 def latest_semver_tag(repo_root: Path, exclude: set[str] | None = None) -> str:
     excluded = exclude or set()
+    excluded_versions = normalized_versions(excluded)
     output = run_git(repo_root, "tag", "--merged", "HEAD", "--sort=-version:refname")
     for line in output.splitlines():
         candidate = line.strip()
-        if candidate in excluded:
+        if not SEMVER_RE.fullmatch(candidate) or tag_is_excluded(candidate, excluded, excluded_versions):
             continue
-        if SEMVER_RE.fullmatch(candidate):
+        return candidate
+
+    all_semver_tags = [
+        tag for tag in semantic_tags(repo_root) if not tag_is_excluded(tag, excluded, excluded_versions)
+    ]
+    lineage_versions = changelog_release_versions(repo_root)
+    if not lineage_versions:
+        if all_semver_tags:
+            raise RuntimeError(
+                "semantic version tags exist but none are reachable from HEAD or documented in CHANGELOG.md release lineage"
+            )
+        return ""
+    for candidate in all_semver_tags:
+        normalized, _ = normalize_version(candidate)
+        if normalized in lineage_versions:
             return candidate
-    output = run_git(repo_root, "tag", "--sort=-version:refname")
-    for line in output.splitlines():
-        candidate = line.strip()
-        if candidate in excluded:
-            continue
-        if SEMVER_RE.fullmatch(candidate):
-            return candidate
+    if all_semver_tags:
+        raise RuntimeError(
+            "semantic version tags exist but none are reachable from HEAD or documented in CHANGELOG.md release lineage"
+        )
     return ""
+
+
+def semantic_tags(repo_root: Path) -> list[str]:
+    output = run_git(repo_root, "tag", "--sort=-version:refname")
+    return [line.strip() for line in output.splitlines() if SEMVER_RE.fullmatch(line.strip())]
+
+
+def changelog_release_versions(repo_root: Path) -> set[str]:
+    changelog_path = repo_root / "CHANGELOG.md"
+    if not changelog_path.is_file():
+        return set()
+    versions: set[str] = set()
+    for raw_line in read_lines(changelog_path):
+        match = VERSION_SECTION_RE.match(raw_line.strip())
+        if not match:
+            continue
+        normalized, _ = normalize_version(match.group(1))
+        versions.add(normalized)
+    return versions
+
+
+def normalized_versions(tags: set[str]) -> set[str]:
+    versions: set[str] = set()
+    for tag in tags:
+        if not SEMVER_RE.fullmatch(tag):
+            continue
+        normalized, _ = normalize_version(tag)
+        versions.add(normalized)
+    return versions
+
+
+def tag_is_excluded(candidate: str, excluded: set[str], excluded_versions: set[str]) -> bool:
+    if candidate in excluded:
+        return True
+    normalized, _ = normalize_version(candidate)
+    return normalized in excluded_versions
 
 
 def has_changes_since(repo_root: Path, ref: str) -> bool:

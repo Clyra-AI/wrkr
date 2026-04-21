@@ -179,6 +179,9 @@ func discoverRepoRoots(ctx context.Context, root string) ([]source.RepoManifest,
 			return fmt.Errorf("classify path target %s: %w", path, signalErr)
 		}
 		if !hasSignals {
+			if shouldSkipGeneratedLocalTraversal(d.Name()) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		manifests = append(manifests, repoManifestForDiscoveredRoot(root, path))
@@ -199,7 +202,7 @@ func discoverRepoRoots(ctx context.Context, root string) ([]source.RepoManifest,
 func shouldSkipLocalTraversal(rel, name string) bool {
 	lowerName := strings.ToLower(strings.TrimSpace(name))
 	switch lowerName {
-	case "", ".git", "node_modules", "vendor", "dist", "build", "target", ".venv", "venv", ".next", "coverage":
+	case "", ".git", "node_modules", "vendor", ".venv", "venv", ".next", "coverage":
 		return true
 	}
 	for _, part := range strings.Split(strings.Trim(filepath.ToSlash(strings.TrimSpace(rel)), "/"), "/") {
@@ -208,6 +211,15 @@ func shouldSkipLocalTraversal(rel, name string) bool {
 		}
 	}
 	return false
+}
+
+func shouldSkipGeneratedLocalTraversal(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "dist", "build", "target":
+		return true
+	default:
+		return false
+	}
 }
 
 func repoDiscoveryDepth(rel string) int {
