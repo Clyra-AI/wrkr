@@ -79,6 +79,14 @@ If preconditions fail, stop and report.
 - Poll PR reviews, review comments, issue comments, and relevant reactions every `15s`, preferring signals tied to the latest PR head SHA.
 - Never post `@codex review` or any other comment solely to solicit review.
 - Default reviewer identity for this gate: `chatgpt-codex-connector` (GitHub UI may render as `chatgpt-codex-connector bot`).
+- Build a Codex review inventory before severity filtering:
+- fetch PR reviews, inline review comments, issue comments, and relevant reactions with `gh api`
+- include latest-head Codex inline comments from `repos/<owner>/<repo>/pulls/<pr>/comments` where `commit_id == headRefOid`
+- include Codex issue comments and PR/review-comment reactions even when they are not tied to a commit SHA
+- do not discard a latest-head Codex inline comment because priority parsing fails; surface it for triage as `unclassified`
+- Treat priority parsing as advisory, not as the inventory filter.
+- Recognize Codex priority markers in all common renderings, including `[P0]`, `[P1]`, `[P2]`, `[P3]`, `P0 Badge`, `P1 Badge`, `P2 Badge`, `P3 Badge`, shield URLs such as `badge/P2-`, and text such as `priority: 2`.
+- A suitable priority regex is `(?i)(\[P[0-3]\]|\bP[0-3]\s+Badge\b|badge/P[0-3]-|priority[: ]*[0-3])`.
 - Accepted settle signals on the latest PR head:
 - actionable Codex review comments or suggestions -> proceed to pre-merge fix loop
 - explicit approval or all-good signal -> review gate satisfied
@@ -102,6 +110,8 @@ If preconditions fail, stop and report.
 
 9. Pre-merge unresolved comment triage and fix loop:
 - Fetch unresolved PR review threads and comments, preferring latest-head Codex items first, then latest-head GitHub Advanced Security items, then any still-open carry-forward `P0/P1` items from earlier heads.
+- Start from the full Codex review inventory built in the settle gate; do not rely on priority-regex matches as the source of truth for which Codex comments exist.
+- Triage latest-head Codex inline comments even when their priority is `unclassified`; missing or unfamiliar priority markup is not evidence that the comment is non-actionable.
 - Triage each unresolved item as `implement`, `blocked`, `defer`, `reject`, or `already_satisfied`.
 - Resolve the corresponding GitHub review thread for `implement` or `already_satisfied` items once they are satisfied on the current head.
 - Do not resolve threads for `blocked`, `defer`, or `reject`.
