@@ -202,7 +202,12 @@ func shouldSkipLocalTraversal(rel, name string) bool {
 	case "", ".git", "node_modules", "vendor", "dist", "build", "target", ".venv", "venv", ".next", "coverage":
 		return true
 	}
-	return strings.HasPrefix(strings.TrimSpace(rel), ".")
+	for _, part := range strings.Split(strings.Trim(filepath.ToSlash(strings.TrimSpace(rel)), "/"), "/") {
+		if strings.HasPrefix(strings.TrimSpace(part), ".") {
+			return true
+		}
+	}
+	return false
 }
 
 func repoDiscoveryDepth(rel string) int {

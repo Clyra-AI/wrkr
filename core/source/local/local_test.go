@@ -89,6 +89,12 @@ func TestAcquireDiscoversNestedOrgCloneRepos(t *testing.T) {
 			t.Fatalf("write repo signal: %v", err)
 		}
 	}
+	if err := os.MkdirAll(filepath.Join(tmp, "Activity-Insights", ".cache", "ghost"), 0o755); err != nil {
+		t.Fatalf("mkdir hidden repo candidate: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "Activity-Insights", ".cache", "ghost", "AGENTS.md"), []byte("hidden\n"), 0o600); err != nil {
+		t.Fatalf("write hidden repo signal: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module parent\n"), 0o600); err != nil {
 		t.Fatalf("write parent signal: %v", err)
 	}

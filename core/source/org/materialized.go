@@ -171,7 +171,7 @@ func AcquireMaterialized(
 	}()
 
 	var fatalErr error
-	completedResults := 0
+	completedResults := len(repos)
 	for result := range results {
 		if result.fatalErr != nil && fatalErr == nil {
 			fatalErr = result.fatalErr

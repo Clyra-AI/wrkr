@@ -294,6 +294,58 @@ func TestAcquireMaterializedResumeReusesCompletedRepos(t *testing.T) {
 	}
 }
 
+func TestAcquireMaterializedResumeProgressContinuesCompletedCount(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	materializedRoot := filepath.Join(tmp, "materialized-sources")
+	checkpointFile, err := checkpointPath(statePath, "acme")
+	if err != nil {
+		t.Fatalf("checkpoint path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(materializedRoot, "acme", "a"), 0o750); err != nil {
+		t.Fatalf("mkdir resumed repo: %v", err)
+	}
+	manager := newCheckpointManager(checkpointFile, "acme", []string{"acme/a", "acme/b"}, materializedRoot)
+	if err := manager.markCompleted("acme/a"); err != nil {
+		t.Fatalf("mark resumed repo completed: %v", err)
+	}
+
+	progress := &recordingProgress{}
+	materializer := &trackingMaterializer{t: t, root: materializedRoot}
+	repos, failures, err := AcquireMaterialized(
+		context.Background(),
+		"acme",
+		fakeLister{repos: []string{"acme/a", "acme/b"}},
+		materializer,
+		AcquireMaterializedOptions{
+			StatePath:        statePath,
+			MaterializedRoot: materializedRoot,
+			Resume:           true,
+			WorkerCount:      1,
+			Progress:         progress,
+		},
+	)
+	if err != nil {
+		t.Fatalf("resume acquire materialized: %v", err)
+	}
+	if len(repos) != 2 || len(failures) != 0 {
+		t.Fatalf("expected two repos and no failures, got repos=%+v failures=%+v", repos, failures)
+	}
+
+	events := progress.joined()
+	for _, want := range []string{
+		"resume org=acme total=2 completed=1 pending=1",
+		"repo_materialize_done org=acme repo=acme/b status=ok completed=2 total=2",
+		"complete org=acme total=2 completed=2 failed=0",
+	} {
+		if !strings.Contains(events, want) {
+			t.Fatalf("expected progress to contain %q, got:\n%s", want, events)
+		}
+	}
+}
+
 func TestAcquireMaterializedResumeMismatchFailsClosed(t *testing.T) {
 	t.Parallel()
 
