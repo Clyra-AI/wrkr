@@ -24,8 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- Release version tooling now ignores unrelated non-ancestor semantic tags when falling back to historic release tags, limiting fallback selection to the documented changelog release lineage.
-- `wrkr scan --path` now preserves nested local repositories named `build`, `dist`, or `target` instead of pruning those valid repo roots as generated directories.
+- (none yet)
 
 ### Security
 
@@ -38,6 +37,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.1.3] - 2026-04-21
+<!-- release-semver: patch -->
+
+### Fixed
+
+- Release version tooling now ignores unrelated non-ancestor semantic tags when falling back to historic release tags, limiting fallback selection to the documented changelog release lineage.
+- `wrkr scan --path` now preserves nested local repositories named `build`, `dist`, or `target` instead of pruning those valid repo roots as generated directories.
 
 ## [v1.1.2] - 2026-04-21
 <!-- release-semver: patch -->
