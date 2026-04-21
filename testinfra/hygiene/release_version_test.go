@@ -197,6 +197,35 @@ func TestResolveReleaseVersionIgnoresUnmergedTags(t *testing.T) {
 	}
 }
 
+func TestResolveReleaseVersionFallsBackToExistingTagsWithoutMergedTags(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := initReleaseFixtureRepo(t)
+
+	runCommand(t, repoRoot, "git", "checkout", "--orphan", "release-history")
+	writeFixtureFile(t, repoRoot, "README.md", "prior release history\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(nil))
+	commitAll(t, repoRoot, "chore: prior release history")
+	runCommand(t, repoRoot, "git", "tag", "v1.1.1")
+
+	runCommand(t, repoRoot, "git", "checkout", "main")
+	writeFixtureFile(t, repoRoot, "README.md", "mainline release prep\n")
+	writeFixtureFile(t, repoRoot, "CHANGELOG.md", fixtureChangelog(
+		map[string][]string{
+			"Fixed": {"keep release numbering when historic tags are not merged into main"},
+		},
+	))
+	commitAll(t, repoRoot, "fix: keep release numbering after lineage reset")
+
+	result := runReleaseVersionResolver(t, repoRoot)
+	if result.Version != "v1.1.2" {
+		t.Fatalf("expected fallback tag to yield v1.1.2, got %s", result.Version)
+	}
+	if result.BaseTag != "v1.1.1" {
+		t.Fatalf("expected fallback base tag v1.1.1, got %s", result.BaseTag)
+	}
+}
+
 func TestResolveReleaseVersionFailsClosedWithoutSignal(t *testing.T) {
 	t.Parallel()
 

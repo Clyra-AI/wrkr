@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- Clarified the `wrkr score` command contract so malformed saved state is documented as a fail-closed runtime failure while valid cached-score output remains unchanged.
+- (none yet)
 
 ### Deprecated
 
@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- `wrkr score` now validates the full saved scan snapshot before reusing cached posture scores, so malformed state files fail closed instead of returning stale success output.
+- (none yet)
 
 ### Security
 
@@ -37,6 +37,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.1.2] - 2026-04-21
+<!-- release-semver: patch -->
+
+### Changed
+
+- Clarified the `wrkr score` command contract so malformed saved state is documented as a fail-closed runtime failure while valid cached-score output remains unchanged.
+
+### Fixed
+
+- `wrkr score` now validates the full saved scan snapshot before reusing cached posture scores, so malformed state files fail closed instead of returning stale success output.
 
 ## [v1.1.1] - 2026-04-14
 <!-- release-semver: patch -->
