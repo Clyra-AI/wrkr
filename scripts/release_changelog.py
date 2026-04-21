@@ -63,6 +63,13 @@ def latest_semver_tag(repo_root: Path, exclude: set[str] | None = None) -> str:
             continue
         if SEMVER_RE.fullmatch(candidate):
             return candidate
+    output = run_git(repo_root, "tag", "--sort=-version:refname")
+    for line in output.splitlines():
+        candidate = line.strip()
+        if candidate in excluded:
+            continue
+        if SEMVER_RE.fullmatch(candidate):
+            return candidate
     return ""
 
 
