@@ -125,6 +125,9 @@ func AcquireMaterialized(
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
+				if opts.Progress != nil {
+					opts.Progress.RepoMaterialize(org, job.index, totalRepos, job.repo)
+				}
 				manifest, materializeErr := materializer.MaterializeRepo(ctx, job.repo, opts.MaterializedRoot)
 				if materializeErr != nil {
 					if errors.Is(materializeErr, context.Canceled) || errors.Is(materializeErr, context.DeadlineExceeded) {
@@ -153,9 +156,6 @@ func AcquireMaterialized(
 		for _, job := range pendingJobs {
 			if ctx.Err() != nil {
 				return
-			}
-			if opts.Progress != nil {
-				opts.Progress.RepoMaterialize(org, job.index, totalRepos, job.repo)
 			}
 			select {
 			case <-ctx.Done():
