@@ -446,6 +446,12 @@ func shouldMaterializeBlob(rel string) bool {
 	if isSparseCompiledActionPath(normalized) {
 		return true
 	}
+	if isSparseEnvCandidate(normalized) {
+		return true
+	}
+	if isSparsePromptSurface(normalized) {
+		return true
+	}
 
 	for _, prefix := range []string{
 		".claude/",
@@ -507,6 +513,43 @@ func isSparseCompiledActionPath(rel string) bool {
 		strings.HasPrefix(rel, "agent-plans/") ||
 		strings.HasSuffix(rel, ".agent-script.json") ||
 		strings.HasSuffix(rel, ".ptc.json")
+}
+
+func isSparseEnvCandidate(rel string) bool {
+	return rel == ".env" || strings.HasPrefix(rel, ".env.")
+}
+
+func isSparsePromptSurface(rel string) bool {
+	base := path.Base(rel)
+	switch base {
+	case "agents.md", "agents.override.md", "claude.md", ".cursorrules", "jenkinsfile", "skill.md":
+		return true
+	}
+	if strings.HasPrefix(rel, ".github/workflows/") {
+		return true
+	}
+	if strings.Contains(rel, "/skills/") && strings.HasSuffix(base, ".md") {
+		return true
+	}
+	if strings.HasPrefix(rel, ".agents/") ||
+		strings.HasPrefix(rel, ".claude/") ||
+		strings.HasPrefix(rel, ".cursor/") ||
+		strings.HasPrefix(rel, ".codex/") {
+		return hasSparseTextLikeExtension(rel)
+	}
+	if strings.Contains(rel, "prompt") || strings.Contains(rel, "instruction") {
+		return hasSparseTextLikeExtension(rel)
+	}
+	return false
+}
+
+func hasSparseTextLikeExtension(rel string) bool {
+	switch path.Ext(rel) {
+	case ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".sh", ".py", ".js", ".ts":
+		return true
+	default:
+		return false
+	}
 }
 
 func isSparseMCPGatewayCandidate(rel string) bool {
