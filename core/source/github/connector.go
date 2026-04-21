@@ -297,6 +297,13 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 		if item.Type != "blob" || strings.TrimSpace(item.Path) == "" {
 			continue
 		}
+		dest, pathErr := safeJoin(repoRoot, item.Path)
+		if pathErr != nil {
+			return source.RepoManifest{}, pathErr
+		}
+		if !shouldMaterializeBlob(item.Path) {
+			continue
+		}
 		blob, blobErr := c.repoBlob(ctx, fullName, item.SHA)
 		if blobErr != nil {
 			return source.RepoManifest{}, blobErr
@@ -304,10 +311,6 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 		decoded, decodeErr := decodeBlob(blob.Content, blob.Encoding)
 		if decodeErr != nil {
 			return source.RepoManifest{}, fmt.Errorf("decode blob %s: %w", item.SHA, decodeErr)
-		}
-		dest, pathErr := safeJoin(repoRoot, item.Path)
-		if pathErr != nil {
-			return source.RepoManifest{}, pathErr
 		}
 		if err := os.MkdirAll(filepath.Dir(dest), 0o750); err != nil {
 			return source.RepoManifest{}, fmt.Errorf("create materialized parent: %w", err)
@@ -408,6 +411,196 @@ func decodeBlob(content, encoding string) ([]byte, error) {
 		return base64.StdEncoding.DecodeString(cleaned)
 	default:
 		return nil, fmt.Errorf("unsupported blob encoding %q", encoding)
+	}
+}
+
+func shouldMaterializeBlob(rel string) bool {
+	normalized := strings.Trim(strings.ToLower(filepath.ToSlash(strings.TrimSpace(rel))), "/")
+	if normalized == "" {
+		return false
+	}
+	if hasBlockedMaterializedTraversal(normalized) {
+		return false
+	}
+
+	base := path.Base(normalized)
+	if isSparseDetectorCandidate(normalized, base) {
+		return true
+	}
+	if shouldSkipMaterializedTraversal(normalized) {
+		return false
+	}
+
+	switch base {
+	case "agents.md", "agents.override.md", "claude.md", ".cursorrules", ".mcp.json", "mcp.json", "managed-mcp.json",
+		"jenkinsfile", "go.mod", "go.sum", "package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+		"pyproject.toml", "poetry.lock", "uv.lock", "cargo.toml", "gemfile", "pom.xml",
+		"build.gradle", "build.gradle.kts", "composer.json", "dockerfile", "gait.yaml":
+		return true
+	}
+	if strings.HasPrefix(base, "requirements") && strings.HasSuffix(base, ".txt") {
+		return true
+	}
+	if strings.HasPrefix(base, "readme") {
+		return true
+	}
+	if strings.HasPrefix(base, "docker-compose") || strings.HasPrefix(base, "compose.") {
+		return true
+	}
+	if !isSparseSourceExtension(path.Ext(normalized)) {
+		return false
+	}
+	return true
+}
+
+func isSparseDetectorCandidate(normalized, base string) bool {
+	if isSparseMCPGatewayCandidate(normalized) {
+		return true
+	}
+	if isSparseCompiledActionPath(normalized) {
+		return true
+	}
+	if isSparseEnvCandidate(normalized) {
+		return true
+	}
+	if isSparsePromptSurface(normalized) {
+		return true
+	}
+	if isSparseWellKnownPath(normalized) {
+		return true
+	}
+	if isSparseAgentCardPath(base) {
+		return true
+	}
+
+	for _, prefix := range []string{
+		".claude/",
+		".cursor/",
+		".codex/",
+		".agents/",
+		".github/workflows/",
+		".gait/",
+		".wrkr/agents/",
+	} {
+		if strings.HasPrefix(normalized, prefix) {
+			return true
+		}
+	}
+	if normalized == ".wrkr/detectors/extensions.json" {
+		return true
+	}
+	if strings.HasPrefix(normalized, ".vscode/") && strings.Contains(base, "mcp") {
+		return true
+	}
+	if strings.HasPrefix(normalized, ".github/") {
+		ext := path.Ext(normalized)
+		if ext == ".json" || ext == ".yaml" || ext == ".yml" || strings.Contains(base, "copilot") {
+			return true
+		}
+	}
+	return false
+}
+
+func isSparseCompiledActionPath(rel string) bool {
+	return strings.HasPrefix(rel, "workflows/") ||
+		strings.HasPrefix(rel, "agent-plans/") ||
+		strings.HasSuffix(rel, ".agent-script.json") ||
+		strings.HasSuffix(rel, ".ptc.json")
+}
+
+func isSparseEnvCandidate(rel string) bool {
+	return rel == ".env" || strings.HasPrefix(rel, ".env.")
+}
+
+func isSparsePromptSurface(rel string) bool {
+	base := path.Base(rel)
+	switch base {
+	case "agents.md", "agents.override.md", "claude.md", ".cursorrules", "jenkinsfile", "skill.md":
+		return true
+	}
+	if strings.HasPrefix(rel, ".github/workflows/") {
+		return true
+	}
+	if strings.Contains(rel, "/skills/") && strings.HasSuffix(base, ".md") {
+		return true
+	}
+	if strings.HasPrefix(rel, ".agents/") ||
+		strings.HasPrefix(rel, ".claude/") ||
+		strings.HasPrefix(rel, ".cursor/") ||
+		strings.HasPrefix(rel, ".codex/") {
+		return hasSparseTextLikeExtension(rel)
+	}
+	if strings.Contains(rel, "prompt") || strings.Contains(rel, "instruction") {
+		return hasSparseTextLikeExtension(rel)
+	}
+	return false
+}
+
+func isSparseWellKnownPath(rel string) bool {
+	return strings.HasPrefix(rel, ".well-known/") || strings.Contains(rel, "/.well-known/")
+}
+
+func isSparseAgentCardPath(base string) bool {
+	return base == "agent.json" || base == "agent-card.json"
+}
+
+func hasSparseTextLikeExtension(rel string) bool {
+	switch path.Ext(rel) {
+	case ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".sh", ".py", ".js", ".ts":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSparseMCPGatewayCandidate(rel string) bool {
+	ext := path.Ext(rel)
+	if ext != ".json" && ext != ".yaml" && ext != ".yml" && ext != ".toml" {
+		return false
+	}
+	base := path.Base(rel)
+	switch {
+	case strings.Contains(base, "mcp-gateway"), strings.Contains(base, "mcpgateway"), strings.Contains(base, "mintmcp"):
+		return true
+	case strings.HasPrefix(base, "docker-compose"):
+		return true
+	case strings.Contains(base, "kong") && strings.Contains(rel, "mcp"):
+		return true
+	case strings.Contains(base, "docker") && strings.Contains(rel, "mcp"):
+		return true
+	default:
+		return false
+	}
+}
+
+func hasBlockedMaterializedTraversal(rel string) bool {
+	parts := strings.Split(rel, "/")
+	for _, part := range parts {
+		switch part {
+		case "", ".", "..", ".git", "node_modules", "vendor", ".venv", "venv":
+			return true
+		}
+	}
+	return false
+}
+
+func shouldSkipMaterializedTraversal(rel string) bool {
+	parts := strings.Split(rel, "/")
+	for _, part := range parts {
+		switch part {
+		case "dist", "build", "target", ".next", "coverage":
+			return true
+		}
+	}
+	return false
+}
+
+func isSparseSourceExtension(ext string) bool {
+	switch strings.ToLower(strings.TrimSpace(ext)) {
+	case ".go", ".html", ".htm", ".java", ".js", ".jsx", ".kt", ".mjs", ".cjs", ".mts", ".cts", ".php", ".py", ".rb", ".rs", ".ts", ".tsx":
+		return true
+	default:
+		return false
 	}
 }
 

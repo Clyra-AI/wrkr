@@ -1,6 +1,7 @@
 package proofemit
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -74,6 +75,13 @@ func SaveChain(path string, chain *proof.Chain) error {
 }
 
 func EmitScan(statePath string, now time.Time, findings []model.Finding, inventory *agginventory.Inventory, report risk.Report, profile profileeval.Result, posture score.Result, transitions []lifecycle.Transition) (Summary, error) {
+	return EmitScanWithContext(context.Background(), statePath, now, findings, inventory, report, profile, posture, transitions)
+}
+
+func EmitScanWithContext(ctx context.Context, statePath string, now time.Time, findings []model.Finding, inventory *agginventory.Inventory, report risk.Report, profile profileeval.Result, posture score.Result, transitions []lifecycle.Transition) (Summary, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	chainPath := ChainPath(statePath)
 	chain, err := LoadChain(chainPath)
 	if err != nil {
@@ -89,6 +97,9 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, invento
 	visibility := proofVisibilityContext(inventory)
 	mappedFindings := proofmap.MapFindings(findings, &profile, visibility, now)
 	for _, mapped := range mappedFindings {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return Summary{}, ctxErr
+		}
 		record, err := appendSignedRecord(chain, key, mapped)
 		if err != nil {
 			return Summary{}, err
@@ -104,6 +115,9 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, invento
 
 	mappedRisk := proofmap.MapRisk(report, posture, profile, visibility, now)
 	for _, mapped := range mappedRisk {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return Summary{}, ctxErr
+		}
 		linkMappedRecordToFindings(&mapped, findingRecordIDs)
 		if _, err := appendSignedRecord(chain, key, mapped); err != nil {
 			return Summary{}, err
@@ -113,6 +127,9 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, invento
 	}
 
 	for _, transition := range transitions {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return Summary{}, ctxErr
+		}
 		mapped := proofmap.MapTransition(transition, "lifecycle_transition")
 		if _, err := appendSignedRecord(chain, key, mapped); err != nil {
 			return Summary{}, err
@@ -124,8 +141,14 @@ func EmitScan(statePath string, now time.Time, findings []model.Finding, invento
 	if err := signChain(chain, key); err != nil {
 		return Summary{}, err
 	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return Summary{}, ctxErr
+	}
 	if err := SaveChain(chainPath, chain); err != nil {
 		return Summary{}, err
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return Summary{}, ctxErr
 	}
 	if err := saveChainAttestation(chainPath, len(chain.Records), chain.HeadHash, key); err != nil {
 		return Summary{}, err

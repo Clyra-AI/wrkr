@@ -20,6 +20,7 @@ type RepoMaterializer interface {
 type ProgressReporter interface {
 	RepoDiscovery(org string, total int)
 	RepoMaterialize(org string, index, total int, repo string)
+	RepoMaterializeDone(org string, completed, total int, repo, status string)
 	Resume(org string, total, completed, pending int)
 	Complete(org string, total, completed, failed int)
 }
@@ -41,6 +42,7 @@ type materializeResult struct {
 	manifest source.RepoManifest
 	failure  source.RepoFailure
 	fatalErr error
+	repo     string
 }
 
 func AcquireMaterialized(
@@ -123,36 +125,44 @@ func AcquireMaterialized(
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
+				if opts.Progress != nil {
+					opts.Progress.RepoMaterialize(org, job.index, totalRepos, job.repo)
+				}
 				manifest, materializeErr := materializer.MaterializeRepo(ctx, job.repo, opts.MaterializedRoot)
 				if materializeErr != nil {
 					if errors.Is(materializeErr, context.Canceled) || errors.Is(materializeErr, context.DeadlineExceeded) {
 						cancel()
-						results <- materializeResult{fatalErr: materializeErr}
+						results <- materializeResult{fatalErr: materializeErr, repo: job.repo}
 						continue
 					}
 					results <- materializeResult{
 						failure: source.RepoFailure{Repo: job.repo, Reason: materializeErr.Error()},
+						repo:    job.repo,
 					}
 					continue
 				}
 				if checkpointErr := manager.markCompleted(job.repo); checkpointErr != nil {
 					cancel()
-					results <- materializeResult{fatalErr: checkpointErr}
+					results <- materializeResult{fatalErr: checkpointErr, repo: job.repo}
 					continue
 				}
-				results <- materializeResult{manifest: manifest}
+				results <- materializeResult{manifest: manifest, repo: job.repo}
 			}
 		}()
 	}
 
 	go func() {
+		defer close(jobs)
 		for _, job := range pendingJobs {
-			if opts.Progress != nil {
-				opts.Progress.RepoMaterialize(org, job.index, totalRepos, job.repo)
+			if ctx.Err() != nil {
+				return
 			}
-			jobs <- job
+			select {
+			case <-ctx.Done():
+				return
+			case jobs <- job:
+			}
 		}
-		close(jobs)
 	}()
 
 	go func() {
@@ -161,19 +171,31 @@ func AcquireMaterialized(
 	}()
 
 	var fatalErr error
+	completedResults := len(repos)
 	for result := range results {
 		if result.fatalErr != nil && fatalErr == nil {
 			fatalErr = result.fatalErr
 		}
 		if result.failure.Repo != "" {
 			failures = append(failures, result.failure)
+			completedResults++
+			if opts.Progress != nil {
+				opts.Progress.RepoMaterializeDone(org, completedResults, totalRepos, result.failure.Repo, "failed")
+			}
 		}
 		if strings.TrimSpace(result.manifest.Repo) != "" {
 			repos = append(repos, result.manifest)
+			completedResults++
+			if opts.Progress != nil {
+				opts.Progress.RepoMaterializeDone(org, completedResults, totalRepos, result.manifest.Repo, "ok")
+			}
 		}
 	}
 	if fatalErr != nil {
 		return nil, nil, fatalErr
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, nil, ctxErr
 	}
 	if opts.Progress != nil {
 		opts.Progress.Complete(org, totalRepos, len(repos), len(failures))

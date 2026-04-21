@@ -258,13 +258,62 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 			if r.URL.Query().Get("recursive") != "1" {
 				t.Fatalf("expected recursive=1, got %q", r.URL.Query().Get("recursive"))
 			}
-			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-1"},{"path":".codex/config.toml","type":"blob","sha":"sha-2"}]}`)
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-1"},{"path":".codex/config.toml","type":"blob","sha":"sha-2"},{"path":"package-lock.json","type":"blob","sha":"sha-lock"},{"path":".github/dependabot.yml","type":"blob","sha":"sha-github"},{"path":"agent-plans/deploy.ptc.json","type":"blob","sha":"sha-compiled"},{"path":"agent-plans/build/release.ptc.json","type":"blob","sha":"sha-compiled-build"},{"path":"config/mcpgateway.yaml","type":"blob","sha":"sha-gateway"},{"path":"apps/api/.well-known/webmcp.json","type":"blob","sha":"sha-nested-webmcp"},{"path":"services/foo/.well-known/agent-card.json","type":"blob","sha":"sha-nested-agent-card"},{"path":"services/bar/agent.json","type":"blob","sha":"sha-agent-json"},{"path":".env.production","type":"blob","sha":"sha-env"},{"path":"prompts/system.md","type":"blob","sha":"sha-prompt-md"},{"path":"instructions/policy.yaml","type":"blob","sha":"sha-prompt-yaml"},{"path":"src/main.py","type":"blob","sha":"sha-source-py"},{"path":"crews/ops.py","type":"blob","sha":"sha-source-generic"},{"path":"build/main.py","type":"blob","sha":"sha-build-source"},{"path":"vendor/agent.py","type":"blob","sha":"sha-vendor-source"},{"path":"vendor/release.ptc.json","type":"blob","sha":"sha-vendor-compiled"},{"path":"vendor/agent-card.json","type":"blob","sha":"sha-vendor-agent-card"},{"path":"docs/changelog.txt","type":"blob","sha":"sha-skip"}]}`)
 		case "/repos/acme/backend/git/blobs/sha-1":
 			payload := base64.StdEncoding.EncodeToString([]byte("# agents\n"))
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
 		case "/repos/acme/backend/git/blobs/sha-2":
 			payload := base64.StdEncoding.EncodeToString([]byte("sandbox_mode = \"read-only\"\napproval_policy = \"on-request\"\nnetwork_access = false\n"))
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-lock":
+			payload := base64.StdEncoding.EncodeToString([]byte("{\"lockfileVersion\":3}\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-github":
+			payload := base64.StdEncoding.EncodeToString([]byte("updates: []\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-compiled":
+			payload := base64.StdEncoding.EncodeToString([]byte("{\"steps\":[{\"tool\":\"deploy\"}]}\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-compiled-build":
+			payload := base64.StdEncoding.EncodeToString([]byte("{\"steps\":[{\"tool\":\"release\"}]}\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-gateway":
+			payload := base64.StdEncoding.EncodeToString([]byte("gateway:\n  default_action: deny\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-nested-webmcp":
+			payload := base64.StdEncoding.EncodeToString([]byte("{\"name\":\"api-webmcp\",\"tools\":[]}\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-nested-agent-card":
+			payload := base64.StdEncoding.EncodeToString([]byte("{\"name\":\"foo-agent\",\"url\":\"https://example.invalid/a2a\"}\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-agent-json":
+			payload := base64.StdEncoding.EncodeToString([]byte("{\"name\":\"bar-agent\",\"url\":\"https://example.invalid/bar\"}\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-env":
+			payload := base64.StdEncoding.EncodeToString([]byte("OPENAI_API_KEY=redacted\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-prompt-md":
+			payload := base64.StdEncoding.EncodeToString([]byte("Do not ignore prior system instructions.\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-prompt-yaml":
+			payload := base64.StdEncoding.EncodeToString([]byte("system_prompt: keep policy instructions intact\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-source-py":
+			payload := base64.StdEncoding.EncodeToString([]byte("from crewai import Agent\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-source-generic":
+			payload := base64.StdEncoding.EncodeToString([]byte("from langchain.agents import AgentExecutor\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-build-source":
+			t.Fatalf("sparse materializer should not fetch generated source blob %s", r.URL.Path)
+		case "/repos/acme/backend/git/blobs/sha-vendor-source":
+			t.Fatalf("sparse materializer should not fetch skipped source blob %s", r.URL.Path)
+		case "/repos/acme/backend/git/blobs/sha-vendor-compiled":
+			t.Fatalf("sparse materializer should not fetch dependency compiled-action blob %s", r.URL.Path)
+		case "/repos/acme/backend/git/blobs/sha-vendor-agent-card":
+			t.Fatalf("sparse materializer should not fetch dependency agent-card blob %s", r.URL.Path)
+		case "/repos/acme/backend/git/blobs/sha-skip":
+			t.Fatalf("sparse materializer should not fetch unrelated blob %s", r.URL.Path)
 		default:
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
@@ -294,6 +343,60 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "sandbox_mode") {
 		t.Fatalf("unexpected config content: %s", string(content))
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "package-lock.json")); err != nil {
+		t.Fatalf("expected materialized lockfile: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", ".github", "dependabot.yml")); err != nil {
+		t.Fatalf("expected materialized .github YAML: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "agent-plans", "deploy.ptc.json")); err != nil {
+		t.Fatalf("expected materialized compiled-action config: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "agent-plans", "build", "release.ptc.json")); err != nil {
+		t.Fatalf("expected materialized compiled-action config under generated dir name: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "config", "mcpgateway.yaml")); err != nil {
+		t.Fatalf("expected materialized MCP gateway config: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "apps", "api", ".well-known", "webmcp.json")); err != nil {
+		t.Fatalf("expected materialized nested WebMCP declaration: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "services", "foo", ".well-known", "agent-card.json")); err != nil {
+		t.Fatalf("expected materialized nested A2A declaration: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "services", "bar", "agent.json")); err != nil {
+		t.Fatalf("expected materialized non-well-known A2A declaration: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", ".env.production")); err != nil {
+		t.Fatalf("expected materialized env file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "prompts", "system.md")); err != nil {
+		t.Fatalf("expected materialized prompt markdown: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "instructions", "policy.yaml")); err != nil {
+		t.Fatalf("expected materialized instruction YAML: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "src", "main.py")); err != nil {
+		t.Fatalf("expected materialized generic source file: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "crews", "ops.py")); err != nil {
+		t.Fatalf("expected materialized generic source file in framework-neutral path: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "build", "main.py")); !os.IsNotExist(err) {
+		t.Fatalf("expected generated source path to remain skipped, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "vendor", "agent.py")); !os.IsNotExist(err) {
+		t.Fatalf("expected skipped source path to remain skipped, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "vendor", "release.ptc.json")); !os.IsNotExist(err) {
+		t.Fatalf("expected dependency compiled-action path to remain skipped, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "vendor", "agent-card.json")); !os.IsNotExist(err) {
+		t.Fatalf("expected dependency agent-card path to remain skipped, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "docs", "changelog.txt")); !os.IsNotExist(err) {
+		t.Fatalf("expected unrelated docs blob to be skipped, stat err=%v", err)
 	}
 }
 

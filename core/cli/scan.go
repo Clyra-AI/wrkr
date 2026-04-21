@@ -164,7 +164,14 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	defer cancel()
 	scanStartedAt := time.Now().UTC().Truncate(time.Second)
-	progress := newScanProgressReporter(*jsonOut && !*quiet && anyTargetIsOrg(targets), stderr)
+	progress := newScanProgressReporter(*jsonOut && !*quiet && anyTargetUsesProgress(targets), stderr)
+	progressTargetMode, progressTargetValue := scanProgressTargetLabel(targets)
+	checkScanContext := func() error {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		return nil
+	}
 	emitScanFailure := func(err error) int {
 		progress.Flush()
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
@@ -173,6 +180,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		progress.Flush()
 		return emitError(stderr, jsonRequested || *jsonOut, code, message, exitCode)
 	}
+	progress.ScanPhase(progressTargetMode, progressTargetValue, "source_acquire_start")
 	manifestOut, findings, err := acquireSources(ctx, targets, *githubBaseURL, *githubToken, acquireOptions{
 		StatePath: statePath,
 		Progress:  progress,
@@ -181,6 +189,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err != nil {
 		return emitScanFailure(err)
 	}
+	if err := checkScanContext(); err != nil {
+		return emitScanFailure(err)
+	}
+	progress.ScanPhase(progressTargetMode, progressTargetValue, "source_acquire_complete")
 
 	scopes := detectorScopes(manifestOut)
 	detectorErrors := []detect.DetectorError{}
@@ -189,9 +201,13 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if regErr != nil {
 			return emitScanFailure(regErr)
 		}
+		progress.ScanPhase(progressTargetMode, progressTargetValue, "detectors_start")
 		detected, runErr := registry.Run(ctx, scopes, detect.Options{Enrich: *enrich})
 		if runErr != nil {
 			return emitScanFailure(runErr)
+		}
+		if err := checkScanContext(); err != nil {
+			return emitScanFailure(err)
 		}
 		findings = append(findings, detected.Findings...)
 		detectorErrors = append(detectorErrors, detected.DetectorErrors...)
@@ -200,9 +216,14 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if policyErr != nil {
 			return emitScanError("policy_schema_violation", policyErr.Error(), exitPolicyViolation)
 		}
+		if err := checkScanContext(); err != nil {
+			return emitScanFailure(err)
+		}
 		findings = append(findings, policyFindings...)
+		progress.ScanPhase(progressTargetMode, progressTargetValue, "detectors_complete")
 	}
 	source.SortFindings(findings)
+	progress.ScanPhase(progressTargetMode, progressTargetValue, "analysis_start")
 
 	previousSnapshot, loadPreviousErr := loadPreviousSnapshot(statePath, strings.TrimSpace(*baselinePath))
 	if loadPreviousErr != nil {
@@ -212,6 +233,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	now := time.Now().UTC().Truncate(time.Second)
 	scanMethodology := buildScanMethodology(manifestOut, findings, scanStartedAt, now)
 	riskReport := risk.Score(findings, 5, now)
+	if err := checkScanContext(); err != nil {
+		return emitScanFailure(err)
+	}
 	repoRisk := map[string]float64{}
 	for _, repo := range riskReport.Repos {
 		repoRisk[repo.Org+"::"+repo.Repo] = repo.Score
@@ -246,6 +270,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		RepoExposureSummaries: repoExposure,
 		GeneratedAt:           now,
 	})
+	if err := checkScanContext(); err != nil {
+		return emitScanFailure(err)
+	}
 	approvedConfigured := false
 	if approvedToolsPolicyPath := strings.TrimSpace(*approvedToolsPath); approvedToolsPolicyPath != "" {
 		approvedCfg, approvedErr := approvedtools.Load(approvedToolsPolicyPath)
@@ -324,6 +351,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	profileResult := profileeval.Evaluate(profileDef, findings, previousProfile)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileResult.ProfileName, riskReport.ActionPaths)
+	if err := checkScanContext(); err != nil {
+		return emitScanFailure(err)
+	}
 
 	weights, weightErr := score.LoadWeights(strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))
 	if weightErr != nil {
@@ -342,6 +372,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Weights:         weights,
 		Previous:        previousScore,
 	})
+	if err := checkScanContext(); err != nil {
+		return emitScanFailure(err)
+	}
 
 	snapshot := state.Snapshot{
 		Version:      state.SnapshotVersion,
@@ -371,9 +404,19 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if snapshotErr != nil {
 		return emitScanFailure(snapshotErr)
 	}
+	if err := checkScanContext(); err != nil {
+		return emitScanFailure(err)
+	}
+	progress.ScanPhase(progressTargetMode, progressTargetValue, "artifact_commit_start")
 	emitRolledBackScanFailure := func(err error) int {
 		progress.Flush()
-		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, managedSnapshots)
+		if err == nil {
+			return exitSuccess
+		}
+		if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%v (rollback restore failed: %v)", err, restoreErr), exitRuntime)
+		}
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
 	}
 	emitRolledBackScanError := func(code, message string, exitCode int) int {
 		progress.Flush()
@@ -384,6 +427,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 
 	if err := state.Save(statePath, snapshot); err != nil {
+		return emitRolledBackScanFailure(err)
+	}
+	if err := checkScanContext(); err != nil {
 		return emitRolledBackScanFailure(err)
 	}
 	chain, chainErr := lifecycle.LoadChain(chainPath)
@@ -398,7 +444,13 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
 		return emitRolledBackScanFailure(err)
 	}
-	if _, err := proofemit.EmitScan(statePath, now, findings, &inventoryOut, riskReport, profileResult, postureScore, transitions); err != nil {
+	if err := checkScanContext(); err != nil {
+		return emitRolledBackScanFailure(err)
+	}
+	if _, err := proofemit.EmitScanWithContext(ctx, statePath, now, findings, &inventoryOut, riskReport, profileResult, postureScore, transitions); err != nil {
+		return emitRolledBackScanFailure(err)
+	}
+	if err := checkScanContext(); err != nil {
 		return emitRolledBackScanFailure(err)
 	}
 	proofChain, err := proofemit.LoadChain(proofChainPath)
@@ -410,6 +462,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitRolledBackScanError("policy_schema_violation", err.Error(), exitPolicyViolation)
 	}
 	if err := manifest.Save(manifestPath, nextManifest); err != nil {
+		return emitRolledBackScanFailure(err)
+	}
+	if err := checkScanContext(); err != nil {
 		return emitRolledBackScanFailure(err)
 	}
 
@@ -470,6 +525,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		}
 	}
 	if *reportMD {
+		if err := checkScanContext(); err != nil {
+			return emitRolledBackScanFailure(err)
+		}
 		manifestCopy := nextManifest
 		_, mdOutPath, _, reportErr := generateReportArtifacts(reportArtifactOptions{
 			StatePath:        statePath,
@@ -496,6 +554,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		}
 	}
 	if *sarifOut {
+		if err := checkScanContext(); err != nil {
+			return emitRolledBackScanFailure(err)
+		}
 		report := exportsarif.Build(findings, wrkrVersion())
 		if writeErr := exportsarif.Write(artifactPreflight.SARIFPath, report); writeErr != nil {
 			return emitRolledBackScanFailure(writeErr)
@@ -507,9 +568,13 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 
 	if jsonSink.enabled() {
+		if err := checkScanContext(); err != nil {
+			return emitRolledBackScanFailure(err)
+		}
 		if err := jsonSink.writePayload(payload); err != nil {
 			return emitRolledBackScanError("runtime_failure", err.Error(), exitRuntime)
 		}
+		progress.ScanPhase(progressTargetMode, progressTargetValue, "artifact_commit_complete")
 		progress.Flush()
 		if *jsonOut {
 			return exitSuccess

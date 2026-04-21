@@ -15,12 +15,13 @@ Acquisition behavior is fail-closed by target:
 
 - `--path` runs fully local/offline.
 - `--path` supports two deterministic interpretations:
-  - `repo_root`: scan the selected directory itself as one repo when it carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, `.codex/`, `.github/`, or other supported tool/config markers.
-  - `repo_set`: scan the immediate non-hidden child repos when the selected directory is a bundle root without repo-root signals, such as `./scenarios/wrkr/scan-mixed-org/repos`.
-- `repo_set` child repos are enumerated in deterministic lexical order by repo name.
+  - `repo_root`: scan the selected directory itself as one repo when it carries a strong repo-root signal such as `.git`, or when weak root signals are present without multiple child repo roots.
+  - `repo_set`: scan immediate non-hidden child repos when the selected directory is a bundle root, and discover nested owner/repo layouts up to a bounded depth when immediate children are namespace folders.
+- `repo_set` child repos are enumerated in deterministic lexical order by repo name. Child repos without tool markers are still included when sibling repos have markers so detector-level permission and symlink diagnostics remain visible.
 - `--my-setup` runs fully local/offline against the local machine setup rooted at the current user home directory.
   It inspects supported user-home tool configs, selected environment key names, and common workspace roots for local agent project markers without emitting raw secret values.
 - `--repo` and `--org` require real GitHub acquisition via `--github-api`, config `github_api_base`, or `WRKR_GITHUB_API_BASE`.
+- Hosted GitHub materialization is sparse by default: Wrkr fetches detector-relevant files such as agent instructions, MCP/Codex/Cursor/Claude configs, skills, workflows, policy files, dependency manifests, and AI/MCP/source markers instead of every repository blob.
 - Hosted GitHub API base resolution order is: `--github-api`, config `github_api_base`, then `WRKR_GITHUB_API_BASE`.
 - Hosted GitHub token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 - `--github-org` is an additive alias for `--org`.
@@ -117,7 +118,7 @@ Opinionated large-org command path:
 wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 ```
 
-When `--json` is set for hosted org scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, and completion lines to stderr only. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file. Any requested `--json-path`, `--report-md-path`, or `--sarif-path` must be unique from one another and from scan-managed `--state` sibling artifacts.
+When `--json` is set for hosted org and local path scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, per-repo materialization completion/discovery, scan phase, and completion lines to stderr only. For hosted scans, `repo_materialize` means a repo job was dispatched to a worker and `repo_materialize_done` means that repo reached a success or failure result. For path scans, `repo_discovered` means a local repo root was selected for detector execution. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file. Any requested `--json-path`, `--report-md-path`, or `--sarif-path` must be unique from one another and from scan-managed `--state` sibling artifacts.
 `--resume` is supported only when every requested target is an org target. Wrkr stores internal checkpoint metadata under the scan-state directory in `org-checkpoints/` and reuses already-materialized repositories only when the checkpoint target set, per-org repo sets, and materialized-root path still match the current org-target scan.
 Resume also revalidates that checkpoint files and reused repo roots are still trusted local artifacts under the managed materialized root; symlink-swapped entries fail closed as `unsafe_operation_blocked`.
 Mixed target sets such as org-plus-path scans fail closed with `invalid_input` when `--resume` is requested.
