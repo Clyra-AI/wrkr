@@ -121,7 +121,7 @@ func runJSONOK(t *testing.T, args []string) map[string]any {
 	if code := cli.Run(args, &out, &errOut); code != 0 {
 		t.Fatalf("command %v failed: %d (%s)", args, code, errOut.String())
 	}
-	if errOut.Len() != 0 {
+	if errOut.Len() != 0 && !allowScanProgress(args, errOut.String()) {
 		t.Fatalf("expected empty stderr for %v, got %q", args, errOut.String())
 	}
 	payload := map[string]any{}
@@ -129,6 +129,27 @@ func runJSONOK(t *testing.T, args []string) map[string]any {
 		t.Fatalf("parse json payload for %v: %v (%q)", args, err, out.String())
 	}
 	return payload
+}
+
+func allowScanProgress(args []string, stderr string) bool {
+	if len(args) == 0 || args[0] != "scan" {
+		return false
+	}
+	for _, arg := range args {
+		if arg == "--quiet" {
+			return false
+		}
+	}
+	for _, line := range strings.Split(stderr, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(line, "progress target=path ") && !strings.HasPrefix(line, "progress target=org ") {
+			return false
+		}
+	}
+	return true
 }
 
 func mustFindRepoRoot(t *testing.T) string {

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -61,6 +63,43 @@ func (m *trackingMaterializer) MaterializeRepo(ctx context.Context, repo string,
 	}, nil
 }
 
+type recordingProgress struct {
+	mu     sync.Mutex
+	events []string
+}
+
+func (p *recordingProgress) RepoDiscovery(org string, total int) {
+	p.add("repo_discovery org=" + org + " total=" + strconv.Itoa(total))
+}
+
+func (p *recordingProgress) RepoMaterialize(org string, index, total int, repo string) {
+	p.add("repo_materialize org=" + org + " repo=" + repo + " index=" + strconv.Itoa(index) + " total=" + strconv.Itoa(total))
+}
+
+func (p *recordingProgress) RepoMaterializeDone(org string, completed, total int, repo, status string) {
+	p.add("repo_materialize_done org=" + org + " repo=" + repo + " status=" + status + " completed=" + strconv.Itoa(completed) + " total=" + strconv.Itoa(total))
+}
+
+func (p *recordingProgress) Resume(org string, total, completed, pending int) {
+	p.add("resume org=" + org + " total=" + strconv.Itoa(total) + " completed=" + strconv.Itoa(completed) + " pending=" + strconv.Itoa(pending))
+}
+
+func (p *recordingProgress) Complete(org string, total, completed, failed int) {
+	p.add("complete org=" + org + " total=" + strconv.Itoa(total) + " completed=" + strconv.Itoa(completed) + " failed=" + strconv.Itoa(failed))
+}
+
+func (p *recordingProgress) add(event string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.events = append(p.events, event)
+}
+
+func (p *recordingProgress) joined() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return strings.Join(p.events, "\n")
+}
+
 func TestAcquireMaterializedUsesBoundedConcurrencyAndDeterministicOrder(t *testing.T) {
 	t.Parallel()
 
@@ -105,6 +144,105 @@ func TestAcquireMaterializedUsesBoundedConcurrencyAndDeterministicOrder(t *testi
 	}
 	if materializer.maxConcurrent != 2 {
 		t.Fatalf("expected bounded concurrency of 2, got %d", materializer.maxConcurrent)
+	}
+}
+
+func TestAcquireMaterializedProgressReportsCompletedRepos(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	materializedRoot := filepath.Join(tmp, "materialized-sources")
+	progress := &recordingProgress{}
+	materializer := &trackingMaterializer{
+		t:        t,
+		root:     materializedRoot,
+		failRepo: "acme/b",
+	}
+
+	repos, failures, err := AcquireMaterialized(
+		context.Background(),
+		"acme",
+		fakeLister{repos: []string{"acme/a", "acme/b"}},
+		materializer,
+		AcquireMaterializedOptions{
+			StatePath:        statePath,
+			MaterializedRoot: materializedRoot,
+			WorkerCount:      1,
+			Progress:         progress,
+		},
+	)
+	if err != nil {
+		t.Fatalf("acquire materialized: %v", err)
+	}
+	if len(repos) != 1 || len(failures) != 1 {
+		t.Fatalf("expected one repo and one failure, got repos=%+v failures=%+v", repos, failures)
+	}
+
+	events := progress.joined()
+	for _, want := range []string{
+		"repo_materialize org=acme repo=acme/a index=1 total=2",
+		"repo_materialize_done org=acme repo=acme/a status=ok completed=1 total=2",
+		"repo_materialize_done org=acme repo=acme/b status=failed completed=2 total=2",
+		"complete org=acme total=2 completed=1 failed=1",
+	} {
+		if !strings.Contains(events, want) {
+			t.Fatalf("expected progress to contain %q, got:\n%s", want, events)
+		}
+	}
+}
+
+func TestAcquireMaterializedStopsProgressDispatchAfterContextDone(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	materializedRoot := filepath.Join(tmp, "materialized-sources")
+	progress := &recordingProgress{}
+	materializer := &trackingMaterializer{
+		t:    t,
+		root: materializedRoot,
+		delays: map[string]time.Duration{
+			"acme/a": 250 * time.Millisecond,
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := AcquireMaterialized(
+			ctx,
+			"acme",
+			fakeLister{repos: []string{"acme/a", "acme/b", "acme/c"}},
+			materializer,
+			AcquireMaterializedOptions{
+				StatePath:        statePath,
+				MaterializedRoot: materializedRoot,
+				WorkerCount:      1,
+				Progress:         progress,
+			},
+		)
+		done <- err
+	}()
+
+	wantFirst := "repo_materialize org=acme repo=acme/a index=1 total=3"
+	deadline := time.Now().Add(2 * time.Second)
+	for !strings.Contains(progress.joined(), wantFirst) && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	cancel()
+
+	err := <-done
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context canceled, got %v", err)
+	}
+
+	events := progress.joined()
+	if strings.Contains(events, "repo=acme/b") || strings.Contains(events, "repo=acme/c") {
+		t.Fatalf("expected progress to stop dispatching after cancellation, got:\n%s", events)
+	}
+	if !strings.Contains(events, wantFirst) {
+		t.Fatalf("expected first repo dispatch progress, got:\n%s", events)
 	}
 }
 

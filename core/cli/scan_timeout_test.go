@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 func TestScanTimeoutDeadlineExceeded(t *testing.T) {
@@ -109,6 +112,43 @@ func TestScanOrgTimeoutDuringAcquireReturnsTimeoutError(t *testing.T) {
 		t.Fatalf("expected no stdout on timeout, got %q", out.String())
 	}
 	assertErrorCode(t, errOut.Bytes(), "scan_timeout")
+}
+
+func TestScanTimeoutAfterStateWriteRollsBackManagedArtifacts(t *testing.T) {
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	if err := os.MkdirAll(filepath.Join(reposPath, "alpha"), 0o755); err != nil {
+		t.Fatalf("mkdir repo fixture: %v", err)
+	}
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+
+	restore := atomicwrite.SetBeforeRenameHookForTest(func(targetPath string, _ string) error {
+		if targetPath == filepath.Clean(statePath) {
+			time.Sleep(50 * time.Millisecond)
+		}
+		return nil
+	})
+	defer restore()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--path", reposPath,
+		"--state", statePath,
+		"--timeout", "20ms",
+		"--json",
+	}, &out, &errOut)
+	if code != 1 {
+		t.Fatalf("expected exit 1 for timeout, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on timeout, got %q", out.String())
+	}
+	assertErrorCode(t, errOut.Bytes(), "scan_timeout")
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Fatalf("expected timed out scan state to roll back, stat err=%v", err)
+	}
 }
 
 func assertErrorCode(t *testing.T, payload []byte, expected string) {

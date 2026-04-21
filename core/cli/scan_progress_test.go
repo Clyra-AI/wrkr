@@ -70,10 +70,18 @@ func TestScanJSONOrgProgressEmitsToStderrOnly(t *testing.T) {
 
 	stderrText := errOut.String()
 	for _, want := range []string{
+		"progress target=org org=acme event=scan_phase phase=source_acquire_start",
 		"progress target=org org=acme event=repo_discovery repo_total=2",
 		"progress target=org org=acme event=repo_materialize repo_index=1 repo_total=2 repo=acme/a",
+		"progress target=org org=acme event=repo_materialize_done completed=2 repo_total=2",
 		"progress target=org org=acme event=retry attempt=1 delay_ms=0 status=429",
 		"progress target=org org=acme event=complete repo_total=2 completed=2 failed=0",
+		"progress target=org org=acme event=scan_phase phase=source_acquire_complete",
+		"progress target=org org=acme event=scan_phase phase=detectors_start",
+		"progress target=org org=acme event=scan_phase phase=detectors_complete",
+		"progress target=org org=acme event=scan_phase phase=analysis_start",
+		"progress target=org org=acme event=scan_phase phase=artifact_commit_start",
+		"progress target=org org=acme event=scan_phase phase=artifact_commit_complete",
 	} {
 		if !strings.Contains(stderrText, want) {
 			t.Fatalf("expected stderr progress to contain %q, got %q", want, stderrText)
@@ -157,6 +165,46 @@ func TestScanJSONQuietSuppressesProgressLines(t *testing.T) {
 	}
 	if strings.Contains(errOut.String(), "progress target=org") {
 		t.Fatalf("expected quiet json scan to suppress progress lines, got %q", errOut.String())
+	}
+}
+
+func TestScanJSONPathProgressEmitsToStderrOnly(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	if err := os.MkdirAll(filepath.Join(reposPath, "alpha", ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir alpha: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(reposPath, "beta", ".github", "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir beta: %v", err)
+	}
+	statePath := filepath.Join(tmp, "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	code := Run([]string{
+		"scan",
+		"--path", reposPath,
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("scan failed: code=%d stderr=%s", code, errOut.String())
+	}
+	if strings.Contains(out.String(), "progress target=path") {
+		t.Fatalf("expected path progress to stay off stdout, got %q", out.String())
+	}
+	for _, want := range []string{
+		"progress target=path path=" + reposPath + " event=repo_discovery repo_total=2",
+		"progress target=path path=" + reposPath + " event=repo_discovered repo_index=1 repo_total=2 repo=alpha",
+		"progress target=path path=" + reposPath + " event=repo_discovered repo_index=2 repo_total=2 repo=beta",
+		"progress target=path path=" + reposPath + " event=scan_phase phase=detectors_start",
+		"progress target=path path=" + reposPath + " event=scan_phase phase=artifact_commit_complete",
+	} {
+		if !strings.Contains(errOut.String(), want) {
+			t.Fatalf("expected stderr progress to contain %q, got %q", want, errOut.String())
+		}
 	}
 }
 

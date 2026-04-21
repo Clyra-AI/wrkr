@@ -318,7 +318,7 @@ func acquireTarget(ctx context.Context, connector *github.Connector, target conf
 		manifestOut.Repos = repos
 		manifestOut.Failures = failures
 	case config.TargetPath:
-		repos, err := local.Acquire(target.Value)
+		repos, err := local.AcquireWithOptions(ctx, target.Value, local.AcquireOptions{Progress: opts.Progress})
 		if err != nil {
 			return source.Manifest{}, err
 		}
@@ -383,6 +383,19 @@ func anyTargetIsOrg(targets []config.Target) bool {
 	return false
 }
 
+func anyTargetIsPath(targets []config.Target) bool {
+	for _, target := range targets {
+		if target.Mode == config.TargetPath {
+			return true
+		}
+	}
+	return false
+}
+
+func anyTargetUsesProgress(targets []config.Target) bool {
+	return anyTargetIsOrg(targets) || anyTargetIsPath(targets)
+}
+
 func anyTargetIsMySetup(targets []config.Target) bool {
 	for _, target := range targets {
 		if target.Mode == config.TargetMySetup {
@@ -399,6 +412,30 @@ func anyTargetNeedsGitHub(targets []config.Target) bool {
 		}
 	}
 	return false
+}
+
+func scanProgressTargetLabel(targets []config.Target) (string, string) {
+	valuesByMode := map[config.TargetMode][]string{}
+	for _, target := range targets {
+		if target.Mode != config.TargetOrg && target.Mode != config.TargetPath {
+			continue
+		}
+		value := strings.TrimSpace(target.Value)
+		if value == "" {
+			continue
+		}
+		valuesByMode[target.Mode] = append(valuesByMode[target.Mode], value)
+	}
+	if orgs := valuesByMode[config.TargetOrg]; len(orgs) == 1 && len(valuesByMode) == 1 {
+		return "org", orgs[0]
+	}
+	if paths := valuesByMode[config.TargetPath]; len(paths) == 1 && len(valuesByMode) == 1 {
+		return "path", paths[0]
+	}
+	if len(valuesByMode) > 0 {
+		return "multi", "multi"
+	}
+	return "", ""
 }
 
 func renderScanTarget(target config.Target) string {

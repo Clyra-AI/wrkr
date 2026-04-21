@@ -258,13 +258,15 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 			if r.URL.Query().Get("recursive") != "1" {
 				t.Fatalf("expected recursive=1, got %q", r.URL.Query().Get("recursive"))
 			}
-			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-1"},{"path":".codex/config.toml","type":"blob","sha":"sha-2"}]}`)
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-1"},{"path":".codex/config.toml","type":"blob","sha":"sha-2"},{"path":"docs/changelog.txt","type":"blob","sha":"sha-skip"}]}`)
 		case "/repos/acme/backend/git/blobs/sha-1":
 			payload := base64.StdEncoding.EncodeToString([]byte("# agents\n"))
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
 		case "/repos/acme/backend/git/blobs/sha-2":
 			payload := base64.StdEncoding.EncodeToString([]byte("sandbox_mode = \"read-only\"\napproval_policy = \"on-request\"\nnetwork_access = false\n"))
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-skip":
+			t.Fatalf("sparse materializer should not fetch unrelated blob %s", r.URL.Path)
 		default:
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
@@ -294,6 +296,9 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "sandbox_mode") {
 		t.Fatalf("unexpected config content: %s", string(content))
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "docs", "changelog.txt")); !os.IsNotExist(err) {
+		t.Fatalf("expected unrelated docs blob to be skipped, stat err=%v", err)
 	}
 }
 

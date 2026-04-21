@@ -37,8 +37,8 @@ func TestScanJSONPathWritesByteIdenticalPayloadToStdoutAndFile(t *testing.T) {
 	if code != exitSuccess {
 		t.Fatalf("scan failed: code=%d stderr=%s", code, errOut.String())
 	}
-	if errOut.Len() != 0 {
-		t.Fatalf("expected no stderr output for path scan json sink, got %q", errOut.String())
+	if !strings.Contains(errOut.String(), "progress target=path ") {
+		t.Fatalf("expected path progress on stderr, got %q", errOut.String())
 	}
 
 	filePayload, err := os.ReadFile(jsonPath)

@@ -31,7 +31,7 @@ wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --resume -
 
 Interpretation notes:
 
-- retry, cooldown, resume, and completion progress lines are additive stderr-only operator UX in `--json` mode
+- retry, cooldown, resume, per-repo materialization completion, local repo discovery, scan phase, and completion progress lines are additive stderr-only operator UX in `--json` mode
 - `partial_result`, `source_errors`, or `source_degraded` means the org posture is incomplete and should be rerun before downstream campaign-style aggregation
 - `org-checkpoints/` is resumability metadata beside the scan state, not a proof artifact
 - `--resume` revalidates checkpoint files and reused materialized repo roots before detector execution, so symlink-swapped resume state is blocked as unsafe

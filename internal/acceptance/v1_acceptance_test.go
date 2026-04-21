@@ -773,7 +773,7 @@ func allowJSONProgressStderr(args []string, stderr string) bool {
 	if !hasArg(args, "--json") {
 		return false
 	}
-	if !hasArg(args, "--org") && !hasArg(args, "--github-org") && !hasArg(args, "--config") {
+	if !hasArg(args, "--org") && !hasArg(args, "--github-org") && !hasArg(args, "--path") && !hasArg(args, "--config") {
 		return false
 	}
 
@@ -783,7 +783,7 @@ func allowJSONProgressStderr(args []string, stderr string) bool {
 		if line == "" {
 			continue
 		}
-		if !strings.HasPrefix(line, "progress target=org ") {
+		if !strings.HasPrefix(line, "progress target=org ") && !strings.HasPrefix(line, "progress target=path ") {
 			return false
 		}
 	}

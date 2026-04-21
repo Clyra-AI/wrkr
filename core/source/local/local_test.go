@@ -1,11 +1,26 @@
 package local
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 	"testing"
 )
+
+type recordingPathProgress struct {
+	events []string
+}
+
+func (p *recordingPathProgress) PathDiscovery(root string, total int) {
+	p.events = append(p.events, "discovery:"+filepath.ToSlash(root)+":"+strconv.Itoa(total))
+}
+
+func (p *recordingPathProgress) PathRepo(_ string, index, total int, repo string) {
+	p.events = append(p.events, "repo:"+strconv.Itoa(index)+":"+strconv.Itoa(total)+":"+repo)
+}
 
 func TestAcquirePathRepos(t *testing.T) {
 	t.Parallel()
@@ -59,6 +74,81 @@ func TestAcquireTreatsRootSignalsAsSingleRepo(t *testing.T) {
 	}
 	if repos[0].Location != filepath.ToSlash(tmp) {
 		t.Fatalf("expected repo root location %s, got %s", filepath.ToSlash(tmp), repos[0].Location)
+	}
+}
+
+func TestAcquireDiscoversNestedOrgCloneRepos(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	for _, repo := range []string{"Activity-Insights/api", "Activity-Insights/web"} {
+		if err := os.MkdirAll(filepath.Join(tmp, repo, ".codex"), 0o755); err != nil {
+			t.Fatalf("mkdir repo %s: %v", repo, err)
+		}
+		if err := os.WriteFile(filepath.Join(tmp, repo, "AGENTS.md"), []byte("agent\n"), 0o600); err != nil {
+			t.Fatalf("write repo signal: %v", err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module parent\n"), 0o600); err != nil {
+		t.Fatalf("write parent signal: %v", err)
+	}
+
+	repos, err := Acquire(tmp)
+	if err != nil {
+		t.Fatalf("acquire nested org clone: %v", err)
+	}
+	if len(repos) != 2 {
+		t.Fatalf("expected nested repo roots, got %+v", repos)
+	}
+	if repos[0].Repo != "Activity-Insights/api" || repos[1].Repo != "Activity-Insights/web" {
+		t.Fatalf("unexpected nested repo identities: %+v", repos)
+	}
+}
+
+func TestAcquireKeepsGitRootAsSingleRepo(t *testing.T) {
+	t.Parallel()
+
+	tmp := filepath.Join(t.TempDir(), "monorepo")
+	if err := os.MkdirAll(filepath.Join(tmp, ".git"), 0o755); err != nil {
+		t.Fatalf("mkdir .git: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmp, "examples", "agent", ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir nested example: %v", err)
+	}
+
+	repos, err := Acquire(tmp)
+	if err != nil {
+		t.Fatalf("acquire git root: %v", err)
+	}
+	if len(repos) != 1 || repos[0].Repo != "monorepo" {
+		t.Fatalf("expected git root to stay a single repo, got %+v", repos)
+	}
+}
+
+func TestAcquireWithOptionsReportsPathProgress(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmp, "alpha", ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir alpha: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmp, "beta", ".github", "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir beta: %v", err)
+	}
+	progress := &recordingPathProgress{}
+
+	repos, err := AcquireWithOptions(context.Background(), tmp, AcquireOptions{Progress: progress})
+	if err != nil {
+		t.Fatalf("acquire with progress: %v", err)
+	}
+	if len(repos) != 2 {
+		t.Fatalf("expected two repos, got %+v", repos)
+	}
+	events := strings.Join(progress.events, "\n")
+	for _, want := range []string{"discovery:", "repo:1:2:alpha", "repo:2:2:beta"} {
+		if !strings.Contains(events, want) {
+			t.Fatalf("expected progress %q, got:\n%s", want, events)
+		}
 	}
 }
 
