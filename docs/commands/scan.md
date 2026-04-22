@@ -47,6 +47,7 @@ Scan mode behavior is explicit:
 - `--mode quick` runs the highest-signal governance detectors for coding assistant configs, MCP, skills, CI automation, secret references, and policy files.
 - `--mode deep` runs the full detector set and marks `scan_quality.mode=deep`; generated/package paths remain available to raw/debug investigation instead of being treated as active governance suppression.
 - Invalid mode values fail closed with `invalid_input` (exit `6`) and the normal JSON error envelope in `--json` mode.
+- `--diff` requires the previous saved snapshot and current scan to use the same recorded scan mode. A mode mismatch fails closed with `invalid_input` (exit `6`) instead of reporting synthetic drift caused by quick/governance/deep scope differences.
 
 ## Flags
 

@@ -123,6 +123,34 @@ func TestScanModeGovernanceSuppressesGeneratedPathNoiseAndDeepKeepsDebugEvidence
 	}
 }
 
+func TestScanDiffRejectsMismatchedScanModes(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := filepath.Join(t.TempDir(), "app")
+	if err := os.MkdirAll(repoRoot, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "AGENTS.md"), []byte("agent instructions\n"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	_ = runScanPayloadWithArgs(t, []string{"scan", "--path", repoRoot, "--mode", "deep", "--state", statePath, "--json"})
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", repoRoot, "--mode", "governance", "--state", statePath, "--diff", "--json"}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected exit %d, got %d stdout=%q stderr=%q", exitInvalidInput, code, out.String(), errOut.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on invalid diff mode mismatch, got %q", out.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+	if !bytes.Contains(errOut.Bytes(), []byte("requires matching scan modes")) {
+		t.Fatalf("expected scan mode mismatch message, got %s", errOut.String())
+	}
+}
+
 func runScanPayload(t *testing.T, repoRoot, statePath string) map[string]any {
 	t.Helper()
 

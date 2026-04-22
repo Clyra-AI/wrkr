@@ -236,6 +236,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if loadPreviousErr != nil {
 		return emitScanFailure(loadPreviousErr)
 	}
+	if *diffMode && previousSnapshot != nil && !scanModesCompatible(previousSnapshot.ScanMode, scanMode) {
+		return emitScanError("invalid_input", fmt.Sprintf("--diff requires matching scan modes: previous=%s current=%s", previousSnapshot.ScanMode, scanMode), exitInvalidInput)
+	}
 
 	now := time.Now().UTC().Truncate(time.Second)
 	scanMethodology := buildScanMethodology(manifestOut, findings, scanStartedAt, now)
@@ -871,6 +874,12 @@ func parseScanMode(raw string) (string, error) {
 	default:
 		return "", fmt.Errorf("--mode must be one of quick, governance, or deep")
 	}
+}
+
+func scanModesCompatible(previous, current string) bool {
+	previous = strings.TrimSpace(previous)
+	current = strings.TrimSpace(current)
+	return previous == "" || previous == current
 }
 
 func hasIncompleteFilesystemVisibility(detectorErrors []detect.DetectorError, sourceFailures []source.RepoFailure) bool {
