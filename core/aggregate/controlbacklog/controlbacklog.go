@@ -46,7 +46,7 @@ const (
 	ConfidenceLow                    = "low"
 	SecretReferenceDetected          = "secret_reference_detected"
 	SecretValueDetected              = "secret_value_detected"
-	SecretScopeUnknown               = "secret_scope_unknown"
+	SecretScopeUnknown               = "secret_scope_unknown" // #nosec G101 -- governance enum label, not credential material.
 	SecretRotationEvidenceMissing    = "secret_rotation_evidence_missing"
 	SecretOwnerMissing               = "secret_owner_missing"
 	SecretUsedByWriteCapableWorkflow = "secret_used_by_write_capable_workflow"
