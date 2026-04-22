@@ -130,6 +130,45 @@ func TestMapRiskIncludesPostureAssessment(t *testing.T) {
 	}
 }
 
+func TestMapRiskIncludesActionPathGovernanceControls(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 4, 22, 12, 0, 0, 0, time.UTC)
+	report := risk.Report{
+		ActionPaths: []risk.ActionPath{{
+			PathID:                   "apc-test",
+			AgentID:                  "wrkr:ci:acme",
+			Org:                      "acme",
+			Repo:                     "acme/app",
+			ToolType:                 "ci_agent",
+			Location:                 ".github/workflows/pr.yml",
+			WriteCapable:             true,
+			WritePathClasses:         []string{agginventory.WritePathPullRequestWrite, agginventory.WritePathSecretBearingExec},
+			RecommendedAction:        "proof",
+			SecurityVisibilityStatus: agginventory.SecurityVisibilityUnknownToSecurity,
+			GovernanceControls: []agginventory.GovernanceControlMapping{{
+				Control: agginventory.GovernanceControlApproval,
+				Status:  agginventory.ControlStatusGap,
+			}},
+		}},
+	}
+	records := MapRisk(report, score.Result{}, profileeval.Result{}, SecurityVisibilityContext{}, now)
+	if len(records) != 2 {
+		t.Fatalf("expected action path governance plus posture records, got %d", len(records))
+	}
+	if records[0].Event["assessment_type"] != "action_path_governance" {
+		t.Fatalf("expected action path governance event, got %+v", records[0].Event)
+	}
+	classes, ok := records[0].Event["write_path_classes"].([]string)
+	if !ok || len(classes) != 2 {
+		t.Fatalf("expected write_path_classes in proof event, got %+v", records[0].Event["write_path_classes"])
+	}
+	controls, ok := records[0].Event["governance_controls"].([]agginventory.GovernanceControlMapping)
+	if !ok || len(controls) != 1 || controls[0].Control != agginventory.GovernanceControlApproval {
+		t.Fatalf("expected governance controls in proof event, got %+v", records[0].Event["governance_controls"])
+	}
+}
+
 func TestMapTransitionApprovalIncludesScope(t *testing.T) {
 	t.Parallel()
 	transition := lifecycle.Transition{

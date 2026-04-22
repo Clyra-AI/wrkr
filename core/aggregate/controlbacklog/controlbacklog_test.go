@@ -101,8 +101,75 @@ func TestBuildControlBacklogSplitsSignalClassesAndSortsDeterministically(t *test
 	if len(first.Items[0].LinkedFindingIDs) == 0 {
 		t.Fatalf("expected linked raw finding IDs, got %+v", first.Items[0])
 	}
+	if len(first.Items[0].GovernanceControls) == 0 {
+		t.Fatalf("expected governance controls on backlog item, got %+v", first.Items[0])
+	}
 	if _, err := json.Marshal(first); err != nil {
 		t.Fatalf("marshal backlog: %v", err)
+	}
+}
+
+func TestWritePathClassifiesPRWriteSecretBearingWorkflow(t *testing.T) {
+	t.Parallel()
+
+	backlog := Build(Input{Findings: []model.Finding{
+		{
+			FindingType: "ci_autonomy",
+			ToolType:    "ci_agent",
+			Location:    ".github/workflows/pr.yml",
+			Repo:        "app",
+			Org:         "acme",
+			Permissions: []string{"pull_request.write", "secret.read"},
+		},
+	}})
+	if len(backlog.Items) == 0 {
+		t.Fatal("expected backlog item")
+	}
+	item := backlog.Items[0]
+	if !containsString(item.WritePathClasses, agginventory.WritePathPullRequestWrite) {
+		t.Fatalf("expected pr_write class, got %+v", item.WritePathClasses)
+	}
+	if !containsString(item.WritePathClasses, agginventory.WritePathSecretBearingExec) {
+		t.Fatalf("expected secret-bearing execution class, got %+v", item.WritePathClasses)
+	}
+	if !containsControl(item.GovernanceControls, agginventory.GovernanceControlLeastPrivilege) {
+		t.Fatalf("expected least-privilege control mapping, got %+v", item.GovernanceControls)
+	}
+}
+
+func TestSecurityVisibilityMapsApprovedToKnownApprovedInBacklog(t *testing.T) {
+	t.Parallel()
+
+	finding := model.Finding{
+		FindingType: "tool_config",
+		ToolType:    "codex",
+		Location:    ".codex/config.toml",
+		Repo:        "app",
+		Org:         "acme",
+	}
+	backlog := Build(Input{
+		Findings: []model.Finding{finding},
+		Inventory: &agginventory.Inventory{Tools: []agginventory.Tool{{
+			ToolType:                 "codex",
+			Org:                      "acme",
+			ApprovalStatus:           "valid",
+			ApprovalClass:            "approved",
+			LifecycleState:           "active",
+			SecurityVisibilityStatus: agginventory.SecurityVisibilityApproved,
+			Locations: []agginventory.ToolLocation{{
+				Repo:            "app",
+				Location:        ".codex/config.toml",
+				Owner:           "@acme/app",
+				OwnerSource:     "codeowners",
+				OwnershipStatus: "explicit",
+			}},
+		}}},
+	})
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	if backlog.Items[0].SecurityVisibility != agginventory.SecurityVisibilityKnownApproved {
+		t.Fatalf("expected known_approved in governance backlog, got %+v", backlog.Items[0])
 	}
 }
 
@@ -177,7 +244,7 @@ func TestEvidenceQualityExplainsOwnerFallbackConfidence(t *testing.T) {
 	if item.Confidence != ConfidenceMedium {
 		t.Fatalf("expected medium confidence from fallback owner, got %+v", item)
 	}
-	if !contains(item.EvidenceGaps, "explicit_owner_evidence_missing") {
+	if !containsString(item.EvidenceGaps, "explicit_owner_evidence_missing") {
 		t.Fatalf("expected owner evidence gap, got %+v", item.EvidenceGaps)
 	}
 	if len(item.ConfidenceRaise) == 0 {
@@ -216,13 +283,13 @@ func TestWorkflowSecretReferenceDoesNotClaimLeakedSecret(t *testing.T) {
 	if secretItem == nil {
 		t.Fatalf("expected secret-bearing workflow item, got %+v", backlog.Items)
 	}
-	if !contains(secretItem.SecretSignalTypes, SecretReferenceDetected) {
+	if !containsString(secretItem.SecretSignalTypes, SecretReferenceDetected) {
 		t.Fatalf("expected secret reference signal, got %+v", secretItem.SecretSignalTypes)
 	}
-	if contains(secretItem.SecretSignalTypes, SecretValueDetected) {
+	if containsString(secretItem.SecretSignalTypes, SecretValueDetected) {
 		t.Fatalf("did not expect secret value signal, got %+v", secretItem.SecretSignalTypes)
 	}
-	if !contains(secretItem.SecretSignalTypes, SecretUsedByWriteCapableWorkflow) {
+	if !containsString(secretItem.SecretSignalTypes, SecretUsedByWriteCapableWorkflow) {
 		t.Fatalf("expected write-capable workflow signal, got %+v", secretItem.SecretSignalTypes)
 	}
 	if secretItem.RecommendedAction != ActionAttachEvidence {
@@ -230,9 +297,18 @@ func TestWorkflowSecretReferenceDoesNotClaimLeakedSecret(t *testing.T) {
 	}
 }
 
-func contains(values []string, want string) bool {
+func containsString(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func containsControl(values []agginventory.GovernanceControlMapping, want string) bool {
+	for _, value := range values {
+		if value.Control == want {
 			return true
 		}
 	}

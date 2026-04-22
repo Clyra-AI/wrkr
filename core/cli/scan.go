@@ -626,6 +626,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if *explain {
 		progress.Flush()
 		_, _ = fmt.Fprintf(stdout, "wrkr scan completed for %s (profile=%s score=%.2f grade=%s)\n", renderScanTargetSet(targets), profileResult.ProfileName, postureScore.Score, postureScore.Grade)
+		for _, line := range explainControlBacklog(controlBacklog, 10) {
+			_, _ = fmt.Fprintf(stdout, "control backlog: %s\n", line)
+		}
 		if hasIncompleteFilesystemVisibility(detectorErrors, manifestOut.Failures) {
 			_, _ = fmt.Fprintln(stdout, "scan completeness: some files or directories could not be read; review detector_errors/source_errors for permission or stat failures.")
 		}
@@ -643,6 +646,46 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	progress.Flush()
 	_, _ = fmt.Fprintln(stdout, "wrkr scan complete")
 	return exitSuccess
+}
+
+func explainControlBacklog(backlog controlbacklog.Backlog, limit int) []string {
+	if limit <= 0 {
+		limit = 10
+	}
+	lines := []string{
+		fmt.Sprintf("%d item(s), %d unique Wrkr signal(s), %d supporting security signal(s)",
+			backlog.Summary.TotalItems,
+			backlog.Summary.UniqueWrkrSignalItems,
+			backlog.Summary.SupportingSecurityItems,
+		),
+	}
+	if len(backlog.Items) == 0 {
+		return append(lines, "no active governance review items")
+	}
+	for idx, item := range backlog.Items {
+		if idx >= limit {
+			break
+		}
+		lines = append(lines, fmt.Sprintf(
+			"review #%d %s %s action=%s visibility=%s confidence=%s write_path=%s rationale=%s",
+			idx+1,
+			fallbackForExplain(item.Repo, "local"),
+			fallbackForExplain(item.Path, "<unknown>"),
+			item.RecommendedAction,
+			item.SecurityVisibility,
+			item.Confidence,
+			fallbackForExplain(strings.Join(item.WritePathClasses, "+"), item.Capability),
+			fallbackForExplain(strings.Join(item.EvidenceBasis, "+"), item.EvidenceSource),
+		))
+	}
+	return lines
+}
+
+func fallbackForExplain(value, fallbackValue string) string {
+	if strings.TrimSpace(value) != "" {
+		return strings.TrimSpace(value)
+	}
+	return strings.TrimSpace(fallbackValue)
 }
 
 func inventoryLocalMachineSlice(inv agginventory.Inventory) agginventory.Inventory {

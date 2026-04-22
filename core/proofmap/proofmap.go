@@ -150,7 +150,7 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, visibili
 }
 
 func MapRisk(report risk.Report, posture score.Result, profile profileeval.Result, visibility SecurityVisibilityContext, now time.Time) []MappedRecord {
-	records := make([]MappedRecord, 0, len(report.Ranked)+len(report.AttackPaths)+1)
+	records := make([]MappedRecord, 0, len(report.Ranked)+len(report.AttackPaths)+len(report.ActionPaths)+1)
 	for idx, item := range report.Ranked {
 		event := map[string]any{
 			"assessment_type": "finding_risk",
@@ -239,6 +239,36 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 				"canonical_finding":  "attack_path",
 				"attack_path_id":     path.PathID,
 				"attack_path_source": append([]string(nil), path.SourceFindings...),
+			},
+		})
+	}
+	for idx, path := range report.ActionPaths {
+		event := map[string]any{
+			"assessment_type":            "action_path_governance",
+			"path_id":                    path.PathID,
+			"org":                        path.Org,
+			"repo":                       path.Repo,
+			"tool_type":                  path.ToolType,
+			"location":                   path.Location,
+			"write_capable":              path.WriteCapable,
+			"write_path_classes":         append([]string(nil), path.WritePathClasses...),
+			"recommended_action":         path.RecommendedAction,
+			"security_visibility_status": path.SecurityVisibilityStatus,
+			"approval_gap_reasons":       append([]string(nil), path.ApprovalGapReasons...),
+			"governance_controls":        append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),
+			"credential_access":          path.CredentialAccess,
+			"production_write":           path.ProductionWrite,
+			"matched_production_targets": append([]string(nil), path.MatchedProductionTargets...),
+		}
+		records = append(records, MappedRecord{
+			RecordType: "risk_assessment",
+			AgentID:    path.AgentID,
+			Timestamp:  canonicalTime(now),
+			Event:      event,
+			Metadata: map[string]any{
+				"rank":              idx + 1,
+				"canonical_finding": "action_path_governance",
+				"action_path_id":    path.PathID,
 			},
 		})
 	}

@@ -36,6 +36,8 @@ Wrkr uses two path classes:
 4. `wrkr evidence` consumes state only after the saved proof chain passes the same local integrity prerequisite used by Wrkr's verification runtime, then emits evidence bundle outputs while preserving chain continuity and only publishing a complete verified bundle to the requested output path.
 5. `wrkr verify --chain` remains the explicit proof-chain integrity gate for operators and CI from the state directory.
 
+Saved scan state also carries additive governance output: `control_backlog`, `scan_quality`, inventory write-path classes, and governance control mappings. Approval evidence that expires is represented as `approval_status=expired` and a lifecycle state requiring review; governance backlog visibility maps that condition to `needs_review` instead of continuing to treat the path as approved.
+
 ## Manual transition commit rule
 
 - `wrkr identity approve|review|deprecate|revoke` preflights lifecycle and proof reads before mutation begins.

@@ -78,6 +78,37 @@ jobs:
 	}
 }
 
+func TestAnalyzeClassifiesReleaseAndPackagePublishCapabilities(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: publish
+on: workflow_dispatch
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - run: goreleaser release --clean
+      - run: npm publish
+      - uses: docker/build-push-action@v6
+`)
+
+	result, parseErr := Analyze(".github/workflows/publish.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	for _, capability := range []string{"release.write", "package.write"} {
+		if !contains(result.Capabilities, capability) {
+			t.Fatalf("expected capability %q in %v", capability, result.Capabilities)
+		}
+	}
+	if evidenceValue(result, "workflow_capability.release.write") != "step.run:goreleaser_release" {
+		t.Fatalf("expected release evidence, got %q", evidenceValue(result, "workflow_capability.release.write"))
+	}
+	if !strings.Contains(evidenceValue(result, "workflow_capability.package.write"), "npm_publish") {
+		t.Fatalf("expected package publish evidence, got %q", evidenceValue(result, "workflow_capability.package.write"))
+	}
+}
+
 func TestAnalyzeMalformedWorkflowReturnsParseError(t *testing.T) {
 	t.Parallel()
 

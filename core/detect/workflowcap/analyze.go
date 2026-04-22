@@ -239,6 +239,16 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 				jobHasDeliverySurface = true
 				hasDeliverySurface = true
 			}
+			if reason := releaseWriteReason(step); reason != "" {
+				addCapabilityReason(capabilityReasons, "release.write", reason)
+				jobHasDeliverySurface = true
+				hasDeliverySurface = true
+			}
+			if reason := packagePublishReason(step); reason != "" {
+				addCapabilityReason(capabilityReasons, "package.write", reason)
+				jobHasDeliverySurface = true
+				hasDeliverySurface = true
+			}
 			if reason := deployWriteReason(step); reason != "" {
 				addCapabilityReason(capabilityReasons, "deploy.write", reason)
 				jobHasDeliverySurface = true
@@ -441,6 +451,44 @@ func deployWriteReason(step workflowStep) string {
 			return "step.uses:amazon_ecs_deploy"
 		case strings.Contains(value, "deploy-cloudrun"):
 			return "step.uses:deploy_cloudrun"
+		}
+	}
+	return ""
+}
+
+func releaseWriteReason(step workflowStep) string {
+	for _, value := range normalizedStepValues(step, nil) {
+		switch {
+		case strings.Contains(value, "goreleaser release"):
+			return "step.run:goreleaser_release"
+		case strings.Contains(value, "gh release create"):
+			return "step.run:gh_release_create"
+		case strings.Contains(value, "softprops/action-gh-release"):
+			return "step.uses:action_gh_release"
+		case strings.Contains(value, "actions/create-release"):
+			return "step.uses:create_release"
+		}
+	}
+	return ""
+}
+
+func packagePublishReason(step workflowStep) string {
+	for _, value := range normalizedStepValues(step, nil) {
+		switch {
+		case strings.Contains(value, "npm publish"):
+			return "step.run:npm_publish"
+		case strings.Contains(value, "pnpm publish"):
+			return "step.run:pnpm_publish"
+		case strings.Contains(value, "yarn npm publish"):
+			return "step.run:yarn_npm_publish"
+		case strings.Contains(value, "twine upload"):
+			return "step.run:twine_upload"
+		case strings.Contains(value, "docker push"):
+			return "step.run:docker_push"
+		case strings.Contains(value, "docker/build-push-action"):
+			return "step.uses:docker_build_push_action"
+		case strings.Contains(value, "pypa/gh-action-pypi-publish"):
+			return "step.uses:pypi_publish"
 		}
 	}
 	return ""

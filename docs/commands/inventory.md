@@ -35,6 +35,8 @@ wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr
 - `agents`
 - `tools`
 
+Inventory records may include additive governance fields when they were produced by a recent `wrkr scan`: `security_visibility_status`, `write_path_classes`, and `governance_controls`. Legacy consumers should continue to accept the historic `approved` visibility value, while governance views may map it to `known_approved` and may also surface `accepted_risk`, `deprecated`, `revoked`, or `needs_review` when lifecycle evidence supports those states.
+
 `wrkr inventory --diff --json` emits:
 
 - `status`

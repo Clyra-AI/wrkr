@@ -68,30 +68,32 @@ type Summary struct {
 }
 
 type Item struct {
-	ID                 string   `json:"id"`
-	Repo               string   `json:"repo"`
-	Path               string   `json:"path"`
-	ControlSurfaceType string   `json:"control_surface_type"`
-	ControlPathType    string   `json:"control_path_type"`
-	Capability         string   `json:"capability"`
-	Capabilities       []string `json:"capabilities,omitempty"`
-	Owner              string   `json:"owner,omitempty"`
-	OwnerSource        string   `json:"owner_source,omitempty"`
-	OwnershipStatus    string   `json:"ownership_status,omitempty"`
-	EvidenceSource     string   `json:"evidence_source"`
-	EvidenceBasis      []string `json:"evidence_basis"`
-	ApprovalStatus     string   `json:"approval_status"`
-	SecurityVisibility string   `json:"security_visibility"`
-	SignalClass        string   `json:"signal_class"`
-	RecommendedAction  string   `json:"recommended_action"`
-	Confidence         string   `json:"confidence"`
-	EvidenceGaps       []string `json:"evidence_gaps,omitempty"`
-	ConfidenceRaise    []string `json:"confidence_raise,omitempty"`
-	SLA                string   `json:"sla"`
-	ClosureCriteria    string   `json:"closure_criteria"`
-	SecretSignalTypes  []string `json:"secret_signal_types,omitempty"`
-	LinkedFindingIDs   []string `json:"linked_finding_ids,omitempty"`
-	LinkedActionPathID string   `json:"linked_action_path_id,omitempty"`
+	ID                 string                                  `json:"id"`
+	Repo               string                                  `json:"repo"`
+	Path               string                                  `json:"path"`
+	ControlSurfaceType string                                  `json:"control_surface_type"`
+	ControlPathType    string                                  `json:"control_path_type"`
+	Capability         string                                  `json:"capability"`
+	Capabilities       []string                                `json:"capabilities,omitempty"`
+	WritePathClasses   []string                                `json:"write_path_classes,omitempty"`
+	GovernanceControls []agginventory.GovernanceControlMapping `json:"governance_controls,omitempty"`
+	Owner              string                                  `json:"owner,omitempty"`
+	OwnerSource        string                                  `json:"owner_source,omitempty"`
+	OwnershipStatus    string                                  `json:"ownership_status,omitempty"`
+	EvidenceSource     string                                  `json:"evidence_source"`
+	EvidenceBasis      []string                                `json:"evidence_basis"`
+	ApprovalStatus     string                                  `json:"approval_status"`
+	SecurityVisibility string                                  `json:"security_visibility"`
+	SignalClass        string                                  `json:"signal_class"`
+	RecommendedAction  string                                  `json:"recommended_action"`
+	Confidence         string                                  `json:"confidence"`
+	EvidenceGaps       []string                                `json:"evidence_gaps,omitempty"`
+	ConfidenceRaise    []string                                `json:"confidence_raise,omitempty"`
+	SLA                string                                  `json:"sla"`
+	ClosureCriteria    string                                  `json:"closure_criteria"`
+	SecretSignalTypes  []string                                `json:"secret_signal_types,omitempty"`
+	LinkedFindingIDs   []string                                `json:"linked_finding_ids,omitempty"`
+	LinkedActionPathID string                                  `json:"linked_action_path_id,omitempty"`
 }
 
 type Input struct {
@@ -187,19 +189,34 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		ControlSurfaceType: controlSurfaceType(path.ToolType, path.Location, path.CredentialAccess, false),
 		ControlPathType:    controlPathType(path.ToolType, path.Location, path.CredentialAccess, false),
 		Capabilities:       capabilitiesFromActionPath(path),
+		WritePathClasses:   writePathClassesFromActionPath(path),
+		GovernanceControls: append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),
 		Owner:              strings.TrimSpace(path.OperationalOwner),
 		OwnerSource:        strings.TrimSpace(path.OwnerSource),
 		OwnershipStatus:    strings.TrimSpace(path.OwnershipStatus),
 		EvidenceSource:     "risk_action_path",
 		EvidenceBasis:      evidenceBasisFromActionPath(path),
 		ApprovalStatus:     approvalStatus(path.ApprovalGap, path.SecurityVisibilityStatus),
-		SecurityVisibility: fallback(path.SecurityVisibilityStatus, agginventory.SecurityVisibilityUnknownToSecurity),
+		SecurityVisibility: agginventory.GovernanceSecurityVisibilityStatus(path.SecurityVisibilityStatus, "", ""),
 		SignalClass:        SignalClassUniqueWrkrSignal,
 		RecommendedAction:  actionFromActionPath(path.RecommendedAction, path),
 		LinkedActionPathID: path.PathID,
 	}
 	item.LinkedFindingIDs = b.linkedFindingIDs(path.Org, path.Repo, path.Location)
 	item.SecretSignalTypes = secretSignalTypesForActionPath(path)
+	if len(item.GovernanceControls) == 0 {
+		item.GovernanceControls = agginventory.BuildGovernanceControls(agginventory.GovernanceControlInput{
+			Owner:                    item.Owner,
+			OwnershipStatus:          item.OwnershipStatus,
+			ApprovalClassification:   item.ApprovalStatus,
+			SecurityVisibilityStatus: item.SecurityVisibility,
+			ProductionTargetStatus:   path.ProductionTargetStatus,
+			WritePathClasses:         item.WritePathClasses,
+			CredentialAccess:         path.CredentialAccess,
+			ProductionWrite:          path.ProductionWrite,
+			EvidenceBasis:            item.EvidenceBasis,
+		})
+	}
 	item.Capability = capabilitySummary(item.Capabilities)
 	item.Confidence, item.EvidenceGaps, item.ConfidenceRaise = qualityForItem(item)
 	item.SLA = slaForAction(item.RecommendedAction)
@@ -223,19 +240,31 @@ func (b *builder) addFinding(finding model.Finding, mode string) {
 		ControlSurfaceType: controlSurfaceType(finding.ToolType, finding.Location, writeCapable, isSecret),
 		ControlPathType:    controlPathType(finding.ToolType, finding.Location, writeCapable, isSecret),
 		Capabilities:       capabilitiesFromFinding(finding, writeCapable),
+		WritePathClasses:   writePathClassesFromFinding(finding, tool, writeCapable),
 		Owner:              strings.TrimSpace(loc.Owner),
 		OwnerSource:        strings.TrimSpace(loc.OwnerSource),
 		OwnershipStatus:    strings.TrimSpace(loc.OwnershipStatus),
 		EvidenceSource:     evidenceSourceForFinding(finding),
 		EvidenceBasis:      evidenceBasisForFinding(finding),
 		ApprovalStatus:     fallback(tool.ApprovalClass, "unknown"),
-		SecurityVisibility: fallback(tool.SecurityVisibilityStatus, agginventory.SecurityVisibilityUnknownToSecurity),
+		SecurityVisibility: agginventory.GovernanceSecurityVisibilityStatus(tool.SecurityVisibilityStatus, tool.ApprovalStatus, tool.LifecycleState),
 		SignalClass:        signalClassForFinding(finding, writeCapable),
 		RecommendedAction:  actionForFinding(finding, writeCapable),
 		LinkedFindingIDs:   []string{findingID(finding)},
 		SecretSignalTypes:  secretSignalTypesForFinding(finding, writeCapable),
 	}
 	item.Capability = capabilitySummary(item.Capabilities)
+	item.GovernanceControls = agginventory.BuildGovernanceControls(agginventory.GovernanceControlInput{
+		Owner:                    item.Owner,
+		OwnershipStatus:          item.OwnershipStatus,
+		ApprovalStatus:           tool.ApprovalStatus,
+		ApprovalClassification:   tool.ApprovalClass,
+		LifecycleState:           tool.LifecycleState,
+		SecurityVisibilityStatus: item.SecurityVisibility,
+		WritePathClasses:         item.WritePathClasses,
+		CredentialAccess:         contains(item.Capabilities, "secret_access"),
+		EvidenceBasis:            item.EvidenceBasis,
+	})
 	item.Confidence, item.EvidenceGaps, item.ConfidenceRaise = qualityForItem(item)
 	item.SLA = slaForAction(item.RecommendedAction)
 	item.ClosureCriteria = closureCriteriaForAction(item.RecommendedAction)
@@ -254,6 +283,7 @@ func (b *builder) merge(item Item) {
 	}
 	current.Capabilities = mergeStrings(current.Capabilities, item.Capabilities)
 	current.Capability = capabilitySummary(current.Capabilities)
+	current.WritePathClasses = mergeStrings(current.WritePathClasses, item.WritePathClasses)
 	current.EvidenceBasis = mergeStrings(current.EvidenceBasis, item.EvidenceBasis)
 	current.EvidenceGaps = mergeStrings(current.EvidenceGaps, item.EvidenceGaps)
 	current.ConfidenceRaise = mergeStrings(current.ConfidenceRaise, item.ConfidenceRaise)
@@ -278,6 +308,7 @@ func (b *builder) merge(item Item) {
 	if current.LinkedActionPathID == "" {
 		current.LinkedActionPathID = item.LinkedActionPathID
 	}
+	current.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, item.GovernanceControls)
 	b.itemsByKey[key] = normalizeItem(current)
 }
 
@@ -450,6 +481,51 @@ func capabilitiesFromFinding(finding model.Finding, writeCapable bool) []string 
 		values = append(values, "read")
 	}
 	return mergeStrings(values, nil)
+}
+
+func writePathClassesFromActionPath(path risk.ActionPath) []string {
+	if len(path.WritePathClasses) > 0 {
+		return mergeStrings(path.WritePathClasses, nil)
+	}
+	return agginventory.DeriveWritePathClasses(
+		nil,
+		path.WriteCapable,
+		path.PullRequestWrite,
+		path.MergeExecute,
+		path.DeployWrite,
+		path.CredentialAccess,
+		path.ProductionWrite,
+		path.Location,
+		path.ToolType,
+	)
+}
+
+func writePathClassesFromFinding(finding model.Finding, tool agginventory.Tool, writeCapable bool) []string {
+	if len(tool.WritePathClasses) > 0 {
+		return mergeStrings(tool.WritePathClasses, nil)
+	}
+	permissions := append([]string(nil), finding.Permissions...)
+	return agginventory.DeriveWritePathClasses(
+		permissions,
+		writeCapable,
+		hasPermission(permissions, "pull_request.write"),
+		hasPermission(permissions, "merge.execute"),
+		hasPermission(permissions, "deploy.write"),
+		isSecretFinding(finding),
+		false,
+		finding.Location,
+		finding.ToolType,
+	)
+}
+
+func hasPermission(permissions []string, want string) bool {
+	want = strings.ToLower(strings.TrimSpace(want))
+	for _, permission := range permissions {
+		if strings.ToLower(strings.TrimSpace(permission)) == want {
+			return true
+		}
+	}
+	return false
 }
 
 func evidenceBasisFromActionPath(path risk.ActionPath) []string {
@@ -636,7 +712,7 @@ func approvalStatus(approvalGap bool, visibility string) string {
 	if approvalGap {
 		return "unapproved"
 	}
-	if strings.TrimSpace(visibility) == agginventory.SecurityVisibilityApproved {
+	if strings.TrimSpace(visibility) == agginventory.SecurityVisibilityApproved || strings.TrimSpace(visibility) == agginventory.SecurityVisibilityKnownApproved {
 		return "approved"
 	}
 	return "unknown"
@@ -725,9 +801,10 @@ func normalizeItem(item Item) Item {
 	item.ControlPathType = fallback(item.ControlPathType, ControlPathAgentConfig)
 	item.Capabilities = mergeStrings(item.Capabilities, nil)
 	item.Capability = capabilitySummary(item.Capabilities)
+	item.WritePathClasses = mergeStrings(item.WritePathClasses, nil)
 	item.EvidenceBasis = mergeStrings(item.EvidenceBasis, nil)
 	item.ApprovalStatus = fallback(item.ApprovalStatus, "unknown")
-	item.SecurityVisibility = fallback(item.SecurityVisibility, agginventory.SecurityVisibilityUnknownToSecurity)
+	item.SecurityVisibility = agginventory.GovernanceSecurityVisibilityStatus(item.SecurityVisibility, item.ApprovalStatus, "")
 	if !ValidSignalClass(item.SignalClass) {
 		item.SignalClass = SignalClassSupportingSecurity
 	}
@@ -743,7 +820,61 @@ func normalizeItem(item Item) Item {
 	item.ConfidenceRaise = mergeStrings(item.ConfidenceRaise, nil)
 	item.SecretSignalTypes = mergeStrings(item.SecretSignalTypes, nil)
 	item.LinkedFindingIDs = mergeStrings(item.LinkedFindingIDs, nil)
+	item.GovernanceControls = mergeGovernanceControls(nil, item.GovernanceControls)
 	return item
+}
+
+func mergeGovernanceControls(a, b []agginventory.GovernanceControlMapping) []agginventory.GovernanceControlMapping {
+	byControl := map[string]agginventory.GovernanceControlMapping{}
+	for _, item := range append(append([]agginventory.GovernanceControlMapping(nil), a...), b...) {
+		control := strings.TrimSpace(item.Control)
+		if control == "" {
+			continue
+		}
+		item.Control = control
+		item.Evidence = mergeStrings(item.Evidence, nil)
+		item.Gaps = mergeStrings(item.Gaps, nil)
+		current, exists := byControl[control]
+		if !exists || controlStatusPriority(item.Status) < controlStatusPriority(current.Status) {
+			byControl[control] = item
+			continue
+		}
+		if controlStatusPriority(item.Status) == controlStatusPriority(current.Status) {
+			current.Evidence = mergeStrings(current.Evidence, item.Evidence)
+			current.Gaps = mergeStrings(current.Gaps, item.Gaps)
+			byControl[control] = current
+		}
+	}
+	out := make([]agginventory.GovernanceControlMapping, 0, len(byControl))
+	for _, item := range byControl {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Control < out[j].Control
+	})
+	return out
+}
+
+func controlStatusPriority(status string) int {
+	switch strings.TrimSpace(status) {
+	case agginventory.ControlStatusGap:
+		return 0
+	case agginventory.ControlStatusSatisfied:
+		return 1
+	case agginventory.ControlStatusNotApplicable:
+		return 2
+	default:
+		return 3
+	}
+}
+
+func contains(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == want {
+			return true
+		}
+	}
+	return false
 }
 
 func capabilitySummary(values []string) string {
