@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
@@ -23,16 +25,19 @@ const SnapshotVersion = "v1"
 
 // Snapshot stores deterministic scan material for diff mode.
 type Snapshot struct {
-	Version      string                    `json:"version"`
-	Target       source.Target             `json:"target"`
-	Targets      []source.Target           `json:"targets,omitempty"`
-	Findings     []source.Finding          `json:"findings"`
-	Inventory    *agginventory.Inventory   `json:"inventory,omitempty"`
-	RiskReport   *risk.Report              `json:"risk_report,omitempty"`
-	Profile      *profileeval.Result       `json:"profile,omitempty"`
-	PostureScore *score.Result             `json:"posture_score,omitempty"`
-	Identities   []manifest.IdentityRecord `json:"identities,omitempty"`
-	Transitions  []lifecycle.Transition    `json:"lifecycle_transitions,omitempty"`
+	Version        string                    `json:"version"`
+	Target         source.Target             `json:"target"`
+	Targets        []source.Target           `json:"targets,omitempty"`
+	Findings       []source.Finding          `json:"findings"`
+	Inventory      *agginventory.Inventory   `json:"inventory,omitempty"`
+	ControlBacklog *controlbacklog.Backlog   `json:"control_backlog,omitempty"`
+	ScanQuality    *scanquality.Report       `json:"scan_quality,omitempty"`
+	ScanMode       string                    `json:"scan_mode,omitempty"`
+	RiskReport     *risk.Report              `json:"risk_report,omitempty"`
+	Profile        *profileeval.Result       `json:"profile,omitempty"`
+	PostureScore   *score.Result             `json:"posture_score,omitempty"`
+	Identities     []manifest.IdentityRecord `json:"identities,omitempty"`
+	Transitions    []lifecycle.Transition    `json:"lifecycle_transitions,omitempty"`
 }
 
 type ScoreView struct {

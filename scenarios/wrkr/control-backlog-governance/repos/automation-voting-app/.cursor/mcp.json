@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "tickets": {
+      "url": "https://mcp.example.local/tickets",
+      "transport": "http"
+    }
+  }
+}

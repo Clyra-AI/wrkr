@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
 ```
 
 Use either one legacy target source (`--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`) or one or more repeatable `--target <mode>:<value>` flags.
@@ -41,6 +41,13 @@ Acquisition behavior is fail-closed by target:
 - Late write failures after preflight still fail closed and roll managed artifacts back to the previous committed generation instead of leaving mixed state/proof/manifest outputs behind.
 - For `--path` scans, detector file reads stay bounded to the selected repo root. Root-escaping symlinked config, env, workflow, and MCP files are rejected with deterministic `parse_error.kind=unsafe_path` diagnostics instead of being read.
 
+Scan mode behavior is explicit:
+
+- `--mode governance` is the default enterprise posture. It emits the versioned `control_backlog`, keeps raw findings for compatibility, and reports generated/package-manager noise in `scan_quality`.
+- `--mode quick` runs the highest-signal governance detectors for coding assistant configs, MCP, skills, CI automation, secret references, and policy files.
+- `--mode deep` runs the full detector set and marks `scan_quality.mode=deep`; generated/package paths remain available to raw/debug investigation instead of being treated as active governance suppression.
+- Invalid mode values fail closed with `invalid_input` (exit `6`) and the normal JSON error envelope in `--json` mode.
+
 ## Flags
 
 - `--json`
@@ -54,6 +61,7 @@ Acquisition behavior is fail-closed by target:
 - `--path`
 - `--my-setup`
 - `--target`
+- `--mode`
 - `--timeout`
 - `--diff`
 - `--enrich`
@@ -137,8 +145,10 @@ wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --re
 ```
 
 This is the canonical `repo_set` example for `--path`: the selected directory is a bundle of immediate child repos, so Wrkr preserves per-child repo manifests and deterministic ordering instead of collapsing the bundle into one repo.
-Expected JSON keys include `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
+Expected JSON keys include `status`, `target`, `scan_mode`, `scan_quality`, `findings`, additive `control_backlog`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
 Explicit multi-target runs also emit additive `targets[]` arrays at the top level and inside `source_manifest`, and saved state snapshots preserve the same additive `targets[]` contract.
+`control_backlog.control_backlog_version` is the stable backlog schema version. `control_backlog.items[*]` includes repo, path, control surface/path type, capability, owner/source/status, evidence source/basis, approval status, security visibility, signal class (`unique_wrkr_signal|supporting_security_signal`), recommended action (`attach_evidence|approve|remediate|downgrade|deprecate|exclude|monitor|inventory_review|suppress|debug_only`), confidence (`high|medium|low`), evidence gaps, confidence-raising guidance, SLA, closure criteria, optional secret signal types, and linked raw finding IDs. Raw `findings` remain the compatibility evidence surface.
+`scan_quality.scan_quality_version` is the stable scan-quality schema version. In governance mode, generated/package-manager surfaces such as `node_modules/`, `dist/`, `build/`, nested generated SDK folders, `.yarn/sdks/`, minified JavaScript, and other package internals are reported as scan-quality context instead of active backlog items. Parser diagnostics in `scan_quality.parse_errors[*]` include deterministic `recommended_action` values such as `suppress` for generated/package noise and `debug_only` for non-generated diagnostics.
 For local-machine scans, `target.mode` is `my_setup`.
 When `target.mode=my_setup`, `activation.items` projects concrete local tool, MCP, secret, and parse-error signals first without mutating the raw `top_findings` ranking. Policy-only items remain available in `ranked_findings` / `top_findings`.
 When `target.mode=org`, `target.mode=path`, or `target.mode=multi`, `activation.items` projects govern-first candidate paths from the saved privilege map and adds `item_class` values such as `production_target_backed`, `unknown_to_security_write_path`, `approval_gap_path`, and `govern_first_candidate`.
@@ -178,6 +188,7 @@ Invalid `--approved-tools` policy files fail closed with `invalid_input` (exit `
 For `--my-setup`, omitting `--approved-tools` keeps `inventory.local_governance.reference_basis=unavailable` instead of fabricating sanctioned or unsanctioned local claims.
 For `--repo` and `--org` scans, `source_manifest.repos[*].source` is `github_repo_materialized`, and `source_manifest.repos[*].location` points to the deterministic materialized local root used for detector execution.
 Prompt-channel findings use stable reason codes and evidence hashes only (`pattern_family`, `evidence_snippet_hash`, `location_class`, `confidence_class`) and do not emit raw secret values.
+Secret-bearing workflow evidence separates `secret_reference_detected`, `secret_value_detected`, `secret_scope_unknown`, `secret_rotation_evidence_missing`, `secret_owner_missing`, and `secret_used_by_write_capable_workflow`. Workflow references such as `${{ secrets.NAME }}` are classified as references, not leaked values, and raw secret values are not emitted.
 When `--enrich` is enabled, MCP findings include enrich provenance and quality fields: `source`, `as_of`, `package`, `version`, `advisory_count`, `registry_status`, `enrich_quality` (`ok|partial|stale|unavailable`), `advisory_schema`, `registry_schema`, and `enrich_errors`.
 When production target policy loading is non-fatal (`--production-targets` without `--production-targets-strict`), output may include `policy_warnings`.
 

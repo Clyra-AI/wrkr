@@ -28,7 +28,7 @@ type agentCard struct {
 	InteractionPatterns []string `json:"interaction_patterns"`
 }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
+func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -36,12 +36,12 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		return nil, nil
 	}
 
-	policy, _, policyErr := mcpgateway.LoadPolicy(scope.Root)
+	policy, _, policyErr := mcpgateway.LoadPolicyWithOptions(scope.Root, options)
 	if policyErr != nil {
 		return nil, policyErr
 	}
 
-	files, err := detect.WalkFiles(scope.Root)
+	files, err := detect.WalkFilesWithOptions(scope.Root, options)
 	if err != nil {
 		return nil, err
 	}

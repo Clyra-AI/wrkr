@@ -45,7 +45,15 @@ func Detect(_ context.Context, scope detect.Scope, cfg DetectorConfig) ([]model.
 	return DetectMany(scope, []DetectorConfig{cfg})
 }
 
+func DetectWithOptions(_ context.Context, scope detect.Scope, cfg DetectorConfig, options detect.Options) ([]model.Finding, error) {
+	return DetectManyWithOptions(scope, []DetectorConfig{cfg}, options)
+}
+
 func DetectMany(scope detect.Scope, configs []DetectorConfig) ([]model.Finding, error) {
+	return DetectManyWithOptions(scope, configs, detect.Options{})
+}
+
+func DetectManyWithOptions(scope detect.Scope, configs []DetectorConfig, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -71,7 +79,7 @@ func DetectMany(scope detect.Scope, configs []DetectorConfig) ([]model.Finding, 
 
 	sourcePlans := buildSourcePlans(normalized)
 	if len(sourcePlans) > 0 {
-		sourceFindings, err := detectFromSource(scope, sourcePlans)
+		sourceFindings, err := detectFromSource(scope, sourcePlans, options)
 		if err != nil {
 			return nil, err
 		}

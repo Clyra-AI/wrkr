@@ -1,0 +1,6 @@
+{
+  "name": "automation-voting-app",
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.1.0"
+  }
+}

@@ -30,38 +30,62 @@ import (
 )
 
 func Registry() (*detect.Registry, error) {
+	return RegistryForMode("governance")
+}
+
+func RegistryForMode(mode string) (*detect.Registry, error) {
 	registry := detect.NewRegistry()
-	detectorList := []detect.Detector{
-		a2a.New(),
-		agentlangchain.New(),
-		agentcrewai.New(),
-		agentopenai.New(),
-		agentautogen.New(),
-		agentllamaindex.New(),
-		agentmcpclient.New(),
-		agentcustom.New(),
-		claude.New(),
-		cursor.New(),
-		codex.New(),
-		copilot.New(),
-		mcp.New(),
-		workstation.New(),
-		mcpgateway.New(),
-		nonhumanidentity.New(),
-		webmcp.New(),
-		promptchannel.New(),
-		skills.New(),
-		gaitpolicy.New(),
-		dependency.New(),
-		extension.New(),
-		secrets.New(),
-		compiledaction.New(),
-		ciagent.New(),
-	}
+	detectorList := detectorsForMode(mode)
 	for _, detector := range detectorList {
 		if err := registry.Register(detector); err != nil {
 			return nil, err
 		}
 	}
 	return registry, nil
+}
+
+func detectorsForMode(mode string) []detect.Detector {
+	switch mode {
+	case "quick":
+		return []detect.Detector{
+			claude.New(),
+			cursor.New(),
+			codex.New(),
+			copilot.New(),
+			mcp.New(),
+			mcpgateway.New(),
+			skills.New(),
+			gaitpolicy.New(),
+			secrets.New(),
+			ciagent.New(),
+		}
+	default:
+		return []detect.Detector{
+			a2a.New(),
+			agentlangchain.New(),
+			agentcrewai.New(),
+			agentopenai.New(),
+			agentautogen.New(),
+			agentllamaindex.New(),
+			agentmcpclient.New(),
+			agentcustom.New(),
+			claude.New(),
+			cursor.New(),
+			codex.New(),
+			copilot.New(),
+			mcp.New(),
+			workstation.New(),
+			mcpgateway.New(),
+			nonhumanidentity.New(),
+			webmcp.New(),
+			promptchannel.New(),
+			skills.New(),
+			gaitpolicy.New(),
+			dependency.New(),
+			extension.New(),
+			secrets.New(),
+			compiledaction.New(),
+			ciagent.New(),
+		}
+	}
 }

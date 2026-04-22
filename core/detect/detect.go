@@ -25,7 +25,8 @@ func IsLocalMachineScope(scope Scope) bool {
 
 // Options toggles optional detector behavior.
 type Options struct {
-	Enrich bool
+	Enrich   bool
+	ScanMode string
 }
 
 // Detector emits canonical findings for one repo scope.

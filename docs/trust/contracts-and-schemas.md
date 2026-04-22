@@ -5,6 +5,22 @@ description: "Reference index for Wrkr command contracts, schema assets, and pro
 
 # Contracts and Schemas
 
+## Scan Governance Additions
+
+`wrkr scan --json` includes additive governance-first artifacts while preserving existing raw finding and inventory surfaces.
+
+- `control_backlog.control_backlog_version = "1"` identifies the backlog schema.
+- `control_backlog.items[*].signal_class` is one of `unique_wrkr_signal` or `supporting_security_signal`.
+- `control_backlog.items[*].recommended_action` is one of `attach_evidence`, `approve`, `remediate`, `downgrade`, `deprecate`, `exclude`, `monitor`, `inventory_review`, `suppress`, or `debug_only`.
+- `control_backlog.items[*].confidence` is one of `high`, `medium`, or `low`.
+- `scan_quality.scan_quality_version = "1"` identifies the scan-quality appendix schema.
+- `scan_quality.mode` is one of `quick`, `governance`, or `deep`.
+- `scan_quality.parse_errors[*].recommended_action` is `suppress` for generated/package-manager noise and `debug_only` for parser diagnostics that should stay outside the active governance backlog.
+
+These fields are additive. Consumers that depend on `findings`, `ranked_findings`, `top_findings`, `inventory`, `profile`, `posture_score`, and `compliance_summary` can continue to read those fields unchanged.
+
+Secret-bearing workflow semantics are also additive. Workflow references such as `${{ secrets.NAME }}` are classified as `secret_reference_detected` and may combine with `secret_used_by_write_capable_workflow`; they must not be treated as `secret_value_detected` unless a detector explicitly proves a value was exposed.
+
 ## Canonical references
 
 - Root exit codes and flags: `docs/commands/root.md`

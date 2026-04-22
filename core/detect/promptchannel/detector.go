@@ -36,7 +36,7 @@ func New() Detector { return Detector{} }
 
 func (Detector) ID() string { return detectorID }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
+func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		return nil, nil
 	}
 
-	files, err := detect.WalkFiles(scope.Root)
+	files, err := detect.WalkFilesWithOptions(scope.Root, options)
 	if err != nil {
 		return nil, err
 	}

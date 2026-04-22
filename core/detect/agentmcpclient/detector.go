@@ -16,8 +16,8 @@ func New() Detector { return Detector{} }
 
 func (Detector) ID() string { return detectorID }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
-	return agentframework.DetectMany(scope, []agentframework.DetectorConfig{
+func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
+	return agentframework.DetectManyWithOptions(scope, []agentframework.DetectorConfig{
 		{
 			DetectorID: detectorID,
 			Framework:  "mcp_client",
@@ -42,5 +42,5 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			ConfigPath: ".wrkr/agents/mcp-client.toml",
 			Format:     "toml",
 		},
-	})
+	}, options)
 }

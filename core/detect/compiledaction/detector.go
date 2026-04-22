@@ -31,7 +31,7 @@ type actionDoc struct {
 	ApprovalSource string   `json:"approval_source" yaml:"approval_source"`
 }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
+func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		return nil, nil
 	}
 
-	files, walkErr := detect.WalkFiles(scope.Root)
+	files, walkErr := detect.WalkFilesWithOptions(scope.Root, options)
 	if walkErr != nil {
 		return nil, walkErr
 	}

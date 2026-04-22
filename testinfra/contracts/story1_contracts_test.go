@@ -70,6 +70,7 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 		"agent_privilege_map",
 		"attack_paths",
 		"compliance_summary",
+		"control_backlog",
 		"findings",
 		"inventory",
 		"posture_score",
@@ -77,6 +78,8 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 		"profile",
 		"ranked_findings",
 		"repo_exposure_summaries",
+		"scan_mode",
+		"scan_quality",
 		"source_manifest",
 		"status",
 		"target",
@@ -85,6 +88,23 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected top-level keys: got %v want %v", got, want)
+	}
+	if payload["scan_mode"] != "governance" {
+		t.Fatalf("expected default scan_mode=governance, got %v", payload["scan_mode"])
+	}
+	controlBacklog, ok := payload["control_backlog"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected control_backlog object, got %T", payload["control_backlog"])
+	}
+	if controlBacklog["control_backlog_version"] != "1" {
+		t.Fatalf("unexpected control_backlog_version: %v", controlBacklog["control_backlog_version"])
+	}
+	scanQuality, ok := payload["scan_quality"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected scan_quality object, got %T", payload["scan_quality"])
+	}
+	if scanQuality["scan_quality_version"] != "1" {
+		t.Fatalf("unexpected scan_quality_version: %v", scanQuality["scan_quality_version"])
 	}
 
 	inventoryPayload, ok := payload["inventory"].(map[string]any)
@@ -134,7 +154,7 @@ func TestDiffJSONContractStableKeys(t *testing.T) {
 		t.Fatalf("parse diff payload: %v", err)
 	}
 	got := sortedKeys(payload)
-	want := []string{"diff", "diff_empty", "source_manifest", "status", "target"}
+	want := []string{"diff", "diff_empty", "scan_mode", "scan_quality", "source_manifest", "status", "target"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected top-level keys: got %v want %v", got, want)
 	}

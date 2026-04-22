@@ -8,11 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- Added the versioned control backlog contract for governance-first scan output while preserving existing raw finding JSON surfaces.
+- Added deterministic recommended-action, evidence-quality, confidence, and SLA fields to governance backlog items.
 
 ### Changed
 
-- (none yet)
+- Made governance scan mode the default, added quick/deep scan modes, and moved generated/package noise into a deterministic scan-quality appendix.
 
 ### Deprecated
 
@@ -28,7 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- Refined secret-bearing automation semantics so Wrkr distinguishes secret references, leaked values, ownership/scope gaps, and rotation evidence gaps without exposing secret values.
 
 ## Changelog maintenance process
 

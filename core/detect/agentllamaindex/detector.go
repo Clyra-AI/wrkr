@@ -16,9 +16,9 @@ func New() Detector { return Detector{} }
 
 func (Detector) ID() string { return detectorID }
 
-func (Detector) Detect(ctx context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
+func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	_ = ctx
-	return agentframework.DetectMany(scope, []agentframework.DetectorConfig{
+	return agentframework.DetectManyWithOptions(scope, []agentframework.DetectorConfig{
 		{
 			DetectorID: detectorID,
 			Framework:  "llamaindex",
@@ -43,5 +43,5 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, _ detect.Options
 			ConfigPath: ".wrkr/agents/llamaindex.toml",
 			Format:     "toml",
 		},
-	})
+	}, options)
 }
