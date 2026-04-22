@@ -635,7 +635,6 @@ func ApplySecurityVisibility(inv *Inventory, ref SecurityVisibilityReference) {
 			SecurityVisibilityStatus: inv.Tools[idx].SecurityVisibilityStatus,
 			WritePathClasses:         inv.Tools[idx].WritePathClasses,
 			CredentialAccess:         hasCredentialAccess(inv.Tools[idx]),
-			ProductionTargetStatus:   inv.PrivilegeBudget.ProductionWrite.Status,
 			EvidenceBasis:            inv.Tools[idx].Permissions,
 		})
 	}

@@ -362,6 +362,43 @@ func TestCompareFlagsDeprecatedToolReappearance(t *testing.T) {
 	}
 }
 
+func TestCompareDoesNotFlagStillPresentDeprecatedToolAsReappeared(t *testing.T) {
+	t.Parallel()
+
+	toolID := identity.ToolID("codex", "AGENTS.md")
+	agentID := identity.AgentID(toolID, "acme")
+	baseline := Baseline{
+		Version: BaselineVersion,
+		Tools: []ToolState{
+			{
+				AgentID:        agentID,
+				ToolID:         toolID,
+				Org:            "acme",
+				Status:         identity.StateDeprecated,
+				ApprovalStatus: "deprecated",
+				Present:        true,
+			},
+		},
+	}
+	current := state.Snapshot{
+		Findings: []model.Finding{
+			{
+				FindingType: "tool_config",
+				ToolType:    "codex",
+				Location:    "AGENTS.md",
+				Org:         "acme",
+				Permissions: []string{"repo.contents.read"},
+			},
+		},
+	}
+	result := Compare(baseline, current)
+	for _, reason := range result.Reasons {
+		if reason.Code == ReasonDeprecatedToolReappeared {
+			t.Fatalf("did not expect deprecated reappearance for still-present baseline tool: %v", result.Reasons)
+		}
+	}
+}
+
 func TestCompareFlagsUnapprovedPermissionExpansion(t *testing.T) {
 	t.Parallel()
 

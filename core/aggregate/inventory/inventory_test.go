@@ -524,6 +524,35 @@ func TestDeriveWritePathClassesAndGovernanceControls(t *testing.T) {
 	}
 }
 
+func TestToolGovernanceControlsDoNotBorrowGlobalProductionConfiguration(t *testing.T) {
+	t.Parallel()
+
+	inv := Inventory{
+		PrivilegeBudget: PrivilegeBudget{
+			ProductionWrite: ProductionWriteBudget{Configured: true, Status: ProductionTargetsStatusConfigured},
+		},
+		Tools: []Tool{{
+			ToolID:                   "wrkr:ci:.github/workflows/release.yml",
+			ToolType:                 "ci_agent",
+			ApprovalStatus:           "missing",
+			ApprovalClass:            "unapproved",
+			SecurityVisibilityStatus: SecurityVisibilityUnknownToSecurity,
+			WritePathClasses:         []string{WritePathDeployWrite},
+			Locations: []ToolLocation{{
+				Repo:            "acme/app",
+				Location:        ".github/workflows/release.yml",
+				Owner:           "@acme/app",
+				OwnershipStatus: "explicit",
+			}},
+		}},
+	}
+
+	ApplySecurityVisibility(&inv, SecurityVisibilityReference{ReferenceBasis: "baseline_snapshot"})
+	if !hasControlStatus(inv.Tools[0].GovernanceControls, GovernanceControlProduction, ControlStatusGap) {
+		t.Fatalf("expected per-tool production classification gap despite global production config, got %+v", inv.Tools[0].GovernanceControls)
+	}
+}
+
 func TestInventoryBuildAddsNonHumanIdentitiesAdditively(t *testing.T) {
 	t.Parallel()
 

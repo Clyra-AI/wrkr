@@ -302,7 +302,7 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 				Message:         "revoked tool reappeared in current scan",
 			})
 		}
-		if strings.TrimSpace(baseTool.Status) == identity.StateDeprecated && currentTool.Present {
+		if strings.TrimSpace(baseTool.Status) == identity.StateDeprecated && !baseTool.Present && currentTool.Present {
 			reasons = append(reasons, Reason{
 				Code:            ReasonDeprecatedToolReappeared,
 				AgentID:         currentTool.AgentID,
