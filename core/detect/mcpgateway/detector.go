@@ -274,10 +274,6 @@ func EvaluateCoverage(policy Policy, declarationName string) Result {
 	}
 }
 
-func discoverDeclarations(root string) ([]declaration, error) {
-	return discoverDeclarationsWithOptions(root, detect.Options{})
-}
-
 func discoverDeclarationsWithOptions(root string, options detect.Options) ([]declaration, error) {
 	files, err := detect.WalkFilesWithOptions(root, options)
 	if err != nil {
