@@ -1,0 +1,15 @@
+name: call-docker-build-result
+on: [pull_request]
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  publish-result:
+    runs-on: ubuntu-latest
+    steps:
+      - name: agent summary
+        run: codex --full-auto "summarize build result"
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: merge
+        run: gh pr merge "$PR_URL" --merge

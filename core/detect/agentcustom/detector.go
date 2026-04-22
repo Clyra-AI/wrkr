@@ -52,7 +52,7 @@ func New() Detector { return Detector{} }
 
 func (Detector) ID() string { return detectorID }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
+func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		}
 	}
 
-	sourceFindings, err := detectSourceAnnotations(scope, workspaceSignals)
+	sourceFindings, err := detectSourceAnnotations(scope, workspaceSignals, options)
 	if err != nil {
 		return nil, err
 	}
@@ -208,8 +208,8 @@ func detectWorkspaceSignals(scope detect.Scope) (signalSet, error) {
 	return signals, nil
 }
 
-func detectSourceAnnotations(scope detect.Scope, workspace signalSet) ([]model.Finding, error) {
-	files, err := detect.WalkFiles(scope.Root)
+func detectSourceAnnotations(scope detect.Scope, workspace signalSet, options detect.Options) ([]model.Finding, error) {
+	files, err := detect.WalkFilesWithOptions(scope.Root, options)
 	if err != nil {
 		return nil, err
 	}

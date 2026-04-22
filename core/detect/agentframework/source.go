@@ -83,12 +83,12 @@ func buildSourcePlans(configs []DetectorConfig) []sourcePlan {
 	return out
 }
 
-func detectFromSource(scope detect.Scope, plans []sourcePlan) ([]model.Finding, error) {
+func detectFromSource(scope detect.Scope, plans []sourcePlan, options detect.Options) ([]model.Finding, error) {
 	if len(plans) == 0 {
 		return nil, nil
 	}
 
-	files, err := detect.WalkFiles(scope.Root)
+	files, err := detect.WalkFilesWithOptions(scope.Root, options)
 	if err != nil {
 		return nil, err
 	}

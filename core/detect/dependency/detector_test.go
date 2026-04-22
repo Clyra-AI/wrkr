@@ -81,6 +81,42 @@ func TestProjectSignalMatchesExplicitToken(t *testing.T) {
 	}
 }
 
+func TestGeneratedDependencyNoiseSuppressedUnlessDeepMode(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "node_modules/pkg/package.json", "{")
+
+	governance, err := New().Detect(context.Background(), detect.Scope{
+		Org:  "acme",
+		Repo: "repo",
+		Root: root,
+	}, detect.Options{ScanMode: "governance"})
+	if err != nil {
+		t.Fatalf("governance detect returned error: %v", err)
+	}
+	for _, finding := range governance {
+		if finding.Location == "node_modules/pkg/package.json" {
+			t.Fatalf("governance mode should suppress generated dependency evidence, got %+v", governance)
+		}
+	}
+
+	deep, err := New().Detect(context.Background(), detect.Scope{
+		Org:  "acme",
+		Repo: "repo",
+		Root: root,
+	}, detect.Options{ScanMode: "deep"})
+	if err != nil {
+		t.Fatalf("deep detect returned error: %v", err)
+	}
+	if len(deep) != 1 {
+		t.Fatalf("expected one deep parse finding, got %+v", deep)
+	}
+	if deep[0].FindingType != "parse_error" || deep[0].Location != "node_modules/pkg/package.json" {
+		t.Fatalf("expected generated package parse error in deep mode, got %+v", deep)
+	}
+}
+
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))

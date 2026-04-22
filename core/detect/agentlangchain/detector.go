@@ -16,11 +16,11 @@ func New() Detector { return Detector{} }
 
 func (Detector) ID() string { return detectorID }
 
-func (Detector) Detect(ctx context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
-	return agentframework.Detect(ctx, scope, agentframework.DetectorConfig{
+func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
+	return agentframework.DetectWithOptions(ctx, scope, agentframework.DetectorConfig{
 		DetectorID: detectorID,
 		Framework:  "langchain",
 		ConfigPath: ".wrkr/agents/langchain.json",
 		Format:     "json",
-	})
+	}, options)
 }

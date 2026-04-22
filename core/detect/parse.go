@@ -223,17 +223,33 @@ func globLiteralPrefix(pattern string) string {
 }
 
 func WalkFiles(root string) ([]string, error) {
+	return WalkFilesWithOptions(root, Options{})
+}
+
+func WalkFilesWithOptions(root string, options Options) ([]string, error) {
 	files := make([]string, 0)
+	includeGenerated := strings.TrimSpace(options.ScanMode) == "deep"
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
+			rel, relErr := filepath.Rel(root, path)
+			if relErr != nil {
+				return relErr
+			}
+			rel = filepath.ToSlash(rel)
+			if rel != "." && !includeGenerated && IsGeneratedPath(rel) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		rel, relErr := filepath.Rel(root, path)
 		if relErr != nil {
 			return relErr
+		}
+		if !includeGenerated && IsGeneratedPath(rel) {
+			return nil
 		}
 		files = append(files, filepath.ToSlash(rel))
 		return nil

@@ -70,16 +70,19 @@ var projectSignalKeywords = []string{
 }
 
 var ignoredDirectoryNames = map[string]struct{}{
-	".git":         {},
-	"node_modules": {},
-	"vendor":       {},
-	"dist":         {},
-	"build":        {},
-	"target":       {},
-	".venv":        {},
+	".git":           {},
+	"node_modules":   {},
+	"vendor":         {},
+	"dist":           {},
+	"build":          {},
+	"target":         {},
+	".venv":          {},
+	".yarn":          {},
+	"generated":      {},
+	"generated-sdks": {},
 }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
+func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -87,7 +90,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		return nil, nil
 	}
 
-	files, err := collectDependencyManifests(scope.Root)
+	files, err := collectDependencyManifests(scope.Root, options)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +345,7 @@ func normalizeDependencyToken(value string) string {
 	return normalized
 }
 
-func collectDependencyManifests(root string) ([]string, error) {
+func collectDependencyManifests(root string, options detect.Options) ([]string, error) {
 	files := make([]string, 0)
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		rel, relErr := filepath.Rel(root, path)
@@ -354,13 +357,13 @@ func collectDependencyManifests(root string) ([]string, error) {
 			rel = ""
 		}
 		if walkErr != nil {
-			if shouldSkipTraversal(rel) {
+			if shouldSkipTraversal(rel, options) {
 				return filepath.SkipDir
 			}
 			return walkErr
 		}
 		if d != nil && d.IsDir() {
-			if shouldSkipTraversal(rel) {
+			if shouldSkipTraversal(rel, options) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -389,12 +392,18 @@ func isDependencyManifest(rel string) bool {
 	}
 }
 
-func shouldSkipTraversal(rel string) bool {
+func shouldSkipTraversal(rel string, options detect.Options) bool {
 	if strings.TrimSpace(rel) == "" {
 		return false
 	}
+	if strings.TrimSpace(options.ScanMode) != "deep" && detect.IsGeneratedPath(rel) {
+		return true
+	}
 	parts := strings.Split(strings.ToLower(filepath.ToSlash(rel)), "/")
 	for _, part := range parts {
+		if strings.TrimSpace(options.ScanMode) == "deep" && part != ".git" && part != ".venv" {
+			continue
+		}
 		if _, ok := ignoredDirectoryNames[part]; ok {
 			return true
 		}

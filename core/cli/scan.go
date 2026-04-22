@@ -12,9 +12,11 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/agentdeploy"
 	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
+	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	aggexposure "github.com/Clyra-AI/wrkr/core/aggregate/exposure"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/privilegebudget"
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/config"
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -65,6 +67,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	var explicitTargets repeatedStringFlag
 	fs.Var(&explicitTargets, "target", "repeatable scan target <mode>:<value>")
 	timeout := fs.Duration("timeout", 0, "optional scan timeout (0 disables)")
+	scanModeRaw := fs.String("mode", "governance", "scan mode [quick|governance|deep]")
 	diffMode := fs.Bool("diff", false, "show only changes since previous scan")
 	enrich := fs.Bool("enrich", false, "enable non-deterministic enrichment lookups (network required)")
 	baselinePath := fs.String("baseline", "", "optional fallback baseline when local state is absent")
@@ -90,6 +93,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	if *timeout < 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--timeout must be >= 0", exitInvalidInput)
+	}
+	scanMode, scanModeErr := parseScanMode(*scanModeRaw)
+	if scanModeErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", scanModeErr.Error(), exitInvalidInput)
 	}
 	productionTargetsFile := strings.TrimSpace(*productionTargetsPath)
 	if *productionTargetsStrict && productionTargetsFile == "" {
@@ -197,12 +204,12 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	scopes := detectorScopes(manifestOut)
 	detectorErrors := []detect.DetectorError{}
 	if len(scopes) > 0 {
-		registry, regErr := detectdefaults.Registry()
+		registry, regErr := detectdefaults.RegistryForMode(scanMode)
 		if regErr != nil {
 			return emitScanFailure(regErr)
 		}
 		progress.ScanPhase(progressTargetMode, progressTargetValue, "detectors_start")
-		detected, runErr := registry.Run(ctx, scopes, detect.Options{Enrich: *enrich})
+		detected, runErr := registry.Run(ctx, scopes, detect.Options{Enrich: *enrich, ScanMode: scanMode})
 		if runErr != nil {
 			return emitScanFailure(runErr)
 		}
@@ -228,6 +235,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	previousSnapshot, loadPreviousErr := loadPreviousSnapshot(statePath, strings.TrimSpace(*baselinePath))
 	if loadPreviousErr != nil {
 		return emitScanFailure(loadPreviousErr)
+	}
+	if *diffMode && previousSnapshot != nil && !scanModesCompatible(previousSnapshot.ScanMode, scanMode) {
+		return emitScanError("invalid_input", fmt.Sprintf("--diff requires matching scan modes: previous=%s current=%s", previousSnapshot.ScanMode, scanMode), exitInvalidInput)
 	}
 
 	now := time.Now().UTC().Truncate(time.Second)
@@ -354,6 +364,18 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
 	}
+	scanQuality := scanquality.Build(scanquality.Input{
+		Mode:           scanMode,
+		Scopes:         scopes,
+		Findings:       findings,
+		DetectorErrors: detectorErrors,
+	})
+	controlBacklog := controlbacklog.Build(controlbacklog.Input{
+		Mode:        scanMode,
+		Findings:    findings,
+		Inventory:   &inventoryOut,
+		ActionPaths: riskReport.ActionPaths,
+	})
 
 	weights, weightErr := score.LoadWeights(strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))
 	if weightErr != nil {
@@ -377,16 +399,19 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 
 	snapshot := state.Snapshot{
-		Version:      state.SnapshotVersion,
-		Target:       manifestOut.Target,
-		Targets:      manifestOut.Targets,
-		Findings:     findings,
-		Inventory:    &inventoryOut,
-		RiskReport:   &riskReport,
-		Profile:      &profileResult,
-		PostureScore: &postureScore,
-		Identities:   nextManifest.Identities,
-		Transitions:  transitions,
+		Version:        state.SnapshotVersion,
+		Target:         manifestOut.Target,
+		Targets:        manifestOut.Targets,
+		Findings:       findings,
+		Inventory:      &inventoryOut,
+		ControlBacklog: &controlBacklog,
+		ScanQuality:    &scanQuality,
+		ScanMode:       scanMode,
+		RiskReport:     &riskReport,
+		Profile:        &profileResult,
+		PostureScore:   &postureScore,
+		Identities:     nextManifest.Identities,
+		Transitions:    transitions,
 	}
 	chainPath := artifactPreflight.LifecyclePath
 	proofChainPath := artifactPreflight.ProofChainPath
@@ -472,6 +497,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		"status":          "ok",
 		"target":          manifestOut.Target,
 		"source_manifest": manifestOut,
+		"scan_mode":       scanMode,
+		"scan_quality":    scanQuality,
 	}
 	if len(manifestOut.Targets) > 0 {
 		payload["targets"] = manifestOut.Targets
@@ -503,6 +530,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		payload["diff_empty"] = diff.Empty(result)
 	} else {
 		payload["findings"] = findings
+		payload["control_backlog"] = controlBacklog
 		payload["ranked_findings"] = riskReport.Ranked
 		payload["top_findings"] = riskReport.TopN
 		payload["attack_paths"] = riskReport.AttackPaths
@@ -833,6 +861,25 @@ func scanRateLimitedMessage(err error) string {
 		return ""
 	}
 	return err.Error() + "; authenticate hosted scans with --github-token, config auth.scan.token, WRKR_GITHUB_TOKEN, or GITHUB_TOKEN; wait for the reported GitHub reset window before retrying"
+}
+
+func parseScanMode(raw string) (string, error) {
+	switch strings.TrimSpace(raw) {
+	case "", "governance":
+		return "governance", nil
+	case "quick":
+		return "quick", nil
+	case "deep":
+		return "deep", nil
+	default:
+		return "", fmt.Errorf("--mode must be one of quick, governance, or deep")
+	}
+}
+
+func scanModesCompatible(previous, current string) bool {
+	previous = strings.TrimSpace(previous)
+	current = strings.TrimSpace(current)
+	return previous == "" || previous == current
 }
 
 func hasIncompleteFilesystemVisibility(detectorErrors []detect.DetectorError, sourceFailures []source.RepoFailure) bool {

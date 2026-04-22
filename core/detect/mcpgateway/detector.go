@@ -75,7 +75,7 @@ func New() Detector { return Detector{} }
 
 func (Detector) ID() string { return detectorID }
 
-func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) ([]model.Finding, error) {
+func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		return nil, nil
 	}
 
-	policy, parseErrors, err := LoadPolicy(scope.Root)
+	policy, parseErrors, err := LoadPolicyWithOptions(scope.Root, options)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		})
 	}
 
-	declarations, declErr := discoverDeclarations(scope.Root)
+	declarations, declErr := discoverDeclarationsWithOptions(scope.Root, options)
 	if declErr != nil {
 		return nil, declErr
 	}
@@ -151,7 +151,11 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 
 // LoadPolicy parses all recognized gateway config files in root and returns one normalized policy.
 func LoadPolicy(root string) (Policy, []fileParseError, error) {
-	files, err := detect.WalkFiles(root)
+	return LoadPolicyWithOptions(root, detect.Options{})
+}
+
+func LoadPolicyWithOptions(root string, options detect.Options) (Policy, []fileParseError, error) {
+	files, err := detect.WalkFilesWithOptions(root, options)
 	if err != nil {
 		return Policy{}, nil, err
 	}
@@ -270,8 +274,8 @@ func EvaluateCoverage(policy Policy, declarationName string) Result {
 	}
 }
 
-func discoverDeclarations(root string) ([]declaration, error) {
-	files, err := detect.WalkFiles(root)
+func discoverDeclarationsWithOptions(root string, options detect.Options) ([]declaration, error) {
+	files, err := detect.WalkFilesWithOptions(root, options)
 	if err != nil {
 		return nil, err
 	}
