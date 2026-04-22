@@ -474,6 +474,85 @@ func TestApplySecurityVisibilityDoesNotBorrowApprovalAcrossOrgs(t *testing.T) {
 	}
 }
 
+func TestGovernanceSecurityVisibilityMapsApprovalStates(t *testing.T) {
+	t.Parallel()
+
+	if got := GovernanceSecurityVisibilityStatus(SecurityVisibilityApproved, "valid", identity.StateActive); got != SecurityVisibilityKnownApproved {
+		t.Fatalf("expected known_approved, got %q", got)
+	}
+	if got := GovernanceSecurityVisibilityStatus(SecurityVisibilityApproved, "expired", identity.StateUnderReview); got != SecurityVisibilityNeedsReview {
+		t.Fatalf("expected needs_review, got %q", got)
+	}
+	if got := GovernanceSecurityVisibilityStatus(SecurityVisibilityKnownUnapproved, "missing", identity.StateRevoked); got != SecurityVisibilityRevoked {
+		t.Fatalf("expected revoked, got %q", got)
+	}
+}
+
+func TestDeriveWritePathClassesAndGovernanceControls(t *testing.T) {
+	t.Parallel()
+
+	classes := DeriveWritePathClasses(
+		[]string{"pull_request.write", "secret.read", "package.write"},
+		true,
+		true,
+		false,
+		false,
+		true,
+		false,
+		".github/workflows/release.yml",
+		"ci_agent",
+	)
+	for _, want := range []string{WritePathPullRequestWrite, WritePathPackagePublish, WritePathSecretBearingExec, WritePathReleaseWrite} {
+		if !containsString(classes, want) {
+			t.Fatalf("expected write-path class %q in %v", want, classes)
+		}
+	}
+	controls := BuildGovernanceControls(GovernanceControlInput{
+		Owner:                    "@acme/app",
+		OwnershipStatus:          "explicit",
+		ApprovalStatus:           "missing",
+		SecurityVisibilityStatus: SecurityVisibilityUnknownToSecurity,
+		WritePathClasses:         classes,
+		CredentialAccess:         true,
+		EvidenceBasis:            []string{"workflow_permission"},
+	})
+	if !hasControlStatus(controls, GovernanceControlApproval, ControlStatusGap) {
+		t.Fatalf("expected approval gap control, got %+v", controls)
+	}
+	if !hasControlStatus(controls, GovernanceControlOwnerAssigned, ControlStatusSatisfied) {
+		t.Fatalf("expected owner control satisfied, got %+v", controls)
+	}
+}
+
+func TestToolGovernanceControlsDoNotBorrowGlobalProductionConfiguration(t *testing.T) {
+	t.Parallel()
+
+	inv := Inventory{
+		PrivilegeBudget: PrivilegeBudget{
+			ProductionWrite: ProductionWriteBudget{Configured: true, Status: ProductionTargetsStatusConfigured},
+		},
+		Tools: []Tool{{
+			ToolID:                   "wrkr:ci:.github/workflows/release.yml",
+			ToolType:                 "ci_agent",
+			ApprovalStatus:           "missing",
+			ApprovalClass:            "unapproved",
+			SecurityVisibilityStatus: SecurityVisibilityUnknownToSecurity,
+			WritePathClasses:         []string{WritePathDeployWrite},
+			Locations: []ToolLocation{{
+				Repo:            "acme/app",
+				Location:        ".github/workflows/release.yml",
+				Owner:           "@acme/app",
+				OwnershipStatus: "explicit",
+			}},
+		}},
+	}
+
+	ApplySecurityVisibility(&inv, SecurityVisibilityReference{ReferenceBasis: "baseline_snapshot"})
+	if !hasControlStatus(inv.Tools[0].GovernanceControls, GovernanceControlProduction, ControlStatusGap) {
+		t.Fatalf("expected per-tool production classification gap despite global production config, got %+v", inv.Tools[0].GovernanceControls)
+	}
+}
+
 func TestInventoryBuildAddsNonHumanIdentitiesAdditively(t *testing.T) {
 	t.Parallel()
 
@@ -515,4 +594,22 @@ func TestInventoryBuildAddsNonHumanIdentitiesAdditively(t *testing.T) {
 	if len(inv.NonHumanIdentities) != 1 || inv.NonHumanIdentities[0].IdentityType != "github_app" {
 		t.Fatalf("expected additive non-human identity inventory, got %+v", inv.NonHumanIdentities)
 	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+func hasControlStatus(values []GovernanceControlMapping, control string, status string) bool {
+	for _, value := range values {
+		if value.Control == control && value.Status == status {
+			return true
+		}
+	}
+	return false
 }

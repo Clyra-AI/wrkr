@@ -57,29 +57,31 @@ type AgentDeploymentContext struct {
 }
 
 type Tool struct {
-	ToolID                   string             `json:"tool_id" yaml:"tool_id"`
-	AgentID                  string             `json:"agent_id" yaml:"agent_id"`
-	DiscoveryMethod          string             `json:"discovery_method" yaml:"discovery_method"`
-	ToolType                 string             `json:"tool_type" yaml:"tool_type"`
-	ToolCategory             string             `json:"tool_category" yaml:"tool_category"`
-	ConfidenceScore          float64            `json:"confidence_score" yaml:"confidence_score"`
-	Org                      string             `json:"org" yaml:"org"`
-	Repos                    []string           `json:"repos" yaml:"repos"`
-	Locations                []ToolLocation     `json:"locations" yaml:"locations"`
-	Permissions              []string           `json:"permissions,omitempty" yaml:"permissions,omitempty"`
-	PermissionSurface        PermissionSurface  `json:"permission_surface" yaml:"permission_surface"`
-	PermissionTier           string             `json:"permission_tier" yaml:"permission_tier"`
-	RiskTier                 string             `json:"risk_tier" yaml:"risk_tier"`
-	AdoptionPattern          string             `json:"adoption_pattern" yaml:"adoption_pattern"`
-	RegulatoryMapping        []RegulatoryStatus `json:"regulatory_mapping" yaml:"regulatory_mapping"`
-	EndpointClass            string             `json:"endpoint_class" yaml:"endpoint_class"`
-	DataClass                string             `json:"data_class" yaml:"data_class"`
-	AutonomyLevel            string             `json:"autonomy_level" yaml:"autonomy_level"`
-	RiskScore                float64            `json:"risk_score" yaml:"risk_score"`
-	ApprovalStatus           string             `json:"approval_status" yaml:"approval_status"`
-	ApprovalClass            string             `json:"approval_classification" yaml:"approval_classification"`
-	SecurityVisibilityStatus string             `json:"security_visibility_status,omitempty" yaml:"security_visibility_status,omitempty"`
-	LifecycleState           string             `json:"lifecycle_state" yaml:"lifecycle_state"`
+	ToolID                   string                     `json:"tool_id" yaml:"tool_id"`
+	AgentID                  string                     `json:"agent_id" yaml:"agent_id"`
+	DiscoveryMethod          string                     `json:"discovery_method" yaml:"discovery_method"`
+	ToolType                 string                     `json:"tool_type" yaml:"tool_type"`
+	ToolCategory             string                     `json:"tool_category" yaml:"tool_category"`
+	ConfidenceScore          float64                    `json:"confidence_score" yaml:"confidence_score"`
+	Org                      string                     `json:"org" yaml:"org"`
+	Repos                    []string                   `json:"repos" yaml:"repos"`
+	Locations                []ToolLocation             `json:"locations" yaml:"locations"`
+	Permissions              []string                   `json:"permissions,omitempty" yaml:"permissions,omitempty"`
+	WritePathClasses         []string                   `json:"write_path_classes,omitempty" yaml:"write_path_classes,omitempty"`
+	GovernanceControls       []GovernanceControlMapping `json:"governance_controls,omitempty" yaml:"governance_controls,omitempty"`
+	PermissionSurface        PermissionSurface          `json:"permission_surface" yaml:"permission_surface"`
+	PermissionTier           string                     `json:"permission_tier" yaml:"permission_tier"`
+	RiskTier                 string                     `json:"risk_tier" yaml:"risk_tier"`
+	AdoptionPattern          string                     `json:"adoption_pattern" yaml:"adoption_pattern"`
+	RegulatoryMapping        []RegulatoryStatus         `json:"regulatory_mapping" yaml:"regulatory_mapping"`
+	EndpointClass            string                     `json:"endpoint_class" yaml:"endpoint_class"`
+	DataClass                string                     `json:"data_class" yaml:"data_class"`
+	AutonomyLevel            string                     `json:"autonomy_level" yaml:"autonomy_level"`
+	RiskScore                float64                    `json:"risk_score" yaml:"risk_score"`
+	ApprovalStatus           string                     `json:"approval_status" yaml:"approval_status"`
+	ApprovalClass            string                     `json:"approval_classification" yaml:"approval_classification"`
+	SecurityVisibilityStatus string                     `json:"security_visibility_status,omitempty" yaml:"security_visibility_status,omitempty"`
+	LifecycleState           string                     `json:"lifecycle_state" yaml:"lifecycle_state"`
 }
 
 type PermissionSurface struct {
@@ -143,17 +145,30 @@ type Inventory struct {
 
 const (
 	SecurityVisibilityApproved          = "approved"
+	SecurityVisibilityKnownApproved     = "known_approved"
 	SecurityVisibilityKnownUnapproved   = "known_unapproved"
 	SecurityVisibilityUnknownToSecurity = "unknown_to_security"
+	SecurityVisibilityAcceptedRisk      = "accepted_risk"
+	SecurityVisibilityDeprecated        = "deprecated"
+	SecurityVisibilityRevoked           = "revoked"
+	SecurityVisibilityNeedsReview       = "needs_review"
 )
 
 type SecurityVisibilitySummary struct {
 	ReferenceBasis                      string `json:"reference_basis" yaml:"reference_basis"`
 	ReferencePath                       string `json:"reference_path,omitempty" yaml:"reference_path,omitempty"`
 	ApprovedTools                       int    `json:"approved_tools" yaml:"approved_tools"`
+	AcceptedRiskTools                   int    `json:"accepted_risk_tools,omitempty" yaml:"accepted_risk_tools,omitempty"`
+	DeprecatedTools                     int    `json:"deprecated_tools,omitempty" yaml:"deprecated_tools,omitempty"`
+	RevokedTools                        int    `json:"revoked_tools,omitempty" yaml:"revoked_tools,omitempty"`
+	NeedsReviewTools                    int    `json:"needs_review_tools,omitempty" yaml:"needs_review_tools,omitempty"`
 	KnownUnapprovedTools                int    `json:"known_unapproved_tools" yaml:"known_unapproved_tools"`
 	UnknownToSecurityTools              int    `json:"unknown_to_security_tools" yaml:"unknown_to_security_tools"`
 	ApprovedAgents                      int    `json:"approved_agents" yaml:"approved_agents"`
+	AcceptedRiskAgents                  int    `json:"accepted_risk_agents,omitempty" yaml:"accepted_risk_agents,omitempty"`
+	DeprecatedAgents                    int    `json:"deprecated_agents,omitempty" yaml:"deprecated_agents,omitempty"`
+	RevokedAgents                       int    `json:"revoked_agents,omitempty" yaml:"revoked_agents,omitempty"`
+	NeedsReviewAgents                   int    `json:"needs_review_agents,omitempty" yaml:"needs_review_agents,omitempty"`
 	KnownUnapprovedAgents               int    `json:"known_unapproved_agents" yaml:"known_unapproved_agents"`
 	UnknownToSecurityAgents             int    `json:"unknown_to_security_agents" yaml:"unknown_to_security_agents"`
 	UnknownToSecurityWriteCapableAgents int    `json:"unknown_to_security_write_capable_agents" yaml:"unknown_to_security_write_capable_agents"`
@@ -369,6 +384,17 @@ func Build(input BuildInput) Inventory {
 		item.tool.Permissions = sortedSet(item.permissionSet)
 		item.tool.ApprovalClass = classifyApproval(item.tool.ApprovalStatus, item.tool.LifecycleState)
 		item.tool.PermissionSurface = derivePermissionSurface(item.tool.Permissions)
+		item.tool.WritePathClasses = DeriveWritePathClasses(
+			item.tool.Permissions,
+			item.tool.PermissionSurface.Write,
+			hasPermission(item.tool.Permissions, "pull_request.write"),
+			hasPermission(item.tool.Permissions, "merge.execute"),
+			hasPermission(item.tool.Permissions, "deploy.write"),
+			hasCredentialAccessForSurface(item.tool.DataClass, item.tool.Permissions, nil),
+			false,
+			primaryToolLocation(item.tool),
+			item.tool.ToolType,
+		)
 		item.tool.PermissionTier = classifyPermissionTier(item.tool.PermissionSurface)
 		item.tool.RiskTier = projectRiskTier(item.tool.PermissionTier, item.tool.RiskScore, item.tool.AutonomyLevel, item.tool.ApprovalClass)
 		item.tool.AdoptionPattern = classifyAdoptionPattern(item.tool.Repos, item.tool.Locations)
@@ -564,8 +590,16 @@ func ApplySecurityVisibility(inv *Inventory, ref SecurityVisibilityReference) {
 	}
 	for _, agent := range inv.Agents {
 		switch strings.TrimSpace(agent.SecurityVisibilityStatus) {
-		case SecurityVisibilityApproved:
+		case SecurityVisibilityApproved, SecurityVisibilityKnownApproved:
 			summary.ApprovedAgents++
+		case SecurityVisibilityAcceptedRisk:
+			summary.AcceptedRiskAgents++
+		case SecurityVisibilityDeprecated:
+			summary.DeprecatedAgents++
+		case SecurityVisibilityRevoked:
+			summary.RevokedAgents++
+		case SecurityVisibilityNeedsReview:
+			summary.NeedsReviewAgents++
 		case SecurityVisibilityKnownUnapproved:
 			summary.KnownUnapprovedAgents++
 		default:
@@ -574,13 +608,35 @@ func ApplySecurityVisibility(inv *Inventory, ref SecurityVisibilityReference) {
 	}
 	for _, tool := range inv.Tools {
 		switch strings.TrimSpace(tool.SecurityVisibilityStatus) {
-		case SecurityVisibilityApproved:
+		case SecurityVisibilityApproved, SecurityVisibilityKnownApproved:
 			summary.ApprovedTools++
+		case SecurityVisibilityAcceptedRisk:
+			summary.AcceptedRiskTools++
+		case SecurityVisibilityDeprecated:
+			summary.DeprecatedTools++
+		case SecurityVisibilityRevoked:
+			summary.RevokedTools++
+		case SecurityVisibilityNeedsReview:
+			summary.NeedsReviewTools++
 		case SecurityVisibilityKnownUnapproved:
 			summary.KnownUnapprovedTools++
 		default:
 			summary.UnknownToSecurityTools++
 		}
+	}
+	for idx := range inv.Tools {
+		owner, ownerStatus := primaryToolOwner(inv.Tools[idx])
+		inv.Tools[idx].GovernanceControls = BuildGovernanceControls(GovernanceControlInput{
+			Owner:                    owner,
+			OwnershipStatus:          ownerStatus,
+			ApprovalStatus:           inv.Tools[idx].ApprovalStatus,
+			ApprovalClassification:   inv.Tools[idx].ApprovalClass,
+			LifecycleState:           inv.Tools[idx].LifecycleState,
+			SecurityVisibilityStatus: inv.Tools[idx].SecurityVisibilityStatus,
+			WritePathClasses:         inv.Tools[idx].WritePathClasses,
+			CredentialAccess:         hasCredentialAccess(inv.Tools[idx]),
+			EvidenceBasis:            inv.Tools[idx].Permissions,
+		})
 	}
 	inv.SecurityVisibility = summary
 }
@@ -599,6 +655,19 @@ func ApplySecurityVisibilityToPrivilegeMap(inv *Inventory) {
 			status = strings.TrimSpace(inv.AgentPrivilegeMap[idx].ApprovalClassification)
 		}
 		inv.AgentPrivilegeMap[idx].SecurityVisibilityStatus = normalizeSecurityVisibilityStatus(status)
+		inv.AgentPrivilegeMap[idx].GovernanceControls = BuildGovernanceControls(GovernanceControlInput{
+			Owner:                    inv.AgentPrivilegeMap[idx].OperationalOwner,
+			OwnershipStatus:          inv.AgentPrivilegeMap[idx].OwnershipStatus,
+			ApprovalClassification:   inv.AgentPrivilegeMap[idx].ApprovalClassification,
+			SecurityVisibilityStatus: inv.AgentPrivilegeMap[idx].SecurityVisibilityStatus,
+			DeploymentGate:           deploymentGateFromEvidence(inv.AgentPrivilegeMap[idx].DeploymentEvidenceKeys),
+			ProofRequirement:         proofRequirementFromEvidence(inv.AgentPrivilegeMap[idx].DeploymentEvidenceKeys),
+			ProductionTargetStatus:   inv.AgentPrivilegeMap[idx].ProductionTargetStatus,
+			WritePathClasses:         inv.AgentPrivilegeMap[idx].WritePathClasses,
+			CredentialAccess:         inv.AgentPrivilegeMap[idx].CredentialAccess,
+			ProductionWrite:          inv.AgentPrivilegeMap[idx].ProductionWrite,
+			EvidenceBasis:            append(append([]string(nil), inv.AgentPrivilegeMap[idx].Permissions...), inv.AgentPrivilegeMap[idx].DeploymentEvidenceKeys...),
+		})
 	}
 	inv.SecurityVisibility.UnknownToSecurityWriteCapableAgents = 0
 	for _, entry := range inv.AgentPrivilegeMap {
@@ -623,6 +692,18 @@ func securityVisibilityForAgent(agent Agent, tools []Tool, ref SecurityVisibilit
 }
 
 func securityVisibilityForTool(tool Tool, agentStatuses []string, ref SecurityVisibilityReference) string {
+	switch strings.TrimSpace(tool.LifecycleState) {
+	case "revoked":
+		return SecurityVisibilityRevoked
+	case "deprecated":
+		return SecurityVisibilityDeprecated
+	}
+	switch strings.TrimSpace(tool.ApprovalStatus) {
+	case "expired", "invalid":
+		return SecurityVisibilityNeedsReview
+	case "accepted_risk", "risk_accepted":
+		return SecurityVisibilityAcceptedRisk
+	}
 	if strings.TrimSpace(tool.ApprovalClass) == "approved" {
 		return SecurityVisibilityApproved
 	}
@@ -656,6 +737,14 @@ func rollupSecurityVisibility(statuses []string) string {
 		switch normalizeSecurityVisibilityStatus(status) {
 		case SecurityVisibilityUnknownToSecurity:
 			return SecurityVisibilityUnknownToSecurity
+		case SecurityVisibilityRevoked:
+			return SecurityVisibilityRevoked
+		case SecurityVisibilityDeprecated:
+			return SecurityVisibilityDeprecated
+		case SecurityVisibilityNeedsReview:
+			return SecurityVisibilityNeedsReview
+		case SecurityVisibilityAcceptedRisk:
+			best = SecurityVisibilityAcceptedRisk
 		case SecurityVisibilityKnownUnapproved:
 			best = SecurityVisibilityKnownUnapproved
 		}
@@ -665,10 +754,18 @@ func rollupSecurityVisibility(statuses []string) string {
 
 func normalizeSecurityVisibilityStatus(value string) string {
 	switch strings.TrimSpace(value) {
-	case SecurityVisibilityApproved:
+	case SecurityVisibilityApproved, SecurityVisibilityKnownApproved:
 		return SecurityVisibilityApproved
 	case SecurityVisibilityKnownUnapproved:
 		return SecurityVisibilityKnownUnapproved
+	case SecurityVisibilityAcceptedRisk:
+		return SecurityVisibilityAcceptedRisk
+	case SecurityVisibilityDeprecated:
+		return SecurityVisibilityDeprecated
+	case SecurityVisibilityRevoked:
+		return SecurityVisibilityRevoked
+	case SecurityVisibilityNeedsReview:
+		return SecurityVisibilityNeedsReview
 	default:
 		return SecurityVisibilityUnknownToSecurity
 	}
@@ -738,6 +835,70 @@ func derivePermissionSurface(permissions []string) PermissionSurface {
 		}
 	}
 	return surface
+}
+
+func hasPermission(permissions []string, want string) bool {
+	want = strings.ToLower(strings.TrimSpace(want))
+	for _, permission := range permissions {
+		if strings.ToLower(strings.TrimSpace(permission)) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func primaryToolLocation(tool Tool) string {
+	if len(tool.Locations) == 0 {
+		return ""
+	}
+	locations := append([]ToolLocation(nil), tool.Locations...)
+	sort.Slice(locations, func(i, j int) bool {
+		if locations[i].Repo != locations[j].Repo {
+			return locations[i].Repo < locations[j].Repo
+		}
+		return locations[i].Location < locations[j].Location
+	})
+	return strings.TrimSpace(locations[0].Location)
+}
+
+func primaryToolOwner(tool Tool) (string, string) {
+	if len(tool.Locations) == 0 {
+		return "", ""
+	}
+	locations := append([]ToolLocation(nil), tool.Locations...)
+	sort.Slice(locations, func(i, j int) bool {
+		if locations[i].OwnershipStatus != locations[j].OwnershipStatus {
+			return locations[i].OwnershipStatus < locations[j].OwnershipStatus
+		}
+		if locations[i].OwnerSource != locations[j].OwnerSource {
+			return locations[i].OwnerSource < locations[j].OwnerSource
+		}
+		return locations[i].Owner < locations[j].Owner
+	})
+	return strings.TrimSpace(locations[0].Owner), strings.TrimSpace(locations[0].OwnershipStatus)
+}
+
+func deploymentGateFromEvidence(values []string) string {
+	for _, value := range values {
+		normalized := strings.ToLower(strings.TrimSpace(value))
+		if strings.Contains(normalized, "deployment_gate:approved") || normalized == "deployment_gate.approved" {
+			return "approved"
+		}
+	}
+	return ""
+}
+
+func proofRequirementFromEvidence(values []string) string {
+	for _, value := range values {
+		normalized := strings.ToLower(strings.TrimSpace(value))
+		switch {
+		case strings.Contains(normalized, "proof_requirement:evidence"), strings.Contains(normalized, "wrkr evidence"):
+			return "evidence"
+		case strings.Contains(normalized, "proof_requirement:attestation"), strings.Contains(normalized, "attestation"):
+			return "attestation"
+		}
+	}
+	return ""
 }
 
 func classifyPermissionTier(surface PermissionSurface) string {

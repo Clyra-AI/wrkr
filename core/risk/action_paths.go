@@ -24,40 +24,42 @@ type ActionPathSummary struct {
 }
 
 type ActionPath struct {
-	PathID                     string   `json:"path_id"`
-	Org                        string   `json:"org"`
-	Repo                       string   `json:"repo"`
-	AgentID                    string   `json:"agent_id,omitempty"`
-	ToolType                   string   `json:"tool_type"`
-	Location                   string   `json:"location,omitempty"`
-	WriteCapable               bool     `json:"write_capable"`
-	OperationalOwner           string   `json:"operational_owner,omitempty"`
-	OwnerSource                string   `json:"owner_source,omitempty"`
-	OwnershipStatus            string   `json:"ownership_status,omitempty"`
-	ApprovalGapReasons         []string `json:"approval_gap_reasons,omitempty"`
-	PullRequestWrite           bool     `json:"pull_request_write,omitempty"`
-	MergeExecute               bool     `json:"merge_execute,omitempty"`
-	DeployWrite                bool     `json:"deploy_write,omitempty"`
-	DeliveryChainStatus        string   `json:"delivery_chain_status,omitempty"`
-	ProductionTargetStatus     string   `json:"production_target_status,omitempty"`
-	ProductionWrite            bool     `json:"production_write"`
-	ApprovalGap                bool     `json:"approval_gap"`
-	SecurityVisibilityStatus   string   `json:"security_visibility_status,omitempty"`
-	CredentialAccess           bool     `json:"credential_access"`
-	DeploymentStatus           string   `json:"deployment_status,omitempty"`
-	WorkflowTriggerClass       string   `json:"workflow_trigger_class,omitempty"`
-	ExecutionIdentity          string   `json:"execution_identity,omitempty"`
-	ExecutionIdentityType      string   `json:"execution_identity_type,omitempty"`
-	ExecutionIdentitySource    string   `json:"execution_identity_source,omitempty"`
-	ExecutionIdentityStatus    string   `json:"execution_identity_status,omitempty"`
-	ExecutionIdentityRationale string   `json:"execution_identity_rationale,omitempty"`
-	BusinessStateSurface       string   `json:"business_state_surface,omitempty"`
-	SharedExecutionIdentity    bool     `json:"shared_execution_identity,omitempty"`
-	StandingPrivilege          bool     `json:"standing_privilege,omitempty"`
-	AttackPathScore            float64  `json:"attack_path_score"`
-	RiskScore                  float64  `json:"risk_score"`
-	RecommendedAction          string   `json:"recommended_action"`
-	MatchedProductionTargets   []string `json:"matched_production_targets,omitempty"`
+	PathID                     string                                  `json:"path_id"`
+	Org                        string                                  `json:"org"`
+	Repo                       string                                  `json:"repo"`
+	AgentID                    string                                  `json:"agent_id,omitempty"`
+	ToolType                   string                                  `json:"tool_type"`
+	Location                   string                                  `json:"location,omitempty"`
+	WriteCapable               bool                                    `json:"write_capable"`
+	OperationalOwner           string                                  `json:"operational_owner,omitempty"`
+	OwnerSource                string                                  `json:"owner_source,omitempty"`
+	OwnershipStatus            string                                  `json:"ownership_status,omitempty"`
+	ApprovalGapReasons         []string                                `json:"approval_gap_reasons,omitempty"`
+	WritePathClasses           []string                                `json:"write_path_classes,omitempty"`
+	PullRequestWrite           bool                                    `json:"pull_request_write,omitempty"`
+	MergeExecute               bool                                    `json:"merge_execute,omitempty"`
+	DeployWrite                bool                                    `json:"deploy_write,omitempty"`
+	DeliveryChainStatus        string                                  `json:"delivery_chain_status,omitempty"`
+	ProductionTargetStatus     string                                  `json:"production_target_status,omitempty"`
+	ProductionWrite            bool                                    `json:"production_write"`
+	ApprovalGap                bool                                    `json:"approval_gap"`
+	SecurityVisibilityStatus   string                                  `json:"security_visibility_status,omitempty"`
+	CredentialAccess           bool                                    `json:"credential_access"`
+	DeploymentStatus           string                                  `json:"deployment_status,omitempty"`
+	WorkflowTriggerClass       string                                  `json:"workflow_trigger_class,omitempty"`
+	ExecutionIdentity          string                                  `json:"execution_identity,omitempty"`
+	ExecutionIdentityType      string                                  `json:"execution_identity_type,omitempty"`
+	ExecutionIdentitySource    string                                  `json:"execution_identity_source,omitempty"`
+	ExecutionIdentityStatus    string                                  `json:"execution_identity_status,omitempty"`
+	ExecutionIdentityRationale string                                  `json:"execution_identity_rationale,omitempty"`
+	BusinessStateSurface       string                                  `json:"business_state_surface,omitempty"`
+	SharedExecutionIdentity    bool                                    `json:"shared_execution_identity,omitempty"`
+	StandingPrivilege          bool                                    `json:"standing_privilege,omitempty"`
+	AttackPathScore            float64                                 `json:"attack_path_score"`
+	RiskScore                  float64                                 `json:"risk_score"`
+	RecommendedAction          string                                  `json:"recommended_action"`
+	MatchedProductionTargets   []string                                `json:"matched_production_targets,omitempty"`
+	GovernanceControls         []agginventory.GovernanceControlMapping `json:"governance_controls,omitempty"`
 }
 
 type ActionPathToControlFirst struct {
@@ -158,6 +160,7 @@ func buildActionPath(
 		OwnerSource:                strings.TrimSpace(entry.OwnerSource),
 		OwnershipStatus:            strings.TrimSpace(entry.OwnershipStatus),
 		ApprovalGapReasons:         dedupeSortedStrings(entry.ApprovalGapReasons),
+		WritePathClasses:           dedupeSortedStrings(entry.WritePathClasses),
 		PullRequestWrite:           entry.PullRequestWrite,
 		MergeExecute:               entry.MergeExecute,
 		DeployWrite:                entry.DeployWrite,
@@ -178,6 +181,7 @@ func buildActionPath(
 		AttackPathScore:            attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
 		RiskScore:                  entry.RiskScore,
 		MatchedProductionTargets:   dedupeSortedStrings(entry.MatchedProductionTargets),
+		GovernanceControls:         append([]agginventory.GovernanceControlMapping(nil), entry.GovernanceControls...),
 	}
 	path.RecommendedAction = recommendedActionForPath(path)
 	return path
@@ -324,6 +328,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.AttackPathScore = maxFloat64(current.AttackPathScore, incoming.AttackPathScore)
 	merged.RiskScore = maxFloat64(current.RiskScore, incoming.RiskScore)
 	merged.ApprovalGapReasons = dedupeSortedStrings(append(append([]string(nil), current.ApprovalGapReasons...), incoming.ApprovalGapReasons...))
+	merged.WritePathClasses = dedupeSortedStrings(append(append([]string(nil), current.WritePathClasses...), incoming.WritePathClasses...))
 	merged.MatchedProductionTargets = dedupeSortedStrings(append(append([]string(nil), current.MatchedProductionTargets...), incoming.MatchedProductionTargets...))
 	merged.ProductionTargetStatus = mergeProductionTargetStatus(current.ProductionTargetStatus, incoming.ProductionTargetStatus)
 	merged.SecurityVisibilityStatus = mergeSecurityVisibilityStatus(current.SecurityVisibilityStatus, incoming.SecurityVisibilityStatus)
@@ -332,6 +337,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.OperationalOwner, merged.OwnerSource, merged.OwnershipStatus = mergeOperationalOwner(current, incoming)
 	merged.ExecutionIdentity, merged.ExecutionIdentityType, merged.ExecutionIdentitySource, merged.ExecutionIdentityStatus, merged.ExecutionIdentityRationale = mergeExecutionIdentity(current, incoming)
 	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
+	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
 	merged.RecommendedAction = recommendedActionForPath(merged)
 	return merged
 }
@@ -516,14 +522,22 @@ func securityVisibilityPriority(status string) int {
 	switch strings.TrimSpace(status) {
 	case agginventory.SecurityVisibilityUnknownToSecurity:
 		return 0
-	case agginventory.SecurityVisibilityKnownUnapproved:
+	case agginventory.SecurityVisibilityRevoked:
 		return 1
-	case agginventory.SecurityVisibilityApproved:
+	case agginventory.SecurityVisibilityDeprecated:
 		return 2
-	case "":
+	case agginventory.SecurityVisibilityNeedsReview:
 		return 3
-	default:
+	case agginventory.SecurityVisibilityAcceptedRisk:
 		return 4
+	case agginventory.SecurityVisibilityKnownUnapproved:
+		return 5
+	case agginventory.SecurityVisibilityApproved, agginventory.SecurityVisibilityKnownApproved:
+		return 6
+	case "":
+		return 7
+	default:
+		return 8
 	}
 }
 
@@ -739,6 +753,49 @@ func correlateExecutionIdentity(entry agginventory.AgentPrivilegeMapEntry, ident
 		}
 	}
 	return "", "ambiguous", "", "ambiguous", fmt.Sprintf("%d non-human identity candidates matched this path", len(unique))
+}
+
+func mergeGovernanceControls(current, incoming []agginventory.GovernanceControlMapping) []agginventory.GovernanceControlMapping {
+	byControl := map[string]agginventory.GovernanceControlMapping{}
+	for _, item := range append(append([]agginventory.GovernanceControlMapping(nil), current...), incoming...) {
+		control := strings.TrimSpace(item.Control)
+		if control == "" {
+			continue
+		}
+		existing, ok := byControl[control]
+		if !ok || governanceControlStatusPriority(item.Status) < governanceControlStatusPriority(existing.Status) {
+			item.Evidence = dedupeSortedStrings(item.Evidence)
+			item.Gaps = dedupeSortedStrings(item.Gaps)
+			byControl[control] = item
+			continue
+		}
+		if governanceControlStatusPriority(item.Status) == governanceControlStatusPriority(existing.Status) {
+			existing.Evidence = dedupeSortedStrings(append(existing.Evidence, item.Evidence...))
+			existing.Gaps = dedupeSortedStrings(append(existing.Gaps, item.Gaps...))
+			byControl[control] = existing
+		}
+	}
+	out := make([]agginventory.GovernanceControlMapping, 0, len(byControl))
+	for _, item := range byControl {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Control < out[j].Control
+	})
+	return out
+}
+
+func governanceControlStatusPriority(status string) int {
+	switch strings.TrimSpace(status) {
+	case agginventory.ControlStatusGap:
+		return 0
+	case agginventory.ControlStatusSatisfied:
+		return 1
+	case agginventory.ControlStatusNotApplicable:
+		return 2
+	default:
+		return 3
+	}
 }
 
 func correlateRepoScopedIdentity(matches []agginventory.NonHumanIdentity) (string, string, string, string, string) {

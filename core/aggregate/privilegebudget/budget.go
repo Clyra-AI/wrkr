@@ -88,6 +88,7 @@ func Build(
 			pullRequestWrite := hasExactPermission(tool.Permissions, "pull_request.write")
 			mergeExecute := hasExactPermission(tool.Permissions, "merge.execute")
 			deployWrite := hasExactPermission(tool.Permissions, "deploy.write")
+			writePathClasses := agginventory.DeriveWritePathClasses(tool.Permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, false, primaryLocation(tool), tool.ToolType)
 
 			matchedTargets := []string{}
 			productionWrite := false
@@ -95,6 +96,7 @@ func Build(
 				signal := signalsByAgent[tool.AgentID]
 				matchedTargets = matchedProductionTargets(tool.Repos, signal, *productionRules)
 				productionWrite = len(matchedTargets) > 0
+				writePathClasses = agginventory.DeriveWritePathClasses(tool.Permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite, primaryLocation(tool), tool.ToolType)
 			}
 
 			agentContext := agentContextByID[tool.AgentID]
@@ -114,6 +116,7 @@ func Build(
 				Org:                      tool.Org,
 				Repos:                    cloneStringSlice(tool.Repos),
 				Permissions:              cloneStringSlice(tool.Permissions),
+				WritePathClasses:         writePathClasses,
 				Location:                 primaryLocation(tool),
 				EndpointClass:            tool.EndpointClass,
 				DataClass:                tool.DataClass,
@@ -258,11 +261,13 @@ func buildInstanceEntries(
 		pullRequestWrite := hasExactPermission(permissions, "pull_request.write")
 		mergeExecute := hasExactPermission(permissions, "merge.execute")
 		deployWrite := hasExactPermission(permissions, "deploy.write")
+		writePathClasses := agginventory.DeriveWritePathClasses(permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, false, agent.Location, framework)
 		matchedTargets := []string{}
 		productionWrite := false
 		if productionConfigured && productionRules != nil && writeCapable {
 			matchedTargets = matchedProductionTargets(repos, signals, *productionRules)
 			productionWrite = len(matchedTargets) > 0
+			writePathClasses = agginventory.DeriveWritePathClasses(permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite, agent.Location, framework)
 		}
 
 		deploymentStatus := strings.TrimSpace(agent.DeploymentStatus)
@@ -283,6 +288,7 @@ func buildInstanceEntries(
 			Org:                      org,
 			Repos:                    repos,
 			Permissions:              permissions,
+			WritePathClasses:         writePathClasses,
 			Location:                 strings.TrimSpace(agent.Location),
 			LocationRange:            cloneLocationRange(agent.LocationRange),
 			EndpointClass:            endpointClass,

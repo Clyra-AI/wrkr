@@ -89,6 +89,42 @@ func TestInvalidScanModeJSONErrorEnvelope(t *testing.T) {
 	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
 }
 
+func TestScanExplainLeadsWithTopControlBacklogItems(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := filepath.Join(t.TempDir(), "app")
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".github", "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir workflows: %v", err)
+	}
+	workflow := []byte(`name: release
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: codex --full-auto --approval never
+      - run: gh release create v1.2.3
+`)
+	if err := os.WriteFile(filepath.Join(repoRoot, ".github", "workflows", "release.yml"), workflow, 0o600); err != nil {
+		t.Fatalf("write workflow: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", repoRoot, "--state", filepath.Join(t.TempDir(), "state.json"), "--explain"}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("scan explain failed: %d stderr=%s", code, errOut.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("control backlog:")) {
+		t.Fatalf("expected control backlog explanation, got %s", out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("review #1")) {
+		t.Fatalf("expected top backlog review item, got %s", out.String())
+	}
+}
+
 func TestScanModeGovernanceSuppressesGeneratedPathNoiseAndDeepKeepsDebugEvidence(t *testing.T) {
 	t.Parallel()
 

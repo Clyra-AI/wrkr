@@ -10,10 +10,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Added the versioned control backlog contract for governance-first scan output while preserving existing raw finding JSON surfaces.
 - Added deterministic recommended-action, evidence-quality, confidence, and SLA fields to governance backlog items.
+- Added explicit engineering write-path classification and governance control mappings across scan, inventory, risk, and proof outputs.
 
 ### Changed
 
 - Made governance scan mode the default, added quick/deep scan modes, and moved generated/package noise into a deterministic scan-quality appendix.
+- Changed scan output to lead with a prioritized control backlog while keeping raw findings available for compatibility.
+- Expanded security visibility into governance-native states for approved, unapproved, accepted-risk, deprecated, revoked, and needs-review control paths.
+- Flagged deprecated tool reappearance as deterministic regress drift alongside revoked tool reappearance.
 
 ### Deprecated
 

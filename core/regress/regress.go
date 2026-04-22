@@ -18,17 +18,18 @@ import (
 const BaselineVersion = "v1"
 
 const (
-	ReasonNewUnapprovedTool     = "new_unapproved_tool"
-	ReasonRevokedToolReappeared = "revoked_tool_reappeared"
-	ReasonPermissionExpansion   = "unapproved_permission_expansion"
-	ReasonCriticalAttackPath    = "critical_attack_path_drift"
-	defaultApprovalState        = "missing"
-	defaultLifecycleState       = identity.StateUnderReview
-	criticalAttackPathMinScore  = 8.0
-	attackPathScoreDeltaMin     = 1.0
-	attackPathDriftMinAbsolute  = 2
-	attackPathDriftMinRelative  = 0.25
-	attackPathExampleLimit      = 5
+	ReasonNewUnapprovedTool        = "new_unapproved_tool"
+	ReasonRevokedToolReappeared    = "revoked_tool_reappeared"
+	ReasonDeprecatedToolReappeared = "deprecated_tool_reappeared"
+	ReasonPermissionExpansion      = "unapproved_permission_expansion"
+	ReasonCriticalAttackPath       = "critical_attack_path_drift"
+	defaultApprovalState           = "missing"
+	defaultLifecycleState          = identity.StateUnderReview
+	criticalAttackPathMinScore     = 8.0
+	attackPathScoreDeltaMin        = 1.0
+	attackPathDriftMinAbsolute     = 2
+	attackPathDriftMinRelative     = 0.25
+	attackPathExampleLimit         = 5
 )
 
 type Baseline struct {
@@ -299,6 +300,16 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 				ToolID:          currentTool.ToolID,
 				Org:             currentTool.Org,
 				Message:         "revoked tool reappeared in current scan",
+			})
+		}
+		if strings.TrimSpace(baseTool.Status) == identity.StateDeprecated && !baseTool.Present && currentTool.Present {
+			reasons = append(reasons, Reason{
+				Code:            ReasonDeprecatedToolReappeared,
+				AgentID:         currentTool.AgentID,
+				AgentInstanceID: currentTool.AgentInstanceID,
+				ToolID:          currentTool.ToolID,
+				Org:             currentTool.Org,
+				Message:         "deprecated tool reappeared in current scan",
 			})
 		}
 

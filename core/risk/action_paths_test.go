@@ -48,6 +48,44 @@ func TestBuildActionPathsCorrelatesExecutionIdentity(t *testing.T) {
 	}
 }
 
+func TestBuildActionPathsCarriesWritePathClassesAndControls(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                  "wrkr:ci:acme",
+				Framework:                "ci_agent",
+				Org:                      "acme",
+				Repos:                    []string{"acme/release"},
+				Location:                 ".github/workflows/release.yml",
+				RiskScore:                8.5,
+				WriteCapable:             true,
+				PullRequestWrite:         true,
+				CredentialAccess:         true,
+				WritePathClasses:         []string{agginventory.WritePathPullRequestWrite, agginventory.WritePathSecretBearingExec},
+				ApprovalClassification:   "unapproved",
+				SecurityVisibilityStatus: agginventory.SecurityVisibilityUnknownToSecurity,
+				GovernanceControls: []agginventory.GovernanceControlMapping{{
+					Control: agginventory.GovernanceControlApproval,
+					Status:  agginventory.ControlStatusGap,
+					Gaps:    []string{"approval_evidence_missing"},
+				}},
+			},
+		},
+	})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one action path, got %+v", paths)
+	}
+	if !containsPathClass(paths[0].WritePathClasses, agginventory.WritePathPullRequestWrite) || !containsPathClass(paths[0].WritePathClasses, agginventory.WritePathSecretBearingExec) {
+		t.Fatalf("expected write path classes to carry through, got %+v", paths[0])
+	}
+	if len(paths[0].GovernanceControls) != 1 || paths[0].GovernanceControls[0].Control != agginventory.GovernanceControlApproval {
+		t.Fatalf("expected governance controls to carry through, got %+v", paths[0])
+	}
+}
+
 func TestBuildActionPathsLeavesConflictingExecutionIdentityAmbiguous(t *testing.T) {
 	t.Parallel()
 
@@ -413,4 +451,13 @@ func sliceToSet(values []string) map[string]struct{} {
 		out[value] = struct{}{}
 	}
 	return out
+}
+
+func containsPathClass(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
