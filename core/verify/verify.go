@@ -1,7 +1,6 @@
 package verify
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -135,11 +134,15 @@ func ChainWithPublicKey(path string, publicKey proof.PublicKey) (Result, error) 
 		return Result{}, err
 	}
 	if auth, err := verifyByAttestationPayload(loadedPayload, publicKey); err == nil {
-		verified, verifyErr := verifyAttestedPayloadLinks(loadedPayload.payload, auth.AttestedRecordCount, auth.AttestedHeadHash)
+		loaded, loadErr := parseChainPayload(loadedPayload)
+		if loadErr != nil {
+			return Result{}, loadErr
+		}
+		verified, verifyErr := verifyLoadedChain(loaded.chain)
 		if verifyErr != nil {
 			return Result{}, verifyErr
 		}
-		return applyAuthenticity(verified, auth), nil
+		return applyAuthenticity(validateAttestedVerification(verified, auth), auth), nil
 	} else if !errors.Is(err, errNoChainAttestation) {
 		loaded, loadErr := parseChainPayload(loadedPayload)
 		if loadErr != nil {
@@ -286,114 +289,6 @@ func verifyLoadedChain(chain *proof.Chain) (Result, error) {
 		return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain: %w", err))
 	}
 	return resultFromVerification(verified), nil
-}
-
-func verifyAttestedPayloadLinks(payload []byte, attestedRecordCount int, attestedHeadHash string) (Result, error) {
-	if !json.Valid(payload) {
-		return Result{}, classifyError(ErrorCodeParseChain, fmt.Errorf("parse chain: invalid JSON"))
-	}
-	verified := &proof.ChainVerification{
-		Intact:   true,
-		Count:    attestedRecordCount,
-		HeadHash: strings.TrimSpace(attestedHeadHash),
-	}
-	prev := ""
-	count := 0
-	pos := 0
-	for {
-		integrityKeyIdx := bytes.Index(payload[pos:], []byte(`"integrity"`))
-		if integrityKeyIdx < 0 {
-			break
-		}
-		integrityStart := pos + integrityKeyIdx
-		objectOpen := bytes.IndexByte(payload[integrityStart:], '{')
-		if objectOpen < 0 {
-			return Result{}, classifyError(ErrorCodeParseChain, fmt.Errorf("parse chain: missing integrity object"))
-		}
-		objectStart := integrityStart + objectOpen
-		objectEnd := bytes.IndexByte(payload[objectStart:], '}')
-		if objectEnd < 0 {
-			return Result{}, classifyError(ErrorCodeParseChain, fmt.Errorf("parse chain: unterminated integrity object"))
-		}
-		integrityObject := payload[objectStart : objectStart+objectEnd+1]
-		if !bytes.Contains(integrityObject, []byte(`"record_hash"`)) {
-			pos = objectStart + objectEnd + 1
-			continue
-		}
-		recordID := scanRecordID(payload[pos:integrityStart])
-		recordHash := scanJSONFieldString(integrityObject, "record_hash")
-		previousHash := scanJSONFieldString(integrityObject, "previous_record_hash")
-		if previousHash != prev {
-			verified.Intact = false
-			verified.BreakIndex = count
-			verified.BreakPoint = recordID
-			return resultFromVerification(verified), nil
-		}
-		if strings.TrimSpace(recordHash) == "" {
-			verified.Intact = false
-			verified.BreakIndex = count
-			verified.BreakPoint = recordID
-			return resultFromVerification(verified), nil
-		}
-		prev = recordHash
-		count++
-		pos = objectStart + objectEnd + 1
-	}
-	verified.Count = count
-	if attestedRecordCount != count {
-		verified.Intact = false
-		verified.BreakIndex = count
-		verified.BreakPoint = fmt.Sprintf("record_count mismatch: expected %d got %d", attestedRecordCount, count)
-		return resultFromVerification(verified), nil
-	}
-	if count == 0 {
-		if strings.TrimSpace(attestedHeadHash) != "" {
-			verified.Intact = false
-			verified.BreakIndex = -1
-			verified.BreakPoint = "head_hash mismatch: expected empty head for empty chain"
-		}
-		return resultFromVerification(verified), nil
-	}
-	if strings.TrimSpace(attestedHeadHash) != prev {
-		verified.Intact = false
-		verified.BreakIndex = count - 1
-		verified.BreakPoint = fmt.Sprintf("head_hash mismatch: expected %s got %s", prev, attestedHeadHash)
-		verified.HeadHash = prev
-	}
-	return resultFromVerification(verified), nil
-}
-
-func scanRecordID(payload []byte) string {
-	idx := bytes.LastIndex(payload, []byte(`"record_id"`))
-	if idx < 0 {
-		return ""
-	}
-	return scanJSONValueAfterKey(payload[idx+len(`"record_id"`):])
-}
-
-func scanJSONFieldString(payload []byte, field string) string {
-	key := []byte(`"` + field + `"`)
-	idx := bytes.Index(payload, key)
-	if idx < 0 {
-		return ""
-	}
-	return scanJSONValueAfterKey(payload[idx+len(key):])
-}
-
-func scanJSONValueAfterKey(payload []byte) string {
-	colon := bytes.IndexByte(payload, ':')
-	if colon < 0 {
-		return ""
-	}
-	value := bytes.TrimLeft(payload[colon+1:], " \n\r\t")
-	if len(value) == 0 || value[0] != '"' {
-		return ""
-	}
-	end := bytes.IndexByte(value[1:], '"')
-	if end < 0 {
-		return ""
-	}
-	return string(value[1 : end+1])
 }
 
 func verifyChainStructure(chain *proof.Chain) (*proof.ChainVerification, error) {
@@ -552,6 +447,30 @@ func resultFromVerification(verified *proof.ChainVerification) Result {
 	if !verified.Intact {
 		result.Reason = "chain_integrity_failure"
 	}
+	return result
+}
+
+func validateAttestedVerification(result Result, auth authenticityResult) Result {
+	if !result.Intact {
+		return result
+	}
+	if auth.AttestedRecordCount != result.Count {
+		result.Intact = false
+		result.Reason = "chain_integrity_failure"
+		result.BreakIndex = result.Count
+		result.BreakPoint = fmt.Sprintf("attested record_count mismatch: expected %d got %d", auth.AttestedRecordCount, result.Count)
+		return result
+	}
+	expectedHead := strings.TrimSpace(auth.AttestedHeadHash)
+	if expectedHead == "" || expectedHead == result.HeadHash {
+		return result
+	}
+	result.Intact = false
+	result.Reason = "chain_integrity_failure"
+	if result.Count > 0 {
+		result.BreakIndex = result.Count - 1
+	}
+	result.BreakPoint = fmt.Sprintf("attested head_hash mismatch: expected %s got %s", expectedHead, result.HeadHash)
 	return result
 }
 

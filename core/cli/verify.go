@@ -110,11 +110,17 @@ func proofChainMayContainControlEvidence(chainPath string) bool {
 		[]byte("evidence_attached"),
 		[]byte("owner_assigned"),
 		[]byte("review_cadence"),
+		[]byte("review_cadence_set"),
 		[]byte("least_privilege"),
+		[]byte("least_privilege_verified"),
 		[]byte("deployment_gate"),
+		[]byte("deployment_gate_present"),
 		[]byte("production_access"),
+		[]byte("production_access_classified"),
 		[]byte("secret_rotation"),
+		[]byte("rotation_evidence_attached"),
 		[]byte("risk_accepted"),
+		[]byte("proof_artifact_generated"),
 	} {
 		if bytes.Contains(payload, marker) {
 			return true

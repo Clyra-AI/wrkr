@@ -18,6 +18,7 @@ type rule struct {
 	evidenceBasis string
 	priority      int
 	inferred      bool
+	repoScopes    []string
 }
 
 const (
@@ -68,7 +69,7 @@ func ResolveWithMetadata(root, repo, org, location string, metadata Metadata) Re
 	normalized := normalizePath(location)
 	candidates := make([]rule, 0)
 	for _, item := range rules {
-		if matchPattern(item.pattern, normalized) {
+		if ruleMatchesRepo(item, repo, org) && matchPattern(item.pattern, normalized) {
 			candidates = append(candidates, item)
 		}
 	}
@@ -215,6 +216,7 @@ func ownerMappingRules(items []ownerMapping, evidencePath, source string, priori
 				evidenceBasis: source + ":" + evidencePath + ":" + pattern,
 				priority:      priority,
 				inferred:      inferred,
+				repoScopes:    mappingRepos(item),
 			})
 		}
 	}
@@ -243,6 +245,28 @@ func mappingPatterns(item ownerMapping) []string {
 		}
 		seen[pattern] = struct{}{}
 		out = append(out, pattern)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func mappingRepos(item ownerMapping) []string {
+	values := append([]string(nil), item.Repos...)
+	if strings.TrimSpace(item.Repo) != "" {
+		values = append(values, item.Repo)
+	}
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		scope := normalizeRepoScope(value)
+		if scope == "" {
+			continue
+		}
+		if _, ok := seen[scope]; ok {
+			continue
+		}
+		seen[scope] = struct{}{}
+		out = append(out, scope)
 	}
 	sort.Strings(out)
 	return out
@@ -405,6 +429,39 @@ func ownerFromTeamSlug(team, org string) string {
 		return "@local/" + strings.ToLower(team)
 	}
 	return "@" + strings.ToLower(strings.TrimSpace(org)) + "/" + strings.ToLower(team)
+}
+
+func ruleMatchesRepo(item rule, repo, org string) bool {
+	if len(item.repoScopes) == 0 {
+		return true
+	}
+	candidates := repoScopeCandidates(repo, org)
+	for _, scope := range item.repoScopes {
+		if _, ok := candidates[scope]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func repoScopeCandidates(repo, org string) map[string]struct{} {
+	out := map[string]struct{}{}
+	repoScope := normalizeRepoScope(repo)
+	orgScope := normalizeRepoScope(org)
+	if repoScope == "" {
+		return out
+	}
+	out[repoScope] = struct{}{}
+	if slash := strings.LastIndex(repoScope, "/"); slash >= 0 && slash < len(repoScope)-1 {
+		out[repoScope[slash+1:]] = struct{}{}
+	} else if orgScope != "" {
+		out[orgScope+"/"+repoScope] = struct{}{}
+	}
+	return out
+}
+
+func normalizeRepoScope(value string) string {
+	return strings.Trim(strings.ToLower(strings.TrimSpace(value)), "@/")
 }
 
 func resolveCandidates(candidates []rule, repo, org string) Resolution {

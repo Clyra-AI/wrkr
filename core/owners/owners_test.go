@@ -64,6 +64,27 @@ func TestResolveOwnershipFromCustomMappingBeforeFallback(t *testing.T) {
 	}
 }
 
+func TestResolveOwnerMappingsRespectRepoScope(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".wrkr"), 0o750); err != nil {
+		t.Fatalf("create .wrkr: %v", err)
+	}
+	content := []byte("owners:\n  - repo: acme/other-service\n    pattern: \"*\"\n    owner: '@acme/other'\n  - repo: acme/payments-service\n    pattern: \"*\"\n    owner: '@acme/platform'\n")
+	if err := os.WriteFile(filepath.Join(root, ".wrkr", "owners.yaml"), content, 0o600); err != nil {
+		t.Fatalf("write owners mapping: %v", err)
+	}
+
+	resolution := Resolve(root, "acme/payments-service", "acme", ".github/workflows/deploy.yml")
+	if resolution.Owner != "@acme/platform" {
+		t.Fatalf("expected repo-scoped owner mapping, got %+v", resolution)
+	}
+	if resolution.OwnerSource != OwnerSourceCustomMap || resolution.OwnershipState != OwnershipStateExplicit {
+		t.Fatalf("expected explicit repo-scoped mapping metadata, got %+v", resolution)
+	}
+}
+
 func TestResolveParsesServiceCatalogAndBackstageOwners(t *testing.T) {
 	t.Parallel()
 
