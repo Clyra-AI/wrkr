@@ -73,8 +73,12 @@
                 "repo": {"type": "string"},
                 "location": {"type": "string"},
                 "owner": {"type": "string"},
-                "owner_source": {"type": "string", "enum": ["codeowners", "repo_fallback", "multi_repo_conflict"]},
-                "ownership_status": {"type": "string", "enum": ["explicit", "inferred", "unresolved"]}
+                "owner_source": {"type": "string", "enum": ["codeowners", "custom_owner_mapping", "service_catalog", "backstage_catalog", "github_metadata", "repo_fallback", "multi_repo_conflict", "missing_owner"]},
+                "ownership_status": {"type": "string", "enum": ["explicit", "inferred", "unresolved"]},
+                "ownership_state": {"type": "string", "enum": ["explicit_owner", "inferred_owner", "conflicting_owner", "missing_owner"]},
+                "ownership_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                "ownership_evidence_basis": {"type": "array", "items": {"type": "string"}},
+                "ownership_conflicts": {"type": "array", "items": {"type": "string"}}
               }
             }
           },
@@ -330,8 +334,12 @@
           "deployment_artifacts": {"type": "array", "items": {"type": "string"}},
           "deployment_evidence_keys": {"type": "array", "items": {"type": "string"}},
           "operational_owner": {"type": "string"},
-          "owner_source": {"type": "string", "enum": ["codeowners", "repo_fallback", "multi_repo_conflict"]},
+          "owner_source": {"type": "string", "enum": ["codeowners", "custom_owner_mapping", "service_catalog", "backstage_catalog", "github_metadata", "repo_fallback", "multi_repo_conflict", "missing_owner"]},
           "ownership_status": {"type": "string", "enum": ["explicit", "inferred", "unresolved"]},
+          "ownership_state": {"type": "string", "enum": ["explicit_owner", "inferred_owner", "conflicting_owner", "missing_owner"]},
+          "ownership_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "ownership_evidence_basis": {"type": "array", "items": {"type": "string"}},
+          "ownership_conflicts": {"type": "array", "items": {"type": "string"}},
           "approval_gap_reasons": {"type": "array", "items": {"type": "string"}},
           "pull_request_write": {"type": "boolean"},
           "merge_execute": {"type": "boolean"},

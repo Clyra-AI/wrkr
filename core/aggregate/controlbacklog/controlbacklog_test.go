@@ -137,6 +137,56 @@ func TestWritePathClassifiesPRWriteSecretBearingWorkflow(t *testing.T) {
 	}
 }
 
+func TestConflictingOwnersLowerConfidenceAndCreateEvidenceGap(t *testing.T) {
+	t.Parallel()
+
+	backlog := Build(Input{
+		Findings: []model.Finding{{
+			FindingType: "ci_autonomy",
+			ToolType:    "ci_agent",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "payments",
+			Org:         "acme",
+			Permissions: []string{"deploy.write"},
+		}},
+		Inventory: &agginventory.Inventory{Tools: []agginventory.Tool{{
+			ToolID:                   "ci:.github/workflows/release.yml",
+			ToolType:                 "ci_agent",
+			Org:                      "acme",
+			ApprovalClass:            "unapproved",
+			SecurityVisibilityStatus: agginventory.SecurityVisibilityUnknownToSecurity,
+			Locations: []agginventory.ToolLocation{{
+				Repo:                "payments",
+				Location:            ".github/workflows/release.yml",
+				Owner:               "@acme/payments",
+				OwnerSource:         "multi_repo_conflict",
+				OwnershipStatus:     "unresolved",
+				OwnershipState:      "conflicting_owner",
+				OwnershipConfidence: 0.2,
+				OwnershipEvidence:   []string{"codeowners:CODEOWNERS:*", "service_catalog:service-catalog.yaml:*"},
+				OwnershipConflicts:  []string{"@acme/payments", "@acme/security"},
+			}},
+		}}},
+	})
+
+	if len(backlog.Items) == 0 {
+		t.Fatal("expected backlog item")
+	}
+	item := backlog.Items[0]
+	if item.OwnershipState != "conflicting_owner" || item.OwnershipConfidence != 0.2 {
+		t.Fatalf("expected conflict ownership metadata, got %+v", item)
+	}
+	if !containsString(item.EvidenceGaps, "owner_conflict") {
+		t.Fatalf("expected owner_conflict evidence gap, got %+v", item.EvidenceGaps)
+	}
+	if item.Confidence != ConfidenceLow {
+		t.Fatalf("expected low backlog confidence for conflicting owner, got %+v", item)
+	}
+	if len(item.OwnershipConflicts) != 2 {
+		t.Fatalf("expected conflict owner list, got %+v", item.OwnershipConflicts)
+	}
+}
+
 func TestSecurityVisibilityMapsApprovedToKnownApprovedInBacklog(t *testing.T) {
 	t.Parallel()
 

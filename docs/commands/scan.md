@@ -4,6 +4,7 @@
 
 ```bash
 wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
+wrkr scan status --state <path> [--json]
 ```
 
 Use either one legacy target source (`--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`) or one or more repeatable `--target <mode>:<value>` flags.
@@ -36,6 +37,7 @@ Acquisition behavior is fail-closed by target:
 - When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
 - Scan-owned managed artifacts are published transactionally: state snapshot, lifecycle chain, proof chain/attestation, manifest, and any requested `--json-path`, `--report-md-path`, or `--sarif-path` sidecars commit as one generation.
+- Scan status is written as a deterministic sidecar next to `--state` and can be inspected with `wrkr scan status --state <path> --json` without rescanning.
 - Invalid scan-owned artifact paths such as `--report-md-path` and `--sarif-path` are preflight-validated before any managed artifact mutation.
 - `--json-path`, `--report-md-path`, and `--sarif-path` must stay unique from one another and from Wrkr-managed artifacts derived from `--state`; collisions fail closed with `invalid_input` (exit `6`) before any scan-managed artifact is written.
 - Late write failures after preflight still fail closed and roll managed artifacts back to the previous committed generation instead of leaving mixed state/proof/manifest outputs behind.
@@ -84,6 +86,15 @@ Scan mode behavior is explicit:
 - `--sarif`
 - `--sarif-path`
 
+## Status inspection
+
+```bash
+wrkr scan status --state ./.wrkr/last-scan.json --json
+```
+
+The status payload includes `status`, `current_phase`, `last_successful_phase`, repo counts, `partial_result`, `partial_result_marker`, phase timings, and artifact paths.
+Existing state files without a status sidecar are interpreted as `completed` when the state snapshot can be loaded, otherwise `unknown`.
+
 ## Developer personal-hygiene example
 
 ```bash
@@ -127,11 +138,18 @@ Opinionated large-org command path:
 wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 ```
 
-When `--json` is set for hosted org and local path scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, per-repo materialization completion/discovery, scan phase, and completion lines to stderr only. For hosted scans, `repo_materialize` means a repo job was dispatched to a worker and `repo_materialize_done` means that repo reached a success or failure result. For path scans, `repo_discovered` means a local repo root was selected for detector execution. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file. Any requested `--json-path`, `--report-md-path`, or `--sarif-path` must be unique from one another and from scan-managed `--state` sibling artifacts.
+When `--json` is set for hosted org and local path scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, per-repo materialization completion/discovery, scan phase, and completion lines to stderr only. Scan phase progress includes deterministic phase labels, elapsed `duration_ms`, and repo counters. For hosted scans, `repo_materialize` means a repo job was dispatched to a worker and `repo_materialize_done` means that repo reached a success or failure result. For path scans, `repo_discovered` means a local repo root was selected for detector execution. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file. Any requested `--json-path`, `--report-md-path`, or `--sarif-path` must be unique from one another and from scan-managed `--state` sibling artifacts.
 `--resume` is supported only when every requested target is an org target. Wrkr stores internal checkpoint metadata under the scan-state directory in `org-checkpoints/` and reuses already-materialized repositories only when the checkpoint target set, per-org repo sets, and materialized-root path still match the current org-target scan.
 Resume also revalidates that checkpoint files and reused repo roots are still trusted local artifacts under the managed materialized root; symlink-swapped entries fail closed as `unsafe_operation_blocked`.
 Mixed target sets such as org-plus-path scans fail closed with `invalid_input` when `--resume` is requested.
-If a run is interrupted after some repositories are checkpointed, rerun the same target with `--resume` and keep the same `--state` path. If `partial_result`, `source_errors`, or `source_degraded` is present, treat the scan as incomplete and rerun after the blocking condition is resolved.
+If a run is interrupted after some repositories are checkpointed, rerun the same target with `--resume` and keep the same `--state` path. Use `wrkr scan status --state <path> --json` to inspect the last successful phase and partial marker before rerunning. If `partial_result`, `source_errors`, or `source_degraded` is present, treat the scan as incomplete and rerun after the blocking condition is resolved.
+
+For long org scans, run the foreground command under your process supervisor or shell backgrounding rather than relying on a hidden daemon:
+
+```bash
+nohup wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json > ./.wrkr/scan.stdout 2> ./.wrkr/scan.stderr &
+wrkr scan status --state ./.wrkr/last-scan.json --json
+```
 
 Mixed target example:
 

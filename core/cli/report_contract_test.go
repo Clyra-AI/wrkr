@@ -81,6 +81,91 @@ func TestReportPDFDeterministicForFixedState(t *testing.T) {
 	}
 }
 
+func TestReportCustomerTemplatesEmitArtifactBundlePaths(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	writeJSONFile(t, statePath, map[string]any{
+		"version": "v1",
+		"control_backlog": map[string]any{
+			"control_backlog_version": "1",
+			"summary":                 map[string]any{"total_items": 1},
+			"items": []any{map[string]any{
+				"id":                   "cb-1",
+				"repo":                 "payments",
+				"path":                 ".github/workflows/release.yml",
+				"control_surface_type": "ci_automation",
+				"control_path_type":    "ci_automation",
+				"capability":           "repo_write",
+				"owner":                "@acme/payments",
+				"evidence_source":      "risk_action_path",
+				"evidence_basis":       []any{"workflow_permission"},
+				"approval_status":      "unapproved",
+				"security_visibility":  "unknown_to_security",
+				"signal_class":         "unique_wrkr_signal",
+				"recommended_action":   "approve",
+				"confidence":           "medium",
+				"sla":                  "7d",
+				"closure_criteria":     "Record owner-approved evidence and rescan.",
+			}},
+		},
+	})
+	mdPath := filepath.Join(tmp, "report.md")
+	pdfPath := filepath.Join(tmp, "report.pdf")
+	bundlePath := filepath.Join(tmp, "evidence.json")
+	csvPath := filepath.Join(tmp, "backlog.csv")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--template", "ciso",
+		"--md", "--md-path", mdPath,
+		"--pdf", "--pdf-path", pdfPath,
+		"--evidence-json", "--evidence-json-path", bundlePath,
+		"--csv-backlog", "--csv-backlog-path", csvPath,
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	artifactPaths, ok := payload["artifact_paths"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected artifact_paths, got %v", payload)
+	}
+	for key, path := range map[string]string{"markdown": mdPath, "pdf": pdfPath, "evidence_json": bundlePath, "backlog_csv": csvPath} {
+		if artifactPaths[key] != path {
+			t.Fatalf("expected artifact %s=%s, got %v", key, path, artifactPaths)
+		}
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("expected artifact %s: %v", path, err)
+		}
+	}
+	csvPayload, err := os.ReadFile(csvPath)
+	if err != nil {
+		t.Fatalf("read csv: %v", err)
+	}
+	if !strings.Contains(string(csvPayload), "closure_criteria") || !strings.Contains(string(csvPayload), "7d") {
+		t.Fatalf("expected backlog csv fields, got %q", string(csvPayload))
+	}
+}
+
+func writeJSONFile(t *testing.T, path string, payload any) {
+	t.Helper()
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal json: %v", err)
+	}
+	if err := os.WriteFile(path, append(encoded, '\n'), 0o600); err != nil {
+		t.Fatalf("write json: %v", err)
+	}
+}
+
 func TestReportHelpMatchesBehaviorContract(t *testing.T) {
 	t.Parallel()
 

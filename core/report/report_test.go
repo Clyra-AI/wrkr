@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
@@ -178,6 +179,113 @@ func TestBuildSummaryRejectsUnknownTemplateAndShareProfile(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected unknown share profile error")
 	}
+}
+
+func TestReportTemplateCISOLeadsWithControlBacklog(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			ControlBacklog: &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+				ID:                "cb-1",
+				Repo:              "payments",
+				Path:              ".github/workflows/release.yml",
+				Owner:             "@acme/payments",
+				RecommendedAction: "approve",
+				SLA:               "7d",
+				ClosureCriteria:   "Record owner-approved evidence and rescan.",
+				EvidenceBasis:     []string{"workflow_permission"},
+			}}},
+		},
+		Template:     TemplateCISO,
+		ShareProfile: ShareProfileInternal,
+		GeneratedAt:  time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.Template != "ciso" || summary.ControlBacklog == nil || len(summary.ControlBacklog.Items) != 1 {
+		t.Fatalf("expected ciso backlog-led summary, got %+v", summary)
+	}
+	markdown := RenderMarkdown(summary)
+	controlIdx := strings.Index(markdown, "## Control Backlog")
+	risksIdx := strings.Index(markdown, "Top prioritized")
+	if controlIdx < 0 {
+		t.Fatalf("expected control backlog section, got %q", markdown)
+	}
+	if risksIdx >= 0 && controlIdx > risksIdx {
+		t.Fatalf("expected control backlog to lead raw risk sections, got %q", markdown)
+	}
+}
+
+func TestCustomerDraftReportRedactsSensitiveEvidence(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			ControlBacklog: &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+				ID:                 "cb-1",
+				Repo:               "private-repo",
+				Path:               "/Users/example/private/.github/workflows/release.yml",
+				Owner:              "@acme/security",
+				RecommendedAction:  "attach_evidence",
+				SLA:                "7d",
+				ClosureCriteria:    "Attach proof evidence.",
+				EvidenceBasis:      []string{"secret_reference"},
+				OwnershipEvidence:  []string{"/Users/example/private/CODEOWNERS"},
+				OwnershipConflicts: []string{"@acme/security"},
+				LinkedActionPathID: "apc-private",
+				LinkedFindingIDs:   []string{"finding-private"},
+			}}},
+		},
+		Template:    TemplateCustomerDraft,
+		GeneratedAt: time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.ShareProfile != "public" {
+		t.Fatalf("expected customer draft to force public share profile, got %q", summary.ShareProfile)
+	}
+	payload := string(mustJSONEvidenceBundle(t, summary))
+	if strings.Contains(payload, "/Users/example") || strings.Contains(payload, "private-repo") || strings.Contains(payload, "@acme/security") {
+		t.Fatalf("expected customer draft bundle redaction, got %s", payload)
+	}
+}
+
+func TestRenderBacklogCSVIncludesClosureCriteriaAndSLA(t *testing.T) {
+	t.Parallel()
+
+	payload, err := RenderBacklogCSV(&controlbacklog.Backlog{Items: []controlbacklog.Item{{
+		ID:                "cb-1",
+		Repo:              "repo",
+		Path:              "AGENTS.md",
+		Owner:             "@acme/appsec",
+		EvidenceBasis:     []string{"direct_config"},
+		RecommendedAction: "approve",
+		SLA:               "7d",
+		ClosureCriteria:   "Record owner approval.",
+	}}})
+	if err != nil {
+		t.Fatalf("render csv: %v", err)
+	}
+	text := string(payload)
+	for _, want := range []string{"owner", "evidence", "recommended_action", "sla", "closure_criteria", "@acme/appsec", "Record owner approval."} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected csv to contain %q, got %q", want, text)
+		}
+	}
+}
+
+func mustJSONEvidenceBundle(t *testing.T, summary Summary) []byte {
+	t.Helper()
+	payload, err := RenderEvidenceBundleJSON(summary)
+	if err != nil {
+		t.Fatalf("render evidence bundle: %v", err)
+	}
+	return payload
 }
 
 func TestBuildAssessmentSummaryIsPathCentricAndDeterministic(t *testing.T) {

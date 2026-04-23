@@ -134,7 +134,7 @@ func scenarioTestSymbols(t *testing.T, repoRoot string) map[string]struct{} {
 	if err != nil {
 		t.Fatalf("glob scenario test files: %v", err)
 	}
-	pattern := regexp.MustCompile(`func\s+(TestScenario[A-Za-z0-9_]+)\s*\(`)
+	pattern := regexp.MustCompile(`func\s+(Test(?:Scenario|Epic)[A-Za-z0-9_]+)\s*\(`)
 	symbols := map[string]struct{}{}
 	for _, file := range files {
 		payload, err := os.ReadFile(file)

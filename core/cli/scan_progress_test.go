@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -86,6 +87,29 @@ func TestScanJSONOrgProgressEmitsToStderrOnly(t *testing.T) {
 		if !strings.Contains(stderrText, want) {
 			t.Fatalf("expected stderr progress to contain %q, got %q", want, stderrText)
 		}
+	}
+}
+
+func TestScanJSONProgressOnlyOnStderr(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repoPath := filepath.Join(tmp, "repo", ".codex")
+	if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	statePath := filepath.Join(tmp, "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", filepath.Join(tmp, "repo"), "--state", statePath, "--json"}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("scan failed: %d stderr=%s", code, errOut.String())
+	}
+	if strings.Contains(out.String(), "progress target=") {
+		t.Fatalf("expected stdout JSON to stay clean, got %q", out.String())
+	}
+	if !strings.Contains(errOut.String(), "progress target=path") {
+		t.Fatalf("expected progress on stderr, got %q", errOut.String())
 	}
 }
 
@@ -340,6 +364,74 @@ func TestScanJSONProgressFlushesOnErrorExit(t *testing.T) {
 	if !strings.Contains(errOut.String(), "progress target=org org=acme event=complete repo_total=1 completed=1 failed=0") {
 		t.Fatalf("expected completion progress line on error exit, got %q", errOut.String())
 	}
+}
+
+func TestScanStatusReportsInterruptedPartialPhase(t *testing.T) {
+	t.Parallel()
+
+	releaseRepo := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"}]`)
+		case "/repos/acme/a":
+			select {
+			case <-r.Context().Done():
+				return
+			case <-releaseRepo:
+				_, _ = fmt.Fprint(w, `{"full_name":"acme/a","default_branch":"main"}`)
+			}
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	var out bytes.Buffer
+	errOut := newLiveBuffer()
+	done := make(chan int, 1)
+	go func() {
+		done <- runScanWithContext(ctx, []string{
+			"--org", "acme",
+			"--github-api", server.URL,
+			"--state", statePath,
+			"--json",
+		}, &out, errOut)
+	}()
+
+	const want = "progress target=org org=acme event=repo_materialize repo_index=1 repo_total=1 repo=acme/a"
+	if !errOut.waitFor(want, 2*time.Second) {
+		t.Fatalf("expected materialize progress before cancellation, got %q", errOut.String())
+	}
+	cancel()
+	code := <-done
+	if code != exitRuntime {
+		t.Fatalf("expected runtime exit after cancellation, got %d stderr=%s", code, errOut.String())
+	}
+
+	var statusOut bytes.Buffer
+	var statusErr bytes.Buffer
+	if statusCode := Run([]string{"scan", "status", "--state", statePath, "--json"}, &statusOut, &statusErr); statusCode != exitSuccess {
+		t.Fatalf("scan status failed: %d stderr=%s", statusCode, statusErr.String())
+	}
+	var status map[string]any
+	if err := json.Unmarshal(statusOut.Bytes(), &status); err != nil {
+		t.Fatalf("parse status: %v", err)
+	}
+	if status["status"] != "interrupted" {
+		t.Fatalf("expected interrupted status, got %v", status)
+	}
+	if status["partial_result"] != true || status["partial_result_marker"] != "partial_result" {
+		t.Fatalf("expected partial marker, got %v", status)
+	}
+	if status["current_phase"] != "source_acquire" {
+		t.Fatalf("expected source_acquire current phase, got %v", status)
+	}
+
+	close(releaseRepo)
 }
 
 type liveBuffer struct {

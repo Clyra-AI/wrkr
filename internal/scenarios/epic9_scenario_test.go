@@ -14,7 +14,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/cli"
 )
 
-func TestScenarioEpic9DeterministicShareableReportsAC21(t *testing.T) {
+func TestEpic9DeterministicShareableReportsAC21(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := mustFindRepoRoot(t)
@@ -84,7 +84,7 @@ func TestScenarioEpic9DeterministicShareableReportsAC21(t *testing.T) {
 	}
 }
 
-func TestScenarioEpic9SummaryIntegrationHooksAC10AC11(t *testing.T) {
+func TestEpic9SummaryIntegrationHooksAC10AC11(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := mustFindRepoRoot(t)

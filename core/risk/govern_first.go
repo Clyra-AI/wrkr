@@ -383,6 +383,8 @@ func actionPathHighImpact(path ActionPath) bool {
 
 func actionPathHasWeakOwnership(path ActionPath) bool {
 	return strings.TrimSpace(path.OwnerSource) == owners.OwnerSourceConflict ||
+		strings.TrimSpace(path.OwnershipState) == owners.OwnershipStateConflicting ||
+		strings.TrimSpace(path.OwnershipState) == owners.OwnershipStateMissing ||
 		strings.TrimSpace(path.OwnershipStatus) == "" ||
 		strings.TrimSpace(path.OwnershipStatus) == owners.OwnershipStatusUnresolved
 }

@@ -13,6 +13,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Added explicit engineering write-path classification and governance control mappings across scan, inventory, risk, and proof outputs.
 - Added inventory governance commands for approvals, evidence attachments, accepted risk, deprecation, exclusion, and time-bound review state.
 - Added proof and evidence lifecycle mapping so governance controls can show verifiable approval, least-privilege, rotation, deployment-gate, and review evidence.
+- Added enterprise ownership resolution with explicit, inferred, conflicting, and missing owner states plus ownership confidence in governance outputs.
+- Added large-org scan progress, phase timing, partial-result status, and scan status inspection without changing JSON stdout contracts.
+- Added customer-ready CISO, AppSec, platform, audit, and customer-draft report templates led by the governance control backlog.
+- Added offline-first ticket export payloads for Jira, GitHub Issues, and ServiceNow from top governance backlog items.
 
 ### Changed
 

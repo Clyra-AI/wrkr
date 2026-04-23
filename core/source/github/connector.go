@@ -176,7 +176,12 @@ func (c *Connector) AcquireRepo(ctx context.Context, repo string) (source.RepoMa
 	if err != nil {
 		return source.RepoManifest{}, fmt.Errorf("acquire repo metadata: %w", err)
 	}
-	return source.RepoManifest{Repo: fullName, Location: fullName, Source: "github_repo"}, nil
+	return source.RepoManifest{
+		Repo:              fullName,
+		Location:          fullName,
+		Source:            "github_repo",
+		OwnershipMetadata: repoOwnershipMetadata(meta),
+	}, nil
 }
 
 func (c *Connector) ListOrgRepos(ctx context.Context, org string) ([]string, error) {
@@ -321,15 +326,18 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 	}
 
 	return source.RepoManifest{
-		Repo:     fullName,
-		Location: filepath.ToSlash(repoRoot),
-		Source:   "github_repo_materialized",
+		Repo:              fullName,
+		Location:          filepath.ToSlash(repoRoot),
+		Source:            "github_repo_materialized",
+		OwnershipMetadata: repoOwnershipMetadata(meta),
 	}, nil
 }
 
 type repoMeta struct {
-	FullName      string `json:"full_name"`
-	DefaultBranch string `json:"default_branch"`
+	FullName      string   `json:"full_name"`
+	DefaultBranch string   `json:"default_branch"`
+	Topics        []string `json:"topics"`
+	Teams         []string `json:"teams"`
 }
 
 func (c *Connector) repoMetadata(ctx context.Context, repo string) (repoMeta, error) {
@@ -412,6 +420,33 @@ func decodeBlob(content, encoding string) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unsupported blob encoding %q", encoding)
 	}
+}
+
+func cloneSortedStrings(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func repoOwnershipMetadata(meta repoMeta) *source.RepoOwnershipMetadata {
+	topics := cloneSortedStrings(meta.Topics)
+	teams := cloneSortedStrings(meta.Teams)
+	if len(topics) == 0 && len(teams) == 0 {
+		return nil
+	}
+	return &source.RepoOwnershipMetadata{Topics: topics, Teams: teams}
 }
 
 func shouldMaterializeBlob(rel string) bool {

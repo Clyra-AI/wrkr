@@ -41,6 +41,9 @@ type reportPayload struct {
 	Summary                  reportcore.Summary           `json:"summary"`
 	MDPath                   string                       `json:"md_path,omitempty"`
 	PDFPath                  string                       `json:"pdf_path,omitempty"`
+	EvidenceJSONPath         string                       `json:"evidence_json_path,omitempty"`
+	BacklogCSVPath           string                       `json:"backlog_csv_path,omitempty"`
+	ArtifactPaths            map[string]string            `json:"artifact_paths,omitempty"`
 }
 
 type toolTypeCount struct {
@@ -68,7 +71,11 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	pdfPath := fs.String("pdf-path", "wrkr-report.pdf", "pdf output path")
 	md := fs.Bool("md", false, "write a deterministic markdown summary")
 	mdPath := fs.String("md-path", "wrkr-report.md", "markdown output path")
-	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public]")
+	evidenceJSON := fs.Bool("evidence-json", false, "write a deterministic JSON evidence bundle")
+	evidenceJSONPath := fs.String("evidence-json-path", "wrkr-report-evidence.json", "JSON evidence bundle output path")
+	csvBacklog := fs.Bool("csv-backlog", false, "write a deterministic CSV control backlog")
+	csvBacklogPath := fs.String("csv-backlog-path", "wrkr-control-backlog.csv", "CSV control backlog output path")
+	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft]")
 	shareProfileRaw := fs.String("share-profile", string(reportcore.ShareProfileInternal), "share profile [internal|public]")
 	topN := fs.Int("top", 5, "number of top findings")
 	statePathFlag := fs.String("state", "", "state file path override")
@@ -123,20 +130,24 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		loadedManifest = &m
 	}
 
-	summary, mdOutPath, pdfOutPath, err := generateReportArtifacts(reportArtifactOptions{
-		StatePath:        resolvedStatePath,
-		Snapshot:         snapshot,
-		PreviousSnapshot: previousSnapshot,
-		Baseline:         baseline,
-		RegressResult:    regressResult,
-		Manifest:         loadedManifest,
-		Top:              *topN,
-		Template:         template,
-		ShareProfile:     shareProfile,
-		WriteMarkdown:    *md,
-		MarkdownPath:     *mdPath,
-		WritePDF:         *pdf,
-		PDFPath:          *pdfPath,
+	artifacts, err := generateReportArtifacts(reportArtifactOptions{
+		StatePath:         resolvedStatePath,
+		Snapshot:          snapshot,
+		PreviousSnapshot:  previousSnapshot,
+		Baseline:          baseline,
+		RegressResult:     regressResult,
+		Manifest:          loadedManifest,
+		Top:               *topN,
+		Template:          template,
+		ShareProfile:      shareProfile,
+		WriteMarkdown:     *md,
+		MarkdownPath:      *mdPath,
+		WritePDF:          *pdf,
+		PDFPath:           *pdfPath,
+		WriteEvidenceJSON: *evidenceJSON,
+		EvidenceJSONPath:  *evidenceJSONPath,
+		WriteBacklogCSV:   *csvBacklog,
+		BacklogCSVPath:    *csvBacklogPath,
 	})
 	if err != nil {
 		if isArtifactPathError(err) {
@@ -151,6 +162,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	summary := artifacts.Summary
 
 	riskReport := snapshot.RiskReport
 	if riskReport == nil {
@@ -184,8 +196,13 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		payload.Targets = snapshot.Targets
 	}
 
-	payload.MDPath = mdOutPath
-	payload.PDFPath = pdfOutPath
+	payload.MDPath = artifacts.MarkdownPath
+	payload.PDFPath = artifacts.PDFPath
+	payload.EvidenceJSONPath = artifacts.EvidenceJSONPath
+	payload.BacklogCSVPath = artifacts.BacklogCSVPath
+	if artifacts.EvidenceJSONPath != "" || artifacts.BacklogCSVPath != "" || reportTemplateExpectsArtifactMap(summary.Template) {
+		payload.ArtifactPaths = reportArtifactPathMap(artifacts)
+	}
 
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(payload)
@@ -222,6 +239,35 @@ func writeReportUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "")
 	_, _ = fmt.Fprintln(out, "Flags:")
 	fs.PrintDefaults()
+}
+
+func reportArtifactPathMap(artifacts reportArtifactResult) map[string]string {
+	paths := map[string]string{}
+	if artifacts.MarkdownPath != "" {
+		paths["markdown"] = artifacts.MarkdownPath
+	}
+	if artifacts.PDFPath != "" {
+		paths["pdf"] = artifacts.PDFPath
+	}
+	if artifacts.EvidenceJSONPath != "" {
+		paths["evidence_json"] = artifacts.EvidenceJSONPath
+	}
+	if artifacts.BacklogCSVPath != "" {
+		paths["backlog_csv"] = artifacts.BacklogCSVPath
+	}
+	if len(paths) == 0 {
+		return nil
+	}
+	return paths
+}
+
+func reportTemplateExpectsArtifactMap(template string) bool {
+	switch strings.TrimSpace(template) {
+	case string(reportcore.TemplateCISO), string(reportcore.TemplateAppSec), string(reportcore.TemplatePlatform), string(reportcore.TemplateCustomerDraft):
+		return true
+	default:
+		return false
+	}
 }
 
 func parseReportGeneratedAt(raw string) time.Time {

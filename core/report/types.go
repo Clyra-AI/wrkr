@@ -3,6 +3,7 @@ package report
 import (
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/manifest"
@@ -26,10 +27,14 @@ const (
 type Template string
 
 const (
-	TemplateExec     Template = "exec"
-	TemplateOperator Template = "operator"
-	TemplateAudit    Template = "audit"
-	TemplatePublic   Template = "public"
+	TemplateExec          Template = "exec"
+	TemplateOperator      Template = "operator"
+	TemplateAudit         Template = "audit"
+	TemplatePublic        Template = "public"
+	TemplateCISO          Template = "ciso"
+	TemplateAppSec        Template = "appsec"
+	TemplatePlatform      Template = "platform"
+	TemplateCustomerDraft Template = "customer-draft"
 )
 
 type ShareProfile string
@@ -70,6 +75,7 @@ type Summary struct {
 	RegressDrift             *RegressSummary                        `json:"regress_drift,omitempty"`
 	AttackPaths              AttackPathSummary                      `json:"attack_paths"`
 	ComplianceSummary        compliance.RollupSummary               `json:"compliance_summary"`
+	ControlBacklog           *controlbacklog.Backlog                `json:"control_backlog,omitempty"`
 	Proof                    ProofReference                         `json:"proof"`
 	NextActions              []ChecklistItem                        `json:"next_actions"`
 	Activation               *ActivationSummary                     `json:"activation,omitempty"`
@@ -230,7 +236,7 @@ type ActivationItem struct {
 
 func ParseTemplate(raw string) (Template, bool) {
 	switch Template(raw) {
-	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic:
+	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic, TemplateCISO, TemplateAppSec, TemplatePlatform, TemplateCustomerDraft:
 		return Template(raw), true
 	default:
 		return "", false

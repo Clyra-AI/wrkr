@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/identity"
@@ -39,6 +40,9 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	shareProfile := in.ShareProfile
 	if shareProfile == "" {
 		shareProfile = ShareProfileInternal
+	}
+	if template == TemplateCustomerDraft {
+		shareProfile = ShareProfilePublic
 	}
 	if _, ok := ParseShareProfile(string(shareProfile)); !ok {
 		return Summary{}, fmt.Errorf("unsupported share profile %q", shareProfile)
@@ -82,6 +86,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
 	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
 	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
+	controlBacklog := in.Snapshot.ControlBacklog
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -92,6 +97,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublic(riskReport.ActionPathToControlFirst)
 		exposureGroups = sanitizeExposureGroupsPublic(exposureGroups)
 		assessmentSummary = sanitizeAssessmentSummaryPublic(assessmentSummary)
+		controlBacklog = sanitizeControlBacklogPublic(controlBacklog)
 	}
 
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
@@ -138,6 +144,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		RegressDrift:             regressSummary,
 		AttackPaths:              attackPathSummary,
 		ComplianceSummary:        complianceSummary,
+		ControlBacklog:           controlBacklog,
 		Proof:                    proofRef,
 		NextActions:              nextActions,
 		Activation:               activation,
@@ -1150,6 +1157,24 @@ func sanitizeAssessmentSummaryPublic(in *AssessmentSummary) *AssessmentSummary {
 	}
 	copySummary.ProofChainPath = sanitizeProofReferencePublic(ProofReference{ChainPath: in.ProofChainPath}).ChainPath
 	return &copySummary
+}
+
+func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Backlog {
+	if in == nil {
+		return nil
+	}
+	copyBacklog := *in
+	copyBacklog.Items = append([]controlbacklog.Item(nil), in.Items...)
+	for idx := range copyBacklog.Items {
+		copyBacklog.Items[idx].Repo = redactValue("repo", copyBacklog.Items[idx].Repo, 6)
+		copyBacklog.Items[idx].Path = redactValue("loc", copyBacklog.Items[idx].Path, 8)
+		copyBacklog.Items[idx].Owner = redactValue("owner", copyBacklog.Items[idx].Owner, 8)
+		copyBacklog.Items[idx].LinkedFindingIDs = redactStringSlice(copyBacklog.Items[idx].LinkedFindingIDs, "finding")
+		copyBacklog.Items[idx].LinkedActionPathID = redactValue("path", copyBacklog.Items[idx].LinkedActionPathID, 8)
+		copyBacklog.Items[idx].OwnershipEvidence = redactStringSlice(copyBacklog.Items[idx].OwnershipEvidence, "evidence")
+		copyBacklog.Items[idx].OwnershipConflicts = redactStringSlice(copyBacklog.Items[idx].OwnershipConflicts, "owner")
+	}
+	return &copyBacklog
 }
 
 func redactStringSlice(values []string, prefix string) []string {

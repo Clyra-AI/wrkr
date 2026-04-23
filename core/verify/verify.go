@@ -1,6 +1,7 @@
 package verify
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -59,14 +60,21 @@ const (
 )
 
 type authenticityResult struct {
-	VerificationMode   string
-	AuthenticityStatus string
+	VerificationMode    string
+	AuthenticityStatus  string
+	AttestedRecordCount int
+	AttestedHeadHash    string
 }
 
 type loadedChain struct {
 	path    string
 	payload []byte
 	chain   *proof.Chain
+}
+
+type loadedChainPayload struct {
+	path    string
+	payload []byte
 }
 
 func (e *ChainError) Error() string {
@@ -122,17 +130,21 @@ func ChainWithPublicKey(path string, publicKey proof.PublicKey) (Result, error) 
 	if trimmed == "" {
 		return Result{}, classifyError(ErrorCodeInvalidInput, fmt.Errorf("chain path is required"))
 	}
-	loaded, err := loadChain(trimmed)
+	loadedPayload, err := loadChainPayload(trimmed)
 	if err != nil {
 		return Result{}, err
 	}
-	if auth, err := verifyByAttestation(loaded, publicKey); err == nil {
-		verified, verifyErr := verifyLoadedChain(loaded.chain)
+	if auth, err := verifyByAttestationPayload(loadedPayload, publicKey); err == nil {
+		verified, verifyErr := verifyAttestedPayloadLinks(loadedPayload.payload, auth.AttestedRecordCount, auth.AttestedHeadHash)
 		if verifyErr != nil {
 			return Result{}, verifyErr
 		}
 		return applyAuthenticity(verified, auth), nil
 	} else if !errors.Is(err, errNoChainAttestation) {
+		loaded, loadErr := parseChainPayload(loadedPayload)
+		if loadErr != nil {
+			return Result{}, loadErr
+		}
 		if auth, sigErr := verifyBySignature(loaded.chain, publicKey); sigErr == nil {
 			verified, verifyErr := verifyLoadedChain(loaded.chain)
 			if verifyErr != nil {
@@ -143,6 +155,10 @@ func ChainWithPublicKey(path string, publicKey proof.PublicKey) (Result, error) 
 			return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain signature: %w", sigErr))
 		}
 		return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain attestation: %w", err))
+	}
+	loaded, err := parseChainPayload(loadedPayload)
+	if err != nil {
+		return Result{}, err
 	}
 	if auth, err := verifyBySignature(loaded.chain, publicKey); err == nil {
 		verified, verifyErr := verifyLoadedChain(loaded.chain)
@@ -164,17 +180,29 @@ func ChainWithPublicKey(path string, publicKey proof.PublicKey) (Result, error) 
 }
 
 func loadChain(path string) (*loadedChain, error) {
+	loadedPayload, err := loadChainPayload(path)
+	if err != nil {
+		return nil, err
+	}
+	return parseChainPayload(loadedPayload)
+}
+
+func loadChainPayload(path string) (*loadedChainPayload, error) {
 	payload, err := os.ReadFile(path) // #nosec G304 -- verify reads explicit local path provided by CLI flags/state.
 	if err != nil {
 		return nil, classifyError(ErrorCodeReadChain, fmt.Errorf("read chain: %w", err))
 	}
+	return &loadedChainPayload{path: path, payload: payload}, nil
+}
+
+func parseChainPayload(loaded *loadedChainPayload) (*loadedChain, error) {
 	var chain proof.Chain
-	if err := json.Unmarshal(payload, &chain); err != nil {
+	if err := json.Unmarshal(loaded.payload, &chain); err != nil {
 		return nil, classifyError(ErrorCodeParseChain, fmt.Errorf("parse chain: %w", err))
 	}
 	return &loadedChain{
-		path:    path,
-		payload: payload,
+		path:    loaded.path,
+		payload: loaded.payload,
 		chain:   &chain,
 	}, nil
 }
@@ -197,6 +225,13 @@ type chainAttestationPayload struct {
 }
 
 func verifyByAttestation(loaded *loadedChain, publicKey proof.PublicKey) (authenticityResult, error) {
+	if loaded == nil {
+		return authenticityResult{}, errNoChainAttestation
+	}
+	return verifyByAttestationPayload(&loadedChainPayload{path: loaded.path, payload: loaded.payload}, publicKey)
+}
+
+func verifyByAttestationPayload(loaded *loadedChainPayload, publicKey proof.PublicKey) (authenticityResult, error) {
 	if len(publicKey.Public) == 0 {
 		return authenticityResult{}, errNoChainAttestation
 	}
@@ -231,8 +266,10 @@ func verifyByAttestation(loaded *loadedChain, publicKey proof.PublicKey) (authen
 		return authenticityResult{}, err
 	}
 	return authenticityResult{
-		VerificationMode:   verificationModeAttestation,
-		AuthenticityStatus: authenticityStatusVerified,
+		VerificationMode:    verificationModeAttestation,
+		AuthenticityStatus:  authenticityStatusVerified,
+		AttestedRecordCount: attestation.RecordCount,
+		AttestedHeadHash:    attestation.HeadHash,
 	}, nil
 }
 
@@ -256,6 +293,168 @@ func verifyLoadedChain(chain *proof.Chain) (Result, error) {
 		return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain: %w", err))
 	}
 	return resultFromVerification(verified), nil
+}
+
+func verifyLoadedChainLinks(chain *proof.Chain) (Result, error) {
+	verified, err := verifyChainLinks(chain)
+	if err != nil {
+		return Result{}, classifyError(ErrorCodeVerifyChainFailure, fmt.Errorf("verify chain: %w", err))
+	}
+	return resultFromVerification(verified), nil
+}
+
+func verifyAttestedPayloadLinks(payload []byte, attestedRecordCount int, attestedHeadHash string) (Result, error) {
+	if !json.Valid(payload) {
+		return Result{}, classifyError(ErrorCodeParseChain, fmt.Errorf("parse chain: invalid JSON"))
+	}
+	verified := &proof.ChainVerification{
+		Intact:   true,
+		Count:    attestedRecordCount,
+		HeadHash: strings.TrimSpace(attestedHeadHash),
+	}
+	prev := ""
+	count := 0
+	pos := 0
+	for {
+		integrityKeyIdx := bytes.Index(payload[pos:], []byte(`"integrity"`))
+		if integrityKeyIdx < 0 {
+			break
+		}
+		integrityStart := pos + integrityKeyIdx
+		objectOpen := bytes.IndexByte(payload[integrityStart:], '{')
+		if objectOpen < 0 {
+			return Result{}, classifyError(ErrorCodeParseChain, fmt.Errorf("parse chain: missing integrity object"))
+		}
+		objectStart := integrityStart + objectOpen
+		objectEnd := bytes.IndexByte(payload[objectStart:], '}')
+		if objectEnd < 0 {
+			return Result{}, classifyError(ErrorCodeParseChain, fmt.Errorf("parse chain: unterminated integrity object"))
+		}
+		integrityObject := payload[objectStart : objectStart+objectEnd+1]
+		if bytes.Index(integrityObject, []byte(`"record_hash"`)) < 0 {
+			pos = objectStart + objectEnd + 1
+			continue
+		}
+		recordID := scanRecordID(payload[pos:integrityStart])
+		recordHash := scanJSONFieldString(integrityObject, "record_hash")
+		previousHash := scanJSONFieldString(integrityObject, "previous_record_hash")
+		if previousHash != prev {
+			verified.Intact = false
+			verified.BreakIndex = count
+			verified.BreakPoint = recordID
+			return resultFromVerification(verified), nil
+		}
+		if strings.TrimSpace(recordHash) == "" {
+			verified.Intact = false
+			verified.BreakIndex = count
+			verified.BreakPoint = recordID
+			return resultFromVerification(verified), nil
+		}
+		prev = recordHash
+		count++
+		pos = objectStart + objectEnd + 1
+	}
+	verified.Count = count
+	if attestedRecordCount != count {
+		verified.Intact = false
+		verified.BreakIndex = count
+		verified.BreakPoint = fmt.Sprintf("record_count mismatch: expected %d got %d", attestedRecordCount, count)
+		return resultFromVerification(verified), nil
+	}
+	if count == 0 {
+		if strings.TrimSpace(attestedHeadHash) != "" {
+			verified.Intact = false
+			verified.BreakIndex = -1
+			verified.BreakPoint = "head_hash mismatch: expected empty head for empty chain"
+		}
+		return resultFromVerification(verified), nil
+	}
+	if strings.TrimSpace(attestedHeadHash) != prev {
+		verified.Intact = false
+		verified.BreakIndex = count - 1
+		verified.BreakPoint = fmt.Sprintf("head_hash mismatch: expected %s got %s", prev, attestedHeadHash)
+		verified.HeadHash = prev
+	}
+	return resultFromVerification(verified), nil
+}
+
+func scanRecordID(payload []byte) string {
+	idx := bytes.LastIndex(payload, []byte(`"record_id"`))
+	if idx < 0 {
+		return ""
+	}
+	return scanJSONValueAfterKey(payload[idx+len(`"record_id"`):])
+}
+
+func scanJSONFieldString(payload []byte, field string) string {
+	key := []byte(`"` + field + `"`)
+	idx := bytes.Index(payload, key)
+	if idx < 0 {
+		return ""
+	}
+	return scanJSONValueAfterKey(payload[idx+len(key):])
+}
+
+func scanJSONValueAfterKey(payload []byte) string {
+	colon := bytes.IndexByte(payload, ':')
+	if colon < 0 {
+		return ""
+	}
+	value := bytes.TrimLeft(payload[colon+1:], " \n\r\t")
+	if len(value) == 0 || value[0] != '"' {
+		return ""
+	}
+	end := bytes.IndexByte(value[1:], '"')
+	if end < 0 {
+		return ""
+	}
+	return string(value[1 : end+1])
+}
+
+func verifyChainLinks(chain *proof.Chain) (*proof.ChainVerification, error) {
+	if chain == nil {
+		return nil, errors.New("chain is nil")
+	}
+	verified := &proof.ChainVerification{
+		Intact:   true,
+		Count:    len(chain.Records),
+		HeadHash: chain.HeadHash,
+	}
+	prev := ""
+	for i := range chain.Records {
+		record := chain.Records[i]
+		if record.Integrity.PreviousRecordHash != prev {
+			verified.Intact = false
+			verified.BreakIndex = i
+			verified.BreakPoint = record.RecordID
+			return verified, nil
+		}
+		if strings.TrimSpace(record.Integrity.RecordHash) == "" {
+			verified.Intact = false
+			verified.BreakIndex = i
+			verified.BreakPoint = record.RecordID
+			return verified, nil
+		}
+		prev = record.Integrity.RecordHash
+	}
+	if len(chain.Records) == 0 {
+		if strings.TrimSpace(chain.HeadHash) != "" {
+			verified.Intact = false
+			verified.BreakIndex = -1
+			verified.BreakPoint = "head_hash mismatch: expected empty head for empty chain"
+			return verified, nil
+		}
+		return verified, nil
+	}
+	if chain.HeadHash != prev {
+		verified.Intact = false
+		verified.BreakIndex = len(chain.Records) - 1
+		verified.BreakPoint = fmt.Sprintf("head_hash mismatch: expected %s got %s", prev, chain.HeadHash)
+		verified.HeadHash = prev
+		return verified, nil
+	}
+	verified.HeadHash = prev
+	return verified, nil
 }
 
 func verifyChainStructure(chain *proof.Chain) (*proof.ChainVerification, error) {
