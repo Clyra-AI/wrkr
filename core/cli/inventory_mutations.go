@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
-	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
-	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
@@ -282,86 +280,6 @@ func findManifestIdentity(m manifest.Manifest, agentID string) (manifest.Identit
 	return manifest.IdentityRecord{}, false
 }
 
-func applyInventoryMutationToSnapshot(snapshot *state.Snapshot, record manifest.IdentityRecord, transition lifecycle.Transition, requestedID string, action string) {
-	if snapshot == nil {
-		return
-	}
-	snapshot.ApprovalInventoryVersion = state.ApprovalInventoryVersion
-	replaced := false
-	for idx := range snapshot.Identities {
-		if strings.TrimSpace(snapshot.Identities[idx].AgentID) == strings.TrimSpace(record.AgentID) {
-			snapshot.Identities[idx] = record
-			replaced = true
-			break
-		}
-	}
-	if !replaced {
-		snapshot.Identities = append(snapshot.Identities, record)
-	}
-	snapshot.Transitions = append(snapshot.Transitions, transition)
-
-	if snapshot.Inventory != nil {
-		for idx := range snapshot.Inventory.Tools {
-			tool := &snapshot.Inventory.Tools[idx]
-			if strings.TrimSpace(tool.AgentID) != strings.TrimSpace(record.AgentID) {
-				continue
-			}
-			tool.ApprovalStatus = strings.TrimSpace(record.ApprovalState)
-			tool.LifecycleState = strings.TrimSpace(record.Status)
-			tool.ApprovalClass = inventoryApprovalClass(record)
-			tool.SecurityVisibilityStatus = inventorySecurityVisibility(record)
-			if strings.TrimSpace(record.Approval.Owner) != "" {
-				for locIdx := range tool.Locations {
-					tool.Locations[locIdx].Owner = strings.TrimSpace(record.Approval.Owner)
-					tool.Locations[locIdx].OwnerSource = "inventory_approval"
-					tool.Locations[locIdx].OwnershipStatus = "explicit"
-				}
-			}
-		}
-		for idx := range snapshot.Inventory.Agents {
-			agent := &snapshot.Inventory.Agents[idx]
-			if strings.TrimSpace(agent.AgentID) == strings.TrimSpace(record.AgentID) {
-				agent.SecurityVisibilityStatus = inventorySecurityVisibility(record)
-			}
-		}
-	}
-	if snapshot.ControlBacklog != nil {
-		items := snapshot.ControlBacklog.Items[:0]
-		for _, item := range snapshot.ControlBacklog.Items {
-			if backlogItemMatchesRecord(item.ID, item.Repo, item.Path, requestedID, record) {
-				if action == "exclude" {
-					continue
-				}
-				item.ApprovalStatus = strings.TrimSpace(record.ApprovalState)
-				item.SecurityVisibility = inventorySecurityVisibility(record)
-				item.Owner = strings.TrimSpace(record.Approval.Owner)
-				if item.Owner != "" {
-					item.OwnerSource = "inventory_approval"
-					item.OwnershipStatus = "explicit"
-				}
-				switch action {
-				case "approve", "accept_risk", "attach_evidence":
-					item.RecommendedAction = controlbacklog.ActionMonitor
-					item.EvidenceGaps = nil
-					item.ConfidenceRaise = nil
-				case "deprecate":
-					item.RecommendedAction = controlbacklog.ActionDeprecate
-				}
-			}
-			items = append(items, item)
-		}
-		snapshot.ControlBacklog.Items = items
-		snapshot.ControlBacklog.Summary = summarizeBacklogItems(items)
-	}
-}
-
-func backlogItemMatchesRecord(itemID, repo, path, requestedID string, record manifest.IdentityRecord) bool {
-	if strings.TrimSpace(itemID) != "" && strings.TrimSpace(itemID) == strings.TrimSpace(requestedID) {
-		return true
-	}
-	return strings.TrimSpace(repo) == strings.TrimSpace(record.Repo) && strings.TrimSpace(path) == strings.TrimSpace(record.Location)
-}
-
 func summarizeBacklogItems(items []controlbacklog.Item) controlbacklog.Summary {
 	summary := controlbacklog.Summary{TotalItems: len(items)}
 	for _, item := range items {
@@ -381,45 +299,6 @@ func summarizeBacklogItems(items []controlbacklog.Item) controlbacklog.Summary {
 		}
 	}
 	return summary
-}
-
-func inventoryApprovalClass(record manifest.IdentityRecord) string {
-	switch strings.TrimSpace(record.ApprovalState) {
-	case "valid":
-		return "approved"
-	case "accepted_risk", "expired", "invalid", "deprecated", "excluded", "revoked", "missing":
-		return "unapproved"
-	default:
-		if strings.TrimSpace(record.Status) == identity.StateActive || strings.TrimSpace(record.Status) == identity.StateApproved {
-			return "approved"
-		}
-		return "unknown"
-	}
-}
-
-func inventorySecurityVisibility(record manifest.IdentityRecord) string {
-	switch strings.TrimSpace(record.ApprovalState) {
-	case "valid":
-		return agginventory.SecurityVisibilityKnownApproved
-	case "accepted_risk":
-		return agginventory.SecurityVisibilityAcceptedRisk
-	case "expired", "invalid":
-		return agginventory.SecurityVisibilityNeedsReview
-	case "deprecated":
-		return agginventory.SecurityVisibilityDeprecated
-	case "excluded", "revoked":
-		return agginventory.SecurityVisibilityRevoked
-	}
-	switch strings.TrimSpace(record.Status) {
-	case identity.StateDeprecated:
-		return agginventory.SecurityVisibilityDeprecated
-	case identity.StateRevoked:
-		return agginventory.SecurityVisibilityRevoked
-	case identity.StateActive, identity.StateApproved:
-		return agginventory.SecurityVisibilityKnownApproved
-	default:
-		return agginventory.SecurityVisibilityNeedsReview
-	}
 }
 
 func agentIDForInventoryPath(snapshot state.Snapshot, repo string, path string) string {

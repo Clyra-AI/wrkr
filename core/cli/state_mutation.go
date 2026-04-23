@@ -104,7 +104,7 @@ func refreshDerivedMutationSnapshot(snapshot *state.Snapshot) error {
 		}
 	}
 
-	profileResult := profileeval.Result{}
+	var profileResult profileeval.Result
 	if snapshot.Profile != nil {
 		profileResult = *snapshot.Profile
 	} else {
@@ -183,7 +183,7 @@ func refreshExistingControlBacklog(snapshot *state.Snapshot) {
 		record, ok := recordsByAgent[strings.TrimSpace(agentID)]
 		if ok {
 			updated.ApprovalStatus = backlogApprovalStatus(record)
-			updated.SecurityVisibility = inventorySecurityVisibility(record)
+			updated.SecurityVisibility = agginventory.GovernanceSecurityVisibilityStatus(backlogSecurityVisibility(record), strings.TrimSpace(record.ApprovalState), strings.TrimSpace(record.Status))
 			if owner := strings.TrimSpace(record.Approval.Owner); owner != "" {
 				updated.Owner = owner
 				updated.OwnerSource = "inventory_approval"
@@ -212,5 +212,30 @@ func backlogApprovalStatus(record manifest.IdentityRecord) string {
 		return "unknown"
 	default:
 		return "unapproved"
+	}
+}
+
+func backlogSecurityVisibility(record manifest.IdentityRecord) string {
+	switch strings.TrimSpace(record.ApprovalState) {
+	case "valid":
+		return agginventory.SecurityVisibilityKnownApproved
+	case "accepted_risk", "risk_accepted":
+		return agginventory.SecurityVisibilityAcceptedRisk
+	case "expired", "invalid":
+		return agginventory.SecurityVisibilityNeedsReview
+	case "deprecated":
+		return agginventory.SecurityVisibilityDeprecated
+	case "excluded", "revoked":
+		return agginventory.SecurityVisibilityRevoked
+	}
+	switch strings.TrimSpace(record.Status) {
+	case identity.StateDeprecated:
+		return agginventory.SecurityVisibilityDeprecated
+	case identity.StateRevoked:
+		return agginventory.SecurityVisibilityRevoked
+	case identity.StateActive, identity.StateApproved:
+		return agginventory.SecurityVisibilityKnownApproved
+	default:
+		return agginventory.SecurityVisibilityNeedsReview
 	}
 }

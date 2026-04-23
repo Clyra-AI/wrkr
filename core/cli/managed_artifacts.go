@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -248,14 +247,4 @@ func (s managedArtifactSnapshot) restore() error {
 		return fmt.Errorf("restore managed artifact %s: %w", s.path, err)
 	}
 	return nil
-}
-
-func emitRolledBackRuntimeFailure(stderr io.Writer, jsonOut bool, actionErr error, snapshots []managedArtifactSnapshot) int {
-	if actionErr == nil {
-		return exitSuccess
-	}
-	if restoreErr := restoreManagedArtifacts(snapshots); restoreErr != nil {
-		return emitError(stderr, jsonOut, "runtime_failure", fmt.Sprintf("%v (rollback restore failed: %v)", actionErr, restoreErr), exitRuntime)
-	}
-	return emitError(stderr, jsonOut, "runtime_failure", actionErr.Error(), exitRuntime)
 }
