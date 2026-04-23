@@ -2117,7 +2117,7 @@ func TestVerifyAndEvidenceCommands(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected evidence next step shape: %T", nextSteps[1])
 	}
-	expectedVerify := "wrkr verify --chain --state " + statePath + " --json"
+	expectedVerify := "wrkr verify --chain --state '" + statePath + "' --json"
 	if secondStep["command"] != expectedVerify {
 		t.Fatalf("expected verify next step %q, got %v", expectedVerify, secondStep["command"])
 	}
@@ -2169,7 +2169,7 @@ func TestEvidenceJSONIncludesVerifyNextSteps(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected verify next step shape: %T", nextSteps[1])
 	}
-	expectedVerifyCmd := "wrkr verify --chain --state " + statePath + " --json"
+	expectedVerifyCmd := "wrkr verify --chain --state '" + statePath + "' --json"
 	if verifyStep["command"] != expectedVerifyCmd {
 		t.Fatalf("expected verify command %q, got %v", expectedVerifyCmd, verifyStep["command"])
 	}
@@ -2177,7 +2177,7 @@ func TestEvidenceJSONIncludesVerifyNextSteps(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected report next step shape: %T", nextSteps[2])
 	}
-	expectedReportCmd := "wrkr report --state " + statePath + " --template audit --md --md-path ./wrkr-audit-summary.md --json"
+	expectedReportCmd := "wrkr report --state '" + statePath + "' --template audit --md --md-path ./wrkr-audit-summary.md --json"
 	if reportStep["command"] != expectedReportCmd {
 		t.Fatalf("expected report command %q, got %v", expectedReportCmd, reportStep["command"])
 	}

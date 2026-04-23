@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 type nextStep struct {
@@ -33,6 +34,7 @@ func missingTargetNextSteps() []nextStep {
 }
 
 func reportNextSteps(statePath string, artifacts reportArtifactResult) []nextStep {
+	stateArg := shellQuoteArg(statePath)
 	return []nextStep{
 		{
 			ID:          "review_report_artifacts",
@@ -42,18 +44,19 @@ func reportNextSteps(statePath string, artifacts reportArtifactResult) []nextSte
 		{
 			ID:          "generate_evidence_bundle",
 			Description: "Generate a portable evidence bundle from the same saved scan state.",
-			Command:     fmt.Sprintf("wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state %s --output ./wrkr-evidence --json", statePath),
+			Command:     fmt.Sprintf("wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state %s --output ./wrkr-evidence --json", stateArg),
 		},
 		{
 			ID:          "verify_proof_chain",
 			Description: "Verify the proof chain before sharing report or evidence artifacts externally.",
-			Command:     fmt.Sprintf("wrkr verify --chain --state %s --json", statePath),
+			Command:     fmt.Sprintf("wrkr verify --chain --state %s --json", stateArg),
 		},
 	}
 }
 
 func evidenceNextSteps(statePath, outputDir, manifestPath string, reportArtifacts []string) []nextStep {
 	bundleArtifacts := evidenceArtifactReferences(outputDir, manifestPath, reportArtifacts)
+	stateArg := shellQuoteArg(statePath)
 	return []nextStep{
 		{
 			ID:          "review_evidence_bundle",
@@ -63,12 +66,12 @@ func evidenceNextSteps(statePath, outputDir, manifestPath string, reportArtifact
 		{
 			ID:          "verify_proof_chain",
 			Description: "Verify the proof chain before sharing evidence externally.",
-			Command:     fmt.Sprintf("wrkr verify --chain --state %s --json", statePath),
+			Command:     fmt.Sprintf("wrkr verify --chain --state %s --json", stateArg),
 		},
 		{
 			ID:          "render_audit_report",
 			Description: "Render an audit-facing report packet from the same saved scan state.",
-			Command:     fmt.Sprintf("wrkr report --state %s --template audit --md --md-path ./wrkr-audit-summary.md --json", statePath),
+			Command:     fmt.Sprintf("wrkr report --state %s --template audit --md --md-path ./wrkr-audit-summary.md --json", stateArg),
 		},
 	}
 }
@@ -76,18 +79,25 @@ func evidenceNextSteps(statePath, outputDir, manifestPath string, reportArtifact
 func reportArtifactReferences(artifacts reportArtifactResult) []string {
 	refs := []string{}
 	if artifacts.MarkdownPath != "" {
-		refs = append(refs, "artifact_paths.markdown")
+		refs = append(refs, "md_path")
 	}
 	if artifacts.PDFPath != "" {
-		refs = append(refs, "artifact_paths.pdf")
+		refs = append(refs, "pdf_path")
 	}
 	if artifacts.EvidenceJSONPath != "" {
-		refs = append(refs, "artifact_paths.evidence_json")
+		refs = append(refs, "evidence_json_path")
 	}
 	if artifacts.BacklogCSVPath != "" {
-		refs = append(refs, "artifact_paths.backlog_csv")
+		refs = append(refs, "backlog_csv_path")
 	}
 	return uniqueSortedStrings(refs)
+}
+
+func shellQuoteArg(value string) string {
+	if value == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 func evidenceArtifactReferences(outputDir, manifestPath string, reportArtifacts []string) []string {

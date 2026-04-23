@@ -85,7 +85,7 @@ func TestReportCustomerTemplatesEmitArtifactBundlePaths(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	statePath := filepath.Join(tmp, "state.json")
+	statePath := filepath.Join(tmp, "state with spaces.json")
 	writeJSONFile(t, statePath, map[string]any{
 		"version": "v1",
 		"control_backlog": map[string]any{
@@ -213,10 +213,10 @@ func TestReportJSONIncludesDeterministicNextSteps(t *testing.T) {
 		t.Fatalf("expected report artifact references, got %v", first["artifacts"])
 	}
 	expectedRefs := []string{
-		"artifact_paths.backlog_csv",
-		"artifact_paths.evidence_json",
-		"artifact_paths.markdown",
-		"artifact_paths.pdf",
+		"backlog_csv_path",
+		"evidence_json_path",
+		"md_path",
+		"pdf_path",
 	}
 	for idx, expected := range expectedRefs {
 		if artifacts[idx] != expected {
@@ -228,7 +228,8 @@ func TestReportJSONIncludesDeterministicNextSteps(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected second next step type: %T", nextSteps[1])
 	}
-	expectedEvidenceCmd := "wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state " + statePath + " --output ./wrkr-evidence --json"
+	quotedStatePath := "'" + statePath + "'"
+	expectedEvidenceCmd := "wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state " + quotedStatePath + " --output ./wrkr-evidence --json"
 	if second["command"] != expectedEvidenceCmd {
 		t.Fatalf("expected evidence handoff command %q, got %v", expectedEvidenceCmd, second["command"])
 	}
@@ -237,9 +238,78 @@ func TestReportJSONIncludesDeterministicNextSteps(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected third next step type: %T", nextSteps[2])
 	}
-	expectedVerifyCmd := "wrkr verify --chain --state " + statePath + " --json"
+	expectedVerifyCmd := "wrkr verify --chain --state " + quotedStatePath + " --json"
 	if third["command"] != expectedVerifyCmd {
 		t.Fatalf("expected verify handoff command %q, got %v", expectedVerifyCmd, third["command"])
+	}
+}
+
+func TestReportJSONArtifactReferencesResolveToPayloadFields(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	writeJSONFile(t, statePath, map[string]any{
+		"version": "v1",
+		"inventory": map[string]any{
+			"tools": []any{map[string]any{"tool_type": "cursor"}},
+		},
+		"risk_report": map[string]any{
+			"generated_at":    "2026-04-23T12:00:00Z",
+			"top_findings":    []any{},
+			"ranked_findings": []any{},
+		},
+	})
+	mdPath := filepath.Join(tmp, "report.md")
+	pdfPath := filepath.Join(tmp, "report.pdf")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--md", "--md-path", mdPath,
+		"--pdf", "--pdf-path", pdfPath,
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	if payload["md_path"] != mdPath {
+		t.Fatalf("expected md_path %q, got %v", mdPath, payload["md_path"])
+	}
+	if payload["pdf_path"] != pdfPath {
+		t.Fatalf("expected pdf_path %q, got %v", pdfPath, payload["pdf_path"])
+	}
+	if _, ok := payload["artifact_paths"]; ok {
+		t.Fatalf("did not expect artifact_paths for md/pdf-only operator report: %v", payload["artifact_paths"])
+	}
+
+	nextSteps, ok := payload["next_steps"].([]any)
+	if !ok || len(nextSteps) == 0 {
+		t.Fatalf("expected next steps, got %v", payload["next_steps"])
+	}
+	first, ok := nextSteps[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected first next step type: %T", nextSteps[0])
+	}
+	artifacts, ok := first["artifacts"].([]any)
+	if !ok {
+		t.Fatalf("expected next-step artifact references, got %v", first["artifacts"])
+	}
+	for _, ref := range artifacts {
+		refString, ok := ref.(string)
+		if !ok {
+			t.Fatalf("expected string next-step reference, got %v", ref)
+		}
+		if _, ok := payload[refString]; !ok {
+			t.Fatalf("next-step reference %q did not resolve in payload %v", refString, payload)
+		}
 	}
 }
 
