@@ -134,6 +134,116 @@ func TestInventoryMutationRejectsUnsafeManagedMarker(t *testing.T) {
 	}
 }
 
+func TestInventoryApproveUpdatesOnlyResolvedAgentID(t *testing.T) {
+	tmp := t.TempDir()
+	statePath, agentID := writeInventoryMutationFixture(t, tmp)
+	loadedState, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("load state: %v", err)
+	}
+	loadedManifest, err := manifest.Load(manifest.ResolvePath(statePath))
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	sharedToolID := loadedManifest.Identities[0].ToolID
+	other := loadedManifest.Identities[0]
+	other.AgentID = identity.AgentID(sharedToolID, "beta")
+	other.Org = "beta"
+	other.Repo = "beta/repo"
+	other.ApprovalState = "missing"
+	other.Status = identity.StateUnderReview
+	loadedManifest.Identities = append(loadedManifest.Identities, other)
+	if err := manifest.Save(manifest.ResolvePath(statePath), loadedManifest); err != nil {
+		t.Fatalf("save expanded manifest: %v", err)
+	}
+	loadedState.Identities = append(loadedState.Identities, other)
+	loadedState.Inventory.Tools = append(loadedState.Inventory.Tools, agginventory.Tool{
+		ToolID:         sharedToolID,
+		AgentID:        other.AgentID,
+		ToolType:       "codex",
+		Org:            "beta",
+		Repos:          []string{"beta/repo"},
+		Locations:      []agginventory.ToolLocation{{Repo: "beta/repo", Location: "AGENTS.md"}},
+		ApprovalStatus: "missing",
+		ApprovalClass:  "unapproved",
+		LifecycleState: identity.StateUnderReview,
+	})
+	if err := state.Save(statePath, loadedState); err != nil {
+		t.Fatalf("save expanded state: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"inventory", "approve", agentID,
+		"--owner", "platform-security",
+		"--evidence", "SEC-123",
+		"--expires", "90d",
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("inventory approve failed: code=%d stderr=%s", code, errOut.String())
+	}
+	next, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("load mutated state: %v", err)
+	}
+	byAgent := map[string]agginventory.Tool{}
+	for _, tool := range next.Inventory.Tools {
+		byAgent[tool.AgentID] = tool
+	}
+	if byAgent[agentID].ApprovalStatus != "valid" {
+		t.Fatalf("expected targeted agent approved, got %+v", byAgent[agentID])
+	}
+	if byAgent[other.AgentID].ApprovalStatus != "missing" {
+		t.Fatalf("expected non-target agent unchanged, got %+v", byAgent[other.AgentID])
+	}
+}
+
+func TestInventoryMutationRejectsAmbiguousToolID(t *testing.T) {
+	tmp := t.TempDir()
+	statePath, _ := writeInventoryMutationFixture(t, tmp)
+	loadedState, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("load state: %v", err)
+	}
+	loadedManifest, err := manifest.Load(manifest.ResolvePath(statePath))
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	sharedToolID := loadedManifest.Identities[0].ToolID
+	other := loadedManifest.Identities[0]
+	other.AgentID = identity.AgentID(sharedToolID, "beta")
+	other.Org = "beta"
+	other.Repo = "beta/repo"
+	loadedManifest.Identities = append(loadedManifest.Identities, other)
+	if err := manifest.Save(manifest.ResolvePath(statePath), loadedManifest); err != nil {
+		t.Fatalf("save expanded manifest: %v", err)
+	}
+	loadedState.Identities = append(loadedState.Identities, other)
+	if err := state.Save(statePath, loadedState); err != nil {
+		t.Fatalf("save expanded state: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"inventory", "approve", sharedToolID,
+		"--owner", "platform-security",
+		"--evidence", "SEC-123",
+		"--expires", "90d",
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "ambiguous") {
+		t.Fatalf("expected ambiguous tool_id error, got %q", errOut.String())
+	}
+}
+
 func writeInventoryMutationFixture(t *testing.T, dir string) (string, string) {
 	t.Helper()
 	statePath := filepath.Join(dir, "state.json")

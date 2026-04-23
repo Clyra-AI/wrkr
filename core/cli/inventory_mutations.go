@@ -266,18 +266,43 @@ func resolveInventoryMutationAgentID(id string, m manifest.Manifest, snapshot st
 	if trimmed == "" {
 		return "", fmt.Errorf("inventory item id is required")
 	}
+	exactAgentMatches := map[string]struct{}{}
 	for _, record := range m.Identities {
-		if strings.TrimSpace(record.AgentID) == trimmed || strings.TrimSpace(record.ToolID) == trimmed {
-			return strings.TrimSpace(record.AgentID), nil
+		if strings.TrimSpace(record.AgentID) == trimmed {
+			exactAgentMatches[strings.TrimSpace(record.AgentID)] = struct{}{}
 		}
 	}
 	if snapshot.Inventory != nil {
 		for _, tool := range snapshot.Inventory.Tools {
-			if strings.TrimSpace(tool.AgentID) == trimmed || strings.TrimSpace(tool.ToolID) == trimmed {
-				return strings.TrimSpace(tool.AgentID), nil
+			if strings.TrimSpace(tool.AgentID) == trimmed {
+				exactAgentMatches[strings.TrimSpace(tool.AgentID)] = struct{}{}
 			}
 		}
 	}
+	if agentID, ok := singleAgentMatch(exactAgentMatches); ok {
+		return agentID, nil
+	}
+
+	toolIDMatches := map[string]struct{}{}
+	for _, record := range m.Identities {
+		if strings.TrimSpace(record.ToolID) == trimmed && strings.TrimSpace(record.AgentID) != "" {
+			toolIDMatches[strings.TrimSpace(record.AgentID)] = struct{}{}
+		}
+	}
+	if snapshot.Inventory != nil {
+		for _, tool := range snapshot.Inventory.Tools {
+			if strings.TrimSpace(tool.ToolID) == trimmed && strings.TrimSpace(tool.AgentID) != "" {
+				toolIDMatches[strings.TrimSpace(tool.AgentID)] = struct{}{}
+			}
+		}
+	}
+	if len(toolIDMatches) > 1 {
+		return "", fmt.Errorf("inventory item %s is ambiguous; use an explicit agent_id", trimmed)
+	}
+	if agentID, ok := singleAgentMatch(toolIDMatches); ok {
+		return agentID, nil
+	}
+
 	if snapshot.ControlBacklog != nil {
 		for _, item := range snapshot.ControlBacklog.Items {
 			if strings.TrimSpace(item.ID) != trimmed {
@@ -289,6 +314,16 @@ func resolveInventoryMutationAgentID(id string, m manifest.Manifest, snapshot st
 		}
 	}
 	return "", fmt.Errorf("inventory item %s not found", trimmed)
+}
+
+func singleAgentMatch(matches map[string]struct{}) (string, bool) {
+	if len(matches) != 1 {
+		return "", false
+	}
+	for agentID := range matches {
+		return agentID, true
+	}
+	return "", false
 }
 
 func findManifestIdentity(m manifest.Manifest, agentID string) (manifest.IdentityRecord, bool) {
@@ -321,7 +356,7 @@ func applyInventoryMutationToSnapshot(snapshot *state.Snapshot, record manifest.
 	if snapshot.Inventory != nil {
 		for idx := range snapshot.Inventory.Tools {
 			tool := &snapshot.Inventory.Tools[idx]
-			if strings.TrimSpace(tool.AgentID) != strings.TrimSpace(record.AgentID) && strings.TrimSpace(tool.ToolID) != strings.TrimSpace(record.ToolID) {
+			if strings.TrimSpace(tool.AgentID) != strings.TrimSpace(record.AgentID) {
 				continue
 			}
 			tool.ApprovalStatus = strings.TrimSpace(record.ApprovalState)
@@ -338,7 +373,7 @@ func applyInventoryMutationToSnapshot(snapshot *state.Snapshot, record manifest.
 		}
 		for idx := range snapshot.Inventory.Agents {
 			agent := &snapshot.Inventory.Agents[idx]
-			if strings.TrimSpace(agent.AgentID) == strings.TrimSpace(record.AgentID) || strings.TrimSpace(agent.AgentInstanceID) == strings.TrimSpace(record.ToolID) {
+			if strings.TrimSpace(agent.AgentID) == strings.TrimSpace(record.AgentID) {
 				agent.SecurityVisibilityStatus = inventorySecurityVisibility(record)
 			}
 		}
