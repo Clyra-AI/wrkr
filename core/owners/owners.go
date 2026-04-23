@@ -117,10 +117,6 @@ func loadCodeowners(root string) []rule {
 	return nil
 }
 
-func parseRules(content string) []rule {
-	return parseRulesWithSource(content, OwnerSourceCodeowners, "CODEOWNERS", 0, false)
-}
-
 func parseRulesWithSource(content, source, evidencePath string, priority int, inferred bool) []rule {
 	scanner := bufio.NewScanner(strings.NewReader(content))
 	out := make([]rule, 0)
