@@ -24,6 +24,7 @@ description: "Template structures for sharing Wrkr posture and evidence outputs 
 - `wrkr evidence` output manifest path.
 - Proof chain verification result.
 - Framework coverage summary.
+- Control evidence status (`control-evidence.json`) showing existing and missing proof for approval, owner, least-privilege, rotation, deployment-gate, production-access, and review-cadence requirements.
 - Contract references (`docs/specs/wrkr-manifest.md`, `docs/contracts/compatibility_matrix.md`).
 
 ## Command Anchors

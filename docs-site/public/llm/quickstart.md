@@ -38,9 +38,11 @@ wrkr scan --my-setup --json
 wrkr mcp-list --state ./.wrkr/last-scan.json --json
 cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
 wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
+wrkr inventory approve <agent-id> --owner platform-security --evidence SEC-123 --expires 90d --state ./.wrkr/last-scan.json --json
 ```
 
 `wrkr evidence` now fails closed when the saved proof chain is malformed or tampered, and `wrkr verify --chain --json` remains the explicit machine gate for integrity.
+Inventory approval/evidence mutations are local, file-based, and append proof events. Evidence and verify JSON may include additive `control_evidence` so operators can see existing and missing proof for active backlog controls.
 The hosted org path is the primary launch workflow when prerequisites are ready. Use the curated scenario when you want the evaluator-safe fallback because it avoids repo-root fixture noise from Wrkr's own scenarios, docs, and test fixtures. That scenario path is the canonical `repo_set` example for `--path`: Wrkr scans the immediate child repos in the bundle instead of treating the bundle root as one repo.
 Use `wrkr scan --path ./your-repo --json` when the selected directory itself is the repo root and carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, or `.codex/`. Use a bundle root like `./scenarios/wrkr/scan-mixed-org/repos` when you want immediate child repos scanned as a deterministic repo-set.
 

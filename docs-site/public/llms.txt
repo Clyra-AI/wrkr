@@ -17,6 +17,8 @@
 - wrkr scan --github-org <org> --github-api <url> --json
 - wrkr scan --path <dir> --sarif --json
 - wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
+- wrkr inventory approve <agent-id> --owner <team> --evidence <ticket-or-url> --expires 90d --state ./.wrkr/last-scan.json --json
+- wrkr inventory attach-evidence <agent-id> --control <control-id> --url <url> --state ./.wrkr/last-scan.json --json
 - wrkr report --top <n> --json
 - wrkr score --json
 - wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
@@ -45,6 +47,7 @@
 - Hosted org posture is the primary first-run path when prerequisites are ready; local `--my-setup`, repo-local `--path`, and the curated scenario remain deterministic fallback paths when hosted setup is not ready yet.
 - Resumed hosted org scans revalidate checkpoint files and reused materialized repo roots before detector execution, so symlink-swapped resume state is blocked as unsafe.
 - Low or zero `framework_coverage` reflects the controls currently evidenced in the scanned state, not missing parser support, and `wrkr evidence --json` emits additive `coverage_note` guidance with the same interpretation.
+- Approval inventory mutations are local/file-based and append proof events; `wrkr evidence --json` and `wrkr verify --chain --json` may include additive `control_evidence` showing existing and missing proof for active backlog controls.
 - Evidence bundles include deterministic inventory artifacts: inventory.json, inventory-snapshot.json, inventory.yaml.
 - Wrkr runs standalone; Gait is the optional control-layer counterpart.
 - Wrkr does not replace vulnerability scanners such as Snyk.

@@ -7,6 +7,8 @@ Stable contract surfaces include:
 - Deterministic trust docs in `/docs/trust/`
 - Exit-code contract (`0` success, `1` runtime failure, `2` verification failure, `3` policy/schema violation, `4` approval required, `5` regression drift, `6` invalid input, `7` dependency missing, `8` unsafe operation blocked)
 - Additive `verify --json` success detail fields such as `chain.verification_mode` and `chain.authenticity_status`
+- Additive `control_evidence` in `evidence --json` and `verify --chain --json` when the saved state contains an active control backlog
+- Inventory approval lifecycle commands that mutate local state/manifest/proof artifacts atomically
 - `wrkr score` fail-closed behavior when saved scan snapshots are malformed, even if cached `posture_score` is present
 - `wrkr evidence` fail-closed behavior when saved proof-chain prerequisites are malformed or tampered
 - `wrkr scan --resume` fail-closed behavior when checkpoint files or reused materialized repo roots are symlink-swapped
@@ -19,6 +21,7 @@ Key command anchors:
 - `wrkr scan --my-setup --json`
 - `wrkr mcp-list --json`
 - `wrkr inventory --diff --baseline <baseline-path> --json`
+- `wrkr inventory approve <agent-id> --owner <team> --evidence <ticket-or-url> --expires 90d --json`
 - `wrkr score --json`
 - `wrkr evidence --frameworks <ids> --json`
 - `wrkr verify --chain --json`

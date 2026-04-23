@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/evidence"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/state"
 	verifycore "github.com/Clyra-AI/wrkr/core/verify"
@@ -74,6 +75,13 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 			"verification_mode":   result.VerificationMode,
 			"authenticity_status": result.AuthenticityStatus,
 		},
+	}
+	if snapshot, loadErr := state.Load(keyLookupPath); loadErr == nil {
+		if chain, chainErr := proofemit.LoadChain(chainPath); chainErr == nil {
+			if controlEvidence := evidence.BuildControlEvidence(snapshot, chain); len(controlEvidence) > 0 {
+				payload["control_evidence"] = controlEvidence
+			}
+		}
 	}
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(payload)

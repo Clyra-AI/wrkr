@@ -321,8 +321,11 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 func MapTransition(transition lifecycle.Transition, eventType string) MappedRecord {
 	recordType := "decision"
 	resolvedEventType := strings.TrimSpace(eventType)
-	if resolvedEventType == "approval" {
+	switch resolvedEventType {
+	case "approval", "approval_recorded", "risk_accepted":
 		recordType = "approval"
+	case "owner_assigned", "evidence_attached", "least_privilege_verified", "rotation_evidence_attached", "deployment_gate_present", "production_access_classified", "proof_artifact_generated", "review_cadence_set":
+		recordType = "evidence"
 	}
 	if resolvedEventType == "" {
 		resolvedEventType = "lifecycle_transition"
@@ -352,6 +355,18 @@ func MapTransition(transition lifecycle.Transition, eventType string) MappedReco
 	if expires != "" {
 		event["expires"] = expires
 	}
+	for _, key := range []string{
+		"owner",
+		"control_id",
+		"evidence_url",
+		"review_cadence",
+		"accepted_risk",
+		"reason",
+	} {
+		if value, ok := diff[key]; ok {
+			event[key] = value
+		}
+	}
 
 	timestamp := time.Now().UTC().Truncate(time.Second)
 	if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(transition.Timestamp)); err == nil {
@@ -366,6 +381,7 @@ func MapTransition(transition lifecycle.Transition, eventType string) MappedReco
 		ApprovedScope: scope,
 		Metadata: map[string]any{
 			"transition_trigger": transition.Trigger,
+			"event_type":         resolvedEventType,
 		},
 	}
 }

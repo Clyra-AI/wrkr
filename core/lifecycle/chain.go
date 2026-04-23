@@ -62,13 +62,7 @@ func AppendTransitionRecord(chain *proof.Chain, transition Transition, eventType
 	if err != nil {
 		ts = time.Now().UTC().Truncate(time.Second)
 	}
-	recordType := strings.TrimSpace(eventType)
-	if recordType == "" {
-		recordType = "decision"
-	}
-	if recordType == "lifecycle_transition" {
-		recordType = "decision"
-	}
+	recordType := transitionRecordType(eventType)
 	record, err := proof.NewRecord(proof.RecordOpts{
 		Timestamp:     ts,
 		Source:        "wrkr",
@@ -91,6 +85,17 @@ func AppendTransitionRecord(chain *proof.Chain, transition Transition, eventType
 		return fmt.Errorf("append transition record: %w", err)
 	}
 	return nil
+}
+
+func transitionRecordType(eventType string) string {
+	switch strings.TrimSpace(eventType) {
+	case "approval", "approval_recorded", "risk_accepted":
+		return "approval"
+	case "owner_assigned", "evidence_attached", "least_privilege_verified", "rotation_evidence_attached", "deployment_gate_present", "production_access_classified", "proof_artifact_generated", "review_cadence_set":
+		return "evidence"
+	default:
+		return "decision"
+	}
 }
 
 func RecordsForAgent(chain *proof.Chain, agentID string) []proof.Record {

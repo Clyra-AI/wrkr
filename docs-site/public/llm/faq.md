@@ -31,10 +31,12 @@ No. Wrkr runs standalone; Gait is the optional control-layer counterpart when ru
 ## How do I gate on posture drift in CI?
 
 Use `wrkr regress run`. It accepts a saved regress baseline or a raw saved scan snapshot baseline. Exit code `5` indicates drift. Legacy `v1` baselines created before instance identities are reconciled automatically when the current identity is equivalent.
+New control-path drift categories include expired approvals, owner changes, risk increases, new write paths, new MCP tool configs, and new secret-bearing workflows.
 
 ## How do I produce verifiable compliance evidence?
 
 Use `wrkr evidence --frameworks ... --json` and verify with `wrkr verify --chain --json`. `wrkr evidence` now fails closed when the saved proof chain is malformed or tampered, while `wrkr verify --chain --json` remains the explicit machine gate. Success JSON includes `chain.verification_mode` and `chain.authenticity_status`; invalid verifier-key material is a verification failure.
+When a saved state carries a control backlog, evidence and verify JSON may include additive `control_evidence` entries with existing proof, missing proof, and related proof record ids.
 
 ## Why can framework coverage be low on the first run?
 

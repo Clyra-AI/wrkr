@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -963,6 +965,124 @@ func TestCompareSummarizesCriticalAttackPathDrift(t *testing.T) {
 	if reason.ToolID != "attack_paths" {
 		t.Fatalf("unexpected summarized tool_id %q", reason.ToolID)
 	}
+}
+
+func TestRegressDetectsNewSecretBearingWriteWorkflow(t *testing.T) {
+	t.Parallel()
+
+	toolID := identity.ToolID("workflow", ".github/workflows/deploy.yml")
+	agentID := identity.AgentID(toolID, "acme")
+	current := state.Snapshot{
+		Inventory: &agginventory.Inventory{
+			Tools: []agginventory.Tool{
+				{
+					AgentID:   agentID,
+					ToolID:    toolID,
+					Org:       "acme",
+					Repos:     []string{"acme/repo"},
+					Locations: []agginventory.ToolLocation{{Repo: "acme/repo", Location: ".github/workflows/deploy.yml"}},
+				},
+			},
+		},
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       agentID,
+				ToolID:        toolID,
+				ToolType:      "workflow",
+				Org:           "acme",
+				Repo:          "acme/repo",
+				Location:      ".github/workflows/deploy.yml",
+				Status:        identity.StateUnderReview,
+				ApprovalState: "missing",
+				Present:       true,
+			},
+		},
+		ControlBacklog: &controlbacklog.Backlog{
+			Items: []controlbacklog.Item{
+				{
+					ID:                 "cb-secret-write",
+					Repo:               "acme/repo",
+					Path:               ".github/workflows/deploy.yml",
+					ControlPathType:    controlbacklog.ControlPathSecretWorkflow,
+					ApprovalStatus:     "missing",
+					SecurityVisibility: agginventory.SecurityVisibilityUnknownToSecurity,
+					RecommendedAction:  controlbacklog.ActionAttachEvidence,
+					WritePathClasses:   []string{agginventory.WritePathRepoWrite},
+					SecretSignalTypes:  []string{controlbacklog.SecretRotationEvidenceMissing},
+				},
+			},
+		},
+	}
+
+	result := Compare(Baseline{Version: BaselineVersion, Tools: []ToolState{}}, current)
+	if !result.Drift {
+		t.Fatal("expected drift for new secret-bearing workflow")
+	}
+	if !hasReasonCode(result.Reasons, ReasonNewSecretBearingWorkflow) {
+		t.Fatalf("expected %s reason, got %+v", ReasonNewSecretBearingWorkflow, result.Reasons)
+	}
+}
+
+func TestRegressDetectsApprovalExpiredAndOwnerChanged(t *testing.T) {
+	t.Parallel()
+
+	toolID := identity.ToolID("codex", "AGENTS.md")
+	agentID := identity.AgentID(toolID, "acme")
+	baseline := Baseline{
+		Version: BaselineVersion,
+		Tools: []ToolState{
+			{
+				AgentID:         agentID,
+				AgentInstanceID: toolID,
+				ToolID:          toolID,
+				Org:             "acme",
+				Status:          identity.StateActive,
+				ApprovalStatus:  "valid",
+				Owner:           "platform-security",
+				RiskScore:       2,
+				Present:         true,
+			},
+		},
+	}
+	current := state.Snapshot{
+		Identities: []manifest.IdentityRecord{
+			{
+				AgentID:       agentID,
+				ToolID:        toolID,
+				ToolType:      "codex",
+				Org:           "acme",
+				Repo:          "acme/repo",
+				Location:      "AGENTS.md",
+				Status:        identity.StateUnderReview,
+				ApprovalState: "expired",
+				Approval: manifest.Approval{
+					Owner:   "appsec",
+					Expires: "2026-04-01T00:00:00Z",
+				},
+				RiskScore: 4,
+				Present:   true,
+			},
+		},
+	}
+
+	result := Compare(baseline, current)
+	if !result.Drift {
+		t.Fatal("expected drift for expired approval and owner change")
+	}
+	for _, code := range []string{ReasonApprovalExpired, ReasonOwnerChanged, ReasonApprovedPathRiskIncreased} {
+		if !hasReasonCode(result.Reasons, code) {
+			t.Fatalf("expected %s reason, got %+v", code, result.Reasons)
+		}
+	}
+}
+
+func hasReasonCode(reasons []Reason, code string) bool {
+	for _, reason := range reasons {
+		if reason.Code == code {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCompareSuppressesAttackPathDriftBelowThreshold(t *testing.T) {

@@ -5,9 +5,14 @@
 ```bash
 wrkr inventory [--state <path>] [--anonymize] [--json]
 wrkr inventory --diff [--baseline <path>] [--state <path>] [--json]
+wrkr inventory approve <id> --owner <team> --evidence <ticket-or-url> --expires <date-or-duration> [--control <control-id>] [--review-cadence <duration>] [--state <path>] [--json]
+wrkr inventory attach-evidence <id> --control <control-id> --url <url> [--owner <team>] [--state <path>] [--json]
+wrkr inventory accept-risk <id> --expires <date-or-duration> [--reason <reason>] [--state <path>] [--json]
+wrkr inventory deprecate <id> --reason <reason> [--state <path>] [--json]
+wrkr inventory exclude <id> --reason <reason> [--state <path>] [--json]
 ```
 
-`inventory` is the developer-facing compatibility wrapper over Wrkr's existing inventory export and drift primitives.
+`inventory` is the developer-facing compatibility wrapper over Wrkr's existing inventory export and drift primitives, plus lifecycle governance mutations for discovered control paths.
 
 ## Flags
 
@@ -16,6 +21,13 @@ wrkr inventory --diff [--baseline <path>] [--state <path>] [--json]
 - `--anonymize`
 - `--diff`
 - `--baseline`
+- `--owner`
+- `--evidence`
+- `--expires`
+- `--control`
+- `--review-cadence`
+- `--url`
+- `--reason`
 
 ## Developer personal-hygiene example
 
@@ -23,6 +35,7 @@ wrkr inventory --diff [--baseline <path>] [--state <path>] [--json]
 wrkr inventory --json
 wrkr inventory --anonymize --json
 wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
+wrkr inventory approve wrkr:codex-abc123:acme --owner platform-security --evidence SEC-123 --expires 90d --state ./.wrkr/last-scan.json --json
 ```
 
 ## Output contract
@@ -48,8 +61,32 @@ Inventory records may include additive governance fields when they were produced
 - `added`
 - `removed`
 - `changed`
+- additive control-path drift fields: `control_path_drift_detected`, `control_path_reason_count`, and `control_path_reasons`
 
 `inventory --diff` exits `5` when deterministic drift is present.
+
+Mutation commands emit a deterministic JSON response with:
+
+- `status`
+- `approval_inventory_version`
+- `action`
+- `identity`
+- `transition`
+- `state_path`
+- `manifest_path`
+- `proof_chain_path`
+
+Mutations update the state snapshot and `wrkr-manifest.yaml` additively, append lifecycle/proof records, and use atomic rollback if a managed artifact write fails. Unsafe managed artifact paths, including symlinks or non-regular files at state/proof/manifest paths, return exit `8` with `unsafe_operation_blocked`.
+
+## Approval inventory semantics
+
+- `approve` records owner, evidence reference, optional control id, expiry, review cadence, last reviewed timestamp, and renewal state. It creates an `approval_recorded` proof event.
+- `attach-evidence` records a control id and evidence URL without network validation. It creates an `evidence_attached` proof event.
+- `accept-risk` requires an expiry and records time-bounded accepted-risk visibility.
+- `deprecate` records a deterministic reason and moves the identity to deprecated visibility.
+- `exclude` records an exclusion reason, moves the identity out of the active governance backlog, and keeps the underlying evidence available in saved artifacts.
+
+Inventory item ids may be an `agent_id`, `tool_id`, or a `control_backlog.items[*].id` that can be resolved to an inventory path.
 
 ## Baseline semantics
 
