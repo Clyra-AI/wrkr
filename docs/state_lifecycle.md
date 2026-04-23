@@ -36,13 +36,13 @@ Wrkr uses two path classes:
 4. `wrkr evidence` consumes state only after the saved proof chain passes the same local integrity prerequisite used by Wrkr's verification runtime, then emits evidence bundle outputs while preserving chain continuity and only publishing a complete verified bundle to the requested output path.
 5. `wrkr verify --chain` remains the explicit proof-chain integrity gate for operators and CI from the state directory.
 
-Saved scan state also carries additive governance output: `control_backlog`, `scan_quality`, inventory write-path classes, and governance control mappings. Approval evidence that expires is represented as `approval_status=expired` and a lifecycle state requiring review; governance backlog visibility maps that condition to `needs_review` instead of continuing to treat the path as approved.
+Saved scan state also carries additive governance output: `control_backlog`, `scan_quality`, inventory write-path classes, and governance control mappings. Approval evidence that expires is represented as `approval_status=expired` and a lifecycle state requiring review; governance backlog visibility maps that condition to `needs_review` instead of continuing to treat the path as approved. First observation persists as `status=discovered`; Wrkr reserves `under_review` for explicit review and approval-expiry return-to-review semantics rather than auto-normalizing every fresh discovery into review.
 
 ## Manual transition commit rule
 
-- `wrkr identity approve|review|deprecate|revoke` preflights lifecycle and proof reads before mutation begins.
-- The command snapshots the managed artifact set and restores it on downstream lifecycle or proof failure.
-- Manifest posture is committed last so approval or review state does not remain ahead of lifecycle or proof history after a failed command.
+- `wrkr identity approve|review|deprecate|revoke` and `wrkr inventory approve|attach-evidence|accept-risk|deprecate|exclude` preflight lifecycle and proof reads before mutation begins.
+- The commands snapshot the managed artifact set and restore it on downstream saved-state, lifecycle, manifest, or proof failure.
+- Successful mutations update the saved scan snapshot in the same managed generation as manifest, lifecycle chain, and proof artifacts, so downstream posture readers observe the new state immediately.
 
 ## Command links
 

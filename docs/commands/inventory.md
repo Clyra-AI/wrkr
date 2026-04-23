@@ -76,7 +76,7 @@ Mutation commands emit a deterministic JSON response with:
 - `manifest_path`
 - `proof_chain_path`
 
-Mutations update the state snapshot and `wrkr-manifest.yaml` additively, append lifecycle/proof records, and use atomic rollback if a managed artifact write fails. Unsafe managed artifact paths, including symlinks or non-regular files at state/proof/manifest paths, return exit `8` with `unsafe_operation_blocked`.
+Mutations update the state snapshot and `wrkr-manifest.yaml` additively, append lifecycle/proof records, and use atomic rollback if a managed artifact write fails. Successful approval and lifecycle mutations also refresh saved posture surfaces such as backlog and cached posture score so `wrkr score`, `wrkr report`, and `wrkr regress` reflect the decision without requiring a fresh scan. Unsafe managed artifact paths, including symlinks or non-regular files at state/proof/manifest paths, return exit `8` with `unsafe_operation_blocked`.
 
 ## Approval inventory semantics
 

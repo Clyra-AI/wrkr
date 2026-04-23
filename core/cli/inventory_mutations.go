@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,7 +14,6 @@ import (
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
-	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -92,27 +89,17 @@ func runInventoryMutation(action string, args []string, stdout io.Writer, stderr
 	}
 
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
-	preflight, preflightErr := preflightStateMutationArtifacts(resolvedStatePath)
-	if preflightErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", preflightErr.Error(), exitUnsafeBlocked)
+	ctx, err := loadStateMutationContext(resolvedStatePath)
+	if err != nil {
+		return emitStateMutationError(stderr, jsonRequested || *jsonOut, err)
 	}
 
-	snapshot, err := state.Load(resolvedStatePath)
-	if err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
-	}
-	loadedManifest, err := manifest.Load(preflight.manifestPath)
-	if err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
-	}
-	loadedManifest.Identities = model.FilterLegacyArtifactIdentityRecords(loadedManifest.Identities)
-
-	agentID, resolveErr := resolveInventoryMutationAgentID(id, loadedManifest, snapshot)
+	agentID, resolveErr := resolveInventoryMutationAgentID(id, ctx.manifest, ctx.snapshot)
 	if resolveErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", resolveErr.Error(), exitInvalidInput)
 	}
 	mutation.AgentID = agentID
-	nextManifest, transition, transitionErr := lifecycle.ApplyInventoryMutation(loadedManifest, mutation)
+	nextManifest, transition, transitionErr := lifecycle.ApplyInventoryMutation(ctx.manifest, mutation)
 	if transitionErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", transitionErr.Error(), exitInvalidInput)
 	}
@@ -120,41 +107,15 @@ func runInventoryMutation(action string, args []string, stdout io.Writer, stderr
 	if !ok {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", "updated identity record missing after mutation", exitRuntime)
 	}
-	applyInventoryMutationToSnapshot(&snapshot, updatedRecord, transition, id, action)
-
-	lifecycleChain, chainErr := lifecycle.LoadChain(preflight.lifecyclePath)
-	if chainErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", chainErr.Error(), exitRuntime)
+	if err := applyStateMutationToSnapshot(&ctx.snapshot, nextManifest, transition); err != nil {
+		return emitStateMutationError(stderr, jsonRequested || *jsonOut, err)
 	}
-	if _, err := proofemit.LoadChain(preflight.proofChainPath); err != nil {
+	if err := lifecycle.AppendTransitionRecord(ctx.lifecycleChain, transition, eventTypeForInventoryAction(action)); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
-	if err := lifecycle.AppendTransitionRecord(lifecycleChain, transition, eventTypeForInventoryAction(action)); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
-	}
-
-	snapshots, snapshotErr := captureManagedArtifacts(
-		preflight.statePath,
-		preflight.manifestPath,
-		preflight.lifecyclePath,
-		preflight.proofChainPath,
-		preflight.proofAttestationPath,
-		preflight.signingKeyPath,
-	)
-	if snapshotErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", snapshotErr.Error(), exitUnsafeBlocked)
-	}
-	if err := state.Save(preflight.statePath, snapshot); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, snapshots)
-	}
-	if err := lifecycle.SaveChain(preflight.lifecyclePath, lifecycleChain); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, snapshots)
-	}
-	if err := proofemit.EmitIdentityTransition(preflight.statePath, transition, eventTypeForInventoryAction(action)); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, snapshots)
-	}
-	if err := manifest.Save(preflight.manifestPath, nextManifest); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, snapshots)
+	ctx.manifest = nextManifest
+	if err := commitStateMutationContext(ctx, transition, eventTypeForInventoryAction(action)); err != nil {
+		return emitStateMutationError(stderr, jsonRequested || *jsonOut, err)
 	}
 
 	payload := map[string]any{
@@ -163,9 +124,9 @@ func runInventoryMutation(action string, args []string, stdout io.Writer, stderr
 		"action":                     action,
 		"identity":                   updatedRecord,
 		"transition":                 transition,
-		"state_path":                 preflight.statePath,
-		"manifest_path":              preflight.manifestPath,
-		"proof_chain_path":           preflight.proofChainPath,
+		"state_path":                 ctx.preflight.statePath,
+		"manifest_path":              ctx.preflight.manifestPath,
+		"proof_chain_path":           ctx.preflight.proofChainPath,
 	}
 	if jsonRequested || *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(payload)
@@ -185,7 +146,7 @@ type stateMutationPreflight struct {
 }
 
 func preflightStateMutationArtifacts(statePathRaw string) (stateMutationPreflight, error) {
-	statePath, err := normalizeManagedArtifactPath(statePathRaw)
+	statePath, err := preflightTrustedStatePath(statePathRaw)
 	if err != nil {
 		return stateMutationPreflight{}, err
 	}
@@ -244,21 +205,7 @@ func preflightStateMutationArtifacts(statePathRaw string) (stateMutationPrefligh
 }
 
 func rejectUnsafeExistingMutationArtifact(path string) error {
-	cleanPath := filepath.Clean(strings.TrimSpace(path))
-	info, err := os.Lstat(cleanPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("stat managed mutation artifact %s: %w", cleanPath, err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("managed mutation artifact must be a regular file, not a symlink: %s", cleanPath)
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("managed mutation artifact must be a regular file: %s", cleanPath)
-	}
-	return nil
+	return rejectUnsafeExistingManagedFile(path, "managed mutation artifact")
 }
 
 func resolveInventoryMutationAgentID(id string, m manifest.Manifest, snapshot state.Snapshot) (string, error) {

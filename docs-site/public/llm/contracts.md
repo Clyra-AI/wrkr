@@ -9,9 +9,11 @@ Stable contract surfaces include:
 - Additive `verify --json` success detail fields such as `chain.verification_mode` and `chain.authenticity_status`
 - Additive `control_evidence` in `evidence --json` and `verify --chain --json` when the saved state contains an active control backlog
 - Inventory approval lifecycle commands that mutate local state/manifest/proof artifacts atomically
+- Identity and inventory mutations update saved scan state atomically with manifest/lifecycle/proof artifacts, so `score`, `report`, and `regress` reflect approvals without a rescanning step
 - `wrkr score` fail-closed behavior when saved scan snapshots are malformed, even if cached `posture_score` is present
 - `wrkr evidence` fail-closed behavior when saved proof-chain prerequisites are malformed or tampered
 - `wrkr scan --resume` fail-closed behavior when checkpoint files or reused materialized repo roots are symlink-swapped
+- `wrkr scan` and `wrkr identity` fail-closed behavior for symlinked managed `--state` paths
 - `regress` compatibility for legacy `v1` baselines when current instance identities are equivalent
 - `regress run` compatibility for raw saved scan snapshots used as baseline inputs
 

@@ -38,6 +38,33 @@ func TestReconcileDerivesUnderReviewWhenApprovalExpired(t *testing.T) {
 	}
 }
 
+func TestReconcilePreservesDiscoveredForFirstSeenIdentity(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
+	next, transitions := Reconcile(manifest.Manifest{}, []ObservedTool{{
+		AgentID:  "wrkr:mcp-1:acme",
+		ToolID:   "mcp-1",
+		ToolType: "mcp",
+		Org:      "acme",
+		Repo:     "acme/repo",
+		Location: ".mcp.json",
+	}}, now)
+
+	if len(next.Identities) != 1 {
+		t.Fatalf("expected one identity, got %d", len(next.Identities))
+	}
+	if next.Identities[0].Status != identity.StateDiscovered {
+		t.Fatalf("expected discovered status, got %+v", next.Identities[0])
+	}
+	if next.Identities[0].ApprovalState != "missing" {
+		t.Fatalf("expected missing approval state, got %+v", next.Identities[0])
+	}
+	if len(transitions) == 0 || transitions[0].Trigger != "first_seen" {
+		t.Fatalf("expected first_seen transition, got %+v", transitions)
+	}
+}
+
 func TestReconcileEmitsRemovedAndReappearedTriggers(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
@@ -189,8 +216,8 @@ func TestReconcileLegacyAgentIDMigrationDoesNotFanOutApprovalState(t *testing.T)
 	if migrated.Status != identity.StateActive {
 		t.Fatalf("expected first successor to inherit approved semantics, got %+v", *migrated)
 	}
-	if fresh.Status != identity.StateUnderReview || fresh.ApprovalState != "missing" {
-		t.Fatalf("expected additional successor to require new review, got %+v", *fresh)
+	if fresh.Status != identity.StateDiscovered || fresh.ApprovalState != "missing" {
+		t.Fatalf("expected additional successor to persist discovered, got %+v", *fresh)
 	}
 
 	var migratedTrigger, freshTrigger string

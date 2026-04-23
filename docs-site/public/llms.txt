@@ -48,6 +48,8 @@
 - Resumed hosted org scans revalidate checkpoint files and reused materialized repo roots before detector execution, so symlink-swapped resume state is blocked as unsafe.
 - Low or zero `framework_coverage` reflects the controls currently evidenced in the scanned state, not missing parser support, and `wrkr evidence --json` emits additive `coverage_note` guidance with the same interpretation.
 - Approval inventory mutations are local/file-based and append proof events; `wrkr evidence --json` and `wrkr verify --chain --json` may include additive `control_evidence` showing existing and missing proof for active backlog controls.
+- `wrkr identity` and `wrkr inventory` mutations update saved state, manifest, lifecycle, and proof artifacts together, so `score`, `report`, and `regress` reflect approvals without a rescanning step.
+- First discovery persists as `discovered`; `under_review` is reserved for explicit review and approval-expiry return-to-review flows.
 - Evidence bundles include deterministic inventory artifacts: inventory.json, inventory-snapshot.json, inventory.yaml.
 - Wrkr runs standalone; Gait is the optional control-layer counterpart.
 - Wrkr does not replace vulnerability scanners such as Snyk.

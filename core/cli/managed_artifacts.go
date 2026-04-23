@@ -24,6 +24,21 @@ type scanArtifactPathEntry struct {
 	key   string
 }
 
+type unsafeManagedArtifactPathError struct {
+	err error
+}
+
+func (e unsafeManagedArtifactPathError) Error() string {
+	if e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e unsafeManagedArtifactPathError) Unwrap() error {
+	return e.err
+}
+
 func captureManagedArtifacts(paths ...string) ([]managedArtifactSnapshot, error) {
 	snapshots := make([]managedArtifactSnapshot, 0, len(paths))
 	seen := map[string]struct{}{}
@@ -75,6 +90,40 @@ func normalizeManagedArtifactPath(raw string) (string, error) {
 		return "", fmt.Errorf("scan artifact path must not be empty")
 	}
 	return filepath.Clean(trimmed), nil
+}
+
+func preflightTrustedStatePath(raw string) (string, error) {
+	statePath, err := normalizeManagedArtifactPath(raw)
+	if err != nil {
+		return "", err
+	}
+	if err := rejectUnsafeExistingManagedFile(statePath, "--state"); err != nil {
+		return "", unsafeManagedArtifactPathError{err: err}
+	}
+	return statePath, nil
+}
+
+func rejectUnsafeExistingManagedFile(path string, label string) error {
+	cleanPath := filepath.Clean(strings.TrimSpace(path))
+	info, err := os.Lstat(cleanPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat %s: %w", cleanPath, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("%s must be a regular file, not a symlink: %s", strings.TrimSpace(label), cleanPath)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%s must be a regular file: %s", strings.TrimSpace(label), cleanPath)
+	}
+	return nil
+}
+
+func isUnsafeManagedArtifactPathError(err error) bool {
+	var target unsafeManagedArtifactPathError
+	return errors.As(err, &target)
 }
 
 func newScanArtifactPathEntry(label, path string) (scanArtifactPathEntry, error) {

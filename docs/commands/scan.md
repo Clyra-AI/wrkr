@@ -36,6 +36,7 @@ Acquisition behavior is fail-closed by target:
   - Ownership violations return `unsafe_operation_blocked` (exit `8`).
 - When GitHub acquisition is unavailable, `scan` returns `dependency_missing` with exit code `7` (no synthetic repos are emitted).
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
+- Existing `--state` files must be regular files; symlinked `--state` inputs fail closed with `unsafe_operation_blocked` (exit `8`) before any managed artifact mutation.
 - Scan-owned managed artifacts are published transactionally: state snapshot, lifecycle chain, proof chain/attestation, manifest, and any requested `--json-path`, `--report-md-path`, or `--sarif-path` sidecars commit as one generation.
 - Scan status is written as a deterministic sidecar next to `--state` and can be inspected with `wrkr scan status --state <path> --json` without rescanning.
 - Invalid scan-owned artifact paths such as `--report-md-path` and `--sarif-path` are preflight-validated before any managed artifact mutation.

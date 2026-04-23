@@ -421,7 +421,7 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 		}
 	})
 
-	t.Run("AC17_manifest_generate_under_review_and_manual_approval", func(t *testing.T) {
+	t.Run("AC17_manifest_generate_preserves_discovered_and_manual_approval", func(t *testing.T) {
 		statePath := scanScenarioState(t, paths.scanMixedRepos, "standard")
 		manifestPayload := runJSONOK(t, "manifest", "generate", "--state", statePath, "--json")
 		requireKey(t, manifestPayload, "manifest_path")
@@ -436,8 +436,8 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 		}
 		first := loaded.Identities[0]
 		for _, item := range loaded.Identities {
-			if item.Status != "under_review" || item.ApprovalState != "missing" {
-				t.Fatalf("expected under_review + missing approval_state, got %+v", item)
+			if item.Status != "discovered" || item.ApprovalState != "missing" {
+				t.Fatalf("expected discovered + missing approval_state, got %+v", item)
 			}
 		}
 

@@ -111,7 +111,7 @@ tools:
     teams: [platform, payments]
     identity:
       agent_id: "wrkr:claude-code-monorepo:acme-corp"
-      status: approved              # discovered | under_review | approved | deprecated | revoked
+      status: approved              # discovered | under_review | approved | active | deprecated | revoked
       first_seen: "2026-06-12T14:20:00Z"
       approved_by: "@maria"
       approved_date: "2026-07-01T10:00:00Z"
@@ -452,6 +452,7 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
 - **Identity chain:** Each agent's lifecycle is a proof record chain — append-only, tamper-evident. The chain proves the full history: when it was found, who approved it, when approval was renewed, when it was deprecated. An auditor can verify any agent's lifecycle with `proof verify --chain`.
 - **Cross-product interop:** Wrkr's agent IDs are the same identifiers that appear in Gait's `IntentContext.Identity` field and Axym's `agent_id` field. When Gait gates an action from `claude-code-monorepo`, the enforcement record links to the same identity Wrkr discovered and tracks. No mapping tables, no translation — one ID across the governance stack.
 - **Approval renewal:** Approvals have configurable expiry (default: 90 days). Wrkr scans flag tools with expired approvals as `under_review`. This ensures continuous governance — an approval from six months ago does not mean the tool is still governed today.
+- **Saved-state authority between scans:** `wrkr identity` and `wrkr inventory` mutations update the saved scan snapshot, manifest, lifecycle chain, and proof chain together. `wrkr score`, `wrkr report`, and `wrkr regress` therefore observe approval and review decisions immediately without requiring a follow-up scan.
 - **CLI commands:**
   - `wrkr identity list` — list all tracked agent identities with current status
   - `wrkr identity show <id>` — show identity details and lifecycle chain
@@ -612,7 +613,7 @@ After remediating findings and establishing a clean posture, `wrkr regress init`
 
 ### AC11: The "Identity Lifecycle"
 
-A tool discovered by `wrkr scan` receives a deterministic agent ID (`wrkr:<tool_id>:<org>`) that is stable across scans. Running `wrkr identity approve <id> --approver @maria --scope "read-only" --expires 90d` transitions the tool to `approved`, emits a signed `approval` proof record, and appends it to the identity chain. After 90 days, the next `wrkr scan` flags the tool as `under_review` (expired approval). Running `wrkr identity revoke <id>` transitions the tool to `revoked`, emits a proof record, and causes `wrkr regress run` to fail if the tool reappears. `wrkr identity show <id>` displays the full lifecycle chain, verifiable with `proof verify --chain`.
+A tool discovered by `wrkr scan` receives a deterministic agent ID (`wrkr:<tool_id>:<org>`) that is stable across scans. First observation persists as `discovered` until a human explicitly moves it to `under_review` or grants approval. Running `wrkr identity approve <id> --approver @maria --scope "read-only" --expires 90d` transitions the tool to `approved`, emits a signed `approval` proof record, appends it to the identity chain, and updates the saved scan snapshot so `score`, `report`, and `regress` reflect the decision immediately. After 90 days, the next `wrkr scan` flags the tool as `under_review` (expired approval). Running `wrkr identity revoke <id>` transitions the tool to `revoked`, emits a proof record, and causes `wrkr regress run` to fail if the tool reappears. `wrkr identity show <id>` displays the full lifecycle chain, verifiable with `proof verify --chain`.
 
 ### AC12: The "Autonomous Agent Alert"
 
@@ -636,7 +637,7 @@ A test fixture PR modifies `.claude/settings.json` to add a new MCP server and c
 
 ### AC17: The "Manifest Generation"
 
-Running `wrkr manifest generate` against a repo with Claude Code, Cursor, and 2 MCP servers produces a `wrkr-manifest.yaml` that lists all discovered tools under `review_pending` with status `under_review` and their current configuration (versions, hooks, MCP servers, access scopes), sets `blocked_tools` to empty, and populates the `policy` section with sensible defaults (`require_pinned_versions: true`, `require_mcp_approval: true`). Tools in `under_review` status still carry trust deficit in risk scoring. A human must explicitly move tools to `approved_tools` (via `wrkr identity approve` or manual edit) and commit the manifest for trust deficit to reach zero. This prevents "paper compliance" where auto-generated manifests bypass the review lifecycle. Removing a tool from the manifest and re-scanning flags it as unapproved with elevated risk.
+Running `wrkr manifest generate` against a repo with Claude Code, Cursor, and 2 MCP servers produces a `wrkr-manifest.yaml` that preserves the lifecycle and approval posture already present in the saved scan state: fresh unreviewed tools remain `discovered`, explicitly reviewed tools remain `under_review`, and manually approved tools stay `approved` until a later scan derives `active`. The generated manifest carries the current configuration (versions, hooks, MCP servers, access scopes), sets `blocked_tools` to empty, and populates the `policy` section with sensible defaults (`require_pinned_versions: true`, `require_mcp_approval: true`). Tools that remain unapproved continue to carry trust deficit in risk scoring. This prevents "paper compliance" where auto-generated manifests silently rewrite the review lifecycle. Removing a tool from the manifest and re-scanning flags it as unapproved with elevated risk.
 
 ### AC18: The "Policy Check"
 

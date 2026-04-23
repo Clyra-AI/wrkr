@@ -58,6 +58,10 @@ Use code-based branching with non-zero fail semantics. Keep a simple rule: `0` p
 
 `wrkr identity approve|review|deprecate|revoke --json` fails with exit code `1` and error code `runtime_failure`. Wrkr restores the prior committed manifest, lifecycle, and proof state instead of leaving a partial transition behind.
 
+### What happens when `scan` or `identity` gets a symlinked `--state` path?
+
+`wrkr scan --json` and `wrkr identity ... --json` fail with exit code `8` and error code `unsafe_operation_blocked`. Wrkr rejects symlinked managed state files before any state, manifest, lifecycle, or proof artifact is written.
+
 ### What happens when `scan` gets an invalid report or SARIF output path?
 
 `wrkr scan --json` fails with exit code `6` and error code `invalid_input`. Wrkr now validates scan-owned artifact paths before the managed `.wrkr` state or proof artifacts are written.

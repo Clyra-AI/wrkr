@@ -9,6 +9,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/exposure"
 	"github.com/Clyra-AI/wrkr/core/identity"
+	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/owners"
 	"github.com/Clyra-AI/wrkr/core/source"
@@ -685,6 +686,96 @@ func ApplySecurityVisibilityToPrivilegeMap(inv *Inventory) {
 	}
 }
 
+// RefreshIdentityGovernance projects persisted lifecycle and approval changes
+// back into the saved inventory snapshot so downstream commands read the same
+// posture the manifest and lifecycle chain now describe.
+func RefreshIdentityGovernance(inv *Inventory, identities []manifest.IdentityRecord) {
+	if inv == nil {
+		return
+	}
+	byAgent := make(map[string]manifest.IdentityRecord, len(identities))
+	for _, record := range identities {
+		agentID := strings.TrimSpace(record.AgentID)
+		if agentID == "" {
+			continue
+		}
+		byAgent[agentID] = record
+	}
+	for idx := range inv.Tools {
+		record, ok := byAgent[strings.TrimSpace(inv.Tools[idx].AgentID)]
+		if !ok {
+			continue
+		}
+		inv.Tools[idx].ApprovalStatus = strings.TrimSpace(record.ApprovalState)
+		inv.Tools[idx].LifecycleState = strings.TrimSpace(record.Status)
+		inv.Tools[idx].ApprovalClass = classifyApproval(inv.Tools[idx].ApprovalStatus, inv.Tools[idx].LifecycleState)
+		inv.Tools[idx].RiskTier = projectRiskTier(inv.Tools[idx].PermissionTier, inv.Tools[idx].RiskScore, inv.Tools[idx].AutonomyLevel, inv.Tools[idx].ApprovalClass)
+		inv.Tools[idx].RegulatoryMapping = regulatoryMappings(inv.Tools[idx])
+		if owner := strings.TrimSpace(record.Approval.Owner); owner != "" {
+			for locIdx := range inv.Tools[idx].Locations {
+				inv.Tools[idx].Locations[locIdx].Owner = owner
+				inv.Tools[idx].Locations[locIdx].OwnerSource = "inventory_approval"
+				inv.Tools[idx].Locations[locIdx].OwnershipStatus = "explicit"
+			}
+		}
+		inv.Tools[idx].SecurityVisibilityStatus = securityVisibilityFromIdentityRecord(record)
+	}
+	for idx := range inv.Agents {
+		record, ok := byAgent[strings.TrimSpace(inv.Agents[idx].AgentID)]
+		if !ok {
+			continue
+		}
+		inv.Agents[idx].SecurityVisibilityStatus = normalizeSecurityVisibilityStatus(securityVisibilityFromIdentityRecord(record))
+	}
+	for idx := range inv.AgentPrivilegeMap {
+		record, ok := byAgent[strings.TrimSpace(inv.AgentPrivilegeMap[idx].AgentID)]
+		if !ok {
+			continue
+		}
+		inv.AgentPrivilegeMap[idx].ApprovalClassification = classifyApproval(strings.TrimSpace(record.ApprovalState), strings.TrimSpace(record.Status))
+		inv.AgentPrivilegeMap[idx].SecurityVisibilityStatus = normalizeSecurityVisibilityStatus(securityVisibilityFromIdentityRecord(record))
+		if inv.AgentPrivilegeMap[idx].ApprovalClassification == "approved" {
+			inv.AgentPrivilegeMap[idx].ApprovalGapReasons = nil
+		}
+		if owner := strings.TrimSpace(record.Approval.Owner); owner != "" {
+			inv.AgentPrivilegeMap[idx].OperationalOwner = owner
+			inv.AgentPrivilegeMap[idx].OwnerSource = "inventory_approval"
+			inv.AgentPrivilegeMap[idx].OwnershipStatus = "explicit"
+		}
+		inv.AgentPrivilegeMap[idx].GovernanceControls = BuildGovernanceControls(GovernanceControlInput{
+			Owner:                    inv.AgentPrivilegeMap[idx].OperationalOwner,
+			OwnershipStatus:          inv.AgentPrivilegeMap[idx].OwnershipStatus,
+			ApprovalClassification:   inv.AgentPrivilegeMap[idx].ApprovalClassification,
+			SecurityVisibilityStatus: inv.AgentPrivilegeMap[idx].SecurityVisibilityStatus,
+			DeploymentGate:           deploymentGateFromEvidence(inv.AgentPrivilegeMap[idx].DeploymentEvidenceKeys),
+			ProofRequirement:         proofRequirementFromEvidence(inv.AgentPrivilegeMap[idx].DeploymentEvidenceKeys),
+			ProductionTargetStatus:   inv.AgentPrivilegeMap[idx].ProductionTargetStatus,
+			WritePathClasses:         inv.AgentPrivilegeMap[idx].WritePathClasses,
+			CredentialAccess:         inv.AgentPrivilegeMap[idx].CredentialAccess,
+			ProductionWrite:          inv.AgentPrivilegeMap[idx].ProductionWrite,
+			EvidenceBasis:            append(append([]string(nil), inv.AgentPrivilegeMap[idx].Permissions...), inv.AgentPrivilegeMap[idx].DeploymentEvidenceKeys...),
+		})
+	}
+	for idx := range inv.Tools {
+		owner, ownerStatus := primaryToolOwner(inv.Tools[idx])
+		inv.Tools[idx].GovernanceControls = BuildGovernanceControls(GovernanceControlInput{
+			Owner:                    owner,
+			OwnershipStatus:          ownerStatus,
+			ApprovalStatus:           inv.Tools[idx].ApprovalStatus,
+			ApprovalClassification:   inv.Tools[idx].ApprovalClass,
+			LifecycleState:           inv.Tools[idx].LifecycleState,
+			SecurityVisibilityStatus: inv.Tools[idx].SecurityVisibilityStatus,
+			WritePathClasses:         inv.Tools[idx].WritePathClasses,
+			CredentialAccess:         hasCredentialAccess(inv.Tools[idx]),
+			EvidenceBasis:            inv.Tools[idx].Permissions,
+		})
+	}
+	inv.ApprovalSummary = buildApprovalSummary(inv.Tools)
+	inv.RegulatorySummary = buildRegulatorySummary(inv.Tools)
+	inv.Summary = buildToolSummary(inv.Tools)
+	inv.SecurityVisibility = buildSecurityVisibilitySummary(inv.SecurityVisibility.ReferenceBasis, inv.SecurityVisibility.ReferencePath, inv.Agents, inv.Tools, inv.AgentPrivilegeMap)
+}
+
 func securityVisibilityForAgent(agent Agent, tools []Tool, ref SecurityVisibilityReference) string {
 	if agentApproved(agent, tools) {
 		return SecurityVisibilityApproved
@@ -697,6 +788,83 @@ func securityVisibilityForAgent(agent Agent, tools []Tool, ref SecurityVisibilit
 		return SecurityVisibilityKnownUnapproved
 	}
 	return SecurityVisibilityUnknownToSecurity
+}
+
+func securityVisibilityFromIdentityRecord(record manifest.IdentityRecord) string {
+	switch strings.TrimSpace(record.ApprovalState) {
+	case "valid":
+		return SecurityVisibilityKnownApproved
+	case "accepted_risk", "risk_accepted":
+		return SecurityVisibilityAcceptedRisk
+	case "expired", "invalid":
+		return SecurityVisibilityNeedsReview
+	case "deprecated":
+		return SecurityVisibilityDeprecated
+	case "excluded", "revoked":
+		return SecurityVisibilityRevoked
+	}
+	switch strings.TrimSpace(record.Status) {
+	case identity.StateDeprecated:
+		return SecurityVisibilityDeprecated
+	case identity.StateRevoked:
+		return SecurityVisibilityRevoked
+	case identity.StateActive, identity.StateApproved:
+		return SecurityVisibilityKnownApproved
+	default:
+		return SecurityVisibilityNeedsReview
+	}
+}
+
+func buildSecurityVisibilitySummary(referenceBasis, referencePath string, agents []Agent, tools []Tool, privilegeMap []AgentPrivilegeMapEntry) SecurityVisibilitySummary {
+	summary := SecurityVisibilitySummary{
+		ReferenceBasis: strings.TrimSpace(referenceBasis),
+		ReferencePath:  strings.TrimSpace(referencePath),
+	}
+	if summary.ReferenceBasis == "" {
+		summary.ReferenceBasis = "initial_scan"
+	}
+	for _, agent := range agents {
+		switch strings.TrimSpace(agent.SecurityVisibilityStatus) {
+		case SecurityVisibilityApproved, SecurityVisibilityKnownApproved:
+			summary.ApprovedAgents++
+		case SecurityVisibilityAcceptedRisk:
+			summary.AcceptedRiskAgents++
+		case SecurityVisibilityDeprecated:
+			summary.DeprecatedAgents++
+		case SecurityVisibilityRevoked:
+			summary.RevokedAgents++
+		case SecurityVisibilityNeedsReview:
+			summary.NeedsReviewAgents++
+		case SecurityVisibilityKnownUnapproved:
+			summary.KnownUnapprovedAgents++
+		default:
+			summary.UnknownToSecurityAgents++
+		}
+	}
+	for _, tool := range tools {
+		switch strings.TrimSpace(tool.SecurityVisibilityStatus) {
+		case SecurityVisibilityApproved, SecurityVisibilityKnownApproved:
+			summary.ApprovedTools++
+		case SecurityVisibilityAcceptedRisk:
+			summary.AcceptedRiskTools++
+		case SecurityVisibilityDeprecated:
+			summary.DeprecatedTools++
+		case SecurityVisibilityRevoked:
+			summary.RevokedTools++
+		case SecurityVisibilityNeedsReview:
+			summary.NeedsReviewTools++
+		case SecurityVisibilityKnownUnapproved:
+			summary.KnownUnapprovedTools++
+		default:
+			summary.UnknownToSecurityTools++
+		}
+	}
+	for _, entry := range privilegeMap {
+		if entry.WriteCapable && strings.TrimSpace(entry.SecurityVisibilityStatus) == SecurityVisibilityUnknownToSecurity {
+			summary.UnknownToSecurityWriteCapableAgents++
+		}
+	}
+	return summary
 }
 
 func securityVisibilityForTool(tool Tool, agentStatuses []string, ref SecurityVisibilityReference) string {
@@ -1088,6 +1256,22 @@ func buildApprovalSummary(tools []Tool) ApprovalSummary {
 		}
 	}
 	return finalizeApprovalSummary(summary)
+}
+
+func buildToolSummary(tools []Tool) Summary {
+	summary := Summary{}
+	for _, tool := range tools {
+		summary.TotalTools++
+		switch {
+		case tool.RiskScore >= 8:
+			summary.HighRisk++
+		case tool.RiskScore >= 5:
+			summary.MediumRisk++
+		default:
+			summary.LowRisk++
+		}
+	}
+	return summary
 }
 
 func buildRegulatorySummary(tools []Tool) RegulatorySummary {
