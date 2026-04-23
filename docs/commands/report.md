@@ -39,7 +39,7 @@ wrkr report --template ciso --md --md-path ./.tmp/ciso.md --pdf --pdf-path ./.tm
 wrkr report renders deterministic summaries from saved scan state without changing JSON or exit-code contracts.
 wrkr report --pdf writes a deterministic PDF artifact with wrapped, paginated executive-summary output; the board-ready claim is acceptance-backed by explicit executive report fixtures.
 
-Expected JSON keys: `status`, `generated_at`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, additive `assessment_summary`, additive `exposure_groups`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `compliance_summary`, `summary`, `md_path`, `pdf_path`, additive `evidence_json_path`, additive `backlog_csv_path`, and additive `artifact_paths`.
+Expected JSON keys: `status`, `generated_at`, additive `next_steps`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, additive `assessment_summary`, additive `exposure_groups`, `total_tools`, `tool_type_breakdown`, `compliance_gap_count`, `compliance_summary`, `summary`, `md_path`, `pdf_path`, additive `evidence_json_path`, additive `backlog_csv_path`, and additive `artifact_paths`.
 `assessment_summary` is additive at the top level and under `summary` when govern-first action paths are present; it leads with governable-path counts, the top path to control first, the strongest identity-backed path, additive `ownerless_exposure` counts, additive `identity_exposure_summary`, additive `identity_to_review_first` / `identity_to_revoke_first`, and the saved proof-chain path.
 `summary.attack_paths` provides deterministic attack-path section metadata (`total`, `top_path_ids`) used in report templates and external appendix joins.
 `compliance_summary.frameworks[*].controls[*]` exposes additive framework/control/article rollups with deterministic `finding_count`, `mapped_rule_ids`, and coverage status.
@@ -55,6 +55,7 @@ Customer-ready templates `ciso`, `appsec`, `platform`, `audit`, and `customer-dr
 When the saved scan state does not carry a usable `reference_basis`, report output suppresses `unknown_to_security` claims and surfaces `reference_basis unavailable` wording instead.
 `wrkr report` renders from saved scan state only. It summarizes static posture, risky write paths, and proof artifacts; it does not claim live runtime observation or control-layer enforcement.
 Manual `identity` and `inventory` approvals refresh the saved backlog, action-path posture, and posture score in place, so `wrkr report --state <path> --json` reflects those decisions without a rescanning step.
+`next_steps[]` is additive machine-readable handoff guidance for the operator-to-auditor path. It points to current report artifact fields, the follow-on `wrkr evidence --json` flow, and the explicit proof-verification step.
 
 Public template behavior (`--template public --share-profile public`):
 

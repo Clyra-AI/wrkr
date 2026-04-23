@@ -90,6 +90,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	reportTop := fs.Int("report-top", 5, "number of top findings included in scan summary artifact")
 	sarifOut := fs.Bool("sarif", false, "emit SARIF artifact")
 	sarifPath := fs.String("sarif-path", "wrkr.sarif", "SARIF output path")
+	fs.Usage = func() {
+		writeScanUsage(fs.Output(), fs)
+	}
 
 	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
 		return code
@@ -119,6 +122,16 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	targets, cfg, err := resolveScanTargets(*repo, *orgTarget, *githubOrgTarget, *pathTarget, *mySetup, explicitTargets, *configPathFlag)
 	if err != nil {
+		if isNoTargetProvidedError(err) {
+			return emitErrorWithDetails(
+				stderr,
+				jsonRequested || *jsonOut,
+				"invalid_input",
+				err.Error(),
+				exitInvalidInput,
+				map[string]any{"next_steps": missingTargetNextSteps()},
+			)
+		}
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 	}
 	if *resume && !allTargetsAreOrg(targets) {
@@ -734,6 +747,27 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	progress.Flush()
 	_, _ = fmt.Fprintln(stdout, "wrkr scan complete")
 	return exitSuccess
+}
+
+func writeScanUsage(out io.Writer, fs *flag.FlagSet) {
+	_, _ = fmt.Fprintln(out, "Usage of scan:")
+	_, _ = fmt.Fprintln(out, "  wrkr scan [flags]")
+	_, _ = fmt.Fprintln(out, "")
+	_, _ = fmt.Fprintln(out, "Start here:")
+	_, _ = fmt.Fprintln(out, "  Hosted org posture when prerequisites are ready:")
+	_, _ = fmt.Fprintln(out, "    wrkr init --non-interactive --org acme --github-api https://api.github.com --json")
+	_, _ = fmt.Fprintln(out, "    wrkr scan --config ~/.wrkr/config.json --json")
+	_, _ = fmt.Fprintln(out, "  Evaluator-safe fallback when hosted prerequisites are not ready yet:")
+	_, _ = fmt.Fprintln(out, "    wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json")
+	_, _ = fmt.Fprintln(out, "  Developer-machine hygiene:")
+	_, _ = fmt.Fprintln(out, "    wrkr scan --my-setup --json")
+	_, _ = fmt.Fprintln(out, "")
+	_, _ = fmt.Fprintln(out, "Flags:")
+	fs.PrintDefaults()
+}
+
+func isNoTargetProvidedError(err error) bool {
+	return err != nil && strings.HasPrefix(err.Error(), "no target provided and no usable config default target")
 }
 
 func explainControlBacklog(backlog controlbacklog.Backlog, limit int) []string {

@@ -39,7 +39,13 @@ Canonical pinned install and release-parity guidance lives in [`docs/install/min
 
 ## Start Here
 
-Start with the security/platform org posture flow when hosted prerequisites are ready. If they are not ready yet, use the evaluator-safe scenario or the deterministic local fallback paths below, then return to the hosted org flow once GitHub access is configured.
+Choose one explicit first-value path:
+
+- Hosted org posture first when GitHub access is ready. This is the primary launch path for security and platform teams.
+- Evaluator-safe scenario fallback when you are evaluating Wrkr itself or hosted prerequisites are not ready yet. This sample is intentionally risky by design, so a bad score is expected and useful.
+- Developer-machine hygiene when you only want local tool, MCP, and secret-presence posture first.
+
+If you run `wrkr scan --json` with no target on a clean machine, the JSON error envelope now points back to these same first-value paths with additive `error.next_steps[]` guidance.
 
 ### Security Teams (Recommended first path)
 
@@ -77,6 +83,7 @@ If you are evaluating Wrkr itself, prefer the evaluator-safe scenario fallback b
 ### Evaluators (Fallback and demo path)
 
 Use the curated scenario bundle when you want a clean evaluator-safe pass through discovery, evidence, verify, and regress without the repo-root fixture noise that shows up if you scan the Wrkr repository root directly.
+This bundle is intentionally risky by design. A low posture score or low first-run framework coverage is expected here and demonstrates that Wrkr is surfacing real control and evidence gaps, not that the product is failing.
 
 ```bash
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
@@ -101,7 +108,7 @@ Use `./your-repo` when the selected directory itself is the repo root. Use a bun
 
 ### Developers (Secondary local hygiene)
 
-Use this secondary flow when you want local machine hygiene first or when the hosted org posture prerequisites are not ready yet.
+Use this secondary flow when you want local machine hygiene first or when the hosted org posture prerequisites are not ready yet. This path is secondary to hosted org posture for shared inventory and audit handoff, but it is still a deterministic first-value flow.
 
 ```bash
 wrkr scan --my-setup --json

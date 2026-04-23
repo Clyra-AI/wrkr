@@ -45,6 +45,7 @@
 - No secret-value extraction; only risk context signals.
 - Proof-chain verification support for evidence integrity checks; `wrkr evidence` now fails closed on malformed or tampered saved proof chains, while `verify --chain --json` remains the explicit machine gate and reports `chain.verification_mode` and `chain.authenticity_status`.
 - Hosted org posture is the primary first-run path when prerequisites are ready; local `--my-setup`, repo-local `--path`, and the curated scenario remain deterministic fallback paths when hosted setup is not ready yet.
+- The curated `./scenarios/wrkr/scan-mixed-org/repos` evaluator path is intentionally risky by design, so a low posture score or sparse first-run evidence is expected and demonstrates the detection/evidence model.
 - Resumed hosted org scans revalidate checkpoint files and reused materialized repo roots before detector execution, so symlink-swapped resume state is blocked as unsafe.
 - Low or zero `framework_coverage` reflects the controls currently evidenced in the scanned state, not missing parser support, and `wrkr evidence --json` emits additive `coverage_note` guidance with the same interpretation.
 - Approval inventory mutations are local/file-based and append proof events; `wrkr evidence --json` and `wrkr verify --chain --json` may include additive `control_evidence` showing existing and missing proof for active backlog controls.

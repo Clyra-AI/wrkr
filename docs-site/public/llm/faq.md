@@ -16,6 +16,14 @@ No. Core scan and evidence workflows are local/file-based by default.
 
 Hosted `--repo` and `--org` scans require explicit GitHub API configuration and usually a token for private repos or rate-limit avoidance. `wrkr init` can persist the hosted GitHub API base together with the default org target, and `--my-setup`, `--path`, and the curated scenario remain the zero-integration fallback paths.
 
+## What should I do if `wrkr scan --json` says no target was provided?
+
+That result still fails closed with exit `6` and `error.code=invalid_input`, but the JSON error envelope now includes additive `next_steps[]` guidance. Start with one of these commands:
+
+- `wrkr init --non-interactive --org acme --github-api https://api.github.com --json`
+- `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json`
+- `wrkr scan --my-setup --json`
+
 ## Can Wrkr enforce runtime tool calls?
 
 No. Wrkr is discovery and posture. Runtime control is a separate layer.
@@ -41,3 +49,7 @@ When a saved state carries a control backlog, evidence and verify JSON may inclu
 ## Why can framework coverage be low on the first run?
 
 `framework_coverage` reflects the controls and approvals currently evidenced in the scanned state. Low or zero coverage means more evidence work is needed; it does not mean the framework is unsupported. `wrkr evidence --json` also emits additive `coverage_note` guidance with the same interpretation.
+
+## What should evaluators expect from the curated scenario?
+
+The curated `./scenarios/wrkr/scan-mixed-org/repos` bundle is intentionally risky by design. A low posture score or sparse first-run evidence on that bundle is expected and useful because it demonstrates Wrkr's ranking and evidence-gap behavior without the repo-root fixture noise you would see from scanning the Wrkr repository root directly.

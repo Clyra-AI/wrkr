@@ -51,6 +51,17 @@ wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
 
 Use internal profile for engineering/security reviews. Use public profile for external packets with deterministic redaction. The exec PDF path now wraps and paginates long content so the executive summary stays board-ready when the acceptance fixtures are green.
 The report path is static and saved-state based: it summarizes risky write paths, proof artifacts, and governance priorities without claiming runtime observation or control-layer enforcement.
+`report --json` now includes additive `next_steps[]` guidance that points operators toward the current report artifact fields, the follow-on evidence bundle flow, and explicit proof-chain verification before external handoff.
+
+### Buyer/GRC-ready packet
+
+Use this packet when the operator needs to hand the result to a buyer, GRC partner, or auditor:
+
+- `wrkr report --template ciso --md --md-path ./.tmp/ciso.md --pdf --pdf-path ./.tmp/ciso.pdf --evidence-json --evidence-json-path ./.tmp/report-evidence.json --csv-backlog --csv-backlog-path ./.tmp/control-backlog.csv --json`
+- `wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json`
+- `wrkr verify --chain --json`
+
+Operator curates and explains the packet. Buyer/GRC consumer reads the generated Markdown/PDF plus the evidence bundle and proof verification result; they do not need to rerun the scan to review the output.
 
 ## Fix workflow
 
@@ -69,6 +80,7 @@ wrkr evidence --frameworks eu-ai-act,soc2 --output ./.tmp/evidence --json
 
 Check `framework_coverage`, additive `coverage_note`, `report_artifacts`, and manifest/chain paths.
 When risk state includes attack-path scoring, evidence output includes deterministic `attack-paths.json`.
+`evidence --json` now includes additive `next_steps[]` guidance that points operators toward explicit proof verification, audit-facing report rendering, and the generated bundle/report artifact fields.
 
 `framework_coverage` reflects evidence currently present in scanned state.
 `coverage_note` is the additive machine-readable interpretation of that value and should be preferred when you need to explain low/zero first-run coverage to operators or downstream automation.

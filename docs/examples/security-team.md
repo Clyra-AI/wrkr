@@ -51,9 +51,10 @@ wrkr report --top 5 --template appsec --json
   - `agent_privilege_map[*]` is instance-scoped and includes `agent_instance_id`, `write_capable`, and `security_visibility_status`
 - `evidence`: `status`, `output_dir`, `frameworks`, `manifest_path`, `chain_path`, `framework_coverage`
 - `evidence.coverage_note`: additive interpretation for low/zero first-run coverage; treat it as an evidence-gap signal, not unsupported framework parsing
+- `evidence.next_steps`: additive machine-readable handoff guidance for verify/report sequencing and generated artifact-field review
 - `verify`: `status`, `chain`
 - `mcp-list`: `status`, `generated_at`, `rows`, optional `warnings`
-- `report`: `status`, `generated_at`, `top_findings`, `total_tools`, `summary`, optional `artifact_paths`
+- `report`: `status`, `generated_at`, additive `next_steps`, `top_findings`, `total_tools`, `summary`, optional `artifact_paths`
 
 ## How to frame the results
 
@@ -62,8 +63,28 @@ wrkr report --top 5 --template appsec --json
 - `scan` is the place to count unknown-to-security write-capable paths; use `inventory.security_visibility_summary.unknown_to_security_write_capable_agents` only when `inventory.security_visibility_summary.reference_basis` is present for that run.
 - `report` gives the ranked operator summary for triage and can emit customer-ready CISO/AppSec/platform/audit/customer-draft artifacts led by the control backlog.
 - `report` is a saved-state renderer for static posture and offline proof artifacts; it is not a live observation surface.
+- `report.next_steps` and `evidence.next_steps` are additive machine-readable sequencing hints for the operator-to-auditor handoff path; use them when you want automation or agents to follow the same artifact workflow the docs describe, using the referenced artifact fields in the same payload.
 - `evidence` packages the saved posture into portable proof artifacts only when the saved proof chain is intact, and `verify` remains the explicit machine gate for proof integrity.
 - `coverage_note` is the machine-readable companion to `framework_coverage`; use it when handing results to operators or downstream automation so sparse first-run evidence is framed as a remediation queue instead of a parser failure.
+
+## Operator-to-auditor handoff packet
+
+Operator runs:
+
+- `wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json ... --json`
+- `wrkr report --state ./.wrkr/last-scan.json --template ciso --md --md-path ./.wrkr/ciso.md --pdf --pdf-path ./.wrkr/ciso.pdf --evidence-json --evidence-json-path ./.wrkr/report-evidence.json --csv-backlog --csv-backlog-path ./.wrkr/control-backlog.csv --json`
+- `wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json`
+- `wrkr verify --chain --state ./.wrkr/last-scan.json --json`
+
+Buyer, GRC, or audit consumer reads:
+
+- `./.wrkr/ciso.md` or `./.wrkr/ciso.pdf` for the narrative summary
+- `./.wrkr/report-evidence.json` for machine-readable report evidence
+- `./.wrkr/control-backlog.csv` for owner/SLA/closure tracking
+- `./wrkr-evidence/` for the portable bundle, manifest, framework mappings, and proof artifacts
+- the `verify --chain --json` result for explicit integrity confirmation
+
+Use `report.next_steps` and `evidence.next_steps` when you want automation to follow this same packet flow without reconstructing the sequence from docs.
 
 ## Scope boundary
 

@@ -62,6 +62,7 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 		reportPDF := filepath.Join(t.TempDir(), "wrkr-report.pdf")
 		payload := runJSONOK(t, "report", "--state", statePath, "--top", "5", "--pdf", "--pdf-path", reportPDF, "--json")
 		requireKey(t, payload, "pdf_path")
+		requireKey(t, payload, "next_steps")
 		if _, err := os.Stat(reportPDF); err != nil {
 			t.Fatalf("expected report pdf to exist: %v", err)
 		}
@@ -74,6 +75,7 @@ func TestV1AcceptanceMatrix(t *testing.T) {
 		requireKey(t, payload, "manifest_path")
 		requireKey(t, payload, "chain_path")
 		requireKey(t, payload, "coverage_note")
+		requireKey(t, payload, "next_steps")
 
 		verifyPayload := runJSONOK(t, "verify", "--chain", "--state", statePath, "--json")
 		chain, ok := verifyPayload["chain"].(map[string]any)

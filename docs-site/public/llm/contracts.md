@@ -14,6 +14,8 @@ Stable contract surfaces include:
 - `wrkr evidence` fail-closed behavior when saved proof-chain prerequisites are malformed or tampered
 - `wrkr scan --resume` fail-closed behavior when checkpoint files or reused materialized repo roots are symlink-swapped
 - `wrkr scan` and `wrkr identity` fail-closed behavior for symlinked managed `--state` paths
+- Additive `error.next_steps` guidance in `wrkr scan --json` when no target is provided and no usable config default target exists
+- Additive `next_steps` handoff guidance in `wrkr report --json` and `wrkr evidence --json`
 - `regress` compatibility for legacy `v1` baselines when current instance identities are equivalent
 - `regress run` compatibility for raw saved scan snapshots used as baseline inputs
 

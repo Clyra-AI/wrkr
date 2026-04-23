@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/evidence"
+	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -53,6 +54,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 		}
 	}
+	resolvedStatePath := state.ResolvePath(*statePathFlag)
 
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(map[string]any{
@@ -65,6 +67,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 			"control_evidence":   result.ControlEvidence,
 			"coverage_note":      result.CoverageNote,
 			"report_artifacts":   result.ReportArtifacts,
+			"next_steps":         evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
 		})
 		return exitSuccess
 	}

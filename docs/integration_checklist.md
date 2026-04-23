@@ -15,19 +15,29 @@ Adopt Wrkr in one CI flow with deterministic scan, evidence, and regress gating.
 2. Run `scan` and `report` in CI.
 3. Generate and verify evidence bundle.
 4. Initialize baseline and run regress gate.
-5. Treat exit codes as API contracts.
+5. Publish the buyer/GRC-ready artifact packet.
+6. Treat exit codes as API contracts.
 
 ## CI Command Set
 
 ```bash
 wrkr init --non-interactive --path ./scenarios/wrkr/scan-mixed-org/repos --json
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --state ./.tmp/state.json --json
-wrkr report --top 5 --json
+wrkr report --state ./.tmp/state.json --template audit --md --md-path ./.tmp/audit.md --pdf --pdf-path ./.tmp/audit.pdf --evidence-json --evidence-json-path ./.tmp/report-evidence.json --csv-backlog --csv-backlog-path ./.tmp/control-backlog.csv --json
 wrkr evidence --frameworks eu-ai-act,soc2 --state ./.tmp/state.json --output ./.tmp/evidence --json
 wrkr verify --chain --state ./.tmp/state.json --json
 wrkr regress init --baseline ./.tmp/state.json --output ./.tmp/wrkr-regress-baseline.json --json
 wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.tmp/state.json --json
 ```
+
+Publish these build artifacts for downstream review:
+
+- `./.tmp/audit.md`
+- `./.tmp/audit.pdf`
+- `./.tmp/report-evidence.json`
+- `./.tmp/control-backlog.csv`
+- `./.tmp/evidence/`
+- the `verify --chain --json` payload
 
 ## CI Gate Semantics
 
@@ -53,6 +63,7 @@ flowchart TD
 ### What is the minimum CI sequence to adopt Wrkr in one pipeline?
 
 Run `init`, then `scan`, `report`, `evidence`, `verify`, and `regress run` with `--json` enabled for machine consumption.
+`report --json` and `evidence --json` now also emit additive `next_steps[]` guidance so agents and CI glue can follow the same artifact handoff sequence as human operators.
 
 ### Which exit codes should block merge?
 

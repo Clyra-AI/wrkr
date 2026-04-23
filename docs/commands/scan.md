@@ -7,6 +7,20 @@ wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir>
 wrkr scan status --state <path> [--json]
 ```
 
+Start here with one of these first-value paths:
+
+```bash
+# Hosted org posture when prerequisites are ready
+# Initialize the default hosted target first as described in docs/commands/init.md, then run:
+wrkr scan --config ~/.wrkr/config.json --json
+
+# Evaluator-safe fallback when hosted prerequisites are not ready yet
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+
+# Developer-machine hygiene
+wrkr scan --my-setup --json
+```
+
 Use either one legacy target source (`--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`) or one or more repeatable `--target <mode>:<value>` flags.
 Legacy target flags remain supported as one-entry shims and cannot be combined with `--target` in the same invocation.
 Supported `--target` modes are `repo`, `org`, `path`, and `my_setup`.
@@ -51,6 +65,7 @@ Scan mode behavior is explicit:
 - `--mode deep` runs the full detector set and marks `scan_quality.mode=deep`; generated/package paths remain available to raw/debug investigation instead of being treated as active governance suppression.
 - Invalid mode values fail closed with `invalid_input` (exit `6`) and the normal JSON error envelope in `--json` mode.
 - `--diff` requires the previous saved snapshot and current scan to use the same recorded scan mode. A mode mismatch fails closed with `invalid_input` (exit `6`) instead of reporting synthetic drift caused by quick/governance/deep scope differences.
+- When no target is provided and no usable config default target exists, `scan --json` fails closed with exit `6`, `error.code=invalid_input`, and additive `error.next_steps[]` guidance for hosted org setup, the evaluator-safe scenario fallback, and `--my-setup`.
 
 ## Flags
 
