@@ -20,6 +20,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Improved the no-target `wrkr scan` experience with deterministic next-step guidance for hosted org setup, evaluator-safe fallback scanning, and local-machine hygiene while preserving existing exit codes.
+- Added deterministic handoff guidance to `wrkr report --json` and `wrkr evidence --json` so operators can move from saved scan state to buyer- and audit-ready artifacts more directly.
+- Clarified the public launch docs to distinguish hosted org posture from evaluator-safe and local-machine fallback paths and to explain risky sample outputs and low first-run evidence coverage more directly.
+- Aligned the security-team, operator, and integration docs around a single artifact-led handoff path for audit, buyer, and GRC use using existing report, evidence, and verification outputs.
 - Made governance scan mode the default, added quick/deep scan modes, and moved generated/package noise into a deterministic scan-quality appendix.
 - Changed scan output to lead with a prioritized control backlog while keeping raw findings available for compatibility.
 - Expanded security visibility into governance-native states for approved, unapproved, accepted-risk, deprecated, revoked, and needs-review control paths.

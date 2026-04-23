@@ -32,6 +32,18 @@ wrkr scan --config ~/.wrkr/config.json --json
 
 For hosted org runs, the least-privilege fine-grained PAT recipe is: select only the target repositories, grant read-only repository metadata, and grant read-only repository contents. That matches the exact endpoints Wrkr calls: `GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`, and `GET /repos/{owner}/{repo}/git/blobs/{sha}`.
 
+### What should I do if `wrkr scan --json` says no target was provided?
+
+That failure remains fail closed with exit `6` and `error.code=invalid_input`, but the JSON error envelope now includes additive `next_steps[]` guidance. The three intended first-value paths are:
+
+```bash
+wrkr init --non-interactive --org acme --github-api https://api.github.com --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+wrkr scan --my-setup --json
+```
+
+Use the hosted `init` path when GitHub prerequisites are ready, the curated scenario when they are not, and `--my-setup` when you want machine-local hygiene first.
+
 ### Does Wrkr replace runtime enforcement?
 
 No. Wrkr is discovery/posture. Runtime enforcement is a separate control layer.
@@ -50,6 +62,7 @@ Wrkr does not perform live MCP probing or package vulnerability assessment in th
 
 For the current public launch, start with `wrkr init --org ... --github-api ... --json`, then run `wrkr scan --config ... --json` when the goal is org posture, shared inventory review, or compliance handoff.
 If hosted prerequisites are not ready yet, use `wrkr scan --path ./your-repo --json` as the zero-integration repo-local fallback or `wrkr scan --my-setup --json` for developer-machine hygiene. `--path` scans the selected directory itself when that directory is the repo root with signals such as `.git`, `go.mod`, `AGENTS.md`, or `.codex/`; it scans immediate child repos instead when you point it at a bundle root such as `./scenarios/wrkr/scan-mixed-org/repos`.
+If you are evaluating Wrkr itself, start with the curated `./scenarios/wrkr/scan-mixed-org/repos` bundle before scanning the repo root. That bundle is intentionally risky by design, so a low posture score or sparse first-run evidence is expected and useful.
 Developers doing only local checks can still start with `wrkr scan --my-setup --json`.
 
 For larger orgs, prefer the opinionated path:

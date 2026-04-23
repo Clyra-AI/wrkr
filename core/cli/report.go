@@ -25,6 +25,7 @@ import (
 type reportPayload struct {
 	Status                   string                       `json:"status"`
 	GeneratedAt              string                       `json:"generated_at"`
+	NextSteps                []nextStep                   `json:"next_steps,omitempty"`
 	Targets                  []source.Target              `json:"targets,omitempty"`
 	TopFindings              []risk.ScoredFinding         `json:"top_findings"`
 	AttackPaths              any                          `json:"attack_paths,omitempty"`
@@ -203,6 +204,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	if artifacts.EvidenceJSONPath != "" || artifacts.BacklogCSVPath != "" || reportTemplateExpectsArtifactMap(summary.Template) {
 		payload.ArtifactPaths = reportArtifactPathMap(artifacts)
 	}
+	payload.NextSteps = reportNextSteps(resolvedStatePath, artifacts)
 
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(payload)

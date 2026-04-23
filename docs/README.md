@@ -19,8 +19,8 @@ For editing/validation workflow, see [`docs/map.md`](map.md).
 ## Start Here
 
 1. `README.md` for product overview and first-run value.
-2. `docs/examples/quickstart.md` for the evaluator-safe scenario-first workflow.
-3. `docs/examples/security-team.md` for the hosted org posture path after the scenario pass.
+2. `docs/examples/quickstart.md` for the hosted-org-first workflow, evaluator-safe fallback, and local-machine fallback in one place.
+3. `docs/examples/security-team.md` for the deeper hosted org posture and audit handoff path after the quickstart decision point.
 4. `docs/concepts/mental_model.md` for boundary and workflow model.
 5. `docs/architecture.md` for deterministic pipeline boundaries.
 6. `docs/integration_checklist.md` for adoption in CI.

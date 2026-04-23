@@ -180,8 +180,10 @@ func writeRootUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "  version    print wrkr version")
 	_, _ = fmt.Fprintln(out, "")
 	_, _ = fmt.Fprintln(out, "Examples:")
+	_, _ = fmt.Fprintln(out, "  wrkr init --non-interactive --org acme --github-api https://api.github.com --json")
+	_, _ = fmt.Fprintln(out, "  wrkr scan --config ~/.wrkr/config.json --json")
+	_, _ = fmt.Fprintln(out, "  wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json")
 	_, _ = fmt.Fprintln(out, "  wrkr scan --my-setup --json")
-	_, _ = fmt.Fprintln(out, "  wrkr scan status --state ./.wrkr/last-scan.json --json")
 	_, _ = fmt.Fprintln(out, "  wrkr mcp-list --state ./.wrkr/last-scan.json --json")
 	_, _ = fmt.Fprintln(out, "  wrkr scan --github-org acme --github-api https://api.github.com --json")
 	_, _ = fmt.Fprintln(out, "  wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json")
@@ -209,14 +211,20 @@ func isHelpFlag(arg string) bool {
 }
 
 func emitError(stderr io.Writer, jsonOut bool, code, message string, exitCode int) int {
+	return emitErrorWithDetails(stderr, jsonOut, code, message, exitCode, nil)
+}
+
+func emitErrorWithDetails(stderr io.Writer, jsonOut bool, code, message string, exitCode int, details map[string]any) int {
 	if jsonOut {
-		_ = json.NewEncoder(stderr).Encode(map[string]any{
-			"error": map[string]any{
-				"code":      code,
-				"message":   message,
-				"exit_code": exitCode,
-			},
-		})
+		errorPayload := map[string]any{
+			"code":      code,
+			"message":   message,
+			"exit_code": exitCode,
+		}
+		for key, value := range details {
+			errorPayload[key] = value
+		}
+		_ = json.NewEncoder(stderr).Encode(map[string]any{"error": errorPayload})
 	} else {
 		_, _ = fmt.Fprintln(stderr, message)
 	}

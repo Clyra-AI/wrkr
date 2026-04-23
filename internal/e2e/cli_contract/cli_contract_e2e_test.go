@@ -77,6 +77,42 @@ func TestE2ECLIParseErrorsRemainJSONForFlagOrderingVariants(t *testing.T) {
 	}
 }
 
+func TestE2EScanNoTargetJSONIncludesDeterministicNextSteps(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := cli.Run([]string{"scan", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6, got %d stderr=%q", code, errOut.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on failure, got %q", out.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("expected JSON error payload, got %q (%v)", errOut.String(), err)
+	}
+	errObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing error payload: %v", payload)
+	}
+	nextSteps, ok := errObj["next_steps"].([]any)
+	if !ok || len(nextSteps) != 3 {
+		t.Fatalf("expected three next steps, got %v", errObj["next_steps"])
+	}
+	first, ok := nextSteps[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected next step shape: %T", nextSteps[0])
+	}
+	if first["id"] != "hosted_org_setup" {
+		t.Fatalf("unexpected first next step: %v", first)
+	}
+}
+
 func TestE2EHelpContractMatrixReturnsExit0(t *testing.T) {
 	t.Parallel()
 

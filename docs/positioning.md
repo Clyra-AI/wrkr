@@ -37,6 +37,7 @@ Wrkr is the discovery/posture layer in the See -> Prove -> Control sequence.
 ## Persona Fit
 
 - Security/platform team: start with `wrkr init --org ... --github-api ...`, then `wrkr scan --config ...`, `wrkr evidence`, `wrkr verify`, and optional `wrkr report` / `wrkr mcp-list` for org posture and compliance-ready handoff.
+- Evaluator: start with `wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json` when you need the shipped wedge without repo-root fixture noise; that sample is intentionally risky by design, so a low score is expected.
 - Developer: use `wrkr scan --path`, `wrkr scan --my-setup`, `wrkr mcp-list`, and `wrkr inventory --diff` when you want repo-local or machine-local hygiene before moving to the hosted org flow.
 - Buyer: CISO / VP Engineering
 - Consumer: CI pipelines and audit workflows
@@ -51,6 +52,7 @@ wrkr verify --chain --json
 ```
 
 If hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` and return to the org posture flow once GitHub access is configured. `--path` scans the selected directory itself when it is the repo root and uses bundle roots such as `./scenarios/wrkr/scan-mixed-org/repos` when you want immediate child repos scanned as a repo-set.
+If you are evaluating Wrkr itself, prefer the curated `./scenarios/wrkr/scan-mixed-org/repos` repo-set first. A low posture score or sparse first-run evidence on that bundle is expected and demonstrates the ranking/evidence model.
 
 Low first-run `framework_coverage` is an evidence-state signal, not a parser failure. Wrkr measures what is currently documented in the scanned state, and `wrkr evidence --json` now emits additive `coverage_note` guidance with the same interpretation for operator and automation handoffs.
 

@@ -4,6 +4,12 @@ Know what AI tools, agents, and MCP servers are configured on your machine and i
 
 Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps deterministic zero-integration fallback paths available when hosted prerequisites are not ready yet. This quickstart leads with the hosted org posture path, then falls back to the evaluator-safe scenario and local flows when hosted setup is not ready yet.
 
+Choose one explicit first-value path:
+
+- Hosted org posture when GitHub access is ready. This is the primary public-launch path.
+- Evaluator-safe scenario when you are evaluating Wrkr itself or hosted setup is not ready yet. This sample is intentionally risky by design.
+- Developer-machine hygiene when you want local MCP and tool posture first.
+
 ## Positioning
 
 Wrkr is an AI-DSPM discovery and posture tool in the See -> Prove -> Control sequence.
@@ -51,6 +57,7 @@ Expected outputs:
 ## Evaluator-safe scenario fallback
 
 Use the curated scenario bundle when hosted prerequisites are not ready yet, or when you want a clean first pass through discovery, evidence, verify, and regress without the repo-root fixture noise in the Wrkr repository itself.
+The curated bundle is intentionally risky by design. An `F` posture score or low first-run `framework_coverage` is expected here and shows that Wrkr is surfacing control and evidence gaps in the sample repo-set.
 
 ```bash
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
@@ -72,6 +79,7 @@ wrkr scan --my-setup --json
 ```
 
 Use `--path` when you want repo-local discovery with no hosted setup. When `./your-repo` itself is the repo root and carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, or `.codex/`, Wrkr scans that directory as one repo. Use a bundle root like `./scenarios/wrkr/scan-mixed-org/repos` when you want Wrkr to scan immediate child repos as a repo-set. Use `--my-setup` when you want developer-machine hygiene for local configs, MCP posture, and secret-presence signals.
+If you start with `wrkr scan --json` and no target on a clean machine, the JSON error now points back to these same hosted, evaluator-safe, and `--my-setup` entry paths with additive `error.next_steps[]`.
 
 ## Developer-machine hygiene (secondary path)
 

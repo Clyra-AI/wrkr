@@ -155,6 +155,94 @@ func TestReportCustomerTemplatesEmitArtifactBundlePaths(t *testing.T) {
 	}
 }
 
+func TestReportJSONIncludesDeterministicNextSteps(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	writeJSONFile(t, statePath, map[string]any{
+		"version": "v1",
+		"inventory": map[string]any{
+			"tools": []any{map[string]any{"tool_type": "cursor"}},
+		},
+		"risk_report": map[string]any{
+			"generated_at":    "2026-04-23T12:00:00Z",
+			"top_findings":    []any{},
+			"ranked_findings": []any{},
+		},
+	})
+	mdPath := filepath.Join(tmp, "report.md")
+	pdfPath := filepath.Join(tmp, "report.pdf")
+	bundlePath := filepath.Join(tmp, "evidence.json")
+	csvPath := filepath.Join(tmp, "backlog.csv")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--template", "audit",
+		"--md", "--md-path", mdPath,
+		"--pdf", "--pdf-path", pdfPath,
+		"--evidence-json", "--evidence-json-path", bundlePath,
+		"--csv-backlog", "--csv-backlog-path", csvPath,
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	nextSteps, ok := payload["next_steps"].([]any)
+	if !ok || len(nextSteps) != 3 {
+		t.Fatalf("expected three next steps, got %v", payload["next_steps"])
+	}
+
+	first, ok := nextSteps[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected first next step type: %T", nextSteps[0])
+	}
+	if first["id"] != "review_report_artifacts" {
+		t.Fatalf("unexpected first next step: %v", first)
+	}
+	artifacts, ok := first["artifacts"].([]any)
+	if !ok || len(artifacts) != 4 {
+		t.Fatalf("expected report artifact references, got %v", first["artifacts"])
+	}
+	expectedRefs := []string{
+		"artifact_paths.backlog_csv",
+		"artifact_paths.evidence_json",
+		"artifact_paths.markdown",
+		"artifact_paths.pdf",
+	}
+	for idx, expected := range expectedRefs {
+		if artifacts[idx] != expected {
+			t.Fatalf("expected artifact reference %q at %d, got %v", expected, idx, artifacts[idx])
+		}
+	}
+
+	second, ok := nextSteps[1].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected second next step type: %T", nextSteps[1])
+	}
+	expectedEvidenceCmd := "wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state " + statePath + " --output ./wrkr-evidence --json"
+	if second["command"] != expectedEvidenceCmd {
+		t.Fatalf("expected evidence handoff command %q, got %v", expectedEvidenceCmd, second["command"])
+	}
+
+	third, ok := nextSteps[2].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected third next step type: %T", nextSteps[2])
+	}
+	expectedVerifyCmd := "wrkr verify --chain --state " + statePath + " --json"
+	if third["command"] != expectedVerifyCmd {
+		t.Fatalf("expected verify handoff command %q, got %v", expectedVerifyCmd, third["command"])
+	}
+}
+
 func writeJSONFile(t *testing.T, path string, payload any) {
 	t.Helper()
 	encoded, err := json.Marshal(payload)

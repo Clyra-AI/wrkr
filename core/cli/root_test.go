@@ -67,11 +67,38 @@ func TestRunRootHelpListsCommands(t *testing.T) {
 		"  evidence   build compliance-ready evidence bundles",
 		"  fix        plan deterministic remediations (repo writes require --open-pr)",
 		"Examples:",
+		"  wrkr init --non-interactive --org acme --github-api https://api.github.com --json",
+		"  wrkr scan --config ~/.wrkr/config.json --json",
+		"  wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json",
+		"  wrkr scan --my-setup --json",
 		"Global flags:",
 	}
 	for _, anchor := range expectedAnchors {
 		if !strings.Contains(errOut.String(), anchor) {
 			t.Fatalf("expected help output to contain %q, got %q", anchor, errOut.String())
+		}
+	}
+}
+
+func TestRootHelpShowsHostedEvaluatorAndMySetupPaths(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"--help"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d", code)
+	}
+
+	helpText := errOut.String()
+	for _, expected := range []string{
+		"wrkr init --non-interactive --org acme --github-api https://api.github.com --json",
+		"wrkr scan --config ~/.wrkr/config.json --json",
+		"wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json",
+		"wrkr scan --my-setup --json",
+	} {
+		if !strings.Contains(helpText, expected) {
+			t.Fatalf("expected root help to contain %q, got %q", expected, helpText)
 		}
 	}
 }
@@ -104,6 +131,30 @@ func TestRunHelpSubcommandAliasReturnsExit0(t *testing.T) {
 	}
 	if !strings.Contains(errOut.String(), "posture profile [baseline|standard|strict|assessment]") {
 		t.Fatalf("expected scan help to mention the assessment profile, got %q", errOut.String())
+	}
+}
+
+func TestScanHelpShowsHostedEvaluatorAndMySetupPaths(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--help"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d stderr=%q", code, errOut.String())
+	}
+
+	helpText := errOut.String()
+	for _, expected := range []string{
+		"Hosted org posture when prerequisites are ready:",
+		"wrkr init --non-interactive --org acme --github-api https://api.github.com --json",
+		"wrkr scan --config ~/.wrkr/config.json --json",
+		"wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json",
+		"wrkr scan --my-setup --json",
+	} {
+		if !strings.Contains(helpText, expected) {
+			t.Fatalf("expected scan help to contain %q, got %q", expected, helpText)
+		}
 	}
 }
 
@@ -208,6 +259,52 @@ func TestScanGitHubOrgAliasMatchesOrgContract(t *testing.T) {
 		}
 		if errObj["code"] != "dependency_missing" {
 			t.Fatalf("unexpected code for %v: %v", args, errObj["code"])
+		}
+	}
+}
+
+func TestScanNoTargetJSONIncludesNextSteps(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--json"}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected exit %d, got %d stderr=%q", exitInvalidInput, code, errOut.String())
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout output on failure, got %q", out.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse error payload: %v", err)
+	}
+	errObj, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error object payload, got %v", payload)
+	}
+	if errObj["code"] != "invalid_input" {
+		t.Fatalf("unexpected error code: %v", errObj["code"])
+	}
+	nextSteps, ok := errObj["next_steps"].([]any)
+	if !ok || len(nextSteps) != 3 {
+		t.Fatalf("expected three next_steps entries, got %v", errObj["next_steps"])
+	}
+	expectedCommands := []string{
+		"wrkr init --non-interactive --org acme --github-api https://api.github.com --json",
+		"wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json",
+		"wrkr scan --my-setup --json",
+	}
+	for idx, expected := range expectedCommands {
+		step, ok := nextSteps[idx].(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected next step shape at %d: %T", idx, nextSteps[idx])
+		}
+		if step["command"] != expected {
+			t.Fatalf("expected next step command %q, got %v", expected, step["command"])
 		}
 	}
 }
@@ -2012,11 +2109,77 @@ func TestVerifyAndEvidenceCommands(t *testing.T) {
 	if coverageNote["low_coverage_means"] != "evidence_gap" {
 		t.Fatalf("unexpected low coverage meaning: %v", coverageNote["low_coverage_means"])
 	}
+	nextSteps, ok := evidencePayload["next_steps"].([]any)
+	if !ok || len(nextSteps) != 3 {
+		t.Fatalf("expected three evidence next steps, got %v", evidencePayload["next_steps"])
+	}
+	secondStep, ok := nextSteps[1].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected evidence next step shape: %T", nextSteps[1])
+	}
+	expectedVerify := "wrkr verify --chain --state " + statePath + " --json"
+	if secondStep["command"] != expectedVerify {
+		t.Fatalf("expected verify next step %q, got %v", expectedVerify, secondStep["command"])
+	}
 	if _, err := os.Stat(filepath.Join(outputDir, "manifest.json")); err != nil {
 		t.Fatalf("expected manifest.json in evidence output: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(outputDir, "inventory.yaml")); err != nil {
 		t.Fatalf("expected inventory.yaml in evidence output: %v", err)
+	}
+}
+
+func TestEvidenceJSONIncludesVerifyNextSteps(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	var evidenceOut bytes.Buffer
+	var evidenceErr bytes.Buffer
+	if code := Run([]string{"evidence", "--frameworks", "soc2,eu-ai-act", "--state", statePath, "--output", outputDir, "--json"}, &evidenceOut, &evidenceErr); code != 0 {
+		t.Fatalf("evidence failed: %d %s", code, evidenceErr.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(evidenceOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse evidence payload: %v", err)
+	}
+	nextSteps, ok := payload["next_steps"].([]any)
+	if !ok || len(nextSteps) != 3 {
+		t.Fatalf("expected three next steps, got %v", payload["next_steps"])
+	}
+	first, ok := nextSteps[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected next step shape: %T", nextSteps[0])
+	}
+	if first["id"] != "review_evidence_bundle" {
+		t.Fatalf("unexpected first evidence next step: %v", first)
+	}
+	verifyStep, ok := nextSteps[1].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected verify next step shape: %T", nextSteps[1])
+	}
+	expectedVerifyCmd := "wrkr verify --chain --state " + statePath + " --json"
+	if verifyStep["command"] != expectedVerifyCmd {
+		t.Fatalf("expected verify command %q, got %v", expectedVerifyCmd, verifyStep["command"])
+	}
+	reportStep, ok := nextSteps[2].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected report next step shape: %T", nextSteps[2])
+	}
+	expectedReportCmd := "wrkr report --state " + statePath + " --template audit --md --md-path ./wrkr-audit-summary.md --json"
+	if reportStep["command"] != expectedReportCmd {
+		t.Fatalf("expected report command %q, got %v", expectedReportCmd, reportStep["command"])
 	}
 }
 

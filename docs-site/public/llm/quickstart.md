@@ -16,6 +16,12 @@ wrkr version --json
 For the current public launch, the recommended first path is the hosted org posture flow below when hosted prerequisites are ready. If they are not, use the curated scenario fallback and then return to the org path once GitHub access is configured.
 When concrete local tool, MCP, or secret signals exist, `scan --my-setup --json` also emits additive `activation.items` so the local-machine path stays concrete without mutating the raw risk ranking.
 
+Choose one explicit first-value path:
+
+- Hosted org posture when GitHub access is ready.
+- Evaluator-safe scenario when you are evaluating Wrkr itself or hosted prerequisites are not ready yet.
+- Developer-machine hygiene when you want local MCP and tool posture first.
+
 ```bash
 # Hosted org posture first when prerequisites are ready
 wrkr init --non-interactive --org acme --github-api https://api.github.com --json
@@ -44,6 +50,7 @@ wrkr inventory approve <agent-id> --owner platform-security --evidence SEC-123 -
 `wrkr evidence` now fails closed when the saved proof chain is malformed or tampered, and `wrkr verify --chain --json` remains the explicit machine gate for integrity.
 Inventory approval/evidence mutations are local, file-based, and append proof events. Evidence and verify JSON may include additive `control_evidence` so operators can see existing and missing proof for active backlog controls.
 The hosted org path is the primary launch workflow when prerequisites are ready. Use the curated scenario when you want the evaluator-safe fallback because it avoids repo-root fixture noise from Wrkr's own scenarios, docs, and test fixtures. That scenario path is the canonical `repo_set` example for `--path`: Wrkr scans the immediate child repos in the bundle instead of treating the bundle root as one repo.
+The curated scenario is intentionally risky by design, so a low posture score or low first-run `framework_coverage` is expected and useful during evaluation.
 Use `wrkr scan --path ./your-repo --json` when the selected directory itself is the repo root and carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, or `.codex/`. Use a bundle root like `./scenarios/wrkr/scan-mixed-org/repos` when you want immediate child repos scanned as a deterministic repo-set.
 
 Use these next when you want deeper triage:
