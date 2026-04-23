@@ -701,14 +701,36 @@ func RefreshIdentityGovernance(inv *Inventory, identities []manifest.IdentityRec
 		}
 		byAgent[agentID] = record
 	}
+	type projectedToolState struct {
+		approvalStatus     string
+		approvalClass      string
+		lifecycleState     string
+		securityVisibility string
+	}
+	projectedByAgent := make(map[string]projectedToolState, len(inv.Tools))
 	for idx := range inv.Tools {
 		record, ok := byAgent[strings.TrimSpace(inv.Tools[idx].AgentID)]
 		if !ok {
 			continue
 		}
-		inv.Tools[idx].ApprovalStatus = strings.TrimSpace(record.ApprovalState)
-		inv.Tools[idx].LifecycleState = strings.TrimSpace(record.Status)
-		inv.Tools[idx].ApprovalClass = classifyApproval(inv.Tools[idx].ApprovalStatus, inv.Tools[idx].LifecycleState)
+		approvalStatus := strings.TrimSpace(record.ApprovalState)
+		lifecycleState := strings.TrimSpace(record.Status)
+		preserveApprovedList := strings.TrimSpace(inv.Tools[idx].ApprovalStatus) == "approved_list" &&
+			approvalStatus == "missing" &&
+			(lifecycleState == "" || lifecycleState == identity.StateDiscovered || lifecycleState == identity.StateUnderReview)
+		if preserveApprovedList {
+			approvalStatus = strings.TrimSpace(inv.Tools[idx].ApprovalStatus)
+		}
+		inv.Tools[idx].ApprovalStatus = approvalStatus
+		inv.Tools[idx].LifecycleState = lifecycleState
+		if preserveApprovedList {
+			inv.Tools[idx].ApprovalClass = strings.TrimSpace(inv.Tools[idx].ApprovalClass)
+			if inv.Tools[idx].ApprovalClass == "" {
+				inv.Tools[idx].ApprovalClass = "approved"
+			}
+		} else {
+			inv.Tools[idx].ApprovalClass = classifyApproval(inv.Tools[idx].ApprovalStatus, inv.Tools[idx].LifecycleState)
+		}
 		inv.Tools[idx].RiskTier = projectRiskTier(inv.Tools[idx].PermissionTier, inv.Tools[idx].RiskScore, inv.Tools[idx].AutonomyLevel, inv.Tools[idx].ApprovalClass)
 		inv.Tools[idx].RegulatoryMapping = regulatoryMappings(inv.Tools[idx])
 		if owner := strings.TrimSpace(record.Approval.Owner); owner != "" {
@@ -718,9 +740,24 @@ func RefreshIdentityGovernance(inv *Inventory, identities []manifest.IdentityRec
 				inv.Tools[idx].Locations[locIdx].OwnershipStatus = "explicit"
 			}
 		}
-		inv.Tools[idx].SecurityVisibilityStatus = securityVisibilityFromIdentityRecord(record)
+		if preserveApprovedList {
+			inv.Tools[idx].SecurityVisibilityStatus = SecurityVisibilityKnownApproved
+		} else {
+			inv.Tools[idx].SecurityVisibilityStatus = securityVisibilityFromIdentityRecord(record)
+		}
+		projectedByAgent[strings.TrimSpace(inv.Tools[idx].AgentID)] = projectedToolState{
+			approvalStatus:     strings.TrimSpace(inv.Tools[idx].ApprovalStatus),
+			approvalClass:      strings.TrimSpace(inv.Tools[idx].ApprovalClass),
+			lifecycleState:     strings.TrimSpace(inv.Tools[idx].LifecycleState),
+			securityVisibility: strings.TrimSpace(inv.Tools[idx].SecurityVisibilityStatus),
+		}
 	}
 	for idx := range inv.Agents {
+		toolState, ok := projectedByAgent[strings.TrimSpace(inv.Agents[idx].AgentID)]
+		if ok {
+			inv.Agents[idx].SecurityVisibilityStatus = normalizeSecurityVisibilityStatus(toolState.securityVisibility)
+			continue
+		}
 		record, ok := byAgent[strings.TrimSpace(inv.Agents[idx].AgentID)]
 		if !ok {
 			continue
@@ -728,6 +765,27 @@ func RefreshIdentityGovernance(inv *Inventory, identities []manifest.IdentityRec
 		inv.Agents[idx].SecurityVisibilityStatus = normalizeSecurityVisibilityStatus(securityVisibilityFromIdentityRecord(record))
 	}
 	for idx := range inv.AgentPrivilegeMap {
+		if toolState, ok := projectedByAgent[strings.TrimSpace(inv.AgentPrivilegeMap[idx].AgentID)]; ok {
+			inv.AgentPrivilegeMap[idx].ApprovalClassification = toolState.approvalClass
+			inv.AgentPrivilegeMap[idx].SecurityVisibilityStatus = normalizeSecurityVisibilityStatus(toolState.securityVisibility)
+			if toolState.approvalClass == "approved" {
+				inv.AgentPrivilegeMap[idx].ApprovalGapReasons = nil
+			}
+			inv.AgentPrivilegeMap[idx].GovernanceControls = BuildGovernanceControls(GovernanceControlInput{
+				Owner:                    inv.AgentPrivilegeMap[idx].OperationalOwner,
+				OwnershipStatus:          inv.AgentPrivilegeMap[idx].OwnershipStatus,
+				ApprovalClassification:   inv.AgentPrivilegeMap[idx].ApprovalClassification,
+				SecurityVisibilityStatus: inv.AgentPrivilegeMap[idx].SecurityVisibilityStatus,
+				DeploymentGate:           deploymentGateFromEvidence(inv.AgentPrivilegeMap[idx].DeploymentEvidenceKeys),
+				ProofRequirement:         proofRequirementFromEvidence(inv.AgentPrivilegeMap[idx].DeploymentEvidenceKeys),
+				ProductionTargetStatus:   inv.AgentPrivilegeMap[idx].ProductionTargetStatus,
+				WritePathClasses:         inv.AgentPrivilegeMap[idx].WritePathClasses,
+				CredentialAccess:         inv.AgentPrivilegeMap[idx].CredentialAccess,
+				ProductionWrite:          inv.AgentPrivilegeMap[idx].ProductionWrite,
+				EvidenceBasis:            append(append([]string(nil), inv.AgentPrivilegeMap[idx].Permissions...), inv.AgentPrivilegeMap[idx].DeploymentEvidenceKeys...),
+			})
+			continue
+		}
 		record, ok := byAgent[strings.TrimSpace(inv.AgentPrivilegeMap[idx].AgentID)]
 		if !ok {
 			continue

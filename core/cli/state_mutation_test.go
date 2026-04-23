@@ -241,6 +241,43 @@ func TestRegressBaselineInitializedAfterApprovalUsesUpdatedSavedState(t *testing
 	t.Fatalf("expected baseline tool for %s", agentID)
 }
 
+func TestInventoryExcludeRemovesControlBacklogWithoutRescan(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	agentID := scanIdentityAgentID(t, statePath)
+
+	snapshotBefore, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("load state before exclude: %v", err)
+	}
+	recordBefore, ok := testIdentityRecord(snapshotBefore.Identities, agentID)
+	if !ok {
+		t.Fatalf("missing identity %s before exclude", agentID)
+	}
+	before := runReportJSON(t, statePath)
+	if _, ok := reportBacklogItem(before, recordBefore.Repo, recordBefore.Location); !ok {
+		t.Fatalf("expected report backlog item for %s %s before exclude", recordBefore.Repo, recordBefore.Location)
+	}
+
+	var excludeOut bytes.Buffer
+	var excludeErr bytes.Buffer
+	if code := Run([]string{
+		"inventory", "exclude", agentID,
+		"--reason", "retired_control_path",
+		"--state", statePath,
+		"--json",
+	}, &excludeOut, &excludeErr); code != 0 {
+		t.Fatalf("inventory exclude failed: %d %s", code, excludeErr.String())
+	}
+
+	after := runReportJSON(t, statePath)
+	if _, ok := reportBacklogItem(after, recordBefore.Repo, recordBefore.Location); ok {
+		t.Fatalf("expected excluded control path to be removed from report backlog without rescanning")
+	}
+}
+
 func runScoreJSON(t *testing.T, statePath string) map[string]any {
 	t.Helper()
 	var out bytes.Buffer

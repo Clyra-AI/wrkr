@@ -204,6 +204,24 @@ func refreshExistingControlBacklog(snapshot *state.Snapshot) {
 	snapshot.ControlBacklog.Summary = summarizeBacklogItems(items)
 }
 
+func applyInventoryMutationOverrides(snapshot *state.Snapshot, record manifest.IdentityRecord, requestedID string, action string) {
+	if snapshot == nil || snapshot.ControlBacklog == nil {
+		return
+	}
+	if strings.TrimSpace(action) != "exclude" {
+		return
+	}
+	items := snapshot.ControlBacklog.Items[:0]
+	for _, item := range snapshot.ControlBacklog.Items {
+		if backlogItemMatchesRecord(item.ID, item.Repo, item.Path, requestedID, record) {
+			continue
+		}
+		items = append(items, item)
+	}
+	snapshot.ControlBacklog.Items = items
+	snapshot.ControlBacklog.Summary = summarizeBacklogItems(items)
+}
+
 func backlogApprovalStatus(record manifest.IdentityRecord) string {
 	switch strings.TrimSpace(record.ApprovalState) {
 	case "valid", "approved", "approved_list", "accepted_risk", "risk_accepted":
@@ -213,6 +231,13 @@ func backlogApprovalStatus(record manifest.IdentityRecord) string {
 	default:
 		return "unapproved"
 	}
+}
+
+func backlogItemMatchesRecord(itemID, repo, path, requestedID string, record manifest.IdentityRecord) bool {
+	if strings.TrimSpace(itemID) != "" && strings.TrimSpace(itemID) == strings.TrimSpace(requestedID) {
+		return true
+	}
+	return strings.TrimSpace(repo) == strings.TrimSpace(record.Repo) && strings.TrimSpace(path) == strings.TrimSpace(record.Location)
 }
 
 func backlogSecurityVisibility(record manifest.IdentityRecord) string {

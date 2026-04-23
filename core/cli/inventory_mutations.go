@@ -108,6 +108,7 @@ func runInventoryMutation(action string, args []string, stdout io.Writer, stderr
 	if err := applyStateMutationToSnapshot(&ctx.snapshot, nextManifest, transition); err != nil {
 		return emitStateMutationError(stderr, jsonRequested || *jsonOut, err)
 	}
+	applyInventoryMutationOverrides(&ctx.snapshot, updatedRecord, id, action)
 	if err := lifecycle.AppendTransitionRecord(ctx.lifecycleChain, transition, eventTypeForInventoryAction(action)); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
