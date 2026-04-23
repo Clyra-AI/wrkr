@@ -42,10 +42,24 @@ wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last
 
 Expected JSON keys include `status`, `baseline_path`, `tool_count` (init) and drift fields plus optional `summary_md_path` (run).
 Baseline `tools[*]` continue to expose `agent_id` and `tool_id`; additive `agent_instance_id` is now included when instance-scoped identity is available.
+Baseline `tools[*]` may also include additive approved control-path state: `security_visibility`, `owner`, `evidence_expires`, `write_path_classes`, `secret_bearing`, `confidence`, `control_path_type`, `repo`, `location`, and `risk_score`.
 Drift `reasons[*]` continue to expose `agent_id`/`tool_id` and now include additive `agent_instance_id` when the current state carries instance-scoped identity.
 Deprecated or revoked tools that reappear in current scan state produce deterministic `deprecated_tool_reappeared` or `revoked_tool_reappeared` drift reasons.
 When critical attack-path sets diverge above deterministic thresholds, `reasons` includes a single `critical_attack_path_drift` summary entry with machine-readable `attack_path_drift` details (`added`, `removed`, `score_changed`).
 Regress baselines and drift comparison operate on lifecycle-bearing real tool identities only. Finding-only signals such as `secret_presence`, `source_discovery`, `policy_*`, and `parse_error` stay in findings/risk output and do not create `new_unapproved_tool` drift on their own.
+
+Control-path drift categories are additive and stable:
+
+- `new_unknown_automation`
+- `new_repo_write_path`
+- `new_secret_bearing_workflow`
+- `new_mcp_tool_config`
+- `approval_expired`
+- `owner_changed`
+- `approved_path_risk_increased`
+- `deprecated_path_reappeared`
+
+Approval expiry moves the affected current path toward review-oriented output through `approval_expired`; owner changes include `previous_owner` and `current_owner`; approved-path risk increases include `previous_risk_score` and `current_risk_score`.
 
 Compatibility note:
 

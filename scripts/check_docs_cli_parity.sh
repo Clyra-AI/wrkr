@@ -61,22 +61,22 @@ flag_patterns = (
     re.compile(r'fs\.Var\([^,]+,\s*"([a-z0-9-]+)"'),
 )
 
-source_to_doc = {
-    "core/cli/root.go": "docs/commands/root.md",
-    "core/cli/init.go": "docs/commands/init.md",
-    "core/cli/scan.go": "docs/commands/scan.md",
-    "core/cli/mcp_list.go": "docs/commands/mcp-list.md",
-    "core/cli/report.go": "docs/commands/report.md",
-    "core/cli/export.go": "docs/commands/export.md",
-    "core/cli/inventory.go": "docs/commands/inventory.md",
-    "core/cli/identity.go": "docs/commands/identity.md",
-    "core/cli/lifecycle.go": "docs/commands/lifecycle.md",
-    "core/cli/manifest.go": "docs/commands/manifest.md",
-    "core/cli/regress.go": "docs/commands/regress.md",
-    "core/cli/score.go": "docs/commands/score.md",
-    "core/cli/verify.go": "docs/commands/verify.md",
-    "core/cli/evidence.go": "docs/commands/evidence.md",
-    "core/cli/fix.go": "docs/commands/fix.md",
+doc_to_sources = {
+    "docs/commands/root.md": ["core/cli/root.go"],
+    "docs/commands/init.md": ["core/cli/init.go"],
+    "docs/commands/scan.md": ["core/cli/scan.go"],
+    "docs/commands/mcp-list.md": ["core/cli/mcp_list.go"],
+    "docs/commands/report.md": ["core/cli/report.go"],
+    "docs/commands/export.md": ["core/cli/export.go"],
+    "docs/commands/inventory.md": ["core/cli/inventory.go", "core/cli/inventory_mutations.go"],
+    "docs/commands/identity.md": ["core/cli/identity.go"],
+    "docs/commands/lifecycle.md": ["core/cli/lifecycle.go"],
+    "docs/commands/manifest.md": ["core/cli/manifest.go"],
+    "docs/commands/regress.md": ["core/cli/regress.go"],
+    "docs/commands/score.md": ["core/cli/score.go"],
+    "docs/commands/verify.md": ["core/cli/verify.go"],
+    "docs/commands/evidence.md": ["core/cli/evidence.go"],
+    "docs/commands/fix.md": ["core/cli/fix.go"],
 }
 
 def extract_flags(path: pathlib.Path) -> set[str]:
@@ -86,20 +86,22 @@ def extract_flags(path: pathlib.Path) -> set[str]:
         flags.update(pattern.findall(text))
     return flags
 
-for source_path, doc_path in source_to_doc.items():
-    source_flags = extract_flags(repo / source_path)
+for doc_path, source_paths in doc_to_sources.items():
+    source_flags: set[str] = set()
+    for source_path in source_paths:
+        source_flags.update(extract_flags(repo / source_path))
     doc_text = (repo / doc_path).read_text(encoding="utf-8")
     doc_flags = set(re.findall(r"--[a-z0-9-]+", doc_text))
 
     missing_flags = sorted(f"--{flag}" for flag in source_flags if f"--{flag}" not in doc_text)
     if missing_flags:
-        print(f"{doc_path} missing flags from {source_path}: {', '.join(missing_flags)}", file=sys.stderr)
+        print(f"{doc_path} missing flags from {', '.join(source_paths)}: {', '.join(missing_flags)}", file=sys.stderr)
         sys.exit(3)
 
     allowed_doc_flags = set(f"--{flag}" for flag in source_flags)
     stale_flags = sorted(flag for flag in doc_flags if flag not in allowed_doc_flags)
     if stale_flags:
-        print(f"{doc_path} contains undocumented/stale flags not in {source_path}: {', '.join(stale_flags)}", file=sys.stderr)
+        print(f"{doc_path} contains undocumented/stale flags not in {', '.join(source_paths)}: {', '.join(stale_flags)}", file=sys.stderr)
         sys.exit(3)
 
 print("docs CLI parity: pass")

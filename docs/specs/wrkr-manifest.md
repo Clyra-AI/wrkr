@@ -44,6 +44,8 @@ These fields are modeled in `schemas/v1/manifest/manifest.schema.json` as the po
 
 Primary fields include `agent_id`, `tool_id`, `tool_type`, `org`, `repo`, `location`, `status`, `approval_status`, `first_seen`, `last_seen`, `present`, `data_class`, `endpoint_class`, `autonomy_level`, and `risk_score`.
 
+Approval inventory mutations add `approval_inventory_version` and optional approval metadata: `owner`, `evidence_url`, `control_id`, `expires`, `review_cadence`, `last_reviewed`, `renewal_state`, `accepted_risk`, `decision_reason`, and `exclusion_reason`. These fields are additive and missing values are interpreted as `missing` or `needs_review` by governance views.
+
 ## Interoperability guidance
 
 For producers:

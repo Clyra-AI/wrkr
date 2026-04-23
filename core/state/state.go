@@ -22,22 +22,24 @@ import (
 )
 
 const SnapshotVersion = "v1"
+const ApprovalInventoryVersion = "1"
 
 // Snapshot stores deterministic scan material for diff mode.
 type Snapshot struct {
-	Version        string                    `json:"version"`
-	Target         source.Target             `json:"target"`
-	Targets        []source.Target           `json:"targets,omitempty"`
-	Findings       []source.Finding          `json:"findings"`
-	Inventory      *agginventory.Inventory   `json:"inventory,omitempty"`
-	ControlBacklog *controlbacklog.Backlog   `json:"control_backlog,omitempty"`
-	ScanQuality    *scanquality.Report       `json:"scan_quality,omitempty"`
-	ScanMode       string                    `json:"scan_mode,omitempty"`
-	RiskReport     *risk.Report              `json:"risk_report,omitempty"`
-	Profile        *profileeval.Result       `json:"profile,omitempty"`
-	PostureScore   *score.Result             `json:"posture_score,omitempty"`
-	Identities     []manifest.IdentityRecord `json:"identities,omitempty"`
-	Transitions    []lifecycle.Transition    `json:"lifecycle_transitions,omitempty"`
+	Version                  string                    `json:"version"`
+	ApprovalInventoryVersion string                    `json:"approval_inventory_version,omitempty"`
+	Target                   source.Target             `json:"target"`
+	Targets                  []source.Target           `json:"targets,omitempty"`
+	Findings                 []source.Finding          `json:"findings"`
+	Inventory                *agginventory.Inventory   `json:"inventory,omitempty"`
+	ControlBacklog           *controlbacklog.Backlog   `json:"control_backlog,omitempty"`
+	ScanQuality              *scanquality.Report       `json:"scan_quality,omitempty"`
+	ScanMode                 string                    `json:"scan_mode,omitempty"`
+	RiskReport               *risk.Report              `json:"risk_report,omitempty"`
+	Profile                  *profileeval.Result       `json:"profile,omitempty"`
+	PostureScore             *score.Result             `json:"posture_score,omitempty"`
+	Identities               []manifest.IdentityRecord `json:"identities,omitempty"`
+	Transitions              []lifecycle.Transition    `json:"lifecycle_transitions,omitempty"`
 }
 
 type ScoreView struct {
@@ -85,6 +87,7 @@ func ResolvePath(explicit string) string {
 
 func Save(path string, snapshot Snapshot) error {
 	snapshot.Version = SnapshotVersion
+	snapshot.ApprovalInventoryVersion = ApprovalInventoryVersion
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	source.SortFindings(snapshot.Findings)
 	payload, err := json.MarshalIndent(snapshot, "", "  ")
@@ -110,6 +113,9 @@ func loadSnapshot(path string) (Snapshot, error) {
 	}
 	if snapshot.Version == "" {
 		snapshot.Version = SnapshotVersion
+	}
+	if snapshot.ApprovalInventoryVersion == "" {
+		snapshot.ApprovalInventoryVersion = ApprovalInventoryVersion
 	}
 	return snapshot, nil
 }

@@ -1,0 +1,14 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: deploy with referenced secret
+        run: echo "${{ secrets.PROD_DEPLOY_TOKEN }}"

@@ -20,6 +20,7 @@ wrkr verify --chain --state ./.tmp/state.json --json
 ```
 
 Expected JSON keys: `status`, `chain.path`, `chain.intact`, `chain.count`, `chain.head_hash`, `chain.reason`, `chain.verification_mode`, `chain.authenticity_status`.
+When the state snapshot contains a control backlog, success JSON may include additive `control_evidence` entries showing which proof records exist or are still missing for each backlog control.
 
 Lookup precedence:
 

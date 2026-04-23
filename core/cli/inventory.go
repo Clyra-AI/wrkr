@@ -18,6 +18,12 @@ import (
 )
 
 func runInventory(args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		switch args[0] {
+		case "approve", "attach-evidence", "accept-risk", "deprecate", "exclude":
+			return runInventoryMutation(strings.ReplaceAll(args[0], "-", "_"), args[1:], stdout, stderr)
+		}
+	}
 	jsonRequested := wantsJSONOutput(args)
 	fs := flag.NewFlagSet("inventory", flag.ContinueOnError)
 	if jsonRequested {

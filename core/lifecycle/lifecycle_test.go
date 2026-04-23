@@ -222,6 +222,18 @@ func TestParseExpiryDefault90Days(t *testing.T) {
 	}
 }
 
+func TestParseExpiryDaySuffix(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)
+	expires, err := ParseExpiry("90d", now)
+	if err != nil {
+		t.Fatalf("parse expiry: %v", err)
+	}
+	if expires.Sub(now) != 90*24*time.Hour {
+		t.Fatalf("expected 90d expiry, got %s", expires.Sub(now))
+	}
+}
+
 func TestApplyManualStateNonApprovedStatesAlwaysRevokeApprovalStatus(t *testing.T) {
 	t.Parallel()
 

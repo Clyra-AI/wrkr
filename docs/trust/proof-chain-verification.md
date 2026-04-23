@@ -21,6 +21,7 @@ wrkr verify --chain --state ./.tmp/state.json --json
 - `chain.head_hash`
 - `chain.verification_mode`
 - `chain.authenticity_status`
+- additive `control_evidence` when the saved state contains a control backlog
 
 ## Exit codes
 
@@ -35,6 +36,7 @@ If no verifier key exists, success remains possible only with explicit structura
 When `--path` is passed without `--state`, Wrkr resolves verifier material beside that explicit chain path; ambient `WRKR_STATE_PATH` does not override it.
 When `--state` is also passed, verifier lookup stays anchored to the explicit state directory.
 Verification failures are blocking contract signals.
+Approval inventory mutations add stable proof events such as `approval_recorded`, `evidence_attached`, and `risk_accepted`. `wrkr verify --chain --json` keeps chain integrity as the gate and can also surface backlog-level proof gaps when the state file is available.
 
 ## Q&A
 

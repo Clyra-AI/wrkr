@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -18,18 +19,26 @@ import (
 const BaselineVersion = "v1"
 
 const (
-	ReasonNewUnapprovedTool        = "new_unapproved_tool"
-	ReasonRevokedToolReappeared    = "revoked_tool_reappeared"
-	ReasonDeprecatedToolReappeared = "deprecated_tool_reappeared"
-	ReasonPermissionExpansion      = "unapproved_permission_expansion"
-	ReasonCriticalAttackPath       = "critical_attack_path_drift"
-	defaultApprovalState           = "missing"
-	defaultLifecycleState          = identity.StateUnderReview
-	criticalAttackPathMinScore     = 8.0
-	attackPathScoreDeltaMin        = 1.0
-	attackPathDriftMinAbsolute     = 2
-	attackPathDriftMinRelative     = 0.25
-	attackPathExampleLimit         = 5
+	ReasonNewUnapprovedTool         = "new_unapproved_tool"
+	ReasonRevokedToolReappeared     = "revoked_tool_reappeared"
+	ReasonDeprecatedToolReappeared  = "deprecated_tool_reappeared"
+	ReasonPermissionExpansion       = "unapproved_permission_expansion"
+	ReasonCriticalAttackPath        = "critical_attack_path_drift"
+	ReasonNewUnknownAutomation      = "new_unknown_automation"
+	ReasonNewRepoWritePath          = "new_repo_write_path"
+	ReasonNewSecretBearingWorkflow  = "new_secret_bearing_workflow"
+	ReasonNewMCPToolConfig          = "new_mcp_tool_config"
+	ReasonApprovalExpired           = "approval_expired"
+	ReasonOwnerChanged              = "owner_changed"
+	ReasonApprovedPathRiskIncreased = "approved_path_risk_increased"
+	ReasonDeprecatedPathReappeared  = "deprecated_path_reappeared"
+	defaultApprovalState            = "missing"
+	defaultLifecycleState           = identity.StateUnderReview
+	criticalAttackPathMinScore      = 8.0
+	attackPathScoreDeltaMin         = 1.0
+	attackPathDriftMinAbsolute      = 2
+	attackPathDriftMinRelative      = 0.25
+	attackPathExampleLimit          = 5
 )
 
 type Baseline struct {
@@ -40,15 +49,25 @@ type Baseline struct {
 }
 
 type ToolState struct {
-	AgentID         string   `json:"agent_id"`
-	AgentInstanceID string   `json:"agent_instance_id,omitempty"`
-	ToolID          string   `json:"tool_id"`
-	Org             string   `json:"org"`
-	Status          string   `json:"status"`
-	ApprovalStatus  string   `json:"approval_status"`
-	Present         bool     `json:"present"`
-	Permissions     []string `json:"permissions"`
-	LegacyAgentID   string   `json:"-"`
+	AgentID            string   `json:"agent_id"`
+	AgentInstanceID    string   `json:"agent_instance_id,omitempty"`
+	ToolID             string   `json:"tool_id"`
+	Org                string   `json:"org"`
+	Repo               string   `json:"repo,omitempty"`
+	Location           string   `json:"location,omitempty"`
+	Status             string   `json:"status"`
+	ApprovalStatus     string   `json:"approval_status"`
+	SecurityVisibility string   `json:"security_visibility,omitempty"`
+	Owner              string   `json:"owner,omitempty"`
+	EvidenceExpires    string   `json:"evidence_expires,omitempty"`
+	WritePathClasses   []string `json:"write_path_classes,omitempty"`
+	SecretBearing      bool     `json:"secret_bearing,omitempty"`
+	Confidence         string   `json:"confidence,omitempty"`
+	ControlPathType    string   `json:"control_path_type,omitempty"`
+	RiskScore          float64  `json:"risk_score,omitempty"`
+	Present            bool     `json:"present"`
+	Permissions        []string `json:"permissions"`
+	LegacyAgentID      string   `json:"-"`
 }
 
 type AttackPathState struct {
@@ -59,14 +78,18 @@ type AttackPathState struct {
 }
 
 type Reason struct {
-	Code             string                  `json:"code"`
-	AgentID          string                  `json:"agent_id"`
-	AgentInstanceID  string                  `json:"agent_instance_id,omitempty"`
-	ToolID           string                  `json:"tool_id"`
-	Org              string                  `json:"org"`
-	Message          string                  `json:"message"`
-	AddedPermissions []string                `json:"added_permissions,omitempty"`
-	AttackPathDrift  *AttackPathDriftSummary `json:"attack_path_drift,omitempty"`
+	Code              string                  `json:"code"`
+	AgentID           string                  `json:"agent_id"`
+	AgentInstanceID   string                  `json:"agent_instance_id,omitempty"`
+	ToolID            string                  `json:"tool_id"`
+	Org               string                  `json:"org"`
+	Message           string                  `json:"message"`
+	AddedPermissions  []string                `json:"added_permissions,omitempty"`
+	PreviousOwner     string                  `json:"previous_owner,omitempty"`
+	CurrentOwner      string                  `json:"current_owner,omitempty"`
+	PreviousRiskScore float64                 `json:"previous_risk_score,omitempty"`
+	CurrentRiskScore  float64                 `json:"current_risk_score,omitempty"`
+	AttackPathDrift   *AttackPathDriftSummary `json:"attack_path_drift,omitempty"`
 }
 
 type AttackPathScoreChange struct {
@@ -130,8 +153,13 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 			AgentInstanceID: strings.TrimSpace(item.ToolID),
 			ToolID:          strings.TrimSpace(item.ToolID),
 			Org:             fallback(item.Org, "local"),
+			Repo:            strings.TrimSpace(item.Repo),
+			Location:        strings.TrimSpace(item.Location),
 			Status:          fallback(item.Status, defaultLifecycleState),
 			ApprovalStatus:  fallback(item.ApprovalState, defaultApprovalState),
+			Owner:           strings.TrimSpace(item.Approval.Owner),
+			EvidenceExpires: strings.TrimSpace(item.Approval.Expires),
+			RiskScore:       item.RiskScore,
 			Present:         item.Present,
 			Permissions:     []string{},
 		}
@@ -151,6 +179,8 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 				AgentInstanceID: toolID,
 				ToolID:          toolID,
 				Org:             org,
+				Repo:            strings.TrimSpace(finding.Repo),
+				Location:        strings.TrimSpace(finding.Location),
 				Status:          defaultLifecycleState,
 				ApprovalStatus:  defaultApprovalState,
 				Present:         true,
@@ -168,9 +198,17 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 		if strings.TrimSpace(item.LegacyAgentID) == "" {
 			item.LegacyAgentID = legacyAgentID
 		}
+		if strings.TrimSpace(item.Repo) == "" {
+			item.Repo = strings.TrimSpace(finding.Repo)
+		}
+		if strings.TrimSpace(item.Location) == "" {
+			item.Location = strings.TrimSpace(finding.Location)
+		}
 		item.Present = true
 		item.Permissions = append(item.Permissions, finding.Permissions...)
 	}
+
+	enrichToolStatesFromInventoryAndBacklog(byAgent, snapshot)
 
 	out := make([]ToolState, 0, len(byAgent))
 	for _, item := range byAgent {
@@ -192,6 +230,82 @@ func SnapshotTools(snapshot state.Snapshot) []ToolState {
 	return out
 }
 
+func enrichToolStatesFromInventoryAndBacklog(byAgent map[string]*ToolState, snapshot state.Snapshot) {
+	if snapshot.Inventory != nil {
+		for _, tool := range snapshot.Inventory.Tools {
+			agentID := strings.TrimSpace(tool.AgentID)
+			if agentID == "" {
+				continue
+			}
+			item, exists := byAgent[agentID]
+			if !exists {
+				item = &ToolState{
+					AgentID:         agentID,
+					AgentInstanceID: strings.TrimSpace(tool.ToolID),
+					ToolID:          strings.TrimSpace(tool.ToolID),
+					Org:             fallback(tool.Org, "local"),
+					Status:          fallback(tool.LifecycleState, defaultLifecycleState),
+					ApprovalStatus:  fallback(tool.ApprovalStatus, defaultApprovalState),
+					Present:         true,
+				}
+				byAgent[agentID] = item
+			}
+			item.SecurityVisibility = fallback(item.SecurityVisibility, tool.SecurityVisibilityStatus)
+			item.WritePathClasses = mergeSortedStrings(item.WritePathClasses, tool.WritePathClasses)
+			if tool.RiskScore > item.RiskScore {
+				item.RiskScore = tool.RiskScore
+			}
+			if strings.TrimSpace(item.Repo) == "" && len(tool.Repos) > 0 {
+				item.Repo = strings.TrimSpace(tool.Repos[0])
+			}
+			if strings.TrimSpace(item.Location) == "" && len(tool.Locations) > 0 {
+				item.Location = strings.TrimSpace(tool.Locations[0].Location)
+			}
+			for _, loc := range tool.Locations {
+				if strings.TrimSpace(item.Owner) == "" {
+					item.Owner = strings.TrimSpace(loc.Owner)
+				}
+				if strings.TrimSpace(item.Repo) == strings.TrimSpace(loc.Repo) && strings.TrimSpace(item.Location) == strings.TrimSpace(loc.Location) {
+					item.Owner = fallback(item.Owner, loc.Owner)
+				}
+			}
+		}
+	}
+	if snapshot.ControlBacklog == nil {
+		return
+	}
+	for _, backlogItem := range snapshot.ControlBacklog.Items {
+		agentID := agentIDForBacklogItem(snapshot, backlogItem.Repo, backlogItem.Path)
+		if agentID == "" {
+			continue
+		}
+		item, exists := byAgent[agentID]
+		if !exists {
+			item = &ToolState{
+				AgentID:            agentID,
+				AgentInstanceID:    strings.TrimSpace(backlogItem.ID),
+				ToolID:             strings.TrimSpace(backlogItem.ID),
+				Org:                fallback(orgForBacklogItem(snapshot, backlogItem.Repo, backlogItem.Path), "local"),
+				Repo:               strings.TrimSpace(backlogItem.Repo),
+				Location:           strings.TrimSpace(backlogItem.Path),
+				Status:             defaultLifecycleState,
+				ApprovalStatus:     fallback(backlogItem.ApprovalStatus, defaultApprovalState),
+				SecurityVisibility: strings.TrimSpace(backlogItem.SecurityVisibility),
+				Present:            true,
+			}
+			byAgent[agentID] = item
+		}
+		item.ControlPathType = fallback(item.ControlPathType, backlogItem.ControlPathType)
+		item.Confidence = fallback(item.Confidence, backlogItem.Confidence)
+		item.SecurityVisibility = fallback(item.SecurityVisibility, backlogItem.SecurityVisibility)
+		item.WritePathClasses = mergeSortedStrings(item.WritePathClasses, backlogItem.WritePathClasses)
+		item.SecretBearing = item.SecretBearing || strings.TrimSpace(backlogItem.ControlPathType) == "secret_bearing_workflow" || len(backlogItem.SecretSignalTypes) > 0
+		if strings.TrimSpace(item.Owner) == "" {
+			item.Owner = strings.TrimSpace(backlogItem.Owner)
+		}
+	}
+}
+
 func SaveBaseline(path string, baseline Baseline) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -209,6 +323,7 @@ func SaveBaseline(path string, baseline Baseline) error {
 	})
 	for i := range baseline.Tools {
 		baseline.Tools[i].Permissions = dedupeSortedPermissions(baseline.Tools[i].Permissions)
+		baseline.Tools[i].WritePathClasses = mergeSortedStrings(baseline.Tools[i].WritePathClasses, nil)
 	}
 	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
 
@@ -280,14 +395,7 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 		baseTool, exists := matchBaselineTool(baseByAgent, baseByInstance, legacyClaims, currentTool)
 		if !exists {
 			if currentTool.Present && !isApproved(currentTool) {
-				reasons = append(reasons, Reason{
-					Code:            ReasonNewUnapprovedTool,
-					AgentID:         currentTool.AgentID,
-					AgentInstanceID: currentTool.AgentInstanceID,
-					ToolID:          currentTool.ToolID,
-					Org:             currentTool.Org,
-					Message:         "detected tool not present in approved baseline",
-				})
+				reasons = append(reasons, newControlPathReason(currentTool))
 			}
 			continue
 		}
@@ -310,6 +418,51 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 				ToolID:          currentTool.ToolID,
 				Org:             currentTool.Org,
 				Message:         "deprecated tool reappeared in current scan",
+			})
+			if strings.TrimSpace(baseTool.ControlPathType) != "" || strings.TrimSpace(currentTool.ControlPathType) != "" {
+				reasons = append(reasons, Reason{
+					Code:            ReasonDeprecatedPathReappeared,
+					AgentID:         currentTool.AgentID,
+					AgentInstanceID: currentTool.AgentInstanceID,
+					ToolID:          currentTool.ToolID,
+					Org:             currentTool.Org,
+					Message:         "deprecated control path reappeared in current scan",
+				})
+			}
+		}
+
+		if strings.TrimSpace(currentTool.ApprovalStatus) == "expired" {
+			reasons = append(reasons, Reason{
+				Code:            ReasonApprovalExpired,
+				AgentID:         currentTool.AgentID,
+				AgentInstanceID: currentTool.AgentInstanceID,
+				ToolID:          currentTool.ToolID,
+				Org:             currentTool.Org,
+				Message:         "approval expired and requires review before promotion",
+			})
+		}
+		if strings.TrimSpace(baseTool.Owner) != "" && strings.TrimSpace(currentTool.Owner) != "" && strings.TrimSpace(baseTool.Owner) != strings.TrimSpace(currentTool.Owner) {
+			reasons = append(reasons, Reason{
+				Code:            ReasonOwnerChanged,
+				AgentID:         currentTool.AgentID,
+				AgentInstanceID: currentTool.AgentInstanceID,
+				ToolID:          currentTool.ToolID,
+				Org:             currentTool.Org,
+				Message:         "control-path owner changed since approved baseline",
+				PreviousOwner:   strings.TrimSpace(baseTool.Owner),
+				CurrentOwner:    strings.TrimSpace(currentTool.Owner),
+			})
+		}
+		if isApproved(baseTool) && currentTool.RiskScore > 0 && currentTool.RiskScore-baseTool.RiskScore >= 1 {
+			reasons = append(reasons, Reason{
+				Code:              ReasonApprovedPathRiskIncreased,
+				AgentID:           currentTool.AgentID,
+				AgentInstanceID:   currentTool.AgentInstanceID,
+				ToolID:            currentTool.ToolID,
+				Org:               currentTool.Org,
+				Message:           "approved control-path risk increased since baseline",
+				PreviousRiskScore: round2(baseTool.RiskScore),
+				CurrentRiskScore:  round2(currentTool.RiskScore),
 			})
 		}
 
@@ -399,6 +552,46 @@ func matchBaselineTool(baseByAgent map[string]ToolState, baseByInstance map[stri
 	return baseTool, true
 }
 
+func newControlPathReason(currentTool ToolState) Reason {
+	code := ReasonNewUnapprovedTool
+	message := "detected tool not present in approved baseline"
+	switch {
+	case currentTool.SecretBearing:
+		code = ReasonNewSecretBearingWorkflow
+		message = "new secret-bearing workflow appeared since approved baseline"
+	case hasWritePathClass(currentTool, agginventory.WritePathRepoWrite, agginventory.WritePathPullRequestWrite, agginventory.WritePathReleaseWrite, agginventory.WritePathDeployWrite, agginventory.WritePathInfraWrite, agginventory.WritePathPackagePublish):
+		code = ReasonNewRepoWritePath
+		message = "new repository write-capable control path appeared since approved baseline"
+	case strings.TrimSpace(currentTool.ControlPathType) == "mcp_tool" || strings.Contains(strings.ToLower(currentTool.ToolID), "mcp") || strings.Contains(strings.ToLower(currentTool.AgentID), "mcp"):
+		code = ReasonNewMCPToolConfig
+		message = "new MCP tool configuration appeared since approved baseline"
+	case strings.TrimSpace(currentTool.SecurityVisibility) == agginventory.SecurityVisibilityUnknownToSecurity:
+		code = ReasonNewUnknownAutomation
+		message = "new automation path unknown to security appeared since approved baseline"
+	}
+	return Reason{
+		Code:            code,
+		AgentID:         currentTool.AgentID,
+		AgentInstanceID: currentTool.AgentInstanceID,
+		ToolID:          currentTool.ToolID,
+		Org:             currentTool.Org,
+		Message:         message,
+	}
+}
+
+func hasWritePathClass(tool ToolState, values ...string) bool {
+	set := map[string]struct{}{}
+	for _, value := range values {
+		set[strings.TrimSpace(value)] = struct{}{}
+	}
+	for _, class := range tool.WritePathClasses {
+		if _, ok := set[strings.TrimSpace(class)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func baselineInstanceKey(org, instanceID string) string {
 	return fallback(org, "local") + "::" + strings.TrimSpace(instanceID)
 }
@@ -466,6 +659,7 @@ func normalizeBaseline(baseline Baseline) Baseline {
 	})
 	for i := range baseline.Tools {
 		baseline.Tools[i].Permissions = dedupeSortedPermissions(baseline.Tools[i].Permissions)
+		baseline.Tools[i].WritePathClasses = mergeSortedStrings(baseline.Tools[i].WritePathClasses, nil)
 	}
 	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
 	return baseline
@@ -520,6 +714,58 @@ func fallback(value, fallbackValue string) string {
 		return fallbackValue
 	}
 	return value
+}
+
+func mergeSortedStrings(a []string, b []string) []string {
+	set := map[string]struct{}{}
+	for _, value := range append(append([]string(nil), a...), b...) {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			set[trimmed] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for value := range set {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func agentIDForBacklogItem(snapshot state.Snapshot, repo string, path string) string {
+	if snapshot.Inventory != nil {
+		for _, tool := range snapshot.Inventory.Tools {
+			for _, loc := range tool.Locations {
+				if strings.TrimSpace(loc.Repo) == strings.TrimSpace(repo) && strings.TrimSpace(loc.Location) == strings.TrimSpace(path) {
+					return strings.TrimSpace(tool.AgentID)
+				}
+			}
+		}
+	}
+	for _, record := range snapshot.Identities {
+		if strings.TrimSpace(record.Repo) == strings.TrimSpace(repo) && strings.TrimSpace(record.Location) == strings.TrimSpace(path) {
+			return strings.TrimSpace(record.AgentID)
+		}
+	}
+	return ""
+}
+
+func orgForBacklogItem(snapshot state.Snapshot, repo string, path string) string {
+	if snapshot.Inventory != nil {
+		for _, tool := range snapshot.Inventory.Tools {
+			for _, loc := range tool.Locations {
+				if strings.TrimSpace(loc.Repo) == strings.TrimSpace(repo) && strings.TrimSpace(loc.Location) == strings.TrimSpace(path) {
+					return strings.TrimSpace(tool.Org)
+				}
+			}
+		}
+	}
+	for _, record := range snapshot.Identities {
+		if strings.TrimSpace(record.Repo) == strings.TrimSpace(repo) && strings.TrimSpace(record.Location) == strings.TrimSpace(path) {
+			return strings.TrimSpace(record.Org)
+		}
+	}
+	return "local"
 }
 
 func snapshotFindingIdentity(finding model.Finding, useInstanceIDs bool) (toolID string, agentID string, legacyAgentID string) {

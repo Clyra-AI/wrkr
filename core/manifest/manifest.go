@@ -13,12 +13,22 @@ import (
 )
 
 const Version = "v1"
+const ApprovalInventoryVersion = "1"
 
 type Approval struct {
-	Approver string `yaml:"approver,omitempty" json:"approver,omitempty"`
-	Scope    string `yaml:"scope,omitempty" json:"scope,omitempty"`
-	Approved string `yaml:"approved,omitempty" json:"approved,omitempty"`
-	Expires  string `yaml:"expires,omitempty" json:"expires,omitempty"`
+	Approver        string `yaml:"approver,omitempty" json:"approver,omitempty"`
+	Owner           string `yaml:"owner,omitempty" json:"owner,omitempty"`
+	Scope           string `yaml:"scope,omitempty" json:"scope,omitempty"`
+	EvidenceURL     string `yaml:"evidence_url,omitempty" json:"evidence_url,omitempty"`
+	ControlID       string `yaml:"control_id,omitempty" json:"control_id,omitempty"`
+	Approved        string `yaml:"approved,omitempty" json:"approved,omitempty"`
+	Expires         string `yaml:"expires,omitempty" json:"expires,omitempty"`
+	ReviewCadence   string `yaml:"review_cadence,omitempty" json:"review_cadence,omitempty"`
+	LastReviewed    string `yaml:"last_reviewed,omitempty" json:"last_reviewed,omitempty"`
+	RenewalState    string `yaml:"renewal_state,omitempty" json:"renewal_state,omitempty"`
+	AcceptedRisk    bool   `yaml:"accepted_risk,omitempty" json:"accepted_risk,omitempty"`
+	DecisionReason  string `yaml:"decision_reason,omitempty" json:"decision_reason,omitempty"`
+	ExclusionReason string `yaml:"exclusion_reason,omitempty" json:"exclusion_reason,omitempty"`
 }
 
 type IdentityRecord struct {
@@ -41,9 +51,10 @@ type IdentityRecord struct {
 }
 
 type Manifest struct {
-	Version    string           `yaml:"version" json:"version"`
-	UpdatedAt  string           `yaml:"updated_at" json:"updated_at"`
-	Identities []IdentityRecord `yaml:"identities" json:"identities"`
+	Version                  string           `yaml:"version" json:"version"`
+	ApprovalInventoryVersion string           `yaml:"approval_inventory_version,omitempty" json:"approval_inventory_version,omitempty"`
+	UpdatedAt                string           `yaml:"updated_at" json:"updated_at"`
+	Identities               []IdentityRecord `yaml:"identities" json:"identities"`
 }
 
 func ResolvePath(statePath string) string {
@@ -67,12 +78,16 @@ func Load(path string) (Manifest, error) {
 	if strings.TrimSpace(out.Version) == "" {
 		out.Version = Version
 	}
+	if strings.TrimSpace(out.ApprovalInventoryVersion) == "" {
+		out.ApprovalInventoryVersion = ApprovalInventoryVersion
+	}
 	sortRecords(out.Identities)
 	return out, nil
 }
 
 func Save(path string, m Manifest) error {
 	m.Version = Version
+	m.ApprovalInventoryVersion = ApprovalInventoryVersion
 	if strings.TrimSpace(m.UpdatedAt) == "" {
 		m.UpdatedAt = time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
 	}
