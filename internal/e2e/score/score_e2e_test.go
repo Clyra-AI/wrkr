@@ -111,3 +111,112 @@ func TestE2EScoreJSONFailsClosedOnMalformedStateWithCachedScore(t *testing.T) {
 		t.Fatalf("unexpected error code: %v", errObject["code"])
 	}
 }
+
+func TestE2EScoreReflectsIdentityApproveWithoutRescan(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repoRoot := mustFindRepoRoot(t)
+	statePath := filepath.Join(tmp, "state.json")
+	reposPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, scanErr.String())
+	}
+	agentID := firstInventoryAgentID(t, scanOut.Bytes())
+
+	var scoreOut bytes.Buffer
+	var scoreErr bytes.Buffer
+	if code := cli.Run([]string{"score", "--state", statePath, "--json"}, &scoreOut, &scoreErr); code != 0 {
+		t.Fatalf("initial score failed: %d (%s)", code, scoreErr.String())
+	}
+	before := parseJSONMap(t, scoreOut.Bytes())
+	beforeBreakdown, ok := before["breakdown"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected initial breakdown, got %v", before)
+	}
+	beforeCoverage, ok := beforeBreakdown["approval_coverage"].(float64)
+	if !ok {
+		t.Fatalf("expected initial approval_coverage, got %v", beforeBreakdown)
+	}
+
+	var approveOut bytes.Buffer
+	var approveErr bytes.Buffer
+	if code := cli.Run([]string{"identity", "approve", agentID, "--approver", "@maria", "--scope", "read-only", "--expires", "90d", "--state", statePath, "--json"}, &approveOut, &approveErr); code != 0 {
+		t.Fatalf("identity approve failed: %d (%s)", code, approveErr.String())
+	}
+
+	scoreOut.Reset()
+	scoreErr.Reset()
+	if code := cli.Run([]string{"score", "--state", statePath, "--json"}, &scoreOut, &scoreErr); code != 0 {
+		t.Fatalf("post-approve score failed: %d (%s)", code, scoreErr.String())
+	}
+	after := parseJSONMap(t, scoreOut.Bytes())
+	afterBreakdown, ok := after["breakdown"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected post-approve breakdown, got %v", after)
+	}
+	afterCoverage, ok := afterBreakdown["approval_coverage"].(float64)
+	if !ok {
+		t.Fatalf("expected post-approve approval_coverage, got %v", afterBreakdown)
+	}
+	if afterCoverage <= beforeCoverage {
+		t.Fatalf("expected approval coverage to increase after approval, before=%.2f after=%.2f", beforeCoverage, afterCoverage)
+	}
+}
+
+func firstInventoryAgentID(t *testing.T, payload []byte) string {
+	t.Helper()
+	parsed := parseJSONMap(t, payload)
+	inventoryPayload, ok := parsed["inventory"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected inventory payload, got %v", parsed["inventory"])
+	}
+	tools, ok := inventoryPayload["tools"].([]any)
+	if !ok || len(tools) == 0 {
+		t.Fatalf("expected inventory tools, got %v", inventoryPayload["tools"])
+	}
+	firstTool, ok := tools[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected tool payload: %T", tools[0])
+	}
+	agentID, _ := firstTool["agent_id"].(string)
+	if agentID == "" {
+		t.Fatalf("expected agent_id in tool payload: %v", firstTool)
+	}
+	return agentID
+}
+
+func parseJSONMap(t *testing.T, payload []byte) map[string]any {
+	t.Helper()
+	var parsed map[string]any
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		t.Fatalf("parse json payload: %v", err)
+	}
+	return parsed
+}
+
+func mustFindRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+
+	current := wd
+	for i := 0; i < 8; i++ {
+		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
+			return current
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+	t.Fatalf("could not locate repository root from %s", wd)
+	return ""
+}

@@ -54,6 +54,7 @@ Customer-ready templates `ciso`, `appsec`, `platform`, `audit`, and `customer-dr
 `summary.security_visibility` exposes additive reference-basis and `unknown_to_security` counts sourced from the saved scan state.
 When the saved scan state does not carry a usable `reference_basis`, report output suppresses `unknown_to_security` claims and surfaces `reference_basis unavailable` wording instead.
 `wrkr report` renders from saved scan state only. It summarizes static posture, risky write paths, and proof artifacts; it does not claim live runtime observation or control-layer enforcement.
+Manual `identity` and `inventory` approvals refresh the saved backlog, action-path posture, and posture score in place, so `wrkr report --state <path> --json` reflects those decisions without a rescanning step.
 
 Public template behavior (`--template public --share-profile public`):
 

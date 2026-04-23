@@ -13,7 +13,6 @@ import (
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
-	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -212,15 +211,12 @@ func runIdentityTransition(args []string, stdout io.Writer, stderr io.Writer, st
 }
 
 func runIdentityManualTransition(stateName, agentID, approver, scope, reason string, expiresAt time.Time, statePathFlag string, jsonOut bool, stdout io.Writer, stderr io.Writer) int {
-	statePath := state.ResolvePath(statePathFlag)
-	manifestPath := manifest.ResolvePath(statePath)
-	loaded, err := manifest.Load(manifestPath)
+	ctx, err := loadStateMutationContext(state.ResolvePath(statePathFlag))
 	if err != nil {
-		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		return emitStateMutationError(stderr, jsonOut, err)
 	}
-	loaded.Identities = model.FilterLegacyArtifactIdentityRecords(loaded.Identities)
 	now := time.Now().UTC().Truncate(time.Second)
-	nextManifest, transition, transitionErr := lifecycle.ApplyManualState(loaded, agentID, stateName, approver, scope, reason, expiresAt, now)
+	nextManifest, transition, transitionErr := lifecycle.ApplyManualState(ctx.manifest, agentID, stateName, approver, scope, reason, expiresAt, now)
 	if transitionErr != nil {
 		return emitError(stderr, jsonOut, "invalid_input", transitionErr.Error(), exitInvalidInput)
 	}
@@ -229,36 +225,15 @@ func runIdentityManualTransition(stateName, agentID, approver, scope, reason str
 		eventType = "approval"
 	}
 
-	chainPath := lifecycle.ChainPath(statePath)
-	chain, chainErr := lifecycle.LoadChain(chainPath)
-	if chainErr != nil {
-		return emitError(stderr, jsonOut, "runtime_failure", chainErr.Error(), exitRuntime)
+	if err := applyStateMutationToSnapshot(&ctx.snapshot, nextManifest, transition); err != nil {
+		return emitStateMutationError(stderr, jsonOut, err)
 	}
-	if err := lifecycle.AppendTransitionRecord(chain, transition, eventType); err != nil {
+	if err := lifecycle.AppendTransitionRecord(ctx.lifecycleChain, transition, eventType); err != nil {
 		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
-	proofChainPath := proofemit.ChainPath(statePath)
-	if _, err := proofemit.LoadChain(proofChainPath); err != nil {
-		return emitError(stderr, jsonOut, "runtime_failure", err.Error(), exitRuntime)
-	}
-	snapshots, snapshotErr := captureManagedArtifacts(
-		proofChainPath,
-		proofemit.ChainAttestationPath(proofChainPath),
-		chainPath,
-		manifestPath,
-		proofemit.SigningKeyPath(statePath),
-	)
-	if snapshotErr != nil {
-		return emitError(stderr, jsonOut, "runtime_failure", snapshotErr.Error(), exitRuntime)
-	}
-	if err := lifecycle.SaveChain(chainPath, chain); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonOut, err, snapshots)
-	}
-	if err := proofemit.EmitIdentityTransition(statePath, transition, eventType); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonOut, err, snapshots)
-	}
-	if err := manifest.Save(manifestPath, nextManifest); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonOut, err, snapshots)
+	ctx.manifest = nextManifest
+	if err := commitStateMutationContext(ctx, transition, eventType); err != nil {
+		return emitStateMutationError(stderr, jsonOut, err)
 	}
 	payload := map[string]any{"status": "ok", "transition": transition}
 	if jsonOut {

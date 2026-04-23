@@ -37,12 +37,15 @@ func recordsFromSnapshot(snapshot state.Snapshot, now time.Time) []manifest.Iden
 		out := make([]manifest.IdentityRecord, 0, len(filtered))
 		for _, record := range filtered {
 			item := record
-			item.Status = identity.StateUnderReview
-			item.Approval = manifest.Approval{}
-			item.ApprovalState = "missing"
+			if strings.TrimSpace(item.Status) == "" {
+				item.Status = identity.StateDiscovered
+			}
+			if strings.TrimSpace(item.ApprovalState) == "" {
+				item.ApprovalState = "missing"
+			}
 			item.Present = true
 			item.FirstSeen = fallbackTimestamp(item.FirstSeen, now)
-			item.LastSeen = now.Format(time.RFC3339)
+			item.LastSeen = fallbackTimestamp(item.LastSeen, now)
 			out = append(out, item)
 		}
 		if len(out) > 0 {
@@ -86,9 +89,9 @@ func recordsFromInventory(inv agginventory.Inventory, now time.Time) []manifest.
 				Org:           tool.Org,
 				Repo:          location.Repo,
 				Location:      location.Location,
-				Status:        identity.StateUnderReview,
+				Status:        fallback(tool.LifecycleState, identity.StateDiscovered),
 				Approval:      manifest.Approval{},
-				ApprovalState: "missing",
+				ApprovalState: fallback(tool.ApprovalStatus, "missing"),
 				FirstSeen:     now.Format(time.RFC3339),
 				LastSeen:      now.Format(time.RFC3339),
 				Present:       true,
@@ -108,6 +111,13 @@ func fallbackTimestamp(value string, now time.Time) string {
 		return value
 	}
 	return now.Format(time.RFC3339)
+}
+
+func fallback(value string, fallbackValue string) string {
+	if strings.TrimSpace(value) != "" {
+		return strings.TrimSpace(value)
+	}
+	return fallbackValue
 }
 
 func sortRecords(items []manifest.IdentityRecord) {

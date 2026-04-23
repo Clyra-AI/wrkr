@@ -134,9 +134,6 @@ func Reconcile(previous manifest.Manifest, observed []ObservedTool, now time.Tim
 		if record.Status == identity.StateActive && record.ApprovalState != "valid" && record.ApprovalState != "accepted_risk" {
 			record.Status = identity.StateUnderReview
 		}
-		if record.Status == identity.StateDiscovered && record.ApprovalState != "valid" {
-			record.Status = identity.StateUnderReview
-		}
 		if record.Status == "" {
 			record.Status = identity.StateUnderReview
 		}

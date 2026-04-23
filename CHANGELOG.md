@@ -36,11 +36,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- Fixed manual identity and inventory mutations to update the saved scan snapshot in the same rollback-safe transaction as manifest and proof artifacts.
+- Fixed saved-state posture calculations so score, report, and regress immediately reflect approval mutations without requiring a fresh scan.
+- Fixed lifecycle reconciliation so newly discovered tools persist as `discovered` until explicitly reviewed or approval state requires review.
 
 ### Security
 
 - Refined secret-bearing automation semantics so Wrkr distinguishes secret references, leaked values, ownership/scope gaps, and rotation evidence gaps without exposing secret values.
+- Hardened stateful CLI commands to fail closed on symlinked `--state` paths so scan, manifest, and proof artifacts cannot split across directories.
 
 ## Changelog maintenance process
 

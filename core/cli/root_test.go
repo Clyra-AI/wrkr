@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -1790,6 +1791,67 @@ func TestIdentityNonApprovedTransitionsUseDeterministicDefaultReasonAndRevokeApp
 	}
 }
 
+func TestIdentityRejectsSymlinkedStatePath(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink fixture is not portable on windows")
+	}
+
+	tmp := t.TempDir()
+	realDir := filepath.Join(tmp, "real")
+	workDir := filepath.Join(tmp, "work")
+	if err := os.MkdirAll(realDir, 0o755); err != nil {
+		t.Fatalf("mkdir real dir: %v", err)
+	}
+	if err := os.MkdirAll(workDir, 0o755); err != nil {
+		t.Fatalf("mkdir work dir: %v", err)
+	}
+	realStatePath := filepath.Join(realDir, "state.json")
+	agentID := scanIdentityAgentID(t, realStatePath)
+
+	linkPath := filepath.Join(workDir, "state-link.json")
+	relativeTarget, err := filepath.Rel(filepath.Dir(linkPath), realStatePath)
+	if err != nil {
+		t.Fatalf("relative target: %v", err)
+	}
+	if err := os.Symlink(relativeTarget, linkPath); err != nil {
+		t.Skipf("symlink unsupported in current environment: %v", err)
+	}
+
+	originalState, err := os.ReadFile(realStatePath)
+	if err != nil {
+		t.Fatalf("read state: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"identity", "approve", agentID, "--approver", "@maria", "--scope", "read-only", "--expires", "90d", "--state", linkPath, "--json"}, &out, &errOut)
+	if code != exitUnsafeBlocked {
+		t.Fatalf("expected exit %d, got %d stdout=%q stderr=%q", exitUnsafeBlocked, code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "unsafe_operation_blocked", exitUnsafeBlocked)
+
+	currentState, err := os.ReadFile(realStatePath)
+	if err != nil {
+		t.Fatalf("read unchanged state: %v", err)
+	}
+	if !bytes.Equal(currentState, originalState) {
+		t.Fatal("expected real state file to remain unchanged after rejected symlinked mutation")
+	}
+	for _, path := range []string{
+		manifest.ResolvePath(linkPath),
+		lifecycle.ChainPath(linkPath),
+		proofemit.ChainPath(linkPath),
+		proofemit.ChainAttestationPath(proofemit.ChainPath(linkPath)),
+		proofemit.SigningKeyPath(linkPath),
+	} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("expected no lexical sibling artifact at %s after rejected identity mutation, got err=%v", path, err)
+		}
+	}
+}
+
 func TestIdentityApproveRollbackOnProofChainParseFailure(t *testing.T) {
 	t.Parallel()
 
@@ -1848,6 +1910,7 @@ func TestIdentityReviewRollbackOnProofEmitFailure(t *testing.T) {
 	proofAttestationPath := proofemit.ChainAttestationPath(proofChainPath)
 	signingKeyPath := proofemit.SigningKeyPath(statePath)
 
+	stateBefore := readOptionalTestFile(t, statePath)
 	manifestBefore := readOptionalTestFile(t, manifestPath)
 	lifecycleBefore := readOptionalTestFile(t, lifecyclePath)
 	proofBefore := readOptionalTestFile(t, proofChainPath)
@@ -1881,6 +1944,7 @@ func TestIdentityReviewRollbackOnProofEmitFailure(t *testing.T) {
 		t.Fatalf("expected runtime_failure, got %v", errObj["code"])
 	}
 
+	assertOptionalTestFileEquals(t, statePath, stateBefore)
 	assertOptionalTestFileEquals(t, manifestPath, manifestBefore)
 	assertOptionalTestFileEquals(t, lifecyclePath, lifecycleBefore)
 	assertOptionalTestFileEquals(t, proofChainPath, proofBefore)
@@ -2494,7 +2558,7 @@ func TestReportRejectsInvalidTemplateAndShareProfile(t *testing.T) {
 	}
 }
 
-func TestManifestGenerateCreatesUnderReviewBaseline(t *testing.T) {
+func TestManifestGenerateReflectsSavedStateLifecycle(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
@@ -2547,6 +2611,7 @@ func TestManifestGenerateCreatesUnderReviewBaseline(t *testing.T) {
 	}
 	var generated struct {
 		Identities []struct {
+			AgentID       string `yaml:"agent_id"`
 			Status        string `yaml:"status"`
 			ApprovalState string `yaml:"approval_status"`
 		} `yaml:"identities"`
@@ -2557,13 +2622,27 @@ func TestManifestGenerateCreatesUnderReviewBaseline(t *testing.T) {
 	if len(generated.Identities) == 0 {
 		t.Fatal("expected manifest identities")
 	}
+	foundApproved := false
 	for _, record := range generated.Identities {
-		if record.Status != "under_review" {
-			t.Fatalf("expected under_review status, got %q", record.Status)
+		if record.AgentID == agentID {
+			foundApproved = true
+			if record.Status != "approved" {
+				t.Fatalf("expected approved status for %s, got %q", record.AgentID, record.Status)
+			}
+			if record.ApprovalState != "valid" {
+				t.Fatalf("expected valid approval status for %s, got %q", record.AgentID, record.ApprovalState)
+			}
+			continue
+		}
+		if record.Status != "discovered" {
+			t.Fatalf("expected discovered status for unapproved identity %s, got %q", record.AgentID, record.Status)
 		}
 		if record.ApprovalState != "missing" {
-			t.Fatalf("expected missing approval status, got %q", record.ApprovalState)
+			t.Fatalf("expected missing approval status for %s, got %q", record.AgentID, record.ApprovalState)
 		}
+	}
+	if !foundApproved {
+		t.Fatalf("expected approved identity %s in generated manifest", agentID)
 	}
 }
 

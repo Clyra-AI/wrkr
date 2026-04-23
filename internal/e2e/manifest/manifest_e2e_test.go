@@ -12,7 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/manifest"
 )
 
-func TestE2EManifestGenerateUnderReviewAndSchemaArtifacts(t *testing.T) {
+func TestE2EManifestGenerateDiscoveredAndSchemaArtifacts(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := mustFindRepoRoot(t)
@@ -37,8 +37,8 @@ func TestE2EManifestGenerateUnderReviewAndSchemaArtifacts(t *testing.T) {
 		t.Fatal("expected generated identities")
 	}
 	for _, record := range generated.Identities {
-		if record.Status != "under_review" {
-			t.Fatalf("expected under_review state, got %q for %s", record.Status, record.AgentID)
+		if record.Status != "discovered" {
+			t.Fatalf("expected discovered state, got %q for %s", record.Status, record.AgentID)
 		}
 		if record.ApprovalState != "missing" {
 			t.Fatalf("expected missing approval_status, got %q for %s", record.ApprovalState, record.AgentID)

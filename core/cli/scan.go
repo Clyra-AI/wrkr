@@ -159,6 +159,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		*sarifPath,
 	)
 	if preflightErr != nil {
+		if isUnsafeManagedArtifactPathError(preflightErr) {
+			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", preflightErr.Error(), exitUnsafeBlocked)
+		}
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", preflightErr.Error(), exitInvalidInput)
 	}
 	jsonSink, jsonSinkErr := newJSONOutputSink(*jsonOut, artifactPreflight.JSONPath, stdout)
@@ -834,7 +837,7 @@ func finalScanArtifactPaths(statePath string, preflight scanArtifactPreflight, j
 
 func preflightScanArtifacts(statePathRaw, jsonPath string, reportEnabled bool, reportPath, reportTemplateRaw, reportShareProfileRaw string, sarifEnabled bool, sarifPath string) (scanArtifactPreflight, error) {
 	preflight := scanArtifactPreflight{}
-	statePath, err := normalizeManagedArtifactPath(statePathRaw)
+	statePath, err := preflightTrustedStatePath(statePathRaw)
 	if err != nil {
 		return scanArtifactPreflight{}, err
 	}

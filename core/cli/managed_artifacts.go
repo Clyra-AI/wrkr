@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +21,21 @@ type scanArtifactPathEntry struct {
 	label string
 	path  string
 	key   string
+}
+
+type unsafeManagedArtifactPathError struct {
+	err error
+}
+
+func (e unsafeManagedArtifactPathError) Error() string {
+	if e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func (e unsafeManagedArtifactPathError) Unwrap() error {
+	return e.err
 }
 
 func captureManagedArtifacts(paths ...string) ([]managedArtifactSnapshot, error) {
@@ -75,6 +89,40 @@ func normalizeManagedArtifactPath(raw string) (string, error) {
 		return "", fmt.Errorf("scan artifact path must not be empty")
 	}
 	return filepath.Clean(trimmed), nil
+}
+
+func preflightTrustedStatePath(raw string) (string, error) {
+	statePath, err := normalizeManagedArtifactPath(raw)
+	if err != nil {
+		return "", err
+	}
+	if err := rejectUnsafeExistingManagedFile(statePath, "--state"); err != nil {
+		return "", unsafeManagedArtifactPathError{err: err}
+	}
+	return statePath, nil
+}
+
+func rejectUnsafeExistingManagedFile(path string, label string) error {
+	cleanPath := filepath.Clean(strings.TrimSpace(path))
+	info, err := os.Lstat(cleanPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat %s: %w", cleanPath, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("%s must be a regular file, not a symlink: %s", strings.TrimSpace(label), cleanPath)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("%s must be a regular file: %s", strings.TrimSpace(label), cleanPath)
+	}
+	return nil
+}
+
+func isUnsafeManagedArtifactPathError(err error) bool {
+	var target unsafeManagedArtifactPathError
+	return errors.As(err, &target)
 }
 
 func newScanArtifactPathEntry(label, path string) (scanArtifactPathEntry, error) {
@@ -199,14 +247,4 @@ func (s managedArtifactSnapshot) restore() error {
 		return fmt.Errorf("restore managed artifact %s: %w", s.path, err)
 	}
 	return nil
-}
-
-func emitRolledBackRuntimeFailure(stderr io.Writer, jsonOut bool, actionErr error, snapshots []managedArtifactSnapshot) int {
-	if actionErr == nil {
-		return exitSuccess
-	}
-	if restoreErr := restoreManagedArtifacts(snapshots); restoreErr != nil {
-		return emitError(stderr, jsonOut, "runtime_failure", fmt.Sprintf("%v (rollback restore failed: %v)", actionErr, restoreErr), exitRuntime)
-	}
-	return emitError(stderr, jsonOut, "runtime_failure", actionErr.Error(), exitRuntime)
 }

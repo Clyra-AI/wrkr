@@ -6,17 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
-	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
-	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
-	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -92,27 +87,17 @@ func runInventoryMutation(action string, args []string, stdout io.Writer, stderr
 	}
 
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
-	preflight, preflightErr := preflightStateMutationArtifacts(resolvedStatePath)
-	if preflightErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", preflightErr.Error(), exitUnsafeBlocked)
+	ctx, err := loadStateMutationContext(resolvedStatePath)
+	if err != nil {
+		return emitStateMutationError(stderr, jsonRequested || *jsonOut, err)
 	}
 
-	snapshot, err := state.Load(resolvedStatePath)
-	if err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
-	}
-	loadedManifest, err := manifest.Load(preflight.manifestPath)
-	if err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
-	}
-	loadedManifest.Identities = model.FilterLegacyArtifactIdentityRecords(loadedManifest.Identities)
-
-	agentID, resolveErr := resolveInventoryMutationAgentID(id, loadedManifest, snapshot)
+	agentID, resolveErr := resolveInventoryMutationAgentID(id, ctx.manifest, ctx.snapshot)
 	if resolveErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", resolveErr.Error(), exitInvalidInput)
 	}
 	mutation.AgentID = agentID
-	nextManifest, transition, transitionErr := lifecycle.ApplyInventoryMutation(loadedManifest, mutation)
+	nextManifest, transition, transitionErr := lifecycle.ApplyInventoryMutation(ctx.manifest, mutation)
 	if transitionErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", transitionErr.Error(), exitInvalidInput)
 	}
@@ -120,41 +105,16 @@ func runInventoryMutation(action string, args []string, stdout io.Writer, stderr
 	if !ok {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", "updated identity record missing after mutation", exitRuntime)
 	}
-	applyInventoryMutationToSnapshot(&snapshot, updatedRecord, transition, id, action)
-
-	lifecycleChain, chainErr := lifecycle.LoadChain(preflight.lifecyclePath)
-	if chainErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", chainErr.Error(), exitRuntime)
+	if err := applyStateMutationToSnapshot(&ctx.snapshot, nextManifest, transition); err != nil {
+		return emitStateMutationError(stderr, jsonRequested || *jsonOut, err)
 	}
-	if _, err := proofemit.LoadChain(preflight.proofChainPath); err != nil {
+	applyInventoryMutationOverrides(&ctx.snapshot, updatedRecord, id, action)
+	if err := lifecycle.AppendTransitionRecord(ctx.lifecycleChain, transition, eventTypeForInventoryAction(action)); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
-	if err := lifecycle.AppendTransitionRecord(lifecycleChain, transition, eventTypeForInventoryAction(action)); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
-	}
-
-	snapshots, snapshotErr := captureManagedArtifacts(
-		preflight.statePath,
-		preflight.manifestPath,
-		preflight.lifecyclePath,
-		preflight.proofChainPath,
-		preflight.proofAttestationPath,
-		preflight.signingKeyPath,
-	)
-	if snapshotErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", snapshotErr.Error(), exitUnsafeBlocked)
-	}
-	if err := state.Save(preflight.statePath, snapshot); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, snapshots)
-	}
-	if err := lifecycle.SaveChain(preflight.lifecyclePath, lifecycleChain); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, snapshots)
-	}
-	if err := proofemit.EmitIdentityTransition(preflight.statePath, transition, eventTypeForInventoryAction(action)); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, snapshots)
-	}
-	if err := manifest.Save(preflight.manifestPath, nextManifest); err != nil {
-		return emitRolledBackRuntimeFailure(stderr, jsonRequested || *jsonOut, err, snapshots)
+	ctx.manifest = nextManifest
+	if err := commitStateMutationContext(ctx, transition, eventTypeForInventoryAction(action)); err != nil {
+		return emitStateMutationError(stderr, jsonRequested || *jsonOut, err)
 	}
 
 	payload := map[string]any{
@@ -163,9 +123,9 @@ func runInventoryMutation(action string, args []string, stdout io.Writer, stderr
 		"action":                     action,
 		"identity":                   updatedRecord,
 		"transition":                 transition,
-		"state_path":                 preflight.statePath,
-		"manifest_path":              preflight.manifestPath,
-		"proof_chain_path":           preflight.proofChainPath,
+		"state_path":                 ctx.preflight.statePath,
+		"manifest_path":              ctx.preflight.manifestPath,
+		"proof_chain_path":           ctx.preflight.proofChainPath,
 	}
 	if jsonRequested || *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(payload)
@@ -185,7 +145,7 @@ type stateMutationPreflight struct {
 }
 
 func preflightStateMutationArtifacts(statePathRaw string) (stateMutationPreflight, error) {
-	statePath, err := normalizeManagedArtifactPath(statePathRaw)
+	statePath, err := preflightTrustedStatePath(statePathRaw)
 	if err != nil {
 		return stateMutationPreflight{}, err
 	}
@@ -244,21 +204,7 @@ func preflightStateMutationArtifacts(statePathRaw string) (stateMutationPrefligh
 }
 
 func rejectUnsafeExistingMutationArtifact(path string) error {
-	cleanPath := filepath.Clean(strings.TrimSpace(path))
-	info, err := os.Lstat(cleanPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("stat managed mutation artifact %s: %w", cleanPath, err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("managed mutation artifact must be a regular file, not a symlink: %s", cleanPath)
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("managed mutation artifact must be a regular file: %s", cleanPath)
-	}
-	return nil
+	return rejectUnsafeExistingManagedFile(path, "managed mutation artifact")
 }
 
 func resolveInventoryMutationAgentID(id string, m manifest.Manifest, snapshot state.Snapshot) (string, error) {
@@ -335,86 +281,6 @@ func findManifestIdentity(m manifest.Manifest, agentID string) (manifest.Identit
 	return manifest.IdentityRecord{}, false
 }
 
-func applyInventoryMutationToSnapshot(snapshot *state.Snapshot, record manifest.IdentityRecord, transition lifecycle.Transition, requestedID string, action string) {
-	if snapshot == nil {
-		return
-	}
-	snapshot.ApprovalInventoryVersion = state.ApprovalInventoryVersion
-	replaced := false
-	for idx := range snapshot.Identities {
-		if strings.TrimSpace(snapshot.Identities[idx].AgentID) == strings.TrimSpace(record.AgentID) {
-			snapshot.Identities[idx] = record
-			replaced = true
-			break
-		}
-	}
-	if !replaced {
-		snapshot.Identities = append(snapshot.Identities, record)
-	}
-	snapshot.Transitions = append(snapshot.Transitions, transition)
-
-	if snapshot.Inventory != nil {
-		for idx := range snapshot.Inventory.Tools {
-			tool := &snapshot.Inventory.Tools[idx]
-			if strings.TrimSpace(tool.AgentID) != strings.TrimSpace(record.AgentID) {
-				continue
-			}
-			tool.ApprovalStatus = strings.TrimSpace(record.ApprovalState)
-			tool.LifecycleState = strings.TrimSpace(record.Status)
-			tool.ApprovalClass = inventoryApprovalClass(record)
-			tool.SecurityVisibilityStatus = inventorySecurityVisibility(record)
-			if strings.TrimSpace(record.Approval.Owner) != "" {
-				for locIdx := range tool.Locations {
-					tool.Locations[locIdx].Owner = strings.TrimSpace(record.Approval.Owner)
-					tool.Locations[locIdx].OwnerSource = "inventory_approval"
-					tool.Locations[locIdx].OwnershipStatus = "explicit"
-				}
-			}
-		}
-		for idx := range snapshot.Inventory.Agents {
-			agent := &snapshot.Inventory.Agents[idx]
-			if strings.TrimSpace(agent.AgentID) == strings.TrimSpace(record.AgentID) {
-				agent.SecurityVisibilityStatus = inventorySecurityVisibility(record)
-			}
-		}
-	}
-	if snapshot.ControlBacklog != nil {
-		items := snapshot.ControlBacklog.Items[:0]
-		for _, item := range snapshot.ControlBacklog.Items {
-			if backlogItemMatchesRecord(item.ID, item.Repo, item.Path, requestedID, record) {
-				if action == "exclude" {
-					continue
-				}
-				item.ApprovalStatus = strings.TrimSpace(record.ApprovalState)
-				item.SecurityVisibility = inventorySecurityVisibility(record)
-				item.Owner = strings.TrimSpace(record.Approval.Owner)
-				if item.Owner != "" {
-					item.OwnerSource = "inventory_approval"
-					item.OwnershipStatus = "explicit"
-				}
-				switch action {
-				case "approve", "accept_risk", "attach_evidence":
-					item.RecommendedAction = controlbacklog.ActionMonitor
-					item.EvidenceGaps = nil
-					item.ConfidenceRaise = nil
-				case "deprecate":
-					item.RecommendedAction = controlbacklog.ActionDeprecate
-				}
-			}
-			items = append(items, item)
-		}
-		snapshot.ControlBacklog.Items = items
-		snapshot.ControlBacklog.Summary = summarizeBacklogItems(items)
-	}
-}
-
-func backlogItemMatchesRecord(itemID, repo, path, requestedID string, record manifest.IdentityRecord) bool {
-	if strings.TrimSpace(itemID) != "" && strings.TrimSpace(itemID) == strings.TrimSpace(requestedID) {
-		return true
-	}
-	return strings.TrimSpace(repo) == strings.TrimSpace(record.Repo) && strings.TrimSpace(path) == strings.TrimSpace(record.Location)
-}
-
 func summarizeBacklogItems(items []controlbacklog.Item) controlbacklog.Summary {
 	summary := controlbacklog.Summary{TotalItems: len(items)}
 	for _, item := range items {
@@ -434,45 +300,6 @@ func summarizeBacklogItems(items []controlbacklog.Item) controlbacklog.Summary {
 		}
 	}
 	return summary
-}
-
-func inventoryApprovalClass(record manifest.IdentityRecord) string {
-	switch strings.TrimSpace(record.ApprovalState) {
-	case "valid":
-		return "approved"
-	case "accepted_risk", "expired", "invalid", "deprecated", "excluded", "revoked", "missing":
-		return "unapproved"
-	default:
-		if strings.TrimSpace(record.Status) == identity.StateActive || strings.TrimSpace(record.Status) == identity.StateApproved {
-			return "approved"
-		}
-		return "unknown"
-	}
-}
-
-func inventorySecurityVisibility(record manifest.IdentityRecord) string {
-	switch strings.TrimSpace(record.ApprovalState) {
-	case "valid":
-		return agginventory.SecurityVisibilityKnownApproved
-	case "accepted_risk":
-		return agginventory.SecurityVisibilityAcceptedRisk
-	case "expired", "invalid":
-		return agginventory.SecurityVisibilityNeedsReview
-	case "deprecated":
-		return agginventory.SecurityVisibilityDeprecated
-	case "excluded", "revoked":
-		return agginventory.SecurityVisibilityRevoked
-	}
-	switch strings.TrimSpace(record.Status) {
-	case identity.StateDeprecated:
-		return agginventory.SecurityVisibilityDeprecated
-	case identity.StateRevoked:
-		return agginventory.SecurityVisibilityRevoked
-	case identity.StateActive, identity.StateApproved:
-		return agginventory.SecurityVisibilityKnownApproved
-	default:
-		return agginventory.SecurityVisibilityNeedsReview
-	}
 }
 
 func agentIDForInventoryPath(snapshot state.Snapshot, repo string, path string) string {

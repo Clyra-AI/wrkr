@@ -44,16 +44,16 @@ func TestGenerateUnderReviewFromSnapshotIdentities(t *testing.T) {
 		t.Fatalf("expected one identity, got %d", len(generated.Identities))
 	}
 	record := generated.Identities[0]
-	if record.Status != "under_review" {
-		t.Fatalf("expected under_review status, got %q", record.Status)
+	if record.Status != "active" {
+		t.Fatalf("expected active status, got %q", record.Status)
 	}
-	if record.ApprovalState != "missing" {
-		t.Fatalf("expected missing approval state, got %q", record.ApprovalState)
+	if record.ApprovalState != "valid" {
+		t.Fatalf("expected valid approval state, got %q", record.ApprovalState)
 	}
-	if record.Approval.Approver != "" || record.Approval.Scope != "" {
-		t.Fatalf("expected approval to be cleared, got %+v", record.Approval)
+	if record.Approval.Approver != "@maria" || record.Approval.Scope != "read-only" {
+		t.Fatalf("expected approval to be preserved, got %+v", record.Approval)
 	}
-	if record.LastSeen != "2026-02-21T12:00:00Z" {
+	if record.LastSeen != "2026-02-20T00:00:00Z" {
 		t.Fatalf("unexpected last_seen: %q", record.LastSeen)
 	}
 }
@@ -93,8 +93,8 @@ func TestGenerateUnderReviewFallsBackToInventory(t *testing.T) {
 	if record.AgentID != "wrkr:cursor-aa:acme" {
 		t.Fatalf("unexpected agent id %q", record.AgentID)
 	}
-	if record.Status != "under_review" {
-		t.Fatalf("expected under_review status, got %q", record.Status)
+	if record.Status != "discovered" {
+		t.Fatalf("expected discovered status, got %q", record.Status)
 	}
 }
 

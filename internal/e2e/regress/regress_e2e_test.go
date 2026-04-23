@@ -11,6 +11,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -300,6 +301,53 @@ func TestE2ERegressRunAcceptsRawScanSnapshotBaseline(t *testing.T) {
 	}
 }
 
+func TestE2ERegressInitUsesApprovalMutationWithoutRescan(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repoRoot := mustFindRepoRoot(t)
+	statePath := filepath.Join(tmp, "state.json")
+	baselinePath := filepath.Join(tmp, "baseline.json")
+	reposPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, scanErr.String())
+	}
+	agentID := firstInventoryAgentID(t, scanOut.Bytes())
+
+	var approveOut bytes.Buffer
+	var approveErr bytes.Buffer
+	if code := cli.Run([]string{"identity", "approve", agentID, "--approver", "@maria", "--scope", "read-only", "--expires", "90d", "--state", statePath, "--json"}, &approveOut, &approveErr); code != 0 {
+		t.Fatalf("identity approve failed: %d (%s)", code, approveErr.String())
+	}
+
+	var initOut bytes.Buffer
+	var initErr bytes.Buffer
+	if code := cli.Run([]string{"regress", "init", "--baseline", statePath, "--output", baselinePath, "--json"}, &initOut, &initErr); code != 0 {
+		t.Fatalf("regress init failed: %d (%s)", code, initErr.String())
+	}
+
+	baseline, err := regress.LoadBaseline(baselinePath)
+	if err != nil {
+		t.Fatalf("load baseline: %v", err)
+	}
+	for _, tool := range baseline.Tools {
+		if tool.AgentID != agentID {
+			continue
+		}
+		if tool.Status != identity.StateApproved {
+			t.Fatalf("expected approved lifecycle status in baseline, got %+v", tool)
+		}
+		if tool.ApprovalStatus != "valid" {
+			t.Fatalf("expected valid approval status in baseline, got %+v", tool)
+		}
+		return
+	}
+	t.Fatalf("expected baseline tool for %s", agentID)
+}
+
 func mustFindRepoRoot(t *testing.T) string {
 	t.Helper()
 
@@ -321,4 +369,29 @@ func mustFindRepoRoot(t *testing.T) string {
 	}
 	t.Fatalf("could not locate repository root from %s", wd)
 	return ""
+}
+
+func firstInventoryAgentID(t *testing.T, payload []byte) string {
+	t.Helper()
+	var parsed map[string]any
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		t.Fatalf("parse json payload: %v", err)
+	}
+	inventoryPayload, ok := parsed["inventory"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected inventory payload, got %v", parsed["inventory"])
+	}
+	tools, ok := inventoryPayload["tools"].([]any)
+	if !ok || len(tools) == 0 {
+		t.Fatalf("expected inventory tools, got %v", inventoryPayload["tools"])
+	}
+	firstTool, ok := tools[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected tool payload: %T", tools[0])
+	}
+	agentID, _ := firstTool["agent_id"].(string)
+	if agentID == "" {
+		t.Fatalf("expected agent_id in tool payload: %v", firstTool)
+	}
+	return agentID
 }

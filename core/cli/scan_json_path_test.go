@@ -247,6 +247,63 @@ func TestScanJSONPathRejectsAliasViaSymlinkedParentPath(t *testing.T) {
 	}
 }
 
+func TestScanRejectsSymlinkedStatePathBeforeWritingManagedArtifacts(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink fixture is not portable on windows")
+	}
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	repoPath := filepath.Join(reposPath, "alpha", ".codex")
+	if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	workDir := filepath.Join(tmp, "work")
+	realDir := filepath.Join(tmp, "real")
+	if err := os.MkdirAll(workDir, 0o755); err != nil {
+		t.Fatalf("mkdir work dir: %v", err)
+	}
+	if err := os.MkdirAll(realDir, 0o755); err != nil {
+		t.Fatalf("mkdir real dir: %v", err)
+	}
+	realStatePath := filepath.Join(realDir, "state.json")
+	stateLink := filepath.Join(workDir, "state-link.json")
+	relativeTarget, err := filepath.Rel(filepath.Dir(stateLink), realStatePath)
+	if err != nil {
+		t.Fatalf("relative target: %v", err)
+	}
+	if err := os.Symlink(relativeTarget, stateLink); err != nil {
+		t.Skipf("symlink unsupported in current environment: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", reposPath, "--state", stateLink, "--json"}, &out, &errOut)
+	if code != exitUnsafeBlocked {
+		t.Fatalf("expected exit %d, got %d stdout=%q stderr=%q", exitUnsafeBlocked, code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "unsafe_operation_blocked", exitUnsafeBlocked)
+
+	for _, path := range []string{
+		realStatePath,
+		manifest.ResolvePath(stateLink),
+		lifecycle.ChainPath(stateLink),
+		proofemit.ChainPath(stateLink),
+		proofemit.ChainAttestationPath(proofemit.ChainPath(stateLink)),
+		proofemit.SigningKeyPath(stateLink),
+	} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("expected no managed artifact at %s after rejected state symlink, got err=%v", path, err)
+		}
+	}
+}
+
 func TestScanJSONPathRejectsAliasWithReportPath(t *testing.T) {
 	t.Parallel()
 

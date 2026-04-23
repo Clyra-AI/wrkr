@@ -9,6 +9,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/exposure"
 	"github.com/Clyra-AI/wrkr/core/identity"
+	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/source"
 )
@@ -471,6 +472,61 @@ func TestApplySecurityVisibilityDoesNotBorrowApprovalAcrossOrgs(t *testing.T) {
 	}
 	if inv.Agents[1].SecurityVisibilityStatus != SecurityVisibilityUnknownToSecurity {
 		t.Fatalf("expected globex agent to stay unknown_to_security, got %+v", inv.Agents[1])
+	}
+}
+
+func TestRefreshIdentityGovernancePreservesApprovedListForUnchangedTool(t *testing.T) {
+	t.Parallel()
+
+	inv := &Inventory{
+		Tools: []Tool{
+			{
+				ToolID:                   "codex-aa",
+				AgentID:                  "wrkr:codex-aa:acme",
+				ToolType:                 "codex",
+				Org:                      "acme",
+				ApprovalStatus:           "approved_list",
+				ApprovalClass:            "approved",
+				SecurityVisibilityStatus: SecurityVisibilityKnownApproved,
+				LifecycleState:           identity.StateDiscovered,
+				PermissionTier:           "read",
+				AutonomyLevel:            "interactive",
+				Locations:                []ToolLocation{{Repo: "acme/repo", Location: "AGENTS.md"}},
+			},
+		},
+		Agents: []Agent{{AgentID: "wrkr:codex-aa:acme", AgentInstanceID: "codex-aa", Framework: "codex", Location: "AGENTS.md", Org: "acme"}},
+		AgentPrivilegeMap: []AgentPrivilegeMapEntry{{
+			AgentID:                  "wrkr:codex-aa:acme",
+			AgentInstanceID:          "codex-aa",
+			ToolID:                   "codex-aa",
+			ToolType:                 "codex",
+			ApprovalClassification:   "approved",
+			SecurityVisibilityStatus: SecurityVisibilityKnownApproved,
+			Repos:                    []string{"acme/repo"},
+		}},
+		SecurityVisibility: SecurityVisibilitySummary{ReferenceBasis: "baseline_snapshot"},
+	}
+
+	RefreshIdentityGovernance(inv, []manifest.IdentityRecord{{
+		AgentID:       "wrkr:codex-aa:acme",
+		ToolID:        "codex-aa",
+		ToolType:      "codex",
+		Org:           "acme",
+		Repo:          "acme/repo",
+		Location:      "AGENTS.md",
+		Status:        identity.StateDiscovered,
+		ApprovalState: "missing",
+		Present:       true,
+	}})
+
+	if inv.Tools[0].ApprovalStatus != "approved_list" || inv.Tools[0].ApprovalClass != "approved" {
+		t.Fatalf("expected approved_list posture to be preserved, got %+v", inv.Tools[0])
+	}
+	if inv.AgentPrivilegeMap[0].ApprovalClassification != "approved" {
+		t.Fatalf("expected privilege map approval classification to stay approved, got %+v", inv.AgentPrivilegeMap[0])
+	}
+	if inv.Tools[0].SecurityVisibilityStatus != SecurityVisibilityKnownApproved {
+		t.Fatalf("expected known_approved visibility to be preserved, got %+v", inv.Tools[0])
 	}
 }
 
