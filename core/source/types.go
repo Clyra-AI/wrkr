@@ -16,9 +16,15 @@ const TargetModeMulti = "multi"
 
 // RepoManifest identifies a repository acquisition result.
 type RepoManifest struct {
-	Repo     string `json:"repo"`
-	Location string `json:"location"`
-	Source   string `json:"source"`
+	Repo              string                 `json:"repo"`
+	Location          string                 `json:"location"`
+	Source            string                 `json:"source"`
+	OwnershipMetadata *RepoOwnershipMetadata `json:"ownership_metadata,omitempty"`
+}
+
+type RepoOwnershipMetadata struct {
+	Topics []string `json:"topics,omitempty"`
+	Teams  []string `json:"teams,omitempty"`
 }
 
 // RepoFailure captures one non-fatal source failure.

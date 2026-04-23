@@ -15,11 +15,15 @@ import (
 )
 
 type ToolLocation struct {
-	Repo            string `json:"repo" yaml:"repo"`
-	Location        string `json:"location" yaml:"location"`
-	Owner           string `json:"owner" yaml:"owner"`
-	OwnerSource     string `json:"owner_source,omitempty" yaml:"owner_source,omitempty"`
-	OwnershipStatus string `json:"ownership_status,omitempty" yaml:"ownership_status,omitempty"`
+	Repo                string   `json:"repo" yaml:"repo"`
+	Location            string   `json:"location" yaml:"location"`
+	Owner               string   `json:"owner" yaml:"owner"`
+	OwnerSource         string   `json:"owner_source,omitempty" yaml:"owner_source,omitempty"`
+	OwnershipStatus     string   `json:"ownership_status,omitempty" yaml:"ownership_status,omitempty"`
+	OwnershipState      string   `json:"ownership_state,omitempty" yaml:"ownership_state,omitempty"`
+	OwnershipConfidence float64  `json:"ownership_confidence,omitempty" yaml:"ownership_confidence,omitempty"`
+	OwnershipEvidence   []string `json:"ownership_evidence_basis,omitempty" yaml:"ownership_evidence_basis,omitempty"`
+	OwnershipConflicts  []string `json:"ownership_conflicts,omitempty" yaml:"ownership_conflicts,omitempty"`
 }
 
 type Agent struct {
@@ -340,16 +344,20 @@ func Build(input BuildInput) Inventory {
 		if finding.Repo != "" {
 			item.repoSet[finding.Repo] = struct{}{}
 		}
-		owner := owners.Resolve(repoRoot(input.Manifest, finding.Repo), finding.Repo, findingOrg, finding.Location)
+		owner := owners.ResolveWithMetadata(repoRoot(input.Manifest, finding.Repo), finding.Repo, findingOrg, finding.Location, ownerMetadata(input.Manifest, finding.Repo))
 		locKey := finding.Repo + "::" + finding.Location
 		if _, exists := item.locSet[locKey]; !exists {
 			item.locSet[locKey] = struct{}{}
 			item.tool.Locations = append(item.tool.Locations, ToolLocation{
-				Repo:            finding.Repo,
-				Location:        finding.Location,
-				Owner:           owner.Owner,
-				OwnerSource:     owner.OwnerSource,
-				OwnershipStatus: owner.OwnershipStatus,
+				Repo:                finding.Repo,
+				Location:            finding.Location,
+				Owner:               owner.Owner,
+				OwnerSource:         owner.OwnerSource,
+				OwnershipStatus:     owner.OwnershipStatus,
+				OwnershipState:      owner.OwnershipState,
+				OwnershipConfidence: owner.OwnershipConfidence,
+				OwnershipEvidence:   cloneStringSlice(owner.EvidenceBasis),
+				OwnershipConflicts:  cloneStringSlice(owner.ConflictOwners),
 			})
 		}
 		for _, permission := range finding.Permissions {
@@ -876,6 +884,15 @@ func primaryToolOwner(tool Tool) (string, string) {
 		return locations[i].Owner < locations[j].Owner
 	})
 	return strings.TrimSpace(locations[0].Owner), strings.TrimSpace(locations[0].OwnershipStatus)
+}
+
+func ownerMetadata(manifest source.Manifest, repo string) owners.Metadata {
+	for _, item := range manifest.Repos {
+		if item.Repo == repo && item.OwnershipMetadata != nil {
+			return owners.Metadata{Topics: append([]string(nil), item.OwnershipMetadata.Topics...), Teams: append([]string(nil), item.OwnershipMetadata.Teams...)}
+		}
+	}
+	return owners.Metadata{}
 }
 
 func deploymentGateFromEvidence(values []string) string {

@@ -133,7 +133,7 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		baselineCopy := baseline
 		resultCopy := result
-		_, mdOutPath, _, summaryErr := generateReportArtifacts(reportArtifactOptions{
+		artifacts, summaryErr := generateReportArtifacts(reportArtifactOptions{
 			StatePath:     resolvedStatePath,
 			Snapshot:      snapshot,
 			Baseline:      &baselineCopy,
@@ -151,7 +151,7 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 			}
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", summaryErr.Error(), exitRuntime)
 		}
-		result.SummaryMDPath = mdOutPath
+		result.SummaryMDPath = artifacts.MarkdownPath
 	}
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(result)

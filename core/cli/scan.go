@@ -41,6 +41,9 @@ import (
 )
 
 func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
+	if len(args) > 0 && args[0] == "status" {
+		return runScanStatus(args[1:], stdout, stderr)
+	}
 	if parentCtx == nil {
 		parentCtx = context.Background()
 	}
@@ -173,6 +176,22 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	scanStartedAt := time.Now().UTC().Truncate(time.Second)
 	progress := newScanProgressReporter(*jsonOut && !*quiet && anyTargetUsesProgress(targets), stderr)
 	progressTargetMode, progressTargetValue := scanProgressTargetLabel(targets)
+	artifactPaths := map[string]string{
+		"state":     statePath,
+		"manifest":  artifactPreflight.ManifestPath,
+		"lifecycle": artifactPreflight.LifecyclePath,
+		"proof":     artifactPreflight.ProofChainPath,
+	}
+	statusTracker := newScanStatusTracker(
+		statePath,
+		source.Target{Mode: progressTargetMode, Value: progressTargetValue},
+		configTargetsToSourceTargets(targets),
+		scanStartedAt,
+		artifactPaths,
+	)
+	if err := statusTracker.Start(); err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
 	checkScanContext := func() error {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
@@ -181,13 +200,24 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	emitScanFailure := func(err error) int {
 		progress.Flush()
+		statusTracker.Fail(err, artifactPaths)
+		if !jsonRequested && !*jsonOut && !*quiet {
+			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
+		}
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
 	}
 	emitScanError := func(code, message string, exitCode int) int {
 		progress.Flush()
+		statusTracker.Fail(errors.New(message), artifactPaths)
+		if !jsonRequested && !*jsonOut && !*quiet {
+			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
+		}
 		return emitError(stderr, jsonRequested || *jsonOut, code, message, exitCode)
 	}
 	progress.ScanPhase(progressTargetMode, progressTargetValue, "source_acquire_start")
+	if err := statusTracker.Phase("source_acquire_start"); err != nil {
+		return emitScanFailure(err)
+	}
 	manifestOut, findings, err := acquireSources(ctx, targets, *githubBaseURL, *githubToken, acquireOptions{
 		StatePath: statePath,
 		Progress:  progress,
@@ -200,6 +230,14 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitScanFailure(err)
 	}
 	progress.ScanPhase(progressTargetMode, progressTargetValue, "source_acquire_complete")
+	if err := statusTracker.Phase("source_acquire_complete"); err != nil {
+		return emitScanFailure(err)
+	}
+	if repoTotal := len(manifestOut.Repos) + len(manifestOut.Failures); repoTotal > 0 {
+		if err := statusTracker.Repos(repoTotal, len(manifestOut.Repos), len(manifestOut.Failures)); err != nil {
+			return emitScanFailure(err)
+		}
+	}
 
 	scopes := detectorScopes(manifestOut)
 	detectorErrors := []detect.DetectorError{}
@@ -209,6 +247,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			return emitScanFailure(regErr)
 		}
 		progress.ScanPhase(progressTargetMode, progressTargetValue, "detectors_start")
+		if err := statusTracker.Phase("detectors_start"); err != nil {
+			return emitScanFailure(err)
+		}
 		detected, runErr := registry.Run(ctx, scopes, detect.Options{Enrich: *enrich, ScanMode: scanMode})
 		if runErr != nil {
 			return emitScanFailure(runErr)
@@ -228,9 +269,15 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		}
 		findings = append(findings, policyFindings...)
 		progress.ScanPhase(progressTargetMode, progressTargetValue, "detectors_complete")
+		if err := statusTracker.Phase("detectors_complete"); err != nil {
+			return emitScanFailure(err)
+		}
 	}
 	source.SortFindings(findings)
 	progress.ScanPhase(progressTargetMode, progressTargetValue, "analysis_start")
+	if err := statusTracker.Phase("analysis_start"); err != nil {
+		return emitScanFailure(err)
+	}
 
 	previousSnapshot, loadPreviousErr := loadPreviousSnapshot(statePath, strings.TrimSpace(*baselinePath))
 	if loadPreviousErr != nil {
@@ -433,10 +480,17 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitScanFailure(err)
 	}
 	progress.ScanPhase(progressTargetMode, progressTargetValue, "artifact_commit_start")
+	if err := statusTracker.Phase("artifact_commit_start"); err != nil {
+		return emitScanFailure(err)
+	}
 	emitRolledBackScanFailure := func(err error) int {
 		progress.Flush()
 		if err == nil {
 			return exitSuccess
+		}
+		statusTracker.Fail(err, artifactPaths)
+		if !jsonRequested && !*jsonOut && !*quiet {
+			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
 		}
 		if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%v (rollback restore failed: %v)", err, restoreErr), exitRuntime)
@@ -445,6 +499,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	emitRolledBackScanError := func(code, message string, exitCode int) int {
 		progress.Flush()
+		statusTracker.Fail(errors.New(message), artifactPaths)
+		if !jsonRequested && !*jsonOut && !*quiet {
+			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
+		}
 		if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%s (rollback restore failed: %v)", message, restoreErr), exitRuntime)
 		}
@@ -557,7 +615,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			return emitRolledBackScanFailure(err)
 		}
 		manifestCopy := nextManifest
-		_, mdOutPath, _, reportErr := generateReportArtifacts(reportArtifactOptions{
+		artifacts, reportErr := generateReportArtifacts(reportArtifactOptions{
 			StatePath:        statePath,
 			Snapshot:         snapshot,
 			PreviousSnapshot: previousSnapshot,
@@ -574,9 +632,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			}
 			return emitRolledBackScanFailure(reportErr)
 		}
-		scanReportPath = mdOutPath
+		scanReportPath = artifacts.MarkdownPath
 		payload["report"] = map[string]any{
-			"md_path":       mdOutPath,
+			"md_path":       artifacts.MarkdownPath,
 			"template":      string(artifactPreflight.ReportTemplate),
 			"share_profile": string(artifactPreflight.ReportShareProfile),
 		}
@@ -594,6 +652,21 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			"path": artifactPreflight.SARIFPath,
 		}
 	}
+	statusCompleted := false
+	completeScanStatus := func() int {
+		if statusCompleted {
+			return exitSuccess
+		}
+		artifactPaths = finalScanArtifactPaths(statePath, artifactPreflight, jsonSink.outputPath, scanReportPath, scanSARIFPath)
+		if err := statusTracker.Phase("artifact_commit_complete"); err != nil {
+			return emitRolledBackScanFailure(err)
+		}
+		if err := statusTracker.Complete(artifactPaths); err != nil {
+			return emitRolledBackScanFailure(err)
+		}
+		statusCompleted = true
+		return exitSuccess
+	}
 
 	if jsonSink.enabled() {
 		if err := checkScanContext(); err != nil {
@@ -603,6 +676,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			return emitRolledBackScanError("runtime_failure", err.Error(), exitRuntime)
 		}
 		progress.ScanPhase(progressTargetMode, progressTargetValue, "artifact_commit_complete")
+		if code := completeScanStatus(); code != exitSuccess {
+			return code
+		}
 		progress.Flush()
 		if *jsonOut {
 			return exitSuccess
@@ -620,10 +696,16 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		}
 	}
 	if *quiet {
+		if code := completeScanStatus(); code != exitSuccess {
+			return code
+		}
 		progress.Flush()
 		return exitSuccess
 	}
 	if *explain {
+		if code := completeScanStatus(); code != exitSuccess {
+			return code
+		}
 		progress.Flush()
 		_, _ = fmt.Fprintf(stdout, "wrkr scan completed for %s (profile=%s score=%.2f grade=%s)\n", renderScanTargetSet(targets), profileResult.ProfileName, postureScore.Score, postureScore.Grade)
 		for _, line := range explainControlBacklog(controlBacklog, 10) {
@@ -642,6 +724,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			_, _ = fmt.Fprintf(stdout, "scan sarif: %s\n", scanSARIFPath)
 		}
 		return exitSuccess
+	}
+	if code := completeScanStatus(); code != exitSuccess {
+		return code
 	}
 	progress.Flush()
 	_, _ = fmt.Fprintln(stdout, "wrkr scan complete")
@@ -725,6 +810,26 @@ type scanArtifactPreflight struct {
 	ReportShareProfile   reportcore.ShareProfile
 	ReportPath           string
 	SARIFPath            string
+}
+
+func finalScanArtifactPaths(statePath string, preflight scanArtifactPreflight, jsonPath string, reportPath string, sarifPath string) map[string]string {
+	paths := map[string]string{
+		"state":             statePath,
+		"manifest":          preflight.ManifestPath,
+		"lifecycle":         preflight.LifecyclePath,
+		"proof_chain":       preflight.ProofChainPath,
+		"proof_attestation": preflight.ProofAttestationPath,
+	}
+	if strings.TrimSpace(jsonPath) != "" {
+		paths["json"] = jsonPath
+	}
+	if strings.TrimSpace(reportPath) != "" {
+		paths["report_md"] = reportPath
+	}
+	if strings.TrimSpace(sarifPath) != "" {
+		paths["sarif"] = sarifPath
+	}
+	return paths
 }
 
 func preflightScanArtifacts(statePathRaw, jsonPath string, reportEnabled bool, reportPath, reportTemplateRaw, reportShareProfileRaw string, sarifEnabled bool, sarifPath string) (scanArtifactPreflight, error) {

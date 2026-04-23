@@ -21,9 +21,13 @@ type findingSignals struct {
 }
 
 type ownershipCandidate struct {
-	owner           string
-	ownerSource     string
-	ownershipStatus string
+	owner               string
+	ownerSource         string
+	ownershipStatus     string
+	ownershipState      string
+	ownershipConfidence float64
+	ownershipEvidence   []string
+	ownershipConflicts  []string
 }
 
 func Build(
@@ -135,6 +139,10 @@ func Build(
 				OperationalOwner:         owner.Owner,
 				OwnerSource:              owner.OwnerSource,
 				OwnershipStatus:          owner.OwnershipStatus,
+				OwnershipState:           owner.OwnershipState,
+				OwnershipConfidence:      owner.OwnershipConfidence,
+				OwnershipEvidence:        cloneStringSlice(owner.EvidenceBasis),
+				OwnershipConflicts:       cloneStringSlice(owner.ConflictOwners),
 				ApprovalGapReasons:       approvalReasons,
 				PullRequestWrite:         pullRequestWrite,
 				MergeExecute:             mergeExecute,
@@ -308,6 +316,10 @@ func buildInstanceEntries(
 			OperationalOwner:         owner.Owner,
 			OwnerSource:              owner.OwnerSource,
 			OwnershipStatus:          owner.OwnershipStatus,
+			OwnershipState:           owner.OwnershipState,
+			OwnershipConfidence:      owner.OwnershipConfidence,
+			OwnershipEvidence:        cloneStringSlice(owner.EvidenceBasis),
+			OwnershipConflicts:       cloneStringSlice(owner.ConflictOwners),
 			ApprovalGapReasons:       approvalReasons,
 			PullRequestWrite:         pullRequestWrite,
 			MergeExecute:             mergeExecute,
@@ -710,11 +722,32 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 			strings.TrimSpace(item.Owner),
 			strings.TrimSpace(item.OwnerSource),
 			strings.TrimSpace(item.OwnershipStatus),
+			strings.TrimSpace(item.OwnershipState),
 		}, "|")
+		state := strings.TrimSpace(item.OwnershipState)
+		if state == "" {
+			state = fallbackOwnershipState(strings.TrimSpace(item.OwnershipStatus))
+			if strings.TrimSpace(item.OwnerSource) == owners.OwnerSourceConflict {
+				state = owners.OwnershipStateConflicting
+			}
+		}
+		confidence := item.OwnershipConfidence
+		if confidence == 0 && strings.TrimSpace(item.OwnershipStatus) != owners.OwnershipStatusUnresolved {
+			confidence = fallbackOwnershipConfidence(strings.TrimSpace(item.OwnershipStatus))
+		}
+		evidence := cloneStringSlice(item.OwnershipEvidence)
+		if len(evidence) == 0 && strings.TrimSpace(item.OwnerSource) != "" {
+			evidence = []string{strings.TrimSpace(item.OwnerSource)}
+		}
+		conflicts := cloneStringSlice(item.OwnershipConflicts)
 		candidates[key] = ownershipCandidate{
-			owner:           strings.TrimSpace(item.Owner),
-			ownerSource:     strings.TrimSpace(item.OwnerSource),
-			ownershipStatus: strings.TrimSpace(item.OwnershipStatus),
+			owner:               strings.TrimSpace(item.Owner),
+			ownerSource:         strings.TrimSpace(item.OwnerSource),
+			ownershipStatus:     strings.TrimSpace(item.OwnershipStatus),
+			ownershipState:      state,
+			ownershipConfidence: confidence,
+			ownershipEvidence:   evidence,
+			ownershipConflicts:  conflicts,
 		}
 	}
 	if len(candidates) == 0 {
@@ -732,9 +765,13 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 	if len(explicitOwners) == 1 {
 		for _, item := range explicitOwners {
 			return owners.Resolution{
-				Owner:           item.owner,
-				OwnerSource:     item.ownerSource,
-				OwnershipStatus: item.ownershipStatus,
+				Owner:               item.owner,
+				OwnerSource:         item.ownerSource,
+				OwnershipStatus:     item.ownershipStatus,
+				OwnershipState:      item.ownershipState,
+				OwnershipConfidence: item.ownershipConfidence,
+				EvidenceBasis:       cloneStringSlice(item.ownershipEvidence),
+				ConflictOwners:      cloneStringSlice(item.ownershipConflicts),
 			}
 		}
 	}
@@ -742,14 +779,22 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 		fallback := fallbackOperationalOwner(repos, org)
 		fallback.OwnerSource = owners.OwnerSourceConflict
 		fallback.OwnershipStatus = owners.OwnershipStatusUnresolved
+		fallback.OwnershipState = owners.OwnershipStateConflicting
+		fallback.OwnershipConfidence = 0.2
+		fallback.ConflictOwners = sortedOwnerCandidates(ownerSet)
+		fallback.EvidenceBasis = mergeOwnershipEvidence(ownerSet)
 		return fallback
 	}
 	if len(ownerSet) == 1 {
 		for _, item := range ownerSet {
 			return owners.Resolution{
-				Owner:           item.owner,
-				OwnerSource:     item.ownerSource,
-				OwnershipStatus: item.ownershipStatus,
+				Owner:               item.owner,
+				OwnerSource:         item.ownerSource,
+				OwnershipStatus:     item.ownershipStatus,
+				OwnershipState:      item.ownershipState,
+				OwnershipConfidence: item.ownershipConfidence,
+				EvidenceBasis:       cloneStringSlice(item.ownershipEvidence),
+				ConflictOwners:      cloneStringSlice(item.ownershipConflicts),
 			}
 		}
 	}
@@ -757,6 +802,10 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 	fallback := fallbackOperationalOwner(repos, org)
 	fallback.OwnerSource = owners.OwnerSourceConflict
 	fallback.OwnershipStatus = owners.OwnershipStatusUnresolved
+	fallback.OwnershipState = owners.OwnershipStateConflicting
+	fallback.OwnershipConfidence = 0.2
+	fallback.ConflictOwners = sortedOwnerCandidates(ownerSet)
+	fallback.EvidenceBasis = mergeOwnershipEvidence(ownerSet)
 	return fallback
 }
 
@@ -782,9 +831,65 @@ func fallbackOperationalOwner(repos []string, org string) owners.Resolution {
 		status = owners.OwnershipStatusUnresolved
 	}
 	return owners.Resolution{
-		Owner:           owners.FallbackOwner(repo, org),
-		OwnerSource:     owners.OwnerSourceRepoFallback,
-		OwnershipStatus: status,
+		Owner:               owners.FallbackOwner(repo, org),
+		OwnerSource:         owners.OwnerSourceRepoFallback,
+		OwnershipStatus:     status,
+		OwnershipState:      fallbackOwnershipState(status),
+		OwnershipConfidence: fallbackOwnershipConfidence(status),
+		EvidenceBasis:       []string{"repo_fallback:repo_name"},
+	}
+}
+
+func sortedOwnerCandidates(candidates map[string]ownershipCandidate) []string {
+	ownersOut := make([]string, 0, len(candidates))
+	for owner := range candidates {
+		if strings.TrimSpace(owner) != "" {
+			ownersOut = append(ownersOut, strings.TrimSpace(owner))
+		}
+	}
+	sort.Strings(ownersOut)
+	return ownersOut
+}
+
+func mergeOwnershipEvidence(candidates map[string]ownershipCandidate) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	for _, item := range candidates {
+		for _, evidence := range item.ownershipEvidence {
+			trimmed := strings.TrimSpace(evidence)
+			if trimmed == "" {
+				continue
+			}
+			if _, ok := seen[trimmed]; ok {
+				continue
+			}
+			seen[trimmed] = struct{}{}
+			out = append(out, trimmed)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func fallbackOwnershipState(status string) string {
+	switch strings.TrimSpace(status) {
+	case owners.OwnershipStatusExplicit:
+		return owners.OwnershipStateExplicit
+	case owners.OwnershipStatusUnresolved:
+		return owners.OwnershipStateMissing
+	default:
+		return owners.OwnershipStateInferred
+	}
+}
+
+func fallbackOwnershipConfidence(status string) float64 {
+	switch strings.TrimSpace(status) {
+	case owners.OwnershipStatusExplicit:
+		return 0.9
+	case owners.OwnershipStatusUnresolved:
+		return 0
+	default:
+		return 0.45
 	}
 }
 

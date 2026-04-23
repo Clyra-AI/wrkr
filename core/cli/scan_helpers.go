@@ -438,6 +438,14 @@ func scanProgressTargetLabel(targets []config.Target) (string, string) {
 	return "", ""
 }
 
+func configTargetsToSourceTargets(targets []config.Target) []source.Target {
+	out := make([]source.Target, 0, len(targets))
+	for _, target := range targets {
+		out = append(out, source.Target{Mode: string(target.Mode), Value: strings.TrimSpace(target.Value)})
+	}
+	return source.SortTargets(out)
+}
+
 func renderScanTarget(target config.Target) string {
 	return fmt.Sprintf("%s:%s", target.Mode, target.Value)
 }

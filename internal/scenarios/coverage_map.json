@@ -11,10 +11,10 @@
     "TestScenarioEpic7ProfileAndScoreContractsDeterministic"
   ],
   "AC10": [
-    "TestScenarioEpic9SummaryIntegrationHooksAC10AC11"
+    "TestEpic9SummaryIntegrationHooksAC10AC11"
   ],
   "AC11": [
-    "TestScenarioEpic9SummaryIntegrationHooksAC10AC11"
+    "TestEpic9SummaryIntegrationHooksAC10AC11"
   ],
   "AC15": [
     "TestScenarioEpic7SkillConflictSignals"
@@ -29,8 +29,8 @@
     "TestScenarioEpic7ProfileAndScoreContractsDeterministic"
   ],
   "AC21": [
-    "TestScenarioEpic9DeterministicShareableReportsAC21",
-    "TestScenarioEpic9SummaryIntegrationHooksAC10AC11"
+    "TestEpic9DeterministicShareableReportsAC21",
+    "TestEpic9SummaryIntegrationHooksAC10AC11"
   ],
   "AC22": [
     "TestScenarioEpic10DiscoveryMethodAC22"

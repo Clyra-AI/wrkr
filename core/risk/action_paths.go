@@ -34,6 +34,10 @@ type ActionPath struct {
 	OperationalOwner           string                                  `json:"operational_owner,omitempty"`
 	OwnerSource                string                                  `json:"owner_source,omitempty"`
 	OwnershipStatus            string                                  `json:"ownership_status,omitempty"`
+	OwnershipState             string                                  `json:"ownership_state,omitempty"`
+	OwnershipConfidence        float64                                 `json:"ownership_confidence,omitempty"`
+	OwnershipEvidence          []string                                `json:"ownership_evidence_basis,omitempty"`
+	OwnershipConflicts         []string                                `json:"ownership_conflicts,omitempty"`
 	ApprovalGapReasons         []string                                `json:"approval_gap_reasons,omitempty"`
 	WritePathClasses           []string                                `json:"write_path_classes,omitempty"`
 	PullRequestWrite           bool                                    `json:"pull_request_write,omitempty"`
@@ -159,6 +163,10 @@ func buildActionPath(
 		OperationalOwner:           strings.TrimSpace(entry.OperationalOwner),
 		OwnerSource:                strings.TrimSpace(entry.OwnerSource),
 		OwnershipStatus:            strings.TrimSpace(entry.OwnershipStatus),
+		OwnershipState:             strings.TrimSpace(entry.OwnershipState),
+		OwnershipConfidence:        entry.OwnershipConfidence,
+		OwnershipEvidence:          dedupeSortedStrings(entry.OwnershipEvidence),
+		OwnershipConflicts:         dedupeSortedStrings(entry.OwnershipConflicts),
 		ApprovalGapReasons:         dedupeSortedStrings(entry.ApprovalGapReasons),
 		WritePathClasses:           dedupeSortedStrings(entry.WritePathClasses),
 		PullRequestWrite:           entry.PullRequestWrite,
@@ -203,7 +211,9 @@ func recommendedActionForPath(path ActionPath) string {
 		strings.TrimSpace(path.ExecutionIdentityStatus) == "ambiguous"
 	weakOwnership := strings.TrimSpace(path.OwnershipStatus) == "" ||
 		strings.TrimSpace(path.OwnershipStatus) == "unresolved" ||
-		strings.TrimSpace(path.OwnerSource) == "multi_repo_conflict"
+		strings.TrimSpace(path.OwnerSource) == "multi_repo_conflict" ||
+		strings.TrimSpace(path.OwnershipState) == owners.OwnershipStateConflicting ||
+		strings.TrimSpace(path.OwnershipState) == owners.OwnershipStateMissing
 	hasDeliveryPath := strings.TrimSpace(path.DeliveryChainStatus) != "" &&
 		strings.TrimSpace(path.DeliveryChainStatus) != "none"
 	unknownToSecurity := strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity
@@ -335,6 +345,10 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.DeploymentStatus = mergeDeploymentStatus(current.DeploymentStatus, incoming.DeploymentStatus)
 	merged.WorkflowTriggerClass = mergeWorkflowTriggerClass(current.WorkflowTriggerClass, incoming.WorkflowTriggerClass)
 	merged.OperationalOwner, merged.OwnerSource, merged.OwnershipStatus = mergeOperationalOwner(current, incoming)
+	merged.OwnershipState = mergeOwnershipState(current, incoming)
+	merged.OwnershipConfidence = mergeOwnershipConfidence(current, incoming)
+	merged.OwnershipEvidence = dedupeSortedStrings(append(append([]string(nil), current.OwnershipEvidence...), incoming.OwnershipEvidence...))
+	merged.OwnershipConflicts = dedupeSortedStrings(append(append([]string(nil), current.OwnershipConflicts...), incoming.OwnershipConflicts...))
 	merged.ExecutionIdentity, merged.ExecutionIdentityType, merged.ExecutionIdentitySource, merged.ExecutionIdentityStatus, merged.ExecutionIdentityRationale = mergeExecutionIdentity(current, incoming)
 	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
 	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
@@ -573,6 +587,35 @@ func mergeOperationalOwner(current, incoming ActionPath) (string, string, string
 	}
 }
 
+func mergeOwnershipState(current, incoming ActionPath) string {
+	if strings.TrimSpace(current.OwnerSource) == owners.OwnerSourceConflict || strings.TrimSpace(incoming.OwnerSource) == owners.OwnerSourceConflict {
+		return owners.OwnershipStateConflicting
+	}
+	if ownershipStatePriority(incoming.OwnershipState) < ownershipStatePriority(current.OwnershipState) {
+		return strings.TrimSpace(incoming.OwnershipState)
+	}
+	if ownershipStatePriority(current.OwnershipState) < ownershipStatePriority(incoming.OwnershipState) {
+		return strings.TrimSpace(current.OwnershipState)
+	}
+	return canonicalString(current.OwnershipState, incoming.OwnershipState)
+}
+
+func mergeOwnershipConfidence(current, incoming ActionPath) float64 {
+	if strings.TrimSpace(current.OwnerSource) == owners.OwnerSourceConflict || strings.TrimSpace(incoming.OwnerSource) == owners.OwnerSourceConflict {
+		return minNonZeroFloat64(current.OwnershipConfidence, incoming.OwnershipConfidence, 0.2)
+	}
+	if current.OwnershipConfidence == 0 {
+		return incoming.OwnershipConfidence
+	}
+	if incoming.OwnershipConfidence == 0 {
+		return current.OwnershipConfidence
+	}
+	if incoming.OwnershipConfidence < current.OwnershipConfidence {
+		return incoming.OwnershipConfidence
+	}
+	return current.OwnershipConfidence
+}
+
 func ownershipPriority(status string) int {
 	switch strings.TrimSpace(status) {
 	case "explicit":
@@ -586,6 +629,36 @@ func ownershipPriority(status string) int {
 	default:
 		return 4
 	}
+}
+
+func ownershipStatePriority(state string) int {
+	switch strings.TrimSpace(state) {
+	case owners.OwnershipStateExplicit:
+		return 0
+	case owners.OwnershipStateInferred:
+		return 1
+	case owners.OwnershipStateConflicting:
+		return 2
+	case owners.OwnershipStateMissing:
+		return 3
+	case "":
+		return 4
+	default:
+		return 5
+	}
+}
+
+func minNonZeroFloat64(values ...float64) float64 {
+	min := 0.0
+	for _, value := range values {
+		if value == 0 {
+			continue
+		}
+		if min == 0 || value < min {
+			min = value
+		}
+	}
+	return min
 }
 
 func governFirstPriorityScore(path ActionPath) int {

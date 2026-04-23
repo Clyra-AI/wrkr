@@ -6,10 +6,40 @@ Canonical local artifact locations are documented in [`docs/state_lifecycle.md`]
 
 ```bash
 wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
+wrkr scan status --state ./.wrkr/last-scan.json --json
+wrkr export tickets --top 10 --format jira --dry-run --state ./.wrkr/last-scan.json --json
 ```
 
 Check `top_findings`, additive `action_paths`, additive `action_path_to_control_first`, `attack_paths`, `top_attack_paths`, `repo_exposure_summaries`, `profile`, and optional `report.md_path`.
 For prompt-channel and enrich-enabled MCP findings, confirm stable evidence metadata fields are present (`pattern_family`, `evidence_snippet_hash`, `enrich_quality`, `as_of`, `source`).
+
+### Ownership-quality review
+
+For org-scale governance, review owner quality from `control_backlog.items[*]`, `inventory.tools[*].locations[*]`, and `agent_privilege_map[*]`.
+The compatibility fields `owner_source` and `ownership_status` remain present, while the additive `ownership_state`, `ownership_confidence`, `ownership_evidence_basis`, and `ownership_conflicts` fields distinguish explicit owners, inferred owners, conflicting owners, and missing owners.
+
+Wrkr resolves local ownership from CODEOWNERS, optional `.wrkr/owners.*` mappings, service catalog exports, and Backstage `catalog-info.yaml` files. GitHub topics or teams are used only when they are already present in acquired source metadata; Wrkr does not perform standalone ownership lookups by default.
+
+### Large-org background pattern
+
+```bash
+nohup wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json > ./.wrkr/scan.stdout 2> ./.wrkr/scan.stderr &
+wrkr scan status --state ./.wrkr/last-scan.json --json
+```
+
+Wrkr does not start a hidden scan daemon. The status sidecar records `running`, `completed`, `interrupted`, or `failed` state, current phase, last successful phase, repo counts, partial marker, phase timings, and artifact paths.
+
+### Ticket export dry run
+
+Use ticket export after a scan has produced a saved control backlog:
+
+```bash
+wrkr export tickets --top 10 --format jira --dry-run --state ./.wrkr/last-scan.json --json
+wrkr export tickets --top 10 --format github --dry-run --state ./.wrkr/last-scan.json --json
+wrkr export tickets --top 10 --format servicenow --dry-run --state ./.wrkr/last-scan.json --json
+```
+
+Dry-run ticket export is local JSON payload generation only. It groups deterministically by owner, repo, and control path and includes owner, evidence, recommended action, SLA, closure criteria, confidence, and proof requirements.
 
 ## Shareable report workflow
 

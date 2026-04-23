@@ -327,6 +327,37 @@ func TestChainWithPublicKeyRejectsAttestedStructuralCorruption(t *testing.T) {
 	}
 }
 
+func TestChainWithPublicKeyRejectsAttestedRecordHashCorruption(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "chain.json")
+	chain := proof.NewChain("wrkr-proof")
+	appendRecord(t, chain, "scan_finding", map[string]any{"finding_type": "policy_violation"})
+	appendRecord(t, chain, "risk_assessment", map[string]any{"assessment_type": "finding_risk"})
+	chain.Records[1].Integrity.RecordHash = "sha256:tampered"
+	writeChain(t, path, chain)
+
+	key, err := proof.GenerateSigningKey()
+	if err != nil {
+		t.Fatalf("generate signing key: %v", err)
+	}
+	writeAttestation(t, path, key, len(chain.Records), chain.HeadHash)
+
+	result, err := ChainWithPublicKey(path, proof.PublicKey{Public: key.Public, KeyID: key.KeyID})
+	if err != nil {
+		t.Fatalf("verify attested record-hash-invalid chain: %v", err)
+	}
+	if result.Intact {
+		t.Fatalf("expected record hash integrity failure, got %+v", result)
+	}
+	if result.Reason != "chain_integrity_failure" {
+		t.Fatalf("unexpected reason: %s", result.Reason)
+	}
+	if result.VerificationMode != verificationModeAttestation {
+		t.Fatalf("expected attestation verification mode, got %s", result.VerificationMode)
+	}
+}
+
 func TestChainWithPublicKeyRejectsInvalidSignedChain(t *testing.T) {
 	t.Parallel()
 

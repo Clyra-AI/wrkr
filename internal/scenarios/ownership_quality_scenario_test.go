@@ -24,15 +24,18 @@ func TestOwnershipQualityScenario(t *testing.T) {
 	if explicit == nil {
 		t.Fatalf("expected explicit ownership entry, got %v", agentMap)
 	}
-	if explicit["operational_owner"] != "@local/security" || explicit["ownership_status"] != "explicit" {
+	if explicit["operational_owner"] != "@local/security" || explicit["ownership_status"] != "explicit" || explicit["ownership_state"] != "explicit_owner" {
 		t.Fatalf("expected explicit operational owner, got %v", explicit)
+	}
+	if confidence, ok := explicit["ownership_confidence"].(float64); !ok || confidence < 0.9 {
+		t.Fatalf("expected high explicit owner confidence, got %v", explicit)
 	}
 
 	inferred := findPrivilegeEntryByLocation(agentMap, ".github/workflows/inferred.yml")
 	if inferred == nil {
 		t.Fatalf("expected inferred ownership entry, got %v", agentMap)
 	}
-	if inferred["ownership_status"] != "inferred" {
+	if inferred["ownership_status"] != "inferred" || inferred["ownership_state"] != "inferred_owner" {
 		t.Fatalf("expected inferred ownership status, got %v", inferred)
 	}
 
@@ -40,8 +43,8 @@ func TestOwnershipQualityScenario(t *testing.T) {
 	if unresolved == nil {
 		t.Fatalf("expected unresolved ownership entry, got %v", agentMap)
 	}
-	if unresolved["ownership_status"] != "unresolved" {
-		t.Fatalf("expected unresolved ownership status, got %v", unresolved)
+	if unresolved["ownership_status"] != "unresolved" || unresolved["ownership_state"] != "conflicting_owner" {
+		t.Fatalf("expected conflicting ownership status, got %v", unresolved)
 	}
 
 	actionPaths, ok := payload["action_paths"].([]any)

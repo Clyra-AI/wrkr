@@ -71,6 +71,26 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 
+	if summary.ControlBacklog != nil && len(summary.ControlBacklog.Items) > 0 {
+		builder.WriteString("## Control Backlog\n\n")
+		limit := len(summary.ControlBacklog.Items)
+		if limit > 10 {
+			limit = 10
+		}
+		for idx := 0; idx < limit; idx++ {
+			item := summary.ControlBacklog.Items[idx]
+			builder.WriteString(fmt.Sprintf("- %s %s owner=%s action=%s sla=%s closure=%s\n",
+				item.Repo,
+				item.Path,
+				item.Owner,
+				item.RecommendedAction,
+				item.SLA,
+				item.ClosureCriteria,
+			))
+		}
+		builder.WriteString("\n")
+	}
+
 	for _, section := range summary.Sections {
 		builder.WriteString(fmt.Sprintf("## %s (%s)\n\n", section.Title, section.ID))
 		for _, fact := range section.Facts {

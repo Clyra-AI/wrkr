@@ -61,7 +61,7 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", loadErr.Error(), exitRuntime)
 		}
 		manifestCopy := loaded
-		_, mdOutPath, _, summaryErr := generateReportArtifacts(reportArtifactOptions{
+		artifacts, summaryErr := generateReportArtifacts(reportArtifactOptions{
 			StatePath:     resolvedStatePath,
 			Snapshot:      snapshot,
 			Manifest:      &manifestCopy,
@@ -77,7 +77,7 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 			}
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", summaryErr.Error(), exitRuntime)
 		}
-		summaryOutPath = mdOutPath
+		summaryOutPath = artifacts.MarkdownPath
 	}
 
 	payload := map[string]any{

@@ -181,6 +181,7 @@ func writeRootUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "")
 	_, _ = fmt.Fprintln(out, "Examples:")
 	_, _ = fmt.Fprintln(out, "  wrkr scan --my-setup --json")
+	_, _ = fmt.Fprintln(out, "  wrkr scan status --state ./.wrkr/last-scan.json --json")
 	_, _ = fmt.Fprintln(out, "  wrkr mcp-list --state ./.wrkr/last-scan.json --json")
 	_, _ = fmt.Fprintln(out, "  wrkr scan --github-org acme --github-api https://api.github.com --json")
 	_, _ = fmt.Fprintln(out, "  wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json")

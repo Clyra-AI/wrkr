@@ -108,6 +108,18 @@ func TestE2EAirGappedPathScan(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("air-gapped path scan should succeed offline: %d (%s)", code, errOut.String())
 	}
+	var statusOut bytes.Buffer
+	var statusErr bytes.Buffer
+	if code := cli.Run([]string{"scan", "status", "--state", statePath, "--json"}, &statusOut, &statusErr); code != 0 {
+		t.Fatalf("scan status should succeed offline: %d (%s)", code, statusErr.String())
+	}
+	var status map[string]any
+	if err := json.Unmarshal(statusOut.Bytes(), &status); err != nil {
+		t.Fatalf("parse status: %v", err)
+	}
+	if status["status"] != "completed" || status["last_successful_phase"] != "artifact_commit" {
+		t.Fatalf("expected completed scan status, got %v", status)
+	}
 }
 
 func TestE2EScanRepoRejectsUnmanagedMaterializedRoot(t *testing.T) {

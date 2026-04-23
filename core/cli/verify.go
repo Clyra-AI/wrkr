@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	proof "github.com/Clyra-AI/proof"
 	"github.com/Clyra-AI/wrkr/core/evidence"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -77,9 +79,16 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 		},
 	}
 	if snapshot, loadErr := state.Load(keyLookupPath); loadErr == nil {
-		if chain, chainErr := proofemit.LoadChain(chainPath); chainErr == nil {
-			if controlEvidence := evidence.BuildControlEvidence(snapshot, chain); len(controlEvidence) > 0 {
-				payload["control_evidence"] = controlEvidence
+		if snapshot.ControlBacklog != nil && len(snapshot.ControlBacklog.Items) > 0 {
+			chain := &proof.Chain{}
+			chainErr := error(nil)
+			if proofChainMayContainControlEvidence(chainPath) {
+				chain, chainErr = proofemit.LoadChain(chainPath)
+			}
+			if chainErr == nil {
+				if controlEvidence := evidence.BuildControlEvidence(snapshot, chain); len(controlEvidence) > 0 {
+					payload["control_evidence"] = controlEvidence
+				}
 			}
 		}
 	}
@@ -89,6 +98,35 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintf(stdout, "wrkr verify chain intact records=%d\n", result.Count)
 	return exitSuccess
+}
+
+func proofChainMayContainControlEvidence(chainPath string) bool {
+	payload, err := os.ReadFile(chainPath) // #nosec G304 -- verify reads explicit local proof chain selected by CLI flags/state.
+	if err != nil {
+		return true
+	}
+	for _, marker := range [][]byte{
+		[]byte("approval_recorded"),
+		[]byte("evidence_attached"),
+		[]byte("owner_assigned"),
+		[]byte("review_cadence"),
+		[]byte("review_cadence_set"),
+		[]byte("least_privilege"),
+		[]byte("least_privilege_verified"),
+		[]byte("deployment_gate"),
+		[]byte("deployment_gate_present"),
+		[]byte("production_access"),
+		[]byte("production_access_classified"),
+		[]byte("secret_rotation"),
+		[]byte("rotation_evidence_attached"),
+		[]byte("risk_accepted"),
+		[]byte("proof_artifact_generated"),
+	} {
+		if bytes.Contains(payload, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveVerifyPaths(statePathFlag string, chainPathFlag string) (chainPath string, keyLookupPath string) {

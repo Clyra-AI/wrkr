@@ -29,7 +29,7 @@
     },
     "template": {
       "type": "string",
-      "enum": ["exec", "operator", "audit", "public"]
+      "enum": ["exec", "operator", "audit", "public", "ciso", "appsec", "platform", "customer-draft"]
     },
     "share_profile": {
       "type": "string",
