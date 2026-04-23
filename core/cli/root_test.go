@@ -1989,8 +1989,6 @@ func TestIdentityApproveRollbackOnProofChainParseFailure(t *testing.T) {
 }
 
 func TestIdentityReviewRollbackOnProofEmitFailure(t *testing.T) {
-	t.Parallel()
-
 	tmp := t.TempDir()
 	statePath := filepath.Join(tmp, "state.json")
 	agentID := scanIdentityAgentID(t, statePath)

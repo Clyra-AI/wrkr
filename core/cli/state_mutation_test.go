@@ -62,8 +62,6 @@ func TestIdentityApproveUpdatesSavedStateSnapshot(t *testing.T) {
 }
 
 func TestInventoryApproveRollsBackSavedStateOnProofEmitFailure(t *testing.T) {
-	t.Parallel()
-
 	tmp := t.TempDir()
 	statePath, agentID := writeInventoryMutationFixture(t, tmp)
 	manifestPath := manifest.ResolvePath(statePath)
