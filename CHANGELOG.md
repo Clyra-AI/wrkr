@@ -8,6 +8,41 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- (none yet)
+
+### Changed
+
+- (none yet)
+
+### Deprecated
+
+- (none yet)
+
+### Removed
+
+- (none yet)
+
+### Fixed
+
+- (none yet)
+
+### Security
+
+- (none yet)
+
+## Changelog maintenance process
+
+1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.
+2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and publish that change through a short-lived release-prep PR.
+3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
+4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
+5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.2.0] - 2026-04-23
+<!-- release-semver: minor -->
+
+### Added
+
 - Added the versioned control backlog contract for governance-first scan output while preserving existing raw finding JSON surfaces.
 - Added deterministic recommended-action, evidence-quality, confidence, and SLA fields to governance backlog items.
 - Added explicit engineering write-path classification and governance control mappings across scan, inventory, risk, and proof outputs.
@@ -30,14 +65,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Flagged deprecated tool reappearance as deterministic regress drift alongside revoked tool reappearance.
 - Changed regress and inventory drift to focus on new or changed AI/automation control paths, approval expiry, owner changes, and risk increases from approved baselines.
 
-### Deprecated
-
-- (none yet)
-
-### Removed
-
-- (none yet)
-
 ### Fixed
 
 - Fixed manual identity and inventory mutations to update the saved scan snapshot in the same rollback-safe transaction as manifest and proof artifacts.
@@ -48,14 +75,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Refined secret-bearing automation semantics so Wrkr distinguishes secret references, leaked values, ownership/scope gaps, and rotation evidence gaps without exposing secret values.
 - Hardened stateful CLI commands to fail closed on symlinked `--state` paths so scan, manifest, and proof artifacts cannot split across directories.
-
-## Changelog maintenance process
-
-1. Update `## [Unreleased]` in every PR that changes user-visible behavior, contracts, or governance process.
-2. Before release tagging, run `python3 scripts/finalize_release_changelog.py --json` to promote releasable `Unreleased` entries into a dated versioned section and publish that change through a short-lived release-prep PR.
-3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
-4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
-5. Link release notes and tag artifacts to the finalized changelog section.
 
 ## [v1.1.3] - 2026-04-21
 <!-- release-semver: patch -->
