@@ -257,7 +257,7 @@ else
   brew_local_formula_path="$brew_local_tap_dir/Formula/${brew_local_formula_name}.rb"
 
   brew untap "$brew_local_tap_name" >/dev/null 2>&1 || true
-  brew tap-new "$brew_local_tap_name"
+  brew tap-new --no-git "$brew_local_tap_name"
 
   mkdir -p "$(dirname "$brew_local_formula_path")"
   cat >"$brew_local_formula_path" <<RB
