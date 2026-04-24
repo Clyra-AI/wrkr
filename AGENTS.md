@@ -60,7 +60,7 @@ Minimum high-priority surfaces to preserve:
 - Cursor: `.cursor/rules/*.mdc`, `.cursorrules`, `.cursor/mcp.json`
 - Codex: `.codex/config.toml`, `.codex/config.yaml`, `AGENTS.md`, `AGENTS.override.md`
 - Copilot: `.github/copilot-*`, `.vscode/mcp.json`
-- Skills: `.claude/skills/`, `.agents/skills/`
+- Skills: `.claude/skills/`, `.agents/skills/`, `factory/skills/`
 - CI agent usage: `.github/workflows/`, Jenkinsfiles, headless/autonomous execution patterns
 - MCP declarations, transport, annotations, and supply-chain trust signals
 

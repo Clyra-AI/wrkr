@@ -1,6 +1,9 @@
 # Skills Directory Notice
 
-`.agents/skills/` is public transparency content for Wrkr contributor/automation workflows.
+`.agents/skills/` is public transparency content for Wrkr-specific contributor/automation workflows.
+
+Shared Factory skills are sourced from the optional `factory` submodule at `factory/skills/`.
+Keep only Wrkr-specific local skills in this directory.
 
 Requirements:
 

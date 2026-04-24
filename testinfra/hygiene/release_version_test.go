@@ -496,21 +496,20 @@ func TestCutReleaseSkillReferencesDeterministicResolver(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := mustFindRepoRoot(t)
-	skillPath := filepath.Join(repoRoot, ".agents/skills/cut-release/SKILL.md")
-	skill := mustReadFile(t, skillPath)
+	skillPath := filepath.Join(repoRoot, "factory/skills/cut-release/SKILL.md")
+	skill := readFactorySkillOrSkip(t, skillPath)
 
 	for _, token := range []string{
-		"python3 scripts/resolve_release_version.py --json",
-		"python3 scripts/finalize_release_changelog.py --release-version <version> --json",
-		"python3 scripts/validate_release_changelog.py --release-version <version> --json",
+		"factory/scripts/resolve_release_version.py --repo-root . --json",
+		"factory/scripts/finalize_release_changelog.py --repo-root . --release-version <version> --json",
+		"factory/scripts/validate_release_changelog.py --repo-root . --release-version <version> --json",
 		"release-prep PR",
-		"git checkout -b codex/release-prep-<version>",
-		"gh pr create --base main --head codex/release-prep-<version>",
-		"gh pr merge",
+		"profile `cut_release.versioning.resolver`",
+		"profile `cut_release.release.workflow`",
 		"[semver:major]",
 		"[semver:minor]",
 		"[semver:patch]",
-		"CHANGELOG.md",
+		"changelog",
 	} {
 		if !strings.Contains(skill, token) {
 			t.Fatalf("expected cut-release skill to reference %q", token)
