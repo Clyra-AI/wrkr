@@ -744,9 +744,9 @@ cosign verify-blob --certificate dist/checksums.txt.pem \
 ### Command Latency Budgets
 
 - **File**: `perf/runtime_slo_budgets.json`.
-- **Metrics**: p50, p95, p99 milliseconds per command. 0% error rate required.
-- **Repeats**: 7 invocations per command per gate.
-- **Validation**: `scripts/check_command_budgets.py`.
+- **Metrics**: p95 milliseconds per command. 0% error rate required.
+- **Repeats**: two independent windows of 5 invocations per command per gate; either window may satisfy the SLO to avoid false positives from short hosted-runner bursts.
+- **Validation**: `scripts/test_perf_budgets.sh`.
 
 ### Resource Budgets
 

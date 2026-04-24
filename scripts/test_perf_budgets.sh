@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${WRKR_PERF_BUDGETS_CLEAN_ENV:-0}" != "1" ]]; then
+  # GitHub's CodeQL action leaves tracer variables in the job environment after
+  # init. Command-latency budgets must measure Wrkr itself, not CodeQL tracing.
+  for name in "${!CODEQL_@}" "${!SEMMLE_@}"; do
+    unset "$name"
+  done
+  unset LD_PRELOAD
+  export WRKR_PERF_BUDGETS_CLEAN_ENV=1
+  exec "$0" "$@"
+fi
+
 if ! command -v python3 >/dev/null 2>&1; then
   echo "python3 is required for benchmark budget validation" >&2
   exit 7
