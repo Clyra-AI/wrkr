@@ -3,10 +3,9 @@
 Date: 2026-04-24
 Profile: `wrkr`
 Slug: `source-privacy-governance`
-Local repo root: `/Users/tr/Clyra/wrkr`
 Recommendation source: user-provided source privacy, artifact redaction, control-path governance, lifecycle, runtime ingest, and security-test backlog recommendations.
 
-All absolute path examples from the recommendation source are normalized to the active workspace root `/Users/tr/Clyra/wrkr`. Story repo paths below are repo-relative for portability and resolve under that root.
+All workstation-specific absolute path examples from the recommendation source are normalized to repo-relative paths. Story repo paths below resolve from the active checkout root.
 
 ## Global Decisions (Locked)
 
