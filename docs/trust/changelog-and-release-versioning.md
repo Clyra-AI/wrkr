@@ -39,8 +39,8 @@ This avoids pushing release-note judgment into the release step.
 
 Relevant planning files:
 
-- `.agents/skills/adhoc-plan/SKILL.md`
-- `.agents/skills/backlog-plan/SKILL.md`
+- `factory/skills/adhoc-plan/SKILL.md`
+- `factory/skills/backlog-plan/SKILL.md`
 - `product/PLAN_NEXT.md` or another generated plan file
 
 ### Implementation
@@ -51,8 +51,7 @@ They only add or skip `Unreleased` entries according to the plan.
 
 Relevant implementation files:
 
-- `.agents/skills/adhoc-implement/SKILL.md`
-- `.agents/skills/backlog-implement/SKILL.md`
+- `factory/skills/plan-implement/SKILL.md`
 - `CHANGELOG.md`
 
 ### Release prep
@@ -65,7 +64,7 @@ Relevant release files:
 - `scripts/resolve_release_version.py`
 - `scripts/finalize_release_changelog.py`
 - `scripts/validate_release_changelog.py`
-- `.agents/skills/cut-release/SKILL.md`
+- `factory/skills/cut-release/SKILL.md`
 - `.github/workflows/release.yml`
 
 ### CI
@@ -269,7 +268,7 @@ The semver source of truth for release planning and the permanent versioned rele
 The tag-triggered release workflow.
 It validates the finalized changelog before running the rest of the release pipeline.
 
-### `.agents/skills/cut-release/SKILL.md`
+### `factory/skills/cut-release/SKILL.md`
 
 The release operator workflow for this repo.
 It now requires:
@@ -279,13 +278,13 @@ It now requires:
 - validating the prepared version
 - landing that changelog-prep state through a release-prep PR before tagging
 
-### `.agents/skills/adhoc-plan/SKILL.md` and `.agents/skills/backlog-plan/SKILL.md`
+### `factory/skills/adhoc-plan/SKILL.md` and `factory/skills/backlog-plan/SKILL.md`
 
 Planning contracts that decide what should be written to `Unreleased`.
 
-### `.agents/skills/adhoc-implement/SKILL.md` and `.agents/skills/backlog-implement/SKILL.md`
+### `factory/skills/plan-implement/SKILL.md`
 
-Implementation contracts that apply planned changelog entries during story execution.
+Implementation contract that applies planned changelog entries during story execution.
 
 ### `testinfra/hygiene/release_version_test.go`
 
