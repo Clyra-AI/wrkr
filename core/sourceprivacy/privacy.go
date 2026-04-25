@@ -162,24 +162,21 @@ func (s Sanitizer) Strings(values []string) []string {
 
 func ContainsMaterializedSourcePath(value string) bool {
 	normalized := filepath.ToSlash(strings.TrimSpace(value))
-	return strings.Contains(normalized, ".wrkr/materialized-sources") ||
-		strings.Contains(normalized, "/materialized-sources/")
+	return strings.Contains(normalized, ".wrkr/materialized-sources")
 }
 
 func redactMaterializedSegment(value string) string {
 	normalized := filepath.ToSlash(value)
-	for _, marker := range []string{".wrkr/materialized-sources/", "materialized-sources/"} {
-		idx := strings.Index(normalized, marker)
-		if idx < 0 {
-			continue
-		}
-		tail := strings.TrimPrefix(normalized[idx+len(marker):], "/")
-		if tail == "" {
-			return "redacted://materialized-source"
-		}
-		return "redacted://materialized-source/" + tail
+	const marker = ".wrkr/materialized-sources/"
+	idx := strings.Index(normalized, marker)
+	if idx < 0 {
+		return value
 	}
-	return value
+	tail := strings.TrimPrefix(normalized[idx+len(marker):], "/")
+	if tail == "" {
+		return "redacted://materialized-source"
+	}
+	return "redacted://materialized-source/" + tail
 }
 
 func uniqueSortedStrings(values []string) []string {
