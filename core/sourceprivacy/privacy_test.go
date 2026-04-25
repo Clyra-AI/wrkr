@@ -39,3 +39,29 @@ func TestSanitizerRedactsMaterializedSourceRoots(t *testing.T) {
 		t.Fatalf("expected sanitizer to modify materialized path %s", value)
 	}
 }
+
+func TestSanitizerRedactsLegacyManagedMaterializedPath(t *testing.T) {
+	t.Parallel()
+
+	value := "/tmp/work/.wrkr/materialized-sources/acme/backend/.codex/config.toml"
+	got := NewSanitizer().String(value)
+	if got == value {
+		t.Fatalf("expected legacy managed materialized path to be redacted")
+	}
+	if ContainsMaterializedSourcePath(got) {
+		t.Fatalf("expected redacted output to omit managed materialized path markers, got %s", got)
+	}
+}
+
+func TestSanitizerDoesNotRedactUnmanagedMaterializedSourcesSegment(t *testing.T) {
+	t.Parallel()
+
+	value := "/repo/docs/materialized-sources/reference.md"
+	got := NewSanitizer().String(value)
+	if got != value {
+		t.Fatalf("expected unmanaged materialized-sources segment to remain unchanged, got %s", got)
+	}
+	if ContainsMaterializedSourcePath(value) {
+		t.Fatalf("expected unmanaged path not to match managed materialized root detection")
+	}
+}
