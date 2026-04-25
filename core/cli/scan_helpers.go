@@ -39,9 +39,11 @@ type materializedRootSafetyError struct {
 }
 
 type acquireOptions struct {
-	StatePath string
-	Progress  *scanProgressReporter
-	Resume    bool
+	StatePath                  string
+	Progress                   *scanProgressReporter
+	Resume                     bool
+	MaterializedRoot           string
+	AllowSourceMaterialization bool
 }
 
 type repeatedStringFlag []string
@@ -199,25 +201,17 @@ func acquireSources(ctx context.Context, targets []config.Target, githubBaseURL,
 	}
 
 	connector := github.NewConnector(githubBaseURL, githubToken, nil)
+	connector.SetAllowSourceMaterialization(opts.AllowSourceMaterialization)
 	manifestOut := source.Manifest{
-		Target:  manifestTargetFromTargets(targets),
-		Targets: manifestTargets(targets),
+		Target:           manifestTargetFromTargets(targets),
+		Targets:          manifestTargets(targets),
+		MaterializedRoot: strings.TrimSpace(opts.MaterializedRoot),
 	}
-	materializeRoot := ""
+	materializeRoot := strings.TrimSpace(opts.MaterializedRoot)
 	if targetsNeedMaterializedRoot(targets) {
-		var (
-			root string
-			err  error
-		)
-		if opts.Resume {
-			root, err = prepareMaterializedRootForResume(opts.StatePath)
-		} else {
-			root, err = prepareMaterializedRoot(opts.StatePath)
+		if materializeRoot == "" {
+			return source.Manifest{}, nil, fmt.Errorf("materialized source root is required for hosted source acquisition")
 		}
-		if err != nil {
-			return source.Manifest{}, nil, err
-		}
-		materializeRoot = root
 	}
 	if opts.Resume {
 		if !allTargetsAreOrg(targets) {
@@ -546,6 +540,48 @@ func prepareMaterializedRootForResume(statePath string) (string, error) {
 	return root, nil
 }
 
+func cleanupManagedMaterializedRoot(statePath string, root string) error {
+	cleanRoot := filepath.Clean(strings.TrimSpace(root))
+	if cleanRoot == "" || cleanRoot == "." {
+		return nil
+	}
+	info, err := os.Lstat(cleanRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("lstat materialized source root: %w", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return newMaterializedRootSafetyError("materialized source root must not be a symlink: %s", cleanRoot)
+	}
+	if !info.IsDir() {
+		return newMaterializedRootSafetyError("materialized source root is not a directory: %s", cleanRoot)
+	}
+	markerPath := filepath.Join(cleanRoot, materializedRootMarkerFile)
+	markerInfo, err := os.Lstat(markerPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return newMaterializedRootSafetyError("materialized source root is not managed by wrkr scan: %s", cleanRoot)
+		}
+		return fmt.Errorf("stat materialized source root marker: %w", err)
+	}
+	if !markerInfo.Mode().IsRegular() {
+		return newMaterializedRootSafetyError("materialized source root marker is not a regular file: %s", markerPath)
+	}
+	markerPayload, err := os.ReadFile(markerPath) // #nosec G304 -- marker path is deterministic under the selected local materialized source root.
+	if err != nil {
+		return fmt.Errorf("read materialized source root marker: %w", err)
+	}
+	if err := managedmarker.ValidatePayload(statePath, cleanRoot, materializedRootMarkerKind, markerPayload); err != nil {
+		return newMaterializedRootSafetyError("materialized source root marker content is invalid: %s", markerPath)
+	}
+	if err := os.RemoveAll(cleanRoot); err != nil {
+		return fmt.Errorf("remove materialized source root: %w", err)
+	}
+	return nil
+}
+
 func prepareManagedMaterializedRoot(root string, statePath string, reset bool) error {
 	info, err := os.Lstat(root)
 	if err != nil {
@@ -641,15 +677,18 @@ func evaluatePolicies(scopes []detect.Scope, findings []source.Finding, customPo
 func detectorScopes(manifestOut source.Manifest) []detect.Scope {
 	scopes := make([]detect.Scope, 0, len(manifestOut.Repos))
 	for _, repo := range manifestOut.Repos {
-		location := strings.TrimSpace(repo.Location)
-		if location == "" {
+		root := strings.TrimSpace(repo.ScanRoot)
+		if root == "" {
+			root = strings.TrimSpace(repo.Location)
+		}
+		if root == "" {
 			continue
 		}
 		orgName := deriveOrg(repo)
 		scopes = append(scopes, detect.Scope{
 			Org:        orgName,
 			Repo:       repo.Repo,
-			Root:       location,
+			Root:       root,
 			TargetMode: scopeTargetMode(manifestOut.Target, repo),
 		})
 	}

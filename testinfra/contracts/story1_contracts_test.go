@@ -81,6 +81,7 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 		"scan_mode",
 		"scan_quality",
 		"source_manifest",
+		"source_privacy",
 		"status",
 		"target",
 		"top_attack_paths",
@@ -105,6 +106,13 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	}
 	if scanQuality["scan_quality_version"] != "1" {
 		t.Fatalf("unexpected scan_quality_version: %v", scanQuality["scan_quality_version"])
+	}
+	sourcePrivacy, ok := payload["source_privacy"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected source_privacy object, got %T", payload["source_privacy"])
+	}
+	if sourcePrivacy["raw_source_in_artifacts"] != false {
+		t.Fatalf("expected raw_source_in_artifacts=false, got %v", sourcePrivacy["raw_source_in_artifacts"])
 	}
 
 	inventoryPayload, ok := payload["inventory"].(map[string]any)
@@ -154,7 +162,7 @@ func TestDiffJSONContractStableKeys(t *testing.T) {
 		t.Fatalf("parse diff payload: %v", err)
 	}
 	got := sortedKeys(payload)
-	want := []string{"diff", "diff_empty", "scan_mode", "scan_quality", "source_manifest", "status", "target"}
+	want := []string{"diff", "diff_empty", "scan_mode", "scan_quality", "source_manifest", "source_privacy", "status", "target"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected top-level keys: got %v want %v", got, want)
 	}

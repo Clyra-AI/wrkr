@@ -19,6 +19,10 @@ Yes. Wrkr scan/risk/proof paths are deterministic by default for fixed inputs.
 
 No. Core operation is local and file-based by default.
 
+### Does Wrkr upload or retain private source code?
+
+Wrkr does not upload source code by default. Hosted `--repo` and `--org` scans fetch required detector files from GitHub into a local managed workspace, emit logical repository locations in shareable artifacts, and remove the materialized source root after scan artifacts commit. Retention is explicit through `--source-retention retain_for_resume` or `--source-retention retain`; generic source-file fetching requires `--mode deep` or `--allow-source-materialization`.
+
 ### Does Wrkr require setup for repo or org scans?
 
 `--path` is the zero-integration first-value path. Hosted `--repo` and `--org` scans require explicit GitHub API configuration via `--github-api`, config `github_api_base`, or `WRKR_GITHUB_API_BASE`, and they usually also need a GitHub token for private repos or to avoid public API rate limits. Token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.

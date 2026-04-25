@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
@@ -22,24 +23,25 @@ const (
 )
 
 type ScanStatus struct {
-	ScanStatusVersion   string            `json:"scan_status_version"`
-	Status              string            `json:"status"`
-	StatePath           string            `json:"state_path"`
-	Target              any               `json:"target,omitempty"`
-	Targets             any               `json:"targets,omitempty"`
-	CurrentPhase        string            `json:"current_phase,omitempty"`
-	LastSuccessfulPhase string            `json:"last_successful_phase,omitempty"`
-	RepoTotal           int               `json:"repo_total,omitempty"`
-	ReposCompleted      int               `json:"repos_completed,omitempty"`
-	ReposFailed         int               `json:"repos_failed,omitempty"`
-	PartialResult       bool              `json:"partial_result,omitempty"`
-	PartialResultMarker string            `json:"partial_result_marker,omitempty"`
-	StartedAt           string            `json:"started_at,omitempty"`
-	UpdatedAt           string            `json:"updated_at,omitempty"`
-	CompletedAt         string            `json:"completed_at,omitempty"`
-	Error               string            `json:"error,omitempty"`
-	ArtifactPaths       map[string]string `json:"artifact_paths,omitempty"`
-	PhaseTimings        []PhaseTiming     `json:"phase_timings,omitempty"`
+	ScanStatusVersion   string                  `json:"scan_status_version"`
+	Status              string                  `json:"status"`
+	StatePath           string                  `json:"state_path"`
+	Target              any                     `json:"target,omitempty"`
+	Targets             any                     `json:"targets,omitempty"`
+	CurrentPhase        string                  `json:"current_phase,omitempty"`
+	LastSuccessfulPhase string                  `json:"last_successful_phase,omitempty"`
+	RepoTotal           int                     `json:"repo_total,omitempty"`
+	ReposCompleted      int                     `json:"repos_completed,omitempty"`
+	ReposFailed         int                     `json:"repos_failed,omitempty"`
+	PartialResult       bool                    `json:"partial_result,omitempty"`
+	PartialResultMarker string                  `json:"partial_result_marker,omitempty"`
+	StartedAt           string                  `json:"started_at,omitempty"`
+	UpdatedAt           string                  `json:"updated_at,omitempty"`
+	CompletedAt         string                  `json:"completed_at,omitempty"`
+	Error               string                  `json:"error,omitempty"`
+	ArtifactPaths       map[string]string       `json:"artifact_paths,omitempty"`
+	PhaseTimings        []PhaseTiming           `json:"phase_timings,omitempty"`
+	SourcePrivacy       *sourceprivacy.Contract `json:"source_privacy,omitempty"`
 }
 
 type PhaseTiming struct {
@@ -99,6 +101,7 @@ func LoadScanStatus(statePath string) (ScanStatus, error) {
 			CurrentPhase:        "artifact_commit",
 			LastSuccessfulPhase: "artifact_commit",
 			ArtifactPaths:       map[string]string{"state": filepath.Clean(resolved)},
+			SourcePrivacy:       snapshot.SourcePrivacy,
 		}, nil
 	}
 	return ScanStatus{
@@ -123,6 +126,10 @@ func normalizeScanStatus(statePath string, status ScanStatus) ScanStatus {
 			normalized[key] = filepath.Clean(value)
 		}
 		status.ArtifactPaths = normalized
+	}
+	if status.SourcePrivacy != nil {
+		normalizedPrivacy := sourceprivacy.Normalize(*status.SourcePrivacy)
+		status.SourcePrivacy = &normalizedPrivacy
 	}
 	return status
 }

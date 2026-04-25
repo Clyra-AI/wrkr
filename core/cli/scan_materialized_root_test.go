@@ -3,10 +3,15 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/internal/managedmarker"
 )
 
@@ -131,6 +136,53 @@ func TestPrepareMaterializedRootRejectsLegacyMarkerContent(t *testing.T) {
 	}
 }
 
+func TestCleanupManagedMaterializedRootRemovesManagedRoot(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "last-scan.json")
+	root, err := prepareMaterializedRoot(statePath)
+	if err != nil {
+		t.Fatalf("prepare materialized root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "source.txt"), []byte("private-source-sentinel"), 0o600); err != nil {
+		t.Fatalf("write source sentinel: %v", err)
+	}
+
+	if err := cleanupManagedMaterializedRoot(statePath, root); err != nil {
+		t.Fatalf("cleanup managed materialized root: %v", err)
+	}
+	if _, statErr := os.Stat(root); !os.IsNotExist(statErr) {
+		t.Fatalf("expected managed materialized root to be removed, stat err=%v", statErr)
+	}
+}
+
+func TestCleanupManagedMaterializedRootRejectsUnmanagedRoot(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "last-scan.json")
+	root := filepath.Join(filepath.Dir(statePath), "materialized-sources")
+	if err := os.MkdirAll(root, 0o750); err != nil {
+		t.Fatalf("mkdir root: %v", err)
+	}
+	sentinel := filepath.Join(root, "keep.txt")
+	if err := os.WriteFile(sentinel, []byte("keep"), 0o600); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
+
+	err := cleanupManagedMaterializedRoot(statePath, root)
+	if err == nil {
+		t.Fatal("expected unmanaged root cleanup to be rejected")
+	}
+	if !isMaterializedRootSafetyError(err) {
+		t.Fatalf("expected materialized root safety error, got: %v", err)
+	}
+	if _, statErr := os.Stat(sentinel); statErr != nil {
+		t.Fatalf("expected unmanaged sentinel to remain, got: %v", statErr)
+	}
+}
+
 func TestScanRepoDoesNotDeleteUnmanagedMaterializedSources(t *testing.T) {
 	t.Parallel()
 
@@ -176,5 +228,104 @@ func TestScanRepoDoesNotDeleteUnmanagedMaterializedSources(t *testing.T) {
 	}
 	if errObj["exit_code"] != float64(exitUnsafeBlocked) {
 		t.Fatalf("unexpected error exit code: %v", errObj["exit_code"])
+	}
+}
+
+func TestScanInvalidSourceRetentionReturnsInvalidInput(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", t.TempDir(), "--source-retention", "forever", "--json"}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected exit %d, got %d (%s)", exitInvalidInput, code, errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+	if out.Len() != 0 {
+		t.Fatalf("expected no stdout on invalid input, got %q", out.String())
+	}
+}
+
+func TestScanHostedDefaultRemovesMaterializedRootAndSerializesLogicalLocation(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main"}`)
+		case "/repos/acme/backend/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-agents"},{"path":"src/private.py","type":"blob","sha":"sha-source"}]}`)
+		case "/repos/acme/backend/git/blobs/sha-agents":
+			_, _ = fmt.Fprint(w, `{"content":"hosted instructions\n","encoding":"utf-8"}`)
+		case "/repos/acme/backend/git/blobs/sha-source":
+			t.Fatalf("default hosted scan should not fetch generic source blob %s", r.URL.Path)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "last-scan.json")
+	materializedRoot := filepath.Join(filepath.Dir(statePath), "materialized-sources")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--repo", "acme/backend",
+		"--github-api", server.URL,
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("hosted scan failed: %d (%s)", code, errOut.String())
+	}
+	if strings.Contains(out.String(), "materialized-sources") || strings.Contains(errOut.String(), "materialized-sources") {
+		t.Fatalf("expected hosted scan output to avoid materialized root paths\nstdout=%s\nstderr=%s", out.String(), errOut.String())
+	}
+	if _, statErr := os.Stat(materializedRoot); !os.IsNotExist(statErr) {
+		t.Fatalf("expected default hosted scan to remove materialized root, stat err=%v", statErr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan payload: %v", err)
+	}
+	sourceManifest, ok := payload["source_manifest"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected source manifest object, got %T", payload["source_manifest"])
+	}
+	repos, ok := sourceManifest["repos"].([]any)
+	if !ok || len(repos) != 1 {
+		t.Fatalf("expected one source repo, got %v", sourceManifest["repos"])
+	}
+	repo, ok := repos[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected repo object, got %T", repos[0])
+	}
+	if repo["location"] != "github://acme/backend" {
+		t.Fatalf("expected logical hosted location, got %v", repo["location"])
+	}
+	if _, ok := repo["scan_root"]; ok {
+		t.Fatalf("scan_root must not be serialized in source manifest: %v", repo)
+	}
+	privacy, ok := payload["source_privacy"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected source_privacy object, got %T", payload["source_privacy"])
+	}
+	if privacy["retention_mode"] != sourceprivacy.RetentionEphemeral {
+		t.Fatalf("unexpected retention mode: %v", privacy["retention_mode"])
+	}
+	if privacy["cleanup_status"] != sourceprivacy.CleanupRemoved {
+		t.Fatalf("unexpected cleanup status: %v", privacy["cleanup_status"])
+	}
+	if privacy["materialized_source_retained"] != false {
+		t.Fatalf("expected materialized_source_retained=false, got %v", privacy["materialized_source_retained"])
+	}
+	if privacy["raw_source_in_artifacts"] != false {
+		t.Fatalf("expected raw_source_in_artifacts=false, got %v", privacy["raw_source_in_artifacts"])
+	}
+	if privacy["serialized_locations"] != sourceprivacy.SerializedLocationsLogical {
+		t.Fatalf("unexpected serialized locations: %v", privacy["serialized_locations"])
 	}
 }

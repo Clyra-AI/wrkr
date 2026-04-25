@@ -16,6 +16,41 @@
     "framework_coverage": {
       "type": "object",
       "additionalProperties": {"type": "number"}
+    },
+    "source_privacy": {
+      "$ref": "#/definitions/sourcePrivacy"
+    }
+  },
+  "definitions": {
+    "sourcePrivacy": {
+      "type": "object",
+      "required": [
+        "retention_mode",
+        "materialized_source_retained",
+        "raw_source_in_artifacts",
+        "serialized_locations",
+        "cleanup_status"
+      ],
+      "properties": {
+        "retention_mode": {
+          "type": "string",
+          "enum": ["ephemeral", "retain_for_resume", "retain"]
+        },
+        "materialized_source_retained": {"type": "boolean"},
+        "raw_source_in_artifacts": {"type": "boolean"},
+        "serialized_locations": {
+          "type": "string",
+          "enum": ["logical", "filesystem"]
+        },
+        "cleanup_status": {
+          "type": "string",
+          "enum": ["not_applicable", "pending", "removed", "retained", "failed"]
+        },
+        "warnings": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
     }
   },
   "additionalProperties": true

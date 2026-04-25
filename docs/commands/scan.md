@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--source-retention ephemeral|retain_for_resume|retain] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
 wrkr scan status --state <path> [--json]
 ```
 
@@ -36,12 +36,15 @@ Acquisition behavior is fail-closed by target:
 - `--my-setup` runs fully local/offline against the local machine setup rooted at the current user home directory.
   It inspects supported user-home tool configs, selected environment key names, and common workspace roots for local agent project markers without emitting raw secret values.
 - `--repo` and `--org` require real GitHub acquisition via `--github-api`, config `github_api_base`, or `WRKR_GITHUB_API_BASE`.
-- Hosted GitHub materialization is sparse by default: Wrkr fetches detector-relevant files such as agent instructions, MCP/Codex/Cursor/Claude configs, skills, workflows, policy files, dependency manifests, and AI/MCP/source markers instead of every repository blob.
+- Hosted GitHub materialization is sparse by default: Wrkr fetches detector-relevant files such as agent instructions, MCP/Codex/Cursor/Claude configs, skills, workflows, policy files, dependency manifests, and AI/MCP declaration surfaces instead of every repository blob.
+- Hosted scans do not fetch broad source-code extensions by default. Use `--mode deep` or `--allow-source-materialization` only when you explicitly want generic source files such as `.go`, `.py`, `.js`, or `.ts` to be materialized for deeper static detector coverage.
 - Hosted GitHub API base resolution order is: `--github-api`, config `github_api_base`, then `WRKR_GITHUB_API_BASE`.
 - Hosted GitHub token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
 - `--github-org` is an additive alias for `--org`.
 - Explicit multi-target scans set `target.mode=multi` and add deterministic `targets[]` arrays to the top-level scan payload, saved state snapshot, and `source_manifest`.
-- `--repo` and `--org` materialize repository contents into a deterministic local workspace under the scan state directory before detectors run.
+- `--repo` and `--org` materialize the required hosted files into a deterministic local workspace under the scan state directory before detectors run.
+- Hosted materialized source retention defaults to `--source-retention ephemeral`: Wrkr removes the managed materialized root after scan artifacts are committed, and it also cleans up failed runs unless retention is explicitly requested. Use `retain_for_resume` to preserve materialized files after a failed/interrupted run for resume, or `retain` to keep them after success. Both modes leave private repository contents on disk and should be used deliberately.
+- Hosted scan artifacts emit `source_privacy` with `retention_mode`, `materialized_source_retained`, `raw_source_in_artifacts=false`, `serialized_locations`, `cleanup_status`, and optional warnings.
 - Materialized workspace root (`materialized-sources/`) is ownership-gated:
   - Wrkr-managed roots include marker `.wrkr-materialized-sources-managed` with state-bound provenance, not just a static marker body.
   - Non-empty roots without a valid marker are blocked (no recursive cleanup).
@@ -81,6 +84,8 @@ Scan mode behavior is explicit:
 - `--my-setup`
 - `--target`
 - `--mode`
+- `--source-retention`
+- `--allow-source-materialization`
 - `--timeout`
 - `--diff`
 - `--enrich`
@@ -108,7 +113,7 @@ Scan mode behavior is explicit:
 wrkr scan status --state ./.wrkr/last-scan.json --json
 ```
 
-The status payload includes `status`, `current_phase`, `last_successful_phase`, repo counts, `partial_result`, `partial_result_marker`, phase timings, and artifact paths.
+The status payload includes `status`, `current_phase`, `last_successful_phase`, repo counts, `partial_result`, `partial_result_marker`, phase timings, artifact paths, and `source_privacy` when scan state includes source-retention metadata.
 Existing state files without a status sidecar are interpreted as `completed` when the state snapshot can be loaded, otherwise `unknown`.
 
 ## Developer personal-hygiene example
@@ -157,6 +162,7 @@ wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/
 When `--json` is set for hosted org and local path scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, per-repo materialization completion/discovery, scan phase, and completion lines to stderr only. Scan phase progress includes deterministic phase labels, elapsed `duration_ms`, and repo counters. For hosted scans, `repo_materialize` means a repo job was dispatched to a worker and `repo_materialize_done` means that repo reached a success or failure result. For path scans, `repo_discovered` means a local repo root was selected for detector execution. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file. Any requested `--json-path`, `--report-md-path`, or `--sarif-path` must be unique from one another and from scan-managed `--state` sibling artifacts.
 `--resume` is supported only when every requested target is an org target. Wrkr stores internal checkpoint metadata under the scan-state directory in `org-checkpoints/` and reuses already-materialized repositories only when the checkpoint target set, per-org repo sets, and materialized-root path still match the current org-target scan.
 Resume also revalidates that checkpoint files and reused repo roots are still trusted local artifacts under the managed materialized root; symlink-swapped entries fail closed as `unsafe_operation_blocked`.
+Default successful hosted scans remove that managed root, so resume from retained materialized source requires an explicit retention mode such as `--source-retention retain` for completed runs or `retain_for_resume` for failed/interrupted runs.
 Mixed target sets such as org-plus-path scans fail closed with `invalid_input` when `--resume` is requested.
 If a run is interrupted after some repositories are checkpointed, rerun the same target with `--resume` and keep the same `--state` path. Use `wrkr scan status --state <path> --json` to inspect the last successful phase and partial marker before rerunning. If `partial_result`, `source_errors`, or `source_degraded` is present, treat the scan as incomplete and rerun after the blocking condition is resolved.
 
@@ -180,7 +186,7 @@ wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --re
 ```
 
 This is the canonical `repo_set` example for `--path`: the selected directory is a bundle of immediate child repos, so Wrkr preserves per-child repo manifests and deterministic ordering instead of collapsing the bundle into one repo.
-Expected JSON keys include `status`, `target`, `scan_mode`, `scan_quality`, `findings`, additive `control_backlog`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
+Expected JSON keys include `status`, `target`, `source_privacy`, `scan_mode`, `scan_quality`, `findings`, additive `control_backlog`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
 Explicit multi-target runs also emit additive `targets[]` arrays at the top level and inside `source_manifest`, and saved state snapshots preserve the same additive `targets[]` contract.
 `control_backlog.control_backlog_version` is the stable backlog schema version. `control_backlog.items[*]` includes repo, path, control surface/path type, capability, additive `write_path_classes`, additive `governance_controls`, owner/source/status, evidence source/basis, approval status, governance security visibility, signal class (`unique_wrkr_signal|supporting_security_signal`), recommended action (`attach_evidence|approve|remediate|downgrade|deprecate|exclude|monitor|inventory_review|suppress|debug_only`), confidence (`high|medium|low`), evidence gaps, confidence-raising guidance, SLA, closure criteria, optional secret signal types, and linked raw finding IDs. Raw `findings` remain the compatibility evidence surface.
 Governance backlog visibility uses `known_approved`, `known_unapproved`, `unknown_to_security`, `accepted_risk`, `deprecated`, `revoked`, and `needs_review`. Legacy inventory compatibility fields may still emit or accept `approved` for existing consumers, while new backlog items map that state to `known_approved`.
@@ -224,7 +230,7 @@ When a downstream workflow does not have a usable `reference_basis`, Wrkr suppre
 `--approved-tools <path>` accepts a schema-validated YAML policy (`schemas/v1/policy/approved-tools.schema.json`) for explicit approved-list matching (`tool_ids`, `agent_ids`, `tool_types`, `orgs`, `repos` via exact/prefix sets).
 Invalid `--approved-tools` policy files fail closed with `invalid_input` (exit `6`).
 For `--my-setup`, omitting `--approved-tools` keeps `inventory.local_governance.reference_basis=unavailable` instead of fabricating sanctioned or unsanctioned local claims.
-For `--repo` and `--org` scans, `source_manifest.repos[*].source` is `github_repo_materialized`, and `source_manifest.repos[*].location` points to the deterministic materialized local root used for detector execution.
+For `--repo` and `--org` scans, `source_manifest.repos[*].source` is `github_repo_materialized`, and `source_manifest.repos[*].location` is a logical hosted reference such as `github://acme/backend`. The detector filesystem root is internal-only and is not serialized in customer-facing artifacts.
 Prompt-channel findings use stable reason codes and evidence hashes only (`pattern_family`, `evidence_snippet_hash`, `location_class`, `confidence_class`) and do not emit raw secret values.
 Secret-bearing workflow evidence separates `secret_reference_detected`, `secret_value_detected`, `secret_scope_unknown`, `secret_rotation_evidence_missing`, `secret_owner_missing`, and `secret_used_by_write_capable_workflow`. Workflow references such as `${{ secrets.NAME }}` are classified as references, not leaked values, and raw secret values are not emitted.
 When `--enrich` is enabled, MCP findings include enrich provenance and quality fields: `source`, `as_of`, `package`, `version`, `advisory_count`, `registry_status`, `enrich_quality` (`ok|partial|stale|unavailable`), `advisory_schema`, `registry_schema`, and `enrich_errors`.
@@ -249,7 +255,8 @@ SARIF contract:
 
 - `--sarif` emits a SARIF `2.1.0` report from scan findings.
 - `--sarif-path` selects output path (default `wrkr.sarif`).
-- Native `scan --json` payloads and proof outputs remain unchanged; SARIF is additive.
+- SARIF runs include `properties.source_privacy` when source-retention metadata is available.
+- The core `scan --json` contract remains backward-compatible; SARIF is additive.
 
 Approved-tools policy example: [`docs/examples/approved-tools.v1.yaml`](../examples/approved-tools.v1.yaml).
 

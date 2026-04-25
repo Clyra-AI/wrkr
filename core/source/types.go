@@ -18,6 +18,7 @@ const TargetModeMulti = "multi"
 type RepoManifest struct {
 	Repo              string                 `json:"repo"`
 	Location          string                 `json:"location"`
+	ScanRoot          string                 `json:"-" yaml:"-"`
 	Source            string                 `json:"source"`
 	OwnershipMetadata *RepoOwnershipMetadata `json:"ownership_metadata,omitempty"`
 }
@@ -35,10 +36,11 @@ type RepoFailure struct {
 
 // Manifest is the deterministic source acquisition output.
 type Manifest struct {
-	Target   Target         `json:"target"`
-	Targets  []Target       `json:"targets,omitempty"`
-	Repos    []RepoManifest `json:"repos"`
-	Failures []RepoFailure  `json:"failures,omitempty"`
+	Target           Target         `json:"target"`
+	Targets          []Target       `json:"targets,omitempty"`
+	Repos            []RepoManifest `json:"repos"`
+	Failures         []RepoFailure  `json:"failures,omitempty"`
+	MaterializedRoot string         `json:"-" yaml:"-"`
 }
 
 // Finding is the canonical scan record used by diff/state.

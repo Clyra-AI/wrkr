@@ -89,7 +89,7 @@ func TestScanResumeMismatchReturnsInvalidInput(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	var firstOut bytes.Buffer
 	var firstErr bytes.Buffer
-	if code := Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", statePath, "--json"}, &firstOut, &firstErr); code != exitSuccess {
+	if code := Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", statePath, "--source-retention", "retain", "--json"}, &firstOut, &firstErr); code != exitSuccess {
 		t.Fatalf("initial scan failed: %d (%s)", code, firstErr.String())
 	}
 
@@ -123,7 +123,7 @@ func TestScanResumeSuccessEmitsResumeProgress(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	var firstOut bytes.Buffer
 	var firstErr bytes.Buffer
-	if code := Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", statePath, "--json"}, &firstOut, &firstErr); code != exitSuccess {
+	if code := Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", statePath, "--source-retention", "retain", "--json"}, &firstOut, &firstErr); code != exitSuccess {
 		t.Fatalf("initial scan failed: %d (%s)", code, firstErr.String())
 	}
 

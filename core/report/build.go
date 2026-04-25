@@ -22,6 +22,7 @@ import (
 	templatespkg "github.com/Clyra-AI/wrkr/core/report/templates"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/source"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 	verifycore "github.com/Clyra-AI/wrkr/core/verify"
 )
@@ -87,6 +88,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
 	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
 	controlBacklog := in.Snapshot.ControlBacklog
+	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -104,7 +106,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	securityVisibility := securityVisibilityFromInventory(in.Snapshot.Inventory)
 	nextActions := buildNextActions(riskItems, lifecycleSummary, regressSummary)
 	pack := templatespkg.Resolve(string(template))
-	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, complianceSummary, privilegeBudget, securityVisibility, deltas, lifecycleSummary, regressSummary, proofRef, nextActions)
+	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, complianceSummary, privilegeBudget, securityVisibility, deltas, lifecycleSummary, regressSummary, proofRef, nextActions, sourcePrivacy)
 
 	sectionOrder := []string{
 		SectionHeadline,
@@ -151,9 +153,18 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ActionPaths:              riskReport.ActionPaths,
 		ActionPathToControlFirst: riskReport.ActionPathToControlFirst,
 		ExposureGroups:           exposureGroups,
+		SourcePrivacy:            sourcePrivacy,
 	}
 
 	return summary, nil
+}
+
+func normalizedSourcePrivacy(in *sourceprivacy.Contract) *sourceprivacy.Contract {
+	if in == nil {
+		return nil
+	}
+	normalized := sourceprivacy.Normalize(*in)
+	return &normalized
 }
 
 type complianceSummaryError struct {
@@ -677,6 +688,7 @@ func buildSections(
 	regressSummary *RegressSummary,
 	proof ProofReference,
 	nextActions []ChecklistItem,
+	sourcePrivacy *sourceprivacy.Contract,
 ) []Section {
 	riskFacts := make([]string, 0, len(risks))
 	for _, item := range risks {
@@ -741,6 +753,15 @@ func buildSections(
 		headlineFacts = append(headlineFacts, fmt.Sprintf("production_write=%d (status=%s)", *privilegeBudget.ProductionWrite.Count, privilegeBudget.ProductionWrite.Status))
 	} else {
 		headlineFacts = append(headlineFacts, fmt.Sprintf("production targets %s; default claim scope is write_capable=%d", privilegeBudget.ProductionWrite.Status, privilegeBudget.WriteCapableTools))
+	}
+	if sourcePrivacy != nil {
+		headlineFacts = append(headlineFacts, fmt.Sprintf("source_privacy retention=%s retained=%t raw_source_in_artifacts=%t serialized_locations=%s cleanup_status=%s",
+			sourcePrivacy.RetentionMode,
+			sourcePrivacy.MaterializedSourceRetained,
+			sourcePrivacy.RawSourceInArtifacts,
+			sourcePrivacy.SerializedLocations,
+			sourcePrivacy.CleanupStatus,
+		))
 	}
 
 	methodologyFacts := []string{

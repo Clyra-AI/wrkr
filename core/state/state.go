@@ -17,6 +17,7 @@ import (
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 	"os"
 )
@@ -40,6 +41,7 @@ type Snapshot struct {
 	PostureScore             *score.Result             `json:"posture_score,omitempty"`
 	Identities               []manifest.IdentityRecord `json:"identities,omitempty"`
 	Transitions              []lifecycle.Transition    `json:"lifecycle_transitions,omitempty"`
+	SourcePrivacy            *sourceprivacy.Contract   `json:"source_privacy,omitempty"`
 }
 
 type ScoreView struct {

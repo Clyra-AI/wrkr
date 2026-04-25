@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/source"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -57,11 +58,22 @@ func runScanStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 		status.LastSuccessfulPhase,
 		status.StatePath,
 	)
+	if status.SourcePrivacy != nil {
+		privacy := sourceprivacy.Normalize(*status.SourcePrivacy)
+		_, _ = fmt.Fprintf(stdout, "source privacy: retention=%s retained=%t cleanup=%s locations=%s raw_source_in_artifacts=%t\n",
+			privacy.RetentionMode,
+			privacy.MaterializedSourceRetained,
+			privacy.CleanupStatus,
+			privacy.SerializedLocations,
+			privacy.RawSourceInArtifacts,
+		)
+	}
 	return exitSuccess
 }
 
-func newScanStatusTracker(statePath string, target source.Target, targets []source.Target, startedAt time.Time, artifactPaths map[string]string) *scanStatusTracker {
+func newScanStatusTracker(statePath string, target source.Target, targets []source.Target, startedAt time.Time, artifactPaths map[string]string, sourcePrivacy sourceprivacy.Contract) *scanStatusTracker {
 	now := startedAt.UTC().Truncate(time.Second)
+	normalizedPrivacy := sourceprivacy.Normalize(sourcePrivacy)
 	status := state.ScanStatus{
 		Status:        state.ScanStatusRunning,
 		StatePath:     filepath.Clean(state.ResolvePath(statePath)),
@@ -70,6 +82,7 @@ func newScanStatusTracker(statePath string, target source.Target, targets []sour
 		StartedAt:     now.Format(time.RFC3339),
 		UpdatedAt:     now.Format(time.RFC3339),
 		ArtifactPaths: cleanArtifactPaths(artifactPaths),
+		SourcePrivacy: &normalizedPrivacy,
 	}
 	return &scanStatusTracker{statePath: statePath, status: status, phaseStarted: map[string]time.Time{}}
 }
@@ -116,6 +129,14 @@ func (t *scanStatusTracker) Repos(total, completed, failed int) error {
 	t.status.ReposFailed = failed
 	t.status.UpdatedAt = time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
 	return state.SaveScanStatus(t.statePath, t.status)
+}
+
+func (t *scanStatusTracker) SetSourcePrivacy(sourcePrivacy sourceprivacy.Contract) {
+	if t == nil {
+		return
+	}
+	normalized := sourceprivacy.Normalize(sourcePrivacy)
+	t.status.SourcePrivacy = &normalized
 }
 
 func (t *scanStatusTracker) Complete(artifactPaths map[string]string) error {

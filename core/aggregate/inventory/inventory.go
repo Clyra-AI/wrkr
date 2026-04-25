@@ -1541,6 +1541,9 @@ func deriveOrg(manifest source.Manifest) string {
 func repoRoot(manifest source.Manifest, repo string) string {
 	for _, item := range manifest.Repos {
 		if item.Repo == repo {
+			if strings.TrimSpace(item.ScanRoot) != "" {
+				return item.ScanRoot
+			}
 			return item.Location
 		}
 	}
