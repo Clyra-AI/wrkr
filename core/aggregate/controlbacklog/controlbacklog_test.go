@@ -280,6 +280,101 @@ func TestRecommendedActionTaxonomyCoversKnownFindingFamilies(t *testing.T) {
 	}
 }
 
+func TestSecretScopeGapFollowsSecretScopeUnknownSignal(t *testing.T) {
+	t.Parallel()
+
+	backlog := Build(Input{
+		ActionPaths: []risk.ActionPath{{
+			PathID:            "apc-secret-scope",
+			Org:               "acme",
+			Repo:              "app",
+			ToolType:          "ci_agent",
+			Location:          ".github/workflows/release.yml",
+			CredentialAccess:  true,
+			RecommendedAction: "proof",
+			CredentialProvenance: &agginventory.CredentialProvenance{
+				Type:           agginventory.CredentialProvenanceStaticSecret,
+				Scope:          agginventory.CredentialScopeWorkflow,
+				Confidence:     ConfidenceHigh,
+				RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+			},
+		}},
+	})
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	if containsString(backlog.Items[0].EvidenceGaps, "secret_scope_evidence_missing") {
+		t.Fatalf("expected known-scope credential to avoid secret scope gap, got %+v", backlog.Items[0])
+	}
+	if !containsString(backlog.Items[0].EvidenceGaps, "secret_rotation_evidence_missing") {
+		t.Fatalf("expected rotation gap to remain, got %+v", backlog.Items[0])
+	}
+}
+
+func TestMergedActionPathsPreserveControlPathRefsAndConflictingProvenance(t *testing.T) {
+	t.Parallel()
+
+	graph := &aggattack.ControlPathGraph{
+		Version: "1",
+		Nodes: []aggattack.ControlPathNode{
+			{NodeID: "node-a", PathID: "apc-one", Kind: aggattack.ControlPathNodeControlPath},
+			{NodeID: "node-b", PathID: "apc-two", Kind: aggattack.ControlPathNodeControlPath},
+		},
+		Edges: []aggattack.ControlPathEdge{
+			{EdgeID: "edge-a", PathID: "apc-one", Kind: "path_enables_action"},
+			{EdgeID: "edge-b", PathID: "apc-two", Kind: "path_enables_action"},
+		},
+	}
+	backlog := Build(Input{
+		ControlPathGraph: graph,
+		ActionPaths: []risk.ActionPath{
+			{
+				PathID:            "apc-one",
+				Org:               "acme",
+				Repo:              "app",
+				ToolType:          "ci_agent",
+				Location:          ".github/workflows/release.yml",
+				CredentialAccess:  true,
+				RecommendedAction: "proof",
+				CredentialProvenance: &agginventory.CredentialProvenance{
+					Type:           agginventory.CredentialProvenanceStaticSecret,
+					Scope:          agginventory.CredentialScopeWorkflow,
+					Confidence:     ConfidenceHigh,
+					RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+				},
+			},
+			{
+				PathID:            "apc-two",
+				Org:               "acme",
+				Repo:              "app",
+				ToolType:          "ci_agent",
+				Location:          ".github/workflows/release.yml",
+				CredentialAccess:  true,
+				RecommendedAction: "proof",
+				CredentialProvenance: &agginventory.CredentialProvenance{
+					Type:           agginventory.CredentialProvenanceJIT,
+					Scope:          agginventory.CredentialScopeWorkflow,
+					Confidence:     ConfidenceHigh,
+					RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceJIT),
+				},
+			},
+		},
+	})
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected merged backlog item, got %+v", backlog.Items)
+	}
+	item := backlog.Items[0]
+	if !containsString(item.LinkedControlPathNodeIDs, "node-a") || !containsString(item.LinkedControlPathNodeIDs, "node-b") {
+		t.Fatalf("expected merged node refs, got %+v", item)
+	}
+	if !containsString(item.LinkedControlPathEdgeIDs, "edge-a") || !containsString(item.LinkedControlPathEdgeIDs, "edge-b") {
+		t.Fatalf("expected merged edge refs, got %+v", item)
+	}
+	if item.CredentialProvenance == nil || item.CredentialProvenance.Type != agginventory.CredentialProvenanceUnknown {
+		t.Fatalf("expected conflicting merged provenance to become unknown, got %+v", item.CredentialProvenance)
+	}
+}
+
 func TestEvidenceQualityExplainsOwnerFallbackConfidence(t *testing.T) {
 	t.Parallel()
 
