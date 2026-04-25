@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -79,10 +80,21 @@ func TestBuildControlBacklogSplitsSignalClassesAndSortsDeterministically(t *test
 		SecurityVisibilityStatus: agginventory.SecurityVisibilityUnknownToSecurity,
 		RecommendedAction:        "approval",
 		RiskScore:                7.2,
+		CredentialProvenance: &agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceUnknown,
+			Scope:          agginventory.CredentialScopeUnknown,
+			Confidence:     "low",
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceUnknown),
+		},
 	}}
+	graph := &aggattack.ControlPathGraph{
+		Version: "1",
+		Nodes:   []aggattack.ControlPathNode{{NodeID: "cpg-node-1", PathID: "apc-test", Kind: aggattack.ControlPathNodeControlPath}},
+		Edges:   []aggattack.ControlPathEdge{{EdgeID: "cpg-edge-1", PathID: "apc-test", Kind: "path_enables_action"}},
+	}
 
-	first := Build(Input{Findings: findings, Inventory: inventory, ActionPaths: actionPaths})
-	second := Build(Input{Findings: append([]model.Finding(nil), findings...), Inventory: inventory, ActionPaths: append([]risk.ActionPath(nil), actionPaths...)})
+	first := Build(Input{Findings: findings, Inventory: inventory, ActionPaths: actionPaths, ControlPathGraph: graph})
+	second := Build(Input{Findings: append([]model.Finding(nil), findings...), Inventory: inventory, ActionPaths: append([]risk.ActionPath(nil), actionPaths...), ControlPathGraph: graph})
 	if !reflect.DeepEqual(first, second) {
 		t.Fatalf("expected deterministic backlog\nfirst=%+v\nsecond=%+v", first, second)
 	}
@@ -103,6 +115,12 @@ func TestBuildControlBacklogSplitsSignalClassesAndSortsDeterministically(t *test
 	}
 	if len(first.Items[0].GovernanceControls) == 0 {
 		t.Fatalf("expected governance controls on backlog item, got %+v", first.Items[0])
+	}
+	if len(first.Items[0].LinkedControlPathNodeIDs) == 0 || len(first.Items[0].LinkedControlPathEdgeIDs) == 0 {
+		t.Fatalf("expected control path graph refs on backlog item, got %+v", first.Items[0])
+	}
+	if first.Items[0].CredentialProvenance == nil || first.Items[0].CredentialProvenance.Type != agginventory.CredentialProvenanceUnknown {
+		t.Fatalf("expected credential provenance on backlog item, got %+v", first.Items[0])
 	}
 	if _, err := json.Marshal(first); err != nil {
 		t.Fatalf("marshal backlog: %v", err)

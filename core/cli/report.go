@@ -32,6 +32,7 @@ type reportPayload struct {
 	TopAttackPaths           any                          `json:"top_attack_paths,omitempty"`
 	ActionPaths              any                          `json:"action_paths,omitempty"`
 	ActionPathToControlFirst any                          `json:"action_path_to_control_first,omitempty"`
+	ControlPathGraph         any                          `json:"control_path_graph,omitempty"`
 	AssessmentSummary        any                          `json:"assessment_summary,omitempty"`
 	ExposureGroups           any                          `json:"exposure_groups,omitempty"`
 	TotalTools               int                          `json:"total_tools"`
@@ -184,6 +185,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		TopAttackPaths:           riskReport.TopAttackPaths,
 		ActionPaths:              summary.ActionPaths,
 		ActionPathToControlFirst: summary.ActionPathToControlFirst,
+		ControlPathGraph:         summary.ControlPathGraph,
 		AssessmentSummary:        summary.AssessmentSummary,
 		ExposureGroups:           summary.ExposureGroups,
 		TotalTools:               totalTools,

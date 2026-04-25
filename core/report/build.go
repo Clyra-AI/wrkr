@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
@@ -65,6 +66,9 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		profileName = in.Snapshot.Profile.ProfileName
 	}
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileName, riskReport.ActionPaths)
+	if riskReport.ControlPathGraph == nil && len(riskReport.ActionPaths) > 0 {
+		riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
+	}
 	topFindings := SelectTopFindings(*riskReport, top)
 
 	proofRef, err := buildProofReference(in.StatePath, topFindings)
@@ -97,6 +101,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		activation = sanitizeActivationSummaryPublic(activation)
 		riskReport.ActionPaths = sanitizeActionPathsPublic(riskReport.ActionPaths)
 		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublic(riskReport.ActionPathToControlFirst)
+		riskReport.ControlPathGraph = sanitizeControlPathGraphPublic(riskReport.ControlPathGraph)
 		exposureGroups = sanitizeExposureGroupsPublic(exposureGroups)
 		assessmentSummary = sanitizeAssessmentSummaryPublic(assessmentSummary)
 		controlBacklog = sanitizeControlBacklogPublic(controlBacklog)
@@ -106,7 +111,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	securityVisibility := securityVisibilityFromInventory(in.Snapshot.Inventory)
 	nextActions := buildNextActions(riskItems, lifecycleSummary, regressSummary)
 	pack := templatespkg.Resolve(string(template))
-	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, complianceSummary, privilegeBudget, securityVisibility, deltas, lifecycleSummary, regressSummary, proofRef, nextActions, sourcePrivacy)
+	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, riskReport.ControlPathGraph, complianceSummary, privilegeBudget, securityVisibility, deltas, lifecycleSummary, regressSummary, proofRef, nextActions, sourcePrivacy)
 
 	sectionOrder := []string{
 		SectionHeadline,
@@ -152,6 +157,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		Activation:               activation,
 		ActionPaths:              riskReport.ActionPaths,
 		ActionPathToControlFirst: riskReport.ActionPathToControlFirst,
+		ControlPathGraph:         riskReport.ControlPathGraph,
 		ExposureGroups:           exposureGroups,
 		SourcePrivacy:            sourcePrivacy,
 	}
@@ -605,6 +611,9 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 		if path.StandingPrivilege {
 			rationale = append(rationale, "standing_privilege=true")
 		}
+		if path.CredentialProvenance != nil {
+			rationale = append(rationale, fmt.Sprintf("credential_provenance=%s", strings.TrimSpace(path.CredentialProvenance.Type)))
+		}
 		out = append(out, RiskItem{
 			Rank:              idx + 1,
 			CanonicalKey:      strings.TrimSpace(path.PathID),
@@ -680,6 +689,7 @@ func buildSections(
 	methodology Methodology,
 	risks []RiskItem,
 	attackPathFacts []string,
+	controlPathGraph *aggattack.ControlPathGraph,
 	complianceSummary compliance.RollupSummary,
 	privilegeBudget agginventory.PrivilegeBudget,
 	securityVisibility agginventory.SecurityVisibilitySummary,
@@ -762,6 +772,19 @@ func buildSections(
 			sourcePrivacy.SerializedLocations,
 			sourcePrivacy.CleanupStatus,
 		))
+	}
+	if controlPathGraph != nil {
+		headlineFacts = append(headlineFacts, fmt.Sprintf("control_path_graph version=%s nodes=%d edges=%d",
+			controlPathGraph.Version,
+			controlPathGraph.Summary.TotalNodes,
+			controlPathGraph.Summary.TotalEdges,
+		))
+		for _, item := range controlPathGraph.Summary.NodeKinds {
+			headlineFacts = append(headlineFacts, fmt.Sprintf("control_path_graph nodes[%s]=%d", item.Kind, item.Count))
+		}
+		for _, item := range controlPathGraph.Summary.EdgeKinds {
+			headlineFacts = append(headlineFacts, fmt.Sprintf("control_path_graph edges[%s]=%d", item.Kind, item.Count))
+		}
 	}
 
 	methodologyFacts := []string{
@@ -1101,6 +1124,11 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.Location = redactValue("loc", copyItem.Location, 8)
 		copyItem.OperationalOwner = redactValue("owner", copyItem.OperationalOwner, 8)
 		copyItem.ExecutionIdentity = redactValue("identity", copyItem.ExecutionIdentity, 8)
+		if copyItem.CredentialProvenance != nil {
+			copyItem.CredentialProvenance = agginventory.CloneCredentialProvenance(copyItem.CredentialProvenance)
+			copyItem.CredentialProvenance.Subject = redactValue("credential", copyItem.CredentialProvenance.Subject, 8)
+			copyItem.CredentialProvenance.EvidenceBasis = redactStringSlice(copyItem.CredentialProvenance.EvidenceBasis, "evidence")
+		}
 		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
 		for _, target := range copyItem.MatchedProductionTargets {
 			redacted := redactValue("target", target, 8)
@@ -1180,6 +1208,35 @@ func sanitizeAssessmentSummaryPublic(in *AssessmentSummary) *AssessmentSummary {
 	return &copySummary
 }
 
+func sanitizeControlPathGraphPublic(in *aggattack.ControlPathGraph) *aggattack.ControlPathGraph {
+	if in == nil {
+		return nil
+	}
+	copyGraph := *in
+	copyGraph.Nodes = append([]aggattack.ControlPathNode(nil), in.Nodes...)
+	copyGraph.Edges = append([]aggattack.ControlPathEdge(nil), in.Edges...)
+	for idx := range copyGraph.Nodes {
+		copyGraph.Nodes[idx].NodeID = redactValue("node", copyGraph.Nodes[idx].NodeID, 8)
+		copyGraph.Nodes[idx].PathID = redactValue("path", copyGraph.Nodes[idx].PathID, 8)
+		copyGraph.Nodes[idx].Org = redactValue("org", copyGraph.Nodes[idx].Org, 6)
+		copyGraph.Nodes[idx].Repo = redactValue("repo", copyGraph.Nodes[idx].Repo, 6)
+		copyGraph.Nodes[idx].Label = redactValue("label", copyGraph.Nodes[idx].Label, 8)
+		copyGraph.Nodes[idx].Location = redactValue("loc", copyGraph.Nodes[idx].Location, 8)
+		copyGraph.Nodes[idx].AgentID = redactValue("agent", copyGraph.Nodes[idx].AgentID, 8)
+		copyGraph.Nodes[idx].EvidenceRefs = redactStringSlice(copyGraph.Nodes[idx].EvidenceRefs, "evidence")
+		copyGraph.Nodes[idx].SourceRefs = redactStringSlice(copyGraph.Nodes[idx].SourceRefs, "source")
+	}
+	for idx := range copyGraph.Edges {
+		copyGraph.Edges[idx].EdgeID = redactValue("edge", copyGraph.Edges[idx].EdgeID, 8)
+		copyGraph.Edges[idx].PathID = redactValue("path", copyGraph.Edges[idx].PathID, 8)
+		copyGraph.Edges[idx].FromNodeID = redactValue("node", copyGraph.Edges[idx].FromNodeID, 8)
+		copyGraph.Edges[idx].ToNodeID = redactValue("node", copyGraph.Edges[idx].ToNodeID, 8)
+		copyGraph.Edges[idx].EvidenceRefs = redactStringSlice(copyGraph.Edges[idx].EvidenceRefs, "evidence")
+		copyGraph.Edges[idx].SourceRefs = redactStringSlice(copyGraph.Edges[idx].SourceRefs, "source")
+	}
+	return &copyGraph
+}
+
 func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Backlog {
 	if in == nil {
 		return nil
@@ -1192,8 +1249,15 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 		copyBacklog.Items[idx].Owner = redactValue("owner", copyBacklog.Items[idx].Owner, 8)
 		copyBacklog.Items[idx].LinkedFindingIDs = redactStringSlice(copyBacklog.Items[idx].LinkedFindingIDs, "finding")
 		copyBacklog.Items[idx].LinkedActionPathID = redactValue("path", copyBacklog.Items[idx].LinkedActionPathID, 8)
+		copyBacklog.Items[idx].LinkedControlPathNodeIDs = redactStringSlice(copyBacklog.Items[idx].LinkedControlPathNodeIDs, "node")
+		copyBacklog.Items[idx].LinkedControlPathEdgeIDs = redactStringSlice(copyBacklog.Items[idx].LinkedControlPathEdgeIDs, "edge")
 		copyBacklog.Items[idx].OwnershipEvidence = redactStringSlice(copyBacklog.Items[idx].OwnershipEvidence, "evidence")
 		copyBacklog.Items[idx].OwnershipConflicts = redactStringSlice(copyBacklog.Items[idx].OwnershipConflicts, "owner")
+		if copyBacklog.Items[idx].CredentialProvenance != nil {
+			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(copyBacklog.Items[idx].CredentialProvenance)
+			copyBacklog.Items[idx].CredentialProvenance.Subject = redactValue("credential", copyBacklog.Items[idx].CredentialProvenance.Subject, 8)
+			copyBacklog.Items[idx].CredentialProvenance.EvidenceBasis = redactStringSlice(copyBacklog.Items[idx].CredentialProvenance.EvidenceBasis, "evidence")
+		}
 	}
 	return &copyBacklog
 }

@@ -6,18 +6,20 @@ import (
 	"encoding/json"
 	"strings"
 
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 )
 
 type EvidenceBundle struct {
-	ReportBundleVersion string                  `json:"report_bundle_version"`
-	GeneratedAt         string                  `json:"generated_at"`
-	Template            string                  `json:"template"`
-	ShareProfile        string                  `json:"share_profile"`
-	ControlBacklog      *controlbacklog.Backlog `json:"control_backlog,omitempty"`
-	ComplianceSummary   any                     `json:"compliance_summary"`
-	Proof               ProofReference          `json:"proof"`
-	NextActions         []ChecklistItem         `json:"next_actions"`
+	ReportBundleVersion string                      `json:"report_bundle_version"`
+	GeneratedAt         string                      `json:"generated_at"`
+	Template            string                      `json:"template"`
+	ShareProfile        string                      `json:"share_profile"`
+	ControlBacklog      *controlbacklog.Backlog     `json:"control_backlog,omitempty"`
+	ControlPathGraph    *aggattack.ControlPathGraph `json:"control_path_graph,omitempty"`
+	ComplianceSummary   any                         `json:"compliance_summary"`
+	Proof               ProofReference              `json:"proof"`
+	NextActions         []ChecklistItem             `json:"next_actions"`
 }
 
 func BuildEvidenceBundle(summary Summary) EvidenceBundle {
@@ -27,6 +29,7 @@ func BuildEvidenceBundle(summary Summary) EvidenceBundle {
 		Template:            summary.Template,
 		ShareProfile:        summary.ShareProfile,
 		ControlBacklog:      summary.ControlBacklog,
+		ControlPathGraph:    summary.ControlPathGraph,
 		ComplianceSummary:   summary.ComplianceSummary,
 		Proof:               summary.Proof,
 		NextActions:         append([]ChecklistItem(nil), summary.NextActions...),

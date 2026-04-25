@@ -88,6 +88,44 @@ func TestBuildRiskItemsPrefersActionPathsWhenPresent(t *testing.T) {
 	}
 }
 
+func TestReportIncludesControlPathGraphSummary(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:               "apc-123456",
+					AgentID:              "wrkr:ci:acme",
+					Org:                  "acme",
+					Repo:                 "acme/release",
+					ToolType:             "compiled_action",
+					Location:             ".github/workflows/release.yml",
+					WriteCapable:         true,
+					PullRequestWrite:     true,
+					RecommendedAction:    "proof",
+					BusinessStateSurface: "deploy",
+				}},
+			},
+		},
+		GeneratedAt: time.Date(2026, 4, 25, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.ControlPathGraph == nil {
+		t.Fatalf("expected control_path_graph on summary, got %+v", summary)
+	}
+	if summary.ControlPathGraph.Version != "1" {
+		t.Fatalf("expected graph version 1, got %+v", summary.ControlPathGraph)
+	}
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, "control_path_graph version=1") {
+		t.Fatalf("expected markdown to include control_path_graph facts, got %q", markdown)
+	}
+}
+
 func TestRenderMarkdownStableForFixedSummary(t *testing.T) {
 	t.Parallel()
 

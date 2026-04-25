@@ -348,6 +348,19 @@
           "production_target_status": {"type": "string", "enum": ["configured", "not_configured", "invalid"]},
           "write_capable": {"type": "boolean"},
           "credential_access": {"type": "boolean"},
+          "credential_provenance": {
+            "type": "object",
+            "required": ["type", "scope", "confidence", "risk_multiplier"],
+            "properties": {
+              "type": {"type": "string", "enum": ["static_secret", "workload_identity", "inherited_human", "oauth_delegation", "jit", "unknown"]},
+              "subject": {"type": "string"},
+              "scope": {"type": "string", "enum": ["repository", "workflow", "tool", "environment", "organization", "unknown"]},
+              "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+              "evidence_basis": {"type": "array", "items": {"type": "string"}},
+              "risk_multiplier": {"type": "number"}
+            },
+            "additionalProperties": false
+          },
           "exec_capable": {"type": "boolean"},
           "production_write": {"type": "boolean"},
           "matched_production_targets": {"type": "array", "items": {"type": "string"}}

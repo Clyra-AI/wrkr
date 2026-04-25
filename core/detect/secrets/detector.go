@@ -61,6 +61,10 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			Evidence: []model.Evidence{
 				{Key: "credential_keys", Value: strings.Join(keys, ",")},
 				{Key: "value_redacted", Value: "true"},
+				{Key: "credential_provenance_type", Value: "static_secret"},
+				{Key: "credential_subject", Value: strings.Join(keys, ",")},
+				{Key: "credential_scope", Value: "environment"},
+				{Key: "credential_confidence", Value: "high"},
 			},
 			Remediation: "Move credentials to secure secret stores and reference them by name only.",
 		})
@@ -87,7 +91,13 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			Repo:        scope.Repo,
 			Org:         fallbackOrg(scope.Org),
 			Detector:    detectorID,
-			Evidence:    []model.Evidence{{Key: "workflow_secret_refs", Value: strings.Join(keys, ",")}},
+			Evidence: []model.Evidence{
+				{Key: "workflow_secret_refs", Value: strings.Join(keys, ",")},
+				{Key: "credential_provenance_type", Value: "static_secret"},
+				{Key: "credential_subject", Value: strings.Join(keys, ",")},
+				{Key: "credential_scope", Value: "workflow"},
+				{Key: "credential_confidence", Value: "high"},
+			},
 		})
 	}
 
@@ -106,7 +116,13 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 				Repo:        scope.Repo,
 				Org:         fallbackOrg(scope.Org),
 				Detector:    detectorID,
-				Evidence:    []model.Evidence{{Key: "workflow_secret_refs", Value: strings.Join(keys, ",")}},
+				Evidence: []model.Evidence{
+					{Key: "workflow_secret_refs", Value: strings.Join(keys, ",")},
+					{Key: "credential_provenance_type", Value: "static_secret"},
+					{Key: "credential_subject", Value: strings.Join(keys, ",")},
+					{Key: "credential_scope", Value: "workflow"},
+					{Key: "credential_confidence", Value: "high"},
+				},
 			})
 		}
 	}

@@ -409,6 +409,68 @@ func TestBuildActionPathsCarriesWorkflowTriggerClass(t *testing.T) {
 	}
 }
 
+func TestCredentialProvenanceUnknownIsRiskWeighted(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+			AgentID:                "wrkr:ci:acme",
+			Framework:              "compiled_action",
+			Org:                    "acme",
+			Repos:                  []string{"acme/release"},
+			Location:               ".github/workflows/release.yml",
+			RiskScore:              5.0,
+			WriteCapable:           true,
+			CredentialAccess:       true,
+			ApprovalClassification: "approved",
+			CredentialProvenance: &agginventory.CredentialProvenance{
+				Type:           agginventory.CredentialProvenanceUnknown,
+				Scope:          agginventory.CredentialScopeUnknown,
+				Confidence:     "low",
+				RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceUnknown),
+			},
+		}},
+	})
+	if len(paths) != 1 {
+		t.Fatalf("expected one action path, got %+v", paths)
+	}
+	if paths[0].RiskScore <= 5.0 {
+		t.Fatalf("expected unknown provenance to amplify risk score, got %+v", paths[0])
+	}
+}
+
+func TestActionPathCarriesCredentialProvenance(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+			AgentID:                "wrkr:agent:acme",
+			Framework:              "langchain",
+			Org:                    "acme",
+			Repos:                  []string{"acme/app"},
+			Location:               "agents/app.py",
+			RiskScore:              4.2,
+			WriteCapable:           true,
+			CredentialAccess:       true,
+			ApprovalClassification: "approved",
+			CredentialProvenance: &agginventory.CredentialProvenance{
+				Type:           agginventory.CredentialProvenanceStaticSecret,
+				Subject:        "OPENAI_API_KEY",
+				Scope:          agginventory.CredentialScopeTool,
+				Confidence:     "high",
+				EvidenceBasis:  []string{"auth_surface:OPENAI_API_KEY"},
+				RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+			},
+		}},
+	})
+	if len(paths) != 1 {
+		t.Fatalf("expected one action path, got %+v", paths)
+	}
+	if paths[0].CredentialProvenance == nil || paths[0].CredentialProvenance.Type != agginventory.CredentialProvenanceStaticSecret {
+		t.Fatalf("expected action path provenance to carry through, got %+v", paths[0].CredentialProvenance)
+	}
+}
+
 func TestApplyGovernFirstProfileAssessmentSuppressesAllCandidates(t *testing.T) {
 	t.Parallel()
 

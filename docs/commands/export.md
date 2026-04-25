@@ -45,4 +45,4 @@ Appendix export emits deterministic table sets for:
 
 Ticket export is offline-first. `wrkr export tickets --dry-run --json` consumes the saved `control_backlog`; it does not run detectors and does not call Jira, GitHub Issues, or ServiceNow APIs. Unsupported ticket formats fail with `invalid_input` and exit `6`. Send/adaptor execution is a future explicit opt-in surface and should fail closed when credentials are missing.
 
-Each ticket includes owner, repo, path, control-path type, capability, evidence, recommended action, SLA, closure criteria, confidence, and proof requirements.
+Each ticket includes owner, repo, path, control-path type, capability, evidence, recommended action, SLA, closure criteria, confidence, and proof requirements. When the saved backlog item is linked to the additive governance graph, ticket payloads may also carry stable control-path node/edge references and typed `credential_provenance` context so downstream systems can preserve the same operator review thread without parsing raw workflow details.

@@ -89,6 +89,14 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			{Key: "secret_access", Value: boolString(signals.HasSecretAccess)},
 			{Key: "dangerous_flags", Value: boolString(signals.DangerousFlags)},
 		}
+		if provenanceType, subject := credentialProvenanceForWorkflow(content); provenanceType != "" {
+			evidence = append(evidence,
+				model.Evidence{Key: "credential_provenance_type", Value: provenanceType},
+				model.Evidence{Key: "credential_subject", Value: subject},
+				model.Evidence{Key: "credential_scope", Value: "workflow"},
+				model.Evidence{Key: "credential_confidence", Value: "high"},
+			)
+		}
 		if workflowErr == nil {
 			evidence = append(evidence, workflowAnalysis.Evidence...)
 		}
@@ -154,6 +162,22 @@ func hasSecretAccess(content string) bool {
 func hasDangerousFlags(content string) bool {
 	lower := strings.ToLower(content)
 	return strings.Contains(lower, "--dangerouslyskippermissions") || strings.Contains(lower, "--approval never") || strings.Contains(lower, "full-auto")
+}
+
+func credentialProvenanceForWorkflow(content string) (string, string) {
+	lower := strings.ToLower(content)
+	switch {
+	case strings.Contains(lower, "id-token: write"),
+		strings.Contains(lower, "aws-actions/configure-aws-credentials"),
+		strings.Contains(lower, "google-github-actions/auth"),
+		strings.Contains(lower, "azure/login"),
+		strings.Contains(lower, "workload_identity_federation"),
+		strings.Contains(lower, "assume_role"),
+		strings.Contains(lower, "sts:assumerole"):
+		return "jit", "workflow_federation"
+	default:
+		return "", ""
+	}
 }
 
 func severityForSignals(signals autonomy.Signals, level string) string {

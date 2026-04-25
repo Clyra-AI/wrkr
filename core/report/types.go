@@ -3,6 +3,7 @@ package report
 import (
 	"time"
 
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
@@ -82,6 +83,7 @@ type Summary struct {
 	Activation               *ActivationSummary                     `json:"activation,omitempty"`
 	ActionPaths              []risk.ActionPath                      `json:"action_paths,omitempty"`
 	ActionPathToControlFirst *risk.ActionPathToControlFirst         `json:"action_path_to_control_first,omitempty"`
+	ControlPathGraph         *aggattack.ControlPathGraph            `json:"control_path_graph,omitempty"`
 	ExposureGroups           []risk.ExposureGroup                   `json:"exposure_groups,omitempty"`
 	SourcePrivacy            *sourceprivacy.Contract                `json:"source_privacy,omitempty"`
 }

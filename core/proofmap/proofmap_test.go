@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -190,10 +191,14 @@ func TestMapRiskIncludesActionPathGovernanceControls(t *testing.T) {
 				Status:  agginventory.ControlStatusGap,
 			}},
 		}},
+		ControlPathGraph: &aggattack.ControlPathGraph{
+			Version: "1",
+			Summary: aggattack.ControlPathGraphSummary{TotalNodes: 2, TotalEdges: 1},
+		},
 	}
 	records := MapRisk(report, score.Result{}, profileeval.Result{}, SecurityVisibilityContext{}, now)
-	if len(records) != 2 {
-		t.Fatalf("expected action path governance plus posture records, got %d", len(records))
+	if len(records) != 3 {
+		t.Fatalf("expected action path governance, graph, plus posture records, got %d", len(records))
 	}
 	if records[0].Event["assessment_type"] != "action_path_governance" {
 		t.Fatalf("expected action path governance event, got %+v", records[0].Event)
@@ -205,6 +210,9 @@ func TestMapRiskIncludesActionPathGovernanceControls(t *testing.T) {
 	controls, ok := records[0].Event["governance_controls"].([]agginventory.GovernanceControlMapping)
 	if !ok || len(controls) != 1 || controls[0].Control != agginventory.GovernanceControlApproval {
 		t.Fatalf("expected governance controls in proof event, got %+v", records[0].Event["governance_controls"])
+	}
+	if records[1].Event["assessment_type"] != "control_path_graph" {
+		t.Fatalf("expected control_path_graph event, got %+v", records[1].Event)
 	}
 }
 

@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/control-path-graph.schema.json",
+  "title": "Wrkr Control Path Graph",
+  "type": "object",
+  "required": ["version", "summary", "nodes", "edges"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["1"]
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_nodes", "total_edges", "node_kinds", "edge_kinds"],
+      "properties": {
+        "total_nodes": {"type": "integer", "minimum": 0},
+        "total_edges": {"type": "integer", "minimum": 0},
+        "node_kinds": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/kindRollup"}
+        },
+        "edge_kinds": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/kindRollup"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "nodes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/node"}
+    },
+    "edges": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/edge"}
+    }
+  },
+  "$defs": {
+    "kindRollup": {
+      "type": "object",
+      "required": ["kind", "count"],
+      "properties": {
+        "kind": {"type": "string"},
+        "count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "required": ["node_id", "path_id", "kind", "org", "repo"],
+      "properties": {
+        "node_id": {"type": "string"},
+        "path_id": {"type": "string"},
+        "kind": {
+          "type": "string",
+          "enum": [
+            "control_path",
+            "agent",
+            "execution_identity",
+            "credential",
+            "tool",
+            "workflow",
+            "repo",
+            "governance_control",
+            "target",
+            "action_capability"
+          ]
+        },
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "label": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "location": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "status": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "source_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "edge": {
+      "type": "object",
+      "required": ["edge_id", "path_id", "kind", "from_node_id", "to_node_id"],
+      "properties": {
+        "edge_id": {"type": "string"},
+        "path_id": {"type": "string"},
+        "kind": {"type": "string"},
+        "from_node_id": {"type": "string"},
+        "to_node_id": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "source_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
