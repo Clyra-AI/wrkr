@@ -541,11 +541,18 @@ func TestReportIncludesActionPathsProjection(t *testing.T) {
 					"repo":               "payments",
 					"recommended_action": "control",
 					"write_capable":      true,
-					"production_write":   true,
-					"attack_path_score":  9.1,
-					"risk_score":         8.8,
-					"tool_type":          "langchain",
-					"location":           "agents/payments.py",
+					"credential_access":  true,
+					"credential_provenance": map[string]any{
+						"type":            "unknown",
+						"scope":           "unknown",
+						"confidence":      "low",
+						"risk_multiplier": 1.2,
+					},
+					"production_write":  true,
+					"attack_path_score": 9.1,
+					"risk_score":        8.8,
+					"tool_type":         "langchain",
+					"location":          "agents/payments.py",
 				},
 			},
 			"action_path_to_control_first": map[string]any{
@@ -561,6 +568,27 @@ func TestReportIncludesActionPathsProjection(t *testing.T) {
 					"repo":               "payments",
 					"recommended_action": "control",
 				},
+			},
+			"control_path_graph": map[string]any{
+				"version": "1",
+				"summary": map[string]any{
+					"total_nodes": 1,
+					"total_edges": 0,
+					"node_kinds": []any{
+						map[string]any{"kind": "control_path", "count": 1},
+					},
+					"edge_kinds": []any{},
+				},
+				"nodes": []any{
+					map[string]any{
+						"node_id": "cpg-node-1",
+						"path_id": "apc-123456",
+						"kind":    "control_path",
+						"org":     "acme",
+						"repo":    "payments",
+					},
+				},
+				"edges": []any{},
 			},
 		},
 	}
@@ -588,12 +616,18 @@ func TestReportIncludesActionPathsProjection(t *testing.T) {
 	if _, ok := reportPayload["action_path_to_control_first"].(map[string]any); !ok {
 		t.Fatalf("expected top-level action_path_to_control_first, got %v", reportPayload["action_path_to_control_first"])
 	}
+	if _, ok := reportPayload["control_path_graph"].(map[string]any); !ok {
+		t.Fatalf("expected top-level control_path_graph, got %v", reportPayload["control_path_graph"])
+	}
 	summary, ok := reportPayload["summary"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected summary object, got %T", reportPayload["summary"])
 	}
 	if _, ok := summary["action_paths"].([]any); !ok {
 		t.Fatalf("expected summary action_paths, got %v", summary["action_paths"])
+	}
+	if _, ok := summary["control_path_graph"].(map[string]any); !ok {
+		t.Fatalf("expected summary control_path_graph, got %v", summary["control_path_graph"])
 	}
 }
 

@@ -488,6 +488,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	profileResult := profileeval.Evaluate(profileDef, findings, previousProfile)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileResult.ProfileName, riskReport.ActionPaths)
+	riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
 	}
@@ -498,10 +499,11 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		DetectorErrors: detectorErrors,
 	})
 	controlBacklog := controlbacklog.Build(controlbacklog.Input{
-		Mode:        scanMode,
-		Findings:    findings,
-		Inventory:   &inventoryOut,
-		ActionPaths: riskReport.ActionPaths,
+		Mode:             scanMode,
+		Findings:         findings,
+		Inventory:        &inventoryOut,
+		ActionPaths:      riskReport.ActionPaths,
+		ControlPathGraph: riskReport.ControlPathGraph,
 	})
 
 	weights, weightErr := score.LoadWeights(strings.TrimSpace(*policyPath), repoRootFromScopes(scopes))

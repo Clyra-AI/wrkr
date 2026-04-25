@@ -85,6 +85,7 @@ func TestBuildComputesPrivilegeBudgetAndPerAgentMap(t *testing.T) {
 		t.Fatalf("expected 2 agent map entries, got %d", len(entries))
 	}
 	foundProduction := false
+	foundCredentialProvenance := false
 	for _, item := range entries {
 		if item.AgentID == mcpAgentID {
 			if !item.WriteCapable {
@@ -95,9 +96,18 @@ func TestBuildComputesPrivilegeBudgetAndPerAgentMap(t *testing.T) {
 			}
 			foundProduction = true
 		}
+		if item.AgentID == "wrkr:ci-1:acme" {
+			if item.CredentialProvenance == nil || item.CredentialProvenance.Type != agginventory.CredentialProvenanceUnknown {
+				t.Fatalf("expected unknown credential provenance on ci entry, got %+v", item.CredentialProvenance)
+			}
+			foundCredentialProvenance = true
+		}
 	}
 	if !foundProduction {
 		t.Fatal("expected to find mcp production-write entry")
+	}
+	if !foundCredentialProvenance {
+		t.Fatal("expected to find ci entry provenance")
 	}
 }
 
@@ -247,6 +257,90 @@ func TestBuildIncludesAgentLayerContextDeterministically(t *testing.T) {
 	}
 	if entry.ApprovalClassification != "unapproved" {
 		t.Fatalf("unexpected approval classification: %q", entry.ApprovalClassification)
+	}
+	if entry.CredentialProvenance == nil || entry.CredentialProvenance.Type != agginventory.CredentialProvenanceOAuthDelegation {
+		t.Fatalf("expected oauth credential provenance, got %+v", entry.CredentialProvenance)
+	}
+}
+
+func TestBuildClassifiesStaticSecretCredentialProvenance(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{{
+		ToolID:      "tool-1",
+		AgentID:     "wrkr:tool-1:acme",
+		ToolType:    "ci_agent",
+		Org:         "acme",
+		Repos:       []string{"acme/release"},
+		Locations:   []agginventory.ToolLocation{{Repo: "acme/release", Location: ".github/workflows/release.yml", Owner: "@acme/release"}},
+		Permissions: []string{"secret.read"},
+		DataClass:   "credentials",
+	}}
+	findings := []model.Finding{{
+		FindingType: "secret_presence",
+		ToolType:    "secret",
+		Location:    ".github/workflows/release.yml",
+		Repo:        "acme/release",
+		Org:         "acme",
+		Evidence: []model.Evidence{
+			{Key: "workflow_secret_refs", Value: "RELEASE_TOKEN"},
+			{Key: "credential_provenance_type", Value: "static_secret"},
+			{Key: "credential_subject", Value: "RELEASE_TOKEN"},
+			{Key: "credential_scope", Value: "workflow"},
+			{Key: "credential_confidence", Value: "high"},
+		},
+	}}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one privilege entry, got %+v", entries)
+	}
+	if entries[0].CredentialProvenance == nil {
+		t.Fatal("expected credential provenance")
+	}
+	if entries[0].CredentialProvenance.Type != agginventory.CredentialProvenanceStaticSecret {
+		t.Fatalf("expected static_secret provenance, got %+v", entries[0].CredentialProvenance)
+	}
+	if entries[0].CredentialProvenance.Scope != agginventory.CredentialScopeWorkflow {
+		t.Fatalf("expected workflow scope, got %+v", entries[0].CredentialProvenance)
+	}
+}
+
+func TestBuildClassifiesWorkloadIdentityCredentialProvenance(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{{
+		ToolID:      "tool-1",
+		AgentID:     "wrkr:tool-1:acme",
+		ToolType:    "compiled_action",
+		Org:         "acme",
+		Repos:       []string{"acme/release"},
+		Locations:   []agginventory.ToolLocation{{Repo: "acme/release", Location: ".github/workflows/release.yml", Owner: "@acme/release"}},
+		Permissions: []string{"deploy.write", "secret.read"},
+		DataClass:   "credentials",
+	}}
+	findings := []model.Finding{{
+		FindingType: "non_human_identity",
+		ToolType:    "non_human_identity",
+		Location:    ".github/workflows/release.yml",
+		Repo:        "acme/release",
+		Org:         "acme",
+		Evidence: []model.Evidence{
+			{Key: "identity_type", Value: "github_app"},
+			{Key: "subject", Value: "release-app"},
+			{Key: "credential_provenance_type", Value: "workload_identity"},
+			{Key: "credential_subject", Value: "release-app"},
+			{Key: "credential_scope", Value: "workflow"},
+			{Key: "credential_confidence", Value: "high"},
+		},
+	}}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one privilege entry, got %+v", entries)
+	}
+	if entries[0].CredentialProvenance == nil || entries[0].CredentialProvenance.Type != agginventory.CredentialProvenanceWorkloadIdentity {
+		t.Fatalf("expected workload_identity provenance, got %+v", entries[0].CredentialProvenance)
 	}
 }
 

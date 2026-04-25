@@ -261,6 +261,9 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			"production_write":           path.ProductionWrite,
 			"matched_production_targets": append([]string(nil), path.MatchedProductionTargets...),
 		}
+		if path.CredentialProvenance != nil {
+			event["credential_provenance"] = agginventory.CloneCredentialProvenance(path.CredentialProvenance)
+		}
 		records = append(records, sanitizeMappedRecord(MappedRecord{
 			RecordType: "risk_assessment",
 			AgentID:    path.AgentID,
@@ -270,6 +273,40 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 				"rank":              idx + 1,
 				"canonical_finding": "action_path_governance",
 				"action_path_id":    path.PathID,
+			},
+		}))
+	}
+	if report.ControlPathGraph != nil {
+		pathIDs := make([]string, 0, len(report.ControlPathGraph.Nodes))
+		nodeIDs := make([]string, 0, len(report.ControlPathGraph.Nodes))
+		for _, node := range report.ControlPathGraph.Nodes {
+			if strings.TrimSpace(node.PathID) != "" {
+				pathIDs = append(pathIDs, strings.TrimSpace(node.PathID))
+			}
+			if strings.TrimSpace(node.NodeID) != "" {
+				nodeIDs = append(nodeIDs, strings.TrimSpace(node.NodeID))
+			}
+		}
+		edgeIDs := make([]string, 0, len(report.ControlPathGraph.Edges))
+		for _, edge := range report.ControlPathGraph.Edges {
+			if strings.TrimSpace(edge.EdgeID) != "" {
+				edgeIDs = append(edgeIDs, strings.TrimSpace(edge.EdgeID))
+			}
+		}
+		event := map[string]any{
+			"assessment_type": "control_path_graph",
+			"graph_version":   report.ControlPathGraph.Version,
+			"graph_summary":   report.ControlPathGraph.Summary,
+			"path_ids":        uniqueSortedStrings(pathIDs),
+			"node_ids":        uniqueSortedStrings(nodeIDs),
+			"edge_ids":        uniqueSortedStrings(edgeIDs),
+		}
+		records = append(records, sanitizeMappedRecord(MappedRecord{
+			RecordType: "risk_assessment",
+			Timestamp:  canonicalTime(now),
+			Event:      event,
+			Metadata: map[string]any{
+				"canonical_finding": "control_path_graph",
 			},
 		}))
 	}

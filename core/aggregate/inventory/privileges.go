@@ -1,17 +1,45 @@
 package inventory
 
-import "github.com/Clyra-AI/wrkr/core/model"
+import (
+	"sort"
+	"strings"
+
+	"github.com/Clyra-AI/wrkr/core/model"
+)
 
 const (
 	ProductionTargetsStatusConfigured    = "configured"
 	ProductionTargetsStatusNotConfigured = "not_configured"
 	ProductionTargetsStatusInvalid       = "invalid"
+
+	CredentialProvenanceStaticSecret     = "static_secret"
+	CredentialProvenanceWorkloadIdentity = "workload_identity"
+	CredentialProvenanceInheritedHuman   = "inherited_human"
+	CredentialProvenanceOAuthDelegation  = "oauth_delegation"
+	CredentialProvenanceJIT              = "jit"
+	CredentialProvenanceUnknown          = "unknown"
+
+	CredentialScopeRepository  = "repository"
+	CredentialScopeWorkflow    = "workflow"
+	CredentialScopeTool        = "tool"
+	CredentialScopeEnvironment = "environment"
+	CredentialScopeOrg         = "organization"
+	CredentialScopeUnknown     = "unknown"
 )
 
 type ProductionWriteBudget struct {
 	Configured bool   `json:"configured" yaml:"configured"`
 	Status     string `json:"status" yaml:"status"`
 	Count      *int   `json:"count" yaml:"count"`
+}
+
+type CredentialProvenance struct {
+	Type           string   `json:"type" yaml:"type"`
+	Subject        string   `json:"subject,omitempty" yaml:"subject,omitempty"`
+	Scope          string   `json:"scope" yaml:"scope"`
+	Confidence     string   `json:"confidence" yaml:"confidence"`
+	EvidenceBasis  []string `json:"evidence_basis,omitempty" yaml:"evidence_basis,omitempty"`
+	RiskMultiplier float64  `json:"risk_multiplier" yaml:"risk_multiplier"`
 }
 
 type PrivilegeBudget struct {
@@ -66,7 +94,112 @@ type AgentPrivilegeMapEntry struct {
 	ProductionTargetStatus   string                     `json:"production_target_status,omitempty" yaml:"production_target_status,omitempty"`
 	WriteCapable             bool                       `json:"write_capable" yaml:"write_capable"`
 	CredentialAccess         bool                       `json:"credential_access" yaml:"credential_access"`
+	CredentialProvenance     *CredentialProvenance      `json:"credential_provenance,omitempty" yaml:"credential_provenance,omitempty"`
 	ExecCapable              bool                       `json:"exec_capable" yaml:"exec_capable"`
 	ProductionWrite          bool                       `json:"production_write" yaml:"production_write"`
 	MatchedProductionTargets []string                   `json:"matched_production_targets,omitempty" yaml:"matched_production_targets,omitempty"`
+}
+
+func CloneCredentialProvenance(in *CredentialProvenance) *CredentialProvenance {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.Type = strings.TrimSpace(out.Type)
+	out.Subject = strings.TrimSpace(out.Subject)
+	out.Scope = strings.TrimSpace(out.Scope)
+	out.Confidence = strings.TrimSpace(out.Confidence)
+	out.EvidenceBasis = append([]string(nil), in.EvidenceBasis...)
+	return &out
+}
+
+func NormalizeCredentialProvenance(in *CredentialProvenance) *CredentialProvenance {
+	if in == nil {
+		return nil
+	}
+	out := CloneCredentialProvenance(in)
+	out.Type = normalizeCredentialProvenanceType(out.Type)
+	out.Scope = normalizeCredentialScope(out.Scope)
+	out.Confidence = normalizeCredentialConfidence(out.Confidence)
+	if out.RiskMultiplier == 0 {
+		out.RiskMultiplier = CredentialRiskMultiplier(out.Type)
+	}
+	out.EvidenceBasis = mergeCredentialEvidenceBasis(out.EvidenceBasis)
+	return out
+}
+
+func CredentialRiskMultiplier(kind string) float64 {
+	switch normalizeCredentialProvenanceType(kind) {
+	case CredentialProvenanceStaticSecret:
+		return 1.05
+	case CredentialProvenanceInheritedHuman:
+		return 1.10
+	case CredentialProvenanceOAuthDelegation:
+		return 1.05
+	case CredentialProvenanceJIT:
+		return 1.00
+	case CredentialProvenanceWorkloadIdentity:
+		return 1.00
+	default:
+		return 1.20
+	}
+}
+
+func normalizeCredentialProvenanceType(value string) string {
+	switch strings.TrimSpace(value) {
+	case CredentialProvenanceStaticSecret,
+		CredentialProvenanceWorkloadIdentity,
+		CredentialProvenanceInheritedHuman,
+		CredentialProvenanceOAuthDelegation,
+		CredentialProvenanceJIT:
+		return strings.TrimSpace(value)
+	default:
+		return CredentialProvenanceUnknown
+	}
+}
+
+func normalizeCredentialScope(value string) string {
+	switch strings.TrimSpace(value) {
+	case CredentialScopeRepository,
+		CredentialScopeWorkflow,
+		CredentialScopeTool,
+		CredentialScopeEnvironment,
+		CredentialScopeOrg:
+		return strings.TrimSpace(value)
+	default:
+		return CredentialScopeUnknown
+	}
+}
+
+func normalizeCredentialConfidence(value string) string {
+	switch strings.TrimSpace(value) {
+	case "high", "medium", "low":
+		return strings.TrimSpace(value)
+	default:
+		return "low"
+	}
+}
+
+func mergeCredentialEvidenceBasis(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

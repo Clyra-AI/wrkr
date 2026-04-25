@@ -78,6 +78,16 @@
         "$ref": "#/$defs/checklistItem"
       }
     },
+    "action_paths": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/actionPath"}
+    },
+    "action_path_to_control_first": {
+      "$ref": "#/$defs/actionPathToControlFirst"
+    },
+    "control_path_graph": {
+      "$ref": "#/$defs/controlPathGraph"
+    },
     "source_privacy": {
       "$ref": "#/$defs/sourcePrivacy"
     }
@@ -134,6 +144,120 @@
         "sample_definition": {"type": "string"},
         "exclusion_criteria": {"type": "array", "items": {"type": "string"}}
       }
+    },
+    "credentialProvenance": {
+      "type": "object",
+      "required": ["type", "scope", "confidence", "risk_multiplier"],
+      "properties": {
+        "type": {"type": "string", "enum": ["static_secret", "workload_identity", "inherited_human", "oauth_delegation", "jit", "unknown"]},
+        "subject": {"type": "string"},
+        "scope": {"type": "string", "enum": ["repository", "workflow", "tool", "environment", "organization", "unknown"]},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "risk_multiplier": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "actionPath": {
+      "type": "object",
+      "required": ["path_id", "org", "repo", "tool_type", "write_capable", "approval_gap", "credential_access", "attack_path_score", "risk_score", "recommended_action"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "location": {"type": "string"},
+        "write_capable": {"type": "boolean"},
+        "approval_gap": {"type": "boolean"},
+        "credential_access": {"type": "boolean"},
+        "credential_provenance": {"$ref": "#/$defs/credentialProvenance"},
+        "attack_path_score": {"type": "number"},
+        "risk_score": {"type": "number"},
+        "recommended_action": {"type": "string"},
+        "write_path_classes": {"type": "array", "items": {"type": "string"}},
+        "governance_controls": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "actionPathToControlFirst": {
+      "type": "object",
+      "required": ["summary", "path"],
+      "properties": {
+        "summary": {
+          "type": "object",
+          "required": ["total_paths", "write_capable_paths", "production_target_backed_paths", "govern_first_paths"],
+          "properties": {
+            "total_paths": {"type": "integer"},
+            "write_capable_paths": {"type": "integer"},
+            "production_target_backed_paths": {"type": "integer"},
+            "govern_first_paths": {"type": "integer"}
+          }
+        },
+        "path": {"$ref": "#/$defs/actionPath"}
+      }
+    },
+    "controlPathKindRollup": {
+      "type": "object",
+      "required": ["kind", "count"],
+      "properties": {
+        "kind": {"type": "string"},
+        "count": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "controlPathGraphNode": {
+      "type": "object",
+      "required": ["node_id", "path_id", "kind", "org", "repo"],
+      "properties": {
+        "node_id": {"type": "string"},
+        "path_id": {"type": "string"},
+        "kind": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "label": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "location": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "status": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "source_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "controlPathGraphEdge": {
+      "type": "object",
+      "required": ["edge_id", "path_id", "kind", "from_node_id", "to_node_id"],
+      "properties": {
+        "edge_id": {"type": "string"},
+        "path_id": {"type": "string"},
+        "kind": {"type": "string"},
+        "from_node_id": {"type": "string"},
+        "to_node_id": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "source_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "controlPathGraph": {
+      "type": "object",
+      "required": ["version", "summary", "nodes", "edges"],
+      "properties": {
+        "version": {"type": "string", "enum": ["1"]},
+        "summary": {
+          "type": "object",
+          "required": ["total_nodes", "total_edges", "node_kinds", "edge_kinds"],
+          "properties": {
+            "total_nodes": {"type": "integer"},
+            "total_edges": {"type": "integer"},
+            "node_kinds": {"type": "array", "items": {"$ref": "#/$defs/controlPathKindRollup"}},
+            "edge_kinds": {"type": "array", "items": {"$ref": "#/$defs/controlPathKindRollup"}}
+          },
+          "additionalProperties": false
+        },
+        "nodes": {"type": "array", "items": {"$ref": "#/$defs/controlPathGraphNode"}},
+        "edges": {"type": "array", "items": {"$ref": "#/$defs/controlPathGraphEdge"}}
+      },
+      "additionalProperties": false
     },
     "riskItem": {
       "type": "object",

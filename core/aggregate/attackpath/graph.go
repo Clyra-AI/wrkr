@@ -1,10 +1,13 @@
 package attackpath
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"strings"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 )
@@ -426,4 +429,410 @@ func fallbackOrg(org string) string {
 		return "local"
 	}
 	return strings.TrimSpace(org)
+}
+
+const ControlPathGraphVersion = "1"
+
+const (
+	ControlPathNodeControlPath       = "control_path"
+	ControlPathNodeAgent             = "agent"
+	ControlPathNodeExecutionIdentity = "execution_identity"
+	ControlPathNodeCredential        = "credential"
+	ControlPathNodeTool              = "tool"
+	ControlPathNodeWorkflow          = "workflow"
+	ControlPathNodeRepo              = "repo"
+	ControlPathNodeGovernanceControl = "governance_control"
+	ControlPathNodeTarget            = "target"
+	ControlPathNodeActionCapability  = "action_capability"
+)
+
+type ControlPathInput struct {
+	PathID                   string
+	AgentID                  string
+	Org                      string
+	Repo                     string
+	ToolType                 string
+	Location                 string
+	ExecutionIdentity        string
+	ExecutionIdentityType    string
+	ExecutionIdentitySource  string
+	ExecutionIdentityStatus  string
+	CredentialAccess         bool
+	CredentialProvenance     *agginventory.CredentialProvenance
+	GovernanceControls       []agginventory.GovernanceControlMapping
+	MatchedProductionTargets []string
+	WritePathClasses         []string
+	PullRequestWrite         bool
+	MergeExecute             bool
+	DeployWrite              bool
+	ProductionWrite          bool
+	ApprovalGap              bool
+}
+
+type ControlPathGraph struct {
+	Version string                  `json:"version"`
+	Summary ControlPathGraphSummary `json:"summary"`
+	Nodes   []ControlPathNode       `json:"nodes"`
+	Edges   []ControlPathEdge       `json:"edges"`
+}
+
+type ControlPathGraphSummary struct {
+	TotalNodes int                     `json:"total_nodes"`
+	TotalEdges int                     `json:"total_edges"`
+	NodeKinds  []ControlPathKindRollup `json:"node_kinds"`
+	EdgeKinds  []ControlPathKindRollup `json:"edge_kinds"`
+}
+
+type ControlPathKindRollup struct {
+	Kind  string `json:"kind"`
+	Count int    `json:"count"`
+}
+
+type ControlPathNode struct {
+	NodeID       string   `json:"node_id"`
+	PathID       string   `json:"path_id"`
+	Kind         string   `json:"kind"`
+	Org          string   `json:"org"`
+	Repo         string   `json:"repo"`
+	Label        string   `json:"label,omitempty"`
+	ToolType     string   `json:"tool_type,omitempty"`
+	Location     string   `json:"location,omitempty"`
+	AgentID      string   `json:"agent_id,omitempty"`
+	Status       string   `json:"status,omitempty"`
+	EvidenceRefs []string `json:"evidence_refs,omitempty"`
+	SourceRefs   []string `json:"source_refs,omitempty"`
+}
+
+type ControlPathEdge struct {
+	EdgeID       string   `json:"edge_id"`
+	PathID       string   `json:"path_id"`
+	Kind         string   `json:"kind"`
+	FromNodeID   string   `json:"from_node_id"`
+	ToNodeID     string   `json:"to_node_id"`
+	EvidenceRefs []string `json:"evidence_refs,omitempty"`
+	SourceRefs   []string `json:"source_refs,omitempty"`
+}
+
+func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
+	if len(paths) == 0 {
+		return nil
+	}
+
+	ordered := append([]ControlPathInput(nil), paths...)
+	sort.Slice(ordered, func(i, j int) bool {
+		if strings.TrimSpace(ordered[i].Org) != strings.TrimSpace(ordered[j].Org) {
+			return strings.TrimSpace(ordered[i].Org) < strings.TrimSpace(ordered[j].Org)
+		}
+		if strings.TrimSpace(ordered[i].Repo) != strings.TrimSpace(ordered[j].Repo) {
+			return strings.TrimSpace(ordered[i].Repo) < strings.TrimSpace(ordered[j].Repo)
+		}
+		return strings.TrimSpace(ordered[i].PathID) < strings.TrimSpace(ordered[j].PathID)
+	})
+
+	nodes := make([]ControlPathNode, 0, len(ordered)*8)
+	edges := make([]ControlPathEdge, 0, len(ordered)*8)
+	nodeCounts := map[string]int{}
+	edgeCounts := map[string]int{}
+	for _, path := range ordered {
+		pathNodes, pathEdges := buildControlPath(path)
+		nodes = append(nodes, pathNodes...)
+		edges = append(edges, pathEdges...)
+		for _, node := range pathNodes {
+			nodeCounts[node.Kind]++
+		}
+		for _, edge := range pathEdges {
+			edgeCounts[edge.Kind]++
+		}
+	}
+
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].PathID != nodes[j].PathID {
+			return nodes[i].PathID < nodes[j].PathID
+		}
+		if nodes[i].Kind != nodes[j].Kind {
+			return nodes[i].Kind < nodes[j].Kind
+		}
+		return nodes[i].NodeID < nodes[j].NodeID
+	})
+	sort.Slice(edges, func(i, j int) bool {
+		if edges[i].PathID != edges[j].PathID {
+			return edges[i].PathID < edges[j].PathID
+		}
+		if edges[i].Kind != edges[j].Kind {
+			return edges[i].Kind < edges[j].Kind
+		}
+		return edges[i].EdgeID < edges[j].EdgeID
+	})
+
+	return &ControlPathGraph{
+		Version: ControlPathGraphVersion,
+		Summary: ControlPathGraphSummary{
+			TotalNodes: len(nodes),
+			TotalEdges: len(edges),
+			NodeKinds:  summarizeControlPathKinds(nodeCounts),
+			EdgeKinds:  summarizeControlPathKinds(edgeCounts),
+		},
+		Nodes: nodes,
+		Edges: edges,
+	}
+}
+
+func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEdge) {
+	pathID := strings.TrimSpace(path.PathID)
+	if pathID == "" {
+		return nil, nil
+	}
+	org := fallbackOrg(path.Org)
+	repo := controlValue(path.Repo, "unknown_repo")
+	location := controlValue(path.Location, "unknown_workflow")
+	toolType := controlValue(path.ToolType, "unknown_tool")
+
+	pathNode := newControlPathNode(pathID, ControlPathNodeControlPath, org, repo, "control_path", toolType, location, strings.TrimSpace(path.AgentID), pathStatus(path), controlEvidenceRefs(path), controlSourceRefs(repo, location))
+	nodes := []ControlPathNode{pathNode}
+	edges := make([]ControlPathEdge, 0, 16)
+
+	agentNode := newControlPathNode(pathID, ControlPathNodeAgent, org, repo, controlValue(path.AgentID, "unknown_agent"), toolType, location, strings.TrimSpace(path.AgentID), "", controlEvidenceRefs(path), controlSourceRefs(repo, location))
+	nodes = append(nodes, agentNode)
+	edges = append(edges, newControlPathEdge(pathID, "agent_controls_path", agentNode.NodeID, pathNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location)))
+
+	toolNode := newControlPathNode(pathID, ControlPathNodeTool, org, repo, toolType, toolType, location, strings.TrimSpace(path.AgentID), "", controlEvidenceRefs(path), controlSourceRefs(repo, location))
+	nodes = append(nodes, toolNode)
+	edges = append(edges, newControlPathEdge(pathID, "path_uses_tool", pathNode.NodeID, toolNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location)))
+
+	workflowNode := newControlPathNode(pathID, ControlPathNodeWorkflow, org, repo, location, toolType, location, strings.TrimSpace(path.AgentID), "", controlEvidenceRefs(path), controlSourceRefs(repo, location))
+	nodes = append(nodes, workflowNode)
+	edges = append(edges, newControlPathEdge(pathID, "path_executes_workflow", pathNode.NodeID, workflowNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location)))
+
+	repoNode := newControlPathNode(pathID, ControlPathNodeRepo, org, repo, repo, toolType, "", strings.TrimSpace(path.AgentID), "", controlEvidenceRefs(path), []string{repo})
+	nodes = append(nodes, repoNode)
+	edges = append(edges, newControlPathEdge(pathID, "workflow_in_repo", workflowNode.NodeID, repoNode.NodeID, controlEvidenceRefs(path), []string{repo}))
+
+	execLabel := "unknown_execution_identity"
+	if strings.TrimSpace(path.ExecutionIdentityStatus) == "known" && strings.TrimSpace(path.ExecutionIdentity) != "" {
+		execLabel = strings.TrimSpace(path.ExecutionIdentity)
+	}
+	execStatus := controlValue(path.ExecutionIdentityStatus, "unknown")
+	execEvidence := append(controlEvidenceRefs(path), "execution_identity_source:"+controlValue(path.ExecutionIdentitySource, "unknown"))
+	execNode := newControlPathNode(pathID, ControlPathNodeExecutionIdentity, org, repo, execLabel, toolType, location, strings.TrimSpace(path.AgentID), execStatus, execEvidence, controlSourceRefs(repo, location))
+	nodes = append(nodes, execNode)
+	edges = append(edges, newControlPathEdge(pathID, "path_runs_as", pathNode.NodeID, execNode.NodeID, execEvidence, controlSourceRefs(repo, location)))
+
+	credentialNode := controlCredentialNode(pathID, path, org, repo, toolType, location)
+	if credentialNode != nil {
+		nodes = append(nodes, *credentialNode)
+		edges = append(edges, newControlPathEdge(pathID, "execution_uses_credential", execNode.NodeID, credentialNode.NodeID, credentialNode.EvidenceRefs, credentialNode.SourceRefs))
+	}
+
+	for _, item := range actionCapabilityLabels(path) {
+		actionNode := newControlPathNode(pathID, ControlPathNodeActionCapability, org, repo, item, toolType, location, strings.TrimSpace(path.AgentID), "", append(controlEvidenceRefs(path), "capability:"+item), controlSourceRefs(repo, location))
+		nodes = append(nodes, actionNode)
+		edges = append(edges, newControlPathEdge(pathID, "path_enables_action", pathNode.NodeID, actionNode.NodeID, actionNode.EvidenceRefs, actionNode.SourceRefs))
+	}
+
+	for _, target := range controlTargets(path) {
+		targetNode := newControlPathNode(pathID, ControlPathNodeTarget, org, repo, target, toolType, location, strings.TrimSpace(path.AgentID), "", append(controlEvidenceRefs(path), "target:"+target), controlSourceRefs(repo, location))
+		nodes = append(nodes, targetNode)
+		edges = append(edges, newControlPathEdge(pathID, "path_targets_surface", pathNode.NodeID, targetNode.NodeID, targetNode.EvidenceRefs, targetNode.SourceRefs))
+	}
+
+	for _, control := range controlMappings(path.GovernanceControls) {
+		controlNode := newControlPathNode(pathID, ControlPathNodeGovernanceControl, org, repo, control.Control, toolType, location, strings.TrimSpace(path.AgentID), controlValue(control.Status, "unknown"), append(controlEvidenceRefs(path), "governance_control:"+control.Control), controlSourceRefs(repo, location))
+		nodes = append(nodes, controlNode)
+		edges = append(edges, newControlPathEdge(pathID, "path_governed_by", pathNode.NodeID, controlNode.NodeID, controlNode.EvidenceRefs, controlNode.SourceRefs))
+	}
+
+	return nodes, edges
+}
+
+func controlCredentialNode(pathID string, path ControlPathInput, org string, repo string, toolType string, location string) *ControlPathNode {
+	provenance := agginventory.NormalizeCredentialProvenance(path.CredentialProvenance)
+	if provenance == nil && !path.CredentialAccess {
+		return nil
+	}
+	label := "unknown_credential"
+	status := "unknown"
+	evidenceRefs := controlEvidenceRefs(path)
+	if provenance != nil {
+		label = provenance.Type
+		if strings.TrimSpace(provenance.Subject) != "" {
+			label = provenance.Type + ":" + strings.TrimSpace(provenance.Subject)
+		}
+		status = controlValue(provenance.Scope, "unknown")
+		for _, item := range provenance.EvidenceBasis {
+			evidenceRefs = append(evidenceRefs, "credential_basis:"+item)
+		}
+	} else if path.CredentialAccess {
+		label = "credential_access"
+	}
+	evidenceRefs = uniqueSortedStrings(evidenceRefs)
+	node := newControlPathNode(pathID, ControlPathNodeCredential, org, repo, label, toolType, location, strings.TrimSpace(path.AgentID), status, evidenceRefs, controlSourceRefs(repo, location))
+	return &node
+}
+
+func newControlPathNode(pathID string, kind string, org string, repo string, label string, toolType string, location string, agentID string, status string, evidenceRefs []string, sourceRefs []string) ControlPathNode {
+	label = strings.TrimSpace(label)
+	rawID := strings.Join([]string{pathID, kind, label, strings.TrimSpace(toolType), strings.TrimSpace(location), strings.TrimSpace(agentID), strings.TrimSpace(status)}, "|")
+	return ControlPathNode{
+		NodeID:       controlPathStableID("cpg-node", rawID),
+		PathID:       strings.TrimSpace(pathID),
+		Kind:         strings.TrimSpace(kind),
+		Org:          fallbackOrg(org),
+		Repo:         strings.TrimSpace(repo),
+		Label:        label,
+		ToolType:     strings.TrimSpace(toolType),
+		Location:     strings.TrimSpace(location),
+		AgentID:      strings.TrimSpace(agentID),
+		Status:       strings.TrimSpace(status),
+		EvidenceRefs: uniqueSortedStrings(evidenceRefs),
+		SourceRefs:   uniqueSortedStrings(sourceRefs),
+	}
+}
+
+func newControlPathEdge(pathID string, kind string, fromNodeID string, toNodeID string, evidenceRefs []string, sourceRefs []string) ControlPathEdge {
+	rawID := strings.Join([]string{strings.TrimSpace(pathID), strings.TrimSpace(kind), strings.TrimSpace(fromNodeID), strings.TrimSpace(toNodeID)}, "|")
+	return ControlPathEdge{
+		EdgeID:       controlPathStableID("cpg-edge", rawID),
+		PathID:       strings.TrimSpace(pathID),
+		Kind:         strings.TrimSpace(kind),
+		FromNodeID:   strings.TrimSpace(fromNodeID),
+		ToNodeID:     strings.TrimSpace(toNodeID),
+		EvidenceRefs: uniqueSortedStrings(evidenceRefs),
+		SourceRefs:   uniqueSortedStrings(sourceRefs),
+	}
+}
+
+func summarizeControlPathKinds(counts map[string]int) []ControlPathKindRollup {
+	if len(counts) == 0 {
+		return nil
+	}
+	kinds := make([]string, 0, len(counts))
+	for kind := range counts {
+		kinds = append(kinds, kind)
+	}
+	sort.Strings(kinds)
+	out := make([]ControlPathKindRollup, 0, len(kinds))
+	for _, kind := range kinds {
+		out = append(out, ControlPathKindRollup{Kind: kind, Count: counts[kind]})
+	}
+	return out
+}
+
+func controlPathStableID(prefix string, raw string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(raw)))
+	return strings.TrimSpace(prefix) + "-" + hex.EncodeToString(sum[:6])
+}
+
+func controlValue(value string, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return strings.TrimSpace(fallback)
+	}
+	return strings.TrimSpace(value)
+}
+
+func controlEvidenceRefs(path ControlPathInput) []string {
+	values := []string{"path_id:" + strings.TrimSpace(path.PathID)}
+	if strings.TrimSpace(path.AgentID) != "" {
+		values = append(values, "agent_id:"+strings.TrimSpace(path.AgentID))
+	}
+	if path.CredentialAccess {
+		values = append(values, "credential_access=true")
+	}
+	if path.ApprovalGap {
+		values = append(values, "approval_gap=true")
+	}
+	return uniqueSortedStrings(values)
+}
+
+func controlSourceRefs(repo string, location string) []string {
+	return uniqueSortedStrings([]string{strings.TrimSpace(repo), strings.TrimSpace(location)})
+}
+
+func controlTargets(path ControlPathInput) []string {
+	values := uniqueSortedStrings(path.MatchedProductionTargets)
+	if len(values) == 0 && path.ProductionWrite {
+		return []string{"unknown_production_target"}
+	}
+	return values
+}
+
+func controlMappings(values []agginventory.GovernanceControlMapping) []agginventory.GovernanceControlMapping {
+	if len(values) == 0 {
+		return nil
+	}
+	out := append([]agginventory.GovernanceControlMapping(nil), values...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Control != out[j].Control {
+			return out[i].Control < out[j].Control
+		}
+		return out[i].Status < out[j].Status
+	})
+	return out
+}
+
+func actionCapabilityLabels(path ControlPathInput) []string {
+	values := make([]string, 0, 8)
+	if path.PullRequestWrite {
+		values = append(values, "pull_request_write")
+	}
+	if path.MergeExecute {
+		values = append(values, "merge_execute")
+	}
+	if path.DeployWrite {
+		values = append(values, "deploy_write")
+	}
+	if path.ProductionWrite {
+		values = append(values, "production_write")
+	}
+	for _, class := range path.WritePathClasses {
+		trimmed := strings.TrimSpace(class)
+		if trimmed == "" {
+			continue
+		}
+		values = append(values, "write_path_class:"+trimmed)
+	}
+	if len(values) == 0 {
+		values = append(values, "read_only")
+	}
+	return uniqueSortedStrings(values)
+}
+
+func pathStatus(path ControlPathInput) string {
+	switch {
+	case path.ProductionWrite:
+		return "production_write"
+	case path.DeployWrite:
+		return "deploy_write"
+	case path.MergeExecute:
+		return "merge_execute"
+	case path.PullRequestWrite:
+		return "pull_request_write"
+	case path.CredentialAccess:
+		return "credential_access"
+	default:
+		return "observed"
+	}
+}
+
+func uniqueSortedStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

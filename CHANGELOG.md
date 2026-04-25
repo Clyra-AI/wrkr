@@ -9,6 +9,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - [semver:minor] Added explicit `source_privacy` metadata to scan state, scan JSON, scan status, reports, evidence bundle metadata, and SARIF output so operators can prove hosted source retention and cleanup behavior.
+- [semver:minor] Added a versioned `control_path_graph` artifact linking identities, credentials, tools, workflows, repos, governance controls, targets, and action capabilities across saved state, reports, and evidence bundles.
+- [semver:minor] Added typed `credential_provenance` classification across inventory privilege maps, govern-first action paths, control backlog items, reports, and proof mapping while preserving existing boolean compatibility fields.
 
 ### Changed
 

@@ -67,6 +67,10 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 					{Key: "subject", Value: identity.subject},
 					{Key: "source", Value: identity.source},
 					{Key: "confidence", Value: identity.confidence},
+					{Key: "credential_provenance_type", Value: credentialProvenanceType(identity.identityType)},
+					{Key: "credential_subject", Value: identity.subject},
+					{Key: "credential_scope", Value: "workflow"},
+					{Key: "credential_confidence", Value: credentialProvenanceConfidence(identity.identityType, identity.confidence)},
 				},
 				Remediation: "Review the durable non-human execution identity backing this AI-enabled delivery path.",
 			})
@@ -266,6 +270,34 @@ func dedupeStrings(values []string) []string {
 		out = append(out, trimmed)
 	}
 	return out
+}
+
+func credentialProvenanceType(identityType string) string {
+	switch strings.TrimSpace(identityType) {
+	case "github_app", "service_account":
+		return "workload_identity"
+	case "bot_user":
+		return "inherited_human"
+	default:
+		return "unknown"
+	}
+}
+
+func credentialProvenanceConfidence(identityType, confidence string) string {
+	switch strings.TrimSpace(identityType) {
+	case "github_app", "service_account":
+		return "high"
+	case "bot_user":
+		if strings.TrimSpace(confidence) == "high" {
+			return "medium"
+		}
+		return "low"
+	default:
+		if strings.TrimSpace(confidence) == "high" {
+			return "medium"
+		}
+		return "low"
+	}
 }
 
 func toString(value any) string {

@@ -44,6 +44,7 @@ func Build(
 	}
 
 	signalsByAgent := buildSignalsByAgent(findings)
+	signalsByRepoLocation := buildSignalsByRepoLocation(findings)
 	budget := agginventory.PrivilegeBudget{
 		TotalTools: len(tools),
 		ProductionWrite: agginventory.ProductionWriteBudget{
@@ -74,7 +75,7 @@ func Build(
 
 		productionWrite := false
 		if productionConfigured && writeCapable {
-			signal := signalsByAgent[tool.AgentID]
+			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation)
 			productionWrite = len(matchedProductionTargets(tool.Repos, signal, *productionRules)) > 0
 			if productionWrite && budget.ProductionWrite.Count != nil {
 				*budget.ProductionWrite.Count = *budget.ProductionWrite.Count + 1
@@ -108,8 +109,10 @@ func Build(
 			if deploymentStatus == "" {
 				deploymentStatus = "unknown"
 			}
-			approvalReasons := approvalGapReasons(signalsByAgent[tool.AgentID], tool.Permissions, deploymentStatus)
-			triggerClass := workflowTriggerClass(signalsByAgent[tool.AgentID], tool.Permissions, deploymentStatus, deployWrite, productionWrite)
+			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation)
+			credentialProvenance := classifyCredentialProvenance(tool.DataClass, tool.Permissions, agentContext.BoundAuthSurfaces, signal)
+			approvalReasons := approvalGapReasons(signal, tool.Permissions, deploymentStatus)
+			triggerClass := workflowTriggerClass(signal, tool.Permissions, deploymentStatus, deployWrite, productionWrite)
 			owner := resolveOperationalOwner(tool, tool.Repos, "", tool.Org)
 
 			entries = append(entries, agginventory.AgentPrivilegeMapEntry{
@@ -151,6 +154,7 @@ func Build(
 				ProductionTargetStatus:   currentProductionTargetStatus(productionConfigured),
 				WriteCapable:             writeCapable,
 				CredentialAccess:         credentialAccess,
+				CredentialProvenance:     credentialProvenance,
 				ExecCapable:              execCapable,
 				ProductionWrite:          productionWrite,
 				MatchedProductionTargets: append([]string(nil), matchedTargets...),
@@ -282,6 +286,7 @@ func buildInstanceEntries(
 		if deploymentStatus == "" {
 			deploymentStatus = "unknown"
 		}
+		credentialProvenance := classifyCredentialProvenance(dataClass, permissions, agent.BoundAuthSurfaces, signals)
 		approvalReasons := approvalGapReasons(signals, permissions, deploymentStatus)
 		triggerClass := workflowTriggerClass(signals, permissions, deploymentStatus, deployWrite, productionWrite)
 		owner := resolveOperationalOwner(tool, repos, strings.TrimSpace(agent.Location), org)
@@ -328,6 +333,7 @@ func buildInstanceEntries(
 			ProductionTargetStatus:   currentProductionTargetStatus(productionConfigured),
 			WriteCapable:             writeCapable,
 			CredentialAccess:         credentialAccess,
+			CredentialProvenance:     credentialProvenance,
 			ExecCapable:              execCapable,
 			ProductionWrite:          productionWrite,
 			MatchedProductionTargets: append([]string(nil), matchedTargets...),
@@ -388,6 +394,69 @@ func buildSignalsByInstance(findings []model.Finding) map[string]findingSignals 
 		out[instanceID] = entry
 	}
 	return out
+}
+
+func mergeFindingSignal(entry *findingSignals, finding model.Finding) {
+	if entry == nil {
+		return
+	}
+	if repo := strings.TrimSpace(finding.Repo); repo != "" {
+		entry.Repos = append(entry.Repos, repo)
+		entry.Values = append(entry.Values, normalizeToken(repo))
+	}
+	if location := strings.TrimSpace(finding.Location); location != "" {
+		entry.Locations = append(entry.Locations, location)
+		entry.Values = append(entry.Values, normalizeToken(location))
+		entry.Values = append(entry.Values, extractHost(location)...)
+	}
+	entry.Permissions = append(entry.Permissions, finding.Permissions...)
+	for _, permission := range finding.Permissions {
+		if normalized := normalizeToken(permission); normalized != "" {
+			entry.Values = append(entry.Values, normalized)
+		}
+	}
+	for _, evidence := range finding.Evidence {
+		key := normalizeToken(evidence.Key)
+		value := strings.TrimSpace(evidence.Value)
+		normalizedValue := normalizeToken(value)
+		if key != "" {
+			entry.Values = append(entry.Values, key)
+		}
+		if normalizedValue != "" {
+			entry.Values = append(entry.Values, normalizedValue)
+			entry.Values = append(entry.Values, extractHost(value)...)
+		}
+		if key != "" && normalizedValue != "" {
+			entry.EvidenceKV[key] = append(entry.EvidenceKV[key], normalizedValue)
+		}
+	}
+}
+
+func normalizeFindingSignals(entry findingSignals) findingSignals {
+	entry.Repos = dedupeSortedPreserveCase(entry.Repos)
+	entry.Locations = dedupeSortedPreserveCase(entry.Locations)
+	entry.Permissions = dedupeSortedPreserveCase(entry.Permissions)
+	entry.Values = dedupeSorted(entry.Values)
+	for key, values := range entry.EvidenceKV {
+		entry.EvidenceKV[key] = dedupeSorted(values)
+	}
+	return entry
+}
+
+func isEmptyFindingSignals(entry findingSignals) bool {
+	return len(entry.Repos) == 0 &&
+		len(entry.Locations) == 0 &&
+		len(entry.Permissions) == 0 &&
+		len(entry.Values) == 0 &&
+		len(entry.EvidenceKV) == 0
+}
+
+func repoLocationSignalKey(org string, repo string, location string) string {
+	location = strings.TrimSpace(location)
+	if location == "" {
+		return ""
+	}
+	return strings.Join([]string{fallbackOrg(org), strings.TrimSpace(repo), location}, "|")
 }
 
 type toolIndex struct {
@@ -591,6 +660,39 @@ func buildSignalsByAgent(findings []model.Finding) map[string]findingSignals {
 	return out
 }
 
+func buildSignalsByRepoLocation(findings []model.Finding) map[string]findingSignals {
+	out := map[string]findingSignals{}
+	for _, finding := range findings {
+		key := repoLocationSignalKey(finding.Org, finding.Repo, finding.Location)
+		if key == "" {
+			continue
+		}
+		entry := out[key]
+		if entry.EvidenceKV == nil {
+			entry.EvidenceKV = map[string][]string{}
+		}
+		mergeFindingSignal(&entry, finding)
+		out[key] = normalizeFindingSignals(entry)
+	}
+	return out
+}
+
+func matchingSignalsForTool(tool agginventory.Tool, signalsByAgent map[string]findingSignals, signalsByRepoLocation map[string]findingSignals) findingSignals {
+	if signal := signalsByAgent[strings.TrimSpace(tool.AgentID)]; !isEmptyFindingSignals(signal) {
+		return signal
+	}
+	location := strings.TrimSpace(primaryLocation(tool))
+	if location == "" {
+		return findingSignals{}
+	}
+	for _, repo := range tool.Repos {
+		if signal := signalsByRepoLocation[repoLocationSignalKey(tool.Org, repo, location)]; !isEmptyFindingSignals(signal) {
+			return signal
+		}
+	}
+	return signalsByRepoLocation[repoLocationSignalKey(tool.Org, "", location)]
+}
+
 func matchedProductionTargets(
 	repos []string,
 	signals findingSignals,
@@ -650,13 +752,27 @@ func hasCredentialAccessForSurface(dataClass string, permissions []string, authS
 	}
 	for _, permission := range permissions {
 		normalized := normalizeToken(permission)
-		if strings.Contains(normalized, "secret") || strings.Contains(normalized, "token") || strings.Contains(normalized, "credential") {
+		if strings.Contains(normalized, "secret") ||
+			strings.Contains(normalized, "token") ||
+			strings.Contains(normalized, "credential") ||
+			strings.Contains(normalized, "oauth") ||
+			strings.Contains(normalized, "oidc") ||
+			normalized == "id-token.write" {
 			return true
 		}
 	}
 	for _, authSurface := range authSurfaces {
 		normalized := normalizeToken(authSurface)
-		if strings.Contains(normalized, "secret") || strings.Contains(normalized, "token") || strings.Contains(normalized, "credential") || strings.HasSuffix(normalized, "_key") || strings.Contains(normalized, "api_key") {
+		if strings.Contains(normalized, "secret") ||
+			strings.Contains(normalized, "token") ||
+			strings.Contains(normalized, "credential") ||
+			strings.HasSuffix(normalized, "_key") ||
+			strings.Contains(normalized, "api_key") ||
+			strings.Contains(normalized, "oauth") ||
+			strings.Contains(normalized, "oidc") ||
+			strings.Contains(normalized, "workload_identity") ||
+			strings.Contains(normalized, "assume_role") ||
+			strings.Contains(normalized, "sts") {
 			return true
 		}
 	}
@@ -706,6 +822,209 @@ func currentProductionTargetStatus(productionConfigured bool) string {
 		return agginventory.ProductionTargetsStatusConfigured
 	}
 	return agginventory.ProductionTargetsStatusNotConfigured
+}
+
+func classifyCredentialProvenance(dataClass string, permissions []string, authSurfaces []string, signals findingSignals) *agginventory.CredentialProvenance {
+	if direct := directCredentialProvenance(signals); direct != nil {
+		return direct
+	}
+	if !hasCredentialAccessForSurface(dataClass, permissions, authSurfaces) {
+		return nil
+	}
+
+	scope := inferredCredentialScope(signals, authSurfaces)
+	switch {
+	case len(signals.EvidenceKV["credential_keys"]) > 0:
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceStaticSecret,
+			Subject:        strings.Join(signals.EvidenceKV["credential_keys"], ","),
+			Scope:          scope,
+			Confidence:     "high",
+			EvidenceBasis:  []string{"credential_keys"},
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+		})
+	case len(signals.EvidenceKV["workflow_secret_refs"]) > 0:
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceStaticSecret,
+			Subject:        strings.Join(signals.EvidenceKV["workflow_secret_refs"], ","),
+			Scope:          agginventory.CredentialScopeWorkflow,
+			Confidence:     "high",
+			EvidenceBasis:  []string{"workflow_secret_refs"},
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+		})
+	case hasAnySignalValue(signals, "identity_type", "service_account", "github_app"):
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceWorkloadIdentity,
+			Subject:        firstSignalValue(signals, "subject"),
+			Scope:          agginventory.CredentialScopeWorkflow,
+			Confidence:     "high",
+			EvidenceBasis:  []string{"identity_type"},
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceWorkloadIdentity),
+		})
+	case hasAnySignalValue(signals, "identity_type", "bot_user") || hasAnyAuthSurface(authSurfaces, "github_actor", "user_token", "personal_access_token", "pat"):
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceInheritedHuman,
+			Subject:        firstNonEmptyString(firstSignalValue(signals, "subject"), firstMatchingAuthSurface(authSurfaces, "github_actor", "user_token", "personal_access_token", "pat")),
+			Scope:          scope,
+			Confidence:     "medium",
+			EvidenceBasis:  mergeSortedEvidence([]string{"identity_type"}, authSurfaces),
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceInheritedHuman),
+		})
+	case hasAnyAuthSurface(authSurfaces, "oauth", "oauth2"):
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceOAuthDelegation,
+			Subject:        firstMatchingAuthSurface(authSurfaces, "oauth", "oauth2"),
+			Scope:          agginventory.CredentialScopeTool,
+			Confidence:     "high",
+			EvidenceBasis:  authSurfaceEvidenceBasis(authSurfaces, "oauth", "oauth2"),
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceOAuthDelegation),
+		})
+	case hasAnyPermission(permissions, map[string]struct{}{"id-token.write": {}}) || hasAnyAuthSurface(authSurfaces, "oidc", "workload_identity", "sts", "assume_role"):
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceJIT,
+			Subject:        firstNonEmptyString(firstMatchingAuthSurface(authSurfaces, "oidc", "workload_identity", "sts", "assume_role"), "id-token.write"),
+			Scope:          agginventory.CredentialScopeWorkflow,
+			Confidence:     "high",
+			EvidenceBasis:  mergeSortedEvidence([]string{"id-token.write"}, authSurfaces),
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceJIT),
+		})
+	case hasSecretLikeAuthSurface(authSurfaces):
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceStaticSecret,
+			Subject:        firstMatchingSecretAuthSurface(authSurfaces),
+			Scope:          scope,
+			Confidence:     "medium",
+			EvidenceBasis:  authSurfaceEvidenceBasis(authSurfaces),
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+		})
+	default:
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceUnknown,
+			Scope:          agginventory.CredentialScopeUnknown,
+			Confidence:     "low",
+			EvidenceBasis:  mergeSortedEvidence([]string{"credential_access"}, authSurfaces),
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceUnknown),
+		})
+	}
+}
+
+func directCredentialProvenance(signals findingSignals) *agginventory.CredentialProvenance {
+	types := signals.EvidenceKV["credential_provenance_type"]
+	if len(types) == 0 {
+		return nil
+	}
+	return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+		Type:           types[0],
+		Subject:        firstSignalValue(signals, "credential_subject"),
+		Scope:          firstNonEmptyString(firstSignalValue(signals, "credential_scope"), agginventory.CredentialScopeUnknown),
+		Confidence:     firstNonEmptyString(firstSignalValue(signals, "credential_confidence"), "low"),
+		EvidenceBasis:  mergeSortedEvidence([]string{"credential_provenance_type"}, signals.EvidenceKV["credential_subject"], signals.EvidenceKV["credential_scope"]),
+		RiskMultiplier: agginventory.CredentialRiskMultiplier(types[0]),
+	})
+}
+
+func inferredCredentialScope(signals findingSignals, authSurfaces []string) string {
+	if scope := firstSignalValue(signals, "credential_scope"); scope != "" {
+		return scope
+	}
+	for _, location := range signals.Locations {
+		lower := normalizeToken(location)
+		switch {
+		case strings.Contains(lower, ".github/workflows"), lower == "jenkinsfile":
+			return agginventory.CredentialScopeWorkflow
+		case strings.HasPrefix(lower, ".env"):
+			return agginventory.CredentialScopeEnvironment
+		}
+	}
+	if len(authSurfaces) > 0 {
+		return agginventory.CredentialScopeTool
+	}
+	if len(signals.Repos) > 1 {
+		return agginventory.CredentialScopeOrg
+	}
+	return agginventory.CredentialScopeRepository
+}
+
+func hasAnySignalValue(signals findingSignals, key string, candidates ...string) bool {
+	values := signals.EvidenceKV[normalizeToken(key)]
+	if len(values) == 0 {
+		return false
+	}
+	for _, value := range values {
+		normalized := normalizeToken(value)
+		for _, candidate := range candidates {
+			if normalized == normalizeToken(candidate) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func firstSignalValue(signals findingSignals, key string) string {
+	values := signals.EvidenceKV[normalizeToken(key)]
+	if len(values) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(values[0])
+}
+
+func hasAnyAuthSurface(authSurfaces []string, needles ...string) bool {
+	return firstMatchingAuthSurface(authSurfaces, needles...) != ""
+}
+
+func firstMatchingAuthSurface(authSurfaces []string, needles ...string) string {
+	for _, surface := range authSurfaces {
+		normalized := normalizeToken(surface)
+		for _, needle := range needles {
+			if strings.Contains(normalized, normalizeToken(needle)) {
+				return strings.TrimSpace(surface)
+			}
+		}
+	}
+	return ""
+}
+
+func hasSecretLikeAuthSurface(authSurfaces []string) bool {
+	return firstMatchingSecretAuthSurface(authSurfaces) != ""
+}
+
+func firstMatchingSecretAuthSurface(authSurfaces []string) string {
+	for _, surface := range authSurfaces {
+		normalized := normalizeToken(surface)
+		if strings.Contains(normalized, "secret") ||
+			strings.Contains(normalized, "token") ||
+			strings.Contains(normalized, "credential") ||
+			strings.HasSuffix(normalized, "_key") ||
+			strings.Contains(normalized, "api_key") {
+			return strings.TrimSpace(surface)
+		}
+	}
+	return ""
+}
+
+func authSurfaceEvidenceBasis(authSurfaces []string, needles ...string) []string {
+	out := make([]string, 0, len(authSurfaces))
+	for _, surface := range authSurfaces {
+		if len(needles) == 0 || firstMatchingAuthSurface([]string{surface}, needles...) != "" {
+			out = append(out, "auth_surface:"+strings.TrimSpace(surface))
+		}
+	}
+	return dedupeSorted(out)
+}
+
+func mergeSortedEvidence(groups ...[]string) []string {
+	out := make([]string, 0)
+	for _, group := range groups {
+		for _, value := range group {
+			trimmed := strings.TrimSpace(value)
+			if trimmed == "" {
+				continue
+			}
+			out = append(out, trimmed)
+		}
+	}
+	return dedupeSorted(out)
 }
 
 func resolveOperationalOwner(tool agginventory.Tool, repos []string, location string, org string) owners.Resolution {

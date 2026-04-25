@@ -212,13 +212,27 @@ func hasCredentialAccessForSurface(dataClass string, permissions []string, authS
 	}
 	for _, permission := range permissions {
 		normalized := strings.ToLower(strings.TrimSpace(permission))
-		if strings.Contains(normalized, "secret") || strings.Contains(normalized, "token") || strings.Contains(normalized, "credential") {
+		if strings.Contains(normalized, "secret") ||
+			strings.Contains(normalized, "token") ||
+			strings.Contains(normalized, "credential") ||
+			strings.Contains(normalized, "oauth") ||
+			strings.Contains(normalized, "oidc") ||
+			normalized == "id-token.write" {
 			return true
 		}
 	}
 	for _, authSurface := range authSurfaces {
 		normalized := strings.ToLower(strings.TrimSpace(authSurface))
-		if strings.Contains(normalized, "secret") || strings.Contains(normalized, "token") || strings.Contains(normalized, "credential") || strings.HasSuffix(normalized, "_key") || strings.Contains(normalized, "api_key") {
+		if strings.Contains(normalized, "secret") ||
+			strings.Contains(normalized, "token") ||
+			strings.Contains(normalized, "credential") ||
+			strings.HasSuffix(normalized, "_key") ||
+			strings.Contains(normalized, "api_key") ||
+			strings.Contains(normalized, "oauth") ||
+			strings.Contains(normalized, "oidc") ||
+			strings.Contains(normalized, "workload_identity") ||
+			strings.Contains(normalized, "assume_role") ||
+			strings.Contains(normalized, "sts") {
 			return true
 		}
 	}

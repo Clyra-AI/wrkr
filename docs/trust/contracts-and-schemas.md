@@ -13,6 +13,9 @@ description: "Reference index for Wrkr command contracts, schema assets, and pro
 - `control_backlog.items[*].signal_class` is one of `unique_wrkr_signal` or `supporting_security_signal`.
 - `control_backlog.items[*].recommended_action` is one of `attach_evidence`, `approve`, `remediate`, `downgrade`, `deprecate`, `exclude`, `monitor`, `inventory_review`, `suppress`, or `debug_only`.
 - `control_backlog.items[*].confidence` is one of `high`, `medium`, or `low`.
+- `control_backlog.items[*].linked_control_path_node_ids` / `linked_control_path_edge_ids` are additive graph join keys tied to the versioned `control_path_graph`.
+- `agent_privilege_map[*].credential_provenance` and `action_paths[*].credential_provenance` use stable enums: `static_secret`, `workload_identity`, `inherited_human`, `oauth_delegation`, `jit`, and `unknown`.
+- `control_path_graph.version = "1"` identifies the additive governance graph schema in saved state, report JSON, and evidence bundles.
 - `control_backlog.items[*].write_path_classes` may include `read`, `write`, `pr_write`, `repo_write`, `release_write`, `package_publish`, `deploy_write`, `infra_write`, `secret_bearing_execution`, and `production_adjacent_write`.
 - `control_backlog.items[*].governance_controls[*].control` is one of `owner_assigned`, `approval_recorded`, `least_privilege_verified`, `rotation_evidence_attached`, `deployment_gate_present`, `production_access_classified`, `proof_artifact_generated`, or `review_cadence_set`; `status` is `satisfied`, `gap`, or `not_applicable`.
 - Governance backlog visibility may use `known_approved`, `known_unapproved`, `unknown_to_security`, `accepted_risk`, `deprecated`, `revoked`, or `needs_review`. Legacy inventory surfaces still accept the historic `approved` compatibility value.
@@ -30,6 +33,7 @@ Secret-bearing workflow semantics are also additive. Workflow references such as
 - Command contract index: `docs/commands/index.md`
 - Manifest open specification: `docs/specs/wrkr-manifest.md`
 - JSON schemas: `schemas/v1/`
+  - `schemas/v1/control-path-graph.schema.json`
 
 ## Command anchors
 

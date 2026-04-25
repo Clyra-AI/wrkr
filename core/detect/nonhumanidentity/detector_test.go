@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/model"
 )
 
 func TestDetectNonHumanIdentitiesFromWorkflowSignals(t *testing.T) {
@@ -41,4 +42,26 @@ jobs:
 	if len(findings) != 3 {
 		t.Fatalf("expected three identity findings, got %+v", findings)
 	}
+	foundWorkload := false
+	foundInherited := false
+	for _, finding := range findings {
+		switch evidenceValue(finding, "credential_provenance_type") {
+		case "workload_identity":
+			foundWorkload = true
+		case "inherited_human":
+			foundInherited = true
+		}
+	}
+	if !foundWorkload || !foundInherited {
+		t.Fatalf("expected workload and inherited credential provenance evidence, got %+v", findings)
+	}
+}
+
+func evidenceValue(finding model.Finding, key string) string {
+	for _, item := range finding.Evidence {
+		if item.Key == key {
+			return item.Value
+		}
+	}
+	return ""
 }

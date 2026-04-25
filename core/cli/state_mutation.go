@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	proof "github.com/Clyra-AI/proof"
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
@@ -78,18 +79,22 @@ func refreshDerivedMutationSnapshot(snapshot *state.Snapshot) error {
 		agginventory.RefreshIdentityGovernance(snapshot.Inventory, snapshot.Identities)
 	}
 	actionPaths := []risk.ActionPath(nil)
+	var controlPathGraph *aggattack.ControlPathGraph
 	if snapshot.RiskReport != nil && snapshot.Inventory != nil {
 		snapshot.RiskReport.ActionPaths, snapshot.RiskReport.ActionPathToControlFirst = risk.BuildActionPaths(snapshot.RiskReport.AttackPaths, snapshot.Inventory)
+		snapshot.RiskReport.ControlPathGraph = risk.BuildControlPathGraph(snapshot.RiskReport.ActionPaths)
 		actionPaths = snapshot.RiskReport.ActionPaths
+		controlPathGraph = snapshot.RiskReport.ControlPathGraph
 	}
 	if snapshot.ControlBacklog != nil && len(snapshot.Findings) == 0 && len(actionPaths) == 0 {
 		refreshExistingControlBacklog(snapshot)
 	} else if snapshot.Inventory != nil || snapshot.ControlBacklog != nil {
 		backlog := controlbacklog.Build(controlbacklog.Input{
-			Mode:        snapshot.ScanMode,
-			Findings:    snapshot.Findings,
-			Inventory:   snapshot.Inventory,
-			ActionPaths: actionPaths,
+			Mode:             snapshot.ScanMode,
+			Findings:         snapshot.Findings,
+			Inventory:        snapshot.Inventory,
+			ActionPaths:      actionPaths,
+			ControlPathGraph: controlPathGraph,
 		})
 		snapshot.ControlBacklog = &backlog
 	}

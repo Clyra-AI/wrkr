@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/model"
 )
 
@@ -224,6 +225,128 @@ func hasNode(nodes []Node, want string) bool {
 func hasEdgeRationale(edges []Edge, want string) bool {
 	for _, edge := range edges {
 		if edge.Rationale == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestControlPathGraphStableIDs(t *testing.T) {
+	t.Parallel()
+
+	inputs := []ControlPathInput{{
+		PathID:                   "apc-a1b2c3d4e5f6",
+		AgentID:                  "wrkr:compiled_action:acme",
+		Org:                      "acme",
+		Repo:                     "acme/payments",
+		ToolType:                 "compiled_action",
+		Location:                 ".github/workflows/release.yml",
+		CredentialAccess:         true,
+		PullRequestWrite:         true,
+		MergeExecute:             true,
+		DeployWrite:              true,
+		ProductionWrite:          true,
+		WritePathClasses:         []string{agginventory.WritePathPullRequestWrite, agginventory.WritePathDeployWrite},
+		MatchedProductionTargets: []string{"cluster:prod"},
+		GovernanceControls: []agginventory.GovernanceControlMapping{{
+			Control: agginventory.GovernanceControlApproval,
+			Status:  agginventory.ControlStatusGap,
+		}},
+	}}
+
+	first := BuildControlPathGraph(inputs)
+	second := BuildControlPathGraph(inputs)
+	if first == nil || second == nil {
+		t.Fatal("expected control_path_graph output")
+	}
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("expected deterministic control_path_graph\nfirst=%+v\nsecond=%+v", first, second)
+	}
+}
+
+func TestControlPathGraphLinksIdentityCredentialToolWorkflowTargetAction(t *testing.T) {
+	t.Parallel()
+
+	graph := BuildControlPathGraph([]ControlPathInput{{
+		PathID:                  "apc-graphpath01",
+		AgentID:                 "wrkr:compiled_action:acme",
+		Org:                     "acme",
+		Repo:                    "acme/payments",
+		ToolType:                "compiled_action",
+		Location:                ".github/workflows/release.yml",
+		ExecutionIdentity:       "release-app",
+		ExecutionIdentityType:   "github_app",
+		ExecutionIdentitySource: "workflow_static_signal",
+		ExecutionIdentityStatus: "known",
+		CredentialAccess:        true,
+		CredentialProvenance: &agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceStaticSecret,
+			Subject:        "RELEASE_TOKEN",
+			Scope:          agginventory.CredentialScopeWorkflow,
+			Confidence:     "high",
+			EvidenceBasis:  []string{"workflow_secret_refs"},
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+		},
+		GovernanceControls: []agginventory.GovernanceControlMapping{{
+			Control: agginventory.GovernanceControlApproval,
+			Status:  agginventory.ControlStatusGap,
+		}},
+		MatchedProductionTargets: []string{"cluster:prod"},
+		WritePathClasses:         []string{agginventory.WritePathPullRequestWrite, agginventory.WritePathDeployWrite},
+		PullRequestWrite:         true,
+		DeployWrite:              true,
+		ProductionWrite:          true,
+	}})
+	if graph == nil {
+		t.Fatal("expected control_path_graph")
+	}
+
+	requiredKinds := []string{
+		ControlPathNodeControlPath,
+		ControlPathNodeAgent,
+		ControlPathNodeExecutionIdentity,
+		ControlPathNodeCredential,
+		ControlPathNodeTool,
+		ControlPathNodeWorkflow,
+		ControlPathNodeRepo,
+		ControlPathNodeGovernanceControl,
+		ControlPathNodeTarget,
+		ControlPathNodeActionCapability,
+	}
+	for _, want := range requiredKinds {
+		if !hasControlPathNodeKind(graph.Nodes, want) {
+			t.Fatalf("expected node kind %s in %+v", want, graph.Nodes)
+		}
+	}
+	for _, want := range []string{
+		"agent_controls_path",
+		"path_runs_as",
+		"execution_uses_credential",
+		"path_uses_tool",
+		"path_executes_workflow",
+		"workflow_in_repo",
+		"path_governed_by",
+		"path_targets_surface",
+		"path_enables_action",
+	} {
+		if !hasControlPathEdgeKind(graph.Edges, want) {
+			t.Fatalf("expected edge kind %s in %+v", want, graph.Edges)
+		}
+	}
+}
+
+func hasControlPathNodeKind(nodes []ControlPathNode, want string) bool {
+	for _, node := range nodes {
+		if node.Kind == want {
+			return true
+		}
+	}
+	return false
+}
+
+func hasControlPathEdgeKind(edges []ControlPathEdge, want string) bool {
+	for _, edge := range edges {
+		if edge.Kind == want {
 			return true
 		}
 	}

@@ -144,6 +144,40 @@ jobs:
 	}
 }
 
+func TestDetectCIAutonomyCarriesJITCredentialProvenance(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	workflowPath := filepath.Join(root, ".github", "workflows")
+	if err := os.MkdirAll(workflowPath, 0o755); err != nil {
+		t.Fatalf("mkdir workflow path: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workflowPath, "release.yml"), []byte(`name: release
+on: push
+permissions:
+  id-token: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+      - run: codex --full-auto --approval never
+`), 0o600); err != nil {
+		t.Fatalf("write workflow: %v", err)
+	}
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect ciagent: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one ciagent finding, got %+v", findings)
+	}
+	if value := evidenceValue(findings[0], "credential_provenance_type"); value != "jit" {
+		t.Fatalf("expected jit credential provenance, got %q", value)
+	}
+}
+
 func mustFindRepoRoot(t *testing.T) string {
 	t.Helper()
 
