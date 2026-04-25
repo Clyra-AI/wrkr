@@ -1,6 +1,8 @@
 package proofmap
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,6 +67,43 @@ func TestMapFindingsDeduplicatesWRKR014Conflict(t *testing.T) {
 	}
 	if record.Relationship.PolicyRef == nil || len(record.Relationship.PolicyRef.MatchedRuleIDs) != 1 || record.Relationship.PolicyRef.MatchedRuleIDs[0] != "WRKR-014" {
 		t.Fatalf("expected relationship policy_ref matched_rule_ids, got %#v", record.Relationship.PolicyRef)
+	}
+}
+
+func TestMapFindingsRedactsMaterializedSourcePaths(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)
+	materializedPath := "/tmp/work/.wrkr/materialized-sources/acme/backend/.codex/config.toml"
+	findings := []model.Finding{
+		{
+			FindingType: "tool_config",
+			Severity:    model.SeverityLow,
+			ToolType:    "codex",
+			Location:    materializedPath,
+			Repo:        "backend",
+			Org:         "acme",
+			ParseError: &model.ParseError{
+				Kind:     "invalid_config",
+				Path:     materializedPath,
+				Message:  "parse failed at " + materializedPath,
+				Detector: "codex",
+			},
+			Evidence: []model.Evidence{{Key: "path", Value: materializedPath}},
+		},
+	}
+
+	records := MapFindings(findings, nil, SecurityVisibilityContext{}, now)
+	if len(records) != 1 {
+		t.Fatalf("expected one proof map record, got %d", len(records))
+	}
+	if strings.Contains(fmt.Sprintf("%#v", records[0].Event), "materialized-sources") {
+		t.Fatalf("expected event to redact materialized path, got %#v", records[0].Event)
+	}
+	if strings.Contains(fmt.Sprintf("%#v", records[0].Metadata), "materialized-sources") {
+		t.Fatalf("expected metadata to redact materialized path, got %#v", records[0].Metadata)
+	}
+	if records[0].Relationship != nil && strings.Contains(fmt.Sprintf("%#v", records[0].Relationship.EntityRefs), "materialized-sources") {
+		t.Fatalf("expected relationship refs to redact materialized path, got %#v", records[0].Relationship.EntityRefs)
 	}
 }
 

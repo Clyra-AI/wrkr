@@ -37,6 +37,9 @@ type Connector struct {
 	MaxBackoff       time.Duration
 	FailureThreshold int
 	Cooldown         time.Duration
+	// AllowSourceMaterialization permits broad source-code extension fetching for
+	// explicit deep/debug scans. Default hosted scans keep this false.
+	AllowSourceMaterialization bool
 
 	mu                  sync.Mutex
 	consecutiveFailures int
@@ -89,6 +92,13 @@ func (c *Connector) SetCooldownHandler(fn func(CooldownEvent)) {
 		return
 	}
 	c.onCooldown = fn
+}
+
+func (c *Connector) SetAllowSourceMaterialization(allow bool) {
+	if c == nil {
+		return
+	}
+	c.AllowSourceMaterialization = allow
 }
 
 // DegradedError indicates connector circuit-breaker degradation.
@@ -306,7 +316,7 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 		if pathErr != nil {
 			return source.RepoManifest{}, pathErr
 		}
-		if !shouldMaterializeBlob(item.Path) {
+		if !shouldMaterializeBlobWithSource(item.Path, c.AllowSourceMaterialization) {
 			continue
 		}
 		blob, blobErr := c.repoBlob(ctx, fullName, item.SHA)
@@ -327,7 +337,8 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 
 	return source.RepoManifest{
 		Repo:              fullName,
-		Location:          filepath.ToSlash(repoRoot),
+		Location:          "github://" + fullName,
+		ScanRoot:          filepath.ToSlash(repoRoot),
 		Source:            "github_repo_materialized",
 		OwnershipMetadata: repoOwnershipMetadata(meta),
 	}, nil
@@ -450,6 +461,10 @@ func repoOwnershipMetadata(meta repoMeta) *source.RepoOwnershipMetadata {
 }
 
 func shouldMaterializeBlob(rel string) bool {
+	return shouldMaterializeBlobWithSource(rel, false)
+}
+
+func shouldMaterializeBlobWithSource(rel string, allowSourceMaterialization bool) bool {
 	normalized := strings.Trim(strings.ToLower(filepath.ToSlash(strings.TrimSpace(rel))), "/")
 	if normalized == "" {
 		return false
@@ -482,7 +497,7 @@ func shouldMaterializeBlob(rel string) bool {
 	if strings.HasPrefix(base, "docker-compose") || strings.HasPrefix(base, "compose.") {
 		return true
 	}
-	if !isSparseSourceExtension(path.Ext(normalized)) {
+	if !allowSourceMaterialization || !isSparseSourceExtension(path.Ext(normalized)) {
 		return false
 	}
 	return true

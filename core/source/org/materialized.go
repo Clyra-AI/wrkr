@@ -242,7 +242,8 @@ func manifestFromCheckpoint(repo string, materializedRoot string) (source.RepoMa
 	}
 	return source.RepoManifest{
 		Repo:     strings.TrimSpace(repo),
-		Location: filepath.ToSlash(location),
+		Location: "github://" + strings.TrimSpace(repo),
+		ScanRoot: filepath.ToSlash(location),
 		Source:   "github_repo_materialized",
 	}, nil
 }

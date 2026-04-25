@@ -8,11 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- [semver:minor] Added explicit `source_privacy` metadata to scan state, scan JSON, scan status, reports, evidence bundle metadata, and SARIF output so operators can prove hosted source retention and cleanup behavior.
 
 ### Changed
 
-- (none yet)
+- Hosted source manifests now serialize logical repository references while detector execution uses private scan roots and source-code materialization is opt-in.
 
 ### Deprecated
 
@@ -28,7 +28,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- Hosted repository and organization scans now default to ephemeral source materialization with explicit retention modes and cleanup status.
+- Scan artifacts, proof mapping, reports, evidence, and SARIF now redact hosted materialized paths from shareable outputs.
+- Added privacy regression coverage and operator documentation proving hosted scans do not retain or serialize source code by default.
 
 ## Changelog maintenance process
 

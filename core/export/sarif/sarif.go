@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 )
 
 const (
@@ -22,8 +23,9 @@ type Report struct {
 }
 
 type Run struct {
-	Tool    Tool     `json:"tool"`
-	Results []Result `json:"results,omitempty"`
+	Tool       Tool           `json:"tool"`
+	Results    []Result       `json:"results,omitempty"`
+	Properties map[string]any `json:"properties,omitempty"`
 }
 
 type Tool struct {
@@ -67,6 +69,12 @@ type ArtifactLocation struct {
 
 // Build maps Wrkr findings to a deterministic SARIF report.
 func Build(findings []model.Finding, wrkrVersion string) Report {
+	return BuildWithSourcePrivacy(findings, wrkrVersion, nil)
+}
+
+// BuildWithSourcePrivacy maps Wrkr findings to a deterministic SARIF report and,
+// when available, includes the scan source-privacy contract as run metadata.
+func BuildWithSourcePrivacy(findings []model.Finding, wrkrVersion string, privacy *sourceprivacy.Contract) Report {
 	sorted := append([]model.Finding(nil), findings...)
 	model.SortFindings(sorted)
 
@@ -109,22 +117,28 @@ func Build(findings []model.Finding, wrkrVersion string) Report {
 		rules = append(rules, rulesByID[id])
 	}
 
+	run := Run{
+		Tool: Tool{
+			Driver: Driver{
+				Name:           "wrkr",
+				Version:        strings.TrimSpace(wrkrVersion),
+				InformationURI: "https://github.com/Clyra-AI/wrkr",
+				Rules:          rules,
+			},
+		},
+		Results: results,
+	}
+	if privacy != nil {
+		normalized := sourceprivacy.Normalize(*privacy)
+		run.Properties = map[string]any{
+			"source_privacy": normalized,
+		}
+	}
+
 	return Report{
 		Schema:  schemaURL,
 		Version: version,
-		Runs: []Run{
-			{
-				Tool: Tool{
-					Driver: Driver{
-						Name:           "wrkr",
-						Version:        strings.TrimSpace(wrkrVersion),
-						InformationURI: "https://github.com/Clyra-AI/wrkr",
-						Rules:          rules,
-					},
-				},
-				Results: results,
-			},
-		},
+		Runs:    []Run{run},
 	}
 }
 
@@ -157,7 +171,7 @@ func findingMessage(finding model.Finding) string {
 }
 
 func fallbackLocation(location string) string {
-	value := strings.TrimSpace(location)
+	value := sourceprivacy.NewSanitizer().String(location)
 	if value == "" {
 		return "unknown"
 	}

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 )
 
 func TestSARIFEmitterBuildDeterministic(t *testing.T) {
@@ -48,6 +49,39 @@ func TestSARIFEmitterBuildDeterministic(t *testing.T) {
 	}
 	if len(first.Runs) != 1 || len(first.Runs[0].Results) != 2 {
 		t.Fatalf("unexpected SARIF run/result counts: %+v", first)
+	}
+}
+
+func TestSARIFEmitterIncludesSourcePrivacyAndRedactsMaterializedLocation(t *testing.T) {
+	t.Parallel()
+
+	privacy := sourceprivacy.InitialContract(sourceprivacy.RetentionEphemeral, true, false)
+	privacy = sourceprivacy.MarkRemoved(privacy)
+	report := BuildWithSourcePrivacy([]model.Finding{
+		{
+			FindingType: "tool_config",
+			Severity:    model.SeverityLow,
+			ToolType:    "codex",
+			Location:    "/tmp/work/.wrkr/materialized-sources/acme/backend/.codex/config.toml",
+			Repo:        "backend",
+			Org:         "acme",
+			Detector:    "codex",
+		},
+	}, "v1.2.3", &privacy)
+
+	if len(report.Runs) != 1 {
+		t.Fatalf("expected one SARIF run, got %+v", report.Runs)
+	}
+	sourcePrivacy, ok := report.Runs[0].Properties["source_privacy"].(sourceprivacy.Contract)
+	if !ok {
+		t.Fatalf("expected source_privacy run property, got %+v", report.Runs[0].Properties)
+	}
+	if sourcePrivacy.CleanupStatus != sourceprivacy.CleanupRemoved {
+		t.Fatalf("unexpected cleanup status: %s", sourcePrivacy.CleanupStatus)
+	}
+	gotLocation := report.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI
+	if sourceprivacy.ContainsMaterializedSourcePath(gotLocation) {
+		t.Fatalf("expected materialized source path to be redacted, got %s", gotLocation)
 	}
 }
 

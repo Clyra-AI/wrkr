@@ -70,6 +70,10 @@ Use code-based branching with non-zero fail semantics. Keep a simple rule: `0` p
 
 `wrkr scan --json` fails with exit code `6` and error code `invalid_input`. Wrkr now validates scan-owned artifact paths before the managed `.wrkr` state or proof artifacts are written.
 
+### What happens when hosted source cleanup cannot be done safely?
+
+Hosted scan cleanup is guarded by the managed materialized-source marker. If cleanup would touch a non-managed, symlinked, or invalid materialized root, `wrkr scan --json` fails closed with exit code `8` and error code `unsafe_operation_blocked` before deleting anything. If cleanup fails after a managed root is accepted, scan status and JSON error output carry the cleanup failure and `source_privacy.cleanup_status=failed` where status state can be written.
+
 ### How does `wrkr score` behave when the saved state is malformed but still contains `posture_score`?
 
 `wrkr score --json` fails with exit code `1` and error code `runtime_failure`. Wrkr validates the saved scan snapshot before reusing cached posture score data, so malformed state does not return stale success output.

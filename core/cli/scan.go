@@ -37,6 +37,7 @@ import (
 	sourcegithub "github.com/Clyra-AI/wrkr/core/source/github"
 	"github.com/Clyra-AI/wrkr/core/source/localsetup"
 	sourceorg "github.com/Clyra-AI/wrkr/core/source/org"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -71,6 +72,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	fs.Var(&explicitTargets, "target", "repeatable scan target <mode>:<value>")
 	timeout := fs.Duration("timeout", 0, "optional scan timeout (0 disables)")
 	scanModeRaw := fs.String("mode", "governance", "scan mode [quick|governance|deep]")
+	sourceRetentionRaw := fs.String("source-retention", sourceprivacy.RetentionEphemeral, "hosted source retention [ephemeral|retain_for_resume|retain]")
+	allowSourceMaterialization := fs.Bool("allow-source-materialization", false, "allow hosted scans to fetch generic source-code files")
 	diffMode := fs.Bool("diff", false, "show only changes since previous scan")
 	enrich := fs.Bool("enrich", false, "enable non-deterministic enrichment lookups (network required)")
 	baselinePath := fs.String("baseline", "", "optional fallback baseline when local state is absent")
@@ -104,6 +107,11 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if scanModeErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", scanModeErr.Error(), exitInvalidInput)
 	}
+	sourceRetentionMode, sourceRetentionErr := sourceprivacy.ParseRetentionMode(*sourceRetentionRaw)
+	if sourceRetentionErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", sourceRetentionErr.Error(), exitInvalidInput)
+	}
+	allowHostedSourceMaterialization := *allowSourceMaterialization || scanMode == "deep"
 	productionTargetsFile := strings.TrimSpace(*productionTargetsPath)
 	if *productionTargetsStrict && productionTargetsFile == "" {
 		return emitError(
@@ -182,6 +190,20 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonSinkErr.Error(), exitInvalidInput)
 	}
 	statePath := artifactPreflight.StatePath
+	materializedRoot := ""
+	if targetsNeedMaterializedRoot(targets) {
+		var rootErr error
+		if *resume {
+			materializedRoot, rootErr = prepareMaterializedRootForResume(statePath)
+		} else {
+			materializedRoot, rootErr = prepareMaterializedRoot(statePath)
+		}
+		if rootErr != nil {
+			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, rootErr)
+		}
+	}
+	sourcePrivacy := sourceprivacy.InitialContract(sourceRetentionMode, materializedRoot != "", allowHostedSourceMaterialization)
+	sourceCleanupFinalized := false
 
 	ctx := parentCtx
 	cancel := func() {}
@@ -204,9 +226,44 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		configTargetsToSourceTargets(targets),
 		scanStartedAt,
 		artifactPaths,
+		sourcePrivacy,
 	)
 	if err := statusTracker.Start(); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
+	finalizeSourceCleanup := func(success bool) error {
+		if sourceCleanupFinalized {
+			return nil
+		}
+		sourceCleanupFinalized = true
+		if strings.TrimSpace(materializedRoot) == "" {
+			sourcePrivacy = sourceprivacy.Normalize(sourcePrivacy)
+			statusTracker.SetSourcePrivacy(sourcePrivacy)
+			return nil
+		}
+		if sourceprivacy.ShouldRetainMaterializedSource(sourceRetentionMode, success) {
+			sourcePrivacy = sourceprivacy.MarkRetained(sourcePrivacy)
+			statusTracker.SetSourcePrivacy(sourcePrivacy)
+			return nil
+		}
+		if err := cleanupManagedMaterializedRoot(statePath, materializedRoot); err != nil {
+			sourcePrivacy = sourceprivacy.MarkFailed(sourcePrivacy, err.Error())
+			statusTracker.SetSourcePrivacy(sourcePrivacy)
+			return err
+		}
+		sourcePrivacy = sourceprivacy.MarkRemoved(sourcePrivacy)
+		statusTracker.SetSourcePrivacy(sourcePrivacy)
+		return nil
+	}
+	cleanupFailure := func(err error) error {
+		cleanupErr := finalizeSourceCleanup(false)
+		if cleanupErr == nil {
+			return err
+		}
+		if err == nil {
+			return cleanupErr
+		}
+		return fmt.Errorf("%v (source cleanup failed: %w)", err, cleanupErr)
 	}
 	checkScanContext := func() error {
 		if ctxErr := ctx.Err(); ctxErr != nil {
@@ -216,6 +273,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	emitScanFailure := func(err error) int {
 		progress.Flush()
+		err = cleanupFailure(err)
 		statusTracker.Fail(err, artifactPaths)
 		if !jsonRequested && !*jsonOut && !*quiet {
 			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
@@ -224,6 +282,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	emitScanError := func(code, message string, exitCode int) int {
 		progress.Flush()
+		if cleanupErr := finalizeSourceCleanup(false); cleanupErr != nil {
+			statusTracker.Fail(cleanupErr, artifactPaths)
+			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, cleanupErr)
+		}
 		statusTracker.Fail(errors.New(message), artifactPaths)
 		if !jsonRequested && !*jsonOut && !*quiet {
 			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
@@ -235,9 +297,11 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitScanFailure(err)
 	}
 	manifestOut, findings, err := acquireSources(ctx, targets, *githubBaseURL, *githubToken, acquireOptions{
-		StatePath: statePath,
-		Progress:  progress,
-		Resume:    *resume,
+		StatePath:                  statePath,
+		Progress:                   progress,
+		Resume:                     *resume,
+		MaterializedRoot:           materializedRoot,
+		AllowSourceMaterialization: allowHostedSourceMaterialization,
 	})
 	if err != nil {
 		return emitScanFailure(err)
@@ -475,6 +539,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		PostureScore:   &postureScore,
 		Identities:     nextManifest.Identities,
 		Transitions:    transitions,
+		SourcePrivacy:  &sourcePrivacy,
 	}
 	chainPath := artifactPreflight.LifecyclePath
 	proofChainPath := artifactPreflight.ProofChainPath
@@ -504,6 +569,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if err == nil {
 			return exitSuccess
 		}
+		err = cleanupFailure(err)
 		statusTracker.Fail(err, artifactPaths)
 		if !jsonRequested && !*jsonOut && !*quiet {
 			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
@@ -515,6 +581,13 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	emitRolledBackScanError := func(code, message string, exitCode int) int {
 		progress.Flush()
+		if cleanupErr := finalizeSourceCleanup(false); cleanupErr != nil {
+			statusTracker.Fail(cleanupErr, artifactPaths)
+			if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
+				return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%v (rollback restore failed: %v)", cleanupErr, restoreErr), exitRuntime)
+			}
+			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, cleanupErr)
+		}
 		statusTracker.Fail(errors.New(message), artifactPaths)
 		if !jsonRequested && !*jsonOut && !*quiet {
 			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
@@ -566,11 +639,19 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := checkScanContext(); err != nil {
 		return emitRolledBackScanFailure(err)
 	}
+	if err := finalizeSourceCleanup(true); err != nil {
+		return emitRolledBackScanFailure(err)
+	}
+	snapshot.SourcePrivacy = &sourcePrivacy
+	if err := state.Save(statePath, snapshot); err != nil {
+		return emitRolledBackScanFailure(err)
+	}
 
 	payload := map[string]any{
 		"status":          "ok",
 		"target":          manifestOut.Target,
 		"source_manifest": manifestOut,
+		"source_privacy":  sourcePrivacy,
 		"scan_mode":       scanMode,
 		"scan_quality":    scanQuality,
 	}
@@ -659,7 +740,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if err := checkScanContext(); err != nil {
 			return emitRolledBackScanFailure(err)
 		}
-		report := exportsarif.Build(findings, wrkrVersion())
+		report := exportsarif.BuildWithSourcePrivacy(findings, wrkrVersion(), &sourcePrivacy)
 		if writeErr := exportsarif.Write(artifactPreflight.SARIFPath, report); writeErr != nil {
 			return emitRolledBackScanFailure(writeErr)
 		}

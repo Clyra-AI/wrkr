@@ -503,6 +503,7 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
 ### NFR1: Data Sovereignty
 
 - **Zero data exfiltration.** Wrkr never sends scan data outside the user's environment. No telemetry on scan contents. No cloud backend required.
+- **Ephemeral hosted source handling by default.** Hosted GitHub scans materialize only required detector files into a local managed workspace, serialize logical repository references in shareable artifacts, set `source_privacy.raw_source_in_artifacts=false`, and remove materialized source after artifact commit unless retention is explicitly requested.
 - Optional anonymous usage telemetry (command counts only, opt-in) for open-source metrics.
 
 ### NFR2: Performance

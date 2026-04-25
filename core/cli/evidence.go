@@ -67,6 +67,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 			"control_evidence":   result.ControlEvidence,
 			"coverage_note":      result.CoverageNote,
 			"report_artifacts":   result.ReportArtifacts,
+			"source_privacy":     result.SourcePrivacy,
 			"next_steps":         evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
 		})
 		return exitSuccess

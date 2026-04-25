@@ -187,7 +187,7 @@ func TestE2EScanOrgResumeRejectsSymlinkSwappedRepoRoot(t *testing.T) {
 
 	var firstOut bytes.Buffer
 	var firstErr bytes.Buffer
-	if code := cli.Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", statePath, "--json"}, &firstOut, &firstErr); code != 0 {
+	if code := cli.Run([]string{"scan", "--org", "acme", "--github-api", server.URL, "--state", statePath, "--source-retention", "retain", "--json"}, &firstOut, &firstErr); code != 0 {
 		t.Fatalf("initial org scan failed: %d (%s)", code, firstErr.String())
 	}
 

@@ -60,6 +60,7 @@ func TestOrgResumeMatchesCleanRun(t *testing.T) {
 			"--org", "acme",
 			"--github-api", server.URL,
 			"--state", resumeState,
+			"--source-retention", "retain_for_resume",
 			"--json",
 		}, &interruptedOut, &interruptedErr)
 	}()

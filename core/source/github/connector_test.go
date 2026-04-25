@@ -299,11 +299,9 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 			payload := base64.StdEncoding.EncodeToString([]byte("system_prompt: keep policy instructions intact\n"))
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
 		case "/repos/acme/backend/git/blobs/sha-source-py":
-			payload := base64.StdEncoding.EncodeToString([]byte("from crewai import Agent\n"))
-			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+			t.Fatalf("default sparse materializer should not fetch generic source blob %s", r.URL.Path)
 		case "/repos/acme/backend/git/blobs/sha-source-generic":
-			payload := base64.StdEncoding.EncodeToString([]byte("from langchain.agents import AgentExecutor\n"))
-			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+			t.Fatalf("default sparse materializer should not fetch generic source blob %s", r.URL.Path)
 		case "/repos/acme/backend/git/blobs/sha-build-source":
 			t.Fatalf("sparse materializer should not fetch generated source blob %s", r.URL.Path)
 		case "/repos/acme/backend/git/blobs/sha-vendor-source":
@@ -330,6 +328,13 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 	}
 	if manifest.Repo != "acme/backend" {
 		t.Fatalf("unexpected repo: %s", manifest.Repo)
+	}
+	if manifest.Location != "github://acme/backend" {
+		t.Fatalf("expected logical hosted location, got %s", manifest.Location)
+	}
+	expectedScanRoot := filepath.ToSlash(filepath.Join(tmp, "acme", "backend"))
+	if manifest.ScanRoot != expectedScanRoot {
+		t.Fatalf("expected scan root %s, got %s", expectedScanRoot, manifest.ScanRoot)
 	}
 
 	agentsPath := filepath.Join(tmp, "acme", "backend", "AGENTS.md")
@@ -377,11 +382,11 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "instructions", "policy.yaml")); err != nil {
 		t.Fatalf("expected materialized instruction YAML: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "src", "main.py")); err != nil {
-		t.Fatalf("expected materialized generic source file: %v", err)
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "src", "main.py")); !os.IsNotExist(err) {
+		t.Fatalf("expected default scan to skip generic source file, stat err=%v", err)
 	}
-	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "crews", "ops.py")); err != nil {
-		t.Fatalf("expected materialized generic source file in framework-neutral path: %v", err)
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "crews", "ops.py")); !os.IsNotExist(err) {
+		t.Fatalf("expected default scan to skip generic source file in framework-neutral path, stat err=%v", err)
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "build", "main.py")); !os.IsNotExist(err) {
 		t.Fatalf("expected generated source path to remain skipped, stat err=%v", err)
@@ -397,6 +402,44 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "docs", "changelog.txt")); !os.IsNotExist(err) {
 		t.Fatalf("expected unrelated docs blob to be skipped, stat err=%v", err)
+	}
+}
+
+func TestMaterializeRepoAllowsGenericSourceWhenExplicitlyEnabled(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main"}`)
+		case "/repos/acme/backend/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"src/main.py","type":"blob","sha":"sha-source-py"},{"path":"build/generated.py","type":"blob","sha":"sha-build-source"}]}`)
+		case "/repos/acme/backend/git/blobs/sha-source-py":
+			payload := base64.StdEncoding.EncodeToString([]byte("from crewai import Agent\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-build-source":
+			t.Fatalf("explicit source materialization should still skip generated source blob %s", r.URL.Path)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "", server.Client())
+	connector.SetAllowSourceMaterialization(true)
+	manifest, err := connector.MaterializeRepo(context.Background(), "acme/backend", tmp)
+	if err != nil {
+		t.Fatalf("materialize repo: %v", err)
+	}
+	if manifest.Location != "github://acme/backend" {
+		t.Fatalf("expected logical hosted location, got %s", manifest.Location)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "src", "main.py")); err != nil {
+		t.Fatalf("expected explicit generic source materialization: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "build", "generated.py")); !os.IsNotExist(err) {
+		t.Fatalf("expected generated source path to remain skipped, stat err=%v", err)
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 	verifycore "github.com/Clyra-AI/wrkr/core/verify"
 	"github.com/Clyra-AI/wrkr/internal/managedmarker"
@@ -33,14 +34,15 @@ type BuildInput struct {
 }
 
 type BuildResult struct {
-	OutputDir         string             `json:"output_dir"`
-	Frameworks        []string           `json:"frameworks"`
-	ManifestPath      string             `json:"manifest_path"`
-	ChainPath         string             `json:"chain_path"`
-	FrameworkCoverage map[string]float64 `json:"framework_coverage"`
-	ControlEvidence   []ControlEvidence  `json:"control_evidence,omitempty"`
-	CoverageNote      CoverageNote       `json:"coverage_note"`
-	ReportArtifacts   []string           `json:"report_artifacts"`
+	OutputDir         string                  `json:"output_dir"`
+	Frameworks        []string                `json:"frameworks"`
+	ManifestPath      string                  `json:"manifest_path"`
+	ChainPath         string                  `json:"chain_path"`
+	FrameworkCoverage map[string]float64      `json:"framework_coverage"`
+	ControlEvidence   []ControlEvidence       `json:"control_evidence,omitempty"`
+	CoverageNote      CoverageNote            `json:"coverage_note"`
+	ReportArtifacts   []string                `json:"report_artifacts"`
+	SourcePrivacy     *sourceprivacy.Contract `json:"source_privacy,omitempty"`
 }
 
 type ControlEvidence struct {
@@ -267,9 +269,10 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSON(filepath.Join(outputDir, "scan-metadata.json"), map[string]any{
-		"generated_at": generatedAt.Format(time.RFC3339),
-		"frameworks":   frameworks,
-		"state_path":   resolvedStatePath,
+		"generated_at":   generatedAt.Format(time.RFC3339),
+		"frameworks":     frameworks,
+		"state_path":     resolvedStatePath,
+		"source_privacy": snapshot.SourcePrivacy,
 	}); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
@@ -413,6 +416,7 @@ func Build(in BuildInput) (BuildResult, error) {
 		ControlEvidence:   controlEvidence,
 		CoverageNote:      defaultCoverageNote(),
 		ReportArtifacts:   reportArtifacts,
+		SourcePrivacy:     snapshot.SourcePrivacy,
 	}, nil
 }
 

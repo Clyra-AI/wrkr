@@ -15,6 +15,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 )
 
 type MappedRecord struct {
@@ -137,14 +138,14 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, visibili
 			}
 		}
 
-		records = append(records, MappedRecord{
+		records = append(records, sanitizeMappedRecord(MappedRecord{
 			RecordType:   "scan_finding",
 			AgentID:      agentID,
 			Timestamp:    canonicalTime(now),
 			Event:        event,
 			Metadata:     metadata,
 			Relationship: buildFindingRelationship(representative, key, ruleIDs, agentID),
-		})
+		}))
 	}
 	return records
 }
@@ -204,14 +205,14 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 				metadata["agent_framework"] = framework
 			}
 		}
-		records = append(records, MappedRecord{
+		records = append(records, sanitizeMappedRecord(MappedRecord{
 			RecordType:   "risk_assessment",
 			AgentID:      agentID,
 			Timestamp:    canonicalTime(now),
 			Event:        event,
 			Relationship: buildFindingRiskRelationship(item, agentID),
 			Metadata:     metadata,
-		})
+		}))
 	}
 	for idx, path := range report.AttackPaths {
 		event := map[string]any{
@@ -229,7 +230,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			"edge_rationale":  append([]string(nil), path.EdgeRationale...),
 			"explain":         append([]string(nil), path.Explain...),
 		}
-		records = append(records, MappedRecord{
+		records = append(records, sanitizeMappedRecord(MappedRecord{
 			RecordType:   "risk_assessment",
 			Timestamp:    canonicalTime(now),
 			Event:        event,
@@ -240,7 +241,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 				"attack_path_id":     path.PathID,
 				"attack_path_source": append([]string(nil), path.SourceFindings...),
 			},
-		})
+		}))
 	}
 	for idx, path := range report.ActionPaths {
 		event := map[string]any{
@@ -260,7 +261,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			"production_write":           path.ProductionWrite,
 			"matched_production_targets": append([]string(nil), path.MatchedProductionTargets...),
 		}
-		records = append(records, MappedRecord{
+		records = append(records, sanitizeMappedRecord(MappedRecord{
 			RecordType: "risk_assessment",
 			AgentID:    path.AgentID,
 			Timestamp:  canonicalTime(now),
@@ -270,7 +271,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 				"canonical_finding": "action_path_governance",
 				"action_path_id":    path.PathID,
 			},
-		})
+		}))
 	}
 
 	postureEvent := map[string]any{
@@ -304,7 +305,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			"unknown_to_security_write_capable_agents": visibility.Summary.UnknownToSecurityWriteCapableAgents,
 		}
 	}
-	records = append(records, MappedRecord{
+	records = append(records, sanitizeMappedRecord(MappedRecord{
 		RecordType:   "risk_assessment",
 		Timestamp:    canonicalTime(now),
 		Event:        postureEvent,
@@ -313,7 +314,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			"canonical_finding": "posture_score",
 			"profile_name":      profile.ProfileName,
 		},
-	})
+	}))
 
 	return records
 }
@@ -372,7 +373,7 @@ func MapTransition(transition lifecycle.Transition, eventType string) MappedReco
 	if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(transition.Timestamp)); err == nil {
 		timestamp = parsed.UTC().Truncate(time.Second)
 	}
-	return MappedRecord{
+	return sanitizeMappedRecord(MappedRecord{
 		RecordType:    recordType,
 		AgentID:       strings.TrimSpace(transition.AgentID),
 		Timestamp:     timestamp,
@@ -383,7 +384,7 @@ func MapTransition(transition lifecycle.Transition, eventType string) MappedReco
 			"transition_trigger": transition.Trigger,
 			"event_type":         resolvedEventType,
 		},
-	}
+	})
 }
 
 func CanonicalFindingKey(finding model.Finding) string {
@@ -397,7 +398,7 @@ func CanonicalFindingKey(finding model.Finding) string {
 		strings.TrimSpace(finding.FindingType),
 		strings.TrimSpace(finding.RuleID),
 		strings.TrimSpace(finding.ToolType),
-		strings.TrimSpace(finding.Location),
+		artifactString(finding.Location),
 		strings.TrimSpace(finding.Repo),
 		canonicalOrg(finding.Org),
 	}
@@ -426,6 +427,94 @@ func selectRepresentative(findings []model.Finding) model.Finding {
 	return findings[0]
 }
 
+func sanitizeMappedRecord(record MappedRecord) MappedRecord {
+	record.AgentID = artifactString(record.AgentID)
+	record.Event = artifactMap(record.Event)
+	record.Metadata = artifactMap(record.Metadata)
+	record.ApprovedScope = artifactString(record.ApprovedScope)
+	record.Relationship = sanitizeRelationship(record.Relationship)
+	return record
+}
+
+func artifactMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return in
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = artifactAny(value)
+	}
+	return out
+}
+
+func artifactAny(value any) any {
+	switch typed := value.(type) {
+	case string:
+		return artifactString(typed)
+	case []string:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, artifactString(item))
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, artifactAny(item))
+		}
+		return out
+	case map[string]any:
+		return artifactMap(typed)
+	case []map[string]any:
+		out := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, artifactMap(item))
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+func artifactString(value string) string {
+	return sourceprivacy.NewSanitizer().String(value)
+}
+
+func sanitizeRelationship(rel *proof.Relationship) *proof.Relationship {
+	if rel == nil {
+		return nil
+	}
+	out := *rel
+	if rel.ParentRef != nil {
+		parent := sanitizeRelationshipRef(*rel.ParentRef)
+		out.ParentRef = &parent
+	}
+	out.EntityRefs = make([]proof.RelationshipRef, 0, len(rel.EntityRefs))
+	for _, ref := range rel.EntityRefs {
+		out.EntityRefs = append(out.EntityRefs, sanitizeRelationshipRef(ref))
+	}
+	out.Edges = make([]proof.RelationshipEdge, 0, len(rel.Edges))
+	for _, edge := range rel.Edges {
+		out.Edges = append(out.Edges, proof.RelationshipEdge{
+			Kind:  edge.Kind,
+			From:  sanitizeRelationshipRef(edge.From),
+			To:    sanitizeRelationshipRef(edge.To),
+			Extra: edge.Extra,
+		})
+	}
+	out.RelatedRecordIDs = append([]string(nil), rel.RelatedRecordIDs...)
+	out.RelatedEntityIDs = make([]string, 0, len(rel.RelatedEntityIDs))
+	for _, id := range rel.RelatedEntityIDs {
+		out.RelatedEntityIDs = append(out.RelatedEntityIDs, artifactString(id))
+	}
+	return &out
+}
+
+func sanitizeRelationshipRef(ref proof.RelationshipRef) proof.RelationshipRef {
+	ref.ID = artifactString(ref.ID)
+	return ref
+}
+
 func evidenceMap(evidence []model.Evidence) map[string]any {
 	if len(evidence) == 0 {
 		return map[string]any{}
@@ -445,7 +534,7 @@ func evidenceMap(evidence []model.Evidence) map[string]any {
 			out[key] = parsed
 			continue
 		}
-		out[key] = value
+		out[key] = artifactString(value)
 	}
 	if len(out) == 0 {
 		return map[string]any{}
