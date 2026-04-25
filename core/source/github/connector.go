@@ -460,10 +460,6 @@ func repoOwnershipMetadata(meta repoMeta) *source.RepoOwnershipMetadata {
 	return &source.RepoOwnershipMetadata{Topics: topics, Teams: teams}
 }
 
-func shouldMaterializeBlob(rel string) bool {
-	return shouldMaterializeBlobWithSource(rel, false)
-}
-
 func shouldMaterializeBlobWithSource(rel string, allowSourceMaterialization bool) bool {
 	normalized := strings.Trim(strings.ToLower(filepath.ToSlash(strings.TrimSpace(rel))), "/")
 	if normalized == "" {
