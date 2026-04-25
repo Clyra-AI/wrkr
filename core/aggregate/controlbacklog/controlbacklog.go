@@ -343,6 +343,9 @@ func (b *builder) merge(item Item) {
 	current.ConfidenceRaise = mergeStrings(current.ConfidenceRaise, item.ConfidenceRaise)
 	current.SecretSignalTypes = mergeStrings(current.SecretSignalTypes, item.SecretSignalTypes)
 	current.LinkedFindingIDs = mergeStrings(current.LinkedFindingIDs, item.LinkedFindingIDs)
+	current.LinkedControlPathNodeIDs = mergeStrings(current.LinkedControlPathNodeIDs, item.LinkedControlPathNodeIDs)
+	current.LinkedControlPathEdgeIDs = mergeStrings(current.LinkedControlPathEdgeIDs, item.LinkedControlPathEdgeIDs)
+	current.CredentialProvenance = mergeCredentialProvenance(current.CredentialProvenance, item.CredentialProvenance)
 	if actionPriority(item.RecommendedAction) < actionPriority(current.RecommendedAction) {
 		current.RecommendedAction = item.RecommendedAction
 		current.SLA = slaForAction(item.RecommendedAction)
@@ -773,8 +776,12 @@ func qualityForItem(item Item) (string, []string, []string) {
 		}
 	}
 	if len(item.SecretSignalTypes) > 0 {
-		gaps = append(gaps, "secret_scope_evidence_missing", "secret_rotation_evidence_missing")
-		raise = append(raise, "attach secret scope and rotation evidence")
+		gaps = append(gaps, "secret_rotation_evidence_missing")
+		raise = append(raise, "attach secret rotation evidence")
+	}
+	if containsSecretSignal(item.SecretSignalTypes, SecretScopeUnknown) {
+		gaps = append(gaps, "secret_scope_evidence_missing")
+		raise = append(raise, "attach secret scope evidence")
 	}
 	if item.CredentialProvenance != nil && strings.TrimSpace(item.CredentialProvenance.Type) == agginventory.CredentialProvenanceUnknown {
 		gaps = append(gaps, "credential_provenance_unknown")
@@ -787,6 +794,35 @@ func qualityForItem(item Item) (string, []string, []string) {
 		confidence = ConfidenceLow
 	}
 	return confidence, mergeStrings(gaps, nil), mergeStrings(raise, nil)
+}
+
+func mergeCredentialProvenance(current, incoming *agginventory.CredentialProvenance) *agginventory.CredentialProvenance {
+	current = agginventory.NormalizeCredentialProvenance(current)
+	incoming = agginventory.NormalizeCredentialProvenance(incoming)
+	switch {
+	case current == nil:
+		return agginventory.CloneCredentialProvenance(incoming)
+	case incoming == nil:
+		return agginventory.CloneCredentialProvenance(current)
+	case current.Type == incoming.Type && current.Subject == incoming.Subject && current.Scope == incoming.Scope:
+		merged := agginventory.CloneCredentialProvenance(current)
+		merged.EvidenceBasis = mergeStrings(merged.EvidenceBasis, incoming.EvidenceBasis)
+		if confidencePriority(incoming.Confidence) < confidencePriority(merged.Confidence) {
+			merged.Confidence = incoming.Confidence
+		}
+		if incoming.RiskMultiplier > merged.RiskMultiplier {
+			merged.RiskMultiplier = incoming.RiskMultiplier
+		}
+		return agginventory.NormalizeCredentialProvenance(merged)
+	default:
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceUnknown,
+			Scope:          agginventory.CredentialScopeUnknown,
+			Confidence:     ConfidenceLow,
+			EvidenceBasis:  mergeStrings(append([]string{"credential_provenance_conflict"}, current.EvidenceBasis...), incoming.EvidenceBasis),
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceUnknown),
+		})
+	}
 }
 
 func approvalStatus(approvalGap bool, visibility string) string {
@@ -1067,6 +1103,15 @@ func mergeStrings(a, b []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func containsSecretSignal(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == strings.TrimSpace(want) {
+			return true
+		}
+	}
+	return false
 }
 
 func fallback(value, fallbackValue string) string {

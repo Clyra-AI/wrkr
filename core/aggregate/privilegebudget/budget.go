@@ -909,15 +909,44 @@ func classifyCredentialProvenance(dataClass string, permissions []string, authSu
 }
 
 func directCredentialProvenance(signals findingSignals) *agginventory.CredentialProvenance {
-	types := signals.EvidenceKV["credential_provenance_type"]
+	types := dedupeSorted(signals.EvidenceKV["credential_provenance_type"])
 	if len(types) == 0 {
 		return nil
 	}
+	subjects := dedupeSorted(signals.EvidenceKV["credential_subject"])
+	scopes := dedupeSorted(signals.EvidenceKV["credential_scope"])
+	confidences := dedupeSorted(signals.EvidenceKV["credential_confidence"])
+	if len(types) > 1 || len(subjects) > 1 || len(scopes) > 1 {
+		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
+			Type:       agginventory.CredentialProvenanceUnknown,
+			Scope:      agginventory.CredentialScopeUnknown,
+			Confidence: "low",
+			EvidenceBasis: mergeSortedEvidence(
+				[]string{"credential_provenance_conflict"},
+				prefixedEvidence("credential_provenance_type", types),
+				prefixedEvidence("credential_subject", subjects),
+				prefixedEvidence("credential_scope", scopes),
+			),
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceUnknown),
+		})
+	}
+	confidence := "low"
+	if len(confidences) == 1 {
+		confidence = confidences[0]
+	}
+	subject := ""
+	if len(subjects) == 1 {
+		subject = subjects[0]
+	}
+	scope := agginventory.CredentialScopeUnknown
+	if len(scopes) == 1 {
+		scope = scopes[0]
+	}
 	return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
 		Type:           types[0],
-		Subject:        firstSignalValue(signals, "credential_subject"),
-		Scope:          firstNonEmptyString(firstSignalValue(signals, "credential_scope"), agginventory.CredentialScopeUnknown),
-		Confidence:     firstNonEmptyString(firstSignalValue(signals, "credential_confidence"), "low"),
+		Subject:        subject,
+		Scope:          scope,
+		Confidence:     confidence,
 		EvidenceBasis:  mergeSortedEvidence([]string{"credential_provenance_type"}, signals.EvidenceKV["credential_subject"], signals.EvidenceKV["credential_scope"]),
 		RiskMultiplier: agginventory.CredentialRiskMultiplier(types[0]),
 	})
@@ -1023,6 +1052,18 @@ func mergeSortedEvidence(groups ...[]string) []string {
 			}
 			out = append(out, trimmed)
 		}
+	}
+	return dedupeSorted(out)
+}
+
+func prefixedEvidence(prefix string, values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, strings.TrimSpace(prefix)+":"+trimmed)
 	}
 	return dedupeSorted(out)
 }

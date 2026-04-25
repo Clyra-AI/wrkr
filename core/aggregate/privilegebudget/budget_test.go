@@ -344,6 +344,56 @@ func TestBuildClassifiesWorkloadIdentityCredentialProvenance(t *testing.T) {
 	}
 }
 
+func TestBuildConflictingDirectCredentialProvenanceFallsBackToUnknown(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{{
+		ToolID:      "tool-1",
+		AgentID:     "wrkr:tool-1:acme",
+		ToolType:    "compiled_action",
+		Org:         "acme",
+		Repos:       []string{"acme/release"},
+		Locations:   []agginventory.ToolLocation{{Repo: "acme/release", Location: ".github/workflows/release.yml", Owner: "@acme/release"}},
+		Permissions: []string{"deploy.write", "secret.read", "id-token.write"},
+		DataClass:   "credentials",
+	}}
+	findings := []model.Finding{
+		{
+			FindingType: "secret_presence",
+			ToolType:    "secret",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "acme/release",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "credential_provenance_type", Value: "static_secret"},
+				{Key: "credential_subject", Value: "RELEASE_TOKEN"},
+				{Key: "credential_scope", Value: "workflow"},
+			},
+		},
+		{
+			FindingType: "ci_autonomy",
+			ToolType:    "ci_agent",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "acme/release",
+			Org:         "acme",
+			Permissions: []string{"id-token.write"},
+			Evidence: []model.Evidence{
+				{Key: "credential_provenance_type", Value: "jit"},
+				{Key: "credential_subject", Value: "workflow_federation"},
+				{Key: "credential_scope", Value: "workflow"},
+			},
+		},
+	}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one privilege entry, got %+v", entries)
+	}
+	if entries[0].CredentialProvenance == nil || entries[0].CredentialProvenance.Type != agginventory.CredentialProvenanceUnknown {
+		t.Fatalf("expected conflicting direct provenance to fall back to unknown, got %+v", entries[0].CredentialProvenance)
+	}
+}
+
 func TestBuildDerivesOperationalOwnerAndApprovalGapReasons(t *testing.T) {
 	t.Parallel()
 
