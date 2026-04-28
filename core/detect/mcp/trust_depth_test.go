@@ -47,6 +47,32 @@ func TestMCPTrustDepthCapturesDelegationAndExposure(t *testing.T) {
 	}
 }
 
+func TestMCPTrustDepthHonorsExplicitStaticSecretAuthStrength(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeMCPTestFile(t, root, ".mcp.json", `{
+  "mcpServers": {
+    "static-auth": {
+      "command": "npx",
+      "args": ["-y", "tool@1"],
+      "auth_strength": "static_secret"
+    }
+  }
+}`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "repo", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect explicit static secret auth: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one finding, got %d", len(findings))
+	}
+	if got := evidenceMapValue(findings[0], "auth_strength"); got != "static_secret" {
+		t.Fatalf("expected auth_strength=static_secret, got %q", got)
+	}
+}
+
 func writeMCPTestFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))

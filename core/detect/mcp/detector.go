@@ -484,6 +484,8 @@ func inferMCPAuthStrength(server serverDef, transport string, credentialRefs int
 		normalized := strings.ToLower(strings.TrimSpace(raw))
 		switch {
 		case normalized == "" || normalized == "unknown":
+		case strings.Contains(normalized, "static_secret"), strings.Contains(normalized, "static-secret"):
+			return agginventory.TrustAuthStaticSecret
 		case strings.Contains(normalized, "oauth"):
 			return agginventory.TrustAuthOAuthDelegation
 		case strings.Contains(normalized, "workload"), strings.Contains(normalized, "oidc"):
