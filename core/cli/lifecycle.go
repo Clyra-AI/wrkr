@@ -2,10 +2,11 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"os"
+	iofs "io/fs"
 	"sort"
 	"strings"
 
@@ -42,7 +43,7 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 	snapshot, snapshotErr := state.Load(resolvedStatePath)
-	if snapshotErr != nil && !os.IsNotExist(snapshotErr) && !strings.Contains(snapshotErr.Error(), "no such file or directory") {
+	if snapshotErr != nil && !errors.Is(snapshotErr, iofs.ErrNotExist) {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", snapshotErr.Error(), exitRuntime)
 	}
 	loaded.Identities = model.FilterLegacyArtifactIdentityRecords(loaded.Identities)
