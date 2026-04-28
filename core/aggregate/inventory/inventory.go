@@ -87,6 +87,7 @@ type Tool struct {
 	ApprovalClass            string                     `json:"approval_classification" yaml:"approval_classification"`
 	SecurityVisibilityStatus string                     `json:"security_visibility_status,omitempty" yaml:"security_visibility_status,omitempty"`
 	LifecycleState           string                     `json:"lifecycle_state" yaml:"lifecycle_state"`
+	TrustDepth               *TrustDepth                `json:"trust_depth,omitempty" yaml:"trust_depth,omitempty"`
 }
 
 type PermissionSurface struct {
@@ -305,6 +306,7 @@ func Build(input BuildInput) Inventory {
 				RiskScore:       context.RiskScore,
 				ApprovalStatus:  fallback(context.ApprovalStatus, "missing"),
 				LifecycleState:  fallback(context.LifecycleState, identity.StateDiscovered),
+				TrustDepth:      TrustDepthFromFinding(finding),
 			}
 			item = &accumulator{tool: tool, repoSet: map[string]struct{}{}, locSet: map[string]struct{}{}, permissionSet: map[string]struct{}{}}
 			toolMap[key] = item
@@ -377,6 +379,7 @@ func Build(input BuildInput) Inventory {
 			item.tool.AutonomyLevel = fallback(context.AutonomyLevel, item.tool.AutonomyLevel)
 		}
 		item.tool.DiscoveryMethod = normalizeDiscoveryMethod(finding.DiscoveryMethod)
+		item.tool.TrustDepth = MergeTrustDepth(item.tool.TrustDepth, TrustDepthFromFinding(finding))
 		if confidence := findingConfidence(finding); confidence > item.tool.ConfidenceScore {
 			item.tool.ConfidenceScore = confidence
 		}
@@ -408,6 +411,7 @@ func Build(input BuildInput) Inventory {
 		item.tool.RiskTier = projectRiskTier(item.tool.PermissionTier, item.tool.RiskScore, item.tool.AutonomyLevel, item.tool.ApprovalClass)
 		item.tool.AdoptionPattern = classifyAdoptionPattern(item.tool.Repos, item.tool.Locations)
 		item.tool.RegulatoryMapping = regulatoryMappings(item.tool)
+		item.tool.TrustDepth = NormalizeTrustDepth(item.tool.TrustDepth)
 		sort.Slice(item.tool.Locations, func(i, j int) bool {
 			if item.tool.Locations[i].Repo != item.tool.Locations[j].Repo {
 				return item.tool.Locations[i].Repo < item.tool.Locations[j].Repo
@@ -1426,6 +1430,8 @@ func classifyToolCategory(toolType string) string {
 	case "claude", "cursor", "codex", "copilot", "cody", "windsurf":
 		return "assistant"
 	case "a2a", "agent", "agent_framework", "ci_agent", "compiled_action", "langchain", "crewai", "autogen", "llamaindex", "openai_agents", "mcp_client", "custom_agent":
+		return "agent_framework"
+	case "agnt_agent":
 		return "agent_framework"
 	case "mcp", "mcpgateway", "webmcp":
 		return "mcp_integration"

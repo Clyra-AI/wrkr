@@ -54,6 +54,8 @@ func runKnownSubcommand(ctx context.Context, name string, args []string, stdout 
 		return runInit(args, stdout, stderr), true
 	case "scan":
 		return runScanWithContext(ctx, args, stdout, stderr), true
+	case "ingest":
+		return runIngest(args, stdout, stderr), true
 	case "action":
 		return runAction(args, stdout, stderr), true
 	case "report":
@@ -163,6 +165,7 @@ func writeRootUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "Commands:")
 	_, _ = fmt.Fprintln(out, "  init       initialize wrkr configuration")
 	_, _ = fmt.Fprintln(out, "  scan       discover tools and emit inventory/risk state")
+	_, _ = fmt.Fprintln(out, "  ingest     correlate deterministic runtime evidence")
 	_, _ = fmt.Fprintln(out, "  action     evaluate and gate automation actions")
 	_, _ = fmt.Fprintln(out, "  report     generate posture summaries")
 	_, _ = fmt.Fprintln(out, "  campaign   aggregate multi-org posture snapshots")
@@ -184,6 +187,7 @@ func writeRootUsage(out io.Writer, fs *flag.FlagSet) {
 	_, _ = fmt.Fprintln(out, "  wrkr scan --config ~/.wrkr/config.json --json")
 	_, _ = fmt.Fprintln(out, "  wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json")
 	_, _ = fmt.Fprintln(out, "  wrkr scan --my-setup --json")
+	_, _ = fmt.Fprintln(out, "  wrkr ingest --state ./.wrkr/last-scan.json --input runtime-evidence.json --json")
 	_, _ = fmt.Fprintln(out, "  wrkr mcp-list --state ./.wrkr/last-scan.json --json")
 	_, _ = fmt.Fprintln(out, "  wrkr scan --github-org acme --github-api https://api.github.com --json")
 	_, _ = fmt.Fprintln(out, "  wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --json")

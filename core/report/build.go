@@ -15,6 +15,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/identity"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -80,7 +81,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		return Summary{}, err
 	}
 
-	lifecycleSummary := buildLifecycleSummary(in.Manifest, in.Snapshot.Identities, in.Snapshot.Transitions)
+	lifecycleSummary := buildLifecycleSummary(in.Manifest, in.Snapshot.Identities, in.Snapshot.Transitions, in.Snapshot.LifecycleGaps, in.Snapshot.Inventory)
 	regressSummary := buildRegressSummary(in.Baseline, in.RegressResult)
 	deltas := buildDeltaSummary(in.Snapshot, in.PreviousSnapshot, top)
 	headline := buildHeadline(in.Snapshot)
@@ -93,6 +94,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
 	controlBacklog := in.Snapshot.ControlBacklog
 	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
+	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -152,6 +154,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		AttackPaths:              attackPathSummary,
 		ComplianceSummary:        complianceSummary,
 		ControlBacklog:           controlBacklog,
+		RuntimeEvidence:          runtimeEvidence,
 		Proof:                    proofRef,
 		NextActions:              nextActions,
 		Activation:               activation,
@@ -171,6 +174,18 @@ func normalizedSourcePrivacy(in *sourceprivacy.Contract) *sourceprivacy.Contract
 	}
 	normalized := sourceprivacy.Normalize(*in)
 	return &normalized
+}
+
+func buildRuntimeEvidenceSummary(statePath string, snapshot state.Snapshot) *ingest.Summary {
+	if strings.TrimSpace(statePath) == "" {
+		return nil
+	}
+	bundle, artifactPath, err := ingest.LoadOptional(statePath)
+	if err != nil || artifactPath == "" {
+		return nil
+	}
+	summary := ingest.Correlate(snapshot, artifactPath, bundle)
+	return &summary
 }
 
 type complianceSummaryError struct {
@@ -353,7 +368,13 @@ func buildProofReference(statePath string, top []risk.ScoredFinding) (ProofRefer
 	}, nil
 }
 
-func buildLifecycleSummary(m *manifest.Manifest, snapshotIdentities []manifest.IdentityRecord, transitions []lifecycle.Transition) LifecycleSummary {
+func buildLifecycleSummary(
+	m *manifest.Manifest,
+	snapshotIdentities []manifest.IdentityRecord,
+	transitions []lifecycle.Transition,
+	gaps []lifecycle.Gap,
+	inventory *agginventory.Inventory,
+) LifecycleSummary {
 	identities := []manifest.IdentityRecord{}
 	if m != nil {
 		identities = append(identities, model.FilterLegacyArtifactIdentityRecords(m.Identities)...)
@@ -398,13 +419,21 @@ func buildLifecycleSummary(m *manifest.Manifest, snapshotIdentities []manifest.I
 	if len(normalizedTransitions) > 5 {
 		normalizedTransitions = normalizedTransitions[:5]
 	}
+	if len(gaps) == 0 {
+		gaps = lifecycle.DetectGaps(lifecycle.GapInput{
+			Identities:  identities,
+			Inventory:   inventory,
+			Transitions: transitions,
+		})
+	}
 
 	return LifecycleSummary{
 		IdentityCount:      len(identities),
 		UnderReviewCount:   underReview,
 		RevokedCount:       revoked,
 		DeprecatedCount:    deprecated,
-		PendingActionCount: underReview + revoked + deprecated,
+		PendingActionCount: underReview + revoked + deprecated + len(gaps),
+		Gaps:               append([]lifecycle.Gap(nil), gaps...),
 		RecentTransitions:  normalizedTransitions,
 	}
 }
@@ -727,6 +756,9 @@ func buildSections(
 
 	lifecycleFacts := []string{
 		fmt.Sprintf("identities=%d pending_action=%d under_review=%d revoked=%d deprecated=%d", lifecycleSummary.IdentityCount, lifecycleSummary.PendingActionCount, lifecycleSummary.UnderReviewCount, lifecycleSummary.RevokedCount, lifecycleSummary.DeprecatedCount),
+	}
+	for _, gap := range lifecycleSummary.Gaps {
+		lifecycleFacts = append(lifecycleFacts, fmt.Sprintf("gap %s severity=%s repo=%s location=%s", gap.ReasonCode, gap.Severity, gap.Repo, gap.Location))
 	}
 	for _, transition := range lifecycleSummary.RecentTransitions {
 		lifecycleFacts = append(lifecycleFacts, fmt.Sprintf("transition %s %s->%s (%s)", transition.AgentID, transition.PreviousState, transition.NewState, transition.Trigger))
@@ -1079,6 +1111,12 @@ func sanitizeLifecycleSummaryPublic(in LifecycleSummary) LifecycleSummary {
 	copySummary := in
 	for idx := range copySummary.RecentTransitions {
 		copySummary.RecentTransitions[idx].AgentID = redactValue("agent", copySummary.RecentTransitions[idx].AgentID, 8)
+	}
+	for idx := range copySummary.Gaps {
+		copySummary.Gaps[idx].AgentID = redactValue("agent", copySummary.Gaps[idx].AgentID, 8)
+		copySummary.Gaps[idx].Repo = redactValue("repo", copySummary.Gaps[idx].Repo, 6)
+		copySummary.Gaps[idx].Location = redactValue("loc", copySummary.Gaps[idx].Location, 8)
+		copySummary.Gaps[idx].Owner = redactValue("owner", copySummary.Gaps[idx].Owner, 8)
 	}
 	return copySummary
 }

@@ -90,6 +90,9 @@
     },
     "source_privacy": {
       "$ref": "#/$defs/sourcePrivacy"
+    },
+    "runtime_evidence": {
+      "$ref": "#/$defs/runtimeEvidence"
     }
   },
   "$defs": {
@@ -172,6 +175,7 @@
         "approval_gap": {"type": "boolean"},
         "credential_access": {"type": "boolean"},
         "credential_provenance": {"$ref": "#/$defs/credentialProvenance"},
+        "trust_depth": {"$ref": "#/$defs/trustDepth"},
         "attack_path_score": {"type": "number"},
         "risk_score": {"type": "number"},
         "recommended_action": {"type": "string"},
@@ -345,10 +349,35 @@
         "revoked_count": {"type": "integer"},
         "deprecated_count": {"type": "integer"},
         "pending_action_count": {"type": "integer"},
+        "gaps": {"type": "array", "items": {"$ref": "#/$defs/lifecycleGap"}},
         "recent_transitions": {
           "type": "array",
           "items": {"$ref": "#/$defs/lifecycleTransition"}
         }
+      }
+    },
+    "lifecycleGap": {
+      "type": "object",
+      "required": ["gap_id", "reason_code", "severity", "agent_id", "org", "present", "message"],
+      "properties": {
+        "gap_id": {"type": "string"},
+        "reason_code": {"type": "string"},
+        "severity": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "tool_id": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "location": {"type": "string"},
+        "present": {"type": "boolean"},
+        "lifecycle_state": {"type": "string"},
+        "approval_status": {"type": "string"},
+        "owner": {"type": "string"},
+        "ownership_status": {"type": "string"},
+        "write_capable": {"type": "boolean"},
+        "credential_access": {"type": "boolean"},
+        "message": {"type": "string"},
+        "evidence_basis": {"type": "array", "items": {"type": "string"}}
       }
     },
     "lifecycleTransition": {
@@ -414,6 +443,53 @@
       "properties": {
         "id": {"type": "string"},
         "text": {"type": "string"}
+      }
+    },
+    "trustDepth": {
+      "type": "object",
+      "required": ["auth_strength", "delegation_model", "exposure", "policy_binding", "gateway_binding", "gateway_coverage", "trust_depth_score"],
+      "properties": {
+        "surface": {"type": "string", "enum": ["mcp", "a2a"]},
+        "auth_strength": {"type": "string", "enum": ["none", "static_secret", "workload_identity", "inherited_human", "oauth_delegation", "jit", "unknown"]},
+        "delegation_model": {"type": "string", "enum": ["none", "tool_proxy", "agent_delegate", "unknown"]},
+        "exposure": {"type": "string", "enum": ["local", "private", "public", "unknown"]},
+        "policy_binding": {"type": "string", "enum": ["declared", "missing"]},
+        "policy_refs": {"type": "array", "items": {"type": "string"}},
+        "gateway_binding": {"type": "string", "enum": ["bound", "unbound", "unknown"]},
+        "gateway_coverage": {"type": "string", "enum": ["protected", "unprotected", "unknown"]},
+        "sanitization_claims": {"type": "array", "items": {"type": "string"}},
+        "capability_exposure": {"type": "array", "items": {"type": "string"}},
+        "trust_gaps": {"type": "array", "items": {"type": "string"}},
+        "trust_depth_score": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "runtimeEvidenceCorrelation": {
+      "type": "object",
+      "required": ["path_id", "status"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "tool": {"type": "string"},
+        "repo": {"type": "string"},
+        "status": {"type": "string"},
+        "evidence_classes": {"type": "array", "items": {"type": "string"}},
+        "sources": {"type": "array", "items": {"type": "string"}},
+        "policy_refs": {"type": "array", "items": {"type": "string"}},
+        "proof_refs": {"type": "array", "items": {"type": "string"}},
+        "record_ids": {"type": "array", "items": {"type": "string"}},
+        "latest_observed_at": {"type": "string"}
+      }
+    },
+    "runtimeEvidence": {
+      "type": "object",
+      "required": ["total_records", "matched_records", "unmatched_records"],
+      "properties": {
+        "artifact_path": {"type": "string"},
+        "total_records": {"type": "integer"},
+        "matched_records": {"type": "integer"},
+        "unmatched_records": {"type": "integer"},
+        "correlations": {"type": "array", "items": {"$ref": "#/$defs/runtimeEvidenceCorrelation"}}
       }
     },
     "sourcePrivacy": {

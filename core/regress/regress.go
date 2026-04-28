@@ -11,6 +11,7 @@ import (
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/identity"
+	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
@@ -42,10 +43,11 @@ const (
 )
 
 type Baseline struct {
-	Version     string            `json:"version"`
-	GeneratedAt string            `json:"generated_at"`
-	Tools       []ToolState       `json:"tools"`
-	AttackPaths []AttackPathState `json:"attack_paths,omitempty"`
+	Version       string              `json:"version"`
+	GeneratedAt   string              `json:"generated_at"`
+	Tools         []ToolState         `json:"tools"`
+	AttackPaths   []AttackPathState   `json:"attack_paths,omitempty"`
+	LifecycleGaps []LifecycleGapState `json:"lifecycle_gaps,omitempty"`
 }
 
 type ToolState struct {
@@ -75,6 +77,14 @@ type AttackPathState struct {
 	Org    string  `json:"org"`
 	Repo   string  `json:"repo"`
 	Score  float64 `json:"score"`
+}
+
+type LifecycleGapState struct {
+	AgentID         string `json:"agent_id"`
+	AgentInstanceID string `json:"agent_instance_id,omitempty"`
+	ToolID          string `json:"tool_id,omitempty"`
+	Org             string `json:"org"`
+	ReasonCode      string `json:"reason_code"`
 }
 
 type Reason struct {
@@ -129,10 +139,11 @@ func BuildBaseline(snapshot state.Snapshot, generatedAt time.Time) Baseline {
 	}
 	tools := SnapshotTools(snapshot)
 	return Baseline{
-		Version:     BaselineVersion,
-		GeneratedAt: now.Format(time.RFC3339),
-		Tools:       tools,
-		AttackPaths: snapshotAttackPaths(snapshot),
+		Version:       BaselineVersion,
+		GeneratedAt:   now.Format(time.RFC3339),
+		Tools:         tools,
+		AttackPaths:   snapshotAttackPaths(snapshot),
+		LifecycleGaps: snapshotLifecycleGaps(snapshot),
 	}
 }
 
@@ -326,6 +337,18 @@ func SaveBaseline(path string, baseline Baseline) error {
 		baseline.Tools[i].WritePathClasses = mergeSortedStrings(baseline.Tools[i].WritePathClasses, nil)
 	}
 	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
+	sort.Slice(baseline.LifecycleGaps, func(i, j int) bool {
+		if baseline.LifecycleGaps[i].ReasonCode != baseline.LifecycleGaps[j].ReasonCode {
+			return baseline.LifecycleGaps[i].ReasonCode < baseline.LifecycleGaps[j].ReasonCode
+		}
+		if baseline.LifecycleGaps[i].Org != baseline.LifecycleGaps[j].Org {
+			return baseline.LifecycleGaps[i].Org < baseline.LifecycleGaps[j].Org
+		}
+		if baseline.LifecycleGaps[i].AgentInstanceID != baseline.LifecycleGaps[j].AgentInstanceID {
+			return baseline.LifecycleGaps[i].AgentInstanceID < baseline.LifecycleGaps[j].AgentInstanceID
+		}
+		return baseline.LifecycleGaps[i].AgentID < baseline.LifecycleGaps[j].AgentID
+	})
 
 	payload, err := json.MarshalIndent(baseline, "", "  ")
 	if err != nil {
@@ -340,9 +363,10 @@ func SaveBaseline(path string, baseline Baseline) error {
 
 func BuildBaselineFromSnapshot(snapshot state.Snapshot) Baseline {
 	return normalizeBaseline(Baseline{
-		Version:     BaselineVersion,
-		Tools:       SnapshotTools(snapshot),
-		AttackPaths: snapshotAttackPaths(snapshot),
+		Version:       BaselineVersion,
+		Tools:         SnapshotTools(snapshot),
+		AttackPaths:   snapshotAttackPaths(snapshot),
+		LifecycleGaps: snapshotLifecycleGaps(snapshot),
 	})
 }
 
@@ -381,6 +405,7 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 	currentTools := SnapshotTools(current)
 	baseByAgent := map[string]ToolState{}
 	baseByInstance := map[string]ToolState{}
+	baseGapSet := baselineLifecycleGapSet(baseline)
 	for _, item := range baseline.Tools {
 		item.Permissions = dedupeSortedPermissions(item.Permissions)
 		baseByAgent[item.AgentID] = item
@@ -478,6 +503,29 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 				AddedPermissions: added,
 			})
 		}
+	}
+
+	lifecycleGaps := current.LifecycleGaps
+	if len(lifecycleGaps) == 0 {
+		lifecycleGaps = lifecycle.DetectGaps(lifecycle.GapInput{
+			Identities:  current.Identities,
+			Inventory:   current.Inventory,
+			Transitions: current.Transitions,
+		})
+	}
+	for _, gap := range lifecycleGaps {
+		if _, exists := baseGapSet[lifecycleGapKey(gap.AgentID, gap.ToolID, gap.Org, gap.ReasonCode)]; exists {
+			continue
+		}
+		reasons = append(reasons, Reason{
+			Code:            "lifecycle_gap_" + strings.TrimSpace(gap.ReasonCode),
+			AgentID:         strings.TrimSpace(gap.AgentID),
+			ToolID:          strings.TrimSpace(gap.ToolID),
+			Org:             fallback(strings.TrimSpace(gap.Org), "local"),
+			Message:         strings.TrimSpace(gap.Message),
+			CurrentOwner:    strings.TrimSpace(gap.Owner),
+			AgentInstanceID: strings.TrimSpace(gap.ToolID),
+		})
 	}
 
 	attackPathDrift := summarizeCriticalAttackPathDrift(baseline.AttackPaths, snapshotAttackPaths(current))
@@ -662,6 +710,18 @@ func normalizeBaseline(baseline Baseline) Baseline {
 		baseline.Tools[i].WritePathClasses = mergeSortedStrings(baseline.Tools[i].WritePathClasses, nil)
 	}
 	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
+	sort.Slice(baseline.LifecycleGaps, func(i, j int) bool {
+		if baseline.LifecycleGaps[i].ReasonCode != baseline.LifecycleGaps[j].ReasonCode {
+			return baseline.LifecycleGaps[i].ReasonCode < baseline.LifecycleGaps[j].ReasonCode
+		}
+		if baseline.LifecycleGaps[i].Org != baseline.LifecycleGaps[j].Org {
+			return baseline.LifecycleGaps[i].Org < baseline.LifecycleGaps[j].Org
+		}
+		if baseline.LifecycleGaps[i].AgentInstanceID != baseline.LifecycleGaps[j].AgentInstanceID {
+			return baseline.LifecycleGaps[i].AgentInstanceID < baseline.LifecycleGaps[j].AgentInstanceID
+		}
+		return baseline.LifecycleGaps[i].AgentID < baseline.LifecycleGaps[j].AgentID
+	})
 	return baseline
 }
 
@@ -827,6 +887,60 @@ func snapshotAttackPaths(snapshot state.Snapshot) []AttackPathState {
 		})
 	}
 	return sortAttackPaths(out)
+}
+
+func snapshotLifecycleGaps(snapshot state.Snapshot) []LifecycleGapState {
+	gaps := snapshot.LifecycleGaps
+	if len(gaps) == 0 {
+		gaps = lifecycle.DetectGaps(lifecycle.GapInput{
+			Identities:  snapshot.Identities,
+			Inventory:   snapshot.Inventory,
+			Transitions: snapshot.Transitions,
+		})
+	}
+	if len(gaps) == 0 {
+		return nil
+	}
+	out := make([]LifecycleGapState, 0, len(gaps))
+	for _, gap := range gaps {
+		out = append(out, LifecycleGapState{
+			AgentID:         strings.TrimSpace(gap.AgentID),
+			AgentInstanceID: strings.TrimSpace(gap.ToolID),
+			ToolID:          strings.TrimSpace(gap.ToolID),
+			Org:             fallback(strings.TrimSpace(gap.Org), "local"),
+			ReasonCode:      strings.TrimSpace(gap.ReasonCode),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ReasonCode != out[j].ReasonCode {
+			return out[i].ReasonCode < out[j].ReasonCode
+		}
+		if out[i].Org != out[j].Org {
+			return out[i].Org < out[j].Org
+		}
+		if out[i].AgentInstanceID != out[j].AgentInstanceID {
+			return out[i].AgentInstanceID < out[j].AgentInstanceID
+		}
+		return out[i].AgentID < out[j].AgentID
+	})
+	return out
+}
+
+func baselineLifecycleGapSet(baseline Baseline) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, gap := range baseline.LifecycleGaps {
+		out[lifecycleGapKey(gap.AgentID, gap.ToolID, gap.Org, gap.ReasonCode)] = struct{}{}
+	}
+	return out
+}
+
+func lifecycleGapKey(agentID, toolID, org, reasonCode string) string {
+	return strings.Join([]string{
+		strings.TrimSpace(agentID),
+		strings.TrimSpace(toolID),
+		fallback(strings.TrimSpace(org), "local"),
+		strings.TrimSpace(reasonCode),
+	}, "|")
 }
 
 func sortAttackPaths(in []AttackPathState) []AttackPathState {

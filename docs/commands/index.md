@@ -7,6 +7,7 @@ Canonical local state and artifact path behavior is documented in [`docs/state_l
 Developer-first entry path:
 
 - `wrkr scan --my-setup --json`
+- `wrkr ingest --state ./.wrkr/last-scan.json --input runtime-evidence.json --json`
 - `wrkr mcp-list --state ./.wrkr/last-scan.json --json`
 - `wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json`
 
@@ -17,6 +18,7 @@ Developer-first entry path:
 - `wrkr version`
 - `wrkr init`
 - `wrkr scan`
+- `wrkr ingest`
 - `wrkr mcp-list`
 - `wrkr action`
 - `wrkr report`

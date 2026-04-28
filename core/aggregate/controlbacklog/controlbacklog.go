@@ -9,6 +9,7 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -102,12 +103,26 @@ type Item struct {
 	LinkedControlPathNodeIDs []string                                `json:"linked_control_path_node_ids,omitempty"`
 	LinkedControlPathEdgeIDs []string                                `json:"linked_control_path_edge_ids,omitempty"`
 	CredentialProvenance     *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
+	TrustDepth               *agginventory.TrustDepth                `json:"trust_depth,omitempty"`
+	SecurityTestRecipes      []SecurityTestRecipe                    `json:"security_test_recipes,omitempty"`
+}
+
+type SecurityTestRecipe struct {
+	ID                  string   `json:"id"`
+	Class               string   `json:"class"`
+	Title               string   `json:"title"`
+	Preconditions       []string `json:"preconditions,omitempty"`
+	ExpectedObservation string   `json:"expected_observation"`
+	RequiredApprovals   []string `json:"required_approvals,omitempty"`
+	DryRunFlag          string   `json:"dry_run_flag,omitempty"`
+	EvidenceRefs        []string `json:"evidence_refs,omitempty"`
 }
 
 type Input struct {
 	Mode             string
 	Findings         []model.Finding
 	Inventory        *agginventory.Inventory
+	LifecycleGaps    []lifecycle.Gap
 	ActionPaths      []risk.ActionPath
 	ControlPathGraph *aggattack.ControlPathGraph
 }
@@ -116,6 +131,9 @@ func Build(input Input) Backlog {
 	builder := newBuilder(input)
 	for _, path := range input.ActionPaths {
 		builder.addActionPath(path)
+	}
+	for _, gap := range input.LifecycleGaps {
+		builder.addLifecycleGap(gap)
 	}
 	for _, finding := range input.Findings {
 		builder.addFinding(finding, input.Mode)
@@ -251,6 +269,7 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		LinkedControlPathNodeIDs: append([]string(nil), graphRefs.nodeIDs...),
 		LinkedControlPathEdgeIDs: append([]string(nil), graphRefs.edgeIDs...),
 		CredentialProvenance:     agginventory.CloneCredentialProvenance(path.CredentialProvenance),
+		TrustDepth:               agginventory.CloneTrustDepth(path.TrustDepth),
 	}
 	item.LinkedFindingIDs = b.linkedFindingIDs(path.Org, path.Repo, path.Location)
 	item.SecretSignalTypes = secretSignalTypesForActionPath(path)
@@ -271,6 +290,7 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 	item.Confidence, item.EvidenceGaps, item.ConfidenceRaise = qualityForItem(item)
 	item.SLA = slaForAction(item.RecommendedAction)
 	item.ClosureCriteria = closureCriteriaForAction(item.RecommendedAction)
+	item.SecurityTestRecipes = buildSecurityTestRecipes(item)
 	b.merge(item)
 }
 
@@ -306,6 +326,7 @@ func (b *builder) addFinding(finding model.Finding, mode string) {
 		RecommendedAction:   actionForFinding(finding, writeCapable),
 		LinkedFindingIDs:    []string{findingID(finding)},
 		SecretSignalTypes:   secretSignalTypesForFinding(finding, writeCapable),
+		TrustDepth:          agginventory.TrustDepthFromFinding(finding),
 	}
 	item.Capability = capabilitySummary(item.Capabilities)
 	item.GovernanceControls = agginventory.BuildGovernanceControls(agginventory.GovernanceControlInput{
@@ -322,6 +343,7 @@ func (b *builder) addFinding(finding model.Finding, mode string) {
 	item.Confidence, item.EvidenceGaps, item.ConfidenceRaise = qualityForItem(item)
 	item.SLA = slaForAction(item.RecommendedAction)
 	item.ClosureCriteria = closureCriteriaForAction(item.RecommendedAction)
+	item.SecurityTestRecipes = buildSecurityTestRecipes(item)
 	b.merge(item)
 }
 
@@ -346,6 +368,10 @@ func (b *builder) merge(item Item) {
 	current.LinkedControlPathNodeIDs = mergeStrings(current.LinkedControlPathNodeIDs, item.LinkedControlPathNodeIDs)
 	current.LinkedControlPathEdgeIDs = mergeStrings(current.LinkedControlPathEdgeIDs, item.LinkedControlPathEdgeIDs)
 	current.CredentialProvenance = mergeCredentialProvenance(current.CredentialProvenance, item.CredentialProvenance)
+	current.TrustDepth = agginventory.MergeTrustDepth(current.TrustDepth, item.TrustDepth)
+	current.SecurityTestRecipes = mergeSecurityTestRecipes(current.SecurityTestRecipes, item.SecurityTestRecipes)
+	current.ApprovalStatus = mergeBacklogApprovalStatus(current.ApprovalStatus, item.ApprovalStatus)
+	current.SecurityVisibility = mergeBacklogSecurityVisibility(current.SecurityVisibility, item.SecurityVisibility)
 	if actionPriority(item.RecommendedAction) < actionPriority(current.RecommendedAction) {
 		current.RecommendedAction = item.RecommendedAction
 		current.SLA = slaForAction(item.RecommendedAction)
@@ -371,6 +397,44 @@ func (b *builder) merge(item Item) {
 	}
 	current.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, item.GovernanceControls)
 	b.itemsByKey[key] = normalizeItem(current)
+}
+
+func (b *builder) addLifecycleGap(gap lifecycle.Gap) {
+	item := Item{
+		ID:                 backlogID("lifecycle_gap", gap.AgentID, gap.ReasonCode, gap.Repo, gap.Location),
+		Repo:               strings.TrimSpace(gap.Repo),
+		Path:               strings.TrimSpace(gap.Location),
+		ControlSurfaceType: controlSurfaceType(gap.ToolType, gap.Location, gap.WriteCapable, gap.CredentialAccess),
+		ControlPathType:    controlPathType(gap.ToolType, gap.Location, gap.WriteCapable, gap.CredentialAccess),
+		Capabilities:       lifecycleGapCapabilities(gap),
+		WritePathClasses:   lifecycleGapWritePathClasses(gap),
+		Owner:              strings.TrimSpace(gap.Owner),
+		OwnershipStatus:    strings.TrimSpace(gap.OwnershipStatus),
+		EvidenceSource:     "lifecycle_gap",
+		EvidenceBasis:      append([]string{gap.ReasonCode}, gap.EvidenceBasis...),
+		ApprovalStatus:     "unapproved",
+		SecurityVisibility: agginventory.SecurityVisibilityNeedsReview,
+		SignalClass:        SignalClassUniqueWrkrSignal,
+		RecommendedAction:  lifecycleGapRecommendedAction(gap),
+		LinkedFindingIDs:   []string{gap.GapID},
+		SecretSignalTypes:  lifecycleGapSecretSignalTypes(gap),
+	}
+	item.Capability = capabilitySummary(item.Capabilities)
+	item.GovernanceControls = agginventory.BuildGovernanceControls(agginventory.GovernanceControlInput{
+		Owner:                    item.Owner,
+		OwnershipStatus:          item.OwnershipStatus,
+		ApprovalStatus:           gap.ApprovalStatus,
+		LifecycleState:           gap.LifecycleState,
+		SecurityVisibilityStatus: item.SecurityVisibility,
+		WritePathClasses:         item.WritePathClasses,
+		CredentialAccess:         gap.CredentialAccess,
+		EvidenceBasis:            item.EvidenceBasis,
+	})
+	item.Confidence, item.EvidenceGaps, item.ConfidenceRaise = qualityForItem(item)
+	item.SLA = slaForAction(item.RecommendedAction)
+	item.ClosureCriteria = closureCriteriaForAction(item.RecommendedAction)
+	item.SecurityTestRecipes = buildSecurityTestRecipes(item)
+	b.merge(item)
 }
 
 func (b *builder) items() []Item {
@@ -508,6 +572,14 @@ func capabilitiesFromActionPath(path risk.ActionPath) []string {
 	if path.CredentialAccess {
 		values = append(values, "secret_access")
 	}
+	if path.TrustDepth != nil {
+		if path.TrustDepth.Exposure == agginventory.TrustExposurePublic {
+			values = append(values, "public_exposure")
+		}
+		if path.TrustDepth.DelegationModel == agginventory.TrustDelegationAgent {
+			values = append(values, "delegation")
+		}
+	}
 	return mergeStrings(values, nil)
 }
 
@@ -538,10 +610,56 @@ func capabilitiesFromFinding(finding model.Finding, writeCapable bool) []string 
 	if isSecretFinding(finding) {
 		values = append(values, "secret_access")
 	}
+	if trust := agginventory.TrustDepthFromFinding(finding); trust != nil {
+		if trust.Exposure == agginventory.TrustExposurePublic {
+			values = append(values, "public_exposure")
+		}
+		if trust.DelegationModel == agginventory.TrustDelegationAgent {
+			values = append(values, "delegation")
+		}
+	}
 	if len(values) == 0 {
 		values = append(values, "read")
 	}
 	return mergeStrings(values, nil)
+}
+
+func lifecycleGapCapabilities(gap lifecycle.Gap) []string {
+	values := make([]string, 0, 4)
+	if gap.WriteCapable {
+		values = append(values, "write")
+	}
+	if gap.CredentialAccess {
+		values = append(values, "secret_access")
+	}
+	switch strings.TrimSpace(gap.ReasonCode) {
+	case lifecycle.GapOwnerlessExposure:
+		values = append(values, "ownerless_exposure")
+	case lifecycle.GapRevokedStillPresent:
+		values = append(values, "revoked_present")
+	case lifecycle.GapApprovalExpired:
+		values = append(values, "approval_expired")
+	case lifecycle.GapPresenceDrift:
+		values = append(values, "presence_drift")
+	}
+	if len(values) == 0 {
+		values = append(values, "review")
+	}
+	return mergeStrings(values, nil)
+}
+
+func lifecycleGapWritePathClasses(gap lifecycle.Gap) []string {
+	return agginventory.DeriveWritePathClasses(
+		nil,
+		gap.WriteCapable,
+		false,
+		false,
+		false,
+		gap.CredentialAccess,
+		false,
+		gap.Location,
+		gap.ToolType,
+	)
 }
 
 func writePathClassesFromActionPath(path risk.ActionPath) []string {
@@ -676,6 +794,9 @@ func actionForFinding(finding model.Finding, writeCapable bool) string {
 	if detect.IsGeneratedPath(finding.Location) {
 		return ActionInventoryReview
 	}
+	if trust := agginventory.TrustDepthFromFinding(finding); trust != nil && trustExposureNeedsRemediation(trust) {
+		return ActionRemediate
+	}
 	switch strings.TrimSpace(finding.FindingType) {
 	case "policy_violation", "skill_policy_conflict":
 		return ActionRemediate
@@ -709,6 +830,17 @@ func actionFromActionPath(action string, path risk.ActionPath) string {
 	}
 }
 
+func lifecycleGapRecommendedAction(gap lifecycle.Gap) string {
+	switch strings.TrimSpace(gap.ReasonCode) {
+	case lifecycle.GapRevokedStillPresent, lifecycle.GapOverApproved:
+		return ActionRemediate
+	case lifecycle.GapOwnerlessExposure, lifecycle.GapApprovalExpired, lifecycle.GapInactiveCredentialed:
+		return ActionApprove
+	default:
+		return ActionAttachEvidence
+	}
+}
+
 func secretSignalTypesForActionPath(path risk.ActionPath) []string {
 	if !path.CredentialAccess {
 		return nil
@@ -736,6 +868,20 @@ func secretSignalTypesForFinding(finding model.Finding, writeCapable bool) []str
 	}
 	if writeCapable {
 		values = append(values, SecretUsedByWriteCapableWorkflow)
+	}
+	return mergeStrings(values, nil)
+}
+
+func lifecycleGapSecretSignalTypes(gap lifecycle.Gap) []string {
+	if !gap.CredentialAccess {
+		return nil
+	}
+	values := []string{SecretReferenceDetected}
+	if gap.WriteCapable {
+		values = append(values, SecretUsedByWriteCapableWorkflow)
+	}
+	if strings.TrimSpace(gap.Owner) == "" {
+		values = append(values, SecretOwnerMissing)
 	}
 	return mergeStrings(values, nil)
 }
@@ -790,6 +936,20 @@ func qualityForItem(item Item) (string, []string, []string) {
 			confidence = ConfidenceMedium
 		}
 	}
+	if item.TrustDepth != nil {
+		for _, gap := range item.TrustDepth.TrustGaps {
+			switch strings.TrimSpace(gap) {
+			case "public_exposure", "gateway_unprotected", "delegation_without_policy", "policy_ref_missing", "sanitization_unspecified":
+				gaps = append(gaps, "trust_depth_gap:"+strings.TrimSpace(gap))
+			}
+		}
+		if len(item.TrustDepth.TrustGaps) > 0 {
+			raise = append(raise, "review MCP/A2A trust-depth posture for gateway coverage, policy binding, and sanitization claims")
+			if confidence == ConfidenceHigh {
+				confidence = ConfidenceMedium
+			}
+		}
+	}
 	if item.RecommendedAction == ActionDebugOnly || item.RecommendedAction == ActionSuppress {
 		confidence = ConfidenceLow
 	}
@@ -833,6 +993,23 @@ func approvalStatus(approvalGap bool, visibility string) string {
 		return "approved"
 	}
 	return "unknown"
+}
+
+func trustExposureNeedsRemediation(depth *agginventory.TrustDepth) bool {
+	normalized := agginventory.NormalizeTrustDepth(depth)
+	if normalized == nil {
+		return false
+	}
+	if normalized.Exposure == agginventory.TrustExposurePublic && normalized.GatewayCoverage == agginventory.TrustCoverageUnprotected {
+		return true
+	}
+	for _, gap := range normalized.TrustGaps {
+		switch strings.TrimSpace(gap) {
+		case "gateway_unprotected", "delegation_without_policy":
+			return true
+		}
+	}
+	return false
 }
 
 func findingWriteCapable(finding model.Finding) bool {
@@ -939,8 +1116,138 @@ func normalizeItem(item Item) Item {
 	item.ConfidenceRaise = mergeStrings(item.ConfidenceRaise, nil)
 	item.SecretSignalTypes = mergeStrings(item.SecretSignalTypes, nil)
 	item.LinkedFindingIDs = mergeStrings(item.LinkedFindingIDs, nil)
+	item.SecurityTestRecipes = mergeSecurityTestRecipes(item.SecurityTestRecipes, nil)
 	item.GovernanceControls = mergeGovernanceControls(nil, item.GovernanceControls)
 	return item
+}
+
+func mergeBacklogApprovalStatus(current, incoming string) string {
+	if approvalStatusPriority(incoming) < approvalStatusPriority(current) {
+		return strings.TrimSpace(incoming)
+	}
+	return strings.TrimSpace(current)
+}
+
+func approvalStatusPriority(value string) int {
+	switch strings.TrimSpace(value) {
+	case "approved":
+		return 0
+	case "unknown":
+		return 1
+	default:
+		return 2
+	}
+}
+
+func mergeBacklogSecurityVisibility(current, incoming string) string {
+	if securityVisibilityPriority(incoming) < securityVisibilityPriority(current) {
+		return strings.TrimSpace(incoming)
+	}
+	return strings.TrimSpace(current)
+}
+
+func securityVisibilityPriority(value string) int {
+	switch strings.TrimSpace(value) {
+	case agginventory.SecurityVisibilityApproved, agginventory.SecurityVisibilityKnownApproved:
+		return 0
+	case agginventory.SecurityVisibilityAcceptedRisk:
+		return 1
+	case agginventory.SecurityVisibilityKnownUnapproved:
+		return 2
+	case agginventory.SecurityVisibilityNeedsReview:
+		return 3
+	case agginventory.SecurityVisibilityUnknownToSecurity:
+		return 4
+	default:
+		return 5
+	}
+}
+
+func buildSecurityTestRecipes(item Item) []SecurityTestRecipe {
+	recipes := make([]SecurityTestRecipe, 0, 6)
+	evidenceRefs := mergeStrings(append([]string(nil), item.LinkedFindingIDs...), item.LinkedControlPathNodeIDs)
+	requiredApprovals := []string{"security_review"}
+	if item.RecommendedAction == ActionApprove || item.RecommendedAction == ActionRemediate {
+		requiredApprovals = append(requiredApprovals, "owner_approval")
+	}
+	addRecipe := func(class, title, expected string, preconditions []string) {
+		recipes = append(recipes, SecurityTestRecipe{
+			ID:                  backlogID("security_test", item.ID, class),
+			Class:               class,
+			Title:               title,
+			Preconditions:       mergeStrings(preconditions, nil),
+			ExpectedObservation: expected,
+			RequiredApprovals:   mergeStrings(requiredApprovals, nil),
+			DryRunFlag:          "--dry-run",
+			EvidenceRefs:        evidenceRefs,
+		})
+	}
+	if item.TrustDepth != nil && item.TrustDepth.Exposure == agginventory.TrustExposurePublic && item.TrustDepth.GatewayCoverage != agginventory.TrustCoverageProtected {
+		addRecipe("mcp_endpoint_swap", "Validate gateway binding against endpoint swap", "Control path rejects or logs the swapped MCP/A2A endpoint without granting unreviewed capability.", []string{"use a staging or disposable endpoint", "confirm deny-by-default gateway policy is present"})
+	}
+	if contains(item.Capabilities, "delegation") {
+		addRecipe("prompt_injection", "Validate delegation prompt boundary", "Delegation request is denied, sanitized, or routed through approved policy enforcement.", []string{"use a non-production prompt fixture", "log policy decision and target agent identity"})
+	}
+	if contains(item.Capabilities, "write") || contains(item.Capabilities, "deploy") || contains(item.Capabilities, "repo_write") || contains(item.Capabilities, "pr_write") {
+		addRecipe("destructive_action_dry_run", "Validate destructive action dry-run path", "Action path stays in dry-run or approval-gated mode and produces auditable evidence instead of mutating systems.", []string{"target a sandbox or preview environment", "verify rollback path and operator ownership"})
+	}
+	if item.CredentialProvenance != nil || contains(item.Capabilities, "secret_access") {
+		addRecipe("secret_scope_validation", "Validate secret scope and provenance", "Path only receives the minimum expected secret scope and surfaces provenance or denial evidence.", []string{"use non-production credentials or a simulator", "capture secret scope evidence without revealing values"})
+	}
+	if item.ControlPathType == ControlPathCIAutomation || item.ControlPathType == ControlPathReleaseWorkflow {
+		addRecipe("untrusted_repo_content", "Validate untrusted repository content handling", "Workflow does not promote untrusted repository content into privileged execution without policy gates.", []string{"run against a fixture branch with controlled untrusted content", "confirm approvals and content-origin checks are enabled"})
+	}
+	if item.TrustDepth != nil && item.TrustDepth.Exposure == agginventory.TrustExposurePublic {
+		addRecipe("egress_attempt", "Validate outbound egress controls", "Publicly reachable path cannot exfiltrate or reach blocked destinations beyond declared policy.", []string{"use a sink or denied test endpoint", "confirm audit logging for blocked egress"})
+	}
+	return mergeSecurityTestRecipes(recipes, nil)
+}
+
+func mergeSecurityTestRecipes(current, incoming []SecurityTestRecipe) []SecurityTestRecipe {
+	recipes := append(append([]SecurityTestRecipe(nil), current...), incoming...)
+	if len(recipes) == 0 {
+		return nil
+	}
+	byID := map[string]SecurityTestRecipe{}
+	for _, recipe := range recipes {
+		if strings.TrimSpace(recipe.ID) == "" {
+			continue
+		}
+		currentItem, ok := byID[recipe.ID]
+		if !ok {
+			currentItem = recipe
+		}
+		currentItem.Preconditions = mergeStrings(currentItem.Preconditions, recipe.Preconditions)
+		currentItem.RequiredApprovals = mergeStrings(currentItem.RequiredApprovals, recipe.RequiredApprovals)
+		currentItem.EvidenceRefs = mergeStrings(currentItem.EvidenceRefs, recipe.EvidenceRefs)
+		if currentItem.Title == "" {
+			currentItem.Title = recipe.Title
+		}
+		if currentItem.ExpectedObservation == "" {
+			currentItem.ExpectedObservation = recipe.ExpectedObservation
+		}
+		if currentItem.Class == "" {
+			currentItem.Class = recipe.Class
+		}
+		if currentItem.DryRunFlag == "" {
+			currentItem.DryRunFlag = recipe.DryRunFlag
+		}
+		byID[currentItem.ID] = currentItem
+	}
+	out := make([]SecurityTestRecipe, 0, len(byID))
+	for _, recipe := range byID {
+		out = append(out, recipe)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Class != out[j].Class {
+			return out[i].Class < out[j].Class
+		}
+		return out[i].ID < out[j].ID
+	})
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func mergeGovernanceControls(a, b []agginventory.GovernanceControlMapping) []agginventory.GovernanceControlMapping {

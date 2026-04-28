@@ -489,7 +489,7 @@ func TestBuildLifecycleSummaryOmitsLegacyNonToolIdentities(t *testing.T) {
 	summary := buildLifecycleSummary(nil, []manifest.IdentityRecord{
 		{AgentID: "wrkr:source-repo-aaaaaaaaaa:acme", ToolID: "source-repo-aaaaaaaaaa", ToolType: "source_repo", Status: "under_review"},
 		{AgentID: "wrkr:codex-bbbbbbbbbb:acme", ToolID: "codex-bbbbbbbbbb", ToolType: "codex", Status: "revoked"},
-	}, nil)
+	}, nil, nil, nil)
 
 	if summary.IdentityCount != 1 {
 		t.Fatalf("expected only real-tool identities to count, got %+v", summary)

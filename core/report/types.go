@@ -7,6 +7,8 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
+	"github.com/Clyra-AI/wrkr/core/ingest"
+	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -78,6 +80,7 @@ type Summary struct {
 	AttackPaths              AttackPathSummary                      `json:"attack_paths"`
 	ComplianceSummary        compliance.RollupSummary               `json:"compliance_summary"`
 	ControlBacklog           *controlbacklog.Backlog                `json:"control_backlog,omitempty"`
+	RuntimeEvidence          *ingest.Summary                        `json:"runtime_evidence,omitempty"`
 	Proof                    ProofReference                         `json:"proof"`
 	NextActions              []ChecklistItem                        `json:"next_actions"`
 	Activation               *ActivationSummary                     `json:"activation,omitempty"`
@@ -172,6 +175,7 @@ type LifecycleSummary struct {
 	RevokedCount       int                   `json:"revoked_count"`
 	DeprecatedCount    int                   `json:"deprecated_count"`
 	PendingActionCount int                   `json:"pending_action_count"`
+	Gaps               []lifecycle.Gap       `json:"gaps,omitempty"`
 	RecentTransitions  []LifecycleTransition `json:"recent_transitions"`
 }
 

@@ -264,6 +264,9 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 		if path.CredentialProvenance != nil {
 			event["credential_provenance"] = agginventory.CloneCredentialProvenance(path.CredentialProvenance)
 		}
+		if path.TrustDepth != nil {
+			event["trust_depth"] = agginventory.CloneTrustDepth(path.TrustDepth)
+		}
 		records = append(records, sanitizeMappedRecord(MappedRecord{
 			RecordType: "risk_assessment",
 			AgentID:    path.AgentID,

@@ -114,7 +114,8 @@
           "risk_score": {"type": "number"},
           "approval_status": {"type": "string"},
           "approval_classification": {"type": "string", "enum": ["approved", "unapproved", "unknown"]},
-          "lifecycle_state": {"type": "string", "enum": ["discovered", "under_review", "approved", "active", "deprecated", "revoked"]}
+          "lifecycle_state": {"type": "string", "enum": ["discovered", "under_review", "approved", "active", "deprecated", "revoked"]},
+          "trust_depth": {"$ref": "#/$defs/trustDepth"}
         }
       }
     },
@@ -341,6 +342,7 @@
           "ownership_evidence_basis": {"type": "array", "items": {"type": "string"}},
           "ownership_conflicts": {"type": "array", "items": {"type": "string"}},
           "approval_gap_reasons": {"type": "array", "items": {"type": "string"}},
+          "trust_depth": {"$ref": "#/$defs/trustDepth"},
           "pull_request_write": {"type": "boolean"},
           "merge_execute": {"type": "boolean"},
           "deploy_write": {"type": "boolean"},
@@ -376,6 +378,27 @@
         "medium_risk": {"type": "integer"},
         "low_risk": {"type": "integer"}
       }
+    }
+  },
+  "$defs": {
+    "trustDepth": {
+      "type": "object",
+      "required": ["auth_strength", "delegation_model", "exposure", "policy_binding", "gateway_binding", "gateway_coverage", "trust_depth_score"],
+      "properties": {
+        "surface": {"type": "string", "enum": ["mcp", "a2a"]},
+        "auth_strength": {"type": "string", "enum": ["none", "static_secret", "workload_identity", "inherited_human", "oauth_delegation", "jit", "unknown"]},
+        "delegation_model": {"type": "string", "enum": ["none", "tool_proxy", "agent_delegate", "unknown"]},
+        "exposure": {"type": "string", "enum": ["local", "private", "public", "unknown"]},
+        "policy_binding": {"type": "string", "enum": ["declared", "missing"]},
+        "policy_refs": {"type": "array", "items": {"type": "string"}},
+        "gateway_binding": {"type": "string", "enum": ["bound", "unbound", "unknown"]},
+        "gateway_coverage": {"type": "string", "enum": ["protected", "unprotected", "unknown"]},
+        "sanitization_claims": {"type": "array", "items": {"type": "string"}},
+        "capability_exposure": {"type": "array", "items": {"type": "string"}},
+        "trust_gaps": {"type": "array", "items": {"type": "string"}},
+        "trust_depth_score": {"type": "number"}
+      },
+      "additionalProperties": false
     }
   }
 }

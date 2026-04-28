@@ -19,20 +19,21 @@ type Export struct {
 }
 
 type Ticket struct {
-	ID                string   `json:"id"`
-	Title             string   `json:"title"`
-	Owner             string   `json:"owner,omitempty"`
-	Repo              string   `json:"repo,omitempty"`
-	Path              string   `json:"path,omitempty"`
-	ControlPathType   string   `json:"control_path_type,omitempty"`
-	Capability        string   `json:"capability,omitempty"`
-	Evidence          []string `json:"evidence,omitempty"`
-	RecommendedAction string   `json:"recommended_action"`
-	SLA               string   `json:"sla"`
-	ClosureCriteria   string   `json:"closure_criteria"`
-	Confidence        string   `json:"confidence,omitempty"`
-	ProofRequirements []string `json:"proof_requirements,omitempty"`
-	Body              string   `json:"body"`
+	ID                  string                              `json:"id"`
+	Title               string                              `json:"title"`
+	Owner               string                              `json:"owner,omitempty"`
+	Repo                string                              `json:"repo,omitempty"`
+	Path                string                              `json:"path,omitempty"`
+	ControlPathType     string                              `json:"control_path_type,omitempty"`
+	Capability          string                              `json:"capability,omitempty"`
+	Evidence            []string                            `json:"evidence,omitempty"`
+	RecommendedAction   string                              `json:"recommended_action"`
+	SLA                 string                              `json:"sla"`
+	ClosureCriteria     string                              `json:"closure_criteria"`
+	Confidence          string                              `json:"confidence,omitempty"`
+	ProofRequirements   []string                            `json:"proof_requirements,omitempty"`
+	SecurityTestRecipes []controlbacklog.SecurityTestRecipe `json:"security_test_recipes,omitempty"`
+	Body                string                              `json:"body"`
 }
 
 func ValidFormat(format string) bool {
@@ -90,22 +91,24 @@ func ticketFromBacklogItem(item controlbacklog.Item, format string, key string) 
 		"SLA: " + strings.TrimSpace(item.SLA),
 		"Closure criteria: " + strings.TrimSpace(item.ClosureCriteria),
 		"Evidence: " + strings.Join(item.EvidenceBasis, ", "),
+		"Security test recipes: " + strings.Join(recipeIDs(item.SecurityTestRecipes), ", "),
 	}, "\n")
 	return Ticket{
-		ID:                "tkt-" + hashKey(format+"|"+key),
-		Title:             title,
-		Owner:             strings.TrimSpace(item.Owner),
-		Repo:              strings.TrimSpace(item.Repo),
-		Path:              strings.TrimSpace(item.Path),
-		ControlPathType:   strings.TrimSpace(item.ControlPathType),
-		Capability:        strings.TrimSpace(item.Capability),
-		Evidence:          append([]string(nil), item.EvidenceBasis...),
-		RecommendedAction: strings.TrimSpace(item.RecommendedAction),
-		SLA:               strings.TrimSpace(item.SLA),
-		ClosureCriteria:   strings.TrimSpace(item.ClosureCriteria),
-		Confidence:        strings.TrimSpace(item.Confidence),
-		ProofRequirements: proofRequirements(item),
-		Body:              body,
+		ID:                  "tkt-" + hashKey(format+"|"+key),
+		Title:               title,
+		Owner:               strings.TrimSpace(item.Owner),
+		Repo:                strings.TrimSpace(item.Repo),
+		Path:                strings.TrimSpace(item.Path),
+		ControlPathType:     strings.TrimSpace(item.ControlPathType),
+		Capability:          strings.TrimSpace(item.Capability),
+		Evidence:            append([]string(nil), item.EvidenceBasis...),
+		RecommendedAction:   strings.TrimSpace(item.RecommendedAction),
+		SLA:                 strings.TrimSpace(item.SLA),
+		ClosureCriteria:     strings.TrimSpace(item.ClosureCriteria),
+		Confidence:          strings.TrimSpace(item.Confidence),
+		ProofRequirements:   proofRequirements(item),
+		SecurityTestRecipes: append([]controlbacklog.SecurityTestRecipe(nil), item.SecurityTestRecipes...),
+		Body:                body,
 	}
 }
 
@@ -145,4 +148,18 @@ func actionPriority(action string) int {
 func hashKey(value string) string {
 	sum := sha256.Sum256([]byte(value))
 	return fmt.Sprintf("%x", sum[:6])
+}
+
+func recipeIDs(recipes []controlbacklog.SecurityTestRecipe) []string {
+	if len(recipes) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(recipes))
+	for _, recipe := range recipes {
+		if strings.TrimSpace(recipe.ID) != "" {
+			out = append(out, strings.TrimSpace(recipe.ID))
+		}
+	}
+	sort.Strings(out)
+	return out
 }

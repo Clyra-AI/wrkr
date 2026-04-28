@@ -28,6 +28,24 @@
       "type": "array",
       "items": {"type": "string", "minLength": 1},
       "uniqueItems": true
+    },
+    "policy_refs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "exposure": {
+      "type": "string",
+      "enum": ["local", "private", "public", "unknown"]
+    },
+    "delegation_model": {
+      "type": "string",
+      "enum": ["none", "tool_proxy", "agent_delegate", "unknown"]
+    },
+    "sanitization_claims": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
     }
   },
   "additionalProperties": false
