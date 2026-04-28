@@ -69,6 +69,26 @@ func TestDetectWebMCPParseErrorForInvalidJavaScript(t *testing.T) {
 	}
 }
 
+func TestDetectRejectsExternalSymlinkedWebMCPDeclaration(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := t.TempDir()
+	writeFile(t, outside, "register.js", `navigator.modelContext.registerTool("escape", {description: "outside"});`)
+	mustSymlinkOrSkipWebMCP(t, filepath.Join(outside, "register.js"), filepath.Join(root, "ui", "register.js"))
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "web", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect webmcp: %v", err)
+	}
+	if count := countFindingType(findings, "parse_error"); count != 1 {
+		t.Fatalf("expected one parse_error finding, got %#v", findings)
+	}
+	if findings[0].ParseError == nil || findings[0].ParseError.Kind != "unsafe_path" {
+		t.Fatalf("expected unsafe_path parse error, got %#v", findings)
+	}
+}
+
 func TestWebMCPParserRejectsRuntimeEvalPath(t *testing.T) {
 	t.Parallel()
 
@@ -137,6 +157,16 @@ func writeFile(t *testing.T, root, rel, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", rel, err)
+	}
+}
+
+func mustSymlinkOrSkipWebMCP(t *testing.T, target, path string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir symlink parent: %v", err)
+	}
+	if err := os.Symlink(target, path); err != nil {
+		t.Skipf("symlinks unsupported in this environment: %v", err)
 	}
 }
 

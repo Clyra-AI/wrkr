@@ -115,52 +115,15 @@ jobs:
           version: v2.13.3
           install-only: true
 
-      - name: Validate Homebrew tap token for tag releases
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
-        run: |
-          if [[ -z "${HOMEBREW_TAP_GITHUB_TOKEN}" ]]; then
-            echo "missing HOMEBREW_TAP_GITHUB_TOKEN secret for Homebrew tap publication" >&2
-            exit 7
-          fi
-
-      - name: Build release artifacts
+      - name: Build staged release artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            goreleaser release --clean
+            goreleaser release --skip=publish,announce --clean
           else
             goreleaser release --snapshot --clean
           fi
-
-      - name: Run published install-path parity (README/docs commands)
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          set -euo pipefail
-          mkdir -p .tmp/release
-          for attempt in 1 2 3; do
-            if scripts/test_uat_local.sh --skip-global-gates --release-version "${GITHUB_REF_NAME}" --brew-formula Clyra-AI/tap/wrkr \
-              | tee .tmp/release/uat-published-install-paths.log; then
-              exit 0
-            fi
-            if [[ "$attempt" -ge 3 ]]; then
-              echo "published install-path parity failed after ${attempt} attempts" >&2
-              exit 1
-            fi
-            sleep "$((attempt * 20))"
-          done
-
-      - name: Upload release UAT logs
-        if: always()
-        uses: actions/upload-artifact@v7.0.0
-        with:
-          name: release-uat-local-logs
-          path: |
-            .tmp/release/uat-prepublish-smoke.log
-            .tmp/release/uat-published-install-paths.log
 
       - name: Verify checksums
         run: (cd dist && sha256sum -c checksums.txt)
@@ -188,9 +151,149 @@ jobs:
       - name: Sign checksums
         env:
           COSIGN_EXPERIMENTAL: '1'
-        run: cosign sign-blob --yes --output-signature dist/checksums.txt.sig dist/checksums.txt
+        run: |
+          cosign sign-blob \
+            --yes \
+            --bundle dist/checksums.txt.sigstore.json \
+            --output-signature dist/checksums.txt.sig \
+            dist/checksums.txt
 
       - name: Generate provenance attestation
         uses: actions/attest-build-provenance@v4.1.0
         with:
-          subject-path: dist/*
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+            dist/checksums.txt.sig
+            dist/checksums.txt.sigstore.json
+            dist/sbom.spdx.json
+
+      - name: Verify checksum signature
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cosign verify-blob dist/checksums.txt \
+            --bundle dist/checksums.txt.sigstore.json \
+            --certificate-identity "https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            >/dev/null
+
+      - name: Verify provenance attestations
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' artifact; do
+            gh attestation verify "$artifact" -R "${GITHUB_REPOSITORY}" >/dev/null
+          done < <(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name 'checksums.txt' \) -print0 | sort -z)
+
+      - name: Validate Homebrew tap token for tag releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+        run: |
+          if [[ -z "${HOMEBREW_TAP_GITHUB_TOKEN}" ]]; then
+            echo "missing HOMEBREW_TAP_GITHUB_TOKEN secret for Homebrew tap publication" >&2
+            exit 7
+          fi
+
+      - name: Prepare release notes from validated changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/release
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = re.compile(rf"^## \[{re.escape(tag)}\] - .*$", re.MULTILINE)
+          match = pattern.search(changelog)
+          if match is None:
+              print(f"missing changelog section for {tag}", file=sys.stderr)
+              sys.exit(1)
+          remainder = changelog[match.end():]
+          next_heading = re.search(r"^## \[", remainder, re.MULTILINE)
+          end = match.end() + (next_heading.start() if next_heading else len(remainder))
+          section = changelog[match.start():end].strip() + "\n"
+          pathlib.Path(".tmp/release/release-notes.md").write_text(section, encoding="utf-8")
+          PY
+
+      - name: Publish GitHub release assets and notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          assets=()
+          while IFS= read -r -d '' artifact; do
+            assets+=("$artifact")
+          done < <(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name 'checksums.txt' -o -name 'checksums.txt.sig' -o -name 'checksums.txt.sigstore.json' -o -name 'sbom.spdx.json' \) -print0 | sort -z)
+          if [[ "${#assets[@]}" -eq 0 ]]; then
+            echo "no staged release assets found in dist/" >&2
+            exit 1
+          fi
+          gh release create "${GITHUB_REF_NAME}" "${assets[@]}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --verify-tag \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file .tmp/release/release-notes.md
+
+      - name: Publish Homebrew tap formula
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          formula_path="$(find dist -type f -name 'wrkr.rb' | sort | head -n 1)"
+          if [[ -z "${formula_path}" ]]; then
+            echo "could not find staged Homebrew formula in dist/" >&2
+            exit 1
+          fi
+          tap_dir=".tmp/release/homebrew-tap"
+          rm -rf "${tap_dir}"
+          git clone "https://x-access-token:${HOMEBREW_TAP_GITHUB_TOKEN}@github.com/Clyra-AI/homebrew-tap.git" "${tap_dir}"
+          mkdir -p "${tap_dir}/Formula"
+          cp "${formula_path}" "${tap_dir}/Formula/wrkr.rb"
+          (
+            cd "${tap_dir}"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add Formula/wrkr.rb
+            if git diff --cached --quiet; then
+              echo "Homebrew tap formula already matches the staged release artifacts."
+              exit 0
+            fi
+            git commit -m "wrkr ${GITHUB_REF_NAME}"
+            git push origin HEAD:main
+          )
+
+      - name: Run published install-path parity (README/docs commands)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp/release
+          for attempt in 1 2 3; do
+            if scripts/test_uat_local.sh --skip-global-gates --release-version "${GITHUB_REF_NAME}" --brew-formula Clyra-AI/tap/wrkr \
+              | tee .tmp/release/uat-published-install-paths.log; then
+              exit 0
+            fi
+            if [[ "$attempt" -ge 3 ]]; then
+              echo "published install-path parity failed after ${attempt} attempts" >&2
+              exit 1
+            fi
+            sleep "$((attempt * 20))"
+          done
+
+      - name: Upload release UAT logs
+        if: always()
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: release-uat-local-logs
+          path: |
+            .tmp/release/uat-prepublish-smoke.log
+            .tmp/release/uat-published-install-paths.log

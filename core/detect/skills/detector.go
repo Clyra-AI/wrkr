@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -35,17 +34,18 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		return nil, nil
 	}
 
-	files, walkErr := detect.WalkFilesWithOptions(scope.Root, options)
+	files, walkErr := detect.WalkFilesWithParseErrors(detectorID, scope.Root, options)
 	if walkErr != nil {
 		return nil, walkErr
 	}
-	skills := make([]string, 0)
-	for _, rel := range files {
+	skills := make([]detect.WalkedFile, 0)
+	for _, file := range files {
+		rel := file.Rel
 		if strings.HasSuffix(rel, "/SKILL.md") && (strings.HasPrefix(rel, ".claude/skills/") || strings.HasPrefix(rel, ".agents/skills/")) {
-			skills = append(skills, rel)
+			skills = append(skills, file)
 		}
 	}
-	sort.Strings(skills)
+	sort.Slice(skills, func(i, j int) bool { return skills[i].Rel < skills[j].Rel })
 	if len(skills) == 0 {
 		return nil, nil
 	}
@@ -66,7 +66,21 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 	ceiling := map[string]struct{}{}
 	findings := make([]model.Finding, 0)
 
-	for _, rel := range skills {
+	for _, file := range skills {
+		rel := file.Rel
+		if file.ParseError != nil {
+			findings = append(findings, model.Finding{
+				FindingType: "parse_error",
+				Severity:    model.SeverityMedium,
+				ToolType:    "skill",
+				Location:    rel,
+				Repo:        scope.Repo,
+				Org:         fallbackOrg(scope.Org),
+				Detector:    detectorID,
+				ParseError:  file.ParseError,
+			})
+			continue
+		}
 		tools, parseErr := parseAllowedTools(scope.Root, rel)
 		if parseErr != nil {
 			parseErr.Detector = detectorID
@@ -200,11 +214,9 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 }
 
 func parseAllowedTools(root, rel string) ([]string, *model.ParseError) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- reads skills from selected repository root.
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return nil, &model.ParseError{Kind: "file_read_error", Path: rel, Message: err.Error()}
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if parseErr != nil {
+		return nil, parseErr
 	}
 	content := string(payload)
 	tools := make([]string, 0)

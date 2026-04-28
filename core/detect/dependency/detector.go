@@ -3,9 +3,7 @@ package dependency
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -102,35 +100,35 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		case base == "go.mod":
 			deps, parseErr := parseGoMod(scope.Root, rel)
 			if parseErr != nil {
-				findings = append(findings, parseErrorFinding(scope, rel, parseErr.Error()))
+				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
 				findings = append(findings, dependencyFindings(scope, rel, deps)...)
 			}
 		case base == "package.json":
 			deps, parseErr := parsePackageJSON(scope.Root, rel)
 			if parseErr != nil {
-				findings = append(findings, parseErrorFinding(scope, rel, parseErr.Error()))
+				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
 				findings = append(findings, dependencyFindings(scope, rel, deps)...)
 			}
 		case base == "pyproject.toml":
 			deps, parseErr := parsePyproject(scope.Root, rel)
 			if parseErr != nil {
-				findings = append(findings, parseErrorFinding(scope, rel, parseErr.Error()))
+				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
 				findings = append(findings, dependencyFindings(scope, rel, deps)...)
 			}
 		case base == "cargo.toml":
 			deps, parseErr := parseCargoToml(scope.Root, rel)
 			if parseErr != nil {
-				findings = append(findings, parseErrorFinding(scope, rel, parseErr.Error()))
+				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
 				findings = append(findings, dependencyFindings(scope, rel, deps)...)
 			}
 		case strings.HasPrefix(base, "requirements") && strings.HasSuffix(base, ".txt"):
 			deps, parseErr := parseRequirements(scope.Root, rel)
 			if parseErr != nil {
-				findings = append(findings, parseErrorFinding(scope, rel, parseErr.Error()))
+				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
 				findings = append(findings, dependencyFindings(scope, rel, deps)...)
 			}
@@ -159,16 +157,14 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 	return findings, nil
 }
 
-func parseGoMod(root, rel string) ([]string, error) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- parser reads go.mod from selected repository root.
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	parsed, parseErr := modfile.Parse(rel, payload, nil)
+func parseGoMod(root, rel string) ([]string, *model.ParseError) {
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
 	if parseErr != nil {
 		return nil, parseErr
+	}
+	parsed, err := modfile.Parse(rel, payload, nil)
+	if err != nil {
+		return nil, &model.ParseError{Kind: "parse_error", Format: "gomod", Path: rel, Detector: detectorID, Message: err.Error()}
 	}
 	deps := make([]string, 0, len(parsed.Require))
 	for _, req := range parsed.Require {
@@ -177,14 +173,14 @@ func parseGoMod(root, rel string) ([]string, error) {
 	return deps, nil
 }
 
-func parsePackageJSON(root, rel string) ([]string, error) {
+func parsePackageJSON(root, rel string) ([]string, *model.ParseError) {
 	type packageJSON struct {
 		Dependencies    map[string]string `json:"dependencies"`
 		DevDependencies map[string]string `json:"devDependencies"`
 	}
 	var parsed packageJSON
 	if parseErr := detect.ParseJSONFile(detectorID, root, rel, &parsed); parseErr != nil {
-		return nil, fmt.Errorf("%s", parseErr.Message)
+		return nil, parseErr
 	}
 	deps := make([]string, 0, len(parsed.Dependencies)+len(parsed.DevDependencies))
 	for dep := range parsed.Dependencies {
@@ -196,16 +192,13 @@ func parsePackageJSON(root, rel string) ([]string, error) {
 	return deps, nil
 }
 
-func parseRequirements(root, rel string) ([]string, error) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- parser reads requirements file from selected repository root.
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
+func parseRequirements(root, rel string) ([]string, *model.ParseError) {
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	defer func() { _ = f.Close() }()
 	deps := make([]string, 0)
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(strings.NewReader(string(payload)))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -217,12 +210,12 @@ func parseRequirements(root, rel string) ([]string, error) {
 		deps = append(deps, strings.TrimSpace(line))
 	}
 	if scanErr := scanner.Err(); scanErr != nil {
-		return nil, scanErr
+		return nil, &model.ParseError{Kind: "parse_error", Format: "requirements", Path: rel, Detector: detectorID, Message: scanErr.Error()}
 	}
 	return deps, nil
 }
 
-func parsePyproject(root, rel string) ([]string, error) {
+func parsePyproject(root, rel string) ([]string, *model.ParseError) {
 	type pyproject struct {
 		Project struct {
 			Dependencies []string `toml:"dependencies"`
@@ -234,15 +227,13 @@ func parsePyproject(root, rel string) ([]string, error) {
 		} `toml:"tool"`
 	}
 
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- parser reads pyproject file from selected repository root.
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if parseErr != nil {
+		return nil, parseErr
 	}
 	var parsed pyproject
 	if _, decodeErr := toml.Decode(string(payload), &parsed); decodeErr != nil {
-		return nil, decodeErr
+		return nil, &model.ParseError{Kind: "parse_error", Format: "toml", Path: rel, Detector: detectorID, Message: decodeErr.Error()}
 	}
 	deps := make([]string, 0, len(parsed.Project.Dependencies)+len(parsed.Tool.Poetry.Dependencies))
 	deps = append(deps, parsed.Project.Dependencies...)
@@ -252,7 +243,7 @@ func parsePyproject(root, rel string) ([]string, error) {
 	return deps, nil
 }
 
-func parseCargoToml(root, rel string) ([]string, error) {
+func parseCargoToml(root, rel string) ([]string, *model.ParseError) {
 	type cargo struct {
 		Dependencies map[string]any `toml:"dependencies"`
 		Workspace    struct {
@@ -260,15 +251,13 @@ func parseCargoToml(root, rel string) ([]string, error) {
 		} `toml:"workspace"`
 	}
 
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- parser reads Cargo.toml from selected repository root.
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if parseErr != nil {
+		return nil, parseErr
 	}
 	var parsed cargo
 	if _, decodeErr := toml.Decode(string(payload), &parsed); decodeErr != nil {
-		return nil, decodeErr
+		return nil, &model.ParseError{Kind: "parse_error", Format: "toml", Path: rel, Detector: detectorID, Message: decodeErr.Error()}
 	}
 	deps := make([]string, 0, len(parsed.Dependencies)+len(parsed.Workspace.Dependencies))
 	for dep := range parsed.Dependencies {
@@ -311,7 +300,23 @@ func dependencyFindings(scope detect.Scope, location string, deps []string) []mo
 	return findings
 }
 
-func parseErrorFinding(scope detect.Scope, location, message string) model.Finding {
+func parseErrorFinding(scope detect.Scope, location string, parseErr *model.ParseError) model.Finding {
+	if parseErr == nil {
+		parseErr = &model.ParseError{
+			Kind:     "parse_error",
+			Path:     location,
+			Detector: detectorID,
+		}
+	}
+	if strings.TrimSpace(parseErr.Path) == "" {
+		parseErr.Path = location
+	}
+	if strings.TrimSpace(parseErr.Detector) == "" {
+		parseErr.Detector = detectorID
+	}
+	if strings.TrimSpace(parseErr.Format) == "" {
+		parseErr.Format = filepath.Ext(location)
+	}
 	return model.Finding{
 		FindingType: "parse_error",
 		Severity:    model.SeverityMedium,
@@ -320,13 +325,7 @@ func parseErrorFinding(scope detect.Scope, location, message string) model.Findi
 		Repo:        scope.Repo,
 		Org:         fallbackOrg(scope.Org),
 		Detector:    detectorID,
-		ParseError: &model.ParseError{
-			Kind:     "parse_error",
-			Format:   filepath.Ext(location),
-			Path:     location,
-			Detector: detectorID,
-			Message:  message,
-		},
+		ParseError:  parseErr,
 	}
 }
 
@@ -420,10 +419,8 @@ func projectSignal(scope detect.Scope, root string) (string, string, string, boo
 		if !detect.FileExists(root, rel) {
 			continue
 		}
-		path := filepath.Join(root, filepath.FromSlash(rel))
-		// #nosec G304 -- reads README from selected repository root.
-		payload, err := os.ReadFile(path)
-		if err != nil {
+		payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+		if parseErr != nil {
 			continue
 		}
 		if keyword, ok := firstProjectSignalKeyword(string(payload)); ok {

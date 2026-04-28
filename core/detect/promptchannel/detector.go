@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -44,14 +43,28 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		return nil, nil
 	}
 
-	files, err := detect.WalkFilesWithOptions(scope.Root, options)
+	files, err := detect.WalkFilesWithParseErrors(detectorID, scope.Root, options)
 	if err != nil {
 		return nil, err
 	}
 
 	findings := make([]model.Finding, 0)
-	for _, rel := range files {
+	for _, file := range files {
+		rel := file.Rel
 		if !isPromptSurface(rel) {
+			continue
+		}
+		if file.ParseError != nil {
+			findings = append(findings, model.Finding{
+				FindingType: "parse_error",
+				Severity:    model.SeverityMedium,
+				ToolType:    "prompt_channel",
+				Location:    rel,
+				Repo:        scope.Repo,
+				Org:         fallbackOrg(scope.Org),
+				Detector:    detectorID,
+				ParseError:  file.ParseError,
+			})
 			continue
 		}
 		raw, parseSegments, format, parseErr := loadFile(scope.Root, rel)
@@ -79,16 +92,10 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 }
 
 func loadFile(root, rel string) (string, []string, string, *model.ParseError) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- detector reads repository content selected by user.
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return "", nil, "", &model.ParseError{
-			Kind:     "file_read_error",
-			Path:     rel,
-			Detector: detectorID,
-			Message:  strings.TrimSpace(err.Error()),
-		}
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if parseErr != nil {
+		parseErr.Detector = detectorID
+		return "", nil, "", parseErr
 	}
 
 	raw := string(payload)

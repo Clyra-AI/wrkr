@@ -15,7 +15,7 @@ description: "Wrkr fail-closed safety, local-data handling defaults, and privacy
 
 - Scan data remains local by default.
 - Secret values are not extracted; only risk context is emitted.
-- Local path scans stay bounded to the selected repo root. Root-escaping symlinked config, env, workflow, and MCP files are rejected with explicit deterministic diagnostics instead of being read.
+- Local path scans stay bounded to the selected repo root. Root-escaping symlinked skill, prompt, Cursor rule, dependency, config, env, workflow, identity, and MCP files are rejected with explicit deterministic diagnostics instead of being read.
 - Hosted `--repo` and `--org` scans fetch only required detector files from GitHub into a local managed workspace under the selected scan state directory. Wrkr does not upload hosted source code.
 - Hosted materialized source is ephemeral by default. After scan artifacts commit, Wrkr removes the managed materialized source root and records the result in `source_privacy.cleanup_status`.
 - Shareable scan, report, SARIF, and evidence outputs serialize hosted repositories as logical locations such as `github://org/repo`; the private detector filesystem root is not serialized.
@@ -46,7 +46,7 @@ Not by default. Hosted scans use a local managed materialized workspace while de
 
 ### How does Wrkr handle symlinked files that point outside the selected repo root?
 
-Wrkr fails closed at the detector file boundary. Escaping symlinked config, env, workflow, and MCP files surface deterministic parse diagnostics (`parse_error.kind=unsafe_path`) and their outside-root content is not ingested.
+Wrkr fails closed at the detector file boundary. Escaping symlinked skill, prompt, Cursor rule, dependency, config, env, workflow, identity, and MCP files surface deterministic parse diagnostics (`parse_error.kind=unsafe_path`) and their outside-root content is not ingested.
 
 ### How does Wrkr prevent unsafe evidence operations?
 

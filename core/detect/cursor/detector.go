@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -121,11 +119,9 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 }
 
 func parseMDCFrontmatter(root, rel string) (ruleFrontmatter, *model.ParseError) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	// #nosec G304 -- reads fixture/config paths inside selected repository root.
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return ruleFrontmatter{}, &model.ParseError{Kind: "file_read_error", Path: rel, Message: err.Error()}
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if parseErr != nil {
+		return ruleFrontmatter{}, parseErr
 	}
 	trimmed := string(payload)
 	if !strings.HasPrefix(trimmed, "---\n") {
