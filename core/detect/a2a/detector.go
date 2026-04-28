@@ -210,15 +210,6 @@ func buildA2ATrustDepth(rel string, capabilities []string, authSchemes []string,
 	})
 }
 
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
-
 func hasHTTPProtocol(values []string) bool {
 	for _, value := range values {
 		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(value)), "http") {
