@@ -1,9 +1,24 @@
-# Skills Directory Notice
+# Wrkr Skill Wrappers
 
-`.agents/skills/` is public transparency content for Wrkr-specific contributor/automation workflows.
+`.agents/skills/` contains local discovery wrappers for shared Factory development-process skills, local Factory maintenance, and Wrkr-specific local skills.
 
-Shared Factory skills are sourced from the optional `factory` submodule at `factory/skills/`.
-Keep only Wrkr-specific local skills in this directory.
+Shared wrapper and maintenance skills kept in this project:
+
+- `adhoc-plan`
+- `app-audit`
+- `backlog-plan`
+- `branches-clean`
+- `code-review`
+- `commit-push`
+- `cut-release`
+- `factory-sync`
+
+Project-local skills kept in this project:
+
+- `initial-plan`
+- `pr-comments`
+
+The shared Factory skill at `factory/skills/<name>/SKILL.md` is authoritative for Factory-backed wrappers. `factory-sync` is a local maintenance wrapper for updating the Factory submodule pointer.
 
 Requirements:
 
