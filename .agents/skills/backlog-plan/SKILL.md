@@ -17,6 +17,12 @@ Before using this skill:
 git submodule update --init factory
 ```
 
-Then read `factory/skills/backlog-plan/SKILL.md` and follow that Factory skill exactly, using the active `wrkr` repo profile unless the user provides another explicit profile.
+Then read `factory/skills/backlog-plan/SKILL.md` and follow that Factory skill using the active `wrkr` repo profile unless the user provides another explicit profile.
 
-Do not treat this wrapper as the source of truth. The Factory skill is authoritative.
+Project wrapper policy:
+
+- Write generated backlog plans under profile `backlog_plan.output_dir`, currently `product/plans/backlog`.
+- Do not write backlog plans to `product/plans/adhoc`; that directory is reserved for one-off adhoc plans.
+- Create the output directory when it is missing, then write only the timestamped backlog plan unless the user explicitly requests another file.
+
+Do not treat this wrapper as the source of truth for plan content. The Factory skill is authoritative for the generated plan structure.
