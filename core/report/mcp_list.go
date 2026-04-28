@@ -30,16 +30,17 @@ type MCPList struct {
 }
 
 type MCPListRow struct {
-	ServerName           string   `json:"server_name"`
-	Org                  string   `json:"org"`
-	Repo                 string   `json:"repo"`
-	Location             string   `json:"location"`
-	Transport            string   `json:"transport"`
-	RequestedPermissions []string `json:"requested_permissions,omitempty"`
-	PrivilegeSurface     []string `json:"privilege_surface,omitempty"`
-	GatewayCoverage      string   `json:"gateway_coverage"`
-	TrustStatus          string   `json:"trust_status"`
-	RiskNote             string   `json:"risk_note"`
+	ServerName           string                   `json:"server_name"`
+	Org                  string                   `json:"org"`
+	Repo                 string                   `json:"repo"`
+	Location             string                   `json:"location"`
+	Transport            string                   `json:"transport"`
+	RequestedPermissions []string                 `json:"requested_permissions,omitempty"`
+	PrivilegeSurface     []string                 `json:"privilege_surface,omitempty"`
+	GatewayCoverage      string                   `json:"gateway_coverage"`
+	TrustDepth           *agginventory.TrustDepth `json:"trust_depth,omitempty"`
+	TrustStatus          string                   `json:"trust_status"`
+	RiskNote             string                   `json:"risk_note"`
 }
 
 type mcpTrustOverlay struct {
@@ -83,6 +84,7 @@ func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath st
 			RequestedPermissions: append([]string(nil), finding.Permissions...),
 			PrivilegeSurface:     privilegeSurface,
 			GatewayCoverage:      fallbackString(gatewayCoverage[rowKey], "unknown"),
+			TrustDepth:           agginventory.TrustDepthFromFinding(finding),
 			TrustStatus:          trustStatus,
 			RiskNote:             buildMCPRiskNote(finding, trustStatus, fallbackString(gatewayCoverage[rowKey], "unknown"), privilegeSurface),
 		}
@@ -270,6 +272,21 @@ func privilegeSurfaceList(surface agginventory.PermissionSurface, permissions []
 }
 
 func buildMCPRiskNote(finding model.Finding, trustStatus, gatewayCoverage string, privilegeSurface []string) string {
+	if trustDepth := agginventory.TrustDepthFromFinding(finding); trustDepth != nil {
+		if trustDepth.Exposure == agginventory.TrustExposurePublic && trustDepth.GatewayCoverage == agginventory.TrustCoverageUnprotected {
+			return "Public MCP exposure is not gateway protected; prioritize policy binding, sanitization, and least-privilege review."
+		}
+		for _, gap := range trustDepth.TrustGaps {
+			switch strings.TrimSpace(gap) {
+			case "delegation_without_policy":
+				return "Delegating MCP surface is missing declared policy binding."
+			case "policy_ref_missing":
+				return "MCP trust posture is missing policy references for operator review."
+			case "sanitization_unspecified":
+				return "MCP surface does not declare sanitization claims; validate prompt and tool input controls."
+			}
+		}
+	}
 	surfaceLabel := ""
 	switch {
 	case containsString(privilegeSurface, "admin"):

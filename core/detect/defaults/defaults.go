@@ -10,6 +10,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/agentllamaindex"
 	"github.com/Clyra-AI/wrkr/core/detect/agentmcpclient"
 	"github.com/Clyra-AI/wrkr/core/detect/agentopenai"
+	"github.com/Clyra-AI/wrkr/core/detect/agnt"
 	"github.com/Clyra-AI/wrkr/core/detect/ciagent"
 	"github.com/Clyra-AI/wrkr/core/detect/claude"
 	"github.com/Clyra-AI/wrkr/core/detect/codex"
@@ -62,6 +63,7 @@ func detectorsForMode(mode string) []detect.Detector {
 	default:
 		return []detect.Detector{
 			a2a.New(),
+			agnt.New(),
 			agentlangchain.New(),
 			agentcrewai.New(),
 			agentopenai.New(),

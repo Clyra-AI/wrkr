@@ -87,6 +87,7 @@ type AgentPrivilegeMapEntry struct {
 	OwnershipEvidence        []string                   `json:"ownership_evidence_basis,omitempty" yaml:"ownership_evidence_basis,omitempty"`
 	OwnershipConflicts       []string                   `json:"ownership_conflicts,omitempty" yaml:"ownership_conflicts,omitempty"`
 	ApprovalGapReasons       []string                   `json:"approval_gap_reasons,omitempty" yaml:"approval_gap_reasons,omitempty"`
+	TrustDepth               *TrustDepth                `json:"trust_depth,omitempty" yaml:"trust_depth,omitempty"`
 	PullRequestWrite         bool                       `json:"pull_request_write,omitempty" yaml:"pull_request_write,omitempty"`
 	MergeExecute             bool                       `json:"merge_execute,omitempty" yaml:"merge_execute,omitempty"`
 	DeployWrite              bool                       `json:"deploy_write,omitempty" yaml:"deploy_write,omitempty"`

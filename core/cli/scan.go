@@ -20,6 +20,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/config"
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/detect/agnt"
 	detectdefaults "github.com/Clyra-AI/wrkr/core/detect/defaults"
 	"github.com/Clyra-AI/wrkr/core/diff"
 	exportsarif "github.com/Clyra-AI/wrkr/core/export/sarif"
@@ -338,6 +339,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			return emitScanFailure(err)
 		}
 		findings = append(findings, detected.Findings...)
+		findings = append(findings, agnt.SynthesizeDrift(findings)...)
 		detectorErrors = append(detectorErrors, detected.DetectorErrors...)
 
 		policyFindings, policyErr := evaluatePolicies(scopes, findings, strings.TrimSpace(*policyPath))
@@ -498,10 +500,16 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Findings:       findings,
 		DetectorErrors: detectorErrors,
 	})
+	lifecycleGaps := lifecycle.DetectGaps(lifecycle.GapInput{
+		Identities:  nextManifest.Identities,
+		Inventory:   &inventoryOut,
+		Transitions: transitions,
+	})
 	controlBacklog := controlbacklog.Build(controlbacklog.Input{
 		Mode:             scanMode,
 		Findings:         findings,
 		Inventory:        &inventoryOut,
+		LifecycleGaps:    lifecycleGaps,
 		ActionPaths:      riskReport.ActionPaths,
 		ControlPathGraph: riskReport.ControlPathGraph,
 	})
@@ -534,6 +542,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Findings:       findings,
 		Inventory:      &inventoryOut,
 		ControlBacklog: &controlBacklog,
+		LifecycleGaps:  lifecycleGaps,
 		ScanQuality:    &scanQuality,
 		ScanMode:       scanMode,
 		RiskReport:     &riskReport,

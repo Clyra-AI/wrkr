@@ -51,6 +51,7 @@ type ActionPath struct {
 	SecurityVisibilityStatus   string                                  `json:"security_visibility_status,omitempty"`
 	CredentialAccess           bool                                    `json:"credential_access"`
 	CredentialProvenance       *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
+	TrustDepth                 *agginventory.TrustDepth                `json:"trust_depth,omitempty"`
 	DeploymentStatus           string                                  `json:"deployment_status,omitempty"`
 	WorkflowTriggerClass       string                                  `json:"workflow_trigger_class,omitempty"`
 	ExecutionIdentity          string                                  `json:"execution_identity,omitempty"`
@@ -182,6 +183,7 @@ func buildActionPath(
 		SecurityVisibilityStatus:   strings.TrimSpace(entry.SecurityVisibilityStatus),
 		CredentialAccess:           entry.CredentialAccess,
 		CredentialProvenance:       agginventory.CloneCredentialProvenance(provenance),
+		TrustDepth:                 agginventory.CloneTrustDepth(entry.TrustDepth),
 		DeploymentStatus:           strings.TrimSpace(entry.DeploymentStatus),
 		WorkflowTriggerClass:       strings.TrimSpace(entry.WorkflowTriggerClass),
 		ExecutionIdentity:          executionIdentity,
@@ -206,6 +208,7 @@ func shouldIncludeActionPath(entry agginventory.AgentPrivilegeMapEntry) bool {
 		entry.PullRequestWrite ||
 		entry.MergeExecute ||
 		entry.DeployWrite ||
+		actionPathHasCriticalTrustGap(agginventory.NormalizeTrustDepth(entry.TrustDepth)) ||
 		actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons)
 }
 
@@ -222,6 +225,7 @@ func recommendedActionForPath(path ActionPath) string {
 		strings.TrimSpace(path.DeliveryChainStatus) != "none"
 	unknownToSecurity := strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity
 	highImpact := actionPathHighImpact(path) || strings.TrimSpace(path.WorkflowTriggerClass) == "deploy_pipeline"
+	trustCritical := actionPathHasCriticalTrustGap(path.TrustDepth)
 	visibilityOnly := !path.WriteCapable &&
 		!path.CredentialAccess &&
 		!path.DeployWrite &&
@@ -233,6 +237,8 @@ func recommendedActionForPath(path ActionPath) string {
 
 	switch {
 	case path.ProductionWrite:
+		return "control"
+	case trustCritical:
 		return "control"
 	case highImpact && path.WriteCapable && (path.DeployWrite || path.MergeExecute || path.CredentialAccess || unknownToSecurity || weakIdentity || weakOwnership):
 		return "control"
@@ -339,6 +345,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.ApprovalGap = current.ApprovalGap || incoming.ApprovalGap
 	merged.CredentialAccess = current.CredentialAccess || incoming.CredentialAccess
 	merged.CredentialProvenance = mergeCredentialProvenance(current.CredentialProvenance, incoming.CredentialProvenance)
+	merged.TrustDepth = agginventory.MergeTrustDepth(current.TrustDepth, incoming.TrustDepth)
 	merged.DeliveryChainStatus = actionPathDeliveryChainStatus(merged.PullRequestWrite, merged.MergeExecute, merged.DeployWrite)
 	merged.AttackPathScore = maxFloat64(current.AttackPathScore, incoming.AttackPathScore)
 	merged.RiskScore = maxFloat64(current.RiskScore, incoming.RiskScore)
@@ -375,6 +382,26 @@ func summarizeActionPaths(paths []ActionPath) ActionPathSummary {
 		}
 	}
 	return summary
+}
+
+func actionPathHasCriticalTrustGap(depth *agginventory.TrustDepth) bool {
+	normalized := agginventory.NormalizeTrustDepth(depth)
+	if normalized == nil {
+		return false
+	}
+	if normalized.Exposure == agginventory.TrustExposurePublic && normalized.GatewayCoverage == agginventory.TrustCoverageUnprotected {
+		return true
+	}
+	if normalized.DelegationModel == agginventory.TrustDelegationAgent && normalized.PolicyBinding != agginventory.TrustPolicyDeclared {
+		return true
+	}
+	for _, gap := range normalized.TrustGaps {
+		switch strings.TrimSpace(gap) {
+		case "public_exposure", "gateway_unprotected", "delegation_without_policy":
+			return true
+		}
+	}
+	return false
 }
 
 func ApplyGovernFirstProfile(profileName string, paths []ActionPath) ([]ActionPath, *ActionPathToControlFirst) {

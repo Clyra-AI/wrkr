@@ -5,9 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -39,6 +41,10 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	snapshot, snapshotErr := state.Load(resolvedStatePath)
+	if snapshotErr != nil && !os.IsNotExist(snapshotErr) && !strings.Contains(snapshotErr.Error(), "no such file or directory") {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", snapshotErr.Error(), exitRuntime)
+	}
 	loaded.Identities = model.FilterLegacyArtifactIdentityRecords(loaded.Identities)
 
 	identities := make([]manifest.IdentityRecord, 0, len(loaded.Identities))
@@ -55,10 +61,6 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 		template, shareProfile, parseErr := parseReportTemplateShare(*reportTemplate, *reportShareProfile)
 		if parseErr != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseErr.Error(), exitInvalidInput)
-		}
-		snapshot, loadErr := state.Load(resolvedStatePath)
-		if loadErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", loadErr.Error(), exitRuntime)
 		}
 		manifestCopy := loaded
 		artifacts, summaryErr := generateReportArtifacts(reportArtifactOptions{
@@ -85,6 +87,7 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 		"updated_at": loaded.UpdatedAt,
 		"org":        strings.TrimSpace(*orgFilter),
 		"identities": identities,
+		"gaps":       lifecycleGapsForCLI(snapshot),
 	}
 	if summaryOutPath != "" {
 		payload["summary_md_path"] = summaryOutPath
@@ -98,4 +101,15 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 		_, _ = fmt.Fprintf(stdout, "lifecycle summary: %s\n", summaryOutPath)
 	}
 	return exitSuccess
+}
+
+func lifecycleGapsForCLI(snapshot state.Snapshot) []lifecycle.Gap {
+	if len(snapshot.LifecycleGaps) > 0 {
+		return snapshot.LifecycleGaps
+	}
+	return lifecycle.DetectGaps(lifecycle.GapInput{
+		Identities:  snapshot.Identities,
+		Inventory:   snapshot.Inventory,
+		Transitions: snapshot.Transitions,
+	})
 }

@@ -8,6 +8,7 @@ import (
 
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 )
 
 type EvidenceBundle struct {
@@ -17,6 +18,7 @@ type EvidenceBundle struct {
 	ShareProfile        string                      `json:"share_profile"`
 	ControlBacklog      *controlbacklog.Backlog     `json:"control_backlog,omitempty"`
 	ControlPathGraph    *aggattack.ControlPathGraph `json:"control_path_graph,omitempty"`
+	RuntimeEvidence     *ingest.Summary             `json:"runtime_evidence,omitempty"`
 	ComplianceSummary   any                         `json:"compliance_summary"`
 	Proof               ProofReference              `json:"proof"`
 	NextActions         []ChecklistItem             `json:"next_actions"`
@@ -30,6 +32,7 @@ func BuildEvidenceBundle(summary Summary) EvidenceBundle {
 		ShareProfile:        summary.ShareProfile,
 		ControlBacklog:      summary.ControlBacklog,
 		ControlPathGraph:    summary.ControlPathGraph,
+		RuntimeEvidence:     summary.RuntimeEvidence,
 		ComplianceSummary:   summary.ComplianceSummary,
 		Proof:               summary.Proof,
 		NextActions:         append([]ChecklistItem(nil), summary.NextActions...),

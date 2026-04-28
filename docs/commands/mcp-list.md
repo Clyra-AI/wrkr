@@ -36,10 +36,13 @@ Each row includes:
 - `requested_permissions`
 - `privilege_surface`
 - `gateway_coverage`
+- `trust_depth`
 - `trust_status`
 - `risk_note`
 
 `requested_permissions` now preserves additive MCP action-surface hints such as `mcp.read`, `mcp.write`, and `mcp.admin` when static declaration fields support them. `privilege_surface` and `risk_note` also incorporate saved gateway posture so an unprotected write/admin-capable declaration is called out explicitly without any live probing.
+
+`trust_depth` is additive metadata derived from saved detector evidence. It exposes normalized auth strength, delegation model, exposure, policy binding, gateway binding/coverage, sanitization claims, trust gaps, and the derived `trust_depth_score`.
 
 ## Trust overlay contract
 

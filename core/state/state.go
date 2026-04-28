@@ -34,6 +34,7 @@ type Snapshot struct {
 	Findings                 []source.Finding          `json:"findings"`
 	Inventory                *agginventory.Inventory   `json:"inventory,omitempty"`
 	ControlBacklog           *controlbacklog.Backlog   `json:"control_backlog,omitempty"`
+	LifecycleGaps            []lifecycle.Gap           `json:"lifecycle_gaps,omitempty"`
 	ScanQuality              *scanquality.Report       `json:"scan_quality,omitempty"`
 	ScanMode                 string                    `json:"scan_mode,omitempty"`
 	RiskReport               *risk.Report              `json:"risk_report,omitempty"`

@@ -3,13 +3,17 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/detect/mcp/enrich"
+	"github.com/Clyra-AI/wrkr/core/detect/mcpgateway"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/supplychain"
 )
@@ -27,6 +31,12 @@ type serverDef struct {
 	Args             []string          `json:"args" yaml:"args" toml:"args"`
 	URL              string            `json:"url" yaml:"url" toml:"url"`
 	Transport        string            `json:"transport" yaml:"transport" toml:"transport"`
+	Auth             string            `json:"auth" yaml:"auth" toml:"auth"`
+	AuthStrength     string            `json:"auth_strength" yaml:"auth_strength" toml:"auth_strength"`
+	Delegation       string            `json:"delegation" yaml:"delegation" toml:"delegation"`
+	Exposure         string            `json:"exposure" yaml:"exposure" toml:"exposure"`
+	PolicyRefs       []string          `json:"policy_refs" yaml:"policy_refs" toml:"policy_refs"`
+	Sanitization     []string          `json:"sanitization_claims" yaml:"sanitization_claims" toml:"sanitization_claims"`
 	Env              map[string]string `json:"env" yaml:"env" toml:"env"`
 	Permissions      []string          `json:"permissions" yaml:"permissions" toml:"permissions"`
 	PrivilegeSurface []string          `json:"privilegeSurface" yaml:"privilegeSurface" toml:"privilege_surface"`
@@ -52,6 +62,10 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 	}
 
 	lockfilePresent := hasLockfile(scope.Root)
+	policy, _, policyErr := mcpgateway.LoadPolicyWithOptions(scope.Root, options)
+	if policyErr != nil {
+		return nil, policyErr
+	}
 	findings := make([]model.Finding, 0)
 	paths := []string{
 		".mcp.json",
@@ -102,13 +116,23 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 			credentialRefs := countCredentialRefs(server)
 			pinned := isPinned(server)
 			actionSurface := deriveDeclaredActionSurface(server)
+			gateway := mcpgateway.EvaluateCoverage(policy, name)
+			trustDepth := buildMCPTrustDepth(server, transport, credentialRefs, actionSurface, gateway)
 			trustScore := supplychain.ScoreMCP(supplychain.MCPInput{
 				Transport:      transport,
 				Pinned:         pinned,
 				HasLockfile:    lockfilePresent,
 				CredentialRefs: credentialRefs,
 			})
+			if trustDepth != nil && trustDepth.TrustDepthScore > 0 && trustDepth.TrustDepthScore < trustScore {
+				trustScore = trustDepth.TrustDepthScore
+			}
 			severity := supplychain.SeverityFromTrust(trustScore)
+			if trustDepthRequiresHighSeverity(trustDepth) {
+				severity = model.SeverityHigh
+			} else if trustDepthRequiresMediumSeverity(trustDepth) && severity == model.SeverityLow {
+				severity = model.SeverityMedium
+			}
 			evidence := []model.Evidence{
 				{Key: "server", Value: name},
 				{Key: "transport", Value: transport},
@@ -118,6 +142,7 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 				{Key: "trust_score", Value: fmt.Sprintf("%.1f", trustScore)},
 				{Key: "declared_action_surface", Value: fallbackValue(strings.Join(actionSurface, ","), "unknown")},
 			}
+			evidence = append(evidence, trustDepthEvidence(trustDepth)...)
 			if options.Enrich {
 				pkg, version := extractPackageVersion(server)
 				enrichResult := enrichService.Lookup(ctx, pkg, version)
@@ -371,6 +396,252 @@ func actionSurfacePermissions(surface []string) []string {
 		out = append(out, "mcp."+item)
 	}
 	return out
+}
+
+func buildMCPTrustDepth(
+	server serverDef,
+	transport string,
+	credentialRefs int,
+	actionSurface []string,
+	gateway mcpgateway.Result,
+) *agginventory.TrustDepth {
+	return mcpTrustDepth(server, transport, credentialRefs, actionSurface, gateway)
+}
+
+func mcpTrustDepth(
+	server serverDef,
+	transport string,
+	credentialRefs int,
+	actionSurface []string,
+	gateway mcpgateway.Result,
+) *agginventory.TrustDepth {
+	authStrength := inferMCPAuthStrength(server, transport, credentialRefs)
+	delegation := inferMCPDelegation(server)
+	exposure := inferMCPExposure(server, transport)
+	policyRefs := normalizeTrustValues(server.PolicyRefs)
+	sanitization := normalizeTrustValues(server.Sanitization)
+	gaps := make([]string, 0, 8)
+	if exposure == agginventory.TrustExposurePublic {
+		gaps = append(gaps, "public_exposure")
+	}
+	switch gateway.Coverage {
+	case mcpgateway.CoverageUnprotected:
+		gaps = append(gaps, "gateway_unprotected")
+	case mcpgateway.CoverageUnknown:
+		gaps = append(gaps, "gateway_unknown")
+	}
+	if delegation == agginventory.TrustDelegationAgent && len(policyRefs) == 0 {
+		gaps = append(gaps, "delegation_without_policy")
+	}
+	if len(policyRefs) == 0 && (delegation != agginventory.TrustDelegationNone || exposure == agginventory.TrustExposurePublic || containsActionSurface(actionSurface, "write") || containsActionSurface(actionSurface, "admin")) {
+		gaps = append(gaps, "policy_ref_missing")
+	}
+	if len(sanitization) == 0 && (exposure == agginventory.TrustExposurePublic || containsActionSurface(actionSurface, "write") || containsActionSurface(actionSurface, "admin")) {
+		gaps = append(gaps, "sanitization_unspecified")
+	}
+	if authStrength == agginventory.TrustAuthStaticSecret || authStrength == agginventory.TrustAuthInheritedHuman {
+		gaps = append(gaps, "static_secret_auth")
+	}
+	if containsActionSurface(actionSurface, "write") || containsActionSurface(actionSurface, "admin") {
+		gaps = append(gaps, "destructive_capability")
+	}
+	return agginventory.NormalizeTrustDepth(&agginventory.TrustDepth{
+		Surface:            agginventory.TrustSurfaceMCP,
+		AuthStrength:       authStrength,
+		DelegationModel:    delegation,
+		Exposure:           exposure,
+		PolicyRefs:         policyRefs,
+		GatewayCoverage:    normalizeGatewayCoverage(gateway.Coverage),
+		SanitizationClaims: sanitization,
+		CapabilityExposure: normalizeTrustValues(actionSurface),
+		TrustGaps:          normalizeTrustValues(gaps),
+	})
+}
+
+func trustDepthEvidence(depth *agginventory.TrustDepth) []model.Evidence {
+	normalized := agginventory.NormalizeTrustDepth(depth)
+	if normalized == nil {
+		return nil
+	}
+	return []model.Evidence{
+		{Key: "trust_surface", Value: normalized.Surface},
+		{Key: "auth_strength", Value: normalized.AuthStrength},
+		{Key: "delegation_model", Value: normalized.DelegationModel},
+		{Key: "exposure", Value: normalized.Exposure},
+		{Key: "policy_binding", Value: normalized.PolicyBinding},
+		{Key: "policy_refs", Value: strings.Join(normalized.PolicyRefs, ",")},
+		{Key: "gateway_binding", Value: normalized.GatewayBinding},
+		{Key: "gateway_coverage", Value: normalized.GatewayCoverage},
+		{Key: "sanitization_claims", Value: strings.Join(normalized.SanitizationClaims, ",")},
+		{Key: "capability_exposure", Value: strings.Join(normalized.CapabilityExposure, ",")},
+		{Key: "trust_gaps", Value: strings.Join(normalized.TrustGaps, ",")},
+		{Key: "trust_depth_score", Value: fmt.Sprintf("%.2f", normalized.TrustDepthScore)},
+	}
+}
+
+func inferMCPAuthStrength(server serverDef, transport string, credentialRefs int) string {
+	for _, raw := range []string{server.AuthStrength, server.Auth, strings.Join(keysAndValues(server.Env), ","), strings.Join(server.Args, ","), server.Command, server.URL} {
+		normalized := strings.ToLower(strings.TrimSpace(raw))
+		switch {
+		case normalized == "" || normalized == "unknown":
+		case strings.Contains(normalized, "oauth"):
+			return agginventory.TrustAuthOAuthDelegation
+		case strings.Contains(normalized, "workload"), strings.Contains(normalized, "oidc"):
+			return agginventory.TrustAuthWorkloadIdentity
+		case strings.Contains(normalized, "jit"), strings.Contains(normalized, "just-in-time"):
+			return agginventory.TrustAuthJIT
+		case strings.Contains(normalized, "human"), strings.Contains(normalized, "user"):
+			return agginventory.TrustAuthInheritedHuman
+		case strings.Contains(normalized, "none"), strings.Contains(normalized, "anonymous"):
+			return agginventory.TrustAuthNone
+		}
+	}
+	if credentialRefs > 0 {
+		return agginventory.TrustAuthStaticSecret
+	}
+	if transport == "stdio" {
+		return agginventory.TrustAuthNone
+	}
+	return agginventory.TrustAuthUnknown
+}
+
+func inferMCPDelegation(server serverDef) string {
+	for _, raw := range []string{server.Delegation, server.Mode, server.Access, strings.Join(server.Args, ","), server.Command} {
+		normalized := strings.ToLower(strings.TrimSpace(raw))
+		switch {
+		case normalized == "":
+		case strings.Contains(normalized, "delegate"), strings.Contains(normalized, "handoff"):
+			return agginventory.TrustDelegationAgent
+		case strings.Contains(normalized, "proxy"), strings.Contains(normalized, "router"), strings.Contains(normalized, "toolhub"):
+			return agginventory.TrustDelegationToolProxy
+		case strings.Contains(normalized, "none"), strings.Contains(normalized, "local"):
+			return agginventory.TrustDelegationNone
+		}
+	}
+	return agginventory.TrustDelegationNone
+}
+
+func inferMCPExposure(server serverDef, transport string) string {
+	if explicit := normalizeExplicitExposure(server.Exposure); explicit != "" {
+		return explicit
+	}
+	if transport == "stdio" {
+		return agginventory.TrustExposureLocal
+	}
+	rawURL := strings.TrimSpace(server.URL)
+	if rawURL == "" {
+		return agginventory.TrustExposureUnknown
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return agginventory.TrustExposureUnknown
+	}
+	host := strings.TrimSpace(parsed.Hostname())
+	if host == "" {
+		return agginventory.TrustExposureUnknown
+	}
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		return agginventory.TrustExposureLocal
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsPrivate() {
+		return agginventory.TrustExposurePrivate
+	}
+	if strings.HasSuffix(host, ".internal") || strings.HasSuffix(host, ".corp") || strings.HasSuffix(host, ".local") {
+		return agginventory.TrustExposurePrivate
+	}
+	return agginventory.TrustExposurePublic
+}
+
+func normalizeExplicitExposure(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case agginventory.TrustExposureLocal:
+		return agginventory.TrustExposureLocal
+	case agginventory.TrustExposurePrivate:
+		return agginventory.TrustExposurePrivate
+	case agginventory.TrustExposurePublic:
+		return agginventory.TrustExposurePublic
+	default:
+		return ""
+	}
+}
+
+func normalizeGatewayCoverage(value string) string {
+	switch strings.TrimSpace(value) {
+	case mcpgateway.CoverageProtected:
+		return agginventory.TrustCoverageProtected
+	case mcpgateway.CoverageUnprotected:
+		return agginventory.TrustCoverageUnprotected
+	default:
+		return agginventory.TrustCoverageUnknown
+	}
+}
+
+func normalizeTrustValues(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	set := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := set[trimmed]; ok {
+			continue
+		}
+		set[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func containsActionSurface(values []string, want string) bool {
+	want = strings.TrimSpace(want)
+	for _, value := range values {
+		if strings.TrimSpace(value) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func keysAndValues(values map[string]string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values)*2)
+	for key, value := range values {
+		out = append(out, key, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func trustDepthRequiresHighSeverity(depth *agginventory.TrustDepth) bool {
+	normalized := agginventory.NormalizeTrustDepth(depth)
+	if normalized == nil {
+		return false
+	}
+	if normalized.Exposure == agginventory.TrustExposurePublic && normalized.GatewayCoverage == agginventory.TrustCoverageUnprotected {
+		return true
+	}
+	for _, gap := range normalized.TrustGaps {
+		switch strings.TrimSpace(gap) {
+		case "destructive_capability", "delegation_without_policy", "gateway_unprotected":
+			return true
+		}
+	}
+	return false
+}
+
+func trustDepthRequiresMediumSeverity(depth *agginventory.TrustDepth) bool {
+	normalized := agginventory.NormalizeTrustDepth(depth)
+	return normalized != nil && len(normalized.TrustGaps) > 0
 }
 
 func sortedServerNames(in map[string]serverDef) []string {

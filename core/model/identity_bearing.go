@@ -50,6 +50,7 @@ func FilterLegacyArtifactIdentityRecords(records []manifest.IdentityRecord) []ma
 
 var identityBearingFindingTypes = map[string]struct{}{
 	"a2a_agent_card":        {},
+	"agnt_manifest":         {},
 	"agent_custom_scaffold": {},
 	"agent_custom_source":   {},
 	"agent_framework":       {},
@@ -64,6 +65,7 @@ var identityBearingFindingTypes = map[string]struct{}{
 
 var inventoryBearingFindingTypes = map[string]struct{}{
 	"a2a_agent_card":        {},
+	"agnt_manifest":         {},
 	"agent_custom_scaffold": {},
 	"agent_custom_source":   {},
 	"agent_framework":       {},
