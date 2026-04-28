@@ -15,7 +15,7 @@ import (
 const (
 	GapStaleMissing         = "stale_missing"
 	GapOwnerlessExposure    = "ownerless_exposure"
-	GapInactiveCredentialed = "inactive_but_credentialed"
+	GapInactiveCredentialed = "inactive_but_credentialed" // #nosec G101 -- lifecycle enum label, not credential material.
 	GapOverApproved         = "over_approved"
 	GapOrphanedIdentity     = "orphaned_identity"
 	GapRevokedStillPresent  = "revoked_still_present"
