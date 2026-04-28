@@ -215,6 +215,78 @@ func TestReadFileWithinRootPermissionDenied(t *testing.T) {
 	}
 }
 
+func TestWalkFilesWithParseErrorsRejectsExternalSymlinkedFile(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := t.TempDir()
+	target := filepath.Join(outside, "SKILL.md")
+	if err := os.WriteFile(target, []byte("outside"), 0o600); err != nil {
+		t.Fatalf("write outside fixture: %v", err)
+	}
+	mustSymlinkOrSkip(t, target, filepath.Join(root, ".agents", "skills", "deploy", "SKILL.md"))
+
+	files, err := WalkFilesWithParseErrors("detector", root, Options{})
+	if err != nil {
+		t.Fatalf("walk files: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("expected one walked file, got %#v", files)
+	}
+	if files[0].Rel != ".agents/skills/deploy/SKILL.md" {
+		t.Fatalf("unexpected walked file rel: %#v", files[0])
+	}
+	if files[0].ParseError == nil || files[0].ParseError.Kind != "unsafe_path" {
+		t.Fatalf("expected unsafe_path parse error, got %#v", files[0].ParseError)
+	}
+}
+
+func TestWalkFilesWithParseErrorsPreservesDeterministicOrderAndInRootSymlinks(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	mustWriteWalkFixture(t, root, "b.txt", "b")
+	mustWriteWalkFixture(t, root, "nested/a.txt", "a")
+	mustWriteWalkFixture(t, root, "node_modules/pkg/generated.txt", "generated")
+	mustSymlinkOrSkip(t, filepath.Join(root, "nested", "a.txt"), filepath.Join(root, "alias.txt"))
+
+	files, err := WalkFilesWithParseErrors("detector", root, Options{})
+	if err != nil {
+		t.Fatalf("walk files: %v", err)
+	}
+
+	if len(files) != 3 {
+		t.Fatalf("expected three walked files after generated-path filtering, got %#v", files)
+	}
+	want := []string{"alias.txt", "b.txt", "nested/a.txt"}
+	for i, rel := range want {
+		if files[i].Rel != rel {
+			t.Fatalf("expected rel %q at index %d, got %#v", rel, i, files)
+		}
+		if files[i].ParseError != nil {
+			t.Fatalf("expected in-root file %q to remain readable, got %#v", rel, files[i].ParseError)
+		}
+	}
+}
+
+func TestWalkFilesWithParseErrorsHandlesDanglingSymlinkDeterministically(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	mustSymlinkOrSkip(t, filepath.Join(root, "missing.txt"), filepath.Join(root, "cfg.txt"))
+
+	files, err := WalkFilesWithParseErrors("detector", root, Options{})
+	if err != nil {
+		t.Fatalf("walk files: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("expected one walked file, got %#v", files)
+	}
+	if files[0].ParseError == nil || files[0].ParseError.Kind != "file_not_found" {
+		t.Fatalf("expected file_not_found parse error, got %#v", files[0].ParseError)
+	}
+}
+
 func mustSymlinkOrSkip(t *testing.T, target, path string) {
 	t.Helper()
 
@@ -223,5 +295,16 @@ func mustSymlinkOrSkip(t *testing.T, target, path string) {
 	}
 	if err := os.Symlink(target, path); err != nil {
 		t.Skipf("symlinks unsupported in this environment: %v", err)
+	}
+}
+
+func mustWriteWalkFixture(t *testing.T, root, rel, content string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", rel, err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write %s: %v", rel, err)
 	}
 }

@@ -638,6 +638,28 @@ func TestReleaseDocsReferenceReleasePrepPRFlow(t *testing.T) {
 	}
 }
 
+func TestReleaseIntegrityDocsDescribeVerifyThenPublishSequence(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	content := mustReadFile(t, filepath.Join(repoRoot, "docs/trust/release-integrity.md"))
+
+	required := []string{
+		"build candidate artifacts without publishing them",
+		"verify checksums",
+		"generate an sbom",
+		"run grype",
+		"sign the checksum manifest",
+		"generate and verify provenance attestations",
+		"publish github release assets and homebrew tap updates",
+	}
+	for _, fragment := range required {
+		if !strings.Contains(strings.ToLower(content), fragment) {
+			t.Fatalf("expected release-integrity docs to mention %q", fragment)
+		}
+	}
+}
+
 func addUnreleasedEntry(t *testing.T, repoRoot string, section string, entry string) {
 	t.Helper()
 

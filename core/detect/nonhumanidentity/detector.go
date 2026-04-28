@@ -3,7 +3,6 @@ package nonhumanidentity
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -33,15 +32,29 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		return nil, nil
 	}
 
-	files, err := detect.WalkFilesWithOptions(scope.Root, options)
+	files, err := detect.WalkFilesWithParseErrors(detectorID, scope.Root, options)
 	if err != nil {
 		return nil, err
 	}
 
 	findings := make([]model.Finding, 0)
 	seen := map[string]struct{}{}
-	for _, rel := range files {
+	for _, file := range files {
+		rel := file.Rel
 		if !isCandidatePath(rel) {
+			continue
+		}
+		if file.ParseError != nil {
+			findings = append(findings, model.Finding{
+				FindingType: "parse_error",
+				Severity:    model.SeverityMedium,
+				ToolType:    "non_human_identity",
+				Location:    rel,
+				Repo:        scope.Repo,
+				Org:         fallbackOrg(scope.Org),
+				Detector:    detectorID,
+				ParseError:  file.ParseError,
+			})
 			continue
 		}
 		candidates, ok := readStructuredCandidates(scope.Root, rel)
@@ -103,9 +116,8 @@ func isCandidatePath(rel string) bool {
 }
 
 func readStructuredCandidates(root, rel string) ([]string, bool) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	payload, err := os.ReadFile(path) // #nosec G304 -- detector reads repo-local structured workflow/config files.
-	if err != nil {
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if parseErr != nil {
 		return nil, false
 	}
 

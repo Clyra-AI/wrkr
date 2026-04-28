@@ -117,6 +117,30 @@ func TestGeneratedDependencyNoiseSuppressedUnlessDeepMode(t *testing.T) {
 	}
 }
 
+func TestDetectRejectsExternalSymlinkedDependencyManifest(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := t.TempDir()
+	writeFile(t, outside, "go.mod", "module example.com/outside\n\ngo 1.26.1\nrequire github.com/openai/openai-go v0.1.0\n")
+	mustSymlinkOrSkipDependency(t, filepath.Join(outside, "go.mod"), filepath.Join(root, "go.mod"))
+
+	findings, err := New().Detect(context.Background(), detect.Scope{
+		Org:  "acme",
+		Repo: "repo",
+		Root: root,
+	}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect returned error: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one parse error finding, got %#v", findings)
+	}
+	if findings[0].FindingType != "parse_error" || findings[0].ParseError == nil || findings[0].ParseError.Kind != "unsafe_path" {
+		t.Fatalf("expected unsafe_path parse error, got %#v", findings)
+	}
+}
+
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
@@ -125,5 +149,15 @@ func writeFile(t *testing.T, root, rel, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", rel, err)
+	}
+}
+
+func mustSymlinkOrSkipDependency(t *testing.T, target, path string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir symlink parent: %v", err)
+	}
+	if err := os.Symlink(target, path); err != nil {
+		t.Skipf("symlinks unsupported in this environment: %v", err)
 	}
 }

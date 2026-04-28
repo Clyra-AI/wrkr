@@ -33,6 +33,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Hosted repository and organization scans now default to ephemeral source materialization with explicit retention modes and cleanup status.
 - Scan artifacts, proof mapping, reports, evidence, and SARIF now redact hosted materialized paths from shareable outputs.
 - Added privacy regression coverage and operator documentation proving hosted scans do not retain or serialize source code by default.
+- [semver:patch] Prevent release assets and Homebrew tap updates from publishing until checksum, SBOM, vulnerability scan, signing, provenance, and verification gates pass.
+- [semver:patch] Reject symlinked detector inputs that resolve outside the selected scan root to preserve source-boundary and proof-record integrity.
+- [semver:patch] Harden walked detector inputs so symlinked files outside the selected repo root cannot be read or recorded as repo-local evidence.
 
 ## Changelog maintenance process
 

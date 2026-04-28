@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -57,6 +58,33 @@ jobs:
 	}
 }
 
+func TestDetectRejectsExternalSymlinkedWorkflowIdentitySource(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := t.TempDir()
+	writeNonHumanFile(t, outside, "release.yml", strings.Join([]string{
+		"name: release",
+		"jobs:",
+		"  release:",
+		"    steps:",
+		"      - uses: actions/create-github-app-token@v1",
+		"      - run: echo \"dependabot[bot]\"",
+	}, "\n"))
+	mustSymlinkOrSkipNonHuman(t, filepath.Join(outside, "release.yml"), filepath.Join(root, ".github", "workflows", "release.yml"))
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "svc", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect non-human identities: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one parse error finding, got %+v", findings)
+	}
+	if findings[0].FindingType != "parse_error" || findings[0].ParseError == nil || findings[0].ParseError.Kind != "unsafe_path" {
+		t.Fatalf("expected unsafe_path parse error, got %+v", findings)
+	}
+}
+
 func evidenceValue(finding model.Finding, key string) string {
 	for _, item := range finding.Evidence {
 		if item.Key == key {
@@ -64,4 +92,25 @@ func evidenceValue(finding model.Finding, key string) string {
 		}
 	}
 	return ""
+}
+
+func writeNonHumanFile(t *testing.T, root, rel, content string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", rel, err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write %s: %v", rel, err)
+	}
+}
+
+func mustSymlinkOrSkipNonHuman(t *testing.T, target, path string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir symlink parent: %v", err)
+	}
+	if err := os.Symlink(target, path); err != nil {
+		t.Skipf("symlinks unsupported in this environment: %v", err)
+	}
 }

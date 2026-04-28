@@ -222,6 +222,11 @@ func globLiteralPrefix(pattern string) string {
 	return filepath.ToSlash(filepath.Join(prefix...))
 }
 
+type WalkedFile struct {
+	Rel        string
+	ParseError *model.ParseError
+}
+
 func WalkFiles(root string) ([]string, error) {
 	return WalkFilesWithOptions(root, Options{})
 }
@@ -259,6 +264,33 @@ func WalkFilesWithOptions(root string, options Options) ([]string, error) {
 	}
 	sort.Strings(files)
 	return files, nil
+}
+
+func WalkFilesWithParseErrors(detectorID, root string, options Options) ([]WalkedFile, error) {
+	files, err := WalkFilesWithOptions(root, options)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]WalkedFile, 0, len(files))
+	for _, rel := range files {
+		_, info, resolveErr := resolveWithinRoot(root, rel)
+		switch {
+		case resolveErr != nil:
+			out = append(out, WalkedFile{
+				Rel:        rel,
+				ParseError: newReadParseError(detectorID, rel, "", resolveErr),
+			})
+		case info.IsDir():
+			out = append(out, WalkedFile{
+				Rel:        rel,
+				ParseError: newReadParseError(detectorID, rel, "", fs.ErrNotExist),
+			})
+		default:
+			out = append(out, WalkedFile{Rel: rel})
+		}
+	}
+	return out, nil
 }
 
 func ReadFileWithinRoot(detectorID, root, rel string) ([]byte, *model.ParseError) {

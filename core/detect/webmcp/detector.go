@@ -3,7 +3,6 @@ package webmcp
 import (
 	"bytes"
 	"context"
-	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -44,25 +43,44 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		return nil, policyErr
 	}
 
-	files, err := detect.WalkFilesWithOptions(scope.Root, options)
+	files, err := detect.WalkFilesWithParseErrors(detectorID, scope.Root, options)
 	if err != nil {
 		return nil, err
 	}
 
 	parseErrors := make([]model.Finding, 0)
 	declSet := map[string]declaration{}
-	for _, rel := range files {
+	for _, file := range files {
+		rel := file.Rel
 		lower := strings.ToLower(rel)
 		ext := strings.ToLower(filepath.Ext(lower))
-
-		if lower == ".well-known/webmcp" ||
+		isRouteFile := lower == ".well-known/webmcp" ||
 			lower == ".well-known/webmcp.json" ||
 			lower == ".well-known/webmcp.yaml" ||
 			lower == ".well-known/webmcp.yml" ||
 			strings.HasSuffix(lower, "/.well-known/webmcp") ||
 			strings.HasSuffix(lower, "/.well-known/webmcp.json") ||
 			strings.HasSuffix(lower, "/.well-known/webmcp.yaml") ||
-			strings.HasSuffix(lower, "/.well-known/webmcp.yml") {
+			strings.HasSuffix(lower, "/.well-known/webmcp.yml")
+		isDeclarationFile := ext == ".html" || ext == ".htm" || ext == ".js" || ext == ".mjs" || ext == ".cjs" || couldContainRoutes(ext)
+
+		if file.ParseError != nil {
+			if isRouteFile || isDeclarationFile {
+				parseErrors = append(parseErrors, model.Finding{
+					FindingType: "parse_error",
+					Severity:    model.SeverityMedium,
+					ToolType:    "webmcp",
+					Location:    rel,
+					Repo:        scope.Repo,
+					Org:         fallbackOrg(scope.Org),
+					Detector:    detectorID,
+					ParseError:  file.ParseError,
+				})
+			}
+			continue
+		}
+
+		if isRouteFile {
 			item := declaration{name: "webmcp", method: "route_file", rel: rel}
 			declSet[declarationKey(item)] = item
 		}
@@ -171,14 +189,14 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 }
 
 func parseHTMLDeclarations(root, rel string) ([]string, *model.ParseError) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	payload, err := os.ReadFile(path) // #nosec G304 -- detector reads repository content selected by user.
-	if err != nil {
-		return nil, &model.ParseError{Kind: "file_read_error", Format: "html", Path: rel, Detector: detectorID, Message: err.Error()}
+	payload, readErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if readErr != nil {
+		readErr.Format = "html"
+		return nil, readErr
 	}
-	doc, parseErr := html.Parse(bytes.NewReader(payload))
-	if parseErr != nil {
-		return nil, &model.ParseError{Kind: "parse_error", Format: "html", Path: rel, Detector: detectorID, Message: parseErr.Error()}
+	doc, err := html.Parse(bytes.NewReader(payload))
+	if err != nil {
+		return nil, &model.ParseError{Kind: "parse_error", Format: "html", Path: rel, Detector: detectorID, Message: err.Error()}
 	}
 	set := map[string]struct{}{}
 	var walk func(*html.Node)
@@ -206,14 +224,14 @@ func parseHTMLDeclarations(root, rel string) ([]string, *model.ParseError) {
 }
 
 func parseJSDeclarations(root, rel string) ([]string, *model.ParseError) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	payload, err := os.ReadFile(path) // #nosec G304 -- detector reads repository content selected by user.
-	if err != nil {
-		return nil, &model.ParseError{Kind: "file_read_error", Format: "javascript", Path: rel, Detector: detectorID, Message: err.Error()}
+	payload, readErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if readErr != nil {
+		readErr.Format = "javascript"
+		return nil, readErr
 	}
-	program, parseErr := parser.ParseFile(nil, rel, payload, 0)
-	if parseErr != nil {
-		return nil, &model.ParseError{Kind: "parse_error", Format: "javascript", Path: rel, Detector: detectorID, Message: parseErr.Error()}
+	program, err := parser.ParseFile(nil, rel, payload, 0)
+	if err != nil {
+		return nil, &model.ParseError{Kind: "parse_error", Format: "javascript", Path: rel, Detector: detectorID, Message: err.Error()}
 	}
 	set := map[string]struct{}{}
 	walkAST(program, func(node any) {
@@ -329,10 +347,9 @@ func expressionString(expr ast.Expression) string {
 }
 
 func containsWebMCPRoute(root, rel string) (bool, error) {
-	path := filepath.Join(root, filepath.FromSlash(rel))
-	payload, err := os.ReadFile(path) // #nosec G304 -- detector reads repository files selected by user.
-	if err != nil {
-		return false, err
+	payload, parseErr := detect.ReadFileWithinRoot(detectorID, root, rel)
+	if parseErr != nil {
+		return false, detect.ParseErrorAsError(parseErr)
 	}
 	if bytes.Contains(payload, []byte("/.well-known/webmcp")) {
 		return true, nil

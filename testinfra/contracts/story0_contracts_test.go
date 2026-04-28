@@ -196,6 +196,62 @@ func TestWorkflowTriggerContracts(t *testing.T) {
 	}
 }
 
+func TestReleaseWorkflowPublishesOnlyAfterIntegrityVerification(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	releaseWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/release.yml"))
+	goreleaserConfig := mustReadFile(t, filepath.Join(repoRoot, ".goreleaser.yaml"))
+
+	requiredInOrder := []string{
+		"- name: Build staged release artifacts",
+		"goreleaser release --skip=publish,announce --clean",
+		"- name: Verify checksums",
+		"- name: Generate SBOM",
+		"- name: Scan with Grype",
+		"- name: Sign checksums",
+		"- name: Generate provenance attestation",
+		"- name: Verify checksum signature",
+		"- name: Verify provenance attestations",
+		"- name: Publish GitHub release assets and notes",
+		"- name: Publish Homebrew tap formula",
+		"- name: Run published install-path parity (README/docs commands)",
+	}
+
+	lastIndex := -1
+	for _, fragment := range requiredInOrder {
+		idx := strings.Index(releaseWorkflow, fragment)
+		if idx < 0 {
+			t.Fatalf("release workflow missing required fragment %q", fragment)
+		}
+		if idx <= lastIndex {
+			t.Fatalf("release workflow fragment %q must appear after prior integrity gates", fragment)
+		}
+		lastIndex = idx
+	}
+
+	if strings.Contains(releaseWorkflow, "goreleaser release --clean") &&
+		!strings.Contains(releaseWorkflow, "goreleaser release --skip=publish,announce --clean") {
+		t.Fatal("release workflow must not use a publish-capable goreleaser tag release before integrity gates")
+	}
+	if !strings.Contains(goreleaserConfig, "skip_upload: true") {
+		t.Fatal("goreleaser homebrew config must stage the formula locally until the final gated publish step")
+	}
+
+	for _, fragment := range []string{
+		"- name: Publish GitHub release assets and notes\n        if: startsWith(github.ref, 'refs/tags/v')",
+		"- name: Publish Homebrew tap formula\n        if: startsWith(github.ref, 'refs/tags/v')",
+	} {
+		if !strings.Contains(releaseWorkflow, fragment) {
+			t.Fatalf("release workflow missing tag-only publish guard for %q", fragment)
+		}
+	}
+
+	if !strings.Contains(releaseWorkflow, "goreleaser release --snapshot --clean") {
+		t.Fatal("release workflow must preserve snapshot build behavior for non-tag/manual paths")
+	}
+}
+
 func loadRequiredChecks(t *testing.T, repoRoot string) []string {
 	t.Helper()
 

@@ -10,7 +10,7 @@ description: "Release hardening checks, reproducibility expectations, and integr
 - Deterministic test gates in release workflow.
 - Contract and scenario validation before artifact generation.
 - Node24-ready action refs on the release path for all remediable workflow helpers, enforced by `make lint-fast`.
-- SBOM generation and vulnerability scanning in release pipeline.
+- Tag releases build candidate artifacts without publishing them, verify checksums, generate an SBOM, run Grype, sign the checksum manifest, generate and verify provenance attestations, and only then publish GitHub release assets and Homebrew tap updates.
 - Exact release scanner/signing versions are pinned in CI and checked by local/CI hygiene gates.
 - `CHANGELOG.md` release-note entries finalized before tag publication with `scripts/finalize_release_changelog.py`, and tag builds verify them with `scripts/validate_release_changelog.py`.
 - Current bounded release-path exceptions are explicit and reviewed during every runtime uplift:
@@ -42,6 +42,18 @@ gh run watch --repo Clyra-AI/wrkr <run-id>
 ```
 
 If a release-path helper still lacks a published Node24-ready upstream release, treat it as a bounded exception, document it in the same PR, and do not widen that exception set silently.
+
+## Publish sequence
+
+For tag builds, treat release publication as the final gated step:
+
+1. Build candidate artifacts into `dist/` without publishing them.
+2. Verify checksums.
+3. Generate an SBOM.
+4. Run Grype against the staged artifacts.
+5. Sign the checksum manifest.
+6. Generate and verify provenance attestations.
+7. Publish GitHub release assets and Homebrew tap updates from the verified staged set.
 
 ## Install-path UAT (release-candidate)
 
