@@ -1130,7 +1130,7 @@ func mergeBacklogApprovalStatus(current, incoming string) string {
 
 func approvalStatusPriority(value string) int {
 	switch strings.TrimSpace(value) {
-	case "approved":
+	case "unapproved":
 		return 0
 	case "unknown":
 		return 1

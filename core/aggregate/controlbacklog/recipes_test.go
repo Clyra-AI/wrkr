@@ -38,3 +38,14 @@ func TestSecurityTestBacklogRecipesStableByCapabilityClass(t *testing.T) {
 		t.Fatalf("expected dry-run recipe flag, got %+v", backlog.Items[0].SecurityTestRecipes[0])
 	}
 }
+
+func TestMergeBacklogApprovalStatusPreservesWorstCase(t *testing.T) {
+	t.Parallel()
+
+	if got := mergeBacklogApprovalStatus("approved", "unapproved"); got != "unapproved" {
+		t.Fatalf("expected unapproved to win, got %q", got)
+	}
+	if got := mergeBacklogApprovalStatus("unknown", "approved"); got != "unknown" {
+		t.Fatalf("expected unknown to remain worse than approved, got %q", got)
+	}
+}

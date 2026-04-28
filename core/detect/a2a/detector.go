@@ -140,7 +140,7 @@ func buildA2ATrustDepth(rel string, capabilities []string, authSchemes []string,
 		switch {
 		case strings.Contains(strings.ToLower(filepath.ToSlash(rel)), "/.well-known/"):
 			exposure = agginventory.TrustExposurePublic
-		case strings.HasPrefix(strings.ToLower(firstNonEmptyString(protocols...)), "http"):
+		case hasHTTPProtocol(protocols):
 			exposure = agginventory.TrustExposurePublic
 		default:
 			exposure = agginventory.TrustExposureUnknown
@@ -217,6 +217,15 @@ func firstNonEmptyString(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func hasHTTPProtocol(values []string) bool {
+	for _, value := range values {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(value)), "http") {
+			return true
+		}
+	}
+	return false
 }
 
 func a2aTrustDepthEvidence(depth *agginventory.TrustDepth) []model.Evidence {
