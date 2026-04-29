@@ -201,6 +201,7 @@ func TestReleaseWorkflowPublishesOnlyAfterIntegrityVerification(t *testing.T) {
 
 	repoRoot := mustFindRepoRoot(t)
 	releaseWorkflow := mustReadFile(t, filepath.Join(repoRoot, ".github/workflows/release.yml"))
+	releaseWorkflow = strings.ReplaceAll(releaseWorkflow, "\r\n", "\n")
 	goreleaserConfig := mustReadFile(t, filepath.Join(repoRoot, ".goreleaser.yaml"))
 
 	requiredInOrder := []string{
