@@ -262,6 +262,82 @@ func TestE2EScanPathMixedReposPreservesSafeFindingsWhenOneRepoIsUnsafe(t *testin
 	}
 }
 
+func TestE2EScanPathRejectsExternalGaitPolicySymlink(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	statePath := filepath.Join(tmp, "state.json")
+	safeRepo := filepath.Join(reposPath, "alpha", ".codex")
+	unsafeRepo := filepath.Join(reposPath, "beta")
+	if err := os.MkdirAll(safeRepo, 0o755); err != nil {
+		t.Fatalf("mkdir safe repo: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(unsafeRepo, ".agents", "skills", "release"), 0o755); err != nil {
+		t.Fatalf("mkdir unsafe repo skills dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(safeRepo, "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write safe codex config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(unsafeRepo, ".agents", "skills", "release", "SKILL.md"), []byte(strings.Join([]string{
+		"---",
+		"allowed-tools:",
+		"  - proc.exec",
+		"---",
+		"",
+		"# Release",
+	}, "\n")), 0o600); err != nil {
+		t.Fatalf("write skill file: %v", err)
+	}
+
+	outside := filepath.Join(t.TempDir(), "external.yaml")
+	if err := os.WriteFile(outside, []byte(strings.Join([]string{
+		"rules:",
+		"  - id: outside-only",
+		"    block_tools:",
+		"      - proc.exec",
+		"    note: SHOULD_NOT_LEAK",
+	}, "\n")), 0o600); err != nil {
+		t.Fatalf("write outside policy: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(unsafeRepo, ".gait"), 0o755); err != nil {
+		t.Fatalf("mkdir unsafe repo gait dir: %v", err)
+	}
+	if err := os.Symlink(outside, filepath.Join(unsafeRepo, ".gait", "external.yaml")); err != nil {
+		t.Skipf("symlinks unsupported in this environment: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("path scan failed: %d (%s)", code, errOut.String())
+	}
+	if strings.Contains(out.String(), outside) || strings.Contains(out.String(), "SHOULD_NOT_LEAK") {
+		t.Fatalf("expected no outside policy leakage in scan output, got %q", out.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse path scan payload: %v", err)
+	}
+	findings, ok := payload["findings"].([]any)
+	if !ok {
+		t.Fatalf("expected findings array, got %T", payload["findings"])
+	}
+	if !containsFinding(findings, "tool_config", "codex", "alpha", ".codex/config.toml", "") {
+		t.Fatalf("expected safe repo codex finding, got %v", findings)
+	}
+	if !containsFinding(findings, "parse_error", "gait_policy", "beta", ".gait/external.yaml", "unsafe_path") {
+		t.Fatalf("expected unsafe_path gait policy parse error, got %v", findings)
+	}
+	if containsFinding(findings, "tool_config", "gait_policy", "beta", ".gait/external.yaml", "") {
+		t.Fatalf("expected no gait policy evidence for unsafe symlink, got %v", findings)
+	}
+	if containsFinding(findings, "skill_policy_conflict", "skill", "beta", ".agents/skills/release/SKILL.md", "") {
+		t.Fatalf("expected unsafe gait policy contents to be ignored, got %v", findings)
+	}
+}
+
 func containsToolType(findings []any, want string) bool {
 	for _, item := range findings {
 		finding, ok := item.(map[string]any)

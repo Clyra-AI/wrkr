@@ -27,7 +27,7 @@ Wrkr coexists with runtime controls: it produces the inventory and manifest desc
 
 ## Global Decisions (Locked)
 
-- Core runtime is Go only (`cmd/wrkr`, `core/`, `internal/`), pinned to Go `1.26.1`.
+- Core runtime is Go only (`cmd/wrkr`, `core/`, `internal/`), with the enforced Go version pinned by `go.mod` under the repo toolchain policy.
 - Python (`3.13+`) is allowed only for scripts/test tooling; Node (`22+`) is docs/UI only.
 - Scan/risk/proof paths are deterministic and non-generative: no LLM calls in runtime pipelines.
 - Zero scan-data egress by default: inventory/risk/proof artifacts remain local unless user explicitly opens PRs.
@@ -230,7 +230,7 @@ Acceptance criteria:
 ### Story 0.2: Pin toolchains, dependencies, and local developer commands
 Priority: P0
 Tasks:
-- Pin Go `1.26.1`, Python `3.13`, Node `22` in local/CI config.
+- Pin Go via `go.mod`, plus Python `3.13` and Node `22`, in local/CI config.
 - Add `Makefile` targets: `fmt`, `lint`, `test`, `test-integration`, `test-e2e`, `build`, `hooks`, `prepush`, `prepush-full`.
 - Configure `.pre-commit-config.yaml` with required Go/Python/security hooks.
 - Pin baseline dependencies (including `Clyra-AI/proof` policy-compliant range).

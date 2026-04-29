@@ -28,6 +28,8 @@ These notes clarify how this repository currently enforces this standard. They d
 - Required PR checks are declared in `.github/required-checks.json`.
 - Current required checks are:
   - `fast-lane`
+  - `scan-contract`
+  - `wave-sequence`
   - `windows-smoke`
 - Any workflow rename must update:
   - `.github/required-checks.json`
