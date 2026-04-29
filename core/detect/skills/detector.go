@@ -50,10 +50,11 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		return nil, nil
 	}
 
-	blockedTools, _, blockedErr := gaitpolicy.LoadBlockedTools(scope.Root)
+	policyResult, blockedErr := gaitpolicy.LoadBlockedTools(scope.Root)
 	if blockedErr != nil {
 		return nil, blockedErr
 	}
+	blockedTools := policyResult.BlockedTools
 
 	type counter struct {
 		total int

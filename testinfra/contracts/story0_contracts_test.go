@@ -124,6 +124,55 @@ func TestRequiredChecksContractTargetsPROnlyJobs(t *testing.T) {
 	}
 }
 
+func TestCurrentRequiredChecksDocMatchesContract(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	requiredChecks := loadRequiredChecks(t, repoRoot)
+	devGuides := mustReadFile(t, filepath.Join(repoRoot, "product/dev_guides.md"))
+
+	if !strings.Contains(devGuides, ".github/required-checks.json") {
+		t.Fatal("product/dev_guides.md must point to .github/required-checks.json as the required-check source of truth")
+	}
+	for _, check := range requiredChecks {
+		fragment := "- `" + check + "`"
+		if !strings.Contains(devGuides, fragment) {
+			t.Fatalf("product/dev_guides.md missing required check %q", check)
+		}
+	}
+}
+
+func TestPlanV1UsesGoModAsGoSourceOfTruth(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	plan := mustReadFile(t, filepath.Join(repoRoot, "product/PLAN_v1.md"))
+	if strings.Contains(plan, "1.26.1") {
+		t.Fatal("product/PLAN_v1.md must not retain stale literal Go 1.26.1 references")
+	}
+	if !strings.Contains(plan, "`go.mod`") {
+		t.Fatal("product/PLAN_v1.md must point to go.mod as the Go version source of truth")
+	}
+}
+
+func TestProductScopeDocsKeepGitHubAppInventoryFutureOnly(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	productDoc := mustReadFile(t, filepath.Join(repoRoot, "product/wrkr.md"))
+	positioning := mustReadFile(t, filepath.Join(repoRoot, "docs/positioning.md"))
+
+	if regexp.MustCompile(`(?m)^- Detect GitHub App installations with AI-related scopes$`).MatchString(productDoc) {
+		t.Fatal("product/wrkr.md must not claim GitHub App install inventory as current default OSS scope")
+	}
+	if !strings.Contains(productDoc, "future/additive platform scope") {
+		t.Fatal("product/wrkr.md must keep GitHub App install inventory in future/additive scope")
+	}
+	if !strings.Contains(positioning, "GitHub App inventory product in OSS default mode") {
+		t.Fatal("docs/positioning.md must continue to state that GitHub App inventory is not part of OSS default mode")
+	}
+}
+
 func TestWorkflowConcurrencyConfigured(t *testing.T) {
 	t.Parallel()
 

@@ -74,6 +74,47 @@ func TestSkillDetectorRejectsExternalSymlinkedSkillFile(t *testing.T) {
 	}
 }
 
+func TestSkillDetectorIgnoresUnsafeGaitPolicyContents(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeSkillFile(t, root, ".agents/skills/release/SKILL.md", strings.Join([]string{
+		"---",
+		"allowed-tools:",
+		"  - proc.exec",
+		"---",
+		"",
+		"# Release",
+	}, "\n"))
+
+	outside := t.TempDir()
+	writeSkillFile(t, outside, "external.yaml", strings.Join([]string{
+		"rules:",
+		"  - id: outside-only",
+		"    block_tools:",
+		"      - proc.exec",
+	}, "\n"))
+	mustSymlinkOrSkipSkill(t, filepath.Join(outside, "external.yaml"), filepath.Join(root, ".gait", "external.yaml"))
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "repo", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect skills: %v", err)
+	}
+
+	foundSkill := false
+	for _, finding := range findings {
+		if finding.FindingType == "skill" && finding.Location == ".agents/skills/release/SKILL.md" {
+			foundSkill = true
+		}
+		if finding.FindingType == "skill_policy_conflict" {
+			t.Fatalf("expected unsafe gait policy contents to be ignored, got %#v", finding)
+		}
+	}
+	if !foundSkill {
+		t.Fatalf("expected skill finding to remain, got %#v", findings)
+	}
+}
+
 func mustFindRepoRoot(t *testing.T) string {
 	t.Helper()
 
