@@ -2181,6 +2181,36 @@ func TestEvidenceJSONIncludesVerifyNextSteps(t *testing.T) {
 	}
 }
 
+func TestEvidenceJSONOmitsRuntimeEvidenceWhenUnavailable(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d %s", code, scanErr.String())
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	var evidenceOut bytes.Buffer
+	var evidenceErr bytes.Buffer
+	if code := Run([]string{"evidence", "--frameworks", "soc2", "--state", statePath, "--output", outputDir, "--json"}, &evidenceOut, &evidenceErr); code != 0 {
+		t.Fatalf("evidence failed: %d %s", code, evidenceErr.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(evidenceOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse evidence payload: %v", err)
+	}
+	if _, ok := payload["runtime_evidence"]; ok {
+		t.Fatalf("expected runtime_evidence to be omitted when unavailable, got %v", payload["runtime_evidence"])
+	}
+}
+
 func TestVerifyTamperedChainReturnsExit2(t *testing.T) {
 	t.Parallel()
 
