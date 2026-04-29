@@ -67,6 +67,9 @@ func runScanStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 			privacy.SerializedLocations,
 			privacy.RawSourceInArtifacts,
 		)
+		for _, warning := range privacy.Warnings {
+			_, _ = fmt.Fprintf(stdout, "source privacy warning: %s\n", warning)
+		}
 	}
 	return exitSuccess
 }

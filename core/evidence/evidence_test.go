@@ -13,6 +13,7 @@ import (
 
 	proof "github.com/Clyra-AI/proof"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
@@ -96,6 +97,82 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	}
 	if len(result.CoverageNote.RecommendedActions) == 0 {
 		t.Fatalf("expected recommended actions in coverage note, got %+v", result.CoverageNote)
+	}
+}
+
+func TestBuildEvidenceBundleIncludesRuntimeEvidenceCorrelation(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	now := time.Date(2026, 4, 28, 12, 0, 0, 0, time.UTC)
+	findings := []model.Finding{
+		{
+			FindingType: "ci_autonomy",
+			Severity:    model.SeverityHigh,
+			ToolType:    "ci_agent",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "backend",
+			Org:         "acme",
+		},
+	}
+	report := risk.Score(findings, 5, now)
+	report.ActionPaths = []risk.ActionPath{{
+		PathID:  "apc-runtime-123",
+		AgentID: "wrkr:ci_agent:acme",
+		Org:     "acme",
+		Repo:    "backend",
+	}}
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
+	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
+	snapshot := state.Snapshot{
+		Version:      state.SnapshotVersion,
+		Target:       source.Target{Mode: "repo", Value: "acme/backend"},
+		Findings:     findings,
+		Inventory:    &agginventory.Inventory{InventoryVersion: "v1", GeneratedAt: now.Format(time.RFC3339)},
+		RiskReport:   &report,
+		Profile:      &profile,
+		PostureScore: &posture,
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	if _, err := proofemit.EmitScan(statePath, now, findings, nil, report, profile, posture, nil); err != nil {
+		t.Fatalf("emit scan records: %v", err)
+	}
+	if err := ingest.Save(ingest.DefaultPath(statePath), ingest.Bundle{
+		SchemaVersion: ingest.SchemaVersion,
+		GeneratedAt:   now.Format(time.RFC3339),
+		Records: []ingest.Record{{
+			PathID:        "apc-runtime-123",
+			AgentID:       "wrkr:ci_agent:acme",
+			Tool:          "ci_agent",
+			Repo:          "acme/backend",
+			PolicyRef:     "policy://release-gate",
+			ProofRef:      "proof://runtime/gate",
+			Source:        "runtime_probe",
+			ObservedAt:    now.Format(time.RFC3339),
+			EvidenceClass: "policy_enforced",
+		}},
+	}); err != nil {
+		t.Fatalf("save runtime evidence: %v", err)
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	result, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: now})
+	if err != nil {
+		t.Fatalf("build evidence bundle: %v", err)
+	}
+	if result.RuntimeEvidence == nil {
+		t.Fatal("expected runtime evidence summary in build result")
+	}
+	if result.RuntimeEvidence.MatchedRecords != 1 || result.RuntimeEvidence.UnmatchedRecords != 0 {
+		t.Fatalf("unexpected runtime evidence summary: %+v", result.RuntimeEvidence)
+	}
+	for _, relative := range []string{"runtime-evidence.json", "runtime-evidence-correlation.json"} {
+		if _, err := os.Stat(filepath.Join(outputDir, relative)); err != nil {
+			t.Fatalf("expected %s in bundle: %v", relative, err)
+		}
 	}
 }
 

@@ -59,6 +59,10 @@ wrkr mcp-list --state ./.wrkr/last-scan.json --gait-trust ~/.gait/trust-registry
 
 This is the inventory overlay view for MCP posture after a saved repo/org scan. It is useful for security reviews and control handoff, but it is still derived from saved Wrkr state rather than live endpoint probing.
 
+## Runtime evidence boundary
+
+Use `wrkr ingest` when you have runtime policy or gateway evidence to correlate with saved control paths. `mcp-list` remains a static saved-state catalog; ingested runtime evidence is surfaced by `wrkr report` and `wrkr evidence` as corroborating metadata without changing the scan truth.
+
 ## Scope boundary
 
 `mcp-list` is discovery and privilege mapping only.

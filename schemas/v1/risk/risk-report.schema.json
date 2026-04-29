@@ -8,6 +8,82 @@
     "generated_at": {"type": "string", "format": "date-time"},
     "top_findings": {"type": "array"},
     "ranked_findings": {"type": "array"},
-    "repo_risk": {"type": "array"}
+    "repo_risk": {"type": "array"},
+    "attack_paths": {"type": "array"},
+    "top_attack_paths": {"type": "array"},
+    "action_paths": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/actionPath"}
+    },
+    "action_path_to_control_first": {
+      "type": "object",
+      "properties": {
+        "summary": {"type": "object"},
+        "path": {"$ref": "#/$defs/actionPath"}
+      },
+      "additionalProperties": true
+    },
+    "control_path_graph": {
+      "$ref": "../control-path-graph.schema.json"
+    }
+  },
+  "$defs": {
+    "actionPath": {
+      "type": "object",
+      "required": ["path_id", "org", "repo", "tool_type", "write_capable", "production_write", "approval_gap", "credential_access", "attack_path_score", "risk_score", "recommended_action"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "location": {"type": "string"},
+        "write_capable": {"type": "boolean"},
+        "write_path_classes": {"type": "array", "items": {"type": "string"}},
+        "pull_request_write": {"type": "boolean"},
+        "merge_execute": {"type": "boolean"},
+        "deploy_write": {"type": "boolean"},
+        "production_write": {"type": "boolean"},
+        "approval_gap": {"type": "boolean"},
+        "security_visibility_status": {"type": "string"},
+        "credential_access": {"type": "boolean"},
+        "credential_provenance": {"$ref": "#/$defs/credentialProvenance"},
+        "deployment_status": {"type": "string"},
+        "workflow_trigger_class": {"type": "string"},
+        "execution_identity": {"type": "string"},
+        "execution_identity_type": {"type": "string"},
+        "execution_identity_source": {"type": "string"},
+        "execution_identity_status": {"type": "string"},
+        "execution_identity_rationale": {"type": "string"},
+        "business_state_surface": {"type": "string"},
+        "shared_execution_identity": {"type": "boolean"},
+        "standing_privilege": {"type": "boolean"},
+        "attack_path_score": {"type": "number"},
+        "risk_score": {"type": "number"},
+        "recommended_action": {"type": "string"},
+        "matched_production_targets": {"type": "array", "items": {"type": "string"}},
+        "governance_controls": {"type": "array"}
+      },
+      "additionalProperties": true
+    },
+    "credentialProvenance": {
+      "type": "object",
+      "required": ["type", "scope", "confidence", "risk_multiplier"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["static_secret", "workload_identity", "inherited_human", "oauth_delegation", "jit", "unknown"]
+        },
+        "subject": {"type": "string"},
+        "scope": {
+          "type": "string",
+          "enum": ["repository", "workflow", "tool", "environment", "organization", "unknown"]
+        },
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "risk_multiplier": {"type": "number"}
+      },
+      "additionalProperties": true
+    }
   }
 }

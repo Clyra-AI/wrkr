@@ -804,6 +804,9 @@ func buildSections(
 			sourcePrivacy.SerializedLocations,
 			sourcePrivacy.CleanupStatus,
 		))
+		for _, warning := range sourcePrivacy.Warnings {
+			headlineFacts = append(headlineFacts, "source_privacy warning="+warning)
+		}
 	}
 	if controlPathGraph != nil {
 		headlineFacts = append(headlineFacts, fmt.Sprintf("control_path_graph version=%s nodes=%d edges=%d",

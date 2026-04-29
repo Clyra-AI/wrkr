@@ -17,6 +17,7 @@ import (
 	proof "github.com/Clyra-AI/proof"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
@@ -43,6 +44,7 @@ type BuildResult struct {
 	CoverageNote      CoverageNote            `json:"coverage_note"`
 	ReportArtifacts   []string                `json:"report_artifacts"`
 	SourcePrivacy     *sourceprivacy.Contract `json:"source_privacy,omitempty"`
+	RuntimeEvidence   *ingest.Summary         `json:"runtime_evidence,omitempty"`
 }
 
 type ControlEvidence struct {
@@ -265,6 +267,18 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := writeJSON(filepath.Join(outputDir, "control-evidence.json"), controlEvidence); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
+	runtimeEvidence, runtimeBundle, hasRuntimeEvidence, runtimeErr := buildRuntimeEvidence(snapshot, resolvedStatePath)
+	if runtimeErr != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load runtime evidence: %w", runtimeErr)
+	}
+	if hasRuntimeEvidence {
+		if err := writeJSON(filepath.Join(outputDir, "runtime-evidence.json"), runtimeBundle); err != nil {
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+		}
+		if err := writeJSON(filepath.Join(outputDir, "runtime-evidence-correlation.json"), runtimeEvidence); err != nil {
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+		}
+	}
 	if err := writeJSON(filepath.Join(outputDir, "posture-score.json"), snapshot.PostureScore); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
@@ -417,7 +431,20 @@ func Build(in BuildInput) (BuildResult, error) {
 		CoverageNote:      defaultCoverageNote(),
 		ReportArtifacts:   reportArtifacts,
 		SourcePrivacy:     snapshot.SourcePrivacy,
+		RuntimeEvidence:   runtimeEvidence,
 	}, nil
+}
+
+func buildRuntimeEvidence(snapshot state.Snapshot, statePath string) (*ingest.Summary, ingest.Bundle, bool, error) {
+	bundle, artifactPath, err := ingest.LoadOptional(statePath)
+	if err != nil {
+		return nil, ingest.Bundle{}, false, err
+	}
+	if strings.TrimSpace(artifactPath) == "" {
+		return nil, ingest.Bundle{}, false, nil
+	}
+	summary := ingest.Correlate(snapshot, artifactPath, bundle)
+	return &summary, bundle, true, nil
 }
 
 func defaultCoverageNote() CoverageNote {

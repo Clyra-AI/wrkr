@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/internal/managedmarker"
 )
@@ -327,5 +328,104 @@ func TestScanHostedDefaultRemovesMaterializedRootAndSerializesLogicalLocation(t 
 	}
 	if privacy["serialized_locations"] != sourceprivacy.SerializedLocationsLogical {
 		t.Fatalf("unexpected serialized locations: %v", privacy["serialized_locations"])
+	}
+}
+
+func TestHostedShareableArtifactsDoNotSerializeMaterializedSource(t *testing.T) {
+	t.Parallel()
+
+	const privateSentinel = "PRIVATE_SOURCE_SENTINEL_DO_NOT_SERIALIZE"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/acme/backend":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/backend","default_branch":"main"}`)
+		case "/repos/acme/backend/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-agents"},{"path":"src/private.py","type":"blob","sha":"sha-source"}]}`)
+		case "/repos/acme/backend/git/blobs/sha-agents":
+			_, _ = fmt.Fprint(w, `{"content":"hosted governance instructions\n","encoding":"utf-8"}`)
+		case "/repos/acme/backend/git/blobs/sha-source":
+			t.Fatalf("default hosted scan should not fetch private source blob containing %s", privateSentinel)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "last-scan.json")
+	reportPath := filepath.Join(tmp, "scan-report.md")
+	sarifPath := filepath.Join(tmp, "wrkr.sarif")
+	evidenceDir := filepath.Join(tmp, "wrkr-evidence")
+	materializedRoot := filepath.Join(filepath.Dir(statePath), "materialized-sources")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--repo", "acme/backend",
+		"--github-api", server.URL,
+		"--state", statePath,
+		"--report-md",
+		"--report-md-path", reportPath,
+		"--sarif",
+		"--sarif-path", sarifPath,
+		"--json",
+	}, &scanOut, &scanErr)
+	if code != exitSuccess {
+		t.Fatalf("hosted scan failed: %d (%s)", code, scanErr.String())
+	}
+	if _, statErr := os.Stat(materializedRoot); !os.IsNotExist(statErr) {
+		t.Fatalf("expected hosted scan to remove materialized root, stat err=%v", statErr)
+	}
+
+	var evidenceOut bytes.Buffer
+	var evidenceErr bytes.Buffer
+	code = Run([]string{
+		"evidence",
+		"--frameworks", "soc2",
+		"--state", statePath,
+		"--output", evidenceDir,
+		"--json",
+	}, &evidenceOut, &evidenceErr)
+	if code != exitSuccess {
+		t.Fatalf("evidence build failed: %d (%s)", code, evidenceErr.String())
+	}
+
+	for label, content := range map[string]string{
+		"scan stdout":     scanOut.String(),
+		"scan stderr":     scanErr.String(),
+		"evidence stdout": evidenceOut.String(),
+		"evidence stderr": evidenceErr.String(),
+	} {
+		assertHostedArtifactTextClean(t, label, content, privateSentinel)
+	}
+	for _, path := range []string{
+		statePath,
+		proofemit.ChainPath(statePath),
+		reportPath,
+		sarifPath,
+		filepath.Join(evidenceDir, "scan-metadata.json"),
+		filepath.Join(evidenceDir, "proof-records", "chain.json"),
+		filepath.Join(evidenceDir, "reports", "audit-summary.md"),
+	} {
+		assertHostedArtifactFileClean(t, path, privateSentinel)
+	}
+}
+
+func assertHostedArtifactFileClean(t *testing.T, path string, privateSentinel string) {
+	t.Helper()
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read artifact %s: %v", path, err)
+	}
+	assertHostedArtifactTextClean(t, path, string(payload), privateSentinel)
+}
+
+func assertHostedArtifactTextClean(t *testing.T, label string, content string, privateSentinel string) {
+	t.Helper()
+	for _, forbidden := range []string{privateSentinel, ".wrkr/materialized-sources", "materialized-sources/acme/backend"} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("expected %s to omit %q, got %s", label, forbidden, content)
+		}
 	}
 }
