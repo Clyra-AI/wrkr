@@ -16,6 +16,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/score"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -647,6 +648,52 @@ func TestBuildSummarySuppressesUnknownToSecurityHeadlineWithoutReferenceBasis(t 
 	}
 	if !strings.Contains(joined, "reference_basis unavailable") {
 		t.Fatalf("expected suppressed visibility wording, got %v", summary.Sections[0].Facts)
+	}
+}
+
+func TestBuildSummaryRedactsSourcePrivacyWarningDetails(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 2, 21, 12, 0, 0, 0, time.UTC)
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			Inventory: &agginventory.Inventory{
+				PrivilegeBudget:    agginventory.PrivilegeBudget{TotalTools: 1, WriteCapableTools: 1},
+				SecurityVisibility: agginventory.SecurityVisibilitySummary{ReferenceBasis: "initial_scan"},
+			},
+			Findings: []model.Finding{{
+				FindingType: "tool_config",
+				Severity:    model.SeverityLow,
+				ToolType:    "codex",
+				Location:    ".codex/config.toml",
+				Repo:        "repo",
+				Org:         "acme",
+			}},
+			SourcePrivacy: &sourceprivacy.Contract{
+				RetentionMode:              sourceprivacy.RetentionEphemeral,
+				SerializedLocations:        sourceprivacy.SerializedLocationsLogical,
+				CleanupStatus:              sourceprivacy.CleanupFailed,
+				RawSourceInArtifacts:       false,
+				MaterializedSourceRetained: true,
+				Warnings: []string{
+					"source cleanup failed: /tmp/private/.wrkr/materialized-sources/acme/backend",
+				},
+			},
+		},
+		Template:     TemplatePublic,
+		ShareProfile: ShareProfilePublic,
+		GeneratedAt:  now,
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	joined := strings.Join(summary.Sections[0].Facts, "\n")
+	if strings.Contains(joined, "/tmp/private") || strings.Contains(joined, "materialized-sources/acme/backend") {
+		t.Fatalf("expected source privacy warning details to be redacted, got %v", summary.Sections[0].Facts)
+	}
+	if !strings.Contains(joined, "source_privacy warnings=1 details_redacted") {
+		t.Fatalf("expected redacted source privacy warning summary, got %v", summary.Sections[0].Facts)
 	}
 }
 

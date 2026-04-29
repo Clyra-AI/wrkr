@@ -57,7 +57,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
 
 	if *jsonOut {
-		_ = json.NewEncoder(stdout).Encode(map[string]any{
+		payload := map[string]any{
 			"status":             "ok",
 			"output_dir":         result.OutputDir,
 			"frameworks":         result.Frameworks,
@@ -68,9 +68,12 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 			"coverage_note":      result.CoverageNote,
 			"report_artifacts":   result.ReportArtifacts,
 			"source_privacy":     result.SourcePrivacy,
-			"runtime_evidence":   result.RuntimeEvidence,
 			"next_steps":         evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
-		})
+		}
+		if result.RuntimeEvidence != nil {
+			payload["runtime_evidence"] = result.RuntimeEvidence
+		}
+		_ = json.NewEncoder(stdout).Encode(payload)
 		return exitSuccess
 	}
 	_, _ = fmt.Fprintf(stdout, "wrkr evidence bundle written to %s\n", result.OutputDir)
