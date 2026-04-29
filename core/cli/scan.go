@@ -802,6 +802,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		for _, warning := range productionTargetWarnings {
 			_, _ = fmt.Fprintf(stderr, "warning: %s\n", warning)
 		}
+		for _, warning := range sourcePrivacy.Warnings {
+			_, _ = fmt.Fprintf(stderr, "warning: source privacy: %s\n", warning)
+		}
 	}
 	if *quiet {
 		if code := completeScanStatus(); code != exitSuccess {

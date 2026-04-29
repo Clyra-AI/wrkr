@@ -479,9 +479,12 @@ func shouldMaterializeBlobWithSource(rel string, allowSourceMaterialization bool
 
 	switch base {
 	case "agents.md", "agents.override.md", "claude.md", ".cursorrules", ".mcp.json", "mcp.json", "managed-mcp.json",
+		"codeowners",
 		"jenkinsfile", "go.mod", "go.sum", "package.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
 		"pyproject.toml", "poetry.lock", "uv.lock", "cargo.toml", "gemfile", "pom.xml",
-		"build.gradle", "build.gradle.kts", "composer.json", "dockerfile", "gait.yaml":
+		"build.gradle", "build.gradle.kts", "composer.json", "dockerfile", "gait.yaml",
+		"owners.yaml", "owners.yml", "wrkr-owners.yaml", "wrkr-owners.yml",
+		"service-catalog.yaml", "service-catalog.yml", "catalog-info.yaml", "catalog-info.yml":
 		return true
 	}
 	if strings.HasPrefix(base, "requirements") && strings.HasSuffix(base, ".txt") {
@@ -533,6 +536,9 @@ func isSparseDetectorCandidate(normalized, base string) bool {
 		}
 	}
 	if normalized == ".wrkr/detectors/extensions.json" {
+		return true
+	}
+	if normalized == ".wrkr/owners.json" || normalized == ".wrkr/service-catalog.json" {
 		return true
 	}
 	if strings.HasPrefix(normalized, ".vscode/") && strings.Contains(base, "mcp") {

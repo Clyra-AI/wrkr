@@ -258,12 +258,21 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 			if r.URL.Query().Get("recursive") != "1" {
 				t.Fatalf("expected recursive=1, got %q", r.URL.Query().Get("recursive"))
 			}
-			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-1"},{"path":".codex/config.toml","type":"blob","sha":"sha-2"},{"path":"package-lock.json","type":"blob","sha":"sha-lock"},{"path":".github/dependabot.yml","type":"blob","sha":"sha-github"},{"path":"agent-plans/deploy.ptc.json","type":"blob","sha":"sha-compiled"},{"path":"agent-plans/build/release.ptc.json","type":"blob","sha":"sha-compiled-build"},{"path":"config/mcpgateway.yaml","type":"blob","sha":"sha-gateway"},{"path":"apps/api/.well-known/webmcp.json","type":"blob","sha":"sha-nested-webmcp"},{"path":"services/foo/.well-known/agent-card.json","type":"blob","sha":"sha-nested-agent-card"},{"path":"services/bar/agent.json","type":"blob","sha":"sha-agent-json"},{"path":".env.production","type":"blob","sha":"sha-env"},{"path":"prompts/system.md","type":"blob","sha":"sha-prompt-md"},{"path":"instructions/policy.yaml","type":"blob","sha":"sha-prompt-yaml"},{"path":"src/main.py","type":"blob","sha":"sha-source-py"},{"path":"crews/ops.py","type":"blob","sha":"sha-source-generic"},{"path":"build/main.py","type":"blob","sha":"sha-build-source"},{"path":"vendor/agent.py","type":"blob","sha":"sha-vendor-source"},{"path":"vendor/release.ptc.json","type":"blob","sha":"sha-vendor-compiled"},{"path":"vendor/agent-card.json","type":"blob","sha":"sha-vendor-agent-card"},{"path":"docs/changelog.txt","type":"blob","sha":"sha-skip"}]}`)
+			_, _ = fmt.Fprint(w, `{"tree":[{"path":"AGENTS.md","type":"blob","sha":"sha-1"},{"path":".codex/config.toml","type":"blob","sha":"sha-2"},{"path":"CODEOWNERS","type":"blob","sha":"sha-codeowners"},{"path":".wrkr/owners.yaml","type":"blob","sha":"sha-owners"},{"path":"catalog-info.yaml","type":"blob","sha":"sha-catalog"},{"path":"package-lock.json","type":"blob","sha":"sha-lock"},{"path":".github/dependabot.yml","type":"blob","sha":"sha-github"},{"path":"agent-plans/deploy.ptc.json","type":"blob","sha":"sha-compiled"},{"path":"agent-plans/build/release.ptc.json","type":"blob","sha":"sha-compiled-build"},{"path":"config/mcpgateway.yaml","type":"blob","sha":"sha-gateway"},{"path":"apps/api/.well-known/webmcp.json","type":"blob","sha":"sha-nested-webmcp"},{"path":"services/foo/.well-known/agent-card.json","type":"blob","sha":"sha-nested-agent-card"},{"path":"services/bar/agent.json","type":"blob","sha":"sha-agent-json"},{"path":".env.production","type":"blob","sha":"sha-env"},{"path":"prompts/system.md","type":"blob","sha":"sha-prompt-md"},{"path":"instructions/policy.yaml","type":"blob","sha":"sha-prompt-yaml"},{"path":"src/main.py","type":"blob","sha":"sha-source-py"},{"path":"crews/ops.py","type":"blob","sha":"sha-source-generic"},{"path":"build/main.py","type":"blob","sha":"sha-build-source"},{"path":"vendor/agent.py","type":"blob","sha":"sha-vendor-source"},{"path":"vendor/release.ptc.json","type":"blob","sha":"sha-vendor-compiled"},{"path":"vendor/agent-card.json","type":"blob","sha":"sha-vendor-agent-card"},{"path":"docs/changelog.txt","type":"blob","sha":"sha-skip"}]}`)
 		case "/repos/acme/backend/git/blobs/sha-1":
 			payload := base64.StdEncoding.EncodeToString([]byte("# agents\n"))
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
 		case "/repos/acme/backend/git/blobs/sha-2":
 			payload := base64.StdEncoding.EncodeToString([]byte("sandbox_mode = \"read-only\"\napproval_policy = \"on-request\"\nnetwork_access = false\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-codeowners":
+			payload := base64.StdEncoding.EncodeToString([]byte(".github/workflows/* @acme/security\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-owners":
+			payload := base64.StdEncoding.EncodeToString([]byte("owners:\n  - pattern: .codex/*\n    owner: '@acme/platform'\n"))
+			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
+		case "/repos/acme/backend/git/blobs/sha-catalog":
+			payload := base64.StdEncoding.EncodeToString([]byte("apiVersion: backstage.io/v1alpha1\nkind: Component\nmetadata:\n  name: backend\nspec:\n  owner: acme/backend\n"))
 			_, _ = fmt.Fprintf(w, `{"content":"%s","encoding":"base64"}`, payload)
 		case "/repos/acme/backend/git/blobs/sha-lock":
 			payload := base64.StdEncoding.EncodeToString([]byte("{\"lockfileVersion\":3}\n"))
@@ -351,6 +360,15 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "package-lock.json")); err != nil {
 		t.Fatalf("expected materialized lockfile: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "CODEOWNERS")); err != nil {
+		t.Fatalf("expected materialized CODEOWNERS: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", ".wrkr", "owners.yaml")); err != nil {
+		t.Fatalf("expected materialized owner mapping: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", "catalog-info.yaml")); err != nil {
+		t.Fatalf("expected materialized Backstage owner catalog: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "acme", "backend", ".github", "dependabot.yml")); err != nil {
 		t.Fatalf("expected materialized .github YAML: %v", err)

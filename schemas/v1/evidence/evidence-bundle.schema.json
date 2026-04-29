@@ -19,6 +19,9 @@
     },
     "source_privacy": {
       "$ref": "#/definitions/sourcePrivacy"
+    },
+    "runtime_evidence": {
+      "$ref": "#/definitions/runtimeEvidence"
     }
   },
   "definitions": {
@@ -51,6 +54,39 @@
           "items": {"type": "string"}
         }
       }
+    },
+    "runtimeEvidence": {
+      "type": "object",
+      "required": ["total_records", "matched_records", "unmatched_records"],
+      "properties": {
+        "artifact_path": {"type": "string"},
+        "total_records": {"type": "integer", "minimum": 0},
+        "matched_records": {"type": "integer", "minimum": 0},
+        "unmatched_records": {"type": "integer", "minimum": 0},
+        "correlations": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/runtimeEvidenceCorrelation"}
+        }
+      },
+      "additionalProperties": true
+    },
+    "runtimeEvidenceCorrelation": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "tool": {"type": "string"},
+        "repo": {"type": "string"},
+        "status": {"type": "string", "enum": ["matched", "unmatched"]},
+        "evidence_classes": {"type": "array", "items": {"type": "string"}},
+        "sources": {"type": "array", "items": {"type": "string"}},
+        "policy_refs": {"type": "array", "items": {"type": "string"}},
+        "proof_refs": {"type": "array", "items": {"type": "string"}},
+        "record_ids": {"type": "array", "items": {"type": "string"}},
+        "latest_observed_at": {"type": "string"}
+      },
+      "additionalProperties": true
     }
   },
   "additionalProperties": true
