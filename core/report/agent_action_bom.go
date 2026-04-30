@@ -80,6 +80,10 @@ type AgentActionBOMItem struct {
 	GraphRefs                AgentActionBOMGraphRefs            `json:"graph_refs,omitempty"`
 	EvidenceRefs             []string                           `json:"evidence_refs,omitempty"`
 	Reachability             []AgentActionBOMReachability       `json:"reachability,omitempty"`
+	ReachableServers         []AgentActionBOMReachability       `json:"reachable_servers,omitempty"`
+	ReachableTools           []AgentActionBOMReachability       `json:"reachable_tools,omitempty"`
+	ReachableAPIs            []AgentActionBOMReachability       `json:"reachable_apis,omitempty"`
+	ReachableAgents          []AgentActionBOMReachability       `json:"reachable_agents,omitempty"`
 	IntroducedBy             *attribution.Result                `json:"introduced_by,omitempty"`
 }
 
@@ -117,6 +121,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		itemGraphRefs := graphRefsByPath[strings.TrimSpace(path.PathID)]
 		runtimeItem := runtimeByPath[strings.TrimSpace(path.PathID)]
 		backlogItem := backlogByPath[strings.TrimSpace(path.PathID)]
+		reachability := append([]AgentActionBOMReachability(nil), reachabilityByPath[strings.TrimSpace(path.PathID)]...)
+		reachableServers, reachableTools, reachableAPIs, reachableAgents := namedReachability(reachability)
 		item := AgentActionBOMItem{
 			PathID:                   strings.TrimSpace(path.PathID),
 			AgentID:                  strings.TrimSpace(path.AgentID),
@@ -148,7 +154,11 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			ControlPriority:          strings.TrimSpace(path.RecommendedAction),
 			RecommendedNextAction:    strings.TrimSpace(path.RecommendedAction),
 			GraphRefs:                itemGraphRefs,
-			Reachability:             append([]AgentActionBOMReachability(nil), reachabilityByPath[strings.TrimSpace(path.PathID)]...),
+			Reachability:             reachability,
+			ReachableServers:         reachableServers,
+			ReachableTools:           reachableTools,
+			ReachableAPIs:            reachableAPIs,
+			ReachableAgents:          reachableAgents,
 			PolicyRefs:               append([]string(nil), path.PolicyRefs...),
 			PolicyMissingReasons:     append([]string(nil), path.PolicyMissingReasons...),
 			PolicyStatusReasons:      append([]string(nil), path.PolicyStatusReasons...),
@@ -390,6 +400,68 @@ func reachabilityByPathID(paths []risk.ActionPath, findings []model.Finding) map
 		}
 	}
 	return out
+}
+
+func namedReachability(items []AgentActionBOMReachability) (
+	[]AgentActionBOMReachability,
+	[]AgentActionBOMReachability,
+	[]AgentActionBOMReachability,
+	[]AgentActionBOMReachability,
+) {
+	servers := []AgentActionBOMReachability{}
+	tools := []AgentActionBOMReachability{}
+	apis := []AgentActionBOMReachability{}
+	agents := []AgentActionBOMReachability{}
+
+	for _, item := range items {
+		switch strings.TrimSpace(item.Surface) {
+		case "mcp_server":
+			servers = append(servers, item)
+			tools = append(tools, reachabilityCapabilities("mcp_tool", item)...)
+		case "a2a_agent":
+			agents = append(agents, item)
+			apis = append(apis, reachabilityCapabilities("a2a_capability", item)...)
+		default:
+			if strings.Contains(strings.TrimSpace(item.Surface), "api") {
+				apis = append(apis, item)
+			}
+		}
+	}
+
+	return sortReachability(servers), sortReachability(tools), sortReachability(apis), sortReachability(agents)
+}
+
+func reachabilityCapabilities(surface string, item AgentActionBOMReachability) []AgentActionBOMReachability {
+	capabilities := uniqueSortedStrings(item.Capabilities)
+	if len(capabilities) == 0 {
+		return nil
+	}
+	out := make([]AgentActionBOMReachability, 0, len(capabilities))
+	for _, capability := range capabilities {
+		out = append(out, AgentActionBOMReachability{
+			Surface:      surface,
+			Name:         capability,
+			TrustDepth:   agginventory.CloneTrustDepth(item.TrustDepth),
+			EvidenceRefs: append([]string(nil), item.EvidenceRefs...),
+		})
+	}
+	return out
+}
+
+func sortReachability(items []AgentActionBOMReachability) []AgentActionBOMReachability {
+	if len(items) == 0 {
+		return nil
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if strings.TrimSpace(items[i].Surface) != strings.TrimSpace(items[j].Surface) {
+			return strings.TrimSpace(items[i].Surface) < strings.TrimSpace(items[j].Surface)
+		}
+		if strings.TrimSpace(items[i].Name) != strings.TrimSpace(items[j].Name) {
+			return strings.TrimSpace(items[i].Name) < strings.TrimSpace(items[j].Name)
+		}
+		return strings.Join(items[i].EvidenceRefs, ",") < strings.Join(items[j].EvidenceRefs, ",")
+	})
+	return items
 }
 
 func firstEvidenceValue(finding model.Finding, key string) string {

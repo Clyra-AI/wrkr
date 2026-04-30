@@ -431,6 +431,79 @@ func TestBuildAgentActionBOMDerivesStableItemsFromSummary(t *testing.T) {
 	}
 }
 
+func TestBuildAgentActionBOMExposesNamedReachabilityProjections(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		SummaryVersion: SummaryVersion,
+		GeneratedAt:    "2026-04-29T19:33:12Z",
+		ActionPaths: []risk.ActionPath{{
+			PathID:            "apc-reachable",
+			AgentID:           "wrkr:mcp:acme",
+			Org:               "acme",
+			Repo:              "control-plane",
+			ToolType:          "mcp",
+			Location:          ".mcp.json",
+			CredentialAccess:  true,
+			ApprovalGap:       true,
+			RecommendedAction: "control",
+		}},
+	}
+	findings := []model.Finding{
+		{
+			FindingType: "mcp_server",
+			Org:         "acme",
+			Repo:        "control-plane",
+			Location:    ".mcp.json",
+			Permissions: []string{"mcp.write", "mcp.admin"},
+			Evidence: []model.Evidence{
+				{Key: "server", Value: "prod-mcp"},
+				{Key: "trust_surface", Value: "mcp"},
+				{Key: "auth_strength", Value: "static_secret"},
+				{Key: "delegation_model", Value: "tool_proxy"},
+				{Key: "exposure", Value: "private"},
+				{Key: "gateway_coverage", Value: "protected"},
+			},
+		},
+		{
+			FindingType: "a2a_agent_card",
+			Org:         "acme",
+			Repo:        "control-plane",
+			Location:    ".mcp.json",
+			Evidence: []model.Evidence{
+				{Key: "agent_name", Value: "release-agent"},
+				{Key: "capabilities", Value: "delegate.run,search"},
+				{Key: "trust_surface", Value: "a2a"},
+				{Key: "auth_strength", Value: "oauth_delegation"},
+				{Key: "delegation_model", Value: "agent_delegate"},
+				{Key: "exposure", Value: "private"},
+				{Key: "gateway_coverage", Value: "protected"},
+			},
+		},
+	}
+
+	bom := buildAgentActionBOM(summary, findings)
+	if bom == nil || len(bom.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", bom)
+	}
+	item := bom.Items[0]
+	if len(item.Reachability) != 2 {
+		t.Fatalf("expected compatibility reachability entries, got %+v", item.Reachability)
+	}
+	if !containsReachabilityName(item.ReachableServers, "prod-mcp") || !containsReachabilityName(item.ReachableAgents, "release-agent") {
+		t.Fatalf("expected named server and agent reachability, got servers=%+v agents=%+v", item.ReachableServers, item.ReachableAgents)
+	}
+	if !containsReachabilityName(item.ReachableTools, "mcp.admin") || !containsReachabilityName(item.ReachableTools, "mcp.write") {
+		t.Fatalf("expected MCP capabilities as reachable tools, got %+v", item.ReachableTools)
+	}
+	if !containsReachabilityName(item.ReachableAPIs, "delegate.run") || !containsReachabilityName(item.ReachableAPIs, "search") {
+		t.Fatalf("expected A2A capabilities as reachable APIs, got %+v", item.ReachableAPIs)
+	}
+	if item.ReachableServers[0].TrustDepth == nil || item.ReachableAPIs[0].TrustDepth == nil {
+		t.Fatalf("expected trust-depth metadata on named reachability, got servers=%+v apis=%+v", item.ReachableServers, item.ReachableAPIs)
+	}
+}
+
 func TestDecorateActionPathsForReportPromotesRuntimePolicyCoverage(t *testing.T) {
 	t.Parallel()
 
@@ -765,6 +838,15 @@ func TestPrivilegeBudgetFromInventoryConfiguredBackfillsMissingCount(t *testing.
 func containsStringValue(items []string, want string) bool {
 	for _, item := range items {
 		if item == want {
+			return true
+		}
+	}
+	return false
+}
+
+func containsReachabilityName(items []AgentActionBOMReachability, want string) bool {
+	for _, item := range items {
+		if item.Name == want {
 			return true
 		}
 	}
