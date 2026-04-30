@@ -63,6 +63,44 @@ func TestLocalReturnsExplicitLowConfidenceWhenGitMetadataMissing(t *testing.T) {
 	}
 }
 
+func TestLocalWithoutLineRangeFallsBackToLatestCommit(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, nil, "init")
+	runGit(t, repoRoot, nil, "config", "user.name", "Wrkr Test")
+	runGit(t, repoRoot, nil, "config", "user.email", "wrkr@example.com")
+
+	workflowPath := filepath.Join(repoRoot, ".github", "workflows")
+	if err := os.MkdirAll(workflowPath, 0o755); err != nil {
+		t.Fatalf("mkdir workflow path: %v", err)
+	}
+	rel := ".github/workflows/release.yml"
+	abs := filepath.Join(repoRoot, rel)
+	if err := os.WriteFile(abs, []byte("name: release\njobs:\n  release:\n    runs-on: ubuntu-latest\n"), 0o600); err != nil {
+		t.Fatalf("write workflow: %v", err)
+	}
+	runGit(t, repoRoot, gitEnv("2026-04-28T10:00:00Z"), "add", ".")
+	runGit(t, repoRoot, gitEnv("2026-04-28T10:00:00Z"), "commit", "-m", "initial workflow")
+
+	if err := os.WriteFile(abs, []byte("name: release\njobs:\n  release:\n    runs-on: ubuntu-latest\n    permissions:\n      contents: write\n"), 0o600); err != nil {
+		t.Fatalf("update workflow: %v", err)
+	}
+	runGit(t, repoRoot, gitEnv("2026-04-29T11:00:00Z"), "add", rel)
+	runGit(t, repoRoot, gitEnv("2026-04-29T11:00:00Z"), "commit", "-m", "add write permission")
+
+	result := Local(repoRoot, rel, nil)
+	if result == nil {
+		t.Fatal("expected attribution result")
+	}
+	if result.Confidence != ConfidenceLow || result.MissingReason != "line_range_unavailable" {
+		t.Fatalf("expected low-confidence latest-commit fallback, got %+v", result)
+	}
+	if result.CommitSHA == "" || result.Author != "Wrkr Test" {
+		t.Fatalf("expected latest commit metadata in fallback, got %+v", result)
+	}
+}
+
 func runGit(t *testing.T, repoRoot string, env []string, args ...string) {
 	t.Helper()
 

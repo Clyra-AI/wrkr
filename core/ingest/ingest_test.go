@@ -91,3 +91,29 @@ func TestCorrelateMatchesByAgentRepoWorkflowFallback(t *testing.T) {
 		t.Fatalf("expected correlation to resolve to apc-789, got %+v", summary.Correlations[0])
 	}
 }
+
+func TestCorrelateHonorsExplicitUnmatchedStatusInSummary(t *testing.T) {
+	t.Parallel()
+
+	summary := Correlate(state.Snapshot{
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{PathID: "apc-123", AgentID: "wrkr:codex-aaaa:acme"}},
+		},
+	}, "runtime-evidence.json", Bundle{
+		SchemaVersion: SchemaVersion,
+		GeneratedAt:   time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		Records: []Record{{
+			PathID:        "apc-123",
+			Source:        "runtime_probe",
+			ObservedAt:    time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			EvidenceClass: EvidenceClassPolicyDecision,
+			Status:        CorrelationStatusUnmatched,
+		}},
+	})
+	if summary.MatchedRecords != 0 || summary.UnmatchedRecords != 1 {
+		t.Fatalf("expected explicit unmatched status to drive summary counts, got %+v", summary)
+	}
+	if len(summary.Correlations) != 1 || summary.Correlations[0].Status != CorrelationStatusUnmatched {
+		t.Fatalf("expected unmatched correlation to be preserved, got %+v", summary.Correlations)
+	}
+}

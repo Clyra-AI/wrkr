@@ -462,6 +462,37 @@ func TestDecorateActionPathsForReportPromotesRuntimePolicyCoverage(t *testing.T)
 	}
 }
 
+func TestDecorateActionPathsForReportDoesNotPromoteUnmatchedRuntimeEvidence(t *testing.T) {
+	t.Parallel()
+
+	paths := decorateActionPathsForReport([]risk.ActionPath{{
+		PathID:               "apc-1",
+		Org:                  "local",
+		Repo:                 "policy-target",
+		ToolType:             "compiled_action",
+		Location:             ".github/workflows/release.yml",
+		PolicyCoverageStatus: risk.PolicyCoverageStatusMatched,
+		PolicyRefs:           []string{"gait://release"},
+	}}, &ingest.Summary{
+		Correlations: []ingest.Correlation{{
+			PathID:          "apc-1",
+			Status:          ingest.CorrelationStatusUnmatched,
+			EvidenceClasses: []string{ingest.EvidenceClassPolicyDecision},
+			PolicyRefs:      []string{"gait://release"},
+			RecordIDs:       []string{"rec-1"},
+		}},
+	})
+	if len(paths) != 1 {
+		t.Fatalf("expected one path, got %+v", paths)
+	}
+	if paths[0].PolicyCoverageStatus != risk.PolicyCoverageStatusMatched {
+		t.Fatalf("expected unmatched runtime evidence to preserve matched policy coverage, got %+v", paths[0])
+	}
+	if containsStringValue(paths[0].PolicyStatusReasons, "runtime_policy_decision_attached") {
+		t.Fatalf("expected unmatched runtime evidence to avoid runtime-proven promotion, got %+v", paths[0])
+	}
+}
+
 func TestAgentActionBOMTemplateLeadsWithBOMSections(t *testing.T) {
 	t.Parallel()
 

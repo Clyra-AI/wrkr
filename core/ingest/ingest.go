@@ -213,7 +213,7 @@ func Correlate(snapshot state.Snapshot, artifactPath string, bundle Bundle) Summ
 		}
 		status := correlationStatusForRecord(record, matchPathID != "")
 		item.Status = mergeCorrelationStatus(item.Status, status)
-		if matchPathID != "" {
+		if status == CorrelationStatusMatched {
 			matched++
 		}
 	}

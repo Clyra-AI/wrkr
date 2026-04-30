@@ -76,10 +76,11 @@ func Merge(current, incoming *Result) *Result {
 }
 
 func blameRange(repoRoot, relPath string, lineRange *model.LocationRange) *Result {
-	args := []string{"blame", "--porcelain"}
-	if normalized := normalizeLineRange(lineRange); normalized != nil {
-		args = append(args, "-L", fmt.Sprintf("%d,%d", normalized.StartLine, normalized.EndLine))
+	normalized := normalizeLineRange(lineRange)
+	if normalized == nil {
+		return nil
 	}
+	args := []string{"blame", "--porcelain", "-L", fmt.Sprintf("%d,%d", normalized.StartLine, normalized.EndLine)}
 	args = append(args, "--", relPath)
 	out, err := git(repoRoot, args...)
 	if err != nil {
@@ -102,7 +103,7 @@ func blameRange(repoRoot, relPath string, lineRange *model.LocationRange) *Resul
 		Confidence:  ConfidenceHigh,
 		CommitSHA:   commitSHA,
 		ChangedFile: relPath,
-		LineRange:   normalizeLineRange(lineRange),
+		LineRange:   normalized,
 	}
 	for _, line := range lines[1:] {
 		trimmed := strings.TrimSpace(line)
