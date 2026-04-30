@@ -90,6 +90,22 @@
         "reachability": {
           "type": "array",
           "items": {"$ref": "#/$defs/reachability"}
+        },
+        "reachable_servers": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reachability"}
+        },
+        "reachable_tools": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reachability"}
+        },
+        "reachable_apis": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reachability"}
+        },
+        "reachable_agents": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reachability"}
         }
       },
       "additionalProperties": true

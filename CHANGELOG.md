@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added built-in production-target packs for common deploy, Terraform/IaC, Kubernetes, package-publishing, release-automation, database-migration, and customer-impacting workflows while keeping custom production-target files authoritative when supplied.
 - [semver:minor] Added per-action-path and Agent Action BOM policy coverage status so reports can distinguish uncovered, declared, matched, runtime-proven, stale, and conflicting Gait evidence without claiming enforcement.
 - [semver:minor] Added normalized runtime control evidence classes and richer correlation keys so `wrkr ingest`, `wrkr report`, and `wrkr evidence` can join policy decisions, approvals, and proof verification back to one BOM item.
+- [semver:minor] Added buyer-facing MCP/A2A reachability projections on Agent Action BOM items, including reachable servers, tools, APIs, agents, trust-depth metadata, and evidence refs.
 - [semver:minor] Added optional `introduced_by` attribution on govern-first action paths and Agent Action BOM items using deterministic local git history when repository metadata is available.
 - [semver:minor] Added the deterministic `agent-action-bom-demo` before/after fixture pack, demo runner script, and acceptance coverage for the static-to-runtime evidence storyline.
 
