@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/ingest"
 )
 
 func TestReportPDFDeterministicForFixedState(t *testing.T) {
@@ -241,6 +244,141 @@ func TestReportJSONIncludesDeterministicNextSteps(t *testing.T) {
 	expectedVerifyCmd := "wrkr verify --chain --state " + quotedStatePath + " --json"
 	if third["command"] != expectedVerifyCmd {
 		t.Fatalf("expected verify handoff command %q, got %v", expectedVerifyCmd, third["command"])
+	}
+}
+
+func TestReportJSONIncludesTopLevelRuntimeEvidenceWhenSidecarPresent(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	writeJSONFile(t, statePath, map[string]any{
+		"version": "v1",
+		"inventory": map[string]any{
+			"tools": []any{map[string]any{"tool_type": "ci_agent"}},
+		},
+		"risk_report": map[string]any{
+			"generated_at":    "2026-04-30T12:00:00Z",
+			"top_findings":    []any{},
+			"ranked_findings": []any{},
+			"action_paths": []any{
+				map[string]any{
+					"path_id":            "apc-runtime-123",
+					"agent_id":           "wrkr:ci_agent:acme",
+					"org":                "acme",
+					"repo":               "demo-app",
+					"tool_type":          "ci_agent",
+					"location":           ".github/workflows/release.yml",
+					"recommended_action": "proof",
+					"credential_access":  true,
+				},
+			},
+		},
+	})
+	if err := ingest.Save(ingest.DefaultPath(statePath), ingest.Bundle{
+		SchemaVersion: ingest.SchemaVersion,
+		GeneratedAt:   "2026-04-30T12:05:00Z",
+		Records: []ingest.Record{{
+			RecordID:      "rec-runtime-1",
+			PathID:        "apc-runtime-123",
+			AgentID:       "wrkr:ci_agent:acme",
+			Tool:          "ci_agent",
+			Repo:          "demo-app",
+			Location:      ".github/workflows/release.yml",
+			Source:        "runtime_probe",
+			ObservedAt:    "2026-04-30T12:04:00Z",
+			EvidenceClass: ingest.EvidenceClassPolicyDecision,
+		}},
+	}); err != nil {
+		t.Fatalf("save runtime evidence sidecar: %v", err)
+	}
+
+	for _, template := range []string{"operator", "agent-action-bom"} {
+		t.Run(template, func(t *testing.T) {
+			var out bytes.Buffer
+			var errOut bytes.Buffer
+			if code := Run([]string{"report", "--state", statePath, "--template", template, "--json"}, &out, &errOut); code != 0 {
+				t.Fatalf("report failed: %d %s", code, errOut.String())
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+				t.Fatalf("parse report payload: %v", err)
+			}
+			topLevel, ok := payload["runtime_evidence"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected top-level runtime_evidence, got %v", payload["runtime_evidence"])
+			}
+			summary, ok := payload["summary"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected summary object, got %T", payload["summary"])
+			}
+			nested, ok := summary["runtime_evidence"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected summary runtime_evidence, got %v", summary["runtime_evidence"])
+			}
+			if !reflect.DeepEqual(topLevel, nested) {
+				t.Fatalf("expected top-level and summary runtime_evidence to match\ntop=%v\nsummary=%v", topLevel, nested)
+			}
+			if topLevel["matched_records"] != float64(1) {
+				t.Fatalf("expected one matched runtime evidence record, got %v", topLevel["matched_records"])
+			}
+		})
+	}
+}
+
+func TestReportJSONOmitsTopLevelRuntimeEvidenceWhenUnavailable(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	writeJSONFile(t, statePath, map[string]any{
+		"version": "v1",
+		"inventory": map[string]any{
+			"tools": []any{map[string]any{"tool_type": "ci_agent"}},
+		},
+		"risk_report": map[string]any{
+			"generated_at":    "2026-04-30T12:00:00Z",
+			"top_findings":    []any{},
+			"ranked_findings": []any{},
+			"action_paths": []any{
+				map[string]any{
+					"path_id":            "apc-runtime-123",
+					"agent_id":           "wrkr:ci_agent:acme",
+					"org":                "acme",
+					"repo":               "demo-app",
+					"tool_type":          "ci_agent",
+					"location":           ".github/workflows/release.yml",
+					"recommended_action": "proof",
+					"credential_access":  true,
+				},
+			},
+		},
+	})
+
+	for _, template := range []string{"operator", "agent-action-bom"} {
+		t.Run(template, func(t *testing.T) {
+			var out bytes.Buffer
+			var errOut bytes.Buffer
+			if code := Run([]string{"report", "--state", statePath, "--template", template, "--json"}, &out, &errOut); code != 0 {
+				t.Fatalf("report failed: %d %s", code, errOut.String())
+			}
+
+			var payload map[string]any
+			if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+				t.Fatalf("parse report payload: %v", err)
+			}
+			if _, ok := payload["runtime_evidence"]; ok {
+				t.Fatalf("expected top-level runtime_evidence to be omitted, got %v", payload["runtime_evidence"])
+			}
+			summary, ok := payload["summary"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected summary object, got %T", payload["summary"])
+			}
+			if _, ok := summary["runtime_evidence"]; ok {
+				t.Fatalf("expected summary runtime_evidence to be omitted, got %v", summary["runtime_evidence"])
+			}
+		})
 	}
 }
 

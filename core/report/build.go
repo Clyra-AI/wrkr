@@ -97,6 +97,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
 	riskReport.ActionPathToControlFirst = decorateControlFirstForReport(riskReport.ActionPathToControlFirst, riskReport.ActionPaths)
 	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
+	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
+	controlProofStatus, err := buildControlProofStatusForSummary(in.StatePath, in.Snapshot, riskReport)
+	if err != nil {
+		return Summary{}, err
+	}
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -109,6 +114,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		exposureGroups = sanitizeExposureGroupsPublic(exposureGroups)
 		assessmentSummary = sanitizeAssessmentSummaryPublic(assessmentSummary)
 		controlBacklog = sanitizeControlBacklogPublic(controlBacklog)
+		controlProofStatus = sanitizeControlProofStatusPublic(controlProofStatus, rawActionPaths, riskReport.ActionPaths)
 	}
 
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
@@ -165,6 +171,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ControlPathGraph:         riskReport.ControlPathGraph,
 		ExposureGroups:           exposureGroups,
 		SourcePrivacy:            sourcePrivacy,
+		controlProofStatus:       controlProofStatus,
 	}
 	if shareProfile == ShareProfilePublic {
 		summary.AgentActionBOM = BuildAgentActionBOM(summary)
@@ -193,6 +200,53 @@ func buildRuntimeEvidenceSummary(statePath string, snapshot state.Snapshot) *ing
 	}
 	summary := ingest.Correlate(snapshot, artifactPath, bundle)
 	return &summary
+}
+
+func buildControlProofStatusForSummary(statePath string, snapshot state.Snapshot, riskReport *risk.Report) ([]ControlProofStatus, error) {
+	chainPath := proofemit.ChainPath(state.ResolvePath(strings.TrimSpace(statePath)))
+	chain, err := proofemit.LoadChain(chainPath)
+	if err != nil {
+		return nil, fmt.Errorf("load proof chain: %w", err)
+	}
+
+	proofSnapshot := snapshot
+	if riskReport != nil {
+		reportCopy := *riskReport
+		proofSnapshot.RiskReport = &reportCopy
+	}
+	return BuildControlProofStatus(proofSnapshot, chain), nil
+}
+
+func sanitizeControlProofStatusPublic(in []ControlProofStatus, rawPaths []risk.ActionPath, sanitizedPaths []risk.ActionPath) []ControlProofStatus {
+	if len(in) == 0 {
+		return nil
+	}
+
+	pathIDMap := map[string]string{}
+	for idx := range rawPaths {
+		rawPathID := strings.TrimSpace(rawPaths[idx].PathID)
+		if rawPathID == "" {
+			continue
+		}
+		sanitizedPathID := redactValue("path", rawPathID, 8)
+		if idx < len(sanitizedPaths) && strings.TrimSpace(sanitizedPaths[idx].PathID) != "" {
+			sanitizedPathID = strings.TrimSpace(sanitizedPaths[idx].PathID)
+		}
+		pathIDMap[rawPathID] = sanitizedPathID
+	}
+
+	out := make([]ControlProofStatus, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		linkedPathID := strings.TrimSpace(copyItem.LinkedActionPathID)
+		if sanitizedPathID, ok := pathIDMap[linkedPathID]; ok {
+			copyItem.LinkedActionPathID = sanitizedPathID
+		} else if linkedPathID != "" {
+			copyItem.LinkedActionPathID = redactValue("path", linkedPathID, 8)
+		}
+		out = append(out, copyItem)
+	}
+	return out
 }
 
 type complianceSummaryError struct {

@@ -38,7 +38,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Fixed `wrkr report --json` to emit the documented top-level `runtime_evidence` field when runtime correlation data is available from the selected saved state.
+- [semver:patch] Fixed Agent Action BOM proof coverage to reflect missing path-level approval and control proof instead of treating any attached proof chain as complete coverage.
 
 ### Security
 
