@@ -34,7 +34,7 @@ const (
 	ActionClassDelete           = "delete"
 	ActionClassExecute          = "execute"
 	ActionClassEgress           = "egress"
-	ActionClassCredentialAccess = "credential_access"
+	ActionClassCredentialAccess = "credential_access" // #nosec G101 -- Deterministic action classification label, not a credential.
 )
 
 type GovernanceControlMapping struct {

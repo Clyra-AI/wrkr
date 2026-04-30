@@ -27,13 +27,13 @@ const (
 	CredentialScopeUnknown     = "unknown"
 
 	CredentialKindGitHubPAT      = "github_pat"
-	CredentialKindGitHubAppKey   = "github_app_key"
+	CredentialKindGitHubAppKey   = "github_app_key" // #nosec G101 -- Deterministic credential classification label, not a secret.
 	CredentialKindDeployKey      = "deploy_key"
 	CredentialKindCloudAdminKey  = "cloud_admin_key"
 	CredentialKindCloudAccessKey = "cloud_access_key"
-	CredentialKindOIDCWorkloadID = "oidc_workload_identity"
-	CredentialKindDelegatedOAuth = "delegated_oauth"
-	CredentialKindJITCredential  = "jit_credential"
+	CredentialKindOIDCWorkloadID = "oidc_workload_identity" // #nosec G101 -- Deterministic credential classification label, not a secret.
+	CredentialKindDelegatedOAuth = "delegated_oauth"        // #nosec G101 -- Deterministic credential classification label, not a secret.
+	CredentialKindJITCredential  = "jit_credential"         // #nosec G101 -- Deterministic credential classification label, not a secret.
 	CredentialKindInheritedHuman = "inherited_human"
 	CredentialKindStaticSecret   = "static_secret"
 	CredentialKindUnknownDurable = "unknown_durable"
