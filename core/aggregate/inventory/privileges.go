@@ -25,6 +25,26 @@ const (
 	CredentialScopeEnvironment = "environment"
 	CredentialScopeOrg         = "organization"
 	CredentialScopeUnknown     = "unknown"
+
+	CredentialKindGitHubPAT      = "github_pat"
+	CredentialKindGitHubAppKey   = "github_app_key"
+	CredentialKindDeployKey      = "deploy_key"
+	CredentialKindCloudAdminKey  = "cloud_admin_key"
+	CredentialKindCloudAccessKey = "cloud_access_key"
+	CredentialKindOIDCWorkloadID = "oidc_workload_identity"
+	CredentialKindDelegatedOAuth = "delegated_oauth"
+	CredentialKindJITCredential  = "jit_credential"
+	CredentialKindInheritedHuman = "inherited_human"
+	CredentialKindStaticSecret   = "static_secret"
+	CredentialKindUnknownDurable = "unknown_durable"
+	CredentialKindUnknown        = "unknown"
+
+	CredentialAccessTypeStanding  = "standing"
+	CredentialAccessTypeJIT       = "jit"
+	CredentialAccessTypeDelegated = "delegated"
+	CredentialAccessTypeWorkload  = "workload"
+	CredentialAccessTypeInherited = "inherited"
+	CredentialAccessTypeUnknown   = "unknown"
 )
 
 type ProductionWriteBudget struct {
@@ -34,12 +54,18 @@ type ProductionWriteBudget struct {
 }
 
 type CredentialProvenance struct {
-	Type           string   `json:"type" yaml:"type"`
-	Subject        string   `json:"subject,omitempty" yaml:"subject,omitempty"`
-	Scope          string   `json:"scope" yaml:"scope"`
-	Confidence     string   `json:"confidence" yaml:"confidence"`
-	EvidenceBasis  []string `json:"evidence_basis,omitempty" yaml:"evidence_basis,omitempty"`
-	RiskMultiplier float64  `json:"risk_multiplier" yaml:"risk_multiplier"`
+	Type                  string   `json:"type" yaml:"type"`
+	Subject               string   `json:"subject,omitempty" yaml:"subject,omitempty"`
+	Scope                 string   `json:"scope" yaml:"scope"`
+	Confidence            string   `json:"confidence" yaml:"confidence"`
+	EvidenceBasis         []string `json:"evidence_basis,omitempty" yaml:"evidence_basis,omitempty"`
+	CredentialKind        string   `json:"credential_kind,omitempty" yaml:"credential_kind,omitempty"`
+	AccessType            string   `json:"access_type,omitempty" yaml:"access_type,omitempty"`
+	StandingAccess        bool     `json:"standing_access" yaml:"standing_access"`
+	LikelyJIT             bool     `json:"likely_jit" yaml:"likely_jit"`
+	EvidenceLocation      string   `json:"evidence_location,omitempty" yaml:"evidence_location,omitempty"`
+	ClassificationReasons []string `json:"classification_reasons,omitempty" yaml:"classification_reasons,omitempty"`
+	RiskMultiplier        float64  `json:"risk_multiplier" yaml:"risk_multiplier"`
 }
 
 type PrivilegeBudget struct {
@@ -61,6 +87,8 @@ type AgentPrivilegeMapEntry struct {
 	Repos                    []string                   `json:"repos" yaml:"repos"`
 	Permissions              []string                   `json:"permissions" yaml:"permissions"`
 	WritePathClasses         []string                   `json:"write_path_classes,omitempty" yaml:"write_path_classes,omitempty"`
+	ActionClasses            []string                   `json:"action_classes,omitempty" yaml:"action_classes,omitempty"`
+	ActionReasons            []string                   `json:"action_reasons,omitempty" yaml:"action_reasons,omitempty"`
 	GovernanceControls       []GovernanceControlMapping `json:"governance_controls,omitempty" yaml:"governance_controls,omitempty"`
 	Location                 string                     `json:"location,omitempty" yaml:"location,omitempty"`
 	LocationRange            *model.LocationRange       `json:"location_range,omitempty" yaml:"location_range,omitempty"`
@@ -96,6 +124,8 @@ type AgentPrivilegeMapEntry struct {
 	WriteCapable             bool                       `json:"write_capable" yaml:"write_capable"`
 	CredentialAccess         bool                       `json:"credential_access" yaml:"credential_access"`
 	CredentialProvenance     *CredentialProvenance      `json:"credential_provenance,omitempty" yaml:"credential_provenance,omitempty"`
+	StandingPrivilege        bool                       `json:"standing_privilege,omitempty" yaml:"standing_privilege,omitempty"`
+	StandingPrivilegeReasons []string                   `json:"standing_privilege_reasons,omitempty" yaml:"standing_privilege_reasons,omitempty"`
 	ExecCapable              bool                       `json:"exec_capable" yaml:"exec_capable"`
 	ProductionWrite          bool                       `json:"production_write" yaml:"production_write"`
 	MatchedProductionTargets []string                   `json:"matched_production_targets,omitempty" yaml:"matched_production_targets,omitempty"`
@@ -110,7 +140,11 @@ func CloneCredentialProvenance(in *CredentialProvenance) *CredentialProvenance {
 	out.Subject = strings.TrimSpace(out.Subject)
 	out.Scope = strings.TrimSpace(out.Scope)
 	out.Confidence = strings.TrimSpace(out.Confidence)
+	out.CredentialKind = strings.TrimSpace(out.CredentialKind)
+	out.AccessType = strings.TrimSpace(out.AccessType)
+	out.EvidenceLocation = strings.TrimSpace(out.EvidenceLocation)
 	out.EvidenceBasis = append([]string(nil), in.EvidenceBasis...)
+	out.ClassificationReasons = append([]string(nil), in.ClassificationReasons...)
 	return &out
 }
 
@@ -122,27 +156,63 @@ func NormalizeCredentialProvenance(in *CredentialProvenance) *CredentialProvenan
 	out.Type = normalizeCredentialProvenanceType(out.Type)
 	out.Scope = normalizeCredentialScope(out.Scope)
 	out.Confidence = normalizeCredentialConfidence(out.Confidence)
+	out.CredentialKind = normalizeCredentialKind(out.CredentialKind, out.Type)
+	out.AccessType = normalizeCredentialAccessType(out.AccessType, out.CredentialKind, out.Type)
+	out.StandingAccess = inferStandingAccess(out.StandingAccess, out.AccessType, out.CredentialKind, out.Type)
+	out.LikelyJIT = inferLikelyJIT(out.LikelyJIT, out.AccessType, out.CredentialKind, out.Type)
 	if out.RiskMultiplier == 0 {
-		out.RiskMultiplier = CredentialRiskMultiplier(out.Type)
+		out.RiskMultiplier = CredentialRiskMultiplierFor(out)
 	}
 	out.EvidenceBasis = mergeCredentialEvidenceBasis(out.EvidenceBasis)
+	out.ClassificationReasons = mergeCredentialEvidenceBasis(out.ClassificationReasons)
 	return out
 }
 
 func CredentialRiskMultiplier(kind string) float64 {
-	switch normalizeCredentialProvenanceType(kind) {
-	case CredentialProvenanceStaticSecret:
+	return CredentialRiskMultiplierFor(&CredentialProvenance{Type: kind})
+}
+
+func CredentialRiskMultiplierFor(in *CredentialProvenance) float64 {
+	if in == nil {
+		return 1.0
+	}
+	normalized := CloneCredentialProvenance(in)
+	normalized.Type = normalizeCredentialProvenanceType(normalized.Type)
+	normalized.CredentialKind = normalizeCredentialKind(normalized.CredentialKind, normalized.Type)
+	normalized.AccessType = normalizeCredentialAccessType(normalized.AccessType, normalized.CredentialKind, normalized.Type)
+	normalized.StandingAccess = inferStandingAccess(normalized.StandingAccess, normalized.AccessType, normalized.CredentialKind, normalized.Type)
+	switch normalized.CredentialKind {
+	case CredentialKindCloudAdminKey:
+		return 1.30
+	case CredentialKindGitHubPAT, CredentialKindUnknownDurable:
+		return 1.20
+	case CredentialKindInheritedHuman:
+		return 1.15
+	case CredentialKindGitHubAppKey, CredentialKindDeployKey, CredentialKindCloudAccessKey, CredentialKindStaticSecret:
+		if normalized.StandingAccess {
+			return 1.10
+		}
 		return 1.05
-	case CredentialProvenanceInheritedHuman:
-		return 1.10
-	case CredentialProvenanceOAuthDelegation:
+	case CredentialKindDelegatedOAuth:
 		return 1.05
-	case CredentialProvenanceJIT:
-		return 1.00
-	case CredentialProvenanceWorkloadIdentity:
+	case CredentialKindOIDCWorkloadID, CredentialKindJITCredential:
 		return 1.00
 	default:
-		return 1.20
+		switch normalized.Type {
+		case CredentialProvenanceInheritedHuman:
+			return 1.10
+		case CredentialProvenanceStaticSecret:
+			return 1.05
+		case CredentialProvenanceOAuthDelegation:
+			return 1.05
+		case CredentialProvenanceWorkloadIdentity, CredentialProvenanceJIT:
+			return 1.00
+		default:
+			if normalized.StandingAccess {
+				return 1.20
+			}
+			return 1.10
+		}
 	}
 }
 
@@ -181,6 +251,105 @@ func normalizeCredentialConfidence(value string) string {
 	}
 }
 
+func normalizeCredentialKind(value string, provenanceType string) string {
+	switch strings.TrimSpace(value) {
+	case CredentialKindGitHubPAT,
+		CredentialKindGitHubAppKey,
+		CredentialKindDeployKey,
+		CredentialKindCloudAdminKey,
+		CredentialKindCloudAccessKey,
+		CredentialKindOIDCWorkloadID,
+		CredentialKindDelegatedOAuth,
+		CredentialKindJITCredential,
+		CredentialKindInheritedHuman,
+		CredentialKindStaticSecret,
+		CredentialKindUnknownDurable:
+		return strings.TrimSpace(value)
+	}
+
+	switch normalizeCredentialProvenanceType(provenanceType) {
+	case CredentialProvenanceStaticSecret:
+		return CredentialKindStaticSecret
+	case CredentialProvenanceWorkloadIdentity:
+		return CredentialKindOIDCWorkloadID
+	case CredentialProvenanceInheritedHuman:
+		return CredentialKindInheritedHuman
+	case CredentialProvenanceOAuthDelegation:
+		return CredentialKindDelegatedOAuth
+	case CredentialProvenanceJIT:
+		return CredentialKindJITCredential
+	default:
+		return CredentialKindUnknown
+	}
+}
+
+func normalizeCredentialAccessType(value string, credentialKind string, provenanceType string) string {
+	switch strings.TrimSpace(value) {
+	case CredentialAccessTypeStanding,
+		CredentialAccessTypeJIT,
+		CredentialAccessTypeDelegated,
+		CredentialAccessTypeWorkload,
+		CredentialAccessTypeInherited:
+		return strings.TrimSpace(value)
+	}
+
+	switch normalizeCredentialKind(credentialKind, provenanceType) {
+	case CredentialKindGitHubPAT,
+		CredentialKindGitHubAppKey,
+		CredentialKindDeployKey,
+		CredentialKindCloudAdminKey,
+		CredentialKindCloudAccessKey,
+		CredentialKindStaticSecret,
+		CredentialKindUnknownDurable:
+		return CredentialAccessTypeStanding
+	case CredentialKindOIDCWorkloadID:
+		return CredentialAccessTypeWorkload
+	case CredentialKindDelegatedOAuth:
+		return CredentialAccessTypeDelegated
+	case CredentialKindJITCredential:
+		return CredentialAccessTypeJIT
+	case CredentialKindInheritedHuman:
+		return CredentialAccessTypeInherited
+	default:
+		switch normalizeCredentialProvenanceType(provenanceType) {
+		case CredentialProvenanceWorkloadIdentity:
+			return CredentialAccessTypeWorkload
+		case CredentialProvenanceOAuthDelegation:
+			return CredentialAccessTypeDelegated
+		case CredentialProvenanceJIT:
+			return CredentialAccessTypeJIT
+		case CredentialProvenanceInheritedHuman:
+			return CredentialAccessTypeInherited
+		default:
+			return CredentialAccessTypeUnknown
+		}
+	}
+}
+
+func inferStandingAccess(current bool, accessType string, credentialKind string, provenanceType string) bool {
+	if current {
+		return true
+	}
+	switch normalizeCredentialAccessType(accessType, credentialKind, provenanceType) {
+	case CredentialAccessTypeStanding, CredentialAccessTypeInherited:
+		return true
+	default:
+		return false
+	}
+}
+
+func inferLikelyJIT(current bool, accessType string, credentialKind string, provenanceType string) bool {
+	if current {
+		return true
+	}
+	switch normalizeCredentialAccessType(accessType, credentialKind, provenanceType) {
+	case CredentialAccessTypeJIT, CredentialAccessTypeWorkload:
+		return true
+	default:
+		return false
+	}
+}
+
 func mergeCredentialEvidenceBasis(values []string) []string {
 	if len(values) == 0 {
 		return nil
@@ -203,4 +372,52 @@ func mergeCredentialEvidenceBasis(values []string) []string {
 		return nil
 	}
 	return out
+}
+
+func StandingPrivilegeFromProvenance(in *CredentialProvenance) (bool, []string) {
+	normalized := NormalizeCredentialProvenance(in)
+	if normalized == nil {
+		return false, nil
+	}
+
+	reasons := make([]string, 0, 8)
+	switch normalized.AccessType {
+	case CredentialAccessTypeStanding:
+		reasons = append(reasons, "access_type:standing")
+	case CredentialAccessTypeInherited:
+		reasons = append(reasons, "access_type:inherited")
+	case CredentialAccessTypeJIT:
+		reasons = append(reasons, "access_type:jit")
+	case CredentialAccessTypeWorkload:
+		reasons = append(reasons, "access_type:workload")
+	case CredentialAccessTypeDelegated:
+		reasons = append(reasons, "access_type:delegated")
+	}
+	if normalized.CredentialKind != "" && normalized.CredentialKind != CredentialKindUnknown {
+		reasons = append(reasons, "credential_kind:"+normalized.CredentialKind)
+	}
+	for _, item := range normalized.ClassificationReasons {
+		reasons = append(reasons, "classification:"+strings.TrimSpace(item))
+	}
+	for _, item := range normalized.EvidenceBasis {
+		if strings.TrimSpace(item) != "" {
+			reasons = append(reasons, "evidence:"+strings.TrimSpace(item))
+		}
+	}
+
+	standing := normalized.StandingAccess
+	if !standing {
+		switch normalized.CredentialKind {
+		case CredentialKindGitHubPAT,
+			CredentialKindGitHubAppKey,
+			CredentialKindDeployKey,
+			CredentialKindCloudAdminKey,
+			CredentialKindCloudAccessKey,
+			CredentialKindUnknownDurable,
+			CredentialKindInheritedHuman,
+			CredentialKindStaticSecret:
+			standing = true
+		}
+	}
+	return standing, mergeCredentialEvidenceBasis(reasons)
 }

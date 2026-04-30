@@ -78,6 +78,8 @@ type Item struct {
 	Capability               string                                  `json:"capability"`
 	Capabilities             []string                                `json:"capabilities,omitempty"`
 	WritePathClasses         []string                                `json:"write_path_classes,omitempty"`
+	ActionClasses            []string                                `json:"action_classes,omitempty"`
+	ActionReasons            []string                                `json:"action_reasons,omitempty"`
 	GovernanceControls       []agginventory.GovernanceControlMapping `json:"governance_controls,omitempty"`
 	Owner                    string                                  `json:"owner,omitempty"`
 	OwnerSource              string                                  `json:"owner_source,omitempty"`
@@ -103,6 +105,8 @@ type Item struct {
 	LinkedControlPathNodeIDs []string                                `json:"linked_control_path_node_ids,omitempty"`
 	LinkedControlPathEdgeIDs []string                                `json:"linked_control_path_edge_ids,omitempty"`
 	CredentialProvenance     *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
+	StandingPrivilege        bool                                    `json:"standing_privilege,omitempty"`
+	StandingPrivilegeReasons []string                                `json:"standing_privilege_reasons,omitempty"`
 	TrustDepth               *agginventory.TrustDepth                `json:"trust_depth,omitempty"`
 	SecurityTestRecipes      []SecurityTestRecipe                    `json:"security_test_recipes,omitempty"`
 }
@@ -251,6 +255,8 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		ControlPathType:          controlPathType(path.ToolType, path.Location, path.CredentialAccess, false),
 		Capabilities:             capabilitiesFromActionPath(path),
 		WritePathClasses:         writePathClassesFromActionPath(path),
+		ActionClasses:            append([]string(nil), path.ActionClasses...),
+		ActionReasons:            append([]string(nil), path.ActionReasons...),
 		GovernanceControls:       append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),
 		Owner:                    strings.TrimSpace(path.OperationalOwner),
 		OwnerSource:              strings.TrimSpace(path.OwnerSource),
@@ -269,6 +275,8 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		LinkedControlPathNodeIDs: append([]string(nil), graphRefs.nodeIDs...),
 		LinkedControlPathEdgeIDs: append([]string(nil), graphRefs.edgeIDs...),
 		CredentialProvenance:     agginventory.CloneCredentialProvenance(path.CredentialProvenance),
+		StandingPrivilege:        path.StandingPrivilege,
+		StandingPrivilegeReasons: append([]string(nil), path.StandingPrivilegeReasons...),
 		TrustDepth:               agginventory.CloneTrustDepth(path.TrustDepth),
 	}
 	item.LinkedFindingIDs = b.linkedFindingIDs(path.Org, path.Repo, path.Location)

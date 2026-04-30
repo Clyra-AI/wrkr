@@ -31,14 +31,15 @@ const (
 type Template string
 
 const (
-	TemplateExec          Template = "exec"
-	TemplateOperator      Template = "operator"
-	TemplateAudit         Template = "audit"
-	TemplatePublic        Template = "public"
-	TemplateCISO          Template = "ciso"
-	TemplateAppSec        Template = "appsec"
-	TemplatePlatform      Template = "platform"
-	TemplateCustomerDraft Template = "customer-draft"
+	TemplateExec           Template = "exec"
+	TemplateOperator       Template = "operator"
+	TemplateAudit          Template = "audit"
+	TemplatePublic         Template = "public"
+	TemplateCISO           Template = "ciso"
+	TemplateAppSec         Template = "appsec"
+	TemplatePlatform       Template = "platform"
+	TemplateCustomerDraft  Template = "customer-draft"
+	TemplateAgentActionBOM Template = "agent-action-bom"
 )
 
 type ShareProfile string
@@ -81,6 +82,7 @@ type Summary struct {
 	ComplianceSummary        compliance.RollupSummary               `json:"compliance_summary"`
 	ControlBacklog           *controlbacklog.Backlog                `json:"control_backlog,omitempty"`
 	RuntimeEvidence          *ingest.Summary                        `json:"runtime_evidence,omitempty"`
+	AgentActionBOM           *AgentActionBOM                        `json:"agent_action_bom,omitempty"`
 	Proof                    ProofReference                         `json:"proof"`
 	NextActions              []ChecklistItem                        `json:"next_actions"`
 	Activation               *ActivationSummary                     `json:"activation,omitempty"`
@@ -244,7 +246,7 @@ type ActivationItem struct {
 
 func ParseTemplate(raw string) (Template, bool) {
 	switch Template(raw) {
-	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic, TemplateCISO, TemplateAppSec, TemplatePlatform, TemplateCustomerDraft:
+	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic, TemplateCISO, TemplateAppSec, TemplatePlatform, TemplateCustomerDraft, TemplateAgentActionBOM:
 		return Template(raw), true
 	default:
 		return "", false

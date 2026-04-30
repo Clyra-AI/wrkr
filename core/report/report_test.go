@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -315,6 +317,151 @@ func TestRenderBacklogCSVIncludesClosureCriteriaAndSLA(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("expected csv to contain %q, got %q", want, text)
 		}
+	}
+}
+
+func TestBuildAgentActionBOMDerivesStableItemsFromSummary(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		SummaryVersion: SummaryVersion,
+		GeneratedAt:    "2026-04-29T19:33:12Z",
+		Proof: ProofReference{
+			ChainPath:            ".wrkr/proof-chain.json",
+			HeadHash:             "sha256:abc123",
+			CanonicalFindingKeys: []string{"finding:one"},
+		},
+		ActionPaths: []risk.ActionPath{
+			{
+				PathID:                   "apc-200000",
+				AgentID:                  "wrkr:agent-b:acme",
+				Org:                      "acme",
+				Repo:                     "acme/zebra",
+				ToolType:                 "compiled_action",
+				Location:                 ".github/workflows/release.yml",
+				WriteCapable:             true,
+				CredentialAccess:         true,
+				CredentialProvenance:     &agginventory.CredentialProvenance{Type: agginventory.CredentialProvenanceStaticSecret, CredentialKind: agginventory.CredentialKindGitHubPAT, AccessType: agginventory.CredentialAccessTypeStanding},
+				StandingPrivilege:        true,
+				ActionClasses:            []string{"deploy", "write", "credential_access"},
+				ActionReasons:            []string{"permission:deploy.write"},
+				ProductionWrite:          true,
+				MatchedProductionTargets: []string{"built_in:deploy_workflow"},
+				ApprovalGap:              true,
+				ApprovalGapReasons:       []string{"approval_source_missing"},
+				RecommendedAction:        "control",
+				OperationalOwner:         "@acme/release",
+				OwnershipStatus:          "explicit",
+				OwnershipState:           "explicit_owner",
+			},
+			{
+				PathID:               "apc-100000",
+				AgentID:              "wrkr:agent-a:acme",
+				Org:                  "acme",
+				Repo:                 "acme/alpha",
+				ToolType:             "mcp",
+				Location:             ".mcp.json",
+				WriteCapable:         false,
+				CredentialAccess:     true,
+				CredentialProvenance: &agginventory.CredentialProvenance{Type: agginventory.CredentialProvenanceJIT, CredentialKind: agginventory.CredentialKindJITCredential, AccessType: agginventory.CredentialAccessTypeJIT},
+				ActionClasses:        []string{"credential_access", "egress"},
+				RecommendedAction:    "proof",
+				OperationalOwner:     "@acme/platform",
+				OwnershipStatus:      "unresolved",
+				OwnershipState:       "missing",
+			},
+		},
+		ActionPathToControlFirst: &risk.ActionPathToControlFirst{
+			Summary: risk.ActionPathSummary{TotalPaths: 2, WriteCapablePaths: 1, ProductionTargetBackedPaths: 1},
+			Path:    risk.ActionPath{PathID: "apc-200000"},
+		},
+		ControlPathGraph: &aggattack.ControlPathGraph{
+			Version: "1",
+			Nodes: []aggattack.ControlPathNode{
+				{NodeID: "node-1", PathID: "apc-200000"},
+				{NodeID: "node-2", PathID: "apc-100000"},
+			},
+			Edges: []aggattack.ControlPathEdge{
+				{EdgeID: "edge-1", PathID: "apc-200000"},
+			},
+		},
+		RuntimeEvidence: &ingest.Summary{
+			Correlations: []ingest.Correlation{
+				{PathID: "apc-200000", Status: "matched", EvidenceClasses: []string{"approval"}, RecordIDs: []string{"rec-1"}},
+			},
+		},
+		ControlBacklog: &controlbacklog.Backlog{
+			Items: []controlbacklog.Item{
+				{LinkedActionPathID: "apc-200000", EvidenceBasis: []string{"rotation_evidence_missing"}},
+			},
+		},
+	}
+
+	first := BuildAgentActionBOM(summary)
+	second := BuildAgentActionBOM(summary)
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("expected stable BOM projection\nfirst=%+v\nsecond=%+v", first, second)
+	}
+	if first == nil {
+		t.Fatal("expected non-nil BOM")
+	}
+	if first.BOMID == "" || first.SchemaVersion != AgentActionBOMSchemaVersion {
+		t.Fatalf("unexpected BOM identity: %+v", first)
+	}
+	if len(first.Items) != 2 {
+		t.Fatalf("expected two BOM items, got %+v", first.Items)
+	}
+	if first.Items[0].PathID != "apc-200000" {
+		t.Fatalf("expected govern-first ordering to be preserved, got %+v", first.Items)
+	}
+	if first.Summary.ControlFirstItems != 1 || first.Summary.StandingPrivilegeItems != 1 || first.Summary.RuntimeProvenItems != 1 {
+		t.Fatalf("unexpected BOM summary counts: %+v", first.Summary)
+	}
+	if !containsStringValue(first.Items[0].GraphRefs.NodeIDs, "node-1") || !containsStringValue(first.Items[0].ProofRefs, "proof_head:sha256:abc123") {
+		t.Fatalf("expected graph/proof refs on BOM item, got %+v", first.Items[0])
+	}
+}
+
+func TestAgentActionBOMTemplateLeadsWithBOMSections(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:               "apc-123456",
+					AgentID:              "wrkr:ci:acme",
+					Org:                  "acme",
+					Repo:                 "acme/release",
+					ToolType:             "compiled_action",
+					Location:             ".github/workflows/release.yml",
+					WriteCapable:         true,
+					CredentialAccess:     true,
+					ActionClasses:        []string{"deploy", "write"},
+					ApprovalGap:          true,
+					RecommendedAction:    "control",
+					BusinessStateSurface: "deploy",
+				}},
+			},
+		},
+		Template:    TemplateAgentActionBOM,
+		GeneratedAt: time.Date(2026, 4, 29, 19, 33, 12, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.AgentActionBOM == nil {
+		t.Fatalf("expected agent_action_bom on summary, got %+v", summary)
+	}
+	markdown := RenderMarkdown(summary)
+	bomIdx := strings.Index(markdown, "## Agent Action BOM")
+	topRiskIdx := strings.Index(markdown, "Top risky agent action BOM items")
+	if bomIdx < 0 {
+		t.Fatalf("expected BOM section in markdown, got %q", markdown)
+	}
+	if topRiskIdx >= 0 && bomIdx > topRiskIdx {
+		t.Fatalf("expected BOM section to lead before raw sections, got %q", markdown)
 	}
 }
 

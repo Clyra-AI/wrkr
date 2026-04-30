@@ -58,7 +58,7 @@
     "summary": {
       "total_paths": 5,
       "write_capable_paths": 2,
-      "production_target_backed_paths": 0,
+      "production_target_backed_paths": 2,
       "govern_first_paths": 3
     },
     "path": {
@@ -72,7 +72,7 @@
   "assessment_summary": {
     "governable_path_count": 5,
     "write_capable_path_count": 2,
-    "production_target_backed_path_count": 0,
+    "production_target_backed_path_count": 2,
     "ownerless_exposure": {
       "explicit_owner_paths": 3,
       "inferred_owner_paths": 2,

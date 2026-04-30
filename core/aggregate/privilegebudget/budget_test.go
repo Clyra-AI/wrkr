@@ -111,18 +111,18 @@ func TestBuildComputesPrivilegeBudgetAndPerAgentMap(t *testing.T) {
 	}
 }
 
-func TestBuildWithoutRulesLeavesProductionWriteUnconfigured(t *testing.T) {
+func TestBuildWithoutRulesUsesBuiltInProductionTargetPacks(t *testing.T) {
 	t.Parallel()
 
 	budget, entries := Build([]agginventory.Tool{}, nil, nil, nil)
-	if budget.ProductionWrite.Configured {
-		t.Fatal("expected production_write.configured=false when no rules provided")
+	if !budget.ProductionWrite.Configured {
+		t.Fatal("expected production_write.configured=true from built-in packs")
 	}
-	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusNotConfigured {
-		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusNotConfigured, budget.ProductionWrite.Status)
+	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusConfigured {
+		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusConfigured, budget.ProductionWrite.Status)
 	}
-	if budget.ProductionWrite.Count != nil {
-		t.Fatalf("expected nil production count when not configured, got %v", *budget.ProductionWrite.Count)
+	if budget.ProductionWrite.Count == nil || *budget.ProductionWrite.Count != 0 {
+		t.Fatalf("expected production count 0 when no targets matched, got %v", budget.ProductionWrite.Count)
 	}
 	if len(entries) != 0 {
 		t.Fatalf("expected no entries, got %d", len(entries))
@@ -306,6 +306,43 @@ func TestBuildClassifiesStaticSecretCredentialProvenance(t *testing.T) {
 	}
 }
 
+func TestCredentialKindClassifierDoesNotRequireSecretValues(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{{
+		ToolID:      "tool-1",
+		AgentID:     "wrkr:ci:acme",
+		ToolType:    "ci_agent",
+		Org:         "acme",
+		Repos:       []string{"acme/release"},
+		Permissions: []string{"deploy.write", "secret.read"},
+		DataClass:   "credentials",
+		Locations:   []agginventory.ToolLocation{{Repo: "acme/release", Location: ".github/workflows/release.yml"}},
+	}}
+	findings := []model.Finding{{
+		FindingType: "secret_presence",
+		ToolType:    "secret",
+		Location:    ".github/workflows/release.yml",
+		Repo:        "acme/release",
+		Org:         "acme",
+		Evidence: []model.Evidence{
+			{Key: "workflow_secret_refs", Value: "GH_APP_PRIVATE_KEY"},
+			{Key: "credential_subject", Value: "GH_APP_PRIVATE_KEY"},
+		},
+	}}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 || entries[0].CredentialProvenance == nil {
+		t.Fatalf("expected one classified entry, got %+v", entries)
+	}
+	if entries[0].CredentialProvenance.CredentialKind != agginventory.CredentialKindGitHubAppKey {
+		t.Fatalf("expected github_app_key classification, got %+v", entries[0].CredentialProvenance)
+	}
+	if entries[0].CredentialProvenance.AccessType != agginventory.CredentialAccessTypeStanding {
+		t.Fatalf("expected standing access type, got %+v", entries[0].CredentialProvenance)
+	}
+}
+
 func TestBuildClassifiesWorkloadIdentityCredentialProvenance(t *testing.T) {
 	t.Parallel()
 
@@ -341,6 +378,45 @@ func TestBuildClassifiesWorkloadIdentityCredentialProvenance(t *testing.T) {
 	}
 	if entries[0].CredentialProvenance == nil || entries[0].CredentialProvenance.Type != agginventory.CredentialProvenanceWorkloadIdentity {
 		t.Fatalf("expected workload_identity provenance, got %+v", entries[0].CredentialProvenance)
+	}
+}
+
+func TestBuildDerivesActionClassesAndStandingPrivilegeFromCredentialSignals(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{{
+		ToolID:      "tool-1",
+		AgentID:     "wrkr:ci:acme",
+		ToolType:    "ci_agent",
+		Org:         "acme",
+		Repos:       []string{"acme/release"},
+		Permissions: []string{"deploy.write", "secret.read"},
+		DataClass:   "credentials",
+		Locations:   []agginventory.ToolLocation{{Repo: "acme/release", Location: ".github/workflows/release.yml"}},
+	}}
+	findings := []model.Finding{{
+		FindingType: "secret_presence",
+		ToolType:    "secret",
+		Location:    ".github/workflows/release.yml",
+		Repo:        "acme/release",
+		Org:         "acme",
+		Evidence: []model.Evidence{
+			{Key: "workflow_secret_refs", Value: "PROD_DEPLOY_PAT"},
+		},
+	}}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one entry, got %+v", entries)
+	}
+	entry := entries[0]
+	for _, want := range []string{"deploy", "write", "credential_access"} {
+		if !containsString(entry.ActionClasses, want) {
+			t.Fatalf("expected action class %q in %+v", want, entry.ActionClasses)
+		}
+	}
+	if !entry.StandingPrivilege || len(entry.StandingPrivilegeReasons) == 0 {
+		t.Fatalf("expected standing privilege reasoning, got %+v", entry)
 	}
 }
 

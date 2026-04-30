@@ -164,6 +164,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ExposureGroups:           exposureGroups,
 		SourcePrivacy:            sourcePrivacy,
 	}
+	if shareProfile == ShareProfilePublic {
+		summary.AgentActionBOM = BuildAgentActionBOM(summary)
+	} else {
+		summary.AgentActionBOM = buildAgentActionBOMFromSnapshot(summary, in.Snapshot)
+	}
 
 	return summary, nil
 }

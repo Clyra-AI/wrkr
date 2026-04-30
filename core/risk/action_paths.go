@@ -41,6 +41,8 @@ type ActionPath struct {
 	OwnershipConflicts         []string                                `json:"ownership_conflicts,omitempty"`
 	ApprovalGapReasons         []string                                `json:"approval_gap_reasons,omitempty"`
 	WritePathClasses           []string                                `json:"write_path_classes,omitempty"`
+	ActionClasses              []string                                `json:"action_classes,omitempty"`
+	ActionReasons              []string                                `json:"action_reasons,omitempty"`
 	PullRequestWrite           bool                                    `json:"pull_request_write,omitempty"`
 	MergeExecute               bool                                    `json:"merge_execute,omitempty"`
 	DeployWrite                bool                                    `json:"deploy_write,omitempty"`
@@ -62,6 +64,7 @@ type ActionPath struct {
 	BusinessStateSurface       string                                  `json:"business_state_surface,omitempty"`
 	SharedExecutionIdentity    bool                                    `json:"shared_execution_identity,omitempty"`
 	StandingPrivilege          bool                                    `json:"standing_privilege,omitempty"`
+	StandingPrivilegeReasons   []string                                `json:"standing_privilege_reasons,omitempty"`
 	AttackPathScore            float64                                 `json:"attack_path_score"`
 	RiskScore                  float64                                 `json:"risk_score"`
 	RecommendedAction          string                                  `json:"recommended_action"`
@@ -156,6 +159,7 @@ func buildActionPath(
 ) ActionPath {
 	executionIdentity, executionIdentityType, executionIdentitySource, executionIdentityStatus, executionIdentityRationale := correlateExecutionIdentity(entry, identities)
 	provenance := agginventory.NormalizeCredentialProvenance(entry.CredentialProvenance)
+	standingPrivilege, standingReasons := agginventory.StandingPrivilegeFromProvenance(provenance)
 	path := ActionPath{
 		PathID:                     actionPathID(entry),
 		Org:                        strings.TrimSpace(entry.Org),
@@ -173,6 +177,8 @@ func buildActionPath(
 		OwnershipConflicts:         dedupeSortedStrings(entry.OwnershipConflicts),
 		ApprovalGapReasons:         dedupeSortedStrings(entry.ApprovalGapReasons),
 		WritePathClasses:           dedupeSortedStrings(entry.WritePathClasses),
+		ActionClasses:              dedupeSortedStrings(entry.ActionClasses),
+		ActionReasons:              dedupeSortedStrings(entry.ActionReasons),
 		PullRequestWrite:           entry.PullRequestWrite,
 		MergeExecute:               entry.MergeExecute,
 		DeployWrite:                entry.DeployWrite,
@@ -194,6 +200,8 @@ func buildActionPath(
 		BusinessStateSurface:       classifyBusinessStateSurface(entry),
 		AttackPathScore:            attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
 		RiskScore:                  actionPathRiskScore(entry.RiskScore, provenance),
+		StandingPrivilege:          entry.StandingPrivilege || standingPrivilege,
+		StandingPrivilegeReasons:   dedupeSortedStrings(append(append([]string(nil), entry.StandingPrivilegeReasons...), standingReasons...)),
 		MatchedProductionTargets:   dedupeSortedStrings(entry.MatchedProductionTargets),
 		GovernanceControls:         append([]agginventory.GovernanceControlMapping(nil), entry.GovernanceControls...),
 	}
@@ -351,6 +359,8 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.RiskScore = maxFloat64(current.RiskScore, incoming.RiskScore)
 	merged.ApprovalGapReasons = dedupeSortedStrings(append(append([]string(nil), current.ApprovalGapReasons...), incoming.ApprovalGapReasons...))
 	merged.WritePathClasses = dedupeSortedStrings(append(append([]string(nil), current.WritePathClasses...), incoming.WritePathClasses...))
+	merged.ActionClasses = dedupeSortedStrings(append(append([]string(nil), current.ActionClasses...), incoming.ActionClasses...))
+	merged.ActionReasons = dedupeSortedStrings(append(append([]string(nil), current.ActionReasons...), incoming.ActionReasons...))
 	merged.MatchedProductionTargets = dedupeSortedStrings(append(append([]string(nil), current.MatchedProductionTargets...), incoming.MatchedProductionTargets...))
 	merged.ProductionTargetStatus = mergeProductionTargetStatus(current.ProductionTargetStatus, incoming.ProductionTargetStatus)
 	merged.SecurityVisibilityStatus = mergeSecurityVisibilityStatus(current.SecurityVisibilityStatus, incoming.SecurityVisibilityStatus)
@@ -363,6 +373,8 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.OwnershipConflicts = dedupeSortedStrings(append(append([]string(nil), current.OwnershipConflicts...), incoming.OwnershipConflicts...))
 	merged.ExecutionIdentity, merged.ExecutionIdentityType, merged.ExecutionIdentitySource, merged.ExecutionIdentityStatus, merged.ExecutionIdentityRationale = mergeExecutionIdentity(current, incoming)
 	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
+	merged.StandingPrivilege = current.StandingPrivilege || incoming.StandingPrivilege
+	merged.StandingPrivilegeReasons = dedupeSortedStrings(append(append([]string(nil), current.StandingPrivilegeReasons...), incoming.StandingPrivilegeReasons...))
 	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
 	merged.RecommendedAction = recommendedActionForPath(merged)
 	return merged
@@ -533,19 +545,34 @@ func credentialProvenancePriority(provenance *agginventory.CredentialProvenance)
 	if normalized == nil {
 		return 0
 	}
-	switch normalized.Type {
-	case agginventory.CredentialProvenanceUnknown:
+	switch normalized.CredentialKind {
+	case agginventory.CredentialKindCloudAdminKey:
+		return 7
+	case agginventory.CredentialKindGitHubPAT, agginventory.CredentialKindUnknownDurable:
+		return 6
+	case agginventory.CredentialKindInheritedHuman:
 		return 5
-	case agginventory.CredentialProvenanceInheritedHuman:
+	case agginventory.CredentialKindGitHubAppKey, agginventory.CredentialKindDeployKey, agginventory.CredentialKindCloudAccessKey, agginventory.CredentialKindStaticSecret:
 		return 4
-	case agginventory.CredentialProvenanceStaticSecret:
-		return 3
-	case agginventory.CredentialProvenanceOAuthDelegation:
+	case agginventory.CredentialKindDelegatedOAuth:
 		return 2
-	case agginventory.CredentialProvenanceWorkloadIdentity, agginventory.CredentialProvenanceJIT:
+	case agginventory.CredentialKindOIDCWorkloadID, agginventory.CredentialKindJITCredential:
 		return 1
 	default:
-		return 0
+		switch normalized.Type {
+		case agginventory.CredentialProvenanceUnknown:
+			return 5
+		case agginventory.CredentialProvenanceInheritedHuman:
+			return 4
+		case agginventory.CredentialProvenanceStaticSecret:
+			return 3
+		case agginventory.CredentialProvenanceOAuthDelegation:
+			return 2
+		case agginventory.CredentialProvenanceWorkloadIdentity, agginventory.CredentialProvenanceJIT:
+			return 1
+		default:
+			return 0
+		}
 	}
 }
 
@@ -828,6 +855,9 @@ func governFirstPriorityScore(path ActionPath) int {
 		score += 4
 	}
 	score += credentialProvenancePriority(path.CredentialProvenance)
+	if path.StandingPrivilege {
+		score += 6
+	}
 	if path.ApprovalGap {
 		score += 4
 	}

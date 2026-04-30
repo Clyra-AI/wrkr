@@ -95,7 +95,7 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 	statePathFlag := fs.String("state", "", "state file path override")
 	summaryMD := fs.Bool("summary-md", false, "emit deterministic markdown drift summary artifact")
 	summaryMDPath := fs.String("summary-md-path", "wrkr-regress-summary.md", "regress summary markdown output path")
-	reportTemplate := fs.String("template", "operator", "summary template [exec|operator|audit|public]")
+	reportTemplate := fs.String("template", "operator", "summary template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom]")
 	reportShareProfile := fs.String("share-profile", "internal", "summary share profile [internal|public]")
 	reportTop := fs.Int("top", 5, "number of top findings included in regress summary artifact")
 

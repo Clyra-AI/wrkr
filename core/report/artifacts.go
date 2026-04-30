@@ -19,6 +19,7 @@ type EvidenceBundle struct {
 	ControlBacklog      *controlbacklog.Backlog     `json:"control_backlog,omitempty"`
 	ControlPathGraph    *aggattack.ControlPathGraph `json:"control_path_graph,omitempty"`
 	RuntimeEvidence     *ingest.Summary             `json:"runtime_evidence,omitempty"`
+	AgentActionBOM      *AgentActionBOM             `json:"agent_action_bom,omitempty"`
 	ComplianceSummary   any                         `json:"compliance_summary"`
 	Proof               ProofReference              `json:"proof"`
 	NextActions         []ChecklistItem             `json:"next_actions"`
@@ -33,6 +34,7 @@ func BuildEvidenceBundle(summary Summary) EvidenceBundle {
 		ControlBacklog:      summary.ControlBacklog,
 		ControlPathGraph:    summary.ControlPathGraph,
 		RuntimeEvidence:     summary.RuntimeEvidence,
+		AgentActionBOM:      summary.AgentActionBOM,
 		ComplianceSummary:   summary.ComplianceSummary,
 		Proof:               summary.Proof,
 		NextActions:         append([]ChecklistItem(nil), summary.NextActions...),

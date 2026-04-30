@@ -37,10 +37,11 @@ func Build(
 	productionRules *productiontargets.Config,
 ) (agginventory.PrivilegeBudget, []agginventory.AgentPrivilegeMapEntry) {
 	writeSet := mapFromList(productiontargets.DefaultWritePermissions())
-	productionConfigured := false
+	productionConfigured := true
+	effectiveProductionRules := productiontargets.Config{}
 	if productionRules != nil {
 		writeSet = mapFromList(productionRules.WritePermissions)
-		productionConfigured = productionRules.HasTargets()
+		effectiveProductionRules = *productionRules
 	}
 
 	signalsByAgent := buildSignalsByAgent(findings)
@@ -49,15 +50,12 @@ func Build(
 		TotalTools: len(tools),
 		ProductionWrite: agginventory.ProductionWriteBudget{
 			Configured: productionConfigured,
-			Status:     agginventory.ProductionTargetsStatusNotConfigured,
+			Status:     agginventory.ProductionTargetsStatusConfigured,
 			Count:      nil,
 		},
 	}
-	if productionConfigured {
-		zero := 0
-		budget.ProductionWrite.Status = agginventory.ProductionTargetsStatusConfigured
-		budget.ProductionWrite.Count = &zero
-	}
+	zero := 0
+	budget.ProductionWrite.Count = &zero
 
 	for _, tool := range tools {
 		writeCapable := hasAnyPermission(tool.Permissions, writeSet)
@@ -76,7 +74,7 @@ func Build(
 		productionWrite := false
 		if productionConfigured && writeCapable {
 			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation)
-			productionWrite = len(matchedProductionTargets(tool.Repos, signal, *productionRules)) > 0
+			productionWrite = len(matchedProductionTargets(tool.Repos, signal, effectiveProductionRules)) > 0
 			if productionWrite && budget.ProductionWrite.Count != nil {
 				*budget.ProductionWrite.Count = *budget.ProductionWrite.Count + 1
 			}
@@ -99,7 +97,7 @@ func Build(
 			productionWrite := false
 			if productionConfigured && writeCapable {
 				signal := signalsByAgent[tool.AgentID]
-				matchedTargets = matchedProductionTargets(tool.Repos, signal, *productionRules)
+				matchedTargets = matchedProductionTargets(tool.Repos, signal, effectiveProductionRules)
 				productionWrite = len(matchedTargets) > 0
 				writePathClasses = agginventory.DeriveWritePathClasses(tool.Permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite, primaryLocation(tool), tool.ToolType)
 			}
@@ -111,6 +109,18 @@ func Build(
 			}
 			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation)
 			credentialProvenance := classifyCredentialProvenance(tool.DataClass, tool.Permissions, agentContext.BoundAuthSurfaces, signal)
+			actionClasses, actionReasons := agginventory.DeriveActionClasses(agginventory.ActionClassInput{
+				Permissions:      tool.Permissions,
+				WritePathClasses: writePathClasses,
+				WriteCapable:     writeCapable,
+				CredentialAccess: credentialAccess,
+				DeployWrite:      deployWrite,
+				ProductionWrite:  productionWrite,
+				MatchedTargets:   matchedTargets,
+				ToolType:         tool.ToolType,
+				Location:         primaryLocation(tool),
+			})
+			standingPrivilege, standingReasons := agginventory.StandingPrivilegeFromProvenance(credentialProvenance)
 			approvalReasons := approvalGapReasons(signal, tool.Permissions, deploymentStatus)
 			triggerClass := workflowTriggerClass(signal, tool.Permissions, deploymentStatus, deployWrite, productionWrite)
 			owner := resolveOperationalOwner(tool, tool.Repos, "", tool.Org)
@@ -124,6 +134,8 @@ func Build(
 				Repos:                    cloneStringSlice(tool.Repos),
 				Permissions:              cloneStringSlice(tool.Permissions),
 				WritePathClasses:         writePathClasses,
+				ActionClasses:            actionClasses,
+				ActionReasons:            actionReasons,
 				Location:                 primaryLocation(tool),
 				EndpointClass:            tool.EndpointClass,
 				DataClass:                tool.DataClass,
@@ -156,6 +168,8 @@ func Build(
 				WriteCapable:             writeCapable,
 				CredentialAccess:         credentialAccess,
 				CredentialProvenance:     credentialProvenance,
+				StandingPrivilege:        standingPrivilege,
+				StandingPrivilegeReasons: standingReasons,
 				ExecCapable:              execCapable,
 				ProductionWrite:          productionWrite,
 				MatchedProductionTargets: append([]string(nil), matchedTargets...),
@@ -228,6 +242,11 @@ func buildInstanceEntries(
 	productionConfigured bool,
 ) []agginventory.AgentPrivilegeMapEntry {
 	signalsByInstance := buildSignalsByInstance(findings)
+	signalsByRepoLocation := buildSignalsByRepoLocation(findings)
+	effectiveProductionRules := productiontargets.Config{}
+	if productionRules != nil {
+		effectiveProductionRules = *productionRules
+	}
 	toolIndex := buildToolIndex(tools)
 	entries := make([]agginventory.AgentPrivilegeMapEntry, 0, len(agents))
 
@@ -237,7 +256,10 @@ func buildInstanceEntries(
 			continue
 		}
 		tool := lookupToolForAgent(agent, toolIndex)
-		signals := signalsByInstance[instanceID]
+		signals := mergeFindingSignalSets(
+			signalsByInstance[instanceID],
+			matchingSignalsForAgent(agent, tool, signalsByRepoLocation),
+		)
 		permissions := cloneStringSlice(signals.Permissions)
 		if len(permissions) == 0 {
 			permissions = cloneStringSlice(tool.Permissions)
@@ -277,8 +299,8 @@ func buildInstanceEntries(
 		writePathClasses := agginventory.DeriveWritePathClasses(permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, false, agent.Location, framework)
 		matchedTargets := []string{}
 		productionWrite := false
-		if productionConfigured && productionRules != nil && writeCapable {
-			matchedTargets = matchedProductionTargets(repos, signals, *productionRules)
+		if productionConfigured && writeCapable {
+			matchedTargets = matchedProductionTargets(repos, signals, effectiveProductionRules)
 			productionWrite = len(matchedTargets) > 0
 			writePathClasses = agginventory.DeriveWritePathClasses(permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite, agent.Location, framework)
 		}
@@ -288,6 +310,18 @@ func buildInstanceEntries(
 			deploymentStatus = "unknown"
 		}
 		credentialProvenance := classifyCredentialProvenance(dataClass, permissions, agent.BoundAuthSurfaces, signals)
+		actionClasses, actionReasons := agginventory.DeriveActionClasses(agginventory.ActionClassInput{
+			Permissions:      permissions,
+			WritePathClasses: writePathClasses,
+			WriteCapable:     writeCapable,
+			CredentialAccess: credentialAccess,
+			DeployWrite:      deployWrite,
+			ProductionWrite:  productionWrite,
+			MatchedTargets:   matchedTargets,
+			ToolType:         framework,
+			Location:         agent.Location,
+		})
+		standingPrivilege, standingReasons := agginventory.StandingPrivilegeFromProvenance(credentialProvenance)
 		approvalReasons := approvalGapReasons(signals, permissions, deploymentStatus)
 		triggerClass := workflowTriggerClass(signals, permissions, deploymentStatus, deployWrite, productionWrite)
 		owner := resolveOperationalOwner(tool, repos, strings.TrimSpace(agent.Location), org)
@@ -303,6 +337,8 @@ func buildInstanceEntries(
 			Repos:                    repos,
 			Permissions:              permissions,
 			WritePathClasses:         writePathClasses,
+			ActionClasses:            actionClasses,
+			ActionReasons:            actionReasons,
 			Location:                 strings.TrimSpace(agent.Location),
 			LocationRange:            cloneLocationRange(agent.LocationRange),
 			EndpointClass:            endpointClass,
@@ -336,6 +372,8 @@ func buildInstanceEntries(
 			WriteCapable:             writeCapable,
 			CredentialAccess:         credentialAccess,
 			CredentialProvenance:     credentialProvenance,
+			StandingPrivilege:        standingPrivilege,
+			StandingPrivilegeReasons: standingReasons,
 			ExecCapable:              execCapable,
 			ProductionWrite:          productionWrite,
 			MatchedProductionTargets: append([]string(nil), matchedTargets...),
@@ -443,6 +481,20 @@ func normalizeFindingSignals(entry findingSignals) findingSignals {
 		entry.EvidenceKV[key] = dedupeSorted(values)
 	}
 	return entry
+}
+
+func mergeFindingSignalSets(groups ...findingSignals) findingSignals {
+	merged := findingSignals{EvidenceKV: map[string][]string{}}
+	for _, group := range groups {
+		merged.Repos = append(merged.Repos, group.Repos...)
+		merged.Locations = append(merged.Locations, group.Locations...)
+		merged.Permissions = append(merged.Permissions, group.Permissions...)
+		merged.Values = append(merged.Values, group.Values...)
+		for key, values := range group.EvidenceKV {
+			merged.EvidenceKV[key] = append(merged.EvidenceKV[key], values...)
+		}
+	}
+	return normalizeFindingSignals(merged)
 }
 
 func isEmptyFindingSignals(entry findingSignals) bool {
@@ -695,25 +747,103 @@ func matchingSignalsForTool(tool agginventory.Tool, signalsByAgent map[string]fi
 	return signalsByRepoLocation[repoLocationSignalKey(tool.Org, "", location)]
 }
 
+func matchingSignalsForAgent(agent agginventory.Agent, tool agginventory.Tool, signalsByRepoLocation map[string]findingSignals) findingSignals {
+	location := strings.TrimSpace(agent.Location)
+	if location == "" {
+		location = strings.TrimSpace(primaryLocation(tool))
+	}
+	if location == "" {
+		return findingSignals{}
+	}
+
+	repos := []string{}
+	if strings.TrimSpace(agent.Repo) != "" {
+		repos = append(repos, strings.TrimSpace(agent.Repo))
+	}
+	repos = append(repos, tool.Repos...)
+	repos = dedupeSortedPreserveCase(repos)
+
+	merged := findingSignals{}
+	for _, repo := range repos {
+		merged = mergeFindingSignalSets(merged, filteredRepoLocationSignals(signalsByRepoLocation[repoLocationSignalKey(agent.Org, repo, location)]))
+	}
+	return mergeFindingSignalSets(merged, filteredRepoLocationSignals(signalsByRepoLocation[repoLocationSignalKey(agent.Org, "", location)]))
+}
+
+func filteredRepoLocationSignals(signal findingSignals) findingSignals {
+	if isEmptyFindingSignals(signal) {
+		return findingSignals{}
+	}
+	out := findingSignals{
+		Repos:      append([]string(nil), signal.Repos...),
+		Locations:  append([]string(nil), signal.Locations...),
+		Values:     []string{},
+		EvidenceKV: map[string][]string{},
+	}
+	allowedKeys := map[string]struct{}{
+		"workflow_secret_refs":       {},
+		"credential_keys":            {},
+		"credential_provenance_type": {},
+		"credential_subject":         {},
+		"credential_scope":           {},
+		"credential_confidence":      {},
+		"identity_type":              {},
+		"subject":                    {},
+		"workflow_triggers":          {},
+		"approval_source":            {},
+		"deployment_gate":            {},
+		"human_gate":                 {},
+		"auto_deploy":                {},
+		"proof_requirement":          {},
+		"env_key":                    {},
+		"env_value":                  {},
+		"server":                     {},
+		"url":                        {},
+	}
+	for key, values := range signal.EvidenceKV {
+		if _, ok := allowedKeys[key]; !ok {
+			continue
+		}
+		out.EvidenceKV[key] = append([]string(nil), values...)
+		out.Values = append(out.Values, key)
+		out.Values = append(out.Values, values...)
+	}
+	out.Values = append(out.Values, out.Repos...)
+	out.Values = append(out.Values, out.Locations...)
+	return normalizeFindingSignals(out)
+}
+
 func matchedProductionTargets(
 	repos []string,
 	signals findingSignals,
 	rules productiontargets.Config,
 ) []string {
 	matches := map[string]struct{}{}
-	addMatchSet(matches, "repo", rules.Targets.Repos, append(append([]string(nil), repos...), signals.Repos...))
-	addMatchSet(matches, "mcp_server", rules.Targets.MCPServers, signals.EvidenceKV["server"])
-	hostCandidates := append([]string{}, signals.EvidenceKV["url"]...)
-	hostCandidates = append(hostCandidates, signals.Values...)
-	addMatchSet(matches, "host", rules.Targets.Hosts, hostCandidates)
+	if rules.HasTargets() {
+		addMatchSet(matches, "repo", rules.Targets.Repos, append(append([]string(nil), repos...), signals.Repos...))
+		addMatchSet(matches, "mcp_server", rules.Targets.MCPServers, signals.EvidenceKV["server"])
+		hostCandidates := append([]string{}, signals.EvidenceKV["url"]...)
+		hostCandidates = append(hostCandidates, signals.Values...)
+		addMatchSet(matches, "host", rules.Targets.Hosts, hostCandidates)
 
-	envKeyCandidates := append([]string{}, signals.EvidenceKV["env_key"]...)
-	envKeyCandidates = append(envKeyCandidates, signals.Values...)
-	addMatchSet(matches, "workflow_env_key", rules.Targets.WorkflowEnvKeys, envKeyCandidates)
+		envKeyCandidates := append([]string{}, signals.EvidenceKV["env_key"]...)
+		envKeyCandidates = append(envKeyCandidates, signals.Values...)
+		addMatchSet(matches, "workflow_env_key", rules.Targets.WorkflowEnvKeys, envKeyCandidates)
 
-	envValueCandidates := append([]string{}, signals.EvidenceKV["env_value"]...)
-	envValueCandidates = append(envValueCandidates, signals.Values...)
-	addMatchSet(matches, "workflow_env_value", rules.Targets.WorkflowEnvValues, envValueCandidates)
+		envValueCandidates := append([]string{}, signals.EvidenceKV["env_value"]...)
+		envValueCandidates = append(envValueCandidates, signals.Values...)
+		addMatchSet(matches, "workflow_env_value", rules.Targets.WorkflowEnvValues, envValueCandidates)
+	}
+
+	for _, item := range productiontargets.MatchBuiltInTargets(productiontargets.BuiltInMatchInput{
+		Repos:       append(append([]string(nil), repos...), signals.Repos...),
+		Locations:   append([]string(nil), signals.Locations...),
+		Permissions: append([]string(nil), signals.Permissions...),
+		Values:      append([]string(nil), signals.Values...),
+		EvidenceKV:  signals.EvidenceKV,
+	}) {
+		matches[item] = struct{}{}
+	}
 
 	out := make([]string, 0, len(matches))
 	for item := range matches {
@@ -835,77 +965,130 @@ func classifyCredentialProvenance(dataClass string, permissions []string, authSu
 	}
 
 	scope := inferredCredentialScope(signals, authSurfaces)
+	evidenceLocation := credentialEvidenceLocation(signals)
 	switch {
 	case len(signals.EvidenceKV["credential_keys"]) > 0:
+		subject := strings.Join(signals.EvidenceKV["credential_keys"], ",")
+		kind, accessType, reasons := classifyCredentialKind(subject, authSurfaces, permissions, signals)
 		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-			Type:           agginventory.CredentialProvenanceStaticSecret,
-			Subject:        strings.Join(signals.EvidenceKV["credential_keys"], ","),
-			Scope:          scope,
-			Confidence:     "high",
-			EvidenceBasis:  []string{"credential_keys"},
-			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+			Type:                  credentialProvenanceTypeFor(kind, accessType),
+			Subject:               subject,
+			Scope:                 scope,
+			Confidence:            "high",
+			EvidenceBasis:         []string{"credential_keys"},
+			CredentialKind:        kind,
+			AccessType:            accessType,
+			EvidenceLocation:      evidenceLocation,
+			ClassificationReasons: reasons,
 		})
 	case len(signals.EvidenceKV["workflow_secret_refs"]) > 0:
+		subject := strings.Join(signals.EvidenceKV["workflow_secret_refs"], ",")
+		kind, accessType, reasons := classifyCredentialKind(subject, authSurfaces, permissions, signals)
 		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-			Type:           agginventory.CredentialProvenanceStaticSecret,
-			Subject:        strings.Join(signals.EvidenceKV["workflow_secret_refs"], ","),
-			Scope:          agginventory.CredentialScopeWorkflow,
-			Confidence:     "high",
-			EvidenceBasis:  []string{"workflow_secret_refs"},
-			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+			Type:                  credentialProvenanceTypeFor(kind, accessType),
+			Subject:               subject,
+			Scope:                 agginventory.CredentialScopeWorkflow,
+			Confidence:            "high",
+			EvidenceBasis:         []string{"workflow_secret_refs", "repo_workflow_secret_correlation"},
+			CredentialKind:        kind,
+			AccessType:            accessType,
+			EvidenceLocation:      evidenceLocation,
+			ClassificationReasons: reasons,
 		})
 	case hasAnySignalValue(signals, "identity_type", "service_account", "github_app"):
+		subject := firstSignalValue(signals, "subject")
+		kind := agginventory.CredentialKindOIDCWorkloadID
+		accessType := agginventory.CredentialAccessTypeWorkload
+		reasons := []string{"identity_type:" + firstSignalValue(signals, "identity_type")}
+		if strings.Contains(normalizeToken(subject), "github_app") {
+			kind = agginventory.CredentialKindGitHubAppKey
+			accessType = agginventory.CredentialAccessTypeStanding
+			reasons = append(reasons, "subject:"+subject)
+		}
 		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-			Type:           agginventory.CredentialProvenanceWorkloadIdentity,
-			Subject:        firstSignalValue(signals, "subject"),
-			Scope:          agginventory.CredentialScopeWorkflow,
-			Confidence:     "high",
-			EvidenceBasis:  []string{"identity_type"},
-			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceWorkloadIdentity),
+			Type:                  credentialProvenanceTypeFor(kind, accessType),
+			Subject:               subject,
+			Scope:                 agginventory.CredentialScopeWorkflow,
+			Confidence:            "high",
+			EvidenceBasis:         []string{"identity_type"},
+			CredentialKind:        kind,
+			AccessType:            accessType,
+			EvidenceLocation:      evidenceLocation,
+			ClassificationReasons: reasons,
 		})
 	case hasAnySignalValue(signals, "identity_type", "bot_user") || hasAnyAuthSurface(authSurfaces, "github_actor", "user_token", "personal_access_token", "pat"):
+		subject := firstNonEmptyString(firstSignalValue(signals, "subject"), firstMatchingAuthSurface(authSurfaces, "github_actor", "user_token", "personal_access_token", "pat"))
+		kind := agginventory.CredentialKindInheritedHuman
+		if hasAnyAuthSurface(authSurfaces, "personal_access_token", "pat", "github_token") {
+			kind = agginventory.CredentialKindGitHubPAT
+		}
 		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-			Type:           agginventory.CredentialProvenanceInheritedHuman,
-			Subject:        firstNonEmptyString(firstSignalValue(signals, "subject"), firstMatchingAuthSurface(authSurfaces, "github_actor", "user_token", "personal_access_token", "pat")),
-			Scope:          scope,
-			Confidence:     "medium",
-			EvidenceBasis:  mergeSortedEvidence([]string{"identity_type"}, authSurfaces),
-			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceInheritedHuman),
+			Type:                  credentialProvenanceTypeFor(kind, agginventory.CredentialAccessTypeInherited),
+			Subject:               subject,
+			Scope:                 scope,
+			Confidence:            "medium",
+			EvidenceBasis:         mergeSortedEvidence([]string{"identity_type"}, authSurfaces),
+			CredentialKind:        kind,
+			AccessType:            agginventory.CredentialAccessTypeInherited,
+			EvidenceLocation:      evidenceLocation,
+			ClassificationReasons: mergeSortedEvidence([]string{"identity_type:bot_user"}, authSurfaceEvidenceBasis(authSurfaces, "github_actor", "user_token", "personal_access_token", "pat")),
 		})
 	case hasAnyAuthSurface(authSurfaces, "oauth", "oauth2"):
 		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-			Type:           agginventory.CredentialProvenanceOAuthDelegation,
-			Subject:        firstMatchingAuthSurface(authSurfaces, "oauth", "oauth2"),
-			Scope:          agginventory.CredentialScopeTool,
-			Confidence:     "high",
-			EvidenceBasis:  authSurfaceEvidenceBasis(authSurfaces, "oauth", "oauth2"),
-			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceOAuthDelegation),
+			Type:                  agginventory.CredentialProvenanceOAuthDelegation,
+			Subject:               firstMatchingAuthSurface(authSurfaces, "oauth", "oauth2"),
+			Scope:                 agginventory.CredentialScopeTool,
+			Confidence:            "high",
+			EvidenceBasis:         authSurfaceEvidenceBasis(authSurfaces, "oauth", "oauth2"),
+			CredentialKind:        agginventory.CredentialKindDelegatedOAuth,
+			AccessType:            agginventory.CredentialAccessTypeDelegated,
+			EvidenceLocation:      evidenceLocation,
+			ClassificationReasons: []string{"auth_surface:oauth"},
 		})
 	case hasAnyPermission(permissions, map[string]struct{}{"id-token.write": {}}) || hasAnyAuthSurface(authSurfaces, "oidc", "workload_identity", "sts", "assume_role"):
+		kind := agginventory.CredentialKindOIDCWorkloadID
+		accessType := agginventory.CredentialAccessTypeWorkload
+		reasons := mergeSortedEvidence([]string{"permission:id-token.write"}, authSurfaceEvidenceBasis(authSurfaces, "oidc", "workload_identity", "sts", "assume_role"))
+		if boolSignalState(signals.EvidenceKV["human_gate"]) == "true" || strings.Contains(stringSignalState(signals.EvidenceKV["approval_source"], ""), "manual") {
+			kind = agginventory.CredentialKindJITCredential
+			accessType = agginventory.CredentialAccessTypeJIT
+			reasons = append(reasons, "gate:jit_evidence")
+		}
 		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-			Type:           agginventory.CredentialProvenanceJIT,
-			Subject:        firstNonEmptyString(firstMatchingAuthSurface(authSurfaces, "oidc", "workload_identity", "sts", "assume_role"), "id-token.write"),
-			Scope:          agginventory.CredentialScopeWorkflow,
-			Confidence:     "high",
-			EvidenceBasis:  mergeSortedEvidence([]string{"id-token.write"}, authSurfaces),
-			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceJIT),
+			Type:                  credentialProvenanceTypeFor(kind, accessType),
+			Subject:               firstNonEmptyString(firstMatchingAuthSurface(authSurfaces, "oidc", "workload_identity", "sts", "assume_role"), "id-token.write"),
+			Scope:                 agginventory.CredentialScopeWorkflow,
+			Confidence:            "high",
+			EvidenceBasis:         mergeSortedEvidence([]string{"id-token.write"}, authSurfaces),
+			CredentialKind:        kind,
+			AccessType:            accessType,
+			EvidenceLocation:      evidenceLocation,
+			ClassificationReasons: reasons,
 		})
 	case hasSecretLikeAuthSurface(authSurfaces):
+		subject := firstMatchingSecretAuthSurface(authSurfaces)
+		kind, accessType, reasons := classifyCredentialKind(subject, authSurfaces, permissions, signals)
 		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-			Type:           agginventory.CredentialProvenanceStaticSecret,
-			Subject:        firstMatchingSecretAuthSurface(authSurfaces),
-			Scope:          scope,
-			Confidence:     "medium",
-			EvidenceBasis:  authSurfaceEvidenceBasis(authSurfaces),
-			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+			Type:                  credentialProvenanceTypeFor(kind, accessType),
+			Subject:               subject,
+			Scope:                 scope,
+			Confidence:            "medium",
+			EvidenceBasis:         authSurfaceEvidenceBasis(authSurfaces),
+			CredentialKind:        kind,
+			AccessType:            accessType,
+			EvidenceLocation:      evidenceLocation,
+			ClassificationReasons: reasons,
 		})
 	default:
 		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-			Type:           agginventory.CredentialProvenanceUnknown,
-			Scope:          agginventory.CredentialScopeUnknown,
-			Confidence:     "low",
-			EvidenceBasis:  mergeSortedEvidence([]string{"credential_access"}, authSurfaces),
-			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceUnknown),
+			Type:                  agginventory.CredentialProvenanceUnknown,
+			Scope:                 agginventory.CredentialScopeUnknown,
+			Confidence:            "low",
+			EvidenceBasis:         mergeSortedEvidence([]string{"credential_access"}, authSurfaces),
+			CredentialKind:        agginventory.CredentialKindUnknownDurable,
+			AccessType:            agginventory.CredentialAccessTypeStanding,
+			EvidenceLocation:      evidenceLocation,
+			ClassificationReasons: []string{"fallback:unknown_durable"},
 		})
 	}
 }
@@ -920,16 +1103,19 @@ func directCredentialProvenance(signals findingSignals) *agginventory.Credential
 	confidences := dedupeSorted(signals.EvidenceKV["credential_confidence"])
 	if len(types) > 1 || len(subjects) > 1 || len(scopes) > 1 {
 		return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-			Type:       agginventory.CredentialProvenanceUnknown,
-			Scope:      agginventory.CredentialScopeUnknown,
-			Confidence: "low",
+			Type:             agginventory.CredentialProvenanceUnknown,
+			Scope:            agginventory.CredentialScopeUnknown,
+			Confidence:       "low",
+			CredentialKind:   agginventory.CredentialKindUnknownDurable,
+			AccessType:       agginventory.CredentialAccessTypeStanding,
+			EvidenceLocation: credentialEvidenceLocation(signals),
 			EvidenceBasis: mergeSortedEvidence(
 				[]string{"credential_provenance_conflict"},
 				prefixedEvidence("credential_provenance_type", types),
 				prefixedEvidence("credential_subject", subjects),
 				prefixedEvidence("credential_scope", scopes),
 			),
-			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceUnknown),
+			ClassificationReasons: []string{"direct:conflict"},
 		})
 	}
 	confidence := "low"
@@ -944,14 +1130,122 @@ func directCredentialProvenance(signals findingSignals) *agginventory.Credential
 	if len(scopes) == 1 {
 		scope = scopes[0]
 	}
+	kind, accessType, reasons := classifyCredentialKind(subject, nil, nil, signals)
 	return agginventory.NormalizeCredentialProvenance(&agginventory.CredentialProvenance{
-		Type:           types[0],
-		Subject:        subject,
-		Scope:          scope,
-		Confidence:     confidence,
-		EvidenceBasis:  mergeSortedEvidence([]string{"credential_provenance_type"}, signals.EvidenceKV["credential_subject"], signals.EvidenceKV["credential_scope"]),
-		RiskMultiplier: agginventory.CredentialRiskMultiplier(types[0]),
+		Type:                  types[0],
+		Subject:               subject,
+		Scope:                 scope,
+		Confidence:            confidence,
+		EvidenceBasis:         mergeSortedEvidence([]string{"credential_provenance_type"}, signals.EvidenceKV["credential_subject"], signals.EvidenceKV["credential_scope"]),
+		CredentialKind:        kind,
+		AccessType:            accessType,
+		EvidenceLocation:      credentialEvidenceLocation(signals),
+		ClassificationReasons: reasons,
 	})
+}
+
+func credentialEvidenceLocation(signals findingSignals) string {
+	if len(signals.Locations) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(signals.Locations[0])
+}
+
+func credentialProvenanceTypeFor(kind, accessType string) string {
+	switch strings.TrimSpace(accessType) {
+	case agginventory.CredentialAccessTypeWorkload:
+		return agginventory.CredentialProvenanceWorkloadIdentity
+	case agginventory.CredentialAccessTypeDelegated:
+		return agginventory.CredentialProvenanceOAuthDelegation
+	case agginventory.CredentialAccessTypeJIT:
+		return agginventory.CredentialProvenanceJIT
+	case agginventory.CredentialAccessTypeInherited:
+		return agginventory.CredentialProvenanceInheritedHuman
+	}
+	switch strings.TrimSpace(kind) {
+	case agginventory.CredentialKindInheritedHuman:
+		return agginventory.CredentialProvenanceInheritedHuman
+	case agginventory.CredentialKindDelegatedOAuth:
+		return agginventory.CredentialProvenanceOAuthDelegation
+	case agginventory.CredentialKindOIDCWorkloadID:
+		return agginventory.CredentialProvenanceWorkloadIdentity
+	case agginventory.CredentialKindJITCredential:
+		return agginventory.CredentialProvenanceJIT
+	case agginventory.CredentialKindUnknownDurable, agginventory.CredentialKindUnknown:
+		return agginventory.CredentialProvenanceUnknown
+	default:
+		return agginventory.CredentialProvenanceStaticSecret
+	}
+}
+
+func classifyCredentialKind(subject string, authSurfaces []string, permissions []string, signals findingSignals) (string, string, []string) {
+	candidates := []string{subject}
+	candidates = append(candidates, authSurfaces...)
+	candidates = append(candidates, signals.EvidenceKV["credential_subject"]...)
+	candidates = append(candidates, signals.EvidenceKV["workflow_secret_refs"]...)
+	candidates = append(candidates, signals.EvidenceKV["credential_keys"]...)
+	text := normalizeToken(strings.Join(candidates, ","))
+	reasons := []string{}
+
+	addReason := func(value string) {
+		if strings.TrimSpace(value) != "" {
+			reasons = append(reasons, strings.TrimSpace(value))
+		}
+	}
+
+	switch {
+	case (strings.Contains(text, "github_app") || strings.Contains(text, "gh_app")) && (strings.Contains(text, "private_key") || strings.Contains(text, "app_key")):
+		addReason("subject:github_app_private_key")
+		return agginventory.CredentialKindGitHubAppKey, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+	case strings.Contains(text, "deploy_key") || strings.Contains(text, "ssh_key"):
+		addReason("subject:deploy_key")
+		return agginventory.CredentialKindDeployKey, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+	case strings.Contains(text, "pat") || strings.Contains(text, "personal_access_token") || strings.Contains(text, "github_token"):
+		addReason("subject:github_pat")
+		return agginventory.CredentialKindGitHubPAT, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+	case hasCloudAdminSignal(text):
+		addReason("subject:cloud_admin_key")
+		return agginventory.CredentialKindCloudAdminKey, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+	case hasCloudAccessSignal(text):
+		addReason("subject:cloud_access_key")
+		return agginventory.CredentialKindCloudAccessKey, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+	case strings.Contains(text, "oauth"):
+		addReason("subject:oauth")
+		return agginventory.CredentialKindDelegatedOAuth, agginventory.CredentialAccessTypeDelegated, mergeSortedEvidence(reasons)
+	case strings.Contains(text, "oidc") || strings.Contains(text, "workload_identity") || strings.Contains(text, "assume_role") || strings.Contains(text, "sts"):
+		addReason("subject:oidc_workload_identity")
+		if boolSignalState(signals.EvidenceKV["human_gate"]) == "true" || strings.Contains(stringSignalState(signals.EvidenceKV["approval_source"], ""), "manual") {
+			addReason("gate:jit_evidence")
+			return agginventory.CredentialKindJITCredential, agginventory.CredentialAccessTypeJIT, mergeSortedEvidence(reasons)
+		}
+		return agginventory.CredentialKindOIDCWorkloadID, agginventory.CredentialAccessTypeWorkload, mergeSortedEvidence(reasons)
+	case strings.Contains(text, "github_actor") || strings.Contains(text, "user_token") || strings.Contains(text, "bot_user"):
+		addReason("subject:inherited_human")
+		return agginventory.CredentialKindInheritedHuman, agginventory.CredentialAccessTypeInherited, mergeSortedEvidence(reasons)
+	case hasAnyPermission(permissions, map[string]struct{}{"id-token.write": {}}):
+		addReason("permission:id-token.write")
+		if boolSignalState(signals.EvidenceKV["human_gate"]) == "true" || strings.Contains(stringSignalState(signals.EvidenceKV["approval_source"], ""), "manual") {
+			addReason("gate:jit_evidence")
+			return agginventory.CredentialKindJITCredential, agginventory.CredentialAccessTypeJIT, mergeSortedEvidence(reasons)
+		}
+		return agginventory.CredentialKindOIDCWorkloadID, agginventory.CredentialAccessTypeWorkload, mergeSortedEvidence(reasons)
+	case text != "":
+		addReason("subject:static_secret")
+		return agginventory.CredentialKindStaticSecret, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+	default:
+		addReason("fallback:unknown_durable")
+		return agginventory.CredentialKindUnknownDurable, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+	}
+}
+
+func hasCloudAdminSignal(value string) bool {
+	return (strings.Contains(value, "aws") || strings.Contains(value, "gcp") || strings.Contains(value, "azure") || strings.Contains(value, "cloud")) &&
+		(strings.Contains(value, "admin") || strings.Contains(value, "root") || strings.Contains(value, "owner"))
+}
+
+func hasCloudAccessSignal(value string) bool {
+	return (strings.Contains(value, "aws") || strings.Contains(value, "gcp") || strings.Contains(value, "azure") || strings.Contains(value, "cloud")) &&
+		(strings.Contains(value, "access_key") || strings.Contains(value, "secret_key") || strings.Contains(value, "service_account") || strings.Contains(value, "credentials"))
 }
 
 func inferredCredentialScope(signals findingSignals, authSurfaces []string) string {

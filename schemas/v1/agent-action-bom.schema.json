@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/agent-action-bom.schema.json",
+  "title": "Wrkr Agent Action BOM",
+  "type": "object",
+  "required": ["bom_id", "schema_version", "generated_at", "summary"],
+  "properties": {
+    "bom_id": {"type": "string"},
+    "schema_version": {"type": "string", "enum": ["v1"]},
+    "generated_at": {"type": "string"},
+    "summary": {"$ref": "#/$defs/summary"},
+    "items": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/item"}
+    },
+    "graph_refs": {"$ref": "#/$defs/graphRefs"},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "proof_refs": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_items",
+        "control_first_items",
+        "standing_privilege_items",
+        "static_credential_items",
+        "production_target_items",
+        "missing_approval_items",
+        "missing_policy_items",
+        "missing_proof_items",
+        "runtime_proven_items",
+        "unresolved_owner_items"
+      ],
+      "properties": {
+        "total_items": {"type": "integer"},
+        "control_first_items": {"type": "integer"},
+        "standing_privilege_items": {"type": "integer"},
+        "static_credential_items": {"type": "integer"},
+        "production_target_items": {"type": "integer"},
+        "missing_approval_items": {"type": "integer"},
+        "missing_policy_items": {"type": "integer"},
+        "missing_proof_items": {"type": "integer"},
+        "runtime_proven_items": {"type": "integer"},
+        "unresolved_owner_items": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "item": {
+      "type": "object",
+      "required": ["path_id", "org", "repo", "tool_type", "credential_access", "approval_gap"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "location": {"type": "string"},
+        "owner": {"type": "string"},
+        "owner_source": {"type": "string"},
+        "ownership_status": {"type": "string"},
+        "ownership_state": {"type": "string"},
+        "credential_access": {"type": "boolean"},
+        "credential_provenance": {"$ref": "#/$defs/credentialProvenance"},
+        "standing_privilege": {"type": "boolean"},
+        "standing_privilege_reasons": {"type": "array", "items": {"type": "string"}},
+        "action_classes": {"type": "array", "items": {"type": "string"}},
+        "action_reasons": {"type": "array", "items": {"type": "string"}},
+        "production_write": {"type": "boolean"},
+        "production_target_status": {"type": "string"},
+        "matched_production_targets": {"type": "array", "items": {"type": "string"}},
+        "approval_gap": {"type": "boolean"},
+        "approval_gap_reasons": {"type": "array", "items": {"type": "string"}},
+        "policy_status": {"type": "string"},
+        "policy_refs": {"type": "array", "items": {"type": "string"}},
+        "proof_coverage": {"type": "string"},
+        "proof_refs": {"type": "array", "items": {"type": "string"}},
+        "runtime_evidence_status": {"type": "string"},
+        "runtime_evidence_classes": {"type": "array", "items": {"type": "string"}},
+        "runtime_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "control_priority": {"type": "string"},
+        "recommended_next_action": {"type": "string"},
+        "graph_refs": {"$ref": "#/$defs/graphRefs"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "reachability": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reachability"}
+        }
+      },
+      "additionalProperties": true
+    },
+    "graphRefs": {
+      "type": "object",
+      "properties": {
+        "node_ids": {"type": "array", "items": {"type": "string"}},
+        "edge_ids": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "reachability": {
+      "type": "object",
+      "required": ["surface"],
+      "properties": {
+        "surface": {"type": "string"},
+        "name": {"type": "string"},
+        "capabilities": {"type": "array", "items": {"type": "string"}},
+        "trust_depth": {"$ref": "#/$defs/trustDepth"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "credentialProvenance": {
+      "type": "object",
+      "required": ["type", "scope", "confidence", "risk_multiplier"],
+      "properties": {
+        "type": {"type": "string", "enum": ["static_secret", "workload_identity", "inherited_human", "oauth_delegation", "jit", "unknown"]},
+        "subject": {"type": "string"},
+        "scope": {"type": "string", "enum": ["repository", "workflow", "tool", "environment", "organization", "unknown"]},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "evidence_basis": {"type": "array", "items": {"type": "string"}},
+        "credential_kind": {"type": "string", "enum": ["github_pat", "github_app_key", "deploy_key", "cloud_admin_key", "cloud_access_key", "oidc_workload_identity", "delegated_oauth", "jit_credential", "inherited_human", "static_secret", "unknown_durable", "unknown"]},
+        "access_type": {"type": "string", "enum": ["standing", "jit", "delegated", "workload", "inherited", "unknown"]},
+        "standing_access": {"type": "boolean"},
+        "likely_jit": {"type": "boolean"},
+        "evidence_location": {"type": "string"},
+        "classification_reasons": {"type": "array", "items": {"type": "string"}},
+        "risk_multiplier": {"type": "number"}
+      },
+      "additionalProperties": true
+    },
+    "trustDepth": {
+      "type": "object",
+      "required": ["auth_strength", "delegation_model", "exposure", "policy_binding", "gateway_binding", "gateway_coverage", "trust_depth_score"],
+      "properties": {
+        "surface": {"type": "string", "enum": ["mcp", "a2a"]},
+        "auth_strength": {"type": "string", "enum": ["none", "static_secret", "workload_identity", "inherited_human", "oauth_delegation", "jit", "unknown"]},
+        "delegation_model": {"type": "string", "enum": ["none", "tool_proxy", "agent_delegate", "unknown"]},
+        "exposure": {"type": "string", "enum": ["local", "private", "public", "unknown"]},
+        "policy_binding": {"type": "string", "enum": ["declared", "missing"]},
+        "policy_refs": {"type": "array", "items": {"type": "string"}},
+        "gateway_binding": {"type": "string", "enum": ["bound", "unbound", "unknown"]},
+        "gateway_coverage": {"type": "string", "enum": ["protected", "unprotected", "unknown"]},
+        "sanitization_claims": {"type": "array", "items": {"type": "string"}},
+        "capability_exposure": {"type": "array", "items": {"type": "string"}},
+        "trust_gaps": {"type": "array", "items": {"type": "string"}},
+        "trust_depth_score": {"type": "number"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

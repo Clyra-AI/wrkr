@@ -1253,15 +1253,15 @@ targets:
 		{
 			name:                "not configured",
 			productionTargets:   "",
-			wantStatus:          "not_configured",
-			wantProductionWrite: false,
+			wantStatus:          "configured",
+			wantProductionWrite: true,
 			wantAction:          "control",
 		},
 		{
 			name:                "invalid",
 			productionTargets:   "schema_version: v2\n",
 			wantStatus:          "invalid",
-			wantProductionWrite: false,
+			wantProductionWrite: true,
 			wantAction:          "control",
 		},
 	}
@@ -2746,6 +2746,51 @@ func TestReportRejectsInvalidTemplateAndShareProfile(t *testing.T) {
 	code = Run([]string{"report", "--state", statePath, "--share-profile", "external", "--json"}, &out, &errOut)
 	if code != 6 {
 		t.Fatalf("expected exit 6 for invalid share profile, got %d", code)
+	}
+}
+
+func TestReportAcceptsAgentActionBOMTemplateAndEvidenceJSON(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	evidencePath := filepath.Join(tmp, "report-evidence.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("scan failed to seed state: %d", code)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--template", "agent-action-bom",
+		"--evidence-json",
+		"--evidence-json-path", evidencePath,
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected agent-action-bom template to succeed, got %d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	if _, ok := payload["agent_action_bom"].(map[string]any); !ok {
+		t.Fatalf("expected top-level agent_action_bom, got %v", payload["agent_action_bom"])
+	}
+	summary, ok := payload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary payload, got %T", payload["summary"])
+	}
+	if _, ok := summary["agent_action_bom"].(map[string]any); !ok {
+		t.Fatalf("expected nested summary.agent_action_bom, got %v", summary["agent_action_bom"])
+	}
+	if _, err := os.Stat(evidencePath); err != nil {
+		t.Fatalf("expected report evidence JSON output, got %v", err)
 	}
 }
 
