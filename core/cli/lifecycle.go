@@ -29,7 +29,7 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 	statePathFlag := fs.String("state", "", "state file path override")
 	summaryMD := fs.Bool("summary-md", false, "emit deterministic lifecycle markdown summary artifact")
 	summaryMDPath := fs.String("summary-md-path", "wrkr-lifecycle-summary.md", "lifecycle summary markdown output path")
-	reportTemplate := fs.String("template", "audit", "summary template [exec|operator|audit|public]")
+	reportTemplate := fs.String("template", "audit", "summary template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom]")
 	reportShareProfile := fs.String("share-profile", "internal", "summary share profile [internal|public]")
 	reportTop := fs.Int("top", 5, "number of top findings included in lifecycle summary artifact")
 

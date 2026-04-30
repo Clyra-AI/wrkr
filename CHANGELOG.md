@@ -11,12 +11,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added explicit `source_privacy` metadata to scan state, scan JSON, scan status, reports, evidence bundle metadata, and SARIF output so operators can prove hosted source retention and cleanup behavior.
 - [semver:minor] Added a versioned `control_path_graph` artifact linking identities, credentials, tools, workflows, repos, governance controls, targets, and action capabilities across saved state, reports, and evidence bundles.
 - [semver:minor] Added typed `credential_provenance` classification across inventory privilege maps, govern-first action paths, control backlog items, reports, and proof mapping while preserving existing boolean compatibility fields.
+- [semver:minor] Added a versioned `agent_action_bom` artifact in report and evidence outputs so operators can review risky agent actions, graph refs, proof refs, runtime evidence correlation, and next-action priority from one deterministic object.
+- [semver:minor] Added an `agent-action-bom` report template that leads with the canonical Agent Action BOM command path and evidence export.
+- [semver:minor] Added deterministic credential-kind classification for PATs, GitHub App keys, deploy keys, cloud keys, workload identity, delegated OAuth, JIT credentials, inherited human credentials, and unknown durable secrets without exposing secret values.
+- [semver:minor] Added built-in production-target packs for common deploy, Terraform/IaC, Kubernetes, package-publishing, release-automation, database-migration, and customer-impacting workflows while keeping custom production-target files authoritative when supplied.
 
 ### Changed
 
 - Hosted source manifests now serialize logical repository references while detector execution uses private scan roots and source-code materialization is opt-in.
 - Clarify that GitHub App install inventory is future/additive platform scope, not part of the current default OSS scan path.
 - Align required-check and Go toolchain governance docs with the executable branch-protection and `go.mod` sources of truth.
+- [semver:minor] Normalized action classes and standing-privilege reasoning across privilege maps, govern-first action paths, control backlog views, reports, and Agent Action BOM items.
 
 ### Deprecated
 
@@ -35,6 +40,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Hosted repository and organization scans now default to ephemeral source materialization with explicit retention modes and cleanup status.
 - Scan artifacts, proof mapping, reports, evidence, and SARIF now redact hosted materialized paths from shareable outputs.
 - Added privacy regression coverage and operator documentation proving hosted scans do not retain or serialize source code by default.
+- [semver:patch] Correlated CI secret references into credential provenance so risky headless or workflow-backed agent paths classify standing/static credential authority from deterministic repo/workflow evidence instead of remaining `unknown`.
 - [semver:patch] Reject root-escaping Gait policy symlinks as deterministic `unsafe_path` parse diagnostics instead of reading or emitting external policy files as repository evidence.
 - [semver:patch] Prevent release assets and Homebrew tap updates from publishing until checksum, SBOM, vulnerability scan, signing, provenance, and verification gates pass.
 - [semver:patch] Reject symlinked detector inputs that resolve outside the selected scan root to preserve source-boundary and proof-record integrity.

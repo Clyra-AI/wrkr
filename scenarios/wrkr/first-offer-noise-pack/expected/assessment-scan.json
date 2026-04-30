@@ -15,11 +15,11 @@
     "eligible_count": 10,
     "message": "Review 10 govern-first candidate path(s) first.",
     "item_classes": [
-      "unknown_to_security_write_path",
-      "unknown_to_security_write_path",
-      "unknown_to_security_write_path",
-      "unknown_to_security_write_path",
-      "unknown_to_security_write_path"
+      "production_target_backed",
+      "production_target_backed",
+      "production_target_backed",
+      "production_target_backed",
+      "production_target_backed"
     ]
   }
 }

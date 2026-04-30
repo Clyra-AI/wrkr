@@ -35,6 +35,7 @@ Hosted prerequisites for this path:
 ```bash
 wrkr init --non-interactive --org acme --github-api https://api.github.com --json
 wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json --evidence-json --evidence-json-path ./.tmp/agent-action-bom-evidence.json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json
 wrkr verify --chain --json
 ```
@@ -51,6 +52,7 @@ If you scan the Wrkr repo root during evaluation, expect repo-root fixture noise
 Expected outputs:
 
 - `scan` (hosted org mode): `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`
+- `report --template agent-action-bom`: additive `agent_action_bom`, `summary.agent_action_bom`, `control_path_graph`, and `runtime_evidence` when present
 - `evidence`: `output_dir`, `manifest_path`, `chain_path`, `framework_coverage`
 - `verify`: `chain.intact=true`
 

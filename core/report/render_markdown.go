@@ -71,6 +71,44 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 
+	if summary.AgentActionBOM != nil && summary.Template == string(TemplateAgentActionBOM) {
+		builder.WriteString("## Agent Action BOM\n\n")
+		builder.WriteString(fmt.Sprintf("- BOM id: %s\n", summary.AgentActionBOM.BOMID))
+		builder.WriteString(fmt.Sprintf("- Total items: %d\n", summary.AgentActionBOM.Summary.TotalItems))
+		builder.WriteString(fmt.Sprintf("- Standing privilege items: %d\n", summary.AgentActionBOM.Summary.StandingPrivilegeItems))
+		builder.WriteString(fmt.Sprintf("- Missing approval items: %d\n", summary.AgentActionBOM.Summary.MissingApprovalItems))
+		builder.WriteString(fmt.Sprintf("- Production-target items: %d\n", summary.AgentActionBOM.Summary.ProductionTargetItems))
+		if len(summary.AgentActionBOM.Items) > 0 {
+			top := summary.AgentActionBOM.Items[0]
+			builder.WriteString(fmt.Sprintf("- Top BOM item: %s %s action=%s classes=%s\n",
+				top.Repo,
+				top.Location,
+				top.ControlPriority,
+				strings.Join(top.ActionClasses, ","),
+			))
+		}
+		builder.WriteString("\n")
+
+		builder.WriteString("## BOM Items\n\n")
+		limit := len(summary.AgentActionBOM.Items)
+		if limit > 10 {
+			limit = 10
+		}
+		for idx := 0; idx < limit; idx++ {
+			item := summary.AgentActionBOM.Items[idx]
+			builder.WriteString(fmt.Sprintf("- %s %s owner=%s priority=%s policy=%s proof=%s runtime=%s\n",
+				item.Repo,
+				item.Location,
+				item.Owner,
+				item.ControlPriority,
+				item.PolicyStatus,
+				item.ProofCoverage,
+				item.RuntimeEvidenceStatus,
+			))
+		}
+		builder.WriteString("\n")
+	}
+
 	if summary.ControlBacklog != nil && len(summary.ControlBacklog.Items) > 0 {
 		builder.WriteString("## Control Backlog\n\n")
 		limit := len(summary.ControlBacklog.Items)

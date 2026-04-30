@@ -74,6 +74,14 @@ var packs = map[string]Pack{
 		ProofTitle:     "Proof verification",
 		ActionsTitle:   "Next customer-facing actions",
 	},
+	"agent-action-bom": {
+		HeadlineTitle:  "Agent Action BOM summary",
+		TopRisksTitle:  "Top risky agent action BOM items",
+		ChangesTitle:   "Control and evidence changes",
+		LifecycleTitle: "Ownership and approval actions",
+		ProofTitle:     "Proof and runtime evidence",
+		ActionsTitle:   "Next control actions",
+	},
 }
 
 func Resolve(name string) Pack {

@@ -33,7 +33,7 @@
     "summary": {
       "total_paths": 2,
       "write_capable_paths": 2,
-      "production_target_backed_paths": 0,
+      "production_target_backed_paths": 2,
       "govern_first_paths": 0
     },
     "path": {
@@ -48,8 +48,8 @@
     "eligible_count": 2,
     "message": "Review 2 govern-first candidate path(s) first.",
     "item_classes": [
-      "unknown_to_security_write_path",
-      "unknown_to_security_write_path"
+      "production_target_backed",
+      "production_target_backed"
     ]
   }
 }

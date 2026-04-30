@@ -348,7 +348,10 @@ func DecorateActionPaths(paths []ActionPath) []ActionPath {
 			continue
 		}
 		out[idx].SharedExecutionIdentity = usage.pathCount > 1 || len(usage.repos) > 1
-		out[idx].StandingPrivilege = out[idx].SharedExecutionIdentity && (out[idx].WriteCapable || out[idx].ProductionWrite || actionPathHighImpact(out[idx]))
+		if out[idx].SharedExecutionIdentity && (out[idx].WriteCapable || out[idx].ProductionWrite || actionPathHighImpact(out[idx])) {
+			out[idx].StandingPrivilege = true
+			out[idx].StandingPrivilegeReasons = dedupeSortedStrings(append(out[idx].StandingPrivilegeReasons, "shared_execution_identity"))
+		}
 	}
 	return out
 }

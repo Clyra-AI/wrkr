@@ -1,3 +1,7 @@
+# Wrkr applies deterministic built-in production-target packs by default for common
+# deploy, IaC, Kubernetes, release, package-publish, database-migration, and
+# customer-impacting workflows. Supply a custom file like this when you want
+# explicit org-local overrides to be authoritative.
 schema_version: v1
 targets:
   repos:

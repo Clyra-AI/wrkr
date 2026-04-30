@@ -22,6 +22,9 @@
     },
     "runtime_evidence": {
       "$ref": "#/definitions/runtimeEvidence"
+    },
+    "agent_action_bom": {
+      "$ref": "../agent-action-bom.schema.json"
     }
   },
   "definitions": {

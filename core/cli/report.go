@@ -31,6 +31,7 @@ type reportPayload struct {
 	AttackPaths              any                          `json:"attack_paths,omitempty"`
 	TopAttackPaths           any                          `json:"top_attack_paths,omitempty"`
 	ActionPaths              any                          `json:"action_paths,omitempty"`
+	AgentActionBOM           any                          `json:"agent_action_bom,omitempty"`
 	ActionPathToControlFirst any                          `json:"action_path_to_control_first,omitempty"`
 	ControlPathGraph         any                          `json:"control_path_graph,omitempty"`
 	AssessmentSummary        any                          `json:"assessment_summary,omitempty"`
@@ -77,7 +78,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	evidenceJSONPath := fs.String("evidence-json-path", "wrkr-report-evidence.json", "JSON evidence bundle output path")
 	csvBacklog := fs.Bool("csv-backlog", false, "write a deterministic CSV control backlog")
 	csvBacklogPath := fs.String("csv-backlog-path", "wrkr-control-backlog.csv", "CSV control backlog output path")
-	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft]")
+	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom]")
 	shareProfileRaw := fs.String("share-profile", string(reportcore.ShareProfileInternal), "share profile [internal|public]")
 	topN := fs.Int("top", 5, "number of top findings")
 	statePathFlag := fs.String("state", "", "state file path override")
@@ -184,6 +185,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		AttackPaths:              riskReport.AttackPaths,
 		TopAttackPaths:           riskReport.TopAttackPaths,
 		ActionPaths:              summary.ActionPaths,
+		AgentActionBOM:           summary.AgentActionBOM,
 		ActionPathToControlFirst: summary.ActionPathToControlFirst,
 		ControlPathGraph:         summary.ControlPathGraph,
 		AssessmentSummary:        summary.AssessmentSummary,

@@ -45,11 +45,13 @@ Dry-run ticket export is local JSON payload generation only. It groups determini
 
 ```bash
 wrkr report --md --md-path ./.tmp/wrkr-summary.md --template operator --share-profile internal --json
+wrkr report --template agent-action-bom --json --evidence-json --evidence-json-path ./.tmp/agent-action-bom-evidence.json
 wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --share-profile public --json
 wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
 ```
 
 Use internal profile for engineering/security reviews. Use public profile for external packets with deterministic redaction. The exec PDF path now wraps and paginates long content so the executive summary stays board-ready when the acceptance fixtures are green.
+Use `report --template agent-action-bom` when you want the canonical joined action-path inventory with proof refs, graph refs, runtime evidence correlation, credential classification, and next-action priority without manually joining `action_paths`, `control_path_graph`, and evidence fields.
 The report path is static and saved-state based: it summarizes risky write paths, proof artifacts, and governance priorities without claiming runtime observation or control-layer enforcement.
 `report --json` now includes additive `next_steps[]` guidance that points operators toward the current report artifact fields, the follow-on evidence bundle flow, and explicit proof-chain verification before external handoff.
 
@@ -58,6 +60,7 @@ The report path is static and saved-state based: it summarizes risky write paths
 Use this packet when the operator needs to hand the result to a buyer, GRC partner, or auditor:
 
 - `wrkr report --template ciso --md --md-path ./.tmp/ciso.md --pdf --pdf-path ./.tmp/ciso.pdf --evidence-json --evidence-json-path ./.tmp/report-evidence.json --csv-backlog --csv-backlog-path ./.tmp/control-backlog.csv --json`
+- `wrkr report --template agent-action-bom --json --evidence-json --evidence-json-path ./.tmp/agent-action-bom-evidence.json`
 - `wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json`
 - `wrkr verify --chain --json`
 

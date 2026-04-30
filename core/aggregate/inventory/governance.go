@@ -27,6 +27,14 @@ const (
 	ControlStatusSatisfied          = "satisfied"
 	ControlStatusGap                = "gap"
 	ControlStatusNotApplicable      = "not_applicable"
+
+	ActionClassRead             = "read"
+	ActionClassWrite            = "write"
+	ActionClassDeploy           = "deploy"
+	ActionClassDelete           = "delete"
+	ActionClassExecute          = "execute"
+	ActionClassEgress           = "egress"
+	ActionClassCredentialAccess = "credential_access"
 )
 
 type GovernanceControlMapping struct {
@@ -50,6 +58,18 @@ type GovernanceControlInput struct {
 	CredentialAccess         bool
 	ProductionWrite          bool
 	EvidenceBasis            []string
+}
+
+type ActionClassInput struct {
+	Permissions      []string
+	WritePathClasses []string
+	WriteCapable     bool
+	CredentialAccess bool
+	DeployWrite      bool
+	ProductionWrite  bool
+	MatchedTargets   []string
+	ToolType         string
+	Location         string
 }
 
 func DeriveWritePathClasses(permissions []string, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite bool, location, toolType string) []string {
@@ -111,6 +131,83 @@ func DeriveWritePathClasses(permissions []string, writeCapable, pullRequestWrite
 		return []string{WritePathRead}
 	}
 	return out
+}
+
+func DeriveActionClasses(input ActionClassInput) ([]string, []string) {
+	classes := make([]string, 0, 7)
+	reasons := make([]string, 0, 16)
+	add := func(className string, reason string) {
+		className = strings.TrimSpace(className)
+		reason = strings.TrimSpace(reason)
+		if className != "" {
+			classes = append(classes, className)
+		}
+		if reason != "" {
+			reasons = append(reasons, reason)
+		}
+	}
+
+	if len(input.Permissions) == 0 && len(input.WritePathClasses) == 0 && !input.WriteCapable && !input.CredentialAccess && !input.DeployWrite && !input.ProductionWrite {
+		return nil, nil
+	}
+
+	add(ActionClassRead, "baseline:discovered_surface")
+	if input.WriteCapable || hasAnyWriteClass(input.WritePathClasses) {
+		add(ActionClassWrite, "write_path:write_capable")
+	}
+	if input.DeployWrite || input.ProductionWrite || contains(input.WritePathClasses, WritePathDeployWrite) || contains(input.WritePathClasses, WritePathReleaseWrite) || contains(input.WritePathClasses, WritePathProductionAdjacent) {
+		add(ActionClassDeploy, "write_path:deploy")
+	}
+	if input.CredentialAccess || contains(input.WritePathClasses, WritePathSecretBearingExec) {
+		add(ActionClassCredentialAccess, "credential_access:true")
+	}
+
+	for _, permission := range input.Permissions {
+		normalized := strings.ToLower(strings.TrimSpace(permission))
+		switch {
+		case strings.Contains(normalized, "exec"), strings.Contains(normalized, "run"), strings.Contains(normalized, "workflow_dispatch"):
+			add(ActionClassExecute, "permission:"+normalized)
+		case strings.Contains(normalized, "delete"), strings.Contains(normalized, "destroy"), strings.Contains(normalized, "remove"):
+			add(ActionClassDelete, "permission:"+normalized)
+		case strings.Contains(normalized, "deploy"):
+			add(ActionClassDeploy, "permission:"+normalized)
+		case strings.Contains(normalized, "write"), strings.Contains(normalized, "merge"):
+			add(ActionClassWrite, "permission:"+normalized)
+		case strings.Contains(normalized, "secret"), strings.Contains(normalized, "token"), strings.Contains(normalized, "credential"), strings.Contains(normalized, "oidc"), strings.Contains(normalized, "oauth"):
+			add(ActionClassCredentialAccess, "permission:"+normalized)
+		case strings.Contains(normalized, "mcp."), strings.Contains(normalized, "a2a"), strings.Contains(normalized, "http"), strings.Contains(normalized, "network"), strings.Contains(normalized, "api"):
+			add(ActionClassEgress, "permission:"+normalized)
+		}
+	}
+
+	for _, className := range input.WritePathClasses {
+		switch strings.TrimSpace(className) {
+		case WritePathPackagePublish, WritePathReleaseWrite, WritePathDeployWrite, WritePathProductionAdjacent:
+			add(ActionClassDeploy, "write_path_class:"+strings.TrimSpace(className))
+		case WritePathInfraWrite:
+			add(ActionClassExecute, "write_path_class:"+strings.TrimSpace(className))
+			add(ActionClassDeploy, "write_path_class:"+strings.TrimSpace(className))
+		case WritePathSecretBearingExec:
+			add(ActionClassExecute, "write_path_class:"+strings.TrimSpace(className))
+			add(ActionClassCredentialAccess, "write_path_class:"+strings.TrimSpace(className))
+		case WritePathPullRequestWrite, WritePathRepoWrite, WritePathWrite:
+			add(ActionClassWrite, "write_path_class:"+strings.TrimSpace(className))
+		}
+	}
+
+	toolType := strings.ToLower(strings.TrimSpace(input.ToolType))
+	location := strings.ToLower(strings.TrimSpace(input.Location))
+	if strings.Contains(toolType, "mcp") || strings.Contains(toolType, "a2a") || strings.Contains(location, "http") {
+		add(ActionClassEgress, "tool_type:"+strings.TrimSpace(input.ToolType))
+	}
+	if strings.Contains(location, "delete") || strings.Contains(location, "destroy") {
+		add(ActionClassDelete, "location:"+strings.TrimSpace(input.Location))
+	}
+	if len(input.MatchedTargets) > 0 {
+		add(ActionClassDeploy, "matched_target:"+strings.TrimSpace(input.MatchedTargets[0]))
+	}
+
+	return sortedUnique(classes), sortedUnique(reasons)
 }
 
 func BuildGovernanceControls(input GovernanceControlInput) []GovernanceControlMapping {

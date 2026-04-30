@@ -35,16 +35,17 @@ type BuildInput struct {
 }
 
 type BuildResult struct {
-	OutputDir         string                  `json:"output_dir"`
-	Frameworks        []string                `json:"frameworks"`
-	ManifestPath      string                  `json:"manifest_path"`
-	ChainPath         string                  `json:"chain_path"`
-	FrameworkCoverage map[string]float64      `json:"framework_coverage"`
-	ControlEvidence   []ControlEvidence       `json:"control_evidence,omitempty"`
-	CoverageNote      CoverageNote            `json:"coverage_note"`
-	ReportArtifacts   []string                `json:"report_artifacts"`
-	SourcePrivacy     *sourceprivacy.Contract `json:"source_privacy,omitempty"`
-	RuntimeEvidence   *ingest.Summary         `json:"runtime_evidence,omitempty"`
+	OutputDir         string                     `json:"output_dir"`
+	Frameworks        []string                   `json:"frameworks"`
+	ManifestPath      string                     `json:"manifest_path"`
+	ChainPath         string                     `json:"chain_path"`
+	FrameworkCoverage map[string]float64         `json:"framework_coverage"`
+	ControlEvidence   []ControlEvidence          `json:"control_evidence,omitempty"`
+	CoverageNote      CoverageNote               `json:"coverage_note"`
+	ReportArtifacts   []string                   `json:"report_artifacts"`
+	SourcePrivacy     *sourceprivacy.Contract    `json:"source_privacy,omitempty"`
+	RuntimeEvidence   *ingest.Summary            `json:"runtime_evidence,omitempty"`
+	AgentActionBOM    *reportcore.AgentActionBOM `json:"agent_action_bom,omitempty"`
 }
 
 type ControlEvidence struct {
@@ -310,6 +311,13 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write deterministic report summary: %w", err)
 	}
 	reportArtifacts = append(reportArtifacts, auditReportPath)
+	if summary.AgentActionBOM != nil {
+		agentActionBOMPath := filepath.Join(reportsDir, "agent-action-bom.json")
+		if err := writeJSON(agentActionBOMPath, summary.AgentActionBOM); err != nil {
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+		}
+		reportArtifacts = append(reportArtifacts, agentActionBOMPath)
+	}
 	mcpCatalog := reportcore.BuildMCPList(snapshot, generatedAt, "", false)
 	if len(mcpCatalog.Rows) > 0 {
 		if err := writeJSON(filepath.Join(outputDir, "mcp-catalog.json"), mcpCatalog); err != nil {
@@ -432,6 +440,7 @@ func Build(in BuildInput) (BuildResult, error) {
 		ReportArtifacts:   reportArtifacts,
 		SourcePrivacy:     snapshot.SourcePrivacy,
 		RuntimeEvidence:   runtimeEvidence,
+		AgentActionBOM:    summary.AgentActionBOM,
 	}, nil
 }
 

@@ -16,6 +16,7 @@ Hosted prerequisites for this path:
 ```bash
 wrkr init --non-interactive --org acme --github-api https://api.github.com --json
 wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json --evidence-json --evidence-json-path ./.wrkr/agent-action-bom-evidence.json
 wrkr report --state ./.wrkr/last-scan.json --template ciso --md --md-path ./.wrkr/ciso.md --pdf --pdf-path ./.wrkr/ciso.pdf --evidence-json --evidence-json-path ./.wrkr/report-evidence.json --csv-backlog --csv-backlog-path ./.wrkr/control-backlog.csv --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
@@ -54,14 +55,15 @@ wrkr report --top 5 --template appsec --json
 - `evidence.next_steps`: additive machine-readable handoff guidance for verify/report sequencing and generated artifact-field review
 - `verify`: `status`, `chain`
 - `mcp-list`: `status`, `generated_at`, `rows`, optional `warnings`
-- `report`: `status`, `generated_at`, additive `next_steps`, `top_findings`, `total_tools`, `summary`, optional `artifact_paths`
+- `report`: `status`, `generated_at`, additive `next_steps`, additive `agent_action_bom`, `top_findings`, `total_tools`, `summary`, optional `artifact_paths`
 
 ## How to frame the results
 
 - `scan` and `mcp-list` answer inventory, privilege, and trust-overlay questions.
 - `scan --profile assessment` gives the bounded customer-readout view of risky write paths first while leaving raw findings and proof artifacts intact.
 - `scan` is the place to count unknown-to-security write-capable paths; use `inventory.security_visibility_summary.unknown_to_security_write_capable_agents` only when `inventory.security_visibility_summary.reference_basis` is present for that run.
-- `report` gives the ranked operator summary for triage and can emit customer-ready CISO/AppSec/platform/audit/customer-draft artifacts led by the control backlog.
+- `report --template agent-action-bom` is the canonical joined operator artifact for risky action-path inventory, graph refs, proof refs, runtime evidence correlation, and next-action priority.
+- `report` can also emit customer-ready CISO/AppSec/platform/audit/customer-draft artifacts led by the control backlog.
 - `report` is a saved-state renderer for static posture and offline proof artifacts; it is not a live observation surface.
 - `report.next_steps` and `evidence.next_steps` are additive machine-readable sequencing hints for the operator-to-auditor handoff path; use them when you want automation or agents to follow the same artifact workflow the docs describe, using the referenced artifact fields in the same payload.
 - `evidence` packages the saved posture into portable proof artifacts only when the saved proof chain is intact, and `verify` remains the explicit machine gate for proof integrity.
