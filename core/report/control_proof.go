@@ -13,6 +13,8 @@ import (
 
 type ControlProofStatus struct {
 	LinkedActionPathID string   `json:"linked_action_path_id,omitempty"`
+	Repo               string   `json:"repo,omitempty"`
+	Path               string   `json:"path,omitempty"`
 	ControlID          string   `json:"control_id"`
 	BacklogItemID      string   `json:"backlog_item_id"`
 	AgentID            string   `json:"agent_id,omitempty"`
@@ -41,6 +43,8 @@ func BuildControlProofStatus(snapshot state.Snapshot, chain *proof.Chain) []Cont
 		}
 		out = append(out, ControlProofStatus{
 			LinkedActionPathID: strings.TrimSpace(item.LinkedActionPathID),
+			Repo:               strings.TrimSpace(item.Repo),
+			Path:               strings.TrimSpace(item.Path),
 			ControlID:          controlID,
 			BacklogItemID:      strings.TrimSpace(item.ID),
 			AgentID:            agentID,

@@ -326,18 +326,25 @@ func proofCoverageByPath(paths []risk.ActionPath, statuses []ControlProofStatus)
 	}
 
 	statusesByPath := map[string][]ControlProofStatus{}
+	statusesByLocation := map[string][]ControlProofStatus{}
 	for _, status := range statuses {
 		pathID := strings.TrimSpace(status.LinkedActionPathID)
-		if pathID == "" {
-			continue
+		if pathID != "" {
+			statusesByPath[pathID] = append(statusesByPath[pathID], status)
 		}
-		statusesByPath[pathID] = append(statusesByPath[pathID], status)
+		locationKey := proofCoverageLocationKey(status.Repo, status.Path)
+		if locationKey != "" {
+			statusesByLocation[locationKey] = append(statusesByLocation[locationKey], status)
+		}
 	}
 
 	out := map[string]pathProofCoverage{}
 	for _, path := range paths {
 		pathID := strings.TrimSpace(path.PathID)
-		items := statusesByPath[pathID]
+		items := statusesByLocation[proofCoverageLocationKey(path.Repo, path.Location)]
+		if len(items) == 0 {
+			items = statusesByPath[pathID]
+		}
 		if len(items) == 0 {
 			out[pathID] = pathProofCoverage{Status: proofCoverageMissing}
 			continue
@@ -353,6 +360,15 @@ func proofCoverageByPath(paths []risk.ActionPath, statuses []ControlProofStatus)
 		out[pathID] = pathProofCoverage{Status: coverage}
 	}
 	return out
+}
+
+func proofCoverageLocationKey(repo string, path string) string {
+	repo = strings.TrimSpace(repo)
+	path = strings.TrimSpace(path)
+	if repo == "" || path == "" {
+		return ""
+	}
+	return repo + "|" + path
 }
 
 func itemEvidenceRefs(path risk.ActionPath, backlog controlbacklog.Item, runtime ingest.Correlation, graphRefs AgentActionBOMGraphRefs) []string {
