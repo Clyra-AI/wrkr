@@ -100,6 +100,16 @@ type AgentActionBOMReachability struct {
 	EvidenceRefs []string                 `json:"evidence_refs,omitempty"`
 }
 
+type pathProofCoverage struct {
+	Status string
+}
+
+const (
+	proofCoverageCovered       = "covered"
+	proofCoverageMissing       = "missing"
+	proofCoverageChainAttached = "chain_attached"
+)
+
 func BuildAgentActionBOM(summary Summary) *AgentActionBOM {
 	return buildAgentActionBOM(summary, nil)
 }
@@ -113,18 +123,24 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 	graphRefsByPath, graphRefs := controlPathGraphRefs(summary.ControlPathGraph)
 	runtimeByPath := runtimeEvidenceByPath(summary.RuntimeEvidence)
 	reachabilityByPath := reachabilityByPathID(summary.ActionPaths, findings)
+	proofCoverageByPath := proofCoverageByPath(summary.ActionPaths, summary.controlProofStatus)
 	proofRefs := proofRefs(summary.Proof)
 
 	items := make([]AgentActionBOMItem, 0, len(summary.ActionPaths))
 	counts := AgentActionBOMSummary{}
 	for _, path := range summary.ActionPaths {
-		itemGraphRefs := graphRefsByPath[strings.TrimSpace(path.PathID)]
-		runtimeItem := runtimeByPath[strings.TrimSpace(path.PathID)]
-		backlogItem := backlogByPath[strings.TrimSpace(path.PathID)]
-		reachability := append([]AgentActionBOMReachability(nil), reachabilityByPath[strings.TrimSpace(path.PathID)]...)
+		pathID := strings.TrimSpace(path.PathID)
+		itemGraphRefs := graphRefsByPath[pathID]
+		runtimeItem := runtimeByPath[pathID]
+		backlogItem := backlogByPath[pathID]
+		reachability := append([]AgentActionBOMReachability(nil), reachabilityByPath[pathID]...)
 		reachableServers, reachableTools, reachableAPIs, reachableAgents := namedReachability(reachability)
+		proofCoverage := fallbackProofCoverage(summary.Proof)
+		if coverage, ok := proofCoverageByPath[pathID]; ok {
+			proofCoverage = coverage.Status
+		}
 		item := AgentActionBOMItem{
-			PathID:                   strings.TrimSpace(path.PathID),
+			PathID:                   pathID,
 			AgentID:                  strings.TrimSpace(path.AgentID),
 			Org:                      strings.TrimSpace(path.Org),
 			Repo:                     strings.TrimSpace(path.Repo),
@@ -146,7 +162,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			ApprovalGap:              path.ApprovalGap,
 			ApprovalGapReasons:       append([]string(nil), path.ApprovalGapReasons...),
 			PolicyStatus:             firstNonEmptyValue(path.PolicyCoverageStatus, risk.PolicyCoverageStatusNone),
-			ProofCoverage:            proofCoverage(summary.Proof),
+			ProofCoverage:            proofCoverage,
 			ProofRefs:                append([]string(nil), proofRefs...),
 			RuntimeEvidenceStatus:    runtimeItem.Status,
 			RuntimeEvidenceClasses:   append([]string(nil), runtimeItem.EvidenceClasses...),
@@ -188,7 +204,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		if item.PolicyStatus == "none" {
 			counts.MissingPolicyItems++
 		}
-		if item.ProofCoverage == "missing" {
+		if item.ProofCoverage == proofCoverageMissing {
 			counts.MissingProofItems++
 		}
 		if item.PolicyStatus == risk.PolicyCoverageStatusRuntimeProven || item.RuntimeEvidenceStatus == ingest.CorrelationStatusMatched {
@@ -297,11 +313,46 @@ func proofRefs(proof ProofReference) []string {
 	return uniqueSortedStrings(refs)
 }
 
-func proofCoverage(proof ProofReference) string {
+func fallbackProofCoverage(proof ProofReference) string {
 	if strings.TrimSpace(proof.HeadHash) == "" {
-		return "missing"
+		return proofCoverageMissing
 	}
-	return "chain_attached"
+	return proofCoverageChainAttached
+}
+
+func proofCoverageByPath(paths []risk.ActionPath, statuses []ControlProofStatus) map[string]pathProofCoverage {
+	if len(statuses) == 0 {
+		return nil
+	}
+
+	statusesByPath := map[string][]ControlProofStatus{}
+	for _, status := range statuses {
+		pathID := strings.TrimSpace(status.LinkedActionPathID)
+		if pathID == "" {
+			continue
+		}
+		statusesByPath[pathID] = append(statusesByPath[pathID], status)
+	}
+
+	out := map[string]pathProofCoverage{}
+	for _, path := range paths {
+		pathID := strings.TrimSpace(path.PathID)
+		items := statusesByPath[pathID]
+		if len(items) == 0 {
+			out[pathID] = pathProofCoverage{Status: proofCoverageMissing}
+			continue
+		}
+
+		coverage := proofCoverageCovered
+		for _, item := range items {
+			if strings.TrimSpace(item.Status) == "missing" {
+				coverage = proofCoverageMissing
+				break
+			}
+		}
+		out[pathID] = pathProofCoverage{Status: coverage}
+	}
+	return out
 }
 
 func itemEvidenceRefs(path risk.ActionPath, backlog controlbacklog.Item, runtime ingest.Correlation, graphRefs AgentActionBOMGraphRefs) []string {

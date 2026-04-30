@@ -53,7 +53,7 @@ If you scan the Wrkr repo root during evaluation, expect repo-root fixture noise
 Expected outputs:
 
 - `scan` (hosted org mode): `status`, `target`, `findings`, `ranked_findings`, `top_findings`, `inventory`, `repo_exposure_summaries`, `profile`, `posture_score`
-- `report --template agent-action-bom`: additive `agent_action_bom`, `summary.agent_action_bom`, `control_path_graph`, and `runtime_evidence` when present
+- `report --template agent-action-bom`: additive `agent_action_bom`, `summary.agent_action_bom`, `control_path_graph`, and matching top-level plus `summary.runtime_evidence` when a managed runtime evidence sidecar is present
 - `scripts/run_agent_action_bom_demo.sh after`: deterministic demo path that scans the fixture repo, ingests runtime sidecars, renders the Agent Action BOM report, and writes an evidence bundle
 - `evidence`: `output_dir`, `manifest_path`, `chain_path`, `framework_coverage`
 - `verify`: `chain.intact=true`

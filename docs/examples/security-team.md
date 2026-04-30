@@ -55,7 +55,7 @@ wrkr report --top 5 --template appsec --json
 - `evidence.next_steps`: additive machine-readable handoff guidance for verify/report sequencing and generated artifact-field review
 - `verify`: `status`, `chain`
 - `mcp-list`: `status`, `generated_at`, `rows`, optional `warnings`
-- `report`: `status`, `generated_at`, additive `next_steps`, additive `agent_action_bom`, `top_findings`, `total_tools`, `summary`, optional `artifact_paths`
+- `report`: `status`, `generated_at`, additive `next_steps`, additive `agent_action_bom`, additive `runtime_evidence` when a managed runtime evidence sidecar exists, `top_findings`, `total_tools`, `summary`, optional `artifact_paths`
 
 ## How to frame the results
 

@@ -80,6 +80,7 @@ func extractDemoTopBOM(t *testing.T, path string) map[string]any {
 	topItem := map[string]any{
 		"path_id":                 first["path_id"],
 		"tool_type":               first["tool_type"],
+		"proof_coverage":          first["proof_coverage"],
 		"policy_status":           first["policy_status"],
 		"runtime_evidence_status": demoScenarioString(first["runtime_evidence_status"]),
 	}
@@ -87,8 +88,9 @@ func extractDemoTopBOM(t *testing.T, path string) map[string]any {
 		topItem["runtime_evidence_classes"] = classes
 	}
 	return map[string]any{
-		"summary":  requireDemoScenarioObject(t, bom, "summary"),
-		"top_item": topItem,
+		"runtime_evidence": demoScenarioRuntimeEvidenceSummary(payload["runtime_evidence"]),
+		"summary":          requireDemoScenarioObject(t, bom, "summary"),
+		"top_item":         topItem,
 	}
 }
 
@@ -100,6 +102,7 @@ func extractDemoEvidenceReport(t *testing.T, path string) map[string]any {
 	topItem := map[string]any{
 		"path_id":                 first["path_id"],
 		"tool_type":               first["tool_type"],
+		"proof_coverage":          first["proof_coverage"],
 		"policy_status":           first["policy_status"],
 		"runtime_evidence_status": demoScenarioString(first["runtime_evidence_status"]),
 	}
@@ -194,4 +197,20 @@ func demoScenarioString(value any) string {
 		return text
 	}
 	return ""
+}
+
+func demoScenarioRuntimeEvidenceSummary(value any) any {
+	if value == nil {
+		return nil
+	}
+	record, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	correlations, _ := record["correlations"].([]any)
+	return map[string]any{
+		"matched_records":   record["matched_records"],
+		"unmatched_records": record["unmatched_records"],
+		"correlation_count": float64(len(correlations)),
+	}
 }

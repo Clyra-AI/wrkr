@@ -14,6 +14,7 @@ import (
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
@@ -34,6 +35,7 @@ type reportPayload struct {
 	AgentActionBOM           any                          `json:"agent_action_bom,omitempty"`
 	ActionPathToControlFirst any                          `json:"action_path_to_control_first,omitempty"`
 	ControlPathGraph         any                          `json:"control_path_graph,omitempty"`
+	RuntimeEvidence          *ingest.Summary              `json:"runtime_evidence,omitempty"`
 	AssessmentSummary        any                          `json:"assessment_summary,omitempty"`
 	ExposureGroups           any                          `json:"exposure_groups,omitempty"`
 	TotalTools               int                          `json:"total_tools"`
@@ -188,6 +190,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		AgentActionBOM:           summary.AgentActionBOM,
 		ActionPathToControlFirst: summary.ActionPathToControlFirst,
 		ControlPathGraph:         summary.ControlPathGraph,
+		RuntimeEvidence:          summary.RuntimeEvidence,
 		AssessmentSummary:        summary.AssessmentSummary,
 		ExposureGroups:           summary.ExposureGroups,
 		TotalTools:               totalTools,

@@ -91,6 +91,7 @@ type Summary struct {
 	ControlPathGraph         *aggattack.ControlPathGraph            `json:"control_path_graph,omitempty"`
 	ExposureGroups           []risk.ExposureGroup                   `json:"exposure_groups,omitempty"`
 	SourcePrivacy            *sourceprivacy.Contract                `json:"source_privacy,omitempty"`
+	controlProofStatus       []ControlProofStatus
 }
 
 type AttackPathSummary struct {
