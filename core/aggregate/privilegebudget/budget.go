@@ -37,7 +37,7 @@ func Build(
 	productionRules *productiontargets.Config,
 ) (agginventory.PrivilegeBudget, []agginventory.AgentPrivilegeMapEntry) {
 	writeSet := mapFromList(productiontargets.DefaultWritePermissions())
-	productionConfigured := true
+	productionConfigured := productionRules != nil
 	effectiveProductionRules := productiontargets.Config{}
 	if productionRules != nil {
 		writeSet = mapFromList(productionRules.WritePermissions)
@@ -50,7 +50,7 @@ func Build(
 		TotalTools: len(tools),
 		ProductionWrite: agginventory.ProductionWriteBudget{
 			Configured: productionConfigured,
-			Status:     agginventory.ProductionTargetsStatusConfigured,
+			Status:     currentProductionTargetStatus(productionConfigured),
 			Count:      nil,
 		},
 	}
@@ -833,6 +833,13 @@ func matchedProductionTargets(
 		envValueCandidates := append([]string{}, signals.EvidenceKV["env_value"]...)
 		envValueCandidates = append(envValueCandidates, signals.Values...)
 		addMatchSet(matches, "workflow_env_value", rules.Targets.WorkflowEnvValues, envValueCandidates)
+
+		out := make([]string, 0, len(matches))
+		for item := range matches {
+			out = append(out, item)
+		}
+		sort.Strings(out)
+		return out
 	}
 
 	for _, item := range productiontargets.MatchBuiltInTargets(productiontargets.BuiltInMatchInput{

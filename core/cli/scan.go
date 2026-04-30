@@ -445,10 +445,12 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		inventoryOut.RepoExposureSummaries = append([]aggexposure.RepoExposureSummary(nil), repoExposure...)
 	}
 	agginventory.ApplySecurityVisibility(&inventoryOut, buildSecurityVisibilityReference(previousSnapshot, statePath, strings.TrimSpace(*baselinePath)))
-	var productionTargets *productiontargets.Config
+	defaultProductionTargets := productiontargets.DefaultConfig()
+	productionTargets := &defaultProductionTargets
 	productionTargetWarnings := []string{}
 	productionWriteStatus := agginventory.ProductionTargetsStatusConfigured
 	if productionTargetsFile != "" {
+		productionTargets = nil
 		cfg, cfgErr := productiontargets.Load(productionTargetsFile)
 		if cfgErr != nil {
 			if *productionTargetsStrict {
@@ -460,6 +462,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			productionTargets = &cfg
 			productionWriteStatus = agginventory.ProductionTargetsStatusConfigured
 		} else {
+			productionWriteStatus = agginventory.ProductionTargetsStatusNotConfigured
 			productionTargetWarnings = append(productionTargetWarnings, fmt.Sprintf("production targets file %s has no configured targets; production_write budget is not configured", productionTargetsFile))
 		}
 	}

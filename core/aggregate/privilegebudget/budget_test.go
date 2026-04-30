@@ -111,10 +111,11 @@ func TestBuildComputesPrivilegeBudgetAndPerAgentMap(t *testing.T) {
 	}
 }
 
-func TestBuildWithoutRulesUsesBuiltInProductionTargetPacks(t *testing.T) {
+func TestBuildDefaultConfigUsesBuiltInProductionTargetPacks(t *testing.T) {
 	t.Parallel()
 
-	budget, entries := Build([]agginventory.Tool{}, nil, nil, nil)
+	cfg := productiontargets.DefaultConfig()
+	budget, entries := Build([]agginventory.Tool{}, nil, nil, &cfg)
 	if !budget.ProductionWrite.Configured {
 		t.Fatal("expected production_write.configured=true from built-in packs")
 	}
@@ -126,6 +127,77 @@ func TestBuildWithoutRulesUsesBuiltInProductionTargetPacks(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("expected no entries, got %d", len(entries))
+	}
+}
+
+func TestBuildWithoutRulesLeavesProductionBudgetUnconfigured(t *testing.T) {
+	t.Parallel()
+
+	budget, entries := Build([]agginventory.Tool{}, nil, nil, nil)
+	if budget.ProductionWrite.Configured {
+		t.Fatal("expected production_write.configured=false without production target rules")
+	}
+	if budget.ProductionWrite.Status != agginventory.ProductionTargetsStatusNotConfigured {
+		t.Fatalf("expected production_write.status=%q got %q", agginventory.ProductionTargetsStatusNotConfigured, budget.ProductionWrite.Status)
+	}
+	if budget.ProductionWrite.Count == nil || *budget.ProductionWrite.Count != 0 {
+		t.Fatalf("expected production count 0 when production targets are disabled, got %v", budget.ProductionWrite.Count)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected no entries, got %d", len(entries))
+	}
+}
+
+func TestBuildCustomTargetsRemainAuthoritativeOverBuiltIns(t *testing.T) {
+	t.Parallel()
+
+	toolID := identity.ToolID("codex", ".github/workflows/release.yml")
+	agentID := identity.AgentID(toolID, "acme")
+
+	tools := []agginventory.Tool{
+		{
+			ToolID:      toolID,
+			AgentID:     agentID,
+			ToolType:    "codex",
+			Org:         "acme",
+			Repos:       []string{"acme/payments"},
+			Permissions: []string{"deploy.write"},
+			DataClass:   "code",
+		},
+	}
+	findings := []model.Finding{
+		{
+			ToolType:    "codex",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "acme/payments",
+			Org:         "acme",
+			Permissions: []string{"deploy.write"},
+			Evidence: []model.Evidence{
+				{Key: "env_value", Value: "production"},
+				{Key: "workflow_triggers", Value: "release"},
+			},
+		},
+	}
+	rules := &productiontargets.Config{
+		SchemaVersion: "v1",
+		Targets: productiontargets.Targets{
+			Repos: productiontargets.MatchSet{Exact: []string{"acme/other"}},
+		},
+	}
+	rules.Normalize()
+
+	budget, entries := Build(tools, nil, findings, rules)
+	if budget.ProductionWrite.Count == nil || *budget.ProductionWrite.Count != 0 {
+		t.Fatalf("expected production write count=0 with non-matching custom targets, got %v", budget.ProductionWrite.Count)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected one entry, got %d", len(entries))
+	}
+	if entries[0].ProductionWrite {
+		t.Fatalf("expected custom targets to suppress built-in classification, got %+v", entries[0])
+	}
+	if len(entries[0].MatchedProductionTargets) != 0 {
+		t.Fatalf("expected no matched production targets, got %+v", entries[0].MatchedProductionTargets)
 	}
 }
 

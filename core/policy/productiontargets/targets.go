@@ -38,6 +38,12 @@ func DefaultWritePermissions() []string {
 	return append([]string(nil), defaultWritePermissions...)
 }
 
+func DefaultConfig() Config {
+	cfg := Config{SchemaVersion: SchemaVersionV1}
+	cfg.Normalize()
+	return cfg
+}
+
 type MatchSet struct {
 	Exact  []string `yaml:"exact" json:"exact"`
 	Prefix []string `yaml:"prefix" json:"prefix"`
