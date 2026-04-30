@@ -1261,7 +1261,7 @@ targets:
 			name:                "invalid",
 			productionTargets:   "schema_version: v2\n",
 			wantStatus:          "invalid",
-			wantProductionWrite: true,
+			wantProductionWrite: false,
 			wantAction:          "control",
 		},
 	}
