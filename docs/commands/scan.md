@@ -4,6 +4,8 @@
 
 ```bash
 wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--source-retention ephemeral|retain_for_resume|retain] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom] [--report-share-profile internal|public] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
+
+Govern-first `action_paths` in scan JSON now carry additive policy-coverage fields (`policy_coverage_status`, `policy_refs`, `policy_missing_reasons`, `policy_confidence`) and optional `introduced_by` metadata derived from deterministic local git history when available.
 wrkr scan status --state <path> [--json]
 ```
 

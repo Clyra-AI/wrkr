@@ -15,6 +15,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added an `agent-action-bom` report template that leads with the canonical Agent Action BOM command path and evidence export.
 - [semver:minor] Added deterministic credential-kind classification for PATs, GitHub App keys, deploy keys, cloud keys, workload identity, delegated OAuth, JIT credentials, inherited human credentials, and unknown durable secrets without exposing secret values.
 - [semver:minor] Added built-in production-target packs for common deploy, Terraform/IaC, Kubernetes, package-publishing, release-automation, database-migration, and customer-impacting workflows while keeping custom production-target files authoritative when supplied.
+- [semver:minor] Added per-action-path and Agent Action BOM policy coverage status so reports can distinguish uncovered, declared, matched, runtime-proven, stale, and conflicting Gait evidence without claiming enforcement.
+- [semver:minor] Added normalized runtime control evidence classes and richer correlation keys so `wrkr ingest`, `wrkr report`, and `wrkr evidence` can join policy decisions, approvals, and proof verification back to one BOM item.
+- [semver:minor] Added optional `introduced_by` attribution on govern-first action paths and Agent Action BOM items using deterministic local git history when repository metadata is available.
+- [semver:minor] Added the deterministic `agent-action-bom-demo` before/after fixture pack, demo runner script, and acceptance coverage for the static-to-runtime evidence storyline.
 
 ### Changed
 

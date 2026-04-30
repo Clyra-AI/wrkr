@@ -71,17 +71,22 @@
         "matched_production_targets": {"type": "array", "items": {"type": "string"}},
         "approval_gap": {"type": "boolean"},
         "approval_gap_reasons": {"type": "array", "items": {"type": "string"}},
-        "policy_status": {"type": "string"},
+        "policy_status": {"type": "string", "enum": ["none", "declared", "matched", "runtime_proven", "stale", "conflict"]},
         "policy_refs": {"type": "array", "items": {"type": "string"}},
+        "policy_missing_reasons": {"type": "array", "items": {"type": "string"}},
+        "policy_status_reasons": {"type": "array", "items": {"type": "string"}},
+        "policy_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "policy_evidence_refs": {"type": "array", "items": {"type": "string"}},
         "proof_coverage": {"type": "string"},
         "proof_refs": {"type": "array", "items": {"type": "string"}},
-        "runtime_evidence_status": {"type": "string"},
+        "runtime_evidence_status": {"type": "string", "enum": ["matched", "unmatched", "stale", "conflict"]},
         "runtime_evidence_classes": {"type": "array", "items": {"type": "string"}},
         "runtime_evidence_refs": {"type": "array", "items": {"type": "string"}},
         "control_priority": {"type": "string"},
         "recommended_next_action": {"type": "string"},
         "graph_refs": {"$ref": "#/$defs/graphRefs"},
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "introduced_by": {"$ref": "#/$defs/introducedBy"},
         "reachability": {
           "type": "array",
           "items": {"$ref": "#/$defs/reachability"}
@@ -144,6 +149,32 @@
         "capability_exposure": {"type": "array", "items": {"type": "string"}},
         "trust_gaps": {"type": "array", "items": {"type": "string"}},
         "trust_depth_score": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "locationRange": {
+      "type": "object",
+      "required": ["start_line", "end_line"],
+      "properties": {
+        "start_line": {"type": "integer"},
+        "end_line": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "introducedBy": {
+      "type": "object",
+      "required": ["source", "confidence"],
+      "properties": {
+        "source": {"type": "string"},
+        "confidence": {"type": "string", "enum": ["high", "low"]},
+        "missing_reason": {"type": "string"},
+        "pr_number": {"type": "integer"},
+        "commit_sha": {"type": "string"},
+        "author": {"type": "string"},
+        "timestamp": {"type": "string", "format": "date-time"},
+        "changed_file": {"type": "string"},
+        "line_range": {"$ref": "#/$defs/locationRange"},
+        "provider_url": {"type": "string"}
       },
       "additionalProperties": false
     }

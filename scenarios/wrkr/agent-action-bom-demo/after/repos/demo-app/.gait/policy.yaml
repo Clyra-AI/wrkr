@@ -1,0 +1,4 @@
+rules:
+  - id: release-control
+    block_tools:
+      - proc.exec

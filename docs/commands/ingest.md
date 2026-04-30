@@ -22,12 +22,24 @@ The managed runtime evidence artifact is written next to the selected state file
 
 Runtime evidence records are normalized and sorted deterministically. Each record must provide:
 
-- `path_id`
 - `source`
 - `observed_at` in RFC3339 format
 - `evidence_class`
 
-Additional additive keys may include `agent_id`, `tool`, `repo`, `policy_ref`, `proof_ref`, `status`, and `evidence_refs`.
+Each record must also provide at least one deterministic correlation key: `path_id`, `agent_id`, `repo` + `location`, `policy_ref`, `proof_ref`, `target`, or graph refs.
+
+Normalized evidence classes:
+
+- `policy_decision`
+- `approval`
+- `jit_credential`
+- `freeze_window`
+- `kill_switch`
+- `action_outcome`
+- `proof_verification`
+- `other` for explicit legacy/unknown carry-through
+
+Additional additive keys may include `tool`, `repo`, `location`, `target`, `action_classes`, `policy_ref`, `proof_ref`, `graph_node_refs`, `graph_edge_refs`, `status`, and `evidence_refs`.
 
 ## Safety and failure modes
 
@@ -35,3 +47,4 @@ Additional additive keys may include `agent_id`, `tool`, `repo`, `policy_ref`, `
 - Schema or contract violations return exit `3`.
 - Unsafe managed output paths return exit `8`.
 - Static scan findings remain unchanged; report and evidence commands consume runtime evidence only as corroborating metadata.
+- Runtime evidence can promote BOM/report policy coverage to `runtime_proven` without rewriting saved scan findings.

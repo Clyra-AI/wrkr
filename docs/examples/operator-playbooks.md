@@ -52,6 +52,7 @@ wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
 
 Use internal profile for engineering/security reviews. Use public profile for external packets with deterministic redaction. The exec PDF path now wraps and paginates long content so the executive summary stays board-ready when the acceptance fixtures are green.
 Use `report --template agent-action-bom` when you want the canonical joined action-path inventory with proof refs, graph refs, runtime evidence correlation, credential classification, and next-action priority without manually joining `action_paths`, `control_path_graph`, and evidence fields.
+Use `./scripts/run_agent_action_bom_demo.sh after` when you need a deterministic before/after fixture that proves the static discovery -> runtime evidence -> evidence bundle story end to end.
 The report path is static and saved-state based: it summarizes risky write paths, proof artifacts, and governance priorities without claiming runtime observation or control-layer enforcement.
 `report --json` now includes additive `next_steps[]` guidance that points operators toward the current report artifact fields, the follow-on evidence bundle flow, and explicit proof-chain verification before external handoff.
 

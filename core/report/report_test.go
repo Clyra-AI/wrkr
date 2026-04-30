@@ -10,6 +10,7 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
@@ -349,10 +350,15 @@ func TestBuildAgentActionBOMDerivesStableItemsFromSummary(t *testing.T) {
 				MatchedProductionTargets: []string{"built_in:deploy_workflow"},
 				ApprovalGap:              true,
 				ApprovalGapReasons:       []string{"approval_source_missing"},
+				PolicyCoverageStatus:     risk.PolicyCoverageStatusMatched,
+				PolicyRefs:               []string{"gait://release"},
+				PolicyConfidence:         "high",
+				PolicyEvidenceRefs:       []string{".gait/policy.yaml"},
 				RecommendedAction:        "control",
 				OperationalOwner:         "@acme/release",
 				OwnershipStatus:          "explicit",
 				OwnershipState:           "explicit_owner",
+				IntroducedBy:             &attribution.Result{Source: "local_git", Confidence: "high", CommitSHA: "abc123", Author: "Wrkr Test", ChangedFile: ".github/workflows/release.yml"},
 			},
 			{
 				PathID:               "apc-100000",
@@ -419,6 +425,40 @@ func TestBuildAgentActionBOMDerivesStableItemsFromSummary(t *testing.T) {
 	}
 	if !containsStringValue(first.Items[0].GraphRefs.NodeIDs, "node-1") || !containsStringValue(first.Items[0].ProofRefs, "proof_head:sha256:abc123") {
 		t.Fatalf("expected graph/proof refs on BOM item, got %+v", first.Items[0])
+	}
+	if first.Items[0].PolicyStatus != risk.PolicyCoverageStatusMatched || first.Items[0].IntroducedBy == nil || first.Items[0].IntroducedBy.CommitSHA != "abc123" {
+		t.Fatalf("expected policy coverage and introduction attribution on BOM item, got %+v", first.Items[0])
+	}
+}
+
+func TestDecorateActionPathsForReportPromotesRuntimePolicyCoverage(t *testing.T) {
+	t.Parallel()
+
+	paths := decorateActionPathsForReport([]risk.ActionPath{{
+		PathID:               "apc-1",
+		Org:                  "local",
+		Repo:                 "policy-target",
+		ToolType:             "compiled_action",
+		Location:             ".github/workflows/release.yml",
+		PolicyCoverageStatus: risk.PolicyCoverageStatusMatched,
+		PolicyRefs:           []string{"gait://release"},
+	}}, &ingest.Summary{
+		Correlations: []ingest.Correlation{{
+			PathID:          "apc-1",
+			Status:          ingest.CorrelationStatusMatched,
+			EvidenceClasses: []string{ingest.EvidenceClassPolicyDecision},
+			PolicyRefs:      []string{"gait://release"},
+			RecordIDs:       []string{"rec-1"},
+		}},
+	})
+	if len(paths) != 1 {
+		t.Fatalf("expected one path, got %+v", paths)
+	}
+	if paths[0].PolicyCoverageStatus != risk.PolicyCoverageStatusRuntimeProven {
+		t.Fatalf("expected runtime-proven policy coverage, got %+v", paths[0])
+	}
+	if !containsStringValue(paths[0].PolicyEvidenceRefs, "rec-1") {
+		t.Fatalf("expected runtime record ref on policy evidence, got %+v", paths[0])
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/owners"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
@@ -31,6 +32,7 @@ type ActionPath struct {
 	AgentID                    string                                  `json:"agent_id,omitempty"`
 	ToolType                   string                                  `json:"tool_type"`
 	Location                   string                                  `json:"location,omitempty"`
+	LocationRange              *model.LocationRange                    `json:"location_range,omitempty"`
 	WriteCapable               bool                                    `json:"write_capable"`
 	OperationalOwner           string                                  `json:"operational_owner,omitempty"`
 	OwnerSource                string                                  `json:"owner_source,omitempty"`
@@ -65,6 +67,13 @@ type ActionPath struct {
 	SharedExecutionIdentity    bool                                    `json:"shared_execution_identity,omitempty"`
 	StandingPrivilege          bool                                    `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons   []string                                `json:"standing_privilege_reasons,omitempty"`
+	PolicyCoverageStatus       string                                  `json:"policy_coverage_status,omitempty"`
+	PolicyRefs                 []string                                `json:"policy_refs,omitempty"`
+	PolicyMissingReasons       []string                                `json:"policy_missing_reasons,omitempty"`
+	PolicyStatusReasons        []string                                `json:"policy_status_reasons,omitempty"`
+	PolicyConfidence           string                                  `json:"policy_confidence,omitempty"`
+	PolicyEvidenceRefs         []string                                `json:"policy_evidence_refs,omitempty"`
+	IntroducedBy               *attribution.Result                     `json:"introduced_by,omitempty"`
 	AttackPathScore            float64                                 `json:"attack_path_score"`
 	RiskScore                  float64                                 `json:"risk_score"`
 	RecommendedAction          string                                  `json:"recommended_action"`
@@ -167,6 +176,7 @@ func buildActionPath(
 		AgentID:                    strings.TrimSpace(entry.AgentID),
 		ToolType:                   actionPathToolType(entry),
 		Location:                   strings.TrimSpace(entry.Location),
+		LocationRange:              cloneLocationRange(entry.LocationRange),
 		WriteCapable:               entry.WriteCapable,
 		OperationalOwner:           strings.TrimSpace(entry.OperationalOwner),
 		OwnerSource:                strings.TrimSpace(entry.OwnerSource),
@@ -202,6 +212,7 @@ func buildActionPath(
 		RiskScore:                  actionPathRiskScore(entry.RiskScore, provenance),
 		StandingPrivilege:          entry.StandingPrivilege || standingPrivilege,
 		StandingPrivilegeReasons:   dedupeSortedStrings(append(append([]string(nil), entry.StandingPrivilegeReasons...), standingReasons...)),
+		PolicyCoverageStatus:       PolicyCoverageStatusNone,
 		MatchedProductionTargets:   dedupeSortedStrings(entry.MatchedProductionTargets),
 		GovernanceControls:         append([]agginventory.GovernanceControlMapping(nil), entry.GovernanceControls...),
 	}
@@ -343,6 +354,16 @@ func locationRangeKey(locationRange *model.LocationRange) string {
 	return strconv.Itoa(locationRange.StartLine) + ":" + strconv.Itoa(locationRange.EndLine)
 }
 
+func cloneLocationRange(locationRange *model.LocationRange) *model.LocationRange {
+	if locationRange == nil {
+		return nil
+	}
+	return &model.LocationRange{
+		StartLine: locationRange.StartLine,
+		EndLine:   locationRange.EndLine,
+	}
+}
+
 func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged := current
 	merged.WriteCapable = current.WriteCapable || incoming.WriteCapable
@@ -366,6 +387,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.SecurityVisibilityStatus = mergeSecurityVisibilityStatus(current.SecurityVisibilityStatus, incoming.SecurityVisibilityStatus)
 	merged.DeploymentStatus = mergeDeploymentStatus(current.DeploymentStatus, incoming.DeploymentStatus)
 	merged.WorkflowTriggerClass = mergeWorkflowTriggerClass(current.WorkflowTriggerClass, incoming.WorkflowTriggerClass)
+	merged.LocationRange = mergeLocationRange(current.LocationRange, incoming.LocationRange)
 	merged.OperationalOwner, merged.OwnerSource, merged.OwnershipStatus = mergeOperationalOwner(current, incoming)
 	merged.OwnershipState = mergeOwnershipState(current, incoming)
 	merged.OwnershipConfidence = mergeOwnershipConfidence(current, incoming)
@@ -375,6 +397,13 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
 	merged.StandingPrivilege = current.StandingPrivilege || incoming.StandingPrivilege
 	merged.StandingPrivilegeReasons = dedupeSortedStrings(append(append([]string(nil), current.StandingPrivilegeReasons...), incoming.StandingPrivilegeReasons...))
+	merged.PolicyCoverageStatus = choosePolicyCoverageStatus(current.PolicyCoverageStatus, incoming.PolicyCoverageStatus)
+	merged.PolicyRefs = dedupeSortedStrings(append(append([]string(nil), current.PolicyRefs...), incoming.PolicyRefs...))
+	merged.PolicyMissingReasons = dedupeSortedStrings(append(append([]string(nil), current.PolicyMissingReasons...), incoming.PolicyMissingReasons...))
+	merged.PolicyStatusReasons = dedupeSortedStrings(append(append([]string(nil), current.PolicyStatusReasons...), incoming.PolicyStatusReasons...))
+	merged.PolicyConfidence = choosePolicyConfidence(current.PolicyConfidence, incoming.PolicyConfidence)
+	merged.PolicyEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.PolicyEvidenceRefs...), incoming.PolicyEvidenceRefs...))
+	merged.IntroducedBy = attribution.Merge(current.IntroducedBy, incoming.IntroducedBy)
 	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
 	merged.RecommendedAction = recommendedActionForPath(merged)
 	return merged
@@ -936,6 +965,17 @@ func mergeExecutionIdentity(current, incoming ActionPath) (string, string, strin
 		return incoming.ExecutionIdentity, incoming.ExecutionIdentityType, incoming.ExecutionIdentitySource, incomingStatus, incoming.ExecutionIdentityRationale
 	default:
 		return current.ExecutionIdentity, current.ExecutionIdentityType, current.ExecutionIdentitySource, currentStatus, current.ExecutionIdentityRationale
+	}
+}
+
+func mergeLocationRange(current, incoming *model.LocationRange) *model.LocationRange {
+	switch {
+	case current == nil:
+		return cloneLocationRange(incoming)
+	case incoming == nil:
+		return cloneLocationRange(current)
+	default:
+		return cloneLocationRange(current)
 	}
 }
 

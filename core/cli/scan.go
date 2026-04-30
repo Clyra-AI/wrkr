@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -477,6 +478,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	agginventory.ApplySecurityVisibilityToPrivilegeMap(&inventoryOut)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, &inventoryOut)
+	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, findings)
+	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoRootsByKey(manifestOut))
 
 	profileDef, profileErr := profilemodel.Builtin(*profileName)
 	if profileErr != nil {
@@ -1163,6 +1166,26 @@ func scanModesCompatible(previous, current string) bool {
 	previous = strings.TrimSpace(previous)
 	current = strings.TrimSpace(current)
 	return previous == "" || previous == current
+}
+
+func repoRootsByKey(manifest source.Manifest) map[string]string {
+	if len(manifest.Repos) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(manifest.Repos))
+	for _, repo := range manifest.Repos {
+		key := strings.TrimSpace(repo.Repo)
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		location := filepath.Clean(strings.TrimSpace(repo.Location))
+		for _, composite := range []string{"local::" + key, "::" + key} {
+			if existing := strings.TrimSpace(out[composite]); existing == "" {
+				out[composite] = location
+			}
+		}
+	}
+	return out
 }
 
 func hasIncompleteFilesystemVisibility(detectorErrors []detect.DetectorError, sourceFailures []source.RepoFailure) bool {

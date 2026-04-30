@@ -91,10 +91,12 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	attackPathFacts := buildAttackPathFacts(*riskReport)
 	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
 	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
-	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
 	controlBacklog := in.Snapshot.ControlBacklog
 	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
 	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
+	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
+	riskReport.ActionPathToControlFirst = decorateControlFirstForReport(riskReport.ActionPathToControlFirst, riskReport.ActionPaths)
+	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
 
 	if shareProfile == ShareProfilePublic {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -1174,6 +1176,13 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 			copyItem.CredentialProvenance = agginventory.CloneCredentialProvenance(copyItem.CredentialProvenance)
 			copyItem.CredentialProvenance.Subject = redactValue("credential", copyItem.CredentialProvenance.Subject, 8)
 			copyItem.CredentialProvenance.EvidenceBasis = redactStringSlice(copyItem.CredentialProvenance.EvidenceBasis, "evidence")
+		}
+		if copyItem.IntroducedBy != nil {
+			introduced := *copyItem.IntroducedBy
+			introduced.Author = redactValue("author", introduced.Author, 8)
+			introduced.ChangedFile = redactValue("file", introduced.ChangedFile, 8)
+			introduced.ProviderURL = redactValue("provider", introduced.ProviderURL, 8)
+			copyItem.IntroducedBy = &introduced
 		}
 		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
 		for _, target := range copyItem.MatchedProductionTargets {

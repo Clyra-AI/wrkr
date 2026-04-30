@@ -1,0 +1,25 @@
+{
+  "summary": {
+    "total_items": 4,
+    "control_first_items": 1,
+    "standing_privilege_items": 3,
+    "static_credential_items": 3,
+    "production_target_items": 2,
+    "missing_approval_items": 4,
+    "missing_policy_items": 0,
+    "missing_proof_items": 0,
+    "runtime_proven_items": 1,
+    "unresolved_owner_items": 0
+  },
+  "top_item": {
+    "path_id": "apc-6626703372d7",
+    "tool_type": "ci_agent",
+    "policy_status": "runtime_proven",
+    "runtime_evidence_status": "matched",
+    "runtime_evidence_classes": [
+      "approval",
+      "policy_decision",
+      "proof_verification"
+    ]
+  }
+}

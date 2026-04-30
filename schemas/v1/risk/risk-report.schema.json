@@ -38,6 +38,7 @@
         "agent_id": {"type": "string"},
         "tool_type": {"type": "string"},
         "location": {"type": "string"},
+        "location_range": {"$ref": "#/$defs/locationRange"},
         "write_capable": {"type": "boolean"},
         "write_path_classes": {"type": "array", "items": {"type": "string"}},
         "action_classes": {"type": "array", "items": {"type": "string"}},
@@ -61,6 +62,13 @@
         "shared_execution_identity": {"type": "boolean"},
         "standing_privilege": {"type": "boolean"},
         "standing_privilege_reasons": {"type": "array", "items": {"type": "string"}},
+        "policy_coverage_status": {"type": "string", "enum": ["none", "declared", "matched", "runtime_proven", "stale", "conflict"]},
+        "policy_refs": {"type": "array", "items": {"type": "string"}},
+        "policy_missing_reasons": {"type": "array", "items": {"type": "string"}},
+        "policy_status_reasons": {"type": "array", "items": {"type": "string"}},
+        "policy_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "policy_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "introduced_by": {"$ref": "#/$defs/introducedBy"},
         "attack_path_score": {"type": "number"},
         "risk_score": {"type": "number"},
         "recommended_action": {"type": "string"},
@@ -93,6 +101,32 @@
         "risk_multiplier": {"type": "number"}
       },
       "additionalProperties": true
+    },
+    "locationRange": {
+      "type": "object",
+      "required": ["start_line", "end_line"],
+      "properties": {
+        "start_line": {"type": "integer"},
+        "end_line": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "introducedBy": {
+      "type": "object",
+      "required": ["source", "confidence"],
+      "properties": {
+        "source": {"type": "string"},
+        "confidence": {"type": "string", "enum": ["high", "low"]},
+        "missing_reason": {"type": "string"},
+        "pr_number": {"type": "integer"},
+        "commit_sha": {"type": "string"},
+        "author": {"type": "string"},
+        "timestamp": {"type": "string", "format": "date-time"},
+        "changed_file": {"type": "string"},
+        "line_range": {"$ref": "#/$defs/locationRange"},
+        "provider_url": {"type": "string"}
+      },
+      "additionalProperties": false
     }
   }
 }

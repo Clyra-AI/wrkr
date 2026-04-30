@@ -180,6 +180,7 @@
         "agent_id": {"type": "string"},
         "tool_type": {"type": "string"},
         "location": {"type": "string"},
+        "location_range": {"$ref": "#/$defs/locationRange"},
         "write_capable": {"type": "boolean"},
         "approval_gap": {"type": "boolean"},
         "credential_access": {"type": "boolean"},
@@ -187,6 +188,13 @@
         "action_classes": {"type": "array", "items": {"type": "string"}},
         "action_reasons": {"type": "array", "items": {"type": "string"}},
         "trust_depth": {"$ref": "#/$defs/trustDepth"},
+        "policy_coverage_status": {"type": "string", "enum": ["none", "declared", "matched", "runtime_proven", "stale", "conflict"]},
+        "policy_refs": {"type": "array", "items": {"type": "string"}},
+        "policy_missing_reasons": {"type": "array", "items": {"type": "string"}},
+        "policy_status_reasons": {"type": "array", "items": {"type": "string"}},
+        "policy_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "policy_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "introduced_by": {"$ref": "#/$defs/introducedBy"},
         "attack_path_score": {"type": "number"},
         "risk_score": {"type": "number"},
         "recommended_action": {"type": "string"},
@@ -484,11 +492,16 @@
         "agent_id": {"type": "string"},
         "tool": {"type": "string"},
         "repo": {"type": "string"},
-        "status": {"type": "string"},
+        "location": {"type": "string"},
+        "target": {"type": "string"},
+        "status": {"type": "string", "enum": ["matched", "unmatched", "stale", "conflict"]},
         "evidence_classes": {"type": "array", "items": {"type": "string"}},
+        "action_classes": {"type": "array", "items": {"type": "string"}},
         "sources": {"type": "array", "items": {"type": "string"}},
         "policy_refs": {"type": "array", "items": {"type": "string"}},
         "proof_refs": {"type": "array", "items": {"type": "string"}},
+        "graph_node_refs": {"type": "array", "items": {"type": "string"}},
+        "graph_edge_refs": {"type": "array", "items": {"type": "string"}},
         "record_ids": {"type": "array", "items": {"type": "string"}},
         "latest_observed_at": {"type": "string"}
       }
@@ -533,6 +546,32 @@
           "items": {"type": "string"}
         }
       }
+    },
+    "locationRange": {
+      "type": "object",
+      "required": ["start_line", "end_line"],
+      "properties": {
+        "start_line": {"type": "integer"},
+        "end_line": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "introducedBy": {
+      "type": "object",
+      "required": ["source", "confidence"],
+      "properties": {
+        "source": {"type": "string"},
+        "confidence": {"type": "string", "enum": ["high", "low"]},
+        "missing_reason": {"type": "string"},
+        "pr_number": {"type": "integer"},
+        "commit_sha": {"type": "string"},
+        "author": {"type": "string"},
+        "timestamp": {"type": "string", "format": "date-time"},
+        "changed_file": {"type": "string"},
+        "line_range": {"$ref": "#/$defs/locationRange"},
+        "provider_url": {"type": "string"}
+      },
+      "additionalProperties": false
     }
   }
 }
