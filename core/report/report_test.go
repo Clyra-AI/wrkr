@@ -553,6 +553,86 @@ func TestBuildAgentActionBOMMarksProofCoveredWhenLinkedProofSatisfied(t *testing
 	}
 }
 
+func TestBuildAgentActionBOMSharesMergedControlProofAcrossSiblingPaths(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{
+				{
+					PathID:            "apc-proof-covered-primary",
+					AgentID:           "wrkr:ci:acme",
+					Org:               "acme",
+					Repo:              "demo-app",
+					ToolType:          "ci_agent",
+					Location:          ".github/workflows/release.yml",
+					CredentialAccess:  true,
+					ApprovalGap:       false,
+					RecommendedAction: "approval",
+				},
+				{
+					PathID:            "apc-proof-covered-sibling",
+					AgentID:           "wrkr:ci:acme",
+					Org:               "acme",
+					Repo:              "demo-app",
+					ToolType:          "ci_agent",
+					Location:          ".github/workflows/release.yml",
+					CredentialAccess:  true,
+					ApprovalGap:       false,
+					RecommendedAction: "approval",
+				},
+			},
+		},
+		ControlBacklog: &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+			ID:                 "cb-proof-covered",
+			Repo:               "demo-app",
+			Path:               ".github/workflows/release.yml",
+			RecommendedAction:  controlbacklog.ActionApprove,
+			ClosureCriteria:    "Record owner-approved, time-bounded approval evidence and rescan.",
+			LinkedActionPathID: "apc-proof-covered-primary",
+			GovernanceControls: []agginventory.GovernanceControlMapping{
+				{Control: agginventory.GovernanceControlApproval, Status: agginventory.ControlStatusGap},
+			},
+		}}},
+	}
+	chain := proof.NewChain("wrkr-proof")
+	chain.Records = append(chain.Records, proof.Record{
+		RecordID:   "rec-approval",
+		RecordType: "approval",
+		AgentID:    "wrkr:ci:acme",
+		Event: map[string]any{
+			"event_type":     "approval_recorded",
+			"owner":          "platform-security",
+			"review_cadence": "90d",
+			"control_id":     agginventory.GovernanceControlApproval,
+		},
+	})
+	summary := Summary{
+		SummaryVersion: SummaryVersion,
+		GeneratedAt:    "2026-04-30T12:00:00Z",
+		Proof: ProofReference{
+			ChainPath: ".wrkr/proof-chain.json",
+			HeadHash:  "sha256:attached",
+		},
+		ActionPaths:    snapshot.RiskReport.ActionPaths,
+		ControlBacklog: snapshot.ControlBacklog,
+	}
+	summary.controlProofStatus = BuildControlProofStatus(snapshot, chain)
+
+	bom := BuildAgentActionBOM(summary)
+	if bom == nil || len(bom.Items) != 2 {
+		t.Fatalf("expected two BOM items, got %+v", bom)
+	}
+	for _, item := range bom.Items {
+		if item.ProofCoverage != proofCoverageCovered {
+			t.Fatalf("expected sibling path to inherit covered proof status, got %+v", item)
+		}
+	}
+	if bom.Summary.MissingProofItems != 0 {
+		t.Fatalf("expected no missing proof items, got %+v", bom.Summary)
+	}
+}
+
 func TestBuildAgentActionBOMExposesNamedReachabilityProjections(t *testing.T) {
 	t.Parallel()
 
