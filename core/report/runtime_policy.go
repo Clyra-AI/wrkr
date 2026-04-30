@@ -34,16 +34,16 @@ func decorateActionPathsForReport(paths []risk.ActionPath, runtimeEvidence *inge
 			out[i].PolicyCoverageStatus = risk.PolicyCoverageStatusConflict
 			out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "runtime_evidence_conflict"))
 			out[i].PolicyConfidence = "high"
-		case ingest.CorrelationStatusStale:
-			out[i].PolicyCoverageStatus = risk.PolicyCoverageStatusStale
-			out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "runtime_evidence_stale"))
-			out[i].PolicyConfidence = "medium"
-		default:
+		case ingest.CorrelationStatusMatched:
 			if containsEvidenceClass(item.EvidenceClasses, ingest.EvidenceClassPolicyDecision) {
 				out[i].PolicyCoverageStatus = risk.PolicyCoverageStatusRuntimeProven
 				out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "runtime_policy_decision_attached"))
 				out[i].PolicyConfidence = "high"
 			}
+		case ingest.CorrelationStatusStale:
+			out[i].PolicyCoverageStatus = risk.PolicyCoverageStatusStale
+			out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "runtime_evidence_stale"))
+			out[i].PolicyConfidence = "medium"
 		}
 	}
 	return out
