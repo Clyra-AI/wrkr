@@ -8,25 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added explicit `source_privacy` metadata to scan state, scan JSON, scan status, reports, evidence bundle metadata, and SARIF output so operators can prove hosted source retention and cleanup behavior.
-- [semver:minor] Added a versioned `control_path_graph` artifact linking identities, credentials, tools, workflows, repos, governance controls, targets, and action capabilities across saved state, reports, and evidence bundles.
-- [semver:minor] Added typed `credential_provenance` classification across inventory privilege maps, govern-first action paths, control backlog items, reports, and proof mapping while preserving existing boolean compatibility fields.
-- [semver:minor] Added a versioned `agent_action_bom` artifact in report and evidence outputs so operators can review risky agent actions, graph refs, proof refs, runtime evidence correlation, and next-action priority from one deterministic object.
-- [semver:minor] Added an `agent-action-bom` report template that leads with the canonical Agent Action BOM command path and evidence export.
-- [semver:minor] Added deterministic credential-kind classification for PATs, GitHub App keys, deploy keys, cloud keys, workload identity, delegated OAuth, JIT credentials, inherited human credentials, and unknown durable secrets without exposing secret values.
-- [semver:minor] Added built-in production-target packs for common deploy, Terraform/IaC, Kubernetes, package-publishing, release-automation, database-migration, and customer-impacting workflows while keeping custom production-target files authoritative when supplied.
-- [semver:minor] Added per-action-path and Agent Action BOM policy coverage status so reports can distinguish uncovered, declared, matched, runtime-proven, stale, and conflicting Gait evidence without claiming enforcement.
-- [semver:minor] Added normalized runtime control evidence classes and richer correlation keys so `wrkr ingest`, `wrkr report`, and `wrkr evidence` can join policy decisions, approvals, and proof verification back to one BOM item.
-- [semver:minor] Added buyer-facing MCP/A2A reachability projections on Agent Action BOM items, including reachable servers, tools, APIs, agents, trust-depth metadata, and evidence refs.
-- [semver:minor] Added optional `introduced_by` attribution on govern-first action paths and Agent Action BOM items using deterministic local git history when repository metadata is available.
-- [semver:minor] Added the deterministic `agent-action-bom-demo` before/after fixture pack, demo runner script, and acceptance coverage for the static-to-runtime evidence storyline.
+- (none yet)
 
 ### Changed
 
-- Hosted source manifests now serialize logical repository references while detector execution uses private scan roots and source-code materialization is opt-in.
-- Clarify that GitHub App install inventory is future/additive platform scope, not part of the current default OSS scan path.
-- Align required-check and Go toolchain governance docs with the executable branch-protection and `go.mod` sources of truth.
-- [semver:minor] Normalized action classes and standing-privilege reasoning across privilege maps, govern-first action paths, control backlog views, reports, and Agent Action BOM items.
+- (none yet)
 
 ### Deprecated
 
@@ -38,19 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Fixed `wrkr report --json` to emit the documented top-level `runtime_evidence` field when runtime correlation data is available from the selected saved state.
-- [semver:patch] Fixed Agent Action BOM proof coverage to reflect missing path-level approval and control proof instead of treating any attached proof chain as complete coverage.
+- (none yet)
 
 ### Security
 
-- Hosted repository and organization scans now default to ephemeral source materialization with explicit retention modes and cleanup status.
-- Scan artifacts, proof mapping, reports, evidence, and SARIF now redact hosted materialized paths from shareable outputs.
-- Added privacy regression coverage and operator documentation proving hosted scans do not retain or serialize source code by default.
-- [semver:patch] Correlated CI secret references into credential provenance so risky headless or workflow-backed agent paths classify standing/static credential authority from deterministic repo/workflow evidence instead of remaining `unknown`.
-- [semver:patch] Reject root-escaping Gait policy symlinks as deterministic `unsafe_path` parse diagnostics instead of reading or emitting external policy files as repository evidence.
-- [semver:patch] Prevent release assets and Homebrew tap updates from publishing until checksum, SBOM, vulnerability scan, signing, provenance, and verification gates pass.
-- [semver:patch] Reject symlinked detector inputs that resolve outside the selected scan root to preserve source-boundary and proof-record integrity.
-- [semver:patch] Harden walked detector inputs so symlinked files outside the selected repo root cannot be read or recorded as repo-local evidence.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -59,6 +37,47 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.3.0] - 2026-04-30
+<!-- release-semver: minor -->
+
+### Added
+
+- Added explicit `source_privacy` metadata to scan state, scan JSON, scan status, reports, evidence bundle metadata, and SARIF output so operators can prove hosted source retention and cleanup behavior.
+- Added a versioned `control_path_graph` artifact linking identities, credentials, tools, workflows, repos, governance controls, targets, and action capabilities across saved state, reports, and evidence bundles.
+- Added typed `credential_provenance` classification across inventory privilege maps, govern-first action paths, control backlog items, reports, and proof mapping while preserving existing boolean compatibility fields.
+- Added a versioned `agent_action_bom` artifact in report and evidence outputs so operators can review risky agent actions, graph refs, proof refs, runtime evidence correlation, and next-action priority from one deterministic object.
+- Added an `agent-action-bom` report template that leads with the canonical Agent Action BOM command path and evidence export.
+- Added deterministic credential-kind classification for PATs, GitHub App keys, deploy keys, cloud keys, workload identity, delegated OAuth, JIT credentials, inherited human credentials, and unknown durable secrets without exposing secret values.
+- Added built-in production-target packs for common deploy, Terraform/IaC, Kubernetes, package-publishing, release-automation, database-migration, and customer-impacting workflows while keeping custom production-target files authoritative when supplied.
+- Added per-action-path and Agent Action BOM policy coverage status so reports can distinguish uncovered, declared, matched, runtime-proven, stale, and conflicting Gait evidence without claiming enforcement.
+- Added normalized runtime control evidence classes and richer correlation keys so `wrkr ingest`, `wrkr report`, and `wrkr evidence` can join policy decisions, approvals, and proof verification back to one BOM item.
+- Added buyer-facing MCP/A2A reachability projections on Agent Action BOM items, including reachable servers, tools, APIs, agents, trust-depth metadata, and evidence refs.
+- Added optional `introduced_by` attribution on govern-first action paths and Agent Action BOM items using deterministic local git history when repository metadata is available.
+- Added the deterministic `agent-action-bom-demo` before/after fixture pack, demo runner script, and acceptance coverage for the static-to-runtime evidence storyline.
+
+### Changed
+
+- Hosted source manifests now serialize logical repository references while detector execution uses private scan roots and source-code materialization is opt-in.
+- Clarify that GitHub App install inventory is future/additive platform scope, not part of the current default OSS scan path.
+- Align required-check and Go toolchain governance docs with the executable branch-protection and `go.mod` sources of truth.
+- Normalized action classes and standing-privilege reasoning across privilege maps, govern-first action paths, control backlog views, reports, and Agent Action BOM items.
+
+### Fixed
+
+- Fixed `wrkr report --json` to emit the documented top-level `runtime_evidence` field when runtime correlation data is available from the selected saved state.
+- Fixed Agent Action BOM proof coverage to reflect missing path-level approval and control proof instead of treating any attached proof chain as complete coverage.
+
+### Security
+
+- Hosted repository and organization scans now default to ephemeral source materialization with explicit retention modes and cleanup status.
+- Scan artifacts, proof mapping, reports, evidence, and SARIF now redact hosted materialized paths from shareable outputs.
+- Added privacy regression coverage and operator documentation proving hosted scans do not retain or serialize source code by default.
+- Correlated CI secret references into credential provenance so risky headless or workflow-backed agent paths classify standing/static credential authority from deterministic repo/workflow evidence instead of remaining `unknown`.
+- Reject root-escaping Gait policy symlinks as deterministic `unsafe_path` parse diagnostics instead of reading or emitting external policy files as repository evidence.
+- Prevent release assets and Homebrew tap updates from publishing until checksum, SBOM, vulnerability scan, signing, provenance, and verification gates pass.
+- Reject symlinked detector inputs that resolve outside the selected scan root to preserve source-boundary and proof-record integrity.
+- Harden walked detector inputs so symlinked files outside the selected repo root cannot be read or recorded as repo-local evidence.
 
 ## [v1.2.0] - 2026-04-23
 <!-- release-semver: minor -->
