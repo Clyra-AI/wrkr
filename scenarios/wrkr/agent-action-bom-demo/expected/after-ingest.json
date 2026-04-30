@@ -1,0 +1,36 @@
+[
+  {
+    "path_id": "apc-6626703372d7",
+    "agent_id": "wrkr:ci-agent-457b801fb1:local",
+    "tool": "ci_agent",
+    "repo": "demo-app",
+    "location": ".github/workflows/release.yml",
+    "target": "built_in:deploy_workflow",
+    "status": "matched",
+    "evidence_classes": [
+      "approval",
+      "policy_decision",
+      "proof_verification"
+    ],
+    "action_classes": [
+      "deploy",
+      "write"
+    ],
+    "sources": [
+      "gait_runtime",
+      "proof_runtime"
+    ],
+    "policy_refs": [
+      "gait://release-control"
+    ],
+    "proof_refs": [
+      "proof_head:demo"
+    ],
+    "record_ids": [
+      "demo-app:approval:2026-04-29T19:41:00Z",
+      "demo-app:policy_decision:2026-04-29T19:40:00Z",
+      "demo-app:proof_verification:2026-04-29T19:42:00Z"
+    ],
+    "latest_observed_at": "2026-04-29T19:42:00Z"
+  }
+]

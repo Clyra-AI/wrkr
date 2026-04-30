@@ -1,0 +1,14 @@
+name: release-agent
+file: .github/workflows/release.yml
+tools:
+  - deploy
+permissions:
+  - repo.write
+  - deployments.write
+policy_refs:
+  - gait://release-control
+owner_refs:
+  - "@acme/release"
+lifecycle:
+  state: approved
+  approval_status: valid

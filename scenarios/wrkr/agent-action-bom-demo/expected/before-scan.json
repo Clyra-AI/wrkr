@@ -1,0 +1,22 @@
+{
+  "top_action_path": {
+    "path_id": "apc-6626703372d7",
+    "tool_type": "ci_agent",
+    "repo": "demo-app",
+    "location": ".github/workflows/release.yml",
+    "action_classes": [
+      "credential_access",
+      "deploy",
+      "execute",
+      "read",
+      "write"
+    ],
+    "credential_kind": "github_pat",
+    "matched_production_targets": [
+      "built_in:deploy_workflow",
+      "built_in:kubernetes",
+      "built_in:release_automation"
+    ],
+    "policy_coverage_status": "none"
+  }
+}

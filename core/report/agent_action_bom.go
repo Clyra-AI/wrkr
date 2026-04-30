@@ -9,6 +9,7 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -65,6 +66,10 @@ type AgentActionBOMItem struct {
 	ApprovalGapReasons       []string                           `json:"approval_gap_reasons,omitempty"`
 	PolicyStatus             string                             `json:"policy_status,omitempty"`
 	PolicyRefs               []string                           `json:"policy_refs,omitempty"`
+	PolicyMissingReasons     []string                           `json:"policy_missing_reasons,omitempty"`
+	PolicyStatusReasons      []string                           `json:"policy_status_reasons,omitempty"`
+	PolicyConfidence         string                             `json:"policy_confidence,omitempty"`
+	PolicyEvidenceRefs       []string                           `json:"policy_evidence_refs,omitempty"`
 	ProofCoverage            string                             `json:"proof_coverage,omitempty"`
 	ProofRefs                []string                           `json:"proof_refs,omitempty"`
 	RuntimeEvidenceStatus    string                             `json:"runtime_evidence_status,omitempty"`
@@ -75,6 +80,7 @@ type AgentActionBOMItem struct {
 	GraphRefs                AgentActionBOMGraphRefs            `json:"graph_refs,omitempty"`
 	EvidenceRefs             []string                           `json:"evidence_refs,omitempty"`
 	Reachability             []AgentActionBOMReachability       `json:"reachability,omitempty"`
+	IntroducedBy             *attribution.Result                `json:"introduced_by,omitempty"`
 }
 
 type AgentActionBOMGraphRefs struct {
@@ -133,7 +139,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			MatchedProductionTargets: append([]string(nil), path.MatchedProductionTargets...),
 			ApprovalGap:              path.ApprovalGap,
 			ApprovalGapReasons:       append([]string(nil), path.ApprovalGapReasons...),
-			PolicyStatus:             "none",
+			PolicyStatus:             firstNonEmptyValue(path.PolicyCoverageStatus, risk.PolicyCoverageStatusNone),
 			ProofCoverage:            proofCoverage(summary.Proof),
 			ProofRefs:                append([]string(nil), proofRefs...),
 			RuntimeEvidenceStatus:    runtimeItem.Status,
@@ -143,6 +149,12 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			RecommendedNextAction:    strings.TrimSpace(path.RecommendedAction),
 			GraphRefs:                itemGraphRefs,
 			Reachability:             append([]AgentActionBOMReachability(nil), reachabilityByPath[strings.TrimSpace(path.PathID)]...),
+			PolicyRefs:               append([]string(nil), path.PolicyRefs...),
+			PolicyMissingReasons:     append([]string(nil), path.PolicyMissingReasons...),
+			PolicyStatusReasons:      append([]string(nil), path.PolicyStatusReasons...),
+			PolicyConfidence:         strings.TrimSpace(path.PolicyConfidence),
+			PolicyEvidenceRefs:       append([]string(nil), path.PolicyEvidenceRefs...),
+			IntroducedBy:             attribution.Merge(path.IntroducedBy, nil),
 		}
 		item.EvidenceRefs = itemEvidenceRefs(path, backlogItem, runtimeItem, itemGraphRefs)
 		items = append(items, item)
@@ -169,7 +181,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		if item.ProofCoverage == "missing" {
 			counts.MissingProofItems++
 		}
-		if item.RuntimeEvidenceStatus == "matched" {
+		if item.PolicyStatus == risk.PolicyCoverageStatusRuntimeProven || item.RuntimeEvidenceStatus == ingest.CorrelationStatusMatched {
 			counts.RuntimeProvenItems++
 		}
 		if bomItemHasWeakOwnership(path) {
@@ -285,6 +297,7 @@ func proofCoverage(proof ProofReference) string {
 func itemEvidenceRefs(path risk.ActionPath, backlog controlbacklog.Item, runtime ingest.Correlation, graphRefs AgentActionBOMGraphRefs) []string {
 	refs := []string{}
 	refs = append(refs, path.ApprovalGapReasons...)
+	refs = append(refs, path.PolicyEvidenceRefs...)
 	if path.CredentialProvenance != nil {
 		refs = append(refs, path.CredentialProvenance.EvidenceBasis...)
 		refs = append(refs, path.CredentialProvenance.ClassificationReasons...)
@@ -410,6 +423,15 @@ func findingEvidenceRefs(finding model.Finding) []string {
 		out = append(out, strings.TrimSpace(item.Key)+":"+strings.TrimSpace(item.Value))
 	}
 	return uniqueSortedStrings(out)
+}
+
+func firstNonEmptyValue(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func uniqueSortedStrings(values []string) []string {

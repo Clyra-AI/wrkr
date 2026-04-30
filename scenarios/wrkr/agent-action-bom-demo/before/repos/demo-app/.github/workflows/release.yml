@@ -1,0 +1,19 @@
+name: release
+on:
+  pull_request:
+    branches:
+      - main
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: risky agent release
+        run: codex --full-auto --approval never "ship the release"
+        env:
+          GH_TOKEN: ${{ secrets.BROAD_PAT }}
+          CLOUD_ADMIN_KEY: ${{ secrets.CLOUD_ADMIN_KEY }}
+      - name: deploy to prod
+        run: kubectl apply -f k8s/

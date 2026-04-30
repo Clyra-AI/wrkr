@@ -471,6 +471,64 @@ func TestActionPathCarriesCredentialProvenance(t *testing.T) {
 	}
 }
 
+func TestDecoratePolicyCoverageMatchesDeclaredRefsToGaitPolicyFiles(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+			AgentID:                "wrkr:agent:acme",
+			Framework:              "mcp_server",
+			Org:                    "local",
+			Repos:                  []string{"policy-target"},
+			Location:               ".github/workflows/release.yml",
+			RiskScore:              7.0,
+			WriteCapable:           true,
+			CredentialAccess:       true,
+			ActionClasses:          []string{"deploy", "write"},
+			ApprovalClassification: "approved",
+			TrustDepth: &agginventory.TrustDepth{
+				Surface:         agginventory.TrustSurfaceMCP,
+				AuthStrength:    agginventory.TrustAuthStaticSecret,
+				DelegationModel: agginventory.TrustDelegationAgent,
+				Exposure:        agginventory.TrustExposurePrivate,
+				PolicyRefs:      []string{"gait://release"},
+			},
+		}},
+	})
+
+	decorated := DecoratePolicyCoverage(paths, []model.Finding{
+		{
+			FindingType: "tool_config",
+			ToolType:    "gait_policy",
+			Org:         "local",
+			Repo:        "policy-target",
+			Location:    ".gait/policy.yaml",
+		},
+		{
+			FindingType: "mcp_server",
+			ToolType:    "mcp_server",
+			Org:         "local",
+			Repo:        "policy-target",
+			Location:    ".github/workflows/release.yml",
+			Evidence: []model.Evidence{
+				{Key: "policy_refs", Value: "gait://release"},
+			},
+		},
+	})
+	if len(decorated) != 1 {
+		t.Fatalf("expected one decorated path, got %+v", decorated)
+	}
+	if decorated[0].PolicyCoverageStatus != PolicyCoverageStatusMatched {
+		t.Fatalf("expected matched policy coverage, got %+v", decorated[0])
+	}
+	if !containsPathClass(decorated[0].PolicyRefs, "gait://release") {
+		t.Fatalf("expected policy ref to carry through, got %+v", decorated[0].PolicyRefs)
+	}
+	if decorated[0].PolicyConfidence != "high" {
+		t.Fatalf("expected high policy confidence, got %+v", decorated[0])
+	}
+}
+
 func TestApplyGovernFirstProfileAssessmentSuppressesAllCandidates(t *testing.T) {
 	t.Parallel()
 

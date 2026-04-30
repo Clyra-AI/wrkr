@@ -1,0 +1,36 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-04-29T19:33:12Z",
+  "records": [
+    {
+      "repo": "demo-app",
+      "location": ".github/workflows/release.yml",
+      "tool": "ci_agent",
+      "action_classes": [
+        "deploy",
+        "write"
+      ],
+      "source": "gait_runtime",
+      "observed_at": "2026-04-29T19:40:00Z",
+      "evidence_class": "policy_decision",
+      "policy_ref": "gait://release-control"
+    },
+    {
+      "repo": "demo-app",
+      "location": ".github/workflows/release.yml",
+      "tool": "ci_agent",
+      "source": "gait_runtime",
+      "observed_at": "2026-04-29T19:41:00Z",
+      "evidence_class": "approval"
+    },
+    {
+      "repo": "demo-app",
+      "location": ".github/workflows/release.yml",
+      "tool": "ci_agent",
+      "source": "proof_runtime",
+      "observed_at": "2026-04-29T19:42:00Z",
+      "evidence_class": "proof_verification",
+      "proof_ref": "proof_head:demo"
+    }
+  ]
+}

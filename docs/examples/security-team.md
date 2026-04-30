@@ -63,6 +63,7 @@ wrkr report --top 5 --template appsec --json
 - `scan --profile assessment` gives the bounded customer-readout view of risky write paths first while leaving raw findings and proof artifacts intact.
 - `scan` is the place to count unknown-to-security write-capable paths; use `inventory.security_visibility_summary.unknown_to_security_write_capable_agents` only when `inventory.security_visibility_summary.reference_basis` is present for that run.
 - `report --template agent-action-bom` is the canonical joined operator artifact for risky action-path inventory, graph refs, proof refs, runtime evidence correlation, and next-action priority.
+- `scripts/run_agent_action_bom_demo.sh after` provides a deterministic demo handoff that reproduces the same BOM plus runtime evidence bundle path locally.
 - `report` can also emit customer-ready CISO/AppSec/platform/audit/customer-draft artifacts led by the control backlog.
 - `report` is a saved-state renderer for static posture and offline proof artifacts; it is not a live observation surface.
 - `report.next_steps` and `evidence.next_steps` are additive machine-readable sequencing hints for the operator-to-auditor handoff path; use them when you want automation or agents to follow the same artifact workflow the docs describe, using the referenced artifact fields in the same payload.

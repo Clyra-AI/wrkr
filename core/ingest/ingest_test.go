@@ -28,6 +28,9 @@ func TestNormalizeRuntimeEvidenceBundle(t *testing.T) {
 	if len(bundle.Records) != 1 || bundle.Records[0].RecordID == "" {
 		t.Fatalf("expected normalized record id, got %+v", bundle.Records)
 	}
+	if bundle.Records[0].EvidenceClass != EvidenceClassPolicyDecision {
+		t.Fatalf("expected normalized evidence class %q, got %+v", EvidenceClassPolicyDecision, bundle.Records[0])
+	}
 }
 
 func TestCorrelateMatchesByPathID(t *testing.T) {
@@ -44,10 +47,47 @@ func TestCorrelateMatchesByPathID(t *testing.T) {
 			PathID:        "apc-123",
 			Source:        "runtime_probe",
 			ObservedAt:    time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
-			EvidenceClass: "policy_enforced",
+			EvidenceClass: EvidenceClassPolicyDecision,
 		}},
 	})
 	if summary.MatchedRecords != 1 || summary.UnmatchedRecords != 0 {
 		t.Fatalf("expected matched runtime evidence summary, got %+v", summary)
+	}
+}
+
+func TestCorrelateMatchesByAgentRepoWorkflowFallback(t *testing.T) {
+	t.Parallel()
+
+	summary := Correlate(state.Snapshot{
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:                   "apc-789",
+				AgentID:                  "wrkr:codex-aaaa:acme",
+				Repo:                     "acme/release",
+				Location:                 ".github/workflows/release.yml",
+				ToolType:                 "compiled_action",
+				ActionClasses:            []string{"deploy"},
+				MatchedProductionTargets: []string{"cluster/prod"},
+			}},
+		},
+	}, "runtime-evidence.json", Bundle{
+		SchemaVersion: SchemaVersion,
+		GeneratedAt:   time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		Records: []Record{{
+			AgentID:       "wrkr:codex-aaaa:acme",
+			Repo:          "acme/release",
+			Location:      ".github/workflows/release.yml",
+			Target:        "cluster/prod",
+			ActionClasses: []string{"deploy"},
+			Source:        "runtime_probe",
+			ObservedAt:    time.Date(2026, 4, 28, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			EvidenceClass: EvidenceClassApproval,
+		}},
+	})
+	if summary.MatchedRecords != 1 || len(summary.Correlations) != 1 {
+		t.Fatalf("expected fallback match, got %+v", summary)
+	}
+	if summary.Correlations[0].PathID != "apc-789" || summary.Correlations[0].Status != CorrelationStatusMatched {
+		t.Fatalf("expected correlation to resolve to apc-789, got %+v", summary.Correlations[0])
 	}
 }

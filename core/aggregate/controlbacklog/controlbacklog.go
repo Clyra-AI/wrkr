@@ -107,6 +107,11 @@ type Item struct {
 	CredentialProvenance     *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
 	StandingPrivilege        bool                                    `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons []string                                `json:"standing_privilege_reasons,omitempty"`
+	PolicyCoverageStatus     string                                  `json:"policy_coverage_status,omitempty"`
+	PolicyRefs               []string                                `json:"policy_refs,omitempty"`
+	PolicyMissingReasons     []string                                `json:"policy_missing_reasons,omitempty"`
+	PolicyEvidenceRefs       []string                                `json:"policy_evidence_refs,omitempty"`
+	PolicyConfidence         string                                  `json:"policy_confidence,omitempty"`
 	TrustDepth               *agginventory.TrustDepth                `json:"trust_depth,omitempty"`
 	SecurityTestRecipes      []SecurityTestRecipe                    `json:"security_test_recipes,omitempty"`
 }
@@ -277,6 +282,11 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		CredentialProvenance:     agginventory.CloneCredentialProvenance(path.CredentialProvenance),
 		StandingPrivilege:        path.StandingPrivilege,
 		StandingPrivilegeReasons: append([]string(nil), path.StandingPrivilegeReasons...),
+		PolicyCoverageStatus:     strings.TrimSpace(path.PolicyCoverageStatus),
+		PolicyRefs:               append([]string(nil), path.PolicyRefs...),
+		PolicyMissingReasons:     append([]string(nil), path.PolicyMissingReasons...),
+		PolicyEvidenceRefs:       append([]string(nil), path.PolicyEvidenceRefs...),
+		PolicyConfidence:         strings.TrimSpace(path.PolicyConfidence),
 		TrustDepth:               agginventory.CloneTrustDepth(path.TrustDepth),
 	}
 	item.LinkedFindingIDs = b.linkedFindingIDs(path.Org, path.Repo, path.Location)

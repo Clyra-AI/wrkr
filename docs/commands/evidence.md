@@ -74,7 +74,7 @@ Evidence bundle includes deterministic compliance rollup export at `compliance-s
 Evidence bundle includes deterministic control proof status at `control-evidence.json`.
 Evidence bundle includes deterministic attack-path artifact export at `attack-paths.json` when attack-path scoring is present in scan state.
 Evidence bundle includes canonical Agent Action BOM output in `reports/agent-action-bom.json` and additive top-level `agent_action_bom` JSON when govern-first action paths are present in saved state.
-When `wrkr ingest` has written a managed runtime evidence sidecar next to the selected state file, the evidence bundle includes `runtime-evidence.json` and `runtime-evidence-correlation.json` without mutating scan state.
+When `wrkr ingest` has written a managed runtime evidence sidecar next to the selected state file, the evidence bundle includes `runtime-evidence.json` and `runtime-evidence-correlation.json` without mutating scan state. Correlation rows include normalized runtime evidence classes, additive repo/workflow/target fields, policy refs, proof refs, and graph refs used to support Agent Action BOM coverage and runtime-proof joins.
 Evidence bundle metadata includes `source_privacy` in `scan-metadata.json` so auditors can see whether hosted source was retained, whether raw source is included in artifacts, whether serialized locations are logical, and how cleanup finished.
 Shareable evidence artifacts do not include raw source contents by default.
 Evidence bundle report summaries now carry additive security-visibility context from the scan state, including `unknown_to_security` counts and the reference basis used to derive them.
