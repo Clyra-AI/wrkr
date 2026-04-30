@@ -18,7 +18,7 @@ const SchemaVersion = "v1"
 const (
 	EvidenceClassPolicyDecision = "policy_decision"
 	EvidenceClassApproval       = "approval"
-	EvidenceClassJITCredential  = "jit_credential"
+	EvidenceClassJITCredential  = "jit_credential" // #nosec G101 -- Deterministic runtime evidence label, not credential material.
 	EvidenceClassFreezeWindow   = "freeze_window"
 	EvidenceClassKillSwitch     = "kill_switch"
 	EvidenceClassActionOutcome  = "action_outcome"
