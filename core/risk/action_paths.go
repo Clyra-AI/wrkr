@@ -208,55 +208,6 @@ func shouldIncludeActionPath(entry agginventory.AgentPrivilegeMapEntry) bool {
 		actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons)
 }
 
-func recommendedActionForPath(path ActionPath) string {
-	weakIdentity := strings.TrimSpace(path.ExecutionIdentityStatus) == "" ||
-		strings.TrimSpace(path.ExecutionIdentityStatus) == "unknown" ||
-		strings.TrimSpace(path.ExecutionIdentityStatus) == "ambiguous"
-	weakOwnership := strings.TrimSpace(path.OwnershipStatus) == "" ||
-		strings.TrimSpace(path.OwnershipStatus) == "unresolved" ||
-		strings.TrimSpace(path.OwnerSource) == "multi_repo_conflict" ||
-		strings.TrimSpace(path.OwnershipState) == owners.OwnershipStateConflicting ||
-		strings.TrimSpace(path.OwnershipState) == owners.OwnershipStateMissing
-	hasDeliveryPath := strings.TrimSpace(path.DeliveryChainStatus) != "" &&
-		strings.TrimSpace(path.DeliveryChainStatus) != "none"
-	unknownToSecurity := strings.TrimSpace(path.SecurityVisibilityStatus) == agginventory.SecurityVisibilityUnknownToSecurity
-	highImpact := actionPathHighImpact(path) || strings.TrimSpace(path.WorkflowTriggerClass) == "deploy_pipeline"
-	trustCritical := actionPathHasCriticalTrustGap(path.TrustDepth)
-	visibilityOnly := !path.WriteCapable &&
-		!path.CredentialAccess &&
-		!path.DeployWrite &&
-		!path.PullRequestWrite &&
-		!path.MergeExecute &&
-		!path.ProductionWrite
-	strongIdentity := !weakIdentity
-	strongOwnership := !weakOwnership
-
-	switch {
-	case path.ProductionWrite:
-		return "control"
-	case trustCritical:
-		return "control"
-	case highImpact && path.WriteCapable && (path.DeployWrite || path.MergeExecute || path.CredentialAccess || unknownToSecurity || weakIdentity || weakOwnership):
-		return "control"
-	case path.ApprovalGap && strongIdentity && strongOwnership && !unknownToSecurity:
-		return "approval"
-	case visibilityOnly:
-		return "inventory"
-	case unknownToSecurity && !path.CredentialAccess && !highImpact && !path.ApprovalGap:
-		return "inventory"
-	case path.CredentialAccess ||
-		strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") ||
-		hasDeliveryPath ||
-		strings.TrimSpace(path.WorkflowTriggerClass) != "" ||
-		unknownToSecurity ||
-		weakIdentity ||
-		weakOwnership:
-		return "proof"
-	default:
-		return "inventory"
-	}
-}
-
 func actionPathApprovalGap(status string, reasons []string) bool {
 	if len(reasons) > 0 {
 		return true
