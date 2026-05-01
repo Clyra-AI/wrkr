@@ -74,6 +74,13 @@ type delayingStartProgress struct {
 	delay     time.Duration
 }
 
+type signalingProgress struct {
+	recordingProgress
+	repo string
+	ch   chan struct{}
+	once sync.Once
+}
+
 func (p *recordingProgress) RepoDiscovery(org string, total int) {
 	p.add("repo_discovery org=" + org + " total=" + strconv.Itoa(total))
 }
@@ -111,6 +118,15 @@ func (p *delayingStartProgress) RepoMaterialize(org string, index, total int, re
 		time.Sleep(p.delay)
 	}
 	p.recordingProgress.RepoMaterialize(org, index, total, repo)
+}
+
+func (p *signalingProgress) RepoMaterialize(org string, index, total int, repo string) {
+	p.recordingProgress.RepoMaterialize(org, index, total, repo)
+	if repo == p.repo {
+		p.once.Do(func() {
+			close(p.ch)
+		})
+	}
 }
 
 func TestAcquireMaterializedUsesBoundedConcurrencyAndDeterministicOrder(t *testing.T) {
@@ -243,7 +259,10 @@ func TestAcquireMaterializedProgressReportsCompletedRepos(t *testing.T) {
 	tmp := t.TempDir()
 	statePath := filepath.Join(tmp, "state.json")
 	materializedRoot := filepath.Join(tmp, "materialized-sources")
-	progress := &recordingProgress{}
+	progress := &signalingProgress{
+		repo: "acme/a",
+		ch:   make(chan struct{}),
+	}
 	materializer := &trackingMaterializer{
 		t:        t,
 		root:     materializedRoot,
@@ -288,7 +307,10 @@ func TestAcquireMaterializedStopsProgressDispatchAfterContextDone(t *testing.T) 
 	tmp := t.TempDir()
 	statePath := filepath.Join(tmp, "state.json")
 	materializedRoot := filepath.Join(tmp, "materialized-sources")
-	progress := &recordingProgress{}
+	progress := &signalingProgress{
+		repo: "acme/a",
+		ch:   make(chan struct{}),
+	}
 	materializer := &trackingMaterializer{
 		t:    t,
 		root: materializedRoot,
@@ -316,9 +338,10 @@ func TestAcquireMaterializedStopsProgressDispatchAfterContextDone(t *testing.T) 
 	}()
 
 	wantFirst := "repo_materialize org=acme repo=acme/a index=1 total=3"
-	deadline := time.Now().Add(2 * time.Second)
-	for !strings.Contains(progress.joined(), wantFirst) && time.Now().Before(deadline) {
-		time.Sleep(5 * time.Millisecond)
+	select {
+	case <-progress.ch:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for first repo dispatch progress, got:\n%s", progress.joined())
 	}
 	cancel()
 
