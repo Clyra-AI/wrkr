@@ -34,7 +34,7 @@
       "total_paths": 2,
       "write_capable_paths": 2,
       "production_target_backed_paths": 2,
-      "govern_first_paths": 0
+      "govern_first_paths": 2
     },
     "path": {
       "path_id": "apc-911d5b0cdab4",

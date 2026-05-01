@@ -18,6 +18,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
@@ -90,6 +91,42 @@ func TestBuildRiskItemsPrefersActionPathsWhenPresent(t *testing.T) {
 		if !containsStringValue(items[0].Rationale, required) {
 			t.Fatalf("expected rationale to include %q, got %+v", required, items[0].Rationale)
 		}
+	}
+}
+
+func TestReportRemediationTextNamesConcreteNextAction(t *testing.T) {
+	t.Parallel()
+
+	items := buildActionPathRiskItems([]risk.ActionPath{{
+		PathID:            "apc-remediate",
+		Org:               "acme",
+		Repo:              "acme/release",
+		ToolType:          "compiled_action",
+		Location:          ".github/workflows/release.yml",
+		WriteCapable:      true,
+		DeployWrite:       true,
+		CredentialAccess:  true,
+		OperationalOwner:  "@acme/release",
+		OwnershipStatus:   "explicit",
+		RecommendedAction: "control",
+		ControlPriority:   risk.ControlPriorityControlFirst,
+		RiskTier:          risk.RiskTierHigh,
+		CredentialProvenance: &agginventory.CredentialProvenance{
+			Type:           agginventory.CredentialProvenanceStaticSecret,
+			Scope:          agginventory.CredentialScopeWorkflow,
+			Confidence:     "high",
+			StandingAccess: true,
+			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+		},
+	}})
+
+	if len(items) != 1 {
+		t.Fatalf("expected one risk item, got %+v", items)
+	}
+	if !strings.Contains(strings.ToLower(items[0].Remediation), "brokered") &&
+		!strings.Contains(strings.ToLower(items[0].Remediation), "jit") &&
+		!strings.Contains(strings.ToLower(items[0].Remediation), "deployment") {
+		t.Fatalf("expected concrete next-action remediation, got %+v", items[0])
 	}
 }
 
@@ -424,8 +461,11 @@ func TestBuildAgentActionBOMDerivesStableItemsFromSummary(t *testing.T) {
 	if first.Summary.ControlFirstItems != 1 || first.Summary.StandingPrivilegeItems != 1 || first.Summary.RuntimeProvenItems != 1 {
 		t.Fatalf("unexpected BOM summary counts: %+v", first.Summary)
 	}
-	if !containsStringValue(first.Items[0].GraphRefs.NodeIDs, "node-1") || !containsStringValue(first.Items[0].ProofRefs, "proof_head:sha256:abc123") {
-		t.Fatalf("expected graph/proof refs on BOM item, got %+v", first.Items[0])
+	if !containsStringValue(first.Items[0].GraphRefs.NodeIDs, "node-1") || !containsStringValue(first.Items[0].ProofRefs, "path:apc-200000") {
+		t.Fatalf("expected graph refs and path-specific proof refs on BOM item, got %+v", first.Items[0])
+	}
+	if !containsStringValue(first.ProofRefs, "proof_head:sha256:abc123") {
+		t.Fatalf("expected global proof refs to remain on the BOM summary, got %+v", first.ProofRefs)
 	}
 	if first.Items[0].PolicyStatus != risk.PolicyCoverageStatusMatched || first.Items[0].IntroducedBy == nil || first.Items[0].IntroducedBy.CommitSHA != "abc123" {
 		t.Fatalf("expected policy coverage and introduction attribution on BOM item, got %+v", first.Items[0])
@@ -483,8 +523,11 @@ func TestBuildAgentActionBOMCountsMissingProofWhenChainAttachedButControlProofMi
 	if bom.Summary.MissingProofItems != 1 {
 		t.Fatalf("expected one missing proof item, got %+v", bom.Summary)
 	}
-	if !containsStringValue(bom.Items[0].ProofRefs, "proof_head:sha256:attached") {
-		t.Fatalf("expected proof head ref to remain visible, got %+v", bom.Items[0].ProofRefs)
+	if !containsStringValue(bom.ProofRefs, "proof_head:sha256:attached") {
+		t.Fatalf("expected proof head ref to remain visible at BOM scope, got %+v", bom.ProofRefs)
+	}
+	if !containsStringValue(bom.Items[0].ProofRefs, "path:apc-proof-gap") {
+		t.Fatalf("expected path-specific proof refs on the BOM item, got %+v", bom.Items[0].ProofRefs)
 	}
 }
 
@@ -630,6 +673,101 @@ func TestBuildAgentActionBOMSharesMergedControlProofAcrossSiblingPaths(t *testin
 	}
 	if bom.Summary.MissingProofItems != 0 {
 		t.Fatalf("expected no missing proof items, got %+v", bom.Summary)
+	}
+}
+
+func TestAgentActionBOMProofRefsArePathSpecific(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		SummaryVersion: SummaryVersion,
+		GeneratedAt:    "2026-05-01T12:00:00Z",
+		Proof: ProofReference{
+			ChainPath: ".wrkr/proof-chain.json",
+			HeadHash:  "sha256:attached",
+		},
+		ActionPaths: []risk.ActionPath{{
+			PathID:            "apc-path-specific",
+			Org:               "acme",
+			Repo:              "acme/app",
+			ToolType:          "mcp",
+			Location:          ".mcp.json",
+			CredentialAccess:  true,
+			RecommendedAction: "proof",
+		}},
+	}
+
+	bom := BuildAgentActionBOM(summary)
+	if bom == nil || len(bom.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", bom)
+	}
+	if containsStringValue(bom.Items[0].ProofRefs, "proof_head:sha256:attached") {
+		t.Fatalf("expected item proof refs to stay path-specific, got %+v", bom.Items[0].ProofRefs)
+	}
+	if !containsStringValue(bom.ProofRefs, "proof_head:sha256:attached") {
+		t.Fatalf("expected global proof refs on BOM, got %+v", bom.ProofRefs)
+	}
+	if !containsStringValue(bom.Items[0].ProofRefs, "path:apc-path-specific") {
+		t.Fatalf("expected path ref on BOM item, got %+v", bom.Items[0].ProofRefs)
+	}
+}
+
+func TestAgentActionBOMIncludesEveryTopAttackPathOrExclusion(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		SummaryVersion: SummaryVersion,
+		GeneratedAt:    "2026-05-01T12:00:00Z",
+		ActionPaths: []risk.ActionPath{{
+			PathID:            "apc-matched",
+			Org:               "acme",
+			Repo:              "acme/app",
+			ToolType:          "langchain",
+			Location:          "agents/app.py",
+			CredentialAccess:  true,
+			RecommendedAction: "proof",
+			AttackPathRefs:    []string{"ap-matched"},
+			SourceFindingKeys: []string{"agent_framework||langchain|agents/app.py|acme/app|acme"},
+		}},
+		topAttackPaths: []riskattack.ScoredPath{
+			{
+				PathID:         "ap-matched",
+				Org:            "acme",
+				Repo:           "acme/app",
+				PathScore:      8.8,
+				SourceFindings: []string{"agent_framework||langchain|agents/app.py|acme/app|acme"},
+			},
+			{
+				PathID:         "ap-orphaned",
+				Org:            "acme",
+				Repo:           "acme/app",
+				PathScore:      7.6,
+				SourceFindings: []string{"agent_framework||langchain|agents/orphan.py|acme/app|acme"},
+			},
+		},
+	}
+
+	bom := BuildAgentActionBOM(summary)
+	if bom == nil || len(bom.Items) != 2 {
+		t.Fatalf("expected one matched item plus one exclusion item, got %+v", bom)
+	}
+	if !containsStringValue(bom.Items[0].AttackPathRefs, "ap-matched") && !containsStringValue(bom.Items[1].AttackPathRefs, "ap-matched") {
+		t.Fatalf("expected matched attack path ref to remain visible, got %+v", bom.Items)
+	}
+	var orphan AgentActionBOMItem
+	found := false
+	for _, item := range bom.Items {
+		if containsStringValue(item.AttackPathRefs, "ap-orphaned") {
+			orphan = item
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected orphaned top attack path to produce an exclusion item, got %+v", bom.Items)
+	}
+	if orphan.ExclusionReason == "" {
+		t.Fatalf("expected exclusion reason on orphaned top attack path item, got %+v", orphan)
 	}
 }
 

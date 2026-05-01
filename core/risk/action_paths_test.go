@@ -236,6 +236,97 @@ func TestBuildActionPathsDeduplicatesRepeatedEntriesAndStabilizesPathID(t *testi
 	}
 }
 
+func TestGovernFirstRanksSourceMCPAboveDependencyInventory(t *testing.T) {
+	t.Parallel()
+
+	paths, controlFirst := BuildActionPaths([]riskattack.ScoredPath{
+		{
+			PathID:         "ap-source",
+			Org:            "acme",
+			Repo:           "acme/app",
+			PathScore:      8.9,
+			SourceFindings: []string{"mcp_server||mcp|.mcp.json|acme/app|acme"},
+		},
+	}, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                "wrkr:dependency:acme",
+				Framework:              "dependency",
+				Org:                    "acme",
+				Repos:                  []string{"acme/app"},
+				Location:               "package.json",
+				RiskScore:              4.1,
+				WriteCapable:           true,
+				ApprovalClassification: "approved",
+			},
+			{
+				AgentID:                "wrkr:mcp:acme",
+				Framework:              "mcp",
+				Org:                    "acme",
+				Repos:                  []string{"acme/app"},
+				Location:               ".mcp.json",
+				RiskScore:              6.7,
+				WriteCapable:           true,
+				CredentialAccess:       true,
+				ApprovalClassification: "approved",
+			},
+		},
+	})
+
+	if len(paths) != 2 || controlFirst == nil {
+		t.Fatalf("expected two action paths and a control-first choice, got %+v / %+v", paths, controlFirst)
+	}
+	if paths[0].Location != ".mcp.json" {
+		t.Fatalf("expected source-level MCP path to outrank dependency inventory, got %+v", paths)
+	}
+	if paths[0].ControlPriority != ControlPriorityControlFirst {
+		t.Fatalf("expected source-level MCP path to land in control_first, got %+v", paths[0])
+	}
+	if paths[1].ControlPriority != ControlPriorityInventoryHygiene || paths[1].RecommendedAction != "inventory" {
+		t.Fatalf("expected dependency path to remain inventory hygiene, got %+v", paths[1])
+	}
+	if !containsPathClass(paths[0].AttackPathRefs, "ap-source") {
+		t.Fatalf("expected attack path refs to link onto the source path, got %+v", paths[0].AttackPathRefs)
+	}
+}
+
+func TestRecommendedActionFollowsStrongestGovernableSignal(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths([]riskattack.ScoredPath{
+		{
+			PathID:         "ap-high",
+			Org:            "acme",
+			Repo:           "acme/release",
+			PathScore:      9.4,
+			SourceFindings: []string{"compiled_action||ci_agent|.github/workflows/release.yml|acme/release|acme"},
+		},
+	}, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+			AgentID:                "wrkr:release:acme",
+			Framework:              "compiled_action",
+			Org:                    "acme",
+			Repos:                  []string{"acme/release"},
+			Location:               ".github/workflows/release.yml",
+			RiskScore:              5.4,
+			WriteCapable:           true,
+			DeployWrite:            true,
+			CredentialAccess:       true,
+			ApprovalClassification: "approved",
+		}},
+	})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one action path, got %+v", paths)
+	}
+	if paths[0].RecommendedAction != "control" || paths[0].ControlPriority != ControlPriorityControlFirst {
+		t.Fatalf("expected strongest governable signal to drive control-first remediation, got %+v", paths[0])
+	}
+	if paths[0].RiskTier != RiskTierHigh && paths[0].RiskTier != RiskTierCritical {
+		t.Fatalf("expected high or critical risk tier, got %+v", paths[0])
+	}
+}
+
 func TestBuildActionPathsUsesHiddenIdentityDimensionsForUniquePathIDs(t *testing.T) {
 	t.Parallel()
 

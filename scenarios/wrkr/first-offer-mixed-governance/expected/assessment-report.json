@@ -30,7 +30,7 @@
       "path_id": "apc-8ec8602cb415",
       "repo": "control-plane",
       "tool_type": "mcp",
-      "recommended_action": "inventory",
+      "recommended_action": "proof",
       "owner_source": "repo_fallback",
       "ownership_status": "inferred",
       "business_state_surface": "admin_api"
@@ -39,7 +39,7 @@
       "path_id": "apc-c042aea2cf0d",
       "repo": "control-plane",
       "tool_type": "claude",
-      "recommended_action": "inventory",
+      "recommended_action": "proof",
       "owner_source": "repo_fallback",
       "ownership_status": "inferred",
       "business_state_surface": "code"
@@ -48,7 +48,7 @@
       "path_id": "apc-c5d25a74d87f",
       "repo": "control-plane",
       "tool_type": "codex",
-      "recommended_action": "inventory",
+      "recommended_action": "proof",
       "owner_source": "codeowners",
       "ownership_status": "explicit",
       "business_state_surface": "code"
@@ -59,7 +59,7 @@
       "total_paths": 5,
       "write_capable_paths": 2,
       "production_target_backed_paths": 2,
-      "govern_first_paths": 3
+      "govern_first_paths": 5
     },
     "path": {
       "path_id": "apc-b75aac3d0e0f",
@@ -129,39 +129,39 @@
       ]
     },
     {
-      "group_id": "grp-0f5f1056ae6a",
-      "tool_types": [
-        "mcp"
-      ],
-      "delivery_chain_status": "none",
-      "business_state_surface": "admin_api",
-      "recommended_action": "inventory",
-      "path_count": 1,
-      "path_ids": [
-        "apc-8ec8602cb415"
-      ]
-    },
-    {
-      "group_id": "grp-10f25003ffcd",
+      "group_id": "grp-433f33499b9a",
       "tool_types": [
         "codex"
       ],
       "delivery_chain_status": "none",
       "business_state_surface": "code",
-      "recommended_action": "inventory",
+      "recommended_action": "proof",
       "path_count": 1,
       "path_ids": [
         "apc-c5d25a74d87f"
       ]
     },
     {
-      "group_id": "grp-2ece6ea34afc",
+      "group_id": "grp-be2c957a377b",
+      "tool_types": [
+        "mcp"
+      ],
+      "delivery_chain_status": "none",
+      "business_state_surface": "admin_api",
+      "recommended_action": "proof",
+      "path_count": 1,
+      "path_ids": [
+        "apc-8ec8602cb415"
+      ]
+    },
+    {
+      "group_id": "grp-fc4fe155f314",
       "tool_types": [
         "claude"
       ],
       "delivery_chain_status": "none",
       "business_state_surface": "code",
-      "recommended_action": "inventory",
+      "recommended_action": "proof",
       "path_count": 1,
       "path_ids": [
         "apc-c042aea2cf0d"

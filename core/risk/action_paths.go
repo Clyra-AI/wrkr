@@ -74,9 +74,14 @@ type ActionPath struct {
 	PolicyConfidence           string                                  `json:"policy_confidence,omitempty"`
 	PolicyEvidenceRefs         []string                                `json:"policy_evidence_refs,omitempty"`
 	IntroducedBy               *attribution.Result                     `json:"introduced_by,omitempty"`
+	InventoryRisk              string                                  `json:"inventory_risk,omitempty"`
+	ControlPriority            string                                  `json:"control_priority,omitempty"`
+	RiskTier                   string                                  `json:"risk_tier,omitempty"`
 	AttackPathScore            float64                                 `json:"attack_path_score"`
 	RiskScore                  float64                                 `json:"risk_score"`
 	RecommendedAction          string                                  `json:"recommended_action"`
+	AttackPathRefs             []string                                `json:"attack_path_refs,omitempty"`
+	SourceFindingKeys          []string                                `json:"source_finding_keys,omitempty"`
 	MatchedProductionTargets   []string                                `json:"matched_production_targets,omitempty"`
 	GovernanceControls         []agginventory.GovernanceControlMapping `json:"governance_controls,omitempty"`
 }
@@ -118,39 +123,12 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 		return nil, nil
 	}
 	paths = DecorateActionPaths(paths)
+	paths = LinkAttackPaths(paths, attackPaths)
+	paths = applyLinkedAttackPathScores(paths, attackPaths)
+	paths = applyGovernFirstModel(paths)
 
 	sort.Slice(paths, func(i, j int) bool {
-		pi := actionPriority(paths[i].RecommendedAction)
-		pj := actionPriority(paths[j].RecommendedAction)
-		if pi != pj {
-			return pi < pj
-		}
-		wi := governFirstPriorityScore(paths[i])
-		wj := governFirstPriorityScore(paths[j])
-		if wi != wj {
-			return wi > wj
-		}
-		ti := workflowTriggerPriority(paths[i].WorkflowTriggerClass)
-		tj := workflowTriggerPriority(paths[j].WorkflowTriggerClass)
-		if ti != tj {
-			return ti < tj
-		}
-		if paths[i].RiskScore != paths[j].RiskScore {
-			return paths[i].RiskScore > paths[j].RiskScore
-		}
-		if paths[i].AttackPathScore != paths[j].AttackPathScore {
-			return paths[i].AttackPathScore > paths[j].AttackPathScore
-		}
-		if paths[i].Org != paths[j].Org {
-			return paths[i].Org < paths[j].Org
-		}
-		if paths[i].Repo != paths[j].Repo {
-			return paths[i].Repo < paths[j].Repo
-		}
-		if paths[i].Location != paths[j].Location {
-			return paths[i].Location < paths[j].Location
-		}
-		return paths[i].PathID < paths[j].PathID
+		return compareActionPaths(paths[i], paths[j])
 	})
 
 	summary := summarizeActionPaths(paths)
@@ -216,7 +194,6 @@ func buildActionPath(
 		MatchedProductionTargets:   dedupeSortedStrings(entry.MatchedProductionTargets),
 		GovernanceControls:         append([]agginventory.GovernanceControlMapping(nil), entry.GovernanceControls...),
 	}
-	path.RecommendedAction = recommendedActionForPath(path)
 	return path
 }
 
@@ -405,7 +382,8 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.PolicyEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.PolicyEvidenceRefs...), incoming.PolicyEvidenceRefs...))
 	merged.IntroducedBy = attribution.Merge(current.IntroducedBy, incoming.IntroducedBy)
 	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
-	merged.RecommendedAction = recommendedActionForPath(merged)
+	merged.AttackPathRefs = dedupeSortedStrings(append(append([]string(nil), current.AttackPathRefs...), incoming.AttackPathRefs...))
+	merged.SourceFindingKeys = dedupeSortedStrings(append(append([]string(nil), current.SourceFindingKeys...), incoming.SourceFindingKeys...))
 	return merged
 }
 
@@ -418,7 +396,7 @@ func summarizeActionPaths(paths []ActionPath) ActionPathSummary {
 		if path.ProductionWrite {
 			summary.ProductionTargetBackedPaths++
 		}
-		if path.RecommendedAction != "control" {
+		if path.ControlPriority != ControlPriorityInventoryHygiene {
 			summary.GovernFirstPaths++
 		}
 	}
@@ -459,6 +437,7 @@ func ApplyGovernFirstProfile(profileName string, paths []ActionPath) ([]ActionPa
 			filtered = append(filtered, path)
 		}
 	}
+	filtered = applyGovernFirstModel(filtered)
 	return filtered, buildActionPathChoice(filtered)
 }
 
@@ -499,6 +478,8 @@ func BuildControlPathGraph(paths []ActionPath) *aggattack.ControlPathGraph {
 			DeployWrite:              path.DeployWrite,
 			ProductionWrite:          path.ProductionWrite,
 			ApprovalGap:              path.ApprovalGap,
+			AttackPathRefs:           dedupeSortedStrings(path.AttackPathRefs),
+			SourceFindingKeys:        dedupeSortedStrings(path.SourceFindingKeys),
 		})
 	}
 	return aggattack.BuildControlPathGraph(inputs)

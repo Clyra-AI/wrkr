@@ -12,6 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -92,6 +93,7 @@ type Summary struct {
 	ExposureGroups           []risk.ExposureGroup                   `json:"exposure_groups,omitempty"`
 	SourcePrivacy            *sourceprivacy.Contract                `json:"source_privacy,omitempty"`
 	controlProofStatus       []ControlProofStatus
+	topAttackPaths           []riskattack.ScoredPath
 }
 
 type AttackPathSummary struct {
@@ -152,6 +154,10 @@ type RiskItem struct {
 	Repo              string   `json:"repo"`
 	Location          string   `json:"location"`
 	PathID            string   `json:"path_id,omitempty"`
+	InventoryRisk     string   `json:"inventory_risk,omitempty"`
+	AttackPathScore   float64  `json:"attack_path_score,omitempty"`
+	ControlPriority   string   `json:"control_priority,omitempty"`
+	RiskTier          string   `json:"risk_tier,omitempty"`
 	RecommendedAction string   `json:"recommended_action,omitempty"`
 	WriteCapable      bool     `json:"write_capable,omitempty"`
 	ProductionWrite   bool     `json:"production_write,omitempty"`

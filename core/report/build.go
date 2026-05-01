@@ -23,6 +23,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/regress"
 	templatespkg "github.com/Clyra-AI/wrkr/core/report/templates"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -172,6 +173,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ExposureGroups:           exposureGroups,
 		SourcePrivacy:            sourcePrivacy,
 		controlProofStatus:       controlProofStatus,
+		topAttackPaths:           append([]riskattack.ScoredPath(nil), riskReport.TopAttackPaths...),
 	}
 	if shareProfile == ShareProfilePublic {
 		summary.AgentActionBOM = BuildAgentActionBOM(summary)
@@ -679,6 +681,9 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 	out := make([]RiskItem, 0, len(paths))
 	for idx, path := range paths {
 		rationale := []string{
+			fmt.Sprintf("control_priority=%s", controlPriorityForPath(path)),
+			fmt.Sprintf("risk_tier=%s", riskTierForPath(path)),
+			fmt.Sprintf("inventory_risk=%s", inventoryRiskForPath(path)),
 			fmt.Sprintf("recommended_action=%s", strings.TrimSpace(path.RecommendedAction)),
 			fmt.Sprintf("delivery_chain_status=%s", strings.TrimSpace(path.DeliveryChainStatus)),
 			fmt.Sprintf("business_state_surface=%s", strings.TrimSpace(path.BusinessStateSurface)),
@@ -715,6 +720,10 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 			Repo:              strings.TrimSpace(path.Repo),
 			Location:          strings.TrimSpace(path.Location),
 			PathID:            strings.TrimSpace(path.PathID),
+			InventoryRisk:     inventoryRiskForPath(path),
+			AttackPathScore:   round2(path.AttackPathScore),
+			ControlPriority:   controlPriorityForPath(path),
+			RiskTier:          riskTierForPath(path),
 			RecommendedAction: strings.TrimSpace(path.RecommendedAction),
 			WriteCapable:      path.WriteCapable,
 			ProductionWrite:   path.ProductionWrite,
@@ -1096,32 +1105,75 @@ func buildAssessmentSummary(paths []risk.ActionPath, controlFirst *risk.ActionPa
 }
 
 func actionPathSeverity(path risk.ActionPath) string {
-	switch strings.TrimSpace(path.RecommendedAction) {
-	case "control":
+	switch strings.TrimSpace(path.RiskTier) {
+	case risk.RiskTierCritical:
+		return model.SeverityCritical
+	case risk.RiskTierHigh:
 		return model.SeverityHigh
-	case "approval", "proof":
+	case risk.RiskTierMedium:
 		return model.SeverityMedium
 	default:
-		return model.SeverityLow
+		switch riskTierForPath(path) {
+		case risk.RiskTierCritical:
+			return model.SeverityCritical
+		case risk.RiskTierHigh:
+			return model.SeverityHigh
+		case risk.RiskTierMedium:
+			return model.SeverityMedium
+		default:
+			return model.SeverityLow
+		}
 	}
 }
 
 func actionPathRemediation(path risk.ActionPath) string {
-	if strings.TrimSpace(path.OwnerSource) == "multi_repo_conflict" || strings.TrimSpace(path.OwnershipStatus) == "unresolved" {
-		return "needs owner clarification before this path should be approved, delegated, or expanded"
+	return risk.RemediationForActionPath(path)
+}
+
+func controlPriorityForPath(path risk.ActionPath) string {
+	if strings.TrimSpace(path.ControlPriority) != "" {
+		return strings.TrimSpace(path.ControlPriority)
 	}
 	switch strings.TrimSpace(path.RecommendedAction) {
 	case "control":
-		if strings.TrimSpace(path.WorkflowTriggerClass) == "deploy_pipeline" {
-			return "apply the highest-priority control on this deploy-pipeline backed path and rescan to confirm reduced exposure"
-		}
-		return "apply the highest-priority control on this write-capable path and rescan to confirm reduced exposure"
-	case "approval":
-		return "add or tighten deterministic human approval gates on this path before allowing further automation"
-	case "proof":
-		return "collect stronger identity, ownership, trigger-posture, or deployment proof for this path before approving it"
+		return risk.ControlPriorityControlFirst
+	case "inventory":
+		return risk.ControlPriorityInventoryHygiene
 	default:
-		return "inventory this visibility-first path before expanding its privileges"
+		return risk.ControlPriorityReviewQueue
+	}
+}
+
+func riskTierForPath(path risk.ActionPath) string {
+	if strings.TrimSpace(path.RiskTier) != "" {
+		return strings.TrimSpace(path.RiskTier)
+	}
+	switch strings.TrimSpace(path.RecommendedAction) {
+	case "control":
+		if path.ProductionWrite {
+			return risk.RiskTierCritical
+		}
+		return risk.RiskTierHigh
+	case "approval", "proof":
+		return risk.RiskTierMedium
+	default:
+		return risk.RiskTierLow
+	}
+}
+
+func inventoryRiskForPath(path risk.ActionPath) string {
+	if strings.TrimSpace(path.InventoryRisk) != "" {
+		return strings.TrimSpace(path.InventoryRisk)
+	}
+	switch {
+	case path.ProductionWrite || len(path.MatchedProductionTargets) > 0:
+		return risk.InventoryRiskProductionBacked
+	case path.WriteCapable || path.PullRequestWrite || path.MergeExecute || path.DeployWrite:
+		return risk.InventoryRiskWriteCapable
+	case path.CredentialAccess:
+		return risk.InventoryRiskCredentialAccess
+	default:
+		return risk.InventoryRiskVisibilityOnly
 	}
 }
 
@@ -1226,6 +1278,8 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.Location = redactValue("loc", copyItem.Location, 8)
 		copyItem.OperationalOwner = redactValue("owner", copyItem.OperationalOwner, 8)
 		copyItem.ExecutionIdentity = redactValue("identity", copyItem.ExecutionIdentity, 8)
+		copyItem.AttackPathRefs = redactStringSlice(copyItem.AttackPathRefs, "attack")
+		copyItem.SourceFindingKeys = redactStringSlice(copyItem.SourceFindingKeys, "finding")
 		if copyItem.CredentialProvenance != nil {
 			copyItem.CredentialProvenance = agginventory.CloneCredentialProvenance(copyItem.CredentialProvenance)
 			copyItem.CredentialProvenance.Subject = redactValue("credential", copyItem.CredentialProvenance.Subject, 8)
@@ -1334,6 +1388,8 @@ func sanitizeControlPathGraphPublic(in *aggattack.ControlPathGraph) *aggattack.C
 		copyGraph.Nodes[idx].AgentID = redactValue("agent", copyGraph.Nodes[idx].AgentID, 8)
 		copyGraph.Nodes[idx].EvidenceRefs = redactStringSlice(copyGraph.Nodes[idx].EvidenceRefs, "evidence")
 		copyGraph.Nodes[idx].SourceRefs = redactStringSlice(copyGraph.Nodes[idx].SourceRefs, "source")
+		copyGraph.Nodes[idx].AttackPathRefs = redactStringSlice(copyGraph.Nodes[idx].AttackPathRefs, "attack")
+		copyGraph.Nodes[idx].SourceFindingKeys = redactStringSlice(copyGraph.Nodes[idx].SourceFindingKeys, "finding")
 	}
 	for idx := range copyGraph.Edges {
 		copyGraph.Edges[idx].EdgeID = redactValue("edge", copyGraph.Edges[idx].EdgeID, 8)
@@ -1342,6 +1398,8 @@ func sanitizeControlPathGraphPublic(in *aggattack.ControlPathGraph) *aggattack.C
 		copyGraph.Edges[idx].ToNodeID = redactValue("node", copyGraph.Edges[idx].ToNodeID, 8)
 		copyGraph.Edges[idx].EvidenceRefs = redactStringSlice(copyGraph.Edges[idx].EvidenceRefs, "evidence")
 		copyGraph.Edges[idx].SourceRefs = redactStringSlice(copyGraph.Edges[idx].SourceRefs, "source")
+		copyGraph.Edges[idx].AttackPathRefs = redactStringSlice(copyGraph.Edges[idx].AttackPathRefs, "attack")
+		copyGraph.Edges[idx].SourceFindingKeys = redactStringSlice(copyGraph.Edges[idx].SourceFindingKeys, "finding")
 	}
 	return &copyGraph
 }
