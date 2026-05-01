@@ -449,58 +449,6 @@ func summarizeAgentActionBOMItems(items []AgentActionBOMItem) AgentActionBOMSumm
 	return counts
 }
 
-func sortAgentActionBOMItems(items []AgentActionBOMItem) {
-	sort.SliceStable(items, func(i, j int) bool {
-		if queuePriority(items[i].Queue) != queuePriority(items[j].Queue) {
-			return queuePriority(items[i].Queue) < queuePriority(items[j].Queue)
-		}
-		if riskTierPriority(items[i].RiskTier) != riskTierPriority(items[j].RiskTier) {
-			return riskTierPriority(items[i].RiskTier) < riskTierPriority(items[j].RiskTier)
-		}
-		if items[i].ControlPriority != items[j].ControlPriority {
-			return items[i].ControlPriority < items[j].ControlPriority
-		}
-		if len(items[i].AttackPathRefs) != len(items[j].AttackPathRefs) {
-			return len(items[i].AttackPathRefs) > len(items[j].AttackPathRefs)
-		}
-		if items[i].Repo != items[j].Repo {
-			return items[i].Repo < items[j].Repo
-		}
-		if items[i].Location != items[j].Location {
-			return items[i].Location < items[j].Location
-		}
-		return items[i].PathID < items[j].PathID
-	})
-}
-
-func queuePriority(queue string) int {
-	switch strings.TrimSpace(queue) {
-	case controlbacklog.QueueControlFirst:
-		return 0
-	case controlbacklog.QueueReviewQueue:
-		return 1
-	case controlbacklog.QueueInventoryHygiene:
-		return 2
-	case controlbacklog.QueueDebugOnly:
-		return 3
-	default:
-		return 99
-	}
-}
-
-func riskTierPriority(value string) int {
-	switch strings.TrimSpace(value) {
-	case risk.RiskTierCritical:
-		return 0
-	case risk.RiskTierHigh:
-		return 1
-	case risk.RiskTierMedium:
-		return 2
-	default:
-		return 3
-	}
-}
-
 func queueForControlPriority(priority string) string {
 	switch strings.TrimSpace(priority) {
 	case risk.ControlPriorityControlFirst:
@@ -658,14 +606,6 @@ func parseAttackPathFindingKey(key string) (string, string) {
 		return "", ""
 	}
 	return strings.TrimSpace(parts[3]), strings.TrimSpace(parts[2])
-}
-
-func bomItemHasWeakOwnership(path risk.ActionPath) bool {
-	return strings.TrimSpace(path.OwnerSource) == "multi_repo_conflict" ||
-		strings.TrimSpace(path.OwnershipState) == "conflicting" ||
-		strings.TrimSpace(path.OwnershipState) == "missing" ||
-		strings.TrimSpace(path.OwnershipStatus) == "" ||
-		strings.TrimSpace(path.OwnershipStatus) == "unresolved"
 }
 
 func reachabilityByPathID(paths []risk.ActionPath, findings []model.Finding) map[string][]AgentActionBOMReachability {
