@@ -8,11 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- Added buyer-facing backlog queue, visibility, and remediation fields so report and evidence outputs separate `control_first`, `review_queue`, `inventory_hygiene`, and `debug_only` work without hiding appendix/debug context.
+- Added attack-path join refs and deterministic exclusion items across govern-first action paths, control-path graphs, and Agent Action BOM output so top attack paths are represented or explicitly excluded instead of silently dropped.
 
 ### Changed
 
-- (none yet)
+- Aligned govern-first ranking, risk tiers, and recommended actions so source-level MCP and agent paths with stronger governable signals outrank dependency-only inventory.
+- Changed report and BOM proof refs to distinguish global proof-chain metadata from path-specific proof coverage and remediation.
 
 ### Deprecated
 
@@ -24,7 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- Fixed repo-level attack-path score spillover so high attack-path scores attach only to matching govern-first paths instead of every candidate path in the same repo.
 
 ### Security
 

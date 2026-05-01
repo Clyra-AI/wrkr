@@ -96,15 +96,21 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s %s owner=%s priority=%s policy=%s proof=%s runtime=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s %s owner=%s queue=%s priority=%s tier=%s policy=%s proof=%s runtime=%s remediation=%s\n",
 				item.Repo,
 				item.Location,
 				item.Owner,
+				item.Queue,
 				item.ControlPriority,
+				item.RiskTier,
 				item.PolicyStatus,
 				item.ProofCoverage,
 				item.RuntimeEvidenceStatus,
+				item.Remediation,
 			))
+			if strings.TrimSpace(item.ExclusionReason) != "" {
+				builder.WriteString(fmt.Sprintf("  exclusion=%s\n", item.ExclusionReason))
+			}
 		}
 		builder.WriteString("\n")
 	}
@@ -117,13 +123,16 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.ControlBacklog.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s %s owner=%s action=%s sla=%s closure=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s %s owner=%s queue=%s visibility=%s action=%s sla=%s closure=%s remediation=%s\n",
 				item.Repo,
 				item.Path,
 				item.Owner,
+				item.Queue,
+				item.FindingVisibility,
 				item.RecommendedAction,
 				item.SLA,
 				item.ClosureCriteria,
+				item.Remediation,
 			))
 		}
 		builder.WriteString("\n")

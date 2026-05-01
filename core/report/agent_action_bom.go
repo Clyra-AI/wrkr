@@ -13,6 +13,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
@@ -75,8 +76,16 @@ type AgentActionBOMItem struct {
 	RuntimeEvidenceStatus    string                             `json:"runtime_evidence_status,omitempty"`
 	RuntimeEvidenceClasses   []string                           `json:"runtime_evidence_classes,omitempty"`
 	RuntimeEvidenceRefs      []string                           `json:"runtime_evidence_refs,omitempty"`
+	InventoryRisk            string                             `json:"inventory_risk,omitempty"`
 	ControlPriority          string                             `json:"control_priority,omitempty"`
+	RiskTier                 string                             `json:"risk_tier,omitempty"`
 	RecommendedNextAction    string                             `json:"recommended_next_action,omitempty"`
+	Queue                    string                             `json:"queue,omitempty"`
+	FindingVisibility        string                             `json:"finding_visibility,omitempty"`
+	Remediation              string                             `json:"remediation,omitempty"`
+	AttackPathRefs           []string                           `json:"attack_path_refs,omitempty"`
+	SourceFindingKeys        []string                           `json:"source_finding_keys,omitempty"`
+	ExclusionReason          string                             `json:"exclusion_reason,omitempty"`
 	GraphRefs                AgentActionBOMGraphRefs            `json:"graph_refs,omitempty"`
 	EvidenceRefs             []string                           `json:"evidence_refs,omitempty"`
 	Reachability             []AgentActionBOMReachability       `json:"reachability,omitempty"`
@@ -124,10 +133,9 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 	runtimeByPath := runtimeEvidenceByPath(summary.RuntimeEvidence)
 	reachabilityByPath := reachabilityByPathID(summary.ActionPaths, findings)
 	proofCoverageByPath := proofCoverageByPath(summary.ActionPaths, summary.controlProofStatus)
-	proofRefs := proofRefs(summary.Proof)
+	globalProofRefs := proofRefs(summary.Proof)
 
 	items := make([]AgentActionBOMItem, 0, len(summary.ActionPaths))
-	counts := AgentActionBOMSummary{}
 	for _, path := range summary.ActionPaths {
 		pathID := strings.TrimSpace(path.PathID)
 		itemGraphRefs := graphRefsByPath[pathID]
@@ -138,6 +146,17 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		proofCoverage := fallbackProofCoverage(summary.Proof)
 		if coverage, ok := proofCoverageByPath[pathID]; ok {
 			proofCoverage = coverage.Status
+		}
+		policyStatus := firstNonEmptyValue(path.PolicyCoverageStatus, risk.PolicyCoverageStatusNone)
+		switch strings.TrimSpace(runtimeItem.Status) {
+		case ingest.CorrelationStatusMatched:
+			if containsEvidenceClass(runtimeItem.EvidenceClasses, ingest.EvidenceClassPolicyDecision) {
+				policyStatus = risk.PolicyCoverageStatusRuntimeProven
+			}
+		case ingest.CorrelationStatusConflict:
+			policyStatus = risk.PolicyCoverageStatusConflict
+		case ingest.CorrelationStatusStale:
+			policyStatus = risk.PolicyCoverageStatusStale
 		}
 		item := AgentActionBOMItem{
 			PathID:                   pathID,
@@ -161,14 +180,21 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			MatchedProductionTargets: append([]string(nil), path.MatchedProductionTargets...),
 			ApprovalGap:              path.ApprovalGap,
 			ApprovalGapReasons:       append([]string(nil), path.ApprovalGapReasons...),
-			PolicyStatus:             firstNonEmptyValue(path.PolicyCoverageStatus, risk.PolicyCoverageStatusNone),
+			PolicyStatus:             policyStatus,
 			ProofCoverage:            proofCoverage,
-			ProofRefs:                append([]string(nil), proofRefs...),
+			ProofRefs:                proofRefsForPath(path, summary.controlProofStatus),
 			RuntimeEvidenceStatus:    runtimeItem.Status,
 			RuntimeEvidenceClasses:   append([]string(nil), runtimeItem.EvidenceClasses...),
 			RuntimeEvidenceRefs:      append([]string(nil), runtimeItem.RecordIDs...),
-			ControlPriority:          strings.TrimSpace(path.RecommendedAction),
+			InventoryRisk:            inventoryRiskForPath(path),
+			ControlPriority:          controlPriorityForPath(path),
+			RiskTier:                 riskTierForPath(path),
 			RecommendedNextAction:    strings.TrimSpace(path.RecommendedAction),
+			Queue:                    firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForControlPriority(controlPriorityForPath(path))),
+			FindingVisibility:        firstNonEmptyValue(strings.TrimSpace(backlogItem.FindingVisibility), visibilityForQueue(firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForControlPriority(controlPriorityForPath(path))))),
+			Remediation:              firstNonEmptyValue(strings.TrimSpace(backlogItem.Remediation), risk.RemediationForActionPath(path)),
+			AttackPathRefs:           append([]string(nil), path.AttackPathRefs...),
+			SourceFindingKeys:        append([]string(nil), path.SourceFindingKeys...),
 			GraphRefs:                itemGraphRefs,
 			Reachability:             reachability,
 			ReachableServers:         reachableServers,
@@ -184,36 +210,9 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		}
 		item.EvidenceRefs = itemEvidenceRefs(path, backlogItem, runtimeItem, itemGraphRefs)
 		items = append(items, item)
-
-		counts.TotalItems++
-		if summary.ActionPathToControlFirst != nil && strings.TrimSpace(summary.ActionPathToControlFirst.Path.PathID) == item.PathID {
-			counts.ControlFirstItems++
-		}
-		if item.StandingPrivilege {
-			counts.StandingPrivilegeItems++
-		}
-		if isStaticCredentialItem(item.CredentialProvenance) {
-			counts.StaticCredentialItems++
-		}
-		if item.ProductionWrite || len(item.MatchedProductionTargets) > 0 {
-			counts.ProductionTargetItems++
-		}
-		if item.ApprovalGap {
-			counts.MissingApprovalItems++
-		}
-		if item.PolicyStatus == "none" {
-			counts.MissingPolicyItems++
-		}
-		if item.ProofCoverage == proofCoverageMissing {
-			counts.MissingProofItems++
-		}
-		if item.PolicyStatus == risk.PolicyCoverageStatusRuntimeProven || item.RuntimeEvidenceStatus == ingest.CorrelationStatusMatched {
-			counts.RuntimeProvenItems++
-		}
-		if bomItemHasWeakOwnership(path) {
-			counts.UnresolvedOwnerItems++
-		}
 	}
+	items = append(items, excludedTopAttackPathItems(summary)...)
+	counts := summarizeAgentActionBOMItems(items)
 
 	return &AgentActionBOM{
 		BOMID:         agentActionBOMID(summary, items),
@@ -223,7 +222,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		Items:         items,
 		GraphRefs:     graphRefs,
 		EvidenceRefs:  summaryEvidenceRefs(items),
-		ProofRefs:     proofRefs,
+		ProofRefs:     globalProofRefs,
 	}
 }
 
@@ -382,6 +381,8 @@ func itemEvidenceRefs(path risk.ActionPath, backlog controlbacklog.Item, runtime
 	refs = append(refs, backlog.EvidenceBasis...)
 	refs = append(refs, runtime.RecordIDs...)
 	refs = append(refs, runtime.Sources...)
+	refs = append(refs, path.AttackPathRefs...)
+	refs = append(refs, path.SourceFindingKeys...)
 	refs = append(refs, graphRefs.NodeIDs...)
 	refs = append(refs, graphRefs.EdgeIDs...)
 	return uniqueSortedStrings(refs)
@@ -412,6 +413,251 @@ func summaryEvidenceRefs(items []AgentActionBOMItem) []string {
 		refs = append(refs, item.EvidenceRefs...)
 	}
 	return uniqueSortedStrings(refs)
+}
+
+func summarizeAgentActionBOMItems(items []AgentActionBOMItem) AgentActionBOMSummary {
+	counts := AgentActionBOMSummary{TotalItems: len(items)}
+	for _, item := range items {
+		if strings.TrimSpace(item.ControlPriority) == risk.ControlPriorityControlFirst {
+			counts.ControlFirstItems++
+		}
+		if item.StandingPrivilege {
+			counts.StandingPrivilegeItems++
+		}
+		if isStaticCredentialItem(item.CredentialProvenance) {
+			counts.StaticCredentialItems++
+		}
+		if item.ProductionWrite || len(item.MatchedProductionTargets) > 0 {
+			counts.ProductionTargetItems++
+		}
+		if item.ApprovalGap {
+			counts.MissingApprovalItems++
+		}
+		if item.PolicyStatus == risk.PolicyCoverageStatusNone {
+			counts.MissingPolicyItems++
+		}
+		if item.ProofCoverage == proofCoverageMissing {
+			counts.MissingProofItems++
+		}
+		if item.PolicyStatus == risk.PolicyCoverageStatusRuntimeProven || item.RuntimeEvidenceStatus == ingest.CorrelationStatusMatched {
+			counts.RuntimeProvenItems++
+		}
+		if item.OwnershipStatus == "" || item.OwnershipStatus == "unresolved" || item.OwnershipState == "missing" || item.OwnershipState == "conflicting" || item.OwnerSource == "multi_repo_conflict" {
+			counts.UnresolvedOwnerItems++
+		}
+	}
+	return counts
+}
+
+func sortAgentActionBOMItems(items []AgentActionBOMItem) {
+	sort.SliceStable(items, func(i, j int) bool {
+		if queuePriority(items[i].Queue) != queuePriority(items[j].Queue) {
+			return queuePriority(items[i].Queue) < queuePriority(items[j].Queue)
+		}
+		if riskTierPriority(items[i].RiskTier) != riskTierPriority(items[j].RiskTier) {
+			return riskTierPriority(items[i].RiskTier) < riskTierPriority(items[j].RiskTier)
+		}
+		if items[i].ControlPriority != items[j].ControlPriority {
+			return items[i].ControlPriority < items[j].ControlPriority
+		}
+		if len(items[i].AttackPathRefs) != len(items[j].AttackPathRefs) {
+			return len(items[i].AttackPathRefs) > len(items[j].AttackPathRefs)
+		}
+		if items[i].Repo != items[j].Repo {
+			return items[i].Repo < items[j].Repo
+		}
+		if items[i].Location != items[j].Location {
+			return items[i].Location < items[j].Location
+		}
+		return items[i].PathID < items[j].PathID
+	})
+}
+
+func queuePriority(queue string) int {
+	switch strings.TrimSpace(queue) {
+	case controlbacklog.QueueControlFirst:
+		return 0
+	case controlbacklog.QueueReviewQueue:
+		return 1
+	case controlbacklog.QueueInventoryHygiene:
+		return 2
+	case controlbacklog.QueueDebugOnly:
+		return 3
+	default:
+		return 99
+	}
+}
+
+func riskTierPriority(value string) int {
+	switch strings.TrimSpace(value) {
+	case risk.RiskTierCritical:
+		return 0
+	case risk.RiskTierHigh:
+		return 1
+	case risk.RiskTierMedium:
+		return 2
+	default:
+		return 3
+	}
+}
+
+func queueForControlPriority(priority string) string {
+	switch strings.TrimSpace(priority) {
+	case risk.ControlPriorityControlFirst:
+		return controlbacklog.QueueControlFirst
+	case risk.ControlPriorityInventoryHygiene:
+		return controlbacklog.QueueInventoryHygiene
+	default:
+		return controlbacklog.QueueReviewQueue
+	}
+}
+
+func visibilityForQueue(queue string) string {
+	switch strings.TrimSpace(queue) {
+	case controlbacklog.QueueControlFirst, controlbacklog.QueueReviewQueue:
+		return controlbacklog.FindingVisibilityPrimary
+	case controlbacklog.QueueInventoryHygiene:
+		return controlbacklog.FindingVisibilityAppendix
+	default:
+		return controlbacklog.FindingVisibilityDebug
+	}
+}
+
+func proofRefsForPath(path risk.ActionPath, statuses []ControlProofStatus) []string {
+	refs := []string{}
+	pathID := strings.TrimSpace(path.PathID)
+	if pathID != "" {
+		refs = append(refs, "path:"+pathID)
+	}
+	for _, key := range path.SourceFindingKeys {
+		refs = append(refs, "finding:"+strings.TrimSpace(key))
+	}
+	for _, status := range controlProofStatusesForPath(path, statuses) {
+		for _, recordID := range status.RecordIDs {
+			refs = append(refs, "proof_record:"+strings.TrimSpace(recordID))
+		}
+	}
+	return uniqueSortedStrings(refs)
+}
+
+func controlProofStatusesForPath(path risk.ActionPath, statuses []ControlProofStatus) []ControlProofStatus {
+	if len(statuses) == 0 {
+		return nil
+	}
+	pathID := strings.TrimSpace(path.PathID)
+	locationKey := proofCoverageLocationKey(path.Repo, path.Location)
+	out := []ControlProofStatus{}
+	for _, status := range statuses {
+		if strings.TrimSpace(status.LinkedActionPathID) == pathID {
+			out = append(out, status)
+			continue
+		}
+		if locationKey != "" && proofCoverageLocationKey(status.Repo, status.Path) == locationKey {
+			out = append(out, status)
+		}
+	}
+	return out
+}
+
+func excludedTopAttackPathItems(summary Summary) []AgentActionBOMItem {
+	if len(summary.topAttackPaths) == 0 {
+		return nil
+	}
+	matched := map[string]struct{}{}
+	for _, path := range summary.ActionPaths {
+		for _, ref := range path.AttackPathRefs {
+			if strings.TrimSpace(ref) != "" {
+				matched[strings.TrimSpace(ref)] = struct{}{}
+			}
+		}
+	}
+	items := []AgentActionBOMItem{}
+	for _, attackPath := range summary.topAttackPaths {
+		if _, ok := matched[strings.TrimSpace(attackPath.PathID)]; ok {
+			continue
+		}
+		location, toolType := firstAttackPathLocationAndTool(attackPath.SourceFindings)
+		riskTier := attackPathRiskTier(attackPath.PathScore)
+		item := AgentActionBOMItem{
+			PathID:                strings.TrimSpace(attackPath.PathID),
+			Org:                   strings.TrimSpace(attackPath.Org),
+			Repo:                  strings.TrimSpace(attackPath.Repo),
+			ToolType:              firstNonEmptyValue(toolType, "attack_path_exclusion"),
+			Location:              location,
+			ApprovalGap:           false,
+			PolicyStatus:          risk.PolicyCoverageStatusNone,
+			ProofCoverage:         proofCoverageMissing,
+			ProofRefs:             attackPathProofRefs(attackPath),
+			InventoryRisk:         risk.InventoryRiskVisibilityOnly,
+			ControlPriority:       risk.ControlPriorityReviewQueue,
+			RiskTier:              riskTier,
+			RecommendedNextAction: "proof",
+			Queue:                 controlbacklog.QueueReviewQueue,
+			FindingVisibility:     controlbacklog.FindingVisibilityPrimary,
+			Remediation:           "Investigate why this top attack path has no matching govern-first action path, add the missing path or record an explicit exclusion reason, and rerun the report.",
+			AttackPathRefs:        []string{strings.TrimSpace(attackPath.PathID)},
+			SourceFindingKeys:     append([]string(nil), attackPath.SourceFindings...),
+			ExclusionReason:       "top_attack_path_missing_matching_action_path",
+			EvidenceRefs:          attackPathEvidenceRefs(attackPath),
+		}
+		if summary.ShareProfile == string(ShareProfilePublic) {
+			item.PathID = redactValue("attack", item.PathID, 8)
+			item.Org = redactValue("org", item.Org, 6)
+			item.Repo = redactValue("repo", item.Repo, 6)
+			item.Location = redactValue("loc", item.Location, 8)
+			item.AttackPathRefs = redactStringSlice(item.AttackPathRefs, "attack")
+			item.SourceFindingKeys = redactStringSlice(item.SourceFindingKeys, "finding")
+			item.EvidenceRefs = redactStringSlice(item.EvidenceRefs, "evidence")
+			item.ProofRefs = redactStringSlice(item.ProofRefs, "proof")
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+func attackPathRiskTier(score float64) string {
+	switch {
+	case score >= 9.0:
+		return risk.RiskTierCritical
+	case score >= 7.0:
+		return risk.RiskTierHigh
+	case score >= 5.0:
+		return risk.RiskTierMedium
+	default:
+		return risk.RiskTierLow
+	}
+}
+
+func attackPathProofRefs(path riskattack.ScoredPath) []string {
+	refs := []string{"attack_path:" + strings.TrimSpace(path.PathID)}
+	for _, key := range path.SourceFindings {
+		refs = append(refs, "finding:"+strings.TrimSpace(key))
+	}
+	return uniqueSortedStrings(refs)
+}
+
+func attackPathEvidenceRefs(path riskattack.ScoredPath) []string {
+	refs := []string{"attack_path:" + strings.TrimSpace(path.PathID)}
+	refs = append(refs, path.SourceFindings...)
+	return uniqueSortedStrings(refs)
+}
+
+func firstAttackPathLocationAndTool(keys []string) (string, string) {
+	for _, key := range keys {
+		location, toolType := parseAttackPathFindingKey(key)
+		if location != "" || toolType != "" {
+			return location, toolType
+		}
+	}
+	return "", ""
+}
+
+func parseAttackPathFindingKey(key string) (string, string) {
+	parts := strings.Split(strings.TrimSpace(key), "|")
+	if len(parts) < 6 {
+		return "", ""
+	}
+	return strings.TrimSpace(parts[3]), strings.TrimSpace(parts[2])
 }
 
 func bomItemHasWeakOwnership(path risk.ActionPath) bool {

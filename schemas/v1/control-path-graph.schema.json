@@ -74,7 +74,9 @@
         "agent_id": {"type": "string"},
         "status": {"type": "string"},
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
-        "source_refs": {"type": "array", "items": {"type": "string"}}
+        "source_refs": {"type": "array", "items": {"type": "string"}},
+        "attack_path_refs": {"type": "array", "items": {"type": "string"}},
+        "source_finding_keys": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },
@@ -88,7 +90,9 @@
         "from_node_id": {"type": "string"},
         "to_node_id": {"type": "string"},
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
-        "source_refs": {"type": "array", "items": {"type": "string"}}
+        "source_refs": {"type": "array", "items": {"type": "string"}},
+        "attack_path_refs": {"type": "array", "items": {"type": "string"}},
+        "source_finding_keys": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     }

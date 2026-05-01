@@ -280,6 +280,56 @@ func TestRecommendedActionTaxonomyCoversKnownFindingFamilies(t *testing.T) {
 	}
 }
 
+func TestControlBacklogRoutesDiagnosticsToDebugOnly(t *testing.T) {
+	t.Parallel()
+
+	backlog := Build(Input{
+		Mode: "deep",
+		Findings: []model.Finding{
+			{
+				FindingType: "parse_error",
+				ToolType:    "dependency",
+				Location:    "dist/generated.js",
+				Repo:        "app",
+				Org:         "acme",
+				ParseError:  &model.ParseError{Kind: "parse_error", Path: "dist/generated.js"},
+			},
+			{
+				FindingType: "dependency_manifest",
+				ToolType:    "dependency",
+				Location:    "package.json",
+				Repo:        "app",
+				Org:         "acme",
+			},
+		},
+	})
+
+	if len(backlog.Items) != 2 {
+		t.Fatalf("expected two backlog items, got %+v", backlog.Items)
+	}
+	if backlog.Items[0].Queue != QueueInventoryHygiene && backlog.Items[1].Queue != QueueInventoryHygiene {
+		t.Fatalf("expected dependency inventory to route to inventory_hygiene, got %+v", backlog.Items)
+	}
+	var debugItem Item
+	foundDebug := false
+	for _, item := range backlog.Items {
+		if item.Queue == QueueDebugOnly {
+			debugItem = item
+			foundDebug = true
+			break
+		}
+	}
+	if !foundDebug {
+		t.Fatalf("expected parser diagnostic to route to debug_only, got %+v", backlog.Items)
+	}
+	if debugItem.FindingVisibility != FindingVisibilityDebug {
+		t.Fatalf("expected parser diagnostic to use debug visibility, got %+v", debugItem)
+	}
+	if debugItem.Remediation == "" {
+		t.Fatalf("expected parser diagnostic to carry remediation guidance, got %+v", debugItem)
+	}
+}
+
 func TestSecretScopeGapFollowsSecretScopeUnknownSignal(t *testing.T) {
 	t.Parallel()
 

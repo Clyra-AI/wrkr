@@ -19,6 +19,13 @@ const BacklogVersion = "1"
 const (
 	SignalClassUniqueWrkrSignal      = "unique_wrkr_signal"
 	SignalClassSupportingSecurity    = "supporting_security_signal"
+	QueueControlFirst                = "control_first"
+	QueueReviewQueue                 = "review_queue"
+	QueueInventoryHygiene            = "inventory_hygiene"
+	QueueDebugOnly                   = "debug_only"
+	FindingVisibilityPrimary         = "primary"
+	FindingVisibilityAppendix        = "appendix"
+	FindingVisibilityDebug           = "debug"
 	ControlSurfaceAIAgent            = "ai_agent"
 	ControlSurfaceCodingAssistant    = "coding_assistant_config"
 	ControlSurfaceMCPServerTool      = "mcp_server_tool"
@@ -67,6 +74,10 @@ type Summary struct {
 	AttachEvidenceActionItems int `json:"attach_evidence_action_items"`
 	ApproveActionItems        int `json:"approve_action_items"`
 	RemediateActionItems      int `json:"remediate_action_items"`
+	ControlFirstQueueItems    int `json:"control_first_queue_items,omitempty"`
+	ReviewQueueItems          int `json:"review_queue_items,omitempty"`
+	InventoryHygieneItems     int `json:"inventory_hygiene_items,omitempty"`
+	DebugOnlyQueueItems       int `json:"debug_only_queue_items,omitempty"`
 }
 
 type Item struct {
@@ -92,8 +103,11 @@ type Item struct {
 	EvidenceBasis            []string                                `json:"evidence_basis"`
 	ApprovalStatus           string                                  `json:"approval_status"`
 	SecurityVisibility       string                                  `json:"security_visibility"`
+	Queue                    string                                  `json:"queue,omitempty"`
+	FindingVisibility        string                                  `json:"finding_visibility,omitempty"`
 	SignalClass              string                                  `json:"signal_class"`
 	RecommendedAction        string                                  `json:"recommended_action"`
+	Remediation              string                                  `json:"remediation,omitempty"`
 	Confidence               string                                  `json:"confidence"`
 	EvidenceGaps             []string                                `json:"evidence_gaps,omitempty"`
 	ConfidenceRaise          []string                                `json:"confidence_raise,omitempty"`
@@ -274,8 +288,11 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		EvidenceBasis:            evidenceBasisFromActionPath(path),
 		ApprovalStatus:           approvalStatus(path.ApprovalGap, path.SecurityVisibilityStatus),
 		SecurityVisibility:       agginventory.GovernanceSecurityVisibilityStatus(path.SecurityVisibilityStatus, "", ""),
+		Queue:                    queueFromActionPath(path),
+		FindingVisibility:        visibilityFromActionPath(path),
 		SignalClass:              SignalClassUniqueWrkrSignal,
 		RecommendedAction:        actionFromActionPath(path.RecommendedAction, path),
+		Remediation:              risk.RemediationForActionPath(path),
 		LinkedActionPathID:       path.PathID,
 		LinkedControlPathNodeIDs: append([]string(nil), graphRefs.nodeIDs...),
 		LinkedControlPathEdgeIDs: append([]string(nil), graphRefs.edgeIDs...),
@@ -340,8 +357,11 @@ func (b *builder) addFinding(finding model.Finding, mode string) {
 		EvidenceBasis:       evidenceBasisForFinding(finding),
 		ApprovalStatus:      fallback(tool.ApprovalClass, "unknown"),
 		SecurityVisibility:  agginventory.GovernanceSecurityVisibilityStatus(tool.SecurityVisibilityStatus, tool.ApprovalStatus, tool.LifecycleState),
+		Queue:               queueFromFinding(finding, writeCapable),
+		FindingVisibility:   visibilityFromFinding(finding, writeCapable),
 		SignalClass:         signalClassForFinding(finding, writeCapable),
 		RecommendedAction:   actionForFinding(finding, writeCapable),
+		Remediation:         remediationForFinding(finding, writeCapable),
 		LinkedFindingIDs:    []string{findingID(finding)},
 		SecretSignalTypes:   secretSignalTypesForFinding(finding, writeCapable),
 		TrustDepth:          agginventory.TrustDepthFromFinding(finding),
@@ -395,6 +415,13 @@ func (b *builder) merge(item Item) {
 		current.SLA = slaForAction(item.RecommendedAction)
 		current.ClosureCriteria = closureCriteriaForAction(item.RecommendedAction)
 	}
+	if queuePriority(item.Queue) < queuePriority(current.Queue) {
+		current.Queue = item.Queue
+		current.Remediation = item.Remediation
+	}
+	if visibilityPriority(item.FindingVisibility) < visibilityPriority(current.FindingVisibility) {
+		current.FindingVisibility = item.FindingVisibility
+	}
 	if signalPriority(item.SignalClass) < signalPriority(current.SignalClass) {
 		current.SignalClass = item.SignalClass
 	}
@@ -412,6 +439,9 @@ func (b *builder) merge(item Item) {
 	current.OwnershipConflicts = mergeStrings(current.OwnershipConflicts, item.OwnershipConflicts)
 	if current.LinkedActionPathID == "" {
 		current.LinkedActionPathID = item.LinkedActionPathID
+	}
+	if strings.TrimSpace(current.Remediation) == "" {
+		current.Remediation = item.Remediation
 	}
 	current.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, item.GovernanceControls)
 	b.itemsByKey[key] = normalizeItem(current)
@@ -432,8 +462,11 @@ func (b *builder) addLifecycleGap(gap lifecycle.Gap) {
 		EvidenceBasis:      append([]string{gap.ReasonCode}, gap.EvidenceBasis...),
 		ApprovalStatus:     "unapproved",
 		SecurityVisibility: agginventory.SecurityVisibilityNeedsReview,
+		Queue:              QueueReviewQueue,
+		FindingVisibility:  FindingVisibilityPrimary,
 		SignalClass:        SignalClassUniqueWrkrSignal,
 		RecommendedAction:  lifecycleGapRecommendedAction(gap),
+		Remediation:        remediationForLifecycleGap(gap),
 		LinkedFindingIDs:   []string{gap.GapID},
 		SecretSignalTypes:  lifecycleGapSecretSignalTypes(gap),
 	}
@@ -461,6 +494,9 @@ func (b *builder) items() []Item {
 		items = append(items, normalizeItem(item))
 	}
 	sort.Slice(items, func(i, j int) bool {
+		if queuePriority(items[i].Queue) != queuePriority(items[j].Queue) {
+			return queuePriority(items[i].Queue) < queuePriority(items[j].Queue)
+		}
 		if signalPriority(items[i].SignalClass) != signalPriority(items[j].SignalClass) {
 			return signalPriority(items[i].SignalClass) < signalPriority(items[j].SignalClass)
 		}
@@ -487,6 +523,16 @@ func (b *builder) items() []Item {
 func summarize(items []Item) Summary {
 	summary := Summary{TotalItems: len(items)}
 	for _, item := range items {
+		switch item.Queue {
+		case QueueControlFirst:
+			summary.ControlFirstQueueItems++
+		case QueueReviewQueue:
+			summary.ReviewQueueItems++
+		case QueueInventoryHygiene:
+			summary.InventoryHygieneItems++
+		case QueueDebugOnly:
+			summary.DebugOnlyQueueItems++
+		}
 		switch item.SignalClass {
 		case SignalClassUniqueWrkrSignal:
 			summary.UniqueWrkrSignalItems++
@@ -1119,6 +1165,8 @@ func normalizeItem(item Item) Item {
 	item.OwnershipConflicts = mergeStrings(item.OwnershipConflicts, nil)
 	item.ApprovalStatus = fallback(item.ApprovalStatus, "unknown")
 	item.SecurityVisibility = agginventory.GovernanceSecurityVisibilityStatus(item.SecurityVisibility, item.ApprovalStatus, "")
+	item.Queue = fallback(item.Queue, queueFromAction(item.RecommendedAction))
+	item.FindingVisibility = fallback(item.FindingVisibility, visibilityForQueue(item.Queue))
 	if !ValidSignalClass(item.SignalClass) {
 		item.SignalClass = SignalClassSupportingSecurity
 	}
@@ -1128,6 +1176,7 @@ func normalizeItem(item Item) Item {
 	if !ValidConfidence(item.Confidence) {
 		item.Confidence = ConfidenceMedium
 	}
+	item.Remediation = fallback(item.Remediation, remediationForBacklogAction(item.RecommendedAction))
 	item.SLA = fallback(item.SLA, slaForAction(item.RecommendedAction))
 	item.ClosureCriteria = fallback(item.ClosureCriteria, closureCriteriaForAction(item.RecommendedAction))
 	item.EvidenceGaps = mergeStrings(item.EvidenceGaps, nil)
@@ -1374,6 +1423,34 @@ func signalPriority(value string) int {
 	return 1
 }
 
+func queuePriority(value string) int {
+	switch strings.TrimSpace(value) {
+	case QueueControlFirst:
+		return 0
+	case QueueReviewQueue:
+		return 1
+	case QueueInventoryHygiene:
+		return 2
+	case QueueDebugOnly:
+		return 3
+	default:
+		return 99
+	}
+}
+
+func visibilityPriority(value string) int {
+	switch strings.TrimSpace(value) {
+	case FindingVisibilityPrimary:
+		return 0
+	case FindingVisibilityAppendix:
+		return 1
+	case FindingVisibilityDebug:
+		return 2
+	default:
+		return 99
+	}
+}
+
 func actionPriority(value string) int {
 	switch value {
 	case ActionRemediate:
@@ -1444,4 +1521,113 @@ func fallback(value, fallbackValue string) string {
 		return strings.TrimSpace(value)
 	}
 	return strings.TrimSpace(fallbackValue)
+}
+
+func queueFromActionPath(path risk.ActionPath) string {
+	switch strings.TrimSpace(path.ControlPriority) {
+	case risk.ControlPriorityControlFirst:
+		return QueueControlFirst
+	case risk.ControlPriorityInventoryHygiene:
+		return QueueInventoryHygiene
+	default:
+		return QueueReviewQueue
+	}
+}
+
+func visibilityFromActionPath(path risk.ActionPath) string {
+	return visibilityForQueue(queueFromActionPath(path))
+}
+
+func queueFromFinding(finding model.Finding, writeCapable bool) string {
+	switch actionForFinding(finding, writeCapable) {
+	case ActionDebugOnly, ActionSuppress:
+		return QueueDebugOnly
+	case ActionInventoryReview:
+		return QueueInventoryHygiene
+	default:
+		return QueueReviewQueue
+	}
+}
+
+func visibilityFromFinding(finding model.Finding, writeCapable bool) string {
+	return visibilityForQueue(queueFromFinding(finding, writeCapable))
+}
+
+func visibilityForQueue(queue string) string {
+	switch strings.TrimSpace(queue) {
+	case QueueControlFirst, QueueReviewQueue:
+		return FindingVisibilityPrimary
+	case QueueInventoryHygiene:
+		return FindingVisibilityAppendix
+	default:
+		return FindingVisibilityDebug
+	}
+}
+
+func queueFromAction(action string) string {
+	switch strings.TrimSpace(action) {
+	case ActionDebugOnly, ActionSuppress:
+		return QueueDebugOnly
+	case ActionInventoryReview:
+		return QueueInventoryHygiene
+	default:
+		return QueueReviewQueue
+	}
+}
+
+func remediationForFinding(finding model.Finding, writeCapable bool) string {
+	if finding.ParseError != nil {
+		if detect.IsGeneratedPath(finding.Location) {
+			return "Keep this generated or bundled parser noise in debug coverage unless it blocks control-path visibility."
+		}
+		return "Review this parser diagnostic only if it affects MCP, framework, or control-path coverage; otherwise keep it out of the primary remediation queue."
+	}
+	if detect.IsGeneratedPath(finding.Location) {
+		return "Treat this generated artifact as appendix or accepted inventory unless higher-confidence source evidence proves it is an active control path."
+	}
+	if isSecretFinding(finding) {
+		if hasSecretValueEvidence(finding) {
+			return "Rotate or revoke the exposed credential, replace it with brokered or JIT access where possible, and rescan."
+		}
+		if writeCapable {
+			return "Attach owner, scope, and rotation evidence for this credential-bearing write path and confirm whether standing access can be reduced."
+		}
+		return "Attach owner, scope, and rotation evidence for this credential reference before treating it as approved inventory."
+	}
+	switch strings.TrimSpace(finding.FindingType) {
+	case "dependency_manifest", "dependency_signal":
+		return "Confirm whether this dependency signal reflects active agent behavior; suppress it as accepted inventory unless source-level binding evidence exists."
+	case "policy_violation", "skill_policy_conflict":
+		return "Fix the failing policy condition, attach the policy reference or approval evidence, and rescan."
+	default:
+		return remediationForBacklogAction(actionForFinding(finding, writeCapable))
+	}
+}
+
+func remediationForLifecycleGap(gap lifecycle.Gap) string {
+	switch strings.TrimSpace(gap.ReasonCode) {
+	case lifecycle.GapRevokedStillPresent, lifecycle.GapOverApproved:
+		return "Remove or reduce this stale high-authority path, record the lifecycle decision, and rescan."
+	case lifecycle.GapOwnerlessExposure:
+		return "Assign an explicit owner and attach review evidence before this path keeps running with unclear accountability."
+	default:
+		return "Record the missing lifecycle review evidence for this path and rescan."
+	}
+}
+
+func remediationForBacklogAction(action string) string {
+	switch strings.TrimSpace(action) {
+	case ActionRemediate:
+		return "Reduce or remove the risky capability on this path, attach proof of the change, and rescan."
+	case ActionApprove:
+		return "Record a time-bounded owner approval with scope and expiry, then rescan."
+	case ActionAttachEvidence:
+		return "Attach owner, policy, proof, or credential-scope evidence for this exact path and rescan."
+	case ActionInventoryReview:
+		return "Confirm whether this item is active, accepted inventory, or suppression-worthy before it stays in the buyer-facing backlog."
+	case ActionSuppress:
+		return "Keep this item in coverage or appendix output only after recording the suppression rationale."
+	default:
+		return "Review this item, attach the missing evidence, and rescan."
+	}
 }

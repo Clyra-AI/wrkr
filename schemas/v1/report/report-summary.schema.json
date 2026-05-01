@@ -195,9 +195,14 @@
         "policy_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "policy_evidence_refs": {"type": "array", "items": {"type": "string"}},
         "introduced_by": {"$ref": "#/$defs/introducedBy"},
+        "inventory_risk": {"type": "string", "enum": ["production_backed", "write_capable", "credential_access", "visibility_only", "dependency_only"]},
+        "control_priority": {"type": "string", "enum": ["control_first", "review_queue", "inventory_hygiene"]},
+        "risk_tier": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
         "attack_path_score": {"type": "number"},
         "risk_score": {"type": "number"},
         "recommended_action": {"type": "string"},
+        "attack_path_refs": {"type": "array", "items": {"type": "string"}},
+        "source_finding_keys": {"type": "array", "items": {"type": "string"}},
         "standing_privilege_reasons": {"type": "array", "items": {"type": "string"}},
         "write_path_classes": {"type": "array", "items": {"type": "string"}},
         "governance_controls": {"type": "array", "items": {"type": "object"}}
@@ -244,7 +249,9 @@
         "agent_id": {"type": "string"},
         "status": {"type": "string"},
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
-        "source_refs": {"type": "array", "items": {"type": "string"}}
+        "source_refs": {"type": "array", "items": {"type": "string"}},
+        "attack_path_refs": {"type": "array", "items": {"type": "string"}},
+        "source_finding_keys": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },
@@ -258,7 +265,9 @@
         "from_node_id": {"type": "string"},
         "to_node_id": {"type": "string"},
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
-        "source_refs": {"type": "array", "items": {"type": "string"}}
+        "source_refs": {"type": "array", "items": {"type": "string"}},
+        "attack_path_refs": {"type": "array", "items": {"type": "string"}},
+        "source_finding_keys": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },
@@ -308,6 +317,12 @@
         "org": {"type": "string"},
         "repo": {"type": "string"},
         "location": {"type": "string"},
+        "path_id": {"type": "string"},
+        "inventory_risk": {"type": "string", "enum": ["production_backed", "write_capable", "credential_access", "visibility_only", "dependency_only"]},
+        "attack_path_score": {"type": "number"},
+        "control_priority": {"type": "string", "enum": ["control_first", "review_queue", "inventory_hygiene"]},
+        "risk_tier": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+        "recommended_action": {"type": "string"},
         "rationale": {
           "type": "array",
           "items": {"type": "string"}

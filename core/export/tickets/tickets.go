@@ -21,7 +21,7 @@ type Export struct {
 type Ticket struct {
 	ID                  string                              `json:"id"`
 	Title               string                              `json:"title"`
-	Owner               string                              `json:"owner,omitempty"`
+	Owner               string                              `json:"owner"`
 	Repo                string                              `json:"repo,omitempty"`
 	Path                string                              `json:"path,omitempty"`
 	ControlPathType     string                              `json:"control_path_type,omitempty"`

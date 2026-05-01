@@ -253,12 +253,17 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			"location":                   path.Location,
 			"write_capable":              path.WriteCapable,
 			"write_path_classes":         append([]string(nil), path.WritePathClasses...),
+			"inventory_risk":             path.InventoryRisk,
+			"control_priority":           path.ControlPriority,
+			"risk_tier":                  path.RiskTier,
 			"recommended_action":         path.RecommendedAction,
 			"security_visibility_status": path.SecurityVisibilityStatus,
 			"approval_gap_reasons":       append([]string(nil), path.ApprovalGapReasons...),
 			"governance_controls":        append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),
 			"credential_access":          path.CredentialAccess,
 			"production_write":           path.ProductionWrite,
+			"attack_path_refs":           append([]string(nil), path.AttackPathRefs...),
+			"source_finding_keys":        append([]string(nil), path.SourceFindingKeys...),
 			"matched_production_targets": append([]string(nil), path.MatchedProductionTargets...),
 		}
 		if path.CredentialProvenance != nil {
