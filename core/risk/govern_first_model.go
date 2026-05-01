@@ -10,7 +10,7 @@ import (
 const (
 	InventoryRiskProductionBacked = "production_backed"
 	InventoryRiskWriteCapable     = "write_capable"
-	InventoryRiskCredentialAccess = "credential_access"
+	InventoryRiskCredentialAccess = "credential_access" // #nosec G101 -- deterministic enum label, not credential material.
 	InventoryRiskVisibilityOnly   = "visibility_only"
 	InventoryRiskDependencyOnly   = "dependency_only"
 
