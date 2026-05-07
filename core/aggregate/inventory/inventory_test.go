@@ -306,6 +306,8 @@ func TestInventoryBuild_EmitsAgentsAdditiveOnly(t *testing.T) {
 		{
 			AgentID:         identity.AgentID(identity.ToolID("codex", "AGENTS.md"), "acme"),
 			AgentInstanceID: identity.ToolID("codex", "AGENTS.md"),
+			ToolFamilyID:    identity.ToolFamilyID("codex", "acme"),
+			ToolInstanceID:  identity.ToolInstanceID("codex", "acme/backend", "AGENTS.md", "", 0, 0),
 			Framework:       "codex",
 			Org:             "acme",
 			Repo:            "acme/backend",
@@ -314,6 +316,8 @@ func TestInventoryBuild_EmitsAgentsAdditiveOnly(t *testing.T) {
 		{
 			AgentID:         identity.AgentID(identity.ToolID("cursor", ".cursor/mcp.json"), "acme"),
 			AgentInstanceID: identity.ToolID("cursor", ".cursor/mcp.json"),
+			ToolFamilyID:    identity.ToolFamilyID("cursor", "acme"),
+			ToolInstanceID:  identity.ToolInstanceID("cursor", "acme/frontend", ".cursor/mcp.json", "", 0, 0),
 			Framework:       "cursor",
 			Org:             "acme",
 			Repo:            "acme/frontend",

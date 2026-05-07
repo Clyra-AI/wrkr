@@ -131,15 +131,15 @@ func parseConfig(root, rel, format string) (declaration, *model.ParseError) {
 	var parsed declaration
 	switch format {
 	case "yaml":
-		if parseErr := detect.ParseYAMLFile(detectorID, root, rel, &parsed); parseErr != nil {
+		if parseErr := detect.ParseYAMLFileAllowUnknownFields(detectorID, root, rel, &parsed); parseErr != nil {
 			return declaration{}, parseErr
 		}
 	case "json":
-		if parseErr := detect.ParseJSONFile(detectorID, root, rel, &parsed); parseErr != nil {
+		if parseErr := detect.ParseJSONFileAllowUnknownFields(detectorID, root, rel, &parsed); parseErr != nil {
 			return declaration{}, parseErr
 		}
 	case "toml":
-		if parseErr := detect.ParseTOMLFile(detectorID, root, rel, &parsed); parseErr != nil {
+		if parseErr := detect.ParseTOMLFileAllowUnknownFields(detectorID, root, rel, &parsed); parseErr != nil {
 			return declaration{}, parseErr
 		}
 	default:

@@ -47,6 +47,38 @@ func TestDetectGapsOwnerlessCredentialed(t *testing.T) {
 	}
 }
 
+func TestDetectGapsPresentPrivilegeIsNotOrphaned(t *testing.T) {
+	t.Parallel()
+
+	gaps := DetectGaps(GapInput{
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       "wrkr:langchain-inst:acme",
+			ToolID:        "langchain-inst",
+			ToolType:      "langchain",
+			Org:           "acme",
+			Repo:          "acme/app",
+			Location:      "agents/release.py",
+			Status:        identity.StateDiscovered,
+			ApprovalState: "missing",
+			Present:       true,
+		}},
+		Inventory: &agginventory.Inventory{
+			AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+				AgentID: "wrkr:langchain-inst:acme",
+				ToolID:  "langchain-inst",
+				Org:     "acme",
+				Repos:   []string{"acme/app"},
+			}},
+		},
+	})
+	if containsLifecycleGap(gaps, GapOrphanedIdentity) {
+		t.Fatalf("present privilege-map identity must not be orphaned, got %+v", gaps)
+	}
+	if !containsLifecycleGap(gaps, GapMissingApproval) {
+		t.Fatalf("expected missing approval reason for present unapproved identity, got %+v", gaps)
+	}
+}
+
 func containsLifecycleGap(gaps []Gap, reason string) bool {
 	for _, gap := range gaps {
 		if gap.ReasonCode == reason {

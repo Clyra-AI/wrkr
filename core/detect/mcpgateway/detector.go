@@ -389,15 +389,15 @@ func parseLooseDocument(root, rel string) (map[string]any, *model.ParseError) {
 	doc := map[string]any{}
 	switch strings.ToLower(filepath.Ext(rel)) {
 	case ".json":
-		if parseErr := detect.ParseJSONFile(detectorID, root, rel, &doc); parseErr != nil {
+		if parseErr := detect.ParseJSONFileAllowUnknownFields(detectorID, root, rel, &doc); parseErr != nil {
 			return nil, parseErr
 		}
 	case ".yaml", ".yml":
-		if parseErr := detect.ParseYAMLFile(detectorID, root, rel, &doc); parseErr != nil {
+		if parseErr := detect.ParseYAMLFileAllowUnknownFields(detectorID, root, rel, &doc); parseErr != nil {
 			return nil, parseErr
 		}
 	case ".toml":
-		if parseErr := detect.ParseTOMLFile(detectorID, root, rel, &doc); parseErr != nil {
+		if parseErr := detect.ParseTOMLFileAllowUnknownFields(detectorID, root, rel, &doc); parseErr != nil {
 			return nil, parseErr
 		}
 	default:
@@ -514,7 +514,7 @@ func parseAgentCardName(root, rel string) (string, *model.ParseError) {
 		Name string `json:"name"`
 	}
 	var parsed card
-	if parseErr := detect.ParseJSONFile(detectorID, root, rel, &parsed); parseErr != nil {
+	if parseErr := detect.ParseJSONFileAllowUnknownFields(detectorID, root, rel, &parsed); parseErr != nil {
 		return "", parseErr
 	}
 	name := strings.ToLower(strings.TrimSpace(parsed.Name))

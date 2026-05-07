@@ -47,7 +47,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 
 	if detect.FileExists(scope.Root, ".vscode/mcp.json") {
 		var parsed mcpConfig
-		if parseErr := detect.ParseJSONFile(detectorID, scope.Root, ".vscode/mcp.json", &parsed); parseErr != nil {
+		if parseErr := detect.ParseJSONFileAllowUnknownFields(detectorID, scope.Root, ".vscode/mcp.json", &parsed); parseErr != nil {
 			parseErr.Detector = detectorID
 			findings = append(findings, model.Finding{
 				FindingType: "parse_error",

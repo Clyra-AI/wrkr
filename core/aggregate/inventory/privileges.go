@@ -8,6 +8,16 @@ import (
 )
 
 const (
+	PathContextRuntimeSource    = "runtime_source"
+	PathContextDeployableSource = "deployable_source"
+	PathContextFunctionalTest   = "functional_test"
+	PathContextUnitTest         = "unit_test"
+	PathContextExample          = "example"
+	PathContextDocs             = "docs"
+	PathContextGeneratedCode    = "generated_code"
+	PathContextPackageCache     = "package_cache"
+	PathContextUnknown          = "unknown"
+
 	ProductionTargetsStatusConfigured    = "configured"
 	ProductionTargetsStatusNotConfigured = "not_configured"
 	ProductionTargetsStatusInvalid       = "invalid"
@@ -68,6 +78,12 @@ type CredentialProvenance struct {
 	RiskMultiplier        float64  `json:"risk_multiplier" yaml:"risk_multiplier"`
 }
 
+type PathContext struct {
+	Kind       string   `json:"kind" yaml:"kind"`
+	Confidence string   `json:"confidence" yaml:"confidence"`
+	Reasons    []string `json:"reasons,omitempty" yaml:"reasons,omitempty"`
+}
+
 type PrivilegeBudget struct {
 	TotalTools            int                   `json:"total_tools" yaml:"total_tools"`
 	WriteCapableTools     int                   `json:"write_capable_tools" yaml:"write_capable_tools"`
@@ -79,6 +95,8 @@ type PrivilegeBudget struct {
 type AgentPrivilegeMapEntry struct {
 	AgentID                  string                     `json:"agent_id" yaml:"agent_id"`
 	AgentInstanceID          string                     `json:"agent_instance_id,omitempty" yaml:"agent_instance_id,omitempty"`
+	ToolFamilyID             string                     `json:"tool_family_id,omitempty" yaml:"tool_family_id,omitempty"`
+	ToolInstanceID           string                     `json:"tool_instance_id,omitempty" yaml:"tool_instance_id,omitempty"`
 	ToolID                   string                     `json:"tool_id" yaml:"tool_id"`
 	ToolType                 string                     `json:"tool_type" yaml:"tool_type"`
 	Framework                string                     `json:"framework,omitempty" yaml:"framework,omitempty"`
@@ -123,12 +141,86 @@ type AgentPrivilegeMapEntry struct {
 	ProductionTargetStatus   string                     `json:"production_target_status,omitempty" yaml:"production_target_status,omitempty"`
 	WriteCapable             bool                       `json:"write_capable" yaml:"write_capable"`
 	CredentialAccess         bool                       `json:"credential_access" yaml:"credential_access"`
+	Credentials              []*CredentialProvenance    `json:"credentials,omitempty" yaml:"credentials,omitempty"`
 	CredentialProvenance     *CredentialProvenance      `json:"credential_provenance,omitempty" yaml:"credential_provenance,omitempty"`
+	PathContext              *PathContext               `json:"path_context,omitempty" yaml:"path_context,omitempty"`
 	StandingPrivilege        bool                       `json:"standing_privilege,omitempty" yaml:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons []string                   `json:"standing_privilege_reasons,omitempty" yaml:"standing_privilege_reasons,omitempty"`
 	ExecCapable              bool                       `json:"exec_capable" yaml:"exec_capable"`
 	ProductionWrite          bool                       `json:"production_write" yaml:"production_write"`
 	MatchedProductionTargets []string                   `json:"matched_production_targets,omitempty" yaml:"matched_production_targets,omitempty"`
+}
+
+func ClonePathContext(in *PathContext) *PathContext {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.Kind = strings.TrimSpace(out.Kind)
+	out.Confidence = strings.TrimSpace(out.Confidence)
+	out.Reasons = mergeCredentialEvidenceBasis(out.Reasons)
+	return &out
+}
+
+func ClassifyPathContext(location string) *PathContext {
+	trimmed := strings.Trim(strings.TrimSpace(location), "/")
+	if trimmed == "" {
+		return &PathContext{Kind: PathContextUnknown, Confidence: "low", Reasons: []string{"location_missing"}}
+	}
+	lower := strings.ToLower(strings.ReplaceAll(trimmed, "\\", "/"))
+	segments := strings.Split(lower, "/")
+	segmentSet := map[string]struct{}{}
+	for _, segment := range segments {
+		if segment != "" {
+			segmentSet[segment] = struct{}{}
+		}
+	}
+	ext := ""
+	if dot := strings.LastIndex(lower, "."); dot >= 0 {
+		ext = lower[dot:]
+	}
+	switch {
+	case hasAnySegment(segmentSet, "node_modules", ".pnpm", ".yarn", ".pnpm-store", "vendor") ||
+		strings.Contains(lower, "/.yarn/cache/") || strings.Contains(lower, "/.vitepress/cache/"):
+		return &PathContext{Kind: PathContextPackageCache, Confidence: "high", Reasons: []string{"package_or_docs_cache_path"}}
+	case hasAnySegment(segmentSet, "dist", "build", "generated", "generated-sdks", "generated-sdk", "__generated__", ".next", ".nuxt", ".docusaurus") ||
+		strings.HasSuffix(lower, ".min.js") || strings.Contains(lower, "/generated/"):
+		return &PathContext{Kind: PathContextGeneratedCode, Confidence: "high", Reasons: []string{"generated_or_bundled_path"}}
+	case hasAnySegment(segmentSet, "docs", "doc", "documentation", "site", "docs-site") || ext == ".md" || ext == ".mdx" || ext == ".rst":
+		return &PathContext{Kind: PathContextDocs, Confidence: "medium", Reasons: []string{"documentation_path"}}
+	case hasAnySegment(segmentSet, "examples", "example", "samples", "sample", "demo", "demos"):
+		return &PathContext{Kind: PathContextExample, Confidence: "medium", Reasons: []string{"example_path"}}
+	case hasAnySegment(segmentSet, "functional_tests", "functional-test", "functional-tests", "e2e", "integration", "integration_tests"):
+		return &PathContext{Kind: PathContextFunctionalTest, Confidence: "high", Reasons: []string{"functional_or_integration_test_path"}}
+	case hasAnySegment(segmentSet, "test", "tests", "__tests__", "spec", "specs", "testdata") ||
+		strings.Contains(lower, "_test.") || strings.Contains(lower, ".test.") || strings.Contains(lower, ".spec."):
+		return &PathContext{Kind: PathContextUnitTest, Confidence: "high", Reasons: []string{"unit_or_fixture_test_path"}}
+	case hasAnySegment(segmentSet, ".github", "workflows", "deploy", "deployments", "helm", "k8s", "kubernetes") ||
+		strings.Contains(lower, "dockerfile") || strings.Contains(lower, "jenkinsfile"):
+		return &PathContext{Kind: PathContextDeployableSource, Confidence: "high", Reasons: []string{"deployment_or_ci_path"}}
+	case hasRuntimeExtension(ext):
+		return &PathContext{Kind: PathContextRuntimeSource, Confidence: "medium", Reasons: []string{"runtime_source_extension"}}
+	default:
+		return &PathContext{Kind: PathContextUnknown, Confidence: "low", Reasons: []string{"unclassified_path"}}
+	}
+}
+
+func hasAnySegment(segments map[string]struct{}, values ...string) bool {
+	for _, value := range values {
+		if _, ok := segments[value]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRuntimeExtension(ext string) bool {
+	switch strings.TrimSpace(ext) {
+	case ".go", ".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts", ".rb", ".php", ".java", ".kt", ".rs":
+		return true
+	default:
+		return false
+	}
 }
 
 func CloneCredentialProvenance(in *CredentialProvenance) *CredentialProvenance {
@@ -146,6 +238,22 @@ func CloneCredentialProvenance(in *CredentialProvenance) *CredentialProvenance {
 	out.EvidenceBasis = append([]string(nil), in.EvidenceBasis...)
 	out.ClassificationReasons = append([]string(nil), in.ClassificationReasons...)
 	return &out
+}
+
+func CloneCredentialProvenances(in []*CredentialProvenance) []*CredentialProvenance {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*CredentialProvenance, 0, len(in))
+	for _, item := range in {
+		if cloned := CloneCredentialProvenance(item); cloned != nil {
+			out = append(out, cloned)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func NormalizeCredentialProvenance(in *CredentialProvenance) *CredentialProvenance {
@@ -166,6 +274,62 @@ func NormalizeCredentialProvenance(in *CredentialProvenance) *CredentialProvenan
 	out.EvidenceBasis = mergeCredentialEvidenceBasis(out.EvidenceBasis)
 	out.ClassificationReasons = mergeCredentialEvidenceBasis(out.ClassificationReasons)
 	return out
+}
+
+func NormalizeCredentialProvenances(in []*CredentialProvenance) []*CredentialProvenance {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*CredentialProvenance, 0, len(in))
+	seen := map[string]struct{}{}
+	for _, item := range in {
+		normalized := NormalizeCredentialProvenance(item)
+		if normalized == nil {
+			continue
+		}
+		key := strings.Join([]string{
+			normalized.Type,
+			normalized.CredentialKind,
+			normalized.Scope,
+			normalized.Subject,
+			normalized.EvidenceLocation,
+		}, "|")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, normalized)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		left := strings.Join([]string{out[i].Scope, out[i].CredentialKind, out[i].Subject, out[i].EvidenceLocation, out[i].Type}, "|")
+		right := strings.Join([]string{out[j].Scope, out[j].CredentialKind, out[j].Subject, out[j].EvidenceLocation, out[j].Type}, "|")
+		return left < right
+	})
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func CredentialRollup(credentials []*CredentialProvenance, fallback *CredentialProvenance) *CredentialProvenance {
+	normalized := NormalizeCredentialProvenances(credentials)
+	if len(normalized) == 0 {
+		return NormalizeCredentialProvenance(fallback)
+	}
+	choice := normalized[0]
+	for _, item := range normalized[1:] {
+		if credentialRiskSortKey(item) > credentialRiskSortKey(choice) {
+			choice = item
+		}
+	}
+	return CloneCredentialProvenance(choice)
+}
+
+func credentialRiskSortKey(item *CredentialProvenance) float64 {
+	if item == nil {
+		return 0
+	}
+	return item.RiskMultiplier
 }
 
 func CredentialRiskMultiplier(kind string) float64 {

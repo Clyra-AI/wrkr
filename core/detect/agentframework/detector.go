@@ -129,15 +129,15 @@ func parse(scope detect.Scope, cfg DetectorConfig) (declaration, *model.ParseErr
 	var parsed declaration
 	switch strings.ToLower(strings.TrimSpace(cfg.Format)) {
 	case "json":
-		if parseErr := detect.ParseJSONFile(cfg.DetectorID, scope.Root, cfg.ConfigPath, &parsed); parseErr != nil {
+		if parseErr := detect.ParseJSONFileAllowUnknownFields(cfg.DetectorID, scope.Root, cfg.ConfigPath, &parsed); parseErr != nil {
 			return declaration{}, parseErr
 		}
 	case "yaml":
-		if parseErr := detect.ParseYAMLFile(cfg.DetectorID, scope.Root, cfg.ConfigPath, &parsed); parseErr != nil {
+		if parseErr := detect.ParseYAMLFileAllowUnknownFields(cfg.DetectorID, scope.Root, cfg.ConfigPath, &parsed); parseErr != nil {
 			return declaration{}, parseErr
 		}
 	case "toml":
-		if parseErr := detect.ParseTOMLFile(cfg.DetectorID, scope.Root, cfg.ConfigPath, &parsed); parseErr != nil {
+		if parseErr := detect.ParseTOMLFileAllowUnknownFields(cfg.DetectorID, scope.Root, cfg.ConfigPath, &parsed); parseErr != nil {
 			return declaration{}, parseErr
 		}
 	default:

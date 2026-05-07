@@ -102,6 +102,31 @@ auth_surfaces = ["token"]
 	}
 }
 
+func TestCustomAgentDetector_AllowsUnknownOpenManifestFields(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, ".wrkr/agents/custom-agent.yaml", `schemaVersion: partner-v2
+agents:
+  - name: ops_agent
+    file: agents/ops.py
+    x-owner: platform
+unknownTopLevel:
+  author: partner
+`)
+	writeFile(t, root, "AGENTS.md", "ops agent\n")
+	writeFile(t, root, ".agents/skills/ops/SKILL.md", "ops playbook\n")
+	writeFile(t, root, ".github/workflows/ops.yml", "jobs:\n  ops:\n    steps:\n      - run: codex --full-auto --approval never\n")
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "ops", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 || findings[0].FindingType == "parse_error" {
+		t.Fatalf("expected tolerant manifest to produce one finding, got %+v", findings)
+	}
+}
+
 func TestCustomAgentDetector_DetectsExplicitCustomSourceMarkersDeterministically(t *testing.T) {
 	t.Parallel()
 
