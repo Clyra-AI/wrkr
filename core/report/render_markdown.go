@@ -71,6 +71,24 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 
+	if summary.ScanQuality != nil && len(summary.ScanQuality.Detectors) > 0 {
+		builder.WriteString("## Scan Quality\n\n")
+		builder.WriteString(fmt.Sprintf("- Mode: %s\n", summary.ScanQuality.Mode))
+		for _, detector := range summary.ScanQuality.Detectors {
+			builder.WriteString(fmt.Sprintf("- %s status=%s attempted=%d parsed=%d partial=%d suppressed=%d failures=%d reasons=%s\n",
+				detector.Detector,
+				detector.Status,
+				detector.AttemptedFiles,
+				detector.ParsedFiles,
+				detector.PartialParses,
+				detector.SuppressedFiles,
+				detector.ParseFailures,
+				strings.Join(detector.CoverageReasons, ","),
+			))
+		}
+		builder.WriteString("\n")
+	}
+
 	if summary.AgentActionBOM != nil && summary.Template == string(TemplateAgentActionBOM) {
 		builder.WriteString("## Agent Action BOM\n\n")
 		builder.WriteString(fmt.Sprintf("- BOM id: %s\n", summary.AgentActionBOM.BOMID))

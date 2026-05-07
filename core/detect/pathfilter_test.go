@@ -13,6 +13,9 @@ func TestIsGeneratedPathClassifiesPackageAndGeneratedNoise(t *testing.T) {
 		"node_modules/pkg/package.json",
 		"dist/app.min.js",
 		".yarn/sdks/typescript/lib.js",
+		".yarn/cache/pkg.tgz",
+		"docs/.vitepress/cache/deps/app.js",
+		"docs/.vitepress/dist/assets/app.js",
 		"clients/generated-sdk/openapi.json",
 		"target/classes/app.jar",
 	} {

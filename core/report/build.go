@@ -13,7 +13,9 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/compliance"
+	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
@@ -93,6 +95,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
 	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
 	controlBacklog := in.Snapshot.ControlBacklog
+	scanQuality := cloneScanQualityReport(in.Snapshot.ScanQuality)
 	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
 	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
@@ -115,6 +118,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		exposureGroups = sanitizeExposureGroupsPublic(exposureGroups)
 		assessmentSummary = sanitizeAssessmentSummaryPublic(assessmentSummary)
 		controlBacklog = sanitizeControlBacklogPublic(controlBacklog)
+		scanQuality = sanitizeScanQualityPublic(scanQuality)
 		controlProofStatus = sanitizeControlProofStatusPublic(controlProofStatus, rawActionPaths, riskReport.ActionPaths)
 	}
 
@@ -163,6 +167,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		AttackPaths:              attackPathSummary,
 		ComplianceSummary:        complianceSummary,
 		ControlBacklog:           controlBacklog,
+		ScanQuality:              scanQuality,
 		RuntimeEvidence:          runtimeEvidence,
 		Proof:                    proofRef,
 		NextActions:              nextActions,
@@ -1427,6 +1432,44 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 		}
 	}
 	return &copyBacklog
+}
+
+func cloneScanQualityReport(in *scanquality.Report) *scanquality.Report {
+	if in == nil {
+		return nil
+	}
+	copyReport := *in
+	copyReport.SuppressedPaths = append([]scanquality.SuppressedPath(nil), in.SuppressedPaths...)
+	copyReport.ParseErrors = append([]scanquality.ParseIssue(nil), in.ParseErrors...)
+	copyReport.DetectorErrors = append([]detect.DetectorError(nil), in.DetectorErrors...)
+	copyReport.Detectors = append([]scanquality.DetectorHealth(nil), in.Detectors...)
+	return &copyReport
+}
+
+func sanitizeScanQualityPublic(in *scanquality.Report) *scanquality.Report {
+	if in == nil {
+		return nil
+	}
+	copyReport := cloneScanQualityReport(in)
+	for idx := range copyReport.SuppressedPaths {
+		copyReport.SuppressedPaths[idx].Org = redactValue("org", copyReport.SuppressedPaths[idx].Org, 6)
+		copyReport.SuppressedPaths[idx].Repo = redactValue("repo", copyReport.SuppressedPaths[idx].Repo, 6)
+		copyReport.SuppressedPaths[idx].Path = redactValue("loc", copyReport.SuppressedPaths[idx].Path, 8)
+	}
+	for idx := range copyReport.ParseErrors {
+		copyReport.ParseErrors[idx].Org = redactValue("org", copyReport.ParseErrors[idx].Org, 6)
+		copyReport.ParseErrors[idx].Repo = redactValue("repo", copyReport.ParseErrors[idx].Repo, 6)
+		copyReport.ParseErrors[idx].Path = redactValue("loc", copyReport.ParseErrors[idx].Path, 8)
+	}
+	for idx := range copyReport.Detectors {
+		copyReport.Detectors[idx].Org = redactValue("org", copyReport.Detectors[idx].Org, 6)
+		copyReport.Detectors[idx].Repo = redactValue("repo", copyReport.Detectors[idx].Repo, 6)
+	}
+	for idx := range copyReport.DetectorErrors {
+		copyReport.DetectorErrors[idx].Org = redactValue("org", copyReport.DetectorErrors[idx].Org, 6)
+		copyReport.DetectorErrors[idx].Repo = redactValue("repo", copyReport.DetectorErrors[idx].Repo, 6)
+	}
+	return copyReport
 }
 
 func redactStringSlice(values []string, prefix string) []string {

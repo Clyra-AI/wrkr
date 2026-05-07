@@ -29,7 +29,7 @@ func TestParseJSONFileStrictUnknownField(t *testing.T) {
 	}
 
 	var parsed jsonFixture
-	parseErr := ParseJSONFile("detector", root, "cfg.json", &parsed)
+	parseErr := ParseJSONFileStrict("detector", root, "cfg.json", &parsed)
 	if parseErr == nil {
 		t.Fatal("expected parse error")
 	}
@@ -67,7 +67,7 @@ func TestParseJSONFileAllowUnknownFields(t *testing.T) {
 	}
 
 	var parsed jsonFixture
-	parseErr := ParseJSONFileAllowUnknownFields("detector", root, "cfg.json", &parsed)
+	parseErr := ParseJSONFileTolerant("detector", root, "cfg.json", &parsed)
 	if parseErr != nil {
 		t.Fatalf("expected no parse error, got %#v", parseErr)
 	}
@@ -86,7 +86,7 @@ func TestParseYAMLFileStrictUnknownField(t *testing.T) {
 	}
 
 	var parsed yamlFixture
-	parseErr := ParseYAMLFile("detector", root, "cfg.yaml", &parsed)
+	parseErr := ParseYAMLFileStrict("detector", root, "cfg.yaml", &parsed)
 	if parseErr == nil {
 		t.Fatal("expected parse error")
 	}
@@ -105,7 +105,7 @@ func TestParseYAMLFileAllowUnknownFields(t *testing.T) {
 	}
 
 	var parsed yamlFixture
-	parseErr := ParseYAMLFileAllowUnknownFields("detector", root, "cfg.yaml", &parsed)
+	parseErr := ParseYAMLFileTolerant("detector", root, "cfg.yaml", &parsed)
 	if parseErr != nil {
 		t.Fatalf("expected no parse error, got %#v", parseErr)
 	}
@@ -124,7 +124,7 @@ func TestParseTOMLFileStrictUnknownField(t *testing.T) {
 	}
 
 	var parsed tomlFixture
-	parseErr := ParseTOMLFile("detector", root, "cfg.toml", &parsed)
+	parseErr := ParseTOMLFileStrict("detector", root, "cfg.toml", &parsed)
 	if parseErr == nil {
 		t.Fatal("expected parse error")
 	}
@@ -143,12 +143,31 @@ func TestParseTOMLFileAllowUnknownFields(t *testing.T) {
 	}
 
 	var parsed tomlFixture
-	parseErr := ParseTOMLFileAllowUnknownFields("detector", root, "cfg.toml", &parsed)
+	parseErr := ParseTOMLFileTolerant("detector", root, "cfg.toml", &parsed)
 	if parseErr != nil {
 		t.Fatalf("expected no parse error, got %#v", parseErr)
 	}
 	if parsed.Name != "ok" {
 		t.Fatalf("unexpected parsed result: %#v", parsed)
+	}
+}
+
+func TestStrictWrkrContractRejectsUnknownFields(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "wrkr.json")
+	if err := os.WriteFile(path, []byte(`{"name":"ok","extra":"unexpected"}`), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var parsed jsonFixture
+	parseErr := ParseJSONFileStrict("detector", root, "wrkr.json", &parsed)
+	if parseErr == nil {
+		t.Fatal("expected strict parse error")
+	}
+	if parseErr.Format != "json" || parseErr.Detector != "detector" {
+		t.Fatalf("unexpected strict parse error: %#v", parseErr)
 	}
 }
 

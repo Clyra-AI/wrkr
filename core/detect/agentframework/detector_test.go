@@ -291,6 +291,52 @@ planner = create_react_agent(
 	}
 }
 
+func TestDetectMany_SourceJSDynamicImportStaysDetectable(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "agents/runtime.mjs", `const { createReactAgent } = await import("@langchain/core")
+
+const release_agent = await createReactAgent({
+  name: "release_agent",
+  tools: ["deploy.write"],
+  auth_surfaces: [process.env.OPENAI_API_KEY],
+})
+`)
+
+	findings, err := DetectMany(detect.Scope{Org: "acme", Repo: "payments", Root: root}, []DetectorConfig{
+		{DetectorID: "agentlangchain", Framework: "langchain", ConfigPath: ".wrkr/agents/langchain.json", Format: "json"},
+	})
+	if err != nil {
+		t.Fatalf("detect many: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one source finding, got %+v", findings)
+	}
+	if evidenceValue(findings[0], "symbol") != "release_agent" {
+		t.Fatalf("expected dynamic-import source symbol, got %+v", findings[0].Evidence)
+	}
+}
+
+func TestDetectMany_SkipsGeneratedSourceBundles(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "docs/.vitepress/cache/deps/runtime.mjs", `import { createReactAgent } from "@langchain/core"
+const release_agent = createReactAgent({ name: "release_agent" })
+`)
+
+	findings, err := DetectMany(detect.Scope{Org: "acme", Repo: "payments", Root: root}, []DetectorConfig{
+		{DetectorID: "agentlangchain", Framework: "langchain", ConfigPath: ".wrkr/agents/langchain.json", Format: "json"},
+	})
+	if err != nil {
+		t.Fatalf("detect many: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected generated bundle to stay out of findings, got %+v", findings)
+	}
+}
+
 func evidenceValue(finding model.Finding, key string) string {
 	target := strings.ToLower(strings.TrimSpace(key))
 	for _, evidence := range finding.Evidence {

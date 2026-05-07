@@ -88,6 +88,9 @@
     "control_path_graph": {
       "$ref": "#/$defs/controlPathGraph"
     },
+    "scan_quality": {
+      "$ref": "#/$defs/scanQuality"
+    },
     "source_privacy": {
       "$ref": "#/$defs/sourcePrivacy"
     },
@@ -224,6 +227,92 @@
         },
         "path": {"$ref": "#/$defs/actionPath"}
       }
+    },
+    "scanQuality": {
+      "type": "object",
+      "required": ["scan_quality_version", "mode"],
+      "properties": {
+        "scan_quality_version": {"type": "string"},
+        "mode": {"type": "string", "enum": ["quick", "governance", "deep"]},
+        "detectors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/detectorHealth"}
+        },
+        "suppressed_paths": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/suppressedPath"}
+        },
+        "parse_errors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/parseIssue"}
+        },
+        "detector_errors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/detectorError"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "detectorHealth": {
+      "type": "object",
+      "required": ["detector", "status", "attempted_files", "parsed_files"],
+      "properties": {
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "detector": {"type": "string"},
+        "status": {"type": "string", "enum": ["complete", "partial", "reduced", "blocked"]},
+        "coverage_reasons": {"type": "array", "items": {"type": "string"}},
+        "attempted_files": {"type": "integer"},
+        "parsed_files": {"type": "integer"},
+        "partial_parses": {"type": "integer"},
+        "skipped_files": {"type": "integer"},
+        "suppressed_files": {"type": "integer"},
+        "parse_failures": {"type": "integer"},
+        "unsupported_declarations": {"type": "integer"},
+        "findings": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "suppressedPath": {
+      "type": "object",
+      "required": ["path", "kind", "reason"],
+      "properties": {
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "path": {"type": "string"},
+        "kind": {"type": "string"},
+        "reason": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "parseIssue": {
+      "type": "object",
+      "required": ["path", "kind"],
+      "properties": {
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "path": {"type": "string"},
+        "detector": {"type": "string"},
+        "kind": {"type": "string"},
+        "format": {"type": "string"},
+        "message": {"type": "string"},
+        "reason": {"type": "string"},
+        "recommended_action": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "detectorError": {
+      "type": "object",
+      "required": ["detector", "org", "repo", "code", "class", "message"],
+      "properties": {
+        "detector": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "code": {"type": "string"},
+        "class": {"type": "string"},
+        "message": {"type": "string"}
+      },
+      "additionalProperties": false
     },
     "controlPathKindRollup": {
       "type": "object",

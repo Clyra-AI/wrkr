@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
@@ -114,6 +115,84 @@ func TestGeneratedDependencyNoiseSuppressedUnlessDeepMode(t *testing.T) {
 	}
 	if deep[0].FindingType != "parse_error" || deep[0].Location != "node_modules/pkg/package.json" {
 		t.Fatalf("expected generated package parse error in deep mode, got %+v", deep)
+	}
+}
+
+func TestPackageJSONIgnoresUnknownMetadataAndExtractsSections(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "package.json", `{
+  "name": "@acme/customer-app",
+  "author": "Acme",
+  "dependencies": {"langchain": "^1.0.0"},
+  "devDependencies": {"@langchain/openai": "^1.2.0"},
+  "optionalDependencies": {"crewai": "^0.8.0"},
+  "peerDependencies": {"autogen": "^0.4.0"},
+  "scripts": {"mcp:serve": "node ./scripts/mcp.js", "lint": "eslint ."},
+  "workspaces": {"packages": ["apps/*", "packages/*"]},
+  "packageManager": "pnpm@10.0.0",
+  "exports": {".": "./dist/index.js", "./server": "./dist/server.js"},
+  "bin": {"wrkr-helper": "./bin/helper.js"},
+  "customField": {"kept": true}
+}`)
+
+	manifest, parseErr := parsePackageJSONManifest(root, "package.json")
+	if parseErr != nil {
+		t.Fatalf("expected tolerant parse, got %#v", parseErr)
+	}
+	if !reflect.DeepEqual(manifest.DependencyNames(), []string{"@langchain/openai", "autogen", "crewai", "langchain"}) {
+		t.Fatalf("unexpected dependency names: %+v", manifest.DependencyNames())
+	}
+	if !reflect.DeepEqual(manifest.WorkspacePackages, []string{"apps/*", "packages/*"}) {
+		t.Fatalf("unexpected workspaces: %+v", manifest.WorkspacePackages)
+	}
+	if manifest.PackageManager != "pnpm@10.0.0" {
+		t.Fatalf("unexpected package manager: %q", manifest.PackageManager)
+	}
+	if !reflect.DeepEqual(manifest.ExportKeys, []string{".", "./server"}) {
+		t.Fatalf("unexpected export keys: %+v", manifest.ExportKeys)
+	}
+	if !reflect.DeepEqual(manifest.BinNames, []string{"wrkr-helper"}) {
+		t.Fatalf("unexpected bin names: %+v", manifest.BinNames)
+	}
+	if manifest.Scripts["mcp:serve"] == "" {
+		t.Fatalf("expected scripts to remain available, got %+v", manifest.Scripts)
+	}
+}
+
+func TestDetectPackageJSONReadsMonorepoDependencySectionsWithoutParseNoise(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "package.json", `{
+  "name": "workspace-root",
+  "workspaces": ["apps/*", "packages/*"],
+  "dependencies": {"langchain": "^1.0.0"},
+  "custom": {"metadata": true}
+}`)
+	writeFile(t, root, "apps/web/package.json", `{
+  "name": "web",
+  "devDependencies": {"@langchain/core": "^1.0.0"},
+  "peerDependencies": {"autogen": "^0.4.0"},
+  "bin": "./bin/web.js"
+}`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{
+		Org:  "acme",
+		Repo: "repo",
+		Root: root,
+	}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect returned error: %v", err)
+	}
+	if len(findings) < 3 {
+		t.Fatalf("expected dependency findings from multiple sections, got %+v", findings)
+	}
+	for _, finding := range findings {
+		if finding.FindingType == "parse_error" {
+			t.Fatalf("did not expect parse noise for additive package metadata, got %+v", findings)
+		}
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
@@ -21,6 +22,7 @@ import (
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
+	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -219,6 +221,90 @@ func TestRenderMarkdownIncludesTriggerPostureOnTopPaths(t *testing.T) {
 	markdown := RenderMarkdown(summary)
 	if !strings.Contains(markdown, "trigger=scheduled") {
 		t.Fatalf("expected markdown to surface trigger posture, got %q", markdown)
+	}
+}
+
+func TestBuildSummaryCarriesScanQualityIntoReportAndBOM(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			ScanQuality: &scanquality.Report{
+				ScanQualityVersion: scanquality.ReportVersion,
+				Mode:               "governance",
+				Detectors: []scanquality.DetectorHealth{
+					{Detector: "mcp", Status: "complete", CoverageReasons: []string{"no_candidate_inputs"}},
+					{Detector: "webmcp", Status: "reduced", AttemptedFiles: 1, ParseFailures: 1, CoverageReasons: []string{"parse_failures"}},
+				},
+			},
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:            "apc-123456",
+					Org:               "acme",
+					Repo:              "acme/release",
+					ToolType:          "compiled_action",
+					Location:          ".github/workflows/release.yml",
+					WriteCapable:      true,
+					CredentialAccess:  true,
+					ApprovalGap:       true,
+					RecommendedAction: "proof",
+				}},
+			},
+		},
+		GeneratedAt: time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.ScanQuality == nil || len(summary.ScanQuality.Detectors) != 2 {
+		t.Fatalf("expected summary scan quality, got %+v", summary.ScanQuality)
+	}
+	if summary.AgentActionBOM == nil || summary.AgentActionBOM.ScanQuality == nil {
+		t.Fatalf("expected BOM scan quality, got %+v", summary.AgentActionBOM)
+	}
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, "webmcp status=reduced") {
+		t.Fatalf("expected markdown to surface reduced detector coverage, got %q", markdown)
+	}
+}
+
+func TestBuildSummaryKeepsDiagnosticsOutOfSecuritySurfaces(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			Findings: []source.Finding{
+				{
+					FindingType: "parse_error",
+					Severity:    model.SeverityMedium,
+					ToolType:    "webmcp",
+					Location:    "ui/register.mjs",
+					Repo:        "repo",
+					Org:         "acme",
+					ParseError:  &model.ParseError{Kind: "parse_error", Path: "ui/register.mjs", Detector: "webmcp", Message: "unsupported syntax"},
+				},
+			},
+			ScanQuality: &scanquality.Report{
+				ScanQualityVersion: scanquality.ReportVersion,
+				Mode:               "governance",
+				Detectors:          []scanquality.DetectorHealth{{Detector: "webmcp", Status: "reduced", ParseFailures: 1}},
+			},
+		},
+		GeneratedAt: time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if len(summary.TopRisks) != 0 {
+		t.Fatalf("expected parse diagnostics to stay out of top risks, got %+v", summary.TopRisks)
+	}
+	if len(summary.ActionPaths) != 0 {
+		t.Fatalf("expected parse diagnostics to stay out of action paths, got %+v", summary.ActionPaths)
+	}
+	if summary.AgentActionBOM != nil {
+		t.Fatalf("expected parse diagnostics to stay out of BOM items, got %+v", summary.AgentActionBOM)
 	}
 }
 

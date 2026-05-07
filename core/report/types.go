@@ -6,6 +6,7 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
@@ -82,6 +83,7 @@ type Summary struct {
 	AttackPaths              AttackPathSummary                      `json:"attack_paths"`
 	ComplianceSummary        compliance.RollupSummary               `json:"compliance_summary"`
 	ControlBacklog           *controlbacklog.Backlog                `json:"control_backlog,omitempty"`
+	ScanQuality              *scanquality.Report                    `json:"scan_quality,omitempty"`
 	RuntimeEvidence          *ingest.Summary                        `json:"runtime_evidence,omitempty"`
 	AgentActionBOM           *AgentActionBOM                        `json:"agent_action_bom,omitempty"`
 	Proof                    ProofReference                         `json:"proof"`
