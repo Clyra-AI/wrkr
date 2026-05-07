@@ -223,6 +223,9 @@ func buildMCPCandidates(snapshot state.Snapshot, repoFilter string) []MCPCandida
 
 func buildMCPMissDiagnostics(snapshot state.Snapshot, repoFilter string, rows []MCPListRow, candidates []MCPCandidate, expectedServers []string) []MCPMissDiagnostic {
 	index := buildMCPDiagnosticIndex(snapshot, repoFilter)
+	if repoFilter != "" {
+		ensureDiagnosticDetail(index, inferDiagnosticOrg(snapshot, repoFilter), repoFilter)
+	}
 	rowNamesByRepo := map[string]map[string]struct{}{}
 	for _, row := range rows {
 		key := diagnosticRepoKey(row.Org, row.Repo)
@@ -230,7 +233,10 @@ func buildMCPMissDiagnostics(snapshot state.Snapshot, repoFilter string, rows []
 			rowNamesByRepo[key] = map[string]struct{}{}
 		}
 		rowNamesByRepo[key][strings.ToLower(strings.TrimSpace(row.ServerName))] = struct{}{}
-		index[key].parsedConfigs = append(index[key].parsedConfigs, strings.TrimSpace(row.Location))
+		ensureDiagnosticDetail(index, row.Org, row.Repo).parsedConfigs = append(
+			ensureDiagnosticDetail(index, row.Org, row.Repo).parsedConfigs,
+			strings.TrimSpace(row.Location),
+		)
 	}
 	candidateNamesByRepo := map[string]map[string]struct{}{}
 	for _, candidate := range candidates {
@@ -239,10 +245,11 @@ func buildMCPMissDiagnostics(snapshot state.Snapshot, repoFilter string, rows []
 			candidateNamesByRepo[key] = map[string]struct{}{}
 		}
 		candidateNamesByRepo[key][strings.ToLower(strings.TrimSpace(candidate.CandidateName))] = struct{}{}
-		index[key].candidatesFound = append(index[key].candidatesFound, strings.TrimSpace(candidate.CandidateName))
-		index[key].candidateFilesScanned = append(index[key].candidateFilesScanned, strings.TrimSpace(candidate.Location))
+		detail := ensureDiagnosticDetail(index, candidate.Org, candidate.Repo)
+		detail.candidatesFound = append(detail.candidatesFound, strings.TrimSpace(candidate.CandidateName))
+		detail.candidateFilesScanned = append(detail.candidateFilesScanned, strings.TrimSpace(candidate.Location))
 		if strings.TrimSpace(candidate.UnsupportedReason) != "" {
-			index[key].unsupportedDeclarations = append(index[key].unsupportedDeclarations, strings.TrimSpace(candidate.UnsupportedReason))
+			detail.unsupportedDeclarations = append(detail.unsupportedDeclarations, strings.TrimSpace(candidate.UnsupportedReason))
 		}
 	}
 
@@ -311,15 +318,16 @@ type mcpDiagnosticDetail struct {
 	unsupportedDeclarations []string
 }
 
+func ensureDiagnosticDetail(index map[string]*mcpDiagnosticDetail, org, repo string) *mcpDiagnosticDetail {
+	key := diagnosticRepoKey(org, repo)
+	if index[key] == nil {
+		index[key] = &mcpDiagnosticDetail{}
+	}
+	return index[key]
+}
+
 func buildMCPDiagnosticIndex(snapshot state.Snapshot, repoFilter string) map[string]*mcpDiagnosticDetail {
 	out := map[string]*mcpDiagnosticDetail{}
-	ensure := func(org, repo string) *mcpDiagnosticDetail {
-		key := diagnosticRepoKey(org, repo)
-		if out[key] == nil {
-			out[key] = &mcpDiagnosticDetail{}
-		}
-		return out[key]
-	}
 
 	for _, finding := range snapshot.Findings {
 		if repoFilter != "" && strings.TrimSpace(finding.Repo) != repoFilter {
@@ -327,16 +335,16 @@ func buildMCPDiagnosticIndex(snapshot state.Snapshot, repoFilter string) map[str
 		}
 		switch strings.TrimSpace(finding.FindingType) {
 		case "mcp_server", "mcp_server_candidate", "webmcp_declaration":
-			ensure(fallbackString(strings.TrimSpace(finding.Org), "local"), strings.TrimSpace(finding.Repo)).candidateFilesScanned = append(
-				ensure(fallbackString(strings.TrimSpace(finding.Org), "local"), strings.TrimSpace(finding.Repo)).candidateFilesScanned,
+			ensureDiagnosticDetail(out, finding.Org, finding.Repo).candidateFilesScanned = append(
+				ensureDiagnosticDetail(out, finding.Org, finding.Repo).candidateFilesScanned,
 				strings.TrimSpace(finding.Location),
 			)
 		case "parse_error":
-			if !isKnownMCPDeclarationPath(finding.Location) && !strings.EqualFold(strings.TrimSpace(finding.Detector), "mcp") && !strings.EqualFold(strings.TrimSpace(finding.Detector), "webmcp") && !strings.EqualFold(strings.TrimSpace(finding.Detector), "dependency") {
+			if !isMCPCoverageParseError(finding) {
 				continue
 			}
-			ensure(fallbackString(strings.TrimSpace(finding.Org), "local"), strings.TrimSpace(finding.Repo)).parseFailures = append(
-				ensure(fallbackString(strings.TrimSpace(finding.Org), "local"), strings.TrimSpace(finding.Repo)).parseFailures,
+			ensureDiagnosticDetail(out, finding.Org, finding.Repo).parseFailures = append(
+				ensureDiagnosticDetail(out, finding.Org, finding.Repo).parseFailures,
 				strings.TrimSpace(finding.Location),
 			)
 		}
@@ -347,13 +355,63 @@ func buildMCPDiagnosticIndex(snapshot state.Snapshot, repoFilter string) map[str
 			if repoFilter != "" && strings.TrimSpace(item.Repo) != repoFilter {
 				continue
 			}
-			detail := ensure(fallbackString(strings.TrimSpace(item.Org), "local"), strings.TrimSpace(item.Repo))
+			detail := ensureDiagnosticDetail(out, item.Org, item.Repo)
 			if strings.Contains(strings.ToLower(strings.TrimSpace(item.Path)), "mcp") || strings.Contains(strings.ToLower(strings.TrimSpace(item.Path)), "webmcp") {
 				detail.generatedSuppressions = append(detail.generatedSuppressions, strings.TrimSpace(item.Path))
 			}
 		}
 	}
 	return out
+}
+
+func inferDiagnosticOrg(snapshot state.Snapshot, repo string) string {
+	repo = strings.TrimSpace(repo)
+	if repo == "" {
+		return "local"
+	}
+	for _, finding := range snapshot.Findings {
+		if strings.TrimSpace(finding.Repo) != repo {
+			continue
+		}
+		if org := strings.TrimSpace(finding.Org); org != "" {
+			return org
+		}
+	}
+	if snapshot.Inventory != nil {
+		for _, tool := range snapshot.Inventory.Tools {
+			for _, location := range tool.Locations {
+				if strings.TrimSpace(location.Repo) != repo {
+					continue
+				}
+				if org := strings.TrimSpace(tool.Org); org != "" {
+					return org
+				}
+			}
+		}
+	}
+	if snapshot.ScanQuality != nil {
+		for _, item := range snapshot.ScanQuality.SuppressedPaths {
+			if strings.TrimSpace(item.Repo) != repo {
+				continue
+			}
+			if org := strings.TrimSpace(item.Org); org != "" {
+				return org
+			}
+		}
+	}
+	if cut := strings.Index(repo, "/"); cut > 0 {
+		return strings.TrimSpace(repo[:cut])
+	}
+	return "local"
+}
+
+func isMCPCoverageParseError(finding source.Finding) bool {
+	location := strings.TrimSpace(finding.Location)
+	detector := strings.TrimSpace(finding.Detector)
+	if isKnownMCPDeclarationPath(location) {
+		return true
+	}
+	return strings.EqualFold(detector, "mcp") || strings.EqualFold(detector, "webmcp")
 }
 
 func inferredExpectedServers(candidates []MCPCandidate) []string {

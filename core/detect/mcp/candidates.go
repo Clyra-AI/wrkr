@@ -13,8 +13,8 @@ import (
 
 var (
 	scriptCredentialRefPattern = regexp.MustCompile(`(?:\$\{?([A-Z][A-Z0-9_]+)\}?|process\.env\.([A-Z][A-Z0-9_]+)|os\.environ\[\s*["']([A-Z][A-Z0-9_]+)["']\s*\])`)
-	fastMCPNamePattern        = regexp.MustCompile(`(?i)\bFastMCP\s*\(\s*["']([^"']+)["']`)
-	mcpSDKImportPattern       = regexp.MustCompile(`(?i)(@modelcontextprotocol/sdk|modelcontextprotocol|fastmcp)`)
+	fastMCPNamePattern         = regexp.MustCompile(`(?i)\bFastMCP\s*\(\s*["']([^"']+)["']`)
+	mcpSDKImportPattern        = regexp.MustCompile(`(?i)(@modelcontextprotocol/sdk|modelcontextprotocol|fastmcp)`)
 )
 
 var knownMCPPackageNames = []string{
