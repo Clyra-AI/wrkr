@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/source"
@@ -18,6 +19,7 @@ import (
 )
 
 type scanStatusTracker struct {
+	mu           sync.Mutex
 	statePath    string
 	status       state.ScanStatus
 	phaseStarted map[string]time.Time
@@ -113,6 +115,8 @@ func (t *scanStatusTracker) Start() error {
 	if t == nil {
 		return nil
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	return state.SaveScanStatus(t.statePath, t.status)
 }
 
@@ -120,6 +124,8 @@ func (t *scanStatusTracker) Phase(rawPhase string) error {
 	if t == nil {
 		return nil
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	now := time.Now().UTC().Truncate(time.Second)
 	phase := normalizeScanStatusPhase(rawPhase)
 	if phase == "" {
@@ -146,6 +152,8 @@ func (t *scanStatusTracker) Repos(total, completed, failed int) error {
 	if t == nil {
 		return nil
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.status.RepoTotal = total
 	t.status.ReposCompleted = completed
 	t.status.ReposFailed = failed
@@ -163,6 +171,8 @@ func (t *scanStatusTracker) SetSourcePrivacy(sourcePrivacy sourceprivacy.Contrac
 	if t == nil {
 		return
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	normalized := sourceprivacy.Normalize(sourcePrivacy)
 	t.status.SourcePrivacy = &normalized
 }
@@ -171,6 +181,8 @@ func (t *scanStatusTracker) Complete(artifactPaths map[string]string) error {
 	if t == nil {
 		return nil
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	now := time.Now().UTC().Truncate(time.Second)
 	t.status.Status = state.ScanStatusCompleted
 	t.status.CurrentPhase = "artifact_commit"
@@ -181,7 +193,7 @@ func (t *scanStatusTracker) Complete(artifactPaths map[string]string) error {
 	t.status.UpdatedAt = t.status.CompletedAt
 	t.status.ArtifactPaths = cleanArtifactPaths(artifactPaths)
 	if t.lastProgress.ProgressPercent < 100 {
-		t.applyProgress(scanProgressSnapshot{
+		t.applyProgressLocked(scanProgressSnapshot{
 			ProgressPercent: 100,
 			LastProgressAt:  now,
 			ElapsedSeconds:  elapsedSecondsFromStartedAt(t.status.StartedAt, now),
@@ -200,6 +212,8 @@ func (t *scanStatusTracker) Fail(err error, artifactPaths map[string]string) {
 	if t == nil {
 		return
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	now := time.Now().UTC().Truncate(time.Second)
 	status := state.ScanStatusFailed
 	if err != nil && (contextErr(err) || strings.Contains(strings.ToLower(err.Error()), "interrupted")) {
@@ -224,7 +238,9 @@ func (t *scanStatusTracker) Progress(snapshot scanProgressSnapshot) {
 	if t == nil {
 		return
 	}
-	t.applyProgress(snapshot)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.applyProgressLocked(snapshot)
 	_ = state.SaveScanStatus(t.statePath, t.status)
 }
 
@@ -232,6 +248,8 @@ func (t *scanStatusTracker) FooterData() scanProgressFooter {
 	if t == nil {
 		return scanProgressFooter{}
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	paths := make([]string, 0, len(t.status.ArtifactPaths))
 	for key, value := range t.status.ArtifactPaths {
 		if strings.TrimSpace(value) != "" {
@@ -252,11 +270,11 @@ func (t *scanStatusTracker) FooterData() scanProgressFooter {
 		ReposFailed:         t.status.ReposFailed,
 		DetectorProgress:    t.status.DetectorProgress,
 		ArtifactPaths:       append([]string(nil), paths...),
-		ResumeHint:          t.resumeHint(),
+		ResumeHint:          t.resumeHintLocked(),
 	}
 }
 
-func (t *scanStatusTracker) applyProgress(snapshot scanProgressSnapshot) {
+func (t *scanStatusTracker) applyProgressLocked(snapshot scanProgressSnapshot) {
 	if t == nil {
 		return
 	}
@@ -291,7 +309,7 @@ func (t *scanStatusTracker) applyProgress(snapshot scanProgressSnapshot) {
 	}
 }
 
-func (t *scanStatusTracker) resumeHint() string {
+func (t *scanStatusTracker) resumeHintLocked() string {
 	if t == nil || t.status.Status != state.ScanStatusInterrupted {
 		return ""
 	}

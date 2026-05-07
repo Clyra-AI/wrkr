@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 func TestScanProgressPercentMonotonicSuccessfulRun(t *testing.T) {
@@ -42,5 +43,27 @@ func TestScanProgressPercentMonotonicSuccessfulRun(t *testing.T) {
 		if percents[i] < percents[i-1] {
 			t.Fatalf("expected monotonic progress percent, got %v", percents)
 		}
+	}
+}
+
+func TestScanProgressPercentDoesNotExceedHundredWhenFailuresAccumulate(t *testing.T) {
+	t.Parallel()
+
+	overall, phase := computeScanProgressPercent("source_acquire", state.ScanRepoProgress{
+		Total:     4,
+		Completed: 4,
+		Failed:    2,
+	}, state.ScanDetectorProgress{})
+	if overall > 100 || phase > 100 {
+		t.Fatalf("expected source progress to stay bounded, got overall=%d phase=%d", overall, phase)
+	}
+
+	overall, phase = computeScanProgressPercent("detectors", state.ScanRepoProgress{}, state.ScanDetectorProgress{
+		Total:     4,
+		Completed: 4,
+		Failed:    2,
+	})
+	if overall > 100 || phase > 100 {
+		t.Fatalf("expected detector progress to stay bounded, got overall=%d phase=%d", overall, phase)
 	}
 }

@@ -616,13 +616,13 @@ func computeScanProgressPercent(phase string, repoProgress state.ScanRepoProgres
 		if repoProgress.Total <= 0 {
 			return 5, 5
 		}
-		phasePercent := int(float64(repoProgress.Completed+repoProgress.Failed) / float64(repoProgress.Total) * 100)
+		phasePercent := int(float64(repoProgress.Completed) / float64(repoProgress.Total) * 100)
 		return 5 + (phasePercent * 50 / 100), phasePercent
 	case "detectors":
 		if detectorProgress.Total <= 0 {
 			return 55, 5
 		}
-		phasePercent := int(float64(detectorProgress.Completed+detectorProgress.Failed) / float64(detectorProgress.Total) * 100)
+		phasePercent := int(float64(detectorProgress.Completed) / float64(detectorProgress.Total) * 100)
 		return 55 + (phasePercent * 25 / 100), phasePercent
 	case "analysis":
 		return 80, 10
