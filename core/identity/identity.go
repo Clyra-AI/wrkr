@@ -41,6 +41,7 @@ func ToolFamilyID(toolType, org string) string {
 // ToolInstanceID deterministically derives a repo/location scoped tool
 // instance identifier for governance, ownership, and proof joins.
 func ToolInstanceID(toolType, repo, location, symbol string, startLine, endLine int) string {
+	startLine, endLine = normalizeRange(startLine, endLine)
 	normalized := []string{
 		strings.ToLower(strings.TrimSpace(toolType)),
 		strings.ToLower(strings.TrimSpace(repo)),
@@ -59,18 +60,7 @@ func AgentInstanceID(toolType, location, symbol string, startLine, endLine int) 
 	legacy := ToolID(toolType, location)
 
 	normalizedSymbol := strings.ToLower(strings.TrimSpace(symbol))
-	if startLine < 0 {
-		startLine = 0
-	}
-	if endLine < 0 {
-		endLine = 0
-	}
-	if startLine == 0 && endLine > 0 {
-		startLine = endLine
-	}
-	if endLine == 0 && startLine > 0 {
-		endLine = startLine
-	}
+	startLine, endLine = normalizeRange(startLine, endLine)
 	if normalizedSymbol == "" && startLine == 0 && endLine == 0 {
 		return legacy
 	}
@@ -91,6 +81,18 @@ func maxZero(value int) int {
 		return 0
 	}
 	return value
+}
+
+func normalizeRange(startLine, endLine int) (int, int) {
+	startLine = maxZero(startLine)
+	endLine = maxZero(endLine)
+	if startLine == 0 && endLine > 0 {
+		startLine = endLine
+	}
+	if endLine == 0 && startLine > 0 {
+		endLine = startLine
+	}
+	return startLine, endLine
 }
 
 // AgentID deterministically derives the canonical agent identifier.
