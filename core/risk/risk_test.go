@@ -92,6 +92,37 @@ func TestGatewayCoverageAmplifiesRiskForUnprotectedDeclarations(t *testing.T) {
 	}
 }
 
+func TestScoreSkipsParseDiagnosticsFromRankedRisk(t *testing.T) {
+	t.Parallel()
+
+	report := Score([]model.Finding{
+		{
+			FindingType: "parse_error",
+			Severity:    model.SeverityMedium,
+			ToolType:    "webmcp",
+			Location:    "ui/register.mjs",
+			Repo:        "repo",
+			Org:         "acme",
+			ParseError:  &model.ParseError{Kind: "parse_error", Path: "ui/register.mjs", Detector: "webmcp", Message: "unsupported syntax"},
+		},
+		{
+			FindingType: "mcp_server",
+			Severity:    model.SeverityMedium,
+			ToolType:    "mcp",
+			Location:    ".mcp.json",
+			Repo:        "repo",
+			Org:         "acme",
+		},
+	}, 5, time.Time{})
+
+	if len(report.Ranked) != 1 {
+		t.Fatalf("expected parse diagnostics to stay out of ranked risk, got %+v", report.Ranked)
+	}
+	if report.Ranked[0].Finding.FindingType != "mcp_server" {
+		t.Fatalf("expected only non-diagnostic finding to rank, got %+v", report.Ranked)
+	}
+}
+
 func TestPromptChannelCooccurrenceAmplifiesRisk(t *testing.T) {
 	t.Parallel()
 

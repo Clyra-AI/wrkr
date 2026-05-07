@@ -67,6 +67,9 @@ func TestDetectWebMCPParseErrorForInvalidJavaScript(t *testing.T) {
 	if count := countFindingType(findings, "parse_error"); count == 0 {
 		t.Fatalf("expected parse_error finding for invalid JavaScript, got %#v", findings)
 	}
+	if count := countFindingType(findings, "webmcp_declaration"); count != 0 {
+		t.Fatalf("expected invalid JavaScript without positive signal to stay out of declarations, got %#v", findings)
+	}
 }
 
 func TestDetectRejectsExternalSymlinkedWebMCPDeclaration(t *testing.T) {
@@ -105,6 +108,42 @@ func TestWebMCPParserRejectsRuntimeEvalPath(t *testing.T) {
 	}
 	if !strings.Contains(source, "goja/parser") || !strings.Contains(source, "goja/ast") {
 		t.Fatal("expected parser-only goja imports for AST analysis")
+	}
+}
+
+func TestWebMCPFallbackExtractsSignalsFromModernESM(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "ui/register.mjs", `const registration = await navigator.modelContext.registerTool("classify", { description: "classifier" })`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "web", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect webmcp: %v", err)
+	}
+	if count := countFindingType(findings, "webmcp_declaration"); count != 1 {
+		t.Fatalf("expected fallback declaration finding, got %#v", findings)
+	}
+	if count := countFindingType(findings, "parse_error"); count != 1 {
+		t.Fatalf("expected reduced-coverage parse diagnostic alongside fallback finding, got %#v", findings)
+	}
+	if !hasEvidencePair(findings, "declaration_method", "fallback_js") {
+		t.Fatalf("expected fallback_js evidence in webmcp findings, got %#v", findings)
+	}
+}
+
+func TestGeneratedWebMCPBundlesStayOutOfFindings(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "docs/.vitepress/cache/deps/register.mjs", `const registration = await navigator.modelContext.registerTool("classify", { description: "classifier" })`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "web", Root: root}, detect.Options{ScanMode: "deep"})
+	if err != nil {
+		t.Fatalf("detect webmcp: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected generated WebMCP bundle to stay out of findings, got %#v", findings)
 	}
 }
 

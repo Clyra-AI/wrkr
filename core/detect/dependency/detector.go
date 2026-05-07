@@ -3,6 +3,7 @@ package dependency
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"io/fs"
 	"path/filepath"
 	"sort"
@@ -174,22 +175,11 @@ func parseGoMod(root, rel string) ([]string, *model.ParseError) {
 }
 
 func parsePackageJSON(root, rel string) ([]string, *model.ParseError) {
-	type packageJSON struct {
-		Dependencies    map[string]string `json:"dependencies"`
-		DevDependencies map[string]string `json:"devDependencies"`
-	}
-	var parsed packageJSON
-	if parseErr := detect.ParseJSONFile(detectorID, root, rel, &parsed); parseErr != nil {
+	manifest, parseErr := parsePackageJSONManifest(root, rel)
+	if parseErr != nil {
 		return nil, parseErr
 	}
-	deps := make([]string, 0, len(parsed.Dependencies)+len(parsed.DevDependencies))
-	for dep := range parsed.Dependencies {
-		deps = append(deps, dep)
-	}
-	for dep := range parsed.DevDependencies {
-		deps = append(deps, dep)
-	}
-	return deps, nil
+	return manifest.DependencyNames(), nil
 }
 
 func parseRequirements(root, rel string) ([]string, *model.ParseError) {
@@ -342,6 +332,201 @@ func normalizeDependencyToken(value string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	normalized = strings.ReplaceAll(normalized, "_", "-")
 	return normalized
+}
+
+type packageJSONManifest struct {
+	Dependencies         map[string]string
+	DevDependencies      map[string]string
+	OptionalDependencies map[string]string
+	PeerDependencies     map[string]string
+	Scripts              map[string]string
+	WorkspacePackages    []string
+	PackageManager       string
+	ExportKeys           []string
+	BinNames             []string
+}
+
+func (manifest packageJSONManifest) DependencyNames() []string {
+	set := map[string]struct{}{}
+	for _, source := range []map[string]string{
+		manifest.Dependencies,
+		manifest.DevDependencies,
+		manifest.OptionalDependencies,
+		manifest.PeerDependencies,
+	} {
+		for name := range source {
+			trimmed := strings.TrimSpace(name)
+			if trimmed == "" {
+				continue
+			}
+			set[trimmed] = struct{}{}
+		}
+	}
+	return sortedKeys(set)
+}
+
+func parsePackageJSONManifest(root, rel string) (packageJSONManifest, *model.ParseError) {
+	var raw map[string]json.RawMessage
+	if parseErr := detect.ParseJSONFileTolerant(detectorID, root, rel, &raw); parseErr != nil {
+		return packageJSONManifest{}, parseErr
+	}
+
+	manifest := packageJSONManifest{
+		Dependencies:         decodeStringMap(raw["dependencies"]),
+		DevDependencies:      decodeStringMap(raw["devDependencies"]),
+		OptionalDependencies: decodeStringMap(raw["optionalDependencies"]),
+		PeerDependencies:     decodeStringMap(raw["peerDependencies"]),
+		Scripts:              decodeStringMap(raw["scripts"]),
+		WorkspacePackages:    decodeWorkspacePackages(raw["workspaces"]),
+		PackageManager:       decodeJSONString(raw["packageManager"]),
+		ExportKeys:           decodeExportKeys(raw["exports"]),
+		BinNames:             decodeBinNames(raw["bin"]),
+	}
+	return manifest, nil
+}
+
+func decodeStringMap(raw json.RawMessage) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	parsed := map[string]string{}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil
+	}
+	if len(parsed) == 0 {
+		return nil
+	}
+	return parsed
+}
+
+func decodeJSONString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var parsed string
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(parsed)
+}
+
+func decodeWorkspacePackages(raw json.RawMessage) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var list []string
+	if err := json.Unmarshal(raw, &list); err == nil {
+		return normalizeStringList(list)
+	}
+	var object struct {
+		Packages []string `json:"packages"`
+	}
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return nil
+	}
+	return normalizeStringList(object.Packages)
+}
+
+func decodeExportKeys(raw json.RawMessage) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var single string
+	if err := json.Unmarshal(raw, &single); err == nil {
+		if strings.TrimSpace(single) == "" {
+			return nil
+		}
+		return []string{"."}
+	}
+	var list []string
+	if err := json.Unmarshal(raw, &list); err == nil {
+		if len(list) == 0 {
+			return nil
+		}
+		return []string{"."}
+	}
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return nil
+	}
+	return sortedKeysMap(object)
+}
+
+func decodeBinNames(raw json.RawMessage) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var single string
+	if err := json.Unmarshal(raw, &single); err == nil {
+		if strings.TrimSpace(single) == "" {
+			return nil
+		}
+		return []string{"default"}
+	}
+	var object map[string]string
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return nil
+	}
+	return sortedKeysStringMap(object)
+}
+
+func normalizeStringList(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	set := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		set[trimmed] = struct{}{}
+	}
+	return sortedKeys(set)
+}
+
+func sortedKeysStringMap(values map[string]string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		trimmed := strings.TrimSpace(key)
+		if trimmed == "" {
+			continue
+		}
+		keys = append(keys, trimmed)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func sortedKeysMap(values map[string]json.RawMessage) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		trimmed := strings.TrimSpace(key)
+		if trimmed == "" {
+			continue
+		}
+		keys = append(keys, trimmed)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func sortedKeys(values map[string]struct{}) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func collectDependencyManifests(root string, options detect.Options) ([]string, error) {

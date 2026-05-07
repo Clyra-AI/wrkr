@@ -40,6 +40,8 @@ var (
 	pythonFromImportPattern = regexp.MustCompile(`^\s*from\s+([A-Za-z0-9_\.]+)\s+import\s+(.+)$`)
 	jsFromImportPattern     = regexp.MustCompile(`^\s*import\s+(.+?)\s+from\s+['"]([^'"]+)['"]`)
 	jsBareImportPattern     = regexp.MustCompile(`^\s*import\s+['"]([^'"]+)['"]`)
+	jsExportFromPattern     = regexp.MustCompile(`^\s*export\s+.+?\s+from\s+['"]([^'"]+)['"]`)
+	jsDynamicImportPattern  = regexp.MustCompile(`import\(\s*['"]([^'"]+)['"]\s*\)`)
 	jsRequirePattern        = regexp.MustCompile(`require\(\s*['"]([^'"]+)['"]\s*\)`)
 	processEnvPattern       = regexp.MustCompile(`process\.env\.([A-Z][A-Z0-9_]+)`)
 	osGetEnvPattern         = regexp.MustCompile(`(?:os\.getenv|env\.get)\(\s*["']([A-Z][A-Z0-9_]+)["']\s*\)`)
@@ -234,6 +236,9 @@ func shouldSkipSourceFile(rel string) bool {
 	if lower == "" {
 		return true
 	}
+	if detect.IsGeneratedPath(lower) {
+		return true
+	}
 	for _, prefix := range []string{
 		".git/",
 		".wrkr/",
@@ -297,6 +302,14 @@ func parseImportSummary(language, content string) importSummary {
 			}
 			if match := jsBareImportPattern.FindStringSubmatch(trimmed); len(match) == 2 {
 				moduleSet[strings.ToLower(strings.TrimSpace(match[1]))] = struct{}{}
+			}
+			if match := jsExportFromPattern.FindStringSubmatch(trimmed); len(match) == 2 {
+				moduleSet[strings.ToLower(strings.TrimSpace(match[1]))] = struct{}{}
+			}
+			for _, match := range jsDynamicImportPattern.FindAllStringSubmatch(trimmed, -1) {
+				if len(match) == 2 {
+					moduleSet[strings.ToLower(strings.TrimSpace(match[1]))] = struct{}{}
+				}
 			}
 			for _, match := range jsRequirePattern.FindAllStringSubmatch(trimmed, -1) {
 				if len(match) == 2 {

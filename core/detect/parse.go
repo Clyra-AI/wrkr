@@ -21,12 +21,20 @@ import (
 var errUnsafePath = errors.New("unsafe_path")
 var canonicalRootCache sync.Map
 
-func ParseJSONFile(detectorID, root, rel string, dst any) *model.ParseError {
+func ParseJSONFileStrict(detectorID, root, rel string, dst any) *model.ParseError {
 	return parseJSONFile(detectorID, root, rel, dst, false)
 }
 
-func ParseJSONFileAllowUnknownFields(detectorID, root, rel string, dst any) *model.ParseError {
+func ParseJSONFileTolerant(detectorID, root, rel string, dst any) *model.ParseError {
 	return parseJSONFile(detectorID, root, rel, dst, true)
+}
+
+func ParseJSONFile(detectorID, root, rel string, dst any) *model.ParseError {
+	return ParseJSONFileStrict(detectorID, root, rel, dst)
+}
+
+func ParseJSONFileAllowUnknownFields(detectorID, root, rel string, dst any) *model.ParseError {
+	return ParseJSONFileTolerant(detectorID, root, rel, dst)
 }
 
 func parseJSONFile(detectorID, root, rel string, dst any, allowUnknownFields bool) *model.ParseError {
@@ -54,10 +62,18 @@ func parseJSONFile(detectorID, root, rel string, dst any, allowUnknownFields boo
 }
 
 func ParseYAMLFile(detectorID, root, rel string, dst any) *model.ParseError {
-	return parseYAMLFile(detectorID, root, rel, dst, false)
+	return ParseYAMLFileStrict(detectorID, root, rel, dst)
 }
 
 func ParseYAMLFileAllowUnknownFields(detectorID, root, rel string, dst any) *model.ParseError {
+	return ParseYAMLFileTolerant(detectorID, root, rel, dst)
+}
+
+func ParseYAMLFileStrict(detectorID, root, rel string, dst any) *model.ParseError {
+	return parseYAMLFile(detectorID, root, rel, dst, false)
+}
+
+func ParseYAMLFileTolerant(detectorID, root, rel string, dst any) *model.ParseError {
 	return parseYAMLFile(detectorID, root, rel, dst, true)
 }
 
@@ -85,10 +101,18 @@ func parseYAMLFile(detectorID, root, rel string, dst any, allowUnknownFields boo
 }
 
 func ParseTOMLFile(detectorID, root, rel string, dst any) *model.ParseError {
-	return parseTOMLFile(detectorID, root, rel, dst, false)
+	return ParseTOMLFileStrict(detectorID, root, rel, dst)
 }
 
 func ParseTOMLFileAllowUnknownFields(detectorID, root, rel string, dst any) *model.ParseError {
+	return ParseTOMLFileTolerant(detectorID, root, rel, dst)
+}
+
+func ParseTOMLFileStrict(detectorID, root, rel string, dst any) *model.ParseError {
+	return parseTOMLFile(detectorID, root, rel, dst, false)
+}
+
+func ParseTOMLFileTolerant(detectorID, root, rel string, dst any) *model.ParseError {
 	return parseTOMLFile(detectorID, root, rel, dst, true)
 }
 

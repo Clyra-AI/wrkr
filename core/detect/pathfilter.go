@@ -16,12 +16,26 @@ func IsGeneratedPath(rel string) bool {
 	parts := strings.Split(normalized, "/")
 	for idx, part := range parts {
 		switch part {
-		case "node_modules", "dist", "build", "vendor", ".venv", "generated", "generated-sdks", "generated-sdk":
+		case "node_modules", "dist", "build", "vendor", ".venv", "generated", "generated-sdks", "generated-sdk", ".pnpm", ".pnpm-store", ".docusaurus", ".next", ".nuxt":
 			return true
 		case "target":
 			return true
 		case ".yarn":
-			if idx+1 < len(parts) && parts[idx+1] == "sdks" {
+			if idx+1 < len(parts) {
+				switch parts[idx+1] {
+				case "sdks", "cache", "__virtual__", "unplugged":
+					return true
+				}
+			}
+		case ".vitepress":
+			if idx+1 < len(parts) {
+				switch parts[idx+1] {
+				case "cache", "dist":
+					return true
+				}
+			}
+		case ".cache":
+			if idx > 0 && (parts[idx-1] == ".vitepress" || parts[idx-1] == "docs" || parts[idx-1] == "docs-site") {
 				return true
 			}
 		}

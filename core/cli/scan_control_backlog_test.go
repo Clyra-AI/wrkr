@@ -149,6 +149,9 @@ func TestScanModeGovernanceSuppressesGeneratedPathNoiseAndDeepKeepsDebugEvidence
 	if !payloadContainsPath(governance["scan_quality"], "node_modules") {
 		t.Fatalf("governance scan_quality should report generated/package suppression: %v", governance["scan_quality"])
 	}
+	if !payloadContainsDetectorStatus(governance["scan_quality"], "mcp", "complete") {
+		t.Fatalf("governance scan_quality should include detector coverage status for clean negative MCP results: %v", governance["scan_quality"])
+	}
 
 	deep := runScanPayloadWithArgs(t, []string{"scan", "--path", repoRoot, "--mode", "deep", "--state", filepath.Join(t.TempDir(), "state-deep.json"), "--json"})
 	if !payloadContainsPath(deep["findings"], "node_modules/pkg/package.json") {
@@ -224,4 +227,9 @@ func payloadContainsPath(value any, path string) bool {
 func payloadContainsAction(value any, action string) bool {
 	encoded, _ := json.Marshal(value)
 	return bytes.Contains(encoded, []byte(`"recommended_action":"`+action+`"`))
+}
+
+func payloadContainsDetectorStatus(value any, detector string, status string) bool {
+	encoded, _ := json.Marshal(value)
+	return bytes.Contains(encoded, []byte(`"detector":"`+detector+`"`)) && bytes.Contains(encoded, []byte(`"status":"`+status+`"`))
 }

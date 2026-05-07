@@ -9,6 +9,7 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -24,6 +25,7 @@ type AgentActionBOM struct {
 	SchemaVersion string                  `json:"schema_version"`
 	GeneratedAt   string                  `json:"generated_at"`
 	Summary       AgentActionBOMSummary   `json:"summary"`
+	ScanQuality   *scanquality.Report     `json:"scan_quality,omitempty"`
 	Items         []AgentActionBOMItem    `json:"items,omitempty"`
 	GraphRefs     AgentActionBOMGraphRefs `json:"graph_refs,omitempty"`
 	EvidenceRefs  []string                `json:"evidence_refs,omitempty"`
@@ -219,6 +221,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		SchemaVersion: AgentActionBOMSchemaVersion,
 		GeneratedAt:   summary.GeneratedAt,
 		Summary:       counts,
+		ScanQuality:   cloneScanQualityReport(summary.ScanQuality),
 		Items:         items,
 		GraphRefs:     graphRefs,
 		EvidenceRefs:  summaryEvidenceRefs(items),

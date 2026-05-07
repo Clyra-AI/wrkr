@@ -58,6 +58,9 @@ func Score(findings []model.Finding, topN int, now time.Time) Report {
 
 	items := make([]ScoredFinding, 0, len(findings))
 	for _, finding := range findings {
+		if finding.ParseError != nil || finding.FindingType == "parse_error" {
+			continue
+		}
 		items = append(items, scoreFinding(finding, cooccurrenceByRepo[repoKey(finding.Org, finding.Repo)]))
 	}
 	items = correlateSkillConflicts(items)
