@@ -45,7 +45,7 @@ func detectScanProgressCapabilities(stderr io.Writer) scanProgressCapabilities {
 			capabilities.SupportsBar = false
 			return capabilities
 		}
-		if runtime.GOOS == "windows" || strings.EqualFold(strings.TrimSpace(os.Getenv("TERM")), "dumb") || strings.TrimSpace(os.Getenv("NO_COLOR")) != "" {
+		if strings.EqualFold(strings.TrimSpace(os.Getenv("TERM")), "dumb") || strings.TrimSpace(os.Getenv("NO_COLOR")) != "" {
 			capabilities.SupportsBar = false
 		}
 		return capabilities
