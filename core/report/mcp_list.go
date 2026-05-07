@@ -23,10 +23,13 @@ const (
 )
 
 type MCPList struct {
-	Status      string       `json:"status"`
-	GeneratedAt string       `json:"generated_at"`
-	Rows        []MCPListRow `json:"rows"`
-	Warnings    []string     `json:"warnings,omitempty"`
+	Status      string              `json:"status"`
+	GeneratedAt string              `json:"generated_at"`
+	RepoFilter  string              `json:"repo_filter,omitempty"`
+	Rows        []MCPListRow        `json:"rows"`
+	Candidates  []MCPCandidate      `json:"candidates,omitempty"`
+	Diagnostics []MCPMissDiagnostic `json:"diagnostics,omitempty"`
+	Warnings    []string            `json:"warnings,omitempty"`
 }
 
 type MCPListRow struct {
@@ -43,6 +46,41 @@ type MCPListRow struct {
 	RiskNote             string                   `json:"risk_note"`
 }
 
+type MCPCandidate struct {
+	CandidateName     string   `json:"candidate_name"`
+	Org               string   `json:"org"`
+	Repo              string   `json:"repo"`
+	Location          string   `json:"location"`
+	EvidenceType      string   `json:"evidence_type"`
+	Confidence        string   `json:"confidence"`
+	DeclarationType   string   `json:"declaration_type"`
+	TransportHint     string   `json:"transport_hint"`
+	CredentialRefs    []string `json:"credential_refs,omitempty"`
+	UnsupportedReason string   `json:"unsupported_reason,omitempty"`
+}
+
+type MCPMissDiagnostic struct {
+	Org                     string   `json:"org"`
+	Repo                    string   `json:"repo"`
+	ExpectedServer          string   `json:"expected_server,omitempty"`
+	Status                  string   `json:"status"`
+	CandidateFilesScanned   []string `json:"candidate_files_scanned,omitempty"`
+	ParsedConfigs           []string `json:"parsed_configs,omitempty"`
+	CandidatesFound         []string `json:"candidates_found,omitempty"`
+	ParseFailures           []string `json:"parse_failures,omitempty"`
+	GeneratedSuppressions   []string `json:"generated_suppressions,omitempty"`
+	UnsupportedDeclarations []string `json:"unsupported_declarations,omitempty"`
+	Explanation             []string `json:"explanation,omitempty"`
+}
+
+type MCPListOptions struct {
+	GeneratedAt         time.Time
+	OverlayPath         string
+	AllowAmbientOverlay bool
+	RepoFilter          string
+	ExpectedServers     []string
+}
+
 type mcpTrustOverlay struct {
 	Servers map[string]mcpTrustEntry `yaml:"servers"`
 }
@@ -52,14 +90,26 @@ type mcpTrustEntry struct {
 }
 
 func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath string, allowAmbientOverlay bool) MCPList {
-	overlay, warnings := loadMCPTrustOverlay(strings.TrimSpace(overlayPath), allowAmbientOverlay)
+	return BuildMCPListWithOptions(snapshot, MCPListOptions{
+		GeneratedAt:         generatedAt,
+		OverlayPath:         overlayPath,
+		AllowAmbientOverlay: allowAmbientOverlay,
+	})
+}
+
+func BuildMCPListWithOptions(snapshot state.Snapshot, opts MCPListOptions) MCPList {
+	overlay, warnings := loadMCPTrustOverlay(strings.TrimSpace(opts.OverlayPath), opts.AllowAmbientOverlay)
 	warnings = append(warnings, MCPVisibilityWarnings(snapshot.Findings)...)
 	toolSurfaces := buildMCPToolSurfaceIndex(snapshot.Inventory)
 	gatewayCoverage := buildMCPGatewayCoverageIndex(snapshot.Findings)
+	repoFilter := strings.TrimSpace(opts.RepoFilter)
 
 	rows := make([]MCPListRow, 0)
 	for _, finding := range snapshot.Findings {
 		if strings.TrimSpace(finding.FindingType) != "mcp_server" {
+			continue
+		}
+		if repoFilter != "" && strings.TrimSpace(finding.Repo) != repoFilter {
 			continue
 		}
 		evidence := evidenceMap(finding.Evidence)
@@ -104,12 +154,302 @@ func BuildMCPList(snapshot state.Snapshot, generatedAt time.Time, overlayPath st
 		return rows[i].Location < rows[j].Location
 	})
 
+	candidates := buildMCPCandidates(snapshot, repoFilter)
+	diagnostics := buildMCPMissDiagnostics(snapshot, repoFilter, rows, candidates, opts.ExpectedServers)
+
 	return MCPList{
 		Status:      "ok",
-		GeneratedAt: ResolveGeneratedAtForCLI(snapshot, generatedAt).Format(time.RFC3339),
+		GeneratedAt: ResolveGeneratedAtForCLI(snapshot, opts.GeneratedAt).Format(time.RFC3339),
+		RepoFilter:  repoFilter,
 		Rows:        rows,
+		Candidates:  candidates,
+		Diagnostics: diagnostics,
 		Warnings:    warnings,
 	}
+}
+
+func buildMCPCandidates(snapshot state.Snapshot, repoFilter string) []MCPCandidate {
+	items := make([]MCPCandidate, 0)
+	for _, finding := range snapshot.Findings {
+		switch strings.TrimSpace(finding.FindingType) {
+		case "mcp_server_candidate":
+			if repoFilter != "" && strings.TrimSpace(finding.Repo) != repoFilter {
+				continue
+			}
+			evidence := evidenceMap(finding.Evidence)
+			items = append(items, MCPCandidate{
+				CandidateName:     fallbackString(evidence["candidate_name"], strings.TrimSpace(finding.Location)),
+				Org:               fallbackString(strings.TrimSpace(finding.Org), "local"),
+				Repo:              strings.TrimSpace(finding.Repo),
+				Location:          strings.TrimSpace(finding.Location),
+				EvidenceType:      fallbackString(evidence["evidence_type"], "unknown"),
+				Confidence:        fallbackString(evidence["confidence"], "low"),
+				DeclarationType:   fallbackString(evidence["declaration_type"], "unknown"),
+				TransportHint:     fallbackString(evidence["transport_hint"], "unknown"),
+				CredentialRefs:    splitMCPListCSV(evidence["credential_refs"]),
+				UnsupportedReason: strings.TrimSpace(evidence["unsupported_declaration_reason"]),
+			})
+		case "webmcp_declaration":
+			if repoFilter != "" && strings.TrimSpace(finding.Repo) != repoFilter {
+				continue
+			}
+			evidence := evidenceMap(finding.Evidence)
+			items = append(items, MCPCandidate{
+				CandidateName:   fallbackString(evidence["declaration_name"], "webmcp"),
+				Org:             fallbackString(strings.TrimSpace(finding.Org), "local"),
+				Repo:            strings.TrimSpace(finding.Repo),
+				Location:        strings.TrimSpace(finding.Location),
+				EvidenceType:    "webmcp_declaration",
+				Confidence:      "medium",
+				DeclarationType: fallbackString(evidence["declaration_method"], "webmcp_declaration"),
+				TransportHint:   "http",
+			})
+		}
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Org != items[j].Org {
+			return items[i].Org < items[j].Org
+		}
+		if items[i].Repo != items[j].Repo {
+			return items[i].Repo < items[j].Repo
+		}
+		if items[i].CandidateName != items[j].CandidateName {
+			return items[i].CandidateName < items[j].CandidateName
+		}
+		return items[i].Location < items[j].Location
+	})
+	return items
+}
+
+func buildMCPMissDiagnostics(snapshot state.Snapshot, repoFilter string, rows []MCPListRow, candidates []MCPCandidate, expectedServers []string) []MCPMissDiagnostic {
+	index := buildMCPDiagnosticIndex(snapshot, repoFilter)
+	rowNamesByRepo := map[string]map[string]struct{}{}
+	for _, row := range rows {
+		key := diagnosticRepoKey(row.Org, row.Repo)
+		if rowNamesByRepo[key] == nil {
+			rowNamesByRepo[key] = map[string]struct{}{}
+		}
+		rowNamesByRepo[key][strings.ToLower(strings.TrimSpace(row.ServerName))] = struct{}{}
+		index[key].parsedConfigs = append(index[key].parsedConfigs, strings.TrimSpace(row.Location))
+	}
+	candidateNamesByRepo := map[string]map[string]struct{}{}
+	for _, candidate := range candidates {
+		key := diagnosticRepoKey(candidate.Org, candidate.Repo)
+		if candidateNamesByRepo[key] == nil {
+			candidateNamesByRepo[key] = map[string]struct{}{}
+		}
+		candidateNamesByRepo[key][strings.ToLower(strings.TrimSpace(candidate.CandidateName))] = struct{}{}
+		index[key].candidatesFound = append(index[key].candidatesFound, strings.TrimSpace(candidate.CandidateName))
+		index[key].candidateFilesScanned = append(index[key].candidateFilesScanned, strings.TrimSpace(candidate.Location))
+		if strings.TrimSpace(candidate.UnsupportedReason) != "" {
+			index[key].unsupportedDeclarations = append(index[key].unsupportedDeclarations, strings.TrimSpace(candidate.UnsupportedReason))
+		}
+	}
+
+	diagnostics := make([]MCPMissDiagnostic, 0)
+	if len(expectedServers) == 0 {
+		expectedServers = inferredExpectedServers(candidates)
+	}
+	if len(expectedServers) == 0 {
+		for key, detail := range index {
+			if len(detail.candidatesFound) == 0 && len(detail.parseFailures) == 0 && len(detail.generatedSuppressions) == 0 {
+				continue
+			}
+			org, repo := splitDiagnosticRepoKey(key)
+			diagnostics = append(diagnostics, MCPMissDiagnostic{
+				Org:                     org,
+				Repo:                    repo,
+				Status:                  deriveDiagnosticStatus(detail, false, false),
+				CandidateFilesScanned:   uniqueMCPListStrings(detail.candidateFilesScanned),
+				ParsedConfigs:           uniqueMCPListStrings(detail.parsedConfigs),
+				CandidatesFound:         uniqueMCPListStrings(detail.candidatesFound),
+				ParseFailures:           uniqueMCPListStrings(detail.parseFailures),
+				GeneratedSuppressions:   uniqueMCPListStrings(detail.generatedSuppressions),
+				UnsupportedDeclarations: uniqueMCPListStrings(detail.unsupportedDeclarations),
+				Explanation:             diagnosticExplanation(deriveDiagnosticStatus(detail, false, false)),
+			})
+		}
+		sortMCPDiagnostics(diagnostics)
+		return diagnostics
+	}
+
+	for key, detail := range index {
+		org, repo := splitDiagnosticRepoKey(key)
+		for _, expected := range expectedServers {
+			normalizedExpected := strings.ToLower(strings.TrimSpace(expected))
+			if normalizedExpected == "" {
+				continue
+			}
+			_, found := rowNamesByRepo[key][normalizedExpected]
+			_, candidateOnly := candidateNamesByRepo[key][normalizedExpected]
+			status := deriveDiagnosticStatus(detail, found, candidateOnly)
+			diagnostics = append(diagnostics, MCPMissDiagnostic{
+				Org:                     org,
+				Repo:                    repo,
+				ExpectedServer:          strings.TrimSpace(expected),
+				Status:                  status,
+				CandidateFilesScanned:   uniqueMCPListStrings(detail.candidateFilesScanned),
+				ParsedConfigs:           uniqueMCPListStrings(detail.parsedConfigs),
+				CandidatesFound:         uniqueMCPListStrings(detail.candidatesFound),
+				ParseFailures:           uniqueMCPListStrings(detail.parseFailures),
+				GeneratedSuppressions:   uniqueMCPListStrings(detail.generatedSuppressions),
+				UnsupportedDeclarations: uniqueMCPListStrings(detail.unsupportedDeclarations),
+				Explanation:             diagnosticExplanation(status),
+			})
+		}
+	}
+	sortMCPDiagnostics(diagnostics)
+	return diagnostics
+}
+
+type mcpDiagnosticDetail struct {
+	candidateFilesScanned   []string
+	parsedConfigs           []string
+	candidatesFound         []string
+	parseFailures           []string
+	generatedSuppressions   []string
+	unsupportedDeclarations []string
+}
+
+func buildMCPDiagnosticIndex(snapshot state.Snapshot, repoFilter string) map[string]*mcpDiagnosticDetail {
+	out := map[string]*mcpDiagnosticDetail{}
+	ensure := func(org, repo string) *mcpDiagnosticDetail {
+		key := diagnosticRepoKey(org, repo)
+		if out[key] == nil {
+			out[key] = &mcpDiagnosticDetail{}
+		}
+		return out[key]
+	}
+
+	for _, finding := range snapshot.Findings {
+		if repoFilter != "" && strings.TrimSpace(finding.Repo) != repoFilter {
+			continue
+		}
+		switch strings.TrimSpace(finding.FindingType) {
+		case "mcp_server", "mcp_server_candidate", "webmcp_declaration":
+			ensure(fallbackString(strings.TrimSpace(finding.Org), "local"), strings.TrimSpace(finding.Repo)).candidateFilesScanned = append(
+				ensure(fallbackString(strings.TrimSpace(finding.Org), "local"), strings.TrimSpace(finding.Repo)).candidateFilesScanned,
+				strings.TrimSpace(finding.Location),
+			)
+		case "parse_error":
+			if !isKnownMCPDeclarationPath(finding.Location) && !strings.EqualFold(strings.TrimSpace(finding.Detector), "mcp") && !strings.EqualFold(strings.TrimSpace(finding.Detector), "webmcp") && !strings.EqualFold(strings.TrimSpace(finding.Detector), "dependency") {
+				continue
+			}
+			ensure(fallbackString(strings.TrimSpace(finding.Org), "local"), strings.TrimSpace(finding.Repo)).parseFailures = append(
+				ensure(fallbackString(strings.TrimSpace(finding.Org), "local"), strings.TrimSpace(finding.Repo)).parseFailures,
+				strings.TrimSpace(finding.Location),
+			)
+		}
+	}
+
+	if snapshot.ScanQuality != nil {
+		for _, item := range snapshot.ScanQuality.SuppressedPaths {
+			if repoFilter != "" && strings.TrimSpace(item.Repo) != repoFilter {
+				continue
+			}
+			detail := ensure(fallbackString(strings.TrimSpace(item.Org), "local"), strings.TrimSpace(item.Repo))
+			if strings.Contains(strings.ToLower(strings.TrimSpace(item.Path)), "mcp") || strings.Contains(strings.ToLower(strings.TrimSpace(item.Path)), "webmcp") {
+				detail.generatedSuppressions = append(detail.generatedSuppressions, strings.TrimSpace(item.Path))
+			}
+		}
+	}
+	return out
+}
+
+func inferredExpectedServers(candidates []MCPCandidate) []string {
+	set := map[string]struct{}{}
+	for _, candidate := range candidates {
+		name := strings.TrimSpace(candidate.CandidateName)
+		if name == "" {
+			continue
+		}
+		set[name] = struct{}{}
+	}
+	return uniqueSortedStringsMap(set)
+}
+
+func deriveDiagnosticStatus(detail *mcpDiagnosticDetail, found bool, candidateOnly bool) string {
+	switch {
+	case found:
+		return "found"
+	case candidateOnly:
+		return "candidate_only"
+	case detail != nil && (len(detail.parseFailures) > 0 || len(detail.generatedSuppressions) > 0):
+		return "reduced_coverage"
+	default:
+		return "not_detected"
+	}
+}
+
+func diagnosticExplanation(status string) []string {
+	switch strings.TrimSpace(status) {
+	case "found":
+		return []string{"authoritative MCP server evidence is present in saved state"}
+	case "candidate_only":
+		return []string{"Wrkr found MCP candidate evidence, but not enough fixed-config or bound source evidence to emit an authoritative server"}
+	case "reduced_coverage":
+		return []string{"Wrkr saw parse failures or generated suppression on MCP-bearing surfaces, so a negative result is coverage-reduced rather than authoritative"}
+	default:
+		return []string{"Wrkr did not find authoritative or candidate MCP evidence for the requested repo"}
+	}
+}
+
+func diagnosticRepoKey(org, repo string) string {
+	return fallbackString(strings.TrimSpace(org), "local") + "|" + strings.TrimSpace(repo)
+}
+
+func splitDiagnosticRepoKey(key string) (string, string) {
+	parts := strings.SplitN(strings.TrimSpace(key), "|", 2)
+	if len(parts) != 2 {
+		return "local", strings.TrimSpace(key)
+	}
+	return parts[0], parts[1]
+}
+
+func sortMCPDiagnostics(items []MCPMissDiagnostic) {
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Org != items[j].Org {
+			return items[i].Org < items[j].Org
+		}
+		if items[i].Repo != items[j].Repo {
+			return items[i].Repo < items[j].Repo
+		}
+		if items[i].ExpectedServer != items[j].ExpectedServer {
+			return items[i].ExpectedServer < items[j].ExpectedServer
+		}
+		return items[i].Status < items[j].Status
+	})
+}
+
+func splitMCPListCSV(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return uniqueMCPListStrings(strings.Split(value, ","))
+}
+
+func uniqueMCPListStrings(values []string) []string {
+	set := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		set[trimmed] = struct{}{}
+	}
+	return uniqueSortedStringsMap(set)
+}
+
+func uniqueSortedStringsMap(values map[string]struct{}) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func MCPVisibilityWarnings(findings []source.Finding) []string {

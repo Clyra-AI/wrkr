@@ -30,7 +30,7 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 	summaryMD := fs.Bool("summary-md", false, "emit deterministic lifecycle markdown summary artifact")
 	summaryMDPath := fs.String("summary-md-path", "wrkr-lifecycle-summary.md", "lifecycle summary markdown output path")
 	reportTemplate := fs.String("template", "audit", "summary template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom]")
-	reportShareProfile := fs.String("share-profile", "internal", "summary share profile [internal|public]")
+	reportShareProfile := fs.String("share-profile", "internal", "summary share profile [internal|public|customer-redacted]")
 	reportTop := fs.Int("top", 5, "number of top findings included in lifecycle summary artifact")
 
 	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {

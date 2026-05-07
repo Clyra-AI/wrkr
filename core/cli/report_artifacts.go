@@ -79,7 +79,7 @@ func parseReportTemplateShare(templateRaw string, shareProfileRaw string) (repor
 	}
 	shareProfile, ok := reportcore.ParseShareProfile(shareValue)
 	if !ok {
-		return "", "", fmt.Errorf("--share-profile must be one of internal|public")
+		return "", "", fmt.Errorf("--share-profile must be one of internal|public|customer-redacted")
 	}
 	return template, shareProfile, nil
 }

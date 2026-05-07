@@ -26,6 +26,7 @@ import (
 	templatespkg "github.com/Clyra-AI/wrkr/core/report/templates"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
+	scorecore "github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -89,6 +90,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	deltas := buildDeltaSummary(in.Snapshot, in.PreviousSnapshot, top)
 	headline := buildHeadline(in.Snapshot)
 	methodology := buildMethodology(in.Snapshot)
+	scanScope := buildScanScopeSummary(in.Snapshot)
 	riskItems := buildRiskItems(topFindings, riskReport.ActionPaths)
 	attackPathSummary := buildAttackPathSummary(*riskReport)
 	attackPathFacts := buildAttackPathFacts(*riskReport)
@@ -102,12 +104,17 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	riskReport.ActionPathToControlFirst = decorateControlFirstForReport(riskReport.ActionPathToControlFirst, riskReport.ActionPaths)
 	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
 	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
+	rawActionPathToControlFirst := riskReport.ActionPathToControlFirst
+	rawControlPathGraph := riskReport.ControlPathGraph
 	controlProofStatus, err := buildControlProofStatusForSummary(in.StatePath, in.Snapshot, riskReport)
 	if err != nil {
 		return Summary{}, err
 	}
+	shareProfileMetadata := buildShareProfileMetadata(shareProfile)
+	operationalExposure := scorecore.SummarizeOperationalExposure(riskReport.ActionPaths)
+	governanceReadiness := scorecore.SummarizeGovernanceReadiness(riskReport.ActionPaths, missingProofPathCount(controlProofStatus), scanQualityCoverageReduced(scanQuality))
 
-	if shareProfile == ShareProfilePublic {
+	if shareProfileRequiresRedaction(shareProfile) {
 		proofRef = sanitizeProofReferencePublic(proofRef)
 		lifecycleSummary = sanitizeLifecycleSummaryPublic(lifecycleSummary)
 		riskItems = sanitizeRiskItemsPublic(riskItems)
@@ -153,9 +160,13 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		GeneratedAt:              now.Format(time.RFC3339),
 		Template:                 string(template),
 		ShareProfile:             string(shareProfile),
+		ShareProfileMetadata:     shareProfileMetadata,
 		SectionOrder:             sectionOrder,
 		Sections:                 sections,
 		Headline:                 headline,
+		ScanScope:                scanScope,
+		OperationalExposure:      &operationalExposure,
+		GovernanceReadiness:      &governanceReadiness,
 		AssessmentSummary:        assessmentSummary,
 		Methodology:              methodology,
 		TopRisks:                 riskItems,
@@ -180,13 +191,25 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		controlProofStatus:       controlProofStatus,
 		topAttackPaths:           append([]riskattack.ScoredPath(nil), riskReport.TopAttackPaths...),
 	}
-	if shareProfile == ShareProfilePublic {
-		summary.AgentActionBOM = BuildAgentActionBOM(summary)
-	} else {
-		summary.AgentActionBOM = buildAgentActionBOMFromSnapshot(summary, in.Snapshot)
+	bomSource := summary
+	bomSource.ActionPaths = append([]risk.ActionPath(nil), rawActionPaths...)
+	bomSource.ActionPathToControlFirst = rawActionPathToControlFirst
+	bomSource.ControlPathGraph = rawControlPathGraph
+	summary.AgentActionBOM = buildAgentActionBOMFromSnapshot(bomSource, in.Snapshot)
+	if shareProfileRequiresRedaction(shareProfile) {
+		summary.AgentActionBOM = sanitizeAgentActionBOM(summary.AgentActionBOM, shareProfile)
 	}
 
 	return summary, nil
+}
+
+func shareProfileRequiresRedaction(profile ShareProfile) bool {
+	switch profile {
+	case ShareProfilePublic, ShareProfileCustomerRedacted:
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizedSourcePrivacy(in *sourceprivacy.Contract) *sourceprivacy.Contract {
@@ -195,6 +218,109 @@ func normalizedSourcePrivacy(in *sourceprivacy.Contract) *sourceprivacy.Contract
 	}
 	normalized := sourceprivacy.Normalize(*in)
 	return &normalized
+}
+
+func buildShareProfileMetadata(profile ShareProfile) *ShareProfileMetadata {
+	if !shareProfileRequiresRedaction(profile) {
+		return nil
+	}
+	return &ShareProfileMetadata{
+		RedactionApplied: true,
+		RedactionVersion: "customer-share-v1",
+		PolicySummary: []string{
+			"repo, owner, path, proof, graph, credential subject, and local filesystem identifiers are replaced with deterministic pseudonyms",
+			"risk grades, counts, capability classes, and joinable redacted identifiers remain stable within one artifact set",
+		},
+	}
+}
+
+func buildScanScopeSummary(snapshot state.Snapshot) *ScanScopeSummary {
+	targets := snapshot.Targets
+	if len(targets) == 0 && strings.TrimSpace(snapshot.Target.Mode) != "" {
+		targets = []source.Target{snapshot.Target}
+	}
+	targetCount := len(targets)
+	if targetCount == 0 {
+		return nil
+	}
+	mode := strings.TrimSpace(snapshot.Target.Mode)
+	if mode == "" && len(targets) > 0 {
+		mode = strings.TrimSpace(targets[0].Mode)
+	}
+	scopeLabel, boundary := scanScopeLabel(mode, targetCount)
+	return &ScanScopeSummary{
+		Mode:           mode,
+		ScopeLabel:     scopeLabel,
+		SourceBoundary: boundary,
+		RepoCount:      countScopeRepos(snapshot),
+		TargetCount:    targetCount,
+	}
+}
+
+func scanScopeLabel(mode string, targetCount int) (string, string) {
+	switch strings.TrimSpace(mode) {
+	case "my_setup":
+		return "local machine posture", "local_machine"
+	case "path":
+		if targetCount > 1 {
+			return "local repo group", "repo_group"
+		}
+		return "local repository path", "local_path"
+	case "repo":
+		return "remote repository", "remote_repo"
+	case "org":
+		return "remote organization", "remote_org"
+	case source.TargetModeMulti:
+		return "multi-target scan", "multi_target"
+	default:
+		return "unknown scope", "unknown"
+	}
+}
+
+func countScopeRepos(snapshot state.Snapshot) int {
+	set := map[string]struct{}{}
+	for _, finding := range snapshot.Findings {
+		if strings.TrimSpace(finding.Repo) == "" {
+			continue
+		}
+		set[strings.TrimSpace(finding.Repo)] = struct{}{}
+	}
+	if len(set) == 0 && snapshot.Inventory != nil {
+		for _, tool := range snapshot.Inventory.Tools {
+			for _, loc := range tool.Locations {
+				if strings.TrimSpace(loc.Repo) != "" {
+					set[strings.TrimSpace(loc.Repo)] = struct{}{}
+				}
+			}
+		}
+	}
+	return len(set)
+}
+
+func scanQualityCoverageReduced(report *scanquality.Report) bool {
+	if report == nil {
+		return false
+	}
+	if len(report.ParseErrors) > 0 || len(report.DetectorErrors) > 0 {
+		return true
+	}
+	for _, detector := range report.Detectors {
+		switch strings.TrimSpace(detector.Status) {
+		case "partial", "reduced", "blocked":
+			return true
+		}
+	}
+	return false
+}
+
+func missingProofPathCount(statuses []ControlProofStatus) int {
+	count := 0
+	for _, status := range statuses {
+		if strings.EqualFold(strings.TrimSpace(status.Status), "missing") {
+			count++
+		}
+	}
+	return count
 }
 
 func buildRuntimeEvidenceSummary(statePath string, snapshot state.Snapshot) *ingest.Summary {
@@ -1432,6 +1558,90 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 		}
 	}
 	return &copyBacklog
+}
+
+func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActionBOM {
+	if in == nil {
+		return nil
+	}
+	copyBOM := *in
+	copyBOM.ShareProfile = string(profile)
+	copyBOM.ShareProfileMetadata = cloneShareProfileMetadata(in.ShareProfileMetadata)
+	copyBOM.ScanQuality = sanitizeScanQualityPublic(in.ScanQuality)
+	copyBOM.EvidenceRefs = redactStringSlice(in.EvidenceRefs, "evidence")
+	copyBOM.ProofRefs = redactStringSlice(in.ProofRefs, "proof")
+	copyBOM.GraphRefs = AgentActionBOMGraphRefs{
+		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
+		EdgeIDs: redactStringSlice(in.GraphRefs.EdgeIDs, "edge"),
+	}
+	copyBOM.Items = append([]AgentActionBOMItem(nil), in.Items...)
+	for idx := range copyBOM.Items {
+		copyBOM.Items[idx].PathID = redactValue("path", copyBOM.Items[idx].PathID, 8)
+		copyBOM.Items[idx].AgentID = redactValue("agent", copyBOM.Items[idx].AgentID, 8)
+		copyBOM.Items[idx].Org = redactValue("org", copyBOM.Items[idx].Org, 6)
+		copyBOM.Items[idx].Repo = redactValue("repo", copyBOM.Items[idx].Repo, 6)
+		copyBOM.Items[idx].Location = redactValue("loc", copyBOM.Items[idx].Location, 8)
+		copyBOM.Items[idx].Owner = redactValue("owner", copyBOM.Items[idx].Owner, 8)
+		copyBOM.Items[idx].ProofRefs = redactStringSlice(copyBOM.Items[idx].ProofRefs, "proof")
+		copyBOM.Items[idx].RuntimeEvidenceRefs = redactStringSlice(copyBOM.Items[idx].RuntimeEvidenceRefs, "runtime")
+		copyBOM.Items[idx].PolicyRefs = redactStringSlice(copyBOM.Items[idx].PolicyRefs, "policy")
+		copyBOM.Items[idx].PolicyEvidenceRefs = redactStringSlice(copyBOM.Items[idx].PolicyEvidenceRefs, "policy")
+		copyBOM.Items[idx].AttackPathRefs = redactStringSlice(copyBOM.Items[idx].AttackPathRefs, "attack")
+		copyBOM.Items[idx].SourceFindingKeys = redactStringSlice(copyBOM.Items[idx].SourceFindingKeys, "finding")
+		copyBOM.Items[idx].EvidenceRefs = redactStringSlice(copyBOM.Items[idx].EvidenceRefs, "evidence")
+		copyBOM.Items[idx].GraphRefs = AgentActionBOMGraphRefs{
+			NodeIDs: redactStringSlice(copyBOM.Items[idx].GraphRefs.NodeIDs, "node"),
+			EdgeIDs: redactStringSlice(copyBOM.Items[idx].GraphRefs.EdgeIDs, "edge"),
+		}
+		copyBOM.Items[idx].Reachability = sanitizeReachabilityPublic(copyBOM.Items[idx].Reachability)
+		copyBOM.Items[idx].ReachableServers = sanitizeReachabilityPublic(copyBOM.Items[idx].ReachableServers)
+		copyBOM.Items[idx].ReachableTools = sanitizeReachabilityPublic(copyBOM.Items[idx].ReachableTools)
+		copyBOM.Items[idx].ReachableEndpoints = sanitizeReachabilityPublic(copyBOM.Items[idx].ReachableEndpoints)
+		copyBOM.Items[idx].ReachableTargets = sanitizeReachabilityPublic(copyBOM.Items[idx].ReachableTargets)
+		copyBOM.Items[idx].ReachableAPIs = sanitizeReachabilityPublic(copyBOM.Items[idx].ReachableAPIs)
+		copyBOM.Items[idx].ReachableAgents = sanitizeReachabilityPublic(copyBOM.Items[idx].ReachableAgents)
+		if copyBOM.Items[idx].CredentialProvenance != nil {
+			copyBOM.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(copyBOM.Items[idx].CredentialProvenance)
+			copyBOM.Items[idx].CredentialProvenance.Subject = redactValue("credential", copyBOM.Items[idx].CredentialProvenance.Subject, 8)
+			copyBOM.Items[idx].CredentialProvenance.EvidenceBasis = redactStringSlice(copyBOM.Items[idx].CredentialProvenance.EvidenceBasis, "evidence")
+			copyBOM.Items[idx].CredentialProvenance.EvidenceLocation = redactValue("loc", copyBOM.Items[idx].CredentialProvenance.EvidenceLocation, 8)
+		}
+		if copyBOM.Items[idx].IntroducedBy != nil {
+			introduced := *copyBOM.Items[idx].IntroducedBy
+			introduced.Author = redactValue("author", introduced.Author, 8)
+			introduced.ChangedFile = redactValue("file", introduced.ChangedFile, 8)
+			introduced.ProviderURL = redactValue("provider", introduced.ProviderURL, 8)
+			copyBOM.Items[idx].IntroducedBy = &introduced
+		}
+	}
+	return &copyBOM
+}
+
+func sanitizeReachabilityPublic(in []AgentActionBOMReachability) []AgentActionBOMReachability {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]AgentActionBOMReachability, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.EvidenceRefs = redactStringSlice(copyItem.EvidenceRefs, "evidence")
+		switch strings.TrimSpace(copyItem.Surface) {
+		case "mcp_tool", "a2a_capability":
+			// Preserve capability labels because they carry the buyer-facing risk meaning.
+		case "mcp_server":
+			copyItem.Name = redactValue("server", copyItem.Name, 8)
+		case "a2a_agent":
+			copyItem.Name = redactValue("agent", copyItem.Name, 8)
+		case "reachable_endpoint":
+			copyItem.Name = redactValue("endpoint", copyItem.Name, 8)
+		case "reachable_target":
+			copyItem.Name = redactValue("target", copyItem.Name, 8)
+		default:
+			copyItem.Name = redactValue("reach", copyItem.Name, 8)
+		}
+		out = append(out, copyItem)
+	}
+	return out
 }
 
 func cloneScanQualityReport(in *scanquality.Report) *scanquality.Report {

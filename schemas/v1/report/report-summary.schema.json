@@ -33,7 +33,10 @@
     },
     "share_profile": {
       "type": "string",
-      "enum": ["internal", "public"]
+      "enum": ["internal", "public", "customer-redacted"]
+    },
+    "share_profile_metadata": {
+      "$ref": "#/$defs/shareProfileMetadata"
     },
     "section_order": {
       "type": "array",
@@ -49,6 +52,15 @@
     },
     "headline": {
       "$ref": "#/$defs/headline"
+    },
+    "scan_scope": {
+      "$ref": "#/$defs/scanScope"
+    },
+    "operational_exposure": {
+      "$ref": "#/$defs/axisSummary"
+    },
+    "governance_readiness": {
+      "$ref": "#/$defs/axisSummary"
     },
     "methodology": {
       "$ref": "#/$defs/methodology"
@@ -126,6 +138,45 @@
         "compliance_status": {"type": "string"},
         "compliance_percent": {"type": "number"}
       }
+    },
+    "shareProfileMetadata": {
+      "type": "object",
+      "required": ["redaction_applied"],
+      "properties": {
+        "redaction_applied": {"type": "boolean"},
+        "redaction_version": {"type": "string"},
+        "policy_summary": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "scanScope": {
+      "type": "object",
+      "required": ["mode", "scope_label", "source_boundary", "repo_count", "target_count"],
+      "properties": {
+        "mode": {"type": "string"},
+        "scope_label": {"type": "string"},
+        "source_boundary": {"type": "string"},
+        "repo_count": {"type": "integer"},
+        "target_count": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "axisSummary": {
+      "type": "object",
+      "required": ["grade", "path_count", "driver"],
+      "properties": {
+        "grade": {"type": "string"},
+        "path_count": {"type": "integer"},
+        "driver": {"type": "string"},
+        "rationale": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
     },
     "methodology": {
       "type": "object",

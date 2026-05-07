@@ -8,6 +8,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
+	"github.com/Clyra-AI/wrkr/core/risk"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
 )
 
@@ -42,5 +43,46 @@ func TestLoadWeightsValidation(t *testing.T) {
 	}
 	if err := weights.Validate(); err != nil {
 		t.Fatalf("validate weights: %v", err)
+	}
+}
+
+func TestSummarizeOperationalExposureSeparatesHighImpactPaths(t *testing.T) {
+	t.Parallel()
+
+	summary := SummarizeOperationalExposure([]risk.ActionPath{
+		{
+			WriteCapable:     true,
+			CredentialAccess: true,
+			ProductionWrite:  true,
+			DeploymentStatus: "deployed",
+		},
+		{
+			WriteCapable: true,
+		},
+	})
+	if summary.Grade != "critical" {
+		t.Fatalf("expected critical operational exposure, got %+v", summary)
+	}
+	if summary.Driver != "production_and_credentials" {
+		t.Fatalf("expected production_and_credentials driver, got %+v", summary)
+	}
+}
+
+func TestSummarizeGovernanceReadinessSeparatesCoverageAndControlGaps(t *testing.T) {
+	t.Parallel()
+
+	summary := SummarizeGovernanceReadiness([]risk.ActionPath{
+		{
+			ApprovalGap:          true,
+			OwnershipStatus:      "unresolved",
+			OwnershipState:       "missing",
+			PolicyCoverageStatus: "none",
+		},
+	}, 1, true)
+	if summary.Grade != "low" {
+		t.Fatalf("expected low governance readiness, got %+v", summary)
+	}
+	if summary.Driver != "governance_gaps_present" {
+		t.Fatalf("expected governance gap driver, got %+v", summary)
 	}
 }

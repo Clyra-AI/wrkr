@@ -220,6 +220,40 @@ func TestDetectRejectsExternalSymlinkedDependencyManifest(t *testing.T) {
 	}
 }
 
+func TestFrameworkDependencyCreatesCandidateNotActionPath(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "package.json", `{
+  "dependencies": {
+    "langchain": "^1.0.0",
+    "crewai": "^0.8.0"
+  }
+}`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{
+		Org:  "acme",
+		Repo: "repo",
+		Root: root,
+	}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect returned error: %v", err)
+	}
+
+	frameworkCandidates := map[string]bool{}
+	for _, finding := range findings {
+		if finding.FindingType == "framework_candidate" {
+			frameworkCandidates[finding.ToolType] = true
+		}
+		if finding.FindingType == "agent_framework" {
+			t.Fatalf("did not expect source-level agent_framework from dependency-only evidence, got %+v", finding)
+		}
+	}
+	if !frameworkCandidates["langchain"] || !frameworkCandidates["crewai"] {
+		t.Fatalf("expected framework candidates for langchain and crewai, got %+v", findings)
+	}
+}
+
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))

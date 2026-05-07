@@ -50,6 +50,24 @@ var aiKeywords = []string{
 	"copilot",
 }
 
+var knownFrameworkPackages = map[string]string{
+	"langchain":         "langchain",
+	"langgraph":         "langgraph",
+	"crewai":            "crewai",
+	"autogen":           "autogen",
+	"llamaindex":        "llamaindex",
+	"llama_index":       "llamaindex",
+	"semantic-kernel":   "semantic_kernel",
+	"semantic_kernel":   "semantic_kernel",
+	"haystack":          "haystack",
+	"@langchain/core":   "langchain",
+	"@langchain/openai": "langchain",
+	"@llamaindex/core":  "llamaindex",
+	"openai-agents":     "openai_agents",
+	"@openai/agents":    "openai_agents",
+	"microsoft/autogen": "autogen",
+}
+
 var projectSignalKeywords = []string{
 	"mcp",
 	"agent",
@@ -103,35 +121,35 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			if parseErr != nil {
 				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
-				findings = append(findings, dependencyFindings(scope, rel, deps)...)
+				findings = append(findings, manifestFindings(scope, rel, deps)...)
 			}
 		case base == "package.json":
 			deps, parseErr := parsePackageJSON(scope.Root, rel)
 			if parseErr != nil {
 				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
-				findings = append(findings, dependencyFindings(scope, rel, deps)...)
+				findings = append(findings, manifestFindings(scope, rel, deps)...)
 			}
 		case base == "pyproject.toml":
 			deps, parseErr := parsePyproject(scope.Root, rel)
 			if parseErr != nil {
 				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
-				findings = append(findings, dependencyFindings(scope, rel, deps)...)
+				findings = append(findings, manifestFindings(scope, rel, deps)...)
 			}
 		case base == "cargo.toml":
 			deps, parseErr := parseCargoToml(scope.Root, rel)
 			if parseErr != nil {
 				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
-				findings = append(findings, dependencyFindings(scope, rel, deps)...)
+				findings = append(findings, manifestFindings(scope, rel, deps)...)
 			}
 		case strings.HasPrefix(base, "requirements") && strings.HasSuffix(base, ".txt"):
 			deps, parseErr := parseRequirements(scope.Root, rel)
 			if parseErr != nil {
 				findings = append(findings, parseErrorFinding(scope, rel, parseErr))
 			} else {
-				findings = append(findings, dependencyFindings(scope, rel, deps)...)
+				findings = append(findings, manifestFindings(scope, rel, deps)...)
 			}
 		}
 	}
@@ -156,6 +174,12 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 
 	model.SortFindings(findings)
 	return findings, nil
+}
+
+func manifestFindings(scope detect.Scope, location string, deps []string) []model.Finding {
+	out := append([]model.Finding(nil), dependencyFindings(scope, location, deps)...)
+	out = append(out, frameworkCandidateFindings(scope, location, deps)...)
+	return out
 }
 
 func parseGoMod(root, rel string) ([]string, *model.ParseError) {
@@ -288,6 +312,71 @@ func dependencyFindings(scope detect.Scope, location string, deps []string) []mo
 		})
 	}
 	return findings
+}
+
+func frameworkCandidateFindings(scope detect.Scope, location string, deps []string) []model.Finding {
+	candidates := []model.Finding{}
+	seen := map[string]struct{}{}
+	for _, dep := range deps {
+		framework, ok := frameworkForDependency(dep)
+		if !ok {
+			continue
+		}
+		key := framework + "|" + strings.TrimSpace(dep)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		candidates = append(candidates, model.Finding{
+			FindingType: "framework_candidate",
+			Severity:    model.SeverityLow,
+			ToolType:    framework,
+			Location:    location,
+			Repo:        scope.Repo,
+			Org:         fallbackOrg(scope.Org),
+			Detector:    detectorID,
+			Evidence: []model.Evidence{
+				{Key: "framework", Value: framework},
+				{Key: "dependency", Value: strings.TrimSpace(dep)},
+				{Key: "evidence_type", Value: "dependency"},
+				{Key: "confidence", Value: "low"},
+				{Key: "evidence_strength", Value: "dependency_only"},
+			},
+			Remediation: "Confirm active source-level agent bindings before promoting this framework dependency into a governable action path.",
+		})
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].ToolType != candidates[j].ToolType {
+			return candidates[i].ToolType < candidates[j].ToolType
+		}
+		return evidenceValue(candidates[i], "dependency") < evidenceValue(candidates[j], "dependency")
+	})
+	return candidates
+}
+
+func frameworkForDependency(dep string) (string, bool) {
+	normalized := normalizeDependencyToken(dep)
+	if normalized == "" {
+		return "", false
+	}
+	if framework, ok := knownFrameworkPackages[normalized]; ok {
+		return framework, true
+	}
+	for name, framework := range knownFrameworkPackages {
+		if strings.Contains(normalized, name) {
+			return framework, true
+		}
+	}
+	return "", false
+}
+
+func evidenceValue(finding model.Finding, key string) string {
+	for _, item := range finding.Evidence {
+		if strings.EqualFold(strings.TrimSpace(item.Key), strings.TrimSpace(key)) {
+			return strings.TrimSpace(item.Value)
+		}
+	}
+	return ""
 }
 
 func parseErrorFinding(scope detect.Scope, location string, parseErr *model.ParseError) model.Finding {

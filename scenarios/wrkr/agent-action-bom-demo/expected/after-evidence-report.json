@@ -21,6 +21,44 @@
     "missing_policy_items": 0,
     "missing_proof_items": 4,
     "runtime_proven_items": 1,
-    "unresolved_owner_items": 0
+    "unresolved_owner_items": 0,
+    "scan_scope": {
+      "mode": "path",
+      "scope_label": "local repository path",
+      "source_boundary": "local_path",
+      "repo_count": 1,
+      "target_count": 1
+    },
+    "source_privacy": {
+      "retention_mode": "ephemeral",
+      "materialized_source_retained": false,
+      "raw_source_in_artifacts": false,
+      "serialized_locations": "filesystem",
+      "cleanup_status": "not_applicable"
+    },
+    "operational_exposure": {
+      "grade": "critical",
+      "path_count": 4,
+      "driver": "production_and_credentials",
+      "rationale": [
+        "production_backed_paths=3",
+        "credential_bearing_paths=1",
+        "write_capable_paths=2",
+        "runtime_deployed_paths=3"
+      ]
+    },
+    "governance_readiness": {
+      "grade": "low",
+      "path_count": 4,
+      "driver": "governance_gaps_present",
+      "rationale": [
+        "approval_gaps=4",
+        "missing_owner_paths=0",
+        "policy_gaps=0",
+        "missing_proof_paths=8",
+        "coverage_reduced=false"
+      ]
+    },
+    "coverage_confidence": "complete"
   }
 }

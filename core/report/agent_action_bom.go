@@ -15,34 +15,43 @@ import (
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
+	scorecore "github.com/Clyra-AI/wrkr/core/score"
+	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 const AgentActionBOMSchemaVersion = "v1"
 
 type AgentActionBOM struct {
-	BOMID         string                  `json:"bom_id"`
-	SchemaVersion string                  `json:"schema_version"`
-	GeneratedAt   string                  `json:"generated_at"`
-	Summary       AgentActionBOMSummary   `json:"summary"`
-	ScanQuality   *scanquality.Report     `json:"scan_quality,omitempty"`
-	Items         []AgentActionBOMItem    `json:"items,omitempty"`
-	GraphRefs     AgentActionBOMGraphRefs `json:"graph_refs,omitempty"`
-	EvidenceRefs  []string                `json:"evidence_refs,omitempty"`
-	ProofRefs     []string                `json:"proof_refs,omitempty"`
+	BOMID                string                  `json:"bom_id"`
+	SchemaVersion        string                  `json:"schema_version"`
+	GeneratedAt          string                  `json:"generated_at"`
+	ShareProfile         string                  `json:"share_profile,omitempty"`
+	ShareProfileMetadata *ShareProfileMetadata   `json:"share_profile_metadata,omitempty"`
+	Summary              AgentActionBOMSummary   `json:"summary"`
+	ScanQuality          *scanquality.Report     `json:"scan_quality,omitempty"`
+	Items                []AgentActionBOMItem    `json:"items,omitempty"`
+	GraphRefs            AgentActionBOMGraphRefs `json:"graph_refs,omitempty"`
+	EvidenceRefs         []string                `json:"evidence_refs,omitempty"`
+	ProofRefs            []string                `json:"proof_refs,omitempty"`
 }
 
 type AgentActionBOMSummary struct {
-	TotalItems             int `json:"total_items"`
-	ControlFirstItems      int `json:"control_first_items"`
-	StandingPrivilegeItems int `json:"standing_privilege_items"`
-	StaticCredentialItems  int `json:"static_credential_items"`
-	ProductionTargetItems  int `json:"production_target_items"`
-	MissingApprovalItems   int `json:"missing_approval_items"`
-	MissingPolicyItems     int `json:"missing_policy_items"`
-	MissingProofItems      int `json:"missing_proof_items"`
-	RuntimeProvenItems     int `json:"runtime_proven_items"`
-	UnresolvedOwnerItems   int `json:"unresolved_owner_items"`
+	TotalItems             int                     `json:"total_items"`
+	ControlFirstItems      int                     `json:"control_first_items"`
+	StandingPrivilegeItems int                     `json:"standing_privilege_items"`
+	StaticCredentialItems  int                     `json:"static_credential_items"`
+	ProductionTargetItems  int                     `json:"production_target_items"`
+	MissingApprovalItems   int                     `json:"missing_approval_items"`
+	MissingPolicyItems     int                     `json:"missing_policy_items"`
+	MissingProofItems      int                     `json:"missing_proof_items"`
+	RuntimeProvenItems     int                     `json:"runtime_proven_items"`
+	UnresolvedOwnerItems   int                     `json:"unresolved_owner_items"`
+	ScanScope              *ScanScopeSummary       `json:"scan_scope,omitempty"`
+	SourcePrivacy          *sourceprivacy.Contract `json:"source_privacy,omitempty"`
+	OperationalExposure    *scorecore.AxisSummary  `json:"operational_exposure,omitempty"`
+	GovernanceReadiness    *scorecore.AxisSummary  `json:"governance_readiness,omitempty"`
+	CoverageConfidence     string                  `json:"coverage_confidence,omitempty"`
 }
 
 type AgentActionBOMItem struct {
@@ -78,6 +87,8 @@ type AgentActionBOMItem struct {
 	RuntimeEvidenceStatus    string                             `json:"runtime_evidence_status,omitempty"`
 	RuntimeEvidenceClasses   []string                           `json:"runtime_evidence_classes,omitempty"`
 	RuntimeEvidenceRefs      []string                           `json:"runtime_evidence_refs,omitempty"`
+	Confidence               string                             `json:"confidence,omitempty"`
+	EvidenceStrength         string                             `json:"evidence_strength,omitempty"`
 	InventoryRisk            string                             `json:"inventory_risk,omitempty"`
 	ControlPriority          string                             `json:"control_priority,omitempty"`
 	RiskTier                 string                             `json:"risk_tier,omitempty"`
@@ -93,6 +104,8 @@ type AgentActionBOMItem struct {
 	Reachability             []AgentActionBOMReachability       `json:"reachability,omitempty"`
 	ReachableServers         []AgentActionBOMReachability       `json:"reachable_servers,omitempty"`
 	ReachableTools           []AgentActionBOMReachability       `json:"reachable_tools,omitempty"`
+	ReachableEndpoints       []AgentActionBOMReachability       `json:"reachable_endpoints,omitempty"`
+	ReachableTargets         []AgentActionBOMReachability       `json:"reachable_targets,omitempty"`
 	ReachableAPIs            []AgentActionBOMReachability       `json:"reachable_apis,omitempty"`
 	ReachableAgents          []AgentActionBOMReachability       `json:"reachable_agents,omitempty"`
 	IntroducedBy             *attribution.Result                `json:"introduced_by,omitempty"`
@@ -134,6 +147,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 	graphRefsByPath, graphRefs := controlPathGraphRefs(summary.ControlPathGraph)
 	runtimeByPath := runtimeEvidenceByPath(summary.RuntimeEvidence)
 	reachabilityByPath := reachabilityByPathID(summary.ActionPaths, findings)
+	signalsByPath := pathSignalsByPathID(summary.ActionPaths, findings)
 	proofCoverageByPath := proofCoverageByPath(summary.ActionPaths, summary.controlProofStatus)
 	globalProofRefs := proofRefs(summary.Proof)
 
@@ -144,7 +158,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		runtimeItem := runtimeByPath[pathID]
 		backlogItem := backlogByPath[pathID]
 		reachability := append([]AgentActionBOMReachability(nil), reachabilityByPath[pathID]...)
-		reachableServers, reachableTools, reachableAPIs, reachableAgents := namedReachability(reachability)
+		reachableServers, reachableTools, reachableEndpoints, reachableTargets, reachableAPIs, reachableAgents := namedReachability(reachability)
 		proofCoverage := fallbackProofCoverage(summary.Proof)
 		if coverage, ok := proofCoverageByPath[pathID]; ok {
 			proofCoverage = coverage.Status
@@ -160,6 +174,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		case ingest.CorrelationStatusStale:
 			policyStatus = risk.PolicyCoverageStatusStale
 		}
+		signal := signalsByPath[pathID]
 		item := AgentActionBOMItem{
 			PathID:                   pathID,
 			AgentID:                  strings.TrimSpace(path.AgentID),
@@ -188,6 +203,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			RuntimeEvidenceStatus:    runtimeItem.Status,
 			RuntimeEvidenceClasses:   append([]string(nil), runtimeItem.EvidenceClasses...),
 			RuntimeEvidenceRefs:      append([]string(nil), runtimeItem.RecordIDs...),
+			Confidence:               signal.Confidence,
+			EvidenceStrength:         signal.EvidenceStrength,
 			InventoryRisk:            inventoryRiskForPath(path),
 			ControlPriority:          controlPriorityForPath(path),
 			RiskTier:                 riskTierForPath(path),
@@ -201,6 +218,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			Reachability:             reachability,
 			ReachableServers:         reachableServers,
 			ReachableTools:           reachableTools,
+			ReachableEndpoints:       reachableEndpoints,
+			ReachableTargets:         reachableTargets,
 			ReachableAPIs:            reachableAPIs,
 			ReachableAgents:          reachableAgents,
 			PolicyRefs:               append([]string(nil), path.PolicyRefs...),
@@ -215,17 +234,24 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 	}
 	items = append(items, excludedTopAttackPathItems(summary)...)
 	counts := summarizeAgentActionBOMItems(items)
+	counts.ScanScope = cloneScanScope(summary.ScanScope)
+	counts.SourcePrivacy = normalizedSourcePrivacy(summary.SourcePrivacy)
+	counts.OperationalExposure = cloneAxisSummary(summary.OperationalExposure)
+	counts.GovernanceReadiness = cloneAxisSummary(summary.GovernanceReadiness)
+	counts.CoverageConfidence = coverageConfidenceLabel(summary.ScanQuality)
 
 	return &AgentActionBOM{
-		BOMID:         agentActionBOMID(summary, items),
-		SchemaVersion: AgentActionBOMSchemaVersion,
-		GeneratedAt:   summary.GeneratedAt,
-		Summary:       counts,
-		ScanQuality:   cloneScanQualityReport(summary.ScanQuality),
-		Items:         items,
-		GraphRefs:     graphRefs,
-		EvidenceRefs:  summaryEvidenceRefs(items),
-		ProofRefs:     globalProofRefs,
+		BOMID:                agentActionBOMID(summary, items),
+		SchemaVersion:        AgentActionBOMSchemaVersion,
+		GeneratedAt:          summary.GeneratedAt,
+		ShareProfile:         summary.ShareProfile,
+		ShareProfileMetadata: cloneShareProfileMetadata(summary.ShareProfileMetadata),
+		Summary:              counts,
+		ScanQuality:          cloneScanQualityReport(summary.ScanQuality),
+		Items:                items,
+		GraphRefs:            graphRefs,
+		EvidenceRefs:         summaryEvidenceRefs(items),
+		ProofRefs:            globalProofRefs,
 	}
 }
 
@@ -452,6 +478,42 @@ func summarizeAgentActionBOMItems(items []AgentActionBOMItem) AgentActionBOMSumm
 	return counts
 }
 
+func cloneShareProfileMetadata(in *ShareProfileMetadata) *ShareProfileMetadata {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.PolicySummary = append([]string(nil), in.PolicySummary...)
+	return &out
+}
+
+func cloneScanScope(in *ScanScopeSummary) *ScanScopeSummary {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	return &out
+}
+
+func cloneAxisSummary(in *scorecore.AxisSummary) *scorecore.AxisSummary {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.Rationale = append([]string(nil), in.Rationale...)
+	return &out
+}
+
+func coverageConfidenceLabel(report *scanquality.Report) string {
+	if report == nil {
+		return "unknown"
+	}
+	if scanQualityCoverageReduced(report) {
+		return "reduced"
+	}
+	return "complete"
+}
+
 func queueForControlPriority(priority string) string {
 	switch strings.TrimSpace(priority) {
 	case risk.ControlPriorityControlFirst:
@@ -551,7 +613,7 @@ func excludedTopAttackPathItems(summary Summary) []AgentActionBOMItem {
 			ExclusionReason:       "top_attack_path_missing_matching_action_path",
 			EvidenceRefs:          attackPathEvidenceRefs(attackPath),
 		}
-		if summary.ShareProfile == string(ShareProfilePublic) {
+		if profile, ok := ParseShareProfile(summary.ShareProfile); ok && shareProfileRequiresRedaction(profile) {
 			item.PathID = redactValue("attack", item.PathID, 8)
 			item.Org = redactValue("org", item.Org, 6)
 			item.Repo = redactValue("repo", item.Repo, 6)
@@ -616,9 +678,16 @@ func reachabilityByPathID(paths []risk.ActionPath, findings []model.Finding) map
 		return map[string][]AgentActionBOMReachability{}
 	}
 	findingsByRepoLocation := map[string][]model.Finding{}
+	mcpByRepoName := map[string]model.Finding{}
 	for _, finding := range findings {
 		key := strings.Join([]string{strings.TrimSpace(finding.Org), strings.TrimSpace(finding.Repo), strings.TrimSpace(finding.Location)}, "|")
 		findingsByRepoLocation[key] = append(findingsByRepoLocation[key], finding)
+		if strings.TrimSpace(finding.FindingType) == "mcp_server" {
+			name := firstEvidenceValue(finding, "server")
+			if strings.TrimSpace(name) != "" {
+				mcpByRepoName[strings.Join([]string{strings.TrimSpace(finding.Org), strings.TrimSpace(finding.Repo), strings.TrimSpace(name)}, "|")] = finding
+			}
+		}
 	}
 
 	out := map[string][]AgentActionBOMReachability{}
@@ -643,6 +712,37 @@ func reachabilityByPathID(paths []risk.ActionPath, findings []model.Finding) map
 					TrustDepth:   agginventory.TrustDepthFromFinding(finding),
 					EvidenceRefs: findingEvidenceRefs(finding),
 				})
+			case "agent_framework":
+				for _, toolName := range splitEvidenceList(firstEvidenceValue(finding, "tool_bindings")) {
+					items = append(items, AgentActionBOMReachability{
+						Surface:      "reachable_tool",
+						Name:         toolName,
+						EvidenceRefs: findingEvidenceRefs(finding),
+					})
+					if boundServer, ok := mcpByRepoName[strings.Join([]string{strings.TrimSpace(path.Org), strings.TrimSpace(path.Repo), toolName}, "|")]; ok {
+						items = append(items, AgentActionBOMReachability{
+							Surface:      "mcp_server",
+							Name:         toolName,
+							Capabilities: append([]string(nil), boundServer.Permissions...),
+							TrustDepth:   agginventory.TrustDepthFromFinding(boundServer),
+							EvidenceRefs: findingEvidenceRefs(boundServer),
+						})
+					}
+				}
+				for _, endpoint := range splitEvidenceList(firstEvidenceValue(finding, "reachable_endpoints")) {
+					items = append(items, AgentActionBOMReachability{
+						Surface:      "reachable_endpoint",
+						Name:         endpoint,
+						EvidenceRefs: findingEvidenceRefs(finding),
+					})
+				}
+				for _, target := range splitEvidenceList(firstEvidenceValue(finding, "reachable_targets")) {
+					items = append(items, AgentActionBOMReachability{
+						Surface:      "reachable_target",
+						Name:         target,
+						EvidenceRefs: findingEvidenceRefs(finding),
+					})
+				}
 			}
 		}
 		if len(items) > 0 {
@@ -663,9 +763,13 @@ func namedReachability(items []AgentActionBOMReachability) (
 	[]AgentActionBOMReachability,
 	[]AgentActionBOMReachability,
 	[]AgentActionBOMReachability,
+	[]AgentActionBOMReachability,
+	[]AgentActionBOMReachability,
 ) {
 	servers := []AgentActionBOMReachability{}
 	tools := []AgentActionBOMReachability{}
+	endpoints := []AgentActionBOMReachability{}
+	targets := []AgentActionBOMReachability{}
 	apis := []AgentActionBOMReachability{}
 	agents := []AgentActionBOMReachability{}
 
@@ -677,6 +781,12 @@ func namedReachability(items []AgentActionBOMReachability) (
 		case "a2a_agent":
 			agents = append(agents, item)
 			apis = append(apis, reachabilityCapabilities("a2a_capability", item)...)
+		case "reachable_endpoint":
+			endpoints = append(endpoints, item)
+		case "reachable_target":
+			targets = append(targets, item)
+		case "reachable_tool":
+			tools = append(tools, item)
 		default:
 			if strings.Contains(strings.TrimSpace(item.Surface), "api") {
 				apis = append(apis, item)
@@ -684,7 +794,74 @@ func namedReachability(items []AgentActionBOMReachability) (
 		}
 	}
 
-	return sortReachability(servers), sortReachability(tools), sortReachability(apis), sortReachability(agents)
+	return sortReachability(servers), sortReachability(tools), sortReachability(endpoints), sortReachability(targets), sortReachability(apis), sortReachability(agents)
+}
+
+type pathSignal struct {
+	Confidence       string
+	EvidenceStrength string
+}
+
+func pathSignalsByPathID(paths []risk.ActionPath, findings []model.Finding) map[string]pathSignal {
+	out := map[string]pathSignal{}
+	if len(paths) == 0 || len(findings) == 0 {
+		return out
+	}
+	findingsByRepoLocation := map[string][]model.Finding{}
+	for _, finding := range findings {
+		key := strings.Join([]string{strings.TrimSpace(finding.Org), strings.TrimSpace(finding.Repo), strings.TrimSpace(finding.Location)}, "|")
+		findingsByRepoLocation[key] = append(findingsByRepoLocation[key], finding)
+	}
+	for _, path := range paths {
+		key := strings.Join([]string{strings.TrimSpace(path.Org), strings.TrimSpace(path.Repo), strings.TrimSpace(path.Location)}, "|")
+		signal := pathSignal{}
+		for _, finding := range findingsByRepoLocation[key] {
+			confidence := firstEvidenceValue(finding, "confidence")
+			evidenceStrength := firstEvidenceValue(finding, "evidence_strength")
+			if confidenceRank(confidence) > confidenceRank(signal.Confidence) {
+				signal.Confidence = strings.TrimSpace(confidence)
+			}
+			if evidenceStrengthPriority(evidenceStrength) < evidenceStrengthPriority(signal.EvidenceStrength) || strings.TrimSpace(signal.EvidenceStrength) == "" {
+				signal.EvidenceStrength = strings.TrimSpace(evidenceStrength)
+			}
+		}
+		if signal.Confidence != "" || signal.EvidenceStrength != "" {
+			out[strings.TrimSpace(path.PathID)] = signal
+		}
+	}
+	return out
+}
+
+func confidenceRank(value string) int {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "high":
+		return 3
+	case "medium":
+		return 2
+	case "low":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func evidenceStrengthPriority(value string) int {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "credential":
+		return 0
+	case "tool_binding":
+		return 1
+	case "retriever":
+		return 2
+	case "workflow":
+		return 3
+	case "provider":
+		return 4
+	case "constructor":
+		return 5
+	default:
+		return 99
+	}
 }
 
 func reachabilityCapabilities(surface string, item AgentActionBOMReachability) []AgentActionBOMReachability {

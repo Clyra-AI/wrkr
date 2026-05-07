@@ -8,6 +8,8 @@
     "bom_id": {"type": "string"},
     "schema_version": {"type": "string", "enum": ["v1"]},
     "generated_at": {"type": "string"},
+    "share_profile": {"type": "string", "enum": ["internal", "public", "customer-redacted"]},
+    "share_profile_metadata": {"$ref": "#/$defs/shareProfileMetadata"},
     "summary": {"$ref": "#/$defs/summary"},
     "scan_quality": {"$ref": "#/$defs/scanQuality"},
     "items": {
@@ -43,7 +45,12 @@
         "missing_policy_items": {"type": "integer"},
         "missing_proof_items": {"type": "integer"},
         "runtime_proven_items": {"type": "integer"},
-        "unresolved_owner_items": {"type": "integer"}
+        "unresolved_owner_items": {"type": "integer"},
+        "scan_scope": {"$ref": "#/$defs/scanScope"},
+        "source_privacy": {"$ref": "#/$defs/sourcePrivacy"},
+        "operational_exposure": {"$ref": "#/$defs/axisSummary"},
+        "governance_readiness": {"$ref": "#/$defs/axisSummary"},
+        "coverage_confidence": {"type": "string", "enum": ["complete", "reduced", "unknown"]}
       },
       "additionalProperties": false
     },
@@ -83,6 +90,8 @@
         "runtime_evidence_status": {"type": "string", "enum": ["matched", "unmatched", "stale", "conflict"]},
         "runtime_evidence_classes": {"type": "array", "items": {"type": "string"}},
         "runtime_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "evidence_strength": {"type": "string"},
         "inventory_risk": {"type": "string", "enum": ["production_backed", "write_capable", "credential_access", "visibility_only", "dependency_only"]},
         "control_priority": {"type": "string"},
         "risk_tier": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
@@ -108,6 +117,14 @@
           "type": "array",
           "items": {"$ref": "#/$defs/reachability"}
         },
+        "reachable_endpoints": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reachability"}
+        },
+        "reachable_targets": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reachability"}
+        },
         "reachable_apis": {
           "type": "array",
           "items": {"$ref": "#/$defs/reachability"}
@@ -124,6 +141,76 @@
       "properties": {
         "node_ids": {"type": "array", "items": {"type": "string"}},
         "edge_ids": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "shareProfileMetadata": {
+      "type": "object",
+      "required": ["redaction_applied"],
+      "properties": {
+        "redaction_applied": {"type": "boolean"},
+        "redaction_version": {"type": "string"},
+        "policy_summary": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "scanScope": {
+      "type": "object",
+      "required": ["mode", "scope_label", "source_boundary", "repo_count", "target_count"],
+      "properties": {
+        "mode": {"type": "string"},
+        "scope_label": {"type": "string"},
+        "source_boundary": {"type": "string"},
+        "repo_count": {"type": "integer"},
+        "target_count": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "axisSummary": {
+      "type": "object",
+      "required": ["grade", "path_count", "driver"],
+      "properties": {
+        "grade": {"type": "string"},
+        "path_count": {"type": "integer"},
+        "driver": {"type": "string"},
+        "rationale": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "sourcePrivacy": {
+      "type": "object",
+      "required": [
+        "retention_mode",
+        "materialized_source_retained",
+        "raw_source_in_artifacts",
+        "serialized_locations",
+        "cleanup_status"
+      ],
+      "properties": {
+        "retention_mode": {
+          "type": "string",
+          "enum": ["ephemeral", "retain_for_resume", "retain"]
+        },
+        "materialized_source_retained": {"type": "boolean"},
+        "raw_source_in_artifacts": {"type": "boolean"},
+        "serialized_locations": {
+          "type": "string",
+          "enum": ["logical", "filesystem"]
+        },
+        "cleanup_status": {
+          "type": "string",
+          "enum": ["not_applicable", "pending", "removed", "retained", "failed"]
+        },
+        "warnings": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
       },
       "additionalProperties": false
     },

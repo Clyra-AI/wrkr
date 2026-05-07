@@ -66,7 +66,7 @@ func TestLangChainDetector_SourceOnlyRepo(t *testing.T) {
 import os
 
 planner = create_react_agent(
-    llm=llm,
+    llm=ChatOpenAI(),
     tools=["search.read", "deploy.write"],
     name="planner_agent",
     data_sources=["warehouse.events"],
@@ -89,6 +89,15 @@ planner = create_react_agent(
 	}
 	if evidenceValue(findings[0].Evidence, "auth_surfaces") != "OPENAI_API_KEY" {
 		t.Fatalf("unexpected auth surfaces %q", evidenceValue(findings[0].Evidence, "auth_surfaces"))
+	}
+	if evidenceValue(findings[0].Evidence, "confidence") != "high" {
+		t.Fatalf("expected high confidence, got %q", evidenceValue(findings[0].Evidence, "confidence"))
+	}
+	if evidenceValue(findings[0].Evidence, "evidence_strength") != "credential" {
+		t.Fatalf("expected credential evidence strength, got %q", evidenceValue(findings[0].Evidence, "evidence_strength"))
+	}
+	if evidenceValue(findings[0].Evidence, "model_providers") != "openai" {
+		t.Fatalf("expected openai provider evidence, got %q", evidenceValue(findings[0].Evidence, "model_providers"))
 	}
 }
 
