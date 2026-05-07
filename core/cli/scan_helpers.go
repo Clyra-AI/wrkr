@@ -411,9 +411,6 @@ func anyTargetNeedsGitHub(targets []config.Target) bool {
 func scanProgressTargetLabel(targets []config.Target) (string, string) {
 	valuesByMode := map[config.TargetMode][]string{}
 	for _, target := range targets {
-		if target.Mode != config.TargetOrg && target.Mode != config.TargetPath {
-			continue
-		}
 		value := strings.TrimSpace(target.Value)
 		if value == "" {
 			continue
@@ -425,6 +422,12 @@ func scanProgressTargetLabel(targets []config.Target) (string, string) {
 	}
 	if paths := valuesByMode[config.TargetPath]; len(paths) == 1 && len(valuesByMode) == 1 {
 		return "path", paths[0]
+	}
+	if repos := valuesByMode[config.TargetRepo]; len(repos) == 1 && len(valuesByMode) == 1 {
+		return "repo", repos[0]
+	}
+	if setups := valuesByMode[config.TargetMySetup]; len(setups) == 1 && len(valuesByMode) == 1 {
+		return "my_setup", setups[0]
 	}
 	if len(valuesByMode) > 0 {
 		return "multi", "multi"

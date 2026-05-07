@@ -21,6 +21,8 @@ type scanStatusTracker struct {
 	statePath    string
 	status       state.ScanStatus
 	phaseStarted map[string]time.Time
+	targets      []source.Target
+	lastProgress scanProgressSnapshot
 }
 
 func runScanStatus(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -58,6 +60,18 @@ func runScanStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 		status.LastSuccessfulPhase,
 		status.StatePath,
 	)
+	if status.ProgressPercent > 0 || status.ProgressMessage != "" || status.PhaseProgress != nil || status.RepoProgress != nil || status.DetectorProgress != nil {
+		phase := status.CurrentPhase
+		if status.PhaseProgress != nil && strings.TrimSpace(status.PhaseProgress.Phase) != "" {
+			phase = status.PhaseProgress.Phase
+		}
+		_, _ = fmt.Fprintf(stdout, "progress percent=%d phase=%s elapsed_seconds=%d message=%s\n",
+			status.ProgressPercent,
+			phase,
+			status.ElapsedSeconds,
+			fallbackForExplain(status.ProgressMessage, "<none>"),
+		)
+	}
 	if status.SourcePrivacy != nil {
 		privacy := sourceprivacy.Normalize(*status.SourcePrivacy)
 		_, _ = fmt.Fprintf(stdout, "source privacy: retention=%s retained=%t cleanup=%s locations=%s raw_source_in_artifacts=%t\n",
@@ -87,7 +101,12 @@ func newScanStatusTracker(statePath string, target source.Target, targets []sour
 		ArtifactPaths: cleanArtifactPaths(artifactPaths),
 		SourcePrivacy: &normalizedPrivacy,
 	}
-	return &scanStatusTracker{statePath: statePath, status: status, phaseStarted: map[string]time.Time{}}
+	return &scanStatusTracker{
+		statePath:    statePath,
+		status:       status,
+		phaseStarted: map[string]time.Time{},
+		targets:      source.SortTargets(targets),
+	}
 }
 
 func (t *scanStatusTracker) Start() error {
@@ -130,6 +149,12 @@ func (t *scanStatusTracker) Repos(total, completed, failed int) error {
 	t.status.RepoTotal = total
 	t.status.ReposCompleted = completed
 	t.status.ReposFailed = failed
+	t.status.RepoProgress = &state.ScanRepoProgress{
+		Total:     total,
+		Completed: completed,
+		Failed:    failed,
+		Pending:   maxProgressCount(total-completed-failed, 0),
+	}
 	t.status.UpdatedAt = time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
 	return state.SaveScanStatus(t.statePath, t.status)
 }
@@ -155,6 +180,19 @@ func (t *scanStatusTracker) Complete(artifactPaths map[string]string) error {
 	t.status.CompletedAt = now.Format(time.RFC3339)
 	t.status.UpdatedAt = t.status.CompletedAt
 	t.status.ArtifactPaths = cleanArtifactPaths(artifactPaths)
+	if t.lastProgress.ProgressPercent < 100 {
+		t.applyProgress(scanProgressSnapshot{
+			ProgressPercent: 100,
+			LastProgressAt:  now,
+			ElapsedSeconds:  elapsedSecondsFromStartedAt(t.status.StartedAt, now),
+			PhaseProgress: state.ScanPhaseProgress{
+				Phase:   "artifact_commit",
+				Percent: 100,
+			},
+			RepoProgress:     t.lastProgress.RepoProgress,
+			DetectorProgress: t.lastProgress.DetectorProgress,
+		})
+	}
 	return state.SaveScanStatus(t.statePath, t.status)
 }
 
@@ -179,8 +217,20 @@ func (t *scanStatusTracker) Fail(err error, artifactPaths map[string]string) {
 }
 
 func (t *scanStatusTracker) Footer() string {
+	return formatScanProgressFooter(t.FooterData())
+}
+
+func (t *scanStatusTracker) Progress(snapshot scanProgressSnapshot) {
 	if t == nil {
-		return ""
+		return
+	}
+	t.applyProgress(snapshot)
+	_ = state.SaveScanStatus(t.statePath, t.status)
+}
+
+func (t *scanStatusTracker) FooterData() scanProgressFooter {
+	if t == nil {
+		return scanProgressFooter{}
 	}
 	paths := make([]string, 0, len(t.status.ArtifactPaths))
 	for key, value := range t.status.ArtifactPaths {
@@ -189,13 +239,71 @@ func (t *scanStatusTracker) Footer() string {
 		}
 	}
 	sort.Strings(paths)
-	return fmt.Sprintf("scan status=%s last_successful_phase=%s current_phase=%s partial_result=%t artifacts=%s",
-		t.status.Status,
-		t.status.LastSuccessfulPhase,
-		t.status.CurrentPhase,
-		t.status.PartialResult,
-		strings.Join(paths, ","),
-	)
+	return scanProgressFooter{
+		Status:              t.status.Status,
+		CurrentPhase:        t.status.CurrentPhase,
+		LastSuccessfulPhase: t.status.LastSuccessfulPhase,
+		ProgressPercent:     t.status.ProgressPercent,
+		ProgressMessage:     t.status.ProgressMessage,
+		ElapsedSeconds:      t.status.ElapsedSeconds,
+		PartialResult:       t.status.PartialResult,
+		RepoTotal:           t.status.RepoTotal,
+		ReposCompleted:      t.status.ReposCompleted,
+		ReposFailed:         t.status.ReposFailed,
+		DetectorProgress:    t.status.DetectorProgress,
+		ArtifactPaths:       append([]string(nil), paths...),
+		ResumeHint:          t.resumeHint(),
+	}
+}
+
+func (t *scanStatusTracker) applyProgress(snapshot scanProgressSnapshot) {
+	if t == nil {
+		return
+	}
+	t.lastProgress = snapshot
+	if snapshot.ProgressPercent > 0 {
+		t.status.ProgressPercent = snapshot.ProgressPercent
+	}
+	if strings.TrimSpace(snapshot.ProgressMessage) != "" {
+		t.status.ProgressMessage = strings.TrimSpace(snapshot.ProgressMessage)
+	}
+	if !snapshot.LastProgressAt.IsZero() {
+		t.status.LastProgressAt = snapshot.LastProgressAt.UTC().Truncate(time.Second).Format(time.RFC3339)
+		t.status.UpdatedAt = t.status.LastProgressAt
+	}
+	if snapshot.ElapsedSeconds > 0 {
+		t.status.ElapsedSeconds = snapshot.ElapsedSeconds
+	}
+	if strings.TrimSpace(snapshot.PhaseProgress.Phase) != "" || snapshot.PhaseProgress.Percent > 0 {
+		phaseProgress := snapshot.PhaseProgress
+		t.status.PhaseProgress = &phaseProgress
+	}
+	if snapshot.RepoProgress.Total > 0 || snapshot.RepoProgress.Completed > 0 || snapshot.RepoProgress.Failed > 0 {
+		repoProgress := snapshot.RepoProgress
+		t.status.RepoProgress = &repoProgress
+		t.status.RepoTotal = repoProgress.Total
+		t.status.ReposCompleted = repoProgress.Completed
+		t.status.ReposFailed = repoProgress.Failed
+	}
+	if snapshot.DetectorProgress.Total > 0 || snapshot.DetectorProgress.Completed > 0 || snapshot.DetectorProgress.Failed > 0 || snapshot.DetectorProgress.ActiveDetector != "" {
+		detectorProgress := snapshot.DetectorProgress
+		t.status.DetectorProgress = &detectorProgress
+	}
+}
+
+func (t *scanStatusTracker) resumeHint() string {
+	if t == nil || t.status.Status != state.ScanStatusInterrupted {
+		return ""
+	}
+	if len(t.targets) == 0 {
+		return ""
+	}
+	for _, target := range t.targets {
+		if strings.TrimSpace(target.Mode) != "org" {
+			return ""
+		}
+	}
+	return "rerun the same org scan with --resume and the same --state path"
 }
 
 func (t *scanStatusTracker) upsertPhaseTiming(phase string, startedAt time.Time, completedAt time.Time) {
@@ -246,4 +354,16 @@ func cleanArtifactPaths(paths map[string]string) map[string]string {
 
 func contextErr(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
+func elapsedSecondsFromStartedAt(startedAt string, now time.Time) int64 {
+	startedAt = strings.TrimSpace(startedAt)
+	if startedAt == "" || now.IsZero() {
+		return 0
+	}
+	parsed, err := time.Parse(time.RFC3339, startedAt)
+	if err != nil || now.Before(parsed) {
+		return 0
+	}
+	return int64(now.Sub(parsed).Seconds())
 }

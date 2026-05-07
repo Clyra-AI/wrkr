@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--source-retention ephemeral|retain_for_resume|retain] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom] [--report-share-profile internal|public|customer-redacted] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--progress auto|bar|plain|events|none] [--source-retention ephemeral|retain_for_resume|retain] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom] [--report-share-profile internal|public|customer-redacted] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
 
 Govern-first `action_paths` in scan JSON now carry additive policy-coverage fields (`policy_coverage_status`, `policy_refs`, `policy_missing_reasons`, `policy_confidence`) and optional `introduced_by` metadata derived from deterministic local git history when available.
 wrkr scan status --state <path> [--json]
@@ -79,6 +79,7 @@ Scan mode behavior is explicit:
 - `--resume`
 - `--explain`
 - `--quiet`
+- `--progress`
 - `--repo`
 - `--org`
 - `--github-org`
@@ -116,6 +117,7 @@ wrkr scan status --state ./.wrkr/last-scan.json --json
 ```
 
 The status payload includes `status`, `current_phase`, `last_successful_phase`, repo counts, `partial_result`, `partial_result_marker`, phase timings, artifact paths, and `source_privacy` when scan state includes source-retention metadata.
+During active or recently interrupted scans, additive progress fields may also include `progress_percent`, `progress_message`, `last_progress_at`, `elapsed_seconds`, `phase_progress`, `repo_progress`, and `detector_progress`.
 Existing state files without a status sidecar are interpreted as `completed` when the state snapshot can be loaded, otherwise `unknown`.
 
 ## Developer personal-hygiene example
@@ -161,7 +163,24 @@ Opinionated large-org command path:
 wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 ```
 
-When `--json` is set for hosted org and local path scans, Wrkr keeps stdout reserved for the final JSON payload and emits additive progress, retry, cooldown, resume, per-repo materialization completion/discovery, scan phase, and completion lines to stderr only. Scan phase progress includes deterministic phase labels, elapsed `duration_ms`, and repo counters. For hosted scans, `repo_materialize` means a repo job was dispatched to a worker and `repo_materialize_done` means that repo reached a success or failure result. For path scans, `repo_discovered` means a local repo root was selected for detector execution. `--quiet` suppresses those progress lines. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file. Any requested `--json-path`, `--report-md-path`, or `--sarif-path` must be unique from one another and from scan-managed `--state` sibling artifacts.
+Wrkr now exposes one explicit progress contract through `--progress auto|bar|plain|events|none`.
+
+- `auto` is the default.
+- `auto` uses `events` for `--json` scans so stdout stays reserved for the final JSON payload while progress stays on stderr.
+- `auto` uses a single updating `bar` on interactive terminals when Wrkr can safely render it.
+- `auto` degrades to `plain` newline-delimited progress on non-TTY stderr targets or conservative terminals.
+- `events` preserves machine-oriented `progress target=... event=...` stderr lines for automation and log parsers.
+- `plain` emits stable human-readable progress lines to stderr without terminal control characters.
+- `bar` requests the interactive updating bar explicitly; when stderr cannot safely render it, Wrkr falls back to `plain` and explains the fallback on stderr.
+- `none` disables progress output without muting errors.
+
+`--quiet` overrides `--progress` and suppresses all non-error progress output.
+
+When `--json` is set, Wrkr keeps stdout reserved for the final JSON payload and emits progress to stderr only. Existing event-style progress for hosted org and local path scans remains available by default through `--progress auto`. Event-mode progress includes retry, cooldown, resume, per-repo materialization completion/discovery, detector lifecycle detail, heartbeat updates, scan phase transitions, completion, and final footer lines. For hosted scans, `repo_materialize` means a repo job was dispatched to a worker and `repo_materialize_done` means that repo reached a success or failure result. For path scans, `repo_discovered` means a local repo root was selected for detector execution. `--json-path` writes the same final JSON payload to disk, and `--json --json-path` emits byte-identical payload bytes to both stdout and the selected file. Any requested `--json-path`, `--report-md-path`, or `--sarif-path` must be unique from one another and from scan-managed `--state` sibling artifacts.
+
+Long-running source acquisition, detector execution, analysis, and artifact commit phases emit heartbeats with elapsed time so operators can distinguish a slow scan from a stuck scan. The reported percent is an operator UX estimate only. It is additive progress metadata and is not consumed by risk scoring, proof emission, compliance mapping, regress baselines, or policy decisions.
+
+For CI or log-stable automation, prefer `--progress none` when you want no progress stderr, or `--progress events` when you want deterministic machine-readable liveness. `--quiet` is stronger and suppresses progress output entirely.
 `--resume` is supported only when every requested target is an org target. Wrkr stores internal checkpoint metadata under the scan-state directory in `org-checkpoints/` and reuses already-materialized repositories only when the checkpoint target set, per-org repo sets, and materialized-root path still match the current org-target scan.
 Resume also revalidates that checkpoint files and reused repo roots are still trusted local artifacts under the managed materialized root; symlink-swapped entries fail closed as `unsafe_operation_blocked`.
 Default successful hosted scans remove that managed root, so resume from retained materialized source requires an explicit retention mode such as `--source-retention retain` for completed runs or `retain_for_resume` for failed/interrupted runs.

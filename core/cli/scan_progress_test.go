@@ -435,9 +435,11 @@ func TestScanStatusReportsInterruptedPartialPhase(t *testing.T) {
 }
 
 type liveBuffer struct {
-	mu     sync.Mutex
-	buf    bytes.Buffer
-	writes chan struct{}
+	mu                sync.Mutex
+	buf               bytes.Buffer
+	writes            chan struct{}
+	capabilities      scanProgressCapabilities
+	heartbeatInterval time.Duration
 }
 
 func newLiveBuffer() *liveBuffer {
@@ -477,4 +479,18 @@ func (b *liveBuffer) waitFor(substring string, timeout time.Duration) bool {
 			return strings.Contains(b.String(), substring)
 		}
 	}
+}
+
+func (b *liveBuffer) ScanProgressCapabilities() scanProgressCapabilities {
+	if b == nil {
+		return scanProgressCapabilities{}
+	}
+	return b.capabilities
+}
+
+func (b *liveBuffer) ScanProgressHeartbeatInterval() time.Duration {
+	if b == nil || b.heartbeatInterval <= 0 {
+		return defaultScanProgressHeartbeatInterval
+	}
+	return b.heartbeatInterval
 }
