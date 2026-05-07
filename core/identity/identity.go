@@ -32,6 +32,27 @@ func ToolID(toolType, location string) string {
 	return fmt.Sprintf("%s-%s", sanitize(strings.TrimSpace(toolType)), hex.EncodeToString(digest[:])[:10])
 }
 
+// ToolFamilyID deterministically derives a global family identifier for a
+// tool/framework package independent of repo or path-specific governance.
+func ToolFamilyID(toolType, org string) string {
+	return AgentID("family-"+sanitize(strings.TrimSpace(toolType)), org)
+}
+
+// ToolInstanceID deterministically derives a repo/location scoped tool
+// instance identifier for governance, ownership, and proof joins.
+func ToolInstanceID(toolType, repo, location, symbol string, startLine, endLine int) string {
+	normalized := []string{
+		strings.ToLower(strings.TrimSpace(toolType)),
+		strings.ToLower(strings.TrimSpace(repo)),
+		strings.ToLower(strings.TrimSpace(location)),
+		strings.ToLower(strings.TrimSpace(symbol)),
+		fmt.Sprintf("%d", maxZero(startLine)),
+		fmt.Sprintf("%d", maxZero(endLine)),
+	}
+	digest := sha256.Sum256([]byte(strings.Join(normalized, "::")))
+	return fmt.Sprintf("%s-tool-inst-%s", sanitize(strings.TrimSpace(toolType)), hex.EncodeToString(digest[:])[:10])
+}
+
 // AgentInstanceID deterministically derives an instance-level identity component.
 // If symbol/range metadata is unavailable, it falls back to legacy ToolID semantics.
 func AgentInstanceID(toolType, location, symbol string, startLine, endLine int) string {
@@ -63,6 +84,13 @@ func AgentInstanceID(toolType, location, symbol string, startLine, endLine int) 
 	}, "::")
 	digest := sha256.Sum256([]byte(key))
 	return fmt.Sprintf("%s-inst-%s", sanitize(strings.TrimSpace(toolType)), hex.EncodeToString(digest[:])[:10])
+}
+
+func maxZero(value int) int {
+	if value < 0 {
+		return 0
+	}
+	return value
 }
 
 // AgentID deterministically derives the canonical agent identifier.

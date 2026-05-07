@@ -14,6 +14,10 @@ import (
 
 const (
 	GapStaleMissing         = "stale_missing"
+	GapStaleIdentity        = "stale_identity"
+	GapMissingApproval      = "missing_approval"
+	GapOwnerInferred        = "owner_inferred"
+	GapOwnerUnresolved      = "owner_unresolved"
 	GapOwnerlessExposure    = "ownerless_exposure"
 	GapInactiveCredentialed = "inactive_but_credentialed" // #nosec G101 -- lifecycle enum label, not credential material.
 	GapOverApproved         = "over_approved"
@@ -97,7 +101,10 @@ func DetectGaps(input GapInput) []Gap {
 		}
 
 		if !record.Present {
-			appendGap(GapStaleMissing, "medium", "identity is no longer present in the current scan but still exists in lifecycle state")
+			appendGap(GapStaleIdentity, "medium", "identity is no longer present in the current scan but still exists in lifecycle state")
+		}
+		if record.Present && !approvalLooksValid(record.ApprovalState) && strings.TrimSpace(record.ApprovalState) != "expired" && strings.TrimSpace(record.ApprovalState) != "invalid" {
+			appendGap(GapMissingApproval, lifecycleGapSeverity(writeCapable, credentialAccess), "identity is present without valid approval evidence")
 		}
 		if strings.TrimSpace(record.Status) == identity.StateRevoked && record.Present {
 			appendGap(GapRevokedStillPresent, "high", "revoked identity is still present in the current scan")
@@ -108,7 +115,10 @@ func DetectGaps(input GapInput) []Gap {
 		if owner == "" || ownerStatus == "" || ownerStatus == "unresolved" {
 			if writeCapable || credentialAccess || record.Present {
 				appendGap(GapOwnerlessExposure, lifecycleGapSeverity(writeCapable, credentialAccess), "identity has no resolved operational owner for its current exposure")
+				appendGap(GapOwnerUnresolved, lifecycleGapSeverity(writeCapable, credentialAccess), "identity owner is unresolved for the current inventory instance")
 			}
+		} else if ownerStatus == "inferred" {
+			appendGap(GapOwnerInferred, "medium", "identity owner was inferred and should be confirmed for governance")
 		}
 		if credentialAccess && record.Present && !isLifecycleActive(record.Status) && strings.TrimSpace(record.Status) != identity.StateRevoked {
 			appendGap(GapInactiveCredentialed, "high", "identity still has credentialed posture while not in an active approved lifecycle state")
@@ -119,7 +129,7 @@ func DetectGaps(input GapInput) []Gap {
 		if approvalLooksValid(record.ApprovalState) && !isLifecycleActive(record.Status) && strings.TrimSpace(record.Status) != identity.StateRevoked {
 			appendGap(GapOverApproved, "medium", "identity approval state is broader than its current lifecycle state")
 		}
-		if isLifecycleOrphan(record, tool, input.Inventory != nil) {
+		if isLifecycleOrphan(record, tool, privilege, input.Inventory != nil) {
 			appendGap(GapOrphanedIdentity, "medium", "lifecycle identity no longer has a matching current inventory record")
 		}
 		if transition, ok := latestTransition[agentID]; ok {
@@ -251,7 +261,7 @@ func approvalLooksValid(status string) bool {
 	}
 }
 
-func isLifecycleOrphan(record manifest.IdentityRecord, tool agginventory.Tool, hasInventory bool) bool {
+func isLifecycleOrphan(record manifest.IdentityRecord, tool agginventory.Tool, privilege agginventory.AgentPrivilegeMapEntry, hasInventory bool) bool {
 	if !hasInventory {
 		return false
 	}
@@ -259,7 +269,7 @@ func isLifecycleOrphan(record manifest.IdentityRecord, tool agginventory.Tool, h
 		return true
 	}
 	if strings.TrimSpace(tool.AgentID) == "" && strings.TrimSpace(tool.ToolID) == "" {
-		return true
+		return strings.TrimSpace(privilege.AgentID) == "" && strings.TrimSpace(privilege.ToolID) == ""
 	}
 	return false
 }

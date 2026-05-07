@@ -16,11 +16,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added buyer-facing BOM summary metadata for scan scope, source privacy, operational exposure, governance readiness, coverage confidence, and customer-share redaction policy details.
 - [semver:minor] Added a `customer-redacted` share profile for report, BOM, and report evidence artifacts with deterministic pseudonyms for sensitive customer identifiers while preserving intra-artifact joins.
 - [semver:minor] Added cross-detector BOM reachability fields for endpoints and deployment targets plus confidence-aware reachability joins between source-bound tools and saved MCP server declarations.
+- [semver:minor] Added additive `credentials[]`, `path_context`, `tool_family_id`, and `tool_instance_id` fields across privilege maps, govern-first action paths, risk reports, and Agent Action BOM output.
 
 ### Changed
 
 - Aligned govern-first ranking, risk tiers, and recommended actions so source-level MCP and agent paths with stronger governable signals outrank dependency-only inventory.
 - Changed report and BOM proof refs to distinguish global proof-chain metadata from path-specific proof coverage and remediation.
+- Split lifecycle gap reason output further into missing approval, inferred/unresolved owner, stale identity, and true orphaned identity states.
 
 ### Deprecated
 
@@ -34,6 +36,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Fixed repo-level attack-path score spillover so high attack-path scores attach only to matching govern-first paths instead of every candidate path in the same repo.
 - Fixed tolerant detector parsing for additive third-party `package.json` metadata and reduced modern JS/WebMCP parse noise by recovering positive fallback signals while keeping diagnostics out of ranked risk surfaces.
+- Fixed remaining open detector manifests and MCP-adjacent configs to tolerate additive metadata instead of treating unknown fields as parse failures.
 
 ### Security
 

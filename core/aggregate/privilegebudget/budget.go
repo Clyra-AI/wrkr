@@ -109,6 +109,8 @@ func Build(
 			}
 			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation)
 			credentialProvenance := classifyCredentialProvenance(tool.DataClass, tool.Permissions, agentContext.BoundAuthSurfaces, signal)
+			credentials := agginventory.NormalizeCredentialProvenances([]*agginventory.CredentialProvenance{credentialProvenance})
+			credentialProvenance = agginventory.CredentialRollup(credentials, credentialProvenance)
 			actionClasses, actionReasons := agginventory.DeriveActionClasses(agginventory.ActionClassInput{
 				Permissions:      tool.Permissions,
 				WritePathClasses: writePathClasses,
@@ -124,9 +126,13 @@ func Build(
 			approvalReasons := approvalGapReasons(signal, tool.Permissions, deploymentStatus)
 			triggerClass := workflowTriggerClass(signal, tool.Permissions, deploymentStatus, deployWrite, productionWrite)
 			owner := resolveOperationalOwner(tool, tool.Repos, "", tool.Org)
+			toolFamilyID := firstNonEmptyString(tool.ToolFamilyID, identity.ToolFamilyID(tool.ToolType, tool.Org))
+			toolInstanceID := firstNonEmptyString(tool.ToolInstanceID, tool.ToolID)
 
 			entries = append(entries, agginventory.AgentPrivilegeMapEntry{
 				AgentID:                  tool.AgentID,
+				ToolFamilyID:             toolFamilyID,
+				ToolInstanceID:           toolInstanceID,
 				ToolID:                   tool.ToolID,
 				ToolType:                 tool.ToolType,
 				Framework:                fallbackFramework(agentContext.Framework, tool.ToolType),
@@ -167,7 +173,9 @@ func Build(
 				ProductionTargetStatus:   currentProductionTargetStatus(productionConfigured),
 				WriteCapable:             writeCapable,
 				CredentialAccess:         credentialAccess,
+				Credentials:              credentials,
 				CredentialProvenance:     credentialProvenance,
+				PathContext:              agginventory.ClassifyPathContext(primaryLocation(tool)),
 				StandingPrivilege:        standingPrivilege,
 				StandingPrivilegeReasons: standingReasons,
 				ExecCapable:              execCapable,
@@ -281,6 +289,8 @@ func buildInstanceEntries(
 		if org == "" {
 			org = fallbackOrg(tool.Org)
 		}
+		toolFamilyID := firstNonEmptyString(agent.ToolFamilyID, tool.ToolFamilyID, identity.ToolFamilyID(framework, org))
+		toolInstanceID := firstNonEmptyString(agent.ToolInstanceID, tool.ToolInstanceID, identity.ToolInstanceID(framework, firstRepo(repos), agent.Location, agent.Symbol, rangeStart(agent.LocationRange), rangeEnd(agent.LocationRange)))
 		endpointClass := firstNonEmptyString(tool.EndpointClass, "workspace")
 		dataClass := firstNonEmptyString(tool.DataClass, inferAgentDataClass(agent, permissions))
 		autonomyLevel := firstNonEmptyString(tool.AutonomyLevel, "interactive")
@@ -310,6 +320,8 @@ func buildInstanceEntries(
 			deploymentStatus = "unknown"
 		}
 		credentialProvenance := classifyCredentialProvenance(dataClass, permissions, agent.BoundAuthSurfaces, signals)
+		credentials := agginventory.NormalizeCredentialProvenances([]*agginventory.CredentialProvenance{credentialProvenance})
+		credentialProvenance = agginventory.CredentialRollup(credentials, credentialProvenance)
 		actionClasses, actionReasons := agginventory.DeriveActionClasses(agginventory.ActionClassInput{
 			Permissions:      permissions,
 			WritePathClasses: writePathClasses,
@@ -329,6 +341,8 @@ func buildInstanceEntries(
 		entries = append(entries, agginventory.AgentPrivilegeMapEntry{
 			AgentID:                  strings.TrimSpace(agent.AgentID),
 			AgentInstanceID:          instanceID,
+			ToolFamilyID:             toolFamilyID,
+			ToolInstanceID:           toolInstanceID,
 			ToolID:                   toolID,
 			ToolType:                 firstNonEmptyString(tool.ToolType, framework),
 			Framework:                framework,
@@ -371,7 +385,9 @@ func buildInstanceEntries(
 			ProductionTargetStatus:   currentProductionTargetStatus(productionConfigured),
 			WriteCapable:             writeCapable,
 			CredentialAccess:         credentialAccess,
+			Credentials:              credentials,
 			CredentialProvenance:     credentialProvenance,
+			PathContext:              agginventory.ClassifyPathContext(agent.Location),
 			StandingPrivilege:        standingPrivilege,
 			StandingPrivilegeReasons: standingReasons,
 			ExecCapable:              execCapable,
@@ -623,6 +639,12 @@ func mergeAgentContext(current, incoming agginventory.Agent, key string) agginve
 	}
 	if strings.TrimSpace(merged.AgentInstanceID) == "" {
 		merged.AgentInstanceID = strings.TrimSpace(incoming.AgentInstanceID)
+	}
+	if strings.TrimSpace(merged.ToolFamilyID) == "" {
+		merged.ToolFamilyID = strings.TrimSpace(incoming.ToolFamilyID)
+	}
+	if strings.TrimSpace(merged.ToolInstanceID) == "" {
+		merged.ToolInstanceID = strings.TrimSpace(incoming.ToolInstanceID)
 	}
 	if strings.TrimSpace(merged.Framework) == "" {
 		merged.Framework = strings.TrimSpace(incoming.Framework)
@@ -1847,6 +1869,25 @@ func locationRangeBounds(value *model.LocationRange) (int, int) {
 		return 0, 0
 	}
 	return value.StartLine, value.EndLine
+}
+
+func firstRepo(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	repos := cloneStringSlice(values)
+	sort.Strings(repos)
+	return strings.TrimSpace(repos[0])
+}
+
+func rangeStart(value *model.LocationRange) int {
+	start, _ := locationRangeBounds(value)
+	return start
+}
+
+func rangeEnd(value *model.LocationRange) int {
+	_, end := locationRangeBounds(value)
+	return end
 }
 
 func firstNonEmptyString(values ...string) string {

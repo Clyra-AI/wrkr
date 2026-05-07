@@ -105,6 +105,34 @@ func TestDetect_EmitsApprovalSourceAndProofRequirement(t *testing.T) {
 	}
 }
 
+func TestDetect_AllowsUnknownOpenFrameworkManifestFields(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	configPath := ".wrkr/agents/langchain.yaml"
+	writeFile(t, root, configPath, `schemaVersion: partner-v2
+agents:
+  - name: release_agent
+    file: agents/release.py
+    x-owner: platform
+unknownTopLevel:
+  author: partner
+`)
+
+	findings, err := Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, DetectorConfig{
+		DetectorID: "agentframework_langchain",
+		Framework:  "langchain",
+		ConfigPath: configPath,
+		Format:     "yaml",
+	})
+	if err != nil {
+		t.Fatalf("detect: %v", err)
+	}
+	if len(findings) != 1 || findings[0].FindingType == "parse_error" {
+		t.Fatalf("expected tolerant manifest parse, got %+v", findings)
+	}
+}
+
 func TestDetectMany_DeterministicAcrossFormats(t *testing.T) {
 	t.Parallel()
 

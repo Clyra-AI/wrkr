@@ -1406,6 +1406,8 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.Org = redactValue("org", copyItem.Org, 6)
 		copyItem.Repo = redactValue("repo", copyItem.Repo, 6)
 		copyItem.AgentID = redactValue("agent", copyItem.AgentID, 8)
+		copyItem.ToolFamilyID = redactValue("family", copyItem.ToolFamilyID, 8)
+		copyItem.ToolInstanceID = redactValue("instance", copyItem.ToolInstanceID, 8)
 		copyItem.Location = redactValue("loc", copyItem.Location, 8)
 		copyItem.OperationalOwner = redactValue("owner", copyItem.OperationalOwner, 8)
 		copyItem.ExecutionIdentity = redactValue("identity", copyItem.ExecutionIdentity, 8)
@@ -1416,6 +1418,7 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 			copyItem.CredentialProvenance.Subject = redactValue("credential", copyItem.CredentialProvenance.Subject, 8)
 			copyItem.CredentialProvenance.EvidenceBasis = redactStringSlice(copyItem.CredentialProvenance.EvidenceBasis, "evidence")
 		}
+		copyItem.Credentials = redactCredentialsPublic(copyItem.Credentials)
 		if copyItem.IntroducedBy != nil {
 			introduced := *copyItem.IntroducedBy
 			introduced.Author = redactValue("author", introduced.Author, 8)
@@ -1450,6 +1453,17 @@ func sanitizeActionPathToControlFirstPublic(in *risk.ActionPathToControlFirst) *
 		Summary: copySummary,
 		Path:    paths[0],
 	}
+}
+
+func redactCredentialsPublic(in []*agginventory.CredentialProvenance) []*agginventory.CredentialProvenance {
+	out := agginventory.CloneCredentialProvenances(in)
+	for idx := range out {
+		out[idx].Subject = redactValue("credential", out[idx].Subject, 8)
+		out[idx].EvidenceBasis = redactStringSlice(out[idx].EvidenceBasis, "evidence")
+		out[idx].EvidenceLocation = redactValue("loc", out[idx].EvidenceLocation, 8)
+		out[idx].ClassificationReasons = redactStringSlice(out[idx].ClassificationReasons, "evidence")
+	}
+	return out
 }
 
 func sanitizeExposureGroupsPublic(in []risk.ExposureGroup) []risk.ExposureGroup {
@@ -1578,6 +1592,8 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 	for idx := range copyBOM.Items {
 		copyBOM.Items[idx].PathID = redactValue("path", copyBOM.Items[idx].PathID, 8)
 		copyBOM.Items[idx].AgentID = redactValue("agent", copyBOM.Items[idx].AgentID, 8)
+		copyBOM.Items[idx].ToolFamilyID = redactValue("family", copyBOM.Items[idx].ToolFamilyID, 8)
+		copyBOM.Items[idx].ToolInstanceID = redactValue("instance", copyBOM.Items[idx].ToolInstanceID, 8)
 		copyBOM.Items[idx].Org = redactValue("org", copyBOM.Items[idx].Org, 6)
 		copyBOM.Items[idx].Repo = redactValue("repo", copyBOM.Items[idx].Repo, 6)
 		copyBOM.Items[idx].Location = redactValue("loc", copyBOM.Items[idx].Location, 8)
@@ -1606,6 +1622,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 			copyBOM.Items[idx].CredentialProvenance.EvidenceBasis = redactStringSlice(copyBOM.Items[idx].CredentialProvenance.EvidenceBasis, "evidence")
 			copyBOM.Items[idx].CredentialProvenance.EvidenceLocation = redactValue("loc", copyBOM.Items[idx].CredentialProvenance.EvidenceLocation, 8)
 		}
+		copyBOM.Items[idx].Credentials = redactCredentialsPublic(copyBOM.Items[idx].Credentials)
 		if copyBOM.Items[idx].IntroducedBy != nil {
 			introduced := *copyBOM.Items[idx].IntroducedBy
 			introduced.Author = redactValue("author", introduced.Author, 8)

@@ -30,6 +30,8 @@ type ToolLocation struct {
 type Agent struct {
 	AgentID                  string               `json:"agent_id" yaml:"agent_id"`
 	AgentInstanceID          string               `json:"agent_instance_id" yaml:"agent_instance_id"`
+	ToolFamilyID             string               `json:"tool_family_id,omitempty" yaml:"tool_family_id,omitempty"`
+	ToolInstanceID           string               `json:"tool_instance_id,omitempty" yaml:"tool_instance_id,omitempty"`
 	Framework                string               `json:"framework" yaml:"framework"`
 	Symbol                   string               `json:"symbol,omitempty" yaml:"symbol,omitempty"`
 	SecurityVisibilityStatus string               `json:"security_visibility_status,omitempty" yaml:"security_visibility_status,omitempty"`
@@ -63,6 +65,8 @@ type AgentDeploymentContext struct {
 
 type Tool struct {
 	ToolID                   string                     `json:"tool_id" yaml:"tool_id"`
+	ToolFamilyID             string                     `json:"tool_family_id,omitempty" yaml:"tool_family_id,omitempty"`
+	ToolInstanceID           string                     `json:"tool_instance_id,omitempty" yaml:"tool_instance_id,omitempty"`
 	AgentID                  string                     `json:"agent_id" yaml:"agent_id"`
 	DiscoveryMethod          string                     `json:"discovery_method" yaml:"discovery_method"`
 	ToolType                 string                     `json:"tool_type" yaml:"tool_type"`
@@ -287,6 +291,7 @@ func Build(input BuildInput) Inventory {
 			findingOrg = org
 		}
 		toolID := identity.ToolID(finding.ToolType, finding.Location)
+		toolFamilyID := identity.ToolFamilyID(finding.ToolType, findingOrg)
 		key := findingOrg + "::" + toolID
 		item, exists := toolMap[key]
 		if !exists {
@@ -294,6 +299,8 @@ func Build(input BuildInput) Inventory {
 			context := input.Contexts[KeyForFinding(finding)]
 			tool := Tool{
 				ToolID:          toolID,
+				ToolFamilyID:    toolFamilyID,
+				ToolInstanceID:  toolID,
 				AgentID:         agentID,
 				DiscoveryMethod: normalizeDiscoveryMethod(finding.DiscoveryMethod),
 				ToolType:        strings.TrimSpace(finding.ToolType),
@@ -316,6 +323,7 @@ func Build(input BuildInput) Inventory {
 		symbol := findingAgentSymbol(finding)
 		startLine, endLine := findingRangeLines(finding)
 		instanceID := identity.AgentInstanceID(finding.ToolType, finding.Location, symbol, startLine, endLine)
+		toolInstanceID := identity.ToolInstanceID(finding.ToolType, finding.Repo, finding.Location, symbol, startLine, endLine)
 		agentKey := strings.Join([]string{
 			findingOrg,
 			framework,
@@ -328,6 +336,8 @@ func Build(input BuildInput) Inventory {
 		agentMap[agentKey] = Agent{
 			AgentID:                identity.AgentID(instanceID, findingOrg),
 			AgentInstanceID:        instanceID,
+			ToolFamilyID:           toolFamilyID,
+			ToolInstanceID:         toolInstanceID,
 			Framework:              framework,
 			Symbol:                 strings.TrimSpace(symbol),
 			Org:                    findingOrg,

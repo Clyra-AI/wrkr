@@ -232,13 +232,20 @@
         "org": {"type": "string"},
         "repo": {"type": "string"},
         "agent_id": {"type": "string"},
+        "tool_family_id": {"type": "string"},
+        "tool_instance_id": {"type": "string"},
         "tool_type": {"type": "string"},
         "location": {"type": "string"},
         "location_range": {"$ref": "#/$defs/locationRange"},
         "write_capable": {"type": "boolean"},
         "approval_gap": {"type": "boolean"},
         "credential_access": {"type": "boolean"},
+        "credentials": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/credentialProvenance"}
+        },
         "credential_provenance": {"$ref": "#/$defs/credentialProvenance"},
+        "path_context": {"$ref": "#/$defs/pathContext"},
         "action_classes": {"type": "array", "items": {"type": "string"}},
         "action_reasons": {"type": "array", "items": {"type": "string"}},
         "trust_depth": {"$ref": "#/$defs/trustDepth"},
@@ -408,6 +415,19 @@
         "source_refs": {"type": "array", "items": {"type": "string"}},
         "attack_path_refs": {"type": "array", "items": {"type": "string"}},
         "source_finding_keys": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "pathContext": {
+      "type": "object",
+      "required": ["kind", "confidence"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["runtime_source", "deployable_source", "functional_test", "unit_test", "example", "docs", "generated_code", "package_cache", "unknown"]
+        },
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "reasons": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },

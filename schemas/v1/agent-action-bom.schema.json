@@ -60,6 +60,8 @@
       "properties": {
         "path_id": {"type": "string"},
         "agent_id": {"type": "string"},
+        "tool_family_id": {"type": "string"},
+        "tool_instance_id": {"type": "string"},
         "org": {"type": "string"},
         "repo": {"type": "string"},
         "tool_type": {"type": "string"},
@@ -69,7 +71,12 @@
         "ownership_status": {"type": "string"},
         "ownership_state": {"type": "string"},
         "credential_access": {"type": "boolean"},
+        "credentials": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/credentialProvenance"}
+        },
         "credential_provenance": {"$ref": "#/$defs/credentialProvenance"},
+        "path_context": {"$ref": "#/$defs/pathContext"},
         "standing_privilege": {"type": "boolean"},
         "standing_privilege_reasons": {"type": "array", "items": {"type": "string"}},
         "action_classes": {"type": "array", "items": {"type": "string"}},
@@ -330,6 +337,19 @@
         "risk_multiplier": {"type": "number"}
       },
       "additionalProperties": true
+    },
+    "pathContext": {
+      "type": "object",
+      "required": ["kind", "confidence"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["runtime_source", "deployable_source", "functional_test", "unit_test", "example", "docs", "generated_code", "package_cache", "unknown"]
+        },
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "reasons": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
     },
     "trustDepth": {
       "type": "object",

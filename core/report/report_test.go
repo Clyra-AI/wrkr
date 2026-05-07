@@ -1170,6 +1170,62 @@ func TestBuildSummaryCustomerRedactedSanitizesBOMReachability(t *testing.T) {
 	}
 }
 
+func TestAgentActionBOMCarriesCredentialsPathContextAndToolInstance(t *testing.T) {
+	t.Parallel()
+
+	bom := BuildAgentActionBOM(Summary{
+		GeneratedAt: "2026-05-07T12:00:00Z",
+		ActionPaths: []risk.ActionPath{{
+			PathID:            "apc-release",
+			AgentID:           "wrkr:agent:acme",
+			ToolFamilyID:      "wrkr:family-langchain:acme",
+			ToolInstanceID:    "langchain-tool-inst-release",
+			Org:               "acme",
+			Repo:              "acme/app",
+			ToolType:          "langchain",
+			Location:          "functional_tests/conftest.py",
+			WriteCapable:      true,
+			CredentialAccess:  true,
+			ApprovalGap:       true,
+			RecommendedAction: "proof",
+			ControlPriority:   risk.ControlPriorityReviewQueue,
+			RiskTier:          risk.RiskTierMedium,
+			AttackPathScore:   5.4,
+			RiskScore:         6.2,
+			PathContext:       agginventory.ClassifyPathContext("functional_tests/conftest.py"),
+			Credentials: []*agginventory.CredentialProvenance{
+				{
+					Type:           agginventory.CredentialProvenanceStaticSecret,
+					Subject:        "GITHUB_TOKEN",
+					Scope:          agginventory.CredentialScopeWorkflow,
+					Confidence:     "high",
+					RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+				},
+			},
+			CredentialProvenance: &agginventory.CredentialProvenance{
+				Type:           agginventory.CredentialProvenanceStaticSecret,
+				Subject:        "GITHUB_TOKEN",
+				Scope:          agginventory.CredentialScopeWorkflow,
+				Confidence:     "high",
+				RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+			},
+		}},
+	})
+	if bom == nil || len(bom.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", bom)
+	}
+	item := bom.Items[0]
+	if len(item.Credentials) != 1 || item.CredentialProvenance == nil {
+		t.Fatalf("expected credentials array and rollup, got %+v", item)
+	}
+	if item.PathContext == nil || item.PathContext.Kind != agginventory.PathContextFunctionalTest {
+		t.Fatalf("expected path context on BOM item, got %+v", item.PathContext)
+	}
+	if item.ToolFamilyID != "wrkr:family-langchain:acme" || item.ToolInstanceID != "langchain-tool-inst-release" {
+		t.Fatalf("expected tool family/instance ids, got %+v", item)
+	}
+}
+
 func mustJSONEvidenceBundle(t *testing.T, summary Summary) []byte {
 	t.Helper()
 	payload, err := RenderEvidenceBundleJSON(summary)

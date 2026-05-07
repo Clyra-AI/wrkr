@@ -87,7 +87,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 
 	if detect.FileExists(scope.Root, ".cursor/mcp.json") {
 		var parsed cursorMCP
-		if parseErr := detect.ParseJSONFile(detectorID, scope.Root, ".cursor/mcp.json", &parsed); parseErr != nil {
+		if parseErr := detect.ParseJSONFileAllowUnknownFields(detectorID, scope.Root, ".cursor/mcp.json", &parsed); parseErr != nil {
 			parseErr.Detector = detectorID
 			findings = append(findings, model.Finding{
 				FindingType: "parse_error",
@@ -134,7 +134,6 @@ func parseMDCFrontmatter(root, rel string) (ruleFrontmatter, *model.ParseError) 
 	section := trimmed[4 : 4+idx]
 	var out ruleFrontmatter
 	decoder := yaml.NewDecoder(bytes.NewBufferString(section))
-	decoder.KnownFields(true)
 	if decodeErr := decoder.Decode(&out); decodeErr != nil {
 		return ruleFrontmatter{}, &model.ParseError{Kind: "parse_error", Format: "yaml", Path: rel, Message: decodeErr.Error()}
 	}

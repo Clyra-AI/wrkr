@@ -56,7 +56,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			continue
 		}
 		var card agentCard
-		if parseErr := detect.ParseJSONFile(detectorID, scope.Root, rel, &card); parseErr != nil {
+		if parseErr := detect.ParseJSONFileAllowUnknownFields(detectorID, scope.Root, rel, &card); parseErr != nil {
 			findings = append(findings, model.Finding{
 				FindingType: "parse_error",
 				Severity:    model.SeverityMedium,

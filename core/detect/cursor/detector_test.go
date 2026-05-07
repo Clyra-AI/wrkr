@@ -37,6 +37,30 @@ func TestDetectRejectsExternalSymlinkedCursorRule(t *testing.T) {
 	}
 }
 
+func TestDetectAllowsUnknownCursorRuleFrontmatter(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeCursorFile(t, root, ".cursor/rules/deploy.mdc", strings.Join([]string{
+		"---",
+		"description: deploy",
+		"alwaysApply: true",
+		"owner: platform",
+		"unknownMetadata: true",
+		"---",
+		"",
+		"# Deploy",
+	}, "\n"))
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "repo", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect cursor: %v", err)
+	}
+	if len(findings) != 1 || findings[0].FindingType == "parse_error" {
+		t.Fatalf("expected tolerant frontmatter finding, got %#v", findings)
+	}
+}
+
 func writeCursorFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))

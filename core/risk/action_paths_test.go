@@ -562,6 +562,66 @@ func TestActionPathCarriesCredentialProvenance(t *testing.T) {
 	}
 }
 
+func TestActionPathCarriesCredentialArrayPathContextAndToolInstance(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                "wrkr:agent:acme",
+				ToolFamilyID:           "wrkr:family-langchain:acme",
+				ToolInstanceID:         "langchain-tool-inst-release",
+				ToolID:                 "langchain-release",
+				Framework:              "langchain",
+				Org:                    "acme",
+				Repos:                  []string{"acme/app"},
+				Location:               "functional_tests/conftest.py",
+				RiskScore:              4.2,
+				WriteCapable:           true,
+				CredentialAccess:       true,
+				ApprovalClassification: "approved",
+				Credentials: []*agginventory.CredentialProvenance{
+					{
+						Type:             agginventory.CredentialProvenanceStaticSecret,
+						Subject:          "GPG_PRIVATE_KEY",
+						Scope:            agginventory.CredentialScopeWorkflow,
+						Confidence:       "high",
+						CredentialKind:   agginventory.CredentialKindStaticSecret,
+						AccessType:       agginventory.CredentialAccessTypeStanding,
+						StandingAccess:   true,
+						EvidenceLocation: ".github/workflows/release.yml",
+						RiskMultiplier:   agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+					},
+					{
+						Type:           agginventory.CredentialProvenanceOAuthDelegation,
+						Subject:        "github_app",
+						Scope:          agginventory.CredentialScopeRepository,
+						Confidence:     "medium",
+						CredentialKind: agginventory.CredentialKindDelegatedOAuth,
+						AccessType:     agginventory.CredentialAccessTypeDelegated,
+						RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceOAuthDelegation),
+					},
+				},
+			},
+		},
+	})
+	if len(paths) != 1 {
+		t.Fatalf("expected one action path, got %+v", paths)
+	}
+	if len(paths[0].Credentials) != 2 {
+		t.Fatalf("expected distinct credentials array, got %+v", paths[0].Credentials)
+	}
+	if paths[0].CredentialProvenance == nil || paths[0].CredentialProvenance.Subject != "GPG_PRIVATE_KEY" {
+		t.Fatalf("expected highest-risk credential rollup, got %+v", paths[0].CredentialProvenance)
+	}
+	if paths[0].PathContext == nil || paths[0].PathContext.Kind != agginventory.PathContextFunctionalTest {
+		t.Fatalf("expected functional test path context, got %+v", paths[0].PathContext)
+	}
+	if paths[0].ToolFamilyID != "wrkr:family-langchain:acme" || paths[0].ToolInstanceID != "langchain-tool-inst-release" {
+		t.Fatalf("expected tool family/instance ids, got %+v", paths[0])
+	}
+}
+
 func TestDecoratePolicyCoverageMatchesDeclaredRefsToGaitPolicyFiles(t *testing.T) {
 	t.Parallel()
 
