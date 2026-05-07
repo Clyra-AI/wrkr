@@ -44,6 +44,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
+- [semver:patch] Raised Wrkr's active Go toolchain pin to `1.26.3` and updated `golang.org/x/net` to `v0.53.0` to clear `govulncheck` findings in binary-scanning CI lanes.
 - (none yet)
 
 ## Changelog maintenance process
