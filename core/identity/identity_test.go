@@ -43,6 +43,21 @@ func TestAgentInstanceID_TwoDefinitionsSameFile_AreDistinct(t *testing.T) {
 	}
 }
 
+func TestToolInstanceID_NormalizesSingleSidedRanges(t *testing.T) {
+	t.Parallel()
+
+	withStartOnly := ToolInstanceID("langchain", "repo", "agents.py", "research_agent", 12, 0)
+	withEndOnly := ToolInstanceID("langchain", "repo", "agents.py", "research_agent", 0, 12)
+	withBoth := ToolInstanceID("langchain", "repo", "agents.py", "research_agent", 12, 12)
+
+	if withStartOnly != withBoth {
+		t.Fatalf("expected start-only range to normalize to %q, got %q", withBoth, withStartOnly)
+	}
+	if withEndOnly != withBoth {
+		t.Fatalf("expected end-only range to normalize to %q, got %q", withBoth, withEndOnly)
+	}
+}
+
 func TestAgentIDBackwardCompatibility_ToolIDFlowStillResolves(t *testing.T) {
 	t.Parallel()
 
