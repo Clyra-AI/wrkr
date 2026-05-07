@@ -4,7 +4,7 @@
 
 ```bash
 wrkr regress init --baseline <scan-state-path> [--output <baseline-path>] [--json]
-wrkr regress run --baseline <baseline-path-or-scan-state-path> [--state <state-path>] [--summary-md] [--summary-md-path <path>] [--template exec|operator|audit|public] [--share-profile internal|public] [--top <n>] [--json]
+wrkr regress run --baseline <baseline-path-or-scan-state-path> [--state <state-path>] [--summary-md] [--summary-md-path <path>] [--template exec|operator|audit|public] [--share-profile internal|public|customer-redacted] [--top <n>] [--json]
 ```
 
 ## Flags

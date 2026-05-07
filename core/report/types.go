@@ -14,6 +14,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
+	scorecore "github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -47,8 +48,9 @@ const (
 type ShareProfile string
 
 const (
-	ShareProfileInternal ShareProfile = "internal"
-	ShareProfilePublic   ShareProfile = "public"
+	ShareProfileInternal         ShareProfile = "internal"
+	ShareProfilePublic           ShareProfile = "public"
+	ShareProfileCustomerRedacted ShareProfile = "customer-redacted"
 )
 
 type BuildInput struct {
@@ -69,9 +71,13 @@ type Summary struct {
 	GeneratedAt              string                                 `json:"generated_at"`
 	Template                 string                                 `json:"template"`
 	ShareProfile             string                                 `json:"share_profile"`
+	ShareProfileMetadata     *ShareProfileMetadata                  `json:"share_profile_metadata,omitempty"`
 	SectionOrder             []string                               `json:"section_order"`
 	Sections                 []Section                              `json:"sections"`
 	Headline                 Headline                               `json:"headline"`
+	ScanScope                *ScanScopeSummary                      `json:"scan_scope,omitempty"`
+	OperationalExposure      *scorecore.AxisSummary                 `json:"operational_exposure,omitempty"`
+	GovernanceReadiness      *scorecore.AxisSummary                 `json:"governance_readiness,omitempty"`
 	AssessmentSummary        *AssessmentSummary                     `json:"assessment_summary,omitempty"`
 	Methodology              Methodology                            `json:"methodology"`
 	TopRisks                 []RiskItem                             `json:"top_risks"`
@@ -96,6 +102,20 @@ type Summary struct {
 	SourcePrivacy            *sourceprivacy.Contract                `json:"source_privacy,omitempty"`
 	controlProofStatus       []ControlProofStatus
 	topAttackPaths           []riskattack.ScoredPath
+}
+
+type ShareProfileMetadata struct {
+	RedactionApplied bool     `json:"redaction_applied"`
+	RedactionVersion string   `json:"redaction_version,omitempty"`
+	PolicySummary    []string `json:"policy_summary,omitempty"`
+}
+
+type ScanScopeSummary struct {
+	Mode           string `json:"mode"`
+	ScopeLabel     string `json:"scope_label"`
+	SourceBoundary string `json:"source_boundary"`
+	RepoCount      int    `json:"repo_count"`
+	TargetCount    int    `json:"target_count"`
 }
 
 type AttackPathSummary struct {
@@ -264,7 +284,7 @@ func ParseTemplate(raw string) (Template, bool) {
 
 func ParseShareProfile(raw string) (ShareProfile, bool) {
 	switch ShareProfile(raw) {
-	case ShareProfileInternal, ShareProfilePublic:
+	case ShareProfileInternal, ShareProfilePublic, ShareProfileCustomerRedacted:
 		return ShareProfile(raw), true
 	default:
 		return "", false

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -266,6 +267,90 @@ func TestDetectMCPActionSurfacePermissions(t *testing.T) {
 	if declared := evidenceValue(byServer["admin"], "declared_action_surface"); declared != "read,write,admin" {
 		t.Fatalf("expected declared_action_surface=read,write,admin, got %q", declared)
 	}
+}
+
+func TestMCPDetectorFindsPackageScriptCandidate(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	payload := []byte(`{
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "scripts": {
+    "mcp:serve": "npx -y @modelcontextprotocol/sdk server --token ${MCP_TOKEN}"
+  },
+  "workspaces": ["packages/*", "services/mcp-*"]
+}`)
+	if err := os.WriteFile(filepath.Join(root, "package.json"), payload, 0o600); err != nil {
+		t.Fatalf("write package manifest: %v", err)
+	}
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "repo", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect mcp: %v", err)
+	}
+
+	candidates := []model.Finding{}
+	for _, finding := range findings {
+		if finding.FindingType == "mcp_server_candidate" {
+			candidates = append(candidates, finding)
+		}
+	}
+	if len(candidates) < 2 {
+		t.Fatalf("expected dependency and script MCP candidates, got %+v", candidates)
+	}
+
+	byType := map[string]map[string]string{}
+	for _, finding := range candidates {
+		evidence := map[string]string{}
+		for _, item := range finding.Evidence {
+			evidence[item.Key] = item.Value
+		}
+		byType[evidence["evidence_type"]] = evidence
+	}
+	if byType["package_dependency"]["candidate_name"] != "@modelcontextprotocol/sdk" {
+		t.Fatalf("expected package dependency candidate, got %+v", byType["package_dependency"])
+	}
+	if byType["package_script"]["declaration_type"] != "script_command" {
+		t.Fatalf("expected script candidate declaration type, got %+v", byType["package_script"])
+	}
+	if byType["package_script"]["transport_hint"] != "stdio" {
+		t.Fatalf("expected stdio transport hint, got %+v", byType["package_script"])
+	}
+	if !strings.Contains(byType["package_script"]["credential_refs"], "MCP_TOKEN") {
+		t.Fatalf("expected credential ref evidence, got %+v", byType["package_script"])
+	}
+}
+
+func TestMCPDetectorFindsSourceHintCandidate(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "server.py"), []byte(`from fastmcp import FastMCP
+mcp = FastMCP("billing-mcp")
+`), 0o600); err != nil {
+		t.Fatalf("write source file: %v", err)
+	}
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "repo", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect mcp: %v", err)
+	}
+
+	for _, finding := range findings {
+		if finding.FindingType != "mcp_server_candidate" {
+			continue
+		}
+		evidence := map[string]string{}
+		for _, item := range finding.Evidence {
+			evidence[item.Key] = item.Value
+		}
+		if evidence["candidate_name"] == "billing-mcp" && evidence["evidence_type"] == "source_hint" {
+			return
+		}
+	}
+	t.Fatalf("expected source-hint MCP candidate in findings: %+v", findings)
 }
 
 func evidenceValueForServer(finding model.Finding) string {

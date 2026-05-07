@@ -1035,6 +1035,141 @@ func TestAgentActionBOMTemplateLeadsWithBOMSections(t *testing.T) {
 	}
 }
 
+func TestAgentActionBOMMarkdownLeadsWithBuyerSummary(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			Target: source.Target{Mode: "path", Value: "."},
+			Targets: []source.Target{
+				{Mode: "path", Value: "."},
+			},
+			SourcePrivacy: &sourceprivacy.Contract{
+				RetentionMode:              sourceprivacy.RetentionEphemeral,
+				MaterializedSourceRetained: false,
+				RawSourceInArtifacts:       false,
+				SerializedLocations:        sourceprivacy.SerializedLocationsLogical,
+				CleanupStatus:              sourceprivacy.CleanupRemoved,
+			},
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:               "apc-123456",
+					Org:                  "acme",
+					Repo:                 "acme/release",
+					ToolType:             "langchain",
+					Location:             "agents/release.py",
+					WriteCapable:         true,
+					CredentialAccess:     true,
+					ApprovalGap:          true,
+					RecommendedAction:    "control",
+					ControlPriority:      risk.ControlPriorityControlFirst,
+					RiskTier:             risk.RiskTierHigh,
+					PolicyCoverageStatus: risk.PolicyCoverageStatusNone,
+				}},
+			},
+		},
+		Template:    TemplateAgentActionBOM,
+		GeneratedAt: time.Date(2026, 5, 7, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, "- Scanned scope:") {
+		t.Fatalf("expected buyer summary to include scanned scope, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "- Operational exposure:") || !strings.Contains(markdown, "- Governance readiness:") {
+		t.Fatalf("expected buyer summary to include split readiness axes, got %q", markdown)
+	}
+	if strings.Index(markdown, "- Scanned scope:") > strings.Index(markdown, "## Assessment Summary") {
+		t.Fatalf("expected buyer summary to lead before assessment details, got %q", markdown)
+	}
+}
+
+func TestBuildSummaryCustomerRedactedSanitizesBOMReachability(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			Target: source.Target{Mode: "repo", Value: "acme/payments"},
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:               "apc-abcdef",
+					AgentID:              "wrkr:langchain:acme",
+					Org:                  "acme",
+					Repo:                 "acme/payments",
+					ToolType:             "langchain",
+					Location:             "agents/release.py",
+					WriteCapable:         true,
+					CredentialAccess:     true,
+					ApprovalGap:          true,
+					RecommendedAction:    "control",
+					ControlPriority:      risk.ControlPriorityControlFirst,
+					RiskTier:             risk.RiskTierHigh,
+					PolicyCoverageStatus: risk.PolicyCoverageStatusNone,
+				}},
+			},
+			Findings: []source.Finding{
+				{
+					FindingType: "agent_framework",
+					ToolType:    "langchain",
+					Org:         "acme",
+					Repo:        "acme/payments",
+					Location:    "agents/release.py",
+					Evidence: []model.Evidence{
+						{Key: "confidence", Value: "high"},
+						{Key: "evidence_strength", Value: "tool_binding"},
+						{Key: "tool_bindings", Value: "prod-mcp"},
+						{Key: "reachable_endpoints", Value: "https://api.acme.example/mcp"},
+						{Key: "reachable_targets", Value: ".github/workflows/release.yml"},
+					},
+				},
+				{
+					FindingType: "mcp_server",
+					ToolType:    "mcp",
+					Org:         "acme",
+					Repo:        "acme/payments",
+					Location:    ".mcp.json",
+					Permissions: []string{"mcp.admin"},
+					Evidence: []model.Evidence{
+						{Key: "server", Value: "prod-mcp"},
+						{Key: "transport", Value: "stdio"},
+					},
+				},
+			},
+		},
+		Template:     TemplateAgentActionBOM,
+		ShareProfile: ShareProfileCustomerRedacted,
+		GeneratedAt:  time.Date(2026, 5, 7, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.AgentActionBOM == nil || len(summary.AgentActionBOM.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", summary.AgentActionBOM)
+	}
+	if summary.ShareProfileMetadata == nil || !summary.ShareProfileMetadata.RedactionApplied {
+		t.Fatalf("expected redaction metadata on summary, got %+v", summary.ShareProfileMetadata)
+	}
+	item := summary.AgentActionBOM.Items[0]
+	if !strings.HasPrefix(item.Repo, "repo-") || !strings.HasPrefix(item.Location, "loc-") {
+		t.Fatalf("expected redacted repo/location, got %+v", item)
+	}
+	if item.Confidence != "high" || item.EvidenceStrength != "tool_binding" {
+		t.Fatalf("expected confidence metadata on BOM item, got %+v", item)
+	}
+	if len(item.ReachableServers) != 1 || !strings.HasPrefix(item.ReachableServers[0].Name, "server-") {
+		t.Fatalf("expected redacted reachable server name, got %+v", item.ReachableServers)
+	}
+	if len(item.ReachableEndpoints) != 1 || !strings.HasPrefix(item.ReachableEndpoints[0].Name, "endpoint-") {
+		t.Fatalf("expected redacted reachable endpoint name, got %+v", item.ReachableEndpoints)
+	}
+	if len(item.ReachableTargets) != 1 || !strings.HasPrefix(item.ReachableTargets[0].Name, "target-") {
+		t.Fatalf("expected redacted reachable target name, got %+v", item.ReachableTargets)
+	}
+}
+
 func mustJSONEvidenceBundle(t *testing.T, summary Summary) []byte {
 	t.Helper()
 	payload, err := RenderEvidenceBundleJSON(summary)

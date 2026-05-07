@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr lifecycle [--org <org>] [--state <path>] [--summary-md] [--summary-md-path <path>] [--template exec|operator|audit|public] [--share-profile internal|public] [--top <n>] [--json]
+wrkr lifecycle [--org <org>] [--state <path>] [--summary-md] [--summary-md-path <path>] [--template exec|operator|audit|public] [--share-profile internal|public|customer-redacted] [--top <n>] [--json]
 ```
 
 ## Flags

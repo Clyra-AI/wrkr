@@ -12,6 +12,84 @@ func RenderMarkdown(summary Summary) string {
 	builder.WriteString(fmt.Sprintf("- Template: %s\n", summary.Template))
 	builder.WriteString(fmt.Sprintf("- Share profile: %s\n\n", summary.ShareProfile))
 
+	if summary.AgentActionBOM != nil && summary.Template == string(TemplateAgentActionBOM) {
+		builder.WriteString("## Agent Action BOM\n\n")
+		builder.WriteString(fmt.Sprintf("- BOM id: %s\n", summary.AgentActionBOM.BOMID))
+		if summary.ScanScope != nil {
+			builder.WriteString(fmt.Sprintf("- Scanned scope: %s mode=%s repos=%d targets=%d boundary=%s\n",
+				summary.ScanScope.ScopeLabel,
+				summary.ScanScope.Mode,
+				summary.ScanScope.RepoCount,
+				summary.ScanScope.TargetCount,
+				summary.ScanScope.SourceBoundary,
+			))
+		}
+		if summary.SourcePrivacy != nil {
+			builder.WriteString(fmt.Sprintf("- Source privacy: retention=%s retained=%t raw_source_in_artifacts=%t serialized_locations=%s cleanup_status=%s zero_data_exfiltration_default=true\n",
+				summary.SourcePrivacy.RetentionMode,
+				summary.SourcePrivacy.MaterializedSourceRetained,
+				summary.SourcePrivacy.RawSourceInArtifacts,
+				summary.SourcePrivacy.SerializedLocations,
+				summary.SourcePrivacy.CleanupStatus,
+			))
+		}
+		if summary.OperationalExposure != nil {
+			builder.WriteString(fmt.Sprintf("- Operational exposure: grade=%s driver=%s paths=%d\n",
+				summary.OperationalExposure.Grade,
+				summary.OperationalExposure.Driver,
+				summary.OperationalExposure.PathCount,
+			))
+		}
+		if summary.GovernanceReadiness != nil {
+			builder.WriteString(fmt.Sprintf("- Governance readiness: grade=%s driver=%s paths=%d\n",
+				summary.GovernanceReadiness.Grade,
+				summary.GovernanceReadiness.Driver,
+				summary.GovernanceReadiness.PathCount,
+			))
+		}
+		builder.WriteString(fmt.Sprintf("- Coverage confidence: %s\n", summary.AgentActionBOM.Summary.CoverageConfidence))
+		builder.WriteString(fmt.Sprintf("- Governable paths: total=%d control_first=%d standing_credentials=%d missing_approval=%d missing_policy=%d missing_proof=%d\n",
+			summary.AgentActionBOM.Summary.TotalItems,
+			summary.AgentActionBOM.Summary.ControlFirstItems,
+			summary.AgentActionBOM.Summary.StaticCredentialItems,
+			summary.AgentActionBOM.Summary.MissingApprovalItems,
+			summary.AgentActionBOM.Summary.MissingPolicyItems,
+			summary.AgentActionBOM.Summary.MissingProofItems,
+		))
+		if summary.ShareProfileMetadata != nil && summary.ShareProfileMetadata.RedactionApplied {
+			builder.WriteString(fmt.Sprintf("- Share redaction: version=%s policy=%s\n",
+				summary.ShareProfileMetadata.RedactionVersion,
+				strings.Join(summary.ShareProfileMetadata.PolicySummary, " | "),
+			))
+		}
+		builder.WriteString("\n")
+
+		if len(summary.AgentActionBOM.Items) == 0 || summary.AgentActionBOM.Summary.ControlFirstItems == 0 {
+			builder.WriteString("## Positive Empty State\n\n")
+			builder.WriteString(fmt.Sprintf("- No high-risk governable BOM items were emitted. Coverage confidence is %s, so treat this as a clean buyer-facing empty state only when the reported coverage matches your scan intent.\n\n", summary.AgentActionBOM.Summary.CoverageConfidence))
+		} else {
+			builder.WriteString("## Top Governable Paths\n\n")
+			limit := len(summary.AgentActionBOM.Items)
+			if limit > 8 {
+				limit = 8
+			}
+			for idx := 0; idx < limit; idx++ {
+				item := summary.AgentActionBOM.Items[idx]
+				builder.WriteString(fmt.Sprintf("- %s %s priority=%s tier=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
+					item.Repo,
+					item.Location,
+					item.ControlPriority,
+					item.RiskTier,
+					item.Confidence,
+					item.EvidenceStrength,
+					item.Queue,
+					item.Remediation,
+				))
+			}
+			builder.WriteString("\n")
+		}
+	}
+
 	if summary.AssessmentSummary != nil {
 		builder.WriteString("## Assessment Summary\n\n")
 		builder.WriteString("- Scope: static posture from saved scan state only; no runtime observation or enforcement\n")
@@ -90,23 +168,6 @@ func RenderMarkdown(summary Summary) string {
 	}
 
 	if summary.AgentActionBOM != nil && summary.Template == string(TemplateAgentActionBOM) {
-		builder.WriteString("## Agent Action BOM\n\n")
-		builder.WriteString(fmt.Sprintf("- BOM id: %s\n", summary.AgentActionBOM.BOMID))
-		builder.WriteString(fmt.Sprintf("- Total items: %d\n", summary.AgentActionBOM.Summary.TotalItems))
-		builder.WriteString(fmt.Sprintf("- Standing privilege items: %d\n", summary.AgentActionBOM.Summary.StandingPrivilegeItems))
-		builder.WriteString(fmt.Sprintf("- Missing approval items: %d\n", summary.AgentActionBOM.Summary.MissingApprovalItems))
-		builder.WriteString(fmt.Sprintf("- Production-target items: %d\n", summary.AgentActionBOM.Summary.ProductionTargetItems))
-		if len(summary.AgentActionBOM.Items) > 0 {
-			top := summary.AgentActionBOM.Items[0]
-			builder.WriteString(fmt.Sprintf("- Top BOM item: %s %s action=%s classes=%s\n",
-				top.Repo,
-				top.Location,
-				top.ControlPriority,
-				strings.Join(top.ActionClasses, ","),
-			))
-		}
-		builder.WriteString("\n")
-
 		builder.WriteString("## BOM Items\n\n")
 		limit := len(summary.AgentActionBOM.Items)
 		if limit > 10 {
@@ -114,13 +175,15 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s %s owner=%s queue=%s priority=%s tier=%s policy=%s proof=%s runtime=%s remediation=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s %s owner=%s queue=%s priority=%s tier=%s confidence=%s evidence=%s policy=%s proof=%s runtime=%s remediation=%s\n",
 				item.Repo,
 				item.Location,
 				item.Owner,
 				item.Queue,
 				item.ControlPriority,
 				item.RiskTier,
+				item.Confidence,
+				item.EvidenceStrength,
 				item.PolicyStatus,
 				item.ProofCoverage,
 				item.RuntimeEvidenceStatus,

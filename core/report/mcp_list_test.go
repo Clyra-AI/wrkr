@@ -8,6 +8,7 @@ import (
 	"time"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -223,5 +224,61 @@ func TestBuildMCPListPrefersServerScopedDeclaredActionSurface(t *testing.T) {
 	}
 	if strings.Contains(payload.Rows[0].RiskNote, "admin-capable") {
 		t.Fatalf("expected row risk note to avoid unioned admin surface, got %q", payload.Rows[0].RiskNote)
+	}
+}
+
+func TestBuildMCPListExplainsMissedExpectedServer(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPListWithOptions(state.Snapshot{
+		ScanQuality: &scanquality.Report{
+			ScanQualityVersion: scanquality.ReportVersion,
+			Mode:               "governance",
+			SuppressedPaths: []scanquality.SuppressedPath{
+				{Org: "acme", Repo: "acme/payments", Path: "node_modules/mcp/generated.js", Kind: "file", Reason: "generated_or_package_noise"},
+			},
+		},
+		Findings: []source.Finding{
+			{
+				FindingType: "mcp_server_candidate",
+				ToolType:    "mcp",
+				Location:    "package.json",
+				Repo:        "acme/payments",
+				Org:         "acme",
+				Evidence: []model.Evidence{
+					{Key: "candidate_name", Value: "payments-mcp"},
+					{Key: "evidence_type", Value: "package_script"},
+					{Key: "confidence", Value: "medium"},
+					{Key: "declaration_type", Value: "script_command"},
+					{Key: "transport_hint", Value: "stdio"},
+				},
+			},
+			{
+				FindingType: "parse_error",
+				ToolType:    "dependency",
+				Location:    "package.json",
+				Repo:        "acme/payments",
+				Org:         "acme",
+			},
+		},
+	}, MCPListOptions{
+		RepoFilter:      "acme/payments",
+		ExpectedServers: []string{"payments-mcp"},
+	})
+
+	if payload.RepoFilter != "acme/payments" {
+		t.Fatalf("expected repo filter to round-trip, got %q", payload.RepoFilter)
+	}
+	if len(payload.Candidates) != 1 {
+		t.Fatalf("expected one candidate, got %+v", payload.Candidates)
+	}
+	if len(payload.Diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic, got %+v", payload.Diagnostics)
+	}
+	if payload.Diagnostics[0].Status != "candidate_only" {
+		t.Fatalf("expected candidate_only diagnostic, got %+v", payload.Diagnostics[0])
+	}
+	if !containsString(payload.Diagnostics[0].CandidatesFound, "payments-mcp") {
+		t.Fatalf("expected candidate evidence in diagnostic, got %+v", payload.Diagnostics[0])
 	}
 }

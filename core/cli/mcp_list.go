@@ -25,6 +25,8 @@ func runMCPList(args []string, stdout io.Writer, stderr io.Writer) int {
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
 	statePathFlag := fs.String("state", "", "state file path override")
 	gaitTrustPath := fs.String("gait-trust", "", "optional local Gait trust overlay path")
+	repoFilter := fs.String("repo", "", "optional repo filter")
+	expectedServer := fs.String("expect-server", "", "optional expected MCP server name for miss diagnostics")
 
 	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
 		return code
@@ -38,7 +40,17 @@ func runMCPList(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 
-	payload := reportcore.BuildMCPList(snapshot, reportcore.ResolveGeneratedAtForCLI(snapshot, time.Time{}), *gaitTrustPath, true)
+	expectedServers := []string{}
+	if strings.TrimSpace(*expectedServer) != "" {
+		expectedServers = append(expectedServers, strings.TrimSpace(*expectedServer))
+	}
+	payload := reportcore.BuildMCPListWithOptions(snapshot, reportcore.MCPListOptions{
+		GeneratedAt:         reportcore.ResolveGeneratedAtForCLI(snapshot, time.Time{}),
+		OverlayPath:         *gaitTrustPath,
+		AllowAmbientOverlay: true,
+		RepoFilter:          *repoFilter,
+		ExpectedServers:     expectedServers,
+	})
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(payload)
 		return exitSuccess
@@ -64,6 +76,13 @@ func runMCPList(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	for _, warning := range payload.Warnings {
 		_, _ = fmt.Fprintln(stderr, warning)
+	}
+	for _, diagnostic := range payload.Diagnostics {
+		label := diagnostic.Repo
+		if strings.TrimSpace(diagnostic.ExpectedServer) != "" {
+			label = fmt.Sprintf("%s expected=%s", label, diagnostic.ExpectedServer)
+		}
+		_, _ = fmt.Fprintf(stderr, "mcp-list diagnostic repo=%s status=%s\n", label, diagnostic.Status)
 	}
 	return exitSuccess
 }

@@ -11,6 +11,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Added buyer-facing backlog queue, visibility, and remediation fields so report and evidence outputs separate `control_first`, `review_queue`, `inventory_hygiene`, and `debug_only` work without hiding appendix/debug context.
 - Added attack-path join refs and deterministic exclusion items across govern-first action paths, control-path graphs, and Agent Action BOM output so top attack paths are represented or explicitly excluded instead of silently dropped.
 - Added detector-health `scan_quality` coverage rows to report and Agent Action BOM output so clean negative MCP/WebMCP results are distinguishable from partial, reduced, or blocked coverage.
+- [semver:minor] Added MCP candidate extraction and `wrkr mcp-list` miss diagnostics for package scripts, package dependencies, workspace hints, source literals, repo filtering, and expected-server checks from saved state.
+- [semver:minor] Added framework-candidate findings plus source-level confidence and evidence-strength labels so dependency-only framework inventory is separated from active tool-binding and credential-bearing agent paths.
+- [semver:minor] Added buyer-facing BOM summary metadata for scan scope, source privacy, operational exposure, governance readiness, coverage confidence, and customer-share redaction policy details.
+- [semver:minor] Added a `customer-redacted` share profile for report, BOM, and report evidence artifacts with deterministic pseudonyms for sensitive customer identifiers while preserving intra-artifact joins.
+- [semver:minor] Added cross-detector BOM reachability fields for endpoints and deployment targets plus confidence-aware reachability joins between source-bound tools and saved MCP server declarations.
 
 ### Changed
 

@@ -181,6 +181,8 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 		}
 	}
 
+	findings = append(findings, detectAdditionalCandidates(scope, options)...)
+
 	model.SortFindings(findings)
 	return findings, nil
 }

@@ -271,6 +271,71 @@ func TestMCPListWarnsWhenKnownMCPDeclarationFilesFailedToParse(t *testing.T) {
 	}
 }
 
+func TestMCPListRepoFilterAndExpectedServerDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	statePath := writeWave2State(t, state.Snapshot{
+		Findings: []source.Finding{
+			{
+				FindingType: "mcp_server_candidate",
+				Severity:    model.SeverityLow,
+				ToolType:    "mcp",
+				Location:    "package.json",
+				Repo:        "acme/payments",
+				Org:         "acme",
+				Evidence: []model.Evidence{
+					{Key: "candidate_name", Value: "payments-mcp"},
+					{Key: "evidence_type", Value: "package_script"},
+					{Key: "confidence", Value: "medium"},
+					{Key: "declaration_type", Value: "script_command"},
+					{Key: "transport_hint", Value: "stdio"},
+				},
+			},
+			{
+				FindingType: "mcp_server",
+				Severity:    model.SeverityMedium,
+				ToolType:    "mcp",
+				Location:    ".mcp.json",
+				Repo:        "acme/infra",
+				Org:         "acme",
+				Evidence: []model.Evidence{
+					{Key: "server", Value: "infra-mcp"},
+					{Key: "transport", Value: "stdio"},
+				},
+			},
+		},
+	})
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"mcp-list", "--state", statePath, "--repo", "acme/payments", "--expect-server", "payments-mcp", "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("mcp-list failed: code=%d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse mcp-list payload: %v", err)
+	}
+	if payload["repo_filter"] != "acme/payments" {
+		t.Fatalf("expected repo_filter in payload, got %v", payload["repo_filter"])
+	}
+	rows, ok := payload["rows"].([]any)
+	if !ok {
+		t.Fatalf("expected rows array, got %T", payload["rows"])
+	}
+	if len(rows) != 0 {
+		t.Fatalf("expected repo filter to suppress non-matching authoritative rows, got %v", rows)
+	}
+	diagnostics, ok := payload["diagnostics"].([]any)
+	if !ok || len(diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic row, got %v", payload["diagnostics"])
+	}
+	firstDiagnostic := diagnostics[0].(map[string]any)
+	if firstDiagnostic["status"] != "candidate_only" {
+		t.Fatalf("expected candidate_only status, got %v", firstDiagnostic)
+	}
+}
+
 func writeWave2State(t *testing.T, snapshot state.Snapshot) string {
 	t.Helper()
 

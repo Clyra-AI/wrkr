@@ -10,6 +10,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
+	"github.com/Clyra-AI/wrkr/core/risk"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
 	"gopkg.in/yaml.v3"
 )
@@ -48,6 +49,13 @@ type Input struct {
 	Previous        *Result
 }
 
+type AxisSummary struct {
+	Grade     string   `json:"grade"`
+	PathCount int      `json:"path_count"`
+	Driver    string   `json:"driver"`
+	Rationale []string `json:"rationale,omitempty"`
+}
+
 func Compute(in Input) Result {
 	weights := in.Weights
 	if err := weights.Validate(); err != nil {
@@ -82,6 +90,99 @@ func Compute(in Input) Result {
 		Weights:           weights,
 		TrendDelta:        delta,
 	}
+}
+
+func SummarizeOperationalExposure(paths []risk.ActionPath) AxisSummary {
+	summary := AxisSummary{Grade: "low", PathCount: len(paths), Driver: "no_governable_paths"}
+	if len(paths) == 0 {
+		summary.Rationale = []string{"no governable action paths were present in saved state"}
+		return summary
+	}
+
+	productionBacked := 0
+	credentialBearing := 0
+	writeCapable := 0
+	deployed := 0
+	for _, path := range paths {
+		if path.ProductionWrite || strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") {
+			productionBacked++
+		}
+		if path.CredentialAccess {
+			credentialBearing++
+		}
+		if path.WriteCapable || path.DeployWrite || path.MergeExecute || path.PullRequestWrite {
+			writeCapable++
+		}
+		if strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") {
+			deployed++
+		}
+	}
+
+	switch {
+	case productionBacked > 0 && credentialBearing > 0:
+		summary.Grade = "critical"
+		summary.Driver = "production_and_credentials"
+	case productionBacked > 0 || credentialBearing > 0:
+		summary.Grade = "high"
+		summary.Driver = "credential_or_production"
+	case writeCapable > 0 || deployed > 0:
+		summary.Grade = "medium"
+		summary.Driver = "write_or_runtime_capable"
+	default:
+		summary.Grade = "low"
+		summary.Driver = "review_only"
+	}
+	summary.Rationale = []string{
+		fmt.Sprintf("production_backed_paths=%d", productionBacked),
+		fmt.Sprintf("credential_bearing_paths=%d", credentialBearing),
+		fmt.Sprintf("write_capable_paths=%d", writeCapable),
+		fmt.Sprintf("runtime_deployed_paths=%d", deployed),
+	}
+	return summary
+}
+
+func SummarizeGovernanceReadiness(paths []risk.ActionPath, missingProofCount int, coverageReduced bool) AxisSummary {
+	summary := AxisSummary{Grade: "high", PathCount: len(paths), Driver: "controls_present"}
+	if len(paths) == 0 && missingProofCount == 0 && !coverageReduced {
+		summary.Rationale = []string{"no governable action paths require ownership, approval, proof, or policy follow-up"}
+		return summary
+	}
+
+	approvalGaps := 0
+	missingOwners := 0
+	policyGaps := 0
+	for _, path := range paths {
+		if path.ApprovalGap {
+			approvalGaps++
+		}
+		if strings.TrimSpace(path.OwnershipStatus) == "" || strings.EqualFold(strings.TrimSpace(path.OwnershipStatus), "unresolved") || strings.EqualFold(strings.TrimSpace(path.OwnershipState), "missing") || strings.EqualFold(strings.TrimSpace(path.OwnershipState), "conflicting") {
+			missingOwners++
+		}
+		if strings.EqualFold(strings.TrimSpace(path.PolicyCoverageStatus), "") || strings.EqualFold(strings.TrimSpace(path.PolicyCoverageStatus), "none") || strings.EqualFold(strings.TrimSpace(path.PolicyCoverageStatus), "stale") || strings.EqualFold(strings.TrimSpace(path.PolicyCoverageStatus), "conflict") {
+			policyGaps++
+		}
+	}
+
+	switch {
+	case coverageReduced || missingProofCount > 0 || approvalGaps > 0 || missingOwners > 0 || policyGaps > 0:
+		summary.Grade = "low"
+		summary.Driver = "governance_gaps_present"
+		if !coverageReduced && missingProofCount == 0 && (approvalGaps+missingOwners+policyGaps) == 1 {
+			summary.Grade = "medium"
+			summary.Driver = "single_governance_gap"
+		}
+	default:
+		summary.Grade = "high"
+		summary.Driver = "controls_present"
+	}
+	summary.Rationale = []string{
+		fmt.Sprintf("approval_gaps=%d", approvalGaps),
+		fmt.Sprintf("missing_owner_paths=%d", missingOwners),
+		fmt.Sprintf("policy_gaps=%d", policyGaps),
+		fmt.Sprintf("missing_proof_paths=%d", missingProofCount),
+		fmt.Sprintf("coverage_reduced=%t", coverageReduced),
+	}
+	return summary
 }
 
 func LoadWeights(policyPath, repoRoot string) (scoremodel.Weights, error) {

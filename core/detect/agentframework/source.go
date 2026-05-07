@@ -47,6 +47,7 @@ var (
 	osGetEnvPattern         = regexp.MustCompile(`(?:os\.getenv|env\.get)\(\s*["']([A-Z][A-Z0-9_]+)["']\s*\)`)
 	osEnvironPattern        = regexp.MustCompile(`os\.environ\[\s*["']([A-Z][A-Z0-9_]+)["']\s*\]`)
 	genericEnvPattern       = regexp.MustCompile(`\b(?:getenv|env)\(\s*["']([A-Z][A-Z0-9_]+)["']\s*\)`)
+	urlPattern              = regexp.MustCompile(`https?://[A-Za-z0-9._:/?#=&-]+`)
 )
 
 func buildSourcePlans(configs []DetectorConfig) []sourcePlan {
@@ -443,7 +444,7 @@ func detectSourceAgents(scope detect.Scope, rel, content, language string, plan 
 		if strings.TrimSpace(agent.Name) == "" || strings.TrimSpace(agent.File) == "" {
 			continue
 		}
-		findings = append(findings, sourceFinding(scope, plan, agent, language, callName))
+		findings = append(findings, sourceFinding(scope, plan, agent, language, callName, block))
 	}
 	return findings
 }
@@ -564,13 +565,19 @@ func sourceAgentSpec(rel, content, block, variableName, callName string, startLi
 	}
 }
 
-func sourceFinding(scope detect.Scope, plan sourcePlan, agent AgentSpec, language, callName string) model.Finding {
+func sourceFinding(scope detect.Scope, plan sourcePlan, agent AgentSpec, language, callName, block string) model.Finding {
 	permissions := derivePermissions(agent)
 	tools := uniqueSorted(agent.Tools)
 	dataSources := uniqueSorted(agent.DataSources)
 	authSurfaces := uniqueSorted(agent.AuthSurfaces)
 	deployment := uniqueSorted(agent.Deployment)
 	deploymentStatus := sourceDeploymentStatus(deployment)
+	retrievers := retrieverHints(dataSources)
+	providers := providerHints(callName, block, strings.Join(append(append([]string(nil), dataSources...), authSurfaces...), ","), strings.Join(tools, ","))
+	workflowInvocations := workflowHints(callName, deployment, agent.DynamicDiscovery)
+	reachableEndpoints := extractURLs(strings.Join(append(append([]string(nil), authSurfaces...), deployment...), "\n"))
+	reachableTargets := targetHints(deployment)
+	confidence, evidenceStrength := sourceEvidenceStrength(agent, providers, retrievers, workflowInvocations, reachableEndpoints, reachableTargets)
 
 	evidence := []model.Evidence{
 		{Key: "framework", Value: strings.TrimSpace(plan.Framework)},
@@ -592,6 +599,14 @@ func sourceFinding(scope detect.Scope, plan sourcePlan, agent AgentSpec, languag
 		{Key: "auto_deploy", Value: fmt.Sprintf("%t", agent.AutoDeploy)},
 		{Key: "human_gate", Value: fmt.Sprintf("%t", agent.HumanGate)},
 		{Key: "deployment_gate", Value: deriveDeploymentGate(agent)},
+		{Key: "confidence", Value: confidence},
+		{Key: "evidence_strength", Value: evidenceStrength},
+		{Key: "tool_bindings", Value: strings.Join(tools, ",")},
+		{Key: "retrievers", Value: strings.Join(retrievers, ",")},
+		{Key: "model_providers", Value: strings.Join(providers, ",")},
+		{Key: "workflow_invocations", Value: strings.Join(workflowInvocations, ",")},
+		{Key: "reachable_endpoints", Value: strings.Join(reachableEndpoints, ",")},
+		{Key: "reachable_targets", Value: strings.Join(reachableTargets, ",")},
 	}
 
 	severity := model.SeverityLow
@@ -620,6 +635,96 @@ func sourceFinding(scope detect.Scope, plan sourcePlan, agent AgentSpec, languag
 		Evidence:      evidence,
 		Remediation:   "Declare deterministic agent bindings, deployment context, and governance controls.",
 	}
+}
+
+func sourceEvidenceStrength(agent AgentSpec, providers, retrievers, workflows, endpoints, targets []string) (string, string) {
+	switch {
+	case len(agent.AuthSurfaces) > 0:
+		return "high", "credential"
+	case len(agent.Tools) > 0:
+		return "high", "tool_binding"
+	case len(retrievers) > 0:
+		return "high", "retriever"
+	case len(workflows) > 0 || len(targets) > 0:
+		return "high", "workflow"
+	case len(endpoints) > 0 || len(providers) > 0:
+		return "medium", "provider"
+	default:
+		return "medium", "constructor"
+	}
+}
+
+func retrieverHints(values []string) []string {
+	out := []string{}
+	for _, value := range values {
+		lower := strings.ToLower(strings.TrimSpace(value))
+		switch {
+		case strings.Contains(lower, "retriever"),
+			strings.Contains(lower, "vector"),
+			strings.Contains(lower, "memory"),
+			strings.Contains(lower, "knowledge"):
+			out = append(out, strings.TrimSpace(value))
+		}
+	}
+	return uniqueSorted(out)
+}
+
+func providerHints(values ...string) []string {
+	out := []string{}
+	markers := map[string]string{
+		"chatopenai":         "openai",
+		"azureopenai":        "azure_openai",
+		"chatanthropic":      "anthropic",
+		"watsonx":            "watsonx",
+		"bedrock":            "bedrock",
+		"googlegenerativeai": "google_genai",
+		"gemini":             "google_genai",
+		"ollama":             "ollama",
+	}
+	joined := strings.ToLower(strings.Join(values, " "))
+	for marker, name := range markers {
+		if strings.Contains(joined, marker) {
+			out = append(out, name)
+		}
+	}
+	return uniqueSorted(out)
+}
+
+func workflowHints(callName string, deployment []string, dynamicDiscovery bool) []string {
+	out := []string{}
+	if dynamicDiscovery {
+		out = append(out, "dynamic_discovery")
+	}
+	lowerCall := strings.ToLower(strings.TrimSpace(callName))
+	if strings.Contains(lowerCall, "graph") {
+		out = append(out, "graph_workflow")
+	}
+	for _, item := range deployment {
+		lower := strings.ToLower(strings.TrimSpace(item))
+		switch {
+		case strings.Contains(lower, ".github/workflows"), strings.Contains(lower, "jenkinsfile"):
+			out = append(out, "ci_workflow")
+		case strings.Contains(lower, "dockerfile"), strings.Contains(lower, "k8s"), strings.Contains(lower, "helm"), strings.Contains(lower, "deployment"):
+			out = append(out, "deployment_workflow")
+		}
+	}
+	return uniqueSorted(out)
+}
+
+func extractURLs(value string) []string {
+	return uniqueSorted(urlPattern.FindAllString(strings.TrimSpace(value), -1))
+}
+
+func targetHints(deployment []string) []string {
+	out := []string{}
+	for _, item := range deployment {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return uniqueSorted(out)
 }
 
 func sourceDeploymentStatus(deployment []string) string {

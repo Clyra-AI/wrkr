@@ -91,7 +91,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	reportMD := fs.Bool("report-md", false, "emit deterministic markdown summary artifact after scan")
 	reportMDPath := fs.String("report-md-path", "wrkr-scan-summary.md", "scan summary markdown output path")
 	reportTemplate := fs.String("report-template", string(reportcore.TemplateOperator), "scan summary template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom]")
-	reportShareProfile := fs.String("report-share-profile", string(reportcore.ShareProfileInternal), "scan summary share profile [internal|public]")
+	reportShareProfile := fs.String("report-share-profile", string(reportcore.ShareProfileInternal), "scan summary share profile [internal|public|customer-redacted]")
 	reportTop := fs.Int("report-top", 5, "number of top findings included in scan summary artifact")
 	sarifOut := fs.Bool("sarif", false, "emit SARIF artifact")
 	sarifPath := fs.String("sarif-path", "wrkr.sarif", "SARIF output path")
