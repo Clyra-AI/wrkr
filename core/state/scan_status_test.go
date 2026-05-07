@@ -1,6 +1,7 @@
 package state
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -97,7 +98,16 @@ func TestScanStatusLoadsLegacySidecarWithoutProgress(t *testing.T) {
 	t.Parallel()
 
 	statePath := filepath.Join(t.TempDir(), "last-scan.json")
-	payload := []byte("{\n  \"scan_status_version\": \"1\",\n  \"status\": \"running\",\n  \"state_path\": \"" + statePath + "\",\n  \"current_phase\": \"source_acquire\"\n}\n")
+	payload, err := json.MarshalIndent(map[string]any{
+		"scan_status_version": "1",
+		"status":              "running",
+		"state_path":          statePath,
+		"current_phase":       "source_acquire",
+	}, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal legacy sidecar: %v", err)
+	}
+	payload = append(payload, '\n')
 	if err := os.WriteFile(ScanStatusPath(statePath), payload, 0o600); err != nil {
 		t.Fatalf("write legacy sidecar: %v", err)
 	}
