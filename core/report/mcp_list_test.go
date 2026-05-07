@@ -282,3 +282,85 @@ func TestBuildMCPListExplainsMissedExpectedServer(t *testing.T) {
 		t.Fatalf("expected candidate evidence in diagnostic, got %+v", payload.Diagnostics[0])
 	}
 }
+
+func TestBuildMCPListEmitsNotDetectedDiagnosticWhenExpectedServerHasNoSignals(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPListWithOptions(state.Snapshot{}, MCPListOptions{
+		RepoFilter:      "acme/payments",
+		ExpectedServers: []string{"payments-mcp"},
+	})
+
+	if len(payload.Diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic, got %+v", payload.Diagnostics)
+	}
+	if payload.Diagnostics[0].Org != "acme" || payload.Diagnostics[0].Repo != "acme/payments" {
+		t.Fatalf("expected diagnostic to preserve repo scope, got %+v", payload.Diagnostics[0])
+	}
+	if payload.Diagnostics[0].Status != "not_detected" {
+		t.Fatalf("expected not_detected diagnostic, got %+v", payload.Diagnostics[0])
+	}
+	if payload.Diagnostics[0].ExpectedServer != "payments-mcp" {
+		t.Fatalf("expected expected_server to round-trip, got %+v", payload.Diagnostics[0])
+	}
+}
+
+func TestBuildMCPListIgnoresUnrelatedDependencyParseErrorsInDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPListWithOptions(state.Snapshot{
+		Findings: []source.Finding{
+			{
+				FindingType: "parse_error",
+				ToolType:    "dependency",
+				Detector:    "dependency",
+				Location:    "requirements.txt",
+				Repo:        "acme/payments",
+				Org:         "acme",
+			},
+		},
+	}, MCPListOptions{
+		RepoFilter:      "acme/payments",
+		ExpectedServers: []string{"payments-mcp"},
+	})
+
+	if len(payload.Diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic, got %+v", payload.Diagnostics)
+	}
+	if payload.Diagnostics[0].Status != "not_detected" {
+		t.Fatalf("expected unrelated dependency parse error to stay not_detected, got %+v", payload.Diagnostics[0])
+	}
+	if len(payload.Diagnostics[0].ParseFailures) != 0 {
+		t.Fatalf("expected unrelated dependency parse error to be excluded, got %+v", payload.Diagnostics[0])
+	}
+}
+
+func TestBuildMCPListKeepsMCPParseErrorsAsReducedCoverage(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPListWithOptions(state.Snapshot{
+		Findings: []source.Finding{
+			{
+				FindingType: "parse_error",
+				ToolType:    "mcp",
+				Detector:    "mcp",
+				Location:    ".mcp.json",
+				Repo:        "acme/payments",
+				Org:         "acme",
+			},
+		},
+	}, MCPListOptions{
+		RepoFilter:      "acme/payments",
+		ExpectedServers: []string{"payments-mcp"},
+	})
+
+	if len(payload.Diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic, got %+v", payload.Diagnostics)
+	}
+	if payload.Diagnostics[0].Status != "reduced_coverage" {
+		t.Fatalf("expected MCP parse error to reduce coverage, got %+v", payload.Diagnostics[0])
+	}
+	if !containsString(payload.Diagnostics[0].ParseFailures, ".mcp.json") {
+		t.Fatalf("expected MCP parse failure to be preserved, got %+v", payload.Diagnostics[0])
+	}
+}
