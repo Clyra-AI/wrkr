@@ -74,6 +74,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	fs.Var(&explicitTargets, "target", "repeatable scan target <mode>:<value>")
 	timeout := fs.Duration("timeout", 0, "optional scan timeout (0 disables)")
 	scanModeRaw := fs.String("mode", "governance", "scan mode [quick|governance|deep]")
+	progressModeRaw := fs.String("progress", string(scanProgressModeAuto), "progress output [auto|bar|plain|events|none]")
 	sourceRetentionRaw := fs.String("source-retention", sourceprivacy.RetentionEphemeral, "hosted source retention [ephemeral|retain_for_resume|retain]")
 	allowSourceMaterialization := fs.Bool("allow-source-materialization", false, "allow hosted scans to fetch generic source-code files")
 	diffMode := fs.Bool("diff", false, "show only changes since previous scan")
@@ -108,6 +109,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	scanMode, scanModeErr := parseScanMode(*scanModeRaw)
 	if scanModeErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", scanModeErr.Error(), exitInvalidInput)
+	}
+	progressMode, progressModeErr := parseScanProgressMode(*progressModeRaw)
+	if progressModeErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", progressModeErr.Error(), exitInvalidInput)
 	}
 	sourceRetentionMode, sourceRetentionErr := sourceprivacy.ParseRetentionMode(*sourceRetentionRaw)
 	if sourceRetentionErr != nil {
@@ -214,7 +219,6 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	defer cancel()
 	scanStartedAt := time.Now().UTC().Truncate(time.Second)
-	progress := newScanProgressReporter(*jsonOut && !*quiet && anyTargetUsesProgress(targets), stderr)
 	progressTargetMode, progressTargetValue := scanProgressTargetLabel(targets)
 	artifactPaths := map[string]string{
 		"state":     statePath,
@@ -233,6 +237,24 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := statusTracker.Start(); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	if *quiet {
+		progressMode = scanProgressModeNone
+	}
+	if !anyTargetUsesProgress(targets) {
+		progressMode = scanProgressModeNone
+	}
+	progress := newScanProgressReporter(scanProgressReporterOptions{
+		RequestedMode:     progressMode,
+		JSONOutput:        *jsonOut,
+		Stderr:            stderr,
+		StartedAt:         scanStartedAt,
+		TargetMode:        progressTargetMode,
+		TargetValue:       progressTargetValue,
+		StatusSink:        statusTracker.Progress,
+		HeartbeatInterval: scanProgressHeartbeatInterval(stderr),
+	})
+	progress.Start(ctx)
+	defer progress.Stop()
 	finalizeSourceCleanup := func(success bool) error {
 		if sourceCleanupFinalized {
 			return nil
@@ -274,24 +296,19 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return nil
 	}
 	emitScanFailure := func(err error) int {
-		progress.Flush()
 		err = cleanupFailure(err)
 		statusTracker.Fail(err, artifactPaths)
-		if !jsonRequested && !*jsonOut && !*quiet {
-			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
-		}
+		progress.Finish(statusTracker.FooterData())
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
 	}
 	emitScanError := func(code, message string, exitCode int) int {
-		progress.Flush()
 		if cleanupErr := finalizeSourceCleanup(false); cleanupErr != nil {
 			statusTracker.Fail(cleanupErr, artifactPaths)
+			progress.Finish(statusTracker.FooterData())
 			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, cleanupErr)
 		}
 		statusTracker.Fail(errors.New(message), artifactPaths)
-		if !jsonRequested && !*jsonOut && !*quiet {
-			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
-		}
+		progress.Finish(statusTracker.FooterData())
 		return emitError(stderr, jsonRequested || *jsonOut, code, message, exitCode)
 	}
 	progress.ScanPhase(progressTargetMode, progressTargetValue, "source_acquire_start")
@@ -332,7 +349,11 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if err := statusTracker.Phase("detectors_start"); err != nil {
 			return emitScanFailure(err)
 		}
-		detected, runErr := registry.Run(ctx, scopes, detect.Options{Enrich: *enrich, ScanMode: scanMode})
+		detected, runErr := registry.Run(ctx, scopes, detect.Options{
+			Enrich:   *enrich,
+			ScanMode: scanMode,
+			Progress: progress,
+		})
 		if runErr != nil {
 			return emitScanFailure(runErr)
 		}
@@ -582,33 +603,28 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitScanFailure(err)
 	}
 	emitRolledBackScanFailure := func(err error) int {
-		progress.Flush()
 		if err == nil {
 			return exitSuccess
 		}
 		err = cleanupFailure(err)
 		statusTracker.Fail(err, artifactPaths)
-		if !jsonRequested && !*jsonOut && !*quiet {
-			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
-		}
+		progress.Finish(statusTracker.FooterData())
 		if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%v (rollback restore failed: %v)", err, restoreErr), exitRuntime)
 		}
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
 	}
 	emitRolledBackScanError := func(code, message string, exitCode int) int {
-		progress.Flush()
 		if cleanupErr := finalizeSourceCleanup(false); cleanupErr != nil {
 			statusTracker.Fail(cleanupErr, artifactPaths)
+			progress.Finish(statusTracker.FooterData())
 			if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
 				return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%v (rollback restore failed: %v)", cleanupErr, restoreErr), exitRuntime)
 			}
 			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, cleanupErr)
 		}
 		statusTracker.Fail(errors.New(message), artifactPaths)
-		if !jsonRequested && !*jsonOut && !*quiet {
-			_, _ = fmt.Fprintf(stderr, "scan failure footer: %s\n", statusTracker.Footer())
-		}
+		progress.Finish(statusTracker.FooterData())
 		if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%s (rollback restore failed: %v)", message, restoreErr), exitRuntime)
 		}
@@ -793,7 +809,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if code := completeScanStatus(); code != exitSuccess {
 			return code
 		}
-		progress.Flush()
+		progress.Finish(statusTracker.FooterData())
 		if *jsonOut {
 			return exitSuccess
 		}
@@ -816,14 +832,14 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if code := completeScanStatus(); code != exitSuccess {
 			return code
 		}
-		progress.Flush()
+		progress.Finish(statusTracker.FooterData())
 		return exitSuccess
 	}
 	if *explain {
 		if code := completeScanStatus(); code != exitSuccess {
 			return code
 		}
-		progress.Flush()
+		progress.Finish(statusTracker.FooterData())
 		_, _ = fmt.Fprintf(stdout, "wrkr scan completed for %s (profile=%s score=%.2f grade=%s)\n", renderScanTargetSet(targets), profileResult.ProfileName, postureScore.Score, postureScore.Grade)
 		for _, line := range explainControlBacklog(controlBacklog, 10) {
 			_, _ = fmt.Fprintf(stdout, "control backlog: %s\n", line)
@@ -845,7 +861,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if code := completeScanStatus(); code != exitSuccess {
 		return code
 	}
-	progress.Flush()
+	progress.Finish(statusTracker.FooterData())
 	_, _ = fmt.Fprintln(stdout, "wrkr scan complete")
 	return exitSuccess
 }

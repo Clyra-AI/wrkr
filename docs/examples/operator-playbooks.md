@@ -28,6 +28,8 @@ wrkr scan status --state ./.wrkr/last-scan.json --json
 ```
 
 Wrkr does not start a hidden scan daemon. The status sidecar records `running`, `completed`, `interrupted`, or `failed` state, current phase, last successful phase, repo counts, partial marker, phase timings, and artifact paths.
+Use `--progress events` when you want deterministic stderr liveness in background logs, `--progress none` when you want stderr progress suppressed without muting errors, and `--quiet` when you want all non-error progress output suppressed.
+During active or interrupted scans, `wrkr scan status --state ... --json` may also include additive `progress_percent`, `progress_message`, `last_progress_at`, `elapsed_seconds`, `phase_progress`, `repo_progress`, and `detector_progress` fields.
 
 ### Ticket export dry run
 

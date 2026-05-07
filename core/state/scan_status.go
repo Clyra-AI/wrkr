@@ -33,6 +33,13 @@ type ScanStatus struct {
 	RepoTotal           int                     `json:"repo_total,omitempty"`
 	ReposCompleted      int                     `json:"repos_completed,omitempty"`
 	ReposFailed         int                     `json:"repos_failed,omitempty"`
+	ProgressPercent     int                     `json:"progress_percent,omitempty"`
+	ProgressMessage     string                  `json:"progress_message,omitempty"`
+	LastProgressAt      string                  `json:"last_progress_at,omitempty"`
+	ElapsedSeconds      int64                   `json:"elapsed_seconds,omitempty"`
+	PhaseProgress       *ScanPhaseProgress      `json:"phase_progress,omitempty"`
+	RepoProgress        *ScanRepoProgress       `json:"repo_progress,omitempty"`
+	DetectorProgress    *ScanDetectorProgress   `json:"detector_progress,omitempty"`
 	PartialResult       bool                    `json:"partial_result,omitempty"`
 	PartialResultMarker string                  `json:"partial_result_marker,omitempty"`
 	StartedAt           string                  `json:"started_at,omitempty"`
@@ -49,6 +56,26 @@ type PhaseTiming struct {
 	StartedAt      string `json:"started_at,omitempty"`
 	CompletedAt    string `json:"completed_at,omitempty"`
 	DurationMillis int64  `json:"duration_ms,omitempty"`
+}
+
+type ScanPhaseProgress struct {
+	Phase   string `json:"phase,omitempty"`
+	Percent int    `json:"percent,omitempty"`
+}
+
+type ScanRepoProgress struct {
+	Total     int `json:"total,omitempty"`
+	Completed int `json:"completed,omitempty"`
+	Failed    int `json:"failed,omitempty"`
+	Pending   int `json:"pending,omitempty"`
+}
+
+type ScanDetectorProgress struct {
+	Total          int    `json:"total,omitempty"`
+	Completed      int    `json:"completed,omitempty"`
+	Failed         int    `json:"failed,omitempty"`
+	Pending        int    `json:"pending,omitempty"`
+	ActiveDetector string `json:"active_detector,omitempty"`
 }
 
 func ScanStatusPath(statePath string) string {
@@ -115,6 +142,8 @@ func normalizeScanStatus(statePath string, status ScanStatus) ScanStatus {
 	status.ScanStatusVersion = fallbackString(status.ScanStatusVersion, ScanStatusVersion)
 	status.Status = fallbackString(status.Status, ScanStatusUnknown)
 	status.StatePath = filepath.Clean(fallbackString(status.StatePath, ResolvePath(statePath)))
+	status.ProgressMessage = strings.TrimSpace(status.ProgressMessage)
+	status.LastProgressAt = strings.TrimSpace(status.LastProgressAt)
 	if status.ArtifactPaths != nil {
 		normalized := map[string]string{}
 		for key, value := range status.ArtifactPaths {
@@ -130,6 +159,20 @@ func normalizeScanStatus(statePath string, status ScanStatus) ScanStatus {
 	if status.SourcePrivacy != nil {
 		normalizedPrivacy := sourceprivacy.Normalize(*status.SourcePrivacy)
 		status.SourcePrivacy = &normalizedPrivacy
+	}
+	if status.PhaseProgress != nil {
+		phaseProgress := *status.PhaseProgress
+		phaseProgress.Phase = strings.TrimSpace(phaseProgress.Phase)
+		status.PhaseProgress = &phaseProgress
+	}
+	if status.RepoProgress != nil {
+		repoProgress := *status.RepoProgress
+		status.RepoProgress = &repoProgress
+	}
+	if status.DetectorProgress != nil {
+		detectorProgress := *status.DetectorProgress
+		detectorProgress.ActiveDetector = strings.TrimSpace(detectorProgress.ActiveDetector)
+		status.DetectorProgress = &detectorProgress
 	}
 	return status
 }

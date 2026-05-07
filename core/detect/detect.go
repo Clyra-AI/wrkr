@@ -27,12 +27,26 @@ func IsLocalMachineScope(scope Scope) bool {
 type Options struct {
 	Enrich   bool
 	ScanMode string
+	Progress DetectorProgressReporter
 }
 
 // Detector emits canonical findings for one repo scope.
 type Detector interface {
 	ID() string
 	Detect(context.Context, Scope, Options) ([]model.Finding, error)
+}
+
+type DetectorProgressEvent struct {
+	DetectorID string
+	Scope      Scope
+	Index      int
+	Total      int
+}
+
+type DetectorProgressReporter interface {
+	DetectorStart(DetectorProgressEvent)
+	DetectorComplete(DetectorProgressEvent)
+	DetectorError(DetectorProgressEvent)
 }
 
 // Registry stores detectors with deterministic execution order.
@@ -101,6 +115,8 @@ func (r *Registry) Run(ctx context.Context, scopes []Scope, options Options) (Ru
 		Findings:       make([]model.Finding, 0),
 		DetectorErrors: make([]DetectorError, 0),
 	}
+	totalDetections := len(sortedScopes) * len(ids)
+	completedDetections := 0
 	for _, scope := range sortedScopes {
 		select {
 		case <-ctx.Done():
@@ -117,13 +133,40 @@ func (r *Registry) Run(ctx context.Context, scopes []Scope, options Options) (Ru
 				return result, ctx.Err()
 			default:
 			}
+			nextIndex := completedDetections + 1
+			if options.Progress != nil {
+				options.Progress.DetectorStart(DetectorProgressEvent{
+					DetectorID: id,
+					Scope:      scope,
+					Index:      nextIndex,
+					Total:      totalDetections,
+				})
+			}
 			items, err := r.detectors[id].Detect(ctx, scope, options)
 			if err != nil {
 				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 					return result, err
 				}
+				completedDetections++
 				result.DetectorErrors = append(result.DetectorErrors, buildDetectorError(scope, id, err))
+				if options.Progress != nil {
+					options.Progress.DetectorError(DetectorProgressEvent{
+						DetectorID: id,
+						Scope:      scope,
+						Index:      completedDetections,
+						Total:      totalDetections,
+					})
+				}
 				continue
+			}
+			completedDetections++
+			if options.Progress != nil {
+				options.Progress.DetectorComplete(DetectorProgressEvent{
+					DetectorID: id,
+					Scope:      scope,
+					Index:      completedDetections,
+					Total:      totalDetections,
+				})
 			}
 			result.Findings = append(result.Findings, items...)
 		}

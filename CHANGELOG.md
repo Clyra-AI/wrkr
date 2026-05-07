@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- [semver:minor] Added an explicit `wrkr scan --progress auto|bar|plain|events|none` contract so operators can choose interactive, log-friendly, machine-readable, or disabled progress output without breaking JSON consumers.
+- [semver:minor] Added additive scan-status progress metadata including `progress_percent`, `progress_message`, `last_progress_at`, `phase_progress`, `repo_progress`, and `detector_progress` so long-running scans can be inspected through `wrkr scan status --json`.
+- [semver:minor] Added TTY-aware scan progress rendering, heartbeat updates, and detector-phase detail so long org and path scans stay visibly alive across source, detector, analysis, and artifact phases.
 - Added buyer-facing backlog queue, visibility, and remediation fields so report and evidence outputs separate `control_first`, `review_queue`, `inventory_hygiene`, and `debug_only` work without hiding appendix/debug context.
 - Added attack-path join refs and deterministic exclusion items across govern-first action paths, control-path graphs, and Agent Action BOM output so top attack paths are represented or explicitly excluded instead of silently dropped.
 - Added detector-health `scan_quality` coverage rows to report and Agent Action BOM output so clean negative MCP/WebMCP results are distinguishable from partial, reduced, or blocked coverage.
@@ -20,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- [semver:minor] Improved scan completion and failure footers so progress-enabled runs explain the last phase, partial-result state, detector/repo counts, artifact paths, and resume hint without polluting stdout contracts.
 - Aligned govern-first ranking, risk tiers, and recommended actions so source-level MCP and agent paths with stronger governable signals outrank dependency-only inventory.
 - Changed report and BOM proof refs to distinguish global proof-chain metadata from path-specific proof coverage and remediation.
 - Split lifecycle gap reason output further into missing approval, inferred/unresolved owner, stale identity, and true orphaned identity states.
