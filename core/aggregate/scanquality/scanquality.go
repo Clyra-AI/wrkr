@@ -185,13 +185,6 @@ type detectorScopeKey struct {
 	detector string
 }
 
-type detectorPathKey struct {
-	org      string
-	repo     string
-	detector string
-	path     string
-}
-
 type parsePathStatus struct {
 	kind    string
 	message string
@@ -201,6 +194,12 @@ type detectorPathMetrics struct {
 	attemptedPaths  []string
 	suppressedFiles int
 	skippedFiles    int
+}
+
+type pathDecision struct {
+	candidate  bool
+	suppressed bool
+	skipDir    bool
 }
 
 func collectDetectorHealth(input Input) []DetectorHealth {
@@ -378,21 +377,21 @@ func collectDetectorScopeMetrics(scope detect.Scope, detectorID, mode string) de
 	case "mcp":
 		return collectMCPScopeMetrics(scope.Root)
 	case "webmcp":
-		return collectWebMCPScopeMetrics(scope.Root)
+		return collectWebMCPScopeMetrics(scope.Root, mode)
 	default:
 		return detectorPathMetrics{}
 	}
 }
 
 func collectDependencyScopeMetrics(root, mode string) detectorPathMetrics {
-	return walkCandidatePaths(root, func(rel string) (bool, bool) {
-		if !isDependencyManifestPath(rel) {
-			return false, false
-		}
+	return walkCandidatePaths(root, func(rel string, isDir bool) pathDecision {
 		if mode != "deep" && detect.IsGeneratedPath(rel) {
-			return true, true
+			return pathDecision{candidate: true, suppressed: true, skipDir: isDir}
 		}
-		return true, false
+		if !isDependencyManifestPath(rel) {
+			return pathDecision{}
+		}
+		return pathDecision{candidate: true}
 	})
 }
 
@@ -407,7 +406,6 @@ func collectMCPScopeMetrics(root string) detectorPathMetrics {
 		".claude/settings.local.json",
 		".codex/config.toml",
 		".codex/config.yaml",
-		".codex/config.yml",
 	}
 	metrics := detectorPathMetrics{}
 	for _, rel := range paths {
@@ -419,19 +417,31 @@ func collectMCPScopeMetrics(root string) detectorPathMetrics {
 	return metrics
 }
 
-func collectWebMCPScopeMetrics(root string) detectorPathMetrics {
-	return walkCandidatePaths(root, func(rel string) (bool, bool) {
+func collectWebMCPScopeMetrics(root, mode string) detectorPathMetrics {
+	return walkCandidatePaths(root, func(rel string, isDir bool) pathDecision {
+		if detect.IsGeneratedPath(rel) {
+			if mode != "deep" {
+				return pathDecision{candidate: true, suppressed: true, skipDir: isDir}
+			}
+			if isDir {
+				return pathDecision{}
+			}
+			if isWebMCPRouteFile(rel) {
+				return pathDecision{candidate: true}
+			}
+			if !isWebMCPCandidatePath(rel) {
+				return pathDecision{}
+			}
+			return pathDecision{candidate: true, suppressed: true}
+		}
 		if !isWebMCPCandidatePath(rel) {
-			return false, false
+			return pathDecision{}
 		}
-		if detect.IsGeneratedPath(rel) && !isWebMCPRouteFile(rel) {
-			return true, true
-		}
-		return true, false
+		return pathDecision{candidate: true}
 	})
 }
 
-func walkCandidatePaths(root string, classify func(rel string) (candidate bool, suppressed bool)) detectorPathMetrics {
+func walkCandidatePaths(root string, classify func(rel string, isDir bool) pathDecision) detectorPathMetrics {
 	metrics := detectorPathMetrics{}
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		rel, relErr := filepath.Rel(root, path)
@@ -454,22 +464,20 @@ func walkCandidatePaths(root string, classify func(rel string) (candidate bool, 
 			if rel == ".git" || strings.HasPrefix(rel, ".git/") {
 				return filepath.SkipDir
 			}
-			if detect.IsGeneratedPath(rel) {
-				candidate, suppressed := classify(rel)
-				if candidate && suppressed {
-					metrics.suppressedFiles++
-				}
-				if suppressed {
-					return filepath.SkipDir
-				}
+			decision := classify(rel, true)
+			if decision.candidate && decision.suppressed {
+				metrics.suppressedFiles++
+			}
+			if decision.skipDir {
+				return filepath.SkipDir
 			}
 			return nil
 		}
-		candidate, suppressed := classify(rel)
-		if !candidate {
+		decision := classify(rel, false)
+		if !decision.candidate {
 			return nil
 		}
-		if suppressed {
+		if decision.suppressed {
 			metrics.suppressedFiles++
 			return nil
 		}
