@@ -662,12 +662,9 @@ func collectWorkflowCredentialRef(target map[string]struct{}, key, value string)
 }
 
 func workflowUsesGitHubToken(key, value string) bool {
-	keyLower := strings.ToLower(strings.TrimSpace(key))
 	valueLower := strings.ToLower(strings.TrimSpace(value))
 	return workflowGitHubTokenRE.MatchString(value) ||
-		strings.Contains(valueLower, "github.token") ||
-		(keyLower == "github_token" && strings.Contains(valueLower, "${{")) ||
-		(keyLower == "gh_token" && strings.Contains(valueLower, "github.token"))
+		strings.Contains(valueLower, "github.token")
 }
 
 func sensitiveCredentialName(key string) bool {
