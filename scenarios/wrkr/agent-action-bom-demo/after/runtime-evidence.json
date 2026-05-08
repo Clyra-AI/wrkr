@@ -27,6 +27,30 @@
       "repo": "demo-app",
       "location": ".github/workflows/release.yml",
       "tool": "ci_agent",
+      "source": "gait_runtime",
+      "observed_at": "2026-04-29T19:41:30Z",
+      "evidence_class": "freeze_window"
+    },
+    {
+      "repo": "demo-app",
+      "location": ".github/workflows/release.yml",
+      "tool": "ci_agent",
+      "source": "gait_runtime",
+      "observed_at": "2026-04-29T19:41:45Z",
+      "evidence_class": "kill_switch"
+    },
+    {
+      "repo": "demo-app",
+      "location": ".github/workflows/release.yml",
+      "tool": "ci_agent",
+      "source": "gait_runtime",
+      "observed_at": "2026-04-29T19:41:50Z",
+      "evidence_class": "action_outcome"
+    },
+    {
+      "repo": "demo-app",
+      "location": ".github/workflows/release.yml",
+      "tool": "ci_agent",
       "source": "proof_runtime",
       "observed_at": "2026-04-29T19:42:00Z",
       "evidence_class": "proof_verification",

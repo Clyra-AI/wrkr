@@ -20,6 +20,11 @@ type signal struct {
 	RuleDescriptor string
 }
 
+type SemanticHint struct {
+	Permissions []string
+	Evidence    map[string][]string
+}
+
 var overrideMatchers = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\bignore\s+(the\s+)?(previous|prior|system|policy|safety)\s+instructions?\b`),
 	regexp.MustCompile(`(?i)\bdisregard\s+(the\s+)?(previous|system|policy)\s+instructions?\b`),
@@ -188,6 +193,97 @@ func normalizeSnippets(in []string) []string {
 	out := make([]string, 0, len(set))
 	for item := range set {
 		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func ExtractSemanticHints(rel string, segments []string) SemanticHint {
+	text := strings.ToLower(strings.Join(segments, "\n"))
+	hint := SemanticHint{Evidence: map[string][]string{}}
+	addPermission := func(permission string) {
+		permission = strings.TrimSpace(permission)
+		if permission != "" {
+			hint.Permissions = append(hint.Permissions, permission)
+		}
+	}
+	addEvidence := func(key, value string) {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			return
+		}
+		hint.Evidence[key] = append(hint.Evidence[key], value)
+	}
+
+	if hasAny(text, []string{"deploy", "kubectl apply", "helm upgrade", "terraform apply", "terragrunt apply", "pulumi up", "ship the release"}) {
+		addPermission("deploy.write")
+		addEvidence("semantic_action", "deploy")
+	}
+	if hasAny(text, []string{"release", "publish", "tag a release", "cut a release", "npm publish", "goreleaser"}) {
+		addPermission("release.write")
+		addEvidence("semantic_action", "release")
+	}
+	if hasAny(text, []string{"database", "db:migrate", "migrate", "schema change", "alembic upgrade", "prisma migrate"}) {
+		addPermission("db.write")
+		addEvidence("semantic_action", "database")
+	}
+	if hasAny(text, []string{"aws", "gcp", "azure", "cloud admin", "service account", "google_application_credentials"}) {
+		addPermission("secret.read")
+		addEvidence("semantic_action", "cloud")
+	}
+	if hasAny(text, []string{"mcp", "model context protocol", "bind tool", "tool binding", "server binding"}) {
+		addPermission("mcp.connect")
+		addEvidence("semantic_action", "mcp_binding")
+	}
+	if hasAny(text, []string{"run script", "execute script", "npm run", "pnpm run", "bash ", "sh "}) {
+		addPermission("proc.exec")
+		addEvidence("semantic_action", "package_or_script_execution")
+	}
+	if hasAny(text, []string{"--approval never", "skip permissions", "bypass approval", "ignore approval", "auto-merge without review"}) {
+		addPermission("deploy.write")
+		addEvidence("approval_source", "missing")
+		addEvidence("human_gate", "false")
+		addEvidence("auto_deploy", "true")
+		addEvidence("semantic_action", "approval_bypass")
+	}
+	if hasAny(text, []string{"rm -rf", "drop database", "truncate table", "force push", "destroy", "delete prod"}) {
+		addPermission("proc.exec")
+		addPermission("delete.execute")
+		addEvidence("semantic_action", "destructive_command")
+	}
+	if hasAny(text, []string{"proof required", "attach evidence", "wrkr evidence", "proof verification", "attestation"}) {
+		addEvidence("proof_requirement", "evidence")
+		addEvidence("semantic_action", "proof_requirement")
+	}
+
+	hint.Permissions = normalizeSemanticValues(hint.Permissions)
+	for key, values := range hint.Evidence {
+		hint.Evidence[key] = normalizeSemanticValues(values)
+	}
+	if len(hint.Permissions) == 0 && len(hint.Evidence) == 0 {
+		return SemanticHint{}
+	}
+	_ = rel
+	return hint
+}
+
+func normalizeSemanticValues(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	set := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := set[value]; ok {
+			continue
+		}
+		set[value] = struct{}{}
+		out = append(out, value)
 	}
 	sort.Strings(out)
 	return out

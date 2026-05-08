@@ -2,24 +2,132 @@
   "top_item": {
     "path_id": "apc-6626703372d7",
     "tool_type": "ci_agent",
+    "control_state": "block_recommended",
+    "risk_zone": "production_data",
+    "review_burden": "critical",
     "proof_coverage": "missing",
     "policy_status": "runtime_proven",
     "runtime_evidence_status": "matched",
+    "introduced_by": {
+      "source": "source_metadata",
+      "confidence": "high",
+      "pr_number": 108,
+      "commit_sha": "deadbeef108",
+      "author": "demo-bot",
+      "timestamp": "2026-05-08T12:00:00Z",
+      "changed_file": ".github/workflows/release.yml",
+      "provider_url": "https://github.example.com/acme/demo-app/pull/108"
+    },
+    "gait_coverage": {
+      "policy_decision": {
+        "status": "present",
+        "reasons": [
+          "runtime_evidence_present:policy_decision"
+        ],
+        "evidence_refs": [
+          "demo-app:action_outcome:2026-04-29T19:41:50Z",
+          "demo-app:approval:2026-04-29T19:41:00Z",
+          "demo-app:freeze_window:2026-04-29T19:41:30Z",
+          "demo-app:kill_switch:2026-04-29T19:41:45Z",
+          "demo-app:policy_decision:2026-04-29T19:40:00Z",
+          "demo-app:proof_verification:2026-04-29T19:42:00Z"
+        ]
+      },
+      "approval": {
+        "status": "present",
+        "reasons": [
+          "runtime_evidence_present:approval"
+        ],
+        "evidence_refs": [
+          "demo-app:action_outcome:2026-04-29T19:41:50Z",
+          "demo-app:approval:2026-04-29T19:41:00Z",
+          "demo-app:freeze_window:2026-04-29T19:41:30Z",
+          "demo-app:kill_switch:2026-04-29T19:41:45Z",
+          "demo-app:policy_decision:2026-04-29T19:40:00Z",
+          "demo-app:proof_verification:2026-04-29T19:42:00Z"
+        ]
+      },
+      "jit_credential": {
+        "status": "not_applicable",
+        "reasons": [
+          "not_applicable:jit_credential"
+        ]
+      },
+      "freeze_window": {
+        "status": "present",
+        "reasons": [
+          "runtime_evidence_present:freeze_window"
+        ],
+        "evidence_refs": [
+          "demo-app:action_outcome:2026-04-29T19:41:50Z",
+          "demo-app:approval:2026-04-29T19:41:00Z",
+          "demo-app:freeze_window:2026-04-29T19:41:30Z",
+          "demo-app:kill_switch:2026-04-29T19:41:45Z",
+          "demo-app:policy_decision:2026-04-29T19:40:00Z",
+          "demo-app:proof_verification:2026-04-29T19:42:00Z"
+        ]
+      },
+      "kill_switch": {
+        "status": "present",
+        "reasons": [
+          "runtime_evidence_present:kill_switch"
+        ],
+        "evidence_refs": [
+          "demo-app:action_outcome:2026-04-29T19:41:50Z",
+          "demo-app:approval:2026-04-29T19:41:00Z",
+          "demo-app:freeze_window:2026-04-29T19:41:30Z",
+          "demo-app:kill_switch:2026-04-29T19:41:45Z",
+          "demo-app:policy_decision:2026-04-29T19:40:00Z",
+          "demo-app:proof_verification:2026-04-29T19:42:00Z"
+        ]
+      },
+      "action_outcome": {
+        "status": "present",
+        "reasons": [
+          "runtime_evidence_present:action_outcome"
+        ],
+        "evidence_refs": [
+          "demo-app:action_outcome:2026-04-29T19:41:50Z",
+          "demo-app:approval:2026-04-29T19:41:00Z",
+          "demo-app:freeze_window:2026-04-29T19:41:30Z",
+          "demo-app:kill_switch:2026-04-29T19:41:45Z",
+          "demo-app:policy_decision:2026-04-29T19:40:00Z",
+          "demo-app:proof_verification:2026-04-29T19:42:00Z"
+        ]
+      },
+      "proof_verification": {
+        "status": "present",
+        "reasons": [
+          "runtime_evidence_present:proof_verification"
+        ],
+        "evidence_refs": [
+          "demo-app:action_outcome:2026-04-29T19:41:50Z",
+          "demo-app:approval:2026-04-29T19:41:00Z",
+          "demo-app:freeze_window:2026-04-29T19:41:30Z",
+          "demo-app:kill_switch:2026-04-29T19:41:45Z",
+          "demo-app:policy_decision:2026-04-29T19:40:00Z",
+          "demo-app:proof_verification:2026-04-29T19:42:00Z"
+        ]
+      }
+    },
     "runtime_evidence_classes": [
+      "action_outcome",
       "approval",
+      "freeze_window",
+      "kill_switch",
       "policy_decision",
       "proof_verification"
     ]
   },
   "summary": {
-    "total_items": 4,
-    "control_first_items": 2,
+    "total_items": 8,
+    "control_first_items": 3,
     "standing_privilege_items": 3,
     "static_credential_items": 3,
-    "production_target_items": 2,
-    "missing_approval_items": 4,
+    "production_target_items": 3,
+    "missing_approval_items": 8,
     "missing_policy_items": 0,
-    "missing_proof_items": 4,
+    "missing_proof_items": 8,
     "runtime_proven_items": 1,
     "unresolved_owner_items": 0,
     "scan_scope": {
@@ -38,24 +146,24 @@
     },
     "operational_exposure": {
       "grade": "critical",
-      "path_count": 4,
+      "path_count": 8,
       "driver": "production_and_credentials",
       "rationale": [
-        "production_backed_paths=3",
+        "production_backed_paths=4",
         "credential_bearing_paths=1",
-        "write_capable_paths=2",
+        "write_capable_paths=3",
         "runtime_deployed_paths=3"
       ]
     },
     "governance_readiness": {
       "grade": "low",
-      "path_count": 4,
+      "path_count": 8,
       "driver": "governance_gaps_present",
       "rationale": [
-        "approval_gaps=4",
+        "approval_gaps=8",
         "missing_owner_paths=0",
         "policy_gaps=0",
-        "missing_proof_paths=8",
+        "missing_proof_paths=16",
         "coverage_reduced=false"
       ]
     },

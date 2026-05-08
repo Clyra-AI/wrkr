@@ -59,6 +59,7 @@ wrkr report --top 5 --template appsec --json
 - `verify`: `status`, `chain`
 - `mcp-list`: `status`, `generated_at`, `rows`, optional `warnings`
 - `report`: `status`, `generated_at`, additive `next_steps`, additive `agent_action_bom`, additive `runtime_evidence` when a managed runtime evidence sidecar exists, `top_findings`, `total_tools`, `summary`, optional `artifact_paths`
+  - `agent_action_bom.items[*]`: buyer-facing `control_state`, `risk_zone`, `review_burden`, path-level `gait_coverage`, workflow-token-vs-PAT credential posture, and deterministic `introduced_by` provenance when repo-local provenance metadata is present
 
 ## How to frame the results
 

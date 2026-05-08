@@ -48,3 +48,4 @@ Additional additive keys may include `tool`, `repo`, `location`, `target`, `acti
 - Unsafe managed output paths return exit `8`.
 - Static scan findings remain unchanged; report and evidence commands consume runtime evidence only as corroborating metadata.
 - Runtime evidence can promote BOM/report policy coverage to `runtime_proven` without rewriting saved scan findings.
+- Report and Agent Action BOM rendering also project path-level `gait_coverage` status for `policy_decision`, `approval`, `jit_credential`, `freeze_window`, `kill_switch`, `action_outcome`, and `proof_verification`, using `present`, `missing`, `stale`, `conflict`, or `not_applicable` without implying Wrkr enforced the action.

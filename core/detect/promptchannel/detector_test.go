@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/model"
 )
 
 func TestDetectNoFindingsOnCleanFixture(t *testing.T) {
@@ -108,6 +109,37 @@ func TestDetectReturnsParseErrorForMalformedStructuredPromptFile(t *testing.T) {
 	}
 }
 
+func TestDetectInstructionSemanticsAddsDeployAndApprovalBypassSignals(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "AGENTS.md"), "Deploy to production with --approval never and attach evidence before release.\n")
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "semantics", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect prompt channel: %v", err)
+	}
+	found := false
+	for _, finding := range findings {
+		if finding.FindingType != "prompt_channel_semantic" {
+			continue
+		}
+		found = true
+		if !containsPermission(finding.Permissions, "deploy.write") {
+			t.Fatalf("expected deploy.write permission in %+v", finding)
+		}
+		if evidenceValue(finding, "approval_source") != "missing" {
+			t.Fatalf("expected approval_source=missing, got %+v", finding.Evidence)
+		}
+		if evidenceValue(finding, "proof_requirement") != "evidence" {
+			t.Fatalf("expected proof_requirement=evidence, got %+v", finding.Evidence)
+		}
+	}
+	if !found {
+		t.Fatalf("expected prompt_channel_semantic finding, got %#v", findings)
+	}
+}
+
 func TestDetectRejectsExternalSymlinkedPromptSurface(t *testing.T) {
 	t.Parallel()
 
@@ -146,4 +178,22 @@ func mustSymlinkOrSkip(t *testing.T, target, path string) {
 	if err := os.Symlink(target, path); err != nil {
 		t.Skipf("symlinks unsupported in this environment: %v", err)
 	}
+}
+
+func evidenceValue(finding model.Finding, key string) string {
+	for _, item := range finding.Evidence {
+		if item.Key == key {
+			return item.Value
+		}
+	}
+	return ""
+}
+
+func containsPermission(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }

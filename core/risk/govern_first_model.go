@@ -47,6 +47,7 @@ func applyGovernFirstModel(paths []ActionPath) []ActionPath {
 		out[idx].ControlPriority = model.controlPriority
 		out[idx].RiskTier = model.riskTier
 		out[idx].RecommendedAction = model.recommendedAction
+		out[idx] = ProjectBuyerFacingActionPath(out[idx])
 	}
 	return out
 }
@@ -153,11 +154,16 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 func compareActionPaths(left, right ActionPath) bool {
 	leftModel := deriveGovernFirstModel(left)
 	rightModel := deriveGovernFirstModel(right)
+	leftProjection := ProjectBuyerFacingActionPath(left)
+	rightProjection := ProjectBuyerFacingActionPath(right)
 	if leftModel.controlPriorityRank != rightModel.controlPriorityRank {
 		return leftModel.controlPriorityRank < rightModel.controlPriorityRank
 	}
 	if leftModel.riskTierRank != rightModel.riskTierRank {
 		return leftModel.riskTierRank < rightModel.riskTierRank
+	}
+	if reviewBurdenRank(leftProjection.ReviewBurden) != reviewBurdenRank(rightProjection.ReviewBurden) {
+		return reviewBurdenRank(leftProjection.ReviewBurden) < reviewBurdenRank(rightProjection.ReviewBurden)
 	}
 	if leftModel.sourceSignalRank != rightModel.sourceSignalRank {
 		return leftModel.sourceSignalRank > rightModel.sourceSignalRank

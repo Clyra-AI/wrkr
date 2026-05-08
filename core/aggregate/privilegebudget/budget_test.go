@@ -453,6 +453,56 @@ func TestBuildClassifiesWorkloadIdentityCredentialProvenance(t *testing.T) {
 	}
 }
 
+func TestBuildClassifiesBuiltInGitHubWorkflowTokenSeparatelyFromPATs(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{{
+		ToolID:      "tool-1",
+		AgentID:     "wrkr:ci:acme",
+		ToolType:    "ci_agent",
+		Org:         "acme",
+		Repos:       []string{"acme/release"},
+		Permissions: []string{"deploy.write"},
+		DataClass:   "credentials",
+		Locations:   []agginventory.ToolLocation{{Repo: "acme/release", Location: ".github/workflows/release.yml"}},
+	}}
+	findings := []model.Finding{{
+		FindingType: "ci_autonomy",
+		ToolType:    "ci_agent",
+		Location:    ".github/workflows/release.yml",
+		Repo:        "acme/release",
+		Org:         "acme",
+		Evidence: []model.Evidence{
+			{Key: "workflow_builtin_token", Value: "github_token"},
+			{Key: "workflow_token_permission", Value: "contents=write"},
+			{Key: "workflow_secret_refs", Value: "PROD_DEPLOY_PAT"},
+		},
+	}}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 || entries[0].CredentialProvenance == nil {
+		t.Fatalf("expected one classified entry, got %+v", entries)
+	}
+	if entries[0].CredentialProvenance.CredentialKind != agginventory.CredentialKindGitHubPAT {
+		t.Fatalf("expected higher-risk PAT rollup to win, got %+v", entries[0].CredentialProvenance)
+	}
+	if len(entries[0].Credentials) != 2 {
+		t.Fatalf("expected both workflow token and PAT credentials on the same path, got %+v", entries[0].Credentials)
+	}
+	seenWorkflowToken := false
+	for _, credential := range entries[0].Credentials {
+		if credential != nil && credential.CredentialKind == agginventory.CredentialKindGitHubWorkflowToken {
+			seenWorkflowToken = true
+			if credential.AccessType != agginventory.CredentialAccessTypeJIT || credential.StandingAccess {
+				t.Fatalf("expected JIT workflow token semantics, got %+v", credential)
+			}
+		}
+	}
+	if !seenWorkflowToken {
+		t.Fatalf("expected explicit workflow token credential in %+v", entries[0].Credentials)
+	}
+}
+
 func TestBuildDerivesActionClassesAndStandingPrivilegeFromCredentialSignals(t *testing.T) {
 	t.Parallel()
 

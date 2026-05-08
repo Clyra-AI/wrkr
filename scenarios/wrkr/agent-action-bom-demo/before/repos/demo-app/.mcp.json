@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "deploy-control": {
+      "command": "npx",
+      "args": ["-y", "deploy-control@1"],
+      "transport": "stdio"
+    }
+  }
+}

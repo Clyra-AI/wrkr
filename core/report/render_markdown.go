@@ -75,9 +75,12 @@ func RenderMarkdown(summary Summary) string {
 			}
 			for idx := 0; idx < limit; idx++ {
 				item := summary.AgentActionBOM.Items[idx]
-				builder.WriteString(fmt.Sprintf("- %s %s priority=%s tier=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
+				builder.WriteString(fmt.Sprintf("- %s %s state=%s zone=%s review=%s priority=%s tier=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
 					item.Repo,
 					item.Location,
+					item.ControlState,
+					item.RiskZone,
+					item.ReviewBurden,
 					item.ControlPriority,
 					item.RiskTier,
 					item.Confidence,
@@ -175,10 +178,13 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s %s owner=%s queue=%s priority=%s tier=%s confidence=%s evidence=%s policy=%s proof=%s runtime=%s remediation=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s %s owner=%s state=%s zone=%s review=%s queue=%s priority=%s tier=%s confidence=%s evidence=%s policy=%s proof=%s runtime=%s remediation=%s\n",
 				item.Repo,
 				item.Location,
 				item.Owner,
+				item.ControlState,
+				item.RiskZone,
+				item.ReviewBurden,
 				item.Queue,
 				item.ControlPriority,
 				item.RiskTier,
@@ -189,6 +195,17 @@ func RenderMarkdown(summary Summary) string {
 				item.RuntimeEvidenceStatus,
 				item.Remediation,
 			))
+			if item.GaitCoverage != nil {
+				builder.WriteString(fmt.Sprintf("  gait=policy:%s approval:%s jit:%s freeze:%s kill:%s outcome:%s proof:%s\n",
+					item.GaitCoverage.PolicyDecision.Status,
+					item.GaitCoverage.Approval.Status,
+					item.GaitCoverage.JITCredential.Status,
+					item.GaitCoverage.FreezeWindow.Status,
+					item.GaitCoverage.KillSwitch.Status,
+					item.GaitCoverage.ActionOutcome.Status,
+					item.GaitCoverage.ProofVerification.Status,
+				))
+			}
 			if strings.TrimSpace(item.ExclusionReason) != "" {
 				builder.WriteString(fmt.Sprintf("  exclusion=%s\n", item.ExclusionReason))
 			}

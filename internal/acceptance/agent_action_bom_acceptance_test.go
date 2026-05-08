@@ -23,6 +23,17 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	if beforeTopItem["policy_status"] != "none" {
 		t.Fatalf("expected pre-ingest policy gap, got %v", beforeTopItem["policy_status"])
 	}
+	if beforeTopPath["control_state"] != "block_recommended" || beforeTopPath["risk_zone"] == nil || beforeTopPath["review_burden"] == nil {
+		t.Fatalf("expected buyer-facing action-path projections before ingest, got %v", beforeTopPath)
+	}
+	introducedBy := requireObject(t, beforeTopPath, "introduced_by")
+	if introducedBy["pr_number"] != float64(108) {
+		t.Fatalf("expected deterministic PR provenance before ingest, got %v", introducedBy)
+	}
+	beforeCoverage := requireObject(t, beforeTopItem, "gait_coverage")
+	if requireObject(t, beforeCoverage, "policy_decision")["status"] != "missing" {
+		t.Fatalf("expected missing pre-ingest Gait coverage, got %v", beforeCoverage)
+	}
 	if _, ok := beforeReport["runtime_evidence"]; ok {
 		t.Fatalf("expected pre-ingest report runtime_evidence to be omitted, got %v", beforeReport["runtime_evidence"])
 	}
@@ -43,6 +54,9 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	if afterTopPath["policy_coverage_status"] != "matched" {
 		t.Fatalf("expected after scan to show static policy match, got %v", afterTopPath["policy_coverage_status"])
 	}
+	if afterTopPath["control_state"] != "block_recommended" {
+		t.Fatalf("expected stable buyer-facing state after scan, got %v", afterTopPath["control_state"])
+	}
 
 	afterBOM := requireObject(t, afterReport, "agent_action_bom")
 	afterItems := requireArrayFromObject(t, afterBOM, "items")
@@ -60,6 +74,12 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	}
 	if afterTopItem["runtime_evidence_status"] != "matched" {
 		t.Fatalf("expected runtime evidence to correlate after ingest, got %v", afterTopItem["runtime_evidence_status"])
+	}
+	afterCoverage := requireObject(t, afterTopItem, "gait_coverage")
+	for _, key := range []string{"policy_decision", "approval", "freeze_window", "kill_switch", "action_outcome", "proof_verification"} {
+		if requireObject(t, afterCoverage, key)["status"] != "present" {
+			t.Fatalf("expected present Gait coverage for %s after ingest, got %v", key, afterCoverage)
+		}
 	}
 	classes := requireArrayFromObject(t, afterTopItem, "runtime_evidence_classes")
 	for _, required := range []string{"approval", "policy_decision", "proof_verification"} {

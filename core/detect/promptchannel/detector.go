@@ -85,10 +85,55 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		for _, signal := range signals {
 			findings = append(findings, signalFinding(scope, rel, format, signal))
 		}
+		if hint := ExtractSemanticHints(rel, parseSegments); len(hint.Permissions) > 0 || len(hint.Evidence) > 0 {
+			findings = append(findings, semanticHintFinding(scope, rel, hint))
+		}
 	}
 
 	model.SortFindings(findings)
 	return findings, nil
+}
+
+func semanticHintFinding(scope detect.Scope, rel string, hint SemanticHint) model.Finding {
+	evidence := []model.Evidence{
+		{Key: "reason_code", Value: "PC-ACTION-SEMANTIC"},
+		{Key: "pattern_family", Value: "instruction_semantic"},
+		{Key: "evidence_snippet_hash", Value: snippetHash("semantic", strings.Join(hint.Permissions, ","))},
+		{Key: "location_class", Value: classifyLocation(rel)},
+		{Key: "confidence_class", Value: "medium"},
+		{Key: "match_count", Value: strconv.Itoa(len(hint.Permissions) + len(hint.Evidence))},
+		{Key: "format", Value: fileFormat(rel)},
+	}
+	keys := make([]string, 0, len(hint.Evidence))
+	for key := range hint.Evidence {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		for _, value := range hint.Evidence[key] {
+			evidence = append(evidence, model.Evidence{Key: key, Value: value})
+		}
+	}
+	severity := model.SeverityMedium
+	for _, permission := range hint.Permissions {
+		if permission == "deploy.write" || permission == "delete.execute" {
+			severity = model.SeverityHigh
+			break
+		}
+	}
+	return model.Finding{
+		FindingType:     "prompt_channel_semantic",
+		Severity:        severity,
+		DiscoveryMethod: model.DiscoveryMethodStatic,
+		ToolType:        "prompt_channel",
+		Location:        rel,
+		Repo:            scope.Repo,
+		Org:             fallbackOrg(scope.Org),
+		Detector:        detectorID,
+		Permissions:     append([]string(nil), hint.Permissions...),
+		Evidence:        evidence,
+		Remediation:     "Tighten instruction semantics so deploy, release, destructive, and approval-bypass behavior is explicit, reviewed, and backed by proof requirements.",
+	}
 }
 
 func loadFile(root, rel string) (string, []string, string, *model.ParseError) {

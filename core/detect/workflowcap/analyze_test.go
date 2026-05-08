@@ -109,6 +109,39 @@ jobs:
 	}
 }
 
+func TestAnalyzeCapturesBuiltInWorkflowTokenAndSecretRefs(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: release
+on: workflow_dispatch
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: codex --full-auto --approval never
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PROD_DEPLOY_PAT: ${{ secrets.PROD_DEPLOY_PAT }}
+`)
+
+	result, parseErr := Analyze(".github/workflows/release.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if evidenceValue(result, "workflow_builtin_token") != "github_token" {
+		t.Fatalf("expected built-in workflow token evidence, got %q", evidenceValue(result, "workflow_builtin_token"))
+	}
+	if !strings.Contains(evidenceValue(result, "workflow_token_permission"), "contents=write") && evidenceValue(result, "workflow_token_permission") != "write-all" {
+		t.Fatalf("expected workflow token permission evidence, got %q", evidenceValue(result, "workflow_token_permission"))
+	}
+	if evidenceValue(result, "workflow_secret_refs") != "PROD_DEPLOY_PAT" {
+		t.Fatalf("expected secret ref evidence, got %q", evidenceValue(result, "workflow_secret_refs"))
+	}
+}
+
 func TestAnalyzeMalformedWorkflowReturnsParseError(t *testing.T) {
 	t.Parallel()
 

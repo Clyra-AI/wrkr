@@ -8,7 +8,10 @@
     "target": "built_in:deploy_workflow",
     "status": "matched",
     "evidence_classes": [
+      "action_outcome",
       "approval",
+      "freeze_window",
+      "kill_switch",
       "policy_decision",
       "proof_verification"
     ],
@@ -27,7 +30,10 @@
       "proof_head:demo"
     ],
     "record_ids": [
+      "demo-app:action_outcome:2026-04-29T19:41:50Z",
       "demo-app:approval:2026-04-29T19:41:00Z",
+      "demo-app:freeze_window:2026-04-29T19:41:30Z",
+      "demo-app:kill_switch:2026-04-29T19:41:45Z",
       "demo-app:policy_decision:2026-04-29T19:40:00Z",
       "demo-app:proof_verification:2026-04-29T19:42:00Z"
     ],

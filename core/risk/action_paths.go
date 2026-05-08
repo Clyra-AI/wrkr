@@ -71,12 +71,19 @@ type ActionPath struct {
 	SharedExecutionIdentity    bool                                    `json:"shared_execution_identity,omitempty"`
 	StandingPrivilege          bool                                    `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons   []string                                `json:"standing_privilege_reasons,omitempty"`
+	ControlState               string                                  `json:"control_state,omitempty"`
+	ControlStateReasons        []string                                `json:"control_state_reasons,omitempty"`
+	RiskZone                   string                                  `json:"risk_zone,omitempty"`
+	RiskZoneReasons            []string                                `json:"risk_zone_reasons,omitempty"`
+	ReviewBurden               string                                  `json:"review_burden,omitempty"`
+	ReviewBurdenReasons        []string                                `json:"review_burden_reasons,omitempty"`
 	PolicyCoverageStatus       string                                  `json:"policy_coverage_status,omitempty"`
 	PolicyRefs                 []string                                `json:"policy_refs,omitempty"`
 	PolicyMissingReasons       []string                                `json:"policy_missing_reasons,omitempty"`
 	PolicyStatusReasons        []string                                `json:"policy_status_reasons,omitempty"`
 	PolicyConfidence           string                                  `json:"policy_confidence,omitempty"`
 	PolicyEvidenceRefs         []string                                `json:"policy_evidence_refs,omitempty"`
+	GaitCoverage               *GaitCoverage                           `json:"gait_coverage,omitempty"`
 	IntroducedBy               *attribution.Result                     `json:"introduced_by,omitempty"`
 	InventoryRisk              string                                  `json:"inventory_risk,omitempty"`
 	ControlPriority            string                                  `json:"control_priority,omitempty"`
@@ -341,12 +348,19 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.ToolInstanceID = firstNonEmptyString(current.ToolInstanceID, incoming.ToolInstanceID)
 	merged.StandingPrivilege = current.StandingPrivilege || incoming.StandingPrivilege
 	merged.StandingPrivilegeReasons = dedupeSortedStrings(append(append([]string(nil), current.StandingPrivilegeReasons...), incoming.StandingPrivilegeReasons...))
+	merged.ControlState = firstNonEmptyString(current.ControlState, incoming.ControlState)
+	merged.ControlStateReasons = dedupeSortedStrings(append(append([]string(nil), current.ControlStateReasons...), incoming.ControlStateReasons...))
+	merged.RiskZone = firstNonEmptyString(current.RiskZone, incoming.RiskZone)
+	merged.RiskZoneReasons = dedupeSortedStrings(append(append([]string(nil), current.RiskZoneReasons...), incoming.RiskZoneReasons...))
+	merged.ReviewBurden = firstNonEmptyString(current.ReviewBurden, incoming.ReviewBurden)
+	merged.ReviewBurdenReasons = dedupeSortedStrings(append(append([]string(nil), current.ReviewBurdenReasons...), incoming.ReviewBurdenReasons...))
 	merged.PolicyCoverageStatus = choosePolicyCoverageStatus(current.PolicyCoverageStatus, incoming.PolicyCoverageStatus)
 	merged.PolicyRefs = dedupeSortedStrings(append(append([]string(nil), current.PolicyRefs...), incoming.PolicyRefs...))
 	merged.PolicyMissingReasons = dedupeSortedStrings(append(append([]string(nil), current.PolicyMissingReasons...), incoming.PolicyMissingReasons...))
 	merged.PolicyStatusReasons = dedupeSortedStrings(append(append([]string(nil), current.PolicyStatusReasons...), incoming.PolicyStatusReasons...))
 	merged.PolicyConfidence = choosePolicyConfidence(current.PolicyConfidence, incoming.PolicyConfidence)
 	merged.PolicyEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.PolicyEvidenceRefs...), incoming.PolicyEvidenceRefs...))
+	merged.GaitCoverage = MergeGaitCoverage(current.GaitCoverage, incoming.GaitCoverage)
 	merged.IntroducedBy = attribution.Merge(current.IntroducedBy, incoming.IntroducedBy)
 	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
 	merged.AttackPathRefs = dedupeSortedStrings(append(append([]string(nil), current.AttackPathRefs...), incoming.AttackPathRefs...))
@@ -584,6 +598,8 @@ func credentialProvenancePriority(provenance *agginventory.CredentialProvenance)
 		return 6
 	case agginventory.CredentialKindInheritedHuman:
 		return 5
+	case agginventory.CredentialKindGitHubWorkflowToken:
+		return 3
 	case agginventory.CredentialKindGitHubAppKey, agginventory.CredentialKindDeployKey, agginventory.CredentialKindCloudAccessKey, agginventory.CredentialKindStaticSecret:
 		return 4
 	case agginventory.CredentialKindDelegatedOAuth:

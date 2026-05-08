@@ -73,6 +73,12 @@ type AgentActionBOMItem struct {
 	PathContext              *agginventory.PathContext            `json:"path_context,omitempty"`
 	StandingPrivilege        bool                                 `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons []string                             `json:"standing_privilege_reasons,omitempty"`
+	ControlState             string                               `json:"control_state,omitempty"`
+	ControlStateReasons      []string                             `json:"control_state_reasons,omitempty"`
+	RiskZone                 string                               `json:"risk_zone,omitempty"`
+	RiskZoneReasons          []string                             `json:"risk_zone_reasons,omitempty"`
+	ReviewBurden             string                               `json:"review_burden,omitempty"`
+	ReviewBurdenReasons      []string                             `json:"review_burden_reasons,omitempty"`
 	ActionClasses            []string                             `json:"action_classes,omitempty"`
 	ActionReasons            []string                             `json:"action_reasons,omitempty"`
 	ProductionWrite          bool                                 `json:"production_write,omitempty"`
@@ -91,6 +97,7 @@ type AgentActionBOMItem struct {
 	RuntimeEvidenceStatus    string                               `json:"runtime_evidence_status,omitempty"`
 	RuntimeEvidenceClasses   []string                             `json:"runtime_evidence_classes,omitempty"`
 	RuntimeEvidenceRefs      []string                             `json:"runtime_evidence_refs,omitempty"`
+	GaitCoverage             *risk.GaitCoverage                   `json:"gait_coverage,omitempty"`
 	Confidence               string                               `json:"confidence,omitempty"`
 	EvidenceStrength         string                               `json:"evidence_strength,omitempty"`
 	InventoryRisk            string                               `json:"inventory_risk,omitempty"`
@@ -198,6 +205,12 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			PathContext:              agginventory.ClonePathContext(path.PathContext),
 			StandingPrivilege:        path.StandingPrivilege,
 			StandingPrivilegeReasons: append([]string(nil), path.StandingPrivilegeReasons...),
+			ControlState:             strings.TrimSpace(path.ControlState),
+			ControlStateReasons:      append([]string(nil), path.ControlStateReasons...),
+			RiskZone:                 strings.TrimSpace(path.RiskZone),
+			RiskZoneReasons:          append([]string(nil), path.RiskZoneReasons...),
+			ReviewBurden:             strings.TrimSpace(path.ReviewBurden),
+			ReviewBurdenReasons:      append([]string(nil), path.ReviewBurdenReasons...),
 			ActionClasses:            append([]string(nil), path.ActionClasses...),
 			ActionReasons:            append([]string(nil), path.ActionReasons...),
 			ProductionWrite:          path.ProductionWrite,
@@ -211,6 +224,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			RuntimeEvidenceStatus:    runtimeItem.Status,
 			RuntimeEvidenceClasses:   append([]string(nil), runtimeItem.EvidenceClasses...),
 			RuntimeEvidenceRefs:      append([]string(nil), runtimeItem.RecordIDs...),
+			GaitCoverage:             risk.CloneGaitCoverage(path.GaitCoverage),
 			Confidence:               signal.Confidence,
 			EvidenceStrength:         signal.EvidenceStrength,
 			InventoryRisk:            inventoryRiskForPath(path),

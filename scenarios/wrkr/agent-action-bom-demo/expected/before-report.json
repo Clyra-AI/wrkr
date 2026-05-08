@@ -1,14 +1,14 @@
 {
   "runtime_evidence": null,
   "summary": {
-    "total_items": 2,
-    "control_first_items": 2,
+    "total_items": 6,
+    "control_first_items": 3,
     "standing_privilege_items": 2,
     "static_credential_items": 2,
-    "production_target_items": 2,
-    "missing_approval_items": 2,
-    "missing_policy_items": 2,
-    "missing_proof_items": 2,
+    "production_target_items": 3,
+    "missing_approval_items": 6,
+    "missing_policy_items": 6,
+    "missing_proof_items": 6,
     "runtime_proven_items": 0,
     "unresolved_owner_items": 0,
     "scan_scope": {
@@ -27,24 +27,24 @@
     },
     "operational_exposure": {
       "grade": "critical",
-      "path_count": 2,
+      "path_count": 6,
       "driver": "production_and_credentials",
       "rationale": [
-        "production_backed_paths=2",
+        "production_backed_paths=3",
         "credential_bearing_paths=1",
-        "write_capable_paths=2",
+        "write_capable_paths=3",
         "runtime_deployed_paths=2"
       ]
     },
     "governance_readiness": {
       "grade": "low",
-      "path_count": 2,
+      "path_count": 6,
       "driver": "governance_gaps_present",
       "rationale": [
-        "approval_gaps=2",
+        "approval_gaps=6",
         "missing_owner_paths=0",
-        "policy_gaps=2",
-        "missing_proof_paths=8",
+        "policy_gaps=6",
+        "missing_proof_paths=14",
         "coverage_reduced=false"
       ]
     },
@@ -53,8 +53,65 @@
   "top_item": {
     "path_id": "apc-6626703372d7",
     "tool_type": "ci_agent",
+    "control_state": "block_recommended",
+    "risk_zone": "production_data",
+    "review_burden": "critical",
     "proof_coverage": "missing",
     "policy_status": "none",
-    "runtime_evidence_status": ""
+    "runtime_evidence_status": "",
+    "introduced_by": {
+      "source": "source_metadata",
+      "confidence": "high",
+      "pr_number": 108,
+      "commit_sha": "deadbeef108",
+      "author": "demo-bot",
+      "timestamp": "2026-05-08T12:00:00Z",
+      "changed_file": ".github/workflows/release.yml",
+      "provider_url": "https://github.example.com/acme/demo-app/pull/108"
+    },
+    "gait_coverage": {
+      "policy_decision": {
+        "status": "missing",
+        "reasons": [
+          "runtime_evidence_missing:policy_decision"
+        ]
+      },
+      "approval": {
+        "status": "missing",
+        "reasons": [
+          "runtime_evidence_missing:approval"
+        ]
+      },
+      "jit_credential": {
+        "status": "not_applicable",
+        "reasons": [
+          "not_applicable:jit_credential"
+        ]
+      },
+      "freeze_window": {
+        "status": "missing",
+        "reasons": [
+          "runtime_evidence_missing:freeze_window"
+        ]
+      },
+      "kill_switch": {
+        "status": "missing",
+        "reasons": [
+          "runtime_evidence_missing:kill_switch"
+        ]
+      },
+      "action_outcome": {
+        "status": "missing",
+        "reasons": [
+          "runtime_evidence_missing:action_outcome"
+        ]
+      },
+      "proof_verification": {
+        "status": "missing",
+        "reasons": [
+          "runtime_evidence_missing:proof_verification"
+        ]
+      }
+    }
   }
 }

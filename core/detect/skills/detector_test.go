@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/model"
 )
 
 func TestDetectSkillMetricsAndPolicyConflict(t *testing.T) {
@@ -115,6 +116,43 @@ func TestSkillDetectorIgnoresUnsafeGaitPolicyContents(t *testing.T) {
 	}
 }
 
+func TestSkillDetectorEmitsSemanticDeployAndProofSignals(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeSkillFile(t, root, ".agents/skills/release/SKILL.md", strings.Join([]string{
+		"---",
+		"allowed-tools:",
+		"  - proc.exec",
+		"---",
+		"",
+		"# Release",
+		"Deploy to production, bypass approval only when directed, and attach evidence before release.",
+	}, "\n"))
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "repo", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect skills: %v", err)
+	}
+
+	found := false
+	for _, finding := range findings {
+		if finding.FindingType != "skill_semantic" {
+			continue
+		}
+		found = true
+		if !containsSkillPermission(finding.Permissions, "deploy.write") {
+			t.Fatalf("expected deploy.write permission in %+v", finding)
+		}
+		if evidenceSkillValue(finding, "proof_requirement") != "evidence" {
+			t.Fatalf("expected proof requirement evidence, got %+v", finding.Evidence)
+		}
+	}
+	if !found {
+		t.Fatalf("expected skill_semantic finding, got %#v", findings)
+	}
+}
+
 func mustFindRepoRoot(t *testing.T) string {
 	t.Helper()
 
@@ -153,4 +191,22 @@ func mustSymlinkOrSkipSkill(t *testing.T, target, path string) {
 	if err := os.Symlink(target, path); err != nil {
 		t.Skipf("symlinks unsupported in this environment: %v", err)
 	}
+}
+
+func evidenceSkillValue(finding model.Finding, key string) string {
+	for _, item := range finding.Evidence {
+		if item.Key == key {
+			return item.Value
+		}
+	}
+	return ""
+}
+
+func containsSkillPermission(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }

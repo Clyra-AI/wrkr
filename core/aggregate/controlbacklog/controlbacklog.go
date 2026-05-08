@@ -121,6 +121,12 @@ type Item struct {
 	CredentialProvenance     *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
 	StandingPrivilege        bool                                    `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons []string                                `json:"standing_privilege_reasons,omitempty"`
+	ControlState             string                                  `json:"control_state,omitempty"`
+	ControlStateReasons      []string                                `json:"control_state_reasons,omitempty"`
+	RiskZone                 string                                  `json:"risk_zone,omitempty"`
+	RiskZoneReasons          []string                                `json:"risk_zone_reasons,omitempty"`
+	ReviewBurden             string                                  `json:"review_burden,omitempty"`
+	ReviewBurdenReasons      []string                                `json:"review_burden_reasons,omitempty"`
 	PolicyCoverageStatus     string                                  `json:"policy_coverage_status,omitempty"`
 	PolicyRefs               []string                                `json:"policy_refs,omitempty"`
 	PolicyMissingReasons     []string                                `json:"policy_missing_reasons,omitempty"`
@@ -299,6 +305,12 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		CredentialProvenance:     agginventory.CloneCredentialProvenance(path.CredentialProvenance),
 		StandingPrivilege:        path.StandingPrivilege,
 		StandingPrivilegeReasons: append([]string(nil), path.StandingPrivilegeReasons...),
+		ControlState:             strings.TrimSpace(path.ControlState),
+		ControlStateReasons:      append([]string(nil), path.ControlStateReasons...),
+		RiskZone:                 strings.TrimSpace(path.RiskZone),
+		RiskZoneReasons:          append([]string(nil), path.RiskZoneReasons...),
+		ReviewBurden:             strings.TrimSpace(path.ReviewBurden),
+		ReviewBurdenReasons:      append([]string(nil), path.ReviewBurdenReasons...),
 		PolicyCoverageStatus:     strings.TrimSpace(path.PolicyCoverageStatus),
 		PolicyRefs:               append([]string(nil), path.PolicyRefs...),
 		PolicyMissingReasons:     append([]string(nil), path.PolicyMissingReasons...),
@@ -1524,6 +1536,14 @@ func fallback(value, fallbackValue string) string {
 }
 
 func queueFromActionPath(path risk.ActionPath) string {
+	switch strings.TrimSpace(path.ControlState) {
+	case risk.ControlStateBlockRecommend:
+		return QueueControlFirst
+	case risk.ControlStateApprovalNeeded, risk.ControlStateEvidenceNeeded:
+		return QueueReviewQueue
+	case risk.ControlStateInventoryOnly:
+		return QueueInventoryHygiene
+	}
 	switch strings.TrimSpace(path.ControlPriority) {
 	case risk.ControlPriorityControlFirst:
 		return QueueControlFirst
