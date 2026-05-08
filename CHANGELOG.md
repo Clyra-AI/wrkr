@@ -43,6 +43,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:patch] Fixed pinned install and release-smoke examples so documented first-value commands install a compatible Wrkr release.
 - [semver:patch] Fixed scan status so completed scans with source failures remain marked as partial instead of appearing complete to automation.
 - [semver:patch] Fixed hosted scan progress counters so failed repo materialization is counted once and pending progress remains accurate.
+- [semver:patch] Fixed workflow credential classification so multiple secret references on one CI action path keep subject-specific PAT, cloud-admin, cloud-access, deploy-key, and generic secret kinds instead of inheriting the first aggregate match.
 - Fixed repo-level attack-path score spillover so high attack-path scores attach only to matching govern-first paths instead of every candidate path in the same repo.
 - Fixed tolerant detector parsing for additive third-party `package.json` metadata and reduced modern JS/WebMCP parse noise by recovering positive fallback signals while keeping diagnostics out of ranked risk surfaces.
 - Fixed remaining open detector manifests and MCP-adjacent configs to tolerate additive metadata instead of treating unknown fields as parse failures.
