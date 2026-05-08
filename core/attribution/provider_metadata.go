@@ -12,23 +12,23 @@ import (
 )
 
 const (
-	SourceGitHubEvent  = "github_event_payload"
-	SourceGitLabEvent  = "gitlab_merge_request_event"
-	SourceSidecar      = "source_metadata"
+	SourceGitHubEvent = "github_event_payload"
+	SourceGitLabEvent = "gitlab_merge_request_event"
+	SourceSidecar     = "source_metadata"
 )
 
 type Context struct {
-	RepoRoot    string
-	Candidates  []Candidate
+	RepoRoot   string
+	Candidates []Candidate
 }
 
 type Candidate struct {
-	Source      string
-	PRNumber    int
-	CommitSHA   string
-	Author      string
-	Timestamp   string
-	ProviderURL string
+	Source       string
+	PRNumber     int
+	CommitSHA    string
+	Author       string
+	Timestamp    string
+	ProviderURL  string
 	ChangedFiles []string
 }
 
@@ -220,9 +220,9 @@ func loadGitLabEventMetadata(repoRoot string) *Candidate {
 			Username string `json:"username"`
 		} `json:"user"`
 		ObjectAttributes struct {
-			IID       int    `json:"iid"`
-			URL       string `json:"url"`
-			UpdatedAt string `json:"updated_at"`
+			IID        int    `json:"iid"`
+			URL        string `json:"url"`
+			UpdatedAt  string `json:"updated_at"`
 			LastCommit struct {
 				ID string `json:"id"`
 			} `json:"last_commit"`

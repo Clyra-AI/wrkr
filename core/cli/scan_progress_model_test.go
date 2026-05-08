@@ -1,6 +1,10 @@
 package cli
 
 import (
+	"bytes"
+	"context"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -65,5 +69,58 @@ func TestScanProgressPercentDoesNotExceedHundredWhenFailuresAccumulate(t *testin
 	})
 	if overall > 100 || phase > 100 {
 		t.Fatalf("expected detector progress to stay bounded, got overall=%d phase=%d", overall, phase)
+	}
+}
+
+func TestScanProgressReporterSerializesConcurrentRendererWrites(t *testing.T) {
+	t.Parallel()
+
+	var errOut bytes.Buffer
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	progress := newScanProgressReporter(scanProgressReporterOptions{
+		RequestedMode:     scanProgressModeEvents,
+		Stderr:            &errOut,
+		StartedAt:         time.Unix(0, 0).UTC(),
+		TargetMode:        "path",
+		TargetValue:       "/tmp/repos",
+		HeartbeatInterval: time.Millisecond,
+	})
+	progress.Start(ctx)
+	progress.ScanPhase("path", "/tmp/repos", "source_acquire_start")
+
+	var wg sync.WaitGroup
+	for worker := 0; worker < 4; worker++ {
+		wg.Add(1)
+		go func(worker int) {
+			defer wg.Done()
+			for i := 0; i < 50; i++ {
+				progress.Heartbeat()
+				progress.DetectorStart(detect.DetectorProgressEvent{
+					DetectorID: "codex",
+					Scope:      detect.Scope{Org: "local", Repo: "repo"},
+					Index:      worker + 1,
+					Total:      4,
+				})
+				progress.DetectorComplete(detect.DetectorProgressEvent{
+					DetectorID: "codex",
+					Scope:      detect.Scope{Org: "local", Repo: "repo"},
+					Index:      worker + 1,
+					Total:      4,
+				})
+				progress.Finish(scanProgressFooter{
+					Status:          "running",
+					CurrentPhase:    "detectors",
+					ProgressPercent: 80,
+				})
+			}
+		}(worker)
+	}
+	wg.Wait()
+	progress.Stop()
+
+	if !strings.Contains(errOut.String(), "progress") {
+		t.Fatalf("expected concurrent progress output")
 	}
 }

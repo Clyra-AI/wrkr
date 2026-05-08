@@ -108,6 +108,7 @@ type scanProgressState struct {
 
 type scanProgressReporter struct {
 	mu                sync.Mutex
+	renderMu          sync.Mutex
 	mode              scanProgressMode
 	renderer          scanProgressRenderer
 	statusSink        func(scanProgressSnapshot)
@@ -331,15 +332,16 @@ func (r *scanProgressReporter) ScanPhase(targetMode, targetValue, phase string) 
 		statusSink(snapshot)
 	}
 	if renderer != nil {
+		updates := make([]scanProgressUpdate, 0, 2)
 		if notice != "" {
-			renderer.Render(snapshot, scanProgressUpdate{
+			updates = append(updates, scanProgressUpdate{
 				Kind:        "notice",
 				TargetMode:  targetMode,
 				TargetValue: targetValue,
 				Message:     notice,
 			})
 		}
-		renderer.Render(snapshot, scanProgressUpdate{
+		updates = append(updates, scanProgressUpdate{
 			Kind:           "scan_phase",
 			TargetMode:     targetMode,
 			TargetValue:    targetValue,
@@ -347,6 +349,7 @@ func (r *scanProgressReporter) ScanPhase(targetMode, targetValue, phase string) 
 			DurationMillis: durationMillis,
 			Message:        phaseProgressMessage(phase),
 		})
+		r.render(snapshot, updates...)
 	}
 }
 
@@ -497,23 +500,22 @@ func (r *scanProgressReporter) Heartbeat() {
 }
 
 func (r *scanProgressReporter) Flush() {
-	if r == nil || r.renderer == nil {
+	if r == nil {
 		return
 	}
-	r.renderer.Flush()
+	r.flush()
 }
 
 func (r *scanProgressReporter) Finish(footer scanProgressFooter) {
-	if r == nil || r.renderer == nil {
+	if r == nil {
 		return
 	}
-	r.renderer.Render(r.snapshot(), scanProgressUpdate{
+	r.renderAndFlush(r.snapshot(), scanProgressUpdate{
 		Kind:        "footer",
 		TargetMode:  r.targetMode,
 		TargetValue: r.targetValue,
 		Footer:      footer,
 	})
-	r.renderer.Flush()
 }
 
 func (r *scanProgressReporter) snapshot() scanProgressSnapshot {
@@ -541,8 +543,9 @@ func (r *scanProgressReporter) emit(update scanProgressUpdate, mutate func(time.
 		r.state.progressMessage = strings.TrimSpace(update.Message)
 	}
 	snapshot := mutate(now)
+	updates := make([]scanProgressUpdate, 0, 2)
 	if r.pendingNotice != "" && r.renderer != nil {
-		r.renderer.Render(snapshot, scanProgressUpdate{
+		updates = append(updates, scanProgressUpdate{
 			Kind:        "notice",
 			TargetMode:  update.TargetMode,
 			TargetValue: update.TargetValue,
@@ -552,14 +555,47 @@ func (r *scanProgressReporter) emit(update scanProgressUpdate, mutate func(time.
 	}
 	renderer := r.renderer
 	statusSink := r.statusSink
+	if renderer != nil {
+		updates = append(updates, update)
+	}
 	r.mu.Unlock()
 
 	if statusSink != nil {
 		statusSink(snapshot)
 	}
 	if renderer != nil {
-		renderer.Render(snapshot, update)
+		r.render(snapshot, updates...)
 	}
+}
+
+func (r *scanProgressReporter) render(snapshot scanProgressSnapshot, updates ...scanProgressUpdate) {
+	if r == nil || r.renderer == nil || len(updates) == 0 {
+		return
+	}
+	r.renderMu.Lock()
+	defer r.renderMu.Unlock()
+	for _, update := range updates {
+		r.renderer.Render(snapshot, update)
+	}
+}
+
+func (r *scanProgressReporter) flush() {
+	if r == nil || r.renderer == nil {
+		return
+	}
+	r.renderMu.Lock()
+	defer r.renderMu.Unlock()
+	r.renderer.Flush()
+}
+
+func (r *scanProgressReporter) renderAndFlush(snapshot scanProgressSnapshot, update scanProgressUpdate) {
+	if r == nil || r.renderer == nil {
+		return
+	}
+	r.renderMu.Lock()
+	defer r.renderMu.Unlock()
+	r.renderer.Render(snapshot, update)
+	r.renderer.Flush()
 }
 
 func (r *scanProgressReporter) snapshotLocked(now time.Time) scanProgressSnapshot {
