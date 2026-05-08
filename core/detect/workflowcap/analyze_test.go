@@ -142,6 +142,34 @@ jobs:
 	}
 }
 
+func TestAnalyzeDoesNotTreatTemplatedGithubTokenNameAsBuiltinWhenValueIsExternal(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: release
+on: workflow_dispatch
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: codex --full-auto --approval never
+        env:
+          GITHUB_TOKEN: ${{ vars.CI_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROD_DEPLOY_PAT }}
+`)
+
+	result, parseErr := Analyze(".github/workflows/release.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if evidenceValue(result, "workflow_builtin_token") != "" {
+		t.Fatalf("did not expect built-in workflow token evidence, got %q", evidenceValue(result, "workflow_builtin_token"))
+	}
+	refs := evidenceValues(result, "workflow_secret_refs")
+	if !contains(refs, "PROD_DEPLOY_PAT") {
+		t.Fatalf("expected external secret ref evidence, got %v", refs)
+	}
+}
+
 func TestAnalyzeMalformedWorkflowReturnsParseError(t *testing.T) {
 	t.Parallel()
 
@@ -257,6 +285,16 @@ func evidenceValue(result Result, key string) string {
 		}
 	}
 	return ""
+}
+
+func evidenceValues(result Result, key string) []string {
+	out := []string{}
+	for _, evidence := range result.Evidence {
+		if evidence.Key == key {
+			out = append(out, evidence.Value)
+		}
+	}
+	return out
 }
 
 func contains(values []string, target string) bool {
