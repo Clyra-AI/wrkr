@@ -365,7 +365,9 @@ func TestScanJSONOrgProgressIsVisibleBeforeCommandCompletion(t *testing.T) {
 		}, &out, errOut)
 	}()
 
-	const want = "progress target=org org=acme event=repo_materialize repo_index=1 repo_total=1 repo=acme/a"
+	// This test only needs proof that progress is visible before the command exits.
+	// Other progress tests cover the later repo materialization milestones directly.
+	const want = "progress target=org org=acme event=scan_phase phase=source_acquire_start"
 	if !errOut.waitFor(want, 2*time.Second) {
 		t.Fatalf("expected live stderr progress before completion, got %q", errOut.String())
 	}
