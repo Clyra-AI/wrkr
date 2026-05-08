@@ -61,6 +61,7 @@ type scanProgressFooter struct {
 	PartialResult       bool
 	RepoTotal           int
 	ReposCompleted      int
+	ReposSucceeded      int
 	ReposFailed         int
 	DetectorProgress    *state.ScanDetectorProgress
 	ArtifactPaths       []string
@@ -78,6 +79,7 @@ type scanProgressUpdate struct {
 	RepoIndex      int
 	RepoTotal      int
 	Completed      int
+	Succeeded      int
 	Failed         int
 	Pending        int
 	Attempt        int
@@ -248,6 +250,7 @@ func (r *scanProgressReporter) PathRepo(root string, index, total int, repo stri
 	}, func(now time.Time) scanProgressSnapshot {
 		r.state.repoProgress = state.ScanRepoProgress{
 			Total:     total,
+			Succeeded: index,
 			Completed: index,
 			Failed:    0,
 			Pending:   maxProgressCount(total-index, 0),
@@ -269,13 +272,14 @@ func (r *scanProgressReporter) RepoMaterialize(org string, index, total int, rep
 	}, func(now time.Time) scanProgressSnapshot {
 		if total > 0 {
 			r.state.repoProgress.Total = total
-			r.state.repoProgress.Pending = maxProgressCount(total-r.state.repoProgress.Completed-r.state.repoProgress.Failed, 0)
+			r.state.repoProgress.Pending = maxProgressCount(total-r.state.repoProgress.Completed, 0)
 		}
 		return r.snapshotLocked(now)
 	})
 }
 
-func (r *scanProgressReporter) RepoMaterializeDone(org string, completed, total int, repo, status string) {
+func (r *scanProgressReporter) RepoMaterializeDone(org string, succeeded, failed, total int, repo, status string) {
+	completed := succeeded + failed
 	r.emit(scanProgressUpdate{
 		Kind:        "repo_materialize_done",
 		TargetMode:  "org",
@@ -283,18 +287,17 @@ func (r *scanProgressReporter) RepoMaterializeDone(org string, completed, total 
 		Repo:        strings.TrimSpace(repo),
 		RepoTotal:   total,
 		Completed:   completed,
+		Succeeded:   succeeded,
+		Failed:      failed,
 		Status:      strings.TrimSpace(status),
 		Message:     repoMaterializeDoneMessage(repo, status, completed, total),
 	}, func(now time.Time) scanProgressSnapshot {
-		failed := r.state.repoProgress.Failed
-		if strings.TrimSpace(status) == "failed" && completed > r.state.repoProgress.Completed {
-			failed++
-		}
 		r.state.repoProgress = state.ScanRepoProgress{
 			Total:     total,
+			Succeeded: succeeded,
 			Completed: completed,
 			Failed:    failed,
-			Pending:   maxProgressCount(total-completed-failed, 0),
+			Pending:   maxProgressCount(total-completed, 0),
 		}
 		r.recomputePercentLocked()
 		return r.snapshotLocked(now)
@@ -381,11 +384,13 @@ func (r *scanProgressReporter) Resume(org string, total, completed, pending int)
 		TargetValue: strings.TrimSpace(org),
 		RepoTotal:   total,
 		Completed:   completed,
+		Succeeded:   completed,
 		Pending:     pending,
 		Message:     fmt.Sprintf("resumed org scan with %d completed and %d pending repo(s)", completed, pending),
 	}, func(now time.Time) scanProgressSnapshot {
 		r.state.repoProgress = state.ScanRepoProgress{
 			Total:     total,
+			Succeeded: completed,
 			Completed: completed,
 			Failed:    r.state.repoProgress.Failed,
 			Pending:   pending,
@@ -395,21 +400,24 @@ func (r *scanProgressReporter) Resume(org string, total, completed, pending int)
 	})
 }
 
-func (r *scanProgressReporter) Complete(org string, total, completed, failed int) {
+func (r *scanProgressReporter) Complete(org string, total, succeeded, failed int) {
+	completed := succeeded + failed
 	r.emit(scanProgressUpdate{
 		Kind:        "complete",
 		TargetMode:  "org",
 		TargetValue: strings.TrimSpace(org),
 		RepoTotal:   total,
 		Completed:   completed,
+		Succeeded:   succeeded,
 		Failed:      failed,
 		Message:     fmt.Sprintf("completed source acquisition for %d repo(s)", total),
 	}, func(now time.Time) scanProgressSnapshot {
 		r.state.repoProgress = state.ScanRepoProgress{
 			Total:     total,
+			Succeeded: succeeded,
 			Completed: completed,
 			Failed:    failed,
-			Pending:   maxProgressCount(total-completed-failed, 0),
+			Pending:   maxProgressCount(total-completed, 0),
 		}
 		r.recomputePercentLocked()
 		return r.snapshotLocked(now)
@@ -713,6 +721,7 @@ func formatScanProgressFooter(footer scanProgressFooter) string {
 		fmt.Sprintf("partial_result=%t", footer.PartialResult),
 		fmt.Sprintf("repos=%d/%d", footer.ReposCompleted, footer.RepoTotal),
 		fmt.Sprintf("failed=%d", footer.ReposFailed),
+		fmt.Sprintf("succeeded=%d", footer.ReposSucceeded),
 		fmt.Sprintf("elapsed=%ds", footer.ElapsedSeconds),
 	}
 	if strings.TrimSpace(footer.ProgressMessage) != "" {

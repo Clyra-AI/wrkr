@@ -28,6 +28,7 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 fixture_path="scenarios/wrkr/scan-mixed-org/repos"
 state_path="$tmp_dir/state.json"
+target_state_path="$tmp_dir/target-state.json"
 config_path="$tmp_dir/config.yaml"
 baseline_path="$tmp_dir/wrkr-regress-baseline.json"
 evidence_dir="$tmp_dir/evidence"
@@ -37,6 +38,7 @@ manifest_path="$tmp_dir/wrkr-manifest.yaml"
 "$bin_path" init --non-interactive --path "$fixture_path" --config "$config_path" --json >/dev/null
 "$bin_path" scan --path "$fixture_path" --state "$state_path" --json >"$tmp_dir/scan.json"
 "$bin_path" scan --path "$fixture_path" --state "$state_path" --profile standard --json >"$tmp_dir/scan-standard.json"
+"$bin_path" scan --target "path:$fixture_path" --state "$target_state_path" --profile assessment --json --json-path "$tmp_dir/scan-target-copy.json" >"$tmp_dir/scan-target.json"
 (
   cd "$tmp_dir"
   "$bin_path" evidence --frameworks eu-ai-act,soc2 --state "$state_path" --json >"$tmp_dir/evidence-default.json"
@@ -68,6 +70,7 @@ root = pathlib.Path(sys.argv[1])
 required = {
     "scan.json": ["status", "findings", "ranked_findings", "inventory", "profile", "posture_score"],
     "scan-standard.json": ["status", "profile", "posture_score"],
+    "scan-target.json": ["status", "findings", "ranked_findings", "inventory", "profile", "posture_score", "target"],
     "evidence-default.json": ["status", "output_dir", "framework_coverage"],
     "evidence-managed.json": ["status", "output_dir", "manifest_path", "chain_path"],
     "score.json": ["score", "grade", "weighted_breakdown", "trend_delta"],
@@ -81,6 +84,11 @@ for name, keys in required.items():
     for key in keys:
         if key not in payload:
             raise SystemExit(f"{name} missing key {key}")
+
+scan_target_bytes = (root / "scan-target.json").read_bytes()
+scan_target_copy_bytes = (root / "scan-target-copy.json").read_bytes()
+if scan_target_bytes != scan_target_copy_bytes:
+    raise SystemExit("scan-target stdout/json-path payload mismatch")
 
 unsafe_payload = json.loads((root / "unsafe.err").read_text(encoding="utf-8"))
 err = unsafe_payload.get("error", {})

@@ -44,6 +44,15 @@ make prepush
 
 This path is sufficient for most CLI/runtime changes and does not require Node.
 
+## Focused Local Validation (Additive)
+
+Use these only for narrow, local iteration before you run the full gate set required by the touched surface:
+
+- `make test-focused-docs` for install, README, docs-site quickstart, and release-parity doc changes.
+- `make test-focused-scan` for scan-status, partial-result, and hosted progress-counter changes.
+
+These commands do not replace `make test-fast`, `make prepush`, contract lanes, scenario lanes, risk lanes, or release/UAT lanes when those are required by the story or touched surface.
+
 ## CI Lane Map
 
 | Lane | Purpose | Local command anchor |
@@ -73,6 +82,7 @@ This path is sufficient for most CLI/runtime changes and does not require Node.
 
 1. Keep scope tight and mapped to one story/contract change when possible.
 2. Run required local commands for your touched surfaces (at minimum fast + core lane anchors).
+   `make test-focused-docs` or `make test-focused-scan` are acceptable as the first local pass for narrow changes, but they are additive helpers only and do not satisfy merge or release gates by themselves.
 3. If workflow refs change, rerun the affected workflow class on your branch and inspect it for the absence of the prior deprecation warning:
    - `gh workflow run pr.yml --ref <branch>`
    - `gh workflow run nightly.yml --ref <branch>`

@@ -1,6 +1,7 @@
 package hygiene
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,6 +71,72 @@ func TestInstallDocsSmokeGoOnlyPath(t *testing.T) {
 	}
 	if !strings.Contains(releaseIntegrity, "wrkr version --json") {
 		t.Fatal("release integrity docs missing install verification command")
+	}
+}
+
+func TestInstallDocsPinnedVersionSupportsCurrentReadmeCommands(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	currentRelease := currentSupportedReleaseFromChangelog(t, repoRoot)
+	readme := mustReadFile(t, filepath.Join(repoRoot, "README.md"))
+	installDoc := mustReadFile(t, filepath.Join(repoRoot, "docs/install/minimal-dependencies.md"))
+	quickstartLLM := mustReadFile(t, filepath.Join(repoRoot, "docs-site/public/llm/quickstart.md"))
+	actionDoc := mustReadFile(t, filepath.Join(repoRoot, "docs/commands/action.md"))
+
+	for path, content := range map[string]string{
+		"README.md":                            readme,
+		"docs/install/minimal-dependencies.md": installDoc,
+		"docs-site/public/llm/quickstart.md":   quickstartLLM,
+	} {
+		got := extractShellAssignedVersion(t, content, `WRKR_VERSION="`)
+		if got != currentRelease {
+			t.Fatalf("%s must pin %s, got %s", path, currentRelease, got)
+		}
+	}
+
+	for _, required := range []string{
+		"--progress auto",
+		"--json-path",
+		"--profile assessment",
+		"--target org:acme --target path:./your-repos",
+	} {
+		if !strings.Contains(readme, required) {
+			t.Fatalf("README contract changed; expected %q to remain covered by the install version guard", required)
+		}
+	}
+
+	for _, needle := range []string{
+		"- uses: Clyra-AI/wrkr@" + currentRelease,
+	} {
+		if !strings.Contains(actionDoc, needle) {
+			t.Fatalf("docs/commands/action.md must reference current supported release %s", currentRelease)
+		}
+	}
+}
+
+func TestMinimalDependenciesReleaseSmokeVersionIsCurrent(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	currentRelease := currentSupportedReleaseFromChangelog(t, repoRoot)
+	installDoc := mustReadFile(t, filepath.Join(repoRoot, "docs/install/minimal-dependencies.md"))
+	releaseIntegrity := mustReadFile(t, filepath.Join(repoRoot, "docs/trust/release-integrity.md"))
+
+	for _, required := range []string{
+		"scripts/test_uat_local.sh --release-version " + currentRelease + " --skip-global-gates",
+		"scripts/test_uat_local.sh --release-version " + currentRelease + " --brew-formula Clyra-AI/tap/wrkr --skip-global-gates",
+	} {
+		if !strings.Contains(installDoc, required) {
+			t.Fatalf("install docs missing current release-smoke command %q", required)
+		}
+	}
+
+	if !strings.Contains(releaseIntegrity, "scripts/test_uat_local.sh --release-version "+currentRelease+" --brew-formula Clyra-AI/tap/wrkr") {
+		t.Fatalf("release integrity docs must use current supported release %s for install-path UAT", currentRelease)
+	}
+	if !strings.Contains(releaseIntegrity, "python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json") {
+		t.Fatal("release integrity docs must keep release-version validation examples generic with vX.Y.Z")
 	}
 }
 
@@ -212,6 +279,71 @@ func TestDocsSourceOfTruthSectionsPresent(t *testing.T) {
 	}
 }
 
+func TestRequiredChecksRemainEnforced(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	content, err := os.ReadFile(filepath.Join(repoRoot, ".github", "required-checks.json"))
+	if err != nil {
+		t.Fatalf("read required checks contract: %v", err)
+	}
+
+	var payload struct {
+		RequiredChecks []string `json:"required_checks"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		t.Fatalf("parse required checks contract: %v", err)
+	}
+
+	for _, required := range []string{"fast-lane", "scan-contract", "wave-sequence", "windows-smoke"} {
+		found := false
+		for _, actual := range payload.RequiredChecks {
+			if actual == required {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("required checks contract missing %q: %v", required, payload.RequiredChecks)
+		}
+	}
+}
+
+func TestDocsMapListsFocusedValidationCommands(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	docsMap := mustReadFile(t, filepath.Join(repoRoot, "docs/map.md"))
+	contributing := mustReadFile(t, filepath.Join(repoRoot, "CONTRIBUTING.md"))
+	devGuides := mustReadFile(t, filepath.Join(repoRoot, "product/dev_guides.md"))
+	makefile := mustReadFile(t, filepath.Join(repoRoot, "Makefile"))
+
+	for _, required := range []string{
+		"make test-focused-docs",
+		"make test-focused-scan",
+		"make test-fast",
+	} {
+		if !strings.Contains(docsMap, required) {
+			t.Fatalf("docs map missing focused validation command %q", required)
+		}
+		if !strings.Contains(contributing, required) {
+			t.Fatalf("CONTRIBUTING missing focused validation command %q", required)
+		}
+		if !strings.Contains(devGuides, required) {
+			t.Fatalf("product/dev_guides.md missing focused validation command %q", required)
+		}
+	}
+	for _, target := range []string{
+		"test-focused-docs:",
+		"test-focused-scan:",
+		"test-fast:",
+	} {
+		if !strings.Contains(makefile, "\n"+target) && !strings.HasPrefix(makefile, target) {
+			t.Fatalf("Makefile missing focused validation target %q", strings.TrimSuffix(target, ":"))
+		}
+	}
+}
+
 func TestContributingContainsRequiredWorkflowSections(t *testing.T) {
 	t.Parallel()
 
@@ -324,6 +456,44 @@ func TestGovernancePolicyDocsPresent(t *testing.T) {
 	if !strings.Contains(skillsNotice, "docs/governance/content-visibility.md") {
 		t.Fatal("skills notice missing governance link")
 	}
+}
+
+func currentSupportedReleaseFromChangelog(t *testing.T, repoRoot string) string {
+	t.Helper()
+
+	changelog := mustReadFile(t, filepath.Join(repoRoot, "CHANGELOG.md"))
+	for _, line := range strings.Split(changelog, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "## [v") {
+			continue
+		}
+		end := strings.Index(line, "]")
+		if end <= len("## [") {
+			break
+		}
+		return line[len("## ["):end]
+	}
+	t.Fatal("could not resolve current supported release from CHANGELOG.md")
+	return ""
+}
+
+func extractShellAssignedVersion(t *testing.T, content, prefix string) string {
+	t.Helper()
+
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		value := strings.TrimPrefix(line, prefix)
+		value = strings.TrimSuffix(value, `"`)
+		if value == "" {
+			break
+		}
+		return value
+	}
+	t.Fatalf("could not find shell-assigned version prefix %q", prefix)
+	return ""
 }
 
 func TestReadmeContractSectionsPresent(t *testing.T) {

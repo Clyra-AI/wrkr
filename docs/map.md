@@ -24,6 +24,15 @@ If the Wrkr README uses the landing-page Variant B contract, install and OSS tru
 Public contract wording changes should update `CHANGELOG.md` under `Unreleased` in the same change, even when runtime JSON, exit-code, and schema contracts stay unchanged.
 Maintainers should finalize `Unreleased` with `python3 scripts/finalize_release_changelog.py --json` before cutting a release tag, land that prepared changelog update through a release-prep PR, and tag the merged `main` commit so the tag points at the finalized versioned section.
 
+## Focused local commands
+
+Use these as narrow local iteration helpers before the full required lanes:
+
+- `make test-focused-docs` for install-contract, README, docs-site quickstart, and release-parity doc changes.
+- `make test-focused-scan` for scan-status, completed-partial-result, and hosted progress-counter changes.
+
+These helpers are additive only. They do not replace `make test-fast`, `make prepush`, `make test-contracts`, scenario lanes, risk lanes, or release/UAT lanes when those are required by the touched surface.
+
 ## Required validation bundle
 
 Run this bundle before merge when docs are touched:

@@ -246,6 +246,8 @@ func formatScanProgressEventLine(snapshot scanProgressSnapshot, update scanProgr
 			fmt.Sprintf("repo_total=%d", update.RepoTotal),
 			"repo="+update.Repo,
 			"status="+fallbackForExplain(update.Status, "ok"),
+			fmt.Sprintf("succeeded=%d", update.Succeeded),
+			fmt.Sprintf("failed=%d", update.Failed),
 		), " ")
 	case "scan_phase":
 		return strings.Join(append(base,
@@ -278,6 +280,7 @@ func formatScanProgressEventLine(snapshot scanProgressSnapshot, update scanProgr
 			fmt.Sprintf("repo_total=%d", update.RepoTotal),
 			fmt.Sprintf("completed=%d", update.Completed),
 			fmt.Sprintf("pending=%d", update.Pending),
+			fmt.Sprintf("succeeded=%d", update.Succeeded),
 		), " ")
 	case "complete":
 		return strings.Join(append(base,
@@ -285,6 +288,7 @@ func formatScanProgressEventLine(snapshot scanProgressSnapshot, update scanProgr
 			fmt.Sprintf("repo_total=%d", update.RepoTotal),
 			fmt.Sprintf("completed=%d", update.Completed),
 			fmt.Sprintf("failed=%d", update.Failed),
+			fmt.Sprintf("succeeded=%d", update.Succeeded),
 		), " ")
 	case "detector_start":
 		return strings.Join(append(base,
@@ -334,6 +338,7 @@ func formatScanProgressEventLine(snapshot scanProgressSnapshot, update scanProgr
 			fmt.Sprintf("repo_total=%d", update.Footer.RepoTotal),
 			fmt.Sprintf("completed=%d", update.Footer.ReposCompleted),
 			fmt.Sprintf("failed=%d", update.Footer.ReposFailed),
+			fmt.Sprintf("succeeded=%d", update.Footer.ReposSucceeded),
 			fmt.Sprintf("progress_percent=%d", update.Footer.ProgressPercent),
 			fmt.Sprintf("elapsed_seconds=%d", update.Footer.ElapsedSeconds),
 		)

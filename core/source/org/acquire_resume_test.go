@@ -89,16 +89,18 @@ func (p *recordingProgress) RepoMaterialize(org string, index, total int, repo s
 	p.add("repo_materialize org=" + org + " repo=" + repo + " index=" + strconv.Itoa(index) + " total=" + strconv.Itoa(total))
 }
 
-func (p *recordingProgress) RepoMaterializeDone(org string, completed, total int, repo, status string) {
-	p.add("repo_materialize_done org=" + org + " repo=" + repo + " status=" + status + " completed=" + strconv.Itoa(completed) + " total=" + strconv.Itoa(total))
+func (p *recordingProgress) RepoMaterializeDone(org string, succeeded, failed, total int, repo, status string) {
+	completed := succeeded + failed
+	p.add("repo_materialize_done org=" + org + " repo=" + repo + " status=" + status + " completed=" + strconv.Itoa(completed) + " succeeded=" + strconv.Itoa(succeeded) + " failed=" + strconv.Itoa(failed) + " total=" + strconv.Itoa(total))
 }
 
 func (p *recordingProgress) Resume(org string, total, completed, pending int) {
 	p.add("resume org=" + org + " total=" + strconv.Itoa(total) + " completed=" + strconv.Itoa(completed) + " pending=" + strconv.Itoa(pending))
 }
 
-func (p *recordingProgress) Complete(org string, total, completed, failed int) {
-	p.add("complete org=" + org + " total=" + strconv.Itoa(total) + " completed=" + strconv.Itoa(completed) + " failed=" + strconv.Itoa(failed))
+func (p *recordingProgress) Complete(org string, total, succeeded, failed int) {
+	completed := succeeded + failed
+	p.add("complete org=" + org + " total=" + strconv.Itoa(total) + " completed=" + strconv.Itoa(completed) + " succeeded=" + strconv.Itoa(succeeded) + " failed=" + strconv.Itoa(failed))
 }
 
 func (p *recordingProgress) add(event string) {
@@ -291,9 +293,9 @@ func TestAcquireMaterializedProgressReportsCompletedRepos(t *testing.T) {
 	events := progress.joined()
 	for _, want := range []string{
 		"repo_materialize org=acme repo=acme/a index=1 total=2",
-		"repo_materialize_done org=acme repo=acme/a status=ok completed=1 total=2",
-		"repo_materialize_done org=acme repo=acme/b status=failed completed=2 total=2",
-		"complete org=acme total=2 completed=1 failed=1",
+		"repo_materialize_done org=acme repo=acme/a status=ok completed=1 succeeded=1 failed=0 total=2",
+		"repo_materialize_done org=acme repo=acme/b status=failed completed=2 succeeded=1 failed=1 total=2",
+		"complete org=acme total=2 completed=2 succeeded=1 failed=1",
 	} {
 		if !strings.Contains(events, want) {
 			t.Fatalf("expected progress to contain %q, got:\n%s", want, events)
@@ -450,8 +452,8 @@ func TestAcquireMaterializedResumeProgressContinuesCompletedCount(t *testing.T) 
 	events := progress.joined()
 	for _, want := range []string{
 		"resume org=acme total=2 completed=1 pending=1",
-		"repo_materialize_done org=acme repo=acme/b status=ok completed=2 total=2",
-		"complete org=acme total=2 completed=2 failed=0",
+		"repo_materialize_done org=acme repo=acme/b status=ok completed=2 succeeded=2 failed=0 total=2",
+		"complete org=acme total=2 completed=2 succeeded=2 failed=0",
 	} {
 		if !strings.Contains(events, want) {
 			t.Fatalf("expected progress to contain %q, got:\n%s", want, events)

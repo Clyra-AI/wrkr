@@ -63,6 +63,7 @@ Section requirements:
   - Include `wrkr version` verification on the first screen.
   - README may keep a convenience `@latest` Go install path only if it is explicitly secondary to the pinned path.
   - Pinned/reproducible install guidance must remain canonical in `docs/install/minimal-dependencies.md`.
+  - The pinned install tag must track the current supported Wrkr release mirrored by install-path UAT snippets.
 - Start Here
   - Make the current launch persona explicit at the top of the section.
   - For the current Wrkr launch, foreground the security/platform-led org posture workflow.

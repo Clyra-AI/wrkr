@@ -90,6 +90,106 @@ func TestScanJSONOrgProgressEmitsToStderrOnly(t *testing.T) {
 	}
 }
 
+func TestHostedProgressPendingAfterFailedMaterialization(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"},{"full_name":"acme/b"}]`)
+		case "/repos/acme/a":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/a","default_branch":"main"}`)
+		case "/repos/acme/b":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/b","default_branch":"main"}`)
+		case "/repos/acme/a/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[]}`)
+		case "/repos/acme/b/git/trees/main":
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = fmt.Fprint(w, `{"message":"upstream unavailable"}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--org", "acme",
+		"--github-api", server.URL,
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("scan failed: code=%d stderr=%s", code, errOut.String())
+	}
+
+	var statusOut bytes.Buffer
+	var statusErr bytes.Buffer
+	if statusCode := Run([]string{"scan", "status", "--state", statePath, "--json"}, &statusOut, &statusErr); statusCode != exitSuccess {
+		t.Fatalf("scan status failed: %d stderr=%s", statusCode, statusErr.String())
+	}
+	var status map[string]any
+	if err := json.Unmarshal(statusOut.Bytes(), &status); err != nil {
+		t.Fatalf("parse status: %v", err)
+	}
+	repoProgress, ok := status["repo_progress"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected repo_progress in status, got %v", status)
+	}
+	if repoProgress["total"] != float64(2) || repoProgress["completed"] != float64(2) || repoProgress["succeeded"] != float64(1) || repoProgress["failed"] != float64(1) {
+		t.Fatalf("expected canonical repo progress counts after one failed materialization, got %v", repoProgress)
+	}
+	if pending, present := repoProgress["pending"]; present && pending != float64(0) {
+		t.Fatalf("expected canonical repo progress counts after one failed materialization, got %v", repoProgress)
+	}
+}
+
+func TestScanProgressFooterCountsFailedReposOnce(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"},{"full_name":"acme/b"}]`)
+		case "/repos/acme/a":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/a","default_branch":"main"}`)
+		case "/repos/acme/b":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/b","default_branch":"main"}`)
+		case "/repos/acme/a/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[]}`)
+		case "/repos/acme/b/git/trees/main":
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = fmt.Fprint(w, `{"message":"upstream unavailable"}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--org", "acme",
+		"--github-api", server.URL,
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("scan failed: code=%d stderr=%s", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "progress target=org org=acme event=complete repo_total=2 completed=2 failed=1 succeeded=1") {
+		t.Fatalf("expected complete progress line to count failed repos once, got %q", errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "progress target=org org=acme event=footer status=completed current_phase=artifact_commit last_successful_phase=artifact_commit partial_result=true repo_total=2 completed=2 failed=1 succeeded=1") {
+		t.Fatalf("expected footer progress line to preserve canonical counts and partial marker, got %q", errOut.String())
+	}
+}
+
 func TestScanJSONProgressOnlyOnStderr(t *testing.T) {
 	t.Parallel()
 

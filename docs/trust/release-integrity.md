@@ -24,7 +24,7 @@ description: "Release hardening checks, reproducibility expectations, and integr
 make lint-fast
 python3 scripts/resolve_release_version.py --json
 python3 scripts/finalize_release_changelog.py --json
-python3 scripts/validate_release_changelog.py --release-version v1.0.0 --json
+python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json
 go test ./... -count=1
 make test-contracts
 scripts/validate_contracts.sh
@@ -69,7 +69,7 @@ scripts/test_uat_local.sh
 scripts/test_uat_local.sh --skip-global-gates
 
 # Validate exact public install commands (brew + pinned go install) for a published tag
-scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr
+scripts/test_uat_local.sh --release-version v1.3.0 --brew-formula Clyra-AI/tap/wrkr
 ```
 
 ## Changelog finalization
@@ -79,7 +79,7 @@ Before tagging a release, resolve the next version from `## [Unreleased]`, then 
 ```bash
 python3 scripts/resolve_release_version.py --json
 python3 scripts/finalize_release_changelog.py --json
-python3 scripts/validate_release_changelog.py --release-version v1.0.0 --json
+python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json
 ```
 
 The finalizer promotes releasable `Unreleased` entries into `## [vX.Y.Z] - YYYY-MM-DD`, adds a hidden semver hint for CI validation, and resets `Unreleased` to the canonical empty template so the next release only considers new entries. Publish that changelog update through a short-lived release-prep PR before creating the tag; the tag workflow validates the changelog content from the tagged commit itself.

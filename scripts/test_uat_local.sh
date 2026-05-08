@@ -53,8 +53,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-json_smoke_validator="$tmp_dir/check_json_smoke.go"
-cat >"$json_smoke_validator" <<'GO'
+root_json_smoke_validator="$tmp_dir/check_root_json_smoke.go"
+cat >"$root_json_smoke_validator" <<'GO'
 package main
 
 import (
@@ -99,7 +99,62 @@ func main() {
 }
 GO
 
-run_json_smoke() {
+version_json_smoke_validator="$tmp_dir/check_version_json_smoke.go"
+cat >"$version_json_smoke_validator" <<'GO'
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+)
+
+type versionPayload struct {
+	Status  string `json:"status"`
+	Version string `json:"version"`
+}
+
+func main() {
+	if len(os.Args) < 3 || len(os.Args) > 4 {
+		fmt.Fprintln(os.Stderr, "usage: go run <validator> <path> <label> [expected-version]")
+		os.Exit(6)
+	}
+
+	path := strings.TrimSpace(os.Args[1])
+	expectedVersion := ""
+	if len(os.Args) == 4 {
+		expectedVersion = strings.TrimSpace(os.Args[3])
+	}
+
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "version smoke read failure")
+		os.Exit(3)
+	}
+
+	var parsed versionPayload
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		fmt.Fprintln(os.Stderr, "version smoke parse failure")
+		os.Exit(3)
+	}
+
+	if strings.TrimSpace(parsed.Status) != "ok" {
+		fmt.Fprintln(os.Stderr, "version smoke status mismatch")
+		os.Exit(3)
+	}
+	if strings.TrimSpace(parsed.Version) == "" {
+		fmt.Fprintln(os.Stderr, "version smoke missing version")
+		os.Exit(3)
+	}
+	if expectedVersion != "" && strings.TrimSpace(parsed.Version) != expectedVersion {
+		fmt.Fprintln(os.Stderr, "version smoke version mismatch")
+		os.Exit(3)
+	}
+}
+GO
+
+run_root_json_smoke() {
   local label="$1"
   local bin_path="$2"
   local out_path="$tmp_dir/${label}.json"
@@ -110,7 +165,40 @@ run_json_smoke() {
   fi
 
   "$bin_path" --json >"$out_path"
-  go run "$json_smoke_validator" "$out_path" "$label"
+  go run "$root_json_smoke_validator" "$out_path" "$label"
+}
+
+run_version_json_smoke() {
+  local label="$1"
+  local bin_path="$2"
+  local expected_version="${3:-}"
+  local out_path="$tmp_dir/${label}-version.json"
+
+  if [[ ! -x "$bin_path" ]]; then
+    echo "binary is not executable for ${label}: $bin_path" >&2
+    exit 7
+  fi
+
+  "$bin_path" version --json >"$out_path"
+  go run "$version_json_smoke_validator" "$out_path" "$label" "$expected_version"
+}
+
+run_json_smoke() {
+  local label="$1"
+  local bin_path="$2"
+  local expected_version="${3:-}"
+
+  run_root_json_smoke "$label" "$bin_path"
+  run_version_json_smoke "$label" "$bin_path" "$expected_version"
+}
+
+run_install_smoke() {
+  local label="$1"
+  local bin_path="$2"
+  local expected_version="${3:-}"
+
+  run_json_smoke "$label" "$bin_path" "$expected_version"
+  run_docs_subset_smoke "$label" "$bin_path"
 }
 
 run_docs_subset_smoke() {
@@ -128,6 +216,7 @@ run_docs_subset_smoke() {
 run_go_install_smoke() {
   local label="$1"
   local install_target="$2"
+  local expected_version="${3:-}"
   local install_bin_dir="$tmp_dir/${label}-gobin"
   local install_bin="$install_bin_dir/wrkr"
 
@@ -140,8 +229,7 @@ run_go_install_smoke() {
     exit 7
   fi
 
-  run_json_smoke "$label" "$install_bin"
-  run_docs_subset_smoke "$label" "$install_bin"
+  run_install_smoke "$label" "$install_bin" "$expected_version"
 }
 
 if [[ "$skip_global_gates" != "true" ]]; then
@@ -158,8 +246,7 @@ fi
 
 source_bin="$tmp_dir/wrkr-source"
 go build -o "$source_bin" ./cmd/wrkr
-run_json_smoke "source" "$source_bin"
-run_docs_subset_smoke "source" "$source_bin"
+run_install_smoke "source" "$source_bin"
 run_go_install_smoke "go-install-local" "./cmd/wrkr"
 
 os_name="$(uname -s)"
@@ -210,7 +297,7 @@ fi
 
 if [[ -n "${release_tag:-}" ]]; then
   # This mirrors the README/docs install command pinned to a concrete release tag.
-  run_go_install_smoke "go-install-release-tag" "${go_install_module}@${release_tag}"
+  run_go_install_smoke "go-install-release-tag" "${go_install_module}@${release_tag}" "${release_tag}"
 fi
 
 release_extract_dir="$tmp_dir/release-extract"
@@ -230,8 +317,7 @@ if [[ -z "$release_bin" ]]; then
   exit 7
 fi
 
-run_json_smoke "release-installer" "$release_bin"
-run_docs_subset_smoke "release-installer" "$release_bin"
+run_install_smoke "release-installer" "$release_bin" "${release_tag:-}"
 
 if ! command -v brew >/dev/null 2>&1; then
   echo "homebrew is required for UAT homebrew-path checks" >&2
