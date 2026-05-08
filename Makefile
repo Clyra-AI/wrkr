@@ -70,7 +70,7 @@ test-focused-docs:
 	@$(MAKE) test-docs-consistency
 
 test-focused-scan:
-	@$(GO) test ./core/cli -run 'TestScan.*Partial|TestScanStatus|TestScan.*Progress' -count=1
+	@$(GO) test ./core/cli -run 'TestScan.*Partial|TestScanStatus|TestScan.*Progress|TestHostedProgress.*' -count=1
 	@$(GO) test ./core/state -run TestScanStatus -count=1
 	@$(GO) test ./core/source/org -run 'Test.*Progress|Test.*Resume|Test.*Failure' -count=1
 
