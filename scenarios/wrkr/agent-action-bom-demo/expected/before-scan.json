@@ -12,6 +12,19 @@
       "write"
     ],
     "credential_kind": "github_pat",
+    "control_state": "block_recommended",
+    "risk_zone": "production_data",
+    "review_burden": "critical",
+    "introduced_by": {
+      "source": "source_metadata",
+      "confidence": "high",
+      "pr_number": 108,
+      "commit_sha": "deadbeef108",
+      "author": "demo-bot",
+      "timestamp": "2026-05-08T12:00:00Z",
+      "changed_file": ".github/workflows/release.yml",
+      "provider_url": "https://github.example.com/acme/demo-app/pull/108"
+    },
     "matched_production_targets": [
       "built_in:deploy_workflow",
       "built_in:kubernetes",

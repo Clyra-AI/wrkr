@@ -2,6 +2,7 @@ package workflowcap
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -25,6 +26,11 @@ type Result struct {
 	DeploymentGate   string
 	ProofRequirement string
 }
+
+var (
+	workflowSecretRefRE   = regexp.MustCompile(`\${{\s*secrets\.([A-Za-z0-9_]+)\s*}}`)
+	workflowGitHubTokenRE = regexp.MustCompile(`\${{\s*github\.token\s*}}`)
+)
 
 type workflowDocument struct {
 	On          triggerField           `yaml:"on"`
@@ -185,6 +191,9 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	approvalSources := map[string]struct{}{}
 	deploymentGates := map[string]struct{}{}
 	proofRequirements := map[string]struct{}{}
+	secretRefs := map[string]struct{}{}
+	workflowTokenPermissions := map[string]struct{}{}
+	hasBuiltinWorkflowToken := false
 
 	jobNames := make([]string, 0, len(doc.Jobs))
 	for name := range doc.Jobs {
@@ -232,6 +241,17 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 			}
 			if stepHasSecretAccess(step, job.Env) {
 				result.HasSecretAccess = true
+			}
+			refs, builtinToken := workflowCredentialRefs(step, job.Env)
+			for _, ref := range refs {
+				secretRefs[ref] = struct{}{}
+			}
+			if builtinToken {
+				hasBuiltinWorkflowToken = true
+				result.HasSecretAccess = true
+				for _, posture := range permissionPosture(perms) {
+					workflowTokenPermissions[posture] = struct{}{}
+				}
 			}
 
 			if reason := mergeExecuteReason(step); reason != "" && (perms.allows("contents") || perms.allows("pull-requests")) {
@@ -341,6 +361,15 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	if result.ProofRequirement != "" {
 		evidence = append(evidence, model.Evidence{Key: "proof_requirement", Value: result.ProofRequirement})
 	}
+	for _, ref := range sortedSet(secretRefs) {
+		evidence = append(evidence, model.Evidence{Key: "workflow_secret_refs", Value: ref})
+	}
+	if hasBuiltinWorkflowToken {
+		evidence = append(evidence, model.Evidence{Key: "workflow_builtin_token", Value: "github_token"})
+		for _, posture := range sortedSet(workflowTokenPermissions) {
+			evidence = append(evidence, model.Evidence{Key: "workflow_token_permission", Value: posture})
+		}
+	}
 	result.Evidence = evidence
 	return result, nil
 }
@@ -399,7 +428,7 @@ func hasDangerousFlags(step workflowStep) bool {
 func stepHasSecretAccess(step workflowStep, jobEnv map[string]string) bool {
 	values := normalizedStepValues(step, jobEnv)
 	for _, value := range values {
-		if strings.Contains(value, "secrets.") || strings.Contains(value, "${{ secrets.") {
+		if strings.Contains(value, "secrets.") || strings.Contains(value, "${{ secrets.") || strings.Contains(value, "github.token") {
 			return true
 		}
 	}
@@ -592,6 +621,81 @@ func normalizeDynamicValues(values map[string]any) []string {
 		out = append(out, strings.ToLower(strings.TrimSpace(key)))
 		out = append(out, strings.ToLower(strings.TrimSpace(fmt.Sprint(values[key]))))
 	}
+	return out
+}
+
+func workflowCredentialRefs(step workflowStep, jobEnv map[string]string) ([]string, bool) {
+	refs := map[string]struct{}{}
+	builtinToken := false
+	for _, env := range []map[string]string{jobEnv, step.Env} {
+		for key, value := range env {
+			collectWorkflowCredentialRef(refs, key, value)
+			if workflowUsesGitHubToken(key, value) {
+				builtinToken = true
+			}
+		}
+	}
+	for key, value := range step.With {
+		text := strings.TrimSpace(fmt.Sprint(value))
+		collectWorkflowCredentialRef(refs, key, text)
+		if workflowUsesGitHubToken(key, text) {
+			builtinToken = true
+		}
+	}
+	out := make([]string, 0, len(refs))
+	for ref := range refs {
+		out = append(out, ref)
+	}
+	sort.Strings(out)
+	return out, builtinToken
+}
+
+func collectWorkflowCredentialRef(target map[string]struct{}, key, value string) {
+	for _, match := range workflowSecretRefRE.FindAllStringSubmatch(value, -1) {
+		if len(match) > 1 {
+			target[strings.TrimSpace(match[1])] = struct{}{}
+		}
+	}
+	if sensitiveCredentialName(key) && strings.TrimSpace(value) != "" && !workflowUsesGitHubToken(key, value) {
+		target[strings.TrimSpace(key)] = struct{}{}
+	}
+}
+
+func workflowUsesGitHubToken(key, value string) bool {
+	keyLower := strings.ToLower(strings.TrimSpace(key))
+	valueLower := strings.ToLower(strings.TrimSpace(value))
+	return workflowGitHubTokenRE.MatchString(value) ||
+		strings.Contains(valueLower, "github.token") ||
+		(keyLower == "github_token" && strings.Contains(valueLower, "${{")) ||
+		(keyLower == "gh_token" && strings.Contains(valueLower, "github.token"))
+}
+
+func sensitiveCredentialName(key string) bool {
+	key = strings.ToUpper(strings.TrimSpace(key))
+	if key == "" {
+		return false
+	}
+	return strings.Contains(key, "TOKEN") ||
+		strings.Contains(key, "SECRET") ||
+		strings.Contains(key, "KEY") ||
+		strings.Contains(key, "CREDENTIAL")
+}
+
+func permissionPosture(perms permissionField) []string {
+	if perms.Mode == "write-all" {
+		return []string{"write-all"}
+	}
+	if len(perms.Values) == 0 {
+		return []string{"unspecified"}
+	}
+	out := make([]string, 0, len(perms.Values))
+	for key, value := range perms.Values {
+		if strings.TrimSpace(key) == "" || strings.TrimSpace(value) == "" {
+			continue
+		}
+		out = append(out, strings.ToLower(strings.TrimSpace(key))+"="+strings.ToLower(strings.TrimSpace(value)))
+	}
+	sort.Strings(out)
 	return out
 }
 

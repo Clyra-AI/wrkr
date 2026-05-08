@@ -18,6 +18,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/privilegebudget"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
+	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/config"
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -500,7 +501,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	agginventory.ApplySecurityVisibilityToPrivilegeMap(&inventoryOut)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, &inventoryOut)
 	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, findings)
-	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoRootsByKey(manifestOut))
+	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoAttributionContexts(manifestOut))
 
 	profileDef, profileErr := profilemodel.Builtin(*profileName)
 	if profileErr != nil {
@@ -1184,20 +1185,25 @@ func scanModesCompatible(previous, current string) bool {
 	return previous == "" || previous == current
 }
 
-func repoRootsByKey(manifest source.Manifest) map[string]string {
+func repoAttributionContexts(manifest source.Manifest) map[string]attribution.Context {
 	if len(manifest.Repos) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(manifest.Repos))
+	out := make(map[string]attribution.Context, len(manifest.Repos))
 	for _, repo := range manifest.Repos {
 		key := strings.TrimSpace(repo.Repo)
 		if strings.TrimSpace(key) == "" {
 			continue
 		}
-		location := filepath.Clean(strings.TrimSpace(repo.Location))
+		repoRoot := strings.TrimSpace(repo.ScanRoot)
+		if repoRoot == "" {
+			repoRoot = strings.TrimSpace(repo.Location)
+		}
+		repoRoot = filepath.Clean(repoRoot)
+		ctx := attribution.LoadContext(repoRoot)
 		for _, composite := range []string{"local::" + key, "::" + key} {
-			if existing := strings.TrimSpace(out[composite]); existing == "" {
-				out[composite] = location
+			if existing := out[composite]; strings.TrimSpace(existing.RepoRoot) == "" {
+				out[composite] = ctx
 			}
 		}
 	}

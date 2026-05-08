@@ -1,0 +1,14 @@
+{
+  "source": "source_metadata",
+  "pr_number": 108,
+  "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+  "commit_sha": "deadbeef108",
+  "author": "demo-bot",
+  "timestamp": "2026-05-08T12:00:00Z",
+  "changed_files": [
+    ".agents/skills/release/SKILL.md",
+    ".github/workflows/release.yml",
+    ".mcp.json",
+    "AGENTS.md"
+  ]
+}

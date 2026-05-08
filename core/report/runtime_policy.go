@@ -12,19 +12,20 @@ func decorateActionPathsForReport(paths []risk.ActionPath, runtimeEvidence *inge
 		return nil
 	}
 	out := append([]risk.ActionPath(nil), paths...)
-	if runtimeEvidence == nil {
-		return out
-	}
 	byPath := map[string]ingest.Correlation{}
-	for _, item := range runtimeEvidence.Correlations {
-		if strings.TrimSpace(item.PathID) == "" {
-			continue
+	if runtimeEvidence != nil {
+		for _, item := range runtimeEvidence.Correlations {
+			if strings.TrimSpace(item.PathID) == "" {
+				continue
+			}
+			byPath[strings.TrimSpace(item.PathID)] = item
 		}
-		byPath[strings.TrimSpace(item.PathID)] = item
 	}
 	for i := range out {
 		item, ok := byPath[strings.TrimSpace(out[i].PathID)]
 		if !ok {
+			out[i].GaitCoverage = gaitCoverageForPath(out[i], ingest.Correlation{})
+			out[i] = risk.ProjectBuyerFacingActionPath(out[i])
 			continue
 		}
 		out[i].PolicyRefs = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyRefs...), item.PolicyRefs...))
@@ -45,6 +46,8 @@ func decorateActionPathsForReport(paths []risk.ActionPath, runtimeEvidence *inge
 			out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "runtime_evidence_stale"))
 			out[i].PolicyConfidence = "medium"
 		}
+		out[i].GaitCoverage = gaitCoverageForPath(out[i], item)
+		out[i] = risk.ProjectBuyerFacingActionPath(out[i])
 	}
 	return out
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/detect/gaitpolicy"
+	"github.com/Clyra-AI/wrkr/core/detect/promptchannel"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"gopkg.in/yaml.v3"
 )
@@ -82,6 +83,20 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			})
 			continue
 		}
+		payload, readErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
+		if readErr != nil {
+			findings = append(findings, model.Finding{
+				FindingType: "parse_error",
+				Severity:    model.SeverityMedium,
+				ToolType:    "skill",
+				Location:    rel,
+				Repo:        scope.Repo,
+				Org:         fallbackOrg(scope.Org),
+				Detector:    detectorID,
+				ParseError:  readErr,
+			})
+			continue
+		}
 		tools, parseErr := parseAllowedTools(scope.Root, rel)
 		if parseErr != nil {
 			parseErr.Detector = detectorID
@@ -135,6 +150,31 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 				{Key: "allowed_tools_count", Value: fmt.Sprintf("%d", len(permissions))},
 			},
 		})
+		if hint := promptchannel.ExtractSemanticHints(rel, []string{string(payload)}); len(hint.Permissions) > 0 || len(hint.Evidence) > 0 {
+			evidence := []model.Evidence{}
+			keys := make([]string, 0, len(hint.Evidence))
+			for key := range hint.Evidence {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				for _, value := range hint.Evidence[key] {
+					evidence = append(evidence, model.Evidence{Key: key, Value: value})
+				}
+			}
+			findings = append(findings, model.Finding{
+				FindingType: "skill_semantic",
+				Severity:    severityForSkill(containsPermission(hint.Permissions, "proc.exec"), containsPermission(hint.Permissions, "deploy.write") || containsPermission(hint.Permissions, "release.write")),
+				ToolType:    "skill",
+				Location:    rel,
+				Repo:        scope.Repo,
+				Org:         fallbackOrg(scope.Org),
+				Detector:    detectorID,
+				Permissions: append([]string(nil), hint.Permissions...),
+				Evidence:    evidence,
+				Remediation: "Narrow skill prose so deploy, release, destructive, approval-bypass, and proof-required actions remain explicit and reviewable.",
+			})
+		}
 
 		for _, permission := range permissions {
 			if _, exists := ceiling[permission]; exists {
@@ -257,6 +297,16 @@ func parseAllowedTools(root, rel string) ([]string, *model.ParseError) {
 		}
 	}
 	return tools, nil
+}
+
+func containsPermission(values []string, want string) bool {
+	want = strings.TrimSpace(want)
+	for _, value := range values {
+		if strings.TrimSpace(value) == want {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeTools(in []string) []string {

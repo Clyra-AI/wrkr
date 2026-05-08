@@ -1,6 +1,6 @@
 {
   "status": "ok",
-  "findings_count": 120,
+  "findings_count": 130,
   "top_finding_types": [
     "ci_autonomy",
     "ci_autonomy",

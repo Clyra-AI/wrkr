@@ -65,6 +65,10 @@ func extractDemoTopActionPath(t *testing.T, path string) map[string]any {
 			"location":                   first["location"],
 			"action_classes":             first["action_classes"],
 			"credential_kind":            requireDemoScenarioObject(t, first, "credential_provenance")["credential_kind"],
+			"control_state":              first["control_state"],
+			"risk_zone":                  first["risk_zone"],
+			"review_burden":              first["review_burden"],
+			"introduced_by":              first["introduced_by"],
 			"matched_production_targets": first["matched_production_targets"],
 			"policy_coverage_status":     first["policy_coverage_status"],
 		},
@@ -80,9 +84,14 @@ func extractDemoTopBOM(t *testing.T, path string) map[string]any {
 	topItem := map[string]any{
 		"path_id":                 first["path_id"],
 		"tool_type":               first["tool_type"],
+		"control_state":           first["control_state"],
+		"risk_zone":               first["risk_zone"],
+		"review_burden":           first["review_burden"],
 		"proof_coverage":          first["proof_coverage"],
 		"policy_status":           first["policy_status"],
 		"runtime_evidence_status": demoScenarioString(first["runtime_evidence_status"]),
+		"introduced_by":           first["introduced_by"],
+		"gait_coverage":           first["gait_coverage"],
 	}
 	if classes, ok := first["runtime_evidence_classes"]; ok && classes != nil {
 		topItem["runtime_evidence_classes"] = classes
@@ -102,9 +111,14 @@ func extractDemoEvidenceReport(t *testing.T, path string) map[string]any {
 	topItem := map[string]any{
 		"path_id":                 first["path_id"],
 		"tool_type":               first["tool_type"],
+		"control_state":           first["control_state"],
+		"risk_zone":               first["risk_zone"],
+		"review_burden":           first["review_burden"],
 		"proof_coverage":          first["proof_coverage"],
 		"policy_status":           first["policy_status"],
 		"runtime_evidence_status": demoScenarioString(first["runtime_evidence_status"]),
+		"introduced_by":           first["introduced_by"],
+		"gait_coverage":           first["gait_coverage"],
 	}
 	if classes, ok := first["runtime_evidence_classes"]; ok && classes != nil {
 		topItem["runtime_evidence_classes"] = classes

@@ -20,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added a `customer-redacted` share profile for report, BOM, and report evidence artifacts with deterministic pseudonyms for sensitive customer identifiers while preserving intra-artifact joins.
 - [semver:minor] Added cross-detector BOM reachability fields for endpoints and deployment targets plus confidence-aware reachability joins between source-bound tools and saved MCP server declarations.
 - [semver:minor] Added additive `credentials[]`, `path_context`, `tool_family_id`, and `tool_instance_id` fields across privilege maps, govern-first action paths, risk reports, and Agent Action BOM output.
+- [semver:minor] Added demo-ready action-path provenance, buyer-facing `control_state` / `risk_zone` / `review_burden`, path-level Gait coverage projection, semantic skill/instruction action hints, and a distinct `github_workflow_token` credential classification across scan, report, and Agent Action BOM output.
 
 ### Changed
 

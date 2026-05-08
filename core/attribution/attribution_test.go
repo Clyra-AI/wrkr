@@ -101,6 +101,74 @@ func TestLocalWithoutLineRangeFallsBackToLatestCommit(t *testing.T) {
 	}
 }
 
+func TestResolvePrefersGitHubEventMetadataWhenChangedFileMatches(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("mkdir provenance dir: %v", err)
+	}
+	payload := `{
+  "pull_request": {
+    "number": 42,
+    "html_url": "https://github.com/acme/demo/pull/42",
+    "updated_at": "2026-05-08T11:58:00Z",
+    "user": {"login": "octocat"},
+    "head": {"sha": "abc123def"}
+  },
+  "commits": [
+    {"added": [".github/workflows/release.yml"], "modified": ["AGENTS.md"], "removed": []}
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "provenance", "github-event.json"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write github event payload: %v", err)
+	}
+
+	result := Resolve(LoadContext(repoRoot), ".github/workflows/release.yml", &model.LocationRange{StartLine: 1, EndLine: 1})
+	if result == nil {
+		t.Fatal("expected attribution result")
+	}
+	if result.Source != SourceGitHubEvent || result.PRNumber != 42 || result.ProviderURL == "" {
+		t.Fatalf("expected GitHub event attribution, got %+v", result)
+	}
+	if result.CommitSHA != "abc123def" || result.Author != "octocat" {
+		t.Fatalf("expected GitHub event commit metadata, got %+v", result)
+	}
+}
+
+func TestResolveUnderstandsGitLabMergeRequestMetadata(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("mkdir provenance dir: %v", err)
+	}
+	payload := `{
+  "user": {"username": "gitlab-user"},
+  "object_attributes": {
+    "iid": 17,
+    "url": "https://gitlab.example.com/acme/demo/-/merge_requests/17",
+    "updated_at": "2026-05-08T11:59:00Z",
+    "last_commit": {"id": "feedbeef"}
+  },
+  "changes": {"modified_paths": ["AGENTS.md"]}
+}`
+	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "provenance", "gitlab-event.json"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write gitlab event payload: %v", err)
+	}
+
+	result := Resolve(LoadContext(repoRoot), "AGENTS.md", nil)
+	if result == nil {
+		t.Fatal("expected attribution result")
+	}
+	if result.Source != SourceGitLabEvent || result.PRNumber != 17 {
+		t.Fatalf("expected GitLab merge request attribution, got %+v", result)
+	}
+	if result.CommitSHA != "feedbeef" || result.Author != "gitlab-user" {
+		t.Fatalf("expected GitLab commit metadata, got %+v", result)
+	}
+}
+
 func runGit(t *testing.T, repoRoot string, env []string, args ...string) {
 	t.Helper()
 

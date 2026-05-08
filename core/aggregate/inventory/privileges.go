@@ -36,18 +36,19 @@ const (
 	CredentialScopeOrg         = "organization"
 	CredentialScopeUnknown     = "unknown"
 
-	CredentialKindGitHubPAT      = "github_pat"
-	CredentialKindGitHubAppKey   = "github_app_key" // #nosec G101 -- Deterministic credential classification label, not a secret.
-	CredentialKindDeployKey      = "deploy_key"
-	CredentialKindCloudAdminKey  = "cloud_admin_key"
-	CredentialKindCloudAccessKey = "cloud_access_key"
-	CredentialKindOIDCWorkloadID = "oidc_workload_identity" // #nosec G101 -- Deterministic credential classification label, not a secret.
-	CredentialKindDelegatedOAuth = "delegated_oauth"        // #nosec G101 -- Deterministic credential classification label, not a secret.
-	CredentialKindJITCredential  = "jit_credential"         // #nosec G101 -- Deterministic credential classification label, not a secret.
-	CredentialKindInheritedHuman = "inherited_human"
-	CredentialKindStaticSecret   = "static_secret"
-	CredentialKindUnknownDurable = "unknown_durable"
-	CredentialKindUnknown        = "unknown"
+	CredentialKindGitHubPAT           = "github_pat"
+	CredentialKindGitHubWorkflowToken = "github_workflow_token"
+	CredentialKindGitHubAppKey        = "github_app_key" // #nosec G101 -- Deterministic credential classification label, not a secret.
+	CredentialKindDeployKey           = "deploy_key"
+	CredentialKindCloudAdminKey       = "cloud_admin_key"
+	CredentialKindCloudAccessKey      = "cloud_access_key"
+	CredentialKindOIDCWorkloadID      = "oidc_workload_identity" // #nosec G101 -- Deterministic credential classification label, not a secret.
+	CredentialKindDelegatedOAuth      = "delegated_oauth"        // #nosec G101 -- Deterministic credential classification label, not a secret.
+	CredentialKindJITCredential       = "jit_credential"         // #nosec G101 -- Deterministic credential classification label, not a secret.
+	CredentialKindInheritedHuman      = "inherited_human"
+	CredentialKindStaticSecret        = "static_secret"
+	CredentialKindUnknownDurable      = "unknown_durable"
+	CredentialKindUnknown             = "unknown"
 
 	CredentialAccessTypeStanding  = "standing"
 	CredentialAccessTypeJIT       = "jit"
@@ -350,6 +351,11 @@ func CredentialRiskMultiplierFor(in *CredentialProvenance) float64 {
 		return 1.30
 	case CredentialKindGitHubPAT, CredentialKindUnknownDurable:
 		return 1.20
+	case CredentialKindGitHubWorkflowToken:
+		if normalized.StandingAccess {
+			return 1.08
+		}
+		return 1.03
 	case CredentialKindInheritedHuman:
 		return 1.15
 	case CredentialKindGitHubAppKey, CredentialKindDeployKey, CredentialKindCloudAccessKey, CredentialKindStaticSecret:
@@ -418,6 +424,7 @@ func normalizeCredentialConfidence(value string) string {
 func normalizeCredentialKind(value string, provenanceType string) string {
 	switch strings.TrimSpace(value) {
 	case CredentialKindGitHubPAT,
+		CredentialKindGitHubWorkflowToken,
 		CredentialKindGitHubAppKey,
 		CredentialKindDeployKey,
 		CredentialKindCloudAdminKey,
@@ -466,6 +473,8 @@ func normalizeCredentialAccessType(value string, credentialKind string, provenan
 		CredentialKindStaticSecret,
 		CredentialKindUnknownDurable:
 		return CredentialAccessTypeStanding
+	case CredentialKindGitHubWorkflowToken:
+		return CredentialAccessTypeJIT
 	case CredentialKindOIDCWorkloadID:
 		return CredentialAccessTypeWorkload
 	case CredentialKindDelegatedOAuth:

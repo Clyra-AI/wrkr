@@ -992,6 +992,51 @@ func TestDecorateActionPathsForReportDoesNotPromoteUnmatchedRuntimeEvidence(t *t
 	}
 }
 
+func TestDecorateActionPathsForReportProjectsGaitCoverageAndBuyerState(t *testing.T) {
+	t.Parallel()
+
+	paths := decorateActionPathsForReport([]risk.ActionPath{{
+		PathID:               "apc-1",
+		Org:                  "local",
+		Repo:                 "policy-target",
+		ToolType:             "compiled_action",
+		Location:             ".github/workflows/release.yml",
+		WriteCapable:         true,
+		DeployWrite:          true,
+		CredentialAccess:     true,
+		ApprovalGap:          true,
+		StandingPrivilege:    true,
+		PolicyCoverageStatus: risk.PolicyCoverageStatusMatched,
+		PolicyRefs:           []string{"gait://release"},
+	}}, &ingest.Summary{
+		Correlations: []ingest.Correlation{{
+			PathID:          "apc-1",
+			Status:          ingest.CorrelationStatusMatched,
+			EvidenceClasses: []string{ingest.EvidenceClassPolicyDecision, ingest.EvidenceClassApproval, ingest.EvidenceClassProofVerify},
+			PolicyRefs:      []string{"gait://release"},
+			RecordIDs:       []string{"rec-1"},
+		}},
+	})
+	if len(paths) != 1 {
+		t.Fatalf("expected one path, got %+v", paths)
+	}
+	if paths[0].GaitCoverage == nil {
+		t.Fatalf("expected gait coverage projection, got %+v", paths[0])
+	}
+	if paths[0].GaitCoverage.PolicyDecision.Status != risk.GaitStatusPresent || paths[0].GaitCoverage.ProofVerification.Status != risk.GaitStatusPresent {
+		t.Fatalf("expected present gait coverage for matched classes, got %+v", paths[0].GaitCoverage)
+	}
+	if paths[0].ControlState != risk.ControlStateBlockRecommend {
+		t.Fatalf("expected block-recommended buyer state after projection, got %+v", paths[0])
+	}
+	if paths[0].RiskZone != risk.RiskZoneRelease {
+		t.Fatalf("expected release risk zone, got %+v", paths[0])
+	}
+	if paths[0].ReviewBurden == "" {
+		t.Fatalf("expected review burden projection, got %+v", paths[0])
+	}
+}
+
 func TestAgentActionBOMTemplateLeadsWithBOMSections(t *testing.T) {
 	t.Parallel()
 

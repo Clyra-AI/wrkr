@@ -30,6 +30,12 @@ __pycache__/
 !scenarios/wrkr/approval-gap-modeling/repos/gap-agent-app/.wrkr/
 !scenarios/wrkr/approval-gap-modeling/repos/gap-agent-app/.wrkr/agents/
 !scenarios/wrkr/approval-gap-modeling/repos/gap-agent-app/.wrkr/agents/langchain.json
+!scenarios/wrkr/agent-action-bom-demo/before/repos/demo-app/.wrkr/
+!scenarios/wrkr/agent-action-bom-demo/before/repos/demo-app/.wrkr/provenance/
+!scenarios/wrkr/agent-action-bom-demo/before/repos/demo-app/.wrkr/provenance/source-metadata.json
+!scenarios/wrkr/agent-action-bom-demo/after/repos/demo-app/.wrkr/
+!scenarios/wrkr/agent-action-bom-demo/after/repos/demo-app/.wrkr/provenance/
+!scenarios/wrkr/agent-action-bom-demo/after/repos/demo-app/.wrkr/provenance/source-metadata.json
 !testinfra/benchmarks/agents/fixtures/**/.wrkr/
 !testinfra/benchmarks/agents/fixtures/**/.wrkr/**
 *.sarif

@@ -5,7 +5,7 @@
 ```bash
 wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--progress auto|bar|plain|events|none] [--source-retention ephemeral|retain_for_resume|retain] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom] [--report-share-profile internal|public|customer-redacted] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
 
-Govern-first `action_paths` in scan JSON now carry additive policy-coverage fields (`policy_coverage_status`, `policy_refs`, `policy_missing_reasons`, `policy_confidence`) and optional `introduced_by` metadata derived from deterministic local git history when available.
+Govern-first `action_paths` in scan JSON now carry additive policy-coverage fields (`policy_coverage_status`, `policy_refs`, `policy_missing_reasons`, `policy_confidence`), buyer-facing `control_state`, `risk_zone`, and `review_burden` fields, and optional `introduced_by` metadata derived from deterministic repo-local provenance before local git fallback when available.
 wrkr scan status --state <path> [--json]
 ```
 
@@ -39,6 +39,7 @@ Acquisition behavior is fail-closed by target:
   It inspects supported user-home tool configs, selected environment key names, and common workspace roots for local agent project markers without emitting raw secret values.
 - `--repo` and `--org` require real GitHub acquisition via `--github-api`, config `github_api_base`, or `WRKR_GITHUB_API_BASE`.
 - Hosted GitHub materialization is sparse by default: Wrkr fetches detector-relevant files such as agent instructions, MCP/Codex/Cursor/Claude configs, skills, workflows, policy files, dependency manifests, and AI/MCP declaration surfaces instead of every repository blob.
+- If a repo already contains deterministic provenance sidecars under `.wrkr/provenance/`, Wrkr can project PR-level `introduced_by` metadata from `source-metadata.json`, `github-event.json`, or `gitlab-event.json` without live provider calls.
 - Hosted scans do not fetch broad source-code extensions by default. Use `--mode deep` or `--allow-source-materialization` only when you explicitly want generic source files such as `.go`, `.py`, `.js`, or `.ts` to be materialized for deeper static detector coverage.
 - Hosted GitHub API base resolution order is: `--github-api`, config `github_api_base`, then `WRKR_GITHUB_API_BASE`.
 - Hosted GitHub token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.
