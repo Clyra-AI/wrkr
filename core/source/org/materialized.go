@@ -20,9 +20,9 @@ type RepoMaterializer interface {
 type ProgressReporter interface {
 	RepoDiscovery(org string, total int)
 	RepoMaterialize(org string, index, total int, repo string)
-	RepoMaterializeDone(org string, completed, total int, repo, status string)
+	RepoMaterializeDone(org string, succeeded, failed, total int, repo, status string)
 	Resume(org string, total, completed, pending int)
-	Complete(org string, total, completed, failed int)
+	Complete(org string, total, succeeded, failed int)
 }
 
 type AcquireMaterializedOptions struct {
@@ -181,23 +181,24 @@ func AcquireMaterialized(
 	}()
 
 	var fatalErr error
-	completedResults := len(repos)
+	succeededResults := len(repos)
+	failedResults := len(failures)
 	for result := range results {
 		if result.fatalErr != nil && fatalErr == nil {
 			fatalErr = result.fatalErr
 		}
 		if result.failure.Repo != "" {
 			failures = append(failures, result.failure)
-			completedResults++
+			failedResults++
 			if opts.Progress != nil {
-				opts.Progress.RepoMaterializeDone(org, completedResults, totalRepos, result.failure.Repo, "failed")
+				opts.Progress.RepoMaterializeDone(org, succeededResults, failedResults, totalRepos, result.failure.Repo, "failed")
 			}
 		}
 		if strings.TrimSpace(result.manifest.Repo) != "" {
 			repos = append(repos, result.manifest)
-			completedResults++
+			succeededResults++
 			if opts.Progress != nil {
-				opts.Progress.RepoMaterializeDone(org, completedResults, totalRepos, result.manifest.Repo, "ok")
+				opts.Progress.RepoMaterializeDone(org, succeededResults, failedResults, totalRepos, result.manifest.Repo, "ok")
 			}
 		}
 	}

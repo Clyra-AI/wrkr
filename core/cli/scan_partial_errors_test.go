@@ -81,23 +81,7 @@ func TestScanContinuesOnDetectorError(t *testing.T) {
 func TestScanOrgMaterializationFailureReturnsPartialResult(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/orgs/acme/repos":
-			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"},{"full_name":"acme/b"}]`)
-		case "/repos/acme/a":
-			_, _ = fmt.Fprint(w, `{"full_name":"acme/a","default_branch":"main"}`)
-		case "/repos/acme/b":
-			_, _ = fmt.Fprint(w, `{"full_name":"acme/b","default_branch":"main"}`)
-		case "/repos/acme/a/git/trees/main":
-			_, _ = fmt.Fprint(w, `{"tree":[]}`)
-		case "/repos/acme/b/git/trees/main":
-			w.WriteHeader(http.StatusBadGateway)
-			_, _ = fmt.Fprint(w, `{"message":"upstream unavailable"}`)
-		default:
-			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
-	}))
+	server := newMaterializationFailureServer(t)
 	defer server.Close()
 
 	tmp := t.TempDir()
@@ -129,6 +113,89 @@ func TestScanOrgMaterializationFailureReturnsPartialResult(t *testing.T) {
 	}
 	if degraded, ok := payload["source_degraded"].(bool); !ok || degraded {
 		t.Fatalf("expected source_degraded=false for non-degraded failure, got %v", payload["source_degraded"])
+	}
+}
+
+func TestScanStatusCompletedPartialResultMatchesScanJSON(t *testing.T) {
+	t.Parallel()
+
+	server := newMaterializationFailureServer(t)
+	defer server.Close()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+
+	code := Run([]string{
+		"scan",
+		"--org", "acme",
+		"--github-api", server.URL,
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("scan failed unexpectedly: exit=%d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse scan output: %v", err)
+	}
+	if payload["partial_result"] != true {
+		t.Fatalf("expected final scan json to remain partial, got %v", payload["partial_result"])
+	}
+
+	var statusOut bytes.Buffer
+	var statusErr bytes.Buffer
+	if statusCode := Run([]string{"scan", "status", "--state", statePath, "--json"}, &statusOut, &statusErr); statusCode != exitSuccess {
+		t.Fatalf("scan status failed: %d stderr=%s", statusCode, statusErr.String())
+	}
+	var status map[string]any
+	if err := json.Unmarshal(statusOut.Bytes(), &status); err != nil {
+		t.Fatalf("parse scan status: %v", err)
+	}
+	if status["status"] != "completed" {
+		t.Fatalf("expected completed status, got %v", status["status"])
+	}
+	if status["partial_result"] != true || status["partial_result_marker"] != "partial_result" {
+		t.Fatalf("expected completed partial status marker, got %v", status)
+	}
+}
+
+func TestScanStatusCompletedCleanScanStaysNonPartial(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	reposPath := filepath.Join(tmp, "repos")
+	if err := os.MkdirAll(filepath.Join(reposPath, "alpha", ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(reposPath, "alpha", ".codex", "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write repo fixture: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"scan", "--path", reposPath, "--state", statePath, "--json"}, &out, &errOut); code != exitSuccess {
+		t.Fatalf("scan failed unexpectedly: exit=%d stderr=%s", code, errOut.String())
+	}
+
+	var statusOut bytes.Buffer
+	var statusErr bytes.Buffer
+	if statusCode := Run([]string{"scan", "status", "--state", statePath, "--json"}, &statusOut, &statusErr); statusCode != exitSuccess {
+		t.Fatalf("scan status failed: %d stderr=%s", statusCode, statusErr.String())
+	}
+	var status map[string]any
+	if err := json.Unmarshal(statusOut.Bytes(), &status); err != nil {
+		t.Fatalf("parse scan status: %v", err)
+	}
+	if status["status"] != "completed" {
+		t.Fatalf("expected completed status, got %v", status["status"])
+	}
+	if _, present := status["partial_result"]; present {
+		t.Fatalf("expected clean completed scan to omit partial_result, got %v", status["partial_result"])
 	}
 }
 
@@ -191,6 +258,28 @@ func TestScanPathWorkflowPermissionDeniedSurfaced(t *testing.T) {
 	if !found {
 		t.Fatalf("expected permission_denied detector error for beta, got %v", detectorErrors)
 	}
+}
+
+func newMaterializationFailureServer(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/orgs/acme/repos":
+			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"},{"full_name":"acme/b"}]`)
+		case "/repos/acme/a":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/a","default_branch":"main"}`)
+		case "/repos/acme/b":
+			_, _ = fmt.Fprint(w, `{"full_name":"acme/b","default_branch":"main"}`)
+		case "/repos/acme/a/git/trees/main":
+			_, _ = fmt.Fprint(w, `{"tree":[]}`)
+		case "/repos/acme/b/git/trees/main":
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = fmt.Fprint(w, `{"message":"upstream unavailable"}`)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
 }
 
 func TestScanExplainCallsOutPermissionIncompletePosture(t *testing.T) {

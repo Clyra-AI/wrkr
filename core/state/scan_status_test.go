@@ -17,6 +17,7 @@ func TestScanStatusSaveLoadAtomicSidecar(t *testing.T) {
 		LastSuccessfulPhase: "repo_discovery",
 		RepoTotal:           3,
 		ReposCompleted:      1,
+		ReposSucceeded:      1,
 		PartialResult:       true,
 		PartialResultMarker: "partial_result",
 		ArtifactPaths:       map[string]string{"state": statePath},
@@ -65,7 +66,7 @@ func TestScanStatusSaveLoadProgressFields(t *testing.T) {
 		LastProgressAt:  "2026-05-07T14:40:30Z",
 		ElapsedSeconds:  12,
 		PhaseProgress:   &ScanPhaseProgress{Phase: "detectors", Percent: 36},
-		RepoProgress:    &ScanRepoProgress{Total: 2, Completed: 1, Pending: 1},
+		RepoProgress:    &ScanRepoProgress{Total: 2, Succeeded: 1, Completed: 1, Pending: 1},
 		DetectorProgress: &ScanDetectorProgress{
 			Total:          8,
 			Completed:      3,
@@ -94,7 +95,7 @@ func TestScanStatusSaveLoadProgressFields(t *testing.T) {
 	}
 }
 
-func TestScanStatusLoadsLegacySidecarWithoutProgress(t *testing.T) {
+func TestScanStatusLoadsLegacySidecarWithoutPartialProgress(t *testing.T) {
 	t.Parallel()
 
 	statePath := filepath.Join(t.TempDir(), "last-scan.json")
@@ -117,6 +118,9 @@ func TestScanStatusLoadsLegacySidecarWithoutProgress(t *testing.T) {
 	}
 	if got.Status != ScanStatusRunning || got.CurrentPhase != "source_acquire" {
 		t.Fatalf("unexpected legacy status: %+v", got)
+	}
+	if got.PartialResult || got.PartialResultMarker != "" {
+		t.Fatalf("expected legacy sidecar to remain non-partial, got %+v", got)
 	}
 	if got.ProgressPercent != 0 || got.PhaseProgress != nil || got.RepoProgress != nil || got.DetectorProgress != nil {
 		t.Fatalf("expected legacy sidecar to load without additive progress fields, got %+v", got)

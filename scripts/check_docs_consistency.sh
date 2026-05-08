@@ -63,6 +63,20 @@ readme_uses_landing_v2() {
   search_regex "^## Start Here$" "${REPO_ROOT}/README.md"
 }
 
+extract_current_supported_release() {
+  local changelog_path="$1"
+  local line=""
+  if [[ "${HAS_RG}" -eq 1 ]]; then
+    line="$(rg -m1 '^## \[v[0-9]+\.[0-9]+\.[0-9]+\]' "$changelog_path" || true)"
+  else
+    line="$(grep -m1 -E '^## \[v[0-9]+\.[0-9]+\.[0-9]+\]' "$changelog_path" || true)"
+  fi
+  if [[ -z "${line}" ]]; then
+    return 1
+  fi
+  printf '%s\n' "${line}" | sed -E 's/^## \[([^]]+)\].*/\1/'
+}
+
 for path in \
   "${REPO_ROOT}/README.md" \
   "${REPO_ROOT}/CODE_OF_CONDUCT.md" \
@@ -117,6 +131,12 @@ for path in \
   "${REPO_ROOT}/docs-site/public/robots.txt"; do
   require_file "$path"
 done
+
+CURRENT_SUPPORTED_RELEASE="$(extract_current_supported_release "${REPO_ROOT}/CHANGELOG.md" || true)"
+if [[ -z "${CURRENT_SUPPORTED_RELEASE}" ]]; then
+  fail "could not resolve current supported release from CHANGELOG.md"
+fi
+CURRENT_SUPPORTED_RELEASE_REGEX="${CURRENT_SUPPORTED_RELEASE//./\\.}"
 
 for path in \
   "${REPO_ROOT}/docs/intent/scan-org-repos-for-ai-agents-configs.md" \
@@ -203,11 +223,17 @@ require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "User-agent: Perplexi
 require_pattern "${REPO_ROOT}/docs-site/public/robots.txt" "User-agent: ChatGPT-User" "robots.txt missing ChatGPT-User allow rule"
 
 require_pattern "${REPO_ROOT}/README.md" "brew install Clyra-AI/tap/wrkr" "README missing canonical Homebrew install command"
+require_pattern "${REPO_ROOT}/README.md" "WRKR_VERSION=\"${CURRENT_SUPPORTED_RELEASE_REGEX}\"" "README pinned install version must track current supported release"
 require_pattern "${REPO_ROOT}/docs/install/minimal-dependencies.md" "go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"\\$\\{WRKR_VERSION\\}\"" "install docs missing canonical pinned go install command"
+require_pattern "${REPO_ROOT}/docs/install/minimal-dependencies.md" "WRKR_VERSION=\"${CURRENT_SUPPORTED_RELEASE_REGEX}\"" "install docs pinned version must track current supported release"
 require_pattern "${REPO_ROOT}/docs/install/minimal-dependencies.md" "curl -fsSL https://api.github.com/repos/Clyra-AI/wrkr/releases/latest" "install docs missing latest-tag resolution path"
-require_pattern "${REPO_ROOT}/docs/trust/release-integrity.md" "scripts/test_uat_local.sh --release-version v1.0.0 --brew-formula Clyra-AI/tap/wrkr" "release integrity doc missing published install-path parity command"
+require_pattern "${REPO_ROOT}/docs/install/minimal-dependencies.md" "scripts/test_uat_local.sh --release-version ${CURRENT_SUPPORTED_RELEASE_REGEX} --skip-global-gates" "install docs release-smoke command must track current supported release"
+require_pattern "${REPO_ROOT}/docs/install/minimal-dependencies.md" "scripts/test_uat_local.sh --release-version ${CURRENT_SUPPORTED_RELEASE_REGEX} --brew-formula Clyra-AI/tap/wrkr --skip-global-gates" "install docs published brew smoke command must track current supported release"
+require_pattern "${REPO_ROOT}/docs/commands/action.md" "Clyra-AI/wrkr@${CURRENT_SUPPORTED_RELEASE_REGEX}" "action command docs must reference current supported release"
+require_pattern "${REPO_ROOT}/docs-site/public/llm/quickstart.md" "WRKR_VERSION=\"${CURRENT_SUPPORTED_RELEASE_REGEX}\"" "docs-site quickstart pinned install must track current supported release"
+require_pattern "${REPO_ROOT}/docs/trust/release-integrity.md" "scripts/test_uat_local.sh --release-version ${CURRENT_SUPPORTED_RELEASE_REGEX} --brew-formula Clyra-AI/tap/wrkr" "release integrity doc missing current install-path parity command"
 require_pattern "${REPO_ROOT}/docs/trust/release-integrity.md" "scripts/finalize_release_changelog\\.py --json" "release integrity doc missing changelog finalization command"
-require_pattern "${REPO_ROOT}/docs/trust/release-integrity.md" "scripts/validate_release_changelog\\.py --release-version v1.0.0 --json" "release integrity doc missing changelog validation command"
+require_pattern "${REPO_ROOT}/docs/trust/release-integrity.md" "scripts/validate_release_changelog\\.py --release-version vX\\.Y\\.Z --json" "release integrity doc missing changelog validation command"
 require_pattern "${REPO_ROOT}/docs-site/src/app/page.tsx" "/docs/start-here#install" "docs-site homepage missing start-here install pointer"
 require_pattern "${REPO_ROOT}/docs-site/src/app/page.tsx" "/scan" "docs-site homepage missing web bootstrap pointer"
 require_pattern "${REPO_ROOT}/docs/state_lifecycle.md" "^## Canonical artifact locations$" "state lifecycle doc missing canonical artifact table section"
@@ -227,6 +253,8 @@ require_pattern "${REPO_ROOT}/docs/commands/fix.md" "When --open-pr is set, wrkr
 require_pattern "${REPO_ROOT}/docs/faq.md" "^### Do I need Axym or Gait to run Wrkr\\?$" "FAQ missing standalone vs ecosystem entry"
 require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "^## Docs Source of Truth$" "CONTRIBUTING missing docs source-of-truth section"
 require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "make docs-site-install" "CONTRIBUTING missing docs-site validation command guidance"
+require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "make test-focused-docs" "CONTRIBUTING missing focused docs validation command guidance"
+require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "make test-focused-scan" "CONTRIBUTING missing focused scan validation command guidance"
 require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "^## Required Toolchain$" "CONTRIBUTING missing required toolchain section"
 require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "^## Optional Toolchain$" "CONTRIBUTING missing optional toolchain section"
 require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "^## Go-Only Contributor Path \\(Default\\)$" "CONTRIBUTING missing Go-only contributor path section"
@@ -235,8 +263,13 @@ require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "^## Determinism Requirements$" "
 require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "^## Detector Authoring Guidance$" "CONTRIBUTING missing detector authoring guidance section"
 require_pattern "${REPO_ROOT}/CONTRIBUTING.md" "^## Pull Request Workflow$" "CONTRIBUTING missing pull request workflow section"
 require_pattern "${REPO_ROOT}/docs/map.md" "^## Source-of-truth model$" "docs map missing source-of-truth model section"
+require_pattern "${REPO_ROOT}/docs/map.md" "^## Focused local commands$" "docs map missing focused local commands section"
+require_pattern "${REPO_ROOT}/docs/map.md" "make test-focused-docs" "docs map missing focused docs validation command"
+require_pattern "${REPO_ROOT}/docs/map.md" "make test-focused-scan" "docs map missing focused scan validation command"
 require_pattern "${REPO_ROOT}/docs/map.md" "^## Required validation bundle$" "docs map missing required validation bundle section"
 require_pattern "${REPO_ROOT}/docs-site/public/llms.txt" "/docs/map/" "llms.txt missing docs source map reference"
+require_pattern "${REPO_ROOT}/product/dev_guides.md" "make test-focused-docs" "product dev guides missing focused docs validation command"
+require_pattern "${REPO_ROOT}/product/dev_guides.md" "make test-focused-scan" "product dev guides missing focused scan validation command"
 require_pattern "${REPO_ROOT}/.github/ISSUE_TEMPLATE/bug_report.yml" "^name: Bug report$" "bug issue template missing name header"
 require_pattern "${REPO_ROOT}/.github/ISSUE_TEMPLATE/bug_report.yml" "Contract surface affected" "bug issue template missing contract surface prompt"
 require_pattern "${REPO_ROOT}/.github/ISSUE_TEMPLATE/feature_request.yml" "^name: Feature request$" "feature issue template missing name header"

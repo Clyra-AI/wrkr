@@ -791,7 +791,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if err := statusTracker.Phase("artifact_commit_complete"); err != nil {
 			return emitRolledBackScanFailure(err)
 		}
-		if err := statusTracker.Complete(artifactPaths); err != nil {
+		if err := statusTracker.Complete(artifactPaths, len(manifestOut.Failures) > 0); err != nil {
 			return emitRolledBackScanFailure(err)
 		}
 		statusCompleted = true

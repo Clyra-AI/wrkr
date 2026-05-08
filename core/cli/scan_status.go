@@ -148,20 +148,23 @@ func (t *scanStatusTracker) Phase(rawPhase string) error {
 	return state.SaveScanStatus(t.statePath, t.status)
 }
 
-func (t *scanStatusTracker) Repos(total, completed, failed int) error {
+func (t *scanStatusTracker) Repos(total, succeeded, failed int) error {
 	if t == nil {
 		return nil
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	completed := maxProgressCount(succeeded+failed, 0)
 	t.status.RepoTotal = total
 	t.status.ReposCompleted = completed
+	t.status.ReposSucceeded = succeeded
 	t.status.ReposFailed = failed
 	t.status.RepoProgress = &state.ScanRepoProgress{
 		Total:     total,
+		Succeeded: succeeded,
 		Completed: completed,
 		Failed:    failed,
-		Pending:   maxProgressCount(total-completed-failed, 0),
+		Pending:   maxProgressCount(total-completed, 0),
 	}
 	t.status.UpdatedAt = time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
 	return state.SaveScanStatus(t.statePath, t.status)
@@ -177,7 +180,7 @@ func (t *scanStatusTracker) SetSourcePrivacy(sourcePrivacy sourceprivacy.Contrac
 	t.status.SourcePrivacy = &normalized
 }
 
-func (t *scanStatusTracker) Complete(artifactPaths map[string]string) error {
+func (t *scanStatusTracker) Complete(artifactPaths map[string]string, partialResult bool) error {
 	if t == nil {
 		return nil
 	}
@@ -187,8 +190,12 @@ func (t *scanStatusTracker) Complete(artifactPaths map[string]string) error {
 	t.status.Status = state.ScanStatusCompleted
 	t.status.CurrentPhase = "artifact_commit"
 	t.status.LastSuccessfulPhase = "artifact_commit"
-	t.status.PartialResult = false
-	t.status.PartialResultMarker = ""
+	t.status.PartialResult = partialResult || t.status.PartialResult
+	if t.status.PartialResult {
+		t.status.PartialResultMarker = "partial_result"
+	} else {
+		t.status.PartialResultMarker = ""
+	}
 	t.status.CompletedAt = now.Format(time.RFC3339)
 	t.status.UpdatedAt = t.status.CompletedAt
 	t.status.ArtifactPaths = cleanArtifactPaths(artifactPaths)
@@ -267,6 +274,7 @@ func (t *scanStatusTracker) FooterData() scanProgressFooter {
 		PartialResult:       t.status.PartialResult,
 		RepoTotal:           t.status.RepoTotal,
 		ReposCompleted:      t.status.ReposCompleted,
+		ReposSucceeded:      t.status.ReposSucceeded,
 		ReposFailed:         t.status.ReposFailed,
 		DetectorProgress:    t.status.DetectorProgress,
 		ArtifactPaths:       append([]string(nil), paths...),
@@ -301,6 +309,7 @@ func (t *scanStatusTracker) applyProgressLocked(snapshot scanProgressSnapshot) {
 		t.status.RepoProgress = &repoProgress
 		t.status.RepoTotal = repoProgress.Total
 		t.status.ReposCompleted = repoProgress.Completed
+		t.status.ReposSucceeded = repoProgress.Succeeded
 		t.status.ReposFailed = repoProgress.Failed
 	}
 	if snapshot.DetectorProgress.Total > 0 || snapshot.DetectorProgress.Completed > 0 || snapshot.DetectorProgress.Failed > 0 || snapshot.DetectorProgress.ActiveDetector != "" {

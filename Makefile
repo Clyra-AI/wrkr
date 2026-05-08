@@ -7,7 +7,7 @@ DOCS_SITE_NPM_CACHE ?= $(CURDIR)/.tmp/npm-cache
 
 .PHONY: fmt lint lint-fast test test-fast test-integration test-e2e test-contracts test-scenarios \
 	test-hardening test-chaos test-perf test-agent-benchmarks test-risk-lane build hooks prepush prepush-full codeql lint-ci \
-	test-docs-consistency test-docs-storyline test-adapter-parity test-v1-acceptance test-uat-local test-release-smoke \
+	test-docs-consistency test-docs-storyline test-focused-docs test-focused-scan test-adapter-parity test-v1-acceptance test-uat-local test-release-smoke \
 	docs-site-install docs-site-lint docs-site-build docs-site-check docs-site-audit-prod
 
 fmt:
@@ -64,6 +64,15 @@ test-docs-consistency:
 
 test-docs-storyline:
 	@scripts/run_docs_smoke.sh --subset
+
+test-focused-docs:
+	@$(GO) test ./testinfra/hygiene -run 'TestInstallDocsSmokeGoOnlyPath|TestInstallDocsPinnedVersionSupportsCurrentReadmeCommands|TestMinimalDependenciesReleaseSmokeVersionIsCurrent' -count=1
+	@$(MAKE) test-docs-consistency
+
+test-focused-scan:
+	@$(GO) test ./core/cli -run 'TestScan.*Partial|TestScanStatus|TestScan.*Progress' -count=1
+	@$(GO) test ./core/state -run TestScanStatus -count=1
+	@$(GO) test ./core/source/org -run 'Test.*Progress|Test.*Resume|Test.*Failure' -count=1
 
 docs-site-install:
 	@mkdir -p "$(DOCS_SITE_NPM_CACHE)"

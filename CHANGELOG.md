@@ -23,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- Clarified focused local validation guidance for narrow documentation and scan-status/progress changes while preserving required CI and release gates.
 - [semver:minor] Improved scan completion and failure footers so progress-enabled runs explain the last phase, partial-result state, detector/repo counts, artifact paths, and resume hint without polluting stdout contracts.
 - Aligned govern-first ranking, risk tiers, and recommended actions so source-level MCP and agent paths with stronger governable signals outrank dependency-only inventory.
 - Changed report and BOM proof refs to distinguish global proof-chain metadata from path-specific proof coverage and remediation.
@@ -38,6 +39,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- [semver:patch] Fixed pinned install and release-smoke examples so documented first-value commands install a compatible Wrkr release.
+- [semver:patch] Fixed scan status so completed scans with source failures remain marked as partial instead of appearing complete to automation.
+- [semver:patch] Fixed hosted scan progress counters so failed repo materialization is counted once and pending progress remains accurate.
 - Fixed repo-level attack-path score spillover so high attack-path scores attach only to matching govern-first paths instead of every candidate path in the same repo.
 - Fixed tolerant detector parsing for additive third-party `package.json` metadata and reduced modern JS/WebMCP parse noise by recovering positive fallback signals while keeping diagnostics out of ranked risk surfaces.
 - Fixed remaining open detector manifests and MCP-adjacent configs to tolerate additive metadata instead of treating unknown fields as parse failures.

@@ -38,6 +38,10 @@ These notes clarify how this repository currently enforces this standard. They d
 
 ### 3) Current Local Gate Entry Points (Wrkr)
 
+- Focused local docs/install gate:
+  - `make test-focused-docs`
+- Focused local scan-status/progress gate:
+  - `make test-focused-scan`
 - Fast developer gate:
   - `make prepush`
 - Full architecture/risk gate:
@@ -46,6 +50,7 @@ These notes clarify how this repository currently enforces this standard. They d
   - `make test-risk-lane`
 - Acceptance scorecard gate:
   - `scripts/run_v1_acceptance.sh --mode=local`
+- Focused local helpers are additive only. They do not replace `make test-fast`, `make prepush`, required PR checks, or release validation lanes.
 
 ### 4) Scenario and Acceptance Contract Reality (Wrkr)
 

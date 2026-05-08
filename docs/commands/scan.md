@@ -117,7 +117,9 @@ wrkr scan status --state ./.wrkr/last-scan.json --json
 ```
 
 The status payload includes `status`, `current_phase`, `last_successful_phase`, repo counts, `partial_result`, `partial_result_marker`, phase timings, artifact paths, and `source_privacy` when scan state includes source-retention metadata.
-During active or recently interrupted scans, additive progress fields may also include `progress_percent`, `progress_message`, `last_progress_at`, `elapsed_seconds`, `phase_progress`, `repo_progress`, and `detector_progress`.
+Completed scans that hit non-fatal source acquisition failures keep `partial_result=true` in status JSON until the same target is rerun cleanly.
+During active, interrupted, or completed-partial scans, additive progress fields may also include `progress_percent`, `progress_message`, `last_progress_at`, `elapsed_seconds`, `phase_progress`, `repo_progress`, and `detector_progress`.
+When present, `repo_progress.completed` counts repos that reached a terminal source-acquisition result, `repo_progress.succeeded` isolates successful materializations, and `repo_progress.pending` stays `total - completed` so failed repos are counted once.
 Existing state files without a status sidecar are interpreted as `completed` when the state snapshot can be loaded, otherwise `unknown`.
 
 ## Developer personal-hygiene example
@@ -185,7 +187,7 @@ For CI or log-stable automation, prefer `--progress none` when you want no progr
 Resume also revalidates that checkpoint files and reused repo roots are still trusted local artifacts under the managed materialized root; symlink-swapped entries fail closed as `unsafe_operation_blocked`.
 Default successful hosted scans remove that managed root, so resume from retained materialized source requires an explicit retention mode such as `--source-retention retain` for completed runs or `retain_for_resume` for failed/interrupted runs.
 Mixed target sets such as org-plus-path scans fail closed with `invalid_input` when `--resume` is requested.
-If a run is interrupted after some repositories are checkpointed, rerun the same target with `--resume` and keep the same `--state` path. Use `wrkr scan status --state <path> --json` to inspect the last successful phase and partial marker before rerunning. If `partial_result`, `source_errors`, or `source_degraded` is present, treat the scan as incomplete and rerun after the blocking condition is resolved.
+If a run is interrupted after some repositories are checkpointed, rerun the same target with `--resume` and keep the same `--state` path. Use `wrkr scan status --state <path> --json` to inspect the last successful phase, partial marker, and repo counters before rerunning. If `partial_result`, `source_errors`, or `source_degraded` is present, treat the scan as incomplete and rerun after the blocking condition is resolved.
 
 For long org scans, run the foreground command under your process supervisor or shell backgrounding rather than relying on a hidden daemon:
 

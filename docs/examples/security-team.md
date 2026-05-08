@@ -35,10 +35,11 @@ Interpretation notes:
 
 - `--progress auto` keeps `--json` stdout clean and preserves structured stderr progress by default; use `--progress events` to keep explicit event lines, `--progress none` for CI-stable stderr, or `--quiet` to suppress progress output entirely
 - retry, cooldown, resume, per-repo materialization completion, local repo discovery, detector lifecycle, heartbeat, scan phase, and final footer progress lines are additive stderr-only operator UX in `--json` mode
-- `partial_result`, `source_errors`, or `source_degraded` means the org posture is incomplete and should be rerun before downstream campaign-style aggregation
+- `partial_result`, `source_errors`, or `source_degraded` means the org posture is incomplete and should be rerun before downstream campaign-style aggregation, even when `wrkr scan status --json` reports `status=completed`
 - `org-checkpoints/` is resumability metadata beside the scan state, not a proof artifact
 - `--resume` revalidates checkpoint files and reused materialized repo roots before detector execution, so symlink-swapped resume state is blocked as unsafe
-- `wrkr scan status --state ./.wrkr/last-scan.json --json` now surfaces additive `progress_percent`, `progress_message`, `last_progress_at`, `phase_progress`, `repo_progress`, and `detector_progress` fields during active or interrupted runs
+- `wrkr scan status --state ./.wrkr/last-scan.json --json` now surfaces additive `progress_percent`, `progress_message`, `last_progress_at`, `phase_progress`, `repo_progress`, and `detector_progress` fields during active, interrupted, or completed-partial runs
+- `repo_progress.completed` counts terminal source-acquisition results, `repo_progress.succeeded` isolates successful materializations, and `repo_progress.pending` stays `total - completed` so failed repos are counted once
 
 Optional deeper triage after the saved state exists:
 

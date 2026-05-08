@@ -32,6 +32,7 @@ type ScanStatus struct {
 	LastSuccessfulPhase string                  `json:"last_successful_phase,omitempty"`
 	RepoTotal           int                     `json:"repo_total,omitempty"`
 	ReposCompleted      int                     `json:"repos_completed,omitempty"`
+	ReposSucceeded      int                     `json:"repos_succeeded,omitempty"`
 	ReposFailed         int                     `json:"repos_failed,omitempty"`
 	ProgressPercent     int                     `json:"progress_percent,omitempty"`
 	ProgressMessage     string                  `json:"progress_message,omitempty"`
@@ -65,6 +66,7 @@ type ScanPhaseProgress struct {
 
 type ScanRepoProgress struct {
 	Total     int `json:"total,omitempty"`
+	Succeeded int `json:"succeeded,omitempty"`
 	Completed int `json:"completed,omitempty"`
 	Failed    int `json:"failed,omitempty"`
 	Pending   int `json:"pending,omitempty"`
