@@ -1001,12 +1001,12 @@ func classifyCredentialProvenances(dataClass string, permissions []string, authS
 
 	scope := inferredCredentialScope(signals, authSurfaces)
 	evidenceLocation := credentialEvidenceLocation(signals)
-	for _, subject := range dedupeSorted(signals.EvidenceKV["credential_keys"]) {
+	for _, subject := range credentialSignalSubjects(signals.EvidenceKV["credential_keys"]) {
 		if candidate := credentialCandidateForSubject(subject, scope, []string{"credential_keys"}, authSurfaces, permissions, evidenceLocation, signals); candidate != nil {
 			candidates = append(candidates, candidate)
 		}
 	}
-	for _, subject := range dedupeSorted(signals.EvidenceKV["workflow_secret_refs"]) {
+	for _, subject := range credentialSignalSubjects(signals.EvidenceKV["workflow_secret_refs"]) {
 		if candidate := credentialCandidateForSubject(subject, agginventory.CredentialScopeWorkflow, []string{"workflow_secret_refs", "repo_workflow_secret_correlation"}, authSurfaces, permissions, evidenceLocation, signals); candidate != nil {
 			candidates = append(candidates, candidate)
 		}
@@ -1043,6 +1043,21 @@ func credentialCandidateForSubject(subject string, scope string, evidenceBasis [
 		EvidenceLocation:      evidenceLocation,
 		ClassificationReasons: reasons,
 	})
+}
+
+func credentialSignalSubjects(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := []string{}
+	for _, value := range values {
+		for _, item := range strings.Split(value, ",") {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+	}
+	return dedupeSorted(out)
 }
 
 func workflowBuiltInTokenProvenance(permissions []string, signals findingSignals) *agginventory.CredentialProvenance {
@@ -1264,14 +1279,41 @@ func credentialProvenanceTypeFor(kind, accessType string) string {
 }
 
 func classifyCredentialKind(subject string, authSurfaces []string, permissions []string, signals findingSignals) (string, string, []string) {
-	candidates := []string{subject}
-	candidates = append(candidates, authSurfaces...)
+	subjectText := normalizeToken(subject)
+	if kind, accessType, reasons, ok := classifyCredentialKindFromText(subjectText, subject, signals); ok {
+		return kind, accessType, mergeSortedEvidence(reasons)
+	}
+	if subjectText != "" {
+		if kind, accessType, reasons, ok := classifyCredentialKindFromPermissions(permissions, signals); ok {
+			return kind, accessType, mergeSortedEvidence(reasons)
+		}
+		return agginventory.CredentialKindStaticSecret, agginventory.CredentialAccessTypeStanding, []string{"subject:static_secret"}
+	}
+
+	candidates := append([]string(nil), authSurfaces...)
 	candidates = append(candidates, signals.EvidenceKV["credential_subject"]...)
 	candidates = append(candidates, signals.EvidenceKV["workflow_secret_refs"]...)
 	candidates = append(candidates, signals.EvidenceKV["credential_keys"]...)
-	text := normalizeToken(strings.Join(candidates, ","))
-	reasons := []string{}
+	aggregateText := normalizeToken(strings.Join(candidates, ","))
+	if kind, accessType, reasons, ok := classifyCredentialKindFromText(aggregateText, "", signals); ok {
+		return kind, accessType, mergeSortedEvidence(reasons)
+	}
+	if kind, accessType, reasons, ok := classifyCredentialKindFromPermissions(permissions, signals); ok {
+		return kind, accessType, mergeSortedEvidence(reasons)
+	}
+	if aggregateText != "" {
+		reasons := []string{"subject:static_secret"}
+		return agginventory.CredentialKindStaticSecret, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+	}
+	return agginventory.CredentialKindUnknownDurable, agginventory.CredentialAccessTypeStanding, []string{"fallback:unknown_durable"}
+}
 
+func classifyCredentialKindFromText(text string, subject string, signals findingSignals) (string, string, []string, bool) {
+	text = normalizeToken(text)
+	if text == "" {
+		return "", "", nil, false
+	}
+	reasons := []string{}
 	addReason := func(value string) {
 		if strings.TrimSpace(value) != "" {
 			reasons = append(reasons, strings.TrimSpace(value))
@@ -1282,49 +1324,50 @@ func classifyCredentialKind(subject string, authSurfaces []string, permissions [
 	case hasAnySignalValue(signals, "workflow_builtin_token", "github_token") && normalizeToken(subject) == "github_token":
 		reasons = append(reasons, "subject:github_workflow_token")
 		reasons = append(reasons, prefixedEvidence("workflow_token_permission", signals.EvidenceKV["workflow_token_permission"])...)
-		return agginventory.CredentialKindGitHubWorkflowToken, agginventory.CredentialAccessTypeJIT, mergeSortedEvidence(reasons)
+		return agginventory.CredentialKindGitHubWorkflowToken, agginventory.CredentialAccessTypeJIT, reasons, true
 	case (strings.Contains(text, "github_app") || strings.Contains(text, "gh_app")) && (strings.Contains(text, "private_key") || strings.Contains(text, "app_key")):
 		addReason("subject:github_app_private_key")
-		return agginventory.CredentialKindGitHubAppKey, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+		return agginventory.CredentialKindGitHubAppKey, agginventory.CredentialAccessTypeStanding, reasons, true
 	case strings.Contains(text, "deploy_key") || strings.Contains(text, "ssh_key"):
 		addReason("subject:deploy_key")
-		return agginventory.CredentialKindDeployKey, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
-	case strings.Contains(text, "pat") || strings.Contains(text, "personal_access_token") || strings.Contains(text, "github_token"):
-		addReason("subject:github_pat")
-		return agginventory.CredentialKindGitHubPAT, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+		return agginventory.CredentialKindDeployKey, agginventory.CredentialAccessTypeStanding, reasons, true
 	case hasCloudAdminSignal(text):
 		addReason("subject:cloud_admin_key")
-		return agginventory.CredentialKindCloudAdminKey, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+		return agginventory.CredentialKindCloudAdminKey, agginventory.CredentialAccessTypeStanding, reasons, true
 	case hasCloudAccessSignal(text):
 		addReason("subject:cloud_access_key")
-		return agginventory.CredentialKindCloudAccessKey, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+		return agginventory.CredentialKindCloudAccessKey, agginventory.CredentialAccessTypeStanding, reasons, true
+	case strings.Contains(text, "pat") || strings.Contains(text, "personal_access_token") || strings.Contains(text, "github_token"):
+		addReason("subject:github_pat")
+		return agginventory.CredentialKindGitHubPAT, agginventory.CredentialAccessTypeStanding, reasons, true
 	case strings.Contains(text, "oauth"):
 		addReason("subject:oauth")
-		return agginventory.CredentialKindDelegatedOAuth, agginventory.CredentialAccessTypeDelegated, mergeSortedEvidence(reasons)
+		return agginventory.CredentialKindDelegatedOAuth, agginventory.CredentialAccessTypeDelegated, reasons, true
 	case strings.Contains(text, "oidc") || strings.Contains(text, "workload_identity") || strings.Contains(text, "assume_role") || strings.Contains(text, "sts"):
 		addReason("subject:oidc_workload_identity")
 		if boolSignalState(signals.EvidenceKV["human_gate"]) == "true" || strings.Contains(stringSignalState(signals.EvidenceKV["approval_source"], ""), "manual") {
 			addReason("gate:jit_evidence")
-			return agginventory.CredentialKindJITCredential, agginventory.CredentialAccessTypeJIT, mergeSortedEvidence(reasons)
+			return agginventory.CredentialKindJITCredential, agginventory.CredentialAccessTypeJIT, reasons, true
 		}
-		return agginventory.CredentialKindOIDCWorkloadID, agginventory.CredentialAccessTypeWorkload, mergeSortedEvidence(reasons)
+		return agginventory.CredentialKindOIDCWorkloadID, agginventory.CredentialAccessTypeWorkload, reasons, true
 	case strings.Contains(text, "github_actor") || strings.Contains(text, "user_token") || strings.Contains(text, "bot_user"):
 		addReason("subject:inherited_human")
-		return agginventory.CredentialKindInheritedHuman, agginventory.CredentialAccessTypeInherited, mergeSortedEvidence(reasons)
-	case hasAnyPermission(permissions, map[string]struct{}{"id-token.write": {}}):
-		addReason("permission:id-token.write")
-		if boolSignalState(signals.EvidenceKV["human_gate"]) == "true" || strings.Contains(stringSignalState(signals.EvidenceKV["approval_source"], ""), "manual") {
-			addReason("gate:jit_evidence")
-			return agginventory.CredentialKindJITCredential, agginventory.CredentialAccessTypeJIT, mergeSortedEvidence(reasons)
-		}
-		return agginventory.CredentialKindOIDCWorkloadID, agginventory.CredentialAccessTypeWorkload, mergeSortedEvidence(reasons)
-	case text != "":
-		addReason("subject:static_secret")
-		return agginventory.CredentialKindStaticSecret, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+		return agginventory.CredentialKindInheritedHuman, agginventory.CredentialAccessTypeInherited, reasons, true
 	default:
-		addReason("fallback:unknown_durable")
-		return agginventory.CredentialKindUnknownDurable, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
+		return "", "", nil, false
 	}
+}
+
+func classifyCredentialKindFromPermissions(permissions []string, signals findingSignals) (string, string, []string, bool) {
+	if !hasAnyPermission(permissions, map[string]struct{}{"id-token.write": {}}) {
+		return "", "", nil, false
+	}
+	reasons := []string{"permission:id-token.write"}
+	if boolSignalState(signals.EvidenceKV["human_gate"]) == "true" || strings.Contains(stringSignalState(signals.EvidenceKV["approval_source"], ""), "manual") {
+		reasons = append(reasons, "gate:jit_evidence")
+		return agginventory.CredentialKindJITCredential, agginventory.CredentialAccessTypeJIT, reasons, true
+	}
+	return agginventory.CredentialKindOIDCWorkloadID, agginventory.CredentialAccessTypeWorkload, reasons, true
 }
 
 func hasCloudAdminSignal(value string) bool {

@@ -503,6 +503,68 @@ func TestBuildClassifiesBuiltInGitHubWorkflowTokenSeparatelyFromPATs(t *testing.
 	}
 }
 
+func TestBuildClassifiesWorkflowSecretRefsByIndividualSubject(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{{
+		ToolID:      "tool-1",
+		AgentID:     "wrkr:ci:acme",
+		ToolType:    "ci_agent",
+		Org:         "acme",
+		Repos:       []string{"acme/release"},
+		Permissions: []string{"deploy.write", "secret.read"},
+		DataClass:   "credentials",
+		Locations:   []agginventory.ToolLocation{{Repo: "acme/release", Location: ".github/workflows/release.yml"}},
+	}}
+	findings := []model.Finding{{
+		FindingType: "ci_autonomy",
+		ToolType:    "ci_agent",
+		Location:    ".github/workflows/release.yml",
+		Repo:        "acme/release",
+		Org:         "acme",
+		Evidence: []model.Evidence{
+			{Key: "workflow_secret_refs", Value: "BROAD_PAT"},
+			{Key: "workflow_secret_refs", Value: "BROAD_PAT,CLOUD_ADMIN_KEY"},
+			{Key: "workflow_secret_refs", Value: "CLOUD_ADMIN_KEY"},
+			{Key: "workflow_secret_refs", Value: "AWS_ACCESS_KEY_ID"},
+			{Key: "workflow_secret_refs", Value: "GCP_SERVICE_ACCOUNT"},
+			{Key: "workflow_secret_refs", Value: "PROD_DEPLOY_KEY"},
+			{Key: "workflow_secret_refs", Value: "RELEASE_TOKEN"},
+		},
+	}}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one classified entry, got %+v", entries)
+	}
+	kindBySubject := map[string]string{}
+	for _, credential := range entries[0].Credentials {
+		if credential == nil {
+			continue
+		}
+		kindBySubject[credential.Subject] = credential.CredentialKind
+	}
+	expected := map[string]string{
+		"broad_pat":           agginventory.CredentialKindGitHubPAT,
+		"cloud_admin_key":     agginventory.CredentialKindCloudAdminKey,
+		"aws_access_key_id":   agginventory.CredentialKindCloudAccessKey,
+		"gcp_service_account": agginventory.CredentialKindCloudAccessKey,
+		"prod_deploy_key":     agginventory.CredentialKindDeployKey,
+		"release_token":       agginventory.CredentialKindStaticSecret,
+	}
+	for subject, want := range expected {
+		if got := kindBySubject[subject]; got != want {
+			t.Fatalf("expected %s to classify as %s, got %s from %+v", subject, want, got, entries[0].Credentials)
+		}
+	}
+	if got := kindBySubject["broad_pat,cloud_admin_key"]; got != "" {
+		t.Fatalf("did not expect comma-joined synthetic credential subject, got kind %s from %+v", got, entries[0].Credentials)
+	}
+	if entries[0].CredentialProvenance == nil || entries[0].CredentialProvenance.CredentialKind != agginventory.CredentialKindCloudAdminKey {
+		t.Fatalf("expected cloud_admin_key to win the rollup, got %+v", entries[0].CredentialProvenance)
+	}
+}
+
 func TestBuildDerivesActionClassesAndStandingPrivilegeFromCredentialSignals(t *testing.T) {
 	t.Parallel()
 
