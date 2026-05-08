@@ -1283,17 +1283,13 @@ func classifyCredentialKind(subject string, authSurfaces []string, permissions [
 	if kind, accessType, reasons, ok := classifyCredentialKindFromText(subjectText, subject, signals); ok {
 		return kind, accessType, mergeSortedEvidence(reasons)
 	}
-	if subjectText != "" {
-		if kind, accessType, reasons, ok := classifyCredentialKindFromPermissions(permissions, signals); ok {
-			return kind, accessType, mergeSortedEvidence(reasons)
-		}
-		return agginventory.CredentialKindStaticSecret, agginventory.CredentialAccessTypeStanding, []string{"subject:static_secret"}
-	}
 
 	candidates := append([]string(nil), authSurfaces...)
 	candidates = append(candidates, signals.EvidenceKV["credential_subject"]...)
-	candidates = append(candidates, signals.EvidenceKV["workflow_secret_refs"]...)
-	candidates = append(candidates, signals.EvidenceKV["credential_keys"]...)
+	if subjectText == "" {
+		candidates = append(candidates, signals.EvidenceKV["workflow_secret_refs"]...)
+		candidates = append(candidates, signals.EvidenceKV["credential_keys"]...)
+	}
 	aggregateText := normalizeToken(strings.Join(candidates, ","))
 	if kind, accessType, reasons, ok := classifyCredentialKindFromText(aggregateText, "", signals); ok {
 		return kind, accessType, mergeSortedEvidence(reasons)
@@ -1301,7 +1297,7 @@ func classifyCredentialKind(subject string, authSurfaces []string, permissions [
 	if kind, accessType, reasons, ok := classifyCredentialKindFromPermissions(permissions, signals); ok {
 		return kind, accessType, mergeSortedEvidence(reasons)
 	}
-	if aggregateText != "" {
+	if subjectText != "" || aggregateText != "" {
 		reasons := []string{"subject:static_secret"}
 		return agginventory.CredentialKindStaticSecret, agginventory.CredentialAccessTypeStanding, mergeSortedEvidence(reasons)
 	}
