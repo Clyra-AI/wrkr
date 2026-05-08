@@ -565,6 +565,23 @@ func TestBuildClassifiesWorkflowSecretRefsByIndividualSubject(t *testing.T) {
 	}
 }
 
+func TestClassifyCredentialKindKeepsAuthSurfaceFallbackForGenericSubjects(t *testing.T) {
+	t.Parallel()
+
+	kind, accessType, reasons := classifyCredentialKind(
+		"RELEASE_TOKEN",
+		[]string{"personal_access_token"},
+		[]string{"deploy.write", "id-token.write"},
+		findingSignals{},
+	)
+	if kind != agginventory.CredentialKindGitHubPAT || accessType != agginventory.CredentialAccessTypeStanding {
+		t.Fatalf("expected PAT standing access from auth surface fallback, got kind=%s access=%s reasons=%v", kind, accessType, reasons)
+	}
+	if !containsString(reasons, "subject:github_pat") {
+		t.Fatalf("expected github_pat reason in %v", reasons)
+	}
+}
+
 func TestBuildDerivesActionClassesAndStandingPrivilegeFromCredentialSignals(t *testing.T) {
 	t.Parallel()
 
