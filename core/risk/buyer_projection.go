@@ -11,7 +11,7 @@ const (
 
 	RiskZoneCodingHelp     = "coding_help"
 	RiskZoneRepoWrite      = "repo_write"
-	RiskZoneCredential     = "credential_bearing"
+	RiskZoneCredential     = "credential_bearing" // #nosec G101 -- Deterministic risk-zone label, not credential material.
 	RiskZoneCICD           = "ci_cd"
 	RiskZoneIAC            = "iac"
 	RiskZoneRelease        = "release"
