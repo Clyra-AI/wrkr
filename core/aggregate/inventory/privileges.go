@@ -37,7 +37,7 @@ const (
 	CredentialScopeUnknown     = "unknown"
 
 	CredentialKindGitHubPAT           = "github_pat"
-	CredentialKindGitHubWorkflowToken = "github_workflow_token"
+	CredentialKindGitHubWorkflowToken = "github_workflow_token" // #nosec G101 -- Deterministic credential classification label, not a secret.
 	CredentialKindGitHubAppKey        = "github_app_key" // #nosec G101 -- Deterministic credential classification label, not a secret.
 	CredentialKindDeployKey           = "deploy_key"
 	CredentialKindCloudAdminKey       = "cloud_admin_key"
