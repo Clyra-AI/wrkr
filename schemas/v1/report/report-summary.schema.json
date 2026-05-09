@@ -255,6 +255,13 @@
         "policy_status_reasons": {"type": "array", "items": {"type": "string"}},
         "policy_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "policy_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "control_state": {"$ref": "#/$defs/controlState"},
+        "control_state_reasons": {"type": "array", "items": {"type": "string"}},
+        "risk_zone": {"$ref": "#/$defs/riskZone"},
+        "risk_zone_reasons": {"type": "array", "items": {"type": "string"}},
+        "review_burden": {"$ref": "#/$defs/reviewBurden"},
+        "review_burden_reasons": {"type": "array", "items": {"type": "string"}},
+        "gait_coverage": {"$ref": "#/$defs/gaitCoverage"},
         "introduced_by": {"$ref": "#/$defs/introducedBy"},
         "inventory_risk": {"type": "string", "enum": ["production_backed", "write_capable", "credential_access", "visibility_only", "dependency_only"]},
         "control_priority": {"type": "string", "enum": ["control_first", "review_queue", "inventory_hygiene"]},
@@ -268,6 +275,42 @@
         "write_path_classes": {"type": "array", "items": {"type": "string"}},
         "governance_controls": {"type": "array", "items": {"type": "object"}}
       }
+    },
+    "controlState": {
+      "type": "string",
+      "enum": ["safe_by_default", "approval_required", "block_recommended", "evidence_required", "inventory_only"]
+    },
+    "riskZone": {
+      "type": "string",
+      "enum": ["coding_help", "repo_write", "credential_bearing", "ci_cd", "iac", "release", "production_data", "external_egress"]
+    },
+    "reviewBurden": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "gaitCoverage": {
+      "type": "object",
+      "required": ["policy_decision", "approval", "jit_credential", "freeze_window", "kill_switch", "action_outcome", "proof_verification"],
+      "properties": {
+        "policy_decision": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "approval": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "jit_credential": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "freeze_window": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "kill_switch": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "action_outcome": {"$ref": "#/$defs/gaitCoverageDetail"},
+        "proof_verification": {"$ref": "#/$defs/gaitCoverageDetail"}
+      },
+      "additionalProperties": false
+    },
+    "gaitCoverageDetail": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"type": "string", "enum": ["present", "missing", "stale", "conflict", "not_applicable"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
     },
     "actionPathToControlFirst": {
       "type": "object",
