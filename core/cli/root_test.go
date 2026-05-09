@@ -310,11 +310,14 @@ func TestScanNoTargetJSONIncludesNextSteps(t *testing.T) {
 }
 
 func TestScanMySetupReturnsLocalMachineTarget(t *testing.T) {
-	t.Parallel()
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+	statePath := filepath.Join(tmpHome, "wrkr-state.json")
 
 	var out bytes.Buffer
 	var errOut bytes.Buffer
-	code := Run([]string{"scan", "--my-setup", "--json"}, &out, &errOut)
+	code := Run([]string{"scan", "--my-setup", "--state", statePath, "--json"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("scan failed: %d %s", code, errOut.String())
 	}
@@ -335,6 +338,7 @@ func TestScanMySetupFindsEnvironmentKeysAndProjectMarkers(t *testing.T) {
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
 	t.Setenv("USERPROFILE", tmpHome)
+	statePath := filepath.Join(tmpHome, "wrkr-state.json")
 	t.Setenv("OPENAI_API_KEY", "redacted")
 	t.Setenv("ANTHROPIC_API_KEY", "redacted")
 
@@ -348,7 +352,7 @@ func TestScanMySetupFindsEnvironmentKeysAndProjectMarkers(t *testing.T) {
 
 	var out bytes.Buffer
 	var errOut bytes.Buffer
-	code := Run([]string{"scan", "--my-setup", "--json"}, &out, &errOut)
+	code := Run([]string{"scan", "--my-setup", "--state", statePath, "--json"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("scan failed: %d %s", code, errOut.String())
 	}
@@ -388,6 +392,7 @@ func TestScanMySetupActivationPrefersConcreteSignals(t *testing.T) {
 	tmpHome := t.TempDir()
 	t.Setenv("HOME", tmpHome)
 	t.Setenv("USERPROFILE", tmpHome)
+	statePath := filepath.Join(tmpHome, "wrkr-state.json")
 	t.Setenv("OPENAI_API_KEY", "redacted")
 
 	if err := os.MkdirAll(filepath.Join(tmpHome, ".codex"), 0o755); err != nil {
@@ -405,7 +410,7 @@ func TestScanMySetupActivationPrefersConcreteSignals(t *testing.T) {
 
 	var out bytes.Buffer
 	var errOut bytes.Buffer
-	code := Run([]string{"scan", "--my-setup", "--json"}, &out, &errOut)
+	code := Run([]string{"scan", "--my-setup", "--state", statePath, "--json"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("scan failed: %d %s", code, errOut.String())
 	}
