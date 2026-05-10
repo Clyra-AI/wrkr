@@ -8,27 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added an explicit `wrkr scan --progress auto|bar|plain|events|none` contract so operators can choose interactive, log-friendly, machine-readable, or disabled progress output without breaking JSON consumers.
-- [semver:minor] Added additive scan-status progress metadata including `progress_percent`, `progress_message`, `last_progress_at`, `phase_progress`, `repo_progress`, and `detector_progress` so long-running scans can be inspected through `wrkr scan status --json`.
-- [semver:minor] Added TTY-aware scan progress rendering, heartbeat updates, and detector-phase detail so long org and path scans stay visibly alive across source, detector, analysis, and artifact phases.
-- Added buyer-facing backlog queue, visibility, and remediation fields so report and evidence outputs separate `control_first`, `review_queue`, `inventory_hygiene`, and `debug_only` work without hiding appendix/debug context.
-- Added attack-path join refs and deterministic exclusion items across govern-first action paths, control-path graphs, and Agent Action BOM output so top attack paths are represented or explicitly excluded instead of silently dropped.
-- Added detector-health `scan_quality` coverage rows to report and Agent Action BOM output so clean negative MCP/WebMCP results are distinguishable from partial, reduced, or blocked coverage.
-- [semver:minor] Added MCP candidate extraction and `wrkr mcp-list` miss diagnostics for package scripts, package dependencies, workspace hints, source literals, repo filtering, and expected-server checks from saved state.
-- [semver:minor] Added framework-candidate findings plus source-level confidence and evidence-strength labels so dependency-only framework inventory is separated from active tool-binding and credential-bearing agent paths.
-- [semver:minor] Added buyer-facing BOM summary metadata for scan scope, source privacy, operational exposure, governance readiness, coverage confidence, and customer-share redaction policy details.
-- [semver:minor] Added a `customer-redacted` share profile for report, BOM, and report evidence artifacts with deterministic pseudonyms for sensitive customer identifiers while preserving intra-artifact joins.
-- [semver:minor] Added cross-detector BOM reachability fields for endpoints and deployment targets plus confidence-aware reachability joins between source-bound tools and saved MCP server declarations.
-- [semver:minor] Added additive `credentials[]`, `path_context`, `tool_family_id`, and `tool_instance_id` fields across privilege maps, govern-first action paths, risk reports, and Agent Action BOM output.
-- [semver:minor] Added demo-ready action-path provenance, buyer-facing `control_state` / `risk_zone` / `review_burden`, path-level Gait coverage projection, semantic skill/instruction action hints, and a distinct `github_workflow_token` credential classification across scan, report, and Agent Action BOM output.
+- (none yet)
 
 ### Changed
 
-- Clarified focused local validation guidance for narrow documentation and scan-status/progress changes while preserving required CI and release gates.
-- [semver:minor] Improved scan completion and failure footers so progress-enabled runs explain the last phase, partial-result state, detector/repo counts, artifact paths, and resume hint without polluting stdout contracts.
-- Aligned govern-first ranking, risk tiers, and recommended actions so source-level MCP and agent paths with stronger governable signals outrank dependency-only inventory.
-- Changed report and BOM proof refs to distinguish global proof-chain metadata from path-specific proof coverage and remediation.
-- Split lifecycle gap reason output further into missing approval, inferred/unresolved owner, stale identity, and true orphaned identity states.
+- (none yet)
 
 ### Deprecated
 
@@ -40,22 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Fixed scan managed artifact commits so interrupted proof, lifecycle, state, and manifest writes recover deterministically or fail closed.
-- [semver:patch] Fixed identity and inventory lifecycle mutations to share crash-consistent proof, lifecycle, state, and manifest commits.
-- [semver:patch] Fixed Go validation gates to test only first-party Wrkr packages even when docs-site dependencies are installed locally.
-- [semver:patch] Restored full Apache-2.0 license text for OSS scanner and evaluator compatibility.
-- [semver:patch] Fixed pinned install and release-smoke examples so documented first-value commands install a compatible Wrkr release.
-- [semver:patch] Fixed scan status so completed scans with source failures remain marked as partial instead of appearing complete to automation.
-- [semver:patch] Fixed hosted scan progress counters so failed repo materialization is counted once and pending progress remains accurate.
-- [semver:patch] Fixed workflow credential classification so multiple secret references on one CI action path keep subject-specific PAT, cloud-admin, cloud-access, deploy-key, and generic secret kinds instead of inheriting the first aggregate match.
-- Fixed repo-level attack-path score spillover so high attack-path scores attach only to matching govern-first paths instead of every candidate path in the same repo.
-- Fixed tolerant detector parsing for additive third-party `package.json` metadata and reduced modern JS/WebMCP parse noise by recovering positive fallback signals while keeping diagnostics out of ranked risk surfaces.
-- Fixed remaining open detector manifests and MCP-adjacent configs to tolerate additive metadata instead of treating unknown fields as parse failures.
+- (none yet)
 
 ### Security
 
-- [semver:patch] Tightened release and docs workflow action-ref governance with immutable pins or expiring owner-scoped exceptions.
-- [semver:patch] Raised Wrkr's active Go toolchain pin to `1.26.3` and updated `golang.org/x/net` to `v0.53.0` to clear `govulncheck` findings in binary-scanning CI lanes.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -64,6 +37,52 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.4.0] - 2026-05-09
+<!-- release-semver: minor -->
+
+### Added
+
+- Added an explicit `wrkr scan --progress auto|bar|plain|events|none` contract so operators can choose interactive, log-friendly, machine-readable, or disabled progress output without breaking JSON consumers.
+- Added additive scan-status progress metadata including `progress_percent`, `progress_message`, `last_progress_at`, `phase_progress`, `repo_progress`, and `detector_progress` so long-running scans can be inspected through `wrkr scan status --json`.
+- Added TTY-aware scan progress rendering, heartbeat updates, and detector-phase detail so long org and path scans stay visibly alive across source, detector, analysis, and artifact phases.
+- Added buyer-facing backlog queue, visibility, and remediation fields so report and evidence outputs separate `control_first`, `review_queue`, `inventory_hygiene`, and `debug_only` work without hiding appendix/debug context.
+- Added attack-path join refs and deterministic exclusion items across govern-first action paths, control-path graphs, and Agent Action BOM output so top attack paths are represented or explicitly excluded instead of silently dropped.
+- Added detector-health `scan_quality` coverage rows to report and Agent Action BOM output so clean negative MCP/WebMCP results are distinguishable from partial, reduced, or blocked coverage.
+- Added MCP candidate extraction and `wrkr mcp-list` miss diagnostics for package scripts, package dependencies, workspace hints, source literals, repo filtering, and expected-server checks from saved state.
+- Added framework-candidate findings plus source-level confidence and evidence-strength labels so dependency-only framework inventory is separated from active tool-binding and credential-bearing agent paths.
+- Added buyer-facing BOM summary metadata for scan scope, source privacy, operational exposure, governance readiness, coverage confidence, and customer-share redaction policy details.
+- Added a `customer-redacted` share profile for report, BOM, and report evidence artifacts with deterministic pseudonyms for sensitive customer identifiers while preserving intra-artifact joins.
+- Added cross-detector BOM reachability fields for endpoints and deployment targets plus confidence-aware reachability joins between source-bound tools and saved MCP server declarations.
+- Added additive `credentials[]`, `path_context`, `tool_family_id`, and `tool_instance_id` fields across privilege maps, govern-first action paths, risk reports, and Agent Action BOM output.
+- Added demo-ready action-path provenance, buyer-facing `control_state` / `risk_zone` / `review_burden`, path-level Gait coverage projection, semantic skill/instruction action hints, and a distinct `github_workflow_token` credential classification across scan, report, and Agent Action BOM output.
+
+### Changed
+
+- Clarified focused local validation guidance for narrow documentation and scan-status/progress changes while preserving required CI and release gates.
+- Improved scan completion and failure footers so progress-enabled runs explain the last phase, partial-result state, detector/repo counts, artifact paths, and resume hint without polluting stdout contracts.
+- Aligned govern-first ranking, risk tiers, and recommended actions so source-level MCP and agent paths with stronger governable signals outrank dependency-only inventory.
+- Changed report and BOM proof refs to distinguish global proof-chain metadata from path-specific proof coverage and remediation.
+- Split lifecycle gap reason output further into missing approval, inferred/unresolved owner, stale identity, and true orphaned identity states.
+
+### Fixed
+
+- Fixed scan managed artifact commits so interrupted proof, lifecycle, state, and manifest writes recover deterministically or fail closed.
+- Fixed identity and inventory lifecycle mutations to share crash-consistent proof, lifecycle, state, and manifest commits.
+- Fixed Go validation gates to test only first-party Wrkr packages even when docs-site dependencies are installed locally.
+- Restored full Apache-2.0 license text for OSS scanner and evaluator compatibility.
+- Fixed pinned install and release-smoke examples so documented first-value commands install a compatible Wrkr release.
+- Fixed scan status so completed scans with source failures remain marked as partial instead of appearing complete to automation.
+- Fixed hosted scan progress counters so failed repo materialization is counted once and pending progress remains accurate.
+- Fixed workflow credential classification so multiple secret references on one CI action path keep subject-specific PAT, cloud-admin, cloud-access, deploy-key, and generic secret kinds instead of inheriting the first aggregate match.
+- Fixed repo-level attack-path score spillover so high attack-path scores attach only to matching govern-first paths instead of every candidate path in the same repo.
+- Fixed tolerant detector parsing for additive third-party `package.json` metadata and reduced modern JS/WebMCP parse noise by recovering positive fallback signals while keeping diagnostics out of ranked risk surfaces.
+- Fixed remaining open detector manifests and MCP-adjacent configs to tolerate additive metadata instead of treating unknown fields as parse failures.
+
+### Security
+
+- Tightened release and docs workflow action-ref governance with immutable pins or expiring owner-scoped exceptions.
+- Raised Wrkr's active Go toolchain pin to `1.26.3` and updated `golang.org/x/net` to `v0.53.0` to clear `govulncheck` findings in binary-scanning CI lanes.
 
 ## [v1.3.0] - 2026-04-30
 <!-- release-semver: minor -->
