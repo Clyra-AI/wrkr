@@ -40,6 +40,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- [semver:patch] Fixed scan managed artifact commits so interrupted proof, lifecycle, state, and manifest writes recover deterministically or fail closed.
+- [semver:patch] Fixed identity and inventory lifecycle mutations to share crash-consistent proof, lifecycle, state, and manifest commits.
+- [semver:patch] Fixed Go validation gates to test only first-party Wrkr packages even when docs-site dependencies are installed locally.
+- [semver:patch] Restored full Apache-2.0 license text for OSS scanner and evaluator compatibility.
 - [semver:patch] Fixed pinned install and release-smoke examples so documented first-value commands install a compatible Wrkr release.
 - [semver:patch] Fixed scan status so completed scans with source failures remain marked as partial instead of appearing complete to automation.
 - [semver:patch] Fixed hosted scan progress counters so failed repo materialization is counted once and pending progress remains accurate.
@@ -50,8 +54,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
+- [semver:patch] Tightened release and docs workflow action-ref governance with immutable pins or expiring owner-scoped exceptions.
 - [semver:patch] Raised Wrkr's active Go toolchain pin to `1.26.3` and updated `golang.org/x/net` to `v0.53.0` to clear `govulncheck` findings in binary-scanning CI lanes.
-- (none yet)
 
 ## Changelog maintenance process
 

@@ -41,3 +41,20 @@ if [[ -n "${tracked_wrkr_state}" ]]; then
   echo "${tracked_wrkr_state}" >&2
   exit 3
 fi
+
+license_markers=(
+  "1. Definitions."
+  "2. Grant of Copyright License."
+  "3. Grant of Patent License."
+  "4. Redistribution."
+  "7. Disclaimer of Warranty."
+  "8. Limitation of Liability."
+  "APPENDIX: How to apply the Apache License to your work."
+)
+
+for marker in "${license_markers[@]}"; do
+  if ! grep -Fq "$marker" LICENSE; then
+    echo "LICENSE missing Apache-2.0 full-text marker: $marker" >&2
+    exit 3
+  fi
+done

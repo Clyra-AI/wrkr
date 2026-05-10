@@ -243,7 +243,7 @@ Use this sequence whenever updating governance-critical tool pins (`gosec`, `gol
 | Tool | Purpose | Version | Execution |
 |------|---------|---------|-----------|
 | gofmt | Code formatting | Bundled with Go | `gofmt -w .` |
-| go vet | Static analysis | Bundled with Go | `go vet ./...` |
+| go vet | Static analysis | Bundled with Go | `go vet $(scripts/first_party_go_packages.sh)` |
 | golangci-lint | Lint aggregator | `v2.0.1` | `golangci-lint run ./...` |
 | gosec | Security static analysis | `v2.23.0` | `gosec ./...` |
 | govulncheck | Vulnerability database | `v1.1.4` | `govulncheck -mode=binary ./<binary>` |
@@ -296,7 +296,7 @@ Tests are organized into tiers by scope, speed, and when they run.
 ### Tier 1 — Unit
 
 - **What**: isolated component tests.
-- **How**: `go test ./...` (Go), `pytest` (Python).
+- **How**: `go test $(scripts/first_party_go_packages.sh)` (Go), `pytest` (Python).
 - **When**: every PR, every push, pre-push hook.
 - **Flags**: default (cached, parallel).
 
@@ -569,7 +569,7 @@ These minimums are for v1 launch. Scenario count grows with product surface — 
 ### Golden File Pattern
 
 - Assertion: `AssertGoldenJSON(t, repoRelativePath, value)` compares normalized JSON byte-for-byte.
-- Update: `UPDATE_GOLDEN=1 go test ./...` regenerates golden files.
+- Update: `UPDATE_GOLDEN=1 go test $(scripts/first_party_go_packages.sh)` regenerates golden files.
 - Platform normalization: newlines normalized before comparison.
 - Location: `testdata/` directories within each package, or `internal/integration/testdata/` for integration goldens.
 
@@ -631,10 +631,15 @@ Sequence:
   - `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`
   - `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION`
 - If an upstream action required for release/docs operations does not yet publish a Node24-ready release, the exception must be:
-  - explicit in repo docs
+  - explicit in `.github/action-ref-exceptions.yaml`
+  - assigned to an owner role
   - bounded to the minimum required workflows
+  - scoped to the exact action ref and workflow path
+  - given an expiry date
+  - paired with a review command that produces repeatable evidence
   - revisited on each runtime-uplift PR
   - accompanied by rerun evidence for the affected workflow class before merge
+- Expired, ownerless, scope-less, or review-less release/docs action-ref exceptions fail `scripts/check_actions_runtime.sh`.
 
 ## Pre-Push Enforcement
 

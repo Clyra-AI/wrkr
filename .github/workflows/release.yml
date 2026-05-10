@@ -54,7 +54,7 @@ jobs:
         run: python3 scripts/validate_release_changelog.py --release-version "${GITHUB_REF_NAME}" --json
 
       - name: Run deterministic tests
-        run: go test ./... -count=1
+        run: go test $(scripts/first_party_go_packages.sh) -count=1
 
       - name: Run docs parity, docs site, and UAT smoke
         run: |

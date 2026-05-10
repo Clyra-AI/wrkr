@@ -141,7 +141,7 @@ jobs:
       - name: Run gosec
         if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: |
-          "$(go env GOPATH)/bin/gosec" ./...
+          "$(go env GOPATH)/bin/gosec" $(scripts/first_party_go_packages.sh)
 
       - name: Install golangci-lint
         if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
@@ -150,7 +150,7 @@ jobs:
       - name: Run golangci-lint
         if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: |
-          "$(go env GOPATH)/bin/golangci-lint" run --timeout=5m
+          "$(go env GOPATH)/bin/golangci-lint" run --timeout=5m $(scripts/first_party_go_packages.sh)
 
       - name: Install govulncheck
         if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
@@ -207,4 +207,4 @@ jobs:
         run: |
           mkdir -p .tmp
           go build -o .tmp/wrkr ./cmd/wrkr
-          go test ./... -count=1
+          go test $(scripts/first_party_go_packages.sh) -count=1

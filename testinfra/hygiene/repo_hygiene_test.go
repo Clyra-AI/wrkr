@@ -52,6 +52,48 @@ func TestNoTrackedWrkrLocalState(t *testing.T) {
 	}
 }
 
+func TestLicenseContainsFullApache20Text(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	content, err := os.ReadFile(filepath.Join(repoRoot, "LICENSE"))
+	if err != nil {
+		t.Fatalf("read LICENSE: %v", err)
+	}
+	text := string(content)
+	requiredMarkers := []string{
+		"TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION",
+		"1. Definitions.",
+		"2. Grant of Copyright License.",
+		"3. Grant of Patent License.",
+		"4. Redistribution.",
+		"7. Disclaimer of Warranty.",
+		"8. Limitation of Liability.",
+		"APPENDIX: How to apply the Apache License to your work.",
+	}
+	for _, marker := range requiredMarkers {
+		if !strings.Contains(text, marker) {
+			t.Fatalf("LICENSE missing Apache-2.0 full-text marker %q", marker)
+		}
+	}
+}
+
+func TestOSSTrustBaselineIncludesCanonicalLicense(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	content, err := os.ReadFile(filepath.Join(repoRoot, "LICENSE"))
+	if err != nil {
+		t.Fatalf("read LICENSE: %v", err)
+	}
+	if len(strings.Split(string(content), "\n")) < 180 {
+		t.Fatalf("LICENSE appears abbreviated; expected canonical Apache-2.0 full text")
+	}
+	if strings.Contains(string(content), "See the License for the specific language governing permissions and limitations under the License.\n#") {
+		t.Fatalf("LICENSE appears to contain an abbreviated notice glued to another document")
+	}
+}
+
 func mustFindRepoRoot(t *testing.T) string {
 	t.Helper()
 

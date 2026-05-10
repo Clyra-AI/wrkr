@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 GO ?= go
-PKGS := ./...
+PKG_LIST := scripts/first_party_go_packages.sh
 GOFILES := $(shell git ls-files '*.go')
 DOCS_SITE_NPM_CACHE ?= $(CURDIR)/.tmp/npm-cache
 
@@ -21,20 +21,20 @@ lint-fast:
 	@scripts/check_repo_hygiene.sh
 	@scripts/check_actions_runtime.sh
 	@scripts/check_branch_protection_contract.sh
-	@$(GO) vet $(PKGS)
+	@$(GO) vet $$($(PKG_LIST))
 
 lint: lint-fast
 
 test-fast:
-	@$(GO) test ./... -count=1
+	@$(GO) test $$($(PKG_LIST)) -count=1
 
 test: test-fast
 
 test-integration:
-	@$(GO) test ./... -run Integration -count=1
+	@$(GO) test $$($(PKG_LIST)) -run Integration -count=1
 
 test-e2e:
-	@$(GO) test ./... -run E2E -count=1
+	@$(GO) test $$($(PKG_LIST)) -run E2E -count=1
 
 test-contracts:
 	@$(GO) test ./testinfra/... -count=1

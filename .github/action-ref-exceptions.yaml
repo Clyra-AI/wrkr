@@ -1,0 +1,106 @@
+exceptions:
+  - workflow: .github/workflows/release.yml
+    action: actions/checkout@v6.0.2
+    owner: release-engineering
+    reason: audited Node24-ready setup action kept on upstream release tag until SHA pin refresh automation lands
+    scope: release checkout only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/release.yml
+    action: actions/setup-go@v6.3.0
+    owner: release-engineering
+    reason: audited Node24-ready setup action kept on upstream release tag until SHA pin refresh automation lands
+    scope: release Go setup only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/release.yml
+    action: actions/setup-python@v6.2.0
+    owner: release-engineering
+    reason: audited Node24-ready setup action kept on upstream release tag until SHA pin refresh automation lands
+    scope: release Python setup only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/release.yml
+    action: actions/setup-node@v6.3.0
+    owner: release-engineering
+    reason: audited Node24-ready setup action kept on upstream release tag until SHA pin refresh automation lands
+    scope: release docs-site Node setup only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/release.yml
+    action: actions/upload-artifact@v7.0.0
+    owner: release-engineering
+    reason: audited Node24-ready artifact action kept on upstream release tag until SHA pin refresh automation lands
+    scope: release scorecard and benchmark uploads only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/release.yml
+    action: goreleaser/goreleaser-action@v7.0.0
+    owner: release-engineering
+    reason: audited Node24-ready release action kept on upstream release tag until SHA pin refresh automation lands
+    scope: staged release artifact build only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/release.yml
+    action: anchore/sbom-action@v0
+    owner: release-engineering
+    reason: upstream release workflow action remains on moving tag while scanner compatibility is reviewed each release cycle
+    scope: dist SBOM generation only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/release.yml
+    action: anchore/scan-action@v4
+    owner: release-engineering
+    reason: upstream release workflow action remains on moving tag while scanner compatibility is reviewed each release cycle
+    scope: dist SBOM vulnerability scan only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/release.yml
+    action: sigstore/cosign-installer@v4.1.0
+    owner: release-engineering
+    reason: audited Node24-ready signing setup action kept on upstream release tag until SHA pin refresh automation lands
+    scope: cosign install for release signing only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/release.yml
+    action: actions/attest-build-provenance@v4.1.0
+    owner: release-engineering
+    reason: audited Node24-ready provenance action kept on upstream release tag until SHA pin refresh automation lands
+    scope: release artifact provenance attestation only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/docs.yml
+    action: actions/checkout@v6.0.2
+    owner: docs-platform
+    reason: audited Node24-ready setup action kept on upstream release tag until SHA pin refresh automation lands
+    scope: docs checkout only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/docs.yml
+    action: actions/setup-node@v6.3.0
+    owner: docs-platform
+    reason: audited Node24-ready setup action kept on upstream release tag until SHA pin refresh automation lands
+    scope: docs-site Node setup only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/docs.yml
+    action: actions/configure-pages@v5
+    owner: docs-platform
+    reason: upstream Pages setup action remains on moving tag while Pages compatibility is reviewed each docs release cycle
+    scope: GitHub Pages configuration only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/docs.yml
+    action: actions/upload-pages-artifact@v4.0.0
+    owner: docs-platform
+    reason: audited Node24-ready Pages artifact action kept on upstream release tag until SHA pin refresh automation lands
+    scope: docs-site static artifact upload only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh
+  - workflow: .github/workflows/docs.yml
+    action: actions/deploy-pages@v4
+    owner: docs-platform
+    reason: upstream Pages deploy action remains on moving tag while Pages compatibility is reviewed each docs release cycle
+    scope: GitHub Pages deployment only
+    expires: 2026-08-31
+    review_command: scripts/check_actions_runtime.sh

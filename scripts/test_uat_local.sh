@@ -234,7 +234,7 @@ run_go_install_smoke() {
 
 if [[ "$skip_global_gates" != "true" ]]; then
   make lint-fast
-  go test ./... -count=1
+  go test $(scripts/first_party_go_packages.sh) -count=1
   make test-contracts
   scripts/validate_contracts.sh
   scripts/validate_scenarios.sh

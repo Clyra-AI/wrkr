@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -13,8 +14,10 @@ import (
 const (
 	IssueDeprecatedRuntimeUse  = "deprecated runtime use"
 	IssueDisallowedOverride    = "disallowed override policy"
+	IssueMovingRefException    = "moving action ref requires exception"
 	defaultWorkflowPatternYML  = ".github/workflows/*.yml"
 	defaultWorkflowPatternYAML = ".github/workflows/*.yaml"
+	defaultExceptionRegistry   = ".github/action-ref-exceptions.yaml"
 )
 
 var deprecatedRefs = map[string]struct{}{
@@ -61,8 +64,31 @@ type workflowStep struct {
 	Env  map[string]any `yaml:"env"`
 }
 
+type actionRefExceptionRegistry struct {
+	Exceptions []actionRefException `yaml:"exceptions"`
+}
+
+type actionRefException struct {
+	Action        string `yaml:"action"`
+	Workflow      string `yaml:"workflow"`
+	Owner         string `yaml:"owner"`
+	Reason        string `yaml:"reason"`
+	Scope         string `yaml:"scope"`
+	Expires       string `yaml:"expires"`
+	ReviewCommand string `yaml:"review_command"`
+}
+
+type actionRefExceptionKey struct {
+	workflow string
+	action   string
+}
+
 func Scan(root string) ([]Finding, error) {
 	files, err := workflowFiles(root)
+	if err != nil {
+		return nil, err
+	}
+	exceptions, err := loadActionRefExceptions(root)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +114,7 @@ func Scan(root string) ([]Finding, error) {
 		}
 
 		findings = append(findings, collectEnvFindings(path, "workflow env", wf.Env)...)
-		findings = append(findings, collectJobFindings(path, wf.Jobs)...)
+		findings = append(findings, collectJobFindings(path, wf.Jobs, exceptions)...)
 	}
 
 	sort.Slice(findings, func(i, j int) bool {
@@ -142,7 +168,7 @@ func workflowFiles(root string) ([]string, error) {
 	return files, nil
 }
 
-func collectJobFindings(relPath string, jobs map[string]workflowJob) []Finding {
+func collectJobFindings(relPath string, jobs map[string]workflowJob, exceptions map[actionRefExceptionKey]actionRefException) []Finding {
 	jobNames := make([]string, 0, len(jobs))
 	for name := range jobs {
 		jobNames = append(jobNames, name)
@@ -154,11 +180,11 @@ func collectJobFindings(relPath string, jobs map[string]workflowJob) []Finding {
 		job := jobs[jobName]
 		findings = append(findings, collectEnvFindings(relPath, "job "+jobName+" env", job.Env)...)
 		for idx, step := range job.Steps {
+			location := fmt.Sprintf("job %s step %d", jobName, idx+1)
+			if strings.TrimSpace(step.Name) != "" {
+				location += " " + strings.TrimSpace(step.Name)
+			}
 			if _, blocked := deprecatedRefs[strings.TrimSpace(step.Uses)]; blocked {
-				location := fmt.Sprintf("job %s step %d", jobName, idx+1)
-				if strings.TrimSpace(step.Name) != "" {
-					location += " " + strings.TrimSpace(step.Name)
-				}
 				findings = append(findings, Finding{
 					Issue:    IssueDeprecatedRuntimeUse,
 					Path:     relPath,
@@ -166,11 +192,110 @@ func collectJobFindings(relPath string, jobs map[string]workflowJob) []Finding {
 					Location: location,
 				})
 			}
+			if finding, ok := movingActionRefFinding(relPath, strings.TrimSpace(step.Uses), location, exceptions); ok {
+				findings = append(findings, finding)
+			}
 			findings = append(findings, collectEnvFindings(relPath, "job "+jobName+" step "+stepLabel(idx, step.Name)+" env", step.Env)...)
 			findings = append(findings, collectRunFindings(relPath, jobName, idx, step)...)
 		}
 	}
 	return findings
+}
+
+func loadActionRefExceptions(root string) (map[actionRefExceptionKey]actionRefException, error) {
+	path := filepath.Join(root, defaultExceptionRegistry)
+	payload, err := os.ReadFile(path) // #nosec G304 -- registry path is fixed under the caller-selected repository root.
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[actionRefExceptionKey]actionRefException{}, nil
+		}
+		return nil, fmt.Errorf("read action-ref exception registry: %w", err)
+	}
+	var registry actionRefExceptionRegistry
+	if err := yaml.Unmarshal(payload, &registry); err != nil {
+		return nil, fmt.Errorf("parse action-ref exception registry: %w", err)
+	}
+	out := make(map[actionRefExceptionKey]actionRefException, len(registry.Exceptions))
+	for _, exception := range registry.Exceptions {
+		key := actionRefExceptionKey{
+			workflow: filepath.ToSlash(filepath.Clean(strings.TrimSpace(exception.Workflow))),
+			action:   strings.TrimSpace(exception.Action),
+		}
+		if key.workflow == "." || key.action == "" {
+			continue
+		}
+		out[key] = exception
+	}
+	return out, nil
+}
+
+func movingActionRefFinding(relPath, uses, location string, exceptions map[actionRefExceptionKey]actionRefException) (Finding, bool) {
+	if !requiresMovingRefException(relPath, uses) {
+		return Finding{}, false
+	}
+	exception, ok := exceptions[actionRefExceptionKey{workflow: filepath.ToSlash(filepath.Clean(relPath)), action: uses}]
+	if !ok {
+		return actionRefFinding(relPath, uses, "missing exception", location), true
+	}
+	if strings.TrimSpace(exception.Owner) == "" {
+		return actionRefFinding(relPath, uses, "missing owner", location), true
+	}
+	if strings.TrimSpace(exception.Reason) == "" {
+		return actionRefFinding(relPath, uses, "missing reason", location), true
+	}
+	if strings.TrimSpace(exception.Scope) == "" {
+		return actionRefFinding(relPath, uses, "missing scope", location), true
+	}
+	if strings.TrimSpace(exception.ReviewCommand) == "" {
+		return actionRefFinding(relPath, uses, "missing review command", location), true
+	}
+	expires, err := time.Parse("2006-01-02", strings.TrimSpace(exception.Expires))
+	if err != nil {
+		return actionRefFinding(relPath, uses, "invalid expiry", location), true
+	}
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	if expires.Before(today) {
+		return actionRefFinding(relPath, uses, "expired exception", location), true
+	}
+	return Finding{}, false
+}
+
+func requiresMovingRefException(relPath, uses string) bool {
+	if strings.TrimSpace(uses) == "" || !isMovingActionRef(uses) {
+		return false
+	}
+	switch filepath.ToSlash(filepath.Clean(relPath)) {
+	case ".github/workflows/release.yml", ".github/workflows/docs.yml":
+		return true
+	default:
+		return false
+	}
+}
+
+func isMovingActionRef(uses string) bool {
+	at := strings.LastIndex(uses, "@")
+	if at < 0 || at == len(uses)-1 {
+		return false
+	}
+	ref := strings.TrimSpace(uses[at+1:])
+	if len(ref) != 40 {
+		return true
+	}
+	for _, ch := range ref {
+		if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') && (ch < 'A' || ch > 'F') {
+			return true
+		}
+	}
+	return false
+}
+
+func actionRefFinding(relPath, uses, reason, location string) Finding {
+	return Finding{
+		Issue:    IssueMovingRefException,
+		Path:     relPath,
+		Subject:  strings.TrimSpace(uses) + " (" + reason + ")",
+		Location: location,
+	}
 }
 
 func collectEnvFindings(relPath, location string, values map[string]any) []Finding {

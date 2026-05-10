@@ -57,7 +57,11 @@ func runIdentityList(args []string, stdout io.Writer, stderr io.Writer) int {
 	if code, handled := parseFlags(fs, args, stderr, jsonRequested || *jsonOut); handled {
 		return code
 	}
-	loaded, err := manifest.Load(manifest.ResolvePath(state.ResolvePath(*statePathFlag)))
+	resolvedStatePath := state.ResolvePath(*statePathFlag)
+	if err := preflightManagedArtifactRead(resolvedStatePath); err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
+	loaded, err := manifest.Load(manifest.ResolvePath(resolvedStatePath))
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
@@ -101,6 +105,9 @@ func runIdentityShow(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "identity id is required", exitInvalidInput)
 	}
 	statePath := state.ResolvePath(*statePathFlag)
+	if err := preflightManagedArtifactRead(statePath); err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
 	loaded, err := manifest.Load(manifest.ResolvePath(statePath))
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
