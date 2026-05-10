@@ -158,7 +158,7 @@ func commitStateMutationContext(ctx stateMutationContext, transition lifecycle.T
 	if err := manifest.Save(ctx.preflight.manifestPath, ctx.manifest); err != nil {
 		return transaction.Rollback(err)
 	}
-	if err := verifyManagedArtifactConsistency(ctx.preflight.statePath); err != nil {
+	if err := verifyManagedArtifactConsistency(ctx.preflight.statePath, managedArtifactVerificationFull); err != nil {
 		return transaction.Rollback(err)
 	}
 	if err := transaction.Complete(); err != nil {

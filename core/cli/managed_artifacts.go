@@ -24,6 +24,13 @@ const (
 	managedArtifactTransactionName    = ".wrkr-managed-transaction.json"
 )
 
+type managedArtifactVerificationMode uint8
+
+const (
+	managedArtifactVerificationStructural managedArtifactVerificationMode = iota
+	managedArtifactVerificationFull
+)
+
 type managedArtifactSnapshot struct {
 	path    string
 	existed bool
@@ -323,10 +330,10 @@ func preflightManagedArtifactRead(statePath string) error {
 		}
 		return fmt.Errorf("stat managed state artifact: %w", err)
 	}
-	return verifyManagedArtifactConsistency(statePath)
+	return verifyManagedArtifactConsistency(statePath, managedArtifactVerificationStructural)
 }
 
-func verifyManagedArtifactConsistency(statePath string) error {
+func verifyManagedArtifactConsistency(statePath string, mode managedArtifactVerificationMode) error {
 	resolvedStatePath := filepath.Clean(strings.TrimSpace(statePath))
 	if resolvedStatePath == "" || resolvedStatePath == "." {
 		resolvedStatePath = state.ResolvePath("")
@@ -370,11 +377,24 @@ func verifyManagedArtifactConsistency(statePath string) error {
 	}
 
 	proofChainPath := proofemit.ChainPath(resolvedStatePath)
-	if _, err := os.Stat(proofChainPath); err != nil {
+	proofChainInfo, err := os.Stat(proofChainPath)
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 		return fmt.Errorf("managed artifact consistency proof chain: %w", err)
+	}
+	if mode == managedArtifactVerificationStructural {
+		if proofChainInfo.Size() == 0 {
+			return nil
+		}
+		if _, err := os.Stat(proofemit.SigningKeyPath(resolvedStatePath)); err != nil {
+			return fmt.Errorf("managed artifact consistency proof signing key: %w", err)
+		}
+		if _, err := os.Stat(proofemit.ChainAttestationPath(proofChainPath)); err != nil {
+			return fmt.Errorf("managed artifact consistency proof attestation: %w", err)
+		}
+		return nil
 	}
 	proofChain, err := proofemit.LoadChain(proofChainPath)
 	if err != nil {
@@ -387,20 +407,22 @@ func verifyManagedArtifactConsistency(statePath string) error {
 		if _, err := os.Stat(proofemit.ChainAttestationPath(proofChainPath)); err != nil {
 			return fmt.Errorf("managed artifact consistency proof attestation: %w", err)
 		}
-		publicKey, keyErr := proofemit.LoadVerifierKey(resolvedStatePath)
-		var result verifycore.Result
-		if keyErr == nil {
-			result, err = verifycore.ChainWithPublicKey(proofChainPath, publicKey)
-		} else if errors.Is(keyErr, os.ErrNotExist) {
-			result, err = verifycore.Chain(proofChainPath)
-		} else {
-			return fmt.Errorf("managed artifact consistency proof signing key: %w", keyErr)
-		}
-		if err != nil {
-			return fmt.Errorf("managed artifact consistency proof verification: %w", err)
-		}
-		if !result.Intact {
-			return fmt.Errorf("managed artifact consistency proof verification failed: %s", result.Reason)
+		if mode == managedArtifactVerificationFull {
+			publicKey, keyErr := proofemit.LoadVerifierKey(resolvedStatePath)
+			var result verifycore.Result
+			if keyErr == nil {
+				result, err = verifycore.ChainWithPublicKey(proofChainPath, publicKey)
+			} else if errors.Is(keyErr, os.ErrNotExist) {
+				result, err = verifycore.Chain(proofChainPath)
+			} else {
+				return fmt.Errorf("managed artifact consistency proof signing key: %w", keyErr)
+			}
+			if err != nil {
+				return fmt.Errorf("managed artifact consistency proof verification: %w", err)
+			}
+			if !result.Intact {
+				return fmt.Errorf("managed artifact consistency proof verification failed: %s", result.Reason)
+			}
 		}
 	}
 	return nil
