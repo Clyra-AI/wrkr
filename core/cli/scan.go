@@ -198,6 +198,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonSinkErr.Error(), exitInvalidInput)
 	}
 	statePath := artifactPreflight.StatePath
+	if recoveryErr := recoverManagedArtifactTransaction(statePath); recoveryErr != nil {
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, recoveryErr)
+	}
 	materializedRoot := ""
 	if targetsNeedMaterializedRoot(targets) {
 		var rootErr error
@@ -582,17 +585,17 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	chainPath := artifactPreflight.LifecyclePath
 	proofChainPath := artifactPreflight.ProofChainPath
-	managedSnapshots, snapshotErr := captureManagedArtifacts(
-		statePath,
-		manifestPath,
-		chainPath,
-		proofChainPath,
-		artifactPreflight.ProofAttestationPath,
-		artifactPreflight.SigningKeyPath,
-		artifactPreflight.ReportPath,
-		artifactPreflight.SARIFPath,
-		jsonSink.outputPath,
-	)
+	transaction, snapshotErr := beginManagedArtifactTransaction(statePath, "scan", []managedArtifactFile{
+		{label: "state", path: statePath},
+		{label: "manifest", path: manifestPath},
+		{label: "lifecycle chain", path: chainPath},
+		{label: "proof chain", path: proofChainPath},
+		{label: "proof attestation", path: artifactPreflight.ProofAttestationPath},
+		{label: "proof signing key", path: artifactPreflight.SigningKeyPath},
+		{label: "report markdown", path: artifactPreflight.ReportPath},
+		{label: "sarif", path: artifactPreflight.SARIFPath},
+		{label: "json output", path: jsonSink.outputPath},
+	})
 	if snapshotErr != nil {
 		return emitScanFailure(snapshotErr)
 	}
@@ -610,26 +613,30 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		err = cleanupFailure(err)
 		statusTracker.Fail(err, artifactPaths)
 		progress.Finish(statusTracker.FooterData())
-		if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%v (rollback restore failed: %v)", err, restoreErr), exitRuntime)
-		}
-		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, err)
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, transaction.Rollback(err))
 	}
 	emitRolledBackScanError := func(code, message string, exitCode int) int {
 		if cleanupErr := finalizeSourceCleanup(false); cleanupErr != nil {
 			statusTracker.Fail(cleanupErr, artifactPaths)
 			progress.Finish(statusTracker.FooterData())
-			if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
-				return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%v (rollback restore failed: %v)", cleanupErr, restoreErr), exitRuntime)
-			}
-			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, cleanupErr)
+			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, transaction.Rollback(cleanupErr))
 		}
 		statusTracker.Fail(errors.New(message), artifactPaths)
 		progress.Finish(statusTracker.FooterData())
-		if restoreErr := restoreManagedArtifacts(managedSnapshots); restoreErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("%s (rollback restore failed: %v)", message, restoreErr), exitRuntime)
+		rollbackErr := transaction.Rollback(errors.New(message))
+		if rollbackErr != nil && rollbackErr.Error() != message {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", rollbackErr.Error(), exitRuntime)
 		}
 		return emitError(stderr, jsonRequested || *jsonOut, code, message, exitCode)
+	}
+	completeManagedScanTransaction := func() int {
+		if err := verifyManagedArtifactConsistency(statePath); err != nil {
+			return emitRolledBackScanFailure(err)
+		}
+		if err := transaction.Complete(); err != nil {
+			return emitRolledBackScanFailure(err)
+		}
+		return exitSuccess
 	}
 
 	if err := state.Save(statePath, snapshot); err != nil {
@@ -810,6 +817,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if code := completeScanStatus(); code != exitSuccess {
 			return code
 		}
+		if code := completeManagedScanTransaction(); code != exitSuccess {
+			return code
+		}
 		progress.Finish(statusTracker.FooterData())
 		if *jsonOut {
 			return exitSuccess
@@ -833,11 +843,17 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if code := completeScanStatus(); code != exitSuccess {
 			return code
 		}
+		if code := completeManagedScanTransaction(); code != exitSuccess {
+			return code
+		}
 		progress.Finish(statusTracker.FooterData())
 		return exitSuccess
 	}
 	if *explain {
 		if code := completeScanStatus(); code != exitSuccess {
+			return code
+		}
+		if code := completeManagedScanTransaction(); code != exitSuccess {
 			return code
 		}
 		progress.Finish(statusTracker.FooterData())
@@ -860,6 +876,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return exitSuccess
 	}
 	if code := completeScanStatus(); code != exitSuccess {
+		return code
+	}
+	if code := completeManagedScanTransaction(); code != exitSuccess {
 		return code
 	}
 	progress.Finish(statusTracker.FooterData())

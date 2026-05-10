@@ -102,7 +102,7 @@ if run_cmd "lane_fast" "make lint-fast"; then
 fi
 
 # Core lane checks.
-if run_cmd "lane_core" "go test ./... -count=1"; then
+if run_cmd "lane_core" "go test \$(scripts/first_party_go_packages.sh) -count=1"; then
   lane_core="pass"
 fi
 

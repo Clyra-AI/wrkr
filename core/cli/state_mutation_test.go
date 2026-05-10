@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -110,6 +112,90 @@ func TestInventoryApproveRollsBackSavedStateOnProofEmitFailure(t *testing.T) {
 	assertOptionalTestFileEquals(t, proofChainPath, proofBefore)
 	assertOptionalTestFileEquals(t, proofAttestationPath, attestationBefore)
 	assertOptionalTestFileEquals(t, signingKeyPath, signingKeyBefore)
+}
+
+func TestIdentityApproveInterruptedAfterProofEmitRecovers(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	agentID := scanIdentityAgentID(t, statePath)
+	if strings.TrimSpace(agentID) == "" {
+		t.Fatal("expected scan fixture to produce an agent id")
+	}
+	manifestPath := manifest.ResolvePath(statePath)
+	lifecyclePath := lifecycle.ChainPath(statePath)
+	proofChainPath := proofemit.ChainPath(statePath)
+	proofAttestationPath := proofemit.ChainAttestationPath(proofChainPath)
+	signingKeyPath := proofemit.SigningKeyPath(statePath)
+
+	stateBefore := readOptionalTestFile(t, statePath)
+	manifestBefore := readOptionalTestFile(t, manifestPath)
+	lifecycleBefore := readOptionalTestFile(t, lifecyclePath)
+	proofBefore := readOptionalTestFile(t, proofChainPath)
+	attestationBefore := readOptionalTestFile(t, proofAttestationPath)
+	signingKeyBefore := readOptionalTestFile(t, signingKeyPath)
+
+	transaction, err := beginManagedArtifactTransaction(statePath, "state_mutation", []managedArtifactFile{
+		{label: "state", path: statePath},
+		{label: "manifest", path: manifestPath},
+		{label: "lifecycle chain", path: lifecyclePath},
+		{label: "proof chain", path: proofChainPath},
+		{label: "proof attestation", path: proofAttestationPath},
+		{label: "proof signing key", path: signingKeyPath},
+	})
+	if err != nil {
+		t.Fatalf("begin transaction: %v", err)
+	}
+	transaction.completed = true // Simulate process interruption after a managed write and before cleanup.
+	if err := os.WriteFile(proofChainPath, []byte("{\"chain_id\":\"wrkr-proof\",\"records\":[]}\n"), 0o600); err != nil {
+		t.Fatalf("write interrupted proof chain: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"report", "--state", statePath, "--json"}, &out, &errOut); code != exitSuccess {
+		t.Fatalf("report after recovery failed: %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+
+	assertOptionalTestFileEquals(t, statePath, stateBefore)
+	assertOptionalTestFileEquals(t, manifestPath, manifestBefore)
+	assertOptionalTestFileEquals(t, lifecyclePath, lifecycleBefore)
+	assertOptionalTestFileEquals(t, proofChainPath, proofBefore)
+	assertOptionalTestFileEquals(t, proofAttestationPath, attestationBefore)
+	assertOptionalTestFileEquals(t, signingKeyPath, signingKeyBefore)
+}
+
+func TestReportRejectsMismatchedLifecycleTransaction(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	agentID := scanIdentityAgentID(t, statePath)
+
+	loadedManifest, err := manifest.Load(manifest.ResolvePath(statePath))
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	for idx := range loadedManifest.Identities {
+		if loadedManifest.Identities[idx].AgentID == agentID {
+			loadedManifest.Identities[idx].Status = identity.StateRevoked
+		}
+	}
+	if err := manifest.Save(manifest.ResolvePath(statePath), loadedManifest); err != nil {
+		t.Fatalf("save mismatched manifest: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"report", "--state", statePath, "--json"}, &out, &errOut)
+	if code != exitRuntime {
+		t.Fatalf("expected fail-closed runtime exit, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "runtime_failure", exitRuntime)
+	if !strings.Contains(errOut.String(), "state and manifest identities differ") {
+		t.Fatalf("expected consistency mismatch detail, got %q", errOut.String())
+	}
 }
 
 func TestScoreReflectsIdentityApproveWithoutRescan(t *testing.T) {

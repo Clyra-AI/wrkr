@@ -16,19 +16,19 @@ Wrkr is a deterministic, offline-first OSS CLI for AI tooling discovery, risk sc
 
 Node is not required for the default Go-only contribution path.
 
+Go validation uses `scripts/first_party_go_packages.sh` instead of root `./...`
+wildcards so ignored docs-site dependency trees cannot change local, CI, UAT, or
+release package scope.
+
 ## GitHub Actions Runtime Policy
 
 - Local Node `22+` is only for docs-site and maintainer tooling. It is not the same contract as the GitHub-hosted JavaScript runtime used by workflow actions.
 - Workflow action refs must stay on the audited Node24-ready set enforced by `scripts/check_actions_runtime.sh` and `make lint-fast`.
+- Release/docs moving action refs must either be SHA-pinned or listed in `.github/action-ref-exceptions.yaml` with an owner, reason, exact workflow scope, expiry, and review command.
 - Steady-state overrides are prohibited:
   - `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`
   - `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION`
-- Current bounded exceptions are limited to upstream-maintained actions that do not yet publish a Node24-ready release:
-  - `actions/configure-pages@v5`
-  - `actions/deploy-pages@v4`
-  - `Homebrew/actions/setup-homebrew@cced187498280712e078aaba62dc13a3e9cd80bf`
-  - `anchore/sbom-action@v0`
-  - `anchore/scan-action@v4`
+- Current bounded exceptions are tracked in `.github/action-ref-exceptions.yaml`.
 - Do not add new exceptions silently. If an exception changes, update workflow YAML, tests, and docs in the same PR.
 
 ## Go-Only Contributor Path (Default)
@@ -89,7 +89,7 @@ These commands do not replace `make test-fast`, `make prepush`, contract lanes, 
    - `gh workflow run release.yml --ref <branch>`
    - `gh workflow run docs.yml --ref <branch>`
    - `gh run watch --repo Clyra-AI/wrkr <run-id>`
-4. Document any bounded exception you touched and why no Node24-ready upstream release exists yet.
+4. Document any bounded exception you touched, its owner, expiry, exact workflow scope, review command, and why it is not SHA-pinned yet.
 3. Document contract impact:
    - CLI flags/help/JSON/exits changed?
    - schema/output changed?

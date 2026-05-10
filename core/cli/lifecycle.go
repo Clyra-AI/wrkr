@@ -38,6 +38,9 @@ func runLifecycle(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
+	if err := preflightManagedArtifactRead(resolvedStatePath); err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
 	loaded, err := manifest.Load(manifest.ResolvePath(resolvedStatePath))
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)

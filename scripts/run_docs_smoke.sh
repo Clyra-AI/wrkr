@@ -28,12 +28,14 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 fixture_path="scenarios/wrkr/scan-mixed-org/repos"
 state_path="$tmp_dir/state.json"
-target_state_path="$tmp_dir/target-state.json"
+target_dir="$tmp_dir/target"
+target_state_path="$target_dir/target-state.json"
 config_path="$tmp_dir/config.yaml"
 baseline_path="$tmp_dir/wrkr-regress-baseline.json"
 evidence_dir="$tmp_dir/evidence"
 report_pdf="$tmp_dir/wrkr-report.pdf"
 manifest_path="$tmp_dir/wrkr-manifest.yaml"
+mkdir -p "$target_dir"
 
 "$bin_path" init --non-interactive --path "$fixture_path" --config "$config_path" --json >/dev/null
 "$bin_path" scan --path "$fixture_path" --state "$state_path" --json >"$tmp_dir/scan.json"

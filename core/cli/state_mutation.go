@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -36,6 +35,9 @@ func loadStateMutationContext(statePathRaw string) (stateMutationContext, error)
 			return stateMutationContext{}, err
 		}
 		return stateMutationContext{}, unsafeManagedArtifactPathError{err: err}
+	}
+	if err := preflightManagedArtifactRead(preflight.statePath); err != nil {
+		return stateMutationContext{}, err
 	}
 	snapshot, err := state.Load(preflight.statePath)
 	if err != nil {
@@ -133,37 +135,36 @@ func refreshDerivedMutationSnapshot(snapshot *state.Snapshot) error {
 }
 
 func commitStateMutationContext(ctx stateMutationContext, transition lifecycle.Transition, eventType string) error {
-	snapshots, err := captureManagedArtifacts(
-		ctx.preflight.statePath,
-		ctx.preflight.manifestPath,
-		ctx.preflight.lifecyclePath,
-		ctx.preflight.proofChainPath,
-		ctx.preflight.proofAttestationPath,
-		ctx.preflight.signingKeyPath,
-	)
+	transaction, err := beginManagedArtifactTransaction(ctx.preflight.statePath, "state_mutation", []managedArtifactFile{
+		{label: "state", path: ctx.preflight.statePath},
+		{label: "manifest", path: ctx.preflight.manifestPath},
+		{label: "lifecycle chain", path: ctx.preflight.lifecyclePath},
+		{label: "proof chain", path: ctx.preflight.proofChainPath},
+		{label: "proof attestation", path: ctx.preflight.proofAttestationPath},
+		{label: "proof signing key", path: ctx.preflight.signingKeyPath},
+	})
 	if err != nil {
 		return unsafeManagedArtifactPathError{err: err}
 	}
 	if err := state.Save(ctx.preflight.statePath, ctx.snapshot); err != nil {
-		return rollbackStateMutationError(err, snapshots)
+		return transaction.Rollback(err)
 	}
 	if err := lifecycle.SaveChain(ctx.preflight.lifecyclePath, ctx.lifecycleChain); err != nil {
-		return rollbackStateMutationError(err, snapshots)
+		return transaction.Rollback(err)
 	}
 	if err := proofemit.EmitIdentityTransition(ctx.preflight.statePath, transition, eventType); err != nil {
-		return rollbackStateMutationError(err, snapshots)
+		return transaction.Rollback(err)
 	}
 	if err := manifest.Save(ctx.preflight.manifestPath, ctx.manifest); err != nil {
-		return rollbackStateMutationError(err, snapshots)
+		return transaction.Rollback(err)
+	}
+	if err := verifyManagedArtifactConsistency(ctx.preflight.statePath); err != nil {
+		return transaction.Rollback(err)
+	}
+	if err := transaction.Complete(); err != nil {
+		return transaction.Rollback(err)
 	}
 	return nil
-}
-
-func rollbackStateMutationError(actionErr error, snapshots []managedArtifactSnapshot) error {
-	if restoreErr := restoreManagedArtifacts(snapshots); restoreErr != nil {
-		return fmt.Errorf("%v (rollback restore failed: %v)", actionErr, restoreErr)
-	}
-	return actionErr
 }
 
 func emitStateMutationError(stderr io.Writer, jsonOut bool, err error) int {
