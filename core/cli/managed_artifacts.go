@@ -336,29 +336,37 @@ func verifyManagedArtifactConsistency(statePath string) error {
 		return fmt.Errorf("managed artifact consistency state: %w", err)
 	}
 	manifestPath := manifest.ResolvePath(resolvedStatePath)
+	manifestExists := true
 	if _, err := os.Stat(manifestPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil
+			manifestExists = false
+		} else {
+			return fmt.Errorf("managed artifact consistency manifest: %w", err)
 		}
-		return fmt.Errorf("managed artifact consistency manifest: %w", err)
 	}
-	loadedManifest, err := manifest.Load(manifestPath)
-	if err != nil {
-		return fmt.Errorf("managed artifact consistency manifest: %w", err)
-	}
-	if !reflect.DeepEqual(normalizedManagedIdentities(snapshot.Identities), normalizedManagedIdentities(loadedManifest.Identities)) {
-		return fmt.Errorf("managed artifact consistency mismatch: state and manifest identities differ")
+	if manifestExists {
+		loadedManifest, err := manifest.Load(manifestPath)
+		if err != nil {
+			return fmt.Errorf("managed artifact consistency manifest: %w", err)
+		}
+		if !reflect.DeepEqual(normalizedManagedIdentities(snapshot.Identities), normalizedManagedIdentities(loadedManifest.Identities)) {
+			return fmt.Errorf("managed artifact consistency mismatch: state and manifest identities differ")
+		}
 	}
 
 	lifecyclePath := lifecycle.ChainPath(resolvedStatePath)
+	lifecycleExists := true
 	if _, err := os.Stat(lifecyclePath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil
+			lifecycleExists = false
+		} else {
+			return fmt.Errorf("managed artifact consistency lifecycle chain: %w", err)
 		}
-		return fmt.Errorf("managed artifact consistency lifecycle chain: %w", err)
 	}
-	if _, err := lifecycle.LoadChain(lifecyclePath); err != nil {
-		return fmt.Errorf("managed artifact consistency lifecycle chain: %w", err)
+	if lifecycleExists {
+		if _, err := lifecycle.LoadChain(lifecyclePath); err != nil {
+			return fmt.Errorf("managed artifact consistency lifecycle chain: %w", err)
+		}
 	}
 
 	proofChainPath := proofemit.ChainPath(resolvedStatePath)
@@ -397,7 +405,6 @@ func verifyManagedArtifactConsistency(statePath string) error {
 	}
 	return nil
 }
-
 func normalizedManagedIdentities(records []manifest.IdentityRecord) []manifest.IdentityRecord {
 	out := append([]manifest.IdentityRecord(nil), model.FilterLegacyArtifactIdentityRecords(records)...)
 	sort.Slice(out, func(i, j int) bool {

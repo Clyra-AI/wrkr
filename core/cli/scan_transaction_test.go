@@ -183,6 +183,38 @@ func TestScanInterruptedAfterProofEmitFailsClosedOnManifestMismatch(t *testing.T
 	}
 }
 
+func TestScoreRejectsTamperedProofWhenLifecycleChainMissing(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	if strings.TrimSpace(scanIdentityAgentID(t, statePath)) == "" {
+		t.Fatal("expected scan fixture to produce an agent id")
+	}
+
+	lifecyclePath := lifecycle.ChainPath(statePath)
+	if err := os.Remove(lifecyclePath); err != nil {
+		t.Fatalf("remove lifecycle chain: %v", err)
+	}
+
+	proofPath := proofemit.ChainPath(statePath)
+	attestationPath := proofemit.ChainAttestationPath(proofPath)
+	if err := os.Remove(attestationPath); err != nil {
+		t.Fatalf("remove proof attestation: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"score", "--state", statePath, "--json"}, &out, &errOut)
+	if code != exitRuntime {
+		t.Fatalf("expected fail-closed runtime exit, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "runtime_failure", exitRuntime)
+	if !strings.Contains(errOut.String(), "managed artifact consistency proof attestation") {
+		t.Fatalf("expected proof-attestation consistency detail, got %q", errOut.String())
+	}
+}
+
 func TestManagedArtifactTransactionMetadataIsPortable(t *testing.T) {
 	t.Parallel()
 
