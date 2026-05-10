@@ -218,9 +218,11 @@ func TestBuildActionPathsDeduplicatesRepeatedEntriesAndStabilizesPathID(t *testi
 	}
 	if firstChoice == nil {
 		t.Fatal("expected control-first choice after dedupe")
+		return
 	}
-	if firstChoice.Path.PathID != firstPaths[0].PathID {
-		t.Fatalf("expected control-first choice to reference deduped path row, choice=%+v paths=%+v", firstChoice.Path, firstPaths)
+	selectedFirstChoice := *firstChoice
+	if selectedFirstChoice.Path.PathID != firstPaths[0].PathID {
+		t.Fatalf("expected control-first choice to reference deduped path row, choice=%+v paths=%+v", selectedFirstChoice.Path, firstPaths)
 	}
 	if firstPaths[0].PathID != secondPaths[0].PathID {
 		t.Fatalf("expected path_id to remain stable across repeat runs, first=%s second=%s", firstPaths[0].PathID, secondPaths[0].PathID)
@@ -231,8 +233,13 @@ func TestBuildActionPathsDeduplicatesRepeatedEntriesAndStabilizesPathID(t *testi
 	if !maps.Equal(sliceToSet(firstPaths[0].ApprovalGapReasons), sliceToSet([]string{"approval_source_missing", "deployment_gate_missing"})) {
 		t.Fatalf("expected merged approval gap reasons, got %+v", firstPaths[0].ApprovalGapReasons)
 	}
-	if secondChoice == nil || secondChoice.Path.PathID != secondPaths[0].PathID {
+	if secondChoice == nil {
 		t.Fatalf("expected repeat run control-first choice to reference deduped path, choice=%+v paths=%+v", secondChoice, secondPaths)
+		return
+	}
+	selectedSecondChoice := *secondChoice
+	if selectedSecondChoice.Path.PathID != secondPaths[0].PathID {
+		t.Fatalf("expected repeat run control-first choice to reference deduped path, choice=%+v paths=%+v", selectedSecondChoice, secondPaths)
 	}
 }
 

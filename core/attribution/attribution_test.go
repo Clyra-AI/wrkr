@@ -39,15 +39,17 @@ func TestLocalFindsCommitIntroducingWorkflowLine(t *testing.T) {
 	result := Local(repoRoot, rel, &model.LocationRange{StartLine: 5, EndLine: 6})
 	if result == nil {
 		t.Fatal("expected attribution result")
+		return
 	}
-	if result.Source != SourceLocalGit || result.Confidence != ConfidenceHigh {
-		t.Fatalf("expected high-confidence local_git attribution, got %+v", result)
+	got := *result
+	if got.Source != SourceLocalGit || got.Confidence != ConfidenceHigh {
+		t.Fatalf("expected high-confidence local_git attribution, got %+v", got)
 	}
-	if result.CommitSHA == "" || result.Author != "Wrkr Test" {
-		t.Fatalf("expected commit sha and author, got %+v", result)
+	if got.CommitSHA == "" || got.Author != "Wrkr Test" {
+		t.Fatalf("expected commit sha and author, got %+v", got)
 	}
-	if !strings.HasPrefix(result.Timestamp, "2026-04-29T11:00:00") {
-		t.Fatalf("expected second commit timestamp, got %+v", result)
+	if !strings.HasPrefix(got.Timestamp, "2026-04-29T11:00:00") {
+		t.Fatalf("expected second commit timestamp, got %+v", got)
 	}
 }
 
@@ -57,9 +59,11 @@ func TestLocalReturnsExplicitLowConfidenceWhenGitMetadataMissing(t *testing.T) {
 	result := Local(t.TempDir(), ".github/workflows/release.yml", &model.LocationRange{StartLine: 1, EndLine: 1})
 	if result == nil {
 		t.Fatal("expected attribution result")
+		return
 	}
-	if result.Confidence != ConfidenceLow || result.MissingReason == "" {
-		t.Fatalf("expected explicit low-confidence missing attribution, got %+v", result)
+	got := *result
+	if got.Confidence != ConfidenceLow || got.MissingReason == "" {
+		t.Fatalf("expected explicit low-confidence missing attribution, got %+v", got)
 	}
 }
 
@@ -92,12 +96,14 @@ func TestLocalWithoutLineRangeFallsBackToLatestCommit(t *testing.T) {
 	result := Local(repoRoot, rel, nil)
 	if result == nil {
 		t.Fatal("expected attribution result")
+		return
 	}
-	if result.Confidence != ConfidenceLow || result.MissingReason != "line_range_unavailable" {
-		t.Fatalf("expected low-confidence latest-commit fallback, got %+v", result)
+	got := *result
+	if got.Confidence != ConfidenceLow || got.MissingReason != "line_range_unavailable" {
+		t.Fatalf("expected low-confidence latest-commit fallback, got %+v", got)
 	}
-	if result.CommitSHA == "" || result.Author != "Wrkr Test" {
-		t.Fatalf("expected latest commit metadata in fallback, got %+v", result)
+	if got.CommitSHA == "" || got.Author != "Wrkr Test" {
+		t.Fatalf("expected latest commit metadata in fallback, got %+v", got)
 	}
 }
 
@@ -127,12 +133,14 @@ func TestResolvePrefersGitHubEventMetadataWhenChangedFileMatches(t *testing.T) {
 	result := Resolve(LoadContext(repoRoot), ".github/workflows/release.yml", &model.LocationRange{StartLine: 1, EndLine: 1})
 	if result == nil {
 		t.Fatal("expected attribution result")
+		return
 	}
-	if result.Source != SourceGitHubEvent || result.PRNumber != 42 || result.ProviderURL == "" {
-		t.Fatalf("expected GitHub event attribution, got %+v", result)
+	got := *result
+	if got.Source != SourceGitHubEvent || got.PRNumber != 42 || got.ProviderURL == "" {
+		t.Fatalf("expected GitHub event attribution, got %+v", got)
 	}
-	if result.CommitSHA != "abc123def" || result.Author != "octocat" {
-		t.Fatalf("expected GitHub event commit metadata, got %+v", result)
+	if got.CommitSHA != "abc123def" || got.Author != "octocat" {
+		t.Fatalf("expected GitHub event commit metadata, got %+v", got)
 	}
 }
 
@@ -160,12 +168,14 @@ func TestResolveUnderstandsGitLabMergeRequestMetadata(t *testing.T) {
 	result := Resolve(LoadContext(repoRoot), "AGENTS.md", nil)
 	if result == nil {
 		t.Fatal("expected attribution result")
+		return
 	}
-	if result.Source != SourceGitLabEvent || result.PRNumber != 17 {
-		t.Fatalf("expected GitLab merge request attribution, got %+v", result)
+	got := *result
+	if got.Source != SourceGitLabEvent || got.PRNumber != 17 {
+		t.Fatalf("expected GitLab merge request attribution, got %+v", got)
 	}
-	if result.CommitSHA != "feedbeef" || result.Author != "gitlab-user" {
-		t.Fatalf("expected GitLab commit metadata, got %+v", result)
+	if got.CommitSHA != "feedbeef" || got.Author != "gitlab-user" {
+		t.Fatalf("expected GitLab commit metadata, got %+v", got)
 	}
 }
 

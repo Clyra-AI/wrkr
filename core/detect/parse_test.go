@@ -32,9 +32,11 @@ func TestParseJSONFileStrictUnknownField(t *testing.T) {
 	parseErr := ParseJSONFileStrict("detector", root, "cfg.json", &parsed)
 	if parseErr == nil {
 		t.Fatal("expected parse error")
+		return
 	}
-	if parseErr.Detector != "detector" || parseErr.Format != "json" {
-		t.Fatalf("unexpected parse error shape: %#v", parseErr)
+	got := *parseErr
+	if got.Detector != "detector" || got.Format != "json" {
+		t.Fatalf("unexpected parse error shape: %#v", got)
 	}
 }
 
@@ -51,9 +53,11 @@ func TestParseJSONFileRejectsTrailingTopLevelDocument(t *testing.T) {
 	parseErr := ParseJSONFile("detector", root, "cfg.json", &parsed)
 	if parseErr == nil {
 		t.Fatal("expected parse error for trailing JSON document")
+		return
 	}
-	if parseErr.Format != "json" {
-		t.Fatalf("unexpected parse error format: %#v", parseErr)
+	got := *parseErr
+	if got.Format != "json" {
+		t.Fatalf("unexpected parse error format: %#v", got)
 	}
 }
 
@@ -89,9 +93,11 @@ func TestParseYAMLFileStrictUnknownField(t *testing.T) {
 	parseErr := ParseYAMLFileStrict("detector", root, "cfg.yaml", &parsed)
 	if parseErr == nil {
 		t.Fatal("expected parse error")
+		return
 	}
-	if parseErr.Format != "yaml" {
-		t.Fatalf("unexpected parse error format: %#v", parseErr)
+	got := *parseErr
+	if got.Format != "yaml" {
+		t.Fatalf("unexpected parse error format: %#v", got)
 	}
 }
 
@@ -127,9 +133,11 @@ func TestParseTOMLFileStrictUnknownField(t *testing.T) {
 	parseErr := ParseTOMLFileStrict("detector", root, "cfg.toml", &parsed)
 	if parseErr == nil {
 		t.Fatal("expected parse error")
+		return
 	}
-	if parseErr.Format != "toml" {
-		t.Fatalf("unexpected parse error format: %#v", parseErr)
+	got := *parseErr
+	if got.Format != "toml" {
+		t.Fatalf("unexpected parse error format: %#v", got)
 	}
 }
 
@@ -165,9 +173,11 @@ func TestStrictWrkrContractRejectsUnknownFields(t *testing.T) {
 	parseErr := ParseJSONFileStrict("detector", root, "wrkr.json", &parsed)
 	if parseErr == nil {
 		t.Fatal("expected strict parse error")
+		return
 	}
-	if parseErr.Format != "json" || parseErr.Detector != "detector" {
-		t.Fatalf("unexpected strict parse error: %#v", parseErr)
+	got := *parseErr
+	if got.Format != "json" || got.Detector != "detector" {
+		t.Fatalf("unexpected strict parse error: %#v", got)
 	}
 }
 
@@ -185,9 +195,11 @@ func TestReadFileWithinRootRejectsSymlinkEscape(t *testing.T) {
 	_, parseErr := ReadFileWithinRoot("detector", root, "cfg.json")
 	if parseErr == nil {
 		t.Fatal("expected unsafe_path parse error")
+		return
 	}
-	if parseErr.Kind != "unsafe_path" {
-		t.Fatalf("expected unsafe_path kind, got %#v", parseErr)
+	got := *parseErr
+	if got.Kind != "unsafe_path" {
+		t.Fatalf("expected unsafe_path kind, got %#v", got)
 	}
 }
 
@@ -200,9 +212,11 @@ func TestReadFileWithinRootHandlesDanglingSymlinkDeterministically(t *testing.T)
 	_, parseErr := ReadFileWithinRoot("detector", root, "cfg.json")
 	if parseErr == nil {
 		t.Fatal("expected file_not_found parse error")
+		return
 	}
-	if parseErr.Kind != "file_not_found" {
-		t.Fatalf("expected file_not_found kind, got %#v", parseErr)
+	got := *parseErr
+	if got.Kind != "file_not_found" {
+		t.Fatalf("expected file_not_found kind, got %#v", got)
 	}
 }
 
@@ -228,9 +242,11 @@ func TestReadFileWithinRootPermissionDenied(t *testing.T) {
 	_, parseErr := ReadFileWithinRoot("detector", root, "cfg.json")
 	if parseErr == nil {
 		t.Fatal("expected permission parse error")
+		return
 	}
-	if parseErr.Kind != "permission_denied" {
-		t.Fatalf("expected permission_denied kind, got %#v", parseErr)
+	got := *parseErr
+	if got.Kind != "permission_denied" {
+		t.Fatalf("expected permission_denied kind, got %#v", got)
 	}
 }
 

@@ -125,21 +125,23 @@ func TestBuildIdentityExposureSummaryAndTargets(t *testing.T) {
 	})
 	if summary == nil {
 		t.Fatal("expected identity exposure summary")
+		return
 	}
-	if summary.TotalNonHumanIdentitiesObserved != 3 {
-		t.Fatalf("expected total identities=3, got %+v", summary)
+	got := *summary
+	if got.TotalNonHumanIdentitiesObserved != 3 {
+		t.Fatalf("expected total identities=3, got %+v", got)
 	}
-	if summary.IdentitiesBackingWriteCapablePaths != 2 {
-		t.Fatalf("expected write-backed identities=2, got %+v", summary)
+	if got.IdentitiesBackingWriteCapablePaths != 2 {
+		t.Fatalf("expected write-backed identities=2, got %+v", got)
 	}
-	if summary.IdentitiesBackingDeployCapablePaths != 1 {
-		t.Fatalf("expected deploy-backed identities=1, got %+v", summary)
+	if got.IdentitiesBackingDeployCapablePaths != 1 {
+		t.Fatalf("expected deploy-backed identities=1, got %+v", got)
 	}
-	if summary.IdentitiesWithUnresolvedOwnership != 1 {
-		t.Fatalf("expected unresolved-owner identities=1, got %+v", summary)
+	if got.IdentitiesWithUnresolvedOwnership != 1 {
+		t.Fatalf("expected unresolved-owner identities=1, got %+v", got)
 	}
-	if summary.IdentitiesWithUnknownExecutionLinked != 1 {
-		t.Fatalf("expected unknown execution correlation identities=1, got %+v", summary)
+	if got.IdentitiesWithUnknownExecutionLinked != 1 {
+		t.Fatalf("expected unknown execution correlation identities=1, got %+v", got)
 	}
 
 	review, revoke := BuildIdentityActionTargets(paths)
@@ -243,9 +245,11 @@ func TestBuildIdentityExposureSummarySeparatesOrgs(t *testing.T) {
 	})
 	if summary == nil {
 		t.Fatal("expected identity exposure summary")
+		return
 	}
-	if summary.TotalNonHumanIdentitiesObserved != 2 {
-		t.Fatalf("expected org-scoped identity totals=2, got %+v", summary)
+	got := *summary
+	if got.TotalNonHumanIdentitiesObserved != 2 {
+		t.Fatalf("expected org-scoped identity totals=2, got %+v", got)
 	}
 
 	review, revoke := BuildIdentityActionTargets(paths)

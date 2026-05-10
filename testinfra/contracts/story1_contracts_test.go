@@ -217,7 +217,9 @@ func TestActionPathsRemainUniqueForFrozenAgentEcosystemSubset(t *testing.T) {
 	}
 	if choice == nil {
 		t.Fatal("expected action_path_to_control_first output for frozen subset fixture")
+		return
 	}
+	selectedChoice := *choice
 
 	seen := map[string]struct{}{}
 	for _, path := range paths {
@@ -229,8 +231,8 @@ func TestActionPathsRemainUniqueForFrozenAgentEcosystemSubset(t *testing.T) {
 		}
 		seen[path.PathID] = struct{}{}
 	}
-	if choice.Path.PathID != paths[0].PathID {
-		t.Fatalf("expected control-first path to reference sorted action_paths row, choice=%+v paths=%+v", choice.Path, paths)
+	if selectedChoice.Path.PathID != paths[0].PathID {
+		t.Fatalf("expected control-first path to reference sorted action_paths row, choice=%+v paths=%+v", selectedChoice.Path, paths)
 	}
 }
 

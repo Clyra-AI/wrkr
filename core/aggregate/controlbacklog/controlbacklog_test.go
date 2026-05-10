@@ -495,18 +495,20 @@ func TestWorkflowSecretReferenceDoesNotClaimLeakedSecret(t *testing.T) {
 	}
 	if secretItem == nil {
 		t.Fatalf("expected secret-bearing workflow item, got %+v", backlog.Items)
+		return
 	}
-	if !containsString(secretItem.SecretSignalTypes, SecretReferenceDetected) {
-		t.Fatalf("expected secret reference signal, got %+v", secretItem.SecretSignalTypes)
+	item := *secretItem
+	if !containsString(item.SecretSignalTypes, SecretReferenceDetected) {
+		t.Fatalf("expected secret reference signal, got %+v", item.SecretSignalTypes)
 	}
-	if containsString(secretItem.SecretSignalTypes, SecretValueDetected) {
-		t.Fatalf("did not expect secret value signal, got %+v", secretItem.SecretSignalTypes)
+	if containsString(item.SecretSignalTypes, SecretValueDetected) {
+		t.Fatalf("did not expect secret value signal, got %+v", item.SecretSignalTypes)
 	}
-	if !containsString(secretItem.SecretSignalTypes, SecretUsedByWriteCapableWorkflow) {
-		t.Fatalf("expected write-capable workflow signal, got %+v", secretItem.SecretSignalTypes)
+	if !containsString(item.SecretSignalTypes, SecretUsedByWriteCapableWorkflow) {
+		t.Fatalf("expected write-capable workflow signal, got %+v", item.SecretSignalTypes)
 	}
-	if secretItem.RecommendedAction != ActionAttachEvidence {
-		t.Fatalf("expected attach_evidence, got %+v", secretItem)
+	if item.RecommendedAction != ActionAttachEvidence {
+		t.Fatalf("expected attach_evidence, got %+v", item)
 	}
 }
 
