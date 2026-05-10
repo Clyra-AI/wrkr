@@ -534,20 +534,22 @@ func TestBuildAgentActionBOMDerivesStableItemsFromSummary(t *testing.T) {
 	}
 	if first == nil {
 		t.Fatal("expected non-nil BOM")
+		return
 	}
-	if first.BOMID == "" || first.SchemaVersion != AgentActionBOMSchemaVersion {
-		t.Fatalf("unexpected BOM identity: %+v", first)
+	firstBOM := *first
+	if firstBOM.BOMID == "" || firstBOM.SchemaVersion != AgentActionBOMSchemaVersion {
+		t.Fatalf("unexpected BOM identity: %+v", firstBOM)
 	}
-	if len(first.Items) != 2 {
-		t.Fatalf("expected two BOM items, got %+v", first.Items)
+	if len(firstBOM.Items) != 2 {
+		t.Fatalf("expected two BOM items, got %+v", firstBOM.Items)
 	}
-	if first.Items[0].PathID != "apc-200000" {
-		t.Fatalf("expected govern-first ordering to be preserved, got %+v", first.Items)
+	if firstBOM.Items[0].PathID != "apc-200000" {
+		t.Fatalf("expected govern-first ordering to be preserved, got %+v", firstBOM.Items)
 	}
-	if first.Summary.ControlFirstItems != 1 || first.Summary.StandingPrivilegeItems != 1 || first.Summary.RuntimeProvenItems != 1 {
-		t.Fatalf("unexpected BOM summary counts: %+v", first.Summary)
+	if firstBOM.Summary.ControlFirstItems != 1 || firstBOM.Summary.StandingPrivilegeItems != 1 || firstBOM.Summary.RuntimeProvenItems != 1 {
+		t.Fatalf("unexpected BOM summary counts: %+v", firstBOM.Summary)
 	}
-	if !containsStringValue(first.Items[0].GraphRefs.NodeIDs, "node-1") || !containsStringValue(first.Items[0].ProofRefs, "path:apc-200000") {
+	if !containsStringValue(firstBOM.Items[0].GraphRefs.NodeIDs, "node-1") || !containsStringValue(firstBOM.Items[0].ProofRefs, "path:apc-200000") {
 		t.Fatalf("expected graph refs and path-specific proof refs on BOM item, got %+v", first.Items[0])
 	}
 	if !containsStringValue(first.ProofRefs, "proof_head:sha256:abc123") {
@@ -1330,18 +1332,20 @@ func TestBuildAssessmentSummaryIsPathCentricAndDeterministic(t *testing.T) {
 	summary := buildAssessmentSummary(paths, controlFirst, inventory, ProofReference{ChainPath: "state/proof-chain.json"})
 	if summary == nil {
 		t.Fatal("expected assessment summary")
+		return
 	}
-	if summary.GovernablePathCount != 2 || summary.WriteCapablePathCount != 1 || summary.ProductionBackedPathCount != 0 {
-		t.Fatalf("unexpected assessment counts: %+v", summary)
+	got := *summary
+	if got.GovernablePathCount != 2 || got.WriteCapablePathCount != 1 || got.ProductionBackedPathCount != 0 {
+		t.Fatalf("unexpected assessment counts: %+v", got)
 	}
-	if summary.TopPathToControlFirst == nil || summary.TopPathToControlFirst.PathID != paths[0].PathID {
-		t.Fatalf("expected top path to control first to point at %q, got %+v", paths[0].PathID, summary.TopPathToControlFirst)
+	if got.TopPathToControlFirst == nil || got.TopPathToControlFirst.PathID != paths[0].PathID {
+		t.Fatalf("expected top path to control first to point at %q, got %+v", paths[0].PathID, got.TopPathToControlFirst)
 	}
-	if summary.TopExecutionIdentityBacked == nil || summary.TopExecutionIdentityBacked.PathID != paths[1].PathID {
-		t.Fatalf("expected top execution-identity-backed path to point at %q, got %+v", paths[1].PathID, summary.TopExecutionIdentityBacked)
+	if got.TopExecutionIdentityBacked == nil || got.TopExecutionIdentityBacked.PathID != paths[1].PathID {
+		t.Fatalf("expected top execution-identity-backed path to point at %q, got %+v", paths[1].PathID, got.TopExecutionIdentityBacked)
 	}
-	if summary.OwnerlessExposure == nil || summary.OwnerlessExposure.ExplicitOwnerPaths != 1 || summary.OwnerlessExposure.InferredOwnerPaths != 1 {
-		t.Fatalf("expected ownerless exposure rollup, got %+v", summary.OwnerlessExposure)
+	if got.OwnerlessExposure == nil || got.OwnerlessExposure.ExplicitOwnerPaths != 1 || got.OwnerlessExposure.InferredOwnerPaths != 1 {
+		t.Fatalf("expected ownerless exposure rollup, got %+v", got.OwnerlessExposure)
 	}
 	if summary.IdentityExposureSummary == nil || summary.IdentityExposureSummary.TotalNonHumanIdentitiesObserved != 1 || summary.IdentityExposureSummary.IdentitiesBackingWriteCapablePaths != 1 {
 		t.Fatalf("expected identity exposure summary, got %+v", summary.IdentityExposureSummary)

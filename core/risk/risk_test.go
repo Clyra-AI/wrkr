@@ -327,15 +327,17 @@ func TestBuildActionPathsRanksAndSelectsControlFirst(t *testing.T) {
 	}
 	if choice == nil {
 		t.Fatal("expected action_path_to_control_first")
+		return
 	}
+	selectedChoice := *choice
 	if actionPaths[0].RecommendedAction != "control" {
 		t.Fatalf("expected control-ranked action path first, got %+v", actionPaths[0])
 	}
-	if choice.Path.RecommendedAction != "control" {
-		t.Fatalf("expected control-first choice, got %+v", choice.Path)
+	if selectedChoice.Path.RecommendedAction != "control" {
+		t.Fatalf("expected control-first choice, got %+v", selectedChoice.Path)
 	}
-	if choice.Summary.TotalPaths != 2 || choice.Summary.WriteCapablePaths != 2 || choice.Summary.ProductionTargetBackedPaths != 1 {
-		t.Fatalf("unexpected action-path summary: %+v", choice.Summary)
+	if selectedChoice.Summary.TotalPaths != 2 || selectedChoice.Summary.WriteCapablePaths != 2 || selectedChoice.Summary.ProductionTargetBackedPaths != 1 {
+		t.Fatalf("unexpected action-path summary: %+v", selectedChoice.Summary)
 	}
 }
 

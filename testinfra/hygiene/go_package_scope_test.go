@@ -31,7 +31,7 @@ func TestFirstPartyGoPackagesExcludeDocsSiteNodeModules(t *testing.T) {
 	}
 }
 
-func TestFirstPartyGoPackagesIncludeTrackedRoots(t *testing.T) {
+func TestFirstPartyGoPackagesEmitTrackedRootPatterns(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := mustFindRepoRoot(t)
@@ -39,18 +39,23 @@ func TestFirstPartyGoPackagesIncludeTrackedRoots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first-party package list failed: %v stderr=%q", err, stderr)
 	}
-	packages := strings.Fields(stdout)
+	patterns := strings.Fields(stdout)
 	required := []string{
-		"github.com/Clyra-AI/wrkr/cmd/wrkr",
-		"github.com/Clyra-AI/wrkr/core/cli",
-		"github.com/Clyra-AI/wrkr/internal/ci/actionruntime",
-		"github.com/Clyra-AI/wrkr/testinfra/hygiene",
-		"github.com/Clyra-AI/wrkr/scripts",
-		"github.com/Clyra-AI/wrkr/scenarios/wrkr/webmcp-declarations/repos/route-repo/server",
+		"./cmd/...",
+		"./core/...",
+		"./internal/...",
+		"./testinfra/...",
+		"./scripts/...",
+		"./scenarios/...",
 	}
 	for _, want := range required {
-		if !containsString(packages, want) {
-			t.Fatalf("first-party package list missing %s\npackages:\n%s", want, stdout)
+		if !containsString(patterns, want) {
+			t.Fatalf("first-party package list missing %s\npatterns:\n%s", want, stdout)
+		}
+	}
+	for _, pattern := range patterns {
+		if strings.HasPrefix(pattern, "github.com/Clyra-AI/wrkr/") {
+			t.Fatalf("first-party package list must emit repo-relative patterns, got %q", pattern)
 		}
 	}
 }

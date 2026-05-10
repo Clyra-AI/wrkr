@@ -23,4 +23,6 @@ for root in "${roots[@]}"; do
   patterns+=("./${root}/...")
 done
 
-"$go_cmd" list "${patterns[@]}"
+"$go_cmd" list "${patterns[@]}" >/dev/null
+
+printf '%s\n' "${patterns[@]}"

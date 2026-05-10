@@ -212,12 +212,15 @@ func TestReconcileLegacyAgentIDMigrationDoesNotFanOutApprovalState(t *testing.T)
 	}
 	if migrated == nil || fresh == nil {
 		t.Fatalf("expected deterministic successors, got %+v", next.Identities)
+		return
 	}
-	if migrated.Status != identity.StateActive {
-		t.Fatalf("expected first successor to inherit approved semantics, got %+v", *migrated)
+	migratedRecord := *migrated
+	freshRecord := *fresh
+	if migratedRecord.Status != identity.StateActive {
+		t.Fatalf("expected first successor to inherit approved semantics, got %+v", migratedRecord)
 	}
-	if fresh.Status != identity.StateDiscovered || fresh.ApprovalState != "missing" {
-		t.Fatalf("expected additional successor to persist discovered, got %+v", *fresh)
+	if freshRecord.Status != identity.StateDiscovered || freshRecord.ApprovalState != "missing" {
+		t.Fatalf("expected additional successor to persist discovered, got %+v", freshRecord)
 	}
 
 	var migratedTrigger, freshTrigger string

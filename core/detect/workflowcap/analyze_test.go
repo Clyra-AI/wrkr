@@ -176,9 +176,11 @@ func TestAnalyzeMalformedWorkflowReturnsParseError(t *testing.T) {
 	_, parseErr := Analyze(".github/workflows/bad.yml", []byte("jobs:\n  build:\n    steps: ["))
 	if parseErr == nil {
 		t.Fatal("expected parse error")
+		return
 	}
-	if parseErr.Kind != "parse_error" {
-		t.Fatalf("expected parse_error kind, got %+v", parseErr)
+	got := *parseErr
+	if got.Kind != "parse_error" {
+		t.Fatalf("expected parse_error kind, got %+v", got)
 	}
 }
 
