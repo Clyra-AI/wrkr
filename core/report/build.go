@@ -71,9 +71,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		profileName = in.Snapshot.Profile.ProfileName
 	}
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileName, riskReport.ActionPaths)
-	if riskReport.ControlPathGraph == nil && len(riskReport.ActionPaths) > 0 {
+	if len(riskReport.ActionPaths) > 0 {
 		riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
 	}
+	riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
+	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	topFindings := SelectTopFindings(*riskReport, top)
 
 	proofRef, err := buildProofReference(in.StatePath, topFindings)
@@ -1519,14 +1521,21 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.Location = redactValue("loc", copyItem.Location, 8)
 		copyItem.OperationalOwner = redactValue("owner", copyItem.OperationalOwner, 8)
 		copyItem.ExecutionIdentity = redactValue("identity", copyItem.ExecutionIdentity, 8)
+		copyItem.ConfigSource = redactValue("loc", copyItem.ConfigSource, 8)
 		copyItem.AttackPathRefs = redactStringSlice(copyItem.AttackPathRefs, "attack")
 		copyItem.SourceFindingKeys = redactStringSlice(copyItem.SourceFindingKeys, "finding")
 		if copyItem.CredentialProvenance != nil {
 			copyItem.CredentialProvenance = agginventory.CloneCredentialProvenance(copyItem.CredentialProvenance)
 			copyItem.CredentialProvenance.Subject = redactValue("credential", copyItem.CredentialProvenance.Subject, 8)
 			copyItem.CredentialProvenance.EvidenceBasis = redactStringSlice(copyItem.CredentialProvenance.EvidenceBasis, "evidence")
+			copyItem.CredentialProvenance.EvidenceLocation = redactValue("loc", copyItem.CredentialProvenance.EvidenceLocation, 8)
+		}
+		if copyItem.CredentialAuthority != nil {
+			copyItem.CredentialAuthority = agginventory.CloneCredentialAuthority(copyItem.CredentialAuthority)
+			copyItem.CredentialAuthority.ReasonCodes = redactStringSlice(copyItem.CredentialAuthority.ReasonCodes, "evidence")
 		}
 		copyItem.Credentials = redactCredentialsPublic(copyItem.Credentials)
+		copyItem.ActionLineage = sanitizeActionLineagePublic(copyItem.ActionLineage)
 		if copyItem.IntroducedBy != nil {
 			introduced := *copyItem.IntroducedBy
 			introduced.Author = redactValue("author", introduced.Author, 8)
@@ -1639,6 +1648,11 @@ func sanitizeControlPathGraphPublic(in *aggattack.ControlPathGraph) *aggattack.C
 		copyGraph.Nodes[idx].Label = redactValue("label", copyGraph.Nodes[idx].Label, 8)
 		copyGraph.Nodes[idx].Location = redactValue("loc", copyGraph.Nodes[idx].Location, 8)
 		copyGraph.Nodes[idx].AgentID = redactValue("agent", copyGraph.Nodes[idx].AgentID, 8)
+		copyGraph.Nodes[idx].ConfigSource = redactValue("loc", copyGraph.Nodes[idx].ConfigSource, 8)
+		if copyGraph.Nodes[idx].CredentialAuthority != nil {
+			copyGraph.Nodes[idx].CredentialAuthority = agginventory.CloneCredentialAuthority(copyGraph.Nodes[idx].CredentialAuthority)
+			copyGraph.Nodes[idx].CredentialAuthority.ReasonCodes = redactStringSlice(copyGraph.Nodes[idx].CredentialAuthority.ReasonCodes, "evidence")
+		}
 		copyGraph.Nodes[idx].EvidenceRefs = redactStringSlice(copyGraph.Nodes[idx].EvidenceRefs, "evidence")
 		copyGraph.Nodes[idx].SourceRefs = redactStringSlice(copyGraph.Nodes[idx].SourceRefs, "source")
 		copyGraph.Nodes[idx].AttackPathRefs = redactStringSlice(copyGraph.Nodes[idx].AttackPathRefs, "attack")
@@ -1677,6 +1691,11 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(copyBacklog.Items[idx].CredentialProvenance)
 			copyBacklog.Items[idx].CredentialProvenance.Subject = redactValue("credential", copyBacklog.Items[idx].CredentialProvenance.Subject, 8)
 			copyBacklog.Items[idx].CredentialProvenance.EvidenceBasis = redactStringSlice(copyBacklog.Items[idx].CredentialProvenance.EvidenceBasis, "evidence")
+			copyBacklog.Items[idx].CredentialProvenance.EvidenceLocation = redactValue("loc", copyBacklog.Items[idx].CredentialProvenance.EvidenceLocation, 8)
+		}
+		if copyBacklog.Items[idx].CredentialAuthority != nil {
+			copyBacklog.Items[idx].CredentialAuthority = agginventory.CloneCredentialAuthority(copyBacklog.Items[idx].CredentialAuthority)
+			copyBacklog.Items[idx].CredentialAuthority.ReasonCodes = redactStringSlice(copyBacklog.Items[idx].CredentialAuthority.ReasonCodes, "evidence")
 		}
 	}
 	return &copyBacklog
@@ -1706,6 +1725,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].Repo = redactValue("repo", copyBOM.Items[idx].Repo, 6)
 		copyBOM.Items[idx].Location = redactValue("loc", copyBOM.Items[idx].Location, 8)
 		copyBOM.Items[idx].Owner = redactValue("owner", copyBOM.Items[idx].Owner, 8)
+		copyBOM.Items[idx].ConfigSource = redactValue("loc", copyBOM.Items[idx].ConfigSource, 8)
 		copyBOM.Items[idx].ProofRefs = redactStringSlice(copyBOM.Items[idx].ProofRefs, "proof")
 		copyBOM.Items[idx].RuntimeEvidenceRefs = redactStringSlice(copyBOM.Items[idx].RuntimeEvidenceRefs, "runtime")
 		copyBOM.Items[idx].PolicyRefs = redactStringSlice(copyBOM.Items[idx].PolicyRefs, "policy")
@@ -1730,7 +1750,12 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 			copyBOM.Items[idx].CredentialProvenance.EvidenceBasis = redactStringSlice(copyBOM.Items[idx].CredentialProvenance.EvidenceBasis, "evidence")
 			copyBOM.Items[idx].CredentialProvenance.EvidenceLocation = redactValue("loc", copyBOM.Items[idx].CredentialProvenance.EvidenceLocation, 8)
 		}
+		if copyBOM.Items[idx].CredentialAuthority != nil {
+			copyBOM.Items[idx].CredentialAuthority = agginventory.CloneCredentialAuthority(copyBOM.Items[idx].CredentialAuthority)
+			copyBOM.Items[idx].CredentialAuthority.ReasonCodes = redactStringSlice(copyBOM.Items[idx].CredentialAuthority.ReasonCodes, "evidence")
+		}
 		copyBOM.Items[idx].Credentials = redactCredentialsPublic(copyBOM.Items[idx].Credentials)
+		copyBOM.Items[idx].ActionLineage = sanitizeActionLineagePublic(copyBOM.Items[idx].ActionLineage)
 		if copyBOM.Items[idx].IntroducedBy != nil {
 			introduced := *copyBOM.Items[idx].IntroducedBy
 			introduced.Author = redactValue("author", introduced.Author, 8)
@@ -1767,6 +1792,21 @@ func sanitizeReachabilityPublic(in []AgentActionBOMReachability) []AgentActionBO
 		out = append(out, copyItem)
 	}
 	return out
+}
+
+func sanitizeActionLineagePublic(in *risk.ActionLineage) *risk.ActionLineage {
+	if in == nil {
+		return nil
+	}
+	copyLineage := risk.CloneActionLineage(in)
+	for idx := range copyLineage.Segments {
+		copyLineage.Segments[idx].SegmentID = redactValue("segment", copyLineage.Segments[idx].SegmentID, 8)
+		copyLineage.Segments[idx].Label = redactValue("label", copyLineage.Segments[idx].Label, 8)
+		copyLineage.Segments[idx].NodeIDs = redactStringSlice(copyLineage.Segments[idx].NodeIDs, "node")
+		copyLineage.Segments[idx].EdgeIDs = redactStringSlice(copyLineage.Segments[idx].EdgeIDs, "edge")
+		copyLineage.Segments[idx].EvidenceRefs = redactStringSlice(copyLineage.Segments[idx].EvidenceRefs, "evidence")
+	}
+	return copyLineage
 }
 
 func cloneScanQualityReport(in *scanquality.Report) *scanquality.Report {

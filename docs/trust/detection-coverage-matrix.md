@@ -15,6 +15,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 - Structured GitHub Actions workflow capability extraction for `repo.write`, `pull_request.write`, `merge.execute`, `deploy.write`, `db.write`, and `iac.write`, with additive evidence keys that explain which static workflow step or permission produced each claim.
 - Static MCP action-surface classification (`mcp.read`, `mcp.write`, `mcp.admin`) from saved declaration fields and saved gateway posture.
 - Static non-human execution identity signals for GitHub Apps, bot users, and service-account references from workflow/config artifacts.
+- Deterministic purpose, version, and config-fingerprint metadata for supported workflow, MCP, and agent-config surfaces when local files or static declaration evidence are available.
 - Static policy/profile posture signals and ranked findings.
 - Deterministic inventory and risk outputs for both tools and agents, including agent-linked attack-path edges when bindings/deployments are declared in-repo.
 - Optional enrich-mode MCP metadata (`source`, `as_of`, advisory/registry schema IDs, `enrich_quality`, adapter error classes) when `--enrich` is enabled.

@@ -522,6 +522,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	profileResult := profileeval.Evaluate(profileDef, findings, previousProfile)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileResult.ProfileName, riskReport.ActionPaths)
 	riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
+	riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
+	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
 	}

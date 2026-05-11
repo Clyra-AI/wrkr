@@ -30,6 +30,7 @@ type serverDef struct {
 	Command          string            `json:"command" yaml:"command" toml:"command"`
 	Args             []string          `json:"args" yaml:"args" toml:"args"`
 	URL              string            `json:"url" yaml:"url" toml:"url"`
+	Description      string            `json:"description" yaml:"description" toml:"description"`
 	Transport        string            `json:"transport" yaml:"transport" toml:"transport"`
 	Auth             string            `json:"auth" yaml:"auth" toml:"auth"`
 	AuthStrength     string            `json:"auth_strength" yaml:"auth_strength" toml:"auth_strength"`
@@ -116,6 +117,7 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 			credentialRefs := countCredentialRefs(server)
 			pinned := isPinned(server)
 			actionSurface := deriveDeclaredActionSurface(server)
+			pkg, version, versionSource := extractPackageVersion(server)
 			gateway := mcpgateway.EvaluateCoverage(policy, name)
 			trustDepth := buildMCPTrustDepth(server, transport, credentialRefs, actionSurface, gateway)
 			trustScore := supplychain.ScoreMCP(supplychain.MCPInput{
@@ -135,16 +137,20 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 			}
 			evidence := []model.Evidence{
 				{Key: "server", Value: name},
+				{Key: "server_description", Value: fallbackValue(server.Description, "")},
 				{Key: "transport", Value: transport},
 				{Key: "pinned", Value: fmt.Sprintf("%t", pinned)},
 				{Key: "lockfile", Value: fmt.Sprintf("%t", lockfilePresent)},
 				{Key: "credential_refs", Value: fmt.Sprintf("%d", credentialRefs)},
 				{Key: "trust_score", Value: fmt.Sprintf("%.1f", trustScore)},
 				{Key: "declared_action_surface", Value: fallbackValue(strings.Join(actionSurface, ","), "unknown")},
+				{Key: "package", Value: fallbackValue(pkg, "unknown")},
+				{Key: "version", Value: fallbackValue(version, "unknown")},
+				{Key: "version_source", Value: fallbackValue(versionSource, "unknown")},
+				{Key: "config_source", Value: rel},
 			}
 			evidence = append(evidence, trustDepthEvidence(trustDepth)...)
 			if options.Enrich {
-				pkg, version := extractPackageVersion(server)
 				enrichResult := enrichService.Lookup(ctx, pkg, version)
 				enrichErrors := "none"
 				if len(enrichResult.Errors) > 0 {
@@ -271,11 +277,12 @@ func hasLockfile(root string) bool {
 	return false
 }
 
-func extractPackageVersion(server serverDef) (string, string) {
+func extractPackageVersion(server serverDef) (string, string, string) {
 	fields := append([]string{}, server.Args...)
 	fields = append(fields, server.Command, server.URL)
 	fallbackPkg := ""
 	fallbackVersion := ""
+	fallbackSource := ""
 	for _, field := range fields {
 		for _, match := range packageRE.FindAllStringSubmatch(field, -1) {
 			if len(match) < 2 {
@@ -292,14 +299,29 @@ func extractPackageVersion(server serverDef) (string, string) {
 			if fallbackPkg == "" {
 				fallbackPkg = pkg
 				fallbackVersion = version
+				fallbackSource = packageVersionSource(field)
 			}
 			if isLauncherPackage(pkg) {
 				continue
 			}
-			return pkg, version
+			return pkg, version, packageVersionSource(field)
 		}
 	}
-	return fallbackPkg, fallbackVersion
+	return fallbackPkg, fallbackVersion, fallbackSource
+}
+
+func packageVersionSource(field string) string {
+	normalized := strings.ToLower(strings.TrimSpace(field))
+	switch {
+	case strings.HasPrefix(normalized, "http://"), strings.HasPrefix(normalized, "https://"):
+		return "url"
+	case strings.Contains(normalized, "npx"), strings.Contains(normalized, "uvx"), strings.Contains(normalized, "bunx"):
+		return "launcher_arg"
+	case normalized != "":
+		return "command_or_arg"
+	default:
+		return "unknown"
+	}
 }
 
 func isLauncherPackage(value string) bool {

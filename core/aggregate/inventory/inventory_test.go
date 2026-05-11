@@ -309,19 +309,24 @@ func TestInventoryBuild_EmitsAgentsAdditiveOnly(t *testing.T) {
 			ToolFamilyID:    identity.ToolFamilyID("codex", "acme"),
 			ToolInstanceID:  identity.ToolInstanceID("codex", "acme/backend", "AGENTS.md", "", 0, 0),
 			Framework:       "codex",
+			ConfigSource:    "AGENTS.md",
 			Org:             "acme",
 			Repo:            "acme/backend",
 			Location:        "AGENTS.md",
 		},
 		{
-			AgentID:         identity.AgentID(identity.ToolID("cursor", ".cursor/mcp.json"), "acme"),
-			AgentInstanceID: identity.ToolID("cursor", ".cursor/mcp.json"),
-			ToolFamilyID:    identity.ToolFamilyID("cursor", "acme"),
-			ToolInstanceID:  identity.ToolInstanceID("cursor", "acme/frontend", ".cursor/mcp.json", "", 0, 0),
-			Framework:       "cursor",
-			Org:             "acme",
-			Repo:            "acme/frontend",
-			Location:        ".cursor/mcp.json",
+			AgentID:           identity.AgentID(identity.ToolID("cursor", ".cursor/mcp.json"), "acme"),
+			AgentInstanceID:   identity.ToolID("cursor", ".cursor/mcp.json"),
+			ToolFamilyID:      identity.ToolFamilyID("cursor", "acme"),
+			ToolInstanceID:    identity.ToolInstanceID("cursor", "acme/frontend", ".cursor/mcp.json", "", 0, 0),
+			Framework:         "cursor",
+			Purpose:           "mcp integration",
+			PurposeSource:     "location_heuristic",
+			PurposeConfidence: "low",
+			ConfigSource:      ".cursor/mcp.json",
+			Org:               "acme",
+			Repo:              "acme/frontend",
+			Location:          ".cursor/mcp.json",
 		},
 	}
 	if !reflect.DeepEqual(inv.Agents, expected) {
@@ -696,6 +701,83 @@ func TestInventoryBuildAddsNonHumanIdentitiesAdditively(t *testing.T) {
 	}
 	if len(inv.NonHumanIdentities) != 1 || inv.NonHumanIdentities[0].IdentityType != "github_app" {
 		t.Fatalf("expected additive non-human identity inventory, got %+v", inv.NonHumanIdentities)
+	}
+}
+
+func TestInventoryBuildDerivesPurposeFromWorkflowName(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".github", "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir workflow dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".github", "workflows", "release.yml"), []byte("name: Release pipeline\njobs: {}\n"), 0o644); err != nil {
+		t.Fatalf("write workflow: %v", err)
+	}
+
+	inv := Build(BuildInput{
+		Manifest: source.Manifest{
+			Target: source.Target{Mode: "repo", Value: "acme/release"},
+			Repos:  []source.RepoManifest{{Repo: "acme/release", Location: root}},
+		},
+		Findings: []model.Finding{{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "acme/release",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "workflow_name", Value: "Release pipeline"},
+			},
+		}},
+		Contexts: map[string]ToolContext{
+			KeyForFinding(model.Finding{FindingType: "compiled_action", ToolType: "compiled_action", Location: ".github/workflows/release.yml", Repo: "acme/release", Org: "acme"}): {
+				RiskScore:      7.5,
+				EndpointClass:  "workspace",
+				DataClass:      "code",
+				AutonomyLevel:  "headless_gated",
+				ApprovalStatus: "missing",
+				LifecycleState: "discovered",
+			},
+		},
+		RepoExposureSummaries: []exposure.RepoExposureSummary{},
+		GeneratedAt:           time.Date(2026, 5, 10, 18, 0, 0, 0, time.UTC),
+	})
+
+	if len(inv.Tools) != 1 || len(inv.Agents) != 1 {
+		t.Fatalf("expected one tool and one agent, got tools=%d agents=%d", len(inv.Tools), len(inv.Agents))
+	}
+	if inv.Tools[0].Purpose != "Release pipeline" || inv.Tools[0].PurposeSource != "workflow_name" {
+		t.Fatalf("expected workflow purpose metadata on tool, got %+v", inv.Tools[0])
+	}
+	if inv.Agents[0].Purpose != "Release pipeline" || inv.Agents[0].ConfigFingerprint == "" {
+		t.Fatalf("expected workflow purpose and config fingerprint on agent, got %+v", inv.Agents[0])
+	}
+}
+
+func TestConfigFingerprintForFileIsPortableAcrossRootsAndLineEndings(t *testing.T) {
+	t.Parallel()
+
+	rootA := t.TempDir()
+	rootB := t.TempDir()
+	rel := ".github/workflows/release.yml"
+	if err := os.MkdirAll(filepath.Join(rootA, ".github", "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir rootA workflow dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(rootB, ".github", "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir rootB workflow dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootA, ".github", "workflows", "release.yml"), []byte("name: Release\njobs:\n  publish: {}\n"), 0o644); err != nil {
+		t.Fatalf("write rootA workflow: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootB, ".github", "workflows", "release.yml"), []byte("name: Release\r\njobs:\r\n  publish: {}\r\n"), 0o644); err != nil {
+		t.Fatalf("write rootB workflow: %v", err)
+	}
+
+	left := configFingerprintForFile(rootA, rel)
+	right := configFingerprintForFile(rootB, rel)
+	if left == "" || right == "" || left != right {
+		t.Fatalf("expected portable config fingerprint, got left=%q right=%q", left, right)
 	}
 }
 

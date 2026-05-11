@@ -16,6 +16,8 @@ type Result struct {
 	Capabilities     []string
 	Evidence         []model.Evidence
 	Tool             string
+	WorkflowName     string
+	JobNames         []string
 	Headless         bool
 	DangerousFlags   bool
 	HasSecretAccess  bool
@@ -33,6 +35,7 @@ var (
 )
 
 type workflowDocument struct {
+	Name        string                 `yaml:"name"`
 	On          triggerField           `yaml:"on"`
 	Permissions permissionField        `yaml:"permissions"`
 	Jobs        map[string]workflowJob `yaml:"jobs"`
@@ -185,7 +188,8 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	}
 
 	result := Result{
-		Triggers: append([]string(nil), doc.On.Names...),
+		WorkflowName: strings.TrimSpace(doc.Name),
+		Triggers:     append([]string(nil), doc.On.Names...),
 	}
 	capabilityReasons := map[string]map[string]struct{}{}
 	approvalSources := map[string]struct{}{}
@@ -200,6 +204,7 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 		jobNames = append(jobNames, name)
 	}
 	sort.Strings(jobNames)
+	result.JobNames = append([]string(nil), jobNames...)
 
 	hasDeliverySurface := false
 	for _, jobName := range jobNames {
@@ -351,6 +356,12 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 			Key:   "workflow_triggers",
 			Value: strings.Join(result.Triggers, ","),
 		})
+	}
+	if strings.TrimSpace(result.WorkflowName) != "" {
+		evidence = append(evidence, model.Evidence{Key: "workflow_name", Value: result.WorkflowName})
+	}
+	if len(result.JobNames) > 0 {
+		evidence = append(evidence, model.Evidence{Key: "workflow_jobs", Value: strings.Join(result.JobNames, ",")})
 	}
 	if result.ApprovalSource != "" {
 		evidence = append(evidence, model.Evidence{Key: "approval_source", Value: result.ApprovalSource})

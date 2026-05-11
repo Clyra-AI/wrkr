@@ -119,6 +119,7 @@ type Item struct {
 	LinkedControlPathNodeIDs []string                                `json:"linked_control_path_node_ids,omitempty"`
 	LinkedControlPathEdgeIDs []string                                `json:"linked_control_path_edge_ids,omitempty"`
 	CredentialProvenance     *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
+	CredentialAuthority      *agginventory.CredentialAuthority       `json:"credential_authority,omitempty"`
 	StandingPrivilege        bool                                    `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons []string                                `json:"standing_privilege_reasons,omitempty"`
 	ControlState             string                                  `json:"control_state,omitempty"`
@@ -305,6 +306,7 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		LinkedControlPathNodeIDs: append([]string(nil), graphRefs.nodeIDs...),
 		LinkedControlPathEdgeIDs: append([]string(nil), graphRefs.edgeIDs...),
 		CredentialProvenance:     agginventory.CloneCredentialProvenance(path.CredentialProvenance),
+		CredentialAuthority:      agginventory.CloneCredentialAuthority(path.CredentialAuthority),
 		StandingPrivilege:        path.StandingPrivilege,
 		StandingPrivilegeReasons: append([]string(nil), path.StandingPrivilegeReasons...),
 		ControlState:             strings.TrimSpace(path.ControlState),
@@ -422,6 +424,7 @@ func (b *builder) merge(item Item) {
 	current.LinkedControlPathNodeIDs = mergeStrings(current.LinkedControlPathNodeIDs, item.LinkedControlPathNodeIDs)
 	current.LinkedControlPathEdgeIDs = mergeStrings(current.LinkedControlPathEdgeIDs, item.LinkedControlPathEdgeIDs)
 	current.CredentialProvenance = mergeCredentialProvenance(current.CredentialProvenance, item.CredentialProvenance)
+	current.CredentialAuthority = mergeCredentialAuthority(current.CredentialAuthority, item.CredentialAuthority)
 	current.ConfidenceLane = firstNonEmptyConfidenceLane(current.ConfidenceLane, item.ConfidenceLane)
 	current.ConfidenceLaneReasons = mergeStrings(current.ConfidenceLaneReasons, item.ConfidenceLaneReasons)
 	current.TrustDepth = agginventory.MergeTrustDepth(current.TrustDepth, item.TrustDepth)
@@ -1003,7 +1006,7 @@ func qualityForItem(item Item) (string, []string, []string) {
 			confidence = ConfidenceMedium
 		}
 	}
-	if len(item.SecretSignalTypes) > 0 {
+	if len(item.SecretSignalTypes) > 0 && credentialNeedsRotationEvidence(item.CredentialAuthority, item.CredentialProvenance) {
 		gaps = append(gaps, "secret_rotation_evidence_missing")
 		raise = append(raise, "attach secret rotation evidence")
 	}
@@ -1011,7 +1014,8 @@ func qualityForItem(item Item) (string, []string, []string) {
 		gaps = append(gaps, "secret_scope_evidence_missing")
 		raise = append(raise, "attach secret scope evidence")
 	}
-	if item.CredentialProvenance != nil && strings.TrimSpace(item.CredentialProvenance.Type) == agginventory.CredentialProvenanceUnknown {
+	if (item.CredentialAuthority != nil && strings.TrimSpace(item.CredentialAuthority.CredentialKind) == agginventory.CredentialKindUnknown) ||
+		(item.CredentialProvenance != nil && strings.TrimSpace(item.CredentialProvenance.Type) == agginventory.CredentialProvenanceUnknown) {
 		gaps = append(gaps, "credential_provenance_unknown")
 		raise = append(raise, "classify whether the path uses static secrets, workload identity, OAuth delegation, JIT, or inherited human credentials")
 		if confidence == ConfidenceHigh {
@@ -1036,6 +1040,19 @@ func qualityForItem(item Item) (string, []string, []string) {
 		confidence = ConfidenceLow
 	}
 	return confidence, mergeStrings(gaps, nil), mergeStrings(raise, nil)
+}
+
+func credentialNeedsRotationEvidence(authority *agginventory.CredentialAuthority, provenance *agginventory.CredentialProvenance) bool {
+	normalizedAuthority := agginventory.NormalizeCredentialAuthority(authority)
+	if normalizedAuthority != nil {
+		switch strings.TrimSpace(normalizedAuthority.RotationEvidenceStatus) {
+		case agginventory.CredentialRotationEvidencePresent, agginventory.CredentialRotationEvidenceNotApplicable:
+			return false
+		case agginventory.CredentialRotationEvidenceMissing, agginventory.CredentialRotationEvidenceStale, agginventory.CredentialRotationEvidenceUnknown:
+			return true
+		}
+	}
+	return agginventory.NormalizeCredentialProvenance(provenance) != nil
 }
 
 func mergeCredentialProvenance(current, incoming *agginventory.CredentialProvenance) *agginventory.CredentialProvenance {
@@ -1065,6 +1082,42 @@ func mergeCredentialProvenance(current, incoming *agginventory.CredentialProvena
 			RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceUnknown),
 		})
 	}
+}
+
+func mergeCredentialAuthority(current, incoming *agginventory.CredentialAuthority) *agginventory.CredentialAuthority {
+	current = agginventory.NormalizeCredentialAuthority(current)
+	incoming = agginventory.NormalizeCredentialAuthority(incoming)
+	switch {
+	case current == nil:
+		return agginventory.CloneCredentialAuthority(incoming)
+	case incoming == nil:
+		return agginventory.CloneCredentialAuthority(current)
+	default:
+		merged := agginventory.CloneCredentialAuthority(current)
+		merged.CredentialPresent = current.CredentialPresent || incoming.CredentialPresent
+		merged.CredentialReferencedByWorkflow = current.CredentialReferencedByWorkflow || incoming.CredentialReferencedByWorkflow
+		merged.CredentialUsableByPath = current.CredentialUsableByPath || incoming.CredentialUsableByPath
+		merged.CredentialKind = firstNonEmptyString(merged.CredentialKind, incoming.CredentialKind)
+		merged.AccessType = firstNonEmptyString(merged.AccessType, incoming.AccessType)
+		merged.StandingAccess = current.StandingAccess || incoming.StandingAccess
+		merged.LikelyJIT = current.LikelyJIT || incoming.LikelyJIT
+		merged.RotationEvidenceStatus = firstNonEmptyString(merged.RotationEvidenceStatus, incoming.RotationEvidenceStatus)
+		merged.CredentialSource = firstNonEmptyString(merged.CredentialSource, incoming.CredentialSource)
+		if confidencePriority(incoming.Confidence) < confidencePriority(merged.Confidence) {
+			merged.Confidence = incoming.Confidence
+		}
+		merged.ReasonCodes = mergeStrings(merged.ReasonCodes, incoming.ReasonCodes)
+		return agginventory.NormalizeCredentialAuthority(merged)
+	}
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func approvalStatus(approvalGap bool, visibility string) string {

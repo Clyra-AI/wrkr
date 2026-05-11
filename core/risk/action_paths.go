@@ -49,6 +49,13 @@ type ActionPath struct {
 	ToolType                   string                                  `json:"tool_type"`
 	Location                   string                                  `json:"location,omitempty"`
 	LocationRange              *model.LocationRange                    `json:"location_range,omitempty"`
+	Purpose                    string                                  `json:"purpose,omitempty"`
+	PurposeSource              string                                  `json:"purpose_source,omitempty"`
+	PurposeConfidence          string                                  `json:"purpose_confidence,omitempty"`
+	Version                    string                                  `json:"version,omitempty"`
+	VersionSource              string                                  `json:"version_source,omitempty"`
+	ConfigFingerprint          string                                  `json:"config_fingerprint,omitempty"`
+	ConfigSource               string                                  `json:"config_source,omitempty"`
 	WriteCapable               bool                                    `json:"write_capable"`
 	OperationalOwner           string                                  `json:"operational_owner,omitempty"`
 	OwnerSource                string                                  `json:"owner_source,omitempty"`
@@ -72,6 +79,7 @@ type ActionPath struct {
 	CredentialAccess           bool                                    `json:"credential_access"`
 	Credentials                []*agginventory.CredentialProvenance    `json:"credentials,omitempty"`
 	CredentialProvenance       *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
+	CredentialAuthority        *agginventory.CredentialAuthority       `json:"credential_authority,omitempty"`
 	PathContext                *agginventory.PathContext               `json:"path_context,omitempty"`
 	TrustDepth                 *agginventory.TrustDepth                `json:"trust_depth,omitempty"`
 	DeploymentStatus           string                                  `json:"deployment_status,omitempty"`
@@ -111,6 +119,7 @@ type ActionPath struct {
 	SourceFindingKeys          []string                                `json:"source_finding_keys,omitempty"`
 	MatchedProductionTargets   []string                                `json:"matched_production_targets,omitempty"`
 	GovernanceControls         []agginventory.GovernanceControlMapping `json:"governance_controls,omitempty"`
+	ActionLineage              *ActionLineage                          `json:"action_lineage,omitempty"`
 }
 
 type ActionPathToControlFirst struct {
@@ -170,10 +179,15 @@ func buildActionPath(
 	executionIdentity, executionIdentityType, executionIdentitySource, executionIdentityStatus, executionIdentityRationale := correlateExecutionIdentity(entry, identities)
 	credentials := agginventory.NormalizeCredentialProvenances(entry.Credentials)
 	provenance := agginventory.CredentialRollup(credentials, entry.CredentialProvenance)
+	authority := agginventory.NormalizeCredentialAuthority(entry.CredentialAuthority)
 	if len(credentials) == 0 && provenance != nil {
 		credentials = agginventory.NormalizeCredentialProvenances([]*agginventory.CredentialProvenance{provenance})
 	}
 	standingPrivilege, standingReasons := agginventory.StandingPrivilegeFromProvenance(provenance)
+	if authorityStanding, authorityReasons := agginventory.StandingPrivilegeFromAuthority(authority); authorityStanding {
+		standingPrivilege = true
+		standingReasons = dedupeSortedStrings(append(standingReasons, authorityReasons...))
+	}
 	path := ActionPath{
 		PathID:                     actionPathID(entry),
 		Org:                        strings.TrimSpace(entry.Org),
@@ -184,6 +198,13 @@ func buildActionPath(
 		ToolType:                   actionPathToolType(entry),
 		Location:                   strings.TrimSpace(entry.Location),
 		LocationRange:              cloneLocationRange(entry.LocationRange),
+		Purpose:                    strings.TrimSpace(entry.Purpose),
+		PurposeSource:              strings.TrimSpace(entry.PurposeSource),
+		PurposeConfidence:          strings.TrimSpace(entry.PurposeConfidence),
+		Version:                    strings.TrimSpace(entry.Version),
+		VersionSource:              strings.TrimSpace(entry.VersionSource),
+		ConfigFingerprint:          strings.TrimSpace(entry.ConfigFingerprint),
+		ConfigSource:               strings.TrimSpace(entry.ConfigSource),
 		WriteCapable:               entry.WriteCapable,
 		OperationalOwner:           strings.TrimSpace(entry.OperationalOwner),
 		OwnerSource:                strings.TrimSpace(entry.OwnerSource),
@@ -207,6 +228,7 @@ func buildActionPath(
 		CredentialAccess:           entry.CredentialAccess,
 		Credentials:                agginventory.CloneCredentialProvenances(credentials),
 		CredentialProvenance:       agginventory.CloneCredentialProvenance(provenance),
+		CredentialAuthority:        agginventory.CloneCredentialAuthority(authority),
 		PathContext:                firstPathContext(entry.PathContext, entry.Location),
 		TrustDepth:                 agginventory.CloneTrustDepth(entry.TrustDepth),
 		DeploymentStatus:           strings.TrimSpace(entry.DeploymentStatus),
@@ -334,6 +356,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.CredentialAccess = current.CredentialAccess || incoming.CredentialAccess
 	merged.Credentials = mergeCredentials(current.Credentials, incoming.Credentials)
 	merged.CredentialProvenance = agginventory.CredentialRollup(merged.Credentials, mergeCredentialProvenance(current.CredentialProvenance, incoming.CredentialProvenance))
+	merged.CredentialAuthority = mergeCredentialAuthority(current.CredentialAuthority, incoming.CredentialAuthority)
 	merged.PathContext = mergePathContext(current.PathContext, incoming.PathContext)
 	merged.TrustDepth = agginventory.MergeTrustDepth(current.TrustDepth, incoming.TrustDepth)
 	merged.DeliveryChainStatus = actionPathDeliveryChainStatus(merged.PullRequestWrite, merged.MergeExecute, merged.DeployWrite)
@@ -358,6 +381,11 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
 	merged.ToolFamilyID = firstNonEmptyString(current.ToolFamilyID, incoming.ToolFamilyID)
 	merged.ToolInstanceID = firstNonEmptyString(current.ToolInstanceID, incoming.ToolInstanceID)
+	merged.Purpose, merged.PurposeSource, merged.PurposeConfidence = mergePurposeMetadata(current, incoming)
+	merged.Version = firstNonEmptyString(current.Version, incoming.Version)
+	merged.VersionSource = chooseMetadataSource(current.VersionSource, incoming.VersionSource, current.Version, incoming.Version)
+	merged.ConfigFingerprint = firstNonEmptyString(current.ConfigFingerprint, incoming.ConfigFingerprint)
+	merged.ConfigSource = firstNonEmptyString(current.ConfigSource, incoming.ConfigSource)
 	merged.StandingPrivilege = current.StandingPrivilege || incoming.StandingPrivilege
 	merged.StandingPrivilegeReasons = dedupeSortedStrings(append(append([]string(nil), current.StandingPrivilegeReasons...), incoming.StandingPrivilegeReasons...))
 	merged.ControlState = firstNonEmptyString(current.ControlState, incoming.ControlState)
@@ -377,6 +405,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
 	merged.AttackPathRefs = dedupeSortedStrings(append(append([]string(nil), current.AttackPathRefs...), incoming.AttackPathRefs...))
 	merged.SourceFindingKeys = dedupeSortedStrings(append(append([]string(nil), current.SourceFindingKeys...), incoming.SourceFindingKeys...))
+	merged.ActionLineage = CloneActionLineage(firstNonNilLineage(current.ActionLineage, incoming.ActionLineage))
 	return merged
 }
 
@@ -432,6 +461,10 @@ func buildActionPathChoice(paths []ActionPath) *ActionPathToControlFirst {
 	}
 }
 
+func BuildActionPathChoice(paths []ActionPath) *ActionPathToControlFirst {
+	return buildActionPathChoice(paths)
+}
+
 func BuildControlPathGraph(paths []ActionPath) *aggattack.ControlPathGraph {
 	if len(paths) == 0 {
 		return nil
@@ -445,12 +478,20 @@ func BuildControlPathGraph(paths []ActionPath) *aggattack.ControlPathGraph {
 			Repo:                     strings.TrimSpace(path.Repo),
 			ToolType:                 strings.TrimSpace(path.ToolType),
 			Location:                 strings.TrimSpace(path.Location),
+			Purpose:                  strings.TrimSpace(path.Purpose),
+			PurposeSource:            strings.TrimSpace(path.PurposeSource),
+			PurposeConfidence:        strings.TrimSpace(path.PurposeConfidence),
+			Version:                  strings.TrimSpace(path.Version),
+			VersionSource:            strings.TrimSpace(path.VersionSource),
+			ConfigFingerprint:        strings.TrimSpace(path.ConfigFingerprint),
+			ConfigSource:             strings.TrimSpace(path.ConfigSource),
 			ExecutionIdentity:        strings.TrimSpace(path.ExecutionIdentity),
 			ExecutionIdentityType:    strings.TrimSpace(path.ExecutionIdentityType),
 			ExecutionIdentitySource:  strings.TrimSpace(path.ExecutionIdentitySource),
 			ExecutionIdentityStatus:  strings.TrimSpace(path.ExecutionIdentityStatus),
 			CredentialAccess:         path.CredentialAccess,
 			CredentialProvenance:     agginventory.CloneCredentialProvenance(path.CredentialProvenance),
+			CredentialAuthority:      agginventory.CloneCredentialAuthority(path.CredentialAuthority),
 			GovernanceControls:       append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),
 			MatchedProductionTargets: dedupeSortedStrings(path.MatchedProductionTargets),
 			WritePathClasses:         dedupeSortedStrings(path.WritePathClasses),
@@ -536,6 +577,33 @@ func mergeCredentials(current, incoming []*agginventory.CredentialProvenance) []
 	return agginventory.NormalizeCredentialProvenances(combined)
 }
 
+func mergeCredentialAuthority(current, incoming *agginventory.CredentialAuthority) *agginventory.CredentialAuthority {
+	current = agginventory.NormalizeCredentialAuthority(current)
+	incoming = agginventory.NormalizeCredentialAuthority(incoming)
+	switch {
+	case current == nil:
+		return agginventory.CloneCredentialAuthority(incoming)
+	case incoming == nil:
+		return agginventory.CloneCredentialAuthority(current)
+	default:
+		merged := agginventory.CloneCredentialAuthority(current)
+		merged.CredentialPresent = current.CredentialPresent || incoming.CredentialPresent
+		merged.CredentialReferencedByWorkflow = current.CredentialReferencedByWorkflow || incoming.CredentialReferencedByWorkflow
+		merged.CredentialUsableByPath = current.CredentialUsableByPath || incoming.CredentialUsableByPath
+		merged.CredentialKind = firstNonEmptyString(current.CredentialKind, incoming.CredentialKind)
+		merged.AccessType = firstNonEmptyString(current.AccessType, incoming.AccessType)
+		merged.StandingAccess = current.StandingAccess || incoming.StandingAccess
+		merged.LikelyJIT = current.LikelyJIT || incoming.LikelyJIT
+		merged.RotationEvidenceStatus = chooseMetadataSource(current.RotationEvidenceStatus, incoming.RotationEvidenceStatus, current.RotationEvidenceStatus, incoming.RotationEvidenceStatus)
+		merged.CredentialSource = firstNonEmptyString(current.CredentialSource, incoming.CredentialSource)
+		if credentialConfidencePriority(incoming.Confidence) > credentialConfidencePriority(current.Confidence) {
+			merged.Confidence = incoming.Confidence
+		}
+		merged.ReasonCodes = dedupeSortedStrings(append(append([]string(nil), current.ReasonCodes...), incoming.ReasonCodes...))
+		return agginventory.NormalizeCredentialAuthority(merged)
+	}
+}
+
 func mergePathContext(current, incoming *agginventory.PathContext) *agginventory.PathContext {
 	if current == nil {
 		return agginventory.ClonePathContext(incoming)
@@ -555,6 +623,51 @@ func mergePathContext(current, incoming *agginventory.PathContext) *agginventory
 		return agginventory.ClonePathContext(incoming)
 	}
 	return agginventory.ClonePathContext(current)
+}
+
+func mergePurposeMetadata(current, incoming ActionPath) (string, string, string) {
+	if strings.TrimSpace(current.Purpose) == "" {
+		return strings.TrimSpace(incoming.Purpose), strings.TrimSpace(incoming.PurposeSource), strings.TrimSpace(incoming.PurposeConfidence)
+	}
+	if strings.TrimSpace(incoming.Purpose) == "" {
+		return strings.TrimSpace(current.Purpose), strings.TrimSpace(current.PurposeSource), strings.TrimSpace(current.PurposeConfidence)
+	}
+	if strings.EqualFold(strings.TrimSpace(current.Purpose), strings.TrimSpace(incoming.Purpose)) {
+		if contextConfidencePriority(incoming.PurposeConfidence) > contextConfidencePriority(current.PurposeConfidence) {
+			return strings.TrimSpace(incoming.Purpose), strings.TrimSpace(incoming.PurposeSource), strings.TrimSpace(incoming.PurposeConfidence)
+		}
+		return strings.TrimSpace(current.Purpose), strings.TrimSpace(current.PurposeSource), strings.TrimSpace(current.PurposeConfidence)
+	}
+	if contextConfidencePriority(incoming.PurposeConfidence) > contextConfidencePriority(current.PurposeConfidence) {
+		return strings.TrimSpace(incoming.Purpose), strings.TrimSpace(incoming.PurposeSource), strings.TrimSpace(incoming.PurposeConfidence)
+	}
+	return strings.TrimSpace(current.Purpose), strings.TrimSpace(current.PurposeSource), strings.TrimSpace(current.PurposeConfidence)
+}
+
+func chooseMetadataSource(currentSource, incomingSource, currentValue, incomingValue string) string {
+	currentSource = strings.TrimSpace(currentSource)
+	incomingSource = strings.TrimSpace(incomingSource)
+	currentValue = strings.TrimSpace(currentValue)
+	incomingValue = strings.TrimSpace(incomingValue)
+	switch {
+	case currentValue == "":
+		return incomingSource
+	case incomingValue == "":
+		return currentSource
+	case strings.EqualFold(currentValue, incomingValue):
+		return firstNonEmptyString(currentSource, incomingSource)
+	default:
+		return firstNonEmptyString(currentSource, incomingSource)
+	}
+}
+
+func firstNonNilLineage(values ...*ActionLineage) *ActionLineage {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
 }
 
 func firstPathContext(context *agginventory.PathContext, location string) *agginventory.PathContext {
@@ -621,6 +734,31 @@ func credentialProvenancePriority(provenance *agginventory.CredentialProvenance)
 		default:
 			return 0
 		}
+	}
+}
+
+func credentialAuthorityPriority(authority *agginventory.CredentialAuthority, provenance *agginventory.CredentialProvenance) int {
+	normalized := agginventory.NormalizeCredentialAuthority(authority)
+	if normalized == nil {
+		return credentialProvenancePriority(provenance)
+	}
+	switch normalized.CredentialKind {
+	case agginventory.CredentialKindCloudAdminKey:
+		return 7
+	case agginventory.CredentialKindGitHubPAT, agginventory.CredentialKindUnknownDurable:
+		return 6
+	case agginventory.CredentialKindInheritedHuman:
+		return 5
+	case agginventory.CredentialKindGitHubAppKey, agginventory.CredentialKindDeployKey, agginventory.CredentialKindCloudAccessKey, agginventory.CredentialKindStaticSecret:
+		return 4
+	case agginventory.CredentialKindGitHubWorkflowToken:
+		return 3
+	case agginventory.CredentialKindDelegatedOAuth:
+		return 2
+	case agginventory.CredentialKindOIDCWorkloadID, agginventory.CredentialKindJITCredential:
+		return 1
+	default:
+		return credentialProvenancePriority(provenance)
 	}
 }
 
@@ -902,7 +1040,7 @@ func governFirstPriorityScore(path ActionPath) int {
 	if path.CredentialAccess {
 		score += 4
 	}
-	score += credentialProvenancePriority(path.CredentialProvenance)
+	score += credentialAuthorityPriority(path.CredentialAuthority, path.CredentialProvenance)
 	if path.StandingPrivilege {
 		score += 6
 	}

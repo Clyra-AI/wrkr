@@ -835,6 +835,59 @@ func TestAssessmentSuppressesPathMatchesSegmentsOnly(t *testing.T) {
 	}
 }
 
+func TestDecorateActionLineageLinksGraphNodes(t *testing.T) {
+	t.Parallel()
+
+	paths := []ActionPath{{
+		PathID:                   "apc-lineage",
+		Org:                      "acme",
+		Repo:                     "acme/release",
+		AgentID:                  "wrkr:compiled_action:acme",
+		ToolType:                 "compiled_action",
+		Location:                 ".github/workflows/release.yml",
+		Purpose:                  "Release pipeline",
+		PurposeSource:            "workflow_name",
+		PurposeConfidence:        "high",
+		Version:                  "1.2.3",
+		VersionSource:            "command_or_arg",
+		ConfigFingerprint:        "cfg-abc123",
+		ConfigSource:             ".github/workflows/release.yml",
+		WriteCapable:             true,
+		CredentialAccess:         true,
+		CredentialAuthority:      &agginventory.CredentialAuthority{CredentialPresent: true, CredentialUsableByPath: true, CredentialKind: agginventory.CredentialKindGitHubPAT, AccessType: agginventory.CredentialAccessTypeStanding},
+		CredentialProvenance:     &agginventory.CredentialProvenance{Type: agginventory.CredentialProvenanceStaticSecret, CredentialKind: agginventory.CredentialKindGitHubPAT, AccessType: agginventory.CredentialAccessTypeStanding},
+		ActionClasses:            []string{"deploy", "write"},
+		MatchedProductionTargets: []string{"cluster/prod"},
+		OperationalOwner:         "@acme/release",
+		OwnershipStatus:          "explicit",
+		ApprovalGap:              true,
+		ApprovalGapReasons:       []string{"approval_evidence_missing"},
+		PolicyCoverageStatus:     PolicyCoverageStatusNone,
+	}}
+
+	graph := BuildControlPathGraph(paths)
+	decorated := DecorateActionLineage(paths, graph)
+	if len(decorated) != 1 || decorated[0].ActionLineage == nil {
+		t.Fatalf("expected decorated action lineage, got %+v", decorated)
+	}
+
+	segments := map[string]ActionLineageSegment{}
+	for _, segment := range decorated[0].ActionLineage.Segments {
+		segments[segment.Kind] = segment
+	}
+	for _, kind := range []string{"repo", "workflow", "action", "credential", "target", "approval", "proof"} {
+		if _, ok := segments[kind]; !ok {
+			t.Fatalf("expected lineage segment %q, got %+v", kind, decorated[0].ActionLineage)
+		}
+	}
+	if len(segments["credential"].NodeIDs) == 0 || len(segments["target"].NodeIDs) == 0 {
+		t.Fatalf("expected graph-linked credential/target nodes, got %+v", decorated[0].ActionLineage)
+	}
+	if segments["approval"].Status != "missing" || segments["proof"].Status != "missing" {
+		t.Fatalf("expected approval/proof lineage gaps, got %+v", decorated[0].ActionLineage)
+	}
+}
+
 func sliceToSet(values []string) map[string]struct{} {
 	out := make(map[string]struct{}, len(values))
 	for _, value := range values {
