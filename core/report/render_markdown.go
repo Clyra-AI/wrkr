@@ -279,6 +279,8 @@ func renderTriggerClassSuffix(triggerClass string) string {
 
 func markdownActionPathLabel(lane string) string {
 	switch strings.TrimSpace(lane) {
+	case "confirmed_action_path":
+		return "confirmed action path"
 	case "semantic_review_candidate":
 		return "review candidate"
 	case "context_only":
@@ -286,7 +288,7 @@ func markdownActionPathLabel(lane string) string {
 	case "likely_action_path":
 		return "likely action path"
 	default:
-		return "confirmed action path"
+		return "action-path evidence"
 	}
 }
 
