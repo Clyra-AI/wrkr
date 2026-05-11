@@ -77,3 +77,45 @@ func TestActionSurfaceRegistryGroupsWorkflowPaths(t *testing.T) {
 		t.Fatalf("expected mutable endpoint semantics to aggregate across grouped paths, got %+v", registry[0])
 	}
 }
+
+func TestActionSurfaceRegistrySortsFamilyOnlyGroupsWithoutPanicking(t *testing.T) {
+	t.Parallel()
+
+	paths := []risk.ActionPath{
+		{
+			PathID:         "ap-family",
+			ToolFamilyID:   "wrkr:family-langchain:acme",
+			Org:            "acme",
+			Repo:           "demo",
+			ToolType:       "agentlangchain",
+			Location:       "agents/langchain.yaml",
+			Purpose:        "LangChain agent",
+			ActionClasses:  []string{"write"},
+			ConfidenceLane: risk.ConfidenceLaneLikelyActionPath,
+		},
+		{
+			PathID:         "ap-workflow",
+			ToolInstanceID: "workflow-release",
+			Org:            "acme",
+			Repo:           "demo",
+			ToolType:       "ci_agent",
+			Location:       ".github/workflows/release.yml",
+			Purpose:        "Release pipeline",
+			ActionClasses:  []string{"deploy"},
+			ConfidenceLane: risk.ConfidenceLaneLikelyActionPath,
+		},
+	}
+	summary := Summary{
+		ActionPaths:      paths,
+		ControlPathGraph: risk.BuildControlPathGraph(paths),
+	}
+	summary.AgentActionBOM = BuildAgentActionBOM(summary)
+
+	registry := BuildActionSurfaceRegistry(summary)
+	if len(registry) != 2 {
+		t.Fatalf("expected two registry entries, got %+v", registry)
+	}
+	if registry[0].Location != "agents/langchain.yaml" {
+		t.Fatalf("expected family-only path to sort without panic and retain rank order, got %+v", registry)
+	}
+}

@@ -85,33 +85,37 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 		}
 	}
 
-	out := make([]ActionSurfaceRegistryEntry, 0, len(groups))
+	ordered := make([]*actionSurfaceRegistryAccumulator, 0, len(groups))
 	for _, group := range groups {
+		ordered = append(ordered, group)
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].rank != ordered[j].rank {
+			return ordered[i].rank < ordered[j].rank
+		}
+		left := ordered[i].entry
+		right := ordered[j].entry
+		if left.Org != right.Org {
+			return left.Org < right.Org
+		}
+		if left.Repo != right.Repo {
+			return left.Repo < right.Repo
+		}
+		if left.SurfaceType != right.SurfaceType {
+			return left.SurfaceType < right.SurfaceType
+		}
+		if left.Location != right.Location {
+			return left.Location < right.Location
+		}
+		if left.Label != right.Label {
+			return left.Label < right.Label
+		}
+		return strings.Join(left.PathIDs, ",") < strings.Join(right.PathIDs, ",")
+	})
+	out := make([]ActionSurfaceRegistryEntry, 0, len(ordered))
+	for _, group := range ordered {
 		out = append(out, group.entry)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		left := groups[actionSurfaceRegistryKeyForEntry(out[i])]
-		right := groups[actionSurfaceRegistryKeyForEntry(out[j])]
-		if left.rank != right.rank {
-			return left.rank < right.rank
-		}
-		if out[i].Org != out[j].Org {
-			return out[i].Org < out[j].Org
-		}
-		if out[i].Repo != out[j].Repo {
-			return out[i].Repo < out[j].Repo
-		}
-		if out[i].SurfaceType != out[j].SurfaceType {
-			return out[i].SurfaceType < out[j].SurfaceType
-		}
-		if out[i].Location != out[j].Location {
-			return out[i].Location < out[j].Location
-		}
-		if out[i].Label != out[j].Label {
-			return out[i].Label < out[j].Label
-		}
-		return strings.Join(out[i].PathIDs, ",") < strings.Join(out[j].PathIDs, ",")
-	})
 	if len(out) == 0 {
 		return nil
 	}
@@ -125,16 +129,6 @@ func actionSurfaceRegistryKey(path risk.ActionPath) string {
 		actionSurfaceType(path),
 		firstNonEmptyValue(strings.TrimSpace(path.ToolInstanceID), strings.TrimSpace(path.ToolFamilyID), strings.TrimSpace(path.ToolType)),
 		strings.TrimSpace(path.Location),
-	}, "|")
-}
-
-func actionSurfaceRegistryKeyForEntry(entry ActionSurfaceRegistryEntry) string {
-	return strings.Join([]string{
-		strings.TrimSpace(entry.Org),
-		strings.TrimSpace(entry.Repo),
-		strings.TrimSpace(entry.SurfaceType),
-		firstNonEmptyValue(strings.TrimSpace(entry.ToolInstanceID), strings.TrimSpace(entry.ToolType)),
-		strings.TrimSpace(entry.Location),
 	}, "|")
 }
 

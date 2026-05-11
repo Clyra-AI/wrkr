@@ -24,6 +24,7 @@ func Classify(method, route, summary, name, surface, confidence string) []agginv
 		operation = strings.TrimSpace(name)
 	}
 	text := strings.ToLower(strings.Join([]string{operation, summary, name}, " "))
+	readOnlyMethod := method == "GET" || method == "HEAD" || method == "OPTIONS"
 
 	semantics := []agginventory.MutableEndpointSemantic{}
 	add := func(semantic string) {
@@ -50,31 +51,35 @@ func Classify(method, route, summary, name, surface, confidence string) []agginv
 
 	switch {
 	case strings.Contains(text, "refund"):
-		add(agginventory.EndpointSemanticRefund)
-		add(agginventory.EndpointSemanticProductionMutation)
+		if !readOnlyMethod {
+			add(agginventory.EndpointSemanticRefund)
+			add(agginventory.EndpointSemanticProductionMutation)
+		}
 	case strings.Contains(text, "payment"), strings.Contains(text, "charge"), strings.Contains(text, "invoice"):
-		add(agginventory.EndpointSemanticPayment)
-		add(agginventory.EndpointSemanticProductionMutation)
+		if !readOnlyMethod {
+			add(agginventory.EndpointSemanticPayment)
+			add(agginventory.EndpointSemanticProductionMutation)
+		}
 	}
 	switch {
 	case strings.Contains(text, "admin"), strings.Contains(text, "role"), strings.Contains(text, "member"), strings.Contains(text, "invite"), strings.Contains(text, "user"):
-		if strings.Contains(text, "/user") || strings.Contains(text, "user_") || strings.Contains(text, "user ") || strings.Contains(text, "admin") || strings.Contains(text, "role") || strings.Contains(text, "member") || strings.Contains(text, "invite") {
+		if !readOnlyMethod && (strings.Contains(text, "/user") || strings.Contains(text, "user_") || strings.Contains(text, "user ") || strings.Contains(text, "admin") || strings.Contains(text, "role") || strings.Contains(text, "member") || strings.Contains(text, "invite")) {
 			add(agginventory.EndpointSemanticUserAdmin)
 		}
 	case strings.Contains(text, "rbac"):
-		add(agginventory.EndpointSemanticUserAdmin)
+		if !readOnlyMethod {
+			add(agginventory.EndpointSemanticUserAdmin)
+		}
 	}
 	if strings.Contains(text, "export") || strings.Contains(text, "download") || strings.Contains(text, "csv") || strings.Contains(text, "dump") {
 		add(agginventory.EndpointSemanticDataExport)
 	}
-	if strings.Contains(text, "deploy") || strings.Contains(text, "release") || strings.Contains(text, "publish") || strings.Contains(text, "rollout") || strings.Contains(text, "migrate") {
+	if !readOnlyMethod && (strings.Contains(text, "deploy") || strings.Contains(text, "release") || strings.Contains(text, "publish") || strings.Contains(text, "rollout") || strings.Contains(text, "migrate")) {
 		add(agginventory.EndpointSemanticDeploy)
 		add(agginventory.EndpointSemanticProductionMutation)
 	}
-	if method == "DELETE" || method == "PATCH" || method == "PUT" || strings.Contains(text, "prod") || strings.Contains(text, "live") || strings.Contains(text, "customer") {
-		if method != "GET" && method != "HEAD" && method != "OPTIONS" {
-			add(agginventory.EndpointSemanticProductionMutation)
-		}
+	if !readOnlyMethod && (method == "DELETE" || method == "PATCH" || method == "PUT" || strings.Contains(text, "prod") || strings.Contains(text, "live") || strings.Contains(text, "customer")) {
+		add(agginventory.EndpointSemanticProductionMutation)
 	}
 
 	return agginventory.NormalizeMutableEndpointSemantics(semantics)
