@@ -396,8 +396,17 @@ func RemediationForActionPath(path ActionPath) string {
 	if path.CredentialAccess && path.CredentialProvenance != nil && path.CredentialProvenance.StandingAccess {
 		return "Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius."
 	}
+	if pathHasHighImpactMutableEndpoint(path) {
+		return "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed."
+	}
+	if pathHasSensitiveDataEndpoint(path) {
+		return "Confirm the owner and policy binding for this sensitive data or account-management surface, attach proof for the exact path, and rescan after the control is in place."
+	}
 	if path.ProductionWrite || path.DeployWrite || strings.TrimSpace(path.WorkflowTriggerClass) == "deploy_pipeline" {
 		return "Add or verify deployment gates, tighten write scope, attach path-specific proof, and rescan until this deploy-capable path drops out of the control-first queue."
+	}
+	if path.PullRequestWrite || path.MergeExecute {
+		return "Require CODEOWNERS or equivalent merge approval on this write path, attach the approval and proof reference, and rescan."
 	}
 	if path.ApprovalGap && actionPathHasStrongIdentity(path) && actionPathHasStrongOwnership(path) && !actionPathUnknownToSecurity(path) {
 		return "Record a time-bounded owner approval with scope and expiry, link the proof to this path, and rescan."

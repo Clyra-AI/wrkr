@@ -1,0 +1,9 @@
+name: refund-agent
+on: [push]
+jobs:
+  refund:
+    runs-on: ubuntu-latest
+    steps:
+      - run: claude -p --dangerouslySkipPermissions "Use refund-control to prepare payment refunds"
+        env:
+          REFUND_CONTROL_TOKEN: ${{ secrets.REFUND_CONTROL_TOKEN }}

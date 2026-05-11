@@ -51,9 +51,13 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	if template == TemplateCustomerDraft {
 		shareProfile = ShareProfilePublic
 	}
+	if template == TemplateDesignPartnerSummary && in.ShareProfile == "" {
+		shareProfile = ShareProfileDesignPartner
+	}
 	if _, ok := ParseShareProfile(string(shareProfile)); !ok {
 		return Summary{}, fmt.Errorf("unsupported share profile %q", shareProfile)
 	}
+	redactionConfig := ResolveRedactionConfig(shareProfile, in.RedactionFields)
 
 	now := resolveGeneratedAt(in.GeneratedAt, in.Snapshot)
 	top := in.Top
@@ -125,11 +129,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	if err != nil {
 		return Summary{}, err
 	}
-	shareProfileMetadata := buildShareProfileMetadata(shareProfile)
+	shareProfileMetadata := BuildShareProfileMetadata(redactionConfig)
 	operationalExposure := scorecore.SummarizeOperationalExposure(riskReport.ActionPaths)
 	governanceReadiness := scorecore.SummarizeGovernanceReadiness(riskReport.ActionPaths, missingProofPathCount(controlProofStatus), scanQualityCoverageReduced(scanQuality))
 
-	if shareProfileRequiresRedaction(shareProfile) {
+	if shareProfileRequiresRedaction(shareProfile) || redactionConfig.Applies() {
 		proofRef = sanitizeProofReferencePublic(proofRef)
 		lifecycleSummary = sanitizeLifecycleSummaryPublic(lifecycleSummary)
 		riskItems = sanitizeRiskItemsPublic(riskItems)
@@ -214,7 +218,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	registrySource := bomSource
 	registrySource.AgentActionBOM = summary.AgentActionBOM
 	summary.ActionSurfaceRegistry = BuildActionSurfaceRegistry(registrySource)
-	if shareProfileRequiresRedaction(shareProfile) {
+	if shareProfileRequiresRedaction(shareProfile) || redactionConfig.Applies() {
 		summary.ActionSurfaceRegistry = sanitizeActionSurfaceRegistryPublic(summary.ActionSurfaceRegistry)
 		summary.AgentActionBOM = sanitizeAgentActionBOM(summary.AgentActionBOM, shareProfile)
 	}
@@ -224,7 +228,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 
 func shareProfileRequiresRedaction(profile ShareProfile) bool {
 	switch profile {
-	case ShareProfilePublic, ShareProfileCustomerRedacted:
+	case ShareProfilePublic,
+		ShareProfileCustomerRedacted,
+		ShareProfileDesignPartner,
+		ShareProfileExternalRedacted,
+		ShareProfileInvestorSafe:
 		return true
 	default:
 		return false
@@ -237,20 +245,6 @@ func normalizedSourcePrivacy(in *sourceprivacy.Contract) *sourceprivacy.Contract
 	}
 	normalized := sourceprivacy.Normalize(*in)
 	return &normalized
-}
-
-func buildShareProfileMetadata(profile ShareProfile) *ShareProfileMetadata {
-	if !shareProfileRequiresRedaction(profile) {
-		return nil
-	}
-	return &ShareProfileMetadata{
-		RedactionApplied: true,
-		RedactionVersion: "customer-share-v1",
-		PolicySummary: []string{
-			"repo, owner, path, proof, graph, credential subject, and local filesystem identifiers are replaced with deterministic pseudonyms",
-			"risk grades, counts, capability classes, and joinable redacted identifiers remain stable within one artifact set",
-		},
-	}
 }
 
 func buildScanScopeSummary(snapshot state.Snapshot) *ScanScopeSummary {
@@ -1325,6 +1319,7 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 		copyBacklog.Items[idx].PolicyMissingReasons = uniqueStrings(append(append([]string(nil), item.PolicyMissingReasons...), path.PolicyMissingReasons...))
 		copyBacklog.Items[idx].PolicyEvidenceRefs = uniqueStrings(append(append([]string(nil), item.PolicyEvidenceRefs...), path.PolicyEvidenceRefs...))
 		copyBacklog.Items[idx].PolicyConfidence = firstNonEmptyValue(strings.TrimSpace(path.PolicyConfidence), strings.TrimSpace(item.PolicyConfidence))
+		copyBacklog.Items[idx].Remediation = risk.RemediationForActionPath(path)
 		if copyBacklog.Items[idx].CredentialProvenance == nil {
 			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(path.CredentialProvenance)
 		}

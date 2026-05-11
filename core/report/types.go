@@ -34,15 +34,16 @@ const (
 type Template string
 
 const (
-	TemplateExec           Template = "exec"
-	TemplateOperator       Template = "operator"
-	TemplateAudit          Template = "audit"
-	TemplatePublic         Template = "public"
-	TemplateCISO           Template = "ciso"
-	TemplateAppSec         Template = "appsec"
-	TemplatePlatform       Template = "platform"
-	TemplateCustomerDraft  Template = "customer-draft"
-	TemplateAgentActionBOM Template = "agent-action-bom"
+	TemplateExec                 Template = "exec"
+	TemplateOperator             Template = "operator"
+	TemplateAudit                Template = "audit"
+	TemplatePublic               Template = "public"
+	TemplateCISO                 Template = "ciso"
+	TemplateAppSec               Template = "appsec"
+	TemplatePlatform             Template = "platform"
+	TemplateCustomerDraft        Template = "customer-draft"
+	TemplateAgentActionBOM       Template = "agent-action-bom"
+	TemplateDesignPartnerSummary Template = "design-partner-summary"
 )
 
 type ShareProfile string
@@ -51,6 +52,9 @@ const (
 	ShareProfileInternal         ShareProfile = "internal"
 	ShareProfilePublic           ShareProfile = "public"
 	ShareProfileCustomerRedacted ShareProfile = "customer-redacted"
+	ShareProfileDesignPartner    ShareProfile = "design-partner"
+	ShareProfileExternalRedacted ShareProfile = "external-redacted"
+	ShareProfileInvestorSafe     ShareProfile = "investor-safe"
 )
 
 type BuildInput struct {
@@ -64,6 +68,7 @@ type BuildInput struct {
 	Top              int
 	Template         Template
 	ShareProfile     ShareProfile
+	RedactionFields  []RedactionField
 }
 
 type Summary struct {
@@ -106,9 +111,11 @@ type Summary struct {
 }
 
 type ShareProfileMetadata struct {
-	RedactionApplied bool     `json:"redaction_applied"`
-	RedactionVersion string   `json:"redaction_version,omitempty"`
-	PolicySummary    []string `json:"policy_summary,omitempty"`
+	RedactionApplied     bool     `json:"redaction_applied"`
+	RedactionVersion     string   `json:"redaction_version,omitempty"`
+	PolicySummary        []string `json:"policy_summary,omitempty"`
+	SelectedFields       []string `json:"selected_fields,omitempty"`
+	ProfileDefaultFields []string `json:"profile_default_fields,omitempty"`
 }
 
 type ScanScopeSummary struct {
@@ -148,6 +155,7 @@ type ActionSurfaceRegistryEntry struct {
 	MutableEndpointSemantics []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
 	ConfidenceLane           string                                 `json:"confidence_lane,omitempty"`
 	ProofStatus              string                                 `json:"proof_status,omitempty"`
+	Remediation              string                                 `json:"remediation,omitempty"`
 	PathIDs                  []string                               `json:"path_ids,omitempty"`
 	ActionPathCount          int                                    `json:"action_path_count"`
 	GraphRefs                AgentActionBOMGraphRefs                `json:"graph_refs,omitempty"`
@@ -311,7 +319,7 @@ type ActivationItem struct {
 
 func ParseTemplate(raw string) (Template, bool) {
 	switch Template(raw) {
-	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic, TemplateCISO, TemplateAppSec, TemplatePlatform, TemplateCustomerDraft, TemplateAgentActionBOM:
+	case TemplateExec, TemplateOperator, TemplateAudit, TemplatePublic, TemplateCISO, TemplateAppSec, TemplatePlatform, TemplateCustomerDraft, TemplateAgentActionBOM, TemplateDesignPartnerSummary:
 		return Template(raw), true
 	default:
 		return "", false
@@ -320,7 +328,12 @@ func ParseTemplate(raw string) (Template, bool) {
 
 func ParseShareProfile(raw string) (ShareProfile, bool) {
 	switch ShareProfile(raw) {
-	case ShareProfileInternal, ShareProfilePublic, ShareProfileCustomerRedacted:
+	case ShareProfileInternal,
+		ShareProfilePublic,
+		ShareProfileCustomerRedacted,
+		ShareProfileDesignPartner,
+		ShareProfileExternalRedacted,
+		ShareProfileInvestorSafe:
 		return ShareProfile(raw), true
 	default:
 		return "", false

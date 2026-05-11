@@ -1,0 +1,43 @@
+{
+  "template": "design-partner-summary",
+  "share_profile": "design-partner",
+  "metadata": {
+    "redaction_applied": true,
+    "redaction_version": "customer-share-v2",
+    "selected_fields": [
+      "authors",
+      "credential-subjects",
+      "filesystem",
+      "graph-refs",
+      "owners",
+      "paths",
+      "proof-refs",
+      "providers",
+      "repos"
+    ],
+    "profile_default_fields": [
+      "authors",
+      "credential-subjects",
+      "filesystem",
+      "graph-refs",
+      "owners",
+      "paths",
+      "proof-refs",
+      "providers",
+      "repos"
+    ]
+  },
+  "registry_count": 7,
+  "bom_count": 7,
+  "first_registry": {
+    "surface_type": "server",
+    "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
+    "confidence_lane": "likely_action_path"
+  },
+  "first_bom": {
+    "repo": "repo-d236d5",
+    "location": "loc-d5d3368a",
+    "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
+    "confidence_lane": "likely_action_path"
+  }
+}

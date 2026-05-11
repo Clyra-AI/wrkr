@@ -9,4 +9,4 @@ This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifac
 - `inventory/` and `risk/`: deterministic privilege, credential-provenance, action-path, and govern-first contracts.
 - `manifest/`: open `wrkr-manifest.yaml` interoperability specification.
 - `regress/`: posture regression baseline and drift-result contracts.
-- `report/`: deterministic shareable report-summary contracts.
+- `report/`: deterministic shareable report-summary contracts, including additive design-partner summary mode, expanded share-profile metadata, action-surface registry remediation, and field-selection redaction metadata.

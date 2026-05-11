@@ -53,6 +53,7 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 					ConfigFingerprint: strings.TrimSpace(path.ConfigFingerprint),
 					ConfigSource:      strings.TrimSpace(path.ConfigSource),
 					ConfidenceLane:    strings.TrimSpace(path.ConfidenceLane),
+					Remediation:       risk.RemediationForActionPath(path),
 				},
 			}
 			groups[key] = group
@@ -70,6 +71,7 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 		group.entry.VersionSource = firstNonEmptyValue(group.entry.VersionSource, strings.TrimSpace(path.VersionSource))
 		group.entry.ConfigFingerprint = firstNonEmptyValue(group.entry.ConfigFingerprint, strings.TrimSpace(path.ConfigFingerprint))
 		group.entry.ConfigSource = firstNonEmptyValue(group.entry.ConfigSource, strings.TrimSpace(path.ConfigSource))
+		group.entry.Remediation = firstNonEmptyValue(group.entry.Remediation, risk.RemediationForActionPath(path))
 		group.entry.ReachableActions = uniqueSortedStrings(append(group.entry.ReachableActions, append([]string(nil), path.ActionClasses...)...))
 		group.entry.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(append(group.entry.MutableEndpointSemantics, path.MutableEndpointSemantics...))
 		group.entry.PathIDs = uniqueSortedStrings(append(group.entry.PathIDs, strings.TrimSpace(path.PathID)))

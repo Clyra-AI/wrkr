@@ -2752,6 +2752,62 @@ func TestReportRejectsInvalidTemplateAndShareProfile(t *testing.T) {
 	if code != 6 {
 		t.Fatalf("expected exit 6 for invalid share profile, got %d", code)
 	}
+
+	out.Reset()
+	errOut.Reset()
+	code = Run([]string{"report", "--state", statePath, "--redact", "owners,repos,owners", "--json"}, &out, &errOut)
+	if code != 6 {
+		t.Fatalf("expected exit 6 for duplicate redaction selector, got %d", code)
+	}
+}
+
+func TestReportAcceptsDesignPartnerTemplateAndRedactionSelectors(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("scan failed to seed state: %d", code)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--template", "design-partner-summary",
+		"--share-profile", "design-partner",
+		"--redact", "owners,repos",
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected design-partner template to succeed, got %d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	summary, ok := payload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary payload, got %T", payload["summary"])
+	}
+	if summary["template"] != "design-partner-summary" {
+		t.Fatalf("expected design-partner-summary template, got %v", summary["template"])
+	}
+	if summary["share_profile"] != "design-partner" {
+		t.Fatalf("expected design-partner share profile, got %v", summary["share_profile"])
+	}
+	metadata, ok := summary["share_profile_metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected share_profile_metadata, got %T", summary["share_profile_metadata"])
+	}
+	selectedFields, ok := metadata["selected_fields"].([]any)
+	if !ok || len(selectedFields) == 0 {
+		t.Fatalf("expected selected redaction fields metadata, got %v", metadata["selected_fields"])
+	}
 }
 
 func TestReportAcceptsAgentActionBOMTemplateAndEvidenceJSON(t *testing.T) {

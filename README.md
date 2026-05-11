@@ -2,7 +2,7 @@
 
 Find the bounded AI-connected software-delivery paths in your repos and org, rank the riskiest ones first, and emit offline-verifiable proof before they become unreviewed access.
 
-Wrkr gives security and platform teams a deterministic, evidence-ready view of static AI tooling posture and gives developers a local-machine hygiene path when they want to inspect their own setup first. It discovers supported AI dev tools, MCP servers, and agent frameworks, shows what can write, highlights what to review or control first, and emits proof artifacts for audits and CI. Wrkr stays in the static posture boundary: it does not claim runtime observation or control-layer enforcement.
+Wrkr gives security and platform teams a deterministic, evidence-ready view of static AI tooling posture and gives developers a local-machine hygiene path when they want to inspect their own setup first. It discovers supported AI dev tools, MCP servers, and agent frameworks, shows what can write, highlights what to review or control first, emits proof artifacts for audits and CI, and can now render a buyer-ready static action registry summary for design-partner conversations. Wrkr stays in the static posture boundary: it does not claim runtime observation or control-layer enforcement.
 
 Security/platform-led. Developer hygiene included. Deterministic by default.
 
@@ -60,6 +60,7 @@ Hosted prerequisites for this path:
 ```bash
 wrkr init --non-interactive --org acme --github-api https://api.github.com --json
 wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr report --state ./.wrkr/last-scan.json --template design-partner-summary --share-profile design-partner --md --md-path ./.wrkr/design-partner-summary.md --evidence-json --evidence-json-path ./.wrkr/design-partner-evidence.json --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 wrkr verify --chain --state ./.wrkr/last-scan.json --json
 ```

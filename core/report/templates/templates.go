@@ -82,6 +82,14 @@ var packs = map[string]Pack{
 		ProofTitle:     "Proof and runtime evidence",
 		ActionsTitle:   "Next control actions",
 	},
+	"design-partner-summary": {
+		HeadlineTitle:  "Design partner static action summary",
+		TopRisksTitle:  "Top validated action paths",
+		ChangesTitle:   "What changed since the previous scan",
+		LifecycleTitle: "Ownership and approval gaps",
+		ProofTitle:     "Proof and evidence gaps",
+		ActionsTitle:   "Recommended controls",
+	},
 }
 
 func Resolve(name string) Pack {

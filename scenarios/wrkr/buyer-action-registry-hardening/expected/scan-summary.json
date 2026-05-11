@@ -1,0 +1,36 @@
+{
+  "action_path_count": 7,
+  "lane_counts": {
+    "confirmed_action_path": 1,
+    "context_only": 1,
+    "likely_action_path": 4,
+    "semantic_review_candidate": 1
+  },
+  "confirmed_path": {
+    "repo": "payments-private",
+    "location": ".github/workflows/refund-agent.yml",
+    "confidence_lane": "confirmed_action_path"
+  },
+  "mutable_surface_path": {
+    "repo": "payments-private",
+    "location": ".mcp.json",
+    "confidence_lane": "likely_action_path",
+    "semantics": [
+      "data_export",
+      "production_mutation",
+      "refund"
+    ],
+    "config_fingerprint": "cfg-849ee5139102",
+    "action_lineage_kinds": [
+      "repo",
+      "workflow",
+      "agent",
+      "action",
+      "credential",
+      "target",
+      "owner",
+      "approval",
+      "proof"
+    ]
+  }
+}

@@ -67,5 +67,14 @@
   ],
   "FO15-usefulness": [
     "TestScenarioFirstOfferMixedGovernanceReportUsefulness"
+  ],
+  "BARH-purpose-version-authority": [
+    "TestScenarioBuyerActionRegistryHardening"
+  ],
+  "BARH-mutable-lineage-registry": [
+    "TestScenarioBuyerActionRegistryHardening"
+  ],
+  "BARH-design-partner-redaction": [
+    "TestScenarioBuyerActionRegistryHardening"
   ]
 }

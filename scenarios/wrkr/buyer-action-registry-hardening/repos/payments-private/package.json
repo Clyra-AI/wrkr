@@ -1,0 +1,7 @@
+{
+  "name": "payments-private",
+  "private": true,
+  "dependencies": {
+    "langchain": "0.1.0"
+  }
+}

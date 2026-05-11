@@ -1,0 +1,48 @@
+{
+  "template": "agent-action-bom",
+  "share_profile": "customer-redacted",
+  "metadata": {
+    "redaction_applied": true,
+    "redaction_version": "customer-share-v2",
+    "selected_fields": [
+      "authors",
+      "credential-subjects",
+      "filesystem",
+      "graph-refs",
+      "owners",
+      "paths",
+      "proof-refs",
+      "providers",
+      "repos"
+    ],
+    "profile_default_fields": [
+      "authors",
+      "credential-subjects",
+      "filesystem",
+      "graph-refs",
+      "owners",
+      "paths",
+      "proof-refs",
+      "providers",
+      "repos"
+    ]
+  },
+  "first_item": {
+    "repo": "repo-d236d5",
+    "location": "loc-d5d3368a",
+    "owner": "owner-f9ae3305",
+    "proof_refs": [
+      "proof-a3a39838"
+    ],
+    "graph_ref_prefixes": {
+      "node": "node-",
+      "edge": "edge-"
+    },
+    "lineage_prefixes": {
+      "segment": "segment-",
+      "label": "label-",
+      "evidence": "evidence-"
+    }
+  },
+  "proof_chain": "redacted://proof-chain.json"
+}

@@ -1,0 +1,3 @@
+/.github/workflows/ @acme/platform-security
+/openapi/ @acme/payments-appsec
+/server/ @acme/payments-platform

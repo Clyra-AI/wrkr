@@ -1,0 +1,56 @@
+{
+  "template": "agent-action-bom",
+  "share_profile": "internal",
+  "bom_count": 7,
+  "registry_count": 7,
+  "lane_counts": {
+    "confirmed_action_path": 1,
+    "context_only": 1,
+    "likely_action_path": 4,
+    "semantic_review_candidate": 1
+  },
+  "confirmed_item": {
+    "repo": "payments-private",
+    "location": ".github/workflows/refund-agent.yml",
+    "remediation": "Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius.",
+    "proof_coverage": "missing",
+    "policy_status": "none",
+    "credential_authority": {
+      "credential_present": true,
+      "credential_referenced_by_workflow": true,
+      "credential_usable_by_path": true,
+      "access_type": "standing",
+      "standing_access": true,
+      "rotation_evidence_status": "missing",
+      "credential_source": "workflow_secret_ref",
+      "confidence": "high"
+    },
+    "lineage_statuses": [
+      {"kind": "repo", "status": "present"},
+      {"kind": "workflow", "status": "present"},
+      {"kind": "agent", "status": "present"},
+      {"kind": "action", "status": "present"},
+      {"kind": "credential", "status": "present"},
+      {"kind": "target", "status": "missing"},
+      {"kind": "owner", "status": "present"},
+      {"kind": "approval", "status": "missing"},
+      {"kind": "proof", "status": "missing"}
+    ]
+  },
+  "semantic_item": {
+    "repo": "payments-private",
+    "location": "AGENTS.md",
+    "remediation": "Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.",
+    "confidence_lane": "semantic_review_candidate",
+    "proof_coverage": "missing"
+  },
+  "registry_surface_types": [
+    "agent_config",
+    "api_schema",
+    "package_script",
+    "route_file",
+    "server",
+    "surface",
+    "workflow"
+  ]
+}

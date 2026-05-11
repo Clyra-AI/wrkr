@@ -8,7 +8,7 @@
     "bom_id": {"type": "string"},
     "schema_version": {"type": "string", "enum": ["v1"]},
     "generated_at": {"type": "string"},
-    "share_profile": {"type": "string", "enum": ["internal", "public", "customer-redacted"]},
+    "share_profile": {"type": "string", "enum": ["internal", "public", "customer-redacted", "design-partner", "external-redacted", "investor-safe"]},
     "share_profile_metadata": {"$ref": "#/$defs/shareProfileMetadata"},
     "summary": {"$ref": "#/$defs/summary"},
     "scan_quality": {"$ref": "#/$defs/scanQuality"},
@@ -234,6 +234,14 @@
         "redaction_applied": {"type": "boolean"},
         "redaction_version": {"type": "string"},
         "policy_summary": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "selected_fields": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "profile_default_fields": {
           "type": "array",
           "items": {"type": "string"}
         }
