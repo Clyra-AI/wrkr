@@ -934,3 +934,30 @@ func TestBuildCreatesSeparateInstanceScopedEntriesForAgentsInSameFile(t *testing
 		t.Fatalf("unexpected symbols: %+v", entries)
 	}
 }
+
+func TestCredentialAuthoritySeparatesReferenceFromUsability(t *testing.T) {
+	t.Parallel()
+
+	signals := findingSignals{
+		Locations: []string{".github/workflows/release.yml"},
+		EvidenceKV: map[string][]string{
+			"workflow_secret_refs": {"PROD_DEPLOY_PAT"},
+		},
+	}
+	credentials := classifyCredentialProvenances("code", []string{"contents.read"}, nil, signals)
+	provenance := classifyCredentialProvenance("code", []string{"contents.read"}, nil, signals)
+	authority := classifyCredentialAuthority(nil, signals, false, credentials, provenance)
+
+	if authority == nil {
+		t.Fatal("expected normalized credential authority")
+	}
+	if !authority.CredentialPresent || !authority.CredentialReferencedByWorkflow {
+		t.Fatalf("expected workflow reference authority, got %+v", authority)
+	}
+	if authority.CredentialUsableByPath {
+		t.Fatalf("expected workflow reference without execution linkage to remain unusable, got %+v", authority)
+	}
+	if authority.CredentialSource != agginventory.CredentialSourceWorkflowSecretRef {
+		t.Fatalf("expected workflow secret reference source, got %+v", authority)
+	}
+}

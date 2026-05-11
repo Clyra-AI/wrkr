@@ -34,6 +34,13 @@ type Agent struct {
 	ToolInstanceID           string               `json:"tool_instance_id,omitempty" yaml:"tool_instance_id,omitempty"`
 	Framework                string               `json:"framework" yaml:"framework"`
 	Symbol                   string               `json:"symbol,omitempty" yaml:"symbol,omitempty"`
+	Purpose                  string               `json:"purpose,omitempty" yaml:"purpose,omitempty"`
+	PurposeSource            string               `json:"purpose_source,omitempty" yaml:"purpose_source,omitempty"`
+	PurposeConfidence        string               `json:"purpose_confidence,omitempty" yaml:"purpose_confidence,omitempty"`
+	Version                  string               `json:"version,omitempty" yaml:"version,omitempty"`
+	VersionSource            string               `json:"version_source,omitempty" yaml:"version_source,omitempty"`
+	ConfigFingerprint        string               `json:"config_fingerprint,omitempty" yaml:"config_fingerprint,omitempty"`
+	ConfigSource             string               `json:"config_source,omitempty" yaml:"config_source,omitempty"`
 	SecurityVisibilityStatus string               `json:"security_visibility_status,omitempty" yaml:"security_visibility_status,omitempty"`
 	Org                      string               `json:"org" yaml:"org"`
 	Repo                     string               `json:"repo" yaml:"repo"`
@@ -75,6 +82,13 @@ type Tool struct {
 	Org                      string                     `json:"org" yaml:"org"`
 	Repos                    []string                   `json:"repos" yaml:"repos"`
 	Locations                []ToolLocation             `json:"locations" yaml:"locations"`
+	Purpose                  string                     `json:"purpose,omitempty" yaml:"purpose,omitempty"`
+	PurposeSource            string                     `json:"purpose_source,omitempty" yaml:"purpose_source,omitempty"`
+	PurposeConfidence        string                     `json:"purpose_confidence,omitempty" yaml:"purpose_confidence,omitempty"`
+	Version                  string                     `json:"version,omitempty" yaml:"version,omitempty"`
+	VersionSource            string                     `json:"version_source,omitempty" yaml:"version_source,omitempty"`
+	ConfigFingerprint        string                     `json:"config_fingerprint,omitempty" yaml:"config_fingerprint,omitempty"`
+	ConfigSource             string                     `json:"config_source,omitempty" yaml:"config_source,omitempty"`
 	Permissions              []string                   `json:"permissions,omitempty" yaml:"permissions,omitempty"`
 	WritePathClasses         []string                   `json:"write_path_classes,omitempty" yaml:"write_path_classes,omitempty"`
 	GovernanceControls       []GovernanceControlMapping `json:"governance_controls,omitempty" yaml:"governance_controls,omitempty"`
@@ -498,6 +512,7 @@ func Build(input BuildInput) Inventory {
 		}
 		return agents[i].AgentID < agents[j].AgentID
 	})
+	tools, agents = applyWave2Metadata(input.Manifest, tools, agents, input.Findings)
 	approvalSummary = finalizeApprovalSummary(approvalSummary)
 	regulatorySummary := buildRegulatorySummary(tools)
 

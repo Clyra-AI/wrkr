@@ -102,6 +102,13 @@ type AgentPrivilegeMapEntry struct {
 	ToolType                 string                     `json:"tool_type" yaml:"tool_type"`
 	Framework                string                     `json:"framework,omitempty" yaml:"framework,omitempty"`
 	Symbol                   string                     `json:"symbol,omitempty" yaml:"symbol,omitempty"`
+	Purpose                  string                     `json:"purpose,omitempty" yaml:"purpose,omitempty"`
+	PurposeSource            string                     `json:"purpose_source,omitempty" yaml:"purpose_source,omitempty"`
+	PurposeConfidence        string                     `json:"purpose_confidence,omitempty" yaml:"purpose_confidence,omitempty"`
+	Version                  string                     `json:"version,omitempty" yaml:"version,omitempty"`
+	VersionSource            string                     `json:"version_source,omitempty" yaml:"version_source,omitempty"`
+	ConfigFingerprint        string                     `json:"config_fingerprint,omitempty" yaml:"config_fingerprint,omitempty"`
+	ConfigSource             string                     `json:"config_source,omitempty" yaml:"config_source,omitempty"`
 	Org                      string                     `json:"org" yaml:"org"`
 	Repos                    []string                   `json:"repos" yaml:"repos"`
 	Permissions              []string                   `json:"permissions" yaml:"permissions"`
@@ -144,6 +151,7 @@ type AgentPrivilegeMapEntry struct {
 	CredentialAccess         bool                       `json:"credential_access" yaml:"credential_access"`
 	Credentials              []*CredentialProvenance    `json:"credentials,omitempty" yaml:"credentials,omitempty"`
 	CredentialProvenance     *CredentialProvenance      `json:"credential_provenance,omitempty" yaml:"credential_provenance,omitempty"`
+	CredentialAuthority      *CredentialAuthority       `json:"credential_authority,omitempty" yaml:"credential_authority,omitempty"`
 	PathContext              *PathContext               `json:"path_context,omitempty" yaml:"path_context,omitempty"`
 	StandingPrivilege        bool                       `json:"standing_privilege,omitempty" yaml:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons []string                   `json:"standing_privilege_reasons,omitempty" yaml:"standing_privilege_reasons,omitempty"`

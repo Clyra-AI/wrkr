@@ -69,6 +69,13 @@ type AgentActionBOMItem struct {
 	Repo                     string                               `json:"repo"`
 	ToolType                 string                               `json:"tool_type"`
 	Location                 string                               `json:"location,omitempty"`
+	Purpose                  string                               `json:"purpose,omitempty"`
+	PurposeSource            string                               `json:"purpose_source,omitempty"`
+	PurposeConfidence        string                               `json:"purpose_confidence,omitempty"`
+	Version                  string                               `json:"version,omitempty"`
+	VersionSource            string                               `json:"version_source,omitempty"`
+	ConfigFingerprint        string                               `json:"config_fingerprint,omitempty"`
+	ConfigSource             string                               `json:"config_source,omitempty"`
 	Owner                    string                               `json:"owner,omitempty"`
 	OwnerSource              string                               `json:"owner_source,omitempty"`
 	OwnershipStatus          string                               `json:"ownership_status,omitempty"`
@@ -76,6 +83,7 @@ type AgentActionBOMItem struct {
 	CredentialAccess         bool                                 `json:"credential_access"`
 	Credentials              []*agginventory.CredentialProvenance `json:"credentials,omitempty"`
 	CredentialProvenance     *agginventory.CredentialProvenance   `json:"credential_provenance,omitempty"`
+	CredentialAuthority      *agginventory.CredentialAuthority    `json:"credential_authority,omitempty"`
 	PathContext              *agginventory.PathContext            `json:"path_context,omitempty"`
 	StandingPrivilege        bool                                 `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons []string                             `json:"standing_privilege_reasons,omitempty"`
@@ -128,6 +136,7 @@ type AgentActionBOMItem struct {
 	ReachableAPIs            []AgentActionBOMReachability         `json:"reachable_apis,omitempty"`
 	ReachableAgents          []AgentActionBOMReachability         `json:"reachable_agents,omitempty"`
 	IntroducedBy             *attribution.Result                  `json:"introduced_by,omitempty"`
+	ActionLineage            *risk.ActionLineage                  `json:"action_lineage,omitempty"`
 }
 
 type AgentActionBOMGraphRefs struct {
@@ -203,6 +212,13 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			Repo:                     strings.TrimSpace(path.Repo),
 			ToolType:                 strings.TrimSpace(path.ToolType),
 			Location:                 strings.TrimSpace(path.Location),
+			Purpose:                  strings.TrimSpace(path.Purpose),
+			PurposeSource:            strings.TrimSpace(path.PurposeSource),
+			PurposeConfidence:        strings.TrimSpace(path.PurposeConfidence),
+			Version:                  strings.TrimSpace(path.Version),
+			VersionSource:            strings.TrimSpace(path.VersionSource),
+			ConfigFingerprint:        strings.TrimSpace(path.ConfigFingerprint),
+			ConfigSource:             strings.TrimSpace(path.ConfigSource),
 			Owner:                    strings.TrimSpace(path.OperationalOwner),
 			OwnerSource:              strings.TrimSpace(path.OwnerSource),
 			OwnershipStatus:          strings.TrimSpace(path.OwnershipStatus),
@@ -210,6 +226,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			CredentialAccess:         path.CredentialAccess,
 			Credentials:              agginventory.CloneCredentialProvenances(path.Credentials),
 			CredentialProvenance:     agginventory.CloneCredentialProvenance(path.CredentialProvenance),
+			CredentialAuthority:      agginventory.CloneCredentialAuthority(path.CredentialAuthority),
 			PathContext:              agginventory.ClonePathContext(path.PathContext),
 			StandingPrivilege:        path.StandingPrivilege,
 			StandingPrivilegeReasons: append([]string(nil), path.StandingPrivilegeReasons...),
@@ -260,7 +277,9 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			PolicyConfidence:         strings.TrimSpace(path.PolicyConfidence),
 			PolicyEvidenceRefs:       append([]string(nil), path.PolicyEvidenceRefs...),
 			IntroducedBy:             attribution.Merge(path.IntroducedBy, nil),
+			ActionLineage:            risk.CloneActionLineage(path.ActionLineage),
 		}
+		item.ActionLineage = decorateLineageForBOM(item.ActionLineage, item)
 		item.EvidenceRefs = itemEvidenceRefs(path, backlogItem, runtimeItem, itemGraphRefs)
 		items = append(items, item)
 	}
@@ -435,9 +454,17 @@ func itemEvidenceRefs(path risk.ActionPath, backlog controlbacklog.Item, runtime
 	refs := []string{}
 	refs = append(refs, path.ApprovalGapReasons...)
 	refs = append(refs, path.PolicyEvidenceRefs...)
+	if path.CredentialAuthority != nil {
+		refs = append(refs, path.CredentialAuthority.ReasonCodes...)
+	}
 	if path.CredentialProvenance != nil {
 		refs = append(refs, path.CredentialProvenance.EvidenceBasis...)
 		refs = append(refs, path.CredentialProvenance.ClassificationReasons...)
+	}
+	if path.ActionLineage != nil {
+		for _, segment := range path.ActionLineage.Segments {
+			refs = append(refs, segment.EvidenceRefs...)
+		}
 	}
 	refs = append(refs, backlog.EvidenceBasis...)
 	refs = append(refs, runtime.RecordIDs...)
@@ -591,6 +618,34 @@ func cloneAxisSummary(in *scorecore.AxisSummary) *scorecore.AxisSummary {
 	out := *in
 	out.Rationale = append([]string(nil), in.Rationale...)
 	return &out
+}
+
+func decorateLineageForBOM(in *risk.ActionLineage, item AgentActionBOMItem) *risk.ActionLineage {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneActionLineage(in)
+	for idx := range out.Segments {
+		switch strings.TrimSpace(out.Segments[idx].Kind) {
+		case "approval":
+			if item.ApprovalGap {
+				out.Segments[idx].Status = "missing"
+				out.Segments[idx].Label = "approval_gap"
+			} else {
+				out.Segments[idx].Status = "present"
+				out.Segments[idx].Label = firstNonEmptyValue(strings.TrimSpace(out.Segments[idx].Label), "approved_or_declared")
+			}
+		case "proof":
+			switch strings.TrimSpace(item.ProofCoverage) {
+			case proofCoverageCovered, proofCoverageChainAttached:
+				out.Segments[idx].Status = "present"
+			default:
+				out.Segments[idx].Status = "missing"
+			}
+			out.Segments[idx].Label = firstNonEmptyValue(strings.TrimSpace(item.ProofCoverage), strings.TrimSpace(out.Segments[idx].Label), "proof_missing")
+		}
+	}
+	return out
 }
 
 func coverageConfidenceLabel(report *scanquality.Report) string {

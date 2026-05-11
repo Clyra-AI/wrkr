@@ -335,6 +335,48 @@ func TestControlPathGraphLinksIdentityCredentialToolWorkflowTargetAction(t *test
 	}
 }
 
+func TestControlPathGraphCarriesPurposeVersionAndAuthorityMetadata(t *testing.T) {
+	t.Parallel()
+
+	graph := BuildControlPathGraph([]ControlPathInput{{
+		PathID:               "apc-meta",
+		AgentID:              "wrkr:mcp:acme",
+		Org:                  "acme",
+		Repo:                 "acme/platform",
+		ToolType:             "mcp",
+		Location:             ".cursor/mcp.json",
+		Purpose:              "registry sync",
+		PurposeSource:        "server_description",
+		PurposeConfidence:    "high",
+		Version:              "1.2.3",
+		VersionSource:        "command_or_arg",
+		ConfigFingerprint:    "cfg-abc123",
+		ConfigSource:         ".cursor/mcp.json#server:registry",
+		CredentialAccess:     true,
+		CredentialAuthority:  &agginventory.CredentialAuthority{CredentialPresent: true, CredentialUsableByPath: true, CredentialKind: agginventory.CredentialKindGitHubPAT, AccessType: agginventory.CredentialAccessTypeStanding},
+		CredentialProvenance: &agginventory.CredentialProvenance{Type: agginventory.CredentialProvenanceStaticSecret, CredentialKind: agginventory.CredentialKindGitHubPAT, AccessType: agginventory.CredentialAccessTypeStanding},
+	}})
+	if graph == nil {
+		t.Fatal("expected control_path_graph")
+	}
+
+	var toolNode, credentialNode *ControlPathNode
+	for idx := range graph.Nodes {
+		switch graph.Nodes[idx].Kind {
+		case ControlPathNodeTool:
+			toolNode = &graph.Nodes[idx]
+		case ControlPathNodeCredential:
+			credentialNode = &graph.Nodes[idx]
+		}
+	}
+	if toolNode == nil || toolNode.Purpose != "registry sync" || toolNode.Version != "1.2.3" || toolNode.ConfigFingerprint != "cfg-abc123" {
+		t.Fatalf("expected tool node metadata, got %+v", toolNode)
+	}
+	if credentialNode == nil || credentialNode.CredentialAuthority == nil || !credentialNode.CredentialAuthority.CredentialUsableByPath {
+		t.Fatalf("expected credential authority on graph node, got %+v", credentialNode)
+	}
+}
+
 func hasControlPathNodeKind(nodes []ControlPathNode, want string) bool {
 	for _, node := range nodes {
 		if node.Kind == want {

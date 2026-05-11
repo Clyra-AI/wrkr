@@ -453,12 +453,20 @@ type ControlPathInput struct {
 	Repo                     string
 	ToolType                 string
 	Location                 string
+	Purpose                  string
+	PurposeSource            string
+	PurposeConfidence        string
+	Version                  string
+	VersionSource            string
+	ConfigFingerprint        string
+	ConfigSource             string
 	ExecutionIdentity        string
 	ExecutionIdentityType    string
 	ExecutionIdentitySource  string
 	ExecutionIdentityStatus  string
 	CredentialAccess         bool
 	CredentialProvenance     *agginventory.CredentialProvenance
+	CredentialAuthority      *agginventory.CredentialAuthority
 	GovernanceControls       []agginventory.GovernanceControlMapping
 	MatchedProductionTargets []string
 	WritePathClasses         []string
@@ -491,20 +499,29 @@ type ControlPathKindRollup struct {
 }
 
 type ControlPathNode struct {
-	NodeID            string   `json:"node_id"`
-	PathID            string   `json:"path_id"`
-	Kind              string   `json:"kind"`
-	Org               string   `json:"org"`
-	Repo              string   `json:"repo"`
-	Label             string   `json:"label,omitempty"`
-	ToolType          string   `json:"tool_type,omitempty"`
-	Location          string   `json:"location,omitempty"`
-	AgentID           string   `json:"agent_id,omitempty"`
-	Status            string   `json:"status,omitempty"`
-	EvidenceRefs      []string `json:"evidence_refs,omitempty"`
-	SourceRefs        []string `json:"source_refs,omitempty"`
-	AttackPathRefs    []string `json:"attack_path_refs,omitempty"`
-	SourceFindingKeys []string `json:"source_finding_keys,omitempty"`
+	NodeID              string                            `json:"node_id"`
+	PathID              string                            `json:"path_id"`
+	Kind                string                            `json:"kind"`
+	LineageSegment      string                            `json:"lineage_segment,omitempty"`
+	Org                 string                            `json:"org"`
+	Repo                string                            `json:"repo"`
+	Label               string                            `json:"label,omitempty"`
+	ToolType            string                            `json:"tool_type,omitempty"`
+	Location            string                            `json:"location,omitempty"`
+	AgentID             string                            `json:"agent_id,omitempty"`
+	Purpose             string                            `json:"purpose,omitempty"`
+	PurposeSource       string                            `json:"purpose_source,omitempty"`
+	PurposeConfidence   string                            `json:"purpose_confidence,omitempty"`
+	Version             string                            `json:"version,omitempty"`
+	VersionSource       string                            `json:"version_source,omitempty"`
+	ConfigFingerprint   string                            `json:"config_fingerprint,omitempty"`
+	ConfigSource        string                            `json:"config_source,omitempty"`
+	Status              string                            `json:"status,omitempty"`
+	CredentialAuthority *agginventory.CredentialAuthority `json:"credential_authority,omitempty"`
+	EvidenceRefs        []string                          `json:"evidence_refs,omitempty"`
+	SourceRefs          []string                          `json:"source_refs,omitempty"`
+	AttackPathRefs      []string                          `json:"attack_path_refs,omitempty"`
+	SourceFindingKeys   []string                          `json:"source_finding_keys,omitempty"`
 }
 
 type ControlPathEdge struct {
@@ -594,22 +611,27 @@ func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEd
 	toolType := controlValue(path.ToolType, "unknown_tool")
 
 	pathNode := newControlPathNode(pathID, ControlPathNodeControlPath, org, repo, "control_path", toolType, location, strings.TrimSpace(path.AgentID), pathStatus(path), controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&pathNode, path, "path")
 	nodes := []ControlPathNode{pathNode}
 	edges := make([]ControlPathEdge, 0, 16)
 
 	agentNode := newControlPathNode(pathID, ControlPathNodeAgent, org, repo, controlValue(path.AgentID, "unknown_agent"), toolType, location, strings.TrimSpace(path.AgentID), "", controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&agentNode, path, "agent")
 	nodes = append(nodes, agentNode)
 	edges = append(edges, newControlPathEdge(pathID, "agent_controls_path", agentNode.NodeID, pathNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
 
 	toolNode := newControlPathNode(pathID, ControlPathNodeTool, org, repo, toolType, toolType, location, strings.TrimSpace(path.AgentID), "", controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&toolNode, path, "tool")
 	nodes = append(nodes, toolNode)
 	edges = append(edges, newControlPathEdge(pathID, "path_uses_tool", pathNode.NodeID, toolNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
 
 	workflowNode := newControlPathNode(pathID, ControlPathNodeWorkflow, org, repo, location, toolType, location, strings.TrimSpace(path.AgentID), "", controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&workflowNode, path, "workflow")
 	nodes = append(nodes, workflowNode)
 	edges = append(edges, newControlPathEdge(pathID, "path_executes_workflow", pathNode.NodeID, workflowNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
 
 	repoNode := newControlPathNode(pathID, ControlPathNodeRepo, org, repo, repo, toolType, "", strings.TrimSpace(path.AgentID), "", controlEvidenceRefs(path), []string{repo}, path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&repoNode, path, "repo")
 	nodes = append(nodes, repoNode)
 	edges = append(edges, newControlPathEdge(pathID, "workflow_in_repo", workflowNode.NodeID, repoNode.NodeID, controlEvidenceRefs(path), []string{repo}, path.AttackPathRefs, path.SourceFindingKeys))
 
@@ -620,6 +642,7 @@ func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEd
 	execStatus := controlValue(path.ExecutionIdentityStatus, "unknown")
 	execEvidence := append(controlEvidenceRefs(path), "execution_identity_source:"+controlValue(path.ExecutionIdentitySource, "unknown"))
 	execNode := newControlPathNode(pathID, ControlPathNodeExecutionIdentity, org, repo, execLabel, toolType, location, strings.TrimSpace(path.AgentID), execStatus, execEvidence, controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&execNode, path, "execution_identity")
 	nodes = append(nodes, execNode)
 	edges = append(edges, newControlPathEdge(pathID, "path_runs_as", pathNode.NodeID, execNode.NodeID, execEvidence, controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
 
@@ -631,18 +654,21 @@ func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEd
 
 	for _, item := range actionCapabilityLabels(path) {
 		actionNode := newControlPathNode(pathID, ControlPathNodeActionCapability, org, repo, item, toolType, location, strings.TrimSpace(path.AgentID), "", append(controlEvidenceRefs(path), "capability:"+item), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+		applyNodeMetadata(&actionNode, path, "action")
 		nodes = append(nodes, actionNode)
 		edges = append(edges, newControlPathEdge(pathID, "path_enables_action", pathNode.NodeID, actionNode.NodeID, actionNode.EvidenceRefs, actionNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
 	}
 
 	for _, target := range controlTargets(path) {
 		targetNode := newControlPathNode(pathID, ControlPathNodeTarget, org, repo, target, toolType, location, strings.TrimSpace(path.AgentID), "", append(controlEvidenceRefs(path), "target:"+target), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+		applyNodeMetadata(&targetNode, path, "target")
 		nodes = append(nodes, targetNode)
 		edges = append(edges, newControlPathEdge(pathID, "path_targets_surface", pathNode.NodeID, targetNode.NodeID, targetNode.EvidenceRefs, targetNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
 	}
 
 	for _, control := range controlMappings(path.GovernanceControls) {
 		controlNode := newControlPathNode(pathID, ControlPathNodeGovernanceControl, org, repo, control.Control, toolType, location, strings.TrimSpace(path.AgentID), controlValue(control.Status, "unknown"), append(controlEvidenceRefs(path), "governance_control:"+control.Control), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+		applyNodeMetadata(&controlNode, path, lineageSegmentForGovernanceControl(control.Control))
 		nodes = append(nodes, controlNode)
 		edges = append(edges, newControlPathEdge(pathID, "path_governed_by", pathNode.NodeID, controlNode.NodeID, controlNode.EvidenceRefs, controlNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
 	}
@@ -672,7 +698,34 @@ func controlCredentialNode(pathID string, path ControlPathInput, org string, rep
 	}
 	evidenceRefs = uniqueSortedStrings(evidenceRefs)
 	node := newControlPathNode(pathID, ControlPathNodeCredential, org, repo, label, toolType, location, strings.TrimSpace(path.AgentID), status, evidenceRefs, controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&node, path, "credential")
+	node.CredentialAuthority = agginventory.CloneCredentialAuthority(path.CredentialAuthority)
 	return &node
+}
+
+func applyNodeMetadata(node *ControlPathNode, path ControlPathInput, lineageSegment string) {
+	if node == nil {
+		return
+	}
+	node.LineageSegment = strings.TrimSpace(lineageSegment)
+	node.Purpose = strings.TrimSpace(path.Purpose)
+	node.PurposeSource = strings.TrimSpace(path.PurposeSource)
+	node.PurposeConfidence = strings.TrimSpace(path.PurposeConfidence)
+	node.Version = strings.TrimSpace(path.Version)
+	node.VersionSource = strings.TrimSpace(path.VersionSource)
+	node.ConfigFingerprint = strings.TrimSpace(path.ConfigFingerprint)
+	node.ConfigSource = strings.TrimSpace(path.ConfigSource)
+}
+
+func lineageSegmentForGovernanceControl(control string) string {
+	switch strings.TrimSpace(control) {
+	case agginventory.GovernanceControlApproval:
+		return "approval"
+	case agginventory.GovernanceControlProof:
+		return "proof"
+	default:
+		return "governance_control"
+	}
 }
 
 func newControlPathNode(pathID string, kind string, org string, repo string, label string, toolType string, location string, agentID string, status string, evidenceRefs []string, sourceRefs []string, attackPathRefs []string, sourceFindingKeys []string) ControlPathNode {

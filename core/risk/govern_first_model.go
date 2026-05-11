@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
 
@@ -377,6 +378,14 @@ func RemediationForActionPath(path ActionPath) string {
 			return "Confirm whether this dependency-only AI package is active agent code; if not, suppress it as accepted inventory, otherwise add source-level binding evidence."
 		}
 		return "Review this low-governance path for production relevance and either suppress it as accepted inventory or add stronger binding evidence."
+	}
+	if path.CredentialAccess && path.CredentialAuthority != nil && path.CredentialAuthority.StandingAccess {
+		switch strings.TrimSpace(path.CredentialAuthority.RotationEvidenceStatus) {
+		case agginventory.CredentialRotationEvidenceStale:
+			return "Rotate the stale standing credential, convert it to brokered or JIT access where possible, attach fresh rotation evidence, and rescan."
+		case agginventory.CredentialRotationEvidenceMissing, agginventory.CredentialRotationEvidenceUnknown:
+			return "Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius."
+		}
 	}
 	if path.CredentialAccess && path.CredentialProvenance != nil && path.CredentialProvenance.StandingAccess {
 		return "Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius."

@@ -110,6 +110,7 @@ func Build(
 			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation)
 			credentials := classifyCredentialProvenances(tool.DataClass, tool.Permissions, agentContext.BoundAuthSurfaces, signal)
 			credentialProvenance := agginventory.CredentialRollup(credentials, classifyCredentialProvenance(tool.DataClass, tool.Permissions, agentContext.BoundAuthSurfaces, signal))
+			credentialAuthority := classifyCredentialAuthority(agentContext.BoundAuthSurfaces, signal, credentialAccess, credentials, credentialProvenance)
 			actionClasses, actionReasons := agginventory.DeriveActionClasses(agginventory.ActionClassInput{
 				Permissions:      tool.Permissions,
 				WritePathClasses: writePathClasses,
@@ -137,6 +138,13 @@ func Build(
 				Framework:                fallbackFramework(agentContext.Framework, tool.ToolType),
 				Org:                      tool.Org,
 				Repos:                    cloneStringSlice(tool.Repos),
+				Purpose:                  strings.TrimSpace(tool.Purpose),
+				PurposeSource:            strings.TrimSpace(tool.PurposeSource),
+				PurposeConfidence:        strings.TrimSpace(tool.PurposeConfidence),
+				Version:                  strings.TrimSpace(tool.Version),
+				VersionSource:            strings.TrimSpace(tool.VersionSource),
+				ConfigFingerprint:        strings.TrimSpace(tool.ConfigFingerprint),
+				ConfigSource:             strings.TrimSpace(tool.ConfigSource),
 				Permissions:              cloneStringSlice(tool.Permissions),
 				WritePathClasses:         writePathClasses,
 				ActionClasses:            actionClasses,
@@ -174,6 +182,7 @@ func Build(
 				CredentialAccess:         credentialAccess,
 				Credentials:              credentials,
 				CredentialProvenance:     credentialProvenance,
+				CredentialAuthority:      credentialAuthority,
 				PathContext:              agginventory.ClassifyPathContext(primaryLocation(tool)),
 				StandingPrivilege:        standingPrivilege,
 				StandingPrivilegeReasons: standingReasons,
@@ -320,6 +329,7 @@ func buildInstanceEntries(
 		}
 		credentials := classifyCredentialProvenances(dataClass, permissions, agent.BoundAuthSurfaces, signals)
 		credentialProvenance := agginventory.CredentialRollup(credentials, classifyCredentialProvenance(dataClass, permissions, agent.BoundAuthSurfaces, signals))
+		credentialAuthority := classifyCredentialAuthority(agent.BoundAuthSurfaces, signals, credentialAccess, credentials, credentialProvenance)
 		actionClasses, actionReasons := agginventory.DeriveActionClasses(agginventory.ActionClassInput{
 			Permissions:      permissions,
 			WritePathClasses: writePathClasses,
@@ -345,6 +355,13 @@ func buildInstanceEntries(
 			ToolType:                 firstNonEmptyString(tool.ToolType, framework),
 			Framework:                framework,
 			Symbol:                   strings.TrimSpace(agent.Symbol),
+			Purpose:                  firstNonEmptyString(strings.TrimSpace(agent.Purpose), strings.TrimSpace(tool.Purpose)),
+			PurposeSource:            firstNonEmptyString(strings.TrimSpace(agent.PurposeSource), strings.TrimSpace(tool.PurposeSource)),
+			PurposeConfidence:        firstNonEmptyString(strings.TrimSpace(agent.PurposeConfidence), strings.TrimSpace(tool.PurposeConfidence)),
+			Version:                  firstNonEmptyString(strings.TrimSpace(agent.Version), strings.TrimSpace(tool.Version)),
+			VersionSource:            firstNonEmptyString(strings.TrimSpace(agent.VersionSource), strings.TrimSpace(tool.VersionSource)),
+			ConfigFingerprint:        firstNonEmptyString(strings.TrimSpace(agent.ConfigFingerprint), strings.TrimSpace(tool.ConfigFingerprint)),
+			ConfigSource:             firstNonEmptyString(strings.TrimSpace(agent.ConfigSource), strings.TrimSpace(tool.ConfigSource)),
 			Org:                      org,
 			Repos:                    repos,
 			Permissions:              permissions,
@@ -385,6 +402,7 @@ func buildInstanceEntries(
 			CredentialAccess:         credentialAccess,
 			Credentials:              credentials,
 			CredentialProvenance:     credentialProvenance,
+			CredentialAuthority:      credentialAuthority,
 			PathContext:              agginventory.ClassifyPathContext(agent.Location),
 			StandingPrivilege:        standingPrivilege,
 			StandingPrivilegeReasons: standingReasons,
@@ -991,6 +1009,109 @@ func classifyCredentialProvenance(dataClass string, permissions []string, authSu
 		return agginventory.CredentialRollup(credentials, nil)
 	}
 	return nil
+}
+
+func classifyCredentialAuthority(
+	authSurfaces []string,
+	signals findingSignals,
+	credentialAccess bool,
+	credentials []*agginventory.CredentialProvenance,
+	provenance *agginventory.CredentialProvenance,
+) *agginventory.CredentialAuthority {
+	provenance = agginventory.CredentialRollup(credentials, provenance)
+	normalizedProvenance := agginventory.NormalizeCredentialProvenance(provenance)
+	referencedByWorkflow := len(signals.EvidenceKV["workflow_secret_refs"]) > 0 ||
+		hasAnySignalValue(signals, "workflow_builtin_token", "github_token") ||
+		firstSignalValue(signals, "credential_scope") == agginventory.CredentialScopeWorkflow ||
+		strings.EqualFold(inferredCredentialScope(signals, authSurfaces), agginventory.CredentialScopeWorkflow)
+	present := normalizedProvenance != nil ||
+		referencedByWorkflow ||
+		hasAnySignalValue(signals, "identity_type", "github_app", "service_account", "bot_user") ||
+		hasSecretLikeAuthSurface(authSurfaces)
+
+	kind := agginventory.CredentialKindUnknown
+	accessType := agginventory.CredentialAccessTypeUnknown
+	confidence := "low"
+	source := agginventory.CredentialSourceUnknown
+	reasons := []string{}
+	if normalizedProvenance != nil {
+		kind = normalizedProvenance.CredentialKind
+		accessType = normalizedProvenance.AccessType
+		confidence = normalizedProvenance.Confidence
+		reasons = append(reasons, normalizedProvenance.ClassificationReasons...)
+		reasons = append(reasons, normalizedProvenance.EvidenceBasis...)
+	}
+	switch {
+	case hasAnySignalValue(signals, "workflow_builtin_token", "github_token"):
+		source = agginventory.CredentialSourceWorkflowBuiltin
+	case len(signals.EvidenceKV["workflow_secret_refs"]) > 0:
+		source = agginventory.CredentialSourceWorkflowSecretRef
+	case hasAnySignalValue(signals, "identity_type", "github_app", "service_account", "bot_user"):
+		source = agginventory.CredentialSourceNonHumanIdentity
+	case hasSecretLikeAuthSurface(authSurfaces):
+		source = agginventory.CredentialSourceAuthSurface
+	case normalizedProvenance != nil:
+		source = agginventory.CredentialSourceDetectorEvidence
+	}
+
+	rotationStatus := rotationEvidenceStatus(signals, normalizedProvenance, accessType, kind)
+	if referencedByWorkflow {
+		reasons = append(reasons, "credential_referenced_by_workflow:true")
+	}
+	if credentialAccess {
+		reasons = append(reasons, "credential_usable_by_path:true")
+	}
+	if present {
+		reasons = append(reasons, "credential_present:true")
+	}
+
+	authority := &agginventory.CredentialAuthority{
+		CredentialPresent:              present,
+		CredentialReferencedByWorkflow: referencedByWorkflow,
+		CredentialUsableByPath:         credentialAccess && present,
+		CredentialKind:                 kind,
+		AccessType:                     accessType,
+		StandingAccess:                 normalizedProvenance != nil && normalizedProvenance.StandingAccess,
+		LikelyJIT:                      normalizedProvenance != nil && normalizedProvenance.LikelyJIT,
+		RotationEvidenceStatus:         rotationStatus,
+		CredentialSource:               source,
+		Confidence:                     confidence,
+		ReasonCodes:                    mergeSortedEvidence(reasons),
+	}
+	if normalizedProvenance == nil {
+		authority.StandingAccess = accessType == agginventory.CredentialAccessTypeStanding || accessType == agginventory.CredentialAccessTypeInherited
+		authority.LikelyJIT = accessType == agginventory.CredentialAccessTypeJIT || accessType == agginventory.CredentialAccessTypeWorkload
+	}
+	return agginventory.NormalizeCredentialAuthority(authority)
+}
+
+func rotationEvidenceStatus(signals findingSignals, provenance *agginventory.CredentialProvenance, accessType string, credentialKind string) string {
+	switch strings.TrimSpace(firstSignalValue(signals, "rotation_evidence_status")) {
+	case agginventory.CredentialRotationEvidencePresent,
+		agginventory.CredentialRotationEvidenceMissing,
+		agginventory.CredentialRotationEvidenceNotApplicable,
+		agginventory.CredentialRotationEvidenceUnknown,
+		agginventory.CredentialRotationEvidenceStale:
+		return strings.TrimSpace(firstSignalValue(signals, "rotation_evidence_status"))
+	}
+	if hasAnySignalValue(signals, "rotation_evidence", "present") {
+		return agginventory.CredentialRotationEvidencePresent
+	}
+	if hasAnySignalValue(signals, "rotation_evidence", "stale") {
+		return agginventory.CredentialRotationEvidenceStale
+	}
+	if provenance != nil {
+		return agginventory.NormalizeCredentialAuthority(&agginventory.CredentialAuthority{
+			CredentialKind:         provenance.CredentialKind,
+			AccessType:             provenance.AccessType,
+			RotationEvidenceStatus: "",
+		}).RotationEvidenceStatus
+	}
+	return agginventory.NormalizeCredentialAuthority(&agginventory.CredentialAuthority{
+		CredentialKind:         credentialKind,
+		AccessType:             accessType,
+		RotationEvidenceStatus: "",
+	}).RotationEvidenceStatus
 }
 
 func classifyCredentialProvenances(dataClass string, permissions []string, authSurfaces []string, signals findingSignals) []*agginventory.CredentialProvenance {

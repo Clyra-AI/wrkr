@@ -1990,6 +1990,84 @@ func TestBuildSummaryUsesWriteCapableFallbackWhenProductionTargetsInvalid(t *tes
 	}
 }
 
+func TestAgentActionBOMLineageShowsMissingProofSegment(t *testing.T) {
+	t.Parallel()
+
+	paths := []risk.ActionPath{{
+		PathID:                   "apc-lineage",
+		Org:                      "acme",
+		Repo:                     "acme/release",
+		AgentID:                  "wrkr:compiled_action:acme",
+		ToolType:                 "compiled_action",
+		Location:                 ".github/workflows/release.yml",
+		WriteCapable:             true,
+		CredentialAccess:         true,
+		CredentialAuthority:      &agginventory.CredentialAuthority{CredentialPresent: true, CredentialUsableByPath: true, CredentialKind: agginventory.CredentialKindGitHubPAT, AccessType: agginventory.CredentialAccessTypeStanding},
+		CredentialProvenance:     &agginventory.CredentialProvenance{Type: agginventory.CredentialProvenanceStaticSecret, CredentialKind: agginventory.CredentialKindGitHubPAT, AccessType: agginventory.CredentialAccessTypeStanding},
+		ActionClasses:            []string{"deploy", "write"},
+		MatchedProductionTargets: []string{"cluster/prod"},
+		OperationalOwner:         "@acme/release",
+		OwnershipStatus:          "explicit",
+		ApprovalGap:              true,
+		ApprovalGapReasons:       []string{"approval_evidence_missing"},
+		PolicyCoverageStatus:     risk.PolicyCoverageStatusNone,
+	}}
+	graph := risk.BuildControlPathGraph(paths)
+	paths = risk.DecorateActionLineage(paths, graph)
+
+	bom := buildAgentActionBOM(Summary{
+		GeneratedAt:      time.Date(2026, 5, 10, 20, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		ActionPaths:      paths,
+		ControlPathGraph: graph,
+	}, nil)
+	if bom == nil || len(bom.Items) != 1 || bom.Items[0].ActionLineage == nil {
+		t.Fatalf("expected action-lineage BOM item, got %+v", bom)
+	}
+	segments := map[string]risk.ActionLineageSegment{}
+	for _, segment := range bom.Items[0].ActionLineage.Segments {
+		segments[segment.Kind] = segment
+	}
+	if segments["approval"].Status != "missing" || segments["proof"].Status != "missing" {
+		t.Fatalf("expected approval/proof lineage gaps in BOM output, got %+v", bom.Items[0].ActionLineage)
+	}
+}
+
+func TestSanitizeActionLineagePublicPreservesJoinability(t *testing.T) {
+	t.Parallel()
+
+	lineage := &risk.ActionLineage{
+		Segments: []risk.ActionLineageSegment{
+			{
+				SegmentID:    "als-one",
+				Kind:         "workflow",
+				Label:        ".github/workflows/release.yml",
+				NodeIDs:      []string{"node-a"},
+				EdgeIDs:      []string{"edge-a"},
+				EvidenceRefs: []string{"workflow:.github/workflows/release.yml"},
+			},
+			{
+				SegmentID:    "als-two",
+				Kind:         "proof",
+				Label:        "proof_missing",
+				NodeIDs:      []string{"node-a"},
+				EdgeIDs:      []string{"edge-a"},
+				EvidenceRefs: []string{"proof:missing"},
+			},
+		},
+	}
+
+	redacted := sanitizeActionLineagePublic(lineage)
+	if redacted == nil || len(redacted.Segments) != 2 {
+		t.Fatalf("expected redacted lineage output, got %+v", redacted)
+	}
+	if redacted.Segments[0].Kind != "workflow" || redacted.Segments[1].Kind != "proof" {
+		t.Fatalf("expected lineage kinds to survive redaction, got %+v", redacted)
+	}
+	if redacted.Segments[0].Label == lineage.Segments[0].Label || redacted.Segments[0].NodeIDs[0] != redacted.Segments[1].NodeIDs[0] {
+		t.Fatalf("expected redacted labels and stable join ids, got %+v", redacted)
+	}
+}
+
 func TestSanitizeProofReferencePublicRedactsCanonicalKeys(t *testing.T) {
 	t.Parallel()
 

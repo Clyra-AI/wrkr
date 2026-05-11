@@ -197,12 +197,12 @@ func TestDetectMCPEnrichDegradesToNoDataOnProviderFailure(t *testing.T) {
 func TestExtractPackageVersionPrefersArgsOverLauncherCommand(t *testing.T) {
 	t.Parallel()
 
-	pkg, version := extractPackageVersion(serverDef{
+	pkg, version, versionSource := extractPackageVersion(serverDef{
 		Command: "npx",
 		Args:    []string{"-y", "@scope/server@1.2.3"},
 	})
-	if pkg != "@scope/server" || version != "1.2.3" {
-		t.Fatalf("expected scoped package from args, got pkg=%q version=%q", pkg, version)
+	if pkg != "@scope/server" || version != "1.2.3" || versionSource == "" {
+		t.Fatalf("expected scoped package from args, got pkg=%q version=%q source=%q", pkg, version, versionSource)
 	}
 }
 
