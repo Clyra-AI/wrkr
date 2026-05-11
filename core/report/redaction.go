@@ -15,7 +15,7 @@ const (
 	RedactionOwners             RedactionField = "owners"
 	RedactionRepos              RedactionField = "repos"
 	RedactionPaths              RedactionField = "paths"
-	RedactionCredentialSubjects RedactionField = "credential-subjects"
+	RedactionCredentialSubjects RedactionField = "credential-subjects" // #nosec G101 -- redaction selector label, not a credential
 	RedactionAuthors            RedactionField = "authors"
 	RedactionFilesystem         RedactionField = "filesystem"
 	RedactionProviders          RedactionField = "providers"
