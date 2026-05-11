@@ -68,6 +68,7 @@ type ActionPath struct {
 	WritePathClasses           []string                                `json:"write_path_classes,omitempty"`
 	ActionClasses              []string                                `json:"action_classes,omitempty"`
 	ActionReasons              []string                                `json:"action_reasons,omitempty"`
+	MutableEndpointSemantics   []agginventory.MutableEndpointSemantic  `json:"mutable_endpoint_semantics,omitempty"`
 	PullRequestWrite           bool                                    `json:"pull_request_write,omitempty"`
 	MergeExecute               bool                                    `json:"merge_execute,omitempty"`
 	DeployWrite                bool                                    `json:"deploy_write,omitempty"`
@@ -217,6 +218,7 @@ func buildActionPath(
 		WritePathClasses:           dedupeSortedStrings(entry.WritePathClasses),
 		ActionClasses:              dedupeSortedStrings(entry.ActionClasses),
 		ActionReasons:              dedupeSortedStrings(entry.ActionReasons),
+		MutableEndpointSemantics:   agginventory.CloneMutableEndpointSemantics(entry.MutableEndpointSemantics),
 		PullRequestWrite:           entry.PullRequestWrite,
 		MergeExecute:               entry.MergeExecute,
 		DeployWrite:                entry.DeployWrite,
@@ -257,6 +259,7 @@ func shouldIncludeActionPath(entry agginventory.AgentPrivilegeMapEntry) bool {
 		entry.PullRequestWrite ||
 		entry.MergeExecute ||
 		entry.DeployWrite ||
+		len(entry.MutableEndpointSemantics) > 0 ||
 		actionPathHasCriticalTrustGap(agginventory.NormalizeTrustDepth(entry.TrustDepth)) ||
 		actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons)
 }
@@ -366,6 +369,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.WritePathClasses = dedupeSortedStrings(append(append([]string(nil), current.WritePathClasses...), incoming.WritePathClasses...))
 	merged.ActionClasses = dedupeSortedStrings(append(append([]string(nil), current.ActionClasses...), incoming.ActionClasses...))
 	merged.ActionReasons = dedupeSortedStrings(append(append([]string(nil), current.ActionReasons...), incoming.ActionReasons...))
+	merged.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(append(append([]agginventory.MutableEndpointSemantic(nil), current.MutableEndpointSemantics...), incoming.MutableEndpointSemantics...))
 	merged.MatchedProductionTargets = dedupeSortedStrings(append(append([]string(nil), current.MatchedProductionTargets...), incoming.MatchedProductionTargets...))
 	merged.ProductionTargetStatus = mergeProductionTargetStatus(current.ProductionTargetStatus, incoming.ProductionTargetStatus)
 	merged.SecurityVisibilityStatus = mergeSecurityVisibilityStatus(current.SecurityVisibilityStatus, incoming.SecurityVisibilityStatus)
@@ -492,6 +496,7 @@ func BuildControlPathGraph(paths []ActionPath) *aggattack.ControlPathGraph {
 			CredentialAccess:         path.CredentialAccess,
 			CredentialProvenance:     agginventory.CloneCredentialProvenance(path.CredentialProvenance),
 			CredentialAuthority:      agginventory.CloneCredentialAuthority(path.CredentialAuthority),
+			MutableEndpointSemantics: agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics),
 			GovernanceControls:       append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),
 			MatchedProductionTargets: dedupeSortedStrings(path.MatchedProductionTargets),
 			WritePathClasses:         dedupeSortedStrings(path.WritePathClasses),
@@ -1040,6 +1045,7 @@ func governFirstPriorityScore(path ActionPath) int {
 	if path.CredentialAccess {
 		score += 4
 	}
+	score += pathMutableEndpointPriority(path)
 	score += credentialAuthorityPriority(path.CredentialAuthority, path.CredentialProvenance)
 	if path.StandingPrivilege {
 		score += 6

@@ -58,7 +58,7 @@ func Build(
 	budget.ProductionWrite.Count = &zero
 
 	for _, tool := range tools {
-		writeCapable := hasAnyPermission(tool.Permissions, writeSet)
+		writeCapable := hasAnyPermission(tool.Permissions, writeSet) || mutableEndpointWriteCapable(tool.MutableEndpointSemantics)
 		credentialAccess := hasCredentialAccess(tool)
 		execCapable := hasExecPermission(tool.Permissions)
 		if writeCapable {
@@ -91,12 +91,14 @@ func Build(
 			pullRequestWrite := hasExactPermission(tool.Permissions, "pull_request.write")
 			mergeExecute := hasExactPermission(tool.Permissions, "merge.execute")
 			deployWrite := hasExactPermission(tool.Permissions, "deploy.write")
-			writePathClasses := agginventory.DeriveWritePathClasses(tool.Permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, false, primaryLocation(tool), tool.ToolType)
 
 			matchedTargets := []string{}
 			productionWrite := false
+			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation)
+			mutableEndpointSemantics := mergeMutableEndpointSemantics(tool.MutableEndpointSemantics, mutableEndpointSemanticsFromSignals(signal))
+			writeCapable = writeCapable || mutableEndpointWriteCapable(mutableEndpointSemantics)
+			writePathClasses := agginventory.DeriveWritePathClasses(tool.Permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, false, primaryLocation(tool), tool.ToolType)
 			if productionConfigured && writeCapable {
-				signal := signalsByAgent[tool.AgentID]
 				matchedTargets = matchedProductionTargets(tool.Repos, signal, effectiveProductionRules)
 				productionWrite = len(matchedTargets) > 0
 				writePathClasses = agginventory.DeriveWritePathClasses(tool.Permissions, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite, primaryLocation(tool), tool.ToolType)
@@ -107,20 +109,20 @@ func Build(
 			if deploymentStatus == "" {
 				deploymentStatus = "unknown"
 			}
-			signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation)
 			credentials := classifyCredentialProvenances(tool.DataClass, tool.Permissions, agentContext.BoundAuthSurfaces, signal)
 			credentialProvenance := agginventory.CredentialRollup(credentials, classifyCredentialProvenance(tool.DataClass, tool.Permissions, agentContext.BoundAuthSurfaces, signal))
 			credentialAuthority := classifyCredentialAuthority(agentContext.BoundAuthSurfaces, signal, credentialAccess, credentials, credentialProvenance)
 			actionClasses, actionReasons := agginventory.DeriveActionClasses(agginventory.ActionClassInput{
-				Permissions:      tool.Permissions,
-				WritePathClasses: writePathClasses,
-				WriteCapable:     writeCapable,
-				CredentialAccess: credentialAccess,
-				DeployWrite:      deployWrite,
-				ProductionWrite:  productionWrite,
-				MatchedTargets:   matchedTargets,
-				ToolType:         tool.ToolType,
-				Location:         primaryLocation(tool),
+				Permissions:              tool.Permissions,
+				WritePathClasses:         writePathClasses,
+				MutableEndpointSemantics: mutableEndpointSemantics,
+				WriteCapable:             writeCapable,
+				CredentialAccess:         credentialAccess,
+				DeployWrite:              deployWrite,
+				ProductionWrite:          productionWrite,
+				MatchedTargets:           matchedTargets,
+				ToolType:                 tool.ToolType,
+				Location:                 primaryLocation(tool),
 			})
 			standingPrivilege, standingReasons := agginventory.StandingPrivilegeFromProvenance(credentialProvenance)
 			approvalReasons := approvalGapReasons(signal, tool.Permissions, deploymentStatus)
@@ -149,6 +151,7 @@ func Build(
 				WritePathClasses:         writePathClasses,
 				ActionClasses:            actionClasses,
 				ActionReasons:            actionReasons,
+				MutableEndpointSemantics: mutableEndpointSemantics,
 				Location:                 primaryLocation(tool),
 				EndpointClass:            tool.EndpointClass,
 				DataClass:                tool.DataClass,
@@ -308,7 +311,8 @@ func buildInstanceEntries(
 			approvalClassification = "unapproved"
 		}
 
-		writeCapable := hasAnyPermission(permissions, writeSet)
+		mutableEndpointSemantics := mergeMutableEndpointSemantics(tool.MutableEndpointSemantics, mutableEndpointSemanticsFromSignals(signals))
+		writeCapable := hasAnyPermission(permissions, writeSet) || mutableEndpointWriteCapable(mutableEndpointSemantics)
 		credentialAccess := hasCredentialAccessForSurface(dataClass, permissions, agent.BoundAuthSurfaces)
 		execCapable := hasExecPermission(permissions)
 		pullRequestWrite := hasExactPermission(permissions, "pull_request.write")
@@ -331,15 +335,16 @@ func buildInstanceEntries(
 		credentialProvenance := agginventory.CredentialRollup(credentials, classifyCredentialProvenance(dataClass, permissions, agent.BoundAuthSurfaces, signals))
 		credentialAuthority := classifyCredentialAuthority(agent.BoundAuthSurfaces, signals, credentialAccess, credentials, credentialProvenance)
 		actionClasses, actionReasons := agginventory.DeriveActionClasses(agginventory.ActionClassInput{
-			Permissions:      permissions,
-			WritePathClasses: writePathClasses,
-			WriteCapable:     writeCapable,
-			CredentialAccess: credentialAccess,
-			DeployWrite:      deployWrite,
-			ProductionWrite:  productionWrite,
-			MatchedTargets:   matchedTargets,
-			ToolType:         framework,
-			Location:         agent.Location,
+			Permissions:              permissions,
+			WritePathClasses:         writePathClasses,
+			MutableEndpointSemantics: mutableEndpointSemantics,
+			WriteCapable:             writeCapable,
+			CredentialAccess:         credentialAccess,
+			DeployWrite:              deployWrite,
+			ProductionWrite:          productionWrite,
+			MatchedTargets:           matchedTargets,
+			ToolType:                 framework,
+			Location:                 agent.Location,
 		})
 		standingPrivilege, standingReasons := agginventory.StandingPrivilegeFromProvenance(credentialProvenance)
 		approvalReasons := approvalGapReasons(signals, permissions, deploymentStatus)
@@ -368,6 +373,7 @@ func buildInstanceEntries(
 			WritePathClasses:         writePathClasses,
 			ActionClasses:            actionClasses,
 			ActionReasons:            actionReasons,
+			MutableEndpointSemantics: mutableEndpointSemantics,
 			Location:                 strings.TrimSpace(agent.Location),
 			LocationRange:            cloneLocationRange(agent.LocationRange),
 			EndpointClass:            endpointClass,
@@ -833,6 +839,7 @@ func filteredRepoLocationSignals(signal findingSignals) findingSignals {
 		"approval_source":            {},
 		"deployment_gate":            {},
 		"human_gate":                 {},
+		"mutable_endpoint_semantic":  {},
 		"auto_deploy":                {},
 		"proof_requirement":          {},
 		"env_key":                    {},
@@ -1001,6 +1008,58 @@ func currentProductionTargetStatus(productionConfigured bool) string {
 		return agginventory.ProductionTargetsStatusConfigured
 	}
 	return agginventory.ProductionTargetsStatusNotConfigured
+}
+
+func mutableEndpointSemanticsFromSignals(signals findingSignals) []agginventory.MutableEndpointSemantic {
+	values := []agginventory.MutableEndpointSemantic{}
+	for _, raw := range signals.EvidenceKV["mutable_endpoint_semantic"] {
+		parts := strings.SplitN(strings.TrimSpace(raw), "|", 4)
+		if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
+			continue
+		}
+		item := agginventory.MutableEndpointSemantic{
+			Semantic: strings.TrimSpace(parts[0]),
+		}
+		if len(parts) > 1 {
+			item.Confidence = strings.TrimSpace(parts[1])
+		}
+		if len(parts) > 2 {
+			item.Surface = strings.TrimSpace(parts[2])
+		}
+		if len(parts) > 3 {
+			item.Operation = strings.TrimSpace(parts[3])
+		}
+		if item.Operation != "" {
+			item.EvidenceRefs = []string{item.Operation}
+		}
+		values = append(values, item)
+	}
+	return agginventory.NormalizeMutableEndpointSemantics(values)
+}
+
+func mergeMutableEndpointSemantics(groups ...[]agginventory.MutableEndpointSemantic) []agginventory.MutableEndpointSemantic {
+	merged := []agginventory.MutableEndpointSemantic{}
+	for _, group := range groups {
+		merged = append(merged, agginventory.CloneMutableEndpointSemantics(group)...)
+	}
+	return agginventory.NormalizeMutableEndpointSemantics(merged)
+}
+
+func mutableEndpointWriteCapable(values []agginventory.MutableEndpointSemantic) bool {
+	for _, item := range agginventory.NormalizeMutableEndpointSemantics(values) {
+		switch strings.TrimSpace(item.Semantic) {
+		case agginventory.EndpointSemanticWrite,
+			agginventory.EndpointSemanticDelete,
+			agginventory.EndpointSemanticDeploy,
+			agginventory.EndpointSemanticRefund,
+			agginventory.EndpointSemanticPayment,
+			agginventory.EndpointSemanticUserAdmin,
+			agginventory.EndpointSemanticDataExport,
+			agginventory.EndpointSemanticProductionMutation:
+			return true
+		}
+	}
+	return false
 }
 
 func classifyCredentialProvenance(dataClass string, permissions []string, authSurfaces []string, signals findingSignals) *agginventory.CredentialProvenance {

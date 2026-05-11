@@ -194,6 +194,7 @@ func deriveControlState(path ActionPath) (string, []string) {
 	highBlastRadius := path.ProductionWrite ||
 		path.DeployWrite ||
 		path.MergeExecute ||
+		pathHasHighImpactMutableEndpoint(path) ||
 		containsPathValue(path.ActionClasses, "deploy") ||
 		containsPathValue(path.ActionClasses, "delete") ||
 		containsPathValue(path.ActionClasses, "execute")
@@ -201,7 +202,8 @@ func deriveControlState(path ActionPath) (string, []string) {
 		path.WriteCapable ||
 		path.PullRequestWrite ||
 		path.CredentialAccess ||
-		len(path.MatchedProductionTargets) > 0
+		len(path.MatchedProductionTargets) > 0 ||
+		pathHasAnyMutableEndpoint(path)
 	missingPolicyOrProof := strings.TrimSpace(path.PolicyCoverageStatus) == "" ||
 		strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusNone ||
 		strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusStale ||
@@ -291,6 +293,11 @@ func deriveRiskZone(path ActionPath) (string, []string) {
 	toolType := strings.ToLower(strings.TrimSpace(path.ToolType))
 
 	switch {
+	case pathHasSensitiveDataEndpoint(path):
+		for _, item := range pathMutableEndpointSemantics(path) {
+			add("mutable_endpoint_semantic:" + strings.TrimSpace(item.Semantic))
+		}
+		return RiskZoneProductionData, dedupeSortedStrings(reasons)
 	case path.ProductionWrite || strings.Contains(location, "prod") || strings.Contains(location, "database") || strings.Contains(location, "migration"):
 		if path.ProductionWrite {
 			add("production_write:true")
@@ -386,6 +393,11 @@ func deriveReviewBurden(path ActionPath) (string, []string) {
 	}
 	if path.StandingPrivilege {
 		add("standing_privilege:true", 2)
+	}
+	if pathHasHighImpactMutableEndpoint(path) {
+		add("mutable_endpoint_semantic:high_impact", 3)
+	} else if pathHasAnyMutableEndpoint(path) {
+		add("mutable_endpoint_semantic:present", 1)
 	}
 	if path.ApprovalGap {
 		add("approval_gap:true", 2)
@@ -493,6 +505,7 @@ func pathHasPermissionOrTargetSignal(path ActionPath) bool {
 		path.DeployWrite ||
 		path.ProductionWrite ||
 		len(path.MatchedProductionTargets) > 0 ||
+		pathHasAnyMutableEndpoint(path) ||
 		len(path.ActionClasses) > 0
 }
 

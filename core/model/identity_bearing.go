@@ -73,6 +73,8 @@ var inventoryBearingFindingTypes = map[string]struct{}{
 	"ci_autonomy":           {},
 	"compiled_action":       {},
 	"mcp_server":            {},
+	"openapi_endpoint":      {},
+	"route_endpoint":        {},
 	"skill":                 {},
 	"tool_config":           {},
 	"webmcp_declaration":    {},

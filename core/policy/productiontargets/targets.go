@@ -27,10 +27,17 @@ var (
 )
 
 var defaultWritePermissions = []string{
+	"api.delete",
+	"api.write",
 	"db.write",
 	"deploy.write",
+	"production.write",
+	"payment.write",
+	"refund.write",
 	"filesystem.write",
 	"infra.write",
+	"user_admin.write",
+	"data_export.write",
 	"repo.contents.write",
 }
 

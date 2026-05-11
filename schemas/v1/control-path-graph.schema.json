@@ -82,6 +82,10 @@
         "config_source": {"type": "string"},
         "status": {"type": "string"},
         "credential_authority": {"$ref": "#/$defs/credentialAuthority"},
+        "mutable_endpoint_semantics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mutableEndpointSemantic"}
+        },
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
         "source_refs": {"type": "array", "items": {"type": "string"}},
         "attack_path_refs": {"type": "array", "items": {"type": "string"}},
@@ -120,6 +124,18 @@
         "credential_source": {"type": "string", "enum": ["workflow_secret_ref", "workflow_builtin_token", "non_human_identity", "auth_surface", "detector_evidence", "direct_config", "unknown"]},
         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "reason_codes": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "mutableEndpointSemantic": {
+      "type": "object",
+      "required": ["semantic"],
+      "properties": {
+        "semantic": {"type": "string", "enum": ["read", "write", "delete", "deploy", "refund", "payment", "user_admin", "data_export", "production_mutation"]},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "surface": {"type": "string"},
+        "operation": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     }

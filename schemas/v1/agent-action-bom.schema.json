@@ -103,6 +103,10 @@
         "confidence_lane_reasons": {"type": "array", "items": {"type": "string"}},
         "action_classes": {"type": "array", "items": {"type": "string"}},
         "action_reasons": {"type": "array", "items": {"type": "string"}},
+        "mutable_endpoint_semantics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mutableEndpointSemantic"}
+        },
         "production_write": {"type": "boolean"},
         "production_target_status": {"type": "string"},
         "matched_production_targets": {"type": "array", "items": {"type": "string"}},
@@ -208,6 +212,18 @@
       "properties": {
         "node_ids": {"type": "array", "items": {"type": "string"}},
         "edge_ids": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "mutableEndpointSemantic": {
+      "type": "object",
+      "required": ["semantic"],
+      "properties": {
+        "semantic": {"type": "string", "enum": ["read", "write", "delete", "deploy", "refund", "payment", "user_admin", "data_export", "production_mutation"]},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "surface": {"type": "string"},
+        "operation": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },

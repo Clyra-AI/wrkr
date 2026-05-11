@@ -121,10 +121,10 @@
   },
   "summary": {
     "total_items": 8,
-    "control_first_items": 2,
+    "control_first_items": 4,
     "standing_privilege_items": 3,
     "static_credential_items": 3,
-    "production_target_items": 3,
+    "production_target_items": 5,
     "missing_approval_items": 8,
     "missing_policy_items": 0,
     "missing_proof_items": 8,
@@ -167,9 +167,9 @@
       "path_count": 8,
       "driver": "production_and_credentials",
       "rationale": [
-        "production_backed_paths=4",
+        "production_backed_paths=6",
         "credential_bearing_paths=1",
-        "write_capable_paths=3",
+        "write_capable_paths=5",
         "runtime_deployed_paths=3"
       ]
     },

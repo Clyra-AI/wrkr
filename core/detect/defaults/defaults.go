@@ -23,7 +23,9 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/mcp"
 	"github.com/Clyra-AI/wrkr/core/detect/mcpgateway"
 	"github.com/Clyra-AI/wrkr/core/detect/nonhumanidentity"
+	"github.com/Clyra-AI/wrkr/core/detect/openapi"
 	"github.com/Clyra-AI/wrkr/core/detect/promptchannel"
+	"github.com/Clyra-AI/wrkr/core/detect/routes"
 	"github.com/Clyra-AI/wrkr/core/detect/secrets"
 	"github.com/Clyra-AI/wrkr/core/detect/skills"
 	"github.com/Clyra-AI/wrkr/core/detect/webmcp"
@@ -79,6 +81,8 @@ func detectorsForMode(mode string) []detect.Detector {
 			workstation.New(),
 			mcpgateway.New(),
 			nonhumanidentity.New(),
+			openapi.New(),
+			routes.New(),
 			webmcp.New(),
 			promptchannel.New(),
 			skills.New(),

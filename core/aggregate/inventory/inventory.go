@@ -91,6 +91,7 @@ type Tool struct {
 	ConfigSource             string                     `json:"config_source,omitempty" yaml:"config_source,omitempty"`
 	Permissions              []string                   `json:"permissions,omitempty" yaml:"permissions,omitempty"`
 	WritePathClasses         []string                   `json:"write_path_classes,omitempty" yaml:"write_path_classes,omitempty"`
+	MutableEndpointSemantics []MutableEndpointSemantic  `json:"mutable_endpoint_semantics,omitempty" yaml:"mutable_endpoint_semantics,omitempty"`
 	GovernanceControls       []GovernanceControlMapping `json:"governance_controls,omitempty" yaml:"governance_controls,omitempty"`
 	PermissionSurface        PermissionSurface          `json:"permission_surface" yaml:"permission_surface"`
 	PermissionTier           string                     `json:"permission_tier" yaml:"permission_tier"`
@@ -368,6 +369,8 @@ func Build(input BuildInput) Inventory {
 			DeploymentEvidenceKeys: cloneStringSlice(input.AgentDeployments[instanceID].DeploymentEvidenceKeys),
 		}
 
+		item.tool.MutableEndpointSemantics = NormalizeMutableEndpointSemantics(append(item.tool.MutableEndpointSemantics, mutableEndpointSemanticsFromFinding(finding)...))
+
 		if finding.Repo != "" {
 			item.repoSet[finding.Repo] = struct{}{}
 		}
@@ -432,6 +435,7 @@ func Build(input BuildInput) Inventory {
 			item.tool.ToolType,
 		)
 		item.tool.PermissionTier = classifyPermissionTier(item.tool.PermissionSurface)
+		item.tool.MutableEndpointSemantics = NormalizeMutableEndpointSemantics(item.tool.MutableEndpointSemantics)
 		item.tool.RiskTier = projectRiskTier(item.tool.PermissionTier, item.tool.RiskScore, item.tool.AutonomyLevel, item.tool.ApprovalClass)
 		item.tool.AdoptionPattern = classifyAdoptionPattern(item.tool.Repos, item.tool.Locations)
 		item.tool.RegulatoryMapping = regulatoryMappings(item.tool)
@@ -1601,6 +1605,39 @@ func normalizeDiscoveryMethod(value string) string {
 		return model.DiscoveryMethodStatic
 	}
 	return trimmed
+}
+
+func mutableEndpointSemanticsFromFinding(finding model.Finding) []MutableEndpointSemantic {
+	if len(finding.Evidence) == 0 {
+		return nil
+	}
+	values := []MutableEndpointSemantic{}
+	for _, evidence := range finding.Evidence {
+		if strings.TrimSpace(strings.ToLower(evidence.Key)) != "mutable_endpoint_semantic" {
+			continue
+		}
+		parts := strings.SplitN(strings.TrimSpace(evidence.Value), "|", 4)
+		if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
+			continue
+		}
+		item := MutableEndpointSemantic{
+			Semantic: strings.TrimSpace(parts[0]),
+		}
+		if len(parts) > 1 {
+			item.Confidence = strings.TrimSpace(parts[1])
+		}
+		if len(parts) > 2 {
+			item.Surface = strings.TrimSpace(parts[2])
+		}
+		if len(parts) > 3 {
+			item.Operation = strings.TrimSpace(parts[3])
+		}
+		if item.Operation != "" {
+			item.EvidenceRefs = []string{item.Operation}
+		}
+		values = append(values, item)
+	}
+	return NormalizeMutableEndpointSemantics(values)
 }
 
 func sortedSet(set map[string]struct{}) []string {

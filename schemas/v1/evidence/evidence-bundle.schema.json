@@ -23,6 +23,12 @@
     "runtime_evidence": {
       "$ref": "#/definitions/runtimeEvidence"
     },
+    "action_surface_registry": {
+      "type": "array",
+      "items": {
+        "$ref": "../report/report-summary.schema.json#/$defs/actionSurfaceRegistryEntry"
+      }
+    },
     "agent_action_bom": {
       "$ref": "../agent-action-bom.schema.json"
     }

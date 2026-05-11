@@ -52,6 +52,10 @@
         "write_path_classes": {"type": "array", "items": {"type": "string"}},
         "action_classes": {"type": "array", "items": {"type": "string"}},
         "action_reasons": {"type": "array", "items": {"type": "string"}},
+        "mutable_endpoint_semantics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mutableEndpointSemantic"}
+        },
         "pull_request_write": {"type": "boolean"},
         "merge_execute": {"type": "boolean"},
         "deploy_write": {"type": "boolean"},
@@ -193,6 +197,18 @@
           "type": "array",
           "items": {"$ref": "#/$defs/actionLineageSegment"}
         }
+      },
+      "additionalProperties": false
+    },
+    "mutableEndpointSemantic": {
+      "type": "object",
+      "required": ["semantic"],
+      "properties": {
+        "semantic": {"type": "string", "enum": ["read", "write", "delete", "deploy", "refund", "payment", "user_admin", "data_export", "production_mutation"]},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "surface": {"type": "string"},
+        "operation": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },

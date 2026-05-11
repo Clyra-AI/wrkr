@@ -14,6 +14,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 - Prompt-channel override/poisoning patterns from static instruction surfaces with deterministic reason codes and evidence hashes.
 - Structured GitHub Actions workflow capability extraction for `repo.write`, `pull_request.write`, `merge.execute`, `deploy.write`, `db.write`, and `iac.write`, with additive evidence keys that explain which static workflow step or permission produced each claim.
 - Static MCP action-surface classification (`mcp.read`, `mcp.write`, `mcp.admin`) from saved declaration fields and saved gateway posture.
+- Static mutable endpoint classification from OpenAPI specs, common route files, and MCP declaration hints, including additive semantics such as `payment`, `refund`, `user_admin`, `data_export`, and `production_mutation` with deterministic confidence and evidence refs.
 - Static non-human execution identity signals for GitHub Apps, bot users, and service-account references from workflow/config artifacts.
 - Deterministic purpose, version, and config-fingerprint metadata for supported workflow, MCP, and agent-config surfaces when local files or static declaration evidence are available.
 - Static policy/profile posture signals and ranked findings.
@@ -22,7 +23,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 
 ## What Wrkr does not detect
 
-- Live runtime network traffic, live endpoint behavior, or post-deploy runtime side effects.
+- Live runtime network traffic, live endpoint behavior, post-deploy runtime side effects, or live endpoint reachability checks.
 - Live runtime execution of agents or tool side effects beyond what is declared in repository and CI artifacts.
 - Dynamic SaaS telemetry from external systems unless explicitly integrated in non-default paths.
 - Guaranteed upstream API/schema stability for external enrich providers.

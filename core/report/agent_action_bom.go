@@ -61,82 +61,83 @@ type AgentActionBOMSummary struct {
 }
 
 type AgentActionBOMItem struct {
-	PathID                   string                               `json:"path_id"`
-	AgentID                  string                               `json:"agent_id,omitempty"`
-	ToolFamilyID             string                               `json:"tool_family_id,omitempty"`
-	ToolInstanceID           string                               `json:"tool_instance_id,omitempty"`
-	Org                      string                               `json:"org"`
-	Repo                     string                               `json:"repo"`
-	ToolType                 string                               `json:"tool_type"`
-	Location                 string                               `json:"location,omitempty"`
-	Purpose                  string                               `json:"purpose,omitempty"`
-	PurposeSource            string                               `json:"purpose_source,omitempty"`
-	PurposeConfidence        string                               `json:"purpose_confidence,omitempty"`
-	Version                  string                               `json:"version,omitempty"`
-	VersionSource            string                               `json:"version_source,omitempty"`
-	ConfigFingerprint        string                               `json:"config_fingerprint,omitempty"`
-	ConfigSource             string                               `json:"config_source,omitempty"`
-	Owner                    string                               `json:"owner,omitempty"`
-	OwnerSource              string                               `json:"owner_source,omitempty"`
-	OwnershipStatus          string                               `json:"ownership_status,omitempty"`
-	OwnershipState           string                               `json:"ownership_state,omitempty"`
-	CredentialAccess         bool                                 `json:"credential_access"`
-	Credentials              []*agginventory.CredentialProvenance `json:"credentials,omitempty"`
-	CredentialProvenance     *agginventory.CredentialProvenance   `json:"credential_provenance,omitempty"`
-	CredentialAuthority      *agginventory.CredentialAuthority    `json:"credential_authority,omitempty"`
-	PathContext              *agginventory.PathContext            `json:"path_context,omitempty"`
-	StandingPrivilege        bool                                 `json:"standing_privilege,omitempty"`
-	StandingPrivilegeReasons []string                             `json:"standing_privilege_reasons,omitempty"`
-	ControlState             string                               `json:"control_state,omitempty"`
-	ControlStateReasons      []string                             `json:"control_state_reasons,omitempty"`
-	RiskZone                 string                               `json:"risk_zone,omitempty"`
-	RiskZoneReasons          []string                             `json:"risk_zone_reasons,omitempty"`
-	ReviewBurden             string                               `json:"review_burden,omitempty"`
-	ReviewBurdenReasons      []string                             `json:"review_burden_reasons,omitempty"`
-	ConfidenceLane           string                               `json:"confidence_lane,omitempty"`
-	ConfidenceLaneReasons    []string                             `json:"confidence_lane_reasons,omitempty"`
-	ActionClasses            []string                             `json:"action_classes,omitempty"`
-	ActionReasons            []string                             `json:"action_reasons,omitempty"`
-	ProductionWrite          bool                                 `json:"production_write,omitempty"`
-	ProductionTargetStatus   string                               `json:"production_target_status,omitempty"`
-	MatchedProductionTargets []string                             `json:"matched_production_targets,omitempty"`
-	ApprovalGap              bool                                 `json:"approval_gap"`
-	ApprovalGapReasons       []string                             `json:"approval_gap_reasons,omitempty"`
-	PolicyStatus             string                               `json:"policy_status,omitempty"`
-	PolicyRefs               []string                             `json:"policy_refs,omitempty"`
-	PolicyMissingReasons     []string                             `json:"policy_missing_reasons,omitempty"`
-	PolicyStatusReasons      []string                             `json:"policy_status_reasons,omitempty"`
-	PolicyConfidence         string                               `json:"policy_confidence,omitempty"`
-	PolicyEvidenceRefs       []string                             `json:"policy_evidence_refs,omitempty"`
-	ProofCoverage            string                               `json:"proof_coverage,omitempty"`
-	ProofRefs                []string                             `json:"proof_refs,omitempty"`
-	RuntimeEvidenceStatus    string                               `json:"runtime_evidence_status,omitempty"`
-	RuntimeEvidenceClasses   []string                             `json:"runtime_evidence_classes,omitempty"`
-	RuntimeEvidenceRefs      []string                             `json:"runtime_evidence_refs,omitempty"`
-	GaitCoverage             *risk.GaitCoverage                   `json:"gait_coverage,omitempty"`
-	Confidence               string                               `json:"confidence,omitempty"`
-	EvidenceStrength         string                               `json:"evidence_strength,omitempty"`
-	InventoryRisk            string                               `json:"inventory_risk,omitempty"`
-	ControlPriority          string                               `json:"control_priority,omitempty"`
-	RiskTier                 string                               `json:"risk_tier,omitempty"`
-	RecommendedNextAction    string                               `json:"recommended_next_action,omitempty"`
-	Queue                    string                               `json:"queue,omitempty"`
-	FindingVisibility        string                               `json:"finding_visibility,omitempty"`
-	Remediation              string                               `json:"remediation,omitempty"`
-	AttackPathRefs           []string                             `json:"attack_path_refs,omitempty"`
-	SourceFindingKeys        []string                             `json:"source_finding_keys,omitempty"`
-	ExclusionReason          string                               `json:"exclusion_reason,omitempty"`
-	GraphRefs                AgentActionBOMGraphRefs              `json:"graph_refs,omitempty"`
-	EvidenceRefs             []string                             `json:"evidence_refs,omitempty"`
-	Reachability             []AgentActionBOMReachability         `json:"reachability,omitempty"`
-	ReachableServers         []AgentActionBOMReachability         `json:"reachable_servers,omitempty"`
-	ReachableTools           []AgentActionBOMReachability         `json:"reachable_tools,omitempty"`
-	ReachableEndpoints       []AgentActionBOMReachability         `json:"reachable_endpoints,omitempty"`
-	ReachableTargets         []AgentActionBOMReachability         `json:"reachable_targets,omitempty"`
-	ReachableAPIs            []AgentActionBOMReachability         `json:"reachable_apis,omitempty"`
-	ReachableAgents          []AgentActionBOMReachability         `json:"reachable_agents,omitempty"`
-	IntroducedBy             *attribution.Result                  `json:"introduced_by,omitempty"`
-	ActionLineage            *risk.ActionLineage                  `json:"action_lineage,omitempty"`
+	PathID                   string                                 `json:"path_id"`
+	AgentID                  string                                 `json:"agent_id,omitempty"`
+	ToolFamilyID             string                                 `json:"tool_family_id,omitempty"`
+	ToolInstanceID           string                                 `json:"tool_instance_id,omitempty"`
+	Org                      string                                 `json:"org"`
+	Repo                     string                                 `json:"repo"`
+	ToolType                 string                                 `json:"tool_type"`
+	Location                 string                                 `json:"location,omitempty"`
+	Purpose                  string                                 `json:"purpose,omitempty"`
+	PurposeSource            string                                 `json:"purpose_source,omitempty"`
+	PurposeConfidence        string                                 `json:"purpose_confidence,omitempty"`
+	Version                  string                                 `json:"version,omitempty"`
+	VersionSource            string                                 `json:"version_source,omitempty"`
+	ConfigFingerprint        string                                 `json:"config_fingerprint,omitempty"`
+	ConfigSource             string                                 `json:"config_source,omitempty"`
+	Owner                    string                                 `json:"owner,omitempty"`
+	OwnerSource              string                                 `json:"owner_source,omitempty"`
+	OwnershipStatus          string                                 `json:"ownership_status,omitempty"`
+	OwnershipState           string                                 `json:"ownership_state,omitempty"`
+	CredentialAccess         bool                                   `json:"credential_access"`
+	Credentials              []*agginventory.CredentialProvenance   `json:"credentials,omitempty"`
+	CredentialProvenance     *agginventory.CredentialProvenance     `json:"credential_provenance,omitempty"`
+	CredentialAuthority      *agginventory.CredentialAuthority      `json:"credential_authority,omitempty"`
+	PathContext              *agginventory.PathContext              `json:"path_context,omitempty"`
+	StandingPrivilege        bool                                   `json:"standing_privilege,omitempty"`
+	StandingPrivilegeReasons []string                               `json:"standing_privilege_reasons,omitempty"`
+	ControlState             string                                 `json:"control_state,omitempty"`
+	ControlStateReasons      []string                               `json:"control_state_reasons,omitempty"`
+	RiskZone                 string                                 `json:"risk_zone,omitempty"`
+	RiskZoneReasons          []string                               `json:"risk_zone_reasons,omitempty"`
+	ReviewBurden             string                                 `json:"review_burden,omitempty"`
+	ReviewBurdenReasons      []string                               `json:"review_burden_reasons,omitempty"`
+	ConfidenceLane           string                                 `json:"confidence_lane,omitempty"`
+	ConfidenceLaneReasons    []string                               `json:"confidence_lane_reasons,omitempty"`
+	ActionClasses            []string                               `json:"action_classes,omitempty"`
+	ActionReasons            []string                               `json:"action_reasons,omitempty"`
+	MutableEndpointSemantics []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
+	ProductionWrite          bool                                   `json:"production_write,omitempty"`
+	ProductionTargetStatus   string                                 `json:"production_target_status,omitempty"`
+	MatchedProductionTargets []string                               `json:"matched_production_targets,omitempty"`
+	ApprovalGap              bool                                   `json:"approval_gap"`
+	ApprovalGapReasons       []string                               `json:"approval_gap_reasons,omitempty"`
+	PolicyStatus             string                                 `json:"policy_status,omitempty"`
+	PolicyRefs               []string                               `json:"policy_refs,omitempty"`
+	PolicyMissingReasons     []string                               `json:"policy_missing_reasons,omitempty"`
+	PolicyStatusReasons      []string                               `json:"policy_status_reasons,omitempty"`
+	PolicyConfidence         string                                 `json:"policy_confidence,omitempty"`
+	PolicyEvidenceRefs       []string                               `json:"policy_evidence_refs,omitempty"`
+	ProofCoverage            string                                 `json:"proof_coverage,omitempty"`
+	ProofRefs                []string                               `json:"proof_refs,omitempty"`
+	RuntimeEvidenceStatus    string                                 `json:"runtime_evidence_status,omitempty"`
+	RuntimeEvidenceClasses   []string                               `json:"runtime_evidence_classes,omitempty"`
+	RuntimeEvidenceRefs      []string                               `json:"runtime_evidence_refs,omitempty"`
+	GaitCoverage             *risk.GaitCoverage                     `json:"gait_coverage,omitempty"`
+	Confidence               string                                 `json:"confidence,omitempty"`
+	EvidenceStrength         string                                 `json:"evidence_strength,omitempty"`
+	InventoryRisk            string                                 `json:"inventory_risk,omitempty"`
+	ControlPriority          string                                 `json:"control_priority,omitempty"`
+	RiskTier                 string                                 `json:"risk_tier,omitempty"`
+	RecommendedNextAction    string                                 `json:"recommended_next_action,omitempty"`
+	Queue                    string                                 `json:"queue,omitempty"`
+	FindingVisibility        string                                 `json:"finding_visibility,omitempty"`
+	Remediation              string                                 `json:"remediation,omitempty"`
+	AttackPathRefs           []string                               `json:"attack_path_refs,omitempty"`
+	SourceFindingKeys        []string                               `json:"source_finding_keys,omitempty"`
+	ExclusionReason          string                                 `json:"exclusion_reason,omitempty"`
+	GraphRefs                AgentActionBOMGraphRefs                `json:"graph_refs,omitempty"`
+	EvidenceRefs             []string                               `json:"evidence_refs,omitempty"`
+	Reachability             []AgentActionBOMReachability           `json:"reachability,omitempty"`
+	ReachableServers         []AgentActionBOMReachability           `json:"reachable_servers,omitempty"`
+	ReachableTools           []AgentActionBOMReachability           `json:"reachable_tools,omitempty"`
+	ReachableEndpoints       []AgentActionBOMReachability           `json:"reachable_endpoints,omitempty"`
+	ReachableTargets         []AgentActionBOMReachability           `json:"reachable_targets,omitempty"`
+	ReachableAPIs            []AgentActionBOMReachability           `json:"reachable_apis,omitempty"`
+	ReachableAgents          []AgentActionBOMReachability           `json:"reachable_agents,omitempty"`
+	IntroducedBy             *attribution.Result                    `json:"introduced_by,omitempty"`
+	ActionLineage            *risk.ActionLineage                    `json:"action_lineage,omitempty"`
 }
 
 type AgentActionBOMGraphRefs struct {
@@ -240,6 +241,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			ConfidenceLaneReasons:    append([]string(nil), path.ConfidenceLaneReasons...),
 			ActionClasses:            append([]string(nil), path.ActionClasses...),
 			ActionReasons:            append([]string(nil), path.ActionReasons...),
+			MutableEndpointSemantics: agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics),
 			ProductionWrite:          path.ProductionWrite,
 			ProductionTargetStatus:   strings.TrimSpace(path.ProductionTargetStatus),
 			MatchedProductionTargets: append([]string(nil), path.MatchedProductionTargets...),
@@ -838,6 +840,14 @@ func reachabilityByPathID(paths []risk.ActionPath, findings []model.Finding) map
 	for _, path := range paths {
 		key := strings.Join([]string{strings.TrimSpace(path.Org), strings.TrimSpace(path.Repo), strings.TrimSpace(path.Location)}, "|")
 		items := []AgentActionBOMReachability{}
+		for _, semantic := range agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics) {
+			items = append(items, AgentActionBOMReachability{
+				Surface:      "reachable_endpoint",
+				Name:         firstNonEmptyValue(strings.TrimSpace(semantic.Operation), strings.TrimSpace(semantic.Semantic)),
+				Capabilities: []string{strings.TrimSpace(semantic.Semantic)},
+				EvidenceRefs: append([]string(nil), semantic.EvidenceRefs...),
+			})
+		}
 		for _, finding := range findingsByRepoLocation[key] {
 			switch strings.TrimSpace(finding.FindingType) {
 			case "mcp_server":
