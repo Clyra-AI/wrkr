@@ -133,7 +133,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	operationalExposure := scorecore.SummarizeOperationalExposure(riskReport.ActionPaths)
 	governanceReadiness := scorecore.SummarizeGovernanceReadiness(riskReport.ActionPaths, missingProofPathCount(controlProofStatus), scanQualityCoverageReduced(scanQuality))
 
-	if shareProfileRequiresRedaction(shareProfile) || redactionConfig.Applies() {
+	if shareProfileRequiresRedaction(shareProfile) {
 		proofRef = sanitizeProofReferencePublic(proofRef)
 		lifecycleSummary = sanitizeLifecycleSummaryPublic(lifecycleSummary)
 		riskItems = sanitizeRiskItemsPublic(riskItems)
@@ -146,6 +146,19 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		controlBacklog = sanitizeControlBacklogPublic(controlBacklog)
 		scanQuality = sanitizeScanQualityPublic(scanQuality)
 		controlProofStatus = sanitizeControlProofStatusPublic(controlProofStatus, rawActionPaths, riskReport.ActionPaths)
+	} else if redactionConfig.Applies() {
+		proofRef = sanitizeProofReferenceWithConfig(proofRef, redactionConfig)
+		lifecycleSummary = sanitizeLifecycleSummaryWithConfig(lifecycleSummary, redactionConfig)
+		riskItems = sanitizeRiskItemsWithConfig(riskItems, redactionConfig)
+		activation = sanitizeActivationSummaryWithConfig(activation, redactionConfig)
+		riskReport.ActionPaths = sanitizeActionPathsWithConfig(riskReport.ActionPaths, redactionConfig)
+		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstWithConfig(riskReport.ActionPathToControlFirst, redactionConfig)
+		riskReport.ControlPathGraph = sanitizeControlPathGraphWithConfig(riskReport.ControlPathGraph, redactionConfig)
+		exposureGroups = sanitizeExposureGroupsWithConfig(exposureGroups, redactionConfig)
+		assessmentSummary = sanitizeAssessmentSummaryWithConfig(assessmentSummary, redactionConfig)
+		controlBacklog = sanitizeControlBacklogWithConfig(controlBacklog, redactionConfig)
+		scanQuality = sanitizeScanQualityWithConfig(scanQuality, redactionConfig)
+		controlProofStatus = sanitizeControlProofStatusWithConfig(controlProofStatus, rawActionPaths, riskReport.ActionPaths, redactionConfig)
 	}
 
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
@@ -218,9 +231,12 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	registrySource := bomSource
 	registrySource.AgentActionBOM = summary.AgentActionBOM
 	summary.ActionSurfaceRegistry = BuildActionSurfaceRegistry(registrySource)
-	if shareProfileRequiresRedaction(shareProfile) || redactionConfig.Applies() {
+	if shareProfileRequiresRedaction(shareProfile) {
 		summary.ActionSurfaceRegistry = sanitizeActionSurfaceRegistryPublic(summary.ActionSurfaceRegistry)
 		summary.AgentActionBOM = sanitizeAgentActionBOM(summary.AgentActionBOM, shareProfile)
+	} else if redactionConfig.Applies() {
+		summary.ActionSurfaceRegistry = sanitizeActionSurfaceRegistryWithConfig(summary.ActionSurfaceRegistry, redactionConfig)
+		summary.AgentActionBOM = sanitizeAgentActionBOMWithConfig(summary.AgentActionBOM, shareProfile, redactionConfig)
 	}
 
 	return summary, nil
