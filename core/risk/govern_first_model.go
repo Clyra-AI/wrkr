@@ -37,25 +37,14 @@ type governFirstModel struct {
 }
 
 func applyGovernFirstModel(paths []ActionPath) []ActionPath {
-	if len(paths) == 0 {
-		return nil
-	}
-	out := append([]ActionPath(nil), paths...)
-	for idx := range out {
-		model := deriveGovernFirstModel(out[idx])
-		out[idx].InventoryRisk = model.inventoryRisk
-		out[idx].ControlPriority = model.controlPriority
-		out[idx].RiskTier = model.riskTier
-		out[idx].RecommendedAction = model.recommendedAction
-		out[idx] = ProjectBuyerFacingActionPath(out[idx])
-	}
-	return out
+	return ProjectActionPaths(paths)
 }
 
 func deriveGovernFirstModel(path ActionPath) governFirstModel {
 	model := governFirstModel{
 		sourceSignalRank: sourceSignalRank(path),
 	}
+	lane := confidenceLaneForPath(path)
 
 	dependencyOnly := actionPathDependencyOnly(path)
 	strongerGovernableSignal := path.CredentialAccess ||
@@ -88,6 +77,30 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		model.inventoryRiskRank = 3
 	}
 
+	if lane == ConfidenceLaneContextOnly {
+		model.controlPriority = ControlPriorityInventoryHygiene
+		model.controlPriorityRank = 2
+		model.riskTier = RiskTierLow
+		model.riskTierRank = 3
+		model.recommendedAction = "inventory"
+		model.governableScore = 0
+		return model
+	}
+	if lane == ConfidenceLaneSemanticReviewCandidate {
+		model.controlPriority = ControlPriorityReviewQueue
+		model.controlPriorityRank = 1
+		if strongerGovernableSignal || path.AttackPathScore >= 7.0 {
+			model.riskTier = RiskTierMedium
+			model.riskTierRank = 2
+		} else {
+			model.riskTier = RiskTierLow
+			model.riskTierRank = 3
+		}
+		model.recommendedAction = "proof"
+		model.governableScore = float64(governFirstPriorityScore(path))
+		return model
+	}
+
 	switch {
 	case path.ProductionWrite ||
 		(path.WriteCapable && (path.DeployWrite || path.MergeExecute)) ||
@@ -112,6 +125,10 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		model.controlPriority = ControlPriorityReviewQueue
 		model.controlPriorityRank = 1
 	}
+	if lane == ConfidenceLaneLikelyActionPath && model.controlPriority == ControlPriorityInventoryHygiene {
+		model.controlPriority = ControlPriorityReviewQueue
+		model.controlPriorityRank = 1
+	}
 
 	switch model.controlPriority {
 	case ControlPriorityControlFirst:
@@ -129,6 +146,10 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 	default:
 		model.riskTier = RiskTierLow
 		model.riskTierRank = 3
+	}
+	if lane == ConfidenceLaneLikelyActionPath && model.riskTier == RiskTierLow {
+		model.riskTier = RiskTierMedium
+		model.riskTierRank = 2
 	}
 
 	switch model.controlPriority {
@@ -161,6 +182,9 @@ func compareActionPaths(left, right ActionPath) bool {
 	}
 	if leftModel.riskTierRank != rightModel.riskTierRank {
 		return leftModel.riskTierRank < rightModel.riskTierRank
+	}
+	if confidenceLaneRank(leftProjection.ConfidenceLane) != confidenceLaneRank(rightProjection.ConfidenceLane) {
+		return confidenceLaneRank(leftProjection.ConfidenceLane) < confidenceLaneRank(rightProjection.ConfidenceLane)
 	}
 	if reviewBurdenRank(leftProjection.ReviewBurden) != reviewBurdenRank(rightProjection.ReviewBurden) {
 		return reviewBurdenRank(leftProjection.ReviewBurden) < reviewBurdenRank(rightProjection.ReviewBurden)

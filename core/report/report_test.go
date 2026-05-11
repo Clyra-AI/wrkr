@@ -1,6 +1,7 @@
 package report
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -1131,6 +1132,200 @@ func TestAgentActionBOMMarkdownLeadsWithBuyerSummary(t *testing.T) {
 	}
 	if strings.Index(markdown, "- Scanned scope:") > strings.Index(markdown, "## Assessment Summary") {
 		t.Fatalf("expected buyer summary to lead before assessment details, got %q", markdown)
+	}
+}
+
+func TestAgentActionBOMDoesNotRenderPositiveEmptyStateForStandingCredential(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:                   "apc-standing",
+					Org:                      "acme",
+					Repo:                     "acme/release",
+					ToolType:                 "compiled_action",
+					Location:                 ".github/workflows/release.yml",
+					WriteCapable:             true,
+					CredentialAccess:         true,
+					StandingPrivilege:        true,
+					StandingPrivilegeReasons: []string{"credential_access_type:standing"},
+					PullRequestWrite:         true,
+					ApprovalGap:              true,
+					ApprovalGapReasons:       []string{"approval_source_missing"},
+				}},
+			},
+		},
+		Template:    TemplateAgentActionBOM,
+		GeneratedAt: time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+
+	markdown := RenderMarkdown(summary)
+	if strings.Contains(markdown, "## Empty-State Assessment") {
+		t.Fatalf("expected standing-credential path to block empty-state messaging, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "## Top Governable Paths") {
+		t.Fatalf("expected governable path section instead of empty state, got %q", markdown)
+	}
+}
+
+func TestReportArtifactsShareActionPathProjection(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:                   "apc-shared",
+					Org:                      "acme",
+					Repo:                     "acme/release",
+					ToolType:                 "compiled_action",
+					Location:                 ".github/workflows/release.yml",
+					WriteCapable:             true,
+					CredentialAccess:         true,
+					PullRequestWrite:         true,
+					ApprovalGap:              true,
+					ApprovalGapReasons:       []string{"approval_source_missing"},
+					ActionClasses:            []string{"deploy", "write"},
+					RecommendedAction:        "control",
+					ProductionWrite:          true,
+					MatchedProductionTargets: []string{"deploy/prod"},
+				}},
+			},
+		},
+		Template:    TemplateAgentActionBOM,
+		GeneratedAt: time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if len(summary.ActionPaths) != 1 || summary.AgentActionBOM == nil || len(summary.AgentActionBOM.Items) != 1 || len(summary.TopRisks) != 1 {
+		t.Fatalf("expected one projected path across summary artifacts, got %+v", summary)
+	}
+
+	path := summary.ActionPaths[0]
+	item := summary.AgentActionBOM.Items[0]
+	top := summary.TopRisks[0]
+	if path.ControlState != item.ControlState || path.ControlState != top.ControlState {
+		t.Fatalf("expected shared control_state, path=%q item=%q top=%q", path.ControlState, item.ControlState, top.ControlState)
+	}
+	if path.RiskZone != item.RiskZone || path.RiskZone != top.RiskZone {
+		t.Fatalf("expected shared risk_zone, path=%q item=%q top=%q", path.RiskZone, item.RiskZone, top.RiskZone)
+	}
+	if path.ReviewBurden != item.ReviewBurden || path.ReviewBurden != top.ReviewBurden {
+		t.Fatalf("expected shared review_burden, path=%q item=%q top=%q", path.ReviewBurden, item.ReviewBurden, top.ReviewBurden)
+	}
+	if path.ConfidenceLane != item.ConfidenceLane || path.ConfidenceLane != top.ConfidenceLane {
+		t.Fatalf("expected shared confidence_lane, path=%q item=%q top=%q", path.ConfidenceLane, item.ConfidenceLane, top.ConfidenceLane)
+	}
+	if path.RiskTier != item.RiskTier || path.RiskTier != top.RiskTier {
+		t.Fatalf("expected shared risk_tier, path=%q item=%q top=%q", path.RiskTier, item.RiskTier, top.RiskTier)
+	}
+
+	payload := mustJSONEvidenceBundle(t, summary)
+	var bundle map[string]any
+	if err := json.Unmarshal(payload, &bundle); err != nil {
+		t.Fatalf("parse evidence bundle: %v", err)
+	}
+	agentActionBOM, ok := bundle["agent_action_bom"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected agent_action_bom in evidence bundle, got %T", bundle["agent_action_bom"])
+	}
+	items, ok := agentActionBOM["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("expected one evidence BOM item, got %v", agentActionBOM["items"])
+	}
+	first, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected evidence BOM item type: %T", items[0])
+	}
+	if first["control_state"] != path.ControlState || first["confidence_lane"] != path.ConfidenceLane {
+		t.Fatalf("expected evidence JSON to share action-path projection, got %v", first)
+	}
+}
+
+func TestCustomerRedactedProjectionPreservesControlState(t *testing.T) {
+	t.Parallel()
+
+	input := BuildInput{
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:             "apc-redact",
+					AgentID:            "wrkr:release:acme",
+					Org:                "acme",
+					Repo:               "acme/payments",
+					ToolType:           "compiled_action",
+					Location:           ".github/workflows/release.yml",
+					WriteCapable:       true,
+					CredentialAccess:   true,
+					PullRequestWrite:   true,
+					ApprovalGap:        true,
+					ApprovalGapReasons: []string{"approval_source_missing"},
+					ActionClasses:      []string{"deploy", "write"},
+					RecommendedAction:  "control",
+				}},
+			},
+		},
+		Template:    TemplateAgentActionBOM,
+		GeneratedAt: time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
+	}
+
+	internal, err := BuildSummary(input)
+	if err != nil {
+		t.Fatalf("build internal summary: %v", err)
+	}
+	input.ShareProfile = ShareProfileCustomerRedacted
+	redacted, err := BuildSummary(input)
+	if err != nil {
+		t.Fatalf("build redacted summary: %v", err)
+	}
+
+	internalPath := internal.ActionPaths[0]
+	redactedPath := redacted.ActionPaths[0]
+	if internalPath.ControlState != redactedPath.ControlState || internalPath.RiskZone != redactedPath.RiskZone || internalPath.ReviewBurden != redactedPath.ReviewBurden || internalPath.ConfidenceLane != redactedPath.ConfidenceLane {
+		t.Fatalf("expected redaction to preserve derived posture, internal=%+v redacted=%+v", internalPath, redactedPath)
+	}
+	if internal.AgentActionBOM.Summary.EmptyStateStatus != redacted.AgentActionBOM.Summary.EmptyStateStatus {
+		t.Fatalf("expected redaction to preserve empty-state status, internal=%+v redacted=%+v", internal.AgentActionBOM.Summary, redacted.AgentActionBOM.Summary)
+	}
+}
+
+func TestRenderMarkdownUsesReviewCandidateWording(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:             "apc-review",
+					Org:                "acme",
+					Repo:               "acme/platform",
+					ToolType:           "prompt_channel",
+					Location:           "AGENTS.md",
+					ApprovalGap:        true,
+					ApprovalGapReasons: []string{"approval_source_missing"},
+					RecommendedAction:  "proof",
+				}},
+			},
+		},
+		Template:    TemplateAgentActionBOM,
+		GeneratedAt: time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, "review candidate") {
+		t.Fatalf("expected semantic review wording in markdown, got %q", markdown)
+	}
+	if strings.Contains(markdown, "confirmed action path repo=acme/platform location=AGENTS.md") {
+		t.Fatalf("did not expect semantic review candidate to read as confirmed path, got %q", markdown)
 	}
 }
 

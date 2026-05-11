@@ -507,6 +507,118 @@ func TestBuildActionPathsCarriesWorkflowTriggerClass(t *testing.T) {
 	}
 }
 
+func TestConfidenceLaneConfirmedWorkflowCredentialPermission(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+			AgentID:                "wrkr:release:acme",
+			Framework:              "compiled_action",
+			ToolType:               "compiled_action",
+			Org:                    "acme",
+			Repos:                  []string{"acme/release"},
+			Location:               ".github/workflows/release.yml",
+			RiskScore:              8.7,
+			WriteCapable:           true,
+			CredentialAccess:       true,
+			PullRequestWrite:       true,
+			ApprovalClassification: "approved",
+			CredentialProvenance: &agginventory.CredentialProvenance{
+				Type:           agginventory.CredentialProvenanceStaticSecret,
+				Scope:          agginventory.CredentialScopeWorkflow,
+				Confidence:     "high",
+				RiskMultiplier: agginventory.CredentialRiskMultiplier(agginventory.CredentialProvenanceStaticSecret),
+			},
+		}},
+	})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one action path, got %+v", paths)
+	}
+	if paths[0].ConfidenceLane != ConfidenceLaneConfirmedActionPath {
+		t.Fatalf("expected confirmed action path lane, got %+v", paths[0])
+	}
+	for _, want := range []string{"execution_linkage:direct", "permission_or_target_signal:present", "authority_linkage:present"} {
+		if !containsPathClass(paths[0].ConfidenceLaneReasons, want) {
+			t.Fatalf("expected confidence lane reason %q, got %+v", want, paths[0].ConfidenceLaneReasons)
+		}
+	}
+}
+
+func TestSemanticInstructionFindingIsReviewCandidate(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+			AgentID:                "wrkr:prompt:acme",
+			Framework:              "prompt_channel",
+			ToolType:               "prompt_channel",
+			Org:                    "acme",
+			Repos:                  []string{"acme/platform"},
+			Location:               "AGENTS.md",
+			RiskScore:              4.6,
+			ApprovalClassification: "unknown",
+			ApprovalGapReasons:     []string{"approval_source_missing"},
+		}},
+	})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one semantic review candidate path, got %+v", paths)
+	}
+	if paths[0].ConfidenceLane != ConfidenceLaneSemanticReviewCandidate {
+		t.Fatalf("expected semantic review candidate lane, got %+v", paths[0])
+	}
+	if paths[0].ControlPriority != ControlPriorityReviewQueue {
+		t.Fatalf("expected semantic path to stay in review queue, got %+v", paths[0])
+	}
+	if paths[0].ControlState != ControlStateApprovalNeeded {
+		t.Fatalf("expected semantic path to use review wording via approval/evidence state, got %+v", paths[0])
+	}
+}
+
+func TestConfidenceLaneAffectsGovernFirstRanking(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                "wrkr:workflow:acme",
+				Framework:              "compiled_action",
+				ToolType:               "compiled_action",
+				Org:                    "acme",
+				Repos:                  []string{"acme/release"},
+				Location:               ".github/workflows/release.yml",
+				RiskScore:              8.9,
+				WriteCapable:           true,
+				CredentialAccess:       true,
+				PullRequestWrite:       true,
+				ApprovalClassification: "approved",
+			},
+			{
+				AgentID:                "wrkr:prompt:acme",
+				Framework:              "prompt_channel",
+				ToolType:               "prompt_channel",
+				Org:                    "acme",
+				Repos:                  []string{"acme/release"},
+				Location:               "AGENTS.md",
+				RiskScore:              8.9,
+				ApprovalClassification: "unknown",
+				ApprovalGapReasons:     []string{"approval_source_missing"},
+			},
+		},
+	})
+
+	if len(paths) != 2 {
+		t.Fatalf("expected two action paths, got %+v", paths)
+	}
+	if paths[0].ConfidenceLane != ConfidenceLaneConfirmedActionPath || paths[0].Location != ".github/workflows/release.yml" {
+		t.Fatalf("expected confirmed workflow path to outrank semantic review candidate, got %+v", paths)
+	}
+	if paths[1].ConfidenceLane != ConfidenceLaneSemanticReviewCandidate {
+		t.Fatalf("expected second path to remain semantic review candidate, got %+v", paths[1])
+	}
+}
+
 func TestCredentialProvenanceUnknownIsRiskWeighted(t *testing.T) {
 	t.Parallel()
 

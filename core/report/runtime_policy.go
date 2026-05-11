@@ -25,7 +25,6 @@ func decorateActionPathsForReport(paths []risk.ActionPath, runtimeEvidence *inge
 		item, ok := byPath[strings.TrimSpace(out[i].PathID)]
 		if !ok {
 			out[i].GaitCoverage = gaitCoverageForPath(out[i], ingest.Correlation{})
-			out[i] = risk.ProjectBuyerFacingActionPath(out[i])
 			continue
 		}
 		out[i].PolicyRefs = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyRefs...), item.PolicyRefs...))
@@ -47,23 +46,20 @@ func decorateActionPathsForReport(paths []risk.ActionPath, runtimeEvidence *inge
 			out[i].PolicyConfidence = "medium"
 		}
 		out[i].GaitCoverage = gaitCoverageForPath(out[i], item)
-		out[i] = risk.ProjectBuyerFacingActionPath(out[i])
 	}
-	return out
+	return risk.ProjectActionPaths(out)
 }
 
-func decorateControlFirstForReport(controlFirst *risk.ActionPathToControlFirst, paths []risk.ActionPath) *risk.ActionPathToControlFirst {
-	if controlFirst == nil {
+func decorateControlFirstForReport(paths []risk.ActionPath, scanCoverageReduced bool) *risk.ActionPathToControlFirst {
+	if len(paths) == 0 {
 		return nil
 	}
-	out := *controlFirst
-	for _, path := range paths {
-		if strings.TrimSpace(path.PathID) == strings.TrimSpace(out.Path.PathID) {
-			out.Path = path
-			return &out
-		}
+	return &risk.ActionPathToControlFirst{
+		Summary: risk.SummarizeActionPaths(paths, risk.ActionPathSummaryOptions{
+			ScanCoverageReduced: scanCoverageReduced,
+		}),
+		Path: paths[0],
 	}
-	return &out
 }
 
 func containsEvidenceClass(values []string, want string) bool {

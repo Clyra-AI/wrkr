@@ -261,6 +261,8 @@
         "risk_zone_reasons": {"type": "array", "items": {"type": "string"}},
         "review_burden": {"$ref": "#/$defs/reviewBurden"},
         "review_burden_reasons": {"type": "array", "items": {"type": "string"}},
+        "confidence_lane": {"type": "string", "enum": ["confirmed_action_path", "likely_action_path", "semantic_review_candidate", "context_only"]},
+        "confidence_lane_reasons": {"type": "array", "items": {"type": "string"}},
         "gait_coverage": {"$ref": "#/$defs/gaitCoverage"},
         "introduced_by": {"$ref": "#/$defs/introducedBy"},
         "inventory_risk": {"type": "string", "enum": ["production_backed", "write_capable", "credential_access", "visibility_only", "dependency_only"]},
@@ -322,8 +324,22 @@
           "properties": {
             "total_paths": {"type": "integer"},
             "write_capable_paths": {"type": "integer"},
+            "credential_access_paths": {"type": "integer"},
+            "standing_privilege_paths": {"type": "integer"},
             "production_target_backed_paths": {"type": "integer"},
-            "govern_first_paths": {"type": "integer"}
+            "control_first_paths": {"type": "integer"},
+            "govern_first_paths": {"type": "integer"},
+            "missing_approval_paths": {"type": "integer"},
+            "missing_policy_paths": {"type": "integer"},
+            "missing_proof_paths": {"type": "integer"},
+            "unresolved_owner_paths": {"type": "integer"},
+            "high_review_burden_paths": {"type": "integer"},
+            "confirmed_action_paths": {"type": "integer"},
+            "likely_action_paths": {"type": "integer"},
+            "semantic_review_candidate_paths": {"type": "integer"},
+            "context_only_paths": {"type": "integer"},
+            "empty_state_status": {"type": "string", "enum": ["eligible", "not_eligible", "coverage_reduced"]},
+            "empty_state_reasons": {"type": "array", "items": {"type": "string"}}
           }
         },
         "path": {"$ref": "#/$defs/actionPath"}
@@ -525,7 +541,15 @@
         "attack_path_score": {"type": "number"},
         "control_priority": {"type": "string", "enum": ["control_first", "review_queue", "inventory_hygiene"]},
         "risk_tier": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+        "control_state": {"$ref": "#/$defs/controlState"},
+        "risk_zone": {"$ref": "#/$defs/riskZone"},
+        "review_burden": {"$ref": "#/$defs/reviewBurden"},
+        "confidence_lane": {"type": "string", "enum": ["confirmed_action_path", "likely_action_path", "semantic_review_candidate", "context_only"]},
+        "credential_access": {"type": "boolean"},
+        "production_target_status": {"type": "string"},
         "recommended_action": {"type": "string"},
+        "write_capable": {"type": "boolean"},
+        "production_write": {"type": "boolean"},
         "rationale": {
           "type": "array",
           "items": {"type": "string"}

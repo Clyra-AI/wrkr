@@ -205,6 +205,39 @@ func TestConflictingOwnersLowerConfidenceAndCreateEvidenceGap(t *testing.T) {
 	}
 }
 
+func TestActionPathConfidenceLaneCarriesIntoBacklog(t *testing.T) {
+	t.Parallel()
+
+	backlog := Build(Input{
+		ActionPaths: []risk.ActionPath{{
+			PathID:                "apc-review",
+			Org:                   "acme",
+			Repo:                  "app",
+			ToolType:              "prompt_channel",
+			Location:              "AGENTS.md",
+			ApprovalGap:           true,
+			ApprovalGapReasons:    []string{"approval_source_missing"},
+			ConfidenceLane:        risk.ConfidenceLaneSemanticReviewCandidate,
+			ConfidenceLaneReasons: []string{"surface:prompt_or_instruction", "execution_linkage:missing"},
+			ControlState:          risk.ControlStateApprovalNeeded,
+			ReviewBurden:          risk.ReviewBurdenMedium,
+			RecommendedAction:     "proof",
+			ControlPriority:       risk.ControlPriorityReviewQueue,
+		}},
+	})
+
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	item := backlog.Items[0]
+	if item.ConfidenceLane != risk.ConfidenceLaneSemanticReviewCandidate {
+		t.Fatalf("expected confidence lane on backlog item, got %+v", item)
+	}
+	if !containsString(item.ConfidenceLaneReasons, "surface:prompt_or_instruction") {
+		t.Fatalf("expected confidence lane reasons to carry through, got %+v", item.ConfidenceLaneReasons)
+	}
+}
+
 func TestSecurityVisibilityMapsApprovedToKnownApprovedInBacklog(t *testing.T) {
 	t.Parallel()
 

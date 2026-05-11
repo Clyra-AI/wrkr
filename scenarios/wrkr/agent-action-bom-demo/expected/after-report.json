@@ -6,7 +6,7 @@
   },
   "summary": {
     "total_items": 8,
-    "control_first_items": 3,
+    "control_first_items": 2,
     "standing_privilege_items": 3,
     "static_credential_items": 3,
     "production_target_items": 3,
@@ -15,6 +15,24 @@
     "missing_proof_items": 8,
     "runtime_proven_items": 1,
     "unresolved_owner_items": 0,
+    "confirmed_action_path_items": 3,
+    "likely_action_path_items": 3,
+    "semantic_review_candidate_items": 1,
+    "context_only_items": 1,
+    "empty_state_status": "not_eligible",
+    "empty_state_reasons": [
+      "confirmed_action_paths_present",
+      "control_first_paths_present",
+      "credential_access_paths_present",
+      "high_review_burden_paths_present",
+      "likely_action_paths_present",
+      "missing_approval_paths_present",
+      "missing_proof_paths_present",
+      "production_target_backed_paths_present",
+      "semantic_review_candidates_present",
+      "standing_privilege_paths_present",
+      "write_capable_paths_present"
+    ],
     "scan_scope": {
       "mode": "path",
       "scope_label": "local repository path",

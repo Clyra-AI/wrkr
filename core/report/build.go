@@ -91,17 +91,30 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	headline := buildHeadline(in.Snapshot)
 	methodology := buildMethodology(in.Snapshot)
 	scanScope := buildScanScopeSummary(in.Snapshot)
-	riskItems := buildRiskItems(topFindings, riskReport.ActionPaths)
 	attackPathSummary := buildAttackPathSummary(*riskReport)
 	attackPathFacts := buildAttackPathFacts(*riskReport)
-	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
-	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
-	controlBacklog := in.Snapshot.ControlBacklog
 	scanQuality := cloneScanQualityReport(in.Snapshot.ScanQuality)
 	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
 	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
-	riskReport.ActionPathToControlFirst = decorateControlFirstForReport(riskReport.ActionPathToControlFirst, riskReport.ActionPaths)
+	riskReport.ActionPathToControlFirst = decorateControlFirstForReport(riskReport.ActionPaths, scanQualityCoverageReduced(scanQuality))
+	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
+	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
+	var controlBacklog *controlbacklog.Backlog
+	if in.Snapshot.ControlBacklog != nil {
+		controlBacklog = decorateControlBacklogFromActionPaths(in.Snapshot.ControlBacklog, riskReport.ActionPaths)
+	} else {
+		controlBacklogBuilt := controlbacklog.Build(controlbacklog.Input{
+			Mode:             in.Snapshot.Target.Mode,
+			Findings:         in.Snapshot.Findings,
+			Inventory:        in.Snapshot.Inventory,
+			LifecycleGaps:    in.Snapshot.LifecycleGaps,
+			ActionPaths:      riskReport.ActionPaths,
+			ControlPathGraph: riskReport.ControlPathGraph,
+		})
+		controlBacklog = &controlBacklogBuilt
+	}
+	riskItems := buildRiskItems(topFindings, riskReport.ActionPaths)
 	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
 	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
 	rawActionPathToControlFirst := riskReport.ActionPathToControlFirst
@@ -811,10 +824,15 @@ func buildRiskItems(findings []risk.ScoredFinding, actionPaths []risk.ActionPath
 func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 	out := make([]RiskItem, 0, len(paths))
 	for idx, path := range paths {
+		path = risk.ProjectActionPath(path)
 		rationale := []string{
 			fmt.Sprintf("control_priority=%s", controlPriorityForPath(path)),
 			fmt.Sprintf("risk_tier=%s", riskTierForPath(path)),
 			fmt.Sprintf("inventory_risk=%s", inventoryRiskForPath(path)),
+			fmt.Sprintf("control_state=%s", strings.TrimSpace(path.ControlState)),
+			fmt.Sprintf("risk_zone=%s", strings.TrimSpace(path.RiskZone)),
+			fmt.Sprintf("review_burden=%s", strings.TrimSpace(path.ReviewBurden)),
+			fmt.Sprintf("confidence_lane=%s", strings.TrimSpace(path.ConfidenceLane)),
 			fmt.Sprintf("recommended_action=%s", strings.TrimSpace(path.RecommendedAction)),
 			fmt.Sprintf("delivery_chain_status=%s", strings.TrimSpace(path.DeliveryChainStatus)),
 			fmt.Sprintf("business_state_surface=%s", strings.TrimSpace(path.BusinessStateSurface)),
@@ -841,25 +859,31 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 			rationale = append(rationale, fmt.Sprintf("credential_provenance=%s", strings.TrimSpace(path.CredentialProvenance.Type)))
 		}
 		out = append(out, RiskItem{
-			Rank:              idx + 1,
-			CanonicalKey:      strings.TrimSpace(path.PathID),
-			Score:             round2(math.Max(path.AttackPathScore, path.RiskScore)),
-			FindingType:       "action_path",
-			Severity:          actionPathSeverity(path),
-			ToolType:          strings.TrimSpace(path.ToolType),
-			Org:               strings.TrimSpace(path.Org),
-			Repo:              strings.TrimSpace(path.Repo),
-			Location:          strings.TrimSpace(path.Location),
-			PathID:            strings.TrimSpace(path.PathID),
-			InventoryRisk:     inventoryRiskForPath(path),
-			AttackPathScore:   round2(path.AttackPathScore),
-			ControlPriority:   controlPriorityForPath(path),
-			RiskTier:          riskTierForPath(path),
-			RecommendedAction: strings.TrimSpace(path.RecommendedAction),
-			WriteCapable:      path.WriteCapable,
-			ProductionWrite:   path.ProductionWrite,
-			Rationale:         rationale,
-			Remediation:       actionPathRemediation(path),
+			Rank:                   idx + 1,
+			CanonicalKey:           strings.TrimSpace(path.PathID),
+			Score:                  round2(math.Max(path.AttackPathScore, path.RiskScore)),
+			FindingType:            "action_path",
+			Severity:               actionPathSeverity(path),
+			ToolType:               strings.TrimSpace(path.ToolType),
+			Org:                    strings.TrimSpace(path.Org),
+			Repo:                   strings.TrimSpace(path.Repo),
+			Location:               strings.TrimSpace(path.Location),
+			PathID:                 strings.TrimSpace(path.PathID),
+			InventoryRisk:          inventoryRiskForPath(path),
+			AttackPathScore:        round2(path.AttackPathScore),
+			ControlPriority:        controlPriorityForPath(path),
+			RiskTier:               riskTierForPath(path),
+			ControlState:           strings.TrimSpace(path.ControlState),
+			RiskZone:               strings.TrimSpace(path.RiskZone),
+			ReviewBurden:           strings.TrimSpace(path.ReviewBurden),
+			ConfidenceLane:         strings.TrimSpace(path.ConfidenceLane),
+			CredentialAccess:       path.CredentialAccess,
+			ProductionTargetStatus: strings.TrimSpace(path.ProductionTargetStatus),
+			RecommendedAction:      strings.TrimSpace(path.RecommendedAction),
+			WriteCapable:           path.WriteCapable,
+			ProductionWrite:        path.ProductionWrite,
+			Rationale:              rationale,
+			Remediation:            actionPathRemediation(path),
 		})
 	}
 	return out
@@ -933,7 +957,20 @@ func buildSections(
 	riskFacts := make([]string, 0, len(risks))
 	for _, item := range risks {
 		if item.FindingType == "action_path" {
-			riskFacts = append(riskFacts, fmt.Sprintf("#%d %.2f action_path [%s] action=%s repo=%s location=%s", item.Rank, item.Score, item.Severity, item.RecommendedAction, item.Repo, item.Location))
+			riskFacts = append(riskFacts, fmt.Sprintf(
+				"#%d %.2f %s [%s] lane=%s action=%s state=%s zone=%s review=%s repo=%s location=%s",
+				item.Rank,
+				item.Score,
+				actionPathRiskLabel(item),
+				item.Severity,
+				item.ConfidenceLane,
+				item.RecommendedAction,
+				item.ControlState,
+				item.RiskZone,
+				item.ReviewBurden,
+				item.Repo,
+				item.Location,
+			))
 			continue
 		}
 		riskFacts = append(riskFacts, fmt.Sprintf("#%d %.2f %s [%s] %s", item.Rank, item.Score, item.FindingType, item.Severity, item.Location))
@@ -1235,7 +1272,62 @@ func buildAssessmentSummary(paths []risk.ActionPath, controlFirst *risk.ActionPa
 	return summary
 }
 
+func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, paths []risk.ActionPath) *controlbacklog.Backlog {
+	if backlog == nil {
+		return nil
+	}
+	copyBacklog := *backlog
+	copyBacklog.Items = append([]controlbacklog.Item(nil), backlog.Items...)
+	if len(copyBacklog.Items) == 0 || len(paths) == 0 {
+		return &copyBacklog
+	}
+
+	byPathID := map[string]risk.ActionPath{}
+	byRepoPath := map[string]risk.ActionPath{}
+	for _, rawPath := range paths {
+		path := risk.ProjectActionPath(rawPath)
+		if pathID := strings.TrimSpace(path.PathID); pathID != "" {
+			byPathID[pathID] = path
+		}
+		if key := strings.TrimSpace(path.Repo) + "|" + strings.TrimSpace(path.Location); key != "|" {
+			byRepoPath[key] = path
+		}
+	}
+
+	for idx := range copyBacklog.Items {
+		item := copyBacklog.Items[idx]
+		path, ok := byPathID[strings.TrimSpace(item.LinkedActionPathID)]
+		if !ok {
+			path, ok = byRepoPath[strings.TrimSpace(item.Repo)+"|"+strings.TrimSpace(item.Path)]
+		}
+		if !ok {
+			continue
+		}
+		copyBacklog.Items[idx].ControlState = firstNonEmptyValue(strings.TrimSpace(item.ControlState), strings.TrimSpace(path.ControlState))
+		copyBacklog.Items[idx].ControlStateReasons = uniqueStrings(append(append([]string(nil), item.ControlStateReasons...), path.ControlStateReasons...))
+		copyBacklog.Items[idx].RiskZone = firstNonEmptyValue(strings.TrimSpace(item.RiskZone), strings.TrimSpace(path.RiskZone))
+		copyBacklog.Items[idx].RiskZoneReasons = uniqueStrings(append(append([]string(nil), item.RiskZoneReasons...), path.RiskZoneReasons...))
+		copyBacklog.Items[idx].ReviewBurden = firstNonEmptyValue(strings.TrimSpace(item.ReviewBurden), strings.TrimSpace(path.ReviewBurden))
+		copyBacklog.Items[idx].ReviewBurdenReasons = uniqueStrings(append(append([]string(nil), item.ReviewBurdenReasons...), path.ReviewBurdenReasons...))
+		copyBacklog.Items[idx].ConfidenceLane = firstNonEmptyValue(strings.TrimSpace(item.ConfidenceLane), strings.TrimSpace(path.ConfidenceLane))
+		copyBacklog.Items[idx].ConfidenceLaneReasons = uniqueStrings(append(append([]string(nil), item.ConfidenceLaneReasons...), path.ConfidenceLaneReasons...))
+		copyBacklog.Items[idx].PolicyCoverageStatus = firstNonEmptyValue(strings.TrimSpace(item.PolicyCoverageStatus), strings.TrimSpace(path.PolicyCoverageStatus))
+		copyBacklog.Items[idx].PolicyRefs = uniqueStrings(append(append([]string(nil), item.PolicyRefs...), path.PolicyRefs...))
+		copyBacklog.Items[idx].PolicyMissingReasons = uniqueStrings(append(append([]string(nil), item.PolicyMissingReasons...), path.PolicyMissingReasons...))
+		copyBacklog.Items[idx].PolicyEvidenceRefs = uniqueStrings(append(append([]string(nil), item.PolicyEvidenceRefs...), path.PolicyEvidenceRefs...))
+		copyBacklog.Items[idx].PolicyConfidence = firstNonEmptyValue(strings.TrimSpace(item.PolicyConfidence), strings.TrimSpace(path.PolicyConfidence))
+		if copyBacklog.Items[idx].CredentialProvenance == nil {
+			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(path.CredentialProvenance)
+		}
+		if copyBacklog.Items[idx].TrustDepth == nil {
+			copyBacklog.Items[idx].TrustDepth = agginventory.CloneTrustDepth(path.TrustDepth)
+		}
+	}
+	return &copyBacklog
+}
+
 func actionPathSeverity(path risk.ActionPath) string {
+	path = risk.ProjectActionPath(path)
 	switch strings.TrimSpace(path.RiskTier) {
 	case risk.RiskTierCritical:
 		return model.SeverityCritical
@@ -1257,11 +1349,25 @@ func actionPathSeverity(path risk.ActionPath) string {
 	}
 }
 
+func actionPathRiskLabel(item RiskItem) string {
+	switch strings.TrimSpace(item.ConfidenceLane) {
+	case risk.ConfidenceLaneSemanticReviewCandidate:
+		return "review_candidate"
+	case risk.ConfidenceLaneContextOnly:
+		return "context_only_evidence"
+	case risk.ConfidenceLaneLikelyActionPath:
+		return "likely_action_path"
+	default:
+		return "confirmed_action_path"
+	}
+}
+
 func actionPathRemediation(path risk.ActionPath) string {
 	return risk.RemediationForActionPath(path)
 }
 
 func controlPriorityForPath(path risk.ActionPath) string {
+	path = risk.ProjectActionPath(path)
 	if strings.TrimSpace(path.ControlPriority) != "" {
 		return strings.TrimSpace(path.ControlPriority)
 	}
@@ -1276,6 +1382,7 @@ func controlPriorityForPath(path risk.ActionPath) string {
 }
 
 func riskTierForPath(path risk.ActionPath) string {
+	path = risk.ProjectActionPath(path)
 	if strings.TrimSpace(path.RiskTier) != "" {
 		return strings.TrimSpace(path.RiskTier)
 	}
@@ -1293,6 +1400,7 @@ func riskTierForPath(path risk.ActionPath) string {
 }
 
 func inventoryRiskForPath(path risk.ActionPath) string {
+	path = risk.ProjectActionPath(path)
 	if strings.TrimSpace(path.InventoryRisk) != "" {
 		return strings.TrimSpace(path.InventoryRisk)
 	}

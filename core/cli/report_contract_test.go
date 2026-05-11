@@ -764,6 +764,28 @@ func TestReportIncludesActionPathsProjection(t *testing.T) {
 	if _, ok := summary["action_paths"].([]any); !ok {
 		t.Fatalf("expected summary action_paths, got %v", summary["action_paths"])
 	}
+	actionPaths, ok := summary["action_paths"].([]any)
+	if !ok || len(actionPaths) != 1 {
+		t.Fatalf("expected one summary action path, got %v", summary["action_paths"])
+	}
+	firstPath, ok := actionPaths[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected summary action path type: %T", actionPaths[0])
+	}
+	if firstPath["confidence_lane"] == "" || firstPath["control_state"] == "" || firstPath["risk_zone"] == "" {
+		t.Fatalf("expected projected confidence/control/risk fields on action path, got %v", firstPath)
+	}
+	controlFirst, ok := summary["action_path_to_control_first"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary action_path_to_control_first, got %v", summary["action_path_to_control_first"])
+	}
+	controlSummary, ok := controlFirst["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected action_path_to_control_first summary, got %v", controlFirst["summary"])
+	}
+	if controlSummary["empty_state_status"] == nil {
+		t.Fatalf("expected empty_state_status in control-first summary, got %v", controlSummary)
+	}
 	if _, ok := summary["control_path_graph"].(map[string]any); !ok {
 		t.Fatalf("expected summary control_path_graph, got %v", summary["control_path_graph"])
 	}

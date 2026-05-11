@@ -127,6 +127,8 @@ type Item struct {
 	RiskZoneReasons          []string                                `json:"risk_zone_reasons,omitempty"`
 	ReviewBurden             string                                  `json:"review_burden,omitempty"`
 	ReviewBurdenReasons      []string                                `json:"review_burden_reasons,omitempty"`
+	ConfidenceLane           string                                  `json:"confidence_lane,omitempty"`
+	ConfidenceLaneReasons    []string                                `json:"confidence_lane_reasons,omitempty"`
 	PolicyCoverageStatus     string                                  `json:"policy_coverage_status,omitempty"`
 	PolicyRefs               []string                                `json:"policy_refs,omitempty"`
 	PolicyMissingReasons     []string                                `json:"policy_missing_reasons,omitempty"`
@@ -311,6 +313,8 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		RiskZoneReasons:          append([]string(nil), path.RiskZoneReasons...),
 		ReviewBurden:             strings.TrimSpace(path.ReviewBurden),
 		ReviewBurdenReasons:      append([]string(nil), path.ReviewBurdenReasons...),
+		ConfidenceLane:           strings.TrimSpace(path.ConfidenceLane),
+		ConfidenceLaneReasons:    append([]string(nil), path.ConfidenceLaneReasons...),
 		PolicyCoverageStatus:     strings.TrimSpace(path.PolicyCoverageStatus),
 		PolicyRefs:               append([]string(nil), path.PolicyRefs...),
 		PolicyMissingReasons:     append([]string(nil), path.PolicyMissingReasons...),
@@ -418,6 +422,8 @@ func (b *builder) merge(item Item) {
 	current.LinkedControlPathNodeIDs = mergeStrings(current.LinkedControlPathNodeIDs, item.LinkedControlPathNodeIDs)
 	current.LinkedControlPathEdgeIDs = mergeStrings(current.LinkedControlPathEdgeIDs, item.LinkedControlPathEdgeIDs)
 	current.CredentialProvenance = mergeCredentialProvenance(current.CredentialProvenance, item.CredentialProvenance)
+	current.ConfidenceLane = firstNonEmptyConfidenceLane(current.ConfidenceLane, item.ConfidenceLane)
+	current.ConfidenceLaneReasons = mergeStrings(current.ConfidenceLaneReasons, item.ConfidenceLaneReasons)
 	current.TrustDepth = agginventory.MergeTrustDepth(current.TrustDepth, item.TrustDepth)
 	current.SecurityTestRecipes = mergeSecurityTestRecipes(current.SecurityTestRecipes, item.SecurityTestRecipes)
 	current.ApprovalStatus = mergeBacklogApprovalStatus(current.ApprovalStatus, item.ApprovalStatus)
@@ -1193,6 +1199,8 @@ func normalizeItem(item Item) Item {
 	item.ClosureCriteria = fallback(item.ClosureCriteria, closureCriteriaForAction(item.RecommendedAction))
 	item.EvidenceGaps = mergeStrings(item.EvidenceGaps, nil)
 	item.ConfidenceRaise = mergeStrings(item.ConfidenceRaise, nil)
+	item.ConfidenceLane = firstNonEmptyConfidenceLane(item.ConfidenceLane, "")
+	item.ConfidenceLaneReasons = mergeStrings(item.ConfidenceLaneReasons, nil)
 	item.SecretSignalTypes = mergeStrings(item.SecretSignalTypes, nil)
 	item.LinkedFindingIDs = mergeStrings(item.LinkedFindingIDs, nil)
 	item.SecurityTestRecipes = mergeSecurityTestRecipes(item.SecurityTestRecipes, nil)
@@ -1533,6 +1541,13 @@ func fallback(value, fallbackValue string) string {
 		return strings.TrimSpace(value)
 	}
 	return strings.TrimSpace(fallbackValue)
+}
+
+func firstNonEmptyConfidenceLane(current, incoming string) string {
+	if strings.TrimSpace(current) != "" {
+		return strings.TrimSpace(current)
+	}
+	return strings.TrimSpace(incoming)
 }
 
 func queueFromActionPath(path risk.ActionPath) string {
