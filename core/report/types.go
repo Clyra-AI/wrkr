@@ -166,25 +166,31 @@ type Methodology struct {
 }
 
 type RiskItem struct {
-	Rank              int      `json:"rank"`
-	CanonicalKey      string   `json:"canonical_key"`
-	Score             float64  `json:"risk_score"`
-	FindingType       string   `json:"finding_type"`
-	Severity          string   `json:"severity"`
-	ToolType          string   `json:"tool_type"`
-	Org               string   `json:"org"`
-	Repo              string   `json:"repo"`
-	Location          string   `json:"location"`
-	PathID            string   `json:"path_id,omitempty"`
-	InventoryRisk     string   `json:"inventory_risk,omitempty"`
-	AttackPathScore   float64  `json:"attack_path_score,omitempty"`
-	ControlPriority   string   `json:"control_priority,omitempty"`
-	RiskTier          string   `json:"risk_tier,omitempty"`
-	RecommendedAction string   `json:"recommended_action,omitempty"`
-	WriteCapable      bool     `json:"write_capable,omitempty"`
-	ProductionWrite   bool     `json:"production_write,omitempty"`
-	Rationale         []string `json:"rationale"`
-	Remediation       string   `json:"remediation"`
+	Rank                   int      `json:"rank"`
+	CanonicalKey           string   `json:"canonical_key"`
+	Score                  float64  `json:"risk_score"`
+	FindingType            string   `json:"finding_type"`
+	Severity               string   `json:"severity"`
+	ToolType               string   `json:"tool_type"`
+	Org                    string   `json:"org"`
+	Repo                   string   `json:"repo"`
+	Location               string   `json:"location"`
+	PathID                 string   `json:"path_id,omitempty"`
+	InventoryRisk          string   `json:"inventory_risk,omitempty"`
+	AttackPathScore        float64  `json:"attack_path_score,omitempty"`
+	ControlPriority        string   `json:"control_priority,omitempty"`
+	RiskTier               string   `json:"risk_tier,omitempty"`
+	ControlState           string   `json:"control_state,omitempty"`
+	RiskZone               string   `json:"risk_zone,omitempty"`
+	ReviewBurden           string   `json:"review_burden,omitempty"`
+	ConfidenceLane         string   `json:"confidence_lane,omitempty"`
+	CredentialAccess       bool     `json:"credential_access,omitempty"`
+	ProductionTargetStatus string   `json:"production_target_status,omitempty"`
+	RecommendedAction      string   `json:"recommended_action,omitempty"`
+	WriteCapable           bool     `json:"write_capable,omitempty"`
+	ProductionWrite        bool     `json:"production_write,omitempty"`
+	Rationale              []string `json:"rationale"`
+	Remediation            string   `json:"remediation"`
 }
 
 type DeltaSummary struct {

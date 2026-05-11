@@ -51,7 +51,7 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString(fmt.Sprintf("- Governable paths: total=%d control_first=%d standing_credentials=%d missing_approval=%d missing_policy=%d missing_proof=%d\n",
 			summary.AgentActionBOM.Summary.TotalItems,
 			summary.AgentActionBOM.Summary.ControlFirstItems,
-			summary.AgentActionBOM.Summary.StaticCredentialItems,
+			summary.AgentActionBOM.Summary.StandingPrivilegeItems,
 			summary.AgentActionBOM.Summary.MissingApprovalItems,
 			summary.AgentActionBOM.Summary.MissingPolicyItems,
 			summary.AgentActionBOM.Summary.MissingProofItems,
@@ -64,9 +64,19 @@ func RenderMarkdown(summary Summary) string {
 		}
 		builder.WriteString("\n")
 
-		if len(summary.AgentActionBOM.Items) == 0 || summary.AgentActionBOM.Summary.ControlFirstItems == 0 {
-			builder.WriteString("## Positive Empty State\n\n")
-			builder.WriteString(fmt.Sprintf("- No high-risk governable BOM items were emitted. Coverage confidence is %s, so treat this as a clean buyer-facing empty state only when the reported coverage matches your scan intent.\n\n", summary.AgentActionBOM.Summary.CoverageConfidence))
+		emptyStateStatus := strings.TrimSpace(summary.AgentActionBOM.Summary.EmptyStateStatus)
+		emptyStateReasons := summary.AgentActionBOM.Summary.EmptyStateReasons
+		if len(summary.AgentActionBOM.Items) == 0 || (emptyStateStatus != "" && emptyStateStatus != "not_eligible") {
+			builder.WriteString("## Empty-State Assessment\n\n")
+			reasons := "none"
+			if len(emptyStateReasons) > 0 {
+				reasons = strings.Join(emptyStateReasons, ", ")
+			}
+			builder.WriteString(fmt.Sprintf("- status=%s coverage_confidence=%s reasons=%s\n\n",
+				firstNonEmptyValue(emptyStateStatus, "eligible"),
+				summary.AgentActionBOM.Summary.CoverageConfidence,
+				reasons,
+			))
 		} else {
 			builder.WriteString("## Top Governable Paths\n\n")
 			limit := len(summary.AgentActionBOM.Items)
@@ -75,9 +85,11 @@ func RenderMarkdown(summary Summary) string {
 			}
 			for idx := 0; idx < limit; idx++ {
 				item := summary.AgentActionBOM.Items[idx]
-				builder.WriteString(fmt.Sprintf("- %s %s state=%s zone=%s review=%s priority=%s tier=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
+				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s state=%s zone=%s review=%s priority=%s tier=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
+					markdownActionPathLabel(item.ConfidenceLane),
 					item.Repo,
 					item.Location,
+					item.ConfidenceLane,
 					item.ControlState,
 					item.RiskZone,
 					item.ReviewBurden,
@@ -178,10 +190,12 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s %s owner=%s state=%s zone=%s review=%s queue=%s priority=%s tier=%s confidence=%s evidence=%s policy=%s proof=%s runtime=%s remediation=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s state=%s zone=%s review=%s queue=%s priority=%s tier=%s confidence=%s evidence=%s policy=%s proof=%s runtime=%s remediation=%s\n",
+				markdownActionPathLabel(item.ConfidenceLane),
 				item.Repo,
 				item.Location,
 				item.Owner,
+				item.ConfidenceLane,
 				item.ControlState,
 				item.RiskZone,
 				item.ReviewBurden,
@@ -261,6 +275,19 @@ func renderTriggerClassSuffix(triggerClass string) string {
 		return ""
 	}
 	return ", trigger=" + strings.TrimSpace(triggerClass)
+}
+
+func markdownActionPathLabel(lane string) string {
+	switch strings.TrimSpace(lane) {
+	case "semantic_review_candidate":
+		return "review candidate"
+	case "context_only":
+		return "context-only evidence"
+	case "likely_action_path":
+		return "likely action path"
+	default:
+		return "confirmed action path"
+	}
 }
 
 func MarkdownLines(markdown string) []string {

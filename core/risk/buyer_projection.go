@@ -1,6 +1,11 @@
 package risk
 
-import "strings"
+import (
+	"sort"
+	"strings"
+
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+)
 
 const (
 	ControlStateSafeByDefault  = "safe_by_default"
@@ -22,14 +27,157 @@ const (
 	ReviewBurdenMedium   = "medium"
 	ReviewBurdenHigh     = "high"
 	ReviewBurdenCritical = "critical"
+
+	ConfidenceLaneConfirmedActionPath     = "confirmed_action_path"
+	ConfidenceLaneLikelyActionPath        = "likely_action_path"
+	ConfidenceLaneSemanticReviewCandidate = "semantic_review_candidate"
+	ConfidenceLaneContextOnly             = "context_only"
+
+	EmptyStateEligible        = "eligible"
+	EmptyStateNotEligible     = "not_eligible"
+	EmptyStateCoverageReduced = "coverage_reduced"
 )
 
-func ProjectBuyerFacingActionPath(path ActionPath) ActionPath {
+type ActionPathSummaryOptions struct {
+	ScanCoverageReduced bool
+}
+
+func ProjectActionPath(path ActionPath) ActionPath {
 	out := path
-	out.ControlState, out.ControlStateReasons = deriveControlState(path)
-	out.RiskZone, out.RiskZoneReasons = deriveRiskZone(path)
+	out.ConfidenceLane, out.ConfidenceLaneReasons = deriveConfidenceLane(out)
+
+	model := deriveGovernFirstModel(out)
+	out.InventoryRisk = model.inventoryRisk
+	out.ControlPriority = model.controlPriority
+	out.RiskTier = model.riskTier
+	out.RecommendedAction = model.recommendedAction
+
+	out.ControlState, out.ControlStateReasons = deriveControlState(out)
+	out.RiskZone, out.RiskZoneReasons = deriveRiskZone(out)
 	out.ReviewBurden, out.ReviewBurdenReasons = deriveReviewBurden(out)
 	return out
+}
+
+func ProjectActionPaths(paths []ActionPath) []ActionPath {
+	if len(paths) == 0 {
+		return nil
+	}
+	out := make([]ActionPath, 0, len(paths))
+	for _, path := range paths {
+		out = append(out, ProjectActionPath(path))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return compareActionPaths(out[i], out[j])
+	})
+	return out
+}
+
+func ProjectBuyerFacingActionPath(path ActionPath) ActionPath {
+	return ProjectActionPath(path)
+}
+
+func SummarizeActionPaths(paths []ActionPath, opts ActionPathSummaryOptions) ActionPathSummary {
+	summary := ActionPathSummary{TotalPaths: len(paths)}
+	for _, rawPath := range paths {
+		path := ProjectActionPath(rawPath)
+
+		if path.WriteCapable {
+			summary.WriteCapablePaths++
+		}
+		if path.CredentialAccess {
+			summary.CredentialAccessPaths++
+		}
+		if path.StandingPrivilege {
+			summary.StandingPrivilegePaths++
+		}
+		if path.ProductionWrite || len(path.MatchedProductionTargets) > 0 {
+			summary.ProductionTargetBackedPaths++
+		}
+		if strings.TrimSpace(path.ControlPriority) != ControlPriorityInventoryHygiene {
+			summary.GovernFirstPaths++
+		}
+		if strings.TrimSpace(path.ControlPriority) == ControlPriorityControlFirst {
+			summary.ControlFirstPaths++
+		}
+		if path.ApprovalGap {
+			summary.MissingApprovalPaths++
+		}
+		if strings.TrimSpace(path.PolicyCoverageStatus) == "" ||
+			strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusNone ||
+			strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusStale ||
+			strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusConflict {
+			summary.MissingPolicyPaths++
+		}
+		if actionPathMissingProof(path) {
+			summary.MissingProofPaths++
+		}
+		if actionPathHasWeakOwnership(path) {
+			summary.UnresolvedOwnerPaths++
+		}
+		switch strings.TrimSpace(path.ReviewBurden) {
+		case ReviewBurdenHigh, ReviewBurdenCritical:
+			summary.HighReviewBurdenPaths++
+		}
+		switch confidenceLaneForPath(path) {
+		case ConfidenceLaneConfirmedActionPath:
+			summary.ConfirmedActionPaths++
+		case ConfidenceLaneLikelyActionPath:
+			summary.LikelyActionPaths++
+		case ConfidenceLaneSemanticReviewCandidate:
+			summary.SemanticReviewCandidatePaths++
+		default:
+			summary.ContextOnlyPaths++
+		}
+	}
+
+	summary.EmptyStateStatus, summary.EmptyStateReasons = evaluateEmptyState(summary, opts)
+	return summary
+}
+
+func evaluateEmptyState(summary ActionPathSummary, opts ActionPathSummaryOptions) (string, []string) {
+	reasons := []string{}
+	if summary.TotalPaths == 0 {
+		reasons = append(reasons, "action_paths:none")
+	} else if summary.ContextOnlyPaths == summary.TotalPaths {
+		reasons = append(reasons, "action_paths:context_only_only")
+	}
+
+	hasBlocker := false
+	for _, blocker := range []struct {
+		count  int
+		reason string
+	}{
+		{summary.ControlFirstPaths, "control_first_paths_present"},
+		{summary.WriteCapablePaths, "write_capable_paths_present"},
+		{summary.CredentialAccessPaths, "credential_access_paths_present"},
+		{summary.StandingPrivilegePaths, "standing_privilege_paths_present"},
+		{summary.ProductionTargetBackedPaths, "production_target_backed_paths_present"},
+		{summary.MissingApprovalPaths, "missing_approval_paths_present"},
+		{summary.MissingPolicyPaths, "missing_policy_paths_present"},
+		{summary.MissingProofPaths, "missing_proof_paths_present"},
+		{summary.UnresolvedOwnerPaths, "unresolved_owner_paths_present"},
+		{summary.HighReviewBurdenPaths, "high_review_burden_paths_present"},
+		{summary.ConfirmedActionPaths, "confirmed_action_paths_present"},
+		{summary.LikelyActionPaths, "likely_action_paths_present"},
+		{summary.SemanticReviewCandidatePaths, "semantic_review_candidates_present"},
+	} {
+		if blocker.count > 0 {
+			hasBlocker = true
+			reasons = append(reasons, blocker.reason)
+		}
+	}
+	if opts.ScanCoverageReduced {
+		reasons = append(reasons, "scan_quality:reduced")
+	}
+
+	switch {
+	case hasBlocker:
+		return EmptyStateNotEligible, dedupeSortedStrings(reasons)
+	case opts.ScanCoverageReduced:
+		return EmptyStateCoverageReduced, dedupeSortedStrings(reasons)
+	default:
+		return EmptyStateEligible, dedupeSortedStrings(reasons)
+	}
 }
 
 func deriveControlState(path ActionPath) (string, []string) {
@@ -39,6 +187,9 @@ func deriveControlState(path ActionPath) (string, []string) {
 			reasons = append(reasons, strings.TrimSpace(reason))
 		}
 	}
+
+	lane := confidenceLaneForPath(path)
+	add("confidence_lane:" + lane)
 
 	highBlastRadius := path.ProductionWrite ||
 		path.DeployWrite ||
@@ -56,13 +207,31 @@ func deriveControlState(path ActionPath) (string, []string) {
 		strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusStale ||
 		strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusConflict ||
 		len(path.PolicyMissingReasons) > 0 ||
-		path.GaitCoverage == nil ||
-		strings.TrimSpace(path.GaitCoverage.ProofVerification.Status) == GaitStatusMissing ||
-		strings.TrimSpace(path.GaitCoverage.ProofVerification.Status) == GaitStatusConflict ||
-		strings.TrimSpace(path.GaitCoverage.ProofVerification.Status) == GaitStatusStale
+		actionPathMissingProof(path)
+
+	switch lane {
+	case ConfidenceLaneContextOnly:
+		add("control_priority:inventory_hygiene")
+		return ControlStateInventoryOnly, dedupeSortedStrings(reasons)
+	case ConfidenceLaneSemanticReviewCandidate:
+		if path.ApprovalGap {
+			add("approval_gap:true")
+			reasons = append(reasons, path.ApprovalGapReasons...)
+			return ControlStateApprovalNeeded, dedupeSortedStrings(reasons)
+		}
+		if controlledPath {
+			add("controlled_path:true")
+		} else {
+			add("semantic_review:true")
+		}
+		if missingPolicyOrProof {
+			add("coverage_gap:true")
+		}
+		return ControlStateEvidenceNeeded, dedupeSortedStrings(reasons)
+	}
 
 	switch {
-	case path.ControlPriority == ControlPriorityInventoryHygiene &&
+	case strings.TrimSpace(path.ControlPriority) == ControlPriorityInventoryHygiene &&
 		!controlledPath &&
 		!path.ApprovalGap &&
 		!path.StandingPrivilege:
@@ -96,7 +265,7 @@ func deriveControlState(path ActionPath) (string, []string) {
 		if strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusConflict {
 			add("policy_coverage:conflict")
 		}
-		if path.GaitCoverage == nil || strings.TrimSpace(path.GaitCoverage.ProofVerification.Status) == GaitStatusMissing {
+		if actionPathMissingProof(path) {
 			add("proof_coverage:missing")
 		}
 		return ControlStateEvidenceNeeded, dedupeSortedStrings(reasons)
@@ -196,6 +365,17 @@ func deriveReviewBurden(path ActionPath) (string, []string) {
 		add("control_state:safe_by_default", 1)
 	}
 
+	switch confidenceLaneForPath(path) {
+	case ConfidenceLaneConfirmedActionPath:
+		add("confidence_lane:confirmed_action_path", 2)
+	case ConfidenceLaneLikelyActionPath:
+		add("confidence_lane:likely_action_path", 1)
+	case ConfidenceLaneSemanticReviewCandidate:
+		add("confidence_lane:semantic_review_candidate", 1)
+	default:
+		add("confidence_lane:context_only", 0)
+	}
+
 	switch strings.TrimSpace(path.RiskZone) {
 	case RiskZoneProductionData, RiskZoneRelease:
 		add("risk_zone:"+strings.TrimSpace(path.RiskZone), 3)
@@ -210,13 +390,13 @@ func deriveReviewBurden(path ActionPath) (string, []string) {
 	if path.ApprovalGap {
 		add("approval_gap:true", 2)
 	}
-	if strings.TrimSpace(path.OwnershipStatus) == "" || strings.TrimSpace(path.OwnershipStatus) == "unresolved" || strings.TrimSpace(path.OwnershipState) == "missing" || strings.TrimSpace(path.OwnershipState) == "conflicting" {
+	if actionPathHasWeakOwnership(path) {
 		add("ownership_gap:true", 2)
 	}
 	if len(path.PolicyMissingReasons) > 0 || strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusNone || strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusStale || strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusConflict {
 		add("policy_gap:true", 2)
 	}
-	if path.GaitCoverage == nil || strings.TrimSpace(path.GaitCoverage.ProofVerification.Status) == GaitStatusMissing {
+	if actionPathMissingProof(path) {
 		add("proof_gap:true", 2)
 	}
 
@@ -229,6 +409,166 @@ func deriveReviewBurden(path ActionPath) (string, []string) {
 		return ReviewBurdenMedium, dedupeSortedStrings(reasons)
 	default:
 		return ReviewBurdenLow, dedupeSortedStrings(reasons)
+	}
+}
+
+func deriveConfidenceLane(path ActionPath) (string, []string) {
+	reasons := []string{}
+	add := func(reason string) {
+		if strings.TrimSpace(reason) != "" {
+			reasons = append(reasons, strings.TrimSpace(reason))
+		}
+	}
+
+	executableBinding := pathHasExecutableBinding(path)
+	permissionOrTargetSignal := pathHasPermissionOrTargetSignal(path)
+	authorityLinkage := path.CredentialAccess || path.StandingPrivilege || actionPathHasStrongIdentity(path)
+	promptSurface := pathIsPromptOrInstructionSurface(path)
+	contextOnlySurface := pathIsContextOnlySurface(path)
+
+	switch {
+	case promptSurface && !executableBinding:
+		add("surface:prompt_or_instruction")
+		add("execution_linkage:missing")
+		return ConfidenceLaneSemanticReviewCandidate, dedupeSortedStrings(reasons)
+	case executableBinding && permissionOrTargetSignal && authorityLinkage:
+		add("execution_linkage:direct")
+		add("permission_or_target_signal:present")
+		add("authority_linkage:present")
+		return ConfidenceLaneConfirmedActionPath, dedupeSortedStrings(reasons)
+	case executableBinding && (permissionOrTargetSignal || authorityLinkage):
+		add("execution_linkage:direct")
+		if permissionOrTargetSignal {
+			add("permission_or_target_signal:present")
+		} else {
+			add("permission_or_target_signal:missing")
+		}
+		if authorityLinkage {
+			add("authority_linkage:present")
+		} else {
+			add("authority_linkage:missing")
+		}
+		return ConfidenceLaneLikelyActionPath, dedupeSortedStrings(reasons)
+	case contextOnlySurface:
+		add("surface:context_only")
+		return ConfidenceLaneContextOnly, dedupeSortedStrings(reasons)
+	case permissionOrTargetSignal || authorityLinkage:
+		add("execution_linkage:missing")
+		if promptSurface {
+			add("surface:prompt_or_instruction")
+			return ConfidenceLaneSemanticReviewCandidate, dedupeSortedStrings(reasons)
+		}
+		return ConfidenceLaneLikelyActionPath, dedupeSortedStrings(reasons)
+	default:
+		add("supporting_metadata_only")
+		return ConfidenceLaneContextOnly, dedupeSortedStrings(reasons)
+	}
+}
+
+func pathHasExecutableBinding(path ActionPath) bool {
+	toolType := strings.ToLower(strings.TrimSpace(path.ToolType))
+	location := strings.ToLower(strings.TrimSpace(path.Location))
+
+	switch {
+	case strings.Contains(location, ".github/workflows"),
+		strings.Contains(location, "jenkinsfile"),
+		strings.Contains(toolType, "compiled_action"),
+		strings.Contains(toolType, "ci_agent"),
+		strings.Contains(toolType, "mcp"),
+		strings.Contains(toolType, "a2a"):
+		return true
+	case path.PathContext != nil &&
+		(path.PathContext.Kind == agginventory.PathContextDeployableSource || path.PathContext.Kind == agginventory.PathContextRuntimeSource) &&
+		(path.WriteCapable || path.CredentialAccess || len(path.ActionClasses) > 0):
+		return true
+	default:
+		return false
+	}
+}
+
+func pathHasPermissionOrTargetSignal(path ActionPath) bool {
+	return path.WriteCapable ||
+		path.PullRequestWrite ||
+		path.MergeExecute ||
+		path.DeployWrite ||
+		path.ProductionWrite ||
+		len(path.MatchedProductionTargets) > 0 ||
+		len(path.ActionClasses) > 0
+}
+
+func pathIsPromptOrInstructionSurface(path ActionPath) bool {
+	toolType := strings.ToLower(strings.TrimSpace(path.ToolType))
+	location := strings.ToLower(strings.TrimSpace(path.Location))
+	switch {
+	case toolType == "prompt_channel":
+		return true
+	case strings.Contains(location, "agents.md"),
+		strings.Contains(location, "claude.md"),
+		strings.Contains(location, ".cursorrules"),
+		strings.Contains(location, ".cursor/rules"),
+		strings.Contains(location, "prompt"),
+		strings.Contains(location, "instruction"):
+		return true
+	default:
+		return false
+	}
+}
+
+func pathIsContextOnlySurface(path ActionPath) bool {
+	if actionPathDependencyOnly(path) {
+		return true
+	}
+	if path.PathContext == nil {
+		return false
+	}
+	switch strings.TrimSpace(path.PathContext.Kind) {
+	case agginventory.PathContextDocs,
+		agginventory.PathContextExample,
+		agginventory.PathContextUnitTest,
+		agginventory.PathContextFunctionalTest,
+		agginventory.PathContextGeneratedCode,
+		agginventory.PathContextPackageCache:
+		return true
+	default:
+		return false
+	}
+}
+
+func actionPathMissingProof(path ActionPath) bool {
+	if path.GaitCoverage == nil {
+		return true
+	}
+	switch strings.TrimSpace(path.GaitCoverage.ProofVerification.Status) {
+	case "", GaitStatusMissing, GaitStatusConflict, GaitStatusStale:
+		return true
+	default:
+		return false
+	}
+}
+
+func confidenceLaneForPath(path ActionPath) string {
+	switch strings.TrimSpace(path.ConfidenceLane) {
+	case ConfidenceLaneConfirmedActionPath,
+		ConfidenceLaneLikelyActionPath,
+		ConfidenceLaneSemanticReviewCandidate,
+		ConfidenceLaneContextOnly:
+		return strings.TrimSpace(path.ConfidenceLane)
+	default:
+		lane, _ := deriveConfidenceLane(path)
+		return lane
+	}
+}
+
+func confidenceLaneRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case ConfidenceLaneConfirmedActionPath:
+		return 0
+	case ConfidenceLaneLikelyActionPath:
+		return 1
+	case ConfidenceLaneSemanticReviewCandidate:
+		return 2
+	default:
+		return 3
 	}
 }
 

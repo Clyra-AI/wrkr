@@ -19,10 +19,24 @@ import (
 const actionPathIDPrefix = "apc-"
 
 type ActionPathSummary struct {
-	TotalPaths                  int `json:"total_paths"`
-	WriteCapablePaths           int `json:"write_capable_paths"`
-	ProductionTargetBackedPaths int `json:"production_target_backed_paths"`
-	GovernFirstPaths            int `json:"govern_first_paths"`
+	TotalPaths                   int      `json:"total_paths"`
+	WriteCapablePaths            int      `json:"write_capable_paths"`
+	CredentialAccessPaths        int      `json:"credential_access_paths"`
+	StandingPrivilegePaths       int      `json:"standing_privilege_paths"`
+	ProductionTargetBackedPaths  int      `json:"production_target_backed_paths"`
+	ControlFirstPaths            int      `json:"control_first_paths"`
+	GovernFirstPaths             int      `json:"govern_first_paths"`
+	MissingApprovalPaths         int      `json:"missing_approval_paths"`
+	MissingPolicyPaths           int      `json:"missing_policy_paths"`
+	MissingProofPaths            int      `json:"missing_proof_paths"`
+	UnresolvedOwnerPaths         int      `json:"unresolved_owner_paths"`
+	HighReviewBurdenPaths        int      `json:"high_review_burden_paths"`
+	ConfirmedActionPaths         int      `json:"confirmed_action_paths"`
+	LikelyActionPaths            int      `json:"likely_action_paths"`
+	SemanticReviewCandidatePaths int      `json:"semantic_review_candidate_paths"`
+	ContextOnlyPaths             int      `json:"context_only_paths"`
+	EmptyStateStatus             string   `json:"empty_state_status,omitempty"`
+	EmptyStateReasons            []string `json:"empty_state_reasons,omitempty"`
 }
 
 type ActionPath struct {
@@ -77,6 +91,8 @@ type ActionPath struct {
 	RiskZoneReasons            []string                                `json:"risk_zone_reasons,omitempty"`
 	ReviewBurden               string                                  `json:"review_burden,omitempty"`
 	ReviewBurdenReasons        []string                                `json:"review_burden_reasons,omitempty"`
+	ConfidenceLane             string                                  `json:"confidence_lane,omitempty"`
+	ConfidenceLaneReasons      []string                                `json:"confidence_lane_reasons,omitempty"`
 	PolicyCoverageStatus       string                                  `json:"policy_coverage_status,omitempty"`
 	PolicyRefs                 []string                                `json:"policy_refs,omitempty"`
 	PolicyMissingReasons       []string                                `json:"policy_missing_reasons,omitempty"`
@@ -136,11 +152,7 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 	paths = DecorateActionPaths(paths)
 	paths = LinkAttackPaths(paths, attackPaths)
 	paths = applyLinkedAttackPathScores(paths, attackPaths)
-	paths = applyGovernFirstModel(paths)
-
-	sort.Slice(paths, func(i, j int) bool {
-		return compareActionPaths(paths[i], paths[j])
-	})
+	paths = ProjectActionPaths(paths)
 
 	summary := summarizeActionPaths(paths)
 	choice := &ActionPathToControlFirst{
@@ -369,19 +381,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 }
 
 func summarizeActionPaths(paths []ActionPath) ActionPathSummary {
-	summary := ActionPathSummary{TotalPaths: len(paths)}
-	for _, path := range paths {
-		if path.WriteCapable {
-			summary.WriteCapablePaths++
-		}
-		if path.ProductionWrite {
-			summary.ProductionTargetBackedPaths++
-		}
-		if path.ControlPriority != ControlPriorityInventoryHygiene {
-			summary.GovernFirstPaths++
-		}
-	}
-	return summary
+	return SummarizeActionPaths(paths, ActionPathSummaryOptions{})
 }
 
 func actionPathHasCriticalTrustGap(depth *agginventory.TrustDepth) bool {
@@ -418,7 +418,7 @@ func ApplyGovernFirstProfile(profileName string, paths []ActionPath) ([]ActionPa
 			filtered = append(filtered, path)
 		}
 	}
-	filtered = applyGovernFirstModel(filtered)
+	filtered = ProjectActionPaths(filtered)
 	return filtered, buildActionPathChoice(filtered)
 }
 

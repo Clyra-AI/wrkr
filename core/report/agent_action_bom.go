@@ -37,21 +37,27 @@ type AgentActionBOM struct {
 }
 
 type AgentActionBOMSummary struct {
-	TotalItems             int                     `json:"total_items"`
-	ControlFirstItems      int                     `json:"control_first_items"`
-	StandingPrivilegeItems int                     `json:"standing_privilege_items"`
-	StaticCredentialItems  int                     `json:"static_credential_items"`
-	ProductionTargetItems  int                     `json:"production_target_items"`
-	MissingApprovalItems   int                     `json:"missing_approval_items"`
-	MissingPolicyItems     int                     `json:"missing_policy_items"`
-	MissingProofItems      int                     `json:"missing_proof_items"`
-	RuntimeProvenItems     int                     `json:"runtime_proven_items"`
-	UnresolvedOwnerItems   int                     `json:"unresolved_owner_items"`
-	ScanScope              *ScanScopeSummary       `json:"scan_scope,omitempty"`
-	SourcePrivacy          *sourceprivacy.Contract `json:"source_privacy,omitempty"`
-	OperationalExposure    *scorecore.AxisSummary  `json:"operational_exposure,omitempty"`
-	GovernanceReadiness    *scorecore.AxisSummary  `json:"governance_readiness,omitempty"`
-	CoverageConfidence     string                  `json:"coverage_confidence,omitempty"`
+	TotalItems                   int                     `json:"total_items"`
+	ControlFirstItems            int                     `json:"control_first_items"`
+	StandingPrivilegeItems       int                     `json:"standing_privilege_items"`
+	StaticCredentialItems        int                     `json:"static_credential_items"`
+	ProductionTargetItems        int                     `json:"production_target_items"`
+	MissingApprovalItems         int                     `json:"missing_approval_items"`
+	MissingPolicyItems           int                     `json:"missing_policy_items"`
+	MissingProofItems            int                     `json:"missing_proof_items"`
+	RuntimeProvenItems           int                     `json:"runtime_proven_items"`
+	UnresolvedOwnerItems         int                     `json:"unresolved_owner_items"`
+	ConfirmedActionPathItems     int                     `json:"confirmed_action_path_items,omitempty"`
+	LikelyActionPathItems        int                     `json:"likely_action_path_items,omitempty"`
+	SemanticReviewCandidateItems int                     `json:"semantic_review_candidate_items,omitempty"`
+	ContextOnlyItems             int                     `json:"context_only_items,omitempty"`
+	EmptyStateStatus             string                  `json:"empty_state_status,omitempty"`
+	EmptyStateReasons            []string                `json:"empty_state_reasons,omitempty"`
+	ScanScope                    *ScanScopeSummary       `json:"scan_scope,omitempty"`
+	SourcePrivacy                *sourceprivacy.Contract `json:"source_privacy,omitempty"`
+	OperationalExposure          *scorecore.AxisSummary  `json:"operational_exposure,omitempty"`
+	GovernanceReadiness          *scorecore.AxisSummary  `json:"governance_readiness,omitempty"`
+	CoverageConfidence           string                  `json:"coverage_confidence,omitempty"`
 }
 
 type AgentActionBOMItem struct {
@@ -79,6 +85,8 @@ type AgentActionBOMItem struct {
 	RiskZoneReasons          []string                             `json:"risk_zone_reasons,omitempty"`
 	ReviewBurden             string                               `json:"review_burden,omitempty"`
 	ReviewBurdenReasons      []string                             `json:"review_burden_reasons,omitempty"`
+	ConfidenceLane           string                               `json:"confidence_lane,omitempty"`
+	ConfidenceLaneReasons    []string                             `json:"confidence_lane_reasons,omitempty"`
 	ActionClasses            []string                             `json:"action_classes,omitempty"`
 	ActionReasons            []string                             `json:"action_reasons,omitempty"`
 	ProductionWrite          bool                                 `json:"production_write,omitempty"`
@@ -211,6 +219,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			RiskZoneReasons:          append([]string(nil), path.RiskZoneReasons...),
 			ReviewBurden:             strings.TrimSpace(path.ReviewBurden),
 			ReviewBurdenReasons:      append([]string(nil), path.ReviewBurdenReasons...),
+			ConfidenceLane:           strings.TrimSpace(path.ConfidenceLane),
+			ConfidenceLaneReasons:    append([]string(nil), path.ConfidenceLaneReasons...),
 			ActionClasses:            append([]string(nil), path.ActionClasses...),
 			ActionReasons:            append([]string(nil), path.ActionReasons...),
 			ProductionWrite:          path.ProductionWrite,
@@ -255,7 +265,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		items = append(items, item)
 	}
 	items = append(items, excludedTopAttackPathItems(summary)...)
-	counts := summarizeAgentActionBOMItems(items)
+	counts := summarizeAgentActionBOMItems(items, summary.ActionPaths, summary.ScanQuality)
 	counts.ScanScope = cloneScanScope(summary.ScanScope)
 	counts.SourcePrivacy = normalizedSourcePrivacy(summary.SourcePrivacy)
 	counts.OperationalExposure = cloneAxisSummary(summary.OperationalExposure)
@@ -466,8 +476,17 @@ func summaryEvidenceRefs(items []AgentActionBOMItem) []string {
 	return uniqueSortedStrings(refs)
 }
 
-func summarizeAgentActionBOMItems(items []AgentActionBOMItem) AgentActionBOMSummary {
-	counts := AgentActionBOMSummary{TotalItems: len(items)}
+func summarizeAgentActionBOMItems(items []AgentActionBOMItem, paths []risk.ActionPath, report *scanquality.Report) AgentActionBOMSummary {
+	projection := risk.SummarizeActionPaths(paths, risk.ActionPathSummaryOptions{
+		ScanCoverageReduced: scanQualityCoverageReduced(report),
+	})
+	counts := AgentActionBOMSummary{
+		TotalItems:                   len(items),
+		ConfirmedActionPathItems:     projection.ConfirmedActionPaths,
+		LikelyActionPathItems:        projection.LikelyActionPaths,
+		SemanticReviewCandidateItems: projection.SemanticReviewCandidatePaths,
+		ContextOnlyItems:             projection.ContextOnlyPaths,
+	}
 	for _, item := range items {
 		if strings.TrimSpace(item.ControlPriority) == risk.ControlPriorityControlFirst {
 			counts.ControlFirstItems++
@@ -484,7 +503,8 @@ func summarizeAgentActionBOMItems(items []AgentActionBOMItem) AgentActionBOMSumm
 		if item.ApprovalGap {
 			counts.MissingApprovalItems++
 		}
-		if item.PolicyStatus == risk.PolicyCoverageStatusNone {
+		switch strings.TrimSpace(item.PolicyStatus) {
+		case risk.PolicyCoverageStatusNone, risk.PolicyCoverageStatusStale, risk.PolicyCoverageStatusConflict:
 			counts.MissingPolicyItems++
 		}
 		if item.ProofCoverage == proofCoverageMissing {
@@ -497,7 +517,54 @@ func summarizeAgentActionBOMItems(items []AgentActionBOMItem) AgentActionBOMSumm
 			counts.UnresolvedOwnerItems++
 		}
 	}
+	counts.EmptyStateStatus, counts.EmptyStateReasons = evaluateBOMEmptyState(projection, counts, scanQualityCoverageReduced(report))
 	return counts
+}
+
+func evaluateBOMEmptyState(projection risk.ActionPathSummary, counts AgentActionBOMSummary, scanCoverageReduced bool) (string, []string) {
+	reasons := []string{}
+	if projection.TotalPaths == 0 {
+		reasons = append(reasons, "action_paths:none")
+	} else if projection.ContextOnlyPaths == projection.TotalPaths {
+		reasons = append(reasons, "action_paths:context_only_only")
+	}
+
+	hasBlocker := false
+	for _, blocker := range []struct {
+		count  int
+		reason string
+	}{
+		{counts.ControlFirstItems, "control_first_paths_present"},
+		{projection.WriteCapablePaths, "write_capable_paths_present"},
+		{projection.CredentialAccessPaths, "credential_access_paths_present"},
+		{counts.StandingPrivilegeItems, "standing_privilege_paths_present"},
+		{counts.ProductionTargetItems, "production_target_backed_paths_present"},
+		{counts.MissingApprovalItems, "missing_approval_paths_present"},
+		{counts.MissingPolicyItems, "missing_policy_paths_present"},
+		{counts.MissingProofItems, "missing_proof_paths_present"},
+		{counts.UnresolvedOwnerItems, "unresolved_owner_paths_present"},
+		{projection.HighReviewBurdenPaths, "high_review_burden_paths_present"},
+		{counts.ConfirmedActionPathItems, "confirmed_action_paths_present"},
+		{counts.LikelyActionPathItems, "likely_action_paths_present"},
+		{counts.SemanticReviewCandidateItems, "semantic_review_candidates_present"},
+	} {
+		if blocker.count > 0 {
+			hasBlocker = true
+			reasons = append(reasons, blocker.reason)
+		}
+	}
+	if scanCoverageReduced {
+		reasons = append(reasons, "scan_quality:reduced")
+	}
+
+	switch {
+	case hasBlocker:
+		return risk.EmptyStateNotEligible, uniqueSortedStrings(reasons)
+	case scanCoverageReduced:
+		return risk.EmptyStateCoverageReduced, uniqueSortedStrings(reasons)
+	default:
+		return risk.EmptyStateEligible, uniqueSortedStrings(reasons)
+	}
 }
 
 func cloneShareProfileMetadata(in *ShareProfileMetadata) *ShareProfileMetadata {

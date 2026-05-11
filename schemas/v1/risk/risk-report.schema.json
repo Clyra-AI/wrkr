@@ -75,6 +75,8 @@
         "risk_zone_reasons": {"type": "array", "items": {"type": "string"}},
         "review_burden": {"$ref": "#/$defs/reviewBurden"},
         "review_burden_reasons": {"type": "array", "items": {"type": "string"}},
+        "confidence_lane": {"type": "string", "enum": ["confirmed_action_path", "likely_action_path", "semantic_review_candidate", "context_only"]},
+        "confidence_lane_reasons": {"type": "array", "items": {"type": "string"}},
         "policy_coverage_status": {"type": "string", "enum": ["none", "declared", "matched", "runtime_proven", "stale", "conflict"]},
         "policy_refs": {"type": "array", "items": {"type": "string"}},
         "policy_missing_reasons": {"type": "array", "items": {"type": "string"}},

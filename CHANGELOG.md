@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- [semver:minor] Added deterministic evidence confidence lanes so govern-first action paths, Agent Action BOM output, top-risk sections, and linked control-backlog rows distinguish confirmed action paths from likely paths, semantic review candidates, and context-only evidence.
 
 ### Changed
 
@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Fixed govern-first report and Agent Action BOM projection consistency so empty-state status, risk/control posture, and buyer-facing path summaries are derived once and stay aligned across report JSON, markdown, evidence bundles, and redacted share profiles.
 
 ### Security
 
