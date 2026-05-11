@@ -888,6 +888,51 @@ func TestDecorateActionLineageLinksGraphNodes(t *testing.T) {
 	}
 }
 
+func TestDecorateActionLineageFiltersGovernanceEdgesPerSegment(t *testing.T) {
+	t.Parallel()
+
+	paths := []ActionPath{{
+		PathID:               "apc-governance-lineage",
+		Org:                  "acme",
+		Repo:                 "acme/release",
+		AgentID:              "wrkr:compiled_action:acme",
+		ToolType:             "compiled_action",
+		Location:             ".github/workflows/release.yml",
+		ApprovalGap:          false,
+		PolicyCoverageStatus: PolicyCoverageStatusMatched,
+		GovernanceControls: []agginventory.GovernanceControlMapping{
+			{Control: agginventory.GovernanceControlApproval, Status: agginventory.ControlStatusSatisfied},
+			{Control: agginventory.GovernanceControlProof, Status: agginventory.ControlStatusSatisfied},
+		},
+	}}
+
+	graph := BuildControlPathGraph(paths)
+	decorated := DecorateActionLineage(paths, graph)
+	if len(decorated) != 1 || decorated[0].ActionLineage == nil {
+		t.Fatalf("expected decorated action lineage, got %+v", decorated)
+	}
+
+	segments := map[string]ActionLineageSegment{}
+	for _, segment := range decorated[0].ActionLineage.Segments {
+		segments[segment.Kind] = segment
+	}
+
+	approval := segments["approval"]
+	proof := segments["proof"]
+	if len(approval.NodeIDs) != 1 || len(proof.NodeIDs) != 1 {
+		t.Fatalf("expected one governance node per segment, got approval=%+v proof=%+v", approval, proof)
+	}
+	if len(approval.EdgeIDs) != 1 || len(proof.EdgeIDs) != 1 {
+		t.Fatalf("expected one governance edge per segment, got approval=%+v proof=%+v", approval, proof)
+	}
+	if approval.NodeIDs[0] == proof.NodeIDs[0] {
+		t.Fatalf("expected approval and proof node IDs to differ, got approval=%+v proof=%+v", approval, proof)
+	}
+	if approval.EdgeIDs[0] == proof.EdgeIDs[0] {
+		t.Fatalf("expected approval and proof edge IDs to differ, got approval=%+v proof=%+v", approval, proof)
+	}
+}
+
 func sliceToSet(values []string) map[string]struct{} {
 	out := make(map[string]struct{}, len(values))
 	for _, value := range values {

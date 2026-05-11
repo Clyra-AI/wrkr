@@ -90,6 +90,8 @@ func buildActionLineage(path ActionPath, index controlPathLineageIndex) *ActionL
 	pathID := strings.TrimSpace(path.PathID)
 	nodes := index.nodesByPath[pathID]
 	edges := index.edgesByPath[pathID]
+	approvalNodeIDs := matchingNodeIDs(nodes, "governance_control", "approval")
+	proofNodeIDs := matchingNodeIDs(nodes, "governance_control", "proof")
 	segments := []ActionLineageSegment{
 		newLineageSegment(pathID, "repo", path.Repo, statusForPresence(path.Repo), matchingNodeIDs(nodes, "repo", ""), matchingEdgeIDs(edges, "workflow_in_repo"), []string{path.Repo}),
 		newLineageSegment(pathID, "workflow", path.Location, statusForPresence(path.Location), matchingNodeIDs(nodes, "workflow", ""), matchingEdgeIDs(edges, "path_executes_workflow"), []string{path.Location}),
@@ -98,8 +100,8 @@ func buildActionLineage(path ActionPath, index controlPathLineageIndex) *ActionL
 		newLineageSegment(pathID, "credential", credentialLineageLabel(path), credentialLineageStatus(path), matchingNodeIDs(nodes, "credential", ""), matchingEdgeIDs(edges, "execution_uses_credential"), credentialLineageEvidence(path)),
 		newLineageSegment(pathID, "target", targetLineageLabel(path), targetLineageStatus(path), matchingNodeIDs(nodes, "target", ""), matchingEdgeIDs(edges, "path_targets_surface"), append([]string(nil), path.MatchedProductionTargets...)),
 		newLineageSegment(pathID, "owner", path.OperationalOwner, ownerLineageStatus(path), nil, nil, append([]string(nil), path.OwnershipEvidence...)),
-		newLineageSegment(pathID, "approval", approvalLineageLabel(path), approvalLineageStatus(path), matchingNodeIDs(nodes, "governance_control", "approval"), matchingEdgeIDs(edges, "path_governed_by"), append([]string(nil), path.ApprovalGapReasons...)),
-		newLineageSegment(pathID, "proof", proofLineageLabel(path), proofLineageStatus(path), matchingNodeIDs(nodes, "governance_control", "proof"), matchingEdgeIDs(edges, "path_governed_by"), append([]string(nil), path.PolicyEvidenceRefs...)),
+		newLineageSegment(pathID, "approval", approvalLineageLabel(path), approvalLineageStatus(path), approvalNodeIDs, matchingEdgeIDsForNodeIDs(edges, "path_governed_by", approvalNodeIDs), append([]string(nil), path.ApprovalGapReasons...)),
+		newLineageSegment(pathID, "proof", proofLineageLabel(path), proofLineageStatus(path), proofNodeIDs, matchingEdgeIDsForNodeIDs(edges, "path_governed_by", proofNodeIDs), append([]string(nil), path.PolicyEvidenceRefs...)),
 	}
 	return &ActionLineage{Segments: segments}
 }
@@ -143,6 +145,34 @@ func matchingEdgeIDs(edges []aggattack.ControlPathEdge, kind string) []string {
 	out := []string{}
 	for _, edge := range edges {
 		if strings.TrimSpace(edge.Kind) == strings.TrimSpace(kind) {
+			out = append(out, strings.TrimSpace(edge.EdgeID))
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func matchingEdgeIDsForNodeIDs(edges []aggattack.ControlPathEdge, kind string, nodeIDs []string) []string {
+	if len(nodeIDs) == 0 {
+		return nil
+	}
+	nodeSet := map[string]struct{}{}
+	for _, nodeID := range nodeIDs {
+		trimmed := strings.TrimSpace(nodeID)
+		if trimmed == "" {
+			continue
+		}
+		nodeSet[trimmed] = struct{}{}
+	}
+	if len(nodeSet) == 0 {
+		return nil
+	}
+	out := []string{}
+	for _, edge := range edges {
+		if strings.TrimSpace(edge.Kind) != strings.TrimSpace(kind) {
+			continue
+		}
+		if _, ok := nodeSet[strings.TrimSpace(edge.ToNodeID)]; ok {
 			out = append(out, strings.TrimSpace(edge.EdgeID))
 		}
 	}
