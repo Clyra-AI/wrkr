@@ -16,8 +16,8 @@ const (
 	CredentialSourceWorkflowBuiltin   = "workflow_builtin_token"
 	CredentialSourceNonHumanIdentity  = "non_human_identity"
 	CredentialSourceAuthSurface       = "auth_surface"
-	CredentialSourceDetectorEvidence  = "detector_evidence"
-	CredentialSourceDirectConfig      = "direct_config"
+	CredentialSourceDetectorEvidence  = "detector_evidence" // #nosec G101 -- enum label for evidence provenance, not a credential
+	CredentialSourceDirectConfig      = "direct_config"     // #nosec G101 -- enum label for config provenance, not a credential
 	CredentialSourceUnknown           = "unknown"
 )
 

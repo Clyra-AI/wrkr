@@ -331,15 +331,40 @@ func configFingerprintForFinding(manifest source.Manifest, finding model.Finding
 }
 
 func configFingerprintForFile(root string, rel string) string {
-	cleaned := filepath.Clean(filepath.FromSlash(strings.TrimSpace(rel)))
-	if cleaned == "." || cleaned == "" {
+	path, ok := safeRepoRelativePath(root, rel)
+	if !ok {
 		return ""
 	}
-	payload, err := os.ReadFile(filepath.Join(root, cleaned))
+	// #nosec G304 -- safeRepoRelativePath confines rel under the repository root before reading.
+	payload, err := os.ReadFile(path)
 	if err != nil {
 		return ""
 	}
 	return configFingerprintForBytes(payload)
+}
+
+func safeRepoRelativePath(root string, rel string) (string, bool) {
+	root = filepath.Clean(strings.TrimSpace(root))
+	if root == "." || root == "" {
+		return "", false
+	}
+	cleaned := filepath.Clean(filepath.FromSlash(strings.TrimSpace(rel)))
+	if cleaned == "." || cleaned == "" || filepath.IsAbs(cleaned) {
+		return "", false
+	}
+	if cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	candidate := filepath.Join(root, cleaned)
+	relativeToRoot, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return "", false
+	}
+	relativeToRoot = filepath.Clean(relativeToRoot)
+	if relativeToRoot == ".." || strings.HasPrefix(relativeToRoot, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return candidate, true
 }
 
 func configFingerprintForBytes(payload []byte) string {
