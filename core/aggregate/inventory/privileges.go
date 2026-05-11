@@ -115,6 +115,7 @@ type AgentPrivilegeMapEntry struct {
 	WritePathClasses         []string                   `json:"write_path_classes,omitempty" yaml:"write_path_classes,omitempty"`
 	ActionClasses            []string                   `json:"action_classes,omitempty" yaml:"action_classes,omitempty"`
 	ActionReasons            []string                   `json:"action_reasons,omitempty" yaml:"action_reasons,omitempty"`
+	MutableEndpointSemantics []MutableEndpointSemantic  `json:"mutable_endpoint_semantics,omitempty" yaml:"mutable_endpoint_semantics,omitempty"`
 	GovernanceControls       []GovernanceControlMapping `json:"governance_controls,omitempty" yaml:"governance_controls,omitempty"`
 	Location                 string                     `json:"location,omitempty" yaml:"location,omitempty"`
 	LocationRange            *model.LocationRange       `json:"location_range,omitempty" yaml:"location_range,omitempty"`

@@ -12,6 +12,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added normalized `credential_authority` posture across inventory privilege maps, govern-first action paths, control-path graph nodes, and Agent Action BOM output without exposing secret values.
 - [semver:minor] Added purpose plus version/config metadata on supported workflow, MCP, and agent-config action paths so buyers can see why a path exists and which local config introduced it.
 - [semver:minor] Added explicit `action_lineage` segments from repo and workflow through credential, target, owner, approval, and proof joins in buyer-facing report artifacts.
+- [semver:minor] Added static mutable endpoint semantics across OpenAPI, route, and MCP declaration surfaces so action paths, control graphs, and Agent Action BOM output can distinguish payment, refund, user-admin, data-export, deploy, delete, and production-mutation claims without live probing.
+- [semver:minor] Added an `action_surface_registry` artifact to report and evidence JSON so grouped workflows, servers, routes, and API schemas expose owner, purpose, version/config, credential authority, reachable actions, proof status, confidence lane, and graph joins in one deterministic view.
 
 ### Changed
 

@@ -61,15 +61,16 @@ type GovernanceControlInput struct {
 }
 
 type ActionClassInput struct {
-	Permissions      []string
-	WritePathClasses []string
-	WriteCapable     bool
-	CredentialAccess bool
-	DeployWrite      bool
-	ProductionWrite  bool
-	MatchedTargets   []string
-	ToolType         string
-	Location         string
+	Permissions              []string
+	WritePathClasses         []string
+	MutableEndpointSemantics []MutableEndpointSemantic
+	WriteCapable             bool
+	CredentialAccess         bool
+	DeployWrite              bool
+	ProductionWrite          bool
+	MatchedTargets           []string
+	ToolType                 string
+	Location                 string
 }
 
 func DeriveWritePathClasses(permissions []string, writeCapable, pullRequestWrite, mergeExecute, deployWrite, credentialAccess, productionWrite bool, location, toolType string) []string {
@@ -205,6 +206,21 @@ func DeriveActionClasses(input ActionClassInput) ([]string, []string) {
 	}
 	if len(input.MatchedTargets) > 0 {
 		add(ActionClassDeploy, "matched_target:"+strings.TrimSpace(input.MatchedTargets[0]))
+	}
+	for _, semantic := range NormalizeMutableEndpointSemantics(input.MutableEndpointSemantics) {
+		reason := "mutable_endpoint_semantic:" + strings.TrimSpace(semantic.Semantic)
+		switch strings.TrimSpace(semantic.Semantic) {
+		case EndpointSemanticRead:
+			add(ActionClassRead, reason)
+		case EndpointSemanticWrite, EndpointSemanticPayment, EndpointSemanticRefund, EndpointSemanticUserAdmin, EndpointSemanticDataExport, EndpointSemanticProductionMutation:
+			add(ActionClassWrite, reason)
+		case EndpointSemanticDelete:
+			add(ActionClassDelete, reason)
+			add(ActionClassWrite, reason)
+		case EndpointSemanticDeploy:
+			add(ActionClassDeploy, reason)
+			add(ActionClassWrite, reason)
+		}
 	}
 
 	return sortedUnique(classes), sortedUnique(reasons)

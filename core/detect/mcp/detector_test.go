@@ -261,7 +261,7 @@ func TestDetectMCPActionSurfacePermissions(t *testing.T) {
 	if !reflect.DeepEqual(byServer["writer"].Permissions, []string{"mcp.access", "mcp.read", "mcp.write"}) {
 		t.Fatalf("unexpected writer permissions: %+v", byServer["writer"].Permissions)
 	}
-	if !reflect.DeepEqual(byServer["admin"].Permissions, []string{"mcp.access", "mcp.admin", "mcp.read", "mcp.write"}) {
+	if !reflect.DeepEqual(byServer["admin"].Permissions, []string{"mcp.access", "mcp.admin", "mcp.read", "mcp.write", "user_admin.write"}) {
 		t.Fatalf("unexpected admin permissions: %+v", byServer["admin"].Permissions)
 	}
 	if declared := evidenceValue(byServer["admin"], "declared_action_surface"); declared != "read,write,admin" {

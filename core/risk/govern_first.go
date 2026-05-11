@@ -380,7 +380,7 @@ func actionPathHighImpact(path ActionPath) bool {
 	case "deploy", "db", "admin_api", "saas_write":
 		return true
 	default:
-		return path.ProductionWrite || path.DeployWrite
+		return path.ProductionWrite || path.DeployWrite || pathHasHighImpactMutableEndpoint(path)
 	}
 }
 

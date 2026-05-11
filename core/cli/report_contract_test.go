@@ -791,6 +791,123 @@ func TestReportIncludesActionPathsProjection(t *testing.T) {
 	}
 }
 
+func TestReportEvidenceJSONIncludesActionSurfaceRegistry(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	bundlePath := filepath.Join(tmp, "evidence.json")
+	writeJSONFile(t, statePath, map[string]any{
+		"version": "v1",
+		"target": map[string]any{
+			"mode":  "org",
+			"value": "acme",
+		},
+		"inventory": map[string]any{
+			"agent_privilege_map": []any{
+				map[string]any{
+					"agent_id":                "wrkr:payments:acme",
+					"framework":               "openapi",
+					"org":                     "acme",
+					"repos":                   []any{"payments"},
+					"location":                "openapi.yaml",
+					"risk_score":              8.4,
+					"write_capable":           true,
+					"approval_classification": "approved",
+				},
+			},
+		},
+		"risk_report": map[string]any{
+			"generated_at":    "2026-05-11T12:00:00Z",
+			"top_findings":    []any{},
+			"ranked_findings": []any{},
+			"action_paths": []any{
+				map[string]any{
+					"path_id":            "apc-7890",
+					"org":                "acme",
+					"repo":               "payments",
+					"tool_type":          "openapi",
+					"location":           "openapi.yaml",
+					"write_capable":      true,
+					"production_write":   false,
+					"approval_gap":       false,
+					"credential_access":  false,
+					"attack_path_score":  7.8,
+					"risk_score":         8.4,
+					"recommended_action": "control",
+					"confidence_lane":    "likely_action_path",
+					"control_state":      "evidence_required",
+					"risk_zone":          "production_data",
+					"review_burden":      "high",
+					"tool_instance_id":   "openapi-payments",
+					"purpose":            "Payments API",
+					"mutable_endpoint_semantics": []any{
+						map[string]any{
+							"semantic":   "payment",
+							"confidence": "high",
+							"surface":    "openapi",
+							"operation":  "POST /v1/payments",
+						},
+					},
+				},
+			},
+			"action_path_to_control_first": map[string]any{
+				"summary": map[string]any{
+					"total_paths": 1,
+				},
+				"path": map[string]any{
+					"path_id": "apc-7890",
+					"org":     "acme",
+					"repo":    "payments",
+				},
+			},
+			"control_path_graph": map[string]any{
+				"version": "1",
+				"summary": map[string]any{
+					"total_nodes": 0,
+					"total_edges": 0,
+					"node_kinds":  []any{},
+					"edge_kinds":  []any{},
+				},
+				"nodes": []any{},
+				"edges": []any{},
+			},
+		},
+	})
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"report", "--state", statePath, "--json", "--evidence-json", "--evidence-json-path", bundlePath}, &out, &errOut); code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+
+	var reportPayload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &reportPayload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	summary, ok := reportPayload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary object, got %T", reportPayload["summary"])
+	}
+	registry, ok := summary["action_surface_registry"].([]any)
+	if !ok || len(registry) != 1 {
+		t.Fatalf("expected summary action_surface_registry entry, got %v", summary["action_surface_registry"])
+	}
+
+	bundlePayload, err := os.ReadFile(bundlePath)
+	if err != nil {
+		t.Fatalf("read evidence bundle: %v", err)
+	}
+	var evidencePayload map[string]any
+	if err := json.Unmarshal(bundlePayload, &evidencePayload); err != nil {
+		t.Fatalf("parse evidence bundle: %v", err)
+	}
+	evidenceRegistry, ok := evidencePayload["action_surface_registry"].([]any)
+	if !ok || len(evidenceRegistry) != 1 {
+		t.Fatalf("expected evidence action_surface_registry entry, got %v", evidencePayload["action_surface_registry"])
+	}
+}
+
 func TestReportAssessmentSummaryPrioritizesGovernFirstPaths(t *testing.T) {
 	t.Parallel()
 

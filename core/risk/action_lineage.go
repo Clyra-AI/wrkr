@@ -189,7 +189,14 @@ func statusForPresence(value string) string {
 
 func actionLineageLabel(path ActionPath) string {
 	if len(path.ActionClasses) > 0 {
-		return strings.Join(path.ActionClasses, ",")
+		values := append([]string(nil), path.ActionClasses...)
+		for _, item := range pathMutableEndpointSemantics(path) {
+			values = append(values, strings.TrimSpace(item.Semantic))
+		}
+		return strings.Join(dedupeSortedStrings(values), ",")
+	}
+	if operations := pathMutableEndpointOperations(path); len(operations) > 0 {
+		return strings.Join(operations, ",")
 	}
 	if len(path.WritePathClasses) > 0 {
 		return strings.Join(path.WritePathClasses, ",")
@@ -201,7 +208,7 @@ func actionLineageLabel(path ActionPath) string {
 }
 
 func actionLineageStatus(path ActionPath) string {
-	if len(path.ActionClasses) > 0 || len(path.WritePathClasses) > 0 || path.WriteCapable || path.PullRequestWrite || path.MergeExecute || path.DeployWrite || path.ProductionWrite {
+	if len(path.ActionClasses) > 0 || len(path.WritePathClasses) > 0 || path.WriteCapable || path.PullRequestWrite || path.MergeExecute || path.DeployWrite || path.ProductionWrite || pathHasAnyMutableEndpoint(path) {
 		return "present"
 	}
 	return "missing"
@@ -250,6 +257,9 @@ func targetLineageLabel(path ActionPath) string {
 	if len(path.MatchedProductionTargets) > 0 {
 		return strings.Join(path.MatchedProductionTargets, ",")
 	}
+	if operations := pathMutableEndpointOperations(path); len(operations) > 0 {
+		return strings.Join(operations, ",")
+	}
 	if path.ProductionWrite {
 		return "unknown_production_target"
 	}
@@ -257,7 +267,7 @@ func targetLineageLabel(path ActionPath) string {
 }
 
 func targetLineageStatus(path ActionPath) string {
-	if len(path.MatchedProductionTargets) > 0 || path.ProductionWrite {
+	if len(path.MatchedProductionTargets) > 0 || path.ProductionWrite || pathHasAnyMutableEndpoint(path) {
 		return "present"
 	}
 	return "missing"

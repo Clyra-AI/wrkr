@@ -50,6 +50,7 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		path.MergeExecute ||
 		path.DeployWrite ||
 		path.ProductionWrite ||
+		pathHasAnyMutableEndpoint(path) ||
 		path.AttackPathScore >= 7.0 ||
 		path.ApprovalGap ||
 		actionPathHasCriticalTrustGap(path.TrustDepth) ||
@@ -100,6 +101,7 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 
 	switch {
 	case path.ProductionWrite ||
+		pathHasHighImpactMutableEndpoint(path) ||
 		(path.WriteCapable && (path.DeployWrite || path.MergeExecute)) ||
 		(path.CredentialAccess && (path.DeployWrite || path.ProductionWrite)) ||
 		(actionPathHasCriticalTrustGap(path.TrustDepth) && path.AttackPathScore >= 7.0) ||
@@ -130,7 +132,9 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 	switch model.controlPriority {
 	case ControlPriorityControlFirst:
 		switch {
-		case path.ProductionWrite || (path.AttackPathScore >= 9.0 && (path.CredentialAccess || path.WriteCapable)):
+		case path.ProductionWrite ||
+			pathHasHighImpactMutableEndpoint(path) ||
+			(path.AttackPathScore >= 9.0 && (path.CredentialAccess || path.WriteCapable)):
 			model.riskTier = RiskTierCritical
 			model.riskTierRank = 0
 		default:
@@ -318,6 +322,8 @@ func sourceSignalRank(path ActionPath) int {
 		strings.Contains(strings.ToLower(strings.TrimSpace(path.ToolType)), "llamaindex"),
 		strings.Contains(strings.ToLower(strings.TrimSpace(path.ToolType)), "compiled_action"),
 		strings.Contains(strings.ToLower(strings.TrimSpace(path.ToolType)), "ci_agent"):
+		return 3
+	case pathHasAnyMutableEndpoint(path):
 		return 3
 	case len(path.ActionClasses) > 0 || len(path.ActionReasons) > 0:
 		return 2

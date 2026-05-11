@@ -1,0 +1,79 @@
+package report
+
+import (
+	"testing"
+
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/risk"
+)
+
+func TestActionSurfaceRegistryGroupsWorkflowPaths(t *testing.T) {
+	t.Parallel()
+
+	paths := []risk.ActionPath{
+		{
+			PathID:         "ap-1",
+			ToolInstanceID: "workflow-release",
+			Org:            "local",
+			Repo:           "demo",
+			ToolType:       "ci_agent",
+			Location:       ".github/workflows/release.yml",
+			Purpose:        "Release pipeline",
+			ActionClasses:  []string{"deploy", "write"},
+			ConfidenceLane: risk.ConfidenceLaneLikelyActionPath,
+			CredentialAuthority: &agginventory.CredentialAuthority{
+				CredentialPresent:              true,
+				CredentialReferencedByWorkflow: true,
+				CredentialUsableByPath:         true,
+				StandingAccess:                 true,
+				LikelyJIT:                      false,
+			},
+			MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{{
+				Semantic:   agginventory.EndpointSemanticDeploy,
+				Confidence: "high",
+				Surface:    "route",
+				Operation:  "POST /deploy",
+			}},
+		},
+		{
+			PathID:         "ap-2",
+			ToolInstanceID: "workflow-release",
+			Org:            "local",
+			Repo:           "demo",
+			ToolType:       "ci_agent",
+			Location:       ".github/workflows/release.yml",
+			Purpose:        "Release pipeline",
+			ActionClasses:  []string{"write"},
+			ConfidenceLane: risk.ConfidenceLaneLikelyActionPath,
+			MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{{
+				Semantic:   agginventory.EndpointSemanticPayment,
+				Confidence: "high",
+				Surface:    "openapi",
+				Operation:  "POST /v1/payments",
+			}},
+		},
+	}
+	graph := risk.BuildControlPathGraph(paths)
+	summary := Summary{
+		ActionPaths:      paths,
+		ControlPathGraph: graph,
+	}
+	summary.AgentActionBOM = BuildAgentActionBOM(summary)
+
+	registry := BuildActionSurfaceRegistry(summary)
+	if len(registry) != 1 {
+		t.Fatalf("expected one grouped registry surface, got %+v", registry)
+	}
+	if registry[0].ActionPathCount != 2 {
+		t.Fatalf("expected grouped registry action count=2, got %+v", registry[0])
+	}
+	if len(registry[0].PathIDs) != 2 {
+		t.Fatalf("expected grouped registry to retain both path ids, got %+v", registry[0])
+	}
+	if registry[0].SurfaceType != "workflow" {
+		t.Fatalf("expected workflow surface type, got %+v", registry[0])
+	}
+	if len(registry[0].MutableEndpointSemantics) != 2 {
+		t.Fatalf("expected mutable endpoint semantics to aggregate across grouped paths, got %+v", registry[0])
+	}
+}

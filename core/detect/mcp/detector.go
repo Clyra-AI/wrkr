@@ -14,6 +14,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/detect/mcp/enrich"
 	"github.com/Clyra-AI/wrkr/core/detect/mcpgateway"
+	"github.com/Clyra-AI/wrkr/core/detect/mutableendpoint"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/supplychain"
 )
@@ -150,6 +151,10 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 				{Key: "config_source", Value: rel},
 			}
 			evidence = append(evidence, trustDepthEvidence(trustDepth)...)
+			endpointSemantics := mutableendpoint.Classify("", name, fallbackValue(server.Description, ""), name, "mcp", "medium")
+			for _, encoded := range mutableendpoint.EncodeEvidenceValues(endpointSemantics) {
+				evidence = append(evidence, model.Evidence{Key: "mutable_endpoint_semantic", Value: encoded})
+			}
 			if options.Enrich {
 				enrichResult := enrichService.Lookup(ctx, pkg, version)
 				enrichErrors := "none"
@@ -172,6 +177,7 @@ func (Detector) Detect(ctx context.Context, scope detect.Scope, options detect.O
 			}
 			permissions := []string{"mcp.access"}
 			permissions = append(permissions, actionSurfacePermissions(actionSurface)...)
+			permissions = append(permissions, mutableendpoint.PermissionsForSemantics(endpointSemantics)...)
 			findings = append(findings, model.Finding{
 				FindingType: "mcp_server",
 				Severity:    severity,

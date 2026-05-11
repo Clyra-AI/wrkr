@@ -211,7 +211,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	bomSource.ActionPathToControlFirst = rawActionPathToControlFirst
 	bomSource.ControlPathGraph = rawControlPathGraph
 	summary.AgentActionBOM = buildAgentActionBOMFromSnapshot(bomSource, in.Snapshot)
+	registrySource := bomSource
+	registrySource.AgentActionBOM = summary.AgentActionBOM
+	summary.ActionSurfaceRegistry = BuildActionSurfaceRegistry(registrySource)
 	if shareProfileRequiresRedaction(shareProfile) {
+		summary.ActionSurfaceRegistry = sanitizeActionSurfaceRegistryPublic(summary.ActionSurfaceRegistry)
 		summary.AgentActionBOM = sanitizeAgentActionBOM(summary.AgentActionBOM, shareProfile)
 	}
 
@@ -859,6 +863,9 @@ func buildActionPathRiskItems(paths []risk.ActionPath) []RiskItem {
 		}
 		if path.CredentialProvenance != nil {
 			rationale = append(rationale, fmt.Sprintf("credential_provenance=%s", strings.TrimSpace(path.CredentialProvenance.Type)))
+		}
+		for _, semantic := range agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics) {
+			rationale = append(rationale, fmt.Sprintf("mutable_endpoint_semantic=%s", strings.TrimSpace(semantic.Semantic)))
 		}
 		out = append(out, RiskItem{
 			Rank:                   idx + 1,
@@ -1534,6 +1541,7 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 			copyItem.CredentialAuthority = agginventory.CloneCredentialAuthority(copyItem.CredentialAuthority)
 			copyItem.CredentialAuthority.ReasonCodes = redactStringSlice(copyItem.CredentialAuthority.ReasonCodes, "evidence")
 		}
+		copyItem.MutableEndpointSemantics = sanitizeMutableEndpointSemanticsPublic(copyItem.MutableEndpointSemantics)
 		copyItem.Credentials = redactCredentialsPublic(copyItem.Credentials)
 		copyItem.ActionLineage = sanitizeActionLineagePublic(copyItem.ActionLineage)
 		if copyItem.IntroducedBy != nil {
@@ -1570,6 +1578,49 @@ func sanitizeActionPathToControlFirstPublic(in *risk.ActionPathToControlFirst) *
 		Summary: copySummary,
 		Path:    paths[0],
 	}
+}
+
+func sanitizeActionSurfaceRegistryPublic(in []ActionSurfaceRegistryEntry) []ActionSurfaceRegistryEntry {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]ActionSurfaceRegistryEntry, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.RegistryID = redactValue("surface", copyItem.RegistryID, 8)
+		copyItem.Org = redactValue("org", copyItem.Org, 6)
+		copyItem.Repo = redactValue("repo", copyItem.Repo, 6)
+		copyItem.ToolInstanceID = redactValue("instance", copyItem.ToolInstanceID, 8)
+		copyItem.Location = redactValue("loc", copyItem.Location, 8)
+		copyItem.Label = redactValue("label", copyItem.Label, 8)
+		copyItem.Owner = redactValue("owner", copyItem.Owner, 8)
+		copyItem.ConfigSource = redactValue("loc", copyItem.ConfigSource, 8)
+		copyItem.PathIDs = redactStringSlice(copyItem.PathIDs, "path")
+		copyItem.GraphRefs = AgentActionBOMGraphRefs{
+			NodeIDs: redactStringSlice(copyItem.GraphRefs.NodeIDs, "node"),
+			EdgeIDs: redactStringSlice(copyItem.GraphRefs.EdgeIDs, "edge"),
+		}
+		if copyItem.CredentialAuthority != nil {
+			copyItem.CredentialAuthority = agginventory.CloneCredentialAuthority(copyItem.CredentialAuthority)
+			copyItem.CredentialAuthority.ReasonCodes = redactStringSlice(copyItem.CredentialAuthority.ReasonCodes, "evidence")
+		}
+		copyItem.Credentials = redactCredentialsPublic(copyItem.Credentials)
+		copyItem.MutableEndpointSemantics = sanitizeMutableEndpointSemanticsPublic(copyItem.MutableEndpointSemantics)
+		out = append(out, copyItem)
+	}
+	return out
+}
+
+func sanitizeMutableEndpointSemanticsPublic(in []agginventory.MutableEndpointSemantic) []agginventory.MutableEndpointSemantic {
+	if len(in) == 0 {
+		return nil
+	}
+	out := agginventory.CloneMutableEndpointSemantics(in)
+	for idx := range out {
+		out[idx].Operation = redactValue("endpoint", out[idx].Operation, 8)
+		out[idx].EvidenceRefs = redactStringSlice(out[idx].EvidenceRefs, "endpoint")
+	}
+	return out
 }
 
 func redactCredentialsPublic(in []*agginventory.CredentialProvenance) []*agginventory.CredentialProvenance {
@@ -1653,6 +1704,7 @@ func sanitizeControlPathGraphPublic(in *aggattack.ControlPathGraph) *aggattack.C
 			copyGraph.Nodes[idx].CredentialAuthority = agginventory.CloneCredentialAuthority(copyGraph.Nodes[idx].CredentialAuthority)
 			copyGraph.Nodes[idx].CredentialAuthority.ReasonCodes = redactStringSlice(copyGraph.Nodes[idx].CredentialAuthority.ReasonCodes, "evidence")
 		}
+		copyGraph.Nodes[idx].MutableEndpointSemantics = sanitizeMutableEndpointSemanticsPublic(copyGraph.Nodes[idx].MutableEndpointSemantics)
 		copyGraph.Nodes[idx].EvidenceRefs = redactStringSlice(copyGraph.Nodes[idx].EvidenceRefs, "evidence")
 		copyGraph.Nodes[idx].SourceRefs = redactStringSlice(copyGraph.Nodes[idx].SourceRefs, "source")
 		copyGraph.Nodes[idx].AttackPathRefs = redactStringSlice(copyGraph.Nodes[idx].AttackPathRefs, "attack")
@@ -1754,6 +1806,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 			copyBOM.Items[idx].CredentialAuthority = agginventory.CloneCredentialAuthority(copyBOM.Items[idx].CredentialAuthority)
 			copyBOM.Items[idx].CredentialAuthority.ReasonCodes = redactStringSlice(copyBOM.Items[idx].CredentialAuthority.ReasonCodes, "evidence")
 		}
+		copyBOM.Items[idx].MutableEndpointSemantics = sanitizeMutableEndpointSemanticsPublic(copyBOM.Items[idx].MutableEndpointSemantics)
 		copyBOM.Items[idx].Credentials = redactCredentialsPublic(copyBOM.Items[idx].Credentials)
 		copyBOM.Items[idx].ActionLineage = sanitizeActionLineagePublic(copyBOM.Items[idx].ActionLineage)
 		if copyBOM.Items[idx].IntroducedBy != nil {

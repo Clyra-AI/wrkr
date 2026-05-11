@@ -467,6 +467,7 @@ type ControlPathInput struct {
 	CredentialAccess         bool
 	CredentialProvenance     *agginventory.CredentialProvenance
 	CredentialAuthority      *agginventory.CredentialAuthority
+	MutableEndpointSemantics []agginventory.MutableEndpointSemantic
 	GovernanceControls       []agginventory.GovernanceControlMapping
 	MatchedProductionTargets []string
 	WritePathClasses         []string
@@ -499,29 +500,30 @@ type ControlPathKindRollup struct {
 }
 
 type ControlPathNode struct {
-	NodeID              string                            `json:"node_id"`
-	PathID              string                            `json:"path_id"`
-	Kind                string                            `json:"kind"`
-	LineageSegment      string                            `json:"lineage_segment,omitempty"`
-	Org                 string                            `json:"org"`
-	Repo                string                            `json:"repo"`
-	Label               string                            `json:"label,omitempty"`
-	ToolType            string                            `json:"tool_type,omitempty"`
-	Location            string                            `json:"location,omitempty"`
-	AgentID             string                            `json:"agent_id,omitempty"`
-	Purpose             string                            `json:"purpose,omitempty"`
-	PurposeSource       string                            `json:"purpose_source,omitempty"`
-	PurposeConfidence   string                            `json:"purpose_confidence,omitempty"`
-	Version             string                            `json:"version,omitempty"`
-	VersionSource       string                            `json:"version_source,omitempty"`
-	ConfigFingerprint   string                            `json:"config_fingerprint,omitempty"`
-	ConfigSource        string                            `json:"config_source,omitempty"`
-	Status              string                            `json:"status,omitempty"`
-	CredentialAuthority *agginventory.CredentialAuthority `json:"credential_authority,omitempty"`
-	EvidenceRefs        []string                          `json:"evidence_refs,omitempty"`
-	SourceRefs          []string                          `json:"source_refs,omitempty"`
-	AttackPathRefs      []string                          `json:"attack_path_refs,omitempty"`
-	SourceFindingKeys   []string                          `json:"source_finding_keys,omitempty"`
+	NodeID                   string                                 `json:"node_id"`
+	PathID                   string                                 `json:"path_id"`
+	Kind                     string                                 `json:"kind"`
+	LineageSegment           string                                 `json:"lineage_segment,omitempty"`
+	Org                      string                                 `json:"org"`
+	Repo                     string                                 `json:"repo"`
+	Label                    string                                 `json:"label,omitempty"`
+	ToolType                 string                                 `json:"tool_type,omitempty"`
+	Location                 string                                 `json:"location,omitempty"`
+	AgentID                  string                                 `json:"agent_id,omitempty"`
+	Purpose                  string                                 `json:"purpose,omitempty"`
+	PurposeSource            string                                 `json:"purpose_source,omitempty"`
+	PurposeConfidence        string                                 `json:"purpose_confidence,omitempty"`
+	Version                  string                                 `json:"version,omitempty"`
+	VersionSource            string                                 `json:"version_source,omitempty"`
+	ConfigFingerprint        string                                 `json:"config_fingerprint,omitempty"`
+	ConfigSource             string                                 `json:"config_source,omitempty"`
+	Status                   string                                 `json:"status,omitempty"`
+	CredentialAuthority      *agginventory.CredentialAuthority      `json:"credential_authority,omitempty"`
+	MutableEndpointSemantics []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
+	EvidenceRefs             []string                               `json:"evidence_refs,omitempty"`
+	SourceRefs               []string                               `json:"source_refs,omitempty"`
+	AttackPathRefs           []string                               `json:"attack_path_refs,omitempty"`
+	SourceFindingKeys        []string                               `json:"source_finding_keys,omitempty"`
 }
 
 type ControlPathEdge struct {
@@ -700,6 +702,7 @@ func controlCredentialNode(pathID string, path ControlPathInput, org string, rep
 	node := newControlPathNode(pathID, ControlPathNodeCredential, org, repo, label, toolType, location, strings.TrimSpace(path.AgentID), status, evidenceRefs, controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
 	applyNodeMetadata(&node, path, "credential")
 	node.CredentialAuthority = agginventory.CloneCredentialAuthority(path.CredentialAuthority)
+	node.MutableEndpointSemantics = agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics)
 	return &node
 }
 
@@ -715,6 +718,7 @@ func applyNodeMetadata(node *ControlPathNode, path ControlPathInput, lineageSegm
 	node.VersionSource = strings.TrimSpace(path.VersionSource)
 	node.ConfigFingerprint = strings.TrimSpace(path.ConfigFingerprint)
 	node.ConfigSource = strings.TrimSpace(path.ConfigSource)
+	node.MutableEndpointSemantics = agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics)
 }
 
 func lineageSegmentForGovernanceControl(control string) string {
@@ -812,6 +816,14 @@ func controlSourceRefs(repo string, location string) []string {
 
 func controlTargets(path ControlPathInput) []string {
 	values := uniqueSortedStrings(path.MatchedProductionTargets)
+	for _, item := range agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics) {
+		if strings.TrimSpace(item.Operation) != "" {
+			values = append(values, strings.TrimSpace(item.Operation))
+			continue
+		}
+		values = append(values, strings.TrimSpace(item.Semantic))
+	}
+	values = uniqueSortedStrings(values)
 	if len(values) == 0 && path.ProductionWrite {
 		return []string{"unknown_production_target"}
 	}
@@ -846,6 +858,11 @@ func actionCapabilityLabels(path ControlPathInput) []string {
 	if path.ProductionWrite {
 		values = append(values, "production_write")
 	}
+	for _, item := range agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics) {
+		if strings.TrimSpace(item.Semantic) != "" {
+			values = append(values, "endpoint_semantic:"+strings.TrimSpace(item.Semantic))
+		}
+	}
 	for _, class := range path.WritePathClasses {
 		trimmed := strings.TrimSpace(class)
 		if trimmed == "" {
@@ -871,6 +888,8 @@ func pathStatus(path ControlPathInput) string {
 		return "pull_request_write"
 	case path.CredentialAccess:
 		return "credential_access"
+	case len(path.MutableEndpointSemantics) > 0:
+		return "mutable_endpoint"
 	default:
 		return "observed"
 	}

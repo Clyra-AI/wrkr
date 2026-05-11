@@ -97,6 +97,10 @@
     "action_path_to_control_first": {
       "$ref": "#/$defs/actionPathToControlFirst"
     },
+    "action_surface_registry": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/actionSurfaceRegistryEntry"}
+    },
     "control_path_graph": {
       "$ref": "#/$defs/controlPathGraph"
     },
@@ -298,6 +302,10 @@
         "path_context": {"$ref": "#/$defs/pathContext"},
         "action_classes": {"type": "array", "items": {"type": "string"}},
         "action_reasons": {"type": "array", "items": {"type": "string"}},
+        "mutable_endpoint_semantics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mutableEndpointSemantic"}
+        },
         "trust_depth": {"$ref": "#/$defs/trustDepth"},
         "policy_coverage_status": {"type": "string", "enum": ["none", "declared", "matched", "runtime_proven", "stale", "conflict"]},
         "policy_refs": {"type": "array", "items": {"type": "string"}},
@@ -365,6 +373,18 @@
       },
       "additionalProperties": false
     },
+    "mutableEndpointSemantic": {
+      "type": "object",
+      "required": ["semantic"],
+      "properties": {
+        "semantic": {"type": "string", "enum": ["read", "write", "delete", "deploy", "refund", "payment", "user_admin", "data_export", "production_mutation"]},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "surface": {"type": "string"},
+        "operation": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
     "actionPathToControlFirst": {
       "type": "object",
       "required": ["summary", "path"],
@@ -395,6 +415,52 @@
         },
         "path": {"$ref": "#/$defs/actionPath"}
       }
+    },
+    "actionSurfaceRegistryEntry": {
+      "type": "object",
+      "required": ["registry_id", "org", "repo", "tool_type", "action_path_count"],
+      "properties": {
+        "registry_id": {"type": "string"},
+        "surface_type": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "tool_instance_id": {"type": "string"},
+        "location": {"type": "string"},
+        "label": {"type": "string"},
+        "owner": {"type": "string"},
+        "owner_source": {"type": "string"},
+        "purpose": {"type": "string"},
+        "purpose_source": {"type": "string"},
+        "purpose_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "version": {"type": "string"},
+        "version_source": {"type": "string"},
+        "config_fingerprint": {"type": "string"},
+        "config_source": {"type": "string"},
+        "credentials": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/credentialProvenance"}
+        },
+        "credential_authority": {"$ref": "#/$defs/credentialAuthority"},
+        "reachable_actions": {"type": "array", "items": {"type": "string"}},
+        "mutable_endpoint_semantics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mutableEndpointSemantic"}
+        },
+        "confidence_lane": {"type": "string", "enum": ["confirmed_action_path", "likely_action_path", "semantic_review_candidate", "context_only"]},
+        "proof_status": {"type": "string"},
+        "path_ids": {"type": "array", "items": {"type": "string"}},
+        "action_path_count": {"type": "integer"},
+        "graph_refs": {
+          "type": "object",
+          "properties": {
+            "node_ids": {"type": "array", "items": {"type": "string"}},
+            "edge_ids": {"type": "array", "items": {"type": "string"}}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     },
     "scanQuality": {
       "type": "object",
@@ -514,6 +580,10 @@
         "config_source": {"type": "string"},
         "status": {"type": "string"},
         "credential_authority": {"$ref": "#/$defs/credentialAuthority"},
+        "mutable_endpoint_semantics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mutableEndpointSemantic"}
+        },
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
         "source_refs": {"type": "array", "items": {"type": "string"}},
         "attack_path_refs": {"type": "array", "items": {"type": "string"}},
