@@ -361,7 +361,7 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 		}
 	}
 
-	if summary.ActionSurfaceRegistry != nil && len(summary.ActionSurfaceRegistry) > 0 {
+	if len(summary.ActionSurfaceRegistry) > 0 {
 		builder.WriteString("## Registry Highlights\n\n")
 		limit := len(summary.ActionSurfaceRegistry)
 		if limit > 5 {
