@@ -781,6 +781,20 @@ func TestConfigFingerprintForFileIsPortableAcrossRootsAndLineEndings(t *testing.
 	}
 }
 
+func TestConfigFingerprintForFileRejectsPathsOutsideRoot(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	outside := filepath.Join(root, "..", "release.yml")
+	if err := os.WriteFile(outside, []byte("name: outside\n"), 0o644); err != nil {
+		t.Fatalf("write outside file: %v", err)
+	}
+
+	if got := configFingerprintForFile(root, "../release.yml"); got != "" {
+		t.Fatalf("expected empty fingerprint for path outside root, got %q", got)
+	}
+}
+
 func containsString(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {
