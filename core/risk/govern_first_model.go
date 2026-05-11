@@ -36,10 +36,6 @@ type governFirstModel struct {
 	governableScore     float64
 }
 
-func applyGovernFirstModel(paths []ActionPath) []ActionPath {
-	return ProjectActionPaths(paths)
-}
-
 func deriveGovernFirstModel(path ActionPath) governFirstModel {
 	model := governFirstModel{
 		sourceSignalRank: sourceSignalRank(path),
