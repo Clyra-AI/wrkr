@@ -2778,7 +2778,6 @@ func TestReportAcceptsDesignPartnerTemplateAndRedactionSelectors(t *testing.T) {
 		"report",
 		"--state", statePath,
 		"--template", "design-partner-summary",
-		"--share-profile", "design-partner",
 		"--redact", "owners,repos",
 		"--json",
 	}, &out, &errOut)

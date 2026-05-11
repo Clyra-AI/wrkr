@@ -437,8 +437,36 @@ func TestBuildSummaryManualRedactionAddsMetadataAndSanitizesPaths(t *testing.T) 
 	if !reflect.DeepEqual(summary.ShareProfileMetadata.SelectedFields, []string{"owners", "repos"}) {
 		t.Fatalf("unexpected selected fields metadata: %+v", summary.ShareProfileMetadata)
 	}
-	if !strings.HasPrefix(summary.ActionPaths[0].Repo, "repo-") || !strings.HasPrefix(summary.ActionPaths[0].Location, "loc-") {
-		t.Fatalf("expected manual redaction to sanitize joined report surfaces, got %+v", summary.ActionPaths[0])
+	if !strings.HasPrefix(summary.ActionPaths[0].Repo, "repo-") {
+		t.Fatalf("expected repo redaction to apply, got %+v", summary.ActionPaths[0])
+	}
+	if summary.ActionPaths[0].Location != "/Users/example/private/.github/workflows/release.yml" {
+		t.Fatalf("expected unselected location field to remain visible, got %+v", summary.ActionPaths[0])
+	}
+}
+
+func TestSanitizeProofReferenceWithConfigHonorsSelectedFields(t *testing.T) {
+	t.Parallel()
+
+	input := ProofReference{
+		ChainPath:            "/Users/example/.wrkr/proof-chain.json",
+		CanonicalFindingKeys: []string{"finding:acme/payments:.github/workflows/release.yml"},
+	}
+
+	unselected := sanitizeProofReferenceWithConfig(input, ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionOwners}))
+	if unselected.ChainPath != input.ChainPath {
+		t.Fatalf("expected proof chain path to remain when proof refs were not selected, got %q", unselected.ChainPath)
+	}
+	if !reflect.DeepEqual(unselected.CanonicalFindingKeys, input.CanonicalFindingKeys) {
+		t.Fatalf("expected canonical finding keys to remain when proof refs were not selected, got %+v", unselected.CanonicalFindingKeys)
+	}
+
+	selected := sanitizeProofReferenceWithConfig(input, ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionProofRefs}))
+	if selected.ChainPath == input.ChainPath {
+		t.Fatalf("expected proof chain path redaction when proof refs were selected, got %q", selected.ChainPath)
+	}
+	if reflect.DeepEqual(selected.CanonicalFindingKeys, input.CanonicalFindingKeys) {
+		t.Fatalf("expected canonical finding keys to be redacted when proof refs were selected, got %+v", selected.CanonicalFindingKeys)
 	}
 }
 

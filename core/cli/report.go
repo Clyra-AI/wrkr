@@ -81,7 +81,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	csvBacklog := fs.Bool("csv-backlog", false, "write a deterministic CSV control backlog")
 	csvBacklogPath := fs.String("csv-backlog-path", "wrkr-control-backlog.csv", "CSV control backlog output path")
 	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary]")
-	shareProfileRaw := fs.String("share-profile", string(reportcore.ShareProfileInternal), "share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
+	shareProfileRaw := fs.String("share-profile", "", "share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
 	redactRaw := fs.String("redact", "", "comma-separated additive redaction fields [owners|repos|paths|credential-subjects|authors|filesystem|providers|proof-refs|graph-refs]")
 	topN := fs.Int("top", 5, "number of top findings")
 	statePathFlag := fs.String("state", "", "state file path override")
