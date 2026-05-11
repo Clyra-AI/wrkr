@@ -1303,19 +1303,19 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 		if !ok {
 			continue
 		}
-		copyBacklog.Items[idx].ControlState = firstNonEmptyValue(strings.TrimSpace(item.ControlState), strings.TrimSpace(path.ControlState))
+		copyBacklog.Items[idx].ControlState = firstNonEmptyValue(strings.TrimSpace(path.ControlState), strings.TrimSpace(item.ControlState))
 		copyBacklog.Items[idx].ControlStateReasons = uniqueStrings(append(append([]string(nil), item.ControlStateReasons...), path.ControlStateReasons...))
-		copyBacklog.Items[idx].RiskZone = firstNonEmptyValue(strings.TrimSpace(item.RiskZone), strings.TrimSpace(path.RiskZone))
+		copyBacklog.Items[idx].RiskZone = firstNonEmptyValue(strings.TrimSpace(path.RiskZone), strings.TrimSpace(item.RiskZone))
 		copyBacklog.Items[idx].RiskZoneReasons = uniqueStrings(append(append([]string(nil), item.RiskZoneReasons...), path.RiskZoneReasons...))
-		copyBacklog.Items[idx].ReviewBurden = firstNonEmptyValue(strings.TrimSpace(item.ReviewBurden), strings.TrimSpace(path.ReviewBurden))
+		copyBacklog.Items[idx].ReviewBurden = firstNonEmptyValue(strings.TrimSpace(path.ReviewBurden), strings.TrimSpace(item.ReviewBurden))
 		copyBacklog.Items[idx].ReviewBurdenReasons = uniqueStrings(append(append([]string(nil), item.ReviewBurdenReasons...), path.ReviewBurdenReasons...))
-		copyBacklog.Items[idx].ConfidenceLane = firstNonEmptyValue(strings.TrimSpace(item.ConfidenceLane), strings.TrimSpace(path.ConfidenceLane))
+		copyBacklog.Items[idx].ConfidenceLane = firstNonEmptyValue(strings.TrimSpace(path.ConfidenceLane), strings.TrimSpace(item.ConfidenceLane))
 		copyBacklog.Items[idx].ConfidenceLaneReasons = uniqueStrings(append(append([]string(nil), item.ConfidenceLaneReasons...), path.ConfidenceLaneReasons...))
-		copyBacklog.Items[idx].PolicyCoverageStatus = firstNonEmptyValue(strings.TrimSpace(item.PolicyCoverageStatus), strings.TrimSpace(path.PolicyCoverageStatus))
+		copyBacklog.Items[idx].PolicyCoverageStatus = firstNonEmptyValue(strings.TrimSpace(path.PolicyCoverageStatus), strings.TrimSpace(item.PolicyCoverageStatus))
 		copyBacklog.Items[idx].PolicyRefs = uniqueStrings(append(append([]string(nil), item.PolicyRefs...), path.PolicyRefs...))
 		copyBacklog.Items[idx].PolicyMissingReasons = uniqueStrings(append(append([]string(nil), item.PolicyMissingReasons...), path.PolicyMissingReasons...))
 		copyBacklog.Items[idx].PolicyEvidenceRefs = uniqueStrings(append(append([]string(nil), item.PolicyEvidenceRefs...), path.PolicyEvidenceRefs...))
-		copyBacklog.Items[idx].PolicyConfidence = firstNonEmptyValue(strings.TrimSpace(item.PolicyConfidence), strings.TrimSpace(path.PolicyConfidence))
+		copyBacklog.Items[idx].PolicyConfidence = firstNonEmptyValue(strings.TrimSpace(path.PolicyConfidence), strings.TrimSpace(item.PolicyConfidence))
 		if copyBacklog.Items[idx].CredentialProvenance == nil {
 			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(path.CredentialProvenance)
 		}

@@ -1329,6 +1329,94 @@ func TestRenderMarkdownUsesReviewCandidateWording(t *testing.T) {
 	}
 }
 
+func TestBuildSummaryDecoratesBacklogWithProjectedPosture(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:                   "apc-backlog",
+					Org:                      "acme",
+					Repo:                     "acme/release",
+					ToolType:                 "compiled_action",
+					Location:                 ".github/workflows/release.yml",
+					WriteCapable:             true,
+					CredentialAccess:         true,
+					PullRequestWrite:         true,
+					ApprovalGap:              true,
+					ApprovalGapReasons:       []string{"approval_source_missing"},
+					PolicyCoverageStatus:     risk.PolicyCoverageStatusNone,
+					PolicyMissingReasons:     []string{"policy_binding_missing"},
+					PolicyConfidence:         "high",
+					MatchedProductionTargets: []string{"deploy/prod"},
+				}},
+			},
+			ControlBacklog: &controlbacklog.Backlog{
+				Items: []controlbacklog.Item{{
+					LinkedActionPathID:   "apc-backlog",
+					Repo:                 "acme/release",
+					Path:                 ".github/workflows/release.yml",
+					ControlState:         "inventory_only",
+					RiskZone:             "visibility_only",
+					ReviewBurden:         "low",
+					ConfidenceLane:       "context_only",
+					PolicyCoverageStatus: risk.PolicyCoverageStatusMatched,
+					PolicyConfidence:     "low",
+					ApprovalStatus:       "approved",
+				}},
+			},
+		},
+		Template:    TemplateAgentActionBOM,
+		GeneratedAt: time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.ControlBacklog == nil || len(summary.ControlBacklog.Items) != 1 {
+		t.Fatalf("expected decorated control backlog item, got %+v", summary.ControlBacklog)
+	}
+
+	item := summary.ControlBacklog.Items[0]
+	path := summary.ActionPaths[0]
+	if item.ControlState != path.ControlState || item.RiskZone != path.RiskZone || item.ReviewBurden != path.ReviewBurden || item.ConfidenceLane != path.ConfidenceLane {
+		t.Fatalf("expected backlog posture to match projected action path, item=%+v path=%+v", item, path)
+	}
+	if item.PolicyCoverageStatus != path.PolicyCoverageStatus || item.PolicyConfidence != path.PolicyConfidence {
+		t.Fatalf("expected backlog policy posture to match projected action path, item=%+v path=%+v", item, path)
+	}
+	if item.ApprovalStatus != "approved" {
+		t.Fatalf("expected user-managed approval status to be preserved, got %+v", item)
+	}
+}
+
+func TestRenderMarkdownDoesNotLabelUnknownLaneAsConfirmed(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		Template: string(TemplateAgentActionBOM),
+		AgentActionBOM: &AgentActionBOM{
+			Items: []AgentActionBOMItem{{
+				Repo:         "acme/platform",
+				Location:     "top-risk-only",
+				ControlState: "review_required",
+				RiskZone:     "credential_exposed",
+				ReviewBurden: "medium",
+				Queue:        "review",
+				RiskTier:     risk.RiskTierMedium,
+			}},
+		},
+	}
+
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, "action-path evidence repo=acme/platform location=top-risk-only") {
+		t.Fatalf("expected unknown lane to render neutrally, got %q", markdown)
+	}
+	if strings.Contains(markdown, "confirmed action path repo=acme/platform location=top-risk-only") {
+		t.Fatalf("did not expect unknown lane to render as confirmed, got %q", markdown)
+	}
+}
+
 func TestBuildSummaryCustomerRedactedSanitizesBOMReachability(t *testing.T) {
 	t.Parallel()
 
