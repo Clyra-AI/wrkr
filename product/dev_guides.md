@@ -73,6 +73,7 @@ These notes clarify how this repository currently enforces this standard. They d
   - `scripts/check_docs_consistency.sh`
   - `scripts/run_docs_smoke.sh`
 - `core/cli/*.go` command/flag/exit-code changes must ship with doc updates in the same PR.
+- Report-template, share-profile, and redaction-selector changes must update `docs/commands/report.md`, paired scan/report examples, and schema docs in the same PR so buyer-facing language does not drift from executable behavior.
 
 ### 6) Tool Pin Clarification (Wrkr)
 

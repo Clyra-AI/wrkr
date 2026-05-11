@@ -29,11 +29,11 @@
     },
     "template": {
       "type": "string",
-      "enum": ["exec", "operator", "audit", "public", "ciso", "appsec", "platform", "customer-draft", "agent-action-bom"]
+      "enum": ["exec", "operator", "audit", "public", "ciso", "appsec", "platform", "customer-draft", "agent-action-bom", "design-partner-summary"]
     },
     "share_profile": {
       "type": "string",
-      "enum": ["internal", "public", "customer-redacted"]
+      "enum": ["internal", "public", "customer-redacted", "design-partner", "external-redacted", "investor-safe"]
     },
     "share_profile_metadata": {
       "$ref": "#/$defs/shareProfileMetadata"
@@ -150,6 +150,14 @@
         "redaction_applied": {"type": "boolean"},
         "redaction_version": {"type": "string"},
         "policy_summary": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "selected_fields": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "profile_default_fields": {
           "type": "array",
           "items": {"type": "string"}
         }
@@ -449,6 +457,7 @@
         },
         "confidence_lane": {"type": "string", "enum": ["confirmed_action_path", "likely_action_path", "semantic_review_candidate", "context_only"]},
         "proof_status": {"type": "string"},
+        "remediation": {"type": "string"},
         "path_ids": {"type": "array", "items": {"type": "string"}},
         "action_path_count": {"type": "integer"},
         "graph_refs": {

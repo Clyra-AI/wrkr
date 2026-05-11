@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "refund-control": {
+      "command": "npx",
+      "args": ["@acme/refund-mcp@1.2.3"],
+      "description": "Refund customer payments and export account data.",
+      "transport": "stdio",
+      "env": {
+        "REFUND_CONTROL_TOKEN": "${REFUND_CONTROL_TOKEN}"
+      },
+      "permissions": ["mcp.admin", "network.access"]
+    }
+  }
+}

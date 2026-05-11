@@ -348,6 +348,100 @@ func TestBuildSummaryRejectsUnknownTemplateAndShareProfile(t *testing.T) {
 	}
 }
 
+func TestParseRedactionFieldsRejectsDuplicateSelectors(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseRedactionFields("owners,repos,owners")
+	if err == nil {
+		t.Fatal("expected duplicate redaction selector error")
+	}
+}
+
+func TestBuildSummaryDesignPartnerDefaultsToDesignPartnerShareProfile(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:            "apc-design-partner",
+					Org:               "acme",
+					Repo:              "acme/payments",
+					ToolType:          "ci_agent",
+					Location:          ".github/workflows/release.yml",
+					WriteCapable:      true,
+					CredentialAccess:  true,
+					ApprovalGap:       true,
+					RecommendedAction: "control",
+					OperationalOwner:  "@acme/release",
+					Purpose:           "Release workflow",
+					PurposeSource:     "workflow_name",
+					ConfidenceLane:    risk.ConfidenceLaneConfirmedActionPath,
+					ControlState:      risk.ControlStateBlockRecommend,
+					RiskZone:          risk.RiskZoneRelease,
+					ReviewBurden:      risk.ReviewBurdenHigh,
+					CredentialAuthority: &agginventory.CredentialAuthority{
+						CredentialPresent:      true,
+						CredentialUsableByPath: true,
+						StandingAccess:         true,
+						CredentialKind:         agginventory.CredentialKindGitHubPAT,
+						AccessType:             agginventory.CredentialAccessTypeStanding,
+					},
+				}},
+			},
+		},
+		Template:    TemplateDesignPartnerSummary,
+		GeneratedAt: time.Date(2026, 5, 11, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.ShareProfile != string(ShareProfileDesignPartner) {
+		t.Fatalf("expected design-partner share profile default, got %q", summary.ShareProfile)
+	}
+	if summary.ShareProfileMetadata == nil || !summary.ShareProfileMetadata.RedactionApplied {
+		t.Fatalf("expected redaction metadata for design-partner summary, got %+v", summary.ShareProfileMetadata)
+	}
+}
+
+func TestBuildSummaryManualRedactionAddsMetadataAndSanitizesPaths(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:            "apc-manual-redact",
+					Org:               "acme",
+					Repo:              "acme/payments-private",
+					ToolType:          "ci_agent",
+					Location:          "/Users/example/private/.github/workflows/release.yml",
+					WriteCapable:      true,
+					CredentialAccess:  true,
+					ApprovalGap:       true,
+					RecommendedAction: "control",
+				}},
+			},
+		},
+		Template:        TemplateAgentActionBOM,
+		ShareProfile:    ShareProfileInternal,
+		RedactionFields: []RedactionField{RedactionOwners, RedactionRepos},
+		GeneratedAt:     time.Date(2026, 5, 11, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.ShareProfileMetadata == nil {
+		t.Fatal("expected share profile metadata for manual redaction")
+	}
+	if !reflect.DeepEqual(summary.ShareProfileMetadata.SelectedFields, []string{"owners", "repos"}) {
+		t.Fatalf("unexpected selected fields metadata: %+v", summary.ShareProfileMetadata)
+	}
+	if !strings.HasPrefix(summary.ActionPaths[0].Repo, "repo-") || !strings.HasPrefix(summary.ActionPaths[0].Location, "loc-") {
+		t.Fatalf("expected manual redaction to sanitize joined report surfaces, got %+v", summary.ActionPaths[0])
+	}
+}
+
 func TestReportTemplateCISOLeadsWithControlBacklog(t *testing.T) {
 	t.Parallel()
 
@@ -1326,6 +1420,92 @@ func TestRenderMarkdownUsesReviewCandidateWording(t *testing.T) {
 	}
 	if strings.Contains(markdown, "confirmed action path repo=acme/platform location=AGENTS.md") {
 		t.Fatalf("did not expect semantic review candidate to read as confirmed path, got %q", markdown)
+	}
+}
+
+func TestRenderMarkdownDesignPartnerTemplateRendersTopValidatedFindings(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		GeneratedAt:  "2026-05-11T12:00:00Z",
+		Template:     string(TemplateDesignPartnerSummary),
+		ShareProfile: string(ShareProfileDesignPartner),
+		ShareProfileMetadata: &ShareProfileMetadata{
+			RedactionApplied: true,
+			RedactionVersion: "customer-share-v2",
+			SelectedFields:   []string{"authors", "credential-subjects", "filesystem", "graph-refs", "proof-refs", "providers"},
+		},
+		ScanScope: &ScanScopeSummary{
+			Mode:           "path",
+			ScopeLabel:     "local repo group",
+			SourceBoundary: "repo_group",
+			RepoCount:      1,
+			TargetCount:    1,
+		},
+		AgentActionBOM: &AgentActionBOM{
+			Items: []AgentActionBOMItem{{
+				Repo:                  "repo-123abc",
+				Location:              "loc-456def",
+				Owner:                 "owner-789ghi",
+				Purpose:               "refund automation",
+				PurposeSource:         "mcp_description",
+				Version:               "1.2.3",
+				VersionSource:         "launcher_arg",
+				ConfigSource:          "loc-config123",
+				ConfidenceLane:        risk.ConfidenceLaneConfirmedActionPath,
+				ControlState:          risk.ControlStateBlockRecommend,
+				RiskZone:              risk.RiskZoneProductionData,
+				RiskTier:              risk.RiskTierCritical,
+				ProofCoverage:         "missing",
+				PolicyStatus:          "none",
+				RuntimeEvidenceStatus: "unmatched",
+				ApprovalGap:           true,
+				Remediation:           "Require CODEOWNERS review, attach proof, and rescan.",
+				CredentialAuthority: &agginventory.CredentialAuthority{
+					CredentialKind:         agginventory.CredentialKindGitHubPAT,
+					CredentialSource:       agginventory.CredentialSourceWorkflowSecretRef,
+					AccessType:             agginventory.CredentialAccessTypeStanding,
+					RotationEvidenceStatus: agginventory.CredentialRotationEvidenceMissing,
+				},
+				MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{{
+					Semantic:   agginventory.EndpointSemanticRefund,
+					Confidence: "high",
+				}},
+				ActionLineage: &risk.ActionLineage{
+					Segments: []risk.ActionLineageSegment{
+						{Kind: "repo", Label: "repo-123abc", Status: "present"},
+						{Kind: "workflow", Label: "loc-456def", Status: "present"},
+						{Kind: "approval", Label: "approval_gap", Status: "missing"},
+						{Kind: "proof", Label: "missing", Status: "missing"},
+					},
+				},
+			}},
+		},
+		ActionSurfaceRegistry: []ActionSurfaceRegistryEntry{{
+			Label:          "refund automation",
+			SurfaceType:    "workflow",
+			Owner:          "owner-789ghi",
+			Purpose:        "refund automation",
+			ConfidenceLane: risk.ConfidenceLaneConfirmedActionPath,
+			Remediation:    "Require CODEOWNERS review, attach proof, and rescan.",
+		}},
+	}
+
+	markdown := RenderMarkdown(summary)
+	for _, want := range []string{
+		"# Wrkr Design Partner Summary",
+		"## Top Validated Findings",
+		"Problem:",
+		"Likely explanation:",
+		"Threat:",
+		"Recommended control:",
+		"Lineage:",
+		"## Registry Highlights",
+		"## Known Limits",
+	} {
+		if !strings.Contains(markdown, want) {
+			t.Fatalf("expected design-partner markdown to contain %q, got %q", want, markdown)
+		}
 	}
 }
 

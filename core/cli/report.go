@@ -80,8 +80,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	evidenceJSONPath := fs.String("evidence-json-path", "wrkr-report-evidence.json", "JSON evidence bundle output path")
 	csvBacklog := fs.Bool("csv-backlog", false, "write a deterministic CSV control backlog")
 	csvBacklogPath := fs.String("csv-backlog-path", "wrkr-control-backlog.csv", "CSV control backlog output path")
-	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom]")
-	shareProfileRaw := fs.String("share-profile", string(reportcore.ShareProfileInternal), "share profile [internal|public|customer-redacted]")
+	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary]")
+	shareProfileRaw := fs.String("share-profile", string(reportcore.ShareProfileInternal), "share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
+	redactRaw := fs.String("redact", "", "comma-separated additive redaction fields [owners|repos|paths|credential-subjects|authors|filesystem|providers|proof-refs|graph-refs]")
 	topN := fs.Int("top", 5, "number of top findings")
 	statePathFlag := fs.String("state", "", "state file path override")
 	baselinePath := fs.String("baseline", "", "optional regress baseline for drift summary")
@@ -101,6 +102,11 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	if parseErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseErr.Error(), exitInvalidInput)
 	}
+	redactionFields, parseRedactionErr := reportcore.ParseRedactionFields(*redactRaw)
+	if parseRedactionErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseRedactionErr.Error(), exitInvalidInput)
+	}
+	redactionConfig := reportcore.ResolveRedactionConfig(shareProfile, redactionFields)
 
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
 	if err := preflightManagedArtifactRead(resolvedStatePath); err != nil {
@@ -148,6 +154,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		Top:               *topN,
 		Template:          template,
 		ShareProfile:      shareProfile,
+		RedactionFields:   redactionFields,
 		WriteMarkdown:     *md,
 		MarkdownPath:      *mdPath,
 		WritePDF:          *pdf,
@@ -178,8 +185,8 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		riskReport = &generated
 	}
 	top := reportcore.SelectTopFindings(*riskReport, *topN)
-	if shareProfile == reportcore.ShareProfilePublic {
-		top = reportcore.PublicSanitizeFindings(top)
+	if redactionConfig.Applies() {
+		top = reportcore.SanitizeFindings(top, redactionConfig)
 	}
 
 	totalTools, typeBreakdown := inventorySummary(snapshot.Inventory)
@@ -275,7 +282,7 @@ func reportArtifactPathMap(artifacts reportArtifactResult) map[string]string {
 
 func reportTemplateExpectsArtifactMap(template string) bool {
 	switch strings.TrimSpace(template) {
-	case string(reportcore.TemplateCISO), string(reportcore.TemplateAppSec), string(reportcore.TemplatePlatform), string(reportcore.TemplateCustomerDraft):
+	case string(reportcore.TemplateCISO), string(reportcore.TemplateAppSec), string(reportcore.TemplatePlatform), string(reportcore.TemplateCustomerDraft), string(reportcore.TemplateDesignPartnerSummary):
 		return true
 	default:
 		return false

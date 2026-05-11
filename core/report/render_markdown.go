@@ -6,6 +6,10 @@ import (
 )
 
 func RenderMarkdown(summary Summary) string {
+	if summary.Template == string(TemplateDesignPartnerSummary) {
+		return renderDesignPartnerMarkdown(summary)
+	}
+
 	var builder strings.Builder
 	builder.WriteString("# Wrkr Deterministic Report\n\n")
 	builder.WriteString(fmt.Sprintf("- Generated at: %s\n", summary.GeneratedAt))
@@ -311,4 +315,227 @@ func MarkdownLines(markdown string) []string {
 		lines = append(lines, trimmed)
 	}
 	return lines
+}
+
+func renderDesignPartnerMarkdown(summary Summary) string {
+	var builder strings.Builder
+	builder.WriteString("# Wrkr Design Partner Summary\n\n")
+	builder.WriteString(fmt.Sprintf("- Generated at: %s\n", summary.GeneratedAt))
+	builder.WriteString(fmt.Sprintf("- Template: %s\n", summary.Template))
+	builder.WriteString(fmt.Sprintf("- Share profile: %s\n", summary.ShareProfile))
+	builder.WriteString("- Boundary: static posture from saved scan state only; no live runtime observation, endpoint probing, or control-layer enforcement\n")
+	if summary.ScanScope != nil {
+		builder.WriteString(fmt.Sprintf("- Scan scope: %s mode=%s repos=%d targets=%d\n",
+			summary.ScanScope.ScopeLabel,
+			summary.ScanScope.Mode,
+			summary.ScanScope.RepoCount,
+			summary.ScanScope.TargetCount,
+		))
+	}
+	if summary.ShareProfileMetadata != nil && summary.ShareProfileMetadata.RedactionApplied {
+		builder.WriteString(fmt.Sprintf("- Share redaction: version=%s fields=%s\n",
+			summary.ShareProfileMetadata.RedactionVersion,
+			strings.Join(summary.ShareProfileMetadata.SelectedFields, ", "),
+		))
+	}
+	builder.WriteString("\n")
+
+	items := designPartnerItems(summary)
+	builder.WriteString("## Top Validated Findings\n\n")
+	if len(items) == 0 {
+		builder.WriteString("- No validated action paths were available. Remaining evidence is context-only or still needs stronger execution linkage before buyer-facing confirmation.\n\n")
+	} else {
+		for idx, item := range items {
+			builder.WriteString(fmt.Sprintf("%d. %s in %s\n", idx+1, firstNonEmptyValue(item.Repo, "unknown-repo"), firstNonEmptyValue(item.Location, "unknown-location")))
+			builder.WriteString(fmt.Sprintf("Problem: %s\n", designPartnerProblem(item)))
+			builder.WriteString(fmt.Sprintf("Likely explanation: %s\n", designPartnerExplanation(item)))
+			builder.WriteString(fmt.Sprintf("Threat: %s\n", designPartnerThreat(item)))
+			builder.WriteString(fmt.Sprintf("Recommended control: %s\n", firstNonEmptyValue(item.Remediation, item.RecommendedNextAction, "review and add path-specific proof before approval")))
+			builder.WriteString(fmt.Sprintf("Confidence lane: %s\n", markdownActionPathLabel(item.ConfidenceLane)))
+			builder.WriteString(fmt.Sprintf("Proof gap: %s\n", designPartnerProofGap(item)))
+			builder.WriteString(fmt.Sprintf("Credential authority: %s\n", designPartnerCredentialAuthority(item)))
+			builder.WriteString(fmt.Sprintf("Mutable endpoint: %s\n", designPartnerMutableEndpoint(item)))
+			builder.WriteString(fmt.Sprintf("Owner: %s\n", firstNonEmptyValue(item.Owner, "owner not confirmed")))
+			builder.WriteString(fmt.Sprintf("Purpose: %s\n", firstNonEmptyValue(item.Purpose, "purpose not confirmed")))
+			builder.WriteString(fmt.Sprintf("Lineage: %s\n\n", designPartnerLineage(item)))
+		}
+	}
+
+	if summary.ActionSurfaceRegistry != nil && len(summary.ActionSurfaceRegistry) > 0 {
+		builder.WriteString("## Registry Highlights\n\n")
+		limit := len(summary.ActionSurfaceRegistry)
+		if limit > 5 {
+			limit = 5
+		}
+		for idx := 0; idx < limit; idx++ {
+			entry := summary.ActionSurfaceRegistry[idx]
+			builder.WriteString(fmt.Sprintf("- %s surface=%s owner=%s purpose=%s confidence=%s remediation=%s\n",
+				firstNonEmptyValue(entry.Label, entry.ToolType, entry.RegistryID),
+				firstNonEmptyValue(entry.SurfaceType, "surface"),
+				firstNonEmptyValue(entry.Owner, "owner not confirmed"),
+				firstNonEmptyValue(entry.Purpose, "purpose not confirmed"),
+				firstNonEmptyValue(entry.ConfidenceLane, "unknown"),
+				firstNonEmptyValue(entry.Remediation, "review linked path controls"),
+			))
+		}
+		builder.WriteString("\n")
+	}
+
+	builder.WriteString("## Known Limits\n\n")
+	builder.WriteString("- This summary reflects declared code, workflow, MCP, route, and evidence artifacts only.\n")
+	builder.WriteString("- Runtime control, live endpoint reachability, and Gait enforcement are not claimed unless explicit runtime evidence is attached.\n")
+	builder.WriteString("- Semantic prompt or instruction findings stay labeled as review candidates until executable linkage, permissions, and authority are proven.\n")
+	builder.WriteString("\n")
+	return builder.String()
+}
+
+func designPartnerItems(summary Summary) []AgentActionBOMItem {
+	if summary.AgentActionBOM == nil || len(summary.AgentActionBOM.Items) == 0 {
+		return nil
+	}
+	filtered := make([]AgentActionBOMItem, 0, len(summary.AgentActionBOM.Items))
+	for _, item := range summary.AgentActionBOM.Items {
+		if strings.TrimSpace(item.ConfidenceLane) == "context_only" {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	if len(filtered) > 10 {
+		filtered = filtered[:10]
+	}
+	return filtered
+}
+
+func designPartnerProblem(item AgentActionBOMItem) string {
+	switch {
+	case item.StandingPrivilege && item.CredentialAuthority != nil && item.CredentialAuthority.StandingAccess:
+		return "A standing credential can drive this path without enough compensating proof or gating."
+	case item.ProductionWrite || item.ControlState == "block_recommended":
+		return "This path can change production-adjacent state and is missing enough governance evidence."
+	case len(item.MutableEndpointSemantics) > 0:
+		return "The path reaches declared mutable actions that need tighter approval, proof, or scope."
+	case item.ApprovalGap:
+		return "The path is operationally meaningful, but recorded approval is missing or incomplete."
+	case item.Owner == "":
+		return "The path is governable, but ownership is not yet explicit."
+	default:
+		return "This path remains one of the highest static action surfaces to review before wider buyer trust claims."
+	}
+}
+
+func designPartnerExplanation(item AgentActionBOMItem) string {
+	parts := []string{}
+	if purpose := strings.TrimSpace(item.Purpose); purpose != "" {
+		parts = append(parts, fmt.Sprintf("purpose=%s", purpose))
+	}
+	if source := strings.TrimSpace(item.PurposeSource); source != "" {
+		parts = append(parts, fmt.Sprintf("purpose_source=%s", source))
+	}
+	if version := strings.TrimSpace(item.Version); version != "" {
+		parts = append(parts, fmt.Sprintf("version=%s", version))
+	}
+	if versionSource := strings.TrimSpace(item.VersionSource); versionSource != "" {
+		parts = append(parts, fmt.Sprintf("version_source=%s", versionSource))
+	}
+	if configSource := strings.TrimSpace(item.ConfigSource); configSource != "" {
+		parts = append(parts, fmt.Sprintf("config=%s", configSource))
+	}
+	if len(parts) == 0 {
+		return "Wrkr found a deterministic static binding for this action path, but the underlying config metadata is still sparse."
+	}
+	return strings.Join(parts, ", ")
+}
+
+func designPartnerThreat(item AgentActionBOMItem) string {
+	parts := []string{
+		fmt.Sprintf("risk_zone=%s", firstNonEmptyValue(item.RiskZone, "unknown")),
+		fmt.Sprintf("risk_tier=%s", firstNonEmptyValue(item.RiskTier, "unknown")),
+	}
+	if status := strings.TrimSpace(item.ProductionTargetStatus); status != "" {
+		parts = append(parts, "production_target_status="+status)
+	}
+	if len(item.MutableEndpointSemantics) > 0 {
+		semantics := make([]string, 0, len(item.MutableEndpointSemantics))
+		for _, semantic := range item.MutableEndpointSemantics {
+			if strings.TrimSpace(semantic.Semantic) == "" {
+				continue
+			}
+			semantics = append(semantics, strings.TrimSpace(semantic.Semantic))
+		}
+		if len(semantics) > 0 {
+			parts = append(parts, "mutable_endpoint="+strings.Join(semantics, ","))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+func designPartnerProofGap(item AgentActionBOMItem) string {
+	parts := []string{
+		"proof=" + firstNonEmptyValue(item.ProofCoverage, "missing"),
+		"policy=" + firstNonEmptyValue(item.PolicyStatus, "none"),
+		"runtime=" + firstNonEmptyValue(item.RuntimeEvidenceStatus, "unmatched"),
+	}
+	if item.ApprovalGap {
+		parts = append(parts, "approval=missing")
+	}
+	return strings.Join(parts, ", ")
+}
+
+func designPartnerCredentialAuthority(item AgentActionBOMItem) string {
+	if item.CredentialAuthority == nil {
+		if item.CredentialAccess {
+			return "credential access is present, but normalized authority details are incomplete"
+		}
+		return "no credential authority was linked to this path"
+	}
+	parts := []string{}
+	if kind := strings.TrimSpace(item.CredentialAuthority.CredentialKind); kind != "" {
+		parts = append(parts, "kind="+kind)
+	}
+	if source := strings.TrimSpace(item.CredentialAuthority.CredentialSource); source != "" {
+		parts = append(parts, "source="+source)
+	}
+	if accessType := strings.TrimSpace(item.CredentialAuthority.AccessType); accessType != "" {
+		parts = append(parts, "access="+accessType)
+	}
+	if rotation := strings.TrimSpace(item.CredentialAuthority.RotationEvidenceStatus); rotation != "" {
+		parts = append(parts, "rotation="+rotation)
+	}
+	if len(parts) == 0 {
+		return "credential authority is present"
+	}
+	return strings.Join(parts, ", ")
+}
+
+func designPartnerMutableEndpoint(item AgentActionBOMItem) string {
+	if len(item.MutableEndpointSemantics) == 0 {
+		return "no declared mutable endpoint semantics were linked to this path"
+	}
+	parts := make([]string, 0, len(item.MutableEndpointSemantics))
+	for _, semantic := range item.MutableEndpointSemantics {
+		label := firstNonEmptyValue(strings.TrimSpace(semantic.Semantic), strings.TrimSpace(semantic.Operation), "declared_mutation")
+		if confidence := strings.TrimSpace(semantic.Confidence); confidence != "" {
+			label += "@" + confidence
+		}
+		parts = append(parts, label)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func designPartnerLineage(item AgentActionBOMItem) string {
+	if item.ActionLineage == nil || len(item.ActionLineage.Segments) == 0 {
+		return "lineage not available"
+	}
+	parts := make([]string, 0, len(item.ActionLineage.Segments))
+	for _, segment := range item.ActionLineage.Segments {
+		label := firstNonEmptyValue(strings.TrimSpace(segment.Label), strings.TrimSpace(segment.Kind), "segment")
+		if strings.TrimSpace(segment.Status) == "missing" {
+			label += " (missing)"
+		}
+		parts = append(parts, label)
+	}
+	return strings.Join(parts, " -> ")
 }

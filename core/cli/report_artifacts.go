@@ -22,6 +22,7 @@ type reportArtifactOptions struct {
 	Top               int
 	Template          reportcore.Template
 	ShareProfile      reportcore.ShareProfile
+	RedactionFields   []reportcore.RedactionField
 	WriteMarkdown     bool
 	MarkdownPath      string
 	WritePDF          bool
@@ -67,7 +68,7 @@ func parseReportTemplateShare(templateRaw string, shareProfileRaw string) (repor
 	}
 	template, ok := reportcore.ParseTemplate(templateValue)
 	if !ok {
-		return "", "", fmt.Errorf("--template must be one of exec|operator|audit|public|ciso|appsec|platform|customer-draft")
+		return "", "", fmt.Errorf("--template must be one of exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary")
 	}
 
 	shareValue := strings.TrimSpace(shareProfileRaw)
@@ -76,10 +77,13 @@ func parseReportTemplateShare(templateRaw string, shareProfileRaw string) (repor
 		if template == reportcore.TemplateCustomerDraft {
 			shareValue = string(reportcore.ShareProfilePublic)
 		}
+		if template == reportcore.TemplateDesignPartnerSummary {
+			shareValue = string(reportcore.ShareProfileDesignPartner)
+		}
 	}
 	shareProfile, ok := reportcore.ParseShareProfile(shareValue)
 	if !ok {
-		return "", "", fmt.Errorf("--share-profile must be one of internal|public|customer-redacted")
+		return "", "", fmt.Errorf("--share-profile must be one of internal|public|customer-redacted|design-partner|external-redacted|investor-safe")
 	}
 	return template, shareProfile, nil
 }
@@ -95,6 +99,7 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 		Top:              opts.Top,
 		Template:         opts.Template,
 		ShareProfile:     opts.ShareProfile,
+		RedactionFields:  opts.RedactionFields,
 	})
 	if err != nil {
 		return reportArtifactResult{}, err

@@ -14,10 +14,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added explicit `action_lineage` segments from repo and workflow through credential, target, owner, approval, and proof joins in buyer-facing report artifacts.
 - [semver:minor] Added static mutable endpoint semantics across OpenAPI, route, and MCP declaration surfaces so action paths, control graphs, and Agent Action BOM output can distinguish payment, refund, user-admin, data-export, deploy, delete, and production-mutation claims without live probing.
 - [semver:minor] Added an `action_surface_registry` artifact to report and evidence JSON so grouped workflows, servers, routes, and API schemas expose owner, purpose, version/config, credential authority, reachable actions, proof status, confidence lane, and graph joins in one deterministic view.
+- [semver:minor] Added a buyer-ready `design-partner-summary` report mode with path-specific remediation playbooks, proof-gap framing, and registry-backed static action summaries for external design-partner conversations.
+- [semver:minor] Added outside-in buyer action registry hardening scenarios covering mutable endpoints, credential authority, lineage, registry output, design-partner reports, and redacted customer-safe artifacts.
 
 ### Changed
 
-- (none yet)
+- [semver:minor] Updated buyer-facing report, evidence, schema, and README docs to describe design-partner summaries, expanded share profiles, redaction-field metadata, and Wrkr's static-only action-registry boundary language.
 
 ### Deprecated
 
@@ -33,7 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- [semver:minor] Added configurable report redaction selectors and expanded `design-partner`, `customer-redacted`, `external-redacted`, and `investor-safe` share profiles for safer buyer, customer, and investor artifact sharing.
 
 ## Changelog maintenance process
 
