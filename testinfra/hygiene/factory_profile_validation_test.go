@@ -85,7 +85,7 @@ func runProfileValidationRaw(t *testing.T, repoRoot string) (string, string, err
 		t.Skip("python3 not available in test environment")
 	}
 
-	scriptPath := filepath.Join(mustFindRepoRoot(t), "factory", "scripts", "validate_profiles.py")
+	scriptPath := filepath.Join(mustFindRepoRoot(t), "scripts", "validate_profiles.py")
 	cmd := exec.Command(
 		pythonPath,
 		scriptPath,
