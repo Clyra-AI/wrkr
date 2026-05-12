@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
+import shutil
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Any
@@ -103,10 +104,18 @@ def parse_yaml_lite(text: str) -> dict[str, Any]:
     return parsed
 
 
+def resolve_executable(name: str) -> str:
+    resolved = shutil.which(name)
+    if not resolved:
+        raise ValueError(f"required executable not found on PATH: {name}")
+    return resolved
+
+
 def git_remote(repo_root: Path) -> str:
     try:
-        return subprocess.check_output(
-            ["git", "-C", str(repo_root), "remote", "get-url", "origin"],
+        git_executable = resolve_executable("git")
+        return subprocess.check_output(  # nosec B603
+            [git_executable, "-C", str(repo_root), "remote", "get-url", "origin"],
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()

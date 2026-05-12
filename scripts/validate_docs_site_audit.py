@@ -5,7 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
+import shutil
+import subprocess  # nosec B404
 import sys
 from datetime import date
 from pathlib import Path
@@ -115,10 +116,18 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def resolve_executable(name: str) -> str:
+    resolved = shutil.which(name)
+    if not resolved:
+        raise ValueError(f"required executable not found on PATH: {name}")
+    return resolved
+
+
 def run_npm_audit(package_dir: Path) -> dict[str, Any]:
     env = os.environ.copy()
-    completed = subprocess.run(
-        ["npm", "audit", "--omit=dev", "--json"],
+    npm_executable = resolve_executable("npm")
+    completed = subprocess.run(  # nosec B603
+        [npm_executable, "audit", "--omit=dev", "--json"],
         cwd=package_dir,
         capture_output=True,
         text=True,
