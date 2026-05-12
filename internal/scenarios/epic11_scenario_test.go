@@ -12,7 +12,8 @@ func TestScenarioExtensionDetectorExecution(t *testing.T) {
 
 	repoRoot := mustFindRepoRoot(t)
 	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "extension-detectors", "repos")
-	payload := runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--json"})
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	payload := runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
 
 	if errorsValue, present := payload["detector_errors"]; present {
 		if list, ok := errorsValue.([]any); ok && len(list) > 0 {

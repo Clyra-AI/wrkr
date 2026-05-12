@@ -17,10 +17,11 @@ func TestScenarioScanMixedOrgCoverage(t *testing.T) {
 
 	repoRoot := mustFindRepoRoot(t)
 	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	statePath := filepath.Join(t.TempDir(), "state.json")
 
 	var out bytes.Buffer
 	var errOut bytes.Buffer
-	code := cli.Run([]string{"scan", "--path", scanPath, "--json"}, &out, &errOut)
+	code := cli.Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("scan failed with code %d: %s", code, errOut.String())
 	}
@@ -80,10 +81,11 @@ func TestScenarioPolicyCheckContracts(t *testing.T) {
 
 	repoRoot := mustFindRepoRoot(t)
 	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "policy-check", "repos")
+	statePath := filepath.Join(t.TempDir(), "state.json")
 
 	var out bytes.Buffer
 	var errOut bytes.Buffer
-	code := cli.Run([]string{"scan", "--path", scanPath, "--json"}, &out, &errOut)
+	code := cli.Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &out, &errOut)
 	if code != 0 {
 		t.Fatalf("scan failed with code %d: %s", code, errOut.String())
 	}
