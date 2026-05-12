@@ -11,6 +11,7 @@
     "test:smoke": "tsx --test src/lib/markdown.test.ts src/lib/scan-bootstrap.test.ts src/components/scan/ScanStatusPanel.test.tsx"
   },
   "dependencies": {
+    "escape-html": "1.0.3",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
     "marked": "^17.0.1",
