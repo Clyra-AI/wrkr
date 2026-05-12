@@ -1,5 +1,5 @@
 import path from 'path';
-import { marked } from 'marked';
+import { marked, type Token } from 'marked';
 
 function slugify(text: string): string {
   return text
@@ -8,6 +8,19 @@ function slugify(text: string): string {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .trim();
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function stripTags(text: string): string {
+  return text.replace(/<[^>]*>/g, '');
 }
 
 function convertMarkdownHref(href: string, currentSlug: string): string {
@@ -43,6 +56,42 @@ function convertMarkdownHref(href: string, currentSlug: string): string {
   return `/docs/${target}`;
 }
 
+function isSafeHref(href: string): boolean {
+  if (!href) {
+    return false;
+  }
+  if (href.startsWith('#') || href.startsWith('/')) {
+    return true;
+  }
+  if (href.startsWith('//')) {
+    return false;
+  }
+  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(href)) {
+    return href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:') || href.startsWith('tel:');
+  }
+  return true;
+}
+
+function sanitizeHref(href: string): string {
+  const trimmed = href.trim();
+  if (!isSafeHref(trimmed)) {
+    return '#';
+  }
+  return trimmed || '#';
+}
+
+function isExternalHttpHref(href: string): boolean {
+  return href.startsWith('http://') || href.startsWith('https://');
+}
+
+function normalizeLanguage(lang: string | undefined): string {
+  const trimmed = (lang || '').trim().toLowerCase();
+  if (!trimmed) {
+    return '';
+  }
+  return /^[a-z0-9_-]+$/.test(trimmed) ? trimmed : '';
+}
+
 marked.setOptions({
   gfm: true,
   breaks: false,
@@ -50,35 +99,58 @@ marked.setOptions({
 
 function rendererForSlug(currentSlug: string) {
   const renderer = new marked.Renderer();
-  renderer.link = function ({ href = '', title, text }) {
-    const mappedHref = convertMarkdownHref(href, currentSlug);
-    if (mappedHref.startsWith('http://') || mappedHref.startsWith('https://')) {
-      return `<a href="${mappedHref}" target="_blank" rel="noopener noreferrer"${title ? ` title="${title}"` : ''}>${text}</a>`;
+  const renderInline = (tokens: Token[] | undefined, fallback: string): string => {
+    if (!tokens || tokens.length === 0) {
+      return escapeHtml(fallback);
     }
-    return `<a href="${mappedHref}"${title ? ` title="${title}"` : ''}>${text}</a>`;
+    return marked.Parser.parseInline(tokens, { renderer });
+  };
+
+  renderer.link = function ({ href = '', title, tokens, text }) {
+    const mappedHref = sanitizeHref(convertMarkdownHref(href, currentSlug));
+    const renderedText = renderInline(tokens, text);
+    const safeTitle = title ? ` title="${escapeHtml(title)}"` : '';
+    if (isExternalHttpHref(mappedHref)) {
+      return `<a href="${escapeHtml(mappedHref)}" target="_blank" rel="noopener noreferrer"${safeTitle}>${renderedText}</a>`;
+    }
+    return `<a href="${escapeHtml(mappedHref)}"${safeTitle}>${renderedText}</a>`;
+  };
+
+  renderer.image = function ({ href = '', title, tokens, text }) {
+    const mappedHref = sanitizeHref(convertMarkdownHref(href, currentSlug));
+    const altText = stripTags(renderInline(tokens, text));
+    if (mappedHref === '#') {
+      return escapeHtml(altText);
+    }
+    const safeTitle = title ? ` title="${escapeHtml(title)}"` : '';
+    return `<img src="${escapeHtml(mappedHref)}" alt="${escapeHtml(altText)}"${safeTitle}>`;
   };
 
   renderer.code = function ({ text, lang }) {
-    const language = (lang || '').toLowerCase();
-    const escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    const language = normalizeLanguage(lang);
+    const escaped = escapeHtml(text);
 
     if (language === 'mermaid') {
       return `<div class="mermaid">${escaped}</div>`;
     }
 
-    return `<pre><code class="language-${language}">${escaped}</code></pre>`;
+    const className = language ? ` class="language-${language}"` : '';
+    return `<pre><code${className}>${escaped}</code></pre>`;
   };
 
   renderer.codespan = function ({ text }) {
-    return `<code class="inline-code">${text}</code>`;
+    return `<code class="inline-code">${escapeHtml(text)}</code>`;
   };
 
-  renderer.heading = function ({ text, depth }) {
-    const slug = slugify(text);
-    return `<h${depth} id="${slug}">${text}</h${depth}>`;
+  renderer.heading = function ({ text, depth, tokens }) {
+    const safeDepth = Math.min(Math.max(depth, 1), 6);
+    const renderedText = renderInline(tokens, text);
+    const slug = slugify(stripTags(renderedText));
+    return `<h${safeDepth} id="${escapeHtml(slug)}">${renderedText}</h${safeDepth}>`;
+  };
+
+  renderer.html = function ({ text }) {
+    return escapeHtml(text);
   };
 
   return renderer;

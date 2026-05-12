@@ -20,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - [semver:minor] Updated buyer-facing report, evidence, schema, and README docs to describe design-partner summaries, expanded share profiles, redaction-field metadata, and Wrkr's static-only action-registry boundary language.
+- [semver:patch] Updated docs-site and release-trust guidance for safe Markdown rendering, production dependency advisory handling, and profile high-risk surface validation.
 
 ### Deprecated
 
@@ -33,10 +34,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:patch] Fixed govern-first report and Agent Action BOM projection consistency so empty-state status, risk/control posture, and buyer-facing path summaries are derived once and stay aligned across report JSON, markdown, evidence bundles, and redacted share profiles.
 - [semver:patch] Fixed purpose metadata extraction so explicit repo-local `wrkr:purpose` annotations take precedence over workflow, MCP, script, symbol, and location-derived fallbacks.
+- [semver:patch] Fixed Wrkr Factory profile high-risk MCP surface mapping and added lightweight validation so profile-driven reviews do not drift from the current repository layout.
 
 ### Security
 
 - [semver:minor] Added configurable report redaction selectors and expanded `design-partner`, `customer-redacted`, `external-redacted`, and `investor-safe` share profiles for safer buyer, customer, and investor artifact sharing.
+- [semver:patch] Hardened docs-site Markdown rendering so unsafe HTML, unsafe attributes, and unsafe link schemes are blocked or escaped while preserving deterministic static docs output.
+- [semver:patch] Added explicit docs-site production advisory governance so moderate production dependency advisories either fail the audit gate or require an owner-scoped expiring exception.
 
 ## Changelog maintenance process
 

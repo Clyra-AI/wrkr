@@ -92,7 +92,7 @@ docs-site-check:
 
 docs-site-audit-prod:
 	@mkdir -p "$(DOCS_SITE_NPM_CACHE)"
-	@cd docs-site && NPM_CONFIG_CACHE="$(DOCS_SITE_NPM_CACHE)" npm audit --omit=dev --audit-level=high
+	@NPM_CONFIG_CACHE="$(DOCS_SITE_NPM_CACHE)" python3 scripts/validate_docs_site_audit.py --repo-root . --json
 
 test-adapter-parity:
 	@scripts/test_adapter_parity.sh
