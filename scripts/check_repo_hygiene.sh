@@ -59,4 +59,8 @@ for marker in "${license_markers[@]}"; do
   fi
 done
 
-python3 scripts/validate_profiles.py --repo-root . --profile wrkr >/dev/null
+if [[ -d factory/profiles ]]; then
+  python3 scripts/validate_profiles.py --repo-root . --profile wrkr >/dev/null
+else
+  echo "skipping profile path validation: factory/profiles not present in checkout" >&2
+fi
