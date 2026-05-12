@@ -70,6 +70,9 @@ func applyWave2Metadata(manifest source.Manifest, tools []Tool, agents []Agent, 
 func metadataForFinding(manifest source.Manifest, finding model.Finding) entityMetadata {
 	evidence := findingEvidenceMap(finding)
 	configSource := metadataConfigSource(finding, evidence)
+	if annotatedPurpose := purposeAnnotationForFinding(manifest, finding, configSource); annotatedPurpose != "" {
+		evidence["purpose"] = append([]string{annotatedPurpose}, evidence["purpose"]...)
+	}
 	return entityMetadata{
 		purpose:           purposeFromFinding(finding, evidence),
 		version:           metadataVersion(evidence),
@@ -258,10 +261,49 @@ func normalizePurposeValue(value string) string {
 	if trimmed == "" || strings.EqualFold(trimmed, "unknown") {
 		return ""
 	}
+	trimmed = strings.Trim(trimmed, "\"'`")
 	replacer := strings.NewReplacer("_", " ", "-", " ", ".yml", "", ".yaml", "", ".json", "", ".toml", "", ".md", "")
 	trimmed = strings.TrimSpace(replacer.Replace(trimmed))
 	trimmed = strings.Join(strings.Fields(trimmed), " ")
 	return trimmed
+}
+
+func purposeAnnotationForFinding(manifest source.Manifest, finding model.Finding, configSource string) string {
+	rel := strings.TrimSpace(configSource)
+	if before, _, ok := strings.Cut(rel, "#"); ok {
+		rel = strings.TrimSpace(before)
+	}
+	if rel == "" {
+		rel = strings.TrimSpace(finding.Location)
+	}
+	root := repoRoot(manifest, finding.Repo)
+	path, ok := safeRepoRelativePath(root, rel)
+	if !ok {
+		return ""
+	}
+	// #nosec G304 -- safeRepoRelativePath confines rel under the repository root before reading.
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return purposeAnnotationFromText(string(payload))
+}
+
+func purposeAnnotationFromText(content string) string {
+	const marker = "wrkr:purpose"
+	for _, line := range strings.Split(content, "\n") {
+		idx := strings.Index(strings.ToLower(line), marker)
+		if idx < 0 {
+			continue
+		}
+		value := strings.TrimSpace(line[idx+len(marker):])
+		value = strings.TrimLeft(value, " \t:=#-/")
+		value = normalizePurposeValue(value)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func locationPurpose(location string) string {

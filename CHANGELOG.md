@@ -32,6 +32,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - [semver:patch] Fixed govern-first report and Agent Action BOM projection consistency so empty-state status, risk/control posture, and buyer-facing path summaries are derived once and stay aligned across report JSON, markdown, evidence bundles, and redacted share profiles.
+- [semver:patch] Fixed purpose metadata extraction so explicit repo-local `wrkr:purpose` annotations take precedence over workflow, MCP, script, symbol, and location-derived fallbacks.
 
 ### Security
 
