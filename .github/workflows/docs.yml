@@ -38,9 +38,11 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Install and validate docs site
+      - name: Install docs site dependencies
+        run: make docs-site-install
+
+      - name: Validate docs site
         run: |
-          make docs-site-install
           make docs-site-audit-prod
           make docs-site-lint
           make docs-site-build
