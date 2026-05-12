@@ -19,7 +19,7 @@ brew install Clyra-AI/tap/wrkr
 ### Go install (Pinned/reproducible)
 
 ```bash
-WRKR_VERSION="v1.4.0"
+WRKR_VERSION="v1.5.0"
 go install github.com/Clyra-AI/wrkr/cmd/wrkr@"${WRKR_VERSION}"
 ```
 
