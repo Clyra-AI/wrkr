@@ -92,11 +92,11 @@ def parse_yaml_lite(text: str) -> dict[str, Any]:
                 index = next_index
                 continue
             if lines[next_index].strip().startswith("- "):
-                value, index = parse_list(next_index, current_indent + 2)
-                out[key] = value
+                list_value, index = parse_list(next_index, current_indent + 2)
+                out[key] = list_value
                 continue
-            value, index = parse_map(next_index, current_indent + 2)
-            out[key] = value
+            map_value, index = parse_map(next_index, current_indent + 2)
+            out[key] = map_value
         return out, index
 
     parsed, _ = parse_map(0, 0)
