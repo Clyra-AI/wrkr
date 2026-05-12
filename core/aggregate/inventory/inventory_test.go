@@ -755,6 +755,58 @@ func TestInventoryBuildDerivesPurposeFromWorkflowName(t *testing.T) {
 	}
 }
 
+func TestInventoryBuildPurposeAnnotationOverridesWorkflowName(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".github", "workflows"), 0o755); err != nil {
+		t.Fatalf("mkdir workflow dir: %v", err)
+	}
+	workflow := []byte("# wrkr:purpose: Customer refund release guard\nname: Release pipeline\njobs: {}\n")
+	if err := os.WriteFile(filepath.Join(root, ".github", "workflows", "release.yml"), workflow, 0o644); err != nil {
+		t.Fatalf("write workflow: %v", err)
+	}
+
+	finding := model.Finding{
+		FindingType: "compiled_action",
+		ToolType:    "compiled_action",
+		Location:    ".github/workflows/release.yml",
+		Repo:        "acme/release",
+		Org:         "acme",
+		Evidence: []model.Evidence{
+			{Key: "workflow_name", Value: "Release pipeline"},
+		},
+	}
+	inv := Build(BuildInput{
+		Manifest: source.Manifest{
+			Target: source.Target{Mode: "repo", Value: "acme/release"},
+			Repos:  []source.RepoManifest{{Repo: "acme/release", Location: root}},
+		},
+		Findings: []model.Finding{finding},
+		Contexts: map[string]ToolContext{
+			KeyForFinding(finding): {
+				RiskScore:      7.5,
+				EndpointClass:  "workspace",
+				DataClass:      "code",
+				AutonomyLevel:  "headless_gated",
+				ApprovalStatus: "missing",
+				LifecycleState: "discovered",
+			},
+		},
+		GeneratedAt: time.Date(2026, 5, 10, 18, 0, 0, 0, time.UTC),
+	})
+
+	if len(inv.Tools) != 1 || len(inv.Agents) != 1 {
+		t.Fatalf("expected one tool and one agent, got tools=%d agents=%d", len(inv.Tools), len(inv.Agents))
+	}
+	if inv.Tools[0].Purpose != "Customer refund release guard" || inv.Tools[0].PurposeSource != "annotation" || inv.Tools[0].PurposeConfidence != "high" {
+		t.Fatalf("expected annotated purpose metadata on tool, got %+v", inv.Tools[0])
+	}
+	if inv.Agents[0].Purpose != "Customer refund release guard" || inv.Agents[0].PurposeSource != "annotation" {
+		t.Fatalf("expected annotated purpose metadata on agent, got %+v", inv.Agents[0])
+	}
+}
+
 func TestConfigFingerprintForFileIsPortableAcrossRootsAndLineEndings(t *testing.T) {
 	t.Parallel()
 
