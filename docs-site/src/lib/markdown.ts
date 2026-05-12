@@ -1,3 +1,4 @@
+import escapeHtml from 'escape-html';
 import path from 'path';
 import { marked, type Token } from 'marked';
 
@@ -8,15 +9,6 @@ function slugify(text: string): string {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .trim();
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function stripTags(text: string): string {
