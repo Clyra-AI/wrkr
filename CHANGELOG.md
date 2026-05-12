@@ -8,19 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added deterministic evidence confidence lanes so govern-first action paths, Agent Action BOM output, top-risk sections, and linked control-backlog rows distinguish confirmed action paths from likely paths, semantic review candidates, and context-only evidence.
-- [semver:minor] Added normalized `credential_authority` posture across inventory privilege maps, govern-first action paths, control-path graph nodes, and Agent Action BOM output without exposing secret values.
-- [semver:minor] Added purpose plus version/config metadata on supported workflow, MCP, and agent-config action paths so buyers can see why a path exists and which local config introduced it.
-- [semver:minor] Added explicit `action_lineage` segments from repo and workflow through credential, target, owner, approval, and proof joins in buyer-facing report artifacts.
-- [semver:minor] Added static mutable endpoint semantics across OpenAPI, route, and MCP declaration surfaces so action paths, control graphs, and Agent Action BOM output can distinguish payment, refund, user-admin, data-export, deploy, delete, and production-mutation claims without live probing.
-- [semver:minor] Added an `action_surface_registry` artifact to report and evidence JSON so grouped workflows, servers, routes, and API schemas expose owner, purpose, version/config, credential authority, reachable actions, proof status, confidence lane, and graph joins in one deterministic view.
-- [semver:minor] Added a buyer-ready `design-partner-summary` report mode with path-specific remediation playbooks, proof-gap framing, and registry-backed static action summaries for external design-partner conversations.
-- [semver:minor] Added outside-in buyer action registry hardening scenarios covering mutable endpoints, credential authority, lineage, registry output, design-partner reports, and redacted customer-safe artifacts.
+- (none yet)
 
 ### Changed
 
-- [semver:minor] Updated buyer-facing report, evidence, schema, and README docs to describe design-partner summaries, expanded share profiles, redaction-field metadata, and Wrkr's static-only action-registry boundary language.
-- [semver:patch] Updated docs-site and release-trust guidance for safe Markdown rendering, production dependency advisory handling, and profile high-risk surface validation.
+- (none yet)
 
 ### Deprecated
 
@@ -32,15 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Fixed govern-first report and Agent Action BOM projection consistency so empty-state status, risk/control posture, and buyer-facing path summaries are derived once and stay aligned across report JSON, markdown, evidence bundles, and redacted share profiles.
-- [semver:patch] Fixed purpose metadata extraction so explicit repo-local `wrkr:purpose` annotations take precedence over workflow, MCP, script, symbol, and location-derived fallbacks.
-- [semver:patch] Fixed Wrkr Factory profile high-risk MCP surface mapping and added lightweight validation so profile-driven reviews do not drift from the current repository layout.
+- (none yet)
 
 ### Security
 
-- [semver:minor] Added configurable report redaction selectors and expanded `design-partner`, `customer-redacted`, `external-redacted`, and `investor-safe` share profiles for safer buyer, customer, and investor artifact sharing.
-- [semver:patch] Hardened docs-site Markdown rendering so unsafe HTML, unsafe attributes, and unsafe link schemes are blocked or escaped while preserving deterministic static docs output.
-- [semver:patch] Added explicit docs-site production advisory governance so moderate production dependency advisories either fail the audit gate or require an owner-scoped expiring exception.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -49,6 +37,37 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.5.0] - 2026-05-12
+<!-- release-semver: minor -->
+
+### Added
+
+- Added deterministic evidence confidence lanes so govern-first action paths, Agent Action BOM output, top-risk sections, and linked control-backlog rows distinguish confirmed action paths from likely paths, semantic review candidates, and context-only evidence.
+- Added normalized `credential_authority` posture across inventory privilege maps, govern-first action paths, control-path graph nodes, and Agent Action BOM output without exposing secret values.
+- Added purpose plus version/config metadata on supported workflow, MCP, and agent-config action paths so buyers can see why a path exists and which local config introduced it.
+- Added explicit `action_lineage` segments from repo and workflow through credential, target, owner, approval, and proof joins in buyer-facing report artifacts.
+- Added static mutable endpoint semantics across OpenAPI, route, and MCP declaration surfaces so action paths, control graphs, and Agent Action BOM output can distinguish payment, refund, user-admin, data-export, deploy, delete, and production-mutation claims without live probing.
+- Added an `action_surface_registry` artifact to report and evidence JSON so grouped workflows, servers, routes, and API schemas expose owner, purpose, version/config, credential authority, reachable actions, proof status, confidence lane, and graph joins in one deterministic view.
+- Added a buyer-ready `design-partner-summary` report mode with path-specific remediation playbooks, proof-gap framing, and registry-backed static action summaries for external design-partner conversations.
+- Added outside-in buyer action registry hardening scenarios covering mutable endpoints, credential authority, lineage, registry output, design-partner reports, and redacted customer-safe artifacts.
+
+### Changed
+
+- Updated buyer-facing report, evidence, schema, and README docs to describe design-partner summaries, expanded share profiles, redaction-field metadata, and Wrkr's static-only action-registry boundary language.
+- Updated docs-site and release-trust guidance for safe Markdown rendering, production dependency advisory handling, and profile high-risk surface validation.
+
+### Fixed
+
+- Fixed govern-first report and Agent Action BOM projection consistency so empty-state status, risk/control posture, and buyer-facing path summaries are derived once and stay aligned across report JSON, markdown, evidence bundles, and redacted share profiles.
+- Fixed purpose metadata extraction so explicit repo-local `wrkr:purpose` annotations take precedence over workflow, MCP, script, symbol, and location-derived fallbacks.
+- Fixed Wrkr Factory profile high-risk MCP surface mapping and added lightweight validation so profile-driven reviews do not drift from the current repository layout.
+
+### Security
+
+- Added configurable report redaction selectors and expanded `design-partner`, `customer-redacted`, `external-redacted`, and `investor-safe` share profiles for safer buyer, customer, and investor artifact sharing.
+- Hardened docs-site Markdown rendering so unsafe HTML, unsafe attributes, and unsafe link schemes are blocked or escaped while preserving deterministic static docs output.
+- Added explicit docs-site production advisory governance so moderate production dependency advisories either fail the audit gate or require an owner-scoped expiring exception.
 
 ## [v1.4.0] - 2026-05-09
 <!-- release-semver: minor -->
