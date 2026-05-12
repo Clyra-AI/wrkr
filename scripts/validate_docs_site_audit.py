@@ -212,8 +212,8 @@ def load_exceptions(path: Path, failures: list[str]) -> list[dict[str, str]]:
         failures.append(f"{path}: unexpected schema_version {payload.get('schema_version')!r}")
 
     raw_exceptions = payload.get("exceptions")
-    if not isinstance(raw_exceptions, list) or not raw_exceptions:
-        failures.append(f"{path}: exceptions must be a non-empty list")
+    if not isinstance(raw_exceptions, list):
+        failures.append(f"{path}: exceptions must be a list")
         return []
 
     normalized: list[dict[str, str]] = []

@@ -90,6 +90,26 @@ func TestDocsSiteAuditPolicyFailsWhenAdvisoryDisappears(t *testing.T) {
 	}
 }
 
+func TestDocsSiteAuditPolicyAllowsEmptyExceptionsWhenAuditIsClean(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := writeDocsSiteAuditFixtureRepo(t, fixtureRepoOptions{
+		AuditFixture: emptyDocsSiteAuditFixture(),
+		NoExceptions: true,
+	})
+	result := runDocsSiteAuditPolicy(t, repoRoot)
+
+	if result.Status != "pass" {
+		t.Fatalf("expected clean audit with no exceptions to pass, failures=%v", result.Failures)
+	}
+	if len(result.ActionableAdvisories) != 0 {
+		t.Fatalf("expected 0 actionable advisories, got %d", len(result.ActionableAdvisories))
+	}
+	if len(result.MatchedExceptions) != 0 {
+		t.Fatalf("expected 0 matched exceptions, got %d", len(result.MatchedExceptions))
+	}
+}
+
 type docsSiteAuditPolicyResult struct {
 	Status               string              `json:"status"`
 	Failures             []string            `json:"failures"`
@@ -105,6 +125,7 @@ type fixtureRepoOptions struct {
 	ExceptionRationale      string
 	ForceBlankOwner         bool
 	ForceBlankRationale     bool
+	NoExceptions            bool
 }
 
 func runDocsSiteAuditPolicy(t *testing.T, repoRoot string) docsSiteAuditPolicyResult {
@@ -292,23 +313,28 @@ func docsSiteExceptionFixture(opts fixtureRepoOptions) map[string]any {
 	if rationale == "" && !opts.ForceBlankRationale {
 		rationale = "Latest stable Next.js still resolves to 16.2.6 and npm audit only offers an unsafe semver-major downgrade."
 	}
-	return map[string]any{
+	payload := map[string]any{
 		"schema_id":      "wrkr.docs_site.audit_exceptions",
 		"schema_version": "1.0.0",
-		"exceptions": []any{
-			map[string]any{
-				"package":           "postcss",
-				"advisory":          "GHSA-qx2v-qp2m-jg93",
-				"severity":          "moderate",
-				"affected_node":     "node_modules/next/node_modules/postcss",
-				"direct_dependency": "next",
-				"current_version":   currentVersion,
-				"owner":             owner,
-				"scope":             "docs-site production dependencies",
-				"rationale":         rationale,
-				"expires_on":        expiry,
-				"upgrade_trigger":   "Remove after a stable Next.js release ships with nested postcss >= 8.5.10.",
-			},
+	}
+	if opts.NoExceptions {
+		payload["exceptions"] = []any{}
+		return payload
+	}
+	payload["exceptions"] = []any{
+		map[string]any{
+			"package":           "postcss",
+			"advisory":          "GHSA-qx2v-qp2m-jg93",
+			"severity":          "moderate",
+			"affected_node":     "node_modules/next/node_modules/postcss",
+			"direct_dependency": "next",
+			"current_version":   currentVersion,
+			"owner":             owner,
+			"scope":             "docs-site production dependencies",
+			"rationale":         rationale,
+			"expires_on":        expiry,
+			"upgrade_trigger":   "Remove after a stable Next.js release ships with nested postcss >= 8.5.10.",
 		},
 	}
+	return payload
 }
