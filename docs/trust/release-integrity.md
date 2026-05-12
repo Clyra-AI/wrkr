@@ -49,7 +49,7 @@ If an advisory disappears, the node path changes, the direct dependency version 
 
 ## Factory profile trust posture
 
-`python3 factory/scripts/validate_profiles.py --repo-root . --profile wrkr --json` validates that Wrkr's Factory profile still points at current standards docs, user-facing docs paths, and high-risk review surfaces. This keeps code-review and app-audit automation aligned with the real repository layout, including the MCP detector packages, instead of relying on stale review targets.
+`python3 scripts/validate_profiles.py --repo-root . --profile wrkr --json` validates that Wrkr's Factory profile still points at current standards docs, user-facing docs paths, and high-risk review surfaces. This keeps code-review and app-audit automation aligned with the real repository layout, including the MCP detector packages, instead of relying on stale review targets.
 
 ## Workflow rerun evidence
 

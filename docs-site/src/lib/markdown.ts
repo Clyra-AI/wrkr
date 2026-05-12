@@ -11,8 +11,35 @@ function slugify(text: string): string {
     .trim();
 }
 
-function stripTags(text: string): string {
-  return text.replace(/<[^>]*>/g, '');
+type TokenWithText = Token & {
+  text?: string;
+  tokens?: Token[];
+};
+
+function tokenToPlainText(token: Token): string {
+  const value = token as TokenWithText;
+  switch (token.type) {
+    case 'br':
+      return ' ';
+    case 'codespan':
+    case 'escape':
+    case 'html':
+    case 'text':
+      return value.text || '';
+    default:
+      if (value.tokens && value.tokens.length > 0) {
+        return tokensToPlainText(value.tokens, value.text || '');
+      }
+      return value.text || '';
+  }
+}
+
+function tokensToPlainText(tokens: Token[] | undefined, fallback: string): string {
+  if (!tokens || tokens.length === 0) {
+    return fallback;
+  }
+  const text = tokens.map((token) => tokenToPlainText(token)).join('');
+  return text || fallback;
 }
 
 function convertMarkdownHref(href: string, currentSlug: string): string {
@@ -110,7 +137,7 @@ function rendererForSlug(currentSlug: string) {
 
   renderer.image = function ({ href = '', title, tokens, text }) {
     const mappedHref = sanitizeHref(convertMarkdownHref(href, currentSlug));
-    const altText = stripTags(renderInline(tokens, text));
+    const altText = tokensToPlainText(tokens, text);
     if (mappedHref === '#') {
       return escapeHtml(altText);
     }
@@ -137,7 +164,7 @@ function rendererForSlug(currentSlug: string) {
   renderer.heading = function ({ text, depth, tokens }) {
     const safeDepth = Math.min(Math.max(depth, 1), 6);
     const renderedText = renderInline(tokens, text);
-    const slug = slugify(stripTags(renderedText));
+    const slug = slugify(tokensToPlainText(tokens, text));
     return `<h${safeDepth} id="${escapeHtml(slug)}">${renderedText}</h${safeDepth}>`;
   };
 

@@ -59,4 +59,4 @@ for marker in "${license_markers[@]}"; do
   fi
 done
 
-python3 factory/scripts/validate_profiles.py --repo-root . --profile wrkr >/dev/null
+python3 scripts/validate_profiles.py --repo-root . --profile wrkr >/dev/null

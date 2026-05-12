@@ -37,8 +37,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6.0.2
-        with:
-          submodules: recursive
 
       - name: Detect changed paths
         id: changes
