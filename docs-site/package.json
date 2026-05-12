@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx,.mjs --max-warnings=0",
-    "test:smoke": "tsx --test src/lib/scan-bootstrap.test.ts src/components/scan/ScanStatusPanel.test.tsx"
+    "test": "tsx --test src/lib/markdown.test.ts src/lib/scan-bootstrap.test.ts src/components/scan/ScanStatusPanel.test.tsx",
+    "test:smoke": "tsx --test src/lib/markdown.test.ts src/lib/scan-bootstrap.test.ts src/components/scan/ScanStatusPanel.test.tsx"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",

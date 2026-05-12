@@ -38,21 +38,13 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Install dependencies
-        working-directory: docs-site
-        run: npm ci
-
-      - name: Audit production dependencies
-        working-directory: docs-site
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Lint docs site
-        working-directory: docs-site
-        run: npm run lint
-
-      - name: Build docs site
-        working-directory: docs-site
-        run: npm run build
+      - name: Install and validate docs site
+        run: |
+          make docs-site-install
+          make docs-site-audit-prod
+          make docs-site-lint
+          make docs-site-build
+          make docs-site-check
         env:
           NODE_ENV: production
 

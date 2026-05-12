@@ -10,6 +10,8 @@ description: "Release hardening checks, reproducibility expectations, and integr
 - Deterministic test gates in release workflow.
 - Contract and scenario validation before artifact generation.
 - Node24-ready action refs on the release path for all remediable workflow helpers, enforced by `make lint-fast`.
+- Public docs-site Markdown is treated as untrusted input; raw HTML, unsafe attributes, and unsafe link schemes are escaped or blocked before static HTML publish.
+- Docs-site production dependency advisories are release-trust inputs. High and critical advisories fail closed, and moderate advisories require an exact checked-in exception when no patched stable upstream dependency is available.
 - Tag releases build candidate artifacts without publishing them, verify checksums, generate an SBOM, run Grype, sign the checksum manifest, generate and verify provenance attestations, and only then publish GitHub release assets and Homebrew tap updates.
 - Exact release scanner/signing versions are pinned in CI and checked by local/CI hygiene gates.
 - `CHANGELOG.md` release-note entries finalized before tag publication with `scripts/finalize_release_changelog.py`, and tag builds verify them with `scripts/validate_release_changelog.py`.
@@ -22,6 +24,7 @@ description: "Release hardening checks, reproducibility expectations, and integr
 
 ```bash
 make lint-fast
+python3 scripts/validate_docs_site_audit.py --repo-root . --json
 python3 scripts/resolve_release_version.py --json
 python3 scripts/finalize_release_changelog.py --json
 python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json
@@ -30,6 +33,23 @@ make test-contracts
 scripts/validate_contracts.sh
 make test-release-smoke
 ```
+
+## Docs-site trust posture
+
+`make docs-site-check` and `npm test -- --test-name-pattern markdown` verify that hostile Markdown fixtures cannot publish raw script, unsafe attributes, malicious titles, or unsafe link schemes while safe docs features like repo-relative links, headings, code blocks, and Mermaid diagrams still render deterministically.
+
+`make docs-site-audit-prod` is the single audit entry point for docs-site production dependencies. It runs `npm audit --omit=dev --json` through `scripts/validate_docs_site_audit.py`, then compares live advisory output against [`docs-site/security-advisory-exceptions.json`](../../docs-site/security-advisory-exceptions.json). Each exception must remain:
+
+- owner-scoped
+- expiring
+- pinned to the advisory id, affected node path, direct dependency, and locked current version
+- removable as soon as a patched stable upstream release clears the advisory
+
+If an advisory disappears, the node path changes, the direct dependency version drifts, or the exception expires, the gate fails closed instead of silently approving the docs site.
+
+## Factory profile trust posture
+
+`python3 factory/scripts/validate_profiles.py --repo-root . --profile wrkr --json` validates that Wrkr's Factory profile still points at current standards docs, user-facing docs paths, and high-risk review surfaces. This keeps code-review and app-audit automation aligned with the real repository layout, including the MCP detector packages, instead of relying on stale review targets.
 
 ## Workflow rerun evidence
 
