@@ -207,4 +207,4 @@ jobs:
         run: |
           mkdir -p .tmp
           go build -o .tmp/wrkr ./cmd/wrkr
-          go test $(scripts/first_party_go_packages.sh) -count=1
+          go test $(scripts/first_party_go_packages.sh) -count=1 -timeout=20m

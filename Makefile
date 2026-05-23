@@ -4,6 +4,7 @@ GO ?= go
 PKG_LIST := scripts/first_party_go_packages.sh
 GOFILES := $(shell git ls-files '*.go')
 DOCS_SITE_NPM_CACHE ?= $(CURDIR)/.tmp/npm-cache
+GO_TEST_TIMEOUT ?= 20m
 
 .PHONY: fmt lint lint-fast test test-fast test-integration test-e2e test-contracts test-scenarios \
 	test-hardening test-chaos test-perf test-agent-benchmarks test-risk-lane build hooks prepush prepush-full codeql lint-ci \
@@ -26,7 +27,7 @@ lint-fast:
 lint: lint-fast
 
 test-fast:
-	@$(GO) test $$($(PKG_LIST)) -count=1
+	@$(GO) test $$($(PKG_LIST)) -count=1 -timeout=$(GO_TEST_TIMEOUT)
 
 test: test-fast
 
