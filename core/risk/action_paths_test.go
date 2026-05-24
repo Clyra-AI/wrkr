@@ -696,6 +696,37 @@ func TestEvidenceStateContradictoryOwnerSignals(t *testing.T) {
 	}
 }
 
+func TestRuntimeEvidenceConflictOverridesEarlierVerifiedDetail(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:           "apc-runtime-contradiction",
+		Org:              "acme",
+		Repo:             "acme/release",
+		ToolType:         "compiled_action",
+		Location:         ".github/workflows/release.yml",
+		WriteCapable:     true,
+		CredentialAccess: true,
+		GaitCoverage: &GaitCoverage{
+			PolicyDecision: GaitCoverageDetail{
+				Status:       GaitStatusPresent,
+				EvidenceRefs: []string{"runtime:policy"},
+			},
+			Approval: GaitCoverageDetail{
+				Status:       GaitStatusConflict,
+				EvidenceRefs: []string{"runtime:approval"},
+			},
+		},
+	}})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].RuntimeEvidenceState != EvidenceStateContradictory {
+		t.Fatalf("expected runtime evidence conflict to win, got %+v", paths[0])
+	}
+}
+
 func TestMissingApprovalAliasDerivedFromApprovalEvidenceState(t *testing.T) {
 	t.Parallel()
 

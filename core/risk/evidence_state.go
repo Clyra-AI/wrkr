@@ -9,12 +9,12 @@ import (
 )
 
 const (
-	ControlResolutionStateDetectedControl         = "detected_control"
-	ControlResolutionStateDeclaredControl         = "declared_control"
+	ControlResolutionStateDetectedControl          = "detected_control"
+	ControlResolutionStateDeclaredControl          = "declared_control"
 	ControlResolutionStateExternalControlReference = "external_control_reference"
-	ControlResolutionStateNoVisibleControl        = "no_visible_control"
-	ControlResolutionStateNotApplicable           = "not_applicable"
-	ControlResolutionStateContradictoryControl    = "contradictory_control"
+	ControlResolutionStateNoVisibleControl         = "no_visible_control"
+	ControlResolutionStateNotApplicable            = "not_applicable"
+	ControlResolutionStateContradictoryControl     = "contradictory_control"
 
 	EvidenceStateVerified      = "verified"
 	EvidenceStateDeclared      = "declared"
@@ -264,19 +264,27 @@ func deriveRuntimeEvidenceState(path ActionPath) (string, []string, []string) {
 		path.GaitCoverage.ActionOutcome,
 		path.GaitCoverage.ProofVerification,
 	}
+	hasConflict := false
+	hasLinkedEvidence := false
 	presentWithoutRefs := false
 	for _, detail := range details {
 		refs = append(refs, detail.EvidenceRefs...)
 		switch strings.TrimSpace(detail.Status) {
 		case GaitStatusConflict:
-			return EvidenceStateContradictory, []string{"runtime_evidence:conflict"}, dedupeSortedStrings(refs)
+			hasConflict = true
 		case GaitStatusPresent:
 			if len(detail.EvidenceRefs) == 0 {
 				presentWithoutRefs = true
 				continue
 			}
-			return EvidenceStateVerified, []string{"runtime_evidence:linked"}, dedupeSortedStrings(refs)
+			hasLinkedEvidence = true
 		}
+	}
+	if hasConflict {
+		return EvidenceStateContradictory, []string{"runtime_evidence:conflict"}, dedupeSortedStrings(refs)
+	}
+	if hasLinkedEvidence {
+		return EvidenceStateVerified, []string{"runtime_evidence:linked"}, dedupeSortedStrings(refs)
 	}
 	if presentWithoutRefs {
 		return EvidenceStateInferred, []string{"runtime_evidence:present_without_refs"}, dedupeSortedStrings(refs)

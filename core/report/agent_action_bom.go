@@ -306,10 +306,12 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		}
 		switch proofCoverage {
 		case proofCoverageCovered:
-			if len(item.ProofRefs) > 0 {
-				item.ProofEvidenceState = risk.EvidenceStateVerified
-			} else {
-				item.ProofEvidenceState = risk.EvidenceStateInferred
+			if item.ProofEvidenceState != risk.EvidenceStateContradictory {
+				if len(item.ProofRefs) > 0 {
+					item.ProofEvidenceState = risk.EvidenceStateVerified
+				} else {
+					item.ProofEvidenceState = risk.EvidenceStateInferred
+				}
 			}
 		case proofCoverageChainAttached:
 			if strings.TrimSpace(item.ProofEvidenceState) == "" {

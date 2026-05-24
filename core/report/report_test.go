@@ -852,6 +852,77 @@ func TestBuildAgentActionBOMMarksProofCoveredWhenLinkedProofSatisfied(t *testing
 	}
 }
 
+func TestBuildAgentActionBOMPreservesContradictoryProofEvidenceState(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:               "apc-proof-contradictory",
+				AgentID:              "wrkr:ci:acme",
+				Org:                  "acme",
+				Repo:                 "demo-app",
+				ToolType:             "ci_agent",
+				Location:             ".github/workflows/release.yml",
+				CredentialAccess:     true,
+				PolicyCoverageStatus: risk.PolicyCoverageStatusConflict,
+				GaitCoverage: &risk.GaitCoverage{
+					ProofVerification: risk.GaitCoverageDetail{
+						Status:       risk.GaitStatusConflict,
+						EvidenceRefs: []string{"runtime:proof-conflict"},
+					},
+				},
+				RecommendedAction: "approval",
+			}},
+		},
+		ControlBacklog: &controlbacklog.Backlog{Items: []controlbacklog.Item{{
+			ID:                 "cb-proof-contradictory",
+			Repo:               "demo-app",
+			Path:               ".github/workflows/release.yml",
+			RecommendedAction:  controlbacklog.ActionApprove,
+			ClosureCriteria:    "Record owner-approved, time-bounded approval evidence and rescan.",
+			LinkedActionPathID: "apc-proof-contradictory",
+			GovernanceControls: []agginventory.GovernanceControlMapping{
+				{Control: agginventory.GovernanceControlApproval, Status: agginventory.ControlStatusGap},
+			},
+		}}},
+	}
+	chain := proof.NewChain("wrkr-proof")
+	chain.Records = append(chain.Records, proof.Record{
+		RecordID:   "rec-approval",
+		RecordType: "approval",
+		AgentID:    "wrkr:ci:acme",
+		Event: map[string]any{
+			"event_type":     "approval_recorded",
+			"owner":          "platform-security",
+			"review_cadence": "90d",
+			"control_id":     agginventory.GovernanceControlApproval,
+		},
+	})
+	summary := Summary{
+		SummaryVersion: SummaryVersion,
+		GeneratedAt:    "2026-04-30T12:00:00Z",
+		Proof: ProofReference{
+			ChainPath: ".wrkr/proof-chain.json",
+			HeadHash:  "sha256:attached",
+		},
+		ActionPaths:    snapshot.RiskReport.ActionPaths,
+		ControlBacklog: snapshot.ControlBacklog,
+	}
+	summary.controlProofStatus = BuildControlProofStatus(snapshot, chain)
+
+	bom := BuildAgentActionBOM(summary)
+	if bom == nil || len(bom.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", bom)
+	}
+	if bom.Items[0].ProofCoverage != proofCoverageCovered {
+		t.Fatalf("expected covered proof coverage from control proof status, got %+v", bom.Items[0])
+	}
+	if bom.Items[0].ProofEvidenceState != risk.EvidenceStateContradictory {
+		t.Fatalf("expected contradictory proof evidence state to be preserved, got %+v", bom.Items[0])
+	}
+}
+
 func TestBuildAgentActionBOMSharesMergedControlProofAcrossSiblingPaths(t *testing.T) {
 	t.Parallel()
 
