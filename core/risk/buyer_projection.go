@@ -45,6 +45,7 @@ type ActionPathSummaryOptions struct {
 func ProjectActionPath(path ActionPath) ActionPath {
 	out := path
 	out.ConfidenceLane, out.ConfidenceLaneReasons = deriveConfidenceLane(out)
+	out = projectEvidenceStates(out)
 
 	model := deriveGovernFirstModel(out)
 	out.InventoryRisk = model.inventoryRisk
@@ -99,19 +100,30 @@ func SummarizeActionPaths(paths []ActionPath, opts ActionPathSummaryOptions) Act
 		if strings.TrimSpace(path.ControlPriority) == ControlPriorityControlFirst {
 			summary.ControlFirstPaths++
 		}
-		if path.ApprovalGap {
-			summary.MissingApprovalPaths++
-		}
-		if strings.TrimSpace(path.PolicyCoverageStatus) == "" ||
-			strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusNone ||
-			strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusStale ||
-			strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusConflict {
+		switch strings.TrimSpace(path.ControlResolutionState) {
+		case ControlResolutionStateDetectedControl:
+			summary.DetectedControlPaths++
+		case ControlResolutionStateDeclaredControl:
+			summary.DeclaredControlPaths++
+		case ControlResolutionStateExternalControlReference:
+			summary.ExternalControlPaths++
+		case ControlResolutionStateContradictoryControl:
+			summary.ContradictoryControlPaths++
+		case ControlResolutionStateNoVisibleControl:
+			summary.ControlEvidenceUnknownPaths++
 			summary.MissingPolicyPaths++
 		}
-		if actionPathMissingProof(path) {
+		if strings.TrimSpace(path.ApprovalEvidenceState) == EvidenceStateUnknown {
+			summary.ApprovalEvidenceUnknownPaths++
+			summary.MissingApprovalPaths++
+		}
+		if strings.TrimSpace(path.ProofEvidenceState) == EvidenceStateUnknown {
+			summary.ProofEvidenceUnknownPaths++
 			summary.MissingProofPaths++
 		}
-		if actionPathHasWeakOwnership(path) {
+		if strings.TrimSpace(path.OwnerEvidenceState) == EvidenceStateUnknown ||
+			strings.TrimSpace(path.OwnerEvidenceState) == EvidenceStateContradictory {
+			summary.OwnerEvidenceUnknownPaths++
 			summary.UnresolvedOwnerPaths++
 		}
 		switch strings.TrimSpace(path.ReviewBurden) {
@@ -152,10 +164,10 @@ func evaluateEmptyState(summary ActionPathSummary, opts ActionPathSummaryOptions
 		{summary.CredentialAccessPaths, "credential_access_paths_present"},
 		{summary.StandingPrivilegePaths, "standing_privilege_paths_present"},
 		{summary.ProductionTargetBackedPaths, "production_target_backed_paths_present"},
-		{summary.MissingApprovalPaths, "missing_approval_paths_present"},
-		{summary.MissingPolicyPaths, "missing_policy_paths_present"},
-		{summary.MissingProofPaths, "missing_proof_paths_present"},
-		{summary.UnresolvedOwnerPaths, "unresolved_owner_paths_present"},
+		{summary.ApprovalEvidenceUnknownPaths, "approval_evidence_unknown_paths_present"},
+		{summary.ControlEvidenceUnknownPaths, "control_evidence_unknown_paths_present"},
+		{summary.ProofEvidenceUnknownPaths, "proof_evidence_unknown_paths_present"},
+		{summary.OwnerEvidenceUnknownPaths, "owner_evidence_unknown_paths_present"},
 		{summary.HighReviewBurdenPaths, "high_review_burden_paths_present"},
 		{summary.ConfirmedActionPaths, "confirmed_action_paths_present"},
 		{summary.LikelyActionPaths, "likely_action_paths_present"},
@@ -548,6 +560,9 @@ func pathIsContextOnlySurface(path ActionPath) bool {
 }
 
 func actionPathMissingProof(path ActionPath) bool {
+	if state := normalizeEvidenceState(path.ProofEvidenceState); state != "" {
+		return state == EvidenceStateUnknown || state == EvidenceStateContradictory
+	}
 	if path.GaitCoverage == nil {
 		return true
 	}

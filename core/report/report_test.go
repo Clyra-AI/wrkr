@@ -742,6 +742,51 @@ func TestBuildAgentActionBOMCountsMissingProofWhenChainAttachedButControlProofMi
 	}
 }
 
+func TestAgentActionBOMCarriesCanonicalEvidenceStates(t *testing.T) {
+	t.Parallel()
+
+	bom := BuildAgentActionBOM(Summary{
+		SummaryVersion: SummaryVersion,
+		GeneratedAt:    "2026-05-24T12:00:00Z",
+		ActionPaths: []risk.ActionPath{{
+			PathID:                  "apc-evidence-states",
+			Org:                     "acme",
+			Repo:                    "acme/release",
+			ToolType:                "compiled_action",
+			Location:                ".github/workflows/release.yml",
+			WriteCapable:            true,
+			CredentialAccess:        true,
+			ApprovalGap:             true,
+			ApprovalGapReasons:      []string{"approval_source_missing"},
+			OperationalOwner:        "@acme/release",
+			OwnershipStatus:         "explicit",
+			OwnershipEvidence:       []string{"codeowners:CODEOWNERS:*"},
+			PolicyCoverageStatus:    risk.PolicyCoverageStatusNone,
+			GaitCoverage:            &risk.GaitCoverage{ProofVerification: risk.GaitCoverageDetail{Status: risk.GaitStatusMissing}},
+			ControlResolutionState:  risk.ControlResolutionStateNoVisibleControl,
+			ApprovalEvidenceState:   risk.EvidenceStateUnknown,
+			OwnerEvidenceState:      risk.EvidenceStateVerified,
+			ProofEvidenceState:      risk.EvidenceStateUnknown,
+			RuntimeEvidenceState:    risk.EvidenceStateUnknown,
+			TargetEvidenceState:     risk.EvidenceStateInferred,
+			CredentialEvidenceState: risk.EvidenceStateInferred,
+		}},
+	})
+	if bom == nil || len(bom.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", bom)
+	}
+	item := bom.Items[0]
+	if item.ControlResolutionState != risk.ControlResolutionStateDetectedControl {
+		t.Fatalf("expected control resolution state on BOM item, got %+v", item)
+	}
+	if item.ApprovalEvidenceState != risk.EvidenceStateUnknown || item.OwnerEvidenceState != risk.EvidenceStateVerified {
+		t.Fatalf("expected canonical evidence states on BOM item, got %+v", item)
+	}
+	if bom.Summary.ApprovalEvidenceUnknownItems != 1 || bom.Summary.ProofEvidenceUnknownItems != 1 {
+		t.Fatalf("expected canonical evidence-state summary counters, got %+v", bom.Summary)
+	}
+}
+
 func TestBuildAgentActionBOMMarksProofCoveredWhenLinkedProofSatisfied(t *testing.T) {
 	t.Parallel()
 
@@ -1254,6 +1299,50 @@ func TestAgentActionBOMMarkdownLeadsWithBuyerSummary(t *testing.T) {
 	}
 	if strings.Index(markdown, "- Scanned scope:") > strings.Index(markdown, "## Assessment Summary") {
 		t.Fatalf("expected buyer summary to lead before assessment details, got %q", markdown)
+	}
+}
+
+func TestMarkdownApprovalUnknownUsesEvidenceNotFound(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		SummaryVersion: SummaryVersion,
+		GeneratedAt:    "2026-05-24T12:00:00Z",
+		Template:       string(TemplateAgentActionBOM),
+		ShareProfile:   string(ShareProfileInternal),
+		AgentActionBOM: &AgentActionBOM{
+			BOMID:         "bom-evidence-language",
+			SchemaVersion: AgentActionBOMSchemaVersion,
+			GeneratedAt:   "2026-05-24T12:00:00Z",
+			Summary: AgentActionBOMSummary{
+				TotalItems:                   1,
+				ApprovalEvidenceUnknownItems: 1,
+				ControlFirstItems:            1,
+			},
+			Items: []AgentActionBOMItem{{
+				PathID:                 "apc-evidence-language",
+				Org:                    "acme",
+				Repo:                   "acme/release",
+				ToolType:               "compiled_action",
+				Location:               ".github/workflows/release.yml",
+				ControlState:           risk.ControlStateEvidenceNeeded,
+				ControlPriority:        risk.ControlPriorityControlFirst,
+				RiskTier:               risk.RiskTierHigh,
+				ReviewBurden:           risk.ReviewBurdenHigh,
+				ConfidenceLane:         risk.ConfidenceLaneConfirmedActionPath,
+				ApprovalEvidenceState:  risk.EvidenceStateUnknown,
+				ControlResolutionState: risk.ControlResolutionStateNoVisibleControl,
+				Remediation:            "Attach owner, policy, proof, or credential-scope evidence for this exact path and rescan.",
+			}},
+		},
+	}
+
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, "approval evidence not found") {
+		t.Fatalf("expected buyer-safe approval wording, got:\n%s", markdown)
+	}
+	if strings.Contains(markdown, "approval missing") {
+		t.Fatalf("expected blunt approval-missing wording to stay out of markdown, got:\n%s", markdown)
 	}
 }
 

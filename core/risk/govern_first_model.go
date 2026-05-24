@@ -377,7 +377,12 @@ func sourceFindingKeyOrder(keys []string) string {
 
 func RemediationForActionPath(path ActionPath) string {
 	if actionPathHasWeakOwnership(path) {
-		return "Assign an explicit owner, resolve ownership conflicts, and rerun the scan before approving or expanding this path."
+		switch normalizeEvidenceState(path.OwnerEvidenceState) {
+		case EvidenceStateContradictory:
+			return "Owner evidence is contradictory for this path; resolve the conflict, record one explicit owner, and rerun the scan before approving or expanding it."
+		default:
+			return "Owner evidence is unknown for this path; assign an explicit owner, attach linked ownership evidence, and rerun the scan before approving or expanding it."
+		}
 	}
 	if path.ControlPriority == ControlPriorityInventoryHygiene || deriveGovernFirstModel(path).controlPriority == ControlPriorityInventoryHygiene {
 		if actionPathDependencyOnly(path) {

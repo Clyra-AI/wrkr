@@ -3,6 +3,7 @@ package controlbacklog
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
@@ -235,6 +236,41 @@ func TestActionPathConfidenceLaneCarriesIntoBacklog(t *testing.T) {
 	}
 	if !containsString(item.ConfidenceLaneReasons, "surface:prompt_or_instruction") {
 		t.Fatalf("expected confidence lane reasons to carry through, got %+v", item.ConfidenceLaneReasons)
+	}
+}
+
+func TestBacklogClosureDoesNotSayOwnerMissing(t *testing.T) {
+	t.Parallel()
+
+	backlog := Build(Input{
+		ActionPaths: []risk.ActionPath{{
+			PathID:                 "apc-owner-evidence",
+			Org:                    "acme",
+			Repo:                   "app",
+			ToolType:               "compiled_action",
+			Location:               ".github/workflows/release.yml",
+			WriteCapable:           true,
+			CredentialAccess:       true,
+			ApprovalGap:            true,
+			ApprovalGapReasons:     []string{"approval_source_missing"},
+			OwnerEvidenceState:     risk.EvidenceStateUnknown,
+			ControlResolutionState: risk.ControlResolutionStateNoVisibleControl,
+			ControlState:           risk.ControlStateEvidenceNeeded,
+			ReviewBurden:           risk.ReviewBurdenHigh,
+			RecommendedAction:      "proof",
+			ControlPriority:        risk.ControlPriorityControlFirst,
+		}},
+	})
+
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	item := backlog.Items[0]
+	if strings.Contains(strings.ToLower(item.ClosureCriteria), "owner missing") {
+		t.Fatalf("expected buyer-safe closure wording, got %+v", item)
+	}
+	if !strings.Contains(strings.ToLower(item.Remediation), "owner evidence is unknown") {
+		t.Fatalf("expected remediation to use evidence-state wording, got %+v", item)
 	}
 }
 

@@ -8,11 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- [semver:minor] Added canonical control resolution and evidence confidence fields for action paths, reports, backlog items, and v1 schemas so control gaps are evidence-scoped instead of inferred from local absence.
 
 ### Changed
 
-- (none yet)
+- [semver:minor] Changed report and schema terminology to present approval, owner, proof, policy, runtime, target, and credential findings as evidence states rather than unsupported missing-control claims.
+- [semver:patch] Changed buyer-facing report, backlog, and remediation wording to use evidence-scoped language for approval, ownership, proof, policy, runtime, target, and credential states.
 
 ### Deprecated
 

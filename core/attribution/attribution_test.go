@@ -179,6 +179,42 @@ func TestResolveUnderstandsGitLabMergeRequestMetadata(t *testing.T) {
 	}
 }
 
+func TestLoadContextIncludesControlMetadataSidecar(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("mkdir provenance dir: %v", err)
+	}
+	payload := `{
+  "controls": [
+    {
+      "path": ".github/workflows/release.yml",
+      "control_resolution_state": "external_control_reference",
+      "control_evidence_refs": ["github_team:platform/release-approvers"],
+      "approval_evidence_state": "declared",
+      "owner_evidence_state": "declared",
+      "proof_evidence_state": "unknown"
+    }
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "provenance", "control-metadata.json"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write control metadata sidecar: %v", err)
+	}
+
+	ctx := LoadContext(repoRoot)
+	metadata, ok := ctx.ControlMetadata[".github/workflows/release.yml"]
+	if !ok {
+		t.Fatalf("expected control metadata entry, got %+v", ctx.ControlMetadata)
+	}
+	if metadata.ControlResolutionState != "external_control_reference" {
+		t.Fatalf("expected control resolution state from sidecar, got %+v", metadata)
+	}
+	if len(metadata.ControlEvidenceRefs) != 1 || metadata.ControlEvidenceRefs[0] != "github_team:platform/release-approvers" {
+		t.Fatalf("expected evidence refs from sidecar, got %+v", metadata)
+	}
+}
+
 func runGit(t *testing.T, repoRoot string, env []string, args ...string) {
 	t.Helper()
 

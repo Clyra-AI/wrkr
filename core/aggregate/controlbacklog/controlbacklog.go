@@ -99,6 +99,15 @@ type Item struct {
 	OwnershipConfidence      float64                                 `json:"ownership_confidence,omitempty"`
 	OwnershipEvidence        []string                                `json:"ownership_evidence_basis,omitempty"`
 	OwnershipConflicts       []string                                `json:"ownership_conflicts,omitempty"`
+	ControlResolutionState   string                                  `json:"control_resolution_state,omitempty"`
+	ControlResolutionReasons []string                                `json:"control_resolution_reasons,omitempty"`
+	ControlEvidenceRefs      []string                                `json:"control_evidence_refs,omitempty"`
+	ApprovalEvidenceState    string                                  `json:"approval_evidence_state,omitempty"`
+	OwnerEvidenceState       string                                  `json:"owner_evidence_state,omitempty"`
+	ProofEvidenceState       string                                  `json:"proof_evidence_state,omitempty"`
+	RuntimeEvidenceState     string                                  `json:"runtime_evidence_state,omitempty"`
+	TargetEvidenceState      string                                  `json:"target_evidence_state,omitempty"`
+	CredentialEvidenceState  string                                  `json:"credential_evidence_state,omitempty"`
 	EvidenceSource           string                                  `json:"evidence_source"`
 	EvidenceBasis            []string                                `json:"evidence_basis"`
 	ApprovalStatus           string                                  `json:"approval_status"`
@@ -293,6 +302,15 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		OwnershipConfidence:      path.OwnershipConfidence,
 		OwnershipEvidence:        append([]string(nil), path.OwnershipEvidence...),
 		OwnershipConflicts:       append([]string(nil), path.OwnershipConflicts...),
+		ControlResolutionState:   strings.TrimSpace(path.ControlResolutionState),
+		ControlResolutionReasons: append([]string(nil), path.ControlResolutionReasons...),
+		ControlEvidenceRefs:      append([]string(nil), path.ControlEvidenceRefs...),
+		ApprovalEvidenceState:    strings.TrimSpace(path.ApprovalEvidenceState),
+		OwnerEvidenceState:       strings.TrimSpace(path.OwnerEvidenceState),
+		ProofEvidenceState:       strings.TrimSpace(path.ProofEvidenceState),
+		RuntimeEvidenceState:     strings.TrimSpace(path.RuntimeEvidenceState),
+		TargetEvidenceState:      strings.TrimSpace(path.TargetEvidenceState),
+		CredentialEvidenceState:  strings.TrimSpace(path.CredentialEvidenceState),
 		EvidenceSource:           "risk_action_path",
 		EvidenceBasis:            evidenceBasisFromActionPath(path),
 		ApprovalStatus:           approvalStatus(path.ApprovalGap, path.SecurityVisibilityStatus),
@@ -458,6 +476,15 @@ func (b *builder) merge(item Item) {
 	}
 	current.OwnershipEvidence = mergeStrings(current.OwnershipEvidence, item.OwnershipEvidence)
 	current.OwnershipConflicts = mergeStrings(current.OwnershipConflicts, item.OwnershipConflicts)
+	current.ControlResolutionState = firstNonEmptyString(current.ControlResolutionState, item.ControlResolutionState)
+	current.ControlResolutionReasons = mergeStrings(current.ControlResolutionReasons, item.ControlResolutionReasons)
+	current.ControlEvidenceRefs = mergeStrings(current.ControlEvidenceRefs, item.ControlEvidenceRefs)
+	current.ApprovalEvidenceState = firstNonEmptyString(current.ApprovalEvidenceState, item.ApprovalEvidenceState)
+	current.OwnerEvidenceState = firstNonEmptyString(current.OwnerEvidenceState, item.OwnerEvidenceState)
+	current.ProofEvidenceState = firstNonEmptyString(current.ProofEvidenceState, item.ProofEvidenceState)
+	current.RuntimeEvidenceState = firstNonEmptyString(current.RuntimeEvidenceState, item.RuntimeEvidenceState)
+	current.TargetEvidenceState = firstNonEmptyString(current.TargetEvidenceState, item.TargetEvidenceState)
+	current.CredentialEvidenceState = firstNonEmptyString(current.CredentialEvidenceState, item.CredentialEvidenceState)
 	if current.LinkedActionPathID == "" {
 		current.LinkedActionPathID = item.LinkedActionPathID
 	}

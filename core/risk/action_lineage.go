@@ -282,12 +282,12 @@ func ownerLineageStatus(path ActionPath) string {
 
 func approvalLineageLabel(path ActionPath) string {
 	if path.ApprovalGap {
-		return "approval_gap"
+		return BuyerEvidenceStateLabel("approval", path.ApprovalEvidenceState)
 	}
 	if strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusRuntimeProven {
-		return "runtime_proven"
+		return "runtime-backed approval evidence"
 	}
-	return "approved_or_declared"
+	return "approval evidence present"
 }
 
 func approvalLineageStatus(path ActionPath) string {
@@ -299,12 +299,12 @@ func approvalLineageStatus(path ActionPath) string {
 
 func proofLineageLabel(path ActionPath) string {
 	if strings.TrimSpace(path.PolicyCoverageStatus) != "" {
-		return strings.TrimSpace(path.PolicyCoverageStatus)
+		return BuyerEvidenceStateLabel("proof", path.ProofEvidenceState)
 	}
 	if path.GaitCoverage != nil {
-		return strings.TrimSpace(path.GaitCoverage.ProofVerification.Status)
+		return BuyerEvidenceStateLabel("proof", path.ProofEvidenceState)
 	}
-	return "proof_missing"
+	return BuyerEvidenceStateLabel("proof", path.ProofEvidenceState)
 }
 
 func proofLineageStatus(path ActionPath) string {

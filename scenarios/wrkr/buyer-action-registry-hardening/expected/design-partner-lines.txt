@@ -11,7 +11,7 @@ Likely explanation: purpose=mcp integration, purpose_source=location_heuristic, 
 Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=data_export,production_mutation,refund
 Recommended control: Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
 Confidence lane: likely action path
-Proof gap: proof=missing, policy=none, runtime=unmatched, approval=missing
+Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
 Credential authority: kind=unknown, source=unknown, access=unknown, rotation=unknown
 Mutable endpoint: data_export@medium, production_mutation@medium, refund@medium
 Owner: owner-f9ae3305

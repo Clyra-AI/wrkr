@@ -26,6 +26,14 @@ type ActionPathSummary struct {
 	ProductionTargetBackedPaths  int      `json:"production_target_backed_paths"`
 	ControlFirstPaths            int      `json:"control_first_paths"`
 	GovernFirstPaths             int      `json:"govern_first_paths"`
+	DetectedControlPaths         int      `json:"detected_control_paths,omitempty"`
+	DeclaredControlPaths         int      `json:"declared_control_paths,omitempty"`
+	ExternalControlPaths         int      `json:"external_control_reference_paths,omitempty"`
+	ContradictoryControlPaths    int      `json:"contradictory_control_paths,omitempty"`
+	ControlEvidenceUnknownPaths  int      `json:"control_evidence_unknown_paths,omitempty"`
+	ApprovalEvidenceUnknownPaths int      `json:"approval_evidence_unknown_paths,omitempty"`
+	OwnerEvidenceUnknownPaths    int      `json:"owner_evidence_unknown_paths,omitempty"`
+	ProofEvidenceUnknownPaths    int      `json:"proof_evidence_unknown_paths,omitempty"`
 	MissingApprovalPaths         int      `json:"missing_approval_paths"`
 	MissingPolicyPaths           int      `json:"missing_policy_paths"`
 	MissingProofPaths            int      `json:"missing_proof_paths"`
@@ -64,6 +72,15 @@ type ActionPath struct {
 	OwnershipConfidence        float64                                 `json:"ownership_confidence,omitempty"`
 	OwnershipEvidence          []string                                `json:"ownership_evidence_basis,omitempty"`
 	OwnershipConflicts         []string                                `json:"ownership_conflicts,omitempty"`
+	ControlResolutionState     string                                  `json:"control_resolution_state,omitempty"`
+	ControlResolutionReasons   []string                                `json:"control_resolution_reasons,omitempty"`
+	ControlEvidenceRefs        []string                                `json:"control_evidence_refs,omitempty"`
+	ApprovalEvidenceState      string                                  `json:"approval_evidence_state,omitempty"`
+	OwnerEvidenceState         string                                  `json:"owner_evidence_state,omitempty"`
+	ProofEvidenceState         string                                  `json:"proof_evidence_state,omitempty"`
+	RuntimeEvidenceState       string                                  `json:"runtime_evidence_state,omitempty"`
+	TargetEvidenceState        string                                  `json:"target_evidence_state,omitempty"`
+	CredentialEvidenceState    string                                  `json:"credential_evidence_state,omitempty"`
 	ApprovalGapReasons         []string                                `json:"approval_gap_reasons,omitempty"`
 	WritePathClasses           []string                                `json:"write_path_classes,omitempty"`
 	ActionClasses              []string                                `json:"action_classes,omitempty"`
@@ -381,6 +398,15 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.OwnershipConfidence = mergeOwnershipConfidence(current, incoming)
 	merged.OwnershipEvidence = dedupeSortedStrings(append(append([]string(nil), current.OwnershipEvidence...), incoming.OwnershipEvidence...))
 	merged.OwnershipConflicts = dedupeSortedStrings(append(append([]string(nil), current.OwnershipConflicts...), incoming.OwnershipConflicts...))
+	merged.ControlResolutionState = chooseControlResolutionState(current.ControlResolutionState, incoming.ControlResolutionState)
+	merged.ControlResolutionReasons = dedupeSortedStrings(append(append([]string(nil), current.ControlResolutionReasons...), incoming.ControlResolutionReasons...))
+	merged.ControlEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.ControlEvidenceRefs...), incoming.ControlEvidenceRefs...))
+	merged.ApprovalEvidenceState = chooseEvidenceState(current.ApprovalEvidenceState, incoming.ApprovalEvidenceState)
+	merged.OwnerEvidenceState = chooseEvidenceState(current.OwnerEvidenceState, incoming.OwnerEvidenceState)
+	merged.ProofEvidenceState = chooseEvidenceState(current.ProofEvidenceState, incoming.ProofEvidenceState)
+	merged.RuntimeEvidenceState = chooseEvidenceState(current.RuntimeEvidenceState, incoming.RuntimeEvidenceState)
+	merged.TargetEvidenceState = chooseEvidenceState(current.TargetEvidenceState, incoming.TargetEvidenceState)
+	merged.CredentialEvidenceState = chooseEvidenceState(current.CredentialEvidenceState, incoming.CredentialEvidenceState)
 	merged.ExecutionIdentity, merged.ExecutionIdentityType, merged.ExecutionIdentitySource, merged.ExecutionIdentityStatus, merged.ExecutionIdentityRationale = mergeExecutionIdentity(current, incoming)
 	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
 	merged.ToolFamilyID = firstNonEmptyString(current.ToolFamilyID, incoming.ToolFamilyID)
