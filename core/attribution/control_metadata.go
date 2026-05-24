@@ -9,19 +9,19 @@ import (
 )
 
 type ControlMetadata struct {
-	Path                   string   `json:"path"`
-	Owner                  string   `json:"owner,omitempty"`
-	OwnerSource            string   `json:"owner_source,omitempty"`
-	ControlResolutionState string   `json:"control_resolution_state,omitempty"`
+	Path                     string   `json:"path"`
+	Owner                    string   `json:"owner,omitempty"`
+	OwnerSource              string   `json:"owner_source,omitempty"`
+	ControlResolutionState   string   `json:"control_resolution_state,omitempty"`
 	ControlResolutionReasons []string `json:"control_resolution_reasons,omitempty"`
-	ControlEvidenceRefs    []string `json:"control_evidence_refs,omitempty"`
-	ApprovalEvidenceState  string   `json:"approval_evidence_state,omitempty"`
-	OwnerEvidenceState     string   `json:"owner_evidence_state,omitempty"`
-	ProofEvidenceState     string   `json:"proof_evidence_state,omitempty"`
-	RuntimeEvidenceState   string   `json:"runtime_evidence_state,omitempty"`
-	TargetEvidenceState    string   `json:"target_evidence_state,omitempty"`
-	CredentialEvidenceState string  `json:"credential_evidence_state,omitempty"`
-	ExternalReferences     []string `json:"external_references,omitempty"`
+	ControlEvidenceRefs      []string `json:"control_evidence_refs,omitempty"`
+	ApprovalEvidenceState    string   `json:"approval_evidence_state,omitempty"`
+	OwnerEvidenceState       string   `json:"owner_evidence_state,omitempty"`
+	ProofEvidenceState       string   `json:"proof_evidence_state,omitempty"`
+	RuntimeEvidenceState     string   `json:"runtime_evidence_state,omitempty"`
+	TargetEvidenceState      string   `json:"target_evidence_state,omitempty"`
+	CredentialEvidenceState  string   `json:"credential_evidence_state,omitempty"`
+	ExternalReferences       []string `json:"external_references,omitempty"`
 }
 
 type controlMetadataPayload struct {
