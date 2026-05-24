@@ -385,6 +385,10 @@ func actionPathHighImpact(path ActionPath) bool {
 }
 
 func actionPathHasWeakOwnership(path ActionPath) bool {
+	switch normalizeEvidenceState(path.OwnerEvidenceState) {
+	case EvidenceStateContradictory:
+		return true
+	}
 	return strings.TrimSpace(path.OwnerSource) == owners.OwnerSourceConflict ||
 		strings.TrimSpace(path.OwnershipState) == owners.OwnershipStateConflicting ||
 		strings.TrimSpace(path.OwnershipState) == owners.OwnershipStateMissing ||

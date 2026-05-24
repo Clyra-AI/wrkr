@@ -23,3 +23,4 @@ Expected JSON keys: `score`, `grade`, `breakdown`, `weighted_breakdown`, `weight
 When attack-path scoring is present in state, output also includes `attack_paths` and `top_attack_paths`.
 Saved-state approval and lifecycle mutations refresh cached posture score material immediately, so `wrkr score --state <path> --json` reflects `identity` or `inventory` approvals without requiring a new scan.
 Malformed or type-invalid saved scan state fails with `runtime_failure` (exit `1`) instead of returning cached score output, even when the saved snapshot still contains `posture_score`.
+When the saved state carries govern-first `action_paths`, posture scoring reflects the same evidence-state-aware risk projection used by `wrkr report`; low or unchanged posture should be read as evidence gaps in the saved snapshot, not a claim that external enterprise controls are absent.

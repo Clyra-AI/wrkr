@@ -43,6 +43,8 @@ Appendix export emits deterministic table sets for:
 - `approval_gap_rows`
 - `regulatory_rows`
 
+`approval_gap_rows` remains a compatibility appendix name. The underlying path objects and report artifacts now lead with canonical evidence-state fields such as `approval_evidence_state`, `control_resolution_state`, and `proof_evidence_state`.
+
 Ticket export is offline-first. `wrkr export tickets --dry-run --json` consumes the saved `control_backlog`; it does not run detectors and does not call Jira, GitHub Issues, or ServiceNow APIs. Unsupported ticket formats fail with `invalid_input` and exit `6`. Send/adaptor execution is a future explicit opt-in surface and should fail closed when credentials are missing.
 
 Each ticket includes owner, repo, path, control-path type, capability, evidence, recommended action, SLA, closure criteria, confidence, proof requirements, and deterministic `security_test_recipes` when risky control paths need validation. Recipes cover prompt injection, MCP endpoint swaps, egress attempts, destructive-action dry runs, untrusted repo content, and secret-scope validation using dry-run or sandbox preconditions. When the saved backlog item is linked to the additive governance graph, ticket payloads may also carry stable control-path node/edge references and typed `credential_provenance` context so downstream systems can preserve the same operator review thread without parsing raw workflow details.

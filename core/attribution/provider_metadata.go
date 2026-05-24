@@ -18,8 +18,9 @@ const (
 )
 
 type Context struct {
-	RepoRoot   string
-	Candidates []Candidate
+	RepoRoot        string
+	Candidates      []Candidate
+	ControlMetadata map[string]ControlMetadata
 }
 
 type Candidate struct {
@@ -47,8 +48,9 @@ type sourceMetadataPayload struct {
 func LoadContext(repoRoot string) Context {
 	repoRoot = strings.TrimSpace(repoRoot)
 	return Context{
-		RepoRoot:   repoRoot,
-		Candidates: loadCandidates(repoRoot),
+		RepoRoot:        repoRoot,
+		Candidates:      loadCandidates(repoRoot),
+		ControlMetadata: loadControlMetadata(repoRoot),
 	}
 }
 

@@ -3,6 +3,8 @@ package report
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
 func RenderMarkdown(summary Summary) string {
@@ -52,13 +54,13 @@ func RenderMarkdown(summary Summary) string {
 			))
 		}
 		builder.WriteString(fmt.Sprintf("- Coverage confidence: %s\n", summary.AgentActionBOM.Summary.CoverageConfidence))
-		builder.WriteString(fmt.Sprintf("- Governable paths: total=%d control_first=%d standing_credentials=%d missing_approval=%d missing_policy=%d missing_proof=%d\n",
+		builder.WriteString(fmt.Sprintf("- Governable paths: total=%d control_first=%d standing_credentials=%d approval_evidence_unknown=%d control_evidence_unknown=%d proof_evidence_unknown=%d\n",
 			summary.AgentActionBOM.Summary.TotalItems,
 			summary.AgentActionBOM.Summary.ControlFirstItems,
 			summary.AgentActionBOM.Summary.StandingPrivilegeItems,
-			summary.AgentActionBOM.Summary.MissingApprovalItems,
-			summary.AgentActionBOM.Summary.MissingPolicyItems,
-			summary.AgentActionBOM.Summary.MissingProofItems,
+			summary.AgentActionBOM.Summary.ApprovalEvidenceUnknownItems,
+			summary.AgentActionBOM.Summary.ControlEvidenceUnknownItems,
+			summary.AgentActionBOM.Summary.ProofEvidenceUnknownItems,
 		))
 		if summary.ShareProfileMetadata != nil && summary.ShareProfileMetadata.RedactionApplied {
 			builder.WriteString(fmt.Sprintf("- Share redaction: version=%s policy=%s\n",
@@ -89,7 +91,7 @@ func RenderMarkdown(summary Summary) string {
 			}
 			for idx := 0; idx < limit; idx++ {
 				item := summary.AgentActionBOM.Items[idx]
-				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s state=%s zone=%s review=%s priority=%s tier=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
+				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s state=%s zone=%s review=%s priority=%s tier=%s control=%s approval=%s owner=%s proof=%s runtime=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
 					markdownActionPathLabel(item.ConfidenceLane),
 					item.Repo,
 					item.Location,
@@ -99,6 +101,11 @@ func RenderMarkdown(summary Summary) string {
 					item.ReviewBurden,
 					item.ControlPriority,
 					item.RiskTier,
+					risk.BuyerControlResolutionLabel(item.ControlResolutionState),
+					risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState),
+					risk.BuyerEvidenceStateLabel("owner", item.OwnerEvidenceState),
+					risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
+					risk.BuyerEvidenceStateLabel("runtime", item.RuntimeEvidenceState),
 					item.Confidence,
 					item.EvidenceStrength,
 					item.Queue,
@@ -194,7 +201,7 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s state=%s zone=%s review=%s queue=%s priority=%s tier=%s confidence=%s evidence=%s policy=%s proof=%s runtime=%s remediation=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s state=%s zone=%s review=%s queue=%s priority=%s tier=%s control=%s approval=%s proof=%s runtime=%s confidence=%s evidence=%s policy=%s remediation=%s\n",
 				markdownActionPathLabel(item.ConfidenceLane),
 				item.Repo,
 				item.Location,
@@ -206,11 +213,13 @@ func RenderMarkdown(summary Summary) string {
 				item.Queue,
 				item.ControlPriority,
 				item.RiskTier,
+				risk.BuyerControlResolutionLabel(item.ControlResolutionState),
+				risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState),
+				risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
+				risk.BuyerEvidenceStateLabel("runtime", item.RuntimeEvidenceState),
 				item.Confidence,
 				item.EvidenceStrength,
 				item.PolicyStatus,
-				item.ProofCoverage,
-				item.RuntimeEvidenceStatus,
 				item.Remediation,
 			))
 			if item.GaitCoverage != nil {
@@ -418,7 +427,7 @@ func designPartnerProblem(item AgentActionBOMItem) string {
 	case len(item.MutableEndpointSemantics) > 0:
 		return "The path reaches declared mutable actions that need tighter approval, proof, or scope."
 	case item.ApprovalGap:
-		return "The path is operationally meaningful, but recorded approval is missing or incomplete."
+		return "The path is operationally meaningful, but approval evidence is not yet linked or complete."
 	case item.Owner == "":
 		return "The path is governable, but ownership is not yet explicit."
 	default:
@@ -474,12 +483,12 @@ func designPartnerThreat(item AgentActionBOMItem) string {
 
 func designPartnerProofGap(item AgentActionBOMItem) string {
 	parts := []string{
-		"proof=" + firstNonEmptyValue(item.ProofCoverage, "missing"),
+		"proof=" + risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
 		"policy=" + firstNonEmptyValue(item.PolicyStatus, "none"),
-		"runtime=" + firstNonEmptyValue(item.RuntimeEvidenceStatus, "unmatched"),
+		"runtime=" + risk.BuyerEvidenceStateLabel("runtime", item.RuntimeEvidenceState),
 	}
 	if item.ApprovalGap {
-		parts = append(parts, "approval=missing")
+		parts = append(parts, "approval="+risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState))
 	}
 	return strings.Join(parts, ", ")
 }

@@ -42,6 +42,10 @@ type AgentActionBOMSummary struct {
 	StandingPrivilegeItems       int                     `json:"standing_privilege_items"`
 	StaticCredentialItems        int                     `json:"static_credential_items"`
 	ProductionTargetItems        int                     `json:"production_target_items"`
+	ApprovalEvidenceUnknownItems int                     `json:"approval_evidence_unknown_items,omitempty"`
+	ControlEvidenceUnknownItems  int                     `json:"control_evidence_unknown_items,omitempty"`
+	OwnerEvidenceUnknownItems    int                     `json:"owner_evidence_unknown_items,omitempty"`
+	ProofEvidenceUnknownItems    int                     `json:"proof_evidence_unknown_items,omitempty"`
 	MissingApprovalItems         int                     `json:"missing_approval_items"`
 	MissingPolicyItems           int                     `json:"missing_policy_items"`
 	MissingProofItems            int                     `json:"missing_proof_items"`
@@ -80,6 +84,15 @@ type AgentActionBOMItem struct {
 	OwnerSource              string                                 `json:"owner_source,omitempty"`
 	OwnershipStatus          string                                 `json:"ownership_status,omitempty"`
 	OwnershipState           string                                 `json:"ownership_state,omitempty"`
+	ControlResolutionState   string                                 `json:"control_resolution_state,omitempty"`
+	ControlResolutionReasons []string                               `json:"control_resolution_reasons,omitempty"`
+	ControlEvidenceRefs      []string                               `json:"control_evidence_refs,omitempty"`
+	ApprovalEvidenceState    string                                 `json:"approval_evidence_state,omitempty"`
+	OwnerEvidenceState       string                                 `json:"owner_evidence_state,omitempty"`
+	ProofEvidenceState       string                                 `json:"proof_evidence_state,omitempty"`
+	RuntimeEvidenceState     string                                 `json:"runtime_evidence_state,omitempty"`
+	TargetEvidenceState      string                                 `json:"target_evidence_state,omitempty"`
+	CredentialEvidenceState  string                                 `json:"credential_evidence_state,omitempty"`
 	CredentialAccess         bool                                   `json:"credential_access"`
 	Credentials              []*agginventory.CredentialProvenance   `json:"credentials,omitempty"`
 	CredentialProvenance     *agginventory.CredentialProvenance     `json:"credential_provenance,omitempty"`
@@ -182,6 +195,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 
 	items := make([]AgentActionBOMItem, 0, len(summary.ActionPaths))
 	for _, path := range summary.ActionPaths {
+		path = risk.ProjectActionPath(path)
 		pathID := strings.TrimSpace(path.PathID)
 		itemGraphRefs := graphRefsByPath[pathID]
 		runtimeItem := runtimeByPath[pathID]
@@ -224,6 +238,15 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			OwnerSource:              strings.TrimSpace(path.OwnerSource),
 			OwnershipStatus:          strings.TrimSpace(path.OwnershipStatus),
 			OwnershipState:           strings.TrimSpace(path.OwnershipState),
+			ControlResolutionState:   strings.TrimSpace(path.ControlResolutionState),
+			ControlResolutionReasons: append([]string(nil), path.ControlResolutionReasons...),
+			ControlEvidenceRefs:      append([]string(nil), path.ControlEvidenceRefs...),
+			ApprovalEvidenceState:    strings.TrimSpace(path.ApprovalEvidenceState),
+			OwnerEvidenceState:       strings.TrimSpace(path.OwnerEvidenceState),
+			ProofEvidenceState:       strings.TrimSpace(path.ProofEvidenceState),
+			RuntimeEvidenceState:     strings.TrimSpace(path.RuntimeEvidenceState),
+			TargetEvidenceState:      strings.TrimSpace(path.TargetEvidenceState),
+			CredentialEvidenceState:  strings.TrimSpace(path.CredentialEvidenceState),
 			CredentialAccess:         path.CredentialAccess,
 			Credentials:              agginventory.CloneCredentialProvenances(path.Credentials),
 			CredentialProvenance:     agginventory.CloneCredentialProvenance(path.CredentialProvenance),
@@ -280,6 +303,22 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			PolicyEvidenceRefs:       append([]string(nil), path.PolicyEvidenceRefs...),
 			IntroducedBy:             attribution.Merge(path.IntroducedBy, nil),
 			ActionLineage:            risk.CloneActionLineage(path.ActionLineage),
+		}
+		switch proofCoverage {
+		case proofCoverageCovered:
+			if len(item.ProofRefs) > 0 {
+				item.ProofEvidenceState = risk.EvidenceStateVerified
+			} else {
+				item.ProofEvidenceState = risk.EvidenceStateInferred
+			}
+		case proofCoverageChainAttached:
+			if strings.TrimSpace(item.ProofEvidenceState) == "" {
+				item.ProofEvidenceState = risk.EvidenceStateInferred
+			}
+		case proofCoverageMissing:
+			if strings.TrimSpace(item.ProofEvidenceState) == "" {
+				item.ProofEvidenceState = risk.EvidenceStateUnknown
+			}
 		}
 		item.ActionLineage = decorateLineageForBOM(item.ActionLineage, item)
 		item.EvidenceRefs = itemEvidenceRefs(path, backlogItem, runtimeItem, itemGraphRefs)
@@ -529,21 +568,24 @@ func summarizeAgentActionBOMItems(items []AgentActionBOMItem, paths []risk.Actio
 		if item.ProductionWrite || len(item.MatchedProductionTargets) > 0 {
 			counts.ProductionTargetItems++
 		}
-		if item.ApprovalGap {
+		if item.ApprovalEvidenceState == risk.EvidenceStateUnknown {
+			counts.ApprovalEvidenceUnknownItems++
 			counts.MissingApprovalItems++
 		}
-		switch strings.TrimSpace(item.PolicyStatus) {
-		case risk.PolicyCoverageStatusNone, risk.PolicyCoverageStatusStale, risk.PolicyCoverageStatusConflict:
+		if item.ControlResolutionState == risk.ControlResolutionStateNoVisibleControl {
+			counts.ControlEvidenceUnknownItems++
 			counts.MissingPolicyItems++
 		}
-		if item.ProofCoverage == proofCoverageMissing {
+		if item.OwnerEvidenceState == risk.EvidenceStateUnknown || item.OwnerEvidenceState == risk.EvidenceStateContradictory {
+			counts.OwnerEvidenceUnknownItems++
+			counts.UnresolvedOwnerItems++
+		}
+		if item.ProofEvidenceState == risk.EvidenceStateUnknown {
+			counts.ProofEvidenceUnknownItems++
 			counts.MissingProofItems++
 		}
 		if item.PolicyStatus == risk.PolicyCoverageStatusRuntimeProven || item.RuntimeEvidenceStatus == ingest.CorrelationStatusMatched {
 			counts.RuntimeProvenItems++
-		}
-		if item.OwnershipStatus == "" || item.OwnershipStatus == "unresolved" || item.OwnershipState == "missing" || item.OwnershipState == "conflicting" || item.OwnerSource == "multi_repo_conflict" {
-			counts.UnresolvedOwnerItems++
 		}
 	}
 	counts.EmptyStateStatus, counts.EmptyStateReasons = evaluateBOMEmptyState(projection, counts, scanQualityCoverageReduced(report))
@@ -568,10 +610,10 @@ func evaluateBOMEmptyState(projection risk.ActionPathSummary, counts AgentAction
 		{projection.CredentialAccessPaths, "credential_access_paths_present"},
 		{counts.StandingPrivilegeItems, "standing_privilege_paths_present"},
 		{counts.ProductionTargetItems, "production_target_backed_paths_present"},
-		{counts.MissingApprovalItems, "missing_approval_paths_present"},
-		{counts.MissingPolicyItems, "missing_policy_paths_present"},
-		{counts.MissingProofItems, "missing_proof_paths_present"},
-		{counts.UnresolvedOwnerItems, "unresolved_owner_paths_present"},
+		{counts.ApprovalEvidenceUnknownItems, "approval_evidence_unknown_paths_present"},
+		{counts.ControlEvidenceUnknownItems, "control_evidence_unknown_paths_present"},
+		{counts.ProofEvidenceUnknownItems, "proof_evidence_unknown_paths_present"},
+		{counts.OwnerEvidenceUnknownItems, "owner_evidence_unknown_paths_present"},
 		{projection.HighReviewBurdenPaths, "high_review_burden_paths_present"},
 		{counts.ConfirmedActionPathItems, "confirmed_action_paths_present"},
 		{counts.LikelyActionPathItems, "likely_action_paths_present"},
@@ -632,10 +674,10 @@ func decorateLineageForBOM(in *risk.ActionLineage, item AgentActionBOMItem) *ris
 		case "approval":
 			if item.ApprovalGap {
 				out.Segments[idx].Status = "missing"
-				out.Segments[idx].Label = "approval_gap"
+				out.Segments[idx].Label = risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState)
 			} else {
 				out.Segments[idx].Status = "present"
-				out.Segments[idx].Label = firstNonEmptyValue(strings.TrimSpace(out.Segments[idx].Label), "approved_or_declared")
+				out.Segments[idx].Label = firstNonEmptyValue(strings.TrimSpace(out.Segments[idx].Label), risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState))
 			}
 		case "proof":
 			switch strings.TrimSpace(item.ProofCoverage) {
@@ -644,7 +686,7 @@ func decorateLineageForBOM(in *risk.ActionLineage, item AgentActionBOMItem) *ris
 			default:
 				out.Segments[idx].Status = "missing"
 			}
-			out.Segments[idx].Label = firstNonEmptyValue(strings.TrimSpace(item.ProofCoverage), strings.TrimSpace(out.Segments[idx].Label), "proof_missing")
+			out.Segments[idx].Label = firstNonEmptyValue(strings.TrimSpace(out.Segments[idx].Label), risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState))
 		}
 	}
 	return out

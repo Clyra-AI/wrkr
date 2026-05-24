@@ -619,6 +619,106 @@ func TestConfidenceLaneAffectsGovernFirstRanking(t *testing.T) {
 	}
 }
 
+func TestControlResolutionStateVerifiedRequiresEvidenceRef(t *testing.T) {
+	t.Parallel()
+
+	withoutRefs := ProjectActionPaths([]ActionPath{{
+		PathID:           "apc-proof-without-refs",
+		Org:              "acme",
+		Repo:             "acme/release",
+		ToolType:         "compiled_action",
+		Location:         ".github/workflows/release.yml",
+		WriteCapable:     true,
+		CredentialAccess: true,
+		GaitCoverage: &GaitCoverage{
+			ProofVerification: GaitCoverageDetail{Status: GaitStatusPresent},
+		},
+	}})
+	if len(withoutRefs) != 1 {
+		t.Fatalf("expected one projected path, got %+v", withoutRefs)
+	}
+	if withoutRefs[0].ProofEvidenceState == EvidenceStateVerified {
+		t.Fatalf("expected proof evidence without refs to stay below verified, got %+v", withoutRefs[0])
+	}
+
+	withRefs := ProjectActionPaths([]ActionPath{{
+		PathID:           "apc-proof-with-refs",
+		Org:              "acme",
+		Repo:             "acme/release",
+		ToolType:         "compiled_action",
+		Location:         ".github/workflows/release.yml",
+		WriteCapable:     true,
+		CredentialAccess: true,
+		GaitCoverage: &GaitCoverage{
+			ProofVerification: GaitCoverageDetail{
+				Status:       GaitStatusPresent,
+				EvidenceRefs: []string{"proof_record:rec-123"},
+			},
+		},
+	}})
+	if len(withRefs) != 1 {
+		t.Fatalf("expected one projected path, got %+v", withRefs)
+	}
+	if withRefs[0].ProofEvidenceState != EvidenceStateVerified {
+		t.Fatalf("expected proof evidence with refs to be verified, got %+v", withRefs[0])
+	}
+}
+
+func TestEvidenceStateContradictoryOwnerSignals(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:               "apc-owner-contradiction",
+		Org:                  "acme",
+		Repo:                 "acme/release",
+		ToolType:             "compiled_action",
+		Location:             ".github/workflows/release.yml",
+		WriteCapable:         true,
+		CredentialAccess:     true,
+		OperationalOwner:     "@acme/release",
+		OwnershipStatus:      "unresolved",
+		OwnershipState:       "conflicting_owner",
+		OwnershipEvidence:    []string{"codeowners:CODEOWNERS:*"},
+		OwnershipConflicts:   []string{"@acme/release", "@acme/security"},
+		ApprovalGap:          true,
+		ApprovalGapReasons:   []string{"approval_source_missing"},
+		PolicyCoverageStatus: PolicyCoverageStatusNone,
+	}})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].OwnerEvidenceState != EvidenceStateContradictory {
+		t.Fatalf("expected contradictory owner evidence state, got %+v", paths[0])
+	}
+	if paths[0].ControlResolutionState != ControlResolutionStateContradictoryControl {
+		t.Fatalf("expected contradictory control resolution state, got %+v", paths[0])
+	}
+}
+
+func TestMissingApprovalAliasDerivedFromApprovalEvidenceState(t *testing.T) {
+	t.Parallel()
+
+	summary := SummarizeActionPaths([]ActionPath{{
+		PathID:             "apc-approval-unknown",
+		Org:                "acme",
+		Repo:               "acme/release",
+		ToolType:           "compiled_action",
+		Location:           ".github/workflows/release.yml",
+		WriteCapable:       true,
+		CredentialAccess:   true,
+		ApprovalGap:        true,
+		ApprovalGapReasons: []string{"approval_source_missing"},
+	}}, ActionPathSummaryOptions{})
+
+	if summary.ApprovalEvidenceUnknownPaths != 1 {
+		t.Fatalf("expected canonical approval evidence counter, got %+v", summary)
+	}
+	if summary.MissingApprovalPaths != summary.ApprovalEvidenceUnknownPaths {
+		t.Fatalf("expected legacy missing approval alias to derive from approval evidence state, got %+v", summary)
+	}
+}
+
 func TestCredentialProvenanceUnknownIsRiskWeighted(t *testing.T) {
 	t.Parallel()
 

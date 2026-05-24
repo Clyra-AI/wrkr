@@ -76,5 +76,8 @@
   ],
   "BARH-design-partner-redaction": [
     "TestScenarioBuyerActionRegistryHardening"
+  ],
+  "CES-external-control-reference": [
+    "TestControlEvidenceStateScenario"
   ]
 }
