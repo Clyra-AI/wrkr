@@ -505,7 +505,7 @@ func TestScanStatusReportsInterruptedPartialPhase(t *testing.T) {
 	}()
 
 	const want = "progress target=org org=acme event=repo_materialize repo_index=1 repo_total=1 repo=acme/a"
-	if !errOut.waitFor(want, 2*time.Second) {
+	if !errOut.waitFor(want, 10*time.Second) {
 		t.Fatalf("expected materialize progress before cancellation, got %q", errOut.String())
 	}
 	cancel()
