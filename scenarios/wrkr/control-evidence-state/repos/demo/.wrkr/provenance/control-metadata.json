@@ -1,0 +1,14 @@
+{
+  "controls": [
+    {
+      "path": ".github/workflows/release.yml",
+      "control_resolution_state": "external_control_reference",
+      "control_evidence_refs": [
+        "github_team:platform/release-approvers"
+      ],
+      "approval_evidence_state": "declared",
+      "owner_evidence_state": "declared",
+      "proof_evidence_state": "unknown"
+    }
+  ]
+}
