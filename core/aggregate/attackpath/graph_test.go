@@ -299,6 +299,7 @@ func TestControlPathGraphLinksIdentityCredentialToolWorkflowTargetAction(t *test
 	}})
 	if graph == nil {
 		t.Fatal("expected control_path_graph")
+		return
 	}
 
 	requiredKinds := []string{
@@ -358,15 +359,17 @@ func TestControlPathGraphCarriesPurposeVersionAndAuthorityMetadata(t *testing.T)
 	}})
 	if graph == nil {
 		t.Fatal("expected control_path_graph")
+		return
 	}
 
+	nodes := graph.Nodes
 	var toolNode, credentialNode *ControlPathNode
-	for idx := range graph.Nodes {
-		switch graph.Nodes[idx].Kind {
+	for idx := range nodes {
+		switch nodes[idx].Kind {
 		case ControlPathNodeTool:
-			toolNode = &graph.Nodes[idx]
+			toolNode = &nodes[idx]
 		case ControlPathNodeCredential:
-			credentialNode = &graph.Nodes[idx]
+			credentialNode = &nodes[idx]
 		}
 	}
 	if toolNode == nil || toolNode.Purpose != "registry sync" || toolNode.Version != "1.2.3" || toolNode.ConfigFingerprint != "cfg-abc123" {
