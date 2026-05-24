@@ -7,13 +7,13 @@ require (
 	github.com/Clyra-AI/proof v0.4.6
 	github.com/dop251/goja v0.0.0-20260219130522-0ba9a5494a59
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
-	golang.org/x/mod v0.34.0
-	golang.org/x/net v0.53.0
+	golang.org/x/mod v0.35.0
+	golang.org/x/net v0.55.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/gowebpki/jcs v1.0.1 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 )
