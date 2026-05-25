@@ -280,6 +280,33 @@ jobs:
 	}
 }
 
+func TestAnalyzeCapturesWorkflowEnvironmentForTargetClassification(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: release
+on:
+  workflow_dispatch:
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - run: kubectl apply -f k8s/
+`)
+
+	result, parseErr := Analyze(".github/workflows/release.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if evidenceValue(result, "workflow_environment") != "production" {
+		t.Fatalf("expected workflow environment evidence, got %q", evidenceValue(result, "workflow_environment"))
+	}
+	if evidenceValue(result, "target_class_hint") != "production_impacting" {
+		t.Fatalf("expected target class hint, got %q", evidenceValue(result, "target_class_hint"))
+	}
+}
+
 func evidenceValue(result Result, key string) string {
 	for _, evidence := range result.Evidence {
 		if evidence.Key == key {

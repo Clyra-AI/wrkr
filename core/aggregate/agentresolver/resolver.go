@@ -91,7 +91,7 @@ func agentInstanceID(finding model.Finding) string {
 	symbol := ""
 	for _, evidence := range finding.Evidence {
 		key := strings.ToLower(strings.TrimSpace(evidence.Key))
-		if key == "symbol" || key == "name" || key == "agent_name" {
+		if key == "symbol" || key == "name" || key == "agent_name" || key == "workflow_name" || key == "operation_id" {
 			symbol = strings.TrimSpace(evidence.Value)
 			break
 		}

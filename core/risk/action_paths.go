@@ -81,6 +81,12 @@ type ActionPath struct {
 	RuntimeEvidenceState       string                                  `json:"runtime_evidence_state,omitempty"`
 	TargetEvidenceState        string                                  `json:"target_evidence_state,omitempty"`
 	CredentialEvidenceState    string                                  `json:"credential_evidence_state,omitempty"`
+	TargetClass                string                                  `json:"target_class,omitempty"`
+	TargetClassReasons         []string                                `json:"target_class_reasons,omitempty"`
+	TargetClassEvidenceRefs    []string                                `json:"target_class_evidence_refs,omitempty"`
+	ActionPathType             string                                  `json:"action_path_type,omitempty"`
+	ActionPathTypeReasons      []string                                `json:"action_path_type_reasons,omitempty"`
+	ActionPathTypeEvidenceRefs []string                                `json:"action_path_type_evidence_refs,omitempty"`
 	ApprovalGapReasons         []string                                `json:"approval_gap_reasons,omitempty"`
 	WritePathClasses           []string                                `json:"write_path_classes,omitempty"`
 	ActionClasses              []string                                `json:"action_classes,omitempty"`
@@ -407,6 +413,12 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.RuntimeEvidenceState = chooseEvidenceState(current.RuntimeEvidenceState, incoming.RuntimeEvidenceState)
 	merged.TargetEvidenceState = chooseEvidenceState(current.TargetEvidenceState, incoming.TargetEvidenceState)
 	merged.CredentialEvidenceState = chooseEvidenceState(current.CredentialEvidenceState, incoming.CredentialEvidenceState)
+	merged.TargetClass = chooseTargetClass(current.TargetClass, incoming.TargetClass)
+	merged.TargetClassReasons = dedupeSortedStrings(append(append([]string(nil), current.TargetClassReasons...), incoming.TargetClassReasons...))
+	merged.TargetClassEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.TargetClassEvidenceRefs...), incoming.TargetClassEvidenceRefs...))
+	merged.ActionPathType = chooseActionPathType(current.ActionPathType, incoming.ActionPathType)
+	merged.ActionPathTypeReasons = dedupeSortedStrings(append(append([]string(nil), current.ActionPathTypeReasons...), incoming.ActionPathTypeReasons...))
+	merged.ActionPathTypeEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.ActionPathTypeEvidenceRefs...), incoming.ActionPathTypeEvidenceRefs...))
 	merged.ExecutionIdentity, merged.ExecutionIdentityType, merged.ExecutionIdentitySource, merged.ExecutionIdentityStatus, merged.ExecutionIdentityRationale = mergeExecutionIdentity(current, incoming)
 	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
 	merged.ToolFamilyID = firstNonEmptyString(current.ToolFamilyID, incoming.ToolFamilyID)

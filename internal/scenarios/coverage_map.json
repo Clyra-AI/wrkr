@@ -79,5 +79,8 @@
   ],
   "CES-external-control-reference": [
     "TestControlEvidenceStateScenario"
+  ],
+  "W2-target-classification": [
+    "TestTargetClassificationScenario"
   ]
 }

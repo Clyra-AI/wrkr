@@ -30,7 +30,7 @@
   "registry_count": 7,
   "bom_count": 7,
   "first_registry": {
-    "surface_type": "server",
+    "surface_type": "surface",
     "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
     "confidence_lane": "likely_action_path"
   },

@@ -10,7 +10,7 @@ import (
 	detectortest "github.com/Clyra-AI/wrkr/internal/testutil/detectors"
 )
 
-func TestOpenAPIPaymentEndpointClassifiesMutable(t *testing.T) {
+func TestOpenAPITargetClassHintAddsCustomerDataSignal(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -58,6 +58,9 @@ paths:
 			t.Fatalf("expected mutable endpoint evidence %q in findings, got %q", want, joined)
 		}
 	}
+	if !strings.Contains(strings.Join(targetClassHints(findings), "\n"), "customer_data_adjacent") {
+		t.Fatalf("expected openapi detector target class hint, got %+v", findings)
+	}
 }
 
 func writeOpenAPITestFile(t *testing.T, root, rel, content string) {
@@ -77,6 +80,18 @@ func mutableEndpointEvidence(findings []model.Finding) []string {
 	for _, finding := range findings {
 		for _, evidence := range finding.Evidence {
 			if evidence.Key == "mutable_endpoint_semantic" && evidence.Value != "" {
+				out = append(out, evidence.Value)
+			}
+		}
+	}
+	return out
+}
+
+func targetClassHints(findings []model.Finding) []string {
+	out := []string{}
+	for _, finding := range findings {
+		for _, evidence := range finding.Evidence {
+			if evidence.Key == "target_class_hint" && evidence.Value != "" {
 				out = append(out, evidence.Value)
 			}
 		}

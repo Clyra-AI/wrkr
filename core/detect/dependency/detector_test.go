@@ -220,7 +220,7 @@ func TestDetectRejectsExternalSymlinkedDependencyManifest(t *testing.T) {
 	}
 }
 
-func TestFrameworkDependencyCreatesCandidateNotActionPath(t *testing.T) {
+func TestDependencyOnlyFrameworkCandidateDoesNotCreateActionPath(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()

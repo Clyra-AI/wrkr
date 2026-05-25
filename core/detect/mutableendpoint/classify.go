@@ -153,6 +153,31 @@ func SeverityForSemantics(values []agginventory.MutableEndpointSemantic) string 
 	return model.SeverityLow
 }
 
+func TargetClassHintsForSemantics(values []agginventory.MutableEndpointSemantic) []string {
+	hints := []string{}
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			hints = append(hints, value)
+		}
+	}
+	if agginventory.HasMutableEndpointSemantic(values, agginventory.EndpointSemanticPayment) ||
+		agginventory.HasMutableEndpointSemantic(values, agginventory.EndpointSemanticRefund) ||
+		agginventory.HasMutableEndpointSemantic(values, agginventory.EndpointSemanticUserAdmin) ||
+		agginventory.HasMutableEndpointSemantic(values, agginventory.EndpointSemanticDataExport) {
+		add("customer_data_adjacent")
+	}
+	if agginventory.HasMutableEndpointSemantic(values, agginventory.EndpointSemanticDeploy) ||
+		agginventory.HasMutableEndpointSemantic(values, agginventory.EndpointSemanticProductionMutation) {
+		add("production_impacting")
+	}
+	out := dedupeHints(hints)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func compactEvidenceRefs(values ...string) []string {
 	out := []string{}
 	for _, value := range values {
@@ -165,5 +190,19 @@ func compactEvidenceRefs(values ...string) []string {
 	if len(out) == 0 {
 		return nil
 	}
+	return out
+}
+
+func dedupeHints(values []string) []string {
+	set := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, ok := set[value]; ok {
+			continue
+		}
+		set[value] = struct{}{}
+		out = append(out, value)
+	}
+	sort.Strings(out)
 	return out
 }

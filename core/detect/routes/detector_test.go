@@ -10,7 +10,7 @@ import (
 	detectortest "github.com/Clyra-AI/wrkr/internal/testutil/detectors"
 )
 
-func TestRouteDeleteEndpointAddsProductionMutationSignal(t *testing.T) {
+func TestRouteTargetClassHintAddsCustomerDataSignal(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -38,6 +38,9 @@ router.get("/v1/health", health);
 			t.Fatalf("expected mutable endpoint evidence %q in findings, got %q", want, joined)
 		}
 	}
+	if !strings.Contains(strings.Join(routeTargetClassHints(findings), "\n"), "customer_data_adjacent") {
+		t.Fatalf("expected route detector target class hint, got %+v", findings)
+	}
 }
 
 func writeRoutesTestFile(t *testing.T, root, rel, content string) {
@@ -57,6 +60,18 @@ func routeMutableEndpointEvidence(findings []model.Finding) []string {
 	for _, finding := range findings {
 		for _, evidence := range finding.Evidence {
 			if evidence.Key == "mutable_endpoint_semantic" && evidence.Value != "" {
+				out = append(out, evidence.Value)
+			}
+		}
+	}
+	return out
+}
+
+func routeTargetClassHints(findings []model.Finding) []string {
+	out := []string{}
+	for _, finding := range findings {
+		for _, evidence := range finding.Evidence {
+			if evidence.Key == "target_class_hint" && evidence.Value != "" {
 				out = append(out, evidence.Value)
 			}
 		}
