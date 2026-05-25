@@ -100,6 +100,10 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	attackPathSummary := buildAttackPathSummary(*riskReport)
 	attackPathFacts := buildAttackPathFacts(*riskReport)
 	scanQuality := cloneScanQualityReport(in.Snapshot.ScanQuality)
+	if scanQuality != nil && scanQuality.CompactSummary == nil {
+		compact := scanquality.BuildCompactCoverageSummary(scanQuality)
+		scanQuality.CompactSummary = &compact
+	}
 	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
 	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
@@ -327,19 +331,7 @@ func countScopeRepos(snapshot state.Snapshot) int {
 }
 
 func scanQualityCoverageReduced(report *scanquality.Report) bool {
-	if report == nil {
-		return false
-	}
-	if len(report.ParseErrors) > 0 || len(report.DetectorErrors) > 0 {
-		return true
-	}
-	for _, detector := range report.Detectors {
-		switch strings.TrimSpace(detector.Status) {
-		case "partial", "reduced", "blocked":
-			return true
-		}
-	}
-	return false
+	return scanquality.CoverageReduced(report)
 }
 
 func missingProofPathCount(statuses []ControlProofStatus) int {
@@ -1880,6 +1872,10 @@ func cloneScanQualityReport(in *scanquality.Report) *scanquality.Report {
 		return nil
 	}
 	copyReport := *in
+	if in.CompactSummary != nil {
+		compact := *in.CompactSummary
+		copyReport.CompactSummary = &compact
+	}
 	copyReport.SuppressedPaths = append([]scanquality.SuppressedPath(nil), in.SuppressedPaths...)
 	copyReport.ParseErrors = append([]scanquality.ParseIssue(nil), in.ParseErrors...)
 	copyReport.DetectorErrors = append([]detect.DetectorError(nil), in.DetectorErrors...)

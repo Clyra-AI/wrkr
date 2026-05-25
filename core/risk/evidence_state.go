@@ -265,6 +265,7 @@ func deriveRuntimeEvidenceState(path ActionPath) (string, []string, []string) {
 		path.GaitCoverage.ProofVerification,
 	}
 	hasConflict := false
+	hasStale := false
 	hasLinkedEvidence := false
 	presentWithoutRefs := false
 	for _, detail := range details {
@@ -272,6 +273,8 @@ func deriveRuntimeEvidenceState(path ActionPath) (string, []string, []string) {
 		switch strings.TrimSpace(detail.Status) {
 		case GaitStatusConflict:
 			hasConflict = true
+		case GaitStatusStale:
+			hasStale = true
 		case GaitStatusPresent:
 			if len(detail.EvidenceRefs) == 0 {
 				presentWithoutRefs = true
@@ -283,11 +286,26 @@ func deriveRuntimeEvidenceState(path ActionPath) (string, []string, []string) {
 	if hasConflict {
 		return EvidenceStateContradictory, []string{"runtime_evidence:conflict"}, dedupeSortedStrings(refs)
 	}
+	switch RuntimeEvidenceAbsenceStatus(path) {
+	case RuntimeEvidenceAbsenceMissingForClaim:
+		return EvidenceStateUnknown, []string{"runtime_evidence:missing_for_control_claim"}, dedupeSortedStrings(refs)
+	case RuntimeEvidenceAbsenceMissingRequired:
+		return EvidenceStateUnknown, []string{"runtime_evidence:missing_required"}, dedupeSortedStrings(refs)
+	}
+	if hasStale {
+		return EvidenceStateUnknown, []string{"runtime_evidence:stale"}, dedupeSortedStrings(refs)
+	}
 	if hasLinkedEvidence {
 		return EvidenceStateVerified, []string{"runtime_evidence:linked"}, dedupeSortedStrings(refs)
 	}
 	if presentWithoutRefs {
 		return EvidenceStateInferred, []string{"runtime_evidence:present_without_refs"}, dedupeSortedStrings(refs)
+	}
+	switch RuntimeEvidenceAbsenceStatus(path) {
+	case RuntimeEvidenceAbsenceNotApplicable:
+		return EvidenceStateUnknown, []string{"runtime_evidence:not_applicable"}, dedupeSortedStrings(refs)
+	case RuntimeEvidenceAbsenceNotCollected:
+		return EvidenceStateUnknown, []string{"runtime_evidence:not_collected"}, dedupeSortedStrings(refs)
 	}
 	return EvidenceStateUnknown, []string{"runtime_evidence:none"}, dedupeSortedStrings(refs)
 }

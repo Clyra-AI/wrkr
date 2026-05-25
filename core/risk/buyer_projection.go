@@ -219,12 +219,18 @@ func deriveControlState(path ActionPath) (string, []string) {
 		path.CredentialAccess ||
 		len(path.MatchedProductionTargets) > 0 ||
 		pathHasAnyMutableEndpoint(path)
+	runtimeEvidenceGap := false
+	switch RuntimeEvidenceAbsenceStatus(path) {
+	case RuntimeEvidenceAbsenceMissingRequired, RuntimeEvidenceAbsenceMissingForClaim:
+		runtimeEvidenceGap = true
+	}
 	missingPolicyOrProof := strings.TrimSpace(path.PolicyCoverageStatus) == "" ||
 		strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusNone ||
 		strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusStale ||
 		strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusConflict ||
 		len(path.PolicyMissingReasons) > 0 ||
-		actionPathMissingProof(path)
+		actionPathMissingProof(path) ||
+		runtimeEvidenceGap
 
 	switch lane {
 	case ConfidenceLaneContextOnly:
@@ -284,6 +290,9 @@ func deriveControlState(path ActionPath) (string, []string) {
 		}
 		if actionPathMissingProof(path) {
 			add("proof_coverage:missing")
+		}
+		if runtimeEvidenceGap {
+			add("runtime_evidence:" + RuntimeEvidenceAbsenceStatus(path))
 		}
 		return ControlStateEvidenceNeeded, dedupeSortedStrings(reasons)
 	default:
@@ -425,6 +434,12 @@ func deriveReviewBurden(path ActionPath) (string, []string) {
 	}
 	if actionPathMissingProof(path) {
 		add("proof_gap:true", 2)
+	}
+	switch RuntimeEvidenceAbsenceStatus(path) {
+	case RuntimeEvidenceAbsenceMissingForClaim:
+		add("runtime_evidence:missing_for_control_claim", 2)
+	case RuntimeEvidenceAbsenceMissingRequired:
+		add("runtime_evidence:missing_required", 1)
 	}
 
 	switch {

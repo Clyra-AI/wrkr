@@ -49,3 +49,4 @@ Additional additive keys may include `tool`, `repo`, `location`, `target`, `acti
 - Static scan findings remain unchanged; report and evidence commands consume runtime evidence only as corroborating metadata.
 - Runtime evidence can promote BOM/report policy coverage to `runtime_proven` without rewriting saved scan findings.
 - Report and Agent Action BOM rendering also project path-level `gait_coverage` status for `policy_decision`, `approval`, `jit_credential`, `freeze_window`, `kill_switch`, `action_outcome`, and `proof_verification`, using `present`, `missing`, `stale`, `conflict`, or `not_applicable` without implying Wrkr enforced the action.
+- Buyer-facing runtime absence framing is derived after correlation: static-only paths render `not_collected`, out-of-scope runtime controls render `not_applicable`, matched-path gaps render `missing_required`, and unsupported runtime-backed control claims render `missing_for_control_claim`.

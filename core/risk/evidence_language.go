@@ -103,3 +103,25 @@ func BuyerEvidenceStateLabel(kind, state string) string {
 		return "evidence state unknown"
 	}
 }
+
+func BuyerRuntimeEvidenceLabel(state string, absenceStatus string, coverage *GaitCoverage) string {
+	switch {
+	case GaitCoverageHasStatus(coverage, GaitStatusConflict), normalizeEvidenceState(state) == EvidenceStateContradictory:
+		return "runtime evidence is contradictory"
+	case GaitCoverageHasStatus(coverage, GaitStatusStale):
+		return "runtime evidence is stale"
+	}
+
+	switch strings.TrimSpace(absenceStatus) {
+	case RuntimeEvidenceAbsenceNotApplicable:
+		return "runtime evidence not applicable"
+	case RuntimeEvidenceAbsenceMissingRequired:
+		return "runtime evidence required but not linked"
+	case RuntimeEvidenceAbsenceMissingForClaim:
+		return "runtime evidence missing for a control claim"
+	case RuntimeEvidenceAbsenceNotCollected:
+		return "runtime evidence not collected"
+	default:
+		return BuyerEvidenceStateLabel("runtime", state)
+	}
+}

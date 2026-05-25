@@ -500,6 +500,7 @@
       "properties": {
         "scan_quality_version": {"type": "string"},
         "mode": {"type": "string", "enum": ["quick", "governance", "deep"]},
+        "compact_summary": {"$ref": "#/$defs/compactCoverageSummary"},
         "detectors": {
           "type": "array",
           "items": {"$ref": "#/$defs/detectorHealth"}
@@ -520,6 +521,20 @@
           "type": "array",
           "items": {"$ref": "#/$defs/absenceClaim"}
         }
+      },
+      "additionalProperties": false
+    },
+    "compactCoverageSummary": {
+      "type": "object",
+      "required": ["coverage_confidence"],
+      "properties": {
+        "coverage_confidence": {"type": "string", "enum": ["complete", "reduced", "unknown"]},
+        "reduced_detector_count": {"type": "integer"},
+        "parse_failure_count": {"type": "integer"},
+        "suppressed_generated_file_count": {"type": "integer"},
+        "blocked_detector_count": {"type": "integer"},
+        "unsupported_declaration_count": {"type": "integer"},
+        "impact_statement": {"type": "string"}
       },
       "additionalProperties": false
     },

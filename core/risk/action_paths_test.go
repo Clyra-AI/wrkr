@@ -727,6 +727,61 @@ func TestRuntimeEvidenceConflictOverridesEarlierVerifiedDetail(t *testing.T) {
 	}
 }
 
+func TestRuntimeEvidenceAbsenceStatusNotCollected(t *testing.T) {
+	t.Parallel()
+
+	path := ActionPath{
+		PathID:   "apc-runtime-not-collected",
+		Org:      "acme",
+		Repo:     "acme/release",
+		ToolType: "compiled_action",
+		Location: ".github/workflows/release.yml",
+		GaitCoverage: &GaitCoverage{
+			PolicyDecision: GaitCoverageDetail{
+				Status:  GaitStatusMissing,
+				Reasons: []string{"runtime_evidence_not_collected:policy_decision", "runtime_absence_status:not_collected"},
+			},
+			Approval: GaitCoverageDetail{
+				Status:  GaitStatusMissing,
+				Reasons: []string{"runtime_evidence_not_collected:approval", "runtime_absence_status:not_collected"},
+			},
+		},
+	}
+
+	if got := RuntimeEvidenceAbsenceStatus(path); got != RuntimeEvidenceAbsenceNotCollected {
+		t.Fatalf("expected not_collected runtime absence status, got %q", got)
+	}
+}
+
+func TestRuntimeEvidenceControlClaimGapOverridesLinkedEvidence(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:   "apc-runtime-claim-gap",
+		Org:      "acme",
+		Repo:     "acme/release",
+		ToolType: "compiled_action",
+		Location: ".github/workflows/release.yml",
+		GaitCoverage: &GaitCoverage{
+			PolicyDecision: GaitCoverageDetail{
+				Status:       GaitStatusPresent,
+				EvidenceRefs: []string{"runtime:policy"},
+			},
+			Approval: GaitCoverageDetail{
+				Status:  GaitStatusMissing,
+				Reasons: []string{"runtime_control_claim_missing:approval", "runtime_absence_status:missing_for_control_claim"},
+			},
+		},
+	}})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].RuntimeEvidenceState != EvidenceStateUnknown {
+		t.Fatalf("expected missing control-claim runtime evidence to prevent verified state, got %+v", paths[0])
+	}
+}
+
 func TestMissingApprovalAliasDerivedFromApprovalEvidenceState(t *testing.T) {
 	t.Parallel()
 

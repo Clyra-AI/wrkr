@@ -68,6 +68,10 @@
         "coverage_reduced=false"
       ]
     },
+    "scan_coverage": {
+      "coverage_confidence": "complete",
+      "impact_statement": "Coverage for scanned inputs was complete enough to support scoped negative claims."
+    },
     "coverage_confidence": "complete"
   },
   "top_item": {
@@ -93,43 +97,50 @@
       "policy_decision": {
         "status": "missing",
         "reasons": [
-          "runtime_evidence_missing:policy_decision"
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:policy_decision"
         ]
       },
       "approval": {
         "status": "missing",
         "reasons": [
-          "runtime_evidence_missing:approval"
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:approval"
         ]
       },
       "jit_credential": {
         "status": "not_applicable",
         "reasons": [
-          "not_applicable:jit_credential"
+          "not_applicable:jit_credential",
+          "runtime_absence_status:not_applicable"
         ]
       },
       "freeze_window": {
         "status": "missing",
         "reasons": [
-          "runtime_evidence_missing:freeze_window"
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:freeze_window"
         ]
       },
       "kill_switch": {
         "status": "missing",
         "reasons": [
-          "runtime_evidence_missing:kill_switch"
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:kill_switch"
         ]
       },
       "action_outcome": {
         "status": "missing",
         "reasons": [
-          "runtime_evidence_missing:action_outcome"
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:action_outcome"
         ]
       },
       "proof_verification": {
         "status": "missing",
         "reasons": [
-          "runtime_evidence_missing:proof_verification"
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:proof_verification"
         ]
       }
     }
