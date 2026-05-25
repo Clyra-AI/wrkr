@@ -22,14 +22,14 @@ func TestScenarioReportOverclaim(t *testing.T) {
 		mdPath := filepath.Join(t.TempDir(), "control-evidence.md")
 		scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "control-evidence-state", "repos")
 
-		scanPayload := runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
+		runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
 		reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--md", "--md-path", mdPath, "--json"})
 
 		markdown := mustReadScenarioFile(t, mdPath)
 		if !strings.Contains(markdown, "approval evidence declared") {
 			t.Fatalf("expected declared approval evidence wording, got %q", markdown)
 		}
-		assertScenarioArtifactsPassBuyerQA(t, scanPayload, reportPayload, map[string]string{
+		assertScenarioArtifactsPassBuyerQA(t, reportPayload, map[string]string{
 			"control_evidence_markdown": markdown,
 		})
 	})
@@ -39,14 +39,14 @@ func TestScenarioReportOverclaim(t *testing.T) {
 		mdPath := filepath.Join(t.TempDir(), "target-classification.md")
 		scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "target-classification", "repos")
 
-		scanPayload := runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
+		runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
 		reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--md", "--md-path", mdPath, "--json"})
 
 		markdown := mustReadScenarioFile(t, mdPath)
 		if strings.Contains(markdown, "agent framework repo=") {
 			t.Fatalf("did not expect plain-source scenario markdown to use agent-framework wording, got %q", markdown)
 		}
-		assertScenarioArtifactsPassBuyerQA(t, scanPayload, reportPayload, map[string]string{
+		assertScenarioArtifactsPassBuyerQA(t, reportPayload, map[string]string{
 			"target_classification_markdown": markdown,
 		})
 	})
@@ -56,20 +56,20 @@ func TestScenarioReportOverclaim(t *testing.T) {
 		mdPath := filepath.Join(t.TempDir(), "agent-action-bom-before.md")
 		scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "agent-action-bom-demo", "before", "repos")
 
-		scanPayload := runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
+		runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--json"})
 		reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--md", "--md-path", mdPath, "--json"})
 
 		markdown := mustReadScenarioFile(t, mdPath)
 		if !strings.Contains(markdown, "runtime evidence not collected") {
 			t.Fatalf("expected static-only runtime wording, got %q", markdown)
 		}
-		assertScenarioArtifactsPassBuyerQA(t, scanPayload, reportPayload, map[string]string{
+		assertScenarioArtifactsPassBuyerQA(t, reportPayload, map[string]string{
 			"static_runtime_markdown": markdown,
 		})
 	})
 }
 
-func assertScenarioArtifactsPassBuyerQA(t *testing.T, scanPayload, reportPayload map[string]any, extraTexts map[string]string) {
+func assertScenarioArtifactsPassBuyerQA(t *testing.T, reportPayload map[string]any, extraTexts map[string]string) {
 	t.Helper()
 
 	reportJSON, err := json.Marshal(reportPayload)
@@ -85,17 +85,18 @@ func assertScenarioArtifactsPassBuyerQA(t *testing.T, scanPayload, reportPayload
 	}
 
 	if err := reportcore.ValidateBuyerArtifactTexts(reportcore.BuyerArtifactQAInput{
-		ActionPathTypes: scenarioActionPathTypes(t, scanPayload),
+		ActionPathTypes: scenarioActionPathTypes(t, reportPayload),
+		PathEvidence:    scenarioPathEvidence(t, reportPayload),
 		Texts:           texts,
 	}); err != nil {
 		t.Fatalf("expected generated artifacts to pass buyer QA: %v", err)
 	}
 }
 
-func scenarioActionPathTypes(t *testing.T, scanPayload map[string]any) []string {
+func scenarioActionPathTypes(t *testing.T, reportPayload map[string]any) []string {
 	t.Helper()
 
-	actionPaths := requireArray(t, scanPayload, "action_paths")
+	actionPaths := requireArray(t, reportPayload, "action_paths")
 	types := make([]string, 0, len(actionPaths))
 	for _, item := range actionPaths {
 		path := requireObjectItem(t, item)
@@ -104,6 +105,27 @@ func scenarioActionPathTypes(t *testing.T, scanPayload map[string]any) []string 
 		}
 	}
 	return types
+}
+
+func scenarioPathEvidence(t *testing.T, reportPayload map[string]any) []reportcore.BuyerArtifactPathEvidence {
+	t.Helper()
+
+	actionPaths := requireArray(t, reportPayload, "action_paths")
+	evidence := make([]reportcore.BuyerArtifactPathEvidence, 0, len(actionPaths))
+	for _, item := range actionPaths {
+		path := requireObjectItem(t, item)
+		evidence = append(evidence, reportcore.BuyerArtifactPathEvidence{
+			ActionPathType: scenarioStringValue(path["action_path_type"]),
+			Repo:           scenarioStringValue(path["repo"]),
+			Location:       scenarioStringValue(path["location"]),
+		})
+	}
+	return evidence
+}
+
+func scenarioStringValue(value any) string {
+	text, _ := value.(string)
+	return text
 }
 
 func mustReadScenarioFile(t *testing.T, path string) string {
