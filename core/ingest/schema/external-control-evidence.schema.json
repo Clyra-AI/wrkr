@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/evidence/external-control-evidence.schema.json",
+  "title": "Wrkr External Control Evidence Sidecar",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "records"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/externalControlRecord"
+      }
+    }
+  },
+  "$defs": {
+    "externalControlRecord": {
+      "type": "object",
+      "required": ["record_kind", "source_type", "source", "observed_at", "evidence_class"],
+      "properties": {
+        "record_kind": {
+          "type": "string",
+          "const": "external_control"
+        },
+        "record_id": {
+          "type": "string"
+        },
+        "source_type": {
+          "type": "string",
+          "enum": [
+            "provider_export",
+            "github_team_export",
+            "backstage_export",
+            "customer_owner_map",
+            "ticket_export",
+            "repo_policy",
+            "policy_config",
+            "app_catalog"
+          ]
+        },
+        "source_precedence_key": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "issuer": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "service": {
+          "type": "string"
+        },
+        "workflow": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "path_id": {
+          "type": "string"
+        },
+        "agent_id": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "action_classes": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "policy_ref": {
+          "type": "string"
+        },
+        "proof_ref": {
+          "type": "string"
+        },
+        "graph_node_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "graph_edge_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "max_age": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "redaction_hints": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "evidence_class": {
+          "type": "string",
+          "enum": [
+            "approval",
+            "freeze_window",
+            "kill_switch",
+            "owner_assignment",
+            "policy_record",
+            "branch_protection",
+            "protected_environment",
+            "deployment_approval",
+            "required_check",
+            "security_gate"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["matched", "unmatched", "stale", "conflict"]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "owner": {
+          "type": "string"
+        },
+        "required_checks": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "branch": {
+          "type": "string"
+        }
+      },
+      "anyOf": [
+        {"required": ["path_id"]},
+        {"required": ["agent_id"]},
+        {"required": ["policy_ref"]},
+        {"required": ["proof_ref"]},
+        {"required": ["graph_node_refs"]},
+        {"required": ["graph_edge_refs"]},
+        {
+          "required": ["repo", "location"]
+        },
+        {
+          "required": ["repo", "path"]
+        },
+        {
+          "required": ["repo", "workflow"]
+        },
+        {
+          "required": ["repo", "environment"]
+        },
+        {"required": ["service"]}
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

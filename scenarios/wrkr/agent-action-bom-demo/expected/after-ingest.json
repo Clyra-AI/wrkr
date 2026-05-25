@@ -2,8 +2,15 @@
   {
     "path_id": "apc-6626703372d7",
     "agent_id": "wrkr:ci-agent-457b801fb1:local",
+    "record_kinds": [
+      "runtime"
+    ],
     "tool": "ci_agent",
     "repo": "demo-app",
+    "service": "demo-app",
+    "workflow": ".github/workflows/release.yml",
+    "environment": "built_in:deploy_workflow",
+    "path": ".github/workflows/release.yml",
     "location": ".github/workflows/release.yml",
     "target": "built_in:deploy_workflow",
     "status": "matched",

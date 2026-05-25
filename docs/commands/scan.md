@@ -42,6 +42,8 @@ Acquisition behavior is fail-closed by target:
 - `--repo` and `--org` require real GitHub acquisition via `--github-api`, config `github_api_base`, or `WRKR_GITHUB_API_BASE`.
 - Hosted GitHub materialization is sparse by default: Wrkr fetches detector-relevant files such as agent instructions, MCP/Codex/Cursor/Claude configs, skills, workflows, policy files, dependency manifests, and AI/MCP declaration surfaces instead of every repository blob.
 - If a repo already contains deterministic provenance sidecars under `.wrkr/provenance/`, Wrkr can project PR-level `introduced_by` metadata from `source-metadata.json`, `github-event.json`, or `gitlab-event.json` without live provider calls.
+- If a repo contains `.wrkr/provenance/external-control-evidence.json`, Wrkr can also project local ownership, approval, branch-protection, protected-environment, required-check, security-gate, freeze-window, and kill-switch evidence into govern-first path posture without live provider calls.
+- Repo-local Gait policy `controls.deployment_constraints[]` declarations are treated as declared control evidence for branch, environment, approval, required-check, freeze-window, kill-switch, and security-gate context when present.
 - Hosted scans do not fetch broad source-code extensions by default. Use `--mode deep` or `--allow-source-materialization` only when you explicitly want generic source files such as `.go`, `.py`, `.js`, or `.ts` to be materialized for deeper static detector coverage.
 - Hosted GitHub API base resolution order is: `--github-api`, config `github_api_base`, then `WRKR_GITHUB_API_BASE`.
 - Hosted GitHub token resolution order is: `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`.

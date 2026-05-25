@@ -91,6 +91,8 @@
         "control_resolution_state": {"type": "string", "enum": ["detected_control", "declared_control", "external_control_reference", "no_visible_control", "not_applicable", "contradictory_control"]},
         "control_resolution_reasons": {"type": "array", "items": {"type": "string"}},
         "control_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "constraint_evidence_classes": {"type": "array", "items": {"type": "string"}},
+        "constraint_evidence_refs": {"type": "array", "items": {"type": "string"}},
         "approval_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
         "owner_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
         "proof_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},

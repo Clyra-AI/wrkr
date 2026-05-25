@@ -117,6 +117,50 @@ func TestLoadBlockedToolsSkipsUnsafePolicyContents(t *testing.T) {
 	}
 }
 
+func TestGaitPolicyLoadsDeploymentConstraints(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writePolicyFile(t, root, "gait.yaml", strings.Join([]string{
+		"controls:",
+		"  deployment_constraints:",
+		"    - workflow: .github/workflows/release.yml",
+		"      environment: production",
+		"      branch: main",
+		"      required_checks:",
+		"        - fast-lane",
+		"        - scan-contract",
+		"      security_gates:",
+		"        - codeql",
+		"      freeze_windows:",
+		"        - prod-freeze",
+		"      kill_switches:",
+		"        - deploy-disable",
+		"      approval_required: true",
+	}, "\n"))
+
+	constraints, err := LoadDeploymentConstraints(root)
+	if err != nil {
+		t.Fatalf("load deployment constraints: %v", err)
+	}
+	if len(constraints) != 1 {
+		t.Fatalf("expected one deployment constraint, got %+v", constraints)
+	}
+	got := constraints[0]
+	if got.Workflow != ".github/workflows/release.yml" || got.Environment != "production" || got.Branch != "main" {
+		t.Fatalf("unexpected deployment constraint identity: %+v", got)
+	}
+	if !reflect.DeepEqual(got.RequiredChecks, []string{"fast-lane", "scan-contract"}) {
+		t.Fatalf("unexpected required checks: %+v", got)
+	}
+	if !reflect.DeepEqual(got.SecurityGates, []string{"codeql"}) || !reflect.DeepEqual(got.FreezeWindows, []string{"prod-freeze"}) || !reflect.DeepEqual(got.KillSwitches, []string{"deploy-disable"}) {
+		t.Fatalf("unexpected deployment control detail: %+v", got)
+	}
+	if !got.ApprovalRequired {
+		t.Fatalf("expected approval requirement, got %+v", got)
+	}
+}
+
 func writePolicyFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))

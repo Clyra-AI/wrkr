@@ -12,6 +12,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added target classification for action paths so reports distinguish production-impacting, release-adjacent, customer-data-adjacent, internal tooling, developer productivity, test/demo/sandbox, and unknown targets.
 - [semver:minor] Added action path type classification so reports distinguish AI-assisted workflows, agent frameworks, automation bots, CI/CD workflows, legacy scripts, plain source code, and unknown executable paths.
 - [semver:patch] Added report QA coverage that blocks unsupported overclaiming and prevents non-agent action paths from being labeled as agents in generated buyer artifacts.
+- [semver:minor] Added schema-backed external control evidence sidecars for local ownership, approval, provider, branch, deployment, and policy evidence.
+- [semver:minor] Added deterministic correlation for external ownership, approval, app catalog, ticket, policy, and provider evidence.
+- [semver:minor] Added branch protection, protected environment, deployment approval, required check, freeze window, and kill switch evidence for control reports.
 
 ### Changed
 

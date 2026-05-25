@@ -3,6 +3,7 @@ package owners
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -161,4 +162,53 @@ func TestResolveFallbackMetadataTracksInferredAndUnresolvedStates(t *testing.T) 
 	if unresolved.OwnerSource != OwnerSourceMissing || unresolved.OwnershipStatus != OwnershipStatusUnresolved || unresolved.OwnershipState != OwnershipStateMissing {
 		t.Fatalf("expected missing owner fallback, got %+v", unresolved)
 	}
+}
+
+func TestOwnerResolutionUsesExternalEvidenceRefs(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("create provenance dir: %v", err)
+	}
+	payload := `{
+  "schema_version": "v1",
+  "generated_at": "2026-05-25T17:30:30Z",
+  "records": [
+    {
+      "record_kind": "external_control",
+      "source_type": "customer_owner_map",
+      "source": "customer_owner_map",
+      "repo": "acme/payments-service",
+      "path": ".github/workflows/deploy.yml",
+      "observed_at": "2026-05-25T17:00:00Z",
+      "evidence_class": "owner_assignment",
+      "owner": "@acme/platform",
+      "evidence_refs": ["evidence://fake/customer-owner-map.yaml#payments-service"]
+    }
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(root, ".wrkr", "provenance", "external-control-evidence.json"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write external control evidence: %v", err)
+	}
+
+	resolution := Resolve(root, "acme/payments-service", "acme", ".github/workflows/deploy.yml")
+	if resolution.Owner != "@acme/platform" {
+		t.Fatalf("expected external owner evidence to resolve owner, got %+v", resolution)
+	}
+	if resolution.OwnerSource != OwnerSourceCustomerMap {
+		t.Fatalf("expected external owner source, got %+v", resolution)
+	}
+	if !hasEvidenceBasis(resolution.EvidenceBasis, "evidence://fake/customer-owner-map.yaml#payments-service") {
+		t.Fatalf("expected external evidence ref in ownership basis, got %+v", resolution)
+	}
+}
+
+func hasEvidenceBasis(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == want {
+			return true
+		}
+	}
+	return false
 }

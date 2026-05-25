@@ -16,6 +16,7 @@ type rule struct {
 	owner         string
 	source        string
 	evidenceBasis string
+	evidenceRefs  []string
 	priority      int
 	inferred      bool
 	repoScopes    []string
@@ -27,6 +28,10 @@ const (
 	OwnerSourceService      = "service_catalog"
 	OwnerSourceBackstage    = "backstage_catalog"
 	OwnerSourceGitHub       = "github_metadata"
+	OwnerSourceGitHubTeam   = "github_team_export"
+	OwnerSourceAppCatalog   = "app_catalog"
+	OwnerSourceCustomerMap  = "customer_owner_map"
+	OwnerSourceProvider     = "provider_export"
 	OwnerSourceRepoFallback = "repo_fallback"
 	OwnerSourceConflict     = "multi_repo_conflict"
 	OwnerSourceMissing      = "missing_owner"
@@ -65,6 +70,7 @@ func ResolveWithMetadata(root, repo, org, location string, metadata Metadata) Re
 	rules = append(rules, loadOwnerMappings(root)...)
 	rules = append(rules, loadServiceCatalog(root)...)
 	rules = append(rules, loadBackstageCatalog(root)...)
+	rules = append(rules, loadExternalOwnerMappings(root)...)
 	rules = append(rules, rulesFromMetadata(repo, org, metadata)...)
 	normalized := normalizePath(location)
 	candidates := make([]rule, 0)
@@ -214,6 +220,7 @@ func ownerMappingRules(items []ownerMapping, evidencePath, source string, priori
 				owner:         owner,
 				source:        source,
 				evidenceBasis: source + ":" + evidencePath + ":" + pattern,
+				evidenceRefs:  nil,
 				priority:      priority,
 				inferred:      inferred,
 				repoScopes:    mappingRepos(item),
@@ -376,8 +383,104 @@ func parseBackstageCatalogDoc(payload []byte, evidencePath string) []rule {
 		owner:         owner,
 		source:        OwnerSourceBackstage,
 		evidenceBasis: OwnerSourceBackstage + ":" + evidencePath + ":spec.owner",
+		evidenceRefs:  nil,
 		priority:      3,
 	}}
+}
+
+type externalOwnerEvidenceDoc struct {
+	SchemaVersion string                        `json:"schema_version"`
+	Records       []externalOwnerEvidenceRecord `json:"records"`
+}
+
+type externalOwnerEvidenceRecord struct {
+	RecordKind    string   `json:"record_kind"`
+	SourceType    string   `json:"source_type"`
+	Source        string   `json:"source"`
+	Repo          string   `json:"repo"`
+	Workflow      string   `json:"workflow"`
+	Path          string   `json:"path"`
+	Location      string   `json:"location"`
+	ObservedAt    string   `json:"observed_at"`
+	EvidenceClass string   `json:"evidence_class"`
+	Owner         string   `json:"owner"`
+	EvidenceRefs  []string `json:"evidence_refs"`
+}
+
+func loadExternalOwnerMappings(root string) []rule {
+	path := filepath.Join(root, ".wrkr", "provenance", "external-control-evidence.json")
+	payload, err := os.ReadFile(path) // #nosec G304 -- deterministic repo-local external control evidence sidecar.
+	if err != nil {
+		return nil
+	}
+	var doc externalOwnerEvidenceDoc
+	if err := json.Unmarshal(payload, &doc); err != nil {
+		return nil
+	}
+	if strings.TrimSpace(doc.SchemaVersion) != "" && strings.TrimSpace(doc.SchemaVersion) != "v1" {
+		return nil
+	}
+
+	out := make([]rule, 0, len(doc.Records))
+	for _, record := range doc.Records {
+		if strings.TrimSpace(record.RecordKind) != "external_control" || strings.TrimSpace(record.EvidenceClass) != "owner_assignment" {
+			continue
+		}
+		owner := normalizeOwner(record.Owner)
+		if owner == "" {
+			continue
+		}
+		pattern := normalizePath(firstNonEmptyOwner(record.Path, record.Workflow, record.Location, "*"))
+		if pattern == "" {
+			pattern = "*"
+		}
+		out = append(out, rule{
+			pattern:       pattern,
+			owner:         owner,
+			source:        externalOwnerSource(record.SourceType),
+			evidenceBasis: externalOwnerSource(record.SourceType) + ":" + filepath.ToSlash(filepath.Join(".wrkr", "provenance", "external-control-evidence.json")) + ":" + pattern,
+			evidenceRefs:  uniqueSorted(record.EvidenceRefs),
+			priority:      externalOwnerPriority(record.SourceType),
+			inferred:      false,
+			repoScopes:    externalOwnerRepoScopes(record.Repo),
+		})
+	}
+	return out
+}
+
+func externalOwnerSource(sourceType string) string {
+	switch strings.TrimSpace(sourceType) {
+	case OwnerSourceGitHubTeam:
+		return OwnerSourceGitHubTeam
+	case OwnerSourceAppCatalog:
+		return OwnerSourceAppCatalog
+	case OwnerSourceCustomerMap:
+		return OwnerSourceCustomerMap
+	case OwnerSourceProvider:
+		return OwnerSourceProvider
+	case "backstage_export":
+		return OwnerSourceBackstage
+	default:
+		return strings.TrimSpace(sourceType)
+	}
+}
+
+func externalOwnerPriority(sourceType string) int {
+	switch strings.TrimSpace(sourceType) {
+	case OwnerSourceProvider, OwnerSourceGitHubTeam:
+		return 1
+	case OwnerSourceCustomerMap, OwnerSourceAppCatalog, "backstage_export":
+		return 2
+	default:
+		return 3
+	}
+}
+
+func externalOwnerRepoScopes(repo string) []string {
+	if strings.TrimSpace(repo) == "" {
+		return nil
+	}
+	return []string{normalizeRepoScope(repo)}
 }
 
 func rulesFromMetadata(repo, org string, metadata Metadata) []rule {
@@ -400,6 +503,7 @@ func rulesFromMetadata(repo, org string, metadata Metadata) []rule {
 			owner:         owner,
 			source:        OwnerSourceGitHub,
 			evidenceBasis: OwnerSourceGitHub + ":" + strings.TrimSpace(repo),
+			evidenceRefs:  nil,
 			priority:      4,
 			inferred:      true,
 		})
@@ -563,6 +667,7 @@ func evidenceBasisForCandidates(candidates []rule) []string {
 		if strings.TrimSpace(item.evidenceBasis) != "" {
 			values = append(values, item.evidenceBasis)
 		}
+		values = append(values, item.evidenceRefs...)
 	}
 	return uniqueSorted(values)
 }
@@ -636,4 +741,13 @@ func FallbackOwner(repo, org string) string {
 
 func normalizePath(in string) string {
 	return filepath.ToSlash(strings.TrimSpace(in))
+}
+
+func firstNonEmptyOwner(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }

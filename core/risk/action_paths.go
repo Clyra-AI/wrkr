@@ -75,6 +75,9 @@ type ActionPath struct {
 	ControlResolutionState     string                                  `json:"control_resolution_state,omitempty"`
 	ControlResolutionReasons   []string                                `json:"control_resolution_reasons,omitempty"`
 	ControlEvidenceRefs        []string                                `json:"control_evidence_refs,omitempty"`
+	ConstraintEvidenceClasses  []string                                `json:"constraint_evidence_classes,omitempty"`
+	ConstraintEvidenceRefs     []string                                `json:"constraint_evidence_refs,omitempty"`
+	ConstraintEvidenceStatus   string                                  `json:"constraint_evidence_status,omitempty"`
 	ApprovalEvidenceState      string                                  `json:"approval_evidence_state,omitempty"`
 	OwnerEvidenceState         string                                  `json:"owner_evidence_state,omitempty"`
 	ProofEvidenceState         string                                  `json:"proof_evidence_state,omitempty"`
@@ -407,6 +410,9 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.ControlResolutionState = chooseControlResolutionState(current.ControlResolutionState, incoming.ControlResolutionState)
 	merged.ControlResolutionReasons = dedupeSortedStrings(append(append([]string(nil), current.ControlResolutionReasons...), incoming.ControlResolutionReasons...))
 	merged.ControlEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.ControlEvidenceRefs...), incoming.ControlEvidenceRefs...))
+	merged.ConstraintEvidenceClasses = dedupeSortedStrings(append(append([]string(nil), current.ConstraintEvidenceClasses...), incoming.ConstraintEvidenceClasses...))
+	merged.ConstraintEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.ConstraintEvidenceRefs...), incoming.ConstraintEvidenceRefs...))
+	merged.ConstraintEvidenceStatus = mergeConstraintEvidenceStatus(current.ConstraintEvidenceStatus, incoming.ConstraintEvidenceStatus)
 	merged.ApprovalEvidenceState = chooseEvidenceState(current.ApprovalEvidenceState, incoming.ApprovalEvidenceState)
 	merged.OwnerEvidenceState = chooseEvidenceState(current.OwnerEvidenceState, incoming.OwnerEvidenceState)
 	merged.ProofEvidenceState = chooseEvidenceState(current.ProofEvidenceState, incoming.ProofEvidenceState)
@@ -932,6 +938,28 @@ func mergeSecurityVisibilityStatus(current, incoming string) string {
 		return strings.TrimSpace(incoming)
 	}
 	return strings.TrimSpace(current)
+}
+
+func mergeConstraintEvidenceStatus(current, incoming string) string {
+	switch strings.TrimSpace(current) {
+	case "conflict":
+		return "conflict"
+	case "stale":
+		if strings.TrimSpace(incoming) == "conflict" {
+			return "conflict"
+		}
+		return "stale"
+	}
+	switch strings.TrimSpace(incoming) {
+	case "conflict":
+		return "conflict"
+	case "stale":
+		return "stale"
+	case "matched":
+		return "matched"
+	default:
+		return firstNonEmptyString(current, incoming)
+	}
 }
 
 func securityVisibilityPriority(status string) int {
