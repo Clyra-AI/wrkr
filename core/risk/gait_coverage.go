@@ -140,6 +140,9 @@ func RuntimeEvidenceAbsenceStatus(path ActionPath) string {
 			if !ValidRuntimeEvidenceAbsenceStatus(candidate) {
 				continue
 			}
+			if candidate == RuntimeEvidenceAbsenceNotApplicable {
+				continue
+			}
 			if status == "" || runtimeEvidenceAbsenceRank(candidate) < runtimeEvidenceAbsenceRank(status) {
 				status = candidate
 			}

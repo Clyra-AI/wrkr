@@ -753,6 +753,32 @@ func TestRuntimeEvidenceAbsenceStatusNotCollected(t *testing.T) {
 	}
 }
 
+func TestRuntimeEvidenceAbsenceStatusIgnoresMixedNotApplicableSignals(t *testing.T) {
+	t.Parallel()
+
+	path := ActionPath{
+		PathID:   "apc-runtime-mixed",
+		Org:      "acme",
+		Repo:     "acme/release",
+		ToolType: "compiled_action",
+		Location: ".github/workflows/release.yml",
+		GaitCoverage: &GaitCoverage{
+			PolicyDecision: GaitCoverageDetail{
+				Status:       GaitStatusPresent,
+				EvidenceRefs: []string{"runtime:policy"},
+			},
+			JITCredential: GaitCoverageDetail{
+				Status:  GaitStatusNotApplicable,
+				Reasons: []string{"not_applicable:jit_credential", "runtime_absence_status:not_applicable"},
+			},
+		},
+	}
+
+	if got := RuntimeEvidenceAbsenceStatus(path); got != "" {
+		t.Fatalf("expected mixed not_applicable runtime absence status to stay empty, got %q", got)
+	}
+}
+
 func TestRuntimeEvidenceControlClaimGapOverridesLinkedEvidence(t *testing.T) {
 	t.Parallel()
 
