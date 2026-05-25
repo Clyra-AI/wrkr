@@ -471,7 +471,7 @@ func diagnosticAbsenceStatus(status string) string {
 	case "candidate_only", "reduced_coverage":
 		return scanquality.AbsenceStatusNotFoundReducedCoverage
 	case "not_detected":
-		return scanquality.AbsenceStatusNotFoundCompleteCoverage
+		return scanquality.AbsenceStatusNotScanned
 	default:
 		return ""
 	}
@@ -490,12 +490,17 @@ func mcpAbsenceSummary(report *scanquality.Report, repoFilter string, rows []MCP
 		reasons = append(reasons, "candidate_evidence:present")
 		return scanquality.AbsenceStatusNotFoundReducedCoverage, uniqueMCPListStrings(reasons), scanqualityAbsenceImpact(scanquality.AbsenceStatusNotFoundReducedCoverage)
 	}
+	status := ""
 	for _, diagnostic := range diagnostics {
-		if strings.TrimSpace(diagnostic.AbsenceStatus) == "" {
+		diagnosticStatus := strings.TrimSpace(diagnostic.AbsenceStatus)
+		if diagnosticStatus == "" {
 			continue
 		}
 		reasons = append(reasons, diagnostic.Status)
-		return strings.TrimSpace(diagnostic.AbsenceStatus), uniqueMCPListStrings(reasons), scanqualityAbsenceImpact(strings.TrimSpace(diagnostic.AbsenceStatus))
+		status = moreConservativeAbsenceStatus(status, diagnosticStatus)
+	}
+	if status != "" {
+		return status, uniqueMCPListStrings(reasons), scanqualityAbsenceImpact(status)
 	}
 	return scanquality.AbsenceStatusNotScanned, uniqueMCPListStrings(reasons), scanqualityAbsenceImpact(scanquality.AbsenceStatusNotScanned)
 }
@@ -504,24 +509,17 @@ func mcpAbsenceClaim(report *scanquality.Report, repoFilter string) *scanquality
 	if report == nil {
 		return nil
 	}
-	if strings.TrimSpace(repoFilter) != "" {
-		org := inferDiagnosticOrg(state.Snapshot{ScanQuality: report}, repoFilter)
-		if claim := scanquality.AbsenceClaimForSurface(report, org, repoFilter, scanquality.SurfaceMCPServer); claim != nil {
-			return claim
-		}
-		if claim := scanquality.AbsenceClaimForSurface(report, "", repoFilter, scanquality.SurfaceMCPServer); claim != nil {
-			return claim
-		}
-	}
+	matches := make([]scanquality.AbsenceClaim, 0)
 	for _, claim := range report.AbsenceClaims {
 		if strings.TrimSpace(claim.Surface) != scanquality.SurfaceMCPServer {
 			continue
 		}
-		copyClaim := claim
-		copyClaim.Reasons = append([]string(nil), claim.Reasons...)
-		return &copyClaim
+		if strings.TrimSpace(repoFilter) != "" && strings.TrimSpace(claim.Repo) != strings.TrimSpace(repoFilter) {
+			continue
+		}
+		matches = append(matches, claim)
 	}
-	return nil
+	return aggregateMCPAbsenceClaims(matches)
 }
 
 func scanqualityAbsenceImpact(status string) string {
@@ -538,6 +536,57 @@ func scanqualityAbsenceImpact(status string) string {
 		return "MCP coverage was not scanned for this repo, so absence is not authoritative."
 	default:
 		return ""
+	}
+}
+
+func aggregateMCPAbsenceClaims(claims []scanquality.AbsenceClaim) *scanquality.AbsenceClaim {
+	if len(claims) == 0 {
+		return nil
+	}
+	out := scanquality.AbsenceClaim{}
+	reasons := make([]string, 0)
+	for _, claim := range claims {
+		if strings.TrimSpace(out.Status) == "" {
+			out = claim
+		} else {
+			out.Status = moreConservativeAbsenceStatus(out.Status, claim.Status)
+		}
+		reasons = append(reasons, claim.Reasons...)
+		if strings.TrimSpace(out.Org) == "" && strings.TrimSpace(claim.Org) != "" {
+			out.Org = strings.TrimSpace(claim.Org)
+		}
+		if strings.TrimSpace(out.Repo) == "" && strings.TrimSpace(claim.Repo) != "" {
+			out.Repo = strings.TrimSpace(claim.Repo)
+		}
+	}
+	out.Reasons = uniqueMCPListStrings(reasons)
+	out.Impact = scanqualityAbsenceImpact(out.Status)
+	return &out
+}
+
+func moreConservativeAbsenceStatus(current string, candidate string) string {
+	if absenceStatusRank(candidate) < absenceStatusRank(current) {
+		return strings.TrimSpace(candidate)
+	}
+	return strings.TrimSpace(current)
+}
+
+func absenceStatusRank(status string) int {
+	switch strings.TrimSpace(status) {
+	case scanquality.AbsenceStatusNotScanned:
+		return 0
+	case scanquality.AbsenceStatusCandidateParseFailed:
+		return 1
+	case scanquality.AbsenceStatusUnsupportedSurface:
+		return 2
+	case scanquality.AbsenceStatusNotFoundReducedCoverage:
+		return 3
+	case scanquality.AbsenceStatusNotFoundCompleteCoverage:
+		return 4
+	case "":
+		return 5
+	default:
+		return 6
 	}
 }
 
