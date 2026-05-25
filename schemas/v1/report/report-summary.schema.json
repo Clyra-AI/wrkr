@@ -304,7 +304,7 @@
         "control_evidence_refs": {"type": "array", "items": {"type": "string"}},
         "constraint_evidence_classes": {"type": "array", "items": {"type": "string"}},
         "constraint_evidence_refs": {"type": "array", "items": {"type": "string"}},
-        "constraint_evidence_status": {"type": "string", "enum": ["matched", "stale", "conflict"]},
+        "constraint_evidence_status": {"type": "string", "enum": ["matched", "unmatched", "stale", "conflict"]},
         "approval_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
         "owner_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
         "proof_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},

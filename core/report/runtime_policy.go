@@ -36,6 +36,8 @@ func decorateActionPathsForReport(paths []risk.ActionPath, runtimeEvidence *inge
 				out[i].PolicyCoverageStatus = risk.PolicyCoverageStatusStale
 				out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "constraint_evidence_stale"))
 				out[i].PolicyConfidence = "medium"
+			case "unmatched":
+				out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "constraint_evidence_unmatched"))
 			default:
 				if strings.TrimSpace(out[i].PolicyCoverageStatus) == "" || strings.TrimSpace(out[i].PolicyCoverageStatus) == risk.PolicyCoverageStatusNone {
 					out[i].PolicyCoverageStatus = risk.PolicyCoverageStatusMatched
