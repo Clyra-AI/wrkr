@@ -10,21 +10,24 @@ import (
 
 func gaitCoverageForPath(path risk.ActionPath, runtime ingest.Correlation) *risk.GaitCoverage {
 	return &risk.GaitCoverage{
-		PolicyDecision:    gaitCoverageDetail(appliesPolicyDecision(path), runtime, ingest.EvidenceClassPolicyDecision, "policy_decision"),
-		Approval:          gaitCoverageDetail(appliesApprovalCoverage(path), runtime, ingest.EvidenceClassApproval, "approval"),
-		JITCredential:     gaitCoverageDetail(appliesJITCredentialCoverage(path), runtime, ingest.EvidenceClassJITCredential, "jit_credential"),
-		FreezeWindow:      gaitCoverageDetail(appliesFreezeWindowCoverage(path), runtime, ingest.EvidenceClassFreezeWindow, "freeze_window"),
-		KillSwitch:        gaitCoverageDetail(appliesKillSwitchCoverage(path), runtime, ingest.EvidenceClassKillSwitch, "kill_switch"),
-		ActionOutcome:     gaitCoverageDetail(appliesActionOutcomeCoverage(path), runtime, ingest.EvidenceClassActionOutcome, "action_outcome"),
-		ProofVerification: gaitCoverageDetail(appliesProofVerificationCoverage(path), runtime, ingest.EvidenceClassProofVerify, "proof_verification"),
+		PolicyDecision:    gaitCoverageDetail(path, appliesPolicyDecision(path), runtime, ingest.EvidenceClassPolicyDecision, "policy_decision"),
+		Approval:          gaitCoverageDetail(path, appliesApprovalCoverage(path), runtime, ingest.EvidenceClassApproval, "approval"),
+		JITCredential:     gaitCoverageDetail(path, appliesJITCredentialCoverage(path), runtime, ingest.EvidenceClassJITCredential, "jit_credential"),
+		FreezeWindow:      gaitCoverageDetail(path, appliesFreezeWindowCoverage(path), runtime, ingest.EvidenceClassFreezeWindow, "freeze_window"),
+		KillSwitch:        gaitCoverageDetail(path, appliesKillSwitchCoverage(path), runtime, ingest.EvidenceClassKillSwitch, "kill_switch"),
+		ActionOutcome:     gaitCoverageDetail(path, appliesActionOutcomeCoverage(path), runtime, ingest.EvidenceClassActionOutcome, "action_outcome"),
+		ProofVerification: gaitCoverageDetail(path, appliesProofVerificationCoverage(path), runtime, ingest.EvidenceClassProofVerify, "proof_verification"),
 	}
 }
 
-func gaitCoverageDetail(applicable bool, runtime ingest.Correlation, evidenceClass string, reasonKey string) risk.GaitCoverageDetail {
+func gaitCoverageDetail(path risk.ActionPath, applicable bool, runtime ingest.Correlation, evidenceClass string, reasonKey string) risk.GaitCoverageDetail {
 	if !applicable {
 		return risk.GaitCoverageDetail{
-			Status:  risk.GaitStatusNotApplicable,
-			Reasons: []string{"not_applicable:" + reasonKey},
+			Status: risk.GaitStatusNotApplicable,
+			Reasons: []string{
+				"not_applicable:" + reasonKey,
+				"runtime_absence_status:" + risk.RuntimeEvidenceAbsenceNotApplicable,
+			},
 		}
 	}
 	if strings.TrimSpace(runtime.Status) == ingest.CorrelationStatusConflict {
@@ -49,14 +52,42 @@ func gaitCoverageDetail(applicable bool, runtime ingest.Correlation, evidenceCla
 		}
 	}
 	if strings.TrimSpace(runtime.Status) == ingest.CorrelationStatusMatched {
+		absenceStatus := risk.RuntimeEvidenceAbsenceMissingRequired
+		reason := "runtime_class_missing:" + reasonKey
+		if runtimeControlClaimMissing(path) {
+			absenceStatus = risk.RuntimeEvidenceAbsenceMissingForClaim
+			reason = "runtime_control_claim_missing:" + reasonKey
+		}
+		return risk.GaitCoverageDetail{
+			Status: risk.GaitStatusMissing,
+			Reasons: []string{
+				reason,
+				"runtime_absence_status:" + absenceStatus,
+			},
+		}
+	}
+	if runtimeControlClaimMissing(path) {
 		return risk.GaitCoverageDetail{
 			Status:  risk.GaitStatusMissing,
-			Reasons: []string{"runtime_class_missing:" + reasonKey},
+			Reasons: []string{"runtime_control_claim_missing:" + reasonKey, "runtime_absence_status:" + risk.RuntimeEvidenceAbsenceMissingForClaim},
 		}
 	}
 	return risk.GaitCoverageDetail{
 		Status:  risk.GaitStatusMissing,
-		Reasons: []string{"runtime_evidence_missing:" + reasonKey},
+		Reasons: []string{"runtime_evidence_not_collected:" + reasonKey, "runtime_absence_status:" + risk.RuntimeEvidenceAbsenceNotCollected},
+	}
+}
+
+func runtimeControlClaimMissing(path risk.ActionPath) bool {
+	switch strings.TrimSpace(path.PolicyCoverageStatus) {
+	case risk.PolicyCoverageStatusRuntimeProven:
+		return true
+	}
+	switch strings.TrimSpace(path.RuntimeEvidenceState) {
+	case risk.EvidenceStateDeclared, risk.EvidenceStateVerified:
+		return true
+	default:
+		return false
 	}
 }
 

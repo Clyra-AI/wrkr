@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
@@ -54,6 +55,16 @@ func RenderMarkdown(summary Summary) string {
 			))
 		}
 		builder.WriteString(fmt.Sprintf("- Coverage confidence: %s\n", summary.AgentActionBOM.Summary.CoverageConfidence))
+		if summary.AgentActionBOM.Summary.ScanCoverage != nil {
+			builder.WriteString(fmt.Sprintf("- Scan coverage: reduced_detectors=%d parse_failures=%d suppressed_generated_files=%d blocked_detectors=%d unsupported_declarations=%d impact=%s\n",
+				summary.AgentActionBOM.Summary.ScanCoverage.ReducedDetectorCount,
+				summary.AgentActionBOM.Summary.ScanCoverage.ParseFailureCount,
+				summary.AgentActionBOM.Summary.ScanCoverage.SuppressedGeneratedFileCount,
+				summary.AgentActionBOM.Summary.ScanCoverage.BlockedDetectorCount,
+				summary.AgentActionBOM.Summary.ScanCoverage.UnsupportedDeclarationCount,
+				firstNonEmptyValue(strings.TrimSpace(summary.AgentActionBOM.Summary.ScanCoverage.ImpactStatement), "Coverage metadata was unavailable."),
+			))
+		}
 		builder.WriteString(fmt.Sprintf("- Governable paths: total=%d control_first=%d standing_credentials=%d approval_evidence_unknown=%d control_evidence_unknown=%d proof_evidence_unknown=%d\n",
 			summary.AgentActionBOM.Summary.TotalItems,
 			summary.AgentActionBOM.Summary.ControlFirstItems,
@@ -107,7 +118,7 @@ func RenderMarkdown(summary Summary) string {
 					risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState),
 					risk.BuyerEvidenceStateLabel("owner", item.OwnerEvidenceState),
 					risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
-					risk.BuyerEvidenceStateLabel("runtime", item.RuntimeEvidenceState),
+					markdownBOMRuntimeEvidenceLabel(item),
 					item.Confidence,
 					item.EvidenceStrength,
 					item.Queue,
@@ -180,16 +191,15 @@ func RenderMarkdown(summary Summary) string {
 	if summary.ScanQuality != nil && len(summary.ScanQuality.Detectors) > 0 {
 		builder.WriteString("## Scan Quality\n\n")
 		builder.WriteString(fmt.Sprintf("- Mode: %s\n", summary.ScanQuality.Mode))
-		for _, detector := range summary.ScanQuality.Detectors {
-			builder.WriteString(fmt.Sprintf("- %s status=%s attempted=%d parsed=%d partial=%d suppressed=%d failures=%d reasons=%s\n",
-				detector.Detector,
-				detector.Status,
-				detector.AttemptedFiles,
-				detector.ParsedFiles,
-				detector.PartialParses,
-				detector.SuppressedFiles,
-				detector.ParseFailures,
-				strings.Join(detector.CoverageReasons, ","),
+		if compact := scanquality.BuildCompactCoverageSummary(summary.ScanQuality); compact.CoverageConfidence != "" {
+			builder.WriteString(fmt.Sprintf("- Coverage summary: confidence=%s reduced_detectors=%d parse_failures=%d suppressed_generated_files=%d blocked_detectors=%d unsupported_declarations=%d impact=%s\n",
+				compact.CoverageConfidence,
+				compact.ReducedDetectorCount,
+				compact.ParseFailureCount,
+				compact.SuppressedGeneratedFileCount,
+				compact.BlockedDetectorCount,
+				compact.UnsupportedDeclarationCount,
+				firstNonEmptyValue(strings.TrimSpace(compact.ImpactStatement), "Coverage metadata was unavailable."),
 			))
 		}
 		for _, claim := range summary.ScanQuality.AbsenceClaims {
@@ -235,7 +245,7 @@ func RenderMarkdown(summary Summary) string {
 				risk.BuyerControlResolutionLabel(item.ControlResolutionState),
 				risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState),
 				risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
-				risk.BuyerEvidenceStateLabel("runtime", item.RuntimeEvidenceState),
+				markdownBOMRuntimeEvidenceLabel(item),
 				item.Confidence,
 				item.EvidenceStrength,
 				item.PolicyStatus,
@@ -282,6 +292,23 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 
+	if summary.ScanQuality != nil && len(summary.ScanQuality.Detectors) > 0 {
+		builder.WriteString("## Scan Quality Appendix\n\n")
+		for _, detector := range summary.ScanQuality.Detectors {
+			builder.WriteString(fmt.Sprintf("- %s status=%s attempted=%d parsed=%d partial=%d suppressed=%d failures=%d reasons=%s\n",
+				detector.Detector,
+				detector.Status,
+				detector.AttemptedFiles,
+				detector.ParsedFiles,
+				detector.PartialParses,
+				detector.SuppressedFiles,
+				detector.ParseFailures,
+				strings.Join(detector.CoverageReasons, ","),
+			))
+		}
+		builder.WriteString("\n")
+	}
+
 	for _, section := range summary.Sections {
 		builder.WriteString(fmt.Sprintf("## %s (%s)\n\n", section.Title, section.ID))
 		for _, fact := range section.Facts {
@@ -307,6 +334,14 @@ func renderTriggerClassSuffix(triggerClass string) string {
 		return ""
 	}
 	return ", trigger=" + strings.TrimSpace(triggerClass)
+}
+
+func markdownRuntimeEvidenceLabel(path risk.ActionPath) string {
+	return risk.BuyerRuntimeEvidenceLabel(path.RuntimeEvidenceState, risk.RuntimeEvidenceAbsenceStatus(path), path.GaitCoverage)
+}
+
+func markdownBOMRuntimeEvidenceLabel(item AgentActionBOMItem) string {
+	return risk.BuyerRuntimeEvidenceLabel(item.RuntimeEvidenceState, item.RuntimeEvidenceAbsenceStatus, item.GaitCoverage)
 }
 
 func markdownActionPathLabel(lane string, actionPathType string) string {
@@ -527,7 +562,7 @@ func designPartnerProofGap(item AgentActionBOMItem) string {
 	parts := []string{
 		"proof=" + risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
 		"policy=" + firstNonEmptyValue(item.PolicyStatus, "none"),
-		"runtime=" + risk.BuyerEvidenceStateLabel("runtime", item.RuntimeEvidenceState),
+		"runtime=" + markdownBOMRuntimeEvidenceLabel(item),
 	}
 	if item.ApprovalGap {
 		parts = append(parts, "approval="+risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState))

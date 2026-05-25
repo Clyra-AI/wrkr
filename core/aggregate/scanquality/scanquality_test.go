@@ -101,6 +101,44 @@ func TestScanQualityReportsReducedCoverageForParseFailures(t *testing.T) {
 	}
 }
 
+func TestCoverageSummaryCountsReducedSignals(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".mcp.json"), []byte("{"), 0o600); err != nil {
+		t.Fatalf("write mcp config: %v", err)
+	}
+
+	report := Build(Input{
+		Mode:   "governance",
+		Scopes: []detect.Scope{{Org: "acme", Repo: "app", Root: root}},
+		Findings: []model.Finding{{
+			FindingType: "parse_error",
+			Location:    ".mcp.json",
+			Repo:        "app",
+			Org:         "acme",
+			ParseError:  &model.ParseError{Kind: "parse_error", Path: ".mcp.json", Detector: "mcp", Message: "broken"},
+		}},
+	})
+
+	if report.CompactSummary == nil {
+		t.Fatalf("expected compact coverage summary, got %+v", report)
+	}
+	if report.CompactSummary.CoverageConfidence != CoverageConfidenceReduced {
+		t.Fatalf("expected reduced compact coverage summary, got %+v", report.CompactSummary)
+	}
+	if report.CompactSummary.ReducedDetectorCount != 1 {
+		t.Fatalf("expected one reduced detector, got %+v", report.CompactSummary)
+	}
+	if report.CompactSummary.ParseFailureCount != 1 {
+		t.Fatalf("expected one parse failure, got %+v", report.CompactSummary)
+	}
+	if !strings.Contains(report.CompactSummary.ImpactStatement, "coverage") &&
+		!strings.Contains(report.CompactSummary.ImpactStatement, "scoped") {
+		t.Fatalf("expected buyer-safe impact statement, got %+v", report.CompactSummary)
+	}
+}
+
 func TestScanQualitySkipsGeneratedDependencyDirectoriesInGovernanceMode(t *testing.T) {
 	t.Parallel()
 

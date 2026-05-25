@@ -14,7 +14,7 @@
     "missing_approval_items": 8,
     "missing_policy_items": 0,
     "missing_proof_items": 0,
-    "runtime_proven_items": 1,
+    "runtime_proven_items": 0,
     "unresolved_owner_items": 0,
     "confirmed_action_path_items": 3,
     "likely_action_path_items": 3,
@@ -70,6 +70,10 @@
         "coverage_reduced=false"
       ]
     },
+    "scan_coverage": {
+      "coverage_confidence": "complete",
+      "impact_statement": "Coverage for scanned inputs was complete enough to support scoped negative claims."
+    },
     "coverage_confidence": "complete"
   },
   "top_item": {
@@ -123,7 +127,8 @@
       "jit_credential": {
         "status": "not_applicable",
         "reasons": [
-          "not_applicable:jit_credential"
+          "not_applicable:jit_credential",
+          "runtime_absence_status:not_applicable"
         ]
       },
       "freeze_window": {

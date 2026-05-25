@@ -19,16 +19,31 @@ const (
 	AbsenceStatusNotScanned               = "not_scanned"
 	AbsenceStatusUnsupportedSurface       = "unsupported_surface"
 	AbsenceStatusCandidateParseFailed     = "candidate_parse_failed"
+
+	CoverageConfidenceComplete = "complete"
+	CoverageConfidenceReduced  = "reduced"
+	CoverageConfidenceUnknown  = "unknown"
 )
 
 type Report struct {
-	ScanQualityVersion string                 `json:"scan_quality_version"`
-	Mode               string                 `json:"mode"`
-	Detectors          []DetectorHealth       `json:"detectors,omitempty"`
-	SuppressedPaths    []SuppressedPath       `json:"suppressed_paths,omitempty"`
-	ParseErrors        []ParseIssue           `json:"parse_errors,omitempty"`
-	DetectorErrors     []detect.DetectorError `json:"detector_errors,omitempty"`
-	AbsenceClaims      []AbsenceClaim         `json:"absence_claims,omitempty"`
+	ScanQualityVersion string                  `json:"scan_quality_version"`
+	Mode               string                  `json:"mode"`
+	CompactSummary     *CompactCoverageSummary `json:"compact_summary,omitempty"`
+	Detectors          []DetectorHealth        `json:"detectors,omitempty"`
+	SuppressedPaths    []SuppressedPath        `json:"suppressed_paths,omitempty"`
+	ParseErrors        []ParseIssue            `json:"parse_errors,omitempty"`
+	DetectorErrors     []detect.DetectorError  `json:"detector_errors,omitempty"`
+	AbsenceClaims      []AbsenceClaim          `json:"absence_claims,omitempty"`
+}
+
+type CompactCoverageSummary struct {
+	CoverageConfidence           string `json:"coverage_confidence"`
+	ReducedDetectorCount         int    `json:"reduced_detector_count,omitempty"`
+	ParseFailureCount            int    `json:"parse_failure_count,omitempty"`
+	SuppressedGeneratedFileCount int    `json:"suppressed_generated_file_count,omitempty"`
+	BlockedDetectorCount         int    `json:"blocked_detector_count,omitempty"`
+	UnsupportedDeclarationCount  int    `json:"unsupported_declaration_count,omitempty"`
+	ImpactStatement              string `json:"impact_statement,omitempty"`
 }
 
 type AbsenceClaim struct {
@@ -95,7 +110,98 @@ func Build(input Input) Report {
 	report.ParseErrors = collectParseIssues(input.Findings)
 	report.Detectors = collectDetectorHealth(input)
 	report.AbsenceClaims = buildAbsenceClaims(input, report.Detectors)
+	compact := BuildCompactCoverageSummary(&report)
+	report.CompactSummary = &compact
 	return report
+}
+
+func BuildCompactCoverageSummary(report *Report) CompactCoverageSummary {
+	if report != nil && report.CompactSummary != nil {
+		return cloneCompactCoverageSummary(report.CompactSummary)
+	}
+	if report == nil {
+		return CompactCoverageSummary{
+			CoverageConfidence: CoverageConfidenceUnknown,
+			ImpactStatement:    "Coverage metadata was unavailable; absence claims remain scoped to available evidence.",
+		}
+	}
+
+	reducedDetectorCount := 0
+	blockedDetectorCount := 0
+	suppressedGeneratedFileCount := 0
+	unsupportedDeclarationCount := 0
+	reducedDetectorKeys := map[detectorScopeKey]struct{}{}
+	for _, detector := range report.Detectors {
+		switch strings.TrimSpace(detector.Status) {
+		case "partial", "reduced", "blocked":
+			reducedDetectorKeys[detectorScopeKey{
+				org:      strings.TrimSpace(detector.Org),
+				repo:     strings.TrimSpace(detector.Repo),
+				detector: strings.TrimSpace(detector.Detector),
+			}] = struct{}{}
+		}
+		if strings.TrimSpace(detector.Status) == "blocked" {
+			blockedDetectorCount++
+		}
+		suppressedGeneratedFileCount += detector.SuppressedFiles
+		unsupportedDeclarationCount += detector.UnsupportedDeclarations
+	}
+	for _, detectorErr := range report.DetectorErrors {
+		reducedDetectorKeys[detectorScopeKey{
+			org:      strings.TrimSpace(detectorErr.Org),
+			repo:     strings.TrimSpace(detectorErr.Repo),
+			detector: strings.TrimSpace(detectorErr.Detector),
+		}] = struct{}{}
+	}
+	reducedDetectorCount = len(reducedDetectorKeys)
+	parseFailureCount := len(report.ParseErrors)
+	coverageConfidence := CoverageConfidenceComplete
+	if reducedDetectorCount > 0 || parseFailureCount > 0 || blockedDetectorCount > 0 {
+		coverageConfidence = CoverageConfidenceReduced
+	}
+
+	return CompactCoverageSummary{
+		CoverageConfidence:           coverageConfidence,
+		ReducedDetectorCount:         reducedDetectorCount,
+		ParseFailureCount:            parseFailureCount,
+		SuppressedGeneratedFileCount: suppressedGeneratedFileCount,
+		BlockedDetectorCount:         blockedDetectorCount,
+		UnsupportedDeclarationCount:  unsupportedDeclarationCount,
+		ImpactStatement:              compactCoverageImpactStatement(report, coverageConfidence, blockedDetectorCount, parseFailureCount, unsupportedDeclarationCount),
+	}
+}
+
+func CoverageReduced(report *Report) bool {
+	return CoverageConfidence(report) == CoverageConfidenceReduced
+}
+
+func CoverageConfidence(report *Report) string {
+	return BuildCompactCoverageSummary(report).CoverageConfidence
+}
+
+func cloneCompactCoverageSummary(in *CompactCoverageSummary) CompactCoverageSummary {
+	if in == nil {
+		return CompactCoverageSummary{
+			CoverageConfidence: CoverageConfidenceUnknown,
+			ImpactStatement:    "Coverage metadata was unavailable; absence claims remain scoped to available evidence.",
+		}
+	}
+	return *in
+}
+
+func compactCoverageImpactStatement(report *Report, coverageConfidence string, blockedDetectorCount int, parseFailureCount int, unsupportedDeclarationCount int) string {
+	switch {
+	case report == nil:
+		return "Coverage metadata was unavailable; absence claims remain scoped to available evidence."
+	case blockedDetectorCount > 0:
+		return "One or more detector surfaces were blocked, so negative claims remain coverage-qualified."
+	case coverageConfidence == CoverageConfidenceReduced || parseFailureCount > 0 || len(report.DetectorErrors) > 0:
+		return "Some detector coverage was reduced or parse-limited, so negative claims remain scoped to scanned inputs."
+	case unsupportedDeclarationCount > 0:
+		return "Unsupported declarations were excluded from authoritative negative claims."
+	default:
+		return "Coverage for scanned inputs was complete enough to support scoped negative claims."
+	}
 }
 
 func AbsenceClaimForSurface(report *Report, org string, repo string, surface string) *AbsenceClaim {

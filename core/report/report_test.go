@@ -264,9 +264,70 @@ func TestBuildSummaryCarriesScanQualityIntoReportAndBOM(t *testing.T) {
 	if summary.AgentActionBOM == nil || summary.AgentActionBOM.ScanQuality == nil {
 		t.Fatalf("expected BOM scan quality, got %+v", summary.AgentActionBOM)
 	}
+	if summary.ScanQuality.CompactSummary == nil || summary.AgentActionBOM.Summary.ScanCoverage == nil {
+		t.Fatalf("expected compact scan coverage summaries, got summary=%+v bom=%+v", summary.ScanQuality, summary.AgentActionBOM.Summary)
+	}
 	markdown := RenderMarkdown(summary)
-	if !strings.Contains(markdown, "webmcp status=reduced") {
-		t.Fatalf("expected markdown to surface reduced detector coverage, got %q", markdown)
+	if !strings.Contains(markdown, "Coverage summary: confidence=reduced") {
+		t.Fatalf("expected markdown to surface compact reduced coverage, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "## Scan Quality Appendix") {
+		t.Fatalf("expected markdown appendix for detector rows, got %q", markdown)
+	}
+}
+
+func TestBuyerMarkdownUsesCompactCoverageSummary(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		GeneratedAt:  "2026-05-24T12:00:00Z",
+		Template:     "operator",
+		ShareProfile: "internal",
+		ScanQuality: &scanquality.Report{
+			ScanQualityVersion: scanquality.ReportVersion,
+			Mode:               "governance",
+			CompactSummary: &scanquality.CompactCoverageSummary{
+				CoverageConfidence:           scanquality.CoverageConfidenceReduced,
+				ReducedDetectorCount:         2,
+				ParseFailureCount:            1,
+				SuppressedGeneratedFileCount: 4,
+				BlockedDetectorCount:         1,
+				UnsupportedDeclarationCount:  1,
+				ImpactStatement:              "One or more detector surfaces were blocked, so negative claims remain coverage-qualified.",
+			},
+			Detectors: []scanquality.DetectorHealth{
+				{Detector: "mcp", Status: "blocked", AttemptedFiles: 1, ParsedFiles: 0},
+			},
+		},
+	}
+
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, "Coverage summary: confidence=reduced reduced_detectors=2 parse_failures=1") {
+		t.Fatalf("expected compact scan coverage summary, got %q", markdown)
+	}
+	if strings.Index(markdown, "Coverage summary: confidence=reduced") > strings.Index(markdown, "## Scan Quality Appendix") {
+		t.Fatalf("expected compact summary before appendix, got %q", markdown)
+	}
+}
+
+func TestScanQualityAppendixRetainsDetectorDetails(t *testing.T) {
+	t.Parallel()
+
+	markdown := RenderMarkdown(Summary{
+		GeneratedAt:  "2026-05-24T12:00:00Z",
+		Template:     "operator",
+		ShareProfile: "internal",
+		ScanQuality: &scanquality.Report{
+			ScanQualityVersion: scanquality.ReportVersion,
+			Mode:               "governance",
+			Detectors: []scanquality.DetectorHealth{
+				{Detector: "webmcp", Status: "reduced", AttemptedFiles: 1, ParsedFiles: 0, ParseFailures: 1, CoverageReasons: []string{"parse_failures"}},
+			},
+		},
+	})
+
+	if !strings.Contains(markdown, "## Scan Quality Appendix") || !strings.Contains(markdown, "webmcp status=reduced attempted=1 parsed=0") {
+		t.Fatalf("expected detector details in appendix, got %q", markdown)
 	}
 }
 
@@ -701,8 +762,11 @@ func TestBuildAgentActionBOMDerivesStableItemsFromSummary(t *testing.T) {
 	if firstBOM.Items[0].PathID != "apc-200000" {
 		t.Fatalf("expected govern-first ordering to be preserved, got %+v", firstBOM.Items)
 	}
-	if firstBOM.Summary.ControlFirstItems != 1 || firstBOM.Summary.StandingPrivilegeItems != 1 || firstBOM.Summary.RuntimeProvenItems != 1 {
+	if firstBOM.Summary.ControlFirstItems != 1 || firstBOM.Summary.StandingPrivilegeItems != 1 || firstBOM.Summary.RuntimeProvenItems != 0 {
 		t.Fatalf("unexpected BOM summary counts: %+v", firstBOM.Summary)
+	}
+	if firstBOM.Summary.ScanCoverage == nil || firstBOM.Summary.CoverageConfidence != scanquality.CoverageConfidenceUnknown {
+		t.Fatalf("expected additive BOM scan coverage summary, got %+v", firstBOM.Summary)
 	}
 	if !containsStringValue(firstBOM.Items[0].GraphRefs.NodeIDs, "node-1") || !containsStringValue(firstBOM.Items[0].ProofRefs, "path:apc-200000") {
 		t.Fatalf("expected graph refs and path-specific proof refs on BOM item, got %+v", first.Items[0])
@@ -712,6 +776,9 @@ func TestBuildAgentActionBOMDerivesStableItemsFromSummary(t *testing.T) {
 	}
 	if first.Items[0].PolicyStatus != risk.PolicyCoverageStatusMatched || first.Items[0].IntroducedBy == nil || first.Items[0].IntroducedBy.CommitSHA != "abc123" {
 		t.Fatalf("expected policy coverage and introduction attribution on BOM item, got %+v", first.Items[0])
+	}
+	if first.Items[0].RuntimeEvidenceStatus != ingest.CorrelationStatusMatched || first.Items[0].RuntimeEvidenceAbsenceStatus != "" {
+		t.Fatalf("expected synthetic summary input to preserve raw matched runtime status without derived absence framing, got %+v", first.Items[0])
 	}
 }
 
@@ -1307,6 +1374,100 @@ func TestDecorateActionPathsForReportProjectsGaitCoverageAndBuyerState(t *testin
 	}
 	if paths[0].ReviewBurden == "" {
 		t.Fatalf("expected review burden projection, got %+v", paths[0])
+	}
+}
+
+func TestStaticOnlyRuntimeEvidenceNotCollected(t *testing.T) {
+	t.Parallel()
+
+	paths := decorateActionPathsForReport([]risk.ActionPath{{
+		PathID:           "apc-static-only",
+		Org:              "acme",
+		Repo:             "acme/release",
+		ToolType:         "compiled_action",
+		Location:         ".github/workflows/release.yml",
+		WriteCapable:     true,
+		CredentialAccess: true,
+		ApprovalGap:      true,
+	}}, nil)
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if got := risk.RuntimeEvidenceAbsenceStatus(paths[0]); got != risk.RuntimeEvidenceAbsenceNotCollected {
+		t.Fatalf("expected static-only runtime evidence to be not_collected, got %+v", paths[0])
+	}
+	if label := risk.BuyerRuntimeEvidenceLabel(paths[0].RuntimeEvidenceState, risk.RuntimeEvidenceAbsenceStatus(paths[0]), paths[0].GaitCoverage); label != "runtime evidence not collected" {
+		t.Fatalf("expected static-only runtime label, got %q", label)
+	}
+}
+
+func TestMissingRuntimeForControlClaimEscalates(t *testing.T) {
+	t.Parallel()
+
+	paths := decorateActionPathsForReport([]risk.ActionPath{{
+		PathID:               "apc-runtime-claim",
+		Org:                  "acme",
+		Repo:                 "acme/release",
+		ToolType:             "compiled_action",
+		Location:             ".github/workflows/release.yml",
+		WriteCapable:         true,
+		DeployWrite:          true,
+		CredentialAccess:     true,
+		ApprovalGap:          true,
+		PolicyCoverageStatus: risk.PolicyCoverageStatusRuntimeProven,
+		PolicyRefs:           []string{"gait://release"},
+	}}, nil)
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if got := risk.RuntimeEvidenceAbsenceStatus(paths[0]); got != risk.RuntimeEvidenceAbsenceMissingForClaim {
+		t.Fatalf("expected runtime control claim gap, got %+v", paths[0])
+	}
+	if paths[0].ControlPriority != risk.ControlPriorityControlFirst || paths[0].ReviewBurden != risk.ReviewBurdenCritical {
+		t.Fatalf("expected runtime control-claim gap to escalate review posture, got %+v", paths[0])
+	}
+	if label := risk.BuyerRuntimeEvidenceLabel(paths[0].RuntimeEvidenceState, risk.RuntimeEvidenceAbsenceStatus(paths[0]), paths[0].GaitCoverage); label != "runtime evidence missing for a control claim" {
+		t.Fatalf("expected control-claim runtime label, got %q", label)
+	}
+}
+
+func TestGaitCoverageAndBOMRuntimeEvidenceAgree(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		StatePath: filepath.Join(t.TempDir(), "state.json"),
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:               "apc-bom-runtime",
+					Org:                  "acme",
+					Repo:                 "acme/release",
+					ToolType:             "compiled_action",
+					Location:             ".github/workflows/release.yml",
+					WriteCapable:         true,
+					DeployWrite:          true,
+					CredentialAccess:     true,
+					ApprovalGap:          true,
+					PolicyCoverageStatus: risk.PolicyCoverageStatusRuntimeProven,
+					PolicyRefs:           []string{"gait://release"},
+				}},
+			},
+		},
+		GeneratedAt: time.Date(2026, 5, 25, 12, 0, 0, 0, time.UTC),
+		Template:    TemplateAgentActionBOM,
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.AgentActionBOM == nil || len(summary.AgentActionBOM.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", summary.AgentActionBOM)
+	}
+	item := summary.AgentActionBOM.Items[0]
+	if item.RuntimeEvidenceAbsenceStatus != risk.RuntimeEvidenceAbsenceMissingForClaim {
+		t.Fatalf("expected BOM runtime absence status, got %+v", item)
+	}
+	if item.GaitCoverage == nil || risk.RuntimeEvidenceAbsenceStatus(risk.ActionPath{GaitCoverage: item.GaitCoverage}) != risk.RuntimeEvidenceAbsenceMissingForClaim {
+		t.Fatalf("expected BOM gait coverage to carry the same runtime absence posture, got %+v", item.GaitCoverage)
 	}
 }
 

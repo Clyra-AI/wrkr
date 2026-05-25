@@ -60,6 +60,7 @@
         "source_privacy": {"$ref": "#/$defs/sourcePrivacy"},
         "operational_exposure": {"$ref": "#/$defs/axisSummary"},
         "governance_readiness": {"$ref": "#/$defs/axisSummary"},
+        "scan_coverage": {"$ref": "#/$defs/compactCoverageSummary"},
         "coverage_confidence": {"type": "string", "enum": ["complete", "reduced", "unknown"]}
       },
       "additionalProperties": false
@@ -140,6 +141,7 @@
         "proof_coverage": {"type": "string"},
         "proof_refs": {"type": "array", "items": {"type": "string"}},
         "runtime_evidence_status": {"type": "string", "enum": ["matched", "unmatched", "stale", "conflict"]},
+        "runtime_evidence_absence_status": {"type": "string", "enum": ["not_collected", "not_applicable", "missing_required", "missing_for_control_claim"]},
         "runtime_evidence_classes": {"type": "array", "items": {"type": "string"}},
         "runtime_evidence_refs": {"type": "array", "items": {"type": "string"}},
         "gait_coverage": {"$ref": "#/$defs/gaitCoverage"},
@@ -330,6 +332,7 @@
       "properties": {
         "scan_quality_version": {"type": "string"},
         "mode": {"type": "string", "enum": ["quick", "governance", "deep"]},
+        "compact_summary": {"$ref": "#/$defs/compactCoverageSummary"},
         "detectors": {
           "type": "array",
           "items": {"$ref": "#/$defs/detectorHealth"}
@@ -350,6 +353,20 @@
           "type": "array",
           "items": {"$ref": "#/$defs/absenceClaim"}
         }
+      },
+      "additionalProperties": false
+    },
+    "compactCoverageSummary": {
+      "type": "object",
+      "required": ["coverage_confidence"],
+      "properties": {
+        "coverage_confidence": {"type": "string", "enum": ["complete", "reduced", "unknown"]},
+        "reduced_detector_count": {"type": "integer"},
+        "parse_failure_count": {"type": "integer"},
+        "suppressed_generated_file_count": {"type": "integer"},
+        "blocked_detector_count": {"type": "integer"},
+        "unsupported_declaration_count": {"type": "integer"},
+        "impact_statement": {"type": "string"}
       },
       "additionalProperties": false
     },

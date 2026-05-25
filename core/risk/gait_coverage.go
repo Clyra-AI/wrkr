@@ -8,6 +8,11 @@ const (
 	GaitStatusStale         = "stale"
 	GaitStatusConflict      = "conflict"
 	GaitStatusNotApplicable = "not_applicable"
+
+	RuntimeEvidenceAbsenceNotCollected    = "not_collected"
+	RuntimeEvidenceAbsenceNotApplicable   = "not_applicable"
+	RuntimeEvidenceAbsenceMissingRequired = "missing_required"
+	RuntimeEvidenceAbsenceMissingForClaim = "missing_for_control_claim"
 )
 
 type GaitCoverageDetail struct {
@@ -41,6 +46,18 @@ func MergeGaitCoverage(current, incoming *GaitCoverage) *GaitCoverage {
 		KillSwitch:        mergeGaitCoverageDetail(current.KillSwitch, incoming.KillSwitch),
 		ActionOutcome:     mergeGaitCoverageDetail(current.ActionOutcome, incoming.ActionOutcome),
 		ProofVerification: mergeGaitCoverageDetail(current.ProofVerification, incoming.ProofVerification),
+	}
+}
+
+func ValidRuntimeEvidenceAbsenceStatus(value string) bool {
+	switch strings.TrimSpace(value) {
+	case RuntimeEvidenceAbsenceNotCollected,
+		RuntimeEvidenceAbsenceNotApplicable,
+		RuntimeEvidenceAbsenceMissingRequired,
+		RuntimeEvidenceAbsenceMissingForClaim:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -93,5 +110,81 @@ func gaitStatusRank(value string) int {
 		return 4
 	default:
 		return 5
+	}
+}
+
+func RuntimeEvidenceAbsenceStatus(path ActionPath) string {
+	if path.GaitCoverage == nil {
+		return ""
+	}
+	status := ""
+	allNotApplicable := true
+	for _, detail := range []GaitCoverageDetail{
+		path.GaitCoverage.PolicyDecision,
+		path.GaitCoverage.Approval,
+		path.GaitCoverage.JITCredential,
+		path.GaitCoverage.FreezeWindow,
+		path.GaitCoverage.KillSwitch,
+		path.GaitCoverage.ActionOutcome,
+		path.GaitCoverage.ProofVerification,
+	} {
+		if strings.TrimSpace(detail.Status) != GaitStatusNotApplicable {
+			allNotApplicable = false
+		}
+		for _, reason := range detail.Reasons {
+			const prefix = "runtime_absence_status:"
+			if !strings.HasPrefix(strings.TrimSpace(reason), prefix) {
+				continue
+			}
+			candidate := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(reason), prefix))
+			if !ValidRuntimeEvidenceAbsenceStatus(candidate) {
+				continue
+			}
+			if status == "" || runtimeEvidenceAbsenceRank(candidate) < runtimeEvidenceAbsenceRank(status) {
+				status = candidate
+			}
+		}
+	}
+	if status != "" {
+		return status
+	}
+	if allNotApplicable {
+		return RuntimeEvidenceAbsenceNotApplicable
+	}
+	return ""
+}
+
+func GaitCoverageHasStatus(coverage *GaitCoverage, want string) bool {
+	if coverage == nil {
+		return false
+	}
+	for _, detail := range []GaitCoverageDetail{
+		coverage.PolicyDecision,
+		coverage.Approval,
+		coverage.JITCredential,
+		coverage.FreezeWindow,
+		coverage.KillSwitch,
+		coverage.ActionOutcome,
+		coverage.ProofVerification,
+	} {
+		if strings.TrimSpace(detail.Status) == strings.TrimSpace(want) {
+			return true
+		}
+	}
+	return false
+}
+
+func runtimeEvidenceAbsenceRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case RuntimeEvidenceAbsenceMissingForClaim:
+		return 0
+	case RuntimeEvidenceAbsenceMissingRequired:
+		return 1
+	case RuntimeEvidenceAbsenceNotCollected:
+		return 2
+	case RuntimeEvidenceAbsenceNotApplicable:
+		return 3
+	default:
+		return 4
 	}
 }
