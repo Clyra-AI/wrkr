@@ -127,7 +127,7 @@ func TestScenarioContracts(t *testing.T) {
 		t.Fatalf("parse coverage map: %v", err)
 	}
 
-	requiredMappings := []string{"FR11", "FR12", "FR13", "FR14", "FR15", "AC10", "AC11", "AC15", "AC18", "AC19", "AC20", "AC21", "AC22", "AC23", "AC24", "AC25", "AC26", "AC27", "FO14-duplicate", "FO14-mixed-governance", "FO14-noise-pack", "FO15-usefulness"}
+	requiredMappings := []string{"FR11", "FR12", "FR13", "FR14", "FR15", "AC10", "AC11", "AC15", "AC18", "AC19", "AC20", "AC21", "AC22", "AC23", "AC24", "AC25", "AC26", "AC27", "FO14-duplicate", "FO14-mixed-governance", "FO14-noise-pack", "FO15-usefulness", "W5-overclaim-qa"}
 	testSymbols := scenarioTestSymbols(t, repoRoot)
 	for _, key := range requiredMappings {
 		mapped, ok := coverage[key]

@@ -18,6 +18,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 - Static non-human execution identity signals for GitHub Apps, bot users, and service-account references from workflow/config artifacts.
 - Deterministic purpose, version, and config-fingerprint metadata for supported workflow, MCP, and agent-config surfaces when local files, static declaration evidence, or explicit `wrkr:purpose` annotations are available.
 - Deterministic confidence lanes that separate confirmed action paths, likely paths, semantic review candidates, and context-only evidence in buyer-facing output.
+- agent-specific buyer wording only when `action_path_type` is actually agentic; plain-source, CI/CD, and broader workflow-backed paths stay labeled as action paths.
 - Coverage-qualified negative-claim posture for MCP surfaces so complete coverage, reduced coverage, unsupported declarations, parse-failed candidates, and unscanned repos do not collapse into the same absence wording.
 - Compact buyer-facing coverage summaries that lead with confidence, reduced-detector, parse-failure, suppressed-generated-file, blocked-detector, and unsupported-declaration counts while keeping detector-level rows in appendix and evidence JSON.
 - Normalized credential-authority posture that distinguishes credential presence, workflow reference, path usability, access type, standing access, likely JIT, rotation evidence status, and source without exposing raw secret values.

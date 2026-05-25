@@ -8,6 +8,15 @@ Security/platform-led. Developer hygiene included. Deterministic by default.
 
 Docs: [clyra-ai.github.io/wrkr](https://clyra-ai.github.io/wrkr/) | Command reference: [`docs/commands/`](docs/commands/) | Examples: [`docs/examples/`](docs/examples/)
 
+## Evidence-State Reporting
+
+Wrkr reports control posture as evidence states, not as blanket absence claims about a customer's enterprise controls.
+
+- The control resolution model is carried by `control_resolution_state`, which distinguishes `detected_control`, `declared_control`, `external_control_reference`, `no_visible_control`, `not_applicable`, and `contradictory_control`.
+- Canonical `*_evidence_state` fields distinguish `verified`, `declared`, `inferred`, `unknown`, and `contradictory` evidence instead of overloading older `missing_*` compatibility aliases.
+- `target_class` and `action_path_type` keep production-adjacent, internal-tooling, CI/CD, plain-source, AI-assisted, and agent-framework paths separate so buyer-facing output only uses agent wording when the path is actually agentic.
+- coverage-qualified absence and runtime absence fields such as `not_found_with_complete_coverage`, `not_found_with_reduced_coverage`, `not_collected`, and `missing_required` keep static-only scans from overclaiming missing runtime controls or unsupported negative findings.
+
 ## Install
 
 ### Homebrew

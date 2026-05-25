@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added canonical control resolution and evidence confidence fields for action paths, reports, backlog items, and v1 schemas so control gaps are evidence-scoped instead of inferred from local absence.
 - [semver:minor] Added target classification for action paths so reports distinguish production-impacting, release-adjacent, customer-data-adjacent, internal tooling, developer productivity, test/demo/sandbox, and unknown targets.
 - [semver:minor] Added action path type classification so reports distinguish AI-assisted workflows, agent frameworks, automation bots, CI/CD workflows, legacy scripts, plain source code, and unknown executable paths.
+- [semver:patch] Added report QA coverage that blocks unsupported overclaiming and prevents non-agent action paths from being labeled as agents in generated buyer artifacts.
 
 ### Changed
 
@@ -19,6 +20,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Changed MCP absence reporting to use coverage-qualified statuses so reduced coverage, unsupported declarations, parse-failed candidates, and unscanned repos do not render as absolute missing-server claims.
 - [semver:patch] Changed buyer-facing reports and Agent Action BOM summaries to lead with compact scan coverage summaries while preserving detector-level scan-quality details in appendix and evidence JSON.
 - [semver:minor] Changed runtime evidence reporting so static-only scans render runtime evidence as not collected or not applicable unless runtime evidence is required or needed for a control claim.
+- Updated command, trust, and schema documentation for evidence-state control resolution, target classification, action path type classification, coverage-qualified absence, runtime evidence framing, and report QA guardrails.
 
 ### Deprecated
 

@@ -58,6 +58,8 @@ When `rows[]` is empty, Wrkr now qualifies absence claims instead of always sayi
 - `unsupported_surface`: only unsupported MCP-style surfaces were encountered.
 - `candidate_parse_failed`: at least one MCP candidate surface failed to parse.
 
+Only `not_found_with_complete_coverage` supports the strongest “no authoritative servers found” wording. Reduced, unsupported, or parse-failed coverage keeps the absence claim explicitly qualified so the output stays evidence-bounded.
+
 ## Trust overlay contract
 
 - `--gait-trust <path>` points to an optional local-only YAML overlay with per-server trust states.

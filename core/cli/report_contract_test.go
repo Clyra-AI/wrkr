@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/ingest"
+	reportcore "github.com/Clyra-AI/wrkr/core/report"
 )
 
 func TestReportPDFDeterministicForFixedState(t *testing.T) {
@@ -905,6 +906,96 @@ func TestReportEvidenceJSONIncludesActionSurfaceRegistry(t *testing.T) {
 	evidenceRegistry, ok := evidencePayload["action_surface_registry"].([]any)
 	if !ok || len(evidenceRegistry) != 1 {
 		t.Fatalf("expected evidence action_surface_registry entry, got %v", evidencePayload["action_surface_registry"])
+	}
+}
+
+func TestReportContractBuyerArtifactsPassQAInternalAndRedacted(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	writeJSONFile(t, statePath, map[string]any{
+		"version": "v1",
+		"risk_report": map[string]any{
+			"generated_at":    "2026-05-25T12:00:00Z",
+			"top_findings":    []any{},
+			"ranked_findings": []any{},
+			"action_paths": []any{
+				map[string]any{
+					"path_id":                   "apc-plain-source",
+					"org":                       "acme",
+					"repo":                      "acme/payments",
+					"tool_type":                 "openapi",
+					"location":                  "openapi/payments.yaml",
+					"write_capable":             true,
+					"risk_score":                8.9,
+					"recommended_action":        "control",
+					"confidence_lane":           "confirmed_action_path",
+					"action_path_type":          "plain_source_code",
+					"target_class":              "customer_data_adjacent",
+					"control_state":             "evidence_required",
+					"risk_zone":                 "production_data",
+					"review_burden":             "high",
+					"control_priority":          "control_first",
+					"risk_tier":                 "high",
+					"control_resolution_state":  "external_control_reference",
+					"approval_evidence_state":   "declared",
+					"owner_evidence_state":      "verified",
+					"proof_evidence_state":      "unknown",
+					"runtime_evidence_state":    "unknown",
+					"target_evidence_state":     "verified",
+					"credential_evidence_state": "unknown",
+					"remediation":               "Review the declared mutable endpoint scope, tighten approval evidence for the exact action path, and rescan.",
+				},
+			},
+		},
+	})
+
+	for _, tc := range []struct {
+		name         string
+		shareProfile string
+	}{
+		{name: "internal", shareProfile: "internal"},
+		{name: "customer-redacted", shareProfile: "customer-redacted"},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			var errOut bytes.Buffer
+			mdPath := filepath.Join(tmp, tc.name+"-report.md")
+			csvPath := filepath.Join(tmp, tc.name+"-backlog.csv")
+			code := Run([]string{
+				"report",
+				"--state", statePath,
+				"--template", "agent-action-bom",
+				"--share-profile", tc.shareProfile,
+				"--md", "--md-path", mdPath,
+				"--csv-backlog", "--csv-backlog-path", csvPath,
+				"--json",
+			}, &out, &errOut)
+			if code != 0 {
+				t.Fatalf("report failed: %d %s", code, errOut.String())
+			}
+
+			markdown, err := os.ReadFile(mdPath)
+			if err != nil {
+				t.Fatalf("read markdown artifact: %v", err)
+			}
+			backlogCSV, err := os.ReadFile(csvPath)
+			if err != nil {
+				t.Fatalf("read backlog artifact: %v", err)
+			}
+			if err := reportcore.ValidateBuyerArtifactTexts(reportcore.BuyerArtifactQAInput{
+				ActionPathTypes: []string{"plain_source_code"},
+				Texts: map[string]string{
+					tc.name + "_json":     out.String(),
+					tc.name + "_markdown": string(markdown),
+					tc.name + "_backlog":  string(backlogCSV),
+				},
+			}); err != nil {
+				t.Fatalf("expected %s artifacts to pass buyer QA: %v", tc.name, err)
+			}
+		})
 	}
 }
 
