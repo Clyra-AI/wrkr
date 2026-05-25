@@ -102,6 +102,8 @@ type Item struct {
 	ControlResolutionState     string                                  `json:"control_resolution_state,omitempty"`
 	ControlResolutionReasons   []string                                `json:"control_resolution_reasons,omitempty"`
 	ControlEvidenceRefs        []string                                `json:"control_evidence_refs,omitempty"`
+	ConstraintEvidenceClasses  []string                                `json:"constraint_evidence_classes,omitempty"`
+	ConstraintEvidenceRefs     []string                                `json:"constraint_evidence_refs,omitempty"`
 	ApprovalEvidenceState      string                                  `json:"approval_evidence_state,omitempty"`
 	OwnerEvidenceState         string                                  `json:"owner_evidence_state,omitempty"`
 	ProofEvidenceState         string                                  `json:"proof_evidence_state,omitempty"`
@@ -312,6 +314,8 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		ControlResolutionState:     strings.TrimSpace(path.ControlResolutionState),
 		ControlResolutionReasons:   append([]string(nil), path.ControlResolutionReasons...),
 		ControlEvidenceRefs:        append([]string(nil), path.ControlEvidenceRefs...),
+		ConstraintEvidenceClasses:  append([]string(nil), path.ConstraintEvidenceClasses...),
+		ConstraintEvidenceRefs:     append([]string(nil), path.ConstraintEvidenceRefs...),
 		ApprovalEvidenceState:      strings.TrimSpace(path.ApprovalEvidenceState),
 		OwnerEvidenceState:         strings.TrimSpace(path.OwnerEvidenceState),
 		ProofEvidenceState:         strings.TrimSpace(path.ProofEvidenceState),
@@ -492,6 +496,8 @@ func (b *builder) merge(item Item) {
 	current.ControlResolutionState = firstNonEmptyString(current.ControlResolutionState, item.ControlResolutionState)
 	current.ControlResolutionReasons = mergeStrings(current.ControlResolutionReasons, item.ControlResolutionReasons)
 	current.ControlEvidenceRefs = mergeStrings(current.ControlEvidenceRefs, item.ControlEvidenceRefs)
+	current.ConstraintEvidenceClasses = mergeStrings(current.ConstraintEvidenceClasses, item.ConstraintEvidenceClasses)
+	current.ConstraintEvidenceRefs = mergeStrings(current.ConstraintEvidenceRefs, item.ConstraintEvidenceRefs)
 	current.ApprovalEvidenceState = firstNonEmptyString(current.ApprovalEvidenceState, item.ApprovalEvidenceState)
 	current.OwnerEvidenceState = firstNonEmptyString(current.OwnerEvidenceState, item.OwnerEvidenceState)
 	current.ProofEvidenceState = firstNonEmptyString(current.ProofEvidenceState, item.ProofEvidenceState)

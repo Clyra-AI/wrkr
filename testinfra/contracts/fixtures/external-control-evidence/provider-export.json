@@ -1,0 +1,20 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-05-25T17:30:30Z",
+  "records": [
+    {
+      "record_kind": "external_control",
+      "source_type": "provider_export",
+      "source": "github_branch_protection_export",
+      "issuer": "github",
+      "repo": "acme/payments",
+      "workflow": ".github/workflows/release.yml",
+      "environment": "production",
+      "observed_at": "2026-05-25T17:00:00Z",
+      "evidence_class": "branch_protection",
+      "evidence_refs": ["evidence://fake/provider-export.json#branch/main"],
+      "required_checks": ["fast-lane", "scan-contract"],
+      "branch": "main"
+    }
+  ]
+}

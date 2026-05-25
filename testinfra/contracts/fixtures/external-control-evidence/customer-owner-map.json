@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-05-25T17:30:30Z",
+  "records": [
+    {
+      "record_kind": "external_control",
+      "source_type": "customer_owner_map",
+      "source": "customer_owner_map",
+      "repo": "acme/payments",
+      "path": ".github/workflows/release.yml",
+      "observed_at": "2026-05-25T17:00:00Z",
+      "evidence_class": "owner_assignment",
+      "owner": "@acme/platform",
+      "evidence_refs": ["evidence://fake/customer-owner-map.yaml#payments"]
+    }
+  ]
+}

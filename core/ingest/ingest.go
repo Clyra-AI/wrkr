@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
@@ -16,18 +17,28 @@ import (
 const SchemaVersion = "v1"
 
 const (
-	EvidenceClassPolicyDecision = "policy_decision"
-	EvidenceClassApproval       = "approval"
-	EvidenceClassJITCredential  = "jit_credential" // #nosec G101 -- Deterministic runtime evidence label, not credential material.
-	EvidenceClassFreezeWindow   = "freeze_window"
-	EvidenceClassKillSwitch     = "kill_switch"
-	EvidenceClassActionOutcome  = "action_outcome"
-	EvidenceClassProofVerify    = "proof_verification"
-	EvidenceClassOther          = "other"
-	CorrelationStatusMatched    = "matched"
-	CorrelationStatusUnmatched  = "unmatched"
-	CorrelationStatusStale      = "stale"
-	CorrelationStatusConflict   = "conflict"
+	RecordKindRuntime         = "runtime"
+	RecordKindExternalControl = "external_control"
+
+	EvidenceClassPolicyDecision       = "policy_decision"
+	EvidenceClassApproval             = "approval"
+	EvidenceClassJITCredential        = "jit_credential" // #nosec G101 -- Deterministic runtime evidence label, not credential material.
+	EvidenceClassFreezeWindow         = "freeze_window"
+	EvidenceClassKillSwitch           = "kill_switch"
+	EvidenceClassActionOutcome        = "action_outcome"
+	EvidenceClassProofVerify          = "proof_verification"
+	EvidenceClassOwnerAssignment      = "owner_assignment"
+	EvidenceClassPolicyRecord         = "policy_record"
+	EvidenceClassBranchProtection     = "branch_protection"
+	EvidenceClassProtectedEnvironment = "protected_environment"
+	EvidenceClassDeploymentApproval   = "deployment_approval"
+	EvidenceClassRequiredCheck        = "required_check"
+	EvidenceClassSecurityGate         = "security_gate"
+	EvidenceClassOther                = "other"
+	CorrelationStatusMatched          = "matched"
+	CorrelationStatusUnmatched        = "unmatched"
+	CorrelationStatusStale            = "stale"
+	CorrelationStatusConflict         = "conflict"
 )
 
 type Bundle struct {
@@ -37,30 +48,51 @@ type Bundle struct {
 }
 
 type Record struct {
-	RecordID      string   `json:"record_id"`
-	PathID        string   `json:"path_id,omitempty"`
-	AgentID       string   `json:"agent_id,omitempty"`
-	Tool          string   `json:"tool,omitempty"`
-	Repo          string   `json:"repo,omitempty"`
-	Location      string   `json:"location,omitempty"`
-	Target        string   `json:"target,omitempty"`
-	ActionClasses []string `json:"action_classes,omitempty"`
-	PolicyRef     string   `json:"policy_ref,omitempty"`
-	ProofRef      string   `json:"proof_ref,omitempty"`
-	GraphNodeRefs []string `json:"graph_node_refs,omitempty"`
-	GraphEdgeRefs []string `json:"graph_edge_refs,omitempty"`
-	Source        string   `json:"source"`
-	ObservedAt    string   `json:"observed_at"`
-	EvidenceClass string   `json:"evidence_class"`
-	Status        string   `json:"status,omitempty"`
-	EvidenceRefs  []string `json:"evidence_refs,omitempty"`
+	RecordKind          string   `json:"record_kind,omitempty"`
+	SourceType          string   `json:"source_type,omitempty"`
+	SourcePrecedenceKey string   `json:"source_precedence_key,omitempty"`
+	RecordID            string   `json:"record_id"`
+	PathID              string   `json:"path_id,omitempty"`
+	AgentID             string   `json:"agent_id,omitempty"`
+	Tool                string   `json:"tool,omitempty"`
+	Repo                string   `json:"repo,omitempty"`
+	Service             string   `json:"service,omitempty"`
+	Workflow            string   `json:"workflow,omitempty"`
+	Environment         string   `json:"environment,omitempty"`
+	Path                string   `json:"path,omitempty"`
+	Location            string   `json:"location,omitempty"`
+	Target              string   `json:"target,omitempty"`
+	ActionClasses       []string `json:"action_classes,omitempty"`
+	PolicyRef           string   `json:"policy_ref,omitempty"`
+	ProofRef            string   `json:"proof_ref,omitempty"`
+	GraphNodeRefs       []string `json:"graph_node_refs,omitempty"`
+	GraphEdgeRefs       []string `json:"graph_edge_refs,omitempty"`
+	Source              string   `json:"source"`
+	Issuer              string   `json:"issuer,omitempty"`
+	ObservedAt          string   `json:"observed_at"`
+	ValidUntil          string   `json:"valid_until,omitempty"`
+	MaxAge              string   `json:"max_age,omitempty"`
+	Confidence          string   `json:"confidence,omitempty"`
+	RedactionHints      []string `json:"redaction_hints,omitempty"`
+	EvidenceClass       string   `json:"evidence_class"`
+	Status              string   `json:"status,omitempty"`
+	EvidenceRefs        []string `json:"evidence_refs,omitempty"`
+	Owner               string   `json:"owner,omitempty"`
+	RequiredChecks      []string `json:"required_checks,omitempty"`
+	Branch              string   `json:"branch,omitempty"`
 }
 
 type Correlation struct {
 	PathID           string   `json:"path_id"`
 	AgentID          string   `json:"agent_id,omitempty"`
+	RecordKinds      []string `json:"record_kinds,omitempty"`
+	SourceTypes      []string `json:"source_types,omitempty"`
 	Tool             string   `json:"tool,omitempty"`
 	Repo             string   `json:"repo,omitempty"`
+	Service          string   `json:"service,omitempty"`
+	Workflow         string   `json:"workflow,omitempty"`
+	Environment      string   `json:"environment,omitempty"`
+	Path             string   `json:"path,omitempty"`
 	Location         string   `json:"location,omitempty"`
 	Target           string   `json:"target,omitempty"`
 	Status           string   `json:"status"`
@@ -72,15 +104,20 @@ type Correlation struct {
 	GraphNodeRefs    []string `json:"graph_node_refs,omitempty"`
 	GraphEdgeRefs    []string `json:"graph_edge_refs,omitempty"`
 	RecordIDs        []string `json:"record_ids,omitempty"`
+	RequiredChecks   []string `json:"required_checks,omitempty"`
+	Owners           []string `json:"owners,omitempty"`
+	UnmatchedReasons []string `json:"unmatched_reasons,omitempty"`
 	LatestObservedAt string   `json:"latest_observed_at,omitempty"`
 }
 
 type Summary struct {
-	ArtifactPath     string        `json:"artifact_path,omitempty"`
-	TotalRecords     int           `json:"total_records"`
-	MatchedRecords   int           `json:"matched_records"`
-	UnmatchedRecords int           `json:"unmatched_records"`
-	Correlations     []Correlation `json:"correlations,omitempty"`
+	ArtifactPath           string        `json:"artifact_path,omitempty"`
+	TotalRecords           int           `json:"total_records"`
+	RuntimeRecords         int           `json:"runtime_records,omitempty"`
+	ExternalControlRecords int           `json:"external_control_records,omitempty"`
+	MatchedRecords         int           `json:"matched_records"`
+	UnmatchedRecords       int           `json:"unmatched_records"`
+	Correlations           []Correlation `json:"correlations,omitempty"`
 }
 
 func DefaultPath(statePath string) string {
@@ -150,6 +187,9 @@ func Normalize(bundle Bundle) (Bundle, error) {
 		records = append(records, normalized)
 	}
 	sort.Slice(records, func(i, j int) bool {
+		if sourcePrecedenceSortKey(records[i]) != sourcePrecedenceSortKey(records[j]) {
+			return sourcePrecedenceSortKey(records[i]) < sourcePrecedenceSortKey(records[j])
+		}
 		if records[i].PathID != records[j].PathID {
 			return records[i].PathID < records[j].PathID
 		}
@@ -158,6 +198,18 @@ func Normalize(bundle Bundle) (Bundle, error) {
 		}
 		if records[i].Repo != records[j].Repo {
 			return records[i].Repo < records[j].Repo
+		}
+		if records[i].Service != records[j].Service {
+			return records[i].Service < records[j].Service
+		}
+		if records[i].Workflow != records[j].Workflow {
+			return records[i].Workflow < records[j].Workflow
+		}
+		if records[i].Environment != records[j].Environment {
+			return records[i].Environment < records[j].Environment
+		}
+		if records[i].Path != records[j].Path {
+			return records[i].Path < records[j].Path
 		}
 		if records[i].Location != records[j].Location {
 			return records[i].Location < records[j].Location
@@ -175,6 +227,9 @@ func Normalize(bundle Bundle) (Bundle, error) {
 }
 
 func Correlate(snapshot state.Snapshot, artifactPath string, bundle Bundle) Summary {
+	if normalized, err := Normalize(bundle); err == nil {
+		bundle = normalized
+	}
 	if len(bundle.Records) == 0 {
 		return Summary{ArtifactPath: artifactPath}
 	}
@@ -182,7 +237,14 @@ func Correlate(snapshot state.Snapshot, artifactPath string, bundle Bundle) Summ
 
 	byPath := map[string]*Correlation{}
 	matched := 0
+	runtimeRecords := 0
+	externalControlRecords := 0
 	for _, record := range bundle.Records {
+		if normalizeRecordKind(record.RecordKind, record) == RecordKindExternalControl {
+			externalControlRecords++
+		} else {
+			runtimeRecords++
+		}
 		matchPathID, matchedPath := index.match(record)
 		key := strings.TrimSpace(matchPathID)
 		if key == "" {
@@ -191,15 +253,21 @@ func Correlate(snapshot state.Snapshot, artifactPath string, bundle Bundle) Summ
 		item := byPath[key]
 		if item == nil {
 			item = &Correlation{
-				PathID:   firstNonEmpty(matchPathID, record.PathID, fallbackCorrelationKey(record)),
-				AgentID:  firstNonEmpty(record.AgentID, matchedPath.AgentID),
-				Tool:     firstNonEmpty(record.Tool, matchedPath.ToolType),
-				Repo:     firstNonEmpty(record.Repo, matchedPath.Repo),
-				Location: firstNonEmpty(record.Location, matchedPath.Location),
-				Target:   firstNonEmpty(record.Target, firstPathTarget(matchedPath)),
+				PathID:      firstNonEmpty(matchPathID, record.PathID, fallbackCorrelationKey(record)),
+				AgentID:     firstNonEmpty(record.AgentID, matchedPath.AgentID),
+				Workflow:    firstNonEmpty(record.Workflow, matchedPath.Workflow, record.Path, record.Location),
+				Environment: firstNonEmpty(record.Environment, firstPathEnvironment(matchedPath)),
+				Tool:        firstNonEmpty(record.Tool, matchedPath.ToolType),
+				Repo:        firstNonEmpty(record.Repo, matchedPath.Repo),
+				Service:     firstNonEmpty(record.Service, firstPathService(matchedPath)),
+				Path:        firstNonEmpty(record.Path, matchedPath.Location, record.Workflow, record.Location),
+				Location:    firstNonEmpty(record.Location, matchedPath.Location),
+				Target:      firstNonEmpty(record.Target, firstPathTarget(matchedPath)),
 			}
 			byPath[key] = item
 		}
+		item.RecordKinds = mergeStrings(append(append([]string(nil), item.RecordKinds...), record.RecordKind)...)
+		item.SourceTypes = mergeStrings(append(append([]string(nil), item.SourceTypes...), record.SourceType)...)
 		item.EvidenceClasses = mergeStrings(append(append([]string(nil), item.EvidenceClasses...), record.EvidenceClass)...)
 		item.ActionClasses = mergeStrings(append(append([]string(nil), item.ActionClasses...), record.ActionClasses...)...)
 		item.Sources = mergeStrings(append(append([]string(nil), item.Sources...), record.Source)...)
@@ -208,11 +276,16 @@ func Correlate(snapshot state.Snapshot, artifactPath string, bundle Bundle) Summ
 		item.GraphNodeRefs = mergeStrings(append(append([]string(nil), item.GraphNodeRefs...), record.GraphNodeRefs...)...)
 		item.GraphEdgeRefs = mergeStrings(append(append([]string(nil), item.GraphEdgeRefs...), record.GraphEdgeRefs...)...)
 		item.RecordIDs = mergeStrings(append(append([]string(nil), item.RecordIDs...), record.RecordID)...)
+		item.RequiredChecks = mergeStrings(append(append([]string(nil), item.RequiredChecks...), record.RequiredChecks...)...)
+		item.Owners = mergeStrings(append(append([]string(nil), item.Owners...), record.Owner)...)
 		if item.LatestObservedAt == "" || strings.TrimSpace(record.ObservedAt) > item.LatestObservedAt {
 			item.LatestObservedAt = strings.TrimSpace(record.ObservedAt)
 		}
 		status := correlationStatusForRecord(record, matchPathID != "")
 		item.Status = mergeCorrelationStatus(item.Status, status)
+		if status == CorrelationStatusUnmatched {
+			item.UnmatchedReasons = mergeStrings(append(append([]string(nil), item.UnmatchedReasons...), unmatchedReasonsForRecord(record)...)...)
+		}
 		if status == CorrelationStatusMatched {
 			matched++
 		}
@@ -233,20 +306,31 @@ func Correlate(snapshot state.Snapshot, artifactPath string, bundle Bundle) Summ
 	})
 
 	return Summary{
-		ArtifactPath:     artifactPath,
-		TotalRecords:     len(bundle.Records),
-		MatchedRecords:   matched,
-		UnmatchedRecords: len(bundle.Records) - matched,
-		Correlations:     correlations,
+		ArtifactPath:           artifactPath,
+		TotalRecords:           len(bundle.Records),
+		RuntimeRecords:         runtimeRecords,
+		ExternalControlRecords: externalControlRecords,
+		MatchedRecords:         matched,
+		UnmatchedRecords:       len(bundle.Records) - matched,
+		Correlations:           correlations,
 	}
 }
 
 func normalizeRecord(record Record) (Record, error) {
+	record.RecordKind = normalizeRecordKind(record.RecordKind, record)
+	record.SourceType = normalizeSourceType(record.SourceType)
 	record.PathID = strings.TrimSpace(record.PathID)
 	record.AgentID = strings.TrimSpace(record.AgentID)
 	record.Tool = strings.TrimSpace(record.Tool)
 	record.Repo = strings.TrimSpace(record.Repo)
-	record.Location = strings.TrimSpace(record.Location)
+	record.Service = strings.TrimSpace(record.Service)
+	record.Workflow = filepath.ToSlash(strings.TrimSpace(record.Workflow))
+	record.Environment = strings.TrimSpace(record.Environment)
+	record.Path = filepath.ToSlash(strings.TrimSpace(record.Path))
+	record.Location = filepath.ToSlash(strings.TrimSpace(record.Location))
+	if record.Location == "" {
+		record.Location = firstNonEmpty(record.Path, record.Workflow)
+	}
 	record.Target = strings.TrimSpace(record.Target)
 	record.ActionClasses = mergeStrings(record.ActionClasses...)
 	record.PolicyRef = strings.TrimSpace(record.PolicyRef)
@@ -254,28 +338,70 @@ func normalizeRecord(record Record) (Record, error) {
 	record.GraphNodeRefs = mergeStrings(record.GraphNodeRefs...)
 	record.GraphEdgeRefs = mergeStrings(record.GraphEdgeRefs...)
 	record.Source = strings.TrimSpace(record.Source)
+	record.Issuer = strings.TrimSpace(record.Issuer)
 	record.ObservedAt = strings.TrimSpace(record.ObservedAt)
+	record.ValidUntil = strings.TrimSpace(record.ValidUntil)
+	record.MaxAge = strings.TrimSpace(record.MaxAge)
+	record.Confidence = strings.TrimSpace(record.Confidence)
+	record.RedactionHints = mergeStrings(record.RedactionHints...)
 	record.EvidenceClass = normalizeEvidenceClass(record.EvidenceClass)
 	record.Status = normalizeRecordStatus(record.Status)
 	record.EvidenceRefs = mergeStrings(record.EvidenceRefs...)
-	label := firstNonEmpty(record.PathID, record.AgentID, record.Repo, record.PolicyRef, record.ProofRef, record.Source)
+	record.Owner = normalizeOwnerValue(record.Owner)
+	record.RequiredChecks = mergeStrings(record.RequiredChecks...)
+	record.Branch = strings.TrimSpace(record.Branch)
+	record.SourcePrecedenceKey = sourcePrecedenceSortKey(record)
+	label := firstNonEmpty(record.PathID, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source)
 	if record.Source == "" {
 		return Record{}, fmt.Errorf("runtime evidence record source is required for %s", fallbackRecordLabel(label))
+	}
+	if record.RecordKind == RecordKindExternalControl && record.SourceType == "" {
+		return Record{}, fmt.Errorf("external control evidence record source_type is required for %s", fallbackRecordLabel(label))
 	}
 	if record.ObservedAt == "" {
 		return Record{}, fmt.Errorf("runtime evidence record observed_at is required for %s", fallbackRecordLabel(label))
 	}
-	if _, err := time.Parse(time.RFC3339, record.ObservedAt); err != nil {
+	observedAt, err := time.Parse(time.RFC3339, record.ObservedAt)
+	if err != nil {
 		return Record{}, fmt.Errorf("runtime evidence record observed_at must be RFC3339 for %s", fallbackRecordLabel(label))
+	}
+	if record.ValidUntil != "" {
+		validUntil, err := time.Parse(time.RFC3339, record.ValidUntil)
+		if err != nil {
+			return Record{}, fmt.Errorf("external control evidence record valid_until must be RFC3339 for %s", fallbackRecordLabel(label))
+		}
+		if validUntil.Before(observedAt) {
+			return Record{}, fmt.Errorf("external control evidence record valid_until must not precede observed_at for %s", fallbackRecordLabel(label))
+		}
+	}
+	if record.MaxAge != "" {
+		if _, err := time.ParseDuration(record.MaxAge); err != nil {
+			return Record{}, fmt.Errorf("external control evidence record max_age must be a valid duration for %s", fallbackRecordLabel(label))
+		}
 	}
 	if record.EvidenceClass == "" {
 		return Record{}, fmt.Errorf("runtime evidence record evidence_class is required for %s", fallbackRecordLabel(label))
 	}
 	if !recordHasCorrelationKey(record) {
-		return Record{}, fmt.Errorf("runtime evidence record requires at least one correlation key (path_id, agent_id, repo+location, policy_ref, proof_ref, target, or graph refs)")
+		return Record{}, fmt.Errorf("runtime evidence record requires at least one correlation key (path_id, agent_id, repo+location, repo+workflow, repo+environment, service, policy_ref, proof_ref, target, or graph refs)")
+	}
+	if record.RecordKind == RecordKindExternalControl {
+		if err := rejectSecretLikeValues(record); err != nil {
+			return Record{}, err
+		}
 	}
 	if record.RecordID == "" {
-		record.RecordID = firstNonEmpty(record.PathID, record.AgentID, record.Repo, record.PolicyRef, record.ProofRef, record.Source) + ":" + record.EvidenceClass + ":" + record.ObservedAt
+		if record.RecordKind == RecordKindExternalControl {
+			record.RecordID = strings.Join([]string{
+				record.RecordKind,
+				record.SourcePrecedenceKey,
+				firstNonEmpty(record.PathID, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source),
+				record.EvidenceClass,
+				record.ObservedAt,
+			}, ":")
+		} else {
+			record.RecordID = firstNonEmpty(record.PathID, record.AgentID, record.Repo, record.PolicyRef, record.ProofRef, record.Source) + ":" + record.EvidenceClass + ":" + record.ObservedAt
+		}
 	}
 	return record, nil
 }
@@ -284,6 +410,8 @@ type pathMatchIndex struct {
 	byPathID       map[string]statePathMatch
 	byAgentID      map[string][]statePathMatch
 	byRepoLocation map[string][]statePathMatch
+	byEnvironment  map[string][]statePathMatch
+	byService      map[string][]statePathMatch
 	byPolicyRef    map[string][]statePathMatch
 	byGraphRef     map[string][]statePathMatch
 }
@@ -294,9 +422,16 @@ type statePathMatch struct {
 	ToolType                 string
 	Repo                     string
 	Location                 string
+	Workflow                 string
+	ServiceCandidates        []string
+	EnvironmentNames         []string
 	ActionClasses            []string
 	PolicyRefs               []string
 	MatchedProductionTargets []string
+}
+
+type workflowMetadata struct {
+	EnvironmentNames []string
 }
 
 func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
@@ -304,19 +439,26 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 		byPathID:       map[string]statePathMatch{},
 		byAgentID:      map[string][]statePathMatch{},
 		byRepoLocation: map[string][]statePathMatch{},
+		byEnvironment:  map[string][]statePathMatch{},
+		byService:      map[string][]statePathMatch{},
 		byPolicyRef:    map[string][]statePathMatch{},
 		byGraphRef:     map[string][]statePathMatch{},
 	}
 	if snapshot.RiskReport == nil {
 		return index
 	}
+	workflowByRepoLocation := buildWorkflowMetadataIndex(snapshot.Findings)
 	for _, path := range snapshot.RiskReport.ActionPaths {
+		workflowMeta := workflowByRepoLocation[repoLocationKey(path.Repo, path.Location)]
 		match := statePathMatch{
 			PathID:                   strings.TrimSpace(path.PathID),
 			AgentID:                  strings.TrimSpace(path.AgentID),
 			ToolType:                 strings.TrimSpace(path.ToolType),
 			Repo:                     strings.TrimSpace(path.Repo),
-			Location:                 strings.TrimSpace(path.Location),
+			Location:                 filepath.ToSlash(strings.TrimSpace(path.Location)),
+			Workflow:                 filepath.ToSlash(strings.TrimSpace(path.Location)),
+			ServiceCandidates:        serviceCandidatesForPath(path.Repo, path.Location),
+			EnvironmentNames:         mergeStrings(append(append([]string(nil), workflowMeta.EnvironmentNames...), path.MatchedProductionTargets...)...),
 			ActionClasses:            mergeStrings(path.ActionClasses...),
 			PolicyRefs:               mergeStrings(path.PolicyRefs...),
 			MatchedProductionTargets: mergeStrings(path.MatchedProductionTargets...),
@@ -330,6 +472,12 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 		}
 		if match.Repo != "" || match.Location != "" {
 			index.byRepoLocation[repoLocationKey(match.Repo, match.Location)] = append(index.byRepoLocation[repoLocationKey(match.Repo, match.Location)], match)
+		}
+		for _, environment := range match.EnvironmentNames {
+			index.byEnvironment[repoScopedKey(match.Repo, environment)] = append(index.byEnvironment[repoScopedKey(match.Repo, environment)], match)
+		}
+		for _, service := range match.ServiceCandidates {
+			index.byService[repoScopedKey(match.Repo, service)] = append(index.byService[repoScopedKey(match.Repo, service)], match)
 		}
 		for _, ref := range match.PolicyRefs {
 			index.byPolicyRef[ref] = append(index.byPolicyRef[ref], match)
@@ -371,6 +519,12 @@ func (index pathMatchIndex) match(record Record) (string, statePathMatch) {
 	if record.Repo != "" || record.Location != "" {
 		candidates = append(candidates, index.byRepoLocation[repoLocationKey(record.Repo, record.Location)]...)
 	}
+	if record.Repo != "" && record.Environment != "" {
+		candidates = append(candidates, index.byEnvironment[repoScopedKey(record.Repo, record.Environment)]...)
+	}
+	if record.Repo != "" && record.Service != "" {
+		candidates = append(candidates, index.byService[repoScopedKey(record.Repo, record.Service)]...)
+	}
 	if record.PolicyRef != "" {
 		candidates = append(candidates, index.byPolicyRef[record.PolicyRef]...)
 	}
@@ -406,6 +560,9 @@ func bestMatch(candidates []statePathMatch, record Record) (statePathMatch, bool
 		if record.Location != "" && record.Location == candidate.Location {
 			score += 4
 		}
+		if record.Workflow != "" && record.Workflow == candidate.Workflow {
+			score += 4
+		}
 		if record.Tool != "" && record.Tool == candidate.ToolType {
 			score += 2
 		}
@@ -413,6 +570,12 @@ func bestMatch(candidates []statePathMatch, record Record) (statePathMatch, bool
 			score += 3
 		}
 		if record.Target != "" && containsString(candidate.MatchedProductionTargets, record.Target) {
+			score += 2
+		}
+		if record.Environment != "" && containsString(candidate.EnvironmentNames, record.Environment) {
+			score += 3
+		}
+		if record.Service != "" && containsString(candidate.ServiceCandidates, record.Service) {
 			score += 2
 		}
 		if len(record.ActionClasses) > 0 && anyStringOverlap(candidate.ActionClasses, record.ActionClasses) {
@@ -482,6 +645,20 @@ func normalizeEvidenceClass(value string) string {
 		return EvidenceClassActionOutcome
 	case EvidenceClassProofVerify, "proof_verified":
 		return EvidenceClassProofVerify
+	case EvidenceClassOwnerAssignment:
+		return EvidenceClassOwnerAssignment
+	case EvidenceClassPolicyRecord:
+		return EvidenceClassPolicyRecord
+	case EvidenceClassBranchProtection:
+		return EvidenceClassBranchProtection
+	case EvidenceClassProtectedEnvironment:
+		return EvidenceClassProtectedEnvironment
+	case EvidenceClassDeploymentApproval:
+		return EvidenceClassDeploymentApproval
+	case EvidenceClassRequiredCheck:
+		return EvidenceClassRequiredCheck
+	case EvidenceClassSecurityGate:
+		return EvidenceClassSecurityGate
 	case EvidenceClassOther:
 		return EvidenceClassOther
 	default:
@@ -534,6 +711,9 @@ func recordHasCorrelationKey(record Record) bool {
 	return strings.TrimSpace(record.PathID) != "" ||
 		strings.TrimSpace(record.AgentID) != "" ||
 		(strings.TrimSpace(record.Repo) != "" && strings.TrimSpace(record.Location) != "") ||
+		(strings.TrimSpace(record.Repo) != "" && strings.TrimSpace(record.Workflow) != "") ||
+		(strings.TrimSpace(record.Repo) != "" && strings.TrimSpace(record.Environment) != "") ||
+		strings.TrimSpace(record.Service) != "" ||
 		strings.TrimSpace(record.PolicyRef) != "" ||
 		strings.TrimSpace(record.ProofRef) != "" ||
 		strings.TrimSpace(record.Target) != "" ||
@@ -546,6 +726,9 @@ func fallbackCorrelationKey(record Record) string {
 		strings.TrimSpace(record.PathID),
 		strings.TrimSpace(record.AgentID),
 		repoLocationKey(record.Repo, record.Location),
+		repoScopedKey(record.Repo, record.Workflow),
+		repoScopedKey(record.Repo, record.Environment),
+		repoScopedKey(record.Repo, record.Service),
 		strings.TrimSpace(record.PolicyRef),
 		strings.TrimSpace(record.ProofRef),
 		strings.TrimSpace(record.RecordID),
@@ -561,6 +744,10 @@ func fallbackRecordLabel(label string) string {
 
 func repoLocationKey(repo, location string) string {
 	return strings.TrimSpace(repo) + "::" + strings.TrimSpace(location)
+}
+
+func repoScopedKey(repo, value string) string {
+	return strings.TrimSpace(repo) + "::" + strings.TrimSpace(value)
 }
 
 func firstNonEmpty(values ...string) string {
@@ -595,6 +782,181 @@ func firstPathTarget(path statePathMatch) string {
 		return ""
 	}
 	return path.MatchedProductionTargets[0]
+}
+
+func firstPathEnvironment(path statePathMatch) string {
+	if len(path.EnvironmentNames) == 0 {
+		return ""
+	}
+	return path.EnvironmentNames[0]
+}
+
+func firstPathService(path statePathMatch) string {
+	if len(path.ServiceCandidates) == 0 {
+		return ""
+	}
+	return path.ServiceCandidates[0]
+}
+
+func buildWorkflowMetadataIndex(findings []model.Finding) map[string]workflowMetadata {
+	if len(findings) == 0 {
+		return nil
+	}
+	out := map[string]workflowMetadata{}
+	for _, finding := range findings {
+		key := repoLocationKey(finding.Repo, finding.Location)
+		if strings.TrimSpace(key) == "::" {
+			continue
+		}
+		current := out[key]
+		for _, item := range finding.Evidence {
+			if strings.TrimSpace(item.Key) != "workflow_environment" {
+				continue
+			}
+			values := strings.Split(strings.TrimSpace(item.Value), ",")
+			normalized := make([]string, 0, len(values))
+			for _, value := range values {
+				normalized = append(normalized, strings.TrimSpace(value))
+			}
+			current.EnvironmentNames = mergeStrings(append(append([]string(nil), current.EnvironmentNames...), normalized...)...)
+		}
+		out[key] = current
+	}
+	return out
+}
+
+func serviceCandidatesForPath(repo, location string) []string {
+	candidates := []string{}
+	repo = strings.TrimSpace(repo)
+	if repo != "" {
+		if slash := strings.LastIndex(repo, "/"); slash >= 0 && slash < len(repo)-1 {
+			candidates = append(candidates, repo[slash+1:])
+		} else {
+			candidates = append(candidates, repo)
+		}
+	}
+	location = filepath.ToSlash(strings.TrimSpace(location))
+	if location != "" {
+		base := filepath.Base(location)
+		base = strings.TrimSuffix(base, filepath.Ext(base))
+		if base != "" && base != "." {
+			candidates = append(candidates, base)
+		}
+	}
+	return mergeStrings(candidates...)
+}
+
+func normalizeRecordKind(value string, record Record) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case RecordKindExternalControl:
+		return RecordKindExternalControl
+	case RecordKindRuntime:
+		return RecordKindRuntime
+	}
+	switch normalizeEvidenceClass(record.EvidenceClass) {
+	case EvidenceClassOwnerAssignment,
+		EvidenceClassPolicyRecord,
+		EvidenceClassBranchProtection,
+		EvidenceClassProtectedEnvironment,
+		EvidenceClassDeploymentApproval,
+		EvidenceClassRequiredCheck,
+		EvidenceClassSecurityGate:
+		return RecordKindExternalControl
+	}
+	if strings.TrimSpace(record.SourceType) != "" ||
+		strings.TrimSpace(record.Service) != "" ||
+		strings.TrimSpace(record.Workflow) != "" ||
+		strings.TrimSpace(record.Environment) != "" ||
+		strings.TrimSpace(record.Path) != "" ||
+		strings.TrimSpace(record.Owner) != "" ||
+		len(record.RequiredChecks) > 0 {
+		return RecordKindExternalControl
+	}
+	return RecordKindRuntime
+}
+
+func normalizeSourceType(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
+func sourcePrecedenceSortKey(record Record) string {
+	switch normalizeSourceType(record.SourceType) {
+	case "provider_export", "github_team_export", "backstage_export":
+		return "00_provider_export"
+	case "customer_owner_map", "ticket_export":
+		return "10_customer_declaration"
+	case "repo_policy", "policy_config":
+		return "20_repo_policy"
+	case "app_catalog":
+		return "30_app_catalog"
+	case "":
+		if normalizeRecordKind(record.RecordKind, record) == RecordKindRuntime {
+			return "40_runtime"
+		}
+		return "90_unspecified"
+	default:
+		return "80_" + normalizeSourceType(record.SourceType)
+	}
+}
+
+func normalizeOwnerValue(value string) string {
+	return strings.TrimSpace(value)
+}
+
+func unmatchedReasonsForRecord(record Record) []string {
+	reasons := []string{"no_unique_path_match"}
+	if strings.TrimSpace(record.Service) != "" {
+		reasons = append(reasons, "service:"+strings.TrimSpace(record.Service))
+	}
+	if strings.TrimSpace(record.Environment) != "" {
+		reasons = append(reasons, "environment:"+strings.TrimSpace(record.Environment))
+	}
+	if strings.TrimSpace(record.Workflow) != "" {
+		reasons = append(reasons, "workflow:"+strings.TrimSpace(record.Workflow))
+	}
+	if strings.TrimSpace(record.Path) != "" {
+		reasons = append(reasons, "path:"+strings.TrimSpace(record.Path))
+	}
+	return mergeStrings(reasons...)
+}
+
+func rejectSecretLikeValues(record Record) error {
+	for _, value := range append([]string{
+		record.Owner,
+		record.Source,
+		record.Issuer,
+		record.Path,
+		record.Workflow,
+		record.Environment,
+		record.Branch,
+	}, append(append([]string(nil), record.EvidenceRefs...), record.RequiredChecks...)...) {
+		if looksSecretLike(value) {
+			return fmt.Errorf("external control evidence record contains secret-like value for %s", fallbackRecordLabel(firstNonEmpty(record.RecordID, record.Repo, record.Source)))
+		}
+	}
+	return nil
+}
+
+func looksSecretLike(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return false
+	}
+	for _, needle := range []string{
+		"ghp_",
+		"github_pat_",
+		"AKIA",
+		"-----BEGIN",
+		"xoxb-",
+		"sk_live_",
+		"glpat-",
+		"eyJhbGci",
+	} {
+		if strings.Contains(trimmed, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 func mergeStrings(values ...string) []string {

@@ -44,6 +44,13 @@ func gaitCoverageDetail(path risk.ActionPath, applicable bool, runtime ingest.Co
 			EvidenceRefs: append([]string(nil), runtime.RecordIDs...),
 		}
 	}
+	if status, refs, ok := constraintCoverageDetail(path, evidenceClass, reasonKey); ok {
+		return risk.GaitCoverageDetail{
+			Status:       status,
+			Reasons:      []string{"constraint_evidence_present:" + reasonKey},
+			EvidenceRefs: refs,
+		}
+	}
 	if containsEvidenceClass(runtime.EvidenceClasses, evidenceClass) {
 		return risk.GaitCoverageDetail{
 			Status:       risk.GaitStatusPresent,
@@ -75,6 +82,41 @@ func gaitCoverageDetail(path risk.ActionPath, applicable bool, runtime ingest.Co
 	return risk.GaitCoverageDetail{
 		Status:  risk.GaitStatusMissing,
 		Reasons: []string{"runtime_evidence_not_collected:" + reasonKey, "runtime_absence_status:" + risk.RuntimeEvidenceAbsenceNotCollected},
+	}
+}
+
+func constraintCoverageDetail(path risk.ActionPath, evidenceClass string, reasonKey string) (string, []string, bool) {
+	classes := constraintClassesForEvidence(evidenceClass)
+	if len(classes) == 0 {
+		return "", nil, false
+	}
+	for _, class := range classes {
+		if containsEvidenceClass(path.ConstraintEvidenceClasses, class) {
+			switch strings.TrimSpace(path.ConstraintEvidenceStatus) {
+			case "conflict":
+				return risk.GaitStatusConflict, append([]string(nil), path.ConstraintEvidenceRefs...), true
+			case "stale":
+				return risk.GaitStatusStale, append([]string(nil), path.ConstraintEvidenceRefs...), true
+			default:
+				return risk.GaitStatusPresent, append([]string(nil), path.ConstraintEvidenceRefs...), true
+			}
+		}
+	}
+	return "", nil, false
+}
+
+func constraintClassesForEvidence(evidenceClass string) []string {
+	switch strings.TrimSpace(evidenceClass) {
+	case ingest.EvidenceClassPolicyDecision:
+		return []string{"branch_protection", "required_check", "security_gate", "policy_record"}
+	case ingest.EvidenceClassApproval:
+		return []string{"deployment_approval", "protected_environment", "branch_protection"}
+	case ingest.EvidenceClassFreezeWindow:
+		return []string{"freeze_window"}
+	case ingest.EvidenceClassKillSwitch:
+		return []string{"kill_switch"}
+	default:
+		return nil
 	}
 }
 

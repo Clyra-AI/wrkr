@@ -215,6 +215,49 @@ func TestLoadContextIncludesControlMetadataSidecar(t *testing.T) {
 	}
 }
 
+func TestLoadContextIncludesExternalControlEvidenceSidecar(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("mkdir provenance dir: %v", err)
+	}
+	payload := `{
+  "schema_version": "v1",
+  "generated_at": "2026-05-25T17:30:30Z",
+  "records": [
+    {
+      "record_kind": "external_control",
+      "source_type": "provider_export",
+      "source": "github_environment_export",
+      "repo": "acme/demo",
+      "path": ".github/workflows/release.yml",
+      "observed_at": "2026-05-25T17:00:00Z",
+      "evidence_class": "branch_protection",
+      "evidence_refs": ["evidence://fake/provider-export.json#branch/main"]
+    }
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "provenance", "external-control-evidence.json"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write external control evidence: %v", err)
+	}
+
+	ctx := LoadContext(repoRoot)
+	metadata, ok := ctx.ControlMetadata[".github/workflows/release.yml"]
+	if !ok {
+		t.Fatalf("expected external control metadata entry, got %+v", ctx.ControlMetadata)
+	}
+	if metadata.ControlResolutionState != "external_control_reference" {
+		t.Fatalf("expected external control resolution state, got %+v", metadata)
+	}
+	if metadata.ApprovalEvidenceState != "verified" {
+		t.Fatalf("expected verified approval evidence from provider export, got %+v", metadata)
+	}
+	if len(metadata.ControlEvidenceRefs) != 1 || metadata.ControlEvidenceRefs[0] != "evidence://fake/provider-export.json#branch/main" {
+		t.Fatalf("expected external control evidence refs, got %+v", metadata)
+	}
+}
+
 func runGit(t *testing.T, repoRoot string, env []string, args ...string) {
 	t.Helper()
 

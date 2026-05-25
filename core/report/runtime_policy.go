@@ -23,6 +23,29 @@ func decorateActionPathsForReport(paths []risk.ActionPath, runtimeEvidence *inge
 	}
 	for i := range out {
 		item, ok := byPath[strings.TrimSpace(out[i].PathID)]
+		if len(out[i].ConstraintEvidenceRefs) > 0 {
+			out[i].PolicyEvidenceRefs = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyEvidenceRefs...), out[i].ConstraintEvidenceRefs...))
+		}
+		if pathHasPolicyConstraintEvidence(out[i]) {
+			switch strings.TrimSpace(out[i].ConstraintEvidenceStatus) {
+			case "conflict":
+				out[i].PolicyCoverageStatus = risk.PolicyCoverageStatusConflict
+				out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "constraint_evidence_conflict"))
+				out[i].PolicyConfidence = "high"
+			case "stale":
+				out[i].PolicyCoverageStatus = risk.PolicyCoverageStatusStale
+				out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "constraint_evidence_stale"))
+				out[i].PolicyConfidence = "medium"
+			default:
+				if strings.TrimSpace(out[i].PolicyCoverageStatus) == "" || strings.TrimSpace(out[i].PolicyCoverageStatus) == risk.PolicyCoverageStatusNone {
+					out[i].PolicyCoverageStatus = risk.PolicyCoverageStatusMatched
+				}
+				out[i].PolicyStatusReasons = uniqueSortedStrings(append(append([]string(nil), out[i].PolicyStatusReasons...), "constraint_policy_attached"))
+				if strings.TrimSpace(out[i].PolicyConfidence) == "" {
+					out[i].PolicyConfidence = "high"
+				}
+			}
+		}
 		if !ok {
 			out[i].GaitCoverage = gaitCoverageForPath(out[i], ingest.Correlation{})
 			continue
@@ -65,6 +88,16 @@ func decorateControlFirstForReport(paths []risk.ActionPath, scanCoverageReduced 
 func containsEvidenceClass(values []string, want string) bool {
 	for _, value := range values {
 		if strings.TrimSpace(value) == strings.TrimSpace(want) {
+			return true
+		}
+	}
+	return false
+}
+
+func pathHasPolicyConstraintEvidence(path risk.ActionPath) bool {
+	for _, class := range path.ConstraintEvidenceClasses {
+		switch strings.TrimSpace(class) {
+		case "branch_protection", "required_check", "security_gate", "policy_record":
 			return true
 		}
 	}
