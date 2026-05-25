@@ -307,6 +307,30 @@ jobs:
 	}
 }
 
+func TestAnalyzeDoesNotTreatNonProdEnvironmentAsProductionHint(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: release
+on:
+  workflow_dispatch:
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: nonprod-validation
+    steps:
+      - run: kubectl apply -f k8s/
+`)
+
+	result, parseErr := Analyze(".github/workflows/release.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if evidenceValue(result, "target_class_hint") != "release_adjacent" {
+		t.Fatalf("expected release-adjacent hint, got %q", evidenceValue(result, "target_class_hint"))
+	}
+}
+
 func evidenceValue(result Result, key string) string {
 	for _, evidence := range result.Evidence {
 		if evidence.Key == key {

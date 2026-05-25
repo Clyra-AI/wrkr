@@ -6,12 +6,12 @@ import (
 )
 
 const (
-	ActionPathTypeAIAssistedWorkflow = "ai_assisted_workflow"
-	ActionPathTypeAgentFramework     = "agent_framework"
-	ActionPathTypeAutomationBot      = "automation_bot"
-	ActionPathTypeCICDWorkflow       = "ci_cd_workflow"
-	ActionPathTypeLegacyScript       = "legacy_script"
-	ActionPathTypePlainSourceCode    = "plain_source_code"
+	ActionPathTypeAIAssistedWorkflow    = "ai_assisted_workflow"
+	ActionPathTypeAgentFramework        = "agent_framework"
+	ActionPathTypeAutomationBot         = "automation_bot"
+	ActionPathTypeCICDWorkflow          = "ci_cd_workflow"
+	ActionPathTypeLegacyScript          = "legacy_script"
+	ActionPathTypePlainSourceCode       = "plain_source_code"
 	ActionPathTypeUnknownExecutablePath = "unknown_executable_path"
 )
 

@@ -7,13 +7,13 @@ import (
 )
 
 const (
-	TargetClassProductionImpacting = "production_impacting"
-	TargetClassReleaseAdjacent     = "release_adjacent"
-	TargetClassCustomerDataAdjacent = "customer_data_adjacent"
-	TargetClassInternalTooling     = "internal_tooling"
+	TargetClassProductionImpacting   = "production_impacting"
+	TargetClassReleaseAdjacent       = "release_adjacent"
+	TargetClassCustomerDataAdjacent  = "customer_data_adjacent"
+	TargetClassInternalTooling       = "internal_tooling"
 	TargetClassDeveloperProductivity = "developer_productivity"
-	TargetClassTestDemoSandbox     = "test_demo_sandbox"
-	TargetClassUnknown             = "unknown"
+	TargetClassTestDemoSandbox       = "test_demo_sandbox"
+	TargetClassUnknown               = "unknown"
 )
 
 func ValidTargetClass(value string) bool {
@@ -63,6 +63,12 @@ func deriveTargetClass(path ActionPath) (string, []string, []string) {
 	location := strings.ToLower(strings.TrimSpace(path.Location))
 	repo := strings.ToLower(strings.TrimSpace(path.Repo))
 	switch {
+	case pathHasExplicitProductionImpact(path) && (pathHasSensitiveDataEndpoint(path) || strings.TrimSpace(path.BusinessStateSurface) == "admin_api" || strings.TrimSpace(path.BusinessStateSurface) == "db"):
+		if pathHasSensitiveDataEndpoint(path) {
+			addReason("customer_data_surface:true")
+		}
+		addReason("explicit_production_signal:true")
+		return TargetClassProductionImpacting, dedupeSortedStrings(reasons), dedupeSortedStrings(refs)
 	case pathHasSensitiveDataEndpoint(path) || strings.TrimSpace(path.BusinessStateSurface) == "admin_api" || strings.TrimSpace(path.BusinessStateSurface) == "db":
 		if pathHasSensitiveDataEndpoint(path) {
 			addReason("customer_data_surface:true")
@@ -71,7 +77,7 @@ func deriveTargetClass(path ActionPath) (string, []string, []string) {
 			addReason("business_state_surface:" + strings.TrimSpace(path.BusinessStateSurface))
 		}
 		return TargetClassCustomerDataAdjacent, dedupeSortedStrings(reasons), dedupeSortedStrings(refs)
-	case path.ProductionWrite || len(path.MatchedProductionTargets) > 0 || strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed"):
+	case pathHasExplicitProductionImpact(path):
 		if path.ProductionWrite {
 			addReason("production_write:true")
 		}
@@ -100,6 +106,19 @@ func deriveTargetClass(path ActionPath) (string, []string, []string) {
 		}
 		return TargetClassUnknown, []string{"target_class:unknown"}, dedupeSortedStrings(refs)
 	}
+}
+
+func pathHasExplicitProductionImpact(path ActionPath) bool {
+	if path.DeployWrite || strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") {
+		return true
+	}
+	for _, target := range path.MatchedProductionTargets {
+		switch strings.TrimSpace(target) {
+		case "built_in:deploy_workflow", "built_in:kubernetes", "built_in:release_automation":
+			return true
+		}
+	}
+	return false
 }
 
 func chooseTargetClass(current, incoming string) string {
