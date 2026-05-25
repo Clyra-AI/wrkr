@@ -949,6 +949,13 @@ func mergeConstraintEvidenceStatus(current, incoming string) string {
 			return "conflict"
 		}
 		return "stale"
+	case "unmatched":
+		switch strings.TrimSpace(incoming) {
+		case "conflict", "stale", "matched":
+			return strings.TrimSpace(incoming)
+		default:
+			return "unmatched"
+		}
 	}
 	switch strings.TrimSpace(incoming) {
 	case "conflict":
@@ -957,6 +964,8 @@ func mergeConstraintEvidenceStatus(current, incoming string) string {
 		return "stale"
 	case "matched":
 		return "matched"
+	case "unmatched":
+		return "unmatched"
 	default:
 		return firstNonEmptyString(current, incoming)
 	}

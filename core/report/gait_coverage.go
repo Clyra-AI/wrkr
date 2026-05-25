@@ -97,6 +97,8 @@ func constraintCoverageDetail(path risk.ActionPath, evidenceClass string, reason
 				return risk.GaitStatusConflict, append([]string(nil), path.ConstraintEvidenceRefs...), true
 			case "stale":
 				return risk.GaitStatusStale, append([]string(nil), path.ConstraintEvidenceRefs...), true
+			case "unmatched":
+				return "", nil, false
 			default:
 				return risk.GaitStatusPresent, append([]string(nil), path.ConstraintEvidenceRefs...), true
 			}

@@ -412,6 +412,7 @@ type pathMatchIndex struct {
 	byRepoLocation map[string][]statePathMatch
 	byEnvironment  map[string][]statePathMatch
 	byService      map[string][]statePathMatch
+	byServiceOnly  map[string][]statePathMatch
 	byPolicyRef    map[string][]statePathMatch
 	byGraphRef     map[string][]statePathMatch
 }
@@ -441,6 +442,7 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 		byRepoLocation: map[string][]statePathMatch{},
 		byEnvironment:  map[string][]statePathMatch{},
 		byService:      map[string][]statePathMatch{},
+		byServiceOnly:  map[string][]statePathMatch{},
 		byPolicyRef:    map[string][]statePathMatch{},
 		byGraphRef:     map[string][]statePathMatch{},
 	}
@@ -478,6 +480,7 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 		}
 		for _, service := range match.ServiceCandidates {
 			index.byService[repoScopedKey(match.Repo, service)] = append(index.byService[repoScopedKey(match.Repo, service)], match)
+			index.byServiceOnly[service] = append(index.byServiceOnly[service], match)
 		}
 		for _, ref := range match.PolicyRefs {
 			index.byPolicyRef[ref] = append(index.byPolicyRef[ref], match)
@@ -524,6 +527,9 @@ func (index pathMatchIndex) match(record Record) (string, statePathMatch) {
 	}
 	if record.Repo != "" && record.Service != "" {
 		candidates = append(candidates, index.byService[repoScopedKey(record.Repo, record.Service)]...)
+	}
+	if record.Service != "" {
+		candidates = append(candidates, index.byServiceOnly[strings.TrimSpace(record.Service)]...)
 	}
 	if record.PolicyRef != "" {
 		candidates = append(candidates, index.byPolicyRef[record.PolicyRef]...)

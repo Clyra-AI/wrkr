@@ -245,3 +245,44 @@ func TestExternalEvidenceUnmatchedRecordsRemainAuditable(t *testing.T) {
 		t.Fatalf("expected unmatched correlation to retain record ids, got %+v", summary.Correlations[0])
 	}
 }
+
+func TestExternalEvidenceCorrelatesServiceOnlyRecords(t *testing.T) {
+	t.Parallel()
+
+	summary := Correlate(state.Snapshot{
+		Findings: []model.Finding{{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Repo:        "acme/payments-service",
+			Org:         "acme",
+			Location:    ".github/workflows/deploy.yml",
+		}},
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:   "apc-service-1",
+				AgentID:  "wrkr:workflow-deploy:acme",
+				Repo:     "acme/payments-service",
+				Location: ".github/workflows/deploy.yml",
+				ToolType: "compiled_action",
+			}},
+		},
+	}, "external-control-evidence.json", Bundle{
+		SchemaVersion: SchemaVersion,
+		GeneratedAt:   time.Date(2026, 5, 25, 17, 30, 30, 0, time.UTC).Format(time.RFC3339),
+		Records: []Record{{
+			RecordKind:    RecordKindExternalControl,
+			SourceType:    "app_catalog",
+			Source:        "catalog_export",
+			Service:       "payments-service",
+			ObservedAt:    time.Date(2026, 5, 25, 17, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			EvidenceClass: EvidenceClassOwnerAssignment,
+			Owner:         "@acme/platform",
+		}},
+	})
+	if summary.MatchedRecords != 1 || len(summary.Correlations) != 1 {
+		t.Fatalf("expected service-only correlation, got %+v", summary)
+	}
+	if summary.Correlations[0].PathID != "apc-service-1" {
+		t.Fatalf("expected service-only record to match apc-service-1, got %+v", summary.Correlations[0])
+	}
+}

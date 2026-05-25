@@ -228,6 +228,8 @@ func externalEvidenceState(sourceType string, status string) string {
 		return "contradictory"
 	case "stale":
 		return "unknown"
+	case "unmatched":
+		return "unknown"
 	}
 	switch strings.TrimSpace(sourceType) {
 	case "provider_export", "github_team_export", "backstage_export":
@@ -239,7 +241,7 @@ func externalEvidenceState(sourceType string, status string) string {
 
 func normalizeExternalConstraintStatus(value string) string {
 	switch strings.TrimSpace(value) {
-	case "matched", "stale", "conflict":
+	case "matched", "unmatched", "stale", "conflict":
 		return strings.TrimSpace(value)
 	default:
 		return "matched"
@@ -255,6 +257,13 @@ func mergeConstraintEvidenceStatus(current, incoming string) string {
 			return "conflict"
 		}
 		return "stale"
+	case "unmatched":
+		switch normalizeExternalConstraintStatus(incoming) {
+		case "conflict", "stale", "matched":
+			return normalizeExternalConstraintStatus(incoming)
+		default:
+			return "unmatched"
+		}
 	}
 	return normalizeExternalConstraintStatus(incoming)
 }
