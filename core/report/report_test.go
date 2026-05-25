@@ -1631,6 +1631,11 @@ func TestReportQABlocksAgentLabelForPlainSourcePath(t *testing.T) {
 
 	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
 		ActionPathTypes: []string{risk.ActionPathTypePlainSourceCode},
+		PathEvidence: []BuyerArtifactPathEvidence{{
+			ActionPathType: risk.ActionPathTypePlainSourceCode,
+			Repo:           "acme/payments",
+			Location:       "openapi/payments.yaml",
+		}},
 		Texts: map[string]string{
 			"markdown": "confirmed agent framework repo=acme/payments location=openapi/payments.yaml",
 		},
@@ -1648,11 +1653,45 @@ func TestReportQAAllowsAgentLabelWhenActionPathTypeIsAgentFramework(t *testing.T
 
 	if err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
 		ActionPathTypes: []string{risk.ActionPathTypeAgentFramework},
+		PathEvidence: []BuyerArtifactPathEvidence{{
+			ActionPathType: risk.ActionPathTypeAgentFramework,
+			Repo:           "acme/payments",
+			Location:       "agents/release.py",
+		}},
 		Texts: map[string]string{
 			"markdown": "confirmed agent framework repo=acme/payments location=agents/release.py",
 		},
 	}); err != nil {
 		t.Fatalf("expected agent-framework wording to be allowed with agent evidence, got %v", err)
+	}
+}
+
+func TestReportQABlocksAgentLabelForWrongPathInMixedArtifact(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
+		ActionPathTypes: []string{risk.ActionPathTypeAgentFramework, risk.ActionPathTypePlainSourceCode},
+		PathEvidence: []BuyerArtifactPathEvidence{
+			{
+				ActionPathType: risk.ActionPathTypeAgentFramework,
+				Repo:           "acme/agents",
+				Location:       "agents/release.py",
+			},
+			{
+				ActionPathType: risk.ActionPathTypePlainSourceCode,
+				Repo:           "acme/payments",
+				Location:       "openapi/payments.yaml",
+			},
+		},
+		Texts: map[string]string{
+			"markdown": "- confirmed agent framework repo=acme/payments location=openapi/payments.yaml",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected path-specific QA guardrail to reject mixed-artifact agent overclaim")
+	}
+	if !strings.Contains(err.Error(), "specific path evidence") {
+		t.Fatalf("expected path-specific evidence wording in QA error, got %v", err)
 	}
 }
 

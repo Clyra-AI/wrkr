@@ -976,6 +976,10 @@ func TestReportContractBuyerArtifactsPassQAInternalAndRedacted(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("report failed: %d %s", code, errOut.String())
 			}
+			var reportPayload map[string]any
+			if err := json.Unmarshal(out.Bytes(), &reportPayload); err != nil {
+				t.Fatalf("parse report payload: %v", err)
+			}
 
 			markdown, err := os.ReadFile(mdPath)
 			if err != nil {
@@ -987,6 +991,7 @@ func TestReportContractBuyerArtifactsPassQAInternalAndRedacted(t *testing.T) {
 			}
 			if err := reportcore.ValidateBuyerArtifactTexts(reportcore.BuyerArtifactQAInput{
 				ActionPathTypes: []string{"plain_source_code"},
+				PathEvidence:    reportQAPathEvidence(t, reportPayload),
 				Texts: map[string]string{
 					tc.name + "_json":     out.String(),
 					tc.name + "_markdown": string(markdown),
@@ -997,6 +1002,33 @@ func TestReportContractBuyerArtifactsPassQAInternalAndRedacted(t *testing.T) {
 			}
 		})
 	}
+}
+
+func reportQAPathEvidence(t *testing.T, reportPayload map[string]any) []reportcore.BuyerArtifactPathEvidence {
+	t.Helper()
+
+	actionPaths, ok := reportPayload["action_paths"].([]any)
+	if !ok {
+		return nil
+	}
+	evidence := make([]reportcore.BuyerArtifactPathEvidence, 0, len(actionPaths))
+	for _, item := range actionPaths {
+		record, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("unexpected action path type: %T", item)
+		}
+		evidence = append(evidence, reportcore.BuyerArtifactPathEvidence{
+			ActionPathType: stringValue(record["action_path_type"]),
+			Repo:           stringValue(record["repo"]),
+			Location:       stringValue(record["location"]),
+		})
+	}
+	return evidence
+}
+
+func stringValue(value any) string {
+	text, _ := value.(string)
+	return text
 }
 
 func TestReportAssessmentSummaryPrioritizesGovernFirstPaths(t *testing.T) {
