@@ -91,13 +91,15 @@ func RenderMarkdown(summary Summary) string {
 			}
 			for idx := 0; idx < limit; idx++ {
 				item := summary.AgentActionBOM.Items[idx]
-				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s state=%s zone=%s review=%s priority=%s tier=%s control=%s approval=%s owner=%s proof=%s runtime=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
-					markdownActionPathLabel(item.ConfidenceLane),
+				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s type=%s state=%s zone=%s target=%s review=%s priority=%s tier=%s control=%s approval=%s owner=%s proof=%s runtime=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
+					markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType),
 					item.Repo,
 					item.Location,
 					item.ConfidenceLane,
+					item.ActionPathType,
 					item.ControlState,
 					item.RiskZone,
+					item.TargetClass,
 					item.ReviewBurden,
 					item.ControlPriority,
 					item.RiskTier,
@@ -201,14 +203,16 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s state=%s zone=%s review=%s queue=%s priority=%s tier=%s control=%s approval=%s proof=%s runtime=%s confidence=%s evidence=%s policy=%s remediation=%s\n",
-				markdownActionPathLabel(item.ConfidenceLane),
+			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s type=%s state=%s zone=%s target=%s review=%s queue=%s priority=%s tier=%s control=%s approval=%s proof=%s runtime=%s confidence=%s evidence=%s policy=%s remediation=%s\n",
+				markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType),
 				item.Repo,
 				item.Location,
 				item.Owner,
 				item.ConfidenceLane,
+				item.ActionPathType,
 				item.ControlState,
 				item.RiskZone,
+				item.TargetClass,
 				item.ReviewBurden,
 				item.Queue,
 				item.ControlPriority,
@@ -290,7 +294,30 @@ func renderTriggerClassSuffix(triggerClass string) string {
 	return ", trigger=" + strings.TrimSpace(triggerClass)
 }
 
-func markdownActionPathLabel(lane string) string {
+func markdownActionPathLabel(lane string, actionPathType string) string {
+	switch strings.TrimSpace(actionPathType) {
+	case risk.ActionPathTypeAIAssistedWorkflow:
+		switch strings.TrimSpace(lane) {
+		case risk.ConfidenceLaneLikelyActionPath:
+			return "likely AI-assisted workflow"
+		case risk.ConfidenceLaneConfirmedActionPath:
+			return "confirmed AI-assisted workflow"
+		}
+	case risk.ActionPathTypeAgentFramework:
+		switch strings.TrimSpace(lane) {
+		case risk.ConfidenceLaneLikelyActionPath:
+			return "likely agent framework"
+		case risk.ConfidenceLaneConfirmedActionPath:
+			return "confirmed agent framework"
+		}
+	case risk.ActionPathTypeAutomationBot:
+		switch strings.TrimSpace(lane) {
+		case risk.ConfidenceLaneLikelyActionPath:
+			return "likely automation bot"
+		case risk.ConfidenceLaneConfirmedActionPath:
+			return "confirmed automation bot"
+		}
+	}
 	switch strings.TrimSpace(lane) {
 	case "confirmed_action_path":
 		return "confirmed action path"
@@ -360,7 +387,7 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 			builder.WriteString(fmt.Sprintf("Likely explanation: %s\n", designPartnerExplanation(item)))
 			builder.WriteString(fmt.Sprintf("Threat: %s\n", designPartnerThreat(item)))
 			builder.WriteString(fmt.Sprintf("Recommended control: %s\n", firstNonEmptyValue(item.Remediation, item.RecommendedNextAction, "review and add path-specific proof before approval")))
-			builder.WriteString(fmt.Sprintf("Confidence lane: %s\n", markdownActionPathLabel(item.ConfidenceLane)))
+			builder.WriteString(fmt.Sprintf("Confidence lane: %s\n", markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType)))
 			builder.WriteString(fmt.Sprintf("Proof gap: %s\n", designPartnerProofGap(item)))
 			builder.WriteString(fmt.Sprintf("Credential authority: %s\n", designPartnerCredentialAuthority(item)))
 			builder.WriteString(fmt.Sprintf("Mutable endpoint: %s\n", designPartnerMutableEndpoint(item)))

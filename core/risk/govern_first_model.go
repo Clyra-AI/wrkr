@@ -184,6 +184,12 @@ func compareActionPaths(left, right ActionPath) bool {
 	if leftModel.riskTierRank != rightModel.riskTierRank {
 		return leftModel.riskTierRank < rightModel.riskTierRank
 	}
+	if targetClassRank(leftProjection.TargetClass) != targetClassRank(rightProjection.TargetClass) {
+		return targetClassRank(leftProjection.TargetClass) < targetClassRank(rightProjection.TargetClass)
+	}
+	if actionPathTypeRank(leftProjection.ActionPathType) != actionPathTypeRank(rightProjection.ActionPathType) {
+		return actionPathTypeRank(leftProjection.ActionPathType) < actionPathTypeRank(rightProjection.ActionPathType)
+	}
 	if confidenceLaneRank(leftProjection.ConfidenceLane) != confidenceLaneRank(rightProjection.ConfidenceLane) {
 		return confidenceLaneRank(leftProjection.ConfidenceLane) < confidenceLaneRank(rightProjection.ConfidenceLane)
 	}

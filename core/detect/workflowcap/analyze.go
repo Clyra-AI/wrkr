@@ -18,6 +18,7 @@ type Result struct {
 	Tool             string
 	WorkflowName     string
 	JobNames         []string
+	EnvironmentNames []string
 	Headless         bool
 	DangerousFlags   bool
 	HasSecretAccess  bool
@@ -196,6 +197,7 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	deploymentGates := map[string]struct{}{}
 	proofRequirements := map[string]struct{}{}
 	secretRefs := map[string]struct{}{}
+	environmentNames := map[string]struct{}{}
 	workflowTokenPermissions := map[string]struct{}{}
 	hasBuiltinWorkflowToken := false
 
@@ -223,6 +225,7 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 		jobHasGovernanceSurface := false
 		jobProofRequirements := map[string]struct{}{}
 		if strings.TrimSpace(job.Environment.Name) != "" {
+			environmentNames[strings.TrimSpace(job.Environment.Name)] = struct{}{}
 			jobApprovalSource = "environment"
 			jobDeploymentGate = "ambiguous"
 		}
@@ -332,6 +335,7 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	}
 
 	result.Capabilities = sortedKeys(capabilityReasons)
+	result.EnvironmentNames = sortedSet(environmentNames)
 	result.ApprovalSource = chooseApprovalSource(approvalSources)
 	result.DeploymentGate = chooseDeploymentGate(deploymentGates)
 	result.ProofRequirement = chooseProofRequirement(proofRequirements)
@@ -363,6 +367,9 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	if len(result.JobNames) > 0 {
 		evidence = append(evidence, model.Evidence{Key: "workflow_jobs", Value: strings.Join(result.JobNames, ",")})
 	}
+	if len(result.EnvironmentNames) > 0 {
+		evidence = append(evidence, model.Evidence{Key: "workflow_environment", Value: strings.Join(result.EnvironmentNames, ",")})
+	}
 	if result.ApprovalSource != "" {
 		evidence = append(evidence, model.Evidence{Key: "approval_source", Value: result.ApprovalSource})
 	}
@@ -371,6 +378,9 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	}
 	if result.ProofRequirement != "" {
 		evidence = append(evidence, model.Evidence{Key: "proof_requirement", Value: result.ProofRequirement})
+	}
+	if targetClassHint := workflowTargetClassHint(result); targetClassHint != "" {
+		evidence = append(evidence, model.Evidence{Key: "target_class_hint", Value: targetClassHint})
 	}
 	for _, ref := range sortedSet(secretRefs) {
 		evidence = append(evidence, model.Evidence{Key: "workflow_secret_refs", Value: ref})
@@ -383,6 +393,27 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	}
 	result.Evidence = evidence
 	return result, nil
+}
+
+func workflowTargetClassHint(result Result) string {
+	joinedEnv := strings.ToLower(strings.Join(result.EnvironmentNames, ","))
+	switch {
+	case strings.Contains(joinedEnv, "prod"), strings.Contains(joinedEnv, "production"):
+		return "production_impacting"
+	case containsValue(result.Capabilities, "deploy.write"), containsValue(result.Capabilities, "release.write"), containsValue(result.Capabilities, "package.write"), containsValue(result.Capabilities, "iac.write"):
+		return "release_adjacent"
+	default:
+		return ""
+	}
+}
+
+func containsValue(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func effectivePermissions(root, job permissionField) permissionField {

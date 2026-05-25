@@ -72,3 +72,24 @@ func TestAgentResolver_PartialExtractionMarksMissingLinks(t *testing.T) {
 		t.Fatalf("expected deterministic missing links, got %+v", binding.MissingBindings)
 	}
 }
+
+func TestActionPathTypeUsesWorkflowNameWhenAgentNameIsAbsent(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    ".github/workflows/release.yml",
+			Evidence: []model.Evidence{
+				{Key: "workflow_name", Value: "release"},
+				{Key: "bound_tools", Value: "deploy.write"},
+			},
+		},
+	}
+
+	instanceID := identity.AgentInstanceID("compiled_action", ".github/workflows/release.yml", "release", 0, 0)
+	if _, ok := Resolve(findings)[instanceID]; !ok {
+		t.Fatalf("expected workflow-derived instance binding, got %+v", Resolve(findings))
+	}
+}

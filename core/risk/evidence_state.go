@@ -298,6 +298,8 @@ func deriveTargetEvidenceState(path ActionPath) (string, []string, []string) {
 		refs = append(refs, item.EvidenceRefs...)
 	}
 	switch {
+	case len(refs) > 0:
+		return EvidenceStateVerified, []string{"target_evidence:linked"}, dedupeSortedStrings(refs)
 	case len(path.MatchedProductionTargets) > 0 && len(refs) > 0:
 		return EvidenceStateVerified, []string{"target_evidence:linked"}, dedupeSortedStrings(refs)
 	case len(path.MatchedProductionTargets) > 0 || pathHasAnyMutableEndpoint(path) || path.ProductionWrite:

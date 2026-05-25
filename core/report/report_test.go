@@ -1611,6 +1611,52 @@ func TestRenderMarkdownUsesReviewCandidateWording(t *testing.T) {
 	}
 }
 
+func TestReportAgentLabelRequiresAgenticPathType(t *testing.T) {
+	t.Parallel()
+
+	plainSummary := Summary{
+		GeneratedAt:  "2026-05-25T12:00:00Z",
+		Template:     string(TemplateAgentActionBOM),
+		ShareProfile: string(ShareProfileInternal),
+		AgentActionBOM: &AgentActionBOM{
+			BOMID:         "bom-plain",
+			SchemaVersion: AgentActionBOMSchemaVersion,
+			GeneratedAt:   "2026-05-25T12:00:00Z",
+			Summary:       AgentActionBOMSummary{TotalItems: 1},
+			Items: []AgentActionBOMItem{{
+				Repo:           "acme/app",
+				Location:       "openapi/payments.yaml",
+				ConfidenceLane: risk.ConfidenceLaneConfirmedActionPath,
+				ActionPathType: risk.ActionPathTypePlainSourceCode,
+			}},
+		},
+	}
+	if strings.Contains(RenderMarkdown(plainSummary), "agent framework") {
+		t.Fatalf("did not expect plain source path to read as agentic")
+	}
+
+	agentSummary := Summary{
+		GeneratedAt:  "2026-05-25T12:00:00Z",
+		Template:     string(TemplateAgentActionBOM),
+		ShareProfile: string(ShareProfileInternal),
+		AgentActionBOM: &AgentActionBOM{
+			BOMID:         "bom-agent",
+			SchemaVersion: AgentActionBOMSchemaVersion,
+			GeneratedAt:   "2026-05-25T12:00:00Z",
+			Summary:       AgentActionBOMSummary{TotalItems: 1},
+			Items: []AgentActionBOMItem{{
+				Repo:           "acme/app",
+				Location:       "agents/release.py",
+				ConfidenceLane: risk.ConfidenceLaneConfirmedActionPath,
+				ActionPathType: risk.ActionPathTypeAgentFramework,
+			}},
+		},
+	}
+	if !strings.Contains(RenderMarkdown(agentSummary), "agent framework") {
+		t.Fatalf("expected agentic path type to drive agent wording")
+	}
+}
+
 func TestRenderMarkdownDesignPartnerTemplateRendersTopValidatedFindings(t *testing.T) {
 	t.Parallel()
 

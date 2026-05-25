@@ -96,6 +96,12 @@
         "runtime_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
         "target_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
         "credential_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "target_class": {"type": "string", "enum": ["production_impacting", "release_adjacent", "customer_data_adjacent", "internal_tooling", "developer_productivity", "test_demo_sandbox", "unknown"]},
+        "target_class_reasons": {"type": "array", "items": {"type": "string"}},
+        "target_class_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "action_path_type": {"type": "string", "enum": ["ai_assisted_workflow", "agent_framework", "automation_bot", "ci_cd_workflow", "legacy_script", "plain_source_code", "unknown_executable_path"]},
+        "action_path_type_reasons": {"type": "array", "items": {"type": "string"}},
+        "action_path_type_evidence_refs": {"type": "array", "items": {"type": "string"}},
         "credential_access": {"type": "boolean"},
         "credentials": {
           "type": "array",

@@ -9,6 +9,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - [semver:minor] Added canonical control resolution and evidence confidence fields for action paths, reports, backlog items, and v1 schemas so control gaps are evidence-scoped instead of inferred from local absence.
+- [semver:minor] Added target classification for action paths so reports distinguish production-impacting, release-adjacent, customer-data-adjacent, internal tooling, developer productivity, test/demo/sandbox, and unknown targets.
+- [semver:minor] Added action path type classification so reports distinguish AI-assisted workflows, agent frameworks, automation bots, CI/CD workflows, legacy scripts, plain source code, and unknown executable paths.
 
 ### Changed
 

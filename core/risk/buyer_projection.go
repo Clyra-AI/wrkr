@@ -46,6 +46,8 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out := path
 	out.ConfidenceLane, out.ConfidenceLaneReasons = deriveConfidenceLane(out)
 	out = projectEvidenceStates(out)
+	out.TargetClass, out.TargetClassReasons, out.TargetClassEvidenceRefs = deriveTargetClass(out)
+	out.ActionPathType, out.ActionPathTypeReasons, out.ActionPathTypeEvidenceRefs = deriveActionPathType(out)
 
 	model := deriveGovernFirstModel(out)
 	out.InventoryRisk = model.inventoryRisk

@@ -90,6 +90,9 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			for _, encoded := range mutableendpoint.EncodeEvidenceValues(semantics) {
 				evidence = append(evidence, model.Evidence{Key: "mutable_endpoint_semantic", Value: encoded})
 			}
+			for _, hint := range mutableendpoint.TargetClassHintsForSemantics(semantics) {
+				evidence = append(evidence, model.Evidence{Key: "target_class_hint", Value: hint})
+			}
 			findings = append(findings, model.Finding{
 				FindingType: "openapi_endpoint",
 				Severity:    mutableendpoint.SeverityForSemantics(semantics),

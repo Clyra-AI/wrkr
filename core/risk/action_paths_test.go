@@ -750,6 +750,110 @@ func TestMissingApprovalAliasDerivedFromApprovalEvidenceState(t *testing.T) {
 	}
 }
 
+func TestTargetClassInternalToolingDoesNotRankAsProduction(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{
+		{
+			PathID:                 "internal-tool",
+			Org:                    "acme",
+			Repo:                   "acme/platform",
+			ToolType:               "compiled_action",
+			Location:               "tools/release_helper.py",
+			WriteCapable:           true,
+			ActionClasses:          []string{"write"},
+			ActionReasons:          []string{"permission:repo.write"},
+			PathContext:            &agginventory.PathContext{Kind: agginventory.PathContextRuntimeSource, Confidence: "high"},
+			ControlResolutionState: ControlResolutionStateDetectedControl,
+		},
+		{
+			PathID:                 "prod-release",
+			Org:                    "acme",
+			Repo:                   "acme/platform",
+			ToolType:               "compiled_action",
+			Location:               ".github/workflows/release.yml",
+			WriteCapable:           true,
+			DeployWrite:            true,
+			ProductionWrite:        true,
+			ProductionTargetStatus: agginventory.ProductionTargetsStatusConfigured,
+			MatchedProductionTargets: []string{
+				"built_in:deploy_workflow",
+			},
+			ActionClasses:          []string{"deploy", "write"},
+			ActionReasons:          []string{"matched_target:built_in:deploy_workflow"},
+			PathContext:            &agginventory.PathContext{Kind: agginventory.PathContextDeployableSource, Confidence: "high"},
+			ControlResolutionState: ControlResolutionStateDetectedControl,
+		},
+	})
+
+	if len(paths) != 2 {
+		t.Fatalf("expected two projected paths, got %+v", paths)
+	}
+	if paths[0].PathID != "prod-release" {
+		t.Fatalf("expected production path to outrank internal tooling, got %+v", paths)
+	}
+	if paths[0].TargetClass != TargetClassProductionImpacting {
+		t.Fatalf("expected production target class, got %+v", paths[0])
+	}
+	if paths[1].TargetClass != TargetClassInternalTooling {
+		t.Fatalf("expected internal tooling target class, got %+v", paths[1])
+	}
+}
+
+func TestOpenAPITargetClassCustomerDataAdjacent(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:       "payments-openapi",
+		Org:          "acme",
+		Repo:         "acme/payments",
+		ToolType:     "openapi",
+		Location:     "openapi/payments.yaml",
+		WriteCapable: true,
+		ActionClasses: []string{
+			"write",
+		},
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{{
+			Semantic:     agginventory.EndpointSemanticPayment,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    "POST /v1/payments",
+			EvidenceRefs: []string{"POST /v1/payments"},
+		}},
+		PathContext: &agginventory.PathContext{Kind: agginventory.PathContextRuntimeSource, Confidence: "high"},
+	}})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].TargetClass != TargetClassCustomerDataAdjacent {
+		t.Fatalf("expected customer-data-adjacent target class, got %+v", paths[0])
+	}
+	if paths[0].TargetEvidenceState != EvidenceStateVerified {
+		t.Fatalf("expected target evidence to be verified from mutable endpoint refs, got %+v", paths[0])
+	}
+}
+
+func TestDependencyOnlyFindingIsNotAgenticActionPath(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:                 "dependency-only",
+		Org:                    "acme",
+		Repo:                   "acme/app",
+		ToolType:               "dependency",
+		Location:               "package.json",
+		ControlResolutionState: ControlResolutionStateNoVisibleControl,
+	}})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].ActionPathType != ActionPathTypeUnknownExecutablePath {
+		t.Fatalf("expected dependency-only path to stay non-agentic, got %+v", paths[0])
+	}
+}
+
 func TestCredentialProvenanceUnknownIsRiskWeighted(t *testing.T) {
 	t.Parallel()
 

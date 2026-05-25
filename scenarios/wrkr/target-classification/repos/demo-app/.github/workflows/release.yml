@@ -1,0 +1,16 @@
+name: release
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - run: kubectl apply -f k8s/
+      - run: wrkr evidence --state .wrkr/last-scan.json
