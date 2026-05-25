@@ -303,6 +303,9 @@ func TestBuildMCPListEmitsNotDetectedDiagnosticWhenExpectedServerHasNoSignals(t 
 	if payload.Diagnostics[0].ExpectedServer != "payments-mcp" {
 		t.Fatalf("expected expected_server to round-trip, got %+v", payload.Diagnostics[0])
 	}
+	if payload.AbsenceStatus != scanquality.AbsenceStatusNotScanned {
+		t.Fatalf("expected missing scan-quality evidence to stay not_scanned, got %+v", payload)
+	}
 }
 
 func TestBuildMCPListIgnoresUnrelatedDependencyParseErrorsInDiagnostics(t *testing.T) {
@@ -421,5 +424,39 @@ func TestBuildMCPListFallsBackToReducedCoverageWhenOnlyCandidatesExist(t *testin
 	}
 	if !containsString(payload.AbsenceReasons, "candidate_evidence:present") {
 		t.Fatalf("expected candidate evidence reason, got %+v", payload.AbsenceReasons)
+	}
+}
+
+func TestBuildMCPListAggregatesMostConservativeAbsenceStatusAcrossRepos(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPListWithOptions(state.Snapshot{
+		ScanQuality: &scanquality.Report{
+			ScanQualityVersion: scanquality.ReportVersion,
+			Mode:               "governance",
+			AbsenceClaims: []scanquality.AbsenceClaim{
+				{
+					Org:     "acme",
+					Repo:    "acme/payments",
+					Surface: scanquality.SurfaceMCPServer,
+					Status:  scanquality.AbsenceStatusNotFoundCompleteCoverage,
+					Reasons: []string{"detector:mcp=complete"},
+				},
+				{
+					Org:     "acme",
+					Repo:    "acme/ops",
+					Surface: scanquality.SurfaceMCPServer,
+					Status:  scanquality.AbsenceStatusNotFoundReducedCoverage,
+					Reasons: []string{"candidate_evidence:present"},
+				},
+			},
+		},
+	}, MCPListOptions{})
+
+	if payload.AbsenceStatus != scanquality.AbsenceStatusNotFoundReducedCoverage {
+		t.Fatalf("expected most conservative aggregate absence status, got %+v", payload)
+	}
+	if !containsString(payload.AbsenceReasons, "detector:mcp=complete") || !containsString(payload.AbsenceReasons, "candidate_evidence:present") {
+		t.Fatalf("expected aggregate reasons to include all matching repo evidence, got %+v", payload.AbsenceReasons)
 	}
 }
