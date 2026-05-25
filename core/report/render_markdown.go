@@ -192,6 +192,21 @@ func RenderMarkdown(summary Summary) string {
 				strings.Join(detector.CoverageReasons, ","),
 			))
 		}
+		for _, claim := range summary.ScanQuality.AbsenceClaims {
+			if strings.TrimSpace(claim.Surface) == "" {
+				continue
+			}
+			reasons := "none"
+			if len(claim.Reasons) > 0 {
+				reasons = strings.Join(claim.Reasons, ",")
+			}
+			builder.WriteString(fmt.Sprintf("- %s absence_status=%s reasons=%s impact=%s\n",
+				claim.Surface,
+				claim.Status,
+				reasons,
+				firstNonEmptyValue(strings.TrimSpace(claim.Impact), "none"),
+			))
+		}
 		builder.WriteString("\n")
 	}
 

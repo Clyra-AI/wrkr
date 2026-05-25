@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -333,6 +334,38 @@ func TestMCPListRepoFilterAndExpectedServerDiagnostics(t *testing.T) {
 	firstDiagnostic := diagnostics[0].(map[string]any)
 	if firstDiagnostic["status"] != "candidate_only" {
 		t.Fatalf("expected candidate_only status, got %v", firstDiagnostic)
+	}
+}
+
+func TestMCPListTextQualifiesReducedCoverageAbsence(t *testing.T) {
+	t.Parallel()
+
+	statePath := writeWave2State(t, state.Snapshot{
+		ScanQuality: &scanquality.Report{
+			ScanQualityVersion: scanquality.ReportVersion,
+			Mode:               "governance",
+			AbsenceClaims: []scanquality.AbsenceClaim{{
+				Org:     "acme",
+				Repo:    "acme/payments",
+				Surface: scanquality.SurfaceMCPServer,
+				Status:  scanquality.AbsenceStatusNotFoundReducedCoverage,
+				Reasons: []string{"candidate_evidence:present"},
+				Impact:  "Coverage was reduced or only candidate MCP evidence was present, so absence is not authoritative.",
+			}},
+		},
+	})
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{"mcp-list", "--state", statePath, "--repo", "acme/payments"}, &out, &errOut); code != 0 {
+		t.Fatalf("mcp-list failed: code=%d stderr=%s", code, errOut.String())
+	}
+
+	if strings.Contains(out.String(), "no MCP servers found") {
+		t.Fatalf("did not expect absolute no-servers wording under reduced coverage, got %q", out.String())
+	}
+	if !strings.Contains(out.String(), "reduced coverage") || !strings.Contains(out.String(), "absence_status=not_found_with_reduced_coverage") {
+		t.Fatalf("expected reduced coverage wording, got %q", out.String())
 	}
 }
 

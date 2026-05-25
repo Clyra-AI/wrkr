@@ -270,6 +270,38 @@ func TestBuildSummaryCarriesScanQualityIntoReportAndBOM(t *testing.T) {
 	}
 }
 
+func TestNegativeClaimRenderMarkdownIncludesAbsenceClaimSummary(t *testing.T) {
+	t.Parallel()
+
+	markdown := RenderMarkdown(Summary{
+		GeneratedAt:  "2026-05-24T12:00:00Z",
+		Template:     "operator",
+		ShareProfile: "internal",
+		ScanQuality: &scanquality.Report{
+			ScanQualityVersion: scanquality.ReportVersion,
+			Mode:               "governance",
+			Detectors: []scanquality.DetectorHealth{
+				{Detector: "mcp", Status: "reduced", ParseFailures: 1, AttemptedFiles: 1, ParsedFiles: 0, CoverageReasons: []string{"parse_failures"}},
+			},
+			AbsenceClaims: []scanquality.AbsenceClaim{{
+				Org:     "acme",
+				Repo:    "acme/payments",
+				Surface: scanquality.SurfaceMCPServer,
+				Status:  scanquality.AbsenceStatusCandidateParseFailed,
+				Reasons: []string{"detector:mcp=reduced", "mcp:parse_failures"},
+				Impact:  "At least one MCP candidate surface failed to parse, so absence is not authoritative.",
+			}},
+		},
+	})
+
+	if !strings.Contains(markdown, "mcp_server absence_status=candidate_parse_failed") {
+		t.Fatalf("expected markdown to render absence status, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "impact=At least one MCP candidate surface failed to parse") {
+		t.Fatalf("expected markdown to render absence impact, got %q", markdown)
+	}
+}
+
 func TestBuildSummaryKeepsDiagnosticsOutOfSecuritySurfaces(t *testing.T) {
 	t.Parallel()
 
@@ -1801,6 +1833,70 @@ func TestBuildSummaryDecoratesBacklogWithProjectedPosture(t *testing.T) {
 	}
 	if item.ApprovalStatus != "approved" {
 		t.Fatalf("expected user-managed approval status to be preserved, got %+v", item)
+	}
+}
+
+func TestControlStateConsistencyBuildSummaryNormalizesCriticalControlStateAcrossSurfaces(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:                   "apc-critical-summary",
+					Org:                      "acme",
+					Repo:                     "acme/release",
+					ToolType:                 "compiled_action",
+					Location:                 ".github/workflows/release.yml",
+					WriteCapable:             true,
+					CredentialAccess:         true,
+					StandingPrivilege:        true,
+					DeployWrite:              true,
+					ProductionWrite:          true,
+					MatchedProductionTargets: []string{"built_in:deploy_workflow"},
+					PolicyCoverageStatus:     risk.PolicyCoverageStatusMatched,
+					PolicyEvidenceRefs:       []string{"gait://release"},
+					GaitCoverage: &risk.GaitCoverage{
+						ProofVerification: risk.GaitCoverageDetail{
+							Status:       risk.GaitStatusPresent,
+							EvidenceRefs: []string{"proof_record:rec-111"},
+						},
+					},
+				}},
+			},
+			ControlBacklog: &controlbacklog.Backlog{
+				Items: []controlbacklog.Item{{
+					LinkedActionPathID: "apc-critical-summary",
+					Repo:               "acme/release",
+					Path:               ".github/workflows/release.yml",
+				}},
+			},
+		},
+		Template:    TemplateAgentActionBOM,
+		GeneratedAt: time.Date(2026, 5, 24, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if len(summary.ActionPaths) != 1 || summary.AgentActionBOM == nil || len(summary.AgentActionBOM.Items) != 1 || summary.ControlBacklog == nil || len(summary.ControlBacklog.Items) != 1 {
+		t.Fatalf("expected projected path, bom item, and backlog item, got summary=%+v", summary)
+	}
+
+	path := summary.ActionPaths[0]
+	item := summary.AgentActionBOM.Items[0]
+	backlogItem := summary.ControlBacklog.Items[0]
+
+	if path.ReviewBurden != risk.ReviewBurdenCritical || item.ReviewBurden != path.ReviewBurden || backlogItem.ReviewBurden != path.ReviewBurden {
+		t.Fatalf("expected critical review burden across surfaces, path=%+v item=%+v backlog=%+v", path, item, backlogItem)
+	}
+	if path.ControlState == risk.ControlStateSafeByDefault || item.ControlState != path.ControlState || backlogItem.ControlState != path.ControlState {
+		t.Fatalf("expected non-clean control state across surfaces, path=%+v item=%+v backlog=%+v", path, item, backlogItem)
+	}
+	if path.RiskTier != risk.RiskTierCritical || item.RiskTier != path.RiskTier {
+		t.Fatalf("expected critical risk tier across projected path and BOM, path=%+v item=%+v", path, item)
+	}
+	if item.Queue != controlbacklog.QueueControlFirst || backlogItem.Queue != controlbacklog.QueueControlFirst {
+		t.Fatalf("expected fail-closed queue across BOM and backlog, item=%+v backlog=%+v", item, backlogItem)
 	}
 }
 

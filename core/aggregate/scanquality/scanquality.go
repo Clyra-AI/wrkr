@@ -12,6 +12,15 @@ import (
 
 const ReportVersion = "1"
 
+const (
+	SurfaceMCPServer                      = "mcp_server"
+	AbsenceStatusNotFoundCompleteCoverage = "not_found_with_complete_coverage"
+	AbsenceStatusNotFoundReducedCoverage  = "not_found_with_reduced_coverage"
+	AbsenceStatusNotScanned               = "not_scanned"
+	AbsenceStatusUnsupportedSurface       = "unsupported_surface"
+	AbsenceStatusCandidateParseFailed     = "candidate_parse_failed"
+)
+
 type Report struct {
 	ScanQualityVersion string                 `json:"scan_quality_version"`
 	Mode               string                 `json:"mode"`
@@ -19,6 +28,16 @@ type Report struct {
 	SuppressedPaths    []SuppressedPath       `json:"suppressed_paths,omitempty"`
 	ParseErrors        []ParseIssue           `json:"parse_errors,omitempty"`
 	DetectorErrors     []detect.DetectorError `json:"detector_errors,omitempty"`
+	AbsenceClaims      []AbsenceClaim         `json:"absence_claims,omitempty"`
+}
+
+type AbsenceClaim struct {
+	Org     string   `json:"org,omitempty"`
+	Repo    string   `json:"repo,omitempty"`
+	Surface string   `json:"surface"`
+	Status  string   `json:"status"`
+	Reasons []string `json:"reasons,omitempty"`
+	Impact  string   `json:"impact,omitempty"`
 }
 
 type DetectorHealth struct {
@@ -75,7 +94,32 @@ func Build(input Input) Report {
 	}
 	report.ParseErrors = collectParseIssues(input.Findings)
 	report.Detectors = collectDetectorHealth(input)
+	report.AbsenceClaims = buildAbsenceClaims(input, report.Detectors)
 	return report
+}
+
+func AbsenceClaimForSurface(report *Report, org string, repo string, surface string) *AbsenceClaim {
+	if report == nil {
+		return nil
+	}
+	org = strings.TrimSpace(org)
+	repo = strings.TrimSpace(repo)
+	surface = strings.TrimSpace(surface)
+	for _, item := range report.AbsenceClaims {
+		if strings.TrimSpace(item.Surface) != surface {
+			continue
+		}
+		if org != "" && strings.TrimSpace(item.Org) != org {
+			continue
+		}
+		if repo != "" && strings.TrimSpace(item.Repo) != repo {
+			continue
+		}
+		copyItem := item
+		copyItem.Reasons = append([]string(nil), item.Reasons...)
+		return &copyItem
+	}
+	return nil
 }
 
 func collectSuppressedPaths(scopes []detect.Scope) []SuppressedPath {
@@ -303,6 +347,151 @@ func collectDetectorHealth(input Input) []DetectorHealth {
 		return out[i].Detector < out[j].Detector
 	})
 	return out
+}
+
+func buildAbsenceClaims(input Input, detectors []DetectorHealth) []AbsenceClaim {
+	type countIndex map[string]int
+
+	authoritative := countIndex{}
+	candidates := countIndex{}
+	repoKeys := map[string]struct{}{}
+	for _, scope := range input.Scopes {
+		repoKeys[scopeKey(scope.Org, scope.Repo)] = struct{}{}
+	}
+	for _, finding := range input.Findings {
+		key := scopeKey(finding.Org, finding.Repo)
+		repoKeys[key] = struct{}{}
+		switch strings.TrimSpace(finding.FindingType) {
+		case "mcp_server":
+			authoritative[key]++
+		case "mcp_server_candidate", "webmcp_declaration":
+			candidates[key]++
+		}
+	}
+	byRepo := map[string][]DetectorHealth{}
+	for _, detector := range detectors {
+		if strings.TrimSpace(detector.Detector) != "mcp" && strings.TrimSpace(detector.Detector) != "webmcp" {
+			continue
+		}
+		key := scopeKey(detector.Org, detector.Repo)
+		repoKeys[key] = struct{}{}
+		byRepo[key] = append(byRepo[key], detector)
+	}
+
+	out := make([]AbsenceClaim, 0, len(repoKeys))
+	for key := range repoKeys {
+		if authoritative[key] > 0 {
+			continue
+		}
+		org, repo := splitScopeKey(key)
+		status, reasons := deriveMCPAbsenceStatus(byRepo[key], candidates[key])
+		if status == "" {
+			continue
+		}
+		out = append(out, AbsenceClaim{
+			Org:     org,
+			Repo:    repo,
+			Surface: SurfaceMCPServer,
+			Status:  status,
+			Reasons: reasons,
+			Impact:  absenceImpact(status),
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Org != out[j].Org {
+			return out[i].Org < out[j].Org
+		}
+		if out[i].Repo != out[j].Repo {
+			return out[i].Repo < out[j].Repo
+		}
+		return out[i].Surface < out[j].Surface
+	})
+	return out
+}
+
+func deriveMCPAbsenceStatus(detectors []DetectorHealth, candidateCount int) (string, []string) {
+	if len(detectors) == 0 {
+		return AbsenceStatusNotScanned, []string{"detector_health:missing"}
+	}
+
+	reasonSet := map[string]struct{}{}
+	completeCoverage := true
+	parseFailure := false
+	unsupportedSurface := false
+	reducedCoverage := false
+	anyUnsupported := false
+	for _, detector := range detectors {
+		label := strings.TrimSpace(detector.Detector)
+		if label == "" {
+			label = "unknown"
+		}
+		reasonSet["detector:"+label+"="+strings.TrimSpace(detector.Status)] = struct{}{}
+		for _, reason := range detector.CoverageReasons {
+			trimmed := strings.TrimSpace(reason)
+			reasonSet[label+":"+trimmed] = struct{}{}
+			switch trimmed {
+			case "parse_failures", "partial_parse", "blocked_path", "detector_error", "generated_suppression", "skipped_file":
+				reducedCoverage = true
+			}
+		}
+		if detector.ParseFailures > 0 && detector.UnsupportedDeclarations == 0 {
+			parseFailure = true
+		}
+		if detector.Status != "complete" {
+			completeCoverage = false
+		}
+		if detector.UnsupportedDeclarations > 0 {
+			anyUnsupported = true
+		}
+	}
+	if candidateCount > 0 {
+		reasonSet["candidate_evidence:present"] = struct{}{}
+		reducedCoverage = true
+		completeCoverage = false
+	}
+	if anyUnsupported && !parseFailure && !reducedCoverage && candidateCount == 0 {
+		unsupportedSurface = true
+	}
+
+	switch {
+	case unsupportedSurface:
+		return AbsenceStatusUnsupportedSurface, sortedReasonKeys(reasonSet)
+	case parseFailure:
+		return AbsenceStatusCandidateParseFailed, sortedReasonKeys(reasonSet)
+	case reducedCoverage:
+		return AbsenceStatusNotFoundReducedCoverage, sortedReasonKeys(reasonSet)
+	case completeCoverage:
+		return AbsenceStatusNotFoundCompleteCoverage, sortedReasonKeys(reasonSet)
+	default:
+		return AbsenceStatusNotScanned, sortedReasonKeys(reasonSet)
+	}
+}
+
+func absenceImpact(status string) string {
+	switch strings.TrimSpace(status) {
+	case AbsenceStatusNotFoundCompleteCoverage:
+		return "Complete MCP coverage supported a clean negative result for the scanned surfaces."
+	case AbsenceStatusCandidateParseFailed:
+		return "At least one MCP candidate surface failed to parse, so absence is not authoritative."
+	case AbsenceStatusUnsupportedSurface:
+		return "Only unsupported MCP-style surfaces were seen, so absence is not authoritative."
+	case AbsenceStatusNotFoundReducedCoverage:
+		return "Coverage was reduced or only candidate MCP evidence was present, so absence is not authoritative."
+	default:
+		return "MCP coverage was not scanned for this repo, so absence is not authoritative."
+	}
+}
+
+func scopeKey(org string, repo string) string {
+	return strings.TrimSpace(org) + "|" + strings.TrimSpace(repo)
+}
+
+func splitScopeKey(key string) (string, string) {
+	parts := strings.SplitN(strings.TrimSpace(key), "|", 2)
+	if len(parts) != 2 {
+		return "", strings.TrimSpace(key)
+	}
+	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 }
 
 func buildParsePathIndex(findings []model.Finding) map[detectorScopeKey]map[string]parsePathStatus {

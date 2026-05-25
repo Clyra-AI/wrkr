@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:minor] Changed report and schema terminology to present approval, owner, proof, policy, runtime, target, and credential findings as evidence states rather than unsupported missing-control claims.
 - [semver:patch] Changed buyer-facing report, backlog, and remediation wording to use evidence-scoped language for approval, ownership, proof, policy, runtime, target, and credential states.
+- [semver:minor] Changed MCP absence reporting to use coverage-qualified statuses so reduced coverage, unsupported declarations, parse-failed candidates, and unscanned repos do not render as absolute missing-server claims.
 
 ### Deprecated
 
@@ -27,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Fixed govern-first projection so control state, queue, review burden, risk tier, and remediation stay semantically consistent for critical, contradictory, and control-first paths.
 
 ### Security
 

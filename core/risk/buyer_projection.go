@@ -58,6 +58,7 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out.ControlState, out.ControlStateReasons = deriveControlState(out)
 	out.RiskZone, out.RiskZoneReasons = deriveRiskZone(out)
 	out.ReviewBurden, out.ReviewBurdenReasons = deriveReviewBurden(out)
+	out = normalizeProjectedControlState(out)
 	return out
 }
 
@@ -435,6 +436,130 @@ func deriveReviewBurden(path ActionPath) (string, []string) {
 		return ReviewBurdenMedium, dedupeSortedStrings(reasons)
 	default:
 		return ReviewBurdenLow, dedupeSortedStrings(reasons)
+	}
+}
+
+func normalizeProjectedControlState(path ActionPath) ActionPath {
+	out := path
+	addControlReason := func(reason string) {
+		if strings.TrimSpace(reason) == "" {
+			return
+		}
+		out.ControlStateReasons = dedupeSortedStrings(append(out.ControlStateReasons, strings.TrimSpace(reason)))
+	}
+	addReviewReason := func(reason string) {
+		if strings.TrimSpace(reason) == "" {
+			return
+		}
+		out.ReviewBurdenReasons = dedupeSortedStrings(append(out.ReviewBurdenReasons, strings.TrimSpace(reason)))
+	}
+
+	highImpact := out.ProductionWrite ||
+		out.DeployWrite ||
+		out.MergeExecute ||
+		out.StandingPrivilege ||
+		pathHasHighImpactMutableEndpoint(out) ||
+		pathHasSensitiveDataEndpoint(out)
+	contradictory := actionPathHasContradictoryControlEvidence(out)
+	criticalReview := strings.TrimSpace(out.ReviewBurden) == ReviewBurdenCritical
+
+	if contradictory {
+		if strings.TrimSpace(out.ControlPriority) != ControlPriorityControlFirst {
+			out.ControlPriority = ControlPriorityControlFirst
+			addControlReason("consistency:contradictory_control_routes_to_control_first")
+		}
+		if strings.TrimSpace(out.ControlState) != ControlStateBlockRecommend {
+			out.ControlState = ControlStateBlockRecommend
+			addControlReason("consistency:contradictory_control_blocks_clean_state")
+		}
+		if reviewBurdenRank(out.ReviewBurden) > reviewBurdenRank(ReviewBurdenCritical) {
+			out.ReviewBurden = ReviewBurdenCritical
+			addReviewReason("consistency:contradictory_control_requires_critical_review")
+		}
+		out.RiskTier = promoteRiskTier(out.RiskTier, minimumConsistencyRiskTier(highImpact))
+		return out
+	}
+
+	if strings.TrimSpace(out.ControlPriority) == ControlPriorityControlFirst && strings.TrimSpace(out.ControlState) == ControlStateSafeByDefault {
+		out.ControlState = ControlStateEvidenceNeeded
+		addControlReason("consistency:control_first_cannot_be_safe_by_default")
+	}
+
+	if criticalReview {
+		if strings.TrimSpace(out.ControlPriority) == ControlPriorityInventoryHygiene {
+			out.ControlPriority = ControlPriorityReviewQueue
+			addReviewReason("consistency:critical_review_cannot_stay_inventory_hygiene")
+		}
+		switch strings.TrimSpace(out.ControlState) {
+		case ControlStateSafeByDefault, ControlStateInventoryOnly:
+			switch {
+			case out.ApprovalGap:
+				out.ControlState = ControlStateApprovalNeeded
+				addControlReason("consistency:critical_review_requires_approval_or_evidence")
+			case highImpact:
+				out.ControlState = ControlStateBlockRecommend
+				addControlReason("consistency:critical_review_requires_fail_closed_state")
+			default:
+				out.ControlState = ControlStateEvidenceNeeded
+				addControlReason("consistency:critical_review_requires_approval_or_evidence")
+			}
+		}
+		out.RiskTier = promoteRiskTier(out.RiskTier, minimumConsistencyRiskTier(highImpact))
+	}
+
+	if strings.TrimSpace(out.ControlPriority) == ControlPriorityControlFirst {
+		out.RiskTier = promoteRiskTier(out.RiskTier, minimumConsistencyRiskTier(highImpact))
+	}
+
+	return out
+}
+
+func actionPathHasContradictoryControlEvidence(path ActionPath) bool {
+	if strings.TrimSpace(path.ControlResolutionState) == ControlResolutionStateContradictoryControl {
+		return true
+	}
+	for _, state := range []string{
+		path.ApprovalEvidenceState,
+		path.OwnerEvidenceState,
+		path.ProofEvidenceState,
+		path.RuntimeEvidenceState,
+		path.TargetEvidenceState,
+		path.CredentialEvidenceState,
+	} {
+		if normalizeEvidenceState(state) == EvidenceStateContradictory {
+			return true
+		}
+	}
+	return false
+}
+
+func minimumConsistencyRiskTier(highImpact bool) string {
+	if highImpact {
+		return RiskTierCritical
+	}
+	return RiskTierHigh
+}
+
+func promoteRiskTier(current, minimum string) string {
+	if riskTierRank(minimum) < riskTierRank(current) {
+		return minimum
+	}
+	if strings.TrimSpace(current) == "" {
+		return minimum
+	}
+	return strings.TrimSpace(current)
+}
+
+func riskTierRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case RiskTierCritical:
+		return 0
+	case RiskTierHigh:
+		return 1
+	case RiskTierMedium:
+		return 2
+	default:
+		return 3
 	}
 }
 

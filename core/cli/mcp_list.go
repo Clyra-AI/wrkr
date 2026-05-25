@@ -57,7 +57,10 @@ func runMCPList(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if len(payload.Rows) == 0 {
-		_, _ = fmt.Fprintln(stdout, "wrkr mcp-list no MCP servers found")
+		_, _ = fmt.Fprintln(stdout, renderMCPAbsenceLine(payload))
+		if strings.TrimSpace(payload.AbsenceImpact) != "" {
+			_, _ = fmt.Fprintf(stdout, "coverage impact: %s\n", strings.TrimSpace(payload.AbsenceImpact))
+		}
 		return exitSuccess
 	}
 
@@ -85,4 +88,23 @@ func runMCPList(args []string, stdout io.Writer, stderr io.Writer) int {
 		_, _ = fmt.Fprintf(stderr, "mcp-list diagnostic repo=%s status=%s\n", label, diagnostic.Status)
 	}
 	return exitSuccess
+}
+
+func renderMCPAbsenceLine(payload reportcore.MCPList) string {
+	switch strings.TrimSpace(payload.AbsenceStatus) {
+	case reportcore.MCPTrustUnavailable:
+		return "wrkr mcp-list MCP coverage status is unavailable"
+	case "not_found_with_complete_coverage":
+		return "wrkr mcp-list no MCP servers found (absence_status=not_found_with_complete_coverage)"
+	case "candidate_parse_failed":
+		return "wrkr mcp-list MCP server evidence not found because candidate surfaces failed to parse (absence_status=candidate_parse_failed)"
+	case "unsupported_surface":
+		return "wrkr mcp-list MCP server evidence not found on unsupported surfaces (absence_status=unsupported_surface)"
+	case "not_found_with_reduced_coverage":
+		return "wrkr mcp-list MCP server evidence not found with reduced coverage (absence_status=not_found_with_reduced_coverage)"
+	case "not_scanned":
+		return "wrkr mcp-list MCP coverage was not scanned, so no absence claim is supported (absence_status=not_scanned)"
+	default:
+		return "wrkr mcp-list MCP server evidence not found (absence_status=unknown)"
+	}
 }

@@ -95,6 +95,10 @@ func TestScanQualityReportsReducedCoverageForParseFailures(t *testing.T) {
 	if !containsReason(mcp.CoverageReasons, "parse_failures") {
 		t.Fatalf("expected parse_failures reason, got %+v", mcp)
 	}
+	claim := findAbsenceClaim(t, report, "acme", "app", SurfaceMCPServer)
+	if claim.Status != AbsenceStatusCandidateParseFailed {
+		t.Fatalf("expected candidate_parse_failed absence claim, got %+v", claim)
+	}
 }
 
 func TestScanQualitySkipsGeneratedDependencyDirectoriesInGovernanceMode(t *testing.T) {
@@ -219,6 +223,10 @@ func TestScanQualityReportsCompleteMCPCoverageForCleanNegativeResult(t *testing.
 	if !containsReason(mcp.CoverageReasons, "no_candidate_inputs") {
 		t.Fatalf("expected no_candidate_inputs reason, got %+v", mcp)
 	}
+	claim := findAbsenceClaim(t, report, "acme", "app", SurfaceMCPServer)
+	if claim.Status != AbsenceStatusNotFoundCompleteCoverage {
+		t.Fatalf("expected complete-coverage absence claim, got %+v", claim)
+	}
 }
 
 func TestScanQualityMCPCandidatesMatchDetectorInputs(t *testing.T) {
@@ -246,6 +254,32 @@ func TestScanQualityMCPCandidatesMatchDetectorInputs(t *testing.T) {
 	}
 }
 
+func TestScanQualityReportsUnsupportedSurfaceAbsenceClaim(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".mcp.json"), []byte("{"), 0o600); err != nil {
+		t.Fatalf("write mcp config: %v", err)
+	}
+
+	report := Build(Input{
+		Mode:   "governance",
+		Scopes: []detect.Scope{{Org: "acme", Repo: "app", Root: root}},
+		Findings: []model.Finding{{
+			FindingType: "parse_error",
+			Location:    ".mcp.json",
+			Repo:        "app",
+			Org:         "acme",
+			ParseError:  &model.ParseError{Kind: "schema_validation_error", Path: ".mcp.json", Detector: "mcp", Message: "unsupported declaration"},
+		}},
+	})
+
+	claim := findAbsenceClaim(t, report, "acme", "app", SurfaceMCPServer)
+	if claim.Status != AbsenceStatusUnsupportedSurface {
+		t.Fatalf("expected unsupported_surface absence claim, got %+v", claim)
+	}
+}
+
 func findDetectorHealth(t *testing.T, report Report, detector string) DetectorHealth {
 	t.Helper()
 	for _, item := range report.Detectors {
@@ -264,4 +298,15 @@ func containsReason(reasons []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func findAbsenceClaim(t *testing.T, report Report, org string, repo string, surface string) AbsenceClaim {
+	t.Helper()
+	for _, item := range report.AbsenceClaims {
+		if item.Org == org && item.Repo == repo && item.Surface == surface {
+			return item
+		}
+	}
+	t.Fatalf("expected absence claim for %s/%s surface=%s in %+v", org, repo, surface, report.AbsenceClaims)
+	return AbsenceClaim{}
 }
