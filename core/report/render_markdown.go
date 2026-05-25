@@ -336,10 +336,6 @@ func renderTriggerClassSuffix(triggerClass string) string {
 	return ", trigger=" + strings.TrimSpace(triggerClass)
 }
 
-func markdownRuntimeEvidenceLabel(path risk.ActionPath) string {
-	return risk.BuyerRuntimeEvidenceLabel(path.RuntimeEvidenceState, risk.RuntimeEvidenceAbsenceStatus(path), path.GaitCoverage)
-}
-
 func markdownBOMRuntimeEvidenceLabel(item AgentActionBOMItem) string {
 	return risk.BuyerRuntimeEvidenceLabel(item.RuntimeEvidenceState, item.RuntimeEvidenceAbsenceStatus, item.GaitCoverage)
 }

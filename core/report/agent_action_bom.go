@@ -713,10 +713,6 @@ func decorateLineageForBOM(in *risk.ActionLineage, item AgentActionBOMItem) *ris
 	return out
 }
 
-func coverageConfidenceLabel(report *scanquality.Report) string {
-	return scanquality.CoverageConfidence(report)
-}
-
 func queueForControlPriority(priority string) string {
 	switch strings.TrimSpace(priority) {
 	case risk.ControlPriorityControlFirst:
