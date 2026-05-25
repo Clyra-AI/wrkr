@@ -834,6 +834,39 @@ func TestOpenAPITargetClassCustomerDataAdjacent(t *testing.T) {
 	}
 }
 
+func TestTargetClassProductionSignalOverridesCustomerDataSurface(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:          "deploy-payment",
+		Org:             "acme",
+		Repo:            "acme/payments",
+		ToolType:        "compiled_action",
+		Location:        ".github/workflows/release.yml",
+		WriteCapable:    true,
+		DeployWrite:     true,
+		ProductionWrite: true,
+		ActionClasses: []string{
+			"deploy", "write",
+		},
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{{
+			Semantic:     agginventory.EndpointSemanticPayment,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    "POST /v1/payments",
+			EvidenceRefs: []string{"POST /v1/payments"},
+		}},
+		PathContext: &agginventory.PathContext{Kind: agginventory.PathContextDeployableSource, Confidence: "high"},
+	}})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].TargetClass != TargetClassProductionImpacting {
+		t.Fatalf("expected explicit production signal to outrank customer-data classification, got %+v", paths[0])
+	}
+}
+
 func TestDependencyOnlyFindingIsNotAgenticActionPath(t *testing.T) {
 	t.Parallel()
 

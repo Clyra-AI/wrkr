@@ -396,15 +396,30 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 }
 
 func workflowTargetClassHint(result Result) string {
-	joinedEnv := strings.ToLower(strings.Join(result.EnvironmentNames, ","))
 	switch {
-	case strings.Contains(joinedEnv, "prod"), strings.Contains(joinedEnv, "production"):
+	case workflowEnvironmentSuggestsProduction(result.EnvironmentNames):
 		return "production_impacting"
 	case containsValue(result.Capabilities, "deploy.write"), containsValue(result.Capabilities, "release.write"), containsValue(result.Capabilities, "package.write"), containsValue(result.Capabilities, "iac.write"):
 		return "release_adjacent"
 	default:
 		return ""
 	}
+}
+
+func workflowEnvironmentSuggestsProduction(values []string) bool {
+	for _, value := range values {
+		lower := strings.ToLower(strings.TrimSpace(value))
+		tokens := strings.FieldsFunc(lower, func(r rune) bool {
+			return (r < 'a' || r > 'z') && (r < '0' || r > '9')
+		})
+		for _, token := range tokens {
+			switch token {
+			case "prod", "production", "live":
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func containsValue(values []string, target string) bool {
