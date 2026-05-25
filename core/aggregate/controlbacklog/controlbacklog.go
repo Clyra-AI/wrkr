@@ -289,6 +289,7 @@ func buildControlPathRefs(graph *aggattack.ControlPathGraph) map[string]controlP
 }
 
 func (b *builder) addActionPath(path risk.ActionPath) {
+	path = risk.ProjectActionPath(path)
 	graphRefs := b.graphRefsByPath[strings.TrimSpace(path.PathID)]
 	item := Item{
 		ID:                         backlogID("action_path", path.Org, path.Repo, path.Location, path.PathID),
@@ -1649,6 +1650,10 @@ func firstNonEmptyConfidenceLane(current, incoming string) string {
 }
 
 func queueFromActionPath(path risk.ActionPath) string {
+	if strings.TrimSpace(path.ReviewBurden) == risk.ReviewBurdenCritical ||
+		strings.TrimSpace(path.ControlPriority) == risk.ControlPriorityControlFirst {
+		return QueueControlFirst
+	}
 	switch strings.TrimSpace(path.ControlState) {
 	case risk.ControlStateBlockRecommend:
 		return QueueControlFirst

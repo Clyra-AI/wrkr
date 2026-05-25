@@ -295,8 +295,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			ControlPriority:            controlPriorityForPath(path),
 			RiskTier:                   riskTierForPath(path),
 			RecommendedNextAction:      strings.TrimSpace(path.RecommendedAction),
-			Queue:                      firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForControlPriority(controlPriorityForPath(path))),
-			FindingVisibility:          firstNonEmptyValue(strings.TrimSpace(backlogItem.FindingVisibility), visibilityForQueue(firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForControlPriority(controlPriorityForPath(path))))),
+			Queue:                      firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForActionPath(path)),
+			FindingVisibility:          firstNonEmptyValue(strings.TrimSpace(backlogItem.FindingVisibility), visibilityForQueue(firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForActionPath(path)))),
 			Remediation:                firstNonEmptyValue(strings.TrimSpace(backlogItem.Remediation), risk.RemediationForActionPath(path)),
 			AttackPathRefs:             append([]string(nil), path.AttackPathRefs...),
 			SourceFindingKeys:          append([]string(nil), path.SourceFindingKeys...),
@@ -725,6 +725,14 @@ func queueForControlPriority(priority string) string {
 	default:
 		return controlbacklog.QueueReviewQueue
 	}
+}
+
+func queueForActionPath(path risk.ActionPath) string {
+	path = risk.ProjectActionPath(path)
+	if strings.TrimSpace(path.ReviewBurden) == risk.ReviewBurdenCritical {
+		return controlbacklog.QueueControlFirst
+	}
+	return queueForControlPriority(controlPriorityForPath(path))
 }
 
 func visibilityForQueue(queue string) string {

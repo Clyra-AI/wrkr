@@ -1335,6 +1335,8 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 		copyBacklog.Items[idx].PolicyMissingReasons = uniqueStrings(append(append([]string(nil), item.PolicyMissingReasons...), path.PolicyMissingReasons...))
 		copyBacklog.Items[idx].PolicyEvidenceRefs = uniqueStrings(append(append([]string(nil), item.PolicyEvidenceRefs...), path.PolicyEvidenceRefs...))
 		copyBacklog.Items[idx].PolicyConfidence = firstNonEmptyValue(strings.TrimSpace(path.PolicyConfidence), strings.TrimSpace(item.PolicyConfidence))
+		copyBacklog.Items[idx].Queue = queueForActionPath(path)
+		copyBacklog.Items[idx].FindingVisibility = visibilityForQueue(copyBacklog.Items[idx].Queue)
 		copyBacklog.Items[idx].Remediation = risk.RemediationForActionPath(path)
 		if copyBacklog.Items[idx].CredentialProvenance == nil {
 			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(path.CredentialProvenance)
@@ -1882,6 +1884,7 @@ func cloneScanQualityReport(in *scanquality.Report) *scanquality.Report {
 	copyReport.ParseErrors = append([]scanquality.ParseIssue(nil), in.ParseErrors...)
 	copyReport.DetectorErrors = append([]detect.DetectorError(nil), in.DetectorErrors...)
 	copyReport.Detectors = append([]scanquality.DetectorHealth(nil), in.Detectors...)
+	copyReport.AbsenceClaims = append([]scanquality.AbsenceClaim(nil), in.AbsenceClaims...)
 	return &copyReport
 }
 
@@ -1907,6 +1910,10 @@ func sanitizeScanQualityPublic(in *scanquality.Report) *scanquality.Report {
 	for idx := range copyReport.DetectorErrors {
 		copyReport.DetectorErrors[idx].Org = redactValue("org", copyReport.DetectorErrors[idx].Org, 6)
 		copyReport.DetectorErrors[idx].Repo = redactValue("repo", copyReport.DetectorErrors[idx].Repo, 6)
+	}
+	for idx := range copyReport.AbsenceClaims {
+		copyReport.AbsenceClaims[idx].Org = redactValue("org", copyReport.AbsenceClaims[idx].Org, 6)
+		copyReport.AbsenceClaims[idx].Repo = redactValue("repo", copyReport.AbsenceClaims[idx].Repo, 6)
 	}
 	return copyReport
 }

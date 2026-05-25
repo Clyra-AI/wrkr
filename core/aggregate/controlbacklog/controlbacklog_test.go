@@ -274,6 +274,48 @@ func TestBacklogClosureDoesNotSayOwnerMissing(t *testing.T) {
 	}
 }
 
+func TestCriticalReviewBurdenRoutesToControlFirstQueue(t *testing.T) {
+	t.Parallel()
+
+	backlog := Build(Input{
+		ActionPaths: []risk.ActionPath{{
+			PathID:                   "apc-critical-queue",
+			Org:                      "acme",
+			Repo:                     "acme/release",
+			ToolType:                 "compiled_action",
+			Location:                 ".github/workflows/release.yml",
+			WriteCapable:             true,
+			CredentialAccess:         true,
+			StandingPrivilege:        true,
+			DeployWrite:              true,
+			ProductionWrite:          true,
+			MatchedProductionTargets: []string{"built_in:deploy_workflow"},
+			PolicyCoverageStatus:     risk.PolicyCoverageStatusMatched,
+			PolicyEvidenceRefs:       []string{"gait://release"},
+			GaitCoverage: &risk.GaitCoverage{
+				ProofVerification: risk.GaitCoverageDetail{
+					Status:       risk.GaitStatusPresent,
+					EvidenceRefs: []string{"proof_record:rec-111"},
+				},
+			},
+		}},
+	})
+
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	item := backlog.Items[0]
+	if item.ReviewBurden != risk.ReviewBurdenCritical {
+		t.Fatalf("expected critical review burden, got %+v", item)
+	}
+	if item.Queue != QueueControlFirst {
+		t.Fatalf("expected critical review item to route to control_first queue, got %+v", item)
+	}
+	if item.ControlState == risk.ControlStateSafeByDefault {
+		t.Fatalf("did not expect safe_by_default on critical control-first backlog item, got %+v", item)
+	}
+}
+
 func TestSecurityVisibilityMapsApprovedToKnownApprovedInBacklog(t *testing.T) {
 	t.Parallel()
 

@@ -345,7 +345,33 @@
         "detector_errors": {
           "type": "array",
           "items": {"$ref": "#/$defs/detectorError"}
+        },
+        "absence_claims": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/absenceClaim"}
         }
+      },
+      "additionalProperties": false
+    },
+    "absenceClaim": {
+      "type": "object",
+      "required": ["surface", "status"],
+      "properties": {
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "surface": {"type": "string"},
+        "status": {
+          "type": "string",
+          "enum": [
+            "not_found_with_complete_coverage",
+            "not_found_with_reduced_coverage",
+            "not_scanned",
+            "unsupported_surface",
+            "candidate_parse_failed"
+          ]
+        },
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "impact": {"type": "string"}
       },
       "additionalProperties": false
     },

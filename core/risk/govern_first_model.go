@@ -382,6 +382,10 @@ func sourceFindingKeyOrder(keys []string) string {
 }
 
 func RemediationForActionPath(path ActionPath) string {
+	path = ProjectActionPath(path)
+	if actionPathHasContradictoryControlEvidence(path) {
+		return "Control evidence is contradictory for this path; resolve the conflicting control or evidence signals, keep it in fail-closed review, and rerun the scan before treating it as governed."
+	}
 	if actionPathHasWeakOwnership(path) {
 		switch normalizeEvidenceState(path.OwnerEvidenceState) {
 		case EvidenceStateContradictory:

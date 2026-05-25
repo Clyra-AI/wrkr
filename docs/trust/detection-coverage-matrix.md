@@ -18,6 +18,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 - Static non-human execution identity signals for GitHub Apps, bot users, and service-account references from workflow/config artifacts.
 - Deterministic purpose, version, and config-fingerprint metadata for supported workflow, MCP, and agent-config surfaces when local files, static declaration evidence, or explicit `wrkr:purpose` annotations are available.
 - Deterministic confidence lanes that separate confirmed action paths, likely paths, semantic review candidates, and context-only evidence in buyer-facing output.
+- Coverage-qualified negative-claim posture for MCP surfaces so complete coverage, reduced coverage, unsupported declarations, parse-failed candidates, and unscanned repos do not collapse into the same absence wording.
 - Normalized credential-authority posture that distinguishes credential presence, workflow reference, path usability, access type, standing access, likely JIT, rotation evidence status, and source without exposing raw secret values.
 - Field-selection redaction metadata and stable pseudonym joins for buyer-facing report artifacts when customer, design-partner, external, or investor-safe share profiles are used.
 - Static policy/profile posture signals and ranked findings.
@@ -35,6 +36,8 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 
 Wrkr is deterministic and file-based by default. Static discovery avoids nondeterministic live probing and keeps scan data local.
 `--enrich` is an optional volatility-aware overlay; fail-closed adapter behavior preserves scan safety while quality is explicitly surfaced in output.
+
+That same discipline applies to negative claims: Wrkr only uses absolute absence language when detector coverage is complete enough to support it. Reduced coverage, unsupported declarations, parse-failed candidate surfaces, and unscanned repos stay explicitly qualified in saved-state artifacts.
 
 ## Command anchors
 

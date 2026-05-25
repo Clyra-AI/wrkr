@@ -9,6 +9,7 @@ import (
 	"time"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
@@ -23,13 +24,16 @@ const (
 )
 
 type MCPList struct {
-	Status      string              `json:"status"`
-	GeneratedAt string              `json:"generated_at"`
-	RepoFilter  string              `json:"repo_filter,omitempty"`
-	Rows        []MCPListRow        `json:"rows"`
-	Candidates  []MCPCandidate      `json:"candidates,omitempty"`
-	Diagnostics []MCPMissDiagnostic `json:"diagnostics,omitempty"`
-	Warnings    []string            `json:"warnings,omitempty"`
+	Status         string              `json:"status"`
+	GeneratedAt    string              `json:"generated_at"`
+	RepoFilter     string              `json:"repo_filter,omitempty"`
+	Rows           []MCPListRow        `json:"rows"`
+	Candidates     []MCPCandidate      `json:"candidates,omitempty"`
+	Diagnostics    []MCPMissDiagnostic `json:"diagnostics,omitempty"`
+	Warnings       []string            `json:"warnings,omitempty"`
+	AbsenceStatus  string              `json:"absence_status,omitempty"`
+	AbsenceReasons []string            `json:"absence_reasons,omitempty"`
+	AbsenceImpact  string              `json:"absence_impact,omitempty"`
 }
 
 type MCPListRow struct {
@@ -64,6 +68,7 @@ type MCPMissDiagnostic struct {
 	Repo                    string   `json:"repo"`
 	ExpectedServer          string   `json:"expected_server,omitempty"`
 	Status                  string   `json:"status"`
+	AbsenceStatus           string   `json:"absence_status,omitempty"`
 	CandidateFilesScanned   []string `json:"candidate_files_scanned,omitempty"`
 	ParsedConfigs           []string `json:"parsed_configs,omitempty"`
 	CandidatesFound         []string `json:"candidates_found,omitempty"`
@@ -71,6 +76,7 @@ type MCPMissDiagnostic struct {
 	GeneratedSuppressions   []string `json:"generated_suppressions,omitempty"`
 	UnsupportedDeclarations []string `json:"unsupported_declarations,omitempty"`
 	Explanation             []string `json:"explanation,omitempty"`
+	AbsenceImpact           string   `json:"absence_impact,omitempty"`
 }
 
 type MCPListOptions struct {
@@ -156,15 +162,19 @@ func BuildMCPListWithOptions(snapshot state.Snapshot, opts MCPListOptions) MCPLi
 
 	candidates := buildMCPCandidates(snapshot, repoFilter)
 	diagnostics := buildMCPMissDiagnostics(snapshot, repoFilter, rows, candidates, opts.ExpectedServers)
+	absenceStatus, absenceReasons, absenceImpact := mcpAbsenceSummary(snapshot.ScanQuality, repoFilter, rows, candidates, diagnostics)
 
 	return MCPList{
-		Status:      "ok",
-		GeneratedAt: ResolveGeneratedAtForCLI(snapshot, opts.GeneratedAt).Format(time.RFC3339),
-		RepoFilter:  repoFilter,
-		Rows:        rows,
-		Candidates:  candidates,
-		Diagnostics: diagnostics,
-		Warnings:    warnings,
+		Status:         "ok",
+		GeneratedAt:    ResolveGeneratedAtForCLI(snapshot, opts.GeneratedAt).Format(time.RFC3339),
+		RepoFilter:     repoFilter,
+		Rows:           rows,
+		Candidates:     candidates,
+		Diagnostics:    diagnostics,
+		Warnings:       warnings,
+		AbsenceStatus:  absenceStatus,
+		AbsenceReasons: absenceReasons,
+		AbsenceImpact:  absenceImpact,
 	}
 }
 
@@ -267,6 +277,7 @@ func buildMCPMissDiagnostics(snapshot state.Snapshot, repoFilter string, rows []
 				Org:                     org,
 				Repo:                    repo,
 				Status:                  deriveDiagnosticStatus(detail, false, false),
+				AbsenceStatus:           diagnosticAbsenceStatus(deriveDiagnosticStatus(detail, false, false)),
 				CandidateFilesScanned:   uniqueMCPListStrings(detail.candidateFilesScanned),
 				ParsedConfigs:           uniqueMCPListStrings(detail.parsedConfigs),
 				CandidatesFound:         uniqueMCPListStrings(detail.candidatesFound),
@@ -274,6 +285,7 @@ func buildMCPMissDiagnostics(snapshot state.Snapshot, repoFilter string, rows []
 				GeneratedSuppressions:   uniqueMCPListStrings(detail.generatedSuppressions),
 				UnsupportedDeclarations: uniqueMCPListStrings(detail.unsupportedDeclarations),
 				Explanation:             diagnosticExplanation(deriveDiagnosticStatus(detail, false, false)),
+				AbsenceImpact:           scanqualityAbsenceImpact(diagnosticAbsenceStatus(deriveDiagnosticStatus(detail, false, false))),
 			})
 		}
 		sortMCPDiagnostics(diagnostics)
@@ -295,6 +307,7 @@ func buildMCPMissDiagnostics(snapshot state.Snapshot, repoFilter string, rows []
 				Repo:                    repo,
 				ExpectedServer:          strings.TrimSpace(expected),
 				Status:                  status,
+				AbsenceStatus:           diagnosticAbsenceStatus(status),
 				CandidateFilesScanned:   uniqueMCPListStrings(detail.candidateFilesScanned),
 				ParsedConfigs:           uniqueMCPListStrings(detail.parsedConfigs),
 				CandidatesFound:         uniqueMCPListStrings(detail.candidatesFound),
@@ -302,6 +315,7 @@ func buildMCPMissDiagnostics(snapshot state.Snapshot, repoFilter string, rows []
 				GeneratedSuppressions:   uniqueMCPListStrings(detail.generatedSuppressions),
 				UnsupportedDeclarations: uniqueMCPListStrings(detail.unsupportedDeclarations),
 				Explanation:             diagnosticExplanation(status),
+				AbsenceImpact:           scanqualityAbsenceImpact(diagnosticAbsenceStatus(status)),
 			})
 		}
 	}
@@ -449,6 +463,81 @@ func diagnosticExplanation(status string) []string {
 		return []string{"Wrkr saw parse failures or generated suppression on MCP-bearing surfaces, so a negative result is coverage-reduced rather than authoritative"}
 	default:
 		return []string{"Wrkr did not find authoritative or candidate MCP evidence for the requested repo"}
+	}
+}
+
+func diagnosticAbsenceStatus(status string) string {
+	switch strings.TrimSpace(status) {
+	case "candidate_only", "reduced_coverage":
+		return scanquality.AbsenceStatusNotFoundReducedCoverage
+	case "not_detected":
+		return scanquality.AbsenceStatusNotFoundCompleteCoverage
+	default:
+		return ""
+	}
+}
+
+func mcpAbsenceSummary(report *scanquality.Report, repoFilter string, rows []MCPListRow, candidates []MCPCandidate, diagnostics []MCPMissDiagnostic) (string, []string, string) {
+	if len(rows) > 0 {
+		return "", nil, ""
+	}
+	if claim := mcpAbsenceClaim(report, repoFilter); claim != nil {
+		return claim.Status, append([]string(nil), claim.Reasons...), strings.TrimSpace(claim.Impact)
+	}
+
+	reasons := []string{"scan_quality:unavailable"}
+	if len(candidates) > 0 {
+		reasons = append(reasons, "candidate_evidence:present")
+		return scanquality.AbsenceStatusNotFoundReducedCoverage, uniqueMCPListStrings(reasons), scanqualityAbsenceImpact(scanquality.AbsenceStatusNotFoundReducedCoverage)
+	}
+	for _, diagnostic := range diagnostics {
+		if strings.TrimSpace(diagnostic.AbsenceStatus) == "" {
+			continue
+		}
+		reasons = append(reasons, diagnostic.Status)
+		return strings.TrimSpace(diagnostic.AbsenceStatus), uniqueMCPListStrings(reasons), scanqualityAbsenceImpact(strings.TrimSpace(diagnostic.AbsenceStatus))
+	}
+	return scanquality.AbsenceStatusNotScanned, uniqueMCPListStrings(reasons), scanqualityAbsenceImpact(scanquality.AbsenceStatusNotScanned)
+}
+
+func mcpAbsenceClaim(report *scanquality.Report, repoFilter string) *scanquality.AbsenceClaim {
+	if report == nil {
+		return nil
+	}
+	if strings.TrimSpace(repoFilter) != "" {
+		org := inferDiagnosticOrg(state.Snapshot{ScanQuality: report}, repoFilter)
+		if claim := scanquality.AbsenceClaimForSurface(report, org, repoFilter, scanquality.SurfaceMCPServer); claim != nil {
+			return claim
+		}
+		if claim := scanquality.AbsenceClaimForSurface(report, "", repoFilter, scanquality.SurfaceMCPServer); claim != nil {
+			return claim
+		}
+	}
+	for _, claim := range report.AbsenceClaims {
+		if strings.TrimSpace(claim.Surface) != scanquality.SurfaceMCPServer {
+			continue
+		}
+		copyClaim := claim
+		copyClaim.Reasons = append([]string(nil), claim.Reasons...)
+		return &copyClaim
+	}
+	return nil
+}
+
+func scanqualityAbsenceImpact(status string) string {
+	switch strings.TrimSpace(status) {
+	case scanquality.AbsenceStatusNotFoundCompleteCoverage:
+		return "Complete MCP coverage supported a clean negative result for the scanned surfaces."
+	case scanquality.AbsenceStatusCandidateParseFailed:
+		return "At least one MCP candidate surface failed to parse, so absence is not authoritative."
+	case scanquality.AbsenceStatusUnsupportedSurface:
+		return "Only unsupported MCP-style surfaces were seen, so absence is not authoritative."
+	case scanquality.AbsenceStatusNotFoundReducedCoverage:
+		return "Coverage was reduced or only candidate MCP evidence was present, so absence is not authoritative."
+	case scanquality.AbsenceStatusNotScanned:
+		return "MCP coverage was not scanned for this repo, so absence is not authoritative."
+	default:
+		return ""
 	}
 }
 

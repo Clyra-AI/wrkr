@@ -364,3 +364,62 @@ func TestBuildMCPListKeepsMCPParseErrorsAsReducedCoverage(t *testing.T) {
 		t.Fatalf("expected MCP parse failure to be preserved, got %+v", payload.Diagnostics[0])
 	}
 }
+
+func TestBuildMCPListCarriesCompleteCoverageAbsenceStatus(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPListWithOptions(state.Snapshot{
+		ScanQuality: &scanquality.Report{
+			ScanQualityVersion: scanquality.ReportVersion,
+			Mode:               "governance",
+			AbsenceClaims: []scanquality.AbsenceClaim{{
+				Org:     "acme",
+				Repo:    "acme/payments",
+				Surface: scanquality.SurfaceMCPServer,
+				Status:  scanquality.AbsenceStatusNotFoundCompleteCoverage,
+				Reasons: []string{"detector:mcp=complete", "mcp:no_candidate_inputs"},
+				Impact:  "Complete MCP coverage supported a clean negative result for the scanned surfaces.",
+			}},
+		},
+	}, MCPListOptions{
+		RepoFilter: "acme/payments",
+	})
+
+	if payload.AbsenceStatus != scanquality.AbsenceStatusNotFoundCompleteCoverage {
+		t.Fatalf("expected complete-coverage absence status, got %+v", payload)
+	}
+	if !containsString(payload.AbsenceReasons, "detector:mcp=complete") {
+		t.Fatalf("expected absence reasons to round-trip, got %+v", payload.AbsenceReasons)
+	}
+	if payload.AbsenceImpact == "" {
+		t.Fatalf("expected absence impact, got %+v", payload)
+	}
+}
+
+func TestBuildMCPListFallsBackToReducedCoverageWhenOnlyCandidatesExist(t *testing.T) {
+	t.Parallel()
+
+	payload := BuildMCPListWithOptions(state.Snapshot{
+		Findings: []source.Finding{
+			{
+				FindingType: "mcp_server_candidate",
+				ToolType:    "mcp",
+				Location:    "package.json",
+				Repo:        "acme/payments",
+				Org:         "acme",
+				Evidence: []model.Evidence{
+					{Key: "candidate_name", Value: "payments-mcp"},
+				},
+			},
+		},
+	}, MCPListOptions{
+		RepoFilter: "acme/payments",
+	})
+
+	if payload.AbsenceStatus != scanquality.AbsenceStatusNotFoundReducedCoverage {
+		t.Fatalf("expected reduced-coverage fallback, got %+v", payload)
+	}
+	if !containsString(payload.AbsenceReasons, "candidate_evidence:present") {
+		t.Fatalf("expected candidate evidence reason, got %+v", payload.AbsenceReasons)
+	}
+}
