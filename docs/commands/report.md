@@ -98,3 +98,13 @@ Report compliance/posture values are derived from evidence present in the curren
 - Low compliance/coverage in report output indicates control evidence gaps in the scanned snapshot.
 - Low compliance/coverage does not imply Wrkr lacks framework support.
 - Use report findings as remediation priorities, then remediate gaps, rerun deterministic scan/evidence/report commands, and confirm improvement from the updated evidence state.
+
+## Buyer-safe evidence language
+
+Report markdown, JSON summaries, backlog rows, and redacted share artifacts lead with evidence-scoped language.
+
+- `control_resolution_state` distinguishes `detected_control`, `declared_control`, `external_control_reference`, `no_visible_control`, `not_applicable`, and `contradictory_control`.
+- Canonical `*_evidence_state` fields distinguish `verified`, `declared`, `inferred`, `unknown`, and `contradictory` evidence for approval, owner, proof, runtime, target, and credential posture.
+- `runtime_evidence_absence_status` keeps static-only scans framed as `not_collected` or `not_applicable` unless runtime proof was actually required for the specific control claim.
+- `target_class` and `action_path_type` keep production-adjacent, internal-tooling, CI/CD, AI-assisted, plain-source, and agent-framework paths separate so report language only uses agent-specific wording when the path evidence is actually agentic.
+- report QA tests block unsupported missing-control wording and reject agent-framework wording unless `action_path_type=agent_framework` supports it.

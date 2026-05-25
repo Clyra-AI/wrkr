@@ -50,6 +50,15 @@ search_fixed_ci() {
   fi
 }
 
+require_absent_fixed_ci() {
+  local needle="$1"
+  local path="$2"
+  local reason="$3"
+  if search_fixed_ci "$needle" "$path"; then
+    fail "${reason} (${path})"
+  fi
+}
+
 extract_exit_codes() {
   local source_path="$1"
   if [[ "${HAS_RG}" -eq 1 ]]; then
@@ -297,6 +306,40 @@ require_pattern "${REPO_ROOT}/docs/governance/content-visibility.md" "^## Policy
 require_pattern "${REPO_ROOT}/docs/governance/content-visibility.md" "^## Directory notices and review checklist$" "content visibility policy missing directory notices section"
 require_pattern "${REPO_ROOT}/product/README.md" "docs/governance/content-visibility.md" "product directory notice missing governance policy link"
 require_pattern "${REPO_ROOT}/.agents/skills/README.md" "docs/governance/content-visibility.md" "skills directory notice missing governance policy link"
+
+for path in \
+  "${REPO_ROOT}/README.md" \
+  "${REPO_ROOT}/docs/commands/scan.md" \
+  "${REPO_ROOT}/docs/commands/report.md" \
+  "${REPO_ROOT}/docs/commands/mcp-list.md" \
+  "${REPO_ROOT}/docs/commands/evidence.md" \
+  "${REPO_ROOT}/docs/commands/ingest.md" \
+  "${REPO_ROOT}/docs/trust/detection-coverage-matrix.md" \
+  "${REPO_ROOT}/docs/trust/contracts-and-schemas.md" \
+  "${REPO_ROOT}/schemas/v1/README.md"; do
+  require_file "${path}"
+  for phrase in "approval missing" "owner missing" "proof missing" "no approval" "uncontrolled" "not governed"; do
+    require_absent_fixed_ci "${phrase}" "${path}" "docs should not use unsupported missing-control wording"
+  done
+done
+
+require_pattern "${REPO_ROOT}/README.md" "^## Evidence-State Reporting$" "README missing evidence-state reporting section"
+require_pattern "${REPO_ROOT}/README.md" "control resolution" "README missing control resolution guidance"
+require_pattern "${REPO_ROOT}/README.md" "coverage-qualified absence" "README missing coverage-qualified absence guidance"
+require_pattern "${REPO_ROOT}/docs/commands/scan.md" "control_resolution_state" "scan docs missing control resolution field guidance"
+require_pattern "${REPO_ROOT}/docs/commands/scan.md" "action_path_type" "scan docs missing action path type guidance"
+require_pattern "${REPO_ROOT}/docs/commands/report.md" "^## Buyer-safe evidence language$" "report docs missing buyer-safe evidence language section"
+require_pattern "${REPO_ROOT}/docs/commands/report.md" "runtime_evidence_absence_status" "report docs missing runtime evidence absence guidance"
+require_pattern "${REPO_ROOT}/docs/commands/report.md" "report QA tests" "report docs missing report QA guidance"
+require_pattern "${REPO_ROOT}/docs/commands/mcp-list.md" "not_found_with_complete_coverage" "mcp-list docs missing complete-coverage absence status"
+require_pattern "${REPO_ROOT}/docs/commands/evidence.md" "control_resolution_state" "evidence docs missing evidence-state guidance"
+require_pattern "${REPO_ROOT}/docs/commands/ingest.md" "not_collected" "ingest docs missing runtime absence status guidance"
+require_pattern "${REPO_ROOT}/docs/trust/detection-coverage-matrix.md" "agent-specific buyer wording" "coverage matrix missing action-path wording guidance"
+require_pattern "${REPO_ROOT}/docs/trust/contracts-and-schemas.md" "^## Evidence-state contract model$" "contracts docs missing evidence-state contract section"
+require_pattern "${REPO_ROOT}/docs/trust/contracts-and-schemas.md" "action_path_type" "contracts docs missing action path type contract guidance"
+require_pattern "${REPO_ROOT}/schemas/v1/README.md" "verified" "schema README missing evidence-state enum guidance"
+require_pattern "${REPO_ROOT}/schemas/v1/README.md" "agent_framework" "schema README missing action path type enum guidance"
+require_pattern "${REPO_ROOT}/schemas/v1/README.md" "not_found_with_complete_coverage" "schema README missing absence-status enum guidance"
 
 if readme_uses_landing_v2; then
   require_pattern "${REPO_ROOT}/README.md" "go install github.com/Clyra-AI/wrkr/cmd/wrkr@latest" "landing README missing go install latest command"

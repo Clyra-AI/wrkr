@@ -9,6 +9,8 @@ Govern-first `action_paths` in scan JSON now carry additive policy-coverage fiel
 wrkr scan status --state <path> [--json]
 ```
 
+Scan-time `action_paths[*]` are evidence-scoped. `control_resolution_state` and the canonical `approval_evidence_state`, `owner_evidence_state`, `proof_evidence_state`, `runtime_evidence_state`, `target_evidence_state`, and `credential_evidence_state` fields explain what Wrkr could verify, what was only declared or inferred, and what remained unknown in the scanned inputs. `action_path_type` keeps plain-source, CI/CD, automation-bot, AI-assisted, and agent-framework paths distinct so downstream reports do not overclaim agent behavior where the evidence only supports a broader action path.
+
 Start here with one of these first-value paths:
 
 ```bash

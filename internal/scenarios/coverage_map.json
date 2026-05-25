@@ -80,6 +80,9 @@
   "CES-external-control-reference": [
     "TestControlEvidenceStateScenario"
   ],
+  "W5-overclaim-qa": [
+    "TestScenarioReportOverclaim"
+  ],
   "W2-target-classification": [
     "TestTargetClassificationScenario"
   ]

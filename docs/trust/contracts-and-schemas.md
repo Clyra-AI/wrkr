@@ -27,6 +27,19 @@ These fields are additive. Consumers that depend on `findings`, `ranked_findings
 
 Secret-bearing workflow semantics are also additive. Workflow references such as `${{ secrets.NAME }}` are classified as `secret_reference_detected` and may combine with `secret_used_by_write_capable_workflow`; they must not be treated as `secret_value_detected` unless a detector explicitly proves a value was exposed.
 
+## Evidence-state contract model
+
+Wrkr's public report, backlog, risk, and evidence contracts now lead with evidence-scoped control posture.
+
+- `control_resolution_state` is one of `detected_control`, `declared_control`, `external_control_reference`, `no_visible_control`, `not_applicable`, or `contradictory_control`.
+- Canonical `approval_evidence_state`, `owner_evidence_state`, `proof_evidence_state`, `runtime_evidence_state`, `target_evidence_state`, and `credential_evidence_state` are one of `verified`, `declared`, `inferred`, `unknown`, or `contradictory`.
+- `target_class` is one of `production_impacting`, `release_adjacent`, `customer_data_adjacent`, `internal_tooling`, `developer_productivity`, `test_demo_sandbox`, or `unknown`.
+- `action_path_type` is one of `ai_assisted_workflow`, `agent_framework`, `automation_bot`, `ci_cd_workflow`, `legacy_script`, `plain_source_code`, or `unknown_executable_path`.
+- Coverage-qualified absence surfaces use `not_found_with_complete_coverage`, `not_found_with_reduced_coverage`, `not_scanned`, `unsupported_surface`, or `candidate_parse_failed`.
+- Runtime absence surfaces use `not_collected`, `not_applicable`, `missing_required`, or `missing_for_control_claim`.
+
+Compatibility aliases such as `missing_approval_paths`, `missing_policy_paths`, `missing_proof_paths`, and older `approval_gap` surfaces remain additive compatibility shims in v1, but they are derived from the canonical evidence-state projection rather than serving as independent truth.
+
 ## Canonical references
 
 - Root exit codes and flags: `docs/commands/root.md`

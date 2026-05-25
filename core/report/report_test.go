@@ -1610,6 +1610,52 @@ func TestMarkdownApprovalUnknownUsesEvidenceNotFound(t *testing.T) {
 	}
 }
 
+func TestReportQABlocksUnsupportedApprovalMissing(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
+		Texts: map[string]string{
+			"markdown": "approval missing for workflow release.yml",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected QA guardrail to reject unsupported approval-missing wording")
+	}
+	if !strings.Contains(err.Error(), "approval missing") {
+		t.Fatalf("expected approval-missing phrase in QA error, got %v", err)
+	}
+}
+
+func TestReportQABlocksAgentLabelForPlainSourcePath(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
+		ActionPathTypes: []string{risk.ActionPathTypePlainSourceCode},
+		Texts: map[string]string{
+			"markdown": "confirmed agent framework repo=acme/payments location=openapi/payments.yaml",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected QA guardrail to reject unsupported agent-framework wording")
+	}
+	if !strings.Contains(err.Error(), risk.ActionPathTypeAgentFramework) {
+		t.Fatalf("expected agent-framework evidence hint in QA error, got %v", err)
+	}
+}
+
+func TestReportQAAllowsAgentLabelWhenActionPathTypeIsAgentFramework(t *testing.T) {
+	t.Parallel()
+
+	if err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
+		ActionPathTypes: []string{risk.ActionPathTypeAgentFramework},
+		Texts: map[string]string{
+			"markdown": "confirmed agent framework repo=acme/payments location=agents/release.py",
+		},
+	}); err != nil {
+		t.Fatalf("expected agent-framework wording to be allowed with agent evidence, got %v", err)
+	}
+}
+
 func TestAgentActionBOMDoesNotRenderPositiveEmptyStateForStandingCredential(t *testing.T) {
 	t.Parallel()
 
