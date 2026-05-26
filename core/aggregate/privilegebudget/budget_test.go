@@ -950,6 +950,7 @@ func TestCredentialAuthoritySeparatesReferenceFromUsability(t *testing.T) {
 
 	if authority == nil {
 		t.Fatal("expected normalized credential authority")
+		return
 	}
 	if !authority.CredentialPresent || !authority.CredentialReferencedByWorkflow {
 		t.Fatalf("expected workflow reference authority, got %+v", authority)

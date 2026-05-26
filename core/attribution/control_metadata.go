@@ -40,10 +40,6 @@ type controlMetadataPayload struct {
 	Controls []ControlMetadata `json:"controls"`
 }
 
-func loadControlMetadata(repoRoot string) map[string]ControlMetadata {
-	return loadControlMetadataAt(repoRoot, time.Time{})
-}
-
 func loadControlMetadataAt(repoRoot string, generatedAt time.Time) map[string]ControlMetadata {
 	if strings.TrimSpace(repoRoot) == "" {
 		return nil
@@ -445,23 +441,6 @@ func loadExternalControlMetadata(payload []byte, generatedAt time.Time) []Contro
 		out = append(out, item)
 	}
 	return out
-}
-
-func externalEvidenceState(sourceType string, status string) string {
-	switch normalizeExternalConstraintStatus(status) {
-	case "conflict":
-		return "contradictory"
-	case "stale":
-		return "unknown"
-	case "unmatched":
-		return "unknown"
-	}
-	switch strings.TrimSpace(sourceType) {
-	case "provider_export", "github_team_export", "backstage_export":
-		return "verified"
-	default:
-		return "declared"
-	}
 }
 
 func normalizeExternalConstraintStatus(value string) string {
