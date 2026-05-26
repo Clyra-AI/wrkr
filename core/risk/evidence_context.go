@@ -25,7 +25,7 @@ const (
 	ClosureRequirementExpandScanCoverage        = "expand_scan_coverage"
 	ClosureRequirementProvideProviderExport     = "provide_provider_export"
 	ClosureRequirementProveDeploymentConstraint = "prove_deployment_constraint"
-	ClosureRequirementProveJITCredential        = "prove_jit_credential"
+	ClosureRequirementProveJITCredential        = "prove_jit_credential" // #nosec G101 -- deterministic requirement label, not credential material.
 	ClosureRequirementRefreshExpiredEvidence    = "refresh_expired_evidence"
 	ClosureRequirementResolveContradiction      = "resolve_contradiction"
 	ClosureRequirementAcceptInternalTooling     = "accept_declared_internal_tooling"
@@ -72,10 +72,10 @@ type EvidenceCompletenessAxisScore struct {
 }
 
 type EvidenceCompleteness struct {
-	TotalScore            int                            `json:"total_score"`
-	Label                 string                         `json:"label"`
-	AxisScores            []EvidenceCompletenessAxisScore `json:"axis_scores"`
-	EvidenceGaps          []string                       `json:"evidence_gaps,omitempty"`
+	TotalScore             int                             `json:"total_score"`
+	Label                  string                          `json:"label"`
+	AxisScores             []EvidenceCompletenessAxisScore `json:"axis_scores"`
+	EvidenceGaps           []string                        `json:"evidence_gaps,omitempty"`
 	UnsupportedSurfaces    []string                        `json:"unsupported_surfaces,omitempty"`
 	FreshnessPenalties     []string                        `json:"freshness_penalties,omitempty"`
 	ContradictionPenalties []string                        `json:"contradiction_penalties,omitempty"`
@@ -83,13 +83,13 @@ type EvidenceCompleteness struct {
 }
 
 type EvidenceCompletenessSummary struct {
-	PathCount               int                            `json:"path_count"`
-	AverageTotalScore       int                            `json:"average_total_score"`
-	Label                   string                         `json:"label"`
-	LowEvidencePathCount    int                            `json:"low_evidence_path_count,omitempty"`
-	ReducedCoveragePathCount int                            `json:"reduced_coverage_path_count,omitempty"`
+	PathCount                int                             `json:"path_count"`
+	AverageTotalScore        int                             `json:"average_total_score"`
+	Label                    string                          `json:"label"`
+	LowEvidencePathCount     int                             `json:"low_evidence_path_count,omitempty"`
+	ReducedCoveragePathCount int                             `json:"reduced_coverage_path_count,omitempty"`
 	AxisScores               []EvidenceCompletenessAxisScore `json:"axis_scores,omitempty"`
-	Reasons                  []string                       `json:"reasons,omitempty"`
+	Reasons                  []string                        `json:"reasons,omitempty"`
 }
 
 func DecorateEvidenceContext(paths []ActionPath, report *scanquality.Report) []ActionPath {
@@ -417,9 +417,9 @@ func approvalClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 			Examples: []string{
 				"Attach a ticket or provider export that records the same approval decision.",
 			},
-			ClosureRefs:             append([]string(nil), path.ControlEvidenceRefs...),
-			ReasonCodes:             []string{"approval_evidence:declared"},
-			Guidance:                "Provide exported approval evidence for this path if you need it to move from declared approval toward verified approval.",
+			ClosureRefs: append([]string(nil), path.ControlEvidenceRefs...),
+			ReasonCodes: []string{"approval_evidence:declared"},
+			Guidance:    "Provide exported approval evidence for this path if you need it to move from declared approval toward verified approval.",
 		}, true
 	default:
 		return ClosureRequirement{}, false
@@ -563,9 +563,9 @@ func scanCoverageClosureRequirement(path ActionPath, signals scanquality.Complet
 			"Fix reduced detector coverage or parse failures, then rerun the same scan inputs.",
 			"Attach exported control evidence if this surface stays parser-limited.",
 		},
-		ClosureRefs:             append([]string(nil), signals.UnsupportedSurfaces...),
-		ReasonCodes:             append([]string{"scan_quality:reduced"}, signals.Reasons...),
-		Guidance:                "Restore complete scan coverage for this repository or attach stronger exported evidence before treating low-completeness conclusions as fully supported.",
+		ClosureRefs: append([]string(nil), signals.UnsupportedSurfaces...),
+		ReasonCodes: append([]string{"scan_quality:reduced"}, signals.Reasons...),
+		Guidance:    "Restore complete scan coverage for this repository or attach stronger exported evidence before treating low-completeness conclusions as fully supported.",
 	}, true
 }
 
