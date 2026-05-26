@@ -61,7 +61,7 @@ func DecorateControlMetadata(paths []ActionPath, repoContexts map[string]attribu
 		if ctx.ControlMetadata == nil {
 			continue
 		}
-		meta, ok := ctx.ControlMetadata[strings.TrimSpace(out[i].Location)]
+		meta, ok := attribution.ResolveControlMetadata(ctx.ControlMetadata, strings.TrimSpace(out[i].Location))
 		if !ok {
 			continue
 		}

@@ -40,6 +40,43 @@ type controlMetadataPayload struct {
 	Controls []ControlMetadata `json:"controls"`
 }
 
+func ResolveControlMetadata(byPath map[string]ControlMetadata, location string) (ControlMetadata, bool) {
+	if len(byPath) == 0 {
+		return ControlMetadata{}, false
+	}
+	location = filepath.ToSlash(strings.TrimSpace(location))
+	if location == "" {
+		return ControlMetadata{}, false
+	}
+	keys := make([]string, 0, len(byPath))
+	for key := range byPath {
+		keys = append(keys, filepath.ToSlash(strings.TrimSpace(key)))
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		leftExact := keys[i] == location
+		rightExact := keys[j] == location
+		if leftExact != rightExact {
+			return leftExact
+		}
+		return keys[i] < keys[j]
+	})
+
+	matched := ControlMetadata{}
+	found := false
+	for _, key := range keys {
+		meta, ok := byPath[key]
+		if !ok || !controlMetadataPatternMatches(key, location) {
+			continue
+		}
+		matched = mergeControlMetadata(matched, meta)
+		found = true
+	}
+	if !found {
+		return ControlMetadata{}, false
+	}
+	return matched, true
+}
+
 func loadControlMetadataAt(repoRoot string, generatedAt time.Time) map[string]ControlMetadata {
 	if strings.TrimSpace(repoRoot) == "" {
 		return nil
@@ -120,6 +157,25 @@ func loadControlMetadataAt(repoRoot string, generatedAt time.Time) map[string]Co
 		return nil
 	}
 	return byPath
+}
+
+func controlMetadataPatternMatches(pattern, location string) bool {
+	pattern = strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(pattern)), "/")
+	location = strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(location)), "/")
+	if pattern == "" || location == "" {
+		return false
+	}
+	if pattern == "*" || pattern == location {
+		return true
+	}
+	if strings.HasSuffix(pattern, "/") {
+		return strings.HasPrefix(location, strings.TrimSuffix(pattern, "/"))
+	}
+	if strings.Contains(pattern, "*") {
+		ok, err := filepath.Match(pattern, location)
+		return err == nil && ok
+	}
+	return strings.HasSuffix(location, pattern)
 }
 
 func mergeControlMetadata(current, incoming ControlMetadata) ControlMetadata {

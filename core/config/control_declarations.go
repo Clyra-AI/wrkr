@@ -106,6 +106,9 @@ func LoadControlDeclarations(root string) (ControlDeclarations, []string, error)
 	if len(used) == 0 {
 		return ControlDeclarations{}, nil, nil
 	}
+	if err := validateControlDeclarations(loaded); err != nil {
+		return ControlDeclarations{}, used, fmt.Errorf("validate merged control declarations: %w", err)
+	}
 	return loaded, used, nil
 }
 
