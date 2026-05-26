@@ -253,9 +253,7 @@ func ResolveDecision(candidates []Candidate, generatedAt time.Time) Decision {
 	}
 
 	if len(top) > 1 {
-		for _, candidate := range top[1:] {
-			decision.RejectedCandidates = append(decision.RejectedCandidates, candidate)
-		}
+		decision.RejectedCandidates = append(decision.RejectedCandidates, top[1:]...)
 		decision.RejectedCandidates = normalizeCandidates(decision.RejectedCandidates, generatedAt)
 	}
 	return decision
