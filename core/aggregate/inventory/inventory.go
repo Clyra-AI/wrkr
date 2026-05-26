@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/exposure"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -16,15 +17,16 @@ import (
 )
 
 type ToolLocation struct {
-	Repo                string   `json:"repo" yaml:"repo"`
-	Location            string   `json:"location" yaml:"location"`
-	Owner               string   `json:"owner" yaml:"owner"`
-	OwnerSource         string   `json:"owner_source,omitempty" yaml:"owner_source,omitempty"`
-	OwnershipStatus     string   `json:"ownership_status,omitempty" yaml:"ownership_status,omitempty"`
-	OwnershipState      string   `json:"ownership_state,omitempty" yaml:"ownership_state,omitempty"`
-	OwnershipConfidence float64  `json:"ownership_confidence,omitempty" yaml:"ownership_confidence,omitempty"`
-	OwnershipEvidence   []string `json:"ownership_evidence_basis,omitempty" yaml:"ownership_evidence_basis,omitempty"`
-	OwnershipConflicts  []string `json:"ownership_conflicts,omitempty" yaml:"ownership_conflicts,omitempty"`
+	Repo                string                   `json:"repo" yaml:"repo"`
+	Location            string                   `json:"location" yaml:"location"`
+	Owner               string                   `json:"owner" yaml:"owner"`
+	OwnerSource         string                   `json:"owner_source,omitempty" yaml:"owner_source,omitempty"`
+	OwnershipStatus     string                   `json:"ownership_status,omitempty" yaml:"ownership_status,omitempty"`
+	OwnershipState      string                   `json:"ownership_state,omitempty" yaml:"ownership_state,omitempty"`
+	OwnershipConfidence float64                  `json:"ownership_confidence,omitempty" yaml:"ownership_confidence,omitempty"`
+	OwnershipEvidence   []string                 `json:"ownership_evidence_basis,omitempty" yaml:"ownership_evidence_basis,omitempty"`
+	OwnershipConflicts  []string                 `json:"ownership_conflicts,omitempty" yaml:"ownership_conflicts,omitempty"`
+	OwnershipDecision   *evidencepolicy.Decision `json:"ownership_decision,omitempty" yaml:"ownership_decision,omitempty"`
 }
 
 type Agent struct {
@@ -374,7 +376,7 @@ func Build(input BuildInput) Inventory {
 		if finding.Repo != "" {
 			item.repoSet[finding.Repo] = struct{}{}
 		}
-		owner := owners.ResolveWithMetadata(repoRoot(input.Manifest, finding.Repo), finding.Repo, findingOrg, finding.Location, ownerMetadata(input.Manifest, finding.Repo))
+		owner := owners.ResolveWithMetadataAt(repoRoot(input.Manifest, finding.Repo), finding.Repo, findingOrg, finding.Location, ownerMetadata(input.Manifest, finding.Repo), generatedAt)
 		locKey := finding.Repo + "::" + finding.Location
 		if _, exists := item.locSet[locKey]; !exists {
 			item.locSet[locKey] = struct{}{}
@@ -388,6 +390,7 @@ func Build(input BuildInput) Inventory {
 				OwnershipConfidence: owner.OwnershipConfidence,
 				OwnershipEvidence:   cloneStringSlice(owner.EvidenceBasis),
 				OwnershipConflicts:  cloneStringSlice(owner.ConflictOwners),
+				OwnershipDecision:   cloneEvidenceDecision(owner.EvidenceDecision),
 			})
 		}
 		for _, permission := range finding.Permissions {
@@ -1656,6 +1659,26 @@ func cloneStringSlice(values []string) []string {
 	out := make([]string, 0, len(values))
 	out = append(out, values...)
 	return out
+}
+
+func cloneEvidenceDecision(in *evidencepolicy.Decision) *evidencepolicy.Decision {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.SelectedEvidenceRefs = cloneStringSlice(in.SelectedEvidenceRefs)
+	out.ReasonCodes = cloneStringSlice(in.ReasonCodes)
+	out.ConflictReasonCodes = cloneStringSlice(in.ConflictReasonCodes)
+	if len(in.RejectedCandidates) > 0 {
+		out.RejectedCandidates = make([]evidencepolicy.Candidate, 0, len(in.RejectedCandidates))
+		for _, item := range in.RejectedCandidates {
+			copyItem := item
+			copyItem.EvidenceRefs = cloneStringSlice(item.EvidenceRefs)
+			copyItem.ReasonCodes = cloneStringSlice(item.ReasonCodes)
+			out.RejectedCandidates = append(out.RejectedCandidates, copyItem)
+		}
+	}
+	return &out
 }
 
 func findingAgentSymbol(finding model.Finding) string {

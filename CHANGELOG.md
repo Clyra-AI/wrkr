@@ -15,6 +15,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added schema-backed external control evidence sidecars for local ownership, approval, provider, branch, deployment, and policy evidence.
 - [semver:minor] Added deterministic correlation for external ownership, approval, app catalog, ticket, policy, and provider evidence.
 - [semver:minor] Added branch protection, protected environment, deployment approval, required check, freeze window, and kill switch evidence for control reports.
+- [semver:minor] Added freshness and expiry metadata for imported and declared evidence across reports, backlog, and evidence bundles.
+- [semver:minor] Added versioned customer control declarations for owner mappings, target classes, accepted tooling, exceptions, non-prod declarations, and evidence links.
+- [semver:minor] Added contradiction detection for customer declarations, production targets, credentials, workflows, deployment constraints, and policy evidence.
 
 ### Changed
 
@@ -23,6 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Changed MCP absence reporting to use coverage-qualified statuses so reduced coverage, unsupported declarations, parse-failed candidates, and unscanned repos do not render as absolute missing-server claims.
 - [semver:patch] Changed buyer-facing reports and Agent Action BOM summaries to lead with compact scan coverage summaries while preserving detector-level scan-quality details in appendix and evidence JSON.
 - [semver:minor] Changed runtime evidence reporting so static-only scans render runtime evidence as not collected or not applicable unless runtime evidence is required or needed for a control claim.
+- [semver:minor] Changed evidence resolution to use deterministic source precedence with conflict reasons across ownership and control outputs.
 - Updated command, trust, and schema documentation for evidence-state control resolution, target classification, action path type classification, coverage-qualified absence, runtime evidence framing, and report QA guardrails.
 
 ### Deprecated

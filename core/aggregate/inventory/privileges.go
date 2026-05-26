@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/model"
 )
 
@@ -141,6 +142,7 @@ type AgentPrivilegeMapEntry struct {
 	OwnershipConfidence      float64                    `json:"ownership_confidence,omitempty" yaml:"ownership_confidence,omitempty"`
 	OwnershipEvidence        []string                   `json:"ownership_evidence_basis,omitempty" yaml:"ownership_evidence_basis,omitempty"`
 	OwnershipConflicts       []string                   `json:"ownership_conflicts,omitempty" yaml:"ownership_conflicts,omitempty"`
+	OwnershipDecision        *evidencepolicy.Decision   `json:"ownership_decision,omitempty" yaml:"ownership_decision,omitempty"`
 	ApprovalGapReasons       []string                   `json:"approval_gap_reasons,omitempty" yaml:"approval_gap_reasons,omitempty"`
 	TrustDepth               *TrustDepth                `json:"trust_depth,omitempty" yaml:"trust_depth,omitempty"`
 	PullRequestWrite         bool                       `json:"pull_request_write,omitempty" yaml:"pull_request_write,omitempty"`

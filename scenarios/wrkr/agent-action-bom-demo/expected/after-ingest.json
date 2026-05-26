@@ -30,6 +30,9 @@
       "gait_runtime",
       "proof_runtime"
     ],
+    "source_types": [
+      "unknown"
+    ],
     "policy_refs": [
       "gait://release-control"
     ],
@@ -44,6 +47,10 @@
       "demo-app:policy_decision:2026-04-29T19:40:00Z",
       "demo-app:proof_verification:2026-04-29T19:42:00Z"
     ],
-    "latest_observed_at": "2026-04-29T19:42:00Z"
+    "latest_observed_at": "2026-04-29T19:42:00Z",
+    "freshness_state": "unknown",
+    "freshness_states": [
+      "unknown"
+    ]
   }
 ]

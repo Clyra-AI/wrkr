@@ -62,6 +62,8 @@
         "target_class": {"type": "string", "enum": ["production_impacting", "release_adjacent", "customer_data_adjacent", "internal_tooling", "developer_productivity", "test_demo_sandbox", "unknown"]},
         "target_class_reasons": {"type": "array", "items": {"type": "string"}},
         "target_class_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "evidence_decisions": {"type": "array", "items": {"$ref": "#/$defs/evidenceDecision"}},
+        "contradictions": {"type": "array", "items": {"$ref": "#/$defs/contradiction"}},
         "action_path_type": {"type": "string", "enum": ["ai_assisted_workflow", "agent_framework", "automation_bot", "ci_cd_workflow", "legacy_script", "plain_source_code", "unknown_executable_path"]},
         "action_path_type_reasons": {"type": "array", "items": {"type": "string"}},
         "action_path_type_evidence_refs": {"type": "array", "items": {"type": "string"}},
@@ -125,6 +127,58 @@
         "action_lineage": {"$ref": "#/$defs/actionLineage"}
       },
       "additionalProperties": true
+    },
+    "evidenceCandidate": {
+      "type": "object",
+      "properties": {
+        "field": {"type": "string"},
+        "value": {"type": "string"},
+        "source_type": {"type": "string"},
+        "source": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "observed_at": {"type": "string"},
+        "valid_until": {"type": "string"},
+        "max_age": {"type": "string"},
+        "issuer": {"type": "string"},
+        "confidence": {"type": "string"},
+        "freshness_state": {"type": "string", "enum": ["fresh", "stale", "expired", "unknown"]},
+        "status": {"type": "string"},
+        "reason_codes": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "evidenceDecision": {
+      "type": "object",
+      "properties": {
+        "field": {"type": "string"},
+        "selected_value": {"type": "string"},
+        "selected_source_type": {"type": "string"},
+        "selected_source": {"type": "string"},
+        "selected_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "selected_observed_at": {"type": "string"},
+        "selected_valid_until": {"type": "string"},
+        "selected_max_age": {"type": "string"},
+        "selected_issuer": {"type": "string"},
+        "selected_confidence": {"type": "string"},
+        "selected_freshness_state": {"type": "string", "enum": ["fresh", "stale", "expired", "unknown"]},
+        "selected_status": {"type": "string"},
+        "conflict_state": {"type": "string", "enum": ["resolved", "ambiguous"]},
+        "reason_codes": {"type": "array", "items": {"type": "string"}},
+        "conflict_reason_codes": {"type": "array", "items": {"type": "string"}},
+        "rejected_candidates": {"type": "array", "items": {"$ref": "#/$defs/evidenceCandidate"}}
+      },
+      "additionalProperties": false
+    },
+    "contradiction": {
+      "type": "object",
+      "properties": {
+        "class": {"type": "string"},
+        "reason_codes": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "impacted_target_class": {"type": "string"},
+        "recommended_action": {"type": "string"}
+      },
+      "additionalProperties": false
     },
     "controlState": {
       "type": "string",

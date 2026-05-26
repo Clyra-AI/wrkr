@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/model"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
@@ -693,6 +694,105 @@ func TestEvidenceStateContradictoryOwnerSignals(t *testing.T) {
 	}
 	if paths[0].ControlResolutionState != ControlResolutionStateContradictoryControl {
 		t.Fatalf("expected contradictory control resolution state, got %+v", paths[0])
+	}
+}
+
+func TestNonProdDeclarationContradictedByProductionSecret(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:           "apc-non-prod-secret",
+		Org:              "acme",
+		Repo:             "acme/release",
+		ToolType:         "compiled_action",
+		Location:         ".github/workflows/release.yml",
+		WriteCapable:     true,
+		ProductionWrite:  true,
+		CredentialAccess: true,
+		EvidenceDecisions: []evidencepolicy.Decision{{
+			Field:                  evidencepolicy.FieldTarget,
+			SelectedValue:          TargetClassTestDemoSandbox,
+			SelectedSourceType:     evidencepolicy.SourceTypeSignedDeclaration,
+			SelectedSource:         "wrkr-control-declarations.yaml",
+			SelectedEvidenceRefs:   []string{"evidence://customer/declarations.yaml#non-prod"},
+			SelectedFreshnessState: evidencepolicy.FreshnessStateFresh,
+			ReasonCodes:            []string{"declaration:non_production"},
+		}},
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			ReasonCodes:            []string{"credential:static_secret"},
+		},
+	}})
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].TargetEvidenceState != EvidenceStateContradictory {
+		t.Fatalf("expected contradictory target evidence state, got %+v", paths[0])
+	}
+	if len(paths[0].Contradictions) == 0 {
+		t.Fatalf("expected contradiction payload, got %+v", paths[0])
+	}
+}
+
+func TestDeclarationDoesNotBypassContradictionCheck(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:          "apc-declaration-contradiction",
+		Org:             "acme",
+		Repo:            "acme/release",
+		ToolType:        "compiled_action",
+		Location:        ".github/workflows/release.yml",
+		WriteCapable:    true,
+		ProductionWrite: true,
+		EvidenceDecisions: []evidencepolicy.Decision{{
+			Field:                  evidencepolicy.FieldTarget,
+			SelectedValue:          TargetClassTestDemoSandbox,
+			SelectedSourceType:     evidencepolicy.SourceTypeSignedDeclaration,
+			SelectedSource:         "wrkr-control-declarations.yaml",
+			SelectedEvidenceRefs:   []string{"evidence://customer/declarations.yaml#non-prod"},
+			SelectedFreshnessState: evidencepolicy.FreshnessStateFresh,
+			ReasonCodes:            []string{"declaration:non_production"},
+		}},
+	}})
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].ControlResolutionState != ControlResolutionStateContradictoryControl {
+		t.Fatalf("expected contradiction to keep control-first posture, got %+v", paths[0])
+	}
+}
+
+func TestContradictionRanksControlFirst(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:          "apc-contradiction-rank",
+		Org:             "acme",
+		Repo:            "acme/release",
+		ToolType:        "compiled_action",
+		Location:        ".github/workflows/release.yml",
+		WriteCapable:    true,
+		ProductionWrite: true,
+		EvidenceDecisions: []evidencepolicy.Decision{{
+			Field:                  evidencepolicy.FieldTarget,
+			SelectedValue:          TargetClassTestDemoSandbox,
+			SelectedSourceType:     evidencepolicy.SourceTypeSignedDeclaration,
+			SelectedSource:         "wrkr-control-declarations.yaml",
+			SelectedEvidenceRefs:   []string{"evidence://customer/declarations.yaml#non-prod"},
+			SelectedFreshnessState: evidencepolicy.FreshnessStateFresh,
+			ReasonCodes:            []string{"declaration:non_production"},
+		}},
+	}})
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].ControlPriority != ControlPriorityControlFirst {
+		t.Fatalf("expected contradiction to rank control first, got %+v", paths[0])
+	}
+	if paths[0].ReviewBurden != ReviewBurdenCritical {
+		t.Fatalf("expected contradiction to require critical review, got %+v", paths[0])
 	}
 }
 

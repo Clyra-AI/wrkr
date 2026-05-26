@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 )
 
 const (
@@ -46,8 +47,18 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out := path
 	out.ConfidenceLane, out.ConfidenceLaneReasons = deriveConfidenceLane(out)
 	out = projectEvidenceStates(out)
-	out.TargetClass, out.TargetClassReasons, out.TargetClassEvidenceRefs = deriveTargetClass(out)
+	derivedTargetClass, derivedTargetReasons, derivedTargetRefs := deriveTargetClass(out)
+	out.TargetClass = chooseTargetClass(out.TargetClass, derivedTargetClass)
+	out.TargetClassReasons = dedupeSortedStrings(append(append([]string(nil), out.TargetClassReasons...), derivedTargetReasons...))
+	out.TargetClassEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out.TargetClassEvidenceRefs...), derivedTargetRefs...))
 	out.ActionPathType, out.ActionPathTypeReasons, out.ActionPathTypeEvidenceRefs = deriveActionPathType(out)
+	out.Contradictions = deriveContradictions(out)
+	if len(out.Contradictions) > 0 {
+		out.TargetEvidenceState = EvidenceStateContradictory
+		out.ControlEvidenceRefs = dedupeSortedStrings(append(out.ControlEvidenceRefs, contradictionEvidenceRefs(out.Contradictions)...))
+		out.ControlResolutionReasons = dedupeSortedStrings(append(out.ControlResolutionReasons, contradictionReasonCodes(out.Contradictions)...))
+		out.ControlResolutionState, out.ControlResolutionReasons = deriveControlResolutionState(out, out.ControlResolutionReasons)
+	}
 
 	model := deriveGovernFirstModel(out)
 	out.InventoryRisk = model.inventoryRisk
@@ -533,6 +544,9 @@ func actionPathHasContradictoryControlEvidence(path ActionPath) bool {
 	if strings.TrimSpace(path.ControlResolutionState) == ControlResolutionStateContradictoryControl {
 		return true
 	}
+	if len(path.Contradictions) > 0 {
+		return true
+	}
 	for _, state := range []string{
 		path.ApprovalEvidenceState,
 		path.OwnerEvidenceState,
@@ -542,6 +556,81 @@ func actionPathHasContradictoryControlEvidence(path ActionPath) bool {
 		path.CredentialEvidenceState,
 	} {
 		if normalizeEvidenceState(state) == EvidenceStateContradictory {
+			return true
+		}
+	}
+	return false
+}
+
+func deriveContradictions(path ActionPath) []evidencepolicy.Contradiction {
+	decision, ok := evidenceDecisionForField(path, evidencepolicy.FieldTarget)
+	if !ok {
+		return nil
+	}
+	selectedTarget := strings.TrimSpace(decision.SelectedValue)
+	if selectedTarget == "" {
+		return nil
+	}
+	if selectedTarget != TargetClassTestDemoSandbox && !containsReasonCode(decision.ReasonCodes, "declaration:non_production") {
+		return nil
+	}
+
+	contradictions := []evidencepolicy.Contradiction{}
+	baseRefs := decisionEvidenceRefs(decision)
+	add := func(class string, reason string, refs []string) {
+		contradictions = append(contradictions, evidencepolicy.Contradiction{
+			Class:             class,
+			ReasonCodes:       dedupeSortedStrings([]string{reason}),
+			EvidenceRefs:      dedupeSortedStrings(append(baseRefs, refs...)),
+			ImpactedTarget:    path.TargetClass,
+			RecommendedAction: "Refresh the declaration or remove the production-bearing signal before treating this path as non-production.",
+		})
+	}
+
+	if path.ProductionWrite || len(path.MatchedProductionTargets) > 0 || path.TargetClass == TargetClassProductionImpacting {
+		add("non_prod_vs_production_target", "contradiction:non_prod_declared_with_production_target", append([]string(nil), path.TargetClassEvidenceRefs...))
+	}
+	if path.CredentialAccess {
+		refs := []string{}
+		if path.CredentialAuthority != nil {
+			refs = append(refs, path.CredentialAuthority.ReasonCodes...)
+		}
+		if path.CredentialProvenance != nil {
+			refs = append(refs, path.CredentialProvenance.EvidenceBasis...)
+		}
+		add("non_prod_vs_credential", "contradiction:non_prod_declared_with_production_credential", refs)
+	}
+	if path.DeployWrite {
+		add("non_prod_vs_deploy", "contradiction:non_prod_declared_with_deploy_write", append([]string(nil), path.PolicyRefs...))
+	}
+	if path.MergeExecute || path.PullRequestWrite {
+		add("non_prod_vs_release_permission", "contradiction:non_prod_declared_with_release_permission", append([]string(nil), path.PolicyRefs...))
+	}
+	if len(path.ConstraintEvidenceClasses) > 0 {
+		add("non_prod_vs_protected_constraint", "contradiction:non_prod_declared_with_protected_constraint", append([]string(nil), path.ConstraintEvidenceRefs...))
+	}
+	return mergeContradictions(nil, contradictions)
+}
+
+func contradictionEvidenceRefs(items []evidencepolicy.Contradiction) []string {
+	refs := []string{}
+	for _, item := range items {
+		refs = append(refs, item.EvidenceRefs...)
+	}
+	return dedupeSortedStrings(refs)
+}
+
+func contradictionReasonCodes(items []evidencepolicy.Contradiction) []string {
+	reasons := []string{}
+	for _, item := range items {
+		reasons = append(reasons, item.ReasonCodes...)
+	}
+	return dedupeSortedStrings(reasons)
+}
+
+func containsReasonCode(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == strings.TrimSpace(want) {
 			return true
 		}
 	}

@@ -7,7 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/Clyra-AI/wrkr/core/config"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"gopkg.in/yaml.v3"
 )
 
@@ -15,11 +18,18 @@ type rule struct {
 	pattern       string
 	owner         string
 	source        string
+	sourceType    string
 	evidenceBasis string
 	evidenceRefs  []string
 	priority      int
 	inferred      bool
 	repoScopes    []string
+	observedAt    string
+	validUntil    string
+	maxAge        string
+	issuer        string
+	confidence    string
+	status        string
 }
 
 const (
@@ -54,6 +64,7 @@ type Resolution struct {
 	OwnershipConfidence float64
 	EvidenceBasis       []string
 	ConflictOwners      []string
+	EvidenceDecision    *evidencepolicy.Decision
 }
 
 type Metadata struct {
@@ -66,11 +77,16 @@ func Resolve(root, repo, org, location string) Resolution {
 }
 
 func ResolveWithMetadata(root, repo, org, location string, metadata Metadata) Resolution {
+	return ResolveWithMetadataAt(root, repo, org, location, metadata, time.Time{})
+}
+
+func ResolveWithMetadataAt(root, repo, org, location string, metadata Metadata, generatedAt time.Time) Resolution {
 	rules := loadCodeowners(root)
 	rules = append(rules, loadOwnerMappings(root)...)
 	rules = append(rules, loadServiceCatalog(root)...)
 	rules = append(rules, loadBackstageCatalog(root)...)
 	rules = append(rules, loadExternalOwnerMappings(root)...)
+	rules = append(rules, loadDeclaredOwnerMappings(root)...)
 	rules = append(rules, rulesFromMetadata(repo, org, metadata)...)
 	normalized := normalizePath(location)
 	candidates := make([]rule, 0)
@@ -81,7 +97,7 @@ func ResolveWithMetadata(root, repo, org, location string, metadata Metadata) Re
 	}
 	candidates = collapseCandidatesBySource(candidates)
 	if len(candidates) > 0 {
-		return resolveCandidates(candidates, repo, org)
+		return resolveCandidates(candidates, repo, org, generatedAt)
 	}
 	if strings.TrimSpace(repo) == "" {
 		return Resolution{
@@ -100,6 +116,14 @@ func ResolveWithMetadata(root, repo, org, location string, metadata Metadata) Re
 		OwnershipState:      OwnershipStateInferred,
 		OwnershipConfidence: 0.45,
 		EvidenceBasis:       []string{"repo_fallback:repo_name"},
+		EvidenceDecision: &evidencepolicy.Decision{
+			Field:                  evidencepolicy.FieldOwner,
+			SelectedValue:          FallbackOwner(repo, org),
+			SelectedSourceType:     evidencepolicy.SourceTypeRepoFallback,
+			SelectedSource:         evidencepolicy.SourceTypeRepoFallback,
+			SelectedFreshnessState: evidencepolicy.FreshnessStateUnknown,
+			ReasonCodes:            []string{"precedence:selected:repo_fallback"},
+		},
 	}
 }
 
@@ -141,6 +165,7 @@ func parseRulesWithSource(content, source, evidencePath string, priority int, in
 			pattern:       pattern,
 			owner:         strings.TrimSpace(parts[1]),
 			source:        source,
+			sourceType:    source,
 			evidenceBasis: source + ":" + evidencePath + ":" + pattern,
 			priority:      priority,
 			inferred:      inferred,
@@ -219,6 +244,7 @@ func ownerMappingRules(items []ownerMapping, evidencePath, source string, priori
 				pattern:       pattern,
 				owner:         owner,
 				source:        source,
+				sourceType:    source,
 				evidenceBasis: source + ":" + evidencePath + ":" + pattern,
 				evidenceRefs:  nil,
 				priority:      priority,
@@ -382,6 +408,7 @@ func parseBackstageCatalogDoc(payload []byte, evidencePath string) []rule {
 		pattern:       "*",
 		owner:         owner,
 		source:        OwnerSourceBackstage,
+		sourceType:    OwnerSourceBackstage,
 		evidenceBasis: OwnerSourceBackstage + ":" + evidencePath + ":spec.owner",
 		evidenceRefs:  nil,
 		priority:      3,
@@ -402,6 +429,11 @@ type externalOwnerEvidenceRecord struct {
 	Path          string   `json:"path"`
 	Location      string   `json:"location"`
 	ObservedAt    string   `json:"observed_at"`
+	ValidUntil    string   `json:"valid_until"`
+	MaxAge        string   `json:"max_age"`
+	Issuer        string   `json:"issuer"`
+	Confidence    string   `json:"confidence"`
+	Status        string   `json:"status"`
 	EvidenceClass string   `json:"evidence_class"`
 	Owner         string   `json:"owner"`
 	EvidenceRefs  []string `json:"evidence_refs"`
@@ -434,34 +466,44 @@ func loadExternalOwnerMappings(root string) []rule {
 		if pattern == "" {
 			pattern = "*"
 		}
+		sourceType := externalOwnerSourceType(record.SourceType)
 		out = append(out, rule{
 			pattern:       pattern,
 			owner:         owner,
-			source:        externalOwnerSource(record.SourceType),
-			evidenceBasis: externalOwnerSource(record.SourceType) + ":" + filepath.ToSlash(filepath.Join(".wrkr", "provenance", "external-control-evidence.json")) + ":" + pattern,
+			source:        uniqueExternalOwnerSource(sourceType, record.Source, pattern, record.ObservedAt, record.EvidenceRefs),
+			sourceType:    sourceType,
+			evidenceBasis: sourceType + ":" + filepath.ToSlash(filepath.Join(".wrkr", "provenance", "external-control-evidence.json")) + ":" + pattern,
 			evidenceRefs:  uniqueSorted(record.EvidenceRefs),
 			priority:      externalOwnerPriority(record.SourceType),
 			inferred:      false,
 			repoScopes:    externalOwnerRepoScopes(record.Repo),
+			observedAt:    strings.TrimSpace(record.ObservedAt),
+			validUntil:    strings.TrimSpace(record.ValidUntil),
+			maxAge:        strings.TrimSpace(record.MaxAge),
+			issuer:        strings.TrimSpace(record.Issuer),
+			confidence:    strings.TrimSpace(record.Confidence),
+			status:        strings.TrimSpace(record.Status),
 		})
 	}
 	return out
 }
 
-func externalOwnerSource(sourceType string) string {
+func externalOwnerSourceType(sourceType string) string {
 	switch strings.TrimSpace(sourceType) {
 	case OwnerSourceGitHubTeam:
 		return OwnerSourceGitHubTeam
 	case OwnerSourceAppCatalog:
 		return OwnerSourceAppCatalog
 	case OwnerSourceCustomerMap:
-		return OwnerSourceCustomerMap
+		return evidencepolicy.SourceTypeSignedDeclaration
 	case OwnerSourceProvider:
 		return OwnerSourceProvider
 	case "backstage_export":
-		return OwnerSourceBackstage
+		return evidencepolicy.SourceTypeBackstageExport
+	case evidencepolicy.SourceTypeTicketExport:
+		return evidencepolicy.SourceTypeTicketExport
 	default:
-		return strings.TrimSpace(sourceType)
+		return evidencepolicy.NormalizeSourceType(sourceType)
 	}
 }
 
@@ -483,6 +525,16 @@ func externalOwnerRepoScopes(repo string) []string {
 	return []string{normalizeRepoScope(repo)}
 }
 
+func uniqueExternalOwnerSource(sourceType, source, pattern, observedAt string, refs []string) string {
+	return strings.Join([]string{
+		sourceType,
+		strings.TrimSpace(source),
+		strings.TrimSpace(pattern),
+		strings.TrimSpace(observedAt),
+		strings.Join(uniqueSorted(refs), "|"),
+	}, "::")
+}
+
 func rulesFromMetadata(repo, org string, metadata Metadata) []rule {
 	owners := make([]string, 0)
 	for _, team := range metadata.Teams {
@@ -502,6 +554,7 @@ func rulesFromMetadata(repo, org string, metadata Metadata) []rule {
 			pattern:       "*",
 			owner:         owner,
 			source:        OwnerSourceGitHub,
+			sourceType:    OwnerSourceGitHub,
 			evidenceBasis: OwnerSourceGitHub + ":" + strings.TrimSpace(repo),
 			evidenceRefs:  nil,
 			priority:      4,
@@ -568,74 +621,85 @@ func normalizeRepoScope(value string) string {
 	return strings.Trim(strings.ToLower(strings.TrimSpace(value)), "@/")
 }
 
-func resolveCandidates(candidates []rule, repo, org string) Resolution {
-	byOwner := map[string][]rule{}
+func resolveCandidates(candidates []rule, repo, org string, generatedAt time.Time) Resolution {
+	evidenceCandidates := make([]evidencepolicy.Candidate, 0, len(candidates))
 	for _, item := range candidates {
 		owner := normalizeOwner(item.owner)
 		if owner == "" {
 			continue
 		}
-		byOwner[owner] = append(byOwner[owner], item)
+		evidenceCandidates = append(evidenceCandidates, evidencepolicy.Candidate{
+			Field:          evidencepolicy.FieldOwner,
+			Value:          owner,
+			SourceType:     firstNonEmptyOwner(item.sourceType, item.source),
+			Source:         item.source,
+			EvidenceRefs:   append([]string{item.evidenceBasis}, item.evidenceRefs...),
+			ObservedAt:     item.observedAt,
+			ValidUntil:     item.validUntil,
+			MaxAge:         item.maxAge,
+			Issuer:         item.issuer,
+			Confidence:     item.confidence,
+			Status:         item.status,
+			FreshnessState: evidencepolicy.FreshnessStateUnknown,
+		})
 	}
-	if len(byOwner) == 0 {
+	decision := evidencepolicy.ResolveDecision(evidenceCandidates, generatedAt)
+	if strings.TrimSpace(decision.SelectedValue) == "" {
 		if strings.TrimSpace(repo) == "" {
-			return Resolution{OwnerSource: OwnerSourceMissing, OwnershipStatus: OwnershipStatusUnresolved, OwnershipState: OwnershipStateMissing, EvidenceBasis: []string{"owner_resolution:no_owner_candidate"}}
+			return Resolution{
+				OwnerSource:      OwnerSourceMissing,
+				OwnershipStatus:  OwnershipStatusUnresolved,
+				OwnershipState:   OwnershipStateMissing,
+				EvidenceBasis:    []string{"owner_resolution:no_owner_candidate"},
+				EvidenceDecision: &decision,
+			}
 		}
+		fallback := FallbackOwner(repo, org)
 		return Resolution{
-			Owner:               FallbackOwner(repo, org),
+			Owner:               fallback,
 			OwnerSource:         OwnerSourceRepoFallback,
 			OwnershipStatus:     OwnershipStatusInferred,
 			OwnershipState:      OwnershipStateInferred,
 			OwnershipConfidence: 0.45,
 			EvidenceBasis:       []string{"repo_fallback:repo_name"},
+			EvidenceDecision: &evidencepolicy.Decision{
+				Field:                  evidencepolicy.FieldOwner,
+				SelectedValue:          fallback,
+				SelectedSourceType:     evidencepolicy.SourceTypeRepoFallback,
+				SelectedSource:         evidencepolicy.SourceTypeRepoFallback,
+				SelectedFreshnessState: evidencepolicy.FreshnessStateUnknown,
+				ReasonCodes:            []string{"precedence:selected:repo_fallback"},
+			},
 		}
 	}
-	owners := make([]string, 0, len(byOwner))
-	for owner := range byOwner {
-		owners = append(owners, owner)
-	}
-	sort.Strings(owners)
-	if len(owners) > 1 {
-		return Resolution{
-			Owner:               FallbackOwner(repo, org),
-			OwnerSource:         OwnerSourceConflict,
-			OwnershipStatus:     OwnershipStatusUnresolved,
-			OwnershipState:      OwnershipStateConflicting,
-			OwnershipConfidence: 0.2,
-			EvidenceBasis:       evidenceBasisForCandidates(candidates),
-			ConflictOwners:      owners,
-		}
-	}
-	items := byOwner[owners[0]]
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].priority != items[j].priority {
-			return items[i].priority < items[j].priority
-		}
-		if items[i].source != items[j].source {
-			return items[i].source < items[j].source
-		}
-		return items[i].evidenceBasis < items[j].evidenceBasis
-	})
-	best := items[0]
+
 	status := OwnershipStatusExplicit
 	state := OwnershipStateExplicit
-	confidence := 0.9
-	if best.inferred {
+	confidence := ownershipConfidenceForDecision(decision)
+	if decision.ConflictState == evidencepolicy.ConflictStateAmbiguous {
+		status = OwnershipStatusUnresolved
+		state = OwnershipStateConflicting
+		confidence = 0.2
+	}
+	if ownershipSourceIsInferred(decision.SelectedSourceType) {
 		status = OwnershipStatusInferred
 		state = OwnershipStateInferred
-		confidence = 0.65
 	}
-	if best.source == OwnerSourceCodeowners || best.source == OwnerSourceCustomMap {
-		confidence = 0.95
-	}
-	return Resolution{
-		Owner:               owners[0],
-		OwnerSource:         best.source,
+
+	resolution := Resolution{
+		Owner:               strings.TrimSpace(decision.SelectedValue),
+		OwnerSource:         strings.TrimSpace(decision.SelectedSourceType),
 		OwnershipStatus:     status,
 		OwnershipState:      state,
 		OwnershipConfidence: confidence,
-		EvidenceBasis:       evidenceBasisForCandidates(items),
+		EvidenceBasis:       evidenceBasisForCandidates(candidates),
+		EvidenceDecision:    &decision,
 	}
+	if decision.ConflictState == evidencepolicy.ConflictStateAmbiguous {
+		resolution.OwnerSource = OwnerSourceConflict
+		resolution.ConflictOwners = conflictOwnersFromDecision(decision)
+	}
+	return resolution
 }
 
 func collapseCandidatesBySource(candidates []rule) []rule {
@@ -670,6 +734,84 @@ func evidenceBasisForCandidates(candidates []rule) []string {
 		values = append(values, item.evidenceRefs...)
 	}
 	return uniqueSorted(values)
+}
+
+func ownershipSourceIsInferred(sourceType string) bool {
+	switch evidencepolicy.NormalizeSourceType(sourceType) {
+	case OwnerSourceGitHub, evidencepolicy.SourceTypeRepoFallback:
+		return true
+	default:
+		return false
+	}
+}
+
+func ownershipConfidenceForDecision(decision evidencepolicy.Decision) float64 {
+	switch evidencepolicy.NormalizeSourceType(decision.SelectedSourceType) {
+	case evidencepolicy.SourceTypeProviderExport, evidencepolicy.SourceTypeGitHubTeamExport, evidencepolicy.SourceTypeBackstageExport:
+		return 0.98
+	case evidencepolicy.SourceTypeSignedDeclaration:
+		return 0.94
+	case evidencepolicy.SourceTypeCodeowners, evidencepolicy.SourceTypeCustomOwnerMap:
+		return 0.95
+	case evidencepolicy.SourceTypeServiceCatalog, evidencepolicy.SourceTypeBackstageCatalog, evidencepolicy.SourceTypeAppCatalog:
+		return 0.9
+	case evidencepolicy.SourceTypeGitHubMetadata:
+		return 0.65
+	case evidencepolicy.SourceTypeRepoFallback:
+		return 0.45
+	default:
+		return 0.75
+	}
+}
+
+func conflictOwnersFromDecision(decision evidencepolicy.Decision) []string {
+	values := []string{decision.SelectedValue}
+	for _, item := range decision.RejectedCandidates {
+		values = append(values, item.Value)
+	}
+	return uniqueSorted(values)
+}
+
+func loadDeclaredOwnerMappings(root string) []rule {
+	doc, paths, err := config.LoadControlDeclarations(root)
+	if err != nil || len(paths) == 0 || len(doc.Owners) == 0 {
+		return nil
+	}
+	out := make([]rule, 0, len(doc.Owners))
+	for _, item := range doc.Owners {
+		owner := normalizeOwner(item.Owner)
+		if owner == "" {
+			continue
+		}
+		patterns := mappingPatterns(ownerMapping{
+			Path:    item.Path,
+			Pattern: item.Pattern,
+			Paths:   item.Paths,
+		})
+		if len(patterns) == 0 {
+			patterns = []string{"*"}
+		}
+		repoScopes := mappingRepos(ownerMapping{Repo: item.Repo, Repos: item.Repos})
+		for _, pattern := range patterns {
+			out = append(out, rule{
+				pattern:       pattern,
+				owner:         owner,
+				source:        strings.Join([]string{evidencepolicy.SourceTypeSignedDeclaration, strings.Join(paths, "|"), pattern, strings.TrimSpace(item.ObservedAt)}, "::"),
+				sourceType:    evidencepolicy.SourceTypeSignedDeclaration,
+				evidenceBasis: evidencepolicy.SourceTypeSignedDeclaration + ":" + filepath.ToSlash(filepath.Join("wrkr-control-declarations.yaml")) + ":" + pattern,
+				evidenceRefs:  uniqueSorted(item.EvidenceRefs),
+				priority:      1,
+				inferred:      false,
+				repoScopes:    repoScopes,
+				observedAt:    strings.TrimSpace(item.ObservedAt),
+				validUntil:    strings.TrimSpace(item.ValidUntil),
+				maxAge:        strings.TrimSpace(item.MaxAge),
+				issuer:        firstNonEmptyOwner(item.Issuer, doc.Issuer),
+				confidence:    strings.TrimSpace(item.Confidence),
+			})
+		}
+	}
+	return out
 }
 
 func normalizeOwner(owner string) string {

@@ -11,6 +11,7 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/attribution"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/owners"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
@@ -72,6 +73,8 @@ type ActionPath struct {
 	OwnershipConfidence        float64                                 `json:"ownership_confidence,omitempty"`
 	OwnershipEvidence          []string                                `json:"ownership_evidence_basis,omitempty"`
 	OwnershipConflicts         []string                                `json:"ownership_conflicts,omitempty"`
+	EvidenceDecisions          []evidencepolicy.Decision               `json:"evidence_decisions,omitempty"`
+	Contradictions             []evidencepolicy.Contradiction          `json:"contradictions,omitempty"`
 	ControlResolutionState     string                                  `json:"control_resolution_state,omitempty"`
 	ControlResolutionReasons   []string                                `json:"control_resolution_reasons,omitempty"`
 	ControlEvidenceRefs        []string                                `json:"control_evidence_refs,omitempty"`
@@ -240,6 +243,7 @@ func buildActionPath(
 		OwnershipConfidence:        entry.OwnershipConfidence,
 		OwnershipEvidence:          dedupeSortedStrings(entry.OwnershipEvidence),
 		OwnershipConflicts:         dedupeSortedStrings(entry.OwnershipConflicts),
+		EvidenceDecisions:          ownershipDecisionSlice(entry.OwnershipDecision),
 		ApprovalGapReasons:         dedupeSortedStrings(entry.ApprovalGapReasons),
 		WritePathClasses:           dedupeSortedStrings(entry.WritePathClasses),
 		ActionClasses:              dedupeSortedStrings(entry.ActionClasses),
@@ -407,6 +411,8 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.OwnershipConfidence = mergeOwnershipConfidence(current, incoming)
 	merged.OwnershipEvidence = dedupeSortedStrings(append(append([]string(nil), current.OwnershipEvidence...), incoming.OwnershipEvidence...))
 	merged.OwnershipConflicts = dedupeSortedStrings(append(append([]string(nil), current.OwnershipConflicts...), incoming.OwnershipConflicts...))
+	merged.EvidenceDecisions = mergeEvidenceDecisions(current.EvidenceDecisions, incoming.EvidenceDecisions)
+	merged.Contradictions = mergeContradictions(current.Contradictions, incoming.Contradictions)
 	merged.ControlResolutionState = chooseControlResolutionState(current.ControlResolutionState, incoming.ControlResolutionState)
 	merged.ControlResolutionReasons = dedupeSortedStrings(append(append([]string(nil), current.ControlResolutionReasons...), incoming.ControlResolutionReasons...))
 	merged.ControlEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.ControlEvidenceRefs...), incoming.ControlEvidenceRefs...))
@@ -570,6 +576,83 @@ func dedupeSortedStrings(values []string) []string {
 		out = append(out, value)
 	}
 	sort.Strings(out)
+	return out
+}
+
+func ownershipDecisionSlice(decision *evidencepolicy.Decision) []evidencepolicy.Decision {
+	if decision == nil {
+		return nil
+	}
+	return []evidencepolicy.Decision{cloneEvidenceDecision(*decision)}
+}
+
+func mergeEvidenceDecisions(current, incoming []evidencepolicy.Decision) []evidencepolicy.Decision {
+	if len(current) == 0 && len(incoming) == 0 {
+		return nil
+	}
+	byField := map[string]evidencepolicy.Decision{}
+	for _, item := range append(append([]evidencepolicy.Decision(nil), current...), incoming...) {
+		field := strings.TrimSpace(item.Field)
+		if field == "" {
+			continue
+		}
+		byField[field] = cloneEvidenceDecision(item)
+	}
+	out := make([]evidencepolicy.Decision, 0, len(byField))
+	for _, item := range byField {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Field < out[j].Field })
+	return out
+}
+
+func mergeContradictions(current, incoming []evidencepolicy.Contradiction) []evidencepolicy.Contradiction {
+	if len(current) == 0 && len(incoming) == 0 {
+		return nil
+	}
+	seen := map[string]evidencepolicy.Contradiction{}
+	for _, item := range append(append([]evidencepolicy.Contradiction(nil), current...), incoming...) {
+		key := strings.Join([]string{
+			strings.TrimSpace(item.Class),
+			strings.TrimSpace(item.ImpactedTarget),
+			strings.Join(dedupeSortedStrings(item.ReasonCodes), "|"),
+		}, "|")
+		seen[key] = cloneContradiction(item)
+	}
+	out := make([]evidencepolicy.Contradiction, 0, len(seen))
+	for _, item := range seen {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Class != out[j].Class {
+			return out[i].Class < out[j].Class
+		}
+		return out[i].ImpactedTarget < out[j].ImpactedTarget
+	})
+	return out
+}
+
+func cloneEvidenceDecision(in evidencepolicy.Decision) evidencepolicy.Decision {
+	out := in
+	out.SelectedEvidenceRefs = dedupeSortedStrings(append([]string(nil), in.SelectedEvidenceRefs...))
+	out.ReasonCodes = dedupeSortedStrings(append([]string(nil), in.ReasonCodes...))
+	out.ConflictReasonCodes = dedupeSortedStrings(append([]string(nil), in.ConflictReasonCodes...))
+	if len(in.RejectedCandidates) > 0 {
+		out.RejectedCandidates = make([]evidencepolicy.Candidate, 0, len(in.RejectedCandidates))
+		for _, item := range in.RejectedCandidates {
+			copyItem := item
+			copyItem.EvidenceRefs = dedupeSortedStrings(append([]string(nil), item.EvidenceRefs...))
+			copyItem.ReasonCodes = dedupeSortedStrings(append([]string(nil), item.ReasonCodes...))
+			out.RejectedCandidates = append(out.RejectedCandidates, copyItem)
+		}
+	}
+	return out
+}
+
+func cloneContradiction(in evidencepolicy.Contradiction) evidencepolicy.Contradiction {
+	out := in
+	out.ReasonCodes = dedupeSortedStrings(append([]string(nil), in.ReasonCodes...))
+	out.EvidenceRefs = dedupeSortedStrings(append([]string(nil), in.EvidenceRefs...))
 	return out
 }
 

@@ -9,6 +9,7 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -99,6 +100,8 @@ type Item struct {
 	OwnershipConfidence        float64                                 `json:"ownership_confidence,omitempty"`
 	OwnershipEvidence          []string                                `json:"ownership_evidence_basis,omitempty"`
 	OwnershipConflicts         []string                                `json:"ownership_conflicts,omitempty"`
+	EvidenceDecisions          []evidencepolicy.Decision               `json:"evidence_decisions,omitempty"`
+	Contradictions             []evidencepolicy.Contradiction          `json:"contradictions,omitempty"`
 	ControlResolutionState     string                                  `json:"control_resolution_state,omitempty"`
 	ControlResolutionReasons   []string                                `json:"control_resolution_reasons,omitempty"`
 	ControlEvidenceRefs        []string                                `json:"control_evidence_refs,omitempty"`
@@ -311,6 +314,8 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		OwnershipConfidence:        path.OwnershipConfidence,
 		OwnershipEvidence:          append([]string(nil), path.OwnershipEvidence...),
 		OwnershipConflicts:         append([]string(nil), path.OwnershipConflicts...),
+		EvidenceDecisions:          append([]evidencepolicy.Decision(nil), path.EvidenceDecisions...),
+		Contradictions:             append([]evidencepolicy.Contradiction(nil), path.Contradictions...),
 		ControlResolutionState:     strings.TrimSpace(path.ControlResolutionState),
 		ControlResolutionReasons:   append([]string(nil), path.ControlResolutionReasons...),
 		ControlEvidenceRefs:        append([]string(nil), path.ControlEvidenceRefs...),
@@ -493,6 +498,8 @@ func (b *builder) merge(item Item) {
 	}
 	current.OwnershipEvidence = mergeStrings(current.OwnershipEvidence, item.OwnershipEvidence)
 	current.OwnershipConflicts = mergeStrings(current.OwnershipConflicts, item.OwnershipConflicts)
+	current.EvidenceDecisions = mergeEvidenceDecisions(current.EvidenceDecisions, item.EvidenceDecisions)
+	current.Contradictions = mergeContradictions(current.Contradictions, item.Contradictions)
 	current.ControlResolutionState = firstNonEmptyString(current.ControlResolutionState, item.ControlResolutionState)
 	current.ControlResolutionReasons = mergeStrings(current.ControlResolutionReasons, item.ControlResolutionReasons)
 	current.ControlEvidenceRefs = mergeStrings(current.ControlEvidenceRefs, item.ControlEvidenceRefs)
@@ -1629,6 +1636,52 @@ func mergeStrings(a, b []string) []string {
 		out = append(out, value)
 	}
 	sort.Strings(out)
+	return out
+}
+
+func mergeEvidenceDecisions(current, incoming []evidencepolicy.Decision) []evidencepolicy.Decision {
+	if len(current) == 0 && len(incoming) == 0 {
+		return nil
+	}
+	byField := map[string]evidencepolicy.Decision{}
+	for _, item := range append(append([]evidencepolicy.Decision(nil), current...), incoming...) {
+		field := strings.TrimSpace(item.Field)
+		if field == "" {
+			continue
+		}
+		byField[field] = item
+	}
+	out := make([]evidencepolicy.Decision, 0, len(byField))
+	for _, item := range byField {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Field < out[j].Field })
+	return out
+}
+
+func mergeContradictions(current, incoming []evidencepolicy.Contradiction) []evidencepolicy.Contradiction {
+	if len(current) == 0 && len(incoming) == 0 {
+		return nil
+	}
+	seen := map[string]evidencepolicy.Contradiction{}
+	for _, item := range append(append([]evidencepolicy.Contradiction(nil), current...), incoming...) {
+		key := strings.Join([]string{
+			strings.TrimSpace(item.Class),
+			strings.TrimSpace(item.ImpactedTarget),
+			strings.Join(item.ReasonCodes, "|"),
+		}, "|")
+		seen[key] = item
+	}
+	out := make([]evidencepolicy.Contradiction, 0, len(seen))
+	for _, item := range seen {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Class != out[j].Class {
+			return out[i].Class < out[j].Class
+		}
+		return out[i].ImpactedTarget < out[j].ImpactedTarget
+	})
 	return out
 }
 

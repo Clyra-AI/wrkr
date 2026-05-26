@@ -26,7 +26,7 @@ Runtime and external-control records are normalized and sorted deterministically
 - `observed_at` in RFC3339 format
 - `evidence_class`
 
-External-control sidecars should validate against `schemas/v1/evidence/external-control-evidence.schema.json` and use `record_kind=external_control` plus a deterministic `source_type` such as `provider_export`, `repo_policy`, `app_catalog`, `ticket_export`, or `customer_owner_map`.
+External-control sidecars should validate against `schemas/v1/evidence/external-control-evidence.schema.json` and use `record_kind=external_control` plus a deterministic `source_type` such as `provider_export`, `signed_declaration`, `repo_policy`, `app_catalog`, `ticket_export`, or `customer_owner_map`.
 
 Each record must also provide at least one deterministic correlation key: `path_id`, `agent_id`, `repo` + `location`, `repo` + `workflow`, `repo` + `environment`, `service`, `policy_ref`, `proof_ref`, `target`, or graph refs.
 
@@ -48,7 +48,9 @@ Normalized evidence classes:
 - `security_gate`
 - `other` for explicit legacy/unknown carry-through
 
-Additional additive keys may include `tool`, `repo`, `service`, `workflow`, `environment`, `path`, `target`, `action_classes`, `policy_ref`, `proof_ref`, `graph_node_refs`, `graph_edge_refs`, `status`, `issuer`, `valid_until`, `max_age`, `confidence`, `redaction_hints`, `owner`, `required_checks`, `branch`, and `evidence_refs`.
+Additional additive keys may include `tool`, `repo`, `service`, `workflow`, `environment`, `path`, `target`, `action_classes`, `policy_ref`, `proof_ref`, `graph_node_refs`, `graph_edge_refs`, `status`, `issuer`, `valid_until`, `max_age`, `confidence`, `freshness_state`, `redaction_hints`, `owner`, `required_checks`, `branch`, and `evidence_refs`.
+
+Wrkr normalizes external-control records with deterministic source precedence and freshness metadata. Correlation summaries now preserve additive `freshness_state` / `freshness_states` so stale or expired evidence is visible without silently verifying a control.
 
 ## Safety and failure modes
 

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/state"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
@@ -73,6 +74,7 @@ type Record struct {
 	ValidUntil          string   `json:"valid_until,omitempty"`
 	MaxAge              string   `json:"max_age,omitempty"`
 	Confidence          string   `json:"confidence,omitempty"`
+	FreshnessState      string   `json:"freshness_state,omitempty"`
 	RedactionHints      []string `json:"redaction_hints,omitempty"`
 	EvidenceClass       string   `json:"evidence_class"`
 	Status              string   `json:"status,omitempty"`
@@ -108,6 +110,8 @@ type Correlation struct {
 	Owners           []string `json:"owners,omitempty"`
 	UnmatchedReasons []string `json:"unmatched_reasons,omitempty"`
 	LatestObservedAt string   `json:"latest_observed_at,omitempty"`
+	FreshnessState   string   `json:"freshness_state,omitempty"`
+	FreshnessStates  []string `json:"freshness_states,omitempty"`
 }
 
 type Summary struct {
@@ -178,9 +182,13 @@ func Normalize(bundle Bundle) (Bundle, error) {
 	if strings.TrimSpace(bundle.GeneratedAt) == "" {
 		bundle.GeneratedAt = time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
 	}
+	generatedAt, err := time.Parse(time.RFC3339, bundle.GeneratedAt)
+	if err != nil {
+		return Bundle{}, fmt.Errorf("runtime evidence generated_at must be RFC3339")
+	}
 	records := make([]Record, 0, len(bundle.Records))
 	for _, record := range bundle.Records {
-		normalized, err := normalizeRecord(record)
+		normalized, err := normalizeRecord(record, generatedAt)
 		if err != nil {
 			return Bundle{}, err
 		}
@@ -278,6 +286,8 @@ func Correlate(snapshot state.Snapshot, artifactPath string, bundle Bundle) Summ
 		item.RecordIDs = mergeStrings(append(append([]string(nil), item.RecordIDs...), record.RecordID)...)
 		item.RequiredChecks = mergeStrings(append(append([]string(nil), item.RequiredChecks...), record.RequiredChecks...)...)
 		item.Owners = mergeStrings(append(append([]string(nil), item.Owners...), record.Owner)...)
+		item.FreshnessStates = mergeStrings(append(append([]string(nil), item.FreshnessStates...), record.FreshnessState)...)
+		item.FreshnessState = mergeFreshnessState(item.FreshnessState, record.FreshnessState)
 		if item.LatestObservedAt == "" || strings.TrimSpace(record.ObservedAt) > item.LatestObservedAt {
 			item.LatestObservedAt = strings.TrimSpace(record.ObservedAt)
 		}
@@ -316,7 +326,7 @@ func Correlate(snapshot state.Snapshot, artifactPath string, bundle Bundle) Summ
 	}
 }
 
-func normalizeRecord(record Record) (Record, error) {
+func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 	record.RecordKind = normalizeRecordKind(record.RecordKind, record)
 	record.SourceType = normalizeSourceType(record.SourceType)
 	record.PathID = strings.TrimSpace(record.PathID)
@@ -343,6 +353,7 @@ func normalizeRecord(record Record) (Record, error) {
 	record.ValidUntil = strings.TrimSpace(record.ValidUntil)
 	record.MaxAge = strings.TrimSpace(record.MaxAge)
 	record.Confidence = strings.TrimSpace(record.Confidence)
+	record.FreshnessState = strings.TrimSpace(record.FreshnessState)
 	record.RedactionHints = mergeStrings(record.RedactionHints...)
 	record.EvidenceClass = normalizeEvidenceClass(record.EvidenceClass)
 	record.Status = normalizeRecordStatus(record.Status)
@@ -379,6 +390,11 @@ func normalizeRecord(record Record) (Record, error) {
 			return Record{}, fmt.Errorf("external control evidence record max_age must be a valid duration for %s", fallbackRecordLabel(label))
 		}
 	}
+	freshnessState, _, err := evidencepolicy.EvaluateFreshness(generatedAt, record.ObservedAt, record.ValidUntil, record.MaxAge, record.Status)
+	if err != nil {
+		return Record{}, fmt.Errorf("external control evidence record freshness is invalid for %s: %w", fallbackRecordLabel(label), err)
+	}
+	record.FreshnessState = freshnessState
 	if record.EvidenceClass == "" {
 		return Record{}, fmt.Errorf("runtime evidence record evidence_class is required for %s", fallbackRecordLabel(label))
 	}
@@ -882,27 +898,15 @@ func normalizeRecordKind(value string, record Record) string {
 }
 
 func normalizeSourceType(value string) string {
-	return strings.ToLower(strings.TrimSpace(value))
+	return evidencepolicy.NormalizeSourceType(value)
 }
 
 func sourcePrecedenceSortKey(record Record) string {
-	switch normalizeSourceType(record.SourceType) {
-	case "provider_export", "github_team_export", "backstage_export":
-		return "00_provider_export"
-	case "customer_owner_map", "ticket_export":
-		return "10_customer_declaration"
-	case "repo_policy", "policy_config":
-		return "20_repo_policy"
-	case "app_catalog":
-		return "30_app_catalog"
-	case "":
-		if normalizeRecordKind(record.RecordKind, record) == RecordKindRuntime {
-			return "40_runtime"
-		}
-		return "90_unspecified"
-	default:
-		return "80_" + normalizeSourceType(record.SourceType)
+	sourceType := normalizeSourceType(record.SourceType)
+	if sourceType == evidencepolicy.SourceTypeUnknown && normalizeRecordKind(record.RecordKind, record) == RecordKindRuntime {
+		sourceType = evidencepolicy.SourceTypeRuntime
 	}
+	return evidencepolicy.SourcePrecedenceKey(sourceType)
 }
 
 func normalizeOwnerValue(value string) string {
@@ -984,4 +988,47 @@ func mergeStrings(values ...string) []string {
 		return nil
 	}
 	return out
+}
+
+func mergeFreshnessState(current, incoming string) string {
+	switch normalizeFreshnessState(current) {
+	case evidencepolicy.FreshnessStateExpired:
+		return evidencepolicy.FreshnessStateExpired
+	case evidencepolicy.FreshnessStateStale:
+		if normalizeFreshnessState(incoming) == evidencepolicy.FreshnessStateExpired {
+			return evidencepolicy.FreshnessStateExpired
+		}
+		return evidencepolicy.FreshnessStateStale
+	case evidencepolicy.FreshnessStateUnknown:
+		switch normalizeFreshnessState(incoming) {
+		case evidencepolicy.FreshnessStateExpired, evidencepolicy.FreshnessStateStale:
+			return normalizeFreshnessState(incoming)
+		default:
+			return evidencepolicy.FreshnessStateUnknown
+		}
+	case evidencepolicy.FreshnessStateFresh:
+		switch normalizeFreshnessState(incoming) {
+		case evidencepolicy.FreshnessStateExpired, evidencepolicy.FreshnessStateStale, evidencepolicy.FreshnessStateUnknown:
+			return normalizeFreshnessState(incoming)
+		default:
+			return evidencepolicy.FreshnessStateFresh
+		}
+	default:
+		return normalizeFreshnessState(incoming)
+	}
+}
+
+func normalizeFreshnessState(value string) string {
+	switch strings.TrimSpace(value) {
+	case evidencepolicy.FreshnessStateFresh:
+		return evidencepolicy.FreshnessStateFresh
+	case evidencepolicy.FreshnessStateStale:
+		return evidencepolicy.FreshnessStateStale
+	case evidencepolicy.FreshnessStateExpired:
+		return evidencepolicy.FreshnessStateExpired
+	case evidencepolicy.FreshnessStateUnknown:
+		return evidencepolicy.FreshnessStateUnknown
+	default:
+		return ""
+	}
 }
