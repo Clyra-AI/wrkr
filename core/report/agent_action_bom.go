@@ -65,6 +65,7 @@ type AgentActionBOMSummary struct {
 	SourcePrivacy                *sourceprivacy.Contract             `json:"source_privacy,omitempty"`
 	OperationalExposure          *scorecore.AxisSummary              `json:"operational_exposure,omitempty"`
 	GovernanceReadiness          *scorecore.AxisSummary              `json:"governance_readiness,omitempty"`
+	EvidenceCompleteness         *risk.EvidenceCompletenessSummary   `json:"evidence_completeness,omitempty"`
 	ScanCoverage                 *scanquality.CompactCoverageSummary `json:"scan_coverage,omitempty"`
 	CoverageConfidence           string                              `json:"coverage_confidence,omitempty"`
 }
@@ -153,6 +154,8 @@ type AgentActionBOMItem struct {
 	Queue                        string                                 `json:"queue,omitempty"`
 	FindingVisibility            string                                 `json:"finding_visibility,omitempty"`
 	Remediation                  string                                 `json:"remediation,omitempty"`
+	ClosureRequirements          []risk.ClosureRequirement              `json:"closure_requirements,omitempty"`
+	EvidenceCompleteness         *risk.EvidenceCompleteness             `json:"evidence_completeness,omitempty"`
 	GovernanceDisposition        *controlbacklog.GovernanceDisposition  `json:"governance_disposition,omitempty"`
 	LifecycleQueue               *governancequeue.Item                  `json:"lifecycle_queue,omitempty"`
 	AttackPathRefs               []string                               `json:"attack_path_refs,omitempty"`
@@ -316,6 +319,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			Queue:                        firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForActionPath(path)),
 			FindingVisibility:            firstNonEmptyValue(strings.TrimSpace(backlogItem.FindingVisibility), visibilityForQueue(firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForActionPath(path)))),
 			Remediation:                  firstNonEmptyValue(strings.TrimSpace(backlogItem.Remediation), risk.RemediationForActionPath(path)),
+			ClosureRequirements:          firstNonEmptyClosureRequirementsForBOM(path.ClosureRequirements, backlogItem.ClosureRequirements),
+			EvidenceCompleteness:         firstNonNilEvidenceCompletenessForBOM(path.EvidenceCompleteness, backlogItem.EvidenceCompleteness),
 			GovernanceDisposition:        cloneGovernanceDisposition(backlogItem.GovernanceDisposition),
 			LifecycleQueue:               cloneLifecycleQueue(backlogItem.LifecycleQueue),
 			AttackPathRefs:               append([]string(nil), path.AttackPathRefs...),
@@ -364,6 +369,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 	counts.SourcePrivacy = normalizedSourcePrivacy(summary.SourcePrivacy)
 	counts.OperationalExposure = cloneAxisSummary(summary.OperationalExposure)
 	counts.GovernanceReadiness = cloneAxisSummary(summary.GovernanceReadiness)
+	counts.EvidenceCompleteness = risk.CloneEvidenceCompletenessSummary(summary.EvidenceCompleteness)
 	scanCoverage := scanquality.BuildCompactCoverageSummary(summary.ScanQuality)
 	counts.ScanCoverage = &scanCoverage
 	counts.CoverageConfidence = scanCoverage.CoverageConfidence
@@ -426,6 +432,15 @@ func backlogItemsByPath(backlog *controlbacklog.Backlog) map[string]controlbackl
 		}
 		if strings.TrimSpace(current.FindingVisibility) == "" {
 			current.FindingVisibility = item.FindingVisibility
+		}
+		if len(current.ClosureRequirements) == 0 {
+			current.ClosureRequirements = risk.CloneClosureRequirements(item.ClosureRequirements)
+		}
+		if current.EvidenceCompleteness == nil {
+			current.EvidenceCompleteness = risk.CloneEvidenceCompleteness(item.EvidenceCompleteness)
+		}
+		if strings.TrimSpace(current.ClosureCriteria) == "" {
+			current.ClosureCriteria = item.ClosureCriteria
 		}
 		out[key] = current
 	}
@@ -745,6 +760,20 @@ func cloneAxisSummary(in *scorecore.AxisSummary) *scorecore.AxisSummary {
 	out := *in
 	out.Rationale = append([]string(nil), in.Rationale...)
 	return &out
+}
+
+func firstNonEmptyClosureRequirementsForBOM(pathRequirements []risk.ClosureRequirement, backlogRequirements []risk.ClosureRequirement) []risk.ClosureRequirement {
+	if len(pathRequirements) > 0 {
+		return risk.CloneClosureRequirements(pathRequirements)
+	}
+	return risk.CloneClosureRequirements(backlogRequirements)
+}
+
+func firstNonNilEvidenceCompletenessForBOM(pathCompleteness *risk.EvidenceCompleteness, backlogCompleteness *risk.EvidenceCompleteness) *risk.EvidenceCompleteness {
+	if pathCompleteness != nil {
+		return risk.CloneEvidenceCompleteness(pathCompleteness)
+	}
+	return risk.CloneEvidenceCompleteness(backlogCompleteness)
 }
 
 func decorateLineageForBOM(in *risk.ActionLineage, item AgentActionBOMItem) *risk.ActionLineage {

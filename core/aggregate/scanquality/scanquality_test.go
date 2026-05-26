@@ -139,6 +139,41 @@ func TestCoverageSummaryCountsReducedSignals(t *testing.T) {
 	}
 }
 
+func TestCompletenessSignalsForRepoCollectsReducedCoverageAndUnsupportedSurfaces(t *testing.T) {
+	t.Parallel()
+
+	signals := CompletenessSignalsForRepo(&Report{
+		Detectors: []DetectorHealth{{
+			Org:             "acme",
+			Repo:            "payments",
+			Detector:        "mcp",
+			Status:          "reduced",
+			CoverageReasons: []string{"generated_suppression"},
+		}},
+		ParseErrors: []ParseIssue{{
+			Org:  "acme",
+			Repo: "payments",
+			Kind: "parse_error",
+		}},
+		AbsenceClaims: []AbsenceClaim{{
+			Org:     "acme",
+			Repo:    "payments",
+			Surface: SurfaceMCPServer,
+			Status:  AbsenceStatusUnsupportedSurface,
+		}},
+	}, "acme", "payments")
+
+	if !signals.ReducedCoverage {
+		t.Fatalf("expected reduced coverage signals, got %+v", signals)
+	}
+	if len(signals.ReducedDetectors) != 1 || signals.ReducedDetectors[0] != "mcp" {
+		t.Fatalf("expected reduced detector signal, got %+v", signals)
+	}
+	if len(signals.UnsupportedSurfaces) != 1 || signals.UnsupportedSurfaces[0] != SurfaceMCPServer {
+		t.Fatalf("expected unsupported surface signal, got %+v", signals)
+	}
+}
+
 func TestScanQualitySkipsGeneratedDependencyDirectoriesInGovernanceMode(t *testing.T) {
 	t.Parallel()
 

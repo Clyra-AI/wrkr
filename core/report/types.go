@@ -84,6 +84,7 @@ type Summary struct {
 	ScanScope                *ScanScopeSummary                      `json:"scan_scope,omitempty"`
 	OperationalExposure      *scorecore.AxisSummary                 `json:"operational_exposure,omitempty"`
 	GovernanceReadiness      *scorecore.AxisSummary                 `json:"governance_readiness,omitempty"`
+	EvidenceCompleteness     *risk.EvidenceCompletenessSummary      `json:"evidence_completeness,omitempty"`
 	AssessmentSummary        *AssessmentSummary                     `json:"assessment_summary,omitempty"`
 	Methodology              Methodology                            `json:"methodology"`
 	TopRisks                 []RiskItem                             `json:"top_risks"`

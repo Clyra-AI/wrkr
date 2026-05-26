@@ -537,6 +537,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Findings:       findings,
 		DetectorErrors: detectorErrors,
 	})
+	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, &scanQuality)
+	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	lifecycleGaps := lifecycle.DetectGaps(lifecycle.GapInput{
 		Identities:  nextManifest.Identities,
 		Inventory:   &inventoryOut,

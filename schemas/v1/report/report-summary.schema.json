@@ -62,6 +62,9 @@
     "governance_readiness": {
       "$ref": "#/$defs/axisSummary"
     },
+    "evidence_completeness": {
+      "$ref": "#/$defs/evidenceCompletenessSummary"
+    },
     "methodology": {
       "$ref": "#/$defs/methodology"
     },
@@ -362,8 +365,67 @@
         "standing_privilege_reasons": {"type": "array", "items": {"type": "string"}},
         "write_path_classes": {"type": "array", "items": {"type": "string"}},
         "governance_controls": {"type": "array", "items": {"type": "object"}},
+        "closure_requirements": {"type": "array", "items": {"$ref": "#/$defs/closureRequirement"}},
+        "evidence_completeness": {"$ref": "#/$defs/evidenceCompleteness"},
         "action_lineage": {"$ref": "#/$defs/actionLineage"}
       }
+    },
+    "closureRequirement": {
+      "type": "object",
+      "required": ["id", "severity", "requirement_type", "required_evidence", "guidance"],
+      "properties": {
+        "id": {"type": "string"},
+        "severity": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+        "requirement_type": {"type": "string"},
+        "current_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "required_evidence": {"type": "string"},
+        "acceptable_source_classes": {"type": "array", "items": {"type": "string"}},
+        "freshness_requirement": {"type": "string"},
+        "examples": {"type": "array", "items": {"type": "string"}},
+        "closure_refs": {"type": "array", "items": {"type": "string"}},
+        "reason_codes": {"type": "array", "items": {"type": "string"}},
+        "guidance": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "evidenceCompletenessAxisScore": {
+      "type": "object",
+      "required": ["axis", "score"],
+      "properties": {
+        "axis": {"type": "string", "enum": ["discovery", "authority", "blast_radius", "control", "runtime_evidence", "proof"]},
+        "score": {"type": "integer"},
+        "reasons": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "evidenceCompleteness": {
+      "type": "object",
+      "required": ["total_score", "label", "axis_scores"],
+      "properties": {
+        "total_score": {"type": "integer"},
+        "label": {"type": "string", "enum": ["strong_evidence", "partial_evidence", "insufficient_evidence"]},
+        "axis_scores": {"type": "array", "items": {"$ref": "#/$defs/evidenceCompletenessAxisScore"}},
+        "evidence_gaps": {"type": "array", "items": {"type": "string"}},
+        "unsupported_surfaces": {"type": "array", "items": {"type": "string"}},
+        "freshness_penalties": {"type": "array", "items": {"type": "string"}},
+        "contradiction_penalties": {"type": "array", "items": {"type": "string"}},
+        "reasons": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "evidenceCompletenessSummary": {
+      "type": "object",
+      "required": ["path_count", "average_total_score", "label"],
+      "properties": {
+        "path_count": {"type": "integer"},
+        "average_total_score": {"type": "integer"},
+        "label": {"type": "string", "enum": ["strong_evidence", "partial_evidence", "insufficient_evidence"]},
+        "low_evidence_path_count": {"type": "integer"},
+        "reduced_coverage_path_count": {"type": "integer"},
+        "axis_scores": {"type": "array", "items": {"$ref": "#/$defs/evidenceCompletenessAxisScore"}},
+        "reasons": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
     },
     "evidenceCandidate": {
       "type": "object",

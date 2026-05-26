@@ -20,6 +20,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added contradiction detection for customer declarations, production targets, credentials, workflows, deployment constraints, and policy evidence.
 - [semver:minor] Added accepted-risk and suppression governance with expiry, ownership, scope, evidence state, rescan behavior, and appendix visibility.
 - [semver:minor] Added lifecycle and ownership control queues for ownerless, inferred-owner, stale-lifecycle, and credential-bearing governance gaps.
+- [semver:minor] Added path-specific closure evidence guidance across control backlog, Agent Action BOM, markdown reports, and exports.
+- [semver:minor] Added per-path evidence completeness scoring for discovery, authority, blast radius, control, runtime evidence, and proof sufficiency.
 
 ### Changed
 

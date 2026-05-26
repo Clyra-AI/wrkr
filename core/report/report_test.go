@@ -1674,6 +1674,101 @@ func TestMarkdownApprovalUnknownUsesEvidenceNotFound(t *testing.T) {
 	}
 }
 
+func TestClosureGuidanceMarkdownMatchesJSON(t *testing.T) {
+	t.Parallel()
+
+	paths := risk.DecorateEvidenceContext([]risk.ActionPath{{
+		PathID:                 "apc-closure-markdown",
+		Org:                    "acme",
+		Repo:                   "acme/release",
+		ToolType:               "compiled_action",
+		Location:               ".github/workflows/release.yml",
+		WriteCapable:           true,
+		DeployWrite:            true,
+		ApprovalGap:            true,
+		ApprovalGapReasons:     []string{"approval_source_missing"},
+		OwnerEvidenceState:     risk.EvidenceStateUnknown,
+		ControlResolutionState: risk.ControlResolutionStateNoVisibleControl,
+		PolicyCoverageStatus:   risk.PolicyCoverageStatusNone,
+		ControlPriority:        risk.ControlPriorityControlFirst,
+		ConfidenceLane:         risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:         risk.ActionPathTypeCICDWorkflow,
+	}}, nil)
+	backlog := controlbacklog.Build(controlbacklog.Input{ActionPaths: paths})
+	summary := Summary{
+		GeneratedAt:          "2026-05-26T12:00:00Z",
+		Template:             string(TemplateAgentActionBOM),
+		ShareProfile:         string(ShareProfileInternal),
+		ActionPaths:          paths,
+		ControlBacklog:       &backlog,
+		EvidenceCompleteness: risk.BuildEvidenceCompletenessSummary(paths),
+	}
+	summary.AgentActionBOM = BuildAgentActionBOM(summary)
+
+	if summary.AgentActionBOM == nil || len(summary.AgentActionBOM.Items) != 1 || len(summary.AgentActionBOM.Items[0].ClosureRequirements) == 0 {
+		t.Fatalf("expected closure requirements on BOM item, got %+v", summary.AgentActionBOM)
+	}
+	requirement := summary.AgentActionBOM.Items[0].ClosureRequirements[0]
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, requirement.ID) || !strings.Contains(markdown, requirement.Guidance) {
+		t.Fatalf("expected markdown closure guidance to match JSON contract, got:\n%s", markdown)
+	}
+	payload, err := RenderEvidenceBundleJSON(summary)
+	if err != nil {
+		t.Fatalf("render evidence bundle: %v", err)
+	}
+	if !strings.Contains(string(payload), "\"closure_requirements\"") {
+		t.Fatalf("expected evidence bundle JSON to include closure requirements, got %s", string(payload))
+	}
+}
+
+func TestMarkdownUsesBuyerSafeCompletenessLabels(t *testing.T) {
+	t.Parallel()
+
+	paths := risk.DecorateEvidenceContext([]risk.ActionPath{{
+		PathID:               "apc-completeness-label",
+		Org:                  "acme",
+		Repo:                 "acme/release",
+		ToolType:             "mcp",
+		Location:             ".cursor/mcp.json",
+		WriteCapable:         true,
+		CredentialAccess:     true,
+		ProductionWrite:      true,
+		ApprovalGap:          true,
+		OwnerEvidenceState:   risk.EvidenceStateUnknown,
+		PolicyCoverageStatus: risk.PolicyCoverageStatusNone,
+		ControlPriority:      risk.ControlPriorityControlFirst,
+		RiskTier:             risk.RiskTierHigh,
+		ConfidenceLane:       risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:       risk.ActionPathTypeAgentFramework,
+	}}, &scanquality.Report{
+		Detectors: []scanquality.DetectorHealth{{
+			Org:      "acme",
+			Repo:     "acme/release",
+			Detector: "mcp",
+			Status:   "reduced",
+		}},
+	})
+	backlog := controlbacklog.Build(controlbacklog.Input{ActionPaths: paths})
+	summary := Summary{
+		GeneratedAt:          "2026-05-26T12:00:00Z",
+		Template:             string(TemplateAgentActionBOM),
+		ShareProfile:         string(ShareProfileInternal),
+		ActionPaths:          paths,
+		ControlBacklog:       &backlog,
+		EvidenceCompleteness: risk.BuildEvidenceCompletenessSummary(paths),
+	}
+	summary.AgentActionBOM = BuildAgentActionBOM(summary)
+
+	markdown := RenderMarkdown(summary)
+	if !strings.Contains(markdown, "insufficient evidence coverage") {
+		t.Fatalf("expected buyer-safe completeness wording, got:\n%s", markdown)
+	}
+	if strings.Contains(strings.ToLower(markdown), "low risk because evidence is low") {
+		t.Fatalf("expected completeness wording to stay separate from risk, got:\n%s", markdown)
+	}
+}
+
 func TestReportQABlocksUnsupportedApprovalMissing(t *testing.T) {
 	t.Parallel()
 
