@@ -9,6 +9,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/exposure"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -167,6 +168,7 @@ type Inventory struct {
 	RepoExposureSummaries []exposure.RepoExposureSummary `json:"repo_exposure_summaries" yaml:"repo_exposure_summaries"`
 	PrivilegeBudget       PrivilegeBudget                `json:"privilege_budget" yaml:"privilege_budget"`
 	AgentPrivilegeMap     []AgentPrivilegeMapEntry       `json:"agent_privilege_map" yaml:"agent_privilege_map"`
+	LifecycleQueue        []governancequeue.Item         `json:"lifecycle_queue,omitempty" yaml:"lifecycle_queue,omitempty"`
 	Summary               Summary                        `json:"summary" yaml:"summary"`
 }
 

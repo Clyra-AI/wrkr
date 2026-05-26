@@ -8,6 +8,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/compliance"
+	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
@@ -245,13 +246,14 @@ type DeltaMetric struct {
 }
 
 type LifecycleSummary struct {
-	IdentityCount      int                   `json:"identity_count"`
-	UnderReviewCount   int                   `json:"under_review_count"`
-	RevokedCount       int                   `json:"revoked_count"`
-	DeprecatedCount    int                   `json:"deprecated_count"`
-	PendingActionCount int                   `json:"pending_action_count"`
-	Gaps               []lifecycle.Gap       `json:"gaps,omitempty"`
-	RecentTransitions  []LifecycleTransition `json:"recent_transitions"`
+	IdentityCount      int                    `json:"identity_count"`
+	UnderReviewCount   int                    `json:"under_review_count"`
+	RevokedCount       int                    `json:"revoked_count"`
+	DeprecatedCount    int                    `json:"deprecated_count"`
+	PendingActionCount int                    `json:"pending_action_count"`
+	Gaps               []lifecycle.Gap        `json:"gaps,omitempty"`
+	Queue              []governancequeue.Item `json:"queue,omitempty"`
+	RecentTransitions  []LifecycleTransition  `json:"recent_transitions"`
 }
 
 type LifecycleTransition struct {

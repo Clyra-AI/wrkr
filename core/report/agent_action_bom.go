@@ -12,6 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -43,6 +44,8 @@ type AgentActionBOMSummary struct {
 	StandingPrivilegeItems       int                                 `json:"standing_privilege_items"`
 	StaticCredentialItems        int                                 `json:"static_credential_items"`
 	ProductionTargetItems        int                                 `json:"production_target_items"`
+	AcceptedRiskItems            int                                 `json:"accepted_risk_items,omitempty"`
+	LifecycleQueueItems          int                                 `json:"lifecycle_queue_items,omitempty"`
 	ApprovalEvidenceUnknownItems int                                 `json:"approval_evidence_unknown_items,omitempty"`
 	ControlEvidenceUnknownItems  int                                 `json:"control_evidence_unknown_items,omitempty"`
 	OwnerEvidenceUnknownItems    int                                 `json:"owner_evidence_unknown_items,omitempty"`
@@ -150,6 +153,8 @@ type AgentActionBOMItem struct {
 	Queue                        string                                 `json:"queue,omitempty"`
 	FindingVisibility            string                                 `json:"finding_visibility,omitempty"`
 	Remediation                  string                                 `json:"remediation,omitempty"`
+	GovernanceDisposition        *controlbacklog.GovernanceDisposition  `json:"governance_disposition,omitempty"`
+	LifecycleQueue               *governancequeue.Item                  `json:"lifecycle_queue,omitempty"`
 	AttackPathRefs               []string                               `json:"attack_path_refs,omitempty"`
 	SourceFindingKeys            []string                               `json:"source_finding_keys,omitempty"`
 	ExclusionReason              string                                 `json:"exclusion_reason,omitempty"`
@@ -311,6 +316,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			Queue:                        firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForActionPath(path)),
 			FindingVisibility:            firstNonEmptyValue(strings.TrimSpace(backlogItem.FindingVisibility), visibilityForQueue(firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForActionPath(path)))),
 			Remediation:                  firstNonEmptyValue(strings.TrimSpace(backlogItem.Remediation), risk.RemediationForActionPath(path)),
+			GovernanceDisposition:        cloneGovernanceDisposition(backlogItem.GovernanceDisposition),
+			LifecycleQueue:               cloneLifecycleQueue(backlogItem.LifecycleQueue),
 			AttackPathRefs:               append([]string(nil), path.AttackPathRefs...),
 			SourceFindingKeys:            append([]string(nil), path.SourceFindingKeys...),
 			GraphRefs:                    itemGraphRefs,
@@ -399,7 +406,28 @@ func backlogItemsByPath(backlog *controlbacklog.Backlog) map[string]controlbackl
 		if strings.TrimSpace(item.LinkedActionPathID) == "" {
 			continue
 		}
-		out[strings.TrimSpace(item.LinkedActionPathID)] = item
+		key := strings.TrimSpace(item.LinkedActionPathID)
+		current, ok := out[key]
+		if !ok {
+			out[key] = item
+			continue
+		}
+		if current.GovernanceDisposition == nil {
+			current.GovernanceDisposition = cloneGovernanceDisposition(item.GovernanceDisposition)
+		}
+		if current.LifecycleQueue == nil {
+			current.LifecycleQueue = cloneLifecycleQueue(item.LifecycleQueue)
+		}
+		if strings.TrimSpace(current.Remediation) == "" {
+			current.Remediation = item.Remediation
+		}
+		if strings.TrimSpace(current.Queue) == "" {
+			current.Queue = item.Queue
+		}
+		if strings.TrimSpace(current.FindingVisibility) == "" {
+			current.FindingVisibility = item.FindingVisibility
+		}
+		out[key] = current
 	}
 	return out
 }
@@ -597,6 +625,12 @@ func summarizeAgentActionBOMItems(items []AgentActionBOMItem, paths []risk.Actio
 		if item.ProductionWrite || len(item.MatchedProductionTargets) > 0 {
 			counts.ProductionTargetItems++
 		}
+		if item.GovernanceDisposition != nil && item.GovernanceDisposition.Kind == controlbacklog.GovernanceKindAcceptedRisk && item.GovernanceDisposition.Status == controlbacklog.GovernanceStatusActive {
+			counts.AcceptedRiskItems++
+		}
+		if item.LifecycleQueue != nil {
+			counts.LifecycleQueueItems++
+		}
 		if item.ApprovalEvidenceState == risk.EvidenceStateUnknown {
 			counts.ApprovalEvidenceUnknownItems++
 			counts.MissingApprovalItems++
@@ -666,6 +700,25 @@ func evaluateBOMEmptyState(projection risk.ActionPathSummary, counts AgentAction
 	default:
 		return risk.EmptyStateEligible, uniqueSortedStrings(reasons)
 	}
+}
+
+func cloneGovernanceDisposition(in *controlbacklog.GovernanceDisposition) *controlbacklog.GovernanceDisposition {
+	if in == nil {
+		return nil
+	}
+	copyItem := *in
+	copyItem.EvidenceRefs = append([]string(nil), in.EvidenceRefs...)
+	return &copyItem
+}
+
+func cloneLifecycleQueue(in *governancequeue.Item) *governancequeue.Item {
+	if in == nil {
+		return nil
+	}
+	copyItem := *in
+	copyItem.EvidenceRefs = append([]string(nil), in.EvidenceRefs...)
+	copyItem.SourceConflicts = append([]string(nil), in.SourceConflicts...)
+	return &copyItem
 }
 
 func cloneShareProfileMetadata(in *ShareProfileMetadata) *ShareProfileMetadata {

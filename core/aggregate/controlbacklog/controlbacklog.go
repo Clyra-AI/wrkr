@@ -5,12 +5,15 @@ import (
 	"encoding/hex"
 	"sort"
 	"strings"
+	"time"
 
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/detect"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
+	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -22,6 +25,7 @@ const (
 	SignalClassSupportingSecurity    = "supporting_security_signal"
 	QueueControlFirst                = "control_first"
 	QueueReviewQueue                 = "review_queue"
+	QueueAcceptedRisk                = "accepted_risk_queue"
 	QueueInventoryHygiene            = "inventory_hygiene"
 	QueueDebugOnly                   = "debug_only"
 	FindingVisibilityPrimary         = "primary"
@@ -54,6 +58,11 @@ const (
 	ConfidenceHigh                   = "high"
 	ConfidenceMedium                 = "medium"
 	ConfidenceLow                    = "low"
+	GovernanceKindAcceptedRisk       = "accepted_risk"
+	GovernanceKindSuppression        = "suppression"
+	GovernanceStatusActive           = "active"
+	GovernanceStatusExpired          = "expired"
+	GovernanceStatusInvalid          = "invalid"
 	SecretReferenceDetected          = "secret_reference_detected"
 	SecretValueDetected              = "secret_value_detected"
 	SecretScopeUnknown               = "secret_scope_unknown" // #nosec G101 -- governance enum label, not credential material.
@@ -77,12 +86,28 @@ type Summary struct {
 	RemediateActionItems      int `json:"remediate_action_items"`
 	ControlFirstQueueItems    int `json:"control_first_queue_items,omitempty"`
 	ReviewQueueItems          int `json:"review_queue_items,omitempty"`
+	AcceptedRiskQueueItems    int `json:"accepted_risk_queue_items,omitempty"`
 	InventoryHygieneItems     int `json:"inventory_hygiene_items,omitempty"`
 	DebugOnlyQueueItems       int `json:"debug_only_queue_items,omitempty"`
+	LifecycleQueueItems       int `json:"lifecycle_queue_items,omitempty"`
+}
+
+type GovernanceDisposition struct {
+	Kind               string   `json:"kind"`
+	Status             string   `json:"status"`
+	Reason             string   `json:"reason"`
+	Scope              string   `json:"scope"`
+	Issuer             string   `json:"issuer,omitempty"`
+	ExpiresAt          string   `json:"expires_at,omitempty"`
+	EvidenceState      string   `json:"evidence_state,omitempty"`
+	VisibilityBehavior string   `json:"visibility_behavior,omitempty"`
+	RescanBehavior     string   `json:"rescan_behavior,omitempty"`
+	EvidenceRefs       []string `json:"evidence_refs,omitempty"`
 }
 
 type Item struct {
 	ID                         string                                  `json:"id"`
+	AgentID                    string                                  `json:"agent_id,omitempty"`
 	Repo                       string                                  `json:"repo"`
 	Path                       string                                  `json:"path"`
 	ControlSurfaceType         string                                  `json:"control_surface_type"`
@@ -133,6 +158,8 @@ type Item struct {
 	ConfidenceRaise            []string                                `json:"confidence_raise,omitempty"`
 	SLA                        string                                  `json:"sla"`
 	ClosureCriteria            string                                  `json:"closure_criteria"`
+	GovernanceDisposition      *GovernanceDisposition                  `json:"governance_disposition,omitempty"`
+	LifecycleQueue             *governancequeue.Item                   `json:"lifecycle_queue,omitempty"`
 	SecretSignalTypes          []string                                `json:"secret_signal_types,omitempty"`
 	LinkedFindingIDs           []string                                `json:"linked_finding_ids,omitempty"`
 	LinkedActionPathID         string                                  `json:"linked_action_path_id,omitempty"`
@@ -172,8 +199,10 @@ type SecurityTestRecipe struct {
 
 type Input struct {
 	Mode             string
+	GeneratedAt      time.Time
 	Findings         []model.Finding
 	Inventory        *agginventory.Inventory
+	Identities       []manifest.IdentityRecord
 	LifecycleGaps    []lifecycle.Gap
 	ActionPaths      []risk.ActionPath
 	ControlPathGraph *aggattack.ControlPathGraph
@@ -229,9 +258,14 @@ type builder struct {
 	findingsByLocation map[string][]model.Finding
 	toolByLocation     map[string]agginventory.Tool
 	locationByKey      map[string]agginventory.ToolLocation
+	actionPathByKey    map[string]risk.ActionPath
+	actionPathByAgent  map[string]risk.ActionPath
 	writeByLocation    map[string]bool
+	identityByAgent    map[string]manifest.IdentityRecord
+	identityByRepoPath map[string]manifest.IdentityRecord
 	itemsByKey         map[string]Item
 	graphRefsByPath    map[string]controlPathRefs
+	generatedAt        time.Time
 }
 
 type controlPathRefs struct {
@@ -244,9 +278,17 @@ func newBuilder(input Input) *builder {
 		findingsByLocation: map[string][]model.Finding{},
 		toolByLocation:     map[string]agginventory.Tool{},
 		locationByKey:      map[string]agginventory.ToolLocation{},
+		actionPathByKey:    map[string]risk.ActionPath{},
+		actionPathByAgent:  map[string]risk.ActionPath{},
 		writeByLocation:    map[string]bool{},
+		identityByAgent:    map[string]manifest.IdentityRecord{},
+		identityByRepoPath: map[string]manifest.IdentityRecord{},
 		itemsByKey:         map[string]Item{},
 		graphRefsByPath:    buildControlPathRefs(input.ControlPathGraph),
+		generatedAt:        input.GeneratedAt.UTC(),
+	}
+	if b.generatedAt.IsZero() {
+		b.generatedAt = time.Now().UTC().Truncate(time.Second)
 	}
 	for _, finding := range input.Findings {
 		key := locationKey(finding.Org, finding.Repo, finding.Location)
@@ -262,6 +304,22 @@ func newBuilder(input Input) *builder {
 				b.toolByLocation[key] = tool
 				b.locationByKey[key] = loc
 			}
+		}
+	}
+	for _, path := range input.ActionPaths {
+		projected := risk.ProjectActionPath(path)
+		key := locationKey(projected.Org, projected.Repo, projected.Location)
+		b.actionPathByKey[key] = projected
+		if agentID := strings.TrimSpace(projected.AgentID); agentID != "" {
+			b.actionPathByAgent[agentID] = projected
+		}
+	}
+	for _, record := range input.Identities {
+		if agentID := strings.TrimSpace(record.AgentID); agentID != "" {
+			b.identityByAgent[agentID] = record
+		}
+		if repoPathKey := strings.TrimSpace(record.Repo) + "|" + strings.TrimSpace(record.Location); repoPathKey != "|" {
+			b.identityByRepoPath[repoPathKey] = record
 		}
 	}
 	return b
@@ -298,6 +356,7 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 	graphRefs := b.graphRefsByPath[strings.TrimSpace(path.PathID)]
 	item := Item{
 		ID:                         backlogID("action_path", path.Org, path.Repo, path.Location, path.PathID),
+		AgentID:                    strings.TrimSpace(path.AgentID),
 		Repo:                       strings.TrimSpace(path.Repo),
 		Path:                       strings.TrimSpace(path.Location),
 		ControlSurfaceType:         controlSurfaceType(path.ToolType, path.Location, path.CredentialAccess, false),
@@ -398,6 +457,7 @@ func (b *builder) addFinding(finding model.Finding, mode string) {
 	isSecret := isSecretFinding(finding)
 	item := Item{
 		ID:                  backlogID("finding", finding.Org, finding.Repo, finding.Location, finding.FindingType, finding.RuleID, finding.Detector),
+		AgentID:             strings.TrimSpace(tool.AgentID),
 		Repo:                strings.TrimSpace(finding.Repo),
 		Path:                strings.TrimSpace(finding.Location),
 		ControlSurfaceType:  controlSurfaceType(finding.ToolType, finding.Location, writeCapable, isSecret),
@@ -489,6 +549,9 @@ func (b *builder) merge(item Item) {
 	if confidencePriority(item.Confidence) < confidencePriority(current.Confidence) {
 		current.Confidence = item.Confidence
 	}
+	if current.AgentID == "" {
+		current.AgentID = item.AgentID
+	}
 	if current.Owner == "" {
 		current.Owner = item.Owner
 		current.OwnerSource = item.OwnerSource
@@ -520,6 +583,9 @@ func (b *builder) merge(item Item) {
 	if current.LinkedActionPathID == "" {
 		current.LinkedActionPathID = item.LinkedActionPathID
 	}
+	if current.LifecycleQueue == nil {
+		current.LifecycleQueue = item.LifecycleQueue
+	}
 	if strings.TrimSpace(current.Remediation) == "" {
 		current.Remediation = item.Remediation
 	}
@@ -528,27 +594,37 @@ func (b *builder) merge(item Item) {
 }
 
 func (b *builder) addLifecycleGap(gap lifecycle.Gap) {
+	linkedPath := b.actionPathByAgent[strings.TrimSpace(gap.AgentID)]
+	if strings.TrimSpace(linkedPath.PathID) == "" {
+		linkedPath = b.actionPathByKey[locationKey(gap.Org, gap.Repo, gap.Location)]
+	}
+	graphRefs := b.graphRefsByPath[strings.TrimSpace(linkedPath.PathID)]
 	item := Item{
-		ID:                 backlogID("lifecycle_gap", gap.AgentID, gap.ReasonCode, gap.Repo, gap.Location),
-		Repo:               strings.TrimSpace(gap.Repo),
-		Path:               strings.TrimSpace(gap.Location),
-		ControlSurfaceType: controlSurfaceType(gap.ToolType, gap.Location, gap.WriteCapable, gap.CredentialAccess),
-		ControlPathType:    controlPathType(gap.ToolType, gap.Location, gap.WriteCapable, gap.CredentialAccess),
-		Capabilities:       lifecycleGapCapabilities(gap),
-		WritePathClasses:   lifecycleGapWritePathClasses(gap),
-		Owner:              strings.TrimSpace(gap.Owner),
-		OwnershipStatus:    strings.TrimSpace(gap.OwnershipStatus),
-		EvidenceSource:     "lifecycle_gap",
-		EvidenceBasis:      append([]string{gap.ReasonCode}, gap.EvidenceBasis...),
-		ApprovalStatus:     "unapproved",
-		SecurityVisibility: agginventory.SecurityVisibilityNeedsReview,
-		Queue:              QueueReviewQueue,
-		FindingVisibility:  FindingVisibilityPrimary,
-		SignalClass:        SignalClassUniqueWrkrSignal,
-		RecommendedAction:  lifecycleGapRecommendedAction(gap),
-		Remediation:        remediationForLifecycleGap(gap),
-		LinkedFindingIDs:   []string{gap.GapID},
-		SecretSignalTypes:  lifecycleGapSecretSignalTypes(gap),
+		ID:                       backlogID("lifecycle_gap", gap.AgentID, gap.ReasonCode, gap.Repo, gap.Location),
+		AgentID:                  strings.TrimSpace(gap.AgentID),
+		Repo:                     strings.TrimSpace(gap.Repo),
+		Path:                     strings.TrimSpace(gap.Location),
+		ControlSurfaceType:       controlSurfaceType(gap.ToolType, gap.Location, gap.WriteCapable, gap.CredentialAccess),
+		ControlPathType:          controlPathType(gap.ToolType, gap.Location, gap.WriteCapable, gap.CredentialAccess),
+		Capabilities:             lifecycleGapCapabilities(gap),
+		WritePathClasses:         lifecycleGapWritePathClasses(gap),
+		Owner:                    strings.TrimSpace(gap.Owner),
+		OwnershipStatus:          strings.TrimSpace(gap.OwnershipStatus),
+		EvidenceSource:           "lifecycle_gap",
+		EvidenceBasis:            append([]string{gap.ReasonCode}, gap.EvidenceBasis...),
+		ApprovalStatus:           "unapproved",
+		SecurityVisibility:       agginventory.SecurityVisibilityNeedsReview,
+		Queue:                    QueueReviewQueue,
+		FindingVisibility:        FindingVisibilityPrimary,
+		SignalClass:              SignalClassUniqueWrkrSignal,
+		RecommendedAction:        lifecycleGapRecommendedAction(gap),
+		Remediation:              remediationForLifecycleGap(gap),
+		LinkedFindingIDs:         []string{gap.GapID},
+		LinkedActionPathID:       strings.TrimSpace(linkedPath.PathID),
+		LinkedControlPathNodeIDs: append([]string(nil), graphRefs.nodeIDs...),
+		LinkedControlPathEdgeIDs: append([]string(nil), graphRefs.edgeIDs...),
+		SecretSignalTypes:        lifecycleGapSecretSignalTypes(gap),
+		LifecycleQueue:           lifecycleQueueForGap(gap),
 	}
 	item.Capability = capabilitySummary(item.Capabilities)
 	item.GovernanceControls = agginventory.BuildGovernanceControls(agginventory.GovernanceControlInput{
@@ -571,7 +647,7 @@ func (b *builder) addLifecycleGap(gap lifecycle.Gap) {
 func (b *builder) items() []Item {
 	items := make([]Item, 0, len(b.itemsByKey))
 	for _, item := range b.itemsByKey {
-		items = append(items, normalizeItem(item))
+		items = append(items, b.decorateGovernance(normalizeItem(item)))
 	}
 	sort.Slice(items, func(i, j int) bool {
 		if queuePriority(items[i].Queue) != queuePriority(items[j].Queue) {
@@ -608,10 +684,15 @@ func summarize(items []Item) Summary {
 			summary.ControlFirstQueueItems++
 		case QueueReviewQueue:
 			summary.ReviewQueueItems++
+		case QueueAcceptedRisk:
+			summary.AcceptedRiskQueueItems++
 		case QueueInventoryHygiene:
 			summary.InventoryHygieneItems++
 		case QueueDebugOnly:
 			summary.DebugOnlyQueueItems++
+		}
+		if item.LifecycleQueue != nil {
+			summary.LifecycleQueueItems++
 		}
 		switch item.SignalClass {
 		case SignalClassUniqueWrkrSignal:
@@ -629,6 +710,162 @@ func summarize(items []Item) Summary {
 		}
 	}
 	return summary
+}
+
+func SummarizeItems(items []Item) Summary {
+	return summarize(items)
+}
+
+func lifecycleQueueForGap(gap lifecycle.Gap) *governancequeue.Item {
+	item := lifecycle.QueueItemFromGap(gap)
+	return &item
+}
+
+func (b *builder) decorateGovernance(item Item) Item {
+	record, ok := b.matchIdentityRecord(item)
+	if !ok {
+		return item
+	}
+	disposition := governanceDispositionForRecord(item, record, b.generatedAt)
+	if disposition == nil {
+		return item
+	}
+	item.GovernanceDisposition = disposition
+	switch disposition.Status {
+	case GovernanceStatusExpired:
+		item.EvidenceGaps = mergeStrings(item.EvidenceGaps, []string{"governance_record_expired"})
+	case GovernanceStatusInvalid:
+		item.EvidenceGaps = mergeStrings(item.EvidenceGaps, []string{"governance_record_invalid"})
+	case GovernanceStatusActive:
+		switch disposition.Kind {
+		case GovernanceKindAcceptedRisk:
+			item.SecurityVisibility = agginventory.SecurityVisibilityAcceptedRisk
+			item.Queue = QueueAcceptedRisk
+			item.FindingVisibility = FindingVisibilityAppendix
+		case GovernanceKindSuppression:
+			item.Queue = QueueInventoryHygiene
+			item.FindingVisibility = FindingVisibilityAppendix
+		}
+	}
+	return normalizeItem(item)
+}
+
+func (b *builder) matchIdentityRecord(item Item) (manifest.IdentityRecord, bool) {
+	if agentID := strings.TrimSpace(item.AgentID); agentID != "" {
+		if record, ok := b.identityByAgent[agentID]; ok {
+			return record, true
+		}
+	}
+	if key := strings.TrimSpace(item.Repo) + "|" + strings.TrimSpace(item.Path); key != "|" {
+		if record, ok := b.identityByRepoPath[key]; ok {
+			return record, true
+		}
+	}
+	return manifest.IdentityRecord{}, false
+}
+
+func governanceDispositionForRecord(item Item, record manifest.IdentityRecord, generatedAt time.Time) *GovernanceDisposition {
+	approval := record.Approval
+	reason := strings.TrimSpace(approval.DecisionReason)
+	if reason == "" {
+		reason = strings.TrimSpace(approval.ExclusionReason)
+	}
+	scope := strings.TrimSpace(approval.Scope)
+	if scope == "" {
+		scope = "control_path"
+	}
+	issuer := strings.TrimSpace(approval.Approver)
+	if issuer == "" {
+		issuer = strings.TrimSpace(approval.Owner)
+	}
+	evidenceState := governanceEvidenceState(item)
+	expiresAt := strings.TrimSpace(approval.Expires)
+	evidenceRefs := governanceEvidenceRefs(record)
+	kind := ""
+	visibilityBehavior := ""
+	rescanBehavior := ""
+	switch {
+	case approval.AcceptedRisk || strings.TrimSpace(record.ApprovalState) == "accepted_risk" || strings.TrimSpace(record.ApprovalState) == "risk_accepted":
+		kind = GovernanceKindAcceptedRisk
+		visibilityBehavior = QueueAcceptedRisk
+		rescanBehavior = "repromote_on_expiry"
+	case strings.TrimSpace(approval.ExclusionReason) != "" || strings.TrimSpace(record.ApprovalState) == "excluded":
+		kind = GovernanceKindSuppression
+		visibilityBehavior = FindingVisibilityAppendix
+		rescanBehavior = "retain_appendix_until_expiry"
+	default:
+		return nil
+	}
+
+	status := GovernanceStatusActive
+	if strings.TrimSpace(reason) == "" || strings.TrimSpace(approval.Owner) == "" || expiresAt == "" {
+		status = GovernanceStatusInvalid
+	} else if expiresAt != "" {
+		parsed, err := time.Parse(time.RFC3339, expiresAt)
+		if err != nil {
+			status = GovernanceStatusInvalid
+		} else if !generatedAt.IsZero() && generatedAt.After(parsed.UTC()) {
+			status = GovernanceStatusExpired
+		}
+	}
+
+	return &GovernanceDisposition{
+		Kind:               kind,
+		Status:             status,
+		Reason:             reason,
+		Scope:              scope,
+		Issuer:             issuer,
+		ExpiresAt:          expiresAt,
+		EvidenceState:      evidenceState,
+		VisibilityBehavior: visibilityBehavior,
+		RescanBehavior:     rescanBehavior,
+		EvidenceRefs:       evidenceRefs,
+	}
+}
+
+func governanceEvidenceState(item Item) string {
+	values := []string{
+		strings.TrimSpace(item.ApprovalEvidenceState),
+		strings.TrimSpace(item.OwnerEvidenceState),
+		strings.TrimSpace(item.ProofEvidenceState),
+		strings.TrimSpace(item.RuntimeEvidenceState),
+		strings.TrimSpace(item.TargetEvidenceState),
+		strings.TrimSpace(item.CredentialEvidenceState),
+	}
+	if containsState(values, risk.EvidenceStateContradictory) {
+		return risk.EvidenceStateContradictory
+	}
+	if containsState(values, risk.EvidenceStateUnknown) {
+		return risk.EvidenceStateUnknown
+	}
+	if containsState(values, risk.EvidenceStateInferred) {
+		return risk.EvidenceStateInferred
+	}
+	if containsState(values, risk.EvidenceStateDeclared) {
+		return risk.EvidenceStateDeclared
+	}
+	if containsState(values, risk.EvidenceStateVerified) {
+		return risk.EvidenceStateVerified
+	}
+	return risk.EvidenceStateUnknown
+}
+
+func containsState(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == want {
+			return true
+		}
+	}
+	return false
+}
+
+func governanceEvidenceRefs(record manifest.IdentityRecord) []string {
+	values := []string{
+		"manifest://identity/" + strings.TrimSpace(record.AgentID),
+		strings.TrimSpace(record.Approval.ControlID),
+		strings.TrimSpace(record.Approval.EvidenceURL),
+	}
+	return mergeStrings(values, nil)
 }
 
 func includeFinding(finding model.Finding, mode string) bool {
@@ -1283,6 +1520,7 @@ func findingID(finding model.Finding) string {
 }
 
 func normalizeItem(item Item) Item {
+	item.AgentID = strings.TrimSpace(item.AgentID)
 	item.Repo = strings.TrimSpace(item.Repo)
 	item.Path = strings.TrimSpace(item.Path)
 	item.ControlSurfaceType = fallback(item.ControlSurfaceType, ControlSurfaceAIAgent)
@@ -1315,6 +1553,18 @@ func normalizeItem(item Item) Item {
 	item.ConfidenceLaneReasons = mergeStrings(item.ConfidenceLaneReasons, nil)
 	item.SecretSignalTypes = mergeStrings(item.SecretSignalTypes, nil)
 	item.LinkedFindingIDs = mergeStrings(item.LinkedFindingIDs, nil)
+	if item.GovernanceDisposition != nil {
+		item.GovernanceDisposition.Kind = strings.TrimSpace(item.GovernanceDisposition.Kind)
+		item.GovernanceDisposition.Status = strings.TrimSpace(item.GovernanceDisposition.Status)
+		item.GovernanceDisposition.Reason = strings.TrimSpace(item.GovernanceDisposition.Reason)
+		item.GovernanceDisposition.Scope = strings.TrimSpace(item.GovernanceDisposition.Scope)
+		item.GovernanceDisposition.Issuer = strings.TrimSpace(item.GovernanceDisposition.Issuer)
+		item.GovernanceDisposition.ExpiresAt = strings.TrimSpace(item.GovernanceDisposition.ExpiresAt)
+		item.GovernanceDisposition.EvidenceState = strings.TrimSpace(item.GovernanceDisposition.EvidenceState)
+		item.GovernanceDisposition.VisibilityBehavior = strings.TrimSpace(item.GovernanceDisposition.VisibilityBehavior)
+		item.GovernanceDisposition.RescanBehavior = strings.TrimSpace(item.GovernanceDisposition.RescanBehavior)
+		item.GovernanceDisposition.EvidenceRefs = mergeStrings(item.GovernanceDisposition.EvidenceRefs, nil)
+	}
 	item.SecurityTestRecipes = mergeSecurityTestRecipes(item.SecurityTestRecipes, nil)
 	item.GovernanceControls = mergeGovernanceControls(nil, item.GovernanceControls)
 	return item
@@ -1561,10 +1811,12 @@ func queuePriority(value string) int {
 		return 0
 	case QueueReviewQueue:
 		return 1
-	case QueueInventoryHygiene:
+	case QueueAcceptedRisk:
 		return 2
-	case QueueDebugOnly:
+	case QueueInventoryHygiene:
 		return 3
+	case QueueDebugOnly:
+		return 4
 	default:
 		return 99
 	}
@@ -1754,7 +2006,7 @@ func visibilityForQueue(queue string) string {
 	switch strings.TrimSpace(queue) {
 	case QueueControlFirst, QueueReviewQueue:
 		return FindingVisibilityPrimary
-	case QueueInventoryHygiene:
+	case QueueAcceptedRisk, QueueInventoryHygiene:
 		return FindingVisibilityAppendix
 	default:
 		return FindingVisibilityDebug

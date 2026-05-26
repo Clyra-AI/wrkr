@@ -325,7 +325,7 @@ func TestRegressBaselineInitializedAfterApprovalUsesUpdatedSavedState(t *testing
 	t.Fatalf("expected baseline tool for %s", agentID)
 }
 
-func TestInventoryExcludeRemovesControlBacklogWithoutRescan(t *testing.T) {
+func TestInventoryExcludeMovesControlBacklogItemToAppendixWithoutRescan(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
@@ -349,6 +349,8 @@ func TestInventoryExcludeRemovesControlBacklogWithoutRescan(t *testing.T) {
 	var excludeErr bytes.Buffer
 	if code := Run([]string{
 		"inventory", "exclude", agentID,
+		"--owner", "platform-security",
+		"--expires", "30d",
 		"--reason", "retired_control_path",
 		"--state", statePath,
 		"--json",
@@ -357,8 +359,19 @@ func TestInventoryExcludeRemovesControlBacklogWithoutRescan(t *testing.T) {
 	}
 
 	after := runReportJSON(t, statePath)
-	if _, ok := reportBacklogItem(after, recordBefore.Repo, recordBefore.Location); ok {
-		t.Fatalf("expected excluded control path to be removed from report backlog without rescanning")
+	item, ok := reportBacklogItem(after, recordBefore.Repo, recordBefore.Location)
+	if !ok {
+		t.Fatalf("expected suppressed control path to remain auditable in report backlog")
+	}
+	if item["finding_visibility"] != "appendix" {
+		t.Fatalf("expected suppressed control path to move to appendix visibility, got %+v", item)
+	}
+	disposition, ok := item["governance_disposition"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected governance disposition on suppressed item, got %+v", item)
+	}
+	if disposition["kind"] != "suppression" {
+		t.Fatalf("expected suppression governance disposition, got %+v", disposition)
 	}
 }
 

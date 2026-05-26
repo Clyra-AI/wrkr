@@ -84,6 +84,12 @@ func runInventoryMutation(action string, args []string, stdout io.Writer, stderr
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 		}
 		mutation.ExpiresAt = expiresAt
+	case "exclude":
+		expiresAt, err := parseRequiredFutureExpiry(*expires, now)
+		if err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		mutation.ExpiresAt = expiresAt
 	}
 
 	resolvedStatePath := state.ResolvePath(*statePathFlag)

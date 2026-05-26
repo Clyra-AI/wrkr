@@ -128,6 +128,23 @@ func RenderMarkdown(summary Summary) string {
 				if len(item.Contradictions) > 0 {
 					builder.WriteString(fmt.Sprintf("  contradictions=%s\n", markdownContradictions(item.Contradictions)))
 				}
+				if item.GovernanceDisposition != nil {
+					builder.WriteString(fmt.Sprintf("  governance=%s status=%s scope=%s expires=%s reason=%s\n",
+						item.GovernanceDisposition.Kind,
+						item.GovernanceDisposition.Status,
+						item.GovernanceDisposition.Scope,
+						item.GovernanceDisposition.ExpiresAt,
+						item.GovernanceDisposition.Reason,
+					))
+				}
+				if item.LifecycleQueue != nil {
+					builder.WriteString(fmt.Sprintf("  lifecycle_queue=%s severity=%s credential_status=%s closure=%s\n",
+						item.LifecycleQueue.ReasonCode,
+						item.LifecycleQueue.Severity,
+						item.LifecycleQueue.CredentialStatus,
+						item.LifecycleQueue.ClosureCriteria,
+					))
+				}
 			}
 			builder.WriteString("\n")
 		}
@@ -258,6 +275,23 @@ func RenderMarkdown(summary Summary) string {
 			if len(item.Contradictions) > 0 {
 				builder.WriteString(fmt.Sprintf("  contradictions=%s\n", markdownContradictions(item.Contradictions)))
 			}
+			if item.GovernanceDisposition != nil {
+				builder.WriteString(fmt.Sprintf("  governance=%s status=%s scope=%s expires=%s reason=%s\n",
+					item.GovernanceDisposition.Kind,
+					item.GovernanceDisposition.Status,
+					item.GovernanceDisposition.Scope,
+					item.GovernanceDisposition.ExpiresAt,
+					item.GovernanceDisposition.Reason,
+				))
+			}
+			if item.LifecycleQueue != nil {
+				builder.WriteString(fmt.Sprintf("  lifecycle_queue=%s severity=%s credential_status=%s closure=%s\n",
+					item.LifecycleQueue.ReasonCode,
+					item.LifecycleQueue.Severity,
+					item.LifecycleQueue.CredentialStatus,
+					item.LifecycleQueue.ClosureCriteria,
+				))
+			}
 			if item.GaitCoverage != nil {
 				builder.WriteString(fmt.Sprintf("  gait=policy:%s approval:%s jit:%s freeze:%s kill:%s outcome:%s proof:%s\n",
 					item.GaitCoverage.PolicyDecision.Status,
@@ -295,6 +329,23 @@ func RenderMarkdown(summary Summary) string {
 				item.ClosureCriteria,
 				item.Remediation,
 			))
+			if item.GovernanceDisposition != nil {
+				builder.WriteString(fmt.Sprintf("  governance=%s status=%s scope=%s expires=%s reason=%s\n",
+					item.GovernanceDisposition.Kind,
+					item.GovernanceDisposition.Status,
+					item.GovernanceDisposition.Scope,
+					item.GovernanceDisposition.ExpiresAt,
+					item.GovernanceDisposition.Reason,
+				))
+			}
+			if item.LifecycleQueue != nil {
+				builder.WriteString(fmt.Sprintf("  lifecycle_queue=%s severity=%s credential_status=%s closure=%s\n",
+					item.LifecycleQueue.ReasonCode,
+					item.LifecycleQueue.Severity,
+					item.LifecycleQueue.CredentialStatus,
+					item.LifecycleQueue.ClosureCriteria,
+				))
+			}
 		}
 		builder.WriteString("\n")
 	}

@@ -87,7 +87,7 @@ func TestInventoryApproveWritesApprovalProofRecordAtomically(t *testing.T) {
 	}
 }
 
-func TestInventoryAcceptRiskRequiresExpiry(t *testing.T) {
+func TestInventoryAcceptRiskRequiresGovernanceFields(t *testing.T) {
 	tmp := t.TempDir()
 	statePath, agentID := writeInventoryMutationFixture(t, tmp)
 
@@ -99,6 +99,31 @@ func TestInventoryAcceptRiskRequiresExpiry(t *testing.T) {
 	}
 	if out.Len() != 0 {
 		t.Fatalf("expected no stdout on invalid input, got %q", out.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse error payload: %v", err)
+	}
+	errObj, _ := payload["error"].(map[string]any)
+	if errObj["code"] != "invalid_input" {
+		t.Fatalf("expected invalid_input, got %v", payload)
+	}
+}
+
+func TestInventoryExcludeRequiresOwnerAndExpiry(t *testing.T) {
+	tmp := t.TempDir()
+	statePath, agentID := writeInventoryMutationFixture(t, tmp)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"inventory", "exclude", agentID,
+		"--reason", "retired_control_path",
+		"--state", statePath,
+		"--json",
+	}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected exit 6, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(errOut.Bytes(), &payload); err != nil {

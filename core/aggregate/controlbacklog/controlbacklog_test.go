@@ -5,9 +5,13 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/governancequeue"
+	"github.com/Clyra-AI/wrkr/core/lifecycle"
+	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -236,6 +240,157 @@ func TestActionPathConfidenceLaneCarriesIntoBacklog(t *testing.T) {
 	}
 	if !containsString(item.ConfidenceLaneReasons, "surface:prompt_or_instruction") {
 		t.Fatalf("expected confidence lane reasons to carry through, got %+v", item.ConfidenceLaneReasons)
+	}
+}
+
+func TestAcceptedRiskMovesBacklogItemToAcceptedRiskQueue(t *testing.T) {
+	t.Parallel()
+
+	generatedAt := time.Date(2026, 5, 26, 12, 0, 0, 0, time.UTC)
+	backlog := Build(Input{
+		GeneratedAt: generatedAt,
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       "wrkr:codex-app:acme",
+			Repo:          "app",
+			Location:      "AGENTS.md",
+			ApprovalState: "accepted_risk",
+			Approval: manifest.Approval{
+				Owner:          "platform-security",
+				Approver:       "platform-security",
+				Scope:          "control_path",
+				Expires:        generatedAt.Add(48 * time.Hour).Format(time.RFC3339),
+				DecisionReason: "time_bounded_exception",
+			},
+		}},
+		ActionPaths: []risk.ActionPath{{
+			PathID:                   "apc-accepted-risk",
+			AgentID:                  "wrkr:codex-app:acme",
+			Org:                      "acme",
+			Repo:                     "app",
+			ToolType:                 "codex",
+			Location:                 "AGENTS.md",
+			ApprovalGap:              true,
+			ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+			SecurityVisibilityStatus: agginventory.SecurityVisibilityNeedsReview,
+			ControlState:             risk.ControlStateApprovalNeeded,
+			ReviewBurden:             risk.ReviewBurdenMedium,
+			RecommendedAction:        "approve",
+		}},
+	})
+
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	item := backlog.Items[0]
+	if item.GovernanceDisposition == nil {
+		t.Fatalf("expected governance disposition, got %+v", item)
+	}
+	if item.GovernanceDisposition.Kind != GovernanceKindAcceptedRisk {
+		t.Fatalf("expected accepted-risk governance disposition, got %+v", item.GovernanceDisposition)
+	}
+	if item.Queue != QueueAcceptedRisk {
+		t.Fatalf("expected accepted-risk queue, got %+v", item)
+	}
+	if item.FindingVisibility != FindingVisibilityAppendix {
+		t.Fatalf("expected appendix visibility for accepted-risk item, got %+v", item)
+	}
+	if backlog.Summary.AcceptedRiskQueueItems != 1 {
+		t.Fatalf("expected accepted-risk summary count, got %+v", backlog.Summary)
+	}
+}
+
+func TestExpiredAcceptedRiskRepromotesBacklogItem(t *testing.T) {
+	t.Parallel()
+
+	generatedAt := time.Date(2026, 5, 26, 12, 0, 0, 0, time.UTC)
+	backlog := Build(Input{
+		GeneratedAt: generatedAt,
+		Identities: []manifest.IdentityRecord{{
+			AgentID:       "wrkr:codex-app:acme",
+			Repo:          "app",
+			Location:      "AGENTS.md",
+			ApprovalState: "accepted_risk",
+			Approval: manifest.Approval{
+				Owner:          "platform-security",
+				Approver:       "platform-security",
+				Scope:          "control_path",
+				Expires:        generatedAt.Add(-2 * time.Hour).Format(time.RFC3339),
+				DecisionReason: "expired_exception",
+			},
+		}},
+		ActionPaths: []risk.ActionPath{{
+			PathID:                   "apc-expired-risk",
+			AgentID:                  "wrkr:codex-app:acme",
+			Org:                      "acme",
+			Repo:                     "app",
+			ToolType:                 "codex",
+			Location:                 "AGENTS.md",
+			ApprovalGap:              true,
+			ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+			SecurityVisibilityStatus: agginventory.SecurityVisibilityNeedsReview,
+			ControlState:             risk.ControlStateApprovalNeeded,
+			ReviewBurden:             risk.ReviewBurdenHigh,
+			RecommendedAction:        "approve",
+		}},
+	})
+
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	item := backlog.Items[0]
+	if item.GovernanceDisposition == nil || item.GovernanceDisposition.Status != GovernanceStatusExpired {
+		t.Fatalf("expected expired governance disposition, got %+v", item.GovernanceDisposition)
+	}
+	if item.Queue == QueueAcceptedRisk {
+		t.Fatalf("expected expired accepted risk to repromote into a primary queue, got %+v", item)
+	}
+	if item.FindingVisibility != FindingVisibilityPrimary {
+		t.Fatalf("expected primary visibility after accepted-risk expiry, got %+v", item)
+	}
+	if !containsString(item.EvidenceGaps, "governance_record_expired") {
+		t.Fatalf("expected governance_record_expired evidence gap, got %+v", item.EvidenceGaps)
+	}
+}
+
+func TestLifecycleGapCarriesNormalizedLifecycleQueue(t *testing.T) {
+	t.Parallel()
+
+	backlog := Build(Input{
+		LifecycleGaps: []lifecycle.Gap{{
+			GapID:            "gap-credentialed",
+			ReasonCode:       lifecycle.GapInactiveCredentialed,
+			Severity:         "high",
+			AgentID:          "wrkr:codex-app:acme",
+			ToolType:         "codex",
+			Org:              "acme",
+			Repo:             "app",
+			Location:         "AGENTS.md",
+			Present:          true,
+			LifecycleState:   "under_review",
+			ApprovalStatus:   "accepted_risk",
+			OwnershipStatus:  "unresolved",
+			CredentialAccess: true,
+			WriteCapable:     true,
+			EvidenceBasis:    []string{"approval_status:accepted_risk", "credential_access:true"},
+			Message:          "identity still has credentialed posture while not in an active approved lifecycle state",
+		}},
+	})
+
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	item := backlog.Items[0]
+	if item.LifecycleQueue == nil {
+		t.Fatalf("expected lifecycle queue metadata, got %+v", item)
+	}
+	if item.LifecycleQueue.ReasonCode != lifecycle.GapInactiveCredentialed || item.LifecycleQueue.Severity != "high" {
+		t.Fatalf("expected lifecycle queue reason/severity, got %+v", item.LifecycleQueue)
+	}
+	if item.LifecycleQueue.CredentialStatus != governancequeue.CredentialStatusPresent {
+		t.Fatalf("expected credential-bearing lifecycle queue item, got %+v", item.LifecycleQueue)
+	}
+	if backlog.Summary.LifecycleQueueItems != 1 {
+		t.Fatalf("expected lifecycle queue summary count, got %+v", backlog.Summary)
 	}
 }
 
