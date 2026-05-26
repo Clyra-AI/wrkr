@@ -216,6 +216,39 @@ func TestLowCompletenessDoesNotDowngradeRiskAndAccountsForReducedCoverage(t *tes
 	}
 }
 
+func TestEvidenceCompletenessSummaryCountsReducedCoverageWithoutUnsupportedSurfaces(t *testing.T) {
+	t.Parallel()
+
+	paths := DecorateEvidenceContext([]ActionPath{{
+		PathID:               "apc-reduced-coverage-summary",
+		Org:                  "acme",
+		Repo:                 "payments",
+		ToolType:             "mcp",
+		Location:             ".cursor/mcp.json",
+		WriteCapable:         true,
+		ConfidenceLane:       ConfidenceLaneConfirmedActionPath,
+		ActionPathType:       ActionPathTypeAgentFramework,
+		ControlPriority:      ControlPriorityControlFirst,
+		PolicyCoverageStatus: PolicyCoverageStatusNone,
+	}}, &scanquality.Report{
+		Detectors: []scanquality.DetectorHealth{{
+			Org:             "acme",
+			Repo:            "payments",
+			Detector:        "mcp",
+			Status:          "reduced",
+			CoverageReasons: []string{"generated_suppression"},
+		}},
+	})
+
+	summary := BuildEvidenceCompletenessSummary(paths)
+	if summary == nil {
+		t.Fatal("expected completeness summary")
+	}
+	if summary.ReducedCoveragePathCount != 1 {
+		t.Fatalf("expected reduced coverage path count to include detector-only reduction, got %+v", summary)
+	}
+}
+
 func findClosureRequirement(items []ClosureRequirement, requirementType string) (ClosureRequirement, bool) {
 	for _, item := range items {
 		if strings.TrimSpace(item.RequirementType) == strings.TrimSpace(requirementType) {
