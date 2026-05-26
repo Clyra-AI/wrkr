@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
@@ -283,6 +284,50 @@ func TestReportReflectsInventoryApproveWithoutRescan(t *testing.T) {
 	}
 	if afterItem["security_visibility"] != "known_approved" {
 		t.Fatalf("expected report backlog item security_visibility=known_approved after approval, got %v", afterItem)
+	}
+}
+
+func TestApplyInventoryMutationOverridesMovesExcludedBacklogItemToAppendix(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{
+		ControlBacklog: &controlbacklog.Backlog{
+			Items: []controlbacklog.Item{{
+				ID:                "cb-1",
+				Repo:              "acme/repo",
+				Path:              "AGENTS.md",
+				Queue:             controlbacklog.QueueReviewQueue,
+				FindingVisibility: controlbacklog.FindingVisibilityPrimary,
+				RecommendedAction: controlbacklog.ActionAttachEvidence,
+			}},
+		},
+	}
+	record := manifest.IdentityRecord{
+		AgentID:       "wrkr:codex-app:acme",
+		Repo:          "acme/repo",
+		Location:      "AGENTS.md",
+		Status:        identity.StateRevoked,
+		ApprovalState: "excluded",
+		Approval: manifest.Approval{
+			Owner:           "platform-security",
+			Approver:        "platform-security",
+			Scope:           "control_path",
+			Expires:         "2026-06-30T00:00:00Z",
+			ExclusionReason: "retired_control_path",
+		},
+	}
+
+	applyInventoryMutationOverrides(&snapshot, record, "cb-1", "exclude")
+
+	item := snapshot.ControlBacklog.Items[0]
+	if item.Queue != controlbacklog.QueueInventoryHygiene || item.FindingVisibility != controlbacklog.FindingVisibilityAppendix {
+		t.Fatalf("expected excluded item to move to appendix visibility, got %+v", item)
+	}
+	if item.RecommendedAction != controlbacklog.ActionSuppress {
+		t.Fatalf("expected suppress action for excluded item, got %+v", item)
+	}
+	if item.GovernanceDisposition == nil || item.GovernanceDisposition.Kind != controlbacklog.GovernanceKindSuppression {
+		t.Fatalf("expected suppression governance disposition, got %+v", item.GovernanceDisposition)
 	}
 }
 

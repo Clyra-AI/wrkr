@@ -229,6 +229,31 @@ func applyInventoryMutationOverrides(snapshot *state.Snapshot, record manifest.I
 	if strings.TrimSpace(action) != "exclude" {
 		return
 	}
+	items := snapshot.ControlBacklog.Items[:0]
+	for _, item := range snapshot.ControlBacklog.Items {
+		updated := item
+		if backlogItemMatchesRecord(item.ID, item.Repo, item.Path, requestedID, record) {
+			updated.ApprovalStatus = backlogApprovalStatus(record)
+			updated.SecurityVisibility = agginventory.GovernanceSecurityVisibilityStatus(backlogSecurityVisibility(record), strings.TrimSpace(record.ApprovalState), strings.TrimSpace(record.Status))
+			updated.Queue = controlbacklog.QueueInventoryHygiene
+			updated.FindingVisibility = controlbacklog.FindingVisibilityAppendix
+			updated.RecommendedAction = controlbacklog.ActionSuppress
+			updated.GovernanceDisposition = &controlbacklog.GovernanceDisposition{
+				Kind:               controlbacklog.GovernanceKindSuppression,
+				Status:             controlbacklog.GovernanceStatusActive,
+				Reason:             firstNonEmptySnapshotValue(strings.TrimSpace(record.Approval.ExclusionReason), strings.TrimSpace(record.Approval.DecisionReason)),
+				Scope:              firstNonEmptySnapshotValue(strings.TrimSpace(record.Approval.Scope), "control_path"),
+				Issuer:             firstNonEmptySnapshotValue(strings.TrimSpace(record.Approval.Approver), strings.TrimSpace(record.Approval.Owner)),
+				ExpiresAt:          strings.TrimSpace(record.Approval.Expires),
+				EvidenceState:      firstNonEmptySnapshotValue(strings.TrimSpace(updated.ApprovalEvidenceState), "unknown"),
+				VisibilityBehavior: controlbacklog.FindingVisibilityAppendix,
+				RescanBehavior:     "retain_appendix_until_expiry",
+				EvidenceRefs:       compactSnapshotStrings(strings.TrimSpace(record.Approval.ControlID), strings.TrimSpace(record.Approval.EvidenceURL)),
+			}
+		}
+		items = append(items, updated)
+	}
+	snapshot.ControlBacklog.Items = items
 	snapshot.ControlBacklog.Summary = summarizeBacklogItems(snapshot.ControlBacklog.Items)
 }
 
@@ -287,4 +312,30 @@ func mutationGeneratedAt(snapshot *state.Snapshot) time.Time {
 		return parsed.UTC().Truncate(time.Second)
 	}
 	return time.Now().UTC().Truncate(time.Second)
+}
+
+func firstNonEmptySnapshotValue(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func compactSnapshotStrings(values ...string) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
 }
