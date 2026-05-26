@@ -127,7 +127,7 @@ func BuildEvidenceCompletenessSummary(paths []ActionPath) *EvidenceCompletenessS
 		if path.EvidenceCompleteness.Label == EvidenceCompletenessInsufficient {
 			lowEvidence++
 		}
-		if len(path.EvidenceCompleteness.UnsupportedSurfaces) > 0 {
+		if evidenceCompletenessHasReducedCoverage(path.EvidenceCompleteness) {
 			reducedCoverage++
 		}
 		reasons = append(reasons, path.EvidenceCompleteness.Reasons...)
@@ -1015,6 +1015,26 @@ func evidenceCompletenessLabel(score int) string {
 	default:
 		return EvidenceCompletenessInsufficient
 	}
+}
+
+func evidenceCompletenessHasReducedCoverage(completeness *EvidenceCompleteness) bool {
+	if completeness == nil {
+		return false
+	}
+	if len(completeness.UnsupportedSurfaces) > 0 {
+		return true
+	}
+	for _, reason := range completeness.Reasons {
+		trimmed := strings.TrimSpace(reason)
+		if trimmed == "scan_quality:reduced" ||
+			strings.HasPrefix(trimmed, "detector:") ||
+			strings.HasPrefix(trimmed, "coverage_reason:") ||
+			strings.HasPrefix(trimmed, "parse_issue:") ||
+			strings.HasPrefix(trimmed, "absence_claim:") {
+			return true
+		}
+	}
+	return false
 }
 
 func clampScore(value int) int {
