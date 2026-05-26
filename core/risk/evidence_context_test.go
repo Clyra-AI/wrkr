@@ -54,15 +54,15 @@ func TestClosureRequirementsForExpiredEvidenceAndRuntimeGap(t *testing.T) {
 	t.Parallel()
 
 	paths := DecorateEvidenceContext([]ActionPath{{
-		PathID:       "apc-expired-runtime",
-		Org:          "acme",
-		Repo:         "payments",
-		ToolType:     "compiled_action",
-		Location:     ".github/workflows/deploy.yml",
-		WriteCapable: true,
-		DeployWrite:  true,
-		ProductionWrite: true,
-		CredentialAccess: true,
+		PathID:               "apc-expired-runtime",
+		Org:                  "acme",
+		Repo:                 "payments",
+		ToolType:             "compiled_action",
+		Location:             ".github/workflows/deploy.yml",
+		WriteCapable:         true,
+		DeployWrite:          true,
+		ProductionWrite:      true,
+		CredentialAccess:     true,
 		CredentialProvenance: &credentialProvenanceJIT,
 		EvidenceDecisions: []evidencepolicy.Decision{{
 			Field:                  evidencepolicy.FieldApproval,
@@ -98,17 +98,17 @@ func TestClosureRequirementsForAcceptedInternalTooling(t *testing.T) {
 	t.Parallel()
 
 	paths := DecorateEvidenceContext([]ActionPath{{
-		PathID:               "apc-internal-tooling",
-		Org:                  "acme",
-		Repo:                 "platform",
-		ToolType:             "codex",
-		Location:             ".codex/config.toml",
-		ConfidenceLane:       ConfidenceLaneLikelyActionPath,
-		ActionPathType:       ActionPathTypeAgentFramework,
-		TargetClass:          TargetClassInternalTooling,
-		TargetEvidenceState:  EvidenceStateDeclared,
-		ControlPriority:      ControlPriorityReviewQueue,
-		RiskTier:             RiskTierMedium,
+		PathID:              "apc-internal-tooling",
+		Org:                 "acme",
+		Repo:                "platform",
+		ToolType:            "codex",
+		Location:            ".codex/config.toml",
+		ConfidenceLane:      ConfidenceLaneLikelyActionPath,
+		ActionPathType:      ActionPathTypeAgentFramework,
+		TargetClass:         TargetClassInternalTooling,
+		TargetEvidenceState: EvidenceStateDeclared,
+		ControlPriority:     ControlPriorityReviewQueue,
+		RiskTier:            RiskTierMedium,
 	}}, nil)
 
 	requirement, ok := findClosureRequirement(paths[0].ClosureRequirements, ClosureRequirementAcceptInternalTooling)
@@ -180,21 +180,21 @@ func TestLowCompletenessDoesNotDowngradeRiskAndAccountsForReducedCoverage(t *tes
 		}},
 	}
 	projected := ProjectActionPath(ActionPath{
-		PathID:                 "apc-low-completeness",
-		Org:                    "acme",
-		Repo:                   "payments",
-		ToolType:               "mcp",
-		Location:               ".cursor/mcp.json",
-		WriteCapable:           true,
-		CredentialAccess:       true,
-		ProductionWrite:        true,
-		ApprovalGap:            true,
-		OwnerEvidenceState:     EvidenceStateUnknown,
-		PolicyCoverageStatus:   PolicyCoverageStatusNone,
-		ControlPriority:        ControlPriorityControlFirst,
-		RiskTier:               RiskTierHigh,
-		ConfidenceLane:         ConfidenceLaneConfirmedActionPath,
-		ActionPathType:         ActionPathTypeAgentFramework,
+		PathID:               "apc-low-completeness",
+		Org:                  "acme",
+		Repo:                 "payments",
+		ToolType:             "mcp",
+		Location:             ".cursor/mcp.json",
+		WriteCapable:         true,
+		CredentialAccess:     true,
+		ProductionWrite:      true,
+		ApprovalGap:          true,
+		OwnerEvidenceState:   EvidenceStateUnknown,
+		PolicyCoverageStatus: PolicyCoverageStatusNone,
+		ControlPriority:      ControlPriorityControlFirst,
+		RiskTier:             RiskTierHigh,
+		ConfidenceLane:       ConfidenceLaneConfirmedActionPath,
+		ActionPathType:       ActionPathTypeAgentFramework,
 	})
 
 	paths := DecorateEvidenceContext([]ActionPath{projected}, scanSignals)
