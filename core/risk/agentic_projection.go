@@ -25,7 +25,7 @@ const (
 	RecommendedControlOwnerReview             = "owner_review"
 	RecommendedControlSecurityReview          = "security_review"
 	RecommendedControlApprovalRequired        = "approval_required"
-	RecommendedControlJITCredentialRequired   = "jit_credential_required"
+	RecommendedControlJITCredentialRequired   = "jit_credential_required" // #nosec G101 -- deterministic control enum label, not credential material.
 	RecommendedControlProofRequired           = "proof_required"
 	RecommendedControlBlockStandingCredential = "block_standing_credential"
 	RecommendedControlBlock                   = "block"
