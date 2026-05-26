@@ -2,7 +2,6 @@ package risk
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -202,7 +201,7 @@ func deriveAutonomyTier(path ActionPath) (string, []string, []string) {
 		refs = append(refs, values...)
 	}
 
-	tier := AutonomyTier1LowRiskInternal
+	var tier string
 	switch {
 	case len(path.Contradictions) > 0 || hasClassificationReason(path, "classification:broad_credential_low_risk") || hasClassificationReason(path, "classification:missing_deploy_proof"):
 		tier = AutonomyTier4ProdPrivilegedCustomerImpact
@@ -853,18 +852,4 @@ func IncrementRecommendedControlCounts(counts *RecommendedControlCounts, value s
 	case RecommendedControlBlock:
 		counts.Block++
 	}
-}
-
-func pathIDsByAutonomyTier(paths []ActionPath, tier string) []string {
-	out := []string{}
-	for _, path := range paths {
-		if strings.TrimSpace(path.AutonomyTier) == strings.TrimSpace(tier) {
-			out = append(out, strings.TrimSpace(path.PathID))
-		}
-	}
-	sort.Strings(out)
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
