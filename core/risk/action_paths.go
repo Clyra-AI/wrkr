@@ -149,6 +149,8 @@ type ActionPath struct {
 	SourceFindingKeys          []string                                `json:"source_finding_keys,omitempty"`
 	MatchedProductionTargets   []string                                `json:"matched_production_targets,omitempty"`
 	GovernanceControls         []agginventory.GovernanceControlMapping `json:"governance_controls,omitempty"`
+	ClosureRequirements        []ClosureRequirement                    `json:"closure_requirements,omitempty"`
+	EvidenceCompleteness       *EvidenceCompleteness                   `json:"evidence_completeness,omitempty"`
 	ActionLineage              *ActionLineage                          `json:"action_lineage,omitempty"`
 }
 
@@ -457,6 +459,8 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.GaitCoverage = MergeGaitCoverage(current.GaitCoverage, incoming.GaitCoverage)
 	merged.IntroducedBy = attribution.Merge(current.IntroducedBy, incoming.IntroducedBy)
 	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
+	merged.ClosureRequirements = CloneClosureRequirements(firstNonEmptyClosureRequirements(current.ClosureRequirements, incoming.ClosureRequirements))
+	merged.EvidenceCompleteness = firstNonNilEvidenceCompleteness(current.EvidenceCompleteness, incoming.EvidenceCompleteness)
 	merged.AttackPathRefs = dedupeSortedStrings(append(append([]string(nil), current.AttackPathRefs...), incoming.AttackPathRefs...))
 	merged.SourceFindingKeys = dedupeSortedStrings(append(append([]string(nil), current.SourceFindingKeys...), incoming.SourceFindingKeys...))
 	merged.ActionLineage = CloneActionLineage(firstNonNilLineage(current.ActionLineage, incoming.ActionLineage))
@@ -797,6 +801,24 @@ func firstNonNilLineage(values ...*ActionLineage) *ActionLineage {
 	for _, value := range values {
 		if value != nil {
 			return value
+		}
+	}
+	return nil
+}
+
+func firstNonEmptyClosureRequirements(values ...[]ClosureRequirement) []ClosureRequirement {
+	for _, value := range values {
+		if len(value) > 0 {
+			return value
+		}
+	}
+	return nil
+}
+
+func firstNonNilEvidenceCompleteness(values ...*EvidenceCompleteness) *EvidenceCompleteness {
+	for _, value := range values {
+		if value != nil {
+			return CloneEvidenceCompleteness(value)
 		}
 	}
 	return nil

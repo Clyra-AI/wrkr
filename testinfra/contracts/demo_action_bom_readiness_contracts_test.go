@@ -47,6 +47,8 @@ func TestDemoActionBOMReadinessSchemasDeclareBuyerFacingPathFields(t *testing.T)
 				"review_burden",
 				"review_burden_reasons",
 				"gait_coverage",
+				"closure_requirements",
+				"evidence_completeness",
 			} {
 				if _, ok := props[field].(map[string]any); !ok {
 					t.Fatalf("%s schema missing %s contract field: %v", tc.name, field, props)
@@ -78,6 +80,39 @@ func TestDemoActionBOMReadinessSchemasDeclareBuyerFacingPathFields(t *testing.T)
 			})
 			assertGaitCoverageContract(t, schemaRef(t, schema, props["gait_coverage"]))
 		})
+	}
+}
+
+func TestDemoActionBOMReadinessSchemasDeclareClosureAndCompletenessSummaryContracts(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	bomSchema := mustReadJSON(t, filepath.Join(repoRoot, "schemas", "v1", "agent-action-bom.schema.json"))
+	reportSchema := mustReadJSON(t, filepath.Join(repoRoot, "schemas", "v1", "report", "report-summary.schema.json"))
+
+	bomSummaryProps := schemaDefinitionProperties(t, bomSchema, "summary")
+	if _, ok := bomSummaryProps["evidence_completeness"].(map[string]any); !ok {
+		t.Fatalf("agent action bom summary missing evidence_completeness: %v", bomSummaryProps)
+	}
+	reportProps, ok := reportSchema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("report summary schema missing properties: %v", reportSchema)
+	}
+	if _, ok := reportProps["evidence_completeness"].(map[string]any); !ok {
+		t.Fatalf("report summary schema missing evidence_completeness: %v", reportProps)
+	}
+
+	closureRequirement := schemaDefinition(t, bomSchema, "closureRequirement")
+	for _, field := range []string{"id", "severity", "requirement_type", "required_evidence", "guidance"} {
+		if _, ok := closureRequirement["properties"].(map[string]any)[field]; !ok {
+			t.Fatalf("closure requirement schema missing %s: %v", field, closureRequirement)
+		}
+	}
+	completeness := schemaDefinition(t, bomSchema, "evidenceCompleteness")
+	for _, field := range []string{"total_score", "label", "axis_scores"} {
+		if _, ok := completeness["properties"].(map[string]any)[field]; !ok {
+			t.Fatalf("evidence completeness schema missing %s: %v", field, completeness)
+		}
 	}
 }
 

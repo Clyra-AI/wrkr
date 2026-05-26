@@ -459,9 +459,10 @@ func defaultCoverageNote() CoverageNote {
 	return CoverageNote{
 		Basis:            "evidenced_controls_only",
 		LowCoverageMeans: "evidence_gap",
-		Message:          "framework_coverage reflects only controls evidenced in the current scanned state; low or zero first-run coverage indicates evidence gaps rather than unsupported framework parsing.",
+		Message:          "framework_coverage reflects only controls evidenced in the current scanned state; low or zero first-run coverage indicates evidence gaps rather than unsupported framework parsing or low-risk posture.",
 		RecommendedActions: []string{
 			"Run wrkr report --top 5 --json to prioritize missing controls and approvals.",
+			"Review Agent Action BOM evidence completeness before treating low-evidence paths as safe.",
 			"Remediate the highest-priority gaps and rerun wrkr scan, wrkr evidence, and wrkr report with the same deterministic inputs.",
 		},
 	}

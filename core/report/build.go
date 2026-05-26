@@ -108,6 +108,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
 	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
+	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, scanQuality)
 	riskReport.ActionPathToControlFirst = decorateControlFirstForReport(riskReport.ActionPaths, scanQualityCoverageReduced(scanQuality))
 	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
 	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
@@ -139,6 +140,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	shareProfileMetadata := BuildShareProfileMetadata(redactionConfig)
 	operationalExposure := scorecore.SummarizeOperationalExposure(riskReport.ActionPaths)
 	governanceReadiness := scorecore.SummarizeGovernanceReadiness(riskReport.ActionPaths, missingProofPathCount(controlProofStatus), scanQualityCoverageReduced(scanQuality))
+	evidenceCompleteness := risk.BuildEvidenceCompletenessSummary(riskReport.ActionPaths)
 
 	if shareProfileRequiresRedaction(shareProfile) {
 		proofRef = sanitizeProofReferencePublic(proofRef)
@@ -206,6 +208,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ScanScope:                scanScope,
 		OperationalExposure:      &operationalExposure,
 		GovernanceReadiness:      &governanceReadiness,
+		EvidenceCompleteness:     evidenceCompleteness,
 		AssessmentSummary:        assessmentSummary,
 		Methodology:              methodology,
 		TopRisks:                 riskItems,
@@ -1331,6 +1334,9 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 		copyBacklog.Items[idx].PolicyMissingReasons = uniqueStrings(append(append([]string(nil), item.PolicyMissingReasons...), path.PolicyMissingReasons...))
 		copyBacklog.Items[idx].PolicyEvidenceRefs = uniqueStrings(append(append([]string(nil), item.PolicyEvidenceRefs...), path.PolicyEvidenceRefs...))
 		copyBacklog.Items[idx].PolicyConfidence = firstNonEmptyValue(strings.TrimSpace(path.PolicyConfidence), strings.TrimSpace(item.PolicyConfidence))
+		copyBacklog.Items[idx].ClosureRequirements = risk.CloneClosureRequirements(path.ClosureRequirements)
+		copyBacklog.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(path.EvidenceCompleteness)
+		copyBacklog.Items[idx].ClosureCriteria = risk.ClosureCriteriaText(copyBacklog.Items[idx].ClosureRequirements, strings.TrimSpace(item.ClosureCriteria))
 		copyBacklog.Items[idx].Queue = queueForActionPath(path)
 		copyBacklog.Items[idx].FindingVisibility = visibilityForQueue(copyBacklog.Items[idx].Queue)
 		copyBacklog.Items[idx].Remediation = risk.RemediationForActionPath(path)
@@ -1624,6 +1630,8 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		}
 		copyItem.MutableEndpointSemantics = sanitizeMutableEndpointSemanticsPublic(copyItem.MutableEndpointSemantics)
 		copyItem.Credentials = redactCredentialsPublic(copyItem.Credentials)
+		copyItem.ClosureRequirements = sanitizeClosureRequirementsPublic(copyItem.ClosureRequirements)
+		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
 		copyItem.ActionLineage = sanitizeActionLineagePublic(copyItem.ActionLineage)
 		if copyItem.IntroducedBy != nil {
 			introduced := *copyItem.IntroducedBy
@@ -1820,6 +1828,8 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 		copyBacklog.Items[idx].LinkedControlPathEdgeIDs = redactStringSlice(copyBacklog.Items[idx].LinkedControlPathEdgeIDs, "edge")
 		copyBacklog.Items[idx].OwnershipEvidence = redactStringSlice(copyBacklog.Items[idx].OwnershipEvidence, "evidence")
 		copyBacklog.Items[idx].OwnershipConflicts = redactStringSlice(copyBacklog.Items[idx].OwnershipConflicts, "owner")
+		copyBacklog.Items[idx].ClosureRequirements = sanitizeClosureRequirementsPublic(copyBacklog.Items[idx].ClosureRequirements)
+		copyBacklog.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBacklog.Items[idx].EvidenceCompleteness)
 		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionPublic(copyBacklog.Items[idx].GovernanceDisposition)
 		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueuePublic(copyBacklog.Items[idx].LifecycleQueue)
 		if copyBacklog.Items[idx].CredentialProvenance != nil {
@@ -1843,6 +1853,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 	copyBOM := *in
 	copyBOM.ShareProfile = string(profile)
 	copyBOM.ShareProfileMetadata = cloneShareProfileMetadata(in.ShareProfileMetadata)
+	copyBOM.Summary.EvidenceCompleteness = risk.CloneEvidenceCompletenessSummary(in.Summary.EvidenceCompleteness)
 	copyBOM.ScanQuality = sanitizeScanQualityPublic(in.ScanQuality)
 	copyBOM.EvidenceRefs = redactStringSlice(in.EvidenceRefs, "evidence")
 	copyBOM.ProofRefs = redactStringSlice(in.ProofRefs, "proof")
@@ -1865,6 +1876,8 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].RuntimeEvidenceRefs = redactStringSlice(copyBOM.Items[idx].RuntimeEvidenceRefs, "runtime")
 		copyBOM.Items[idx].PolicyRefs = redactStringSlice(copyBOM.Items[idx].PolicyRefs, "policy")
 		copyBOM.Items[idx].PolicyEvidenceRefs = redactStringSlice(copyBOM.Items[idx].PolicyEvidenceRefs, "policy")
+		copyBOM.Items[idx].ClosureRequirements = sanitizeClosureRequirementsPublic(copyBOM.Items[idx].ClosureRequirements)
+		copyBOM.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBOM.Items[idx].EvidenceCompleteness)
 		copyBOM.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionPublic(copyBOM.Items[idx].GovernanceDisposition)
 		copyBOM.Items[idx].LifecycleQueue = sanitizeLifecycleQueuePublic(copyBOM.Items[idx].LifecycleQueue)
 		copyBOM.Items[idx].AttackPathRefs = redactStringSlice(copyBOM.Items[idx].AttackPathRefs, "attack")
@@ -1952,6 +1965,17 @@ func sanitizeReachabilityPublic(in []AgentActionBOMReachability) []AgentActionBO
 			copyItem.Name = redactValue("reach", copyItem.Name, 8)
 		}
 		out = append(out, copyItem)
+	}
+	return out
+}
+
+func sanitizeClosureRequirementsPublic(in []risk.ClosureRequirement) []risk.ClosureRequirement {
+	if len(in) == 0 {
+		return nil
+	}
+	out := risk.CloneClosureRequirements(in)
+	for idx := range out {
+		out[idx].ClosureRefs = redactStringSlice(out[idx].ClosureRefs, "evidence")
 	}
 	return out
 }

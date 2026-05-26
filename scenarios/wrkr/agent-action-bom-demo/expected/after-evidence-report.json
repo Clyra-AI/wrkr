@@ -187,6 +187,95 @@
         "coverage_reduced=false"
       ]
     },
+    "evidence_completeness": {
+      "path_count": 8,
+      "average_total_score": 73,
+      "label": "partial_evidence",
+      "axis_scores": [
+        {
+          "axis": "discovery",
+          "score": 81,
+          "reasons": [
+            "action_path_type:plain_source_code",
+            "action_path_type:unknown_executable_path",
+            "confidence_lane:confirmed_action_path",
+            "confidence_lane:context_only",
+            "confidence_lane:likely_action_path",
+            "confidence_lane:semantic_review_candidate"
+          ]
+        },
+        {
+          "axis": "authority",
+          "score": 53,
+          "reasons": [
+            "approval:unknown",
+            "owner:inferred"
+          ]
+        },
+        {
+          "axis": "blast_radius",
+          "score": 73,
+          "reasons": [
+            "credential:inferred",
+            "credential:verified",
+            "target:inferred",
+            "target:unknown",
+            "target:verified"
+          ]
+        },
+        {
+          "axis": "control",
+          "score": 85,
+          "reasons": [
+            "constraint_evidence:missing",
+            "control_resolution:detected_control"
+          ]
+        },
+        {
+          "axis": "runtime_evidence",
+          "score": 43,
+          "reasons": [
+            "runtime:unknown",
+            "runtime:verified",
+            "runtime_absence_status:not_collected"
+          ]
+        },
+        {
+          "axis": "proof",
+          "score": 100,
+          "reasons": [
+            "policy_coverage:matched",
+            "policy_coverage:runtime_proven",
+            "proof:verified"
+          ]
+        }
+      ],
+      "reasons": [
+        "action_path_type:plain_source_code",
+        "action_path_type:unknown_executable_path",
+        "approval:unknown",
+        "approval_evidence:none",
+        "confidence_lane:confirmed_action_path",
+        "confidence_lane:context_only",
+        "confidence_lane:likely_action_path",
+        "confidence_lane:semantic_review_candidate",
+        "constraint_evidence:missing",
+        "control_resolution:detected_control",
+        "credential:inferred",
+        "credential:verified",
+        "owner:inferred",
+        "policy_coverage:matched",
+        "policy_coverage:runtime_proven",
+        "proof:verified",
+        "runtime:unknown",
+        "runtime:verified",
+        "runtime_absence_status:not_collected",
+        "runtime_evidence:none",
+        "target:inferred",
+        "target:unknown",
+        "target:verified"
+      ]
+    },
     "scan_coverage": {
       "coverage_confidence": "complete",
       "impact_statement": "Coverage for scanned inputs was complete enough to support scoped negative claims."

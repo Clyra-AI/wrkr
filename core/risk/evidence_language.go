@@ -125,3 +125,31 @@ func BuyerRuntimeEvidenceLabel(state string, absenceStatus string, coverage *Gai
 		return BuyerEvidenceStateLabel("runtime", state)
 	}
 }
+
+func BuyerEvidenceCompletenessLabel(completeness *EvidenceCompleteness) string {
+	if completeness == nil {
+		return "evidence completeness unavailable"
+	}
+	switch strings.TrimSpace(completeness.Label) {
+	case EvidenceCompletenessStrong:
+		return "strong evidence coverage"
+	case EvidenceCompletenessPartial:
+		return "partial evidence coverage"
+	default:
+		return "insufficient evidence coverage"
+	}
+}
+
+func BuyerEvidenceCompletenessSummaryLabel(summary *EvidenceCompletenessSummary) string {
+	if summary == nil {
+		return "aggregate evidence completeness unavailable"
+	}
+	switch strings.TrimSpace(summary.Label) {
+	case EvidenceCompletenessStrong:
+		return "aggregate evidence coverage is strong"
+	case EvidenceCompletenessPartial:
+		return "aggregate evidence coverage is partial"
+	default:
+		return "aggregate evidence coverage is insufficient"
+	}
+}

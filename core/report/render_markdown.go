@@ -55,6 +55,14 @@ func RenderMarkdown(summary Summary) string {
 				summary.GovernanceReadiness.PathCount,
 			))
 		}
+		if summary.EvidenceCompleteness != nil {
+			builder.WriteString(fmt.Sprintf("- Evidence completeness: average=%d label=%s low_evidence_paths=%d reduced_coverage_paths=%d\n",
+				summary.EvidenceCompleteness.AverageTotalScore,
+				risk.BuyerEvidenceCompletenessSummaryLabel(summary.EvidenceCompleteness),
+				summary.EvidenceCompleteness.LowEvidencePathCount,
+				summary.EvidenceCompleteness.ReducedCoveragePathCount,
+			))
+		}
 		builder.WriteString(fmt.Sprintf("- Coverage confidence: %s\n", summary.AgentActionBOM.Summary.CoverageConfidence))
 		if summary.AgentActionBOM.Summary.ScanCoverage != nil {
 			builder.WriteString(fmt.Sprintf("- Scan coverage: reduced_detectors=%d parse_failures=%d suppressed_generated_files=%d blocked_detectors=%d unsupported_declarations=%d impact=%s\n",
@@ -103,7 +111,7 @@ func RenderMarkdown(summary Summary) string {
 			}
 			for idx := 0; idx < limit; idx++ {
 				item := summary.AgentActionBOM.Items[idx]
-				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s type=%s state=%s zone=%s target=%s review=%s priority=%s tier=%s control=%s approval=%s owner=%s proof=%s runtime=%s confidence=%s evidence=%s queue=%s remediation=%s\n",
+				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s type=%s state=%s zone=%s target=%s review=%s priority=%s tier=%s control=%s approval=%s owner=%s proof=%s runtime=%s confidence=%s evidence=%s completeness=%s(%d) queue=%s remediation=%s\n",
 					markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType),
 					item.Repo,
 					item.Location,
@@ -122,9 +130,14 @@ func RenderMarkdown(summary Summary) string {
 					markdownBOMRuntimeEvidenceLabel(item),
 					item.Confidence,
 					item.EvidenceStrength,
+					risk.BuyerEvidenceCompletenessLabel(item.EvidenceCompleteness),
+					markdownCompletenessScore(item.EvidenceCompleteness),
 					item.Queue,
 					item.Remediation,
 				))
+				if len(item.ClosureRequirements) > 0 {
+					builder.WriteString(fmt.Sprintf("  closure_requirements=%s\n", markdownClosureRequirements(item.ClosureRequirements)))
+				}
 				if len(item.Contradictions) > 0 {
 					builder.WriteString(fmt.Sprintf("  contradictions=%s\n", markdownContradictions(item.Contradictions)))
 				}
@@ -249,7 +262,7 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s type=%s state=%s zone=%s target=%s review=%s queue=%s priority=%s tier=%s control=%s approval=%s proof=%s runtime=%s confidence=%s evidence=%s policy=%s remediation=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s type=%s state=%s zone=%s target=%s review=%s queue=%s priority=%s tier=%s control=%s approval=%s proof=%s runtime=%s confidence=%s evidence=%s completeness=%s(%d) policy=%s remediation=%s\n",
 				markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType),
 				item.Repo,
 				item.Location,
@@ -269,9 +282,14 @@ func RenderMarkdown(summary Summary) string {
 				markdownBOMRuntimeEvidenceLabel(item),
 				item.Confidence,
 				item.EvidenceStrength,
+				risk.BuyerEvidenceCompletenessLabel(item.EvidenceCompleteness),
+				markdownCompletenessScore(item.EvidenceCompleteness),
 				item.PolicyStatus,
 				item.Remediation,
 			))
+			if len(item.ClosureRequirements) > 0 {
+				builder.WriteString(fmt.Sprintf("  closure_requirements=%s\n", markdownClosureRequirements(item.ClosureRequirements)))
+			}
 			if len(item.Contradictions) > 0 {
 				builder.WriteString(fmt.Sprintf("  contradictions=%s\n", markdownContradictions(item.Contradictions)))
 			}
@@ -329,6 +347,15 @@ func RenderMarkdown(summary Summary) string {
 				item.ClosureCriteria,
 				item.Remediation,
 			))
+			if item.EvidenceCompleteness != nil {
+				builder.WriteString(fmt.Sprintf("  completeness=%s(%d)\n",
+					risk.BuyerEvidenceCompletenessLabel(item.EvidenceCompleteness),
+					markdownCompletenessScore(item.EvidenceCompleteness),
+				))
+			}
+			if len(item.ClosureRequirements) > 0 {
+				builder.WriteString(fmt.Sprintf("  closure_requirements=%s\n", markdownClosureRequirements(item.ClosureRequirements)))
+			}
 			if item.GovernanceDisposition != nil {
 				builder.WriteString(fmt.Sprintf("  governance=%s status=%s scope=%s expires=%s reason=%s\n",
 					item.GovernanceDisposition.Kind,
@@ -400,6 +427,33 @@ func markdownContradictions(items []evidencepolicy.Contradiction) string {
 		return "none"
 	}
 	return strings.Join(parts, " | ")
+}
+
+func markdownClosureRequirements(items []risk.ClosureRequirement) string {
+	parts := make([]string, 0, len(items))
+	for _, item := range items {
+		label := strings.TrimSpace(item.ID)
+		if guidance := strings.TrimSpace(item.Guidance); guidance != "" {
+			if label != "" {
+				label += ":"
+			}
+			label += guidance
+		}
+		if label != "" {
+			parts = append(parts, label)
+		}
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+	return strings.Join(parts, " | ")
+}
+
+func markdownCompletenessScore(completeness *risk.EvidenceCompleteness) int {
+	if completeness == nil {
+		return 0
+	}
+	return completeness.TotalScore
 }
 
 func renderTriggerClassSuffix(triggerClass string) string {

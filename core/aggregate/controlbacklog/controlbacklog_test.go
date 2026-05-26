@@ -429,6 +429,43 @@ func TestBacklogClosureDoesNotSayOwnerMissing(t *testing.T) {
 	}
 }
 
+func TestBacklogCarriesClosureRequirementsAndCompleteness(t *testing.T) {
+	t.Parallel()
+
+	paths := risk.DecorateEvidenceContext([]risk.ActionPath{{
+		PathID:                 "apc-closure-completeness",
+		Org:                    "acme",
+		Repo:                   "app",
+		ToolType:               "compiled_action",
+		Location:               ".github/workflows/release.yml",
+		WriteCapable:           true,
+		DeployWrite:            true,
+		ApprovalGap:            true,
+		ApprovalGapReasons:     []string{"approval_source_missing"},
+		OwnerEvidenceState:     risk.EvidenceStateUnknown,
+		ControlResolutionState: risk.ControlResolutionStateNoVisibleControl,
+		PolicyCoverageStatus:   risk.PolicyCoverageStatusNone,
+		ControlPriority:        risk.ControlPriorityControlFirst,
+		ConfidenceLane:         risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:         risk.ActionPathTypeCICDWorkflow,
+	}}, nil)
+
+	backlog := Build(Input{ActionPaths: paths})
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	item := backlog.Items[0]
+	if len(item.ClosureRequirements) == 0 {
+		t.Fatalf("expected closure requirements on backlog item, got %+v", item)
+	}
+	if item.EvidenceCompleteness == nil {
+		t.Fatalf("expected completeness on backlog item, got %+v", item)
+	}
+	if strings.TrimSpace(item.ClosureCriteria) != strings.TrimSpace(item.ClosureRequirements[0].Guidance) {
+		t.Fatalf("expected closure criteria to use first requirement guidance, got closure=%q requirements=%+v", item.ClosureCriteria, item.ClosureRequirements)
+	}
+}
+
 func TestCriticalReviewBurdenRoutesToControlFirstQueue(t *testing.T) {
 	t.Parallel()
 

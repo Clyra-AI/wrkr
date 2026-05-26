@@ -99,6 +99,8 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		}
 		copyItem.MutableEndpointSemantics = sanitizeMutableEndpointSemanticsWithConfig(copyItem.MutableEndpointSemantics, config)
 		copyItem.Credentials = redactCredentialsWithConfig(copyItem.Credentials, config)
+		copyItem.ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyItem.ClosureRequirements, config)
+		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
 		copyItem.ActionLineage = sanitizeActionLineageWithConfig(copyItem.ActionLineage, config)
 		if copyItem.IntroducedBy != nil {
 			introduced := *copyItem.IntroducedBy
@@ -288,6 +290,8 @@ func sanitizeControlBacklogWithConfig(in *controlbacklog.Backlog, config Redacti
 		copyBacklog.Items[idx].LinkedControlPathEdgeIDs = maybeRedactStringSlice(copyBacklog.Items[idx].LinkedControlPathEdgeIDs, "edge", config.Has(RedactionGraphRefs))
 		copyBacklog.Items[idx].OwnershipEvidence = cloneStrings(copyBacklog.Items[idx].OwnershipEvidence)
 		copyBacklog.Items[idx].OwnershipConflicts = maybeRedactStringSlice(copyBacklog.Items[idx].OwnershipConflicts, "owner", config.Has(RedactionOwners))
+		copyBacklog.Items[idx].ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyBacklog.Items[idx].ClosureRequirements, config)
+		copyBacklog.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBacklog.Items[idx].EvidenceCompleteness)
 		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionWithConfig(copyBacklog.Items[idx].GovernanceDisposition, config)
 		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueueWithConfig(copyBacklog.Items[idx].LifecycleQueue, config)
 		if copyBacklog.Items[idx].CredentialProvenance != nil {
@@ -311,6 +315,7 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 	copyBOM := *in
 	copyBOM.ShareProfile = string(profile)
 	copyBOM.ShareProfileMetadata = cloneShareProfileMetadata(in.ShareProfileMetadata)
+	copyBOM.Summary.EvidenceCompleteness = risk.CloneEvidenceCompletenessSummary(in.Summary.EvidenceCompleteness)
 	copyBOM.ScanQuality = sanitizeScanQualityWithConfig(in.ScanQuality, config)
 	copyBOM.EvidenceRefs = maybeRedactStringSlice(in.EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
 	copyBOM.ProofRefs = maybeRedactStringSlice(in.ProofRefs, "proof", config.Has(RedactionProofRefs))
@@ -327,6 +332,8 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].RuntimeEvidenceRefs = cloneStrings(copyBOM.Items[idx].RuntimeEvidenceRefs)
 		copyBOM.Items[idx].PolicyRefs = cloneStrings(copyBOM.Items[idx].PolicyRefs)
 		copyBOM.Items[idx].PolicyEvidenceRefs = cloneStrings(copyBOM.Items[idx].PolicyEvidenceRefs)
+		copyBOM.Items[idx].ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyBOM.Items[idx].ClosureRequirements, config)
+		copyBOM.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBOM.Items[idx].EvidenceCompleteness)
 		copyBOM.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionWithConfig(copyBOM.Items[idx].GovernanceDisposition, config)
 		copyBOM.Items[idx].LifecycleQueue = sanitizeLifecycleQueueWithConfig(copyBOM.Items[idx].LifecycleQueue, config)
 		copyBOM.Items[idx].AttackPathRefs = maybeRedactStringSlice(copyBOM.Items[idx].AttackPathRefs, "attack", config.Has(RedactionGraphRefs))
@@ -403,6 +410,17 @@ func sanitizeReachabilityWithConfig(in []AgentActionBOMReachability, config Reda
 			}
 		}
 		out = append(out, copyItem)
+	}
+	return out
+}
+
+func sanitizeClosureRequirementsWithConfig(in []risk.ClosureRequirement, config RedactionConfig) []risk.ClosureRequirement {
+	if len(in) == 0 {
+		return nil
+	}
+	out := risk.CloneClosureRequirements(in)
+	for idx := range out {
+		out[idx].ClosureRefs = maybeRedactStringSlice(out[idx].ClosureRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionGraphRefs) || config.Has(RedactionProviders))
 	}
 	return out
 }

@@ -158,6 +158,8 @@ type Item struct {
 	ConfidenceRaise            []string                                `json:"confidence_raise,omitempty"`
 	SLA                        string                                  `json:"sla"`
 	ClosureCriteria            string                                  `json:"closure_criteria"`
+	ClosureRequirements        []risk.ClosureRequirement               `json:"closure_requirements,omitempty"`
+	EvidenceCompleteness       *risk.EvidenceCompleteness              `json:"evidence_completeness,omitempty"`
 	GovernanceDisposition      *GovernanceDisposition                  `json:"governance_disposition,omitempty"`
 	LifecycleQueue             *governancequeue.Item                   `json:"lifecycle_queue,omitempty"`
 	SecretSignalTypes          []string                                `json:"secret_signal_types,omitempty"`
@@ -422,6 +424,8 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		PolicyEvidenceRefs:         append([]string(nil), path.PolicyEvidenceRefs...),
 		PolicyConfidence:           strings.TrimSpace(path.PolicyConfidence),
 		TrustDepth:                 agginventory.CloneTrustDepth(path.TrustDepth),
+		ClosureRequirements:        risk.CloneClosureRequirements(path.ClosureRequirements),
+		EvidenceCompleteness:       risk.CloneEvidenceCompleteness(path.EvidenceCompleteness),
 	}
 	item.LinkedFindingIDs = b.linkedFindingIDs(path.Org, path.Repo, path.Location)
 	item.SecretSignalTypes = secretSignalTypesForActionPath(path)
@@ -441,7 +445,7 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 	item.Capability = capabilitySummary(item.Capabilities)
 	item.Confidence, item.EvidenceGaps, item.ConfidenceRaise = qualityForItem(item)
 	item.SLA = slaForAction(item.RecommendedAction)
-	item.ClosureCriteria = closureCriteriaForAction(item.RecommendedAction)
+	item.ClosureCriteria = risk.ClosureCriteriaText(item.ClosureRequirements, closureCriteriaForAction(item.RecommendedAction))
 	item.SecurityTestRecipes = buildSecurityTestRecipes(item)
 	b.merge(item)
 }
@@ -589,7 +593,14 @@ func (b *builder) merge(item Item) {
 	if strings.TrimSpace(current.Remediation) == "" {
 		current.Remediation = item.Remediation
 	}
+	if len(current.ClosureRequirements) == 0 {
+		current.ClosureRequirements = risk.CloneClosureRequirements(item.ClosureRequirements)
+	}
+	if current.EvidenceCompleteness == nil {
+		current.EvidenceCompleteness = risk.CloneEvidenceCompleteness(item.EvidenceCompleteness)
+	}
 	current.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, item.GovernanceControls)
+	current.ClosureCriteria = risk.ClosureCriteriaText(current.ClosureRequirements, current.ClosureCriteria)
 	b.itemsByKey[key] = normalizeItem(current)
 }
 
@@ -1546,7 +1557,9 @@ func normalizeItem(item Item) Item {
 	}
 	item.Remediation = fallback(item.Remediation, remediationForBacklogAction(item.RecommendedAction))
 	item.SLA = fallback(item.SLA, slaForAction(item.RecommendedAction))
-	item.ClosureCriteria = fallback(item.ClosureCriteria, closureCriteriaForAction(item.RecommendedAction))
+	item.ClosureRequirements = risk.CloneClosureRequirements(item.ClosureRequirements)
+	item.EvidenceCompleteness = risk.CloneEvidenceCompleteness(item.EvidenceCompleteness)
+	item.ClosureCriteria = risk.ClosureCriteriaText(item.ClosureRequirements, fallback(item.ClosureCriteria, closureCriteriaForAction(item.RecommendedAction)))
 	item.EvidenceGaps = mergeStrings(item.EvidenceGaps, nil)
 	item.ConfidenceRaise = mergeStrings(item.ConfidenceRaise, nil)
 	item.ConfidenceLane = firstNonEmptyConfidenceLane(item.ConfidenceLane, "")

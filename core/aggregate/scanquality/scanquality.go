@@ -46,6 +46,13 @@ type CompactCoverageSummary struct {
 	ImpactStatement              string `json:"impact_statement,omitempty"`
 }
 
+type CompletenessSignals struct {
+	ReducedCoverage     bool     `json:"reduced_coverage,omitempty"`
+	ReducedDetectors    []string `json:"reduced_detectors,omitempty"`
+	UnsupportedSurfaces []string `json:"unsupported_surfaces,omitempty"`
+	Reasons             []string `json:"reasons,omitempty"`
+}
+
 type AbsenceClaim struct {
 	Org     string   `json:"org,omitempty"`
 	Repo    string   `json:"repo,omitempty"`
@@ -179,6 +186,69 @@ func CoverageConfidence(report *Report) string {
 	return BuildCompactCoverageSummary(report).CoverageConfidence
 }
 
+func CompletenessSignalsForRepo(report *Report, org string, repo string) CompletenessSignals {
+	signals := CompletenessSignals{}
+	if report == nil {
+		return signals
+	}
+	org = strings.TrimSpace(org)
+	repo = strings.TrimSpace(repo)
+	reducedDetectors := map[string]struct{}{}
+	unsupportedSurfaces := map[string]struct{}{}
+	reasons := map[string]struct{}{}
+	for _, detector := range report.Detectors {
+		if org != "" && strings.TrimSpace(detector.Org) != "" && strings.TrimSpace(detector.Org) != org {
+			continue
+		}
+		if repo != "" && strings.TrimSpace(detector.Repo) != "" && strings.TrimSpace(detector.Repo) != repo {
+			continue
+		}
+		switch strings.TrimSpace(detector.Status) {
+		case "partial", "reduced", "blocked":
+			signals.ReducedCoverage = true
+			if name := strings.TrimSpace(detector.Detector); name != "" {
+				reducedDetectors[name] = struct{}{}
+				reasons["detector:"+name+":"+strings.TrimSpace(detector.Status)] = struct{}{}
+			}
+			for _, reason := range detector.CoverageReasons {
+				if trimmed := strings.TrimSpace(reason); trimmed != "" {
+					reasons["coverage_reason:"+trimmed] = struct{}{}
+				}
+			}
+		}
+	}
+	for _, issue := range report.ParseErrors {
+		if org != "" && strings.TrimSpace(issue.Org) != "" && strings.TrimSpace(issue.Org) != org {
+			continue
+		}
+		if repo != "" && strings.TrimSpace(issue.Repo) != "" && strings.TrimSpace(issue.Repo) != repo {
+			continue
+		}
+		signals.ReducedCoverage = true
+		reasons["parse_issue:"+strings.TrimSpace(issue.Kind)] = struct{}{}
+	}
+	for _, claim := range report.AbsenceClaims {
+		if org != "" && strings.TrimSpace(claim.Org) != "" && strings.TrimSpace(claim.Org) != org {
+			continue
+		}
+		if repo != "" && strings.TrimSpace(claim.Repo) != "" && strings.TrimSpace(claim.Repo) != repo {
+			continue
+		}
+		switch strings.TrimSpace(claim.Status) {
+		case AbsenceStatusUnsupportedSurface, AbsenceStatusCandidateParseFailed, AbsenceStatusNotScanned:
+			signals.ReducedCoverage = true
+			if surface := strings.TrimSpace(claim.Surface); surface != "" {
+				unsupportedSurfaces[surface] = struct{}{}
+				reasons["absence_claim:"+surface+":"+strings.TrimSpace(claim.Status)] = struct{}{}
+			}
+		}
+	}
+	signals.ReducedDetectors = mapKeysSorted(reducedDetectors)
+	signals.UnsupportedSurfaces = mapKeysSorted(unsupportedSurfaces)
+	signals.Reasons = mapKeysSorted(reasons)
+	return signals
+}
+
 func cloneCompactCoverageSummary(in *CompactCoverageSummary) CompactCoverageSummary {
 	if in == nil {
 		return CompactCoverageSummary{
@@ -202,6 +272,20 @@ func compactCoverageImpactStatement(report *Report, coverageConfidence string, b
 	default:
 		return "Coverage for scanned inputs was complete enough to support scoped negative claims."
 	}
+}
+
+func mapKeysSorted(values map[string]struct{}) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for value := range values {
+		if strings.TrimSpace(value) != "" {
+			out = append(out, strings.TrimSpace(value))
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func AbsenceClaimForSurface(report *Report, org string, repo string, surface string) *AbsenceClaim {
