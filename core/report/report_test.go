@@ -14,6 +14,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/attribution"
+	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
@@ -779,6 +780,69 @@ func TestBuildAgentActionBOMDerivesStableItemsFromSummary(t *testing.T) {
 	}
 	if first.Items[0].RuntimeEvidenceStatus != ingest.CorrelationStatusMatched || first.Items[0].RuntimeEvidenceAbsenceStatus != "" {
 		t.Fatalf("expected synthetic summary input to preserve raw matched runtime status without derived absence framing, got %+v", first.Items[0])
+	}
+}
+
+func TestBuildAgentActionBOMCarriesGovernanceDispositionAndLifecycleQueue(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		GeneratedAt: "2026-05-26T12:00:00Z",
+		ActionPaths: []risk.ActionPath{{
+			PathID:                "apc-governed",
+			AgentID:               "wrkr:codex-app:acme",
+			Org:                   "acme",
+			Repo:                  "app",
+			ToolType:              "codex",
+			Location:              "AGENTS.md",
+			ApprovalGap:           true,
+			ApprovalEvidenceState: risk.EvidenceStateUnknown,
+			RecommendedAction:     "approve",
+		}},
+		ControlBacklog: &controlbacklog.Backlog{
+			Items: []controlbacklog.Item{{
+				LinkedActionPathID: "apc-governed",
+				Queue:              controlbacklog.QueueAcceptedRisk,
+				FindingVisibility:  controlbacklog.FindingVisibilityAppendix,
+				Remediation:        "Monitor the accepted-risk exception until it expires.",
+				GovernanceDisposition: &controlbacklog.GovernanceDisposition{
+					Kind:               controlbacklog.GovernanceKindAcceptedRisk,
+					Status:             controlbacklog.GovernanceStatusActive,
+					Reason:             "time_bounded_exception",
+					Scope:              "control_path",
+					ExpiresAt:          "2026-05-28T12:00:00Z",
+					EvidenceState:      risk.EvidenceStateUnknown,
+					VisibilityBehavior: controlbacklog.QueueAcceptedRisk,
+					RescanBehavior:     "repromote_on_expiry",
+				},
+				LifecycleQueue: &governancequeue.Item{
+					QueueID:           "lq-governed",
+					GapID:             "gap-governed",
+					AgentID:           "wrkr:codex-app:acme",
+					ReasonCode:        lifecycle.GapApprovalExpired,
+					Severity:          "high",
+					CredentialStatus:  governancequeue.CredentialStatusPresent,
+					RecommendedAction: "approve",
+					SLA:               "7d",
+					ClosureCriteria:   "Attach fresh approval evidence with owner, expiry, and review scope.",
+				},
+			}},
+		},
+	}
+
+	bom := BuildAgentActionBOM(summary)
+	if bom == nil || len(bom.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", bom)
+	}
+	item := bom.Items[0]
+	if item.GovernanceDisposition == nil || item.GovernanceDisposition.Kind != controlbacklog.GovernanceKindAcceptedRisk {
+		t.Fatalf("expected accepted-risk governance disposition on BOM item, got %+v", item)
+	}
+	if item.LifecycleQueue == nil || item.LifecycleQueue.ReasonCode != lifecycle.GapApprovalExpired {
+		t.Fatalf("expected lifecycle queue metadata on BOM item, got %+v", item)
+	}
+	if bom.Summary.AcceptedRiskItems != 1 || bom.Summary.LifecycleQueueItems != 1 {
+		t.Fatalf("expected BOM summary counts for accepted risk and lifecycle queue, got %+v", bom.Summary)
 	}
 }
 

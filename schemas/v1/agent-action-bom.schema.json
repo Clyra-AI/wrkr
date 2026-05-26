@@ -41,6 +41,8 @@
         "standing_privilege_items": {"type": "integer"},
         "static_credential_items": {"type": "integer"},
         "production_target_items": {"type": "integer"},
+        "accepted_risk_items": {"type": "integer"},
+        "lifecycle_queue_items": {"type": "integer"},
         "approval_evidence_unknown_items": {"type": "integer"},
         "control_evidence_unknown_items": {"type": "integer"},
         "owner_evidence_unknown_items": {"type": "integer"},
@@ -90,6 +92,8 @@
         "ownership_state": {"type": "string"},
         "evidence_decisions": {"type": "array", "items": {"$ref": "#/$defs/evidenceDecision"}},
         "contradictions": {"type": "array", "items": {"$ref": "#/$defs/contradiction"}},
+        "governance_disposition": {"$ref": "#/$defs/governanceDisposition"},
+        "lifecycle_queue": {"$ref": "#/$defs/lifecycleQueue"},
         "control_resolution_state": {"type": "string", "enum": ["detected_control", "declared_control", "external_control_reference", "no_visible_control", "not_applicable", "contradictory_control"]},
         "control_resolution_reasons": {"type": "array", "items": {"type": "string"}},
         "control_evidence_refs": {"type": "array", "items": {"type": "string"}},
@@ -155,7 +159,7 @@
         "control_priority": {"type": "string"},
         "risk_tier": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
         "recommended_next_action": {"type": "string"},
-        "queue": {"type": "string", "enum": ["control_first", "review_queue", "inventory_hygiene", "debug_only"]},
+        "queue": {"type": "string", "enum": ["control_first", "review_queue", "accepted_risk_queue", "inventory_hygiene", "debug_only"]},
         "finding_visibility": {"type": "string", "enum": ["primary", "appendix", "debug"]},
         "remediation": {"type": "string"},
         "attack_path_refs": {"type": "array", "items": {"type": "string"}},
@@ -245,6 +249,46 @@
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
         "impacted_target_class": {"type": "string"},
         "recommended_action": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "governanceDisposition": {
+      "type": "object",
+      "required": ["kind", "status", "reason", "scope"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["accepted_risk", "suppression"]},
+        "status": {"type": "string", "enum": ["active", "expired", "invalid"]},
+        "reason": {"type": "string"},
+        "scope": {"type": "string"},
+        "issuer": {"type": "string"},
+        "expires_at": {"type": "string"},
+        "evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "visibility_behavior": {"type": "string"},
+        "rescan_behavior": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "lifecycleQueue": {
+      "type": "object",
+      "required": ["queue_id", "gap_id", "reason_code", "severity", "recommended_action", "sla", "closure_criteria"],
+      "properties": {
+        "queue_id": {"type": "string"},
+        "gap_id": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "repo": {"type": "string"},
+        "path": {"type": "string"},
+        "reason_code": {"type": "string"},
+        "severity": {"type": "string"},
+        "owner": {"type": "string"},
+        "owner_evidence_state": {"type": "string", "enum": ["verified", "inferred", "unknown"]},
+        "credential_status": {"type": "string", "enum": ["credential_access_present", "no_credential_access"]},
+        "lifecycle_status": {"type": "string"},
+        "recommended_action": {"type": "string"},
+        "sla": {"type": "string"},
+        "closure_criteria": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "source_conflicts": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     },

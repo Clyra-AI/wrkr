@@ -16,6 +16,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
@@ -110,18 +111,20 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	riskReport.ActionPathToControlFirst = decorateControlFirstForReport(riskReport.ActionPaths, scanQualityCoverageReduced(scanQuality))
 	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
 	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
+	controlBacklogBuilt := controlbacklog.Build(controlbacklog.Input{
+		Mode:             in.Snapshot.Target.Mode,
+		GeneratedAt:      now,
+		Findings:         in.Snapshot.Findings,
+		Inventory:        in.Snapshot.Inventory,
+		Identities:       in.Snapshot.Identities,
+		LifecycleGaps:    in.Snapshot.LifecycleGaps,
+		ActionPaths:      riskReport.ActionPaths,
+		ControlPathGraph: riskReport.ControlPathGraph,
+	})
 	var controlBacklog *controlbacklog.Backlog
 	if in.Snapshot.ControlBacklog != nil {
-		controlBacklog = decorateControlBacklogFromActionPaths(in.Snapshot.ControlBacklog, riskReport.ActionPaths)
+		controlBacklog = mergeBacklogGovernance(decorateControlBacklogFromActionPaths(in.Snapshot.ControlBacklog, riskReport.ActionPaths), &controlBacklogBuilt)
 	} else {
-		controlBacklogBuilt := controlbacklog.Build(controlbacklog.Input{
-			Mode:             in.Snapshot.Target.Mode,
-			Findings:         in.Snapshot.Findings,
-			Inventory:        in.Snapshot.Inventory,
-			LifecycleGaps:    in.Snapshot.LifecycleGaps,
-			ActionPaths:      riskReport.ActionPaths,
-			ControlPathGraph: riskReport.ControlPathGraph,
-		})
 		controlBacklog = &controlBacklogBuilt
 	}
 	riskItems := buildRiskItems(topFindings, riskReport.ActionPaths)
@@ -649,6 +652,7 @@ func buildLifecycleSummary(
 		DeprecatedCount:    deprecated,
 		PendingActionCount: underReview + revoked + deprecated + len(gaps),
 		Gaps:               append([]lifecycle.Gap(nil), gaps...),
+		Queue:              lifecycle.BuildQueue(gaps),
 		RecentTransitions:  normalizedTransitions,
 	}
 }
@@ -1340,6 +1344,49 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 	return &copyBacklog
 }
 
+func mergeBacklogGovernance(base, overlay *controlbacklog.Backlog) *controlbacklog.Backlog {
+	if base == nil {
+		return overlay
+	}
+	if overlay == nil {
+		return base
+	}
+	copyBacklog := *base
+	copyBacklog.Items = append([]controlbacklog.Item(nil), base.Items...)
+	overlayByID := map[string]controlbacklog.Item{}
+	overlayByRepoPath := map[string]controlbacklog.Item{}
+	for _, item := range overlay.Items {
+		if id := strings.TrimSpace(item.ID); id != "" {
+			overlayByID[id] = item
+		}
+		if key := strings.TrimSpace(item.Repo) + "|" + strings.TrimSpace(item.Path); key != "|" {
+			overlayByRepoPath[key] = item
+		}
+	}
+	for idx := range copyBacklog.Items {
+		current := copyBacklog.Items[idx]
+		overlayItem, ok := overlayByID[strings.TrimSpace(current.ID)]
+		if !ok {
+			overlayItem, ok = overlayByRepoPath[strings.TrimSpace(current.Repo)+"|"+strings.TrimSpace(current.Path)]
+		}
+		if !ok {
+			continue
+		}
+		current.GovernanceDisposition = overlayItem.GovernanceDisposition
+		current.LifecycleQueue = overlayItem.LifecycleQueue
+		if overlayItem.GovernanceDisposition != nil || overlayItem.LifecycleQueue != nil {
+			current.Queue = firstNonEmptyValue(strings.TrimSpace(overlayItem.Queue), strings.TrimSpace(current.Queue))
+			current.FindingVisibility = firstNonEmptyValue(strings.TrimSpace(overlayItem.FindingVisibility), strings.TrimSpace(current.FindingVisibility))
+			current.SecurityVisibility = firstNonEmptyValue(strings.TrimSpace(overlayItem.SecurityVisibility), strings.TrimSpace(current.SecurityVisibility))
+			current.Remediation = firstNonEmptyValue(strings.TrimSpace(overlayItem.Remediation), strings.TrimSpace(current.Remediation))
+			current.EvidenceGaps = uniqueStrings(append(append([]string(nil), current.EvidenceGaps...), overlayItem.EvidenceGaps...))
+		}
+		copyBacklog.Items[idx] = current
+	}
+	copyBacklog.Summary = controlbacklog.SummarizeItems(copyBacklog.Items)
+	return &copyBacklog
+}
+
 func actionPathSeverity(path risk.ActionPath) string {
 	path = risk.ProjectActionPath(path)
 	switch strings.TrimSpace(path.RiskTier) {
@@ -1486,6 +1533,14 @@ func sanitizeLifecycleSummaryPublic(in LifecycleSummary) LifecycleSummary {
 		copySummary.Gaps[idx].Repo = redactValue("repo", copySummary.Gaps[idx].Repo, 6)
 		copySummary.Gaps[idx].Location = redactValue("loc", copySummary.Gaps[idx].Location, 8)
 		copySummary.Gaps[idx].Owner = redactValue("owner", copySummary.Gaps[idx].Owner, 8)
+	}
+	for idx := range copySummary.Queue {
+		copySummary.Queue[idx].AgentID = redactValue("agent", copySummary.Queue[idx].AgentID, 8)
+		copySummary.Queue[idx].Repo = redactValue("repo", copySummary.Queue[idx].Repo, 6)
+		copySummary.Queue[idx].Path = redactValue("loc", copySummary.Queue[idx].Path, 8)
+		copySummary.Queue[idx].Owner = redactValue("owner", copySummary.Queue[idx].Owner, 8)
+		copySummary.Queue[idx].EvidenceRefs = redactStringSlice(copySummary.Queue[idx].EvidenceRefs, "evidence")
+		copySummary.Queue[idx].SourceConflicts = redactStringSlice(copySummary.Queue[idx].SourceConflicts, "owner")
 	}
 	return copySummary
 }
@@ -1744,6 +1799,8 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 		copyBacklog.Items[idx].LinkedControlPathEdgeIDs = redactStringSlice(copyBacklog.Items[idx].LinkedControlPathEdgeIDs, "edge")
 		copyBacklog.Items[idx].OwnershipEvidence = redactStringSlice(copyBacklog.Items[idx].OwnershipEvidence, "evidence")
 		copyBacklog.Items[idx].OwnershipConflicts = redactStringSlice(copyBacklog.Items[idx].OwnershipConflicts, "owner")
+		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionPublic(copyBacklog.Items[idx].GovernanceDisposition)
+		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueuePublic(copyBacklog.Items[idx].LifecycleQueue)
 		if copyBacklog.Items[idx].CredentialProvenance != nil {
 			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(copyBacklog.Items[idx].CredentialProvenance)
 			copyBacklog.Items[idx].CredentialProvenance.Subject = redactValue("credential", copyBacklog.Items[idx].CredentialProvenance.Subject, 8)
@@ -1787,6 +1844,8 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].RuntimeEvidenceRefs = redactStringSlice(copyBOM.Items[idx].RuntimeEvidenceRefs, "runtime")
 		copyBOM.Items[idx].PolicyRefs = redactStringSlice(copyBOM.Items[idx].PolicyRefs, "policy")
 		copyBOM.Items[idx].PolicyEvidenceRefs = redactStringSlice(copyBOM.Items[idx].PolicyEvidenceRefs, "policy")
+		copyBOM.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionPublic(copyBOM.Items[idx].GovernanceDisposition)
+		copyBOM.Items[idx].LifecycleQueue = sanitizeLifecycleQueuePublic(copyBOM.Items[idx].LifecycleQueue)
 		copyBOM.Items[idx].AttackPathRefs = redactStringSlice(copyBOM.Items[idx].AttackPathRefs, "attack")
 		copyBOM.Items[idx].SourceFindingKeys = redactStringSlice(copyBOM.Items[idx].SourceFindingKeys, "finding")
 		copyBOM.Items[idx].EvidenceRefs = redactStringSlice(copyBOM.Items[idx].EvidenceRefs, "evidence")
@@ -1823,6 +1882,30 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		}
 	}
 	return &copyBOM
+}
+
+func sanitizeGovernanceDispositionPublic(in *controlbacklog.GovernanceDisposition) *controlbacklog.GovernanceDisposition {
+	if in == nil {
+		return nil
+	}
+	copyItem := *in
+	copyItem.Issuer = redactValue("owner", copyItem.Issuer, 8)
+	copyItem.EvidenceRefs = redactStringSlice(copyItem.EvidenceRefs, "evidence")
+	return &copyItem
+}
+
+func sanitizeLifecycleQueuePublic(in *governancequeue.Item) *governancequeue.Item {
+	if in == nil {
+		return nil
+	}
+	copyItem := *in
+	copyItem.AgentID = redactValue("agent", copyItem.AgentID, 8)
+	copyItem.Repo = redactValue("repo", copyItem.Repo, 6)
+	copyItem.Path = redactValue("loc", copyItem.Path, 8)
+	copyItem.Owner = redactValue("owner", copyItem.Owner, 8)
+	copyItem.EvidenceRefs = redactStringSlice(copyItem.EvidenceRefs, "evidence")
+	copyItem.SourceConflicts = redactStringSlice(copyItem.SourceConflicts, "owner")
+	return &copyItem
 }
 
 func sanitizeReachabilityPublic(in []AgentActionBOMReachability) []AgentActionBOMReachability {

@@ -3,6 +3,7 @@ package cli
 import (
 	"io"
 	"strings"
+	"time"
 
 	proof "github.com/Clyra-AI/proof"
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
@@ -79,6 +80,12 @@ func refreshDerivedMutationSnapshot(snapshot *state.Snapshot) error {
 	}
 	if snapshot.Inventory != nil {
 		agginventory.RefreshIdentityGovernance(snapshot.Inventory, snapshot.Identities)
+		snapshot.LifecycleGaps = lifecycle.DetectGaps(lifecycle.GapInput{
+			Identities:  snapshot.Identities,
+			Inventory:   snapshot.Inventory,
+			Transitions: snapshot.Transitions,
+		})
+		snapshot.Inventory.LifecycleQueue = lifecycle.BuildQueue(snapshot.LifecycleGaps)
 	}
 	actionPaths := []risk.ActionPath(nil)
 	var controlPathGraph *aggattack.ControlPathGraph
@@ -95,8 +102,11 @@ func refreshDerivedMutationSnapshot(snapshot *state.Snapshot) error {
 	} else if snapshot.Inventory != nil || snapshot.ControlBacklog != nil {
 		backlog := controlbacklog.Build(controlbacklog.Input{
 			Mode:             snapshot.ScanMode,
+			GeneratedAt:      mutationGeneratedAt(snapshot),
 			Findings:         snapshot.Findings,
 			Inventory:        snapshot.Inventory,
+			Identities:       snapshot.Identities,
+			LifecycleGaps:    snapshot.LifecycleGaps,
 			ActionPaths:      actionPaths,
 			ControlPathGraph: controlPathGraph,
 		})
@@ -219,15 +229,7 @@ func applyInventoryMutationOverrides(snapshot *state.Snapshot, record manifest.I
 	if strings.TrimSpace(action) != "exclude" {
 		return
 	}
-	items := snapshot.ControlBacklog.Items[:0]
-	for _, item := range snapshot.ControlBacklog.Items {
-		if backlogItemMatchesRecord(item.ID, item.Repo, item.Path, requestedID, record) {
-			continue
-		}
-		items = append(items, item)
-	}
-	snapshot.ControlBacklog.Items = items
-	snapshot.ControlBacklog.Summary = summarizeBacklogItems(items)
+	snapshot.ControlBacklog.Summary = summarizeBacklogItems(snapshot.ControlBacklog.Items)
 }
 
 func backlogApprovalStatus(record manifest.IdentityRecord) string {
@@ -271,4 +273,18 @@ func backlogSecurityVisibility(record manifest.IdentityRecord) string {
 	default:
 		return agginventory.SecurityVisibilityNeedsReview
 	}
+}
+
+func mutationGeneratedAt(snapshot *state.Snapshot) time.Time {
+	if snapshot == nil || len(snapshot.Transitions) == 0 {
+		return time.Now().UTC().Truncate(time.Second)
+	}
+	latest := strings.TrimSpace(snapshot.Transitions[len(snapshot.Transitions)-1].Timestamp)
+	if latest == "" {
+		return time.Now().UTC().Truncate(time.Second)
+	}
+	if parsed, err := time.Parse(time.RFC3339, latest); err == nil {
+		return parsed.UTC().Truncate(time.Second)
+	}
+	return time.Now().UTC().Truncate(time.Second)
 }

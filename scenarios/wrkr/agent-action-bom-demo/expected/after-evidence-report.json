@@ -136,6 +136,7 @@
     "likely_action_path_items": 3,
     "semantic_review_candidate_items": 1,
     "context_only_items": 1,
+    "lifecycle_queue_items": 6,
     "empty_state_status": "not_eligible",
     "empty_state_reasons": [
       "approval_evidence_unknown_paths_present",

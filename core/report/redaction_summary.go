@@ -7,6 +7,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
+	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -26,10 +27,19 @@ func sanitizeLifecycleSummaryWithConfig(in LifecycleSummary, config RedactionCon
 	copySummary := in
 	copySummary.RecentTransitions = append([]LifecycleTransition(nil), in.RecentTransitions...)
 	copySummary.Gaps = append([]lifecycle.Gap(nil), in.Gaps...)
+	copySummary.Queue = append([]governancequeue.Item(nil), in.Queue...)
 	for idx := range copySummary.Gaps {
 		copySummary.Gaps[idx].Repo = maybeRedactRepo(copySummary.Gaps[idx].Repo, config)
 		copySummary.Gaps[idx].Location = maybeRedactLocationLike(copySummary.Gaps[idx].Location, config)
 		copySummary.Gaps[idx].Owner = maybeRedactOwner(copySummary.Gaps[idx].Owner, config)
+	}
+	for idx := range copySummary.Queue {
+		copySummary.Queue[idx].AgentID = maybeRedactPathID(copySummary.Queue[idx].AgentID, config)
+		copySummary.Queue[idx].Repo = maybeRedactRepo(copySummary.Queue[idx].Repo, config)
+		copySummary.Queue[idx].Path = maybeRedactLocationLike(copySummary.Queue[idx].Path, config)
+		copySummary.Queue[idx].Owner = maybeRedactOwner(copySummary.Queue[idx].Owner, config)
+		copySummary.Queue[idx].EvidenceRefs = maybeRedactStringSlice(copySummary.Queue[idx].EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
+		copySummary.Queue[idx].SourceConflicts = maybeRedactStringSlice(copySummary.Queue[idx].SourceConflicts, "owner", config.Has(RedactionOwners))
 	}
 	return copySummary
 }
@@ -278,6 +288,8 @@ func sanitizeControlBacklogWithConfig(in *controlbacklog.Backlog, config Redacti
 		copyBacklog.Items[idx].LinkedControlPathEdgeIDs = maybeRedactStringSlice(copyBacklog.Items[idx].LinkedControlPathEdgeIDs, "edge", config.Has(RedactionGraphRefs))
 		copyBacklog.Items[idx].OwnershipEvidence = cloneStrings(copyBacklog.Items[idx].OwnershipEvidence)
 		copyBacklog.Items[idx].OwnershipConflicts = maybeRedactStringSlice(copyBacklog.Items[idx].OwnershipConflicts, "owner", config.Has(RedactionOwners))
+		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionWithConfig(copyBacklog.Items[idx].GovernanceDisposition, config)
+		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueueWithConfig(copyBacklog.Items[idx].LifecycleQueue, config)
 		if copyBacklog.Items[idx].CredentialProvenance != nil {
 			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(copyBacklog.Items[idx].CredentialProvenance)
 			copyBacklog.Items[idx].CredentialProvenance.Subject = maybeRedactCredentialSubject(copyBacklog.Items[idx].CredentialProvenance.Subject, config)
@@ -315,6 +327,8 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].RuntimeEvidenceRefs = cloneStrings(copyBOM.Items[idx].RuntimeEvidenceRefs)
 		copyBOM.Items[idx].PolicyRefs = cloneStrings(copyBOM.Items[idx].PolicyRefs)
 		copyBOM.Items[idx].PolicyEvidenceRefs = cloneStrings(copyBOM.Items[idx].PolicyEvidenceRefs)
+		copyBOM.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionWithConfig(copyBOM.Items[idx].GovernanceDisposition, config)
+		copyBOM.Items[idx].LifecycleQueue = sanitizeLifecycleQueueWithConfig(copyBOM.Items[idx].LifecycleQueue, config)
 		copyBOM.Items[idx].AttackPathRefs = maybeRedactStringSlice(copyBOM.Items[idx].AttackPathRefs, "attack", config.Has(RedactionGraphRefs))
 		copyBOM.Items[idx].SourceFindingKeys = maybeRedactStringSlice(copyBOM.Items[idx].SourceFindingKeys, "finding", shouldRedactFindingKeys(config))
 		copyBOM.Items[idx].EvidenceRefs = maybeRedactStringSlice(copyBOM.Items[idx].EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
@@ -348,6 +362,30 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		}
 	}
 	return &copyBOM
+}
+
+func sanitizeGovernanceDispositionWithConfig(in *controlbacklog.GovernanceDisposition, config RedactionConfig) *controlbacklog.GovernanceDisposition {
+	if in == nil {
+		return nil
+	}
+	copyItem := *in
+	copyItem.Issuer = maybeRedactOwner(copyItem.Issuer, config)
+	copyItem.EvidenceRefs = maybeRedactStringSlice(copyItem.EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
+	return &copyItem
+}
+
+func sanitizeLifecycleQueueWithConfig(in *governancequeue.Item, config RedactionConfig) *governancequeue.Item {
+	if in == nil {
+		return nil
+	}
+	copyItem := *in
+	copyItem.AgentID = maybeRedactPathID(copyItem.AgentID, config)
+	copyItem.Repo = maybeRedactRepo(copyItem.Repo, config)
+	copyItem.Path = maybeRedactLocationLike(copyItem.Path, config)
+	copyItem.Owner = maybeRedactOwner(copyItem.Owner, config)
+	copyItem.EvidenceRefs = maybeRedactStringSlice(copyItem.EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
+	copyItem.SourceConflicts = maybeRedactStringSlice(copyItem.SourceConflicts, "owner", config.Has(RedactionOwners))
+	return &copyItem
 }
 
 func sanitizeReachabilityWithConfig(in []AgentActionBOMReachability, config RedactionConfig) []AgentActionBOMReachability {

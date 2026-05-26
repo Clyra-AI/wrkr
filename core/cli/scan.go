@@ -542,10 +542,13 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Inventory:   &inventoryOut,
 		Transitions: transitions,
 	})
+	inventoryOut.LifecycleQueue = lifecycle.BuildQueue(lifecycleGaps)
 	controlBacklog := controlbacklog.Build(controlbacklog.Input{
 		Mode:             scanMode,
+		GeneratedAt:      now,
 		Findings:         findings,
 		Inventory:        &inventoryOut,
+		Identities:       nextManifest.Identities,
 		LifecycleGaps:    lifecycleGaps,
 		ActionPaths:      riskReport.ActionPaths,
 		ControlPathGraph: riskReport.ControlPathGraph,

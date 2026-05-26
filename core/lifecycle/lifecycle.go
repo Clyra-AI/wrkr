@@ -262,18 +262,29 @@ func ApplyInventoryMutation(m manifest.Manifest, mutation InventoryMutation) (ma
 		diff["control_id"] = strings.TrimSpace(mutation.ControlID)
 		diff["evidence_url"] = strings.TrimSpace(mutation.EvidenceURL)
 	case "accept_risk":
+		if strings.TrimSpace(mutation.Owner) == "" {
+			return manifest.Manifest{}, Transition{}, fmt.Errorf("--owner is required")
+		}
+		if strings.TrimSpace(mutation.Reason) == "" {
+			return manifest.Manifest{}, Transition{}, fmt.Errorf("--reason is required")
+		}
 		if mutation.ExpiresAt.IsZero() {
 			return manifest.Manifest{}, Transition{}, fmt.Errorf("--expires is required")
 		}
 		record.Status = identity.StateActive
 		record.ApprovalState = "accepted_risk"
 		record.Approval.AcceptedRisk = true
+		record.Approval.Approver = strings.TrimSpace(mutation.Owner)
+		record.Approval.Owner = strings.TrimSpace(mutation.Owner)
+		record.Approval.Scope = fallback(record.Approval.Scope, "control_path")
 		record.Approval.Approved = now.Format(time.RFC3339)
 		record.Approval.Expires = mutation.ExpiresAt.UTC().Truncate(time.Second).Format(time.RFC3339)
 		record.Approval.LastReviewed = now.Format(time.RFC3339)
+		record.Approval.ReviewCadence = fallback(strings.TrimSpace(mutation.ReviewCadence), "30d")
 		record.Approval.RenewalState = renewalState(mutation.ExpiresAt, now)
 		record.Approval.DecisionReason = strings.TrimSpace(mutation.Reason)
 		record.Approval.ExclusionReason = ""
+		diff["owner"] = strings.TrimSpace(mutation.Owner)
 		diff["expires"] = record.Approval.Expires
 		diff["accepted_risk"] = true
 		if strings.TrimSpace(mutation.Reason) != "" {
@@ -292,16 +303,29 @@ func ApplyInventoryMutation(m manifest.Manifest, mutation InventoryMutation) (ma
 		record.Approval.RenewalState = "not_applicable"
 		diff["reason"] = strings.TrimSpace(mutation.Reason)
 	case "exclude":
+		if strings.TrimSpace(mutation.Owner) == "" {
+			return manifest.Manifest{}, Transition{}, fmt.Errorf("--owner is required")
+		}
 		if strings.TrimSpace(mutation.Reason) == "" {
 			return manifest.Manifest{}, Transition{}, fmt.Errorf("--reason is required")
+		}
+		if mutation.ExpiresAt.IsZero() {
+			return manifest.Manifest{}, Transition{}, fmt.Errorf("--expires is required")
 		}
 		record.Status = identity.StateRevoked
 		record.ApprovalState = "excluded"
 		record.Approval.AcceptedRisk = false
-		record.Approval.Expires = ""
+		record.Approval.Approver = strings.TrimSpace(mutation.Owner)
+		record.Approval.Owner = strings.TrimSpace(mutation.Owner)
+		record.Approval.Scope = fallback(record.Approval.Scope, "control_path")
+		record.Approval.Expires = mutation.ExpiresAt.UTC().Truncate(time.Second).Format(time.RFC3339)
 		record.Approval.ExclusionReason = strings.TrimSpace(mutation.Reason)
+		record.Approval.DecisionReason = strings.TrimSpace(mutation.Reason)
 		record.Approval.LastReviewed = now.Format(time.RFC3339)
-		record.Approval.RenewalState = "not_applicable"
+		record.Approval.ReviewCadence = fallback(strings.TrimSpace(mutation.ReviewCadence), "30d")
+		record.Approval.RenewalState = renewalState(mutation.ExpiresAt, now)
+		diff["owner"] = strings.TrimSpace(mutation.Owner)
+		diff["expires"] = record.Approval.Expires
 		diff["reason"] = strings.TrimSpace(mutation.Reason)
 	default:
 		return manifest.Manifest{}, Transition{}, fmt.Errorf("unsupported inventory action %q", action)

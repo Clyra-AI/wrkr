@@ -872,6 +872,7 @@
         "deprecated_count": {"type": "integer"},
         "pending_action_count": {"type": "integer"},
         "gaps": {"type": "array", "items": {"$ref": "#/$defs/lifecycleGap"}},
+        "queue": {"type": "array", "items": {"$ref": "#/$defs/lifecycleQueue"}},
         "recent_transitions": {
           "type": "array",
           "items": {"$ref": "#/$defs/lifecycleTransition"}
@@ -912,6 +913,29 @@
         "trigger": {"type": "string"},
         "timestamp": {"type": "string"}
       }
+    },
+    "lifecycleQueue": {
+      "type": "object",
+      "required": ["queue_id", "gap_id", "reason_code", "severity", "recommended_action", "sla", "closure_criteria"],
+      "properties": {
+        "queue_id": {"type": "string"},
+        "gap_id": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "repo": {"type": "string"},
+        "path": {"type": "string"},
+        "reason_code": {"type": "string"},
+        "severity": {"type": "string"},
+        "owner": {"type": "string"},
+        "owner_evidence_state": {"type": "string", "enum": ["verified", "inferred", "unknown"]},
+        "credential_status": {"type": "string", "enum": ["credential_access_present", "no_credential_access"]},
+        "lifecycle_status": {"type": "string"},
+        "recommended_action": {"type": "string"},
+        "sla": {"type": "string"},
+        "closure_criteria": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "source_conflicts": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
     },
     "regress": {
       "type": "object",

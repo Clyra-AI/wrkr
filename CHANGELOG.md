@@ -18,6 +18,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added freshness and expiry metadata for imported and declared evidence across reports, backlog, and evidence bundles.
 - [semver:minor] Added versioned customer control declarations for owner mappings, target classes, accepted tooling, exceptions, non-prod declarations, and evidence links.
 - [semver:minor] Added contradiction detection for customer declarations, production targets, credentials, workflows, deployment constraints, and policy evidence.
+- [semver:minor] Added accepted-risk and suppression governance with expiry, ownership, scope, evidence state, rescan behavior, and appendix visibility.
+- [semver:minor] Added lifecycle and ownership control queues for ownerless, inferred-owner, stale-lifecycle, and credential-bearing governance gaps.
 
 ### Changed
 
