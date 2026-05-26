@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"reflect"
 	"testing"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -223,6 +224,42 @@ func TestSummarizeActionPathsCountsWave1Enums(t *testing.T) {
 	}
 	if summary.RecommendedControls.Allow != 1 || summary.RecommendedControls.BlockStandingCredential != 1 {
 		t.Fatalf("unexpected control summary: %+v", summary.RecommendedControls)
+	}
+}
+
+func TestProjectActionPathRemainsStableOnReprojection(t *testing.T) {
+	t.Parallel()
+
+	original := ActionPath{
+		PathID:                "apc-stable-reprojection",
+		Org:                   "acme",
+		Repo:                  "acme/platform",
+		ToolType:              "codex",
+		Location:              "cmd/app/main.go",
+		WriteCapable:          true,
+		OwnerEvidenceState:    EvidenceStateVerified,
+		ApprovalEvidenceState: EvidenceStateVerified,
+		ProofEvidenceState:    EvidenceStateVerified,
+		PathContext:           &agginventory.PathContext{Kind: agginventory.PathContextRuntimeSource, Confidence: "high"},
+		ControlPriority:       ControlPriorityReviewQueue,
+		RiskTier:              RiskTierLow,
+		ReviewBurden:          ReviewBurdenLow,
+	}
+
+	first := ProjectActionPath(original)
+	second := ProjectActionPath(first)
+
+	if first.AutonomyTier != second.AutonomyTier {
+		t.Fatalf("autonomy tier drifted on reprojection: first=%q second=%q", first.AutonomyTier, second.AutonomyTier)
+	}
+	if first.DelegationReadinessState != second.DelegationReadinessState {
+		t.Fatalf("delegation readiness drifted on reprojection: first=%q second=%q", first.DelegationReadinessState, second.DelegationReadinessState)
+	}
+	if first.RecommendedControl != second.RecommendedControl {
+		t.Fatalf("recommended control drifted on reprojection: first=%q second=%q", first.RecommendedControl, second.RecommendedControl)
+	}
+	if !reflect.DeepEqual(first.RiskClassificationValidationReasons, second.RiskClassificationValidationReasons) {
+		t.Fatalf("validation reasons drifted on reprojection: first=%v second=%v", first.RiskClassificationValidationReasons, second.RiskClassificationValidationReasons)
 	}
 }
 

@@ -353,7 +353,7 @@ func deriveRiskClassificationValidation(path ActionPath) ([]string, []string) {
 	if sensitiveInfraSurface(path) || path.AutonomyTier == AutonomyTier3SensitiveCodeOrInfra || path.AutonomyTier == AutonomyTier4ProdPrivilegedCustomerImpact {
 		addReason("classification:low_risk_sensitive_path")
 	}
-	if pathHasMeaningfulGovernedSurface(path) && (pathNeedsOwnerReview(path) || pathNeedsApproval(path)) {
+	if pathHasMeaningfulGovernedSurface(path) && (pathNeedsOwnerReviewFromIntrinsicState(path) || pathNeedsApproval(path)) {
 		addReason("classification:missing_owner_review")
 	}
 	if workflowOrToolingControlSurface(path) && (strings.TrimSpace(path.ControlResolutionState) == ControlResolutionStateNoVisibleControl || strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusNone || len(path.PolicyMissingReasons) > 0) {
@@ -516,6 +516,10 @@ func pathNeedsOwnerReview(path ActionPath) bool {
 	if len(path.RiskClassificationValidationReasons) > 0 {
 		return true
 	}
+	return pathNeedsOwnerReviewFromIntrinsicState(path)
+}
+
+func pathNeedsOwnerReviewFromIntrinsicState(path ActionPath) bool {
 	switch normalizeEvidenceState(path.OwnerEvidenceState) {
 	case EvidenceStateUnknown, EvidenceStateInferred:
 		return true
