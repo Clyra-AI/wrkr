@@ -2146,6 +2146,42 @@ func TestBuildSummaryDecoratesBacklogWithProjectedPosture(t *testing.T) {
 	}
 }
 
+func TestMergeBacklogGovernanceAppendsOverlayOnlyItems(t *testing.T) {
+	t.Parallel()
+
+	base := &controlbacklog.Backlog{
+		Items: []controlbacklog.Item{{
+			ID:   "cb-base",
+			Repo: "acme/repo",
+			Path: "AGENTS.md",
+		}},
+	}
+	overlay := &controlbacklog.Backlog{
+		Items: []controlbacklog.Item{{
+			ID:                "cb-overlay",
+			Repo:              "acme/repo",
+			Path:              ".github/workflows/release.yml",
+			Queue:             controlbacklog.QueueAcceptedRisk,
+			FindingVisibility: controlbacklog.FindingVisibilityAppendix,
+			GovernanceDisposition: &controlbacklog.GovernanceDisposition{
+				Kind:   controlbacklog.GovernanceKindAcceptedRisk,
+				Status: controlbacklog.GovernanceStatusActive,
+				Reason: "time_bounded_exception",
+				Scope:  "control_path",
+			},
+		}},
+	}
+
+	merged := mergeBacklogGovernance(base, overlay)
+	if merged == nil || len(merged.Items) != 2 {
+		t.Fatalf("expected overlay-only backlog item to be appended, got %+v", merged)
+	}
+	last := merged.Items[1]
+	if last.ID != "cb-overlay" || last.GovernanceDisposition == nil || last.GovernanceDisposition.Kind != controlbacklog.GovernanceKindAcceptedRisk {
+		t.Fatalf("expected appended overlay item with governance metadata, got %+v", last)
+	}
+}
+
 func TestControlStateConsistencyBuildSummaryNormalizesCriticalControlStateAcrossSurfaces(t *testing.T) {
 	t.Parallel()
 

@@ -1355,6 +1355,8 @@ func mergeBacklogGovernance(base, overlay *controlbacklog.Backlog) *controlbackl
 	copyBacklog.Items = append([]controlbacklog.Item(nil), base.Items...)
 	overlayByID := map[string]controlbacklog.Item{}
 	overlayByRepoPath := map[string]controlbacklog.Item{}
+	seenOverlayIDs := map[string]struct{}{}
+	seenOverlayRepoPaths := map[string]struct{}{}
 	for _, item := range overlay.Items {
 		if id := strings.TrimSpace(item.ID); id != "" {
 			overlayByID[id] = item
@@ -1372,6 +1374,12 @@ func mergeBacklogGovernance(base, overlay *controlbacklog.Backlog) *controlbackl
 		if !ok {
 			continue
 		}
+		if id := strings.TrimSpace(overlayItem.ID); id != "" {
+			seenOverlayIDs[id] = struct{}{}
+		}
+		if key := strings.TrimSpace(overlayItem.Repo) + "|" + strings.TrimSpace(overlayItem.Path); key != "|" {
+			seenOverlayRepoPaths[key] = struct{}{}
+		}
 		current.GovernanceDisposition = overlayItem.GovernanceDisposition
 		current.LifecycleQueue = overlayItem.LifecycleQueue
 		if overlayItem.GovernanceDisposition != nil || overlayItem.LifecycleQueue != nil {
@@ -1382,6 +1390,19 @@ func mergeBacklogGovernance(base, overlay *controlbacklog.Backlog) *controlbackl
 			current.EvidenceGaps = uniqueStrings(append(append([]string(nil), current.EvidenceGaps...), overlayItem.EvidenceGaps...))
 		}
 		copyBacklog.Items[idx] = current
+	}
+	for _, item := range overlay.Items {
+		if id := strings.TrimSpace(item.ID); id != "" {
+			if _, ok := seenOverlayIDs[id]; ok {
+				continue
+			}
+		}
+		if key := strings.TrimSpace(item.Repo) + "|" + strings.TrimSpace(item.Path); key != "|" {
+			if _, ok := seenOverlayRepoPaths[key]; ok {
+				continue
+			}
+		}
+		copyBacklog.Items = append(copyBacklog.Items, item)
 	}
 	copyBacklog.Summary = controlbacklog.SummarizeItems(copyBacklog.Items)
 	return &copyBacklog
