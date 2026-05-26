@@ -70,6 +70,7 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out.RiskZone, out.RiskZoneReasons = deriveRiskZone(out)
 	out.ReviewBurden, out.ReviewBurdenReasons = deriveReviewBurden(out)
 	out = normalizeProjectedControlState(out)
+	out = populateAgenticProjection(out)
 	return out
 }
 
@@ -154,6 +155,9 @@ func SummarizeActionPaths(paths []ActionPath, opts ActionPathSummaryOptions) Act
 		default:
 			summary.ContextOnlyPaths++
 		}
+		IncrementAutonomyTierCounts(&summary.AutonomyTiers, path.AutonomyTier)
+		IncrementDelegationReadinessCounts(&summary.DelegationReadiness, path.DelegationReadinessState)
+		IncrementRecommendedControlCounts(&summary.RecommendedControls, path.RecommendedControl)
 	}
 
 	summary.EmptyStateStatus, summary.EmptyStateReasons = evaluateEmptyState(summary, opts)

@@ -29,11 +29,11 @@
   },
   "first_item": {
     "repo": "repo-d236d5",
-    "location": "loc-d5d3368a",
-    "owner": "owner-f9ae3305",
-      "proof_refs": [
-        "proof-bec20d9e"
-      ],
+    "location": "loc-dd191250",
+    "owner": "owner-c6dd827f",
+    "proof_refs": [
+      "proof-1b388508"
+    ],
     "graph_ref_prefixes": {
       "node": "node-",
       "edge": "edge-"

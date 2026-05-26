@@ -158,7 +158,33 @@
       "coverage_confidence": "complete",
       "impact_statement": "Coverage for scanned inputs was complete enough to support scoped negative claims."
     },
-    "coverage_confidence": "complete"
+    "coverage_confidence": "complete",
+    "autonomy_tiers": {
+      "tier_0_safe_metadata": 0,
+      "tier_1_low_risk_internal": 0,
+      "tier_2_app_code_owner_review": 0,
+      "tier_3_sensitive_code_or_infra": 1,
+      "tier_4_prod_privileged_or_customer_impacting": 5
+    },
+    "delegation_readiness": {
+      "safe_to_delegate": 0,
+      "review_required": 4,
+      "approval_required": 0,
+      "proof_required": 0,
+      "ready_for_control": 0,
+      "blocked": 2,
+      "blocked_by_contradiction": 0
+    },
+    "recommended_controls": {
+      "allow": 0,
+      "owner_review": 0,
+      "security_review": 4,
+      "approval_required": 0,
+      "jit_credential_required": 0,
+      "proof_required": 0,
+      "block_standing_credential": 2,
+      "block": 0
+    }
   },
   "top_item": {
     "path_id": "apc-6626703372d7",

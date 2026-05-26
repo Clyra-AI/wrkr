@@ -352,6 +352,18 @@
         "review_burden_reasons": {"type": "array", "items": {"type": "string"}},
         "confidence_lane": {"type": "string", "enum": ["confirmed_action_path", "likely_action_path", "semantic_review_candidate", "context_only"]},
         "confidence_lane_reasons": {"type": "array", "items": {"type": "string"}},
+        "autonomy_tier": {"$ref": "#/$defs/autonomyTier"},
+        "autonomy_tier_reasons": {"type": "array", "items": {"type": "string"}},
+        "autonomy_tier_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "delegation_readiness_state": {"$ref": "#/$defs/delegationReadinessState"},
+        "delegation_readiness_reasons": {"type": "array", "items": {"type": "string"}},
+        "recommended_control": {"$ref": "#/$defs/recommendedControl"},
+        "recommended_control_reasons": {"type": "array", "items": {"type": "string"}},
+        "risk_classification_validation_reasons": {"type": "array", "items": {"type": "string"}},
+        "risk_classification_validation_refs": {"type": "array", "items": {"type": "string"}},
+        "recommended_action_contract": {"$ref": "#/$defs/recommendedActionContract"},
+        "today_path": {"$ref": "#/$defs/governedPathView"},
+        "recommended_governed_path": {"$ref": "#/$defs/governedPathView"},
         "gait_coverage": {"$ref": "#/$defs/gaitCoverage"},
         "introduced_by": {"$ref": "#/$defs/introducedBy"},
         "inventory_risk": {"type": "string", "enum": ["production_backed", "write_capable", "credential_access", "visibility_only", "dependency_only"]},
@@ -369,6 +381,63 @@
         "evidence_completeness": {"$ref": "#/$defs/evidenceCompleteness"},
         "action_lineage": {"$ref": "#/$defs/actionLineage"}
       }
+    },
+    "autonomyTier": {
+      "type": "string",
+      "enum": ["tier_0_safe_metadata", "tier_1_low_risk_internal", "tier_2_app_code_owner_review", "tier_3_sensitive_code_or_infra", "tier_4_prod_privileged_or_customer_impacting"]
+    },
+    "delegationReadinessState": {
+      "type": "string",
+      "enum": ["safe_to_delegate", "review_required", "approval_required", "proof_required", "ready_for_control", "blocked", "blocked_by_contradiction"]
+    },
+    "recommendedControl": {
+      "type": "string",
+      "enum": ["allow", "owner_review", "security_review", "approval_required", "jit_credential_required", "proof_required", "block_standing_credential", "block"]
+    },
+    "actionContractReadinessState": {
+      "type": "string",
+      "enum": ["draft", "needs_owner", "needs_approval_evidence", "ready_for_report_only", "ready_for_control", "blocked_by_contradiction"]
+    },
+    "recommendedActionContract": {
+      "type": "object",
+      "properties": {
+        "path_summary": {"type": "string"},
+        "allowed_action": {"type": "string"},
+        "required_authority": {"type": "string"},
+        "required_review": {"type": "string"},
+        "required_approval": {"type": "string"},
+        "required_proof": {"type": "string"},
+        "allowed_autonomy_tier": {"$ref": "#/$defs/autonomyTier"},
+        "validation_step": {"type": "string"},
+        "default_posture": {"type": "string"},
+        "delegation_readiness_state": {"$ref": "#/$defs/delegationReadinessState"},
+        "approval_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "owner_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "proof_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "outcome_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "contract_readiness_state": {"$ref": "#/$defs/actionContractReadinessState"},
+        "report_only": {"type": "boolean"},
+        "reason_codes": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "governedPathView": {
+      "type": "object",
+      "properties": {
+        "label": {"type": "string", "enum": ["today_path", "recommended_governed_path"]},
+        "summary": {"type": "string"},
+        "autonomy_tier": {"$ref": "#/$defs/autonomyTier"},
+        "delegation_readiness_state": {"$ref": "#/$defs/delegationReadinessState"},
+        "recommended_control": {"$ref": "#/$defs/recommendedControl"},
+        "credential_mode": {"type": "string"},
+        "approval_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "proof_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "outcome_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "path_type": {"type": "string"},
+        "target_class": {"type": "string"},
+        "reason_codes": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
     },
     "closureRequirement": {
       "type": "object",

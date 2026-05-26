@@ -5,13 +5,13 @@
 - Scan scope: local repository path mode=path repos=1 targets=1
 - Share redaction: version=customer-share-v2 fields=authors, credential-subjects, filesystem, graph-refs, owners, paths, proof-refs, providers, repos
 ## Top Validated Findings
-1. repo-d236d5 in loc-d5d3368a
+1. repo-d236d5 in loc-dd191250
 Problem: This path can change production-adjacent state and is missing enough governance evidence.
-Likely explanation: purpose=mcp integration, purpose_source=location_heuristic, config=loc-d5d3368a
-Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=data_export,production_mutation,refund
+Likely explanation: config=loc-dd191250
+Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=delete,delete,production_mutation,production_mutation,production_mutation,production_mutation,refund,refund,user_admin,user_admin,write,write
 Recommended control: Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
-Confidence lane: likely AI-assisted workflow
+Confidence lane: likely action path
 Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
 Credential authority: kind=unknown, source=unknown, access=unknown, rotation=unknown
-Mutable endpoint: data_export@medium, production_mutation@medium, refund@medium
-Owner: owner-f9ae3305
+Mutable endpoint: delete@medium, delete@medium, production_mutation@medium, production_mutation@medium, production_mutation@medium, production_mutation@medium, refund@medium, refund@medium, user_admin@medium, user_admin@medium, write@medium, write@medium
+Owner: owner-c6dd827f

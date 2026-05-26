@@ -29,6 +29,7 @@ const (
 	ClosureRequirementRefreshExpiredEvidence    = "refresh_expired_evidence"
 	ClosureRequirementResolveContradiction      = "resolve_contradiction"
 	ClosureRequirementAcceptInternalTooling     = "accept_declared_internal_tooling"
+	ClosureRequirementDefendRiskClassification  = "defend_risk_classification"
 
 	CompletenessAxisDiscovery = "discovery"
 	CompletenessAxisAuthority = "authority"
@@ -235,6 +236,9 @@ func buildClosureRequirements(path ActionPath, signals scanquality.CompletenessS
 	if contradictionRequirement, ok := contradictionClosureRequirement(path); ok {
 		add(contradictionRequirement)
 	}
+	if classificationRequirement, ok := classificationValidationClosureRequirement(path); ok {
+		add(classificationRequirement)
+	}
 	for _, freshness := range freshnessClosureRequirements(path) {
 		add(freshness)
 	}
@@ -309,6 +313,32 @@ func contradictionClosureRequirement(path ActionPath) (ClosureRequirement, bool)
 		ClosureRefs: refs,
 		ReasonCodes: reasonCodes,
 		Guidance:    "Resolve the contradictory evidence for this path and attach one authoritative owner/control decision before treating it as governed.",
+	}, true
+}
+
+func classificationValidationClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
+	if len(path.RiskClassificationValidationReasons) == 0 {
+		return ClosureRequirement{}, false
+	}
+	severity := ClosureSeverityHigh
+	if hasClassificationReason(path, "classification:broad_credential_low_risk") || hasClassificationReason(path, "classification:missing_deploy_proof") {
+		severity = ClosureSeverityCritical
+	}
+	return ClosureRequirement{
+		ID:                      closureRequirementID(path.PathID, ClosureRequirementDefendRiskClassification, strings.Join(path.RiskClassificationValidationReasons, ",")),
+		Severity:                severity,
+		RequirementType:         ClosureRequirementDefendRiskClassification,
+		CurrentEvidenceState:    normalizeEvidenceState(path.ProofEvidenceState),
+		RequiredEvidence:        "Authoritative owner, approval, proof, and credential evidence that makes the low-risk label defensible for this exact path.",
+		AcceptableSourceClasses: []string{evidencepolicy.SourceTypeProviderExport, evidencepolicy.SourceTypeRepoPolicy, evidencepolicy.SourceTypeSignedDeclaration, evidencepolicy.SourceTypeTicketExport, evidencepolicy.SourceTypeRuntime},
+		FreshnessRequirement:    "fresh path-scoped evidence required before keeping a low-risk label",
+		Examples: []string{
+			"Attach owner review and time-bounded approval evidence for the exact path.",
+			"Attach proof or runtime evidence that matches the current deploy or credential-bearing behavior.",
+		},
+		ClosureRefs: append([]string(nil), path.RiskClassificationValidationRefs...),
+		ReasonCodes: append([]string(nil), path.RiskClassificationValidationReasons...),
+		Guidance:    "Treat the low-risk label as invalid until path-scoped owner, approval, proof, and credential evidence makes the claim defensible.",
 	}, true
 }
 

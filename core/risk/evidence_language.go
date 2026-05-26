@@ -153,3 +153,98 @@ func BuyerEvidenceCompletenessSummaryLabel(summary *EvidenceCompletenessSummary)
 		return "aggregate evidence coverage is insufficient"
 	}
 }
+
+func BuyerAutonomyTierLabel(tier string) string {
+	switch strings.TrimSpace(tier) {
+	case AutonomyTier0SafeMetadata:
+		return "safe metadata only"
+	case AutonomyTier1LowRiskInternal:
+		return "low-risk internal changes"
+	case AutonomyTier2AppCodeOwnerReview:
+		return "app code that needs owner review"
+	case AutonomyTier3SensitiveCodeOrInfra:
+		return "sensitive code or infrastructure"
+	case AutonomyTier4ProdPrivilegedCustomerImpact:
+		return "production, privileged, or customer-impacting"
+	default:
+		return "autonomy tier unknown"
+	}
+}
+
+func BuyerAutonomyTierShortLabel(tier string) string {
+	switch strings.TrimSpace(tier) {
+	case AutonomyTier0SafeMetadata:
+		return "safe metadata"
+	case AutonomyTier1LowRiskInternal:
+		return "low-risk internal"
+	case AutonomyTier2AppCodeOwnerReview:
+		return "owner-review app code"
+	case AutonomyTier3SensitiveCodeOrInfra:
+		return "sensitive code or infra"
+	case AutonomyTier4ProdPrivilegedCustomerImpact:
+		return "prod or customer impacting"
+	default:
+		return "unknown tier"
+	}
+}
+
+func BuyerDelegationReadinessLabel(state string) string {
+	switch strings.TrimSpace(state) {
+	case DelegationReadinessSafeToDelegate:
+		return "safe to delegate"
+	case DelegationReadinessReviewRequired:
+		return "review required"
+	case DelegationReadinessApprovalRequired:
+		return "approval required"
+	case DelegationReadinessProofRequired:
+		return "proof required"
+	case DelegationReadinessReadyForControl:
+		return "ready for control"
+	case DelegationReadinessBlocked:
+		return "blocked"
+	case DelegationReadinessBlockedByContradiction:
+		return "blocked by contradiction"
+	default:
+		return "delegation readiness unknown"
+	}
+}
+
+func BuyerRecommendedControlLabel(value string) string {
+	switch strings.TrimSpace(value) {
+	case RecommendedControlAllow:
+		return "allow"
+	case RecommendedControlOwnerReview:
+		return "owner review"
+	case RecommendedControlSecurityReview:
+		return "security review"
+	case RecommendedControlApprovalRequired:
+		return "approval required"
+	case RecommendedControlJITCredentialRequired:
+		return "JIT credential required"
+	case RecommendedControlProofRequired:
+		return "proof required"
+	case RecommendedControlBlockStandingCredential:
+		return "block standing credential"
+	case RecommendedControlBlock:
+		return "block"
+	default:
+		return "control recommendation unknown"
+	}
+}
+
+func BuyerActionContractReadinessLabel(value string) string {
+	switch strings.TrimSpace(value) {
+	case ActionContractReadinessNeedsOwner:
+		return "needs owner evidence"
+	case ActionContractReadinessNeedsApproval:
+		return "needs approval evidence"
+	case ActionContractReadinessReadyForReportOnly:
+		return "ready for report only"
+	case ActionContractReadinessReadyForControl:
+		return "ready for control"
+	case ActionContractReadinessBlockedContradict:
+		return "blocked by contradiction"
+	default:
+		return "draft contract"
+	}
+}

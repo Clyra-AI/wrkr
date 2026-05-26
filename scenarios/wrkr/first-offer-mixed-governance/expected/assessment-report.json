@@ -27,6 +27,15 @@
       "business_state_surface": "deploy"
     },
     {
+      "path_id": "apc-c5d25a74d87f",
+      "repo": "control-plane",
+      "tool_type": "codex",
+      "recommended_action": "proof",
+      "owner_source": "codeowners",
+      "ownership_status": "explicit",
+      "business_state_surface": "code"
+    },
+    {
       "path_id": "apc-8ec8602cb415",
       "repo": "control-plane",
       "tool_type": "mcp",
@@ -42,15 +51,6 @@
       "recommended_action": "proof",
       "owner_source": "repo_fallback",
       "ownership_status": "inferred",
-      "business_state_surface": "code"
-    },
-    {
-      "path_id": "apc-c5d25a74d87f",
-      "repo": "control-plane",
-      "tool_type": "codex",
-      "recommended_action": "proof",
-      "owner_source": "codeowners",
-      "ownership_status": "explicit",
       "business_state_surface": "code"
     }
   ],
