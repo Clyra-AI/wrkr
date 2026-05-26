@@ -966,10 +966,12 @@ func freshnessExamples(field string) []string {
 }
 
 func pathNeedsDeploymentConstraintEvidence(path ActionPath) bool {
-	if !(path.DeployWrite || path.ProductionWrite || len(path.MatchedProductionTargets) > 0 || strings.TrimSpace(path.WorkflowTriggerClass) == "deploy_pipeline") {
-		return false
-	}
-	return len(path.ConstraintEvidenceClasses) == 0 && len(path.ConstraintEvidenceRefs) == 0
+	return (path.DeployWrite ||
+		path.ProductionWrite ||
+		len(path.MatchedProductionTargets) > 0 ||
+		strings.TrimSpace(path.WorkflowTriggerClass) == "deploy_pipeline") &&
+		len(path.ConstraintEvidenceClasses) == 0 &&
+		len(path.ConstraintEvidenceRefs) == 0
 }
 
 func likelyJITCredential(path ActionPath) bool {
