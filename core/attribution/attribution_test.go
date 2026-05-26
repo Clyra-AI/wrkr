@@ -300,6 +300,38 @@ func TestLoadContextKeepsExplicitUnmatchedExternalEvidenceNonPresent(t *testing.
 	}
 }
 
+func TestResolveControlMetadataMatchesWildcardDeclarationPattern(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	payload := []byte(`schema_version: v1
+owners:
+  - repo: acme/demo
+    pattern: .github/workflows/*.yml
+    owner: "@acme/platform"
+targets:
+  - repo: acme/demo
+    pattern: .github/workflows/*.yml
+    target_class: test_demo_sandbox
+    non_production: true
+`)
+	if err := os.WriteFile(filepath.Join(repoRoot, "wrkr-control-declarations.yaml"), payload, 0o600); err != nil {
+		t.Fatalf("write control declarations: %v", err)
+	}
+
+	ctx := LoadContextAt(repoRoot, time.Date(2026, 5, 25, 18, 0, 0, 0, time.UTC))
+	metadata, ok := ResolveControlMetadata(ctx.ControlMetadata, ".github/workflows/release.yml")
+	if !ok {
+		t.Fatalf("expected wildcard declaration metadata to match location, got %+v", ctx.ControlMetadata)
+	}
+	if metadata.Owner != "@acme/platform" {
+		t.Fatalf("expected owner declaration to resolve through wildcard match, got %+v", metadata)
+	}
+	if metadata.TargetClass != "test_demo_sandbox" {
+		t.Fatalf("expected target declaration to resolve through wildcard match, got %+v", metadata)
+	}
+}
+
 func TestExpiredEvidenceCannotVerifyControl(t *testing.T) {
 	t.Parallel()
 

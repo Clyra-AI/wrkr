@@ -63,3 +63,34 @@ owners:
 		t.Fatal("expected invalid declaration to fail closed")
 	}
 }
+
+func TestDuplicateControlDeclarationAcrossFilesFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".wrkr"), 0o750); err != nil {
+		t.Fatalf("mkdir .wrkr: %v", err)
+	}
+	first := []byte(`schema_version: v1
+owners:
+  - repo: acme/payments
+    path: .github/workflows/release.yml
+    owner: "@acme/platform"
+`)
+	second := []byte(`schema_version: v1
+owners:
+  - repo: acme/payments
+    path: .github/workflows/release.yml
+    owner: "@acme/security"
+`)
+	if err := os.WriteFile(filepath.Join(root, "wrkr-control-declarations.yaml"), first, 0o600); err != nil {
+		t.Fatalf("write root declarations: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".wrkr", "control-declarations.yaml"), second, 0o600); err != nil {
+		t.Fatalf("write nested declarations: %v", err)
+	}
+
+	if _, _, err := LoadControlDeclarations(root); err == nil {
+		t.Fatal("expected duplicate cross-file scope to fail closed")
+	}
+}
