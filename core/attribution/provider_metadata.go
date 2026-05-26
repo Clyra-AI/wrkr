@@ -46,11 +46,15 @@ type sourceMetadataPayload struct {
 }
 
 func LoadContext(repoRoot string) Context {
+	return LoadContextAt(repoRoot, time.Time{})
+}
+
+func LoadContextAt(repoRoot string, generatedAt time.Time) Context {
 	repoRoot = strings.TrimSpace(repoRoot)
 	return Context{
 		RepoRoot:        repoRoot,
 		Candidates:      loadCandidates(repoRoot),
-		ControlMetadata: loadControlMetadata(repoRoot),
+		ControlMetadata: loadControlMetadataAt(repoRoot, generatedAt),
 	}
 }
 

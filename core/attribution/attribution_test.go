@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Clyra-AI/wrkr/core/model"
 )
@@ -296,6 +297,44 @@ func TestLoadContextKeepsExplicitUnmatchedExternalEvidenceNonPresent(t *testing.
 	}
 	if metadata.ConstraintEvidenceStatus != "unmatched" {
 		t.Fatalf("expected unmatched constraint status, got %+v", metadata)
+	}
+}
+
+func TestExpiredEvidenceCannotVerifyControl(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("mkdir provenance dir: %v", err)
+	}
+	payload := `{
+  "schema_version": "v1",
+  "generated_at": "2026-05-25T17:30:30Z",
+  "records": [
+    {
+      "record_kind": "external_control",
+      "source_type": "provider_export",
+      "source": "github_environment_export",
+      "repo": "acme/demo",
+      "path": ".github/workflows/release.yml",
+      "observed_at": "2026-05-25T17:00:00Z",
+      "valid_until": "2026-05-25T17:15:00Z",
+      "evidence_class": "deployment_approval",
+      "evidence_refs": ["evidence://fake/provider-export.json#approval"]
+    }
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "provenance", "external-control-evidence.json"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write external control evidence: %v", err)
+	}
+
+	ctx := LoadContextAt(repoRoot, time.Date(2026, 5, 25, 18, 0, 0, 0, time.UTC))
+	metadata, ok := ctx.ControlMetadata[".github/workflows/release.yml"]
+	if !ok {
+		t.Fatalf("expected external control metadata entry, got %+v", ctx.ControlMetadata)
+	}
+	if metadata.ApprovalEvidenceState != "unknown" {
+		t.Fatalf("expected expired evidence to stop verifying control, got %+v", metadata)
 	}
 }
 

@@ -396,6 +396,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 
 	now := time.Now().UTC().Truncate(time.Second)
+	if err := validateRepoControlDeclarations(manifestOut); err != nil {
+		return emitScanError("policy_schema_violation", err.Error(), exitPolicyViolation)
+	}
 	scanMethodology := buildScanMethodology(manifestOut, findings, scanStartedAt, now)
 	riskReport := risk.Score(findings, 5, now)
 	if err := checkScanContext(); err != nil {
@@ -504,8 +507,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	agginventory.ApplySecurityVisibilityToPrivilegeMap(&inventoryOut)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, &inventoryOut)
 	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, findings)
-	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoAttributionContexts(manifestOut))
-	riskReport.ActionPaths = risk.DecorateControlMetadata(riskReport.ActionPaths, repoAttributionContexts(manifestOut))
+	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
+	riskReport.ActionPaths = risk.DecorateControlMetadata(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
 
 	profileDef, profileErr := profilemodel.Builtin(*profileName)
 	if profileErr != nil {
@@ -1207,7 +1210,7 @@ func scanModesCompatible(previous, current string) bool {
 	return previous == "" || previous == current
 }
 
-func repoAttributionContexts(manifest source.Manifest) map[string]attribution.Context {
+func repoAttributionContexts(manifest source.Manifest, generatedAt time.Time) map[string]attribution.Context {
 	if len(manifest.Repos) == 0 {
 		return nil
 	}
@@ -1222,7 +1225,7 @@ func repoAttributionContexts(manifest source.Manifest) map[string]attribution.Co
 			repoRoot = strings.TrimSpace(repo.Location)
 		}
 		repoRoot = filepath.Clean(repoRoot)
-		ctx := attribution.LoadContext(repoRoot)
+		ctx := attribution.LoadContextAt(repoRoot, generatedAt)
 		for _, composite := range []string{"local::" + key, "::" + key} {
 			if existing := out[composite]; strings.TrimSpace(existing.RepoRoot) == "" {
 				out[composite] = ctx
@@ -1230,6 +1233,23 @@ func repoAttributionContexts(manifest source.Manifest) map[string]attribution.Co
 		}
 	}
 	return out
+}
+
+func validateRepoControlDeclarations(manifest source.Manifest) error {
+	for _, repo := range manifest.Repos {
+		repoRoot := strings.TrimSpace(repo.ScanRoot)
+		if repoRoot == "" {
+			repoRoot = strings.TrimSpace(repo.Location)
+		}
+		repoRoot = filepath.Clean(repoRoot)
+		if repoRoot == "" {
+			continue
+		}
+		if _, _, err := config.LoadControlDeclarations(repoRoot); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func hasIncompleteFilesystemVisibility(detectorErrors []detect.DetectorError, sourceFailures []source.RepoFailure) bool {

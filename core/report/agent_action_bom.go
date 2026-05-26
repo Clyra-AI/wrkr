@@ -11,6 +11,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/attribution"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -85,6 +86,8 @@ type AgentActionBOMItem struct {
 	OwnerSource                  string                                 `json:"owner_source,omitempty"`
 	OwnershipStatus              string                                 `json:"ownership_status,omitempty"`
 	OwnershipState               string                                 `json:"ownership_state,omitempty"`
+	EvidenceDecisions            []evidencepolicy.Decision              `json:"evidence_decisions,omitempty"`
+	Contradictions               []evidencepolicy.Contradiction         `json:"contradictions,omitempty"`
 	ControlResolutionState       string                                 `json:"control_resolution_state,omitempty"`
 	ControlResolutionReasons     []string                               `json:"control_resolution_reasons,omitempty"`
 	ControlEvidenceRefs          []string                               `json:"control_evidence_refs,omitempty"`
@@ -249,6 +252,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			OwnerSource:                  strings.TrimSpace(path.OwnerSource),
 			OwnershipStatus:              strings.TrimSpace(path.OwnershipStatus),
 			OwnershipState:               strings.TrimSpace(path.OwnershipState),
+			EvidenceDecisions:            append([]evidencepolicy.Decision(nil), path.EvidenceDecisions...),
+			Contradictions:               append([]evidencepolicy.Contradiction(nil), path.Contradictions...),
 			ControlResolutionState:       strings.TrimSpace(path.ControlResolutionState),
 			ControlResolutionReasons:     append([]string(nil), path.ControlResolutionReasons...),
 			ControlEvidenceRefs:          append([]string(nil), path.ControlEvidenceRefs...),

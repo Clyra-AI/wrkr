@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/owners"
@@ -28,6 +29,7 @@ type ownershipCandidate struct {
 	ownershipConfidence float64
 	ownershipEvidence   []string
 	ownershipConflicts  []string
+	ownershipDecision   *evidencepolicy.Decision
 }
 
 func Build(
@@ -174,6 +176,7 @@ func Build(
 				OwnershipConfidence:      owner.OwnershipConfidence,
 				OwnershipEvidence:        cloneStringSlice(owner.EvidenceBasis),
 				OwnershipConflicts:       cloneStringSlice(owner.ConflictOwners),
+				OwnershipDecision:        cloneEvidenceDecision(owner.EvidenceDecision),
 				ApprovalGapReasons:       approvalReasons,
 				TrustDepth:               agginventory.CloneTrustDepth(tool.TrustDepth),
 				PullRequestWrite:         pullRequestWrite,
@@ -397,6 +400,7 @@ func buildInstanceEntries(
 			OwnershipConfidence:      owner.OwnershipConfidence,
 			OwnershipEvidence:        cloneStringSlice(owner.EvidenceBasis),
 			OwnershipConflicts:       cloneStringSlice(owner.ConflictOwners),
+			OwnershipDecision:        cloneEvidenceDecision(owner.EvidenceDecision),
 			ApprovalGapReasons:       approvalReasons,
 			TrustDepth:               agginventory.CloneTrustDepth(tool.TrustDepth),
 			PullRequestWrite:         pullRequestWrite,
@@ -1712,6 +1716,7 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 			ownershipConfidence: confidence,
 			ownershipEvidence:   evidence,
 			ownershipConflicts:  conflicts,
+			ownershipDecision:   cloneEvidenceDecision(item.OwnershipDecision),
 		}
 	}
 	if len(candidates) == 0 {
@@ -1736,6 +1741,7 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 				OwnershipConfidence: item.ownershipConfidence,
 				EvidenceBasis:       cloneStringSlice(item.ownershipEvidence),
 				ConflictOwners:      cloneStringSlice(item.ownershipConflicts),
+				EvidenceDecision:    cloneEvidenceDecision(item.ownershipDecision),
 			}
 		}
 	}
@@ -1759,6 +1765,7 @@ func resolveOperationalOwner(tool agginventory.Tool, repos []string, location st
 				OwnershipConfidence: item.ownershipConfidence,
 				EvidenceBasis:       cloneStringSlice(item.ownershipEvidence),
 				ConflictOwners:      cloneStringSlice(item.ownershipConflicts),
+				EvidenceDecision:    cloneEvidenceDecision(item.ownershipDecision),
 			}
 		}
 	}
@@ -2134,6 +2141,26 @@ func cloneStringSlice(values []string) []string {
 	out := make([]string, 0, len(values))
 	out = append(out, values...)
 	return out
+}
+
+func cloneEvidenceDecision(in *evidencepolicy.Decision) *evidencepolicy.Decision {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.SelectedEvidenceRefs = cloneStringSlice(in.SelectedEvidenceRefs)
+	out.ReasonCodes = cloneStringSlice(in.ReasonCodes)
+	out.ConflictReasonCodes = cloneStringSlice(in.ConflictReasonCodes)
+	if len(in.RejectedCandidates) > 0 {
+		out.RejectedCandidates = make([]evidencepolicy.Candidate, 0, len(in.RejectedCandidates))
+		for _, item := range in.RejectedCandidates {
+			copyItem := item
+			copyItem.EvidenceRefs = cloneStringSlice(item.EvidenceRefs)
+			copyItem.ReasonCodes = cloneStringSlice(item.ReasonCodes)
+			out.RejectedCandidates = append(out.RejectedCandidates, copyItem)
+		}
+	}
+	return &out
 }
 
 func cloneLocationRange(value *model.LocationRange) *model.LocationRange {

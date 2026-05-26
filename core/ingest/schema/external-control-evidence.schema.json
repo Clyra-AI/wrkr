@@ -38,6 +38,7 @@
             "provider_export",
             "github_team_export",
             "backstage_export",
+            "signed_declaration",
             "customer_owner_map",
             "ticket_export",
             "repo_policy",
@@ -116,6 +117,10 @@
         },
         "confidence": {
           "type": "string"
+        },
+        "freshness_state": {
+          "type": "string",
+          "enum": ["fresh", "stale", "expired", "unknown"]
         },
         "redaction_hints": {
           "type": "array",

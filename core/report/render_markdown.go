@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
@@ -124,6 +125,9 @@ func RenderMarkdown(summary Summary) string {
 					item.Queue,
 					item.Remediation,
 				))
+				if len(item.Contradictions) > 0 {
+					builder.WriteString(fmt.Sprintf("  contradictions=%s\n", markdownContradictions(item.Contradictions)))
+				}
 			}
 			builder.WriteString("\n")
 		}
@@ -251,6 +255,9 @@ func RenderMarkdown(summary Summary) string {
 				item.PolicyStatus,
 				item.Remediation,
 			))
+			if len(item.Contradictions) > 0 {
+				builder.WriteString(fmt.Sprintf("  contradictions=%s\n", markdownContradictions(item.Contradictions)))
+			}
 			if item.GaitCoverage != nil {
 				builder.WriteString(fmt.Sprintf("  gait=policy:%s approval:%s jit:%s freeze:%s kill:%s outcome:%s proof:%s\n",
 					item.GaitCoverage.PolicyDecision.Status,
@@ -327,6 +334,21 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 	return builder.String()
+}
+
+func markdownContradictions(items []evidencepolicy.Contradiction) string {
+	parts := make([]string, 0, len(items))
+	for _, item := range items {
+		label := strings.TrimSpace(item.Class)
+		if len(item.ReasonCodes) > 0 {
+			label = label + ":" + strings.Join(item.ReasonCodes, ",")
+		}
+		parts = append(parts, strings.Trim(label, ":"))
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+	return strings.Join(parts, " | ")
 }
 
 func renderTriggerClassSuffix(triggerClass string) string {

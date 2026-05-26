@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 )
 
 func TestResolveOwnerFromCodeowners(t *testing.T) {
@@ -110,7 +112,7 @@ func TestResolveParsesServiceCatalogAndBackstageOwners(t *testing.T) {
 	}
 }
 
-func TestResolveSurfacesConflictingOwnersDeterministically(t *testing.T) {
+func TestResolveUsesPrecedenceAndPreservesLowerPriorityOwnerDisagreement(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -122,20 +124,14 @@ func TestResolveSurfacesConflictingOwnersDeterministically(t *testing.T) {
 	}
 
 	resolution := Resolve(root, "acme/app", "acme", "AGENTS.md")
-	if resolution.OwnerSource != OwnerSourceConflict || resolution.OwnershipState != OwnershipStateConflicting {
-		t.Fatalf("expected conflict state, got %+v", resolution)
+	if resolution.Owner != "@acme/platform" || resolution.OwnerSource != OwnerSourceCodeowners {
+		t.Fatalf("expected CODEOWNERS to win precedence, got %+v", resolution)
 	}
-	want := []string{"@acme/platform", "@acme/security"}
-	if len(resolution.ConflictOwners) != len(want) {
-		t.Fatalf("expected conflict owners %v, got %+v", want, resolution)
+	if resolution.EvidenceDecision == nil || resolution.EvidenceDecision.ConflictState != evidencepolicy.ConflictStateResolved {
+		t.Fatalf("expected resolved precedence decision, got %+v", resolution)
 	}
-	for idx := range want {
-		if resolution.ConflictOwners[idx] != want[idx] {
-			t.Fatalf("expected deterministic conflict owners %v, got %+v", want, resolution.ConflictOwners)
-		}
-	}
-	if resolution.OwnershipConfidence >= 0.5 {
-		t.Fatalf("expected low confidence for conflict, got %+v", resolution)
+	if len(resolution.EvidenceDecision.RejectedCandidates) != 1 || resolution.EvidenceDecision.RejectedCandidates[0].Value != "@acme/security" {
+		t.Fatalf("expected lower-priority owner disagreement to be preserved, got %+v", resolution)
 	}
 }
 
@@ -196,7 +192,7 @@ func TestOwnerResolutionUsesExternalEvidenceRefs(t *testing.T) {
 	if resolution.Owner != "@acme/platform" {
 		t.Fatalf("expected external owner evidence to resolve owner, got %+v", resolution)
 	}
-	if resolution.OwnerSource != OwnerSourceCustomerMap {
+	if resolution.OwnerSource != evidencepolicy.SourceTypeSignedDeclaration {
 		t.Fatalf("expected external owner source, got %+v", resolution)
 	}
 	if !hasEvidenceBasis(resolution.EvidenceBasis, "evidence://fake/customer-owner-map.yaml#payments-service") {

@@ -11,6 +11,8 @@ wrkr scan status --state <path> [--json]
 
 Scan-time `action_paths[*]` are evidence-scoped. `control_resolution_state` and the canonical `approval_evidence_state`, `owner_evidence_state`, `proof_evidence_state`, `runtime_evidence_state`, `target_evidence_state`, and `credential_evidence_state` fields explain what Wrkr could verify, what was only declared or inferred, and what remained unknown in the scanned inputs. `action_path_type` keeps plain-source, CI/CD, automation-bot, AI-assisted, and agent-framework paths distinct so downstream reports do not overclaim agent behavior where the evidence only supports a broader action path.
 
+When imported or declared enterprise evidence is present, `action_paths[*]` may also emit additive `evidence_decisions[]` and `contradictions[]`. These preserve the selected source, freshness state (`fresh`, `stale`, `expired`, `unknown`), rejected candidates, stable reason codes, and contradiction evidence refs instead of flattening everything into one winner string.
+
 Start here with one of these first-value paths:
 
 ```bash
@@ -43,6 +45,8 @@ Acquisition behavior is fail-closed by target:
 - Hosted GitHub materialization is sparse by default: Wrkr fetches detector-relevant files such as agent instructions, MCP/Codex/Cursor/Claude configs, skills, workflows, policy files, dependency manifests, and AI/MCP declaration surfaces instead of every repository blob.
 - If a repo already contains deterministic provenance sidecars under `.wrkr/provenance/`, Wrkr can project PR-level `introduced_by` metadata from `source-metadata.json`, `github-event.json`, or `gitlab-event.json` without live provider calls.
 - If a repo contains `.wrkr/provenance/external-control-evidence.json`, Wrkr can also project local ownership, approval, branch-protection, protected-environment, required-check, security-gate, freeze-window, and kill-switch evidence into govern-first path posture without live provider calls.
+- If a repo contains `wrkr-control-declarations.yaml` or `.wrkr/control-declarations.yaml`, Wrkr loads versioned customer declarations for owner mappings, target classes, non-production declarations, and control evidence links as local declared evidence only.
+- Invalid control declarations fail closed with `policy_schema_violation` (exit `3`) instead of being ignored.
 - Repo-local Gait policy `controls.deployment_constraints[]` declarations are treated as declared control evidence for branch, environment, approval, required-check, freeze-window, kill-switch, and security-gate context when present.
 - Hosted scans do not fetch broad source-code extensions by default. Use `--mode deep` or `--allow-source-materialization` only when you explicitly want generic source files such as `.go`, `.py`, `.js`, or `.ts` to be materialized for deeper static detector coverage.
 - Hosted GitHub API base resolution order is: `--github-api`, config `github_api_base`, then `WRKR_GITHUB_API_BASE`.

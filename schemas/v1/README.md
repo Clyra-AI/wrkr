@@ -5,7 +5,9 @@ This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifac
 - `cli/`: shared CLI success/error envelope contracts.
 - `agent-action-bom.schema.json`: canonical Agent Action BOM artifact contract for report and evidence outputs.
 - `evidence/external-control-evidence.schema.json`: canonical local sidecar contract for imported ownership, approval, branch, deployment, and policy control evidence.
+- Local declaration inputs now also include versioned `wrkr-control-declarations.yaml` / `.wrkr/control-declarations.yaml` semantics for declared owners, target classes, non-production paths, and control evidence links.
 - Agent Action BOM, report summary, and risk-report schemas now also carry additive policy-coverage, buyer-facing action-path posture (`control_state`, `risk_zone`, `review_burden`), normalized runtime-evidence/Gait coverage projection, additive imported control-evidence correlation metadata (`constraint_evidence_classes`, `constraint_evidence_refs`, external-control record counts, repo/service/workflow/environment correlation keys), optional `introduced_by` attribution fields, and the additive `github_workflow_token` credential kind used by the demo-readiness control-loop workflows.
+- Action-path and BOM contracts also carry additive `evidence_decisions[]` and `contradictions[]` for source precedence, freshness, rejected candidates, and enterprise-evidence conflicts.
 - `findings/`: finding and extension-detector descriptor contracts.
 - `inventory/` and `risk/`: deterministic privilege, credential-provenance, action-path, and govern-first contracts.
 - `manifest/`: open `wrkr-manifest.yaml` interoperability specification.
@@ -16,6 +18,7 @@ Canonical enum additions in the v1 schema line include:
 
 - `control_resolution_state`: `detected_control`, `declared_control`, `external_control_reference`, `no_visible_control`, `not_applicable`, `contradictory_control`
 - canonical evidence states: `verified`, `declared`, `inferred`, `unknown`, `contradictory`
+- freshness states: `fresh`, `stale`, `expired`, `unknown`
 - `target_class`: `production_impacting`, `release_adjacent`, `customer_data_adjacent`, `internal_tooling`, `developer_productivity`, `test_demo_sandbox`, `unknown`
 - `action_path_type`: `ai_assisted_workflow`, `agent_framework`, `automation_bot`, `ci_cd_workflow`, `legacy_script`, `plain_source_code`, `unknown_executable_path`
 - coverage-qualified absence states: `not_found_with_complete_coverage`, `not_found_with_reduced_coverage`, `not_scanned`, `unsupported_surface`, `candidate_parse_failed`

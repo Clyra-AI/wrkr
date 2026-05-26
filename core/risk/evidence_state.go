@@ -5,6 +5,7 @@ import (
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/attribution"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/owners"
 )
 
@@ -82,6 +83,10 @@ func DecorateControlMetadata(paths []ActionPath, repoContexts map[string]attribu
 		out[i].RuntimeEvidenceState = chooseEvidenceState(out[i].RuntimeEvidenceState, meta.RuntimeEvidenceState)
 		out[i].TargetEvidenceState = chooseEvidenceState(out[i].TargetEvidenceState, meta.TargetEvidenceState)
 		out[i].CredentialEvidenceState = chooseEvidenceState(out[i].CredentialEvidenceState, meta.CredentialEvidenceState)
+		out[i].TargetClass = chooseTargetClass(out[i].TargetClass, meta.TargetClass)
+		out[i].TargetClassReasons = dedupeSortedStrings(append(append([]string(nil), out[i].TargetClassReasons...), meta.TargetClassReasons...))
+		out[i].TargetClassEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out[i].TargetClassEvidenceRefs...), meta.TargetClassEvidenceRefs...))
+		out[i].EvidenceDecisions = mergeEvidenceDecisions(out[i].EvidenceDecisions, meta.EvidenceDecisions)
 	}
 	return out
 }
@@ -146,6 +151,19 @@ func projectEvidenceStates(path ActionPath) ActionPath {
 }
 
 func deriveApprovalEvidenceState(path ActionPath) (string, []string, []string) {
+	if decision, ok := evidenceDecisionForField(path, evidencepolicy.FieldApproval); ok {
+		refs := decisionEvidenceRefs(decision)
+		switch {
+		case strings.TrimSpace(decision.ConflictState) == evidencepolicy.ConflictStateAmbiguous:
+			return EvidenceStateContradictory, []string{"approval_evidence:conflict"}, refs
+		case decisionFreshnessExpired(decision):
+			return EvidenceStateUnknown, []string{"approval_evidence:expired"}, refs
+		case decisionFreshnessStale(decision):
+			return EvidenceStateUnknown, []string{"approval_evidence:stale"}, refs
+		default:
+			return decisionEvidenceState(decision, evidencepolicy.FieldApproval), []string{"approval_evidence:precedence_selected"}, refs
+		}
+	}
 	reasons := []string{}
 	refs := []string{}
 	approvalSatisfied := false
@@ -180,6 +198,20 @@ func deriveApprovalEvidenceState(path ActionPath) (string, []string, []string) {
 }
 
 func deriveOwnerEvidenceState(path ActionPath) (string, []string, []string) {
+	if decision, ok := evidenceDecisionForField(path, evidencepolicy.FieldOwner); ok {
+		refs := decisionEvidenceRefs(decision)
+		switch {
+		case strings.TrimSpace(decision.ConflictState) == evidencepolicy.ConflictStateAmbiguous:
+			reasons := []string{"owner_evidence:conflict"}
+			return EvidenceStateContradictory, dedupeSortedStrings(append(reasons, path.OwnershipConflicts...)), refs
+		case decisionFreshnessExpired(decision):
+			return EvidenceStateUnknown, []string{"owner_evidence:expired"}, refs
+		case decisionFreshnessStale(decision):
+			return EvidenceStateUnknown, []string{"owner_evidence:stale"}, refs
+		default:
+			return decisionEvidenceState(decision, evidencepolicy.FieldOwner), []string{"owner_evidence:precedence_selected"}, refs
+		}
+	}
 	reasons := []string{}
 	refs := dedupeSortedStrings(path.OwnershipEvidence)
 	switch {
@@ -367,7 +399,10 @@ func deriveControlResolutionState(path ActionPath, fieldReasons []string) (strin
 		normalizeEvidenceState(path.ApprovalEvidenceState) == EvidenceStateContradictory,
 		normalizeEvidenceState(path.OwnerEvidenceState) == EvidenceStateContradictory,
 		normalizeEvidenceState(path.ProofEvidenceState) == EvidenceStateContradictory,
-		normalizeEvidenceState(path.RuntimeEvidenceState) == EvidenceStateContradictory:
+		normalizeEvidenceState(path.RuntimeEvidenceState) == EvidenceStateContradictory,
+		normalizeEvidenceState(path.TargetEvidenceState) == EvidenceStateContradictory,
+		normalizeEvidenceState(path.CredentialEvidenceState) == EvidenceStateContradictory,
+		len(path.Contradictions) > 0:
 		return ControlResolutionStateContradictoryControl, dedupeSortedStrings(append(reasons, "control_resolution:contradictory"))
 	case seed == ControlResolutionStateExternalControlReference:
 		return ControlResolutionStateExternalControlReference, dedupeSortedStrings(append(reasons, "control_resolution:external_control_reference"))
@@ -379,6 +414,61 @@ func deriveControlResolutionState(path ActionPath, fieldReasons []string) (strin
 		return chooseControlResolutionState(ControlResolutionStateDetectedControl, seed), dedupeSortedStrings(append(reasons, "control_resolution:detected_control"))
 	default:
 		return chooseControlResolutionState(ControlResolutionStateNoVisibleControl, seed), dedupeSortedStrings(append(reasons, "control_resolution:no_visible_control"))
+	}
+}
+
+func evidenceDecisionForField(path ActionPath, field string) (evidencepolicy.Decision, bool) {
+	for _, item := range path.EvidenceDecisions {
+		if strings.TrimSpace(item.Field) == strings.TrimSpace(field) {
+			return item, true
+		}
+	}
+	return evidencepolicy.Decision{}, false
+}
+
+func decisionEvidenceRefs(decision evidencepolicy.Decision) []string {
+	values := append([]string(nil), decision.SelectedEvidenceRefs...)
+	for _, item := range decision.RejectedCandidates {
+		values = append(values, item.EvidenceRefs...)
+	}
+	return dedupeSortedStrings(values)
+}
+
+func decisionFreshnessExpired(decision evidencepolicy.Decision) bool {
+	return strings.TrimSpace(decision.SelectedFreshnessState) == evidencepolicy.FreshnessStateExpired
+}
+
+func decisionFreshnessStale(decision evidencepolicy.Decision) bool {
+	return strings.TrimSpace(decision.SelectedFreshnessState) == evidencepolicy.FreshnessStateStale
+}
+
+func decisionEvidenceState(decision evidencepolicy.Decision, field string) string {
+	switch strings.TrimSpace(decision.SelectedStatus) {
+	case "unmatched":
+		return EvidenceStateUnknown
+	case "conflict":
+		return EvidenceStateContradictory
+	}
+	sourceType := evidencepolicy.NormalizeSourceType(decision.SelectedSourceType)
+	switch strings.TrimSpace(field) {
+	case evidencepolicy.FieldOwner:
+		switch sourceType {
+		case evidencepolicy.SourceTypeSignedDeclaration, evidencepolicy.SourceTypeCustomerOwnerMap:
+			return EvidenceStateDeclared
+		case evidencepolicy.SourceTypeGitHubMetadata, evidencepolicy.SourceTypeRepoFallback:
+			return EvidenceStateInferred
+		default:
+			return EvidenceStateVerified
+		}
+	default:
+		switch sourceType {
+		case evidencepolicy.SourceTypeProviderExport, evidencepolicy.SourceTypeGitHubTeamExport, evidencepolicy.SourceTypeBackstageExport, evidencepolicy.SourceTypeTicketExport:
+			return EvidenceStateVerified
+		case evidencepolicy.SourceTypeGitHubMetadata, evidencepolicy.SourceTypeRepoFallback:
+			return EvidenceStateInferred
+		default:
+			return EvidenceStateDeclared
+		}
 	}
 }
 
