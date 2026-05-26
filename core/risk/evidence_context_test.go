@@ -149,15 +149,16 @@ func TestEvidenceCompletenessAxes(t *testing.T) {
 	completeness := paths[0].EvidenceCompleteness
 	if completeness == nil {
 		t.Fatal("expected completeness")
-	}
-	if completeness.TotalScore < 85 {
-		t.Fatalf("expected strong completeness score, got %+v", completeness)
-	}
-	if completeness.Label != EvidenceCompletenessStrong {
-		t.Fatalf("expected strong completeness label, got %+v", completeness)
-	}
-	if len(completeness.AxisScores) != len(completenessAxisOrder) {
-		t.Fatalf("expected one score per completeness axis, got %+v", completeness.AxisScores)
+	} else {
+		if completeness.TotalScore < 85 {
+			t.Fatalf("expected strong completeness score, got %+v", completeness)
+		}
+		if completeness.Label != EvidenceCompletenessStrong {
+			t.Fatalf("expected strong completeness label, got %+v", completeness)
+		}
+		if len(completeness.AxisScores) != len(completenessAxisOrder) {
+			t.Fatalf("expected one score per completeness axis, got %+v", completeness.AxisScores)
+		}
 	}
 }
 
@@ -243,8 +244,7 @@ func TestEvidenceCompletenessSummaryCountsReducedCoverageWithoutUnsupportedSurfa
 	summary := BuildEvidenceCompletenessSummary(paths)
 	if summary == nil {
 		t.Fatal("expected completeness summary")
-	}
-	if summary.ReducedCoveragePathCount != 1 {
+	} else if summary.ReducedCoveragePathCount != 1 {
 		t.Fatalf("expected reduced coverage path count to include detector-only reduction, got %+v", summary)
 	}
 }
