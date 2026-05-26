@@ -181,6 +181,12 @@ func compareActionPaths(left, right ActionPath) bool {
 	if leftModel.controlPriorityRank != rightModel.controlPriorityRank {
 		return leftModel.controlPriorityRank < rightModel.controlPriorityRank
 	}
+	if autonomyTierRank(leftProjection.AutonomyTier) != autonomyTierRank(rightProjection.AutonomyTier) {
+		return autonomyTierRank(leftProjection.AutonomyTier) < autonomyTierRank(rightProjection.AutonomyTier)
+	}
+	if delegationReadinessRank(leftProjection.DelegationReadinessState) != delegationReadinessRank(rightProjection.DelegationReadinessState) {
+		return delegationReadinessRank(leftProjection.DelegationReadinessState) < delegationReadinessRank(rightProjection.DelegationReadinessState)
+	}
 	if leftModel.riskTierRank != rightModel.riskTierRank {
 		return leftModel.riskTierRank < rightModel.riskTierRank
 	}

@@ -82,6 +82,22 @@ func RenderMarkdown(summary Summary) string {
 			summary.AgentActionBOM.Summary.ControlEvidenceUnknownItems,
 			summary.AgentActionBOM.Summary.ProofEvidenceUnknownItems,
 		))
+		builder.WriteString(fmt.Sprintf("- Autonomy tiers: safe_metadata=%d low_risk_internal=%d owner_review_app_code=%d sensitive_code_or_infra=%d prod_or_customer_impacting=%d\n",
+			summary.AgentActionBOM.Summary.AutonomyTiers.Tier0SafeMetadata,
+			summary.AgentActionBOM.Summary.AutonomyTiers.Tier1LowRiskInternal,
+			summary.AgentActionBOM.Summary.AutonomyTiers.Tier2AppCodeOwnerReview,
+			summary.AgentActionBOM.Summary.AutonomyTiers.Tier3SensitiveCodeOrInfra,
+			summary.AgentActionBOM.Summary.AutonomyTiers.Tier4ProdPrivilegedCustomerImpact,
+		))
+		builder.WriteString(fmt.Sprintf("- Delegation readiness: safe_to_delegate=%d review_required=%d approval_required=%d proof_required=%d ready_for_control=%d blocked=%d blocked_by_contradiction=%d\n",
+			summary.AgentActionBOM.Summary.DelegationReadiness.SafeToDelegate,
+			summary.AgentActionBOM.Summary.DelegationReadiness.ReviewRequired,
+			summary.AgentActionBOM.Summary.DelegationReadiness.ApprovalRequired,
+			summary.AgentActionBOM.Summary.DelegationReadiness.ProofRequired,
+			summary.AgentActionBOM.Summary.DelegationReadiness.ReadyForControl,
+			summary.AgentActionBOM.Summary.DelegationReadiness.Blocked,
+			summary.AgentActionBOM.Summary.DelegationReadiness.BlockedByContradict,
+		))
 		if summary.ShareProfileMetadata != nil && summary.ShareProfileMetadata.RedactionApplied {
 			builder.WriteString(fmt.Sprintf("- Share redaction: version=%s policy=%s\n",
 				summary.ShareProfileMetadata.RedactionVersion,
@@ -111,7 +127,7 @@ func RenderMarkdown(summary Summary) string {
 			}
 			for idx := 0; idx < limit; idx++ {
 				item := summary.AgentActionBOM.Items[idx]
-				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s type=%s state=%s zone=%s target=%s review=%s priority=%s tier=%s control=%s approval=%s owner=%s proof=%s runtime=%s confidence=%s evidence=%s completeness=%s(%d) queue=%s remediation=%s\n",
+				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s type=%s state=%s zone=%s target=%s review=%s priority=%s tier=%s autonomy=%s readiness=%s recommended_control=%s control=%s approval=%s owner=%s proof=%s runtime=%s confidence=%s evidence=%s completeness=%s(%d) queue=%s remediation=%s\n",
 					markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType),
 					item.Repo,
 					item.Location,
@@ -123,6 +139,9 @@ func RenderMarkdown(summary Summary) string {
 					item.ReviewBurden,
 					item.ControlPriority,
 					item.RiskTier,
+					risk.BuyerAutonomyTierShortLabel(item.AutonomyTier),
+					risk.BuyerDelegationReadinessLabel(item.DelegationReadinessState),
+					risk.BuyerRecommendedControlLabel(item.RecommendedControl),
 					risk.BuyerControlResolutionLabel(item.ControlResolutionState),
 					risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState),
 					risk.BuyerEvidenceStateLabel("owner", item.OwnerEvidenceState),
@@ -135,6 +154,15 @@ func RenderMarkdown(summary Summary) string {
 					item.Queue,
 					item.Remediation,
 				))
+				if len(item.RiskClassificationValidationReasons) > 0 {
+					builder.WriteString(fmt.Sprintf("  classification_validation=%s\n", strings.Join(item.RiskClassificationValidationReasons, ", ")))
+				}
+				if item.TodayPath != nil || item.RecommendedGovernedPath != nil {
+					builder.WriteString(fmt.Sprintf("  governed_view=%s\n", markdownGovernedPathViews(item.TodayPath, item.RecommendedGovernedPath)))
+				}
+				if item.RecommendedActionContract != nil {
+					builder.WriteString(fmt.Sprintf("  contract=%s\n", markdownActionContract(item.RecommendedActionContract)))
+				}
 				if len(item.ClosureRequirements) > 0 {
 					builder.WriteString(fmt.Sprintf("  closure_requirements=%s\n", markdownClosureRequirements(item.ClosureRequirements)))
 				}
@@ -262,7 +290,7 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s type=%s state=%s zone=%s target=%s review=%s queue=%s priority=%s tier=%s control=%s approval=%s proof=%s runtime=%s confidence=%s evidence=%s completeness=%s(%d) policy=%s remediation=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s type=%s state=%s zone=%s target=%s review=%s queue=%s priority=%s tier=%s autonomy=%s readiness=%s recommended_control=%s control=%s approval=%s proof=%s runtime=%s confidence=%s evidence=%s completeness=%s(%d) policy=%s remediation=%s\n",
 				markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType),
 				item.Repo,
 				item.Location,
@@ -276,6 +304,9 @@ func RenderMarkdown(summary Summary) string {
 				item.Queue,
 				item.ControlPriority,
 				item.RiskTier,
+				risk.BuyerAutonomyTierShortLabel(item.AutonomyTier),
+				risk.BuyerDelegationReadinessLabel(item.DelegationReadinessState),
+				risk.BuyerRecommendedControlLabel(item.RecommendedControl),
 				risk.BuyerControlResolutionLabel(item.ControlResolutionState),
 				risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState),
 				risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
@@ -287,6 +318,15 @@ func RenderMarkdown(summary Summary) string {
 				item.PolicyStatus,
 				item.Remediation,
 			))
+			if len(item.RiskClassificationValidationReasons) > 0 {
+				builder.WriteString(fmt.Sprintf("  classification_validation=%s\n", strings.Join(item.RiskClassificationValidationReasons, ", ")))
+			}
+			if item.TodayPath != nil || item.RecommendedGovernedPath != nil {
+				builder.WriteString(fmt.Sprintf("  governed_view=%s\n", markdownGovernedPathViews(item.TodayPath, item.RecommendedGovernedPath)))
+			}
+			if item.RecommendedActionContract != nil {
+				builder.WriteString(fmt.Sprintf("  contract=%s\n", markdownActionContract(item.RecommendedActionContract)))
+			}
 			if len(item.ClosureRequirements) > 0 {
 				builder.WriteString(fmt.Sprintf("  closure_requirements=%s\n", markdownClosureRequirements(item.ClosureRequirements)))
 			}
@@ -732,6 +772,29 @@ func designPartnerMutableEndpoint(item AgentActionBOMItem) string {
 		parts = append(parts, label)
 	}
 	return strings.Join(parts, ", ")
+}
+
+func markdownGovernedPathViews(today *risk.GovernedPathView, recommended *risk.GovernedPathView) string {
+	parts := []string{}
+	if today != nil {
+		parts = append(parts, fmt.Sprintf("today=%s", strings.TrimSpace(today.Summary)))
+	}
+	if recommended != nil {
+		parts = append(parts, fmt.Sprintf("recommended=%s", strings.TrimSpace(recommended.Summary)))
+	}
+	return strings.Join(parts, " | ")
+}
+
+func markdownActionContract(contract *risk.RecommendedActionContract) string {
+	if contract == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s; readiness=%s; authority=%s; proof=%s",
+		risk.BuyerActionContractReadinessLabel(contract.ContractReadinessState),
+		risk.BuyerDelegationReadinessLabel(contract.DelegationReadinessState),
+		firstNonEmptyValue(contract.RequiredAuthority, "not specified"),
+		firstNonEmptyValue(contract.RequiredProof, "not specified"),
+	)
 }
 
 func designPartnerLineage(item AgentActionBOMItem) string {

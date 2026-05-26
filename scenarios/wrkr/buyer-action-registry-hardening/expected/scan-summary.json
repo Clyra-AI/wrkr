@@ -13,14 +13,23 @@
   },
   "mutable_surface_path": {
     "repo": "payments-private",
-    "location": ".mcp.json",
+    "location": "server/refund_routes.js",
     "confidence_lane": "likely_action_path",
     "semantics": [
-      "data_export",
+      "delete",
+      "delete",
       "production_mutation",
-      "refund"
+      "production_mutation",
+      "production_mutation",
+      "production_mutation",
+      "refund",
+      "refund",
+      "user_admin",
+      "user_admin",
+      "write",
+      "write"
     ],
-    "config_fingerprint": "cfg-849ee5139102",
+    "config_fingerprint": "cfg-25ce41dafe7a",
     "action_lineage_kinds": [
       "repo",
       "workflow",
