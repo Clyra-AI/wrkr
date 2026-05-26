@@ -1,8 +1,8 @@
 package governancequeue
 
 const (
-	CredentialStatusPresent = "credential_access_present"
-	CredentialStatusNone    = "no_credential_access"
+	CredentialStatusPresent = "credential_access_present" // #nosec G101 -- deterministic queue status label, not credential material.
+	CredentialStatusNone    = "no_credential_access"      // #nosec G101 -- deterministic queue status label, not credential material.
 )
 
 type Item struct {
