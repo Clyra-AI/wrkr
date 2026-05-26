@@ -1,0 +1,43 @@
+schema_version: v1
+generated_at: 2026-05-25T17:30:30Z
+issuer: acme-platform
+owners:
+  - repo: acme/payments
+    path: .github/workflows/release.yml
+    owner: "@acme/platform"
+    observed_at: 2026-05-25T17:00:00Z
+    valid_until: 2026-05-31T17:00:00Z
+    confidence: high
+    evidence_refs:
+      - evidence://fake/declarations.yaml#owners/release
+targets:
+  - repo: acme/payments
+    path: .github/workflows/release.yml
+    target_class: test_demo_sandbox
+    non_production: true
+    observed_at: 2026-05-25T17:00:00Z
+    valid_until: 2026-05-31T17:00:00Z
+    confidence: medium
+    evidence_refs:
+      - evidence://fake/declarations.yaml#targets/non-prod
+controls:
+  - repo: acme/payments
+    workflow: .github/workflows/release.yml
+    environment: production
+    branch: main
+    approval_required: true
+    required_checks:
+      - fast-lane
+      - scan-contract
+      - wave-sequence
+    security_gates:
+      - branch-protection
+    freeze_windows:
+      - friday-release-freeze
+    kill_switches:
+      - release-bot-disable
+    observed_at: 2026-05-25T17:00:00Z
+    valid_until: 2026-05-31T17:00:00Z
+    confidence: high
+    evidence_refs:
+      - evidence://fake/declarations.yaml#controls/release

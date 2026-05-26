@@ -5,9 +5,11 @@ This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifac
 - `cli/`: shared CLI success/error envelope contracts.
 - `agent-action-bom.schema.json`: canonical Agent Action BOM artifact contract for report and evidence outputs.
 - `evidence/external-control-evidence.schema.json`: canonical local sidecar contract for imported ownership, approval, branch, deployment, and policy control evidence.
+- `external-control-evidence.schema.json` is the canonical local external sidecar schema for ownership, approval, freshness, branch/deployment constraints, and control evidence refs.
 - Local declaration inputs now also include versioned `wrkr-control-declarations.yaml` / `.wrkr/control-declarations.yaml` semantics for declared owners, target classes, non-production paths, and control evidence links.
 - Agent Action BOM, report summary, and risk-report schemas now also carry additive policy-coverage, buyer-facing action-path posture (`control_state`, `risk_zone`, `review_burden`), normalized runtime-evidence/Gait coverage projection, additive imported control-evidence correlation metadata (`constraint_evidence_classes`, `constraint_evidence_refs`, external-control record counts, repo/service/workflow/environment correlation keys), optional `introduced_by` attribution fields, and the additive `github_workflow_token` credential kind used by the demo-readiness control-loop workflows.
 - Action-path and BOM contracts also carry additive `evidence_decisions[]` and `contradictions[]` for source precedence, freshness, rejected candidates, and enterprise-evidence conflicts.
+- Report and BOM action-path contracts also carry `closure_requirements`, `lifecycle_queue`, `governance_disposition`, and `evidence_completeness` so accepted-risk, suppression, closure guidance, lifecycle ownership work, and evidence sufficiency stay explicit in v1.
 - `findings/`: finding and extension-detector descriptor contracts.
 - `inventory/` and `risk/`: deterministic privilege, credential-provenance, action-path, and govern-first contracts.
 - `manifest/`: open `wrkr-manifest.yaml` interoperability specification.
@@ -25,3 +27,5 @@ Canonical enum additions in the v1 schema line include:
 - runtime absence states: `not_collected`, `not_applicable`, `missing_required`, `missing_for_control_claim`
 
 Compatibility aliases can remain present in v1 where existing consumers still expect them, but schema examples and user-facing docs should lead with the canonical evidence-state fields instead of unsupported blanket `missing_*` wording.
+
+Deterministic Sprint 2 example fixtures live under `testinfra/contracts/fixtures/sprint2/` and cover `external-control-evidence.schema.json`, `wrkr-control-declarations.yaml`, report action-path evidence decisions, contradictions, accepted-risk governance, lifecycle queue items, and `evidence_completeness`.

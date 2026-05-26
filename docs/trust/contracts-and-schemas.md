@@ -40,6 +40,18 @@ Wrkr's public report, backlog, risk, and evidence contracts now lead with eviden
 
 Compatibility aliases such as `missing_approval_paths`, `missing_policy_paths`, `missing_proof_paths`, and older `approval_gap` surfaces remain additive compatibility shims in v1, but they are derived from the canonical evidence-state projection rather than serving as independent truth.
 
+## Enterprise Evidence Contracts
+
+Wrkr's Sprint 2 enterprise-evidence surface stays local-file based and deterministic.
+
+- `schemas/v1/evidence/external-control-evidence.schema.json` is the public v1 sidecar contract for imported ownership, approval, branch protection, deployment approvals, required checks, freeze windows, kill switches, and other external control evidence.
+- `wrkr-control-declarations.yaml` and `.wrkr/control-declarations.yaml` are versioned declaration inputs for owner mappings, target classes, non-production declarations, and declared control links.
+- `action_paths[*].evidence_decisions[]` and `agent_action_bom.items[*].evidence_decisions[]` preserve source precedence, freshness, selected evidence, and rejected lower-precedence candidates instead of flattening imported evidence to one opaque winner.
+- `action_paths[*].contradictions[]`, `closure_requirements`, `lifecycle_queue`, and `evidence_completeness` keep enterprise conflicts, required closure evidence, lifecycle ownership gaps, and sufficiency scoring explicit across report, BOM, and risk surfaces.
+- Accepted governance dispositions stay auditable: `accepted_risk` and suppression metadata remain visible in JSON/report artifacts instead of deleting evidence.
+- Evidence completeness is not risk scoring. Low `evidence_completeness` means Wrkr needs more evidence for the current conclusion, not that the path is safe.
+- Canonical source precedence is documented and deterministic: provider export, signed declaration, repo-local policy/config, app catalog ownership, git/review inference, then naming-convention or repo fallback.
+
 ## Canonical references
 
 - Root exit codes and flags: `docs/commands/root.md`

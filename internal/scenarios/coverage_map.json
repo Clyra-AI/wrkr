@@ -80,6 +80,47 @@
   "CES-external-control-reference": [
     "TestControlEvidenceStateScenario"
   ],
+  "S2-11-external-evidence-ingest": [
+    "TestControlEvidenceStateScenario",
+    "TestExternalControlEvidenceAcceptance",
+    "TestSprint2SchemaExamplesValidate"
+  ],
+  "S2-12-source-precedence": [
+    "TestSprint2EvidenceDecisionContract",
+    "TestSprint2DocsCLIParity"
+  ],
+  "S2-13-freshness-and-expiry": [
+    "TestSprint2EvidenceDecisionContract",
+    "TestSprint2SchemaExamplesValidate"
+  ],
+  "S2-14-control-declarations": [
+    "TestSprint2SchemaExamplesValidate",
+    "TestSprint2DocsCLIParity"
+  ],
+  "S2-15-contradiction-detection": [
+    "TestSprint2EvidenceDecisionContract",
+    "TestScenarioReportOverclaim"
+  ],
+  "S2-16-accepted-risk-and-suppression": [
+    "TestSprint2SchemaExamplesValidate",
+    "TestSprint2DocsCLIParity"
+  ],
+  "S2-17-branch-and-deployment-constraints": [
+    "TestExternalControlEvidenceAcceptance",
+    "TestSprint2SchemaExamplesValidate"
+  ],
+  "S2-18-closure-guidance": [
+    "TestSprint2SchemaExamplesValidate",
+    "TestDemoActionBOMReadinessSchemasDeclareClosureAndCompletenessSummaryContracts"
+  ],
+  "S2-19-lifecycle-ownership-queue": [
+    "TestSprint2SchemaExamplesValidate",
+    "TestScenarioAgentActionBOMDemoContract"
+  ],
+  "S2-20-evidence-completeness": [
+    "TestSprint2SchemaExamplesValidate",
+    "TestDemoActionBOMReadinessSchemasDeclareClosureAndCompletenessSummaryContracts"
+  ],
   "W5-overclaim-qa": [
     "TestScenarioReportOverclaim"
   ],

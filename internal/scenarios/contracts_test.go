@@ -46,6 +46,8 @@ func TestScenarioContracts(t *testing.T) {
 		"scenarios/wrkr/agent-action-bom-demo/expected/after-report.json",
 		"scenarios/wrkr/agent-action-bom-demo/expected/after-ingest.json",
 		"scenarios/wrkr/agent-action-bom-demo/expected/after-evidence-report.json",
+		"scenarios/wrkr/control-evidence-state/repos",
+		"scenarios/wrkr/target-classification/repos",
 		"scenarios/wrkr/buyer-action-registry-hardening/repos",
 		"scenarios/wrkr/buyer-action-registry-hardening/expected/scan-summary.json",
 		"scenarios/wrkr/buyer-action-registry-hardening/expected/report-internal-summary.json",
@@ -128,7 +130,7 @@ func TestScenarioContracts(t *testing.T) {
 	}
 
 	requiredMappings := []string{"FR11", "FR12", "FR13", "FR14", "FR15", "AC10", "AC11", "AC15", "AC18", "AC19", "AC20", "AC21", "AC22", "AC23", "AC24", "AC25", "AC26", "AC27", "FO14-duplicate", "FO14-mixed-governance", "FO14-noise-pack", "FO15-usefulness", "W5-overclaim-qa"}
-	testSymbols := scenarioTestSymbols(t, repoRoot)
+	testSymbols := coverageTestSymbols(t, repoRoot)
 	for _, key := range requiredMappings {
 		mapped, ok := coverage[key]
 		if !ok || len(mapped) == 0 {
@@ -140,25 +142,80 @@ func TestScenarioContracts(t *testing.T) {
 			}
 		}
 	}
+
+	checkSprint2ScenarioCoverageMap(t, repoRoot, coverage, testSymbols)
 }
 
-func scenarioTestSymbols(t *testing.T, repoRoot string) map[string]struct{} {
+func TestSprint2ScenarioCoverageMap(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRootWithoutTag(t)
+	coveragePath := filepath.Join(repoRoot, "internal", "scenarios", "coverage_map.json")
+	payload, err := os.ReadFile(coveragePath)
+	if err != nil {
+		t.Fatalf("read coverage map: %v", err)
+	}
+	coverage := map[string][]string{}
+	if err := json.Unmarshal(payload, &coverage); err != nil {
+		t.Fatalf("parse coverage map: %v", err)
+	}
+
+	checkSprint2ScenarioCoverageMap(t, repoRoot, coverage, coverageTestSymbols(t, repoRoot))
+}
+
+func checkSprint2ScenarioCoverageMap(t *testing.T, repoRoot string, coverage map[string][]string, testSymbols map[string]struct{}) {
 	t.Helper()
 
-	files, err := filepath.Glob(filepath.Join(repoRoot, "internal", "scenarios", "*_test.go"))
-	if err != nil {
-		t.Fatalf("glob scenario test files: %v", err)
+	requiredMappings := []string{
+		"S2-11-external-evidence-ingest",
+		"S2-12-source-precedence",
+		"S2-13-freshness-and-expiry",
+		"S2-14-control-declarations",
+		"S2-15-contradiction-detection",
+		"S2-16-accepted-risk-and-suppression",
+		"S2-17-branch-and-deployment-constraints",
+		"S2-18-closure-guidance",
+		"S2-19-lifecycle-ownership-queue",
+		"S2-20-evidence-completeness",
 	}
-	pattern := regexp.MustCompile(`func\s+(Test(?:Scenario|Epic)[A-Za-z0-9_]+)\s*\(`)
-	symbols := map[string]struct{}{}
-	for _, file := range files {
-		payload, err := os.ReadFile(file)
-		if err != nil {
-			t.Fatalf("read %s: %v", file, err)
+
+	for _, key := range requiredMappings {
+		mapped, ok := coverage[key]
+		if !ok || len(mapped) == 0 {
+			t.Fatalf("coverage map missing non-empty Sprint 2 mapping for %s", key)
 		}
-		for _, match := range pattern.FindAllStringSubmatch(string(payload), -1) {
-			if len(match) == 2 {
-				symbols[match[1]] = struct{}{}
+		for _, testName := range mapped {
+			if _, exists := testSymbols[strings.TrimSpace(testName)]; !exists {
+				t.Fatalf("Sprint 2 coverage map for %s references unknown test %q", key, testName)
+			}
+		}
+	}
+}
+
+func coverageTestSymbols(t *testing.T, repoRoot string) map[string]struct{} {
+	t.Helper()
+
+	patterns := []string{
+		filepath.Join(repoRoot, "internal", "scenarios", "*_test.go"),
+		filepath.Join(repoRoot, "internal", "acceptance", "*_test.go"),
+		filepath.Join(repoRoot, "testinfra", "contracts", "*_test.go"),
+	}
+	symbols := map[string]struct{}{}
+	pattern := regexp.MustCompile(`func\s+(Test[A-Za-z0-9_]+)\s*\(`)
+	for _, globPattern := range patterns {
+		files, err := filepath.Glob(globPattern)
+		if err != nil {
+			t.Fatalf("glob test files for %s: %v", globPattern, err)
+		}
+		for _, file := range files {
+			payload, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatalf("read %s: %v", file, err)
+			}
+			for _, match := range pattern.FindAllStringSubmatch(string(payload), -1) {
+				if len(match) == 2 {
+					symbols[match[1]] = struct{}{}
+				}
 			}
 		}
 	}

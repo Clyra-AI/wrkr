@@ -1,0 +1,319 @@
+{
+  "path_id": "apc-sprint2-bom",
+  "org": "acme",
+  "repo": "acme/payments",
+  "tool_type": "compiled_action",
+  "location": ".github/workflows/release.yml",
+  "credential_access": true,
+  "approval_gap": true,
+  "owner": "@acme/platform",
+  "owner_source": "codeowners",
+  "ownership_status": "verified",
+  "ownership_state": "resolved",
+  "evidence_decisions": [
+    {
+      "field": "owner",
+      "selected_value": "@acme/platform",
+      "selected_source_type": "customer_owner_map",
+      "selected_source": "customer_owner_map",
+      "selected_evidence_refs": [
+        "evidence://fake/customer-owner-map.yaml#payments"
+      ],
+      "selected_observed_at": "2026-05-25T17:00:00Z",
+      "selected_valid_until": "2026-05-31T17:00:00Z",
+      "selected_freshness_state": "fresh",
+      "selected_status": "matched",
+      "conflict_state": "resolved",
+      "reason_codes": [
+        "precedence:selected:customer_owner_map"
+      ],
+      "rejected_candidates": [
+        {
+          "field": "owner",
+          "value": "@acme/release",
+          "source_type": "codeowners",
+          "source": "CODEOWNERS",
+          "evidence_refs": [
+            "codeowners:CODEOWNERS:*"
+          ],
+          "observed_at": "2026-05-25T17:00:00Z",
+          "freshness_state": "unknown",
+          "status": "matched",
+          "reason_codes": [
+            "precedence:lower_priority"
+          ]
+        }
+      ]
+    }
+  ],
+  "governance_disposition": {
+    "kind": "accepted_risk",
+    "status": "active",
+    "reason": "Time-boxed release exception while migrating to provider-exported approvals.",
+    "scope": "path:acme/payments:.github/workflows/release.yml",
+    "issuer": "@acme/security",
+    "expires_at": "2026-06-30T00:00:00Z",
+    "evidence_state": "declared",
+    "visibility_behavior": "appendix_visible",
+    "rescan_behavior": "recheck_on_every_scan",
+    "evidence_refs": [
+      "approval://accepted-risk/release"
+    ]
+  },
+  "lifecycle_queue": {
+    "queue_id": "lifecycle-queue-release-owner",
+    "gap_id": "gap-release-owner-verification",
+    "repo": "acme/payments",
+    "path": ".github/workflows/release.yml",
+    "reason_code": "owner_needs_verified_external_evidence",
+    "severity": "high",
+    "owner": "@acme/platform",
+    "owner_evidence_state": "verified",
+    "credential_status": "credential_access_present",
+    "lifecycle_status": "active",
+    "recommended_action": "Attach fresh provider-exported ownership evidence.",
+    "sla": "7d",
+    "closure_criteria": "A fresh local provider export or signed declaration verifies the owner and branch constraints.",
+    "evidence_refs": [
+      "evidence://fake/customer-owner-map.yaml#payments"
+    ],
+    "source_conflicts": [
+      "codeowners:@acme/release",
+      "customer_owner_map:@acme/platform"
+    ]
+  },
+  "control_resolution_state": "external_control_reference",
+  "control_resolution_reasons": [
+    "precedence:selected:provider_export"
+  ],
+  "control_evidence_refs": [
+    "evidence://fake/provider-export.json#branch/main"
+  ],
+  "constraint_evidence_classes": [
+    "branch_protection",
+    "deployment_approval",
+    "required_check"
+  ],
+  "constraint_evidence_refs": [
+    "evidence://fake/provider-export.json#branch/main",
+    "evidence://fake/declarations.yaml#controls/release"
+  ],
+  "approval_evidence_state": "declared",
+  "owner_evidence_state": "verified",
+  "proof_evidence_state": "unknown",
+  "runtime_evidence_state": "unknown",
+  "target_evidence_state": "verified",
+  "credential_evidence_state": "verified",
+  "target_class": "production_impacting",
+  "action_path_type": "ci_cd_workflow",
+  "credential_provenance": {
+    "type": "static_secret",
+    "credential_kind": "github_workflow_token",
+    "subject": "GITHUB_TOKEN",
+    "scope": "workflow",
+    "confidence": "high",
+    "evidence_basis": [
+      "workflow_permissions:contents_write"
+    ],
+    "access_type": "standing",
+    "standing_access": true,
+    "likely_jit": false,
+    "evidence_location": ".github/workflows/release.yml",
+    "classification_reasons": [
+      "workflow:permissions.contents=write"
+    ],
+    "risk_multiplier": 1.4
+  },
+  "credential_authority": {
+    "credential_present": true,
+    "credential_referenced_by_workflow": true,
+    "credential_usable_by_path": true,
+    "access_type": "standing",
+    "standing_access": true,
+    "likely_jit": false,
+    "rotation_evidence_status": "missing",
+    "credential_source": "workflow_builtin_token",
+    "confidence": "high",
+    "reason_codes": [
+      "credential:workflow_builtin_token"
+    ]
+  },
+  "standing_privilege": true,
+  "standing_privilege_reasons": [
+    "workflow:contents_write"
+  ],
+  "control_state": "approval_required",
+  "control_state_reasons": [
+    "approval_evidence:declared"
+  ],
+  "risk_zone": "release",
+  "risk_zone_reasons": [
+    "workflow:release_path"
+  ],
+  "review_burden": "high",
+  "review_burden_reasons": [
+    "release_path_with_standing_credential"
+  ],
+  "confidence_lane": "confirmed_action_path",
+  "confidence_lane_reasons": [
+    "workflow:write_capable"
+  ],
+  "action_classes": [
+    "release"
+  ],
+  "action_reasons": [
+    "workflow:gh_release_create"
+  ],
+  "production_write": true,
+  "approval_gap_reasons": [
+    "approval_source_declared_only"
+  ],
+  "policy_status": "stale",
+  "policy_refs": [
+    "policy://gait/controls.deployment_constraints"
+  ],
+  "policy_status_reasons": [
+    "policy:constraints_need_refresh"
+  ],
+  "policy_confidence": "high",
+  "proof_coverage": "missing",
+  "runtime_evidence_status": "stale",
+  "runtime_evidence_absence_status": "missing_required",
+  "runtime_evidence_classes": [
+    "approval",
+    "freeze_window"
+  ],
+  "runtime_evidence_refs": [
+    "runtime://evidence/release-approval"
+  ],
+  "gait_coverage": {
+    "policy_decision": {
+      "status": "present",
+      "evidence_refs": [
+        "runtime:policy"
+      ]
+    },
+    "approval": {
+      "status": "stale",
+      "reasons": [
+        "runtime_evidence_stale:approval"
+      ],
+      "evidence_refs": [
+        "runtime://evidence/release-approval"
+      ]
+    },
+    "jit_credential": {
+      "status": "not_applicable"
+    },
+    "freeze_window": {
+      "status": "present",
+      "evidence_refs": [
+        "evidence://fake/declarations.yaml#controls/release"
+      ]
+    },
+    "kill_switch": {
+      "status": "present",
+      "evidence_refs": [
+        "evidence://fake/declarations.yaml#controls/release"
+      ]
+    },
+    "action_outcome": {
+      "status": "missing"
+    },
+    "proof_verification": {
+      "status": "missing"
+    }
+  },
+  "inventory_risk": "production_backed",
+  "risk_tier": "critical",
+  "queue": "accepted_risk_queue",
+  "finding_visibility": "appendix",
+  "remediation": "Track the accepted-risk exception to expiry, attach fresh branch/deployment evidence, and rescan before the next release window.",
+  "closure_requirements": [
+    {
+      "id": "closure-release-owner-proof",
+      "severity": "high",
+      "requirement_type": "owner_and_approval_evidence",
+      "current_evidence_state": "declared",
+      "required_evidence": "Attach fresh owner verification and provider-exported deployment approval evidence.",
+      "acceptable_source_classes": [
+        "provider_export",
+        "customer_owner_map",
+        "signed_declaration"
+      ],
+      "freshness_requirement": "fresh",
+      "examples": [
+        ".wrkr/provenance/external-control-evidence.json",
+        "wrkr-control-declarations.yaml"
+      ],
+      "closure_refs": [
+        "evidence://fake/provider-export.json#branch/main"
+      ],
+      "reason_codes": [
+        "closure:needs_fresh_owner_and_approval"
+      ],
+      "guidance": "Import fresh local ownership and deployment approval evidence, then rescan."
+    }
+  ],
+  "evidence_completeness": {
+    "total_score": 61,
+    "label": "partial_evidence",
+    "axis_scores": [
+      {
+        "axis": "discovery",
+        "score": 92,
+        "reasons": [
+          "workflow_discovered"
+        ]
+      },
+      {
+        "axis": "authority",
+        "score": 58,
+        "reasons": [
+          "owner_verified",
+          "approval_declared_only"
+        ]
+      },
+      {
+        "axis": "blast_radius",
+        "score": 88,
+        "reasons": [
+          "production_release_path"
+        ]
+      },
+      {
+        "axis": "control",
+        "score": 54,
+        "reasons": [
+          "branch_protection_present",
+          "deployment_constraints_declared"
+        ]
+      },
+      {
+        "axis": "runtime_evidence",
+        "score": 35,
+        "reasons": [
+          "runtime_approval_stale"
+        ]
+      },
+      {
+        "axis": "proof",
+        "score": 40,
+        "reasons": [
+          "proof_missing"
+        ]
+      }
+    ],
+    "evidence_gaps": [
+      "provider_approval_needs_refresh",
+      "proof_missing"
+    ],
+    "freshness_penalties": [
+      "freshness:runtime_approval_stale"
+    ],
+    "reasons": [
+      "completeness:authority_partial",
+      "completeness:runtime_stale"
+    ]
+  }
+}
