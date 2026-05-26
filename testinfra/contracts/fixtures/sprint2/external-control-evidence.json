@@ -1,0 +1,44 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-05-25T17:30:30Z",
+  "records": [
+    {
+      "record_kind": "external_control",
+      "record_id": "ece-provider-branch-main",
+      "source_type": "provider_export",
+      "source": "github_branch_protection_export",
+      "issuer": "github",
+      "repo": "acme/payments",
+      "workflow": ".github/workflows/release.yml",
+      "environment": "production",
+      "path": ".github/workflows/release.yml",
+      "observed_at": "2026-05-25T17:00:00Z",
+      "valid_until": "2026-05-31T17:00:00Z",
+      "confidence": "high",
+      "freshness_state": "fresh",
+      "evidence_class": "branch_protection",
+      "status": "matched",
+      "required_checks": ["fast-lane", "scan-contract", "wave-sequence"],
+      "branch": "main",
+      "evidence_refs": ["evidence://fake/provider-export.json#branch/main"]
+    },
+    {
+      "record_kind": "external_control",
+      "record_id": "ece-declaration-prod-release",
+      "source_type": "signed_declaration",
+      "source": "wrkr-control-declarations.yaml",
+      "issuer": "acme-platform",
+      "repo": "acme/payments",
+      "workflow": ".github/workflows/release.yml",
+      "environment": "production",
+      "path": ".github/workflows/release.yml",
+      "observed_at": "2026-05-25T17:00:00Z",
+      "max_age": "168h",
+      "confidence": "medium",
+      "freshness_state": "unknown",
+      "evidence_class": "deployment_approval",
+      "status": "matched",
+      "evidence_refs": ["evidence://fake/declarations.yaml#controls/release"]
+    }
+  ]
+}

@@ -51,6 +51,7 @@ Normalized evidence classes:
 Additional additive keys may include `tool`, `repo`, `service`, `workflow`, `environment`, `path`, `target`, `action_classes`, `policy_ref`, `proof_ref`, `graph_node_refs`, `graph_edge_refs`, `status`, `issuer`, `valid_until`, `max_age`, `confidence`, `freshness_state`, `redaction_hints`, `owner`, `required_checks`, `branch`, and `evidence_refs`.
 
 Wrkr normalizes external-control records with deterministic source precedence and freshness metadata. Correlation summaries now preserve additive `freshness_state` / `freshness_states` so stale or expired evidence is visible without silently verifying a control.
+These imports stay local-file based and deterministic; Wrkr correlates them without live provider calls.
 
 ## Safety and failure modes
 

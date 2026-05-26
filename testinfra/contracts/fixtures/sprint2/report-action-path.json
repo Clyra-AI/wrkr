@@ -1,0 +1,272 @@
+{
+  "path_id": "apc-sprint2-report",
+  "org": "acme",
+  "repo": "acme/payments",
+  "tool_type": "compiled_action",
+  "location": ".github/workflows/release.yml",
+  "write_capable": true,
+  "approval_gap": true,
+  "credential_access": true,
+  "attack_path_score": 9.8,
+  "risk_score": 9.4,
+  "recommended_action": "attach_evidence",
+  "control_resolution_state": "contradictory_control",
+  "control_resolution_reasons": [
+    "declaration:non_production",
+    "target:production_secret_present"
+  ],
+  "control_evidence_refs": [
+    "evidence://fake/provider-export.json#branch/main",
+    "evidence://fake/declarations.yaml#targets/non-prod"
+  ],
+  "constraint_evidence_classes": [
+    "branch_protection",
+    "deployment_approval"
+  ],
+  "constraint_evidence_refs": [
+    "evidence://fake/provider-export.json#branch/main",
+    "evidence://fake/declarations.yaml#controls/release"
+  ],
+  "constraint_evidence_status": "conflict",
+  "approval_evidence_state": "declared",
+  "owner_evidence_state": "verified",
+  "proof_evidence_state": "unknown",
+  "runtime_evidence_state": "unknown",
+  "target_evidence_state": "contradictory",
+  "credential_evidence_state": "verified",
+  "target_class": "production_impacting",
+  "target_class_reasons": [
+    "workflow:production_environment",
+    "credential:static_secret"
+  ],
+  "target_class_evidence_refs": [
+    "workflow:.github/workflows/release.yml"
+  ],
+  "evidence_decisions": [
+    {
+      "field": "approval",
+      "selected_value": "required-check:wave-sequence",
+      "selected_source_type": "provider_export",
+      "selected_source": "github_branch_protection_export",
+      "selected_evidence_refs": [
+        "evidence://fake/provider-export.json#branch/main"
+      ],
+      "selected_observed_at": "2026-05-25T17:00:00Z",
+      "selected_valid_until": "2026-05-31T17:00:00Z",
+      "selected_confidence": "high",
+      "selected_freshness_state": "fresh",
+      "selected_status": "matched",
+      "conflict_state": "resolved",
+      "reason_codes": [
+        "precedence:selected:provider_export"
+      ],
+      "rejected_candidates": [
+        {
+          "field": "approval",
+          "value": "manual-approval",
+          "source_type": "signed_declaration",
+          "source": "wrkr-control-declarations.yaml",
+          "evidence_refs": [
+            "evidence://fake/declarations.yaml#controls/release"
+          ],
+          "observed_at": "2026-05-25T17:00:00Z",
+          "valid_until": "2026-05-31T17:00:00Z",
+          "freshness_state": "fresh",
+          "status": "matched",
+          "reason_codes": [
+            "precedence:lower_priority"
+          ]
+        }
+      ]
+    }
+  ],
+  "contradictions": [
+    {
+      "class": "non_prod_declaration_with_production_secret",
+      "reason_codes": [
+        "declaration:non_production",
+        "target:production_secret_present"
+      ],
+      "evidence_refs": [
+        "evidence://fake/declarations.yaml#targets/non-prod",
+        "workflow:.github/workflows/release.yml"
+      ],
+      "impacted_target_class": "production_impacting",
+      "recommended_action": "Replace the non-production declaration with production-scoped evidence and rescan."
+    }
+  ],
+  "action_path_type": "ci_cd_workflow",
+  "action_path_type_reasons": [
+    "workflow:github_actions"
+  ],
+  "action_path_type_evidence_refs": [
+    "workflow:.github/workflows/release.yml"
+  ],
+  "credential_authority": {
+    "credential_present": true,
+    "credential_referenced_by_workflow": true,
+    "credential_usable_by_path": true,
+    "access_type": "standing",
+    "standing_access": true,
+    "likely_jit": false,
+    "rotation_evidence_status": "missing",
+    "credential_source": "workflow_secret_ref",
+    "confidence": "high",
+    "reason_codes": [
+      "credential:workflow_secret_ref"
+    ]
+  },
+  "policy_coverage_status": "conflict",
+  "policy_refs": [
+    "policy://gait/controls.deployment_constraints"
+  ],
+  "policy_status_reasons": [
+    "policy:declaration_conflict"
+  ],
+  "policy_confidence": "high",
+  "policy_evidence_refs": [
+    "policy://gait/controls.deployment_constraints"
+  ],
+  "control_state": "block_recommended",
+  "control_state_reasons": [
+    "contradiction:production_path_declared_non_prod"
+  ],
+  "risk_zone": "release",
+  "risk_zone_reasons": [
+    "workflow:release_path"
+  ],
+  "review_burden": "critical",
+  "review_burden_reasons": [
+    "contradiction:production_path_declared_non_prod"
+  ],
+  "confidence_lane": "confirmed_action_path",
+  "confidence_lane_reasons": [
+    "workflow:write_capable"
+  ],
+  "gait_coverage": {
+    "policy_decision": {
+      "status": "present",
+      "evidence_refs": [
+        "runtime:policy"
+      ]
+    },
+    "approval": {
+      "status": "missing",
+      "reasons": [
+        "runtime_evidence_not_collected:approval"
+      ]
+    },
+    "jit_credential": {
+      "status": "missing"
+    },
+    "freeze_window": {
+      "status": "present",
+      "evidence_refs": [
+        "evidence://fake/declarations.yaml#controls/release"
+      ]
+    },
+    "kill_switch": {
+      "status": "present",
+      "evidence_refs": [
+        "evidence://fake/declarations.yaml#controls/release"
+      ]
+    },
+    "action_outcome": {
+      "status": "missing"
+    },
+    "proof_verification": {
+      "status": "missing"
+    }
+  },
+  "inventory_risk": "production_backed",
+  "control_priority": "control_first",
+  "risk_tier": "critical",
+  "closure_requirements": [
+    {
+      "id": "closure-approval-provider-export",
+      "severity": "critical",
+      "requirement_type": "approval_evidence",
+      "current_evidence_state": "declared",
+      "required_evidence": "Attach a current provider export for branch protection and deployment approvals.",
+      "acceptable_source_classes": [
+        "provider_export",
+        "ticket_export"
+      ],
+      "freshness_requirement": "fresh",
+      "examples": [
+        ".wrkr/provenance/external-control-evidence.json"
+      ],
+      "closure_refs": [
+        "evidence://fake/provider-export.json#branch/main"
+      ],
+      "reason_codes": [
+        "closure:needs_verified_approval"
+      ],
+      "guidance": "Import a current local branch-protection or deployment-approval export, then rescan."
+    }
+  ],
+  "evidence_completeness": {
+    "total_score": 54,
+    "label": "partial_evidence",
+    "axis_scores": [
+      {
+        "axis": "discovery",
+        "score": 90,
+        "reasons": [
+          "workflow_discovered"
+        ]
+      },
+      {
+        "axis": "authority",
+        "score": 45,
+        "reasons": [
+          "owner_verified",
+          "approval_declared_only"
+        ]
+      },
+      {
+        "axis": "blast_radius",
+        "score": 80,
+        "reasons": [
+          "release_write"
+        ]
+      },
+      {
+        "axis": "control",
+        "score": 40,
+        "reasons": [
+          "branch_protection_fresh",
+          "deployment_approval_declared"
+        ]
+      },
+      {
+        "axis": "runtime_evidence",
+        "score": 20,
+        "reasons": [
+          "runtime_not_collected"
+        ]
+      },
+      {
+        "axis": "proof",
+        "score": 50,
+        "reasons": [
+          "proof_missing"
+        ]
+      }
+    ],
+    "evidence_gaps": [
+      "approval_provider_export_missing",
+      "runtime_evidence_missing"
+    ],
+    "freshness_penalties": [
+      "freshness:declaration_only"
+    ],
+    "contradiction_penalties": [
+      "non_prod_declaration_with_production_secret"
+    ],
+    "reasons": [
+      "completeness:authority_partial",
+      "completeness:runtime_missing"
+    ]
+  }
+}
