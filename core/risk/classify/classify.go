@@ -18,12 +18,29 @@ func EndpointClass(finding model.Finding) string {
 		deploymentStatus := evidenceValue(finding, "deployment_status")
 		autoDeploy := evidenceBool(finding, "auto_deploy")
 		switch {
-		case strings.Contains(deploymentArtifacts, ".github/workflows"), strings.Contains(deploymentArtifacts, "jenkinsfile"), deploymentStatus == "deployed" || deploymentStatus == "ambiguous", autoDeploy:
+		case strings.Contains(deploymentArtifacts, ".github/workflows"),
+			strings.Contains(deploymentArtifacts, ".gitlab-ci.yml"),
+			strings.Contains(deploymentArtifacts, ".gitlab-ci.yaml"),
+			strings.Contains(deploymentArtifacts, ".gitlab/ci/"),
+			strings.Contains(deploymentArtifacts, "azure-pipelines.yml"),
+			strings.Contains(deploymentArtifacts, "azure-pipelines.yaml"),
+			strings.Contains(deploymentArtifacts, ".azure/pipelines/"),
+			strings.Contains(deploymentArtifacts, "jenkinsfile"),
+			deploymentStatus == "deployed" || deploymentStatus == "ambiguous",
+			autoDeploy:
 			return "ci_pipeline"
 		default:
 			return "repo_config"
 		}
-	case finding.FindingType == "ci_autonomy" || strings.Contains(location, ".github/workflows") || strings.Contains(location, "jenkinsfile"):
+	case finding.FindingType == "ci_autonomy" ||
+		strings.Contains(location, ".github/workflows") ||
+		strings.HasSuffix(location, ".gitlab-ci.yml") ||
+		strings.HasSuffix(location, ".gitlab-ci.yaml") ||
+		strings.Contains(location, "/.gitlab/ci/") ||
+		strings.HasSuffix(location, "azure-pipelines.yml") ||
+		strings.HasSuffix(location, "azure-pipelines.yaml") ||
+		strings.Contains(location, "/.azure/pipelines/") ||
+		strings.Contains(location, "jenkinsfile"):
 		return "ci_pipeline"
 	case finding.FindingType == "compiled_action" || strings.Contains(location, "agent-plans") || strings.Contains(location, "workflows/"):
 		return "compiled_action"
@@ -65,7 +82,15 @@ func DataClass(finding model.Finding) string {
 	if strings.Contains(location, "customer") || strings.Contains(location, "profile") || strings.Contains(location, "user") {
 		return "pii"
 	}
-	if strings.Contains(location, ".github/workflows") || strings.Contains(location, "deploy") {
+	if finding.FindingType == "ci_autonomy" ||
+		strings.Contains(location, ".github/workflows") ||
+		strings.HasSuffix(location, ".gitlab-ci.yml") ||
+		strings.HasSuffix(location, ".gitlab-ci.yaml") ||
+		strings.Contains(location, "/.gitlab/ci/") ||
+		strings.HasSuffix(location, "azure-pipelines.yml") ||
+		strings.HasSuffix(location, "azure-pipelines.yaml") ||
+		strings.Contains(location, "/.azure/pipelines/") ||
+		strings.Contains(location, "deploy") {
 		return "delivery"
 	}
 	return "code"

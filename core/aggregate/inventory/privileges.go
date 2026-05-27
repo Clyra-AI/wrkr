@@ -212,7 +212,10 @@ func ClassifyPathContext(location string) *PathContext {
 		strings.Contains(lower, "_test.") || strings.Contains(lower, ".test.") || strings.Contains(lower, ".spec."):
 		return &PathContext{Kind: PathContextUnitTest, Confidence: "high", Reasons: []string{"unit_or_fixture_test_path"}}
 	case hasAnySegment(segmentSet, ".github", "workflows", "deploy", "deployments", "helm", "k8s", "kubernetes") ||
-		strings.Contains(lower, "dockerfile") || strings.Contains(lower, "jenkinsfile"):
+		strings.Contains(lower, "dockerfile") || strings.Contains(lower, "jenkinsfile") ||
+		strings.HasSuffix(lower, ".gitlab-ci.yml") || strings.HasSuffix(lower, ".gitlab-ci.yaml") ||
+		strings.Contains(lower, "/.gitlab/ci/") || strings.HasSuffix(lower, "azure-pipelines.yml") ||
+		strings.HasSuffix(lower, "azure-pipelines.yaml") || strings.Contains(lower, "/.azure/pipelines/"):
 		return &PathContext{Kind: PathContextDeployableSource, Confidence: "high", Reasons: []string{"deployment_or_ci_path"}}
 	case hasRuntimeExtension(ext):
 		return &PathContext{Kind: PathContextRuntimeSource, Confidence: "medium", Reasons: []string{"runtime_source_extension"}}

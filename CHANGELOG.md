@@ -34,6 +34,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added documentation, schemas, scenarios, and acceptance coverage for Sprint 2 enterprise evidence ingest, contradiction handling, accepted-risk visibility, lifecycle queues, closure guidance, and completeness scoring.
 - [semver:minor] Added a focused one-page Agent Action BOM view for a single workflow/action path with appendix details for raw findings, graph refs, proof details, and detector diagnostics.
 - [semver:minor] Documented Sprint 3 Agent Action BOM focused-path contracts and schema coverage for primary workflow BOM output, evidence bundles, and local review workflows.
+- [semver:minor] Added first-class GitLab CI/CD detection for local pipelines, safe local includes, jobs, stages, variables, manual gates, deploy/release authority, secrets by reference, AI agent execution, and MCP/tool invocation.
+- [semver:minor] Added GitLab CI/CD workflow authority to action paths, privilege budget, Agent Action BOM, control backlog, graph, evidence packets, and scan quality summaries.
+- [semver:minor] Added first-class Azure DevOps pipeline detection for local pipelines, safe local templates, stages, jobs, service connections, variable groups, environments, approvals/check hints, agent pools, deployment jobs, secrets by reference, AI agent execution, and MCP/tool invocation.
+- [semver:minor] Added Azure DevOps pipeline authority to action paths, privilege budget, Agent Action BOM, control backlog, graph, evidence packets, and scan quality summaries.
 
 ### Changed
 

@@ -280,6 +280,52 @@ func TestScanQualityReportsPartialCoverageWhenFallbackKeepsPositiveSignal(t *tes
 	}
 }
 
+func TestScanQualityReportsCIAgentPartialCoverageForWorkflowFallback(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".gitlab-ci.yml"), []byte("deploy:\n  script:\n    - codex --full-auto --approval never\n"), 0o600); err != nil {
+		t.Fatalf("write gitlab pipeline: %v", err)
+	}
+
+	report := Build(Input{
+		Mode:   "governance",
+		Scopes: []detect.Scope{{Org: "acme", Repo: "payments", Root: root}},
+		Findings: []model.Finding{
+			{
+				FindingType: "parse_error",
+				Location:    ".gitlab-ci.yml",
+				Repo:        "payments",
+				Org:         "acme",
+				ParseError:  &model.ParseError{Kind: "parse_error", Path: ".gitlab-ci.yml", Detector: "ciagent", Message: "unsupported remote include"},
+			},
+			{
+				FindingType: "ci_autonomy",
+				Location:    ".gitlab-ci.yml",
+				Repo:        "payments",
+				Org:         "acme",
+				Detector:    "ciagent",
+				ToolType:    "ci_agent",
+				Evidence: []model.Evidence{
+					{Key: "ci_platform", Value: "gitlab_ci"},
+					{Key: "include_resolution_status", Value: "partial"},
+				},
+			},
+		},
+	})
+
+	ciagent := findDetectorHealth(t, report, "ciagent")
+	if ciagent.Status != "partial" {
+		t.Fatalf("expected partial ciagent coverage, got %+v", ciagent)
+	}
+	if ciagent.PartialParses != 1 {
+		t.Fatalf("expected one partial parse, got %+v", ciagent)
+	}
+	if !containsReason(ciagent.CoverageReasons, "partial_parse") {
+		t.Fatalf("expected partial_parse reason, got %+v", ciagent)
+	}
+}
+
 func TestScanQualityReportsCompleteMCPCoverageForCleanNegativeResult(t *testing.T) {
 	t.Parallel()
 

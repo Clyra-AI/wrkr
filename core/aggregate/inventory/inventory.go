@@ -1237,7 +1237,10 @@ func classifyAdoptionPattern(repos []string, locations []ToolLocation) string {
 	if repoCount == 1 {
 		for _, item := range locations {
 			path := strings.ToLower(strings.TrimSpace(item.Location))
-			if strings.Contains(path, ".github/") || strings.Contains(path, ".gitlab/") || strings.HasSuffix(path, "jenkinsfile") {
+			if strings.Contains(path, ".github/") || strings.Contains(path, ".gitlab/") || strings.HasSuffix(path, ".gitlab-ci.yml") ||
+				strings.HasSuffix(path, ".gitlab-ci.yaml") || strings.Contains(path, ".azure/pipelines/") ||
+				strings.HasSuffix(path, "azure-pipelines.yml") || strings.HasSuffix(path, "azure-pipelines.yaml") ||
+				strings.HasSuffix(path, "jenkinsfile") {
 				return "team_level"
 			}
 		}

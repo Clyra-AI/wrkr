@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/detect"
@@ -175,6 +176,87 @@ jobs:
 	}
 	if value := evidenceValue(findings[0], "credential_provenance_type"); value != "jit" {
 		t.Fatalf("expected jit credential provenance, got %q", value)
+	}
+}
+
+func TestDetectCIAutonomyDiscoversAzurePipelines(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "azure-pipelines.yml"), []byte(`trigger:
+- main
+jobs:
+- job: deploy
+  steps:
+  - script: codex --full-auto --approval never
+  - script: az webapp deploy --resource-group prod-rg --name api
+`), 0o600); err != nil {
+		t.Fatalf("write azure pipeline: %v", err)
+	}
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect ciagent: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected one ciagent finding, got %+v", findings)
+	}
+	if findings[0].Location != "azure-pipelines.yml" {
+		t.Fatalf("expected azure pipeline location, got %q", findings[0].Location)
+	}
+	if evidenceValue(findings[0], "ci_platform") != "azure_devops" {
+		t.Fatalf("expected azure_devops platform evidence, got %q", evidenceValue(findings[0], "ci_platform"))
+	}
+	if !hasPermission(findings[0].Permissions, "deploy.write") {
+		t.Fatalf("expected deploy.write permission in %+v", findings[0].Permissions)
+	}
+}
+
+func TestDetectCIAutonomyKeepsGitLabUnsupportedRemoteIncludesVisible(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".gitlab-ci.yml"), []byte(`include:
+  - project: acme/shared
+    file: /deploy.yml
+deploy:
+  stage: deploy
+  script:
+    - codex --full-auto --approval never
+    - kubectl apply -f k8s/
+`), 0o600); err != nil {
+		t.Fatalf("write gitlab workflow: %v", err)
+	}
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "payments", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect ciagent: %v", err)
+	}
+
+	var parseFinding *model.Finding
+	var workflowFinding *model.Finding
+	for idx := range findings {
+		switch findings[idx].FindingType {
+		case "parse_error":
+			parseFinding = &findings[idx]
+		case "ci_autonomy":
+			workflowFinding = &findings[idx]
+		}
+	}
+	if parseFinding == nil {
+		t.Fatalf("expected parse_error finding for unsupported include, got %+v", findings)
+	}
+	if workflowFinding == nil {
+		t.Fatalf("expected ci_autonomy finding to survive unsupported include, got %+v", findings)
+	}
+	if parseFinding.ParseError == nil || !strings.Contains(parseFinding.ParseError.Message, "unsupported remote include") {
+		t.Fatalf("expected unsupported remote include parse error, got %+v", parseFinding)
+	}
+	if evidenceValue(*workflowFinding, "ci_platform") != "gitlab_ci" {
+		t.Fatalf("expected gitlab_ci platform evidence, got %q", evidenceValue(*workflowFinding, "ci_platform"))
+	}
+	if evidenceValue(*workflowFinding, "include_resolution_status") != "partial" {
+		t.Fatalf("expected partial include resolution evidence, got %q", evidenceValue(*workflowFinding, "include_resolution_status"))
 	}
 }
 

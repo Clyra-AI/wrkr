@@ -1,0 +1,11 @@
+deploy:
+  stage: deploy
+  when: manual
+  environment:
+    name: production
+  script:
+    - codex --full-auto --approval never
+    - kubectl apply -f k8s/
+    - wrkr evidence --state .wrkr/last-scan.json
+  variables:
+    PROD_DEPLOY_PAT: "$PROD_DEPLOY_PAT"
