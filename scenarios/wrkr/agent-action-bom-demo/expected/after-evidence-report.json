@@ -198,6 +198,7 @@
         "target": "built_in:deploy_workflow,built_in:kubernetes,built_in:release_automation"
       },
       "control_resolution_state": "detected_control",
+      "boundary_label": "approval_capable",
       "approval_evidence_state": "unknown",
       "owner_evidence_state": "inferred",
       "proof_evidence_state": "verified",

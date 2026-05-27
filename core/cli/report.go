@@ -36,6 +36,7 @@ type reportPayload struct {
 	ActionPathToControlFirst any                           `json:"action_path_to_control_first,omitempty"`
 	ControlPathGraph         any                           `json:"control_path_graph,omitempty"`
 	WorkflowChains           any                           `json:"workflow_chains,omitempty"`
+	RuntimeSessions          *ingest.SessionSummary        `json:"runtime_sessions,omitempty"`
 	RuntimeEvidence          *ingest.Summary               `json:"runtime_evidence,omitempty"`
 	EvidencePackets          *ingest.EvidencePacketSummary `json:"evidence_packets,omitempty"`
 	RecentPRReview           *reportcore.RecentPRReview    `json:"recent_pr_review,omitempty"`
@@ -85,6 +86,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	csvBacklogPath := fs.String("csv-backlog-path", "wrkr-control-backlog.csv", "CSV control backlog output path")
 	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary]")
 	shareProfileRaw := fs.String("share-profile", "", "share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
+	pairedShareProfileRaw := fs.String("paired-share-profile", "", "optional second share profile for paired internal/external artifacts [customer-redacted|design-partner|external-redacted|investor-safe]")
 	redactRaw := fs.String("redact", "", "comma-separated additive redaction fields [owners|repos|paths|credential-subjects|authors|filesystem|providers|proof-refs|graph-refs]")
 	topN := fs.Int("top", 5, "number of top findings")
 	recentReview := fs.Bool("recent-pr-review", false, "rank bounded recent AI-assisted or automation-assisted PR/MR paths from local provenance sidecars")
@@ -110,6 +112,17 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	template, shareProfile, parseErr := parseReportTemplateShare(*templateRaw, *shareProfileRaw)
 	if parseErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseErr.Error(), exitInvalidInput)
+	}
+	pairedShareProfile := reportcore.ShareProfile("")
+	if strings.TrimSpace(*pairedShareProfileRaw) != "" {
+		parsed, ok := reportcore.ParseShareProfile(strings.TrimSpace(*pairedShareProfileRaw))
+		if !ok || parsed == reportcore.ShareProfileInternal || parsed == shareProfile {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--paired-share-profile must be a distinct redacted share profile", exitInvalidInput)
+		}
+		if shareProfile != reportcore.ShareProfileInternal {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--paired-share-profile requires --share-profile internal", exitInvalidInput)
+		}
+		pairedShareProfile = parsed
 	}
 	redactionFields, parseRedactionErr := reportcore.ParseRedactionFields(*redactRaw)
 	if parseRedactionErr != nil {
@@ -161,17 +174,18 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	artifacts, err := generateReportArtifacts(reportArtifactOptions{
-		StatePath:        resolvedStatePath,
-		Snapshot:         snapshot,
-		PreviousSnapshot: previousSnapshot,
-		Baseline:         baseline,
-		RegressResult:    regressResult,
-		Manifest:         loadedManifest,
-		Top:              *topN,
-		Template:         template,
-		ShareProfile:     shareProfile,
-		RedactionFields:  redactionFields,
-		FocusPathID:      *focusPathID,
+		StatePath:          resolvedStatePath,
+		Snapshot:           snapshot,
+		PreviousSnapshot:   previousSnapshot,
+		Baseline:           baseline,
+		RegressResult:      regressResult,
+		Manifest:           loadedManifest,
+		Top:                *topN,
+		Template:           template,
+		ShareProfile:       shareProfile,
+		PairedShareProfile: pairedShareProfile,
+		RedactionFields:    redactionFields,
+		FocusPathID:        *focusPathID,
 		RecentPRReview: func() *reportcore.RecentPRReviewOptions {
 			if !reviewOpts.Enabled {
 				return nil
@@ -197,6 +211,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		if isArtifactPathError(err) {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		if isUnsafeManagedArtifactPathError(err) {
+			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
 		}
 		if reportcore.IsAgentActionBOMFocusError(err) {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
@@ -244,6 +261,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		ActionPathToControlFirst: summary.ActionPathToControlFirst,
 		ControlPathGraph:         summary.ControlPathGraph,
 		WorkflowChains:           summary.WorkflowChains,
+		RuntimeSessions:          summary.RuntimeSessions,
 		RuntimeEvidence:          summary.RuntimeEvidence,
 		EvidencePackets:          summary.EvidencePackets,
 		RecentPRReview:           summary.RecentPRReview,
@@ -382,6 +400,15 @@ func reportArtifactPathMap(artifacts reportArtifactResult) map[string]string {
 	}
 	if artifacts.BacklogCSVPath != "" {
 		paths["backlog_csv"] = artifacts.BacklogCSVPath
+	}
+	for key, value := range artifacts.PairedArtifactPaths {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		paths[key] = value
+	}
+	if artifacts.PrivateJoinMapPath != "" {
+		paths["private_join_map"] = artifacts.PrivateJoinMapPath
 	}
 	if len(paths) == 0 {
 		return nil

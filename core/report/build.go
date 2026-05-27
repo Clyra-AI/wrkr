@@ -102,17 +102,28 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		scanQuality.CompactSummary = &compact
 	}
 	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
+	runtimeSessions := buildSessionSummary(in.StatePath, in.Snapshot)
 	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
 	evidencePackets := buildEvidencePacketSummary(in.StatePath, in.Snapshot)
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
 	riskReport.ActionPaths = decorateActionPathsForEvidencePackets(riskReport.ActionPaths, evidencePackets)
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, scanQuality)
+	riskReport.ActionPaths = decorateBoundaryLabelsForReport(
+		riskReport.ActionPaths,
+		runtimeEvidenceByPath(runtimeEvidence),
+		runtimeSessionsByPath(runtimeSessions),
+		evidencePacketsByPath(evidencePackets),
+	)
 	if len(riskReport.ActionPaths) > 0 {
 		riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
+		riskReport.ControlPathGraph = decorateControlPathGraphBoundary(riskReport.ControlPathGraph, riskReport.ActionPaths)
 		riskReport.WorkflowChains = risk.BuildWorkflowChains(riskReport.ActionPaths, riskReport.ControlPathGraph)
 		riskReport.ActionPaths = risk.DecorateWorkflowChainRefs(riskReport.ActionPaths, riskReport.WorkflowChains)
 		riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
 	}
+	runtimeSessions = decorateSessionSummaryBoundary(runtimeSessions, riskReport.ActionPaths)
+	runtimeEvidence = decorateRuntimeEvidenceSummaryBoundary(runtimeEvidence, riskReport.ActionPaths)
+	evidencePackets = decorateEvidencePacketSummaryBoundary(evidencePackets, riskReport.ActionPaths)
 	riskReport.ActionPathToControlFirst = decorateControlFirstForReport(riskReport.ActionPaths, scanQualityCoverageReduced(scanQuality))
 	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
 	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
@@ -160,6 +171,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		assessmentSummary = sanitizeAssessmentSummaryPublic(assessmentSummary)
 		controlBacklog = sanitizeControlBacklogPublic(controlBacklog)
 		scanQuality = sanitizeScanQualityPublic(scanQuality)
+		runtimeSessions = sanitizeSessionSummaryPublic(runtimeSessions, rawActionPaths, riskReport.ActionPaths)
 		controlProofStatus = sanitizeControlProofStatusPublic(controlProofStatus, rawActionPaths, riskReport.ActionPaths)
 		evidencePackets = sanitizeEvidencePacketSummaryPublic(evidencePackets, rawActionPaths, riskReport.ActionPaths)
 	} else if redactionConfig.Applies() {
@@ -175,6 +187,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		assessmentSummary = sanitizeAssessmentSummaryWithConfig(assessmentSummary, redactionConfig)
 		controlBacklog = sanitizeControlBacklogWithConfig(controlBacklog, redactionConfig)
 		scanQuality = sanitizeScanQualityWithConfig(scanQuality, redactionConfig)
+		runtimeSessions = sanitizeSessionSummaryWithConfig(runtimeSessions, rawActionPaths, riskReport.ActionPaths, redactionConfig)
 		controlProofStatus = sanitizeControlProofStatusWithConfig(controlProofStatus, rawActionPaths, riskReport.ActionPaths, redactionConfig)
 		evidencePackets = sanitizeEvidencePacketSummaryWithConfig(evidencePackets, rawActionPaths, riskReport.ActionPaths, redactionConfig)
 	}
@@ -230,6 +243,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ComplianceSummary:        complianceSummary,
 		ControlBacklog:           controlBacklog,
 		ScanQuality:              scanQuality,
+		RuntimeSessions:          runtimeSessions,
 		RuntimeEvidence:          runtimeEvidence,
 		EvidencePackets:          evidencePackets,
 		Proof:                    proofRef,
@@ -367,10 +381,20 @@ func buildRuntimeEvidenceSummary(statePath string, snapshot state.Snapshot) *ing
 		return nil
 	}
 	bundle, artifactPath, err := ingest.LoadOptional(statePath)
-	if err != nil || artifactPath == "" {
+	if err != nil {
+		bundle = ingest.Bundle{}
+		artifactPath = ""
+	}
+	sessionBundle, sessionArtifactPath, sessionErr := ingest.LoadOptionalSessionBundle(statePath)
+	if sessionErr != nil {
+		sessionBundle = ingest.SessionBundle{}
+		sessionArtifactPath = ""
+	}
+	if artifactPath == "" && sessionArtifactPath == "" {
 		return nil
 	}
-	summary := ingest.Correlate(snapshot, artifactPath, bundle)
+	merged := ingest.MergeRuntimeBundles(bundle, ingest.ProjectSessionsToRuntimeBundle(sessionBundle))
+	summary := ingest.Correlate(snapshot, firstNonEmptyValue(artifactPath, sessionArtifactPath), merged)
 	return &summary
 }
 
@@ -379,10 +403,32 @@ func buildEvidencePacketSummary(statePath string, snapshot state.Snapshot) *inge
 		return nil
 	}
 	bundle, artifactPath, err := ingest.LoadOptionalEvidencePacketBundle(statePath)
+	if err != nil {
+		bundle = ingest.EvidencePacketBundle{}
+		artifactPath = ""
+	}
+	sessionBundle, sessionArtifactPath, sessionErr := ingest.LoadOptionalSessionBundle(statePath)
+	if sessionErr != nil {
+		sessionBundle = ingest.SessionBundle{}
+		sessionArtifactPath = ""
+	}
+	if artifactPath == "" && sessionArtifactPath == "" {
+		return nil
+	}
+	merged := ingest.MergeEvidencePacketBundles(bundle, ingest.ProjectSessionsToEvidencePacketBundle(sessionBundle))
+	summary := ingest.CorrelateEvidencePackets(snapshot, firstNonEmptyValue(artifactPath, sessionArtifactPath), merged)
+	return &summary
+}
+
+func buildSessionSummary(statePath string, snapshot state.Snapshot) *ingest.SessionSummary {
+	if strings.TrimSpace(statePath) == "" {
+		return nil
+	}
+	bundle, artifactPath, err := ingest.LoadOptionalSessionBundle(statePath)
 	if err != nil || artifactPath == "" {
 		return nil
 	}
-	summary := ingest.CorrelateEvidencePackets(snapshot, artifactPath, bundle)
+	summary := ingest.CorrelateSessions(snapshot, artifactPath, bundle)
 	return &summary
 }
 
@@ -1967,6 +2013,8 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].Owner = redactValue("owner", copyBOM.Items[idx].Owner, 8)
 		copyBOM.Items[idx].ConfigSource = redactValue("loc", copyBOM.Items[idx].ConfigSource, 8)
 		copyBOM.Items[idx].ProofRefs = redactStringSlice(copyBOM.Items[idx].ProofRefs, "proof")
+		copyBOM.Items[idx].RuntimeSessionRefs = redactStringSlice(copyBOM.Items[idx].RuntimeSessionRefs, "session")
+		copyBOM.Items[idx].ObservedChangedFiles = redactStringSlice(copyBOM.Items[idx].ObservedChangedFiles, "file")
 		copyBOM.Items[idx].RuntimeEvidenceRefs = redactStringSlice(copyBOM.Items[idx].RuntimeEvidenceRefs, "runtime")
 		copyBOM.Items[idx].PolicyRefs = redactStringSlice(copyBOM.Items[idx].PolicyRefs, "policy")
 		copyBOM.Items[idx].PolicyEvidenceRefs = redactStringSlice(copyBOM.Items[idx].PolicyEvidenceRefs, "policy")

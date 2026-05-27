@@ -554,6 +554,7 @@ type ControlPathNode struct {
 	ToolType                 string                                 `json:"tool_type,omitempty"`
 	Location                 string                                 `json:"location,omitempty"`
 	AgentID                  string                                 `json:"agent_id,omitempty"`
+	BoundaryLabel            string                                 `json:"boundary_label,omitempty"`
 	Purpose                  string                                 `json:"purpose,omitempty"`
 	PurposeSource            string                                 `json:"purpose_source,omitempty"`
 	PurposeConfidence        string                                 `json:"purpose_confidence,omitempty"`
@@ -575,6 +576,7 @@ type ControlPathEdge struct {
 	EdgeID            string   `json:"edge_id"`
 	PathID            string   `json:"path_id"`
 	Kind              string   `json:"kind"`
+	BoundaryLabel     string   `json:"boundary_label,omitempty"`
 	FromNodeID        string   `json:"from_node_id"`
 	ToNodeID          string   `json:"to_node_id"`
 	EvidenceRefs      []string `json:"evidence_refs,omitempty"`

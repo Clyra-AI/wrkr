@@ -17,6 +17,7 @@ type AgentActionBOMPrimaryView struct {
 	SelectionReason           string                          `json:"selection_reason"`
 	PathMap                   AgentActionBOMPrimaryPathMap    `json:"path_map"`
 	ControlResolutionState    string                          `json:"control_resolution_state,omitempty"`
+	BoundaryLabel             string                          `json:"boundary_label,omitempty"`
 	ApprovalEvidenceState     string                          `json:"approval_evidence_state,omitempty"`
 	OwnerEvidenceState        string                          `json:"owner_evidence_state,omitempty"`
 	ProofEvidenceState        string                          `json:"proof_evidence_state,omitempty"`
@@ -145,6 +146,7 @@ func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem
 		SelectionReason:           strings.TrimSpace(selectionReason),
 		PathMap:                   buildAgentActionBOMPrimaryPathMap(item),
 		ControlResolutionState:    strings.TrimSpace(item.ControlResolutionState),
+		BoundaryLabel:             strings.TrimSpace(item.BoundaryLabel),
 		ApprovalEvidenceState:     strings.TrimSpace(item.ApprovalEvidenceState),
 		OwnerEvidenceState:        strings.TrimSpace(item.OwnerEvidenceState),
 		ProofEvidenceState:        strings.TrimSpace(item.ProofEvidenceState),

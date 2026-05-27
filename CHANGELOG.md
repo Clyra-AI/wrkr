@@ -38,6 +38,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added GitLab CI/CD workflow authority to action paths, privilege budget, Agent Action BOM, control backlog, graph, evidence packets, and scan quality summaries.
 - [semver:minor] Added first-class Azure DevOps pipeline detection for local pipelines, safe local templates, stages, jobs, service connections, variable groups, environments, approvals/check hints, agent pools, deployment jobs, secrets by reference, AI agent execution, and MCP/tool invocation.
 - [semver:minor] Added Azure DevOps pipeline authority to action paths, privilege budget, Agent Action BOM, control backlog, graph, evidence packets, and scan quality summaries.
+- [semver:minor] Added deterministic local coding-agent session ingest for Codex-style agents, Claude Code, Cursor, Copilot, Gait traces, and future runtime exports.
+- [semver:minor] Added runtime session evidence correlation into graph refs, evidence packets, Agent Action BOM coverage, report summaries, and evidence bundles.
+- [semver:minor] Added paired internal and customer-redacted report artifacts with deterministic joins and a local-only private join map.
+- [semver:minor] Added portable evidence bundle manifests with stable artifact metadata, redaction profiles, proof-chain refs, source privacy metadata, evidence-state summaries, and boundary labels.
 
 ### Changed
 
@@ -68,6 +72,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added fail-closed validation that flags unsafe low-risk classifications when workflow, infra, credential, approval, or proof evidence contradicts a supposedly low-risk delegated path.
 - [semver:minor] Added cloud role, workload identity, deployment-path, and service-connection authority correlation for workflow credentials, graph nodes, and buyer-facing action paths.
 - [semver:minor] Added SaaS service-token target-system and likely-scope classification for SDLC paths without extracting or serializing secret values.
+- [semver:minor] Extended customer-safe redaction to session metadata, prompts, reviewers, changed files, provider URLs, evidence packet fields, proof refs, graph refs, and credential subjects.
 - (none yet)
 
 ## Changelog maintenance process

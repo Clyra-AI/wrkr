@@ -97,6 +97,7 @@ type AgentActionBOMItem struct {
 	EvidenceDecisions                   []evidencepolicy.Decision              `json:"evidence_decisions,omitempty"`
 	Contradictions                      []evidencepolicy.Contradiction         `json:"contradictions,omitempty"`
 	ControlResolutionState              string                                 `json:"control_resolution_state,omitempty"`
+	BoundaryLabel                       string                                 `json:"boundary_label,omitempty"`
 	ControlResolutionReasons            []string                               `json:"control_resolution_reasons,omitempty"`
 	ControlEvidenceRefs                 []string                               `json:"control_evidence_refs,omitempty"`
 	ConstraintEvidenceClasses           []string                               `json:"constraint_evidence_classes,omitempty"`
@@ -163,6 +164,10 @@ type AgentActionBOMItem struct {
 	PolicyEvidenceRefs                  []string                               `json:"policy_evidence_refs,omitempty"`
 	ProofCoverage                       string                                 `json:"proof_coverage,omitempty"`
 	ProofRefs                           []string                               `json:"proof_refs,omitempty"`
+	RuntimeSessionStatus                string                                 `json:"runtime_session_status,omitempty"`
+	RuntimeSessionRefs                  []string                               `json:"runtime_session_refs,omitempty"`
+	ObservedSessionActions              []string                               `json:"observed_session_actions,omitempty"`
+	ObservedChangedFiles                []string                               `json:"observed_changed_files,omitempty"`
 	RuntimeEvidenceStatus               string                                 `json:"runtime_evidence_status,omitempty"`
 	RuntimeEvidenceAbsenceStatus        string                                 `json:"runtime_evidence_absence_status,omitempty"`
 	RuntimeEvidenceClasses              []string                               `json:"runtime_evidence_classes,omitempty"`
@@ -232,6 +237,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 
 	backlogByPath := backlogItemsByPath(summary.ControlBacklog)
 	graphRefsByPath, graphRefs := controlPathGraphRefs(summary.ControlPathGraph)
+	sessionByPath := runtimeSessionsByPath(summary.RuntimeSessions)
 	runtimeByPath := runtimeEvidenceByPath(summary.RuntimeEvidence)
 	packetByPath := evidencePacketsByPath(summary.EvidencePackets)
 	reachabilityByPath := reachabilityByPathID(summary.ActionPaths, findings)
@@ -244,6 +250,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		path = risk.ProjectActionPath(path)
 		pathID := strings.TrimSpace(path.PathID)
 		itemGraphRefs := graphRefsByPath[pathID]
+		sessionItem := sessionByPath[pathID]
 		runtimeItem := runtimeByPath[pathID]
 		packetItem := packetByPath[pathID]
 		backlogItem := backlogByPath[pathID]
@@ -289,6 +296,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			EvidenceDecisions:                   append([]evidencepolicy.Decision(nil), path.EvidenceDecisions...),
 			Contradictions:                      append([]evidencepolicy.Contradiction(nil), path.Contradictions...),
 			ControlResolutionState:              strings.TrimSpace(path.ControlResolutionState),
+			BoundaryLabel:                       strings.TrimSpace(path.BoundaryLabel),
 			ControlResolutionReasons:            append([]string(nil), path.ControlResolutionReasons...),
 			ControlEvidenceRefs:                 append([]string(nil), path.ControlEvidenceRefs...),
 			ConstraintEvidenceClasses:           append([]string(nil), path.ConstraintEvidenceClasses...),
@@ -350,6 +358,10 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			PolicyStatus:                        policyStatus,
 			ProofCoverage:                       proofCoverage,
 			ProofRefs:                           proofRefsForPath(path, summary.controlProofStatus),
+			RuntimeSessionStatus:                strings.TrimSpace(sessionItem.Status),
+			RuntimeSessionRefs:                  append([]string(nil), sessionItem.SessionRefs...),
+			ObservedSessionActions:              append([]string(nil), sessionItem.ObservedActions...),
+			ObservedChangedFiles:                append([]string(nil), sessionItem.ChangedFiles...),
 			RuntimeEvidenceStatus:               runtimeItem.Status,
 			RuntimeEvidenceAbsenceStatus:        runtimeAbsenceStatus,
 			RuntimeEvidenceClasses:              append([]string(nil), runtimeItem.EvidenceClasses...),
@@ -539,6 +551,26 @@ func runtimeEvidenceByPath(summary *ingest.Summary) map[string]ingest.Correlatio
 	return out
 }
 
+func runtimeSessionsByPath(summary *ingest.SessionSummary) map[string]sessionProjection {
+	out := map[string]sessionProjection{}
+	if summary == nil {
+		return out
+	}
+	for _, item := range summary.Correlations {
+		pathID := strings.TrimSpace(item.PathID)
+		if pathID == "" {
+			continue
+		}
+		current := out[pathID]
+		current.Status = strongestEvidencePacketStatus(current.Status, item.Status)
+		current.SessionRefs = uniqueSortedStrings(append(current.SessionRefs, strings.TrimSpace(item.SessionID)))
+		current.ObservedActions = uniqueSortedStrings(append(current.ObservedActions, item.ObservedActions...))
+		current.ChangedFiles = uniqueSortedStrings(append(current.ChangedFiles, item.ChangedFiles...))
+		out[pathID] = current
+	}
+	return out
+}
+
 func proofRefs(proof ProofReference) []string {
 	refs := []string{}
 	if strings.TrimSpace(proof.HeadHash) != "" {
@@ -645,6 +677,13 @@ type evidencePacketProjection struct {
 	PacketRefs           []string
 }
 
+type sessionProjection struct {
+	Status          string
+	SessionRefs     []string
+	ObservedActions []string
+	ChangedFiles    []string
+}
+
 func evidencePacketsByPath(summary *ingest.EvidencePacketSummary) map[string]evidencePacketProjection {
 	out := map[string]evidencePacketProjection{}
 	if summary == nil {
@@ -669,8 +708,12 @@ func strongestEvidencePacketStatus(current, incoming string) string {
 	switch strings.TrimSpace(incoming) {
 	case ingest.CorrelationStatusConflict:
 		return ingest.CorrelationStatusConflict
-	case ingest.CorrelationStatusMatched:
+	case ingest.CorrelationStatusStale:
 		if strings.TrimSpace(current) != ingest.CorrelationStatusConflict {
+			return ingest.CorrelationStatusStale
+		}
+	case ingest.CorrelationStatusMatched:
+		if strings.TrimSpace(current) != ingest.CorrelationStatusConflict && strings.TrimSpace(current) != ingest.CorrelationStatusStale {
 			return ingest.CorrelationStatusMatched
 		}
 	case ingest.CorrelationStatusUnmatched:

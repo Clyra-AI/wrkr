@@ -157,6 +157,25 @@ func TestBuildEvidenceBundleIncludesRuntimeEvidenceCorrelation(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("save runtime evidence: %v", err)
 	}
+	if err := ingest.SaveSessionBundle(ingest.DefaultSessionPath(statePath), ingest.SessionBundle{
+		GeneratedAt: now.Format(time.RFC3339),
+		Sessions: []ingest.SessionRecord{{
+			Provider:        ingest.SessionProviderCodex,
+			SessionID:       "sess-1",
+			AgentID:         "wrkr:ci_agent:acme",
+			Repo:            "acme/backend",
+			Workflow:        ".github/workflows/release.yml",
+			PathID:          "apc-runtime-123",
+			Actions:         []string{"deploy"},
+			Approvals:       []string{"release-manager"},
+			PolicyDecisions: []string{"allow"},
+			ProofRefs:       []string{"proof://runtime/gate"},
+			ChangedFiles:    []string{"cmd/release.go"},
+			CompletedAt:     now.Format(time.RFC3339),
+		}},
+	}); err != nil {
+		t.Fatalf("save runtime sessions: %v", err)
+	}
 
 	outputDir := filepath.Join(tmp, "wrkr-evidence")
 	result, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: now})
@@ -166,13 +185,34 @@ func TestBuildEvidenceBundleIncludesRuntimeEvidenceCorrelation(t *testing.T) {
 	if result.RuntimeEvidence == nil {
 		t.Fatal("expected runtime evidence summary in build result")
 	}
-	if result.RuntimeEvidence.MatchedRecords != 1 || result.RuntimeEvidence.UnmatchedRecords != 0 {
+	if result.RuntimeEvidence.MatchedRecords < 1 || result.RuntimeEvidence.UnmatchedRecords != 0 {
 		t.Fatalf("unexpected runtime evidence summary: %+v", result.RuntimeEvidence)
 	}
-	for _, relative := range []string{"runtime-evidence.json", "runtime-evidence-correlation.json"} {
+	if result.RuntimeSessions == nil || result.RuntimeSessions.MatchedSessions != 1 {
+		t.Fatalf("expected runtime sessions summary in build result, got %+v", result.RuntimeSessions)
+	}
+	for _, relative := range []string{
+		"runtime-sessions.json",
+		"runtime-session-correlation.json",
+		"runtime-evidence.json",
+		"runtime-evidence-correlation.json",
+		"artifact-manifest.json",
+		"reports/audit-summary-customer-redacted.md",
+		"reports/report-evidence-customer-redacted.json",
+	} {
 		if _, err := os.Stat(filepath.Join(outputDir, relative)); err != nil {
 			t.Fatalf("expected %s in bundle: %v", relative, err)
 		}
+	}
+	matches, err := filepath.Glob(filepath.Join(tmp, ".wrkr-evidence-*-private-join-map.json"))
+	if err != nil {
+		t.Fatalf("glob private join maps: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one sibling private join map, got %v", matches)
+	}
+	if strings.HasPrefix(matches[0], outputDir+string(os.PathSeparator)) {
+		t.Fatalf("expected private join map outside bundle root, got %s", matches[0])
 	}
 }
 

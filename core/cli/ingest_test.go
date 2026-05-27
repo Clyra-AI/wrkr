@@ -125,3 +125,54 @@ func TestRunIngestDoesNotMisclassifyRuntimeEvidenceContainingPacketsString(t *te
 		t.Fatalf("expected managed runtime evidence artifact: %v", err)
 	}
 }
+
+func TestRunIngestAcceptsRuntimeSessionArtifact(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	statePath := filepath.Join(root, "state.json")
+	if err := state.Save(statePath, state.Snapshot{
+		Target: source.Target{Mode: "path"},
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:   "apc-session-1",
+				Repo:     "acme/payments",
+				Location: ".github/workflows/release.yml",
+			}},
+		},
+	}); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+
+	inputPath := filepath.Join(root, "session.json")
+	payload := []byte(`{
+  "provider": "codex",
+  "session_id": "sess-1",
+  "repo": "acme/payments",
+  "workflow": ".github/workflows/release.yml",
+  "changed_files": ["cmd/release.go"],
+  "actions": ["deploy"],
+  "completed_at": "2026-05-27T14:59:00Z"
+}`)
+	if err := os.WriteFile(inputPath, payload, 0o600); err != nil {
+		t.Fatalf("write session input: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"ingest", "--state", statePath, "--input", inputPath, "--json"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d stderr=%s", code, errOut.String())
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("parse ingest output: %v", err)
+	}
+	if got["artifact_kind"] != "runtime_sessions" {
+		t.Fatalf("expected runtime_sessions artifact kind, got %v", got["artifact_kind"])
+	}
+	if _, err := os.Stat(ingest.DefaultSessionPath(statePath)); err != nil {
+		t.Fatalf("expected managed runtime sessions artifact: %v", err)
+	}
+}

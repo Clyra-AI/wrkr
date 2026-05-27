@@ -22,6 +22,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
 	verifycore "github.com/Clyra-AI/wrkr/core/verify"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 	"github.com/Clyra-AI/wrkr/internal/managedmarker"
 	"gopkg.in/yaml.v3"
 )
@@ -34,18 +35,20 @@ type BuildInput struct {
 }
 
 type BuildResult struct {
-	OutputDir         string                        `json:"output_dir"`
-	Frameworks        []string                      `json:"frameworks"`
-	ManifestPath      string                        `json:"manifest_path"`
-	ChainPath         string                        `json:"chain_path"`
-	FrameworkCoverage map[string]float64            `json:"framework_coverage"`
-	ControlEvidence   []ControlEvidence             `json:"control_evidence,omitempty"`
-	CoverageNote      CoverageNote                  `json:"coverage_note"`
-	ReportArtifacts   []string                      `json:"report_artifacts"`
-	SourcePrivacy     *sourceprivacy.Contract       `json:"source_privacy,omitempty"`
-	RuntimeEvidence   *ingest.Summary               `json:"runtime_evidence,omitempty"`
-	EvidencePackets   *ingest.EvidencePacketSummary `json:"evidence_packets,omitempty"`
-	AgentActionBOM    *reportcore.AgentActionBOM    `json:"agent_action_bom,omitempty"`
+	OutputDir            string                        `json:"output_dir"`
+	Frameworks           []string                      `json:"frameworks"`
+	ManifestPath         string                        `json:"manifest_path"`
+	ArtifactManifestPath string                        `json:"artifact_manifest_path,omitempty"`
+	ChainPath            string                        `json:"chain_path"`
+	FrameworkCoverage    map[string]float64            `json:"framework_coverage"`
+	ControlEvidence      []ControlEvidence             `json:"control_evidence,omitempty"`
+	CoverageNote         CoverageNote                  `json:"coverage_note"`
+	ReportArtifacts      []string                      `json:"report_artifacts"`
+	SourcePrivacy        *sourceprivacy.Contract       `json:"source_privacy,omitempty"`
+	RuntimeSessions      *ingest.SessionSummary        `json:"runtime_sessions,omitempty"`
+	RuntimeEvidence      *ingest.Summary               `json:"runtime_evidence,omitempty"`
+	EvidencePackets      *ingest.EvidencePacketSummary `json:"evidence_packets,omitempty"`
+	AgentActionBOM       *reportcore.AgentActionBOM    `json:"agent_action_bom,omitempty"`
 }
 
 type ControlEvidence struct {
@@ -268,6 +271,10 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := writeJSON(filepath.Join(outputDir, "control-evidence.json"), controlEvidence); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
+	runtimeSessions, sessionBundle, hasRuntimeSessions, sessionErr := buildRuntimeSessions(snapshot, resolvedStatePath)
+	if sessionErr != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load runtime sessions: %w", sessionErr)
+	}
 	runtimeEvidence, runtimeBundle, hasRuntimeEvidence, runtimeErr := buildRuntimeEvidence(snapshot, resolvedStatePath)
 	if runtimeErr != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load runtime evidence: %w", runtimeErr)
@@ -275,6 +282,14 @@ func Build(in BuildInput) (BuildResult, error) {
 	evidencePackets, packetBundle, hasEvidencePackets, packetErr := buildEvidencePackets(snapshot, resolvedStatePath)
 	if packetErr != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load evidence packets: %w", packetErr)
+	}
+	if hasRuntimeSessions {
+		if err := writeJSON(filepath.Join(outputDir, "runtime-sessions.json"), sessionBundle); err != nil {
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+		}
+		if err := writeJSON(filepath.Join(outputDir, "runtime-session-correlation.json"), runtimeSessions); err != nil {
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+		}
 	}
 	if hasRuntimeEvidence {
 		if err := writeJSON(filepath.Join(outputDir, "runtime-evidence.json"), runtimeBundle); err != nil {
@@ -314,6 +329,20 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build deterministic report summary: %w", err)
 	}
+	redactedSummary, err := reportcore.BuildSummary(reportcore.BuildInput{
+		StatePath:    resolvedStatePath,
+		Snapshot:     snapshot,
+		Top:          5,
+		Template:     reportcore.TemplateAudit,
+		ShareProfile: reportcore.ShareProfileCustomerRedacted,
+	})
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build customer-redacted report summary: %w", err)
+	}
+	pairID := reportcore.BuildPairID(summary, reportcore.ShareProfileCustomerRedacted)
+	privateJoinMapPath := filepath.Join(filepath.Dir(targetOutputDir), "."+filepath.Base(targetOutputDir)+"-"+pairID+"-private-join-map.json")
+	summary.ArtifactMetadata = reportcore.BuildArtifactMetadata(summary, []string{resolvedStatePath}, reportcore.ArtifactVariantInternal, pairID, privateJoinMapPath)
+	redactedSummary.ArtifactMetadata = reportcore.BuildArtifactMetadata(redactedSummary, []string{resolvedStatePath}, reportcore.ArtifactVariantCustomerRedacted, pairID, privateJoinMapPath)
 	reportsDir := filepath.Join(outputDir, "reports")
 	if err := os.MkdirAll(reportsDir, 0o750); err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "mkdir reports dir: %w", err)
@@ -323,13 +352,43 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write deterministic report summary: %w", err)
 	}
 	reportArtifacts = append(reportArtifacts, auditReportPath)
+	customerAuditReportPath := reportcore.PairedArtifactPath(auditReportPath, string(reportcore.ShareProfileCustomerRedacted))
+	if err := os.WriteFile(customerAuditReportPath, []byte(reportcore.RenderMarkdown(redactedSummary)), 0o600); err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write customer-redacted report summary: %w", err)
+	}
+	reportArtifacts = append(reportArtifacts, customerAuditReportPath)
 	if summary.AgentActionBOM != nil {
 		agentActionBOMPath := filepath.Join(reportsDir, "agent-action-bom.json")
 		if err := writeJSON(agentActionBOMPath, summary.AgentActionBOM); err != nil {
 			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 		}
 		reportArtifacts = append(reportArtifacts, agentActionBOMPath)
+		if redactedSummary.AgentActionBOM != nil {
+			customerBOMPath := reportcore.PairedArtifactPath(agentActionBOMPath, string(reportcore.ShareProfileCustomerRedacted))
+			if err := writeJSON(customerBOMPath, redactedSummary.AgentActionBOM); err != nil {
+				return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+			}
+			reportArtifacts = append(reportArtifacts, customerBOMPath)
+		}
 	}
+	internalReportEvidencePath := filepath.Join(reportsDir, "report-evidence.json")
+	internalReportEvidencePayload, err := reportcore.RenderEvidenceBundleJSON(summary)
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "render report evidence bundle: %w", err)
+	}
+	if err := os.WriteFile(internalReportEvidencePath, internalReportEvidencePayload, 0o600); err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write report evidence bundle: %w", err)
+	}
+	reportArtifacts = append(reportArtifacts, internalReportEvidencePath)
+	customerReportEvidencePath := reportcore.PairedArtifactPath(internalReportEvidencePath, string(reportcore.ShareProfileCustomerRedacted))
+	customerReportEvidencePayload, err := reportcore.RenderEvidenceBundleJSON(redactedSummary)
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "render customer-redacted report evidence bundle: %w", err)
+	}
+	if err := os.WriteFile(customerReportEvidencePath, customerReportEvidencePayload, 0o600); err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write customer-redacted report evidence bundle: %w", err)
+	}
+	reportArtifacts = append(reportArtifacts, customerReportEvidencePath)
 	mcpCatalog := reportcore.BuildMCPList(snapshot, generatedAt, "", false)
 	if len(mcpCatalog.Rows) > 0 {
 		if err := writeJSON(filepath.Join(outputDir, "mcp-catalog.json"), mcpCatalog); err != nil {
@@ -413,6 +472,14 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write key id: %w", err)
 	}
 
+	artifactManifest, err := buildPortableArtifactManifest(outputDir, generatedAt, snapshot.SourcePrivacy, summary, redactedSummary, runtimeSessions, runtimeEvidence, evidencePackets)
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build portable artifact manifest: %w", err)
+	}
+	if err := writeJSON(filepath.Join(outputDir, "artifact-manifest.json"), artifactManifest); err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write portable artifact manifest: %w", err)
+	}
+
 	entries, err := buildManifestEntries(outputDir)
 	if err != nil {
 		if isOutputDirSafetyError(err) {
@@ -440,21 +507,44 @@ func Build(in BuildInput) (BuildResult, error) {
 	}
 	stagePublished = true
 	reportArtifacts = rebaseArtifactPaths(reportArtifacts, stageDir, targetOutputDir)
+	joinMap := reportcore.BuildPrivateJoinMap(summary, redactedSummary, pairID)
+	joinMapPayload, err := json.MarshalIndent(joinMap, "", "  ")
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "marshal private join map: %w", err)
+	}
+	joinMapPayload = append(joinMapPayload, '\n')
+	if err := atomicwrite.WriteFile(privateJoinMapPath, joinMapPayload, 0o600); err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write private join map: %w", err)
+	}
 
 	return BuildResult{
-		OutputDir:         targetOutputDir,
-		Frameworks:        frameworks,
-		ManifestPath:      filepath.Join(targetOutputDir, "manifest.json"),
-		ChainPath:         chainPath,
-		FrameworkCoverage: coverage,
-		ControlEvidence:   controlEvidence,
-		CoverageNote:      defaultCoverageNote(),
-		ReportArtifacts:   reportArtifacts,
-		SourcePrivacy:     snapshot.SourcePrivacy,
-		RuntimeEvidence:   runtimeEvidence,
-		EvidencePackets:   evidencePackets,
-		AgentActionBOM:    summary.AgentActionBOM,
+		OutputDir:            targetOutputDir,
+		Frameworks:           frameworks,
+		ManifestPath:         filepath.Join(targetOutputDir, "manifest.json"),
+		ArtifactManifestPath: filepath.Join(targetOutputDir, "artifact-manifest.json"),
+		ChainPath:            chainPath,
+		FrameworkCoverage:    coverage,
+		ControlEvidence:      controlEvidence,
+		CoverageNote:         defaultCoverageNote(),
+		ReportArtifacts:      reportArtifacts,
+		SourcePrivacy:        snapshot.SourcePrivacy,
+		RuntimeSessions:      runtimeSessions,
+		RuntimeEvidence:      runtimeEvidence,
+		EvidencePackets:      evidencePackets,
+		AgentActionBOM:       summary.AgentActionBOM,
 	}, nil
+}
+
+func buildRuntimeSessions(snapshot state.Snapshot, statePath string) (*ingest.SessionSummary, ingest.SessionBundle, bool, error) {
+	bundle, artifactPath, err := ingest.LoadOptionalSessionBundle(statePath)
+	if err != nil {
+		return nil, ingest.SessionBundle{}, false, err
+	}
+	if strings.TrimSpace(artifactPath) == "" {
+		return nil, ingest.SessionBundle{}, false, nil
+	}
+	summary := ingest.CorrelateSessions(snapshot, artifactPath, bundle)
+	return &summary, bundle, true, nil
 }
 
 func buildRuntimeEvidence(snapshot state.Snapshot, statePath string) (*ingest.Summary, ingest.Bundle, bool, error) {
@@ -462,11 +552,16 @@ func buildRuntimeEvidence(snapshot state.Snapshot, statePath string) (*ingest.Su
 	if err != nil {
 		return nil, ingest.Bundle{}, false, err
 	}
-	if strings.TrimSpace(artifactPath) == "" {
+	sessionBundle, sessionArtifactPath, sessionErr := ingest.LoadOptionalSessionBundle(statePath)
+	if sessionErr != nil {
+		return nil, ingest.Bundle{}, false, sessionErr
+	}
+	if strings.TrimSpace(artifactPath) == "" && strings.TrimSpace(sessionArtifactPath) == "" {
 		return nil, ingest.Bundle{}, false, nil
 	}
-	summary := ingest.Correlate(snapshot, artifactPath, bundle)
-	return &summary, bundle, true, nil
+	merged := ingest.MergeRuntimeBundles(bundle, ingest.ProjectSessionsToRuntimeBundle(sessionBundle))
+	summary := ingest.Correlate(snapshot, firstNonEmptyValue(artifactPath, sessionArtifactPath), merged)
+	return &summary, merged, true, nil
 }
 
 func buildEvidencePackets(snapshot state.Snapshot, statePath string) (*ingest.EvidencePacketSummary, ingest.EvidencePacketBundle, bool, error) {
@@ -474,11 +569,16 @@ func buildEvidencePackets(snapshot state.Snapshot, statePath string) (*ingest.Ev
 	if err != nil {
 		return nil, ingest.EvidencePacketBundle{}, false, err
 	}
-	if strings.TrimSpace(artifactPath) == "" {
+	sessionBundle, sessionArtifactPath, sessionErr := ingest.LoadOptionalSessionBundle(statePath)
+	if sessionErr != nil {
+		return nil, ingest.EvidencePacketBundle{}, false, sessionErr
+	}
+	if strings.TrimSpace(artifactPath) == "" && strings.TrimSpace(sessionArtifactPath) == "" {
 		return nil, ingest.EvidencePacketBundle{}, false, nil
 	}
-	summary := ingest.CorrelateEvidencePackets(snapshot, artifactPath, bundle)
-	return &summary, bundle, true, nil
+	merged := ingest.MergeEvidencePacketBundles(bundle, ingest.ProjectSessionsToEvidencePacketBundle(sessionBundle))
+	summary := ingest.CorrelateEvidencePackets(snapshot, firstNonEmptyValue(artifactPath, sessionArtifactPath), merged)
+	return &summary, merged, true, nil
 }
 
 func defaultCoverageNote() CoverageNote {
@@ -660,6 +760,15 @@ func filterRecords(records []proof.Record, recordType string, eventType string) 
 		out = append(out, record)
 	}
 	return out
+}
+
+func firstNonEmptyValue(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func hasScanEvidenceRecords(records []proof.Record) bool {
