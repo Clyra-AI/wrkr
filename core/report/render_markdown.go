@@ -541,16 +541,16 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		view.EvidenceCompletenessScore,
 	)
 	if len(view.UnresolvedEvidence) > 0 {
-		builder.WriteString(fmt.Sprintf("- Unresolved evidence: %s\n", strings.Join(view.UnresolvedEvidence, ", ")))
+		fmt.Fprintf(builder, "- Unresolved evidence: %s\n", strings.Join(view.UnresolvedEvidence, ", "))
 	}
 	if view.TodayPath != nil || view.RecommendedGovernedPath != nil {
-		builder.WriteString(fmt.Sprintf("- Governed path: %s\n", markdownGovernedPathViews(view.TodayPath, view.RecommendedGovernedPath)))
+		fmt.Fprintf(builder, "- Governed path: %s\n", markdownGovernedPathViews(view.TodayPath, view.RecommendedGovernedPath))
 	}
 	if view.RecommendedActionContract != nil {
-		builder.WriteString(fmt.Sprintf("- Draft contract: %s\n", markdownActionContract(view.RecommendedActionContract)))
+		fmt.Fprintf(builder, "- Draft contract: %s\n", markdownActionContract(view.RecommendedActionContract))
 	}
 	if len(view.AppendixRefs) > 0 {
-		builder.WriteString(fmt.Sprintf("- Appendix refs: %s\n", strings.Join(view.AppendixRefs, ", ")))
+		fmt.Fprintf(builder, "- Appendix refs: %s\n", strings.Join(view.AppendixRefs, ", "))
 	}
 	builder.WriteString("\n")
 }
