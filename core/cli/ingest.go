@@ -44,6 +44,43 @@ func runIngest(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	if strings.Contains(string(payload), "\"packets\"") {
+		var bundle ingest.EvidencePacketBundle
+		if err := json.Unmarshal(payload, &bundle); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		normalized, err := ingest.NormalizeEvidencePacketBundle(bundle)
+		if err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", err.Error(), exitPolicyViolation)
+		}
+		outputPath, err := normalizeManagedArtifactPath(ingest.DefaultEvidencePacketPath(resolvedStatePath))
+		if err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		if err := rejectUnsafeExistingManagedFile(outputPath, "evidence packet artifact"); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+		}
+		if err := ingest.SaveEvidencePacketBundle(outputPath, normalized); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		}
+
+		summary := ingest.CorrelateEvidencePackets(snapshot, outputPath, normalized)
+		if *jsonOut {
+			_ = json.NewEncoder(stdout).Encode(map[string]any{
+				"status":            "ok",
+				"artifact_path":     outputPath,
+				"artifact_kind":     "evidence_packets",
+				"packet_count":      summary.TotalPackets,
+				"matched_packets":   summary.MatchedPackets,
+				"unmatched_packets": summary.UnmatchedPackets,
+				"evidence_packets":  summary,
+			})
+			return exitSuccess
+		}
+		_, _ = io.WriteString(stdout, "wrkr ingest complete\n")
+		return exitSuccess
+	}
+
 	var bundle ingest.Bundle
 	if err := json.Unmarshal(payload, &bundle); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)

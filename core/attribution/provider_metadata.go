@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,9 +13,10 @@ import (
 )
 
 const (
-	SourceGitHubEvent = "github_event_payload"
-	SourceGitLabEvent = "gitlab_merge_request_event"
-	SourceSidecar     = "source_metadata"
+	SourceProviderProvenance = "provider_pr_mr_provenance"
+	SourceGitHubEvent        = "github_event_payload"
+	SourceGitLabEvent        = "gitlab_merge_request_event"
+	SourceSidecar            = "source_metadata"
 )
 
 type Context struct {
@@ -25,12 +27,15 @@ type Context struct {
 
 type Candidate struct {
 	Source       string
+	Provider     string
+	Reference    string
 	PRNumber     int
 	CommitSHA    string
 	Author       string
 	Timestamp    string
 	ProviderURL  string
 	ChangedFiles []string
+	Provenance   *Provenance
 }
 
 type sourceMetadataPayload struct {
@@ -69,30 +74,56 @@ func loadCandidates(repoRoot string) []Candidate {
 	if strings.TrimSpace(repoRoot) == "" {
 		return nil
 	}
-	loaders := []func(string) *Candidate{
-		loadSidecarMetadata,
-		loadGitHubEventMetadata,
-		loadGitLabEventMetadata,
+	loaders := []func(string) []Candidate{
+		loadProviderProvenanceCandidates,
+		loadSidecarMetadataCandidates,
+		loadGitHubEventMetadataCandidates,
+		loadGitLabEventMetadataCandidates,
 	}
 	out := make([]Candidate, 0, len(loaders))
 	for _, loader := range loaders {
-		if candidate := loader(repoRoot); candidate != nil {
-			out = append(out, *candidate)
-		}
+		out = append(out, loader(repoRoot)...)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if candidatePriority(out[i]) != candidatePriority(out[j]) {
-			return candidatePriority(out[i]) < candidatePriority(out[j])
+	normalized := make([]Candidate, 0, len(out))
+	for _, candidate := range out {
+		candidate.Source = strings.TrimSpace(candidate.Source)
+		candidate.Provider = strings.TrimSpace(candidate.Provider)
+		candidate.Reference = strings.TrimSpace(candidate.Reference)
+		candidate.CommitSHA = strings.TrimSpace(candidate.CommitSHA)
+		candidate.Author = strings.TrimSpace(candidate.Author)
+		candidate.Timestamp = strings.TrimSpace(candidate.Timestamp)
+		candidate.ProviderURL = strings.TrimSpace(candidate.ProviderURL)
+		candidate.ChangedFiles = normalizeChangedFiles(candidate.ChangedFiles)
+		candidate.Provenance = NormalizeProvenance(candidate.Provenance)
+		if candidate.Provenance != nil {
+			if candidate.Provider == "" {
+				candidate.Provider = strings.TrimSpace(candidate.Provenance.Provider)
+			}
+			if candidate.Reference == "" {
+				candidate.Reference = strings.TrimSpace(candidate.Provenance.Reference)
+			}
+			if candidate.ProviderURL == "" {
+				candidate.ProviderURL = strings.TrimSpace(candidate.Provenance.ProviderURL)
+			}
+			if len(candidate.ChangedFiles) == 0 {
+				candidate.ChangedFiles = append([]string(nil), candidate.Provenance.ChangedFiles...)
+			}
 		}
-		if out[i].Timestamp != out[j].Timestamp {
-			return out[i].Timestamp > out[j].Timestamp
+		normalized = append(normalized, candidate)
+	}
+	sort.Slice(normalized, func(i, j int) bool {
+		if candidatePriority(normalized[i]) != candidatePriority(normalized[j]) {
+			return candidatePriority(normalized[i]) < candidatePriority(normalized[j])
 		}
-		if out[i].PRNumber != out[j].PRNumber {
-			return out[i].PRNumber > out[j].PRNumber
+		if normalized[i].Timestamp != normalized[j].Timestamp {
+			return normalized[i].Timestamp > normalized[j].Timestamp
 		}
-		return out[i].Source < out[j].Source
+		if normalized[i].PRNumber != normalized[j].PRNumber {
+			return normalized[i].PRNumber > normalized[j].PRNumber
+		}
+		return normalized[i].Source < normalized[j].Source
 	})
-	return out
+	return normalized
 }
 
 func fromCandidates(candidates []Candidate, relPath string, lineRange *model.LocationRange) *Result {
@@ -134,6 +165,8 @@ func resultForCandidate(candidate Candidate, relPath string, lineRange *model.Lo
 	return &Result{
 		Source:      strings.TrimSpace(candidate.Source),
 		Confidence:  ConfidenceHigh,
+		Provider:    strings.TrimSpace(candidate.Provider),
+		Reference:   strings.TrimSpace(candidate.Reference),
 		PRNumber:    candidate.PRNumber,
 		CommitSHA:   strings.TrimSpace(candidate.CommitSHA),
 		Author:      strings.TrimSpace(candidate.Author),
@@ -141,10 +174,11 @@ func resultForCandidate(candidate Candidate, relPath string, lineRange *model.Lo
 		ChangedFile: changedFile,
 		LineRange:   normalizeLineRange(lineRange),
 		ProviderURL: strings.TrimSpace(candidate.ProviderURL),
+		Provenance:  CloneProvenance(candidate.Provenance),
 	}
 }
 
-func loadSidecarMetadata(repoRoot string) *Candidate {
+func loadSidecarMetadataCandidates(repoRoot string) []Candidate {
 	payload, err := os.ReadFile(filepath.Join(repoRoot, ".wrkr", "provenance", "source-metadata.json")) // #nosec G304 -- deterministic local provenance sidecar under the scanned repo root.
 	if err != nil {
 		return nil
@@ -161,18 +195,39 @@ func loadSidecarMetadata(repoRoot string) *Candidate {
 	if source == "" {
 		source = SourceSidecar
 	}
-	return &Candidate{
+	return []Candidate{{
 		Source:       source,
+		Provider:     strings.TrimSpace(decoded.Provider),
+		Reference:    defaultReferenceForKind("pull_request", decoded.PRNumber),
 		PRNumber:     decoded.PRNumber,
 		CommitSHA:    strings.TrimSpace(decoded.CommitSHA),
 		Author:       strings.TrimSpace(decoded.Author),
 		Timestamp:    strings.TrimSpace(decoded.Timestamp),
 		ProviderURL:  strings.TrimSpace(decoded.ProviderURL),
 		ChangedFiles: normalizeChangedFiles(files),
-	}
+		Provenance: NormalizeProvenance(&Provenance{
+			Provider:     strings.TrimSpace(decoded.Provider),
+			Kind:         "pull_request",
+			Reference:    defaultReferenceForKind("pull_request", decoded.PRNumber),
+			Number:       decoded.PRNumber,
+			ProviderURL:  strings.TrimSpace(decoded.ProviderURL),
+			HeadSHA:      strings.TrimSpace(decoded.CommitSHA),
+			Author:       strings.TrimSpace(decoded.Author),
+			UpdatedAt:    strings.TrimSpace(decoded.Timestamp),
+			ChangedFiles: normalizeChangedFiles(files),
+			MissingEvidence: []string{
+				"reviewers_missing",
+				"approvals_missing",
+				"checks_missing",
+				"deployments_missing",
+				"branch_protection_missing",
+				"environment_gates_missing",
+			},
+		}),
+	}}
 }
 
-func loadGitHubEventMetadata(repoRoot string) *Candidate {
+func loadGitHubEventMetadataCandidates(repoRoot string) []Candidate {
 	payload, err := os.ReadFile(filepath.Join(repoRoot, ".wrkr", "provenance", "github-event.json")) // #nosec G304 -- deterministic local GitHub event payload under the scanned repo root.
 	if err != nil {
 		return nil
@@ -180,6 +235,7 @@ func loadGitHubEventMetadata(repoRoot string) *Candidate {
 	var decoded struct {
 		PullRequest struct {
 			Number    int    `json:"number"`
+			Title     string `json:"title"`
 			HTMLURL   string `json:"html_url"`
 			UpdatedAt string `json:"updated_at"`
 			User      struct {
@@ -187,13 +243,28 @@ func loadGitHubEventMetadata(repoRoot string) *Candidate {
 			} `json:"user"`
 			Head struct {
 				SHA string `json:"sha"`
+				Ref string `json:"ref"`
 			} `json:"head"`
+			Base struct {
+				Ref string `json:"ref"`
+			} `json:"base"`
+			MergedBy struct {
+				Login string `json:"login"`
+			} `json:"merged_by"`
+			MergeCommitSHA string `json:"merge_commit_sha"`
+			Merged         bool   `json:"merged"`
 		} `json:"pull_request"`
 		Commits []struct {
 			Added    []string `json:"added"`
 			Modified []string `json:"modified"`
 			Removed  []string `json:"removed"`
 		} `json:"commits"`
+		Reviews           []provenanceActorPayload            `json:"reviews"`
+		Approvals         []provenanceActorPayload            `json:"approvals"`
+		CheckRuns         []provenanceCheckPayload            `json:"check_runs"`
+		Deployments       []provenanceDeploymentPayload       `json:"deployments"`
+		BranchProtections []provenanceBranchProtectionPayload `json:"branch_protections"`
+		EnvironmentGates  []provenanceEnvironmentGatePayload  `json:"environment_gates"`
 	}
 	if json.Unmarshal(payload, &decoded) != nil {
 		return nil
@@ -204,18 +275,44 @@ func loadGitHubEventMetadata(repoRoot string) *Candidate {
 		changedFiles = append(changedFiles, commit.Modified...)
 		changedFiles = append(changedFiles, commit.Removed...)
 	}
-	return &Candidate{
+	kind := "pull_request"
+	return []Candidate{{
 		Source:       SourceGitHubEvent,
+		Provider:     "github",
+		Reference:    defaultReferenceForKind(kind, decoded.PullRequest.Number),
 		PRNumber:     decoded.PullRequest.Number,
 		CommitSHA:    strings.TrimSpace(decoded.PullRequest.Head.SHA),
 		Author:       strings.TrimSpace(decoded.PullRequest.User.Login),
 		Timestamp:    strings.TrimSpace(decoded.PullRequest.UpdatedAt),
 		ProviderURL:  strings.TrimSpace(decoded.PullRequest.HTMLURL),
 		ChangedFiles: normalizeChangedFiles(changedFiles),
-	}
+		Provenance: NormalizeProvenance(&Provenance{
+			Provider:          "github",
+			Kind:              kind,
+			Reference:         defaultReferenceForKind(kind, decoded.PullRequest.Number),
+			Number:            decoded.PullRequest.Number,
+			Title:             strings.TrimSpace(decoded.PullRequest.Title),
+			ProviderURL:       strings.TrimSpace(decoded.PullRequest.HTMLURL),
+			HeadSHA:           strings.TrimSpace(decoded.PullRequest.Head.SHA),
+			MergeCommitSHA:    strings.TrimSpace(decoded.PullRequest.MergeCommitSHA),
+			Author:            strings.TrimSpace(decoded.PullRequest.User.Login),
+			UpdatedAt:         strings.TrimSpace(decoded.PullRequest.UpdatedAt),
+			BaseBranch:        strings.TrimSpace(decoded.PullRequest.Base.Ref),
+			HeadBranch:        strings.TrimSpace(decoded.PullRequest.Head.Ref),
+			MergedBy:          strings.TrimSpace(decoded.PullRequest.MergedBy.Login),
+			MergeState:        githubMergeState(decoded.PullRequest.Merged),
+			ChangedFiles:      normalizeChangedFiles(changedFiles),
+			Reviewers:         normalizeProvenanceActors(decoded.Reviews),
+			Approvals:         normalizeProvenanceActors(decoded.Approvals),
+			Checks:            normalizeProvenanceChecks(decoded.CheckRuns),
+			Deployments:       normalizeProvenanceDeployments(decoded.Deployments),
+			BranchProtections: normalizeProvenanceBranchProtections(decoded.BranchProtections),
+			EnvironmentGates:  normalizeProvenanceEnvironmentGates(decoded.EnvironmentGates),
+		}),
+	}}
 }
 
-func loadGitLabEventMetadata(repoRoot string) *Candidate {
+func loadGitLabEventMetadataCandidates(repoRoot string) []Candidate {
 	payload, err := os.ReadFile(filepath.Join(repoRoot, ".wrkr", "provenance", "gitlab-event.json")) // #nosec G304 -- deterministic local GitLab event payload under the scanned repo root.
 	if err != nil {
 		return nil
@@ -226,10 +323,15 @@ func loadGitLabEventMetadata(repoRoot string) *Candidate {
 			Username string `json:"username"`
 		} `json:"user"`
 		ObjectAttributes struct {
-			IID        int    `json:"iid"`
-			URL        string `json:"url"`
-			UpdatedAt  string `json:"updated_at"`
-			LastCommit struct {
+			IID            int    `json:"iid"`
+			Title          string `json:"title"`
+			URL            string `json:"url"`
+			UpdatedAt      string `json:"updated_at"`
+			SourceBranch   string `json:"source_branch"`
+			TargetBranch   string `json:"target_branch"`
+			MergeCommitSHA string `json:"merge_commit_sha"`
+			MergeStatus    string `json:"merge_status"`
+			LastCommit     struct {
 				ID string `json:"id"`
 			} `json:"last_commit"`
 		} `json:"object_attributes"`
@@ -241,6 +343,12 @@ func loadGitLabEventMetadata(repoRoot string) *Candidate {
 		Changes struct {
 			ModifiedPaths []string `json:"modified_paths"`
 		} `json:"changes"`
+		Reviewers         []provenanceActorPayload            `json:"reviewers"`
+		Approvals         []provenanceActorPayload            `json:"approvals"`
+		Pipelines         []provenanceCheckPayload            `json:"pipelines"`
+		Deployments       []provenanceDeploymentPayload       `json:"deployments"`
+		BranchProtections []provenanceBranchProtectionPayload `json:"branch_protections"`
+		EnvironmentGates  []provenanceEnvironmentGatePayload  `json:"environment_gates"`
 	}
 	if json.Unmarshal(payload, &decoded) != nil {
 		return nil
@@ -255,15 +363,40 @@ func loadGitLabEventMetadata(repoRoot string) *Candidate {
 	if author == "" {
 		author = strings.TrimSpace(decoded.User.Name)
 	}
-	return &Candidate{
+	kind := "merge_request"
+	return []Candidate{{
 		Source:       SourceGitLabEvent,
+		Provider:     "gitlab",
+		Reference:    defaultReferenceForKind(kind, decoded.ObjectAttributes.IID),
 		PRNumber:     decoded.ObjectAttributes.IID,
 		CommitSHA:    strings.TrimSpace(decoded.ObjectAttributes.LastCommit.ID),
 		Author:       author,
 		Timestamp:    strings.TrimSpace(decoded.ObjectAttributes.UpdatedAt),
 		ProviderURL:  strings.TrimSpace(decoded.ObjectAttributes.URL),
 		ChangedFiles: normalizeChangedFiles(changedFiles),
-	}
+		Provenance: NormalizeProvenance(&Provenance{
+			Provider:          "gitlab",
+			Kind:              kind,
+			Reference:         defaultReferenceForKind(kind, decoded.ObjectAttributes.IID),
+			Number:            decoded.ObjectAttributes.IID,
+			Title:             strings.TrimSpace(decoded.ObjectAttributes.Title),
+			ProviderURL:       strings.TrimSpace(decoded.ObjectAttributes.URL),
+			HeadSHA:           strings.TrimSpace(decoded.ObjectAttributes.LastCommit.ID),
+			MergeCommitSHA:    strings.TrimSpace(decoded.ObjectAttributes.MergeCommitSHA),
+			Author:            author,
+			UpdatedAt:         strings.TrimSpace(decoded.ObjectAttributes.UpdatedAt),
+			BaseBranch:        strings.TrimSpace(decoded.ObjectAttributes.TargetBranch),
+			HeadBranch:        strings.TrimSpace(decoded.ObjectAttributes.SourceBranch),
+			MergeState:        strings.TrimSpace(decoded.ObjectAttributes.MergeStatus),
+			ChangedFiles:      normalizeChangedFiles(changedFiles),
+			Reviewers:         normalizeProvenanceActors(decoded.Reviewers),
+			Approvals:         normalizeProvenanceActors(decoded.Approvals),
+			Checks:            normalizeProvenanceChecks(decoded.Pipelines),
+			Deployments:       normalizeProvenanceDeployments(decoded.Deployments),
+			BranchProtections: normalizeProvenanceBranchProtections(decoded.BranchProtections),
+			EnvironmentGates:  normalizeProvenanceEnvironmentGates(decoded.EnvironmentGates),
+		}),
+	}}
 }
 
 func normalizeChangedFiles(files []string) []string {
@@ -289,14 +422,16 @@ func normalizeChangedFiles(files []string) []string {
 
 func candidatePriority(candidate Candidate) int {
 	switch strings.TrimSpace(candidate.Source) {
-	case SourceSidecar:
+	case SourceProviderProvenance:
 		return 0
-	case SourceGitHubEvent:
+	case SourceSidecar:
 		return 1
-	case SourceGitLabEvent:
+	case SourceGitHubEvent:
 		return 2
-	default:
+	case SourceGitLabEvent:
 		return 3
+	default:
+		return 4
 	}
 }
 
@@ -309,4 +444,25 @@ func normalizeMetadataTimestamp(value string) string {
 		return parsed.UTC().Format(time.RFC3339)
 	}
 	return value
+}
+
+func defaultReferenceForKind(kind string, number int) string {
+	switch strings.TrimSpace(kind) {
+	case "merge_request":
+		if number > 0 {
+			return "mr/" + strings.TrimSpace(strconv.Itoa(number))
+		}
+	default:
+		if number > 0 {
+			return "pr/" + strings.TrimSpace(strconv.Itoa(number))
+		}
+	}
+	return ""
+}
+
+func githubMergeState(merged bool) string {
+	if merged {
+		return "merged"
+	}
+	return "open"
 }

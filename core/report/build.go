@@ -103,7 +103,9 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
 	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
+	evidencePackets := buildEvidencePacketSummary(in.StatePath, in.Snapshot)
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
+	riskReport.ActionPaths = decorateActionPathsForEvidencePackets(riskReport.ActionPaths, evidencePackets)
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, scanQuality)
 	if len(riskReport.ActionPaths) > 0 {
 		riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
@@ -159,6 +161,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		controlBacklog = sanitizeControlBacklogPublic(controlBacklog)
 		scanQuality = sanitizeScanQualityPublic(scanQuality)
 		controlProofStatus = sanitizeControlProofStatusPublic(controlProofStatus, rawActionPaths, riskReport.ActionPaths)
+		evidencePackets = sanitizeEvidencePacketSummaryPublic(evidencePackets, rawActionPaths, riskReport.ActionPaths)
 	} else if redactionConfig.Applies() {
 		proofRef = sanitizeProofReferenceWithConfig(proofRef, redactionConfig)
 		lifecycleSummary = sanitizeLifecycleSummaryWithConfig(lifecycleSummary, redactionConfig)
@@ -173,6 +176,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		controlBacklog = sanitizeControlBacklogWithConfig(controlBacklog, redactionConfig)
 		scanQuality = sanitizeScanQualityWithConfig(scanQuality, redactionConfig)
 		controlProofStatus = sanitizeControlProofStatusWithConfig(controlProofStatus, rawActionPaths, riskReport.ActionPaths, redactionConfig)
+		evidencePackets = sanitizeEvidencePacketSummaryWithConfig(evidencePackets, rawActionPaths, riskReport.ActionPaths, redactionConfig)
 	}
 
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
@@ -227,6 +231,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ControlBacklog:           controlBacklog,
 		ScanQuality:              scanQuality,
 		RuntimeEvidence:          runtimeEvidence,
+		EvidencePackets:          evidencePackets,
 		Proof:                    proofRef,
 		NextActions:              nextActions,
 		Activation:               activation,
@@ -366,6 +371,18 @@ func buildRuntimeEvidenceSummary(statePath string, snapshot state.Snapshot) *ing
 		return nil
 	}
 	summary := ingest.Correlate(snapshot, artifactPath, bundle)
+	return &summary
+}
+
+func buildEvidencePacketSummary(statePath string, snapshot state.Snapshot) *ingest.EvidencePacketSummary {
+	if strings.TrimSpace(statePath) == "" {
+		return nil
+	}
+	bundle, artifactPath, err := ingest.LoadOptionalEvidencePacketBundle(statePath)
+	if err != nil || artifactPath == "" {
+		return nil
+	}
+	summary := ingest.CorrelateEvidencePackets(snapshot, artifactPath, bundle)
 	return &summary
 }
 
@@ -1652,13 +1669,8 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.ClosureRequirements = sanitizeClosureRequirementsPublic(copyItem.ClosureRequirements)
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
 		copyItem.ActionLineage = sanitizeActionLineagePublic(copyItem.ActionLineage)
-		if copyItem.IntroducedBy != nil {
-			introduced := *copyItem.IntroducedBy
-			introduced.Author = redactValue("author", introduced.Author, 8)
-			introduced.ChangedFile = redactValue("file", introduced.ChangedFile, 8)
-			introduced.ProviderURL = redactValue("provider", introduced.ProviderURL, 8)
-			copyItem.IntroducedBy = &introduced
-		}
+		copyItem.IntroducedBy = sanitizeIntroducedByPublic(copyItem.IntroducedBy)
+		copyItem.EvidencePacketRefs = redactStringSlice(copyItem.EvidencePacketRefs, "packet")
 		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
 		for _, target := range copyItem.MatchedProductionTargets {
 			redacted := redactValue("target", target, 8)
@@ -1716,13 +1728,7 @@ func sanitizeWorkflowChainsPublic(in *agentresolver.WorkflowChainArtifact) *agen
 		copyChain.Target = sanitizeWorkflowChainDimensionPublic(copyChain.Target, "target")
 		copyChain.Evidence = sanitizeWorkflowChainDimensionPublic(copyChain.Evidence, "evidence")
 		copyChain.Outcome = sanitizeWorkflowChainDimensionPublic(copyChain.Outcome, "outcome")
-		if copyChain.IntroducedBy != nil {
-			introduced := *copyChain.IntroducedBy
-			introduced.Author = redactValue("author", introduced.Author, 8)
-			introduced.ChangedFile = redactValue("file", introduced.ChangedFile, 8)
-			introduced.ProviderURL = redactValue("provider", introduced.ProviderURL, 8)
-			copyChain.IntroducedBy = &introduced
-		}
+		copyChain.IntroducedBy = sanitizeIntroducedByPublic(copyChain.IntroducedBy)
 		out.Chains = append(out.Chains, copyChain)
 	}
 	return out
@@ -1994,13 +2000,8 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].MutableEndpointSemantics = sanitizeMutableEndpointSemanticsPublic(copyBOM.Items[idx].MutableEndpointSemantics)
 		copyBOM.Items[idx].Credentials = redactCredentialsPublic(copyBOM.Items[idx].Credentials)
 		copyBOM.Items[idx].ActionLineage = sanitizeActionLineagePublic(copyBOM.Items[idx].ActionLineage)
-		if copyBOM.Items[idx].IntroducedBy != nil {
-			introduced := *copyBOM.Items[idx].IntroducedBy
-			introduced.Author = redactValue("author", introduced.Author, 8)
-			introduced.ChangedFile = redactValue("file", introduced.ChangedFile, 8)
-			introduced.ProviderURL = redactValue("provider", introduced.ProviderURL, 8)
-			copyBOM.Items[idx].IntroducedBy = &introduced
-		}
+		copyBOM.Items[idx].IntroducedBy = sanitizeIntroducedByPublic(copyBOM.Items[idx].IntroducedBy)
+		copyBOM.Items[idx].EvidencePacketRefs = redactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet")
 	}
 	return &copyBOM
 }

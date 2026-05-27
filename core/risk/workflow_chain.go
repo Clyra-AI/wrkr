@@ -6,6 +6,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/attribution"
 )
 
 func BuildWorkflowChains(paths []ActionPath, graph *aggattack.ControlPathGraph) *agentresolver.WorkflowChainArtifact {
@@ -106,8 +107,7 @@ func workflowChainEvidenceRefs(path ActionPath) []string {
 	values = append(values, path.PolicyEvidenceRefs...)
 	values = append(values, path.TargetClassEvidenceRefs...)
 	if path.IntroducedBy != nil {
-		values = append(values, path.IntroducedBy.ChangedFile)
-		values = append(values, path.IntroducedBy.ProviderURL)
+		values = append(values, attribution.EvidenceRefs(path.IntroducedBy)...)
 	}
 	return dedupeSortedStrings(values)
 }

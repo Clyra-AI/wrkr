@@ -103,13 +103,8 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		copyItem.ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyItem.ClosureRequirements, config)
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
 		copyItem.ActionLineage = sanitizeActionLineageWithConfig(copyItem.ActionLineage, config)
-		if copyItem.IntroducedBy != nil {
-			introduced := *copyItem.IntroducedBy
-			introduced.Author = maybeRedactAuthor(introduced.Author, config)
-			introduced.ChangedFile = maybeRedactLocationLike(introduced.ChangedFile, config)
-			introduced.ProviderURL = maybeRedactProvider(introduced.ProviderURL, config)
-			copyItem.IntroducedBy = &introduced
-		}
+		copyItem.IntroducedBy = sanitizeIntroducedByWithConfig(copyItem.IntroducedBy, config)
+		copyItem.EvidencePacketRefs = maybeRedactStringSlice(copyItem.EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 		copyItem.MatchedProductionTargets = cloneStrings(copyItem.MatchedProductionTargets)
 		out = append(out, copyItem)
 	}
@@ -303,13 +298,7 @@ func sanitizeWorkflowChainsWithConfig(in *agentresolver.WorkflowChainArtifact, c
 		copyChain.Target = sanitizeWorkflowChainDimensionWithConfig(copyChain.Target, config)
 		copyChain.Evidence = sanitizeWorkflowChainDimensionWithConfig(copyChain.Evidence, config)
 		copyChain.Outcome = sanitizeWorkflowChainDimensionWithConfig(copyChain.Outcome, config)
-		if copyChain.IntroducedBy != nil {
-			introduced := *copyChain.IntroducedBy
-			introduced.Author = maybeRedactAuthor(introduced.Author, config)
-			introduced.ChangedFile = maybeRedactLocationLike(introduced.ChangedFile, config)
-			introduced.ProviderURL = maybeRedactProvider(introduced.ProviderURL, config)
-			copyChain.IntroducedBy = &introduced
-		}
+		copyChain.IntroducedBy = sanitizeIntroducedByWithConfig(copyChain.IntroducedBy, config)
 		copyArtifact.Chains = append(copyArtifact.Chains, copyChain)
 	}
 	return copyArtifact
@@ -446,13 +435,8 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].MutableEndpointSemantics = sanitizeMutableEndpointSemanticsWithConfig(copyBOM.Items[idx].MutableEndpointSemantics, config)
 		copyBOM.Items[idx].Credentials = redactCredentialsWithConfig(copyBOM.Items[idx].Credentials, config)
 		copyBOM.Items[idx].ActionLineage = sanitizeActionLineageWithConfig(copyBOM.Items[idx].ActionLineage, config)
-		if copyBOM.Items[idx].IntroducedBy != nil {
-			introduced := *copyBOM.Items[idx].IntroducedBy
-			introduced.Author = maybeRedactAuthor(introduced.Author, config)
-			introduced.ChangedFile = maybeRedactLocationLike(introduced.ChangedFile, config)
-			introduced.ProviderURL = maybeRedactProvider(introduced.ProviderURL, config)
-			copyBOM.Items[idx].IntroducedBy = &introduced
-		}
+		copyBOM.Items[idx].IntroducedBy = sanitizeIntroducedByWithConfig(copyBOM.Items[idx].IntroducedBy, config)
+		copyBOM.Items[idx].EvidencePacketRefs = maybeRedactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 	}
 	return &copyBOM
 }

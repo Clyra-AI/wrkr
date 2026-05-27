@@ -157,6 +157,10 @@ type ActionPath struct {
 	RecommendedActionContract           *RecommendedActionContract              `json:"recommended_action_contract,omitempty"`
 	TodayPath                           *GovernedPathView                       `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *GovernedPathView                       `json:"recommended_governed_path,omitempty"`
+	EvidencePacketStatus                string                                  `json:"evidence_packet_status,omitempty"`
+	EvidencePacketResult                string                                  `json:"evidence_packet_result,omitempty"`
+	EvidencePacketMissingEvidenceState  string                                  `json:"evidence_packet_missing_evidence_state,omitempty"`
+	EvidencePacketRefs                  []string                                `json:"evidence_packet_refs,omitempty"`
 	AttackPathScore                     float64                                 `json:"attack_path_score"`
 	RiskScore                           float64                                 `json:"risk_score"`
 	RecommendedAction                   string                                  `json:"recommended_action"`

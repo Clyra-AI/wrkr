@@ -23,6 +23,7 @@ type reportArtifactOptions struct {
 	Template          reportcore.Template
 	ShareProfile      reportcore.ShareProfile
 	RedactionFields   []reportcore.RedactionField
+	RecentPRReview    *reportcore.RecentPRReviewOptions
 	WriteMarkdown     bool
 	MarkdownPath      string
 	WritePDF          bool
@@ -103,6 +104,10 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 	})
 	if err != nil {
 		return reportArtifactResult{}, err
+	}
+	if opts.RecentPRReview != nil {
+		reviewOpts := *opts.RecentPRReview
+		summary.RecentPRReview = reportcore.BuildRecentPRReview(summary, reviewOpts)
 	}
 
 	markdown := reportcore.RenderMarkdown(summary)

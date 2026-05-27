@@ -19,11 +19,36 @@
       "source": "source_metadata",
       "confidence": "high",
       "pr_number": 108,
+      "reference": "pr/108",
       "commit_sha": "deadbeef108",
       "author": "demo-bot",
       "timestamp": "2026-05-08T12:00:00Z",
       "changed_file": ".github/workflows/release.yml",
-      "provider_url": "https://github.example.com/acme/demo-app/pull/108"
+      "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+      "provenance": {
+        "author": "demo-bot",
+        "changed_files": [
+          ".agents/skills/release/SKILL.md",
+          ".github/workflows/release.yml",
+          ".mcp.json",
+          "AGENTS.md"
+        ],
+        "conflict_state": "partial",
+        "head_sha": "deadbeef108",
+        "kind": "pull_request",
+        "missing_evidence": [
+          "approvals_missing",
+          "branch_protection_missing",
+          "checks_missing",
+          "deployments_missing",
+          "environment_gates_missing",
+          "reviewers_missing"
+        ],
+        "number": 108,
+        "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+        "reference": "pr/108",
+        "updated_at": "2026-05-08T12:00:00Z"
+      }
     },
     "matched_production_targets": [
       "built_in:deploy_workflow",

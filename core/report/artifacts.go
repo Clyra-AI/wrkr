@@ -23,6 +23,7 @@ type EvidenceBundle struct {
 	WorkflowChains        *agentresolver.WorkflowChainArtifact `json:"workflow_chains,omitempty"`
 	ActionSurfaceRegistry []ActionSurfaceRegistryEntry         `json:"action_surface_registry,omitempty"`
 	RuntimeEvidence       *ingest.Summary                      `json:"runtime_evidence,omitempty"`
+	EvidencePackets       *ingest.EvidencePacketSummary        `json:"evidence_packets,omitempty"`
 	AgentActionBOM        *AgentActionBOM                      `json:"agent_action_bom,omitempty"`
 	ComplianceSummary     any                                  `json:"compliance_summary"`
 	Proof                 ProofReference                       `json:"proof"`
@@ -41,6 +42,7 @@ func BuildEvidenceBundle(summary Summary) EvidenceBundle {
 		WorkflowChains:        summary.WorkflowChains,
 		ActionSurfaceRegistry: append([]ActionSurfaceRegistryEntry(nil), summary.ActionSurfaceRegistry...),
 		RuntimeEvidence:       summary.RuntimeEvidence,
+		EvidencePackets:       summary.EvidencePackets,
 		AgentActionBOM:        summary.AgentActionBOM,
 		ComplianceSummary:     summary.ComplianceSummary,
 		Proof:                 summary.Proof,

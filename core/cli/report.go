@@ -24,32 +24,34 @@ import (
 )
 
 type reportPayload struct {
-	Status                   string                       `json:"status"`
-	GeneratedAt              string                       `json:"generated_at"`
-	NextSteps                []nextStep                   `json:"next_steps,omitempty"`
-	Targets                  []source.Target              `json:"targets,omitempty"`
-	TopFindings              []risk.ScoredFinding         `json:"top_findings"`
-	AttackPaths              any                          `json:"attack_paths,omitempty"`
-	TopAttackPaths           any                          `json:"top_attack_paths,omitempty"`
-	ActionPaths              any                          `json:"action_paths,omitempty"`
-	AgentActionBOM           any                          `json:"agent_action_bom,omitempty"`
-	ActionPathToControlFirst any                          `json:"action_path_to_control_first,omitempty"`
-	ControlPathGraph         any                          `json:"control_path_graph,omitempty"`
-	WorkflowChains           any                          `json:"workflow_chains,omitempty"`
-	RuntimeEvidence          *ingest.Summary              `json:"runtime_evidence,omitempty"`
-	AssessmentSummary        any                          `json:"assessment_summary,omitempty"`
-	ExposureGroups           any                          `json:"exposure_groups,omitempty"`
-	TotalTools               int                          `json:"total_tools"`
-	ToolTypeBreakdown        []toolTypeCount              `json:"tool_type_breakdown"`
-	ComplianceGapCount       int                          `json:"compliance_gap_count"`
-	ComplianceSummary        compliance.RollupSummary     `json:"compliance_summary"`
-	PrivilegeBudget          agginventory.PrivilegeBudget `json:"privilege_budget"`
-	Summary                  reportcore.Summary           `json:"summary"`
-	MDPath                   string                       `json:"md_path,omitempty"`
-	PDFPath                  string                       `json:"pdf_path,omitempty"`
-	EvidenceJSONPath         string                       `json:"evidence_json_path,omitempty"`
-	BacklogCSVPath           string                       `json:"backlog_csv_path,omitempty"`
-	ArtifactPaths            map[string]string            `json:"artifact_paths,omitempty"`
+	Status                   string                        `json:"status"`
+	GeneratedAt              string                        `json:"generated_at"`
+	NextSteps                []nextStep                    `json:"next_steps,omitempty"`
+	Targets                  []source.Target               `json:"targets,omitempty"`
+	TopFindings              []risk.ScoredFinding          `json:"top_findings"`
+	AttackPaths              any                           `json:"attack_paths,omitempty"`
+	TopAttackPaths           any                           `json:"top_attack_paths,omitempty"`
+	ActionPaths              any                           `json:"action_paths,omitempty"`
+	AgentActionBOM           any                           `json:"agent_action_bom,omitempty"`
+	ActionPathToControlFirst any                           `json:"action_path_to_control_first,omitempty"`
+	ControlPathGraph         any                           `json:"control_path_graph,omitempty"`
+	WorkflowChains           any                           `json:"workflow_chains,omitempty"`
+	RuntimeEvidence          *ingest.Summary               `json:"runtime_evidence,omitempty"`
+	EvidencePackets          *ingest.EvidencePacketSummary `json:"evidence_packets,omitempty"`
+	RecentPRReview           *reportcore.RecentPRReview    `json:"recent_pr_review,omitempty"`
+	AssessmentSummary        any                           `json:"assessment_summary,omitempty"`
+	ExposureGroups           any                           `json:"exposure_groups,omitempty"`
+	TotalTools               int                           `json:"total_tools"`
+	ToolTypeBreakdown        []toolTypeCount               `json:"tool_type_breakdown"`
+	ComplianceGapCount       int                           `json:"compliance_gap_count"`
+	ComplianceSummary        compliance.RollupSummary      `json:"compliance_summary"`
+	PrivilegeBudget          agginventory.PrivilegeBudget  `json:"privilege_budget"`
+	Summary                  reportcore.Summary            `json:"summary"`
+	MDPath                   string                        `json:"md_path,omitempty"`
+	PDFPath                  string                        `json:"pdf_path,omitempty"`
+	EvidenceJSONPath         string                        `json:"evidence_json_path,omitempty"`
+	BacklogCSVPath           string                        `json:"backlog_csv_path,omitempty"`
+	ArtifactPaths            map[string]string             `json:"artifact_paths,omitempty"`
 }
 
 type toolTypeCount struct {
@@ -85,6 +87,11 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	shareProfileRaw := fs.String("share-profile", "", "share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
 	redactRaw := fs.String("redact", "", "comma-separated additive redaction fields [owners|repos|paths|credential-subjects|authors|filesystem|providers|proof-refs|graph-refs]")
 	topN := fs.Int("top", 5, "number of top findings")
+	recentReview := fs.Bool("recent-pr-review", false, "rank bounded recent AI-assisted or automation-assisted PR/MR paths from local provenance sidecars")
+	reviewIDsRaw := fs.String("review-ids", "", "comma-separated local PR/MR ids [pr/42,mr/17]")
+	reviewSinceRaw := fs.String("review-since", "", "inclusive recent-review start date (YYYY-MM-DD)")
+	reviewUntilRaw := fs.String("review-until", "", "inclusive recent-review end date (YYYY-MM-DD)")
+	reviewLimit := fs.Int("review-limit", 10, "maximum recent PR/MR paths to rank (1-50)")
 	statePathFlag := fs.String("state", "", "state file path override")
 	baselinePath := fs.String("baseline", "", "optional regress baseline for drift summary")
 	previousStatePath := fs.String("previous-state", "", "optional previous state for risk trend delta")
@@ -106,6 +113,10 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	redactionFields, parseRedactionErr := reportcore.ParseRedactionFields(*redactRaw)
 	if parseRedactionErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseRedactionErr.Error(), exitInvalidInput)
+	}
+	reviewOpts, reviewErr := parseRecentPRReviewOptions(*recentReview, *reviewIDsRaw, *reviewSinceRaw, *reviewUntilRaw, *reviewLimit)
+	if reviewErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", reviewErr.Error(), exitInvalidInput)
 	}
 	redactionConfig := reportcore.ResolveRedactionConfig(shareProfile, redactionFields)
 
@@ -146,16 +157,29 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	artifacts, err := generateReportArtifacts(reportArtifactOptions{
-		StatePath:         resolvedStatePath,
-		Snapshot:          snapshot,
-		PreviousSnapshot:  previousSnapshot,
-		Baseline:          baseline,
-		RegressResult:     regressResult,
-		Manifest:          loadedManifest,
-		Top:               *topN,
-		Template:          template,
-		ShareProfile:      shareProfile,
-		RedactionFields:   redactionFields,
+		StatePath:        resolvedStatePath,
+		Snapshot:         snapshot,
+		PreviousSnapshot: previousSnapshot,
+		Baseline:         baseline,
+		RegressResult:    regressResult,
+		Manifest:         loadedManifest,
+		Top:              *topN,
+		Template:         template,
+		ShareProfile:     shareProfile,
+		RedactionFields:  redactionFields,
+		RecentPRReview: func() *reportcore.RecentPRReviewOptions {
+			if !reviewOpts.Enabled {
+				return nil
+			}
+			return &reportcore.RecentPRReviewOptions{
+				IDs:         reviewOpts.IDs,
+				DateFrom:    reviewOpts.DateFrom,
+				HasDateFrom: reviewOpts.HasDateFrom,
+				DateTo:      reviewOpts.DateTo,
+				HasDateTo:   reviewOpts.HasDateTo,
+				Limit:       reviewOpts.Limit,
+			}
+		}(),
 		WriteMarkdown:     *md,
 		MarkdownPath:      *mdPath,
 		WritePDF:          *pdf,
@@ -179,6 +203,16 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
 	summary := artifacts.Summary
+	if reviewOpts.Enabled {
+		summary.RecentPRReview = reportcore.BuildRecentPRReview(summary, reportcore.RecentPRReviewOptions{
+			IDs:         reviewOpts.IDs,
+			DateFrom:    reviewOpts.DateFrom,
+			HasDateFrom: reviewOpts.HasDateFrom,
+			DateTo:      reviewOpts.DateTo,
+			HasDateTo:   reviewOpts.HasDateTo,
+			Limit:       reviewOpts.Limit,
+		})
+	}
 
 	riskReport := snapshot.RiskReport
 	if riskReport == nil {
@@ -203,6 +237,8 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		ControlPathGraph:         summary.ControlPathGraph,
 		WorkflowChains:           summary.WorkflowChains,
 		RuntimeEvidence:          summary.RuntimeEvidence,
+		EvidencePackets:          summary.EvidencePackets,
+		RecentPRReview:           summary.RecentPRReview,
 		AssessmentSummary:        summary.AssessmentSummary,
 		ExposureGroups:           summary.ExposureGroups,
 		TotalTools:               totalTools,
@@ -248,6 +284,69 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintln(stdout, "wrkr report complete")
 	return exitSuccess
+}
+
+type recentPRReviewOptions struct {
+	Enabled     bool
+	IDs         []string
+	DateFrom    time.Time
+	HasDateFrom bool
+	DateTo      time.Time
+	HasDateTo   bool
+	Limit       int
+}
+
+func parseRecentPRReviewOptions(enabled bool, idsRaw, sinceRaw, untilRaw string, limit int) (recentPRReviewOptions, error) {
+	opts := recentPRReviewOptions{Enabled: enabled, Limit: limit}
+	if strings.TrimSpace(idsRaw) != "" || strings.TrimSpace(sinceRaw) != "" || strings.TrimSpace(untilRaw) != "" {
+		opts.Enabled = true
+	}
+	if !opts.Enabled {
+		return opts, nil
+	}
+	if opts.Limit <= 0 || opts.Limit > 50 {
+		return recentPRReviewOptions{}, fmt.Errorf("--review-limit must be between 1 and 50")
+	}
+	if strings.TrimSpace(idsRaw) != "" {
+		for _, part := range strings.Split(idsRaw, ",") {
+			trimmed := strings.TrimSpace(part)
+			switch {
+			case trimmed == "":
+				return recentPRReviewOptions{}, fmt.Errorf("--review-ids must not include empty values")
+			case strings.HasPrefix(trimmed, "pr/"), strings.HasPrefix(trimmed, "mr/"):
+				suffix := strings.TrimSpace(trimmed[3:])
+				if suffix == "" || strings.ContainsAny(suffix, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/-") {
+					return recentPRReviewOptions{}, fmt.Errorf("--review-ids values must use pr/<number> or mr/<number>")
+				}
+				opts.IDs = append(opts.IDs, trimmed)
+			default:
+				if strings.ContainsAny(trimmed, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/-") {
+					return recentPRReviewOptions{}, fmt.Errorf("--review-ids values must use pr/<number> or mr/<number>")
+				}
+				opts.IDs = append(opts.IDs, "pr/"+trimmed)
+			}
+		}
+	}
+	if strings.TrimSpace(sinceRaw) != "" {
+		parsed, err := time.Parse("2006-01-02", strings.TrimSpace(sinceRaw))
+		if err != nil {
+			return recentPRReviewOptions{}, fmt.Errorf("--review-since must use YYYY-MM-DD")
+		}
+		opts.DateFrom = parsed
+		opts.HasDateFrom = true
+	}
+	if strings.TrimSpace(untilRaw) != "" {
+		parsed, err := time.Parse("2006-01-02", strings.TrimSpace(untilRaw))
+		if err != nil {
+			return recentPRReviewOptions{}, fmt.Errorf("--review-until must use YYYY-MM-DD")
+		}
+		opts.DateTo = parsed.Add(24*time.Hour - time.Nanosecond)
+		opts.HasDateTo = true
+	}
+	if opts.HasDateFrom && opts.HasDateTo && opts.DateFrom.After(opts.DateTo) {
+		return recentPRReviewOptions{}, fmt.Errorf("--review-since must be on or before --review-until")
+	}
+	return opts, nil
 }
 
 func writeReportUsage(out io.Writer, fs *flag.FlagSet) {

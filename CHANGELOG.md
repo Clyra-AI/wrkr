@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- [semver:minor] Added provider-neutral PR/MR provenance sidecars for changed files, reviewers, approvals, checks, deployments, merge metadata, branch protection, and environment gates.
+- [semver:minor] Added typed Agentic SDLC evidence packets for consequential AI-assisted changes, including proof refs and missing-evidence status.
+- [semver:minor] Added a local recent PR/MR review workflow for ranking bounded AI-assisted or automation-assisted delivery paths from provider metadata sidecars.
 - [semver:minor] Added workflow chain artifacts that group delegated SDLC paths by repo, PR/MR, workflow, tool, credential, owner, approval, target, evidence, and outcome.
 - [semver:minor] Added Control Path Graph V2 nodes and edges for delegated SDLC intent, human, agent team, PR/MR, approval, deployment, asset, evidence, and outcome paths.
 - [semver:minor] Added intent-to-outcome action lineage segments for delegated SDLC workflows.

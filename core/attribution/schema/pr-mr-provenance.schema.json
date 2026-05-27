@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/provenance/pr-mr-provenance.schema.json",
+  "title": "Wrkr Provider-Neutral PR/MR Provenance Sidecar",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "entries"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["provider", "kind", "number", "updated_at"],
+        "properties": {
+          "provider": {"type": "string"},
+          "kind": {"type": "string", "enum": ["pull_request", "merge_request"]},
+          "number": {"type": "integer"},
+          "title": {"type": "string"},
+          "provider_url": {"type": "string"},
+          "head_sha": {"type": "string"},
+          "merge_commit_sha": {"type": "string"},
+          "author": {"type": "string"},
+          "updated_at": {"type": "string", "format": "date-time"},
+          "base_branch": {"type": "string"},
+          "head_branch": {"type": "string"},
+          "merged_by": {"type": "string"},
+          "merge_method": {"type": "string"},
+          "merge_state": {"type": "string"},
+          "changed_files": {"type": "array", "items": {"type": "string"}},
+          "reviewers": {"type": "array", "items": {"$ref": "#/$defs/actor"}},
+          "approvals": {"type": "array", "items": {"$ref": "#/$defs/actor"}},
+          "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
+          "deployments": {"type": "array", "items": {"$ref": "#/$defs/deployment"}},
+          "branch_protections": {"type": "array", "items": {"$ref": "#/$defs/branchProtection"}},
+          "environment_gates": {"type": "array", "items": {"$ref": "#/$defs/environmentGate"}},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}},
+          "ai_assisted": {"type": "boolean"},
+          "automation_assisted": {"type": "boolean"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "actor": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "state": {"type": "string"},
+        "role": {"type": "string"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "provider_url": {"type": "string"},
+        "required": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "check": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "status": {"type": "string"},
+        "conclusion": {"type": "string"},
+        "category": {"type": "string"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "provider_url": {"type": "string"},
+        "required": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "environment": {"type": "string"},
+        "status": {"type": "string"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "provider_url": {"type": "string"},
+        "gate_state": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "branchProtection": {
+      "type": "object",
+      "properties": {
+        "branch": {"type": "string"},
+        "status": {"type": "string"},
+        "required_approvals": {"type": "integer"},
+        "required_checks": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "environmentGate": {
+      "type": "object",
+      "properties": {
+        "environment": {"type": "string"},
+        "status": {"type": "string"},
+        "required_reviewers": {"type": "array", "items": {"type": "string"}},
+        "deployment_ids": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

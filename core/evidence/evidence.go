@@ -34,17 +34,18 @@ type BuildInput struct {
 }
 
 type BuildResult struct {
-	OutputDir         string                     `json:"output_dir"`
-	Frameworks        []string                   `json:"frameworks"`
-	ManifestPath      string                     `json:"manifest_path"`
-	ChainPath         string                     `json:"chain_path"`
-	FrameworkCoverage map[string]float64         `json:"framework_coverage"`
-	ControlEvidence   []ControlEvidence          `json:"control_evidence,omitempty"`
-	CoverageNote      CoverageNote               `json:"coverage_note"`
-	ReportArtifacts   []string                   `json:"report_artifacts"`
-	SourcePrivacy     *sourceprivacy.Contract    `json:"source_privacy,omitempty"`
-	RuntimeEvidence   *ingest.Summary            `json:"runtime_evidence,omitempty"`
-	AgentActionBOM    *reportcore.AgentActionBOM `json:"agent_action_bom,omitempty"`
+	OutputDir         string                        `json:"output_dir"`
+	Frameworks        []string                      `json:"frameworks"`
+	ManifestPath      string                        `json:"manifest_path"`
+	ChainPath         string                        `json:"chain_path"`
+	FrameworkCoverage map[string]float64            `json:"framework_coverage"`
+	ControlEvidence   []ControlEvidence             `json:"control_evidence,omitempty"`
+	CoverageNote      CoverageNote                  `json:"coverage_note"`
+	ReportArtifacts   []string                      `json:"report_artifacts"`
+	SourcePrivacy     *sourceprivacy.Contract       `json:"source_privacy,omitempty"`
+	RuntimeEvidence   *ingest.Summary               `json:"runtime_evidence,omitempty"`
+	EvidencePackets   *ingest.EvidencePacketSummary `json:"evidence_packets,omitempty"`
+	AgentActionBOM    *reportcore.AgentActionBOM    `json:"agent_action_bom,omitempty"`
 }
 
 type ControlEvidence struct {
@@ -271,11 +272,23 @@ func Build(in BuildInput) (BuildResult, error) {
 	if runtimeErr != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load runtime evidence: %w", runtimeErr)
 	}
+	evidencePackets, packetBundle, hasEvidencePackets, packetErr := buildEvidencePackets(snapshot, resolvedStatePath)
+	if packetErr != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load evidence packets: %w", packetErr)
+	}
 	if hasRuntimeEvidence {
 		if err := writeJSON(filepath.Join(outputDir, "runtime-evidence.json"), runtimeBundle); err != nil {
 			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 		}
 		if err := writeJSON(filepath.Join(outputDir, "runtime-evidence-correlation.json"), runtimeEvidence); err != nil {
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+		}
+	}
+	if hasEvidencePackets {
+		if err := writeJSON(filepath.Join(outputDir, "agentic-evidence-packets.json"), packetBundle); err != nil {
+			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+		}
+		if err := writeJSON(filepath.Join(outputDir, "agentic-evidence-packet-correlation.json"), evidencePackets); err != nil {
 			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 		}
 	}
@@ -439,6 +452,7 @@ func Build(in BuildInput) (BuildResult, error) {
 		ReportArtifacts:   reportArtifacts,
 		SourcePrivacy:     snapshot.SourcePrivacy,
 		RuntimeEvidence:   runtimeEvidence,
+		EvidencePackets:   evidencePackets,
 		AgentActionBOM:    summary.AgentActionBOM,
 	}, nil
 }
@@ -452,6 +466,18 @@ func buildRuntimeEvidence(snapshot state.Snapshot, statePath string) (*ingest.Su
 		return nil, ingest.Bundle{}, false, nil
 	}
 	summary := ingest.Correlate(snapshot, artifactPath, bundle)
+	return &summary, bundle, true, nil
+}
+
+func buildEvidencePackets(snapshot state.Snapshot, statePath string) (*ingest.EvidencePacketSummary, ingest.EvidencePacketBundle, bool, error) {
+	bundle, artifactPath, err := ingest.LoadOptionalEvidencePacketBundle(statePath)
+	if err != nil {
+		return nil, ingest.EvidencePacketBundle{}, false, err
+	}
+	if strings.TrimSpace(artifactPath) == "" {
+		return nil, ingest.EvidencePacketBundle{}, false, nil
+	}
+	summary := ingest.CorrelateEvidencePackets(snapshot, artifactPath, bundle)
 	return &summary, bundle, true, nil
 }
 

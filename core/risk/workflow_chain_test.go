@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"strings"
 	"testing"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -38,7 +39,22 @@ func TestWorkflowChainsDecorateActionPathsAndExtendedLineage(t *testing.T) {
 			{Control: agginventory.GovernanceControlApproval, Status: agginventory.ControlStatusSatisfied},
 			{Control: agginventory.GovernanceControlProof, Status: agginventory.ControlStatusSatisfied},
 		},
-		IntroducedBy:             &attribution.Result{Source: attribution.SourceSidecar, Confidence: attribution.ConfidenceHigh, PRNumber: 17, Author: "octocat"},
+		IntroducedBy: &attribution.Result{
+			Source:     attribution.SourceProviderProvenance,
+			Confidence: attribution.ConfidenceHigh,
+			Provider:   "github",
+			Reference:  "pr/17",
+			PRNumber:   17,
+			Author:     "octocat",
+			Provenance: &attribution.Provenance{
+				Provider:     "github",
+				Kind:         "pull_request",
+				Reference:    "pr/17",
+				ProviderURL:  "https://github.com/acme/release/pull/17",
+				ChangedFiles: []string{".github/workflows/release.yml"},
+				EvidenceRefs: []string{"evidence://fake/provider/pr-17.json"},
+			},
+		},
 		AutonomyTier:             "tier_4_prod_privileged_or_customer_impacting",
 		DelegationReadinessState: "approval_required",
 		RecommendedControl:       "approval_required",
@@ -71,10 +87,22 @@ func TestWorkflowChainsDecorateActionPathsAndExtendedLineage(t *testing.T) {
 	if segments["pr"].Status != EvidenceStateVerified {
 		t.Fatalf("expected PR lineage to use attribution confidence, got %+v", segments["pr"])
 	}
+	if !containsValue(segments["pr"].EvidenceRefs, "evidence://fake/provider/pr-17.json") {
+		t.Fatalf("expected PR lineage to carry provenance evidence refs, got %+v", segments["pr"])
+	}
 	if segments["deployment"].Status == "missing" {
 		t.Fatalf("expected deployment lineage for deploy path, got %+v", segments["deployment"])
 	}
 	if segments["evidence"].Status != EvidenceStateVerified {
 		t.Fatalf("expected evidence lineage to reflect proof/runtime state, got %+v", segments["evidence"])
 	}
+}
+
+func containsValue(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == strings.TrimSpace(want) {
+			return true
+		}
+	}
+	return false
 }

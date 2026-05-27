@@ -23,6 +23,9 @@
     "runtime_evidence": {
       "$ref": "#/definitions/runtimeEvidence"
     },
+    "evidence_packets": {
+      "$ref": "../report/report-summary.schema.json#/$defs/evidencePacketSummary"
+    },
     "action_surface_registry": {
       "type": "array",
       "items": {

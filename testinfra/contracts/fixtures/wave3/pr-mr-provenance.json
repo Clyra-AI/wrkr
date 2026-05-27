@@ -1,0 +1,31 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-05-26T15:00:00Z",
+  "entries": [
+    {
+      "provider": "github",
+      "kind": "pull_request",
+      "number": 42,
+      "title": "Add release guardrails",
+      "provider_url": "https://github.example.com/fake/acme/demo/pull/42",
+      "head_sha": "abc123def",
+      "author": "octocat",
+      "updated_at": "2026-05-26T14:59:00Z",
+      "base_branch": "main",
+      "head_branch": "feature/release",
+      "merged_by": "release-manager",
+      "merge_method": "squash",
+      "merge_state": "merged",
+      "changed_files": [".github/workflows/release.yml", "AGENTS.md"],
+      "reviewers": [{"name": "platform-bot", "state": "commented"}],
+      "approvals": [{"name": "sre-owner", "state": "approved", "required": true}],
+      "checks": [{"name": "fast-lane", "status": "completed", "conclusion": "success", "required": true}],
+      "deployments": [{"environment": "production", "status": "approved"}],
+      "branch_protections": [{"branch": "main", "status": "enforced", "required_approvals": 1, "required_checks": ["fast-lane"]}],
+      "environment_gates": [{"environment": "production", "status": "approved", "required_reviewers": ["sre-owner"]}],
+      "evidence_refs": ["evidence://fake/provider/pr-42.json"],
+      "ai_assisted": true,
+      "automation_assisted": true
+    }
+  ]
+}

@@ -168,6 +168,10 @@
         "runtime_evidence_absence_status": {"type": "string", "enum": ["not_collected", "not_applicable", "missing_required", "missing_for_control_claim"]},
         "runtime_evidence_classes": {"type": "array", "items": {"type": "string"}},
         "runtime_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "evidence_packet_status": {"type": "string", "enum": ["matched", "unmatched", "stale", "conflict"]},
+        "evidence_packet_result": {"type": "string", "enum": ["complete", "partial", "failed"]},
+        "evidence_packet_missing_evidence_state": {"type": "string", "enum": ["complete", "partial", "missing"]},
+        "evidence_packet_refs": {"type": "array", "items": {"type": "string"}},
         "gait_coverage": {"$ref": "#/$defs/gaitCoverage"},
         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "evidence_strength": {"type": "string"},
@@ -838,6 +842,96 @@
       },
       "additionalProperties": false
     },
+    "provenanceActor": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "state": {"type": "string"},
+        "role": {"type": "string"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "provider_url": {"type": "string"},
+        "required": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "provenanceCheck": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "status": {"type": "string"},
+        "conclusion": {"type": "string"},
+        "category": {"type": "string"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "provider_url": {"type": "string"},
+        "required": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "provenanceDeployment": {
+      "type": "object",
+      "properties": {
+        "environment": {"type": "string"},
+        "status": {"type": "string"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "provider_url": {"type": "string"},
+        "gate_state": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "provenanceBranchProtection": {
+      "type": "object",
+      "properties": {
+        "branch": {"type": "string"},
+        "status": {"type": "string"},
+        "required_approvals": {"type": "integer"},
+        "required_checks": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "provenanceEnvironmentGate": {
+      "type": "object",
+      "properties": {
+        "environment": {"type": "string"},
+        "status": {"type": "string"},
+        "required_reviewers": {"type": "array", "items": {"type": "string"}},
+        "deployment_ids": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "provider": {"type": "string"},
+        "kind": {"type": "string", "enum": ["pull_request", "merge_request"]},
+        "reference": {"type": "string"},
+        "number": {"type": "integer"},
+        "title": {"type": "string"},
+        "provider_url": {"type": "string"},
+        "head_sha": {"type": "string"},
+        "merge_commit_sha": {"type": "string"},
+        "author": {"type": "string"},
+        "updated_at": {"type": "string", "format": "date-time"},
+        "base_branch": {"type": "string"},
+        "head_branch": {"type": "string"},
+        "merged_by": {"type": "string"},
+        "merge_method": {"type": "string"},
+        "merge_state": {"type": "string"},
+        "changed_files": {"type": "array", "items": {"type": "string"}},
+        "reviewers": {"type": "array", "items": {"$ref": "#/$defs/provenanceActor"}},
+        "approvals": {"type": "array", "items": {"$ref": "#/$defs/provenanceActor"}},
+        "checks": {"type": "array", "items": {"$ref": "#/$defs/provenanceCheck"}},
+        "deployments": {"type": "array", "items": {"$ref": "#/$defs/provenanceDeployment"}},
+        "branch_protections": {"type": "array", "items": {"$ref": "#/$defs/provenanceBranchProtection"}},
+        "environment_gates": {"type": "array", "items": {"$ref": "#/$defs/provenanceEnvironmentGate"}},
+        "conflict_state": {"type": "string", "enum": ["none", "partial", "conflict"]},
+        "missing_evidence": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "ai_assisted": {"type": "boolean"},
+        "automation_assisted": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
     "introducedBy": {
       "type": "object",
       "required": ["source", "confidence"],
@@ -845,13 +939,16 @@
         "source": {"type": "string"},
         "confidence": {"type": "string", "enum": ["high", "low"]},
         "missing_reason": {"type": "string"},
+        "provider": {"type": "string"},
+        "reference": {"type": "string"},
         "pr_number": {"type": "integer"},
         "commit_sha": {"type": "string"},
         "author": {"type": "string"},
         "timestamp": {"type": "string", "format": "date-time"},
         "changed_file": {"type": "string"},
         "line_range": {"$ref": "#/$defs/locationRange"},
-        "provider_url": {"type": "string"}
+        "provider_url": {"type": "string"},
+        "provenance": {"$ref": "#/$defs/provenance"}
       },
       "additionalProperties": false
     }
