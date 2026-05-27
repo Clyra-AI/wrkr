@@ -416,7 +416,7 @@ func classifyAuthorityBindings(values []string) []string {
 		add("workload_identity", "gcp", "gcp_workload_identity", "gcp", "gcp_workload_identity", "cloud_or_infra_access", "write", "high")
 	case strings.Contains(text, "clusterrole") || strings.Contains(text, "rolebinding") || strings.Contains(text, "clusterrolebinding"):
 		access := "read"
-		if strings.Contains(text, "cluster-admin") || strings.Contains(text, "verbs,*") || strings.Contains(text, "create") || strings.Contains(text, "update") || strings.Contains(text, "delete") || strings.Contains(text, "patch") {
+		if strings.Contains(text, "cluster-admin") || containsAuthorityToken(values, "*") || strings.Contains(text, "create") || strings.Contains(text, "update") || strings.Contains(text, "delete") || strings.Contains(text, "patch") {
 			access = "admin"
 		}
 		add("kubernetes_rbac", "kubernetes", "kubernetes_rbac", "kubernetes", "cluster_role", "cluster_access", access, "high")
@@ -432,4 +432,14 @@ func classifyAuthorityBindings(values []string) []string {
 
 	sort.Strings(out)
 	return dedupeStrings(out)
+}
+
+func containsAuthorityToken(values []string, want string) bool {
+	want = strings.TrimSpace(strings.ToLower(want))
+	for _, value := range values {
+		if strings.TrimSpace(strings.ToLower(value)) == want {
+			return true
+		}
+	}
+	return false
 }
