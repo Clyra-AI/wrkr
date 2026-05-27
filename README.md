@@ -3,6 +3,7 @@
 Find the bounded AI-connected software-delivery paths in your repos and org, rank the riskiest ones first, and emit offline-verifiable proof before they become unreviewed access.
 
 Wrkr gives security and platform teams a deterministic, evidence-ready view of static AI tooling posture and gives developers a local-machine hygiene path when they want to inspect their own setup first. It discovers supported AI dev tools, MCP servers, and agent frameworks, shows what can write, highlights what to review or control first, emits proof artifacts for audits and CI, and can now render a buyer-ready static action registry summary for design-partner conversations. Wrkr stays in the static posture boundary: it does not claim runtime observation or control-layer enforcement.
+For workflow-centric reviews, Wrkr can also render a focused Agent Action BOM that leads with one selected workflow/action path and keeps the broader scan, graph, and proof detail in appendix artifacts.
 
 Security/platform-led. Developer hygiene included. Deterministic by default.
 

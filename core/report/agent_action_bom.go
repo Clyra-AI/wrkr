@@ -71,6 +71,7 @@ type AgentActionBOMSummary struct {
 	AutonomyTiers                risk.AutonomyTierCounts             `json:"autonomy_tiers"`
 	DelegationReadiness          risk.DelegationReadinessCounts      `json:"delegation_readiness"`
 	RecommendedControls          risk.RecommendedControlCounts       `json:"recommended_controls"`
+	PrimaryView                  *AgentActionBOMPrimaryView          `json:"primary_view,omitempty"`
 }
 
 type AgentActionBOMItem struct {
@@ -419,7 +420,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 	counts.ScanCoverage = &scanCoverage
 	counts.CoverageConfidence = scanCoverage.CoverageConfidence
 
-	return &AgentActionBOM{
+	bom := &AgentActionBOM{
 		BOMID:                agentActionBOMID(summary, items),
 		SchemaVersion:        AgentActionBOMSchemaVersion,
 		GeneratedAt:          summary.GeneratedAt,
@@ -432,6 +433,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		EvidenceRefs:         summaryEvidenceRefs(items),
 		ProofRefs:            globalProofRefs,
 	}
+	_ = selectAgentActionBOMPrimaryView(bom, "")
+	return bom
 }
 
 func buildAgentActionBOMFromSnapshot(summary Summary, snapshot state.Snapshot) *AgentActionBOM {
@@ -860,6 +863,14 @@ func cloneAxisSummary(in *scorecore.AxisSummary) *scorecore.AxisSummary {
 	out := *in
 	out.Rationale = append([]string(nil), in.Rationale...)
 	return &out
+}
+
+// ApplyAgentActionBOMFocus updates the buyer-facing primary view to the requested path.
+func ApplyAgentActionBOMFocus(summary *Summary, focusPathID string) error {
+	if summary == nil || summary.AgentActionBOM == nil {
+		return nil
+	}
+	return selectAgentActionBOMPrimaryView(summary.AgentActionBOM, focusPathID)
 }
 
 func firstNonEmptyClosureRequirementsForBOM(pathRequirements []risk.ClosureRequirement, backlogRequirements []risk.ClosureRequirement) []risk.ClosureRequirement {

@@ -92,6 +92,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	reviewSinceRaw := fs.String("review-since", "", "inclusive recent-review start date (YYYY-MM-DD)")
 	reviewUntilRaw := fs.String("review-until", "", "inclusive recent-review end date (YYYY-MM-DD)")
 	reviewLimit := fs.Int("review-limit", 10, "maximum recent PR/MR paths to rank (1-50)")
+	focusPathID := fs.String("focus-path", "", "explicit agent-action-bom path_id for focused workflow rendering")
 	statePathFlag := fs.String("state", "", "state file path override")
 	baselinePath := fs.String("baseline", "", "optional regress baseline for drift summary")
 	previousStatePath := fs.String("previous-state", "", "optional previous state for risk trend delta")
@@ -117,6 +118,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	reviewOpts, reviewErr := parseRecentPRReviewOptions(*recentReview, *reviewIDsRaw, *reviewSinceRaw, *reviewUntilRaw, *reviewLimit)
 	if reviewErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", reviewErr.Error(), exitInvalidInput)
+	}
+	if strings.TrimSpace(*focusPathID) != "" && template != reportcore.TemplateAgentActionBOM {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--focus-path requires --template agent-action-bom", exitInvalidInput)
 	}
 	redactionConfig := reportcore.ResolveRedactionConfig(shareProfile, redactionFields)
 
@@ -167,6 +171,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		Template:         template,
 		ShareProfile:     shareProfile,
 		RedactionFields:  redactionFields,
+		FocusPathID:      *focusPathID,
 		RecentPRReview: func() *reportcore.RecentPRReviewOptions {
 			if !reviewOpts.Enabled {
 				return nil
@@ -191,6 +196,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	})
 	if err != nil {
 		if isArtifactPathError(err) {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		if reportcore.IsAgentActionBOMFocusError(err) {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 		}
 		if reportcore.IsComplianceSummaryError(err) {

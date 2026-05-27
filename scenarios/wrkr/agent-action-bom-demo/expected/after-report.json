@@ -10,6 +10,7 @@
     "standing_privilege_items": 3,
     "static_credential_items": 3,
     "production_target_items": 5,
+    "lifecycle_queue_items": 6,
     "approval_evidence_unknown_items": 8,
     "missing_approval_items": 8,
     "missing_policy_items": 0,
@@ -20,7 +21,6 @@
     "likely_action_path_items": 3,
     "semantic_review_candidate_items": 1,
     "context_only_items": 1,
-    "lifecycle_queue_items": 6,
     "empty_state_status": "not_eligible",
     "empty_state_reasons": [
       "approval_evidence_unknown_paths_present",
@@ -190,6 +190,187 @@
       "proof_required": 0,
       "block_standing_credential": 3,
       "block": 0
+    },
+    "primary_view": {
+      "path_id": "apc-6626703372d7",
+      "selection_reason": "default_top_path",
+      "path_map": {
+        "tool": "wrkr:ci-agent-457b801fb1:local",
+        "repo_pr": "demo-app / pr/108",
+        "workflow": ".github/workflows/release.yml",
+        "credential": "cloud_admin_key source_control source_control_write standing",
+        "action": "credential_access,deploy,execute,read,write",
+        "target": "built_in:deploy_workflow,built_in:kubernetes,built_in:release_automation"
+      },
+      "control_resolution_state": "detected_control",
+      "approval_evidence_state": "unknown",
+      "owner_evidence_state": "inferred",
+      "proof_evidence_state": "verified",
+      "runtime_evidence_state": "verified",
+      "target_evidence_state": "inferred",
+      "credential_evidence_state": "verified",
+      "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+      "delegation_readiness_state": "blocked",
+      "recommended_control": "block_standing_credential",
+      "evidence_completeness_label": "strong_evidence",
+      "evidence_completeness_score": 86,
+      "unresolved_evidence": [
+        "approval"
+      ],
+      "today_path": {
+        "label": "today_path",
+        "summary": "Today this path is prod or customer impacting using standing credential with approval evidence not found and path-specific proof verified.",
+        "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+        "delegation_readiness_state": "blocked",
+        "recommended_control": "block_standing_credential",
+        "credential_mode": "standing credential",
+        "approval_evidence_state": "unknown",
+        "proof_evidence_state": "verified",
+        "outcome_evidence_state": "verified",
+        "path_type": "ci_cd_workflow",
+        "target_class": "production_impacting",
+        "reason_codes": [
+          "tier:production_or_customer_impact"
+        ]
+      },
+      "recommended_governed_path": {
+        "label": "recommended_governed_path",
+        "summary": "Recommended governed path uses block standing credential, requires approval evidence, blocking control, and leaves this path blocked.",
+        "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+        "delegation_readiness_state": "blocked",
+        "recommended_control": "block_standing_credential",
+        "credential_mode": "jit or brokered credential",
+        "approval_evidence_state": "unknown",
+        "proof_evidence_state": "verified",
+        "outcome_evidence_state": "verified",
+        "path_type": "ci_cd_workflow",
+        "target_class": "production_impacting",
+        "reason_codes": [
+          "readiness:standing_credential_block",
+          "recommended_control:block_standing_credential"
+        ]
+      },
+      "recommended_action_contract": {
+        "path_summary": "prod or customer impacting path for production_impacting",
+        "allowed_action": "block_standing_credential",
+        "required_authority": "replace standing credential with repo-scoped JIT or brokered authority",
+        "required_review": "review per existing local governance policy",
+        "required_approval": "record explicit owner approval with scope and expiry",
+        "required_proof": "keep path-specific proof linked as the path evolves",
+        "allowed_autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+        "validation_step": "replace standing credential, attach proof, and rerun the scan",
+        "default_posture": "block until contradictory or broad authority evidence is resolved",
+        "delegation_readiness_state": "blocked",
+        "approval_evidence_state": "unknown",
+        "owner_evidence_state": "inferred",
+        "proof_evidence_state": "verified",
+        "outcome_evidence_state": "verified",
+        "contract_readiness_state": "needs_owner",
+        "report_only": true,
+        "reason_codes": [
+          "readiness:standing_credential_block"
+        ]
+      },
+      "workflow_chain_refs": [
+        "wch-146c2cc420ac"
+      ],
+      "graph_refs": {
+        "node_ids": [
+          "cpg-node-0f2c70a39d15",
+          "cpg-node-1373eced3e8b",
+          "cpg-node-153e5ab590b4",
+          "cpg-node-16fddc3cd0be",
+          "cpg-node-1cd71df941ea",
+          "cpg-node-1d44b672db6d",
+          "cpg-node-225b6219adab",
+          "cpg-node-31f881b995a0",
+          "cpg-node-3211c2b0deb6",
+          "cpg-node-376ff7baa0bb",
+          "cpg-node-4323f69f749c",
+          "cpg-node-472d4c0c239c",
+          "cpg-node-5f9941dff849",
+          "cpg-node-6be0e64f3b3f",
+          "cpg-node-6fe78089627d",
+          "cpg-node-70ed82e25794",
+          "cpg-node-7c899f102c89",
+          "cpg-node-7dcffb01cba7",
+          "cpg-node-870a21134661",
+          "cpg-node-8e47f7bcae23",
+          "cpg-node-91eb5df3008e",
+          "cpg-node-9308e54a4399",
+          "cpg-node-9a3f3cabac0e",
+          "cpg-node-9dbc4994d42f",
+          "cpg-node-9edd22d899f2",
+          "cpg-node-a07da3490612",
+          "cpg-node-a183a128cf9a",
+          "cpg-node-aaeaca867356",
+          "cpg-node-abe2a69ed1d7",
+          "cpg-node-afc23e226445",
+          "cpg-node-c18efbef5f60",
+          "cpg-node-c449cc551a8b",
+          "cpg-node-c7c66feef476",
+          "cpg-node-cba5b5a798d9",
+          "cpg-node-cf506c798625",
+          "cpg-node-dad723812b3f",
+          "cpg-node-e2f19f4b2030",
+          "cpg-node-e43f00a46ef1",
+          "cpg-node-ec7674322504",
+          "cpg-node-f23ef7fe09d8"
+        ],
+        "edge_ids": [
+          "cpg-edge-034b018bf6dd",
+          "cpg-edge-0589ce7fc5fe",
+          "cpg-edge-08e5396d30e4",
+          "cpg-edge-09b535f4fe0d",
+          "cpg-edge-0fab2c809238",
+          "cpg-edge-14f8dae8bde8",
+          "cpg-edge-17c7c3ae7157",
+          "cpg-edge-220c8e5d0fb5",
+          "cpg-edge-2d6af6bfaac1",
+          "cpg-edge-32f17226b945",
+          "cpg-edge-409175bbd7fa",
+          "cpg-edge-469be1ac73da",
+          "cpg-edge-49cd6f61c74b",
+          "cpg-edge-4b7340e670dc",
+          "cpg-edge-5c86e0a5f778",
+          "cpg-edge-64976a2763f2",
+          "cpg-edge-6987d7156276",
+          "cpg-edge-72cbacf0463f",
+          "cpg-edge-786328232462",
+          "cpg-edge-7c6b05ba0442",
+          "cpg-edge-8709d650e87f",
+          "cpg-edge-8731a417b5f5",
+          "cpg-edge-8b6a3e3ea6c9",
+          "cpg-edge-927ff7d67152",
+          "cpg-edge-93c5f385c821",
+          "cpg-edge-a0623ae770ec",
+          "cpg-edge-adf2152a41a3",
+          "cpg-edge-c8398ff6e287",
+          "cpg-edge-cc2f41cb8c18",
+          "cpg-edge-da4981793b95",
+          "cpg-edge-da7347b81f82",
+          "cpg-edge-dbdf491d04e0",
+          "cpg-edge-dd2df9a6631b",
+          "cpg-edge-de2a45b70314",
+          "cpg-edge-df44b28aad0f",
+          "cpg-edge-e2c624d1b2d7",
+          "cpg-edge-e75c44fca89c",
+          "cpg-edge-f54c57b637fb",
+          "cpg-edge-fcba3932d800",
+          "cpg-edge-fdd31f249791"
+        ]
+      },
+      "proof_refs": [
+        "path:apc-6626703372d7"
+      ],
+      "appendix_refs": [
+        "bom_items",
+        "detector_diagnostics",
+        "graph_refs",
+        "proof_refs",
+        "scan_quality",
+        "workflow_chains"
+      ]
     }
   },
   "top_item": {
@@ -204,15 +385,21 @@
     "introduced_by": {
       "source": "source_metadata",
       "confidence": "high",
-      "pr_number": 108,
       "reference": "pr/108",
+      "pr_number": 108,
       "commit_sha": "deadbeef108",
       "author": "demo-bot",
       "timestamp": "2026-05-08T12:00:00Z",
       "changed_file": ".github/workflows/release.yml",
       "provider_url": "https://github.example.com/acme/demo-app/pull/108",
       "provenance": {
+        "kind": "pull_request",
+        "reference": "pr/108",
+        "number": 108,
+        "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+        "head_sha": "deadbeef108",
         "author": "demo-bot",
+        "updated_at": "2026-05-08T12:00:00Z",
         "changed_files": [
           ".agents/skills/release/SKILL.md",
           ".github/workflows/release.yml",
@@ -220,8 +407,6 @@
           "AGENTS.md"
         ],
         "conflict_state": "partial",
-        "head_sha": "deadbeef108",
-        "kind": "pull_request",
         "missing_evidence": [
           "approvals_missing",
           "branch_protection_missing",
@@ -229,11 +414,7 @@
           "deployments_missing",
           "environment_gates_missing",
           "reviewers_missing"
-        ],
-        "number": 108,
-        "provider_url": "https://github.example.com/acme/demo-app/pull/108",
-        "reference": "pr/108",
-        "updated_at": "2026-05-08T12:00:00Z"
+        ]
       }
     },
     "gait_coverage": {

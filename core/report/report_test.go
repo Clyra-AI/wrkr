@@ -1887,8 +1887,8 @@ func TestAgentActionBOMDoesNotRenderPositiveEmptyStateForStandingCredential(t *t
 	if strings.Contains(markdown, "## Empty-State Assessment") {
 		t.Fatalf("expected standing-credential path to block empty-state messaging, got %q", markdown)
 	}
-	if !strings.Contains(markdown, "## Top Governable Paths") {
-		t.Fatalf("expected governable path section instead of empty state, got %q", markdown)
+	if !strings.Contains(markdown, "## Primary Workflow BOM") || !strings.Contains(markdown, "## Workflow BOM Appendix") {
+		t.Fatalf("expected focused workflow BOM sections instead of empty state, got %q", markdown)
 	}
 }
 

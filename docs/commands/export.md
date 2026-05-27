@@ -45,6 +45,7 @@ Appendix export emits deterministic table sets for:
 
 `approval_gap_rows` remains a compatibility appendix name. The underlying path objects and report artifacts now lead with canonical evidence-state fields such as `approval_evidence_state`, `control_resolution_state`, and `proof_evidence_state`.
 Accepted-risk and suppression handling remain visible in saved backlog/ticket payloads; Wrkr does not delete appendix evidence just because an item is under accepted-risk review.
+Appendix export is complementary to the focused Agent Action BOM path view: the report command can answer one workflow/action path first, while `wrkr export --format appendix` keeps the broader row-level audit tables available for offline joins and CSV workflows.
 
 Ticket export is offline-first. `wrkr export tickets --dry-run --json` consumes the saved `control_backlog`; it does not run detectors and does not call Jira, GitHub Issues, or ServiceNow APIs. Unsupported ticket formats fail with `invalid_input` and exit `6`. Send/adaptor execution is a future explicit opt-in surface and should fail closed when credentials are missing.
 
