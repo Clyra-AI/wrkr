@@ -8,6 +8,7 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_PATH="${REPO_ROOT}/.tmp/agent-benchmarks.json"
+WRKR_BIN_PATH="${REPO_ROOT}/.tmp/wrkr"
 PRINT_JSON=0
 
 while [[ $# -gt 0 ]]; do
@@ -24,6 +25,14 @@ while [[ $# -gt 0 ]]; do
       OUTPUT_PATH="$2"
       shift 2
       ;;
+    --wrkr-bin)
+      if [[ $# -lt 2 ]]; then
+        echo "--wrkr-bin requires a value" >&2
+        exit 6
+      fi
+      WRKR_BIN_PATH="$2"
+      shift 2
+      ;;
     *)
       echo "unknown argument: $1" >&2
       exit 6
@@ -33,7 +42,7 @@ done
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
-python3 - "$REPO_ROOT" "$OUTPUT_PATH" "$PRINT_JSON" <<'PY'
+python3 - "$REPO_ROOT" "$OUTPUT_PATH" "$PRINT_JSON" "$WRKR_BIN_PATH" <<'PY'
 import json
 import pathlib
 import subprocess
@@ -43,6 +52,7 @@ import tempfile
 repo_root = pathlib.Path(sys.argv[1])
 output_path = pathlib.Path(sys.argv[2])
 print_json = sys.argv[3] == "1"
+wrkr_bin = pathlib.Path(sys.argv[4])
 
 corpus = json.loads((repo_root / "testinfra" / "benchmarks" / "agents" / "corpus.json").read_text(encoding="utf-8"))
 thresholds = json.loads((repo_root / "testinfra" / "benchmarks" / "agents" / "thresholds.json").read_text(encoding="utf-8"))
@@ -51,9 +61,9 @@ target_detectors = set(corpus["target_detectors"])
 positive_types = set(corpus["positive_finding_types"])
 cases = sorted(corpus["cases"], key=lambda item: item["id"])
 
-wrkr_bin = repo_root / ".tmp" / "wrkr"
 wrkr_bin.parent.mkdir(parents=True, exist_ok=True)
-subprocess.run(["go", "build", "-o", str(wrkr_bin), "./cmd/wrkr"], cwd=repo_root, check=True)
+if not (wrkr_bin.exists() and wrkr_bin.is_file()):
+    subprocess.run(["go", "build", "-o", str(wrkr_bin), "./cmd/wrkr"], cwd=repo_root, check=True)
 
 results = []
 tp = fp = tn = fn = 0

@@ -18,10 +18,12 @@ type EvidenceBundle struct {
 	Template              string                               `json:"template"`
 	ShareProfile          string                               `json:"share_profile"`
 	ShareProfileMetadata  *ShareProfileMetadata                `json:"share_profile_metadata,omitempty"`
+	ArtifactMetadata      *ArtifactMetadata                    `json:"artifact_metadata,omitempty"`
 	ControlBacklog        *controlbacklog.Backlog              `json:"control_backlog,omitempty"`
 	ControlPathGraph      *aggattack.ControlPathGraph          `json:"control_path_graph,omitempty"`
 	WorkflowChains        *agentresolver.WorkflowChainArtifact `json:"workflow_chains,omitempty"`
 	ActionSurfaceRegistry []ActionSurfaceRegistryEntry         `json:"action_surface_registry,omitempty"`
+	RuntimeSessions       *ingest.SessionSummary               `json:"runtime_sessions,omitempty"`
 	RuntimeEvidence       *ingest.Summary                      `json:"runtime_evidence,omitempty"`
 	EvidencePackets       *ingest.EvidencePacketSummary        `json:"evidence_packets,omitempty"`
 	AgentActionBOM        *AgentActionBOM                      `json:"agent_action_bom,omitempty"`
@@ -37,10 +39,12 @@ func BuildEvidenceBundle(summary Summary) EvidenceBundle {
 		Template:              summary.Template,
 		ShareProfile:          summary.ShareProfile,
 		ShareProfileMetadata:  cloneShareProfileMetadata(summary.ShareProfileMetadata),
+		ArtifactMetadata:      cloneArtifactMetadata(summary.ArtifactMetadata),
 		ControlBacklog:        summary.ControlBacklog,
 		ControlPathGraph:      summary.ControlPathGraph,
 		WorkflowChains:        summary.WorkflowChains,
 		ActionSurfaceRegistry: append([]ActionSurfaceRegistryEntry(nil), summary.ActionSurfaceRegistry...),
+		RuntimeSessions:       summary.RuntimeSessions,
 		RuntimeEvidence:       summary.RuntimeEvidence,
 		EvidencePackets:       summary.EvidencePackets,
 		AgentActionBOM:        summary.AgentActionBOM,

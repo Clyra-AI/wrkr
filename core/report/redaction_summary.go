@@ -405,6 +405,10 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].Owner = maybeRedactOwner(copyBOM.Items[idx].Owner, config)
 		copyBOM.Items[idx].ConfigSource = maybeRedactLocationLike(copyBOM.Items[idx].ConfigSource, config)
 		copyBOM.Items[idx].ProofRefs = maybeRedactStringSlice(copyBOM.Items[idx].ProofRefs, "proof", config.Has(RedactionProofRefs))
+		copyBOM.Items[idx].RuntimeSessionRefs = maybeRedactStringSlice(copyBOM.Items[idx].RuntimeSessionRefs, "session", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
+		for itemIdx := range copyBOM.Items[idx].ObservedChangedFiles {
+			copyBOM.Items[idx].ObservedChangedFiles[itemIdx] = maybeRedactLocationLike(copyBOM.Items[idx].ObservedChangedFiles[itemIdx], config)
+		}
 		copyBOM.Items[idx].RuntimeEvidenceRefs = cloneStrings(copyBOM.Items[idx].RuntimeEvidenceRefs)
 		copyBOM.Items[idx].PolicyRefs = cloneStrings(copyBOM.Items[idx].PolicyRefs)
 		copyBOM.Items[idx].PolicyEvidenceRefs = cloneStrings(copyBOM.Items[idx].PolicyEvidenceRefs)

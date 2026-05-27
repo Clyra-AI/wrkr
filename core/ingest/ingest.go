@@ -112,10 +112,12 @@ type Correlation struct {
 	LatestObservedAt string   `json:"latest_observed_at,omitempty"`
 	FreshnessState   string   `json:"freshness_state,omitempty"`
 	FreshnessStates  []string `json:"freshness_states,omitempty"`
+	BoundaryLabel    string   `json:"boundary_label,omitempty"`
 }
 
 type Summary struct {
 	ArtifactPath           string        `json:"artifact_path,omitempty"`
+	BoundaryLabel          string        `json:"boundary_label,omitempty"`
 	TotalRecords           int           `json:"total_records"`
 	RuntimeRecords         int           `json:"runtime_records,omitempty"`
 	ExternalControlRecords int           `json:"external_control_records,omitempty"`

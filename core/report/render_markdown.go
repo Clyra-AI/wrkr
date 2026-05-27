@@ -254,11 +254,12 @@ func RenderMarkdown(summary Summary) string {
 		}
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
-			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s lane=%s type=%s state=%s zone=%s target=%s review=%s queue=%s priority=%s tier=%s autonomy=%s readiness=%s recommended_control=%s control=%s approval=%s proof=%s runtime=%s confidence=%s evidence=%s completeness=%s(%d) policy=%s remediation=%s\n",
+			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s boundary=%s lane=%s type=%s state=%s zone=%s target=%s review=%s queue=%s priority=%s tier=%s autonomy=%s readiness=%s recommended_control=%s control=%s approval=%s proof=%s runtime=%s session=%s confidence=%s evidence=%s completeness=%s(%d) policy=%s remediation=%s\n",
 				markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType),
 				item.Repo,
 				item.Location,
 				item.Owner,
+				firstNonEmptyValue(item.BoundaryLabel, BoundaryLabelReportOnly),
 				item.ConfidenceLane,
 				item.ActionPathType,
 				item.ControlState,
@@ -275,6 +276,7 @@ func RenderMarkdown(summary Summary) string {
 				risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState),
 				risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
 				markdownBOMRuntimeEvidenceLabel(item),
+				firstNonEmptyValue(item.RuntimeSessionStatus, "not_collected"),
 				item.Confidence,
 				item.EvidenceStrength,
 				risk.BuyerEvidenceCompletenessLabel(item.EvidenceCompleteness),
@@ -514,9 +516,10 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		return
 	}
 	builder.WriteString("## Primary Workflow BOM\n\n")
-	fmt.Fprintf(builder, "- Selected path: %s selection=%s autonomy=%s readiness=%s recommended_control=%s proof=%s\n",
+	fmt.Fprintf(builder, "- Selected path: %s selection=%s boundary=%s autonomy=%s readiness=%s recommended_control=%s proof=%s\n",
 		view.PathID,
 		view.SelectionReason,
+		firstNonEmptyValue(view.BoundaryLabel, BoundaryLabelReportOnly),
 		risk.BuyerAutonomyTierShortLabel(view.AutonomyTier),
 		risk.BuyerDelegationReadinessLabel(view.DelegationReadinessState),
 		risk.BuyerRecommendedControlLabel(view.RecommendedControl),

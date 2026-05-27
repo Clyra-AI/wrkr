@@ -105,7 +105,7 @@ build:
 hooks:
 	@pre-commit install
 
-prepush: fmt lint-fast test-fast test-contracts build
+prepush: fmt lint-fast build test-fast test-contracts
 
 test-v1-acceptance:
 	@scripts/run_v1_acceptance.sh

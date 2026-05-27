@@ -66,6 +66,7 @@ type EvidencePacketCorrelation struct {
 	Repo                 string   `json:"repo,omitempty"`
 	Workflow             string   `json:"workflow,omitempty"`
 	PullRequestRef       string   `json:"pull_request_ref,omitempty"`
+	BoundaryLabel        string   `json:"boundary_label,omitempty"`
 	Status               string   `json:"status"`
 	Result               string   `json:"result,omitempty"`
 	MissingEvidenceState string   `json:"missing_evidence_state,omitempty"`
@@ -78,6 +79,7 @@ type EvidencePacketCorrelation struct {
 
 type EvidencePacketSummary struct {
 	ArtifactPath     string                      `json:"artifact_path,omitempty"`
+	BoundaryLabel    string                      `json:"boundary_label,omitempty"`
 	TotalPackets     int                         `json:"total_packets"`
 	MatchedPackets   int                         `json:"matched_packets"`
 	UnmatchedPackets int                         `json:"unmatched_packets"`

@@ -87,6 +87,52 @@ func runIngest(args []string, stdout io.Writer, stderr io.Writer) int {
 		_, _ = io.WriteString(stdout, "wrkr ingest complete\n")
 		return exitSuccess
 	}
+	if _, hasSessions := topLevelKeys["sessions"]; hasSessions || (topLevelKeys["records"] == nil && topLevelKeys["packets"] == nil) {
+		bundle, sessionErr := ingest.ParseSessionBundleJSON(payload)
+		if sessionErr == nil {
+			outputPath, pathErr := normalizeManagedArtifactPath(ingest.DefaultSessionPath(resolvedStatePath))
+			if pathErr != nil {
+				return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", pathErr.Error(), exitInvalidInput)
+			}
+			if err := rejectUnsafeExistingManagedFile(outputPath, "runtime sessions artifact"); err != nil {
+				return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+			}
+			transaction, txErr := beginManagedArtifactTransaction(resolvedStatePath, "ingest_sessions", []managedArtifactFile{
+				{label: "runtime sessions artifact", path: outputPath},
+			})
+			if txErr != nil {
+				return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", txErr.Error(), exitUnsafeBlocked)
+			}
+			if err := ingest.SaveSessionBundle(outputPath, bundle); err != nil {
+				return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", transaction.Rollback(err).Error(), exitRuntime)
+			}
+			if err := transaction.Complete(); err != nil {
+				return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", transaction.Rollback(err).Error(), exitRuntime)
+			}
+			summary := ingest.CorrelateSessions(snapshot, outputPath, bundle)
+			runtimeSummary := ingest.Correlate(snapshot, outputPath, ingest.ProjectSessionsToRuntimeBundle(bundle))
+			packetSummary := ingest.CorrelateEvidencePackets(snapshot, outputPath, ingest.ProjectSessionsToEvidencePacketBundle(bundle))
+			if *jsonOut {
+				_ = json.NewEncoder(stdout).Encode(map[string]any{
+					"status":             "ok",
+					"artifact_path":      outputPath,
+					"artifact_kind":      "runtime_sessions",
+					"session_count":      summary.TotalSessions,
+					"matched_sessions":   summary.MatchedSessions,
+					"unmatched_sessions": summary.UnmatchedSessions,
+					"runtime_sessions":   summary,
+					"runtime_evidence":   runtimeSummary,
+					"evidence_packets":   packetSummary,
+				})
+				return exitSuccess
+			}
+			_, _ = io.WriteString(stdout, "wrkr ingest complete\n")
+			return exitSuccess
+		}
+		if !ingest.IsUnrecognizedSessionArtifact(sessionErr) {
+			return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", sessionErr.Error(), exitPolicyViolation)
+		}
+	}
 
 	var bundle ingest.Bundle
 	if err := json.Unmarshal(payload, &bundle); err != nil {

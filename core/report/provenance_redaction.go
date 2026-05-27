@@ -165,6 +165,41 @@ func sanitizeEvidencePacketSummaryPublic(in *ingest.EvidencePacketSummary, rawPa
 	return &out
 }
 
+func sanitizeSessionSummaryPublic(in *ingest.SessionSummary, rawPaths []risk.ActionPath, sanitizedPaths []risk.ActionPath) *ingest.SessionSummary {
+	if in == nil {
+		return nil
+	}
+	pathIDMap := evidencePacketPathIDMap(rawPaths, sanitizedPaths)
+	out := *in
+	out.ArtifactPath = redactValue("artifact", out.ArtifactPath, 8)
+	out.Correlations = append([]ingest.SessionCorrelation(nil), in.Correlations...)
+	for idx := range out.Correlations {
+		copyItem := out.Correlations[idx]
+		copyItem.SessionID = redactValue("session", copyItem.SessionID, 8)
+		copyItem.PathID = redactedPathID(copyItem.PathID, pathIDMap)
+		copyItem.AgentID = redactValue("agent", copyItem.AgentID, 8)
+		copyItem.Provider = redactValue("provider", copyItem.Provider, 8)
+		copyItem.RunID = redactValue("run", copyItem.RunID, 8)
+		copyItem.Repo = redactValue("repo", copyItem.Repo, 8)
+		copyItem.Workflow = redactValue("file", copyItem.Workflow, 8)
+		copyItem.PullRequestRef = redactValue("pr", copyItem.PullRequestRef, 8)
+		copyItem.MergeRequestRef = redactValue("mr", copyItem.MergeRequestRef, 8)
+		copyItem.PromptRef = redactValue("prompt", copyItem.PromptRef, 8)
+		copyItem.ResponseRef = redactValue("response", copyItem.ResponseRef, 8)
+		copyItem.ObservedActions = cloneStrings(copyItem.ObservedActions)
+		copyItem.ChangedFiles = redactStringSlice(copyItem.ChangedFiles, "file")
+		copyItem.FileWrites = redactStringSlice(copyItem.FileWrites, "file")
+		copyItem.Approvals = redactStringSlice(copyItem.Approvals, "approval")
+		copyItem.PolicyDecisions = redactStringSlice(copyItem.PolicyDecisions, "policy")
+		copyItem.ProofRefs = redactStringSlice(copyItem.ProofRefs, "proof")
+		copyItem.GraphNodeRefs = redactStringSlice(copyItem.GraphNodeRefs, "node")
+		copyItem.GraphEdgeRefs = redactStringSlice(copyItem.GraphEdgeRefs, "edge")
+		copyItem.SourceArtifactRefs = redactStringSlice(copyItem.SourceArtifactRefs, "artifact")
+		out.Correlations[idx] = copyItem
+	}
+	return &out
+}
+
 func sanitizeEvidencePacketSummaryWithConfig(in *ingest.EvidencePacketSummary, rawPaths []risk.ActionPath, sanitizedPaths []risk.ActionPath, config RedactionConfig) *ingest.EvidencePacketSummary {
 	if in == nil {
 		return nil
@@ -190,6 +225,51 @@ func sanitizeEvidencePacketSummaryWithConfig(in *ingest.EvidencePacketSummary, r
 		copyItem.GraphNodeRefs = maybeRedactStringSlice(copyItem.GraphNodeRefs, "node", config.Has(RedactionGraphRefs))
 		copyItem.GraphEdgeRefs = maybeRedactStringSlice(copyItem.GraphEdgeRefs, "edge", config.Has(RedactionGraphRefs))
 		copyItem.EvidenceRefs = maybeRedactStringSlice(copyItem.EvidenceRefs, "evidence", config.Has(RedactionProviders) || config.Has(RedactionPaths))
+		out.Correlations[idx] = copyItem
+	}
+	return &out
+}
+
+func sanitizeSessionSummaryWithConfig(in *ingest.SessionSummary, rawPaths []risk.ActionPath, sanitizedPaths []risk.ActionPath, config RedactionConfig) *ingest.SessionSummary {
+	if in == nil {
+		return nil
+	}
+	pathIDMap := evidencePacketPathIDMap(rawPaths, sanitizedPaths)
+	out := *in
+	out.ArtifactPath = maybeRedactLocationLike(out.ArtifactPath, config)
+	out.Correlations = append([]ingest.SessionCorrelation(nil), in.Correlations...)
+	for idx := range out.Correlations {
+		copyItem := out.Correlations[idx]
+		if config.Has(RedactionPaths) || config.Has(RedactionProviders) {
+			copyItem.SessionID = redactValue("session", copyItem.SessionID, 8)
+		}
+		copyItem.PathID = redactedPathIDWithConfig(copyItem.PathID, pathIDMap, config)
+		copyItem.AgentID = maybeRedactPathID(copyItem.AgentID, config)
+		copyItem.Provider = maybeRedactProvider(copyItem.Provider, config)
+		if config.Has(RedactionProviders) {
+			copyItem.RunID = redactValue("run", copyItem.RunID, 8)
+			copyItem.PullRequestRef = redactValue("pr", copyItem.PullRequestRef, 8)
+			copyItem.MergeRequestRef = redactValue("mr", copyItem.MergeRequestRef, 8)
+		}
+		copyItem.Repo = maybeRedactRepo(copyItem.Repo, config)
+		copyItem.Workflow = maybeRedactLocationLike(copyItem.Workflow, config)
+		if config.Has(RedactionProofRefs) || config.Has(RedactionProviders) {
+			copyItem.PromptRef = redactValue("prompt", copyItem.PromptRef, 8)
+			copyItem.ResponseRef = redactValue("response", copyItem.ResponseRef, 8)
+		}
+		copyItem.ObservedActions = cloneStrings(copyItem.ObservedActions)
+		for itemIdx := range copyItem.ChangedFiles {
+			copyItem.ChangedFiles[itemIdx] = maybeRedactLocationLike(copyItem.ChangedFiles[itemIdx], config)
+		}
+		for itemIdx := range copyItem.FileWrites {
+			copyItem.FileWrites[itemIdx] = maybeRedactLocationLike(copyItem.FileWrites[itemIdx], config)
+		}
+		copyItem.Approvals = maybeRedactStringSlice(copyItem.Approvals, "approval", config.Has(RedactionAuthors))
+		copyItem.PolicyDecisions = maybeRedactStringSlice(copyItem.PolicyDecisions, "policy", config.Has(RedactionProofRefs))
+		copyItem.ProofRefs = maybeRedactStringSlice(copyItem.ProofRefs, "proof", config.Has(RedactionProofRefs))
+		copyItem.GraphNodeRefs = maybeRedactStringSlice(copyItem.GraphNodeRefs, "node", config.Has(RedactionGraphRefs))
+		copyItem.GraphEdgeRefs = maybeRedactStringSlice(copyItem.GraphEdgeRefs, "edge", config.Has(RedactionGraphRefs))
+		copyItem.SourceArtifactRefs = maybeRedactStringSlice(copyItem.SourceArtifactRefs, "artifact", config.Has(RedactionPaths))
 		out.Correlations[idx] = copyItem
 	}
 	return &out

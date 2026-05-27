@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://wrkr.dev/schemas/v1/evidence/runtime-sessions.schema.json",
+  "title": "Wrkr Runtime Sessions",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "sessions"],
+  "properties": {
+    "schema_version": {"const": "v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "sessions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/sessionRecord"}
+    }
+  },
+  "$defs": {
+    "sessionRecord": {
+      "type": "object",
+      "required": ["provider"],
+      "properties": {
+        "session_id": {"type": "string"},
+        "provider": {
+          "type": "string",
+          "enum": ["codex", "claude_code", "cursor", "copilot", "gait", "unknown"]
+        },
+        "run_id": {"type": "string"},
+        "status": {
+          "type": "string",
+          "enum": ["matched", "unmatched", "stale", "conflict"]
+        },
+        "path_id": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "repo": {"type": "string"},
+        "workflow": {"type": "string"},
+        "pull_request_ref": {"type": "string"},
+        "merge_request_ref": {"type": "string"},
+        "author_refs": {"type": "array", "items": {"type": "string"}},
+        "reviewer_refs": {"type": "array", "items": {"type": "string"}},
+        "tool": {"type": "string"},
+        "provider_url": {"type": "string"},
+        "prompt_ref": {"type": "string"},
+        "response_ref": {"type": "string"},
+        "changed_files": {"type": "array", "items": {"type": "string"}},
+        "commands": {"type": "array", "items": {"type": "string"}},
+        "actions": {"type": "array", "items": {"type": "string"}},
+        "file_writes": {"type": "array", "items": {"type": "string"}},
+        "approvals": {"type": "array", "items": {"type": "string"}},
+        "policy_decisions": {"type": "array", "items": {"type": "string"}},
+        "credential_subjects": {"type": "array", "items": {"type": "string"}},
+        "declarations": {"type": "array", "items": {"type": "string"}},
+        "proof_refs": {"type": "array", "items": {"type": "string"}},
+        "graph_node_refs": {"type": "array", "items": {"type": "string"}},
+        "graph_edge_refs": {"type": "array", "items": {"type": "string"}},
+        "outcome": {"type": "string"},
+        "started_at": {"type": "string", "format": "date-time"},
+        "completed_at": {"type": "string", "format": "date-time"},
+        "source_artifact_refs": {"type": "array", "items": {"type": "string"}},
+        "redaction_hints": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

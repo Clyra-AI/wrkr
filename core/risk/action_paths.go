@@ -79,6 +79,7 @@ type ActionPath struct {
 	EvidenceDecisions                   []evidencepolicy.Decision               `json:"evidence_decisions,omitempty"`
 	Contradictions                      []evidencepolicy.Contradiction          `json:"contradictions,omitempty"`
 	ControlResolutionState              string                                  `json:"control_resolution_state,omitempty"`
+	BoundaryLabel                       string                                  `json:"boundary_label,omitempty"`
 	ControlResolutionReasons            []string                                `json:"control_resolution_reasons,omitempty"`
 	ControlEvidenceRefs                 []string                                `json:"control_evidence_refs,omitempty"`
 	ConstraintEvidenceClasses           []string                                `json:"constraint_evidence_classes,omitempty"`
