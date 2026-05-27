@@ -175,6 +175,7 @@ type AgentActionBOMItem struct {
 	LifecycleQueue                      *governancequeue.Item                  `json:"lifecycle_queue,omitempty"`
 	AttackPathRefs                      []string                               `json:"attack_path_refs,omitempty"`
 	SourceFindingKeys                   []string                               `json:"source_finding_keys,omitempty"`
+	WorkflowChainRefs                   []string                               `json:"workflow_chain_refs,omitempty"`
 	ExclusionReason                     string                                 `json:"exclusion_reason,omitempty"`
 	GraphRefs                           AgentActionBOMGraphRefs                `json:"graph_refs,omitempty"`
 	EvidenceRefs                        []string                               `json:"evidence_refs,omitempty"`
@@ -352,6 +353,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			LifecycleQueue:                      cloneLifecycleQueue(backlogItem.LifecycleQueue),
 			AttackPathRefs:                      append([]string(nil), path.AttackPathRefs...),
 			SourceFindingKeys:                   append([]string(nil), path.SourceFindingKeys...),
+			WorkflowChainRefs:                   append([]string(nil), path.WorkflowChainRefs...),
 			GraphRefs:                           itemGraphRefs,
 			Reachability:                        reachability,
 			ReachableServers:                    reachableServers,

@@ -31,15 +31,24 @@
     ],
     "config_fingerprint": "cfg-25ce41dafe7a",
     "action_lineage_kinds": [
+      "intent",
+      "task",
+      "human",
       "repo",
+      "pr",
       "workflow",
+      "workflow_run",
       "agent",
       "action",
       "credential",
       "target",
       "owner",
       "approval",
-      "proof"
+      "control",
+      "deployment",
+      "outcome",
+      "proof",
+      "evidence"
     ]
   }
 }

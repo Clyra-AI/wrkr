@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -36,15 +37,16 @@ type RepoAggregate struct {
 }
 
 type Report struct {
-	GeneratedAt              string                      `json:"generated_at"`
-	TopN                     []ScoredFinding             `json:"top_findings"`
-	Ranked                   []ScoredFinding             `json:"ranked_findings"`
-	Repos                    []RepoAggregate             `json:"repo_risk"`
-	AttackPaths              []riskattack.ScoredPath     `json:"attack_paths,omitempty"`
-	TopAttackPaths           []riskattack.ScoredPath     `json:"top_attack_paths,omitempty"`
-	ActionPaths              []ActionPath                `json:"action_paths,omitempty"`
-	ActionPathToControlFirst *ActionPathToControlFirst   `json:"action_path_to_control_first,omitempty"`
-	ControlPathGraph         *aggattack.ControlPathGraph `json:"control_path_graph,omitempty"`
+	GeneratedAt              string                               `json:"generated_at"`
+	TopN                     []ScoredFinding                      `json:"top_findings"`
+	Ranked                   []ScoredFinding                      `json:"ranked_findings"`
+	Repos                    []RepoAggregate                      `json:"repo_risk"`
+	AttackPaths              []riskattack.ScoredPath              `json:"attack_paths,omitempty"`
+	TopAttackPaths           []riskattack.ScoredPath              `json:"top_attack_paths,omitempty"`
+	ActionPaths              []ActionPath                         `json:"action_paths,omitempty"`
+	ActionPathToControlFirst *ActionPathToControlFirst            `json:"action_path_to_control_first,omitempty"`
+	ControlPathGraph         *aggattack.ControlPathGraph          `json:"control_path_graph,omitempty"`
+	WorkflowChains           *agentresolver.WorkflowChainArtifact `json:"workflow_chains,omitempty"`
 }
 
 type promptCooccurrence struct {

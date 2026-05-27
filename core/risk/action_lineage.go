@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
+	"strconv"
 	"strings"
 
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
@@ -93,15 +94,24 @@ func buildActionLineage(path ActionPath, index controlPathLineageIndex) *ActionL
 	approvalNodeIDs := matchingNodeIDs(nodes, "governance_control", "approval")
 	proofNodeIDs := matchingNodeIDs(nodes, "governance_control", "proof")
 	segments := []ActionLineageSegment{
+		newLineageSegment(pathID, "intent", intentLineageLabel(path), intentLineageStatus(path), matchingNodeIDs(nodes, aggattack.ControlPathNodeIntent, "intent"), matchingEdgeIDs(edges, aggattack.ControlPathEdgeRequestToHuman), intentLineageEvidence(path)),
+		newLineageSegment(pathID, "task", taskLineageLabel(path), taskLineageStatus(path), matchingNodeIDs(nodes, aggattack.ControlPathNodeTask, "task"), matchingEdgeIDsAny(edges, aggattack.ControlPathEdgeHumanDelegatesTask, aggattack.ControlPathEdgeTaskExecutedByAgentTeam), taskLineageEvidence(path)),
+		newLineageSegment(pathID, "human", humanLineageLabel(path), humanLineageStatus(path), matchingNodeIDs(nodes, aggattack.ControlPathNodeHumanIdentity, "human"), matchingEdgeIDsAny(edges, aggattack.ControlPathEdgeRequestToHuman, aggattack.ControlPathEdgeHumanDelegatesTask), humanLineageEvidence(path)),
 		newLineageSegment(pathID, "repo", path.Repo, statusForPresence(path.Repo), matchingNodeIDs(nodes, "repo", ""), matchingEdgeIDs(edges, "workflow_in_repo"), []string{path.Repo}),
+		newLineageSegment(pathID, "pr", pullRequestLineageLabel(path), pullRequestLineageStatus(path), matchingNodeIDs(nodes, aggattack.ControlPathNodePullRequest, "pr"), matchingEdgeIDsAny(edges, aggattack.ControlPathEdgeRepoProducesPullRequest, aggattack.ControlPathEdgePullRequestRunsChecks), pullRequestLineageEvidence(path)),
 		newLineageSegment(pathID, "workflow", path.Location, statusForPresence(path.Location), matchingNodeIDs(nodes, "workflow", ""), matchingEdgeIDs(edges, "path_executes_workflow"), []string{path.Location}),
+		newLineageSegment(pathID, "workflow_run", workflowRunLineageLabel(path), workflowRunLineageStatus(path), matchingNodeIDsAny(nodes, []string{aggattack.ControlPathNodeWorkflowRun, aggattack.ControlPathNodeCICDRun}, "workflow_run"), matchingEdgeIDsAny(edges, aggattack.ControlPathEdgePullRequestRunsChecks, aggattack.ControlPathEdgeChecksGateApproval), workflowRunLineageEvidence(path)),
 		newLineageSegment(pathID, "agent", firstNonEmpty(path.AgentID, path.ToolType), statusForPresence(firstNonEmpty(path.AgentID, path.ToolType)), matchingNodeIDs(nodes, "agent", ""), matchingEdgeIDs(edges, "agent_controls_path"), []string{path.AgentID}),
 		newLineageSegment(pathID, "action", actionLineageLabel(path), actionLineageStatus(path), matchingNodeIDs(nodes, "action_capability", ""), matchingEdgeIDs(edges, "path_enables_action"), append([]string(nil), path.ActionReasons...)),
 		newLineageSegment(pathID, "credential", credentialLineageLabel(path), credentialLineageStatus(path), matchingNodeIDs(nodes, "credential", ""), matchingEdgeIDs(edges, "execution_uses_credential"), credentialLineageEvidence(path)),
 		newLineageSegment(pathID, "target", targetLineageLabel(path), targetLineageStatus(path), matchingNodeIDs(nodes, "target", ""), matchingEdgeIDs(edges, "path_targets_surface"), append([]string(nil), path.MatchedProductionTargets...)),
 		newLineageSegment(pathID, "owner", path.OperationalOwner, ownerLineageStatus(path), nil, nil, append([]string(nil), path.OwnershipEvidence...)),
 		newLineageSegment(pathID, "approval", approvalLineageLabel(path), approvalLineageStatus(path), approvalNodeIDs, matchingEdgeIDsForNodeIDs(edges, "path_governed_by", approvalNodeIDs), append([]string(nil), path.ApprovalGapReasons...)),
+		newLineageSegment(pathID, "control", controlLineageLabel(path), controlLineageStatus(path), matchingNodeIDs(nodes, aggattack.ControlPathNodePolicyIdentity, "control"), matchingEdgeIDs(edges, aggattack.ControlPathEdgeChecksGateApproval), append([]string(nil), path.ControlEvidenceRefs...)),
+		newLineageSegment(pathID, "deployment", deploymentLineageLabel(path), deploymentLineageStatus(path), matchingNodeIDs(nodes, aggattack.ControlPathNodeDeploymentPath, "deployment"), matchingEdgeIDsAny(edges, aggattack.ControlPathEdgeApprovalAuthorizesDeploy, aggattack.ControlPathEdgeDeployAffectsAsset), deploymentLineageEvidence(path)),
+		newLineageSegment(pathID, "outcome", outcomeLineageLabel(path), outcomeLineageStatus(path), matchingNodeIDs(nodes, aggattack.ControlPathNodeOutcome, "outcome"), matchingEdgeIDs(edges, aggattack.ControlPathEdgeEvidenceProvesOutcome), outcomeLineageEvidence(path)),
 		newLineageSegment(pathID, "proof", proofLineageLabel(path), proofLineageStatus(path), proofNodeIDs, matchingEdgeIDsForNodeIDs(edges, "path_governed_by", proofNodeIDs), append([]string(nil), path.PolicyEvidenceRefs...)),
+		newLineageSegment(pathID, "evidence", evidenceLineageLabel(path), evidenceLineageStatus(path), matchingNodeIDs(nodes, aggattack.ControlPathNodeEvidenceIdentity, "evidence"), matchingEdgeIDs(edges, aggattack.ControlPathEdgeEvidenceProvesOutcome), evidenceLineageEvidence(path)),
 	}
 	return &ActionLineage{Segments: segments}
 }
@@ -141,6 +151,14 @@ func matchingNodeIDs(nodes []aggattack.ControlPathNode, kind string, lineageSegm
 	return out
 }
 
+func matchingNodeIDsAny(nodes []aggattack.ControlPathNode, kinds []string, lineageSegment string) []string {
+	out := []string{}
+	for _, kind := range kinds {
+		out = append(out, matchingNodeIDs(nodes, kind, lineageSegment)...)
+	}
+	return dedupeSortedStrings(out)
+}
+
 func matchingEdgeIDs(edges []aggattack.ControlPathEdge, kind string) []string {
 	out := []string{}
 	for _, edge := range edges {
@@ -150,6 +168,14 @@ func matchingEdgeIDs(edges []aggattack.ControlPathEdge, kind string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func matchingEdgeIDsAny(edges []aggattack.ControlPathEdge, kinds ...string) []string {
+	out := []string{}
+	for _, kind := range kinds {
+		out = append(out, matchingEdgeIDs(edges, kind)...)
+	}
+	return dedupeSortedStrings(out)
 }
 
 func matchingEdgeIDsForNodeIDs(edges []aggattack.ControlPathEdge, kind string, nodeIDs []string) []string {
@@ -318,6 +344,228 @@ func proofLineageStatus(path ActionPath) string {
 		return "missing"
 	default:
 		return "missing"
+	}
+}
+
+func intentLineageLabel(path ActionPath) string {
+	return firstNonEmpty(path.Purpose, "unknown_intent")
+}
+
+func intentLineageStatus(path ActionPath) string {
+	if strings.TrimSpace(path.Purpose) == "" {
+		return "unknown"
+	}
+	return "declared"
+}
+
+func intentLineageEvidence(path ActionPath) []string {
+	return dedupeSortedStrings([]string{path.PurposeSource, path.ConfigSource})
+}
+
+func taskLineageLabel(path ActionPath) string {
+	if strings.TrimSpace(path.Purpose) != "" {
+		return strings.TrimSpace(path.Purpose)
+	}
+	return "unknown_task"
+}
+
+func taskLineageStatus(path ActionPath) string {
+	if strings.TrimSpace(path.Purpose) != "" {
+		return "declared"
+	}
+	return "unknown"
+}
+
+func taskLineageEvidence(path ActionPath) []string {
+	return dedupeSortedStrings([]string{path.PurposeSource, path.Location})
+}
+
+func humanLineageLabel(path ActionPath) string {
+	if path.IntroducedBy != nil && strings.TrimSpace(path.IntroducedBy.Author) != "" {
+		return strings.TrimSpace(path.IntroducedBy.Author)
+	}
+	return "unknown_human"
+}
+
+func humanLineageStatus(path ActionPath) string {
+	if path.IntroducedBy == nil {
+		return "unknown"
+	}
+	switch strings.TrimSpace(path.IntroducedBy.Confidence) {
+	case "high":
+		return EvidenceStateVerified
+	case "low":
+		return EvidenceStateInferred
+	default:
+		return "unknown"
+	}
+}
+
+func humanLineageEvidence(path ActionPath) []string {
+	if path.IntroducedBy == nil {
+		return nil
+	}
+	return dedupeSortedStrings([]string{path.IntroducedBy.ProviderURL, path.IntroducedBy.ChangedFile})
+}
+
+func pullRequestLineageLabel(path ActionPath) string {
+	if path.IntroducedBy != nil && path.IntroducedBy.PRNumber > 0 {
+		return "PR #" + strings.TrimSpace(strconv.Itoa(path.IntroducedBy.PRNumber))
+	}
+	return "unknown_pr"
+}
+
+func pullRequestLineageStatus(path ActionPath) string {
+	if path.IntroducedBy == nil || path.IntroducedBy.PRNumber <= 0 {
+		return "unknown"
+	}
+	return humanLineageStatus(path)
+}
+
+func pullRequestLineageEvidence(path ActionPath) []string {
+	if path.IntroducedBy == nil {
+		return nil
+	}
+	return dedupeSortedStrings([]string{path.IntroducedBy.ProviderURL, path.IntroducedBy.CommitSHA, path.IntroducedBy.ChangedFile})
+}
+
+func workflowRunLineageLabel(path ActionPath) string {
+	return firstNonEmpty(path.Location, "unknown_workflow_run")
+}
+
+func workflowRunLineageStatus(path ActionPath) string {
+	if strings.TrimSpace(path.Location) == "" {
+		return "unknown"
+	}
+	return "present"
+}
+
+func workflowRunLineageEvidence(path ActionPath) []string {
+	return dedupeSortedStrings([]string{path.Location, path.ConfigSource})
+}
+
+func controlLineageLabel(path ActionPath) string {
+	return firstNonEmpty(path.ControlResolutionState, path.PolicyCoverageStatus, "unknown_control")
+}
+
+func controlLineageStatus(path ActionPath) string {
+	if strings.TrimSpace(path.ControlResolutionState) == ControlResolutionStateContradictoryControl {
+		return EvidenceStateContradictory
+	}
+	switch strings.TrimSpace(path.PolicyCoverageStatus) {
+	case PolicyCoverageStatusRuntimeProven:
+		return EvidenceStateVerified
+	case PolicyCoverageStatusMatched, PolicyCoverageStatusDeclared:
+		return EvidenceStateDeclared
+	case PolicyCoverageStatusConflict:
+		return EvidenceStateContradictory
+	case PolicyCoverageStatusStale, PolicyCoverageStatusNone, "":
+		if strings.TrimSpace(path.ControlResolutionState) == "" {
+			return "unknown"
+		}
+		return EvidenceStateDeclared
+	default:
+		return "unknown"
+	}
+}
+
+func deploymentLineageLabel(path ActionPath) string {
+	if len(path.MatchedProductionTargets) > 0 {
+		return strings.Join(path.MatchedProductionTargets, ",")
+	}
+	if path.DeployWrite || path.ProductionWrite {
+		return "unknown_deployment_path"
+	}
+	return "unknown_deployment_path"
+}
+
+func deploymentLineageStatus(path ActionPath) string {
+	if !path.DeployWrite && !path.ProductionWrite && len(path.MatchedProductionTargets) == 0 {
+		return "missing"
+	}
+	if state := strongestLineageEvidenceState(path.ProofEvidenceState, path.RuntimeEvidenceState); state != "" {
+		return state
+	}
+	return "unknown"
+}
+
+func deploymentLineageEvidence(path ActionPath) []string {
+	return dedupeSortedStrings(append(append([]string(nil), path.MatchedProductionTargets...), path.PolicyEvidenceRefs...))
+}
+
+func outcomeLineageLabel(path ActionPath) string {
+	if state := strongestLineageEvidenceState(path.ProofEvidenceState, path.RuntimeEvidenceState); state != "" {
+		return "outcome:" + state
+	}
+	return "unknown_outcome"
+}
+
+func outcomeLineageStatus(path ActionPath) string {
+	if state := strongestLineageEvidenceState(path.ProofEvidenceState, path.RuntimeEvidenceState); state != "" {
+		return state
+	}
+	return "unknown"
+}
+
+func outcomeLineageEvidence(path ActionPath) []string {
+	return dedupeSortedStrings(append(append([]string(nil), path.PolicyEvidenceRefs...), path.ControlEvidenceRefs...))
+}
+
+func evidenceLineageLabel(path ActionPath) string {
+	if path.EvidenceCompleteness != nil && strings.TrimSpace(path.EvidenceCompleteness.Label) != "" {
+		return strings.TrimSpace(path.EvidenceCompleteness.Label)
+	}
+	if state := strongestLineageEvidenceState(path.ProofEvidenceState, path.RuntimeEvidenceState, path.TargetEvidenceState); state != "" {
+		return state
+	}
+	return "unknown_evidence"
+}
+
+func evidenceLineageStatus(path ActionPath) string {
+	if state := strongestLineageEvidenceState(path.ProofEvidenceState, path.RuntimeEvidenceState, path.TargetEvidenceState); state != "" {
+		return state
+	}
+	return "unknown"
+}
+
+func evidenceLineageEvidence(path ActionPath) []string {
+	values := append([]string(nil), path.ControlEvidenceRefs...)
+	values = append(values, path.PolicyEvidenceRefs...)
+	values = append(values, path.TargetClassEvidenceRefs...)
+	return dedupeSortedStrings(values)
+}
+
+func strongestLineageEvidenceState(values ...string) string {
+	bestRank := -1
+	best := ""
+	for _, value := range values {
+		normalized := strings.TrimSpace(value)
+		if normalized == "" {
+			continue
+		}
+		rank := lineageEvidenceStateRank(normalized)
+		if rank > bestRank {
+			bestRank = rank
+			best = normalized
+		}
+	}
+	return best
+}
+
+func lineageEvidenceStateRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case EvidenceStateContradictory:
+		return 5
+	case EvidenceStateVerified:
+		return 4
+	case EvidenceStateDeclared:
+		return 3
+	case EvidenceStateInferred:
+		return 2
+	case EvidenceStateUnknown:
+		return 1
+	default:
+		return 0
 	}
 }
 

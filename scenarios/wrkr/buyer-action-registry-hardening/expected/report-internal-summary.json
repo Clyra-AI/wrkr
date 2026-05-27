@@ -26,15 +26,24 @@
       "confidence": "high"
     },
     "lineage_statuses": [
+      {"kind": "intent", "status": "declared"},
+      {"kind": "task", "status": "declared"},
+      {"kind": "human", "status": "inferred"},
       {"kind": "repo", "status": "present"},
+      {"kind": "pr", "status": "unknown"},
       {"kind": "workflow", "status": "present"},
+      {"kind": "workflow_run", "status": "present"},
       {"kind": "agent", "status": "present"},
       {"kind": "action", "status": "present"},
       {"kind": "credential", "status": "present"},
       {"kind": "target", "status": "missing"},
       {"kind": "owner", "status": "present"},
       {"kind": "approval", "status": "missing"},
-      {"kind": "proof", "status": "missing"}
+      {"kind": "control", "status": "declared"},
+      {"kind": "deployment", "status": "missing"},
+      {"kind": "outcome", "status": "unknown"},
+      {"kind": "proof", "status": "missing"},
+      {"kind": "evidence", "status": "unknown"}
     ]
   },
   "semantic_item": {

@@ -525,9 +525,6 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	profileResult := profileeval.Evaluate(profileDef, findings, previousProfile)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileResult.ProfileName, riskReport.ActionPaths)
-	riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
-	riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
-	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
 	}
@@ -538,6 +535,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		DetectorErrors: detectorErrors,
 	})
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, &scanQuality)
+	riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
+	riskReport.WorkflowChains = risk.BuildWorkflowChains(riskReport.ActionPaths, riskReport.ControlPathGraph)
+	riskReport.ActionPaths = risk.DecorateWorkflowChainRefs(riskReport.ActionPaths, riskReport.WorkflowChains)
+	riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
 	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	lifecycleGaps := lifecycle.DetectGaps(lifecycle.GapInput{
 		Identities:  nextManifest.Identities,

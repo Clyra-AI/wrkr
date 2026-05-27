@@ -6,25 +6,27 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 )
 
 type EvidenceBundle struct {
-	ReportBundleVersion   string                       `json:"report_bundle_version"`
-	GeneratedAt           string                       `json:"generated_at"`
-	Template              string                       `json:"template"`
-	ShareProfile          string                       `json:"share_profile"`
-	ShareProfileMetadata  *ShareProfileMetadata        `json:"share_profile_metadata,omitempty"`
-	ControlBacklog        *controlbacklog.Backlog      `json:"control_backlog,omitempty"`
-	ControlPathGraph      *aggattack.ControlPathGraph  `json:"control_path_graph,omitempty"`
-	ActionSurfaceRegistry []ActionSurfaceRegistryEntry `json:"action_surface_registry,omitempty"`
-	RuntimeEvidence       *ingest.Summary              `json:"runtime_evidence,omitempty"`
-	AgentActionBOM        *AgentActionBOM              `json:"agent_action_bom,omitempty"`
-	ComplianceSummary     any                          `json:"compliance_summary"`
-	Proof                 ProofReference               `json:"proof"`
-	NextActions           []ChecklistItem              `json:"next_actions"`
+	ReportBundleVersion   string                               `json:"report_bundle_version"`
+	GeneratedAt           string                               `json:"generated_at"`
+	Template              string                               `json:"template"`
+	ShareProfile          string                               `json:"share_profile"`
+	ShareProfileMetadata  *ShareProfileMetadata                `json:"share_profile_metadata,omitempty"`
+	ControlBacklog        *controlbacklog.Backlog              `json:"control_backlog,omitempty"`
+	ControlPathGraph      *aggattack.ControlPathGraph          `json:"control_path_graph,omitempty"`
+	WorkflowChains        *agentresolver.WorkflowChainArtifact `json:"workflow_chains,omitempty"`
+	ActionSurfaceRegistry []ActionSurfaceRegistryEntry         `json:"action_surface_registry,omitempty"`
+	RuntimeEvidence       *ingest.Summary                      `json:"runtime_evidence,omitempty"`
+	AgentActionBOM        *AgentActionBOM                      `json:"agent_action_bom,omitempty"`
+	ComplianceSummary     any                                  `json:"compliance_summary"`
+	Proof                 ProofReference                       `json:"proof"`
+	NextActions           []ChecklistItem                      `json:"next_actions"`
 }
 
 func BuildEvidenceBundle(summary Summary) EvidenceBundle {
@@ -36,6 +38,7 @@ func BuildEvidenceBundle(summary Summary) EvidenceBundle {
 		ShareProfileMetadata:  cloneShareProfileMetadata(summary.ShareProfileMetadata),
 		ControlBacklog:        summary.ControlBacklog,
 		ControlPathGraph:      summary.ControlPathGraph,
+		WorkflowChains:        summary.WorkflowChains,
 		ActionSurfaceRegistry: append([]ActionSurfaceRegistryEntry(nil), summary.ActionSurfaceRegistry...),
 		RuntimeEvidence:       summary.RuntimeEvidence,
 		AgentActionBOM:        summary.AgentActionBOM,

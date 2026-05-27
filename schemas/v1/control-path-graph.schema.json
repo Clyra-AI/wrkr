@@ -22,6 +22,18 @@
         "edge_kinds": {
           "type": "array",
           "items": {"$ref": "#/$defs/kindRollup"}
+        },
+        "autonomy_tiers": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/kindRollup"}
+        },
+        "delegation_readiness_states": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/kindRollup"}
+        },
+        "evidence_states": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/kindRollup"}
         }
       },
       "additionalProperties": false
@@ -63,7 +75,20 @@
             "repo",
             "governance_control",
             "target",
-            "action_capability"
+            "action_capability",
+            "intent",
+            "task",
+            "human_identity",
+            "agent_team",
+            "pull_request",
+            "approval_identity",
+            "policy_identity",
+            "asset_identity",
+            "evidence_identity",
+            "deployment_path",
+            "ci_cd_run",
+            "workflow_run",
+            "outcome"
           ]
         },
         "lineage_segment": {"type": "string"},

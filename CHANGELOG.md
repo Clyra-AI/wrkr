@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- [semver:minor] Added workflow chain artifacts that group delegated SDLC paths by repo, PR/MR, workflow, tool, credential, owner, approval, target, evidence, and outcome.
+- [semver:minor] Added Control Path Graph V2 nodes and edges for delegated SDLC intent, human, agent team, PR/MR, approval, deployment, asset, evidence, and outcome paths.
+- [semver:minor] Added intent-to-outcome action lineage segments for delegated SDLC workflows.
 - [semver:minor] Added Agentic SDLC autonomy tiers, delegation readiness states, and recommended control outcomes to govern-first action paths, Agent Action BOM items, control backlog items, and markdown report rollups.
 - [semver:minor] Added draft recommended action contracts plus today-versus-governed path views for control-first and high-stakes action paths in report and backlog artifacts.
 - [semver:minor] Added canonical control resolution and evidence confidence fields for action paths, reports, backlog items, and v1 schemas so control gaps are evidence-scoped instead of inferred from local absence.

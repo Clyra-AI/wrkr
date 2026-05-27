@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -76,11 +77,6 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		profileName = in.Snapshot.Profile.ProfileName
 	}
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.ApplyGovernFirstProfile(profileName, riskReport.ActionPaths)
-	if len(riskReport.ActionPaths) > 0 {
-		riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
-	}
-	riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
-	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	topFindings := SelectTopFindings(*riskReport, top)
 
 	proofRef, err := buildProofReference(in.StatePath, topFindings)
@@ -109,6 +105,12 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, scanQuality)
+	if len(riskReport.ActionPaths) > 0 {
+		riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
+		riskReport.WorkflowChains = risk.BuildWorkflowChains(riskReport.ActionPaths, riskReport.ControlPathGraph)
+		riskReport.ActionPaths = risk.DecorateWorkflowChainRefs(riskReport.ActionPaths, riskReport.WorkflowChains)
+		riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
+	}
 	riskReport.ActionPathToControlFirst = decorateControlFirstForReport(riskReport.ActionPaths, scanQualityCoverageReduced(scanQuality))
 	activation := BuildActivation(in.Snapshot.Target.Mode, riskReport.Ranked, in.Snapshot.Inventory, riskReport.ActionPaths, top)
 	exposureGroups := risk.BuildExposureGroups(riskReport.ActionPaths)
@@ -133,6 +135,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
 	rawActionPathToControlFirst := riskReport.ActionPathToControlFirst
 	rawControlPathGraph := riskReport.ControlPathGraph
+	rawWorkflowChains := riskReport.WorkflowChains
 	controlProofStatus, err := buildControlProofStatusForSummary(in.StatePath, in.Snapshot, riskReport)
 	if err != nil {
 		return Summary{}, err
@@ -150,6 +153,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		riskReport.ActionPaths = sanitizeActionPathsPublic(riskReport.ActionPaths)
 		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublic(riskReport.ActionPathToControlFirst)
 		riskReport.ControlPathGraph = sanitizeControlPathGraphPublic(riskReport.ControlPathGraph)
+		riskReport.WorkflowChains = sanitizeWorkflowChainsPublic(riskReport.WorkflowChains)
 		exposureGroups = sanitizeExposureGroupsPublic(exposureGroups)
 		assessmentSummary = sanitizeAssessmentSummaryPublic(assessmentSummary)
 		controlBacklog = sanitizeControlBacklogPublic(controlBacklog)
@@ -163,6 +167,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		riskReport.ActionPaths = sanitizeActionPathsWithConfig(riskReport.ActionPaths, redactionConfig)
 		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstWithConfig(riskReport.ActionPathToControlFirst, redactionConfig)
 		riskReport.ControlPathGraph = sanitizeControlPathGraphWithConfig(riskReport.ControlPathGraph, redactionConfig)
+		riskReport.WorkflowChains = sanitizeWorkflowChainsWithConfig(riskReport.WorkflowChains, redactionConfig)
 		exposureGroups = sanitizeExposureGroupsWithConfig(exposureGroups, redactionConfig)
 		assessmentSummary = sanitizeAssessmentSummaryWithConfig(assessmentSummary, redactionConfig)
 		controlBacklog = sanitizeControlBacklogWithConfig(controlBacklog, redactionConfig)
@@ -228,6 +233,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ActionPaths:              riskReport.ActionPaths,
 		ActionPathToControlFirst: riskReport.ActionPathToControlFirst,
 		ControlPathGraph:         riskReport.ControlPathGraph,
+		WorkflowChains:           riskReport.WorkflowChains,
 		ExposureGroups:           exposureGroups,
 		SourcePrivacy:            sourcePrivacy,
 		controlProofStatus:       controlProofStatus,
@@ -237,6 +243,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	bomSource.ActionPaths = append([]risk.ActionPath(nil), rawActionPaths...)
 	bomSource.ActionPathToControlFirst = rawActionPathToControlFirst
 	bomSource.ControlPathGraph = rawControlPathGraph
+	bomSource.WorkflowChains = rawWorkflowChains
 	summary.AgentActionBOM = buildAgentActionBOMFromSnapshot(bomSource, in.Snapshot)
 	registrySource := bomSource
 	registrySource.AgentActionBOM = summary.AgentActionBOM
@@ -1679,6 +1686,54 @@ func sanitizeActionPathToControlFirstPublic(in *risk.ActionPathToControlFirst) *
 		Summary: copySummary,
 		Path:    paths[0],
 	}
+}
+
+func sanitizeWorkflowChainsPublic(in *agentresolver.WorkflowChainArtifact) *agentresolver.WorkflowChainArtifact {
+	if in == nil {
+		return nil
+	}
+	out := &agentresolver.WorkflowChainArtifact{
+		Version: strings.TrimSpace(in.Version),
+		Summary: in.Summary,
+		Chains:  make([]agentresolver.WorkflowChain, 0, len(in.Chains)),
+	}
+	for _, chain := range in.Chains {
+		copyChain := chain
+		copyChain.PathIDs = redactStringSlice(copyChain.PathIDs, "path")
+		copyChain.GraphNodeRefs = redactStringSlice(copyChain.GraphNodeRefs, "node")
+		copyChain.GraphEdgeRefs = redactStringSlice(copyChain.GraphEdgeRefs, "edge")
+		copyChain.ProofRefs = redactStringSlice(copyChain.ProofRefs, "proof")
+		copyChain.EvidenceRefs = redactStringSlice(copyChain.EvidenceRefs, "evidence")
+		copyChain.SourceFindingKeys = redactStringSlice(copyChain.SourceFindingKeys, "finding")
+		copyChain.Repo = sanitizeWorkflowChainDimensionPublic(copyChain.Repo, "repo")
+		copyChain.PullRequest = sanitizeWorkflowChainDimensionPublic(copyChain.PullRequest, "pr")
+		copyChain.Workflow = sanitizeWorkflowChainDimensionPublic(copyChain.Workflow, "workflow")
+		copyChain.Task = sanitizeWorkflowChainDimensionPublic(copyChain.Task, "task")
+		copyChain.Tool = sanitizeWorkflowChainDimensionPublic(copyChain.Tool, "tool")
+		copyChain.Credential = sanitizeWorkflowChainDimensionPublic(copyChain.Credential, "credential")
+		copyChain.Owner = sanitizeWorkflowChainDimensionPublic(copyChain.Owner, "owner")
+		copyChain.Approval = sanitizeWorkflowChainDimensionPublic(copyChain.Approval, "approval")
+		copyChain.Target = sanitizeWorkflowChainDimensionPublic(copyChain.Target, "target")
+		copyChain.Evidence = sanitizeWorkflowChainDimensionPublic(copyChain.Evidence, "evidence")
+		copyChain.Outcome = sanitizeWorkflowChainDimensionPublic(copyChain.Outcome, "outcome")
+		if copyChain.IntroducedBy != nil {
+			introduced := *copyChain.IntroducedBy
+			introduced.Author = redactValue("author", introduced.Author, 8)
+			introduced.ChangedFile = redactValue("file", introduced.ChangedFile, 8)
+			introduced.ProviderURL = redactValue("provider", introduced.ProviderURL, 8)
+			copyChain.IntroducedBy = &introduced
+		}
+		out.Chains = append(out.Chains, copyChain)
+	}
+	return out
+}
+
+func sanitizeWorkflowChainDimensionPublic(in agentresolver.WorkflowChainDimension, prefix string) agentresolver.WorkflowChainDimension {
+	out := in
+	out.Key = redactValue(prefix, out.Key, 8)
+	out.Label = redactValue(prefix, out.Label, 8)
+	out.EvidenceRefs = redactStringSlice(out.EvidenceRefs, "evidence")
+	return out
 }
 
 func sanitizeActionSurfaceRegistryPublic(in []ActionSurfaceRegistryEntry) []ActionSurfaceRegistryEntry {

@@ -107,6 +107,9 @@
     "control_path_graph": {
       "$ref": "#/$defs/controlPathGraph"
     },
+    "workflow_chains": {
+      "$ref": "#/$defs/workflowChainArtifact"
+    },
     "scan_quality": {
       "$ref": "#/$defs/scanQuality"
     },
@@ -272,7 +275,7 @@
       "required": ["segment_id", "kind"],
       "properties": {
         "segment_id": {"type": "string"},
-        "kind": {"type": "string", "enum": ["repo", "workflow", "agent", "action", "credential", "target", "owner", "approval", "proof"]},
+        "kind": {"type": "string", "enum": ["repo", "workflow", "agent", "action", "credential", "target", "owner", "approval", "proof", "intent", "task", "human", "pr", "workflow_run", "control", "deployment", "outcome", "evidence"]},
         "label": {"type": "string"},
         "status": {"type": "string"},
         "node_ids": {"type": "array", "items": {"type": "string"}},
@@ -374,6 +377,7 @@
         "recommended_action": {"type": "string"},
         "attack_path_refs": {"type": "array", "items": {"type": "string"}},
         "source_finding_keys": {"type": "array", "items": {"type": "string"}},
+        "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
         "standing_privilege_reasons": {"type": "array", "items": {"type": "string"}},
         "write_path_classes": {"type": "array", "items": {"type": "string"}},
         "governance_controls": {"type": "array", "items": {"type": "object"}},
@@ -381,6 +385,82 @@
         "evidence_completeness": {"$ref": "#/$defs/evidenceCompleteness"},
         "action_lineage": {"$ref": "#/$defs/actionLineage"}
       }
+    },
+    "workflowChainRollup": {
+      "type": "object",
+      "required": ["value", "count"],
+      "properties": {
+        "value": {"type": "string"},
+        "count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "workflowChainDimension": {
+      "type": "object",
+      "required": ["key"],
+      "properties": {
+        "key": {"type": "string"},
+        "label": {"type": "string"},
+        "status": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "workflowChain": {
+      "type": "object",
+      "required": ["chain_id", "repo", "pull_request", "workflow", "task", "tool", "credential", "owner", "approval", "target", "evidence", "outcome"],
+      "properties": {
+        "chain_id": {"type": "string"},
+        "path_ids": {"type": "array", "items": {"type": "string"}},
+        "graph_node_refs": {"type": "array", "items": {"type": "string"}},
+        "graph_edge_refs": {"type": "array", "items": {"type": "string"}},
+        "proof_refs": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "source_finding_keys": {"type": "array", "items": {"type": "string"}},
+        "introduced_by": {"$ref": "#/$defs/introducedBy"},
+        "repo": {"$ref": "#/$defs/workflowChainDimension"},
+        "pull_request": {"$ref": "#/$defs/workflowChainDimension"},
+        "workflow": {"$ref": "#/$defs/workflowChainDimension"},
+        "task": {"$ref": "#/$defs/workflowChainDimension"},
+        "tool": {"$ref": "#/$defs/workflowChainDimension"},
+        "credential": {"$ref": "#/$defs/workflowChainDimension"},
+        "owner": {"$ref": "#/$defs/workflowChainDimension"},
+        "approval": {"$ref": "#/$defs/workflowChainDimension"},
+        "target": {"$ref": "#/$defs/workflowChainDimension"},
+        "evidence": {"$ref": "#/$defs/workflowChainDimension"},
+        "outcome": {"$ref": "#/$defs/workflowChainDimension"},
+        "autonomy_tier": {"$ref": "#/$defs/autonomyTier"},
+        "delegation_readiness_state": {"$ref": "#/$defs/delegationReadinessState"},
+        "recommended_control": {"$ref": "#/$defs/recommendedControl"},
+        "target_class": {"type": "string"},
+        "evidence_completeness": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "workflowChainSummary": {
+      "type": "object",
+      "required": ["total_chains"],
+      "properties": {
+        "total_chains": {"type": "integer", "minimum": 0},
+        "workflows": {"type": "array", "items": {"$ref": "#/$defs/workflowChainRollup"}},
+        "repos": {"type": "array", "items": {"$ref": "#/$defs/workflowChainRollup"}},
+        "autonomy_tiers": {"type": "array", "items": {"$ref": "#/$defs/workflowChainRollup"}},
+        "delegation_readiness_states": {"type": "array", "items": {"$ref": "#/$defs/workflowChainRollup"}},
+        "recommended_controls": {"type": "array", "items": {"$ref": "#/$defs/workflowChainRollup"}},
+        "target_classes": {"type": "array", "items": {"$ref": "#/$defs/workflowChainRollup"}},
+        "evidence_completeness": {"type": "array", "items": {"$ref": "#/$defs/workflowChainRollup"}}
+      },
+      "additionalProperties": false
+    },
+    "workflowChainArtifact": {
+      "type": "object",
+      "required": ["version", "summary", "chains"],
+      "properties": {
+        "version": {"type": "string", "enum": ["1"]},
+        "summary": {"$ref": "#/$defs/workflowChainSummary"},
+        "chains": {"type": "array", "items": {"$ref": "#/$defs/workflowChain"}}
+      },
+      "additionalProperties": false
     },
     "autonomyTier": {
       "type": "string",
@@ -775,7 +855,34 @@
         "org": {"type": "string"},
         "repo": {"type": "string"},
         "path": {"type": "string"},
-        "kind": {"type": "string"},
+        "kind": {
+          "type": "string",
+          "enum": [
+            "control_path",
+            "agent",
+            "execution_identity",
+            "credential",
+            "tool",
+            "workflow",
+            "repo",
+            "governance_control",
+            "target",
+            "action_capability",
+            "intent",
+            "task",
+            "human_identity",
+            "agent_team",
+            "pull_request",
+            "approval_identity",
+            "policy_identity",
+            "asset_identity",
+            "evidence_identity",
+            "deployment_path",
+            "ci_cd_run",
+            "workflow_run",
+            "outcome"
+          ]
+        },
         "reason": {"type": "string"}
       },
       "additionalProperties": false
@@ -893,7 +1000,10 @@
             "total_nodes": {"type": "integer"},
             "total_edges": {"type": "integer"},
             "node_kinds": {"type": "array", "items": {"$ref": "#/$defs/controlPathKindRollup"}},
-            "edge_kinds": {"type": "array", "items": {"$ref": "#/$defs/controlPathKindRollup"}}
+            "edge_kinds": {"type": "array", "items": {"$ref": "#/$defs/controlPathKindRollup"}},
+            "autonomy_tiers": {"type": "array", "items": {"$ref": "#/$defs/controlPathKindRollup"}},
+            "delegation_readiness_states": {"type": "array", "items": {"$ref": "#/$defs/controlPathKindRollup"}},
+            "evidence_states": {"type": "array", "items": {"$ref": "#/$defs/controlPathKindRollup"}}
           },
           "additionalProperties": false
         },
