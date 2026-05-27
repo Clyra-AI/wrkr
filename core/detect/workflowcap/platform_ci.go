@@ -94,8 +94,7 @@ func hasSecretAccessValues(values []string) bool {
 	for _, value := range values {
 		if strings.Contains(value, "secrets.") ||
 			strings.Contains(value, "${{ secrets.") ||
-			strings.Contains(value, "github.token") ||
-			strings.Contains(value, "$(") {
+			strings.Contains(value, "github.token") {
 			return true
 		}
 	}
@@ -376,6 +375,7 @@ type workflowObservation struct {
 	jobs             []jobObservation
 	resolutionKey    string
 	resolutionStatus string
+	gitlabTemplates  map[string]gitlabJob
 }
 
 func analyzeObservation(obs workflowObservation) Result {
@@ -580,17 +580,17 @@ func (s *stringListField) UnmarshalYAML(node *yaml.Node) error {
 }
 
 type gitlabDocument struct {
-	Name         string                 `yaml:"name"`
-	Stages       stringListField        `yaml:"stages"`
-	Variables    map[string]any         `yaml:"variables"`
-	Include      yaml.Node              `yaml:"include"`
-	Workflow     yaml.Node              `yaml:"workflow"`
-	Default      gitlabDefaults         `yaml:"default"`
-	BeforeScript stringListField        `yaml:"before_script"`
-	AfterScript  stringListField        `yaml:"after_script"`
-	Image        any                    `yaml:"image"`
-	Services     []any                  `yaml:"services"`
-	Raw          map[string]*yaml.Node  `yaml:",inline"`
+	Name         string                `yaml:"name"`
+	Stages       stringListField       `yaml:"stages"`
+	Variables    map[string]any        `yaml:"variables"`
+	Include      yaml.Node             `yaml:"include"`
+	Workflow     yaml.Node             `yaml:"workflow"`
+	Default      gitlabDefaults        `yaml:"default"`
+	BeforeScript stringListField       `yaml:"before_script"`
+	AfterScript  stringListField       `yaml:"after_script"`
+	Image        any                   `yaml:"image"`
+	Services     []any                 `yaml:"services"`
+	Raw          map[string]*yaml.Node `yaml:",inline"`
 }
 
 type gitlabDefaults struct {
@@ -601,22 +601,23 @@ type gitlabDefaults struct {
 }
 
 type gitlabJob struct {
-	Stage        string            `yaml:"stage"`
-	Script       stringListField   `yaml:"script"`
-	BeforeScript stringListField   `yaml:"before_script"`
-	AfterScript  stringListField   `yaml:"after_script"`
-	Variables    map[string]any    `yaml:"variables"`
-	Environment  environmentField  `yaml:"environment"`
-	When         string            `yaml:"when"`
-	Rules        []gitlabRule      `yaml:"rules"`
-	Only         any               `yaml:"only"`
-	Except       any               `yaml:"except"`
-	Image        any               `yaml:"image"`
-	Services     []any             `yaml:"services"`
-	Needs        []any             `yaml:"needs"`
-	Dependencies []any             `yaml:"dependencies"`
-	Artifacts    map[string]any    `yaml:"artifacts"`
-	Release      map[string]any    `yaml:"release"`
+	Stage        string           `yaml:"stage"`
+	Extends      stringListField  `yaml:"extends"`
+	Script       stringListField  `yaml:"script"`
+	BeforeScript stringListField  `yaml:"before_script"`
+	AfterScript  stringListField  `yaml:"after_script"`
+	Variables    map[string]any   `yaml:"variables"`
+	Environment  environmentField `yaml:"environment"`
+	When         string           `yaml:"when"`
+	Rules        []gitlabRule     `yaml:"rules"`
+	Only         any              `yaml:"only"`
+	Except       any              `yaml:"except"`
+	Image        any              `yaml:"image"`
+	Services     []any            `yaml:"services"`
+	Needs        []any            `yaml:"needs"`
+	Dependencies []any            `yaml:"dependencies"`
+	Artifacts    map[string]any   `yaml:"artifacts"`
+	Release      map[string]any   `yaml:"release"`
 }
 
 type gitlabRule struct {
@@ -626,9 +627,10 @@ type gitlabRule struct {
 
 func analyzeGitLabWorkflow(root, path string, payload []byte) (Result, *model.ParseError) {
 	obs := workflowObservation{
-		platform:      "gitlab_ci",
-		workflowName:  strings.TrimSpace(filepath.Base(path)),
-		resolutionKey: "include_resolution_status",
+		platform:        "gitlab_ci",
+		workflowName:    strings.TrimSpace(filepath.Base(path)),
+		resolutionKey:   "include_resolution_status",
+		gitlabTemplates: map[string]gitlabJob{},
 	}
 	loadErr := loadGitLabDocument(root, path, payload, map[string]struct{}{}, &obs)
 	if strings.TrimSpace(obs.resolutionStatus) == "" {
@@ -702,6 +704,7 @@ func loadGitLabDocument(root, path string, payload []byte, stack map[string]stru
 	if err != nil {
 		return &model.ParseError{Kind: "parse_error", Format: "yaml", Path: path, Detector: detectorID, Message: err.Error()}
 	}
+	decodedJobs := map[string]gitlabJob{}
 	for key, value := range mappingChildren(rootNode) {
 		if isGitLabReservedKey(key) {
 			continue
@@ -714,7 +717,17 @@ func loadGitLabDocument(root, path string, payload []byte, stack map[string]stru
 			}
 			continue
 		}
-		jobObs := observeGitLabJob(key, doc, job)
+		decodedJobs[key] = job
+		if isGitLabHiddenJob(key) {
+			obs.gitlabTemplates[key] = job
+		}
+	}
+	for key, job := range decodedJobs {
+		if isGitLabHiddenJob(key) {
+			continue
+		}
+		resolvedJob := resolveGitLabJob(key, job, decodedJobs, obs.gitlabTemplates, map[string]struct{}{})
+		jobObs := observeGitLabJob(key, doc, resolvedJob)
 		obs.jobNames = append(obs.jobNames, jobObs.name)
 		if strings.TrimSpace(jobObs.environment) != "" {
 			obs.environments = append(obs.environments, jobObs.environment)
@@ -725,17 +738,36 @@ func loadGitLabDocument(root, path string, payload []byte, stack map[string]stru
 }
 
 func observeGitLabJob(name string, doc gitlabDocument, job gitlabJob) jobObservation {
+	effectiveBefore := normalizeStringList(job.BeforeScript)
+	if len(effectiveBefore) == 0 {
+		effectiveBefore = append(effectiveBefore, normalizeStringList(doc.BeforeScript)...)
+		effectiveBefore = append(effectiveBefore, normalizeStringList(doc.Default.BeforeScript)...)
+	}
+	effectiveAfter := normalizeStringList(job.AfterScript)
+	if len(effectiveAfter) == 0 {
+		effectiveAfter = append(effectiveAfter, normalizeStringList(doc.Default.AfterScript)...)
+		effectiveAfter = append(effectiveAfter, normalizeStringList(doc.AfterScript)...)
+	}
+	effectiveServices := normalizeStringSlice(job.Services)
+	if len(effectiveServices) == 0 {
+		effectiveServices = append(effectiveServices, normalizeStringSlice(doc.Default.Services)...)
+	}
+	effectiveImage := normalizeDynamicValue(job.Image)
+	if len(effectiveImage) == 0 {
+		effectiveImage = normalizeDynamicValue(doc.Default.Image)
+	}
+	if len(effectiveImage) == 0 {
+		effectiveImage = normalizeDynamicValue(doc.Image)
+	}
+
 	values := []string{strings.ToLower(strings.TrimSpace(name)), strings.ToLower(strings.TrimSpace(job.Stage))}
-	values = append(values, normalizeStringList(doc.BeforeScript)...)
-	values = append(values, normalizeStringList(job.BeforeScript)...)
+	values = append(values, effectiveBefore...)
 	values = append(values, normalizeStringList(job.Script)...)
-	values = append(values, normalizeStringList(job.AfterScript)...)
-	values = append(values, normalizeStringList(doc.AfterScript)...)
+	values = append(values, effectiveAfter...)
 	values = append(values, normalizeDynamicValues(job.Release)...)
 	values = append(values, normalizeDynamicValues(job.Artifacts)...)
-	values = append(values, normalizeStringSlice(job.Services)...)
-	values = append(values, normalizeDynamicValue(job.Image)...)
-	values = append(values, normalizeDynamicValue(doc.Image)...)
+	values = append(values, effectiveServices...)
+	values = append(values, effectiveImage...)
 	values = append(values, normalizeStringSlice(job.Dependencies)...)
 	values = append(values, normalizeStringSlice(job.Needs)...)
 	values = append(values, strings.ToLower(strings.TrimSpace(job.When)))
@@ -749,7 +781,7 @@ func observeGitLabJob(name string, doc gitlabDocument, job gitlabJob) jobObserva
 	}
 
 	secretRefs := map[string]struct{}{}
-	for _, ref := range extractShellVariableRefs(strings.Join(normalizeStringList(job.Script), "\n"), strings.Join(normalizeStringList(job.BeforeScript), "\n"), strings.Join(normalizeStringList(job.AfterScript), "\n")) {
+	for _, ref := range extractShellVariableRefs(strings.Join(normalizeStringList(job.Script), "\n"), strings.Join(effectiveBefore, "\n"), strings.Join(effectiveAfter, "\n")) {
 		if sensitiveCredentialName(ref) {
 			secretRefs[ref] = struct{}{}
 		}
@@ -784,8 +816,116 @@ func observeGitLabJob(name string, doc gitlabDocument, job gitlabJob) jobObserva
 		manualStrong:      manualStrong,
 		manualDeclared:    manualDeclared,
 		ambiguousApproval: ambiguousApproval,
-		stepCount:         len(job.Script) + len(job.BeforeScript) + len(job.AfterScript),
+		stepCount:         len(job.Script) + len(effectiveBefore) + len(effectiveAfter),
 	}
+}
+
+func isGitLabHiddenJob(name string) bool {
+	return strings.HasPrefix(strings.TrimSpace(name), ".")
+}
+
+func resolveGitLabJob(name string, job gitlabJob, localJobs map[string]gitlabJob, sharedTemplates map[string]gitlabJob, stack map[string]struct{}) gitlabJob {
+	if len(job.Extends) == 0 {
+		return job
+	}
+	trimmedName := strings.TrimSpace(name)
+	if trimmedName != "" {
+		if _, ok := stack[trimmedName]; ok {
+			return job
+		}
+		stack[trimmedName] = struct{}{}
+		defer delete(stack, trimmedName)
+	}
+	merged := gitlabJob{}
+	for _, ref := range job.Extends {
+		templateName := strings.TrimSpace(ref)
+		if templateName == "" {
+			continue
+		}
+		if _, ok := stack[templateName]; ok {
+			continue
+		}
+		parent, ok := localJobs[templateName]
+		if !ok {
+			parent, ok = sharedTemplates[templateName]
+		}
+		if !ok {
+			continue
+		}
+		parent = resolveGitLabJob(templateName, parent, localJobs, sharedTemplates, stack)
+		merged = mergeGitLabJob(merged, parent)
+	}
+	return mergeGitLabJob(merged, job)
+}
+
+func mergeGitLabJob(base gitlabJob, override gitlabJob) gitlabJob {
+	merged := base
+	if strings.TrimSpace(override.Stage) != "" {
+		merged.Stage = override.Stage
+	}
+	if len(override.Extends) > 0 {
+		merged.Extends = append([]string(nil), override.Extends...)
+	}
+	if len(override.Script) > 0 {
+		merged.Script = append([]string(nil), override.Script...)
+	}
+	if len(override.BeforeScript) > 0 {
+		merged.BeforeScript = append([]string(nil), override.BeforeScript...)
+	}
+	if len(override.AfterScript) > 0 {
+		merged.AfterScript = append([]string(nil), override.AfterScript...)
+	}
+	if len(override.Variables) > 0 {
+		merged.Variables = mergeStringAnyMaps(merged.Variables, override.Variables)
+	}
+	if strings.TrimSpace(override.Environment.Name) != "" {
+		merged.Environment = override.Environment
+	}
+	if strings.TrimSpace(override.When) != "" {
+		merged.When = override.When
+	}
+	if len(override.Rules) > 0 {
+		merged.Rules = append([]gitlabRule(nil), override.Rules...)
+	}
+	if override.Only != nil {
+		merged.Only = override.Only
+	}
+	if override.Except != nil {
+		merged.Except = override.Except
+	}
+	if override.Image != nil {
+		merged.Image = override.Image
+	}
+	if len(override.Services) > 0 {
+		merged.Services = append([]any(nil), override.Services...)
+	}
+	if len(override.Needs) > 0 {
+		merged.Needs = append([]any(nil), override.Needs...)
+	}
+	if len(override.Dependencies) > 0 {
+		merged.Dependencies = append([]any(nil), override.Dependencies...)
+	}
+	if len(override.Artifacts) > 0 {
+		merged.Artifacts = mergeStringAnyMaps(merged.Artifacts, override.Artifacts)
+	}
+	if len(override.Release) > 0 {
+		merged.Release = mergeStringAnyMaps(merged.Release, override.Release)
+	}
+	return merged
+}
+
+func mergeStringAnyMaps(base map[string]any, override map[string]any) map[string]any {
+	if len(base) == 0 && len(override) == 0 {
+		return nil
+	}
+	out := map[string]any{}
+	for key, value := range base {
+		out[key] = value
+	}
+	for key, value := range override {
+		out[key] = value
+	}
+	return out
 }
 
 type gitlabIncludeRef struct {
@@ -875,14 +1015,14 @@ func normalizeGitLabLocalPath(path string) string {
 }
 
 type azureDocument struct {
-	Name      string            `yaml:"name"`
-	Trigger   triggerField      `yaml:"trigger"`
-	PR        triggerField      `yaml:"pr"`
-	Variables yaml.Node         `yaml:"variables"`
-	Extends   azureTemplateRef  `yaml:"extends"`
-	Stages    []azureStage      `yaml:"stages"`
-	Jobs      []azureJob        `yaml:"jobs"`
-	Steps     []azureStep       `yaml:"steps"`
+	Name      string           `yaml:"name"`
+	Trigger   triggerField     `yaml:"trigger"`
+	PR        triggerField     `yaml:"pr"`
+	Variables yaml.Node        `yaml:"variables"`
+	Extends   azureTemplateRef `yaml:"extends"`
+	Stages    []azureStage     `yaml:"stages"`
+	Jobs      []azureJob       `yaml:"jobs"`
+	Steps     []azureStep      `yaml:"steps"`
 }
 
 type azureTemplateRef struct {
@@ -890,20 +1030,20 @@ type azureTemplateRef struct {
 }
 
 type azureStage struct {
-	Stage     string           `yaml:"stage"`
-	Template  string           `yaml:"template"`
-	Jobs      []azureJob       `yaml:"jobs"`
-	Variables yaml.Node        `yaml:"variables"`
+	Stage     string     `yaml:"stage"`
+	Template  string     `yaml:"template"`
+	Jobs      []azureJob `yaml:"jobs"`
+	Variables yaml.Node  `yaml:"variables"`
 }
 
 type azureJob struct {
-	Job         string          `yaml:"job"`
-	Deployment  string          `yaml:"deployment"`
-	Template    string          `yaml:"template"`
+	Job         string           `yaml:"job"`
+	Deployment  string           `yaml:"deployment"`
+	Template    string           `yaml:"template"`
 	Environment environmentField `yaml:"environment"`
-	Steps       []azureStep     `yaml:"steps"`
-	Strategy    azureStrategy   `yaml:"strategy"`
-	Variables   yaml.Node       `yaml:"variables"`
+	Steps       []azureStep      `yaml:"steps"`
+	Strategy    azureStrategy    `yaml:"strategy"`
+	Variables   yaml.Node        `yaml:"variables"`
 }
 
 type azureStrategy struct {
