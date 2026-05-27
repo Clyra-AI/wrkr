@@ -295,6 +295,36 @@ func TestResolveNormalizesConflictingProviderMetadata(t *testing.T) {
 	}
 }
 
+func TestResolveIgnoresInvalidProviderNeutralProvenanceSidecar(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("mkdir provenance dir: %v", err)
+	}
+	payload := `{
+  "schema_version": "v2",
+  "generated_at": "2026-05-26T15:00:00Z",
+  "entries": [
+    {
+      "provider_url": "https://github.com/acme/demo/pull/42",
+      "updated_at": "2026-05-26T14:59:00Z"
+    }
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "provenance", "pr-mr-provenance.json"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write invalid provider provenance payload: %v", err)
+	}
+
+	result := Resolve(LoadContext(repoRoot), ".github/workflows/release.yml", nil)
+	if result == nil {
+		t.Fatal("expected fallback attribution result")
+	}
+	if result.Source == SourceProviderProvenance {
+		t.Fatalf("expected invalid provenance sidecar to be ignored, got %+v", result)
+	}
+}
+
 func containsString(values []string, want string) bool {
 	for _, value := range values {
 		if strings.TrimSpace(value) == strings.TrimSpace(want) {

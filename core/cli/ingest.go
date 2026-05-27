@@ -44,10 +44,17 @@ func runIngest(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
-	if strings.Contains(string(payload), "\"packets\"") {
+	topLevelKeys, err := topLevelJSONKeys(payload)
+	if err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	}
+	if _, hasPackets := topLevelKeys["packets"]; hasPackets {
 		var bundle ingest.EvidencePacketBundle
 		if err := json.Unmarshal(payload, &bundle); err != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		if err := ingest.ValidateEvidencePacketJSON(payload); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", err.Error(), exitPolicyViolation)
 		}
 		normalized, err := ingest.NormalizeEvidencePacketBundle(bundle)
 		if err != nil {
@@ -115,4 +122,15 @@ func runIngest(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = io.WriteString(stdout, "wrkr ingest complete\n")
 	return exitSuccess
+}
+
+func topLevelJSONKeys(payload []byte) (map[string]json.RawMessage, error) {
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &top); err != nil {
+		return nil, err
+	}
+	if top == nil {
+		return nil, json.Unmarshal(payload, &top)
+	}
+	return top, nil
 }
