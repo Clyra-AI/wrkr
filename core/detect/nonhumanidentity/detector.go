@@ -1,6 +1,7 @@
 package nonhumanidentity
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"path/filepath"
@@ -61,12 +62,26 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		if !ok {
 			continue
 		}
+		bindings := classifyAuthorityBindings(candidates)
 		for _, identity := range classifyCandidates(candidates) {
 			key := strings.Join([]string{rel, identity.identityType, identity.subject, identity.source}, "|")
 			if _, exists := seen[key]; exists {
 				continue
 			}
 			seen[key] = struct{}{}
+			evidence := []model.Evidence{
+				{Key: "identity_type", Value: identity.identityType},
+				{Key: "subject", Value: identity.subject},
+				{Key: "source", Value: identity.source},
+				{Key: "confidence", Value: identity.confidence},
+				{Key: "credential_provenance_type", Value: credentialProvenanceType(identity.identityType)},
+				{Key: "credential_subject", Value: identity.subject},
+				{Key: "credential_scope", Value: "workflow"},
+				{Key: "credential_confidence", Value: credentialProvenanceConfidence(identity.identityType, identity.confidence)},
+			}
+			for _, binding := range bindings {
+				evidence = append(evidence, model.Evidence{Key: "authority_binding", Value: binding})
+			}
 			findings = append(findings, model.Finding{
 				FindingType: "non_human_identity",
 				Severity:    identity.severity,
@@ -75,18 +90,35 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 				Repo:        scope.Repo,
 				Org:         fallbackOrg(scope.Org),
 				Detector:    detectorID,
-				Evidence: []model.Evidence{
-					{Key: "identity_type", Value: identity.identityType},
-					{Key: "subject", Value: identity.subject},
-					{Key: "source", Value: identity.source},
-					{Key: "confidence", Value: identity.confidence},
-					{Key: "credential_provenance_type", Value: credentialProvenanceType(identity.identityType)},
-					{Key: "credential_subject", Value: identity.subject},
-					{Key: "credential_scope", Value: "workflow"},
-					{Key: "credential_confidence", Value: credentialProvenanceConfidence(identity.identityType, identity.confidence)},
-				},
+				Evidence:    evidence,
 				Remediation: "Review the durable non-human execution identity backing this AI-enabled delivery path.",
 			})
+		}
+		if len(bindings) > 0 && len(classifyCandidates(candidates)) == 0 {
+			for _, binding := range bindings {
+				key := strings.Join([]string{rel, "unknown", binding}, "|")
+				if _, exists := seen[key]; exists {
+					continue
+				}
+				seen[key] = struct{}{}
+				findings = append(findings, model.Finding{
+					FindingType: "non_human_identity",
+					Severity:    model.SeverityLow,
+					ToolType:    "non_human_identity",
+					Location:    rel,
+					Repo:        scope.Repo,
+					Org:         fallbackOrg(scope.Org),
+					Detector:    detectorID,
+					Evidence: []model.Evidence{
+						{Key: "identity_type", Value: "unknown"},
+						{Key: "subject", Value: "structured_authority_binding"},
+						{Key: "source", Value: "structured_authority_signal"},
+						{Key: "confidence", Value: "medium"},
+						{Key: "authority_binding", Value: binding},
+					},
+					Remediation: "Review the structured authority evidence backing this delivery path.",
+				})
+			}
 		}
 	}
 
@@ -104,14 +136,13 @@ type identityCandidate struct {
 
 func isCandidatePath(rel string) bool {
 	lower := strings.ToLower(strings.TrimSpace(rel))
-	if !strings.HasPrefix(lower, ".github/") {
-		return false
-	}
 	switch filepath.Ext(lower) {
 	case ".json", ".yaml", ".yml":
 		return true
+	case ".tf":
+		return strings.Contains(lower, "terraform") || strings.Contains(lower, "infra") || strings.Contains(lower, "iam")
 	default:
-		return false
+		return strings.HasPrefix(lower, ".github/") && (strings.HasSuffix(lower, ".json") || strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml"))
 	}
 }
 
@@ -131,6 +162,10 @@ func readStructuredCandidates(root, rel string) ([]string, bool) {
 		if err := yaml.Unmarshal(payload, &decoded); err != nil {
 			return nil, false
 		}
+	case ".tf":
+		values := readTerraformTokens(string(payload))
+		sort.Strings(values)
+		return dedupeStrings(values), true
 	default:
 		return nil, false
 	}
@@ -326,4 +361,75 @@ func fallbackOrg(org string) string {
 		return "local"
 	}
 	return strings.TrimSpace(org)
+}
+
+func readTerraformTokens(payload string) []string {
+	out := []string{}
+	scanner := bufio.NewScanner(strings.NewReader(payload))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
+			continue
+		}
+		line = strings.Trim(line, "{}[]\",")
+		for _, field := range strings.FieldsFunc(line, func(r rune) bool {
+			switch r {
+			case ' ', '\t', '=', '{', '}', '[', ']', '"', ',', '(', ')':
+				return true
+			default:
+				return false
+			}
+		}) {
+			field = strings.ToLower(strings.TrimSpace(field))
+			if field != "" {
+				out = append(out, field)
+			}
+		}
+	}
+	return out
+}
+
+func classifyAuthorityBindings(values []string) []string {
+	text := strings.Join(values, ",")
+	out := []string{}
+	add := func(kind, provider, subject, targetSystem, resource, scope, access, confidence string) {
+		out = append(out, strings.Join([]string{
+			kind,
+			provider,
+			subject,
+			targetSystem,
+			resource,
+			scope,
+			access,
+			"",
+			"false",
+			confidence,
+		}, "|"))
+	}
+
+	switch {
+	case strings.Contains(text, "token.actions.githubusercontent.com") && (strings.Contains(text, "aws::iam::role") || strings.Contains(text, "aws_iam_role")):
+		add("workload_identity", "aws", "github_actions_oidc", "aws", "aws_role", "cloud_or_infra_access", "write", "high")
+	case strings.Contains(text, "federatedidentitycredentials") || (strings.Contains(text, "issuer") && strings.Contains(text, "api://azureadtokenexchange")):
+		add("workload_identity", "azure", "azure_federated_credential", "azure", "azure_federated_credential", "cloud_or_infra_access", "write", "high")
+	case strings.Contains(text, "workloadidentitypool") || strings.Contains(text, "iam.gserviceaccount.com"):
+		add("workload_identity", "gcp", "gcp_workload_identity", "gcp", "gcp_workload_identity", "cloud_or_infra_access", "write", "high")
+	case strings.Contains(text, "clusterrole") || strings.Contains(text, "rolebinding") || strings.Contains(text, "clusterrolebinding"):
+		access := "read"
+		if strings.Contains(text, "cluster-admin") || strings.Contains(text, "verbs,*") || strings.Contains(text, "create") || strings.Contains(text, "update") || strings.Contains(text, "delete") || strings.Contains(text, "patch") {
+			access = "admin"
+		}
+		add("kubernetes_rbac", "kubernetes", "kubernetes_rbac", "kubernetes", "cluster_role", "cluster_access", access, "high")
+	case strings.Contains(text, "aws::iam::role") || strings.Contains(text, "aws_iam_role"):
+		access := "read"
+		if strings.Contains(text, "administratoraccess") || strings.Contains(text, "iam:*") || strings.Contains(text, "action,*") {
+			access = "admin"
+		} else if strings.Contains(text, "sts:assumerole") || strings.Contains(text, "eks:") || strings.Contains(text, "ecs:") {
+			access = "write"
+		}
+		add("cloud_role", "aws", "cloud_role", "aws", "aws_role", "cloud_or_infra_access", access, "medium")
+	}
+
+	sort.Strings(out)
+	return dedupeStrings(out)
 }

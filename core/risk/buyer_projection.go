@@ -52,6 +52,8 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out.TargetClassReasons = dedupeSortedStrings(append(append([]string(nil), out.TargetClassReasons...), derivedTargetReasons...))
 	out.TargetClassEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out.TargetClassEvidenceRefs...), derivedTargetRefs...))
 	out.ActionPathType, out.ActionPathTypeReasons, out.ActionPathTypeEvidenceRefs = deriveActionPathType(out)
+	out.HighStakesPresets = deriveHighStakesPresets(out)
+	out.ProductionContext = deriveProductionContext(out)
 	out.Contradictions = deriveContradictions(out)
 	if len(out.Contradictions) > 0 {
 		out.TargetEvidenceState = EvidenceStateContradictory
@@ -725,6 +727,9 @@ func deriveConfidenceLane(path ActionPath) (string, []string) {
 }
 
 func pathHasExecutableBinding(path ActionPath) bool {
+	if pathRequiresAppendixOnlyProductionContext(path) {
+		return false
+	}
 	toolType := strings.ToLower(strings.TrimSpace(path.ToolType))
 	location := strings.ToLower(strings.TrimSpace(path.Location))
 
@@ -790,7 +795,7 @@ func pathIsContextOnlySurface(path ActionPath) bool {
 		agginventory.PathContextPackageCache:
 		return true
 	default:
-		return false
+		return pathRequiresAppendixOnlyProductionContext(path)
 	}
 }
 

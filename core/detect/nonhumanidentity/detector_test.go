@@ -85,6 +85,46 @@ func TestDetectRejectsExternalSymlinkedWorkflowIdentitySource(t *testing.T) {
 	}
 }
 
+func TestDetectStructuredAuthorityBindingsFromTerraformAndRBACSignals(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeNonHumanFile(t, root, "infra/main.tf", strings.Join([]string{
+		`resource "aws_iam_role" "release" {`,
+		`  name = "release-role"`,
+		`  assume_role_policy = jsonencode({`,
+		`    Statement = [{`,
+		`      Principal = { Federated = "token.actions.githubusercontent.com" }`,
+		`      Action = "sts:AssumeRoleWithWebIdentity"`,
+		`    }]`,
+		`  })`,
+		`}`,
+	}, "\n"))
+	writeNonHumanFile(t, root, "k8s/rbac.yaml", strings.Join([]string{
+		`kind: ClusterRole`,
+		`metadata:`,
+		`  name: cluster-admin`,
+		`rules:`,
+		`  - verbs: ["*"]`,
+		`    resources: ["*"]`,
+	}, "\n"))
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "svc", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect non-human identities: %v", err)
+	}
+	if len(findings) == 0 {
+		t.Fatal("expected structured authority findings")
+	}
+	joined := strings.Join(flattenEvidence(findings, "authority_binding"), "\n")
+	if !strings.Contains(joined, "workload_identity|aws|github_actions_oidc") {
+		t.Fatalf("expected aws oidc binding, got %s", joined)
+	}
+	if !strings.Contains(joined, "kubernetes_rbac|kubernetes|kubernetes_rbac") {
+		t.Fatalf("expected kubernetes rbac binding, got %s", joined)
+	}
+}
+
 func evidenceValue(finding model.Finding, key string) string {
 	for _, item := range finding.Evidence {
 		if item.Key == key {
@@ -92,6 +132,18 @@ func evidenceValue(finding model.Finding, key string) string {
 		}
 	}
 	return ""
+}
+
+func flattenEvidence(findings []model.Finding, key string) []string {
+	values := []string{}
+	for _, finding := range findings {
+		for _, item := range finding.Evidence {
+			if item.Key == key {
+				values = append(values, item.Value)
+			}
+		}
+	}
+	return values
 }
 
 func writeNonHumanFile(t *testing.T, root, rel, content string) {

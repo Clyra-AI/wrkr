@@ -107,6 +107,10 @@
         "config_source": {"type": "string"},
         "status": {"type": "string"},
         "credential_authority": {"$ref": "#/$defs/credentialAuthority"},
+        "authority_bindings": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/authorityBinding"}
+        },
         "mutable_endpoint_semantics": {
           "type": "array",
           "items": {"$ref": "#/$defs/mutableEndpointSemantic"}
@@ -145,9 +149,31 @@
         "access_type": {"type": "string", "enum": ["standing", "jit", "delegated", "workload", "inherited", "unknown"]},
         "standing_access": {"type": "boolean"},
         "likely_jit": {"type": "boolean"},
+        "target_system": {"type": "string"},
+        "likely_scope": {"type": "string"},
+        "scope_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "rotation_evidence_status": {"type": "string", "enum": ["present", "missing", "not_applicable", "unknown", "stale"]},
         "credential_source": {"type": "string", "enum": ["workflow_secret_ref", "workflow_builtin_token", "non_human_identity", "auth_surface", "detector_evidence", "direct_config", "unknown"]},
         "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "reason_codes": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "authorityBinding": {
+      "type": "object",
+      "required": ["kind", "production"],
+      "properties": {
+        "kind": {"type": "string", "enum": ["cloud_role", "kubernetes_rbac", "service_connection", "workload_identity", "deployment_path", "saas_token"]},
+        "provider": {"type": "string"},
+        "subject": {"type": "string"},
+        "target_system": {"type": "string"},
+        "resource": {"type": "string"},
+        "likely_scope": {"type": "string"},
+        "access_level": {"type": "string", "enum": ["admin", "write", "read", "unknown"]},
+        "environment": {"type": "string"},
+        "production": {"type": "boolean"},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
         "reason_codes": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false

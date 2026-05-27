@@ -632,7 +632,9 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 			builder.WriteString(fmt.Sprintf("Confidence lane: %s\n", markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType)))
 			builder.WriteString(fmt.Sprintf("Proof gap: %s\n", designPartnerProofGap(item)))
 			builder.WriteString(fmt.Sprintf("Credential authority: %s\n", designPartnerCredentialAuthority(item)))
+			builder.WriteString(fmt.Sprintf("High-stakes: %s\n", designPartnerHighStakes(item)))
 			builder.WriteString(fmt.Sprintf("Mutable endpoint: %s\n", designPartnerMutableEndpoint(item)))
+			builder.WriteString(fmt.Sprintf("Production context: %s\n", designPartnerProductionContext(item)))
 			builder.WriteString(fmt.Sprintf("Owner: %s\n", firstNonEmptyValue(item.Owner, "owner not confirmed")))
 			builder.WriteString(fmt.Sprintf("Purpose: %s\n", firstNonEmptyValue(item.Purpose, "purpose not confirmed")))
 			builder.WriteString(fmt.Sprintf("Lineage: %s\n\n", designPartnerLineage(item)))
@@ -799,6 +801,46 @@ func designPartnerMutableEndpoint(item AgentActionBOMItem) string {
 			label += "@" + confidence
 		}
 		parts = append(parts, label)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func designPartnerHighStakes(item AgentActionBOMItem) string {
+	if len(item.HighStakesPresets) == 0 {
+		return "no high-stakes preset was projected for this path"
+	}
+	parts := make([]string, 0, len(item.HighStakesPresets))
+	for _, preset := range item.HighStakesPresets {
+		label := strings.TrimSpace(preset.Preset)
+		if label == "" {
+			continue
+		}
+		if len(preset.ReasonCodes) > 0 {
+			label += " (" + strings.Join(preset.ReasonCodes, ",") + ")"
+		}
+		parts = append(parts, label)
+	}
+	if len(parts) == 0 {
+		return "no high-stakes preset was projected for this path"
+	}
+	return strings.Join(parts, "; ")
+}
+
+func designPartnerProductionContext(item AgentActionBOMItem) string {
+	if item.ProductionContext == nil {
+		return "no production-data context was projected for this path"
+	}
+	parts := []string{
+		"status=" + firstNonEmptyValue(item.ProductionContext.Status, "unknown"),
+		"surface=" + firstNonEmptyValue(item.ProductionContext.SurfaceLabel, "unknown"),
+		"credential=" + firstNonEmptyValue(item.ProductionContext.CredentialMode, "unknown"),
+		"target=" + firstNonEmptyValue(item.ProductionContext.TargetClass, "unknown"),
+	}
+	if strings.TrimSpace(item.ProductionContext.DeploymentStatus) != "" {
+		parts = append(parts, "deployment="+strings.TrimSpace(item.ProductionContext.DeploymentStatus))
+	}
+	if len(item.ProductionContext.MutableEndpointOperations) > 0 {
+		parts = append(parts, "operations="+strings.Join(item.ProductionContext.MutableEndpointOperations, ","))
 	}
 	return strings.Join(parts, ", ")
 }

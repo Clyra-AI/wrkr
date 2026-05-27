@@ -142,6 +142,42 @@ jobs:
 	}
 }
 
+func TestAnalyzeEmitsAuthorityBindingsForStructuredCloudAndDeploySignals(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: prod-release
+on: workflow_dispatch
+jobs:
+  deploy:
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/release
+      - run: terraform apply -auto-approve
+      - run: kubectl apply -f k8s/
+`)
+
+	result, parseErr := Analyze(".github/workflows/release.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if !strings.Contains(evidenceValue(result, "auth_surfaces"), "aws_oidc") {
+		t.Fatalf("expected aws_oidc auth surface, got %v", evidenceValues(result, "auth_surfaces"))
+	}
+	bindings := evidenceValues(result, "authority_binding")
+	if !containsPrefix(bindings, "workload_identity|aws|workflow_aws_oidc|aws|aws_role|cloud_or_infra_access|write|production|true|high") {
+		t.Fatalf("expected aws authority binding, got %v", bindings)
+	}
+	if !containsPrefix(bindings, "deployment_path|terraform|workflow_terraform_apply|terraform|terraform_apply|infrastructure_apply|write|production|true|high") {
+		t.Fatalf("expected terraform authority binding, got %v", bindings)
+	}
+	if !containsPrefix(bindings, "deployment_path|kubernetes|workflow_kubernetes_deploy|kubernetes|cluster_apply|deploy_write|write|production|true|high") {
+		t.Fatalf("expected kubernetes authority binding, got %v", bindings)
+	}
+}
+
 func TestAnalyzeDoesNotTreatTemplatedGithubTokenNameAsBuiltinWhenValueIsExternal(t *testing.T) {
 	t.Parallel()
 
@@ -348,6 +384,15 @@ func evidenceValues(result Result, key string) []string {
 		}
 	}
 	return out
+}
+
+func containsPrefix(values []string, prefix string) bool {
+	for _, value := range values {
+		if strings.HasPrefix(value, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(values []string, target string) bool {

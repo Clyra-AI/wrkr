@@ -113,6 +113,7 @@ type ActionPath struct {
 	Credentials                         []*agginventory.CredentialProvenance    `json:"credentials,omitempty"`
 	CredentialProvenance                *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
 	CredentialAuthority                 *agginventory.CredentialAuthority       `json:"credential_authority,omitempty"`
+	AuthorityBindings                   []*agginventory.AuthorityBinding        `json:"authority_bindings,omitempty"`
 	PathContext                         *agginventory.PathContext               `json:"path_context,omitempty"`
 	TrustDepth                          *agginventory.TrustDepth                `json:"trust_depth,omitempty"`
 	DeploymentStatus                    string                                  `json:"deployment_status,omitempty"`
@@ -157,6 +158,8 @@ type ActionPath struct {
 	RecommendedActionContract           *RecommendedActionContract              `json:"recommended_action_contract,omitempty"`
 	TodayPath                           *GovernedPathView                       `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *GovernedPathView                       `json:"recommended_governed_path,omitempty"`
+	HighStakesPresets                   []HighStakesPreset                      `json:"high_stakes_presets,omitempty"`
+	ProductionContext                   *ProductionContext                      `json:"production_context,omitempty"`
 	EvidencePacketStatus                string                                  `json:"evidence_packet_status,omitempty"`
 	EvidencePacketResult                string                                  `json:"evidence_packet_result,omitempty"`
 	EvidencePacketMissingEvidenceState  string                                  `json:"evidence_packet_missing_evidence_state,omitempty"`
@@ -283,6 +286,7 @@ func buildActionPath(
 		Credentials:                agginventory.CloneCredentialProvenances(credentials),
 		CredentialProvenance:       agginventory.CloneCredentialProvenance(provenance),
 		CredentialAuthority:        agginventory.CloneCredentialAuthority(authority),
+		AuthorityBindings:          agginventory.CloneAuthorityBindings(entry.AuthorityBindings),
 		PathContext:                firstPathContext(entry.PathContext, entry.Location),
 		TrustDepth:                 agginventory.CloneTrustDepth(entry.TrustDepth),
 		DeploymentStatus:           strings.TrimSpace(entry.DeploymentStatus),
@@ -412,6 +416,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.Credentials = mergeCredentials(current.Credentials, incoming.Credentials)
 	merged.CredentialProvenance = agginventory.CredentialRollup(merged.Credentials, mergeCredentialProvenance(current.CredentialProvenance, incoming.CredentialProvenance))
 	merged.CredentialAuthority = mergeCredentialAuthority(current.CredentialAuthority, incoming.CredentialAuthority)
+	merged.AuthorityBindings = agginventory.NormalizeAuthorityBindings(append(agginventory.CloneAuthorityBindings(current.AuthorityBindings), agginventory.CloneAuthorityBindings(incoming.AuthorityBindings)...))
 	merged.PathContext = mergePathContext(current.PathContext, incoming.PathContext)
 	merged.TrustDepth = agginventory.MergeTrustDepth(current.TrustDepth, incoming.TrustDepth)
 	merged.DeliveryChainStatus = actionPathDeliveryChainStatus(merged.PullRequestWrite, merged.MergeExecute, merged.DeployWrite)
@@ -571,6 +576,7 @@ func BuildControlPathGraph(paths []ActionPath) *aggattack.ControlPathGraph {
 			CredentialAccess:          path.CredentialAccess,
 			CredentialProvenance:      agginventory.CloneCredentialProvenance(path.CredentialProvenance),
 			CredentialAuthority:       agginventory.CloneCredentialAuthority(path.CredentialAuthority),
+			AuthorityBindings:         agginventory.CloneAuthorityBindings(path.AuthorityBindings),
 			MutableEndpointSemantics:  agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics),
 			GovernanceControls:        append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),
 			MatchedProductionTargets:  dedupeSortedStrings(path.MatchedProductionTargets),
@@ -724,6 +730,11 @@ func mergeCredentialProvenance(current, incoming *agginventory.CredentialProvena
 		return agginventory.CloneCredentialProvenance(current)
 	case current.Type == incoming.Type && current.Subject == incoming.Subject && current.Scope == incoming.Scope:
 		merged := agginventory.CloneCredentialProvenance(current)
+		merged.TargetSystem = firstNonEmptyString(current.TargetSystem, incoming.TargetSystem)
+		merged.LikelyScope = firstNonEmptyString(current.LikelyScope, incoming.LikelyScope)
+		if credentialConfidencePriority(incoming.ScopeConfidence) > credentialConfidencePriority(current.ScopeConfidence) {
+			merged.ScopeConfidence = incoming.ScopeConfidence
+		}
 		merged.EvidenceBasis = dedupeSortedStrings(append(append([]string(nil), current.EvidenceBasis...), incoming.EvidenceBasis...))
 		merged.RiskMultiplier = maxFloat64(current.RiskMultiplier, incoming.RiskMultiplier)
 		if credentialConfidencePriority(incoming.Confidence) > credentialConfidencePriority(current.Confidence) {
@@ -768,6 +779,11 @@ func mergeCredentialAuthority(current, incoming *agginventory.CredentialAuthorit
 		merged.AccessType = firstNonEmptyString(current.AccessType, incoming.AccessType)
 		merged.StandingAccess = current.StandingAccess || incoming.StandingAccess
 		merged.LikelyJIT = current.LikelyJIT || incoming.LikelyJIT
+		merged.TargetSystem = firstNonEmptyString(current.TargetSystem, incoming.TargetSystem)
+		merged.LikelyScope = firstNonEmptyString(current.LikelyScope, incoming.LikelyScope)
+		if credentialConfidencePriority(incoming.ScopeConfidence) > credentialConfidencePriority(current.ScopeConfidence) {
+			merged.ScopeConfidence = incoming.ScopeConfidence
+		}
 		merged.RotationEvidenceStatus = chooseMetadataSource(current.RotationEvidenceStatus, incoming.RotationEvidenceStatus, current.RotationEvidenceStatus, incoming.RotationEvidenceStatus)
 		merged.CredentialSource = firstNonEmptyString(current.CredentialSource, incoming.CredentialSource)
 		if credentialConfidencePriority(incoming.Confidence) > credentialConfidencePriority(current.Confidence) {

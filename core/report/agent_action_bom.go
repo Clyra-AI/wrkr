@@ -116,6 +116,7 @@ type AgentActionBOMItem struct {
 	Credentials                         []*agginventory.CredentialProvenance   `json:"credentials,omitempty"`
 	CredentialProvenance                *agginventory.CredentialProvenance     `json:"credential_provenance,omitempty"`
 	CredentialAuthority                 *agginventory.CredentialAuthority      `json:"credential_authority,omitempty"`
+	AuthorityBindings                   []*agginventory.AuthorityBinding       `json:"authority_bindings,omitempty"`
 	PathContext                         *agginventory.PathContext              `json:"path_context,omitempty"`
 	StandingPrivilege                   bool                                   `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons            []string                               `json:"standing_privilege_reasons,omitempty"`
@@ -139,6 +140,8 @@ type AgentActionBOMItem struct {
 	RecommendedActionContract           *risk.RecommendedActionContract        `json:"recommended_action_contract,omitempty"`
 	TodayPath                           *risk.GovernedPathView                 `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *risk.GovernedPathView                 `json:"recommended_governed_path,omitempty"`
+	HighStakesPresets                   []risk.HighStakesPreset                `json:"high_stakes_presets,omitempty"`
+	ProductionContext                   *risk.ProductionContext                `json:"production_context,omitempty"`
 	EvidencePacketStatus                string                                 `json:"evidence_packet_status,omitempty"`
 	EvidencePacketResult                string                                 `json:"evidence_packet_result,omitempty"`
 	EvidencePacketMissingEvidenceState  string                                 `json:"evidence_packet_missing_evidence_state,omitempty"`
@@ -305,6 +308,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			Credentials:                         agginventory.CloneCredentialProvenances(path.Credentials),
 			CredentialProvenance:                agginventory.CloneCredentialProvenance(path.CredentialProvenance),
 			CredentialAuthority:                 agginventory.CloneCredentialAuthority(path.CredentialAuthority),
+			AuthorityBindings:                   agginventory.CloneAuthorityBindings(path.AuthorityBindings),
 			PathContext:                         agginventory.ClonePathContext(path.PathContext),
 			StandingPrivilege:                   path.StandingPrivilege,
 			StandingPrivilegeReasons:            append([]string(nil), path.StandingPrivilegeReasons...),
@@ -328,6 +332,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			RecommendedActionContract:           risk.CloneRecommendedActionContract(path.RecommendedActionContract),
 			TodayPath:                           risk.CloneGovernedPathView(path.TodayPath),
 			RecommendedGovernedPath:             risk.CloneGovernedPathView(path.RecommendedGovernedPath),
+			HighStakesPresets:                   risk.CloneHighStakesPresets(path.HighStakesPresets),
+			ProductionContext:                   risk.CloneProductionContext(path.ProductionContext),
 			EvidencePacketStatus:                strings.TrimSpace(packetItem.Status),
 			EvidencePacketResult:                strings.TrimSpace(packetItem.Result),
 			EvidencePacketMissingEvidenceState:  strings.TrimSpace(packetItem.MissingEvidenceState),

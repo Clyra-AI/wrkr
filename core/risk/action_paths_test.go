@@ -1015,6 +1015,40 @@ func TestOpenAPITargetClassCustomerDataAdjacent(t *testing.T) {
 	}
 }
 
+func TestOpenAPIWithoutAuthorityCorrelationStaysAppendixOnlyProductionContext(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:       "payments-openapi-appendix",
+		Org:          "acme",
+		Repo:         "acme/payments",
+		ToolType:     "openapi",
+		Location:     "openapi/payments.yaml",
+		WriteCapable: true,
+		ActionClasses: []string{
+			"write",
+		},
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{{
+			Semantic:     agginventory.EndpointSemanticPayment,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    "POST /v1/payments",
+			EvidenceRefs: []string{"POST /v1/payments"},
+		}},
+		PathContext: &agginventory.PathContext{Kind: agginventory.PathContextRuntimeSource, Confidence: "high"},
+	}})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].ConfidenceLane != ConfidenceLaneContextOnly {
+		t.Fatalf("expected uncorrelated openapi path to stay context_only, got %+v", paths[0])
+	}
+	if paths[0].ProductionContext == nil || paths[0].ProductionContext.Status != ProductionContextAppendixOnly {
+		t.Fatalf("expected appendix_only production context, got %+v", paths[0].ProductionContext)
+	}
+}
+
 func TestTargetClassProductionSignalOverridesCustomerDataSurface(t *testing.T) {
 	t.Parallel()
 

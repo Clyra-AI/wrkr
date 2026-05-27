@@ -497,6 +497,7 @@ type ControlPathInput struct {
 	CredentialAccess          bool
 	CredentialProvenance      *agginventory.CredentialProvenance
 	CredentialAuthority       *agginventory.CredentialAuthority
+	AuthorityBindings         []*agginventory.AuthorityBinding
 	MutableEndpointSemantics  []agginventory.MutableEndpointSemantic
 	GovernanceControls        []agginventory.GovernanceControlMapping
 	MatchedProductionTargets  []string
@@ -562,6 +563,7 @@ type ControlPathNode struct {
 	ConfigSource             string                                 `json:"config_source,omitempty"`
 	Status                   string                                 `json:"status,omitempty"`
 	CredentialAuthority      *agginventory.CredentialAuthority      `json:"credential_authority,omitempty"`
+	AuthorityBindings        []*agginventory.AuthorityBinding       `json:"authority_bindings,omitempty"`
 	MutableEndpointSemantics []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
 	EvidenceRefs             []string                               `json:"evidence_refs,omitempty"`
 	SourceRefs               []string                               `json:"source_refs,omitempty"`
@@ -824,6 +826,7 @@ func controlCredentialNode(pathID string, path ControlPathInput, org string, rep
 	node := newControlPathNode(pathID, ControlPathNodeCredential, org, repo, label, toolType, location, strings.TrimSpace(path.AgentID), status, evidenceRefs, controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
 	applyNodeMetadata(&node, path, "credential")
 	node.CredentialAuthority = agginventory.CloneCredentialAuthority(path.CredentialAuthority)
+	node.AuthorityBindings = agginventory.CloneAuthorityBindings(path.AuthorityBindings)
 	node.MutableEndpointSemantics = agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics)
 	return &node
 }

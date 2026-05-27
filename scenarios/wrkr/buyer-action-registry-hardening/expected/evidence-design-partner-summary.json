@@ -30,13 +30,13 @@
   "registry_count": 7,
   "bom_count": 7,
   "first_registry": {
-    "surface_type": "route_file",
+    "surface_type": "api_schema",
     "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
     "confidence_lane": "likely_action_path"
   },
   "first_bom": {
     "repo": "repo-d236d5",
-    "location": "loc-dd191250",
+    "location": "loc-6dd0f3ed",
     "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
     "confidence_lane": "likely_action_path"
   }

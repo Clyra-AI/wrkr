@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -199,6 +200,8 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	secretRefs := map[string]struct{}{}
 	environmentNames := map[string]struct{}{}
 	workflowTokenPermissions := map[string]struct{}{}
+	authSurfaces := map[string]struct{}{}
+	authorityBindings := map[string]struct{}{}
 	hasBuiltinWorkflowToken := false
 
 	jobNames := make([]string, 0, len(doc.Jobs))
@@ -254,12 +257,18 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 			for _, ref := range refs {
 				secretRefs[ref] = struct{}{}
 			}
+			for _, surface := range workflowAuthSurfaces(step, job.Env) {
+				authSurfaces[surface] = struct{}{}
+			}
 			if builtinToken {
 				hasBuiltinWorkflowToken = true
 				result.HasSecretAccess = true
 				for _, posture := range permissionPosture(perms) {
 					workflowTokenPermissions[posture] = struct{}{}
 				}
+			}
+			for _, binding := range workflowAuthorityBindings(step, strings.TrimSpace(job.Environment.Name)) {
+				authorityBindings[binding] = struct{}{}
 			}
 
 			if reason := mergeExecuteReason(step); reason != "" && (perms.allows("contents") || perms.allows("pull-requests")) {
@@ -385,11 +394,17 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 	for _, ref := range sortedSet(secretRefs) {
 		evidence = append(evidence, model.Evidence{Key: "workflow_secret_refs", Value: ref})
 	}
+	if len(authSurfaces) > 0 {
+		evidence = append(evidence, model.Evidence{Key: "auth_surfaces", Value: strings.Join(sortedSet(authSurfaces), ",")})
+	}
 	if hasBuiltinWorkflowToken {
 		evidence = append(evidence, model.Evidence{Key: "workflow_builtin_token", Value: "github_token"})
 		for _, posture := range sortedSet(workflowTokenPermissions) {
 			evidence = append(evidence, model.Evidence{Key: "workflow_token_permission", Value: posture})
 		}
+	}
+	for _, binding := range sortedSet(authorityBindings) {
+		evidence = append(evidence, model.Evidence{Key: "authority_binding", Value: binding})
 	}
 	result.Evidence = evidence
 	return result, nil
@@ -733,6 +748,100 @@ func sensitiveCredentialName(key string) bool {
 		strings.Contains(key, "SECRET") ||
 		strings.Contains(key, "KEY") ||
 		strings.Contains(key, "CREDENTIAL")
+}
+
+func workflowAuthSurfaces(step workflowStep, jobEnv map[string]string) []string {
+	values := normalizedStepValues(step, jobEnv)
+	out := map[string]struct{}{}
+	for _, value := range values {
+		switch {
+		case strings.Contains(value, "aws-actions/configure-aws-credentials"), strings.Contains(value, "role-to-assume"), strings.Contains(value, "assume_role"):
+			out["aws_oidc"] = struct{}{}
+		case strings.Contains(value, "azure/login"), strings.Contains(value, "federatedcredential"), strings.Contains(value, "service connection"):
+			out["azure_federated_credential"] = struct{}{}
+		case strings.Contains(value, "google-github-actions/auth"), strings.Contains(value, "workload_identity_provider"), strings.Contains(value, "service_account"):
+			out["gcp_workload_identity"] = struct{}{}
+		case strings.Contains(value, "kubectl"), strings.Contains(value, "helm"):
+			out["kubernetes_rbac"] = struct{}{}
+		}
+	}
+	for _, ref := range workflowCredentialRefsOnly(step, jobEnv) {
+		out[ref] = struct{}{}
+	}
+	return sortedSet(out)
+}
+
+func workflowCredentialRefsOnly(step workflowStep, jobEnv map[string]string) []string {
+	refs, _ := workflowCredentialRefs(step, jobEnv)
+	return refs
+}
+
+func workflowAuthorityBindings(step workflowStep, environment string) []string {
+	values := normalizedStepValues(step, nil)
+	production := workflowEnvironmentSuggestsProduction([]string{environment})
+	out := []string{}
+	add := func(kind, provider, subject, targetSystem, resource, scope, access string) {
+		out = append(out, strings.Join([]string{
+			kind,
+			provider,
+			subject,
+			targetSystem,
+			resource,
+			scope,
+			access,
+			environment,
+			strconv.FormatBool(production),
+			"high",
+		}, "|"))
+	}
+	for _, value := range values {
+		switch {
+		case strings.Contains(value, "aws-actions/configure-aws-credentials"), strings.Contains(value, "role-to-assume"), strings.Contains(value, "assume_role"):
+			add("workload_identity", "aws", "workflow_aws_oidc", "aws", "aws_role", "cloud_or_infra_access", "write")
+		case strings.Contains(value, "azure/login"):
+			add("workload_identity", "azure", "workflow_azure_federation", "azure", "azure_federated_credential", "cloud_or_infra_access", "write")
+		case strings.Contains(value, "google-github-actions/auth"), strings.Contains(value, "workload_identity_provider"):
+			add("workload_identity", "gcp", "workflow_gcp_workload_identity", "gcp", "gcp_workload_identity", "cloud_or_infra_access", "write")
+		case strings.Contains(value, "kubectl apply"), strings.Contains(value, "azure/k8s-deploy"), strings.Contains(value, "helm upgrade"), strings.Contains(value, "helm install"):
+			add("deployment_path", "kubernetes", "workflow_kubernetes_deploy", "kubernetes", "cluster_apply", "deploy_write", "write")
+		case strings.Contains(value, "terraform apply"), strings.Contains(value, "terragrunt apply"):
+			add("deployment_path", "terraform", "workflow_terraform_apply", "terraform", "terraform_apply", "infrastructure_apply", "write")
+		case strings.Contains(value, "pulumi up"):
+			add("deployment_path", "pulumi", "workflow_pulumi_up", "pulumi", "pulumi_up", "infrastructure_apply", "write")
+		case strings.Contains(value, "gcloud run deploy"):
+			add("deployment_path", "gcp", "workflow_gcloud_run_deploy", "gcp", "cloud_run", "deploy_write", "write")
+		case strings.Contains(value, "aws ecs update-service"), strings.Contains(value, "amazon-ecs-deploy-task-definition"):
+			add("deployment_path", "aws", "workflow_ecs_deploy", "aws", "ecs_service", "deploy_write", "write")
+		case strings.Contains(value, "vercel deploy --prod"):
+			add("service_connection", "vercel", "workflow_vercel_token", "deployment_platform", "vercel", "deploy_write", "write")
+		case strings.Contains(value, "netlify deploy --prod"):
+			add("service_connection", "netlify", "workflow_netlify_token", "deployment_platform", "netlify", "deploy_write", "write")
+		}
+	}
+	sort.Strings(out)
+	return dedupeSlice(out)
+}
+
+func dedupeSlice(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	set := map[string]struct{}{}
+	for _, item := range in {
+		if strings.TrimSpace(item) == "" {
+			continue
+		}
+		set[strings.TrimSpace(item)] = struct{}{}
+	}
+	out := make([]string, 0, len(set))
+	for item := range set {
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func permissionPosture(perms permissionField) []string {

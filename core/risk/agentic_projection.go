@@ -365,6 +365,9 @@ func deriveRiskClassificationValidation(path ActionPath) ([]string, []string) {
 	if standingCredentialWithBroadAuthority(path) {
 		addReason("classification:broad_credential_low_risk")
 	}
+	if len(path.HighStakesPresets) > 0 {
+		addReason("classification:high_stakes_low_risk")
+	}
 	if len(reasons) == 0 {
 		return nil, nil
 	}

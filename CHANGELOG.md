@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added workflow chain artifacts that group delegated SDLC paths by repo, PR/MR, workflow, tool, credential, owner, approval, target, evidence, and outcome.
 - [semver:minor] Added Control Path Graph V2 nodes and edges for delegated SDLC intent, human, agent team, PR/MR, approval, deployment, asset, evidence, and outcome paths.
 - [semver:minor] Added intent-to-outcome action lineage segments for delegated SDLC workflows.
+- [semver:minor] Added high-stakes path presets for release automation, production paths, credentials, IaC, identity/auth code, package publishing, payment flows, regulated customer workflows, external egress, MCP/tool configs, and mutable endpoints.
 - [semver:minor] Added Agentic SDLC autonomy tiers, delegation readiness states, and recommended control outcomes to govern-first action paths, Agent Action BOM items, control backlog items, and markdown report rollups.
 - [semver:minor] Added draft recommended action contracts plus today-versus-governed path views for control-first and high-stakes action paths in report and backlog artifacts.
 - [semver:minor] Added canonical control resolution and evidence confidence fields for action paths, reports, backlog items, and v1 schemas so control gaps are evidence-scoped instead of inferred from local absence.
@@ -40,6 +41,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:patch] Changed buyer-facing reports and Agent Action BOM summaries to lead with compact scan coverage summaries while preserving detector-level scan-quality details in appendix and evidence JSON.
 - [semver:minor] Changed runtime evidence reporting so static-only scans render runtime evidence as not collected or not applicable unless runtime evidence is required or needed for a control claim.
 - [semver:minor] Changed evidence resolution to use deterministic source precedence with conflict reasons across ownership and control outputs.
+- [semver:minor] Changed production-data and mutable-endpoint projection so uncorrelated route/OpenAPI surfaces stay appendix-only while correlated paths render workflow, credential, deployment, target, and evidence context.
 - Updated command, trust, and schema documentation for evidence-state control resolution, target classification, action path type classification, coverage-qualified absence, runtime evidence framing, and report QA guardrails.
 
 ### Deprecated
@@ -57,6 +59,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Security
 
 - [semver:minor] Added fail-closed validation that flags unsafe low-risk classifications when workflow, infra, credential, approval, or proof evidence contradicts a supposedly low-risk delegated path.
+- [semver:minor] Added cloud role, workload identity, deployment-path, and service-connection authority correlation for workflow credentials, graph nodes, and buyer-facing action paths.
+- [semver:minor] Added SaaS service-token target-system and likely-scope classification for SDLC paths without extracting or serializing secret values.
 - (none yet)
 
 ## Changelog maintenance process
