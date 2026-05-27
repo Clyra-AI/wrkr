@@ -23,8 +23,8 @@ func TestTargetClassificationScenario(t *testing.T) {
 	}
 
 	openAPIPath := findActionPathByLocation(t, actionPaths, "openapi/payments-openapi.yaml")
-	if openAPIPath["target_class"] != "customer_data_adjacent" || openAPIPath["action_path_type"] != "plain_source_code" {
-		t.Fatalf("expected openapi customer-data/plain-source classification, got %v", openAPIPath)
+	if openAPIPath["target_class"] != "production_impacting" || openAPIPath["action_path_type"] != "plain_source_code" {
+		t.Fatalf("expected openapi production-impacting/plain-source classification, got %v", openAPIPath)
 	}
 
 	codexPath := findActionPathByLocation(t, actionPaths, ".codex/config.toml")
