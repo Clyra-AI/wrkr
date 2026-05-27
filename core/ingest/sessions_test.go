@@ -241,3 +241,38 @@ func TestValidateSessionJSONAcceptsNormalizedBundle(t *testing.T) {
 		t.Fatalf("validate runtime sessions schema: %v", err)
 	}
 }
+
+func TestNormalizeSessionBundleGeneratesDistinctIDsForDistinctTimestampsAndFiles(t *testing.T) {
+	t.Parallel()
+
+	bundle, err := NormalizeSessionBundle(SessionBundle{
+		GeneratedAt: "2026-05-27T14:00:00Z",
+		Sessions: []SessionRecord{
+			{
+				Provider:     SessionProviderCodex,
+				Repo:         "acme/payments",
+				Workflow:     ".github/workflows/release.yml",
+				StartedAt:    "2026-05-27T14:00:00Z",
+				ChangedFiles: []string{"cmd/release.go"},
+				CompletedAt:  "2026-05-27T14:00:05Z",
+			},
+			{
+				Provider:     SessionProviderCodex,
+				Repo:         "acme/payments",
+				Workflow:     ".github/workflows/release.yml",
+				StartedAt:    "2026-05-27T14:01:00Z",
+				ChangedFiles: []string{"cmd/release_hotfix.go"},
+				CompletedAt:  "2026-05-27T14:01:05Z",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("normalize session bundle: %v", err)
+	}
+	if len(bundle.Sessions) != 2 {
+		t.Fatalf("expected two sessions, got %+v", bundle.Sessions)
+	}
+	if bundle.Sessions[0].SessionID == bundle.Sessions[1].SessionID {
+		t.Fatalf("expected distinct generated session ids, got %+v", bundle.Sessions)
+	}
+}
