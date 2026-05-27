@@ -742,8 +742,19 @@ func buildSessionID(session SessionRecord, generatedAt time.Time) string {
 	seed := strings.Join([]string{
 		firstNonEmpty(session.Provider, SessionProviderUnknown),
 		firstNonEmpty(session.Repo, "local"),
+		firstNonEmpty(session.Workflow, "workflow"),
 		firstNonEmpty(session.RunID, "run"),
-		firstNonEmpty(session.SessionID, session.PullRequestRef, session.MergeRequestRef, strings.Join(session.SourceArtifactRefs, ","), session.CompletedAt, generatedAt.UTC().Format(time.RFC3339)),
+		firstNonEmpty(
+			session.SessionID,
+			session.PullRequestRef,
+			session.MergeRequestRef,
+			strings.Join(session.SourceArtifactRefs, ","),
+			strings.Join(session.ChangedFiles, ","),
+			strings.Join(session.FileWrites, ","),
+			session.CompletedAt,
+			session.StartedAt,
+			generatedAt.UTC().Format(time.RFC3339),
+		),
 	}, "|")
 	sum := sha256.Sum256([]byte(seed))
 	return fmt.Sprintf("session-%s", hex.EncodeToString(sum[:])[:12])
@@ -875,10 +886,10 @@ func sessionMissingEvidenceState(session SessionRecord) string {
 	if len(session.ChangedFiles) == 0 && len(session.FileWrites) == 0 {
 		missing++
 	}
-	switch {
-	case missing == 0:
+	switch missing {
+	case 0:
 		return "complete"
-	case missing == 1:
+	case 1:
 		return "partial"
 	default:
 		return "missing"
