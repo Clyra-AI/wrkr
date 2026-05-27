@@ -182,6 +182,7 @@
         "evidence_completeness": {"$ref": "#/$defs/evidenceCompleteness"},
         "attack_path_refs": {"type": "array", "items": {"type": "string"}},
         "source_finding_keys": {"type": "array", "items": {"type": "string"}},
+        "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
         "exclusion_reason": {"type": "string"},
         "graph_refs": {"$ref": "#/$defs/graphRefs"},
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
@@ -800,7 +801,7 @@
       "required": ["segment_id", "kind"],
       "properties": {
         "segment_id": {"type": "string"},
-        "kind": {"type": "string", "enum": ["repo", "workflow", "agent", "action", "credential", "target", "owner", "approval", "proof"]},
+        "kind": {"type": "string", "enum": ["repo", "workflow", "agent", "action", "credential", "target", "owner", "approval", "proof", "intent", "task", "human", "pr", "workflow_run", "control", "deployment", "outcome", "evidence"]},
         "label": {"type": "string"},
         "status": {"type": "string"},
         "node_ids": {"type": "array", "items": {"type": "string"}},

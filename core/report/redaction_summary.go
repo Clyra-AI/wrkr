@@ -3,6 +3,7 @@ package report
 import (
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -272,6 +273,58 @@ func sanitizeControlPathGraphWithConfig(in *aggattack.ControlPathGraph, config R
 		copyGraph.Edges[idx].SourceFindingKeys = maybeRedactStringSlice(copyGraph.Edges[idx].SourceFindingKeys, "finding", shouldRedactFindingKeys(config))
 	}
 	return &copyGraph
+}
+
+func sanitizeWorkflowChainsWithConfig(in *agentresolver.WorkflowChainArtifact, config RedactionConfig) *agentresolver.WorkflowChainArtifact {
+	if in == nil {
+		return nil
+	}
+	copyArtifact := &agentresolver.WorkflowChainArtifact{
+		Version: strings.TrimSpace(in.Version),
+		Summary: in.Summary,
+		Chains:  make([]agentresolver.WorkflowChain, 0, len(in.Chains)),
+	}
+	for _, chain := range in.Chains {
+		copyChain := chain
+		copyChain.PathIDs = maybeRedactStringSlice(copyChain.PathIDs, "path", config.Has(RedactionPaths))
+		copyChain.GraphNodeRefs = maybeRedactStringSlice(copyChain.GraphNodeRefs, "node", config.Has(RedactionGraphRefs))
+		copyChain.GraphEdgeRefs = maybeRedactStringSlice(copyChain.GraphEdgeRefs, "edge", config.Has(RedactionGraphRefs))
+		copyChain.ProofRefs = maybeRedactStringSlice(copyChain.ProofRefs, "proof", config.Has(RedactionProofRefs))
+		copyChain.EvidenceRefs = maybeRedactStringSlice(copyChain.EvidenceRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionProviders))
+		copyChain.SourceFindingKeys = maybeRedactStringSlice(copyChain.SourceFindingKeys, "finding", shouldRedactFindingKeys(config))
+		copyChain.Repo = sanitizeWorkflowChainDimensionWithConfig(copyChain.Repo, config)
+		copyChain.PullRequest = sanitizeWorkflowChainDimensionWithConfig(copyChain.PullRequest, config)
+		copyChain.Workflow = sanitizeWorkflowChainDimensionWithConfig(copyChain.Workflow, config)
+		copyChain.Task = sanitizeWorkflowChainDimensionWithConfig(copyChain.Task, config)
+		copyChain.Tool = sanitizeWorkflowChainDimensionWithConfig(copyChain.Tool, config)
+		copyChain.Credential = sanitizeWorkflowChainDimensionWithConfig(copyChain.Credential, config)
+		copyChain.Owner = sanitizeWorkflowChainDimensionWithConfig(copyChain.Owner, config)
+		copyChain.Approval = sanitizeWorkflowChainDimensionWithConfig(copyChain.Approval, config)
+		copyChain.Target = sanitizeWorkflowChainDimensionWithConfig(copyChain.Target, config)
+		copyChain.Evidence = sanitizeWorkflowChainDimensionWithConfig(copyChain.Evidence, config)
+		copyChain.Outcome = sanitizeWorkflowChainDimensionWithConfig(copyChain.Outcome, config)
+		if copyChain.IntroducedBy != nil {
+			introduced := *copyChain.IntroducedBy
+			introduced.Author = maybeRedactAuthor(introduced.Author, config)
+			introduced.ChangedFile = maybeRedactLocationLike(introduced.ChangedFile, config)
+			introduced.ProviderURL = maybeRedactProvider(introduced.ProviderURL, config)
+			copyChain.IntroducedBy = &introduced
+		}
+		copyArtifact.Chains = append(copyArtifact.Chains, copyChain)
+	}
+	return copyArtifact
+}
+
+func sanitizeWorkflowChainDimensionWithConfig(in agentresolver.WorkflowChainDimension, config RedactionConfig) agentresolver.WorkflowChainDimension {
+	out := in
+	out.Key = maybeRedactLocationLike(out.Key, config)
+	out.Key = maybeRedactRepo(out.Key, config)
+	out.Key = maybeRedactOwner(out.Key, config)
+	out.Label = maybeRedactLocationLike(out.Label, config)
+	out.Label = maybeRedactRepo(out.Label, config)
+	out.Label = maybeRedactOwner(out.Label, config)
+	out.EvidenceRefs = maybeRedactStringSlice(out.EvidenceRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionProviders))
+	return out
 }
 
 func sanitizeControlBacklogWithConfig(in *controlbacklog.Backlog, config RedactionConfig) *controlbacklog.Backlog {

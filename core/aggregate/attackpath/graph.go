@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/model"
 )
@@ -444,40 +445,79 @@ const (
 	ControlPathNodeGovernanceControl = "governance_control"
 	ControlPathNodeTarget            = "target"
 	ControlPathNodeActionCapability  = "action_capability"
+	ControlPathNodeIntent            = "intent"
+	ControlPathNodeTask              = "task"
+	ControlPathNodeHumanIdentity     = "human_identity"
+	ControlPathNodeAgentTeam         = "agent_team"
+	ControlPathNodePullRequest       = "pull_request"
+	ControlPathNodeApprovalIdentity  = "approval_identity"
+	ControlPathNodePolicyIdentity    = "policy_identity"
+	ControlPathNodeAssetIdentity     = "asset_identity"
+	ControlPathNodeEvidenceIdentity  = "evidence_identity"
+	ControlPathNodeDeploymentPath    = "deployment_path"
+	ControlPathNodeCICDRun           = "ci_cd_run"
+	ControlPathNodeWorkflowRun       = "workflow_run"
+	ControlPathNodeOutcome           = "outcome"
+)
+
+const (
+	ControlPathEdgeRequestToHuman               = "request_to_human"
+	ControlPathEdgeHumanDelegatesTask           = "human_delegates_task"
+	ControlPathEdgeTaskExecutedByAgentTeam      = "task_executed_by_agent_team"
+	ControlPathEdgeAgentTeamUsesTool            = "agent_team_uses_tool"
+	ControlPathEdgeToolUsesCredential           = "tool_uses_credential"
+	ControlPathEdgeCredentialAuthorizesWorkflow = "credential_authorizes_workflow"
+	ControlPathEdgeWorkflowChangesRepo          = "workflow_changes_repo"
+	ControlPathEdgeRepoProducesPullRequest      = "repo_produces_pull_request"
+	ControlPathEdgePullRequestRunsChecks        = "pull_request_runs_checks"
+	ControlPathEdgeChecksGateApproval           = "checks_gate_approval"
+	ControlPathEdgeApprovalAuthorizesDeploy     = "approval_authorizes_deploy"
+	ControlPathEdgeDeployAffectsAsset           = "deploy_affects_asset"
+	ControlPathEdgeEvidenceProvesOutcome        = "evidence_proves_outcome"
 )
 
 type ControlPathInput struct {
-	PathID                   string
-	AgentID                  string
-	Org                      string
-	Repo                     string
-	ToolType                 string
-	Location                 string
-	Purpose                  string
-	PurposeSource            string
-	PurposeConfidence        string
-	Version                  string
-	VersionSource            string
-	ConfigFingerprint        string
-	ConfigSource             string
-	ExecutionIdentity        string
-	ExecutionIdentityType    string
-	ExecutionIdentitySource  string
-	ExecutionIdentityStatus  string
-	CredentialAccess         bool
-	CredentialProvenance     *agginventory.CredentialProvenance
-	CredentialAuthority      *agginventory.CredentialAuthority
-	MutableEndpointSemantics []agginventory.MutableEndpointSemantic
-	GovernanceControls       []agginventory.GovernanceControlMapping
-	MatchedProductionTargets []string
-	WritePathClasses         []string
-	PullRequestWrite         bool
-	MergeExecute             bool
-	DeployWrite              bool
-	ProductionWrite          bool
-	ApprovalGap              bool
-	AttackPathRefs           []string
-	SourceFindingKeys        []string
+	PathID                    string
+	AgentID                   string
+	Org                       string
+	Repo                      string
+	ToolType                  string
+	Location                  string
+	Purpose                   string
+	PurposeSource             string
+	PurposeConfidence         string
+	Version                   string
+	VersionSource             string
+	ConfigFingerprint         string
+	ConfigSource              string
+	ExecutionIdentity         string
+	ExecutionIdentityType     string
+	ExecutionIdentitySource   string
+	ExecutionIdentityStatus   string
+	CredentialAccess          bool
+	CredentialProvenance      *agginventory.CredentialProvenance
+	CredentialAuthority       *agginventory.CredentialAuthority
+	MutableEndpointSemantics  []agginventory.MutableEndpointSemantic
+	GovernanceControls        []agginventory.GovernanceControlMapping
+	MatchedProductionTargets  []string
+	WritePathClasses          []string
+	PullRequestWrite          bool
+	MergeExecute              bool
+	DeployWrite               bool
+	ProductionWrite           bool
+	ApprovalGap               bool
+	IntroducedBy              *attribution.Result
+	PolicyRefs                []string
+	ControlResolutionState    string
+	AutonomyTier              string
+	DelegationReadinessState  string
+	ApprovalEvidenceState     string
+	ProofEvidenceState        string
+	RuntimeEvidenceState      string
+	TargetEvidenceState       string
+	EvidenceCompletenessLabel string
+	AttackPathRefs            []string
+	SourceFindingKeys         []string
 }
 
 type ControlPathGraph struct {
@@ -488,10 +528,13 @@ type ControlPathGraph struct {
 }
 
 type ControlPathGraphSummary struct {
-	TotalNodes int                     `json:"total_nodes"`
-	TotalEdges int                     `json:"total_edges"`
-	NodeKinds  []ControlPathKindRollup `json:"node_kinds"`
-	EdgeKinds  []ControlPathKindRollup `json:"edge_kinds"`
+	TotalNodes                int                     `json:"total_nodes"`
+	TotalEdges                int                     `json:"total_edges"`
+	NodeKinds                 []ControlPathKindRollup `json:"node_kinds"`
+	EdgeKinds                 []ControlPathKindRollup `json:"edge_kinds"`
+	AutonomyTiers             []ControlPathKindRollup `json:"autonomy_tiers,omitempty"`
+	DelegationReadinessStates []ControlPathKindRollup `json:"delegation_readiness_states,omitempty"`
+	EvidenceStates            []ControlPathKindRollup `json:"evidence_states,omitempty"`
 }
 
 type ControlPathKindRollup struct {
@@ -558,6 +601,9 @@ func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
 	edges := make([]ControlPathEdge, 0, len(ordered)*8)
 	nodeCounts := map[string]int{}
 	edgeCounts := map[string]int{}
+	autonomyCounts := map[string]int{}
+	readinessCounts := map[string]int{}
+	evidenceCounts := map[string]int{}
 	for _, path := range ordered {
 		pathNodes, pathEdges := buildControlPath(path)
 		nodes = append(nodes, pathNodes...)
@@ -567,6 +613,15 @@ func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
 		}
 		for _, edge := range pathEdges {
 			edgeCounts[edge.Kind]++
+		}
+		if tier := strings.TrimSpace(path.AutonomyTier); tier != "" {
+			autonomyCounts[tier]++
+		}
+		if readiness := strings.TrimSpace(path.DelegationReadinessState); readiness != "" {
+			readinessCounts[readiness]++
+		}
+		if evidence := controlPathEvidenceState(path); evidence != "" {
+			evidenceCounts[evidence]++
 		}
 	}
 
@@ -592,10 +647,13 @@ func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
 	return &ControlPathGraph{
 		Version: ControlPathGraphVersion,
 		Summary: ControlPathGraphSummary{
-			TotalNodes: len(nodes),
-			TotalEdges: len(edges),
-			NodeKinds:  summarizeControlPathKinds(nodeCounts),
-			EdgeKinds:  summarizeControlPathKinds(edgeCounts),
+			TotalNodes:                len(nodes),
+			TotalEdges:                len(edges),
+			NodeKinds:                 summarizeControlPathKinds(nodeCounts),
+			EdgeKinds:                 summarizeControlPathKinds(edgeCounts),
+			AutonomyTiers:             summarizeControlPathKinds(autonomyCounts),
+			DelegationReadinessStates: summarizeControlPathKinds(readinessCounts),
+			EvidenceStates:            summarizeControlPathKinds(evidenceCounts),
 		},
 		Nodes: nodes,
 		Edges: edges,
@@ -648,6 +706,38 @@ func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEd
 	nodes = append(nodes, execNode)
 	edges = append(edges, newControlPathEdge(pathID, "path_runs_as", pathNode.NodeID, execNode.NodeID, execEvidence, controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
 
+	intentNode := newControlPathNode(pathID, ControlPathNodeIntent, org, repo, controlValue(path.Purpose, "unknown_intent"), toolType, location, strings.TrimSpace(path.AgentID), controlPathIntentStatus(path), append(controlEvidenceRefs(path), "purpose_source:"+controlValue(path.PurposeSource, "unknown")), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&intentNode, path, "intent")
+	nodes = append(nodes, intentNode)
+
+	taskNode := newControlPathNode(pathID, ControlPathNodeTask, org, repo, controlPathTaskLabel(path), toolType, location, strings.TrimSpace(path.AgentID), controlPathTaskStatus(path), append(controlEvidenceRefs(path), "task_source:"+controlValue(path.PurposeSource, "unknown")), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&taskNode, path, "task")
+	nodes = append(nodes, taskNode)
+
+	humanNode := newControlPathNode(pathID, ControlPathNodeHumanIdentity, org, repo, controlPathHumanLabel(path.IntroducedBy), toolType, location, strings.TrimSpace(path.AgentID), controlPathIntroducedByStatus(path.IntroducedBy), controlPathIntroducedByEvidence(path.IntroducedBy), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&humanNode, path, "human")
+	nodes = append(nodes, humanNode)
+
+	agentTeamNode := newControlPathNode(pathID, ControlPathNodeAgentTeam, org, repo, controlValue(firstNonEmpty(path.AgentID, toolType), "unknown_agent_team"), toolType, location, strings.TrimSpace(path.AgentID), "present", controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&agentTeamNode, path, "agent")
+	nodes = append(nodes, agentTeamNode)
+
+	prNode := newControlPathNode(pathID, ControlPathNodePullRequest, org, repo, controlPathPullRequestLabel(path.IntroducedBy), toolType, location, strings.TrimSpace(path.AgentID), controlPathIntroducedByStatus(path.IntroducedBy), controlPathIntroducedByEvidence(path.IntroducedBy), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&prNode, path, "pr")
+	nodes = append(nodes, prNode)
+
+	workflowRunNode := newControlPathNode(pathID, ControlPathNodeWorkflowRun, org, repo, controlPathWorkflowRunLabel(path), toolType, location, strings.TrimSpace(path.AgentID), controlPathWorkflowRunStatus(path), controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&workflowRunNode, path, "workflow_run")
+	nodes = append(nodes, workflowRunNode)
+
+	approvalIdentityNode := newControlPathNode(pathID, ControlPathNodeApprovalIdentity, org, repo, controlPathApprovalIdentityLabel(path), toolType, location, strings.TrimSpace(path.AgentID), controlPathApprovalIdentityStatus(path), controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&approvalIdentityNode, path, "approval")
+	nodes = append(nodes, approvalIdentityNode)
+
+	policyIdentityNode := newControlPathNode(pathID, ControlPathNodePolicyIdentity, org, repo, controlPathPolicyIdentityLabel(path), toolType, location, strings.TrimSpace(path.AgentID), controlPathPolicyIdentityStatus(path), controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&policyIdentityNode, path, "control")
+	nodes = append(nodes, policyIdentityNode)
+
 	credentialNode := controlCredentialNode(pathID, path, org, repo, toolType, location)
 	if credentialNode != nil {
 		nodes = append(nodes, *credentialNode)
@@ -674,6 +764,38 @@ func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEd
 		nodes = append(nodes, controlNode)
 		edges = append(edges, newControlPathEdge(pathID, "path_governed_by", pathNode.NodeID, controlNode.NodeID, controlNode.EvidenceRefs, controlNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
 	}
+
+	deploymentNode := newControlPathNode(pathID, ControlPathNodeDeploymentPath, org, repo, controlPathDeploymentLabel(path), toolType, location, strings.TrimSpace(path.AgentID), controlPathDeploymentStatus(path), controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&deploymentNode, path, "deployment")
+	nodes = append(nodes, deploymentNode)
+
+	assetNode := newControlPathNode(pathID, ControlPathNodeAssetIdentity, org, repo, controlPathAssetLabel(path), toolType, location, strings.TrimSpace(path.AgentID), controlPathAssetStatus(path), controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&assetNode, path, "target")
+	nodes = append(nodes, assetNode)
+
+	evidenceNode := newControlPathNode(pathID, ControlPathNodeEvidenceIdentity, org, repo, controlPathEvidenceLabel(path), toolType, location, strings.TrimSpace(path.AgentID), controlPathEvidenceState(path), controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&evidenceNode, path, "evidence")
+	nodes = append(nodes, evidenceNode)
+
+	outcomeNode := newControlPathNode(pathID, ControlPathNodeOutcome, org, repo, controlPathOutcomeLabel(path), toolType, location, strings.TrimSpace(path.AgentID), controlPathOutcomeStatus(path), controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
+	applyNodeMetadata(&outcomeNode, path, "outcome")
+	nodes = append(nodes, outcomeNode)
+
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeRequestToHuman, intentNode.NodeID, humanNode.NodeID, humanNode.EvidenceRefs, humanNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeHumanDelegatesTask, humanNode.NodeID, taskNode.NodeID, humanNode.EvidenceRefs, humanNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeTaskExecutedByAgentTeam, taskNode.NodeID, agentTeamNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeAgentTeamUsesTool, agentTeamNode.NodeID, toolNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
+	if credentialNode != nil {
+		edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeToolUsesCredential, toolNode.NodeID, credentialNode.NodeID, credentialNode.EvidenceRefs, credentialNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
+		edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeCredentialAuthorizesWorkflow, credentialNode.NodeID, workflowNode.NodeID, credentialNode.EvidenceRefs, credentialNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
+	}
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeWorkflowChangesRepo, workflowNode.NodeID, repoNode.NodeID, controlEvidenceRefs(path), []string{repo}, path.AttackPathRefs, path.SourceFindingKeys))
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeRepoProducesPullRequest, repoNode.NodeID, prNode.NodeID, prNode.EvidenceRefs, prNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgePullRequestRunsChecks, prNode.NodeID, workflowRunNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeChecksGateApproval, workflowRunNode.NodeID, approvalIdentityNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeApprovalAuthorizesDeploy, approvalIdentityNode.NodeID, deploymentNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeDeployAffectsAsset, deploymentNode.NodeID, assetNode.NodeID, controlEvidenceRefs(path), controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys))
+	edges = append(edges, newControlPathEdge(pathID, ControlPathEdgeEvidenceProvesOutcome, evidenceNode.NodeID, outcomeNode.NodeID, evidenceNode.EvidenceRefs, evidenceNode.SourceRefs, path.AttackPathRefs, path.SourceFindingKeys))
 
 	return nodes, edges
 }
@@ -830,6 +952,229 @@ func controlTargets(path ControlPathInput) []string {
 	return values
 }
 
+func controlPathIntentStatus(path ControlPathInput) string {
+	if strings.TrimSpace(path.Purpose) == "" {
+		return "unknown"
+	}
+	return "declared"
+}
+
+func controlPathTaskLabel(path ControlPathInput) string {
+	if strings.TrimSpace(path.Purpose) != "" {
+		return strings.TrimSpace(path.Purpose)
+	}
+	if strings.TrimSpace(path.PurposeSource) != "" {
+		return "unknown_task"
+	}
+	return "unknown_task"
+}
+
+func controlPathTaskStatus(path ControlPathInput) string {
+	if strings.TrimSpace(path.Purpose) != "" {
+		return "declared"
+	}
+	return "unknown"
+}
+
+func controlPathHumanLabel(result *attribution.Result) string {
+	if result != nil && strings.TrimSpace(result.Author) != "" {
+		return strings.TrimSpace(result.Author)
+	}
+	return "unknown_human"
+}
+
+func controlPathPullRequestLabel(result *attribution.Result) string {
+	if result != nil && result.PRNumber > 0 {
+		return fmt.Sprintf("PR #%d", result.PRNumber)
+	}
+	return "unknown_pr"
+}
+
+func controlPathWorkflowRunLabel(path ControlPathInput) string {
+	if strings.TrimSpace(path.Location) == "" {
+		return "unknown_workflow_run"
+	}
+	return strings.TrimSpace(path.Location)
+}
+
+func controlPathWorkflowRunStatus(path ControlPathInput) string {
+	if strings.TrimSpace(path.Location) == "" {
+		return "unknown"
+	}
+	return "present"
+}
+
+func controlPathApprovalIdentityLabel(path ControlPathInput) string {
+	if state := strings.TrimSpace(path.ApprovalEvidenceState); state != "" {
+		return "approval:" + state
+	}
+	return "unknown_approval_identity"
+}
+
+func controlPathApprovalIdentityStatus(path ControlPathInput) string {
+	if state := strings.TrimSpace(path.ApprovalEvidenceState); state != "" {
+		return state
+	}
+	return "unknown"
+}
+
+func controlPathPolicyIdentityLabel(path ControlPathInput) string {
+	if len(path.PolicyRefs) > 0 {
+		return strings.TrimSpace(path.PolicyRefs[0])
+	}
+	if strings.TrimSpace(path.ControlResolutionState) != "" {
+		return strings.TrimSpace(path.ControlResolutionState)
+	}
+	return "unknown_policy"
+}
+
+func controlPathPolicyIdentityStatus(path ControlPathInput) string {
+	if strings.TrimSpace(path.ControlResolutionState) == "contradictory_control" {
+		return "contradictory"
+	}
+	if len(path.PolicyRefs) > 0 {
+		return "declared"
+	}
+	return "unknown"
+}
+
+func controlPathDeploymentLabel(path ControlPathInput) string {
+	if len(path.MatchedProductionTargets) > 0 {
+		return strings.TrimSpace(path.MatchedProductionTargets[0])
+	}
+	if path.DeployWrite || path.ProductionWrite {
+		return "unknown_deployment_path"
+	}
+	return "unknown_deployment_path"
+}
+
+func controlPathDeploymentStatus(path ControlPathInput) string {
+	if path.DeployWrite || path.ProductionWrite {
+		if state := strongestControlPathEvidenceState(path.ProofEvidenceState, path.RuntimeEvidenceState); state != "" {
+			return state
+		}
+		return "unknown"
+	}
+	return "unknown"
+}
+
+func controlPathAssetLabel(path ControlPathInput) string {
+	targets := controlTargets(path)
+	if len(targets) > 0 {
+		return targets[0]
+	}
+	return "unknown_asset"
+}
+
+func controlPathAssetStatus(path ControlPathInput) string {
+	if state := strings.TrimSpace(path.TargetEvidenceState); state != "" {
+		return state
+	}
+	if path.ProductionWrite {
+		return "unknown"
+	}
+	return "unknown"
+}
+
+func controlPathEvidenceLabel(path ControlPathInput) string {
+	if strings.TrimSpace(path.EvidenceCompletenessLabel) != "" {
+		return strings.TrimSpace(path.EvidenceCompletenessLabel)
+	}
+	if state := controlPathEvidenceState(path); state != "" {
+		return state
+	}
+	return "unknown_evidence"
+}
+
+func controlPathEvidenceState(path ControlPathInput) string {
+	if label := strings.TrimSpace(path.EvidenceCompletenessLabel); label != "" {
+		return label
+	}
+	if state := strongestControlPathEvidenceState(path.ProofEvidenceState, path.RuntimeEvidenceState, path.TargetEvidenceState); state != "" {
+		return state
+	}
+	return ""
+}
+
+func controlPathOutcomeLabel(path ControlPathInput) string {
+	if state := strongestControlPathEvidenceState(path.ProofEvidenceState, path.RuntimeEvidenceState); state != "" {
+		return "outcome:" + state
+	}
+	return "unknown_outcome"
+}
+
+func controlPathOutcomeStatus(path ControlPathInput) string {
+	if state := strongestControlPathEvidenceState(path.ProofEvidenceState, path.RuntimeEvidenceState); state != "" {
+		return state
+	}
+	return "unknown"
+}
+
+func controlPathIntroducedByStatus(result *attribution.Result) string {
+	if result == nil {
+		return "unknown"
+	}
+	switch strings.TrimSpace(result.Confidence) {
+	case attribution.ConfidenceHigh:
+		return "verified"
+	case attribution.ConfidenceLow:
+		return "inferred"
+	default:
+		return "unknown"
+	}
+}
+
+func controlPathIntroducedByEvidence(result *attribution.Result) []string {
+	if result == nil {
+		return nil
+	}
+	values := []string{strings.TrimSpace(result.ProviderURL), strings.TrimSpace(result.ChangedFile)}
+	if result.PRNumber > 0 {
+		values = append(values, fmt.Sprintf("pr:%d", result.PRNumber))
+	}
+	return uniqueSortedStrings(values)
+}
+
+func strongestControlPathEvidenceState(values ...string) string {
+	bestRank := -1
+	best := ""
+	for _, value := range values {
+		normalized := strings.TrimSpace(value)
+		if normalized == "" {
+			continue
+		}
+		rank := controlPathEvidenceStateRank(normalized)
+		if rank > bestRank {
+			bestRank = rank
+			best = normalized
+		}
+	}
+	return best
+}
+
+func controlPathEvidenceStateRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case "contradictory":
+		return 5
+	case "verified":
+		return 4
+	case "declared", "present":
+		return 3
+	case "inferred":
+		return 2
+	case "unknown", "missing":
+		return 1
+	case "strong_evidence":
+		return 4
+	case "partial_evidence":
+		return 3
+	case "insufficient_evidence":
+		return 2
+	default:
+		return 0
+	}
+}
+
 func controlMappings(values []agginventory.GovernanceControlMapping) []agginventory.GovernanceControlMapping {
 	if len(values) == 0 {
 		return nil
@@ -917,4 +1262,13 @@ func uniqueSortedStrings(values []string) []string {
 		return nil
 	}
 	return out
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }

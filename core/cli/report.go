@@ -35,6 +35,7 @@ type reportPayload struct {
 	AgentActionBOM           any                          `json:"agent_action_bom,omitempty"`
 	ActionPathToControlFirst any                          `json:"action_path_to_control_first,omitempty"`
 	ControlPathGraph         any                          `json:"control_path_graph,omitempty"`
+	WorkflowChains           any                          `json:"workflow_chains,omitempty"`
 	RuntimeEvidence          *ingest.Summary              `json:"runtime_evidence,omitempty"`
 	AssessmentSummary        any                          `json:"assessment_summary,omitempty"`
 	ExposureGroups           any                          `json:"exposure_groups,omitempty"`
@@ -200,6 +201,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		AgentActionBOM:           summary.AgentActionBOM,
 		ActionPathToControlFirst: summary.ActionPathToControlFirst,
 		ControlPathGraph:         summary.ControlPathGraph,
+		WorkflowChains:           summary.WorkflowChains,
 		RuntimeEvidence:          summary.RuntimeEvidence,
 		AssessmentSummary:        summary.AssessmentSummary,
 		ExposureGroups:           summary.ExposureGroups,

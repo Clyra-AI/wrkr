@@ -92,6 +92,8 @@ func refreshDerivedMutationSnapshot(snapshot *state.Snapshot) error {
 	if snapshot.RiskReport != nil && snapshot.Inventory != nil {
 		snapshot.RiskReport.ActionPaths, snapshot.RiskReport.ActionPathToControlFirst = risk.BuildActionPaths(snapshot.RiskReport.AttackPaths, snapshot.Inventory)
 		snapshot.RiskReport.ControlPathGraph = risk.BuildControlPathGraph(snapshot.RiskReport.ActionPaths)
+		snapshot.RiskReport.WorkflowChains = risk.BuildWorkflowChains(snapshot.RiskReport.ActionPaths, snapshot.RiskReport.ControlPathGraph)
+		snapshot.RiskReport.ActionPaths = risk.DecorateWorkflowChainRefs(snapshot.RiskReport.ActionPaths, snapshot.RiskReport.WorkflowChains)
 		snapshot.RiskReport.ActionPaths = risk.DecorateActionLineage(snapshot.RiskReport.ActionPaths, snapshot.RiskReport.ControlPathGraph)
 		snapshot.RiskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(snapshot.RiskReport.ActionPaths)
 		actionPaths = snapshot.RiskReport.ActionPaths
