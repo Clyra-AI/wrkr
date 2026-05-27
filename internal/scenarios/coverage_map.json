@@ -124,6 +124,11 @@
   "W5-overclaim-qa": [
     "TestScenarioReportOverclaim"
   ],
+  "W5-primary-workflow-bom": [
+    "TestScenarioWave5FocusedWorkflowBOMUsesPrimaryViewAndExplicitFocus",
+    "TestAgentActionBOMAcceptanceStaticToRuntimeEvidence",
+    "TestWave5AgentActionBOMSchemaDeclaresPrimaryViewContract"
+  ],
   "W2-target-classification": [
     "TestTargetClassificationScenario"
   ],

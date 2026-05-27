@@ -51,6 +51,7 @@ Wrkr's Sprint 2 enterprise-evidence surface stays local-file based and determini
 - Accepted governance dispositions stay auditable: `accepted_risk` and suppression metadata remain visible in JSON/report artifacts instead of deleting evidence.
 - Evidence completeness is not risk scoring. Low `evidence_completeness` means Wrkr needs more evidence for the current conclusion, not that the path is safe.
 - Canonical source precedence is documented and deterministic: provider export, signed declaration, repo-local policy/config, app catalog ownership, git/review inference, then naming-convention or repo fallback.
+- `agent_action_bom.summary.primary_view` is the focused workflow-BOM contract for Sprint 3 buyer output. It carries the selected `path_id`, selection reason, path map, evidence/control posture, governed-path before/after view, and appendix refs without removing the full `agent_action_bom.items[*]` detail surface.
 
 ## Canonical references
 

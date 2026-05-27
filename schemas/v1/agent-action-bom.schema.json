@@ -67,7 +67,8 @@
         "coverage_confidence": {"type": "string", "enum": ["complete", "reduced", "unknown"]},
         "autonomy_tiers": {"$ref": "#/$defs/autonomyTierCounts"},
         "delegation_readiness": {"$ref": "#/$defs/delegationReadinessCounts"},
-        "recommended_controls": {"$ref": "#/$defs/recommendedControlCounts"}
+        "recommended_controls": {"$ref": "#/$defs/recommendedControlCounts"},
+        "primary_view": {"$ref": "#/$defs/primaryView"}
       },
       "additionalProperties": false
     },
@@ -283,6 +284,49 @@
         "proof_required": {"type": "integer"},
         "block_standing_credential": {"type": "integer"},
         "block": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "primaryView": {
+      "type": "object",
+      "required": ["path_id", "selection_reason", "path_map"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "selection_reason": {"type": "string", "enum": ["default_top_path", "explicit_focus_path"]},
+        "path_map": {"$ref": "#/$defs/primaryPathMap"},
+        "control_resolution_state": {"type": "string", "enum": ["detected_control", "declared_control", "external_control_reference", "no_visible_control", "not_applicable", "contradictory_control"]},
+        "approval_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "owner_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "proof_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "runtime_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "target_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "credential_evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "autonomy_tier": {"$ref": "#/$defs/autonomyTier"},
+        "delegation_readiness_state": {"$ref": "#/$defs/delegationReadinessState"},
+        "recommended_control": {"$ref": "#/$defs/recommendedControl"},
+        "evidence_completeness_label": {"type": "string", "enum": ["strong_evidence", "partial_evidence", "insufficient_evidence"]},
+        "evidence_completeness_score": {"type": "integer"},
+        "unresolved_evidence": {"type": "array", "items": {"type": "string"}},
+        "today_path": {"$ref": "#/$defs/governedPathView"},
+        "recommended_governed_path": {"$ref": "#/$defs/governedPathView"},
+        "recommended_action_contract": {"$ref": "#/$defs/recommendedActionContract"},
+        "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
+        "graph_refs": {"$ref": "#/$defs/graphRefs"},
+        "proof_refs": {"type": "array", "items": {"type": "string"}},
+        "evidence_packet_refs": {"type": "array", "items": {"type": "string"}},
+        "appendix_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "primaryPathMap": {
+      "type": "object",
+      "properties": {
+        "tool": {"type": "string"},
+        "repo_pr": {"type": "string"},
+        "workflow": {"type": "string"},
+        "credential": {"type": "string"},
+        "action": {"type": "string"},
+        "target": {"type": "string"}
       },
       "additionalProperties": false
     },

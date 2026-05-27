@@ -18,10 +18,15 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	beforeActionPaths := requireArray(t, beforeScan, "action_paths")
 	beforeTopPath := requireObjectItem(t, beforeActionPaths[0])
 	beforeBOM := requireObject(t, beforeReport, "agent_action_bom")
+	beforeBOMSummary := requireObject(t, beforeBOM, "summary")
 	beforeItems := requireArrayFromObject(t, beforeBOM, "items")
 	beforeTopItem := requireObjectItem(t, beforeItems[0])
+	beforePrimaryView := requireObject(t, beforeBOMSummary, "primary_view")
 	if beforeTopItem["policy_status"] != "none" {
 		t.Fatalf("expected pre-ingest policy gap, got %v", beforeTopItem["policy_status"])
+	}
+	if beforePrimaryView["path_id"] != beforeTopItem["path_id"] || beforePrimaryView["selection_reason"] != "default_top_path" {
+		t.Fatalf("expected default primary view to follow top BOM item, got summary=%v item=%v", beforePrimaryView, beforeTopItem)
 	}
 	if beforeTopPath["control_state"] != "block_recommended" || beforeTopPath["risk_zone"] == nil || beforeTopPath["review_burden"] == nil {
 		t.Fatalf("expected buyer-facing action-path projections before ingest, got %v", beforeTopPath)
@@ -59,8 +64,10 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	}
 
 	afterBOM := requireObject(t, afterReport, "agent_action_bom")
+	afterBOMSummary := requireObject(t, afterBOM, "summary")
 	afterItems := requireArrayFromObject(t, afterBOM, "items")
 	afterTopItem := requireObjectItem(t, afterItems[0])
+	afterPrimaryView := requireObject(t, afterBOMSummary, "primary_view")
 	reportRuntimeEvidence := requireObject(t, afterReport, "runtime_evidence")
 	reportSummary := requireObject(t, afterReport, "summary")
 	if !reflect.DeepEqual(reportRuntimeEvidence, requireObject(t, reportSummary, "runtime_evidence")) {
@@ -68,6 +75,9 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	}
 	if afterTopItem["path_id"] != beforeTopItem["path_id"] {
 		t.Fatalf("expected same BOM item path id across before/after, before=%v after=%v", beforeTopItem["path_id"], afterTopItem["path_id"])
+	}
+	if afterPrimaryView["path_id"] != afterTopItem["path_id"] || afterPrimaryView["selection_reason"] != "default_top_path" {
+		t.Fatalf("expected default primary view after ingest, got summary=%v item=%v", afterPrimaryView, afterTopItem)
 	}
 	if afterTopItem["policy_status"] != "runtime_proven" {
 		t.Fatalf("expected runtime-proven policy coverage after ingest, got %v", afterTopItem["policy_status"])
@@ -103,6 +113,13 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(outputDir, "reports", "agent-action-bom.json")); err != nil {
 		t.Fatalf("expected BOM report artifact in evidence bundle: %v", err)
+	}
+
+	focusedReport := runJSONOK(t, "report", "--state", afterState, "--template", "agent-action-bom", "--focus-path", afterTopItem["path_id"].(string), "--json")
+	focusedBOM := requireObject(t, focusedReport, "agent_action_bom")
+	focusedPrimaryView := requireObject(t, requireObject(t, focusedBOM, "summary"), "primary_view")
+	if focusedPrimaryView["path_id"] != afterTopItem["path_id"] || focusedPrimaryView["selection_reason"] != "explicit_focus_path" {
+		t.Fatalf("expected explicit focus primary view, got %v", focusedPrimaryView)
 	}
 }
 

@@ -23,6 +23,10 @@ func RenderMarkdown(summary Summary) string {
 	if summary.AgentActionBOM != nil && summary.Template == string(TemplateAgentActionBOM) {
 		builder.WriteString("## Agent Action BOM\n\n")
 		builder.WriteString(fmt.Sprintf("- BOM id: %s\n", summary.AgentActionBOM.BOMID))
+		if summary.AgentActionBOM.Summary.PrimaryView != nil {
+			builder.WriteString("\n")
+			renderPrimaryWorkflowBOMSection(&builder, summary.AgentActionBOM.Summary.PrimaryView)
+		}
 		if summary.ScanScope != nil {
 			builder.WriteString(fmt.Sprintf("- Scanned scope: %s mode=%s repos=%d targets=%d boundary=%s\n",
 				summary.ScanScope.ScopeLabel,
@@ -106,7 +110,7 @@ func RenderMarkdown(summary Summary) string {
 		}
 		builder.WriteString("\n")
 		if summary.RecentPRReview != nil {
-			builder.WriteString("## Recent PR Review\n\n")
+			builder.WriteString("## Recent PR Review Appendix\n\n")
 			builder.WriteString(fmt.Sprintf("- Mode: %s limit=%d total_candidates=%d\n",
 				summary.RecentPRReview.Mode,
 				summary.RecentPRReview.Limit,
@@ -137,7 +141,7 @@ func RenderMarkdown(summary Summary) string {
 
 		emptyStateStatus := strings.TrimSpace(summary.AgentActionBOM.Summary.EmptyStateStatus)
 		emptyStateReasons := summary.AgentActionBOM.Summary.EmptyStateReasons
-		if len(summary.AgentActionBOM.Items) == 0 || (emptyStateStatus != "" && emptyStateStatus != "not_eligible") {
+		if summary.AgentActionBOM.Summary.PrimaryView == nil || len(summary.AgentActionBOM.Items) == 0 || (emptyStateStatus != "" && emptyStateStatus != "not_eligible") {
 			builder.WriteString("## Empty-State Assessment\n\n")
 			reasons := "none"
 			if len(emptyStateReasons) > 0 {
@@ -148,75 +152,6 @@ func RenderMarkdown(summary Summary) string {
 				summary.AgentActionBOM.Summary.CoverageConfidence,
 				reasons,
 			))
-		} else {
-			builder.WriteString("## Top Governable Paths\n\n")
-			limit := len(summary.AgentActionBOM.Items)
-			if limit > 8 {
-				limit = 8
-			}
-			for idx := 0; idx < limit; idx++ {
-				item := summary.AgentActionBOM.Items[idx]
-				builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s lane=%s type=%s state=%s zone=%s target=%s review=%s priority=%s tier=%s autonomy=%s readiness=%s recommended_control=%s control=%s approval=%s owner=%s proof=%s runtime=%s confidence=%s evidence=%s completeness=%s(%d) queue=%s remediation=%s\n",
-					markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType),
-					item.Repo,
-					item.Location,
-					item.ConfidenceLane,
-					item.ActionPathType,
-					item.ControlState,
-					item.RiskZone,
-					item.TargetClass,
-					item.ReviewBurden,
-					item.ControlPriority,
-					item.RiskTier,
-					risk.BuyerAutonomyTierShortLabel(item.AutonomyTier),
-					risk.BuyerDelegationReadinessLabel(item.DelegationReadinessState),
-					risk.BuyerRecommendedControlLabel(item.RecommendedControl),
-					risk.BuyerControlResolutionLabel(item.ControlResolutionState),
-					risk.BuyerEvidenceStateLabel("approval", item.ApprovalEvidenceState),
-					risk.BuyerEvidenceStateLabel("owner", item.OwnerEvidenceState),
-					risk.BuyerEvidenceStateLabel("proof", item.ProofEvidenceState),
-					markdownBOMRuntimeEvidenceLabel(item),
-					item.Confidence,
-					item.EvidenceStrength,
-					risk.BuyerEvidenceCompletenessLabel(item.EvidenceCompleteness),
-					markdownCompletenessScore(item.EvidenceCompleteness),
-					item.Queue,
-					item.Remediation,
-				))
-				if len(item.RiskClassificationValidationReasons) > 0 {
-					builder.WriteString(fmt.Sprintf("  classification_validation=%s\n", strings.Join(item.RiskClassificationValidationReasons, ", ")))
-				}
-				if item.TodayPath != nil || item.RecommendedGovernedPath != nil {
-					builder.WriteString(fmt.Sprintf("  governed_view=%s\n", markdownGovernedPathViews(item.TodayPath, item.RecommendedGovernedPath)))
-				}
-				if item.RecommendedActionContract != nil {
-					builder.WriteString(fmt.Sprintf("  contract=%s\n", markdownActionContract(item.RecommendedActionContract)))
-				}
-				if len(item.ClosureRequirements) > 0 {
-					builder.WriteString(fmt.Sprintf("  closure_requirements=%s\n", markdownClosureRequirements(item.ClosureRequirements)))
-				}
-				if len(item.Contradictions) > 0 {
-					builder.WriteString(fmt.Sprintf("  contradictions=%s\n", markdownContradictions(item.Contradictions)))
-				}
-				if item.GovernanceDisposition != nil {
-					builder.WriteString(fmt.Sprintf("  governance=%s status=%s scope=%s expires=%s reason=%s\n",
-						item.GovernanceDisposition.Kind,
-						item.GovernanceDisposition.Status,
-						item.GovernanceDisposition.Scope,
-						item.GovernanceDisposition.ExpiresAt,
-						item.GovernanceDisposition.Reason,
-					))
-				}
-				if item.LifecycleQueue != nil {
-					builder.WriteString(fmt.Sprintf("  lifecycle_queue=%s severity=%s credential_status=%s closure=%s\n",
-						item.LifecycleQueue.ReasonCode,
-						item.LifecycleQueue.Severity,
-						item.LifecycleQueue.CredentialStatus,
-						item.LifecycleQueue.ClosureCriteria,
-					))
-				}
-			}
-			builder.WriteString("\n")
 		}
 	}
 
@@ -312,7 +247,7 @@ func RenderMarkdown(summary Summary) string {
 	}
 
 	if summary.AgentActionBOM != nil && summary.Template == string(TemplateAgentActionBOM) {
-		builder.WriteString("## BOM Items\n\n")
+		builder.WriteString("## Workflow BOM Appendix\n\n")
 		limit := len(summary.AgentActionBOM.Items)
 		if limit > 10 {
 			limit = 10
@@ -571,6 +506,65 @@ func markdownActionPathLabel(lane string, actionPathType string) string {
 		return "likely action path"
 	default:
 		return "action-path evidence"
+	}
+}
+
+func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentActionBOMPrimaryView) {
+	if builder == nil || view == nil {
+		return
+	}
+	builder.WriteString("## Primary Workflow BOM\n\n")
+	builder.WriteString(fmt.Sprintf("- Selected path: %s selection=%s autonomy=%s readiness=%s recommended_control=%s proof=%s\n",
+		view.PathID,
+		view.SelectionReason,
+		risk.BuyerAutonomyTierShortLabel(view.AutonomyTier),
+		risk.BuyerDelegationReadinessLabel(view.DelegationReadinessState),
+		risk.BuyerRecommendedControlLabel(view.RecommendedControl),
+		risk.BuyerEvidenceStateLabel("proof", view.ProofEvidenceState),
+	))
+	builder.WriteString(fmt.Sprintf("- Path map: %s -> %s -> %s -> %s -> %s -> %s\n",
+		firstNonEmptyValue(view.PathMap.Tool, "unknown_tool"),
+		firstNonEmptyValue(view.PathMap.RepoPR, "unknown_repo"),
+		firstNonEmptyValue(view.PathMap.Workflow, "unknown_workflow"),
+		firstNonEmptyValue(view.PathMap.Credential, "unknown_credential"),
+		firstNonEmptyValue(view.PathMap.Action, "unknown_action"),
+		firstNonEmptyValue(view.PathMap.Target, "unknown_target"),
+	))
+	builder.WriteString(fmt.Sprintf("- Control resolution: control=%s approval=%s owner=%s runtime=%s target=%s credential=%s completeness=%s(%d)\n",
+		risk.BuyerControlResolutionLabel(view.ControlResolutionState),
+		risk.BuyerEvidenceStateLabel("approval", view.ApprovalEvidenceState),
+		risk.BuyerEvidenceStateLabel("owner", view.OwnerEvidenceState),
+		risk.BuyerEvidenceStateLabel("runtime", view.RuntimeEvidenceState),
+		risk.BuyerEvidenceStateLabel("target", view.TargetEvidenceState),
+		risk.BuyerEvidenceStateLabel("credential", view.CredentialEvidenceState),
+		markdownPrimaryViewEvidenceCompleteness(view),
+		view.EvidenceCompletenessScore,
+	))
+	if len(view.UnresolvedEvidence) > 0 {
+		builder.WriteString(fmt.Sprintf("- Unresolved evidence: %s\n", strings.Join(view.UnresolvedEvidence, ", ")))
+	}
+	if view.TodayPath != nil || view.RecommendedGovernedPath != nil {
+		builder.WriteString(fmt.Sprintf("- Governed path: %s\n", markdownGovernedPathViews(view.TodayPath, view.RecommendedGovernedPath)))
+	}
+	if view.RecommendedActionContract != nil {
+		builder.WriteString(fmt.Sprintf("- Draft contract: %s\n", markdownActionContract(view.RecommendedActionContract)))
+	}
+	if len(view.AppendixRefs) > 0 {
+		builder.WriteString(fmt.Sprintf("- Appendix refs: %s\n", strings.Join(view.AppendixRefs, ", ")))
+	}
+	builder.WriteString("\n")
+}
+
+func markdownPrimaryViewEvidenceCompleteness(view *AgentActionBOMPrimaryView) string {
+	switch strings.TrimSpace(view.EvidenceCompletenessLabel) {
+	case risk.EvidenceCompletenessStrong:
+		return "strong evidence coverage"
+	case risk.EvidenceCompletenessPartial:
+		return "partial evidence coverage"
+	case risk.EvidenceCompletenessInsufficient:
+		return "insufficient evidence coverage"
+	default:
+		return "evidence coverage unavailable"
 	}
 }
 

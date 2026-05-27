@@ -140,7 +140,7 @@ func TestRenderMarkdownIncludesRecentPRReviewSection(t *testing.T) {
 			}},
 		},
 	})
-	if !strings.Contains(markdown, "## Recent PR Review") || !strings.Contains(markdown, "pr/42") {
+	if !strings.Contains(markdown, "## Recent PR Review Appendix") || !strings.Contains(markdown, "pr/42") {
 		t.Fatalf("expected recent review markdown section, got %q", markdown)
 	}
 }

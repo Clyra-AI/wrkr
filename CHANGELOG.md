@@ -32,6 +32,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added path-specific closure evidence guidance across control backlog, Agent Action BOM, markdown reports, and exports.
 - [semver:minor] Added per-path evidence completeness scoring for discovery, authority, blast radius, control, runtime evidence, and proof sufficiency.
 - [semver:minor] Added documentation, schemas, scenarios, and acceptance coverage for Sprint 2 enterprise evidence ingest, contradiction handling, accepted-risk visibility, lifecycle queues, closure guidance, and completeness scoring.
+- [semver:minor] Added a focused one-page Agent Action BOM view for a single workflow/action path with appendix details for raw findings, graph refs, proof details, and detector diagnostics.
+- [semver:minor] Documented Sprint 3 Agent Action BOM focused-path contracts and schema coverage for primary workflow BOM output, evidence bundles, and local review workflows.
 
 ### Changed
 
@@ -42,6 +44,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Changed runtime evidence reporting so static-only scans render runtime evidence as not collected or not applicable unless runtime evidence is required or needed for a control claim.
 - [semver:minor] Changed evidence resolution to use deterministic source precedence with conflict reasons across ownership and control outputs.
 - [semver:minor] Changed production-data and mutable-endpoint projection so uncorrelated route/OpenAPI surfaces stay appendix-only while correlated paths render workflow, credential, deployment, target, and evidence context.
+- [semver:minor] Changed the default Agent Action BOM presentation to lead with one workflow/action path and move raw findings, graph refs, proof refs, scan quality, and detector diagnostics to appendices.
 - Updated command, trust, and schema documentation for evidence-state control resolution, target classification, action path type classification, coverage-qualified absence, runtime evidence framing, and report QA guardrails.
 
 ### Deprecated

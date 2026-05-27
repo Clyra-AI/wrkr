@@ -1,0 +1,64 @@
+{
+  "total_items": 2,
+  "control_first_items": 1,
+  "standing_privilege_items": 1,
+  "static_credential_items": 1,
+  "production_target_items": 1,
+  "missing_approval_items": 1,
+  "missing_policy_items": 1,
+  "missing_proof_items": 1,
+  "runtime_proven_items": 0,
+  "unresolved_owner_items": 1,
+  "autonomy_tiers": {
+    "tier_0_safe_metadata": 0,
+    "tier_1_low_risk_internal": 0,
+    "tier_2_app_code_owner_review": 0,
+    "tier_3_sensitive_code_or_infra": 1,
+    "tier_4_prod_privileged_or_customer_impacting": 1
+  },
+  "delegation_readiness": {
+    "safe_to_delegate": 0,
+    "review_required": 1,
+    "approval_required": 1,
+    "proof_required": 0,
+    "ready_for_control": 0,
+    "blocked": 0,
+    "blocked_by_contradiction": 0
+  },
+  "recommended_controls": {
+    "allow": 0,
+    "owner_review": 0,
+    "security_review": 1,
+    "approval_required": 1,
+    "jit_credential_required": 0,
+    "proof_required": 0,
+    "block_standing_credential": 0,
+    "block": 0
+  },
+  "primary_view": {
+    "path_id": "apc-focused",
+    "selection_reason": "explicit_focus_path",
+    "path_map": {
+      "tool": "codex",
+      "repo_pr": "acme/release / pr/108",
+      "workflow": ".github/workflows/release.yml",
+      "credential": "github_actions_prod_deployer",
+      "action": "deploy",
+      "target": "production_impacting"
+    },
+    "control_resolution_state": "no_visible_control",
+    "approval_evidence_state": "unknown",
+    "owner_evidence_state": "unknown",
+    "proof_evidence_state": "unknown",
+    "runtime_evidence_state": "unknown",
+    "target_evidence_state": "verified",
+    "credential_evidence_state": "inferred",
+    "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+    "delegation_readiness_state": "approval_required",
+    "recommended_control": "approval_required",
+    "evidence_completeness_label": "partial_evidence",
+    "evidence_completeness_score": 42,
+    "unresolved_evidence": ["approval", "proof"],
+    "appendix_refs": ["bom_items", "graph_refs", "proof_refs"]
+  }
+}
