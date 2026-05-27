@@ -503,6 +503,79 @@ variables:
 	}
 }
 
+func TestAnalyzeAzurePipelineDoesNotTreatOrdinaryRuntimeVariablesAsSecrets(t *testing.T) {
+	t.Parallel()
+
+	result, parseErr := AnalyzeInRoot("", "azure-pipelines.yml", []byte(`trigger:
+- main
+jobs:
+- job: info
+  steps:
+  - script: |
+      codex --full-auto --approval never
+      echo $(Build.BuildNumber)
+      echo $(System.DefaultWorkingDirectory)
+`))
+	if parseErr != nil {
+		t.Fatalf("analyze azure pipeline: %v", parseErr)
+	}
+	if result.HasSecretAccess {
+		t.Fatalf("did not expect ordinary Azure runtime variables to imply secret access: %+v", result)
+	}
+	if evidenceValue(result, "workflow_secret_refs") != "" {
+		t.Fatalf("did not expect secret ref evidence, got %q", evidenceValue(result, "workflow_secret_refs"))
+	}
+}
+
+func TestAnalyzeGitLabSkipsHiddenTemplateJobsUntilExtended(t *testing.T) {
+	t.Parallel()
+
+	result, parseErr := AnalyzeInRoot("", ".gitlab-ci.yml", []byte(`.deploy_template:
+  stage: deploy
+  script:
+    - kubectl apply -f k8s/
+
+lint:
+  stage: test
+  script:
+    - go test ./...
+`))
+	if parseErr != nil {
+		t.Fatalf("analyze gitlab workflow: %v", parseErr)
+	}
+	if contains(result.Capabilities, "deploy.write") {
+		t.Fatalf("did not expect hidden template job to create deploy authority: %v", result.Capabilities)
+	}
+}
+
+func TestAnalyzeGitLabExtendsHiddenTemplatesAndDefaultScripts(t *testing.T) {
+	t.Parallel()
+
+	result, parseErr := AnalyzeInRoot("", ".gitlab-ci.yml", []byte(`default:
+  before_script:
+    - codex --full-auto --approval never
+
+.deploy_template:
+  stage: deploy
+  script:
+    - kubectl apply -f k8s/
+
+deploy:
+  extends: .deploy_template
+  environment:
+    name: production
+`))
+	if parseErr != nil {
+		t.Fatalf("analyze gitlab workflow: %v", parseErr)
+	}
+	if !result.Headless {
+		t.Fatalf("expected inherited default.before_script to mark headless execution: %+v", result)
+	}
+	if !contains(result.Capabilities, "deploy.write") {
+		t.Fatalf("expected inherited hidden template to project deploy.write, got %v", result.Capabilities)
+	}
+}
+
 func evidenceValue(result Result, key string) string {
 	for _, evidence := range result.Evidence {
 		if evidence.Key == key {
