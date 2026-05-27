@@ -844,6 +844,13 @@ func matchingSignalsForAgent(agent agginventory.Agent, tool agginventory.Tool, s
 	for _, repo := range repos {
 		merged = mergeFindingSignalSets(merged, filteredRepoLocationSignals(signalsByRepoLocation[repoLocationSignalKey(agent.Org, repo, location)]))
 	}
+	if repoWideEligibleToolType(firstNonEmptyString(tool.ToolType, agent.Framework)) {
+		return mergeFindingSignalSets(
+			merged,
+			filteredRepoLocationSignals(signalsByRepoLocation[repoLocationSignalKey(agent.Org, "", location)]),
+			repoWideSignalsForRepos(agent.Org, repos, signalsByRepo),
+		)
+	}
 	return mergeFindingSignalSets(merged, filteredRepoLocationSignals(signalsByRepoLocation[repoLocationSignalKey(agent.Org, "", location)]))
 }
 
