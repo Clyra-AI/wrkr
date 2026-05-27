@@ -8,7 +8,7 @@ import (
 const (
 	HighStakesPresetReleaseAutomation     = "release_automation"
 	HighStakesPresetProductionPath        = "production_path"
-	HighStakesPresetCredentialAutomation  = "credential_bearing_automation"
+	HighStakesPresetCredentialAutomation  = "credential_bearing_automation" // #nosec G101 -- Deterministic high-stakes preset label, not credential material.
 	HighStakesPresetInfrastructureAsCode  = "infrastructure_as_code"
 	HighStakesPresetIdentityAuthCode      = "identity_auth_code"
 	HighStakesPresetPackagePublishing     = "package_publishing"
