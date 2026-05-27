@@ -1694,7 +1694,7 @@ func sanitizeWorkflowChainsPublic(in *agentresolver.WorkflowChainArtifact) *agen
 	}
 	out := &agentresolver.WorkflowChainArtifact{
 		Version: strings.TrimSpace(in.Version),
-		Summary: in.Summary,
+		Summary: sanitizeWorkflowChainSummaryPublic(in.Summary),
 		Chains:  make([]agentresolver.WorkflowChain, 0, len(in.Chains)),
 	}
 	for _, chain := range in.Chains {
@@ -1733,6 +1733,26 @@ func sanitizeWorkflowChainDimensionPublic(in agentresolver.WorkflowChainDimensio
 	out.Key = redactValue(prefix, out.Key, 8)
 	out.Label = redactValue(prefix, out.Label, 8)
 	out.EvidenceRefs = redactStringSlice(out.EvidenceRefs, "evidence")
+	return out
+}
+
+func sanitizeWorkflowChainSummaryPublic(in agentresolver.WorkflowChainSummary) agentresolver.WorkflowChainSummary {
+	out := in
+	out.Repos = sanitizeWorkflowChainRollupsPublic(in.Repos, "repo")
+	out.Workflows = sanitizeWorkflowChainRollupsPublic(in.Workflows, "workflow")
+	return out
+}
+
+func sanitizeWorkflowChainRollupsPublic(in []agentresolver.WorkflowChainRollup, prefix string) []agentresolver.WorkflowChainRollup {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]agentresolver.WorkflowChainRollup, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.Value = redactValue(prefix, copyItem.Value, 8)
+		out = append(out, copyItem)
+	}
 	return out
 }
 

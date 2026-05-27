@@ -281,7 +281,7 @@ func sanitizeWorkflowChainsWithConfig(in *agentresolver.WorkflowChainArtifact, c
 	}
 	copyArtifact := &agentresolver.WorkflowChainArtifact{
 		Version: strings.TrimSpace(in.Version),
-		Summary: in.Summary,
+		Summary: sanitizeWorkflowChainSummaryWithConfig(in.Summary, config),
 		Chains:  make([]agentresolver.WorkflowChain, 0, len(in.Chains)),
 	}
 	for _, chain := range in.Chains {
@@ -324,6 +324,39 @@ func sanitizeWorkflowChainDimensionWithConfig(in agentresolver.WorkflowChainDime
 	out.Label = maybeRedactRepo(out.Label, config)
 	out.Label = maybeRedactOwner(out.Label, config)
 	out.EvidenceRefs = maybeRedactStringSlice(out.EvidenceRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionProviders))
+	return out
+}
+
+func sanitizeWorkflowChainSummaryWithConfig(in agentresolver.WorkflowChainSummary, config RedactionConfig) agentresolver.WorkflowChainSummary {
+	out := in
+	out.Repos = sanitizeWorkflowChainRepoRollupsWithConfig(in.Repos, config)
+	out.Workflows = sanitizeWorkflowChainWorkflowRollupsWithConfig(in.Workflows, config)
+	return out
+}
+
+func sanitizeWorkflowChainRepoRollupsWithConfig(in []agentresolver.WorkflowChainRollup, config RedactionConfig) []agentresolver.WorkflowChainRollup {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]agentresolver.WorkflowChainRollup, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.Value = maybeRedactRepo(copyItem.Value, config)
+		out = append(out, copyItem)
+	}
+	return out
+}
+
+func sanitizeWorkflowChainWorkflowRollupsWithConfig(in []agentresolver.WorkflowChainRollup, config RedactionConfig) []agentresolver.WorkflowChainRollup {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]agentresolver.WorkflowChainRollup, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.Value = maybeRedactLocationLike(copyItem.Value, config)
+		out = append(out, copyItem)
+	}
 	return out
 }
 

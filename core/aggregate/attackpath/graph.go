@@ -465,8 +465,8 @@ const (
 	ControlPathEdgeHumanDelegatesTask           = "human_delegates_task"
 	ControlPathEdgeTaskExecutedByAgentTeam      = "task_executed_by_agent_team"
 	ControlPathEdgeAgentTeamUsesTool            = "agent_team_uses_tool"
-	ControlPathEdgeToolUsesCredential           = "tool_uses_credential"
-	ControlPathEdgeCredentialAuthorizesWorkflow = "credential_authorizes_workflow"
+	ControlPathEdgeToolUsesCredential           = "tool_uses_credential"           // #nosec G101 -- deterministic graph edge label, not credential material.
+	ControlPathEdgeCredentialAuthorizesWorkflow = "credential_authorizes_workflow" // #nosec G101 -- deterministic graph edge label, not credential material.
 	ControlPathEdgeWorkflowChangesRepo          = "workflow_changes_repo"
 	ControlPathEdgeRepoProducesPullRequest      = "repo_produces_pull_request"
 	ControlPathEdgePullRequestRunsChecks        = "pull_request_runs_checks"
