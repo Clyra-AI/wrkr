@@ -29,6 +29,9 @@ type CredentialAuthority struct {
 	AccessType                     string   `json:"access_type,omitempty" yaml:"access_type,omitempty"`
 	StandingAccess                 bool     `json:"standing_access" yaml:"standing_access"`
 	LikelyJIT                      bool     `json:"likely_jit" yaml:"likely_jit"`
+	TargetSystem                   string   `json:"target_system,omitempty" yaml:"target_system,omitempty"`
+	LikelyScope                    string   `json:"likely_scope,omitempty" yaml:"likely_scope,omitempty"`
+	ScopeConfidence                string   `json:"scope_confidence,omitempty" yaml:"scope_confidence,omitempty"`
 	RotationEvidenceStatus         string   `json:"rotation_evidence_status,omitempty" yaml:"rotation_evidence_status,omitempty"`
 	CredentialSource               string   `json:"credential_source,omitempty" yaml:"credential_source,omitempty"`
 	Confidence                     string   `json:"confidence,omitempty" yaml:"confidence,omitempty"`
@@ -42,6 +45,9 @@ func CloneCredentialAuthority(in *CredentialAuthority) *CredentialAuthority {
 	out := *in
 	out.CredentialKind = strings.TrimSpace(out.CredentialKind)
 	out.AccessType = strings.TrimSpace(out.AccessType)
+	out.TargetSystem = strings.TrimSpace(out.TargetSystem)
+	out.LikelyScope = strings.TrimSpace(out.LikelyScope)
+	out.ScopeConfidence = strings.TrimSpace(out.ScopeConfidence)
 	out.RotationEvidenceStatus = strings.TrimSpace(out.RotationEvidenceStatus)
 	out.CredentialSource = strings.TrimSpace(out.CredentialSource)
 	out.Confidence = strings.TrimSpace(out.Confidence)
@@ -74,6 +80,10 @@ func NormalizeCredentialAuthority(in *CredentialAuthority) *CredentialAuthority 
 	out.AccessType = normalizeCredentialAccessType(out.AccessType, out.CredentialKind, "")
 	out.StandingAccess = inferStandingAccess(out.StandingAccess, out.AccessType, out.CredentialKind, "")
 	out.LikelyJIT = inferLikelyJIT(out.LikelyJIT, out.AccessType, out.CredentialKind, "")
+	out.ScopeConfidence = normalizeCredentialConfidence(out.ScopeConfidence)
+	if out.ScopeConfidence == "" {
+		out.ScopeConfidence = normalizeCredentialConfidence(out.Confidence)
+	}
 	out.RotationEvidenceStatus = normalizeRotationEvidenceStatus(out.RotationEvidenceStatus, out.AccessType, out.CredentialKind)
 	out.CredentialSource = normalizeCredentialSource(out.CredentialSource)
 	out.Confidence = normalizeCredentialConfidence(out.Confidence)

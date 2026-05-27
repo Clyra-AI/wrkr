@@ -962,3 +962,94 @@ func TestCredentialAuthoritySeparatesReferenceFromUsability(t *testing.T) {
 		t.Fatalf("expected workflow secret reference source, got %+v", authority)
 	}
 }
+
+func TestBuildClassifiesSaaSTokenScopeWithoutSecretValues(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{{
+		ToolID:      "tool-1",
+		AgentID:     "wrkr:tool-1:acme",
+		ToolType:    "compiled_action",
+		Org:         "acme",
+		Repos:       []string{"acme/release"},
+		Locations:   []agginventory.ToolLocation{{Repo: "acme/release", Location: ".github/workflows/release.yml", Owner: "@acme/release"}},
+		Permissions: []string{"deploy.write", "secret.read"},
+		DataClass:   "credentials",
+	}}
+	findings := []model.Finding{{
+		FindingType: "secret_presence",
+		ToolType:    "secret",
+		Location:    ".github/workflows/release.yml",
+		Repo:        "acme/release",
+		Org:         "acme",
+		Evidence: []model.Evidence{
+			{Key: "workflow_secret_refs", Value: "SLACK_BOT_TOKEN"},
+			{Key: "credential_subject", Value: "SLACK_BOT_TOKEN"},
+			{Key: "credential_provenance_type", Value: "static_secret"},
+			{Key: "credential_scope", Value: "workflow"},
+			{Key: "credential_confidence", Value: "high"},
+		},
+	}}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 || entries[0].CredentialProvenance == nil || entries[0].CredentialAuthority == nil {
+		t.Fatalf("expected one privilege entry with credential metadata, got %+v", entries)
+	}
+	if entries[0].CredentialProvenance.TargetSystem != "slack" || entries[0].CredentialProvenance.LikelyScope != "notification_write" {
+		t.Fatalf("expected slack notification scope on provenance, got %+v", entries[0].CredentialProvenance)
+	}
+	if entries[0].CredentialAuthority.TargetSystem != "slack" || entries[0].CredentialAuthority.LikelyScope != "notification_write" {
+		t.Fatalf("expected slack notification scope on authority, got %+v", entries[0].CredentialAuthority)
+	}
+	if len(entries[0].AuthorityBindings) != 1 || entries[0].AuthorityBindings[0].Kind != agginventory.AuthorityBindingSaaSToken {
+		t.Fatalf("expected saas token authority binding, got %+v", entries[0].AuthorityBindings)
+	}
+}
+
+func TestBuildCorrelatesRepoWideAuthorityBindingsIntoWorkflowEntry(t *testing.T) {
+	t.Parallel()
+
+	tools := []agginventory.Tool{{
+		ToolID:      "tool-1",
+		AgentID:     "wrkr:ci:acme",
+		ToolType:    "compiled_action",
+		Org:         "acme",
+		Repos:       []string{"acme/release"},
+		Locations:   []agginventory.ToolLocation{{Repo: "acme/release", Location: ".github/workflows/release.yml", Owner: "@acme/release"}},
+		Permissions: []string{"deploy.write", "id-token.write"},
+		DataClass:   "credentials",
+	}}
+	findings := []model.Finding{
+		{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "acme/release",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "authority_binding", Value: "workload_identity|aws|workflow_aws_oidc|aws|aws_role|cloud_or_infra_access|write|production|true|high"},
+			},
+		},
+		{
+			FindingType: "route_endpoint",
+			ToolType:    "route",
+			Location:    "api/routes/payments.ts",
+			Repo:        "acme/release",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "mutable_endpoint_semantic", Value: "payment|high|route|POST /payments"},
+			},
+		},
+	}
+
+	_, entries := Build(tools, nil, findings, nil)
+	if len(entries) != 1 {
+		t.Fatalf("expected one privilege entry, got %+v", entries)
+	}
+	if len(entries[0].AuthorityBindings) == 0 {
+		t.Fatalf("expected authority bindings to survive repo-wide correlation, got %+v", entries[0])
+	}
+	if entries[0].AuthorityBindings[0].Provider != "aws" {
+		t.Fatalf("expected aws provider on authority binding, got %+v", entries[0].AuthorityBindings)
+	}
+}

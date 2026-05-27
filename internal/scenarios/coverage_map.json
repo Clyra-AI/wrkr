@@ -126,5 +126,8 @@
   ],
   "W2-target-classification": [
     "TestTargetClassificationScenario"
+  ],
+  "W4-high-stakes-authority": [
+    "TestWave4HighStakesAuthorityScenario"
   ]
 }

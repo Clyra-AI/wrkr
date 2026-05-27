@@ -23,12 +23,13 @@ func TestMutableEndpointInfluencesGovernFirstRanking(t *testing.T) {
 			PathContext: &agginventory.PathContext{Kind: agginventory.PathContextRuntimeSource, Confidence: "high"},
 		},
 		{
-			PathID:       "payment-endpoint",
-			Org:          "local",
-			Repo:         "demo",
-			ToolType:     "openapi",
-			Location:     "openapi.yaml",
-			WriteCapable: true,
+			PathID:           "payment-endpoint",
+			Org:              "local",
+			Repo:             "demo",
+			ToolType:         "openapi",
+			Location:         "openapi.yaml",
+			WriteCapable:     true,
+			CredentialAccess: true,
 			ActionClasses: []string{
 				"write",
 			},
@@ -50,5 +51,8 @@ func TestMutableEndpointInfluencesGovernFirstRanking(t *testing.T) {
 	}
 	if paths[0].RiskZone != RiskZoneProductionData {
 		t.Fatalf("expected payment endpoint to project to production_data risk zone, got %+v", paths[0])
+	}
+	if len(paths[0].HighStakesPresets) == 0 {
+		t.Fatalf("expected high-stakes presets for mutable payment path, got %+v", paths[0])
 	}
 }

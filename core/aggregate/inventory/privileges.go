@@ -70,6 +70,9 @@ type CredentialProvenance struct {
 	Subject               string   `json:"subject,omitempty" yaml:"subject,omitempty"`
 	Scope                 string   `json:"scope" yaml:"scope"`
 	Confidence            string   `json:"confidence" yaml:"confidence"`
+	TargetSystem          string   `json:"target_system,omitempty" yaml:"target_system,omitempty"`
+	LikelyScope           string   `json:"likely_scope,omitempty" yaml:"likely_scope,omitempty"`
+	ScopeConfidence       string   `json:"scope_confidence,omitempty" yaml:"scope_confidence,omitempty"`
 	EvidenceBasis         []string `json:"evidence_basis,omitempty" yaml:"evidence_basis,omitempty"`
 	CredentialKind        string   `json:"credential_kind,omitempty" yaml:"credential_kind,omitempty"`
 	AccessType            string   `json:"access_type,omitempty" yaml:"access_type,omitempty"`
@@ -155,6 +158,7 @@ type AgentPrivilegeMapEntry struct {
 	Credentials              []*CredentialProvenance    `json:"credentials,omitempty" yaml:"credentials,omitempty"`
 	CredentialProvenance     *CredentialProvenance      `json:"credential_provenance,omitempty" yaml:"credential_provenance,omitempty"`
 	CredentialAuthority      *CredentialAuthority       `json:"credential_authority,omitempty" yaml:"credential_authority,omitempty"`
+	AuthorityBindings        []*AuthorityBinding        `json:"authority_bindings,omitempty" yaml:"authority_bindings,omitempty"`
 	PathContext              *PathContext               `json:"path_context,omitempty" yaml:"path_context,omitempty"`
 	StandingPrivilege        bool                       `json:"standing_privilege,omitempty" yaml:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons []string                   `json:"standing_privilege_reasons,omitempty" yaml:"standing_privilege_reasons,omitempty"`
@@ -244,6 +248,9 @@ func CloneCredentialProvenance(in *CredentialProvenance) *CredentialProvenance {
 	out.Subject = strings.TrimSpace(out.Subject)
 	out.Scope = strings.TrimSpace(out.Scope)
 	out.Confidence = strings.TrimSpace(out.Confidence)
+	out.TargetSystem = strings.TrimSpace(out.TargetSystem)
+	out.LikelyScope = strings.TrimSpace(out.LikelyScope)
+	out.ScopeConfidence = strings.TrimSpace(out.ScopeConfidence)
 	out.CredentialKind = strings.TrimSpace(out.CredentialKind)
 	out.AccessType = strings.TrimSpace(out.AccessType)
 	out.EvidenceLocation = strings.TrimSpace(out.EvidenceLocation)
@@ -276,6 +283,10 @@ func NormalizeCredentialProvenance(in *CredentialProvenance) *CredentialProvenan
 	out.Type = normalizeCredentialProvenanceType(out.Type)
 	out.Scope = normalizeCredentialScope(out.Scope)
 	out.Confidence = normalizeCredentialConfidence(out.Confidence)
+	out.ScopeConfidence = normalizeCredentialConfidence(out.ScopeConfidence)
+	if out.ScopeConfidence == "" {
+		out.ScopeConfidence = out.Confidence
+	}
 	out.CredentialKind = normalizeCredentialKind(out.CredentialKind, out.Type)
 	out.AccessType = normalizeCredentialAccessType(out.AccessType, out.CredentialKind, out.Type)
 	out.StandingAccess = inferStandingAccess(out.StandingAccess, out.AccessType, out.CredentialKind, out.Type)

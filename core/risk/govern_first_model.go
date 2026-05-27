@@ -50,6 +50,7 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		path.MergeExecute ||
 		path.DeployWrite ||
 		path.ProductionWrite ||
+		pathHasHighStakesPreset(path) ||
 		pathHasAnyMutableEndpoint(path) ||
 		path.AttackPathScore >= 7.0 ||
 		path.ApprovalGap ||
@@ -186,6 +187,9 @@ func compareActionPaths(left, right ActionPath) bool {
 	}
 	if delegationReadinessRank(leftProjection.DelegationReadinessState) != delegationReadinessRank(rightProjection.DelegationReadinessState) {
 		return delegationReadinessRank(leftProjection.DelegationReadinessState) < delegationReadinessRank(rightProjection.DelegationReadinessState)
+	}
+	if highStakesPresetScore(leftProjection) != highStakesPresetScore(rightProjection) {
+		return highStakesPresetScore(leftProjection) > highStakesPresetScore(rightProjection)
 	}
 	if leftModel.riskTierRank != rightModel.riskTierRank {
 		return leftModel.riskTierRank < rightModel.riskTierRank

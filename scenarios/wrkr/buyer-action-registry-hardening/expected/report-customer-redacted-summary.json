@@ -29,10 +29,10 @@
   },
   "first_item": {
     "repo": "repo-d236d5",
-    "location": "loc-dd191250",
-    "owner": "owner-c6dd827f",
+    "location": "loc-6dd0f3ed",
+    "owner": "owner-ab37caea",
     "proof_refs": [
-      "proof-1b388508"
+      "proof-beb7dc32"
     ],
     "graph_ref_prefixes": {
       "node": "node-",

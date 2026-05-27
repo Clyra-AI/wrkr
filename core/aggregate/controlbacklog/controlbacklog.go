@@ -172,6 +172,7 @@ type Item struct {
 	LinkedControlPathEdgeIDs            []string                                `json:"linked_control_path_edge_ids,omitempty"`
 	CredentialProvenance                *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
 	CredentialAuthority                 *agginventory.CredentialAuthority       `json:"credential_authority,omitempty"`
+	AuthorityBindings                   []*agginventory.AuthorityBinding        `json:"authority_bindings,omitempty"`
 	StandingPrivilege                   bool                                    `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons            []string                                `json:"standing_privilege_reasons,omitempty"`
 	ControlState                        string                                  `json:"control_state,omitempty"`
@@ -194,6 +195,8 @@ type Item struct {
 	RecommendedActionContract           *risk.RecommendedActionContract         `json:"recommended_action_contract,omitempty"`
 	TodayPath                           *risk.GovernedPathView                  `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *risk.GovernedPathView                  `json:"recommended_governed_path,omitempty"`
+	HighStakesPresets                   []risk.HighStakesPreset                 `json:"high_stakes_presets,omitempty"`
+	ProductionContext                   *risk.ProductionContext                 `json:"production_context,omitempty"`
 	PolicyCoverageStatus                string                                  `json:"policy_coverage_status,omitempty"`
 	PolicyRefs                          []string                                `json:"policy_refs,omitempty"`
 	PolicyMissingReasons                []string                                `json:"policy_missing_reasons,omitempty"`
@@ -423,6 +426,7 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		LinkedControlPathEdgeIDs:            append([]string(nil), graphRefs.edgeIDs...),
 		CredentialProvenance:                agginventory.CloneCredentialProvenance(path.CredentialProvenance),
 		CredentialAuthority:                 agginventory.CloneCredentialAuthority(path.CredentialAuthority),
+		AuthorityBindings:                   agginventory.CloneAuthorityBindings(path.AuthorityBindings),
 		StandingPrivilege:                   path.StandingPrivilege,
 		StandingPrivilegeReasons:            append([]string(nil), path.StandingPrivilegeReasons...),
 		ControlState:                        strings.TrimSpace(path.ControlState),
@@ -445,6 +449,8 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		RecommendedActionContract:           risk.CloneRecommendedActionContract(path.RecommendedActionContract),
 		TodayPath:                           risk.CloneGovernedPathView(path.TodayPath),
 		RecommendedGovernedPath:             risk.CloneGovernedPathView(path.RecommendedGovernedPath),
+		HighStakesPresets:                   risk.CloneHighStakesPresets(path.HighStakesPresets),
+		ProductionContext:                   risk.CloneProductionContext(path.ProductionContext),
 		PolicyCoverageStatus:                strings.TrimSpace(path.PolicyCoverageStatus),
 		PolicyRefs:                          append([]string(nil), path.PolicyRefs...),
 		PolicyMissingReasons:                append([]string(nil), path.PolicyMissingReasons...),
