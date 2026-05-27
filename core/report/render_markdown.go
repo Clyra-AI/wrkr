@@ -514,23 +514,23 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		return
 	}
 	builder.WriteString("## Primary Workflow BOM\n\n")
-	builder.WriteString(fmt.Sprintf("- Selected path: %s selection=%s autonomy=%s readiness=%s recommended_control=%s proof=%s\n",
+	fmt.Fprintf(builder, "- Selected path: %s selection=%s autonomy=%s readiness=%s recommended_control=%s proof=%s\n",
 		view.PathID,
 		view.SelectionReason,
 		risk.BuyerAutonomyTierShortLabel(view.AutonomyTier),
 		risk.BuyerDelegationReadinessLabel(view.DelegationReadinessState),
 		risk.BuyerRecommendedControlLabel(view.RecommendedControl),
 		risk.BuyerEvidenceStateLabel("proof", view.ProofEvidenceState),
-	))
-	builder.WriteString(fmt.Sprintf("- Path map: %s -> %s -> %s -> %s -> %s -> %s\n",
+	)
+	fmt.Fprintf(builder, "- Path map: %s -> %s -> %s -> %s -> %s -> %s\n",
 		firstNonEmptyValue(view.PathMap.Tool, "unknown_tool"),
 		firstNonEmptyValue(view.PathMap.RepoPR, "unknown_repo"),
 		firstNonEmptyValue(view.PathMap.Workflow, "unknown_workflow"),
 		firstNonEmptyValue(view.PathMap.Credential, "unknown_credential"),
 		firstNonEmptyValue(view.PathMap.Action, "unknown_action"),
 		firstNonEmptyValue(view.PathMap.Target, "unknown_target"),
-	))
-	builder.WriteString(fmt.Sprintf("- Control resolution: control=%s approval=%s owner=%s runtime=%s target=%s credential=%s completeness=%s(%d)\n",
+	)
+	fmt.Fprintf(builder, "- Control resolution: control=%s approval=%s owner=%s runtime=%s target=%s credential=%s completeness=%s(%d)\n",
 		risk.BuyerControlResolutionLabel(view.ControlResolutionState),
 		risk.BuyerEvidenceStateLabel("approval", view.ApprovalEvidenceState),
 		risk.BuyerEvidenceStateLabel("owner", view.OwnerEvidenceState),
@@ -539,7 +539,7 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		risk.BuyerEvidenceStateLabel("credential", view.CredentialEvidenceState),
 		markdownPrimaryViewEvidenceCompleteness(view),
 		view.EvidenceCompletenessScore,
-	))
+	)
 	if len(view.UnresolvedEvidence) > 0 {
 		builder.WriteString(fmt.Sprintf("- Unresolved evidence: %s\n", strings.Join(view.UnresolvedEvidence, ", ")))
 	}

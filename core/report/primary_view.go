@@ -82,8 +82,8 @@ func selectAgentActionBOMPrimaryView(bom *AgentActionBOM, focusPathID string) er
 	}
 
 	trimmedFocus := strings.TrimSpace(focusPathID)
-	switch {
-	case trimmedFocus == "":
+	switch trimmedFocus {
+	case "":
 		selected := defaultAgentActionBOMPrimaryItem(bom.Items)
 		if selected == nil {
 			bom.Summary.PrimaryView = nil
