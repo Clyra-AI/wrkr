@@ -1954,6 +1954,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
 		EdgeIDs: redactStringSlice(in.GraphRefs.EdgeIDs, "edge"),
 	}
+	copyBOM.Summary.PrimaryView = sanitizePrimaryViewPublic(in.Summary.PrimaryView)
 	copyBOM.Items = append([]AgentActionBOMItem(nil), in.Items...)
 	for idx := range copyBOM.Items {
 		copyBOM.Items[idx].PathID = redactValue("path", copyBOM.Items[idx].PathID, 8)
@@ -2004,6 +2005,35 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].EvidencePacketRefs = redactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet")
 	}
 	return &copyBOM
+}
+
+func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPrimaryView {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.PathID = redactValue("path", out.PathID, 8)
+	out.PathMap = AgentActionBOMPrimaryPathMap{
+		Tool:       redactValue("tool", out.PathMap.Tool, 8),
+		RepoPR:     redactValue("label", out.PathMap.RepoPR, 8),
+		Workflow:   redactValue("loc", out.PathMap.Workflow, 8),
+		Credential: redactValue("credential", out.PathMap.Credential, 8),
+		Action:     strings.TrimSpace(out.PathMap.Action),
+		Target:     redactValue("target", out.PathMap.Target, 8),
+	}
+	out.TodayPath = risk.CloneGovernedPathView(in.TodayPath)
+	out.RecommendedGovernedPath = risk.CloneGovernedPathView(in.RecommendedGovernedPath)
+	out.RecommendedActionContract = risk.CloneRecommendedActionContract(in.RecommendedActionContract)
+	out.WorkflowChainRefs = redactStringSlice(in.WorkflowChainRefs, "chain")
+	out.GraphRefs = AgentActionBOMGraphRefs{
+		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
+		EdgeIDs: redactStringSlice(in.GraphRefs.EdgeIDs, "edge"),
+	}
+	out.ProofRefs = redactStringSlice(in.ProofRefs, "proof")
+	out.EvidencePacketRefs = redactStringSlice(in.EvidencePacketRefs, "packet")
+	out.AppendixRefs = cloneStrings(in.AppendixRefs)
+	out.UnresolvedEvidence = cloneStrings(in.UnresolvedEvidence)
+	return &out
 }
 
 func sanitizeGovernanceDispositionPublic(in *controlbacklog.GovernanceDisposition) *controlbacklog.GovernanceDisposition {
