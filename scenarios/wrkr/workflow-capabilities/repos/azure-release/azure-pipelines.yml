@@ -1,0 +1,6 @@
+trigger:
+  - main
+extends:
+  template: .azure/pipelines/deploy.yml
+variables:
+  - group: ProdSecrets

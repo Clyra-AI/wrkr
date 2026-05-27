@@ -1,6 +1,8 @@
 package workflowcap
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -364,6 +366,140 @@ jobs:
 	}
 	if evidenceValue(result, "target_class_hint") != "release_adjacent" {
 		t.Fatalf("expected release-adjacent hint, got %q", evidenceValue(result, "target_class_hint"))
+	}
+}
+
+func TestAnalyzeGitLabPipelineResolvesLocalIncludesAndManualGate(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".gitlab", "ci"), 0o755); err != nil {
+		t.Fatalf("mkdir gitlab include path: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".gitlab", "ci", "deploy.yml"), []byte(`deploy:
+  stage: deploy
+  when: manual
+  environment:
+    name: production
+  script:
+    - codex --full-auto --approval never
+    - kubectl apply -f k8s/
+    - wrkr evidence --state .wrkr/last-scan.json
+  variables:
+    PROD_DEPLOY_PAT: "$PROD_DEPLOY_PAT"
+`), 0o600); err != nil {
+		t.Fatalf("write gitlab include: %v", err)
+	}
+
+	result, parseErr := AnalyzeInRoot(root, ".gitlab-ci.yml", []byte(`stages:
+  - build
+  - deploy
+include:
+  - local: .gitlab/ci/deploy.yml
+build:
+  stage: build
+  script:
+    - go test ./...
+`))
+	if parseErr != nil {
+		t.Fatalf("analyze gitlab workflow: %v", parseErr)
+	}
+	for _, capability := range []string{"deploy.write"} {
+		if !contains(result.Capabilities, capability) {
+			t.Fatalf("expected capability %q in %v", capability, result.Capabilities)
+		}
+	}
+	if result.Tool != "codex" {
+		t.Fatalf("expected tool codex, got %q", result.Tool)
+	}
+	if !result.Headless {
+		t.Fatal("expected headless detection from gitlab script")
+	}
+	if result.ApprovalSource != "manual_job" {
+		t.Fatalf("expected manual_job approval source, got %q", result.ApprovalSource)
+	}
+	if result.DeploymentGate != "approved" {
+		t.Fatalf("expected approved deployment gate, got %q", result.DeploymentGate)
+	}
+	if evidenceValue(result, "ci_platform") != "gitlab_ci" {
+		t.Fatalf("expected ci_platform=gitlab_ci, got %q", evidenceValue(result, "ci_platform"))
+	}
+	if evidenceValue(result, "include_resolution_status") != "resolved" {
+		t.Fatalf("expected include resolution evidence, got %q", evidenceValue(result, "include_resolution_status"))
+	}
+	if evidenceValue(result, "workflow_environment") != "production" {
+		t.Fatalf("expected production environment evidence, got %q", evidenceValue(result, "workflow_environment"))
+	}
+	if evidenceValue(result, "workflow_secret_refs") != "PROD_DEPLOY_PAT" {
+		t.Fatalf("expected secret ref evidence, got %q", evidenceValue(result, "workflow_secret_refs"))
+	}
+}
+
+func TestAnalyzeAzurePipelineResolvesLocalTemplateAndKeepsApprovalClaimScoped(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".azure", "pipelines"), 0o755); err != nil {
+		t.Fatalf("mkdir azure template path: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".azure", "pipelines", "deploy.yml"), []byte(`jobs:
+- deployment: deploy_prod
+  environment: production
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+        - script: codex --full-auto --approval never
+        - script: az webapp deploy --resource-group prod-rg --name api
+        - script: wrkr verify --chain --json
+          env:
+            PROD_DEPLOY_TOKEN: $(PROD_DEPLOY_TOKEN)
+        - task: AzureCLI@2
+          inputs:
+            azureSubscription: prod-service-conn
+            scriptType: bash
+            scriptLocation: inlineScript
+            inlineScript: |
+              az aks get-credentials --name prod-aks --resource-group prod-rg
+`), 0o600); err != nil {
+		t.Fatalf("write azure template: %v", err)
+	}
+
+	result, parseErr := AnalyzeInRoot(root, "azure-pipelines.yml", []byte(`trigger:
+- main
+extends:
+  template: .azure/pipelines/deploy.yml
+variables:
+- group: ProdSecrets
+`))
+	if parseErr != nil {
+		t.Fatalf("analyze azure pipeline: %v", parseErr)
+	}
+	for _, capability := range []string{"deploy.write"} {
+		if !contains(result.Capabilities, capability) {
+			t.Fatalf("expected capability %q in %v", capability, result.Capabilities)
+		}
+	}
+	if result.Tool != "codex" {
+		t.Fatalf("expected tool codex, got %q", result.Tool)
+	}
+	if result.DeploymentGate != "ambiguous" {
+		t.Fatalf("expected ambiguous deployment gate, got %q", result.DeploymentGate)
+	}
+	if evidenceValue(result, "ci_platform") != "azure_devops" {
+		t.Fatalf("expected ci_platform=azure_devops, got %q", evidenceValue(result, "ci_platform"))
+	}
+	if evidenceValue(result, "template_resolution_status") != "resolved" {
+		t.Fatalf("expected template resolution evidence, got %q", evidenceValue(result, "template_resolution_status"))
+	}
+	if evidenceValue(result, "workflow_environment") != "production" {
+		t.Fatalf("expected production environment evidence, got %q", evidenceValue(result, "workflow_environment"))
+	}
+	if !strings.Contains(evidenceValue(result, "auth_surfaces"), "prod-service-conn") {
+		t.Fatalf("expected service connection auth surface, got %q", evidenceValue(result, "auth_surfaces"))
+	}
+	if evidenceValue(result, "workflow_secret_refs") != "PROD_DEPLOY_TOKEN" {
+		t.Fatalf("expected secret ref evidence, got %q", evidenceValue(result, "workflow_secret_refs"))
 	}
 }
 

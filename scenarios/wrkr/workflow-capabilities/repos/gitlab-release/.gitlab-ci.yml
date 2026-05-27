@@ -1,0 +1,10 @@
+stages:
+  - build
+  - deploy
+include:
+  - local: .gitlab/ci/deploy.yml
+
+build:
+  stage: build
+  script:
+    - go test ./...

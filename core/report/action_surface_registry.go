@@ -143,7 +143,11 @@ func actionSurfaceType(path risk.ActionPath) string {
 	location := strings.ToLower(strings.TrimSpace(path.Location))
 	toolType := strings.ToLower(strings.TrimSpace(path.ToolType))
 	switch {
-	case strings.Contains(location, ".github/workflows") || strings.Contains(location, "jenkinsfile"):
+	case strings.Contains(location, ".github/workflows") || strings.Contains(location, "jenkinsfile") ||
+		strings.HasSuffix(location, ".gitlab-ci.yml") || strings.HasSuffix(location, ".gitlab-ci.yaml") ||
+		strings.Contains(location, "/.gitlab/ci/") || strings.HasSuffix(location, "azure-pipelines.yml") ||
+		strings.HasSuffix(location, "azure-pipelines.yaml") || strings.Contains(location, "/.azure/pipelines/") ||
+		toolType == "ci_agent":
 		return "workflow"
 	case toolType == "openapi":
 		return "api_schema"

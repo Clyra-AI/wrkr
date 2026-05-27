@@ -1627,7 +1627,14 @@ func inferredCredentialScope(signals findingSignals, authSurfaces []string) stri
 	for _, location := range signals.Locations {
 		lower := normalizeToken(location)
 		switch {
-		case strings.Contains(lower, ".github/workflows"), lower == "jenkinsfile":
+		case strings.Contains(lower, ".github/workflows"),
+			strings.Contains(lower, ".gitlab-ci.yml"),
+			strings.Contains(lower, ".gitlab-ci.yaml"),
+			strings.Contains(lower, ".gitlab/ci/"),
+			strings.Contains(lower, "azure-pipelines.yml"),
+			strings.Contains(lower, "azure-pipelines.yaml"),
+			strings.Contains(lower, ".azure/pipelines/"),
+			lower == "jenkinsfile":
 			return agginventory.CredentialScopeWorkflow
 		case strings.HasPrefix(lower, ".env"):
 			return agginventory.CredentialScopeEnvironment

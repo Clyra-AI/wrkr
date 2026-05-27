@@ -9,6 +9,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/detect/workflowcap"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk/autonomy"
+	"github.com/Clyra-AI/wrkr/core/workflowloc"
 )
 
 const detectorID = "ciagent"
@@ -24,29 +25,23 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		return nil, err
 	}
 
-	files := make([]string, 0)
-	workflowFiles, wfErr := detect.Glob(scope.Root, ".github/workflows/*")
-	if wfErr != nil {
-		return nil, wfErr
+	files, err := collectWorkflowFiles(scope.Root)
+	if err != nil {
+		return nil, err
 	}
-	files = append(files, workflowFiles...)
-	jenkinsfileExists, parseErr := detect.FileExistsWithinRoot(detectorID, scope.Root, "Jenkinsfile")
-	if parseErr != nil {
-		return nil, detect.ParseErrorAsError(parseErr)
-	}
-	if jenkinsfileExists {
-		files = append(files, "Jenkinsfile")
-	}
-	sort.Strings(files)
 
 	findings := make([]model.Finding, 0)
 	for _, rel := range files {
 		payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
 		if parseErr != nil {
-			return nil, detect.ParseErrorAsError(parseErr)
+			findings = append(findings, parseErrorFinding(scope, rel, parseErr))
+			continue
 		}
 		content := string(payload)
-		workflowAnalysis, workflowErr := workflowcap.Analyze(rel, payload)
+		workflowAnalysis, workflowErr := workflowcap.AnalyzeInRoot(scope.Root, rel, payload)
+		if workflowErr != nil {
+			findings = append(findings, parseErrorFinding(scope, rel, workflowErr))
+		}
 		signals := autonomy.Signals{
 			Tool:            workflowAnalysis.Tool,
 			Headless:        workflowAnalysis.Headless,
@@ -73,21 +68,25 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		if !signals.DangerousFlags {
 			signals.DangerousFlags = hasDangerousFlags(content)
 		}
-		if !signals.Headless && signals.Tool == "" {
+		permissions := permissionsFromSignals(signals)
+		permissions = append(permissions, workflowAnalysis.Capabilities...)
+		if !signals.Headless && signals.Tool == "" && len(uniqueStrings(permissions)) == 0 {
 			continue
 		}
 		level := autonomy.Classify(signals)
-		severity := severityForSignals(signals, level)
+		severity := severityForWorkflow(signals, level, permissions)
 		checkResult := model.CheckResultPass
 		if signals.Headless && signals.HasSecretAccess && !signals.HasApprovalGate {
 			checkResult = model.CheckResultFail
 		}
 		evidence := []model.Evidence{
-			{Key: "tool", Value: signals.Tool},
 			{Key: "headless", Value: boolString(signals.Headless)},
 			{Key: "approval_gate", Value: boolString(signals.HasApprovalGate)},
 			{Key: "secret_access", Value: boolString(signals.HasSecretAccess)},
 			{Key: "dangerous_flags", Value: boolString(signals.DangerousFlags)},
+		}
+		if strings.TrimSpace(signals.Tool) != "" {
+			evidence = append(evidence, model.Evidence{Key: "tool", Value: signals.Tool})
 		}
 		if provenanceType, subject := credentialProvenanceForWorkflow(content); provenanceType != "" {
 			evidence = append(evidence,
@@ -99,10 +98,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 		}
 		if workflowErr == nil {
 			evidence = append(evidence, workflowAnalysis.Evidence...)
-		}
-		permissions := permissionsFromSignals(signals)
-		if workflowErr == nil {
-			permissions = append(permissions, workflowAnalysis.Capabilities...)
+		} else if len(workflowAnalysis.Evidence) > 0 {
+			evidence = append(evidence, workflowAnalysis.Evidence...)
 		}
 		findings = append(findings, model.Finding{
 			FindingType: "ci_autonomy",
@@ -122,6 +119,60 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 
 	model.SortFindings(findings)
 	return findings, nil
+}
+
+func collectWorkflowFiles(root string) ([]string, error) {
+	set := map[string]struct{}{}
+	patterns := []string{
+		".github/workflows/*",
+		".azure/pipelines/*.yml",
+		".azure/pipelines/*.yaml",
+	}
+	for _, pattern := range patterns {
+		matches, err := detect.Glob(root, pattern)
+		if err != nil {
+			return nil, err
+		}
+		for _, rel := range matches {
+			if workflowloc.IsCIWorkflow(rel) {
+				set[rel] = struct{}{}
+			}
+		}
+	}
+	for _, rel := range []string{"Jenkinsfile", ".gitlab-ci.yml", ".gitlab-ci.yaml", "azure-pipelines.yml", "azure-pipelines.yaml"} {
+		exists, parseErr := detect.FileExistsWithinRoot(detectorID, root, rel)
+		if parseErr != nil {
+			return nil, detect.ParseErrorAsError(parseErr)
+		}
+		if exists {
+			set[rel] = struct{}{}
+		}
+	}
+	files := make([]string, 0, len(set))
+	for rel := range set {
+		files = append(files, rel)
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
+func parseErrorFinding(scope detect.Scope, rel string, parseErr *model.ParseError) model.Finding {
+	if parseErr == nil {
+		parseErr = &model.ParseError{Kind: "parse_error", Path: rel, Detector: detectorID, Message: "unknown parse error"}
+	}
+	normalized := *parseErr
+	normalized.Path = strings.TrimSpace(rel)
+	normalized.Detector = detectorID
+	return model.Finding{
+		FindingType: "parse_error",
+		Severity:    model.SeverityMedium,
+		ToolType:    "ci_agent",
+		Location:    rel,
+		Repo:        scope.Repo,
+		Org:         fallbackOrg(scope.Org),
+		Detector:    detectorID,
+		ParseError:  &normalized,
+	}
 }
 
 func detectTool(content string) string {
@@ -196,6 +247,23 @@ func severityForSignals(signals autonomy.Signals, level string) string {
 	}
 }
 
+func severityForWorkflow(signals autonomy.Signals, level string, permissions []string) string {
+	if base := severityForSignals(signals, level); base != model.SeverityInfo {
+		return base
+	}
+	normalized := uniqueStrings(permissions)
+	switch {
+	case containsPermission(normalized, "deploy.write", "db.write", "iac.write", "release.write"):
+		return model.SeverityHigh
+	case containsPermission(normalized, "merge.execute", "package.write", "repo.write", "pull_request.write"):
+		return model.SeverityMedium
+	case containsPermission(normalized, "secret.read"):
+		return model.SeverityLow
+	default:
+		return model.SeverityInfo
+	}
+}
+
 func permissionsFromSignals(signals autonomy.Signals) []string {
 	perms := make([]string, 0)
 	if signals.HasSecretAccess {
@@ -231,6 +299,17 @@ func uniqueStrings(values []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func containsPermission(values []string, targets ...string) bool {
+	for _, value := range values {
+		for _, target := range targets {
+			if value == target {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func boolString(v bool) string {

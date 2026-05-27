@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -178,6 +177,10 @@ func (t *triggerField) UnmarshalYAML(node *yaml.Node) error {
 }
 
 func Analyze(path string, payload []byte) (Result, *model.ParseError) {
+	return AnalyzeInRoot("", path, payload)
+}
+
+func analyzeGitHubWorkflow(path string, payload []byte) (Result, *model.ParseError) {
 	var doc workflowDocument
 	if err := yaml.Unmarshal(payload, &doc); err != nil {
 		return Result{}, &model.ParseError{
@@ -407,6 +410,7 @@ func Analyze(path string, payload []byte) (Result, *model.ParseError) {
 		evidence = append(evidence, model.Evidence{Key: "authority_binding", Value: binding})
 	}
 	result.Evidence = evidence
+	result.Evidence = appendPlatformEvidence(result.Evidence, "github_actions", "high")
 	return result, nil
 }
 
@@ -454,213 +458,51 @@ func effectivePermissions(root, job permissionField) permissionField {
 }
 
 func detectTool(step workflowStep) string {
-	values := normalizedStepValues(step, nil)
-	for _, value := range values {
-		switch {
-		case strings.Contains(value, "claude"):
-			return "claude"
-		case strings.Contains(value, "codex"):
-			return "codex"
-		case strings.Contains(value, "copilot"):
-			return "copilot"
-		case strings.Contains(value, "cursor"):
-			return "cursor"
-		case strings.Contains(value, "gait eval --script"):
-			return "gait"
-		}
-	}
-	return ""
+	return detectToolFromValues(normalizedStepValues(step, nil))
 }
 
 func isHeadlessStep(step workflowStep) bool {
-	for _, value := range normalizedStepValues(step, nil) {
-		switch {
-		case strings.Contains(value, "claude -p"),
-			strings.Contains(value, "claude code -p"),
-			strings.Contains(value, "codex --full-auto"),
-			strings.Contains(value, "gait eval --script"):
-			return true
-		}
-	}
-	return false
+	return isHeadlessValues(normalizedStepValues(step, nil))
 }
 
 func hasDangerousFlags(step workflowStep) bool {
-	for _, value := range normalizedStepValues(step, nil) {
-		switch {
-		case strings.Contains(value, "--dangerouslyskippermissions"),
-			strings.Contains(value, "--dangerously-skip-permissions"),
-			strings.Contains(value, "--approval never"):
-			return true
-		}
-	}
-	return false
+	return hasDangerousFlagsValues(normalizedStepValues(step, nil))
 }
 
 func stepHasSecretAccess(step workflowStep, jobEnv map[string]string) bool {
-	values := normalizedStepValues(step, jobEnv)
-	for _, value := range values {
-		if strings.Contains(value, "secrets.") || strings.Contains(value, "${{ secrets.") || strings.Contains(value, "github.token") {
-			return true
-		}
-	}
-	return false
+	return hasSecretAccessValues(normalizedStepValues(step, jobEnv))
 }
 
 func mergeExecuteReason(step workflowStep) string {
-	for _, value := range normalizedStepValues(step, nil) {
-		switch {
-		case strings.Contains(value, "gh pr merge"):
-			return "step.run:gh_pr_merge"
-		case strings.Contains(value, "enable-pull-request-automerge"):
-			return "step.uses:enable_pull_request_automerge"
-		case strings.Contains(value, "automerge-action"):
-			return "step.uses:automerge_action"
-		}
-	}
-	return ""
+	return mergeExecuteReasonValues(normalizedStepValues(step, nil))
 }
 
 func deployWriteReason(step workflowStep) string {
-	for _, value := range normalizedStepValues(step, nil) {
-		switch {
-		case strings.Contains(value, "kubectl apply"):
-			return "step.run:kubectl_apply"
-		case strings.Contains(value, "helm upgrade"), strings.Contains(value, "helm install"):
-			return "step.run:helm_release"
-		case strings.Contains(value, "terraform apply"):
-			return "step.run:terraform_apply"
-		case strings.Contains(value, "terragrunt apply"):
-			return "step.run:terragrunt_apply"
-		case strings.Contains(value, "pulumi up"):
-			return "step.run:pulumi_up"
-		case strings.Contains(value, "serverless deploy"):
-			return "step.run:serverless_deploy"
-		case strings.Contains(value, "fly deploy"):
-			return "step.run:fly_deploy"
-		case strings.Contains(value, "vercel deploy --prod"):
-			return "step.run:vercel_prod_deploy"
-		case strings.Contains(value, "netlify deploy --prod"):
-			return "step.run:netlify_prod_deploy"
-		case strings.Contains(value, "aws ecs update-service"):
-			return "step.run:aws_ecs_update_service"
-		case strings.Contains(value, "gcloud run deploy"):
-			return "step.run:gcloud_run_deploy"
-		case strings.Contains(value, "azure/k8s-deploy"):
-			return "step.uses:azure_k8s_deploy"
-		case strings.Contains(value, "amazon-ecs-deploy-task-definition"):
-			return "step.uses:amazon_ecs_deploy"
-		case strings.Contains(value, "deploy-cloudrun"):
-			return "step.uses:deploy_cloudrun"
-		}
-	}
-	return ""
+	return deployWriteReasonValues(normalizedStepValues(step, nil))
 }
 
 func releaseWriteReason(step workflowStep) string {
-	for _, value := range normalizedStepValues(step, nil) {
-		switch {
-		case strings.Contains(value, "goreleaser release"):
-			return "step.run:goreleaser_release"
-		case strings.Contains(value, "gh release create"):
-			return "step.run:gh_release_create"
-		case strings.Contains(value, "softprops/action-gh-release"):
-			return "step.uses:action_gh_release"
-		case strings.Contains(value, "actions/create-release"):
-			return "step.uses:create_release"
-		}
-	}
-	return ""
+	return releaseWriteReasonValues(normalizedStepValues(step, nil))
 }
 
 func packagePublishReason(step workflowStep) string {
-	for _, value := range normalizedStepValues(step, nil) {
-		switch {
-		case strings.Contains(value, "npm publish"):
-			return "step.run:npm_publish"
-		case strings.Contains(value, "pnpm publish"):
-			return "step.run:pnpm_publish"
-		case strings.Contains(value, "yarn npm publish"):
-			return "step.run:yarn_npm_publish"
-		case strings.Contains(value, "twine upload"):
-			return "step.run:twine_upload"
-		case strings.Contains(value, "docker push"):
-			return "step.run:docker_push"
-		case strings.Contains(value, "docker/build-push-action"):
-			return "step.uses:docker_build_push_action"
-		case strings.Contains(value, "pypa/gh-action-pypi-publish"):
-			return "step.uses:pypi_publish"
-		}
-	}
-	return ""
+	return packagePublishReasonValues(normalizedStepValues(step, nil))
 }
 
 func dbWriteReason(step workflowStep) string {
-	for _, value := range normalizedStepValues(step, nil) {
-		switch {
-		case strings.Contains(value, "alembic upgrade"):
-			return "step.run:alembic_upgrade"
-		case strings.Contains(value, "prisma migrate deploy"):
-			return "step.run:prisma_migrate_deploy"
-		case strings.Contains(value, "liquibase update"):
-			return "step.run:liquibase_update"
-		case strings.Contains(value, "flyway migrate"):
-			return "step.run:flyway_migrate"
-		case strings.Contains(value, "goose up"):
-			return "step.run:goose_up"
-		case strings.Contains(value, "dbmate up"):
-			return "step.run:dbmate_up"
-		case strings.Contains(value, "rails db:migrate"):
-			return "step.run:rails_db_migrate"
-		case strings.Contains(value, "knex migrate:latest"):
-			return "step.run:knex_migrate_latest"
-		case strings.Contains(value, "sqitch deploy"):
-			return "step.run:sqitch_deploy"
-		}
-	}
-	return ""
+	return dbWriteReasonValues(normalizedStepValues(step, nil))
 }
 
 func iacWriteReason(step workflowStep) string {
-	for _, value := range normalizedStepValues(step, nil) {
-		switch {
-		case strings.Contains(value, "terraform apply"):
-			return "step.run:terraform_apply"
-		case strings.Contains(value, "terragrunt apply"):
-			return "step.run:terragrunt_apply"
-		case strings.Contains(value, "pulumi up"):
-			return "step.run:pulumi_up"
-		case strings.Contains(value, "helm upgrade"), strings.Contains(value, "helm install"):
-			return "step.run:helm_release"
-		}
-	}
-	return ""
+	return iacWriteReasonValues(normalizedStepValues(step, nil))
 }
 
 func manualApprovalSource(step workflowStep) string {
-	for _, value := range normalizedStepValues(step, nil) {
-		if strings.Contains(value, "manual-approval") {
-			return "manual_approval_step"
-		}
-	}
-	return ""
+	return manualApprovalSourceValues(normalizedStepValues(step, nil))
 }
 
 func proofRequirement(step workflowStep) string {
-	for _, value := range normalizedStepValues(step, nil) {
-		switch {
-		case strings.Contains(value, "wrkr evidence"),
-			strings.Contains(value, "wrkr verify"):
-			return "evidence"
-		case strings.Contains(value, "cosign attest"),
-			strings.Contains(value, "attest-build-provenance"),
-			strings.Contains(value, "slsa-github-generator"),
-			strings.Contains(value, "gh attestation"),
-			strings.Contains(value, "slsa-verifier"):
-			return "attestation"
-		}
-	}
-	return ""
+	return proofRequirementValues(normalizedStepValues(step, nil))
 }
 
 func normalizedStepValues(step workflowStep, jobEnv map[string]string) []string {
@@ -746,29 +588,13 @@ func sensitiveCredentialName(key string) bool {
 	}
 	return strings.Contains(key, "TOKEN") ||
 		strings.Contains(key, "SECRET") ||
+		strings.Contains(key, "PAT") ||
 		strings.Contains(key, "KEY") ||
 		strings.Contains(key, "CREDENTIAL")
 }
 
 func workflowAuthSurfaces(step workflowStep, jobEnv map[string]string) []string {
-	values := normalizedStepValues(step, jobEnv)
-	out := map[string]struct{}{}
-	for _, value := range values {
-		switch {
-		case strings.Contains(value, "aws-actions/configure-aws-credentials"), strings.Contains(value, "role-to-assume"), strings.Contains(value, "assume_role"):
-			out["aws_oidc"] = struct{}{}
-		case strings.Contains(value, "azure/login"), strings.Contains(value, "federatedcredential"), strings.Contains(value, "service connection"):
-			out["azure_federated_credential"] = struct{}{}
-		case strings.Contains(value, "google-github-actions/auth"), strings.Contains(value, "workload_identity_provider"), strings.Contains(value, "service_account"):
-			out["gcp_workload_identity"] = struct{}{}
-		case strings.Contains(value, "kubectl"), strings.Contains(value, "helm"):
-			out["kubernetes_rbac"] = struct{}{}
-		}
-	}
-	for _, ref := range workflowCredentialRefsOnly(step, jobEnv) {
-		out[ref] = struct{}{}
-	}
-	return sortedSet(out)
+	return workflowAuthSurfacesFromValues(normalizedStepValues(step, jobEnv), workflowCredentialRefsOnly(step, jobEnv), nil)
 }
 
 func workflowCredentialRefsOnly(step workflowStep, jobEnv map[string]string) []string {
@@ -777,49 +603,7 @@ func workflowCredentialRefsOnly(step workflowStep, jobEnv map[string]string) []s
 }
 
 func workflowAuthorityBindings(step workflowStep, environment string) []string {
-	values := normalizedStepValues(step, nil)
-	production := workflowEnvironmentSuggestsProduction([]string{environment})
-	out := []string{}
-	add := func(kind, provider, subject, targetSystem, resource, scope, access string) {
-		out = append(out, strings.Join([]string{
-			kind,
-			provider,
-			subject,
-			targetSystem,
-			resource,
-			scope,
-			access,
-			environment,
-			strconv.FormatBool(production),
-			"high",
-		}, "|"))
-	}
-	for _, value := range values {
-		switch {
-		case strings.Contains(value, "aws-actions/configure-aws-credentials"), strings.Contains(value, "role-to-assume"), strings.Contains(value, "assume_role"):
-			add("workload_identity", "aws", "workflow_aws_oidc", "aws", "aws_role", "cloud_or_infra_access", "write")
-		case strings.Contains(value, "azure/login"):
-			add("workload_identity", "azure", "workflow_azure_federation", "azure", "azure_federated_credential", "cloud_or_infra_access", "write")
-		case strings.Contains(value, "google-github-actions/auth"), strings.Contains(value, "workload_identity_provider"):
-			add("workload_identity", "gcp", "workflow_gcp_workload_identity", "gcp", "gcp_workload_identity", "cloud_or_infra_access", "write")
-		case strings.Contains(value, "kubectl apply"), strings.Contains(value, "azure/k8s-deploy"), strings.Contains(value, "helm upgrade"), strings.Contains(value, "helm install"):
-			add("deployment_path", "kubernetes", "workflow_kubernetes_deploy", "kubernetes", "cluster_apply", "deploy_write", "write")
-		case strings.Contains(value, "terraform apply"), strings.Contains(value, "terragrunt apply"):
-			add("deployment_path", "terraform", "workflow_terraform_apply", "terraform", "terraform_apply", "infrastructure_apply", "write")
-		case strings.Contains(value, "pulumi up"):
-			add("deployment_path", "pulumi", "workflow_pulumi_up", "pulumi", "pulumi_up", "infrastructure_apply", "write")
-		case strings.Contains(value, "gcloud run deploy"):
-			add("deployment_path", "gcp", "workflow_gcloud_run_deploy", "gcp", "cloud_run", "deploy_write", "write")
-		case strings.Contains(value, "aws ecs update-service"), strings.Contains(value, "amazon-ecs-deploy-task-definition"):
-			add("deployment_path", "aws", "workflow_ecs_deploy", "aws", "ecs_service", "deploy_write", "write")
-		case strings.Contains(value, "vercel deploy --prod"):
-			add("service_connection", "vercel", "workflow_vercel_token", "deployment_platform", "vercel", "deploy_write", "write")
-		case strings.Contains(value, "netlify deploy --prod"):
-			add("service_connection", "netlify", "workflow_netlify_token", "deployment_platform", "netlify", "deploy_write", "write")
-		}
-	}
-	sort.Strings(out)
-	return dedupeSlice(out)
+	return workflowAuthorityBindingsFromValues(normalizedStepValues(step, nil), environment, nil)
 }
 
 func dedupeSlice(in []string) []string {

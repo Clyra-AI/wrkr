@@ -443,7 +443,7 @@ func collectDetectorHealth(input Input) []DetectorHealth {
 
 	out := make([]DetectorHealth, 0)
 	for _, scope := range input.Scopes {
-		for _, detectorID := range []string{"dependency", "mcp", "webmcp"} {
+		for _, detectorID := range []string{"ciagent", "dependency", "mcp", "webmcp"} {
 			scopeKey := detectorScopeKey{
 				org:      strings.TrimSpace(scope.Org),
 				repo:     strings.TrimSpace(scope.Repo),
@@ -751,6 +751,8 @@ func buildDetectorErrorIndex(in []detect.DetectorError) map[detectorScopeKey]int
 
 func collectDetectorScopeMetrics(scope detect.Scope, detectorID, mode string) detectorPathMetrics {
 	switch detectorID {
+	case "ciagent":
+		return collectCIAgentScopeMetrics(scope.Root)
 	case "dependency":
 		return collectDependencyScopeMetrics(scope.Root, mode)
 	case "mcp":
@@ -760,6 +762,32 @@ func collectDetectorScopeMetrics(scope detect.Scope, detectorID, mode string) de
 	default:
 		return detectorPathMetrics{}
 	}
+}
+
+func collectCIAgentScopeMetrics(root string) detectorPathMetrics {
+	metrics := detectorPathMetrics{}
+	paths := []string{
+		".gitlab-ci.yml",
+		".gitlab-ci.yaml",
+		"Jenkinsfile",
+		"azure-pipelines.yml",
+		"azure-pipelines.yaml",
+	}
+	for _, rel := range paths {
+		exists, parseErr := detect.FileExistsWithinRoot("scanquality", root, rel)
+		if parseErr != nil || exists {
+			metrics.attemptedPaths = append(metrics.attemptedPaths, rel)
+		}
+	}
+	for _, pattern := range []string{".github/workflows/*", ".azure/pipelines/*.yml", ".azure/pipelines/*.yaml"} {
+		matches, err := detect.Glob(root, pattern)
+		if err != nil {
+			continue
+		}
+		metrics.attemptedPaths = append(metrics.attemptedPaths, matches...)
+	}
+	metrics.attemptedPaths = dedupeStrings(metrics.attemptedPaths)
+	return metrics
 }
 
 func collectDependencyScopeMetrics(root, mode string) detectorPathMetrics {
@@ -955,6 +983,28 @@ func sortedReasonKeys(values map[string]struct{}) []string {
 func hasReason(values map[string]struct{}, reason string) bool {
 	_, ok := values[reason]
 	return ok
+}
+
+func dedupeStrings(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	set := map[string]struct{}{}
+	for _, item := range in {
+		if strings.TrimSpace(item) == "" {
+			continue
+		}
+		set[strings.TrimSpace(item)] = struct{}{}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(set))
+	for item := range set {
+		out = append(out, item)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func cloneDetectorErrors(in []detect.DetectorError) []detect.DetectorError {
