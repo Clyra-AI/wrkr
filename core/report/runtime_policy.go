@@ -87,6 +87,25 @@ func decorateControlFirstForReport(paths []risk.ActionPath, scanCoverageReduced 
 	}
 }
 
+func decorateActionPathsForEvidencePackets(paths []risk.ActionPath, summary *ingest.EvidencePacketSummary) []risk.ActionPath {
+	if len(paths) == 0 {
+		return nil
+	}
+	out := append([]risk.ActionPath(nil), paths...)
+	if summary == nil {
+		return out
+	}
+	byPath := evidencePacketsByPath(summary)
+	for i := range out {
+		item := byPath[strings.TrimSpace(out[i].PathID)]
+		out[i].EvidencePacketStatus = strings.TrimSpace(item.Status)
+		out[i].EvidencePacketResult = strings.TrimSpace(item.Result)
+		out[i].EvidencePacketMissingEvidenceState = strings.TrimSpace(item.MissingEvidenceState)
+		out[i].EvidencePacketRefs = uniqueSortedStrings(append([]string(nil), item.PacketRefs...))
+	}
+	return out
+}
+
 func containsEvidenceClass(values []string, want string) bool {
 	for _, value := range values {
 		if strings.TrimSpace(value) == strings.TrimSpace(want) {

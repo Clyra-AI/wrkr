@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/evidence/agentic-evidence-packets.schema.json",
+  "title": "Wrkr Agentic SDLC Evidence Packet Bundle",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "packets"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "packets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "observed_at"],
+        "properties": {
+          "packet_id": {"type": "string"},
+          "source": {"type": "string"},
+          "source_type": {"type": "string"},
+          "provider": {"type": "string"},
+          "provider_url": {"type": "string"},
+          "repo": {"type": "string"},
+          "workflow": {"type": "string"},
+          "path_id": {"type": "string"},
+          "agent_id": {"type": "string"},
+          "pull_request_ref": {"type": "string"},
+          "owner": {"type": "string"},
+          "task": {"type": "string"},
+          "title": {"type": "string"},
+          "files_touched": {"type": "array", "items": {"type": "string"}},
+          "diff_refs": {"type": "array", "items": {"type": "string"}},
+          "diff_digests": {"type": "array", "items": {"type": "string"}},
+          "autonomy_tier": {"type": "string"},
+          "delegation_readiness_state": {"type": "string"},
+          "permissions": {"type": "array", "items": {"type": "string"}},
+          "credentials": {"type": "array", "items": {"type": "string"}},
+          "tests": {"type": "array", "items": {"type": "string"}},
+          "reviewers": {"type": "array", "items": {"type": "string"}},
+          "approvals": {"type": "array", "items": {"type": "string"}},
+          "deployment_environments": {"type": "array", "items": {"type": "string"}},
+          "policy_verdict": {"type": "string"},
+          "exception_refs": {"type": "array", "items": {"type": "string"}},
+          "result": {"type": "string", "enum": ["complete", "partial", "failed"]},
+          "missing_evidence_state": {"type": "string", "enum": ["complete", "partial", "missing"]},
+          "missing_evidence": {"type": "array", "items": {"type": "string"}},
+          "proof_refs": {"type": "array", "items": {"type": "string"}},
+          "graph_node_refs": {"type": "array", "items": {"type": "string"}},
+          "graph_edge_refs": {"type": "array", "items": {"type": "string"}},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}},
+          "observed_at": {"type": "string", "format": "date-time"},
+          "redaction_hints": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

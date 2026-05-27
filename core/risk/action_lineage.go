@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
+	"github.com/Clyra-AI/wrkr/core/attribution"
 )
 
 type ActionLineage struct {
@@ -405,19 +406,31 @@ func humanLineageEvidence(path ActionPath) []string {
 	if path.IntroducedBy == nil {
 		return nil
 	}
-	return dedupeSortedStrings([]string{path.IntroducedBy.ProviderURL, path.IntroducedBy.ChangedFile})
+	return dedupeSortedStrings(attribution.EvidenceRefs(path.IntroducedBy))
 }
 
 func pullRequestLineageLabel(path ActionPath) string {
 	if path.IntroducedBy != nil && path.IntroducedBy.PRNumber > 0 {
 		return "PR #" + strings.TrimSpace(strconv.Itoa(path.IntroducedBy.PRNumber))
 	}
+	if path.IntroducedBy != nil && strings.TrimSpace(path.IntroducedBy.Reference) != "" {
+		return strings.TrimSpace(path.IntroducedBy.Reference)
+	}
 	return "unknown_pr"
 }
 
 func pullRequestLineageStatus(path ActionPath) string {
 	if path.IntroducedBy == nil || path.IntroducedBy.PRNumber <= 0 {
+		if path.IntroducedBy != nil && strings.TrimSpace(path.IntroducedBy.Reference) != "" {
+			if path.IntroducedBy.Provenance != nil && strings.TrimSpace(path.IntroducedBy.Provenance.ConflictState) == "conflict" {
+				return EvidenceStateContradictory
+			}
+			return humanLineageStatus(path)
+		}
 		return "unknown"
+	}
+	if path.IntroducedBy.Provenance != nil && strings.TrimSpace(path.IntroducedBy.Provenance.ConflictState) == "conflict" {
+		return EvidenceStateContradictory
 	}
 	return humanLineageStatus(path)
 }
@@ -426,7 +439,8 @@ func pullRequestLineageEvidence(path ActionPath) []string {
 	if path.IntroducedBy == nil {
 		return nil
 	}
-	return dedupeSortedStrings([]string{path.IntroducedBy.ProviderURL, path.IntroducedBy.CommitSHA, path.IntroducedBy.ChangedFile})
+	values := append([]string{path.IntroducedBy.CommitSHA}, attribution.EvidenceRefs(path.IntroducedBy)...)
+	return dedupeSortedStrings(values)
 }
 
 func workflowRunLineageLabel(path ActionPath) string {

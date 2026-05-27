@@ -143,6 +143,9 @@ func TestResolvePrefersGitHubEventMetadataWhenChangedFileMatches(t *testing.T) {
 	if got.CommitSHA != "abc123def" || got.Author != "octocat" {
 		t.Fatalf("expected GitHub event commit metadata, got %+v", got)
 	}
+	if got.Provenance == nil || got.Provenance.Kind != "pull_request" || got.Provenance.Reference != "pr/42" {
+		t.Fatalf("expected GitHub event provenance, got %+v", got)
+	}
 }
 
 func TestResolveUnderstandsGitLabMergeRequestMetadata(t *testing.T) {
@@ -178,6 +181,127 @@ func TestResolveUnderstandsGitLabMergeRequestMetadata(t *testing.T) {
 	if got.CommitSHA != "feedbeef" || got.Author != "gitlab-user" {
 		t.Fatalf("expected GitLab commit metadata, got %+v", got)
 	}
+	if got.Provenance == nil || got.Provenance.Kind != "merge_request" || got.Provenance.Reference != "mr/17" {
+		t.Fatalf("expected GitLab provenance, got %+v", got)
+	}
+}
+
+func TestResolveLoadsProviderNeutralProvenanceSidecar(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("mkdir provenance dir: %v", err)
+	}
+	payload := `{
+  "schema_version": "v1",
+  "generated_at": "2026-05-26T15:00:00Z",
+  "entries": [
+    {
+      "provider": "github",
+      "kind": "pull_request",
+      "number": 42,
+      "title": "Add release guardrails",
+      "provider_url": "https://github.com/acme/demo/pull/42",
+      "head_sha": "abc123def",
+      "author": "octocat",
+      "updated_at": "2026-05-26T14:59:00Z",
+      "base_branch": "main",
+      "head_branch": "feature/release",
+      "merge_method": "squash",
+      "merge_state": "merged",
+      "merged_by": "release-manager",
+      "changed_files": [".github/workflows/release.yml", "AGENTS.md"],
+      "reviewers": [{"name": "platform-bot", "state": "commented"}],
+      "approvals": [{"name": "sre-owner", "state": "approved", "required": true}],
+      "checks": [{"name": "fast-lane", "status": "completed", "conclusion": "success", "required": true}],
+      "deployments": [{"environment": "production", "status": "approved"}],
+      "branch_protections": [{"branch": "main", "status": "enforced", "required_approvals": 1, "required_checks": ["fast-lane"]}],
+      "environment_gates": [{"environment": "production", "status": "approved", "required_reviewers": ["sre-owner"]}],
+      "ai_assisted": true,
+      "automation_assisted": true,
+      "evidence_refs": ["evidence://fake/provider/pr-42.json"]
+    }
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "provenance", "pr-mr-provenance.json"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write provider provenance payload: %v", err)
+	}
+
+	result := Resolve(LoadContext(repoRoot), ".github/workflows/release.yml", nil)
+	if result == nil {
+		t.Fatal("expected attribution result")
+	}
+	if result.Source != SourceProviderProvenance || result.Reference != "pr/42" || result.Provider != "github" {
+		t.Fatalf("expected provider-neutral sidecar to win precedence, got %+v", result)
+	}
+	if result.Provenance == nil {
+		t.Fatalf("expected normalized provenance payload, got %+v", result)
+	}
+	if result.Provenance.ConflictState != "none" {
+		t.Fatalf("expected non-conflicting provenance, got %+v", result.Provenance)
+	}
+	if len(result.Provenance.Checks) != 1 || len(result.Provenance.BranchProtections) != 1 || !result.Provenance.AIAssisted || !result.Provenance.AutomationAssisted {
+		t.Fatalf("expected checks, branch protection, and AI/automation flags, got %+v", result.Provenance)
+	}
+}
+
+func TestResolveNormalizesConflictingProviderMetadata(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("mkdir provenance dir: %v", err)
+	}
+	payload := `{
+  "schema_version": "v1",
+  "generated_at": "2026-05-26T15:00:00Z",
+  "entries": [
+    {
+      "provider": "generic",
+      "kind": "pull_request",
+      "number": 11,
+      "provider_url": "https://provider.example/pr/11",
+      "head_sha": "feedbeef",
+      "author": "release-bot",
+      "updated_at": "2026-05-26T14:00:00Z",
+      "changed_files": [".github/workflows/release.yml"],
+      "checks": [
+        {"name": "fast-lane", "status": "completed", "conclusion": "success", "required": true},
+        {"name": "fast-lane", "status": "completed", "conclusion": "failure", "required": true}
+      ],
+      "deployments": [
+        {"environment": "production", "status": "approved"},
+        {"environment": "production", "status": "rejected"}
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "provenance", "pr-mr-provenance.json"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write provider provenance payload: %v", err)
+	}
+
+	result := Resolve(LoadContext(repoRoot), ".github/workflows/release.yml", nil)
+	if result == nil || result.Provenance == nil {
+		t.Fatalf("expected provenance result, got %+v", result)
+	}
+	if result.Provenance.ConflictState != "conflict" {
+		t.Fatalf("expected conflict state, got %+v", result.Provenance)
+	}
+	for _, want := range []string{"conflicting_check:fast-lane", "conflicting_deployment:production"} {
+		if !containsString(result.Provenance.MissingEvidence, want) {
+			t.Fatalf("expected missing evidence %q, got %+v", want, result.Provenance.MissingEvidence)
+		}
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == strings.TrimSpace(want) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestLoadContextIncludesControlMetadataSidecar(t *testing.T) {

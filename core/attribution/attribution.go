@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,8 @@ type Result struct {
 	Source        string               `json:"source"`
 	Confidence    string               `json:"confidence"`
 	MissingReason string               `json:"missing_reason,omitempty"`
+	Provider      string               `json:"provider,omitempty"`
+	Reference     string               `json:"reference,omitempty"`
 	PRNumber      int                  `json:"pr_number,omitempty"`
 	CommitSHA     string               `json:"commit_sha,omitempty"`
 	Author        string               `json:"author,omitempty"`
@@ -29,6 +32,7 @@ type Result struct {
 	ChangedFile   string               `json:"changed_file,omitempty"`
 	LineRange     *model.LocationRange `json:"line_range,omitempty"`
 	ProviderURL   string               `json:"provider_url,omitempty"`
+	Provenance    *Provenance          `json:"provenance,omitempty"`
 }
 
 func Local(repoRoot, relPath string, lineRange *model.LocationRange) *Result {
@@ -70,6 +74,9 @@ func Merge(current, incoming *Result) *Result {
 		return clone(incoming)
 	}
 	if strings.TrimSpace(current.CommitSHA) == "" && strings.TrimSpace(incoming.CommitSHA) != "" {
+		return clone(incoming)
+	}
+	if provenanceRank(incoming.Provenance) > provenanceRank(current.Provenance) {
 		return clone(incoming)
 	}
 	return clone(current)
@@ -216,11 +223,95 @@ func clone(in *Result) *Result {
 	out.Source = strings.TrimSpace(out.Source)
 	out.Confidence = strings.TrimSpace(out.Confidence)
 	out.MissingReason = strings.TrimSpace(out.MissingReason)
+	out.Provider = strings.TrimSpace(out.Provider)
+	out.Reference = strings.TrimSpace(out.Reference)
 	out.CommitSHA = strings.TrimSpace(out.CommitSHA)
 	out.Author = strings.TrimSpace(out.Author)
 	out.Timestamp = strings.TrimSpace(out.Timestamp)
 	out.ChangedFile = filepath.ToSlash(strings.TrimSpace(out.ChangedFile))
 	out.ProviderURL = strings.TrimSpace(out.ProviderURL)
 	out.LineRange = normalizeLineRange(in.LineRange)
+	out.Provenance = CloneProvenance(in.Provenance)
 	return &out
+}
+
+func EvidenceRefs(result *Result) []string {
+	if result == nil {
+		return nil
+	}
+	set := map[string]struct{}{}
+	add := func(values ...string) {
+		for _, value := range values {
+			trimmed := strings.TrimSpace(value)
+			if trimmed == "" {
+				continue
+			}
+			set[filepath.ToSlash(trimmed)] = struct{}{}
+		}
+	}
+	add(result.ProviderURL, result.ChangedFile)
+	if result.Provenance != nil {
+		add(result.Provenance.ProviderURL)
+		add(result.Provenance.EvidenceRefs...)
+		add(result.Provenance.ChangedFiles...)
+		for _, item := range result.Provenance.Reviewers {
+			add(item.ProviderURL)
+		}
+		for _, item := range result.Provenance.Approvals {
+			add(item.ProviderURL)
+		}
+		for _, item := range result.Provenance.Checks {
+			add(item.ProviderURL)
+		}
+		for _, item := range result.Provenance.Deployments {
+			add(item.ProviderURL)
+		}
+		for _, item := range result.Provenance.BranchProtections {
+			add(item.EvidenceRefs...)
+		}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(set))
+	for value := range set {
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func provenanceRank(in *Provenance) int {
+	if in == nil {
+		return 0
+	}
+	score := 0
+	if strings.TrimSpace(in.Reference) != "" {
+		score += 1
+	}
+	if len(in.Reviewers) > 0 {
+		score += 1
+	}
+	if len(in.Approvals) > 0 {
+		score += 1
+	}
+	if len(in.Checks) > 0 {
+		score += 1
+	}
+	if len(in.Deployments) > 0 {
+		score += 1
+	}
+	if len(in.BranchProtections) > 0 {
+		score += 1
+	}
+	if len(in.EnvironmentGates) > 0 {
+		score += 1
+	}
+	if len(in.MissingEvidence) > 0 {
+		score += 1
+	}
+	if strings.TrimSpace(in.ConflictState) != "" && strings.TrimSpace(in.ConflictState) != "none" {
+		score += 1
+	}
+	return score
 }

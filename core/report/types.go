@@ -8,6 +8,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
+	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/ingest"
@@ -99,7 +100,9 @@ type Summary struct {
 	ControlBacklog           *controlbacklog.Backlog                `json:"control_backlog,omitempty"`
 	ScanQuality              *scanquality.Report                    `json:"scan_quality,omitempty"`
 	RuntimeEvidence          *ingest.Summary                        `json:"runtime_evidence,omitempty"`
+	EvidencePackets          *ingest.EvidencePacketSummary          `json:"evidence_packets,omitempty"`
 	AgentActionBOM           *AgentActionBOM                        `json:"agent_action_bom,omitempty"`
+	RecentPRReview           *RecentPRReview                        `json:"recent_pr_review,omitempty"`
 	Proof                    ProofReference                         `json:"proof"`
 	NextActions              []ChecklistItem                        `json:"next_actions"`
 	Activation               *ActivationSummary                     `json:"activation,omitempty"`
@@ -192,6 +195,44 @@ type AssessmentSummary struct {
 	IdentityToReviewFirst      *risk.IdentityActionTarget    `json:"identity_to_review_first,omitempty"`
 	IdentityToRevokeFirst      *risk.IdentityActionTarget    `json:"identity_to_revoke_first,omitempty"`
 	ProofChainPath             string                        `json:"proof_chain_path,omitempty"`
+}
+
+type RecentPRReview struct {
+	Mode            string               `json:"mode"`
+	Limit           int                  `json:"limit"`
+	SelectedIDs     []string             `json:"selected_ids,omitempty"`
+	DateFrom        string               `json:"date_from,omitempty"`
+	DateTo          string               `json:"date_to,omitempty"`
+	TotalCandidates int                  `json:"total_candidates"`
+	Ranked          []RecentPRReviewItem `json:"ranked,omitempty"`
+}
+
+type RecentPRReviewItem struct {
+	Rank                     int                     `json:"rank"`
+	ReviewID                 string                  `json:"review_id"`
+	Reference                string                  `json:"reference,omitempty"`
+	Provider                 string                  `json:"provider,omitempty"`
+	Repo                     string                  `json:"repo,omitempty"`
+	PathID                   string                  `json:"path_id,omitempty"`
+	Workflow                 string                  `json:"workflow,omitempty"`
+	AutonomyTier             string                  `json:"autonomy_tier,omitempty"`
+	DelegationReadinessState string                  `json:"delegation_readiness_state,omitempty"`
+	RecommendedControl       string                  `json:"recommended_control,omitempty"`
+	TargetClass              string                  `json:"target_class,omitempty"`
+	EvidenceCompleteness     string                  `json:"evidence_completeness,omitempty"`
+	Contradiction            bool                    `json:"contradiction,omitempty"`
+	AIAssisted               bool                    `json:"ai_assisted,omitempty"`
+	AutomationAssisted       bool                    `json:"automation_assisted,omitempty"`
+	CheckCount               int                     `json:"check_count,omitempty"`
+	ApprovalCount            int                     `json:"approval_count,omitempty"`
+	DeploymentCount          int                     `json:"deployment_count,omitempty"`
+	FocusBOMPathID           string                  `json:"focus_bom_path_id,omitempty"`
+	Provenance               *attribution.Result     `json:"provenance,omitempty"`
+	WorkflowChainRefs        []string                `json:"workflow_chain_refs,omitempty"`
+	GraphRefs                AgentActionBOMGraphRefs `json:"graph_refs,omitempty"`
+	ProofRefs                []string                `json:"proof_refs,omitempty"`
+	EvidencePacketRefs       []string                `json:"evidence_packet_refs,omitempty"`
+	MissingEvidence          []string                `json:"missing_evidence,omitempty"`
 }
 
 type Methodology struct {

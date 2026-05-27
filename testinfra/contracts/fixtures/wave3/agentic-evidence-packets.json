@@ -1,0 +1,43 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-05-26T15:00:00Z",
+  "packets": [
+    {
+      "packet_id": "pkt-42",
+      "source": "review_export",
+      "source_type": "provider_export",
+      "provider": "github",
+      "provider_url": "https://github.example.com/fake/acme/demo/pull/42",
+      "repo": "acme/demo",
+      "workflow": ".github/workflows/release.yml",
+      "path_id": "apc-release-1",
+      "agent_id": "wrkr:workflow-release:acme",
+      "pull_request_ref": "pr/42",
+      "owner": "@acme/platform",
+      "task": "release automation",
+      "title": "Consequential AI-assisted release",
+      "files_touched": [".github/workflows/release.yml", "AGENTS.md"],
+      "diff_refs": ["diff://fake/acme/demo/pr-42"],
+      "diff_digests": ["sha256:deadbeef"],
+      "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+      "delegation_readiness_state": "approval_required",
+      "permissions": ["deploy.write", "contents.write"],
+      "credentials": ["github_workflow_token"],
+      "tests": ["fast-lane", "windows-smoke"],
+      "reviewers": ["platform-bot"],
+      "approvals": ["sre-owner"],
+      "deployment_environments": ["production"],
+      "policy_verdict": "approval_required",
+      "exception_refs": ["exception://fake/acme/demo/pr-42"],
+      "result": "partial",
+      "missing_evidence_state": "partial",
+      "missing_evidence": ["branch_protection_missing"],
+      "proof_refs": ["proof://release"],
+      "graph_node_refs": ["node-1"],
+      "graph_edge_refs": ["edge-1"],
+      "evidence_refs": ["evidence://fake/provider/pr-42.json"],
+      "observed_at": "2026-05-26T14:59:00Z",
+      "redaction_hints": ["authors", "providers"]
+    }
+  ]
+}

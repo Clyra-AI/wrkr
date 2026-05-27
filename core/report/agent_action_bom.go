@@ -139,6 +139,10 @@ type AgentActionBOMItem struct {
 	RecommendedActionContract           *risk.RecommendedActionContract        `json:"recommended_action_contract,omitempty"`
 	TodayPath                           *risk.GovernedPathView                 `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *risk.GovernedPathView                 `json:"recommended_governed_path,omitempty"`
+	EvidencePacketStatus                string                                 `json:"evidence_packet_status,omitempty"`
+	EvidencePacketResult                string                                 `json:"evidence_packet_result,omitempty"`
+	EvidencePacketMissingEvidenceState  string                                 `json:"evidence_packet_missing_evidence_state,omitempty"`
+	EvidencePacketRefs                  []string                               `json:"evidence_packet_refs,omitempty"`
 	ActionClasses                       []string                               `json:"action_classes,omitempty"`
 	ActionReasons                       []string                               `json:"action_reasons,omitempty"`
 	MutableEndpointSemantics            []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
@@ -225,6 +229,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 	backlogByPath := backlogItemsByPath(summary.ControlBacklog)
 	graphRefsByPath, graphRefs := controlPathGraphRefs(summary.ControlPathGraph)
 	runtimeByPath := runtimeEvidenceByPath(summary.RuntimeEvidence)
+	packetByPath := evidencePacketsByPath(summary.EvidencePackets)
 	reachabilityByPath := reachabilityByPathID(summary.ActionPaths, findings)
 	signalsByPath := pathSignalsByPathID(summary.ActionPaths, findings)
 	proofCoverageByPath := proofCoverageByPath(summary.ActionPaths, summary.controlProofStatus)
@@ -236,6 +241,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		pathID := strings.TrimSpace(path.PathID)
 		itemGraphRefs := graphRefsByPath[pathID]
 		runtimeItem := runtimeByPath[pathID]
+		packetItem := packetByPath[pathID]
 		backlogItem := backlogByPath[pathID]
 		reachability := append([]AgentActionBOMReachability(nil), reachabilityByPath[pathID]...)
 		reachableServers, reachableTools, reachableEndpoints, reachableTargets, reachableAPIs, reachableAgents := namedReachability(reachability)
@@ -322,6 +328,10 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			RecommendedActionContract:           risk.CloneRecommendedActionContract(path.RecommendedActionContract),
 			TodayPath:                           risk.CloneGovernedPathView(path.TodayPath),
 			RecommendedGovernedPath:             risk.CloneGovernedPathView(path.RecommendedGovernedPath),
+			EvidencePacketStatus:                strings.TrimSpace(packetItem.Status),
+			EvidencePacketResult:                strings.TrimSpace(packetItem.Result),
+			EvidencePacketMissingEvidenceState:  strings.TrimSpace(packetItem.MissingEvidenceState),
+			EvidencePacketRefs:                  append([]string(nil), packetItem.PacketRefs...),
 			ActionClasses:                       append([]string(nil), path.ActionClasses...),
 			ActionReasons:                       append([]string(nil), path.ActionReasons...),
 			MutableEndpointSemantics:            agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics),
@@ -611,11 +621,63 @@ func itemEvidenceRefs(path risk.ActionPath, backlog controlbacklog.Item, runtime
 	refs = append(refs, backlog.EvidenceBasis...)
 	refs = append(refs, runtime.RecordIDs...)
 	refs = append(refs, runtime.Sources...)
+	refs = append(refs, path.EvidencePacketRefs...)
 	refs = append(refs, path.AttackPathRefs...)
 	refs = append(refs, path.SourceFindingKeys...)
 	refs = append(refs, graphRefs.NodeIDs...)
 	refs = append(refs, graphRefs.EdgeIDs...)
 	return uniqueSortedStrings(refs)
+}
+
+type evidencePacketProjection struct {
+	Status               string
+	Result               string
+	MissingEvidenceState string
+	PacketRefs           []string
+}
+
+func evidencePacketsByPath(summary *ingest.EvidencePacketSummary) map[string]evidencePacketProjection {
+	out := map[string]evidencePacketProjection{}
+	if summary == nil {
+		return out
+	}
+	for _, item := range summary.Correlations {
+		pathID := strings.TrimSpace(item.PathID)
+		if pathID == "" {
+			continue
+		}
+		current := out[pathID]
+		current.Status = strongestEvidencePacketStatus(current.Status, item.Status)
+		current.Result = firstNonEmptyValue(strings.TrimSpace(current.Result), strings.TrimSpace(item.Result))
+		current.MissingEvidenceState = strongestEvidencePacketMissingState(current.MissingEvidenceState, item.MissingEvidenceState)
+		current.PacketRefs = uniqueSortedStrings(append(current.PacketRefs, strings.TrimSpace(item.PacketID)))
+		out[pathID] = current
+	}
+	return out
+}
+
+func strongestEvidencePacketStatus(current, incoming string) string {
+	switch strings.TrimSpace(incoming) {
+	case ingest.CorrelationStatusConflict:
+		return ingest.CorrelationStatusConflict
+	case ingest.CorrelationStatusMatched:
+		if strings.TrimSpace(current) != ingest.CorrelationStatusConflict {
+			return ingest.CorrelationStatusMatched
+		}
+	case ingest.CorrelationStatusUnmatched:
+		if strings.TrimSpace(current) == "" {
+			return ingest.CorrelationStatusUnmatched
+		}
+	}
+	return strings.TrimSpace(current)
+}
+
+func strongestEvidencePacketMissingState(current, incoming string) string {
+	rank := map[string]int{"complete": 0, "partial": 1, "missing": 2}
+	if rank[strings.TrimSpace(incoming)] > rank[strings.TrimSpace(current)] {
+		return strings.TrimSpace(incoming)
+	}
+	return strings.TrimSpace(current)
 }
 
 func isStaticCredentialItem(provenance *agginventory.CredentialProvenance) bool {

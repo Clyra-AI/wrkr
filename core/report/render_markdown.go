@@ -105,6 +105,35 @@ func RenderMarkdown(summary Summary) string {
 			))
 		}
 		builder.WriteString("\n")
+		if summary.RecentPRReview != nil {
+			builder.WriteString("## Recent PR Review\n\n")
+			builder.WriteString(fmt.Sprintf("- Mode: %s limit=%d total_candidates=%d\n",
+				summary.RecentPRReview.Mode,
+				summary.RecentPRReview.Limit,
+				summary.RecentPRReview.TotalCandidates,
+			))
+			for _, item := range summary.RecentPRReview.Ranked {
+				builder.WriteString(fmt.Sprintf("- rank=%d ref=%s repo=%s workflow=%s autonomy=%s readiness=%s control=%s target=%s contradictions=%t checks=%d approvals=%d deployments=%d focus_path=%s proof_refs=%s packet_refs=%s missing_evidence=%s\n",
+					item.Rank,
+					firstNonEmptyValue(item.Reference, item.ReviewID),
+					item.Repo,
+					item.Workflow,
+					risk.BuyerAutonomyTierShortLabel(item.AutonomyTier),
+					risk.BuyerDelegationReadinessLabel(item.DelegationReadinessState),
+					risk.BuyerRecommendedControlLabel(item.RecommendedControl),
+					item.TargetClass,
+					item.Contradiction,
+					item.CheckCount,
+					item.ApprovalCount,
+					item.DeploymentCount,
+					item.FocusBOMPathID,
+					strings.Join(item.ProofRefs, ", "),
+					strings.Join(item.EvidencePacketRefs, ", "),
+					strings.Join(item.MissingEvidence, ", "),
+				))
+			}
+			builder.WriteString("\n")
+		}
 
 		emptyStateStatus := strings.TrimSpace(summary.AgentActionBOM.Summary.EmptyStateStatus)
 		emptyStateReasons := summary.AgentActionBOM.Summary.EmptyStateReasons

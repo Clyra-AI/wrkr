@@ -4,6 +4,7 @@
 
 ```bash
 wrkr ingest --state ./.wrkr/last-scan.json --input runtime-evidence.json --json
+wrkr ingest --state ./.wrkr/last-scan.json --input agentic-evidence-packets.json --json
 ```
 
 `ingest` stores deterministic local evidence beside the saved scan state without mutating scan truth.
@@ -16,9 +17,9 @@ wrkr ingest --state ./.wrkr/last-scan.json --input runtime-evidence.json --json
 
 ## Contract
 
-Expected JSON keys: `status`, `artifact_path`, `record_count`, `matched_records`, `unmatched_records`, and additive `runtime_evidence`.
+Expected JSON keys: `status`, `artifact_path`, plus either runtime-evidence keys (`record_count`, `matched_records`, `unmatched_records`, additive `runtime_evidence`) or evidence-packet keys (`artifact_kind=evidence_packets`, `packet_count`, `matched_packets`, `unmatched_packets`, additive `evidence_packets`).
 
-The managed runtime evidence artifact is written next to the selected state file as `runtime-evidence.json`.
+The managed runtime evidence artifact is written next to the selected state file as `runtime-evidence.json`. Managed Agentic SDLC evidence packets are written next to the selected state file as `agentic-evidence-packets.json`.
 
 Runtime and external-control records are normalized and sorted deterministically. Each record must provide:
 
@@ -52,6 +53,7 @@ Additional additive keys may include `tool`, `repo`, `service`, `workflow`, `env
 
 Wrkr normalizes external-control records with deterministic source precedence and freshness metadata. Correlation summaries now preserve additive `freshness_state` / `freshness_states` so stale or expired evidence is visible without silently verifying a control.
 These imports stay local-file based and deterministic; Wrkr correlates them without live provider calls.
+Agentic evidence-packet sidecars should validate against `schemas/v1/evidence/agentic-evidence-packets.schema.json`. They are typed local audit packets for consequential AI-assisted or automation-assisted SDLC changes and can correlate by `path_id`, `agent_id`, `repo` + `workflow`, `pull_request_ref`, `files_touched`, `proof_refs`, or graph refs. Packet output stays summary-level: refs, digests, result, and missing-evidence state are serialized, but raw secret values and raw diff payloads are not.
 
 ## Safety and failure modes
 
