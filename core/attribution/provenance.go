@@ -245,6 +245,9 @@ func loadProviderProvenanceCandidates(repoRoot string) []Candidate {
 	if err != nil {
 		return nil
 	}
+	if err := ValidateProvenanceJSON(payload); err != nil {
+		return nil
+	}
 	var decoded provenanceBundlePayload
 	if json.Unmarshal(payload, &decoded) != nil {
 		return nil
