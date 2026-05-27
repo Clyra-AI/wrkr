@@ -125,6 +125,29 @@ func TestDetectStructuredAuthorityBindingsFromTerraformAndRBACSignals(t *testing
 	}
 }
 
+func TestDetectWildcardKubernetesRBACAsAdminAuthority(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeNonHumanFile(t, root, "k8s/rbac.yaml", strings.Join([]string{
+		`kind: ClusterRole`,
+		`metadata:`,
+		`  name: release-manager`,
+		`rules:`,
+		`  - verbs: ["*"]`,
+		`    resources: ["deployments"]`,
+	}, "\n"))
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "acme", Repo: "svc", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect non-human identities: %v", err)
+	}
+	joined := strings.Join(flattenEvidence(findings, "authority_binding"), "\n")
+	if !strings.Contains(joined, "kubernetes_rbac|kubernetes|kubernetes_rbac|kubernetes|cluster_role|cluster_access|admin") {
+		t.Fatalf("expected wildcard kubernetes RBAC to classify as admin, got %s", joined)
+	}
+}
+
 func evidenceValue(finding model.Finding, key string) string {
 	for _, item := range finding.Evidence {
 		if item.Key == key {
