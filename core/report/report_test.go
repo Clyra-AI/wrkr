@@ -2437,6 +2437,16 @@ func TestBuildSummaryCustomerRedactedSanitizesBOMReachability(t *testing.T) {
 	if !strings.HasPrefix(item.Repo, "repo-") || !strings.HasPrefix(item.Location, "loc-") {
 		t.Fatalf("expected redacted repo/location, got %+v", item)
 	}
+	if summary.AgentActionBOM.Summary.PrimaryView == nil {
+		t.Fatalf("expected redacted primary view on summary, got %+v", summary.AgentActionBOM.Summary)
+	}
+	primaryView := summary.AgentActionBOM.Summary.PrimaryView
+	if !strings.HasPrefix(primaryView.PathID, "path-") || !strings.HasPrefix(primaryView.PathMap.Workflow, "loc-") {
+		t.Fatalf("expected redacted primary view path details, got %+v", primaryView)
+	}
+	if strings.Contains(primaryView.PathMap.RepoPR, "acme/payments") || strings.Contains(primaryView.PathMap.Credential, "prod-mcp") {
+		t.Fatalf("expected primary view path map to be redacted, got %+v", primaryView.PathMap)
+	}
 	if item.Confidence != "high" || item.EvidenceStrength != "tool_binding" {
 		t.Fatalf("expected confidence metadata on BOM item, got %+v", item)
 	}

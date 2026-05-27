@@ -395,6 +395,7 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 	copyBOM.EvidenceRefs = maybeRedactStringSlice(in.EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
 	copyBOM.ProofRefs = maybeRedactStringSlice(in.ProofRefs, "proof", config.Has(RedactionProofRefs))
 	copyBOM.GraphRefs = sanitizeGraphRefsWithConfig(in.GraphRefs, config)
+	copyBOM.Summary.PrimaryView = sanitizePrimaryViewWithConfig(in.Summary.PrimaryView, config)
 	copyBOM.Items = append([]AgentActionBOMItem(nil), in.Items...)
 	for idx := range copyBOM.Items {
 		copyBOM.Items[idx].PathID = maybeRedactPathID(copyBOM.Items[idx].PathID, config)
@@ -439,6 +440,32 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].EvidencePacketRefs = maybeRedactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 	}
 	return &copyBOM
+}
+
+func sanitizePrimaryViewWithConfig(in *AgentActionBOMPrimaryView, config RedactionConfig) *AgentActionBOMPrimaryView {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.PathID = maybeRedactPathID(in.PathID, config)
+	out.PathMap = AgentActionBOMPrimaryPathMap{
+		Tool:       maybeRedactCompositeLabel(in.PathMap.Tool, config),
+		RepoPR:     maybeRedactCompositeLabel(in.PathMap.RepoPR, config),
+		Workflow:   maybeRedactLocationLike(in.PathMap.Workflow, config),
+		Credential: maybeRedactCompositeLabel(in.PathMap.Credential, config),
+		Action:     strings.TrimSpace(in.PathMap.Action),
+		Target:     maybeRedactCompositeLabel(in.PathMap.Target, config),
+	}
+	out.TodayPath = risk.CloneGovernedPathView(in.TodayPath)
+	out.RecommendedGovernedPath = risk.CloneGovernedPathView(in.RecommendedGovernedPath)
+	out.RecommendedActionContract = risk.CloneRecommendedActionContract(in.RecommendedActionContract)
+	out.WorkflowChainRefs = maybeRedactStringSlice(in.WorkflowChainRefs, "chain", config.Has(RedactionPaths) || config.Has(RedactionGraphRefs))
+	out.GraphRefs = sanitizeGraphRefsWithConfig(in.GraphRefs, config)
+	out.ProofRefs = maybeRedactStringSlice(in.ProofRefs, "proof", config.Has(RedactionProofRefs))
+	out.EvidencePacketRefs = maybeRedactStringSlice(in.EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
+	out.AppendixRefs = cloneStrings(in.AppendixRefs)
+	out.UnresolvedEvidence = cloneStrings(in.UnresolvedEvidence)
+	return &out
 }
 
 func sanitizeGovernanceDispositionWithConfig(in *controlbacklog.GovernanceDisposition, config RedactionConfig) *controlbacklog.GovernanceDisposition {
