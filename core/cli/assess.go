@@ -369,11 +369,17 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 		Artifact2: artifacts.EvidenceManifestPath,
 	}
 
-	inventoryCode, inventoryStdout, inventoryStderr := runAssessStage(ctx, []string{"export", "--format", "inventory", "--state", statePath, "--json"})
+	exportInventoryArgs := []string{"export", "--format", "inventory", "--state", statePath, "--json"}
+	exportAppendixArgs := []string{"export", "--format", "appendix", "--state", statePath, "--json"}
+	if assessExportShouldAnonymize(shareProfile) {
+		exportInventoryArgs = append(exportInventoryArgs[:len(exportInventoryArgs)-1], "--anonymize", "--json")
+		exportAppendixArgs = append(exportAppendixArgs[:len(exportAppendixArgs)-1], "--anonymize", "--json")
+	}
+	inventoryCode, inventoryStdout, inventoryStderr := runAssessStage(ctx, exportInventoryArgs)
 	if inventoryCode != exitSuccess {
 		return emitAssessStageFailure(stderr, jsonRequested || *jsonOut, "export", inventoryCode, inventoryStderr)
 	}
-	appendixCode, appendixStdout, appendixStderr := runAssessStage(ctx, []string{"export", "--format", "appendix", "--state", statePath, "--json"})
+	appendixCode, appendixStdout, appendixStderr := runAssessStage(ctx, exportAppendixArgs)
 	if appendixCode != exitSuccess {
 		return emitAssessStageFailure(stderr, jsonRequested || *jsonOut, "export", appendixCode, appendixStderr)
 	}
@@ -628,4 +634,17 @@ func assessTargetLabels(pathTarget string, mySetup bool, explicitTargets []strin
 		out = append(out, "target:"+trimmed)
 	}
 	return out
+}
+
+func assessExportShouldAnonymize(profile reportcore.ShareProfile) bool {
+	switch profile {
+	case reportcore.ShareProfilePublic,
+		reportcore.ShareProfileCustomerRedacted,
+		reportcore.ShareProfileDesignPartner,
+		reportcore.ShareProfileExternalRedacted,
+		reportcore.ShareProfileInvestorSafe:
+		return true
+	default:
+		return false
+	}
 }
