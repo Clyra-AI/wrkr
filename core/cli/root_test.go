@@ -63,6 +63,7 @@ func TestRunRootHelpListsCommands(t *testing.T) {
 
 	expectedAnchors := []string{
 		"  scan       discover tools and emit inventory/risk state",
+		"  assess     run a repeatable assessment workflow",
 		"  score      compute posture score and breakdown",
 		"  evidence   build compliance-ready evidence bundles",
 		"  fix        plan deterministic remediations (repo writes require --open-pr)",
@@ -70,6 +71,7 @@ func TestRunRootHelpListsCommands(t *testing.T) {
 		"  wrkr init --non-interactive --org acme --github-api https://api.github.com --json",
 		"  wrkr scan --config ~/.wrkr/config.json --json",
 		"  wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json",
+		"  wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --json",
 		"  wrkr scan --my-setup --json",
 		"Global flags:",
 	}
@@ -95,6 +97,7 @@ func TestRootHelpShowsHostedEvaluatorAndMySetupPaths(t *testing.T) {
 		"wrkr init --non-interactive --org acme --github-api https://api.github.com --json",
 		"wrkr scan --config ~/.wrkr/config.json --json",
 		"wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json",
+		"wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --json",
 		"wrkr scan --my-setup --json",
 	} {
 		if !strings.Contains(helpText, expected) {
@@ -167,6 +170,7 @@ func TestRunSubcommandHelpReturnsExit0(t *testing.T) {
 	}{
 		{name: "init", args: []string{"init", "--help"}},
 		{name: "scan", args: []string{"scan", "--help"}},
+		{name: "assess", args: []string{"assess", "--help"}},
 		{name: "action", args: []string{"action", "--help"}},
 		{name: "action pr-mode", args: []string{"action", "pr-mode", "--help"}},
 		{name: "action pr-comment", args: []string{"action", "pr-comment", "--help"}},

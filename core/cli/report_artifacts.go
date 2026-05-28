@@ -26,6 +26,7 @@ type reportArtifactOptions struct {
 	ShareProfile       reportcore.ShareProfile
 	PairedShareProfile reportcore.ShareProfile
 	RedactionFields    []reportcore.RedactionField
+	FocusPreset        string
 	FocusPathID        string
 	RecentPRReview     *reportcore.RecentPRReviewOptions
 	WriteMarkdown      bool
@@ -117,6 +118,9 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 			summary.RecentPRReview = reportcore.BuildRecentPRReview(summary, reviewOpts)
 		}
 		if err := reportcore.ApplyAgentActionBOMFocus(&summary, opts.FocusPathID); err != nil {
+			return reportcore.Summary{}, err
+		}
+		if err := reportcore.ApplyFocusPreset(&summary, opts.FocusPreset); err != nil {
 			return reportcore.Summary{}, err
 		}
 		return summary, nil

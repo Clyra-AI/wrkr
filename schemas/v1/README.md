@@ -3,6 +3,7 @@
 This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifact contracts.
 
 - `cli/`: shared CLI success/error envelope contracts.
+- `assess/assessment-manifest.schema.json`: canonical repeatable-assessment manifest contract for `wrkr assess` output directories.
 - `agent-action-bom.schema.json`: canonical Agent Action BOM artifact contract for report and evidence outputs.
 - `evidence/external-control-evidence.schema.json`: canonical local sidecar contract for imported ownership, approval, branch, deployment, and policy control evidence.
 - `evidence/agentic-evidence-packets.schema.json`: canonical local sidecar contract for typed Agentic SDLC evidence packets.
@@ -12,6 +13,7 @@ This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifac
 - Agent Action BOM, report summary, and risk-report schemas now also carry additive policy-coverage, buyer-facing action-path posture (`control_state`, `risk_zone`, `review_burden`), normalized runtime-evidence/Gait coverage projection, additive imported control-evidence correlation metadata (`constraint_evidence_classes`, `constraint_evidence_refs`, external-control record counts, repo/service/workflow/environment correlation keys), optional `introduced_by` attribution fields, nested provider-neutral provenance detail, additive evidence-packet correlation fields, and the additive `github_workflow_token` credential kind used by the demo-readiness control-loop workflows.
 - Agent Action BOM summary now also carries additive `primary_view` workflow-BOM fields for the default or explicit `--focus-path` selection: selected `path_id`, selection reason, path map, evidence/control posture, governed-path before/after guidance, and appendix refs.
 - Report-summary contracts also include additive `evidence_packets` and `recent_pr_review` surfaces for local PR/MR review workflows that stay offline by default.
+- Report-summary contracts also include additive `workflow_highlights` and `focus_view` sections for workflow-first buyer reports and named low-click review presets.
 - Action-path and BOM contracts also carry additive `evidence_decisions[]` and `contradictions[]` for source precedence, freshness, rejected candidates, and enterprise-evidence conflicts.
 - Report and BOM action-path contracts also carry `closure_requirements`, `lifecycle_queue`, `governance_disposition`, and `evidence_completeness` so accepted-risk, suppression, closure guidance, lifecycle ownership work, and evidence sufficiency stay explicit in v1.
 - `findings/`: finding and extension-detector descriptor contracts.

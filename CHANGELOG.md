@@ -42,6 +42,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added runtime session evidence correlation into graph refs, evidence packets, Agent Action BOM coverage, report summaries, and evidence bundles.
 - [semver:minor] Added paired internal and customer-redacted report artifacts with deterministic joins and a local-only private join map.
 - [semver:minor] Added portable evidence bundle manifests with stable artifact metadata, redaction profiles, proof-chain refs, source privacy metadata, evidence-state summaries, and boundary labels.
+- [semver:minor] Added a repeatable `wrkr assess` workflow that stitches scan, optional ingest, report, evidence, export, optional ticket payloads, and optional drift review into one deterministic output directory and manifest.
+- [semver:minor] Added low-click report focus presets for BOM review, release-adjacent AI paths, write/deploy reach, approval and owner evidence gaps, evidence gaps, contradictions, drift review, and recommendations.
 
 ### Changed
 
@@ -53,6 +55,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Changed evidence resolution to use deterministic source precedence with conflict reasons across ownership and control outputs.
 - [semver:minor] Changed production-data and mutable-endpoint projection so uncorrelated route/OpenAPI surfaces stay appendix-only while correlated paths render workflow, credential, deployment, target, and evidence context.
 - [semver:minor] Changed the default Agent Action BOM presentation to lead with one workflow/action path and move raw findings, graph refs, proof refs, scan quality, and detector diagnostics to appendices.
+- [semver:minor] Changed buyer-facing reports to lead with workflow chain highlights, authority, evidence state, proof/runtime status, boundary labels, and next-step recommendations before raw appendix detail.
 - Updated command, trust, and schema documentation for evidence-state control resolution, target classification, action path type classification, coverage-qualified absence, runtime evidence framing, and report QA guardrails.
 
 ### Deprecated

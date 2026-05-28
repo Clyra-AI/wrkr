@@ -88,6 +88,8 @@ type Summary struct {
 	OperationalExposure      *scorecore.AxisSummary                 `json:"operational_exposure,omitempty"`
 	GovernanceReadiness      *scorecore.AxisSummary                 `json:"governance_readiness,omitempty"`
 	EvidenceCompleteness     *risk.EvidenceCompletenessSummary      `json:"evidence_completeness,omitempty"`
+	WorkflowHighlights       *WorkflowHighlights                    `json:"workflow_highlights,omitempty"`
+	FocusView                *FocusView                             `json:"focus_view,omitempty"`
 	AssessmentSummary        *AssessmentSummary                     `json:"assessment_summary,omitempty"`
 	Methodology              Methodology                            `json:"methodology"`
 	TopRisks                 []RiskItem                             `json:"top_risks"`
@@ -209,6 +211,47 @@ type AssessmentSummary struct {
 	IdentityToReviewFirst      *risk.IdentityActionTarget    `json:"identity_to_review_first,omitempty"`
 	IdentityToRevokeFirst      *risk.IdentityActionTarget    `json:"identity_to_revoke_first,omitempty"`
 	ProofChainPath             string                        `json:"proof_chain_path,omitempty"`
+}
+
+type WorkflowHighlights struct {
+	TotalItems int                 `json:"total_items"`
+	Highlights []WorkflowHighlight `json:"highlights,omitempty"`
+}
+
+type WorkflowHighlight struct {
+	PathID               string   `json:"path_id"`
+	WorkflowChainRefs    []string `json:"workflow_chain_refs,omitempty"`
+	Repo                 string   `json:"repo,omitempty"`
+	Workflow             string   `json:"workflow,omitempty"`
+	PathType             string   `json:"path_type,omitempty"`
+	TargetClass          string   `json:"target_class,omitempty"`
+	AutonomyTier         string   `json:"autonomy_tier,omitempty"`
+	DelegationReadiness  string   `json:"delegation_readiness,omitempty"`
+	Authority            string   `json:"authority,omitempty"`
+	BlastRadius          string   `json:"blast_radius,omitempty"`
+	EvidenceSummary      string   `json:"evidence_summary,omitempty"`
+	ApprovalPath         string   `json:"approval_path,omitempty"`
+	ProofStatus          string   `json:"proof_status,omitempty"`
+	RuntimeStatus        string   `json:"runtime_status,omitempty"`
+	RuntimeSessionStatus string   `json:"runtime_session_status,omitempty"`
+	Recommendation       string   `json:"recommendation,omitempty"`
+	BoundaryLabel        string   `json:"boundary_label,omitempty"`
+	Explanation          string   `json:"explanation,omitempty"`
+}
+
+type FocusView struct {
+	Preset                 string              `json:"preset"`
+	Title                  string              `json:"title"`
+	MatchingPaths          int                 `json:"matching_paths"`
+	MatchingWorkflowChains int                 `json:"matching_workflow_chains"`
+	MatchingBacklogItems   int                 `json:"matching_backlog_items"`
+	EmptyStateStatus       string              `json:"empty_state_status,omitempty"`
+	EmptyStateMessage      string              `json:"empty_state_message,omitempty"`
+	RecommendedNextActions []string            `json:"recommended_next_actions,omitempty"`
+	PathIDs                []string            `json:"path_ids,omitempty"`
+	WorkflowChainRefs      []string            `json:"workflow_chain_refs,omitempty"`
+	ControlBacklogIDs      []string            `json:"control_backlog_ids,omitempty"`
+	Highlights             []WorkflowHighlight `json:"highlights,omitempty"`
 }
 
 type RecentPRReview struct {

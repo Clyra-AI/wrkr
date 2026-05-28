@@ -65,6 +65,12 @@
     "evidence_completeness": {
       "$ref": "#/$defs/evidenceCompletenessSummary"
     },
+    "workflow_highlights": {
+      "$ref": "#/$defs/workflowHighlights"
+    },
+    "focus_view": {
+      "$ref": "#/$defs/focusView"
+    },
     "methodology": {
       "$ref": "#/$defs/methodology"
     },
@@ -530,6 +536,65 @@
         "version": {"type": "string", "enum": ["1"]},
         "summary": {"$ref": "#/$defs/workflowChainSummary"},
         "chains": {"type": "array", "items": {"$ref": "#/$defs/workflowChain"}}
+      },
+      "additionalProperties": false
+    },
+    "workflowHighlight": {
+      "type": "object",
+      "required": ["path_id"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
+        "repo": {"type": "string"},
+        "workflow": {"type": "string"},
+        "path_type": {"type": "string"},
+        "target_class": {"type": "string"},
+        "autonomy_tier": {"type": "string"},
+        "delegation_readiness": {"type": "string"},
+        "authority": {"type": "string"},
+        "blast_radius": {"type": "string"},
+        "evidence_summary": {"type": "string"},
+        "approval_path": {"type": "string"},
+        "proof_status": {"type": "string"},
+        "runtime_status": {"type": "string"},
+        "runtime_session_status": {"type": "string"},
+        "recommendation": {"type": "string"},
+        "boundary_label": {"type": "string"},
+        "explanation": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "workflowHighlights": {
+      "type": "object",
+      "required": ["total_items"],
+      "properties": {
+        "total_items": {"type": "integer", "minimum": 0},
+        "highlights": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/workflowHighlight"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "focusView": {
+      "type": "object",
+      "required": ["preset", "title", "matching_paths", "matching_workflow_chains", "matching_backlog_items"],
+      "properties": {
+        "preset": {"type": "string", "enum": ["bom", "release", "write-deploy", "approval-evidence-unknown", "owner-evidence-unknown", "evidence-gaps", "contradictions", "drift-review", "recommendations"]},
+        "title": {"type": "string"},
+        "matching_paths": {"type": "integer", "minimum": 0},
+        "matching_workflow_chains": {"type": "integer", "minimum": 0},
+        "matching_backlog_items": {"type": "integer", "minimum": 0},
+        "empty_state_status": {"type": "string"},
+        "empty_state_message": {"type": "string"},
+        "recommended_next_actions": {"type": "array", "items": {"type": "string"}},
+        "path_ids": {"type": "array", "items": {"type": "string"}},
+        "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
+        "control_backlog_ids": {"type": "array", "items": {"type": "string"}},
+        "highlights": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/workflowHighlight"}
+        }
       },
       "additionalProperties": false
     },
