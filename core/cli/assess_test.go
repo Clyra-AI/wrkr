@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -166,6 +167,50 @@ func TestAssessBaselineDriftReturnsExitAndWritesManifest(t *testing.T) {
 	regressStage, ok := stages["regress"].(map[string]any)
 	if !ok || regressStage["status"] != "drift_detected" {
 		t.Fatalf("expected regress stage drift_detected, got %v", stages["regress"])
+	}
+}
+
+func TestAssessRedactedShareProfileAnonymizesExportPack(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repo := writeAssessFixtureRepo(t, tmp)
+	outputDir := filepath.Join(tmp, "assessment")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"assess",
+		"--path", repo,
+		"--share-profile", "customer-redacted",
+		"--output-dir", outputDir,
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("expected exit 0, got %d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse assess payload: %v", err)
+	}
+	artifacts, ok := payload["artifacts"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected artifacts object, got %T", payload["artifacts"])
+	}
+	exportPackPath, _ := artifacts["export_pack_path"].(string)
+	if exportPackPath == "" {
+		t.Fatalf("expected export_pack_path, got %v", artifacts)
+	}
+	packBytes, err := os.ReadFile(filepath.Join(outputDir, filepath.FromSlash(exportPackPath)))
+	if err != nil {
+		t.Fatalf("read export pack: %v", err)
+	}
+	packText := string(packBytes)
+	for _, forbidden := range []string{"local/repo", ".github/workflows/release.yml"} {
+		if strings.Contains(packText, forbidden) {
+			t.Fatalf("expected redacted export pack to hide %q, got %s", forbidden, packText)
+		}
 	}
 }
 
