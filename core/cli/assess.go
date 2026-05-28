@@ -184,7 +184,7 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	} else if !os.IsNotExist(err) {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("stat --output-dir: %v", err), exitRuntime)
 	}
-	if err := os.MkdirAll(resolvedOutputDir, 0o755); err != nil {
+	if err := os.MkdirAll(resolvedOutputDir, 0o750); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("mkdir --output-dir: %v", err), exitRuntime)
 	}
 
@@ -196,7 +196,7 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	if parseErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", parseErr.Error(), exitInvalidInput)
 	}
-	if err := os.MkdirAll(filepath.Dir(statePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(statePath), 0o750); err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("mkdir state artifact dir: %v", err), exitRuntime)
 	}
 
