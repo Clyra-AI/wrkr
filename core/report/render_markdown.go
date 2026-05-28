@@ -897,22 +897,22 @@ func renderFocusViewSection(builder *strings.Builder, focus *FocusView) {
 		return
 	}
 	builder.WriteString("## Focus View\n\n")
-	builder.WriteString(fmt.Sprintf("- Preset: %s\n", focus.Preset))
-	builder.WriteString(fmt.Sprintf("- Title: %s\n", focus.Title))
-	builder.WriteString(fmt.Sprintf("- Matching paths: %d\n", focus.MatchingPaths))
-	builder.WriteString(fmt.Sprintf("- Matching workflow chains: %d\n", focus.MatchingWorkflowChains))
-	builder.WriteString(fmt.Sprintf("- Matching backlog items: %d\n", focus.MatchingBacklogItems))
+	fmt.Fprintf(builder, "- Preset: %s\n", focus.Preset)
+	fmt.Fprintf(builder, "- Title: %s\n", focus.Title)
+	fmt.Fprintf(builder, "- Matching paths: %d\n", focus.MatchingPaths)
+	fmt.Fprintf(builder, "- Matching workflow chains: %d\n", focus.MatchingWorkflowChains)
+	fmt.Fprintf(builder, "- Matching backlog items: %d\n", focus.MatchingBacklogItems)
 	if focus.EmptyStateStatus != "" {
-		builder.WriteString(fmt.Sprintf("- Empty state: %s\n", focus.EmptyStateStatus))
+		fmt.Fprintf(builder, "- Empty state: %s\n", focus.EmptyStateStatus)
 	}
 	if focus.EmptyStateMessage != "" {
-		builder.WriteString(fmt.Sprintf("- Empty state detail: %s\n", focus.EmptyStateMessage))
+		fmt.Fprintf(builder, "- Empty state detail: %s\n", focus.EmptyStateMessage)
 	}
 	for _, action := range focus.RecommendedNextActions {
 		if strings.TrimSpace(action) == "" {
 			continue
 		}
-		builder.WriteString(fmt.Sprintf("- Next action: %s\n", strings.TrimSpace(action)))
+		fmt.Fprintf(builder, "- Next action: %s\n", strings.TrimSpace(action))
 	}
 	if len(focus.Highlights) == 0 {
 		builder.WriteString("\n")
@@ -930,7 +930,7 @@ func renderWorkflowHighlightsSection(builder *strings.Builder, highlights *Workf
 		return
 	}
 	builder.WriteString("## Workflow Chain Highlights\n\n")
-	builder.WriteString(fmt.Sprintf("- Total buyer-facing workflow paths: %d\n", highlights.TotalItems))
+	fmt.Fprintf(builder, "- Total buyer-facing workflow paths: %d\n", highlights.TotalItems)
 	builder.WriteString("\n")
 	for _, item := range highlights.Highlights {
 		renderWorkflowHighlightLine(builder, item)
@@ -942,7 +942,7 @@ func renderWorkflowHighlightLine(builder *strings.Builder, item WorkflowHighligh
 	if builder == nil {
 		return
 	}
-	builder.WriteString(fmt.Sprintf("- path=%s repo=%s workflow=%s type=%s target=%s autonomy=%s readiness=%s authority=%s blast_radius=%s approval=%s proof=%s runtime=%s session=%s boundary=%s recommendation=%s\n",
+	fmt.Fprintf(builder, "- path=%s repo=%s workflow=%s type=%s target=%s autonomy=%s readiness=%s authority=%s blast_radius=%s approval=%s proof=%s runtime=%s session=%s boundary=%s recommendation=%s\n",
 		firstNonEmptyValue(item.PathID, "unknown-path"),
 		firstNonEmptyValue(item.Repo, "unknown-repo"),
 		firstNonEmptyValue(item.Workflow, "unknown-workflow"),
@@ -958,7 +958,7 @@ func renderWorkflowHighlightLine(builder *strings.Builder, item WorkflowHighligh
 		firstNonEmptyValue(item.RuntimeSessionStatus, "not_collected"),
 		firstNonEmptyValue(item.BoundaryLabel, BoundaryLabelReportOnly),
 		firstNonEmptyValue(item.Recommendation, "review this workflow path"),
-	))
-	builder.WriteString(fmt.Sprintf("  evidence=%s\n", firstNonEmptyValue(item.EvidenceSummary, "evidence summary unavailable")))
-	builder.WriteString(fmt.Sprintf("  explanation=%s\n", firstNonEmptyValue(item.Explanation, "workflow explanation unavailable")))
+	)
+	fmt.Fprintf(builder, "  evidence=%s\n", firstNonEmptyValue(item.EvidenceSummary, "evidence summary unavailable"))
+	fmt.Fprintf(builder, "  explanation=%s\n", firstNonEmptyValue(item.Explanation, "workflow explanation unavailable"))
 }
