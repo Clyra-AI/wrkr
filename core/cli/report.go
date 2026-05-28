@@ -33,6 +33,7 @@ type reportPayload struct {
 	TopAttackPaths           any                           `json:"top_attack_paths,omitempty"`
 	ActionPaths              any                           `json:"action_paths,omitempty"`
 	AgentActionBOM           any                           `json:"agent_action_bom,omitempty"`
+	FocusView                any                           `json:"focus_view,omitempty"`
 	ActionPathToControlFirst any                           `json:"action_path_to_control_first,omitempty"`
 	ControlPathGraph         any                           `json:"control_path_graph,omitempty"`
 	WorkflowChains           any                           `json:"workflow_chains,omitempty"`
@@ -94,6 +95,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	reviewSinceRaw := fs.String("review-since", "", "inclusive recent-review start date (YYYY-MM-DD)")
 	reviewUntilRaw := fs.String("review-until", "", "inclusive recent-review end date (YYYY-MM-DD)")
 	reviewLimit := fs.Int("review-limit", 10, "maximum recent PR/MR paths to rank (1-50)")
+	focusPreset := fs.String("focus", "", "named buyer focus preset ["+reportcore.FocusPresetUsage()+"]")
 	focusPathID := fs.String("focus-path", "", "explicit agent-action-bom path_id for focused workflow rendering")
 	statePathFlag := fs.String("state", "", "state file path override")
 	baselinePath := fs.String("baseline", "", "optional regress baseline for drift summary")
@@ -131,6 +133,11 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	reviewOpts, reviewErr := parseRecentPRReviewOptions(*recentReview, *reviewIDsRaw, *reviewSinceRaw, *reviewUntilRaw, *reviewLimit)
 	if reviewErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", reviewErr.Error(), exitInvalidInput)
+	}
+	if trimmedFocus := strings.TrimSpace(*focusPreset); trimmedFocus != "" {
+		if _, ok := reportcore.ParseFocusPreset(trimmedFocus); !ok {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--focus must be one of "+reportcore.FocusPresetUsage(), exitInvalidInput)
+		}
 	}
 	if strings.TrimSpace(*focusPathID) != "" && template != reportcore.TemplateAgentActionBOM {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--focus-path requires --template agent-action-bom", exitInvalidInput)
@@ -185,6 +192,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		ShareProfile:       shareProfile,
 		PairedShareProfile: pairedShareProfile,
 		RedactionFields:    redactionFields,
+		FocusPreset:        *focusPreset,
 		FocusPathID:        *focusPathID,
 		RecentPRReview: func() *reportcore.RecentPRReviewOptions {
 			if !reviewOpts.Enabled {
@@ -258,6 +266,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		TopAttackPaths:           riskReport.TopAttackPaths,
 		ActionPaths:              summary.ActionPaths,
 		AgentActionBOM:           summary.AgentActionBOM,
+		FocusView:                summary.FocusView,
 		ActionPathToControlFirst: summary.ActionPathToControlFirst,
 		ControlPathGraph:         summary.ControlPathGraph,
 		WorkflowChains:           summary.WorkflowChains,

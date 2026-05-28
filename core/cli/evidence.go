@@ -58,18 +58,19 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	if *jsonOut {
 		payload := map[string]any{
-			"status":             "ok",
-			"output_dir":         result.OutputDir,
-			"frameworks":         result.Frameworks,
-			"manifest_path":      result.ManifestPath,
-			"chain_path":         result.ChainPath,
-			"framework_coverage": result.FrameworkCoverage,
-			"control_evidence":   result.ControlEvidence,
-			"coverage_note":      result.CoverageNote,
-			"report_artifacts":   result.ReportArtifacts,
-			"source_privacy":     result.SourcePrivacy,
-			"agent_action_bom":   result.AgentActionBOM,
-			"next_steps":         evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
+			"status":                 "ok",
+			"output_dir":             result.OutputDir,
+			"frameworks":             result.Frameworks,
+			"manifest_path":          result.ManifestPath,
+			"artifact_manifest_path": result.ArtifactManifestPath,
+			"chain_path":             result.ChainPath,
+			"framework_coverage":     result.FrameworkCoverage,
+			"control_evidence":       result.ControlEvidence,
+			"coverage_note":          result.CoverageNote,
+			"report_artifacts":       result.ReportArtifacts,
+			"source_privacy":         result.SourcePrivacy,
+			"agent_action_bom":       result.AgentActionBOM,
+			"next_steps":             evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
 		}
 		if result.RuntimeEvidence != nil {
 			payload["runtime_evidence"] = result.RuntimeEvidence

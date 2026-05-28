@@ -155,6 +155,14 @@ func RenderMarkdown(summary Summary) string {
 		}
 	}
 
+	if summary.FocusView != nil {
+		renderFocusViewSection(&builder, summary.FocusView)
+	}
+
+	if summary.WorkflowHighlights != nil {
+		renderWorkflowHighlightsSection(&builder, summary.WorkflowHighlights)
+	}
+
 	if summary.AssessmentSummary != nil {
 		builder.WriteString("## Assessment Summary\n\n")
 		builder.WriteString("- Scope: static posture from saved scan state only; no runtime observation or enforcement\n")
@@ -615,6 +623,10 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 	}
 	builder.WriteString("\n")
 
+	if summary.FocusView != nil {
+		renderFocusViewSection(&builder, summary.FocusView)
+	}
+
 	items := designPartnerItems(summary)
 	builder.WriteString("## Top Validated Findings\n\n")
 	if len(items) == 0 {
@@ -878,4 +890,75 @@ func designPartnerLineage(item AgentActionBOMItem) string {
 		parts = append(parts, label)
 	}
 	return strings.Join(parts, " -> ")
+}
+
+func renderFocusViewSection(builder *strings.Builder, focus *FocusView) {
+	if builder == nil || focus == nil {
+		return
+	}
+	builder.WriteString("## Focus View\n\n")
+	builder.WriteString(fmt.Sprintf("- Preset: %s\n", focus.Preset))
+	builder.WriteString(fmt.Sprintf("- Title: %s\n", focus.Title))
+	builder.WriteString(fmt.Sprintf("- Matching paths: %d\n", focus.MatchingPaths))
+	builder.WriteString(fmt.Sprintf("- Matching workflow chains: %d\n", focus.MatchingWorkflowChains))
+	builder.WriteString(fmt.Sprintf("- Matching backlog items: %d\n", focus.MatchingBacklogItems))
+	if focus.EmptyStateStatus != "" {
+		builder.WriteString(fmt.Sprintf("- Empty state: %s\n", focus.EmptyStateStatus))
+	}
+	if focus.EmptyStateMessage != "" {
+		builder.WriteString(fmt.Sprintf("- Empty state detail: %s\n", focus.EmptyStateMessage))
+	}
+	for _, action := range focus.RecommendedNextActions {
+		if strings.TrimSpace(action) == "" {
+			continue
+		}
+		builder.WriteString(fmt.Sprintf("- Next action: %s\n", strings.TrimSpace(action)))
+	}
+	if len(focus.Highlights) == 0 {
+		builder.WriteString("\n")
+		return
+	}
+	builder.WriteString("\n")
+	for _, item := range focus.Highlights {
+		renderWorkflowHighlightLine(builder, item)
+	}
+	builder.WriteString("\n")
+}
+
+func renderWorkflowHighlightsSection(builder *strings.Builder, highlights *WorkflowHighlights) {
+	if builder == nil || highlights == nil {
+		return
+	}
+	builder.WriteString("## Workflow Chain Highlights\n\n")
+	builder.WriteString(fmt.Sprintf("- Total buyer-facing workflow paths: %d\n", highlights.TotalItems))
+	builder.WriteString("\n")
+	for _, item := range highlights.Highlights {
+		renderWorkflowHighlightLine(builder, item)
+	}
+	builder.WriteString("\n")
+}
+
+func renderWorkflowHighlightLine(builder *strings.Builder, item WorkflowHighlight) {
+	if builder == nil {
+		return
+	}
+	builder.WriteString(fmt.Sprintf("- path=%s repo=%s workflow=%s type=%s target=%s autonomy=%s readiness=%s authority=%s blast_radius=%s approval=%s proof=%s runtime=%s session=%s boundary=%s recommendation=%s\n",
+		firstNonEmptyValue(item.PathID, "unknown-path"),
+		firstNonEmptyValue(item.Repo, "unknown-repo"),
+		firstNonEmptyValue(item.Workflow, "unknown-workflow"),
+		firstNonEmptyValue(item.PathType, "unknown"),
+		firstNonEmptyValue(item.TargetClass, "unknown"),
+		risk.BuyerAutonomyTierShortLabel(item.AutonomyTier),
+		risk.BuyerDelegationReadinessLabel(item.DelegationReadiness),
+		firstNonEmptyValue(item.Authority, "none"),
+		firstNonEmptyValue(item.BlastRadius, "unknown"),
+		firstNonEmptyValue(item.ApprovalPath, "approval evidence not found"),
+		firstNonEmptyValue(item.ProofStatus, "path-specific proof not found"),
+		firstNonEmptyValue(item.RuntimeStatus, "runtime evidence not collected"),
+		firstNonEmptyValue(item.RuntimeSessionStatus, "not_collected"),
+		firstNonEmptyValue(item.BoundaryLabel, BoundaryLabelReportOnly),
+		firstNonEmptyValue(item.Recommendation, "review this workflow path"),
+	))
+	builder.WriteString(fmt.Sprintf("  evidence=%s\n", firstNonEmptyValue(item.EvidenceSummary, "evidence summary unavailable")))
+	builder.WriteString(fmt.Sprintf("  explanation=%s\n", firstNonEmptyValue(item.Explanation, "workflow explanation unavailable")))
 }

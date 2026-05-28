@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.clyra.ai/wrkr/v1/assess/assessment-manifest.schema.json",
+  "title": "Wrkr Assessment Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "output_dir",
+    "command_metadata",
+    "stages",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["v1"]
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "output_dir": {
+      "type": "string"
+    },
+    "command_metadata": {
+      "type": "object",
+      "required": ["template", "share_profile", "profile"],
+      "properties": {
+        "template": {"type": "string"},
+        "share_profile": {"type": "string"},
+        "paired_share_profile": {"type": "string"},
+        "focus": {"type": "string"},
+        "focus_path": {"type": "string"},
+        "frameworks": {"type": "array", "items": {"type": "string"}},
+        "baseline": {"type": "string"},
+        "runtime_input": {"type": "string"},
+        "ticket_format": {"type": "string"},
+        "targets": {"type": "array", "items": {"type": "string"}},
+        "profile": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "stages": {
+      "type": "object",
+      "required": ["scan", "ingest", "report", "evidence", "export", "tickets", "regress"],
+      "properties": {
+        "scan": {"$ref": "#/$defs/stageStatus"},
+        "ingest": {"$ref": "#/$defs/stageStatus"},
+        "report": {"$ref": "#/$defs/stageStatus"},
+        "evidence": {"$ref": "#/$defs/stageStatus"},
+        "export": {"$ref": "#/$defs/stageStatus"},
+        "tickets": {"$ref": "#/$defs/stageStatus"},
+        "regress": {"$ref": "#/$defs/stageStatus"}
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "state_path": {"type": "string"},
+        "identity_manifest_path": {"type": "string"},
+        "lifecycle_chain_path": {"type": "string"},
+        "proof_chain_path": {"type": "string"},
+        "proof_attestation_path": {"type": "string"},
+        "runtime_artifact_path": {"type": "string"},
+        "runtime_artifact_kind": {"type": "string"},
+        "report_markdown_path": {"type": "string"},
+        "report_evidence_json_path": {"type": "string"},
+        "backlog_csv_path": {"type": "string"},
+        "paired_artifact_paths": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "private_join_map_path": {"type": "string"},
+        "evidence_output_dir": {"type": "string"},
+        "evidence_manifest_path": {"type": "string"},
+        "evidence_artifact_manifest_path": {"type": "string"},
+        "evidence_chain_path": {"type": "string"},
+        "export_inventory_path": {"type": "string"},
+        "export_appendix_path": {"type": "string"},
+        "export_pack_path": {"type": "string"},
+        "ticket_payload_path": {"type": "string"},
+        "drift_json_path": {"type": "string"},
+        "drift_summary_md_path": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "stageStatus": {
+      "type": "object",
+      "required": ["status", "exit_code"],
+      "properties": {
+        "status": {"type": "string"},
+        "exit_code": {"type": "integer", "minimum": 0, "maximum": 8},
+        "artifact": {"type": "string"},
+        "artifact_secondary": {"type": "string"},
+        "message": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

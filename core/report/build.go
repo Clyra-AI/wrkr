@@ -274,6 +274,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		summary.ActionSurfaceRegistry = sanitizeActionSurfaceRegistryWithConfig(summary.ActionSurfaceRegistry, redactionConfig)
 		summary.AgentActionBOM = sanitizeAgentActionBOMWithConfig(summary.AgentActionBOM, shareProfile, redactionConfig)
 	}
+	summary.WorkflowHighlights = BuildWorkflowHighlights(summary)
 
 	return summary, nil
 }
