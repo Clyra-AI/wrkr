@@ -71,6 +71,7 @@ type AgentActionBOMSummary struct {
 	AutonomyTiers                risk.AutonomyTierCounts             `json:"autonomy_tiers"`
 	DelegationReadiness          risk.DelegationReadinessCounts      `json:"delegation_readiness"`
 	RecommendedControls          risk.RecommendedControlCounts       `json:"recommended_controls"`
+	DriftReview                  *RegressSummary                     `json:"drift_review,omitempty"`
 	PrimaryView                  *AgentActionBOMPrimaryView          `json:"primary_view,omitempty"`
 }
 
@@ -422,7 +423,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		items = append(items, item)
 	}
 	items = append(items, excludedTopAttackPathItems(summary)...)
-	counts := summarizeAgentActionBOMItems(items, summary.ActionPaths, summary.ScanQuality)
+	counts := summarizeAgentActionBOMItems(items, summary.ActionPaths, summary.ScanQuality, summary.RegressDrift)
 	counts.ScanScope = cloneScanScope(summary.ScanScope)
 	counts.SourcePrivacy = normalizedSourcePrivacy(summary.SourcePrivacy)
 	counts.OperationalExposure = cloneAxisSummary(summary.OperationalExposure)
@@ -759,7 +760,7 @@ func summaryEvidenceRefs(items []AgentActionBOMItem) []string {
 	return uniqueSortedStrings(refs)
 }
 
-func summarizeAgentActionBOMItems(items []AgentActionBOMItem, paths []risk.ActionPath, report *scanquality.Report) AgentActionBOMSummary {
+func summarizeAgentActionBOMItems(items []AgentActionBOMItem, paths []risk.ActionPath, report *scanquality.Report, regressSummary *RegressSummary) AgentActionBOMSummary {
 	projection := risk.SummarizeActionPaths(paths, risk.ActionPathSummaryOptions{
 		ScanCoverageReduced: scanQualityCoverageReduced(report),
 	})
@@ -772,6 +773,7 @@ func summarizeAgentActionBOMItems(items []AgentActionBOMItem, paths []risk.Actio
 		AutonomyTiers:                projection.AutonomyTiers,
 		DelegationReadiness:          projection.DelegationReadiness,
 		RecommendedControls:          projection.RecommendedControls,
+		DriftReview:                  cloneRegressSummary(regressSummary),
 	}
 	for _, item := range items {
 		if strings.TrimSpace(item.ControlPriority) == risk.ControlPriorityControlFirst {

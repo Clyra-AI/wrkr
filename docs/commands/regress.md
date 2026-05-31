@@ -40,7 +40,7 @@ cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
 wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
 ```
 
-Expected JSON keys include `status`, `baseline_path`, `tool_count` (init) and drift fields plus optional `summary_md_path` (run).
+Expected JSON keys include `status`, `baseline_path`, `tool_count` (init) and drift fields plus optional `summary_md_path` (run). `wrkr regress run --json` now also carries additive `comparison_status`, `comparison_issues[]`, `drift_category_count`, and `drift_categories[]` so recurring reviews can distinguish clean comparisons from unavailable or incomplete action-path drift review.
 Baseline `tools[*]` continue to expose `agent_id` and `tool_id`; additive `agent_instance_id` is now included when instance-scoped identity is available.
 Baseline `tools[*]` may also include additive approved control-path state: `security_visibility`, `owner`, `evidence_expires`, `write_path_classes`, `secret_bearing`, `confidence`, `control_path_type`, `repo`, `location`, and `risk_score`.
 `wrkr regress init` reads the saved scan snapshot directly, so approvals recorded with `wrkr identity` or `wrkr inventory` become visible in newly generated baselines without requiring a follow-up scan.
@@ -49,18 +49,24 @@ Deprecated or revoked tools that reappear in current scan state produce determin
 When critical attack-path sets diverge above deterministic thresholds, `reasons` includes a single `critical_attack_path_drift` summary entry with machine-readable `attack_path_drift` details (`added`, `removed`, `score_changed`).
 Regress baselines and drift comparison operate on lifecycle-bearing real tool identities only. Finding-only signals such as `secret_presence`, `source_discovery`, `policy_*`, and `parse_error` stay in findings/risk output and do not create `new_unapproved_tool` drift on their own.
 
-Control-path drift categories are additive and stable:
+Action-path drift categories are additive and stable:
 
-- `new_unknown_automation`
-- `new_repo_write_path`
-- `new_secret_bearing_workflow`
-- `new_mcp_tool_config`
-- `approval_expired`
-- `owner_changed`
-- `approved_path_risk_increased`
-- `deprecated_path_reappeared`
+- `new_write_paths`
+- `new_deploy_paths`
+- `new_credentials`
+- `new_unknown_approval_evidence`
+- `resolved_gaps`
+- `worsened_paths`
+- `new_contradictions`
+- `paths_ready_for_control`
+- `removed_paths`
+- `changed_authority`
+- `changed_evidence`
+- `changed_target_class`
 
-Approval expiry moves the affected current path toward review-oriented output through `approval_expired`; owner changes include `previous_owner` and `current_owner`; approved-path risk increases include `previous_risk_score` and `current_risk_score`.
+Each `drift_categories[*]` row includes severity, priority, stable current/baseline path refs, additive evidence refs, buyer-facing examples, and recommended next actions. Legacy `reasons[*]` remain present for lifecycle, approval-expiry, owner-change, permission-expansion, and critical attack-path contracts.
+
+When a legacy regress baseline lacks captured action-path comparison data, Wrkr now fails closed with `comparison_status=baseline_action_paths_unavailable` instead of silently emitting a clean no-drift result. Regenerate the baseline from a current `wrkr scan --state ... --json` snapshot or `wrkr regress init` artifact before relying on drift-review output.
 
 Compatibility note:
 

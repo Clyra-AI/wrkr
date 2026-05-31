@@ -20,11 +20,13 @@ import (
 )
 
 type assessStageStatus struct {
-	Status    string `json:"status"`
-	ExitCode  int    `json:"exit_code"`
-	Artifact  string `json:"artifact,omitempty"`
-	Artifact2 string `json:"artifact_secondary,omitempty"`
-	Message   string `json:"message,omitempty"`
+	Status             string `json:"status"`
+	ExitCode           int    `json:"exit_code"`
+	Artifact           string `json:"artifact,omitempty"`
+	Artifact2          string `json:"artifact_secondary,omitempty"`
+	Message            string `json:"message,omitempty"`
+	ComparisonStatus   string `json:"comparison_status,omitempty"`
+	DriftCategoryCount int    `json:"drift_category_count,omitempty"`
 }
 
 type assessStages struct {
@@ -473,17 +475,25 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 		}
 		status := "ok"
 		message := "no drift detected"
+		comparisonStatus, _ := regressPayload["comparison_status"].(string)
+		driftCategoryCount := int(numberValue(regressPayload["drift_category_count"]))
 		if regressCode == exitRegressionDrift {
 			status = "drift_detected"
-			message = "baseline drift detected"
+			if driftCategoryCount > 0 {
+				message = fmt.Sprintf("baseline drift detected (%d drift categories)", driftCategoryCount)
+			} else {
+				message = "baseline drift detected"
+			}
 			finalExit = exitRegressionDrift
 		}
 		stages.Regress = assessStageStatus{
-			Status:    status,
-			ExitCode:  regressCode,
-			Artifact:  artifacts.DriftJSONPath,
-			Artifact2: artifacts.DriftSummaryMDPath,
-			Message:   message,
+			Status:             status,
+			ExitCode:           regressCode,
+			Artifact:           artifacts.DriftJSONPath,
+			Artifact2:          artifacts.DriftSummaryMDPath,
+			Message:            message,
+			ComparisonStatus:   strings.TrimSpace(comparisonStatus),
+			DriftCategoryCount: driftCategoryCount,
 		}
 	}
 
@@ -616,6 +626,25 @@ func relativeAssessPath(root string, path string) string {
 		}
 	}
 	return filepath.Clean(trimmed)
+}
+
+func numberValue(value any) float64 {
+	switch typed := value.(type) {
+	case float64:
+		return typed
+	case float32:
+		return float64(typed)
+	case int:
+		return float64(typed)
+	case int64:
+		return float64(typed)
+	case json.Number:
+		parsed, err := typed.Float64()
+		if err == nil {
+			return parsed
+		}
+	}
+	return 0
 }
 
 func assessTargetLabels(pathTarget string, mySetup bool, explicitTargets []string) []string {

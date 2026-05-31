@@ -43,11 +43,13 @@ const (
 )
 
 type Baseline struct {
-	Version       string              `json:"version"`
-	GeneratedAt   string              `json:"generated_at"`
-	Tools         []ToolState         `json:"tools"`
-	AttackPaths   []AttackPathState   `json:"attack_paths,omitempty"`
-	LifecycleGaps []LifecycleGapState `json:"lifecycle_gaps,omitempty"`
+	Version             string              `json:"version"`
+	GeneratedAt         string              `json:"generated_at"`
+	Tools               []ToolState         `json:"tools"`
+	AttackPaths         []AttackPathState   `json:"attack_paths,omitempty"`
+	LifecycleGaps       []LifecycleGapState `json:"lifecycle_gaps,omitempty"`
+	ActionPathsCaptured bool                `json:"action_paths_captured,omitempty"`
+	ActionPaths         []ActionPathState   `json:"action_paths,omitempty"`
 }
 
 type ToolState struct {
@@ -124,12 +126,16 @@ type AttackPathDriftSummary struct {
 }
 
 type Result struct {
-	Status        string   `json:"status"`
-	Drift         bool     `json:"drift_detected"`
-	ReasonCount   int      `json:"reason_count"`
-	Reasons       []Reason `json:"reasons"`
-	BaselinePath  string   `json:"baseline_path,omitempty"`
-	SummaryMDPath string   `json:"summary_md_path,omitempty"`
+	Status             string                 `json:"status"`
+	Drift              bool                   `json:"drift_detected"`
+	ReasonCount        int                    `json:"reason_count"`
+	Reasons            []Reason               `json:"reasons"`
+	DriftCategoryCount int                    `json:"drift_category_count,omitempty"`
+	DriftCategories    []DriftCategorySummary `json:"drift_categories,omitempty"`
+	ComparisonStatus   string                 `json:"comparison_status,omitempty"`
+	ComparisonIssues   []string               `json:"comparison_issues,omitempty"`
+	BaselinePath       string                 `json:"baseline_path,omitempty"`
+	SummaryMDPath      string                 `json:"summary_md_path,omitempty"`
 }
 
 func BuildBaseline(snapshot state.Snapshot, generatedAt time.Time) Baseline {
@@ -138,12 +144,15 @@ func BuildBaseline(snapshot state.Snapshot, generatedAt time.Time) Baseline {
 		now = time.Now().UTC().Truncate(time.Second)
 	}
 	tools := SnapshotTools(snapshot)
+	actionPaths, actionPathsCaptured := snapshotActionPathStates(snapshot)
 	return Baseline{
-		Version:       BaselineVersion,
-		GeneratedAt:   now.Format(time.RFC3339),
-		Tools:         tools,
-		AttackPaths:   snapshotAttackPaths(snapshot),
-		LifecycleGaps: snapshotLifecycleGaps(snapshot),
+		Version:             BaselineVersion,
+		GeneratedAt:         now.Format(time.RFC3339),
+		Tools:               tools,
+		AttackPaths:         snapshotAttackPaths(snapshot),
+		LifecycleGaps:       snapshotLifecycleGaps(snapshot),
+		ActionPathsCaptured: actionPathsCaptured,
+		ActionPaths:         actionPaths,
 	}
 }
 
@@ -337,6 +346,10 @@ func SaveBaseline(path string, baseline Baseline) error {
 		baseline.Tools[i].WritePathClasses = mergeSortedStrings(baseline.Tools[i].WritePathClasses, nil)
 	}
 	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
+	for i := range baseline.ActionPaths {
+		baseline.ActionPaths[i] = normalizeActionPathState(baseline.ActionPaths[i])
+	}
+	sortActionPathStates(baseline.ActionPaths)
 	sort.Slice(baseline.LifecycleGaps, func(i, j int) bool {
 		if baseline.LifecycleGaps[i].ReasonCode != baseline.LifecycleGaps[j].ReasonCode {
 			return baseline.LifecycleGaps[i].ReasonCode < baseline.LifecycleGaps[j].ReasonCode
@@ -362,11 +375,14 @@ func SaveBaseline(path string, baseline Baseline) error {
 }
 
 func BuildBaselineFromSnapshot(snapshot state.Snapshot) Baseline {
+	actionPaths, actionPathsCaptured := snapshotActionPathStates(snapshot)
 	return normalizeBaseline(Baseline{
-		Version:       BaselineVersion,
-		Tools:         SnapshotTools(snapshot),
-		AttackPaths:   snapshotAttackPaths(snapshot),
-		LifecycleGaps: snapshotLifecycleGaps(snapshot),
+		Version:             BaselineVersion,
+		Tools:               SnapshotTools(snapshot),
+		AttackPaths:         snapshotAttackPaths(snapshot),
+		LifecycleGaps:       snapshotLifecycleGaps(snapshot),
+		ActionPathsCaptured: actionPathsCaptured,
+		ActionPaths:         actionPaths,
 	})
 }
 
@@ -552,6 +568,7 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 			AttackPathDrift: attackPathDrift,
 		})
 	}
+	driftCategories, comparisonStatus, comparisonIssues := compareActionPathDrift(baseline, current)
 
 	sort.Slice(reasons, func(i, j int) bool {
 		if reasons[i].Code != reasons[j].Code {
@@ -563,16 +580,20 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 		return reasons[i].ToolID < reasons[j].ToolID
 	})
 
-	drift := len(reasons) > 0
+	drift := len(reasons) > 0 || len(driftCategories) > 0 || strings.TrimSpace(comparisonStatus) != "" && strings.TrimSpace(comparisonStatus) != DriftComparisonStatusOK
 	status := "ok"
 	if drift {
 		status = "drift"
 	}
 	return Result{
-		Status:      status,
-		Drift:       drift,
-		ReasonCount: len(reasons),
-		Reasons:     reasons,
+		Status:             status,
+		Drift:              drift,
+		ReasonCount:        len(reasons),
+		Reasons:            reasons,
+		DriftCategoryCount: len(driftCategories),
+		DriftCategories:    driftCategories,
+		ComparisonStatus:   comparisonStatus,
+		ComparisonIssues:   comparisonIssues,
 	}
 }
 
@@ -710,6 +731,13 @@ func normalizeBaseline(baseline Baseline) Baseline {
 		baseline.Tools[i].WritePathClasses = mergeSortedStrings(baseline.Tools[i].WritePathClasses, nil)
 	}
 	baseline.AttackPaths = sortAttackPaths(baseline.AttackPaths)
+	for i := range baseline.ActionPaths {
+		baseline.ActionPaths[i] = normalizeActionPathState(baseline.ActionPaths[i])
+	}
+	if len(baseline.ActionPaths) > 0 {
+		baseline.ActionPathsCaptured = true
+	}
+	sortActionPathStates(baseline.ActionPaths)
 	sort.Slice(baseline.LifecycleGaps, func(i, j int) bool {
 		if baseline.LifecycleGaps[i].ReasonCode != baseline.LifecycleGaps[j].ReasonCode {
 			return baseline.LifecycleGaps[i].ReasonCode < baseline.LifecycleGaps[j].ReasonCode

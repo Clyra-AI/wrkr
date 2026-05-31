@@ -505,6 +505,163 @@ func TestCompareAllowsApprovedPermissionExpansion(t *testing.T) {
 	}
 }
 
+func TestCompareAddsActionPathDriftCategories(t *testing.T) {
+	t.Parallel()
+
+	baseline := BuildBaseline(state.Snapshot{
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{
+				{
+					PathID:                   "apc-release",
+					Org:                      "acme",
+					Repo:                     "payments",
+					Location:                 ".github/workflows/release.yml",
+					WriteCapable:             true,
+					DeployWrite:              true,
+					TargetClass:              "internal_tooling",
+					BoundaryLabel:            "report_only",
+					ApprovalEvidenceState:    risk.EvidenceStateVerified,
+					OwnerEvidenceState:       risk.EvidenceStateVerified,
+					ProofEvidenceState:       risk.EvidenceStateVerified,
+					RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+					TargetEvidenceState:      risk.EvidenceStateVerified,
+					CredentialEvidenceState:  risk.EvidenceStateVerified,
+					DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+					ControlResolutionState:   risk.ControlResolutionStateDetectedControl,
+					ActionClasses:            []string{"release"},
+					SourceFindingKeys:        []string{"finding:release"},
+				},
+			},
+		},
+	}, time.Date(2026, 5, 27, 12, 0, 0, 0, time.UTC))
+
+	current := state.Snapshot{
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{
+				{
+					PathID:                   "apc-release",
+					Org:                      "acme",
+					Repo:                     "payments",
+					Location:                 ".github/workflows/release.yml",
+					WriteCapable:             true,
+					DeployWrite:              true,
+					CredentialAccess:         true,
+					TargetClass:              "release_adjacent",
+					BoundaryLabel:            "approval_capable",
+					ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+					OwnerEvidenceState:       risk.EvidenceStateVerified,
+					ProofEvidenceState:       risk.EvidenceStateVerified,
+					RuntimeEvidenceState:     risk.EvidenceStateVerified,
+					TargetEvidenceState:      risk.EvidenceStateVerified,
+					CredentialEvidenceState:  risk.EvidenceStateVerified,
+					DelegationReadinessState: risk.DelegationReadinessReadyForControl,
+					ControlResolutionState:   risk.ControlResolutionStateDetectedControl,
+					ActionClasses:            []string{"release"},
+					Credentials: []*agginventory.CredentialProvenance{
+						{Subject: "prod-release-token"},
+					},
+					SourceFindingKeys: []string{"finding:release"},
+				},
+				{
+					PathID:                   "apc-new-write",
+					Org:                      "acme",
+					Repo:                     "payments",
+					Location:                 ".github/workflows/write.yml",
+					WriteCapable:             true,
+					TargetClass:              "production_impacting",
+					BoundaryLabel:            "report_only",
+					ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+					OwnerEvidenceState:       risk.EvidenceStateUnknown,
+					ProofEvidenceState:       risk.EvidenceStateUnknown,
+					RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+					TargetEvidenceState:      risk.EvidenceStateUnknown,
+					CredentialEvidenceState:  risk.EvidenceStateUnknown,
+					DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
+					ControlResolutionState:   risk.ControlResolutionStateNoVisibleControl,
+					ActionClasses:            []string{"write"},
+					SourceFindingKeys:        []string{"finding:new-write"},
+				},
+			},
+		},
+	}
+
+	result := Compare(baseline, current)
+	if !result.Drift {
+		t.Fatal("expected drift for action-path category changes")
+	}
+	if result.ComparisonStatus != DriftComparisonStatusOK {
+		t.Fatalf("expected comparison status ok, got %q", result.ComparisonStatus)
+	}
+	if result.DriftCategoryCount < 4 {
+		t.Fatalf("expected multiple drift categories, got %+v", result.DriftCategories)
+	}
+
+	categories := map[string]DriftCategorySummary{}
+	for _, item := range result.DriftCategories {
+		categories[item.Category] = item
+	}
+	for _, category := range []string{
+		DriftCategoryChangedTargetClass,
+		DriftCategoryNewCredentials,
+		DriftCategoryNewUnknownApproval,
+		DriftCategoryPathsReadyForControl,
+		DriftCategoryNewWritePaths,
+	} {
+		if _, ok := categories[category]; !ok {
+			t.Fatalf("expected drift category %s, got %+v", category, result.DriftCategories)
+		}
+	}
+	if categories[DriftCategoryNewWritePaths].Count != 1 {
+		t.Fatalf("expected one new write path, got %+v", categories[DriftCategoryNewWritePaths])
+	}
+}
+
+func TestCompareFailsClosedWhenBaselineActionPathsAreUnavailable(t *testing.T) {
+	t.Parallel()
+
+	baseline := BuildBaseline(state.Snapshot{
+		Findings: []model.Finding{{
+			FindingType: "tool_config",
+			ToolType:    "codex",
+			Location:    "AGENTS.md",
+			Org:         "acme",
+		}},
+	}, time.Date(2026, 5, 27, 12, 0, 0, 0, time.UTC))
+
+	current := state.Snapshot{
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:                   "apc-release",
+				Org:                      "acme",
+				Repo:                     "payments",
+				Location:                 ".github/workflows/release.yml",
+				WriteCapable:             true,
+				TargetClass:              "release_adjacent",
+				BoundaryLabel:            "report_only",
+				ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+				OwnerEvidenceState:       risk.EvidenceStateUnknown,
+				ProofEvidenceState:       risk.EvidenceStateUnknown,
+				RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+				TargetEvidenceState:      risk.EvidenceStateUnknown,
+				CredentialEvidenceState:  risk.EvidenceStateUnknown,
+				DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
+				ControlResolutionState:   risk.ControlResolutionStateNoVisibleControl,
+			}},
+		},
+	}
+
+	result := Compare(baseline, current)
+	if !result.Drift {
+		t.Fatal("expected fail-closed drift when baseline action paths are unavailable")
+	}
+	if result.ComparisonStatus != DriftComparisonStatusBaselineMissing {
+		t.Fatalf("expected comparison status %q, got %+v", DriftComparisonStatusBaselineMissing, result)
+	}
+	if len(result.ComparisonIssues) == 0 {
+		t.Fatalf("expected comparison issues, got %+v", result)
+	}
+}
+
 func TestCompareScopesInstanceMatchingToOrg(t *testing.T) {
 	t.Parallel()
 

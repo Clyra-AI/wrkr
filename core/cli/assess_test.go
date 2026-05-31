@@ -168,6 +168,9 @@ func TestAssessBaselineDriftReturnsExitAndWritesManifest(t *testing.T) {
 	if !ok || regressStage["status"] != "drift_detected" {
 		t.Fatalf("expected regress stage drift_detected, got %v", stages["regress"])
 	}
+	if regressStage["comparison_status"] != regress.DriftComparisonStatusBaselineMissing {
+		t.Fatalf("expected comparison_status=%q, got %v", regress.DriftComparisonStatusBaselineMissing, regressStage["comparison_status"])
+	}
 }
 
 func TestAssessRedactedShareProfileAnonymizesExportPack(t *testing.T) {

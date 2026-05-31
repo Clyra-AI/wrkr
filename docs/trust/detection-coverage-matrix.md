@@ -24,6 +24,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 - Local evidence sidecars and declarations for enterprise control context, including `.wrkr/provenance/external-control-evidence.json`, `wrkr-control-declarations.yaml`, and `.wrkr/control-declarations.yaml`, when those files are provided inside the scanned repo root.
 - Normalized credential-authority posture that distinguishes credential presence, workflow reference, path usability, access type, standing access, likely JIT, rotation evidence status, and source without exposing raw secret values.
 - Field-selection redaction metadata and stable pseudonym joins for buyer-facing report artifacts when customer, design-partner, external, or investor-safe share profiles are used.
+- Baseline-backed action-path drift review for new write/deploy authority, new credentials, approval-evidence regressions, resolved gaps, worsened paths, contradictions, and paths ready for control, using saved-state comparisons rather than fresh runtime probing.
 - Static policy/profile posture signals and ranked findings.
 - Deterministic inventory and risk outputs for both tools and agents, including agent-linked attack-path edges when bindings/deployments are declared in-repo.
 - Optional enrich-mode MCP metadata (`source`, `as_of`, advisory/registry schema IDs, `enrich_quality`, adapter error classes) when `--enrich` is enabled.

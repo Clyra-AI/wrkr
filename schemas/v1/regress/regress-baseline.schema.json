@@ -12,70 +12,131 @@
       "type": "string",
       "format": "date-time"
     },
+    "action_paths_captured": {
+      "type": "boolean"
+    },
     "attack_paths": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": ["path_id", "org", "repo", "score"],
-        "properties": {
-          "path_id": {
-            "type": "string"
-          },
-          "org": {
-            "type": "string"
-          },
-          "repo": {
-            "type": "string"
-          },
-          "score": {
-            "type": "number"
-          }
-        },
-        "additionalProperties": false
+        "$ref": "#/$defs/attackPathState"
+      }
+    },
+    "lifecycle_gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/lifecycleGapState"
+      }
+    },
+    "action_paths": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/actionPathState"
       }
     },
     "tools": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": [
-          "agent_id",
-          "tool_id",
-          "org",
-          "status",
-          "approval_status",
-          "present",
-          "permissions"
-        ],
-        "properties": {
-          "agent_id": {
-            "type": "string"
-          },
-          "tool_id": {
-            "type": "string"
-          },
-          "org": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": ["discovered", "under_review", "approved", "active", "deprecated", "revoked"]
-          },
-          "approval_status": {
-            "type": "string"
-          },
-          "present": {
-            "type": "boolean"
-          },
-          "permissions": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "additionalProperties": false
+        "$ref": "#/$defs/toolState"
       }
+    }
+  },
+  "$defs": {
+    "attackPathState": {
+      "type": "object",
+      "required": ["path_id", "org", "repo", "score"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "score": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "lifecycleGapState": {
+      "type": "object",
+      "required": ["agent_id", "org", "reason_code"],
+      "properties": {
+        "agent_id": {"type": "string"},
+        "agent_instance_id": {"type": "string"},
+        "tool_id": {"type": "string"},
+        "org": {"type": "string"},
+        "reason_code": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "toolState": {
+      "type": "object",
+      "required": [
+        "agent_id",
+        "tool_id",
+        "org",
+        "status",
+        "approval_status",
+        "present",
+        "permissions"
+      ],
+      "properties": {
+        "agent_id": {"type": "string"},
+        "agent_instance_id": {"type": "string"},
+        "tool_id": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "location": {"type": "string"},
+        "status": {
+          "type": "string",
+          "enum": ["discovered", "under_review", "approved", "active", "deprecated", "revoked"]
+        },
+        "approval_status": {"type": "string"},
+        "security_visibility": {"type": "string"},
+        "owner": {"type": "string"},
+        "evidence_expires": {"type": "string"},
+        "write_path_classes": {"type": "array", "items": {"type": "string"}},
+        "secret_bearing": {"type": "boolean"},
+        "confidence": {"type": "string"},
+        "control_path_type": {"type": "string"},
+        "risk_score": {"type": "number"},
+        "present": {"type": "boolean"},
+        "permissions": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "actionPathState": {
+      "type": "object",
+      "required": ["org", "repo"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "match_key": {"type": "string"},
+        "platform": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "location": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "action_path_type": {"type": "string"},
+        "target_class": {"type": "string"},
+        "boundary_label": {"type": "string"},
+        "control_resolution_state": {"type": "string"},
+        "delegation_readiness_state": {"type": "string"},
+        "approval_evidence_state": {"type": "string"},
+        "owner_evidence_state": {"type": "string"},
+        "proof_evidence_state": {"type": "string"},
+        "runtime_evidence_state": {"type": "string"},
+        "target_evidence_state": {"type": "string"},
+        "credential_evidence_state": {"type": "string"},
+        "write_capable": {"type": "boolean"},
+        "deploy_write": {"type": "boolean"},
+        "production_write": {"type": "boolean"},
+        "credential_access": {"type": "boolean"},
+        "approval_gap": {"type": "boolean"},
+        "risk_score": {"type": "number"},
+        "contradiction_count": {"type": "integer", "minimum": 0},
+        "action_classes": {"type": "array", "items": {"type": "string"}},
+        "write_path_classes": {"type": "array", "items": {"type": "string"}},
+        "authority_bindings": {"type": "array", "items": {"type": "string"}},
+        "credential_subjects": {"type": "array", "items": {"type": "string"}},
+        "credential_authority": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
+	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
@@ -183,7 +184,15 @@ func matchesFocusPreset(item AgentActionBOMItem, preset FocusPreset, summary Sum
 			strings.TrimSpace(item.ControlResolutionState) == risk.ControlResolutionStateContradictoryControl ||
 			hasContradictoryEvidenceState(item)
 	case FocusPresetDriftReview:
-		return summary.RegressDrift != nil && summary.RegressDrift.DriftDetected
+		if summary.RegressDrift == nil || !summary.RegressDrift.DriftDetected {
+			return false
+		}
+		pathIDs := driftReviewPathIDs(summary)
+		if len(pathIDs) == 0 {
+			return true
+		}
+		_, ok := pathIDs[strings.TrimSpace(item.PathID)]
+		return ok
 	case FocusPresetRecommendations:
 		return strings.TrimSpace(item.ControlPriority) == risk.ControlPriorityControlFirst ||
 			strings.TrimSpace(item.Queue) == controlbacklog.QueueControlFirst ||
@@ -420,6 +429,9 @@ func focusPresetEmptyStateStatus(preset FocusPreset, summary Summary) string {
 		if summary.RegressDrift == nil {
 			return "baseline_not_supplied"
 		}
+		if strings.TrimSpace(summary.RegressDrift.ComparisonStatus) != "" && strings.TrimSpace(summary.RegressDrift.ComparisonStatus) != regress.DriftComparisonStatusOK {
+			return "drift_comparison_unavailable"
+		}
 		if !summary.RegressDrift.DriftDetected {
 			return "no_drift_detected"
 		}
@@ -432,6 +444,9 @@ func focusPresetEmptyStateMessage(preset FocusPreset, summary Summary) string {
 	case FocusPresetDriftReview:
 		if summary.RegressDrift == nil {
 			return "No drift baseline was provided, so Wrkr cannot build a drift-review preset from this report alone."
+		}
+		if strings.TrimSpace(summary.RegressDrift.ComparisonStatus) != "" && strings.TrimSpace(summary.RegressDrift.ComparisonStatus) != regress.DriftComparisonStatusOK {
+			return "Wrkr could not complete action-path drift comparison for the supplied baseline. Regenerate the baseline from a current scan snapshot before relying on drift-review output."
 		}
 		if !summary.RegressDrift.DriftDetected {
 			return "Wrkr did not detect regress drift for the supplied baseline, so there are no drift-review items to highlight."
@@ -478,6 +493,35 @@ func orderedFocusWorkflowChainRefs(items []AgentActionBOMItem) []string {
 			seen[trimmed] = struct{}{}
 			out = append(out, trimmed)
 		}
+	}
+	return out
+}
+
+func driftReviewPathIDs(summary Summary) map[string]struct{} {
+	if summary.RegressDrift == nil {
+		return nil
+	}
+	out := map[string]struct{}{}
+	for _, category := range summary.RegressDrift.DriftCategories {
+		for _, ref := range category.AffectedPathRefs {
+			trimmed := strings.TrimSpace(ref)
+			if !strings.HasPrefix(trimmed, "current:") {
+				continue
+			}
+			pathID := strings.TrimPrefix(trimmed, "current:")
+			if pathID == "" || strings.Contains(pathID, "|") {
+				continue
+			}
+			out[pathID] = struct{}{}
+		}
+		for _, example := range category.Examples {
+			if pathID := strings.TrimSpace(example.PathID); pathID != "" {
+				out[pathID] = struct{}{}
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }
