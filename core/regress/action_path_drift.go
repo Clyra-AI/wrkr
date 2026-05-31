@@ -253,7 +253,10 @@ func snapshotComparableActionPaths(snapshot state.Snapshot) ([]risk.ActionPath, 
 			paths, _ := risk.BuildActionPaths(snapshot.RiskReport.AttackPaths, snapshot.Inventory)
 			return paths, true
 		}
-		return nil, true
+		// Older saved states can carry a risk report while omitting comparable
+		// action-path material entirely. Treat that as unavailable so drift
+		// review fails closed instead of comparing against a synthetic empty set.
+		return nil, false
 	}
 	if snapshot.Inventory != nil {
 		paths, _ := risk.BuildActionPaths(nil, snapshot.Inventory)
