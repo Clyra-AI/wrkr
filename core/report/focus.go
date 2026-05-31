@@ -187,6 +187,10 @@ func matchesFocusPreset(item AgentActionBOMItem, preset FocusPreset, summary Sum
 		if summary.RegressDrift == nil || !summary.RegressDrift.DriftDetected {
 			return false
 		}
+		if strings.TrimSpace(summary.RegressDrift.ComparisonStatus) != "" &&
+			strings.TrimSpace(summary.RegressDrift.ComparisonStatus) != regress.DriftComparisonStatusOK {
+			return false
+		}
 		pathIDs := driftReviewPathIDs(summary)
 		if len(pathIDs) == 0 {
 			return true

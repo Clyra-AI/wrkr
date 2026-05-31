@@ -468,3 +468,86 @@ func TestReportFocusPresetFiltersToDriftedPaths(t *testing.T) {
 		t.Fatalf("expected drift categories, got %v", regressDrift["drift_categories"])
 	}
 }
+
+func TestReportFocusPresetShowsUnavailableDriftComparisonState(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	baselineStatePath := filepath.Join(tmp, "baseline-state.json")
+	currentStatePath := filepath.Join(tmp, "current-state.json")
+	writeJSONFile(t, baselineStatePath, map[string]any{
+		"version": "v1",
+		"risk_report": map[string]any{
+			"generated_at": "2026-05-27T12:00:00Z",
+		},
+	})
+	writeJSONFile(t, currentStatePath, map[string]any{
+		"version": "v1",
+		"risk_report": map[string]any{
+			"generated_at": "2026-05-28T12:00:00Z",
+			"action_paths": []any{
+				map[string]any{
+					"path_id":                    "apc-release",
+					"org":                        "acme",
+					"repo":                       "acme/release",
+					"tool_type":                  "compiled_action",
+					"location":                   ".github/workflows/release.yml",
+					"write_capable":              true,
+					"credential_access":          false,
+					"approval_gap":               true,
+					"action_path_type":           "ci_cd_workflow",
+					"target_class":               "release_adjacent",
+					"boundary_label":             "report_only",
+					"approval_evidence_state":    "unknown",
+					"owner_evidence_state":       "unknown",
+					"proof_evidence_state":       "unknown",
+					"runtime_evidence_state":     "unknown",
+					"target_evidence_state":      "unknown",
+					"credential_evidence_state":  "unknown",
+					"control_resolution_state":   "no_visible_control",
+					"delegation_readiness_state": "approval_required",
+					"confidence_lane":            "confirmed_action_path",
+					"recommended_control":        "approval_required",
+					"recommended_action":         "control",
+					"attack_path_score":          9.1,
+					"risk_score":                 9.1,
+				},
+			},
+		},
+	})
+
+	loaded, err := state.Load(baselineStatePath)
+	if err != nil {
+		t.Fatalf("load baseline state: %v", err)
+	}
+	baseline := regress.BuildBaseline(loaded, time.Date(2026, 5, 27, 12, 0, 0, 0, time.UTC))
+	baselinePath := filepath.Join(tmp, "baseline.json")
+	if err := regress.SaveBaseline(baselinePath, baseline); err != nil {
+		t.Fatalf("save baseline: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"report",
+		"--state", currentStatePath,
+		"--baseline", baselinePath,
+		"--focus", "drift-review",
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("expected exit 0, got %d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	focusView, ok := payload["focus_view"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected focus view, got %T", payload["focus_view"])
+	}
+	if focusView["empty_state_status"] != "drift_comparison_unavailable" {
+		t.Fatalf("expected drift_comparison_unavailable, got %v", focusView["empty_state_status"])
+	}
+}

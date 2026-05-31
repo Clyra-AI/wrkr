@@ -662,6 +662,41 @@ func TestCompareFailsClosedWhenBaselineActionPathsAreUnavailable(t *testing.T) {
 	}
 }
 
+func TestCompareFailsClosedWhenBaselineRiskReportOmitsComparableActionPaths(t *testing.T) {
+	t.Parallel()
+
+	baseline := BuildBaseline(state.Snapshot{
+		RiskReport: &risk.Report{},
+	}, time.Date(2026, 5, 27, 12, 0, 0, 0, time.UTC))
+
+	current := state.Snapshot{
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:                   "apc-release",
+				Org:                      "acme",
+				Repo:                     "payments",
+				Location:                 ".github/workflows/release.yml",
+				WriteCapable:             true,
+				TargetClass:              "release_adjacent",
+				BoundaryLabel:            "report_only",
+				ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+				OwnerEvidenceState:       risk.EvidenceStateUnknown,
+				ProofEvidenceState:       risk.EvidenceStateUnknown,
+				RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+				TargetEvidenceState:      risk.EvidenceStateUnknown,
+				CredentialEvidenceState:  risk.EvidenceStateUnknown,
+				DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
+				ControlResolutionState:   risk.ControlResolutionStateNoVisibleControl,
+			}},
+		},
+	}
+
+	result := Compare(baseline, current)
+	if result.ComparisonStatus != DriftComparisonStatusBaselineMissing {
+		t.Fatalf("expected comparison status %q, got %+v", DriftComparisonStatusBaselineMissing, result)
+	}
+}
+
 func TestCompareScopesInstanceMatchingToOrg(t *testing.T) {
 	t.Parallel()
 
