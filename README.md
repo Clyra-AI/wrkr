@@ -417,6 +417,7 @@ wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last
 - `wrkr evidence` builds signed, compliance-ready evidence bundles.
 - `wrkr verify` verifies proof-chain integrity.
 - `wrkr regress` gates on drift and regressions.
+- `wrkr regress --baseline ... --json` now emits buyer-facing drift categories for new write/deploy paths, new credentials, evidence movement, contradictions, and paths ready for control.
 - `action.yml` packages the scheduled/PR/SARIF automation wrapper around the CLI.
 - `wrkr version` reports CLI version in human or JSON form.
 

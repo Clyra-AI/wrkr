@@ -68,6 +68,7 @@
         "autonomy_tiers": {"$ref": "#/$defs/autonomyTierCounts"},
         "delegation_readiness": {"$ref": "#/$defs/delegationReadinessCounts"},
         "recommended_controls": {"$ref": "#/$defs/recommendedControlCounts"},
+        "drift_review": {"$ref": "#/$defs/regress"},
         "primary_view": {"$ref": "#/$defs/primaryView"}
       },
       "additionalProperties": false
@@ -874,6 +875,80 @@
         "preset": {"type": "string", "enum": ["release_automation", "production_path", "credential_bearing_automation", "infrastructure_as_code", "identity_auth_code", "package_publishing", "payment_flow", "regulated_customer_workflow", "external_egress", "mcp_tool_config", "mutable_endpoint"]},
         "reason_codes": {"type": "array", "items": {"type": "string"}},
         "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "regress": {
+      "type": "object",
+      "required": ["baseline_provided", "drift_detected", "reason_count", "reason_groups"],
+      "properties": {
+        "baseline_provided": {"type": "boolean"},
+        "drift_detected": {"type": "boolean"},
+        "reason_count": {"type": "integer"},
+        "drift_category_count": {"type": "integer", "minimum": 0},
+        "comparison_status": {"type": "string"},
+        "comparison_issues": {"type": "array", "items": {"type": "string"}},
+        "reason_groups": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/reasonGroup"}
+        },
+        "drift_categories": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/driftCategorySummary"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "reasonGroup": {
+      "type": "object",
+      "required": ["code", "count"],
+      "properties": {
+        "code": {"type": "string"},
+        "count": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "driftCategorySummary": {
+      "type": "object",
+      "required": ["category", "severity", "priority", "count"],
+      "properties": {
+        "category": {"type": "string"},
+        "severity": {"type": "string", "enum": ["high", "medium", "low"]},
+        "priority": {"type": "string", "enum": ["P0", "P1", "P2"]},
+        "count": {"type": "integer", "minimum": 0},
+        "affected_path_refs": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "recommended_next_actions": {"type": "array", "items": {"type": "string"}},
+        "examples": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/driftExample"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "driftExample": {
+      "type": "object",
+      "required": ["detail"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "baseline_path_id": {"type": "string"},
+        "current_path_ref": {"type": "string"},
+        "baseline_path_ref": {"type": "string"},
+        "repo": {"type": "string"},
+        "location": {"type": "string"},
+        "baseline_location": {"type": "string"},
+        "current_target_class": {"type": "string"},
+        "baseline_target_class": {"type": "string"},
+        "current_boundary_label": {"type": "string"},
+        "baseline_boundary_label": {"type": "string"},
+        "current_authority_summary": {"type": "array", "items": {"type": "string"}},
+        "baseline_authority_summary": {"type": "array", "items": {"type": "string"}},
+        "current_evidence_summary": {"type": "array", "items": {"type": "string"}},
+        "baseline_evidence_summary": {"type": "array", "items": {"type": "string"}},
+        "current_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "baseline_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "detail": {"type": "string"},
+        "recommended_next_action": {"type": "string"}
       },
       "additionalProperties": false
     },

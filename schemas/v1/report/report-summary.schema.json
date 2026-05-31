@@ -1321,9 +1321,16 @@
         "baseline_provided": {"type": "boolean"},
         "drift_detected": {"type": "boolean"},
         "reason_count": {"type": "integer"},
+        "drift_category_count": {"type": "integer", "minimum": 0},
+        "comparison_status": {"type": "string"},
+        "comparison_issues": {"type": "array", "items": {"type": "string"}},
         "reason_groups": {
           "type": "array",
           "items": {"$ref": "#/$defs/reasonGroup"}
+        },
+        "drift_categories": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/driftCategorySummary"}
         }
       }
     },
@@ -1334,6 +1341,50 @@
         "code": {"type": "string"},
         "count": {"type": "integer"}
       }
+    },
+    "driftCategorySummary": {
+      "type": "object",
+      "required": ["category", "severity", "priority", "count"],
+      "properties": {
+        "category": {"type": "string"},
+        "severity": {"type": "string", "enum": ["high", "medium", "low"]},
+        "priority": {"type": "string", "enum": ["P0", "P1", "P2"]},
+        "count": {"type": "integer", "minimum": 0},
+        "affected_path_refs": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "recommended_next_actions": {"type": "array", "items": {"type": "string"}},
+        "examples": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/driftExample"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "driftExample": {
+      "type": "object",
+      "required": ["detail"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "baseline_path_id": {"type": "string"},
+        "current_path_ref": {"type": "string"},
+        "baseline_path_ref": {"type": "string"},
+        "repo": {"type": "string"},
+        "location": {"type": "string"},
+        "baseline_location": {"type": "string"},
+        "current_target_class": {"type": "string"},
+        "baseline_target_class": {"type": "string"},
+        "current_boundary_label": {"type": "string"},
+        "baseline_boundary_label": {"type": "string"},
+        "current_authority_summary": {"type": "array", "items": {"type": "string"}},
+        "baseline_authority_summary": {"type": "array", "items": {"type": "string"}},
+        "current_evidence_summary": {"type": "array", "items": {"type": "string"}},
+        "baseline_evidence_summary": {"type": "array", "items": {"type": "string"}},
+        "current_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "baseline_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "detail": {"type": "string"},
+        "recommended_next_action": {"type": "string"}
+      },
+      "additionalProperties": false
     },
     "proofReference": {
       "type": "object",

@@ -102,6 +102,14 @@ func RenderMarkdown(summary Summary) string {
 			summary.AgentActionBOM.Summary.DelegationReadiness.Blocked,
 			summary.AgentActionBOM.Summary.DelegationReadiness.BlockedByContradict,
 		))
+		if summary.AgentActionBOM.Summary.DriftReview != nil {
+			builder.WriteString(fmt.Sprintf("- Drift review: detected=%t reasons=%d categories=%d comparison_status=%s\n",
+				summary.AgentActionBOM.Summary.DriftReview.DriftDetected,
+				summary.AgentActionBOM.Summary.DriftReview.ReasonCount,
+				summary.AgentActionBOM.Summary.DriftReview.DriftCategoryCount,
+				firstNonEmptyValue(strings.TrimSpace(summary.AgentActionBOM.Summary.DriftReview.ComparisonStatus), "not_requested"),
+			))
+		}
 		if summary.ShareProfileMetadata != nil && summary.ShareProfileMetadata.RedactionApplied {
 			builder.WriteString(fmt.Sprintf("- Share redaction: version=%s policy=%s\n",
 				summary.ShareProfileMetadata.RedactionVersion,

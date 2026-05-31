@@ -74,6 +74,16 @@ wrkr verify --chain --json
 Within the same major contract line, additive fields are expected to remain backward compatible for consumers that ignore unknown optional fields.
 Command-specific validators may still reject inputs that never matched the documented contract, for example non-scan JSON passed to `wrkr campaign aggregate`.
 
+## Drift-review contract model
+
+Wrkr's recurring drift-review surface is baseline-backed and fail-closed by design.
+
+- `schemas/v1/regress/regress-baseline.schema.json` now carries additive `action_paths_captured` and normalized `action_paths[]` state so `wrkr regress` can compare stable workflow/action-path posture across reruns.
+- `schemas/v1/regress/regress-result.schema.json` now carries additive `comparison_status`, `comparison_issues[]`, `drift_category_count`, and `drift_categories[]` with stable categories such as `new_write_paths`, `new_deploy_paths`, `new_credentials`, `new_unknown_approval_evidence`, `resolved_gaps`, `worsened_paths`, `new_contradictions`, `paths_ready_for_control`, `removed_paths`, `changed_authority`, `changed_evidence`, and `changed_target_class`.
+- `summary.regress_drift` mirrors the same additive drift-category model inside `wrkr report --json` and report evidence artifacts.
+- `agent_action_bom.summary.drift_review` mirrors the same additive drift-category model inside buyer-facing workflow-first report output.
+- `assessment-manifest.json` stage metadata now carries additive `comparison_status` and `drift_category_count` on `stages.regress` so repeatable assessment workflows can distinguish clean drift review from unavailable baseline comparison data.
+
 ## Q&A
 
 ### Where are Wrkr JSON schemas and contracts defined?

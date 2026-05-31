@@ -16,155 +16,200 @@
       "type": "integer",
       "minimum": 0
     },
+    "drift_category_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "comparison_status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "baseline_action_paths_unavailable",
+        "current_action_paths_unavailable",
+        "comparison_incomplete"
+      ]
+    },
+    "comparison_issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "baseline_path": {
+      "type": "string"
+    },
+    "summary_md_path": {
       "type": "string"
     },
     "reasons": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": ["code", "agent_id", "tool_id", "org", "message"],
-        "properties": {
-          "code": {
-            "type": "string",
-            "enum": [
-              "new_unapproved_tool",
-              "revoked_tool_reappeared",
-              "unapproved_permission_expansion",
-              "critical_attack_path_drift"
-            ]
-          },
-          "agent_id": {
-            "type": "string"
-          },
-          "tool_id": {
-            "type": "string"
-          },
-          "org": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "added_permissions": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "attack_path_drift": {
-            "type": "object",
-            "required": [
-              "baseline_critical_count",
-              "current_critical_count",
-              "drift_count",
-              "drift_ratio",
-              "min_absolute",
-              "min_relative"
-            ],
-            "properties": {
-              "baseline_critical_count": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "current_critical_count": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "added": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "required": ["path_id", "org", "repo", "score"],
-                  "properties": {
-                    "path_id": {
-                      "type": "string"
-                    },
-                    "org": {
-                      "type": "string"
-                    },
-                    "repo": {
-                      "type": "string"
-                    },
-                    "score": {
-                      "type": "number"
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "removed": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "required": ["path_id", "org", "repo", "score"],
-                  "properties": {
-                    "path_id": {
-                      "type": "string"
-                    },
-                    "org": {
-                      "type": "string"
-                    },
-                    "repo": {
-                      "type": "string"
-                    },
-                    "score": {
-                      "type": "number"
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "score_changed": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "required": ["path_id", "org", "repo", "baseline_score", "current_score", "score_delta"],
-                  "properties": {
-                    "path_id": {
-                      "type": "string"
-                    },
-                    "org": {
-                      "type": "string"
-                    },
-                    "repo": {
-                      "type": "string"
-                    },
-                    "baseline_score": {
-                      "type": "number"
-                    },
-                    "current_score": {
-                      "type": "number"
-                    },
-                    "score_delta": {
-                      "type": "number"
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              },
-              "drift_count": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "drift_ratio": {
-                "type": "number",
-                "minimum": 0
-              },
-              "min_absolute": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "min_relative": {
-                "type": "number",
-                "minimum": 0
-              }
-            },
-            "additionalProperties": false
-          }
-        },
-        "additionalProperties": false
+        "$ref": "#/$defs/reason"
       }
+    },
+    "drift_categories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/driftCategorySummary"
+      }
+    }
+  },
+  "$defs": {
+    "attackPathState": {
+      "type": "object",
+      "required": ["path_id", "org", "repo", "score"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "score": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "attackPathScoreChange": {
+      "type": "object",
+      "required": ["path_id", "org", "repo", "baseline_score", "current_score", "score_delta"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "org": {"type": "string"},
+        "repo": {"type": "string"},
+        "baseline_score": {"type": "number"},
+        "current_score": {"type": "number"},
+        "score_delta": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "attackPathDriftSummary": {
+      "type": "object",
+      "required": [
+        "baseline_critical_count",
+        "current_critical_count",
+        "drift_count",
+        "drift_ratio",
+        "min_absolute",
+        "min_relative"
+      ],
+      "properties": {
+        "baseline_critical_count": {"type": "integer", "minimum": 0},
+        "current_critical_count": {"type": "integer", "minimum": 0},
+        "added": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/attackPathState"}
+        },
+        "removed": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/attackPathState"}
+        },
+        "score_changed": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/attackPathScoreChange"}
+        },
+        "drift_count": {"type": "integer", "minimum": 0},
+        "drift_ratio": {"type": "number", "minimum": 0},
+        "min_absolute": {"type": "integer", "minimum": 0},
+        "min_relative": {"type": "number", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "reason": {
+      "type": "object",
+      "required": ["code", "agent_id", "tool_id", "org", "message"],
+      "properties": {
+        "code": {"type": "string"},
+        "agent_id": {"type": "string"},
+        "agent_instance_id": {"type": "string"},
+        "tool_id": {"type": "string"},
+        "org": {"type": "string"},
+        "message": {"type": "string"},
+        "added_permissions": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "previous_owner": {"type": "string"},
+        "current_owner": {"type": "string"},
+        "previous_risk_score": {"type": "number"},
+        "current_risk_score": {"type": "number"},
+        "attack_path_drift": {"$ref": "#/$defs/attackPathDriftSummary"}
+      },
+      "additionalProperties": false
+    },
+    "driftExample": {
+      "type": "object",
+      "required": ["detail"],
+      "properties": {
+        "path_id": {"type": "string"},
+        "baseline_path_id": {"type": "string"},
+        "current_path_ref": {"type": "string"},
+        "baseline_path_ref": {"type": "string"},
+        "repo": {"type": "string"},
+        "location": {"type": "string"},
+        "baseline_location": {"type": "string"},
+        "current_target_class": {"type": "string"},
+        "baseline_target_class": {"type": "string"},
+        "current_boundary_label": {"type": "string"},
+        "baseline_boundary_label": {"type": "string"},
+        "current_authority_summary": {"type": "array", "items": {"type": "string"}},
+        "baseline_authority_summary": {"type": "array", "items": {"type": "string"}},
+        "current_evidence_summary": {"type": "array", "items": {"type": "string"}},
+        "baseline_evidence_summary": {"type": "array", "items": {"type": "string"}},
+        "current_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "baseline_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "detail": {"type": "string"},
+        "recommended_next_action": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "driftCategorySummary": {
+      "type": "object",
+      "required": ["category", "severity", "priority", "count"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "new_write_paths",
+            "new_deploy_paths",
+            "new_credentials",
+            "new_unknown_approval_evidence",
+            "resolved_gaps",
+            "worsened_paths",
+            "new_contradictions",
+            "paths_ready_for_control",
+            "removed_paths",
+            "changed_authority",
+            "changed_evidence",
+            "changed_target_class"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["P0", "P1", "P2"]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "affected_path_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "recommended_next_actions": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "examples": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/driftExample"}
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

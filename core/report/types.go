@@ -366,10 +366,14 @@ type LifecycleTransition struct {
 }
 
 type RegressSummary struct {
-	BaselineProvided bool          `json:"baseline_provided"`
-	DriftDetected    bool          `json:"drift_detected"`
-	ReasonCount      int           `json:"reason_count"`
-	ReasonGroups     []ReasonGroup `json:"reason_groups"`
+	BaselineProvided   bool                           `json:"baseline_provided"`
+	DriftDetected      bool                           `json:"drift_detected"`
+	ReasonCount        int                            `json:"reason_count"`
+	ReasonGroups       []ReasonGroup                  `json:"reason_groups"`
+	DriftCategoryCount int                            `json:"drift_category_count,omitempty"`
+	DriftCategories    []regress.DriftCategorySummary `json:"drift_categories,omitempty"`
+	ComparisonStatus   string                         `json:"comparison_status,omitempty"`
+	ComparisonIssues   []string                       `json:"comparison_issues,omitempty"`
 }
 
 type ReasonGroup struct {

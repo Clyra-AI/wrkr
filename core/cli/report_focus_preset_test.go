@@ -315,3 +315,156 @@ func TestReportFocusPresetSupportsBaseline(t *testing.T) {
 		t.Fatalf("expected no_drift_detected empty state, got %v", focusView)
 	}
 }
+
+func TestReportFocusPresetFiltersToDriftedPaths(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	baselineStatePath := filepath.Join(tmp, "baseline-state.json")
+	currentStatePath := filepath.Join(tmp, "current-state.json")
+	writeJSONFile(t, baselineStatePath, map[string]any{
+		"version": "v1",
+		"risk_report": map[string]any{
+			"generated_at": "2026-05-27T12:00:00Z",
+			"action_paths": []any{
+				map[string]any{
+					"path_id":                    "apc-release",
+					"org":                        "acme",
+					"repo":                       "acme/release",
+					"tool_type":                  "compiled_action",
+					"location":                   ".github/workflows/release.yml",
+					"write_capable":              true,
+					"credential_access":          false,
+					"approval_gap":               false,
+					"action_path_type":           "ci_cd_workflow",
+					"target_class":               "internal_tooling",
+					"boundary_label":             "report_only",
+					"approval_evidence_state":    "verified",
+					"owner_evidence_state":       "verified",
+					"proof_evidence_state":       "verified",
+					"runtime_evidence_state":     "unknown",
+					"target_evidence_state":      "verified",
+					"credential_evidence_state":  "verified",
+					"control_resolution_state":   "detected_control",
+					"delegation_readiness_state": "review_required",
+					"confidence_lane":            "confirmed_action_path",
+					"recommended_control":        "owner_review",
+					"recommended_action":         "review",
+					"attack_path_score":          7.2,
+					"risk_score":                 7.2,
+				},
+			},
+		},
+	})
+	writeJSONFile(t, currentStatePath, map[string]any{
+		"version": "v1",
+		"risk_report": map[string]any{
+			"generated_at": "2026-05-28T12:00:00Z",
+			"action_paths": []any{
+				map[string]any{
+					"path_id":                    "apc-release",
+					"org":                        "acme",
+					"repo":                       "acme/release",
+					"tool_type":                  "compiled_action",
+					"location":                   ".github/workflows/release.yml",
+					"write_capable":              true,
+					"credential_access":          true,
+					"approval_gap":               true,
+					"action_path_type":           "ci_cd_workflow",
+					"target_class":               "release_adjacent",
+					"boundary_label":             "approval_capable",
+					"approval_evidence_state":    "unknown",
+					"owner_evidence_state":       "verified",
+					"proof_evidence_state":       "verified",
+					"runtime_evidence_state":     "verified",
+					"target_evidence_state":      "verified",
+					"credential_evidence_state":  "verified",
+					"control_resolution_state":   "detected_control",
+					"delegation_readiness_state": "ready_for_control",
+					"confidence_lane":            "confirmed_action_path",
+					"recommended_control":        "allow",
+					"recommended_action":         "control",
+					"attack_path_score":          8.4,
+					"risk_score":                 8.4,
+				},
+				map[string]any{
+					"path_id":                    "apc-new-write",
+					"org":                        "acme",
+					"repo":                       "acme/release",
+					"tool_type":                  "compiled_action",
+					"location":                   ".github/workflows/write.yml",
+					"write_capable":              true,
+					"credential_access":          false,
+					"approval_gap":               true,
+					"action_path_type":           "ci_cd_workflow",
+					"target_class":               "production_impacting",
+					"boundary_label":             "report_only",
+					"approval_evidence_state":    "unknown",
+					"owner_evidence_state":       "unknown",
+					"proof_evidence_state":       "unknown",
+					"runtime_evidence_state":     "unknown",
+					"target_evidence_state":      "unknown",
+					"credential_evidence_state":  "unknown",
+					"control_resolution_state":   "no_visible_control",
+					"delegation_readiness_state": "approval_required",
+					"confidence_lane":            "confirmed_action_path",
+					"recommended_control":        "approval_required",
+					"recommended_action":         "control",
+					"attack_path_score":          9.1,
+					"risk_score":                 9.1,
+				},
+			},
+		},
+	})
+
+	loaded, err := state.Load(baselineStatePath)
+	if err != nil {
+		t.Fatalf("load baseline state: %v", err)
+	}
+	baseline := regress.BuildBaseline(loaded, time.Date(2026, 5, 27, 12, 0, 0, 0, time.UTC))
+	baselinePath := filepath.Join(tmp, "baseline.json")
+	if err := regress.SaveBaseline(baselinePath, baseline); err != nil {
+		t.Fatalf("save baseline: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"report",
+		"--state", currentStatePath,
+		"--baseline", baselinePath,
+		"--focus", "drift-review",
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("expected exit 0, got %d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	focusView, ok := payload["focus_view"].(map[string]any)
+	if !ok || focusView["preset"] != "drift-review" {
+		t.Fatalf("expected drift-review focus view, got %v", payload["focus_view"])
+	}
+	pathIDs, ok := focusView["path_ids"].([]any)
+	if !ok || len(pathIDs) != 2 {
+		t.Fatalf("expected two drifted path ids, got %v", focusView["path_ids"])
+	}
+	summary, ok := payload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary object, got %T", payload["summary"])
+	}
+	regressDrift, ok := summary["regress_drift"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected regress_drift summary, got %v", summary["regress_drift"])
+	}
+	if regressDrift["comparison_status"] != "ok" {
+		t.Fatalf("expected comparison_status=ok, got %v", regressDrift["comparison_status"])
+	}
+	categories, ok := regressDrift["drift_categories"].([]any)
+	if !ok || len(categories) == 0 {
+		t.Fatalf("expected drift categories, got %v", regressDrift["drift_categories"])
+	}
+}

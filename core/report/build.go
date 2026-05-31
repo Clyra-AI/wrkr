@@ -741,6 +741,10 @@ func buildRegressSummary(baseline *regress.Baseline, result *regress.Result) *Re
 	}
 	summary.DriftDetected = result.Drift
 	summary.ReasonCount = result.ReasonCount
+	summary.DriftCategoryCount = result.DriftCategoryCount
+	summary.DriftCategories = append([]regress.DriftCategorySummary(nil), result.DriftCategories...)
+	summary.ComparisonStatus = strings.TrimSpace(result.ComparisonStatus)
+	summary.ComparisonIssues = append([]string(nil), result.ComparisonIssues...)
 	byCode := map[string]int{}
 	for _, reason := range result.Reasons {
 		code := strings.TrimSpace(reason.Code)
@@ -761,6 +765,17 @@ func buildRegressSummary(baseline *regress.Baseline, result *regress.Result) *Re
 	})
 	summary.ReasonGroups = groups
 	return summary
+}
+
+func cloneRegressSummary(in *RegressSummary) *RegressSummary {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	out.ReasonGroups = append([]ReasonGroup(nil), in.ReasonGroups...)
+	out.ComparisonIssues = append([]string(nil), in.ComparisonIssues...)
+	out.DriftCategories = append([]regress.DriftCategorySummary(nil), in.DriftCategories...)
+	return &out
 }
 
 func buildDeltaSummary(snapshot state.Snapshot, previous *state.Snapshot, top int) DeltaSummary {
@@ -1076,8 +1091,17 @@ func buildSections(
 	}
 	if regressSummary != nil {
 		changeFacts = append(changeFacts, fmt.Sprintf("regress drift detected=%t reasons=%d", regressSummary.DriftDetected, regressSummary.ReasonCount))
+		if strings.TrimSpace(regressSummary.ComparisonStatus) != "" {
+			changeFacts = append(changeFacts, fmt.Sprintf("drift comparison status=%s", regressSummary.ComparisonStatus))
+		}
+		for _, issue := range regressSummary.ComparisonIssues {
+			changeFacts = append(changeFacts, "drift comparison issue "+issue)
+		}
 		for _, group := range regressSummary.ReasonGroups {
 			changeFacts = append(changeFacts, fmt.Sprintf("drift reason %s count=%d", group.Code, group.Count))
+		}
+		for _, category := range regressSummary.DriftCategories {
+			changeFacts = append(changeFacts, fmt.Sprintf("drift category %s severity=%s priority=%s count=%d", category.Category, category.Severity, category.Priority, category.Count))
 		}
 	}
 

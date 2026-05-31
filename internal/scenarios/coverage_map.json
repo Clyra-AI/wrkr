@@ -129,6 +129,11 @@
     "TestAgentActionBOMAcceptanceStaticToRuntimeEvidence",
     "TestWave5AgentActionBOMSchemaDeclaresPrimaryViewContract"
   ],
+  "W4-drift-review": [
+    "TestCompareAddsActionPathDriftCategories",
+    "TestReportFocusPresetFiltersToDriftedPaths",
+    "TestWave4DriftReviewSchemasDeclareCategoryContracts"
+  ],
   "W2-target-classification": [
     "TestTargetClassificationScenario"
   ],

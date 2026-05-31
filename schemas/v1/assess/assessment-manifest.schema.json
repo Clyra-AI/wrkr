@@ -95,7 +95,9 @@
         "exit_code": {"type": "integer", "minimum": 0, "maximum": 8},
         "artifact": {"type": "string"},
         "artifact_secondary": {"type": "string"},
-        "message": {"type": "string"}
+        "message": {"type": "string"},
+        "comparison_status": {"type": "string"},
+        "drift_category_count": {"type": "integer", "minimum": 0}
       },
       "additionalProperties": false
     }

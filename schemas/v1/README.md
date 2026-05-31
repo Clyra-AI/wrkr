@@ -14,6 +14,8 @@ This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifac
 - Agent Action BOM summary now also carries additive `primary_view` workflow-BOM fields for the default or explicit `--focus-path` selection: selected `path_id`, selection reason, path map, evidence/control posture, governed-path before/after guidance, and appendix refs.
 - Report-summary contracts also include additive `evidence_packets` and `recent_pr_review` surfaces for local PR/MR review workflows that stay offline by default.
 - Report-summary contracts also include additive `workflow_highlights` and `focus_view` sections for workflow-first buyer reports and named low-click review presets.
+- Regress baseline/result contracts now also carry additive action-path comparison state (`action_paths_captured`, `action_paths[]`, `comparison_status`, `comparison_issues[]`, `drift_category_count`, and `drift_categories[]`) so recurring drift review can fail closed without implying a clean no-drift result.
+- Agent Action BOM summary contracts now also carry additive `drift_review` metadata when report or assess output is baseline-backed.
 - Action-path and BOM contracts also carry additive `evidence_decisions[]` and `contradictions[]` for source precedence, freshness, rejected candidates, and enterprise-evidence conflicts.
 - Report and BOM action-path contracts also carry `closure_requirements`, `lifecycle_queue`, `governance_disposition`, and `evidence_completeness` so accepted-risk, suppression, closure guidance, lifecycle ownership work, and evidence sufficiency stay explicit in v1.
 - `findings/`: finding and extension-detector descriptor contracts.
