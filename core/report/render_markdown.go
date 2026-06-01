@@ -551,26 +551,26 @@ func renderPublicSurfaceAssessmentSection(builder *strings.Builder, assessment *
 	)
 	builder.WriteString("- This section uses only explicit public evidence and inferred public context; it does not verify private runtime, approval, credential, or control state without private evidence.\n")
 	for _, entry := range assessment.Entries {
-		builder.WriteString(fmt.Sprintf("- %s source=%s ref=%s confidence=%s\n",
+		fmt.Fprintf(builder, "- %s source=%s ref=%s confidence=%s\n",
 			risk.BuyerPublicEvidenceLabel(entry.EvidenceLabel),
 			entry.SourceClass,
 			entry.PublicRef,
 			firstNonEmptyValue(entry.Confidence, "unknown"),
-		))
+		)
 		if entry.Title != "" {
-			builder.WriteString(fmt.Sprintf("  title=%s\n", entry.Title))
+			fmt.Fprintf(builder, "  title=%s\n", entry.Title)
 		}
 		if entry.CapturePath != "" {
-			builder.WriteString(fmt.Sprintf("  capture_path=%s\n", entry.CapturePath))
+			fmt.Fprintf(builder, "  capture_path=%s\n", entry.CapturePath)
 		}
 		if entry.CapturedAt != "" {
-			builder.WriteString(fmt.Sprintf("  captured_at=%s\n", entry.CapturedAt))
+			fmt.Fprintf(builder, "  captured_at=%s\n", entry.CapturedAt)
 		}
 		if entry.InferenceRationale != "" {
-			builder.WriteString(fmt.Sprintf("  rationale=%s\n", entry.InferenceRationale))
+			fmt.Fprintf(builder, "  rationale=%s\n", entry.InferenceRationale)
 		}
 		if len(entry.Claims) > 0 {
-			builder.WriteString(fmt.Sprintf("  claims=%s\n", strings.Join(entry.Claims, " | ")))
+			fmt.Fprintf(builder, "  claims=%s\n", strings.Join(entry.Claims, " | "))
 		}
 	}
 	builder.WriteString("\n")
