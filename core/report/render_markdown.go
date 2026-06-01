@@ -540,15 +540,15 @@ func renderPublicSurfaceAssessmentSection(builder *strings.Builder, assessment *
 	}
 	builder.WriteString("## Public-Surface Assessment\n\n")
 	if assessment.ManifestName != "" {
-		builder.WriteString(fmt.Sprintf("- Manifest: %s\n", assessment.ManifestName))
+		fmt.Fprintf(builder, "- Manifest: %s\n", assessment.ManifestName)
 	}
-	builder.WriteString(fmt.Sprintf("- Sources: %d\n", assessment.TotalSources))
-	builder.WriteString(fmt.Sprintf("- Label counts: public_observed=%d public_inferred=%d unsupported_public_claim=%d private_evidence_absent=%d\n",
+	fmt.Fprintf(builder, "- Sources: %d\n", assessment.TotalSources)
+	fmt.Fprintf(builder, "- Label counts: public_observed=%d public_inferred=%d unsupported_public_claim=%d private_evidence_absent=%d\n",
 		assessment.LabelCounts.PublicObserved,
 		assessment.LabelCounts.PublicInferred,
 		assessment.LabelCounts.UnsupportedPublicClaim,
 		assessment.LabelCounts.PrivateEvidenceAbsent,
-	))
+	)
 	builder.WriteString("- This section uses only explicit public evidence and inferred public context; it does not verify private runtime, approval, credential, or control state without private evidence.\n")
 	for _, entry := range assessment.Entries {
 		builder.WriteString(fmt.Sprintf("- %s source=%s ref=%s confidence=%s\n",
