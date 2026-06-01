@@ -70,6 +70,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 			"report_artifacts":       result.ReportArtifacts,
 			"source_privacy":         result.SourcePrivacy,
 			"agent_action_bom":       result.AgentActionBOM,
+			"governed_usage_metrics": result.GovernedUsageMetrics,
 			"next_steps":             evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
 		}
 		if result.RuntimeEvidence != nil {

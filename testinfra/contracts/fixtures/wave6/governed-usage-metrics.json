@@ -1,0 +1,12 @@
+{
+  "active_monitored_action_paths": 4,
+  "governed_paths": 4,
+  "evidence_packs": 2,
+  "audit_exports": 4,
+  "approval_decisions": 1,
+  "connected_runtimes": 2,
+  "governed_agents_workflows": 4,
+  "verified_control_paths": 2,
+  "unknown_control_paths": 1,
+  "contradictory_paths": 1
+}

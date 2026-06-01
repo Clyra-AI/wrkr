@@ -1,0 +1,38 @@
+{
+  "total_groups": 1,
+  "total_paths": 2,
+  "groups": [
+    {
+      "group_id": "xrg-prod-remediate",
+      "count": 2,
+      "highest_severity": "critical",
+      "highest_priority": "control_first",
+      "closure_recommendation": "remediate standing production deploy paths first",
+      "top_example_refs": ["apc-prod-1", "apc-prod-2"],
+      "evidence_state_summary": {
+        "verified": 0,
+        "declared": 0,
+        "inferred": 0,
+        "unknown": 2,
+        "contradictory": 0
+      },
+      "rationale": [
+        "2 deploy paths grouped by production_impacting and unknown evidence",
+        "closure=remediate repo_cluster=cross_repo_shared_identity credential_authority=standing"
+      ],
+      "dimensions": {
+        "action_class": "deploy",
+        "target_class": "production_impacting",
+        "risk_zone": "production_data",
+        "credential_authority": "standing",
+        "production_target": "production_targeted",
+        "evidence_state": "unknown",
+        "owner_state": "verified",
+        "repo_cluster": "cross_repo_shared_identity",
+        "detector_confidence": "confirmed_action_path",
+        "contradiction_state": "consistent",
+        "closure_action": "remediate"
+      }
+    }
+  ]
+}

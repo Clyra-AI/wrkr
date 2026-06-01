@@ -72,9 +72,11 @@ const (
 )
 
 type Backlog struct {
-	ControlBacklogVersion string  `json:"control_backlog_version"`
-	Summary               Summary `json:"summary"`
-	Items                 []Item  `json:"items"`
+	ControlBacklogVersion string                `json:"control_backlog_version"`
+	ExecutiveRollup       *ExecutiveRollup      `json:"executive_rollup,omitempty"`
+	GovernedUsageMetrics  *GovernedUsageMetrics `json:"governed_usage_metrics,omitempty"`
+	Summary               Summary               `json:"summary"`
+	Items                 []Item                `json:"items"`
 }
 
 type Summary struct {

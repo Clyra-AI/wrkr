@@ -39,40 +39,42 @@ type AgentActionBOM struct {
 }
 
 type AgentActionBOMSummary struct {
-	TotalItems                   int                                 `json:"total_items"`
-	ControlFirstItems            int                                 `json:"control_first_items"`
-	StandingPrivilegeItems       int                                 `json:"standing_privilege_items"`
-	StaticCredentialItems        int                                 `json:"static_credential_items"`
-	ProductionTargetItems        int                                 `json:"production_target_items"`
-	AcceptedRiskItems            int                                 `json:"accepted_risk_items,omitempty"`
-	LifecycleQueueItems          int                                 `json:"lifecycle_queue_items,omitempty"`
-	ApprovalEvidenceUnknownItems int                                 `json:"approval_evidence_unknown_items,omitempty"`
-	ControlEvidenceUnknownItems  int                                 `json:"control_evidence_unknown_items,omitempty"`
-	OwnerEvidenceUnknownItems    int                                 `json:"owner_evidence_unknown_items,omitempty"`
-	ProofEvidenceUnknownItems    int                                 `json:"proof_evidence_unknown_items,omitempty"`
-	MissingApprovalItems         int                                 `json:"missing_approval_items"`
-	MissingPolicyItems           int                                 `json:"missing_policy_items"`
-	MissingProofItems            int                                 `json:"missing_proof_items"`
-	RuntimeProvenItems           int                                 `json:"runtime_proven_items"`
-	UnresolvedOwnerItems         int                                 `json:"unresolved_owner_items"`
-	ConfirmedActionPathItems     int                                 `json:"confirmed_action_path_items,omitempty"`
-	LikelyActionPathItems        int                                 `json:"likely_action_path_items,omitempty"`
-	SemanticReviewCandidateItems int                                 `json:"semantic_review_candidate_items,omitempty"`
-	ContextOnlyItems             int                                 `json:"context_only_items,omitempty"`
-	EmptyStateStatus             string                              `json:"empty_state_status,omitempty"`
-	EmptyStateReasons            []string                            `json:"empty_state_reasons,omitempty"`
-	ScanScope                    *ScanScopeSummary                   `json:"scan_scope,omitempty"`
-	SourcePrivacy                *sourceprivacy.Contract             `json:"source_privacy,omitempty"`
-	OperationalExposure          *scorecore.AxisSummary              `json:"operational_exposure,omitempty"`
-	GovernanceReadiness          *scorecore.AxisSummary              `json:"governance_readiness,omitempty"`
-	EvidenceCompleteness         *risk.EvidenceCompletenessSummary   `json:"evidence_completeness,omitempty"`
-	ScanCoverage                 *scanquality.CompactCoverageSummary `json:"scan_coverage,omitempty"`
-	CoverageConfidence           string                              `json:"coverage_confidence,omitempty"`
-	AutonomyTiers                risk.AutonomyTierCounts             `json:"autonomy_tiers"`
-	DelegationReadiness          risk.DelegationReadinessCounts      `json:"delegation_readiness"`
-	RecommendedControls          risk.RecommendedControlCounts       `json:"recommended_controls"`
-	DriftReview                  *RegressSummary                     `json:"drift_review,omitempty"`
-	PrimaryView                  *AgentActionBOMPrimaryView          `json:"primary_view,omitempty"`
+	TotalItems                   int                                  `json:"total_items"`
+	ControlFirstItems            int                                  `json:"control_first_items"`
+	StandingPrivilegeItems       int                                  `json:"standing_privilege_items"`
+	StaticCredentialItems        int                                  `json:"static_credential_items"`
+	ProductionTargetItems        int                                  `json:"production_target_items"`
+	AcceptedRiskItems            int                                  `json:"accepted_risk_items,omitempty"`
+	LifecycleQueueItems          int                                  `json:"lifecycle_queue_items,omitempty"`
+	ApprovalEvidenceUnknownItems int                                  `json:"approval_evidence_unknown_items,omitempty"`
+	ControlEvidenceUnknownItems  int                                  `json:"control_evidence_unknown_items,omitempty"`
+	OwnerEvidenceUnknownItems    int                                  `json:"owner_evidence_unknown_items,omitempty"`
+	ProofEvidenceUnknownItems    int                                  `json:"proof_evidence_unknown_items,omitempty"`
+	MissingApprovalItems         int                                  `json:"missing_approval_items"`
+	MissingPolicyItems           int                                  `json:"missing_policy_items"`
+	MissingProofItems            int                                  `json:"missing_proof_items"`
+	RuntimeProvenItems           int                                  `json:"runtime_proven_items"`
+	UnresolvedOwnerItems         int                                  `json:"unresolved_owner_items"`
+	ConfirmedActionPathItems     int                                  `json:"confirmed_action_path_items,omitempty"`
+	LikelyActionPathItems        int                                  `json:"likely_action_path_items,omitempty"`
+	SemanticReviewCandidateItems int                                  `json:"semantic_review_candidate_items,omitempty"`
+	ContextOnlyItems             int                                  `json:"context_only_items,omitempty"`
+	EmptyStateStatus             string                               `json:"empty_state_status,omitempty"`
+	EmptyStateReasons            []string                             `json:"empty_state_reasons,omitempty"`
+	ScanScope                    *ScanScopeSummary                    `json:"scan_scope,omitempty"`
+	SourcePrivacy                *sourceprivacy.Contract              `json:"source_privacy,omitempty"`
+	OperationalExposure          *scorecore.AxisSummary               `json:"operational_exposure,omitempty"`
+	GovernanceReadiness          *scorecore.AxisSummary               `json:"governance_readiness,omitempty"`
+	EvidenceCompleteness         *risk.EvidenceCompletenessSummary    `json:"evidence_completeness,omitempty"`
+	ExecutiveRollup              *controlbacklog.ExecutiveRollup      `json:"executive_rollup,omitempty"`
+	GovernedUsageMetrics         *controlbacklog.GovernedUsageMetrics `json:"governed_usage_metrics,omitempty"`
+	ScanCoverage                 *scanquality.CompactCoverageSummary  `json:"scan_coverage,omitempty"`
+	CoverageConfidence           string                               `json:"coverage_confidence,omitempty"`
+	AutonomyTiers                risk.AutonomyTierCounts              `json:"autonomy_tiers"`
+	DelegationReadiness          risk.DelegationReadinessCounts       `json:"delegation_readiness"`
+	RecommendedControls          risk.RecommendedControlCounts        `json:"recommended_controls"`
+	DriftReview                  *RegressSummary                      `json:"drift_review,omitempty"`
+	PrimaryView                  *AgentActionBOMPrimaryView           `json:"primary_view,omitempty"`
 }
 
 type AgentActionBOMItem struct {
@@ -429,6 +431,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 	counts.OperationalExposure = cloneAxisSummary(summary.OperationalExposure)
 	counts.GovernanceReadiness = cloneAxisSummary(summary.GovernanceReadiness)
 	counts.EvidenceCompleteness = risk.CloneEvidenceCompletenessSummary(summary.EvidenceCompleteness)
+	counts.ExecutiveRollup = resolveExecutiveRollup(summary)
+	counts.GovernedUsageMetrics = resolveGovernedUsageMetrics(summary)
 	scanCoverage := scanquality.BuildCompactCoverageSummary(summary.ScanQuality)
 	counts.ScanCoverage = &scanCoverage
 	counts.CoverageConfidence = scanCoverage.CoverageConfidence

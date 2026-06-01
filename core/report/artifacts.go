@@ -20,6 +20,8 @@ type EvidenceBundle struct {
 	ShareProfileMetadata  *ShareProfileMetadata                `json:"share_profile_metadata,omitempty"`
 	ArtifactMetadata      *ArtifactMetadata                    `json:"artifact_metadata,omitempty"`
 	ControlBacklog        *controlbacklog.Backlog              `json:"control_backlog,omitempty"`
+	ExecutiveRollup       *controlbacklog.ExecutiveRollup      `json:"executive_rollup,omitempty"`
+	GovernedUsageMetrics  *controlbacklog.GovernedUsageMetrics `json:"governed_usage_metrics,omitempty"`
 	ControlPathGraph      *aggattack.ControlPathGraph          `json:"control_path_graph,omitempty"`
 	WorkflowChains        *agentresolver.WorkflowChainArtifact `json:"workflow_chains,omitempty"`
 	ActionSurfaceRegistry []ActionSurfaceRegistryEntry         `json:"action_surface_registry,omitempty"`
@@ -41,6 +43,8 @@ func BuildEvidenceBundle(summary Summary) EvidenceBundle {
 		ShareProfileMetadata:  cloneShareProfileMetadata(summary.ShareProfileMetadata),
 		ArtifactMetadata:      cloneArtifactMetadata(summary.ArtifactMetadata),
 		ControlBacklog:        summary.ControlBacklog,
+		ExecutiveRollup:       summary.ExecutiveRollup,
+		GovernedUsageMetrics:  summary.GovernedUsageMetrics,
 		ControlPathGraph:      summary.ControlPathGraph,
 		WorkflowChains:        summary.WorkflowChains,
 		ActionSurfaceRegistry: append([]ActionSurfaceRegistryEntry(nil), summary.ActionSurfaceRegistry...),

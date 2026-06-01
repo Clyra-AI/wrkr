@@ -274,6 +274,16 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		summary.ActionSurfaceRegistry = sanitizeActionSurfaceRegistryWithConfig(summary.ActionSurfaceRegistry, redactionConfig)
 		summary.AgentActionBOM = sanitizeAgentActionBOMWithConfig(summary.AgentActionBOM, shareProfile, redactionConfig)
 	}
+	summary.ExecutiveRollup = resolveExecutiveRollup(summary)
+	summary.GovernedUsageMetrics = resolveGovernedUsageMetrics(summary)
+	if summary.ControlBacklog != nil {
+		summary.ControlBacklog.ExecutiveRollup = summary.ExecutiveRollup
+		summary.ControlBacklog.GovernedUsageMetrics = summary.GovernedUsageMetrics
+	}
+	if summary.AgentActionBOM != nil {
+		summary.AgentActionBOM.Summary.ExecutiveRollup = summary.ExecutiveRollup
+		summary.AgentActionBOM.Summary.GovernedUsageMetrics = summary.GovernedUsageMetrics
+	}
 	summary.WorkflowHighlights = BuildWorkflowHighlights(summary)
 
 	return summary, nil

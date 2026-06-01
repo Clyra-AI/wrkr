@@ -88,6 +88,8 @@ type Summary struct {
 	OperationalExposure      *scorecore.AxisSummary                 `json:"operational_exposure,omitempty"`
 	GovernanceReadiness      *scorecore.AxisSummary                 `json:"governance_readiness,omitempty"`
 	EvidenceCompleteness     *risk.EvidenceCompletenessSummary      `json:"evidence_completeness,omitempty"`
+	ExecutiveRollup          *controlbacklog.ExecutiveRollup        `json:"executive_rollup,omitempty"`
+	GovernedUsageMetrics     *controlbacklog.GovernedUsageMetrics   `json:"governed_usage_metrics,omitempty"`
 	WorkflowHighlights       *WorkflowHighlights                    `json:"workflow_highlights,omitempty"`
 	FocusView                *FocusView                             `json:"focus_view,omitempty"`
 	AssessmentSummary        *AssessmentSummary                     `json:"assessment_summary,omitempty"`
