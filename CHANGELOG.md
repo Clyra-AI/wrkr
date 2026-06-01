@@ -47,6 +47,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added first-class drift review categories and fail-closed comparison metadata across regress, report, Agent Action BOM, and assessment artifacts for new write/deploy paths, credentials, evidence movement, contradictions, and paths ready for control.
 - [semver:minor] Added large-organization executive rollups that group Agent Action BOM and control-backlog evidence by action, target, risk, authority, evidence, owner, contradiction, and closure dimensions.
 - [semver:minor] Added governed-usage metrics for monitored paths, governed paths, evidence packs, audit exports, approvals, connected runtimes, governed agents/workflows, verified controls, unknown controls, and contradictions.
+- [semver:minor] Added customer-controlled deployment and data-mode metadata across scan, report, and evidence artifacts, with `local_only` as the default posture.
+- [semver:minor] Added an opt-in public-surface assessment path for public repos, docs, SDKs, release notes, status pages, and workflows with explicit public/inferred evidence labels.
 
 ### Changed
 

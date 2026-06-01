@@ -76,7 +76,8 @@ func runScanStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if status.SourcePrivacy != nil {
 		privacy := sourceprivacy.Normalize(*status.SourcePrivacy)
-		_, _ = fmt.Fprintf(stdout, "source privacy: retention=%s retained=%t cleanup=%s locations=%s raw_source_in_artifacts=%t\n",
+		_, _ = fmt.Fprintf(stdout, "source privacy: deployment_mode=%s retention=%s retained=%t cleanup=%s locations=%s raw_source_in_artifacts=%t\n",
+			privacy.DeploymentMode,
 			privacy.RetentionMode,
 			privacy.MaterializedSourceRetained,
 			privacy.CleanupStatus,

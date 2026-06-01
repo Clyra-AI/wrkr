@@ -26,6 +26,7 @@ import (
 type reportPayload struct {
 	Status                   string                        `json:"status"`
 	GeneratedAt              string                        `json:"generated_at"`
+	DeploymentMode           string                        `json:"deployment_mode,omitempty"`
 	NextSteps                []nextStep                    `json:"next_steps,omitempty"`
 	Targets                  []source.Target               `json:"targets,omitempty"`
 	TopFindings              []risk.ScoredFinding          `json:"top_findings"`
@@ -42,6 +43,7 @@ type reportPayload struct {
 	EvidencePackets          *ingest.EvidencePacketSummary `json:"evidence_packets,omitempty"`
 	RecentPRReview           *reportcore.RecentPRReview    `json:"recent_pr_review,omitempty"`
 	AssessmentSummary        any                           `json:"assessment_summary,omitempty"`
+	PublicSurfaceAssessment  any                           `json:"public_surface_assessment,omitempty"`
 	ExposureGroups           any                           `json:"exposure_groups,omitempty"`
 	TotalTools               int                           `json:"total_tools"`
 	ToolTypeBreakdown        []toolTypeCount               `json:"tool_type_breakdown"`
@@ -261,6 +263,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	payload := reportPayload{
 		Status:                   "ok",
 		GeneratedAt:              summary.GeneratedAt,
+		DeploymentMode:           summary.DeploymentMode,
 		TopFindings:              top,
 		AttackPaths:              riskReport.AttackPaths,
 		TopAttackPaths:           riskReport.TopAttackPaths,
@@ -275,6 +278,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		EvidencePackets:          summary.EvidencePackets,
 		RecentPRReview:           summary.RecentPRReview,
 		AssessmentSummary:        summary.AssessmentSummary,
+		PublicSurfaceAssessment:  summary.PublicSurfaceAssessment,
 		ExposureGroups:           summary.ExposureGroups,
 		TotalTools:               totalTools,
 		ToolTypeBreakdown:        typeBreakdown,

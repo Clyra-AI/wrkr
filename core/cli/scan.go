@@ -77,6 +77,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	scanModeRaw := fs.String("mode", "governance", "scan mode [quick|governance|deep]")
 	progressModeRaw := fs.String("progress", string(scanProgressModeAuto), "progress output [auto|bar|plain|events|none]")
 	sourceRetentionRaw := fs.String("source-retention", sourceprivacy.RetentionEphemeral, "hosted source retention [ephemeral|retain_for_resume|retain]")
+	deploymentModeRaw := fs.String("deployment-mode", sourceprivacy.DeploymentModeLocalOnly, "deployment/data mode [local_only|customer_controlled_storage|connected_saas_metadata|managed_platform]")
 	allowSourceMaterialization := fs.Bool("allow-source-materialization", false, "allow hosted scans to fetch generic source-code files")
 	diffMode := fs.Bool("diff", false, "show only changes since previous scan")
 	enrich := fs.Bool("enrich", false, "enable non-deterministic enrichment lookups (network required)")
@@ -118,6 +119,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	sourceRetentionMode, sourceRetentionErr := sourceprivacy.ParseRetentionMode(*sourceRetentionRaw)
 	if sourceRetentionErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", sourceRetentionErr.Error(), exitInvalidInput)
+	}
+	deploymentMode, deploymentModeErr := sourceprivacy.ParseDeploymentMode(*deploymentModeRaw)
+	if deploymentModeErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", deploymentModeErr.Error(), exitInvalidInput)
 	}
 	allowHostedSourceMaterialization := *allowSourceMaterialization || scanMode == "deep"
 	productionTargetsFile := strings.TrimSpace(*productionTargetsPath)
@@ -213,7 +218,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, rootErr)
 		}
 	}
-	sourcePrivacy := sourceprivacy.InitialContract(sourceRetentionMode, materializedRoot != "", allowHostedSourceMaterialization)
+	sourcePrivacy := sourceprivacy.InitialContract(sourceRetentionMode, materializedRoot != "", allowHostedSourceMaterialization, deploymentMode)
 	sourceCleanupFinalized := false
 
 	ctx := parentCtx
@@ -327,6 +332,12 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		AllowSourceMaterialization: allowHostedSourceMaterialization,
 	})
 	if err != nil {
+		if source.IsPublicSurfaceInputError(err) {
+			return emitScanError("invalid_input", err.Error(), exitInvalidInput)
+		}
+		if source.IsPublicSurfaceSafetyError(err) {
+			return emitScanError("unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+		}
 		return emitScanFailure(err)
 	}
 	if err := checkScanContext(); err != nil {
@@ -579,21 +590,23 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 
 	snapshot := state.Snapshot{
-		Version:        state.SnapshotVersion,
-		Target:         manifestOut.Target,
-		Targets:        manifestOut.Targets,
-		Findings:       findings,
-		Inventory:      &inventoryOut,
-		ControlBacklog: &controlBacklog,
-		LifecycleGaps:  lifecycleGaps,
-		ScanQuality:    &scanQuality,
-		ScanMode:       scanMode,
-		RiskReport:     &riskReport,
-		Profile:        &profileResult,
-		PostureScore:   &postureScore,
-		Identities:     nextManifest.Identities,
-		Transitions:    transitions,
-		SourcePrivacy:  &sourcePrivacy,
+		Version:                    state.SnapshotVersion,
+		Target:                     manifestOut.Target,
+		Targets:                    manifestOut.Targets,
+		Findings:                   findings,
+		Inventory:                  &inventoryOut,
+		ControlBacklog:             &controlBacklog,
+		LifecycleGaps:              lifecycleGaps,
+		ScanQuality:                &scanQuality,
+		ScanMode:                   scanMode,
+		RiskReport:                 &riskReport,
+		Profile:                    &profileResult,
+		PostureScore:               &postureScore,
+		Identities:                 nextManifest.Identities,
+		Transitions:                transitions,
+		SourcePrivacy:              &sourcePrivacy,
+		PublicEvidenceManifestName: manifestOut.PublicEvidenceManifestName,
+		PublicEvidence:             manifestOut.PublicEvidence,
 	}
 	chainPath := artifactPreflight.LifecyclePath
 	proofChainPath := artifactPreflight.ProofChainPath
@@ -702,6 +715,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 
 	payload := map[string]any{
 		"status":          "ok",
+		"deployment_mode": deploymentMode,
 		"target":          manifestOut.Target,
 		"source_manifest": manifestOut,
 		"source_privacy":  sourcePrivacy,

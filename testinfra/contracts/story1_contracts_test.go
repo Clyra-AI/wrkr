@@ -71,6 +71,7 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 		"attack_paths",
 		"compliance_summary",
 		"control_backlog",
+		"deployment_mode",
 		"findings",
 		"inventory",
 		"posture_score",
@@ -92,6 +93,9 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 	}
 	if payload["scan_mode"] != "governance" {
 		t.Fatalf("expected default scan_mode=governance, got %v", payload["scan_mode"])
+	}
+	if payload["deployment_mode"] != "local_only" {
+		t.Fatalf("expected default deployment_mode=local_only, got %v", payload["deployment_mode"])
 	}
 	controlBacklog, ok := payload["control_backlog"].(map[string]any)
 	if !ok {
@@ -162,7 +166,7 @@ func TestDiffJSONContractStableKeys(t *testing.T) {
 		t.Fatalf("parse diff payload: %v", err)
 	}
 	got := sortedKeys(payload)
-	want := []string{"diff", "diff_empty", "scan_mode", "scan_quality", "source_manifest", "source_privacy", "status", "target"}
+	want := []string{"deployment_mode", "diff", "diff_empty", "scan_mode", "scan_quality", "source_manifest", "source_privacy", "status", "target"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected top-level keys: got %v want %v", got, want)
 	}

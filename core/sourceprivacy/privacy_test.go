@@ -5,12 +5,35 @@ import (
 	"testing"
 )
 
+func TestParseDeploymentModeDefaultsToLocalOnly(t *testing.T) {
+	t.Parallel()
+
+	got, err := ParseDeploymentMode("")
+	if err != nil {
+		t.Fatalf("parse deployment mode: %v", err)
+	}
+	if got != DeploymentModeLocalOnly {
+		t.Fatalf("expected default deployment mode %q, got %q", DeploymentModeLocalOnly, got)
+	}
+}
+
+func TestParseDeploymentModeRejectsUnknownValue(t *testing.T) {
+	t.Parallel()
+
+	if _, err := ParseDeploymentMode("hosted_forever"); err == nil {
+		t.Fatal("expected invalid deployment mode to be rejected")
+	}
+}
+
 func TestInitialContractHostedDefaultsToEphemeralLogicalAndPendingCleanup(t *testing.T) {
 	t.Parallel()
 
-	contract := InitialContract("", true, false)
+	contract := InitialContract("", true, false, "")
 	if contract.RetentionMode != RetentionEphemeral {
 		t.Fatalf("expected default ephemeral retention, got %s", contract.RetentionMode)
+	}
+	if contract.DeploymentMode != DeploymentModeLocalOnly {
+		t.Fatalf("expected default deployment mode %q, got %q", DeploymentModeLocalOnly, contract.DeploymentMode)
 	}
 	if contract.MaterializedSourceRetained {
 		t.Fatal("expected hosted default to start as not retained")
@@ -23,6 +46,20 @@ func TestInitialContractHostedDefaultsToEphemeralLogicalAndPendingCleanup(t *tes
 	}
 	if contract.CleanupStatus != CleanupPending {
 		t.Fatalf("expected pending cleanup, got %s", contract.CleanupStatus)
+	}
+}
+
+func TestNormalizePreservesExplicitDeploymentMode(t *testing.T) {
+	t.Parallel()
+
+	contract := Normalize(Contract{
+		RetentionMode:       RetentionRetain,
+		DeploymentMode:      DeploymentModeConnectedSaaSMetadata,
+		CleanupStatus:       CleanupRetained,
+		SerializedLocations: SerializedLocationsFilesystem,
+	})
+	if contract.DeploymentMode != DeploymentModeConnectedSaaSMetadata {
+		t.Fatalf("expected explicit deployment mode to survive normalization, got %q", contract.DeploymentMode)
 	}
 }
 

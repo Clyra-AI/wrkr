@@ -11,6 +11,11 @@ const (
 	RetentionRetainForResume = "retain_for_resume"
 	RetentionRetain          = "retain"
 
+	DeploymentModeLocalOnly                 = "local_only"
+	DeploymentModeCustomerControlledStorage = "customer_controlled_storage"
+	DeploymentModeConnectedSaaSMetadata     = "connected_saas_metadata"
+	DeploymentModeManagedPlatform           = "managed_platform"
+
 	SerializedLocationsLogical    = "logical"
 	SerializedLocationsFilesystem = "filesystem"
 
@@ -24,6 +29,7 @@ const (
 // Contract is the machine-readable privacy contract emitted with scan-derived artifacts.
 type Contract struct {
 	RetentionMode              string   `json:"retention_mode" yaml:"retention_mode"`
+	DeploymentMode             string   `json:"deployment_mode" yaml:"deployment_mode"`
 	MaterializedSourceRetained bool     `json:"materialized_source_retained" yaml:"materialized_source_retained"`
 	RawSourceInArtifacts       bool     `json:"raw_source_in_artifacts" yaml:"raw_source_in_artifacts"`
 	SerializedLocations        string   `json:"serialized_locations" yaml:"serialized_locations"`
@@ -44,12 +50,31 @@ func ParseRetentionMode(raw string) (string, error) {
 	}
 }
 
-func InitialContract(mode string, hosted bool, allowSourceMaterialization bool) Contract {
+func ParseDeploymentMode(raw string) (string, error) {
+	switch strings.TrimSpace(raw) {
+	case "", DeploymentModeLocalOnly:
+		return DeploymentModeLocalOnly, nil
+	case DeploymentModeCustomerControlledStorage:
+		return DeploymentModeCustomerControlledStorage, nil
+	case DeploymentModeConnectedSaaSMetadata:
+		return DeploymentModeConnectedSaaSMetadata, nil
+	case DeploymentModeManagedPlatform:
+		return DeploymentModeManagedPlatform, nil
+	default:
+		return "", fmt.Errorf("--deployment-mode must be one of local_only, customer_controlled_storage, connected_saas_metadata, or managed_platform")
+	}
+}
+
+func InitialContract(mode string, hosted bool, allowSourceMaterialization bool, deploymentMode string) Contract {
 	if strings.TrimSpace(mode) == "" {
 		mode = RetentionEphemeral
 	}
+	if strings.TrimSpace(deploymentMode) == "" {
+		deploymentMode = DeploymentModeLocalOnly
+	}
 	contract := Contract{
 		RetentionMode:              mode,
+		DeploymentMode:             deploymentMode,
 		MaterializedSourceRetained: false,
 		RawSourceInArtifacts:       false,
 		SerializedLocations:        SerializedLocationsFilesystem,
@@ -74,6 +99,11 @@ func Normalize(in Contract) Contract {
 		mode = RetentionEphemeral
 	}
 	in.RetentionMode = mode
+	deploymentMode, err := ParseDeploymentMode(in.DeploymentMode)
+	if err != nil {
+		deploymentMode = DeploymentModeLocalOnly
+	}
+	in.DeploymentMode = deploymentMode
 	if strings.TrimSpace(in.SerializedLocations) == "" {
 		in.SerializedLocations = SerializedLocationsFilesystem
 	}

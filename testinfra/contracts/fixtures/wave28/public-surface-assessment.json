@@ -1,0 +1,50 @@
+{
+  "manifest_name": "acme-public",
+  "total_sources": 4,
+  "label_counts": {
+    "public_observed": 1,
+    "public_inferred": 1,
+    "unsupported_public_claim": 1,
+    "private_evidence_absent": 1
+  },
+  "entries": [
+    {
+      "entry_id": "repo",
+      "source_class": "public_repo",
+      "title": "Acme public repo",
+      "public_ref": "https://github.com/acme/platform",
+      "evidence_label": "public_observed",
+      "confidence": "high",
+      "claims": ["Public repository is visible"]
+    },
+    {
+      "entry_id": "workflow",
+      "source_class": "public_workflow",
+      "title": "Release workflow",
+      "public_ref": "https://github.com/acme/platform/actions/workflows/release.yml",
+      "evidence_label": "public_inferred",
+      "confidence": "medium",
+      "inference_rationale": "Workflow naming implies release automation, but private deployment evidence is still absent.",
+      "claims": ["Release automation likely exists"]
+    },
+    {
+      "entry_id": "docs",
+      "source_class": "public_docs",
+      "title": "Security docs",
+      "public_ref": "https://docs.acme.example/security",
+      "evidence_label": "private_evidence_absent",
+      "confidence": "low",
+      "claims": ["No private approval export was provided"]
+    },
+    {
+      "entry_id": "blog",
+      "source_class": "engineering_blog",
+      "title": "Engineering blog",
+      "public_ref": "https://blog.acme.example/post",
+      "evidence_label": "unsupported_public_claim",
+      "confidence": "low",
+      "inference_rationale": "The public post makes a strong deployment claim without technical public evidence.",
+      "claims": ["Autonomous deployment approvals are claimed"]
+    }
+  ]
+}

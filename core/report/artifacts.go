@@ -17,6 +17,7 @@ type EvidenceBundle struct {
 	GeneratedAt           string                               `json:"generated_at"`
 	Template              string                               `json:"template"`
 	ShareProfile          string                               `json:"share_profile"`
+	DeploymentMode        string                               `json:"deployment_mode,omitempty"`
 	ShareProfileMetadata  *ShareProfileMetadata                `json:"share_profile_metadata,omitempty"`
 	ArtifactMetadata      *ArtifactMetadata                    `json:"artifact_metadata,omitempty"`
 	ControlBacklog        *controlbacklog.Backlog              `json:"control_backlog,omitempty"`
@@ -40,6 +41,7 @@ func BuildEvidenceBundle(summary Summary) EvidenceBundle {
 		GeneratedAt:           summary.GeneratedAt,
 		Template:              summary.Template,
 		ShareProfile:          summary.ShareProfile,
+		DeploymentMode:        summary.DeploymentMode,
 		ShareProfileMetadata:  cloneShareProfileMetadata(summary.ShareProfileMetadata),
 		ArtifactMetadata:      cloneArtifactMetadata(summary.ArtifactMetadata),
 		ControlBacklog:        summary.ControlBacklog,

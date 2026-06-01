@@ -102,9 +102,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		scanQuality.CompactSummary = &compact
 	}
 	sourcePrivacy := normalizedSourcePrivacy(in.Snapshot.SourcePrivacy)
+	deploymentMode := resolveDeploymentMode(sourcePrivacy)
 	runtimeSessions := buildSessionSummary(in.StatePath, in.Snapshot)
 	runtimeEvidence := buildRuntimeEvidenceSummary(in.StatePath, in.Snapshot)
 	evidencePackets := buildEvidencePacketSummary(in.StatePath, in.Snapshot)
+	publicSurfaceAssessment := buildPublicSurfaceAssessment(in.Snapshot.PublicEvidenceManifestName, in.Snapshot.PublicEvidence)
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
 	riskReport.ActionPaths = decorateActionPathsForEvidencePackets(riskReport.ActionPaths, evidencePackets)
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, scanQuality)
@@ -223,6 +225,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		GeneratedAt:              now.Format(time.RFC3339),
 		Template:                 string(template),
 		ShareProfile:             string(shareProfile),
+		DeploymentMode:           deploymentMode,
 		ShareProfileMetadata:     shareProfileMetadata,
 		SectionOrder:             sectionOrder,
 		Sections:                 sections,
@@ -232,6 +235,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		GovernanceReadiness:      &governanceReadiness,
 		EvidenceCompleteness:     evidenceCompleteness,
 		AssessmentSummary:        assessmentSummary,
+		PublicSurfaceAssessment:  publicSurfaceAssessment,
 		Methodology:              methodology,
 		TopRisks:                 riskItems,
 		PrivilegeBudget:          privilegeBudget,
@@ -310,6 +314,13 @@ func normalizedSourcePrivacy(in *sourceprivacy.Contract) *sourceprivacy.Contract
 	return &normalized
 }
 
+func resolveDeploymentMode(in *sourceprivacy.Contract) string {
+	if in == nil {
+		return sourceprivacy.DeploymentModeLocalOnly
+	}
+	return sourceprivacy.Normalize(*in).DeploymentMode
+}
+
 func buildScanScopeSummary(snapshot state.Snapshot) *ScanScopeSummary {
 	targets := snapshot.Targets
 	if len(targets) == 0 && strings.TrimSpace(snapshot.Target.Mode) != "" {
@@ -348,6 +359,8 @@ func scanScopeLabel(mode string, targetCount int) (string, string) {
 		return "remote organization", "remote_org"
 	case source.TargetModeMulti:
 		return "multi-target scan", "multi_target"
+	case source.TargetModePublicSurface:
+		return "public-surface assessment", "public_surface"
 	default:
 		return "unknown scope", "unknown"
 	}
@@ -1158,7 +1171,8 @@ func buildSections(
 		headlineFacts = append(headlineFacts, fmt.Sprintf("production targets %s; default claim scope is write_capable=%d", privilegeBudget.ProductionWrite.Status, privilegeBudget.WriteCapableTools))
 	}
 	if sourcePrivacy != nil {
-		headlineFacts = append(headlineFacts, fmt.Sprintf("source_privacy retention=%s retained=%t raw_source_in_artifacts=%t serialized_locations=%s cleanup_status=%s",
+		headlineFacts = append(headlineFacts, fmt.Sprintf("source_privacy deployment_mode=%s retention=%s retained=%t raw_source_in_artifacts=%t serialized_locations=%s cleanup_status=%s",
+			sourcePrivacy.DeploymentMode,
 			sourcePrivacy.RetentionMode,
 			sourcePrivacy.MaterializedSourceRetained,
 			sourcePrivacy.RawSourceInArtifacts,

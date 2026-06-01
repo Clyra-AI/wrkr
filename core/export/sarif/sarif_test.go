@@ -55,7 +55,7 @@ func TestSARIFEmitterBuildDeterministic(t *testing.T) {
 func TestSARIFEmitterIncludesSourcePrivacyAndRedactsMaterializedLocation(t *testing.T) {
 	t.Parallel()
 
-	privacy := sourceprivacy.InitialContract(sourceprivacy.RetentionEphemeral, true, false)
+	privacy := sourceprivacy.InitialContract(sourceprivacy.RetentionEphemeral, true, false, "")
 	privacy = sourceprivacy.MarkRemoved(privacy)
 	report := BuildWithSourcePrivacy([]model.Finding{
 		{

@@ -170,6 +170,10 @@ func RenderMarkdown(summary Summary) string {
 		renderFocusViewSection(&builder, summary.FocusView)
 	}
 
+	if summary.PublicSurfaceAssessment != nil {
+		renderPublicSurfaceAssessmentSection(&builder, summary.PublicSurfaceAssessment)
+	}
+
 	if summary.WorkflowHighlights != nil {
 		renderWorkflowHighlightsSection(&builder, summary.WorkflowHighlights)
 	}
@@ -528,6 +532,48 @@ func markdownActionPathLabel(lane string, actionPathType string) string {
 	default:
 		return "action-path evidence"
 	}
+}
+
+func renderPublicSurfaceAssessmentSection(builder *strings.Builder, assessment *PublicSurfaceAssessment) {
+	if builder == nil || assessment == nil {
+		return
+	}
+	builder.WriteString("## Public-Surface Assessment\n\n")
+	if assessment.ManifestName != "" {
+		builder.WriteString(fmt.Sprintf("- Manifest: %s\n", assessment.ManifestName))
+	}
+	builder.WriteString(fmt.Sprintf("- Sources: %d\n", assessment.TotalSources))
+	builder.WriteString(fmt.Sprintf("- Label counts: public_observed=%d public_inferred=%d unsupported_public_claim=%d private_evidence_absent=%d\n",
+		assessment.LabelCounts.PublicObserved,
+		assessment.LabelCounts.PublicInferred,
+		assessment.LabelCounts.UnsupportedPublicClaim,
+		assessment.LabelCounts.PrivateEvidenceAbsent,
+	))
+	builder.WriteString("- This section uses only explicit public evidence and inferred public context; it does not verify private runtime, approval, credential, or control state without private evidence.\n")
+	for _, entry := range assessment.Entries {
+		builder.WriteString(fmt.Sprintf("- %s source=%s ref=%s confidence=%s\n",
+			risk.BuyerPublicEvidenceLabel(entry.EvidenceLabel),
+			entry.SourceClass,
+			entry.PublicRef,
+			firstNonEmptyValue(entry.Confidence, "unknown"),
+		))
+		if entry.Title != "" {
+			builder.WriteString(fmt.Sprintf("  title=%s\n", entry.Title))
+		}
+		if entry.CapturePath != "" {
+			builder.WriteString(fmt.Sprintf("  capture_path=%s\n", entry.CapturePath))
+		}
+		if entry.CapturedAt != "" {
+			builder.WriteString(fmt.Sprintf("  captured_at=%s\n", entry.CapturedAt))
+		}
+		if entry.InferenceRationale != "" {
+			builder.WriteString(fmt.Sprintf("  rationale=%s\n", entry.InferenceRationale))
+		}
+		if len(entry.Claims) > 0 {
+			builder.WriteString(fmt.Sprintf("  claims=%s\n", strings.Join(entry.Claims, " | ")))
+		}
+	}
+	builder.WriteString("\n")
 }
 
 func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentActionBOMPrimaryView) {

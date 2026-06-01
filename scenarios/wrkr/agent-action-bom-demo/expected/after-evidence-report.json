@@ -38,6 +38,7 @@
     },
     "source_privacy": {
       "retention_mode": "ephemeral",
+      "deployment_mode": "local_only",
       "materialized_source_retained": false,
       "raw_source_in_artifacts": false,
       "serialized_locations": "filesystem",
