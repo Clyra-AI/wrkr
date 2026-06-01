@@ -546,6 +546,21 @@ func normalizeProjectedControlState(path ActionPath) ActionPath {
 	return out
 }
 
+func BuyerPublicEvidenceLabel(label string) string {
+	switch strings.TrimSpace(label) {
+	case "public_observed":
+		return "public observed fact"
+	case "public_inferred":
+		return "public inferred context"
+	case "unsupported_public_claim":
+		return "unsupported public claim"
+	case "private_evidence_absent":
+		return "private evidence absent"
+	default:
+		return "public evidence"
+	}
+}
+
 func actionPathHasContradictoryControlEvidence(path ActionPath) bool {
 	if strings.TrimSpace(path.ControlResolutionState) == ControlResolutionStateContradictoryControl {
 		return true

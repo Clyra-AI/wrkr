@@ -79,6 +79,7 @@ type Summary struct {
 	GeneratedAt              string                                 `json:"generated_at"`
 	Template                 string                                 `json:"template"`
 	ShareProfile             string                                 `json:"share_profile"`
+	DeploymentMode           string                                 `json:"deployment_mode,omitempty"`
 	ShareProfileMetadata     *ShareProfileMetadata                  `json:"share_profile_metadata,omitempty"`
 	ArtifactMetadata         *ArtifactMetadata                      `json:"artifact_metadata,omitempty"`
 	SectionOrder             []string                               `json:"section_order"`
@@ -93,6 +94,7 @@ type Summary struct {
 	WorkflowHighlights       *WorkflowHighlights                    `json:"workflow_highlights,omitempty"`
 	FocusView                *FocusView                             `json:"focus_view,omitempty"`
 	AssessmentSummary        *AssessmentSummary                     `json:"assessment_summary,omitempty"`
+	PublicSurfaceAssessment  *PublicSurfaceAssessment               `json:"public_surface_assessment,omitempty"`
 	Methodology              Methodology                            `json:"methodology"`
 	TopRisks                 []RiskItem                             `json:"top_risks"`
 	PrivilegeBudget          agginventory.PrivilegeBudget           `json:"privilege_budget"`
@@ -213,6 +215,33 @@ type AssessmentSummary struct {
 	IdentityToReviewFirst      *risk.IdentityActionTarget    `json:"identity_to_review_first,omitempty"`
 	IdentityToRevokeFirst      *risk.IdentityActionTarget    `json:"identity_to_revoke_first,omitempty"`
 	ProofChainPath             string                        `json:"proof_chain_path,omitempty"`
+}
+
+type PublicSurfaceAssessment struct {
+	ManifestName string                   `json:"manifest_name,omitempty"`
+	TotalSources int                      `json:"total_sources"`
+	LabelCounts  PublicSurfaceLabelCounts `json:"label_counts"`
+	Entries      []PublicSurfaceEntry     `json:"entries,omitempty"`
+}
+
+type PublicSurfaceLabelCounts struct {
+	PublicObserved         int `json:"public_observed"`
+	PublicInferred         int `json:"public_inferred"`
+	UnsupportedPublicClaim int `json:"unsupported_public_claim"`
+	PrivateEvidenceAbsent  int `json:"private_evidence_absent"`
+}
+
+type PublicSurfaceEntry struct {
+	EntryID            string   `json:"entry_id"`
+	SourceClass        string   `json:"source_class"`
+	Title              string   `json:"title,omitempty"`
+	PublicRef          string   `json:"public_ref"`
+	CapturePath        string   `json:"capture_path,omitempty"`
+	CapturedAt         string   `json:"captured_at,omitempty"`
+	EvidenceLabel      string   `json:"evidence_label"`
+	Confidence         string   `json:"confidence,omitempty"`
+	InferenceRationale string   `json:"inference_rationale,omitempty"`
+	Claims             []string `json:"claims,omitempty"`
 }
 
 type WorkflowHighlights struct {

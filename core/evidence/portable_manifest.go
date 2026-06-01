@@ -20,6 +20,7 @@ type PortableArtifactManifest struct {
 	SchemaVersion    string                        `json:"schema_version"`
 	GeneratedAt      string                        `json:"generated_at"`
 	GeneratorVersion string                        `json:"generator_version"`
+	DeploymentMode   string                        `json:"deployment_mode,omitempty"`
 	Artifacts        []PortableArtifactManifestRow `json:"artifacts"`
 }
 
@@ -94,8 +95,16 @@ func buildPortableArtifactManifest(
 		SchemaVersion:    "v1",
 		GeneratedAt:      generatedAt.UTC().Truncate(time.Second).Format(time.RFC3339),
 		GeneratorVersion: "wrkr-evidence-v1",
+		DeploymentMode:   resolvePortableDeploymentMode(sourcePrivacy),
 		Artifacts:        rows,
 	}, nil
+}
+
+func resolvePortableDeploymentMode(in *sourceprivacy.Contract) string {
+	if in == nil {
+		return sourceprivacy.DeploymentModeLocalOnly
+	}
+	return sourceprivacy.Normalize(*in).DeploymentMode
 }
 
 func portableArtifactKind(rel string) string {

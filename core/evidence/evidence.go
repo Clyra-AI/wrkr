@@ -37,6 +37,7 @@ type BuildInput struct {
 
 type BuildResult struct {
 	OutputDir            string                               `json:"output_dir"`
+	DeploymentMode       string                               `json:"deployment_mode,omitempty"`
 	Frameworks           []string                             `json:"frameworks"`
 	ManifestPath         string                               `json:"manifest_path"`
 	ArtifactManifestPath string                               `json:"artifact_manifest_path,omitempty"`
@@ -313,10 +314,11 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSON(filepath.Join(outputDir, "scan-metadata.json"), map[string]any{
-		"generated_at":   generatedAt.Format(time.RFC3339),
-		"frameworks":     frameworks,
-		"state_path":     resolvedStatePath,
-		"source_privacy": snapshot.SourcePrivacy,
+		"generated_at":    generatedAt.Format(time.RFC3339),
+		"deployment_mode": resolveDeploymentMode(snapshot.SourcePrivacy),
+		"frameworks":      frameworks,
+		"state_path":      resolvedStatePath,
+		"source_privacy":  snapshot.SourcePrivacy,
 	}); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
@@ -520,6 +522,7 @@ func Build(in BuildInput) (BuildResult, error) {
 
 	return BuildResult{
 		OutputDir:            targetOutputDir,
+		DeploymentMode:       resolveDeploymentMode(snapshot.SourcePrivacy),
 		Frameworks:           frameworks,
 		ManifestPath:         filepath.Join(targetOutputDir, "manifest.json"),
 		ArtifactManifestPath: filepath.Join(targetOutputDir, "artifact-manifest.json"),
@@ -535,6 +538,13 @@ func Build(in BuildInput) (BuildResult, error) {
 		AgentActionBOM:       summary.AgentActionBOM,
 		GovernedUsageMetrics: summary.GovernedUsageMetrics,
 	}, nil
+}
+
+func resolveDeploymentMode(in *sourceprivacy.Contract) string {
+	if in == nil {
+		return sourceprivacy.DeploymentModeLocalOnly
+	}
+	return sourceprivacy.Normalize(*in).DeploymentMode
 }
 
 func buildRuntimeSessions(snapshot state.Snapshot, statePath string) (*ingest.SessionSummary, ingest.SessionBundle, bool, error) {

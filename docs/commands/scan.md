@@ -3,7 +3,7 @@
 ## Synopsis
 
 ```bash
-wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--progress auto|bar|plain|events|none] [--source-retention ephemeral|retain_for_resume|retain] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--report-share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
+wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--progress auto|bar|plain|events|none] [--source-retention ephemeral|retain_for_resume|retain] [--deployment-mode local_only|customer_controlled_storage|connected_saas_metadata|managed_platform] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--report-share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
 
 Govern-first `action_paths` in scan JSON now carry additive policy-coverage fields (`policy_coverage_status`, `policy_refs`, `policy_missing_reasons`, `policy_confidence`), buyer-facing `control_state`, `risk_zone`, and `review_burden` fields, and optional `introduced_by` metadata derived from deterministic repo-local provenance before local git fallback when available.
 wrkr scan status --state <path> [--json]
@@ -31,6 +31,7 @@ Use either one legacy target source (`--repo`, `--org`, `--github-org`, `--path`
 Legacy target flags remain supported as one-entry shims and cannot be combined with `--target` in the same invocation.
 Supported `--target` modes are `repo`, `org`, `path`, and `my_setup`.
 For `my_setup`, use `--target my_setup:local-machine`.
+Use `--target public-surface:<manifest-path>` when you want an opt-in public-evidence-only assessment from a structured local manifest instead of a private repo scan.
 
 Acquisition behavior is fail-closed by target:
 
@@ -42,7 +43,10 @@ Acquisition behavior is fail-closed by target:
 - `--my-setup` runs fully local/offline against the local machine setup rooted at the current user home directory.
   It inspects supported user-home tool configs, selected environment key names, and common workspace roots for local agent project markers without emitting raw secret values.
 - `--repo` and `--org` require real GitHub acquisition via `--github-api`, config `github_api_base`, or `WRKR_GITHUB_API_BASE`.
+- `--target public-surface:<manifest-path>` is explicit and local-input-only. It loads a structured manifest of public repos, docs, SDKs, engineering blogs, release notes, status pages, or public workflows; it does not scrape the internet or infer private runtime/control proof from public marketing claims.
 - Hosted GitHub materialization is sparse by default: Wrkr fetches detector-relevant files such as agent instructions, MCP/Codex/Cursor/Claude configs, skills, workflows, policy files, dependency manifests, and AI/MCP declaration surfaces instead of every repository blob.
+- `--deployment-mode` is explicit metadata for how scan-derived artifacts should describe the customer data boundary. Supported values are `local_only`, `customer_controlled_storage`, `connected_saas_metadata`, and `managed_platform`. The default is `local_only`.
+- `--deployment-mode` does not enable network calls, hosted uploads, or source retention by itself. It only labels the resulting machine-readable artifacts and source-privacy contract.
 - If a repo already contains deterministic provenance sidecars under `.wrkr/provenance/`, Wrkr can project PR-level `introduced_by` metadata from `source-metadata.json`, `github-event.json`, or `gitlab-event.json` without live provider calls.
 - If a repo contains `.wrkr/provenance/external-control-evidence.json`, Wrkr can also project local ownership, approval, branch-protection, protected-environment, required-check, security-gate, freeze-window, and kill-switch evidence into govern-first path posture without live provider calls.
 - If a repo contains `wrkr-control-declarations.yaml` or `.wrkr/control-declarations.yaml`, Wrkr loads versioned customer declarations for owner mappings, target classes, non-production declarations, and control evidence links as local declared evidence only.
@@ -55,7 +59,7 @@ Acquisition behavior is fail-closed by target:
 - Explicit multi-target scans set `target.mode=multi` and add deterministic `targets[]` arrays to the top-level scan payload, saved state snapshot, and `source_manifest`.
 - `--repo` and `--org` materialize the required hosted files into a deterministic local workspace under the scan state directory before detectors run.
 - Hosted materialized source retention defaults to `--source-retention ephemeral`: Wrkr removes the managed materialized root after scan artifacts are committed, and it also cleans up failed runs unless retention is explicitly requested. Use `retain_for_resume` to preserve materialized files after a failed/interrupted run for resume, or `retain` to keep them after success. Both modes leave private repository contents on disk and should be used deliberately.
-- Hosted scan artifacts emit `source_privacy` with `retention_mode`, `materialized_source_retained`, `raw_source_in_artifacts=false`, `serialized_locations`, `cleanup_status`, and optional warnings.
+- Hosted scan artifacts emit `source_privacy` with `retention_mode`, additive `deployment_mode`, `materialized_source_retained`, `raw_source_in_artifacts=false`, `serialized_locations`, `cleanup_status`, and optional warnings.
 - Materialized workspace root (`materialized-sources/`) is ownership-gated:
   - Wrkr-managed roots include marker `.wrkr-materialized-sources-managed` with state-bound provenance, not just a static marker body.
   - Non-empty roots without a valid marker are blocked (no recursive cleanup).
@@ -97,6 +101,7 @@ Scan mode behavior is explicit:
 - `--target`
 - `--mode`
 - `--source-retention`
+- `--deployment-mode`
 - `--allow-source-materialization`
 - `--timeout`
 - `--diff`
@@ -210,6 +215,7 @@ Mixed target example:
 
 ```bash
 wrkr scan --target org:acme --target path:./repos --github-api https://api.github.com --json
+wrkr scan --target public-surface:./docs/examples/public-surface-assessment.v1.yaml --json
 ```
 
 ## Repo/path example
@@ -219,7 +225,9 @@ wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --re
 ```
 
 This is the canonical `repo_set` example for `--path`: the selected directory is a bundle of immediate child repos, so Wrkr preserves per-child repo manifests and deterministic ordering instead of collapsing the bundle into one repo.
-Expected JSON keys include `status`, `target`, `source_privacy`, `scan_mode`, `scan_quality`, `findings`, additive `control_backlog`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
+Expected JSON keys include `status`, additive `deployment_mode`, `target`, `source_privacy`, `scan_mode`, `scan_quality`, `findings`, additive `control_backlog`, `ranked_findings`, `top_findings`, `attack_paths`, `top_attack_paths`, additive `action_paths`, additive `action_path_to_control_first`, `inventory`, `privilege_budget`, `agent_privilege_map`, `repo_exposure_summaries`, `profile`, `posture_score`, `compliance_summary`, additive `activation`, and optional `report` when summary output is requested.
+Top-level `deployment_mode` and `source_privacy.deployment_mode` stay aligned. `local_only` is the default when no alternate mode is explicitly selected.
+Public-surface scans also populate `source_manifest.public_evidence_manifest_name` and additive `source_manifest.public_evidence[]` rows so downstream reports can preserve public observed facts, inferred context, unsupported public claims, and explicit private-evidence gaps without re-reading the input manifest.
 Explicit multi-target runs also emit additive `targets[]` arrays at the top level and inside `source_manifest`, and saved state snapshots preserve the same additive `targets[]` contract.
 `control_backlog.control_backlog_version` is the stable backlog schema version. `control_backlog.items[*]` includes repo, path, control surface/path type, capability, additive `write_path_classes`, additive `governance_controls`, owner/source/status, evidence source/basis, approval status, governance security visibility, queue (`control_first|review_queue|inventory_hygiene|debug_only`), finding visibility (`primary|appendix|debug`), recommended action (`attach_evidence|approve|remediate|downgrade|deprecate|exclude|monitor|inventory_review|suppress|debug_only`), concrete `remediation` text, confidence (`high|medium|low`), additive action-path-backed `confidence_lane` / `confidence_lane_reasons` when a backlog row is linked to a govern-first path, evidence gaps, confidence-raising guidance, SLA, closure criteria, optional secret signal types, and linked raw finding IDs. Raw `findings` remain the compatibility evidence surface.
 Governance backlog visibility uses `known_approved`, `known_unapproved`, `unknown_to_security`, `accepted_risk`, `deprecated`, `revoked`, and `needs_review`. Legacy inventory compatibility fields may still emit or accept `approved` for existing consumers, while new backlog items map that state to `known_approved`.

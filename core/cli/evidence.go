@@ -59,6 +59,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 	if *jsonOut {
 		payload := map[string]any{
 			"status":                 "ok",
+			"deployment_mode":        result.DeploymentMode,
 			"output_dir":             result.OutputDir,
 			"frameworks":             result.Frameworks,
 			"manifest_path":          result.ManifestPath,

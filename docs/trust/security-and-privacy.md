@@ -20,6 +20,11 @@ description: "Wrkr fail-closed safety, local-data handling defaults, and privacy
 - Hosted materialized source is ephemeral by default. After scan artifacts commit, Wrkr removes the managed materialized source root and records the result in `source_privacy.cleanup_status`.
 - Shareable scan, report, SARIF, and evidence outputs serialize hosted repositories as logical locations such as `github://org/repo`; the private detector filesystem root is not serialized.
 - Default shareable artifacts set `source_privacy.raw_source_in_artifacts=false`.
+- Scan, report, and evidence artifacts now also declare `deployment_mode`, which records the intended customer data boundary without changing scan behavior by itself.
+- `deployment_mode=local_only` is the default and means scan data stays local unless some other explicit operator step exports it.
+- `deployment_mode=customer_controlled_storage` means artifacts may be copied to customer-owned storage under customer control, but Wrkr still does not infer hosted upload behavior unless explicitly configured elsewhere.
+- `deployment_mode=connected_saas_metadata` means the customer permits connected SaaS metadata in the surrounding workflow; Wrkr still requires explicit network-capable flags or inputs before any connected behavior occurs.
+- `deployment_mode=managed_platform` means artifacts describe a managed-platform operating model, but the declared label still does not weaken Wrkr's fail-closed local-default scanning contract.
 - `--source-retention retain_for_resume`, `--source-retention retain`, `--mode deep`, and `--allow-source-materialization` are explicit operator opt-ins that can leave more private repository content on disk or fetch generic source files for deeper static coverage.
 
 ## Command anchors
@@ -39,6 +44,10 @@ No. Wrkr flags secret-risk context but does not extract and emit raw secret mate
 ### Can Wrkr run fully local for private repositories?
 
 Yes. Default scan and evidence workflows operate locally with file-based artifacts and no required data exfiltration path.
+
+### What does `deployment_mode` change?
+
+It changes the declared data-boundary metadata in scan, report, and evidence artifacts. It does not silently turn on network calls, hosted uploads, source retention, or managed execution behavior.
 
 ### Does Wrkr retain private source code from hosted scans?
 

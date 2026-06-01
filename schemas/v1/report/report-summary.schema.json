@@ -35,6 +35,9 @@
       "type": "string",
       "enum": ["internal", "public", "customer-redacted", "design-partner", "external-redacted", "investor-safe"]
     },
+    "deployment_mode": {
+      "$ref": "#/$defs/deploymentMode"
+    },
     "share_profile_metadata": {
       "$ref": "#/$defs/shareProfileMetadata"
     },
@@ -76,6 +79,9 @@
     },
     "focus_view": {
       "$ref": "#/$defs/focusView"
+    },
+    "public_surface_assessment": {
+      "$ref": "#/$defs/publicSurfaceAssessment"
     },
     "methodology": {
       "$ref": "#/$defs/methodology"
@@ -208,6 +214,64 @@
         "path_count": {"type": "integer"},
         "driver": {"type": "string"},
         "rationale": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "deploymentMode": {
+      "type": "string",
+      "enum": ["local_only", "customer_controlled_storage", "connected_saas_metadata", "managed_platform"]
+    },
+    "publicSurfaceAssessment": {
+      "type": "object",
+      "required": ["total_sources", "label_counts"],
+      "properties": {
+        "manifest_name": {"type": "string"},
+        "total_sources": {"type": "integer", "minimum": 0},
+        "label_counts": {"$ref": "#/$defs/publicSurfaceLabelCounts"},
+        "entries": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/publicSurfaceEntry"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "publicSurfaceLabelCounts": {
+      "type": "object",
+      "required": ["public_observed", "public_inferred", "unsupported_public_claim", "private_evidence_absent"],
+      "properties": {
+        "public_observed": {"type": "integer", "minimum": 0},
+        "public_inferred": {"type": "integer", "minimum": 0},
+        "unsupported_public_claim": {"type": "integer", "minimum": 0},
+        "private_evidence_absent": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "publicSurfaceEntry": {
+      "type": "object",
+      "required": ["entry_id", "source_class", "public_ref", "evidence_label"],
+      "properties": {
+        "entry_id": {"type": "string"},
+        "source_class": {
+          "type": "string",
+          "enum": ["public_repo", "public_docs", "public_sdk", "engineering_blog", "release_notes", "status_page", "public_workflow"]
+        },
+        "title": {"type": "string"},
+        "public_ref": {"type": "string"},
+        "capture_path": {"type": "string"},
+        "captured_at": {"type": "string"},
+        "evidence_label": {
+          "type": "string",
+          "enum": ["public_observed", "public_inferred", "unsupported_public_claim", "private_evidence_absent"]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "inference_rationale": {"type": "string"},
+        "claims": {
           "type": "array",
           "items": {"type": "string"}
         }
@@ -1657,6 +1721,7 @@
       "type": "object",
       "required": [
         "retention_mode",
+        "deployment_mode",
         "materialized_source_retained",
         "raw_source_in_artifacts",
         "serialized_locations",
@@ -1666,6 +1731,9 @@
         "retention_mode": {
           "type": "string",
           "enum": ["ephemeral", "retain_for_resume", "retain"]
+        },
+        "deployment_mode": {
+          "$ref": "#/$defs/deploymentMode"
         },
         "materialized_source_retained": {"type": "boolean"},
         "raw_source_in_artifacts": {"type": "boolean"},

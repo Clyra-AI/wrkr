@@ -6,6 +6,9 @@
   "required": ["status", "output_dir", "frameworks", "manifest_path", "chain_path"],
   "properties": {
     "status": {"const": "ok"},
+    "deployment_mode": {
+      "$ref": "#/definitions/deploymentMode"
+    },
     "output_dir": {"type": "string"},
     "frameworks": {
       "type": "array",
@@ -43,10 +46,15 @@
     }
   },
   "definitions": {
+    "deploymentMode": {
+      "type": "string",
+      "enum": ["local_only", "customer_controlled_storage", "connected_saas_metadata", "managed_platform"]
+    },
     "sourcePrivacy": {
       "type": "object",
       "required": [
         "retention_mode",
+        "deployment_mode",
         "materialized_source_retained",
         "raw_source_in_artifacts",
         "serialized_locations",
@@ -56,6 +64,9 @@
         "retention_mode": {
           "type": "string",
           "enum": ["ephemeral", "retain_for_resume", "retain"]
+        },
+        "deployment_mode": {
+          "$ref": "#/definitions/deploymentMode"
         },
         "materialized_source_retained": {"type": "boolean"},
         "raw_source_in_artifacts": {"type": "boolean"},

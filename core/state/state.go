@@ -27,22 +27,24 @@ const ApprovalInventoryVersion = "1"
 
 // Snapshot stores deterministic scan material for diff mode.
 type Snapshot struct {
-	Version                  string                    `json:"version"`
-	ApprovalInventoryVersion string                    `json:"approval_inventory_version,omitempty"`
-	Target                   source.Target             `json:"target"`
-	Targets                  []source.Target           `json:"targets,omitempty"`
-	Findings                 []source.Finding          `json:"findings"`
-	Inventory                *agginventory.Inventory   `json:"inventory,omitempty"`
-	ControlBacklog           *controlbacklog.Backlog   `json:"control_backlog,omitempty"`
-	LifecycleGaps            []lifecycle.Gap           `json:"lifecycle_gaps,omitempty"`
-	ScanQuality              *scanquality.Report       `json:"scan_quality,omitempty"`
-	ScanMode                 string                    `json:"scan_mode,omitempty"`
-	RiskReport               *risk.Report              `json:"risk_report,omitempty"`
-	Profile                  *profileeval.Result       `json:"profile,omitempty"`
-	PostureScore             *score.Result             `json:"posture_score,omitempty"`
-	Identities               []manifest.IdentityRecord `json:"identities,omitempty"`
-	Transitions              []lifecycle.Transition    `json:"lifecycle_transitions,omitempty"`
-	SourcePrivacy            *sourceprivacy.Contract   `json:"source_privacy,omitempty"`
+	Version                    string                    `json:"version"`
+	ApprovalInventoryVersion   string                    `json:"approval_inventory_version,omitempty"`
+	Target                     source.Target             `json:"target"`
+	Targets                    []source.Target           `json:"targets,omitempty"`
+	Findings                   []source.Finding          `json:"findings"`
+	Inventory                  *agginventory.Inventory   `json:"inventory,omitempty"`
+	ControlBacklog             *controlbacklog.Backlog   `json:"control_backlog,omitempty"`
+	LifecycleGaps              []lifecycle.Gap           `json:"lifecycle_gaps,omitempty"`
+	ScanQuality                *scanquality.Report       `json:"scan_quality,omitempty"`
+	ScanMode                   string                    `json:"scan_mode,omitempty"`
+	RiskReport                 *risk.Report              `json:"risk_report,omitempty"`
+	Profile                    *profileeval.Result       `json:"profile,omitempty"`
+	PostureScore               *score.Result             `json:"posture_score,omitempty"`
+	Identities                 []manifest.IdentityRecord `json:"identities,omitempty"`
+	Transitions                []lifecycle.Transition    `json:"lifecycle_transitions,omitempty"`
+	SourcePrivacy              *sourceprivacy.Contract   `json:"source_privacy,omitempty"`
+	PublicEvidenceManifestName string                    `json:"public_evidence_manifest_name,omitempty"`
+	PublicEvidence             []source.PublicEvidence   `json:"public_evidence,omitempty"`
 }
 
 type ScoreView struct {
@@ -92,6 +94,7 @@ func Save(path string, snapshot Snapshot) error {
 	snapshot.Version = SnapshotVersion
 	snapshot.ApprovalInventoryVersion = ApprovalInventoryVersion
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
+	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
 	source.SortFindings(snapshot.Findings)
 	payload, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
@@ -133,6 +136,7 @@ func Load(path string) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
+	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
 	source.SortFindings(snapshot.Findings)
 	return snapshot, nil
 }

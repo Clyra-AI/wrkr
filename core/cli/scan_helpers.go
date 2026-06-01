@@ -255,6 +255,10 @@ func acquireSources(ctx context.Context, targets []config.Target, githubBaseURL,
 			}
 		}
 		manifestOut.Failures = append(manifestOut.Failures, targetManifest.Failures...)
+		if manifestOut.PublicEvidenceManifestName == "" {
+			manifestOut.PublicEvidenceManifestName = strings.TrimSpace(targetManifest.PublicEvidenceManifestName)
+		}
+		manifestOut.PublicEvidence = append(manifestOut.PublicEvidence, targetManifest.PublicEvidence...)
 		for _, repoManifest := range targetManifest.Repos {
 			key := repoIdentityKey(repoManifest)
 			if _, ok := seenRepos[key]; ok {
@@ -323,6 +327,13 @@ func acquireTarget(ctx context.Context, connector *github.Connector, target conf
 			return source.Manifest{}, err
 		}
 		manifestOut.Repos = repos
+	case config.TargetPublicSurface:
+		loaded, err := source.LoadPublicSurfaceManifest(target.Value)
+		if err != nil {
+			return source.Manifest{}, err
+		}
+		manifestOut.PublicEvidenceManifestName = loaded.Name
+		manifestOut.PublicEvidence = loaded.Sources
 	default:
 		return source.Manifest{}, fmt.Errorf("unsupported target mode %q", target.Mode)
 	}
@@ -422,6 +433,9 @@ func scanProgressTargetLabel(targets []config.Target) (string, string) {
 	}
 	if paths := valuesByMode[config.TargetPath]; len(paths) == 1 && len(valuesByMode) == 1 {
 		return "path", paths[0]
+	}
+	if manifests := valuesByMode[config.TargetPublicSurface]; len(manifests) == 1 && len(valuesByMode) == 1 {
+		return source.TargetModePublicSurface, manifests[0]
 	}
 	if repos := valuesByMode[config.TargetRepo]; len(repos) == 1 && len(valuesByMode) == 1 {
 		return "repo", repos[0]
