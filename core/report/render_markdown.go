@@ -598,9 +598,9 @@ func renderExecutiveRollupSection(builder *strings.Builder, title string, rollup
 		title = "Executive rollup"
 	}
 	builder.WriteString("## " + title + "\n\n")
-	builder.WriteString(fmt.Sprintf("- total_groups=%d total_paths=%d\n", rollup.TotalGroups, rollup.TotalPaths))
+	fmt.Fprintf(builder, "- total_groups=%d total_paths=%d\n", rollup.TotalGroups, rollup.TotalPaths)
 	for _, group := range rollup.Groups {
-		builder.WriteString(fmt.Sprintf("- group=%s count=%d severity=%s priority=%s closure=%s evidence=%s owner=%s repo_cluster=%s contradictions=%s examples=%s\n",
+		fmt.Fprintf(builder, "- group=%s count=%d severity=%s priority=%s closure=%s evidence=%s owner=%s repo_cluster=%s contradictions=%s examples=%s\n",
 			group.GroupID,
 			group.Count,
 			group.HighestSeverity,
@@ -611,12 +611,12 @@ func renderExecutiveRollupSection(builder *strings.Builder, title string, rollup
 			group.Dimensions.RepoCluster,
 			group.Dimensions.ContradictionState,
 			strings.Join(group.TopExampleRefs, ", "),
-		))
+		)
 		if strings.TrimSpace(group.ClosureRecommendation) != "" {
-			builder.WriteString(fmt.Sprintf("  recommendation=%s\n", group.ClosureRecommendation))
+			fmt.Fprintf(builder, "  recommendation=%s\n", group.ClosureRecommendation)
 		}
 		if len(group.Rationale) > 0 {
-			builder.WriteString(fmt.Sprintf("  rationale=%s\n", strings.Join(group.Rationale, " | ")))
+			fmt.Fprintf(builder, "  rationale=%s\n", strings.Join(group.Rationale, " | "))
 		}
 	}
 	builder.WriteString("\n")
