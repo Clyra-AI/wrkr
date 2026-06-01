@@ -129,6 +129,9 @@
     "TestAgentActionBOMAcceptanceStaticToRuntimeEvidence",
     "TestWave5AgentActionBOMSchemaDeclaresPrimaryViewContract"
   ],
+  "W6-enterprise-rollup": [
+    "TestScenarioWave6ExecutiveRollupAndGovernedUsageMetrics"
+  ],
   "W4-drift-review": [
     "TestCompareAddsActionPathDriftCategories",
     "TestReportFocusPresetFiltersToDriftedPaths",

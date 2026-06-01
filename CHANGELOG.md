@@ -45,6 +45,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added a repeatable `wrkr assess` workflow that stitches scan, optional ingest, report, evidence, export, optional ticket payloads, and optional drift review into one deterministic output directory and manifest.
 - [semver:minor] Added low-click report focus presets for BOM review, release-adjacent AI paths, write/deploy reach, approval and owner evidence gaps, evidence gaps, contradictions, drift review, and recommendations.
 - [semver:minor] Added first-class drift review categories and fail-closed comparison metadata across regress, report, Agent Action BOM, and assessment artifacts for new write/deploy paths, credentials, evidence movement, contradictions, and paths ready for control.
+- [semver:minor] Added large-organization executive rollups that group Agent Action BOM and control-backlog evidence by action, target, risk, authority, evidence, owner, contradiction, and closure dimensions.
+- [semver:minor] Added governed-usage metrics for monitored paths, governed paths, evidence packs, audit exports, approvals, connected runtimes, governed agents/workflows, verified controls, unknown controls, and contradictions.
 
 ### Changed
 

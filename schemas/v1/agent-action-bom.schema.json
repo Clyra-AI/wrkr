@@ -63,6 +63,8 @@
         "operational_exposure": {"$ref": "#/$defs/axisSummary"},
         "governance_readiness": {"$ref": "#/$defs/axisSummary"},
         "evidence_completeness": {"$ref": "#/$defs/evidenceCompletenessSummary"},
+        "executive_rollup": {"$ref": "#/$defs/executiveRollup"},
+        "governed_usage_metrics": {"$ref": "#/$defs/governedUsageMetrics"},
         "scan_coverage": {"$ref": "#/$defs/compactCoverageSummary"},
         "coverage_confidence": {"type": "string", "enum": ["complete", "reduced", "unknown"]},
         "autonomy_tiers": {"$ref": "#/$defs/autonomyTierCounts"},
@@ -652,6 +654,92 @@
           "type": "array",
           "items": {"type": "string"}
         }
+      },
+      "additionalProperties": false
+    },
+    "executiveRollup": {
+      "type": "object",
+      "required": ["total_groups", "total_paths"],
+      "properties": {
+        "total_groups": {"type": "integer", "minimum": 0},
+        "total_paths": {"type": "integer", "minimum": 0},
+        "groups": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/executiveRollupGroup"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "executiveRollupGroup": {
+      "type": "object",
+      "required": ["group_id", "count", "evidence_state_summary", "dimensions"],
+      "properties": {
+        "group_id": {"type": "string"},
+        "count": {"type": "integer", "minimum": 0},
+        "highest_severity": {"type": "string"},
+        "highest_priority": {"type": "string"},
+        "closure_recommendation": {"type": "string"},
+        "top_example_refs": {"type": "array", "items": {"type": "string"}},
+        "evidence_state_summary": {"$ref": "#/$defs/executiveRollupEvidenceStateCounts"},
+        "rationale": {"type": "array", "items": {"type": "string"}},
+        "dimensions": {"$ref": "#/$defs/executiveRollupDimensions"}
+      },
+      "additionalProperties": false
+    },
+    "executiveRollupDimensions": {
+      "type": "object",
+      "properties": {
+        "action_class": {"type": "string"},
+        "target_class": {"type": "string"},
+        "risk_zone": {"type": "string"},
+        "credential_authority": {"type": "string"},
+        "production_target": {"type": "string"},
+        "evidence_state": {"type": "string", "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]},
+        "owner_state": {"type": "string"},
+        "repo_cluster": {"type": "string"},
+        "detector_confidence": {"type": "string"},
+        "contradiction_state": {"type": "string", "enum": ["consistent", "contradictory"]},
+        "closure_action": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "executiveRollupEvidenceStateCounts": {
+      "type": "object",
+      "required": ["verified", "declared", "inferred", "unknown", "contradictory"],
+      "properties": {
+        "verified": {"type": "integer", "minimum": 0},
+        "declared": {"type": "integer", "minimum": 0},
+        "inferred": {"type": "integer", "minimum": 0},
+        "unknown": {"type": "integer", "minimum": 0},
+        "contradictory": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "governedUsageMetrics": {
+      "type": "object",
+      "required": [
+        "active_monitored_action_paths",
+        "governed_paths",
+        "evidence_packs",
+        "audit_exports",
+        "approval_decisions",
+        "connected_runtimes",
+        "governed_agents_workflows",
+        "verified_control_paths",
+        "unknown_control_paths",
+        "contradictory_paths"
+      ],
+      "properties": {
+        "active_monitored_action_paths": {"type": "integer", "minimum": 0},
+        "governed_paths": {"type": "integer", "minimum": 0},
+        "evidence_packs": {"type": "integer", "minimum": 0},
+        "audit_exports": {"type": "integer", "minimum": 0},
+        "approval_decisions": {"type": "integer", "minimum": 0},
+        "connected_runtimes": {"type": "integer", "minimum": 0},
+        "governed_agents_workflows": {"type": "integer", "minimum": 0},
+        "verified_control_paths": {"type": "integer", "minimum": 0},
+        "unknown_control_paths": {"type": "integer", "minimum": 0},
+        "contradictory_paths": {"type": "integer", "minimum": 0}
       },
       "additionalProperties": false
     },

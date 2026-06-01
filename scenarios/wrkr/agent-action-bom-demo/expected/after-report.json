@@ -160,6 +160,230 @@
         "target:verified"
       ]
     },
+    "executive_rollup": {
+      "total_groups": 6,
+      "total_paths": 8,
+      "groups": [
+        {
+          "group_id": "xrg-807baf425c49",
+          "count": 2,
+          "highest_severity": "critical",
+          "highest_priority": "control_first",
+          "closure_recommendation": "remediate standing production deploy paths first",
+          "top_example_refs": [
+            "apc-1ee0525913ac",
+            "apc-6626703372d7"
+          ],
+          "evidence_state_summary": {
+            "verified": 0,
+            "declared": 0,
+            "inferred": 0,
+            "unknown": 2,
+            "contradictory": 0
+          },
+          "rationale": [
+            "2 deploy paths grouped by production_impacting and unknown evidence",
+            "closure=remediate repo_cluster=single_repo credential_authority=standing"
+          ],
+          "dimensions": {
+            "action_class": "deploy",
+            "target_class": "production_impacting",
+            "risk_zone": "production_data",
+            "credential_authority": "standing",
+            "production_target": "production_targeted",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "repo_cluster": "single_repo",
+            "detector_confidence": "confirmed_action_path",
+            "contradiction_state": "consistent",
+            "closure_action": "remediate"
+          }
+        },
+        {
+          "group_id": "xrg-413670149336",
+          "count": 1,
+          "highest_severity": "critical",
+          "highest_priority": "review_queue",
+          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+          "top_example_refs": [
+            "apc-f721ab3a31a8"
+          ],
+          "evidence_state_summary": {
+            "verified": 0,
+            "declared": 0,
+            "inferred": 0,
+            "unknown": 1,
+            "contradictory": 0
+          },
+          "rationale": [
+            "1 deploy paths grouped by production_impacting and unknown evidence",
+            "closure=attach_evidence repo_cluster=single_repo credential_authority=standing"
+          ],
+          "dimensions": {
+            "action_class": "deploy",
+            "target_class": "production_impacting",
+            "risk_zone": "release",
+            "credential_authority": "standing",
+            "production_target": "production_targeted",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "repo_cluster": "single_repo",
+            "detector_confidence": "confirmed_action_path",
+            "contradiction_state": "consistent",
+            "closure_action": "attach_evidence"
+          }
+        },
+        {
+          "group_id": "xrg-b45caa145891",
+          "count": 2,
+          "highest_severity": "critical",
+          "highest_priority": "control_first",
+          "closure_recommendation": "remediate standing production deploy paths first",
+          "top_example_refs": [
+            "apc-2ae55d8266e8",
+            "apc-b80b0694aa2c"
+          ],
+          "evidence_state_summary": {
+            "verified": 0,
+            "declared": 0,
+            "inferred": 0,
+            "unknown": 2,
+            "contradictory": 0
+          },
+          "rationale": [
+            "2 deploy paths grouped by production_impacting and unknown evidence",
+            "closure=remediate repo_cluster=single_repo credential_authority=unknown"
+          ],
+          "dimensions": {
+            "action_class": "deploy",
+            "target_class": "production_impacting",
+            "risk_zone": "production_data",
+            "credential_authority": "unknown",
+            "production_target": "production_targeted",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "repo_cluster": "single_repo",
+            "detector_confidence": "likely_action_path",
+            "contradiction_state": "consistent",
+            "closure_action": "remediate"
+          }
+        },
+        {
+          "group_id": "xrg-72044fd98ef0",
+          "count": 1,
+          "highest_severity": "high",
+          "highest_priority": "review_queue",
+          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+          "top_example_refs": [
+            "apc-3f4bc303fa3d"
+          ],
+          "evidence_state_summary": {
+            "verified": 0,
+            "declared": 0,
+            "inferred": 0,
+            "unknown": 1,
+            "contradictory": 0
+          },
+          "rationale": [
+            "1 read paths grouped by test_demo_sandbox and unknown evidence",
+            "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
+          ],
+          "dimensions": {
+            "action_class": "read",
+            "target_class": "test_demo_sandbox",
+            "risk_zone": "coding_help",
+            "credential_authority": "unknown",
+            "production_target": "non_production_or_unknown",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "repo_cluster": "single_repo",
+            "detector_confidence": "semantic_review_candidate",
+            "contradiction_state": "consistent",
+            "closure_action": "attach_evidence"
+          }
+        },
+        {
+          "group_id": "xrg-4ed90b3e19cb",
+          "count": 1,
+          "highest_severity": "medium",
+          "highest_priority": "review_queue",
+          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+          "top_example_refs": [
+            "apc-c7cc3e2b9177"
+          ],
+          "evidence_state_summary": {
+            "verified": 0,
+            "declared": 0,
+            "inferred": 0,
+            "unknown": 1,
+            "contradictory": 0
+          },
+          "rationale": [
+            "1 read paths grouped by unknown and unknown evidence",
+            "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
+          ],
+          "dimensions": {
+            "action_class": "read",
+            "target_class": "unknown",
+            "risk_zone": "coding_help",
+            "credential_authority": "unknown",
+            "production_target": "non_production_or_unknown",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "repo_cluster": "single_repo",
+            "detector_confidence": "likely_action_path",
+            "contradiction_state": "consistent",
+            "closure_action": "attach_evidence"
+          }
+        },
+        {
+          "group_id": "xrg-94c9513d3ddb",
+          "count": 1,
+          "highest_severity": "low",
+          "highest_priority": "inventory_hygiene",
+          "closure_recommendation": "remediate standing production deploy paths first",
+          "top_example_refs": [
+            "apc-4b1b72ce2c70"
+          ],
+          "evidence_state_summary": {
+            "verified": 0,
+            "declared": 0,
+            "inferred": 0,
+            "unknown": 1,
+            "contradictory": 0
+          },
+          "rationale": [
+            "1 deploy paths grouped by production_impacting and unknown evidence",
+            "closure=remediate repo_cluster=single_repo credential_authority=unknown"
+          ],
+          "dimensions": {
+            "action_class": "deploy",
+            "target_class": "production_impacting",
+            "risk_zone": "production_data",
+            "credential_authority": "unknown",
+            "production_target": "production_targeted",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "repo_cluster": "single_repo",
+            "detector_confidence": "context_only",
+            "contradiction_state": "consistent",
+            "closure_action": "remediate"
+          }
+        }
+      ]
+    },
+    "governed_usage_metrics": {
+      "active_monitored_action_paths": 7,
+      "governed_paths": 7,
+      "evidence_packs": 0,
+      "audit_exports": 4,
+      "approval_decisions": 0,
+      "connected_runtimes": 1,
+      "governed_agents_workflows": 8,
+      "verified_control_paths": 8,
+      "unknown_control_paths": 0,
+      "contradictory_paths": 0
+    },
     "scan_coverage": {
       "coverage_confidence": "complete",
       "impact_statement": "Coverage for scanned inputs was complete enough to support scoped negative claims."

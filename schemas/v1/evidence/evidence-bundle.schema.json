@@ -26,6 +26,12 @@
     "evidence_packets": {
       "$ref": "../report/report-summary.schema.json#/$defs/evidencePacketSummary"
     },
+    "executive_rollup": {
+      "$ref": "../report/report-summary.schema.json#/$defs/executiveRollup"
+    },
+    "governed_usage_metrics": {
+      "$ref": "../report/report-summary.schema.json#/$defs/governedUsageMetrics"
+    },
     "action_surface_registry": {
       "type": "array",
       "items": {

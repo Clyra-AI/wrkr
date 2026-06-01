@@ -89,6 +89,12 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	if len(result.ReportArtifacts) == 0 {
 		t.Fatal("expected report artifacts to be recorded in build result")
 	}
+	if result.GovernedUsageMetrics == nil {
+		t.Fatalf("expected governed usage metrics in build result, got %+v", result)
+	}
+	if result.GovernedUsageMetrics.AuditExports == 0 {
+		t.Fatalf("expected deterministic audit export metric, got %+v", result.GovernedUsageMetrics)
+	}
 	if result.CoverageNote.Basis != "evidenced_controls_only" {
 		t.Fatalf("unexpected coverage note basis: %+v", result.CoverageNote)
 	}
