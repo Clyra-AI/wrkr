@@ -479,6 +479,47 @@ func TestResolveExecutiveRollupAndMetricsHandleEmptyState(t *testing.T) {
 	}
 }
 
+func TestResolveGovernedUsageMetricsTreatsDeclaredControlsAsKnown(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		GeneratedAt:  "2026-05-31T18:30:13Z",
+		ShareProfile: string(ShareProfileInternal),
+		ActionPaths: []risk.ActionPath{
+			risk.ProjectActionPath(risk.ActionPath{
+				PathID:                  "apc-declared-control",
+				Org:                     "acme",
+				Repo:                    "acme/platform",
+				ToolType:                "codex",
+				Location:                "AGENTS.md",
+				ActionClasses:           []string{"write"},
+				ActionPathType:          risk.ActionPathTypeAgentFramework,
+				ControlResolutionState:  risk.ControlResolutionStateDeclaredControl,
+				ConfidenceLane:          risk.ConfidenceLaneConfirmedActionPath,
+				ControlPriority:         risk.ControlPriorityReviewQueue,
+				RiskTier:                risk.RiskTierHigh,
+				ApprovalEvidenceState:   risk.EvidenceStateDeclared,
+				OwnerEvidenceState:      risk.EvidenceStateDeclared,
+				ProofEvidenceState:      risk.EvidenceStateDeclared,
+				RuntimeEvidenceState:    risk.EvidenceStateUnknown,
+				TargetEvidenceState:     risk.EvidenceStateDeclared,
+				CredentialEvidenceState: risk.EvidenceStateUnknown,
+			}),
+		},
+	}
+
+	metrics := resolveGovernedUsageMetrics(summary)
+	if metrics == nil {
+		t.Fatal("expected governed usage metrics, got nil")
+	}
+	if metrics.VerifiedControlPaths != 1 {
+		t.Fatalf("expected declared controls to count as known control coverage, got %+v", metrics)
+	}
+	if metrics.UnknownControlPaths != 0 {
+		t.Fatalf("expected declared controls to stay out of unknown control count, got %+v", metrics)
+	}
+}
+
 func TestBuildSummaryCustomerRedactedExecutiveRollupPreservesCounts(t *testing.T) {
 	t.Parallel()
 
