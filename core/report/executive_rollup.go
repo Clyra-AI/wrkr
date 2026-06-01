@@ -540,7 +540,9 @@ func executiveControlVerificationState(path risk.ActionPath) string {
 	switch strings.TrimSpace(path.ControlResolutionState) {
 	case risk.ControlResolutionStateContradictoryControl:
 		return "contradictory"
-	case risk.ControlResolutionStateDetectedControl, risk.ControlResolutionStateExternalControlReference:
+	case risk.ControlResolutionStateDetectedControl,
+		risk.ControlResolutionStateDeclaredControl,
+		risk.ControlResolutionStateExternalControlReference:
 		return "verified"
 	default:
 		return "unknown"
