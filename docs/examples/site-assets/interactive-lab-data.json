@@ -33,7 +33,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=standing"
         ],
         "top_example_refs": [
-          "path-4bd1cfe8"
+          "path-3d4294dea973"
         ]
       },
       {
@@ -67,9 +67,9 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-1a6e2fbd",
-          "path-aea359df",
-          "path-c427c00e"
+          "path-9f799d7fdd64",
+          "path-6feb19d82180",
+          "path-b539539fde6f"
         ]
       },
       {
@@ -103,9 +103,9 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-45689901",
-          "path-e20cb15e",
-          "path-f557e358"
+          "path-347817d9abd5",
+          "path-86a567d8ff5e",
+          "path-d2f2834909d1"
         ]
       },
       {
@@ -139,8 +139,8 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-7462113c",
-          "path-7bc48b8c"
+          "path-25c6ee3ab5f4",
+          "path-0408789c39ea"
         ]
       },
       {
@@ -174,8 +174,8 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-ad8e5de2",
-          "path-fa61c8c4"
+          "path-ac130052c789",
+          "path-bf95ca34171f"
         ]
       },
       {
@@ -209,8 +209,8 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-2f2bda2d",
-          "path-31e098e8"
+          "path-0b436f72518b",
+          "path-2e872a21952c"
         ]
       },
       {
@@ -244,7 +244,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-6c68d1b5"
+          "path-5532c97b62fe"
         ]
       },
       {
@@ -278,7 +278,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-316db0d7"
+          "path-5532c97b62fe"
         ]
       },
       {
@@ -312,7 +312,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-445e7c6c"
+          "path-d7eca33d1d72"
         ]
       },
       {
@@ -346,7 +346,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-9ed20f75"
+          "path-a0f84f4a31ce"
         ]
       },
       {
@@ -380,7 +380,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-827d9232"
+          "path-4579b70a194e"
         ]
       },
       {
@@ -414,7 +414,7 @@
           "closure=remediate repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-efbe1d8d"
+          "path-a67afbe3e0d4"
         ]
       }
     ],
@@ -475,50 +475,50 @@
     {
       "action_path_type": "ci_cd_workflow",
       "control_resolution_state": "detected_control",
-      "location": "loc-415e1600",
-      "path_id": "path-4bd1cfe8",
+      "location": "loc-a4978e022c20",
+      "path_id": "path-28553f6fa1bf",
       "recommended_action": "proof",
-      "repo": "repo-eb0de2",
+      "repo": "repo-8970d41f8fa1",
       "risk_zone": "credential_bearing",
       "target_class": "production_impacting"
     },
     {
       "action_path_type": "plain_source_code",
       "control_resolution_state": "detected_control",
-      "location": "loc-d5d3368a",
-      "path_id": "path-445e7c6c",
+      "location": "loc-e53aad57193e",
+      "path_id": "path-8724f0f76099",
       "recommended_action": "proof",
-      "repo": "repo-10e08a",
+      "repo": "repo-63722de8a307",
       "risk_zone": "external_egress",
       "target_class": "unknown"
     },
     {
       "action_path_type": "ai_assisted_workflow",
       "control_resolution_state": "detected_control",
-      "location": "loc-6d5c8bdb",
-      "path_id": "path-f290d9be",
+      "location": "loc-37894f57d787",
+      "path_id": "path-df547c195065",
       "recommended_action": "proof",
-      "repo": "repo-1cf387",
+      "repo": "repo-cc0c29a940d4",
       "risk_zone": "external_egress",
       "target_class": "developer_productivity"
     },
     {
       "action_path_type": "ai_assisted_workflow",
       "control_resolution_state": "detected_control",
-      "location": "loc-f27ac6f3",
-      "path_id": "path-aea359df",
+      "location": "loc-0dbaf368b615",
+      "path_id": "path-440896ab3955",
       "recommended_action": "proof",
-      "repo": "repo-10e08a",
+      "repo": "repo-38bb6769f68e",
       "risk_zone": "external_egress",
       "target_class": "developer_productivity"
     },
     {
       "action_path_type": "ai_assisted_workflow",
       "control_resolution_state": "detected_control",
-      "location": "loc-f27ac6f3",
-      "path_id": "path-31e098e8",
+      "location": "loc-b495beb052de",
+      "path_id": "path-886f20db9930",
       "recommended_action": "proof",
-      "repo": "repo-10e08a",
+      "repo": "repo-faca8acd8424",
       "risk_zone": "external_egress",
       "target_class": "developer_productivity"
     }

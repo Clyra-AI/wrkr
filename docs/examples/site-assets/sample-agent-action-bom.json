@@ -1,5 +1,5 @@
 {
-  "bom_id": "bom-6427716c9aca",
+  "bom_id": "bom-8fa3766f0292",
   "items": [
     {
       "action_path_type": "ai_assisted_workflow",
@@ -448,7 +448,7 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=standing"
           ],
           "top_example_refs": [
-            "path-4bd1cfe8"
+            "path-3d4294dea973"
           ]
         },
         {
@@ -482,9 +482,9 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-1a6e2fbd",
-            "path-aea359df",
-            "path-c427c00e"
+            "path-9f799d7fdd64",
+            "path-6feb19d82180",
+            "path-b539539fde6f"
           ]
         },
         {
@@ -518,9 +518,9 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-45689901",
-            "path-e20cb15e",
-            "path-f557e358"
+            "path-347817d9abd5",
+            "path-86a567d8ff5e",
+            "path-d2f2834909d1"
           ]
         },
         {
@@ -554,8 +554,8 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-7462113c",
-            "path-7bc48b8c"
+            "path-25c6ee3ab5f4",
+            "path-0408789c39ea"
           ]
         },
         {
@@ -589,8 +589,8 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-ad8e5de2",
-            "path-fa61c8c4"
+            "path-ac130052c789",
+            "path-bf95ca34171f"
           ]
         },
         {
@@ -624,8 +624,8 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-2f2bda2d",
-            "path-31e098e8"
+            "path-0b436f72518b",
+            "path-2e872a21952c"
           ]
         },
         {
@@ -659,7 +659,7 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-6c68d1b5"
+            "path-5532c97b62fe"
           ]
         },
         {
@@ -693,7 +693,7 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-316db0d7"
+            "path-5532c97b62fe"
           ]
         },
         {
@@ -727,7 +727,7 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-445e7c6c"
+            "path-d7eca33d1d72"
           ]
         },
         {
@@ -761,7 +761,7 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-9ed20f75"
+            "path-a0f84f4a31ce"
           ]
         },
         {
@@ -795,7 +795,7 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-827d9232"
+            "path-4579b70a194e"
           ]
         },
         {
@@ -829,7 +829,7 @@
             "closure=remediate repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-efbe1d8d"
+            "path-a67afbe3e0d4"
           ]
         }
       ],
@@ -849,14 +849,6 @@
       "verified_control_paths": 20
     },
     "primary_view": {
-      "appendix_refs": [
-        "bom_items",
-        "detector_diagnostics",
-        "graph_refs",
-        "proof_refs",
-        "scan_quality",
-        "workflow_chains"
-      ],
       "approval_evidence_state": "unknown",
       "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
       "boundary_label": "report_only",
@@ -865,82 +857,9 @@
       "delegation_readiness_state": "blocked",
       "evidence_completeness_label": "partial_evidence",
       "evidence_completeness_score": 60,
-      "graph_refs": {
-        "edge_ids": [
-          "edge-d8d02c5e",
-          "edge-51b1f8dd",
-          "edge-750bd55f",
-          "edge-10ee3b32",
-          "edge-70bc12b7",
-          "edge-1856f832",
-          "edge-41c5139b",
-          "edge-b4e16980",
-          "edge-0a53f24e",
-          "edge-0c8a2c9d",
-          "edge-a8199699",
-          "edge-f64c7695",
-          "edge-964188e9",
-          "edge-d4a05a1d",
-          "edge-5b163f18",
-          "edge-7dafefba",
-          "edge-4cc7c460",
-          "edge-3e34696b",
-          "edge-b4107450",
-          "edge-87f872d1",
-          "edge-bf0aa7b2",
-          "edge-ab89ef6e",
-          "edge-259711cd",
-          "edge-4131542b",
-          "edge-23f8dddc",
-          "edge-37c6ac0d",
-          "edge-3c30e88a",
-          "edge-9be9a202"
-        ],
-        "node_ids": [
-          "node-2cf24854",
-          "node-6eb110c7",
-          "node-078277b7",
-          "node-1294c441",
-          "node-b9bf4ef4",
-          "node-e13de9cf",
-          "node-9d03a4a8",
-          "node-409c3216",
-          "node-4b3d0146",
-          "node-48858aee",
-          "node-77c59b2c",
-          "node-992f603c",
-          "node-e3ef834d",
-          "node-42acd8f7",
-          "node-3bcd5589",
-          "node-3b3c0f26",
-          "node-3c1d5dde",
-          "node-4a5ba68d",
-          "node-3244b172",
-          "node-e1d4fb7e",
-          "node-6cce8adb",
-          "node-50df51fe",
-          "node-f5380aab",
-          "node-4e40a981",
-          "node-76ac58b2",
-          "node-891ef11f",
-          "node-48b3b4fd",
-          "node-8f633a85"
-        ]
-      },
       "owner_evidence_state": "inferred",
-      "path_id": "path-4bd1cfe8",
-      "path_map": {
-        "action": "credential_access,execute,read",
-        "credential": "deploy_key standing",
-        "repo_pr": "repo-eb0de2",
-        "target": "production_impacting",
-        "tool": "agent-b5d97428",
-        "workflow": "loc-415e1600"
-      },
+      "path_id": "path-3d4294dea973",
       "proof_evidence_state": "unknown",
-      "proof_refs": [
-        "proof-84d2f867"
-      ],
       "recommended_action_contract": {
         "allowed_action": "block_standing_credential",
         "allowed_autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
@@ -1002,9 +921,6 @@
       "unresolved_evidence": [
         "approval",
         "proof"
-      ],
-      "workflow_chain_refs": [
-        "wch-0b0317e1daf7"
       ]
     },
     "runtime_proven_items": 0,
