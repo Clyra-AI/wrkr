@@ -1,0 +1,13 @@
+name: CI Only Release
+on:
+  push:
+    branches:
+      - main
+jobs:
+  release:
+    permissions:
+      contents: write
+      deployments: write
+    environment: production
+    steps:
+      - run: ./scripts/publish.sh

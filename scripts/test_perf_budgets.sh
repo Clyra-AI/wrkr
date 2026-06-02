@@ -187,3 +187,6 @@ if errors:
 
 print('benchmark and runtime budgets: pass')
 PY
+
+WRKR_ENTERPRISE_PRESSURE_SCORECARD_DIR=.tmp/release WRKR_ENTERPRISE_PRESSURE_ENFORCE_TIMINGS=1 \
+  go test ./internal/scenarios -run '^TestScenarioWave42EnterprisePressureContract$' -tags=scenario -count=1 -timeout="${GO_TEST_TIMEOUT:-20m}"

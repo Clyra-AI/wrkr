@@ -1,0 +1,254 @@
+{
+  "approval-sidecar": {
+    "action_paths": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "verified",
+        "constraint_evidence": [
+          "deployment_approval"
+        ],
+        "contradiction_count": null,
+        "control_resolution_state": "external_control_reference",
+        "owner_evidence_state": "verified",
+        "path_id": "apc-3347673d718f",
+        "recommended_action": "proof",
+        "runtime_evidence_state": "verified",
+        "target_evidence_state": "unknown"
+      },
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "verified",
+        "constraint_evidence": [
+          "deployment_approval"
+        ],
+        "contradiction_count": null,
+        "control_resolution_state": "external_control_reference",
+        "owner_evidence_state": "verified",
+        "path_id": "apc-d4e94369b951",
+        "recommended_action": "proof",
+        "runtime_evidence_state": "verified",
+        "target_evidence_state": "unknown"
+      }
+    ],
+    "bom_items": [
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "verified",
+        "control_state": "block_recommended",
+        "owner_evidence_state": "verified",
+        "path_id": "apc-3347673d718f",
+        "queue": "control_first",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
+      },
+      {
+        "action_path_type": "ci_cd_workflow",
+        "approval_evidence_state": "verified",
+        "control_state": "block_recommended",
+        "owner_evidence_state": "verified",
+        "path_id": "apc-d4e94369b951",
+        "queue": "review_queue",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
+      }
+    ],
+    "control_backlog": [],
+    "finding_types": [
+      "ci_autonomy",
+      "compiled_action",
+      "policy_check",
+      "policy_violation",
+      "prompt_channel_semantic",
+      "source_discovery"
+    ],
+    "framework_candidates": []
+  },
+  "branch-protected": {
+    "action_paths": [],
+    "bom_items": [],
+    "control_backlog": [],
+    "finding_types": [
+      "ci_autonomy",
+      "compiled_action",
+      "policy_check",
+      "policy_violation",
+      "prompt_channel_semantic",
+      "source_discovery"
+    ],
+    "framework_candidates": []
+  },
+  "branch-unprotected": {
+    "action_paths": [],
+    "bom_items": [],
+    "control_backlog": [],
+    "finding_types": [
+      "ci_autonomy",
+      "compiled_action",
+      "policy_check",
+      "policy_violation",
+      "prompt_channel_semantic",
+      "source_discovery"
+    ],
+    "framework_candidates": []
+  },
+  "ci-without-agent": {
+    "action_paths": [],
+    "bom_items": [],
+    "control_backlog": [],
+    "finding_types": [
+      "ai_project_signal",
+      "ci_autonomy",
+      "compiled_action",
+      "policy_check",
+      "policy_violation",
+      "prompt_channel_semantic",
+      "source_discovery"
+    ],
+    "framework_candidates": []
+  },
+  "dependency-only": {
+    "action_paths": [
+      {
+        "action_path_type": "unknown_executable_path",
+        "approval_evidence_state": "unknown",
+        "constraint_evidence": null,
+        "contradiction_count": null,
+        "control_resolution_state": "detected_control",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-d2126519d530",
+        "recommended_action": "inventory",
+        "runtime_evidence_state": "unknown",
+        "target_evidence_state": "unknown"
+      }
+    ],
+    "bom_items": [
+      {
+        "action_path_type": "unknown_executable_path",
+        "approval_evidence_state": "unknown",
+        "control_state": "inventory_only",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-d2126519d530",
+        "queue": "review_queue",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
+      }
+    ],
+    "control_backlog": [],
+    "finding_types": [
+      "ai_dependency",
+      "framework_candidate",
+      "policy_check",
+      "policy_violation",
+      "source_discovery"
+    ],
+    "framework_candidates": [
+      "crewai",
+      "langchain"
+    ]
+  },
+  "deploy-agent": {
+    "action_paths": [
+      {
+        "action_path_type": "ai_assisted_workflow",
+        "approval_evidence_state": "unknown",
+        "constraint_evidence": null,
+        "contradiction_count": null,
+        "control_resolution_state": "detected_control",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-1724bbd9aa59",
+        "recommended_action": "proof",
+        "runtime_evidence_state": "unknown",
+        "target_evidence_state": "unknown"
+      },
+      {
+        "action_path_type": "ai_assisted_workflow",
+        "approval_evidence_state": "unknown",
+        "constraint_evidence": null,
+        "contradiction_count": null,
+        "control_resolution_state": "detected_control",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-1bd41e800f57",
+        "recommended_action": "proof",
+        "runtime_evidence_state": "unknown",
+        "target_evidence_state": "unknown"
+      }
+    ],
+    "bom_items": [
+      {
+        "action_path_type": "ai_assisted_workflow",
+        "approval_evidence_state": "unknown",
+        "control_state": "approval_required",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-1724bbd9aa59",
+        "queue": "control_first",
+        "runtime_evidence_classes": [
+          "approval",
+          "proof_verification"
+        ],
+        "runtime_evidence_status": "matched"
+      },
+      {
+        "action_path_type": "ai_assisted_workflow",
+        "approval_evidence_state": "unknown",
+        "control_state": "approval_required",
+        "owner_evidence_state": "inferred",
+        "path_id": "apc-1bd41e800f57",
+        "queue": "control_first",
+        "runtime_evidence_classes": null,
+        "runtime_evidence_status": null
+      }
+    ],
+    "control_backlog": [],
+    "finding_types": [
+      "ai_project_signal",
+      "ci_autonomy",
+      "compiled_action",
+      "policy_check",
+      "policy_violation",
+      "prompt_channel_semantic",
+      "source_discovery",
+      "tool_config"
+    ],
+    "framework_candidates": []
+  },
+  "non-prod-contradiction": {
+    "action_paths": [],
+    "bom_items": [],
+    "control_backlog": [],
+    "finding_types": [
+      "ci_autonomy",
+      "compiled_action",
+      "policy_check",
+      "policy_violation",
+      "prompt_channel_semantic",
+      "secret_presence",
+      "source_discovery"
+    ],
+    "framework_candidates": []
+  },
+  "owner-evidence": {
+    "action_paths": [],
+    "bom_items": [],
+    "control_backlog": [],
+    "finding_types": [
+      "ci_autonomy",
+      "compiled_action",
+      "policy_check",
+      "policy_violation",
+      "prompt_channel_semantic",
+      "source_discovery"
+    ],
+    "framework_candidates": []
+  },
+  "source-only-old": {
+    "action_paths": [],
+    "bom_items": [],
+    "control_backlog": [],
+    "finding_types": [
+      "policy_check",
+      "policy_violation",
+      "source_discovery"
+    ],
+    "framework_candidates": []
+  }
+}

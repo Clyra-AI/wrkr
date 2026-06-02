@@ -1,0 +1,30 @@
+{
+  "deployment_mode": "local_only",
+  "source_privacy": {
+    "cleanup_status": "not_applicable",
+    "materialized_retained": false,
+    "raw_source_in_artifacts": false,
+    "retention_mode": "ephemeral",
+    "serialized_locations": "filesystem"
+  },
+  "source": {
+    "deployment_mode": "local_only",
+    "local_private_note": "Wrkr keeps scan data local by default and emits portable, redacted artifacts only when explicitly requested.",
+    "targets": 0
+  },
+  "detection": {
+    "compliance_gap_count": null,
+    "tool_type_breakdown": null,
+    "total_tools": null
+  },
+  "aggregation": {
+    "action_paths": 20,
+    "control_backlog_items": 0,
+    "executive_rollup_groups": 12,
+    "governed_metrics_present": true
+  },
+  "proof": {
+    "chain_present": true,
+    "record_count": 306
+  }
+}

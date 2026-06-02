@@ -132,6 +132,19 @@
   "W6-enterprise-rollup": [
     "TestScenarioWave6ExecutiveRollupAndGovernedUsageMetrics"
   ],
+  "W31-site-assets": [
+    "TestWave31SiteAssetsContracts"
+  ],
+  "W41-precision-calibration": [
+    "TestScenarioWave41PrecisionCalibration",
+    "TestPrecisionCalibrationAcceptance"
+  ],
+  "W42-enterprise-pressure": [
+    "TestScenarioWave42EnterprisePressureContract",
+    "TestScenarioWave42EnterprisePressureHardening",
+    "TestScenarioWave42EnterprisePressureChaos",
+    "TestWave42EnterprisePressureContracts"
+  ],
   "W4-drift-review": [
     "TestCompareAddsActionPathDriftCategories",
     "TestReportFocusPresetFiltersToDriftedPaths",

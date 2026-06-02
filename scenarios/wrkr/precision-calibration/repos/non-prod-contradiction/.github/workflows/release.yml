@@ -1,0 +1,11 @@
+name: Non Production Release
+on:
+  workflow_dispatch:
+jobs:
+  release:
+    permissions:
+      contents: write
+    env:
+      PROD_API_KEY: ${{ secrets.PROD_API_KEY }}
+    steps:
+      - run: ./scripts/deploy.sh

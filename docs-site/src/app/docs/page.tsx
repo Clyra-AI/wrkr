@@ -61,6 +61,7 @@ const tracks = [
     title: 'Track 5: Positioning and Packaging',
     steps: [
       { label: 'Positioning', href: '/docs/positioning' },
+      { label: 'Website Demo Assets', href: '/docs/examples/site-assets' },
       { label: 'Personal Machine Hygiene', href: '/docs/examples/personal-hygiene' },
       { label: 'Security Team Workflow', href: '/docs/examples/security-team' },
       { label: 'Evidence Templates', href: '/docs/evidence_templates' },

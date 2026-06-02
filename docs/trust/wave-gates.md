@@ -19,4 +19,19 @@ Release hardening also requires these commands to remain auditable and reproduci
 - `make test-contracts`
 - `make test-scenarios`
 - `scripts/run_v1_acceptance.sh --mode=local`
+- `WRKR_ENTERPRISE_PRESSURE_SCORECARD_DIR=.tmp/release WRKR_ENTERPRISE_PRESSURE_ENFORCE_TIMINGS=1 go test ./internal/scenarios -run '^TestScenarioWave42EnterprisePressureContract$' -tags=scenario -count=1`
 - `go run ./cmd/wrkr scan --path scenarios/wrkr/scan-diff-no-noise/input/local-repos --json --quiet`
+
+## Enterprise Pressure Scorecard
+
+Wave 4 enterprise-scale quality gates emit
+`.tmp/release/enterprise-pressure-scorecard.json` and
+`.tmp/release/enterprise-pressure-scorecard.md` when the pressure contract runs
+with scorecard output enabled. Treat that scorecard as the release-review view
+for:
+
+- large-org action-path and executive-rollup volume
+- markdown compactness and graph-size bounds
+- proof-record completeness
+- required drift categories across the synthetic baseline/current variants
+- enforced scan/report timing budgets when release/perf mode is enabled

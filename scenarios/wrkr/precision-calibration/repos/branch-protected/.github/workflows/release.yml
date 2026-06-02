@@ -1,0 +1,10 @@
+name: Protected Release
+on:
+  workflow_dispatch:
+jobs:
+  release:
+    permissions:
+      contents: write
+    environment: production
+    steps:
+      - run: ./scripts/protected-release.sh

@@ -122,13 +122,17 @@ if run_cmd "lane_cross_platform" "GOOS=linux GOARCH=amd64 go build -o .tmp/wrkr-
   lane_cross="pass"
 fi
 
-risk_cmd="make test-contracts && scripts/validate_scenarios.sh && go test ./internal/scenarios -count=1 -tags=scenario && go test ./internal/integration/interop -count=1"
+risk_cmd="make test-contracts && scripts/validate_scenarios.sh && go test ./internal/scenarios -count=1 -tags=scenario -timeout=\${GO_TEST_TIMEOUT:-20m} && go test ./internal/integration/interop -count=1"
 if [[ "$mode" == "nightly" || "$mode" == "release" ]]; then
   # Nightly/release pipelines enforce performance budgets as a separate
   # dedicated gate after acceptance. Keep the acceptance risk lane focused on
   # functional risk-path coverage and hardening so perf measurements do not run
   # inside a compounded long-running lane and then immediately rerun again.
   risk_cmd+=" && scripts/test_hardening_core.sh"
+fi
+if [[ "$mode" == "release" ]]; then
+  risk_cmd+=" && WRKR_ENTERPRISE_PRESSURE_SCORECARD_DIR=.tmp/release WRKR_ENTERPRISE_PRESSURE_ENFORCE_TIMINGS=1 go test ./internal/scenarios -run '^TestScenarioWave42EnterprisePressureContract$' -tags=scenario -count=1 -timeout=\${GO_TEST_TIMEOUT:-20m}"
+  risk_cmd+=" && make test-release-smoke"
 fi
 if run_cmd "lane_risk" "$risk_cmd"; then
  lane_risk="pass"
