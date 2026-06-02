@@ -202,20 +202,20 @@ func Build(repoRoot string) (AssetSet, error) {
 	sourcePrivacy := requireObject(evidencePayload, "source_privacy")
 
 	files := map[string][]byte{}
-	files[AgentActionBOMFilename], err = marshalJSON(projectAgentActionBOM(agentActionBOM))
+	files[AgentActionBOMFilename], err = marshalJSON(normalizePublishedValue(projectAgentActionBOM(agentActionBOM)))
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", AgentActionBOMFilename, err)
 	}
-	files[ControlPathGraphFilename], err = marshalJSON(controlPathGraph)
+	files[ControlPathGraphFilename], err = marshalJSON(normalizePublishedValue(controlPathGraph))
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", ControlPathGraphFilename, err)
 	}
 	files[RedactedReportFilename] = normalizePublishedMarkdown(redactedReport)
-	files[LabDataFilename], err = marshalJSON(buildLabData(scanPayload, publicBOMPayload, summary, controlBacklog, evidenceProof))
+	files[LabDataFilename], err = marshalJSON(normalizePublishedValue(buildLabData(scanPayload, publicBOMPayload, summary, controlBacklog, evidenceProof)))
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", LabDataFilename, err)
 	}
-	files[ArchitectureBoundaryFilename], err = marshalJSON(buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy))
+	files[ArchitectureBoundaryFilename], err = marshalJSON(normalizePublishedValue(buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy)))
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", ArchitectureBoundaryFilename, err)
 	}
@@ -645,4 +645,25 @@ func arrayLength(value any) int {
 		return 0
 	}
 	return len(items)
+}
+
+func normalizePublishedValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			out[key] = normalizePublishedValue(item)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for idx, item := range typed {
+			out[idx] = normalizePublishedValue(item)
+		}
+		return out
+	case string:
+		return strings.ReplaceAll(typed, "\\", "/")
+	default:
+		return value
+	}
 }

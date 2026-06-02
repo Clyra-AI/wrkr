@@ -16,7 +16,8 @@ func TestPrecisionCalibrationAcceptance(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "precision-acceptance-state.json")
 
 	scanPayload := runJSONOK(t, "scan", "--path", scanRoot, "--state", statePath, "--json")
-	deployAgentPathID := acceptanceFirstRepoPathID(t, requireArray(t, scanPayload, "action_paths"), "deploy-agent")
+	scanActionPaths := requireArray(t, scanPayload, "action_paths")
+	deployAgentPathID, _ := firstRepoPath(t, scanActionPaths, "deploy-agent")["path_id"].(string)
 
 	runtimeEvidencePath := filepath.Join(t.TempDir(), "runtime-evidence.json")
 	runtimeEvidence := `{
@@ -45,12 +46,12 @@ func TestPrecisionCalibrationAcceptance(t *testing.T) {
 	reportPayload := runJSONOK(t, "report", "--state", statePath, "--template", "agent-action-bom", "--json")
 
 	actionPaths := requireArray(t, reportPayload, "action_paths")
-	deployAgent := findAcceptanceRepoPath(t, actionPaths, "deploy-agent")
+	deployAgent := findAcceptancePathID(t, actionPaths, deployAgentPathID)
 	if deployAgent["action_path_type"] != "ai_assisted_workflow" {
 		t.Fatalf("expected deploy-agent to stay AI-assisted, got %v", deployAgent)
 	}
 	bomItems := requireArrayFromObject(t, requireObject(t, reportPayload, "agent_action_bom"), "items")
-	deployAgentBOM := findAcceptanceRepoPath(t, bomItems, "deploy-agent")
+	deployAgentBOM := findAcceptancePathID(t, bomItems, deployAgentPathID)
 	if deployAgentBOM["runtime_evidence_status"] != "matched" {
 		t.Fatalf("expected deploy-agent BOM runtime evidence to match after ingest, got %v", deployAgentBOM["runtime_evidence_status"])
 	}
@@ -73,7 +74,7 @@ func TestPrecisionCalibrationAcceptance(t *testing.T) {
 		t.Fatalf("expected ci-without-agent to emit ci_autonomy findings, got %v", findingsFromScan)
 	}
 
-	approvalSidecar := findAcceptanceRepoPath(t, actionPaths, "approval-sidecar")
+	approvalSidecar := findAcceptanceRepoPathWithValue(t, actionPaths, "approval-sidecar", "approval_evidence_state", "verified")
 	if approvalSidecar["approval_evidence_state"] != "verified" {
 		t.Fatalf("expected approval-sidecar approval evidence to verify, got %v", approvalSidecar["approval_evidence_state"])
 	}
@@ -115,7 +116,19 @@ func TestPrecisionCalibrationAcceptance(t *testing.T) {
 	}
 }
 
-func findAcceptanceRepoPath(t *testing.T, actionPaths []any, repo string) map[string]any {
+func findAcceptanceRepoPathWithValue(t *testing.T, actionPaths []any, repo string, key string, want string) map[string]any {
+	t.Helper()
+	for _, raw := range actionPaths {
+		row := requireObjectItem(t, raw)
+		if row["repo"] == repo && row[key] == want {
+			return row
+		}
+	}
+	t.Fatalf("expected action path for repo %s with %s=%s, got %v", repo, key, want, actionPaths)
+	return nil
+}
+
+func firstRepoPath(t *testing.T, actionPaths []any, repo string) map[string]any {
 	t.Helper()
 	for _, raw := range actionPaths {
 		row := requireObjectItem(t, raw)
@@ -127,15 +140,14 @@ func findAcceptanceRepoPath(t *testing.T, actionPaths []any, repo string) map[st
 	return nil
 }
 
-func acceptanceFirstRepoPathID(t *testing.T, actionPaths []any, repo string) string {
+func findAcceptancePathID(t *testing.T, actionPaths []any, pathID string) map[string]any {
 	t.Helper()
 	for _, raw := range actionPaths {
 		row := requireObjectItem(t, raw)
-		if row["repo"] == repo {
-			id, _ := row["path_id"].(string)
-			return id
+		if row["path_id"] == pathID {
+			return row
 		}
 	}
-	t.Fatalf("expected action path for repo %s, got %v", repo, actionPaths)
-	return ""
+	t.Fatalf("expected action path %s, got %v", pathID, actionPaths)
+	return nil
 }
