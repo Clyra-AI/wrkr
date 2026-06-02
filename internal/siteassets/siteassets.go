@@ -83,6 +83,12 @@ type labData struct {
 	ProofSummary          map[string]any `json:"proof_summary"`
 }
 
+type publishedIDMaps struct {
+	Path     map[string]string
+	Repo     map[string]string
+	Location map[string]string
+}
+
 func InteractiveLabDataFilename() string {
 	return LabDataFilename
 }
@@ -196,13 +202,14 @@ func Build(repoRoot string) (AssetSet, error) {
 
 	summary := requireObject(publicBOMPayload, "summary")
 	agentActionBOM := requireObject(publicBOMPayload, "agent_action_bom")
+	publishedIDs := buildPublishedIDMaps(cloneArray(agentActionBOM["items"]))
 	controlPathGraph := requireObject(reportEvidencePayload, "control_path_graph")
 	controlBacklog := requireObject(reportEvidencePayload, "control_backlog")
 	evidenceProof := requireObject(reportEvidencePayload, "proof")
 	sourcePrivacy := requireObject(evidencePayload, "source_privacy")
 
 	files := map[string][]byte{}
-	files[AgentActionBOMFilename], err = marshalJSON(normalizePublishedValue(projectAgentActionBOM(agentActionBOM)))
+	files[AgentActionBOMFilename], err = marshalJSON(normalizePublishedValue(projectAgentActionBOM(agentActionBOM, publishedIDs)))
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", AgentActionBOMFilename, err)
 	}
@@ -211,7 +218,7 @@ func Build(repoRoot string) (AssetSet, error) {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", ControlPathGraphFilename, err)
 	}
 	files[RedactedReportFilename] = normalizePublishedMarkdown(redactedReport)
-	files[LabDataFilename], err = marshalJSON(normalizePublishedValue(buildLabData(scanPayload, publicBOMPayload, summary, controlBacklog, evidenceProof)))
+	files[LabDataFilename], err = marshalJSON(normalizePublishedValue(buildLabData(scanPayload, publicBOMPayload, summary, controlBacklog, evidenceProof, publishedIDs)))
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", LabDataFilename, err)
 	}
@@ -357,14 +364,14 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 	}
 }
 
-func buildLabData(scanPayload, reportPayload, summary, controlBacklog, proof map[string]any) labData {
+func buildLabData(scanPayload, reportPayload, summary, controlBacklog, proof map[string]any, ids publishedIDMaps) labData {
 	return labData{
 		DeploymentMode:        stringValue(reportPayload["deployment_mode"]),
-		ExecutiveRollup:       cloneObject(requireObject(summary, "executive_rollup")),
+		ExecutiveRollup:       projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids),
 		GovernedUsageMetrics:  cloneObject(requireObject(summary, "governed_usage_metrics")),
 		ToolTypeBreakdown:     cloneArray(scanPayload["tool_type_breakdown"]),
 		TopFindings:           projectTopFindings(limitArray(cloneArray(reportPayload["top_findings"]), 5)),
-		TopActionPaths:        projectTopActionPaths(limitArray(cloneArray(reportPayload["action_paths"]), 5)),
+		TopActionPaths:        projectTopActionPaths(limitArray(cloneArray(reportPayload["action_paths"]), 5), ids),
 		ControlBacklogSummary: cloneObject(requireObject(controlBacklog, "summary")),
 		ProofSummary:          projectProofSummary(proof),
 	}
@@ -377,48 +384,13 @@ func projectProofSummary(proof map[string]any) map[string]any {
 	}
 }
 
-func projectAgentActionBOM(agentActionBOM map[string]any) map[string]any {
+func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) map[string]any {
 	summary := requireObject(agentActionBOM, "summary")
 	items := cloneArray(agentActionBOM["items"])
 	projectedItems := make([]map[string]any, 0, len(items))
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
-		stableRepoFingerprint := map[string]any{
-			"action_path_type": row["action_path_type"],
-			"target_class":     row["target_class"],
-			"tool_type":        row["tool_type"],
-			"purpose":          row["purpose"],
-			"queue":            row["queue"],
-			"risk_zone":        row["risk_zone"],
-			"confidence_lane":  row["confidence_lane"],
-			"autonomy_tier":    row["autonomy_tier"],
-		}
-		repoID := stableOpaqueID("repo", stableRepoFingerprint)
-		stablePathFingerprint := map[string]any{
-			"repo":                       repoID,
-			"action_path_type":           row["action_path_type"],
-			"control_state":              row["control_state"],
-			"control_resolution_state":   row["control_resolution_state"],
-			"queue":                      row["queue"],
-			"risk_zone":                  row["risk_zone"],
-			"target_class":               row["target_class"],
-			"autonomy_tier":              row["autonomy_tier"],
-			"delegation_readiness_state": row["delegation_readiness_state"],
-			"approval_evidence_state":    row["approval_evidence_state"],
-			"owner_evidence_state":       row["owner_evidence_state"],
-			"proof_evidence_state":       row["proof_evidence_state"],
-			"runtime_evidence_state":     row["runtime_evidence_state"],
-			"confidence_lane":            row["confidence_lane"],
-			"evidence_strength":          row["evidence_strength"],
-			"recommended_action":         row["recommended_action"],
-		}
-		pathID := stableOpaqueID("path", stablePathFingerprint)
-		locationID := stableOpaqueID("loc", map[string]any{
-			"repo":                     repoID,
-			"path_id":                  pathID,
-			"control_resolution_state": row["control_resolution_state"],
-			"action_path_type":         row["action_path_type"],
-		})
+		repoID, pathID, locationID := publishedIDsForRow(row)
 		projectedItems = append(projectedItems, map[string]any{
 			"path_id":                    pathID,
 			"repo":                       repoID,
@@ -460,9 +432,9 @@ func projectAgentActionBOM(agentActionBOM map[string]any) map[string]any {
 		"coverage_confidence":      summary["coverage_confidence"],
 		"scan_coverage":            summary["scan_coverage"],
 		"delegation_readiness":     summary["delegation_readiness"],
-		"executive_rollup":         summary["executive_rollup"],
+		"executive_rollup":         projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids),
 		"governed_usage_metrics":   summary["governed_usage_metrics"],
-		"primary_view":             summary["primary_view"],
+		"primary_view":             projectPrimaryView(requireObject(summary, "primary_view"), ids),
 	}
 	fingerprint := map[string]any{
 		"schema_version": agentActionBOM["schema_version"],
@@ -582,6 +554,83 @@ func stableOpaqueID(prefix string, value any) string {
 	return prefix + "-" + hex.EncodeToString(sum[:6])
 }
 
+func buildPublishedIDMaps(items []any) publishedIDMaps {
+	out := publishedIDMaps{
+		Path:     map[string]string{},
+		Repo:     map[string]string{},
+		Location: map[string]string{},
+	}
+	for _, raw := range items {
+		row := requireObjectFromAny(raw)
+		repoID, pathID, locationID := publishedIDsForRow(row)
+		if rawPathID := stringValue(row["path_id"]); rawPathID != "" {
+			out.Path[rawPathID] = pathID
+		}
+		if rawRepo := stringValue(row["repo"]); rawRepo != "" {
+			out.Repo[rawRepo] = repoID
+		}
+		for _, key := range []string{"location", "config_source"} {
+			if rawLocation := stringValue(row[key]); rawLocation != "" {
+				out.Location[rawLocation] = locationID
+			}
+		}
+	}
+	return out
+}
+
+func publishedIDsForRow(row map[string]any) (repoID, pathID, locationID string) {
+	stableRepoFingerprint := map[string]any{
+		"action_path_type": row["action_path_type"],
+		"target_class":     row["target_class"],
+		"tool_type":        row["tool_type"],
+		"purpose":          row["purpose"],
+		"queue":            row["queue"],
+		"risk_zone":        row["risk_zone"],
+		"confidence_lane":  row["confidence_lane"],
+		"autonomy_tier":    row["autonomy_tier"],
+	}
+	repoID = stableOpaqueID("repo", stableRepoFingerprint)
+	stablePathFingerprint := map[string]any{
+		"repo":                       repoID,
+		"action_path_type":           row["action_path_type"],
+		"control_state":              row["control_state"],
+		"control_resolution_state":   row["control_resolution_state"],
+		"queue":                      row["queue"],
+		"risk_zone":                  row["risk_zone"],
+		"target_class":               row["target_class"],
+		"autonomy_tier":              row["autonomy_tier"],
+		"delegation_readiness_state": row["delegation_readiness_state"],
+		"approval_evidence_state":    row["approval_evidence_state"],
+		"owner_evidence_state":       row["owner_evidence_state"],
+		"proof_evidence_state":       row["proof_evidence_state"],
+		"runtime_evidence_state":     row["runtime_evidence_state"],
+		"confidence_lane":            row["confidence_lane"],
+		"evidence_strength":          row["evidence_strength"],
+		"recommended_action":         row["recommended_action"],
+	}
+	pathID = stableOpaqueID("path", stablePathFingerprint)
+	locationID = stableOpaqueID("loc", map[string]any{
+		"repo":                     repoID,
+		"path_id":                  pathID,
+		"control_resolution_state": row["control_resolution_state"],
+		"action_path_type":         row["action_path_type"],
+	})
+	return repoID, pathID, locationID
+}
+
+func normalizeOpaqueRef(value string, ids publishedIDMaps) string {
+	switch {
+	case ids.Path[value] != "":
+		return ids.Path[value]
+	case ids.Repo[value] != "":
+		return ids.Repo[value]
+	case ids.Location[value] != "":
+		return ids.Location[value]
+	default:
+		return value
+	}
+}
+
 func requireObject(value map[string]any, key string) map[string]any {
 	nested, ok := value[key].(map[string]any)
 	if !ok {
@@ -648,14 +697,15 @@ func projectTopFindings(items []any) []any {
 	return projected
 }
 
-func projectTopActionPaths(items []any) []any {
+func projectTopActionPaths(items []any, ids publishedIDMaps) []any {
 	projected := make([]any, 0, len(items))
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
+		repoID, pathID, locationID := publishedIDsForRow(row)
 		projected = append(projected, map[string]any{
-			"path_id":                  row["path_id"],
-			"repo":                     row["repo"],
-			"location":                 row["location"],
+			"path_id":                  pathID,
+			"repo":                     repoID,
+			"location":                 locationID,
 			"action_path_type":         row["action_path_type"],
 			"recommended_action":       row["recommended_action"],
 			"control_resolution_state": row["control_resolution_state"],
@@ -664,6 +714,51 @@ func projectTopActionPaths(items []any) []any {
 		})
 	}
 	return projected
+}
+
+func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps) map[string]any {
+	out := cloneObject(executiveRollup)
+	groups := cloneArray(executiveRollup["groups"])
+	projectedGroups := make([]any, 0, len(groups))
+	for _, raw := range groups {
+		group := cloneObject(requireObjectFromAny(raw))
+		refs := cloneArray(group["top_example_refs"])
+		projectedRefs := make([]any, 0, len(refs))
+		for _, ref := range refs {
+			projectedRefs = append(projectedRefs, normalizeOpaqueRef(stringValue(ref), ids))
+		}
+		group["top_example_refs"] = projectedRefs
+		projectedGroups = append(projectedGroups, group)
+	}
+	out["groups"] = projectedGroups
+	return out
+}
+
+func projectPrimaryView(primaryView map[string]any, ids publishedIDMaps) map[string]any {
+	if len(primaryView) == 0 {
+		return map[string]any{}
+	}
+	return map[string]any{
+		"path_id":                     normalizeOpaqueRef(stringValue(primaryView["path_id"]), ids),
+		"approval_evidence_state":     primaryView["approval_evidence_state"],
+		"autonomy_tier":               primaryView["autonomy_tier"],
+		"boundary_label":              primaryView["boundary_label"],
+		"control_resolution_state":    primaryView["control_resolution_state"],
+		"credential_evidence_state":   primaryView["credential_evidence_state"],
+		"delegation_readiness_state":  primaryView["delegation_readiness_state"],
+		"evidence_completeness_label": primaryView["evidence_completeness_label"],
+		"evidence_completeness_score": primaryView["evidence_completeness_score"],
+		"owner_evidence_state":        primaryView["owner_evidence_state"],
+		"proof_evidence_state":        primaryView["proof_evidence_state"],
+		"recommended_action_contract": normalizePublishedValue(primaryView["recommended_action_contract"]),
+		"recommended_control":         primaryView["recommended_control"],
+		"recommended_governed_path":   normalizePublishedValue(primaryView["recommended_governed_path"]),
+		"runtime_evidence_state":      primaryView["runtime_evidence_state"],
+		"selection_reason":            primaryView["selection_reason"],
+		"target_evidence_state":       primaryView["target_evidence_state"],
+		"today_path":                  normalizePublishedValue(primaryView["today_path"]),
+		"unresolved_evidence":         normalizePublishedValue(primaryView["unresolved_evidence"]),
+	}
 }
 
 func stringValue(value any) string {
