@@ -213,7 +213,7 @@ func Build(repoRoot string) (AssetSet, error) {
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", AgentActionBOMFilename, err)
 	}
-	files[ControlPathGraphFilename], err = marshalJSON(normalizePublishedValue(controlPathGraph))
+	files[ControlPathGraphFilename], err = marshalJSON(normalizePublishedValue(projectControlPathGraph(controlPathGraph)))
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", ControlPathGraphFilename, err)
 	}
@@ -446,6 +446,119 @@ func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) m
 		"schema_version": agentActionBOM["schema_version"],
 		"summary":        projectedSummary,
 		"items":          projectedItemsAny,
+	}
+}
+
+func projectControlPathGraph(graph map[string]any) map[string]any {
+	out := cloneObject(graph)
+	nodes := projectControlPathGraphNodes(cloneArray(graph["nodes"]))
+	nodeIDMap := map[string]string{}
+	projectedNodes := make([]any, 0, len(nodes))
+	for _, node := range nodes {
+		if node.oldID != "" {
+			nodeIDMap[node.oldID] = stringValue(node.row["node_id"])
+		}
+		projectedNodes = append(projectedNodes, node.row)
+	}
+	sort.Slice(projectedNodes, func(i, j int) bool {
+		left := requireObjectFromAny(projectedNodes[i])
+		right := requireObjectFromAny(projectedNodes[j])
+		if stringValue(left["path_id"]) != stringValue(right["path_id"]) {
+			return stringValue(left["path_id"]) < stringValue(right["path_id"])
+		}
+		if stringValue(left["kind"]) != stringValue(right["kind"]) {
+			return stringValue(left["kind"]) < stringValue(right["kind"])
+		}
+		if stringValue(left["node_id"]) != stringValue(right["node_id"]) {
+			return stringValue(left["node_id"]) < stringValue(right["node_id"])
+		}
+		return stringValue(left["label"]) < stringValue(right["label"])
+	})
+	out["nodes"] = projectedNodes
+	out["edges"] = projectControlPathGraphEdges(cloneArray(graph["edges"]), nodeIDMap)
+	return out
+}
+
+type projectedControlPathNode struct {
+	oldID string
+	row   map[string]any
+}
+
+func projectControlPathGraphNodes(items []any) []projectedControlPathNode {
+	out := make([]projectedControlPathNode, 0, len(items))
+	for _, raw := range items {
+		row := cloneObject(requireObjectFromAny(raw))
+		oldID := stringValue(row["node_id"])
+		row["node_id"] = stableOpaqueID("node", controlPathNodeFingerprint(row))
+		out = append(out, projectedControlPathNode{oldID: oldID, row: row})
+	}
+	return out
+}
+
+func projectControlPathGraphEdges(items []any, nodeIDMap map[string]string) []any {
+	out := make([]any, 0, len(items))
+	for _, raw := range items {
+		row := cloneObject(requireObjectFromAny(raw))
+		if mapped := nodeIDMap[stringValue(row["from_node_id"])]; mapped != "" {
+			row["from_node_id"] = mapped
+		}
+		if mapped := nodeIDMap[stringValue(row["to_node_id"])]; mapped != "" {
+			row["to_node_id"] = mapped
+		}
+		row["edge_id"] = stableOpaqueID("edge", controlPathEdgeFingerprint(row))
+		out = append(out, row)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		left := requireObjectFromAny(out[i])
+		right := requireObjectFromAny(out[j])
+		if stringValue(left["path_id"]) != stringValue(right["path_id"]) {
+			return stringValue(left["path_id"]) < stringValue(right["path_id"])
+		}
+		if stringValue(left["kind"]) != stringValue(right["kind"]) {
+			return stringValue(left["kind"]) < stringValue(right["kind"])
+		}
+		if stringValue(left["from_node_id"]) != stringValue(right["from_node_id"]) {
+			return stringValue(left["from_node_id"]) < stringValue(right["from_node_id"])
+		}
+		if stringValue(left["to_node_id"]) != stringValue(right["to_node_id"]) {
+			return stringValue(left["to_node_id"]) < stringValue(right["to_node_id"])
+		}
+		return stringValue(left["edge_id"]) < stringValue(right["edge_id"])
+	})
+	return out
+}
+
+func controlPathNodeFingerprint(row map[string]any) map[string]any {
+	return map[string]any{
+		"path_id":                    row["path_id"],
+		"kind":                       row["kind"],
+		"lineage_segment":            row["lineage_segment"],
+		"label":                      row["label"],
+		"tool_type":                  row["tool_type"],
+		"location":                   row["location"],
+		"agent_id":                   row["agent_id"],
+		"boundary_label":             row["boundary_label"],
+		"purpose":                    row["purpose"],
+		"purpose_source":             row["purpose_source"],
+		"purpose_confidence":         row["purpose_confidence"],
+		"version":                    row["version"],
+		"version_source":             row["version_source"],
+		"config_fingerprint":         row["config_fingerprint"],
+		"config_source":              row["config_source"],
+		"status":                     row["status"],
+		"credential_authority":       row["credential_authority"],
+		"authority_bindings":         row["authority_bindings"],
+		"mutable_endpoint_semantics": row["mutable_endpoint_semantics"],
+	}
+}
+
+func controlPathEdgeFingerprint(row map[string]any) map[string]any {
+	return map[string]any{
+		"path_id":        row["path_id"],
+		"kind":           row["kind"],
+		"boundary_label": row["boundary_label"],
+		"from_node_id":   row["from_node_id"],
+		"to_node_id":     row["to_node_id"],
 	}
 }
 

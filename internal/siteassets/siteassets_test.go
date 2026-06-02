@@ -105,6 +105,64 @@ func TestPublishedSiteAssetDirectoryHasExpectedFilesOnly(t *testing.T) {
 	}
 }
 
+func TestProjectControlPathGraphCanonicalizesRawIDs(t *testing.T) {
+	t.Parallel()
+
+	first := sampleControlPathGraph("raw-node-a", "raw-node-b", "raw-edge-a")
+	second := sampleControlPathGraph("raw-node-x", "raw-node-y", "raw-edge-x")
+	firstPayload, err := marshalJSON(normalizePublishedValue(projectControlPathGraph(first)))
+	if err != nil {
+		t.Fatalf("marshal first graph: %v", err)
+	}
+	secondPayload, err := marshalJSON(normalizePublishedValue(projectControlPathGraph(second)))
+	if err != nil {
+		t.Fatalf("marshal second graph: %v", err)
+	}
+	if string(firstPayload) != string(secondPayload) {
+		t.Fatalf("projected graph should ignore volatile raw IDs\nfirst:\n%s\nsecond:\n%s", firstPayload, secondPayload)
+	}
+}
+
+func sampleControlPathGraph(fromNodeID, toNodeID, edgeID string) map[string]any {
+	return map[string]any{
+		"version": "1",
+		"summary": map[string]any{
+			"total_nodes": 2,
+			"total_edges": 1,
+		},
+		"nodes": []any{
+			map[string]any{
+				"node_id":         fromNodeID,
+				"path_id":         "path-demo",
+				"kind":            "human_identity",
+				"lineage_segment": "human",
+				"label":           "label-human",
+				"boundary_label":  "report_only",
+				"status":          "present",
+			},
+			map[string]any{
+				"node_id":         toNodeID,
+				"path_id":         "path-demo",
+				"kind":            "task",
+				"lineage_segment": "task",
+				"label":           "label-task",
+				"boundary_label":  "report_only",
+				"status":          "present",
+			},
+		},
+		"edges": []any{
+			map[string]any{
+				"edge_id":        edgeID,
+				"path_id":        "path-demo",
+				"kind":           "human_delegates_task",
+				"boundary_label": "report_only",
+				"from_node_id":   fromNodeID,
+				"to_node_id":     toNodeID,
+			},
+		},
+	}
+}
+
 func mustRepoRoot(t *testing.T) string {
 	t.Helper()
 
