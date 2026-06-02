@@ -231,18 +231,21 @@ func TestResolveLoadsProviderNeutralProvenanceSidecar(t *testing.T) {
 	result := Resolve(LoadContext(repoRoot), ".github/workflows/release.yml", nil)
 	if result == nil {
 		t.Fatal("expected attribution result")
+		return
 	}
-	if result.Source != SourceProviderProvenance || result.Reference != "pr/42" || result.Provider != "github" {
-		t.Fatalf("expected provider-neutral sidecar to win precedence, got %+v", result)
+	resolved := *result
+	if resolved.Source != SourceProviderProvenance || resolved.Reference != "pr/42" || resolved.Provider != "github" {
+		t.Fatalf("expected provider-neutral sidecar to win precedence, got %+v", resolved)
 	}
-	if result.Provenance == nil {
-		t.Fatalf("expected normalized provenance payload, got %+v", result)
+	if resolved.Provenance == nil {
+		t.Fatalf("expected normalized provenance payload, got %+v", resolved)
 	}
-	if result.Provenance.ConflictState != "none" {
-		t.Fatalf("expected non-conflicting provenance, got %+v", result.Provenance)
+	provenance := resolved.Provenance
+	if provenance.ConflictState != "none" {
+		t.Fatalf("expected non-conflicting provenance, got %+v", provenance)
 	}
-	if len(result.Provenance.Checks) != 1 || len(result.Provenance.BranchProtections) != 1 || !result.Provenance.AIAssisted || !result.Provenance.AutomationAssisted {
-		t.Fatalf("expected checks, branch protection, and AI/automation flags, got %+v", result.Provenance)
+	if len(provenance.Checks) != 1 || len(provenance.BranchProtections) != 1 || !provenance.AIAssisted || !provenance.AutomationAssisted {
+		t.Fatalf("expected checks, branch protection, and AI/automation flags, got %+v", provenance)
 	}
 }
 
@@ -319,9 +322,11 @@ func TestResolveIgnoresInvalidProviderNeutralProvenanceSidecar(t *testing.T) {
 	result := Resolve(LoadContext(repoRoot), ".github/workflows/release.yml", nil)
 	if result == nil {
 		t.Fatal("expected fallback attribution result")
+		return
 	}
-	if result.Source == SourceProviderProvenance {
-		t.Fatalf("expected invalid provenance sidecar to be ignored, got %+v", result)
+	resolved := *result
+	if resolved.Source == SourceProviderProvenance {
+		t.Fatalf("expected invalid provenance sidecar to be ignored, got %+v", resolved)
 	}
 }
 

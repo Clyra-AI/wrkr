@@ -15,21 +15,21 @@ import (
 )
 
 const (
-	ScenarioRelPath                 = "scenarios/wrkr/scan-mixed-org/repos"
-	ManifestFilename                = "site-asset-manifest.json"
-	AgentActionBOMFilename          = "sample-agent-action-bom.json"
-	ControlPathGraphFilename        = "sample-control-path-graph.json"
-	RedactedReportFilename          = "sample-redacted-report.md"
-	LabDataFilename                 = "interactive-lab-data.json"
-	ArchitectureBoundaryFilename    = "architecture-boundary.json"
-	LocalPrivatePostureFilename     = "local-private-posture.md"
-	manifestSchemaVersion           = "v1"
-	manifestGeneratorVersion        = "1"
-	websiteShareProfile             = "customer-redacted"
-	customerRedactedShareProfile    = "customer-redacted"
-	publicAgentActionBOMTemplate    = "agent-action-bom"
-	publicExecutiveTemplate         = "ciso"
-	evidenceFrameworks              = "eu-ai-act,soc2"
+	ScenarioRelPath              = "scenarios/wrkr/scan-mixed-org/repos"
+	ManifestFilename             = "site-asset-manifest.json"
+	AgentActionBOMFilename       = "sample-agent-action-bom.json"
+	ControlPathGraphFilename     = "sample-control-path-graph.json"
+	RedactedReportFilename       = "sample-redacted-report.md"
+	LabDataFilename              = "interactive-lab-data.json"
+	ArchitectureBoundaryFilename = "architecture-boundary.json"
+	LocalPrivatePostureFilename  = "local-private-posture.md"
+	manifestSchemaVersion        = "v1"
+	manifestGeneratorVersion     = "1"
+	websiteShareProfile          = "customer-redacted"
+	customerRedactedShareProfile = "customer-redacted"
+	publicAgentActionBOMTemplate = "agent-action-bom"
+	publicExecutiveTemplate      = "ciso"
+	evidenceFrameworks           = "eu-ai-act,soc2"
 )
 
 var publishedFilenames = []string{
@@ -47,12 +47,12 @@ type AssetSet struct {
 }
 
 type manifest struct {
-	SchemaVersion    string          `json:"schema_version"`
-	GeneratorVersion string          `json:"generator_version"`
-	ScenarioPath     string          `json:"scenario_path"`
-	Files            []manifestFile  `json:"files"`
-	Commands         []string        `json:"commands"`
-	Notes            []string        `json:"notes"`
+	SchemaVersion    string         `json:"schema_version"`
+	GeneratorVersion string         `json:"generator_version"`
+	ScenarioPath     string         `json:"scenario_path"`
+	Files            []manifestFile `json:"files"`
+	Commands         []string       `json:"commands"`
+	Notes            []string       `json:"notes"`
 }
 
 type manifestFile struct {
@@ -328,11 +328,11 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 	return boundaryData{
 		DeploymentMode: stringValue(evidencePayload["deployment_mode"]),
 		SourcePrivacy: map[string]any{
-			"retention_mode":         sourcePrivacy["retention_mode"],
-			"materialized_retained":  sourcePrivacy["materialized_source_retained"],
+			"retention_mode":          sourcePrivacy["retention_mode"],
+			"materialized_retained":   sourcePrivacy["materialized_source_retained"],
 			"raw_source_in_artifacts": sourcePrivacy["raw_source_in_artifacts"],
-			"serialized_locations":   sourcePrivacy["serialized_locations"],
-			"cleanup_status":         sourcePrivacy["cleanup_status"],
+			"serialized_locations":    sourcePrivacy["serialized_locations"],
+			"cleanup_status":          sourcePrivacy["cleanup_status"],
 		},
 		Source: map[string]any{
 			"targets":            arrayLength(scanPayload["targets"]),
@@ -384,37 +384,37 @@ func projectAgentActionBOM(agentActionBOM map[string]any) map[string]any {
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
 		projectedItems = append(projectedItems, map[string]any{
-			"path_id":                   row["path_id"],
-			"repo":                      row["repo"],
-			"location":                  row["location"],
-			"action_path_type":          row["action_path_type"],
-			"control_state":             row["control_state"],
-			"queue":                     row["queue"],
-			"risk_zone":                 row["risk_zone"],
-			"target_class":              row["target_class"],
-			"autonomy_tier":             row["autonomy_tier"],
+			"path_id":                    row["path_id"],
+			"repo":                       row["repo"],
+			"location":                   row["location"],
+			"action_path_type":           row["action_path_type"],
+			"control_state":              row["control_state"],
+			"queue":                      row["queue"],
+			"risk_zone":                  row["risk_zone"],
+			"target_class":               row["target_class"],
+			"autonomy_tier":              row["autonomy_tier"],
 			"delegation_readiness_state": row["delegation_readiness_state"],
-			"control_resolution_state":  row["control_resolution_state"],
-			"approval_evidence_state":   row["approval_evidence_state"],
-			"owner_evidence_state":      row["owner_evidence_state"],
-			"proof_evidence_state":      row["proof_evidence_state"],
-			"runtime_evidence_state":    row["runtime_evidence_state"],
-			"confidence_lane":           row["confidence_lane"],
-			"evidence_strength":         row["evidence_strength"],
-			"recommended_action":        row["recommended_action"],
+			"control_resolution_state":   row["control_resolution_state"],
+			"approval_evidence_state":    row["approval_evidence_state"],
+			"owner_evidence_state":       row["owner_evidence_state"],
+			"proof_evidence_state":       row["proof_evidence_state"],
+			"runtime_evidence_state":     row["runtime_evidence_state"],
+			"confidence_lane":            row["confidence_lane"],
+			"evidence_strength":          row["evidence_strength"],
+			"recommended_action":         row["recommended_action"],
 		})
 	}
 	projectedSummary := map[string]any{
-		"total_items":             summary["total_items"],
-		"control_first_items":     summary["control_first_items"],
+		"total_items":              summary["total_items"],
+		"control_first_items":      summary["control_first_items"],
 		"standing_privilege_items": summary["standing_privilege_items"],
-		"runtime_proven_items":    summary["runtime_proven_items"],
-		"coverage_confidence":     summary["coverage_confidence"],
-		"scan_coverage":           summary["scan_coverage"],
-		"delegation_readiness":    summary["delegation_readiness"],
-		"executive_rollup":        summary["executive_rollup"],
-		"governed_usage_metrics":  summary["governed_usage_metrics"],
-		"primary_view":            summary["primary_view"],
+		"runtime_proven_items":     summary["runtime_proven_items"],
+		"coverage_confidence":      summary["coverage_confidence"],
+		"scan_coverage":            summary["scan_coverage"],
+		"delegation_readiness":     summary["delegation_readiness"],
+		"executive_rollup":         summary["executive_rollup"],
+		"governed_usage_metrics":   summary["governed_usage_metrics"],
+		"primary_view":             summary["primary_view"],
 	}
 	fingerprint := map[string]any{
 		"schema_version": agentActionBOM["schema_version"],
@@ -479,11 +479,6 @@ func marshalJSON(value any) ([]byte, error) {
 	return append(payload, '\n'), nil
 }
 
-func normalizeMarkdown(payload []byte) []byte {
-	text := strings.TrimRight(string(payload), "\n")
-	return []byte(text + "\n")
-}
-
 func normalizePublishedMarkdown(payload []byte) []byte {
 	lines := strings.Split(strings.TrimRight(string(payload), "\n"), "\n")
 	for idx, line := range lines {
@@ -545,10 +540,6 @@ func requireObject(value map[string]any, key string) map[string]any {
 		return map[string]any{}
 	}
 	return nested
-}
-
-func objectString(value any, key string) string {
-	return stringValue(requireObjectFromAny(value)[key])
 }
 
 func objectInt(value any, key string) int {

@@ -98,25 +98,28 @@ func TestBuildWorkflowChainsStableGroupingAndUnknownStates(t *testing.T) {
 
 	first := BuildWorkflowChains(inputs)
 	second := BuildWorkflowChains([]WorkflowChainInput{inputs[2], inputs[1], inputs[0]})
-	if !reflect.DeepEqual(first, second) {
-		t.Fatalf("expected deterministic workflow-chain artifact\nfirst=%+v\nsecond=%+v", first, second)
+	if first == nil || second == nil {
+		t.Fatalf("expected workflow chains\nfirst=%+v\nsecond=%+v", first, second)
 	}
-	if first == nil {
-		t.Fatal("expected workflow chains")
+	firstArtifact := *first
+	secondArtifact := *second
+	if !reflect.DeepEqual(firstArtifact, secondArtifact) {
+		t.Fatalf("expected deterministic workflow-chain artifact\nfirst=%+v\nsecond=%+v", firstArtifact, secondArtifact)
 	}
-	if first.Summary.TotalChains != 2 {
-		t.Fatalf("expected 2 chains after duplicate collapse, got %+v", first.Summary)
+	summary := firstArtifact.Summary
+	if summary.TotalChains != 2 {
+		t.Fatalf("expected 2 chains after duplicate collapse, got %+v", summary)
 	}
 
 	var collapsed WorkflowChain
-	for _, chain := range first.Chains {
+	for _, chain := range firstArtifact.Chains {
 		if len(chain.PathIDs) == 2 {
 			collapsed = chain
 			break
 		}
 	}
 	if collapsed.ChainID == "" {
-		t.Fatalf("expected collapsed chain, got %+v", first.Chains)
+		t.Fatalf("expected collapsed chain, got %+v", firstArtifact.Chains)
 	}
 	if !reflect.DeepEqual(collapsed.PathIDs, []string{"apc-chain-a", "apc-chain-b"}) {
 		t.Fatalf("expected stable grouped path ids, got %+v", collapsed.PathIDs)
@@ -127,8 +130,8 @@ func TestBuildWorkflowChainsStableGroupingAndUnknownStates(t *testing.T) {
 	if collapsed.Outcome.Status != "unknown" {
 		t.Fatalf("expected missing outcome metadata to become explicit unknown state, got %+v", collapsed.Outcome)
 	}
-	if !containsWorkflowChainRollup(first.Summary.AutonomyTiers, "tier_4_prod_privileged_or_customer_impacting", 1) {
-		t.Fatalf("expected autonomy tier rollup, got %+v", first.Summary.AutonomyTiers)
+	if !containsWorkflowChainRollup(firstArtifact.Summary.AutonomyTiers, "tier_4_prod_privileged_or_customer_impacting", 1) {
+		t.Fatalf("expected autonomy tier rollup, got %+v", firstArtifact.Summary.AutonomyTiers)
 	}
 	if !containsWorkflowChainRollup(first.Summary.DelegationReadinessStates, "approval_required", 1) {
 		t.Fatalf("expected readiness rollup, got %+v", first.Summary.DelegationReadinessStates)

@@ -79,15 +79,17 @@ func TestSanitizeWorkflowChainsPublicRedactsSummaryRollups(t *testing.T) {
 	redacted := sanitizeWorkflowChainsPublic(input)
 	if redacted == nil {
 		t.Fatal("expected redacted workflow chains")
+		return
 	}
-	if redacted.Summary.Repos[0].Value == input.Summary.Repos[0].Value {
-		t.Fatalf("expected repo summary rollup to redact, got %+v", redacted.Summary.Repos)
+	redactedArtifact := *redacted
+	if redactedArtifact.Summary.Repos[0].Value == input.Summary.Repos[0].Value {
+		t.Fatalf("expected repo summary rollup to redact, got %+v", redactedArtifact.Summary.Repos)
 	}
-	if redacted.Summary.Workflows[0].Value == input.Summary.Workflows[0].Value {
-		t.Fatalf("expected workflow summary rollup to redact, got %+v", redacted.Summary.Workflows)
+	if redactedArtifact.Summary.Workflows[0].Value == input.Summary.Workflows[0].Value {
+		t.Fatalf("expected workflow summary rollup to redact, got %+v", redactedArtifact.Summary.Workflows)
 	}
-	if redacted.Summary.AutonomyTiers[0].Value != input.Summary.AutonomyTiers[0].Value {
-		t.Fatalf("expected enum rollup to remain visible, got %+v", redacted.Summary.AutonomyTiers)
+	if redactedArtifact.Summary.AutonomyTiers[0].Value != input.Summary.AutonomyTiers[0].Value {
+		t.Fatalf("expected enum rollup to remain visible, got %+v", redactedArtifact.Summary.AutonomyTiers)
 	}
 }
 
@@ -111,11 +113,13 @@ func TestSanitizeWorkflowChainsWithConfigRedactsSummaryRollups(t *testing.T) {
 	redacted := sanitizeWorkflowChainsWithConfig(input, config)
 	if redacted == nil {
 		t.Fatal("expected redacted workflow chains")
+		return
 	}
-	if redacted.Summary.Repos[0].Value == input.Summary.Repos[0].Value {
-		t.Fatalf("expected repo summary rollup to redact with config, got %+v", redacted.Summary.Repos)
+	redactedArtifact := *redacted
+	if redactedArtifact.Summary.Repos[0].Value == input.Summary.Repos[0].Value {
+		t.Fatalf("expected repo summary rollup to redact with config, got %+v", redactedArtifact.Summary.Repos)
 	}
-	if redacted.Summary.Workflows[0].Value == input.Summary.Workflows[0].Value {
-		t.Fatalf("expected workflow summary rollup to redact with config, got %+v", redacted.Summary.Workflows)
+	if redactedArtifact.Summary.Workflows[0].Value == input.Summary.Workflows[0].Value {
+		t.Fatalf("expected workflow summary rollup to redact with config, got %+v", redactedArtifact.Summary.Workflows)
 	}
 }
