@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -28,9 +30,32 @@ func TestGeneratedSiteAssetsMatchCheckedInCopies(t *testing.T) {
 			t.Fatalf("generated asset missing %s", name)
 		}
 		if string(generated) != string(expected) {
-			t.Fatalf("site asset drifted for %s; run `go run ./scripts/generate_site_assets --repo-root . --output-dir ./docs/examples/site-assets`", name)
+			t.Fatalf("site asset drifted for %s; %s; run `go run ./scripts/generate_site_assets --repo-root . --output-dir ./docs/examples/site-assets`", name, firstDiffSnippet(expected, generated))
 		}
 	}
+}
+
+func firstDiffSnippet(expected, generated []byte) string {
+	expectedLines := strings.Split(string(expected), "\n")
+	generatedLines := strings.Split(string(generated), "\n")
+	limit := len(expectedLines)
+	if len(generatedLines) < limit {
+		limit = len(generatedLines)
+	}
+	for idx := 0; idx < limit; idx++ {
+		if expectedLines[idx] == generatedLines[idx] {
+			continue
+		}
+		return "first diff at line " + itoa(idx+1) + ": expected=" + expectedLines[idx] + " generated=" + generatedLines[idx]
+	}
+	if len(expectedLines) != len(generatedLines) {
+		return "line count differs: expected=" + itoa(len(expectedLines)) + " generated=" + itoa(len(generatedLines))
+	}
+	return "content differs"
+}
+
+func itoa(value int) string {
+	return strconv.Itoa(value)
 }
 
 func TestPublishedSiteAssetsPassHygieneChecks(t *testing.T) {
