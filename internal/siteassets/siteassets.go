@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/cli"
@@ -213,7 +214,7 @@ func Build(repoRoot string) (AssetSet, error) {
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", AgentActionBOMFilename, err)
 	}
-	files[ControlPathGraphFilename], err = marshalJSON(normalizePublishedValue(controlPathGraph))
+	files[ControlPathGraphFilename], err = marshalJSON(normalizePublishedValue(projectControlPathGraph(controlPathGraph)))
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("marshal %s: %w", ControlPathGraphFilename, err)
 	}
@@ -447,6 +448,273 @@ func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) m
 		"summary":        projectedSummary,
 		"items":          projectedItemsAny,
 	}
+}
+
+func projectControlPathGraph(graph map[string]any) map[string]any {
+	out := cloneObject(graph)
+	pathIDMap := projectControlPathGraphPathIDs(cloneArray(graph["nodes"]), cloneArray(graph["edges"]))
+	nodes := projectControlPathGraphNodes(cloneArray(graph["nodes"]), pathIDMap)
+	nodeIDMap := map[string]string{}
+	projectedNodes := make([]any, 0, len(nodes))
+	assignControlPathNodeIDs(nodes, nodeIDMap)
+	for _, node := range nodes {
+		projectedNodes = append(projectedNodes, node.row)
+	}
+	out["nodes"] = projectedNodes
+	out["edges"] = projectControlPathGraphEdges(cloneArray(graph["edges"]), pathIDMap, nodeIDMap)
+	return out
+}
+
+type projectedControlPathNode struct {
+	oldID string
+	row   map[string]any
+}
+
+func projectControlPathGraphPathIDs(nodes []any, edges []any) map[string]string {
+	type pathProjection struct {
+		oldID       string
+		fingerprint string
+	}
+	paths := map[string]map[string]any{}
+	for _, raw := range nodes {
+		row := requireObjectFromAny(raw)
+		pathID := stringValue(row["path_id"])
+		if pathID == "" {
+			continue
+		}
+		item := cloneObject(row)
+		delete(item, "node_id")
+		delete(item, "path_id")
+		paths[pathID] = appendPathFingerprint(paths[pathID], "nodes", item)
+	}
+	for _, raw := range edges {
+		row := requireObjectFromAny(raw)
+		pathID := stringValue(row["path_id"])
+		if pathID == "" {
+			continue
+		}
+		item := cloneObject(row)
+		delete(item, "edge_id")
+		delete(item, "path_id")
+		delete(item, "from_node_id")
+		delete(item, "to_node_id")
+		paths[pathID] = appendPathFingerprint(paths[pathID], "edges", item)
+	}
+	projected := make([]pathProjection, 0, len(paths))
+	for oldID, fingerprint := range paths {
+		projected = append(projected, pathProjection{oldID: oldID, fingerprint: canonicalJSONKey(fingerprint)})
+	}
+	sort.Slice(projected, func(i, j int) bool {
+		if projected[i].fingerprint != projected[j].fingerprint {
+			return projected[i].fingerprint < projected[j].fingerprint
+		}
+		return projected[i].oldID < projected[j].oldID
+	})
+	out := map[string]string{}
+	for idx, path := range projected {
+		out[path.oldID] = ordinalOpaqueID("path", idx+1)
+	}
+	return out
+}
+
+func appendPathFingerprint(current map[string]any, key string, value map[string]any) map[string]any {
+	if current == nil {
+		current = map[string]any{}
+	}
+	items := cloneArray(current[key])
+	items = append(items, normalizePublishedValue(value))
+	sort.Slice(items, func(i, j int) bool {
+		return canonicalJSONKey(items[i]) < canonicalJSONKey(items[j])
+	})
+	current[key] = items
+	return current
+}
+
+func projectControlPathGraphNodes(items []any, pathIDMap map[string]string) []projectedControlPathNode {
+	out := make([]projectedControlPathNode, 0, len(items))
+	for _, raw := range items {
+		row := cloneObject(requireObjectFromAny(raw))
+		oldID := stringValue(row["node_id"])
+		if mapped := pathIDMap[stringValue(row["path_id"])]; mapped != "" {
+			row["path_id"] = mapped
+		}
+		out = append(out, projectedControlPathNode{oldID: oldID, row: row})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		left := out[i].row
+		right := out[j].row
+		if stringValue(left["path_id"]) != stringValue(right["path_id"]) {
+			return stringValue(left["path_id"]) < stringValue(right["path_id"])
+		}
+		if stringValue(left["kind"]) != stringValue(right["kind"]) {
+			return stringValue(left["kind"]) < stringValue(right["kind"])
+		}
+		if stringValue(left["lineage_segment"]) != stringValue(right["lineage_segment"]) {
+			return stringValue(left["lineage_segment"]) < stringValue(right["lineage_segment"])
+		}
+		if stringValue(left["label"]) != stringValue(right["label"]) {
+			return stringValue(left["label"]) < stringValue(right["label"])
+		}
+		return canonicalJSONKey(controlPathNodeFingerprint(left)) < canonicalJSONKey(controlPathNodeFingerprint(right))
+	})
+	return out
+}
+
+func assignControlPathNodeIDs(nodes []projectedControlPathNode, nodeIDMap map[string]string) {
+	for idx := range nodes {
+		newID := ordinalOpaqueID("node", idx+1)
+		if nodes[idx].oldID != "" {
+			nodeIDMap[nodes[idx].oldID] = newID
+		}
+		nodes[idx].row["node_id"] = newID
+		canonicalizePublishedGraphNode(nodes[idx].row, idx+1)
+	}
+}
+
+func projectControlPathGraphEdges(items []any, pathIDMap map[string]string, nodeIDMap map[string]string) []any {
+	out := make([]any, 0, len(items))
+	for _, raw := range items {
+		row := cloneObject(requireObjectFromAny(raw))
+		if mapped := pathIDMap[stringValue(row["path_id"])]; mapped != "" {
+			row["path_id"] = mapped
+		}
+		if mapped := nodeIDMap[stringValue(row["from_node_id"])]; mapped != "" {
+			row["from_node_id"] = mapped
+		}
+		if mapped := nodeIDMap[stringValue(row["to_node_id"])]; mapped != "" {
+			row["to_node_id"] = mapped
+		}
+		out = append(out, row)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		left := requireObjectFromAny(out[i])
+		right := requireObjectFromAny(out[j])
+		if stringValue(left["path_id"]) != stringValue(right["path_id"]) {
+			return stringValue(left["path_id"]) < stringValue(right["path_id"])
+		}
+		if stringValue(left["kind"]) != stringValue(right["kind"]) {
+			return stringValue(left["kind"]) < stringValue(right["kind"])
+		}
+		if stringValue(left["from_node_id"]) != stringValue(right["from_node_id"]) {
+			return stringValue(left["from_node_id"]) < stringValue(right["from_node_id"])
+		}
+		if stringValue(left["to_node_id"]) != stringValue(right["to_node_id"]) {
+			return stringValue(left["to_node_id"]) < stringValue(right["to_node_id"])
+		}
+		return canonicalJSONKey(controlPathEdgeFingerprint(left)) < canonicalJSONKey(controlPathEdgeFingerprint(right))
+	})
+	for idx := range out {
+		row := requireObjectFromAny(out[idx])
+		row["edge_id"] = ordinalOpaqueID("edge", idx+1)
+		canonicalizePublishedGraphEdge(row)
+	}
+	return out
+}
+
+func canonicalizePublishedGraphNode(row map[string]any, nodeOrdinal int) {
+	pathOrdinal := ordinalFromOpaqueID(stringValue(row["path_id"]))
+	if pathOrdinal == 0 {
+		pathOrdinal = nodeOrdinal
+	}
+	canonicalizeGraphString(row, "label", "label", nodeOrdinal)
+	canonicalizeGraphString(row, "org", "org", pathOrdinal)
+	canonicalizeGraphString(row, "repo", "repo", pathOrdinal)
+	canonicalizeGraphString(row, "location", "loc", pathOrdinal)
+	canonicalizeGraphString(row, "agent_id", "agent", pathOrdinal)
+	canonicalizeGraphString(row, "config_source", "loc", pathOrdinal)
+	canonicalizeGraphString(row, "config_fingerprint", "cfg", pathOrdinal)
+	canonicalizeGraphStringSlice(row, "evidence_refs", "evidence")
+	canonicalizeGraphStringSlice(row, "source_refs", "source")
+	canonicalizeGraphStringSlice(row, "attack_path_refs", "attack")
+	canonicalizeGraphStringSlice(row, "source_finding_keys", "finding")
+}
+
+func canonicalizePublishedGraphEdge(row map[string]any) {
+	canonicalizeGraphStringSlice(row, "evidence_refs", "evidence")
+	canonicalizeGraphStringSlice(row, "source_refs", "source")
+	canonicalizeGraphStringSlice(row, "attack_path_refs", "attack")
+	canonicalizeGraphStringSlice(row, "source_finding_keys", "finding")
+}
+
+func canonicalizeGraphString(row map[string]any, key string, prefix string, ordinal int) {
+	if stringValue(row[key]) == "" {
+		return
+	}
+	row[key] = ordinalOpaqueID(prefix, ordinal)
+}
+
+func canonicalizeGraphStringSlice(row map[string]any, key string, prefix string) {
+	if _, ok := row[key]; !ok {
+		return
+	}
+	items := cloneArray(row[key])
+	out := make([]any, 0, len(items))
+	for idx, item := range items {
+		if stringValue(item) == "" {
+			continue
+		}
+		out = append(out, ordinalOpaqueID(prefix, idx+1))
+	}
+	if len(out) == 0 {
+		delete(row, key)
+		return
+	}
+	row[key] = out
+}
+
+func controlPathNodeFingerprint(row map[string]any) map[string]any {
+	return map[string]any{
+		"path_id":                    row["path_id"],
+		"kind":                       row["kind"],
+		"lineage_segment":            row["lineage_segment"],
+		"label":                      row["label"],
+		"tool_type":                  row["tool_type"],
+		"location":                   row["location"],
+		"agent_id":                   row["agent_id"],
+		"boundary_label":             row["boundary_label"],
+		"purpose":                    row["purpose"],
+		"purpose_source":             row["purpose_source"],
+		"purpose_confidence":         row["purpose_confidence"],
+		"version":                    row["version"],
+		"version_source":             row["version_source"],
+		"config_fingerprint":         row["config_fingerprint"],
+		"config_source":              row["config_source"],
+		"status":                     row["status"],
+		"credential_authority":       row["credential_authority"],
+		"authority_bindings":         row["authority_bindings"],
+		"mutable_endpoint_semantics": row["mutable_endpoint_semantics"],
+	}
+}
+
+func controlPathEdgeFingerprint(row map[string]any) map[string]any {
+	return map[string]any{
+		"path_id":        row["path_id"],
+		"kind":           row["kind"],
+		"boundary_label": row["boundary_label"],
+		"from_node_id":   row["from_node_id"],
+		"to_node_id":     row["to_node_id"],
+	}
+}
+
+func canonicalJSONKey(value any) string {
+	payload, _ := json.Marshal(normalizePublishedValue(value))
+	return string(payload)
+}
+
+func ordinalOpaqueID(prefix string, ordinal int) string {
+	return fmt.Sprintf("%s-%06d", prefix, ordinal)
+}
+
+func ordinalFromOpaqueID(value string) int {
+	_, suffix, ok := strings.Cut(strings.TrimSpace(value), "-")
+	if !ok {
+		return 0
+	}
+	ordinal, err := strconv.Atoi(suffix)
+	if err != nil {
+		return 0
+	}
+	return ordinal
 }
 
 func renderLocalPrivatePosture(evidencePayload, sourcePrivacy map[string]any) []byte {
