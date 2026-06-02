@@ -6,7 +6,7 @@ points that should never depend on customer scans.
 Each repo calibrates one known-outcome case:
 
 - `owner-evidence`: explicit CODEOWNERS-backed ownership evidence.
-- `approval-sidecar`: approval evidence that lives outside the repo in a local
+- `approval-sidecar`: approval evidence carried by a repo-local
   external-control sidecar.
 - `non-prod-contradiction`: declared non-production target contradicted by a
   production secret-bearing workflow.

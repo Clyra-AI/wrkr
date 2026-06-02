@@ -1,6 +1,7 @@
 package enterprisepressure
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,24 @@ const (
 	VariantCurrent  = "current"
 	RepoCount       = 320
 )
+
+type externalControlEvidenceDocument struct {
+	SchemaVersion string                          `json:"schema_version"`
+	GeneratedAt   string                          `json:"generated_at"`
+	Records       []externalControlEvidenceRecord `json:"records"`
+}
+
+type externalControlEvidenceRecord struct {
+	RecordKind    string   `json:"record_kind"`
+	SourceType    string   `json:"source_type"`
+	Source        string   `json:"source"`
+	Repo          string   `json:"repo"`
+	Path          string   `json:"path"`
+	ObservedAt    string   `json:"observed_at"`
+	EvidenceClass string   `json:"evidence_class"`
+	Status        string   `json:"status"`
+	EvidenceRefs  []string `json:"evidence_refs,omitempty"`
+}
 
 func Materialize(root string, variant string) error {
 	return MaterializeCount(root, variant, RepoCount)
@@ -227,49 +246,31 @@ func writeSourceOnlyRepo(repoPath, repoName string) error {
 }
 
 func writeApprovalSidecar(repoPath, repoName, evidenceRef string) error {
-	return writeFile(repoPath, ".wrkr/provenance/external-control-evidence.json", fmt.Sprintf(`{
-  "schema_version": "v1",
-  "generated_at": "2026-05-31T16:30:00Z",
-  "records": [
-    {
-      "record_kind": "external_control",
-      "source_type": "ticket_export",
-      "source": "local_change_calendar",
-      "repo": "%s",
-      "path": ".github/workflows/release.yml",
-      "observed_at": "2026-05-31T16:00:00Z",
-      "evidence_class": "deployment_approval",
-      "status": "matched",
-      "evidence_refs": [
-        "%s"
-      ]
-    }
-  ]
-}
-`, repoName, evidenceRef))
+	return appendExternalControlEvidence(repoPath, "2026-05-31T16:30:00Z", externalControlEvidenceRecord{
+		RecordKind:    "external_control",
+		SourceType:    "ticket_export",
+		Source:        "local_change_calendar",
+		Repo:          repoName,
+		Path:          ".github/workflows/release.yml",
+		ObservedAt:    "2026-05-31T16:00:00Z",
+		EvidenceClass: "deployment_approval",
+		Status:        "matched",
+		EvidenceRefs:  []string{evidenceRef},
+	})
 }
 
 func writeBranchProtectionSidecar(repoPath, repoName string) error {
-	return writeFile(repoPath, ".wrkr/provenance/external-control-evidence.json", fmt.Sprintf(`{
-  "schema_version": "v1",
-  "generated_at": "2026-05-31T16:40:00Z",
-  "records": [
-    {
-      "record_kind": "external_control",
-      "source_type": "provider_export",
-      "source": "github_branch_protection_export",
-      "repo": "%s",
-      "path": ".github/workflows/release.yml",
-      "observed_at": "2026-05-31T16:10:00Z",
-      "evidence_class": "branch_protection",
-      "status": "matched",
-      "evidence_refs": [
-        "evidence://public/provider-export.json#%s"
-      ]
-    }
-  ]
-}
-`, repoName, repoName))
+	return appendExternalControlEvidence(repoPath, "2026-05-31T16:40:00Z", externalControlEvidenceRecord{
+		RecordKind:    "external_control",
+		SourceType:    "provider_export",
+		Source:        "github_branch_protection_export",
+		Repo:          repoName,
+		Path:          ".github/workflows/release.yml",
+		ObservedAt:    "2026-05-31T16:10:00Z",
+		EvidenceClass: "branch_protection",
+		Status:        "matched",
+		EvidenceRefs:  []string{fmt.Sprintf("evidence://public/provider-export.json#%s", repoName)},
+	})
 }
 
 func writeTargetDeclaration(repoPath, repoName, targetClass string, nonProduction bool) error {
@@ -350,4 +351,33 @@ func writeFile(root, rel, contents string) error {
 		return fmt.Errorf("write %s: %w", rel, err)
 	}
 	return nil
+}
+
+func appendExternalControlEvidence(repoPath, generatedAt string, record externalControlEvidenceRecord) error {
+	rel := ".wrkr/provenance/external-control-evidence.json"
+	path := filepath.Join(repoPath, filepath.FromSlash(rel))
+
+	doc := externalControlEvidenceDocument{SchemaVersion: "v1"}
+	payload, err := os.ReadFile(path) // #nosec G304 -- deterministic fixture-local sidecar path under the materialized repo.
+	switch {
+	case err == nil:
+		if err := json.Unmarshal(payload, &doc); err != nil {
+			return fmt.Errorf("parse %s: %w", rel, err)
+		}
+	case os.IsNotExist(err):
+	default:
+		return fmt.Errorf("read %s: %w", rel, err)
+	}
+
+	if strings.TrimSpace(doc.SchemaVersion) == "" {
+		doc.SchemaVersion = "v1"
+	}
+	doc.GeneratedAt = generatedAt
+	doc.Records = append(doc.Records, record)
+
+	encoded, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal %s: %w", rel, err)
+	}
+	return writeFile(repoPath, rel, string(encoded)+"\n")
 }

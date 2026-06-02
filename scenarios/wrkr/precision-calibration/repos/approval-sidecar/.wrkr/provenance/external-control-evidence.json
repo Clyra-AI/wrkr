@@ -1,0 +1,19 @@
+{
+  "schema_version": "v1",
+  "generated_at": "2026-05-31T16:30:00Z",
+  "records": [
+    {
+      "record_kind": "external_control",
+      "source_type": "ticket_export",
+      "source": "local_change_calendar",
+      "repo": "approval-sidecar",
+      "path": ".github/workflows/release.yml",
+      "observed_at": "2026-05-31T16:00:00Z",
+      "evidence_class": "deployment_approval",
+      "status": "matched",
+      "evidence_refs": [
+        "evidence://public/change-calendar.yaml#approval-sidecar"
+      ]
+    }
+  ]
+}

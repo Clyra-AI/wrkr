@@ -36,6 +36,9 @@ __pycache__/
 !scenarios/wrkr/agent-action-bom-demo/after/repos/demo-app/.wrkr/
 !scenarios/wrkr/agent-action-bom-demo/after/repos/demo-app/.wrkr/provenance/
 !scenarios/wrkr/agent-action-bom-demo/after/repos/demo-app/.wrkr/provenance/source-metadata.json
+!scenarios/wrkr/precision-calibration/repos/approval-sidecar/.wrkr/
+!scenarios/wrkr/precision-calibration/repos/approval-sidecar/.wrkr/provenance/
+!scenarios/wrkr/precision-calibration/repos/approval-sidecar/.wrkr/provenance/external-control-evidence.json
 !testinfra/benchmarks/agents/fixtures/**/.wrkr/
 !testinfra/benchmarks/agents/fixtures/**/.wrkr/**
 *.sarif
