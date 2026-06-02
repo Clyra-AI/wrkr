@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/cli"
@@ -566,6 +567,7 @@ func assignControlPathNodeIDs(nodes []projectedControlPathNode, nodeIDMap map[st
 			nodeIDMap[nodes[idx].oldID] = newID
 		}
 		nodes[idx].row["node_id"] = newID
+		canonicalizePublishedGraphNode(nodes[idx].row, idx+1)
 	}
 }
 
@@ -602,9 +604,62 @@ func projectControlPathGraphEdges(items []any, pathIDMap map[string]string, node
 		return canonicalJSONKey(controlPathEdgeFingerprint(left)) < canonicalJSONKey(controlPathEdgeFingerprint(right))
 	})
 	for idx := range out {
-		requireObjectFromAny(out[idx])["edge_id"] = ordinalOpaqueID("edge", idx+1)
+		row := requireObjectFromAny(out[idx])
+		row["edge_id"] = ordinalOpaqueID("edge", idx+1)
+		canonicalizePublishedGraphEdge(row)
 	}
 	return out
+}
+
+func canonicalizePublishedGraphNode(row map[string]any, nodeOrdinal int) {
+	pathOrdinal := ordinalFromOpaqueID(stringValue(row["path_id"]))
+	if pathOrdinal == 0 {
+		pathOrdinal = nodeOrdinal
+	}
+	canonicalizeGraphString(row, "label", "label", nodeOrdinal)
+	canonicalizeGraphString(row, "org", "org", pathOrdinal)
+	canonicalizeGraphString(row, "repo", "repo", pathOrdinal)
+	canonicalizeGraphString(row, "location", "loc", pathOrdinal)
+	canonicalizeGraphString(row, "agent_id", "agent", pathOrdinal)
+	canonicalizeGraphString(row, "config_source", "loc", pathOrdinal)
+	canonicalizeGraphString(row, "config_fingerprint", "cfg", pathOrdinal)
+	canonicalizeGraphStringSlice(row, "evidence_refs", "evidence")
+	canonicalizeGraphStringSlice(row, "source_refs", "source")
+	canonicalizeGraphStringSlice(row, "attack_path_refs", "attack")
+	canonicalizeGraphStringSlice(row, "source_finding_keys", "finding")
+}
+
+func canonicalizePublishedGraphEdge(row map[string]any) {
+	canonicalizeGraphStringSlice(row, "evidence_refs", "evidence")
+	canonicalizeGraphStringSlice(row, "source_refs", "source")
+	canonicalizeGraphStringSlice(row, "attack_path_refs", "attack")
+	canonicalizeGraphStringSlice(row, "source_finding_keys", "finding")
+}
+
+func canonicalizeGraphString(row map[string]any, key string, prefix string, ordinal int) {
+	if stringValue(row[key]) == "" {
+		return
+	}
+	row[key] = ordinalOpaqueID(prefix, ordinal)
+}
+
+func canonicalizeGraphStringSlice(row map[string]any, key string, prefix string) {
+	if _, ok := row[key]; !ok {
+		return
+	}
+	items := cloneArray(row[key])
+	out := make([]any, 0, len(items))
+	for idx, item := range items {
+		if stringValue(item) == "" {
+			continue
+		}
+		out = append(out, ordinalOpaqueID(prefix, idx+1))
+	}
+	if len(out) == 0 {
+		delete(row, key)
+		return
+	}
+	row[key] = out
 }
 
 func controlPathNodeFingerprint(row map[string]any) map[string]any {
@@ -648,6 +703,18 @@ func canonicalJSONKey(value any) string {
 
 func ordinalOpaqueID(prefix string, ordinal int) string {
 	return fmt.Sprintf("%s-%06d", prefix, ordinal)
+}
+
+func ordinalFromOpaqueID(value string) int {
+	_, suffix, ok := strings.Cut(strings.TrimSpace(value), "-")
+	if !ok {
+		return 0
+	}
+	ordinal, err := strconv.Atoi(suffix)
+	if err != nil {
+		return 0
+	}
+	return ordinal
 }
 
 func renderLocalPrivatePosture(evidencePayload, sourcePrivacy map[string]any) []byte {
