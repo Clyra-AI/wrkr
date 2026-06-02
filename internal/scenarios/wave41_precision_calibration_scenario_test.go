@@ -195,13 +195,13 @@ func collectRepoBOMItems(items []any, repo string) []any {
 			continue
 		}
 		out = append(out, map[string]any{
-			"path_id":                 row["path_id"],
-			"action_path_type":        row["action_path_type"],
-			"control_state":           row["control_state"],
-			"queue":                   row["queue"],
-			"approval_evidence_state": row["approval_evidence_state"],
-			"owner_evidence_state":    row["owner_evidence_state"],
-			"runtime_evidence_status": row["runtime_evidence_status"],
+			"path_id":                  row["path_id"],
+			"action_path_type":         row["action_path_type"],
+			"control_state":            row["control_state"],
+			"queue":                    row["queue"],
+			"approval_evidence_state":  row["approval_evidence_state"],
+			"owner_evidence_state":     row["owner_evidence_state"],
+			"runtime_evidence_status":  row["runtime_evidence_status"],
 			"runtime_evidence_classes": row["runtime_evidence_classes"],
 		})
 	}
