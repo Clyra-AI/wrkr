@@ -38,18 +38,21 @@ func TestBuildAgentActionBOMSelectsPrimaryViewFromTopEligiblePath(t *testing.T) 
 	})
 	if bom == nil {
 		t.Fatal("expected agent action bom")
+		return
 	}
-	if bom.Summary.PrimaryView == nil {
-		t.Fatalf("expected primary view, got %+v", bom.Summary)
+	bomValue := *bom
+	if bomValue.Summary.PrimaryView == nil {
+		t.Fatalf("expected primary view, got %+v", bomValue.Summary)
 	}
-	if bom.Summary.PrimaryView.PathID != "apc-top" {
-		t.Fatalf("expected primary view path apc-top, got %+v", bom.Summary.PrimaryView)
+	primaryView := *bomValue.Summary.PrimaryView
+	if primaryView.PathID != "apc-top" {
+		t.Fatalf("expected primary view path apc-top, got %+v", primaryView)
 	}
-	if bom.Summary.PrimaryView.SelectionReason != AgentActionBOMPrimarySelectionDefaultTopPath {
-		t.Fatalf("expected default top path selection, got %+v", bom.Summary.PrimaryView)
+	if primaryView.SelectionReason != AgentActionBOMPrimarySelectionDefaultTopPath {
+		t.Fatalf("expected default top path selection, got %+v", primaryView)
 	}
-	if bom.Summary.PrimaryView.PathMap.Workflow != ".github/workflows/release.yml" {
-		t.Fatalf("expected workflow path map, got %+v", bom.Summary.PrimaryView.PathMap)
+	if primaryView.PathMap.Workflow != ".github/workflows/release.yml" {
+		t.Fatalf("expected workflow path map, got %+v", primaryView.PathMap)
 	}
 	if bom.Summary.PrimaryView.AutonomyTier == "" || bom.Summary.PrimaryView.RecommendedControl == "" || bom.Summary.PrimaryView.DelegationReadinessState == "" {
 		t.Fatalf("expected projected control metadata on primary view, got %+v", bom.Summary.PrimaryView)

@@ -233,30 +233,35 @@ deploy:
 		t.Fatalf("detect ciagent: %v", err)
 	}
 
-	var parseFinding *model.Finding
-	var workflowFinding *model.Finding
+	var parseFinding model.Finding
+	var workflowFinding model.Finding
+	var haveParseFinding bool
+	var haveWorkflowFinding bool
 	for idx := range findings {
 		switch findings[idx].FindingType {
 		case "parse_error":
-			parseFinding = &findings[idx]
+			parseFinding = findings[idx]
+			haveParseFinding = true
 		case "ci_autonomy":
-			workflowFinding = &findings[idx]
+			workflowFinding = findings[idx]
+			haveWorkflowFinding = true
 		}
 	}
-	if parseFinding == nil {
+	if !haveParseFinding {
 		t.Fatalf("expected parse_error finding for unsupported include, got %+v", findings)
 	}
-	if workflowFinding == nil {
+	if !haveWorkflowFinding {
 		t.Fatalf("expected ci_autonomy finding to survive unsupported include, got %+v", findings)
 	}
-	if parseFinding.ParseError == nil || !strings.Contains(parseFinding.ParseError.Message, "unsupported remote include") {
+	parseErr := parseFinding.ParseError
+	if parseErr == nil || !strings.Contains(parseErr.Message, "unsupported remote include") {
 		t.Fatalf("expected unsupported remote include parse error, got %+v", parseFinding)
 	}
-	if evidenceValue(*workflowFinding, "ci_platform") != "gitlab_ci" {
-		t.Fatalf("expected gitlab_ci platform evidence, got %q", evidenceValue(*workflowFinding, "ci_platform"))
+	if evidenceValue(workflowFinding, "ci_platform") != "gitlab_ci" {
+		t.Fatalf("expected gitlab_ci platform evidence, got %q", evidenceValue(workflowFinding, "ci_platform"))
 	}
-	if evidenceValue(*workflowFinding, "include_resolution_status") != "partial" {
-		t.Fatalf("expected partial include resolution evidence, got %q", evidenceValue(*workflowFinding, "include_resolution_status"))
+	if evidenceValue(workflowFinding, "include_resolution_status") != "partial" {
+		t.Fatalf("expected partial include resolution evidence, got %q", evidenceValue(workflowFinding, "include_resolution_status"))
 	}
 }
 

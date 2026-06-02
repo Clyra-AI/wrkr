@@ -220,53 +220,61 @@ func TestBuildAgentActionBOMCarriesExecutiveRollupAndGovernedUsageMetrics(t *tes
 	if first == nil || second == nil {
 		t.Fatalf("expected BOM output, got first=%+v second=%+v", first, second)
 	}
-	if !reflect.DeepEqual(first.Summary.ExecutiveRollup, second.Summary.ExecutiveRollup) {
-		t.Fatalf("expected deterministic executive rollup\nfirst=%+v\nsecond=%+v", first.Summary.ExecutiveRollup, second.Summary.ExecutiveRollup)
+	firstBOM := *first
+	secondBOM := *second
+	if !reflect.DeepEqual(firstBOM.Summary.ExecutiveRollup, secondBOM.Summary.ExecutiveRollup) {
+		t.Fatalf("expected deterministic executive rollup\nfirst=%+v\nsecond=%+v", firstBOM.Summary.ExecutiveRollup, secondBOM.Summary.ExecutiveRollup)
 	}
 
-	rollup := first.Summary.ExecutiveRollup
+	rollup := firstBOM.Summary.ExecutiveRollup
 	if rollup == nil {
 		t.Fatal("expected executive rollup on BOM summary")
+		return
 	}
-	if rollup.TotalGroups != 3 || rollup.TotalPaths != 4 {
-		t.Fatalf("unexpected rollup totals: %+v", rollup)
+	rollupSummary := *rollup
+	if rollupSummary.TotalGroups != 3 || rollupSummary.TotalPaths != 4 {
+		t.Fatalf("unexpected rollup totals: %+v", rollupSummary)
 	}
 	var groupedProductionPaths *controlbacklog.ExecutiveRollupGroup
-	for idx := range rollup.Groups {
-		if rollup.Groups[idx].Count == 2 && rollup.Groups[idx].Dimensions.ClosureAction == controlbacklog.ActionRemediate {
-			groupedProductionPaths = &rollup.Groups[idx]
+	for idx := range rollupSummary.Groups {
+		if rollupSummary.Groups[idx].Count == 2 && rollupSummary.Groups[idx].Dimensions.ClosureAction == controlbacklog.ActionRemediate {
+			groupedProductionPaths = &rollupSummary.Groups[idx]
 			break
 		}
 	}
 	if groupedProductionPaths == nil {
-		t.Fatalf("expected grouped production rollup, got %+v", rollup.Groups)
+		t.Fatalf("expected grouped production rollup, got %+v", rollupSummary.Groups)
+		return
 	}
-	if groupedProductionPaths.Dimensions.ActionClass != "deploy" ||
-		groupedProductionPaths.Dimensions.TargetClass != risk.TargetClassProductionImpacting ||
-		groupedProductionPaths.Dimensions.CredentialAuthority != "standing" ||
-		groupedProductionPaths.Dimensions.RepoCluster != "cross_repo_shared_identity" ||
-		groupedProductionPaths.Dimensions.ClosureAction != controlbacklog.ActionRemediate {
-		t.Fatalf("unexpected grouped production dimensions: %+v", groupedProductionPaths.Dimensions)
+	groupedDimensions := groupedProductionPaths.Dimensions
+	if groupedDimensions.ActionClass != "deploy" ||
+		groupedDimensions.TargetClass != risk.TargetClassProductionImpacting ||
+		groupedDimensions.CredentialAuthority != "standing" ||
+		groupedDimensions.RepoCluster != "cross_repo_shared_identity" ||
+		groupedDimensions.ClosureAction != controlbacklog.ActionRemediate {
+		t.Fatalf("unexpected grouped production dimensions: %+v", groupedDimensions)
 	}
 	if !reflect.DeepEqual(groupedProductionPaths.TopExampleRefs, []string{"apc-prod-1", "apc-prod-2"}) {
 		t.Fatalf("expected stable redaction-safe example refs, got %+v", groupedProductionPaths.TopExampleRefs)
 	}
 
-	metrics := first.Summary.GovernedUsageMetrics
+	metrics := firstBOM.Summary.GovernedUsageMetrics
 	if metrics == nil {
 		t.Fatal("expected governed usage metrics on BOM summary")
+		return
 	}
-	if metrics.ActiveMonitoredActionPaths != 4 ||
-		metrics.GovernedPaths != 4 ||
-		metrics.EvidencePacks != 2 ||
-		metrics.AuditExports != 4 ||
-		metrics.ApprovalDecisions != 1 ||
-		metrics.ConnectedRuntimes != 2 ||
-		metrics.GovernedAgentsWorkflows != 4 ||
-		metrics.VerifiedControlPaths != 2 ||
-		metrics.UnknownControlPaths != 1 ||
-		metrics.ContradictoryPaths != 1 {
-		t.Fatalf("unexpected governed usage metrics: %+v", metrics)
+	usageMetrics := *metrics
+	if usageMetrics.ActiveMonitoredActionPaths != 4 ||
+		usageMetrics.GovernedPaths != 4 ||
+		usageMetrics.EvidencePacks != 2 ||
+		usageMetrics.AuditExports != 4 ||
+		usageMetrics.ApprovalDecisions != 1 ||
+		usageMetrics.ConnectedRuntimes != 2 ||
+		usageMetrics.GovernedAgentsWorkflows != 4 ||
+		usageMetrics.VerifiedControlPaths != 2 ||
+		usageMetrics.UnknownControlPaths != 1 ||
+		usageMetrics.ContradictoryPaths != 1 {
+		t.Fatalf("unexpected governed usage metrics: %+v", usageMetrics)
 	}
 }
 
@@ -456,6 +464,7 @@ func TestResolveExecutiveRollupAndMetricsHandleEmptyState(t *testing.T) {
 	rollup := resolveExecutiveRollup(summary)
 	if rollup == nil {
 		t.Fatal("expected empty executive rollup, got nil")
+		return
 	}
 	if rollup.TotalGroups != 0 || rollup.TotalPaths != 0 || len(rollup.Groups) != 0 {
 		t.Fatalf("expected empty executive rollup, got %+v", rollup)
@@ -464,18 +473,20 @@ func TestResolveExecutiveRollupAndMetricsHandleEmptyState(t *testing.T) {
 	metrics := resolveGovernedUsageMetrics(summary)
 	if metrics == nil {
 		t.Fatal("expected empty governed usage metrics, got nil")
+		return
 	}
-	if metrics.ActiveMonitoredActionPaths != 0 ||
-		metrics.GovernedPaths != 0 ||
-		metrics.EvidencePacks != 0 ||
-		metrics.AuditExports != 2 ||
-		metrics.ApprovalDecisions != 0 ||
-		metrics.ConnectedRuntimes != 0 ||
-		metrics.GovernedAgentsWorkflows != 0 ||
-		metrics.VerifiedControlPaths != 0 ||
-		metrics.UnknownControlPaths != 0 ||
-		metrics.ContradictoryPaths != 0 {
-		t.Fatalf("unexpected empty-state governed usage metrics: %+v", metrics)
+	usageMetrics := *metrics
+	if usageMetrics.ActiveMonitoredActionPaths != 0 ||
+		usageMetrics.GovernedPaths != 0 ||
+		usageMetrics.EvidencePacks != 0 ||
+		usageMetrics.AuditExports != 2 ||
+		usageMetrics.ApprovalDecisions != 0 ||
+		usageMetrics.ConnectedRuntimes != 0 ||
+		usageMetrics.GovernedAgentsWorkflows != 0 ||
+		usageMetrics.VerifiedControlPaths != 0 ||
+		usageMetrics.UnknownControlPaths != 0 ||
+		usageMetrics.ContradictoryPaths != 0 {
+		t.Fatalf("unexpected empty-state governed usage metrics: %+v", usageMetrics)
 	}
 }
 
@@ -511,12 +522,14 @@ func TestResolveGovernedUsageMetricsTreatsDeclaredControlsAsKnown(t *testing.T) 
 	metrics := resolveGovernedUsageMetrics(summary)
 	if metrics == nil {
 		t.Fatal("expected governed usage metrics, got nil")
+		return
 	}
-	if metrics.VerifiedControlPaths != 1 {
-		t.Fatalf("expected declared controls to count as known control coverage, got %+v", metrics)
+	usageMetrics := *metrics
+	if usageMetrics.VerifiedControlPaths != 1 {
+		t.Fatalf("expected declared controls to count as known control coverage, got %+v", usageMetrics)
 	}
-	if metrics.UnknownControlPaths != 0 {
-		t.Fatalf("expected declared controls to stay out of unknown control count, got %+v", metrics)
+	if usageMetrics.UnknownControlPaths != 0 {
+		t.Fatalf("expected declared controls to stay out of unknown control count, got %+v", usageMetrics)
 	}
 }
 
