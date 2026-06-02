@@ -28,6 +28,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 - Static policy/profile posture signals and ranked findings.
 - Deterministic inventory and risk outputs for both tools and agents, including agent-linked attack-path edges when bindings/deployments are declared in-repo.
 - Optional enrich-mode MCP metadata (`source`, `as_of`, advisory/registry schema IDs, `enrich_quality`, adapter error classes) when `--enrich` is enabled.
+- Precision-calibration and enterprise-pressure fixture gates that convert owner evidence, approval sidecars, dependency-only context, CI-only automation, contradictions, redaction, drift, and 300+ repo compactness checks into repeatable local scenarios.
 
 ## What Wrkr does not detect
 

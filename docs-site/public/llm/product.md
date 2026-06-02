@@ -12,6 +12,7 @@ Primary outcomes:
 3. Compliance evidence generation and proof-chain verification.
 4. Regression baseline and drift gating for CI.
 5. Secondary browser bootstrap at `/scan/` for read-only org-scan handoff without introducing a dashboard-first control plane.
+6. Website Demo Assets generated from fake fixtures and redacted report surfaces instead of hand-authored marketing JSON.
 
 Operational reporting notes:
 
@@ -23,6 +24,7 @@ When to use:
 
 - You need deterministic, command-verifiable AI tooling posture signals for platform or security reviews.
 - You need output contracts suitable for automation and audit workflows.
+- You need reproducible website or outbound-demo assets that reflect Wrkr's real scan/report/evidence pipeline.
 - You want a secondary local-machine hygiene path for individual developer setup review.
 
 When not to use:

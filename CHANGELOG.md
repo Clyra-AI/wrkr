@@ -49,6 +49,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added governed-usage metrics for monitored paths, governed paths, evidence packs, audit exports, approvals, connected runtimes, governed agents/workflows, verified controls, unknown controls, and contradictions.
 - [semver:minor] Added customer-controlled deployment and data-mode metadata across scan, report, and evidence artifacts, with `local_only` as the default posture.
 - [semver:minor] Added an opt-in public-surface assessment path for public repos, docs, SDKs, release notes, status pages, and workflows with explicit public/inferred evidence labels.
+- [semver:minor] Added reproducible website-ready demo artifacts, including sample BOM, action-control graph, redacted report, lab data, architecture boundary assets, and local/private data posture examples.
+- [semver:minor] Added precision calibration fixtures for ownership, approval evidence, non-production contradictions, stale source, dependency-only packages, CI automation, AI-assisted deploy paths, branch protection, and runtime evidence.
+- [semver:minor] Added enterprise-scale pressure tests for large-org reporting, redaction, scan quality, control-state consistency, evidence wording, proof completeness, graph size, BOM readability, and drift output.
 
 ### Changed
 

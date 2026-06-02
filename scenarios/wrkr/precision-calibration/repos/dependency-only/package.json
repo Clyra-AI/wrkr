@@ -1,0 +1,8 @@
+{
+  "name": "dependency-only",
+  "private": true,
+  "dependencies": {
+    "crewai": "^0.8.0",
+    "langchain": "^1.0.0"
+  }
+}

@@ -87,6 +87,7 @@ export const navigation: NavItem[] = [
     href: '/docs/positioning',
     children: [
       { title: 'Positioning', href: '/docs/positioning' },
+      { title: 'Website Demo Assets', href: '/docs/examples/site-assets' },
       { title: 'Evidence Templates', href: '/docs/evidence_templates' },
       { title: 'Personal Machine Hygiene', href: '/docs/examples/personal-hygiene' },
       { title: 'Security Team Workflow', href: '/docs/examples/security-team' },

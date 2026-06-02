@@ -61,6 +61,7 @@
 - /docs/start-here/
 - /docs/commands/
 - /docs/examples/quickstart/
+- /docs/examples/site-assets/
 - /docs/examples/personal-hygiene/
 - /docs/examples/security-team/
 - /docs/adopt_in_one_pr/

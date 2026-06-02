@@ -1,0 +1,10 @@
+name: Approval Sidecar Release
+on:
+  workflow_dispatch:
+jobs:
+  release:
+    environment: production
+    permissions:
+      contents: write
+    steps:
+      - run: gh release create v2.0.0

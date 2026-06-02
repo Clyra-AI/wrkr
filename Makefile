@@ -42,7 +42,7 @@ test-contracts:
 
 test-scenarios:
 	@scripts/validate_scenarios.sh
-	@$(GO) test ./internal/scenarios -count=1 -tags=scenario
+	@$(GO) test ./internal/scenarios -count=1 -tags=scenario -timeout=$(GO_TEST_TIMEOUT)
 
 test-hardening:
 	@scripts/test_hardening_all.sh

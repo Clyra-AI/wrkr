@@ -1,0 +1,10 @@
+schema_version: v1
+issuer: demo-platform
+targets:
+  - repo: non-prod-contradiction
+    path: .github/workflows/release.yml
+    target_class: test_demo_sandbox
+    non_production: true
+    observed_at: 2026-05-31T15:00:00Z
+    evidence_refs:
+      - evidence://public/targets.yaml#non-prod-contradiction

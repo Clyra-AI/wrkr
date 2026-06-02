@@ -1,0 +1,59 @@
+{
+  "schema_version": "v1",
+  "generator_version": "1",
+  "scenario_path": "scenarios/wrkr/scan-mixed-org/repos",
+  "files": [
+    {
+      "path": "architecture-boundary.json",
+      "description": "Architecture boundary page data derived from source, detection, aggregation, and proof summaries.",
+      "share_profile": "customer-redacted",
+      "template": "ciso",
+      "sha256": "sha256:09fe9055bf56ace8b6668d1fe1b440acc9ffe1cb9831c3e2d2d65694bf359b36"
+    },
+    {
+      "path": "interactive-lab-data.json",
+      "description": "Interactive lab summary data projected from deterministic report and evidence outputs.",
+      "share_profile": "customer-redacted",
+      "template": "ciso",
+      "sha256": "sha256:f9c9a406e75a2a383c43b99dd9a52c08eb1a33e0aefc6cb3f2b192a68be90921"
+    },
+    {
+      "path": "local-private-posture.md",
+      "description": "Local/private posture explanation projected from evidence deployment-mode and source-privacy metadata.",
+      "sha256": "sha256:dde97909db46068cffa1f3fa705d6e1e8501d275f513f2f4c4ac04104b89989b"
+    },
+    {
+      "path": "sample-agent-action-bom.json",
+      "description": "Customer-redacted Agent Action BOM sample derived from the multi-repo scan fixture.",
+      "share_profile": "customer-redacted",
+      "template": "agent-action-bom",
+      "sha256": "sha256:82787cea04e18a00843c7060841409ebf24ef196b1759725f8b30620d7ff4287"
+    },
+    {
+      "path": "sample-control-path-graph.json",
+      "description": "Customer-redacted Control Path Graph sample for website graph rendering and demos.",
+      "share_profile": "customer-redacted",
+      "template": "ciso",
+      "sha256": "sha256:9afb141d67595a5fcb645a0049326491a0c3394ebf3bd5374d369ec50788f2af"
+    },
+    {
+      "path": "sample-redacted-report.md",
+      "description": "Customer-redacted executive markdown report suitable for public-facing demos.",
+      "share_profile": "customer-redacted",
+      "template": "ciso",
+      "sha256": "sha256:fcac0c0a65139c3e30d00859044c8e007f46649cabe5f88b8ddb6562f078fb7e"
+    }
+  ],
+  "commands": [
+    "wrkr scan --path scenarios/wrkr/scan-mixed-org/repos --state ./.tmp/site-assets-state.json --quiet --json",
+    "wrkr report --state ./.tmp/site-assets-state.json --template agent-action-bom --share-profile customer-redacted --json",
+    "wrkr report --state ./.tmp/site-assets-state.json --template ciso --share-profile customer-redacted --evidence-json --evidence-json-path ./.tmp/site-assets-public-evidence.json --json",
+    "wrkr report --state ./.tmp/site-assets-state.json --template ciso --share-profile customer-redacted --md --md-path ./.tmp/site-assets-redacted.md --json",
+    "wrkr evidence --frameworks eu-ai-act,soc2 --state ./.tmp/site-assets-state.json --output ./.tmp/site-assets-evidence --json"
+  ],
+  "notes": [
+    "These assets are generated from fake multi-repo fixture data only.",
+    "Do not hand-edit generated files; regenerate them from the commands above.",
+    "Published outputs must stay free of raw owner handles, proof refs, graph refs, secret-like strings, and machine-local filesystem paths."
+  ]
+}

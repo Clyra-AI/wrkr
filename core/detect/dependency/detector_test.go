@@ -254,6 +254,35 @@ func TestDependencyOnlyFrameworkCandidateDoesNotCreateActionPath(t *testing.T) {
 	}
 }
 
+func TestPrecisionCalibrationDependencyOnlyFixture(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustRepoRootForDependency(t)
+	root := filepath.Join(repoRoot, "scenarios", "wrkr", "precision-calibration", "repos", "dependency-only")
+
+	findings, err := New().Detect(context.Background(), detect.Scope{
+		Org:  "acme",
+		Repo: "dependency-only",
+		Root: root,
+	}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect returned error: %v", err)
+	}
+
+	frameworkCandidates := map[string]bool{}
+	for _, finding := range findings {
+		if finding.FindingType == "framework_candidate" {
+			frameworkCandidates[finding.ToolType] = true
+		}
+		if finding.FindingType == "agent_framework" {
+			t.Fatalf("precision dependency-only fixture escalated to agent_framework: %+v", finding)
+		}
+	}
+	if !frameworkCandidates["langchain"] || !frameworkCandidates["crewai"] {
+		t.Fatalf("expected precision fixture framework candidates, got %+v", findings)
+	}
+}
+
 func writeFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
@@ -272,5 +301,24 @@ func mustSymlinkOrSkipDependency(t *testing.T, target, path string) {
 	}
 	if err := os.Symlink(target, path); err != nil {
 		t.Skipf("symlinks unsupported in this environment: %v", err)
+	}
+}
+
+func mustRepoRootForDependency(t *testing.T) string {
+	t.Helper()
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	for {
+		if _, statErr := os.Stat(filepath.Join(wd, "go.mod")); statErr == nil {
+			return wd
+		}
+		next := filepath.Dir(wd)
+		if next == wd {
+			t.Fatal("could not locate repo root")
+		}
+		wd = next
 	}
 }

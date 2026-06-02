@@ -1,0 +1,23 @@
+{
+  "repo_count": 320,
+  "minimum_inventory_rows": 120,
+  "minimum_rollup_groups": 3,
+  "maximum_markdown_lines": 1500,
+  "maximum_graph_nodes": 5000,
+  "minimum_proof_records": 100,
+  "required_drift_categories": [
+    "new_write_paths",
+    "new_credentials"
+  ],
+  "required_share_profiles": [
+    "customer-redacted",
+    "design-partner",
+    "external-redacted",
+    "investor-safe",
+    "public"
+  ],
+  "performance": {
+    "scan_max_ms": 45000,
+    "report_max_ms": 15000
+  }
+}
