@@ -267,6 +267,7 @@ func sanitizeControlPathGraphWithConfig(in *aggattack.ControlPathGraph, config R
 		copyGraph.Edges[idx].SourceRefs = cloneStrings(copyGraph.Edges[idx].SourceRefs)
 		copyGraph.Edges[idx].SourceFindingKeys = maybeRedactStringSlice(copyGraph.Edges[idx].SourceFindingKeys, "finding", shouldRedactFindingKeys(config))
 	}
+	sortControlPathGraphForReport(&copyGraph)
 	return &copyGraph
 }
 

@@ -1997,6 +1997,7 @@ func sanitizeControlPathGraphPublic(in *aggattack.ControlPathGraph) *aggattack.C
 		copyGraph.Edges[idx].AttackPathRefs = redactStringSlice(copyGraph.Edges[idx].AttackPathRefs, "attack")
 		copyGraph.Edges[idx].SourceFindingKeys = redactStringSlice(copyGraph.Edges[idx].SourceFindingKeys, "finding")
 	}
+	sortControlPathGraphForReport(&copyGraph)
 	return &copyGraph
 }
 
@@ -2267,6 +2268,39 @@ func redactStringSlice(values []string, prefix string) []string {
 		out = append(out, redacted)
 	}
 	return out
+}
+
+func sortControlPathGraphForReport(graph *aggattack.ControlPathGraph) {
+	if graph == nil {
+		return
+	}
+	sort.Slice(graph.Nodes, func(i, j int) bool {
+		if graph.Nodes[i].PathID != graph.Nodes[j].PathID {
+			return graph.Nodes[i].PathID < graph.Nodes[j].PathID
+		}
+		if graph.Nodes[i].Kind != graph.Nodes[j].Kind {
+			return graph.Nodes[i].Kind < graph.Nodes[j].Kind
+		}
+		if graph.Nodes[i].NodeID != graph.Nodes[j].NodeID {
+			return graph.Nodes[i].NodeID < graph.Nodes[j].NodeID
+		}
+		return graph.Nodes[i].Label < graph.Nodes[j].Label
+	})
+	sort.Slice(graph.Edges, func(i, j int) bool {
+		if graph.Edges[i].PathID != graph.Edges[j].PathID {
+			return graph.Edges[i].PathID < graph.Edges[j].PathID
+		}
+		if graph.Edges[i].Kind != graph.Edges[j].Kind {
+			return graph.Edges[i].Kind < graph.Edges[j].Kind
+		}
+		if graph.Edges[i].FromNodeID != graph.Edges[j].FromNodeID {
+			return graph.Edges[i].FromNodeID < graph.Edges[j].FromNodeID
+		}
+		if graph.Edges[i].ToNodeID != graph.Edges[j].ToNodeID {
+			return graph.Edges[i].ToNodeID < graph.Edges[j].ToNodeID
+		}
+		return graph.Edges[i].EdgeID < graph.Edges[j].EdgeID
+	})
 }
 
 func redactValue(prefix, value string, width int) string {
