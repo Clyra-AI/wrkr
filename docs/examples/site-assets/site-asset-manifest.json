@@ -27,7 +27,7 @@
       "description": "Customer-redacted Agent Action BOM sample derived from the multi-repo scan fixture.",
       "share_profile": "customer-redacted",
       "template": "agent-action-bom",
-      "sha256": "sha256:82787cea04e18a00843c7060841409ebf24ef196b1759725f8b30620d7ff4287"
+      "sha256": "sha256:fff97c1fe6ea1e8b1de8c6eb48bbf06b3f410cfcca640a1402fcb50d23dd9ca5"
     },
     {
       "path": "sample-control-path-graph.json",

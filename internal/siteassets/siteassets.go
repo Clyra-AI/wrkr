@@ -380,13 +380,13 @@ func projectProofSummary(proof map[string]any) map[string]any {
 func projectAgentActionBOM(agentActionBOM map[string]any) map[string]any {
 	summary := requireObject(agentActionBOM, "summary")
 	items := cloneArray(agentActionBOM["items"])
-	projectedItems := make([]any, 0, len(items))
+	projectedItems := make([]map[string]any, 0, len(items))
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
 		projectedItems = append(projectedItems, map[string]any{
 			"path_id":                    row["path_id"],
 			"repo":                       row["repo"],
-			"location":                   row["location"],
+			"location":                   filepath.ToSlash(stringValue(row["location"])),
 			"action_path_type":           row["action_path_type"],
 			"control_state":              row["control_state"],
 			"queue":                      row["queue"],
@@ -404,6 +404,18 @@ func projectAgentActionBOM(agentActionBOM map[string]any) map[string]any {
 			"recommended_action":         row["recommended_action"],
 		})
 	}
+	sort.Slice(projectedItems, func(i, j int) bool {
+		left := stringValue(projectedItems[i]["path_id"])
+		right := stringValue(projectedItems[j]["path_id"])
+		if left != right {
+			return left < right
+		}
+		return stringValue(projectedItems[i]["location"]) < stringValue(projectedItems[j]["location"])
+	})
+	projectedItemsAny := make([]any, len(projectedItems))
+	for idx, item := range projectedItems {
+		projectedItemsAny[idx] = item
+	}
 	projectedSummary := map[string]any{
 		"total_items":              summary["total_items"],
 		"control_first_items":      summary["control_first_items"],
@@ -419,13 +431,13 @@ func projectAgentActionBOM(agentActionBOM map[string]any) map[string]any {
 	fingerprint := map[string]any{
 		"schema_version": agentActionBOM["schema_version"],
 		"summary":        projectedSummary,
-		"items":          projectedItems,
+		"items":          projectedItemsAny,
 	}
 	return map[string]any{
 		"bom_id":         stableOpaqueID("bom", fingerprint),
 		"schema_version": agentActionBOM["schema_version"],
 		"summary":        projectedSummary,
-		"items":          projectedItems,
+		"items":          projectedItemsAny,
 	}
 }
 
