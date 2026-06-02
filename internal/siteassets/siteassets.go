@@ -383,8 +383,19 @@ func projectAgentActionBOM(agentActionBOM map[string]any) map[string]any {
 	projectedItems := make([]map[string]any, 0, len(items))
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
+		stableRepoFingerprint := map[string]any{
+			"action_path_type": row["action_path_type"],
+			"target_class":     row["target_class"],
+			"tool_type":        row["tool_type"],
+			"purpose":          row["purpose"],
+			"queue":            row["queue"],
+			"risk_zone":        row["risk_zone"],
+			"confidence_lane":  row["confidence_lane"],
+			"autonomy_tier":    row["autonomy_tier"],
+		}
+		repoID := stableOpaqueID("repo", stableRepoFingerprint)
 		stablePathFingerprint := map[string]any{
-			"repo":                       row["repo"],
+			"repo":                       repoID,
 			"action_path_type":           row["action_path_type"],
 			"control_state":              row["control_state"],
 			"control_resolution_state":   row["control_resolution_state"],
@@ -403,13 +414,14 @@ func projectAgentActionBOM(agentActionBOM map[string]any) map[string]any {
 		}
 		pathID := stableOpaqueID("path", stablePathFingerprint)
 		locationID := stableOpaqueID("loc", map[string]any{
+			"repo":                     repoID,
 			"path_id":                  pathID,
 			"control_resolution_state": row["control_resolution_state"],
 			"action_path_type":         row["action_path_type"],
 		})
 		projectedItems = append(projectedItems, map[string]any{
 			"path_id":                    pathID,
-			"repo":                       row["repo"],
+			"repo":                       repoID,
 			"location":                   locationID,
 			"action_path_type":           row["action_path_type"],
 			"control_state":              row["control_state"],
