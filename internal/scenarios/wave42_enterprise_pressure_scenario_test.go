@@ -92,17 +92,17 @@ func TestScenarioWave42EnterprisePressureContract(t *testing.T) {
 	driftCategories := collectDriftCategories(driftPayload)
 
 	scorecard := map[string]any{
-		"repo_count":             contract.RepoCount,
-		"inventory_rows":         arrayLength(requireScenarioObject(t, baselineScan, "inventory")["agent_privilege_map"]),
-		"action_path_count":      objectInt(rollup["total_paths"]),
+		"repo_count":              contract.RepoCount,
+		"inventory_rows":          arrayLength(requireScenarioObject(t, baselineScan, "inventory")["agent_privilege_map"]),
+		"action_path_count":       objectInt(rollup["total_paths"]),
 		"executive_rollup_groups": objectInt(rollup["total_groups"]),
-		"markdown_lines":         markdownLines,
-		"graph_nodes":            arrayLength(graph["nodes"]),
-		"graph_edges":            arrayLength(graph["edges"]),
-		"proof_record_count":     objectInt(proof["record_count"]),
-		"drift_categories":       driftCategories,
-		"scan_duration_ms":       scanDuration.Milliseconds(),
-		"report_duration_ms":     reportDuration.Milliseconds(),
+		"markdown_lines":          markdownLines,
+		"graph_nodes":             arrayLength(graph["nodes"]),
+		"graph_edges":             arrayLength(graph["edges"]),
+		"proof_record_count":      objectInt(proof["record_count"]),
+		"drift_categories":        driftCategories,
+		"scan_duration_ms":        scanDuration.Milliseconds(),
+		"report_duration_ms":      reportDuration.Milliseconds(),
 	}
 
 	if scorecard["inventory_rows"].(int) < contract.MinimumInventoryRows {
