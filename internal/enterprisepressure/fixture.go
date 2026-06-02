@@ -53,7 +53,7 @@ func MaterializeCount(root string, variant string, repoCount int) error {
 	for idx := 1; idx <= repoCount; idx++ {
 		repoName := RepoName(idx)
 		repoPath := filepath.Join(root, repoName)
-		if err := os.MkdirAll(repoPath, 0o755); err != nil {
+		if err := os.MkdirAll(repoPath, 0o750); err != nil {
 			return fmt.Errorf("mkdir repo %s: %w", repoName, err)
 		}
 		if err := writeBaselineRepo(repoPath, repoName, idx, repoCount); err != nil {
@@ -344,7 +344,7 @@ jobs:
 
 func writeFile(root, rel, contents string) error {
 	path := filepath.Join(root, filepath.FromSlash(rel))
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("mkdir %s: %w", rel, err)
 	}
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {

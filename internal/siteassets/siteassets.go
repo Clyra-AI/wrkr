@@ -102,7 +102,7 @@ func Generate(repoRoot, outputDir string) error {
 	if outputDir == "" {
 		return fmt.Errorf("output directory is required")
 	}
-	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
 		return fmt.Errorf("create output dir: %w", err)
 	}
 	for _, name := range PublishedFilenames() {
@@ -189,7 +189,7 @@ func Build(repoRoot string) (AssetSet, error) {
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("read public evidence bundle: %w", err)
 	}
-	redactedReport, err := os.ReadFile(redactedReportPath)
+	redactedReport, err := os.ReadFile(redactedReportPath) // #nosec G304 -- path is derived from the Build temp dir, not caller-controlled input.
 	if err != nil {
 		return AssetSet{}, fmt.Errorf("read redacted markdown asset: %w", err)
 	}
@@ -460,7 +460,7 @@ func runJSON(args []string) (map[string]any, error) {
 }
 
 func readJSONFile(path string) (map[string]any, error) {
-	payload, err := os.ReadFile(path)
+	payload, err := os.ReadFile(path) // #nosec G304 -- helper only reads files materialized under the Build temp dir.
 	if err != nil {
 		return nil, err
 	}
