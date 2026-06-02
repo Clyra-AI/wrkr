@@ -383,10 +383,34 @@ func projectAgentActionBOM(agentActionBOM map[string]any) map[string]any {
 	projectedItems := make([]map[string]any, 0, len(items))
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
-		projectedItems = append(projectedItems, map[string]any{
-			"path_id":                    row["path_id"],
+		stablePathFingerprint := map[string]any{
 			"repo":                       row["repo"],
-			"location":                   filepath.ToSlash(stringValue(row["location"])),
+			"action_path_type":           row["action_path_type"],
+			"control_state":              row["control_state"],
+			"control_resolution_state":   row["control_resolution_state"],
+			"queue":                      row["queue"],
+			"risk_zone":                  row["risk_zone"],
+			"target_class":               row["target_class"],
+			"autonomy_tier":              row["autonomy_tier"],
+			"delegation_readiness_state": row["delegation_readiness_state"],
+			"approval_evidence_state":    row["approval_evidence_state"],
+			"owner_evidence_state":       row["owner_evidence_state"],
+			"proof_evidence_state":       row["proof_evidence_state"],
+			"runtime_evidence_state":     row["runtime_evidence_state"],
+			"confidence_lane":            row["confidence_lane"],
+			"evidence_strength":          row["evidence_strength"],
+			"recommended_action":         row["recommended_action"],
+		}
+		pathID := stableOpaqueID("path", stablePathFingerprint)
+		locationID := stableOpaqueID("loc", map[string]any{
+			"path_id":                  pathID,
+			"control_resolution_state": row["control_resolution_state"],
+			"action_path_type":         row["action_path_type"],
+		})
+		projectedItems = append(projectedItems, map[string]any{
+			"path_id":                    pathID,
+			"repo":                       row["repo"],
+			"location":                   locationID,
 			"action_path_type":           row["action_path_type"],
 			"control_state":              row["control_state"],
 			"queue":                      row["queue"],
