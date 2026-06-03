@@ -84,6 +84,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added cloud role, workload identity, deployment-path, and service-connection authority correlation for workflow credentials, graph nodes, and buyer-facing action paths.
 - [semver:minor] Added SaaS service-token target-system and likely-scope classification for SDLC paths without extracting or serializing secret values.
 - [semver:minor] Extended customer-safe redaction to session metadata, prompts, reviewers, changed files, provider URLs, evidence packet fields, proof refs, graph refs, and credential subjects.
+- [semver:patch] Raised the pinned Go toolchain to `1.26.4` across repo contracts to clear standard-library `govulncheck` findings in binary-scanning CI lanes.
 - (none yet)
 
 ## Changelog maintenance process
