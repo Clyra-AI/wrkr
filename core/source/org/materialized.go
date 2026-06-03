@@ -120,12 +120,22 @@ func AcquireMaterialized(
 
 	jobs := make(chan materializeJob)
 	results := make(chan materializeResult, len(pendingJobs))
+	ready := make(chan struct{}, workerCount)
 	var wg sync.WaitGroup
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for job := range jobs {
+			for {
+				select {
+				case ready <- struct{}{}:
+				case <-ctx.Done():
+					return
+				}
+				job, ok := <-jobs
+				if !ok {
+					return
+				}
 				select {
 				case <-ctx.Done():
 					results <- materializeResult{fatalErr: ctx.Err(), repo: job.repo}
@@ -163,6 +173,11 @@ func AcquireMaterialized(
 			}
 			job := pendingJob
 			job.start = make(chan struct{})
+			select {
+			case <-ctx.Done():
+				return
+			case <-ready:
+			}
 			select {
 			case <-ctx.Done():
 				return
