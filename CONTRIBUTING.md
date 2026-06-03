@@ -4,7 +4,7 @@ Wrkr is a deterministic, offline-first OSS CLI for AI tooling discovery, risk sc
 
 ## Required Toolchain
 
-- Go `1.26.3`
+- Go `1.26.4`
 - Git
 - Make
 
