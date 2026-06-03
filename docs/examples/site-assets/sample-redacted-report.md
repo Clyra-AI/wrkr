@@ -200,7 +200,7 @@
 
 Impact: profile compliance is failing and introduces immediate governance risk
 Action: resolve failing or missing controls, regenerate evidence, and rerun scan with the same deterministic inputs
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=179
 
 ## Top governance control backlog items (top_prioritized_risks)
 
@@ -228,7 +228,7 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
 
 Impact: top 20 risks concentrate the highest blast-radius findings
 Action: work highest score first and apply deterministic least-privilege remediation
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=179
 
 ## Risk and approval movement (change_since_previous)
 
@@ -238,7 +238,7 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
 
 Impact: change deltas remain within expected deterministic variance
 Action: continue baseline comparison on every governance scan cadence
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=179
 
 ## Executive ownership and approval actions (lifecycle_actions)
 
@@ -292,20 +292,20 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
 
 Impact: 41 identities require lifecycle approval/review/revocation handling
 Action: prioritize under_review and revoked identities before enabling additional autonomy
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=179
 
 ## Evidence and proof verification (proof_verification_footer)
 
 - chain_path=redacted://proof-chain.json
 - head_hash=sha256:demo-proof-head
-- record_count=306
+- record_count=179
 - record_type decision=20
-- record_type risk_assessment=154
+- record_type risk_assessment=27
 - record_type scan_finding=132
 
 Impact: proof chain references are attached for deterministic traceability
 Action: preserve chain path and head hash when distributing this artifact
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=179
 
 ## Next executive control actions (next_actions)
 
@@ -315,4 +315,4 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
 
 Impact: deterministic next actions focus operators on highest leverage controls
 Action: execute checklist items in order and rescan to confirm posture improvement
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=306
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=179

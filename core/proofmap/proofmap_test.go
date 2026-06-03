@@ -12,6 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
 )
@@ -214,6 +215,93 @@ func TestMapRiskIncludesActionPathGovernanceControls(t *testing.T) {
 	if records[1].Event["assessment_type"] != "control_path_graph" {
 		t.Fatalf("expected control_path_graph event, got %+v", records[1].Event)
 	}
+}
+
+func TestMapRiskBoundsDetailedProofRecords(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 3, 12, 0, 0, 0, time.UTC)
+	ranked := make([]risk.ScoredFinding, 0, 40)
+	for idx := 0; idx < 40; idx++ {
+		ranked = append(ranked, risk.ScoredFinding{
+			CanonicalKey: fmt.Sprintf("finding-%02d", idx),
+			Score:        float64(100 - idx),
+			Finding: model.Finding{
+				FindingType: "ci_autonomy",
+				ToolType:    "ci_agent",
+				Location:    fmt.Sprintf(".github/workflows/release-%02d.yml", idx),
+				Repo:        "repo",
+				Org:         "acme",
+			},
+		})
+	}
+	attackPaths := make([]riskattack.ScoredPath, 0, 40)
+	for idx := 0; idx < 40; idx++ {
+		attackPaths = append(attackPaths, riskattack.ScoredPath{PathID: fmt.Sprintf("attack-%02d", idx)})
+	}
+	actionPaths := make([]risk.ActionPath, 0, maxActionPathProofRecords+10)
+	for idx := 0; idx < maxActionPathProofRecords+10; idx++ {
+		actionPaths = append(actionPaths, risk.ActionPath{
+			PathID: fmt.Sprintf("action-%02d", idx),
+			Repo:   "repo",
+			Org:    "acme",
+		})
+	}
+	report := risk.Report{
+		TopN:           append([]risk.ScoredFinding(nil), ranked[:3]...),
+		Ranked:         ranked,
+		TopAttackPaths: append([]riskattack.ScoredPath(nil), attackPaths[:2]...),
+		AttackPaths:    attackPaths,
+		ActionPaths:    actionPaths,
+		ControlPathGraph: &aggattack.ControlPathGraph{
+			Version: "1",
+			Summary: aggattack.ControlPathGraphSummary{
+				TotalNodes: 12,
+				TotalEdges: 6,
+			},
+		},
+	}
+
+	records := MapRisk(report, score.Result{}, profileeval.Result{}, SecurityVisibilityContext{}, now)
+	counts := mapRiskAssessmentTypes(records)
+	if counts["finding_risk"] != 3 {
+		t.Fatalf("expected top finding risk records only, got counts %+v", counts)
+	}
+	if counts["attack_path_risk"] != 2 {
+		t.Fatalf("expected top attack path records only, got counts %+v", counts)
+	}
+	if counts["action_path_governance"] != maxActionPathProofRecords {
+		t.Fatalf("expected %d bounded action path governance records, got counts %+v", maxActionPathProofRecords, counts)
+	}
+	if counts["control_path_graph"] != 1 || counts["posture_score"] != 1 {
+		t.Fatalf("expected graph and posture summary proof records, got counts %+v", counts)
+	}
+
+	foundLastIncluded := false
+	foundFirstExcluded := false
+	for _, record := range records {
+		if record.Event["assessment_type"] != "action_path_governance" {
+			continue
+		}
+		switch record.Event["path_id"] {
+		case fmt.Sprintf("action-%02d", maxActionPathProofRecords-1):
+			foundLastIncluded = true
+		case fmt.Sprintf("action-%02d", maxActionPathProofRecords):
+			foundFirstExcluded = true
+		}
+	}
+	if !foundLastIncluded || foundFirstExcluded {
+		t.Fatalf("expected deterministic action path cap boundary, found_last=%v found_excluded=%v", foundLastIncluded, foundFirstExcluded)
+	}
+}
+
+func mapRiskAssessmentTypes(records []MappedRecord) map[string]int {
+	out := map[string]int{}
+	for _, record := range records {
+		assessmentType, _ := record.Event["assessment_type"].(string)
+		out[assessmentType]++
+	}
+	return out
 }
 
 func TestMapTransitionApprovalIncludesScope(t *testing.T) {
