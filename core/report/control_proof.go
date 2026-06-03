@@ -229,7 +229,7 @@ func proofFactSatisfiesRequirement(fact proofRecordFact, requirement string, con
 	case agginventory.GovernanceControlReviewCadence:
 		return fact.eventType == "review_cadence_set" || fact.reviewCadencePresent
 	case agginventory.GovernanceControlApproval:
-		return fact.eventType == "approval_recorded" || fact.eventType == "approval"
+		return fact.eventType == "approval_recorded" || fact.eventType == "approval" || fact.eventType == "risk_accepted" || fact.eventType == "accepted_risk"
 	case "evidence_attached":
 		return fact.eventType == "evidence_attached" || fact.evidenceURLPresent
 	default:
