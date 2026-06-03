@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Clyra-AI/wrkr/core/model"
 )
@@ -111,6 +113,13 @@ func (r *Registry) Run(ctx context.Context, scopes []Scope, options Options) (Ru
 	}
 	sort.Strings(ids)
 
+	if options.Progress == nil && len(sortedScopes) > 1 {
+		return r.runParallel(ctx, sortedScopes, ids, options)
+	}
+	return r.runSerial(ctx, sortedScopes, ids, options)
+}
+
+func (r *Registry) runSerial(ctx context.Context, sortedScopes []Scope, ids []string, options Options) (RunResult, error) {
 	result := RunResult{
 		Findings:       make([]model.Finding, 0),
 		DetectorErrors: make([]DetectorError, 0),
@@ -172,9 +181,154 @@ func (r *Registry) Run(ctx context.Context, scopes []Scope, options Options) (Ru
 		}
 	}
 	model.SortFindings(result.Findings)
-	sort.Slice(result.DetectorErrors, func(i, j int) bool {
-		a := result.DetectorErrors[i]
-		b := result.DetectorErrors[j]
+	finalizeDetectorErrors(result.DetectorErrors)
+	if len(result.Findings) == 0 {
+		result.Findings = nil
+	}
+	if len(result.DetectorErrors) == 0 {
+		result.DetectorErrors = nil
+	}
+	return result, nil
+}
+
+type detectorJob struct {
+	scope Scope
+	id    string
+}
+
+type detectorJobResult struct {
+	findings []model.Finding
+	err      DetectorError
+	hasErr   bool
+	canceled bool
+}
+
+func (r *Registry) runParallel(ctx context.Context, sortedScopes []Scope, ids []string, options Options) (RunResult, error) {
+	result := RunResult{
+		Findings:       make([]model.Finding, 0),
+		DetectorErrors: make([]DetectorError, 0),
+	}
+
+	validScopes := make([]Scope, 0, len(sortedScopes))
+	for _, scope := range sortedScopes {
+		select {
+		case <-ctx.Done():
+			return result, ctx.Err()
+		default:
+		}
+		if rootErr := ValidateScopeRoot(scope.Root); rootErr != nil {
+			result.DetectorErrors = append(result.DetectorErrors, buildDetectorError(scope, "scope", rootErr))
+			continue
+		}
+		validScopes = append(validScopes, scope)
+	}
+	if len(validScopes) == 0 {
+		finalizeDetectorErrors(result.DetectorErrors)
+		if len(result.DetectorErrors) == 0 {
+			result.DetectorErrors = nil
+		}
+		return result, nil
+	}
+
+	expectedResults := len(validScopes) * len(ids)
+	jobs := make(chan detectorJob)
+	results := make(chan detectorJobResult, expectedResults)
+	workerCount := detectorWorkerCount(expectedResults)
+	var wg sync.WaitGroup
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				select {
+				case <-ctx.Done():
+					results <- detectorJobResult{
+						err:    buildDetectorError(job.scope, job.id, ctx.Err()),
+						hasErr: true,
+					}
+					continue
+				default:
+				}
+				items, err := r.detectors[job.id].Detect(ctx, job.scope, options)
+				if err != nil {
+					results <- detectorJobResult{
+						err:      buildDetectorError(job.scope, job.id, err),
+						hasErr:   true,
+						canceled: errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded),
+					}
+					continue
+				}
+				results <- detectorJobResult{findings: items}
+			}
+		}()
+	}
+
+	go func() {
+		defer close(jobs)
+		for _, scope := range validScopes {
+			for _, id := range ids {
+				select {
+				case <-ctx.Done():
+					return
+				case jobs <- detectorJob{scope: scope, id: id}:
+				}
+			}
+		}
+	}()
+
+	for i := 0; i < expectedResults; i++ {
+		select {
+		case <-ctx.Done():
+			wg.Wait()
+			return result, ctx.Err()
+		case item := <-results:
+			if item.hasErr {
+				if item.canceled || errors.Is(ctx.Err(), context.Canceled) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					wg.Wait()
+					if ctxErr := ctx.Err(); ctxErr != nil {
+						return result, ctxErr
+					}
+					return result, context.Canceled
+				}
+				result.DetectorErrors = append(result.DetectorErrors, item.err)
+				continue
+			}
+			result.Findings = append(result.Findings, item.findings...)
+		}
+	}
+	wg.Wait()
+	model.SortFindings(result.Findings)
+	finalizeDetectorErrors(result.DetectorErrors)
+	if len(result.Findings) == 0 {
+		result.Findings = nil
+	}
+	if len(result.DetectorErrors) == 0 {
+		result.DetectorErrors = nil
+	}
+	return result, nil
+}
+
+func detectorWorkerCount(jobCount int) int {
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 1 {
+		workers = 1
+	}
+	if workers > 8 {
+		workers = 8
+	}
+	if workers > jobCount {
+		workers = jobCount
+	}
+	if workers < 1 {
+		return 1
+	}
+	return workers
+}
+
+func finalizeDetectorErrors(errorsOut []DetectorError) {
+	sort.Slice(errorsOut, func(i, j int) bool {
+		a := errorsOut[i]
+		b := errorsOut[j]
 		if a.Org != b.Org {
 			return a.Org < b.Org
 		}
@@ -189,13 +343,6 @@ func (r *Registry) Run(ctx context.Context, scopes []Scope, options Options) (Ru
 		}
 		return a.Message < b.Message
 	})
-	if len(result.Findings) == 0 {
-		result.Findings = nil
-	}
-	if len(result.DetectorErrors) == 0 {
-		result.DetectorErrors = nil
-	}
-	return result, nil
 }
 
 func buildDetectorError(scope Scope, detector string, err error) DetectorError {

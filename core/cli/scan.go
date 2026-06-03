@@ -364,10 +364,14 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		if err := statusTracker.Phase("detectors_start"); err != nil {
 			return emitScanFailure(err)
 		}
+		var detectorProgress detect.DetectorProgressReporter
+		if progressMode != scanProgressModeNone {
+			detectorProgress = progress
+		}
 		detected, runErr := registry.Run(ctx, scopes, detect.Options{
 			Enrich:   *enrich,
 			ScanMode: scanMode,
-			Progress: progress,
+			Progress: detectorProgress,
 		})
 		if runErr != nil {
 			return emitScanFailure(runErr)

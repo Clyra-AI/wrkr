@@ -70,6 +70,7 @@ Acquisition behavior is fail-closed by target:
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
 - Existing `--state` files must be regular files; symlinked `--state` inputs fail closed with `unsafe_operation_blocked` (exit `8`) before any managed artifact mutation.
 - Scan-owned managed artifacts are published transactionally: state snapshot, lifecycle chain, proof chain/attestation, manifest, and any requested `--json-path`, `--report-md-path`, or `--sarif-path` sidecars commit as one generation.
+- The saved state and scan JSON retain the full deterministic findings, risk report, and action-path set. The signed proof chain keeps all canonical `scan_finding` records and bounded, top-ranked `risk_assessment` detail records plus summary posture/graph records so enterprise scans stay portable and verifiable without turning proof output into a noisy bulk export.
 - Scan status is written as a deterministic sidecar next to `--state` and can be inspected with `wrkr scan status --state <path> --json` without rescanning.
 - Invalid scan-owned artifact paths such as `--report-md-path` and `--sarif-path` are preflight-validated before any managed artifact mutation.
 - `--json-path`, `--report-md-path`, and `--sarif-path` must stay unique from one another and from Wrkr-managed artifacts derived from `--state`; collisions fail closed with `invalid_input` (exit `6`) before any scan-managed artifact is written.

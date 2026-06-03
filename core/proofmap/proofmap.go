@@ -33,6 +33,12 @@ type SecurityVisibilityContext struct {
 	StatusByInstance map[string]string
 }
 
+const (
+	maxFindingRiskProofRecords = 25
+	maxAttackPathProofRecords  = 25
+	maxActionPathProofRecords  = 25
+)
+
 func hasSecurityVisibilityReference(summary agginventory.SecurityVisibilitySummary) bool {
 	return strings.TrimSpace(summary.ReferenceBasis) != ""
 }
@@ -151,8 +157,12 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, visibili
 }
 
 func MapRisk(report risk.Report, posture score.Result, profile profileeval.Result, visibility SecurityVisibilityContext, now time.Time) []MappedRecord {
-	records := make([]MappedRecord, 0, len(report.Ranked)+len(report.AttackPaths)+len(report.ActionPaths)+1)
-	for idx, item := range report.Ranked {
+	findingRiskRecords := boundedScoredFindings(report)
+	attackPathRecords := boundedAttackPaths(report)
+	actionPathRecords := boundedActionPaths(report.ActionPaths, maxActionPathProofRecords)
+
+	records := make([]MappedRecord, 0, len(findingRiskRecords)+len(attackPathRecords)+len(actionPathRecords)+2)
+	for idx, item := range findingRiskRecords {
 		event := map[string]any{
 			"assessment_type": "finding_risk",
 			"canonical_key":   item.CanonicalKey,
@@ -214,7 +224,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			Metadata:     metadata,
 		}))
 	}
-	for idx, path := range report.AttackPaths {
+	for idx, path := range attackPathRecords {
 		event := map[string]any{
 			"assessment_type": "attack_path_risk",
 			"path_id":         path.PathID,
@@ -243,7 +253,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 			},
 		}))
 	}
-	for idx, path := range report.ActionPaths {
+	for idx, path := range actionPathRecords {
 		event := map[string]any{
 			"assessment_type":            "action_path_governance",
 			"path_id":                    path.PathID,
@@ -362,6 +372,31 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 	}))
 
 	return records
+}
+
+func boundedScoredFindings(report risk.Report) []risk.ScoredFinding {
+	if len(report.TopN) > 0 {
+		return append([]risk.ScoredFinding(nil), report.TopN...)
+	}
+	return boundedSlice(report.Ranked, maxFindingRiskProofRecords)
+}
+
+func boundedAttackPaths(report risk.Report) []riskattack.ScoredPath {
+	if len(report.TopAttackPaths) > 0 {
+		return append([]riskattack.ScoredPath(nil), report.TopAttackPaths...)
+	}
+	return boundedSlice(report.AttackPaths, maxAttackPathProofRecords)
+}
+
+func boundedActionPaths(paths []risk.ActionPath, limit int) []risk.ActionPath {
+	return boundedSlice(paths, limit)
+}
+
+func boundedSlice[T any](items []T, limit int) []T {
+	if limit <= 0 || len(items) <= limit {
+		return append([]T(nil), items...)
+	}
+	return append([]T(nil), items[:limit]...)
 }
 
 func MapTransition(transition lifecycle.Transition, eventType string) MappedRecord {

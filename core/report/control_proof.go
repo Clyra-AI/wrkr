@@ -30,12 +30,13 @@ func BuildControlProofStatus(snapshot state.Snapshot, chain *proof.Chain) []Cont
 	}
 
 	agentIDsByPath := actionPathAgentIDs(snapshot)
+	proofIndex := buildProofRequirementIndex(chain.Records)
 	out := make([]ControlProofStatus, 0, len(snapshot.ControlBacklog.Items))
 	for _, item := range snapshot.ControlBacklog.Items {
 		controlID := primaryControlID(item.GovernanceControls)
 		agentID := agentIDForBacklogItem(snapshot, agentIDsByPath, item)
 		requirements := proofRequirementsForBacklogItem(item.RecommendedAction, item.ClosureCriteria, item.WritePathClasses, item.SecretSignalTypes)
-		existing, recordIDs := existingProofForRequirements(requirements, controlID, agentID, chain.Records)
+		existing, recordIDs := existingProofForRequirements(requirements, controlID, agentID, proofIndex)
 		missing := differenceStrings(requirements, existing)
 		status := "satisfied"
 		if len(missing) > 0 {
@@ -126,27 +127,45 @@ func proofRequirementsForBacklogItem(action, closure string, writeClasses []stri
 	return uniqueSortedStrings(requirements)
 }
 
-func existingProofForRequirements(requirements []string, controlID string, agentID string, records []proof.Record) ([]string, []string) {
-	existing := map[string]struct{}{}
-	recordIDs := map[string]struct{}{}
-	for _, record := range records {
-		for _, requirement := range requirements {
-			if !recordSatisfiesProofRequirement(record, requirement, controlID, agentID) {
-				continue
-			}
-			existing[requirement] = struct{}{}
-			if strings.TrimSpace(record.RecordID) != "" {
-				recordIDs[strings.TrimSpace(record.RecordID)] = struct{}{}
-			}
-		}
-	}
-	return sortedStringKeys(existing), sortedStringKeys(recordIDs)
+type proofRequirementIndex struct {
+	all     []proofRecordFact
+	byAgent map[string][]proofRecordFact
 }
 
-func recordSatisfiesProofRequirement(record proof.Record, requirement string, controlID string, agentID string) bool {
-	if strings.TrimSpace(agentID) != "" && strings.TrimSpace(record.AgentID) != "" && strings.TrimSpace(record.AgentID) != strings.TrimSpace(agentID) {
-		return false
+type proofRecordFact struct {
+	recordID             string
+	agentID              string
+	eventType            string
+	controlID            string
+	ownerPresent         bool
+	approverPresent      bool
+	reviewCadencePresent bool
+	evidenceURLPresent   bool
+}
+
+func buildProofRequirementIndex(records []proof.Record) proofRequirementIndex {
+	index := proofRequirementIndex{
+		all:     make([]proofRecordFact, 0, len(records)),
+		byAgent: map[string][]proofRecordFact{},
 	}
+	for _, record := range records {
+		fact := proofRecordFact{
+			recordID:             strings.TrimSpace(record.RecordID),
+			agentID:              strings.TrimSpace(record.AgentID),
+			eventType:            proofRecordEventType(record),
+			controlID:            proofRecordControlID(record),
+			ownerPresent:         eventString(record.Event, "owner") != "",
+			approverPresent:      eventString(record.Event, "approver") != "",
+			reviewCadencePresent: eventString(record.Event, "review_cadence") != "",
+			evidenceURLPresent:   eventString(record.Event, "evidence_url") != "",
+		}
+		index.all = append(index.all, fact)
+		index.byAgent[fact.agentID] = append(index.byAgent[fact.agentID], fact)
+	}
+	return index
+}
+
+func proofRecordEventType(record proof.Record) string {
 	eventType := eventString(record.Event, "event_type")
 	if eventType == "" && record.Metadata != nil {
 		eventType = metadataString(record.Metadata, "event_type")
@@ -154,27 +173,67 @@ func recordSatisfiesProofRequirement(record proof.Record, requirement string, co
 	if eventType == "" {
 		eventType = strings.TrimSpace(record.RecordType)
 	}
-	recordControlID := eventString(record.Event, "control_id")
-	if recordControlID == "" {
-		if diff, ok := record.Event["diff"].(map[string]any); ok {
-			recordControlID = stringFromAny(diff["control_id"])
+	return eventType
+}
+
+func proofRecordControlID(record proof.Record) string {
+	controlID := eventString(record.Event, "control_id")
+	if controlID != "" || record.Event == nil {
+		return controlID
+	}
+	if diff, ok := record.Event["diff"].(map[string]any); ok {
+		return stringFromAny(diff["control_id"])
+	}
+	return ""
+}
+
+func existingProofForRequirements(requirements []string, controlID string, agentID string, index proofRequirementIndex) ([]string, []string) {
+	existing := map[string]struct{}{}
+	recordIDs := map[string]struct{}{}
+	for _, fact := range proofFactsForAgent(index, agentID) {
+		for _, requirement := range requirements {
+			if !proofFactSatisfiesRequirement(fact, requirement, controlID, agentID) {
+				continue
+			}
+			existing[requirement] = struct{}{}
+			if fact.recordID != "" {
+				recordIDs[fact.recordID] = struct{}{}
+			}
 		}
 	}
-	controlMatches := strings.TrimSpace(controlID) == "" || strings.TrimSpace(controlID) == "control_path_governance" || strings.TrimSpace(recordControlID) == "" || strings.TrimSpace(recordControlID) == strings.TrimSpace(controlID)
+	return sortedStringKeys(existing), sortedStringKeys(recordIDs)
+}
+
+func proofFactsForAgent(index proofRequirementIndex, agentID string) []proofRecordFact {
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		return index.all
+	}
+	facts := make([]proofRecordFact, 0, len(index.byAgent[""])+len(index.byAgent[agentID]))
+	facts = append(facts, index.byAgent[""]...)
+	facts = append(facts, index.byAgent[agentID]...)
+	return facts
+}
+
+func proofFactSatisfiesRequirement(fact proofRecordFact, requirement string, controlID string, agentID string) bool {
+	if strings.TrimSpace(agentID) != "" && fact.agentID != "" && fact.agentID != strings.TrimSpace(agentID) {
+		return false
+	}
+	controlMatches := strings.TrimSpace(controlID) == "" || strings.TrimSpace(controlID) == "control_path_governance" || fact.controlID == "" || fact.controlID == strings.TrimSpace(controlID)
 	if !controlMatches {
 		return false
 	}
 	switch requirement {
 	case agginventory.GovernanceControlOwnerAssigned:
-		return eventType == "owner_assigned" || eventString(record.Event, "owner") != "" || eventString(record.Event, "approver") != ""
+		return fact.eventType == "owner_assigned" || fact.ownerPresent || fact.approverPresent
 	case agginventory.GovernanceControlReviewCadence:
-		return eventType == "review_cadence_set" || eventString(record.Event, "review_cadence") != ""
+		return fact.eventType == "review_cadence_set" || fact.reviewCadencePresent
 	case agginventory.GovernanceControlApproval:
-		return eventType == "approval_recorded" || eventType == "approval" || strings.TrimSpace(record.RecordType) == "approval"
+		return fact.eventType == "approval_recorded" || fact.eventType == "approval"
 	case "evidence_attached":
-		return eventType == "evidence_attached" || eventString(record.Event, "evidence_url") != ""
+		return fact.eventType == "evidence_attached" || fact.evidenceURLPresent
 	default:
-		return eventType == requirement
+		return fact.eventType == requirement
 	}
 }
 
