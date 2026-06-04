@@ -416,7 +416,7 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := writeJSONL(filepath.Join(proofRecordsDir, "approvals.jsonl"), filterRecords(chain.Records, "approval", "")); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
-	if err := writeJSONL(filepath.Join(proofRecordsDir, "lifecycle-transitions.jsonl"), filterRecords(chain.Records, "decision", "lifecycle_transition")); err != nil {
+	if err := writeJSONL(filepath.Join(proofRecordsDir, "lifecycle-transitions.jsonl"), filterLifecycleTransitionRecords(chain.Records)); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 
@@ -770,6 +770,25 @@ func filterRecords(records []proof.Record, recordType string, eventType string) 
 			}
 		}
 		out = append(out, record)
+	}
+	return out
+}
+
+func filterLifecycleTransitionRecords(records []proof.Record) []proof.Record {
+	out := make([]proof.Record, 0)
+	for _, record := range records {
+		recordType := strings.TrimSpace(record.RecordType)
+		if recordType == "lifecycle_transition" {
+			out = append(out, record)
+			continue
+		}
+		if recordType != "decision" {
+			continue
+		}
+		eventType, _ := record.Event["event_type"].(string)
+		if strings.TrimSpace(eventType) == "lifecycle_transition" {
+			out = append(out, record)
+		}
 	}
 	return out
 }

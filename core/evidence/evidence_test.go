@@ -14,6 +14,7 @@ import (
 	proof "github.com/Clyra-AI/proof"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/ingest"
+	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
@@ -57,6 +58,18 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	}
 	if _, err := proofemit.EmitScan(statePath, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC), findings, nil, report, profile, posture, nil); err != nil {
 		t.Fatalf("emit scan records: %v", err)
+	}
+	if err := proofemit.EmitIdentityTransition(statePath, lifecycle.Transition{
+		AgentID:       "wrkr:skill:acme",
+		PreviousState: "discovered",
+		NewState:      "under_review",
+		Trigger:       "state_changed",
+		Timestamp:     "2026-02-20T13:00:00Z",
+		Diff: map[string]any{
+			"reason": "approval expired",
+		},
+	}, "lifecycle_transition"); err != nil {
+		t.Fatalf("emit lifecycle transition record: %v", err)
 	}
 
 	outputDir := filepath.Join(tmp, "wrkr-evidence")
@@ -103,6 +116,21 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	}
 	if len(result.CoverageNote.RecommendedActions) == 0 {
 		t.Fatalf("expected recommended actions in coverage note, got %+v", result.CoverageNote)
+	}
+	lifecyclePayload, err := os.ReadFile(filepath.Join(outputDir, "proof-records", "lifecycle-transitions.jsonl"))
+	if err != nil {
+		t.Fatalf("read lifecycle transitions jsonl: %v", err)
+	}
+	lifecycleLines := strings.Split(strings.TrimSpace(string(lifecyclePayload)), "\n")
+	if len(lifecycleLines) != 1 {
+		t.Fatalf("expected one lifecycle transition record, got %d: %s", len(lifecycleLines), lifecyclePayload)
+	}
+	lifecycleRecord := map[string]any{}
+	if err := json.Unmarshal([]byte(lifecycleLines[0]), &lifecycleRecord); err != nil {
+		t.Fatalf("parse lifecycle transition jsonl: %v", err)
+	}
+	if got := lifecycleRecord["record_type"]; got != "lifecycle_transition" {
+		t.Fatalf("expected lifecycle_transition record type in export, got %v", got)
 	}
 }
 
