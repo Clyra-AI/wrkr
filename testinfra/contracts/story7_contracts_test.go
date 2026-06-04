@@ -81,6 +81,8 @@ func TestStory7SchemaContractsStable(t *testing.T) {
 		"schemas/v1/policy/production-targets.schema.json",
 		"schemas/v1/policy/rule-pack.schema.json",
 		"schemas/v1/profile/profile-result.schema.json",
+		"schemas/v1/proof-outputs/evidence-record.schema.json",
+		"schemas/v1/proof-outputs/lifecycle-transition-record.schema.json",
 		"schemas/v1/proof-outputs/proof-chain.schema.json",
 		"schemas/v1/proof-outputs/proof-record.schema.json",
 		"schemas/v1/provenance/pr-mr-provenance.schema.json",

@@ -16,6 +16,8 @@ func TestStory4SchemasPresent(t *testing.T) {
 	required := []string{
 		"schemas/v1/proof-outputs/proof-chain.schema.json",
 		"schemas/v1/proof-outputs/proof-record.schema.json",
+		"schemas/v1/proof-outputs/lifecycle-transition-record.schema.json",
+		"schemas/v1/proof-outputs/evidence-record.schema.json",
 		"schemas/v1/evidence/evidence-bundle.schema.json",
 	}
 	for _, rel := range required {
@@ -71,5 +73,60 @@ func TestScanEmitsSignedProofRecordsWithCanonicalKeys(t *testing.T) {
 			}
 			seenCanonical[canonical] = struct{}{}
 		}
+		recordType, _ := record["record_type"].(string)
+		event, _ := record["event"].(map[string]any)
+		eventType, _ := event["event_type"].(string)
+		if eventType == "lifecycle_transition" {
+			if recordType != "lifecycle_transition" {
+				t.Fatalf("lifecycle transition event used record_type %q: %v", recordType, record)
+			}
+		}
+	}
+}
+
+func TestScanEmitsLifecycleTransitionProofRecords(t *testing.T) {
+	t.Parallel()
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	statePath := filepath.Join(t.TempDir(), "state.json")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, errOut.String())
+	}
+
+	chainPath := filepath.Join(filepath.Dir(statePath), "proof-chain.json")
+	payload, err := os.ReadFile(chainPath)
+	if err != nil {
+		t.Fatalf("read proof chain: %v", err)
+	}
+	var chain map[string]any
+	if err := json.Unmarshal(payload, &chain); err != nil {
+		t.Fatalf("parse proof chain: %v", err)
+	}
+	records, ok := chain["records"].([]any)
+	if !ok || len(records) == 0 {
+		t.Fatalf("expected proof chain records, got %v", chain)
+	}
+	seenLifecycleTransition := false
+	for _, raw := range records {
+		record, castOK := raw.(map[string]any)
+		if !castOK {
+			continue
+		}
+		recordType, _ := record["record_type"].(string)
+		event, _ := record["event"].(map[string]any)
+		eventType, _ := event["event_type"].(string)
+		if eventType != "lifecycle_transition" {
+			continue
+		}
+		if recordType != "lifecycle_transition" {
+			t.Fatalf("lifecycle transition event used record_type %q: %v", recordType, record)
+		}
+		seenLifecycleTransition = true
+	}
+	if !seenLifecycleTransition {
+		t.Fatalf("expected scan proof chain to include lifecycle_transition records")
 	}
 }

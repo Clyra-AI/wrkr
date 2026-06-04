@@ -19,6 +19,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
+	"github.com/Clyra-AI/wrkr/internal/proofcompat"
 )
 
 type Summary struct {
@@ -215,6 +216,9 @@ func appendSignedRecord(chain *proof.Chain, key proof.SigningKey, mapped proofma
 		controls.ApprovedScope = strings.TrimSpace(mapped.ApprovedScope)
 		withinScope := true
 		controls.WithinScope = &withinScope
+	}
+	if err := proofcompat.EnsureWrkrRecordTypes(); err != nil {
+		return nil, err
 	}
 	relationship := relationshipForRecord(chain, mapped.Relationship)
 	record, err := proof.NewRecord(proof.RecordOpts{

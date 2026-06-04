@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Clyra-AI/wrkr/schemas/v1/proof-outputs/evidence-record.schema.json",
+  "title": "Wrkr Evidence Proof Record",
+  "type": "object",
+  "required": ["record_type", "event"],
+  "properties": {
+    "record_type": {"const": "evidence"},
+    "event": {
+      "type": "object",
+      "required": ["event_type"],
+      "properties": {
+        "event_type": {
+          "enum": [
+            "owner_assigned",
+            "evidence_attached",
+            "least_privilege_verified",
+            "rotation_evidence_attached",
+            "deployment_gate_present",
+            "production_access_classified",
+            "proof_artifact_generated",
+            "review_cadence_set"
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

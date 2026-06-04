@@ -400,17 +400,11 @@ func boundedSlice[T any](items []T, limit int) []T {
 }
 
 func MapTransition(transition lifecycle.Transition, eventType string) MappedRecord {
-	recordType := "decision"
 	resolvedEventType := strings.TrimSpace(eventType)
-	switch resolvedEventType {
-	case "approval", "approval_recorded", "risk_accepted":
-		recordType = "approval"
-	case "owner_assigned", "evidence_attached", "least_privilege_verified", "rotation_evidence_attached", "deployment_gate_present", "production_access_classified", "proof_artifact_generated", "review_cadence_set":
-		recordType = "evidence"
-	}
 	if resolvedEventType == "" {
 		resolvedEventType = "lifecycle_transition"
 	}
+	recordType := transitionMappedRecordType(resolvedEventType)
 
 	diff := map[string]any{}
 	for key, value := range transition.Diff {
@@ -465,6 +459,19 @@ func MapTransition(transition lifecycle.Transition, eventType string) MappedReco
 			"event_type":         resolvedEventType,
 		},
 	})
+}
+
+func transitionMappedRecordType(eventType string) string {
+	switch strings.TrimSpace(eventType) {
+	case "", "lifecycle_transition":
+		return "lifecycle_transition"
+	case "approval", "approval_recorded", "risk_accepted":
+		return "approval"
+	case "owner_assigned", "evidence_attached", "least_privilege_verified", "rotation_evidence_attached", "deployment_gate_present", "production_access_classified", "proof_artifact_generated", "review_cadence_set":
+		return "evidence"
+	default:
+		return "decision"
+	}
 }
 
 func CanonicalFindingKey(finding model.Finding) string {

@@ -299,7 +299,7 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=179
 - chain_path=redacted://proof-chain.json
 - head_hash=sha256:demo-proof-head
 - record_count=179
-- record_type decision=20
+- record_type lifecycle_transition=20
 - record_type risk_assessment=27
 - record_type scan_finding=132
 

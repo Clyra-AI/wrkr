@@ -134,6 +134,39 @@ func TestEmitIdentityTransitionAddsApprovalRecord(t *testing.T) {
 	}
 }
 
+func TestEmitIdentityTransitionAddsLifecycleTransitionRecord(t *testing.T) {
+	t.Parallel()
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	transition := lifecycle.Transition{
+		AgentID:       "wrkr:mcp-1:acme",
+		PreviousState: "discovered",
+		NewState:      "under_review",
+		Trigger:       "state_changed",
+		Timestamp:     "2026-02-20T13:00:00Z",
+		Diff: map[string]any{
+			"reason": "approval expired",
+		},
+	}
+
+	if err := EmitIdentityTransition(statePath, transition, "lifecycle_transition"); err != nil {
+		t.Fatalf("emit identity transition: %v", err)
+	}
+	chain, err := LoadChain(ChainPath(statePath))
+	if err != nil {
+		t.Fatalf("load proof chain: %v", err)
+	}
+	if len(chain.Records) != 1 {
+		t.Fatalf("expected 1 proof record, got %d", len(chain.Records))
+	}
+	record := chain.Records[0]
+	if record.RecordType != "lifecycle_transition" {
+		t.Fatalf("expected lifecycle_transition record type, got %s", record.RecordType)
+	}
+	if got := record.Event["event_type"]; got != "lifecycle_transition" {
+		t.Fatalf("expected event_type lifecycle_transition, got %v", got)
+	}
+}
+
 func TestEmitScanLinksRiskRecordWhenOrgIsEmpty(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)

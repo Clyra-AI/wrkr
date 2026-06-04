@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Clyra-AI/wrkr/schemas/v1/proof-outputs/lifecycle-transition-record.schema.json",
+  "title": "Wrkr Lifecycle Transition Proof Record",
+  "type": "object",
+  "required": ["record_type", "event"],
+  "properties": {
+    "record_type": {"const": "lifecycle_transition"},
+    "event": {
+      "type": "object",
+      "required": ["event_type", "previous_state", "new_state", "trigger"],
+      "properties": {
+        "event_type": {"const": "lifecycle_transition"},
+        "previous_state": {"type": "string"},
+        "new_state": {"type": "string"},
+        "trigger": {"type": "string"},
+        "diff": {"type": "object"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

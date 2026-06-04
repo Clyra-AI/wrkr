@@ -336,6 +336,36 @@ func TestMapTransitionApprovalIncludesScope(t *testing.T) {
 	}
 }
 
+func TestMapTransitionLifecycleTransitionRecordType(t *testing.T) {
+	t.Parallel()
+	transition := lifecycle.Transition{
+		AgentID:       "wrkr:mcp-1:acme",
+		PreviousState: "discovered",
+		NewState:      "under_review",
+		Trigger:       "state_changed",
+		Timestamp:     "2026-02-20T13:00:00Z",
+		Diff: map[string]any{
+			"reason": "expired approval",
+		},
+	}
+
+	record := MapTransition(transition, "lifecycle_transition")
+	if record.RecordType != "lifecycle_transition" {
+		t.Fatalf("expected lifecycle_transition record type, got %s", record.RecordType)
+	}
+	if got := record.Event["event_type"]; got != "lifecycle_transition" {
+		t.Fatalf("expected event_type lifecycle_transition, got %v", got)
+	}
+
+	defaulted := MapTransition(transition, "")
+	if defaulted.RecordType != "lifecycle_transition" {
+		t.Fatalf("expected blank event type to default to lifecycle_transition, got %s", defaulted.RecordType)
+	}
+	if got := defaulted.Event["event_type"]; got != "lifecycle_transition" {
+		t.Fatalf("expected blank event_type to default to lifecycle_transition, got %v", got)
+	}
+}
+
 func TestProofMap_ScanFindingIncludesAgentContextAdditively(t *testing.T) {
 	t.Parallel()
 
