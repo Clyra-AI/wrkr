@@ -76,6 +76,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- [semver:patch] Fixed lifecycle transition proof emission so identity lifecycle events use the canonical `lifecycle_transition` record type with schema and contract coverage.
 - [semver:patch] Fixed govern-first projection so control state, queue, review burden, risk tier, and remediation stay semantically consistent for critical, contradictory, and control-first paths.
 
 ### Security

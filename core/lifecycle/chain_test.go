@@ -35,6 +35,32 @@ func TestChainAppendAndQueryByAgent(t *testing.T) {
 	}
 }
 
+func TestAppendTransitionRecordUsesLifecycleRecordType(t *testing.T) {
+	t.Parallel()
+	chain := proof.NewChain("wrkr-identity")
+	transition := Transition{
+		AgentID:       "wrkr:mcp-1:acme",
+		PreviousState: "discovered",
+		NewState:      "under_review",
+		Trigger:       "state_changed",
+		Timestamp:     time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+	}
+
+	if err := AppendTransitionRecord(chain, transition, "lifecycle_transition"); err != nil {
+		t.Fatalf("append transition: %v", err)
+	}
+	if len(chain.Records) != 1 {
+		t.Fatalf("expected 1 transition record, got %d", len(chain.Records))
+	}
+	record := chain.Records[0]
+	if record.RecordType != "lifecycle_transition" {
+		t.Fatalf("expected lifecycle_transition record type, got %s", record.RecordType)
+	}
+	if got := record.Event["event_type"]; got != "lifecycle_transition" {
+		t.Fatalf("expected event_type lifecycle_transition, got %v", got)
+	}
+}
+
 func TestLifecycleChainSaveHandlesWriteContention(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "identity-chain.json")
 	now := time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC)

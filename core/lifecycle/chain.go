@@ -11,6 +11,7 @@ import (
 
 	proof "github.com/Clyra-AI/proof"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
+	"github.com/Clyra-AI/wrkr/internal/proofcompat"
 )
 
 func ChainPath(statePath string) string {
@@ -62,7 +63,15 @@ func AppendTransitionRecord(chain *proof.Chain, transition Transition, eventType
 	if err != nil {
 		ts = time.Now().UTC().Truncate(time.Second)
 	}
-	recordType := transitionRecordType(eventType)
+	resolvedEventType := normalizeTransitionEventType(eventType)
+	recordType := transitionRecordType(resolvedEventType)
+	if err := proofcompat.EnsureWrkrRecordTypes(); err != nil {
+		return err
+	}
+	diff := transition.Diff
+	if diff == nil {
+		diff = map[string]any{}
+	}
 	record, err := proof.NewRecord(proof.RecordOpts{
 		Timestamp:     ts,
 		Source:        "wrkr",
@@ -70,11 +79,11 @@ func AppendTransitionRecord(chain *proof.Chain, transition Transition, eventType
 		AgentID:       transition.AgentID,
 		Type:          recordType,
 		Event: map[string]any{
-			"event_type":     eventType,
+			"event_type":     resolvedEventType,
 			"previous_state": transition.PreviousState,
 			"new_state":      transition.NewState,
 			"trigger":        transition.Trigger,
-			"diff":           transition.Diff,
+			"diff":           diff,
 		},
 		Controls: proof.Controls{PermissionsEnforced: true},
 	})
@@ -87,8 +96,18 @@ func AppendTransitionRecord(chain *proof.Chain, transition Transition, eventType
 	return nil
 }
 
+func normalizeTransitionEventType(eventType string) string {
+	trimmed := strings.TrimSpace(eventType)
+	if trimmed == "" {
+		return "lifecycle_transition"
+	}
+	return trimmed
+}
+
 func transitionRecordType(eventType string) string {
 	switch strings.TrimSpace(eventType) {
+	case "", "lifecycle_transition":
+		return "lifecycle_transition"
 	case "approval", "approval_recorded", "risk_accepted":
 		return "approval"
 	case "owner_assigned", "evidence_attached", "least_privilege_verified", "rotation_evidence_attached", "deployment_gate_present", "production_access_classified", "proof_artifact_generated", "review_cadence_set":

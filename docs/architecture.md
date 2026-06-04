@@ -29,7 +29,7 @@ flowchart LR
   B --> C["Aggregation Engine\ninventory + exposure rollups"]
   C --> D["Identity Engine\nwrkr:<tool_id>:<org>"]
   D --> E["Risk Engine\nrank + posture + agent amplification"]
-  E --> F["Proof Emission\nscan_finding, risk_assessment, agent_context"]
+  E --> F["Proof Emission\nscan_finding, risk_assessment, approval, lifecycle_transition"]
   F --> G["Evidence Output\nframework mapping + artifacts"]
 ```
 
