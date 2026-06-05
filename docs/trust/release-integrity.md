@@ -89,7 +89,7 @@ scripts/test_uat_local.sh
 scripts/test_uat_local.sh --skip-global-gates
 
 # Validate exact public install commands (brew + pinned go install) for a published tag
-scripts/test_uat_local.sh --release-version v1.5.0 --brew-formula Clyra-AI/tap/wrkr
+scripts/test_uat_local.sh --release-version v1.6.0 --brew-formula Clyra-AI/tap/wrkr
 ```
 
 ## Changelog finalization
