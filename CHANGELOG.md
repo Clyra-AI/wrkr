@@ -8,63 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added provider-neutral PR/MR provenance sidecars for changed files, reviewers, approvals, checks, deployments, merge metadata, branch protection, and environment gates.
-- [semver:minor] Added typed Agentic SDLC evidence packets for consequential AI-assisted changes, including proof refs and missing-evidence status.
-- [semver:minor] Added a local recent PR/MR review workflow for ranking bounded AI-assisted or automation-assisted delivery paths from provider metadata sidecars.
-- [semver:minor] Added workflow chain artifacts that group delegated SDLC paths by repo, PR/MR, workflow, tool, credential, owner, approval, target, evidence, and outcome.
-- [semver:minor] Added Control Path Graph V2 nodes and edges for delegated SDLC intent, human, agent team, PR/MR, approval, deployment, asset, evidence, and outcome paths.
-- [semver:minor] Added intent-to-outcome action lineage segments for delegated SDLC workflows.
-- [semver:minor] Added high-stakes path presets for release automation, production paths, credentials, IaC, identity/auth code, package publishing, payment flows, regulated customer workflows, external egress, MCP/tool configs, and mutable endpoints.
-- [semver:minor] Added Agentic SDLC autonomy tiers, delegation readiness states, and recommended control outcomes to govern-first action paths, Agent Action BOM items, control backlog items, and markdown report rollups.
-- [semver:minor] Added draft recommended action contracts plus today-versus-governed path views for control-first and high-stakes action paths in report and backlog artifacts.
-- [semver:minor] Added canonical control resolution and evidence confidence fields for action paths, reports, backlog items, and v1 schemas so control gaps are evidence-scoped instead of inferred from local absence.
-- [semver:minor] Added target classification for action paths so reports distinguish production-impacting, release-adjacent, customer-data-adjacent, internal tooling, developer productivity, test/demo/sandbox, and unknown targets.
-- [semver:minor] Added action path type classification so reports distinguish AI-assisted workflows, agent frameworks, automation bots, CI/CD workflows, legacy scripts, plain source code, and unknown executable paths.
-- [semver:patch] Added report QA coverage that blocks unsupported overclaiming and prevents non-agent action paths from being labeled as agents in generated buyer artifacts.
-- [semver:minor] Added schema-backed external control evidence sidecars for local ownership, approval, provider, branch, deployment, and policy evidence.
-- [semver:minor] Added deterministic correlation for external ownership, approval, app catalog, ticket, policy, and provider evidence.
-- [semver:minor] Added branch protection, protected environment, deployment approval, required check, freeze window, and kill switch evidence for control reports.
-- [semver:minor] Added freshness and expiry metadata for imported and declared evidence across reports, backlog, and evidence bundles.
-- [semver:minor] Added versioned customer control declarations for owner mappings, target classes, accepted tooling, exceptions, non-prod declarations, and evidence links.
-- [semver:minor] Added contradiction detection for customer declarations, production targets, credentials, workflows, deployment constraints, and policy evidence.
-- [semver:minor] Added accepted-risk and suppression governance with expiry, ownership, scope, evidence state, rescan behavior, and appendix visibility.
-- [semver:minor] Added lifecycle and ownership control queues for ownerless, inferred-owner, stale-lifecycle, and credential-bearing governance gaps.
-- [semver:minor] Added path-specific closure evidence guidance across control backlog, Agent Action BOM, markdown reports, and exports.
-- [semver:minor] Added per-path evidence completeness scoring for discovery, authority, blast radius, control, runtime evidence, and proof sufficiency.
-- [semver:minor] Added documentation, schemas, scenarios, and acceptance coverage for Sprint 2 enterprise evidence ingest, contradiction handling, accepted-risk visibility, lifecycle queues, closure guidance, and completeness scoring.
-- [semver:minor] Added a focused one-page Agent Action BOM view for a single workflow/action path with appendix details for raw findings, graph refs, proof details, and detector diagnostics.
-- [semver:minor] Documented Sprint 3 Agent Action BOM focused-path contracts and schema coverage for primary workflow BOM output, evidence bundles, and local review workflows.
-- [semver:minor] Added first-class GitLab CI/CD detection for local pipelines, safe local includes, jobs, stages, variables, manual gates, deploy/release authority, secrets by reference, AI agent execution, and MCP/tool invocation.
-- [semver:minor] Added GitLab CI/CD workflow authority to action paths, privilege budget, Agent Action BOM, control backlog, graph, evidence packets, and scan quality summaries.
-- [semver:minor] Added first-class Azure DevOps pipeline detection for local pipelines, safe local templates, stages, jobs, service connections, variable groups, environments, approvals/check hints, agent pools, deployment jobs, secrets by reference, AI agent execution, and MCP/tool invocation.
-- [semver:minor] Added Azure DevOps pipeline authority to action paths, privilege budget, Agent Action BOM, control backlog, graph, evidence packets, and scan quality summaries.
-- [semver:minor] Added deterministic local coding-agent session ingest for Codex-style agents, Claude Code, Cursor, Copilot, Gait traces, and future runtime exports.
-- [semver:minor] Added runtime session evidence correlation into graph refs, evidence packets, Agent Action BOM coverage, report summaries, and evidence bundles.
-- [semver:minor] Added paired internal and customer-redacted report artifacts with deterministic joins and a local-only private join map.
-- [semver:minor] Added portable evidence bundle manifests with stable artifact metadata, redaction profiles, proof-chain refs, source privacy metadata, evidence-state summaries, and boundary labels.
-- [semver:minor] Added a repeatable `wrkr assess` workflow that stitches scan, optional ingest, report, evidence, export, optional ticket payloads, and optional drift review into one deterministic output directory and manifest.
-- [semver:minor] Added low-click report focus presets for BOM review, release-adjacent AI paths, write/deploy reach, approval and owner evidence gaps, evidence gaps, contradictions, drift review, and recommendations.
-- [semver:minor] Added first-class drift review categories and fail-closed comparison metadata across regress, report, Agent Action BOM, and assessment artifacts for new write/deploy paths, credentials, evidence movement, contradictions, and paths ready for control.
-- [semver:minor] Added large-organization executive rollups that group Agent Action BOM and control-backlog evidence by action, target, risk, authority, evidence, owner, contradiction, and closure dimensions.
-- [semver:minor] Added governed-usage metrics for monitored paths, governed paths, evidence packs, audit exports, approvals, connected runtimes, governed agents/workflows, verified controls, unknown controls, and contradictions.
-- [semver:minor] Added customer-controlled deployment and data-mode metadata across scan, report, and evidence artifacts, with `local_only` as the default posture.
-- [semver:minor] Added an opt-in public-surface assessment path for public repos, docs, SDKs, release notes, status pages, and workflows with explicit public/inferred evidence labels.
-- [semver:minor] Added reproducible website-ready demo artifacts, including sample BOM, action-control graph, redacted report, lab data, architecture boundary assets, and local/private data posture examples.
-- [semver:minor] Added precision calibration fixtures for ownership, approval evidence, non-production contradictions, stale source, dependency-only packages, CI automation, AI-assisted deploy paths, branch protection, and runtime evidence.
-- [semver:minor] Added enterprise-scale pressure tests for large-org reporting, redaction, scan quality, control-state consistency, evidence wording, proof completeness, graph size, BOM readability, and drift output.
+- (none yet)
 
 ### Changed
 
-- [semver:minor] Changed report and schema terminology to present approval, owner, proof, policy, runtime, target, and credential findings as evidence states rather than unsupported missing-control claims.
-- [semver:patch] Changed buyer-facing report, backlog, and remediation wording to use evidence-scoped language for approval, ownership, proof, policy, runtime, target, and credential states.
-- [semver:minor] Changed MCP absence reporting to use coverage-qualified statuses so reduced coverage, unsupported declarations, parse-failed candidates, and unscanned repos do not render as absolute missing-server claims.
-- [semver:patch] Changed buyer-facing reports and Agent Action BOM summaries to lead with compact scan coverage summaries while preserving detector-level scan-quality details in appendix and evidence JSON.
-- [semver:minor] Changed runtime evidence reporting so static-only scans render runtime evidence as not collected or not applicable unless runtime evidence is required or needed for a control claim.
-- [semver:minor] Changed evidence resolution to use deterministic source precedence with conflict reasons across ownership and control outputs.
-- [semver:minor] Changed production-data and mutable-endpoint projection so uncorrelated route/OpenAPI surfaces stay appendix-only while correlated paths render workflow, credential, deployment, target, and evidence context.
-- [semver:minor] Changed the default Agent Action BOM presentation to lead with one workflow/action path and move raw findings, graph refs, proof refs, scan quality, and detector diagnostics to appendices.
-- [semver:minor] Changed buyer-facing reports to lead with workflow chain highlights, authority, evidence state, proof/runtime status, boundary labels, and next-step recommendations before raw appendix detail.
-- Updated command, trust, and schema documentation for evidence-state control resolution, target classification, action path type classification, coverage-qualified absence, runtime evidence framing, and report QA guardrails.
+- (none yet)
 
 ### Deprecated
 
@@ -76,16 +24,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Fixed lifecycle transition proof emission and evidence-bundle exports so identity lifecycle events use the canonical `lifecycle_transition` record type with schema, contract, and JSONL artifact coverage.
-- [semver:patch] Fixed govern-first projection so control state, queue, review burden, risk tier, and remediation stay semantically consistent for critical, contradictory, and control-first paths.
+- (none yet)
 
 ### Security
 
-- [semver:minor] Added fail-closed validation that flags unsafe low-risk classifications when workflow, infra, credential, approval, or proof evidence contradicts a supposedly low-risk delegated path.
-- [semver:minor] Added cloud role, workload identity, deployment-path, and service-connection authority correlation for workflow credentials, graph nodes, and buyer-facing action paths.
-- [semver:minor] Added SaaS service-token target-system and likely-scope classification for SDLC paths without extracting or serializing secret values.
-- [semver:minor] Extended customer-safe redaction to session metadata, prompts, reviewers, changed files, provider URLs, evidence packet fields, proof refs, graph refs, and credential subjects.
-- [semver:patch] Raised the pinned Go toolchain to `1.26.4` across repo contracts to clear standard-library `govulncheck` findings in binary-scanning CI lanes.
 - (none yet)
 
 ## Changelog maintenance process
@@ -95,6 +37,82 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.6.0] - 2026-06-05
+<!-- release-semver: minor -->
+
+### Added
+
+- Added provider-neutral PR/MR provenance sidecars for changed files, reviewers, approvals, checks, deployments, merge metadata, branch protection, and environment gates.
+- Added typed Agentic SDLC evidence packets for consequential AI-assisted changes, including proof refs and missing-evidence status.
+- Added a local recent PR/MR review workflow for ranking bounded AI-assisted or automation-assisted delivery paths from provider metadata sidecars.
+- Added workflow chain artifacts that group delegated SDLC paths by repo, PR/MR, workflow, tool, credential, owner, approval, target, evidence, and outcome.
+- Added Control Path Graph V2 nodes and edges for delegated SDLC intent, human, agent team, PR/MR, approval, deployment, asset, evidence, and outcome paths.
+- Added intent-to-outcome action lineage segments for delegated SDLC workflows.
+- Added high-stakes path presets for release automation, production paths, credentials, IaC, identity/auth code, package publishing, payment flows, regulated customer workflows, external egress, MCP/tool configs, and mutable endpoints.
+- Added Agentic SDLC autonomy tiers, delegation readiness states, and recommended control outcomes to govern-first action paths, Agent Action BOM items, control backlog items, and markdown report rollups.
+- Added draft recommended action contracts plus today-versus-governed path views for control-first and high-stakes action paths in report and backlog artifacts.
+- Added canonical control resolution and evidence confidence fields for action paths, reports, backlog items, and v1 schemas so control gaps are evidence-scoped instead of inferred from local absence.
+- Added target classification for action paths so reports distinguish production-impacting, release-adjacent, customer-data-adjacent, internal tooling, developer productivity, test/demo/sandbox, and unknown targets.
+- Added action path type classification so reports distinguish AI-assisted workflows, agent frameworks, automation bots, CI/CD workflows, legacy scripts, plain source code, and unknown executable paths.
+- Added report QA coverage that blocks unsupported overclaiming and prevents non-agent action paths from being labeled as agents in generated buyer artifacts.
+- Added schema-backed external control evidence sidecars for local ownership, approval, provider, branch, deployment, and policy evidence.
+- Added deterministic correlation for external ownership, approval, app catalog, ticket, policy, and provider evidence.
+- Added branch protection, protected environment, deployment approval, required check, freeze window, and kill switch evidence for control reports.
+- Added freshness and expiry metadata for imported and declared evidence across reports, backlog, and evidence bundles.
+- Added versioned customer control declarations for owner mappings, target classes, accepted tooling, exceptions, non-prod declarations, and evidence links.
+- Added contradiction detection for customer declarations, production targets, credentials, workflows, deployment constraints, and policy evidence.
+- Added accepted-risk and suppression governance with expiry, ownership, scope, evidence state, rescan behavior, and appendix visibility.
+- Added lifecycle and ownership control queues for ownerless, inferred-owner, stale-lifecycle, and credential-bearing governance gaps.
+- Added path-specific closure evidence guidance across control backlog, Agent Action BOM, markdown reports, and exports.
+- Added per-path evidence completeness scoring for discovery, authority, blast radius, control, runtime evidence, and proof sufficiency.
+- Added documentation, schemas, scenarios, and acceptance coverage for Sprint 2 enterprise evidence ingest, contradiction handling, accepted-risk visibility, lifecycle queues, closure guidance, and completeness scoring.
+- Added a focused one-page Agent Action BOM view for a single workflow/action path with appendix details for raw findings, graph refs, proof details, and detector diagnostics.
+- Documented Sprint 3 Agent Action BOM focused-path contracts and schema coverage for primary workflow BOM output, evidence bundles, and local review workflows.
+- Added first-class GitLab CI/CD detection for local pipelines, safe local includes, jobs, stages, variables, manual gates, deploy/release authority, secrets by reference, AI agent execution, and MCP/tool invocation.
+- Added GitLab CI/CD workflow authority to action paths, privilege budget, Agent Action BOM, control backlog, graph, evidence packets, and scan quality summaries.
+- Added first-class Azure DevOps pipeline detection for local pipelines, safe local templates, stages, jobs, service connections, variable groups, environments, approvals/check hints, agent pools, deployment jobs, secrets by reference, AI agent execution, and MCP/tool invocation.
+- Added Azure DevOps pipeline authority to action paths, privilege budget, Agent Action BOM, control backlog, graph, evidence packets, and scan quality summaries.
+- Added deterministic local coding-agent session ingest for Codex-style agents, Claude Code, Cursor, Copilot, Gait traces, and future runtime exports.
+- Added runtime session evidence correlation into graph refs, evidence packets, Agent Action BOM coverage, report summaries, and evidence bundles.
+- Added paired internal and customer-redacted report artifacts with deterministic joins and a local-only private join map.
+- Added portable evidence bundle manifests with stable artifact metadata, redaction profiles, proof-chain refs, source privacy metadata, evidence-state summaries, and boundary labels.
+- Added a repeatable `wrkr assess` workflow that stitches scan, optional ingest, report, evidence, export, optional ticket payloads, and optional drift review into one deterministic output directory and manifest.
+- Added low-click report focus presets for BOM review, release-adjacent AI paths, write/deploy reach, approval and owner evidence gaps, evidence gaps, contradictions, drift review, and recommendations.
+- Added first-class drift review categories and fail-closed comparison metadata across regress, report, Agent Action BOM, and assessment artifacts for new write/deploy paths, credentials, evidence movement, contradictions, and paths ready for control.
+- Added large-organization executive rollups that group Agent Action BOM and control-backlog evidence by action, target, risk, authority, evidence, owner, contradiction, and closure dimensions.
+- Added governed-usage metrics for monitored paths, governed paths, evidence packs, audit exports, approvals, connected runtimes, governed agents/workflows, verified controls, unknown controls, and contradictions.
+- Added customer-controlled deployment and data-mode metadata across scan, report, and evidence artifacts, with `local_only` as the default posture.
+- Added an opt-in public-surface assessment path for public repos, docs, SDKs, release notes, status pages, and workflows with explicit public/inferred evidence labels.
+- Added reproducible website-ready demo artifacts, including sample BOM, action-control graph, redacted report, lab data, architecture boundary assets, and local/private data posture examples.
+- Added precision calibration fixtures for ownership, approval evidence, non-production contradictions, stale source, dependency-only packages, CI automation, AI-assisted deploy paths, branch protection, and runtime evidence.
+- Added enterprise-scale pressure tests for large-org reporting, redaction, scan quality, control-state consistency, evidence wording, proof completeness, graph size, BOM readability, and drift output.
+
+### Changed
+
+- Changed report and schema terminology to present approval, owner, proof, policy, runtime, target, and credential findings as evidence states rather than unsupported missing-control claims.
+- Changed buyer-facing report, backlog, and remediation wording to use evidence-scoped language for approval, ownership, proof, policy, runtime, target, and credential states.
+- Changed MCP absence reporting to use coverage-qualified statuses so reduced coverage, unsupported declarations, parse-failed candidates, and unscanned repos do not render as absolute missing-server claims.
+- Changed buyer-facing reports and Agent Action BOM summaries to lead with compact scan coverage summaries while preserving detector-level scan-quality details in appendix and evidence JSON.
+- Changed runtime evidence reporting so static-only scans render runtime evidence as not collected or not applicable unless runtime evidence is required or needed for a control claim.
+- Changed evidence resolution to use deterministic source precedence with conflict reasons across ownership and control outputs.
+- Changed production-data and mutable-endpoint projection so uncorrelated route/OpenAPI surfaces stay appendix-only while correlated paths render workflow, credential, deployment, target, and evidence context.
+- Changed the default Agent Action BOM presentation to lead with one workflow/action path and move raw findings, graph refs, proof refs, scan quality, and detector diagnostics to appendices.
+- Changed buyer-facing reports to lead with workflow chain highlights, authority, evidence state, proof/runtime status, boundary labels, and next-step recommendations before raw appendix detail.
+- Updated command, trust, and schema documentation for evidence-state control resolution, target classification, action path type classification, coverage-qualified absence, runtime evidence framing, and report QA guardrails.
+
+### Fixed
+
+- Fixed lifecycle transition proof emission and evidence-bundle exports so identity lifecycle events use the canonical `lifecycle_transition` record type with schema, contract, and JSONL artifact coverage.
+- Fixed govern-first projection so control state, queue, review burden, risk tier, and remediation stay semantically consistent for critical, contradictory, and control-first paths.
+
+### Security
+
+- Added fail-closed validation that flags unsafe low-risk classifications when workflow, infra, credential, approval, or proof evidence contradicts a supposedly low-risk delegated path.
+- Added cloud role, workload identity, deployment-path, and service-connection authority correlation for workflow credentials, graph nodes, and buyer-facing action paths.
+- Added SaaS service-token target-system and likely-scope classification for SDLC paths without extracting or serializing secret values.
+- Extended customer-safe redaction to session metadata, prompts, reviewers, changed files, provider URLs, evidence packet fields, proof refs, graph refs, and credential subjects.
+- Raised the pinned Go toolchain to `1.26.4` across repo contracts to clear standard-library `govulncheck` findings in binary-scanning CI lanes.
 
 ## [v1.5.0] - 2026-05-12
 <!-- release-semver: minor -->
