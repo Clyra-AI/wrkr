@@ -22,8 +22,9 @@ Then read `factory/skills/adhoc-plan/SKILL.md` and follow that Factory skill usi
 Project wrapper policy:
 
 - Write generated plans under profile `plan_output_dir`, currently `product/plans/adhoc`.
-- Treat the PR as plan-only: run lightweight plan validation only, and do not run full repo validation.
-- Do not poll, wait for, or inspect PR CI, and do not monitor post-merge CI or run post-merge hotfix loops for plan-only adhoc-plan PRs.
-- If branch protection, review, permissions, or policy blocks merge, report the blocker instead of waiting on CI.
+- Treat the PR as plan-only for local validation: run lightweight plan validation only, and do not run full repo validation before PR creation.
+- After PR creation, follow the Factory skill's shipping and merge process exactly, including the shared `commit-push` land gate for PR checks, Codex review, branch protection, merge, default-branch sync, and any profile-configured post-merge behavior.
+- If branch protection, review, permissions, or policy blocks merge inside the Factory/shared shipping gate, report the concrete blocker.
 
 Do not treat this wrapper as the source of truth for plan content. The Factory skill is authoritative for the generated plan structure.
+Do not treat this wrapper as an override for Factory merge, CI polling, Codex review, or post-merge rules.
