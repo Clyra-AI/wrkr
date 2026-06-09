@@ -14,7 +14,48 @@
   },
   "detection": {
     "compliance_gap_count": null,
-    "tool_type_breakdown": null,
+    "tool_type_breakdown": [
+      {
+        "count": 1,
+        "tool_type": "ci_agent"
+      },
+      {
+        "count": 5,
+        "tool_type": "claude"
+      },
+      {
+        "count": 3,
+        "tool_type": "codex"
+      },
+      {
+        "count": 1,
+        "tool_type": "compiled_action"
+      },
+      {
+        "count": 1,
+        "tool_type": "copilot"
+      },
+      {
+        "count": 3,
+        "tool_type": "cursor"
+      },
+      {
+        "count": 1,
+        "tool_type": "dependency"
+      },
+      {
+        "count": 1,
+        "tool_type": "gait_policy"
+      },
+      {
+        "count": 3,
+        "tool_type": "mcp"
+      },
+      {
+        "count": 1,
+        "tool_type": "skill"
+      }
+    ],
     "total_tools": null
   },
   "aggregation": {

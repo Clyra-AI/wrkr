@@ -74,42 +74,43 @@ type AgentDeploymentContext struct {
 }
 
 type Tool struct {
-	ToolID                   string                     `json:"tool_id" yaml:"tool_id"`
-	ToolFamilyID             string                     `json:"tool_family_id,omitempty" yaml:"tool_family_id,omitempty"`
-	ToolInstanceID           string                     `json:"tool_instance_id,omitempty" yaml:"tool_instance_id,omitempty"`
-	AgentID                  string                     `json:"agent_id" yaml:"agent_id"`
-	DiscoveryMethod          string                     `json:"discovery_method" yaml:"discovery_method"`
-	ToolType                 string                     `json:"tool_type" yaml:"tool_type"`
-	ToolCategory             string                     `json:"tool_category" yaml:"tool_category"`
-	ConfidenceScore          float64                    `json:"confidence_score" yaml:"confidence_score"`
-	Org                      string                     `json:"org" yaml:"org"`
-	Repos                    []string                   `json:"repos" yaml:"repos"`
-	Locations                []ToolLocation             `json:"locations" yaml:"locations"`
-	Purpose                  string                     `json:"purpose,omitempty" yaml:"purpose,omitempty"`
-	PurposeSource            string                     `json:"purpose_source,omitempty" yaml:"purpose_source,omitempty"`
-	PurposeConfidence        string                     `json:"purpose_confidence,omitempty" yaml:"purpose_confidence,omitempty"`
-	Version                  string                     `json:"version,omitempty" yaml:"version,omitempty"`
-	VersionSource            string                     `json:"version_source,omitempty" yaml:"version_source,omitempty"`
-	ConfigFingerprint        string                     `json:"config_fingerprint,omitempty" yaml:"config_fingerprint,omitempty"`
-	ConfigSource             string                     `json:"config_source,omitempty" yaml:"config_source,omitempty"`
-	Permissions              []string                   `json:"permissions,omitempty" yaml:"permissions,omitempty"`
-	WritePathClasses         []string                   `json:"write_path_classes,omitempty" yaml:"write_path_classes,omitempty"`
-	MutableEndpointSemantics []MutableEndpointSemantic  `json:"mutable_endpoint_semantics,omitempty" yaml:"mutable_endpoint_semantics,omitempty"`
-	GovernanceControls       []GovernanceControlMapping `json:"governance_controls,omitempty" yaml:"governance_controls,omitempty"`
-	PermissionSurface        PermissionSurface          `json:"permission_surface" yaml:"permission_surface"`
-	PermissionTier           string                     `json:"permission_tier" yaml:"permission_tier"`
-	RiskTier                 string                     `json:"risk_tier" yaml:"risk_tier"`
-	AdoptionPattern          string                     `json:"adoption_pattern" yaml:"adoption_pattern"`
-	RegulatoryMapping        []RegulatoryStatus         `json:"regulatory_mapping" yaml:"regulatory_mapping"`
-	EndpointClass            string                     `json:"endpoint_class" yaml:"endpoint_class"`
-	DataClass                string                     `json:"data_class" yaml:"data_class"`
-	AutonomyLevel            string                     `json:"autonomy_level" yaml:"autonomy_level"`
-	RiskScore                float64                    `json:"risk_score" yaml:"risk_score"`
-	ApprovalStatus           string                     `json:"approval_status" yaml:"approval_status"`
-	ApprovalClass            string                     `json:"approval_classification" yaml:"approval_classification"`
-	SecurityVisibilityStatus string                     `json:"security_visibility_status,omitempty" yaml:"security_visibility_status,omitempty"`
-	LifecycleState           string                     `json:"lifecycle_state" yaml:"lifecycle_state"`
-	TrustDepth               *TrustDepth                `json:"trust_depth,omitempty" yaml:"trust_depth,omitempty"`
+	ToolID                      string                     `json:"tool_id" yaml:"tool_id"`
+	ToolFamilyID                string                     `json:"tool_family_id,omitempty" yaml:"tool_family_id,omitempty"`
+	ToolInstanceID              string                     `json:"tool_instance_id,omitempty" yaml:"tool_instance_id,omitempty"`
+	AgentID                     string                     `json:"agent_id" yaml:"agent_id"`
+	DiscoveryMethod             string                     `json:"discovery_method" yaml:"discovery_method"`
+	ToolType                    string                     `json:"tool_type" yaml:"tool_type"`
+	ToolCategory                string                     `json:"tool_category" yaml:"tool_category"`
+	ConfidenceScore             float64                    `json:"confidence_score" yaml:"confidence_score"`
+	Org                         string                     `json:"org" yaml:"org"`
+	Repos                       []string                   `json:"repos" yaml:"repos"`
+	Locations                   []ToolLocation             `json:"locations" yaml:"locations"`
+	Purpose                     string                     `json:"purpose,omitempty" yaml:"purpose,omitempty"`
+	PurposeSource               string                     `json:"purpose_source,omitempty" yaml:"purpose_source,omitempty"`
+	PurposeConfidence           string                     `json:"purpose_confidence,omitempty" yaml:"purpose_confidence,omitempty"`
+	Version                     string                     `json:"version,omitempty" yaml:"version,omitempty"`
+	VersionSource               string                     `json:"version_source,omitempty" yaml:"version_source,omitempty"`
+	ConfigFingerprint           string                     `json:"config_fingerprint,omitempty" yaml:"config_fingerprint,omitempty"`
+	ConfigSource                string                     `json:"config_source,omitempty" yaml:"config_source,omitempty"`
+	MutableEndpointSemanticRefs []string                   `json:"mutable_endpoint_semantic_refs,omitempty" yaml:"mutable_endpoint_semantic_refs,omitempty"`
+	Permissions                 []string                   `json:"permissions,omitempty" yaml:"permissions,omitempty"`
+	WritePathClasses            []string                   `json:"write_path_classes,omitempty" yaml:"write_path_classes,omitempty"`
+	MutableEndpointSemantics    []MutableEndpointSemantic  `json:"mutable_endpoint_semantics,omitempty" yaml:"mutable_endpoint_semantics,omitempty"`
+	GovernanceControls          []GovernanceControlMapping `json:"governance_controls,omitempty" yaml:"governance_controls,omitempty"`
+	PermissionSurface           PermissionSurface          `json:"permission_surface" yaml:"permission_surface"`
+	PermissionTier              string                     `json:"permission_tier" yaml:"permission_tier"`
+	RiskTier                    string                     `json:"risk_tier" yaml:"risk_tier"`
+	AdoptionPattern             string                     `json:"adoption_pattern" yaml:"adoption_pattern"`
+	RegulatoryMapping           []RegulatoryStatus         `json:"regulatory_mapping" yaml:"regulatory_mapping"`
+	EndpointClass               string                     `json:"endpoint_class" yaml:"endpoint_class"`
+	DataClass                   string                     `json:"data_class" yaml:"data_class"`
+	AutonomyLevel               string                     `json:"autonomy_level" yaml:"autonomy_level"`
+	RiskScore                   float64                    `json:"risk_score" yaml:"risk_score"`
+	ApprovalStatus              string                     `json:"approval_status" yaml:"approval_status"`
+	ApprovalClass               string                     `json:"approval_classification" yaml:"approval_classification"`
+	SecurityVisibilityStatus    string                     `json:"security_visibility_status,omitempty" yaml:"security_visibility_status,omitempty"`
+	LifecycleState              string                     `json:"lifecycle_state" yaml:"lifecycle_state"`
+	TrustDepth                  *TrustDepth                `json:"trust_depth,omitempty" yaml:"trust_depth,omitempty"`
 }
 
 type PermissionSurface struct {
@@ -158,6 +159,7 @@ type Inventory struct {
 	Org                   string                         `json:"org" yaml:"org"`
 	Agents                []Agent                        `json:"agents" yaml:"agents"`
 	Tools                 []Tool                         `json:"tools" yaml:"tools"`
+	CanonicalStores       *CanonicalStores               `json:"canonical_stores,omitempty" yaml:"canonical_stores,omitempty"`
 	NonHumanIdentities    []NonHumanIdentity             `json:"non_human_identities,omitempty" yaml:"non_human_identities,omitempty"`
 	Methodology           MethodologySummary             `json:"methodology" yaml:"methodology"`
 	ApprovalSummary       ApprovalSummary                `json:"approval_summary" yaml:"approval_summary"`

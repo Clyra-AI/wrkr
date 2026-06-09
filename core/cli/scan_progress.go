@@ -693,6 +693,12 @@ func resolveScanProgressMode(requested scanProgressMode, jsonOutput bool, stderr
 		return scanProgressModePlain, "scan progress: requested --progress bar but this stderr target cannot safely render an updating bar; using plain progress lines"
 	case scanProgressModeAuto, "":
 		if jsonOutput {
+			if capabilities.SupportsBar {
+				return scanProgressModeBar, ""
+			}
+			if capabilities.Interactive {
+				return scanProgressModePlain, ""
+			}
 			return scanProgressModeEvents, ""
 		}
 		if capabilities.SupportsBar {

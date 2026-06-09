@@ -101,6 +101,9 @@ type ActionPath struct {
 	WritePathClasses                    []string                                `json:"write_path_classes,omitempty"`
 	ActionClasses                       []string                                `json:"action_classes,omitempty"`
 	ActionReasons                       []string                                `json:"action_reasons,omitempty"`
+	OccurrenceCount                     int                                     `json:"occurrence_count,omitempty"`
+	OccurrenceRefs                      []string                                `json:"occurrence_refs,omitempty"`
+	MutableEndpointSemanticRefs         []string                                `json:"mutable_endpoint_semantic_refs,omitempty"`
 	MutableEndpointSemantics            []agginventory.MutableEndpointSemantic  `json:"mutable_endpoint_semantics,omitempty"`
 	PullRequestWrite                    bool                                    `json:"pull_request_write,omitempty"`
 	MergeExecute                        bool                                    `json:"merge_execute,omitempty"`
@@ -113,7 +116,9 @@ type ActionPath struct {
 	CredentialAccess                    bool                                    `json:"credential_access"`
 	Credentials                         []*agginventory.CredentialProvenance    `json:"credentials,omitempty"`
 	CredentialProvenance                *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
+	CredentialAuthorityRef              string                                  `json:"credential_authority_ref,omitempty"`
 	CredentialAuthority                 *agginventory.CredentialAuthority       `json:"credential_authority,omitempty"`
+	AuthorityBindingRefs                []string                                `json:"authority_binding_refs,omitempty"`
 	AuthorityBindings                   []*agginventory.AuthorityBinding        `json:"authority_bindings,omitempty"`
 	PathContext                         *agginventory.PathContext               `json:"path_context,omitempty"`
 	TrustDepth                          *agginventory.TrustDepth                `json:"trust_depth,omitempty"`
@@ -245,66 +250,71 @@ func buildActionPath(
 		standingReasons = dedupeSortedStrings(append(standingReasons, authorityReasons...))
 	}
 	path := ActionPath{
-		PathID:                     actionPathID(entry),
-		Org:                        strings.TrimSpace(entry.Org),
-		Repo:                       firstRepoFromEntry(entry),
-		AgentID:                    strings.TrimSpace(entry.AgentID),
-		ToolFamilyID:               strings.TrimSpace(entry.ToolFamilyID),
-		ToolInstanceID:             strings.TrimSpace(entry.ToolInstanceID),
-		ToolType:                   actionPathToolType(entry),
-		Location:                   strings.TrimSpace(entry.Location),
-		LocationRange:              cloneLocationRange(entry.LocationRange),
-		Purpose:                    strings.TrimSpace(entry.Purpose),
-		PurposeSource:              strings.TrimSpace(entry.PurposeSource),
-		PurposeConfidence:          strings.TrimSpace(entry.PurposeConfidence),
-		Version:                    strings.TrimSpace(entry.Version),
-		VersionSource:              strings.TrimSpace(entry.VersionSource),
-		ConfigFingerprint:          strings.TrimSpace(entry.ConfigFingerprint),
-		ConfigSource:               strings.TrimSpace(entry.ConfigSource),
-		WriteCapable:               entry.WriteCapable,
-		OperationalOwner:           strings.TrimSpace(entry.OperationalOwner),
-		OwnerSource:                strings.TrimSpace(entry.OwnerSource),
-		OwnershipStatus:            strings.TrimSpace(entry.OwnershipStatus),
-		OwnershipState:             strings.TrimSpace(entry.OwnershipState),
-		OwnershipConfidence:        entry.OwnershipConfidence,
-		OwnershipEvidence:          dedupeSortedStrings(entry.OwnershipEvidence),
-		OwnershipConflicts:         dedupeSortedStrings(entry.OwnershipConflicts),
-		EvidenceDecisions:          ownershipDecisionSlice(entry.OwnershipDecision),
-		ApprovalGapReasons:         dedupeSortedStrings(entry.ApprovalGapReasons),
-		WritePathClasses:           dedupeSortedStrings(entry.WritePathClasses),
-		ActionClasses:              dedupeSortedStrings(entry.ActionClasses),
-		ActionReasons:              dedupeSortedStrings(entry.ActionReasons),
-		MutableEndpointSemantics:   agginventory.CloneMutableEndpointSemantics(entry.MutableEndpointSemantics),
-		PullRequestWrite:           entry.PullRequestWrite,
-		MergeExecute:               entry.MergeExecute,
-		DeployWrite:                entry.DeployWrite,
-		DeliveryChainStatus:        strings.TrimSpace(entry.DeliveryChainStatus),
-		ProductionTargetStatus:     strings.TrimSpace(entry.ProductionTargetStatus),
-		ProductionWrite:            entry.ProductionWrite,
-		ApprovalGap:                actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons),
-		SecurityVisibilityStatus:   strings.TrimSpace(entry.SecurityVisibilityStatus),
-		CredentialAccess:           entry.CredentialAccess,
-		Credentials:                agginventory.CloneCredentialProvenances(credentials),
-		CredentialProvenance:       agginventory.CloneCredentialProvenance(provenance),
-		CredentialAuthority:        agginventory.CloneCredentialAuthority(authority),
-		AuthorityBindings:          agginventory.CloneAuthorityBindings(entry.AuthorityBindings),
-		PathContext:                firstPathContext(entry.PathContext, entry.Location),
-		TrustDepth:                 agginventory.CloneTrustDepth(entry.TrustDepth),
-		DeploymentStatus:           strings.TrimSpace(entry.DeploymentStatus),
-		WorkflowTriggerClass:       strings.TrimSpace(entry.WorkflowTriggerClass),
-		ExecutionIdentity:          executionIdentity,
-		ExecutionIdentityType:      executionIdentityType,
-		ExecutionIdentitySource:    executionIdentitySource,
-		ExecutionIdentityStatus:    executionIdentityStatus,
-		ExecutionIdentityRationale: executionIdentityRationale,
-		BusinessStateSurface:       classifyBusinessStateSurface(entry),
-		AttackPathScore:            attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
-		RiskScore:                  actionPathRiskScore(entry.RiskScore, provenance),
-		StandingPrivilege:          entry.StandingPrivilege || standingPrivilege,
-		StandingPrivilegeReasons:   dedupeSortedStrings(append(append([]string(nil), entry.StandingPrivilegeReasons...), standingReasons...)),
-		PolicyCoverageStatus:       PolicyCoverageStatusNone,
-		MatchedProductionTargets:   dedupeSortedStrings(entry.MatchedProductionTargets),
-		GovernanceControls:         append([]agginventory.GovernanceControlMapping(nil), entry.GovernanceControls...),
+		PathID:                      actionPathID(entry),
+		Org:                         strings.TrimSpace(entry.Org),
+		Repo:                        firstRepoFromEntry(entry),
+		AgentID:                     strings.TrimSpace(entry.AgentID),
+		ToolFamilyID:                strings.TrimSpace(entry.ToolFamilyID),
+		ToolInstanceID:              strings.TrimSpace(entry.ToolInstanceID),
+		ToolType:                    actionPathToolType(entry),
+		Location:                    strings.TrimSpace(entry.Location),
+		LocationRange:               cloneLocationRange(entry.LocationRange),
+		Purpose:                     strings.TrimSpace(entry.Purpose),
+		PurposeSource:               strings.TrimSpace(entry.PurposeSource),
+		PurposeConfidence:           strings.TrimSpace(entry.PurposeConfidence),
+		Version:                     strings.TrimSpace(entry.Version),
+		VersionSource:               strings.TrimSpace(entry.VersionSource),
+		ConfigFingerprint:           strings.TrimSpace(entry.ConfigFingerprint),
+		ConfigSource:                strings.TrimSpace(entry.ConfigSource),
+		WriteCapable:                entry.WriteCapable,
+		OperationalOwner:            strings.TrimSpace(entry.OperationalOwner),
+		OwnerSource:                 strings.TrimSpace(entry.OwnerSource),
+		OwnershipStatus:             strings.TrimSpace(entry.OwnershipStatus),
+		OwnershipState:              strings.TrimSpace(entry.OwnershipState),
+		OwnershipConfidence:         entry.OwnershipConfidence,
+		OwnershipEvidence:           dedupeSortedStrings(entry.OwnershipEvidence),
+		OwnershipConflicts:          dedupeSortedStrings(entry.OwnershipConflicts),
+		EvidenceDecisions:           ownershipDecisionSlice(entry.OwnershipDecision),
+		ApprovalGapReasons:          dedupeSortedStrings(entry.ApprovalGapReasons),
+		WritePathClasses:            dedupeSortedStrings(entry.WritePathClasses),
+		ActionClasses:               dedupeSortedStrings(entry.ActionClasses),
+		ActionReasons:               dedupeSortedStrings(entry.ActionReasons),
+		OccurrenceCount:             1,
+		OccurrenceRefs:              []string{actionPathOccurrenceRef(entry)},
+		MutableEndpointSemanticRefs: append([]string(nil), entry.MutableEndpointSemanticRefs...),
+		MutableEndpointSemantics:    agginventory.CloneMutableEndpointSemantics(entry.MutableEndpointSemantics),
+		PullRequestWrite:            entry.PullRequestWrite,
+		MergeExecute:                entry.MergeExecute,
+		DeployWrite:                 entry.DeployWrite,
+		DeliveryChainStatus:         strings.TrimSpace(entry.DeliveryChainStatus),
+		ProductionTargetStatus:      strings.TrimSpace(entry.ProductionTargetStatus),
+		ProductionWrite:             entry.ProductionWrite,
+		ApprovalGap:                 actionPathApprovalGap(entry.ApprovalClassification, entry.ApprovalGapReasons),
+		SecurityVisibilityStatus:    strings.TrimSpace(entry.SecurityVisibilityStatus),
+		CredentialAccess:            entry.CredentialAccess,
+		Credentials:                 agginventory.CloneCredentialProvenances(credentials),
+		CredentialProvenance:        agginventory.CloneCredentialProvenance(provenance),
+		CredentialAuthorityRef:      strings.TrimSpace(entry.CredentialAuthorityRef),
+		CredentialAuthority:         agginventory.CloneCredentialAuthority(authority),
+		AuthorityBindingRefs:        append([]string(nil), entry.AuthorityBindingRefs...),
+		AuthorityBindings:           agginventory.CloneAuthorityBindings(entry.AuthorityBindings),
+		PathContext:                 firstPathContext(entry.PathContext, entry.Location),
+		TrustDepth:                  agginventory.CloneTrustDepth(entry.TrustDepth),
+		DeploymentStatus:            strings.TrimSpace(entry.DeploymentStatus),
+		WorkflowTriggerClass:        strings.TrimSpace(entry.WorkflowTriggerClass),
+		ExecutionIdentity:           executionIdentity,
+		ExecutionIdentityType:       executionIdentityType,
+		ExecutionIdentitySource:     executionIdentitySource,
+		ExecutionIdentityStatus:     executionIdentityStatus,
+		ExecutionIdentityRationale:  executionIdentityRationale,
+		BusinessStateSurface:        classifyBusinessStateSurface(entry),
+		AttackPathScore:             attackScoreByRepo[repoKey(entry.Org, firstRepoFromEntry(entry))],
+		RiskScore:                   actionPathRiskScore(entry.RiskScore, provenance),
+		StandingPrivilege:           entry.StandingPrivilege || standingPrivilege,
+		StandingPrivilegeReasons:    dedupeSortedStrings(append(append([]string(nil), entry.StandingPrivilegeReasons...), standingReasons...)),
+		PolicyCoverageStatus:        PolicyCoverageStatusNone,
+		MatchedProductionTargets:    dedupeSortedStrings(entry.MatchedProductionTargets),
+		GovernanceControls:          append([]agginventory.GovernanceControlMapping(nil), entry.GovernanceControls...),
 	}
 	return path
 }
@@ -383,6 +393,18 @@ func actionPathIdentityKey(entry agginventory.AgentPrivilegeMapEntry) string {
 	return strings.Join(parts, "|")
 }
 
+func actionPathOccurrenceRef(entry agginventory.AgentPrivilegeMapEntry) string {
+	parts := []string{
+		strings.TrimSpace(entry.Org),
+		strings.Join(dedupeSortedStrings(entry.Repos), ","),
+		strings.TrimSpace(entry.Location),
+		locationRangeKey(entry.LocationRange),
+		strings.TrimSpace(entry.ToolType),
+		strings.TrimSpace(entry.ToolID),
+	}
+	return strings.Join(parts, "|")
+}
+
 func hashActionPathIdentity(identity string) string {
 	sum := sha256.Sum256([]byte(identity))
 	return actionPathIDPrefix + hex.EncodeToString(sum[:6])
@@ -416,7 +438,9 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.CredentialAccess = current.CredentialAccess || incoming.CredentialAccess
 	merged.Credentials = mergeCredentials(current.Credentials, incoming.Credentials)
 	merged.CredentialProvenance = agginventory.CredentialRollup(merged.Credentials, mergeCredentialProvenance(current.CredentialProvenance, incoming.CredentialProvenance))
+	merged.CredentialAuthorityRef = firstNonEmptyString(current.CredentialAuthorityRef, incoming.CredentialAuthorityRef)
 	merged.CredentialAuthority = mergeCredentialAuthority(current.CredentialAuthority, incoming.CredentialAuthority)
+	merged.AuthorityBindingRefs = dedupeSortedStrings(append(append([]string(nil), current.AuthorityBindingRefs...), incoming.AuthorityBindingRefs...))
 	merged.AuthorityBindings = agginventory.NormalizeAuthorityBindings(append(agginventory.CloneAuthorityBindings(current.AuthorityBindings), agginventory.CloneAuthorityBindings(incoming.AuthorityBindings)...))
 	merged.PathContext = mergePathContext(current.PathContext, incoming.PathContext)
 	merged.TrustDepth = agginventory.MergeTrustDepth(current.TrustDepth, incoming.TrustDepth)
@@ -427,6 +451,15 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.WritePathClasses = dedupeSortedStrings(append(append([]string(nil), current.WritePathClasses...), incoming.WritePathClasses...))
 	merged.ActionClasses = dedupeSortedStrings(append(append([]string(nil), current.ActionClasses...), incoming.ActionClasses...))
 	merged.ActionReasons = dedupeSortedStrings(append(append([]string(nil), current.ActionReasons...), incoming.ActionReasons...))
+	merged.OccurrenceRefs = dedupeSortedStrings(append(append([]string(nil), current.OccurrenceRefs...), incoming.OccurrenceRefs...))
+	merged.OccurrenceCount = len(merged.OccurrenceRefs)
+	if merged.OccurrenceCount == 0 {
+		merged.OccurrenceCount = maxInt(current.OccurrenceCount, incoming.OccurrenceCount)
+		if merged.OccurrenceCount == 0 {
+			merged.OccurrenceCount = 1
+		}
+	}
+	merged.MutableEndpointSemanticRefs = dedupeSortedStrings(append(append([]string(nil), current.MutableEndpointSemanticRefs...), incoming.MutableEndpointSemanticRefs...))
 	merged.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(append(append([]agginventory.MutableEndpointSemantic(nil), current.MutableEndpointSemantics...), incoming.MutableEndpointSemantics...))
 	merged.MatchedProductionTargets = dedupeSortedStrings(append(append([]string(nil), current.MatchedProductionTargets...), incoming.MatchedProductionTargets...))
 	merged.ProductionTargetStatus = mergeProductionTargetStatus(current.ProductionTargetStatus, incoming.ProductionTargetStatus)
@@ -557,48 +590,51 @@ func BuildControlPathGraph(paths []ActionPath) *aggattack.ControlPathGraph {
 	inputs := make([]aggattack.ControlPathInput, 0, len(paths))
 	for _, path := range paths {
 		inputs = append(inputs, aggattack.ControlPathInput{
-			PathID:                    strings.TrimSpace(path.PathID),
-			AgentID:                   strings.TrimSpace(path.AgentID),
-			Org:                       strings.TrimSpace(path.Org),
-			Repo:                      strings.TrimSpace(path.Repo),
-			ToolType:                  strings.TrimSpace(path.ToolType),
-			Location:                  strings.TrimSpace(path.Location),
-			Purpose:                   strings.TrimSpace(path.Purpose),
-			PurposeSource:             strings.TrimSpace(path.PurposeSource),
-			PurposeConfidence:         strings.TrimSpace(path.PurposeConfidence),
-			Version:                   strings.TrimSpace(path.Version),
-			VersionSource:             strings.TrimSpace(path.VersionSource),
-			ConfigFingerprint:         strings.TrimSpace(path.ConfigFingerprint),
-			ConfigSource:              strings.TrimSpace(path.ConfigSource),
-			ExecutionIdentity:         strings.TrimSpace(path.ExecutionIdentity),
-			ExecutionIdentityType:     strings.TrimSpace(path.ExecutionIdentityType),
-			ExecutionIdentitySource:   strings.TrimSpace(path.ExecutionIdentitySource),
-			ExecutionIdentityStatus:   strings.TrimSpace(path.ExecutionIdentityStatus),
-			CredentialAccess:          path.CredentialAccess,
-			CredentialProvenance:      agginventory.CloneCredentialProvenance(path.CredentialProvenance),
-			CredentialAuthority:       agginventory.CloneCredentialAuthority(path.CredentialAuthority),
-			AuthorityBindings:         agginventory.CloneAuthorityBindings(path.AuthorityBindings),
-			MutableEndpointSemantics:  agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics),
-			GovernanceControls:        append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),
-			MatchedProductionTargets:  dedupeSortedStrings(path.MatchedProductionTargets),
-			WritePathClasses:          dedupeSortedStrings(path.WritePathClasses),
-			PullRequestWrite:          path.PullRequestWrite,
-			MergeExecute:              path.MergeExecute,
-			DeployWrite:               path.DeployWrite,
-			ProductionWrite:           path.ProductionWrite,
-			ApprovalGap:               path.ApprovalGap,
-			IntroducedBy:              path.IntroducedBy,
-			PolicyRefs:                dedupeSortedStrings(path.PolicyRefs),
-			ControlResolutionState:    strings.TrimSpace(path.ControlResolutionState),
-			AutonomyTier:              strings.TrimSpace(path.AutonomyTier),
-			DelegationReadinessState:  strings.TrimSpace(path.DelegationReadinessState),
-			ApprovalEvidenceState:     strings.TrimSpace(path.ApprovalEvidenceState),
-			ProofEvidenceState:        strings.TrimSpace(path.ProofEvidenceState),
-			RuntimeEvidenceState:      strings.TrimSpace(path.RuntimeEvidenceState),
-			TargetEvidenceState:       strings.TrimSpace(path.TargetEvidenceState),
-			EvidenceCompletenessLabel: evidenceCompletenessProjectionLabel(path.EvidenceCompleteness),
-			AttackPathRefs:            dedupeSortedStrings(path.AttackPathRefs),
-			SourceFindingKeys:         dedupeSortedStrings(path.SourceFindingKeys),
+			PathID:                      strings.TrimSpace(path.PathID),
+			AgentID:                     strings.TrimSpace(path.AgentID),
+			Org:                         strings.TrimSpace(path.Org),
+			Repo:                        strings.TrimSpace(path.Repo),
+			ToolType:                    strings.TrimSpace(path.ToolType),
+			Location:                    strings.TrimSpace(path.Location),
+			Purpose:                     strings.TrimSpace(path.Purpose),
+			PurposeSource:               strings.TrimSpace(path.PurposeSource),
+			PurposeConfidence:           strings.TrimSpace(path.PurposeConfidence),
+			Version:                     strings.TrimSpace(path.Version),
+			VersionSource:               strings.TrimSpace(path.VersionSource),
+			ConfigFingerprint:           strings.TrimSpace(path.ConfigFingerprint),
+			ConfigSource:                strings.TrimSpace(path.ConfigSource),
+			ExecutionIdentity:           strings.TrimSpace(path.ExecutionIdentity),
+			ExecutionIdentityType:       strings.TrimSpace(path.ExecutionIdentityType),
+			ExecutionIdentitySource:     strings.TrimSpace(path.ExecutionIdentitySource),
+			ExecutionIdentityStatus:     strings.TrimSpace(path.ExecutionIdentityStatus),
+			CredentialAccess:            path.CredentialAccess,
+			CredentialProvenance:        agginventory.CloneCredentialProvenance(path.CredentialProvenance),
+			CredentialAuthorityRef:      strings.TrimSpace(path.CredentialAuthorityRef),
+			CredentialAuthority:         agginventory.CloneCredentialAuthority(path.CredentialAuthority),
+			AuthorityBindingRefs:        dedupeSortedStrings(path.AuthorityBindingRefs),
+			AuthorityBindings:           agginventory.CloneAuthorityBindings(path.AuthorityBindings),
+			MutableEndpointSemanticRefs: dedupeSortedStrings(path.MutableEndpointSemanticRefs),
+			MutableEndpointSemantics:    agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics),
+			GovernanceControls:          append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),
+			MatchedProductionTargets:    dedupeSortedStrings(path.MatchedProductionTargets),
+			WritePathClasses:            dedupeSortedStrings(path.WritePathClasses),
+			PullRequestWrite:            path.PullRequestWrite,
+			MergeExecute:                path.MergeExecute,
+			DeployWrite:                 path.DeployWrite,
+			ProductionWrite:             path.ProductionWrite,
+			ApprovalGap:                 path.ApprovalGap,
+			IntroducedBy:                path.IntroducedBy,
+			PolicyRefs:                  dedupeSortedStrings(path.PolicyRefs),
+			ControlResolutionState:      strings.TrimSpace(path.ControlResolutionState),
+			AutonomyTier:                strings.TrimSpace(path.AutonomyTier),
+			DelegationReadinessState:    strings.TrimSpace(path.DelegationReadinessState),
+			ApprovalEvidenceState:       strings.TrimSpace(path.ApprovalEvidenceState),
+			ProofEvidenceState:          strings.TrimSpace(path.ProofEvidenceState),
+			RuntimeEvidenceState:        strings.TrimSpace(path.RuntimeEvidenceState),
+			TargetEvidenceState:         strings.TrimSpace(path.TargetEvidenceState),
+			EvidenceCompletenessLabel:   evidenceCompletenessProjectionLabel(path.EvidenceCompleteness),
+			AttackPathRefs:              dedupeSortedStrings(path.AttackPathRefs),
+			SourceFindingKeys:           dedupeSortedStrings(path.SourceFindingKeys),
 		})
 	}
 	return aggattack.BuildControlPathGraph(inputs)

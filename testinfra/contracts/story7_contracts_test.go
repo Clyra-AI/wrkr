@@ -519,7 +519,7 @@ func normalizeAny(input any) any {
 		out := make(map[string]any, len(typed))
 		for key, value := range typed {
 			switch key {
-			case "generated_at", "exported_at", "timestamp", "created_at", "updated_at", "scan_started_at", "scan_completed_at", "scan_duration_seconds":
+			case "generated_at", "exported_at", "timestamp", "created_at", "updated_at", "scan_started_at", "scan_completed_at", "scan_duration_seconds", "state_path":
 				continue
 			default:
 				out[key] = normalizeAny(value)

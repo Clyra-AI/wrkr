@@ -8,14 +8,14 @@
       "description": "Architecture boundary page data derived from source, detection, aggregation, and proof summaries.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:6e1e7a6b6c3717f8d0b0ea5ad597360e389516b1f0fdc2af810ac19220c88218"
+      "sha256": "sha256:bc1e4e5f996bafb5e56be23a6227b0ccc028b4ad907a6f7ae59ba48187c4c10d"
     },
     {
       "path": "interactive-lab-data.json",
       "description": "Interactive lab summary data projected from deterministic report and evidence outputs.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:c1b0d4bf141a38a9304c0bac11a3573b4c0aa8f7dda1d53eda3c0dc29def203d"
+      "sha256": "sha256:ce94cb22a66ba631292be795404a4aea8a00d4e3834d4dfbf92bf1ebd048edd2"
     },
     {
       "path": "local-private-posture.md",
@@ -34,14 +34,14 @@
       "description": "Customer-redacted Control Path Graph sample for website graph rendering and demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:2252f9d99620ea06294d2585feb20ce486ab082f6468939317a10111dd5da191"
+      "sha256": "sha256:76a713c43f8c9a278f937317de718e7a784efe1dbd69985e43e39eb3a8d68383"
     },
     {
       "path": "sample-redacted-report.md",
       "description": "Customer-redacted executive markdown report suitable for public-facing demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:2e248026e35e6c4e97277ff73f52ef03f8af223c795d4ae6bc7cd887cc331940"
+      "sha256": "sha256:5e669f9e1a4e279ab8a9dad7a33a7001f1c4a8910b93f59fad6e8ec32f2b3a84"
     }
   ],
   "commands": [

@@ -125,7 +125,8 @@ func runStory21Scan(t *testing.T, inputPath, statePath string) (map[string]any, 
 func normalizeStory21Volatile(in map[string]any) map[string]any {
 	out := map[string]any{}
 	for key, value := range in {
-		if strings.EqualFold(strings.TrimSpace(key), "generated_at") {
+		switch strings.ToLower(strings.TrimSpace(key)) {
+		case "generated_at", "state_path":
 			continue
 		}
 		out[key] = normalizeStory21Any(value)

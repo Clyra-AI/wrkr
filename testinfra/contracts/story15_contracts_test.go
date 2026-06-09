@@ -101,14 +101,43 @@ func runStory15ScanJSON(t *testing.T, scanPath, statePath string) map[string]any
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse scan output json: %v", err)
 	}
+	hydrateStory15ScanPayload(t, statePath, payload)
 	return payload
+}
+
+func hydrateStory15ScanPayload(t *testing.T, statePath string, payload map[string]any) {
+	t.Helper()
+	raw, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read scan state %s: %v", statePath, err)
+	}
+	statePayload := map[string]any{}
+	if err := json.Unmarshal(raw, &statePayload); err != nil {
+		t.Fatalf("parse scan state %s: %v", statePath, err)
+	}
+	for _, key := range []string{"findings", "inventory", "control_backlog", "scan_quality", "scan_mode", "profile", "posture_score", "source_privacy", "agent_privilege_map", "repo_exposure_summaries"} {
+		if _, present := payload[key]; !present {
+			if value, ok := statePayload[key]; ok {
+				payload[key] = value
+			}
+		}
+	}
+	if riskReport, ok := statePayload["risk_report"].(map[string]any); ok {
+		for _, key := range []string{"ranked_findings", "top_findings", "attack_paths", "top_attack_paths", "action_paths", "action_path_to_control_first", "control_path_graph", "workflow_chains"} {
+			if _, present := payload[key]; !present {
+				if value, ok := riskReport[key]; ok {
+					payload[key] = value
+				}
+			}
+		}
+	}
 }
 
 func normalizeStory15Volatile(in map[string]any) map[string]any {
 	out := map[string]any{}
 	for key, value := range in {
 		switch key {
-		case "generated_at":
+		case "generated_at", "state_path":
 			continue
 		default:
 			out[key] = normalizeStory15Any(value)
@@ -124,7 +153,7 @@ func normalizeStory15Any(value any) any {
 		for key, val := range typed {
 			lower := strings.ToLower(strings.TrimSpace(key))
 			switch lower {
-			case "generated_at", "scan_started_at", "scan_completed_at", "scan_duration_seconds":
+			case "generated_at", "scan_started_at", "scan_completed_at", "scan_duration_seconds", "state_path":
 				continue
 			default:
 				out[key] = normalizeStory15Any(val)

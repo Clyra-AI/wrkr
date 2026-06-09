@@ -85,6 +85,7 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		copyItem.Location = maybeRedactLocationLike(copyItem.Location, config)
 		copyItem.OperationalOwner = maybeRedactOwner(copyItem.OperationalOwner, config)
 		copyItem.ConfigSource = maybeRedactLocationLike(copyItem.ConfigSource, config)
+		copyItem.OccurrenceRefs = maybeRedactStringSlice(copyItem.OccurrenceRefs, "path", config.Has(RedactionPaths) || config.Has(RedactionRepos))
 		copyItem.AttackPathRefs = maybeRedactStringSlice(copyItem.AttackPathRefs, "attack", config.Has(RedactionGraphRefs))
 		copyItem.SourceFindingKeys = maybeRedactStringSlice(copyItem.SourceFindingKeys, "finding", shouldRedactFindingKeys(config))
 		if copyItem.CredentialProvenance != nil {
@@ -140,6 +141,7 @@ func sanitizeActionSurfaceRegistryWithConfig(in []ActionSurfaceRegistryEntry, co
 		copyItem.ConfigSource = maybeRedactLocationLike(copyItem.ConfigSource, config)
 		copyItem.Credentials = redactCredentialsWithConfig(copyItem.Credentials, config)
 		copyItem.MutableEndpointSemantics = sanitizeMutableEndpointSemanticsWithConfig(copyItem.MutableEndpointSemantics, config)
+		copyItem.AuthorityBindingRefs = maybeRedactStringSlice(copyItem.AuthorityBindingRefs, "binding", config.Has(RedactionPaths) || config.Has(RedactionRepos))
 		copyItem.PathIDs = maybeRedactStringSlice(copyItem.PathIDs, "path", config.Has(RedactionPaths))
 		copyItem.GraphRefs = sanitizeGraphRefsWithConfig(copyItem.GraphRefs, config)
 		if copyItem.CredentialAuthority != nil {
@@ -244,6 +246,7 @@ func sanitizeControlPathGraphWithConfig(in *aggattack.ControlPathGraph, config R
 		copyGraph.Nodes[idx].Label = maybeRedactCompositeLabel(copyGraph.Nodes[idx].Label, config)
 		copyGraph.Nodes[idx].Location = maybeRedactLocationLike(copyGraph.Nodes[idx].Location, config)
 		copyGraph.Nodes[idx].ConfigSource = maybeRedactLocationLike(copyGraph.Nodes[idx].ConfigSource, config)
+		copyGraph.Nodes[idx].AuthorityBindingRefs = maybeRedactStringSlice(copyGraph.Nodes[idx].AuthorityBindingRefs, "binding", config.Has(RedactionPaths) || config.Has(RedactionRepos))
 		copyGraph.Nodes[idx].MutableEndpointSemantics = sanitizeMutableEndpointSemanticsWithConfig(copyGraph.Nodes[idx].MutableEndpointSemantics, config)
 		copyGraph.Nodes[idx].SourceRefs = cloneStrings(copyGraph.Nodes[idx].SourceRefs)
 		copyGraph.Nodes[idx].SourceFindingKeys = maybeRedactStringSlice(copyGraph.Nodes[idx].SourceFindingKeys, "finding", shouldRedactFindingKeys(config))
@@ -405,6 +408,7 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].Location = maybeRedactLocationLike(copyBOM.Items[idx].Location, config)
 		copyBOM.Items[idx].Owner = maybeRedactOwner(copyBOM.Items[idx].Owner, config)
 		copyBOM.Items[idx].ConfigSource = maybeRedactLocationLike(copyBOM.Items[idx].ConfigSource, config)
+		copyBOM.Items[idx].OccurrenceRefs = maybeRedactStringSlice(copyBOM.Items[idx].OccurrenceRefs, "path", config.Has(RedactionPaths) || config.Has(RedactionRepos))
 		copyBOM.Items[idx].ProofRefs = maybeRedactStringSlice(copyBOM.Items[idx].ProofRefs, "proof", config.Has(RedactionProofRefs))
 		copyBOM.Items[idx].RuntimeSessionRefs = maybeRedactStringSlice(copyBOM.Items[idx].RuntimeSessionRefs, "session", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 		for itemIdx := range copyBOM.Items[idx].ObservedChangedFiles {

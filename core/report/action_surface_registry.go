@@ -35,25 +35,27 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 			group = &actionSurfaceRegistryAccumulator{
 				rank: idx,
 				entry: ActionSurfaceRegistryEntry{
-					RegistryID:        actionSurfaceRegistryID(key),
-					SurfaceType:       actionSurfaceType(path),
-					Org:               strings.TrimSpace(path.Org),
-					Repo:              strings.TrimSpace(path.Repo),
-					ToolType:          strings.TrimSpace(path.ToolType),
-					ToolInstanceID:    strings.TrimSpace(path.ToolInstanceID),
-					Location:          strings.TrimSpace(path.Location),
-					Label:             actionSurfaceLabel(path),
-					Owner:             strings.TrimSpace(path.OperationalOwner),
-					OwnerSource:       strings.TrimSpace(path.OwnerSource),
-					Purpose:           strings.TrimSpace(path.Purpose),
-					PurposeSource:     strings.TrimSpace(path.PurposeSource),
-					PurposeConfidence: strings.TrimSpace(path.PurposeConfidence),
-					Version:           strings.TrimSpace(path.Version),
-					VersionSource:     strings.TrimSpace(path.VersionSource),
-					ConfigFingerprint: strings.TrimSpace(path.ConfigFingerprint),
-					ConfigSource:      strings.TrimSpace(path.ConfigSource),
-					ConfidenceLane:    strings.TrimSpace(path.ConfidenceLane),
-					Remediation:       risk.RemediationForActionPath(path),
+					RegistryID:             actionSurfaceRegistryID(key),
+					SurfaceType:            actionSurfaceType(path),
+					Org:                    strings.TrimSpace(path.Org),
+					Repo:                   strings.TrimSpace(path.Repo),
+					ToolType:               strings.TrimSpace(path.ToolType),
+					ToolInstanceID:         strings.TrimSpace(path.ToolInstanceID),
+					Location:               strings.TrimSpace(path.Location),
+					Label:                  actionSurfaceLabel(path),
+					Owner:                  strings.TrimSpace(path.OperationalOwner),
+					OwnerSource:            strings.TrimSpace(path.OwnerSource),
+					Purpose:                strings.TrimSpace(path.Purpose),
+					PurposeSource:          strings.TrimSpace(path.PurposeSource),
+					PurposeConfidence:      strings.TrimSpace(path.PurposeConfidence),
+					Version:                strings.TrimSpace(path.Version),
+					VersionSource:          strings.TrimSpace(path.VersionSource),
+					ConfigFingerprint:      strings.TrimSpace(path.ConfigFingerprint),
+					ConfigSource:           strings.TrimSpace(path.ConfigSource),
+					CredentialAuthorityRef: strings.TrimSpace(path.CredentialAuthorityRef),
+					AuthorityBindingRefs:   append([]string(nil), path.AuthorityBindingRefs...),
+					ConfidenceLane:         strings.TrimSpace(path.ConfidenceLane),
+					Remediation:            risk.RemediationForActionPath(path),
 				},
 			}
 			groups[key] = group
@@ -73,10 +75,13 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 		group.entry.ConfigSource = firstNonEmptyValue(group.entry.ConfigSource, strings.TrimSpace(path.ConfigSource))
 		group.entry.Remediation = firstNonEmptyValue(group.entry.Remediation, risk.RemediationForActionPath(path))
 		group.entry.ReachableActions = uniqueSortedStrings(append(group.entry.ReachableActions, append([]string(nil), path.ActionClasses...)...))
+		group.entry.MutableEndpointSemanticRefs = uniqueSortedStrings(append(group.entry.MutableEndpointSemanticRefs, append([]string(nil), path.MutableEndpointSemanticRefs...)...))
 		group.entry.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(append(group.entry.MutableEndpointSemantics, path.MutableEndpointSemantics...))
 		group.entry.PathIDs = uniqueSortedStrings(append(group.entry.PathIDs, strings.TrimSpace(path.PathID)))
 		group.entry.ActionPathCount = len(group.entry.PathIDs)
 		group.entry.GraphRefs = mergeRegistryGraphRefs(group.entry.GraphRefs, graphRefsByPath[strings.TrimSpace(path.PathID)])
+		group.entry.CredentialAuthorityRef = firstNonEmptyValue(group.entry.CredentialAuthorityRef, strings.TrimSpace(path.CredentialAuthorityRef))
+		group.entry.AuthorityBindingRefs = uniqueSortedStrings(append(group.entry.AuthorityBindingRefs, append([]string(nil), path.AuthorityBindingRefs...)...))
 		group.entry.CredentialAuthority = mergeRegistryCredentialAuthority(group.entry.CredentialAuthority, path.CredentialAuthority)
 		group.entry.Credentials = mergeRegistryCredentials(group.entry.Credentials, path.Credentials)
 		if registryConfidenceLaneRank(strings.TrimSpace(path.ConfidenceLane)) < registryConfidenceLaneRank(group.entry.ConfidenceLane) {

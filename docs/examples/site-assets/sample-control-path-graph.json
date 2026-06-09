@@ -15094,6 +15094,7 @@
         "scope_confidence": "high",
         "standing_access": true
       },
+      "credential_authority_ref": "cred-97a089b3eff6",
       "evidence_refs": [
         "evidence-000001",
         "evidence-000002",

@@ -197,6 +197,10 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
 	securityVisibility := securityVisibilityFromInventory(in.Snapshot.Inventory)
 	nextActions := buildNextActions(riskItems, lifecycleSummary, regressSummary)
+	policyOutcomes := BuildPolicyOutcomes(in.Snapshot.Findings)
+	if redactionConfig.Applies() {
+		policyOutcomes = sanitizePolicyOutcomesWithConfig(policyOutcomes, redactionConfig)
+	}
 	pack := templatespkg.Resolve(string(template))
 	sections := buildSections(pack, template == TemplatePublic, headline, methodology, riskItems, attackPathFacts, riskReport.ControlPathGraph, complianceSummary, privilegeBudget, securityVisibility, deltas, lifecycleSummary, regressSummary, proofRef, nextActions, sourcePrivacy)
 
@@ -253,6 +257,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		Proof:                    proofRef,
 		NextActions:              nextActions,
 		Activation:               activation,
+		PolicyOutcomes:           policyOutcomes,
 		ActionPaths:              riskReport.ActionPaths,
 		ActionPathToControlFirst: riskReport.ActionPathToControlFirst,
 		ControlPathGraph:         riskReport.ControlPathGraph,
@@ -289,6 +294,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		summary.AgentActionBOM.Summary.GovernedUsageMetrics = summary.GovernedUsageMetrics
 	}
 	summary.WorkflowHighlights = BuildWorkflowHighlights(summary)
+	ApplySummaryCaps(&summary)
 
 	return summary, nil
 }
@@ -1747,6 +1753,7 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.OperationalOwner = redactValue("owner", copyItem.OperationalOwner, 8)
 		copyItem.ExecutionIdentity = redactValue("identity", copyItem.ExecutionIdentity, 8)
 		copyItem.ConfigSource = redactValue("loc", copyItem.ConfigSource, 8)
+		copyItem.OccurrenceRefs = redactStringSlice(copyItem.OccurrenceRefs, "path")
 		copyItem.AttackPathRefs = redactStringSlice(copyItem.AttackPathRefs, "attack")
 		copyItem.SourceFindingKeys = redactStringSlice(copyItem.SourceFindingKeys, "finding")
 		if copyItem.CredentialProvenance != nil {
@@ -1977,6 +1984,7 @@ func sanitizeControlPathGraphPublic(in *aggattack.ControlPathGraph) *aggattack.C
 		copyGraph.Nodes[idx].Location = redactValue("loc", copyGraph.Nodes[idx].Location, 8)
 		copyGraph.Nodes[idx].AgentID = redactValue("agent", copyGraph.Nodes[idx].AgentID, 8)
 		copyGraph.Nodes[idx].ConfigSource = redactValue("loc", copyGraph.Nodes[idx].ConfigSource, 8)
+		copyGraph.Nodes[idx].AuthorityBindingRefs = redactStringSlice(copyGraph.Nodes[idx].AuthorityBindingRefs, "binding")
 		if copyGraph.Nodes[idx].CredentialAuthority != nil {
 			copyGraph.Nodes[idx].CredentialAuthority = agginventory.CloneCredentialAuthority(copyGraph.Nodes[idx].CredentialAuthority)
 			copyGraph.Nodes[idx].CredentialAuthority.ReasonCodes = redactStringSlice(copyGraph.Nodes[idx].CredentialAuthority.ReasonCodes, "evidence")
@@ -2062,6 +2070,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].Location = redactValue("loc", copyBOM.Items[idx].Location, 8)
 		copyBOM.Items[idx].Owner = redactValue("owner", copyBOM.Items[idx].Owner, 8)
 		copyBOM.Items[idx].ConfigSource = redactValue("loc", copyBOM.Items[idx].ConfigSource, 8)
+		copyBOM.Items[idx].OccurrenceRefs = redactStringSlice(copyBOM.Items[idx].OccurrenceRefs, "path")
 		copyBOM.Items[idx].ProofRefs = redactStringSlice(copyBOM.Items[idx].ProofRefs, "proof")
 		copyBOM.Items[idx].RuntimeSessionRefs = redactStringSlice(copyBOM.Items[idx].RuntimeSessionRefs, "session")
 		copyBOM.Items[idx].ObservedChangedFiles = redactStringSlice(copyBOM.Items[idx].ObservedChangedFiles, "file")
