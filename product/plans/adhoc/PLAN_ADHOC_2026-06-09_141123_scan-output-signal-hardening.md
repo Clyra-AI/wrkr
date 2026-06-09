@@ -760,7 +760,7 @@ Tasks:
 - Move broad rows, raw findings, scan-quality detail, graph/proof refs, and backlog detail to appendices or evidence JSON.
 - Ensure the default selected action path is deterministic, severity-led, and backed by grouped findings and coverage confidence.
 - Add acceptance tests that default output answers what the workflow can change, what authority it uses, what controls cover it, what proof exists, and what should change.
-- Gate this story on Stories 1.2, 1.3, 1.6, and 1.7.
+- Gate this story on Stories 1.2 through 1.7, including collection caps and stdout/artifact splitting, so focused BOM defaults cannot land before every Wave 1 output-safety dependency is in place.
 
 Repo paths:
 - `core/report/primary_view.go`
@@ -926,7 +926,6 @@ Tasks:
 - Ensure Wave 3 and Wave 4 stories cannot land without satisfying the gate.
 
 Repo paths:
-- `product/PLAN_NEXT.md`
 - `product/wrkr.md`
 - `AGENTS.md`
 - `docs/architecture.md`
