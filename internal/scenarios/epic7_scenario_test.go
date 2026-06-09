@@ -229,5 +229,6 @@ func runScenarioScan(t *testing.T, args []string) map[string]any {
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse JSON payload: %v", err)
 	}
+	hydrateScenarioScanSummaryPayload(t, args, payload)
 	return payload
 }

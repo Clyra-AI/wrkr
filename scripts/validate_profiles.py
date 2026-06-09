@@ -46,8 +46,16 @@ def parse_yaml_lite(text: str) -> dict[str, Any]:
             index += 1
         return index
 
-    def parse_list(index: int, indent: int) -> tuple[list[str], int]:
-        items: list[str] = []
+    def parse_inline_map_item(value: str) -> dict[str, Any] | None:
+        if strip_quotes(value).startswith(ALLOWED_VIRTUAL_PREFIXES):
+            return None
+        key, sep, rest = value.partition(":")
+        if not sep or not key.strip():
+            return None
+        return {key.strip(): strip_quotes(rest.strip()) if rest.strip() else {}}
+
+    def parse_list(index: int, indent: int) -> tuple[list[Any], int]:
+        items: list[Any] = []
         while True:
             index = skip(index)
             if index >= len(lines):
@@ -59,8 +67,18 @@ def parse_yaml_lite(text: str) -> dict[str, Any]:
                 break
             if current_indent != indent:
                 raise ValueError(f"unsupported list indentation at line {index + 1}")
-            items.append(strip_quotes(stripped[2:].strip()))
+            raw_item = stripped[2:].strip()
+            inline_map = parse_inline_map_item(raw_item)
             index += 1
+            next_index = skip(index)
+            if inline_map is not None:
+                if next_index < len(lines) and indentation(lines[next_index]) > current_indent:
+                    nested, index = parse_map(next_index, current_indent + 2)
+                    inline_map.update(nested)
+                items.append(inline_map)
+                continue
+
+            items.append(strip_quotes(raw_item))
         return items, index
 
     def parse_map(index: int, indent: int) -> tuple[dict[str, Any], int]:

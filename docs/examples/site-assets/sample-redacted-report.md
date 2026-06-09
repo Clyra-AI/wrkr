@@ -75,6 +75,34 @@
 - Proof chain: redacted://proof-chain.json
 - Exposure groups: 14
 
+## Policy Outcomes
+
+- Rule WRKR-A006 is fail across 8 occurrence(s) in 4 repo(s): repo-b583bb, repo-a24cd4, repo-88604b, plus 1 more.
+- Rule WRKR-A007 is fail across 8 occurrence(s) in 4 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 1 more.
+- Rule WRKR-A005 is fail across 6 occurrence(s) in 3 repo(s): repo-fbf3f7, repo-a24cd4, repo-34614a.
+- Rule WRKR-011 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
+- Rule WRKR-012 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
+- Rule WRKR-013 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
+- Rule WRKR-A003 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
+- Rule WRKR-A008 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
+- Rule WRKR-A009 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
+- Rule WRKR-A010 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
+- Rule WRKR-014 is pass across 4 occurrence(s) in 4 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 1 more.
+- Rule WRKR-015 is pass across 4 occurrence(s) in 4 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 1 more.
+- Rule WRKR-016 is pass across 4 occurrence(s) in 4 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 1 more.
+- Rule WRKR-A001 is pass across 4 occurrence(s) in 4 repo(s): repo-b583bb, repo-fbf3f7, repo-88604b, plus 1 more.
+- Rule WRKR-A002 is fail across 4 occurrence(s) in 2 repo(s): repo-a24cd4, repo-34614a.
+- Rule WRKR-A004 is pass across 4 occurrence(s) in 4 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 1 more.
+- Rule WRKR-A002 is pass across 3 occurrence(s) in 3 repo(s): repo-b583bb, repo-fbf3f7, repo-88604b.
+- Rule WRKR-014 is fail across 2 occurrence(s) in 1 repo(s): repo-88604b.
+- Rule WRKR-015 is fail across 2 occurrence(s) in 1 repo(s): repo-88604b.
+- Rule WRKR-016 is fail across 2 occurrence(s) in 1 repo(s): repo-34614a.
+- Rule WRKR-A001 is fail across 2 occurrence(s) in 1 repo(s): repo-a24cd4.
+- Rule WRKR-A004 is fail across 2 occurrence(s) in 1 repo(s): repo-34614a.
+- Rule WRKR-A005 is pass across 2 occurrence(s) in 2 repo(s): repo-b583bb, repo-88604b.
+- Rule WRKR-A006 is pass across 1 occurrence(s) in 1 repo(s): repo-fbf3f7.
+- Rule WRKR-A007 is pass across 1 occurrence(s) in 1 repo(s): repo-88604b.
+
 ## Scan Quality
 
 - Mode: governance

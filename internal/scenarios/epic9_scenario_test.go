@@ -139,6 +139,7 @@ func runScenarioCommandJSON(t *testing.T, args []string) map[string]any {
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse command json output for %v: %v", args, err)
 	}
+	hydrateScenarioScanSummaryPayload(t, args, payload)
 	return payload
 }
 
@@ -157,7 +158,56 @@ func runScenarioCommandJSONAllowExit5(t *testing.T, args []string) map[string]an
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse command json output for %v: %v", args, err)
 	}
+	hydrateScenarioScanSummaryPayload(t, args, payload)
 	return payload
+}
+
+func hydrateScenarioScanSummaryPayload(t *testing.T, args []string, payload map[string]any) {
+	t.Helper()
+	if len(args) == 0 || args[0] != "scan" {
+		return
+	}
+	statePath := scanStatePathFromArgs(args)
+	if statePath == "" {
+		return
+	}
+	raw, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read scan state %s: %v", statePath, err)
+	}
+	statePayload := map[string]any{}
+	if err := json.Unmarshal(raw, &statePayload); err != nil {
+		t.Fatalf("parse scan state %s: %v", statePath, err)
+	}
+	for _, key := range []string{"findings", "inventory", "control_backlog", "scan_quality", "scan_mode", "profile", "posture_score", "source_privacy"} {
+		if _, ok := payload[key]; !ok {
+			if value, exists := statePayload[key]; exists {
+				payload[key] = value
+			}
+		}
+	}
+	if riskReport, ok := statePayload["risk_report"].(map[string]any); ok {
+		for _, key := range []string{"ranked_findings", "top_findings", "attack_paths", "top_attack_paths", "action_paths", "action_path_to_control_first", "control_path_graph", "workflow_chains"} {
+			if _, exists := payload[key]; exists {
+				continue
+			}
+			if value, ok := riskReport[key]; ok {
+				payload[key] = value
+			}
+		}
+	}
+}
+
+func scanStatePathFromArgs(args []string) string {
+	for idx := 0; idx < len(args); idx++ {
+		if args[idx] == "--state" && idx+1 < len(args) {
+			return args[idx+1]
+		}
+		if strings.HasPrefix(args[idx], "--state=") {
+			return strings.TrimSpace(strings.TrimPrefix(args[idx], "--state="))
+		}
+	}
+	return ""
 }
 
 func normalizeScenarioVolatile(input map[string]any) map[string]any {

@@ -120,7 +120,9 @@ type AgentActionBOMItem struct {
 	CredentialAccess                    bool                                   `json:"credential_access"`
 	Credentials                         []*agginventory.CredentialProvenance   `json:"credentials,omitempty"`
 	CredentialProvenance                *agginventory.CredentialProvenance     `json:"credential_provenance,omitempty"`
+	CredentialAuthorityRef              string                                 `json:"credential_authority_ref,omitempty"`
 	CredentialAuthority                 *agginventory.CredentialAuthority      `json:"credential_authority,omitempty"`
+	AuthorityBindingRefs                []string                               `json:"authority_binding_refs,omitempty"`
 	AuthorityBindings                   []*agginventory.AuthorityBinding       `json:"authority_bindings,omitempty"`
 	PathContext                         *agginventory.PathContext              `json:"path_context,omitempty"`
 	StandingPrivilege                   bool                                   `json:"standing_privilege,omitempty"`
@@ -153,6 +155,9 @@ type AgentActionBOMItem struct {
 	EvidencePacketRefs                  []string                               `json:"evidence_packet_refs,omitempty"`
 	ActionClasses                       []string                               `json:"action_classes,omitempty"`
 	ActionReasons                       []string                               `json:"action_reasons,omitempty"`
+	OccurrenceCount                     int                                    `json:"occurrence_count,omitempty"`
+	OccurrenceRefs                      []string                               `json:"occurrence_refs,omitempty"`
+	MutableEndpointSemanticRefs         []string                               `json:"mutable_endpoint_semantic_refs,omitempty"`
 	MutableEndpointSemantics            []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
 	ProductionWrite                     bool                                   `json:"production_write,omitempty"`
 	ProductionTargetStatus              string                                 `json:"production_target_status,omitempty"`
@@ -319,7 +324,9 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			CredentialAccess:                    path.CredentialAccess,
 			Credentials:                         agginventory.CloneCredentialProvenances(path.Credentials),
 			CredentialProvenance:                agginventory.CloneCredentialProvenance(path.CredentialProvenance),
+			CredentialAuthorityRef:              strings.TrimSpace(path.CredentialAuthorityRef),
 			CredentialAuthority:                 agginventory.CloneCredentialAuthority(path.CredentialAuthority),
+			AuthorityBindingRefs:                append([]string(nil), path.AuthorityBindingRefs...),
 			AuthorityBindings:                   agginventory.CloneAuthorityBindings(path.AuthorityBindings),
 			PathContext:                         agginventory.ClonePathContext(path.PathContext),
 			StandingPrivilege:                   path.StandingPrivilege,
@@ -352,6 +359,9 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			EvidencePacketRefs:                  append([]string(nil), packetItem.PacketRefs...),
 			ActionClasses:                       append([]string(nil), path.ActionClasses...),
 			ActionReasons:                       append([]string(nil), path.ActionReasons...),
+			OccurrenceCount:                     path.OccurrenceCount,
+			OccurrenceRefs:                      append([]string(nil), path.OccurrenceRefs...),
+			MutableEndpointSemanticRefs:         append([]string(nil), path.MutableEndpointSemanticRefs...),
 			MutableEndpointSemantics:            agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics),
 			ProductionWrite:                     path.ProductionWrite,
 			ProductionTargetStatus:              strings.TrimSpace(path.ProductionTargetStatus),

@@ -237,6 +237,27 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 
+	if len(summary.PolicyOutcomes) > 0 {
+		builder.WriteString("## Policy Outcomes\n\n")
+		for _, item := range summary.PolicyOutcomes {
+			repoScope := "no repo examples recorded"
+			if len(item.TopRepoRefs) > 0 {
+				repoScope = strings.Join(item.TopRepoRefs, ", ")
+				if item.SuppressedCount > 0 {
+					repoScope += fmt.Sprintf(", plus %d more", item.SuppressedCount)
+				}
+			}
+			builder.WriteString(fmt.Sprintf("- Rule %s is %s across %d occurrence(s) in %d repo(s): %s.\n",
+				firstNonEmptyValue(item.RuleID, item.OutcomeID),
+				firstNonEmptyValue(item.CheckResult, "observed"),
+				item.OccurrenceCount,
+				item.AffectedRepoCount,
+				repoScope,
+			))
+		}
+		builder.WriteString("\n")
+	}
+
 	if summary.ScanQuality != nil && len(summary.ScanQuality.Detectors) > 0 {
 		builder.WriteString("## Scan Quality\n\n")
 		builder.WriteString(fmt.Sprintf("- Mode: %s\n", summary.ScanQuality.Mode))
@@ -440,7 +461,8 @@ func RenderMarkdown(summary Summary) string {
 	if !strings.HasSuffix(builder.String(), "\n") {
 		builder.WriteString("\n")
 	}
-	return builder.String()
+	markdown, _ := ApplyMarkdownBudget(builder.String())
+	return markdown
 }
 
 func markdownContradictions(items []evidencepolicy.Contradiction) string {

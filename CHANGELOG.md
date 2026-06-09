@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- (none yet)
+- [semver:minor] Changed `wrkr scan --json` to prefer a bounded stdout summary with scan-quality, grouped policy outcomes, suppression counts, and full-artifact handoff through `--state`.
 
 ### Deprecated
 
@@ -24,7 +24,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Added canonical endpoint, credential-authority, and authority-binding reference ids so govern-first paths, BOM items, graph nodes, and backlog rows can join to one deterministic per-scan store.
+- [semver:patch] Reduced Wave 1 output noise by keeping low-signal source parse failures in `scan_quality`, preserving actionable config parse failures, and surfacing grouped policy outcomes with bounded repo examples.
+- [semver:patch] Hardened share-profile redaction and progress rendering so interactive `--json` scans can show stderr liveness without corrupting stdout and shared report artifacts redact newly added grouped-path refs consistently.
 
 ### Security
 

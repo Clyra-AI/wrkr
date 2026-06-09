@@ -114,6 +114,8 @@ type Summary struct {
 	Proof                    ProofReference                         `json:"proof"`
 	NextActions              []ChecklistItem                        `json:"next_actions"`
 	Activation               *ActivationSummary                     `json:"activation,omitempty"`
+	PolicyOutcomes           []PolicyOutcome                        `json:"policy_outcomes,omitempty"`
+	SuppressedCounts         *SuppressedCounts                      `json:"suppressed_counts,omitempty"`
 	ActionPaths              []risk.ActionPath                      `json:"action_paths,omitempty"`
 	ActionPathToControlFirst *risk.ActionPathToControlFirst         `json:"action_path_to_control_first,omitempty"`
 	ActionSurfaceRegistry    []ActionSurfaceRegistryEntry           `json:"action_surface_registry,omitempty"`
@@ -145,6 +147,28 @@ type ArtifactMetadata struct {
 	ShareabilityStatus string   `json:"shareability_status,omitempty"`
 }
 
+type PolicyOutcome struct {
+	OutcomeID         string   `json:"outcome_id"`
+	RuleID            string   `json:"rule_id"`
+	CheckResult       string   `json:"check_result"`
+	Severity          string   `json:"severity,omitempty"`
+	OccurrenceCount   int      `json:"occurrence_count"`
+	AffectedRepoCount int      `json:"affected_repo_count"`
+	TopRepoRefs       []string `json:"top_repo_refs,omitempty"`
+	SuppressedCount   int      `json:"suppressed_count,omitempty"`
+}
+
+type SuppressedCounts struct {
+	ActionPaths    int `json:"action_paths,omitempty"`
+	ControlBacklog int `json:"control_backlog,omitempty"`
+	GraphNodes     int `json:"graph_nodes,omitempty"`
+	GraphEdges     int `json:"graph_edges,omitempty"`
+	WorkflowChains int `json:"workflow_chains,omitempty"`
+	ExposureGroups int `json:"exposure_groups,omitempty"`
+	AgentActionBOM int `json:"agent_action_bom,omitempty"`
+	MarkdownLines  int `json:"markdown_lines,omitempty"`
+}
+
 type ScanScopeSummary struct {
 	Mode           string `json:"mode"`
 	ScopeLabel     string `json:"scope_label"`
@@ -159,33 +183,36 @@ type AttackPathSummary struct {
 }
 
 type ActionSurfaceRegistryEntry struct {
-	RegistryID               string                                 `json:"registry_id"`
-	SurfaceType              string                                 `json:"surface_type,omitempty"`
-	Org                      string                                 `json:"org"`
-	Repo                     string                                 `json:"repo"`
-	ToolType                 string                                 `json:"tool_type"`
-	ToolInstanceID           string                                 `json:"tool_instance_id,omitempty"`
-	Location                 string                                 `json:"location,omitempty"`
-	Label                    string                                 `json:"label,omitempty"`
-	Owner                    string                                 `json:"owner,omitempty"`
-	OwnerSource              string                                 `json:"owner_source,omitempty"`
-	Purpose                  string                                 `json:"purpose,omitempty"`
-	PurposeSource            string                                 `json:"purpose_source,omitempty"`
-	PurposeConfidence        string                                 `json:"purpose_confidence,omitempty"`
-	Version                  string                                 `json:"version,omitempty"`
-	VersionSource            string                                 `json:"version_source,omitempty"`
-	ConfigFingerprint        string                                 `json:"config_fingerprint,omitempty"`
-	ConfigSource             string                                 `json:"config_source,omitempty"`
-	Credentials              []*agginventory.CredentialProvenance   `json:"credentials,omitempty"`
-	CredentialAuthority      *agginventory.CredentialAuthority      `json:"credential_authority,omitempty"`
-	ReachableActions         []string                               `json:"reachable_actions,omitempty"`
-	MutableEndpointSemantics []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
-	ConfidenceLane           string                                 `json:"confidence_lane,omitempty"`
-	ProofStatus              string                                 `json:"proof_status,omitempty"`
-	Remediation              string                                 `json:"remediation,omitempty"`
-	PathIDs                  []string                               `json:"path_ids,omitempty"`
-	ActionPathCount          int                                    `json:"action_path_count"`
-	GraphRefs                AgentActionBOMGraphRefs                `json:"graph_refs,omitempty"`
+	RegistryID                  string                                 `json:"registry_id"`
+	SurfaceType                 string                                 `json:"surface_type,omitempty"`
+	Org                         string                                 `json:"org"`
+	Repo                        string                                 `json:"repo"`
+	ToolType                    string                                 `json:"tool_type"`
+	ToolInstanceID              string                                 `json:"tool_instance_id,omitempty"`
+	Location                    string                                 `json:"location,omitempty"`
+	Label                       string                                 `json:"label,omitempty"`
+	Owner                       string                                 `json:"owner,omitempty"`
+	OwnerSource                 string                                 `json:"owner_source,omitempty"`
+	Purpose                     string                                 `json:"purpose,omitempty"`
+	PurposeSource               string                                 `json:"purpose_source,omitempty"`
+	PurposeConfidence           string                                 `json:"purpose_confidence,omitempty"`
+	Version                     string                                 `json:"version,omitempty"`
+	VersionSource               string                                 `json:"version_source,omitempty"`
+	ConfigFingerprint           string                                 `json:"config_fingerprint,omitempty"`
+	ConfigSource                string                                 `json:"config_source,omitempty"`
+	Credentials                 []*agginventory.CredentialProvenance   `json:"credentials,omitempty"`
+	CredentialAuthorityRef      string                                 `json:"credential_authority_ref,omitempty"`
+	CredentialAuthority         *agginventory.CredentialAuthority      `json:"credential_authority,omitempty"`
+	AuthorityBindingRefs        []string                               `json:"authority_binding_refs,omitempty"`
+	ReachableActions            []string                               `json:"reachable_actions,omitempty"`
+	MutableEndpointSemanticRefs []string                               `json:"mutable_endpoint_semantic_refs,omitempty"`
+	MutableEndpointSemantics    []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
+	ConfidenceLane              string                                 `json:"confidence_lane,omitempty"`
+	ProofStatus                 string                                 `json:"proof_status,omitempty"`
+	Remediation                 string                                 `json:"remediation,omitempty"`
+	PathIDs                     []string                               `json:"path_ids,omitempty"`
+	ActionPathCount             int                                    `json:"action_path_count"`
+	GraphRefs                   AgentActionBOMGraphRefs                `json:"graph_refs,omitempty"`
 }
 
 type Section struct {

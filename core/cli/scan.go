@@ -520,6 +520,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		inventoryOut.AgentPrivilegeMap[idx].ProductionTargetStatus = productionWriteStatus
 	}
 	agginventory.ApplySecurityVisibilityToPrivilegeMap(&inventoryOut)
+	agginventory.ApplyCanonicalStores(&inventoryOut)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, &inventoryOut)
 	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, findings)
 	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
@@ -549,6 +550,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Findings:       findings,
 		DetectorErrors: detectorErrors,
 	})
+	artifactFindings := summarizeArtifactFindings(findings, scanMode)
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, &scanQuality)
 	riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
 	riskReport.WorkflowChains = risk.BuildWorkflowChains(riskReport.ActionPaths, riskReport.ControlPathGraph)
@@ -597,7 +599,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Version:                    state.SnapshotVersion,
 		Target:                     manifestOut.Target,
 		Targets:                    manifestOut.Targets,
-		Findings:                   findings,
+		Findings:                   artifactFindings,
 		Inventory:                  &inventoryOut,
 		ControlBacklog:             &controlBacklog,
 		LifecycleGaps:              lifecycleGaps,
@@ -717,15 +719,26 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitRolledBackScanFailure(err)
 	}
 
-	payload := map[string]any{
-		"status":          "ok",
-		"deployment_mode": deploymentMode,
-		"target":          manifestOut.Target,
-		"source_manifest": manifestOut,
-		"source_privacy":  sourcePrivacy,
-		"scan_mode":       scanMode,
-		"scan_quality":    scanQuality,
-	}
+	payload := buildScanJSONSummary(scanJSONSummaryInput{
+		DeploymentMode:          deploymentMode,
+		Manifest:                manifestOut,
+		SourcePrivacy:           sourcePrivacy,
+		ScanMode:                scanMode,
+		ScanQuality:             scanQuality,
+		StatePath:               statePath,
+		Inventory:               inventoryOut,
+		RiskReport:              riskReport,
+		ControlBacklog:          controlBacklog,
+		Profile:                 profileResult,
+		PostureScore:            postureScore,
+		ComplianceSummary:       complianceSummary,
+		Findings:                artifactFindings,
+		Warnings:                reportcore.MCPVisibilityWarnings(findings),
+		ProductionTargetWarning: productionTargetWarnings,
+		DetectorErrors:          detectorErrors,
+		PartialResult:           len(manifestOut.Failures) > 0,
+		SourceErrors:            manifestOut.Failures,
+	})
 	if len(manifestOut.Targets) > 0 {
 		payload["targets"] = manifestOut.Targets
 	}
@@ -737,16 +750,19 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if len(detectorErrors) > 0 {
 		payload["detector_errors"] = detectorErrors
 	}
-	if warnings := reportcore.MCPVisibilityWarnings(findings); len(warnings) > 0 {
-		payload["warnings"] = warnings
-	}
-	if len(productionTargetWarnings) > 0 {
-		payload["policy_warnings"] = append([]string(nil), productionTargetWarnings...)
-	}
 	scanReportPath := ""
 	scanSARIFPath := ""
 
 	if *diffMode {
+		payload = map[string]any{
+			"status":          "ok",
+			"deployment_mode": deploymentMode,
+			"target":          manifestOut.Target,
+			"source_manifest": manifestOut,
+			"source_privacy":  sourcePrivacy,
+			"scan_mode":       scanMode,
+			"scan_quality":    scanQuality,
+		}
 		previousFindings := []source.Finding{}
 		if previousSnapshot != nil {
 			previousFindings = previousSnapshot.Findings
@@ -754,29 +770,6 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		result := diff.Compute(previousFindings, findings)
 		payload["diff"] = result
 		payload["diff_empty"] = diff.Empty(result)
-	} else {
-		payload["findings"] = findings
-		payload["control_backlog"] = controlBacklog
-		payload["ranked_findings"] = riskReport.Ranked
-		payload["top_findings"] = riskReport.TopN
-		payload["attack_paths"] = riskReport.AttackPaths
-		payload["top_attack_paths"] = riskReport.TopAttackPaths
-		if len(riskReport.ActionPaths) > 0 {
-			payload["action_paths"] = riskReport.ActionPaths
-		}
-		if riskReport.ActionPathToControlFirst != nil {
-			payload["action_path_to_control_first"] = riskReport.ActionPathToControlFirst
-		}
-		payload["inventory"] = inventoryOut
-		payload["privilege_budget"] = inventoryOut.PrivilegeBudget
-		payload["agent_privilege_map"] = inventoryOut.AgentPrivilegeMap
-		payload["repo_exposure_summaries"] = repoExposure
-		payload["profile"] = profileResult
-		payload["posture_score"] = postureScore
-		payload["compliance_summary"] = complianceSummary
-		if activation := reportcore.BuildActivation(manifestOut.Target.Mode, riskReport.Ranked, &inventoryOut, riskReport.ActionPaths, 5); activation != nil {
-			payload["activation"] = activation
-		}
 	}
 	if *reportMD {
 		if err := checkScanContext(); err != nil {

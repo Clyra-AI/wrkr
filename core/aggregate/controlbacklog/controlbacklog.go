@@ -173,7 +173,9 @@ type Item struct {
 	LinkedControlPathNodeIDs            []string                                `json:"linked_control_path_node_ids,omitempty"`
 	LinkedControlPathEdgeIDs            []string                                `json:"linked_control_path_edge_ids,omitempty"`
 	CredentialProvenance                *agginventory.CredentialProvenance      `json:"credential_provenance,omitempty"`
+	CredentialAuthorityRef              string                                  `json:"credential_authority_ref,omitempty"`
 	CredentialAuthority                 *agginventory.CredentialAuthority       `json:"credential_authority,omitempty"`
+	AuthorityBindingRefs                []string                                `json:"authority_binding_refs,omitempty"`
 	AuthorityBindings                   []*agginventory.AuthorityBinding        `json:"authority_bindings,omitempty"`
 	StandingPrivilege                   bool                                    `json:"standing_privilege,omitempty"`
 	StandingPrivilegeReasons            []string                                `json:"standing_privilege_reasons,omitempty"`
@@ -427,7 +429,9 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		LinkedControlPathNodeIDs:            append([]string(nil), graphRefs.nodeIDs...),
 		LinkedControlPathEdgeIDs:            append([]string(nil), graphRefs.edgeIDs...),
 		CredentialProvenance:                agginventory.CloneCredentialProvenance(path.CredentialProvenance),
+		CredentialAuthorityRef:              strings.TrimSpace(path.CredentialAuthorityRef),
 		CredentialAuthority:                 agginventory.CloneCredentialAuthority(path.CredentialAuthority),
+		AuthorityBindingRefs:                append([]string(nil), path.AuthorityBindingRefs...),
 		AuthorityBindings:                   agginventory.CloneAuthorityBindings(path.AuthorityBindings),
 		StandingPrivilege:                   path.StandingPrivilege,
 		StandingPrivilegeReasons:            append([]string(nil), path.StandingPrivilegeReasons...),
