@@ -4,8 +4,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
-	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -241,52 +239,4 @@ func stablePolicyOutcomeID(ruleID, checkResult, severity string) string {
 		strings.TrimSpace(severity),
 	}
 	return redactValue("policy", strings.Join(parts, "|"), 10)
-}
-
-func summarizeSignalHardening(summary Summary) *SuppressedCounts {
-	copySummary := summary
-	ApplySummaryCaps(&copySummary)
-	return copySummary.SuppressedCounts
-}
-
-func cappedWorkflowChains(in *agentresolver.WorkflowChainArtifact) *agentresolver.WorkflowChainArtifact {
-	if in == nil {
-		return nil
-	}
-	out := *in
-	out.Chains, _ = capSlice(out.Chains, defaultMaxWorkflowChains)
-	return &out
-}
-
-func cappedControlPathGraph(in *aggattack.ControlPathGraph) *aggattack.ControlPathGraph {
-	if in == nil {
-		return nil
-	}
-	out := *in
-	out.Nodes, _ = capSlice(out.Nodes, defaultMaxGraphNodes)
-	out.Edges, _ = capSlice(out.Edges, defaultMaxGraphEdges)
-	return &out
-}
-
-func cappedControlBacklog(in *controlbacklog.Backlog) *controlbacklog.Backlog {
-	if in == nil {
-		return nil
-	}
-	out := *in
-	out.Items, _ = capSlice(out.Items, defaultMaxBacklogItems)
-	return &out
-}
-
-func cappedAgentActionBOM(in *AgentActionBOM) *AgentActionBOM {
-	if in == nil {
-		return nil
-	}
-	out := *in
-	out.Items, _ = capSlice(out.Items, defaultMaxAgentActionBOM)
-	return &out
-}
-
-func cappedActionPaths(in []risk.ActionPath) []risk.ActionPath {
-	out, _ := capSlice(in, defaultMaxActionPaths)
-	return out
 }
