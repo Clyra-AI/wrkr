@@ -42,6 +42,18 @@ flowchart LR
 - Agent-linked attack-path edges and proof context are additive and deterministic.
 - Exit codes are stable API contracts.
 
+## Surface-Area Gate
+
+Wrkr only expands buyer-facing surface area when the change clearly improves at
+least one of these outcomes:
+
+- focused BOM clarity
+- repeat use from local evidence workflows
+- evidence quality for audit/control review
+
+New detectors, report surfaces, graph fields, and docs claims must also stay
+inside explicit output-size, finding-noise, and markdown-budget tests.
+
 ## Command Anchors
 
 ```bash

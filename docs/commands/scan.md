@@ -16,6 +16,9 @@ When imported or declared enterprise evidence is present, `action_paths[*]` may 
 Start here with one of these first-value paths:
 
 ```bash
+# Focused repo review first
+wrkr scan --path ./your-repo --profile assessment --json
+
 # Hosted org posture when prerequisites are ready
 # Initialize the default hosted target first as described in docs/commands/init.md, then run:
 wrkr scan --config ~/.wrkr/config.json --json
@@ -28,6 +31,7 @@ wrkr scan --my-setup --json
 ```
 
 Use either one legacy target source (`--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`) or one or more repeatable `--target <mode>:<value>` flags.
+Pair the saved state from the focused repo path with [`docs/commands/report.md`](report.md) when you want the focused Agent Action BOM view.
 Legacy target flags remain supported as one-entry shims and cannot be combined with `--target` in the same invocation.
 Supported `--target` modes are `repo`, `org`, `path`, and `my_setup`.
 For `my_setup`, use `--target my_setup:local-machine`.

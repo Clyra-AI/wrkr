@@ -68,6 +68,7 @@ type AgentActionBOMSummary struct {
 	EvidenceCompleteness         *risk.EvidenceCompletenessSummary    `json:"evidence_completeness,omitempty"`
 	ExecutiveRollup              *controlbacklog.ExecutiveRollup      `json:"executive_rollup,omitempty"`
 	GovernedUsageMetrics         *controlbacklog.GovernedUsageMetrics `json:"governed_usage_metrics,omitempty"`
+	RepeatUsageSignals           *RepeatUsageSignals                  `json:"repeat_usage_signals,omitempty"`
 	ScanCoverage                 *scanquality.CompactCoverageSummary  `json:"scan_coverage,omitempty"`
 	CoverageConfidence           string                               `json:"coverage_confidence,omitempty"`
 	AutonomyTiers                risk.AutonomyTierCounts              `json:"autonomy_tiers"`

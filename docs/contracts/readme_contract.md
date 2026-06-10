@@ -66,6 +66,7 @@ Section requirements:
   - The pinned install tag must track the current supported Wrkr release mirrored by install-path UAT snippets.
 - Start Here
   - Make the current launch persona explicit at the top of the section.
+  - Lead with one focused repo-review path (`wrkr scan --path` -> `wrkr report --template agent-action-bom`) before broader hosted or evaluator flows.
   - For the current Wrkr launch, foreground the security/platform-led org posture workflow.
   - If an evaluator-safe scenario is shown, present it as an explicit fallback/demo path after the hosted org posture workflow rather than as the primary launch path.
   - Keep developer-machine hygiene as the secondary path.

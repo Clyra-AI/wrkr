@@ -14,6 +14,7 @@ done
 
 required_playbook_tokens=(
   "Scan workflow"
+  "Design-partner control validation workflow"
   "Fix workflow"
   "Evidence workflow"
   "Verify workflow"
@@ -35,6 +36,8 @@ done
 required_quickstart_tokens=(
   "AI-DSPM"
   "See -> Prove -> Control"
+  "Focused repo review first"
+  "wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json"
   "wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json"
   "wrkr scan"
   "wrkr evidence"
@@ -51,6 +54,8 @@ for token in "${required_quickstart_tokens[@]}"; do
 done
 
 required_readme_tokens=(
+  "Focused Repo Review (Recommended first path)"
+  "wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json"
   "wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json"
   "wrkr evidence --frameworks"
   "wrkr verify --chain"

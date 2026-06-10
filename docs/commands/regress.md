@@ -67,6 +67,7 @@ Action-path drift categories are additive and stable:
 Each `drift_categories[*]` row includes severity, priority, stable current/baseline path refs, additive evidence refs, buyer-facing examples, and recommended next actions. Legacy `reasons[*]` remain present for lifecycle, approval-expiry, owner-change, permission-expansion, and critical attack-path contracts.
 
 When a legacy regress baseline lacks captured action-path comparison data, Wrkr now fails closed with `comparison_status=baseline_action_paths_unavailable` instead of silently emitting a clean no-drift result. Regenerate the baseline from a current `wrkr scan --state ... --json` snapshot or `wrkr regress init` artifact before relying on drift-review output.
+The canonical baseline artifact (`.wrkr/wrkr-regress-baseline.json`) and any generated drift artifacts are also counted by later `summary.repeat_usage_signals` / `agent_action_bom.summary.repeat_usage_signals` surfaces when you rerun `report` or `assess` in the same working area.
 
 Compatibility note:
 

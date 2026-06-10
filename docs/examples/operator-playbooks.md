@@ -71,6 +71,24 @@ Use this packet when the operator needs to hand the result to a buyer, GRC partn
 
 Operator curates and explains the packet. Buyer/GRC consumer reads the generated Markdown/PDF plus the evidence bundle and proof verification result; they do not need to rerun the scan to review the output.
 
+## Design-partner control validation workflow
+
+Use this bounded loop when one repo/workflow needs a before/after governed-path
+review instead of a broad inventory pass:
+
+```bash
+wrkr scan --path ./your-repo --profile assessment --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
+wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json
+```
+
+Interpretation notes:
+
+- The design-partner summary stays inside Wrkr's static posture boundary; it does not claim live runtime enforcement.
+- `agent_action_bom.summary.primary_view` is the single workflow/action path the loop is validating first.
+- `summary.repeat_usage_signals` and `agent_action_bom.summary.repeat_usage_signals` count privacy-safe local artifact families such as the baseline, assess rerun, evidence export, ticket export, action-contract export, and any drift artifact.
+- Rerun the same `assess` command after the path or controls change to compare the same governed workflow without widening the surface area.
+
 ## Fix workflow
 
 ```bash

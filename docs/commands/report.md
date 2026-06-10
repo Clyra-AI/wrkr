@@ -36,7 +36,12 @@
 
 ## Example
 
+Use the saved state from a prior `wrkr scan --json` run when you want the
+focused repo review path to continue into the Agent Action BOM.
+
 ```bash
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md --json
 wrkr report --md --md-path ./.tmp/wrkr-summary.md --template operator --share-profile internal --json
 wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
 wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --share-profile public --json
@@ -70,6 +75,7 @@ Top-level `deployment_mode` mirrors `summary.deployment_mode` so report consumer
 `summary.policy_outcomes` and additive top-level `policy_outcomes` group repeated `policy_check` / `policy_violation` results by rule, outcome, and severity. Each row carries deterministic `occurrence_count`, `affected_repo_count`, bounded `top_repo_refs`, and additive `suppressed_count` for omitted repo examples.
 `summary.suppressed_counts` and additive top-level `suppressed_counts` record how many action paths, backlog items, graph nodes/edges, workflow chains, exposure groups, or BOM items were omitted by deterministic size caps so large reports stay readable without pretending the omitted rows vanished.
 `summary.governed_usage_metrics` is an additive non-sensitive packaging/value surface for monitored paths, governed paths, evidence packs, audit export families, approval decisions, connected runtimes, governed agents/workflows, verified controls, unknown controls, and contradictions. These counters are value indicators only; they are not billing enforcement and they do not serialize raw source, private URLs, prompt text, proof payloads, or customer names.
+`summary.repeat_usage_signals` and `agent_action_bom.summary.repeat_usage_signals` are additive local-repeatability signals. They count only local artifact families such as baselines, assess reruns, regress artifacts, evidence exports, ticket exports, and action-contract exports. They do not serialize raw filesystem paths, owner names, prompts, private URLs, or proof payloads.
 `assessment_summary` is additive at the top level and under `summary` when govern-first action paths are present; it leads with governable-path counts, the top path to control first, the strongest identity-backed path, additive `ownerless_exposure` counts, additive `identity_exposure_summary`, additive `identity_to_review_first` / `identity_to_revoke_first`, and the saved proof-chain path.
 `summary.attack_paths` provides deterministic attack-path section metadata (`total`, `top_path_ids`) used in report templates and external appendix joins.
 `compliance_summary.frameworks[*].controls[*]` exposes additive framework/control/article rollups with deterministic `finding_count`, `mapped_rule_ids`, and coverage status.

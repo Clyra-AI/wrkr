@@ -93,6 +93,7 @@ type Summary struct {
 	GovernedUsageMetrics     *controlbacklog.GovernedUsageMetrics   `json:"governed_usage_metrics,omitempty"`
 	WorkflowHighlights       *WorkflowHighlights                    `json:"workflow_highlights,omitempty"`
 	FocusView                *FocusView                             `json:"focus_view,omitempty"`
+	RepeatUsageSignals       *RepeatUsageSignals                    `json:"repeat_usage_signals,omitempty"`
 	AssessmentSummary        *AssessmentSummary                     `json:"assessment_summary,omitempty"`
 	PublicSurfaceAssessment  *PublicSurfaceAssessment               `json:"public_surface_assessment,omitempty"`
 	Methodology              Methodology                            `json:"methodology"`
@@ -180,6 +181,19 @@ type ScanScopeSummary struct {
 type AttackPathSummary struct {
 	Total      int      `json:"total"`
 	TopPathIDs []string `json:"top_path_ids"`
+}
+
+type RepeatUsageSignals struct {
+	Status                string   `json:"status"`
+	BaselinePresent       bool     `json:"baseline_present,omitempty"`
+	AssessRuns            int      `json:"assess_runs,omitempty"`
+	AssessRerunDetected   bool     `json:"assess_rerun_detected,omitempty"`
+	RegressArtifacts      int      `json:"regress_artifacts,omitempty"`
+	DriftArtifacts        int      `json:"drift_artifacts,omitempty"`
+	EvidenceExports       int      `json:"evidence_exports,omitempty"`
+	TicketExports         int      `json:"ticket_exports,omitempty"`
+	ActionContractExports int      `json:"action_contract_exports,omitempty"`
+	ReasonCodes           []string `json:"reason_codes,omitempty"`
 }
 
 type ActionSurfaceRegistryEntry struct {

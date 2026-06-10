@@ -80,6 +80,9 @@
     "focus_view": {
       "$ref": "#/$defs/focusView"
     },
+    "repeat_usage_signals": {
+      "$ref": "#/$defs/repeatUsageSignals"
+    },
     "public_surface_assessment": {
       "$ref": "#/$defs/publicSurfaceAssessment"
     },
@@ -361,6 +364,26 @@
         "verified_control_paths": {"type": "integer", "minimum": 0},
         "unknown_control_paths": {"type": "integer", "minimum": 0},
         "contradictory_paths": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "repeatUsageSignals": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"type": "string", "enum": ["first_run", "follow_up_ready", "repeat_use_detected"]},
+        "baseline_present": {"type": "boolean"},
+        "assess_runs": {"type": "integer", "minimum": 0},
+        "assess_rerun_detected": {"type": "boolean"},
+        "regress_artifacts": {"type": "integer", "minimum": 0},
+        "drift_artifacts": {"type": "integer", "minimum": 0},
+        "evidence_exports": {"type": "integer", "minimum": 0},
+        "ticket_exports": {"type": "integer", "minimum": 0},
+        "action_contract_exports": {"type": "integer", "minimum": 0},
+        "reason_codes": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
       },
       "additionalProperties": false
     },

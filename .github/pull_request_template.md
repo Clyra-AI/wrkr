@@ -36,6 +36,18 @@ Additional scoped commands:
 - [ ] User-visible behavior changes include docs updates in the same PR.
 - [ ] Docs updates follow [`docs/map.md`](docs/map.md) source-of-truth guidance.
 
+## Surface-Area Gate
+
+- [ ] Any new detector, report mode, graph field, platform surface, or docs claim explains its impact on focused BOM clarity, repeat use, or evidence quality.
+- [ ] Output-size / finding-noise / markdown-budget impact is documented below when buyer-facing surfaces change.
+
+Surface-area notes:
+
+- Focused BOM clarity impact:
+- Repeat-use impact:
+- Evidence-quality impact:
+- Budget impact:
+
 ## Risks and Follow-ups
 
 - Determinism/fail-closed/security risks:

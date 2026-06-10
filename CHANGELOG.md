@@ -8,11 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- [semver:minor] Added privacy-safe `repeat_usage_signals` to report summaries and Agent Action BOM summaries using only local baseline, assess, regress, evidence, ticket-export, and action-contract artifacts.
+- [semver:minor] Added a bounded design-partner control validation workflow for before/after focused-BOM reviews using `wrkr assess`, regress baselines, and deterministic local artifacts.
 
 ### Changed
 
 - [semver:minor] Changed `wrkr scan --json` to prefer a bounded stdout summary with scan-quality, grouped policy outcomes, suppression counts, and full-artifact handoff through `--state`.
+- [semver:minor] Changed first-run docs to lead with one repo-first path: scan a repo, render the focused Agent Action BOM, and review the top workflow/action path before widening scope.
+- [semver:minor] Added product governance gates for focused BOM clarity, repeat use, evidence quality, and output/noise budgets across new buyer-facing surfaces.
 
 ### Deprecated
 
@@ -27,6 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:patch] Added canonical endpoint, credential-authority, and authority-binding reference ids so govern-first paths, BOM items, graph nodes, and backlog rows can join to one deterministic per-scan store.
 - [semver:patch] Reduced Wave 1 output noise by keeping low-signal source parse failures in `scan_quality`, preserving actionable config parse failures, and surfacing grouped policy outcomes with bounded repo examples.
 - [semver:patch] Hardened share-profile redaction and progress rendering so interactive `--json` scans can show stderr liveness without corrupting stdout and shared report artifacts redact newly added grouped-path refs consistently.
+- [semver:patch] Fixed buyer-projection parity so focused BOM, backlog, graph, evidence artifacts, and markdown consume the same canonical action-path semantics.
 
 ### Security
 

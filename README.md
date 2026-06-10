@@ -49,8 +49,31 @@ Canonical pinned install and release-parity guidance lives in [`docs/install/min
 
 ## Start Here
 
+Recommended first path: scan one repo, render the focused Agent Action BOM, and
+review the top workflow/action path before widening to org-scale inventory.
+
+### Focused Repo Review (Recommended first path)
+
+```bash
+wrkr scan --path ./your-repo --profile assessment --json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md --json
+```
+
+Use this when you want the shortest route from "what can this workflow change?"
+to "what authority does it use, what proof is missing, and what should change
+first?" The report's `agent_action_bom.summary.primary_view` is the deterministic
+top-path contract for that review. When you are ready to validate the same path
+over time, initialize a baseline and rerun the bounded assess flow:
+
+```bash
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
+wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json
+```
+
 Choose one explicit first-value path:
 
+- Focused repo review first when you want the fastest path to the top workflow BOM.
 - Hosted org posture first when GitHub access is ready. This is the primary launch path for security and platform teams.
 - Evaluator-safe scenario fallback when you are evaluating Wrkr itself or hosted prerequisites are not ready yet. This sample is intentionally risky by design, so a bad score is expected and useful.
 - Developer-machine hygiene when you only want local tool, MCP, and secret-presence posture first.

@@ -285,6 +285,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	summary.ExecutiveRollup = resolveExecutiveRollup(summary)
 	summary.GovernedUsageMetrics = resolveGovernedUsageMetrics(summary)
+	summary.RepeatUsageSignals = BuildRepeatUsageSignals(in.StatePath)
 	if summary.ControlBacklog != nil {
 		summary.ControlBacklog.ExecutiveRollup = summary.ExecutiveRollup
 		summary.ControlBacklog.GovernedUsageMetrics = summary.GovernedUsageMetrics
@@ -292,6 +293,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	if summary.AgentActionBOM != nil {
 		summary.AgentActionBOM.Summary.ExecutiveRollup = summary.ExecutiveRollup
 		summary.AgentActionBOM.Summary.GovernedUsageMetrics = summary.GovernedUsageMetrics
+		summary.AgentActionBOM.Summary.RepeatUsageSignals = cloneRepeatUsageSignals(summary.RepeatUsageSignals)
 	}
 	summary.WorkflowHighlights = BuildWorkflowHighlights(summary)
 	ApplySummaryCaps(&summary)

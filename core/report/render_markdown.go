@@ -70,6 +70,7 @@ func RenderMarkdown(summary Summary) string {
 				summary.EvidenceCompleteness.ReducedCoveragePathCount,
 			))
 		}
+		renderRepeatUsageSignals(&builder, summary.AgentActionBOM.Summary.RepeatUsageSignals)
 		builder.WriteString(fmt.Sprintf("- Coverage confidence: %s\n", summary.AgentActionBOM.Summary.CoverageConfidence))
 		if summary.AgentActionBOM.Summary.ScanCoverage != nil {
 			builder.WriteString(fmt.Sprintf("- Scan coverage: reduced_detectors=%d parse_failures=%d suppressed_generated_files=%d blocked_detectors=%d unsupported_declarations=%d impact=%s\n",
@@ -732,6 +733,7 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 			strings.Join(summary.ShareProfileMetadata.SelectedFields, ", "),
 		))
 	}
+	renderRepeatUsageSignals(&builder, summary.RepeatUsageSignals)
 	builder.WriteString("\n")
 
 	if summary.FocusView != nil {
@@ -807,6 +809,32 @@ func designPartnerItems(summary Summary) []AgentActionBOMItem {
 		filtered = filtered[:10]
 	}
 	return filtered
+}
+
+func renderRepeatUsageSignals(builder *strings.Builder, signals *RepeatUsageSignals) {
+	if builder == nil || signals == nil {
+		return
+	}
+	if signals.Status == repeatUsageStatusFirstRun &&
+		!signals.BaselinePresent &&
+		signals.AssessRuns == 0 &&
+		signals.RegressArtifacts == 0 &&
+		signals.DriftArtifacts == 0 &&
+		signals.EvidenceExports == 0 &&
+		signals.TicketExports == 0 &&
+		signals.ActionContractExports == 0 {
+		return
+	}
+	builder.WriteString(fmt.Sprintf("- Repeat-use signals: status=%s baseline_present=%t assess_runs=%d regress_artifacts=%d drift_artifacts=%d evidence_exports=%d ticket_exports=%d action_contract_exports=%d\n",
+		firstNonEmptyValue(strings.TrimSpace(signals.Status), repeatUsageStatusFirstRun),
+		signals.BaselinePresent,
+		signals.AssessRuns,
+		signals.RegressArtifacts,
+		signals.DriftArtifacts,
+		signals.EvidenceExports,
+		signals.TicketExports,
+		signals.ActionContractExports,
+	))
 }
 
 func designPartnerProblem(item AgentActionBOMItem) string {

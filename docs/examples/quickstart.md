@@ -2,10 +2,37 @@
 
 Know what AI tools, agents, and MCP servers are configured on your machine and in your org before they become unreviewed access.
 
-Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps deterministic zero-integration fallback paths available when hosted prerequisites are not ready yet. This quickstart leads with the hosted org posture path, then falls back to the evaluator-safe scenario and local flows when hosted setup is not ready yet.
+Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps deterministic zero-integration fallback paths available when hosted prerequisites are not ready yet. This quickstart starts with the shortest repo-to-focused-BOM path, then shows the hosted org posture, evaluator-safe scenario, and local fallback flows for broader rollout or audit handoff.
+
+## Focused repo review first
+
+Use this first when you want the shortest path from scan to one workflow BOM:
+
+```bash
+wrkr scan --path ./your-repo --profile assessment --json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md --json
+```
+
+The report leads with `agent_action_bom.summary.primary_view`, which answers the
+top buyer/operator questions first: what the workflow can change, what authority
+it uses, what proof exists, and what should change next. When you want a bounded
+before/after validation loop instead of a one-time review, initialize a
+baseline and use `assess`:
+
+```bash
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
+wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json
+```
+
+`summary.repeat_usage_signals` and `agent_action_bom.summary.repeat_usage_signals`
+stay privacy-safe and only count local artifact families such as baselines,
+evidence exports, ticket exports, and assess reruns. Delete those local artifacts
+when you want the repeat-use counters to reset.
 
 Choose one explicit first-value path:
 
+- Focused repo review when you want the fastest path to the top workflow BOM.
 - Hosted org posture when GitHub access is ready. This is the primary public-launch path.
 - Evaluator-safe scenario when you are evaluating Wrkr itself or hosted setup is not ready yet. This sample is intentionally risky by design.
 - Developer-machine hygiene when you want local MCP and tool posture first.

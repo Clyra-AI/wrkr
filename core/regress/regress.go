@@ -20,6 +20,11 @@ import (
 const BaselineVersion = "v1"
 
 const (
+	DefaultBaselineFilename  = "wrkr-regress-baseline.json"
+	DefaultSummaryMDFilename = "wrkr-regress-summary.md"
+)
+
+const (
 	ReasonNewUnapprovedTool         = "new_unapproved_tool"
 	ReasonRevokedToolReappeared     = "revoked_tool_reappeared"
 	ReasonDeprecatedToolReappeared  = "deprecated_tool_reappeared"
