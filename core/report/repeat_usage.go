@@ -162,8 +162,10 @@ func repeatUsageSearchRoots(statePath string) []string {
 	add(stateDir)
 
 	root := repeatUsageRoot(statePath)
-	add(root)
 	add(filepath.Join(root, ".wrkr"))
+	if repeatUsageShouldAddRoot(root, statePath) {
+		add(root)
+	}
 
 	entries, err := os.ReadDir(root)
 	if err != nil {
@@ -181,15 +183,9 @@ func repeatUsageSearchRoots(statePath string) []string {
 		if name == ".git" || name == "node_modules" || name == "vendor" {
 			continue
 		}
-		if strings.HasPrefix(name, "wrkr") ||
-			strings.Contains(name, "assessment") ||
-			strings.Contains(name, "evidence") ||
-			strings.Contains(name, "output") ||
-			strings.Contains(name, "artifact") ||
-			name == ".tmp" ||
-			name == "tmp" ||
-			name == "out" {
-			add(filepath.Join(root, entry.Name()))
+		child := filepath.Join(root, entry.Name())
+		if repeatUsageArtifactDirName(name) || repeatUsageArtifactDirMarkers(child) {
+			add(child)
 		}
 	}
 	sort.Strings(roots)
@@ -247,6 +243,43 @@ func repeatUsageEvidenceManifest(path string) bool {
 		return false
 	}
 	return strings.TrimSpace(manifest.GeneratorVersion) == "wrkr-evidence-v1"
+}
+
+func repeatUsageShouldAddRoot(root string, statePath string) bool {
+	if root == "" {
+		return false
+	}
+	base := strings.ToLower(strings.TrimSpace(filepath.Base(root)))
+	if repeatUsageArtifactDirName(base) || repeatUsageArtifactDirMarkers(root) {
+		return true
+	}
+	return strings.EqualFold(filepath.Base(filepath.Dir(statePath)), "internal") &&
+		strings.EqualFold(filepath.Base(statePath), "scan-state.json")
+}
+
+func repeatUsageArtifactDirName(name string) bool {
+	return strings.HasPrefix(name, "wrkr") ||
+		strings.Contains(name, "assessment") ||
+		strings.Contains(name, "evidence") ||
+		strings.Contains(name, "output") ||
+		strings.Contains(name, "artifact") ||
+		name == ".tmp" ||
+		name == "tmp" ||
+		name == "out"
+}
+
+func repeatUsageArtifactDirMarkers(path string) bool {
+	for _, marker := range []string{
+		"assessment-manifest.json",
+		".wrkr-evidence-managed",
+		filepath.Join("export", "export-pack.json"),
+		filepath.Join("regress", "drift.json"),
+	} {
+		if _, err := os.Stat(filepath.Join(path, marker)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func sortedReasonCodes(values map[string]struct{}) []string {
