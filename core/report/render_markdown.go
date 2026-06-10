@@ -825,7 +825,7 @@ func renderRepeatUsageSignals(builder *strings.Builder, signals *RepeatUsageSign
 		signals.ActionContractExports == 0 {
 		return
 	}
-	builder.WriteString(fmt.Sprintf("- Repeat-use signals: status=%s baseline_present=%t assess_runs=%d regress_artifacts=%d drift_artifacts=%d evidence_exports=%d ticket_exports=%d action_contract_exports=%d\n",
+	_, _ = fmt.Fprintf(builder, "- Repeat-use signals: status=%s baseline_present=%t assess_runs=%d regress_artifacts=%d drift_artifacts=%d evidence_exports=%d ticket_exports=%d action_contract_exports=%d\n",
 		firstNonEmptyValue(strings.TrimSpace(signals.Status), repeatUsageStatusFirstRun),
 		signals.BaselinePresent,
 		signals.AssessRuns,
@@ -834,7 +834,7 @@ func renderRepeatUsageSignals(builder *strings.Builder, signals *RepeatUsageSign
 		signals.EvidenceExports,
 		signals.TicketExports,
 		signals.ActionContractExports,
-	))
+	)
 }
 
 func designPartnerProblem(item AgentActionBOMItem) string {
