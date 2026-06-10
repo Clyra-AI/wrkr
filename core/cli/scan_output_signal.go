@@ -92,7 +92,7 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 	if activation := reportcore.BuildActivation(input.Manifest.Target.Mode, input.RiskReport.Ranked, &input.Inventory, input.RiskReport.ActionPaths, 5); activation != nil {
 		payload["activation"] = activation
 	}
-	if suppressed := reportcore.BuildSuppressedCountsForScan(input.RiskReport, &input.ControlBacklog); suppressed != nil {
+	if suppressed := buildScanSuppressedCounts(input); suppressed != nil {
 		payload["suppressed_counts"] = suppressed
 	}
 	if len(input.RiskReport.TopN) > 0 {
@@ -137,6 +137,31 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 	return payload
 }
 
+func buildScanSuppressedCounts(input scanJSONSummaryInput) *reportcore.SuppressedCounts {
+	suppressed := &reportcore.SuppressedCounts{
+		ActionPaths:    positiveOverflow(len(input.RiskReport.ActionPaths), scanSummaryInlineActionPathsCap),
+		ControlBacklog: positiveOverflow(len(input.ControlBacklog.Items), scanSummaryInlineBacklogItemsCap),
+		GraphNodes:     0,
+		GraphEdges:     0,
+		WorkflowChains: 0,
+	}
+	if input.RiskReport.ControlPathGraph != nil {
+		suppressed.GraphNodes = positiveOverflow(len(input.RiskReport.ControlPathGraph.Nodes), scanSummaryInlineGraphNodesCap)
+		suppressed.GraphEdges = positiveOverflow(len(input.RiskReport.ControlPathGraph.Edges), scanSummaryInlineGraphEdgesCap)
+	}
+	if input.RiskReport.WorkflowChains != nil {
+		suppressed.WorkflowChains = positiveOverflow(len(input.RiskReport.WorkflowChains.Chains), scanSummaryInlineWorkflowChainsCap)
+	}
+	if suppressed.ActionPaths == 0 &&
+		suppressed.ControlBacklog == 0 &&
+		suppressed.GraphNodes == 0 &&
+		suppressed.GraphEdges == 0 &&
+		suppressed.WorkflowChains == 0 {
+		return nil
+	}
+	return suppressed
+}
+
 func buildFindingCounts(findings []source.Finding) map[string]any {
 	counts := map[string]int{}
 	for _, finding := range findings {
@@ -171,6 +196,13 @@ func buildToolTypeBreakdown(tools []agginventory.Tool) []map[string]any {
 		})
 	}
 	return out
+}
+
+func positiveOverflow(size int, limit int) int {
+	if limit <= 0 || size <= limit {
+		return 0
+	}
+	return size - limit
 }
 
 func summarizeArtifactFindings(findings []source.Finding, scanMode string) []source.Finding {
