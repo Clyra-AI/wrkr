@@ -191,3 +191,40 @@ func TestRepeatUsageSignalsRemainShareSafe(t *testing.T) {
 		t.Fatalf("expected repeat_usage_signals in payload, got %s", string(payload))
 	}
 }
+
+func TestBuildRepeatUsageSignalsSkipsNonArtifactRepoDirs(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	stateDir := filepath.Join(root, ".wrkr")
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		t.Fatalf("mkdir state dir: %v", err)
+	}
+	statePath := filepath.Join(stateDir, "last-scan.json")
+	if err := os.WriteFile(filepath.Join(stateDir, "wrkr-regress-baseline.json"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("write baseline: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "node_modules"), 0o755); err != nil {
+		t.Fatalf("mkdir node_modules: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "node_modules", "export-pack.json"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("write false-positive export pack: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "vendor"), 0o755); err != nil {
+		t.Fatalf("mkdir vendor: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "vendor", "drift.json"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("write false-positive drift artifact: %v", err)
+	}
+
+	signals := BuildRepeatUsageSignals(statePath)
+	if signals == nil {
+		t.Fatal("expected repeat usage signals")
+	}
+	if signals.ActionContractExports != 0 || signals.DriftArtifacts != 0 {
+		t.Fatalf("expected non-artifact repo dirs to be ignored, got %+v", signals)
+	}
+	if signals.Status != repeatUsageStatusFollowUpReady {
+		t.Fatalf("expected follow_up_ready from baseline only, got %+v", signals)
+	}
+}
