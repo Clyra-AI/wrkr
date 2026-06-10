@@ -5,13 +5,20 @@ import { canonicalUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Wrkr | Know Your AI Tooling Posture',
   description:
-    'Know what AI tools, agents, and MCP servers are configured in your org before they become unreviewed access, with deterministic repo-local and local-machine fallback paths when hosted setup is not ready yet.',
+    'Know what AI tools, agents, and MCP servers are configured in your repo or org before they become unreviewed access, with deterministic focused-BOM, hosted, and local fallback paths.',
   alternates: {
     canonical: canonicalUrl('/'),
   },
 };
 
-const QUICKSTART = `# Security and platform teams: use hosted org posture first when prerequisites are ready
+const QUICKSTART = `# Focused repo review first
+wrkr scan --path ./your-repo --profile assessment --json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md --json
+wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
+wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json
+
+# Security and platform teams: use hosted org posture first when prerequisites are ready
 wrkr init --non-interactive --org acme --github-api https://api.github.com --json
 wrkr scan --config ~/.wrkr/config.json --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
@@ -146,7 +153,7 @@ export default function HomePage() {
           Wrkr gives security and platform teams an evidence-ready view of org-wide AI tooling posture and keeps a deterministic local-machine hygiene path available for developers.
         </p>
         <p className="text-base text-gray-500 max-w-3xl mx-auto mb-8">
-          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI. Start with hosted org posture when GitHub access is ready; use the curated scenario and local fallback paths when hosted prerequisites are not ready yet or when you want an evaluator-safe demo that avoids repo-root fixture noise in the Wrkr repo itself.
+          Discover supported AI dev tools, MCP servers, and agent frameworks, map what they can touch, show what changed, and emit proof artifacts for audits and CI. Start with one repo and the focused Agent Action BOM when you want the shortest path to the top workflow review, then widen to hosted org posture or local fallback paths when the workflow needs broader inventory or audit coverage. The curated scenario remains the evaluator-safe demo path that avoids repo-root fixture noise in the Wrkr repo itself.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/docs/examples/security-team" className="px-6 py-3 bg-emerald-400 hover:bg-emerald-300 text-gray-950 font-semibold rounded-lg transition-colors">

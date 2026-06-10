@@ -141,6 +141,8 @@ Determinism requirements:
 - Keep docs and CLI behavior aligned.
 - If commands, flags, exit codes, schema fields, or risk semantics change, update docs in `product/` and any user-facing command docs in the same PR.
 - Keep terminology consistent with Wrkr domain language: discovery, posture, risk, identity lifecycle, proof records, regression.
+- New detectors, report modes, graph fields, platform surfaces, or buyer-facing docs claims must state how they improve focused BOM clarity, repeat use, or evidence quality before they land.
+- Output-size, markdown-length, and finding-noise budget regressions are release blockers for buyer-facing surfaces.
 
 ## 12) Pull Request Checklist (Agent and Human)
 
@@ -151,3 +153,4 @@ Determinism requirements:
 - [ ] Tests added/updated at the correct layer
 - [ ] Docs updated for externally visible changes
 - [ ] Dependency/toolchain changes are pinned and justified
+- [ ] New surface area explains its focused-BOM / repeat-use / evidence-quality impact and stays within output/noise budgets

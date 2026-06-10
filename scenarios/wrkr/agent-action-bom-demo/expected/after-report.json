@@ -416,6 +416,9 @@
       "block_standing_credential": 3,
       "block": 0
     },
+    "repeat_usage_signals": {
+      "status": "first_run"
+    },
     "primary_view": {
       "path_id": "apc-6626703372d7",
       "selection_reason": "default_top_path",

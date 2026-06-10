@@ -16,6 +16,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
+	"github.com/Clyra-AI/wrkr/core/regress"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 )
 
@@ -210,7 +211,7 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	exportAppendixPath := filepath.Join(resolvedOutputDir, "export", "appendix.json")
 	exportPackPath := filepath.Join(resolvedOutputDir, "export", "export-pack.json")
 	driftJSONPath := filepath.Join(resolvedOutputDir, "regress", "drift.json")
-	driftSummaryMDPath := filepath.Join(resolvedOutputDir, "regress", "wrkr-regress-summary.md")
+	driftSummaryMDPath := filepath.Join(resolvedOutputDir, "regress", regress.DefaultSummaryMDFilename)
 	ticketPayloadPath := ""
 	if strings.TrimSpace(*ticketFormat) != "" {
 		ticketPayloadPath = filepath.Join(resolvedOutputDir, "export", "tickets-"+strings.TrimSpace(*ticketFormat)+".json")
@@ -295,46 +296,6 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	}
 	if strings.TrimSpace(*baselinePath) != "" {
 		reportArgs = append(reportArgs, "--baseline", strings.TrimSpace(*baselinePath))
-	}
-	reportCode, reportStdout, reportStderr := runAssessStage(ctx, reportArgs)
-	if reportCode != exitSuccess {
-		return emitAssessStageFailure(stderr, jsonRequested || *jsonOut, "report", reportCode, reportStderr)
-	}
-	reportPayload, decodeErr := decodeAssessPayload(reportStdout)
-	if decodeErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("decode report payload: %v", decodeErr), exitRuntime)
-	}
-	if value, _ := reportPayload["md_path"].(string); value != "" {
-		artifacts.ReportMarkdownPath = relativeAssessPath(resolvedOutputDir, value)
-	}
-	if value, _ := reportPayload["evidence_json_path"].(string); value != "" {
-		artifacts.ReportEvidenceJSONPath = relativeAssessPath(resolvedOutputDir, value)
-	}
-	if value, _ := reportPayload["backlog_csv_path"].(string); value != "" {
-		artifacts.BacklogCSVPath = relativeAssessPath(resolvedOutputDir, value)
-	}
-	if rawPaths, ok := reportPayload["artifact_paths"].(map[string]any); ok {
-		pairedPaths := map[string]string{}
-		for key, raw := range rawPaths {
-			value, _ := raw.(string)
-			switch key {
-			case "private_join_map":
-				artifacts.PrivateJoinMapPath = relativeAssessPath(resolvedOutputDir, value)
-			case "markdown", "pdf", "evidence_json", "backlog_csv":
-				continue
-			default:
-				pairedPaths[key] = relativeAssessPath(resolvedOutputDir, value)
-			}
-		}
-		if len(pairedPaths) > 0 {
-			artifacts.PairedArtifactPaths = pairedPaths
-		}
-	}
-	stages.Report = assessStageStatus{
-		Status:    "ok",
-		ExitCode:  reportCode,
-		Artifact:  artifacts.ReportMarkdownPath,
-		Artifact2: artifacts.ReportEvidenceJSONPath,
 	}
 
 	evidenceArgs := []string{
@@ -495,6 +456,47 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 			ComparisonStatus:   strings.TrimSpace(comparisonStatus),
 			DriftCategoryCount: driftCategoryCount,
 		}
+	}
+
+	reportCode, reportStdout, reportStderr := runAssessStage(ctx, reportArgs)
+	if reportCode != exitSuccess {
+		return emitAssessStageFailure(stderr, jsonRequested || *jsonOut, "report", reportCode, reportStderr)
+	}
+	reportPayload, decodeErr := decodeAssessPayload(reportStdout)
+	if decodeErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", fmt.Sprintf("decode report payload: %v", decodeErr), exitRuntime)
+	}
+	if value, _ := reportPayload["md_path"].(string); value != "" {
+		artifacts.ReportMarkdownPath = relativeAssessPath(resolvedOutputDir, value)
+	}
+	if value, _ := reportPayload["evidence_json_path"].(string); value != "" {
+		artifacts.ReportEvidenceJSONPath = relativeAssessPath(resolvedOutputDir, value)
+	}
+	if value, _ := reportPayload["backlog_csv_path"].(string); value != "" {
+		artifacts.BacklogCSVPath = relativeAssessPath(resolvedOutputDir, value)
+	}
+	if rawPaths, ok := reportPayload["artifact_paths"].(map[string]any); ok {
+		pairedPaths := map[string]string{}
+		for key, raw := range rawPaths {
+			value, _ := raw.(string)
+			switch key {
+			case "private_join_map":
+				artifacts.PrivateJoinMapPath = relativeAssessPath(resolvedOutputDir, value)
+			case "markdown", "pdf", "evidence_json", "backlog_csv":
+				continue
+			default:
+				pairedPaths[key] = relativeAssessPath(resolvedOutputDir, value)
+			}
+		}
+		if len(pairedPaths) > 0 {
+			artifacts.PairedArtifactPaths = pairedPaths
+		}
+	}
+	stages.Report = assessStageStatus{
+		Status:    "ok",
+		ExitCode:  reportCode,
+		Artifact:  artifacts.ReportMarkdownPath,
+		Artifact2: artifacts.ReportEvidenceJSONPath,
 	}
 
 	manifestPayload := assessManifest{

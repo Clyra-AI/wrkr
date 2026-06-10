@@ -217,6 +217,89 @@ func TestAssessRedactedShareProfileAnonymizesExportPack(t *testing.T) {
 	}
 }
 
+func TestAssessReportArtifactsReflectCurrentRepeatUsageCycle(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repo := writeAssessFixtureRepo(t, tmp)
+	statePath := filepath.Join(tmp, ".wrkr", "last-scan.json")
+	baselinePath := filepath.Join(tmp, ".wrkr", "wrkr-regress-baseline.json")
+	if err := os.MkdirAll(filepath.Dir(statePath), 0o755); err != nil {
+		t.Fatalf("mkdir state dir: %v", err)
+	}
+	baseline := regress.BuildBaseline(state.Snapshot{Version: "v1"}, time.Date(2026, 6, 10, 12, 0, 0, 0, time.UTC))
+	if err := regress.SaveBaseline(baselinePath, baseline); err != nil {
+		t.Fatalf("save baseline: %v", err)
+	}
+	outputDir := filepath.Join(tmp, "assessment")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"assess",
+		"--path", repo,
+		"--state", statePath,
+		"--baseline", baselinePath,
+		"--ticket-format", "jira",
+		"--output-dir", outputDir,
+		"--json",
+	}, &out, &errOut)
+	if code != exitRegressionDrift {
+		t.Fatalf("expected exit %d, got %d stderr=%s", exitRegressionDrift, code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse assess payload: %v", err)
+	}
+	artifacts, ok := payload["artifacts"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected artifacts object, got %T", payload["artifacts"])
+	}
+	reportEvidencePath, _ := artifacts["report_evidence_json_path"].(string)
+	if reportEvidencePath == "" {
+		t.Fatalf("expected report_evidence_json_path, got %v", artifacts)
+	}
+	reportEvidenceBytes, err := os.ReadFile(filepath.Join(outputDir, filepath.FromSlash(reportEvidencePath)))
+	if err != nil {
+		t.Fatalf("read report evidence: %v", err)
+	}
+	reportEvidence := map[string]any{}
+	if err := json.Unmarshal(reportEvidenceBytes, &reportEvidence); err != nil {
+		t.Fatalf("parse report evidence: %v", err)
+	}
+	bom, ok := reportEvidence["agent_action_bom"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected agent_action_bom in report evidence, got %T", reportEvidence["agent_action_bom"])
+	}
+	summary, ok := bom["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected BOM summary, got %T", bom["summary"])
+	}
+	repeatUsage, ok := summary["repeat_usage_signals"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected repeat_usage_signals, got %v", summary["repeat_usage_signals"])
+	}
+	if repeatUsage["status"] != "repeat_use_detected" {
+		t.Fatalf("expected repeat_use_detected status, got %v", repeatUsage)
+	}
+	if repeatUsage["baseline_present"] != true {
+		t.Fatalf("expected baseline_present=true, got %v", repeatUsage)
+	}
+	if repeatUsage["ticket_exports"] != float64(1) {
+		t.Fatalf("expected ticket_exports=1, got %v", repeatUsage)
+	}
+	if repeatUsage["action_contract_exports"] != float64(1) {
+		t.Fatalf("expected action_contract_exports=1, got %v", repeatUsage)
+	}
+	if repeatUsage["evidence_exports"] != float64(1) {
+		t.Fatalf("expected evidence_exports=1, got %v", repeatUsage)
+	}
+	if repeatUsage["drift_artifacts"] != float64(1) {
+		t.Fatalf("expected drift_artifacts=1, got %v", repeatUsage)
+	}
+}
+
 func writeAssessFixtureRepo(t *testing.T, root string) string {
 	t.Helper()
 

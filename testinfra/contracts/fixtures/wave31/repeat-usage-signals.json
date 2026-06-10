@@ -1,0 +1,19 @@
+{
+  "status": "repeat_use_detected",
+  "baseline_present": true,
+  "assess_runs": 2,
+  "assess_rerun_detected": true,
+  "regress_artifacts": 1,
+  "drift_artifacts": 1,
+  "evidence_exports": 1,
+  "ticket_exports": 1,
+  "action_contract_exports": 2,
+  "reason_codes": [
+    "action_contract_exported",
+    "assess_rerun_detected",
+    "baseline_present",
+    "drift_artifact_present",
+    "evidence_exported",
+    "ticket_exported"
+  ]
+}

@@ -94,7 +94,7 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 	baselinePath := fs.String("baseline", "", "baseline artifact path or raw scan snapshot path")
 	statePathFlag := fs.String("state", "", "state file path override")
 	summaryMD := fs.Bool("summary-md", false, "emit deterministic markdown drift summary artifact")
-	summaryMDPath := fs.String("summary-md-path", "wrkr-regress-summary.md", "regress summary markdown output path")
+	summaryMDPath := fs.String("summary-md-path", regress.DefaultSummaryMDFilename, "regress summary markdown output path")
 	reportTemplate := fs.String("template", "operator", "summary template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary]")
 	reportShareProfile := fs.String("share-profile", "internal", "summary share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
 	reportTop := fs.Int("top", 5, "number of top findings included in regress summary artifact")
@@ -177,5 +177,5 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 }
 
 func defaultBaselinePath(scanPath string) string {
-	return filepath.Join(filepath.Dir(scanPath), "wrkr-regress-baseline.json")
+	return filepath.Join(filepath.Dir(scanPath), regress.DefaultBaselineFilename)
 }

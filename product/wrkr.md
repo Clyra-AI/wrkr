@@ -549,6 +549,18 @@ Every discovered AI tool receives a persistent identity that tracks its lifecycl
 7. **Never let a remediated risk recur.** The posture regression pattern (`wrkr regress`) converts a clean scan into a permanent CI fixture. Once a team remediates findings and establishes an approved baseline, CI fails if unapproved tools reappear. A scan report is disposable. A CI gate is permanent.
 8. **One identity per tool, across the governance stack.** Every discovered AI tool gets a persistent, deterministic identity that follows it from Wrkr (discovery) through Gait (enforcement) to Axym (evidence). No mapping tables, no translation layers — the agent ID is the connective tissue between See, Control, and Prove.
 9. **Create durable follow-up work, not disposable screenshots.** The discovery scan is the hook. Evidence bundles, proof verification, regress baselines, deterministic PR-mode comments, and explicit apply-mode remediation PRs keep posture review connected to real workflows without hiding side effects.
+10. **Keep the buyer-first surface narrow and justified.** New output surfaces must improve focused BOM clarity, repeat use, or evidence quality without reintroducing noisy bulk output.
+
+## Wave 2 Product Gate
+
+Wrkr's buyer-first surface is now gated by three product checks:
+
+1. Does the change make the focused Agent Action BOM clearer or more actionable?
+2. Does it strengthen repeat local review loops such as regress, assess, evidence export, or before/after governed-path review?
+3. Does it improve evidence quality without breaking deterministic size, noise, or markdown budgets?
+
+If the answer is no, the change belongs in a deeper appendix, evidence artifact,
+or a later scoped workflow instead of the first-screen buyer path.
 
 ## Non-Goals (v1)
 
