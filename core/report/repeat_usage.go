@@ -236,7 +236,7 @@ func repeatUsageArtifactRoot(root string, rel string, markerDir string, markerFi
 }
 
 func repeatUsageEvidenceManifest(path string) bool {
-	payload, err := os.ReadFile(path)
+	payload, err := os.ReadFile(path) // #nosec G304 -- path is discovered from filepath.WalkDir under trusted local artifact roots.
 	if err != nil {
 		return false
 	}
