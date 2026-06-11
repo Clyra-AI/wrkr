@@ -338,6 +338,9 @@ func RenderMarkdown(summary Summary) string {
 			if item.RecommendedActionContract != nil {
 				builder.WriteString(fmt.Sprintf("  contract=%s\n", markdownActionContract(item.RecommendedActionContract)))
 			}
+			if item.AgenticDeliverySystemChange != nil {
+				builder.WriteString(fmt.Sprintf("  agentic_change=%s\n", markdownAgenticDeliveryChange(item.AgenticDeliverySystemChange)))
+			}
 			if len(item.ClosureRequirements) > 0 {
 				builder.WriteString(fmt.Sprintf("  closure_requirements=%s\n", markdownClosureRequirements(item.ClosureRequirements)))
 			}
@@ -371,6 +374,9 @@ func RenderMarkdown(summary Summary) string {
 					item.GaitCoverage.ActionOutcome.Status,
 					item.GaitCoverage.ProofVerification.Status,
 				))
+			}
+			if len(item.DecisionTraceRefs) > 0 {
+				builder.WriteString(fmt.Sprintf("  decision_traces=%s\n", strings.Join(item.DecisionTraceRefs, ", ")))
 			}
 			if strings.TrimSpace(item.ExclusionReason) != "" {
 				builder.WriteString(fmt.Sprintf("  exclusion=%s\n", item.ExclusionReason))
@@ -639,6 +645,12 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 	}
 	if view.RecommendedActionContract != nil {
 		fmt.Fprintf(builder, "- Draft contract: %s\n", markdownActionContract(view.RecommendedActionContract))
+	}
+	if view.AgenticDeliverySystemChange != nil {
+		fmt.Fprintf(builder, "- Delivery-system change: %s\n", markdownAgenticDeliveryChange(view.AgenticDeliverySystemChange))
+	}
+	if len(view.DecisionTraceRefs) > 0 {
+		fmt.Fprintf(builder, "- Decision traces: %s\n", strings.Join(view.DecisionTraceRefs, ", "))
 	}
 	if len(view.AppendixRefs) > 0 {
 		fmt.Fprintf(builder, "- Appendix refs: %s\n", strings.Join(view.AppendixRefs, ", "))
@@ -1014,6 +1026,29 @@ func markdownActionContract(contract *risk.RecommendedActionContract) string {
 		firstNonEmptyValue(contract.RequiredAuthority, "not specified"),
 		firstNonEmptyValue(contract.RequiredProof, "not specified"),
 	)
+}
+
+func markdownAgenticDeliveryChange(change *risk.AgenticDeliverySystemChange) string {
+	if change == nil {
+		return ""
+	}
+	parts := []string{
+		"surface=" + firstNonEmptyValue(strings.TrimSpace(change.SurfaceType), "unknown"),
+		"artifact=" + firstNonEmptyValue(strings.TrimSpace(change.ChangedArtifact), "unknown"),
+		"impact=" + firstNonEmptyValue(strings.TrimSpace(change.AuthorityImpact), "none"),
+		"review=" + firstNonEmptyValue(strings.TrimSpace(change.ReviewState), "review_unknown"),
+		"credential=" + firstNonEmptyValue(strings.TrimSpace(change.CredentialReach), "no_visible_credential"),
+	}
+	if len(change.ReachableTools) > 0 {
+		parts = append(parts, "reachable_tools="+strings.Join(change.ReachableTools, ","))
+	}
+	if len(change.ReachableTargets) > 0 {
+		parts = append(parts, "targets="+strings.Join(change.ReachableTargets, ","))
+	}
+	if strings.TrimSpace(change.RecommendedControl) != "" {
+		parts = append(parts, "recommended_control="+strings.TrimSpace(change.RecommendedControl))
+	}
+	return strings.Join(parts, " ")
 }
 
 func designPartnerLineage(item AgentActionBOMItem) string {

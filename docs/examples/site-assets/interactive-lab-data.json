@@ -524,6 +524,26 @@
       "target_class": "production_impacting"
     },
     {
+      "action_path_type": "ai_assisted_workflow",
+      "control_resolution_state": "detected_control",
+      "location": "loc-b495beb052de",
+      "path_id": "path-886f20db9930",
+      "recommended_action": "proof",
+      "repo": "repo-faca8acd8424",
+      "risk_zone": "external_egress",
+      "target_class": "developer_productivity"
+    },
+    {
+      "action_path_type": "ai_assisted_workflow",
+      "control_resolution_state": "detected_control",
+      "location": "loc-54d2a78b82f3",
+      "path_id": "path-bc743b3f5ad9",
+      "recommended_action": "proof",
+      "repo": "repo-6a839257969b",
+      "risk_zone": "external_egress",
+      "target_class": "developer_productivity"
+    },
+    {
       "action_path_type": "plain_source_code",
       "control_resolution_state": "detected_control",
       "location": "loc-e53aad57193e",
@@ -540,26 +560,6 @@
       "path_id": "path-df547c195065",
       "recommended_action": "proof",
       "repo": "repo-cc0c29a940d4",
-      "risk_zone": "external_egress",
-      "target_class": "developer_productivity"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
-      "control_resolution_state": "detected_control",
-      "location": "loc-0dbaf368b615",
-      "path_id": "path-440896ab3955",
-      "recommended_action": "proof",
-      "repo": "repo-38bb6769f68e",
-      "risk_zone": "external_egress",
-      "target_class": "developer_productivity"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
-      "control_resolution_state": "detected_control",
-      "location": "loc-b495beb052de",
-      "path_id": "path-886f20db9930",
-      "recommended_action": "proof",
-      "repo": "repo-faca8acd8424",
       "risk_zone": "external_egress",
       "target_class": "developer_productivity"
     }
@@ -603,6 +603,6 @@
   },
   "proof_summary": {
     "chain_present": true,
-    "record_count": 179
+    "record_count": 190
   }
 }

@@ -30,9 +30,24 @@ func TestEmitScanProducesSignedRecords(t *testing.T) {
 			Location:    ".claude/skills/deploy/SKILL.md",
 			Repo:        "repo",
 			Org:         "acme",
+			Permissions: []string{"proc.exec", "deploy.write"},
 		},
 	}
 	report := risk.Score(findings, 5, now)
+	report.ActionPaths = []risk.ActionPath{risk.ProjectActionPath(risk.ActionPath{
+		PathID:           "apc-release-skill",
+		AgentID:          "wrkr:skill:acme",
+		Org:              "acme",
+		Repo:             "repo",
+		ToolType:         "skill",
+		Location:         ".claude/skills/deploy/SKILL.md",
+		WriteCapable:     true,
+		DeployWrite:      true,
+		CredentialAccess: true,
+		HighStakesPresets: []risk.HighStakesPreset{{
+			Preset: risk.HighStakesPresetReleaseAutomation,
+		}},
+	})}
 	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 90, Status: "pass"}
 	posture := score.Result{Score: 82.5, Grade: "B", Weights: scoremodel.DefaultWeights()}
 
@@ -73,6 +88,16 @@ func TestEmitScanProducesSignedRecords(t *testing.T) {
 		if record.Relationship == nil {
 			t.Fatalf("expected relationship envelope for %s", record.RecordID)
 		}
+	}
+	foundDecisionTrace := false
+	for _, record := range chain.Records {
+		if record.RecordType == "decision_trace" {
+			foundDecisionTrace = true
+			break
+		}
+	}
+	if !foundDecisionTrace {
+		t.Fatalf("expected decision_trace proof record, got %#v", chain.Records)
 	}
 	if len(chain.Records) > 1 {
 		second := chain.Records[1]

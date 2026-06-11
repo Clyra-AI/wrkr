@@ -105,7 +105,9 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
 		copyItem.ActionLineage = sanitizeActionLineageWithConfig(copyItem.ActionLineage, config)
 		copyItem.IntroducedBy = sanitizeIntroducedByWithConfig(copyItem.IntroducedBy, config)
+		copyItem.AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangeWithConfig(copyItem.AgenticDeliverySystemChange, config)
 		copyItem.EvidencePacketRefs = maybeRedactStringSlice(copyItem.EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
+		copyItem.DecisionTraceRefs = maybeRedactStringSlice(copyItem.DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 		copyItem.MatchedProductionTargets = cloneStrings(copyItem.MatchedProductionTargets)
 		out = append(out, copyItem)
 	}
@@ -446,7 +448,9 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].Credentials = redactCredentialsWithConfig(copyBOM.Items[idx].Credentials, config)
 		copyBOM.Items[idx].ActionLineage = sanitizeActionLineageWithConfig(copyBOM.Items[idx].ActionLineage, config)
 		copyBOM.Items[idx].IntroducedBy = sanitizeIntroducedByWithConfig(copyBOM.Items[idx].IntroducedBy, config)
+		copyBOM.Items[idx].AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangeWithConfig(copyBOM.Items[idx].AgenticDeliverySystemChange, config)
 		copyBOM.Items[idx].EvidencePacketRefs = maybeRedactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
+		copyBOM.Items[idx].DecisionTraceRefs = maybeRedactStringSlice(copyBOM.Items[idx].DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 	}
 	return &copyBOM
 }
@@ -468,13 +472,27 @@ func sanitizePrimaryViewWithConfig(in *AgentActionBOMPrimaryView, config Redacti
 	out.TodayPath = risk.CloneGovernedPathView(in.TodayPath)
 	out.RecommendedGovernedPath = risk.CloneGovernedPathView(in.RecommendedGovernedPath)
 	out.RecommendedActionContract = risk.CloneRecommendedActionContract(in.RecommendedActionContract)
+	out.AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangeWithConfig(in.AgenticDeliverySystemChange, config)
 	out.WorkflowChainRefs = maybeRedactStringSlice(in.WorkflowChainRefs, "chain", config.Has(RedactionPaths) || config.Has(RedactionGraphRefs))
 	out.GraphRefs = sanitizeGraphRefsWithConfig(in.GraphRefs, config)
 	out.ProofRefs = maybeRedactStringSlice(in.ProofRefs, "proof", config.Has(RedactionProofRefs))
 	out.EvidencePacketRefs = maybeRedactStringSlice(in.EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
+	out.DecisionTraceRefs = maybeRedactStringSlice(in.DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 	out.AppendixRefs = cloneStrings(in.AppendixRefs)
 	out.UnresolvedEvidence = cloneStrings(in.UnresolvedEvidence)
 	return &out
+}
+
+func sanitizeAgenticDeliverySystemChangeWithConfig(in *risk.AgenticDeliverySystemChange, config RedactionConfig) *risk.AgenticDeliverySystemChange {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneAgenticDeliverySystemChange(in)
+	out.ChangeID = maybeRedactPathID(out.ChangeID, config)
+	out.ChangedArtifact = maybeRedactLocationLike(out.ChangedArtifact, config)
+	out.ReachableTargets = maybeRedactStringSlice(out.ReachableTargets, "target", config.Has(RedactionPaths) || config.Has(RedactionRepos))
+	out.EvidenceRefs = maybeRedactStringSlice(out.EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
+	return out
 }
 
 func sanitizeGovernanceDispositionWithConfig(in *controlbacklog.GovernanceDisposition, config RedactionConfig) *controlbacklog.GovernanceDisposition {

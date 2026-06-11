@@ -73,6 +73,7 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out.ReviewBurden, out.ReviewBurdenReasons = deriveReviewBurden(out)
 	out = normalizeProjectedControlState(out)
 	out = populateAgenticProjection(out)
+	out.AgenticDeliverySystemChange = buildAgenticDeliverySystemChange(out)
 	return out
 }
 

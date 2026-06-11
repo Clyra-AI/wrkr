@@ -39,9 +39,24 @@ func TestBuildEvidenceBundle(t *testing.T) {
 			Location:    ".claude/skills/deploy/SKILL.md",
 			Repo:        "repo",
 			Org:         "acme",
+			Permissions: []string{"proc.exec", "deploy.write"},
 		},
 	}
 	report := risk.Score(findings, 5, time.Date(2026, 2, 20, 12, 0, 0, 0, time.UTC))
+	report.ActionPaths = []risk.ActionPath{risk.ProjectActionPath(risk.ActionPath{
+		PathID:           "apc-release-skill",
+		AgentID:          "wrkr:skill:acme",
+		Org:              "acme",
+		Repo:             "repo",
+		ToolType:         "skill",
+		Location:         ".claude/skills/deploy/SKILL.md",
+		WriteCapable:     true,
+		DeployWrite:      true,
+		CredentialAccess: true,
+		HighStakesPresets: []risk.HighStakesPreset{{
+			Preset: risk.HighStakesPresetReleaseAutomation,
+		}},
+	})}
 	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
 	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
 	snapshot := state.Snapshot{
@@ -89,6 +104,7 @@ func TestBuildEvidenceBundle(t *testing.T) {
 		"posture-score.json",
 		"reports/audit-summary.md",
 		"proof-records/chain.json",
+		"proof-records/decision-traces.jsonl",
 		"mappings/soc2.json",
 		"gaps/soc2.json",
 		"manifest.json",
@@ -131,6 +147,14 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	}
 	if got := lifecycleRecord["record_type"]; got != "lifecycle_transition" {
 		t.Fatalf("expected lifecycle_transition record type in export, got %v", got)
+	}
+	tracePayload, err := os.ReadFile(filepath.Join(outputDir, "proof-records", "decision-traces.jsonl"))
+	if err != nil {
+		t.Fatalf("read decision traces jsonl: %v", err)
+	}
+	traceLines := strings.Split(strings.TrimSpace(string(tracePayload)), "\n")
+	if len(traceLines) != 1 {
+		t.Fatalf("expected one decision trace record, got %d: %s", len(traceLines), tracePayload)
 	}
 }
 

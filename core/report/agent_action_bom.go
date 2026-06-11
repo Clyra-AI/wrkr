@@ -148,6 +148,7 @@ type AgentActionBOMItem struct {
 	RecommendedActionContract           *risk.RecommendedActionContract        `json:"recommended_action_contract,omitempty"`
 	TodayPath                           *risk.GovernedPathView                 `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *risk.GovernedPathView                 `json:"recommended_governed_path,omitempty"`
+	AgenticDeliverySystemChange         *risk.AgenticDeliverySystemChange      `json:"agentic_delivery_system_change,omitempty"`
 	HighStakesPresets                   []risk.HighStakesPreset                `json:"high_stakes_presets,omitempty"`
 	ProductionContext                   *risk.ProductionContext                `json:"production_context,omitempty"`
 	EvidencePacketStatus                string                                 `json:"evidence_packet_status,omitempty"`
@@ -198,6 +199,7 @@ type AgentActionBOMItem struct {
 	AttackPathRefs                      []string                               `json:"attack_path_refs,omitempty"`
 	SourceFindingKeys                   []string                               `json:"source_finding_keys,omitempty"`
 	WorkflowChainRefs                   []string                               `json:"workflow_chain_refs,omitempty"`
+	DecisionTraceRefs                   []string                               `json:"decision_trace_refs,omitempty"`
 	ExclusionReason                     string                                 `json:"exclusion_reason,omitempty"`
 	GraphRefs                           AgentActionBOMGraphRefs                `json:"graph_refs,omitempty"`
 	EvidenceRefs                        []string                               `json:"evidence_refs,omitempty"`
@@ -282,6 +284,11 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		}
 		signal := signalsByPath[pathID]
 		runtimeAbsenceStatus := risk.RuntimeEvidenceAbsenceStatus(path)
+		agenticChange := risk.AddReachabilityToAgenticChange(
+			path.AgenticDeliverySystemChange,
+			reachabilityNames(reachableTools),
+			reachabilityNames(reachableTargets),
+		)
 		item := AgentActionBOMItem{
 			PathID:                              pathID,
 			AgentID:                             strings.TrimSpace(path.AgentID),
@@ -352,6 +359,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			RecommendedActionContract:           risk.CloneRecommendedActionContract(path.RecommendedActionContract),
 			TodayPath:                           risk.CloneGovernedPathView(path.TodayPath),
 			RecommendedGovernedPath:             risk.CloneGovernedPathView(path.RecommendedGovernedPath),
+			AgenticDeliverySystemChange:         risk.CloneAgenticDeliverySystemChange(agenticChange),
 			HighStakesPresets:                   risk.CloneHighStakesPresets(path.HighStakesPresets),
 			ProductionContext:                   risk.CloneProductionContext(path.ProductionContext),
 			EvidencePacketStatus:                strings.TrimSpace(packetItem.Status),
@@ -397,6 +405,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			AttackPathRefs:                      append([]string(nil), path.AttackPathRefs...),
 			SourceFindingKeys:                   append([]string(nil), path.SourceFindingKeys...),
 			WorkflowChainRefs:                   append([]string(nil), path.WorkflowChainRefs...),
+			DecisionTraceRefs:                   uniqueSortedStrings(append(append([]string(nil), path.DecisionTraceRefs...), summary.decisionTraceRefsByPath[pathID]...)),
 			GraphRefs:                           itemGraphRefs,
 			Reachability:                        reachability,
 			ReachableServers:                    reachableServers,
@@ -1272,6 +1281,17 @@ func namedReachability(items []AgentActionBOMReachability) (
 	}
 
 	return sortReachability(servers), sortReachability(tools), sortReachability(endpoints), sortReachability(targets), sortReachability(apis), sortReachability(agents)
+}
+
+func reachabilityNames(items []AgentActionBOMReachability) []string {
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		if strings.TrimSpace(item.Name) == "" {
+			continue
+		}
+		names = append(names, strings.TrimSpace(item.Name))
+	}
+	return uniqueSortedStrings(names)
 }
 
 type pathSignal struct {

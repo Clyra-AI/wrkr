@@ -1,6 +1,8 @@
 package proofmap
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"sort"
 	"strconv"
 	"strings"
@@ -8,6 +10,7 @@ import (
 
 	proof "github.com/Clyra-AI/proof"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/attribution"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
@@ -37,6 +40,7 @@ const (
 	maxFindingRiskProofRecords = 25
 	maxAttackPathProofRecords  = 25
 	maxActionPathProofRecords  = 25
+	maxDecisionTraceRecords    = 25
 )
 
 func hasSecurityVisibilityReference(summary agginventory.SecurityVisibilitySummary) bool {
@@ -374,6 +378,69 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 	return records
 }
 
+func MapDecisionTraces(paths []risk.ActionPath, now time.Time) []MappedRecord {
+	candidates := boundedDecisionTracePaths(paths, maxDecisionTraceRecords)
+	records := make([]MappedRecord, 0, len(candidates))
+	for idx, path := range candidates {
+		projected := risk.ProjectActionPath(path)
+		traceID := decisionTraceID(projected)
+		evidenceRefs := decisionTraceEvidenceRefs(projected)
+		proofRefs := decisionTraceProofRefs(projected)
+		event := map[string]any{
+			"event_type": "decision_trace",
+			"trace_id":   traceID,
+			"path_id":    projected.PathID,
+			"actor": map[string]any{
+				"agent_id":   strings.TrimSpace(projected.AgentID),
+				"introduced": decisionTraceActor(projected),
+			},
+			"authority": map[string]any{
+				"impact":              decisionTraceAuthorityImpact(projected),
+				"credential_reach":    decisionTraceCredentialReach(projected),
+				"reachable_targets":   append([]string(nil), projected.MatchedProductionTargets...),
+				"high_stakes_presets": decisionTracePresetNames(projected),
+			},
+			"policy_checked": map[string]any{
+				"status":        strings.TrimSpace(projected.PolicyCoverageStatus),
+				"policy_refs":   append([]string(nil), projected.PolicyRefs...),
+				"evidence_refs": append([]string(nil), projected.PolicyEvidenceRefs...),
+			},
+			"approval_exception_reason": decisionTraceApprovalOrExceptionReason(projected),
+			"context_used":              decisionTraceContextUsed(projected),
+			"what_changed": map[string]any{
+				"artifact":        strings.TrimSpace(projected.Location),
+				"surface_type":    decisionTraceSurfaceType(projected),
+				"purpose":         strings.TrimSpace(projected.Purpose),
+				"workflow_chains": append([]string(nil), projected.WorkflowChainRefs...),
+			},
+			"evidence_refs": evidenceRefs,
+			"outcome": map[string]any{
+				"recommended_control":        strings.TrimSpace(projected.RecommendedControl),
+				"delegation_readiness_state": strings.TrimSpace(projected.DelegationReadinessState),
+				"control_state":              strings.TrimSpace(projected.ControlState),
+				"review_state":               decisionTraceReviewState(projected),
+			},
+			"proof_refs": proofRefs,
+		}
+		metadata := map[string]any{
+			"rank":                idx + 1,
+			"path_id":             strings.TrimSpace(projected.PathID),
+			"trace_id":            traceID,
+			"source_finding_keys": append([]string(nil), projected.SourceFindingKeys...),
+			"workflow_chain_refs": append([]string(nil), projected.WorkflowChainRefs...),
+		}
+		records = append(records, sanitizeMappedRecord(MappedRecord{
+			RecordType:   "decision_trace",
+			AgentID:      strings.TrimSpace(projected.AgentID),
+			Timestamp:    canonicalTime(now),
+			Event:        event,
+			Metadata:     metadata,
+			Relationship: buildDecisionTraceRelationship(projected, traceID),
+		}))
+	}
+	return records
+}
+
 func boundedScoredFindings(report risk.Report) []risk.ScoredFinding {
 	if len(report.TopN) > 0 {
 		return append([]risk.ScoredFinding(nil), report.TopN...)
@@ -390,6 +457,21 @@ func boundedAttackPaths(report risk.Report) []riskattack.ScoredPath {
 
 func boundedActionPaths(paths []risk.ActionPath, limit int) []risk.ActionPath {
 	return boundedSlice(paths, limit)
+}
+
+func boundedDecisionTracePaths(paths []risk.ActionPath, limit int) []risk.ActionPath {
+	candidates := make([]risk.ActionPath, 0, len(paths))
+	for _, path := range paths {
+		projected := risk.ProjectActionPath(path)
+		if strings.TrimSpace(projected.ConfidenceLane) == risk.ConfidenceLaneContextOnly {
+			continue
+		}
+		if len(projected.HighStakesPresets) == 0 && strings.TrimSpace(projected.ControlPriority) != risk.ControlPriorityControlFirst {
+			continue
+		}
+		candidates = append(candidates, projected)
+	}
+	return boundedSlice(candidates, limit)
 }
 
 func boundedSlice[T any](items []T, limit int) []T {
@@ -923,6 +1005,31 @@ func buildPostureRelationship(profileName string) *proof.Relationship {
 	return buildRelationshipEnvelope(entityRefs, nil, "", nil)
 }
 
+func buildDecisionTraceRelationship(path risk.ActionPath, traceID string) *proof.Relationship {
+	toolID := identity.ToolID(path.ToolType, path.Location)
+	entityRefs := relationshipRefs(
+		proof.RelationshipRef{Kind: "agent", ID: strings.TrimSpace(path.AgentID)},
+		proof.RelationshipRef{Kind: "tool", ID: toolID},
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("org", canonicalOrg(path.Org))},
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("repo", strings.TrimSpace(path.Repo))},
+		proof.RelationshipRef{Kind: "evidence", ID: scopedID("decision_trace", traceID)},
+		proof.RelationshipRef{Kind: "resource", ID: scopedID("path", strings.TrimSpace(path.PathID))},
+	)
+	edges := relationshipEdges(
+		proof.RelationshipEdge{
+			Kind: "calls",
+			From: proof.RelationshipRef{Kind: "agent", ID: strings.TrimSpace(path.AgentID)},
+			To:   proof.RelationshipRef{Kind: "tool", ID: toolID},
+		},
+		proof.RelationshipEdge{
+			Kind: "derived_from",
+			From: proof.RelationshipRef{Kind: "evidence", ID: scopedID("decision_trace", traceID)},
+			To:   proof.RelationshipRef{Kind: "resource", ID: scopedID("path", strings.TrimSpace(path.PathID))},
+		},
+	)
+	return buildRelationshipEnvelope(entityRefs, nil, strings.TrimSpace(path.AgentID), edges)
+}
+
 func buildTransitionRelationship(agentID, approver, newState string) *proof.Relationship {
 	state := strings.TrimSpace(newState)
 	evidenceID := lifecycleEvidenceID(agentID, state)
@@ -986,6 +1093,153 @@ func policyRefForRuleIDs(ruleIDs []string) *proof.PolicyRef {
 		PolicyID:       "wrkr-policy",
 		MatchedRuleIDs: normalized,
 	}
+}
+
+func decisionTraceID(path risk.ActionPath) string {
+	raw := strings.Join([]string{
+		strings.TrimSpace(path.PathID),
+		strings.TrimSpace(path.Location),
+		strings.TrimSpace(path.RecommendedControl),
+		strings.Join(decisionTracePresetNames(path), ","),
+	}, "|")
+	return "dt-" + shortHash(raw)
+}
+
+func decisionTraceActor(path risk.ActionPath) string {
+	if path.IntroducedBy != nil {
+		if path.IntroducedBy.Provenance != nil && strings.TrimSpace(path.IntroducedBy.Provenance.Author) != "" {
+			return strings.TrimSpace(path.IntroducedBy.Provenance.Author)
+		}
+		if strings.TrimSpace(path.IntroducedBy.Author) != "" {
+			return strings.TrimSpace(path.IntroducedBy.Author)
+		}
+		if strings.TrimSpace(path.IntroducedBy.Reference) != "" {
+			return strings.TrimSpace(path.IntroducedBy.Reference)
+		}
+	}
+	return firstNonEmpty(strings.TrimSpace(path.AgentID), strings.TrimSpace(path.ToolType), strings.TrimSpace(path.Location))
+}
+
+func decisionTraceAuthorityImpact(path risk.ActionPath) string {
+	if path.AgenticDeliverySystemChange != nil && strings.TrimSpace(path.AgenticDeliverySystemChange.AuthorityImpact) != "" {
+		return strings.TrimSpace(path.AgenticDeliverySystemChange.AuthorityImpact)
+	}
+	switch {
+	case path.ProductionWrite:
+		return "production_mutation"
+	case path.DeployWrite || path.MergeExecute:
+		return "release_or_deploy"
+	case path.CredentialAccess:
+		return "credential_authority"
+	default:
+		return "review_surface"
+	}
+}
+
+func decisionTraceSurfaceType(path risk.ActionPath) string {
+	if path.AgenticDeliverySystemChange != nil && strings.TrimSpace(path.AgenticDeliverySystemChange.SurfaceType) != "" {
+		return strings.TrimSpace(path.AgenticDeliverySystemChange.SurfaceType)
+	}
+	return "workflow_path"
+}
+
+func decisionTraceCredentialReach(path risk.ActionPath) string {
+	if path.AgenticDeliverySystemChange != nil && strings.TrimSpace(path.AgenticDeliverySystemChange.CredentialReach) != "" {
+		return strings.TrimSpace(path.AgenticDeliverySystemChange.CredentialReach)
+	}
+	if path.CredentialAccess {
+		return "credential_access_present"
+	}
+	return "no_visible_credential"
+}
+
+func decisionTraceReviewState(path risk.ActionPath) string {
+	if path.AgenticDeliverySystemChange != nil && strings.TrimSpace(path.AgenticDeliverySystemChange.ReviewState) != "" {
+		return strings.TrimSpace(path.AgenticDeliverySystemChange.ReviewState)
+	}
+	if path.ApprovalGap {
+		return "approval_missing"
+	}
+	return "review_unknown"
+}
+
+func decisionTraceApprovalOrExceptionReason(path risk.ActionPath) string {
+	switch {
+	case len(path.ApprovalGapReasons) > 0:
+		return strings.Join(uniqueSortedStrings(path.ApprovalGapReasons), ",")
+	case len(path.Contradictions) > 0:
+		reasons := []string{}
+		for _, item := range path.Contradictions {
+			reasons = append(reasons, item.ReasonCodes...)
+		}
+		return strings.Join(uniqueSortedStrings(reasons), ",")
+	case path.IntroducedBy != nil && path.IntroducedBy.Provenance != nil && len(path.IntroducedBy.Provenance.MissingEvidence) > 0:
+		return strings.Join(uniqueSortedStrings(path.IntroducedBy.Provenance.MissingEvidence), ",")
+	default:
+		return "no_exception_recorded"
+	}
+}
+
+func decisionTraceContextUsed(path risk.ActionPath) []string {
+	values := []string{}
+	for _, preset := range decisionTracePresetNames(path) {
+		values = append(values, "preset:"+preset)
+	}
+	for _, ref := range path.WorkflowChainRefs {
+		values = append(values, "workflow_chain:"+strings.TrimSpace(ref))
+	}
+	if path.IntroducedBy != nil && strings.TrimSpace(path.IntroducedBy.Reference) != "" {
+		values = append(values, "review_ref:"+strings.TrimSpace(path.IntroducedBy.Reference))
+	}
+	if path.ActionLineage != nil {
+		for _, segment := range path.ActionLineage.Segments {
+			if strings.TrimSpace(segment.Kind) == "" {
+				continue
+			}
+			values = append(values, "lineage:"+strings.TrimSpace(segment.Kind))
+		}
+	}
+	values = uniqueSortedStrings(values)
+	if len(values) > 10 {
+		values = values[:10]
+	}
+	return values
+}
+
+func decisionTraceEvidenceRefs(path risk.ActionPath) []string {
+	values := append([]string(nil), path.ControlEvidenceRefs...)
+	values = append(values, path.PolicyEvidenceRefs...)
+	values = append(values, path.TargetClassEvidenceRefs...)
+	values = append(values, path.ActionPathTypeEvidenceRefs...)
+	values = append(values, path.AttackPathRefs...)
+	if path.IntroducedBy != nil {
+		values = append(values, attribution.EvidenceRefs(path.IntroducedBy)...)
+	}
+	return uniqueSortedStrings(values)
+}
+
+func decisionTraceProofRefs(path risk.ActionPath) []string {
+	values := append([]string(nil), path.PolicyEvidenceRefs...)
+	if path.GaitCoverage != nil {
+		values = append(values, path.GaitCoverage.ProofVerification.EvidenceRefs...)
+	}
+	return uniqueSortedStrings(values)
+}
+
+func decisionTracePresetNames(path risk.ActionPath) []string {
+	values := make([]string, 0, len(path.HighStakesPresets))
+	for _, item := range path.HighStakesPresets {
+		if strings.TrimSpace(item.Preset) == "" {
+			continue
+		}
+		values = append(values, strings.TrimSpace(item.Preset))
+	}
+	return uniqueSortedStrings(values)
+}
+
+func shortHash(raw string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(raw)))
+	return hex.EncodeToString(sum[:6])
 }
 
 func policyRefID(policyRef *proof.PolicyRef) string {
@@ -1121,6 +1375,15 @@ func scopedID(prefix, value string) string {
 		return trimmedValue
 	}
 	return trimmedPrefix + ":" + trimmedValue
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }
 
 func agentInstanceIDForFinding(finding model.Finding) string {

@@ -123,6 +123,8 @@ func portableArtifactKind(rel string) string {
 		return "evidence_packet_correlation"
 	case "control-evidence.json":
 		return "control_evidence"
+	case "proof-records/decision-traces.jsonl":
+		return "decision_trace_records"
 	case "manifest.json":
 		return "proof_bundle_manifest"
 	case "reports/audit-summary.md", "reports/audit-summary-customer-redacted.md":

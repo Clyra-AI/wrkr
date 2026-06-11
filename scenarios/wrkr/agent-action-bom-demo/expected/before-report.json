@@ -6,18 +6,41 @@
     "standing_privilege_items": 2,
     "static_credential_items": 2,
     "production_target_items": 5,
-    "lifecycle_queue_items": 5,
-    "approval_evidence_unknown_items": 6,
-    "proof_evidence_unknown_items": 6,
     "missing_approval_items": 6,
     "missing_policy_items": 0,
     "missing_proof_items": 6,
     "runtime_proven_items": 0,
-    "unresolved_owner_items": 0,
     "confirmed_action_path_items": 2,
     "likely_action_path_items": 2,
     "semantic_review_candidate_items": 1,
     "context_only_items": 1,
+    "autonomy_tiers": {
+      "tier_0_safe_metadata": 0,
+      "tier_1_low_risk_internal": 0,
+      "tier_2_app_code_owner_review": 0,
+      "tier_3_sensitive_code_or_infra": 1,
+      "tier_4_prod_privileged_or_customer_impacting": 5
+    },
+    "delegation_readiness": {
+      "safe_to_delegate": 0,
+      "review_required": 4,
+      "approval_required": 0,
+      "proof_required": 0,
+      "ready_for_control": 0,
+      "blocked": 2,
+      "blocked_by_contradiction": 0
+    },
+    "recommended_controls": {
+      "allow": 0,
+      "owner_review": 0,
+      "security_review": 4,
+      "approval_required": 0,
+      "jit_credential_required": 0,
+      "proof_required": 0,
+      "block_standing_credential": 2,
+      "block": 0
+    },
+    "coverage_confidence": "complete",
     "empty_state_status": "not_eligible",
     "empty_state_reasons": [
       "approval_evidence_unknown_paths_present",
@@ -38,14 +61,6 @@
       "source_boundary": "local_path",
       "repo_count": 1,
       "target_count": 1
-    },
-    "source_privacy": {
-      "retention_mode": "ephemeral",
-      "deployment_mode": "local_only",
-      "materialized_source_retained": false,
-      "raw_source_in_artifacts": false,
-      "serialized_locations": "filesystem",
-      "cleanup_status": "not_applicable"
     },
     "operational_exposure": {
       "grade": "critical",
@@ -70,11 +85,25 @@
         "coverage_reduced=false"
       ]
     },
+    "governed_usage_metrics": {
+      "active_monitored_action_paths": 5,
+      "governed_paths": 5,
+      "evidence_packs": 0,
+      "audit_exports": 4,
+      "approval_decisions": 0,
+      "connected_runtimes": 0,
+      "governed_agents_workflows": 6,
+      "verified_control_paths": 6,
+      "unknown_control_paths": 0,
+      "contradictory_paths": 0
+    },
+    "repeat_usage_signals": {
+      "status": "first_run"
+    },
     "evidence_completeness": {
-      "path_count": 6,
       "average_total_score": 59,
       "label": "insufficient_evidence",
-      "low_evidence_path_count": 3,
+      "path_count": 6,
       "axis_scores": [
         {
           "axis": "discovery",
@@ -299,71 +328,15 @@
         }
       ]
     },
-    "governed_usage_metrics": {
-      "active_monitored_action_paths": 5,
-      "governed_paths": 5,
-      "evidence_packs": 0,
-      "audit_exports": 4,
-      "approval_decisions": 0,
-      "connected_runtimes": 0,
-      "governed_agents_workflows": 6,
-      "verified_control_paths": 6,
-      "unknown_control_paths": 0,
-      "contradictory_paths": 0
-    },
-    "scan_coverage": {
-      "coverage_confidence": "complete",
-      "impact_statement": "Coverage for scanned inputs was complete enough to support scoped negative claims."
-    },
-    "coverage_confidence": "complete",
-    "autonomy_tiers": {
-      "tier_0_safe_metadata": 0,
-      "tier_1_low_risk_internal": 0,
-      "tier_2_app_code_owner_review": 0,
-      "tier_3_sensitive_code_or_infra": 1,
-      "tier_4_prod_privileged_or_customer_impacting": 5
-    },
-    "delegation_readiness": {
-      "safe_to_delegate": 0,
-      "review_required": 4,
-      "approval_required": 0,
-      "proof_required": 0,
-      "ready_for_control": 0,
-      "blocked": 2,
-      "blocked_by_contradiction": 0
-    },
-    "recommended_controls": {
-      "allow": 0,
-      "owner_review": 0,
-      "security_review": 4,
-      "approval_required": 0,
-      "jit_credential_required": 0,
-      "proof_required": 0,
-      "block_standing_credential": 2,
-      "block": 0
-    },
-    "repeat_usage_signals": {
-      "status": "first_run"
-    },
     "primary_view": {
       "path_id": "apc-6626703372d7",
       "selection_reason": "default_top_path",
-      "path_map": {
-        "tool": "wrkr:ci-agent-457b801fb1:local",
-        "repo_pr": "demo-app / pr/108",
-        "workflow": ".github/workflows/release.yml",
-        "credential": "cloud_admin_key source_control source_control_write standing",
-        "action": "credential_access,deploy,execute,read,write",
-        "target": "built_in:deploy_workflow,built_in:kubernetes,built_in:release_automation"
-      },
-      "control_resolution_state": "detected_control",
       "boundary_label": "report_only",
       "approval_evidence_state": "unknown",
-      "owner_evidence_state": "inferred",
+      "credential_evidence_state": "verified",
       "proof_evidence_state": "unknown",
       "runtime_evidence_state": "unknown",
       "target_evidence_state": "inferred",
-      "credential_evidence_state": "verified",
       "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
       "delegation_readiness_state": "blocked",
       "recommended_control": "block_standing_credential",
@@ -373,6 +346,14 @@
         "approval",
         "proof"
       ],
+      "path_map": {
+        "tool": "wrkr:ci-agent-457b801fb1:local",
+        "repo_pr": "demo-app / pr/108",
+        "workflow": ".github/workflows/release.yml",
+        "credential": "cloud_admin_key source_control source_control_write standing",
+        "action": "credential_access,deploy,execute,read,write",
+        "target": "built_in:deploy_workflow,built_in:kubernetes,built_in:release_automation"
+      },
       "today_path": {
         "label": "today_path",
         "summary": "Today this path is prod or customer impacting using standing credential with approval evidence not found and path-specific proof not found.",
@@ -427,100 +408,12 @@
           "readiness:standing_credential_block"
         ]
       },
-      "workflow_chain_refs": [
-        "wch-57b96c696b0e"
-      ],
-      "graph_refs": {
-        "node_ids": [
-          "cpg-node-0f2c70a39d15",
-          "cpg-node-1373eced3e8b",
-          "cpg-node-153e5ab590b4",
-          "cpg-node-16fddc3cd0be",
-          "cpg-node-1cd71df941ea",
-          "cpg-node-1d44b672db6d",
-          "cpg-node-1d4ae4162f4b",
-          "cpg-node-225b6219adab",
-          "cpg-node-3211c2b0deb6",
-          "cpg-node-376ff7baa0bb",
-          "cpg-node-472d4c0c239c",
-          "cpg-node-490c9dcfc725",
-          "cpg-node-5f9941dff849",
-          "cpg-node-6be0e64f3b3f",
-          "cpg-node-6fe78089627d",
-          "cpg-node-70ed82e25794",
-          "cpg-node-72a603a3338c",
-          "cpg-node-7c899f102c89",
-          "cpg-node-7dcffb01cba7",
-          "cpg-node-870a21134661",
-          "cpg-node-8e47f7bcae23",
-          "cpg-node-9308e54a4399",
-          "cpg-node-9a3f3cabac0e",
-          "cpg-node-9dbc4994d42f",
-          "cpg-node-9edd22d899f2",
-          "cpg-node-a07da3490612",
-          "cpg-node-a183a128cf9a",
-          "cpg-node-aaeaca867356",
-          "cpg-node-abe2a69ed1d7",
-          "cpg-node-afc23e226445",
-          "cpg-node-c18efbef5f60",
-          "cpg-node-c449cc551a8b",
-          "cpg-node-c7c66feef476",
-          "cpg-node-cba5b5a798d9",
-          "cpg-node-d6f459f5d988",
-          "cpg-node-dad723812b3f",
-          "cpg-node-e2f19f4b2030",
-          "cpg-node-e43f00a46ef1",
-          "cpg-node-ec7674322504",
-          "cpg-node-f23ef7fe09d8"
-        ],
-        "edge_ids": [
-          "cpg-edge-034b018bf6dd",
-          "cpg-edge-0589ce7fc5fe",
-          "cpg-edge-08e5396d30e4",
-          "cpg-edge-09b535f4fe0d",
-          "cpg-edge-0fab2c809238",
-          "cpg-edge-1280c23973db",
-          "cpg-edge-14f8dae8bde8",
-          "cpg-edge-17c7c3ae7157",
-          "cpg-edge-220c8e5d0fb5",
-          "cpg-edge-32f17226b945",
-          "cpg-edge-409175bbd7fa",
-          "cpg-edge-469be1ac73da",
-          "cpg-edge-49cd6f61c74b",
-          "cpg-edge-4b7340e670dc",
-          "cpg-edge-56e30fd49c05",
-          "cpg-edge-5c86e0a5f778",
-          "cpg-edge-64976a2763f2",
-          "cpg-edge-6987d7156276",
-          "cpg-edge-786328232462",
-          "cpg-edge-7c6b05ba0442",
-          "cpg-edge-8340c530c72b",
-          "cpg-edge-8709d650e87f",
-          "cpg-edge-8731a417b5f5",
-          "cpg-edge-8b6a3e3ea6c9",
-          "cpg-edge-927ff7d67152",
-          "cpg-edge-93c5f385c821",
-          "cpg-edge-a0623ae770ec",
-          "cpg-edge-adf2152a41a3",
-          "cpg-edge-c8398ff6e287",
-          "cpg-edge-cc2f41cb8c18",
-          "cpg-edge-da4981793b95",
-          "cpg-edge-da7347b81f82",
-          "cpg-edge-dbdf491d04e0",
-          "cpg-edge-de2a45b70314",
-          "cpg-edge-df44b28aad0f",
-          "cpg-edge-e2c624d1b2d7",
-          "cpg-edge-e75c44fca89c",
-          "cpg-edge-f54c57b637fb",
-          "cpg-edge-fcba3932d800",
-          "cpg-edge-fdd31f249791"
-        ]
-      },
-      "proof_refs": [
-        "path:apc-6626703372d7"
+      "decision_trace_refs": [
+        "decision_trace:dt-c62008fe3f27"
       ],
       "appendix_refs": [
         "bom_items",
+        "decision_traces",
         "detector_diagnostics",
         "graph_refs",
         "proof_refs",

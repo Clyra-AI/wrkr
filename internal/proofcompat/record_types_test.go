@@ -37,6 +37,31 @@ func TestEnsureWrkrRecordTypesAllowsWrkrSpecificProofRecords(t *testing.T) {
 				"evidence_url": "https://tickets.example/SEC-123",
 			},
 		},
+		{
+			name:       "decision_trace",
+			recordType: "decision_trace",
+			event: map[string]any{
+				"event_type": "decision_trace",
+				"trace_id":   "dt-123",
+				"path_id":    "apc-123",
+				"actor": map[string]any{
+					"agent_id":   "wrkr:codex:acme",
+					"introduced": "pr/42",
+				},
+				"authority": map[string]any{
+					"impact":            "release_or_deploy",
+					"credential_reach":  "github_pat repository standing",
+					"reachable_targets": []string{"prod-release"},
+				},
+				"context_used":  []string{"preset:release_automation"},
+				"what_changed":  map[string]any{"artifact": ".agents/skills/release/SKILL.md"},
+				"evidence_refs": []string{"proof_record:abc123"},
+				"outcome": map[string]any{
+					"recommended_control":        "approval_required",
+					"delegation_readiness_state": "approval_required",
+				},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

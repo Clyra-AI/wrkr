@@ -18,6 +18,7 @@ func TestStory4SchemasPresent(t *testing.T) {
 		"schemas/v1/proof-outputs/proof-record.schema.json",
 		"schemas/v1/proof-outputs/lifecycle-transition-record.schema.json",
 		"schemas/v1/proof-outputs/evidence-record.schema.json",
+		"schemas/v1/proof-outputs/decision-trace-record.schema.json",
 		"schemas/v1/evidence/evidence-bundle.schema.json",
 	}
 	for _, rel := range required {
@@ -128,5 +129,51 @@ func TestScanEmitsLifecycleTransitionProofRecords(t *testing.T) {
 	}
 	if !seenLifecycleTransition {
 		t.Fatalf("expected scan proof chain to include lifecycle_transition records")
+	}
+}
+
+func TestScanEmitsDecisionTraceProofRecords(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "agent-action-bom-demo", "after", "repos", "demo-app")
+	statePath := filepath.Join(t.TempDir(), "state.json")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := cli.Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, errOut.String())
+	}
+
+	chainPath := filepath.Join(filepath.Dir(statePath), "proof-chain.json")
+	payload, err := os.ReadFile(chainPath)
+	if err != nil {
+		t.Fatalf("read proof chain: %v", err)
+	}
+	var chain map[string]any
+	if err := json.Unmarshal(payload, &chain); err != nil {
+		t.Fatalf("parse proof chain: %v", err)
+	}
+	records, ok := chain["records"].([]any)
+	if !ok || len(records) == 0 {
+		t.Fatalf("expected proof chain records, got %v", chain)
+	}
+	foundDecisionTrace := false
+	for _, raw := range records {
+		record, castOK := raw.(map[string]any)
+		if !castOK {
+			continue
+		}
+		if record["record_type"] != "decision_trace" {
+			continue
+		}
+		event, _ := record["event"].(map[string]any)
+		if event["event_type"] != "decision_trace" {
+			t.Fatalf("expected decision_trace event type, got %v", record)
+		}
+		foundDecisionTrace = true
+	}
+	if !foundDecisionTrace {
+		t.Fatalf("expected scan proof chain to include decision_trace records")
 	}
 }

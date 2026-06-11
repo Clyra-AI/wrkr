@@ -127,6 +127,18 @@ func EmitScanWithContext(ctx context.Context, statePath string, now time.Time, f
 		summary.Total++
 	}
 
+	mappedDecisionTraces := proofmap.MapDecisionTraces(report.ActionPaths, now)
+	for _, mapped := range mappedDecisionTraces {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return Summary{}, ctxErr
+		}
+		linkMappedRecordToFindings(&mapped, findingRecordIDs)
+		if _, err := appendSignedRecord(chain, key, mapped); err != nil {
+			return Summary{}, err
+		}
+		summary.Total++
+	}
+
 	for _, transition := range transitions {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return Summary{}, ctxErr
@@ -297,6 +309,12 @@ func linkMappedRecordToFindings(mapped *proofmap.MappedRecord, findingRecordIDs 
 		}
 	}
 	for _, key := range metadataStringSlice(mapped.Metadata, "attack_path_source") {
+		lookupKey := canonicalFindingLookupKey(key)
+		if recordID := strings.TrimSpace(findingRecordIDs[lookupKey]); recordID != "" {
+			related = append(related, recordID)
+		}
+	}
+	for _, key := range metadataStringSlice(mapped.Metadata, "source_finding_keys") {
 		lookupKey := canonicalFindingLookupKey(key)
 		if recordID := strings.TrimSpace(findingRecordIDs[lookupKey]); recordID != "" {
 			related = append(related, recordID)

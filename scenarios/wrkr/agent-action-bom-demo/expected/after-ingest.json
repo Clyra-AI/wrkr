@@ -5,6 +5,9 @@
     "record_kinds": [
       "runtime"
     ],
+    "source_types": [
+      "unknown"
+    ],
     "tool": "ci_agent",
     "repo": "demo-app",
     "service": "demo-app",
@@ -29,9 +32,6 @@
     "sources": [
       "gait_runtime",
       "proof_runtime"
-    ],
-    "source_types": [
-      "unknown"
     ],
     "policy_refs": [
       "gait://release-control"

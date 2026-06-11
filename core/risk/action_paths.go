@@ -164,6 +164,7 @@ type ActionPath struct {
 	RecommendedActionContract           *RecommendedActionContract              `json:"recommended_action_contract,omitempty"`
 	TodayPath                           *GovernedPathView                       `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *GovernedPathView                       `json:"recommended_governed_path,omitempty"`
+	AgenticDeliverySystemChange         *AgenticDeliverySystemChange            `json:"agentic_delivery_system_change,omitempty"`
 	HighStakesPresets                   []HighStakesPreset                      `json:"high_stakes_presets,omitempty"`
 	ProductionContext                   *ProductionContext                      `json:"production_context,omitempty"`
 	EvidencePacketStatus                string                                  `json:"evidence_packet_status,omitempty"`
@@ -176,6 +177,7 @@ type ActionPath struct {
 	AttackPathRefs                      []string                                `json:"attack_path_refs,omitempty"`
 	SourceFindingKeys                   []string                                `json:"source_finding_keys,omitempty"`
 	WorkflowChainRefs                   []string                                `json:"workflow_chain_refs,omitempty"`
+	DecisionTraceRefs                   []string                                `json:"decision_trace_refs,omitempty"`
 	MatchedProductionTargets            []string                                `json:"matched_production_targets,omitempty"`
 	GovernanceControls                  []agginventory.GovernanceControlMapping `json:"governance_controls,omitempty"`
 	ClosureRequirements                 []ClosureRequirement                    `json:"closure_requirements,omitempty"`
@@ -517,18 +519,33 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.PolicyEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.PolicyEvidenceRefs...), incoming.PolicyEvidenceRefs...))
 	merged.GaitCoverage = MergeGaitCoverage(current.GaitCoverage, incoming.GaitCoverage)
 	merged.IntroducedBy = attribution.Merge(current.IntroducedBy, incoming.IntroducedBy)
+	merged.AgenticDeliverySystemChange = CloneAgenticDeliverySystemChange(firstNonNilAgenticDeliverySystemChange(current.AgenticDeliverySystemChange, incoming.AgenticDeliverySystemChange))
 	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
 	merged.ClosureRequirements = CloneClosureRequirements(firstNonEmptyClosureRequirements(current.ClosureRequirements, incoming.ClosureRequirements))
 	merged.EvidenceCompleteness = firstNonNilEvidenceCompleteness(current.EvidenceCompleteness, incoming.EvidenceCompleteness)
 	merged.AttackPathRefs = dedupeSortedStrings(append(append([]string(nil), current.AttackPathRefs...), incoming.AttackPathRefs...))
 	merged.SourceFindingKeys = dedupeSortedStrings(append(append([]string(nil), current.SourceFindingKeys...), incoming.SourceFindingKeys...))
 	merged.WorkflowChainRefs = dedupeSortedStrings(append(append([]string(nil), current.WorkflowChainRefs...), incoming.WorkflowChainRefs...))
+	merged.DecisionTraceRefs = dedupeSortedStrings(append(append([]string(nil), current.DecisionTraceRefs...), incoming.DecisionTraceRefs...))
 	merged.ActionLineage = CloneActionLineage(firstNonNilLineage(current.ActionLineage, incoming.ActionLineage))
 	return merged
 }
 
 func summarizeActionPaths(paths []ActionPath) ActionPathSummary {
 	return SummarizeActionPaths(paths, ActionPathSummaryOptions{})
+}
+
+func firstNonNilAgenticDeliverySystemChange(current, incoming *AgenticDeliverySystemChange) *AgenticDeliverySystemChange {
+	switch {
+	case current == nil:
+		return incoming
+	case incoming == nil:
+		return current
+	case agenticDeliverySystemChangeRank(incoming) > agenticDeliverySystemChangeRank(current):
+		return incoming
+	default:
+		return current
+	}
 }
 
 func actionPathHasCriticalTrustGap(depth *agginventory.TrustDepth) bool {

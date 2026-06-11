@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- [semver:minor] Added `agentic_delivery_system_change` projection fields to govern-first action paths and Agent Action BOM items so instruction, skillpack, MCP, and tool-config edits surface as delivery-system changes with authority impact, review state, and buyer-safe reachability context.
+- [semver:minor] Added authority-aware ranking for delivery-system changes so publish, deploy, credential, and review-bypass reachability outrank bare prompt or config trivia in focused BOM workflows.
+- [semver:minor] Added bounded `decision_trace` proof records plus `decision_trace_refs` in reports and `proof-records/decision-traces.jsonl` in evidence bundles for high-impact action paths.
 - [semver:minor] Added privacy-safe `repeat_usage_signals` to report summaries and Agent Action BOM summaries using only local baseline, assess, regress, evidence, ticket-export, and action-contract artifacts.
 - [semver:minor] Added a bounded design-partner control validation workflow for before/after focused-BOM reviews using `wrkr assess`, regress baselines, and deterministic local artifacts.
 
