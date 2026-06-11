@@ -13,6 +13,7 @@ description: "What Wrkr detects, what it does not detect, and why under determin
 - Explicit bespoke custom-source markers via `wrkr:custom-agent` annotations in Python and JS/TS source files when operators want deterministic custom-agent source coverage without broad heuristics.
 - Prompt-channel override/poisoning patterns from static instruction surfaces with deterministic reason codes and evidence hashes.
 - Structured GitHub Actions workflow capability extraction for `repo.write`, `pull_request.write`, `merge.execute`, `deploy.write`, `db.write`, and `iac.write`, with additive evidence keys that explain which static workflow step or permission produced each claim.
+- Delivery-control context for harnesses, resolver files, eval configs, dry-run requirements, sandbox gates, and test gates when those controls are visible in supported instruction/config/workflow surfaces. This is detection-only context for review and validation requirements; Wrkr does not run evals or score model quality.
 - Static MCP action-surface classification (`mcp.read`, `mcp.write`, `mcp.admin`) from saved declaration fields and saved gateway posture.
 - Static mutable endpoint classification from OpenAPI specs, common route files, and MCP declaration hints, including additive semantics such as `payment`, `refund`, `user_admin`, `data_export`, and `production_mutation` with deterministic confidence and evidence refs.
 - Static non-human execution identity signals for GitHub Apps, bot users, and service-account references from workflow/config artifacts.

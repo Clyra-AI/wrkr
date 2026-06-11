@@ -74,6 +74,8 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out = normalizeProjectedControlState(out)
 	out = populateAgenticProjection(out)
 	out.AgenticDeliverySystemChange = buildAgenticDeliverySystemChange(out)
+	out.DeliveryControlContext = buildDeliveryControlContext(out)
+	out.AgentIdentity = buildAgentIdentity(out)
 	return out
 }
 

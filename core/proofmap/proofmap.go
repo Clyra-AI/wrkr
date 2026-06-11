@@ -391,8 +391,9 @@ func MapDecisionTraces(paths []risk.ActionPath, now time.Time) []MappedRecord {
 			"trace_id":   traceID,
 			"path_id":    projected.PathID,
 			"actor": map[string]any{
-				"agent_id":   strings.TrimSpace(projected.AgentID),
-				"introduced": decisionTraceActor(projected),
+				"agent_id":     strings.TrimSpace(projected.AgentID),
+				"identity_ref": decisionTraceIdentityRef(projected),
+				"introduced":   decisionTraceActor(projected),
 			},
 			"authority": map[string]any{
 				"impact":              decisionTraceAuthorityImpact(projected),
@@ -1028,6 +1029,13 @@ func buildDecisionTraceRelationship(path risk.ActionPath, traceID string) *proof
 		},
 	)
 	return buildRelationshipEnvelope(entityRefs, nil, strings.TrimSpace(path.AgentID), edges)
+}
+
+func decisionTraceIdentityRef(path risk.ActionPath) string {
+	if path.AgentIdentity != nil && strings.TrimSpace(path.AgentIdentity.IdentityKey) != "" {
+		return strings.TrimSpace(path.AgentIdentity.IdentityKey)
+	}
+	return strings.TrimSpace(path.AgentID)
 }
 
 func buildTransitionRelationship(agentID, approver, newState string) *proof.Relationship {

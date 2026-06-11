@@ -76,6 +76,7 @@ type RecommendedActionContract struct {
 	RequiredProof            string   `json:"required_proof,omitempty"`
 	AllowedAutonomyTier      string   `json:"allowed_autonomy_tier,omitempty"`
 	ValidationStep           string   `json:"validation_step,omitempty"`
+	ValidationRequirements   []string `json:"validation_requirements,omitempty"`
 	DefaultPosture           string   `json:"default_posture,omitempty"`
 	DelegationReadinessState string   `json:"delegation_readiness_state,omitempty"`
 	ApprovalEvidenceState    string   `json:"approval_evidence_state,omitempty"`
@@ -107,6 +108,7 @@ func CloneRecommendedActionContract(in *RecommendedActionContract) *RecommendedA
 		return nil
 	}
 	out := *in
+	out.ValidationRequirements = append([]string(nil), in.ValidationRequirements...)
 	out.ReasonCodes = append([]string(nil), in.ReasonCodes...)
 	return &out
 }
@@ -403,6 +405,7 @@ func buildRecommendedActionContract(path ActionPath) *RecommendedActionContract 
 		RequiredProof:            requiredProofForPath(path),
 		AllowedAutonomyTier:      strings.TrimSpace(path.AutonomyTier),
 		ValidationStep:           validationStepForPath(path),
+		ValidationRequirements:   dedupeSortedStrings(path.ValidationRequirements),
 		DefaultPosture:           defaultPostureForPath(path),
 		DelegationReadinessState: strings.TrimSpace(path.DelegationReadinessState),
 		ApprovalEvidenceState:    normalizeEvidenceState(path.ApprovalEvidenceState),

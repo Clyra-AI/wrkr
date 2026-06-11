@@ -149,6 +149,21 @@ type AgentActionBOMItem struct {
 	TodayPath                           *risk.GovernedPathView                 `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *risk.GovernedPathView                 `json:"recommended_governed_path,omitempty"`
 	AgenticDeliverySystemChange         *risk.AgenticDeliverySystemChange      `json:"agentic_delivery_system_change,omitempty"`
+	RuntimeContextEvidenceState         string                                 `json:"runtime_context_evidence_state,omitempty"`
+	RuntimeProvider                     string                                 `json:"runtime_provider,omitempty"`
+	RuntimeHost                         string                                 `json:"runtime_host,omitempty"`
+	RuntimeKind                         string                                 `json:"runtime_kind,omitempty"`
+	ModelProvider                       string                                 `json:"model_provider,omitempty"`
+	ModelVersion                        string                                 `json:"model_version,omitempty"`
+	ExecutionEnvironment                string                                 `json:"execution_environment,omitempty"`
+	StateRetentionEvidenceState         string                                 `json:"state_retention_evidence_state,omitempty"`
+	StateRetentionStatus                string                                 `json:"state_retention_status,omitempty"`
+	RetainedStateTypes                  []string                               `json:"retained_state_types,omitempty"`
+	StateLocationRefs                   []string                               `json:"state_location_refs,omitempty"`
+	StateDigestRefs                     []string                               `json:"state_digest_refs,omitempty"`
+	AgentIdentity                       *risk.AgentIdentity                    `json:"agent_identity,omitempty"`
+	DecisionPrecedent                   *risk.DecisionPrecedent                `json:"decision_precedent,omitempty"`
+	DeliveryControlContext              *risk.DeliveryControlContext           `json:"delivery_control_context,omitempty"`
 	HighStakesPresets                   []risk.HighStakesPreset                `json:"high_stakes_presets,omitempty"`
 	ProductionContext                   *risk.ProductionContext                `json:"production_context,omitempty"`
 	EvidencePacketStatus                string                                 `json:"evidence_packet_status,omitempty"`
@@ -264,6 +279,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		sessionItem := sessionByPath[pathID]
 		runtimeItem := runtimeByPath[pathID]
 		packetItem := packetByPath[pathID]
+		contextItem := mergeEnterpriseContextProjection(sessionItem.Context, packetItem.Context)
 		backlogItem := backlogByPath[pathID]
 		reachability := append([]AgentActionBOMReachability(nil), reachabilityByPath[pathID]...)
 		reachableServers, reachableTools, reachableEndpoints, reachableTargets, reachableAPIs, reachableAgents := namedReachability(reachability)
@@ -360,6 +376,21 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			TodayPath:                           risk.CloneGovernedPathView(path.TodayPath),
 			RecommendedGovernedPath:             risk.CloneGovernedPathView(path.RecommendedGovernedPath),
 			AgenticDeliverySystemChange:         risk.CloneAgenticDeliverySystemChange(agenticChange),
+			RuntimeContextEvidenceState:         firstNonEmptyValue(strings.TrimSpace(path.RuntimeContextEvidenceState), strings.TrimSpace(contextItem.RuntimeContextEvidenceState)),
+			RuntimeProvider:                     firstNonEmptyValue(strings.TrimSpace(path.RuntimeProvider), strings.TrimSpace(contextItem.RuntimeProvider)),
+			RuntimeHost:                         firstNonEmptyValue(strings.TrimSpace(path.RuntimeHost), strings.TrimSpace(contextItem.RuntimeHost)),
+			RuntimeKind:                         firstNonEmptyValue(strings.TrimSpace(path.RuntimeKind), strings.TrimSpace(contextItem.RuntimeKind)),
+			ModelProvider:                       firstNonEmptyValue(strings.TrimSpace(path.ModelProvider), strings.TrimSpace(contextItem.ModelProvider)),
+			ModelVersion:                        firstNonEmptyValue(strings.TrimSpace(path.ModelVersion), strings.TrimSpace(contextItem.ModelVersion)),
+			ExecutionEnvironment:                firstNonEmptyValue(strings.TrimSpace(path.ExecutionEnvironment), strings.TrimSpace(contextItem.ExecutionEnvironment)),
+			StateRetentionEvidenceState:         firstNonEmptyValue(strings.TrimSpace(path.StateRetentionEvidenceState), strings.TrimSpace(contextItem.StateRetentionEvidenceState)),
+			StateRetentionStatus:                firstNonEmptyValue(strings.TrimSpace(path.StateRetentionStatus), strings.TrimSpace(contextItem.StateRetentionStatus)),
+			RetainedStateTypes:                  uniqueSortedStrings(append(append([]string(nil), path.RetainedStateTypes...), contextItem.RetainedStateTypes...)),
+			StateLocationRefs:                   uniqueSortedStrings(append(append([]string(nil), path.StateLocationRefs...), contextItem.StateLocationRefs...)),
+			StateDigestRefs:                     uniqueSortedStrings(append(append([]string(nil), path.StateDigestRefs...), contextItem.StateDigestRefs...)),
+			AgentIdentity:                       risk.CloneAgentIdentity(path.AgentIdentity),
+			DecisionPrecedent:                   risk.CloneDecisionPrecedent(path.DecisionPrecedent),
+			DeliveryControlContext:              risk.CloneDeliveryControlContext(path.DeliveryControlContext),
 			HighStakesPresets:                   risk.CloneHighStakesPresets(path.HighStakesPresets),
 			ProductionContext:                   risk.CloneProductionContext(path.ProductionContext),
 			EvidencePacketStatus:                strings.TrimSpace(packetItem.Status),
@@ -441,6 +472,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			}
 		}
 		item.ActionLineage = decorateLineageForBOM(item.ActionLineage, item)
+		item.AgentIdentity = materializeAgentIdentityForBOM(item.AgentIdentity, item)
 		item.EvidenceRefs = itemEvidenceRefs(path, backlogItem, runtimeItem, itemGraphRefs)
 		items = append(items, item)
 	}
@@ -591,7 +623,24 @@ func runtimeSessionsByPath(summary *ingest.SessionSummary) map[string]sessionPro
 		current.SessionRefs = uniqueSortedStrings(append(current.SessionRefs, strings.TrimSpace(item.SessionID)))
 		current.ObservedActions = uniqueSortedStrings(append(current.ObservedActions, item.ObservedActions...))
 		current.ChangedFiles = uniqueSortedStrings(append(current.ChangedFiles, item.ChangedFiles...))
+		current.Context = mergeEnterpriseContextProjection(current.Context, enterpriseContextProjection{
+			RuntimeProvider:      strings.TrimSpace(item.RuntimeProvider),
+			RuntimeHost:          strings.TrimSpace(item.RuntimeHost),
+			RuntimeKind:          strings.TrimSpace(item.RuntimeKind),
+			ModelProvider:        strings.TrimSpace(item.ModelProvider),
+			ModelVersion:         strings.TrimSpace(item.ModelVersion),
+			ExecutionEnvironment: strings.TrimSpace(item.ExecutionEnvironment),
+			StateRetentionStatus: strings.TrimSpace(item.StateRetentionStatus),
+			RetainedStateTypes:   append([]string(nil), item.RetainedStateTypes...),
+			StateLocationRefs:    append([]string(nil), item.StateLocationRefs...),
+			StateDigestRefs:      append([]string(nil), item.StateDigestRefs...),
+		})
 		out[pathID] = current
+	}
+	for key, item := range out {
+		item.Context.RuntimeContextEvidenceState = runtimeContextState(item.Context)
+		item.Context.StateRetentionEvidenceState = retentionContextState(item.Context)
+		out[key] = item
 	}
 	return out
 }
@@ -700,6 +749,7 @@ type evidencePacketProjection struct {
 	Result               string
 	MissingEvidenceState string
 	PacketRefs           []string
+	Context              enterpriseContextProjection
 }
 
 type sessionProjection struct {
@@ -707,6 +757,7 @@ type sessionProjection struct {
 	SessionRefs     []string
 	ObservedActions []string
 	ChangedFiles    []string
+	Context         enterpriseContextProjection
 }
 
 func evidencePacketsByPath(summary *ingest.EvidencePacketSummary) map[string]evidencePacketProjection {
@@ -724,7 +775,24 @@ func evidencePacketsByPath(summary *ingest.EvidencePacketSummary) map[string]evi
 		current.Result = firstNonEmptyValue(strings.TrimSpace(current.Result), strings.TrimSpace(item.Result))
 		current.MissingEvidenceState = strongestEvidencePacketMissingState(current.MissingEvidenceState, item.MissingEvidenceState)
 		current.PacketRefs = uniqueSortedStrings(append(current.PacketRefs, strings.TrimSpace(item.PacketID)))
+		current.Context = mergeEnterpriseContextProjection(current.Context, enterpriseContextProjection{
+			RuntimeProvider:      strings.TrimSpace(item.RuntimeProvider),
+			RuntimeHost:          strings.TrimSpace(item.RuntimeHost),
+			RuntimeKind:          strings.TrimSpace(item.RuntimeKind),
+			ModelProvider:        strings.TrimSpace(item.ModelProvider),
+			ModelVersion:         strings.TrimSpace(item.ModelVersion),
+			ExecutionEnvironment: strings.TrimSpace(item.ExecutionEnvironment),
+			StateRetentionStatus: strings.TrimSpace(item.StateRetentionStatus),
+			RetainedStateTypes:   append([]string(nil), item.RetainedStateTypes...),
+			StateLocationRefs:    append([]string(nil), item.StateLocationRefs...),
+			StateDigestRefs:      append([]string(nil), item.StateDigestRefs...),
+		})
 		out[pathID] = current
+	}
+	for key, item := range out {
+		item.Context.RuntimeContextEvidenceState = runtimeContextState(item.Context)
+		item.Context.StateRetentionEvidenceState = retentionContextState(item.Context)
+		out[key] = item
 	}
 	return out
 }
@@ -782,6 +850,52 @@ func summaryEvidenceRefs(items []AgentActionBOMItem) []string {
 		refs = append(refs, item.EvidenceRefs...)
 	}
 	return uniqueSortedStrings(refs)
+}
+
+func materializeAgentIdentityForBOM(current *risk.AgentIdentity, item AgentActionBOMItem) *risk.AgentIdentity {
+	out := risk.CloneAgentIdentity(current)
+	if out == nil {
+		out = &risk.AgentIdentity{
+			IdentityKey: strings.TrimSpace(item.AgentID),
+			AgentID:     strings.TrimSpace(item.AgentID),
+		}
+	}
+	out.HumanOwner = firstNonEmptyValue(strings.TrimSpace(out.HumanOwner), strings.TrimSpace(item.Owner))
+	out.OwnerSource = firstNonEmptyValue(strings.TrimSpace(out.OwnerSource), strings.TrimSpace(item.OwnerSource))
+	out.RuntimeProvider = firstNonEmptyValue(strings.TrimSpace(out.RuntimeProvider), strings.TrimSpace(item.RuntimeProvider))
+	out.RuntimeKind = firstNonEmptyValue(strings.TrimSpace(out.RuntimeKind), strings.TrimSpace(item.RuntimeKind))
+	out.ModelProvider = firstNonEmptyValue(strings.TrimSpace(out.ModelProvider), firstNonEmptyValue(strings.TrimSpace(item.ModelProvider), strings.TrimSpace(item.RuntimeProvider)))
+	out.CredentialUsed = firstNonEmptyValue(strings.TrimSpace(out.CredentialUsed), firstNonEmptyValue(credentialKind(item.CredentialAuthority), credentialKindFromProvenance(item.CredentialProvenance)))
+	out.Scope = firstNonEmptyValue(strings.TrimSpace(out.Scope), identityScopeForItem(item))
+	out.EvidenceState = firstNonEmptyValue(strings.TrimSpace(out.EvidenceState), firstNonEmptyValue(strings.TrimSpace(item.RuntimeContextEvidenceState), risk.EvidenceStateUnknown))
+	return out
+}
+
+func credentialKind(authority *agginventory.CredentialAuthority) string {
+	if authority == nil {
+		return ""
+	}
+	return strings.TrimSpace(authority.CredentialKind)
+}
+
+func credentialKindFromProvenance(provenance *agginventory.CredentialProvenance) string {
+	if provenance == nil {
+		return ""
+	}
+	return strings.TrimSpace(provenance.CredentialKind)
+}
+
+func identityScopeForItem(item AgentActionBOMItem) string {
+	if item.CredentialAuthority != nil && strings.TrimSpace(item.CredentialAuthority.LikelyScope) != "" {
+		return strings.TrimSpace(item.CredentialAuthority.LikelyScope)
+	}
+	if item.CredentialProvenance != nil && strings.TrimSpace(item.CredentialProvenance.Scope) != "" {
+		return strings.TrimSpace(item.CredentialProvenance.Scope)
+	}
+	if len(item.MatchedProductionTargets) > 0 {
+		return strings.Join(item.MatchedProductionTargets, ",")
+	}
+	return strings.TrimSpace(item.Repo)
 }
 
 func summarizeAgentActionBOMItems(items []AgentActionBOMItem, paths []risk.ActionPath, report *scanquality.Report, regressSummary *RegressSummary) AgentActionBOMSummary {

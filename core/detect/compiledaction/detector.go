@@ -58,6 +58,7 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 				Evidence: []model.Evidence{
 					{Key: "step_count", Value: "1"},
 					{Key: "tool_sequence", Value: "script"},
+					{Key: "delivery_harness", Value: "compiled_action"},
 				},
 			})
 			continue
@@ -122,6 +123,9 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 						Evidence: []model.Evidence{
 							{Key: "step_count", Value: "1"},
 							{Key: "tool_sequence", Value: "gait.eval.script"},
+							{Key: "delivery_harness", Value: "compiled_action"},
+							{Key: "eval_config_ref", Value: rel},
+							{Key: "validation_requirement", Value: "review_eval_config"},
 						},
 					})
 				}
@@ -143,6 +147,13 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			{Key: "tool_sequence", Value: strings.Join(sequence, ",")},
 			{Key: "risk_classes", Value: strings.Join(doc.RiskClasses, ",")},
 			{Key: "approval_source", Value: doc.ApprovalSource},
+			{Key: "delivery_harness", Value: "compiled_action"},
+		}
+		if containsAny(sequence, "gait.eval.script") {
+			evidence = append(evidence,
+				model.Evidence{Key: "eval_config_ref", Value: rel},
+				model.Evidence{Key: "validation_requirement", Value: "review_eval_config"},
+			)
 		}
 		permissions := []string(nil)
 		if workflowErr == nil {

@@ -83,6 +83,25 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 
 func baseFinding(scope detect.Scope, location, note string, permissions []string) model.Finding {
 	evidence := []model.Evidence{{Key: "note", Value: note}}
+	switch {
+	case strings.EqualFold(strings.TrimSpace(location), "CLAUDE.md"):
+		evidence = append(evidence,
+			model.Evidence{Key: "delivery_harness", Value: "claude_code"},
+			model.Evidence{Key: "resolver_ref", Value: location},
+		)
+	case strings.Contains(strings.ToLower(strings.TrimSpace(location)), ".claude/hooks"),
+		strings.Contains(strings.ToLower(strings.TrimSpace(location)), ".claude/commands"):
+		evidence = append(evidence,
+			model.Evidence{Key: "delivery_harness", Value: "claude_code"},
+			model.Evidence{Key: "validation_requirement", Value: "review_hook_execution"},
+		)
+	case strings.Contains(strings.ToLower(strings.TrimSpace(location)), "settings"),
+		strings.EqualFold(strings.TrimSpace(location), ".mcp.json"):
+		evidence = append(evidence,
+			model.Evidence{Key: "delivery_harness", Value: "claude_code"},
+			model.Evidence{Key: "resolver_ref", Value: location},
+		)
+	}
 	if strings.TrimSpace(scope.Repo) != "" {
 		evidence = append(evidence, model.Evidence{Key: "repo", Value: scope.Repo})
 	}

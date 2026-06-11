@@ -46,7 +46,11 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			Repo:        scope.Repo,
 			Org:         fallbackOrg(scope.Org),
 			Detector:    detectorID,
-			Evidence:    []model.Evidence{{Key: "deprecated_surface", Value: "true"}},
+			Evidence: []model.Evidence{
+				{Key: "deprecated_surface", Value: "true"},
+				{Key: "delivery_harness", Value: "cursor_rules"},
+				{Key: "resolver_ref", Value: ".cursorrules"},
+			},
 		})
 	}
 
@@ -81,6 +85,8 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			Evidence: []model.Evidence{
 				{Key: "always_apply", Value: fmt.Sprintf("%t", frontmatter.AlwaysApply)},
 				{Key: "glob_count", Value: fmt.Sprintf("%d", len(frontmatter.Globs))},
+				{Key: "delivery_harness", Value: "cursor_rules"},
+				{Key: "resolver_ref", Value: rel},
 			},
 		})
 	}
@@ -109,7 +115,11 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 				Org:         fallbackOrg(scope.Org),
 				Detector:    detectorID,
 				Permissions: []string{"mcp.access"},
-				Evidence:    []model.Evidence{{Key: "mcp_server_count", Value: fmt.Sprintf("%d", len(parsed.MCPServers))}},
+				Evidence: []model.Evidence{
+					{Key: "mcp_server_count", Value: fmt.Sprintf("%d", len(parsed.MCPServers))},
+					{Key: "delivery_harness", Value: "cursor_rules"},
+					{Key: "resolver_ref", Value: ".cursor/mcp.json"},
+				},
 			})
 		}
 	}

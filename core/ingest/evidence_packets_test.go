@@ -19,18 +19,31 @@ func TestEvidencePacketNormalizeStableOrder(t *testing.T) {
 		GeneratedAt:   "2026-05-26T15:00:00Z",
 		Packets: []EvidencePacket{
 			{
-				Source:          "review_export",
-				Repo:            "acme/payments",
-				Workflow:        ".github/workflows/release.yml",
-				PullRequestRef:  "pr/42",
-				ObservedAt:      "2026-05-26T14:59:00Z",
-				FilesTouched:    []string{"AGENTS.md", ".github/workflows/release.yml"},
-				Reviewers:       []string{"platform-bot"},
-				Approvals:       []string{"sre-owner"},
-				Result:          "complete",
-				MissingEvidence: []string{},
-				ProofRefs:       []string{"proof://release"},
-				GraphNodeRefs:   []string{"node-2", "node-1"},
+				Source:               "review_export",
+				Repo:                 "acme/payments",
+				Workflow:             ".github/workflows/release.yml",
+				PullRequestRef:       "pr/42",
+				ObservedAt:           "2026-05-26T14:59:00Z",
+				FilesTouched:         []string{"AGENTS.md", ".github/workflows/release.yml"},
+				Reviewers:            []string{"platform-bot"},
+				Approvals:            []string{"sre-owner"},
+				RuntimeProvider:      "openai",
+				RuntimeHost:          "codex.internal.acme",
+				RuntimeKind:          "hosted_agent",
+				ModelProvider:        "openai",
+				ModelVersion:         "gpt-5-codex",
+				ExecutionEnvironment: "managed_platform",
+				StateRetentionStatus: "retained",
+				RetainedStateTypes: []string{
+					"checkpoint_digest",
+					"tool_result_digest",
+				},
+				StateLocationRefs: []string{"state://codex/sess-1"},
+				StateDigestRefs:   []string{"sha256:0123456789abcdef"},
+				Result:            "complete",
+				MissingEvidence:   []string{},
+				ProofRefs:         []string{"proof://release"},
+				GraphNodeRefs:     []string{"node-2", "node-1"},
 			},
 			{
 				Source:          "review_export",
@@ -65,6 +78,12 @@ func TestEvidencePacketNormalizeStableOrder(t *testing.T) {
 	}
 	if len(first.Packets) != 2 || first.Packets[0].PacketID == "" || first.Packets[1].PacketID == "" {
 		t.Fatalf("expected generated packet ids, got %+v", first.Packets)
+	}
+	if first.Packets[1].RuntimeProvider != "openai" || first.Packets[1].ModelVersion != "gpt-5-codex" {
+		t.Fatalf("expected runtime neutrality fields to survive normalization, got %+v", first.Packets[1])
+	}
+	if first.Packets[1].StateRetentionStatus != "retained" || len(first.Packets[1].StateDigestRefs) != 1 {
+		t.Fatalf("expected retention posture fields to survive normalization, got %+v", first.Packets[1])
 	}
 }
 
@@ -130,5 +149,26 @@ func TestEvidencePacketsRejectSecretLikeValues(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "secret-like") {
 		t.Fatalf("expected secret-like rejection error, got %v", err)
+	}
+}
+
+func TestEvidencePacketsRejectRawRetentionPayloads(t *testing.T) {
+	t.Parallel()
+
+	_, err := NormalizeEvidencePacketBundle(EvidencePacketBundle{
+		SchemaVersion: EvidencePacketSchemaVersion,
+		GeneratedAt:   "2026-05-26T15:00:00Z",
+		Packets: []EvidencePacket{{
+			Source:               "review_export",
+			Repo:                 "acme/payments",
+			Workflow:             ".github/workflows/release.yml",
+			ObservedAt:           "2026-05-26T14:59:00Z",
+			StateRetentionStatus: "retained",
+			RetainedStateTypes:   []string{"prompt_raw"},
+			StateLocationRefs:    []string{"prompt contents: deploy the production release now"},
+		}},
+	})
+	if err == nil {
+		t.Fatal("expected raw state-retention payload rejection")
 	}
 }

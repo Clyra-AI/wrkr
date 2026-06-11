@@ -34,6 +34,16 @@ type AgentActionBOMPrimaryView struct {
 	RecommendedGovernedPath     *risk.GovernedPathView            `json:"recommended_governed_path,omitempty"`
 	RecommendedActionContract   *risk.RecommendedActionContract   `json:"recommended_action_contract,omitempty"`
 	AgenticDeliverySystemChange *risk.AgenticDeliverySystemChange `json:"agentic_delivery_system_change,omitempty"`
+	RuntimeProvider             string                            `json:"runtime_provider,omitempty"`
+	RuntimeHost                 string                            `json:"runtime_host,omitempty"`
+	RuntimeKind                 string                            `json:"runtime_kind,omitempty"`
+	ModelProvider               string                            `json:"model_provider,omitempty"`
+	ModelVersion                string                            `json:"model_version,omitempty"`
+	ExecutionEnvironment        string                            `json:"execution_environment,omitempty"`
+	StateRetentionStatus        string                            `json:"state_retention_status,omitempty"`
+	AgentIdentity               *risk.AgentIdentity               `json:"agent_identity,omitempty"`
+	DecisionPrecedent           *risk.DecisionPrecedent           `json:"decision_precedent,omitempty"`
+	DeliveryControlContext      *risk.DeliveryControlContext      `json:"delivery_control_context,omitempty"`
 	WorkflowChainRefs           []string                          `json:"workflow_chain_refs,omitempty"`
 	GraphRefs                   AgentActionBOMGraphRefs           `json:"graph_refs,omitempty"`
 	ProofRefs                   []string                          `json:"proof_refs,omitempty"`
@@ -163,6 +173,16 @@ func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem
 		RecommendedGovernedPath:     risk.CloneGovernedPathView(item.RecommendedGovernedPath),
 		RecommendedActionContract:   risk.CloneRecommendedActionContract(item.RecommendedActionContract),
 		AgenticDeliverySystemChange: risk.CloneAgenticDeliverySystemChange(item.AgenticDeliverySystemChange),
+		RuntimeProvider:             strings.TrimSpace(item.RuntimeProvider),
+		RuntimeHost:                 strings.TrimSpace(item.RuntimeHost),
+		RuntimeKind:                 strings.TrimSpace(item.RuntimeKind),
+		ModelProvider:               strings.TrimSpace(item.ModelProvider),
+		ModelVersion:                strings.TrimSpace(item.ModelVersion),
+		ExecutionEnvironment:        strings.TrimSpace(item.ExecutionEnvironment),
+		StateRetentionStatus:        strings.TrimSpace(item.StateRetentionStatus),
+		AgentIdentity:               risk.CloneAgentIdentity(item.AgentIdentity),
+		DecisionPrecedent:           risk.CloneDecisionPrecedent(item.DecisionPrecedent),
+		DeliveryControlContext:      risk.CloneDeliveryControlContext(item.DeliveryControlContext),
 		WorkflowChainRefs:           cloneStrings(item.WorkflowChainRefs),
 		GraphRefs: AgentActionBOMGraphRefs{
 			NodeIDs: cloneStrings(item.GraphRefs.NodeIDs),

@@ -51,6 +51,16 @@ type EvidencePacket struct {
 	Result                   string   `json:"result,omitempty"`
 	MissingEvidenceState     string   `json:"missing_evidence_state,omitempty"`
 	MissingEvidence          []string `json:"missing_evidence,omitempty"`
+	RuntimeProvider          string   `json:"runtime_provider,omitempty"`
+	RuntimeHost              string   `json:"runtime_host,omitempty"`
+	RuntimeKind              string   `json:"runtime_kind,omitempty"`
+	ModelProvider            string   `json:"model_provider,omitempty"`
+	ModelVersion             string   `json:"model_version,omitempty"`
+	ExecutionEnvironment     string   `json:"execution_environment,omitempty"`
+	StateRetentionStatus     string   `json:"state_retention_status,omitempty"`
+	RetainedStateTypes       []string `json:"retained_state_types,omitempty"`
+	StateLocationRefs        []string `json:"state_location_refs,omitempty"`
+	StateDigestRefs          []string `json:"state_digest_refs,omitempty"`
 	ProofRefs                []string `json:"proof_refs,omitempty"`
 	GraphNodeRefs            []string `json:"graph_node_refs,omitempty"`
 	GraphEdgeRefs            []string `json:"graph_edge_refs,omitempty"`
@@ -70,6 +80,16 @@ type EvidencePacketCorrelation struct {
 	Status               string   `json:"status"`
 	Result               string   `json:"result,omitempty"`
 	MissingEvidenceState string   `json:"missing_evidence_state,omitempty"`
+	RuntimeProvider      string   `json:"runtime_provider,omitempty"`
+	RuntimeHost          string   `json:"runtime_host,omitempty"`
+	RuntimeKind          string   `json:"runtime_kind,omitempty"`
+	ModelProvider        string   `json:"model_provider,omitempty"`
+	ModelVersion         string   `json:"model_version,omitempty"`
+	ExecutionEnvironment string   `json:"execution_environment,omitempty"`
+	StateRetentionStatus string   `json:"state_retention_status,omitempty"`
+	RetainedStateTypes   []string `json:"retained_state_types,omitempty"`
+	StateLocationRefs    []string `json:"state_location_refs,omitempty"`
+	StateDigestRefs      []string `json:"state_digest_refs,omitempty"`
 	ProofRefs            []string `json:"proof_refs,omitempty"`
 	GraphNodeRefs        []string `json:"graph_node_refs,omitempty"`
 	GraphEdgeRefs        []string `json:"graph_edge_refs,omitempty"`
@@ -211,6 +231,16 @@ func normalizeEvidencePacket(packet EvidencePacket, _ time.Time) (EvidencePacket
 	packet.PolicyVerdict = strings.TrimSpace(packet.PolicyVerdict)
 	packet.ExceptionRefs = mergeStrings(packet.ExceptionRefs...)
 	packet.MissingEvidence = mergeStrings(packet.MissingEvidence...)
+	packet.RuntimeProvider = normalizeRuntimeContextValue(packet.RuntimeProvider)
+	packet.RuntimeHost = normalizeRuntimeContextValue(packet.RuntimeHost)
+	packet.RuntimeKind = normalizeRuntimeContextValue(packet.RuntimeKind)
+	packet.ModelProvider = normalizeRuntimeContextValue(packet.ModelProvider)
+	packet.ModelVersion = normalizeRuntimeContextValue(packet.ModelVersion)
+	packet.ExecutionEnvironment = normalizeRuntimeContextValue(packet.ExecutionEnvironment)
+	packet.StateRetentionStatus = normalizeStateRetentionStatus(packet.StateRetentionStatus)
+	packet.RetainedStateTypes = normalizeRetainedStateTypes(packet.RetainedStateTypes)
+	packet.StateLocationRefs = normalizeStateLocationRefs(packet.StateLocationRefs)
+	packet.StateDigestRefs = normalizeStateDigestRefs(packet.StateDigestRefs)
 	packet.Result = normalizePacketResult(packet.Result, len(packet.MissingEvidence))
 	packet.MissingEvidenceState = normalizePacketMissingEvidenceState(packet.MissingEvidenceState, len(packet.MissingEvidence))
 	packet.ProofRefs = mergeStrings(packet.ProofRefs...)
@@ -232,6 +262,15 @@ func normalizeEvidencePacket(packet EvidencePacket, _ time.Time) (EvidencePacket
 		return EvidencePacket{}, fmt.Errorf("evidence packet requires at least one correlation key (path_id, agent_id, repo+workflow, pull_request_ref, files_touched, proof_refs, or graph refs)")
 	}
 	if err := rejectSecretLikeEvidencePacketValues(packet); err != nil {
+		return EvidencePacket{}, err
+	}
+	if err := validateEnterpriseContext(
+		fmt.Sprintf("evidence packet %s", fallbackRecordLabel(firstNonEmpty(packet.PacketID, packet.PathID, packet.Repo, packet.Source))),
+		packet.StateRetentionStatus,
+		packet.RetainedStateTypes,
+		packet.StateLocationRefs,
+		packet.StateDigestRefs,
+	); err != nil {
 		return EvidencePacket{}, err
 	}
 	if packet.PacketID == "" {
@@ -269,6 +308,16 @@ func CorrelateEvidencePackets(snapshot state.Snapshot, artifactPath string, bund
 			Status:               status,
 			Result:               packet.Result,
 			MissingEvidenceState: packet.MissingEvidenceState,
+			RuntimeProvider:      packet.RuntimeProvider,
+			RuntimeHost:          packet.RuntimeHost,
+			RuntimeKind:          packet.RuntimeKind,
+			ModelProvider:        packet.ModelProvider,
+			ModelVersion:         packet.ModelVersion,
+			ExecutionEnvironment: packet.ExecutionEnvironment,
+			StateRetentionStatus: firstNonEmpty(packet.StateRetentionStatus, StateRetentionUnknown),
+			RetainedStateTypes:   append([]string(nil), packet.RetainedStateTypes...),
+			StateLocationRefs:    append([]string(nil), packet.StateLocationRefs...),
+			StateDigestRefs:      append([]string(nil), packet.StateDigestRefs...),
 			ProofRefs:            append([]string(nil), packet.ProofRefs...),
 			GraphNodeRefs:        append([]string(nil), packet.GraphNodeRefs...),
 			GraphEdgeRefs:        append([]string(nil), packet.GraphEdgeRefs...),
@@ -316,6 +365,7 @@ func rejectSecretLikeEvidencePacketValues(packet EvidencePacket) error {
 	values = append(values, packet.FilesTouched...)
 	values = append(values, packet.DiffRefs...)
 	values = append(values, packet.ExceptionRefs...)
+	values = append(values, packet.StateLocationRefs...)
 	values = append(values, packet.EvidenceRefs...)
 	for _, value := range values {
 		if looksSecretLike(value) {

@@ -113,6 +113,13 @@ type AgentPrivilegeMapEntry struct {
 	VersionSource               string                     `json:"version_source,omitempty" yaml:"version_source,omitempty"`
 	ConfigFingerprint           string                     `json:"config_fingerprint,omitempty" yaml:"config_fingerprint,omitempty"`
 	ConfigSource                string                     `json:"config_source,omitempty" yaml:"config_source,omitempty"`
+	DeliveryHarnesses           []string                   `json:"delivery_harnesses,omitempty" yaml:"delivery_harnesses,omitempty"`
+	ResolverRefs                []string                   `json:"resolver_refs,omitempty" yaml:"resolver_refs,omitempty"`
+	EvalConfigRefs              []string                   `json:"eval_config_refs,omitempty" yaml:"eval_config_refs,omitempty"`
+	DryRunRequired              bool                       `json:"dry_run_required,omitempty" yaml:"dry_run_required,omitempty"`
+	SandboxGates                []string                   `json:"sandbox_gates,omitempty" yaml:"sandbox_gates,omitempty"`
+	TestGates                   []string                   `json:"test_gates,omitempty" yaml:"test_gates,omitempty"`
+	ValidationRequirements      []string                   `json:"validation_requirements,omitempty" yaml:"validation_requirements,omitempty"`
 	Org                         string                     `json:"org" yaml:"org"`
 	Repos                       []string                   `json:"repos" yaml:"repos"`
 	MutableEndpointSemanticRefs []string                   `json:"mutable_endpoint_semantic_refs,omitempty" yaml:"mutable_endpoint_semantic_refs,omitempty"`

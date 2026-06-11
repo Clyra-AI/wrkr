@@ -111,6 +111,46 @@ jobs:
 	}
 }
 
+func TestAnalyzeProjectsDeliveryControlContextSignals(t *testing.T) {
+	t.Parallel()
+
+	payload := []byte(`name: gated-release
+on: workflow_dispatch
+jobs:
+  dry-run:
+    environment:
+      name: sandbox
+    runs-on: ubuntu-latest
+    steps:
+      - run: codex --full-auto --approval never --dry-run
+      - run: go test ./...
+      - run: gait eval --script .gait/evals/release.yaml
+`)
+
+	result, parseErr := Analyze(".github/workflows/gated-release.yml", payload)
+	if parseErr != nil {
+		t.Fatalf("analyze workflow: %v", parseErr)
+	}
+	if evidenceValue(result, "delivery_harness") == "" {
+		t.Fatalf("expected delivery_harness evidence, got %+v", result.Evidence)
+	}
+	if evidenceValue(result, "eval_config_ref") != ".github/workflows/gated-release.yml" {
+		t.Fatalf("expected eval_config_ref to point at the workflow, got %+v", result.Evidence)
+	}
+	if evidenceValue(result, "dry_run_required") != "true" {
+		t.Fatalf("expected dry_run_required=true, got %+v", result.Evidence)
+	}
+	if evidenceValue(result, "sandbox_gate") != "environment:sandbox" {
+		t.Fatalf("expected sandbox gate evidence, got %+v", result.Evidence)
+	}
+	if evidenceValue(result, "test_gate") == "" {
+		t.Fatalf("expected test_gate evidence, got %+v", result.Evidence)
+	}
+	if !contains(evidenceValues(result, "validation_requirement"), "review_eval_config") {
+		t.Fatalf("expected validation_requirement to mention review_eval_config, got %+v", result.Evidence)
+	}
+}
+
 func TestAnalyzeCapturesBuiltInWorkflowTokenAndSecretRefs(t *testing.T) {
 	t.Parallel()
 

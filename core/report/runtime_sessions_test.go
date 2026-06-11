@@ -44,18 +44,31 @@ func TestRuntimeSessionSidecarFeedsRuntimeEvidencePacketsAndBOM(t *testing.T) {
 	if err := ingest.SaveSessionBundle(ingest.DefaultSessionPath(statePath), ingest.SessionBundle{
 		GeneratedAt: "2026-05-27T14:00:00Z",
 		Sessions: []ingest.SessionRecord{{
-			Provider:        ingest.SessionProviderCodex,
-			SessionID:       "sess-1",
-			AgentID:         "wrkr:codex-release:acme",
-			Repo:            "acme/payments",
-			Workflow:        ".github/workflows/release.yml",
-			PullRequestRef:  "pr/42",
-			ChangedFiles:    []string{"cmd/release.go"},
-			Actions:         []string{"deploy", "write"},
-			Approvals:       []string{"security"},
-			PolicyDecisions: []string{"allow"},
-			ProofRefs:       []string{"proof-1"},
-			CompletedAt:     "2026-05-27T14:00:00Z",
+			Provider:             ingest.SessionProviderCodex,
+			SessionID:            "sess-1",
+			AgentID:              "wrkr:codex-release:acme",
+			Repo:                 "acme/payments",
+			Workflow:             ".github/workflows/release.yml",
+			PullRequestRef:       "pr/42",
+			ChangedFiles:         []string{"cmd/release.go"},
+			Actions:              []string{"deploy", "write"},
+			Approvals:            []string{"security"},
+			PolicyDecisions:      []string{"allow"},
+			ProofRefs:            []string{"proof-1"},
+			RuntimeProvider:      "openai",
+			RuntimeHost:          "codex.internal.acme",
+			RuntimeKind:          "hosted_agent",
+			ModelProvider:        "openai",
+			ModelVersion:         "gpt-5-codex",
+			ExecutionEnvironment: "managed_platform",
+			StateRetentionStatus: "retained",
+			RetainedStateTypes: []string{
+				"checkpoint_digest",
+				"tool_result_digest",
+			},
+			StateLocationRefs: []string{"state://codex/sess-1"},
+			StateDigestRefs:   []string{"sha256:0123456789abcdef"},
+			CompletedAt:       "2026-05-27T14:00:00Z",
 		}},
 	}); err != nil {
 		t.Fatalf("save runtime sessions: %v", err)
@@ -110,5 +123,16 @@ func TestRuntimeSessionSidecarFeedsRuntimeEvidencePacketsAndBOM(t *testing.T) {
 	}
 	if bom.Items[0].BoundaryLabel != BoundaryLabelApprovalCapable {
 		t.Fatalf("expected approval_capable BOM boundary label, got %+v", bom.Items[0])
+	}
+	if bom.Items[0].RuntimeProvider != "openai" || bom.Items[0].ModelVersion != "gpt-5-codex" {
+		t.Fatalf("expected runtime neutrality projection on BOM item, got %+v", bom.Items[0])
+	}
+	if bom.Items[0].StateRetentionStatus != "retained" || len(bom.Items[0].StateDigestRefs) != 1 {
+		t.Fatalf("expected retention posture projection on BOM item, got %+v", bom.Items[0])
+	}
+
+	redacted := sanitizeAgentActionBOMWithConfig(bom, ShareProfileDesignPartner, ResolveRedactionConfig(ShareProfileDesignPartner, nil))
+	if redacted.Items[0].RuntimeHost == "codex.internal.acme" || redacted.Items[0].ModelVersion == "gpt-5-codex" {
+		t.Fatalf("expected redaction to hide host/model details, got %+v", redacted.Items[0])
 	}
 }

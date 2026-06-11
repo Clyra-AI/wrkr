@@ -409,7 +409,7 @@ func analyzeGitHubWorkflow(path string, payload []byte) (Result, *model.ParseErr
 	for _, binding := range sortedSet(authorityBindings) {
 		evidence = append(evidence, model.Evidence{Key: "authority_binding", Value: binding})
 	}
-	result.Evidence = evidence
+	result.Evidence = appendDeliveryControlEvidence(path, string(payload), result, evidence)
 	result.Evidence = appendPlatformEvidence(result.Evidence, "github_actions", "high")
 	return result, nil
 }

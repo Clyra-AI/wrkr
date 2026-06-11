@@ -13,6 +13,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added bounded `decision_trace` proof records plus `decision_trace_refs` in reports and `proof-records/decision-traces.jsonl` in evidence bundles for high-impact action paths.
 - [semver:minor] Added privacy-safe `repeat_usage_signals` to report summaries and Agent Action BOM summaries using only local baseline, assess, regress, evidence, ticket-export, and action-contract artifacts.
 - [semver:minor] Added a bounded design-partner control validation workflow for before/after focused-BOM reviews using `wrkr assess`, regress baselines, and deterministic local artifacts.
+- [semver:minor] Added provider-neutral runtime, model, host, execution-environment, state-retention, agent-identity, precedent, and delivery-control context fields across ingest sidecars, govern-first paths, report summaries, and Agent Action BOM output.
+- [semver:minor] Added optional local `decision-precedents.json` lookup beside saved scan state so recurring high-impact paths can carry clearly labeled prior decision context without introducing a mutable decision database.
 
 ### Changed
 
@@ -37,7 +39,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- [semver:minor] Added retained-state posture handling that stores refs and digests only, rejects raw prompt/tool-result/memory payloads at ingest time, and redacts host/model/state context in share profiles by default.
 
 ## Changelog maintenance process
 

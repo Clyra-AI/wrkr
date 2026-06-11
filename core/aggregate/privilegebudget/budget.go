@@ -151,6 +151,13 @@ func Build(
 				VersionSource:            strings.TrimSpace(tool.VersionSource),
 				ConfigFingerprint:        strings.TrimSpace(tool.ConfigFingerprint),
 				ConfigSource:             strings.TrimSpace(tool.ConfigSource),
+				DeliveryHarnesses:        deliveryHarnesses(signal, tool.ToolType, primaryLocation(tool)),
+				ResolverRefs:             resolverRefs(signal, primaryLocation(tool)),
+				EvalConfigRefs:           evalConfigRefs(signal, primaryLocation(tool)),
+				DryRunRequired:           dryRunRequired(signal),
+				SandboxGates:             sandboxGates(signal),
+				TestGates:                testGates(signal),
+				ValidationRequirements:   validationRequirements(signal),
 				Permissions:              cloneStringSlice(tool.Permissions),
 				WritePathClasses:         writePathClasses,
 				ActionClasses:            actionClasses,
@@ -375,6 +382,13 @@ func buildInstanceEntries(
 			VersionSource:            firstNonEmptyString(strings.TrimSpace(agent.VersionSource), strings.TrimSpace(tool.VersionSource)),
 			ConfigFingerprint:        firstNonEmptyString(strings.TrimSpace(agent.ConfigFingerprint), strings.TrimSpace(tool.ConfigFingerprint)),
 			ConfigSource:             firstNonEmptyString(strings.TrimSpace(agent.ConfigSource), strings.TrimSpace(tool.ConfigSource)),
+			DeliveryHarnesses:        deliveryHarnesses(signals, firstNonEmptyString(tool.ToolType, framework), strings.TrimSpace(agent.Location)),
+			ResolverRefs:             resolverRefs(signals, strings.TrimSpace(agent.Location)),
+			EvalConfigRefs:           evalConfigRefs(signals, strings.TrimSpace(agent.Location)),
+			DryRunRequired:           dryRunRequired(signals),
+			SandboxGates:             sandboxGates(signals),
+			TestGates:                testGates(signals),
+			ValidationRequirements:   validationRequirements(signals),
 			Org:                      org,
 			Repos:                    repos,
 			Permissions:              permissions,
@@ -892,6 +906,13 @@ func filteredRepoLocationSignals(signal findingSignals) findingSignals {
 		"credential_target_system":    {},
 		"credential_likely_scope":     {},
 		"credential_scope_confidence": {},
+		"delivery_harness":            {},
+		"resolver_ref":                {},
+		"eval_config_ref":             {},
+		"dry_run_required":            {},
+		"sandbox_gate":                {},
+		"test_gate":                   {},
+		"validation_requirement":      {},
 	}
 	for key, values := range signal.EvidenceKV {
 		if _, ok := allowedKeys[key]; !ok {
@@ -961,6 +982,9 @@ func matchedProductionTargets(
 		EvidenceKV:  signals.EvidenceKV,
 	}) {
 		matches[item] = struct{}{}
+	}
+	if len(matches) > 1 {
+		delete(matches, "built_in:customer_impacting")
 	}
 
 	out := make([]string, 0, len(matches))
@@ -2037,6 +2061,67 @@ func workflowTriggerClass(
 	default:
 		return ""
 	}
+}
+
+func deliveryHarnesses(signals findingSignals, toolType string, location string) []string {
+	values := splitNormalizedSignalValues(signals.EvidenceKV["delivery_harness"])
+	if len(values) > 0 {
+		return values
+	}
+	switch normalizeToken(toolType) {
+	case "codex":
+		return []string{"codex_cli"}
+	case "claude":
+		return []string{"claude_code"}
+	case "cursor":
+		return []string{"cursor_rules"}
+	case "ci_agent":
+		return []string{"ci_workflow"}
+	case "compiled_action":
+		return []string{"compiled_action"}
+	}
+	if strings.Contains(normalizeToken(location), ".github/workflows") {
+		return []string{"ci_workflow"}
+	}
+	return nil
+}
+
+func resolverRefs(signals findingSignals, fallbackLocation string) []string {
+	values := splitNormalizedSignalValues(signals.EvidenceKV["resolver_ref"])
+	if len(values) > 0 {
+		return values
+	}
+	if trimmed := strings.TrimSpace(fallbackLocation); strings.HasSuffix(strings.ToLower(trimmed), "agents.md") || strings.HasSuffix(strings.ToLower(trimmed), "claude.md") || strings.Contains(strings.ToLower(trimmed), ".cursor/rules/") {
+		return []string{trimmed}
+	}
+	return nil
+}
+
+func evalConfigRefs(signals findingSignals, fallbackLocation string) []string {
+	values := splitNormalizedSignalValues(signals.EvidenceKV["eval_config_ref"])
+	if len(values) > 0 {
+		return values
+	}
+	if strings.Contains(firstSignalValue(signals, "tool_sequence"), "gait.eval.script") && strings.TrimSpace(fallbackLocation) != "" {
+		return []string{strings.TrimSpace(fallbackLocation)}
+	}
+	return nil
+}
+
+func dryRunRequired(signals findingSignals) bool {
+	return boolSignalState(signals.EvidenceKV["dry_run_required"]) == "true"
+}
+
+func sandboxGates(signals findingSignals) []string {
+	return splitNormalizedSignalValues(signals.EvidenceKV["sandbox_gate"])
+}
+
+func testGates(signals findingSignals) []string {
+	return splitNormalizedSignalValues(signals.EvidenceKV["test_gate"])
+}
+
+func validationRequirements(signals findingSignals) []string {
+	return splitNormalizedSignalValues(signals.EvidenceKV["validation_requirement"])
 }
 
 func splitNormalizedSignalValues(values []string) []string {
