@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -212,6 +213,83 @@ func TestScoreRejectsTamperedProofWhenLifecycleChainMissing(t *testing.T) {
 	assertErrorEnvelopeCode(t, errOut.Bytes(), "runtime_failure", exitRuntime)
 	if !strings.Contains(errOut.String(), "managed artifact consistency proof attestation") {
 		t.Fatalf("expected proof-attestation consistency detail, got %q", errOut.String())
+	}
+}
+
+func TestScanRejectsTamperedProofChainBeforeTransactionCommit(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, ".wrkr", "state.json")
+	if strings.TrimSpace(scanIdentityAgentID(t, statePath)) == "" {
+		t.Fatal("expected scan fixture to produce an agent id")
+	}
+
+	manifestPath := manifest.ResolvePath(statePath)
+	lifecyclePath := lifecycle.ChainPath(statePath)
+	proofPath := proofemit.ChainPath(statePath)
+	attestationPath := proofemit.ChainAttestationPath(proofPath)
+	signingKeyPath := proofemit.SigningKeyPath(statePath)
+
+	stateBefore := readOptionalTestFile(t, statePath)
+	manifestBefore := readOptionalTestFile(t, manifestPath)
+	lifecycleBefore := readOptionalTestFile(t, lifecyclePath)
+	attestationBefore := readOptionalTestFile(t, attestationPath)
+	signingKeyBefore := readOptionalTestFile(t, signingKeyPath)
+
+	payload, err := os.ReadFile(proofPath)
+	if err != nil {
+		t.Fatalf("read chain: %v", err)
+	}
+	var chain map[string]any
+	if err := json.Unmarshal(payload, &chain); err != nil {
+		t.Fatalf("parse chain json: %v", err)
+	}
+	records, ok := chain["records"].([]any)
+	if !ok || len(records) == 0 {
+		t.Fatalf("expected records in proof chain: %v", chain)
+	}
+	first, ok := records[0].(map[string]any)
+	if !ok {
+		t.Fatalf("unexpected record shape: %T", records[0])
+	}
+	integrity, ok := first["integrity"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing integrity block in first record: %v", first)
+	}
+	integrity["record_hash"] = "sha256:tampered"
+	mutated, err := json.MarshalIndent(chain, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal tampered chain: %v", err)
+	}
+	mutated = append(mutated, '\n')
+	if err := os.WriteFile(proofPath, mutated, 0o600); err != nil {
+		t.Fatalf("write tampered chain: %v", err)
+	}
+	proofBefore := readOptionalTestFile(t, proofPath)
+
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &out, &errOut)
+	if code != exitRuntime {
+		t.Fatalf("expected runtime failure, got %d stdout=%q stderr=%q", code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "runtime_failure", exitRuntime)
+	if !strings.Contains(errOut.String(), "managed artifact consistency proof verification") {
+		t.Fatalf("expected proof verification detail, got %q", errOut.String())
+	}
+
+	assertOptionalTestFileEquals(t, statePath, stateBefore)
+	assertOptionalTestFileEquals(t, manifestPath, manifestBefore)
+	assertOptionalTestFileEquals(t, lifecyclePath, lifecycleBefore)
+	assertOptionalTestFileEquals(t, proofPath, proofBefore)
+	assertOptionalTestFileEquals(t, attestationPath, attestationBefore)
+	assertOptionalTestFileEquals(t, signingKeyPath, signingKeyBefore)
+	if _, err := os.Stat(managedArtifactTransactionPath(statePath)); !os.IsNotExist(err) {
+		t.Fatalf("expected recovered transaction journal to be removed, stat err=%v", err)
 	}
 }
 
