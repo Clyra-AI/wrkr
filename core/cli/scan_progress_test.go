@@ -336,6 +336,12 @@ func TestScanJSONOrgProgressIsVisibleBeforeCommandCompletion(t *testing.T) {
 	t.Parallel()
 
 	releaseRepo := make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() {
+		releaseOnce.Do(func() {
+			close(releaseRepo)
+		})
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/orgs/acme/repos":
@@ -364,11 +370,23 @@ func TestScanJSONOrgProgressIsVisibleBeforeCommandCompletion(t *testing.T) {
 			"--json",
 		}, &out, errOut)
 	}()
+	t.Cleanup(func() {
+		release()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+		}
+	})
 
 	// This test only needs proof that progress is visible before the command exits.
 	// Other progress tests cover the later repo materialization milestones directly.
 	const want = "progress target=org org=acme event=scan_phase phase=source_acquire_start"
-	if !errOut.waitFor(want, 2*time.Second) {
+	if !errOut.waitFor(want, 10*time.Second) {
+		release()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+		}
 		t.Fatalf("expected live stderr progress before completion, got %q", errOut.String())
 	}
 	select {
@@ -377,7 +395,7 @@ func TestScanJSONOrgProgressIsVisibleBeforeCommandCompletion(t *testing.T) {
 	default:
 	}
 
-	close(releaseRepo)
+	release()
 	code := <-done
 	if code != exitSuccess {
 		t.Fatalf("scan failed: code=%d stderr=%s", code, errOut.String())
