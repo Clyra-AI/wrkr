@@ -1,11 +1,6 @@
 package risk
 
-import (
-	"strconv"
-	"strings"
-
-	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
-)
+import "strings"
 
 type AgentIdentity struct {
 	IdentityKey        string `json:"identity_key"`
@@ -236,46 +231,6 @@ func agentIdentityRank(in *AgentIdentity) int {
 	return score
 }
 
-func buildIdentityReasonCode(path ActionPath) string {
-	switch strings.TrimSpace(path.RuntimeContextEvidenceState) {
-	case EvidenceStateContradictory:
-		return "runtime_context_contradictory"
-	case EvidenceStateUnknown:
-		return "runtime_context_unknown"
-	default:
-		return "runtime_context_available"
-	}
-}
-
-func decisionPrecedentAgeDays(days int) string {
-	if days <= 0 {
-		return ""
-	}
-	return strconv.Itoa(days)
-}
-
-func materializeRuntimeContext(path ActionPath, provider, host, kind, modelProvider, modelVersion, executionEnvironment, evidenceState string) ActionPath {
-	out := path
-	out.RuntimeProvider = strings.TrimSpace(provider)
-	out.RuntimeHost = strings.TrimSpace(host)
-	out.RuntimeKind = strings.TrimSpace(kind)
-	out.ModelProvider = strings.TrimSpace(modelProvider)
-	out.ModelVersion = strings.TrimSpace(modelVersion)
-	out.ExecutionEnvironment = strings.TrimSpace(executionEnvironment)
-	out.RuntimeContextEvidenceState = strings.TrimSpace(evidenceState)
-	return out
-}
-
-func materializeStateRetention(path ActionPath, evidenceState, status string, retainedTypes, locationRefs, digestRefs []string) ActionPath {
-	out := path
-	out.StateRetentionEvidenceState = strings.TrimSpace(evidenceState)
-	out.StateRetentionStatus = strings.TrimSpace(status)
-	out.RetainedStateTypes = dedupeSortedStrings(retainedTypes)
-	out.StateLocationRefs = dedupeSortedStrings(locationRefs)
-	out.StateDigestRefs = dedupeSortedStrings(digestRefs)
-	return out
-}
-
 func normalizeRuntimeContextEvidenceState(value string) string {
 	switch strings.TrimSpace(value) {
 	case EvidenceStateVerified, EvidenceStateUnknown, EvidenceStateContradictory:
@@ -348,13 +303,6 @@ func runtimeContextEvidenceStateFromValues(values ...string) string {
 	default:
 		return ""
 	}
-}
-
-func credentialAuthorityScope(authority *agginventory.CredentialAuthority) string {
-	if authority == nil {
-		return ""
-	}
-	return strings.TrimSpace(authority.LikelyScope)
 }
 
 func stringSliceContains(values []string, want string) bool {
