@@ -109,6 +109,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	publicSurfaceAssessment := buildPublicSurfaceAssessment(in.Snapshot.PublicEvidenceManifestName, in.Snapshot.PublicEvidence)
 	riskReport.ActionPaths = decorateActionPathsForReport(riskReport.ActionPaths, runtimeEvidence)
 	riskReport.ActionPaths = decorateActionPathsForEvidencePackets(riskReport.ActionPaths, evidencePackets)
+	riskReport.ActionPaths = decorateActionPathsForEnterpriseContext(riskReport.ActionPaths, runtimeSessions, evidencePackets)
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, scanQuality)
 	riskReport.ActionPaths = decorateBoundaryLabelsForReport(
 		riskReport.ActionPaths,
@@ -158,9 +159,11 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		return Summary{}, err
 	}
 	riskReport.ActionPaths = decorateDecisionTraceRefs(riskReport.ActionPaths, decisionTraceRefsByPath)
+	riskReport.ActionPaths = decorateActionPathsWithPrecedents(in.StatePath, now, riskReport.ActionPaths)
 	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
 	rawActionPathToControlFirst := riskReport.ActionPathToControlFirst
+	controlBacklog = decorateControlBacklogDecisionPrecedents(controlBacklog, riskReport.ActionPaths)
 	shareProfileMetadata := BuildShareProfileMetadata(redactionConfig)
 	operationalExposure := scorecore.SummarizeOperationalExposure(riskReport.ActionPaths)
 	governanceReadiness := scorecore.SummarizeGovernanceReadiness(riskReport.ActionPaths, missingProofPathCount(controlProofStatus), scanQualityCoverageReduced(scanQuality))
@@ -1528,6 +1531,7 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 		copyBacklog.Items[idx].RecommendedActionContract = risk.CloneRecommendedActionContract(path.RecommendedActionContract)
 		copyBacklog.Items[idx].TodayPath = risk.CloneGovernedPathView(path.TodayPath)
 		copyBacklog.Items[idx].RecommendedGovernedPath = risk.CloneGovernedPathView(path.RecommendedGovernedPath)
+		copyBacklog.Items[idx].DecisionPrecedent = risk.CloneDecisionPrecedent(path.DecisionPrecedent)
 		copyBacklog.Items[idx].PolicyCoverageStatus = firstNonEmptyValue(strings.TrimSpace(path.PolicyCoverageStatus), strings.TrimSpace(item.PolicyCoverageStatus))
 		copyBacklog.Items[idx].PolicyRefs = uniqueStrings(append(append([]string(nil), item.PolicyRefs...), path.PolicyRefs...))
 		copyBacklog.Items[idx].PolicyMissingReasons = uniqueStrings(append(append([]string(nil), item.PolicyMissingReasons...), path.PolicyMissingReasons...))
@@ -1545,6 +1549,37 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 		if copyBacklog.Items[idx].TrustDepth == nil {
 			copyBacklog.Items[idx].TrustDepth = agginventory.CloneTrustDepth(path.TrustDepth)
 		}
+	}
+	return &copyBacklog
+}
+
+func decorateControlBacklogDecisionPrecedents(backlog *controlbacklog.Backlog, paths []risk.ActionPath) *controlbacklog.Backlog {
+	if backlog == nil || len(backlog.Items) == 0 || len(paths) == 0 {
+		return backlog
+	}
+	copyBacklog := *backlog
+	copyBacklog.Items = append([]controlbacklog.Item(nil), backlog.Items...)
+	byPathID := map[string]risk.ActionPath{}
+	byRepoPath := map[string]risk.ActionPath{}
+	for _, rawPath := range paths {
+		path := risk.ProjectActionPath(rawPath)
+		if pathID := strings.TrimSpace(path.PathID); pathID != "" {
+			byPathID[pathID] = path
+		}
+		if key := strings.TrimSpace(path.Repo) + "|" + strings.TrimSpace(path.Location); key != "|" {
+			byRepoPath[key] = path
+		}
+	}
+	for idx := range copyBacklog.Items {
+		item := copyBacklog.Items[idx]
+		path, ok := byPathID[strings.TrimSpace(item.LinkedActionPathID)]
+		if !ok {
+			path, ok = byRepoPath[strings.TrimSpace(item.Repo)+"|"+strings.TrimSpace(item.Path)]
+		}
+		if !ok {
+			continue
+		}
+		copyBacklog.Items[idx].DecisionPrecedent = risk.CloneDecisionPrecedent(path.DecisionPrecedent)
 	}
 	return &copyBacklog
 }
@@ -1835,6 +1870,17 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.ActionLineage = sanitizeActionLineagePublic(copyItem.ActionLineage)
 		copyItem.IntroducedBy = sanitizeIntroducedByPublic(copyItem.IntroducedBy)
 		copyItem.AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangePublic(copyItem.AgenticDeliverySystemChange)
+		copyItem.RuntimeProvider = redactValue("provider", copyItem.RuntimeProvider, 8)
+		copyItem.RuntimeHost = redactValue("provider", copyItem.RuntimeHost, 8)
+		copyItem.RuntimeKind = redactValue("provider", copyItem.RuntimeKind, 8)
+		copyItem.ModelProvider = redactValue("provider", copyItem.ModelProvider, 8)
+		copyItem.ModelVersion = redactValue("provider", copyItem.ModelVersion, 8)
+		copyItem.ExecutionEnvironment = redactValue("provider", copyItem.ExecutionEnvironment, 8)
+		copyItem.StateLocationRefs = redactStringSlice(copyItem.StateLocationRefs, "state")
+		copyItem.StateDigestRefs = redactStringSlice(copyItem.StateDigestRefs, "digest")
+		copyItem.AgentIdentity = sanitizeAgentIdentityPublic(copyItem.AgentIdentity)
+		copyItem.DecisionPrecedent = sanitizeDecisionPrecedentPublic(copyItem.DecisionPrecedent)
+		copyItem.DeliveryControlContext = sanitizeDeliveryControlContextPublic(copyItem.DeliveryControlContext)
 		copyItem.EvidencePacketRefs = redactStringSlice(copyItem.EvidencePacketRefs, "packet")
 		copyItem.DecisionTraceRefs = redactStringSlice(copyItem.DecisionTraceRefs, "proof")
 		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
@@ -2174,6 +2220,17 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].ActionLineage = sanitizeActionLineagePublic(copyBOM.Items[idx].ActionLineage)
 		copyBOM.Items[idx].IntroducedBy = sanitizeIntroducedByPublic(copyBOM.Items[idx].IntroducedBy)
 		copyBOM.Items[idx].AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangePublic(copyBOM.Items[idx].AgenticDeliverySystemChange)
+		copyBOM.Items[idx].RuntimeProvider = redactValue("provider", copyBOM.Items[idx].RuntimeProvider, 8)
+		copyBOM.Items[idx].RuntimeHost = redactValue("provider", copyBOM.Items[idx].RuntimeHost, 8)
+		copyBOM.Items[idx].RuntimeKind = redactValue("provider", copyBOM.Items[idx].RuntimeKind, 8)
+		copyBOM.Items[idx].ModelProvider = redactValue("provider", copyBOM.Items[idx].ModelProvider, 8)
+		copyBOM.Items[idx].ModelVersion = redactValue("provider", copyBOM.Items[idx].ModelVersion, 8)
+		copyBOM.Items[idx].ExecutionEnvironment = redactValue("provider", copyBOM.Items[idx].ExecutionEnvironment, 8)
+		copyBOM.Items[idx].StateLocationRefs = redactStringSlice(copyBOM.Items[idx].StateLocationRefs, "state")
+		copyBOM.Items[idx].StateDigestRefs = redactStringSlice(copyBOM.Items[idx].StateDigestRefs, "digest")
+		copyBOM.Items[idx].AgentIdentity = sanitizeAgentIdentityPublic(copyBOM.Items[idx].AgentIdentity)
+		copyBOM.Items[idx].DecisionPrecedent = sanitizeDecisionPrecedentPublic(copyBOM.Items[idx].DecisionPrecedent)
+		copyBOM.Items[idx].DeliveryControlContext = sanitizeDeliveryControlContextPublic(copyBOM.Items[idx].DeliveryControlContext)
 		copyBOM.Items[idx].EvidencePacketRefs = redactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet")
 		copyBOM.Items[idx].DecisionTraceRefs = redactStringSlice(copyBOM.Items[idx].DecisionTraceRefs, "proof")
 	}
@@ -2198,6 +2255,15 @@ func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPri
 	out.RecommendedGovernedPath = risk.CloneGovernedPathView(in.RecommendedGovernedPath)
 	out.RecommendedActionContract = risk.CloneRecommendedActionContract(in.RecommendedActionContract)
 	out.AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangePublic(in.AgenticDeliverySystemChange)
+	out.RuntimeProvider = redactValue("provider", in.RuntimeProvider, 8)
+	out.RuntimeHost = redactValue("provider", in.RuntimeHost, 8)
+	out.RuntimeKind = redactValue("provider", in.RuntimeKind, 8)
+	out.ModelProvider = redactValue("provider", in.ModelProvider, 8)
+	out.ModelVersion = redactValue("provider", in.ModelVersion, 8)
+	out.ExecutionEnvironment = redactValue("provider", in.ExecutionEnvironment, 8)
+	out.AgentIdentity = sanitizeAgentIdentityPublic(in.AgentIdentity)
+	out.DecisionPrecedent = sanitizeDecisionPrecedentPublic(in.DecisionPrecedent)
+	out.DeliveryControlContext = sanitizeDeliveryControlContextPublic(in.DeliveryControlContext)
 	out.WorkflowChainRefs = redactStringSlice(in.WorkflowChainRefs, "chain")
 	out.GraphRefs = AgentActionBOMGraphRefs{
 		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
@@ -2220,6 +2286,46 @@ func sanitizeAgenticDeliverySystemChangePublic(in *risk.AgenticDeliverySystemCha
 	out.ChangedArtifact = redactValue("loc", out.ChangedArtifact, 8)
 	out.ReachableTargets = redactStringSlice(out.ReachableTargets, "target")
 	out.EvidenceRefs = redactStringSlice(out.EvidenceRefs, "evidence")
+	return out
+}
+
+func sanitizeAgentIdentityPublic(in *risk.AgentIdentity) *risk.AgentIdentity {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneAgentIdentity(in)
+	out.IdentityKey = redactValue("identity", out.IdentityKey, 8)
+	out.AgentID = redactValue("identity", out.AgentID, 8)
+	out.HumanOwner = redactValue("owner", out.HumanOwner, 8)
+	out.DelegatedAuthority = redactValue("authority", out.DelegatedAuthority, 8)
+	out.RuntimeProvider = redactValue("provider", out.RuntimeProvider, 8)
+	out.RuntimeKind = redactValue("provider", out.RuntimeKind, 8)
+	out.ModelProvider = redactValue("provider", out.ModelProvider, 8)
+	out.CredentialUsed = redactValue("credential", out.CredentialUsed, 8)
+	out.Scope = redactValue("scope", out.Scope, 8)
+	return out
+}
+
+func sanitizeDecisionPrecedentPublic(in *risk.DecisionPrecedent) *risk.DecisionPrecedent {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneDecisionPrecedent(in)
+	out.PrecedentKey = redactValue("precedent", out.PrecedentKey, 8)
+	out.DecisionTraceRef = redactValue("proof", out.DecisionTraceRef, 8)
+	out.EvidenceRefs = redactStringSlice(out.EvidenceRefs, "evidence")
+	return out
+}
+
+func sanitizeDeliveryControlContextPublic(in *risk.DeliveryControlContext) *risk.DeliveryControlContext {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneDeliveryControlContext(in)
+	out.ResolverRefs = redactStringSlice(out.ResolverRefs, "resolver")
+	out.EvalConfigRefs = redactStringSlice(out.EvalConfigRefs, "eval")
+	out.SandboxGates = redactStringSlice(out.SandboxGates, "sandbox")
+	out.TestGates = redactStringSlice(out.TestGates, "test")
 	return out
 }
 

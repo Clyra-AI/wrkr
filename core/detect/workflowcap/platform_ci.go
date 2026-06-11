@@ -546,8 +546,17 @@ func analyzeObservation(obs workflowObservation) Result {
 	for _, binding := range sortedSet(authorityBindings) {
 		evidence = append(evidence, model.Evidence{Key: "authority_binding", Value: binding})
 	}
-	result.Evidence = appendPlatformEvidence(evidence, obs.platform, "high")
+	result.Evidence = appendDeliveryControlEvidence(obs.platform+"_workflow", observationText(obs), result, evidence)
+	result.Evidence = appendPlatformEvidence(result.Evidence, obs.platform, "high")
 	return result
+}
+
+func observationText(obs workflowObservation) string {
+	lines := []string{}
+	for _, job := range obs.jobs {
+		lines = append(lines, job.values...)
+	}
+	return strings.Join(lines, "\n")
 }
 
 type stringListField []string

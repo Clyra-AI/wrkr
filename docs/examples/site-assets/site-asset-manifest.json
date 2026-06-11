@@ -15,7 +15,7 @@
       "description": "Interactive lab summary data projected from deterministic report and evidence outputs.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:d4981b2d1f4eb1fe5d02d2b8e524f8b0c280f3462b028963e99048a066f7b911"
+      "sha256": "sha256:32329be2a420774b6cb55077ac71cbd74090493c478e6f204a983c08e49c6a3f"
     },
     {
       "path": "local-private-posture.md",
@@ -27,21 +27,21 @@
       "description": "Customer-redacted Agent Action BOM sample derived from the multi-repo scan fixture.",
       "share_profile": "customer-redacted",
       "template": "agent-action-bom",
-      "sha256": "sha256:76b2defb718a901055ff0300440b387713380b8ad502cafd6fe1086309b02d6a"
+      "sha256": "sha256:3562db343d7f15fd20772cbee022f53bd7bb71d95cd23fed3565604b45187fac"
     },
     {
       "path": "sample-control-path-graph.json",
       "description": "Customer-redacted Control Path Graph sample for website graph rendering and demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:76a713c43f8c9a278f937317de718e7a784efe1dbd69985e43e39eb3a8d68383"
+      "sha256": "sha256:a87f2fc4b2c4fb7ac7a27d81d1192813ad5d69a2fa29c0e61e8c0c492e461ffc"
     },
     {
       "path": "sample-redacted-report.md",
       "description": "Customer-redacted executive markdown report suitable for public-facing demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:96c88da6e9b0c2ee4c66b9a93ab01b3b47306d7d6b54b8e24bee27d3498d29d9"
+      "sha256": "sha256:ca6c83a19c67faab4076efd087558381ebb447665cb7db582a8906a128940926"
     }
   ],
   "commands": [

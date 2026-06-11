@@ -165,6 +165,28 @@ type ActionPath struct {
 	TodayPath                           *GovernedPathView                       `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *GovernedPathView                       `json:"recommended_governed_path,omitempty"`
 	AgenticDeliverySystemChange         *AgenticDeliverySystemChange            `json:"agentic_delivery_system_change,omitempty"`
+	RuntimeContextEvidenceState         string                                  `json:"runtime_context_evidence_state,omitempty"`
+	RuntimeProvider                     string                                  `json:"runtime_provider,omitempty"`
+	RuntimeHost                         string                                  `json:"runtime_host,omitempty"`
+	RuntimeKind                         string                                  `json:"runtime_kind,omitempty"`
+	ModelProvider                       string                                  `json:"model_provider,omitempty"`
+	ModelVersion                        string                                  `json:"model_version,omitempty"`
+	ExecutionEnvironment                string                                  `json:"execution_environment,omitempty"`
+	StateRetentionEvidenceState         string                                  `json:"state_retention_evidence_state,omitempty"`
+	StateRetentionStatus                string                                  `json:"state_retention_status,omitempty"`
+	RetainedStateTypes                  []string                                `json:"retained_state_types,omitempty"`
+	StateLocationRefs                   []string                                `json:"state_location_refs,omitempty"`
+	StateDigestRefs                     []string                                `json:"state_digest_refs,omitempty"`
+	AgentIdentity                       *AgentIdentity                          `json:"agent_identity,omitempty"`
+	DecisionPrecedent                   *DecisionPrecedent                      `json:"decision_precedent,omitempty"`
+	DeliveryControlContext              *DeliveryControlContext                 `json:"delivery_control_context,omitempty"`
+	DeliveryHarnesses                   []string                                `json:"delivery_harnesses,omitempty"`
+	ResolverRefs                        []string                                `json:"resolver_refs,omitempty"`
+	EvalConfigRefs                      []string                                `json:"eval_config_refs,omitempty"`
+	DryRunRequired                      bool                                    `json:"dry_run_required,omitempty"`
+	SandboxGates                        []string                                `json:"sandbox_gates,omitempty"`
+	TestGates                           []string                                `json:"test_gates,omitempty"`
+	ValidationRequirements              []string                                `json:"validation_requirements,omitempty"`
 	HighStakesPresets                   []HighStakesPreset                      `json:"high_stakes_presets,omitempty"`
 	ProductionContext                   *ProductionContext                      `json:"production_context,omitempty"`
 	EvidencePacketStatus                string                                  `json:"evidence_packet_status,omitempty"`
@@ -268,6 +290,13 @@ func buildActionPath(
 		VersionSource:               strings.TrimSpace(entry.VersionSource),
 		ConfigFingerprint:           strings.TrimSpace(entry.ConfigFingerprint),
 		ConfigSource:                strings.TrimSpace(entry.ConfigSource),
+		DeliveryHarnesses:           dedupeSortedStrings(entry.DeliveryHarnesses),
+		ResolverRefs:                dedupeSortedStrings(entry.ResolverRefs),
+		EvalConfigRefs:              dedupeSortedStrings(entry.EvalConfigRefs),
+		DryRunRequired:              entry.DryRunRequired,
+		SandboxGates:                dedupeSortedStrings(entry.SandboxGates),
+		TestGates:                   dedupeSortedStrings(entry.TestGates),
+		ValidationRequirements:      dedupeSortedStrings(entry.ValidationRequirements),
 		WriteCapable:                entry.WriteCapable,
 		OperationalOwner:            strings.TrimSpace(entry.OperationalOwner),
 		OwnerSource:                 strings.TrimSpace(entry.OwnerSource),
@@ -503,6 +532,13 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.VersionSource = chooseMetadataSource(current.VersionSource, incoming.VersionSource, current.Version, incoming.Version)
 	merged.ConfigFingerprint = firstNonEmptyString(current.ConfigFingerprint, incoming.ConfigFingerprint)
 	merged.ConfigSource = firstNonEmptyString(current.ConfigSource, incoming.ConfigSource)
+	merged.DeliveryHarnesses = dedupeSortedStrings(append(append([]string(nil), current.DeliveryHarnesses...), incoming.DeliveryHarnesses...))
+	merged.ResolverRefs = dedupeSortedStrings(append(append([]string(nil), current.ResolverRefs...), incoming.ResolverRefs...))
+	merged.EvalConfigRefs = dedupeSortedStrings(append(append([]string(nil), current.EvalConfigRefs...), incoming.EvalConfigRefs...))
+	merged.DryRunRequired = current.DryRunRequired || incoming.DryRunRequired
+	merged.SandboxGates = dedupeSortedStrings(append(append([]string(nil), current.SandboxGates...), incoming.SandboxGates...))
+	merged.TestGates = dedupeSortedStrings(append(append([]string(nil), current.TestGates...), incoming.TestGates...))
+	merged.ValidationRequirements = dedupeSortedStrings(append(append([]string(nil), current.ValidationRequirements...), incoming.ValidationRequirements...))
 	merged.StandingPrivilege = current.StandingPrivilege || incoming.StandingPrivilege
 	merged.StandingPrivilegeReasons = dedupeSortedStrings(append(append([]string(nil), current.StandingPrivilegeReasons...), incoming.StandingPrivilegeReasons...))
 	merged.ControlState = firstNonEmptyString(current.ControlState, incoming.ControlState)
@@ -520,6 +556,21 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.GaitCoverage = MergeGaitCoverage(current.GaitCoverage, incoming.GaitCoverage)
 	merged.IntroducedBy = attribution.Merge(current.IntroducedBy, incoming.IntroducedBy)
 	merged.AgenticDeliverySystemChange = CloneAgenticDeliverySystemChange(firstNonNilAgenticDeliverySystemChange(current.AgenticDeliverySystemChange, incoming.AgenticDeliverySystemChange))
+	merged.RuntimeContextEvidenceState = runtimeContextEvidenceStateFromValues(current.RuntimeContextEvidenceState, incoming.RuntimeContextEvidenceState)
+	merged.RuntimeProvider = firstNonEmptyString(current.RuntimeProvider, incoming.RuntimeProvider)
+	merged.RuntimeHost = firstNonEmptyString(current.RuntimeHost, incoming.RuntimeHost)
+	merged.RuntimeKind = firstNonEmptyString(current.RuntimeKind, incoming.RuntimeKind)
+	merged.ModelProvider = firstNonEmptyString(current.ModelProvider, incoming.ModelProvider)
+	merged.ModelVersion = firstNonEmptyString(current.ModelVersion, incoming.ModelVersion)
+	merged.ExecutionEnvironment = firstNonEmptyString(current.ExecutionEnvironment, incoming.ExecutionEnvironment)
+	merged.StateRetentionEvidenceState = runtimeContextEvidenceStateFromValues(current.StateRetentionEvidenceState, incoming.StateRetentionEvidenceState)
+	merged.StateRetentionStatus = firstNonEmptyString(current.StateRetentionStatus, incoming.StateRetentionStatus)
+	merged.RetainedStateTypes = dedupeSortedStrings(append(append([]string(nil), current.RetainedStateTypes...), incoming.RetainedStateTypes...))
+	merged.StateLocationRefs = dedupeSortedStrings(append(append([]string(nil), current.StateLocationRefs...), incoming.StateLocationRefs...))
+	merged.StateDigestRefs = dedupeSortedStrings(append(append([]string(nil), current.StateDigestRefs...), incoming.StateDigestRefs...))
+	merged.AgentIdentity = CloneAgentIdentity(firstNonNilAgentIdentity(current.AgentIdentity, incoming.AgentIdentity))
+	merged.DecisionPrecedent = CloneDecisionPrecedent(firstNonNilDecisionPrecedent(current.DecisionPrecedent, incoming.DecisionPrecedent))
+	merged.DeliveryControlContext = CloneDeliveryControlContext(mergeDeliveryControlContext(current.DeliveryControlContext, incoming.DeliveryControlContext))
 	merged.GovernanceControls = mergeGovernanceControls(current.GovernanceControls, incoming.GovernanceControls)
 	merged.ClosureRequirements = CloneClosureRequirements(firstNonEmptyClosureRequirements(current.ClosureRequirements, incoming.ClosureRequirements))
 	merged.EvidenceCompleteness = firstNonNilEvidenceCompleteness(current.EvidenceCompleteness, incoming.EvidenceCompleteness)

@@ -56,6 +56,10 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, _ detect.Options) 
 			Repo:        scope.Repo,
 			Org:         fallbackOrg(scope.Org),
 			Detector:    detectorID,
+			Evidence: []model.Evidence{
+				{Key: "delivery_harness", Value: "codex_cli"},
+				{Key: "resolver_ref", Value: rel},
+			},
 		})
 	}
 
@@ -152,9 +156,13 @@ func parseConfig(scope detect.Scope, rel, format string) (model.Finding, *model.
 		Detector:    detectorID,
 		Permissions: permissions,
 		Evidence: []model.Evidence{
+			{Key: "delivery_harness", Value: "codex_cli"},
 			{Key: "sandbox_mode", Value: parsed.SandboxMode},
 			{Key: "approval_policy", Value: parsed.ApprovalPolicy},
 			{Key: "network_access", Value: fmt.Sprintf("%t", parsed.NetworkAccess)},
+			{Key: "resolver_ref", Value: rel},
+			{Key: "sandbox_gate", Value: "sandbox_mode:" + strings.TrimSpace(parsed.SandboxMode)},
+			{Key: "validation_requirement", Value: "respect_codex_sandbox_mode"},
 		},
 	}, nil
 }

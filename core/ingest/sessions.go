@@ -33,65 +33,85 @@ type SessionBundle struct {
 }
 
 type SessionRecord struct {
-	SessionID          string   `json:"session_id,omitempty"`
-	Provider           string   `json:"provider"`
-	RunID              string   `json:"run_id,omitempty"`
-	Status             string   `json:"status,omitempty"`
-	PathID             string   `json:"path_id,omitempty"`
-	AgentID            string   `json:"agent_id,omitempty"`
-	Repo               string   `json:"repo,omitempty"`
-	Workflow           string   `json:"workflow,omitempty"`
-	PullRequestRef     string   `json:"pull_request_ref,omitempty"`
-	MergeRequestRef    string   `json:"merge_request_ref,omitempty"`
-	AuthorRefs         []string `json:"author_refs,omitempty"`
-	ReviewerRefs       []string `json:"reviewer_refs,omitempty"`
-	Tool               string   `json:"tool,omitempty"`
-	ProviderURL        string   `json:"provider_url,omitempty"`
-	PromptRef          string   `json:"prompt_ref,omitempty"`
-	ResponseRef        string   `json:"response_ref,omitempty"`
-	ChangedFiles       []string `json:"changed_files,omitempty"`
-	Commands           []string `json:"commands,omitempty"`
-	Actions            []string `json:"actions,omitempty"`
-	FileWrites         []string `json:"file_writes,omitempty"`
-	Approvals          []string `json:"approvals,omitempty"`
-	PolicyDecisions    []string `json:"policy_decisions,omitempty"`
-	CredentialSubjects []string `json:"credential_subjects,omitempty"`
-	Declarations       []string `json:"declarations,omitempty"`
-	ProofRefs          []string `json:"proof_refs,omitempty"`
-	GraphNodeRefs      []string `json:"graph_node_refs,omitempty"`
-	GraphEdgeRefs      []string `json:"graph_edge_refs,omitempty"`
-	Outcome            string   `json:"outcome,omitempty"`
-	StartedAt          string   `json:"started_at,omitempty"`
-	CompletedAt        string   `json:"completed_at,omitempty"`
-	SourceArtifactRefs []string `json:"source_artifact_refs,omitempty"`
-	RedactionHints     []string `json:"redaction_hints,omitempty"`
+	SessionID            string   `json:"session_id,omitempty"`
+	Provider             string   `json:"provider"`
+	RunID                string   `json:"run_id,omitempty"`
+	Status               string   `json:"status,omitempty"`
+	PathID               string   `json:"path_id,omitempty"`
+	AgentID              string   `json:"agent_id,omitempty"`
+	Repo                 string   `json:"repo,omitempty"`
+	Workflow             string   `json:"workflow,omitempty"`
+	PullRequestRef       string   `json:"pull_request_ref,omitempty"`
+	MergeRequestRef      string   `json:"merge_request_ref,omitempty"`
+	AuthorRefs           []string `json:"author_refs,omitempty"`
+	ReviewerRefs         []string `json:"reviewer_refs,omitempty"`
+	Tool                 string   `json:"tool,omitempty"`
+	ProviderURL          string   `json:"provider_url,omitempty"`
+	PromptRef            string   `json:"prompt_ref,omitempty"`
+	ResponseRef          string   `json:"response_ref,omitempty"`
+	ChangedFiles         []string `json:"changed_files,omitempty"`
+	Commands             []string `json:"commands,omitempty"`
+	Actions              []string `json:"actions,omitempty"`
+	FileWrites           []string `json:"file_writes,omitempty"`
+	Approvals            []string `json:"approvals,omitempty"`
+	PolicyDecisions      []string `json:"policy_decisions,omitempty"`
+	CredentialSubjects   []string `json:"credential_subjects,omitempty"`
+	Declarations         []string `json:"declarations,omitempty"`
+	ProofRefs            []string `json:"proof_refs,omitempty"`
+	GraphNodeRefs        []string `json:"graph_node_refs,omitempty"`
+	GraphEdgeRefs        []string `json:"graph_edge_refs,omitempty"`
+	Outcome              string   `json:"outcome,omitempty"`
+	StartedAt            string   `json:"started_at,omitempty"`
+	CompletedAt          string   `json:"completed_at,omitempty"`
+	RuntimeProvider      string   `json:"runtime_provider,omitempty"`
+	RuntimeHost          string   `json:"runtime_host,omitempty"`
+	RuntimeKind          string   `json:"runtime_kind,omitempty"`
+	ModelProvider        string   `json:"model_provider,omitempty"`
+	ModelVersion         string   `json:"model_version,omitempty"`
+	ExecutionEnvironment string   `json:"execution_environment,omitempty"`
+	StateRetentionStatus string   `json:"state_retention_status,omitempty"`
+	RetainedStateTypes   []string `json:"retained_state_types,omitempty"`
+	StateLocationRefs    []string `json:"state_location_refs,omitempty"`
+	StateDigestRefs      []string `json:"state_digest_refs,omitempty"`
+	SourceArtifactRefs   []string `json:"source_artifact_refs,omitempty"`
+	RedactionHints       []string `json:"redaction_hints,omitempty"`
 }
 
 type SessionCorrelation struct {
-	SessionID          string   `json:"session_id"`
-	PathID             string   `json:"path_id,omitempty"`
-	AgentID            string   `json:"agent_id,omitempty"`
-	Provider           string   `json:"provider,omitempty"`
-	RunID              string   `json:"run_id,omitempty"`
-	Repo               string   `json:"repo,omitempty"`
-	Workflow           string   `json:"workflow,omitempty"`
-	PullRequestRef     string   `json:"pull_request_ref,omitempty"`
-	MergeRequestRef    string   `json:"merge_request_ref,omitempty"`
-	BoundaryLabel      string   `json:"boundary_label,omitempty"`
-	Status             string   `json:"status"`
-	Outcome            string   `json:"outcome,omitempty"`
-	PromptRef          string   `json:"prompt_ref,omitempty"`
-	ResponseRef        string   `json:"response_ref,omitempty"`
-	ObservedActions    []string `json:"observed_actions,omitempty"`
-	ChangedFiles       []string `json:"changed_files,omitempty"`
-	FileWrites         []string `json:"file_writes,omitempty"`
-	Approvals          []string `json:"approvals,omitempty"`
-	PolicyDecisions    []string `json:"policy_decisions,omitempty"`
-	ProofRefs          []string `json:"proof_refs,omitempty"`
-	GraphNodeRefs      []string `json:"graph_node_refs,omitempty"`
-	GraphEdgeRefs      []string `json:"graph_edge_refs,omitempty"`
-	SourceArtifactRefs []string `json:"source_artifact_refs,omitempty"`
-	RedactionHints     []string `json:"redaction_hints,omitempty"`
+	SessionID            string   `json:"session_id"`
+	PathID               string   `json:"path_id,omitempty"`
+	AgentID              string   `json:"agent_id,omitempty"`
+	Provider             string   `json:"provider,omitempty"`
+	RunID                string   `json:"run_id,omitempty"`
+	Repo                 string   `json:"repo,omitempty"`
+	Workflow             string   `json:"workflow,omitempty"`
+	PullRequestRef       string   `json:"pull_request_ref,omitempty"`
+	MergeRequestRef      string   `json:"merge_request_ref,omitempty"`
+	BoundaryLabel        string   `json:"boundary_label,omitempty"`
+	Status               string   `json:"status"`
+	Outcome              string   `json:"outcome,omitempty"`
+	PromptRef            string   `json:"prompt_ref,omitempty"`
+	ResponseRef          string   `json:"response_ref,omitempty"`
+	RuntimeProvider      string   `json:"runtime_provider,omitempty"`
+	RuntimeHost          string   `json:"runtime_host,omitempty"`
+	RuntimeKind          string   `json:"runtime_kind,omitempty"`
+	ModelProvider        string   `json:"model_provider,omitempty"`
+	ModelVersion         string   `json:"model_version,omitempty"`
+	ExecutionEnvironment string   `json:"execution_environment,omitempty"`
+	StateRetentionStatus string   `json:"state_retention_status,omitempty"`
+	RetainedStateTypes   []string `json:"retained_state_types,omitempty"`
+	StateLocationRefs    []string `json:"state_location_refs,omitempty"`
+	StateDigestRefs      []string `json:"state_digest_refs,omitempty"`
+	ObservedActions      []string `json:"observed_actions,omitempty"`
+	ChangedFiles         []string `json:"changed_files,omitempty"`
+	FileWrites           []string `json:"file_writes,omitempty"`
+	Approvals            []string `json:"approvals,omitempty"`
+	PolicyDecisions      []string `json:"policy_decisions,omitempty"`
+	ProofRefs            []string `json:"proof_refs,omitempty"`
+	GraphNodeRefs        []string `json:"graph_node_refs,omitempty"`
+	GraphEdgeRefs        []string `json:"graph_edge_refs,omitempty"`
+	SourceArtifactRefs   []string `json:"source_artifact_refs,omitempty"`
+	RedactionHints       []string `json:"redaction_hints,omitempty"`
 }
 
 type SessionSummary struct {
@@ -256,29 +276,39 @@ func CorrelateSessions(snapshot state.Snapshot, artifactPath string, bundle Sess
 			unmatched++
 		}
 		correlations = append(correlations, SessionCorrelation{
-			SessionID:          session.SessionID,
-			PathID:             pathID,
-			AgentID:            session.AgentID,
-			Provider:           session.Provider,
-			RunID:              session.RunID,
-			Repo:               session.Repo,
-			Workflow:           session.Workflow,
-			PullRequestRef:     session.PullRequestRef,
-			MergeRequestRef:    session.MergeRequestRef,
-			Status:             status,
-			Outcome:            session.Outcome,
-			PromptRef:          session.PromptRef,
-			ResponseRef:        session.ResponseRef,
-			ObservedActions:    append([]string(nil), session.Actions...),
-			ChangedFiles:       append([]string(nil), session.ChangedFiles...),
-			FileWrites:         append([]string(nil), session.FileWrites...),
-			Approvals:          append([]string(nil), session.Approvals...),
-			PolicyDecisions:    append([]string(nil), session.PolicyDecisions...),
-			ProofRefs:          append([]string(nil), session.ProofRefs...),
-			GraphNodeRefs:      append([]string(nil), session.GraphNodeRefs...),
-			GraphEdgeRefs:      append([]string(nil), session.GraphEdgeRefs...),
-			SourceArtifactRefs: append([]string(nil), session.SourceArtifactRefs...),
-			RedactionHints:     append([]string(nil), session.RedactionHints...),
+			SessionID:            session.SessionID,
+			PathID:               pathID,
+			AgentID:              session.AgentID,
+			Provider:             session.Provider,
+			RunID:                session.RunID,
+			Repo:                 session.Repo,
+			Workflow:             session.Workflow,
+			PullRequestRef:       session.PullRequestRef,
+			MergeRequestRef:      session.MergeRequestRef,
+			Status:               status,
+			Outcome:              session.Outcome,
+			PromptRef:            session.PromptRef,
+			ResponseRef:          session.ResponseRef,
+			RuntimeProvider:      session.RuntimeProvider,
+			RuntimeHost:          session.RuntimeHost,
+			RuntimeKind:          session.RuntimeKind,
+			ModelProvider:        session.ModelProvider,
+			ModelVersion:         session.ModelVersion,
+			ExecutionEnvironment: session.ExecutionEnvironment,
+			StateRetentionStatus: session.StateRetentionStatus,
+			RetainedStateTypes:   append([]string(nil), session.RetainedStateTypes...),
+			StateLocationRefs:    append([]string(nil), session.StateLocationRefs...),
+			StateDigestRefs:      append([]string(nil), session.StateDigestRefs...),
+			ObservedActions:      append([]string(nil), session.Actions...),
+			ChangedFiles:         append([]string(nil), session.ChangedFiles...),
+			FileWrites:           append([]string(nil), session.FileWrites...),
+			Approvals:            append([]string(nil), session.Approvals...),
+			PolicyDecisions:      append([]string(nil), session.PolicyDecisions...),
+			ProofRefs:            append([]string(nil), session.ProofRefs...),
+			GraphNodeRefs:        append([]string(nil), session.GraphNodeRefs...),
+			GraphEdgeRefs:        append([]string(nil), session.GraphEdgeRefs...),
+			SourceArtifactRefs:   append([]string(nil), session.SourceArtifactRefs...),
+			RedactionHints:       append([]string(nil), session.RedactionHints...),
 		})
 	}
 	sort.Slice(correlations, func(i, j int) bool {
@@ -430,6 +460,16 @@ func normalizeSessionRecord(session SessionRecord, generatedAt time.Time) (Sessi
 	session.Outcome = normalizeSessionOutcome(session.Outcome)
 	session.StartedAt = normalizeOptionalRFC3339(session.StartedAt)
 	session.CompletedAt = normalizeOptionalRFC3339(session.CompletedAt)
+	session.RuntimeProvider = normalizeRuntimeContextValue(session.RuntimeProvider)
+	session.RuntimeHost = normalizeRuntimeContextValue(session.RuntimeHost)
+	session.RuntimeKind = normalizeRuntimeContextValue(session.RuntimeKind)
+	session.ModelProvider = normalizeRuntimeContextValue(session.ModelProvider)
+	session.ModelVersion = normalizeRuntimeContextValue(session.ModelVersion)
+	session.ExecutionEnvironment = normalizeRuntimeContextValue(session.ExecutionEnvironment)
+	session.StateRetentionStatus = normalizeStateRetentionStatus(session.StateRetentionStatus)
+	session.RetainedStateTypes = normalizeRetainedStateTypes(session.RetainedStateTypes)
+	session.StateLocationRefs = normalizeStateLocationRefs(session.StateLocationRefs)
+	session.StateDigestRefs = normalizeStateDigestRefs(session.StateDigestRefs)
 	session.SourceArtifactRefs, err = normalizeSessionPathList(session.SourceArtifactRefs)
 	if err != nil {
 		return SessionRecord{}, err
@@ -445,6 +485,15 @@ func normalizeSessionRecord(session SessionRecord, generatedAt time.Time) (Sessi
 		return SessionRecord{}, fmt.Errorf("runtime session requires at least one correlation key (path_id, agent_id, repo+workflow, pull_request_ref, merge_request_ref, changed_files, proof_refs, or graph refs)")
 	}
 	if err := rejectSecretLikeSessionValues(session); err != nil {
+		return SessionRecord{}, err
+	}
+	if err := validateEnterpriseContext(
+		fmt.Sprintf("runtime session %s", fallbackRecordLabel(firstNonEmpty(session.SessionID, session.RunID, session.Provider))),
+		session.StateRetentionStatus,
+		session.RetainedStateTypes,
+		session.StateLocationRefs,
+		session.StateDigestRefs,
+	); err != nil {
 		return SessionRecord{}, err
 	}
 	if session.SessionID == "" {
@@ -501,37 +550,47 @@ func decodeLooseSession(top map[string]json.RawMessage) (SessionRecord, error) {
 		aliasResponse = digestRef("response", rawResponse)
 	}
 	record := SessionRecord{
-		SessionID:          firstNonEmptyStringValue(top, "session_id", "conversation_id", "trace_id", "agent_session_id"),
-		RunID:              firstNonEmptyStringValue(top, "run_id", "run_ref", "request_id"),
-		Status:             firstNonEmptyStringValue(top, "status", "correlation_status"),
-		PathID:             firstNonEmptyStringValue(top, "path_id"),
-		AgentID:            firstNonEmptyStringValue(top, "agent_id"),
-		Repo:               firstNonEmptyStringValue(top, "repo", "repository"),
-		Workflow:           firstNonEmptyStringValue(top, "workflow", "workflow_ref", "location"),
-		PullRequestRef:     firstNonEmptyStringValue(top, "pull_request_ref", "pr_ref", "review_ref"),
-		MergeRequestRef:    firstNonEmptyStringValue(top, "merge_request_ref", "mr_ref"),
-		AuthorRefs:         stringSliceValueFromRaw(top, "author_refs", "authors"),
-		ReviewerRefs:       stringSliceValueFromRaw(top, "reviewer_refs", "reviewers"),
-		Tool:               firstNonEmptyStringValue(top, "tool", "tool_type"),
-		ProviderURL:        firstNonEmptyStringValue(top, "provider_url"),
-		PromptRef:          aliasPrompt,
-		ResponseRef:        aliasResponse,
-		ChangedFiles:       stringSliceValueFromRaw(top, "changed_files", "files_touched"),
-		Commands:           stringSliceValueFromRaw(top, "commands"),
-		Actions:            stringSliceValueFromRaw(top, "actions", "action_classes"),
-		FileWrites:         stringSliceValueFromRaw(top, "file_writes"),
-		Approvals:          stringSliceValueFromRaw(top, "approvals"),
-		PolicyDecisions:    stringSliceValueFromRaw(top, "policy_decisions"),
-		CredentialSubjects: stringSliceValueFromRaw(top, "credential_subjects"),
-		Declarations:       stringSliceValueFromRaw(top, "declarations"),
-		ProofRefs:          stringSliceValueFromRaw(top, "proof_refs"),
-		GraphNodeRefs:      stringSliceValueFromRaw(top, "graph_node_refs"),
-		GraphEdgeRefs:      stringSliceValueFromRaw(top, "graph_edge_refs"),
-		Outcome:            firstNonEmptyStringValue(top, "outcome", "result"),
-		StartedAt:          firstNonEmptyStringValue(top, "started_at", "started", "created_at"),
-		CompletedAt:        firstNonEmptyStringValue(top, "completed_at", "finished_at", "observed_at", "updated_at"),
-		SourceArtifactRefs: stringSliceValueFromRaw(top, "source_artifact_refs", "artifacts"),
-		RedactionHints:     stringSliceValueFromRaw(top, "redaction_hints"),
+		SessionID:            firstNonEmptyStringValue(top, "session_id", "conversation_id", "trace_id", "agent_session_id"),
+		RunID:                firstNonEmptyStringValue(top, "run_id", "run_ref", "request_id"),
+		Status:               firstNonEmptyStringValue(top, "status", "correlation_status"),
+		PathID:               firstNonEmptyStringValue(top, "path_id"),
+		AgentID:              firstNonEmptyStringValue(top, "agent_id"),
+		Repo:                 firstNonEmptyStringValue(top, "repo", "repository"),
+		Workflow:             firstNonEmptyStringValue(top, "workflow", "workflow_ref", "location"),
+		PullRequestRef:       firstNonEmptyStringValue(top, "pull_request_ref", "pr_ref", "review_ref"),
+		MergeRequestRef:      firstNonEmptyStringValue(top, "merge_request_ref", "mr_ref"),
+		AuthorRefs:           stringSliceValueFromRaw(top, "author_refs", "authors"),
+		ReviewerRefs:         stringSliceValueFromRaw(top, "reviewer_refs", "reviewers"),
+		Tool:                 firstNonEmptyStringValue(top, "tool", "tool_type"),
+		ProviderURL:          firstNonEmptyStringValue(top, "provider_url"),
+		PromptRef:            aliasPrompt,
+		ResponseRef:          aliasResponse,
+		ChangedFiles:         stringSliceValueFromRaw(top, "changed_files", "files_touched"),
+		Commands:             stringSliceValueFromRaw(top, "commands"),
+		Actions:              stringSliceValueFromRaw(top, "actions", "action_classes"),
+		FileWrites:           stringSliceValueFromRaw(top, "file_writes"),
+		Approvals:            stringSliceValueFromRaw(top, "approvals"),
+		PolicyDecisions:      stringSliceValueFromRaw(top, "policy_decisions"),
+		CredentialSubjects:   stringSliceValueFromRaw(top, "credential_subjects"),
+		Declarations:         stringSliceValueFromRaw(top, "declarations"),
+		ProofRefs:            stringSliceValueFromRaw(top, "proof_refs"),
+		GraphNodeRefs:        stringSliceValueFromRaw(top, "graph_node_refs"),
+		GraphEdgeRefs:        stringSliceValueFromRaw(top, "graph_edge_refs"),
+		Outcome:              firstNonEmptyStringValue(top, "outcome", "result"),
+		StartedAt:            firstNonEmptyStringValue(top, "started_at", "started", "created_at"),
+		CompletedAt:          firstNonEmptyStringValue(top, "completed_at", "finished_at", "observed_at", "updated_at"),
+		RuntimeProvider:      firstNonEmptyStringValue(top, "runtime_provider"),
+		RuntimeHost:          firstNonEmptyStringValue(top, "runtime_host"),
+		RuntimeKind:          firstNonEmptyStringValue(top, "runtime_kind"),
+		ModelProvider:        firstNonEmptyStringValue(top, "model_provider"),
+		ModelVersion:         firstNonEmptyStringValue(top, "model_version"),
+		ExecutionEnvironment: firstNonEmptyStringValue(top, "execution_environment"),
+		StateRetentionStatus: firstNonEmptyStringValue(top, "state_retention_status"),
+		RetainedStateTypes:   stringSliceValueFromRaw(top, "retained_state_types"),
+		StateLocationRefs:    stringSliceValueFromRaw(top, "state_location_refs"),
+		StateDigestRefs:      stringSliceValueFromRaw(top, "state_digest_refs"),
+		SourceArtifactRefs:   stringSliceValueFromRaw(top, "source_artifact_refs", "artifacts"),
+		RedactionHints:       stringSliceValueFromRaw(top, "redaction_hints"),
 	}
 	if record.SessionID == "" &&
 		record.RunID == "" &&
@@ -772,6 +831,7 @@ func rejectSecretLikeSessionValues(session SessionRecord) error {
 	values = append(values, session.FileWrites...)
 	values = append(values, session.Declarations...)
 	values = append(values, session.CredentialSubjects...)
+	values = append(values, session.StateLocationRefs...)
 	values = append(values, session.SourceArtifactRefs...)
 	for _, value := range values {
 		if looksSecretLike(value) {
@@ -865,6 +925,16 @@ func sessionToEvidencePacket(session SessionRecord) EvidencePacket {
 		PolicyVerdict:            firstNonEmpty(session.PolicyDecisions...),
 		Result:                   result,
 		MissingEvidenceState:     sessionMissingEvidenceState(session),
+		RuntimeProvider:          session.RuntimeProvider,
+		RuntimeHost:              session.RuntimeHost,
+		RuntimeKind:              session.RuntimeKind,
+		ModelProvider:            session.ModelProvider,
+		ModelVersion:             session.ModelVersion,
+		ExecutionEnvironment:     session.ExecutionEnvironment,
+		StateRetentionStatus:     firstNonEmpty(session.StateRetentionStatus, StateRetentionUnknown),
+		RetainedStateTypes:       append([]string(nil), session.RetainedStateTypes...),
+		StateLocationRefs:        append([]string(nil), session.StateLocationRefs...),
+		StateDigestRefs:          append([]string(nil), session.StateDigestRefs...),
 		ProofRefs:                append([]string(nil), session.ProofRefs...),
 		GraphNodeRefs:            append([]string(nil), session.GraphNodeRefs...),
 		GraphEdgeRefs:            append([]string(nil), session.GraphEdgeRefs...),

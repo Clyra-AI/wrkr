@@ -151,17 +151,30 @@ func TestProjectSessionsToRuntimeBundleAndEvidencePackets(t *testing.T) {
 	bundle, err := NormalizeSessionBundle(SessionBundle{
 		GeneratedAt: "2026-05-27T14:00:00Z",
 		Sessions: []SessionRecord{{
-			Provider:        SessionProviderCodex,
-			SessionID:       "sess-1",
-			Repo:            "acme/payments",
-			Workflow:        ".github/workflows/release.yml",
-			PathID:          "apc-1",
-			Actions:         []string{"deploy", "write"},
-			ChangedFiles:    []string{"cmd/release.go"},
-			Approvals:       []string{"security"},
-			PolicyDecisions: []string{"allow"},
-			ProofRefs:       []string{"proof-1"},
-			CompletedAt:     "2026-05-27T14:00:00Z",
+			Provider:             SessionProviderCodex,
+			SessionID:            "sess-1",
+			Repo:                 "acme/payments",
+			Workflow:             ".github/workflows/release.yml",
+			PathID:               "apc-1",
+			Actions:              []string{"deploy", "write"},
+			ChangedFiles:         []string{"cmd/release.go"},
+			Approvals:            []string{"security"},
+			PolicyDecisions:      []string{"allow"},
+			ProofRefs:            []string{"proof-1"},
+			RuntimeProvider:      "openai",
+			RuntimeHost:          "codex.internal.acme",
+			RuntimeKind:          "hosted_agent",
+			ModelProvider:        "openai",
+			ModelVersion:         "gpt-5-codex",
+			ExecutionEnvironment: "managed_platform",
+			StateRetentionStatus: "retained",
+			RetainedStateTypes: []string{
+				"checkpoint_digest",
+				"tool_result_digest",
+			},
+			StateLocationRefs: []string{"state://codex/sess-1"},
+			StateDigestRefs:   []string{"sha256:0123456789abcdef"},
+			CompletedAt:       "2026-05-27T14:00:00Z",
 		}},
 	})
 	if err != nil {
@@ -178,6 +191,12 @@ func TestProjectSessionsToRuntimeBundleAndEvidencePackets(t *testing.T) {
 	}
 	if packetBundle.Packets[0].MissingEvidenceState != "partial" {
 		t.Fatalf("expected partial missing evidence state, got %+v", packetBundle.Packets[0])
+	}
+	if packetBundle.Packets[0].RuntimeProvider != "openai" || packetBundle.Packets[0].ModelVersion != "gpt-5-codex" {
+		t.Fatalf("expected runtime neutrality context to project into evidence packet, got %+v", packetBundle.Packets[0])
+	}
+	if packetBundle.Packets[0].StateRetentionStatus != "retained" || len(packetBundle.Packets[0].StateDigestRefs) != 1 {
+		t.Fatalf("expected retention posture to project into evidence packet, got %+v", packetBundle.Packets[0])
 	}
 }
 
@@ -274,5 +293,25 @@ func TestNormalizeSessionBundleGeneratesDistinctIDsForDistinctTimestampsAndFiles
 	}
 	if bundle.Sessions[0].SessionID == bundle.Sessions[1].SessionID {
 		t.Fatalf("expected distinct generated session ids, got %+v", bundle.Sessions)
+	}
+}
+
+func TestNormalizeSessionBundleRejectsRawStateRetentionPayloads(t *testing.T) {
+	t.Parallel()
+
+	_, err := NormalizeSessionBundle(SessionBundle{
+		Sessions: []SessionRecord{{
+			Provider:             SessionProviderCodex,
+			Repo:                 "acme/payments",
+			Workflow:             ".github/workflows/release.yml",
+			CompletedAt:          "2026-05-27T14:00:00Z",
+			ChangedFiles:         []string{"cmd/release.go"},
+			StateRetentionStatus: "retained",
+			RetainedStateTypes:   []string{"prompt_raw"},
+			StateLocationRefs:    []string{"tool result: deployment succeeded with customer payload"},
+		}},
+	})
+	if err == nil {
+		t.Fatal("expected raw state-retention payload rejection")
 	}
 }

@@ -20,6 +20,7 @@ description: "Wrkr fail-closed safety, local-data handling defaults, and privacy
 - Hosted materialized source is ephemeral by default. After scan artifacts commit, Wrkr removes the managed materialized source root and records the result in `source_privacy.cleanup_status`.
 - Shareable scan, report, SARIF, and evidence outputs serialize hosted repositories as logical locations such as `github://org/repo`; the private detector filesystem root is not serialized.
 - Default shareable artifacts set `source_privacy.raw_source_in_artifacts=false`.
+- Runtime/session sidecars may describe runtime provider, model, host, execution environment, and retained-state posture, but retained state is refs-and-digests only. Wrkr rejects raw prompt, response, tool-result, checkpoint, log, sandbox-file, or memory-content payloads in retained-state fields.
 - Scan, report, and evidence artifacts now also declare `deployment_mode`, which records the intended customer data boundary without changing scan behavior by itself.
 - `deployment_mode=local_only` is the default and means scan data stays local unless some other explicit operator step exports it.
 - `deployment_mode=customer_controlled_storage` means artifacts may be copied to customer-owned storage under customer control, but Wrkr still does not infer hosted upload behavior unless explicitly configured elsewhere.

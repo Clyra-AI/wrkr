@@ -106,6 +106,17 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		copyItem.ActionLineage = sanitizeActionLineageWithConfig(copyItem.ActionLineage, config)
 		copyItem.IntroducedBy = sanitizeIntroducedByWithConfig(copyItem.IntroducedBy, config)
 		copyItem.AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangeWithConfig(copyItem.AgenticDeliverySystemChange, config)
+		copyItem.RuntimeProvider = maybeRedactProviderContext(copyItem.RuntimeProvider, config)
+		copyItem.RuntimeHost = maybeRedactProviderContext(copyItem.RuntimeHost, config)
+		copyItem.RuntimeKind = maybeRedactProviderContext(copyItem.RuntimeKind, config)
+		copyItem.ModelProvider = maybeRedactProviderContext(copyItem.ModelProvider, config)
+		copyItem.ModelVersion = maybeRedactProviderContext(copyItem.ModelVersion, config)
+		copyItem.ExecutionEnvironment = maybeRedactProviderContext(copyItem.ExecutionEnvironment, config)
+		copyItem.StateLocationRefs = maybeRedactLocationLikeSlice(copyItem.StateLocationRefs, config)
+		copyItem.StateDigestRefs = maybeRedactStringSlice(copyItem.StateDigestRefs, "digest", config.Has(RedactionProofRefs))
+		copyItem.AgentIdentity = sanitizeAgentIdentityWithConfig(copyItem.AgentIdentity, config)
+		copyItem.DecisionPrecedent = sanitizeDecisionPrecedentWithConfig(copyItem.DecisionPrecedent, config)
+		copyItem.DeliveryControlContext = sanitizeDeliveryControlContextWithConfig(copyItem.DeliveryControlContext, config)
 		copyItem.EvidencePacketRefs = maybeRedactStringSlice(copyItem.EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 		copyItem.DecisionTraceRefs = maybeRedactStringSlice(copyItem.DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 		copyItem.MatchedProductionTargets = cloneStrings(copyItem.MatchedProductionTargets)
@@ -449,6 +460,17 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].ActionLineage = sanitizeActionLineageWithConfig(copyBOM.Items[idx].ActionLineage, config)
 		copyBOM.Items[idx].IntroducedBy = sanitizeIntroducedByWithConfig(copyBOM.Items[idx].IntroducedBy, config)
 		copyBOM.Items[idx].AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangeWithConfig(copyBOM.Items[idx].AgenticDeliverySystemChange, config)
+		copyBOM.Items[idx].RuntimeProvider = maybeRedactProviderContext(copyBOM.Items[idx].RuntimeProvider, config)
+		copyBOM.Items[idx].RuntimeHost = maybeRedactProviderContext(copyBOM.Items[idx].RuntimeHost, config)
+		copyBOM.Items[idx].RuntimeKind = maybeRedactProviderContext(copyBOM.Items[idx].RuntimeKind, config)
+		copyBOM.Items[idx].ModelProvider = maybeRedactProviderContext(copyBOM.Items[idx].ModelProvider, config)
+		copyBOM.Items[idx].ModelVersion = maybeRedactProviderContext(copyBOM.Items[idx].ModelVersion, config)
+		copyBOM.Items[idx].ExecutionEnvironment = maybeRedactProviderContext(copyBOM.Items[idx].ExecutionEnvironment, config)
+		copyBOM.Items[idx].StateLocationRefs = maybeRedactLocationLikeSlice(copyBOM.Items[idx].StateLocationRefs, config)
+		copyBOM.Items[idx].StateDigestRefs = maybeRedactStringSlice(copyBOM.Items[idx].StateDigestRefs, "digest", config.Has(RedactionProofRefs))
+		copyBOM.Items[idx].AgentIdentity = sanitizeAgentIdentityWithConfig(copyBOM.Items[idx].AgentIdentity, config)
+		copyBOM.Items[idx].DecisionPrecedent = sanitizeDecisionPrecedentWithConfig(copyBOM.Items[idx].DecisionPrecedent, config)
+		copyBOM.Items[idx].DeliveryControlContext = sanitizeDeliveryControlContextWithConfig(copyBOM.Items[idx].DeliveryControlContext, config)
 		copyBOM.Items[idx].EvidencePacketRefs = maybeRedactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 		copyBOM.Items[idx].DecisionTraceRefs = maybeRedactStringSlice(copyBOM.Items[idx].DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 	}
@@ -473,6 +495,15 @@ func sanitizePrimaryViewWithConfig(in *AgentActionBOMPrimaryView, config Redacti
 	out.RecommendedGovernedPath = risk.CloneGovernedPathView(in.RecommendedGovernedPath)
 	out.RecommendedActionContract = risk.CloneRecommendedActionContract(in.RecommendedActionContract)
 	out.AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangeWithConfig(in.AgenticDeliverySystemChange, config)
+	out.RuntimeProvider = maybeRedactProviderContext(in.RuntimeProvider, config)
+	out.RuntimeHost = maybeRedactProviderContext(in.RuntimeHost, config)
+	out.RuntimeKind = maybeRedactProviderContext(in.RuntimeKind, config)
+	out.ModelProvider = maybeRedactProviderContext(in.ModelProvider, config)
+	out.ModelVersion = maybeRedactProviderContext(in.ModelVersion, config)
+	out.ExecutionEnvironment = maybeRedactProviderContext(in.ExecutionEnvironment, config)
+	out.AgentIdentity = sanitizeAgentIdentityWithConfig(in.AgentIdentity, config)
+	out.DecisionPrecedent = sanitizeDecisionPrecedentWithConfig(in.DecisionPrecedent, config)
+	out.DeliveryControlContext = sanitizeDeliveryControlContextWithConfig(in.DeliveryControlContext, config)
 	out.WorkflowChainRefs = maybeRedactStringSlice(in.WorkflowChainRefs, "chain", config.Has(RedactionPaths) || config.Has(RedactionGraphRefs))
 	out.GraphRefs = sanitizeGraphRefsWithConfig(in.GraphRefs, config)
 	out.ProofRefs = maybeRedactStringSlice(in.ProofRefs, "proof", config.Has(RedactionProofRefs))
@@ -492,6 +523,74 @@ func sanitizeAgenticDeliverySystemChangeWithConfig(in *risk.AgenticDeliverySyste
 	out.ChangedArtifact = maybeRedactLocationLike(out.ChangedArtifact, config)
 	out.ReachableTargets = maybeRedactStringSlice(out.ReachableTargets, "target", config.Has(RedactionPaths) || config.Has(RedactionRepos))
 	out.EvidenceRefs = maybeRedactStringSlice(out.EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
+	return out
+}
+
+func sanitizeAgentIdentityWithConfig(in *risk.AgentIdentity, config RedactionConfig) *risk.AgentIdentity {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneAgentIdentity(in)
+	out.IdentityKey = maybeRedactPathID(out.IdentityKey, config)
+	out.AgentID = maybeRedactPathID(out.AgentID, config)
+	out.HumanOwner = maybeRedactOwner(out.HumanOwner, config)
+	out.RuntimeProvider = maybeRedactProviderContext(out.RuntimeProvider, config)
+	out.RuntimeKind = maybeRedactProviderContext(out.RuntimeKind, config)
+	out.ModelProvider = maybeRedactProviderContext(out.ModelProvider, config)
+	out.CredentialUsed = maybeRedactCredentialSubject(out.CredentialUsed, config)
+	out.Scope = maybeRedactCompositeLabel(out.Scope, config)
+	return out
+}
+
+func sanitizeDecisionPrecedentWithConfig(in *risk.DecisionPrecedent, config RedactionConfig) *risk.DecisionPrecedent {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneDecisionPrecedent(in)
+	out.PrecedentKey = maybeRedactPathID(out.PrecedentKey, config)
+	out.DecisionTraceRef = maybeRedactPathID(out.DecisionTraceRef, config)
+	out.EvidenceRefs = maybeRedactStringSlice(out.EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
+	return out
+}
+
+func sanitizeDeliveryControlContextWithConfig(in *risk.DeliveryControlContext, config RedactionConfig) *risk.DeliveryControlContext {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneDeliveryControlContext(in)
+	out.ResolverRefs = maybeRedactLocationLikeSlice(out.ResolverRefs, config)
+	out.EvalConfigRefs = maybeRedactLocationLikeSlice(out.EvalConfigRefs, config)
+	out.SandboxGates = maybeRedactLocationLikeSlice(out.SandboxGates, config)
+	out.TestGates = maybeRedactCompositeLabelSlice(out.TestGates, config)
+	return out
+}
+
+func maybeRedactProviderContext(value string, config RedactionConfig) string {
+	if config.Has(RedactionProviders) {
+		return redactValue("provider", strings.TrimSpace(value), 8)
+	}
+	return strings.TrimSpace(value)
+}
+
+func maybeRedactLocationLikeSlice(values []string, config RedactionConfig) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		out = append(out, maybeRedactLocationLike(value, config))
+	}
+	return out
+}
+
+func maybeRedactCompositeLabelSlice(values []string, config RedactionConfig) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		out = append(out, maybeRedactCompositeLabel(value, config))
+	}
 	return out
 }
 

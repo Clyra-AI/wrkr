@@ -20,6 +20,7 @@ Wrkr preserves deterministic boundaries so the same input yields stable outputs 
 - Compliance mapping/evidence output
 
 Wrkr remains the See boundary in See -> Prove -> Control. Discovery, aggregation, scoring, and proof emission live here; downstream compliance packaging is Prove-layer consumption, and runtime enforcement remains out of scope.
+Provider-neutral runtime/model/host metadata, retained-state posture, local decision precedents, and identity read-models remain additive context layered on top of deterministic static scan truth. They are evidence joins, not a hosted runtime inventory or mutable control database.
 
 ## Pipeline Diagram
 
@@ -40,6 +41,7 @@ flowchart LR
 - Secret values are never emitted.
 - Risk ordering uses deterministic tie-breakers.
 - Agent-linked attack-path edges and proof context are additive and deterministic.
+- Runtime/session sidecars can add provider-neutral runtime context and retained-state posture only through refs, digests, and deterministic evidence-state projection.
 - Exit codes are stable API contracts.
 
 ## Surface-Area Gate

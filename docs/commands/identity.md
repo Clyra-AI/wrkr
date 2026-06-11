@@ -48,3 +48,5 @@ wrkr identity revoke wrkr:cursor-abc:local --json
 ```
 
 Expected JSON keys vary by subcommand and include `status`, `identities`, `identity`, `history`, or `transition`.
+
+The canonical identity key remains `wrkr:<tool_id>:<org>`. Buyer-facing report and Agent Action BOM output may now project an additive read-model around that same key: human owner, delegated authority summary, provider-neutral runtime/model context, credential used, and scope. This remains a deterministic read-model over saved inventory and evidence fields; it is not a mutable identity database.

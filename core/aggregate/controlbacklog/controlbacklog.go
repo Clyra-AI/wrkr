@@ -199,6 +199,7 @@ type Item struct {
 	RecommendedActionContract           *risk.RecommendedActionContract         `json:"recommended_action_contract,omitempty"`
 	TodayPath                           *risk.GovernedPathView                  `json:"today_path,omitempty"`
 	RecommendedGovernedPath             *risk.GovernedPathView                  `json:"recommended_governed_path,omitempty"`
+	DecisionPrecedent                   *risk.DecisionPrecedent                 `json:"decision_precedent,omitempty"`
 	HighStakesPresets                   []risk.HighStakesPreset                 `json:"high_stakes_presets,omitempty"`
 	ProductionContext                   *risk.ProductionContext                 `json:"production_context,omitempty"`
 	PolicyCoverageStatus                string                                  `json:"policy_coverage_status,omitempty"`
