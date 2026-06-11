@@ -663,7 +663,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitError(stderr, jsonRequested || *jsonOut, code, message, exitCode)
 	}
 	completeManagedScanTransaction := func() int {
-		if err := verifyManagedArtifactConsistency(statePath, managedArtifactVerificationStructural); err != nil {
+		if err := verifyManagedArtifactConsistency(statePath, managedArtifactVerificationFull); err != nil {
 			return emitRolledBackScanFailure(err)
 		}
 		if err := transaction.Complete(); err != nil {
