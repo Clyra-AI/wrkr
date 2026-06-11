@@ -30,7 +30,7 @@ type DecisionPrecedentRecord struct {
 }
 
 func LoadDecisionPrecedents(path string) (DecisionPrecedentBundle, error) {
-	payload, err := os.ReadFile(path)
+	payload, err := os.ReadFile(path) // #nosec G304 -- caller provides an explicit local precedent sidecar path.
 	if err != nil {
 		return DecisionPrecedentBundle{}, fmt.Errorf("read decision precedents: %w", err)
 	}
