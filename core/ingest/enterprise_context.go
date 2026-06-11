@@ -62,9 +62,6 @@ func validateEnterpriseContext(recordLabel string, retentionStatus string, retai
 	if strings.TrimSpace(retentionStatus) == "" && len(retainedStateTypes) == 0 && len(stateLocationRefs) == 0 && len(stateDigestRefs) == 0 {
 		return nil
 	}
-	if strings.TrimSpace(retentionStatus) == "" {
-		retentionStatus = StateRetentionUnknown
-	}
 	for _, value := range retainedStateTypes {
 		if !isAllowedRetainedStateType(value) {
 			return fmt.Errorf("%s contains unsupported retained_state_type %q", recordLabel, strings.TrimSpace(value))
