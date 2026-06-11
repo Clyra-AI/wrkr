@@ -314,7 +314,7 @@ func CorrelateEvidencePackets(snapshot state.Snapshot, artifactPath string, bund
 			ModelProvider:        packet.ModelProvider,
 			ModelVersion:         packet.ModelVersion,
 			ExecutionEnvironment: packet.ExecutionEnvironment,
-			StateRetentionStatus: firstNonEmpty(packet.StateRetentionStatus, StateRetentionUnknown),
+			StateRetentionStatus: strings.TrimSpace(packet.StateRetentionStatus),
 			RetainedStateTypes:   append([]string(nil), packet.RetainedStateTypes...),
 			StateLocationRefs:    append([]string(nil), packet.StateLocationRefs...),
 			StateDigestRefs:      append([]string(nil), packet.StateDigestRefs...),

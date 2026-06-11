@@ -46,7 +46,7 @@ func decorateActionPathsForEnterpriseContext(paths []risk.ActionPath, sessions *
 		out[i].StateLocationRefs = uniqueSortedStrings(append([]string(nil), projected.StateLocationRefs...))
 		out[i].StateDigestRefs = uniqueSortedStrings(append([]string(nil), projected.StateDigestRefs...))
 	}
-	return out
+	return risk.ProjectActionPaths(out)
 }
 
 func enterpriseContextByPath(sessions *ingest.SessionSummary, packets *ingest.EvidencePacketSummary) map[string]enterpriseContextProjection {
@@ -94,9 +94,6 @@ func enterpriseContextByPath(sessions *ingest.SessionSummary, packets *ingest.Ev
 	for key, item := range out {
 		item.RuntimeContextEvidenceState = runtimeContextState(item)
 		item.StateRetentionEvidenceState = retentionContextState(item)
-		if item.StateRetentionStatus == "" && item.StateRetentionEvidenceState != "" {
-			item.StateRetentionStatus = "unknown"
-		}
 		out[key] = item
 	}
 	return out
@@ -158,7 +155,15 @@ func retentionContextState(in enterpriseContextProjection) string {
 	if strings.TrimSpace(in.StateRetentionEvidenceState) == risk.EvidenceStateContradictory {
 		return risk.EvidenceStateContradictory
 	}
-	if strings.TrimSpace(in.StateRetentionStatus) != "" || len(in.RetainedStateTypes) > 0 || len(in.StateLocationRefs) > 0 || len(in.StateDigestRefs) > 0 {
+	status := strings.TrimSpace(in.StateRetentionStatus)
+	if len(in.RetainedStateTypes) > 0 || len(in.StateLocationRefs) > 0 || len(in.StateDigestRefs) > 0 {
+		return risk.EvidenceStateVerified
+	}
+	switch status {
+	case "", "unknown":
+		return risk.EvidenceStateUnknown
+	}
+	if status != "" {
 		return risk.EvidenceStateVerified
 	}
 	return risk.EvidenceStateUnknown
