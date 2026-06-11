@@ -125,6 +125,7 @@
         "recommended_action_contract": {"$ref": "#/$defs/recommendedActionContract"},
         "today_path": {"$ref": "#/$defs/governedPathView"},
         "recommended_governed_path": {"$ref": "#/$defs/governedPathView"},
+        "agentic_delivery_system_change": {"$ref": "#/$defs/agenticDeliverySystemChange"},
         "high_stakes_presets": {
           "type": "array",
           "items": {"$ref": "#/$defs/highStakesPreset"}
@@ -151,6 +152,7 @@
         "attack_path_refs": {"type": "array", "items": {"type": "string"}},
         "source_finding_keys": {"type": "array", "items": {"type": "string"}},
         "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
+        "decision_trace_refs": {"type": "array", "items": {"type": "string"}},
         "matched_production_targets": {"type": "array", "items": {"type": "string"}},
         "governance_controls": {"type": "array"},
         "closure_requirements": {"type": "array", "items": {"$ref": "#/$defs/closureRequirement"}},
@@ -158,6 +160,25 @@
         "action_lineage": {"$ref": "#/$defs/actionLineage"}
       },
       "additionalProperties": true
+    },
+    "agenticDeliverySystemChange": {
+      "type": "object",
+      "properties": {
+        "change_id": {"type": "string"},
+        "surface_type": {"type": "string", "enum": ["instruction", "skillpack", "agent_rule", "mcp_config", "tool_config"]},
+        "changed_artifact": {"type": "string"},
+        "authority_impact": {"type": "string", "enum": ["production_mutation", "release_or_deploy", "credential_authority", "review_bypass", "write_scope", "review_surface", "none"]},
+        "authority_impact_reasons": {"type": "array", "items": {"type": "string"}},
+        "reachable_tools": {"type": "array", "items": {"type": "string"}},
+        "reachable_targets": {"type": "array", "items": {"type": "string"}},
+        "credential_reach": {"type": "string"},
+        "review_state": {"type": "string", "enum": ["review_protected", "approval_missing", "review_partial", "review_bypass_risk", "review_unknown"]},
+        "review_state_reasons": {"type": "array", "items": {"type": "string"}},
+        "recommended_control": {"$ref": "#/$defs/recommendedControl"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "high_impact": {"type": "boolean"}
+      },
+      "additionalProperties": false
     },
     "closureRequirement": {
       "type": "object",

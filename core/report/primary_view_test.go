@@ -17,10 +17,10 @@ func TestBuildAgentActionBOMSelectsPrimaryViewFromTopEligiblePath(t *testing.T) 
 				PathID:                   "apc-top",
 				Org:                      "acme",
 				Repo:                     "acme/release",
-				ToolType:                 "compiled_action",
-				Location:                 ".github/workflows/release.yml",
-				ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
-				ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+				ToolType:                 "codex",
+				Location:                 ".codex/config.toml",
+				ConfidenceLane:           risk.ConfidenceLaneLikelyActionPath,
+				ActionPathType:           risk.ActionPathTypeAIAssistedWorkflow,
 				AutonomyTier:             risk.AutonomyTier3SensitiveCodeOrInfra,
 				DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
 				RecommendedControl:       risk.RecommendedControlApprovalRequired,
@@ -29,6 +29,16 @@ func TestBuildAgentActionBOMSelectsPrimaryViewFromTopEligiblePath(t *testing.T) 
 				ApprovalGap:              true,
 				CredentialAccess:         true,
 				ControlPriority:          risk.ControlPriorityControlFirst,
+				AgenticDeliverySystemChange: &risk.AgenticDeliverySystemChange{
+					SurfaceType:        risk.AgenticDeliverySurfaceToolConfig,
+					ChangedArtifact:    ".codex/config.toml",
+					AuthorityImpact:    risk.AgenticAuthorityImpactRelease,
+					ReviewState:        risk.AgenticReviewStateMissing,
+					CredentialReach:    "github_pat repository standing",
+					ReachableTools:     []string{"deploy.write"},
+					RecommendedControl: risk.RecommendedControlApprovalRequired,
+				},
+				DecisionTraceRefs: []string{"decision_trace:trace-123"},
 				EvidenceCompleteness: &risk.EvidenceCompleteness{
 					TotalScore: 42,
 					Label:      risk.EvidenceCompletenessPartial,
@@ -51,7 +61,7 @@ func TestBuildAgentActionBOMSelectsPrimaryViewFromTopEligiblePath(t *testing.T) 
 	if primaryView.SelectionReason != AgentActionBOMPrimarySelectionDefaultTopPath {
 		t.Fatalf("expected default top path selection, got %+v", primaryView)
 	}
-	if primaryView.PathMap.Workflow != ".github/workflows/release.yml" {
+	if primaryView.PathMap.Workflow != ".codex/config.toml" {
 		t.Fatalf("expected workflow path map, got %+v", primaryView.PathMap)
 	}
 	if bom.Summary.PrimaryView.AutonomyTier == "" || bom.Summary.PrimaryView.RecommendedControl == "" || bom.Summary.PrimaryView.DelegationReadinessState == "" {
@@ -59,6 +69,12 @@ func TestBuildAgentActionBOMSelectsPrimaryViewFromTopEligiblePath(t *testing.T) 
 	}
 	if bom.Summary.PrimaryView.EvidenceCompletenessLabel != risk.EvidenceCompletenessPartial {
 		t.Fatalf("expected completeness label on primary view, got %+v", bom.Summary.PrimaryView)
+	}
+	if bom.Summary.PrimaryView.AgenticDeliverySystemChange == nil {
+		t.Fatalf("expected delivery-system change on primary view, got %+v", bom.Summary.PrimaryView)
+	}
+	if len(bom.Summary.PrimaryView.DecisionTraceRefs) != 1 {
+		t.Fatalf("expected decision trace refs on primary view, got %+v", bom.Summary.PrimaryView)
 	}
 	if len(bom.Summary.PrimaryView.AppendixRefs) == 0 {
 		t.Fatalf("expected appendix refs on primary view, got %+v", bom.Summary.PrimaryView)
@@ -133,7 +149,14 @@ func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) 
 						Action:     "deploy",
 						Target:     "production_impacting",
 					},
-					AppendixRefs: []string{"bom_items", "graph_refs", "proof_refs"},
+					AgenticDeliverySystemChange: &risk.AgenticDeliverySystemChange{
+						SurfaceType:     risk.AgenticDeliverySurfaceToolConfig,
+						ChangedArtifact: ".codex/config.toml",
+						AuthorityImpact: risk.AgenticAuthorityImpactRelease,
+						ReviewState:     risk.AgenticReviewStateMissing,
+					},
+					DecisionTraceRefs: []string{"decision_trace:trace-321"},
+					AppendixRefs:      []string{"bom_items", "graph_refs", "proof_refs"},
 				},
 			},
 			Items: []AgentActionBOMItem{{
@@ -166,5 +189,11 @@ func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) 
 	}
 	if !strings.Contains(markdown, "codex -> acme/release / pr/108 -> .github/workflows/release.yml -> github_actions_prod_deployer -> deploy -> production_impacting") {
 		t.Fatalf("expected workflow path map in markdown, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "Delivery-system change:") {
+		t.Fatalf("expected delivery-system change in markdown, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "Decision traces: decision_trace:trace-321") {
+		t.Fatalf("expected decision trace refs in markdown, got %q", markdown)
 	}
 }

@@ -413,6 +413,9 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := writeJSONL(filepath.Join(proofRecordsDir, "risk-assessments.jsonl"), filterRecords(chain.Records, "risk_assessment", "")); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
+	if err := writeJSONL(filepath.Join(proofRecordsDir, "decision-traces.jsonl"), filterRecords(chain.Records, "decision_trace", "")); err != nil {
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+	}
 	if err := writeJSONL(filepath.Join(proofRecordsDir, "approvals.jsonl"), filterRecords(chain.Records, "approval", "")); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}

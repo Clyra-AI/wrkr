@@ -191,6 +191,9 @@ func compareActionPaths(left, right ActionPath) bool {
 	if highStakesPresetScore(leftProjection) != highStakesPresetScore(rightProjection) {
 		return highStakesPresetScore(leftProjection) > highStakesPresetScore(rightProjection)
 	}
+	if agenticDeliverySystemChangeRank(leftProjection.AgenticDeliverySystemChange) != agenticDeliverySystemChangeRank(rightProjection.AgenticDeliverySystemChange) {
+		return agenticDeliverySystemChangeRank(leftProjection.AgenticDeliverySystemChange) > agenticDeliverySystemChangeRank(rightProjection.AgenticDeliverySystemChange)
+	}
 	if leftModel.riskTierRank != rightModel.riskTierRank {
 		return leftModel.riskTierRank < rightModel.riskTierRank
 	}

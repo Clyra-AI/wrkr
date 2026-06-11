@@ -125,6 +125,7 @@ type Summary struct {
 	ExposureGroups           []risk.ExposureGroup                   `json:"exposure_groups,omitempty"`
 	SourcePrivacy            *sourceprivacy.Contract                `json:"source_privacy,omitempty"`
 	controlProofStatus       []ControlProofStatus
+	decisionTraceRefsByPath  map[string][]string
 	topAttackPaths           []riskattack.ScoredPath
 }
 

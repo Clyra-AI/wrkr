@@ -525,6 +525,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, findings)
 	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
 	riskReport.ActionPaths = risk.DecorateControlMetadata(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
+	riskReport.ActionPaths = risk.ProjectActionPaths(riskReport.ActionPaths)
+	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 
 	profileDef, profileErr := profilemodel.Builtin(*profileName)
 	if profileErr != nil {

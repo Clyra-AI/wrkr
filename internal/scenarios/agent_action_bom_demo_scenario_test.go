@@ -98,7 +98,7 @@ func extractDemoTopBOM(t *testing.T, path string) map[string]any {
 	}
 	return map[string]any{
 		"runtime_evidence": demoScenarioRuntimeEvidenceSummary(payload["runtime_evidence"]),
-		"summary":          requireDemoScenarioObject(t, bom, "summary"),
+		"summary":          extractDemoBOMSummary(t, requireDemoScenarioObject(t, bom, "summary")),
 		"top_item":         topItem,
 	}
 }
@@ -125,8 +125,81 @@ func extractDemoEvidenceReport(t *testing.T, path string) map[string]any {
 	}
 	return map[string]any{
 		"top_item": topItem,
-		"summary":  requireDemoScenarioObject(t, payload, "summary"),
+		"summary":  extractDemoBOMSummary(t, requireDemoScenarioObject(t, payload, "summary")),
 	}
+}
+
+func extractDemoBOMSummary(t *testing.T, summary map[string]any) map[string]any {
+	t.Helper()
+
+	out := map[string]any{
+		"total_items":                     summary["total_items"],
+		"control_first_items":             summary["control_first_items"],
+		"standing_privilege_items":        summary["standing_privilege_items"],
+		"static_credential_items":         summary["static_credential_items"],
+		"production_target_items":         summary["production_target_items"],
+		"missing_approval_items":          summary["missing_approval_items"],
+		"missing_policy_items":            summary["missing_policy_items"],
+		"missing_proof_items":             summary["missing_proof_items"],
+		"runtime_proven_items":            summary["runtime_proven_items"],
+		"confirmed_action_path_items":     summary["confirmed_action_path_items"],
+		"likely_action_path_items":        summary["likely_action_path_items"],
+		"semantic_review_candidate_items": summary["semantic_review_candidate_items"],
+		"context_only_items":              summary["context_only_items"],
+		"autonomy_tiers":                  summary["autonomy_tiers"],
+		"delegation_readiness":            summary["delegation_readiness"],
+		"recommended_controls":            summary["recommended_controls"],
+		"coverage_confidence":             summary["coverage_confidence"],
+		"empty_state_status":              summary["empty_state_status"],
+		"empty_state_reasons":             summary["empty_state_reasons"],
+		"scan_scope":                      summary["scan_scope"],
+		"operational_exposure":            summary["operational_exposure"],
+		"governance_readiness":            summary["governance_readiness"],
+		"governed_usage_metrics":          summary["governed_usage_metrics"],
+		"repeat_usage_signals":            summary["repeat_usage_signals"],
+	}
+
+	if evidence, ok := summary["evidence_completeness"].(map[string]any); ok {
+		out["evidence_completeness"] = map[string]any{
+			"average_total_score": evidence["average_total_score"],
+			"label":               evidence["label"],
+			"path_count":          evidence["path_count"],
+			"axis_scores":         evidence["axis_scores"],
+			"reasons":             evidence["reasons"],
+		}
+	}
+	if rollup, ok := summary["executive_rollup"].(map[string]any); ok {
+		out["executive_rollup"] = map[string]any{
+			"total_groups": rollup["total_groups"],
+			"total_paths":  rollup["total_paths"],
+			"groups":       rollup["groups"],
+		}
+	}
+	if primary, ok := summary["primary_view"].(map[string]any); ok {
+		out["primary_view"] = map[string]any{
+			"path_id":                     primary["path_id"],
+			"selection_reason":            primary["selection_reason"],
+			"boundary_label":              primary["boundary_label"],
+			"approval_evidence_state":     primary["approval_evidence_state"],
+			"credential_evidence_state":   primary["credential_evidence_state"],
+			"proof_evidence_state":        primary["proof_evidence_state"],
+			"runtime_evidence_state":      primary["runtime_evidence_state"],
+			"target_evidence_state":       primary["target_evidence_state"],
+			"autonomy_tier":               primary["autonomy_tier"],
+			"delegation_readiness_state":  primary["delegation_readiness_state"],
+			"recommended_control":         primary["recommended_control"],
+			"evidence_completeness_label": primary["evidence_completeness_label"],
+			"evidence_completeness_score": primary["evidence_completeness_score"],
+			"unresolved_evidence":         primary["unresolved_evidence"],
+			"path_map":                    primary["path_map"],
+			"today_path":                  primary["today_path"],
+			"recommended_governed_path":   primary["recommended_governed_path"],
+			"recommended_action_contract": primary["recommended_action_contract"],
+			"decision_trace_refs":         primary["decision_trace_refs"],
+			"appendix_refs":               primary["appendix_refs"],
+		}
+	}
+	return out
 }
 
 func extractDemoJSONFile(t *testing.T, path string, keys ...string) any {

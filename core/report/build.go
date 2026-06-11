@@ -155,6 +155,14 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	if err != nil {
 		return Summary{}, err
 	}
+	decisionTraceRefsByPath, err := buildDecisionTraceRefsForSummary(in.StatePath)
+	if err != nil {
+		return Summary{}, err
+	}
+	riskReport.ActionPaths = decorateDecisionTraceRefs(riskReport.ActionPaths, decisionTraceRefsByPath)
+	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
+	rawActionPaths = append([]risk.ActionPath(nil), riskReport.ActionPaths...)
+	rawActionPathToControlFirst = riskReport.ActionPathToControlFirst
 	shareProfileMetadata := BuildShareProfileMetadata(redactionConfig)
 	operationalExposure := scorecore.SummarizeOperationalExposure(riskReport.ActionPaths)
 	governanceReadiness := scorecore.SummarizeGovernanceReadiness(riskReport.ActionPaths, missingProofPathCount(controlProofStatus), scanQualityCoverageReduced(scanQuality))
@@ -265,6 +273,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		ExposureGroups:           exposureGroups,
 		SourcePrivacy:            sourcePrivacy,
 		controlProofStatus:       controlProofStatus,
+		decisionTraceRefsByPath:  decisionTraceRefsByPath,
 		topAttackPaths:           append([]riskattack.ScoredPath(nil), riskReport.TopAttackPaths...),
 	}
 	bomSource := summary
@@ -477,6 +486,59 @@ func buildControlProofStatusForSummary(statePath string, snapshot state.Snapshot
 		proofSnapshot.RiskReport = &reportCopy
 	}
 	return BuildControlProofStatus(proofSnapshot, chain), nil
+}
+
+func buildDecisionTraceRefsForSummary(statePath string) (map[string][]string, error) {
+	chainPath := proofemit.ChainPath(state.ResolvePath(strings.TrimSpace(statePath)))
+	chain, err := proofemit.LoadChain(chainPath)
+	if err != nil {
+		return nil, fmt.Errorf("load proof chain: %w", err)
+	}
+
+	out := map[string][]string{}
+	for _, record := range chain.Records {
+		if strings.TrimSpace(record.RecordType) != "decision_trace" {
+			continue
+		}
+		pathID, _ := record.Metadata["path_id"].(string)
+		if strings.TrimSpace(pathID) == "" {
+			if eventPathID, ok := record.Event["path_id"].(string); ok {
+				pathID = eventPathID
+			}
+		}
+		pathID = strings.TrimSpace(pathID)
+		if pathID == "" {
+			continue
+		}
+		traceID, _ := record.Metadata["trace_id"].(string)
+		if strings.TrimSpace(traceID) == "" {
+			if eventTraceID, ok := record.Event["trace_id"].(string); ok {
+				traceID = eventTraceID
+			}
+		}
+		traceID = strings.TrimSpace(traceID)
+		if traceID == "" {
+			traceID = strings.TrimSpace(record.RecordID)
+		}
+		ref := "decision_trace:" + traceID
+		out[pathID] = uniqueStrings(append(out[pathID], ref))
+	}
+	return out, nil
+}
+
+func decorateDecisionTraceRefs(paths []risk.ActionPath, refsByPath map[string][]string) []risk.ActionPath {
+	if len(paths) == 0 || len(refsByPath) == 0 {
+		return paths
+	}
+	out := append([]risk.ActionPath(nil), paths...)
+	for idx := range out {
+		pathID := strings.TrimSpace(out[idx].PathID)
+		if pathID == "" {
+			continue
+		}
+		out[idx].DecisionTraceRefs = uniqueStrings(append(out[idx].DecisionTraceRefs, refsByPath[pathID]...))
+	}
+	return out
 }
 
 func sanitizeControlProofStatusPublic(in []ControlProofStatus, rawPaths []risk.ActionPath, sanitizedPaths []risk.ActionPath) []ControlProofStatus {
@@ -1774,7 +1836,9 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
 		copyItem.ActionLineage = sanitizeActionLineagePublic(copyItem.ActionLineage)
 		copyItem.IntroducedBy = sanitizeIntroducedByPublic(copyItem.IntroducedBy)
+		copyItem.AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangePublic(copyItem.AgenticDeliverySystemChange)
 		copyItem.EvidencePacketRefs = redactStringSlice(copyItem.EvidencePacketRefs, "packet")
+		copyItem.DecisionTraceRefs = redactStringSlice(copyItem.DecisionTraceRefs, "proof")
 		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
 		for _, target := range copyItem.MatchedProductionTargets {
 			redacted := redactValue("target", target, 8)
@@ -2111,7 +2175,9 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].Credentials = redactCredentialsPublic(copyBOM.Items[idx].Credentials)
 		copyBOM.Items[idx].ActionLineage = sanitizeActionLineagePublic(copyBOM.Items[idx].ActionLineage)
 		copyBOM.Items[idx].IntroducedBy = sanitizeIntroducedByPublic(copyBOM.Items[idx].IntroducedBy)
+		copyBOM.Items[idx].AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangePublic(copyBOM.Items[idx].AgenticDeliverySystemChange)
 		copyBOM.Items[idx].EvidencePacketRefs = redactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet")
+		copyBOM.Items[idx].DecisionTraceRefs = redactStringSlice(copyBOM.Items[idx].DecisionTraceRefs, "proof")
 	}
 	return &copyBOM
 }
@@ -2133,6 +2199,7 @@ func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPri
 	out.TodayPath = risk.CloneGovernedPathView(in.TodayPath)
 	out.RecommendedGovernedPath = risk.CloneGovernedPathView(in.RecommendedGovernedPath)
 	out.RecommendedActionContract = risk.CloneRecommendedActionContract(in.RecommendedActionContract)
+	out.AgenticDeliverySystemChange = sanitizeAgenticDeliverySystemChangePublic(in.AgenticDeliverySystemChange)
 	out.WorkflowChainRefs = redactStringSlice(in.WorkflowChainRefs, "chain")
 	out.GraphRefs = AgentActionBOMGraphRefs{
 		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
@@ -2140,9 +2207,22 @@ func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPri
 	}
 	out.ProofRefs = redactStringSlice(in.ProofRefs, "proof")
 	out.EvidencePacketRefs = redactStringSlice(in.EvidencePacketRefs, "packet")
+	out.DecisionTraceRefs = redactStringSlice(in.DecisionTraceRefs, "proof")
 	out.AppendixRefs = cloneStrings(in.AppendixRefs)
 	out.UnresolvedEvidence = cloneStrings(in.UnresolvedEvidence)
 	return &out
+}
+
+func sanitizeAgenticDeliverySystemChangePublic(in *risk.AgenticDeliverySystemChange) *risk.AgenticDeliverySystemChange {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneAgenticDeliverySystemChange(in)
+	out.ChangeID = redactValue("change", out.ChangeID, 8)
+	out.ChangedArtifact = redactValue("loc", out.ChangedArtifact, 8)
+	out.ReachableTargets = redactStringSlice(out.ReachableTargets, "target")
+	out.EvidenceRefs = redactStringSlice(out.EvidenceRefs, "evidence")
+	return out
 }
 
 func sanitizeGovernanceDispositionPublic(in *controlbacklog.GovernanceDisposition) *controlbacklog.GovernanceDisposition {

@@ -8,14 +8,14 @@
       "description": "Architecture boundary page data derived from source, detection, aggregation, and proof summaries.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:bc1e4e5f996bafb5e56be23a6227b0ccc028b4ad907a6f7ae59ba48187c4c10d"
+      "sha256": "sha256:ef68ac8f151d606c32e3fd03b6f2834a90bcac8f19812b58ce54878e04b6bc8a"
     },
     {
       "path": "interactive-lab-data.json",
       "description": "Interactive lab summary data projected from deterministic report and evidence outputs.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:ce94cb22a66ba631292be795404a4aea8a00d4e3834d4dfbf92bf1ebd048edd2"
+      "sha256": "sha256:d4981b2d1f4eb1fe5d02d2b8e524f8b0c280f3462b028963e99048a066f7b911"
     },
     {
       "path": "local-private-posture.md",
@@ -41,7 +41,7 @@
       "description": "Customer-redacted executive markdown report suitable for public-facing demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:5e669f9e1a4e279ab8a9dad7a33a7001f1c4a8910b93f59fad6e8ec32f2b3a84"
+      "sha256": "sha256:96c88da6e9b0c2ee4c66b9a93ab01b3b47306d7d6b54b8e24bee27d3498d29d9"
     }
   ],
   "commands": [

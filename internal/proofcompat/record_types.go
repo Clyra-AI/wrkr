@@ -74,6 +74,47 @@ var wrkrRecordTypes = []wrkrRecordType{
   "additionalProperties": true
 }`,
 	},
+	{
+		name: "decision_trace",
+		schema: `{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["record_type", "event"],
+  "properties": {
+    "record_type": {"const": "decision_trace"},
+    "event": {
+      "type": "object",
+      "required": ["event_type", "trace_id", "path_id", "actor", "authority", "context_used", "what_changed", "evidence_refs", "outcome"],
+      "properties": {
+        "event_type": {"const": "decision_trace"},
+        "trace_id": {"type": "string"},
+        "path_id": {"type": "string"},
+        "actor": {"type": "object"},
+        "authority": {"type": "object"},
+        "policy_checked": {"type": "object"},
+        "approval_exception_reason": {"type": "string"},
+        "context_used": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "what_changed": {"type": "object"},
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "outcome": {"type": "object"},
+        "proof_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "precedent_ref": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}`,
+	},
 }
 
 func EnsureWrkrRecordTypes() error {

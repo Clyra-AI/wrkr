@@ -13,31 +13,33 @@ const (
 )
 
 type AgentActionBOMPrimaryView struct {
-	PathID                    string                          `json:"path_id"`
-	SelectionReason           string                          `json:"selection_reason"`
-	PathMap                   AgentActionBOMPrimaryPathMap    `json:"path_map"`
-	ControlResolutionState    string                          `json:"control_resolution_state,omitempty"`
-	BoundaryLabel             string                          `json:"boundary_label,omitempty"`
-	ApprovalEvidenceState     string                          `json:"approval_evidence_state,omitempty"`
-	OwnerEvidenceState        string                          `json:"owner_evidence_state,omitempty"`
-	ProofEvidenceState        string                          `json:"proof_evidence_state,omitempty"`
-	RuntimeEvidenceState      string                          `json:"runtime_evidence_state,omitempty"`
-	TargetEvidenceState       string                          `json:"target_evidence_state,omitempty"`
-	CredentialEvidenceState   string                          `json:"credential_evidence_state,omitempty"`
-	AutonomyTier              string                          `json:"autonomy_tier,omitempty"`
-	DelegationReadinessState  string                          `json:"delegation_readiness_state,omitempty"`
-	RecommendedControl        string                          `json:"recommended_control,omitempty"`
-	EvidenceCompletenessLabel string                          `json:"evidence_completeness_label,omitempty"`
-	EvidenceCompletenessScore int                             `json:"evidence_completeness_score,omitempty"`
-	UnresolvedEvidence        []string                        `json:"unresolved_evidence,omitempty"`
-	TodayPath                 *risk.GovernedPathView          `json:"today_path,omitempty"`
-	RecommendedGovernedPath   *risk.GovernedPathView          `json:"recommended_governed_path,omitempty"`
-	RecommendedActionContract *risk.RecommendedActionContract `json:"recommended_action_contract,omitempty"`
-	WorkflowChainRefs         []string                        `json:"workflow_chain_refs,omitempty"`
-	GraphRefs                 AgentActionBOMGraphRefs         `json:"graph_refs,omitempty"`
-	ProofRefs                 []string                        `json:"proof_refs,omitempty"`
-	EvidencePacketRefs        []string                        `json:"evidence_packet_refs,omitempty"`
-	AppendixRefs              []string                        `json:"appendix_refs,omitempty"`
+	PathID                      string                            `json:"path_id"`
+	SelectionReason             string                            `json:"selection_reason"`
+	PathMap                     AgentActionBOMPrimaryPathMap      `json:"path_map"`
+	ControlResolutionState      string                            `json:"control_resolution_state,omitempty"`
+	BoundaryLabel               string                            `json:"boundary_label,omitempty"`
+	ApprovalEvidenceState       string                            `json:"approval_evidence_state,omitempty"`
+	OwnerEvidenceState          string                            `json:"owner_evidence_state,omitempty"`
+	ProofEvidenceState          string                            `json:"proof_evidence_state,omitempty"`
+	RuntimeEvidenceState        string                            `json:"runtime_evidence_state,omitempty"`
+	TargetEvidenceState         string                            `json:"target_evidence_state,omitempty"`
+	CredentialEvidenceState     string                            `json:"credential_evidence_state,omitempty"`
+	AutonomyTier                string                            `json:"autonomy_tier,omitempty"`
+	DelegationReadinessState    string                            `json:"delegation_readiness_state,omitempty"`
+	RecommendedControl          string                            `json:"recommended_control,omitempty"`
+	EvidenceCompletenessLabel   string                            `json:"evidence_completeness_label,omitempty"`
+	EvidenceCompletenessScore   int                               `json:"evidence_completeness_score,omitempty"`
+	UnresolvedEvidence          []string                          `json:"unresolved_evidence,omitempty"`
+	TodayPath                   *risk.GovernedPathView            `json:"today_path,omitempty"`
+	RecommendedGovernedPath     *risk.GovernedPathView            `json:"recommended_governed_path,omitempty"`
+	RecommendedActionContract   *risk.RecommendedActionContract   `json:"recommended_action_contract,omitempty"`
+	AgenticDeliverySystemChange *risk.AgenticDeliverySystemChange `json:"agentic_delivery_system_change,omitempty"`
+	WorkflowChainRefs           []string                          `json:"workflow_chain_refs,omitempty"`
+	GraphRefs                   AgentActionBOMGraphRefs           `json:"graph_refs,omitempty"`
+	ProofRefs                   []string                          `json:"proof_refs,omitempty"`
+	EvidencePacketRefs          []string                          `json:"evidence_packet_refs,omitempty"`
+	DecisionTraceRefs           []string                          `json:"decision_trace_refs,omitempty"`
+	AppendixRefs                []string                          `json:"appendix_refs,omitempty"`
 }
 
 type AgentActionBOMPrimaryPathMap struct {
@@ -142,31 +144,33 @@ func agentActionBOMItemEligibleForPrimaryView(item AgentActionBOMItem) bool {
 
 func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem, selectionReason string) *AgentActionBOMPrimaryView {
 	view := &AgentActionBOMPrimaryView{
-		PathID:                    strings.TrimSpace(item.PathID),
-		SelectionReason:           strings.TrimSpace(selectionReason),
-		PathMap:                   buildAgentActionBOMPrimaryPathMap(item),
-		ControlResolutionState:    strings.TrimSpace(item.ControlResolutionState),
-		BoundaryLabel:             strings.TrimSpace(item.BoundaryLabel),
-		ApprovalEvidenceState:     strings.TrimSpace(item.ApprovalEvidenceState),
-		OwnerEvidenceState:        strings.TrimSpace(item.OwnerEvidenceState),
-		ProofEvidenceState:        strings.TrimSpace(item.ProofEvidenceState),
-		RuntimeEvidenceState:      strings.TrimSpace(item.RuntimeEvidenceState),
-		TargetEvidenceState:       strings.TrimSpace(item.TargetEvidenceState),
-		CredentialEvidenceState:   strings.TrimSpace(item.CredentialEvidenceState),
-		AutonomyTier:              strings.TrimSpace(item.AutonomyTier),
-		DelegationReadinessState:  strings.TrimSpace(item.DelegationReadinessState),
-		RecommendedControl:        strings.TrimSpace(item.RecommendedControl),
-		UnresolvedEvidence:        primaryViewUnresolvedEvidence(item),
-		TodayPath:                 risk.CloneGovernedPathView(item.TodayPath),
-		RecommendedGovernedPath:   risk.CloneGovernedPathView(item.RecommendedGovernedPath),
-		RecommendedActionContract: risk.CloneRecommendedActionContract(item.RecommendedActionContract),
-		WorkflowChainRefs:         cloneStrings(item.WorkflowChainRefs),
+		PathID:                      strings.TrimSpace(item.PathID),
+		SelectionReason:             strings.TrimSpace(selectionReason),
+		PathMap:                     buildAgentActionBOMPrimaryPathMap(item),
+		ControlResolutionState:      strings.TrimSpace(item.ControlResolutionState),
+		BoundaryLabel:               strings.TrimSpace(item.BoundaryLabel),
+		ApprovalEvidenceState:       strings.TrimSpace(item.ApprovalEvidenceState),
+		OwnerEvidenceState:          strings.TrimSpace(item.OwnerEvidenceState),
+		ProofEvidenceState:          strings.TrimSpace(item.ProofEvidenceState),
+		RuntimeEvidenceState:        strings.TrimSpace(item.RuntimeEvidenceState),
+		TargetEvidenceState:         strings.TrimSpace(item.TargetEvidenceState),
+		CredentialEvidenceState:     strings.TrimSpace(item.CredentialEvidenceState),
+		AutonomyTier:                strings.TrimSpace(item.AutonomyTier),
+		DelegationReadinessState:    strings.TrimSpace(item.DelegationReadinessState),
+		RecommendedControl:          strings.TrimSpace(item.RecommendedControl),
+		UnresolvedEvidence:          primaryViewUnresolvedEvidence(item),
+		TodayPath:                   risk.CloneGovernedPathView(item.TodayPath),
+		RecommendedGovernedPath:     risk.CloneGovernedPathView(item.RecommendedGovernedPath),
+		RecommendedActionContract:   risk.CloneRecommendedActionContract(item.RecommendedActionContract),
+		AgenticDeliverySystemChange: risk.CloneAgenticDeliverySystemChange(item.AgenticDeliverySystemChange),
+		WorkflowChainRefs:           cloneStrings(item.WorkflowChainRefs),
 		GraphRefs: AgentActionBOMGraphRefs{
 			NodeIDs: cloneStrings(item.GraphRefs.NodeIDs),
 			EdgeIDs: cloneStrings(item.GraphRefs.EdgeIDs),
 		},
 		ProofRefs:          cloneStrings(item.ProofRefs),
 		EvidencePacketRefs: cloneStrings(item.EvidencePacketRefs),
+		DecisionTraceRefs:  cloneStrings(item.DecisionTraceRefs),
 		AppendixRefs:       primaryViewAppendixRefs(bom, item),
 	}
 	if item.EvidenceCompleteness != nil {
@@ -296,6 +300,9 @@ func primaryViewAppendixRefs(bom *AgentActionBOM, item AgentActionBOMItem) []str
 	}
 	if len(item.WorkflowChainRefs) > 0 {
 		refs = append(refs, "workflow_chains")
+	}
+	if len(item.DecisionTraceRefs) > 0 {
+		refs = append(refs, "decision_traces")
 	}
 	return uniqueSortedStrings(refs)
 }

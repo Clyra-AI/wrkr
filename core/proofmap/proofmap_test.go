@@ -295,6 +295,56 @@ func TestMapRiskBoundsDetailedProofRecords(t *testing.T) {
 	}
 }
 
+func TestMapDecisionTracesEmitsBoundedHighImpactRecords(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 10, 12, 0, 0, 0, time.UTC)
+	paths := make([]risk.ActionPath, 0, maxDecisionTraceRecords+5)
+	for idx := 0; idx < maxDecisionTraceRecords+5; idx++ {
+		paths = append(paths, risk.ProjectActionPath(risk.ActionPath{
+			PathID:           fmt.Sprintf("apc-trace-%02d", idx),
+			AgentID:          "wrkr:codex:acme",
+			Org:              "acme",
+			Repo:             "acme/release",
+			ToolType:         "skill",
+			Location:         ".agents/skills/release/SKILL.md",
+			WriteCapable:     true,
+			DeployWrite:      true,
+			CredentialAccess: true,
+			HighStakesPresets: []risk.HighStakesPreset{{
+				Preset: risk.HighStakesPresetReleaseAutomation,
+			}},
+		}))
+	}
+	// Add one low-signal path that should not emit a trace.
+	paths = append(paths, risk.ProjectActionPath(risk.ActionPath{
+		PathID:   "apc-low-signal",
+		Org:      "acme",
+		Repo:     "acme/release",
+		ToolType: "prompt_channel",
+		Location: "AGENTS.md",
+	}))
+
+	records := MapDecisionTraces(paths, now)
+	if len(records) != maxDecisionTraceRecords {
+		t.Fatalf("expected bounded decision traces, got %d", len(records))
+	}
+	if records[0].RecordType != "decision_trace" {
+		t.Fatalf("expected decision_trace record type, got %+v", records[0])
+	}
+	if records[0].Event["event_type"] != "decision_trace" {
+		t.Fatalf("expected decision_trace event type, got %+v", records[0].Event)
+	}
+	if _, ok := records[0].Event["what_changed"].(map[string]any); !ok {
+		t.Fatalf("expected bounded what_changed payload, got %+v", records[0].Event)
+	}
+	for _, record := range records {
+		if record.Metadata["path_id"] == "apc-low-signal" {
+			t.Fatalf("did not expect low-signal path to emit decision trace, got %+v", record)
+		}
+	}
+}
+
 func mapRiskAssessmentTypes(records []MappedRecord) map[string]int {
 	out := map[string]int{}
 	for _, record := range records {
