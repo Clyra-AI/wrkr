@@ -24,7 +24,7 @@ const (
 
 	AgenticAuthorityImpactProduction   = "production_mutation"
 	AgenticAuthorityImpactRelease      = "release_or_deploy"
-	AgenticAuthorityImpactCredential   = "credential_authority"
+	AgenticAuthorityImpactCredential   = "credential_authority" // #nosec G101 -- Deterministic authority-impact enum label, not credential material.
 	AgenticAuthorityImpactReviewBypass = "review_bypass"
 	AgenticAuthorityImpactWriteScope   = "write_scope"
 	AgenticAuthorityImpactReview       = "review_surface"
