@@ -3,7 +3,6 @@ package risk
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"sort"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/attribution"
@@ -403,27 +402,4 @@ func AddReachabilityToAgenticChange(change *AgenticDeliverySystemChange, reachab
 	copyChange.ReachableTools = boundedStrings(append(copyChange.ReachableTools, reachableTools...), 5)
 	copyChange.ReachableTargets = boundedStrings(append(copyChange.ReachableTargets, reachableTargets...), 5)
 	return copyChange
-}
-
-func sortUniqueTrimmed(values []string) []string {
-	if len(values) == 0 {
-		return nil
-	}
-	set := map[string]struct{}{}
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			continue
-		}
-		set[trimmed] = struct{}{}
-	}
-	if len(set) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(set))
-	for value := range set {
-		out = append(out, value)
-	}
-	sort.Strings(out)
-	return out
 }
