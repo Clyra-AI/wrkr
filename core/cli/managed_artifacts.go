@@ -333,6 +333,48 @@ func preflightManagedArtifactRead(statePath string) error {
 	return verifyManagedArtifactConsistency(statePath, managedArtifactVerificationStructural)
 }
 
+func preflightManagedArtifactScoreRead(statePath string) error {
+	resolvedStatePath := filepath.Clean(strings.TrimSpace(statePath))
+	if resolvedStatePath == "" || resolvedStatePath == "." {
+		resolvedStatePath = state.ResolvePath("")
+	}
+	if err := recoverManagedArtifactTransaction(resolvedStatePath); err != nil {
+		return err
+	}
+	if _, err := os.Stat(resolvedStatePath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("stat managed state artifact: %w", err)
+	}
+	for _, path := range []string{
+		manifest.ResolvePath(resolvedStatePath),
+		lifecycle.ChainPath(resolvedStatePath),
+	} {
+		if _, err := os.Stat(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("managed artifact consistency %s: %w", filepath.Base(path), err)
+		}
+	}
+	proofChainPath := proofemit.ChainPath(resolvedStatePath)
+	proofChainInfo, err := os.Stat(proofChainPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("managed artifact consistency proof chain: %w", err)
+	}
+	if proofChainInfo.Size() == 0 {
+		return nil
+	}
+	if _, err := os.Stat(proofemit.SigningKeyPath(resolvedStatePath)); err != nil {
+		return fmt.Errorf("managed artifact consistency proof signing key: %w", err)
+	}
+	if _, err := os.Stat(proofemit.ChainAttestationPath(proofChainPath)); err != nil {
+		return fmt.Errorf("managed artifact consistency proof attestation: %w", err)
+	}
+	return nil
+}
+
 func verifyManagedArtifactConsistency(statePath string, mode managedArtifactVerificationMode) error {
 	resolvedStatePath := filepath.Clean(strings.TrimSpace(statePath))
 	if resolvedStatePath == "" || resolvedStatePath == "." {
