@@ -86,8 +86,19 @@ func TestRuntimeSessionSidecarFeedsRuntimeEvidencePacketsAndBOM(t *testing.T) {
 	if evidencePackets == nil || evidencePackets.MatchedPackets != 1 {
 		t.Fatalf("expected projected evidence packets summary, got %+v", evidencePackets)
 	}
-	decoratedPaths := decorateBoundaryLabelsForReport(
+	enterprisePaths := decorateActionPathsForEnterpriseContext(
 		append([]risk.ActionPath(nil), snapshot.RiskReport.ActionPaths...),
+		runtimeSessions,
+		evidencePackets,
+	)
+	if enterprisePaths[0].AgentIdentity == nil || enterprisePaths[0].AgentIdentity.RuntimeProvider != "openai" {
+		t.Fatalf("expected runtime provider to flow into agent identity, got %+v", enterprisePaths[0].AgentIdentity)
+	}
+	if enterprisePaths[0].StateRetentionEvidenceState != risk.EvidenceStateVerified {
+		t.Fatalf("expected retained state posture to stay verified when evidence exists, got %+v", enterprisePaths[0])
+	}
+	decoratedPaths := decorateBoundaryLabelsForReport(
+		enterprisePaths,
 		runtimeEvidenceByPath(runtimeEvidence),
 		runtimeSessionsByPath(runtimeSessions),
 		evidencePacketsByPath(evidencePackets),
@@ -134,5 +145,31 @@ func TestRuntimeSessionSidecarFeedsRuntimeEvidencePacketsAndBOM(t *testing.T) {
 	redacted := sanitizeAgentActionBOMWithConfig(bom, ShareProfileDesignPartner, ResolveRedactionConfig(ShareProfileDesignPartner, nil))
 	if redacted.Items[0].RuntimeHost == "codex.internal.acme" || redacted.Items[0].ModelVersion == "gpt-5-codex" {
 		t.Fatalf("expected redaction to hide host/model details, got %+v", redacted.Items[0])
+	}
+}
+
+func TestEnterpriseContextLeavesMissingRetentionUnknown(t *testing.T) {
+	t.Parallel()
+
+	paths := decorateActionPathsForEnterpriseContext([]risk.ActionPath{{
+		PathID:  "apc-1",
+		AgentID: "wrkr:codex:test",
+		Repo:    "acme/payments",
+		Org:     "acme",
+	}}, nil, &ingest.EvidencePacketSummary{
+		Correlations: []ingest.EvidencePacketCorrelation{{
+			PacketID: "packet-1",
+			PathID:   "apc-1",
+			Status:   ingest.CorrelationStatusMatched,
+		}},
+	})
+	if len(paths) != 1 {
+		t.Fatalf("expected one path, got %+v", paths)
+	}
+	if paths[0].StateRetentionStatus != "" {
+		t.Fatalf("expected absent retention status to stay empty, got %+v", paths[0])
+	}
+	if paths[0].StateRetentionEvidenceState != risk.EvidenceStateUnknown {
+		t.Fatalf("expected absent retention evidence to remain unknown, got %+v", paths[0])
 	}
 }

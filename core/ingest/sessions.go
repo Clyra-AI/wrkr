@@ -931,7 +931,7 @@ func sessionToEvidencePacket(session SessionRecord) EvidencePacket {
 		ModelProvider:            session.ModelProvider,
 		ModelVersion:             session.ModelVersion,
 		ExecutionEnvironment:     session.ExecutionEnvironment,
-		StateRetentionStatus:     firstNonEmpty(session.StateRetentionStatus, StateRetentionUnknown),
+		StateRetentionStatus:     strings.TrimSpace(session.StateRetentionStatus),
 		RetainedStateTypes:       append([]string(nil), session.RetainedStateTypes...),
 		StateLocationRefs:        append([]string(nil), session.StateLocationRefs...),
 		StateDigestRefs:          append([]string(nil), session.StateDigestRefs...),
