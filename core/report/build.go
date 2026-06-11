@@ -147,8 +147,6 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	riskItems := buildRiskItems(topFindings, riskReport.ActionPaths)
 	assessmentSummary := buildAssessmentSummary(riskReport.ActionPaths, riskReport.ActionPathToControlFirst, in.Snapshot.Inventory, proofRef)
-	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
-	rawActionPathToControlFirst := riskReport.ActionPathToControlFirst
 	rawControlPathGraph := riskReport.ControlPathGraph
 	rawWorkflowChains := riskReport.WorkflowChains
 	controlProofStatus, err := buildControlProofStatusForSummary(in.StatePath, in.Snapshot, riskReport)
@@ -161,8 +159,8 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	riskReport.ActionPaths = decorateDecisionTraceRefs(riskReport.ActionPaths, decisionTraceRefsByPath)
 	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
-	rawActionPaths = append([]risk.ActionPath(nil), riskReport.ActionPaths...)
-	rawActionPathToControlFirst = riskReport.ActionPathToControlFirst
+	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
+	rawActionPathToControlFirst := riskReport.ActionPathToControlFirst
 	shareProfileMetadata := BuildShareProfileMetadata(redactionConfig)
 	operationalExposure := scorecore.SummarizeOperationalExposure(riskReport.ActionPaths)
 	governanceReadiness := scorecore.SummarizeGovernanceReadiness(riskReport.ActionPaths, missingProofPathCount(controlProofStatus), scanQualityCoverageReduced(scanQuality))
