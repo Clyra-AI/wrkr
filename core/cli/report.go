@@ -16,9 +16,11 @@ import (
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -50,6 +52,7 @@ type reportPayload struct {
 	ComplianceGapCount       int                           `json:"compliance_gap_count"`
 	ComplianceSummary        compliance.RollupSummary      `json:"compliance_summary"`
 	PrivilegeBudget          agginventory.PrivilegeBudget  `json:"privilege_budget"`
+	SuppressedCounts         *reportcore.SuppressedCounts  `json:"suppressed_counts,omitempty"`
 	Summary                  reportcore.Summary            `json:"summary"`
 	MDPath                   string                        `json:"md_path,omitempty"`
 	PDFPath                  string                        `json:"pdf_path,omitempty"`
@@ -66,6 +69,7 @@ type toolTypeCount struct {
 const (
 	reportBehaviorContractSentenceOne = "wrkr report renders deterministic summaries from saved scan state without changing JSON or exit-code contracts."
 	reportBehaviorContractSentenceTwo = "wrkr report --pdf writes a deterministic PDF artifact with wrapped, paginated executive-summary output; the board-ready claim is acceptance-backed by explicit executive report fixtures."
+	reportJSONInlineAttackPathsCap    = 25
 )
 
 func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -260,12 +264,13 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	totalTools, typeBreakdown := inventorySummary(snapshot.Inventory)
+	attackPaths, attackPathOverflow := boundedReportAttackPaths(riskReport.AttackPaths)
 	payload := reportPayload{
 		Status:                   "ok",
 		GeneratedAt:              summary.GeneratedAt,
 		DeploymentMode:           summary.DeploymentMode,
 		TopFindings:              top,
-		AttackPaths:              riskReport.AttackPaths,
+		AttackPaths:              attackPaths,
 		TopAttackPaths:           riskReport.TopAttackPaths,
 		ActionPaths:              summary.ActionPaths,
 		AgentActionBOM:           summary.AgentActionBOM,
@@ -285,6 +290,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		ComplianceGapCount:       profileGapCount(snapshot),
 		ComplianceSummary:        summary.ComplianceSummary,
 		PrivilegeBudget:          summary.PrivilegeBudget,
+		SuppressedCounts:         summary.SuppressedCounts,
 		Summary:                  summary,
 	}
 	if len(snapshot.Targets) > 0 {
@@ -295,8 +301,19 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	payload.PDFPath = artifacts.PDFPath
 	payload.EvidenceJSONPath = artifacts.EvidenceJSONPath
 	payload.BacklogCSVPath = artifacts.BacklogCSVPath
-	if artifacts.EvidenceJSONPath != "" || artifacts.BacklogCSVPath != "" || reportTemplateExpectsArtifactMap(summary.Template) {
+	if attackPathOverflow > 0 {
+		summary.SuppressedCounts = outputsignal.MergeSuppressedCounts(summary.SuppressedCounts, &reportcore.SuppressedCounts{
+			AttackPaths: attackPathOverflow,
+		})
+		payload.SuppressedCounts = summary.SuppressedCounts
+		payload.Summary = summary
+	}
+	if artifacts.EvidenceJSONPath != "" || artifacts.BacklogCSVPath != "" || reportTemplateExpectsArtifactMap(summary.Template) || attackPathOverflow > 0 {
 		payload.ArtifactPaths = reportArtifactPathMap(artifacts)
+		if payload.ArtifactPaths == nil {
+			payload.ArtifactPaths = map[string]string{}
+		}
+		payload.ArtifactPaths["state"] = resolvedStatePath
 	}
 	payload.NextSteps = reportNextSteps(resolvedStatePath, artifacts)
 
@@ -323,6 +340,14 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintln(stdout, "wrkr report complete")
 	return exitSuccess
+}
+
+func boundedReportAttackPaths(paths []riskattack.ScoredPath) ([]riskattack.ScoredPath, int) {
+	if len(paths) == 0 {
+		return paths, 0
+	}
+	preview, suppressed := outputsignal.CapSlice(paths, reportJSONInlineAttackPathsCap)
+	return preview, suppressed
 }
 
 type recentPRReviewOptions struct {

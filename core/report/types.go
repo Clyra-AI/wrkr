@@ -14,6 +14,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
@@ -149,33 +150,9 @@ type ArtifactMetadata struct {
 	ShareabilityStatus string   `json:"shareability_status,omitempty"`
 }
 
-type PolicyOutcome struct {
-	OutcomeID         string   `json:"outcome_id"`
-	RuleID            string   `json:"rule_id"`
-	CheckResult       string   `json:"check_result"`
-	Severity          string   `json:"severity,omitempty"`
-	OccurrenceCount   int      `json:"occurrence_count"`
-	AffectedRepoCount int      `json:"affected_repo_count"`
-	TopRepoRefs       []string `json:"top_repo_refs,omitempty"`
-	SuppressedCount   int      `json:"suppressed_count,omitempty"`
-}
+type PolicyOutcome = outputsignal.PolicyOutcome
 
-type SuppressedCounts struct {
-	Findings        int `json:"findings,omitempty"`
-	RankedFindings  int `json:"ranked_findings,omitempty"`
-	AttackPaths     int `json:"attack_paths,omitempty"`
-	ActionPaths     int `json:"action_paths,omitempty"`
-	ControlBacklog  int `json:"control_backlog,omitempty"`
-	InventoryAgents int `json:"inventory_agents,omitempty"`
-	InventoryTools  int `json:"inventory_tools,omitempty"`
-	PrivilegeRows   int `json:"privilege_rows,omitempty"`
-	GraphNodes      int `json:"graph_nodes,omitempty"`
-	GraphEdges      int `json:"graph_edges,omitempty"`
-	WorkflowChains  int `json:"workflow_chains,omitempty"`
-	ExposureGroups  int `json:"exposure_groups,omitempty"`
-	AgentActionBOM  int `json:"agent_action_bom,omitempty"`
-	MarkdownLines   int `json:"markdown_lines,omitempty"`
-}
+type SuppressedCounts = outputsignal.SuppressedCounts
 
 type ScanScopeSummary struct {
 	Mode           string `json:"mode"`

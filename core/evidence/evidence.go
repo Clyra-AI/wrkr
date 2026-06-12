@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -378,20 +379,12 @@ func Build(in BuildInput) (BuildResult, error) {
 		}
 	}
 	internalReportEvidencePath := filepath.Join(reportsDir, "report-evidence.json")
-	internalReportEvidencePayload, err := reportcore.RenderEvidenceBundleJSON(summary)
-	if err != nil {
-		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "render report evidence bundle: %w", err)
-	}
-	if err := os.WriteFile(internalReportEvidencePath, internalReportEvidencePayload, 0o600); err != nil {
+	if err := reportcore.WriteEvidenceBundleJSON(internalReportEvidencePath, summary); err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write report evidence bundle: %w", err)
 	}
 	reportArtifacts = append(reportArtifacts, internalReportEvidencePath)
 	customerReportEvidencePath := reportcore.PairedArtifactPath(internalReportEvidencePath, string(reportcore.ShareProfileCustomerRedacted))
-	customerReportEvidencePayload, err := reportcore.RenderEvidenceBundleJSON(redactedSummary)
-	if err != nil {
-		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "render customer-redacted report evidence bundle: %w", err)
-	}
-	if err := os.WriteFile(customerReportEvidencePath, customerReportEvidencePayload, 0o600); err != nil {
+	if err := reportcore.WriteEvidenceBundleJSON(customerReportEvidencePath, redactedSummary); err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write customer-redacted report evidence bundle: %w", err)
 	}
 	reportArtifacts = append(reportArtifacts, customerReportEvidencePath)
@@ -516,12 +509,7 @@ func Build(in BuildInput) (BuildResult, error) {
 	stagePublished = true
 	reportArtifacts = rebaseArtifactPaths(reportArtifacts, stageDir, targetOutputDir)
 	joinMap := reportcore.BuildPrivateJoinMap(summary, redactedSummary, pairID)
-	joinMapPayload, err := json.MarshalIndent(joinMap, "", "  ")
-	if err != nil {
-		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "marshal private join map: %w", err)
-	}
-	joinMapPayload = append(joinMapPayload, '\n')
-	if err := atomicwrite.WriteFile(privateJoinMapPath, joinMapPayload, 0o600); err != nil {
+	if err := writeJSON(privateJoinMapPath, joinMap); err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write private join map: %w", err)
 	}
 
@@ -692,12 +680,14 @@ func writeJSON(path string, value any) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("mkdir json dir: %w", err)
 	}
-	payload, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal %s: %w", path, err)
-	}
-	payload = append(payload, '\n')
-	if err := os.WriteFile(path, payload, 0o600); err != nil {
+	if err := atomicwrite.WriteFileFunc(path, 0o600, func(w io.Writer) error {
+		encoder := json.NewEncoder(w)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(value); err != nil {
+			return fmt.Errorf("marshal %s: %w", path, err)
+		}
+		return nil
+	}); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil

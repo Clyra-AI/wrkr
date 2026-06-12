@@ -28,6 +28,7 @@ import (
 	exportsarif "github.com/Clyra-AI/wrkr/core/export/sarif"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	"github.com/Clyra-AI/wrkr/core/policy/approvedtools"
 	"github.com/Clyra-AI/wrkr/core/policy/productiontargets"
 	profilemodel "github.com/Clyra-AI/wrkr/core/policy/profile"
@@ -587,6 +588,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	postureScore := score.Compute(score.Input{
 		Findings:        findings,
+		PolicyOutcomes:  outputsignal.BuildPolicyOutcomes(findings),
 		Identities:      nextManifest.Identities,
 		ProfileResult:   profileResult,
 		TransitionCount: driftTransitionCount(transitions),
@@ -602,6 +604,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Target:                     manifestOut.Target,
 		Targets:                    manifestOut.Targets,
 		Findings:                   artifactFindings,
+		PolicyOutcomes:             outputsignal.BuildPolicyOutcomes(artifactFindings),
 		Inventory:                  &inventoryOut,
 		ControlBacklog:             &controlBacklog,
 		LifecycleGaps:              lifecycleGaps,

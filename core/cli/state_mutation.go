@@ -13,6 +13,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	profilemodel "github.com/Clyra-AI/wrkr/core/policy/profile"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
@@ -138,12 +139,14 @@ func refreshDerivedMutationSnapshot(snapshot *state.Snapshot) error {
 
 	computed := score.Compute(score.Input{
 		Findings:        snapshot.Findings,
+		PolicyOutcomes:  outputsignal.BuildPolicyOutcomes(snapshot.Findings),
 		Identities:      model.FilterLegacyArtifactIdentityRecords(snapshot.Identities),
 		ProfileResult:   profileResult,
 		TransitionCount: driftTransitionCount(snapshot.Transitions),
 		Weights:         weights,
 		Previous:        previous,
 	})
+	snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
 	snapshot.PostureScore = &computed
 	return nil
 }

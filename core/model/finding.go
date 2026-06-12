@@ -43,6 +43,7 @@ type Finding struct {
 	FindingType     string         `json:"finding_type"`
 	RuleID          string         `json:"rule_id,omitempty"`
 	CheckResult     string         `json:"check_result,omitempty"`
+	PolicyOutcomeID string         `json:"policy_outcome_id,omitempty"`
 	Severity        string         `json:"severity"`
 	DiscoveryMethod string         `json:"discovery_method"`
 	Remediation     string         `json:"remediation,omitempty"`
@@ -62,6 +63,7 @@ func NormalizeFinding(item Finding) Finding {
 	item.FindingType = strings.TrimSpace(item.FindingType)
 	item.RuleID = strings.TrimSpace(item.RuleID)
 	item.CheckResult = strings.TrimSpace(item.CheckResult)
+	item.PolicyOutcomeID = strings.TrimSpace(item.PolicyOutcomeID)
 	item.Severity = normalizeSeverity(item.Severity)
 	item.DiscoveryMethod = normalizeDiscoveryMethod(item.DiscoveryMethod)
 	item.Remediation = strings.TrimSpace(item.Remediation)

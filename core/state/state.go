@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
@@ -20,36 +23,49 @@ import (
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
-	"os"
 )
 
 const SnapshotVersion = "v1"
 const ApprovalInventoryVersion = "1"
 
+const (
+	maxSavedAttackPaths           = 150
+	maxSavedActionPaths           = 150
+	maxSavedBacklogItems          = 150
+	maxSavedGraphNodes            = 5000
+	maxSavedGraphEdges            = 7500
+	maxSavedWorkflowChains        = 150
+	maxSavedRankedFindings        = 200
+	maxSavedRepoExposureSummaries = 150
+)
+
 // Snapshot stores deterministic scan material for diff mode.
 type Snapshot struct {
-	Version                    string                    `json:"version"`
-	ApprovalInventoryVersion   string                    `json:"approval_inventory_version,omitempty"`
-	Target                     source.Target             `json:"target"`
-	Targets                    []source.Target           `json:"targets,omitempty"`
-	Findings                   []source.Finding          `json:"findings"`
-	Inventory                  *agginventory.Inventory   `json:"inventory,omitempty"`
-	ControlBacklog             *controlbacklog.Backlog   `json:"control_backlog,omitempty"`
-	LifecycleGaps              []lifecycle.Gap           `json:"lifecycle_gaps,omitempty"`
-	ScanQuality                *scanquality.Report       `json:"scan_quality,omitempty"`
-	ScanMode                   string                    `json:"scan_mode,omitempty"`
-	RiskReport                 *risk.Report              `json:"risk_report,omitempty"`
-	Profile                    *profileeval.Result       `json:"profile,omitempty"`
-	PostureScore               *score.Result             `json:"posture_score,omitempty"`
-	Identities                 []manifest.IdentityRecord `json:"identities,omitempty"`
-	Transitions                []lifecycle.Transition    `json:"lifecycle_transitions,omitempty"`
-	SourcePrivacy              *sourceprivacy.Contract   `json:"source_privacy,omitempty"`
-	PublicEvidenceManifestName string                    `json:"public_evidence_manifest_name,omitempty"`
-	PublicEvidence             []source.PublicEvidence   `json:"public_evidence,omitempty"`
+	Version                    string                         `json:"version"`
+	ApprovalInventoryVersion   string                         `json:"approval_inventory_version,omitempty"`
+	Target                     source.Target                  `json:"target"`
+	Targets                    []source.Target                `json:"targets,omitempty"`
+	Findings                   []source.Finding               `json:"findings"`
+	PolicyOutcomes             []outputsignal.PolicyOutcome   `json:"policy_outcomes,omitempty"`
+	Inventory                  *agginventory.Inventory        `json:"inventory,omitempty"`
+	ControlBacklog             *controlbacklog.Backlog        `json:"control_backlog,omitempty"`
+	LifecycleGaps              []lifecycle.Gap                `json:"lifecycle_gaps,omitempty"`
+	ScanQuality                *scanquality.Report            `json:"scan_quality,omitempty"`
+	ScanMode                   string                         `json:"scan_mode,omitempty"`
+	RiskReport                 *risk.Report                   `json:"risk_report,omitempty"`
+	SuppressedCounts           *outputsignal.SuppressedCounts `json:"suppressed_counts,omitempty"`
+	Profile                    *profileeval.Result            `json:"profile,omitempty"`
+	PostureScore               *score.Result                  `json:"posture_score,omitempty"`
+	Identities                 []manifest.IdentityRecord      `json:"identities,omitempty"`
+	Transitions                []lifecycle.Transition         `json:"lifecycle_transitions,omitempty"`
+	SourcePrivacy              *sourceprivacy.Contract        `json:"source_privacy,omitempty"`
+	PublicEvidenceManifestName string                         `json:"public_evidence_manifest_name,omitempty"`
+	PublicEvidence             []source.PublicEvidence        `json:"public_evidence,omitempty"`
 }
 
 type ScoreView struct {
 	Findings        []source.Finding
+	PolicyOutcomes  []outputsignal.PolicyOutcome
 	PostureScore    *score.Result
 	Identities      []manifest.IdentityRecord
 	TransitionCount int
@@ -98,13 +114,13 @@ func Save(path string, snapshot Snapshot) error {
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
 	source.SortFindings(snapshot.Findings)
+	snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
 	prepareSnapshotForSave(&snapshot)
-	payload, err := json.MarshalIndent(snapshot, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal state: %w", err)
-	}
-	payload = append(payload, '\n')
-	if err := atomicwrite.WriteFile(path, payload, 0o600); err != nil {
+	if err := atomicwrite.WriteFileFunc(path, 0o600, func(w io.Writer) error {
+		encoder := json.NewEncoder(w)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(snapshot)
+	}); err != nil {
 		return fmt.Errorf("write state: %w", err)
 	}
 	return nil
@@ -112,6 +128,11 @@ func Save(path string, snapshot Snapshot) error {
 
 func cloneSnapshotForSave(in Snapshot) Snapshot {
 	out := in
+	out.PolicyOutcomes = append([]outputsignal.PolicyOutcome(nil), in.PolicyOutcomes...)
+	if in.SuppressedCounts != nil {
+		copyCounts := *in.SuppressedCounts
+		out.SuppressedCounts = &copyCounts
+	}
 	if in.Inventory != nil {
 		copyInventory := *in.Inventory
 		copyInventory.Tools = append([]agginventory.Tool(nil), in.Inventory.Tools...)
@@ -176,6 +197,9 @@ func normalizeSnapshotAfterLoad(snapshot *Snapshot) {
 	if snapshot == nil {
 		return
 	}
+	if len(snapshot.PolicyOutcomes) == 0 {
+		snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
+	}
 	if snapshot.Inventory != nil {
 		agginventory.EnsureCanonicalStores(snapshot.Inventory)
 		agginventory.HydrateCanonicalProjectionDetails(snapshot.Inventory)
@@ -196,6 +220,9 @@ func prepareSnapshotForSave(snapshot *Snapshot) {
 	if snapshot == nil {
 		return
 	}
+	if len(snapshot.PolicyOutcomes) == 0 {
+		snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
+	}
 	ensureSnapshotCanonicalStores(snapshot)
 	if snapshot.Inventory != nil {
 		agginventory.EnsureCanonicalStores(snapshot.Inventory)
@@ -212,6 +239,35 @@ func prepareSnapshotForSave(snapshot *Snapshot) {
 		snapshot.ControlBacklog = controlbacklog.BackfillCanonicalProjectionRefs(snapshot.ControlBacklog)
 		snapshot.ControlBacklog = controlbacklog.StripCanonicalProjectionDetails(snapshot.ControlBacklog)
 	}
+	applySnapshotSignalCaps(snapshot)
+}
+
+func applySnapshotSignalCaps(snapshot *Snapshot) {
+	if snapshot == nil {
+		return
+	}
+	suppressed := &outputsignal.SuppressedCounts{}
+
+	if snapshot.Inventory != nil {
+		snapshot.Inventory.RepoExposureSummaries, suppressed.RepoExposureSummaries = outputsignal.CapSlice(snapshot.Inventory.RepoExposureSummaries, maxSavedRepoExposureSummaries)
+	}
+	if snapshot.RiskReport != nil {
+		snapshot.RiskReport.Ranked, suppressed.RankedFindings = outputsignal.CapSlice(snapshot.RiskReport.Ranked, maxSavedRankedFindings)
+		snapshot.RiskReport.AttackPaths, suppressed.AttackPaths = outputsignal.CapSlice(snapshot.RiskReport.AttackPaths, maxSavedAttackPaths)
+		snapshot.RiskReport.ActionPaths, suppressed.ActionPaths = outputsignal.CapSlice(snapshot.RiskReport.ActionPaths, maxSavedActionPaths)
+		if snapshot.RiskReport.ControlPathGraph != nil {
+			snapshot.RiskReport.ControlPathGraph.Nodes, suppressed.GraphNodes = outputsignal.CapSlice(snapshot.RiskReport.ControlPathGraph.Nodes, maxSavedGraphNodes)
+			snapshot.RiskReport.ControlPathGraph.Edges, suppressed.GraphEdges = outputsignal.CapSlice(snapshot.RiskReport.ControlPathGraph.Edges, maxSavedGraphEdges)
+		}
+		if snapshot.RiskReport.WorkflowChains != nil {
+			snapshot.RiskReport.WorkflowChains.Chains, suppressed.WorkflowChains = outputsignal.CapSlice(snapshot.RiskReport.WorkflowChains.Chains, maxSavedWorkflowChains)
+		}
+	}
+	if snapshot.ControlBacklog != nil {
+		snapshot.ControlBacklog.Items, suppressed.ControlBacklog = outputsignal.CapSlice(snapshot.ControlBacklog.Items, maxSavedBacklogItems)
+	}
+
+	snapshot.SuppressedCounts = outputsignal.MergeSuppressedCounts(snapshot.SuppressedCounts, suppressed)
 }
 
 func ensureSnapshotCanonicalStores(snapshot *Snapshot) {
@@ -357,6 +413,7 @@ func LoadScoreView(path string) (ScoreView, error) {
 
 	return ScoreView{
 		Findings:        snapshot.Findings,
+		PolicyOutcomes:  snapshot.PolicyOutcomes,
 		PostureScore:    snapshot.PostureScore,
 		Identities:      snapshot.Identities,
 		TransitionCount: len(snapshot.Transitions),

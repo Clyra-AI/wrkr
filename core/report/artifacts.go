@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
+	"io"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	"github.com/Clyra-AI/wrkr/core/ingest"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 type EvidenceBundle struct {
@@ -61,11 +63,29 @@ func BuildEvidenceBundle(summary Summary) EvidenceBundle {
 }
 
 func RenderEvidenceBundleJSON(summary Summary) ([]byte, error) {
-	payload, err := json.MarshalIndent(BuildEvidenceBundle(summary), "", "  ")
-	if err != nil {
+	var buf bytes.Buffer
+	if err := encodeEvidenceBundleJSON(&buf, summary); err != nil {
 		return nil, err
 	}
-	return append(payload, '\n'), nil
+	return buf.Bytes(), nil
+}
+
+func WriteEvidenceBundleJSON(path string, summary Summary) error {
+	if err := atomicwrite.WriteFileFunc(path, 0o600, func(w io.Writer) error {
+		return encodeEvidenceBundleJSON(w, summary)
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func encodeEvidenceBundleJSON(w io.Writer, summary Summary) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(BuildEvidenceBundle(summary)); err != nil {
+		return err
+	}
+	return nil
 }
 
 func RenderBacklogCSV(backlog *controlbacklog.Backlog) ([]byte, error) {

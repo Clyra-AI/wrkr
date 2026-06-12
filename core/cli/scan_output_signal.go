@@ -7,6 +7,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/compliance"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -66,7 +67,7 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 		"posture_score":       input.PostureScore,
 		"compliance_summary":  input.ComplianceSummary,
 		"profile":             input.Profile,
-		"policy_outcomes":     reportcore.BuildPolicyOutcomes(input.Findings),
+		"policy_outcomes":     outputsignal.BuildPolicyOutcomes(input.Findings),
 		"finding_counts":      buildFindingCounts(input.Findings),
 		"tool_type_breakdown": buildToolTypeBreakdown(input.Inventory.Tools),
 	}
@@ -187,13 +188,12 @@ func buildScanSuppressedCounts(input scanJSONSummaryInput) *reportcore.Suppresse
 }
 
 func buildFindingCounts(findings []source.Finding) map[string]any {
-	counts := map[string]int{}
-	for _, finding := range findings {
-		counts[strings.TrimSpace(finding.FindingType)]++
-	}
+	logicalTotal, logicalByType, rawTotal, rawByType := outputsignal.BuildLogicalFindingCounts(findings)
 	out := map[string]any{
-		"total":   len(findings),
-		"by_type": counts,
+		"total":       logicalTotal,
+		"by_type":     logicalByType,
+		"raw_total":   rawTotal,
+		"raw_by_type": rawByType,
 	}
 	return out
 }
@@ -229,10 +229,7 @@ func positiveOverflow(size int, limit int) int {
 	if limit <= 0 {
 		return size
 	}
-	if size <= limit {
-		return 0
-	}
-	return size - limit
+	return outputsignal.PositiveOverflow(size, limit)
 }
 
 func scanPreview[T any](items []T, limit int) []T {

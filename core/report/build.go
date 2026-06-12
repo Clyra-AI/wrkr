@@ -23,6 +23,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	templatespkg "github.com/Clyra-AI/wrkr/core/report/templates"
@@ -203,7 +204,10 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	privilegeBudget := privilegeBudgetFromInventory(in.Snapshot.Inventory)
 	securityVisibility := securityVisibilityFromInventory(in.Snapshot.Inventory)
 	nextActions := buildNextActions(riskItems, lifecycleSummary, regressSummary)
-	policyOutcomes := BuildPolicyOutcomes(in.Snapshot.Findings)
+	policyOutcomes := append([]PolicyOutcome(nil), in.Snapshot.PolicyOutcomes...)
+	if len(policyOutcomes) == 0 {
+		policyOutcomes = BuildPolicyOutcomes(in.Snapshot.Findings)
+	}
 	if redactionConfig.Applies() {
 		policyOutcomes = sanitizePolicyOutcomesWithConfig(policyOutcomes, redactionConfig)
 	}
@@ -304,6 +308,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	summary.WorkflowHighlights = BuildWorkflowHighlights(summary)
 	ApplySummaryCaps(&summary)
+	summary.SuppressedCounts = outputsignal.MergeSuppressedCounts(in.Snapshot.SuppressedCounts, summary.SuppressedCounts)
 
 	return summary, nil
 }

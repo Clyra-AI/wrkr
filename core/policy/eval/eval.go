@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	"github.com/Clyra-AI/wrkr/core/policy"
 )
 
@@ -17,17 +18,19 @@ func Evaluate(repo, org string, findings []model.Finding, rules []policy.Rule) [
 	out := make([]model.Finding, 0, len(ruleList)*2)
 	for _, rule := range ruleList {
 		passed, detail := applyRule(rule, findings)
+		outcomeID := outputsignal.StablePolicyOutcomeID(rule.ID, checkResult(passed), severity(rule.Severity))
 		check := model.Finding{
-			FindingType: "policy_check",
-			RuleID:      rule.ID,
-			CheckResult: checkResult(passed),
-			Severity:    severity(rule.Severity),
-			ToolType:    "policy",
-			Location:    rule.ID,
-			Repo:        repo,
-			Org:         fallbackOrg(org),
-			Detector:    "policy",
-			Remediation: rule.Remediation,
+			FindingType:     "policy_check",
+			RuleID:          rule.ID,
+			CheckResult:     checkResult(passed),
+			PolicyOutcomeID: outcomeID,
+			Severity:        severity(rule.Severity),
+			ToolType:        "policy",
+			Location:        rule.ID,
+			Repo:            repo,
+			Org:             fallbackOrg(org),
+			Detector:        "policy",
+			Remediation:     rule.Remediation,
 			Evidence: []model.Evidence{
 				{Key: "title", Value: rule.Title},
 				{Key: "version", Value: fmt.Sprintf("%d", rule.Version)},
@@ -37,16 +40,17 @@ func Evaluate(repo, org string, findings []model.Finding, rules []policy.Rule) [
 		out = append(out, check)
 		if !passed {
 			out = append(out, model.Finding{
-				FindingType: "policy_violation",
-				RuleID:      rule.ID,
-				CheckResult: model.CheckResultFail,
-				Severity:    severity(rule.Severity),
-				ToolType:    "policy",
-				Location:    rule.ID,
-				Repo:        repo,
-				Org:         fallbackOrg(org),
-				Detector:    "policy",
-				Remediation: rule.Remediation,
+				FindingType:     "policy_violation",
+				RuleID:          rule.ID,
+				CheckResult:     model.CheckResultFail,
+				PolicyOutcomeID: outcomeID,
+				Severity:        severity(rule.Severity),
+				ToolType:        "policy",
+				Location:        rule.ID,
+				Repo:            repo,
+				Org:             fallbackOrg(org),
+				Detector:        "policy",
+				Remediation:     rule.Remediation,
 				Evidence: []model.Evidence{
 					{Key: "title", Value: rule.Title},
 					{Key: "detail", Value: detail},

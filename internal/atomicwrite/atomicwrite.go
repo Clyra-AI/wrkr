@@ -2,6 +2,7 @@ package atomicwrite
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -23,7 +24,18 @@ func WriteFile(path string, payload []byte, perm os.FileMode) error {
 	return WriteFileWithOptions(path, payload, perm, Options{})
 }
 
+func WriteFileFunc(path string, perm os.FileMode, write func(io.Writer) error) error {
+	return WriteFileFuncWithOptions(path, perm, write, Options{})
+}
+
 func WriteFileWithOptions(path string, payload []byte, perm os.FileMode, opts Options) error {
+	return WriteFileFuncWithOptions(path, perm, func(w io.Writer) error {
+		_, err := w.Write(payload)
+		return err
+	}, opts)
+}
+
+func WriteFileFuncWithOptions(path string, perm os.FileMode, write func(io.Writer) error, opts Options) error {
 	cleanPath, err := resolveCommitPath(path)
 	if err != nil {
 		return err
@@ -49,7 +61,7 @@ func WriteFileWithOptions(path string, payload []byte, perm os.FileMode, opts Op
 		}
 	}()
 
-	if _, err := tmp.Write(payload); err != nil {
+	if err := write(tmp); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("write atomic temp: %w", err)
 	}

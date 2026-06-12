@@ -58,6 +58,7 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 		identities := model.FilterLegacyArtifactIdentityRecords(snapshot.Identities)
 		computed := score.Compute(score.Input{
 			Findings:        snapshot.Findings,
+			PolicyOutcomes:  snapshot.PolicyOutcomes,
 			Identities:      identities,
 			ProfileResult:   profileResult,
 			TransitionCount: snapshot.TransitionCount,
@@ -68,12 +69,13 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 
 	if *jsonOut {
 		payload := map[string]any{
-			"score":              result.Score,
-			"grade":              result.Grade,
-			"breakdown":          result.Breakdown,
-			"weighted_breakdown": result.WeightedBreakdown,
-			"weights":            result.Weights,
-			"trend_delta":        result.TrendDelta,
+			"score":               result.Score,
+			"grade":               result.Grade,
+			"policy_signal_basis": result.PolicySignalBasis,
+			"breakdown":           result.Breakdown,
+			"weighted_breakdown":  result.WeightedBreakdown,
+			"weights":             result.Weights,
+			"trend_delta":         result.TrendDelta,
 		}
 		if snapshot.HasRiskReport || attackPaths != nil || topAttackPaths != nil {
 			payload["attack_paths"] = attackPaths
