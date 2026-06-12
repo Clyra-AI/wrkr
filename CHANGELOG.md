@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- (none yet)
+- [semver:patch] Required measured receipts for size, redaction, privacy, and customer-safe release claims, and added a Sprint 0 temporary freeze gate for new scan/report surface expansion until the size, redaction, and readability gates are green.
 
 ### Deprecated
 
@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Added real-scan-shaped size, signal, redaction, and BOM readability regression fixtures to block artifact bloat and shareable-output leaks before release.
 
 ### Security
 
@@ -37,6 +37,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
+6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
 
 ## [v1.7.2] - 2026-06-12
 <!-- release-semver: patch -->

@@ -143,6 +143,8 @@ Determinism requirements:
 - Keep terminology consistent with Wrkr domain language: discovery, posture, risk, identity lifecycle, proof records, regression.
 - New detectors, report modes, graph fields, platform surfaces, or buyer-facing docs claims must state how they improve focused BOM clarity, repeat use, or evidence quality before they land.
 - Output-size, markdown-length, and finding-noise budget regressions are release blockers for buyer-facing surfaces.
+- Sprint 0 subtractive fixes keep a temporary freeze gate in place: do not add new scan/report surface area unless it is directly required by Stories 1.1 through 4.2 or the size, redaction, and readability gates are green.
+- Changelog and release-note claims about size, privacy, redaction, customer-safe sharing, or readability require measured artifact-size deltas, redaction test names, and fixture coverage receipts in the same PR.
 
 ## 12) Pull Request Checklist (Agent and Human)
 
