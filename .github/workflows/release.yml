@@ -46,6 +46,13 @@ jobs:
       - name: Setup Homebrew
         uses: Homebrew/actions/setup-homebrew@cced187498280712e078aaba62dc13a3e9cd80bf
 
+      - name: Install bubblewrap for Linux Homebrew sandbox
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+          command -v bwrap
+
       - name: Download dependencies
         run: go mod download
 

@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Fixed the Linux release runner to install `bubblewrap` before Homebrew-backed acceptance and pre-publish install-path UAT, so tag workflows no longer fail before artifact publication.
 
 ### Security
 
