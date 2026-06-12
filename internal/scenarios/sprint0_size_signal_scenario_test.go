@@ -79,11 +79,11 @@ func TestScenarioSprint0LargeScanBudgetContract(t *testing.T) {
 		t.Fatalf("expected markdown under %d lines plus truncation note, got %d", sprint0ScenarioMarkdownCap+2, len(lines))
 	}
 
-	summaryBytes, err := json.Marshal(summary)
+	reportBytes, err := json.Marshal(reportPayload)
 	if err != nil {
-		t.Fatalf("marshal summary: %v", err)
+		t.Fatalf("marshal report payload: %v", err)
 	}
-	combined := string(summaryBytes) + "\n" + string(evidenceBytes) + "\n" + string(markdownBytes)
+	combined := string(reportBytes) + "\n" + string(evidenceBytes) + "\n" + string(markdownBytes)
 	for _, forbidden := range []string{
 		"release-bot",
 		"triage-bot",

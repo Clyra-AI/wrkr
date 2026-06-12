@@ -107,11 +107,7 @@ func TestSprint0LargeScanSizeSignalBudget(t *testing.T) {
 		t.Fatalf("expected primary workflow BOM section, got %q", string(markdownBytes))
 	}
 
-	sanitizedSummary, err := json.Marshal(summary)
-	if err != nil {
-		t.Fatalf("marshal sanitized summary: %v", err)
-	}
-	combined := string(sanitizedSummary) + "\n" + string(evidenceBytes) + "\n" + string(markdownBytes)
+	combined := reportOut.String() + "\n" + string(evidenceBytes) + "\n" + string(markdownBytes)
 	for _, forbidden := range []string{
 		"release-bot",
 		"triage-bot",
