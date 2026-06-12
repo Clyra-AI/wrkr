@@ -1763,14 +1763,14 @@ func TestAgentActionBOMMarkdownLeadsWithBuyerSummary(t *testing.T) {
 	}
 
 	markdown := RenderMarkdown(summary)
-	if !strings.Contains(markdown, "- Scanned scope:") {
-		t.Fatalf("expected buyer summary to include scanned scope, got %q", markdown)
+	if !strings.Contains(markdown, "## Report Context Appendix") || !strings.Contains(markdown, "- Scanned scope:") {
+		t.Fatalf("expected BOM report context appendix to include scanned scope, got %q", markdown)
 	}
 	if !strings.Contains(markdown, "- Operational exposure:") || !strings.Contains(markdown, "- Governance readiness:") {
-		t.Fatalf("expected buyer summary to include split readiness axes, got %q", markdown)
+		t.Fatalf("expected BOM report context appendix to include split readiness axes, got %q", markdown)
 	}
-	if strings.Index(markdown, "- Scanned scope:") > strings.Index(markdown, "## Assessment Summary") {
-		t.Fatalf("expected buyer summary to lead before assessment details, got %q", markdown)
+	if strings.Index(markdown, "## Report Context Appendix") > strings.Index(markdown, "## Assessment Appendix") {
+		t.Fatalf("expected report context appendix to appear before assessment appendix, got %q", markdown)
 	}
 }
 

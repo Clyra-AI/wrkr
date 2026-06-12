@@ -2276,6 +2276,8 @@ func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPri
 	out.DecisionTraceRefs = redactStringSlice(in.DecisionTraceRefs, "proof")
 	out.AppendixRefs = cloneStrings(in.AppendixRefs)
 	out.UnresolvedEvidence = cloneStrings(in.UnresolvedEvidence)
+	out.RecommendedNextActions = cloneStrings(in.RecommendedNextActions)
+	out.CoverageReasons = cloneStrings(in.CoverageReasons)
 	return &out
 }
 

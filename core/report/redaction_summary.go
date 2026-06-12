@@ -511,6 +511,8 @@ func sanitizePrimaryViewWithConfig(in *AgentActionBOMPrimaryView, config Redacti
 	out.DecisionTraceRefs = maybeRedactStringSlice(in.DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 	out.AppendixRefs = cloneStrings(in.AppendixRefs)
 	out.UnresolvedEvidence = cloneStrings(in.UnresolvedEvidence)
+	out.RecommendedNextActions = cloneStrings(in.RecommendedNextActions)
+	out.CoverageReasons = cloneStrings(in.CoverageReasons)
 	return &out
 }
 

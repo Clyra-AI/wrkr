@@ -561,11 +561,19 @@
       "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
       "delegation_readiness_state": "blocked",
       "recommended_control": "block_standing_credential",
+      "risk_tier": "critical",
       "evidence_completeness_label": "strong_evidence",
       "evidence_completeness_score": 86,
       "unresolved_evidence": [
         "approval"
       ],
+      "recommended_next_actions": [
+        "keep path-specific proof linked as the path evolves",
+        "record explicit owner approval with scope and expiry",
+        "replace standing credential with repo-scoped JIT or brokered authority"
+      ],
+      "coverage_status": "complete",
+      "coverage_impact": "Coverage for scanned inputs was complete enough to support scoped negative claims.",
       "path_map": {
         "tool": "wrkr:ci-agent-457b801fb1:local",
         "repo_pr": "demo-app / pr/108",
@@ -637,6 +645,7 @@
         "detector_diagnostics",
         "graph_refs",
         "proof_refs",
+        "recommended_actions",
         "scan_quality",
         "workflow_chains"
       ]

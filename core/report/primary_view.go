@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
@@ -27,9 +28,14 @@ type AgentActionBOMPrimaryView struct {
 	AutonomyTier                string                            `json:"autonomy_tier,omitempty"`
 	DelegationReadinessState    string                            `json:"delegation_readiness_state,omitempty"`
 	RecommendedControl          string                            `json:"recommended_control,omitempty"`
+	RiskTier                    string                            `json:"risk_tier,omitempty"`
 	EvidenceCompletenessLabel   string                            `json:"evidence_completeness_label,omitempty"`
 	EvidenceCompletenessScore   int                               `json:"evidence_completeness_score,omitempty"`
 	UnresolvedEvidence          []string                          `json:"unresolved_evidence,omitempty"`
+	RecommendedNextActions      []string                          `json:"recommended_next_actions,omitempty"`
+	CoverageStatus              string                            `json:"coverage_status,omitempty"`
+	CoverageReasons             []string                          `json:"coverage_reasons,omitempty"`
+	CoverageImpact              string                            `json:"coverage_impact,omitempty"`
 	TodayPath                   *risk.GovernedPathView            `json:"today_path,omitempty"`
 	RecommendedGovernedPath     *risk.GovernedPathView            `json:"recommended_governed_path,omitempty"`
 	RecommendedActionContract   *risk.RecommendedActionContract   `json:"recommended_action_contract,omitempty"`
@@ -168,7 +174,9 @@ func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem
 		AutonomyTier:                strings.TrimSpace(item.AutonomyTier),
 		DelegationReadinessState:    strings.TrimSpace(item.DelegationReadinessState),
 		RecommendedControl:          strings.TrimSpace(item.RecommendedControl),
+		RiskTier:                    strings.TrimSpace(item.RiskTier),
 		UnresolvedEvidence:          primaryViewUnresolvedEvidence(item),
+		RecommendedNextActions:      primaryViewRecommendedNextActions(item),
 		TodayPath:                   risk.CloneGovernedPathView(item.TodayPath),
 		RecommendedGovernedPath:     risk.CloneGovernedPathView(item.RecommendedGovernedPath),
 		RecommendedActionContract:   risk.CloneRecommendedActionContract(item.RecommendedActionContract),
@@ -197,6 +205,7 @@ func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem
 		view.EvidenceCompletenessLabel = strings.TrimSpace(item.EvidenceCompleteness.Label)
 		view.EvidenceCompletenessScore = item.EvidenceCompleteness.TotalScore
 	}
+	view.CoverageStatus, view.CoverageReasons, view.CoverageImpact = primaryViewCoverage(bom, item)
 	return view
 }
 
@@ -309,6 +318,9 @@ func primaryViewAppendixRefs(bom *AgentActionBOM, item AgentActionBOMItem) []str
 	if bom != nil && bom.ScanQuality != nil {
 		refs = append(refs, "scan_quality", "detector_diagnostics")
 	}
+	if len(item.RecommendedNextAction) > 0 || item.RecommendedActionContract != nil {
+		refs = append(refs, "recommended_actions")
+	}
 	if len(item.GraphRefs.NodeIDs) > 0 || len(item.GraphRefs.EdgeIDs) > 0 {
 		refs = append(refs, "graph_refs")
 	}
@@ -325,4 +337,148 @@ func primaryViewAppendixRefs(bom *AgentActionBOM, item AgentActionBOMItem) []str
 		refs = append(refs, "decision_traces")
 	}
 	return uniqueSortedStrings(refs)
+}
+
+func primaryViewRecommendedNextActions(item AgentActionBOMItem) []string {
+	actions := make([]string, 0, 4)
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		actions = append(actions, value)
+	}
+
+	if item.RecommendedActionContract != nil {
+		add(item.RecommendedActionContract.RequiredApproval)
+		add(item.RecommendedActionContract.RequiredProof)
+		add(item.RecommendedActionContract.RequiredAuthority)
+		add(item.RecommendedActionContract.ValidationStep)
+	}
+	if len(actions) == 0 {
+		add(firstSentence(item.Remediation))
+	}
+	actions = uniqueSortedStrings(actions)
+	if len(actions) > 3 {
+		actions = append([]string(nil), actions[:3]...)
+	}
+	return actions
+}
+
+func primaryViewCoverage(bom *AgentActionBOM, item AgentActionBOMItem) (string, []string, string) {
+	if bom == nil || bom.ScanQuality == nil {
+		return scanquality.AbsenceStatusNotScanned, []string{"scan_quality:unavailable"}, "Coverage metadata was unavailable; negative claims remain scoped to available evidence."
+	}
+
+	org := strings.TrimSpace(item.Org)
+	repo := strings.TrimSpace(item.Repo)
+	if primaryViewUsesMCPQualifiedCoverage(item) {
+		if claim := primaryViewRepoAbsenceClaim(bom.ScanQuality, org, repo); claim != nil {
+			return primaryViewCoverageStatusFromAbsence(claim.Status), cloneStrings(claim.Reasons), firstNonEmptyValue(strings.TrimSpace(claim.Impact), "Coverage metadata was unavailable; negative claims remain scoped to available evidence.")
+		}
+	}
+
+	signals := scanquality.CompletenessSignalsForRepo(bom.ScanQuality, org, repo)
+	if signals.ReducedCoverage {
+		impact := scanquality.BuildCompactCoverageSummary(bom.ScanQuality).ImpactStatement
+		return scanquality.CoverageConfidenceReduced, cloneStrings(signals.Reasons), impact
+	}
+	if primaryViewRepoHasCoverageData(bom.ScanQuality, org, repo) {
+		impact := scanquality.BuildCompactCoverageSummary(bom.ScanQuality).ImpactStatement
+		return scanquality.CoverageConfidenceComplete, nil, impact
+	}
+	return scanquality.AbsenceStatusNotScanned, []string{"scan_quality:unavailable"}, "Coverage metadata was unavailable; negative claims remain scoped to available evidence."
+}
+
+func primaryViewUsesMCPQualifiedCoverage(item AgentActionBOMItem) bool {
+	toolType := strings.ToLower(strings.TrimSpace(item.ToolType))
+	if strings.Contains(toolType, "mcp") {
+		return true
+	}
+	return len(item.ReachableServers) > 0 || len(item.ReachableAPIs) > 0
+}
+
+func primaryViewRepoAbsenceClaim(report *scanquality.Report, org string, repo string) *scanquality.AbsenceClaim {
+	if report == nil {
+		return nil
+	}
+	var selected *scanquality.AbsenceClaim
+	for _, claim := range report.AbsenceClaims {
+		if strings.TrimSpace(claim.Surface) != scanquality.SurfaceMCPServer {
+			continue
+		}
+		if strings.TrimSpace(claim.Org) != strings.TrimSpace(org) || strings.TrimSpace(claim.Repo) != strings.TrimSpace(repo) {
+			continue
+		}
+		if selected == nil || primaryViewCoverageStatusRank(claim.Status) < primaryViewCoverageStatusRank(selected.Status) {
+			copyClaim := claim
+			selected = &copyClaim
+		}
+	}
+	return selected
+}
+
+func primaryViewRepoHasCoverageData(report *scanquality.Report, org string, repo string) bool {
+	if report == nil {
+		return false
+	}
+	for _, detector := range report.Detectors {
+		if strings.TrimSpace(detector.Org) == strings.TrimSpace(org) && strings.TrimSpace(detector.Repo) == strings.TrimSpace(repo) {
+			return true
+		}
+	}
+	for _, issue := range report.ParseErrors {
+		if strings.TrimSpace(issue.Org) == strings.TrimSpace(org) && strings.TrimSpace(issue.Repo) == strings.TrimSpace(repo) {
+			return true
+		}
+	}
+	for _, claim := range report.AbsenceClaims {
+		if strings.TrimSpace(claim.Org) == strings.TrimSpace(org) && strings.TrimSpace(claim.Repo) == strings.TrimSpace(repo) {
+			return true
+		}
+	}
+	return false
+}
+
+func primaryViewCoverageStatusFromAbsence(status string) string {
+	switch strings.TrimSpace(status) {
+	case scanquality.AbsenceStatusUnsupportedSurface:
+		return scanquality.AbsenceStatusUnsupportedSurface
+	case scanquality.AbsenceStatusNotScanned:
+		return scanquality.AbsenceStatusNotScanned
+	case scanquality.AbsenceStatusNotFoundCompleteCoverage:
+		return scanquality.CoverageConfidenceComplete
+	default:
+		return scanquality.CoverageConfidenceReduced
+	}
+}
+
+func primaryViewCoverageStatusRank(status string) int {
+	switch strings.TrimSpace(status) {
+	case scanquality.AbsenceStatusNotScanned:
+		return 0
+	case scanquality.AbsenceStatusCandidateParseFailed:
+		return 1
+	case scanquality.AbsenceStatusUnsupportedSurface:
+		return 2
+	case scanquality.AbsenceStatusNotFoundReducedCoverage:
+		return 3
+	case scanquality.AbsenceStatusNotFoundCompleteCoverage:
+		return 4
+	default:
+		return 5
+	}
+}
+
+func firstSentence(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	for _, sep := range []string{". ", ".\n"} {
+		if idx := strings.Index(value, sep); idx >= 0 {
+			return strings.TrimSpace(value[:idx+1])
+		}
+	}
+	return value
 }
