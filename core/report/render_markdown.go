@@ -24,8 +24,9 @@ func RenderMarkdown(summary Summary) string {
 	builder.WriteString(fmt.Sprintf("- Share profile: %s\n\n", summary.ShareProfile))
 	renderExecutiveRollupSection(&builder, templatespkg.Resolve(summary.Template).ExecutiveRollupTitle, resolveExecutiveRollup(summary))
 
+	agentActionBOMLeadHandledEmptyState := false
 	if summary.AgentActionBOM != nil && isAgentActionBOMTemplate {
-		renderAgentActionBOMLeadSection(&builder, summary)
+		agentActionBOMLeadHandledEmptyState = renderAgentActionBOMLeadSection(&builder, summary)
 		renderAgentActionBOMContextAppendix(&builder, summary)
 		if summary.RecentPRReview != nil {
 			builder.WriteString("## Recent PR Review Appendix\n\n")
@@ -59,7 +60,7 @@ func RenderMarkdown(summary Summary) string {
 
 		emptyStateStatus := strings.TrimSpace(summary.AgentActionBOM.Summary.EmptyStateStatus)
 		emptyStateReasons := summary.AgentActionBOM.Summary.EmptyStateReasons
-		if summary.AgentActionBOM.Summary.PrimaryView == nil || len(summary.AgentActionBOM.Items) == 0 || (emptyStateStatus != "" && emptyStateStatus != "not_eligible") {
+		if !agentActionBOMLeadHandledEmptyState && (summary.AgentActionBOM.Summary.PrimaryView == nil || len(summary.AgentActionBOM.Items) == 0 || (emptyStateStatus != "" && emptyStateStatus != "not_eligible")) {
 			builder.WriteString("## Empty-State Assessment\n\n")
 			reasons := "none"
 			if len(emptyStateReasons) > 0 {
@@ -531,9 +532,9 @@ func renderPublicSurfaceAssessmentSection(builder *strings.Builder, assessment *
 	builder.WriteString("\n")
 }
 
-func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) {
+func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) bool {
 	if builder == nil || summary.AgentActionBOM == nil {
-		return
+		return false
 	}
 	bom := summary.AgentActionBOM
 	builder.WriteString("## Agent Action BOM\n\n")
@@ -560,11 +561,12 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 			bom.Summary.CoverageConfidence,
 			reasons,
 		)
-		return
+		return true
 	}
 
 	renderPrimaryWorkflowBOMSection(builder, bom.Summary.PrimaryView)
 	renderCompactTopActionPathsSection(builder, summary.WorkflowHighlights)
+	return false
 }
 
 func renderAgentActionBOMContextAppendix(builder *strings.Builder, summary Summary) {

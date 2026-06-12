@@ -2037,6 +2037,28 @@ func TestAgentActionBOMDoesNotRenderPositiveEmptyStateForStandingCredential(t *t
 	}
 }
 
+func TestAgentActionBOMEmptyStateRendersOnceWhenLeadSectionHandlesIt(t *testing.T) {
+	t.Parallel()
+
+	markdown := RenderMarkdown(Summary{
+		GeneratedAt:  "2026-06-12T12:00:00Z",
+		Template:     string(TemplateAgentActionBOM),
+		ShareProfile: string(ShareProfileCustomerRedacted),
+		AgentActionBOM: &AgentActionBOM{
+			BOMID: "bom-empty",
+			Summary: AgentActionBOMSummary{
+				CoverageConfidence: scanquality.CoverageConfidenceReduced,
+				EmptyStateStatus:   risk.EmptyStateCoverageReduced,
+				EmptyStateReasons:  []string{"scan_coverage_reduced"},
+			},
+		},
+	})
+
+	if count := strings.Count(markdown, "## Empty-State Assessment"); count != 1 {
+		t.Fatalf("expected one empty-state section, got %d in %q", count, markdown)
+	}
+}
+
 func TestReportArtifactsShareActionPathProjection(t *testing.T) {
 	t.Parallel()
 
