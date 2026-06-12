@@ -81,13 +81,7 @@ func parseReportTemplateShare(templateRaw string, shareProfileRaw string) (repor
 
 	shareValue := strings.TrimSpace(shareProfileRaw)
 	if shareValue == "" {
-		shareValue = string(reportcore.ShareProfileInternal)
-		if template == reportcore.TemplateCustomerDraft {
-			shareValue = string(reportcore.ShareProfilePublic)
-		}
-		if template == reportcore.TemplateDesignPartnerSummary {
-			shareValue = string(reportcore.ShareProfileDesignPartner)
-		}
+		shareValue = string(reportcore.DefaultShareProfile(template))
 	}
 	shareProfile, ok := reportcore.ParseShareProfile(shareValue)
 	if !ok {
@@ -123,6 +117,7 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 		if err := reportcore.ApplyFocusPreset(&summary, opts.FocusPreset); err != nil {
 			return reportcore.Summary{}, err
 		}
+		summary = reportcore.FinalizeSummaryForShareProfile(summary)
 		return summary, nil
 	}
 

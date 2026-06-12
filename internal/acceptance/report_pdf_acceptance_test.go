@@ -52,7 +52,7 @@ func TestAcceptanceExecutiveReportPDFFixtures(t *testing.T) {
 		pdfPath := filepath.Join(t.TempDir(), "executive-summary.pdf")
 		var out bytes.Buffer
 		var errOut bytes.Buffer
-		if code := cli.Run([]string{"report", "--state", statePath, "--template", "exec", "--pdf", "--pdf-path", pdfPath, "--json"}, &out, &errOut); code != 0 {
+		if code := cli.Run([]string{"report", "--state", statePath, "--template", "exec", "--share-profile", "internal", "--pdf", "--pdf-path", pdfPath, "--json"}, &out, &errOut); code != 0 {
 			t.Fatalf("report --pdf failed: %d %s", code, errOut.String())
 		}
 
@@ -104,7 +104,7 @@ func TestAcceptanceExecutiveReportPDFFixtures(t *testing.T) {
 		pdfPath := filepath.Join(t.TempDir(), "detailed-report.pdf")
 		var out bytes.Buffer
 		var errOut bytes.Buffer
-		if code := cli.Run([]string{"report", "--state", statePath, "--template", "exec", "--pdf", "--pdf-path", pdfPath, "--json"}, &out, &errOut); code != 0 {
+		if code := cli.Run([]string{"report", "--state", statePath, "--template", "exec", "--share-profile", "internal", "--pdf", "--pdf-path", pdfPath, "--json"}, &out, &errOut); code != 0 {
 			t.Fatalf("report --pdf failed: %d %s", code, errOut.String())
 		}
 

@@ -33,13 +33,17 @@
     },
     "share_profile": {
       "type": "string",
-      "enum": ["internal", "public", "customer-redacted", "design-partner", "external-redacted", "investor-safe"]
+      "enum": ["internal", "public", "customer-redacted", "design-partner", "external-redacted", "investor-safe"],
+      "description": "Share-profile selection for the rendered artifact. Report-style workflows default to customer-redacted/public/design-partner profiles unless internal is explicitly selected."
     },
     "deployment_mode": {
       "$ref": "#/$defs/deploymentMode"
     },
     "share_profile_metadata": {
       "$ref": "#/$defs/shareProfileMetadata"
+    },
+    "artifact_metadata": {
+      "$ref": "#/$defs/artifactMetadata"
     },
     "section_order": {
       "type": "array",
@@ -193,6 +197,31 @@
         "profile_default_fields": {
           "type": "array",
           "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifactMetadata": {
+      "type": "object",
+      "properties": {
+        "artifact_id": {"type": "string"},
+        "pair_id": {"type": "string"},
+        "variant_kind": {"type": "string"},
+        "share_profile": {"type": "string"},
+        "redaction_version": {"type": "string"},
+        "selected_fields": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "source_artifact_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "private_join_map_path": {"type": "string"},
+        "shareability_status": {
+          "type": "string",
+          "enum": ["internal_only", "shareable"],
+          "description": "Explicit internal output is marked internal_only; default/shareable profiles are marked shareable."
         }
       },
       "additionalProperties": false

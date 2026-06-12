@@ -1,6 +1,7 @@
 package state
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -8,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
@@ -109,6 +112,111 @@ func TestLoadRawMatchesLoadForCanonicalSnapshot(t *testing.T) {
 	}
 	if !reflect.DeepEqual(rawLoaded, loaded) {
 		t.Fatalf("expected raw load to match canonical load for saved snapshot\nraw=%+v\nload=%+v", rawLoaded, loaded)
+	}
+}
+
+func TestLegacyEmbeddedAuthorityStateStillReads(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "legacy-state.json")
+	authority := &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		StandingAccess:         true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+		ReasonCodes:            []string{"credential_authority:present"},
+	}
+	binding := &agginventory.AuthorityBinding{
+		Kind:         agginventory.AuthorityBindingCloudRole,
+		Provider:     "aws",
+		Subject:      "release-role",
+		TargetSystem: "deployment_platform",
+		LikelyScope:  "deploy_write",
+		AccessLevel:  agginventory.AuthorityAccessWrite,
+		Environment:  "prod",
+		Production:   true,
+		Confidence:   "high",
+	}
+	semantics := []agginventory.MutableEndpointSemantic{{
+		Semantic:     agginventory.EndpointSemanticDeploy,
+		Confidence:   "high",
+		Surface:      "workflow",
+		Operation:    "deploy release",
+		EvidenceRefs: []string{"deploy release"},
+	}}
+	legacy := Snapshot{
+		Version: SnapshotVersion,
+		Target:  source.Target{Mode: "path", Value: "./repos"},
+		Inventory: &agginventory.Inventory{
+			AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+				AgentID:                  "agent-1",
+				ToolID:                   "tool-1",
+				ToolType:                 "compiled_action",
+				Org:                      "acme",
+				Repos:                    []string{"acme/release"},
+				Permissions:              []string{"repo.contents.write"},
+				WriteCapable:             true,
+				CredentialAccess:         true,
+				MutableEndpointSemantics: semantics,
+				CredentialAuthority:      authority,
+				AuthorityBindings:        []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:                   "apc-legacy",
+				Org:                      "acme",
+				Repo:                     "acme/release",
+				ToolType:                 "compiled_action",
+				Location:                 ".github/workflows/release.yml",
+				WriteCapable:             true,
+				CredentialAccess:         true,
+				ApprovalGap:              true,
+				RecommendedAction:        "control",
+				MutableEndpointSemantics: semantics,
+				CredentialAuthority:      authority,
+				AuthorityBindings:        []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+		ControlBacklog: &controlbacklog.Backlog{
+			Items: []controlbacklog.Item{{
+				Repo:                "acme/release",
+				Path:                ".github/workflows/release.yml",
+				CredentialAuthority: authority,
+				AuthorityBindings:   []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+	}
+
+	payload, err := json.MarshalIndent(legacy, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal legacy snapshot: %v", err)
+	}
+	payload = append(payload, '\n')
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("write legacy snapshot: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load legacy snapshot: %v", err)
+	}
+	if loaded.Inventory == nil || loaded.Inventory.CanonicalStores == nil {
+		t.Fatalf("expected canonical stores after load, got %+v", loaded.Inventory)
+	}
+	if got := loaded.Inventory.AgentPrivilegeMap[0]; len(got.MutableEndpointSemanticRefs) == 0 || got.CredentialAuthorityRef == "" || len(got.AuthorityBindingRefs) == 0 {
+		t.Fatalf("expected backfilled canonical refs on inventory, got %+v", got)
+	}
+	if got := loaded.RiskReport.ActionPaths[0]; len(got.MutableEndpointSemanticRefs) == 0 || got.CredentialAuthorityRef == "" || len(got.AuthorityBindingRefs) == 0 {
+		t.Fatalf("expected backfilled canonical refs on action path, got %+v", got)
+	}
+	if got := loaded.RiskReport.ActionPaths[0]; len(got.MutableEndpointSemantics) == 0 || got.CredentialAuthority == nil || len(got.AuthorityBindings) == 0 {
+		t.Fatalf("expected hydrated canonical detail on action path, got %+v", got)
+	}
+	if got := loaded.ControlBacklog.Items[0]; got.CredentialAuthorityRef == "" || len(got.AuthorityBindingRefs) == 0 {
+		t.Fatalf("expected backfilled canonical refs on control backlog, got %+v", got)
 	}
 }
 

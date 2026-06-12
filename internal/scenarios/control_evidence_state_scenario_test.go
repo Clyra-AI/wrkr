@@ -24,7 +24,7 @@ func TestControlEvidenceStateScenario(t *testing.T) {
 		t.Fatalf("expected declared approval evidence and verified owner evidence, got %v", releasePath)
 	}
 
-	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--json"})
+	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--json"})
 	summary := requireObject(t, reportPayload, "summary")
 	bom := requireObject(t, summary, "agent_action_bom")
 	items := requireArrayFromObject(t, bom, "items")

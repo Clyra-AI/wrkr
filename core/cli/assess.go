@@ -113,7 +113,7 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	outputDir := fs.String("output-dir", "wrkr-assessment", "assessment output directory")
 	statePathFlag := fs.String("state", "", "state file path override")
 	templateRaw := fs.String("template", string(reportcore.TemplateAgentActionBOM), "assessment report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary]")
-	shareProfileRaw := fs.String("share-profile", string(reportcore.ShareProfileInternal), "share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
+	shareProfileRaw := fs.String("share-profile", "", "share profile [internal|public|customer-redacted|design-partner|external-redacted|investor-safe]")
 	pairedShareProfileRaw := fs.String("paired-share-profile", "", "optional second share profile for paired internal/external artifacts [customer-redacted|design-partner|external-redacted|investor-safe]")
 	focusRaw := fs.String("focus", "", "named buyer focus preset ["+reportcore.FocusPresetUsage()+"]")
 	focusPathRaw := fs.String("focus-path", "", "explicit agent-action-bom path_id for focused workflow rendering")

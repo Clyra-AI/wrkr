@@ -498,6 +498,25 @@ func TestBuildSummaryDesignPartnerDefaultsToDesignPartnerShareProfile(t *testing
 	}
 }
 
+func TestBuildSummaryDefaultsToCustomerRedactedShareProfile(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot:    state.Snapshot{},
+		Template:    TemplateAgentActionBOM,
+		GeneratedAt: time.Date(2026, 5, 11, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if summary.ShareProfile != string(ShareProfileCustomerRedacted) {
+		t.Fatalf("expected customer-redacted default, got %q", summary.ShareProfile)
+	}
+	if summary.ShareProfileMetadata == nil || !summary.ShareProfileMetadata.RedactionApplied {
+		t.Fatalf("expected default redaction metadata, got %+v", summary.ShareProfileMetadata)
+	}
+}
+
 func TestBuildSummaryManualRedactionAddsMetadataAndSanitizesPaths(t *testing.T) {
 	t.Parallel()
 
@@ -536,6 +555,131 @@ func TestBuildSummaryManualRedactionAddsMetadataAndSanitizesPaths(t *testing.T) 
 	}
 	if summary.ActionPaths[0].Location != "/Users/example/private/.github/workflows/release.yml" {
 		t.Fatalf("expected unselected location field to remain visible, got %+v", summary.ActionPaths[0])
+	}
+}
+
+func TestCanonicalRefsReplaceEmbeddedAuthorityPayloadsAcrossProjections(t *testing.T) {
+	t.Parallel()
+
+	authority := &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		StandingAccess:         true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+		ReasonCodes:            []string{"credential_authority:present"},
+	}
+	binding := &agginventory.AuthorityBinding{
+		Kind:         agginventory.AuthorityBindingCloudRole,
+		Provider:     "aws",
+		Subject:      "release-role",
+		TargetSystem: "deployment_platform",
+		LikelyScope:  "deploy_write",
+		AccessLevel:  agginventory.AuthorityAccessWrite,
+		Environment:  "prod",
+		Production:   true,
+		Confidence:   "high",
+	}
+	semantics := []agginventory.MutableEndpointSemantic{{
+		Semantic:     agginventory.EndpointSemanticDeploy,
+		Confidence:   "high",
+		Surface:      "workflow",
+		Operation:    "deploy release",
+		EvidenceRefs: []string{"deploy release"},
+	}}
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:                      "apc-canonical",
+					Org:                         "acme",
+					Repo:                        "acme/release",
+					ToolType:                    "compiled_action",
+					Location:                    ".github/workflows/release.yml",
+					WriteCapable:                true,
+					CredentialAccess:            true,
+					ApprovalGap:                 true,
+					RecommendedAction:           "control",
+					ConfidenceLane:              risk.ConfidenceLaneConfirmedActionPath,
+					ActionPathType:              risk.ActionPathTypeCICDWorkflow,
+					TargetClass:                 risk.TargetClassReleaseAdjacent,
+					ControlState:                risk.ControlStateApprovalNeeded,
+					RiskZone:                    risk.RiskZoneRelease,
+					ReviewBurden:                risk.ReviewBurdenHigh,
+					MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+					MutableEndpointSemantics:    semantics,
+					CredentialAuthorityRef:      agginventory.CanonicalCredentialAuthorityRef(authority),
+					CredentialAuthority:         authority,
+					AuthorityBindingRefs:        agginventory.CanonicalAuthorityBindingRefs([]*agginventory.AuthorityBinding{binding}),
+					AuthorityBindings:           []*agginventory.AuthorityBinding{binding},
+				}},
+			},
+		},
+		Template:     TemplateAgentActionBOM,
+		ShareProfile: ShareProfileCustomerRedacted,
+		GeneratedAt:  time.Date(2026, 5, 11, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+
+	finalized := FinalizeSummaryForShareProfile(summary)
+	if len(finalized.ActionPaths) != 1 {
+		t.Fatalf("expected one action path, got %+v", finalized.ActionPaths)
+	}
+	if finalized.ActionPaths[0].CredentialAuthorityRef == "" || len(finalized.ActionPaths[0].AuthorityBindingRefs) == 0 || len(finalized.ActionPaths[0].MutableEndpointSemanticRefs) == 0 {
+		t.Fatalf("expected canonical refs to remain on action paths, got %+v", finalized.ActionPaths[0])
+	}
+	if finalized.ActionPaths[0].CredentialAuthority != nil || len(finalized.ActionPaths[0].AuthorityBindings) > 0 || len(finalized.ActionPaths[0].MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected action path embedded payloads stripped, got %+v", finalized.ActionPaths[0])
+	}
+
+	if finalized.AgentActionBOM == nil || len(finalized.AgentActionBOM.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", finalized.AgentActionBOM)
+	}
+	if finalized.AgentActionBOM.Items[0].CredentialAuthorityRef == "" || len(finalized.AgentActionBOM.Items[0].AuthorityBindingRefs) == 0 || len(finalized.AgentActionBOM.Items[0].MutableEndpointSemanticRefs) == 0 {
+		t.Fatalf("expected canonical refs to remain on BOM items, got %+v", finalized.AgentActionBOM.Items[0])
+	}
+	if finalized.AgentActionBOM.Items[0].CredentialAuthority != nil || len(finalized.AgentActionBOM.Items[0].AuthorityBindings) > 0 || len(finalized.AgentActionBOM.Items[0].MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected BOM embedded payloads stripped, got %+v", finalized.AgentActionBOM.Items[0])
+	}
+
+	if len(finalized.ActionSurfaceRegistry) != 1 {
+		t.Fatalf("expected one action-surface registry row, got %+v", finalized.ActionSurfaceRegistry)
+	}
+	if finalized.ActionSurfaceRegistry[0].CredentialAuthorityRef == "" || len(finalized.ActionSurfaceRegistry[0].MutableEndpointSemanticRefs) == 0 {
+		t.Fatalf("expected canonical refs on action-surface registry row, got %+v", finalized.ActionSurfaceRegistry[0])
+	}
+	if finalized.ActionSurfaceRegistry[0].CredentialAuthority != nil || len(finalized.ActionSurfaceRegistry[0].MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected action-surface registry embedded payloads stripped, got %+v", finalized.ActionSurfaceRegistry[0])
+	}
+
+	if finalized.ControlBacklog == nil || len(finalized.ControlBacklog.Items) != 1 {
+		t.Fatalf("expected one control backlog item, got %+v", finalized.ControlBacklog)
+	}
+	if finalized.ControlBacklog.Items[0].CredentialAuthorityRef == "" || len(finalized.ControlBacklog.Items[0].AuthorityBindingRefs) == 0 {
+		t.Fatalf("expected canonical refs on control backlog item, got %+v", finalized.ControlBacklog.Items[0])
+	}
+	if finalized.ControlBacklog.Items[0].CredentialAuthority != nil || len(finalized.ControlBacklog.Items[0].AuthorityBindings) > 0 {
+		t.Fatalf("expected control backlog embedded payloads stripped, got %+v", finalized.ControlBacklog.Items[0])
+	}
+
+	if finalized.ControlPathGraph == nil || len(finalized.ControlPathGraph.Nodes) == 0 {
+		t.Fatalf("expected control path graph, got %+v", finalized.ControlPathGraph)
+	}
+	foundCanonicalGraphNode := false
+	for _, node := range finalized.ControlPathGraph.Nodes {
+		if node.CredentialAuthorityRef == "" && len(node.AuthorityBindingRefs) == 0 && len(node.MutableEndpointSemanticRefs) == 0 {
+			continue
+		}
+		foundCanonicalGraphNode = true
+		if node.CredentialAuthority != nil || len(node.AuthorityBindings) > 0 || len(node.MutableEndpointSemantics) > 0 {
+			t.Fatalf("expected control-path graph embedded payloads stripped, got %+v", node)
+		}
+	}
+	if !foundCanonicalGraphNode {
+		t.Fatalf("expected at least one graph node with canonical refs, got %+v", finalized.ControlPathGraph.Nodes)
 	}
 }
 
@@ -1876,8 +2020,9 @@ func TestAgentActionBOMDoesNotRenderPositiveEmptyStateForStandingCredential(t *t
 				}},
 			},
 		},
-		Template:    TemplateAgentActionBOM,
-		GeneratedAt: time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
+		Template:     TemplateAgentActionBOM,
+		ShareProfile: ShareProfileInternal,
+		GeneratedAt:  time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("build summary: %v", err)
@@ -1916,8 +2061,9 @@ func TestReportArtifactsShareActionPathProjection(t *testing.T) {
 				}},
 			},
 		},
-		Template:    TemplateAgentActionBOM,
-		GeneratedAt: time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
+		Template:     TemplateAgentActionBOM,
+		ShareProfile: ShareProfileInternal,
+		GeneratedAt:  time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
 		t.Fatalf("build summary: %v", err)
@@ -1990,8 +2136,9 @@ func TestCustomerRedactedProjectionPreservesControlState(t *testing.T) {
 				}},
 			},
 		},
-		Template:    TemplateAgentActionBOM,
-		GeneratedAt: time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
+		Template:     TemplateAgentActionBOM,
+		ShareProfile: ShareProfileInternal,
+		GeneratedAt:  time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC),
 	}
 
 	internal, err := BuildSummary(input)

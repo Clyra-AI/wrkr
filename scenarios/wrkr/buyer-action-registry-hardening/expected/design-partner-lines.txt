@@ -6,14 +6,14 @@
 - Share redaction: version=customer-share-v2 fields=authors, credential-subjects, filesystem, graph-refs, owners, paths, proof-refs, providers, repos
 ## Top Validated Findings
 1. repo-d236d5 in loc-6dd0f3ed
-Problem: A standing credential can drive this path without enough compensating proof or gating.
+Problem: This path can change production-adjacent state and is missing enough governance evidence.
 Likely explanation: config=loc-6dd0f3ed
-Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=data_export,data_export,data_export,delete,production_mutation,production_mutation,production_mutation,production_mutation,production_mutation,read,read,refund,refund,refund,refund,user_admin,write,write,write
+Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured
 Recommended control: Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
 Confidence lane: likely action path
 Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
-Credential authority: kind=static_secret, source=workflow_secret_ref, access=standing, rotation=missing
+Credential authority: no credential authority was linked to this path
 High-stakes: credential_bearing_automation (credential_authority:present); external_egress (external_egress:detected); mutable_endpoint (mutable_endpoint:present); payment_flow (payment_surface:detected); production_path (production_path:detected); regulated_customer_workflow (customer_or_regulated_surface:detected)
-Mutable endpoint: data_export@medium, data_export@high, data_export@high, delete@medium, production_mutation@medium, production_mutation@high, production_mutation@high, production_mutation@medium, production_mutation@medium, read@high, read@high, refund@medium, refund@high, refund@high, refund@medium, user_admin@medium, write@high, write@high, write@medium
+Mutable endpoint: no declared mutable endpoint semantics were linked to this path
 Production context: status=correlated, surface=openapi/refund-openapi.yaml, credential=standing credential, target=production_impacting, deployment=unknown, operations=GET /v1/customers/export,POST /v1/payments/{paymentId}/refund,delete /v1/users/:userid,get /v1/customers/export,post /v1/payments/:paymentid/refund,post /v1/payments/{paymentid}/refund,refund-control
 Owner: owner-ab37caea

@@ -44,7 +44,7 @@ func TestScenarioWave3RecentReviewUsesLocalSidecars(t *testing.T) {
 		t.Fatalf("write packet input: %v", err)
 	}
 	runScenarioCommandJSON(t, []string{"ingest", "--state", statePath, "--input", packetPath, "--json"})
-	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--recent-pr-review", "--review-ids", "pr/108", "--json"})
+	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--recent-pr-review", "--review-ids", "pr/108", "--json"})
 
 	evidencePackets := requireScenarioObject(t, reportPayload, "evidence_packets")
 	if evidencePackets["matched_packets"] != float64(1) {

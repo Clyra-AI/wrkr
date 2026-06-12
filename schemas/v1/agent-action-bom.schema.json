@@ -8,8 +8,15 @@
     "bom_id": {"type": "string"},
     "schema_version": {"type": "string", "enum": ["v1"]},
     "generated_at": {"type": "string"},
-    "share_profile": {"type": "string", "enum": ["internal", "public", "customer-redacted", "design-partner", "external-redacted", "investor-safe"]},
-    "share_profile_metadata": {"$ref": "#/$defs/shareProfileMetadata"},
+    "share_profile": {
+      "type": "string",
+      "enum": ["internal", "public", "customer-redacted", "design-partner", "external-redacted", "investor-safe"],
+      "description": "Share-profile selection for the BOM artifact. Shareable/default report workflows prefer customer-redacted/public/design-partner profiles unless internal is explicitly selected."
+    },
+    "share_profile_metadata": {
+      "$ref": "#/$defs/shareProfileMetadata",
+      "description": "Redaction metadata for the selected share profile."
+    },
     "summary": {"$ref": "#/$defs/summary"},
     "scan_quality": {"$ref": "#/$defs/scanQuality"},
     "items": {
@@ -126,10 +133,14 @@
           "items": {"$ref": "#/$defs/credentialProvenance"}
         },
         "credential_provenance": {"$ref": "#/$defs/credentialProvenance"},
-        "credential_authority": {"$ref": "#/$defs/credentialAuthority"},
+        "credential_authority": {
+          "$ref": "#/$defs/credentialAuthority",
+          "description": "Embedded credential-authority detail is reserved for explicit internal/non-shareable detail views. Shareable/default BOM output relies on credential_authority_ref."
+        },
         "authority_bindings": {
           "type": "array",
-          "items": {"$ref": "#/$defs/authorityBinding"}
+          "items": {"$ref": "#/$defs/authorityBinding"},
+          "description": "Embedded authority-binding detail is reserved for explicit internal/non-shareable detail views. Shareable/default BOM output relies on authority_binding_refs."
         },
         "path_context": {"$ref": "#/$defs/pathContext"},
         "standing_privilege": {"type": "boolean"},
@@ -179,7 +190,8 @@
         "action_reasons": {"type": "array", "items": {"type": "string"}},
         "mutable_endpoint_semantics": {
           "type": "array",
-          "items": {"$ref": "#/$defs/mutableEndpointSemantic"}
+          "items": {"$ref": "#/$defs/mutableEndpointSemantic"},
+          "description": "Embedded mutable-endpoint detail is reserved for explicit internal/non-shareable detail views. Shareable/default BOM output relies on mutable_endpoint_semantic_refs."
         },
         "production_write": {"type": "boolean"},
         "production_target_status": {"type": "string"},

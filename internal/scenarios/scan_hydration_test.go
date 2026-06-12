@@ -2,9 +2,10 @@ package scenarios
 
 import (
 	"encoding/json"
-	"os"
 	"strings"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 func hydrateScenarioScanSummaryPayload(t *testing.T, args []string, payload map[string]any) {
@@ -16,13 +17,17 @@ func hydrateScenarioScanSummaryPayload(t *testing.T, args []string, payload map[
 	if statePath == "" {
 		return
 	}
-	raw, err := os.ReadFile(statePath)
+	snapshot, err := state.Load(statePath)
 	if err != nil {
-		t.Fatalf("read scan state %s: %v", statePath, err)
+		t.Fatalf("load scan state %s: %v", statePath, err)
+	}
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal hydrated scan state %s: %v", statePath, err)
 	}
 	statePayload := map[string]any{}
 	if err := json.Unmarshal(raw, &statePayload); err != nil {
-		t.Fatalf("parse scan state %s: %v", statePath, err)
+		t.Fatalf("parse hydrated scan state %s: %v", statePath, err)
 	}
 	for _, key := range []string{"findings", "inventory", "control_backlog", "scan_quality", "scan_mode", "profile", "posture_score", "source_privacy"} {
 		if shouldHydrateScenarioScanPayloadKey(payload, key) {

@@ -155,6 +155,128 @@ func TestShareableArtifactsDoNotLeakOwners(t *testing.T) {
 	assertShareableOwnerFieldsRedacted(t, payload)
 }
 
+func TestShareableDefaultMasksOwnerLikeTokensAcrossArtifacts(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	scanRoot := filepath.Join(tmp, "enterprise-default-shareable")
+	if err := enterprisepressure.MaterializeCount(scanRoot, enterprisepressure.VariantBaseline, 16); err != nil {
+		t.Fatalf("materialize enterprise fixture: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	if code := Run([]string{"scan", "--path", scanRoot, "--state", statePath, "--quiet", "--json"}, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("scan failed with code %d", code)
+	}
+
+	mdPath := filepath.Join(tmp, "agent-action-bom.md")
+	evidencePath := filepath.Join(tmp, "agent-action-bom-evidence.json")
+	var reportOut bytes.Buffer
+	var reportErr bytes.Buffer
+	if code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--template", "agent-action-bom",
+		"--md",
+		"--md-path", mdPath,
+		"--evidence-json",
+		"--evidence-json-path", evidencePath,
+		"--json",
+	}, &reportOut, &reportErr); code != 0 {
+		t.Fatalf("report failed: %d %s", code, reportErr.String())
+	}
+
+	payload := map[string]any{}
+	if err := json.Unmarshal(reportOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	summary, ok := payload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary object, got %T", payload["summary"])
+	}
+	if summary["share_profile"] != sprint0CLIExpectedShareProfile {
+		t.Fatalf("expected default share profile %q, got %v", sprint0CLIExpectedShareProfile, summary["share_profile"])
+	}
+	assertShareableOwnerFieldsRedacted(t, payload)
+	assertShareableProjectionUsesCanonicalRefsOnly(t, payload)
+	assertShareabilityStatus(t, summary, "shareable")
+
+	markdownBytes, err := os.ReadFile(mdPath)
+	if err != nil {
+		t.Fatalf("read markdown artifact: %v", err)
+	}
+	evidenceBytes, err := os.ReadFile(evidencePath)
+	if err != nil {
+		t.Fatalf("read evidence artifact: %v", err)
+	}
+	combined := reportOut.String() + "\n" + string(markdownBytes) + "\n" + string(evidenceBytes)
+	for _, forbidden := range []string{
+		"release-bot",
+		"triage-bot",
+		"github.example.com/acme/enterprise-001/pull/108",
+		"/Users/",
+		enterprisepressure.RepoName(1),
+	} {
+		if strings.Contains(combined, forbidden) {
+			t.Fatalf("expected shareable default artifacts to redact %q, got %q", forbidden, combined)
+		}
+	}
+}
+
+func TestInternalProfileIsExplicitAndNonShareable(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	scanRoot := filepath.Join(tmp, "enterprise-internal")
+	if err := enterprisepressure.MaterializeCount(scanRoot, enterprisepressure.VariantBaseline, 16); err != nil {
+		t.Fatalf("materialize enterprise fixture: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	if code := Run([]string{"scan", "--path", scanRoot, "--state", statePath, "--quiet", "--json"}, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("scan failed with code %d", code)
+	}
+
+	var reportOut bytes.Buffer
+	var reportErr bytes.Buffer
+	if code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--template", "agent-action-bom",
+		"--share-profile", "internal",
+		"--json",
+	}, &reportOut, &reportErr); code != 0 {
+		t.Fatalf("report failed: %d %s", code, reportErr.String())
+	}
+
+	payload := map[string]any{}
+	if err := json.Unmarshal(reportOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	summary, ok := payload["summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected summary object, got %T", payload["summary"])
+	}
+	if summary["share_profile"] != "internal" {
+		t.Fatalf("expected explicit internal share profile, got %v", summary["share_profile"])
+	}
+	assertShareabilityStatus(t, summary, "internal_only")
+
+	bom, ok := payload["agent_action_bom"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected agent_action_bom object, got %T", payload["agent_action_bom"])
+	}
+	items, ok := bom["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected agent_action_bom.items, got %T (%v)", bom["items"], bom["items"])
+	}
+	firstItem, _ := items[0].(map[string]any)
+	owner, _ := firstItem["owner"].(string)
+	if owner == "" || strings.HasPrefix(owner, "owner-") {
+		t.Fatalf("expected explicit internal output to keep a non-redacted owner, got %q", owner)
+	}
+}
+
 func requirePositiveCLISuppressedCount(t *testing.T, payload map[string]any, key string) {
 	t.Helper()
 
@@ -247,5 +369,42 @@ func assertShareableOwnerFieldsRedacted(t *testing.T, payload map[string]any) {
 		if strings.HasPrefix(owner, "@acme/") {
 			t.Fatalf("expected shareable owner field to be redacted, got %q", owner)
 		}
+	}
+}
+
+func assertShareableProjectionUsesCanonicalRefsOnly(t *testing.T, payload map[string]any) {
+	t.Helper()
+
+	bom, ok := payload["agent_action_bom"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected agent_action_bom object, got %T", payload["agent_action_bom"])
+	}
+	items, ok := bom["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected agent_action_bom.items, got %T (%v)", bom["items"], bom["items"])
+	}
+	for _, raw := range items {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if item["credential_authority"] != nil || item["authority_bindings"] != nil || item["mutable_endpoint_semantics"] != nil {
+			t.Fatalf("expected shareable BOM item to omit embedded canonical payloads, got %+v", item)
+		}
+		if item["credential_authority_ref"] == nil && item["authority_binding_refs"] == nil && item["mutable_endpoint_semantic_refs"] == nil {
+			t.Fatalf("expected shareable BOM item to keep canonical refs, got %+v", item)
+		}
+	}
+}
+
+func assertShareabilityStatus(t *testing.T, summary map[string]any, expected string) {
+	t.Helper()
+
+	metadata, ok := summary["artifact_metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected artifact_metadata object, got %T", summary["artifact_metadata"])
+	}
+	if metadata["shareability_status"] != expected {
+		t.Fatalf("expected shareability_status=%q, got %v", expected, metadata["shareability_status"])
 	}
 }

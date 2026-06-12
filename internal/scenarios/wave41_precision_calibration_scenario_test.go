@@ -22,7 +22,7 @@ func TestScenarioWave41PrecisionCalibration(t *testing.T) {
 	runtimeEvidencePath := filepath.Join(t.TempDir(), "precision-runtime-evidence.json")
 	writePrecisionRuntimeEvidence(t, runtimeEvidencePath, firstRepoPathID(t, cloneArray(scanPayload["action_paths"]), "deploy-agent"))
 	runScenarioCommandJSON(t, []string{"ingest", "--state", statePath, "--input", runtimeEvidencePath, "--json"})
-	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--json"})
+	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--json"})
 
 	projected := projectPrecisionCalibration(scanPayload, reportPayload)
 	if os.Getenv("WRKR_UPDATE_GOLDENS") == "1" {

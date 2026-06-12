@@ -438,7 +438,7 @@ func runReportJSON(t *testing.T, statePath string) map[string]any {
 	t.Helper()
 	var out bytes.Buffer
 	var errOut bytes.Buffer
-	if code := Run([]string{"report", "--state", statePath, "--json"}, &out, &errOut); code != 0 {
+	if code := Run([]string{"report", "--state", statePath, "--share-profile", "internal", "--json"}, &out, &errOut); code != 0 {
 		t.Fatalf("report failed: %d %s", code, errOut.String())
 	}
 	var payload map[string]any

@@ -152,6 +152,7 @@ func TestReportFocusPresetAndFocusPathCoexist(t *testing.T) {
 		"report",
 		"--state", statePath,
 		"--template", "agent-action-bom",
+		"--share-profile", "internal",
 		"--focus", "write-deploy",
 		"--focus-path", "apc-focused",
 		"--json",
@@ -433,6 +434,7 @@ func TestReportFocusPresetFiltersToDriftedPaths(t *testing.T) {
 		"report",
 		"--state", currentStatePath,
 		"--baseline", baselinePath,
+		"--share-profile", "internal",
 		"--focus", "drift-review",
 		"--json",
 	}, &out, &errOut)

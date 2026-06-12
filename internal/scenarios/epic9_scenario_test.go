@@ -130,6 +130,7 @@ func TestEpic9SummaryIntegrationHooksAC10AC11(t *testing.T) {
 
 func runScenarioCommandJSON(t *testing.T, args []string) map[string]any {
 	t.Helper()
+	args = scenarioCommandArgs(args)
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 	if code := cli.Run(args, &out, &errOut); code != 0 {
@@ -145,6 +146,7 @@ func runScenarioCommandJSON(t *testing.T, args []string) map[string]any {
 
 func runScenarioCommandJSONAllowExit5(t *testing.T, args []string) map[string]any {
 	t.Helper()
+	args = scenarioCommandArgs(args)
 	var out bytes.Buffer
 	var errOut bytes.Buffer
 	code := cli.Run(args, &out, &errOut)
@@ -160,6 +162,20 @@ func runScenarioCommandJSONAllowExit5(t *testing.T, args []string) map[string]an
 	}
 	hydrateScenarioScanSummaryPayload(t, args, payload)
 	return payload
+}
+
+func scenarioCommandArgs(args []string) []string {
+	if len(args) == 0 || args[0] != "report" {
+		return args
+	}
+	for idx := 1; idx < len(args)-1; idx++ {
+		if args[idx] == "--share-profile" {
+			return args
+		}
+	}
+	out := append([]string(nil), args...)
+	out = append(out, "--share-profile", "internal")
+	return out
 }
 
 func normalizeScenarioVolatile(input map[string]any) map[string]any {

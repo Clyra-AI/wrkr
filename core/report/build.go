@@ -48,13 +48,10 @@ func BuildSummary(in BuildInput) (Summary, error) {
 
 	shareProfile := in.ShareProfile
 	if shareProfile == "" {
-		shareProfile = ShareProfileInternal
+		shareProfile = DefaultShareProfile(template)
 	}
 	if template == TemplateCustomerDraft {
 		shareProfile = ShareProfilePublic
-	}
-	if template == TemplateDesignPartnerSummary && in.ShareProfile == "" {
-		shareProfile = ShareProfileDesignPartner
 	}
 	if _, ok := ParseShareProfile(string(shareProfile)); !ok {
 		return Summary{}, fmt.Errorf("unsupported share profile %q", shareProfile)

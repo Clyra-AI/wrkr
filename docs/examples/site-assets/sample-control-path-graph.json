@@ -15256,27 +15256,6 @@
       "boundary_label": "report_only",
       "config_fingerprint": "cfg-000010",
       "config_source": "loc-000010",
-      "credential_authority": {
-        "access_type": "standing",
-        "confidence": "high",
-        "credential_kind": "deploy_key",
-        "credential_present": true,
-        "credential_referenced_by_workflow": true,
-        "credential_source": "workflow_secret_ref",
-        "credential_usable_by_path": true,
-        "likely_jit": false,
-        "reason_codes": [
-          "evidence-a0e7cbae",
-          "evidence-5a103bd7",
-          "evidence-27ffa531",
-          "evidence-637eaf37",
-          "evidence-6c55c0d7",
-          "evidence-293bf356"
-        ],
-        "rotation_evidence_status": "missing",
-        "scope_confidence": "high",
-        "standing_access": true
-      },
       "credential_authority_ref": "cred-97a089b3eff6",
       "evidence_refs": [
         "evidence-000001",

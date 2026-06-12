@@ -579,8 +579,9 @@ func TestBuildSummaryCustomerRedactedExecutiveRollupPreservesCounts(t *testing.T
 				ActionPaths: []risk.ActionPath{path},
 			},
 		},
-		Template:    TemplateAgentActionBOM,
-		GeneratedAt: time.Date(2026, 5, 31, 18, 30, 13, 0, time.UTC),
+		Template:     TemplateAgentActionBOM,
+		ShareProfile: ShareProfileInternal,
+		GeneratedAt:  time.Date(2026, 5, 31, 18, 30, 13, 0, time.UTC),
 	}
 
 	internal, err := BuildSummary(input)
