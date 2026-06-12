@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Fixed Linux release-only Homebrew UAT to disable the Homebrew sandbox on hosted runners where rootless user namespaces are unavailable, so release acceptance and published install-path parity can complete on GitHub Actions.
 
 ### Security
 
