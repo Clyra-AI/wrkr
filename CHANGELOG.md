@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Fixed the Linux release runner to install `bubblewrap` before Homebrew-backed acceptance and pre-publish install-path UAT, so tag workflows no longer fail before artifact publication.
+- (none yet)
 
 ### Security
 
@@ -37,6 +37,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.7.1] - 2026-06-11
+<!-- release-semver: patch -->
+
+### Fixed
+
+- Fixed the Linux release runner to install `bubblewrap` before Homebrew-backed acceptance and pre-publish install-path UAT, so tag workflows no longer fail before artifact publication.
 
 ## [v1.7.0] - 2026-06-11
 <!-- release-semver: minor -->
