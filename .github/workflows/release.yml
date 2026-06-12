@@ -73,6 +73,8 @@ jobs:
           scripts/run_docs_smoke.sh
 
       - name: Run v1 acceptance release gate
+        env:
+          HOMEBREW_NO_SANDBOX_LINUX: 1
         run: scripts/run_v1_acceptance.sh --mode=release
 
       - name: Upload v1 acceptance scorecard
@@ -107,6 +109,7 @@ jobs:
 
       - name: Run pre-publish install-path UAT smoke
         env:
+          HOMEBREW_NO_SANDBOX_LINUX: 1
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
         run: |
           set -euo pipefail
@@ -281,6 +284,8 @@ jobs:
 
       - name: Run published install-path parity (README/docs commands)
         if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          HOMEBREW_NO_SANDBOX_LINUX: 1
         run: |
           set -euo pipefail
           mkdir -p .tmp/release
