@@ -103,6 +103,9 @@ func TestScoreJSONUsesStoredPostureFromValidState(t *testing.T) {
 	if got["grade"] != "B" {
 		t.Fatalf("unexpected grade payload: %v", got["grade"])
 	}
+	if got["policy_signal_basis"] != "raw_findings" {
+		t.Fatalf("expected legacy cached score basis fallback, got %v", got["policy_signal_basis"])
+	}
 	attackPaths, ok := got["attack_paths"].([]any)
 	if !ok || len(attackPaths) != 1 {
 		t.Fatalf("expected attack_paths payload, got %v", got["attack_paths"])

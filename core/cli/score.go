@@ -68,10 +68,14 @@ func runScore(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if *jsonOut {
+		policySignalBasis := result.PolicySignalBasis
+		if policySignalBasis == "" {
+			policySignalBasis = "raw_findings"
+		}
 		payload := map[string]any{
 			"score":               result.Score,
 			"grade":               result.Grade,
-			"policy_signal_basis": result.PolicySignalBasis,
+			"policy_signal_basis": policySignalBasis,
 			"breakdown":           result.Breakdown,
 			"weighted_breakdown":  result.WeightedBreakdown,
 			"weights":             result.Weights,

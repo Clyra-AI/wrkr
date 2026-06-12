@@ -281,6 +281,8 @@ func policyOutcomeRepoRef(finding model.Finding) string {
 	repo := strings.TrimSpace(finding.Repo)
 	org := strings.TrimSpace(finding.Org)
 	switch {
+	case strings.Contains(repo, "/"):
+		return repo
 	case org != "" && repo != "":
 		return org + "/" + repo
 	case repo != "":
