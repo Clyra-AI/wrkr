@@ -83,6 +83,7 @@ These commands do not replace `make test-fast`, `make prepush`, contract lanes, 
 1. Keep scope tight and mapped to one story/contract change when possible.
 2. Run required local commands for your touched surfaces (at minimum fast + core lane anchors).
    `make test-focused-docs` or `make test-focused-scan` are acceptable as the first local pass for narrow changes, but they are additive helpers only and do not satisfy merge or release gates by themselves.
+   During Sprint 0 subtractive fixes, the temporary freeze gate blocks new scan/report fields, sidecars, detector breadth, report sections, and context dimensions unless they are directly required by Stories 1.1 through 4.2 or the size, redaction, and readability gates are green.
 3. If workflow refs change, rerun the affected workflow class on your branch and inspect it for the absence of the prior deprecation warning:
    - `gh workflow run pr.yml --ref <branch>`
    - `gh workflow run nightly.yml --ref <branch>`
@@ -95,11 +96,17 @@ These commands do not replace `make test-fast`, `make prepush`, contract lanes, 
    - schema/output changed?
    - docs updated in same change for user-visible behavior?
 5. Include command evidence in PR description (commands and pass/fail).
+   Claims about artifact size, privacy, redaction, customer-safe sharing, or readability must include measured artifact-size deltas, redaction test names, and fixture coverage in the PR description or release-prep notes.
 6. If docs are touched, follow [`docs/map.md`](docs/map.md) and run docs validation bundle.
 7. For user-visible changes, update [`CHANGELOG.md`](CHANGELOG.md) under `Unreleased`.
    Public contract wording changes in `README.md`, command help, `docs/`, `product/`, or docs-site projections count even when JSON, exit codes, and schemas stay unchanged.
    Maintainers finalize `Unreleased` into a versioned section immediately before tagging with `python3 scripts/finalize_release_changelog.py --json`, publish that change through a short-lived release-prep PR, merge it to `main`, and only then create the tag from merged `main`.
 8. For `product/` or `.agents/skills/` changes, confirm policy conformance per [`docs/governance/content-visibility.md`](docs/governance/content-visibility.md).
+
+## Sprint 0 Receipt Rules
+
+- Release-note or changelog hardening claims about size, privacy, redaction, customer-safe sharing, or readability require measured artifact-size deltas, named redaction tests, and fixture coverage.
+- The v1.7.3 clarification workflow item must record actual before/after artifact sizes plus the exact redaction tests and fixtures used before release notes claim Sprint 0 hardening.
 
 Issue/PR templates:
 

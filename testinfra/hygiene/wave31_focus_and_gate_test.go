@@ -61,3 +61,52 @@ func TestWave31SurfaceAreaGateDocsRemainPresent(t *testing.T) {
 		t.Fatal("pull request template missing budget impact prompt")
 	}
 }
+
+func TestWave31FreezeBlocksNewSurfaceBeforeSprint0Gates(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	agents := mustReadFile(t, filepath.Join(repoRoot, "AGENTS.md"))
+	contributing := mustReadFile(t, filepath.Join(repoRoot, "CONTRIBUTING.md"))
+	prTemplate := mustReadFile(t, filepath.Join(repoRoot, ".github/pull_request_template.md"))
+	changelog := mustReadFile(t, filepath.Join(repoRoot, "CHANGELOG.md"))
+
+	for _, content := range []string{agents, contributing, prTemplate, changelog} {
+		for _, required := range []string{
+			"Sprint 0",
+			"temporary freeze gate",
+			"size, redaction, and readability gates are green",
+		} {
+			if !strings.Contains(content, required) {
+				t.Fatalf("Sprint 0 freeze gate docs missing %q", required)
+			}
+		}
+	}
+	if !strings.Contains(prTemplate, "Stories 1.1 through 4.2") {
+		t.Fatal("pull request template must require explicit Sprint 0 gate justification")
+	}
+}
+
+func TestChangelogPrivacyClaimsRequireMeasuredReceipts(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	contributing := mustReadFile(t, filepath.Join(repoRoot, "CONTRIBUTING.md"))
+	prTemplate := mustReadFile(t, filepath.Join(repoRoot, ".github/pull_request_template.md"))
+	changelog := mustReadFile(t, filepath.Join(repoRoot, "CHANGELOG.md"))
+
+	for _, content := range []string{contributing, prTemplate, changelog} {
+		for _, required := range []string{
+			"measured artifact-size deltas",
+			"redaction test names",
+			"fixture coverage",
+		} {
+			if !strings.Contains(content, required) {
+				t.Fatalf("receipt governance missing %q", required)
+			}
+		}
+	}
+	if !strings.Contains(changelog, "v1.7.3 clarification workflow item") {
+		t.Fatal("CHANGELOG must record the v1.7.3 clarification workflow item")
+	}
+}
