@@ -236,8 +236,11 @@ func positiveOverflow(size int, limit int) int {
 }
 
 func scanPreview[T any](items []T, limit int) []T {
-	if len(items) == 0 || limit <= 0 {
+	if limit <= 0 {
 		return nil
+	}
+	if len(items) == 0 {
+		return []T{}
 	}
 	if len(items) <= limit {
 		return append([]T(nil), items...)

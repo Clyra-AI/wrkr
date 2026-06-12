@@ -61,6 +61,48 @@ func TestBuildScanJSONSummaryBoundsLargeSections(t *testing.T) {
 	}
 }
 
+func TestBuildScanJSONSummaryPreservesEmptyPreviewSlices(t *testing.T) {
+	t.Parallel()
+
+	input := scanJSONSummaryInput{
+		StatePath: ".wrkr/last-scan.json",
+		Inventory: agginventory.Inventory{
+			InventoryVersion:  "1",
+			Agents:            []agginventory.Agent{},
+			Tools:             []agginventory.Tool{},
+			AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{},
+		},
+		ControlBacklog: controlbacklog.Backlog{
+			ControlBacklogVersion: controlbacklog.BacklogVersion,
+			Items:                 []controlbacklog.Item{},
+		},
+	}
+
+	payload := buildScanJSONSummary(input)
+
+	backlog, ok := payload["control_backlog"].(controlbacklog.Backlog)
+	if !ok {
+		t.Fatalf("expected control_backlog payload, got %T", payload["control_backlog"])
+	}
+	if backlog.Items == nil {
+		t.Fatalf("expected control_backlog.items to remain an empty slice, got nil")
+	}
+	inventory, ok := payload["inventory"].(agginventory.Inventory)
+	if !ok {
+		t.Fatalf("expected inventory payload, got %T", payload["inventory"])
+	}
+	if inventory.Agents == nil || inventory.Tools == nil || inventory.AgentPrivilegeMap == nil {
+		t.Fatalf("expected inventory preview slices to remain empty slices, got agents=%v tools=%v privilege_map=%v", inventory.Agents, inventory.Tools, inventory.AgentPrivilegeMap)
+	}
+	agentPrivilegeMap, ok := payload["agent_privilege_map"].([]agginventory.AgentPrivilegeMapEntry)
+	if !ok {
+		t.Fatalf("expected agent_privilege_map payload, got %T", payload["agent_privilege_map"])
+	}
+	if agentPrivilegeMap == nil {
+		t.Fatalf("expected agent_privilege_map to remain an empty slice, got nil")
+	}
+}
+
 func makeScanSummaryFindings(count int) []source.Finding {
 	findings := make([]source.Finding, 0, count)
 	for idx := 0; idx < count; idx++ {
