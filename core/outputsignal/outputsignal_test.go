@@ -90,3 +90,20 @@ func TestBuildLogicalFindingCountsCollapsesPolicyFanoutPerType(t *testing.T) {
 		t.Fatalf("expected raw policy counts to preserve fanout, got %v", rawByType)
 	}
 }
+
+func TestBuildPolicyOutcomesKeepsQualifiedRepoRefsStable(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{FindingType: "policy_check", RuleID: "WRKR-011", CheckResult: model.CheckResultFail, Severity: model.SeverityHigh, Org: "acme", Repo: "acme/service"},
+		{FindingType: "policy_violation", RuleID: "WRKR-011", CheckResult: model.CheckResultFail, Severity: model.SeverityHigh, Org: "acme", Repo: "acme/service"},
+	}
+
+	outcomes := BuildPolicyOutcomes(findings)
+	if len(outcomes) != 1 {
+		t.Fatalf("expected one grouped outcome, got %+v", outcomes)
+	}
+	if !reflect.DeepEqual(outcomes[0].TopRepoRefs, []string{"acme/service"}) {
+		t.Fatalf("expected qualified repo ref to stay stable, got %+v", outcomes[0].TopRepoRefs)
+	}
+}
