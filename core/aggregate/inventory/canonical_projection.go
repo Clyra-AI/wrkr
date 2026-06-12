@@ -71,6 +71,18 @@ func (r CanonicalResolver) ResolveMutableEndpointSemantics(refs []string, fallba
 	return NormalizeMutableEndpointSemantics(out)
 }
 
+func (r CanonicalResolver) HasMutableEndpointSemanticRefs(refs []string) bool {
+	if len(refs) == 0 {
+		return false
+	}
+	for _, refID := range refs {
+		if _, ok := r.mutableEndpointSemantics[strings.TrimSpace(refID)]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func (r CanonicalResolver) ResolveCredentialAuthority(ref string, fallback *CredentialAuthority) *CredentialAuthority {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
@@ -81,6 +93,14 @@ func (r CanonicalResolver) ResolveCredentialAuthority(ref string, fallback *Cred
 		return CloneCredentialAuthority(fallback)
 	}
 	return CloneCredentialAuthority(&item)
+}
+
+func (r CanonicalResolver) HasCredentialAuthorityRef(ref string) bool {
+	if strings.TrimSpace(ref) == "" {
+		return false
+	}
+	_, ok := r.credentialAuthorities[strings.TrimSpace(ref)]
+	return ok
 }
 
 func (r CanonicalResolver) ResolveAuthorityBindings(refs []string, fallback []*AuthorityBinding) []*AuthorityBinding {
@@ -99,6 +119,18 @@ func (r CanonicalResolver) ResolveAuthorityBindings(refs []string, fallback []*A
 		return NormalizeAuthorityBindings(fallback)
 	}
 	return NormalizeAuthorityBindings(out)
+}
+
+func (r CanonicalResolver) HasAuthorityBindingRefs(refs []string) bool {
+	if len(refs) == 0 {
+		return false
+	}
+	for _, refID := range refs {
+		if _, ok := r.authorityBindings[strings.TrimSpace(refID)]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func CanonicalMutableEndpointRefs(values []MutableEndpointSemantic) []string {
@@ -149,6 +181,24 @@ func EnsureCanonicalStores(in *Inventory) {
 		return
 	}
 	ApplyCanonicalStores(in)
+}
+
+func AugmentCanonicalStores(in *Inventory, mutableEndpointGroups [][]MutableEndpointSemantic, credentialAuthorities []*CredentialAuthority, authorityBindingGroups [][]*AuthorityBinding) {
+	if in == nil {
+		return
+	}
+	builder := newCanonicalStoreBuilder()
+	seedCanonicalStoreBuilder(builder, in.CanonicalStores)
+	for _, group := range mutableEndpointGroups {
+		builder.mutableEndpointRefs(group)
+	}
+	for _, authority := range credentialAuthorities {
+		builder.credentialAuthorityRef(authority)
+	}
+	for _, group := range authorityBindingGroups {
+		builder.authorityBindingRefs(group)
+	}
+	in.CanonicalStores = builder.build()
 }
 
 func HydrateCanonicalProjectionDetails(in *Inventory) {
@@ -215,4 +265,28 @@ func inventoryHasInlineCanonicalDetails(in *Inventory) bool {
 		}
 	}
 	return false
+}
+
+func seedCanonicalStoreBuilder(builder *canonicalStoreBuilder, stores *CanonicalStores) {
+	if builder == nil || stores == nil {
+		return
+	}
+	for _, item := range stores.MutableEndpointSemantics {
+		if strings.TrimSpace(item.RefID) == "" {
+			continue
+		}
+		builder.mutableEndpointSemantics[item.RefID] = item
+	}
+	for _, item := range stores.CredentialAuthorities {
+		if strings.TrimSpace(item.RefID) == "" {
+			continue
+		}
+		builder.credentialAuthorities[item.RefID] = item
+	}
+	for _, item := range stores.AuthorityBindings {
+		if strings.TrimSpace(item.RefID) == "" {
+			continue
+		}
+		builder.authorityBindings[item.RefID] = item
+	}
 }
