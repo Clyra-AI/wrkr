@@ -24,6 +24,29 @@ func BackfillCanonicalProjectionRefs(in *Backlog) *Backlog {
 	return &copyBacklog
 }
 
+func HydrateCanonicalProjectionDetails(in *Backlog, inventory *agginventory.Inventory) *Backlog {
+	if in == nil {
+		return nil
+	}
+	resolver := agginventory.NewCanonicalResolver(nil)
+	if inventory != nil {
+		agginventory.EnsureCanonicalStores(inventory)
+		resolver = agginventory.NewCanonicalResolver(inventory.CanonicalStores)
+	}
+	copyBacklog := *in
+	copyBacklog.Items = append([]Item(nil), in.Items...)
+	for idx := range copyBacklog.Items {
+		item := &copyBacklog.Items[idx]
+		if item.CredentialAuthority == nil && strings.TrimSpace(item.CredentialAuthorityRef) != "" {
+			item.CredentialAuthority = resolver.ResolveCredentialAuthority(item.CredentialAuthorityRef, nil)
+		}
+		if len(item.AuthorityBindings) == 0 && len(item.AuthorityBindingRefs) > 0 {
+			item.AuthorityBindings = resolver.ResolveAuthorityBindings(item.AuthorityBindingRefs, nil)
+		}
+	}
+	return &copyBacklog
+}
+
 func StripCanonicalProjectionDetails(in *Backlog) *Backlog {
 	if in == nil {
 		return nil

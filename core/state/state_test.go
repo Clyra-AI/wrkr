@@ -218,6 +218,99 @@ func TestLegacyEmbeddedAuthorityStateStillReads(t *testing.T) {
 	if got := loaded.ControlBacklog.Items[0]; got.CredentialAuthorityRef == "" || len(got.AuthorityBindingRefs) == 0 {
 		t.Fatalf("expected backfilled canonical refs on control backlog, got %+v", got)
 	}
+	if got := loaded.ControlBacklog.Items[0]; got.CredentialAuthority == nil || len(got.AuthorityBindings) == 0 {
+		t.Fatalf("expected hydrated canonical detail on control backlog, got %+v", got)
+	}
+}
+
+func TestStateSavePreservesProjectionDetailsThroughCanonicalStore(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "state.json")
+	authority := &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		StandingAccess:         true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+		ReasonCodes:            []string{"credential_authority:present"},
+	}
+	binding := &agginventory.AuthorityBinding{
+		Kind:         agginventory.AuthorityBindingCloudRole,
+		Provider:     "aws",
+		Subject:      "release-role",
+		TargetSystem: "deployment_platform",
+		LikelyScope:  "deploy_write",
+		AccessLevel:  agginventory.AuthorityAccessWrite,
+		Environment:  "prod",
+		Production:   true,
+		Confidence:   "high",
+	}
+	semantics := []agginventory.MutableEndpointSemantic{{
+		Semantic:     agginventory.EndpointSemanticDeploy,
+		Confidence:   "high",
+		Surface:      "workflow",
+		Operation:    "deploy release",
+		EvidenceRefs: []string{"deploy release"},
+	}}
+
+	snapshot := Snapshot{
+		Target: source.Target{Mode: "path", Value: "./repos"},
+		Inventory: &agginventory.Inventory{
+			AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+				AgentID:      "agent-1",
+				ToolID:       "tool-1",
+				ToolType:     "compiled_action",
+				Org:          "acme",
+				Repos:        []string{"acme/release"},
+				Permissions:  []string{"repo.contents.write"},
+				WriteCapable: true,
+			}},
+		},
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:                   "apc-preserve",
+				Org:                      "acme",
+				Repo:                     "acme/release",
+				ToolType:                 "compiled_action",
+				Location:                 ".github/workflows/release.yml",
+				WriteCapable:             true,
+				CredentialAccess:         true,
+				ApprovalGap:              true,
+				RecommendedAction:        "control",
+				MutableEndpointSemantics: semantics,
+				CredentialAuthority:      authority,
+				AuthorityBindings:        []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+		ControlBacklog: &controlbacklog.Backlog{
+			Items: []controlbacklog.Item{{
+				Repo:                "acme/release",
+				Path:                ".github/workflows/release.yml",
+				CredentialAuthority: authority,
+				AuthorityBindings:   []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+	}
+
+	if err := Save(path, snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load snapshot: %v", err)
+	}
+	if loaded.Inventory == nil || loaded.Inventory.CanonicalStores == nil {
+		t.Fatalf("expected canonical stores after save/load, got %+v", loaded.Inventory)
+	}
+	if got := loaded.RiskReport.ActionPaths[0]; len(got.MutableEndpointSemantics) == 0 || got.CredentialAuthority == nil || len(got.AuthorityBindings) == 0 {
+		t.Fatalf("expected hydrated action path details after save/load, got %+v", got)
+	}
+	if got := loaded.ControlBacklog.Items[0]; got.CredentialAuthority == nil || len(got.AuthorityBindings) == 0 {
+		t.Fatalf("expected hydrated control backlog details after save/load, got %+v", got)
+	}
 }
 
 func TestStateSaveIsAtomicUnderInterruption(t *testing.T) {

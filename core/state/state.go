@@ -188,6 +188,7 @@ func normalizeSnapshotAfterLoad(snapshot *Snapshot) {
 	}
 	if snapshot.ControlBacklog != nil {
 		snapshot.ControlBacklog = controlbacklog.BackfillCanonicalProjectionRefs(snapshot.ControlBacklog)
+		snapshot.ControlBacklog = controlbacklog.HydrateCanonicalProjectionDetails(snapshot.ControlBacklog, snapshot.Inventory)
 	}
 }
 
@@ -195,6 +196,7 @@ func prepareSnapshotForSave(snapshot *Snapshot) {
 	if snapshot == nil {
 		return
 	}
+	ensureSnapshotCanonicalStores(snapshot)
 	if snapshot.Inventory != nil {
 		agginventory.EnsureCanonicalStores(snapshot.Inventory)
 		agginventory.StripCanonicalProjectionDetails(snapshot.Inventory)
@@ -210,6 +212,106 @@ func prepareSnapshotForSave(snapshot *Snapshot) {
 		snapshot.ControlBacklog = controlbacklog.BackfillCanonicalProjectionRefs(snapshot.ControlBacklog)
 		snapshot.ControlBacklog = controlbacklog.StripCanonicalProjectionDetails(snapshot.ControlBacklog)
 	}
+}
+
+func ensureSnapshotCanonicalStores(snapshot *Snapshot) {
+	if snapshot == nil {
+		return
+	}
+	if snapshot.Inventory == nil && !snapshotHasProjectionCanonicalDetails(snapshot) {
+		return
+	}
+	if snapshot.Inventory == nil {
+		snapshot.Inventory = &agginventory.Inventory{}
+	}
+	agginventory.EnsureCanonicalStores(snapshot.Inventory)
+	agginventory.AugmentCanonicalStores(
+		snapshot.Inventory,
+		snapshotMutableEndpointGroups(snapshot),
+		snapshotCredentialAuthorities(snapshot),
+		snapshotAuthorityBindingGroups(snapshot),
+	)
+}
+
+func snapshotHasProjectionCanonicalDetails(snapshot *Snapshot) bool {
+	if snapshot == nil {
+		return false
+	}
+	for _, path := range snapshotRiskActionPaths(snapshot) {
+		if len(path.MutableEndpointSemantics) > 0 || path.CredentialAuthority != nil || len(path.AuthorityBindings) > 0 {
+			return true
+		}
+	}
+	if snapshot.ControlBacklog != nil {
+		for _, item := range snapshot.ControlBacklog.Items {
+			if item.CredentialAuthority != nil || len(item.AuthorityBindings) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func snapshotRiskActionPaths(snapshot *Snapshot) []risk.ActionPath {
+	if snapshot == nil || snapshot.RiskReport == nil {
+		return nil
+	}
+	paths := append([]risk.ActionPath(nil), snapshot.RiskReport.ActionPaths...)
+	if snapshot.RiskReport.ActionPathToControlFirst != nil {
+		paths = append(paths, snapshot.RiskReport.ActionPathToControlFirst.Path)
+	}
+	return paths
+}
+
+func snapshotMutableEndpointGroups(snapshot *Snapshot) [][]agginventory.MutableEndpointSemantic {
+	paths := snapshotRiskActionPaths(snapshot)
+	if len(paths) == 0 {
+		return nil
+	}
+	groups := make([][]agginventory.MutableEndpointSemantic, 0, len(paths))
+	for _, path := range paths {
+		if len(path.MutableEndpointSemantics) == 0 {
+			continue
+		}
+		groups = append(groups, path.MutableEndpointSemantics)
+	}
+	return groups
+}
+
+func snapshotCredentialAuthorities(snapshot *Snapshot) []*agginventory.CredentialAuthority {
+	paths := snapshotRiskActionPaths(snapshot)
+	authorities := make([]*agginventory.CredentialAuthority, 0, len(paths))
+	for _, path := range paths {
+		if path.CredentialAuthority != nil {
+			authorities = append(authorities, path.CredentialAuthority)
+		}
+	}
+	if snapshot != nil && snapshot.ControlBacklog != nil {
+		for _, item := range snapshot.ControlBacklog.Items {
+			if item.CredentialAuthority != nil {
+				authorities = append(authorities, item.CredentialAuthority)
+			}
+		}
+	}
+	return authorities
+}
+
+func snapshotAuthorityBindingGroups(snapshot *Snapshot) [][]*agginventory.AuthorityBinding {
+	paths := snapshotRiskActionPaths(snapshot)
+	groups := make([][]*agginventory.AuthorityBinding, 0, len(paths))
+	for _, path := range paths {
+		if len(path.AuthorityBindings) > 0 {
+			groups = append(groups, path.AuthorityBindings)
+		}
+	}
+	if snapshot != nil && snapshot.ControlBacklog != nil {
+		for _, item := range snapshot.ControlBacklog.Items {
+			if len(item.AuthorityBindings) > 0 {
+				groups = append(groups, item.AuthorityBindings)
+			}
+		}
+	}
+	return groups
 }
 
 // LoadScoreView validates the stored scan snapshot shape needed by the score
