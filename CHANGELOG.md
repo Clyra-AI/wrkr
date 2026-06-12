@@ -14,6 +14,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:patch] Required measured receipts for size, redaction, privacy, and customer-safe release claims, and added a Sprint 0 temporary freeze gate for new scan/report surface expansion until the size, redaction, and readability gates are green.
 - [semver:minor] Changed saved-state, report, control-backlog, graph, and Agent Action BOM projections to keep canonical endpoint and authority refs while omitting repeated embedded payload clones from shareable/default artifacts.
+- [semver:patch] Tightened the Agent Action BOM lead view into a bounded buyer-readable rollup with concise top action paths up front and detailed workflow, policy, assessment, and detector context moved into explicit appendices.
 
 ### Deprecated
 
@@ -27,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:patch] Added real-scan-shaped size, signal, redaction, and BOM readability regression fixtures to block artifact bloat and shareable-output leaks before release.
 - [semver:patch] Bounded persisted derived scan/report/evidence projections with explicit suppression metadata, switched large JSON artifact writes to streaming file sinks, and grouped repeated policy outcomes in saved state and score inputs so posture/readout noise no longer scales linearly with repo fanout.
+- [semver:patch] Qualified WebMCP and MCP negative-claim posture with primary-view coverage status so parse-limited or unsupported JS/TS surfaces stay in scan-quality context instead of reading like authoritative clean negatives.
 
 ### Security
 

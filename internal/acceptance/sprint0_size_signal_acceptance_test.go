@@ -15,6 +15,8 @@ const (
 	sprint0AcceptanceStateByteBudget = 16 << 20
 	sprint0AcceptanceEvidenceBudget  = 2 << 20
 	sprint0AcceptanceMarkdownLineCap = 1500
+	sprint0AcceptanceLeadLineCap     = 45
+	sprint0AcceptanceLeadSectionCap  = 4
 )
 
 func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
@@ -77,6 +79,18 @@ func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
 	lines := strings.Split(strings.TrimRight(string(markdownBytes), "\n"), "\n")
 	if len(lines) > sprint0AcceptanceMarkdownLineCap+2 {
 		t.Fatalf("expected markdown under %d lines plus truncation note, got %d", sprint0AcceptanceMarkdownLineCap+2, len(lines))
+	}
+	contextIdx := strings.Index(string(markdownBytes), "## Report Context Appendix")
+	if contextIdx < 0 {
+		t.Fatalf("expected report context appendix in BOM markdown, got %q", string(markdownBytes))
+	}
+	lead := string(markdownBytes[:contextIdx])
+	leadLines := strings.Split(strings.TrimRight(lead, "\n"), "\n")
+	if len(leadLines) > sprint0AcceptanceLeadLineCap {
+		t.Fatalf("expected BOM lead view under %d lines, got %d", sprint0AcceptanceLeadLineCap, len(leadLines))
+	}
+	if strings.Count(lead, "\n## ") > sprint0AcceptanceLeadSectionCap {
+		t.Fatalf("expected BOM lead view to stay within %d sections, got %q", sprint0AcceptanceLeadSectionCap, lead)
 	}
 
 	reportBytes, err := json.Marshal(reportPayload)

@@ -18,6 +18,9 @@ const (
 	defaultMaxExposureGroups = 150
 	defaultMaxAgentActionBOM = 100
 	defaultMarkdownLineCap   = 1500
+	defaultBOMLeadLineCap    = 45
+	defaultBOMLeadSectionCap = 4
+	defaultBOMLeadTopPaths   = 3
 )
 
 func BuildPolicyOutcomes(findings []model.Finding) []PolicyOutcome {

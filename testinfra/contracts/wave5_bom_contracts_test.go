@@ -19,7 +19,10 @@ func TestWave5AgentActionBOMSchemaDeclaresPrimaryViewContract(t *testing.T) {
 		"autonomy_tier",
 		"delegation_readiness_state",
 		"recommended_control",
+		"risk_tier",
 		"evidence_completeness_label",
+		"recommended_next_actions",
+		"coverage_status",
 		"appendix_refs",
 	} {
 		if _, ok := primaryView["properties"].(map[string]any)[field]; !ok {

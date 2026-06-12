@@ -15,6 +15,7 @@ func RenderMarkdown(summary Summary) string {
 	if summary.Template == string(TemplateDesignPartnerSummary) {
 		return renderDesignPartnerMarkdown(summary)
 	}
+	isAgentActionBOMTemplate := summary.Template == string(TemplateAgentActionBOM)
 
 	var builder strings.Builder
 	builder.WriteString("# Wrkr Deterministic Report\n\n")
@@ -23,104 +24,9 @@ func RenderMarkdown(summary Summary) string {
 	builder.WriteString(fmt.Sprintf("- Share profile: %s\n\n", summary.ShareProfile))
 	renderExecutiveRollupSection(&builder, templatespkg.Resolve(summary.Template).ExecutiveRollupTitle, resolveExecutiveRollup(summary))
 
-	if summary.AgentActionBOM != nil && summary.Template == string(TemplateAgentActionBOM) {
-		builder.WriteString("## Agent Action BOM\n\n")
-		builder.WriteString(fmt.Sprintf("- BOM id: %s\n", summary.AgentActionBOM.BOMID))
-		if summary.AgentActionBOM.Summary.PrimaryView != nil {
-			builder.WriteString("\n")
-			renderPrimaryWorkflowBOMSection(&builder, summary.AgentActionBOM.Summary.PrimaryView)
-		}
-		if summary.ScanScope != nil {
-			builder.WriteString(fmt.Sprintf("- Scanned scope: %s mode=%s repos=%d targets=%d boundary=%s\n",
-				summary.ScanScope.ScopeLabel,
-				summary.ScanScope.Mode,
-				summary.ScanScope.RepoCount,
-				summary.ScanScope.TargetCount,
-				summary.ScanScope.SourceBoundary,
-			))
-		}
-		if summary.SourcePrivacy != nil {
-			builder.WriteString(fmt.Sprintf("- Source privacy: retention=%s retained=%t raw_source_in_artifacts=%t serialized_locations=%s cleanup_status=%s zero_data_exfiltration_default=true\n",
-				summary.SourcePrivacy.RetentionMode,
-				summary.SourcePrivacy.MaterializedSourceRetained,
-				summary.SourcePrivacy.RawSourceInArtifacts,
-				summary.SourcePrivacy.SerializedLocations,
-				summary.SourcePrivacy.CleanupStatus,
-			))
-		}
-		if summary.OperationalExposure != nil {
-			builder.WriteString(fmt.Sprintf("- Operational exposure: grade=%s driver=%s paths=%d\n",
-				summary.OperationalExposure.Grade,
-				summary.OperationalExposure.Driver,
-				summary.OperationalExposure.PathCount,
-			))
-		}
-		if summary.GovernanceReadiness != nil {
-			builder.WriteString(fmt.Sprintf("- Governance readiness: grade=%s driver=%s paths=%d\n",
-				summary.GovernanceReadiness.Grade,
-				summary.GovernanceReadiness.Driver,
-				summary.GovernanceReadiness.PathCount,
-			))
-		}
-		if summary.EvidenceCompleteness != nil {
-			builder.WriteString(fmt.Sprintf("- Evidence completeness: average=%d label=%s low_evidence_paths=%d reduced_coverage_paths=%d\n",
-				summary.EvidenceCompleteness.AverageTotalScore,
-				risk.BuyerEvidenceCompletenessSummaryLabel(summary.EvidenceCompleteness),
-				summary.EvidenceCompleteness.LowEvidencePathCount,
-				summary.EvidenceCompleteness.ReducedCoveragePathCount,
-			))
-		}
-		renderRepeatUsageSignals(&builder, summary.AgentActionBOM.Summary.RepeatUsageSignals)
-		builder.WriteString(fmt.Sprintf("- Coverage confidence: %s\n", summary.AgentActionBOM.Summary.CoverageConfidence))
-		if summary.AgentActionBOM.Summary.ScanCoverage != nil {
-			builder.WriteString(fmt.Sprintf("- Scan coverage: reduced_detectors=%d parse_failures=%d suppressed_generated_files=%d blocked_detectors=%d unsupported_declarations=%d impact=%s\n",
-				summary.AgentActionBOM.Summary.ScanCoverage.ReducedDetectorCount,
-				summary.AgentActionBOM.Summary.ScanCoverage.ParseFailureCount,
-				summary.AgentActionBOM.Summary.ScanCoverage.SuppressedGeneratedFileCount,
-				summary.AgentActionBOM.Summary.ScanCoverage.BlockedDetectorCount,
-				summary.AgentActionBOM.Summary.ScanCoverage.UnsupportedDeclarationCount,
-				firstNonEmptyValue(strings.TrimSpace(summary.AgentActionBOM.Summary.ScanCoverage.ImpactStatement), "Coverage metadata was unavailable."),
-			))
-		}
-		builder.WriteString(fmt.Sprintf("- Governable paths: total=%d control_first=%d standing_credentials=%d approval_evidence_unknown=%d control_evidence_unknown=%d proof_evidence_unknown=%d\n",
-			summary.AgentActionBOM.Summary.TotalItems,
-			summary.AgentActionBOM.Summary.ControlFirstItems,
-			summary.AgentActionBOM.Summary.StandingPrivilegeItems,
-			summary.AgentActionBOM.Summary.ApprovalEvidenceUnknownItems,
-			summary.AgentActionBOM.Summary.ControlEvidenceUnknownItems,
-			summary.AgentActionBOM.Summary.ProofEvidenceUnknownItems,
-		))
-		builder.WriteString(fmt.Sprintf("- Autonomy tiers: safe_metadata=%d low_risk_internal=%d owner_review_app_code=%d sensitive_code_or_infra=%d prod_or_customer_impacting=%d\n",
-			summary.AgentActionBOM.Summary.AutonomyTiers.Tier0SafeMetadata,
-			summary.AgentActionBOM.Summary.AutonomyTiers.Tier1LowRiskInternal,
-			summary.AgentActionBOM.Summary.AutonomyTiers.Tier2AppCodeOwnerReview,
-			summary.AgentActionBOM.Summary.AutonomyTiers.Tier3SensitiveCodeOrInfra,
-			summary.AgentActionBOM.Summary.AutonomyTiers.Tier4ProdPrivilegedCustomerImpact,
-		))
-		builder.WriteString(fmt.Sprintf("- Delegation readiness: safe_to_delegate=%d review_required=%d approval_required=%d proof_required=%d ready_for_control=%d blocked=%d blocked_by_contradiction=%d\n",
-			summary.AgentActionBOM.Summary.DelegationReadiness.SafeToDelegate,
-			summary.AgentActionBOM.Summary.DelegationReadiness.ReviewRequired,
-			summary.AgentActionBOM.Summary.DelegationReadiness.ApprovalRequired,
-			summary.AgentActionBOM.Summary.DelegationReadiness.ProofRequired,
-			summary.AgentActionBOM.Summary.DelegationReadiness.ReadyForControl,
-			summary.AgentActionBOM.Summary.DelegationReadiness.Blocked,
-			summary.AgentActionBOM.Summary.DelegationReadiness.BlockedByContradict,
-		))
-		if summary.AgentActionBOM.Summary.DriftReview != nil {
-			builder.WriteString(fmt.Sprintf("- Drift review: detected=%t reasons=%d categories=%d comparison_status=%s\n",
-				summary.AgentActionBOM.Summary.DriftReview.DriftDetected,
-				summary.AgentActionBOM.Summary.DriftReview.ReasonCount,
-				summary.AgentActionBOM.Summary.DriftReview.DriftCategoryCount,
-				firstNonEmptyValue(strings.TrimSpace(summary.AgentActionBOM.Summary.DriftReview.ComparisonStatus), "not_requested"),
-			))
-		}
-		if summary.ShareProfileMetadata != nil && summary.ShareProfileMetadata.RedactionApplied {
-			builder.WriteString(fmt.Sprintf("- Share redaction: version=%s policy=%s\n",
-				summary.ShareProfileMetadata.RedactionVersion,
-				strings.Join(summary.ShareProfileMetadata.PolicySummary, " | "),
-			))
-		}
-		builder.WriteString("\n")
+	if summary.AgentActionBOM != nil && isAgentActionBOMTemplate {
+		renderAgentActionBOMLeadSection(&builder, summary)
+		renderAgentActionBOMContextAppendix(&builder, summary)
 		if summary.RecentPRReview != nil {
 			builder.WriteString("## Recent PR Review Appendix\n\n")
 			builder.WriteString(fmt.Sprintf("- Mode: %s limit=%d total_candidates=%d\n",
@@ -176,11 +82,19 @@ func RenderMarkdown(summary Summary) string {
 	}
 
 	if summary.WorkflowHighlights != nil {
-		renderWorkflowHighlightsSection(&builder, summary.WorkflowHighlights)
+		if isAgentActionBOMTemplate {
+			renderWorkflowHighlightsSectionWithTitle(&builder, "Workflow Chain Appendix", summary.WorkflowHighlights)
+		} else {
+			renderWorkflowHighlightsSection(&builder, summary.WorkflowHighlights)
+		}
 	}
 
 	if summary.AssessmentSummary != nil {
-		builder.WriteString("## Assessment Summary\n\n")
+		title := "Assessment Summary"
+		if isAgentActionBOMTemplate {
+			title = "Assessment Appendix"
+		}
+		builder.WriteString("## " + title + "\n\n")
 		builder.WriteString("- Scope: static posture from saved scan state only; no runtime observation or enforcement\n")
 		builder.WriteString(fmt.Sprintf("- Governable paths: %d\n", summary.AssessmentSummary.GovernablePathCount))
 		builder.WriteString(fmt.Sprintf("- Write-capable paths: %d\n", summary.AssessmentSummary.WriteCapablePathCount))
@@ -239,7 +153,11 @@ func RenderMarkdown(summary Summary) string {
 	}
 
 	if len(summary.PolicyOutcomes) > 0 {
-		builder.WriteString("## Policy Outcomes\n\n")
+		title := "Policy Outcomes"
+		if isAgentActionBOMTemplate {
+			title = "Policy Outcomes Appendix"
+		}
+		builder.WriteString("## " + title + "\n\n")
 		for _, item := range summary.PolicyOutcomes {
 			repoScope := "no repo examples recorded"
 			if len(item.TopRepoRefs) > 0 {
@@ -260,7 +178,11 @@ func RenderMarkdown(summary Summary) string {
 	}
 
 	if summary.ScanQuality != nil && len(summary.ScanQuality.Detectors) > 0 {
-		builder.WriteString("## Scan Quality\n\n")
+		title := "Scan Quality"
+		if isAgentActionBOMTemplate {
+			title = "Scan Quality Appendix"
+		}
+		builder.WriteString("## " + title + "\n\n")
 		builder.WriteString(fmt.Sprintf("- Mode: %s\n", summary.ScanQuality.Mode))
 		if compact := scanquality.BuildCompactCoverageSummary(summary.ScanQuality); compact.CoverageConfidence != "" {
 			builder.WriteString(fmt.Sprintf("- Coverage summary: confidence=%s reduced_detectors=%d parse_failures=%d suppressed_generated_files=%d blocked_detectors=%d unsupported_declarations=%d impact=%s\n",
@@ -291,7 +213,7 @@ func RenderMarkdown(summary Summary) string {
 		builder.WriteString("\n")
 	}
 
-	if summary.AgentActionBOM != nil && summary.Template == string(TemplateAgentActionBOM) {
+	if summary.AgentActionBOM != nil && isAgentActionBOMTemplate {
 		builder.WriteString("## Workflow BOM Appendix\n\n")
 		limit := len(summary.AgentActionBOM.Items)
 		if limit > 10 {
@@ -435,7 +357,11 @@ func RenderMarkdown(summary Summary) string {
 	}
 
 	if summary.ScanQuality != nil && len(summary.ScanQuality.Detectors) > 0 {
-		builder.WriteString("## Scan Quality Appendix\n\n")
+		title := "Scan Quality Appendix"
+		if isAgentActionBOMTemplate {
+			title = "Detector Diagnostics Appendix"
+		}
+		builder.WriteString("## " + title + "\n\n")
 		for _, detector := range summary.ScanQuality.Detectors {
 			builder.WriteString(fmt.Sprintf("- %s status=%s attempted=%d parsed=%d partial=%d suppressed=%d failures=%d reasons=%s\n",
 				detector.Detector,
@@ -605,32 +531,170 @@ func renderPublicSurfaceAssessmentSection(builder *strings.Builder, assessment *
 	builder.WriteString("\n")
 }
 
+func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) {
+	if builder == nil || summary.AgentActionBOM == nil {
+		return
+	}
+	bom := summary.AgentActionBOM
+	builder.WriteString("## Agent Action BOM\n\n")
+	fmt.Fprintf(builder, "- BOM id: %s\n", bom.BOMID)
+	fmt.Fprintf(builder, "- Lead summary: %d governable paths, %d control-first, %d blocked, %d review required, coverage %s.\n",
+		bom.Summary.TotalItems,
+		bom.Summary.ControlFirstItems,
+		bom.Summary.DelegationReadiness.Blocked,
+		bom.Summary.DelegationReadiness.ReviewRequired,
+		firstNonEmptyValue(strings.TrimSpace(bom.Summary.CoverageConfidence), scanquality.AbsenceStatusNotScanned),
+	)
+	builder.WriteString("\n")
+
+	emptyStateStatus := strings.TrimSpace(bom.Summary.EmptyStateStatus)
+	emptyStateReasons := bom.Summary.EmptyStateReasons
+	if bom.Summary.PrimaryView == nil || len(bom.Items) == 0 || (emptyStateStatus != "" && emptyStateStatus != "not_eligible") {
+		builder.WriteString("## Empty-State Assessment\n\n")
+		reasons := "none"
+		if len(emptyStateReasons) > 0 {
+			reasons = strings.Join(emptyStateReasons, ", ")
+		}
+		fmt.Fprintf(builder, "- status=%s coverage_confidence=%s reasons=%s\n\n",
+			firstNonEmptyValue(emptyStateStatus, "eligible"),
+			bom.Summary.CoverageConfidence,
+			reasons,
+		)
+		return
+	}
+
+	renderPrimaryWorkflowBOMSection(builder, bom.Summary.PrimaryView)
+	renderCompactTopActionPathsSection(builder, summary.WorkflowHighlights)
+}
+
+func renderAgentActionBOMContextAppendix(builder *strings.Builder, summary Summary) {
+	if builder == nil || summary.AgentActionBOM == nil {
+		return
+	}
+	builder.WriteString("## Report Context Appendix\n\n")
+	if summary.ScanScope != nil {
+		fmt.Fprintf(builder, "- Scanned scope: %s mode=%s repos=%d targets=%d boundary=%s\n",
+			summary.ScanScope.ScopeLabel,
+			summary.ScanScope.Mode,
+			summary.ScanScope.RepoCount,
+			summary.ScanScope.TargetCount,
+			summary.ScanScope.SourceBoundary,
+		)
+	}
+	if summary.SourcePrivacy != nil {
+		fmt.Fprintf(builder, "- Source privacy: retention=%s retained=%t raw_source_in_artifacts=%t serialized_locations=%s cleanup_status=%s zero_data_exfiltration_default=true\n",
+			summary.SourcePrivacy.RetentionMode,
+			summary.SourcePrivacy.MaterializedSourceRetained,
+			summary.SourcePrivacy.RawSourceInArtifacts,
+			summary.SourcePrivacy.SerializedLocations,
+			summary.SourcePrivacy.CleanupStatus,
+		)
+	}
+	if summary.OperationalExposure != nil {
+		fmt.Fprintf(builder, "- Operational exposure: grade=%s driver=%s paths=%d\n",
+			summary.OperationalExposure.Grade,
+			summary.OperationalExposure.Driver,
+			summary.OperationalExposure.PathCount,
+		)
+	}
+	if summary.GovernanceReadiness != nil {
+		fmt.Fprintf(builder, "- Governance readiness: grade=%s driver=%s paths=%d\n",
+			summary.GovernanceReadiness.Grade,
+			summary.GovernanceReadiness.Driver,
+			summary.GovernanceReadiness.PathCount,
+		)
+	}
+	if summary.EvidenceCompleteness != nil {
+		fmt.Fprintf(builder, "- Evidence completeness: average=%d label=%s low_evidence_paths=%d reduced_coverage_paths=%d\n",
+			summary.EvidenceCompleteness.AverageTotalScore,
+			risk.BuyerEvidenceCompletenessSummaryLabel(summary.EvidenceCompleteness),
+			summary.EvidenceCompleteness.LowEvidencePathCount,
+			summary.EvidenceCompleteness.ReducedCoveragePathCount,
+		)
+	}
+	renderRepeatUsageSignals(builder, summary.AgentActionBOM.Summary.RepeatUsageSignals)
+	fmt.Fprintf(builder, "- Coverage confidence: %s\n", summary.AgentActionBOM.Summary.CoverageConfidence)
+	if summary.AgentActionBOM.Summary.ScanCoverage != nil {
+		fmt.Fprintf(builder, "- Scan coverage: reduced_detectors=%d parse_failures=%d suppressed_generated_files=%d blocked_detectors=%d unsupported_declarations=%d impact=%s\n",
+			summary.AgentActionBOM.Summary.ScanCoverage.ReducedDetectorCount,
+			summary.AgentActionBOM.Summary.ScanCoverage.ParseFailureCount,
+			summary.AgentActionBOM.Summary.ScanCoverage.SuppressedGeneratedFileCount,
+			summary.AgentActionBOM.Summary.ScanCoverage.BlockedDetectorCount,
+			summary.AgentActionBOM.Summary.ScanCoverage.UnsupportedDeclarationCount,
+			firstNonEmptyValue(strings.TrimSpace(summary.AgentActionBOM.Summary.ScanCoverage.ImpactStatement), "Coverage metadata was unavailable."),
+		)
+	}
+	fmt.Fprintf(builder, "- Governable paths: total=%d control_first=%d standing_credentials=%d approval_evidence_unknown=%d control_evidence_unknown=%d proof_evidence_unknown=%d\n",
+		summary.AgentActionBOM.Summary.TotalItems,
+		summary.AgentActionBOM.Summary.ControlFirstItems,
+		summary.AgentActionBOM.Summary.StandingPrivilegeItems,
+		summary.AgentActionBOM.Summary.ApprovalEvidenceUnknownItems,
+		summary.AgentActionBOM.Summary.ControlEvidenceUnknownItems,
+		summary.AgentActionBOM.Summary.ProofEvidenceUnknownItems,
+	)
+	fmt.Fprintf(builder, "- Autonomy tiers: safe_metadata=%d low_risk_internal=%d owner_review_app_code=%d sensitive_code_or_infra=%d prod_or_customer_impacting=%d\n",
+		summary.AgentActionBOM.Summary.AutonomyTiers.Tier0SafeMetadata,
+		summary.AgentActionBOM.Summary.AutonomyTiers.Tier1LowRiskInternal,
+		summary.AgentActionBOM.Summary.AutonomyTiers.Tier2AppCodeOwnerReview,
+		summary.AgentActionBOM.Summary.AutonomyTiers.Tier3SensitiveCodeOrInfra,
+		summary.AgentActionBOM.Summary.AutonomyTiers.Tier4ProdPrivilegedCustomerImpact,
+	)
+	fmt.Fprintf(builder, "- Delegation readiness: safe_to_delegate=%d review_required=%d approval_required=%d proof_required=%d ready_for_control=%d blocked=%d blocked_by_contradiction=%d\n",
+		summary.AgentActionBOM.Summary.DelegationReadiness.SafeToDelegate,
+		summary.AgentActionBOM.Summary.DelegationReadiness.ReviewRequired,
+		summary.AgentActionBOM.Summary.DelegationReadiness.ApprovalRequired,
+		summary.AgentActionBOM.Summary.DelegationReadiness.ProofRequired,
+		summary.AgentActionBOM.Summary.DelegationReadiness.ReadyForControl,
+		summary.AgentActionBOM.Summary.DelegationReadiness.Blocked,
+		summary.AgentActionBOM.Summary.DelegationReadiness.BlockedByContradict,
+	)
+	if summary.AgentActionBOM.Summary.DriftReview != nil {
+		fmt.Fprintf(builder, "- Drift review: detected=%t reasons=%d categories=%d comparison_status=%s\n",
+			summary.AgentActionBOM.Summary.DriftReview.DriftDetected,
+			summary.AgentActionBOM.Summary.DriftReview.ReasonCount,
+			summary.AgentActionBOM.Summary.DriftReview.DriftCategoryCount,
+			firstNonEmptyValue(strings.TrimSpace(summary.AgentActionBOM.Summary.DriftReview.ComparisonStatus), "not_requested"),
+		)
+	}
+	if summary.ShareProfileMetadata != nil && summary.ShareProfileMetadata.RedactionApplied {
+		fmt.Fprintf(builder, "- Share redaction: version=%s policy=%s\n",
+			summary.ShareProfileMetadata.RedactionVersion,
+			strings.Join(summary.ShareProfileMetadata.PolicySummary, " | "),
+		)
+	}
+	builder.WriteString("\n")
+}
+
 func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentActionBOMPrimaryView) {
 	if builder == nil || view == nil {
 		return
 	}
 	builder.WriteString("## Primary Workflow BOM\n\n")
-	fmt.Fprintf(builder, "- Selected path: %s selection=%s boundary=%s autonomy=%s readiness=%s recommended_control=%s proof=%s\n",
-		view.PathID,
-		view.SelectionReason,
-		firstNonEmptyValue(view.BoundaryLabel, BoundaryLabelReportOnly),
+	fmt.Fprintf(builder, "- Selection: %s inside the %s boundary.\n",
+		humanizeEnum(view.SelectionReason),
+		humanizeEnum(firstNonEmptyValue(view.BoundaryLabel, BoundaryLabelReportOnly)),
+	)
+	fmt.Fprintf(builder, "- Workflow: %s in %s via %s.\n",
+		firstNonEmptyValue(view.PathMap.Tool, "unknown tool"),
+		firstNonEmptyValue(view.PathMap.RepoPR, "unknown repo"),
+		firstNonEmptyValue(view.PathMap.Workflow, "unknown workflow"),
+	)
+	fmt.Fprintf(builder, "- Authority and target: %s can %s against %s.\n",
+		firstNonEmptyValue(view.PathMap.Credential, "no visible credential"),
+		firstNonEmptyValue(view.PathMap.Action, "unknown action"),
+		firstNonEmptyValue(view.PathMap.Target, "unknown target"),
+	)
+	fmt.Fprintf(builder, "- Posture: risk=%s autonomy=%s readiness=%s recommended_control=%s.\n",
+		firstNonEmptyValue(strings.TrimSpace(view.RiskTier), "unknown"),
 		risk.BuyerAutonomyTierShortLabel(view.AutonomyTier),
 		risk.BuyerDelegationReadinessLabel(view.DelegationReadinessState),
 		risk.BuyerRecommendedControlLabel(view.RecommendedControl),
-		risk.BuyerEvidenceStateLabel("proof", view.ProofEvidenceState),
 	)
-	fmt.Fprintf(builder, "- Path map: %s -> %s -> %s -> %s -> %s -> %s\n",
-		firstNonEmptyValue(view.PathMap.Tool, "unknown_tool"),
-		firstNonEmptyValue(view.PathMap.RepoPR, "unknown_repo"),
-		firstNonEmptyValue(view.PathMap.Workflow, "unknown_workflow"),
-		firstNonEmptyValue(view.PathMap.Credential, "unknown_credential"),
-		firstNonEmptyValue(view.PathMap.Action, "unknown_action"),
-		firstNonEmptyValue(view.PathMap.Target, "unknown_target"),
-	)
-	fmt.Fprintf(builder, "- Control resolution: control=%s approval=%s owner=%s runtime=%s target=%s credential=%s completeness=%s(%d)\n",
+	fmt.Fprintf(builder, "- Control coverage: control=%s approval=%s owner=%s proof=%s runtime=%s target=%s credential=%s evidence=%s(%d).\n",
 		risk.BuyerControlResolutionLabel(view.ControlResolutionState),
 		risk.BuyerEvidenceStateLabel("approval", view.ApprovalEvidenceState),
 		risk.BuyerEvidenceStateLabel("owner", view.OwnerEvidenceState),
+		risk.BuyerEvidenceStateLabel("proof", view.ProofEvidenceState),
 		risk.BuyerEvidenceStateLabel("runtime", view.RuntimeEvidenceState),
 		risk.BuyerEvidenceStateLabel("target", view.TargetEvidenceState),
 		risk.BuyerEvidenceStateLabel("credential", view.CredentialEvidenceState),
@@ -638,24 +702,81 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		view.EvidenceCompletenessScore,
 	)
 	if len(view.UnresolvedEvidence) > 0 {
-		fmt.Fprintf(builder, "- Unresolved evidence: %s\n", strings.Join(view.UnresolvedEvidence, ", "))
+		fmt.Fprintf(builder, "- Unresolved evidence: %s.\n", strings.Join(view.UnresolvedEvidence, ", "))
 	}
-	if view.TodayPath != nil || view.RecommendedGovernedPath != nil {
-		fmt.Fprintf(builder, "- Governed path: %s\n", markdownGovernedPathViews(view.TodayPath, view.RecommendedGovernedPath))
+	if strings.TrimSpace(view.CoverageStatus) != "" {
+		fmt.Fprintf(builder, "- Coverage status: %s.\n", humanizeEnum(view.CoverageStatus))
 	}
-	if view.RecommendedActionContract != nil {
-		fmt.Fprintf(builder, "- Draft contract: %s\n", markdownActionContract(view.RecommendedActionContract))
+	if strings.TrimSpace(view.CoverageImpact) != "" && strings.TrimSpace(view.CoverageStatus) != scanquality.CoverageConfidenceComplete {
+		fmt.Fprintf(builder, "- Coverage note: %s\n", strings.TrimSpace(view.CoverageImpact))
 	}
-	if view.AgenticDeliverySystemChange != nil {
-		fmt.Fprintf(builder, "- Delivery-system change: %s\n", markdownAgenticDeliveryChange(view.AgenticDeliverySystemChange))
-	}
-	if len(view.DecisionTraceRefs) > 0 {
-		fmt.Fprintf(builder, "- Decision traces: %s\n", strings.Join(view.DecisionTraceRefs, ", "))
-	}
-	if len(view.AppendixRefs) > 0 {
-		fmt.Fprintf(builder, "- Appendix refs: %s\n", strings.Join(view.AppendixRefs, ", "))
+	if len(view.RecommendedNextActions) > 0 {
+		fmt.Fprintf(builder, "- Next actions: %s.\n", strings.Join(view.RecommendedNextActions, " | "))
 	}
 	builder.WriteString("\n")
+}
+
+func renderCompactTopActionPathsSection(builder *strings.Builder, highlights *WorkflowHighlights) {
+	if builder == nil || highlights == nil || len(highlights.Highlights) == 0 {
+		return
+	}
+	builder.WriteString("## Top Action Paths\n\n")
+	for _, item := range compactWorkflowHighlightGroups(highlights.Highlights) {
+		fmt.Fprintf(builder, "- %s %s path in %s via %s: %s",
+			risk.BuyerDelegationReadinessLabel(item.Highlight.DelegationReadiness),
+			humanizeEnum(firstNonEmptyValue(item.Highlight.TargetClass, "unknown")),
+			firstNonEmptyValue(item.Highlight.Repo, "unknown repo"),
+			firstNonEmptyValue(item.Highlight.Workflow, "unknown workflow"),
+			firstNonEmptyValue(item.Highlight.Recommendation, "review this workflow path"),
+		)
+		if item.DuplicateCount > 1 {
+			fmt.Fprintf(builder, " (%d similar paths)", item.DuplicateCount)
+		}
+		builder.WriteString(".\n")
+	}
+	builder.WriteString("\n")
+}
+
+type compactWorkflowHighlight struct {
+	Highlight      WorkflowHighlight
+	DuplicateCount int
+}
+
+func compactWorkflowHighlightGroups(highlights []WorkflowHighlight) []compactWorkflowHighlight {
+	grouped := make([]compactWorkflowHighlight, 0, len(highlights))
+	indexByKey := map[string]int{}
+	for _, item := range highlights {
+		key := strings.Join([]string{
+			strings.TrimSpace(item.Repo),
+			strings.TrimSpace(item.Workflow),
+			strings.TrimSpace(item.TargetClass),
+			strings.TrimSpace(item.DelegationReadiness),
+			strings.TrimSpace(item.Recommendation),
+		}, "|")
+		if idx, ok := indexByKey[key]; ok {
+			grouped[idx].DuplicateCount++
+			continue
+		}
+		indexByKey[key] = len(grouped)
+		grouped = append(grouped, compactWorkflowHighlight{
+			Highlight:      item,
+			DuplicateCount: 1,
+		})
+	}
+	if len(grouped) > defaultBOMLeadTopPaths {
+		grouped = append([]compactWorkflowHighlight(nil), grouped[:defaultBOMLeadTopPaths]...)
+	}
+	return grouped
+}
+
+func humanizeEnum(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "unknown"
+	}
+	value = strings.ReplaceAll(value, "_", " ")
+	value = strings.ReplaceAll(value, "-", " ")
+	return value
 }
 
 func markdownPrimaryViewEvidenceCompleteness(view *AgentActionBOMPrimaryView) string {
@@ -1100,10 +1221,17 @@ func renderFocusViewSection(builder *strings.Builder, focus *FocusView) {
 }
 
 func renderWorkflowHighlightsSection(builder *strings.Builder, highlights *WorkflowHighlights) {
+	renderWorkflowHighlightsSectionWithTitle(builder, "Workflow Chain Highlights", highlights)
+}
+
+func renderWorkflowHighlightsSectionWithTitle(builder *strings.Builder, title string, highlights *WorkflowHighlights) {
 	if builder == nil || highlights == nil {
 		return
 	}
-	builder.WriteString("## Workflow Chain Highlights\n\n")
+	if strings.TrimSpace(title) == "" {
+		title = "Workflow Chain Highlights"
+	}
+	builder.WriteString("## " + title + "\n\n")
 	fmt.Fprintf(builder, "- Total buyer-facing workflow paths: %d\n", highlights.TotalItems)
 	builder.WriteString("\n")
 	for _, item := range highlights.Highlights {
