@@ -358,6 +358,7 @@ Tasks:
 - Preserve internal remediation usefulness by keeping cleartext detail available only under explicit internal profile.
 Repo paths:
 - `core/cli/report.go`
+- `core/cli/evidence.go`
 - `core/report/redaction.go`
 - `core/report/redaction_summary.go`
 - `core/report/provenance_redaction.go`
@@ -369,12 +370,13 @@ Repo paths:
 Run commands:
 - `go test ./core/report -run 'Test.*Redaction|Test.*ShareProfile|Test.*Owner|Test.*Leak' -count=1`
 - `go test ./core/cli -run 'Test.*Report.*ShareProfile|Test.*Assess.*ShareProfile' -count=1`
+- `go test ./core/cli -run 'Test.*Evidence.*ShareProfile|Test.*Evidence.*Redaction|Test.*Evidence.*Owner' -count=1`
 - `go test ./internal/acceptance -run 'Test.*Redaction|Test.*Shareable|Test.*AgentActionBOM' -count=1`
 - `make test-hardening`
 - `make test-contracts`
 Test requirements:
 - Tier 1 redaction-selector and profile tests.
-- Tier 3 CLI share-profile contract tests.
+- Tier 3 CLI share-profile contract tests for direct report, assess, and evidence command output.
 - Tier 4 acceptance leak tests across Markdown, BOM JSON, evidence JSON, and exports.
 - Tier 5 fail-closed tests for unknown or ambiguous share profiles.
 - Tier 9 schema and docs parity checks.
