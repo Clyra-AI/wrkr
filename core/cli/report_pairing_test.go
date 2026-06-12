@@ -26,6 +26,7 @@ func TestReportPairedShareProfileWritesExternalArtifactsAndPrivateJoinMap(t *tes
 	code := Run([]string{
 		"report",
 		"--state", statePath,
+		"--share-profile", "internal",
 		"--md",
 		"--md-path", mdPath,
 		"--evidence-json",

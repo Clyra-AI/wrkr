@@ -13,6 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - [semver:patch] Required measured receipts for size, redaction, privacy, and customer-safe release claims, and added a Sprint 0 temporary freeze gate for new scan/report surface expansion until the size, redaction, and readability gates are green.
+- [semver:minor] Changed saved-state, report, control-backlog, graph, and Agent Action BOM projections to keep canonical endpoint and authority refs while omitting repeated embedded payload clones from shareable/default artifacts.
 
 ### Deprecated
 
@@ -28,7 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- [semver:patch] Made customer-safe report and assessment output the default share posture for report-style workflows; cleartext owner, reviewer, account-like, and local-path detail now requires an explicit `--share-profile internal` selection.
 
 ## Changelog maintenance process
 

@@ -1,0 +1,218 @@
+package inventory
+
+import "strings"
+
+type CanonicalResolver struct {
+	mutableEndpointSemantics map[string]MutableEndpointSemantic
+	credentialAuthorities    map[string]CredentialAuthority
+	authorityBindings        map[string]*AuthorityBinding
+}
+
+func NewCanonicalResolver(stores *CanonicalStores) CanonicalResolver {
+	resolver := CanonicalResolver{
+		mutableEndpointSemantics: map[string]MutableEndpointSemantic{},
+		credentialAuthorities:    map[string]CredentialAuthority{},
+		authorityBindings:        map[string]*AuthorityBinding{},
+	}
+	if stores == nil {
+		return resolver
+	}
+	for _, item := range stores.MutableEndpointSemantics {
+		refID := strings.TrimSpace(item.RefID)
+		if refID == "" {
+			continue
+		}
+		normalized := NormalizeMutableEndpointSemantics([]MutableEndpointSemantic{item.MutableEndpointSemantic})
+		if len(normalized) == 0 {
+			continue
+		}
+		resolver.mutableEndpointSemantics[refID] = normalized[0]
+	}
+	for _, item := range stores.CredentialAuthorities {
+		refID := strings.TrimSpace(item.RefID)
+		if refID == "" {
+			continue
+		}
+		normalized := NormalizeCredentialAuthority(&item.CredentialAuthority)
+		if normalized == nil {
+			continue
+		}
+		resolver.credentialAuthorities[refID] = *normalized
+	}
+	for _, item := range stores.AuthorityBindings {
+		refID := strings.TrimSpace(item.RefID)
+		if refID == "" {
+			continue
+		}
+		normalized := NormalizeAuthorityBinding(&item.AuthorityBinding)
+		if normalized == nil {
+			continue
+		}
+		resolver.authorityBindings[refID] = normalized
+	}
+	return resolver
+}
+
+func (r CanonicalResolver) ResolveMutableEndpointSemantics(refs []string, fallback []MutableEndpointSemantic) []MutableEndpointSemantic {
+	if len(refs) == 0 {
+		return NormalizeMutableEndpointSemantics(fallback)
+	}
+	out := make([]MutableEndpointSemantic, 0, len(refs))
+	for _, refID := range refs {
+		item, ok := r.mutableEndpointSemantics[strings.TrimSpace(refID)]
+		if !ok {
+			continue
+		}
+		out = append(out, item)
+	}
+	if len(out) == 0 {
+		return NormalizeMutableEndpointSemantics(fallback)
+	}
+	return NormalizeMutableEndpointSemantics(out)
+}
+
+func (r CanonicalResolver) ResolveCredentialAuthority(ref string, fallback *CredentialAuthority) *CredentialAuthority {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return CloneCredentialAuthority(fallback)
+	}
+	item, ok := r.credentialAuthorities[ref]
+	if !ok {
+		return CloneCredentialAuthority(fallback)
+	}
+	return CloneCredentialAuthority(&item)
+}
+
+func (r CanonicalResolver) ResolveAuthorityBindings(refs []string, fallback []*AuthorityBinding) []*AuthorityBinding {
+	if len(refs) == 0 {
+		return NormalizeAuthorityBindings(fallback)
+	}
+	out := make([]*AuthorityBinding, 0, len(refs))
+	for _, refID := range refs {
+		item, ok := r.authorityBindings[strings.TrimSpace(refID)]
+		if !ok {
+			continue
+		}
+		out = append(out, CloneAuthorityBindings([]*AuthorityBinding{item})...)
+	}
+	if len(out) == 0 {
+		return NormalizeAuthorityBindings(fallback)
+	}
+	return NormalizeAuthorityBindings(out)
+}
+
+func CanonicalMutableEndpointRefs(values []MutableEndpointSemantic) []string {
+	return newCanonicalStoreBuilder().mutableEndpointRefs(values)
+}
+
+func CanonicalCredentialAuthorityRef(value *CredentialAuthority) string {
+	return newCanonicalStoreBuilder().credentialAuthorityRef(value)
+}
+
+func CanonicalAuthorityBindingRefs(values []*AuthorityBinding) []string {
+	return newCanonicalStoreBuilder().authorityBindingRefs(values)
+}
+
+func BackfillCanonicalProjectionRefs(in *Inventory) {
+	if in == nil {
+		return
+	}
+	for idx := range in.Tools {
+		tool := &in.Tools[idx]
+		if len(tool.MutableEndpointSemanticRefs) == 0 && len(tool.MutableEndpointSemantics) > 0 {
+			tool.MutableEndpointSemanticRefs = CanonicalMutableEndpointRefs(tool.MutableEndpointSemantics)
+		}
+	}
+	for idx := range in.AgentPrivilegeMap {
+		entry := &in.AgentPrivilegeMap[idx]
+		if len(entry.MutableEndpointSemanticRefs) == 0 && len(entry.MutableEndpointSemantics) > 0 {
+			entry.MutableEndpointSemanticRefs = CanonicalMutableEndpointRefs(entry.MutableEndpointSemantics)
+		}
+		if strings.TrimSpace(entry.CredentialAuthorityRef) == "" && entry.CredentialAuthority != nil {
+			entry.CredentialAuthorityRef = CanonicalCredentialAuthorityRef(entry.CredentialAuthority)
+		}
+		if len(entry.AuthorityBindingRefs) == 0 && len(entry.AuthorityBindings) > 0 {
+			entry.AuthorityBindingRefs = CanonicalAuthorityBindingRefs(entry.AuthorityBindings)
+		}
+	}
+}
+
+func EnsureCanonicalStores(in *Inventory) {
+	if in == nil {
+		return
+	}
+	BackfillCanonicalProjectionRefs(in)
+	if in.CanonicalStores != nil {
+		return
+	}
+	if !inventoryHasInlineCanonicalDetails(in) {
+		return
+	}
+	ApplyCanonicalStores(in)
+}
+
+func HydrateCanonicalProjectionDetails(in *Inventory) {
+	if in == nil {
+		return
+	}
+	EnsureCanonicalStores(in)
+	resolver := NewCanonicalResolver(in.CanonicalStores)
+	for idx := range in.Tools {
+		tool := &in.Tools[idx]
+		if len(tool.MutableEndpointSemantics) == 0 && len(tool.MutableEndpointSemanticRefs) > 0 {
+			tool.MutableEndpointSemantics = resolver.ResolveMutableEndpointSemantics(tool.MutableEndpointSemanticRefs, nil)
+		}
+	}
+	for idx := range in.AgentPrivilegeMap {
+		entry := &in.AgentPrivilegeMap[idx]
+		if len(entry.MutableEndpointSemantics) == 0 && len(entry.MutableEndpointSemanticRefs) > 0 {
+			entry.MutableEndpointSemantics = resolver.ResolveMutableEndpointSemantics(entry.MutableEndpointSemanticRefs, nil)
+		}
+		if entry.CredentialAuthority == nil && strings.TrimSpace(entry.CredentialAuthorityRef) != "" {
+			entry.CredentialAuthority = resolver.ResolveCredentialAuthority(entry.CredentialAuthorityRef, nil)
+		}
+		if len(entry.AuthorityBindings) == 0 && len(entry.AuthorityBindingRefs) > 0 {
+			entry.AuthorityBindings = resolver.ResolveAuthorityBindings(entry.AuthorityBindingRefs, nil)
+		}
+	}
+}
+
+func StripCanonicalProjectionDetails(in *Inventory) {
+	if in == nil {
+		return
+	}
+	for idx := range in.Tools {
+		if len(in.Tools[idx].MutableEndpointSemanticRefs) > 0 {
+			in.Tools[idx].MutableEndpointSemantics = nil
+		}
+	}
+	for idx := range in.AgentPrivilegeMap {
+		entry := &in.AgentPrivilegeMap[idx]
+		if len(entry.MutableEndpointSemanticRefs) > 0 {
+			entry.MutableEndpointSemantics = nil
+		}
+		if strings.TrimSpace(entry.CredentialAuthorityRef) != "" {
+			entry.CredentialAuthority = nil
+		}
+		if len(entry.AuthorityBindingRefs) > 0 {
+			entry.AuthorityBindings = nil
+		}
+	}
+}
+
+func inventoryHasInlineCanonicalDetails(in *Inventory) bool {
+	if in == nil {
+		return false
+	}
+	for _, tool := range in.Tools {
+		if len(tool.MutableEndpointSemantics) > 0 {
+			return true
+		}
+	}
+	for _, entry := range in.AgentPrivilegeMap {
+		if len(entry.MutableEndpointSemantics) > 0 || entry.CredentialAuthority != nil || len(entry.AuthorityBindings) > 0 {
+			return true
+		}
+	}
+	return false
+}

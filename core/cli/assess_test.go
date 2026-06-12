@@ -71,6 +71,50 @@ func TestAssessWritesOutputDirectoryManifest(t *testing.T) {
 	}
 }
 
+func TestAssessDefaultsToCustomerRedactedShareProfile(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repo := writeAssessFixtureRepo(t, tmp)
+	outputDir := filepath.Join(tmp, "assessment")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"assess",
+		"--path", repo,
+		"--output-dir", outputDir,
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("expected exit 0, got %d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse assess payload: %v", err)
+	}
+	manifestPath, _ := payload["manifest_path"].(string)
+	if manifestPath == "" {
+		t.Fatalf("expected manifest_path, got %v", payload)
+	}
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifestPayload map[string]any
+	if err := json.Unmarshal(manifestBytes, &manifestPayload); err != nil {
+		t.Fatalf("parse manifest: %v", err)
+	}
+	commandMetadata, ok := manifestPayload["command_metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected command_metadata object, got %T", manifestPayload["command_metadata"])
+	}
+	if commandMetadata["share_profile"] != "customer-redacted" {
+		t.Fatalf("expected default assess share profile customer-redacted, got %v", commandMetadata["share_profile"])
+	}
+}
+
 func TestAssessRuntimeInputWritesArtifact(t *testing.T) {
 	t.Parallel()
 

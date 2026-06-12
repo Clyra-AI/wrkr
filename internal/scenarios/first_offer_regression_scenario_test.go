@@ -42,7 +42,7 @@ func TestScenarioFirstOfferMixedGovernanceReportUsefulness(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "first-offer-mixed-governance", "repos")
 	_ = runScenarioCommandJSON(t, []string{"scan", "--path", scanPath, "--state", statePath, "--profile", "assessment", "--json"})
-	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--json"})
+	reportPayload := runScenarioCommandJSON(t, []string{"report", "--state", statePath, "--share-profile", "internal", "--json"})
 
 	expected := mustLoadFirstOfferExpected(t, repoRoot, "scenarios/wrkr/first-offer-mixed-governance/expected/assessment-report.json")
 	projected := projectFirstOfferMixedGovernanceReport(t, reportPayload)

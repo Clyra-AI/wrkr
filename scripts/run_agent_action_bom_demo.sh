@@ -32,6 +32,7 @@ fi
 go run ./cmd/wrkr report \
   --state "$state_path" \
   --template agent-action-bom \
+  --share-profile internal \
   --json \
   --evidence-json \
   --evidence-json-path "$evidence_json_path" >"$output_root/report.json"

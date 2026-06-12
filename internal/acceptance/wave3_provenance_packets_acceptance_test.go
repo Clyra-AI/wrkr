@@ -42,7 +42,7 @@ func TestWave3AcceptanceEvidencePacketsAndRecentReview(t *testing.T) {
 	}
 	runJSONOK(t, "ingest", "--state", statePath, "--input", packetPath, "--json")
 
-	reportPayload := runJSONOK(t, "report", "--state", statePath, "--template", "agent-action-bom", "--recent-pr-review", "--review-ids", "pr/108", "--json")
+	reportPayload := runJSONOK(t, "report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--recent-pr-review", "--review-ids", "pr/108", "--json")
 	evidencePackets := requireObject(t, reportPayload, "evidence_packets")
 	if evidencePackets["matched_packets"] != float64(1) {
 		t.Fatalf("expected matched evidence packet, got %v", evidencePackets)

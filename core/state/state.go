@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
@@ -91,11 +92,13 @@ func ResolvePath(explicit string) string {
 }
 
 func Save(path string, snapshot Snapshot) error {
+	snapshot = cloneSnapshotForSave(snapshot)
 	snapshot.Version = SnapshotVersion
 	snapshot.ApprovalInventoryVersion = ApprovalInventoryVersion
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
 	source.SortFindings(snapshot.Findings)
+	prepareSnapshotForSave(&snapshot)
 	payload, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal state: %w", err)
@@ -105,6 +108,33 @@ func Save(path string, snapshot Snapshot) error {
 		return fmt.Errorf("write state: %w", err)
 	}
 	return nil
+}
+
+func cloneSnapshotForSave(in Snapshot) Snapshot {
+	out := in
+	if in.Inventory != nil {
+		copyInventory := *in.Inventory
+		copyInventory.Tools = append([]agginventory.Tool(nil), in.Inventory.Tools...)
+		copyInventory.Agents = append([]agginventory.Agent(nil), in.Inventory.Agents...)
+		copyInventory.AgentPrivilegeMap = append([]agginventory.AgentPrivilegeMapEntry(nil), in.Inventory.AgentPrivilegeMap...)
+		out.Inventory = &copyInventory
+	}
+	if in.RiskReport != nil {
+		copyReport := *in.RiskReport
+		copyReport.TopN = append([]risk.ScoredFinding(nil), in.RiskReport.TopN...)
+		copyReport.Ranked = append([]risk.ScoredFinding(nil), in.RiskReport.Ranked...)
+		copyReport.Repos = append([]risk.RepoAggregate(nil), in.RiskReport.Repos...)
+		copyReport.AttackPaths = append([]riskattack.ScoredPath(nil), in.RiskReport.AttackPaths...)
+		copyReport.TopAttackPaths = append([]riskattack.ScoredPath(nil), in.RiskReport.TopAttackPaths...)
+		copyReport.ActionPaths = append([]risk.ActionPath(nil), in.RiskReport.ActionPaths...)
+		out.RiskReport = &copyReport
+	}
+	if in.ControlBacklog != nil {
+		copyBacklog := *in.ControlBacklog
+		copyBacklog.Items = append([]controlbacklog.Item(nil), in.ControlBacklog.Items...)
+		out.ControlBacklog = &copyBacklog
+	}
+	return out
 }
 
 func loadSnapshot(path string) (Snapshot, error) {
@@ -138,7 +168,48 @@ func Load(path string) (Snapshot, error) {
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
 	source.SortFindings(snapshot.Findings)
+	normalizeSnapshotAfterLoad(&snapshot)
 	return snapshot, nil
+}
+
+func normalizeSnapshotAfterLoad(snapshot *Snapshot) {
+	if snapshot == nil {
+		return
+	}
+	if snapshot.Inventory != nil {
+		agginventory.EnsureCanonicalStores(snapshot.Inventory)
+		agginventory.HydrateCanonicalProjectionDetails(snapshot.Inventory)
+	}
+	if snapshot.RiskReport != nil {
+		snapshot.RiskReport.ActionPaths = risk.BackfillCanonicalProjectionRefs(snapshot.RiskReport.ActionPaths, snapshot.Inventory)
+		snapshot.RiskReport.ActionPaths = risk.HydrateCanonicalProjectionDetails(snapshot.RiskReport.ActionPaths, snapshot.Inventory)
+		snapshot.RiskReport.ActionPathToControlFirst = risk.BackfillActionPathToControlFirstCanonicalProjectionRefs(snapshot.RiskReport.ActionPathToControlFirst, snapshot.Inventory)
+		snapshot.RiskReport.ActionPathToControlFirst = risk.HydrateActionPathToControlFirstCanonicalDetails(snapshot.RiskReport.ActionPathToControlFirst, snapshot.Inventory)
+	}
+	if snapshot.ControlBacklog != nil {
+		snapshot.ControlBacklog = controlbacklog.BackfillCanonicalProjectionRefs(snapshot.ControlBacklog)
+	}
+}
+
+func prepareSnapshotForSave(snapshot *Snapshot) {
+	if snapshot == nil {
+		return
+	}
+	if snapshot.Inventory != nil {
+		agginventory.EnsureCanonicalStores(snapshot.Inventory)
+		agginventory.StripCanonicalProjectionDetails(snapshot.Inventory)
+	}
+	if snapshot.RiskReport != nil {
+		snapshot.RiskReport.ActionPaths = risk.BackfillCanonicalProjectionRefs(snapshot.RiskReport.ActionPaths, snapshot.Inventory)
+		snapshot.RiskReport.ActionPaths = risk.StripCanonicalProjectionDetails(snapshot.RiskReport.ActionPaths)
+		snapshot.RiskReport.ActionPathToControlFirst = risk.BackfillActionPathToControlFirstCanonicalProjectionRefs(snapshot.RiskReport.ActionPathToControlFirst, snapshot.Inventory)
+		snapshot.RiskReport.ActionPathToControlFirst = risk.StripActionPathToControlFirstCanonicalProjectionDetails(snapshot.RiskReport.ActionPathToControlFirst)
+		snapshot.RiskReport.ControlPathGraph = aggattack.StripCanonicalProjectionDetails(snapshot.RiskReport.ControlPathGraph)
+	}
+	if snapshot.ControlBacklog != nil {
+		snapshot.ControlBacklog = controlbacklog.BackfillCanonicalProjectionRefs(snapshot.ControlBacklog)
+		snapshot.ControlBacklog = controlbacklog.StripCanonicalProjectionDetails(snapshot.ControlBacklog)
+	}
 }
 
 // LoadScoreView validates the stored scan snapshot shape needed by the score

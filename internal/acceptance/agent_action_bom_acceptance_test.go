@@ -13,7 +13,7 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	beforeState := filepath.Join(t.TempDir(), "before-state.json")
 	beforeScanRoot := filepath.Join(paths.repoRoot, "scenarios", "wrkr", "agent-action-bom-demo", "before", "repos")
 	beforeScan := runJSONOK(t, "scan", "--path", beforeScanRoot, "--state", beforeState, "--json")
-	beforeReport := runJSONOK(t, "report", "--state", beforeState, "--template", "agent-action-bom", "--json")
+	beforeReport := runJSONOK(t, "report", "--state", beforeState, "--template", "agent-action-bom", "--share-profile", "internal", "--json")
 
 	beforeActionPaths := requireArray(t, beforeScan, "action_paths")
 	beforeTopPath := requireObjectItem(t, beforeActionPaths[0])
@@ -49,7 +49,7 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	runtimeEvidencePath := filepath.Join(afterRoot, "runtime-evidence.json")
 	afterScan := runJSONOK(t, "scan", "--path", afterScanRoot, "--state", afterState, "--json")
 	runJSONOK(t, "ingest", "--state", afterState, "--input", runtimeEvidencePath, "--json")
-	afterReport := runJSONOK(t, "report", "--state", afterState, "--template", "agent-action-bom", "--json", "--evidence-json", "--evidence-json-path", filepath.Join(t.TempDir(), "agent-action-bom-evidence.json"))
+	afterReport := runJSONOK(t, "report", "--state", afterState, "--template", "agent-action-bom", "--share-profile", "internal", "--json", "--evidence-json", "--evidence-json-path", filepath.Join(t.TempDir(), "agent-action-bom-evidence.json"))
 
 	afterActionPaths := requireArray(t, afterScan, "action_paths")
 	afterTopPath := requireObjectItem(t, afterActionPaths[0])
@@ -115,7 +115,7 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 		t.Fatalf("expected BOM report artifact in evidence bundle: %v", err)
 	}
 
-	focusedReport := runJSONOK(t, "report", "--state", afterState, "--template", "agent-action-bom", "--focus-path", afterTopItem["path_id"].(string), "--json")
+	focusedReport := runJSONOK(t, "report", "--state", afterState, "--template", "agent-action-bom", "--share-profile", "internal", "--focus-path", afterTopItem["path_id"].(string), "--json")
 	focusedBOM := requireObject(t, focusedReport, "agent_action_bom")
 	focusedPrimaryView := requireObject(t, requireObject(t, focusedBOM, "summary"), "primary_view")
 	if focusedPrimaryView["path_id"] != afterTopItem["path_id"] || focusedPrimaryView["selection_reason"] != "explicit_focus_path" {

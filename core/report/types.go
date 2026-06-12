@@ -525,3 +525,14 @@ func ParseShareProfile(raw string) (ShareProfile, bool) {
 		return "", false
 	}
 }
+
+func DefaultShareProfile(template Template) ShareProfile {
+	switch template {
+	case TemplatePublic, TemplateCustomerDraft:
+		return ShareProfilePublic
+	case TemplateDesignPartnerSummary:
+		return ShareProfileDesignPartner
+	default:
+		return ShareProfileCustomerRedacted
+	}
+}

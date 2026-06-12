@@ -333,6 +333,7 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build deterministic report summary: %w", err)
 	}
+	summary = reportcore.FinalizeSummaryForShareProfile(summary)
 	redactedSummary, err := reportcore.BuildSummary(reportcore.BuildInput{
 		StatePath:    resolvedStatePath,
 		Snapshot:     snapshot,
@@ -343,6 +344,7 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build customer-redacted report summary: %w", err)
 	}
+	redactedSummary = reportcore.FinalizeSummaryForShareProfile(redactedSummary)
 	pairID := reportcore.BuildPairID(summary, reportcore.ShareProfileCustomerRedacted)
 	privateJoinMapPath := filepath.Join(filepath.Dir(targetOutputDir), "."+filepath.Base(targetOutputDir)+"-"+pairID+"-private-join-map.json")
 	summary.ArtifactMetadata = reportcore.BuildArtifactMetadata(summary, []string{resolvedStatePath}, reportcore.ArtifactVariantInternal, pairID, privateJoinMapPath)

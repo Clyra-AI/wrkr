@@ -136,6 +136,7 @@ func TestReportFocusPathSelectsExplicitPrimaryView(t *testing.T) {
 		"report",
 		"--state", statePath,
 		"--template", "agent-action-bom",
+		"--share-profile", "internal",
 		"--focus-path", "apc-focused",
 		"--json",
 	}, &out, &errOut)

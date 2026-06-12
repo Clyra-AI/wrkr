@@ -43,7 +43,7 @@ func TestPrecisionCalibrationAcceptance(t *testing.T) {
 	}
 	runJSONOK(t, "ingest", "--state", statePath, "--input", runtimeEvidencePath, "--json")
 
-	reportPayload := runJSONOK(t, "report", "--state", statePath, "--template", "agent-action-bom", "--json")
+	reportPayload := runJSONOK(t, "report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--json")
 
 	actionPaths := requireArray(t, reportPayload, "action_paths")
 	deployAgent := findAcceptancePathID(t, actionPaths, deployAgentPathID)

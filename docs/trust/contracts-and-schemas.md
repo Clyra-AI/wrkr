@@ -56,6 +56,11 @@ Wrkr's Sprint 2 enterprise-evidence surface stays local-file based and determini
 
 ## Canonical references
 
+- `mutable_endpoint_semantic_refs`, `credential_authority_ref`, and `authority_binding_refs` are the stable join contract for repeated risk, backlog, graph, and report projections.
+- `inventory.canonical_stores` is the authoritative per-scan store for full mutable-endpoint, credential-authority, and authority-binding detail.
+- Shareable/default report and BOM projections keep the canonical ref fields and omit embedded `mutable_endpoint_semantics`, `credential_authority`, and `authority_bindings` payloads; explicit `--share-profile internal` output may resolve those fields from the canonical store for non-shareable detail views.
+- Report-style workflows now default to a redacted share profile (`customer-redacted`, `public`, or `design-partner` depending on template). Explicit internal output is marked `artifact_metadata.shareability_status=internal_only`.
+
 - Root exit codes and flags: `docs/commands/root.md`
 - Command contract index: `docs/commands/index.md`
 - Manifest open specification: `docs/specs/wrkr-manifest.md`
