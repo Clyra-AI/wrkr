@@ -59,7 +59,7 @@
     "total_tools": null
   },
   "aggregation": {
-    "action_paths": 20,
+    "action_paths": 5,
     "control_backlog_items": 0,
     "executive_rollup_groups": 12,
     "governed_metrics_present": true

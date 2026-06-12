@@ -22,13 +22,14 @@ import (
 )
 
 type MappedRecord struct {
-	RecordType    string
-	AgentID       string
-	Timestamp     time.Time
-	Event         map[string]any
-	Metadata      map[string]any
-	Relationship  *proof.Relationship
-	ApprovedScope string
+	RecordType          string
+	AgentID             string
+	Timestamp           time.Time
+	Event               map[string]any
+	Metadata            map[string]any
+	Relationship        *proof.Relationship
+	ApprovedScope       string
+	PermissionsEnforced bool
 }
 
 type SecurityVisibilityContext struct {

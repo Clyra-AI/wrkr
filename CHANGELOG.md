@@ -32,6 +32,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- [semver:patch] Fixed scan JSON stdout budgeting so large scans emit bounded previews with `suppressed_counts` while full findings, inventory, risk, action paths, and backlog detail remain in saved state.
+- [semver:patch] Fixed Wrkr proof emission so static scan, risk, approval, and lifecycle records no longer claim `permissions_enforced` without enforcement evidence.
 - [semver:patch] Added canonical endpoint, credential-authority, and authority-binding reference ids so govern-first paths, BOM items, graph nodes, and backlog rows can join to one deterministic per-scan store.
 - [semver:patch] Reduced Wave 1 output noise by keeping low-signal source parse failures in `scan_quality`, preserving actionable config parse failures, and surfacing grouped policy outcomes with bounded repo examples.
 - [semver:patch] Hardened share-profile redaction and progress rendering so interactive `--json` scans can show stderr liveness without corrupting stdout and shared report artifacts redact newly added grouped-path refs consistently.
@@ -39,6 +41,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
+- [semver:patch] Added a merge-blocking `codeql-security` PR check wired to `make codeql` and the required-check contracts.
 - [semver:minor] Added retained-state posture handling that stores refs and digests only, rejects raw prompt/tool-result/memory payloads at ingest time, and redacts host/model/state context in share profiles by default.
 
 ## Changelog maintenance process

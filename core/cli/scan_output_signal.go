@@ -10,22 +10,24 @@ import (
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/risk"
+	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 )
 
 const (
-	scanSummaryInlineFindingsCap       = 200
-	scanSummaryInlineRankedFindingsCap = 1000
-	scanSummaryInlineActionPathsCap    = 100
-	scanSummaryInlineAttackPathsCap    = 100
-	scanSummaryInlineBacklogItemsCap   = 100
-	scanSummaryInlineInventoryToolsCap = 100
-	scanSummaryInlinePrivilegeRowsCap  = 150
-	scanSummaryInlineGraphNodesCap     = 500
-	scanSummaryInlineGraphEdgesCap     = 1000
-	scanSummaryInlineWorkflowChainsCap = 100
+	scanSummaryInlineFindingsCap        = 200
+	scanSummaryInlineRankedFindingsCap  = 10
+	scanSummaryInlineActionPathsCap     = 5
+	scanSummaryInlineAttackPathsCap     = 5
+	scanSummaryInlineBacklogItemsCap    = 5
+	scanSummaryInlineInventoryAgentsCap = 10
+	scanSummaryInlineInventoryToolsCap  = 10
+	scanSummaryInlinePrivilegeRowsCap   = 10
+	scanSummaryInlineGraphNodesCap      = 50
+	scanSummaryInlineGraphEdgesCap      = 100
+	scanSummaryInlineWorkflowChainsCap  = 5
 )
 
 type scanJSONSummaryInput struct {
@@ -99,30 +101,40 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 		payload["top_findings"] = input.RiskReport.TopN
 	}
 	if len(input.Findings) <= scanSummaryInlineFindingsCap {
-		payload["findings"] = input.Findings
+		payload["findings"] = append([]source.Finding(nil), input.Findings...)
 	}
-	if len(input.RiskReport.Ranked) <= scanSummaryInlineRankedFindingsCap {
-		payload["ranked_findings"] = input.RiskReport.Ranked
+	if ranked := scanPreview(input.RiskReport.Ranked, scanSummaryInlineRankedFindingsCap); len(ranked) > 0 {
+		payload["ranked_findings"] = ranked
 	}
-	if len(input.RiskReport.AttackPaths) <= scanSummaryInlineAttackPathsCap {
-		payload["attack_paths"] = input.RiskReport.AttackPaths
+	attackPaths := scanPreview(input.RiskReport.AttackPaths, scanSummaryInlineAttackPathsCap)
+	if attackPaths == nil {
+		attackPaths = []riskattack.ScoredPath{}
 	}
-	if len(input.RiskReport.TopAttackPaths) <= scanSummaryInlineAttackPathsCap {
-		payload["top_attack_paths"] = input.RiskReport.TopAttackPaths
+	payload["attack_paths"] = attackPaths
+	topAttackPaths := scanPreview(input.RiskReport.TopAttackPaths, scanSummaryInlineAttackPathsCap)
+	if topAttackPaths == nil {
+		topAttackPaths = []riskattack.ScoredPath{}
 	}
-	if len(input.RiskReport.ActionPaths) <= scanSummaryInlineActionPathsCap {
-		payload["action_paths"] = input.RiskReport.ActionPaths
+	payload["top_attack_paths"] = topAttackPaths
+	if actionPaths := scanPreview(input.RiskReport.ActionPaths, scanSummaryInlineActionPathsCap); len(actionPaths) > 0 {
+		payload["action_paths"] = actionPaths
 	}
 	if input.RiskReport.ActionPathToControlFirst != nil {
 		payload["action_path_to_control_first"] = input.RiskReport.ActionPathToControlFirst
 	}
-	if len(input.ControlBacklog.Items) <= scanSummaryInlineBacklogItemsCap {
-		payload["control_backlog"] = input.ControlBacklog
+	if scanSummaryInlineBacklogItemsCap >= 0 {
+		backlog := input.ControlBacklog
+		backlog.Items = scanPreview(input.ControlBacklog.Items, scanSummaryInlineBacklogItemsCap)
+		payload["control_backlog"] = backlog
 	}
-	if len(input.Inventory.Tools) <= scanSummaryInlineInventoryToolsCap && len(input.Inventory.AgentPrivilegeMap) <= scanSummaryInlinePrivilegeRowsCap {
-		payload["inventory"] = input.Inventory
-		payload["agent_privilege_map"] = input.Inventory.AgentPrivilegeMap
+	if inventory := scanInventoryPreview(input.Inventory); inventory != nil {
+		payload["inventory"] = *inventory
 	}
+	rows := scanPreview(input.Inventory.AgentPrivilegeMap, scanSummaryInlinePrivilegeRowsCap)
+	if rows == nil {
+		rows = []agginventory.AgentPrivilegeMapEntry{}
+	}
+	payload["agent_privilege_map"] = rows
 	if len(input.Inventory.RepoExposureSummaries) > 0 {
 		payload["repo_exposure_summaries"] = input.Inventory.RepoExposureSummaries
 	}
@@ -139,11 +151,17 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 
 func buildScanSuppressedCounts(input scanJSONSummaryInput) *reportcore.SuppressedCounts {
 	suppressed := &reportcore.SuppressedCounts{
-		ActionPaths:    positiveOverflow(len(input.RiskReport.ActionPaths), scanSummaryInlineActionPathsCap),
-		ControlBacklog: positiveOverflow(len(input.ControlBacklog.Items), scanSummaryInlineBacklogItemsCap),
-		GraphNodes:     0,
-		GraphEdges:     0,
-		WorkflowChains: 0,
+		Findings:        positiveOverflow(len(input.Findings), scanSummaryInlineFindingsCap),
+		RankedFindings:  positiveOverflow(len(input.RiskReport.Ranked), scanSummaryInlineRankedFindingsCap),
+		AttackPaths:     positiveOverflow(len(input.RiskReport.AttackPaths), scanSummaryInlineAttackPathsCap),
+		ActionPaths:     positiveOverflow(len(input.RiskReport.ActionPaths), scanSummaryInlineActionPathsCap),
+		ControlBacklog:  positiveOverflow(len(input.ControlBacklog.Items), scanSummaryInlineBacklogItemsCap),
+		InventoryAgents: positiveOverflow(len(input.Inventory.Agents), scanSummaryInlineInventoryAgentsCap),
+		InventoryTools:  positiveOverflow(len(input.Inventory.Tools), scanSummaryInlineInventoryToolsCap),
+		PrivilegeRows:   positiveOverflow(len(input.Inventory.AgentPrivilegeMap), scanSummaryInlinePrivilegeRowsCap),
+		GraphNodes:      0,
+		GraphEdges:      0,
+		WorkflowChains:  0,
 	}
 	if input.RiskReport.ControlPathGraph != nil {
 		suppressed.GraphNodes = positiveOverflow(len(input.RiskReport.ControlPathGraph.Nodes), scanSummaryInlineGraphNodesCap)
@@ -153,9 +171,15 @@ func buildScanSuppressedCounts(input scanJSONSummaryInput) *reportcore.Suppresse
 		suppressed.WorkflowChains = positiveOverflow(len(input.RiskReport.WorkflowChains.Chains), scanSummaryInlineWorkflowChainsCap)
 	}
 	if suppressed.ActionPaths == 0 &&
+		suppressed.AttackPaths == 0 &&
 		suppressed.ControlBacklog == 0 &&
+		suppressed.Findings == 0 &&
 		suppressed.GraphNodes == 0 &&
 		suppressed.GraphEdges == 0 &&
+		suppressed.InventoryAgents == 0 &&
+		suppressed.InventoryTools == 0 &&
+		suppressed.PrivilegeRows == 0 &&
+		suppressed.RankedFindings == 0 &&
 		suppressed.WorkflowChains == 0 {
 		return nil
 	}
@@ -199,10 +223,41 @@ func buildToolTypeBreakdown(tools []agginventory.Tool) []map[string]any {
 }
 
 func positiveOverflow(size int, limit int) int {
-	if limit <= 0 || size <= limit {
+	if size <= 0 {
+		return 0
+	}
+	if limit <= 0 {
+		return size
+	}
+	if size <= limit {
 		return 0
 	}
 	return size - limit
+}
+
+func scanPreview[T any](items []T, limit int) []T {
+	if len(items) == 0 || limit <= 0 {
+		return nil
+	}
+	if len(items) <= limit {
+		return append([]T(nil), items...)
+	}
+	return append([]T(nil), items[:limit]...)
+}
+
+func scanInventoryPreview(input agginventory.Inventory) *agginventory.Inventory {
+	inventory := input
+	inventory.Agents = scanPreview(input.Agents, scanSummaryInlineInventoryAgentsCap)
+	inventory.Tools = scanPreview(input.Tools, scanSummaryInlineInventoryToolsCap)
+	inventory.AgentPrivilegeMap = scanPreview(input.AgentPrivilegeMap, scanSummaryInlinePrivilegeRowsCap)
+	if len(input.Agents) > scanSummaryInlineInventoryAgentsCap ||
+		len(input.Tools) > scanSummaryInlineInventoryToolsCap ||
+		len(input.AgentPrivilegeMap) > scanSummaryInlinePrivilegeRowsCap {
+		inventory.CanonicalStores = nil
+		inventory.NonHumanIdentities = nil
+		inventory.LifecycleQueue = nil
+	}
+	return &inventory
 }
 
 func summarizeArtifactFindings(findings []source.Finding, scanMode string) []source.Finding {

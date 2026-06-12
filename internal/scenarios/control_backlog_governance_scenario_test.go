@@ -110,6 +110,7 @@ func runControlBacklogScenarioCommandJSON(t *testing.T, args []string) map[strin
 	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
 		t.Fatalf("parse command json output for %v: %v", args, err)
 	}
+	hydrateScenarioScanSummaryPayload(t, args, payload)
 	return payload
 }
 

@@ -91,6 +91,7 @@ func TestScanJSONContractStableKeys(t *testing.T) {
 		"source_privacy",
 		"state_path",
 		"status",
+		"suppressed_counts",
 		"target",
 		"tool_type_breakdown",
 		"top_attack_paths",

@@ -56,6 +56,9 @@ func TestAppendTransitionRecordUsesLifecycleRecordType(t *testing.T) {
 	if record.RecordType != "lifecycle_transition" {
 		t.Fatalf("expected lifecycle_transition record type, got %s", record.RecordType)
 	}
+	if record.Controls.PermissionsEnforced {
+		t.Fatalf("static lifecycle chain record must not claim permissions_enforced")
+	}
 	if got := record.Event["event_type"]; got != "lifecycle_transition" {
 		t.Fatalf("expected event_type lifecycle_transition, got %v", got)
 	}

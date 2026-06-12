@@ -161,14 +161,20 @@ type PolicyOutcome struct {
 }
 
 type SuppressedCounts struct {
-	ActionPaths    int `json:"action_paths,omitempty"`
-	ControlBacklog int `json:"control_backlog,omitempty"`
-	GraphNodes     int `json:"graph_nodes,omitempty"`
-	GraphEdges     int `json:"graph_edges,omitempty"`
-	WorkflowChains int `json:"workflow_chains,omitempty"`
-	ExposureGroups int `json:"exposure_groups,omitempty"`
-	AgentActionBOM int `json:"agent_action_bom,omitempty"`
-	MarkdownLines  int `json:"markdown_lines,omitempty"`
+	Findings        int `json:"findings,omitempty"`
+	RankedFindings  int `json:"ranked_findings,omitempty"`
+	AttackPaths     int `json:"attack_paths,omitempty"`
+	ActionPaths     int `json:"action_paths,omitempty"`
+	ControlBacklog  int `json:"control_backlog,omitempty"`
+	InventoryAgents int `json:"inventory_agents,omitempty"`
+	InventoryTools  int `json:"inventory_tools,omitempty"`
+	PrivilegeRows   int `json:"privilege_rows,omitempty"`
+	GraphNodes      int `json:"graph_nodes,omitempty"`
+	GraphEdges      int `json:"graph_edges,omitempty"`
+	WorkflowChains  int `json:"workflow_chains,omitempty"`
+	ExposureGroups  int `json:"exposure_groups,omitempty"`
+	AgentActionBOM  int `json:"agent_action_bom,omitempty"`
+	MarkdownLines   int `json:"markdown_lines,omitempty"`
 }
 
 type ScanScopeSummary struct {

@@ -12,8 +12,8 @@ Wave 1 added the control backlog, scan modes, signal classes, and scan-quality a
 
 ## Decision
 
-- `wrkr scan --json` continues to emit raw findings, ranked findings, inventory, risk, profile, posture score, and compliance summary.
-- The additive `control_backlog` is the governance decision surface and is also persisted in scan state.
+- `wrkr scan --json` emits a bounded stdout summary with profile, posture score, compliance summary, scan quality, top findings, and capped previews of heavy surfaces.
+- Full raw findings, ranked findings, inventory, risk, action paths, and the additive `control_backlog` are persisted in scan state for report, evidence, verify, and regress handoff.
 - `wrkr scan --explain` leads with control backlog review items before secondary compliance/report details.
 - Write-path classes are explicit additive fields on governance backlog items, inventory privilege-map entries, and action paths.
 - Governance control mappings are additive fields. They describe whether owner, approval, least-privilege, rotation, deployment-gate, production-classification, proof, and review-cadence evidence is satisfied, missing, or not applicable.

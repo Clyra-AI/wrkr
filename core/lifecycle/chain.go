@@ -85,7 +85,7 @@ func AppendTransitionRecord(chain *proof.Chain, transition Transition, eventType
 			"trigger":        transition.Trigger,
 			"diff":           diff,
 		},
-		Controls: proof.Controls{PermissionsEnforced: true},
+		Controls: proof.Controls{},
 	})
 	if err != nil {
 		return fmt.Errorf("build transition record: %w", err)

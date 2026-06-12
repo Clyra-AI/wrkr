@@ -223,7 +223,7 @@ func appendSignedRecord(chain *proof.Chain, key proof.SigningKey, mapped proofma
 	if chain == nil {
 		return nil, fmt.Errorf("proof chain is required")
 	}
-	controls := proof.Controls{PermissionsEnforced: true}
+	controls := proof.Controls{PermissionsEnforced: mapped.PermissionsEnforced}
 	if strings.TrimSpace(mapped.ApprovedScope) != "" {
 		controls.ApprovedScope = strings.TrimSpace(mapped.ApprovedScope)
 		withinScope := true
