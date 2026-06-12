@@ -23,6 +23,9 @@
       "type": "string",
       "enum": ["pass", "fail"]
     },
+    "policy_outcome_id": {
+      "type": "string"
+    },
     "severity": {
       "type": "string",
       "enum": ["critical", "high", "medium", "low", "info"]

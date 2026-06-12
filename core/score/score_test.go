@@ -7,6 +7,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
@@ -26,6 +27,36 @@ func TestComputeDeterministicScoreAndGrade(t *testing.T) {
 	}
 	if result.Grade == "F" {
 		t.Fatalf("unexpected grade for healthy profile: %s", result.Grade)
+	}
+	if result.PolicySignalBasis != "grouped_policy_outcomes" {
+		t.Fatalf("expected grouped policy basis, got %+v", result)
+	}
+}
+
+func TestComputeGroupsPolicyFanoutBeforeScoring(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{FindingType: "tool_detected", ToolType: "codex", Location: ".codex/config.toml", Severity: model.SeverityLow, Org: "acme"},
+		{FindingType: "policy_check", RuleID: "WRKR-010", CheckResult: model.CheckResultFail, PolicyOutcomeID: "policy-a", Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-010", Org: "acme", Repo: "repo-a"},
+		{FindingType: "policy_violation", RuleID: "WRKR-010", CheckResult: model.CheckResultFail, PolicyOutcomeID: "policy-a", Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-010", Org: "acme", Repo: "repo-a"},
+		{FindingType: "policy_check", RuleID: "WRKR-010", CheckResult: model.CheckResultFail, PolicyOutcomeID: "policy-a", Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-010", Org: "acme", Repo: "repo-b"},
+		{FindingType: "policy_violation", RuleID: "WRKR-010", CheckResult: model.CheckResultFail, PolicyOutcomeID: "policy-a", Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-010", Org: "acme", Repo: "repo-b"},
+	}
+
+	result := Compute(Input{
+		Findings:       findings,
+		PolicyOutcomes: outputsignal.BuildPolicyOutcomes(findings),
+		Identities:     []manifest.IdentityRecord{{Present: true, ApprovalState: "valid"}},
+		ProfileResult:  profileeval.Result{CompliancePercent: 90},
+		Weights:        scoremodel.DefaultWeights(),
+	})
+
+	if result.Breakdown.PolicyPassRate != 0 {
+		t.Fatalf("expected grouped failing policy outcome to yield 0 pass rate, got %+v", result.Breakdown)
+	}
+	if result.Breakdown.SeverityDistribution != 60 {
+		t.Fatalf("expected grouped severity distribution of 60.00, got %+v", result.Breakdown)
 	}
 }
 

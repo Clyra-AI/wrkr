@@ -69,7 +69,7 @@ export, and drift artifacts when those stages ran successfully.
 
 State, lifecycle, proof-chain, and proof-attestation files are local assessment artifacts. Share only the explicitly redacted report or evidence artifacts that match your intended audience.
 
-Expected JSON keys: `status`, `output_dir`, `manifest_path`, `stages`, and `artifacts`. When `--baseline` is supplied, `stages.regress` now also carries additive `comparison_status` and `drift_category_count` fields so recurring assessment automation can tell the difference between actionable drift, unavailable baseline comparison data, and clean re-runs.
+Expected JSON keys: `status`, `output_dir`, `manifest_path`, `stages`, and `artifacts`. The JSON stdout remains a bounded stage/artifact handoff; full assessment detail is written to the output directory artifacts through the same streaming JSON file-sink path used by scan/report/evidence. When `--baseline` is supplied, `stages.regress` now also carries additive `comparison_status` and `drift_category_count` fields so recurring assessment automation can tell the difference between actionable drift, unavailable baseline comparison data, and clean re-runs.
 
 ## Output layout
 

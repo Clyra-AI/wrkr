@@ -152,6 +152,13 @@
     },
     "recent_pr_review": {
       "$ref": "#/$defs/recentPRReview"
+    },
+    "policy_outcomes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/policyOutcome"}
+    },
+    "suppressed_counts": {
+      "$ref": "#/$defs/suppressedCounts"
     }
   },
   "$defs": {
@@ -223,6 +230,47 @@
           "enum": ["internal_only", "shareable"],
           "description": "Explicit internal output is marked internal_only; default/shareable profiles are marked shareable."
         }
+      },
+      "additionalProperties": false
+    },
+    "policyOutcome": {
+      "type": "object",
+      "required": ["outcome_id", "rule_id", "check_result", "occurrence_count", "affected_repo_count"],
+      "properties": {
+        "outcome_id": {"type": "string"},
+        "rule_id": {"type": "string"},
+        "check_result": {"type": "string", "enum": ["pass", "fail"]},
+        "severity": {"type": "string"},
+        "occurrence_count": {"type": "integer", "minimum": 0},
+        "affected_repo_count": {"type": "integer", "minimum": 0},
+        "top_repo_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "suppressed_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "suppressedCounts": {
+      "type": "object",
+      "properties": {
+        "findings": {"type": "integer", "minimum": 0},
+        "ranked_findings": {"type": "integer", "minimum": 0},
+        "attack_paths": {"type": "integer", "minimum": 0},
+        "action_paths": {"type": "integer", "minimum": 0},
+        "control_backlog": {"type": "integer", "minimum": 0},
+        "inventory_agents": {"type": "integer", "minimum": 0},
+        "inventory_tools": {"type": "integer", "minimum": 0},
+        "privilege_rows": {"type": "integer", "minimum": 0},
+        "graph_nodes": {"type": "integer", "minimum": 0},
+        "graph_edges": {"type": "integer", "minimum": 0},
+        "workflow_chains": {"type": "integer", "minimum": 0},
+        "repo_exposure_summaries": {"type": "integer", "minimum": 0},
+        "exposure_groups": {"type": "integer", "minimum": 0},
+        "agent_action_bom": {"type": "integer", "minimum": 0},
+        "markdown_lines": {"type": "integer", "minimum": 0},
+        "control_evidence": {"type": "integer", "minimum": 0},
+        "report_artifacts": {"type": "integer", "minimum": 0}
       },
       "additionalProperties": false
     },

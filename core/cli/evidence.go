@@ -5,12 +5,19 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/evidence"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	"github.com/Clyra-AI/wrkr/core/state"
+)
+
+const (
+	evidenceJSONInlineControlEvidenceCap = 25
+	evidenceJSONInlineReportArtifactsCap = 12
 )
 
 func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -57,6 +64,8 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
 
 	if *jsonOut {
+		controlEvidence, controlEvidenceOverflow := outputsignal.CapSlice(result.ControlEvidence, evidenceJSONInlineControlEvidenceCap)
+		reportArtifacts, reportArtifactsOverflow := outputsignal.CapSlice(result.ReportArtifacts, evidenceJSONInlineReportArtifactsCap)
 		payload := map[string]any{
 			"status":                 "ok",
 			"deployment_mode":        result.DeploymentMode,
@@ -66,13 +75,23 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 			"artifact_manifest_path": result.ArtifactManifestPath,
 			"chain_path":             result.ChainPath,
 			"framework_coverage":     result.FrameworkCoverage,
-			"control_evidence":       result.ControlEvidence,
+			"control_evidence":       controlEvidence,
 			"coverage_note":          result.CoverageNote,
-			"report_artifacts":       result.ReportArtifacts,
+			"report_artifacts":       reportArtifacts,
 			"source_privacy":         result.SourcePrivacy,
 			"agent_action_bom":       result.AgentActionBOM,
 			"governed_usage_metrics": result.GovernedUsageMetrics,
 			"next_steps":             evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
+		}
+		if suppressed := outputsignal.MergeSuppressedCounts(&outputsignal.SuppressedCounts{
+			ControlEvidence: controlEvidenceOverflow,
+			ReportArtifacts: reportArtifactsOverflow,
+		}); suppressed != nil {
+			payload["suppressed_counts"] = suppressed
+			payload["artifact_paths"] = map[string]any{
+				"state":                 resolvedStatePath,
+				"control_evidence_json": filepath.Join(result.OutputDir, "control-evidence.json"),
+			}
 		}
 		if result.RuntimeEvidence != nil {
 			payload["runtime_evidence"] = result.RuntimeEvidence

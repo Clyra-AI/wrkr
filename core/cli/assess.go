@@ -18,6 +18,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 type assessStageStatus struct {
@@ -588,12 +589,14 @@ func writeAssessJSON(path string, payload any) error {
 	if err != nil {
 		return fmt.Errorf("resolve artifact %s: %w", path, err)
 	}
-	encoded, err := json.MarshalIndent(payload, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal artifact %s: %w", path, err)
-	}
-	encoded = append(encoded, '\n')
-	if err := os.WriteFile(resolvedPath, encoded, 0o600); err != nil {
+	if err := atomicwrite.WriteFileFunc(resolvedPath, 0o600, func(w io.Writer) error {
+		encoder := json.NewEncoder(w)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(payload); err != nil {
+			return fmt.Errorf("marshal artifact %s: %w", path, err)
+		}
+		return nil
+	}); err != nil {
 		return fmt.Errorf("write artifact %s: %w", resolvedPath, err)
 	}
 	return nil

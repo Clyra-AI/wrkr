@@ -11,6 +11,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
@@ -73,6 +74,79 @@ func TestStateIntegrationRoundTrip(t *testing.T) {
 	}
 	if string(first) != string(second) {
 		t.Fatalf("state file must be byte-stable\nfirst: %s\nsecond: %s", first, second)
+	}
+}
+
+func TestSaveAddsPolicyOutcomesAndSuppressedCounts(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "state.json")
+
+	actionPaths := make([]risk.ActionPath, 0, maxSavedActionPaths+2)
+	ranked := make([]risk.ScoredFinding, 0, maxSavedRankedFindings+2)
+	backlogItems := make([]controlbacklog.Item, 0, maxSavedBacklogItems+2)
+	for idx := 0; idx < maxSavedActionPaths+2; idx++ {
+		actionPaths = append(actionPaths, risk.ActionPath{
+			PathID:            "apc-" + string(rune('a'+(idx%26))),
+			Org:               "acme",
+			Repo:              "repo",
+			ToolType:          "codex",
+			RecommendedAction: "review",
+		})
+		backlogItems = append(backlogItems, controlbacklog.Item{
+			ID:                 "cb-" + string(rune('a'+(idx%26))),
+			Repo:               "repo",
+			Path:               ".github/workflows/release.yml",
+			ControlSurfaceType: "workflow",
+		})
+	}
+	for idx := 0; idx < maxSavedRankedFindings+2; idx++ {
+		ranked = append(ranked, risk.ScoredFinding{
+			CanonicalKey: "finding-" + string(rune('a'+(idx%26))),
+			Score:        float64(idx),
+		})
+	}
+
+	snapshot := Snapshot{
+		Target: source.Target{Mode: "repo", Value: "acme/repo"},
+		Findings: []source.Finding{
+			{FindingType: "policy_check", RuleID: "WRKR-001", CheckResult: model.CheckResultFail, Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-001", Org: "acme", Repo: "repo-a"},
+			{FindingType: "policy_violation", RuleID: "WRKR-001", CheckResult: model.CheckResultFail, Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-001", Org: "acme", Repo: "repo-a"},
+			{FindingType: "policy_check", RuleID: "WRKR-001", CheckResult: model.CheckResultFail, Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-001", Org: "acme", Repo: "repo-b"},
+			{FindingType: "policy_violation", RuleID: "WRKR-001", CheckResult: model.CheckResultFail, Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-001", Org: "acme", Repo: "repo-b"},
+		},
+		RiskReport: &risk.Report{
+			Ranked:      ranked,
+			ActionPaths: actionPaths,
+		},
+		ControlBacklog: &controlbacklog.Backlog{
+			Items: backlogItems,
+		},
+	}
+
+	if err := Save(path, snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load snapshot: %v", err)
+	}
+	if len(loaded.PolicyOutcomes) != 1 {
+		t.Fatalf("expected grouped policy outcomes to persist, got %+v", loaded.PolicyOutcomes)
+	}
+	if loaded.SuppressedCounts == nil || loaded.SuppressedCounts.ActionPaths <= 0 || loaded.SuppressedCounts.RankedFindings <= 0 || loaded.SuppressedCounts.ControlBacklog <= 0 {
+		t.Fatalf("expected saved suppressed counts, got %+v", loaded.SuppressedCounts)
+	}
+	if got := len(loaded.RiskReport.ActionPaths); got != maxSavedActionPaths {
+		t.Fatalf("expected capped action paths %d, got %d", maxSavedActionPaths, got)
+	}
+	if got := len(loaded.RiskReport.Ranked); got != maxSavedRankedFindings {
+		t.Fatalf("expected capped ranked findings %d, got %d", maxSavedRankedFindings, got)
+	}
+	if got := len(loaded.ControlBacklog.Items); got != maxSavedBacklogItems {
+		t.Fatalf("expected capped backlog items %d, got %d", maxSavedBacklogItems, got)
 	}
 }
 

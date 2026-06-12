@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/regress"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/state"
+	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
 )
 
 type reportArtifactOptions struct {
@@ -147,12 +149,11 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 		summary.ArtifactMetadata = reportcore.BuildArtifactMetadata(summary, []string{opts.StatePath}, reportcore.ArtifactVariantInternal, pairID, privateJoinMapPath)
 		pairedSummary.ArtifactMetadata = reportcore.BuildArtifactMetadata(pairedSummary, []string{opts.StatePath}, reportcore.ArtifactVariantCustomerRedacted, pairID, privateJoinMapPath)
 		joinMap := reportcore.BuildPrivateJoinMap(summary, pairedSummary, pairID)
-		payload, marshalErr := json.MarshalIndent(joinMap, "", "  ")
-		if marshalErr != nil {
-			return reportArtifactResult{}, marshalErr
-		}
-		payload = append(payload, '\n')
-		if writeErr := os.WriteFile(privateJoinMapPath, payload, 0o600); writeErr != nil {
+		if writeErr := atomicwrite.WriteFileFunc(privateJoinMapPath, 0o600, func(w io.Writer) error {
+			encoder := json.NewEncoder(w)
+			encoder.SetIndent("", "  ")
+			return encoder.Encode(joinMap)
+		}); writeErr != nil {
 			return reportArtifactResult{}, writeErr
 		}
 	}
@@ -219,11 +220,21 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 
 	evidenceJSONPath := ""
 	if opts.WriteEvidenceJSON {
-		path, writeErr := writePaired("evidence_json", opts.EvidenceJSONPath, reportcore.RenderEvidenceBundleJSON, summary, pairedSummary)
-		if writeErr != nil {
+		path, pathErr := resolveArtifactOutputPath(opts.EvidenceJSONPath)
+		if pathErr != nil {
+			return reportArtifactResult{}, artifactPathError{err: pathErr}
+		}
+		if writeErr := reportcore.WriteEvidenceBundleJSON(path, summary); writeErr != nil {
 			return reportArtifactResult{}, writeErr
 		}
 		evidenceJSONPath = path
+		if hasPairedSummary {
+			externalPath := reportcore.PairedArtifactPath(path, strings.ReplaceAll(string(opts.PairedShareProfile), " ", "-"))
+			if writeErr := reportcore.WriteEvidenceBundleJSON(externalPath, pairedSummary); writeErr != nil {
+				return reportArtifactResult{}, writeErr
+			}
+			pairedPaths["evidence_json_"+strings.ReplaceAll(string(opts.PairedShareProfile), "-", "_")] = externalPath
+		}
 	}
 
 	backlogCSVPath := ""

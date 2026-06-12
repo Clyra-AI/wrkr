@@ -1,6 +1,8 @@
 package atomicwrite
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -138,5 +140,39 @@ func TestWriteFileResolvesRelativeTargetFromRealSymlinkParent(t *testing.T) {
 	}
 	if string(wrongGot) != "untouched\n" {
 		t.Fatalf("unexpected write to lexical parent target: %q", string(wrongGot))
+	}
+}
+
+func TestWriteFileFuncPreservesSymlinkAndUpdatesTarget(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	targetPath := filepath.Join(root, "target.json")
+	if err := os.WriteFile(targetPath, []byte("old\n"), 0o600); err != nil {
+		t.Fatalf("seed target file: %v", err)
+	}
+
+	linkPath := filepath.Join(root, "target-link.json")
+	relativeTarget, err := filepath.Rel(filepath.Dir(linkPath), targetPath)
+	if err != nil {
+		t.Fatalf("relative target: %v", err)
+	}
+	if err := os.Symlink(relativeTarget, linkPath); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	if err := WriteFileFunc(linkPath, 0o600, func(w io.Writer) error {
+		_, err := fmt.Fprintln(w, `{"streamed":true}`)
+		return err
+	}); err != nil {
+		t.Fatalf("write through symlink: %v", err)
+	}
+
+	got, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("read target file: %v", err)
+	}
+	if string(got) != "{\"streamed\":true}\n" {
+		t.Fatalf("unexpected target content: %q", string(got))
 	}
 }

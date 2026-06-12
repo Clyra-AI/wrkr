@@ -9,6 +9,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
@@ -34,6 +35,7 @@ type WeightedBreakdown struct {
 type Result struct {
 	Score             float64            `json:"score"`
 	Grade             string             `json:"grade"`
+	PolicySignalBasis string             `json:"policy_signal_basis,omitempty"`
 	Breakdown         Breakdown          `json:"breakdown"`
 	WeightedBreakdown WeightedBreakdown  `json:"weighted_breakdown"`
 	Weights           scoremodel.Weights `json:"weights"`
@@ -42,6 +44,7 @@ type Result struct {
 
 type Input struct {
 	Findings        []model.Finding
+	PolicyOutcomes  []outputsignal.PolicyOutcome
 	Identities      []manifest.IdentityRecord
 	ProfileResult   profileeval.Result
 	TransitionCount int
@@ -63,7 +66,7 @@ func Compute(in Input) Result {
 	}
 
 	breakdown := Breakdown{
-		PolicyPassRate:       policyPassRate(in.Findings),
+		PolicyPassRate:       policyPassRate(in.Findings, in.PolicyOutcomes),
 		ApprovalCoverage:     approvalCoverage(in.Identities),
 		SeverityDistribution: severityDistribution(in.Findings),
 		ProfileCompliance:    in.ProfileResult.CompliancePercent,
@@ -85,6 +88,7 @@ func Compute(in Input) Result {
 	return Result{
 		Score:             total,
 		Grade:             scoremodel.Grade(total),
+		PolicySignalBasis: policySignalBasis(in.Findings, in.PolicyOutcomes),
 		Breakdown:         breakdown,
 		WeightedBreakdown: weighted,
 		Weights:           weights,
@@ -273,15 +277,14 @@ func parseWeight(value any) (float64, error) {
 	}
 }
 
-func policyPassRate(findings []model.Finding) float64 {
-	total := 0
+func policyPassRate(findings []model.Finding, outcomes []outputsignal.PolicyOutcome) float64 {
+	if len(outcomes) == 0 {
+		outcomes = outputsignal.BuildPolicyOutcomes(findings)
+	}
+	total := len(outcomes)
 	pass := 0
-	for _, finding := range findings {
-		if finding.FindingType != "policy_check" {
-			continue
-		}
-		total++
-		if strings.EqualFold(finding.CheckResult, model.CheckResultPass) {
+	for _, outcome := range outcomes {
+		if strings.EqualFold(outcome.CheckResult, model.CheckResultPass) {
 			pass++
 		}
 	}
@@ -310,11 +313,12 @@ func approvalCoverage(identities []manifest.IdentityRecord) float64 {
 }
 
 func severityDistribution(findings []model.Finding) float64 {
-	if len(findings) == 0 {
+	normalized := outputsignal.CompactFindingsForSeverity(findings)
+	if len(normalized) == 0 {
 		return 100
 	}
 	penalty := 0.0
-	for _, finding := range findings {
+	for _, finding := range normalized {
 		switch finding.Severity {
 		case model.SeverityCritical:
 			penalty += 1.0
@@ -326,11 +330,23 @@ func severityDistribution(findings []model.Finding) float64 {
 			penalty += 0.1
 		}
 	}
-	raw := 100 - (penalty / float64(len(findings)) * 100)
+	raw := 100 - (penalty / float64(len(normalized)) * 100)
 	if raw < 0 {
 		raw = 0
 	}
 	return round2(raw)
+}
+
+func policySignalBasis(findings []model.Finding, outcomes []outputsignal.PolicyOutcome) string {
+	if len(outcomes) > 0 {
+		return "grouped_policy_outcomes"
+	}
+	for _, finding := range findings {
+		if finding.FindingType == "policy_check" || finding.FindingType == "policy_violation" {
+			return "grouped_policy_outcomes"
+		}
+	}
+	return "raw_findings"
 }
 
 func driftScore(transitionCount, identityCount int) float64 {

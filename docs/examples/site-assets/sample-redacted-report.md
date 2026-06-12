@@ -171,7 +171,7 @@
 
 ## CISO control backlog summary (headline_posture)
 
-- posture score 56.62 (F)
+- posture score 51.98 (F)
 - profile status fail at 43.75%
 - tools=20 write_capable=3 credential_access=1 exec_capable=5
 - bundled framework mappings stay available; profile compliance reflects only controls evidenced in the current deterministic scan state
@@ -264,7 +264,7 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=190
 
 - risk score trend current=10.00 delta=0.00 (no previous reference)
 - profile compliance delta current=43.75 delta=0.00 (no previous reference)
-- posture score trend delta current=56.62 delta=0.00 (no previous reference)
+- posture score trend delta current=51.98 delta=0.00 (no previous reference)
 
 Impact: change deltas remain within expected deterministic variance
 Action: continue baseline comparison on every governance scan cadence

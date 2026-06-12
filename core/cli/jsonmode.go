@@ -60,19 +60,15 @@ func (s jsonOutputSink) writePayload(payload any) error {
 		return nil
 	}
 
-	encoded, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal json payload: %w", err)
-	}
-	encoded = append(encoded, '\n')
-
 	if s.writeStdout {
-		if _, err := s.stdout.Write(encoded); err != nil {
+		if err := json.NewEncoder(s.stdout).Encode(payload); err != nil {
 			return fmt.Errorf("write json payload stdout: %w", err)
 		}
 	}
 	if strings.TrimSpace(s.outputPath) != "" {
-		if err := atomicwrite.WriteFile(s.outputPath, encoded, 0o600); err != nil {
+		if err := atomicwrite.WriteFileFunc(s.outputPath, 0o600, func(w io.Writer) error {
+			return json.NewEncoder(w).Encode(payload)
+		}); err != nil {
 			return fmt.Errorf("write json payload %s: %w", s.outputPath, err)
 		}
 	}

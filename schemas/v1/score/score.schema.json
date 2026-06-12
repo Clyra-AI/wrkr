@@ -7,6 +7,7 @@
   "properties": {
     "score": {"type": "number"},
     "grade": {"type": "string", "enum": ["A", "B", "C", "D", "F"]},
+    "policy_signal_basis": {"type": "string", "enum": ["raw_findings", "grouped_policy_outcomes"]},
     "breakdown": {"type": "object"},
     "weighted_breakdown": {"type": "object"},
     "weights": {"type": "object"},
