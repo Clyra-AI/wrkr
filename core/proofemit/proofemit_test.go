@@ -88,6 +88,9 @@ func TestEmitScanProducesSignedRecords(t *testing.T) {
 		if record.Relationship == nil {
 			t.Fatalf("expected relationship envelope for %s", record.RecordID)
 		}
+		if record.Controls.PermissionsEnforced {
+			t.Fatalf("static scan proof record %s must not claim permissions_enforced", record.RecordID)
+		}
 	}
 	foundDecisionTrace := false
 	for _, record := range chain.Records {
@@ -154,6 +157,9 @@ func TestEmitIdentityTransitionAddsApprovalRecord(t *testing.T) {
 	if record.RecordType != "approval" {
 		t.Fatalf("expected approval record type, got %s", record.RecordType)
 	}
+	if record.Controls.PermissionsEnforced {
+		t.Fatalf("static approval proof record must not claim permissions_enforced")
+	}
 	if record.Relationship == nil || len(record.Relationship.EntityRefs) == 0 {
 		t.Fatalf("expected transition relationship envelope, got %#v", record.Relationship)
 	}
@@ -186,6 +192,9 @@ func TestEmitIdentityTransitionAddsLifecycleTransitionRecord(t *testing.T) {
 	record := chain.Records[0]
 	if record.RecordType != "lifecycle_transition" {
 		t.Fatalf("expected lifecycle_transition record type, got %s", record.RecordType)
+	}
+	if record.Controls.PermissionsEnforced {
+		t.Fatalf("static lifecycle proof record must not claim permissions_enforced")
 	}
 	if got := record.Event["event_type"]; got != "lifecycle_transition" {
 		t.Fatalf("expected event_type lifecycle_transition, got %v", got)

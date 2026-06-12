@@ -803,21 +803,74 @@ func scanStatePath(args []string) string {
 
 func mergeHydratedScanPayload(payload map[string]any, statePayload map[string]any) {
 	for _, key := range []string{"findings", "inventory", "control_backlog", "scan_quality", "scan_mode", "profile", "posture_score", "source_privacy"} {
-		if _, ok := payload[key]; !ok {
+		if shouldHydrateScanPayloadKey(payload, key) {
 			if value, exists := statePayload[key]; exists {
 				payload[key] = value
 			}
 		}
 	}
+	if shouldHydrateScanPayloadKey(payload, "agent_privilege_map") {
+		if inventory, ok := statePayload["inventory"].(map[string]any); ok {
+			if value, exists := inventory["agent_privilege_map"]; exists {
+				payload["agent_privilege_map"] = value
+			}
+		}
+	}
 	if riskReport, ok := statePayload["risk_report"].(map[string]any); ok {
 		for _, key := range []string{"ranked_findings", "top_findings", "attack_paths", "top_attack_paths", "action_paths", "action_path_to_control_first", "control_path_graph", "workflow_chains"} {
-			if _, exists := payload[key]; exists {
-				continue
-			}
-			if value, ok := riskReport[key]; ok {
+			if value, ok := riskReport[key]; ok && shouldHydrateScanPayloadKey(payload, key) {
 				payload[key] = value
 			}
 		}
+	}
+}
+
+func shouldHydrateScanPayloadKey(payload map[string]any, key string) bool {
+	if _, ok := payload[key]; !ok {
+		return true
+	}
+	switch key {
+	case "findings":
+		return suppressedCountPositive(payload, "findings")
+	case "ranked_findings":
+		return suppressedCountPositive(payload, "ranked_findings")
+	case "attack_paths", "top_attack_paths":
+		return suppressedCountPositive(payload, "attack_paths")
+	case "action_paths":
+		return suppressedCountPositive(payload, "action_paths")
+	case "control_backlog":
+		return suppressedCountPositive(payload, "control_backlog")
+	case "inventory":
+		return suppressedCountPositive(payload, "inventory_agents") ||
+			suppressedCountPositive(payload, "inventory_tools") ||
+			suppressedCountPositive(payload, "privilege_rows")
+	case "agent_privilege_map":
+		return suppressedCountPositive(payload, "privilege_rows")
+	case "control_path_graph":
+		return suppressedCountPositive(payload, "graph_nodes") || suppressedCountPositive(payload, "graph_edges")
+	case "workflow_chains":
+		return suppressedCountPositive(payload, "workflow_chains")
+	default:
+		return false
+	}
+}
+
+func suppressedCountPositive(payload map[string]any, key string) bool {
+	counts, ok := payload["suppressed_counts"].(map[string]any)
+	if !ok {
+		return false
+	}
+	value, ok := counts[key]
+	if !ok {
+		return false
+	}
+	switch typed := value.(type) {
+	case float64:
+		return typed > 0
+	case int:
+		return typed > 0
+	default:
+		return false
 	}
 }
 

@@ -1,6 +1,7 @@
 {
   "merge_gates": {
     "required_pr_checks": [
+      "codeql-security",
       "fast-lane",
       "scan-contract",
       "wave-sequence",

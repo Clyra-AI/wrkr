@@ -31,6 +31,34 @@ jobs:
           scripts/check_branch_protection_contract.sh
           scripts/check_wave_gates.sh
 
+  codeql-security:
+    name: codeql-security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Go
+        uses: actions/setup-go@v6.3.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+
+      - name: Setup CodeQL
+        uses: github/codeql-action/init@v4.33.0
+        with:
+          languages: go
+
+      - name: Run CodeQL security scan
+        run: make codeql
+
+      - name: Upload CodeQL SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v7.0.0
+        with:
+          name: codeql-security-sarif
+          path: .tmp/codeql-results.sarif
+
   fast-lane:
     name: fast-lane
     runs-on: ubuntu-latest

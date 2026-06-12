@@ -5,7 +5,7 @@
 ```bash
 wrkr scan [--repo <owner/repo> | --org <org> | --github-org <org> | --path <dir> | --my-setup | --target <mode>:<value> ...] [--mode quick|governance|deep] [--progress auto|bar|plain|events|none] [--source-retention ephemeral|retain_for_resume|retain] [--deployment-mode local_only|customer_controlled_storage|connected_saas_metadata|managed_platform] [--allow-source-materialization] [--timeout <duration>] [--diff] [--enrich] [--baseline <path>] [--config <path>] [--state <path>] [--policy <path>] [--approved-tools <path>] [--production-targets <path>] [--production-targets-strict] [--profile baseline|standard|strict|assessment] [--github-api <url>] [--github-token <token>] [--report-md] [--report-md-path <path>] [--report-template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--report-share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--report-top <n>] [--sarif] [--sarif-path <path>] [--json] [--json-path <path>] [--resume] [--quiet] [--explain]
 
-Govern-first `action_paths` in scan JSON now carry additive policy-coverage fields (`policy_coverage_status`, `policy_refs`, `policy_missing_reasons`, `policy_confidence`), buyer-facing `control_state`, `risk_zone`, and `review_burden` fields, and optional `introduced_by` metadata derived from deterministic repo-local provenance before local git fallback when available.
+Govern-first `action_paths` in the bounded scan JSON preview and saved scan state carry additive policy-coverage fields (`policy_coverage_status`, `policy_refs`, `policy_missing_reasons`, `policy_confidence`), buyer-facing `control_state`, `risk_zone`, and `review_burden` fields, and optional `introduced_by` metadata derived from deterministic repo-local provenance before local git fallback when available.
 wrkr scan status --state <path> [--json]
 ```
 
@@ -74,7 +74,7 @@ Acquisition behavior is fail-closed by target:
 - `--state` defaults to `.wrkr/last-scan.json`, with manifest/proof artifacts written alongside it.
 - Existing `--state` files must be regular files; symlinked `--state` inputs fail closed with `unsafe_operation_blocked` (exit `8`) before any managed artifact mutation.
 - Scan-owned managed artifacts are published transactionally: state snapshot, lifecycle chain, proof chain/attestation, manifest, and any requested `--json-path`, `--report-md-path`, or `--sarif-path` sidecars commit as one generation.
-- The saved state and scan JSON retain the full deterministic findings, risk report, and action-path set. The signed proof chain keeps all canonical `scan_finding` records and bounded, top-ranked `risk_assessment` detail records plus summary posture/graph records so enterprise scans stay portable and verifiable without turning proof output into a noisy bulk export.
+- The saved state retains the full deterministic findings, inventory, risk report, action-path set, and control backlog. `scan --json` stdout is a bounded machine summary with previews and `suppressed_counts` when full-detail sections exceed the inline budget. The signed proof chain keeps all canonical `scan_finding` records and bounded, top-ranked `risk_assessment` detail records plus summary posture/graph records so enterprise scans stay portable and verifiable without turning proof output into a noisy bulk export.
 - Scan status is written as a deterministic sidecar next to `--state` and can be inspected with `wrkr scan status --state <path> --json` without rescanning.
 - Invalid scan-owned artifact paths such as `--report-md-path` and `--sarif-path` are preflight-validated before any managed artifact mutation.
 - `--json-path`, `--report-md-path`, and `--sarif-path` must stay unique from one another and from Wrkr-managed artifacts derived from `--state`; collisions fail closed with `invalid_input` (exit `6`) before any scan-managed artifact is written.
@@ -83,7 +83,7 @@ Acquisition behavior is fail-closed by target:
 
 Scan mode behavior is explicit:
 
-- `--mode governance` is the default enterprise posture. It emits the versioned `control_backlog`, keeps raw findings for compatibility, and reports generated/package-manager noise in `scan_quality`.
+- `--mode governance` is the default enterprise posture. It emits a bounded versioned `control_backlog` preview in stdout, keeps full raw findings in saved state for compatibility, and reports generated/package-manager noise in `scan_quality`.
 - `--mode quick` runs the highest-signal governance detectors for coding assistant configs, MCP, skills, CI automation, secret references, and policy files.
 - `--mode deep` runs the full detector set and marks `scan_quality.mode=deep`; `scan_quality.detectors[*]` then distinguishes clean coverage from partial, reduced, or blocked detector health instead of forcing you to infer confidence from raw findings alone.
 - Invalid mode values fail closed with `invalid_input` (exit `6`) and the normal JSON error envelope in `--json` mode.
