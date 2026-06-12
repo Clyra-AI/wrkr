@@ -8,19 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added `agentic_delivery_system_change` projection fields to govern-first action paths and Agent Action BOM items so instruction, skillpack, MCP, and tool-config edits surface as delivery-system changes with authority impact, review state, and buyer-safe reachability context.
-- [semver:minor] Added authority-aware ranking for delivery-system changes so publish, deploy, credential, and review-bypass reachability outrank bare prompt or config trivia in focused BOM workflows.
-- [semver:minor] Added bounded `decision_trace` proof records plus `decision_trace_refs` in reports and `proof-records/decision-traces.jsonl` in evidence bundles for high-impact action paths.
-- [semver:minor] Added privacy-safe `repeat_usage_signals` to report summaries and Agent Action BOM summaries using only local baseline, assess, regress, evidence, ticket-export, and action-contract artifacts.
-- [semver:minor] Added a bounded design-partner control validation workflow for before/after focused-BOM reviews using `wrkr assess`, regress baselines, and deterministic local artifacts.
-- [semver:minor] Added provider-neutral runtime, model, host, execution-environment, state-retention, agent-identity, precedent, and delivery-control context fields across ingest sidecars, govern-first paths, report summaries, and Agent Action BOM output.
-- [semver:minor] Added optional local `decision-precedents.json` lookup beside saved scan state so recurring high-impact paths can carry clearly labeled prior decision context without introducing a mutable decision database.
+- (none yet)
 
 ### Changed
 
-- [semver:minor] Changed `wrkr scan --json` to prefer a bounded stdout summary with scan-quality, grouped policy outcomes, suppression counts, and full-artifact handoff through `--state`.
-- [semver:minor] Changed first-run docs to lead with one repo-first path: scan a repo, render the focused Agent Action BOM, and review the top workflow/action path before widening scope.
-- [semver:minor] Added product governance gates for focused BOM clarity, repeat use, evidence quality, and output/noise budgets across new buyer-facing surfaces.
+- (none yet)
 
 ### Deprecated
 
@@ -32,17 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Fixed scan JSON stdout budgeting so large scans emit bounded previews with `suppressed_counts` while full findings, inventory, risk, action paths, and backlog detail remain in saved state.
-- [semver:patch] Fixed Wrkr proof emission so static scan, risk, approval, and lifecycle records no longer claim `permissions_enforced` without enforcement evidence.
-- [semver:patch] Added canonical endpoint, credential-authority, and authority-binding reference ids so govern-first paths, BOM items, graph nodes, and backlog rows can join to one deterministic per-scan store.
-- [semver:patch] Reduced Wave 1 output noise by keeping low-signal source parse failures in `scan_quality`, preserving actionable config parse failures, and surfacing grouped policy outcomes with bounded repo examples.
-- [semver:patch] Hardened share-profile redaction and progress rendering so interactive `--json` scans can show stderr liveness without corrupting stdout and shared report artifacts redact newly added grouped-path refs consistently.
-- [semver:patch] Fixed buyer-projection parity so focused BOM, backlog, graph, evidence artifacts, and markdown consume the same canonical action-path semantics.
+- (none yet)
 
 ### Security
 
-- [semver:patch] Added a merge-blocking `codeql-security` PR check wired to `make codeql` and the required-check contracts.
-- [semver:minor] Added retained-state posture handling that stores refs and digests only, rejects raw prompt/tool-result/memory payloads at ingest time, and redacts host/model/state context in share profiles by default.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -51,6 +37,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 3. Validate the prepared release changelog with `python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json` on merged `main` before or during the tag workflow.
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
+
+## [v1.7.0] - 2026-06-11
+<!-- release-semver: minor -->
+
+### Added
+
+- Added `agentic_delivery_system_change` projection fields to govern-first action paths and Agent Action BOM items so instruction, skillpack, MCP, and tool-config edits surface as delivery-system changes with authority impact, review state, and buyer-safe reachability context.
+- Added authority-aware ranking for delivery-system changes so publish, deploy, credential, and review-bypass reachability outrank bare prompt or config trivia in focused BOM workflows.
+- Added bounded `decision_trace` proof records plus `decision_trace_refs` in reports and `proof-records/decision-traces.jsonl` in evidence bundles for high-impact action paths.
+- Added privacy-safe `repeat_usage_signals` to report summaries and Agent Action BOM summaries using only local baseline, assess, regress, evidence, ticket-export, and action-contract artifacts.
+- Added a bounded design-partner control validation workflow for before/after focused-BOM reviews using `wrkr assess`, regress baselines, and deterministic local artifacts.
+- Added provider-neutral runtime, model, host, execution-environment, state-retention, agent-identity, precedent, and delivery-control context fields across ingest sidecars, govern-first paths, report summaries, and Agent Action BOM output.
+- Added optional local `decision-precedents.json` lookup beside saved scan state so recurring high-impact paths can carry clearly labeled prior decision context without introducing a mutable decision database.
+
+### Changed
+
+- Changed `wrkr scan --json` to prefer a bounded stdout summary with scan-quality, grouped policy outcomes, suppression counts, and full-artifact handoff through `--state`.
+- Changed first-run docs to lead with one repo-first path: scan a repo, render the focused Agent Action BOM, and review the top workflow/action path before widening scope.
+- Added product governance gates for focused BOM clarity, repeat use, evidence quality, and output/noise budgets across new buyer-facing surfaces.
+
+### Fixed
+
+- Fixed scan JSON stdout budgeting so large scans emit bounded previews with `suppressed_counts` while full findings, inventory, risk, action paths, and backlog detail remain in saved state.
+- Fixed Wrkr proof emission so static scan, risk, approval, and lifecycle records no longer claim `permissions_enforced` without enforcement evidence.
+- Added canonical endpoint, credential-authority, and authority-binding reference ids so govern-first paths, BOM items, graph nodes, and backlog rows can join to one deterministic per-scan store.
+- Reduced Wave 1 output noise by keeping low-signal source parse failures in `scan_quality`, preserving actionable config parse failures, and surfacing grouped policy outcomes with bounded repo examples.
+- Hardened share-profile redaction and progress rendering so interactive `--json` scans can show stderr liveness without corrupting stdout and shared report artifacts redact newly added grouped-path refs consistently.
+- Fixed buyer-projection parity so focused BOM, backlog, graph, evidence artifacts, and markdown consume the same canonical action-path semantics.
+
+### Security
+
+- Added a merge-blocking `codeql-security` PR check wired to `make codeql` and the required-check contracts.
+- Added retained-state posture handling that stores refs and digests only, rejects raw prompt/tool-result/memory payloads at ingest time, and redacts host/model/state context in share profiles by default.
 
 ## [v1.6.0] - 2026-06-05
 <!-- release-semver: minor -->
