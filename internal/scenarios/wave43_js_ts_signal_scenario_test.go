@@ -19,7 +19,7 @@ type jsTSEnterpriseReceipt struct {
 	ExpectedParseDetectors     []string            `json:"expected_parse_detectors"`
 	ExpectedGeneratedPaths     []string            `json:"expected_generated_paths"`
 	ExpectedNonGeneratedPaths  []string            `json:"expected_non_generated_paths"`
-	ExpectedExtensionMix       map[string]int      `json:"expected_extension_mix"`
+	ExpectedExtensionsPresent  []string            `json:"expected_extensions_present"`
 	ExpectedFindingTypesByRepo map[string][]string `json:"expected_finding_types_by_repo"`
 	ExpectedCleanRepos         []string            `json:"expected_clean_repos"`
 }
@@ -30,9 +30,9 @@ func TestScenarioWave43JSTSSignalReceipts(t *testing.T) {
 	reposRoot := filepath.Join(scenarioRoot, "repos")
 	receipt := loadJSTSEnterpriseReceipt(t, filepath.Join(scenarioRoot, "expected", "receipt.json"))
 
-	extCounts, pathClassification := collectJSTSEnterpriseFixtureStats(t, reposRoot)
-	if !mapsEqual(extCounts, receipt.ExpectedExtensionMix) {
-		t.Fatalf("unexpected JS-family extension mix: got %v want %v", extCounts, receipt.ExpectedExtensionMix)
+	extensionsPresent, pathClassification := collectJSTSEnterpriseFixtureStats(t, reposRoot)
+	if strings.Join(extensionsPresent, ",") != strings.Join(receipt.ExpectedExtensionsPresent, ",") {
+		t.Fatalf("unexpected JS-family extension set: got %v want %v", extensionsPresent, receipt.ExpectedExtensionsPresent)
 	}
 	for _, rel := range receipt.ExpectedGeneratedPaths {
 		got, ok := pathClassification[rel]
@@ -166,10 +166,10 @@ func loadJSTSEnterpriseReceipt(t *testing.T, path string) jsTSEnterpriseReceipt 
 	return receipt
 }
 
-func collectJSTSEnterpriseFixtureStats(t *testing.T, root string) (map[string]int, map[string]bool) {
+func collectJSTSEnterpriseFixtureStats(t *testing.T, root string) ([]string, map[string]bool) {
 	t.Helper()
 
-	extCounts := map[string]int{}
+	extensionsPresent := map[string]struct{}{}
 	pathClassification := map[string]bool{}
 	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -189,25 +189,18 @@ func collectJSTSEnterpriseFixtureStats(t *testing.T, root string) (map[string]in
 		default:
 			return nil
 		}
-		extCounts[ext]++
+		extensionsPresent[ext] = struct{}{}
 		pathClassification[rel] = detect.IsGeneratedPath(rel)
 		return nil
 	}); err != nil {
 		t.Fatalf("walk JS/TS enterprise fixture: %v", err)
 	}
-	return extCounts, pathClassification
-}
-
-func mapsEqual(left map[string]int, right map[string]int) bool {
-	if len(left) != len(right) {
-		return false
+	out := make([]string, 0, len(extensionsPresent))
+	for ext := range extensionsPresent {
+		out = append(out, ext)
 	}
-	for key, value := range left {
-		if right[key] != value {
-			return false
-		}
-	}
-	return true
+	sort.Strings(out)
+	return out, pathClassification
 }
 
 func uniqueStrings(values []string) []string {
