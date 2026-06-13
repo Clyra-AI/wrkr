@@ -18,7 +18,7 @@ func TestWave31BuyerProjectionParityAcrossConsumers(t *testing.T) {
 
 	runJSONOK(t, "scan", "--path", afterScanRoot, "--state", statePath, "--json")
 	runJSONOK(t, "ingest", "--state", statePath, "--input", runtimeEvidencePath, "--json")
-	reportPayload := runJSONOK(t, "report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--md", "--md-path", reportMDPath, "--json")
+	reportPayload := runJSONOK(t, "report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "customer-redacted", "--md", "--md-path", reportMDPath, "--json")
 	evidencePayload := runJSONOK(t, "evidence", "--frameworks", "soc2", "--state", statePath, "--output", filepath.Join(t.TempDir(), "bundle"), "--json")
 
 	reportSummary := requireObject(t, reportPayload, "summary")

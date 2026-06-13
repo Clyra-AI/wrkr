@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -156,6 +157,155 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	if len(traceLines) != 1 {
 		t.Fatalf("expected one decision trace record, got %d: %s", len(traceLines), tracePayload)
 	}
+}
+
+func TestBuildEvidenceBundleFinalizesCanonicalProjectionSidecars(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	now := time.Date(2026, 6, 13, 12, 0, 0, 0, time.UTC)
+	endpoint := agginventory.MutableEndpointSemantic{
+		Semantic:     agginventory.EndpointSemanticDeploy,
+		Confidence:   "high",
+		Surface:      "workflow",
+		Operation:    "deploy release",
+		EvidenceRefs: []string{".github/workflows/release.yml"},
+	}
+	authority := &agginventory.CredentialAuthority{
+		CredentialPresent:              true,
+		CredentialReferencedByWorkflow: true,
+		CredentialUsableByPath:         true,
+		CredentialKind:                 agginventory.CredentialKindGitHubWorkflowToken,
+		AccessType:                     agginventory.CredentialAccessTypeStanding,
+		StandingAccess:                 true,
+		TargetSystem:                   "github",
+		ScopeConfidence:                "high",
+		CredentialSource:               agginventory.CredentialSourceWorkflowBuiltin,
+		Confidence:                     "high",
+		ReasonCodes:                    []string{"workflow_token"},
+	}
+	binding := &agginventory.AuthorityBinding{
+		Kind:         agginventory.AuthorityBindingDeploymentPath,
+		Provider:     "github",
+		Subject:      "release-token",
+		TargetSystem: "github-actions",
+		AccessLevel:  agginventory.AuthorityAccessWrite,
+		Production:   true,
+		Confidence:   "high",
+		EvidenceRefs: []string{".github/workflows/release.yml"},
+	}
+	findings := []model.Finding{{
+		FindingType: "ci_autonomy",
+		Severity:    model.SeverityHigh,
+		ToolType:    "ci_agent",
+		Location:    ".github/workflows/release.yml",
+		Repo:        "payments",
+		Org:         "acme",
+	}}
+	report := risk.Score(findings, 5, now)
+	report.ActionPaths = []risk.ActionPath{risk.ProjectActionPath(risk.ActionPath{
+		PathID:                   "apc-evidence-canonical",
+		AgentID:                  "wrkr:ci-agent:acme",
+		Org:                      "acme",
+		Repo:                     "payments",
+		ToolType:                 "ci_agent",
+		Location:                 ".github/workflows/release.yml",
+		WriteCapable:             true,
+		DeployWrite:              true,
+		ProductionWrite:          true,
+		CredentialAccess:         true,
+		OperationalOwner:         "@acme/platform",
+		OwnerSource:              "customer_owner_map",
+		OwnershipStatus:          "explicit",
+		OwnershipState:           "explicit_owner",
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{endpoint},
+		CredentialAuthority:      authority,
+		AuthorityBindings:        []*agginventory.AuthorityBinding{binding},
+	})}
+	report.ActionPathToControlFirst = risk.BuildActionPathChoice(report.ActionPaths)
+	inventory := &agginventory.Inventory{
+		InventoryVersion: "v1",
+		GeneratedAt:      now.Format(time.RFC3339),
+		Org:              "acme",
+		Tools: []agginventory.Tool{{
+			ToolID:                   "tool-release",
+			AgentID:                  "wrkr:ci-agent:acme",
+			DiscoveryMethod:          "static",
+			ToolType:                 "ci_agent",
+			ToolCategory:             "ci_automation",
+			Org:                      "acme",
+			Repos:                    []string{"payments"},
+			Locations:                []agginventory.ToolLocation{{Repo: "payments", Location: ".github/workflows/release.yml", Owner: "@acme/platform"}},
+			MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{endpoint},
+		}},
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+			AgentID:                  "wrkr:ci-agent:acme",
+			ToolID:                   "tool-release",
+			ToolType:                 "ci_agent",
+			Org:                      "acme",
+			Repos:                    []string{"payments"},
+			Permissions:              []string{"contents.write"},
+			WriteCapable:             true,
+			CredentialAccess:         true,
+			MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{endpoint},
+			CredentialAuthority:      authority,
+			AuthorityBindings:        []*agginventory.AuthorityBinding{binding},
+			OperationalOwner:         "@acme/platform",
+			OwnerSource:              "customer_owner_map",
+			OwnershipStatus:          "explicit",
+			OwnershipState:           "explicit_owner",
+		}},
+	}
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
+	posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
+	snapshot := state.Snapshot{
+		Version:      state.SnapshotVersion,
+		Target:       source.Target{Mode: "repo", Value: "acme/payments"},
+		Findings:     findings,
+		Inventory:    inventory,
+		RiskReport:   &report,
+		Profile:      &profile,
+		PostureScore: &posture,
+	}
+	if err := state.Save(statePath, snapshot); err != nil {
+		t.Fatalf("save state: %v", err)
+	}
+	if _, err := proofemit.EmitScan(statePath, now, findings, inventory, report, profile, posture, nil); err != nil {
+		t.Fatalf("emit scan records: %v", err)
+	}
+
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+	result, err := Build(BuildInput{StatePath: statePath, Frameworks: []string{"soc2"}, OutputDir: outputDir, GeneratedAt: now.Add(time.Hour)})
+	if err != nil {
+		t.Fatalf("build evidence bundle: %v", err)
+	}
+	for _, relative := range []string{
+		"inventory.json",
+		"inventory-snapshot.json",
+		"risk-report.json",
+		"attack-paths.json",
+	} {
+		assertNoEmbeddedEvidenceCanonicalClonesOutsideStores(t, relative, readEvidenceJSONAny(t, filepath.Join(outputDir, relative)), nil)
+	}
+	if result.AgentActionBOM == nil {
+		t.Fatal("expected top-level evidence JSON BOM projection")
+	}
+	if result.AgentActionBOM.ShareProfile != "customer-redacted" {
+		t.Fatalf("expected top-level evidence JSON BOM to be customer-redacted, got %q", result.AgentActionBOM.ShareProfile)
+	}
+	encodedBOM, err := json.Marshal(result.AgentActionBOM)
+	if err != nil {
+		t.Fatalf("marshal result BOM: %v", err)
+	}
+	if strings.Contains(string(encodedBOM), "@acme/platform") {
+		t.Fatalf("expected top-level evidence JSON BOM to redact owner handle, got %s", encodedBOM)
+	}
+	var bomPayload any
+	if err := json.Unmarshal(encodedBOM, &bomPayload); err != nil {
+		t.Fatalf("parse result BOM: %v", err)
+	}
+	assertNoEmbeddedEvidenceCanonicalClonesOutsideStores(t, "top-level evidence JSON BOM", bomPayload, nil)
 }
 
 func TestBuildEvidenceBundleIncludesRuntimeEvidenceCorrelation(t *testing.T) {
@@ -1284,6 +1434,53 @@ func createEvidenceStateWithProof(t *testing.T, tmp string) string {
 		t.Fatalf("emit scan records: %v", err)
 	}
 	return statePath
+}
+
+func readEvidenceJSONAny(t *testing.T, path string) any {
+	t.Helper()
+
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	var parsed any
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		t.Fatalf("parse %s: %v", path, err)
+	}
+	return parsed
+}
+
+func assertNoEmbeddedEvidenceCanonicalClonesOutsideStores(t *testing.T, label string, value any, path []string) {
+	t.Helper()
+
+	pathString := strings.Join(path, ".")
+	if strings.Contains(pathString, "canonical_stores") {
+		return
+	}
+
+	switch typed := value.(type) {
+	case map[string]any:
+		if ref, ok := typed["credential_authority_ref"].(string); ok && strings.TrimSpace(ref) != "" && typed["credential_authority"] != nil {
+			t.Fatalf("expected %s to omit credential_authority at %s when credential_authority_ref is present: %+v", label, pathString, typed)
+		}
+		if refs, ok := typed["authority_binding_refs"].([]any); ok && len(refs) > 0 {
+			if bindings, ok := typed["authority_bindings"].([]any); ok && len(bindings) > 0 {
+				t.Fatalf("expected %s to omit authority_bindings at %s when authority_binding_refs are present: %+v", label, pathString, typed)
+			}
+		}
+		if refs, ok := typed["mutable_endpoint_semantic_refs"].([]any); ok && len(refs) > 0 {
+			if semantics, ok := typed["mutable_endpoint_semantics"].([]any); ok && len(semantics) > 0 {
+				t.Fatalf("expected %s to omit mutable_endpoint_semantics at %s when mutable_endpoint_semantic_refs are present: %+v", label, pathString, typed)
+			}
+		}
+		for key, nested := range typed {
+			assertNoEmbeddedEvidenceCanonicalClonesOutsideStores(t, label, nested, append(path, key))
+		}
+	case []any:
+		for idx, nested := range typed {
+			assertNoEmbeddedEvidenceCanonicalClonesOutsideStores(t, label, nested, append(path, "["+strconv.Itoa(idx)+"]"))
+		}
+	}
 }
 
 func snapshotBundleTree(t *testing.T, root string) map[string]string {

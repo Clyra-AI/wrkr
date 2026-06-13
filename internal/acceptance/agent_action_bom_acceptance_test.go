@@ -105,11 +105,16 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 		t.Fatalf("expected report/evidence runtime_evidence counts to agree, report=%v evidence=%v", reportRuntimeEvidence, evidenceRuntimeEvidence)
 	}
 	evidenceBOM := requireObject(t, evidencePayload, "agent_action_bom")
-	if !reflect.DeepEqual(requireObject(t, afterBOM, "summary"), requireObject(t, evidenceBOM, "summary")) {
-		t.Fatalf("expected report/evidence BOM summaries to agree\nreport=%v\nevidence=%v", afterBOM["summary"], evidenceBOM["summary"])
+	if evidenceBOM["share_profile"] != "customer-redacted" {
+		t.Fatalf("expected evidence BOM share profile to be customer-redacted, got %v", evidenceBOM["share_profile"])
 	}
-	if afterTopItem["proof_coverage"] != requireObjectItem(t, requireArrayFromObject(t, evidenceBOM, "items")[0])["proof_coverage"] {
-		t.Fatalf("expected report/evidence top BOM proof_coverage to agree, report=%v evidence=%v", afterTopItem["proof_coverage"], requireObjectItem(t, requireArrayFromObject(t, evidenceBOM, "items")[0])["proof_coverage"])
+	bundleRedactedBOM := loadAcceptanceJSONFile(t, filepath.Join(outputDir, "reports", "agent-action-bom-customer-redacted.json"))
+	if !reflect.DeepEqual(bundleRedactedBOM, evidenceBOM) {
+		t.Fatalf("expected evidence JSON BOM to match customer-redacted bundle artifact\nartifact=%v\nevidence=%v", bundleRedactedBOM, evidenceBOM)
+	}
+	evidenceTopItem := requireObjectItem(t, requireArrayFromObject(t, evidenceBOM, "items")[0])
+	if afterTopItem["proof_coverage"] != evidenceTopItem["proof_coverage"] {
+		t.Fatalf("expected report/evidence top BOM proof_coverage to agree, report=%v evidence=%v", afterTopItem["proof_coverage"], evidenceTopItem["proof_coverage"])
 	}
 	if _, err := os.Stat(filepath.Join(outputDir, "reports", "agent-action-bom.json")); err != nil {
 		t.Fatalf("expected BOM report artifact in evidence bundle: %v", err)
