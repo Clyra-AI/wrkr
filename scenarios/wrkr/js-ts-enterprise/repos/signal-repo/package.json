@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.0.0"
+    "@modelcontextprotocol/sdk": "1.26.0"
   },
   "scripts": {
     "mcp:serve": "node ./server/register.cjs --token ${MCP_TOKEN}"
