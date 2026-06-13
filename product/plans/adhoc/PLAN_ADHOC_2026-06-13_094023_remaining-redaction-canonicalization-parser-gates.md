@@ -424,7 +424,8 @@ Priority: P1
 Recommendation coverage: 5
 Tasks:
 - Create or update sanitized JS-heavy fixtures that model modern ESM, `.mjs`, `.cjs`, Yarn PnP, generated bundles, unsupported syntax edges, and detector-relevant high-signal files.
-- Rerun the real guardium-shaped repo set or a sanitized equivalent and record deterministic parse-failure counts, affected detectors, extension mix, generated-file share, and resulting scan-quality status.
+- Use only sanitized enterprise-shaped fixture sets in committed validation and record deterministic parse-failure counts, affected detectors, extension mix, generated-file share, and resulting scan-quality status from those fixtures.
+- If teams optionally replay a private customer-shaped repo set outside the repository for extra confidence, keep that replay out of committed artifacts, docs claims, and release receipts.
 - Assert parser-failure ceilings and verify reduced coverage is surfaced in report summaries without becoming security findings.
 - Preserve explicit receipts for before/after parser-failure volume so future customer-scale runs can be compared to a known baseline.
 - Keep all verification artifacts synthetic, reviewable, and safe to commit.
@@ -480,4 +481,3 @@ Chaos/failure hypothesis: Unsupported modern syntax and generated bundles should
   - `make test-fast`
   - `make test-contracts`
   - `go test ./internal/acceptance -count=1`
-
