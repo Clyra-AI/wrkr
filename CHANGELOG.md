@@ -28,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:patch] Added real-scan-shaped size, signal, redaction, and BOM readability regression fixtures to block artifact bloat and shareable-output leaks before release.
 - [semver:patch] Bounded persisted derived scan/report/evidence projections with explicit suppression metadata, switched large JSON artifact writes to streaming file sinks, and grouped repeated policy outcomes in saved state and score inputs so posture/readout noise no longer scales linearly with repo fanout.
+- [semver:patch] Grouped repeated policy-check and policy-violation fanout in proof emission by stable policy outcome id while preserving affected-scope metadata, reducing proof-chain size for enterprise-shaped scans without dropping non-policy finding records.
 - [semver:patch] Qualified WebMCP and MCP negative-claim posture with primary-view coverage status so parse-limited or unsupported JS/TS surfaces stay in scan-quality context instead of reading like authoritative clean negatives.
 
 ### Security
