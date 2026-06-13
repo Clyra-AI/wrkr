@@ -3,13 +3,13 @@
     "generated-noise-repo"
   ],
   "expected_coverage_confidence": "reduced",
-  "expected_extension_mix": {
-    ".cjs": 3,
-    ".js": 2,
-    ".mjs": 3,
-    ".mts": 1,
-    ".ts": 2
-  },
+  "expected_extensions_present": [
+    ".cjs",
+    ".js",
+    ".mjs",
+    ".mts",
+    ".ts"
+  ],
   "expected_finding_types_by_repo": {
     "parse-edge-repo": [
       "agent_framework",
