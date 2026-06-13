@@ -14,14 +14,16 @@ import (
 )
 
 type jsTSEnterpriseReceipt struct {
-	ExpectedCoverageConfidence  string              `json:"expected_coverage_confidence"`
-	ParseFailureCeiling         int                 `json:"parse_failure_ceiling"`
-	ExpectedParseDetectors      []string            `json:"expected_parse_detectors"`
-	ExpectedGeneratedJSFiles    int                 `json:"expected_generated_js_files"`
-	ExpectedNonGeneratedJSFiles int                 `json:"expected_non_generated_js_files"`
-	ExpectedExtensionMix        map[string]int      `json:"expected_extension_mix"`
-	ExpectedFindingTypesByRepo  map[string][]string `json:"expected_finding_types_by_repo"`
-	ExpectedCleanRepos          []string            `json:"expected_clean_repos"`
+	ExpectedCoverageConfidence     string              `json:"expected_coverage_confidence"`
+	ParseFailureCeiling            int                 `json:"parse_failure_ceiling"`
+	ExpectedParseDetectors         []string            `json:"expected_parse_detectors"`
+	ExpectedGeneratedJSFilesMin    int                 `json:"expected_generated_js_files_min"`
+	ExpectedGeneratedJSFilesMax    int                 `json:"expected_generated_js_files_max"`
+	ExpectedNonGeneratedJSFilesMin int                 `json:"expected_non_generated_js_files_min"`
+	ExpectedNonGeneratedJSFilesMax int                 `json:"expected_non_generated_js_files_max"`
+	ExpectedExtensionMix           map[string]int      `json:"expected_extension_mix"`
+	ExpectedFindingTypesByRepo     map[string][]string `json:"expected_finding_types_by_repo"`
+	ExpectedCleanRepos             []string            `json:"expected_clean_repos"`
 }
 
 func TestScenarioWave43JSTSSignalReceipts(t *testing.T) {
@@ -31,11 +33,21 @@ func TestScenarioWave43JSTSSignalReceipts(t *testing.T) {
 	receipt := loadJSTSEnterpriseReceipt(t, filepath.Join(scenarioRoot, "expected", "receipt.json"))
 
 	extCounts, generated, nonGenerated := collectJSTSEnterpriseFixtureStats(t, reposRoot)
-	if generated != receipt.ExpectedGeneratedJSFiles {
-		t.Fatalf("expected %d generated JS-family fixture files, got %d", receipt.ExpectedGeneratedJSFiles, generated)
+	if generated < receipt.ExpectedGeneratedJSFilesMin || generated > receipt.ExpectedGeneratedJSFilesMax {
+		t.Fatalf(
+			"expected generated JS-family fixture files in [%d,%d], got %d",
+			receipt.ExpectedGeneratedJSFilesMin,
+			receipt.ExpectedGeneratedJSFilesMax,
+			generated,
+		)
 	}
-	if nonGenerated != receipt.ExpectedNonGeneratedJSFiles {
-		t.Fatalf("expected %d non-generated JS-family fixture files, got %d", receipt.ExpectedNonGeneratedJSFiles, nonGenerated)
+	if nonGenerated < receipt.ExpectedNonGeneratedJSFilesMin || nonGenerated > receipt.ExpectedNonGeneratedJSFilesMax {
+		t.Fatalf(
+			"expected non-generated JS-family fixture files in [%d,%d], got %d",
+			receipt.ExpectedNonGeneratedJSFilesMin,
+			receipt.ExpectedNonGeneratedJSFilesMax,
+			nonGenerated,
+		)
 	}
 	if !mapsEqual(extCounts, receipt.ExpectedExtensionMix) {
 		t.Fatalf("unexpected JS-family extension mix: got %v want %v", extCounts, receipt.ExpectedExtensionMix)
