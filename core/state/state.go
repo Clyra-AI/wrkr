@@ -126,9 +126,7 @@ func FinalizeSnapshotForOutput(snapshot Snapshot) Snapshot {
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
 	source.SortFindings(snapshot.Findings)
-	if len(snapshot.PolicyOutcomes) == 0 {
-		snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
-	}
+	snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
 	prepareSnapshotForSave(&snapshot)
 	return snapshot
 }

@@ -266,6 +266,64 @@ func TestBuildScanJSONSummaryUsesCanonicalOutputFinalizer(t *testing.T) {
 	}
 }
 
+func TestBuildScanJSONSummaryDropsCanonicalStoresWhenSuppressedActionPathsExist(t *testing.T) {
+	t.Parallel()
+
+	authority := &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		StandingAccess:         true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+	}
+	semantics := []agginventory.MutableEndpointSemantic{{
+		Semantic:   agginventory.EndpointSemanticDeploy,
+		Confidence: "high",
+		Surface:    "workflow",
+		Operation:  "deploy release",
+	}}
+
+	paths := make([]risk.ActionPath, 0, scanSummaryInlineActionPathsCap+2)
+	for idx := 0; idx < scanSummaryInlineActionPathsCap+2; idx++ {
+		paths = append(paths, risk.ActionPath{
+			PathID:                      fmt.Sprintf("apc-%02d", idx),
+			Org:                         "acme",
+			Repo:                        "acme/release",
+			ToolType:                    "compiled_action",
+			MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+			MutableEndpointSemantics:    semantics,
+			CredentialAuthorityRef:      agginventory.CanonicalCredentialAuthorityRef(authority),
+			CredentialAuthority:         authority,
+			RecommendedAction:           "control",
+		})
+	}
+
+	payload := buildScanJSONSummary(scanJSONSummaryInput{
+		StatePath: ".wrkr/last-scan.json",
+		Manifest:  source.Manifest{Target: source.Target{Mode: "repo", Value: "acme/release"}},
+		Inventory: agginventory.Inventory{
+			InventoryVersion: "1",
+			Tools: []agginventory.Tool{{
+				ToolID:   "tool-1",
+				ToolType: "compiled_action",
+				Org:      "acme",
+				Repos:    []string{"acme/release"},
+			}},
+		},
+		RiskReport: risk.Report{
+			ActionPaths: paths,
+		},
+	})
+
+	inventory, ok := payload["inventory"].(agginventory.Inventory)
+	if !ok {
+		t.Fatalf("expected inventory payload, got %T", payload["inventory"])
+	}
+	if inventory.CanonicalStores != nil {
+		t.Fatalf("expected canonical stores to be omitted when action paths are suppressed, got %+v", inventory.CanonicalStores)
+	}
+}
+
 func makeScanSummaryFindings(count int) []source.Finding {
 	findings := make([]source.Finding, 0, count)
 	for idx := 0; idx < count; idx++ {

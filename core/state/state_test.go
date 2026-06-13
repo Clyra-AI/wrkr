@@ -12,6 +12,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	"github.com/Clyra-AI/wrkr/core/score"
@@ -147,6 +148,44 @@ func TestSaveAddsPolicyOutcomesAndSuppressedCounts(t *testing.T) {
 	}
 	if got := len(loaded.ControlBacklog.Items); got != maxSavedBacklogItems {
 		t.Fatalf("expected capped backlog items %d, got %d", maxSavedBacklogItems, got)
+	}
+}
+
+func TestSaveRebuildsPolicyOutcomesFromCurrentFindings(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "state.json")
+
+	snapshot := Snapshot{
+		Target: source.Target{Mode: "repo", Value: "acme/repo"},
+		Findings: []source.Finding{
+			{FindingType: "policy_check", RuleID: "WRKR-NEW", CheckResult: model.CheckResultFail, Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-NEW", Org: "acme", Repo: "repo-a"},
+			{FindingType: "policy_violation", RuleID: "WRKR-NEW", CheckResult: model.CheckResultFail, Severity: model.SeverityHigh, ToolType: "policy", Location: "WRKR-NEW", Org: "acme", Repo: "repo-a"},
+		},
+		PolicyOutcomes: []outputsignal.PolicyOutcome{{
+			OutcomeID:         "stale-outcome",
+			RuleID:            "WRKR-OLD",
+			CheckResult:       model.CheckResultFail,
+			Severity:          model.SeverityHigh,
+			OccurrenceCount:   99,
+			AffectedRepoCount: 1,
+		}},
+	}
+
+	if err := Save(path, snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load snapshot: %v", err)
+	}
+	if len(loaded.PolicyOutcomes) != 1 {
+		t.Fatalf("expected one rebuilt policy outcome, got %+v", loaded.PolicyOutcomes)
+	}
+	if loaded.PolicyOutcomes[0].RuleID != "WRKR-NEW" {
+		t.Fatalf("expected policy outcomes rebuilt from current findings, got %+v", loaded.PolicyOutcomes)
 	}
 }
 
