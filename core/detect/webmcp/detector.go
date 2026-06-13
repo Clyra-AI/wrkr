@@ -254,15 +254,6 @@ func parseHTMLDeclarations(root, rel string) ([]string, *model.ParseError) {
 	return sortedSet(set), nil
 }
 
-func parseJSDeclarations(root, rel string) ([]string, *model.ParseError) {
-	payload, readErr := detect.ReadFileWithinRoot(detectorID, root, rel)
-	if readErr != nil {
-		readErr.Format = "javascript"
-		return nil, readErr
-	}
-	return parseJSDeclarationsBytes(rel, payload)
-}
-
 func parseJSDeclarationsBytes(rel string, payload []byte) ([]string, *model.ParseError) {
 	program, err := parser.ParseFile(nil, rel, payload, 0)
 	if err != nil {
