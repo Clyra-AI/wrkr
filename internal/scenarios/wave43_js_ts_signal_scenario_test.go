@@ -14,16 +14,14 @@ import (
 )
 
 type jsTSEnterpriseReceipt struct {
-	ExpectedCoverageConfidence     string              `json:"expected_coverage_confidence"`
-	ParseFailureCeiling            int                 `json:"parse_failure_ceiling"`
-	ExpectedParseDetectors         []string            `json:"expected_parse_detectors"`
-	ExpectedGeneratedJSFilesMin    int                 `json:"expected_generated_js_files_min"`
-	ExpectedGeneratedJSFilesMax    int                 `json:"expected_generated_js_files_max"`
-	ExpectedNonGeneratedJSFilesMin int                 `json:"expected_non_generated_js_files_min"`
-	ExpectedNonGeneratedJSFilesMax int                 `json:"expected_non_generated_js_files_max"`
-	ExpectedExtensionMix           map[string]int      `json:"expected_extension_mix"`
-	ExpectedFindingTypesByRepo     map[string][]string `json:"expected_finding_types_by_repo"`
-	ExpectedCleanRepos             []string            `json:"expected_clean_repos"`
+	ExpectedCoverageConfidence string              `json:"expected_coverage_confidence"`
+	ParseFailureCeiling        int                 `json:"parse_failure_ceiling"`
+	ExpectedParseDetectors     []string            `json:"expected_parse_detectors"`
+	ExpectedGeneratedPaths     []string            `json:"expected_generated_paths"`
+	ExpectedNonGeneratedPaths  []string            `json:"expected_non_generated_paths"`
+	ExpectedExtensionMix       map[string]int      `json:"expected_extension_mix"`
+	ExpectedFindingTypesByRepo map[string][]string `json:"expected_finding_types_by_repo"`
+	ExpectedCleanRepos         []string            `json:"expected_clean_repos"`
 }
 
 func TestScenarioWave43JSTSSignalReceipts(t *testing.T) {
@@ -32,25 +30,27 @@ func TestScenarioWave43JSTSSignalReceipts(t *testing.T) {
 	reposRoot := filepath.Join(scenarioRoot, "repos")
 	receipt := loadJSTSEnterpriseReceipt(t, filepath.Join(scenarioRoot, "expected", "receipt.json"))
 
-	extCounts, generated, nonGenerated := collectJSTSEnterpriseFixtureStats(t, reposRoot)
-	if generated < receipt.ExpectedGeneratedJSFilesMin || generated > receipt.ExpectedGeneratedJSFilesMax {
-		t.Fatalf(
-			"expected generated JS-family fixture files in [%d,%d], got %d",
-			receipt.ExpectedGeneratedJSFilesMin,
-			receipt.ExpectedGeneratedJSFilesMax,
-			generated,
-		)
-	}
-	if nonGenerated < receipt.ExpectedNonGeneratedJSFilesMin || nonGenerated > receipt.ExpectedNonGeneratedJSFilesMax {
-		t.Fatalf(
-			"expected non-generated JS-family fixture files in [%d,%d], got %d",
-			receipt.ExpectedNonGeneratedJSFilesMin,
-			receipt.ExpectedNonGeneratedJSFilesMax,
-			nonGenerated,
-		)
-	}
+	extCounts, pathClassification := collectJSTSEnterpriseFixtureStats(t, reposRoot)
 	if !mapsEqual(extCounts, receipt.ExpectedExtensionMix) {
 		t.Fatalf("unexpected JS-family extension mix: got %v want %v", extCounts, receipt.ExpectedExtensionMix)
+	}
+	for _, rel := range receipt.ExpectedGeneratedPaths {
+		got, ok := pathClassification[rel]
+		if !ok {
+			t.Fatalf("expected generated fixture path %q to exist in JS/TS enterprise receipt", rel)
+		}
+		if !got {
+			t.Fatalf("expected generated fixture path %q to stay classified as generated", rel)
+		}
+	}
+	for _, rel := range receipt.ExpectedNonGeneratedPaths {
+		got, ok := pathClassification[rel]
+		if !ok {
+			t.Fatalf("expected non-generated fixture path %q to exist in JS/TS enterprise receipt", rel)
+		}
+		if got {
+			t.Fatalf("expected non-generated fixture path %q to stay classified as source", rel)
+		}
 	}
 
 	statePath := filepath.Join(t.TempDir(), "state.json")
@@ -166,12 +166,11 @@ func loadJSTSEnterpriseReceipt(t *testing.T, path string) jsTSEnterpriseReceipt 
 	return receipt
 }
 
-func collectJSTSEnterpriseFixtureStats(t *testing.T, root string) (map[string]int, int, int) {
+func collectJSTSEnterpriseFixtureStats(t *testing.T, root string) (map[string]int, map[string]bool) {
 	t.Helper()
 
 	extCounts := map[string]int{}
-	generated := 0
-	nonGenerated := 0
+	pathClassification := map[string]bool{}
 	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -191,16 +190,12 @@ func collectJSTSEnterpriseFixtureStats(t *testing.T, root string) (map[string]in
 			return nil
 		}
 		extCounts[ext]++
-		if detect.IsGeneratedPath(rel) {
-			generated++
-		} else {
-			nonGenerated++
-		}
+		pathClassification[rel] = detect.IsGeneratedPath(rel)
 		return nil
 	}); err != nil {
 		t.Fatalf("walk JS/TS enterprise fixture: %v", err)
 	}
-	return extCounts, generated, nonGenerated
+	return extCounts, pathClassification
 }
 
 func mapsEqual(left map[string]int, right map[string]int) bool {

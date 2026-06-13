@@ -28,10 +28,21 @@
       "webmcp_declaration"
     ]
   },
-  "expected_generated_js_files_min": 3,
-  "expected_generated_js_files_max": 4,
-  "expected_non_generated_js_files_min": 7,
-  "expected_non_generated_js_files_max": 8,
+  "expected_generated_paths": [
+    "generated-noise-repo/.next/static/chunks/agent.mjs",
+    "generated-noise-repo/.yarn/cache/mcp-client.cjs",
+    "generated-noise-repo/dist/assets/register.min.js",
+    "generated-noise-repo/node_modules/pkg/server.js"
+  ],
+  "expected_non_generated_paths": [
+    "generated-noise-repo/.pnp.cjs",
+    "parse-edge-repo/agents/runtime.mts",
+    "parse-edge-repo/server/register.mjs",
+    "route-repo/server/routes.ts",
+    "signal-repo/agents/release_agent.ts",
+    "signal-repo/server/register.cjs",
+    "signal-repo/ui/register.mjs"
+  ],
   "expected_parse_detectors": [
     "webmcp"
   ],
