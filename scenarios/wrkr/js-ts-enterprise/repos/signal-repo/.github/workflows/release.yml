@@ -1,0 +1,3 @@
+system_prompt: "{{ user_input }}"
+steps:
+  - run: echo "$INPUT" >> system_prompt.txt

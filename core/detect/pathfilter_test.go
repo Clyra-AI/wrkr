@@ -34,6 +34,64 @@ func TestIsGeneratedPathClassifiesPackageAndGeneratedNoise(t *testing.T) {
 	}
 }
 
+func TestPathFilterHighSignalHelpers(t *testing.T) {
+	t.Parallel()
+
+	for _, path := range []string{
+		".well-known/webmcp",
+		"ui/register.mjs",
+		"server/routes.ts",
+	} {
+		if !IsHighSignalWebMCPPath(path) {
+			t.Fatalf("expected high-signal WebMCP path: %s", path)
+		}
+	}
+	for _, path := range []string{
+		"src/utils.ts",
+		"docs/reference.mdx",
+	} {
+		if IsHighSignalWebMCPPath(path) {
+			t.Fatalf("did not expect low-signal WebMCP path: %s", path)
+		}
+	}
+
+	for _, path := range []string{
+		".wrkr/agents/langchain.yaml",
+		"agents/release_agent.ts",
+		"bots/runtime.py",
+	} {
+		if !IsHighSignalAgentFrameworkSourcePath(path) {
+			t.Fatalf("expected high-signal agent-framework path: %s", path)
+		}
+	}
+	for _, path := range []string{
+		"src/runtime.ts",
+		"lib/helpers.py",
+	} {
+		if IsHighSignalAgentFrameworkSourcePath(path) {
+			t.Fatalf("did not expect low-signal agent-framework path: %s", path)
+		}
+	}
+
+	for _, path := range []string{
+		"server.py",
+		"agents/mcp_client.ts",
+		"scripts/mcp-bridge.cjs",
+	} {
+		if !IsHighSignalMCPCandidateSourcePath(path) {
+			t.Fatalf("expected high-signal MCP candidate path: %s", path)
+		}
+	}
+	for _, path := range []string{
+		"src/runtime.ts",
+		"pkg/internal/helpers.js",
+	} {
+		if IsHighSignalMCPCandidateSourcePath(path) {
+			t.Fatalf("did not expect low-signal MCP candidate path: %s", path)
+		}
+	}
+}
+
 func TestWalkFilesHonorsDeepModeGeneratedInclusion(t *testing.T) {
 	t.Parallel()
 

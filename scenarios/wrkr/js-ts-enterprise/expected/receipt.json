@@ -1,0 +1,37 @@
+{
+  "expected_clean_repos": [
+    "generated-noise-repo"
+  ],
+  "expected_coverage_confidence": "reduced",
+  "expected_extension_mix": {
+    ".cjs": 3,
+    ".js": 2,
+    ".mjs": 3,
+    ".mts": 1,
+    ".ts": 2
+  },
+  "expected_finding_types_by_repo": {
+    "parse-edge-repo": [
+      "agent_framework",
+      "parse_error",
+      "webmcp_declaration"
+    ],
+    "route-repo": [
+      "webmcp_declaration"
+    ],
+    "signal-repo": [
+      "agent_framework",
+      "mcp_server_candidate",
+      "prompt_channel_override",
+      "prompt_channel_semantic",
+      "prompt_channel_untrusted_context",
+      "webmcp_declaration"
+    ]
+  },
+  "expected_generated_js_files": 4,
+  "expected_non_generated_js_files": 7,
+  "expected_parse_detectors": [
+    "webmcp"
+  ],
+  "parse_failure_ceiling": 1
+}

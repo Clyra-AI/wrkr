@@ -353,6 +353,45 @@ mcp = FastMCP("billing-mcp")
 	t.Fatalf("expected source-hint MCP candidate in findings: %+v", findings)
 }
 
+func TestParseMCPCandidateUsesHighSignalPathSelection(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
+		t.Fatalf("mkdir low-signal source dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "src", "runtime.py"), []byte(`from fastmcp import FastMCP
+mcp = FastMCP("low-signal-mcp")
+`), 0o600); err != nil {
+		t.Fatalf("write low-signal source file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "server.py"), []byte(`from fastmcp import FastMCP
+mcp = FastMCP("billing-mcp")
+`), 0o600); err != nil {
+		t.Fatalf("write high-signal source file: %v", err)
+	}
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "repo", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect mcp: %v", err)
+	}
+
+	candidates := []model.Finding{}
+	for _, finding := range findings {
+		if finding.FindingType == "mcp_server_candidate" {
+			candidates = append(candidates, finding)
+		}
+	}
+	if len(candidates) == 0 {
+		t.Fatalf("expected at least one high-signal MCP candidate, got %+v", candidates)
+	}
+	for _, candidate := range candidates {
+		if candidate.Location != "server.py" {
+			t.Fatalf("expected only high-signal server.py candidates, got %+v", candidates)
+		}
+	}
+}
+
 func evidenceValueForServer(finding model.Finding) string {
 	for _, item := range finding.Evidence {
 		if item.Key == "server" {

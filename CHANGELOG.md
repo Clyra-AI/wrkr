@@ -26,6 +26,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- [semver:patch] Reduced unnecessary JS/TS detector parsing by scoping WebMCP, MCP-candidate, prompt-channel, and source-framework source inspection to explicit high-signal entrypoints while suppressing generated and low-signal JS-family paths.
+- [semver:patch] Added synthetic enterprise-shaped JS/TS scan-quality receipts and acceptance coverage so parser-edge repos degrade to reduced coverage context instead of surfacing as ranked security findings.
 - [semver:patch] Closed remaining nested owner leaks so shareable report, evidence, paired-artifact, and Agent Action BOM outputs redact owner decisions, rejected owner candidates, and production-context owner fields recursively.
 - [semver:patch] Unified scan/report/evidence/assess/saved-state canonicalization so writer outputs keep canonical endpoint and authority refs while stripping repeated embedded clones before serialization.
 - [semver:patch] Added real-scan-shaped size, signal, redaction, and BOM readability regression fixtures to block artifact bloat and shareable-output leaks before release.

@@ -833,7 +833,7 @@ func collectWebMCPScopeMetrics(root, mode string) detectorPathMetrics {
 			if isDir {
 				return pathDecision{}
 			}
-			if isWebMCPRouteFile(rel) {
+			if detect.IsWebMCPRouteFile(rel) {
 				return pathDecision{candidate: true}
 			}
 			if !isWebMCPCandidatePath(rel) {
@@ -898,15 +898,12 @@ func walkCandidatePaths(root string, classify func(rel string, isDir bool) pathD
 func isWebMCPCandidatePath(rel string) bool {
 	lower := strings.ToLower(strings.TrimSpace(rel))
 	ext := strings.ToLower(filepath.Ext(lower))
-	if isWebMCPRouteFile(lower) {
-		return true
-	}
-	if ext == ".html" || ext == ".htm" || ext == ".js" || ext == ".mjs" || ext == ".cjs" {
+	if detect.IsWebMCPRouteFile(lower) {
 		return true
 	}
 	switch ext {
-	case ".go", ".ts", ".tsx", ".py", ".rb", ".php", ".java", ".kt", ".rs":
-		return true
+	case ".html", ".htm", ".js", ".mjs", ".cjs", ".go", ".ts", ".tsx", ".mts", ".cts", ".py", ".rb", ".php", ".java", ".kt", ".rs":
+		return detect.IsHighSignalWebMCPPath(rel)
 	default:
 		return false
 	}
@@ -922,18 +919,6 @@ func isDependencyManifestPath(rel string) bool {
 	default:
 		return false
 	}
-}
-
-func isWebMCPRouteFile(rel string) bool {
-	lower := strings.ToLower(strings.TrimSpace(rel))
-	switch lower {
-	case ".well-known/webmcp", ".well-known/webmcp.json", ".well-known/webmcp.yaml", ".well-known/webmcp.yml":
-		return true
-	}
-	return strings.HasSuffix(lower, "/.well-known/webmcp") ||
-		strings.HasSuffix(lower, "/.well-known/webmcp.json") ||
-		strings.HasSuffix(lower, "/.well-known/webmcp.yaml") ||
-		strings.HasSuffix(lower, "/.well-known/webmcp.yml")
 }
 
 func shouldEmitDetectorHealth(detectorID string, metrics detectorPathMetrics, parsePaths map[string]parsePathStatus, positivePaths map[string]int, detectorErrors int) bool {

@@ -99,7 +99,7 @@ func detectFromSource(scope detect.Scope, plans []sourcePlan, options detect.Opt
 	findings := make([]model.Finding, 0)
 	for _, rel := range files {
 		language := sourceLanguage(rel)
-		if language == "" || shouldSkipSourceFile(rel) {
+		if language == "" || shouldSkipSourceFile(rel) || !detect.IsHighSignalAgentFrameworkSourcePath(rel) {
 			continue
 		}
 

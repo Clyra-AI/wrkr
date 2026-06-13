@@ -58,16 +58,13 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 		rel := file.Rel
 		lower := strings.ToLower(rel)
 		ext := strings.ToLower(filepath.Ext(lower))
-		isRouteFile := lower == ".well-known/webmcp" ||
-			lower == ".well-known/webmcp.json" ||
-			lower == ".well-known/webmcp.yaml" ||
-			lower == ".well-known/webmcp.yml" ||
-			strings.HasSuffix(lower, "/.well-known/webmcp") ||
-			strings.HasSuffix(lower, "/.well-known/webmcp.json") ||
-			strings.HasSuffix(lower, "/.well-known/webmcp.yaml") ||
-			strings.HasSuffix(lower, "/.well-known/webmcp.yml")
-		isDeclarationFile := ext == ".html" || ext == ".htm" || ext == ".js" || ext == ".mjs" || ext == ".cjs" || couldContainRoutes(ext)
+		isRouteFile := detect.IsWebMCPRouteFile(lower)
+		isScriptFile := ext == ".js" || ext == ".mjs" || ext == ".cjs"
+		isDeclarationFile := ext == ".html" || ext == ".htm" || isScriptFile || couldContainRoutes(ext)
 		if detect.IsGeneratedPath(rel) && !isRouteFile {
+			continue
+		}
+		if !isRouteFile && (isScriptFile || couldContainRoutes(ext)) && !detect.IsHighSignalWebMCPPath(rel) {
 			continue
 		}
 
@@ -92,6 +89,52 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			declSet[declarationKey(item)] = item
 		}
 
+		if isScriptFile {
+			payload, parseErr := detect.ReadFileWithinRoot(detectorID, scope.Root, rel)
+			if parseErr != nil {
+				parseErrors = append(parseErrors, model.Finding{
+					FindingType: "parse_error",
+					Severity:    model.SeverityMedium,
+					ToolType:    "webmcp",
+					Location:    rel,
+					Repo:        scope.Repo,
+					Org:         fallbackOrg(scope.Org),
+					Detector:    detectorID,
+					ParseError:  parseErr,
+				})
+				continue
+			}
+			lowerPayload := bytes.ToLower(payload)
+			if bytes.Contains(lowerPayload, []byte("modelcontext")) && bytes.Contains(lowerPayload, []byte("register")) {
+				names, parseErr := parseJSDeclarationsBytes(rel, payload)
+				if parseErr != nil {
+					parseErrors = append(parseErrors, model.Finding{
+						FindingType: "parse_error",
+						Severity:    model.SeverityMedium,
+						ToolType:    "webmcp",
+						Location:    rel,
+						Repo:        scope.Repo,
+						Org:         fallbackOrg(scope.Org),
+						Detector:    detectorID,
+						ParseError:  parseErr,
+					})
+				}
+				method := "imperative_js"
+				if parseErr != nil {
+					method = "fallback_js"
+				}
+				for _, name := range names {
+					item := declaration{name: name, method: method, rel: rel}
+					declSet[declarationKey(item)] = item
+				}
+			}
+			if bytes.Contains(lowerPayload, []byte("/.well-known/webmcp")) {
+				item := declaration{name: "webmcp", method: "route_declaration", rel: rel}
+				declSet[declarationKey(item)] = item
+			}
+			continue
+		}
+
 		switch ext {
 		case ".html", ".htm":
 			names, parseErr := parseHTMLDeclarations(scope.Root, rel)
@@ -111,31 +154,6 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 			for _, name := range names {
 				item := declaration{name: name, method: "declarative_html", rel: rel}
 				declSet[declarationKey(item)] = item
-			}
-		case ".js", ".mjs", ".cjs":
-			names, parseErr := parseJSDeclarations(scope.Root, rel)
-			if parseErr != nil {
-				parseErrors = append(parseErrors, model.Finding{
-					FindingType: "parse_error",
-					Severity:    model.SeverityMedium,
-					ToolType:    "webmcp",
-					Location:    rel,
-					Repo:        scope.Repo,
-					Org:         fallbackOrg(scope.Org),
-					Detector:    detectorID,
-					ParseError:  parseErr,
-				})
-			}
-			method := "imperative_js"
-			if parseErr != nil {
-				method = "fallback_js"
-			}
-			for _, name := range names {
-				item := declaration{name: name, method: method, rel: rel}
-				declSet[declarationKey(item)] = item
-			}
-			if parseErr != nil && len(names) == 0 {
-				continue
 			}
 		}
 
@@ -242,6 +260,10 @@ func parseJSDeclarations(root, rel string) ([]string, *model.ParseError) {
 		readErr.Format = "javascript"
 		return nil, readErr
 	}
+	return parseJSDeclarationsBytes(rel, payload)
+}
+
+func parseJSDeclarationsBytes(rel string, payload []byte) ([]string, *model.ParseError) {
 	program, err := parser.ParseFile(nil, rel, payload, 0)
 	if err != nil {
 		names := parseJSDeclarationsFallback(payload)
@@ -404,7 +426,7 @@ func sortedSet(set map[string]struct{}) []string {
 
 func couldContainRoutes(ext string) bool {
 	switch ext {
-	case ".go", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".py", ".rb", ".php", ".java", ".kt", ".rs":
+	case ".go", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts", ".py", ".rb", ".php", ".java", ".kt", ".rs":
 		return true
 	default:
 		return false
