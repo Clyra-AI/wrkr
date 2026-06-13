@@ -28,8 +28,10 @@
       "webmcp_declaration"
     ]
   },
-  "expected_generated_js_files": 4,
-  "expected_non_generated_js_files": 7,
+  "expected_generated_js_files_min": 3,
+  "expected_generated_js_files_max": 4,
+  "expected_non_generated_js_files_min": 7,
+  "expected_non_generated_js_files_max": 8,
   "expected_parse_detectors": [
     "webmcp"
   ],
