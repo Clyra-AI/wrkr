@@ -206,7 +206,7 @@ func scoreFinding(finding model.Finding, cooccurrence promptCooccurrence) Scored
 	}
 
 	return ScoredFinding{
-		CanonicalKey:  canonicalKey(finding),
+		CanonicalKey:  CanonicalKeyForFinding(finding),
 		Score:         round2(score),
 		BlastRadius:   round2(blast),
 		Privilege:     round2(privilege),
@@ -370,7 +370,8 @@ func aggregateRepos(items []ScoredFinding) []RepoAggregate {
 	return out
 }
 
-func canonicalKey(finding model.Finding) string {
+// CanonicalKeyForFinding returns the stable risk-layer key for a finding.
+func CanonicalKeyForFinding(finding model.Finding) string {
 	if (finding.FindingType == "policy_violation" || finding.FindingType == "policy_check") && finding.RuleID == "WRKR-014" {
 		return "skill_policy_conflict:" + finding.Org + ":" + finding.Repo
 	}

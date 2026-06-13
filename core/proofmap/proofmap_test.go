@@ -142,6 +142,10 @@ func TestMapFindingsGroupsPolicyFanoutByOutcome(t *testing.T) {
 	if record.Metadata["affected_repo_count"] != 2 {
 		t.Fatalf("expected affected repo count 2, got %v", record.Metadata["affected_repo_count"])
 	}
+	sourceKeys, ok := record.Metadata["source_finding_keys"].([]string)
+	if !ok || len(sourceKeys) != 4 {
+		t.Fatalf("expected four source_finding_keys aliases, got %#v", record.Metadata["source_finding_keys"])
+	}
 	topRefs, ok := record.Metadata["top_repo_refs"].([]string)
 	if !ok || len(topRefs) != 2 || topRefs[0] != "acme/repo-a" || topRefs[1] != "acme/repo-b" {
 		t.Fatalf("unexpected top repo refs: %#v", record.Metadata["top_repo_refs"])

@@ -126,6 +126,11 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, visibili
 			"linked_rule_ids":       ruleIDs,
 		}
 		addPolicyOutcomeMetadata(metadata, representative, items)
+		if isPolicyFinding(representative) {
+			if sourceKeys := sourceFindingKeys(items); len(sourceKeys) > 0 {
+				metadata["source_finding_keys"] = sourceKeys
+			}
+		}
 		if hasWRKR014(items) && hasSkillConflict(items) {
 			metadata["wrkr014_linked"] = true
 			metadata["conflict_link_key"] = key
@@ -627,6 +632,14 @@ func addPolicyOutcomeMetadata(metadata map[string]any, representative model.Find
 	if outcome.SuppressedCount > 0 {
 		metadata["suppressed_count"] = outcome.SuppressedCount
 	}
+}
+
+func sourceFindingKeys(findings []model.Finding) []string {
+	keys := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		keys = append(keys, risk.CanonicalKeyForFinding(finding))
+	}
+	return uniqueSortedStrings(keys)
 }
 
 func sanitizeMappedRecord(record MappedRecord) MappedRecord {
