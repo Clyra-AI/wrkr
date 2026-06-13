@@ -246,6 +246,90 @@ func TestEmitScanLinksRiskRecordWhenOrgIsEmpty(t *testing.T) {
 	}
 }
 
+func TestEmitScanLinksRiskRecordsForGroupedPolicyOutcomes(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 6, 13, 3, 0, 0, 0, time.UTC)
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	findings := []model.Finding{
+		{
+			FindingType:     "policy_check",
+			RuleID:          "WRKR-010",
+			CheckResult:     model.CheckResultFail,
+			PolicyOutcomeID: "policy-same",
+			Severity:        model.SeverityHigh,
+			ToolType:        "policy",
+			Location:        "WRKR-010",
+			Repo:            "repo",
+			Org:             "acme",
+		},
+		{
+			FindingType:     "policy_violation",
+			RuleID:          "WRKR-010",
+			CheckResult:     model.CheckResultFail,
+			PolicyOutcomeID: "policy-same",
+			Severity:        model.SeverityHigh,
+			ToolType:        "policy",
+			Location:        "WRKR-010",
+			Repo:            "repo",
+			Org:             "acme",
+		},
+	}
+	report := risk.Score(findings, 10, now)
+	profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 90, Status: "pass"}
+	posture := score.Result{Score: 82.5, Grade: "B", Weights: scoremodel.DefaultWeights()}
+
+	summary, err := EmitScan(statePath, now, findings, nil, report, profile, posture, nil)
+	if err != nil {
+		t.Fatalf("emit scan: %v", err)
+	}
+	chain, err := LoadChain(summary.ChainPath)
+	if err != nil {
+		t.Fatalf("load proof chain: %v", err)
+	}
+
+	var findingRecordID string
+	for _, record := range chain.Records {
+		if record.RecordType != "scan_finding" {
+			continue
+		}
+		if record.Metadata["canonical_finding_key"] == "policy_outcome:acme:policy-same" {
+			findingRecordID = record.RecordID
+			break
+		}
+	}
+	if findingRecordID == "" {
+		t.Fatalf("expected grouped policy scan_finding record, got %#v", chain.Records)
+	}
+
+	findingRiskCount := 0
+	for _, record := range chain.Records {
+		if record.RecordType != "risk_assessment" {
+			continue
+		}
+		assessmentType, _ := record.Event["assessment_type"].(string)
+		if assessmentType != "finding_risk" {
+			continue
+		}
+		findingRiskCount++
+		if record.Relationship == nil {
+			t.Fatalf("expected relationship on finding_risk record %#v", record)
+		}
+		linked := false
+		for _, relatedID := range record.Relationship.RelatedRecordIDs {
+			if relatedID == findingRecordID {
+				linked = true
+				break
+			}
+		}
+		if !linked {
+			t.Fatalf("expected grouped policy finding_risk record to link to scan_finding %s, got %#v", findingRecordID, record.Relationship.RelatedRecordIDs)
+		}
+	}
+	if findingRiskCount != 2 {
+		t.Fatalf("expected two finding_risk records for grouped policy inputs, got %d", findingRiskCount)
+	}
+}
+
 func TestProofChainSaveIsAtomicUnderInterruption(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "proof-chain.json")
 	chain := proof.NewChain("wrkr-proof")

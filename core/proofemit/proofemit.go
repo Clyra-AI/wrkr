@@ -110,6 +110,10 @@ func EmitScanWithContext(ctx context.Context, statePath string, now time.Time, f
 			findingRecordIDs[canonicalKey] = strings.TrimSpace(record.RecordID)
 			findingRecordIDs[canonicalFindingLookupKey(canonicalKey)] = strings.TrimSpace(record.RecordID)
 		}
+		for _, key := range metadataStringSlice(mapped.Metadata, "source_finding_keys") {
+			findingRecordIDs[key] = strings.TrimSpace(record.RecordID)
+			findingRecordIDs[canonicalFindingLookupKey(key)] = strings.TrimSpace(record.RecordID)
+		}
 		summary.Findings++
 		summary.Total++
 	}
