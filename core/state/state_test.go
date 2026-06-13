@@ -387,6 +387,122 @@ func TestStateSavePreservesProjectionDetailsThroughCanonicalStore(t *testing.T) 
 	}
 }
 
+func TestSavedStateOmitsEmbeddedClonesWhenRefsExist(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "state.json")
+	authority := &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		StandingAccess:         true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+		ReasonCodes:            []string{"credential_authority:present"},
+	}
+	binding := &agginventory.AuthorityBinding{
+		Kind:         agginventory.AuthorityBindingCloudRole,
+		Provider:     "aws",
+		Subject:      "release-role",
+		TargetSystem: "deployment_platform",
+		LikelyScope:  "deploy_write",
+		AccessLevel:  agginventory.AuthorityAccessWrite,
+		Environment:  "prod",
+		Production:   true,
+		Confidence:   "high",
+	}
+	semantics := []agginventory.MutableEndpointSemantic{{
+		Semantic:     agginventory.EndpointSemanticDeploy,
+		Confidence:   "high",
+		Surface:      "workflow",
+		Operation:    "deploy release",
+		EvidenceRefs: []string{"deploy release"},
+	}}
+
+	snapshot := Snapshot{
+		Target: source.Target{Mode: "path", Value: "./repos"},
+		Inventory: &agginventory.Inventory{
+			AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+				AgentID:                     "agent-1",
+				ToolID:                      "tool-1",
+				ToolType:                    "compiled_action",
+				Org:                         "acme",
+				Repos:                       []string{"acme/release"},
+				Permissions:                 []string{"repo.contents.write"},
+				WriteCapable:                true,
+				MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+				MutableEndpointSemantics:    semantics,
+				CredentialAuthorityRef:      agginventory.CanonicalCredentialAuthorityRef(authority),
+				CredentialAuthority:         authority,
+				AuthorityBindingRefs:        agginventory.CanonicalAuthorityBindingRefs([]*agginventory.AuthorityBinding{binding}),
+				AuthorityBindings:           []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:                      "apc-save-canonical",
+				Org:                         "acme",
+				Repo:                        "acme/release",
+				ToolType:                    "compiled_action",
+				Location:                    ".github/workflows/release.yml",
+				WriteCapable:                true,
+				CredentialAccess:            true,
+				ApprovalGap:                 true,
+				RecommendedAction:           "control",
+				MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+				MutableEndpointSemantics:    semantics,
+				CredentialAuthorityRef:      agginventory.CanonicalCredentialAuthorityRef(authority),
+				CredentialAuthority:         authority,
+				AuthorityBindingRefs:        agginventory.CanonicalAuthorityBindingRefs([]*agginventory.AuthorityBinding{binding}),
+				AuthorityBindings:           []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+		ControlBacklog: &controlbacklog.Backlog{
+			Items: []controlbacklog.Item{{
+				ID:                     "cb-save-canonical",
+				Repo:                   "acme/release",
+				Path:                   ".github/workflows/release.yml",
+				CredentialAuthorityRef: agginventory.CanonicalCredentialAuthorityRef(authority),
+				CredentialAuthority:    authority,
+				AuthorityBindingRefs:   agginventory.CanonicalAuthorityBindingRefs([]*agginventory.AuthorityBinding{binding}),
+				AuthorityBindings:      []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+	}
+
+	if err := Save(path, snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	raw, err := LoadRaw(path)
+	if err != nil {
+		t.Fatalf("load raw snapshot: %v", err)
+	}
+	entry := raw.Inventory.AgentPrivilegeMap[0]
+	if entry.CredentialAuthorityRef == "" || len(entry.AuthorityBindingRefs) == 0 || len(entry.MutableEndpointSemanticRefs) == 0 {
+		t.Fatalf("expected canonical refs in raw saved inventory, got %+v", entry)
+	}
+	if entry.CredentialAuthority != nil || len(entry.AuthorityBindings) > 0 || len(entry.MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected raw saved inventory to omit embedded clones, got %+v", entry)
+	}
+
+	pathOut := raw.RiskReport.ActionPaths[0]
+	if pathOut.CredentialAuthorityRef == "" || len(pathOut.AuthorityBindingRefs) == 0 || len(pathOut.MutableEndpointSemanticRefs) == 0 {
+		t.Fatalf("expected canonical refs in raw saved action path, got %+v", pathOut)
+	}
+	if pathOut.CredentialAuthority != nil || len(pathOut.AuthorityBindings) > 0 || len(pathOut.MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected raw saved action path to omit embedded clones, got %+v", pathOut)
+	}
+
+	item := raw.ControlBacklog.Items[0]
+	if item.CredentialAuthorityRef == "" || len(item.AuthorityBindingRefs) == 0 {
+		t.Fatalf("expected canonical refs in raw saved backlog item, got %+v", item)
+	}
+	if item.CredentialAuthority != nil || len(item.AuthorityBindings) > 0 {
+		t.Fatalf("expected raw saved backlog item to omit embedded clones, got %+v", item)
+	}
+}
+
 func TestStateSaveIsAtomicUnderInterruption(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	initial := Snapshot{

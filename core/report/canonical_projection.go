@@ -11,6 +11,10 @@ func FinalizeSummaryForShareProfile(summary Summary) Summary {
 	if !ok || profile == ShareProfileInternal {
 		return summary
 	}
+	return FinalizeSummaryForOutput(summary)
+}
+
+func FinalizeSummaryForOutput(summary Summary) Summary {
 	summary.ActionPaths = risk.StripCanonicalProjectionDetails(summary.ActionPaths)
 	summary.ActionPathToControlFirst = risk.StripActionPathToControlFirstCanonicalProjectionDetails(summary.ActionPathToControlFirst)
 	summary.ControlPathGraph = aggattack.StripCanonicalProjectionDetails(summary.ControlPathGraph)

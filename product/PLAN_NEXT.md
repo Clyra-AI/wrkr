@@ -27,6 +27,7 @@ Scope:
 - Contract/runtime stories land before launch-copy and onboarding-copy stories. Later docs waves must not describe fields or flows that earlier waves have not shipped.
 - Use `--json` in all command examples that are part of the contract or automation story.
 - Keep OSS trust surfaces aligned. `README.md`, `docs/`, and `CHANGELOG.md` move together when the user-visible launch story changes.
+- Preserve the temporary freeze gate from Sprint 0 subtractive fixes: new scan/report surface expansion stays blocked until the size, redaction, and readability gates are green. recursive redaction and clone-strip contracts are part of that temporary freeze gate.
 
 ## Current Baseline (Observed)
 

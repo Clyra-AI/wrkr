@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
@@ -100,6 +101,168 @@ func TestBuildScanJSONSummaryPreservesEmptyPreviewSlices(t *testing.T) {
 	}
 	if agentPrivilegeMap == nil {
 		t.Fatalf("expected agent_privilege_map to remain an empty slice, got nil")
+	}
+}
+
+func TestBuildScanJSONSummaryUsesCanonicalOutputFinalizer(t *testing.T) {
+	t.Parallel()
+
+	authority := &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		StandingAccess:         true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+		ReasonCodes:            []string{"credential_authority:present"},
+	}
+	binding := &agginventory.AuthorityBinding{
+		Kind:         agginventory.AuthorityBindingCloudRole,
+		Provider:     "aws",
+		Subject:      "release-role",
+		TargetSystem: "deployment_platform",
+		LikelyScope:  "deploy_write",
+		AccessLevel:  agginventory.AuthorityAccessWrite,
+		Environment:  "prod",
+		Production:   true,
+		Confidence:   "high",
+	}
+	semantics := []agginventory.MutableEndpointSemantic{{
+		Semantic:     agginventory.EndpointSemanticDeploy,
+		Confidence:   "high",
+		Surface:      "workflow",
+		Operation:    "deploy release",
+		EvidenceRefs: []string{"deploy release"},
+	}}
+
+	input := scanJSONSummaryInput{
+		StatePath: ".wrkr/last-scan.json",
+		Manifest:  source.Manifest{Target: source.Target{Mode: "repo", Value: "acme/release"}},
+		Inventory: agginventory.Inventory{
+			AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+				AgentID:                     "wrkr:compiled_action:acme",
+				ToolID:                      "tool-1",
+				ToolType:                    "compiled_action",
+				Org:                         "acme",
+				Repos:                       []string{"acme/release"},
+				Permissions:                 []string{"repo.contents.write"},
+				WriteCapable:                true,
+				MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+				MutableEndpointSemantics:    semantics,
+				CredentialAuthorityRef:      agginventory.CanonicalCredentialAuthorityRef(authority),
+				CredentialAuthority:         authority,
+				AuthorityBindingRefs:        agginventory.CanonicalAuthorityBindingRefs([]*agginventory.AuthorityBinding{binding}),
+				AuthorityBindings:           []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+		RiskReport: risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:                      "apc-canonical",
+				Org:                         "acme",
+				Repo:                        "acme/release",
+				ToolType:                    "compiled_action",
+				Location:                    ".github/workflows/release.yml",
+				WriteCapable:                true,
+				CredentialAccess:            true,
+				ApprovalGap:                 true,
+				RecommendedAction:           "control",
+				MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+				MutableEndpointSemantics:    semantics,
+				CredentialAuthorityRef:      agginventory.CanonicalCredentialAuthorityRef(authority),
+				CredentialAuthority:         authority,
+				AuthorityBindingRefs:        agginventory.CanonicalAuthorityBindingRefs([]*agginventory.AuthorityBinding{binding}),
+				AuthorityBindings:           []*agginventory.AuthorityBinding{binding},
+			}},
+			ActionPathToControlFirst: &risk.ActionPathToControlFirst{
+				Summary: risk.ActionPathSummary{TotalPaths: 1},
+				Path: risk.ActionPath{
+					PathID:                      "apc-canonical",
+					Org:                         "acme",
+					Repo:                        "acme/release",
+					MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+					MutableEndpointSemantics:    semantics,
+					CredentialAuthorityRef:      agginventory.CanonicalCredentialAuthorityRef(authority),
+					CredentialAuthority:         authority,
+					AuthorityBindingRefs:        agginventory.CanonicalAuthorityBindingRefs([]*agginventory.AuthorityBinding{binding}),
+					AuthorityBindings:           []*agginventory.AuthorityBinding{binding},
+				},
+			},
+			ControlPathGraph: &aggattack.ControlPathGraph{
+				Version: "1",
+				Nodes: []aggattack.ControlPathNode{{
+					NodeID:                      "node-1",
+					PathID:                      "apc-canonical",
+					Kind:                        aggattack.ControlPathNodeWorkflow,
+					MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+					MutableEndpointSemantics:    semantics,
+					CredentialAuthorityRef:      agginventory.CanonicalCredentialAuthorityRef(authority),
+					CredentialAuthority:         authority,
+					AuthorityBindingRefs:        agginventory.CanonicalAuthorityBindingRefs([]*agginventory.AuthorityBinding{binding}),
+					AuthorityBindings:           []*agginventory.AuthorityBinding{binding},
+				}},
+			},
+		},
+		ControlBacklog: controlbacklog.Backlog{
+			ControlBacklogVersion: controlbacklog.BacklogVersion,
+			Items: []controlbacklog.Item{{
+				ID:                     "cb-canonical",
+				Repo:                   "acme/release",
+				Path:                   ".github/workflows/release.yml",
+				ControlSurfaceType:     "workflow",
+				CredentialAuthorityRef: agginventory.CanonicalCredentialAuthorityRef(authority),
+				CredentialAuthority:    authority,
+				AuthorityBindingRefs:   agginventory.CanonicalAuthorityBindingRefs([]*agginventory.AuthorityBinding{binding}),
+				AuthorityBindings:      []*agginventory.AuthorityBinding{binding},
+			}},
+		},
+	}
+
+	payload := buildScanJSONSummary(input)
+
+	actionPaths, ok := payload["action_paths"].([]risk.ActionPath)
+	if !ok || len(actionPaths) != 1 {
+		t.Fatalf("expected one action path preview, got %T %+v", payload["action_paths"], payload["action_paths"])
+	}
+	if actionPaths[0].CredentialAuthorityRef == "" || len(actionPaths[0].AuthorityBindingRefs) == 0 || len(actionPaths[0].MutableEndpointSemanticRefs) == 0 {
+		t.Fatalf("expected canonical refs on scan action path, got %+v", actionPaths[0])
+	}
+	if actionPaths[0].CredentialAuthority != nil || len(actionPaths[0].AuthorityBindings) > 0 || len(actionPaths[0].MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected scan action path embedded clones stripped, got %+v", actionPaths[0])
+	}
+
+	inventory, ok := payload["inventory"].(agginventory.Inventory)
+	if !ok || len(inventory.AgentPrivilegeMap) != 1 {
+		t.Fatalf("expected inventory preview with one privilege row, got %T %+v", payload["inventory"], payload["inventory"])
+	}
+	entry := inventory.AgentPrivilegeMap[0]
+	if entry.CredentialAuthorityRef == "" || len(entry.AuthorityBindingRefs) == 0 || len(entry.MutableEndpointSemanticRefs) == 0 {
+		t.Fatalf("expected canonical refs on inventory preview, got %+v", entry)
+	}
+	if entry.CredentialAuthority != nil || len(entry.AuthorityBindings) > 0 || len(entry.MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected inventory preview embedded clones stripped, got %+v", entry)
+	}
+
+	backlog, ok := payload["control_backlog"].(controlbacklog.Backlog)
+	if !ok || len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog preview item, got %T %+v", payload["control_backlog"], payload["control_backlog"])
+	}
+	item := backlog.Items[0]
+	if item.CredentialAuthorityRef == "" || len(item.AuthorityBindingRefs) == 0 {
+		t.Fatalf("expected canonical refs on backlog preview, got %+v", item)
+	}
+	if item.CredentialAuthority != nil || len(item.AuthorityBindings) > 0 {
+		t.Fatalf("expected backlog preview embedded clones stripped, got %+v", item)
+	}
+
+	graph, ok := payload["control_path_graph"].(*aggattack.ControlPathGraph)
+	if !ok || graph == nil || len(graph.Nodes) != 1 {
+		t.Fatalf("expected control path graph preview, got %T %+v", payload["control_path_graph"], payload["control_path_graph"])
+	}
+	node := graph.Nodes[0]
+	if node.CredentialAuthorityRef == "" || len(node.AuthorityBindingRefs) == 0 || len(node.MutableEndpointSemanticRefs) == 0 {
+		t.Fatalf("expected canonical refs on graph preview, got %+v", node)
+	}
+	if node.CredentialAuthority != nil || len(node.AuthorityBindings) > 0 || len(node.MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected graph preview embedded clones stripped, got %+v", node)
 	}
 }
 

@@ -43,8 +43,11 @@ paths:
 	if len(requireArrayFromObject(t, workflowPath, "high_stakes_presets")) == 0 {
 		t.Fatalf("expected high_stakes_presets on workflow path, got %v", workflowPath)
 	}
-	if len(requireArrayFromObject(t, workflowPath, "authority_bindings")) == 0 {
-		t.Fatalf("expected authority_bindings on workflow path, got %v", workflowPath)
+	if len(requireArrayFromObject(t, workflowPath, "authority_binding_refs")) == 0 {
+		t.Fatalf("expected authority_binding_refs on workflow path, got %v", workflowPath)
+	}
+	if workflowPath["authority_bindings"] != nil {
+		t.Fatalf("expected scan JSON to omit embedded authority_bindings when refs are present, got %v", workflowPath)
 	}
 
 	openAPIPath := findActionPathByLocation(t, actionPaths, "openapi/payments-openapi.yaml")

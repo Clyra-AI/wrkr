@@ -344,6 +344,49 @@ func TestAssessReportArtifactsReflectCurrentRepeatUsageCycle(t *testing.T) {
 	}
 }
 
+func TestAssessJSONUsesSharedCanonicalFinalizer(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repo := writeAssessFixtureRepo(t, tmp)
+	outputDir := filepath.Join(tmp, "assessment")
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"assess",
+		"--path", repo,
+		"--output-dir", outputDir,
+		"--json",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("expected exit 0, got %d stderr=%s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse assess payload: %v", err)
+	}
+	artifacts, ok := payload["artifacts"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected artifacts object, got %T", payload["artifacts"])
+	}
+	reportEvidencePath, _ := artifacts["report_evidence_json_path"].(string)
+	if reportEvidencePath == "" {
+		t.Fatalf("expected report_evidence_json_path, got %v", artifacts)
+	}
+	reportEvidenceBytes, err := os.ReadFile(filepath.Join(outputDir, filepath.FromSlash(reportEvidencePath)))
+	if err != nil {
+		t.Fatalf("read report evidence: %v", err)
+	}
+	reportEvidence := map[string]any{}
+	if err := json.Unmarshal(reportEvidenceBytes, &reportEvidence); err != nil {
+		t.Fatalf("parse report evidence: %v", err)
+	}
+	requireReportContainsCanonicalRefs(t, reportEvidence)
+	assertNoEmbeddedCanonicalClonesOutsideStores(t, "assess report evidence", reportEvidence, nil)
+}
+
 func writeAssessFixtureRepo(t *testing.T, root string) string {
 	t.Helper()
 

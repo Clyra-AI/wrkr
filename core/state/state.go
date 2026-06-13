@@ -108,14 +108,8 @@ func ResolvePath(explicit string) string {
 }
 
 func Save(path string, snapshot Snapshot) error {
-	snapshot = cloneSnapshotForSave(snapshot)
-	snapshot.Version = SnapshotVersion
-	snapshot.ApprovalInventoryVersion = ApprovalInventoryVersion
-	snapshot.Targets = source.SortTargets(snapshot.Targets)
-	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
-	source.SortFindings(snapshot.Findings)
-	snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
-	prepareSnapshotForSave(&snapshot)
+	snapshot = FinalizeSnapshotForOutput(snapshot)
+	applySnapshotSignalCaps(&snapshot)
 	if err := atomicwrite.WriteFileFunc(path, 0o600, func(w io.Writer) error {
 		encoder := json.NewEncoder(w)
 		encoder.SetIndent("", "  ")
@@ -124,6 +118,20 @@ func Save(path string, snapshot Snapshot) error {
 		return fmt.Errorf("write state: %w", err)
 	}
 	return nil
+}
+
+func FinalizeSnapshotForOutput(snapshot Snapshot) Snapshot {
+	snapshot = cloneSnapshotForSave(snapshot)
+	snapshot.Version = SnapshotVersion
+	snapshot.ApprovalInventoryVersion = ApprovalInventoryVersion
+	snapshot.Targets = source.SortTargets(snapshot.Targets)
+	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
+	source.SortFindings(snapshot.Findings)
+	if len(snapshot.PolicyOutcomes) == 0 {
+		snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
+	}
+	canonicalizeSnapshotForOutput(&snapshot)
+	return snapshot
 }
 
 func cloneSnapshotForSave(in Snapshot) Snapshot {
@@ -217,6 +225,11 @@ func normalizeSnapshotAfterLoad(snapshot *Snapshot) {
 }
 
 func prepareSnapshotForSave(snapshot *Snapshot) {
+	canonicalizeSnapshotForOutput(snapshot)
+	applySnapshotSignalCaps(snapshot)
+}
+
+func canonicalizeSnapshotForOutput(snapshot *Snapshot) {
 	if snapshot == nil {
 		return
 	}
@@ -239,7 +252,6 @@ func prepareSnapshotForSave(snapshot *Snapshot) {
 		snapshot.ControlBacklog = controlbacklog.BackfillCanonicalProjectionRefs(snapshot.ControlBacklog)
 		snapshot.ControlBacklog = controlbacklog.StripCanonicalProjectionDetails(snapshot.ControlBacklog)
 	}
-	applySnapshotSignalCaps(snapshot)
 }
 
 func applySnapshotSignalCaps(snapshot *Snapshot) {
