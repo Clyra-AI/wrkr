@@ -202,6 +202,7 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := validateSnapshot(snapshot); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
+	bundleSnapshot := state.FinalizeSnapshotForOutput(snapshot)
 	complianceSummary, err := compliance.BuildRollupSummary(snapshot.Findings, chain)
 	if err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build compliance summary: %w", err)
@@ -240,32 +241,32 @@ func Build(in BuildInput) (BuildResult, error) {
 		generatedAt = generatedAt.UTC().Truncate(time.Second)
 	}
 
-	if err := writeJSON(filepath.Join(outputDir, "inventory.json"), snapshot.Inventory); err != nil {
+	if err := writeJSON(filepath.Join(outputDir, "inventory.json"), bundleSnapshot.Inventory); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
-	if err := writeYAML(filepath.Join(outputDir, "inventory.yaml"), snapshot.Inventory); err != nil {
+	if err := writeYAML(filepath.Join(outputDir, "inventory.yaml"), bundleSnapshot.Inventory); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
-	if err := writeJSON(filepath.Join(outputDir, "inventory-snapshot.json"), snapshot.Inventory); err != nil {
+	if err := writeJSON(filepath.Join(outputDir, "inventory-snapshot.json"), bundleSnapshot.Inventory); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if snapshot.Target.Mode == "my_setup" {
 		if err := writeJSON(filepath.Join(outputDir, "personal-inventory-snapshot.json"), map[string]any{
-			"target":    snapshot.Target,
-			"inventory": snapshot.Inventory,
+			"target":    bundleSnapshot.Target,
+			"inventory": bundleSnapshot.Inventory,
 		}); err != nil {
 			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 		}
 	}
-	if err := writeJSON(filepath.Join(outputDir, "risk-report.json"), snapshot.RiskReport); err != nil {
+	if err := writeJSON(filepath.Join(outputDir, "risk-report.json"), bundleSnapshot.RiskReport); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
-	if snapshot.RiskReport != nil {
-		if err := writeJSON(filepath.Join(outputDir, "attack-paths.json"), snapshot.RiskReport.AttackPaths); err != nil {
+	if bundleSnapshot.RiskReport != nil {
+		if err := writeJSON(filepath.Join(outputDir, "attack-paths.json"), bundleSnapshot.RiskReport.AttackPaths); err != nil {
 			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 		}
 	}
-	if err := writeJSON(filepath.Join(outputDir, "profile-compliance.json"), snapshot.Profile); err != nil {
+	if err := writeJSON(filepath.Join(outputDir, "profile-compliance.json"), bundleSnapshot.Profile); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSON(filepath.Join(outputDir, "compliance-summary.json"), complianceSummary); err != nil {
@@ -311,7 +312,7 @@ func Build(in BuildInput) (BuildResult, error) {
 			return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 		}
 	}
-	if err := writeJSON(filepath.Join(outputDir, "posture-score.json"), snapshot.PostureScore); err != nil {
+	if err := writeJSON(filepath.Join(outputDir, "posture-score.json"), bundleSnapshot.PostureScore); err != nil {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	if err := writeJSON(filepath.Join(outputDir, "scan-metadata.json"), map[string]any{
@@ -324,9 +325,20 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	reportArtifacts := []string{}
+	loadReportSnapshot := func() (state.Snapshot, error) {
+		reportSnapshot, loadErr := state.Load(resolvedStatePath)
+		if loadErr != nil {
+			return state.Snapshot{}, loadErr
+		}
+		return reportSnapshot, nil
+	}
+	internalReportSnapshot, err := loadReportSnapshot()
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load deterministic report snapshot: %w", err)
+	}
 	summary, err := reportcore.BuildSummary(reportcore.BuildInput{
 		StatePath:    resolvedStatePath,
-		Snapshot:     snapshot,
+		Snapshot:     internalReportSnapshot,
 		Top:          5,
 		Template:     reportcore.TemplateAudit,
 		ShareProfile: reportcore.ShareProfileInternal,
@@ -335,9 +347,13 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build deterministic report summary: %w", err)
 	}
 	summary = reportcore.FinalizeSummaryForShareProfile(summary)
+	redactedReportSnapshot, err := loadReportSnapshot()
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load customer-redacted report snapshot: %w", err)
+	}
 	redactedSummary, err := reportcore.BuildSummary(reportcore.BuildInput{
 		StatePath:    resolvedStatePath,
-		Snapshot:     snapshot,
+		Snapshot:     redactedReportSnapshot,
 		Top:          5,
 		Template:     reportcore.TemplateAudit,
 		ShareProfile: reportcore.ShareProfileCustomerRedacted,
@@ -528,7 +544,7 @@ func Build(in BuildInput) (BuildResult, error) {
 		RuntimeSessions:      runtimeSessions,
 		RuntimeEvidence:      runtimeEvidence,
 		EvidencePackets:      evidencePackets,
-		AgentActionBOM:       summary.AgentActionBOM,
+		AgentActionBOM:       redactedSummary.AgentActionBOM,
 		GovernedUsageMetrics: summary.GovernedUsageMetrics,
 	}, nil
 }
