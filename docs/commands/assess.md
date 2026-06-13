@@ -56,6 +56,7 @@ The command writes one output directory plus an `assessment-manifest.json` that 
 Stage failures return the underlying stage exit code and do not publish an assessment manifest. When `--baseline` is supplied and drift is detected, `wrkr assess` still writes the manifest and returns exit code `5`.
 
 The default report template is `agent-action-bom`, the default share profile is `customer-redacted` for most templates (`public` for `public` and `customer-draft`, `design-partner` for `design-partner-summary`), the default scan profile is `assessment`, and the default evidence framework set is `soc2`.
+The default shareable report-stage markdown and evidence JSON that `assess` emits follow the same canonical ref-only writer contract as `wrkr report`: repeated endpoint and authority objects are omitted when canonical refs are present.
 
 Use `--share-profile internal` only when you intentionally need cleartext owner,
 reviewer, account-like, or local-path detail in the assessment's report-stage

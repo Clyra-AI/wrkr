@@ -17,6 +17,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/compliance"
 	"github.com/Clyra-AI/wrkr/core/detect"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/ingest"
@@ -1855,6 +1856,10 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.OccurrenceRefs = redactStringSlice(copyItem.OccurrenceRefs, "path")
 		copyItem.AttackPathRefs = redactStringSlice(copyItem.AttackPathRefs, "attack")
 		copyItem.SourceFindingKeys = redactStringSlice(copyItem.SourceFindingKeys, "finding")
+		copyItem.ControlEvidenceRefs = redactStringSlice(copyItem.ControlEvidenceRefs, "evidence")
+		copyItem.ConstraintEvidenceRefs = redactStringSlice(copyItem.ConstraintEvidenceRefs, "evidence")
+		copyItem.TargetClassEvidenceRefs = redactStringSlice(copyItem.TargetClassEvidenceRefs, "evidence")
+		copyItem.ActionPathTypeEvidenceRefs = redactStringSlice(copyItem.ActionPathTypeEvidenceRefs, "evidence")
 		if copyItem.CredentialProvenance != nil {
 			copyItem.CredentialProvenance = agginventory.CloneCredentialProvenance(copyItem.CredentialProvenance)
 			copyItem.CredentialProvenance.Subject = redactValue("credential", copyItem.CredentialProvenance.Subject, 8)
@@ -1880,9 +1885,22 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.ExecutionEnvironment = redactValue("provider", copyItem.ExecutionEnvironment, 8)
 		copyItem.StateLocationRefs = redactStringSlice(copyItem.StateLocationRefs, "state")
 		copyItem.StateDigestRefs = redactStringSlice(copyItem.StateDigestRefs, "digest")
+		copyItem.PolicyRefs = redactStringSlice(copyItem.PolicyRefs, "policy")
+		copyItem.PolicyEvidenceRefs = redactStringSlice(copyItem.PolicyEvidenceRefs, "evidence")
+		copyItem.AutonomyTierEvidenceRefs = redactStringSlice(copyItem.AutonomyTierEvidenceRefs, "evidence")
+		copyItem.RiskClassificationValidationRefs = redactStringSlice(copyItem.RiskClassificationValidationRefs, "evidence")
 		copyItem.AgentIdentity = sanitizeAgentIdentityPublic(copyItem.AgentIdentity)
 		copyItem.DecisionPrecedent = sanitizeDecisionPrecedentPublic(copyItem.DecisionPrecedent)
 		copyItem.DeliveryControlContext = sanitizeDeliveryControlContextPublic(copyItem.DeliveryControlContext)
+		copyItem.DeliveryHarnesses = redactStringSlice(copyItem.DeliveryHarnesses, "delivery")
+		copyItem.ResolverRefs = redactStringSlice(copyItem.ResolverRefs, "resolver")
+		copyItem.EvalConfigRefs = redactStringSlice(copyItem.EvalConfigRefs, "eval")
+		copyItem.SandboxGates = redactStringSlice(copyItem.SandboxGates, "sandbox")
+		copyItem.TestGates = redactStringSlice(copyItem.TestGates, "test")
+		copyItem.ValidationRequirements = redactStringSlice(copyItem.ValidationRequirements, "validation")
+		copyItem.HighStakesPresets = sanitizeHighStakesPresetsPublic(copyItem.HighStakesPresets)
+		copyItem.EvidenceDecisions = sanitizeEvidenceDecisionsPublic(copyItem.EvidenceDecisions)
+		copyItem.ProductionContext = sanitizeProductionContextPublic(copyItem.ProductionContext)
 		copyItem.EvidencePacketRefs = redactStringSlice(copyItem.EvidencePacketRefs, "packet")
 		copyItem.DecisionTraceRefs = redactStringSlice(copyItem.DecisionTraceRefs, "proof")
 		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
@@ -2137,10 +2155,22 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 		copyBacklog.Items[idx].LinkedControlPathEdgeIDs = redactStringSlice(copyBacklog.Items[idx].LinkedControlPathEdgeIDs, "edge")
 		copyBacklog.Items[idx].OwnershipEvidence = redactStringSlice(copyBacklog.Items[idx].OwnershipEvidence, "evidence")
 		copyBacklog.Items[idx].OwnershipConflicts = redactStringSlice(copyBacklog.Items[idx].OwnershipConflicts, "owner")
+		copyBacklog.Items[idx].EvidenceDecisions = sanitizeEvidenceDecisionsPublic(copyBacklog.Items[idx].EvidenceDecisions)
+		copyBacklog.Items[idx].ControlEvidenceRefs = redactStringSlice(copyBacklog.Items[idx].ControlEvidenceRefs, "evidence")
+		copyBacklog.Items[idx].ConstraintEvidenceRefs = redactStringSlice(copyBacklog.Items[idx].ConstraintEvidenceRefs, "evidence")
+		copyBacklog.Items[idx].TargetClassEvidenceRefs = redactStringSlice(copyBacklog.Items[idx].TargetClassEvidenceRefs, "evidence")
+		copyBacklog.Items[idx].ActionPathTypeEvidenceRefs = redactStringSlice(copyBacklog.Items[idx].ActionPathTypeEvidenceRefs, "evidence")
+		copyBacklog.Items[idx].AutonomyTierEvidenceRefs = redactStringSlice(copyBacklog.Items[idx].AutonomyTierEvidenceRefs, "evidence")
+		copyBacklog.Items[idx].RiskClassificationValidationRefs = redactStringSlice(copyBacklog.Items[idx].RiskClassificationValidationRefs, "evidence")
 		copyBacklog.Items[idx].ClosureRequirements = sanitizeClosureRequirementsPublic(copyBacklog.Items[idx].ClosureRequirements)
 		copyBacklog.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBacklog.Items[idx].EvidenceCompleteness)
 		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionPublic(copyBacklog.Items[idx].GovernanceDisposition)
 		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueuePublic(copyBacklog.Items[idx].LifecycleQueue)
+		copyBacklog.Items[idx].ProductionContext = sanitizeProductionContextPublic(copyBacklog.Items[idx].ProductionContext)
+		copyBacklog.Items[idx].PolicyRefs = redactStringSlice(copyBacklog.Items[idx].PolicyRefs, "policy")
+		copyBacklog.Items[idx].PolicyEvidenceRefs = redactStringSlice(copyBacklog.Items[idx].PolicyEvidenceRefs, "evidence")
+		copyBacklog.Items[idx].HighStakesPresets = sanitizeHighStakesPresetsPublic(copyBacklog.Items[idx].HighStakesPresets)
+		copyBacklog.Items[idx].SecurityTestRecipes = sanitizeSecurityTestRecipesPublic(copyBacklog.Items[idx].SecurityTestRecipes)
 		if copyBacklog.Items[idx].CredentialProvenance != nil {
 			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(copyBacklog.Items[idx].CredentialProvenance)
 			copyBacklog.Items[idx].CredentialProvenance.Subject = redactValue("credential", copyBacklog.Items[idx].CredentialProvenance.Subject, 8)
@@ -2189,6 +2219,12 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].RuntimeEvidenceRefs = redactStringSlice(copyBOM.Items[idx].RuntimeEvidenceRefs, "runtime")
 		copyBOM.Items[idx].PolicyRefs = redactStringSlice(copyBOM.Items[idx].PolicyRefs, "policy")
 		copyBOM.Items[idx].PolicyEvidenceRefs = redactStringSlice(copyBOM.Items[idx].PolicyEvidenceRefs, "policy")
+		copyBOM.Items[idx].ControlEvidenceRefs = redactStringSlice(copyBOM.Items[idx].ControlEvidenceRefs, "evidence")
+		copyBOM.Items[idx].ConstraintEvidenceRefs = redactStringSlice(copyBOM.Items[idx].ConstraintEvidenceRefs, "evidence")
+		copyBOM.Items[idx].TargetClassEvidenceRefs = redactStringSlice(copyBOM.Items[idx].TargetClassEvidenceRefs, "evidence")
+		copyBOM.Items[idx].ActionPathTypeEvidenceRefs = redactStringSlice(copyBOM.Items[idx].ActionPathTypeEvidenceRefs, "evidence")
+		copyBOM.Items[idx].AutonomyTierEvidenceRefs = redactStringSlice(copyBOM.Items[idx].AutonomyTierEvidenceRefs, "evidence")
+		copyBOM.Items[idx].RiskClassificationValidationRefs = redactStringSlice(copyBOM.Items[idx].RiskClassificationValidationRefs, "evidence")
 		copyBOM.Items[idx].ClosureRequirements = sanitizeClosureRequirementsPublic(copyBOM.Items[idx].ClosureRequirements)
 		copyBOM.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBOM.Items[idx].EvidenceCompleteness)
 		copyBOM.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionPublic(copyBOM.Items[idx].GovernanceDisposition)
@@ -2233,6 +2269,9 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].AgentIdentity = sanitizeAgentIdentityPublic(copyBOM.Items[idx].AgentIdentity)
 		copyBOM.Items[idx].DecisionPrecedent = sanitizeDecisionPrecedentPublic(copyBOM.Items[idx].DecisionPrecedent)
 		copyBOM.Items[idx].DeliveryControlContext = sanitizeDeliveryControlContextPublic(copyBOM.Items[idx].DeliveryControlContext)
+		copyBOM.Items[idx].HighStakesPresets = sanitizeHighStakesPresetsPublic(copyBOM.Items[idx].HighStakesPresets)
+		copyBOM.Items[idx].EvidenceDecisions = sanitizeEvidenceDecisionsPublic(copyBOM.Items[idx].EvidenceDecisions)
+		copyBOM.Items[idx].ProductionContext = sanitizeProductionContextPublic(copyBOM.Items[idx].ProductionContext)
 		copyBOM.Items[idx].EvidencePacketRefs = redactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet")
 		copyBOM.Items[idx].DecisionTraceRefs = redactStringSlice(copyBOM.Items[idx].DecisionTraceRefs, "proof")
 	}
@@ -2331,6 +2370,22 @@ func sanitizeDeliveryControlContextPublic(in *risk.DeliveryControlContext) *risk
 	out.SandboxGates = redactStringSlice(out.SandboxGates, "sandbox")
 	out.TestGates = redactStringSlice(out.TestGates, "test")
 	return out
+}
+
+func sanitizeProductionContextPublic(in *risk.ProductionContext) *risk.ProductionContext {
+	return sanitizeProductionContextWithConfig(in, ResolveRedactionConfig(ShareProfileCustomerRedacted, nil))
+}
+
+func sanitizeEvidenceDecisionsPublic(in []evidencepolicy.Decision) []evidencepolicy.Decision {
+	return sanitizeEvidenceDecisionsWithConfig(in, ResolveRedactionConfig(ShareProfileCustomerRedacted, nil))
+}
+
+func sanitizeHighStakesPresetsPublic(in []risk.HighStakesPreset) []risk.HighStakesPreset {
+	return sanitizeHighStakesPresetsWithConfig(in, ResolveRedactionConfig(ShareProfileCustomerRedacted, nil))
+}
+
+func sanitizeSecurityTestRecipesPublic(in []controlbacklog.SecurityTestRecipe) []controlbacklog.SecurityTestRecipe {
+	return sanitizeSecurityTestRecipesWithConfig(in, ResolveRedactionConfig(ShareProfileCustomerRedacted, nil))
 }
 
 func sanitizeGovernanceDispositionPublic(in *controlbacklog.GovernanceDisposition) *controlbacklog.GovernanceDisposition {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -153,6 +154,100 @@ func TestShareableArtifactsDoNotLeakOwners(t *testing.T) {
 		t.Fatalf("parse report payload: %v", err)
 	}
 	assertShareableOwnerFieldsRedacted(t, payload)
+}
+
+func TestShareableArtifactsDoNotLeakOwnersRecursively(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	scanRoot := filepath.Join(tmp, "enterprise-shareable-recursive")
+	if err := enterprisepressure.MaterializeCount(scanRoot, enterprisepressure.VariantBaseline, 16); err != nil {
+		t.Fatalf("materialize enterprise fixture: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	if code := Run([]string{"scan", "--path", scanRoot, "--state", statePath, "--quiet", "--json"}, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("scan failed with code %d", code)
+	}
+	injectNestedOwnerLeakFixture(t, statePath)
+
+	mdPath := filepath.Join(tmp, "recursive-shareable.md")
+	evidencePath := filepath.Join(tmp, "recursive-shareable-evidence.json")
+	var reportOut bytes.Buffer
+	var reportErr bytes.Buffer
+	if code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--template", "agent-action-bom",
+		"--share-profile", sprint0CLIExpectedShareProfile,
+		"--md",
+		"--md-path", mdPath,
+		"--evidence-json",
+		"--evidence-json-path", evidencePath,
+		"--json",
+	}, &reportOut, &reportErr); code != 0 {
+		t.Fatalf("report failed: %d %s", code, reportErr.String())
+	}
+
+	payload := map[string]any{}
+	if err := json.Unmarshal(reportOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	assertRecursiveShareableLeaksAbsent(t, "report json", payload)
+	assertShareableOwnerFieldsRedacted(t, payload)
+
+	evidenceBytes, err := os.ReadFile(evidencePath)
+	if err != nil {
+		t.Fatalf("read evidence artifact: %v", err)
+	}
+	var evidencePayload map[string]any
+	if err := json.Unmarshal(evidenceBytes, &evidencePayload); err != nil {
+		t.Fatalf("parse evidence payload: %v", err)
+	}
+	assertRecursiveShareableLeaksAbsent(t, "evidence json", evidencePayload)
+
+	markdownBytes, err := os.ReadFile(mdPath)
+	if err != nil {
+		t.Fatalf("read markdown artifact: %v", err)
+	}
+	assertShareableMarkdownDoesNotExposeFixtureHandles(t, string(markdownBytes))
+}
+
+func TestCustomerRedactedMarkdownDoesNotExposeFixtureHandles(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	scanRoot := filepath.Join(tmp, "enterprise-markdown-recursive")
+	if err := enterprisepressure.MaterializeCount(scanRoot, enterprisepressure.VariantBaseline, 16); err != nil {
+		t.Fatalf("materialize enterprise fixture: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	if code := Run([]string{"scan", "--path", scanRoot, "--state", statePath, "--quiet", "--json"}, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("scan failed with code %d", code)
+	}
+	injectNestedOwnerLeakFixture(t, statePath)
+
+	mdPath := filepath.Join(tmp, "customer-redacted.md")
+	var reportOut bytes.Buffer
+	var reportErr bytes.Buffer
+	if code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--template", "agent-action-bom",
+		"--share-profile", sprint0CLIExpectedShareProfile,
+		"--md",
+		"--md-path", mdPath,
+		"--json",
+	}, &reportOut, &reportErr); code != 0 {
+		t.Fatalf("report failed: %d %s", code, reportErr.String())
+	}
+
+	markdownBytes, err := os.ReadFile(mdPath)
+	if err != nil {
+		t.Fatalf("read markdown artifact: %v", err)
+	}
+	assertShareableMarkdownDoesNotExposeFixtureHandles(t, string(markdownBytes))
 }
 
 func TestShareableDefaultMasksOwnerLikeTokensAcrossArtifacts(t *testing.T) {
@@ -406,5 +501,117 @@ func assertShareabilityStatus(t *testing.T, summary map[string]any, expected str
 	}
 	if metadata["shareability_status"] != expected {
 		t.Fatalf("expected shareability_status=%q, got %v", expected, metadata["shareability_status"])
+	}
+}
+
+func injectNestedOwnerLeakFixture(t *testing.T, statePath string) {
+	t.Helper()
+
+	payload := map[string]any{}
+	stateBytes, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read state: %v", err)
+	}
+	if err := json.Unmarshal(stateBytes, &payload); err != nil {
+		t.Fatalf("parse state: %v", err)
+	}
+
+	riskReport, ok := payload["risk_report"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected risk_report in state, got %T", payload["risk_report"])
+	}
+	actionPaths, ok := riskReport["action_paths"].([]any)
+	if !ok || len(actionPaths) == 0 {
+		t.Fatalf("expected risk_report.action_paths in state, got %T (%v)", riskReport["action_paths"], riskReport["action_paths"])
+	}
+	path, ok := actionPaths[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected first action path object, got %T", actionPaths[0])
+	}
+	path["operational_owner"] = "release-bot"
+	path["evidence_decisions"] = []any{
+		map[string]any{
+			"field":                  "owner",
+			"selected_value":         "release-bot",
+			"selected_source_type":   "customer_owner_map",
+			"selected_source":        "customer owner map",
+			"selected_status":        "verified",
+			"selected_issuer":        "release-bot",
+			"selected_evidence_refs": []any{"/Users/example/private/repo/CODEOWNERS"},
+			"rejected_candidates": []any{
+				map[string]any{
+					"field":         "owner",
+					"value":         "triage-bot",
+					"source_type":   "codeowners",
+					"source":        "CODEOWNERS",
+					"evidence_refs": []any{"github.example.com/acme/enterprise-001/pull/108"},
+					"issuer":        "triage-bot",
+				},
+			},
+		},
+	}
+	path["production_context"] = map[string]any{
+		"status":          "correlated",
+		"surface_label":   "github.example.com/acme/enterprise-001/pull/108",
+		"owner":           "release-bot",
+		"evidence_refs":   []any{"/Users/example/private/repo/.github/workflows/release.yml"},
+		"reason_codes":    []any{"owner_evidence:verified"},
+		"action_classes":  []any{"deploy", "write"},
+		"target_class":    "production",
+		"tool_type":       "compiled_action",
+		"path_type":       "workflow",
+		"credential_mode": "standing",
+	}
+	actionPaths[0] = path
+	riskReport["action_paths"] = actionPaths
+	payload["risk_report"] = riskReport
+	writeJSONFile(t, statePath, payload)
+}
+
+func assertRecursiveShareableLeaksAbsent(t *testing.T, label string, payload map[string]any) {
+	t.Helper()
+	walkShareablePayload(t, label, payload, nil)
+}
+
+func walkShareablePayload(t *testing.T, label string, value any, path []string) {
+	t.Helper()
+
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, nested := range typed {
+			walkShareablePayload(t, label, nested, append(path, key))
+		}
+	case []any:
+		for idx, nested := range typed {
+			walkShareablePayload(t, label, nested, append(path, "["+strconv.Itoa(idx)+"]"))
+		}
+	case string:
+		for _, forbidden := range []string{
+			"release-bot",
+			"triage-bot",
+			"github.example.com/acme/enterprise-001/pull/108",
+			"/Users/example/private/repo",
+			enterprisepressure.RepoName(1),
+		} {
+			if strings.Contains(typed, forbidden) {
+				t.Fatalf("expected %s to redact %q at %s, got %q", label, forbidden, strings.Join(path, "."), typed)
+			}
+		}
+	}
+}
+
+func assertShareableMarkdownDoesNotExposeFixtureHandles(t *testing.T, markdown string) {
+	t.Helper()
+
+	for _, forbidden := range []string{
+		"release-bot",
+		"triage-bot",
+		"github.example.com/acme/enterprise-001/pull/108",
+		"/Users/example/private/repo",
+		enterprisepressure.RepoName(1),
+	} {
+		if strings.Contains(markdown, forbidden) {
+			t.Fatalf("expected shareable markdown to redact %q, got %q", forbidden, markdown)
+		}
 	}
 }

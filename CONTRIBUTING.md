@@ -83,7 +83,7 @@ These commands do not replace `make test-fast`, `make prepush`, contract lanes, 
 1. Keep scope tight and mapped to one story/contract change when possible.
 2. Run required local commands for your touched surfaces (at minimum fast + core lane anchors).
    `make test-focused-docs` or `make test-focused-scan` are acceptable as the first local pass for narrow changes, but they are additive helpers only and do not satisfy merge or release gates by themselves.
-   During Sprint 0 subtractive fixes, the temporary freeze gate blocks new scan/report fields, sidecars, detector breadth, report sections, and context dimensions unless they are directly required by Stories 1.1 through 4.2 or the size, redaction, and readability gates are green.
+   During Sprint 0 subtractive fixes, the temporary freeze gate blocks new scan/report fields, sidecars, detector breadth, report sections, and context dimensions unless they are directly required by Stories 1.1 through 4.2 or the size, redaction, and readability gates are green. recursive redaction and clone-strip contracts are part of that temporary freeze gate.
 3. If workflow refs change, rerun the affected workflow class on your branch and inspect it for the absence of the prior deprecation warning:
    - `gh workflow run pr.yml --ref <branch>`
    - `gh workflow run nightly.yml --ref <branch>`

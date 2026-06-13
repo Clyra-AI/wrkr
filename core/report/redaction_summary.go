@@ -8,6 +8,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -88,6 +89,10 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		copyItem.OccurrenceRefs = maybeRedactStringSlice(copyItem.OccurrenceRefs, "path", config.Has(RedactionPaths) || config.Has(RedactionRepos))
 		copyItem.AttackPathRefs = maybeRedactStringSlice(copyItem.AttackPathRefs, "attack", config.Has(RedactionGraphRefs))
 		copyItem.SourceFindingKeys = maybeRedactStringSlice(copyItem.SourceFindingKeys, "finding", shouldRedactFindingKeys(config))
+		copyItem.ControlEvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.ControlEvidenceRefs, config)
+		copyItem.ConstraintEvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.ConstraintEvidenceRefs, config)
+		copyItem.TargetClassEvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.TargetClassEvidenceRefs, config)
+		copyItem.ActionPathTypeEvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.ActionPathTypeEvidenceRefs, config)
 		if copyItem.CredentialProvenance != nil {
 			copyItem.CredentialProvenance = agginventory.CloneCredentialProvenance(copyItem.CredentialProvenance)
 			copyItem.CredentialProvenance.Subject = maybeRedactCredentialSubject(copyItem.CredentialProvenance.Subject, config)
@@ -114,9 +119,22 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		copyItem.ExecutionEnvironment = maybeRedactProviderContext(copyItem.ExecutionEnvironment, config)
 		copyItem.StateLocationRefs = maybeRedactLocationLikeSlice(copyItem.StateLocationRefs, config)
 		copyItem.StateDigestRefs = maybeRedactStringSlice(copyItem.StateDigestRefs, "digest", config.Has(RedactionProofRefs))
+		copyItem.PolicyRefs = maybeRedactStringSlice(copyItem.PolicyRefs, "policy", config.Has(RedactionPaths) || config.Has(RedactionRepos) || config.Has(RedactionProofRefs))
+		copyItem.PolicyEvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.PolicyEvidenceRefs, config)
+		copyItem.AutonomyTierEvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.AutonomyTierEvidenceRefs, config)
+		copyItem.RiskClassificationValidationRefs = maybeRedactEvidenceRefSlice(copyItem.RiskClassificationValidationRefs, config)
 		copyItem.AgentIdentity = sanitizeAgentIdentityWithConfig(copyItem.AgentIdentity, config)
 		copyItem.DecisionPrecedent = sanitizeDecisionPrecedentWithConfig(copyItem.DecisionPrecedent, config)
 		copyItem.DeliveryControlContext = sanitizeDeliveryControlContextWithConfig(copyItem.DeliveryControlContext, config)
+		copyItem.DeliveryHarnesses = maybeRedactCompositeLabelSlice(copyItem.DeliveryHarnesses, config)
+		copyItem.ResolverRefs = maybeRedactLocationLikeSlice(copyItem.ResolverRefs, config)
+		copyItem.EvalConfigRefs = maybeRedactLocationLikeSlice(copyItem.EvalConfigRefs, config)
+		copyItem.SandboxGates = maybeRedactLocationLikeSlice(copyItem.SandboxGates, config)
+		copyItem.TestGates = maybeRedactCompositeLabelSlice(copyItem.TestGates, config)
+		copyItem.ValidationRequirements = maybeRedactCompositeLabelSlice(copyItem.ValidationRequirements, config)
+		copyItem.HighStakesPresets = sanitizeHighStakesPresetsWithConfig(copyItem.HighStakesPresets, config)
+		copyItem.EvidenceDecisions = sanitizeEvidenceDecisionsWithConfig(copyItem.EvidenceDecisions, config)
+		copyItem.ProductionContext = sanitizeProductionContextWithConfig(copyItem.ProductionContext, config)
 		copyItem.EvidencePacketRefs = maybeRedactStringSlice(copyItem.EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 		copyItem.DecisionTraceRefs = maybeRedactStringSlice(copyItem.DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 		copyItem.MatchedProductionTargets = cloneStrings(copyItem.MatchedProductionTargets)
@@ -382,10 +400,22 @@ func sanitizeControlBacklogWithConfig(in *controlbacklog.Backlog, config Redacti
 		copyBacklog.Items[idx].LinkedControlPathEdgeIDs = maybeRedactStringSlice(copyBacklog.Items[idx].LinkedControlPathEdgeIDs, "edge", config.Has(RedactionGraphRefs))
 		copyBacklog.Items[idx].OwnershipEvidence = cloneStrings(copyBacklog.Items[idx].OwnershipEvidence)
 		copyBacklog.Items[idx].OwnershipConflicts = maybeRedactStringSlice(copyBacklog.Items[idx].OwnershipConflicts, "owner", config.Has(RedactionOwners))
+		copyBacklog.Items[idx].EvidenceDecisions = sanitizeEvidenceDecisionsWithConfig(copyBacklog.Items[idx].EvidenceDecisions, config)
+		copyBacklog.Items[idx].ControlEvidenceRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].ControlEvidenceRefs, config)
+		copyBacklog.Items[idx].ConstraintEvidenceRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].ConstraintEvidenceRefs, config)
+		copyBacklog.Items[idx].TargetClassEvidenceRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].TargetClassEvidenceRefs, config)
+		copyBacklog.Items[idx].ActionPathTypeEvidenceRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].ActionPathTypeEvidenceRefs, config)
+		copyBacklog.Items[idx].AutonomyTierEvidenceRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].AutonomyTierEvidenceRefs, config)
+		copyBacklog.Items[idx].RiskClassificationValidationRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].RiskClassificationValidationRefs, config)
 		copyBacklog.Items[idx].ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyBacklog.Items[idx].ClosureRequirements, config)
 		copyBacklog.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBacklog.Items[idx].EvidenceCompleteness)
 		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionWithConfig(copyBacklog.Items[idx].GovernanceDisposition, config)
 		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueueWithConfig(copyBacklog.Items[idx].LifecycleQueue, config)
+		copyBacklog.Items[idx].ProductionContext = sanitizeProductionContextWithConfig(copyBacklog.Items[idx].ProductionContext, config)
+		copyBacklog.Items[idx].PolicyRefs = maybeRedactStringSlice(copyBacklog.Items[idx].PolicyRefs, "policy", config.Has(RedactionPaths) || config.Has(RedactionRepos) || config.Has(RedactionProofRefs))
+		copyBacklog.Items[idx].PolicyEvidenceRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].PolicyEvidenceRefs, config)
+		copyBacklog.Items[idx].HighStakesPresets = sanitizeHighStakesPresetsWithConfig(copyBacklog.Items[idx].HighStakesPresets, config)
+		copyBacklog.Items[idx].SecurityTestRecipes = sanitizeSecurityTestRecipesWithConfig(copyBacklog.Items[idx].SecurityTestRecipes, config)
 		if copyBacklog.Items[idx].CredentialProvenance != nil {
 			copyBacklog.Items[idx].CredentialProvenance = agginventory.CloneCredentialProvenance(copyBacklog.Items[idx].CredentialProvenance)
 			copyBacklog.Items[idx].CredentialProvenance.Subject = maybeRedactCredentialSubject(copyBacklog.Items[idx].CredentialProvenance.Subject, config)
@@ -427,9 +457,15 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		for itemIdx := range copyBOM.Items[idx].ObservedChangedFiles {
 			copyBOM.Items[idx].ObservedChangedFiles[itemIdx] = maybeRedactLocationLike(copyBOM.Items[idx].ObservedChangedFiles[itemIdx], config)
 		}
-		copyBOM.Items[idx].RuntimeEvidenceRefs = cloneStrings(copyBOM.Items[idx].RuntimeEvidenceRefs)
-		copyBOM.Items[idx].PolicyRefs = cloneStrings(copyBOM.Items[idx].PolicyRefs)
-		copyBOM.Items[idx].PolicyEvidenceRefs = cloneStrings(copyBOM.Items[idx].PolicyEvidenceRefs)
+		copyBOM.Items[idx].RuntimeEvidenceRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].RuntimeEvidenceRefs, config)
+		copyBOM.Items[idx].PolicyRefs = maybeRedactStringSlice(copyBOM.Items[idx].PolicyRefs, "policy", config.Has(RedactionPaths) || config.Has(RedactionRepos) || config.Has(RedactionProofRefs))
+		copyBOM.Items[idx].PolicyEvidenceRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].PolicyEvidenceRefs, config)
+		copyBOM.Items[idx].ControlEvidenceRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].ControlEvidenceRefs, config)
+		copyBOM.Items[idx].ConstraintEvidenceRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].ConstraintEvidenceRefs, config)
+		copyBOM.Items[idx].TargetClassEvidenceRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].TargetClassEvidenceRefs, config)
+		copyBOM.Items[idx].ActionPathTypeEvidenceRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].ActionPathTypeEvidenceRefs, config)
+		copyBOM.Items[idx].AutonomyTierEvidenceRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].AutonomyTierEvidenceRefs, config)
+		copyBOM.Items[idx].RiskClassificationValidationRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].RiskClassificationValidationRefs, config)
 		copyBOM.Items[idx].ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyBOM.Items[idx].ClosureRequirements, config)
 		copyBOM.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBOM.Items[idx].EvidenceCompleteness)
 		copyBOM.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionWithConfig(copyBOM.Items[idx].GovernanceDisposition, config)
@@ -471,6 +507,9 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].AgentIdentity = sanitizeAgentIdentityWithConfig(copyBOM.Items[idx].AgentIdentity, config)
 		copyBOM.Items[idx].DecisionPrecedent = sanitizeDecisionPrecedentWithConfig(copyBOM.Items[idx].DecisionPrecedent, config)
 		copyBOM.Items[idx].DeliveryControlContext = sanitizeDeliveryControlContextWithConfig(copyBOM.Items[idx].DeliveryControlContext, config)
+		copyBOM.Items[idx].HighStakesPresets = sanitizeHighStakesPresetsWithConfig(copyBOM.Items[idx].HighStakesPresets, config)
+		copyBOM.Items[idx].EvidenceDecisions = sanitizeEvidenceDecisionsWithConfig(copyBOM.Items[idx].EvidenceDecisions, config)
+		copyBOM.Items[idx].ProductionContext = sanitizeProductionContextWithConfig(copyBOM.Items[idx].ProductionContext, config)
 		copyBOM.Items[idx].EvidencePacketRefs = maybeRedactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 		copyBOM.Items[idx].DecisionTraceRefs = maybeRedactStringSlice(copyBOM.Items[idx].DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 	}
@@ -565,6 +604,106 @@ func sanitizeDeliveryControlContextWithConfig(in *risk.DeliveryControlContext, c
 	out.SandboxGates = maybeRedactLocationLikeSlice(out.SandboxGates, config)
 	out.TestGates = maybeRedactCompositeLabelSlice(out.TestGates, config)
 	return out
+}
+
+func sanitizeProductionContextWithConfig(in *risk.ProductionContext, config RedactionConfig) *risk.ProductionContext {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneProductionContext(in)
+	out.SurfaceLabel = maybeRedactCompositeLabel(out.SurfaceLabel, config)
+	out.Owner = maybeRedactOwner(out.Owner, config)
+	out.MutableEndpointOperations = maybeRedactCompositeLabelSlice(out.MutableEndpointOperations, config)
+	out.EvidenceRefs = maybeRedactStringSlice(out.EvidenceRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionPaths) || config.Has(RedactionRepos))
+	return out
+}
+
+func sanitizeHighStakesPresetsWithConfig(in []risk.HighStakesPreset, config RedactionConfig) []risk.HighStakesPreset {
+	if len(in) == 0 {
+		return nil
+	}
+	out := risk.CloneHighStakesPresets(in)
+	for idx := range out {
+		out[idx].EvidenceRefs = maybeRedactEvidenceRefSlice(out[idx].EvidenceRefs, config)
+	}
+	return out
+}
+
+func sanitizeSecurityTestRecipesWithConfig(in []controlbacklog.SecurityTestRecipe, config RedactionConfig) []controlbacklog.SecurityTestRecipe {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]controlbacklog.SecurityTestRecipe, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.EvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.EvidenceRefs, config)
+		out = append(out, copyItem)
+	}
+	return out
+}
+
+func sanitizeEvidenceDecisionsWithConfig(in []evidencepolicy.Decision, config RedactionConfig) []evidencepolicy.Decision {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]evidencepolicy.Decision, 0, len(in))
+	for _, item := range in {
+		copyItem := item
+		copyItem.SelectedEvidenceRefs = maybeRedactStringSlice(copyItem.SelectedEvidenceRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionPaths) || config.Has(RedactionRepos))
+		if evidenceDecisionRequiresOwnerRedaction(copyItem) {
+			copyItem.SelectedValue = maybeRedactOwner(copyItem.SelectedValue, config)
+			copyItem.SelectedIssuer = maybeRedactOwner(copyItem.SelectedIssuer, config)
+		} else {
+			copyItem.SelectedValue = strings.TrimSpace(copyItem.SelectedValue)
+			copyItem.SelectedIssuer = strings.TrimSpace(copyItem.SelectedIssuer)
+		}
+		if len(copyItem.RejectedCandidates) > 0 {
+			copyItem.RejectedCandidates = make([]evidencepolicy.Candidate, 0, len(copyItem.RejectedCandidates))
+			for _, candidate := range item.RejectedCandidates {
+				copyCandidate := candidate
+				copyCandidate.EvidenceRefs = maybeRedactStringSlice(copyCandidate.EvidenceRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionPaths) || config.Has(RedactionRepos))
+				if evidenceCandidateRequiresOwnerRedaction(copyItem, copyCandidate) {
+					copyCandidate.Value = maybeRedactOwner(copyCandidate.Value, config)
+					copyCandidate.Issuer = maybeRedactOwner(copyCandidate.Issuer, config)
+				} else {
+					copyCandidate.Value = strings.TrimSpace(copyCandidate.Value)
+					copyCandidate.Issuer = strings.TrimSpace(copyCandidate.Issuer)
+				}
+				copyItem.RejectedCandidates = append(copyItem.RejectedCandidates, copyCandidate)
+			}
+		}
+		out = append(out, copyItem)
+	}
+	return out
+}
+
+func maybeRedactEvidenceRefSlice(values []string, config RedactionConfig) []string {
+	return maybeRedactStringSlice(values, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionPaths) || config.Has(RedactionRepos))
+}
+
+func evidenceDecisionRequiresOwnerRedaction(in evidencepolicy.Decision) bool {
+	if evidenceFieldIsOwnerLike(in.Field) || evidenceTokenIsOwnerLike(in.SelectedSourceType) || evidenceTokenIsOwnerLike(in.SelectedStatus) {
+		return true
+	}
+	for _, candidate := range in.RejectedCandidates {
+		if evidenceFieldIsOwnerLike(candidate.Field) || evidenceTokenIsOwnerLike(candidate.SourceType) || evidenceTokenIsOwnerLike(candidate.Status) {
+			return true
+		}
+	}
+	return false
+}
+
+func evidenceCandidateRequiresOwnerRedaction(decision evidencepolicy.Decision, candidate evidencepolicy.Candidate) bool {
+	return evidenceDecisionRequiresOwnerRedaction(decision) || evidenceFieldIsOwnerLike(candidate.Field) || evidenceTokenIsOwnerLike(candidate.SourceType) || evidenceTokenIsOwnerLike(candidate.Status)
+}
+
+func evidenceFieldIsOwnerLike(value string) bool {
+	return strings.EqualFold(strings.TrimSpace(value), evidencepolicy.FieldOwner)
+}
+
+func evidenceTokenIsOwnerLike(value string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	return normalized == evidencepolicy.FieldOwner || strings.Contains(normalized, "owner")
 }
 
 func maybeRedactProviderContext(value string, config RedactionConfig) string {

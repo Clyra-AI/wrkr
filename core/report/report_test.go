@@ -14,6 +14,7 @@ import (
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/attribution"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
@@ -2771,6 +2772,156 @@ func TestBuildAssessmentSummaryIsPathCentricAndDeterministic(t *testing.T) {
 	}
 	if summary.ProofChainPath != "state/proof-chain.json" {
 		t.Fatalf("expected proof chain path to be preserved, got %q", summary.ProofChainPath)
+	}
+}
+
+func TestEvidenceDecisionOwnerCandidatesAreRedacted(t *testing.T) {
+	t.Parallel()
+
+	config := ResolveRedactionConfig(ShareProfileCustomerRedacted, nil)
+	decisions := []evidencepolicy.Decision{{
+		Field:                evidencepolicy.FieldOwner,
+		SelectedValue:        "@acme/release",
+		SelectedSourceType:   evidencepolicy.SourceTypeCustomerOwnerMap,
+		SelectedSource:       "customer owner map",
+		SelectedEvidenceRefs: []string{"/Users/example/private/repo/CODEOWNERS"},
+		SelectedIssuer:       "@acme/release",
+		RejectedCandidates: []evidencepolicy.Candidate{{
+			Field:        evidencepolicy.FieldOwner,
+			Value:        "@acme/security",
+			SourceType:   evidencepolicy.SourceTypeCodeowners,
+			Source:       "CODEOWNERS",
+			EvidenceRefs: []string{"github.example.com/acme/enterprise-001/pull/108"},
+			Issuer:       "@acme/security",
+		}},
+	}}
+
+	out := sanitizeEvidenceDecisionsWithConfig(decisions, config)
+	if len(out) != 1 {
+		t.Fatalf("expected one sanitized decision, got %+v", out)
+	}
+	if out[0].SelectedValue == decisions[0].SelectedValue || !strings.HasPrefix(out[0].SelectedValue, "owner-") {
+		t.Fatalf("expected selected owner to be redacted, got %+v", out[0])
+	}
+	if out[0].SelectedIssuer == decisions[0].SelectedIssuer || !strings.HasPrefix(out[0].SelectedIssuer, "owner-") {
+		t.Fatalf("expected selected owner issuer to be redacted, got %+v", out[0])
+	}
+	if len(out[0].RejectedCandidates) != 1 {
+		t.Fatalf("expected rejected owner candidate to survive sanitization, got %+v", out[0])
+	}
+	if got := out[0].RejectedCandidates[0].Value; got == decisions[0].RejectedCandidates[0].Value || !strings.HasPrefix(got, "owner-") {
+		t.Fatalf("expected rejected owner candidate to be redacted, got %+v", out[0].RejectedCandidates[0])
+	}
+	if got := out[0].RejectedCandidates[0].Issuer; got == decisions[0].RejectedCandidates[0].Issuer || !strings.HasPrefix(got, "owner-") {
+		t.Fatalf("expected rejected owner issuer to be redacted, got %+v", out[0].RejectedCandidates[0])
+	}
+	if strings.Contains(strings.Join(out[0].SelectedEvidenceRefs, " "), "/Users/") {
+		t.Fatalf("expected selected evidence refs to be redacted, got %+v", out[0])
+	}
+	if strings.Contains(strings.Join(out[0].RejectedCandidates[0].EvidenceRefs, " "), "github.example.com/acme/enterprise-001/pull/108") {
+		t.Fatalf("expected rejected candidate evidence refs to be redacted, got %+v", out[0].RejectedCandidates[0])
+	}
+}
+
+func TestShareableArtifactsDoNotLeakNestedOwners(t *testing.T) {
+	t.Parallel()
+
+	config := ResolveRedactionConfig(ShareProfileCustomerRedacted, nil)
+	decisions := []evidencepolicy.Decision{{
+		Field:                evidencepolicy.FieldOwner,
+		SelectedValue:        "@acme/release",
+		SelectedSourceType:   evidencepolicy.SourceTypeCustomerOwnerMap,
+		SelectedSource:       "customer owner map",
+		SelectedEvidenceRefs: []string{"/Users/example/private/repo/CODEOWNERS"},
+		SelectedIssuer:       "@acme/release",
+		RejectedCandidates: []evidencepolicy.Candidate{{
+			Field:        evidencepolicy.FieldOwner,
+			Value:        "@acme/security",
+			SourceType:   evidencepolicy.SourceTypeCodeowners,
+			Source:       "CODEOWNERS",
+			EvidenceRefs: []string{"github.example.com/acme/enterprise-001/pull/108"},
+			Issuer:       "@acme/security",
+		}},
+	}}
+	productionContext := &risk.ProductionContext{
+		Status:                    risk.ProductionContextCorrelated,
+		SurfaceLabel:              "github.example.com/acme/enterprise-001/pull/108",
+		Owner:                     "@acme/release",
+		MutableEndpointOperations: []string{"POST /v1/payments"},
+		EvidenceRefs:              []string{"/Users/example/private/repo/.github/workflows/release.yml"},
+	}
+
+	paths := sanitizeActionPathsWithConfig([]risk.ActionPath{{
+		PathID:                   "apc-owner-nested",
+		Org:                      "acme",
+		Repo:                     "acme/payments",
+		Location:                 ".github/workflows/release.yml",
+		OperationalOwner:         "@acme/release",
+		EvidenceDecisions:        decisions,
+		ProductionContext:        productionContext,
+		MatchedProductionTargets: []string{"cluster/prod"},
+	}}, config)
+	if len(paths) != 1 {
+		t.Fatalf("expected one sanitized path, got %+v", paths)
+	}
+	if got := paths[0].ProductionContext; got == nil || got.Owner == "@acme/release" || !strings.HasPrefix(got.Owner, "owner-") {
+		t.Fatalf("expected production context owner to be redacted on action paths, got %+v", paths[0].ProductionContext)
+	}
+	if strings.Contains(strings.Join(paths[0].ProductionContext.EvidenceRefs, " "), "/Users/") {
+		t.Fatalf("expected production context evidence refs to be redacted on action paths, got %+v", paths[0].ProductionContext)
+	}
+	if got := paths[0].EvidenceDecisions[0].RejectedCandidates[0].Value; got == "@acme/security" || !strings.HasPrefix(got, "owner-") {
+		t.Fatalf("expected nested owner candidates to be redacted on action paths, got %+v", paths[0].EvidenceDecisions)
+	}
+
+	backlog := sanitizeControlBacklogWithConfig(&controlbacklog.Backlog{
+		Items: []controlbacklog.Item{{
+			ID:                 "cb-owner-nested",
+			Repo:               "acme/payments",
+			Path:               ".github/workflows/release.yml",
+			Owner:              "@acme/release",
+			EvidenceSource:     "risk_action_path",
+			EvidenceBasis:      []string{"workflow_permission"},
+			ApprovalStatus:     "unapproved",
+			SecurityVisibility: "unknown_to_security",
+			SignalClass:        "unique_wrkr_signal",
+			RecommendedAction:  "approve",
+			Confidence:         "medium",
+			SLA:                "7d",
+			ClosureCriteria:    "Record owner-approved evidence and rescan.",
+			EvidenceDecisions:  decisions,
+			ProductionContext:  productionContext,
+		}},
+	}, config)
+	if backlog == nil || len(backlog.Items) != 1 {
+		t.Fatalf("expected one sanitized backlog item, got %+v", backlog)
+	}
+	if got := backlog.Items[0].ProductionContext; got == nil || got.Owner == "@acme/release" || !strings.HasPrefix(got.Owner, "owner-") {
+		t.Fatalf("expected production context owner to be redacted on backlog items, got %+v", backlog.Items[0].ProductionContext)
+	}
+	if got := backlog.Items[0].EvidenceDecisions[0].SelectedValue; got == "@acme/release" || !strings.HasPrefix(got, "owner-") {
+		t.Fatalf("expected nested owner decision to be redacted on backlog items, got %+v", backlog.Items[0].EvidenceDecisions)
+	}
+
+	bom := sanitizeAgentActionBOMWithConfig(&AgentActionBOM{
+		Items: []AgentActionBOMItem{{
+			PathID:            "apc-owner-nested",
+			Org:               "acme",
+			Repo:              "acme/payments",
+			Location:          ".github/workflows/release.yml",
+			Owner:             "@acme/release",
+			EvidenceDecisions: decisions,
+			ProductionContext: productionContext,
+		}},
+	}, ShareProfileCustomerRedacted, config)
+	if bom == nil || len(bom.Items) != 1 {
+		t.Fatalf("expected one sanitized BOM item, got %+v", bom)
+	}
+	if got := bom.Items[0].ProductionContext; got == nil || got.Owner == "@acme/release" || !strings.HasPrefix(got.Owner, "owner-") {
+		t.Fatalf("expected production context owner to be redacted on BOM items, got %+v", bom.Items[0].ProductionContext)
+	}
+	if got := bom.Items[0].EvidenceDecisions[0].RejectedCandidates[0].Value; got == "@acme/security" || !strings.HasPrefix(got, "owner-") {
+		t.Fatalf("expected nested owner candidates to be redacted on BOM items, got %+v", bom.Items[0].EvidenceDecisions)
 	}
 }
 

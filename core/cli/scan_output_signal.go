@@ -15,6 +15,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/score"
 	"github.com/Clyra-AI/wrkr/core/source"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
+	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 const (
@@ -53,6 +54,25 @@ type scanJSONSummaryInput struct {
 }
 
 func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
+	canonicalSnapshot := state.FinalizeSnapshotForOutput(state.Snapshot{
+		Target:         input.Manifest.Target,
+		Targets:        input.Manifest.Targets,
+		Findings:       append([]source.Finding(nil), input.Findings...),
+		Inventory:      &input.Inventory,
+		ControlBacklog: &input.ControlBacklog,
+		RiskReport:     &input.RiskReport,
+	})
+	if canonicalSnapshot.Inventory != nil {
+		input.Inventory = *canonicalSnapshot.Inventory
+	}
+	if canonicalSnapshot.ControlBacklog != nil {
+		input.ControlBacklog = *canonicalSnapshot.ControlBacklog
+	}
+	if canonicalSnapshot.RiskReport != nil {
+		input.RiskReport = *canonicalSnapshot.RiskReport
+	}
+	input.Findings = canonicalSnapshot.Findings
+
 	payload := map[string]any{
 		"status":              "ok",
 		"deployment_mode":     input.DeploymentMode,

@@ -87,6 +87,27 @@ func TestWave31FreezeBlocksNewSurfaceBeforeSprint0Gates(t *testing.T) {
 	}
 }
 
+func TestWave31FreezeGateRequiresRecursiveRedactionAndCloneStripGreen(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := mustFindRepoRoot(t)
+	agents := mustReadFile(t, filepath.Join(repoRoot, "AGENTS.md"))
+	contributing := mustReadFile(t, filepath.Join(repoRoot, "CONTRIBUTING.md"))
+	planNext := mustReadFile(t, filepath.Join(repoRoot, "product/PLAN_NEXT.md"))
+
+	for _, content := range []string{agents, contributing, planNext} {
+		for _, required := range []string{
+			"recursive redaction",
+			"clone-strip",
+			"temporary freeze gate",
+		} {
+			if !strings.Contains(content, required) {
+				t.Fatalf("freeze gate contract missing %q", required)
+			}
+		}
+	}
+}
+
 func TestChangelogPrivacyClaimsRequireMeasuredReceipts(t *testing.T) {
 	t.Parallel()
 

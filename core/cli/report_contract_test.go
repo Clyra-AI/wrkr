@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -460,6 +461,95 @@ func writeJSONFile(t *testing.T, path string, payload any) {
 	}
 	if err := os.WriteFile(path, append(encoded, '\n'), 0o600); err != nil {
 		t.Fatalf("write json: %v", err)
+	}
+}
+
+func injectCanonicalCloneFixture(t *testing.T, statePath string) {
+	t.Helper()
+
+	payload := map[string]any{}
+	stateBytes, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read state: %v", err)
+	}
+	if err := json.Unmarshal(stateBytes, &payload); err != nil {
+		t.Fatalf("parse state: %v", err)
+	}
+
+	riskReport, ok := payload["risk_report"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected risk_report in state, got %T", payload["risk_report"])
+	}
+	actionPaths, ok := riskReport["action_paths"].([]any)
+	if !ok || len(actionPaths) == 0 {
+		t.Fatalf("expected action_paths in state, got %T (%v)", riskReport["action_paths"], riskReport["action_paths"])
+	}
+	path, ok := actionPaths[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected action path object, got %T", actionPaths[0])
+	}
+	path["mutable_endpoint_semantic_refs"] = []any{"endpoint:deploy"}
+	path["mutable_endpoint_semantics"] = []any{
+		map[string]any{
+			"semantic":      "deploy",
+			"confidence":    "high",
+			"surface":       "workflow",
+			"operation":     "deploy release",
+			"evidence_refs": []any{"deploy release"},
+		},
+	}
+	path["credential_authority_ref"] = "authority:release"
+	path["credential_authority"] = map[string]any{
+		"credential_present":        true,
+		"credential_usable_by_path": true,
+		"standing_access":           true,
+		"credential_kind":           "github_pat",
+	}
+	path["authority_binding_refs"] = []any{"binding:release"}
+	path["authority_bindings"] = []any{
+		map[string]any{
+			"kind":          "cloud_role",
+			"provider":      "aws",
+			"subject":       "release-role",
+			"target_system": "deployment_platform",
+		},
+	}
+	actionPaths[0] = path
+	riskReport["action_paths"] = actionPaths
+	payload["risk_report"] = riskReport
+	writeJSONFile(t, statePath, payload)
+}
+
+func assertNoEmbeddedCanonicalClonesOutsideStores(t *testing.T, label string, value any, path []string) {
+	t.Helper()
+
+	pathString := strings.Join(path, ".")
+	if strings.Contains(pathString, "canonical_stores") {
+		return
+	}
+
+	switch typed := value.(type) {
+	case map[string]any:
+		if ref, ok := typed["credential_authority_ref"].(string); ok && strings.TrimSpace(ref) != "" && typed["credential_authority"] != nil {
+			t.Fatalf("expected %s to omit credential_authority at %s when credential_authority_ref is present: %+v", label, pathString, typed)
+		}
+		if refs, ok := typed["authority_binding_refs"].([]any); ok && len(refs) > 0 {
+			if bindings, ok := typed["authority_bindings"].([]any); ok && len(bindings) > 0 {
+				t.Fatalf("expected %s to omit authority_bindings at %s when authority_binding_refs are present: %+v", label, pathString, typed)
+			}
+		}
+		if refs, ok := typed["mutable_endpoint_semantic_refs"].([]any); ok && len(refs) > 0 {
+			if semantics, ok := typed["mutable_endpoint_semantics"].([]any); ok && len(semantics) > 0 {
+				t.Fatalf("expected %s to omit mutable_endpoint_semantics at %s when mutable_endpoint_semantic_refs are present: %+v", label, pathString, typed)
+			}
+		}
+		for key, nested := range typed {
+			assertNoEmbeddedCanonicalClonesOutsideStores(t, label, nested, append(path, key))
+		}
+	case []any:
+		for idx, nested := range typed {
+			assertNoEmbeddedCanonicalClonesOutsideStores(t, label, nested, append(path, "["+strconv.Itoa(idx)+"]"))
+		}
 	}
 }
 
@@ -1002,6 +1092,52 @@ func TestReportContractBuyerArtifactsPassQAInternalAndRedacted(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPublicArtifactsDoNotEmbedCanonicalClones(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	evidencePath := filepath.Join(tmp, "report-evidence.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("scan failed to seed state: %d", code)
+	}
+	injectCanonicalCloneFixture(t, statePath)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	if code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--template", "agent-action-bom",
+		"--share-profile", "customer-redacted",
+		"--evidence-json",
+		"--evidence-json-path", evidencePath,
+		"--json",
+	}, &out, &errOut); code != 0 {
+		t.Fatalf("report failed: %d %s", code, errOut.String())
+	}
+
+	var reportPayload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &reportPayload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	requireReportContainsCanonicalRefs(t, reportPayload)
+	assertNoEmbeddedCanonicalClonesOutsideStores(t, "report json", reportPayload, nil)
+
+	evidenceBytes, err := os.ReadFile(evidencePath)
+	if err != nil {
+		t.Fatalf("read evidence bundle: %v", err)
+	}
+	var evidencePayload map[string]any
+	if err := json.Unmarshal(evidenceBytes, &evidencePayload); err != nil {
+		t.Fatalf("parse evidence bundle: %v", err)
+	}
+	requireReportContainsCanonicalRefs(t, evidencePayload)
+	assertNoEmbeddedCanonicalClonesOutsideStores(t, "evidence json", evidencePayload, nil)
 }
 
 func reportQAPathEvidence(t *testing.T, reportPayload map[string]any) []reportcore.BuyerArtifactPathEvidence {
