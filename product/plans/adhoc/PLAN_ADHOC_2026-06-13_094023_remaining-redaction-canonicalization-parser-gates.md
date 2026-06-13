@@ -276,18 +276,21 @@ Repo paths:
 - `core/cli/scan.go`
 - `core/cli/report.go`
 - `core/cli/assess.go`
+- `core/evidence/evidence.go`
 - `core/report/artifacts.go`
 - `core/report/canonical_projection.go`
 - `core/aggregate/attackpath/graph.go`
 - `core/report/build.go`
 Run commands:
 - `go test ./core/cli -run 'Test.*Scan.*JSON|Test.*Report.*Contract|Test.*Assess' -count=1`
+- `go test ./core/evidence -run 'Test.*Bundle|Test.*Finalize|Test.*Redacted' -count=1`
 - `go test ./core/report -run 'Test.*Canonical|Test.*Artifact|Test.*Projection' -count=1`
 - `go test ./core/state -count=1`
 - `make test-contracts`
 - `make prepush-full`
 Test requirements:
 - Tier 2 integration coverage for shared finalizer invocation across CLI and artifact writers.
+- Tier 2 or Tier 3 evidence-bundle coverage proving `wrkr evidence` uses the same finalizer and redaction contract as report and assess artifact writers.
 - Tier 3 CLI contract coverage for `scan`, `report`, and `assess` JSON outputs.
 - Tier 9 contract and schema checks for canonical ref preservation and embedded clone removal.
 - Tier 11 scenario coverage for repeated projection outputs on large scans.
@@ -298,6 +301,7 @@ Matrix wiring:
 - Risk lane: `make test-hardening`, `make test-chaos`, and `make test-perf` because writer finalization touches hot artifact paths.
 Acceptance criteria:
 - Every public/default writer emits canonical refs and omits embedded endpoint or authority clones when refs exist.
+- `wrkr evidence` bundle JSON and paired report artifacts route through the same shared finalizer as other public/default writers.
 - Saved state, scan JSON, report JSON, evidence JSON, and assess JSON share one finalization contract rather than ad hoc stripping logic.
 - Deterministic caps are applied after ref backfill and clone stripping, not before.
 Changelog impact: required
