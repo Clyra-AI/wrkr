@@ -115,7 +115,8 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 	if activation := reportcore.BuildActivation(input.Manifest.Target.Mode, input.RiskReport.Ranked, &input.Inventory, input.RiskReport.ActionPaths, 5); activation != nil {
 		payload["activation"] = activation
 	}
-	if suppressed := buildScanSuppressedCounts(input); suppressed != nil {
+	suppressed := buildScanSuppressedCounts(input)
+	if suppressed != nil {
 		payload["suppressed_counts"] = suppressed
 	}
 	if len(input.RiskReport.TopN) > 0 {
@@ -148,7 +149,7 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 		backlog.Items = scanPreview(input.ControlBacklog.Items, scanSummaryInlineBacklogItemsCap)
 		payload["control_backlog"] = backlog
 	}
-	if inventory := scanInventoryPreview(input.Inventory); inventory != nil {
+	if inventory := scanInventoryPreview(input.Inventory, suppressed); inventory != nil {
 		payload["inventory"] = *inventory
 	}
 	rows := scanPreview(input.Inventory.AgentPrivilegeMap, scanSummaryInlinePrivilegeRowsCap)
@@ -265,7 +266,7 @@ func scanPreview[T any](items []T, limit int) []T {
 	return append([]T(nil), items[:limit]...)
 }
 
-func scanInventoryPreview(input agginventory.Inventory) *agginventory.Inventory {
+func scanInventoryPreview(input agginventory.Inventory, suppressed *reportcore.SuppressedCounts) *agginventory.Inventory {
 	inventory := input
 	inventory.Agents = scanPreview(input.Agents, scanSummaryInlineInventoryAgentsCap)
 	inventory.Tools = scanPreview(input.Tools, scanSummaryInlineInventoryToolsCap)
@@ -276,6 +277,9 @@ func scanInventoryPreview(input agginventory.Inventory) *agginventory.Inventory 
 		inventory.CanonicalStores = nil
 		inventory.NonHumanIdentities = nil
 		inventory.LifecycleQueue = nil
+	}
+	if suppressed != nil && (suppressed.ActionPaths > 0 || suppressed.ControlBacklog > 0) {
+		inventory.CanonicalStores = nil
 	}
 	return &inventory
 }
