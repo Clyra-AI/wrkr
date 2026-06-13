@@ -72,6 +72,82 @@ func TestMapFindingsDeduplicatesWRKR014Conflict(t *testing.T) {
 	}
 }
 
+func TestMapFindingsGroupsPolicyFanoutByOutcome(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 6, 12, 12, 0, 0, 0, time.UTC)
+	findings := []model.Finding{
+		{
+			FindingType:     "policy_check",
+			RuleID:          "WRKR-010",
+			CheckResult:     model.CheckResultFail,
+			PolicyOutcomeID: "policy-same",
+			Severity:        model.SeverityHigh,
+			ToolType:        "policy",
+			Location:        "WRKR-010",
+			Repo:            "repo-a",
+			Org:             "acme",
+		},
+		{
+			FindingType:     "policy_violation",
+			RuleID:          "WRKR-010",
+			CheckResult:     model.CheckResultFail,
+			PolicyOutcomeID: "policy-same",
+			Severity:        model.SeverityHigh,
+			ToolType:        "policy",
+			Location:        "WRKR-010",
+			Repo:            "repo-a",
+			Org:             "acme",
+		},
+		{
+			FindingType:     "policy_check",
+			RuleID:          "WRKR-010",
+			CheckResult:     model.CheckResultFail,
+			PolicyOutcomeID: "policy-same",
+			Severity:        model.SeverityHigh,
+			ToolType:        "policy",
+			Location:        "WRKR-010",
+			Repo:            "repo-b",
+			Org:             "acme",
+		},
+		{
+			FindingType:     "policy_violation",
+			RuleID:          "WRKR-010",
+			CheckResult:     model.CheckResultFail,
+			PolicyOutcomeID: "policy-same",
+			Severity:        model.SeverityHigh,
+			ToolType:        "policy",
+			Location:        "WRKR-010",
+			Repo:            "repo-b",
+			Org:             "acme",
+		},
+	}
+
+	records := MapFindings(findings, nil, SecurityVisibilityContext{}, now)
+	if len(records) != 1 {
+		t.Fatalf("expected one grouped policy proof record, got %d", len(records))
+	}
+	record := records[0]
+	if record.Event["finding_type"] != "policy_violation" {
+		t.Fatalf("expected failed grouped policy outcome to prefer violation representative, got %v", record.Event["finding_type"])
+	}
+	if record.Metadata["canonical_finding_key"] != "policy_outcome:acme:policy-same" {
+		t.Fatalf("unexpected canonical finding key: %v", record.Metadata["canonical_finding_key"])
+	}
+	if record.Metadata["source_findings_count"] != 4 {
+		t.Fatalf("expected source count 4, got %v", record.Metadata["source_findings_count"])
+	}
+	if record.Metadata["policy_outcome_id"] != "policy-same" {
+		t.Fatalf("expected policy outcome metadata, got %v", record.Metadata["policy_outcome_id"])
+	}
+	if record.Metadata["affected_repo_count"] != 2 {
+		t.Fatalf("expected affected repo count 2, got %v", record.Metadata["affected_repo_count"])
+	}
+	topRefs, ok := record.Metadata["top_repo_refs"].([]string)
+	if !ok || len(topRefs) != 2 || topRefs[0] != "acme/repo-a" || topRefs[1] != "acme/repo-b" {
+		t.Fatalf("unexpected top repo refs: %#v", record.Metadata["top_repo_refs"])
+	}
+}
+
 func TestMapFindingsRedactsMaterializedSourcePaths(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 4, 24, 12, 0, 0, 0, time.UTC)

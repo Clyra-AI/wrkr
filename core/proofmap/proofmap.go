@@ -14,6 +14,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/identity"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/outputsignal"
 	profileeval "github.com/Clyra-AI/wrkr/core/policy/profileeval"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
@@ -124,6 +125,7 @@ func MapFindings(findings []model.Finding, profile *profileeval.Result, visibili
 			"source_finding_types":  types,
 			"linked_rule_ids":       ruleIDs,
 		}
+		addPolicyOutcomeMetadata(metadata, representative, items)
 		if hasWRKR014(items) && hasSkillConflict(items) {
 			metadata["wrkr014_linked"] = true
 			metadata["conflict_link_key"] = key
@@ -565,6 +567,9 @@ func CanonicalFindingKey(finding model.Finding) string {
 	if finding.FindingType == "skill_policy_conflict" {
 		return "skill_policy_conflict:" + canonicalOrg(finding.Org) + ":" + strings.TrimSpace(finding.Repo)
 	}
+	if isPolicyFinding(finding) {
+		return "policy_outcome:" + canonicalOrg(finding.Org) + ":" + outputsignal.PolicyOutcomeIDForFinding(finding)
+	}
 	parts := []string{
 		strings.TrimSpace(finding.FindingType),
 		strings.TrimSpace(finding.RuleID),
@@ -595,7 +600,33 @@ func selectRepresentative(findings []model.Finding) model.Finding {
 			return finding
 		}
 	}
+	for _, finding := range findings {
+		if finding.FindingType == "policy_violation" {
+			return finding
+		}
+	}
 	return findings[0]
+}
+
+func isPolicyFinding(finding model.Finding) bool {
+	return finding.FindingType == "policy_check" || finding.FindingType == "policy_violation"
+}
+
+func addPolicyOutcomeMetadata(metadata map[string]any, representative model.Finding, items []model.Finding) {
+	if metadata == nil || !isPolicyFinding(representative) {
+		return
+	}
+	outcomes := outputsignal.BuildPolicyOutcomes(items)
+	if len(outcomes) == 0 {
+		return
+	}
+	outcome := outcomes[0]
+	metadata["policy_outcome_id"] = outputsignal.PolicyOutcomeIDForFinding(representative)
+	metadata["affected_repo_count"] = outcome.AffectedRepoCount
+	metadata["top_repo_refs"] = append([]string(nil), outcome.TopRepoRefs...)
+	if outcome.SuppressedCount > 0 {
+		metadata["suppressed_count"] = outcome.SuppressedCount
+	}
 }
 
 func sanitizeMappedRecord(record MappedRecord) MappedRecord {
