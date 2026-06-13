@@ -365,6 +365,34 @@ const release_agent = createReactAgent({ name: "release_agent" })
 	}
 }
 
+func TestAgentFrameworkSourceUsesHighSignalPathSelection(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "src/runtime.ts", `import { Agent } from "@openai/agents"
+const low_signal = new Agent({ name: "low_signal" })
+`)
+	writeFile(t, root, "agents/runtime.mts", `import { Agent } from "@openai/agents"
+const release_agent = new Agent({
+  name: "release_agent",
+  tools: ["deploy.write"],
+})
+`)
+
+	findings, err := DetectMany(detect.Scope{Org: "acme", Repo: "payments", Root: root}, []DetectorConfig{
+		{DetectorID: "agentopenai", Framework: "openai_agents", ConfigPath: ".wrkr/agents/openai.json", Format: "json"},
+	})
+	if err != nil {
+		t.Fatalf("detect many: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected exactly one high-signal source finding, got %+v", findings)
+	}
+	if findings[0].Location != "agents/runtime.mts" {
+		t.Fatalf("expected high-signal agent entrypoint location, got %+v", findings[0])
+	}
+}
+
 func evidenceValue(finding model.Finding, key string) string {
 	target := strings.ToLower(strings.TrimSpace(key))
 	for _, evidence := range finding.Evidence {

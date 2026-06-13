@@ -147,6 +147,40 @@ func TestGeneratedWebMCPBundlesStayOutOfFindings(t *testing.T) {
 	}
 }
 
+func TestWebMCPSkipsGeneratedBundlesAndLowSignalScripts(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "dist/assets/register.min.js", `navigator.modelContext.registerTool("generated", { description: "generated" })`)
+	writeFile(t, root, "src/runtime.mjs", `navigator.modelContext.registerTool("runtime", { description: "low signal" })`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "web", Root: root}, detect.Options{ScanMode: "deep"})
+	if err != nil {
+		t.Fatalf("detect webmcp: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected generated and low-signal scripts to stay out of findings, got %#v", findings)
+	}
+}
+
+func TestWebMCPTypeScriptRouteDetectionStaysDiscoverable(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeFile(t, root, "server/routes.ts", `export const WELL_KNOWN = "/.well-known/webmcp";`)
+
+	findings, err := New().Detect(context.Background(), detect.Scope{Org: "local", Repo: "web", Root: root}, detect.Options{})
+	if err != nil {
+		t.Fatalf("detect webmcp: %v", err)
+	}
+	if count := countFindingType(findings, "webmcp_declaration"); count != 1 {
+		t.Fatalf("expected one route declaration finding, got %#v", findings)
+	}
+	if !hasEvidencePair(findings, "declaration_method", "route_declaration") {
+		t.Fatalf("expected route_declaration evidence in WebMCP findings, got %#v", findings)
+	}
+}
+
 func mustFindWebMCPFinding(t *testing.T, findings []model.Finding) model.Finding {
 	t.Helper()
 	for _, finding := range findings {

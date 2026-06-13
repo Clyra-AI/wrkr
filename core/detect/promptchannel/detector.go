@@ -51,6 +51,9 @@ func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Opt
 	findings := make([]model.Finding, 0)
 	for _, file := range files {
 		rel := file.Rel
+		if detect.IsGeneratedPath(rel) {
+			continue
+		}
 		if !isPromptSurface(rel) {
 			continue
 		}

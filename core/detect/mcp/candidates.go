@@ -54,13 +54,16 @@ func detectAdditionalCandidates(scope detect.Scope, options detect.Options) []mo
 
 	seen := map[string]candidateFinding{}
 	for _, rel := range files {
+		if detect.IsGeneratedPath(rel) {
+			continue
+		}
 		switch {
 		case strings.EqualFold(filepath.Base(rel), "package.json"):
 			for _, item := range packageCandidates(scope.Root, rel) {
 				key := strings.Join([]string{item.location, item.name, item.evidenceType, item.declarationType}, "|")
 				seen[key] = item
 			}
-		case isCandidateSourceFile(rel):
+		case isCandidateSourceFile(rel) && detect.IsHighSignalMCPCandidateSourcePath(rel):
 			for _, item := range sourceCandidates(scope.Root, rel) {
 				key := strings.Join([]string{item.location, item.name, item.evidenceType, item.declarationType}, "|")
 				seen[key] = item
@@ -330,7 +333,7 @@ func isKnownMCPPackage(name string) bool {
 
 func isCandidateSourceFile(rel string) bool {
 	switch strings.ToLower(filepath.Ext(rel)) {
-	case ".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs":
+	case ".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts":
 		return true
 	default:
 		return false
