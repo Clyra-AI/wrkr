@@ -109,7 +109,6 @@ func ResolvePath(explicit string) string {
 
 func Save(path string, snapshot Snapshot) error {
 	snapshot = FinalizeSnapshotForOutput(snapshot)
-	applySnapshotSignalCaps(&snapshot)
 	if err := atomicwrite.WriteFileFunc(path, 0o600, func(w io.Writer) error {
 		encoder := json.NewEncoder(w)
 		encoder.SetIndent("", "  ")
@@ -130,7 +129,7 @@ func FinalizeSnapshotForOutput(snapshot Snapshot) Snapshot {
 	if len(snapshot.PolicyOutcomes) == 0 {
 		snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
 	}
-	canonicalizeSnapshotForOutput(&snapshot)
+	prepareSnapshotForSave(&snapshot)
 	return snapshot
 }
 
