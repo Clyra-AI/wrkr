@@ -308,6 +308,67 @@ func TestBuildEvidenceBundleFinalizesCanonicalProjectionSidecars(t *testing.T) {
 	assertNoEmbeddedEvidenceCanonicalClonesOutsideStores(t, "top-level evidence JSON BOM", bomPayload, nil)
 }
 
+func TestBuildReportSummariesStayOnValidatedSnapshot(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	now := time.Date(2026, 6, 13, 12, 0, 0, 0, time.UTC)
+
+	buildSnapshot := func(repo, severity string) state.Snapshot {
+		findings := []model.Finding{{
+			FindingType: "skill_policy_conflict",
+			Severity:    severity,
+			ToolType:    "skill",
+			Location:    ".claude/skills/deploy/SKILL.md",
+			Repo:        repo,
+			Org:         "acme",
+		}}
+		report := risk.Score(findings, 5, now)
+		profile := profileeval.Result{ProfileName: "standard", CompliancePercent: 88.2, Status: "pass"}
+		posture := score.Result{Score: 81.0, Grade: "B", Weights: scoremodel.DefaultWeights()}
+		return state.Snapshot{
+			Version:      state.SnapshotVersion,
+			Target:       source.Target{Mode: "repo", Value: "acme/" + repo},
+			Findings:     findings,
+			Inventory:    &agginventory.Inventory{InventoryVersion: "v1", GeneratedAt: now.Format(time.RFC3339)},
+			RiskReport:   &report,
+			Profile:      &profile,
+			PostureScore: &posture,
+		}
+	}
+
+	validatedSnapshot := buildSnapshot("validated-repo", model.SeverityHigh)
+	if err := state.Save(statePath, validatedSnapshot); err != nil {
+		t.Fatalf("save validated state: %v", err)
+	}
+	if _, err := proofemit.EmitScan(statePath, now, validatedSnapshot.Findings, nil, *validatedSnapshot.RiskReport, *validatedSnapshot.Profile, *validatedSnapshot.PostureScore, nil); err != nil {
+		t.Fatalf("emit validated scan records: %v", err)
+	}
+
+	overwrittenSnapshot := buildSnapshot("overwritten-repo", model.SeverityMedium)
+	if err := state.Save(statePath, overwrittenSnapshot); err != nil {
+		t.Fatalf("overwrite state after proof emission: %v", err)
+	}
+
+	summary, redactedSummary, err := buildReportSummaries(statePath, validatedSnapshot)
+	if err != nil {
+		t.Fatalf("build report summaries: %v", err)
+	}
+	if len(summary.TopRisks) == 0 {
+		t.Fatal("expected internal summary top risks")
+	}
+	if got := summary.TopRisks[0].Repo; got != "validated-repo" {
+		t.Fatalf("expected internal summary to stay on validated snapshot repo, got %q", got)
+	}
+	if len(redactedSummary.TopRisks) == 0 {
+		t.Fatal("expected redacted summary top risks")
+	}
+	if got := redactedSummary.TopRisks[0].Severity; got != model.SeverityHigh {
+		t.Fatalf("expected redacted summary to keep validated snapshot severity, got %q", got)
+	}
+}
+
 func TestBuildEvidenceBundleIncludesRuntimeEvidenceCorrelation(t *testing.T) {
 	t.Parallel()
 
