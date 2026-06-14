@@ -173,7 +173,7 @@ func MapRisk(report risk.Report, posture score.Result, profile profileeval.Resul
 	attackPathRecords := boundedAttackPaths(report)
 	actionPathRecords := boundedActionPaths(report.ActionPaths, maxActionPathProofRecords)
 
-	records := make([]MappedRecord, 0, len(findingRiskRecords)+len(attackPathRecords)+len(actionPathRecords)+2)
+	records := make([]MappedRecord, 0, len(findingRiskRecords))
 	for idx, item := range findingRiskRecords {
 		event := map[string]any{
 			"assessment_type": "finding_risk",
