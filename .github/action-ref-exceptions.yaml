@@ -69,10 +69,3 @@ exceptions:
     scope: docs-site Node setup only
     expires: 2026-08-31
     review_command: scripts/check_actions_runtime.sh
-  - workflow: .github/workflows/docs.yml
-    action: actions/upload-pages-artifact@v4.0.0
-    owner: docs-platform
-    reason: audited Node24-ready Pages artifact action kept on upstream release tag until SHA pin refresh automation lands
-    scope: docs-site static artifact upload only
-    expires: 2026-08-31
-    review_command: scripts/check_actions_runtime.sh
