@@ -325,43 +325,10 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
 	}
 	reportArtifacts := []string{}
-	loadReportSnapshot := func() (state.Snapshot, error) {
-		reportSnapshot, loadErr := state.Load(resolvedStatePath)
-		if loadErr != nil {
-			return state.Snapshot{}, loadErr
-		}
-		return reportSnapshot, nil
-	}
-	internalReportSnapshot, err := loadReportSnapshot()
+	summary, redactedSummary, err := buildReportSummaries(resolvedStatePath, snapshot)
 	if err != nil {
-		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load deterministic report snapshot: %w", err)
+		return BuildResult{}, err
 	}
-	summary, err := reportcore.BuildSummary(reportcore.BuildInput{
-		StatePath:    resolvedStatePath,
-		Snapshot:     internalReportSnapshot,
-		Top:          5,
-		Template:     reportcore.TemplateAudit,
-		ShareProfile: reportcore.ShareProfileInternal,
-	})
-	if err != nil {
-		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build deterministic report summary: %w", err)
-	}
-	summary = reportcore.FinalizeSummaryForShareProfile(summary)
-	redactedReportSnapshot, err := loadReportSnapshot()
-	if err != nil {
-		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load customer-redacted report snapshot: %w", err)
-	}
-	redactedSummary, err := reportcore.BuildSummary(reportcore.BuildInput{
-		StatePath:    resolvedStatePath,
-		Snapshot:     redactedReportSnapshot,
-		Top:          5,
-		Template:     reportcore.TemplateAudit,
-		ShareProfile: reportcore.ShareProfileCustomerRedacted,
-	})
-	if err != nil {
-		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build customer-redacted report summary: %w", err)
-	}
-	redactedSummary = reportcore.FinalizeSummaryForShareProfile(redactedSummary)
 	pairID := reportcore.BuildPairID(summary, reportcore.ShareProfileCustomerRedacted)
 	privateJoinMapPath := filepath.Join(filepath.Dir(targetOutputDir), "."+filepath.Base(targetOutputDir)+"-"+pairID+"-private-join-map.json")
 	summary.ArtifactMetadata = reportcore.BuildArtifactMetadata(summary, []string{resolvedStatePath}, reportcore.ArtifactVariantInternal, pairID, privateJoinMapPath)
@@ -600,6 +567,53 @@ func buildEvidencePackets(snapshot state.Snapshot, statePath string) (*ingest.Ev
 	merged := ingest.MergeEvidencePacketBundles(bundle, ingest.ProjectSessionsToEvidencePacketBundle(sessionBundle))
 	summary := ingest.CorrelateEvidencePackets(snapshot, firstNonEmptyValue(artifactPath, sessionArtifactPath), merged)
 	return &summary, merged, true, nil
+}
+
+func buildReportSummaries(statePath string, snapshot state.Snapshot) (reportcore.Summary, reportcore.Summary, error) {
+	internalReportSnapshot, err := cloneReportSnapshot(snapshot)
+	if err != nil {
+		return reportcore.Summary{}, reportcore.Summary{}, classifyErrorf(ErrorClassRuntimeFailure, "clone deterministic report snapshot: %w", err)
+	}
+	summary, err := reportcore.BuildSummary(reportcore.BuildInput{
+		StatePath:    statePath,
+		Snapshot:     internalReportSnapshot,
+		Top:          5,
+		Template:     reportcore.TemplateAudit,
+		ShareProfile: reportcore.ShareProfileInternal,
+	})
+	if err != nil {
+		return reportcore.Summary{}, reportcore.Summary{}, classifyErrorf(ErrorClassRuntimeFailure, "build deterministic report summary: %w", err)
+	}
+	summary = reportcore.FinalizeSummaryForShareProfile(summary)
+
+	redactedReportSnapshot, err := cloneReportSnapshot(snapshot)
+	if err != nil {
+		return reportcore.Summary{}, reportcore.Summary{}, classifyErrorf(ErrorClassRuntimeFailure, "clone customer-redacted report snapshot: %w", err)
+	}
+	redactedSummary, err := reportcore.BuildSummary(reportcore.BuildInput{
+		StatePath:    statePath,
+		Snapshot:     redactedReportSnapshot,
+		Top:          5,
+		Template:     reportcore.TemplateAudit,
+		ShareProfile: reportcore.ShareProfileCustomerRedacted,
+	})
+	if err != nil {
+		return reportcore.Summary{}, reportcore.Summary{}, classifyErrorf(ErrorClassRuntimeFailure, "build customer-redacted report summary: %w", err)
+	}
+	redactedSummary = reportcore.FinalizeSummaryForShareProfile(redactedSummary)
+	return summary, redactedSummary, nil
+}
+
+func cloneReportSnapshot(snapshot state.Snapshot) (state.Snapshot, error) {
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		return state.Snapshot{}, fmt.Errorf("marshal snapshot clone: %w", err)
+	}
+	var cloned state.Snapshot
+	if err := json.Unmarshal(payload, &cloned); err != nil {
+		return state.Snapshot{}, fmt.Errorf("unmarshal snapshot clone: %w", err)
+	}
+	return cloned, nil
 }
 
 func defaultCoverageNote() CoverageNote {
