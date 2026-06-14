@@ -17,6 +17,7 @@ description: "Release hardening checks, reproducibility expectations, and integr
 - `CHANGELOG.md` release-note entries finalized before tag publication with `scripts/finalize_release_changelog.py`, and tag builds verify them with `scripts/validate_release_changelog.py`.
 - Broad major aliases on the release/docs scanner and GitHub Pages helper path are removed. These helpers are pinned to immutable commit refs:
   - `actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d`
+  - `actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9`
   - `actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128`
   - `anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610`
   - `anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2`
