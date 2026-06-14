@@ -57,7 +57,8 @@ func renderSimplePDF(lines []string) []byte {
 
 	out := bytes.Buffer{}
 	out.WriteString("%PDF-1.4\n")
-	offsets := make([]int, len(objects)+1)
+	offsets := []int{0}
+	offsets = append(offsets, make([]int, len(objects))...)
 	for i, object := range objects {
 		offsets[i+1] = out.Len()
 		_, _ = fmt.Fprintf(&out, "%d 0 obj\n%s\nendobj\n", i+1, object)

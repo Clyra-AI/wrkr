@@ -1131,7 +1131,7 @@ func assessmentSegments(value string) []string {
 		return r == '/' || r == '\\'
 	})
 	seen := map[string]struct{}{}
-	out := make([]string, 0, len(segments)*4)
+	out := make([]string, 0, len(segments))
 	for _, segment := range segments {
 		for _, candidate := range assessmentSegmentCandidates(segment) {
 			if _, ok := seen[candidate]; ok {

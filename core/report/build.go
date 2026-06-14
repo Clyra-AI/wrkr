@@ -1441,7 +1441,7 @@ func buildAttackPathFacts(report risk.Report) []string {
 	if len(report.TopAttackPaths) == 0 {
 		return []string{"attack paths: none generated from current findings"}
 	}
-	facts := make([]string, 0, len(report.TopAttackPaths)+1)
+	facts := make([]string, 0, len(report.TopAttackPaths))
 	facts = append(facts, fmt.Sprintf("attack paths total=%d", len(report.AttackPaths)))
 	for idx, path := range report.TopAttackPaths {
 		facts = append(facts, fmt.Sprintf("attack_path #%d score=%.2f id=%s", idx+1, path.PathScore, path.PathID))
