@@ -26,6 +26,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- [semver:patch] Persisted saved-scan completeness markers and made report, evidence, export, and regress handoff commands reject incomplete source states with `invalid_input` until the scan reruns cleanly.
+- [semver:patch] Replaced broad major release/docs workflow aliases for GitHub Pages and Anchore helper actions with immutable commit refs and removed their now-unneeded action-ref exceptions.
 - [semver:patch] Reduced unnecessary JS/TS detector parsing by scoping WebMCP, MCP-candidate, prompt-channel, and source-framework source inspection to explicit high-signal entrypoints while suppressing generated and low-signal JS-family paths.
 - [semver:patch] Added synthetic enterprise-shaped JS/TS scan-quality receipts and acceptance coverage so parser-edge repos degrade to reduced coverage context instead of surfacing as ranked security findings.
 - [semver:patch] Closed remaining nested owner leaks so shareable report, evidence, paired-artifact, and Agent Action BOM outputs redact owner decisions, rejected owner candidates, and production-context owner fields recursively.

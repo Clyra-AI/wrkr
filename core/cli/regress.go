@@ -58,6 +58,9 @@ func runRegressInit(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, scanPath, snapshot); handled {
+		return code
+	}
 
 	baseline := regress.BuildBaseline(snapshot, time.Now().UTC().Truncate(time.Second))
 	targetPath := strings.TrimSpace(*outputPath)
@@ -109,7 +112,13 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--baseline is required", exitInvalidInput)
 	}
 
-	baseline, err := regress.LoadComparableBaseline(strings.TrimSpace(*baselinePath))
+	resolvedBaselinePath := strings.TrimSpace(*baselinePath)
+	if baselineSnapshot, loadErr := state.Load(resolvedBaselinePath); loadErr == nil {
+		if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedBaselinePath, baselineSnapshot); handled {
+			return code
+		}
+	}
+	baseline, err := regress.LoadComparableBaseline(resolvedBaselinePath)
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
@@ -121,9 +130,12 @@ func runRegressRun(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedStatePath, snapshot); handled {
+		return code
+	}
 
 	result := regress.Compare(baseline, snapshot)
-	result.BaselinePath = filepath.Clean(strings.TrimSpace(*baselinePath))
+	result.BaselinePath = filepath.Clean(resolvedBaselinePath)
 	if *summaryMD {
 		template, shareProfile, parseErr := parseReportTemplateShare(*reportTemplate, *reportShareProfile)
 		if parseErr != nil {

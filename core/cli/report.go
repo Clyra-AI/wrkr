@@ -158,12 +158,19 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedStatePath, snapshot); handled {
+		return code
+	}
 
 	var previousSnapshot *state.Snapshot
 	if strings.TrimSpace(*previousStatePath) != "" {
-		loaded, loadErr := state.Load(strings.TrimSpace(*previousStatePath))
+		resolvedPreviousStatePath := strings.TrimSpace(*previousStatePath)
+		loaded, loadErr := state.Load(resolvedPreviousStatePath)
 		if loadErr != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", loadErr.Error(), exitRuntime)
+		}
+		if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedPreviousStatePath, loaded); handled {
+			return code
 		}
 		previousSnapshot = &loaded
 	}

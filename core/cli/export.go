@@ -37,9 +37,13 @@ func runExport(args []string, stdout io.Writer, stderr io.Writer) int {
 		return code
 	}
 
-	snapshot, err := state.Load(state.ResolvePath(*statePathFlag))
+	resolvedStatePath := state.ResolvePath(*statePathFlag)
+	snapshot, err := state.Load(resolvedStatePath)
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
+	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedStatePath, snapshot); handled {
+		return code
 	}
 	inv := snapshot.Inventory
 	if inv == nil {
@@ -113,9 +117,13 @@ func runExportTickets(args []string, stdout io.Writer, stderr io.Writer) int {
 	if !exporttickets.ValidFormat(*format) {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--format must be one of jira|github|servicenow", exitInvalidInput)
 	}
-	snapshot, err := state.Load(state.ResolvePath(*statePathFlag))
+	resolvedStatePath := state.ResolvePath(*statePathFlag)
+	snapshot, err := state.Load(resolvedStatePath)
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+	}
+	if code, handled := rejectIncompleteSavedState(stderr, jsonRequested || *jsonOut, resolvedStatePath, snapshot); handled {
+		return code
 	}
 	if snapshot.ControlBacklog == nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "saved state does not contain control_backlog", exitInvalidInput)

@@ -178,6 +178,9 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "load state snapshot: %w", err)
 	}
+	if err := state.IncompleteSourceError(resolvedStatePath, snapshot); err != nil {
+		return BuildResult{}, classifyError(ErrorClassInvalidInput, err)
+	}
 	chainPath := proofemit.ChainPath(resolvedStatePath)
 	if _, err := os.Stat(chainPath); err != nil {
 		if os.IsNotExist(err) {
