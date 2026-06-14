@@ -16,10 +16,10 @@ description: "Release hardening checks, reproducibility expectations, and integr
 - Exact release scanner/signing versions are pinned in CI and checked by local/CI hygiene gates.
 - `CHANGELOG.md` release-note entries finalized before tag publication with `scripts/finalize_release_changelog.py`, and tag builds verify them with `scripts/validate_release_changelog.py`.
 - Broad major aliases on the release/docs scanner and GitHub Pages helper path are removed. These helpers are pinned to immutable commit refs:
-  - `actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b`
-  - `actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e`
+  - `actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d`
+  - `actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128`
   - `anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610`
-  - `anchore/scan-action@64a33b277ea7a1215a3c142735a1091341939ff5`
+  - `anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2`
 - Remaining release/docs action-ref exceptions are explicit in `.github/action-ref-exceptions.yaml`, owner-scoped, expiring, and reviewed during every runtime uplift.
 
 ## Command anchors
