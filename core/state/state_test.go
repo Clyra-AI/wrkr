@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -75,6 +76,66 @@ func TestStateIntegrationRoundTrip(t *testing.T) {
 	}
 	if string(first) != string(second) {
 		t.Fatalf("state file must be byte-stable\nfirst: %s\nsecond: %s", first, second)
+	}
+}
+
+func TestSaveLoadPreservesIncompleteSourceMetadata(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "state.json")
+
+	snapshot := Snapshot{
+		Target: source.Target{Mode: "org", Value: "acme"},
+		Findings: []source.Finding{
+			{ToolType: "source_repo", Location: "acme/a", Org: "acme", Repo: "a"},
+		},
+		SourceErrors: []source.RepoFailure{
+			{Repo: "acme/z", Reason: "rate_limited"},
+			{Repo: "acme/a", Reason: "upstream_unavailable"},
+		},
+		SourceDegraded: true,
+	}
+	if err := Save(path, snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	var raw Snapshot
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read state: %v", err)
+	}
+	if err := json.Unmarshal(payload, &raw); err != nil {
+		t.Fatalf("parse raw state: %v", err)
+	}
+	if !raw.PartialResult {
+		t.Fatalf("expected partial_result to be derived for source errors")
+	}
+	wantFailures := []source.RepoFailure{
+		{Repo: "acme/a", Reason: "upstream_unavailable"},
+		{Repo: "acme/z", Reason: "rate_limited"},
+	}
+	if !reflect.DeepEqual(raw.SourceErrors, wantFailures) {
+		t.Fatalf("expected sorted raw source errors %+v, got %+v", wantFailures, raw.SourceErrors)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load snapshot: %v", err)
+	}
+	if !loaded.PartialResult || !loaded.SourceDegraded {
+		t.Fatalf("expected incomplete source markers to survive load, got partial=%t degraded=%t", loaded.PartialResult, loaded.SourceDegraded)
+	}
+	if !reflect.DeepEqual(loaded.SourceErrors, wantFailures) {
+		t.Fatalf("expected sorted loaded source errors %+v, got %+v", wantFailures, loaded.SourceErrors)
+	}
+	reasons := IncompleteSourceReasons(loaded)
+	wantReasons := []string{"partial_result=true", "source_degraded=true", "source_errors=2"}
+	if !reflect.DeepEqual(reasons, wantReasons) {
+		t.Fatalf("expected incomplete reasons %+v, got %+v", wantReasons, reasons)
+	}
+	if err := IncompleteSourceError(path, loaded); err == nil || !strings.Contains(err.Error(), "source_errors=2") {
+		t.Fatalf("expected incomplete source error with source count, got %v", err)
 	}
 }
 

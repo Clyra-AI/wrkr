@@ -52,6 +52,9 @@ type Snapshot struct {
 	LifecycleGaps              []lifecycle.Gap                `json:"lifecycle_gaps,omitempty"`
 	ScanQuality                *scanquality.Report            `json:"scan_quality,omitempty"`
 	ScanMode                   string                         `json:"scan_mode,omitempty"`
+	PartialResult              bool                           `json:"partial_result,omitempty"`
+	SourceErrors               []source.RepoFailure           `json:"source_errors,omitempty"`
+	SourceDegraded             bool                           `json:"source_degraded,omitempty"`
 	RiskReport                 *risk.Report                   `json:"risk_report,omitempty"`
 	SuppressedCounts           *outputsignal.SuppressedCounts `json:"suppressed_counts,omitempty"`
 	Profile                    *profileeval.Result            `json:"profile,omitempty"`
@@ -107,6 +110,36 @@ func ResolvePath(explicit string) string {
 	return filepath.Join(".wrkr", "last-scan.json")
 }
 
+func IncompleteSourceReasons(snapshot Snapshot) []string {
+	reasons := make([]string, 0, 3)
+	if snapshot.PartialResult {
+		reasons = append(reasons, "partial_result=true")
+	}
+	if snapshot.SourceDegraded {
+		reasons = append(reasons, "source_degraded=true")
+	}
+	if len(snapshot.SourceErrors) > 0 {
+		reasons = append(reasons, fmt.Sprintf("source_errors=%d", len(snapshot.SourceErrors)))
+	}
+	return reasons
+}
+
+func HasIncompleteSource(snapshot Snapshot) bool {
+	return len(IncompleteSourceReasons(snapshot)) > 0
+}
+
+func IncompleteSourceError(path string, snapshot Snapshot) error {
+	reasons := IncompleteSourceReasons(snapshot)
+	if len(reasons) == 0 {
+		return nil
+	}
+	label := "saved scan state"
+	if trimmed := strings.TrimSpace(path); trimmed != "" {
+		label = fmt.Sprintf("saved scan state %s", filepath.Clean(trimmed))
+	}
+	return fmt.Errorf("%s must be complete before downstream artifact generation; found %s; rerun wrkr scan after source acquisition failures are resolved", label, strings.Join(reasons, ", "))
+}
+
 func Save(path string, snapshot Snapshot) error {
 	snapshot = FinalizeSnapshotForOutput(snapshot)
 	if err := atomicwrite.WriteFileFunc(path, 0o600, func(w io.Writer) error {
@@ -125,6 +158,10 @@ func FinalizeSnapshotForOutput(snapshot Snapshot) Snapshot {
 	snapshot.ApprovalInventoryVersion = ApprovalInventoryVersion
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
+	snapshot.SourceErrors = source.SortRepoFailures(snapshot.SourceErrors)
+	if len(snapshot.SourceErrors) > 0 || snapshot.SourceDegraded {
+		snapshot.PartialResult = true
+	}
 	source.SortFindings(snapshot.Findings)
 	snapshot.PolicyOutcomes = outputsignal.BuildPolicyOutcomes(snapshot.Findings)
 	prepareSnapshotForSave(&snapshot)
@@ -134,6 +171,7 @@ func FinalizeSnapshotForOutput(snapshot Snapshot) Snapshot {
 func cloneSnapshotForSave(in Snapshot) Snapshot {
 	out := in
 	out.PolicyOutcomes = append([]outputsignal.PolicyOutcome(nil), in.PolicyOutcomes...)
+	out.SourceErrors = append([]source.RepoFailure(nil), in.SourceErrors...)
 	if in.SuppressedCounts != nil {
 		copyCounts := *in.SuppressedCounts
 		out.SuppressedCounts = &copyCounts
@@ -193,6 +231,10 @@ func Load(path string) (Snapshot, error) {
 	}
 	snapshot.Targets = source.SortTargets(snapshot.Targets)
 	snapshot.PublicEvidence = source.SortPublicEvidence(snapshot.PublicEvidence)
+	snapshot.SourceErrors = source.SortRepoFailures(snapshot.SourceErrors)
+	if len(snapshot.SourceErrors) > 0 || snapshot.SourceDegraded {
+		snapshot.PartialResult = true
+	}
 	source.SortFindings(snapshot.Findings)
 	normalizeSnapshotAfterLoad(&snapshot)
 	return snapshot, nil

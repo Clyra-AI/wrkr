@@ -41,6 +41,7 @@ wrkr regress run --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last
 ```
 
 Expected JSON keys include `status`, `baseline_path`, `tool_count` (init) and drift fields plus optional `summary_md_path` (run). `wrkr regress run --json` now also carries additive `comparison_status`, `comparison_issues[]`, `drift_category_count`, and `drift_categories[]` so recurring reviews can distinguish clean comparisons from unavailable or incomplete action-path drift review.
+Saved scan state must be complete. `wrkr regress init` rejects incomplete baseline scan snapshots, and `wrkr regress run` rejects incomplete current state or raw saved-scan baselines carrying `partial_result`, `source_errors`, or `source_degraded` with `invalid_input` (exit `6`).
 Baseline `tools[*]` continue to expose `agent_id` and `tool_id`; additive `agent_instance_id` is now included when instance-scoped identity is available.
 Baseline `tools[*]` may also include additive approved control-path state: `security_visibility`, `owner`, `evidence_expires`, `write_path_classes`, `secret_bearing`, `confidence`, `control_path_type`, `repo`, `location`, and `risk_score`.
 `wrkr regress init` reads the saved scan snapshot directly, so approvals recorded with `wrkr identity` or `wrkr inventory` become visible in newly generated baselines without requiring a follow-up scan.

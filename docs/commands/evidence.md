@@ -17,6 +17,7 @@ wrkr evidence --frameworks <comma-separated-frameworks> [--output <dir>] [--stat
 
 Evidence output directories are fail-closed:
 
+- Saved scan state must be complete; states carrying `partial_result`, `source_errors`, or `source_degraded` return `invalid_input` (exit `6`) before bundle staging begins.
 - Wrkr verifies the saved proof chain before any staged bundle write or publish step.
 - Malformed or tampered proof chains fail closed before a new bundle is staged or published.
 - Wrkr writes ownership marker `.wrkr-evidence-managed` in managed directories using state-bound marker provenance rather than a static marker body alone.
@@ -31,7 +32,7 @@ Evidence output directories are fail-closed:
 `wrkr evidence --json` emits stable machine-readable error classes:
 
 - `runtime_failure` (exit `1`) for runtime/environment/state prerequisites (for example missing state snapshot/proof chain/signing material, or malformed/tampered proof chains).
-- `invalid_input` (exit `6`) for caller-controlled invalid arguments (for example unknown framework IDs).
+- `invalid_input` (exit `6`) for caller-controlled invalid arguments (for example unknown framework IDs or incomplete saved scan state).
 - `unsafe_operation_blocked` (exit `8`) for output-path ownership/marker safety violations.
 
 ## Coverage semantics

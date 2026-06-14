@@ -139,14 +139,14 @@ jobs:
         run: (cd dist && sha256sum -c checksums.txt)
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610
         with:
           path: ./dist
           output-file: dist/sbom.spdx.json
           syft-version: v1.32.0
 
       - name: Scan with Grype
-        uses: anchore/scan-action@v4
+        uses: anchore/scan-action@64a33b277ea7a1215a3c142735a1091341939ff5
         with:
           sbom: dist/sbom.spdx.json
           fail-build: true

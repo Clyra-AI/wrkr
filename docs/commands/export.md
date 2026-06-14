@@ -31,6 +31,8 @@ Inventory format JSON keys: `export_version`, `exported_at`, `org`, `agents`, `t
 Appendix format JSON keys: `status`, `appendix`, optional `csv_files`.
 Ticket export JSON keys: `ticket_export_version`, `format`, `dry_run`, `tickets`.
 
+Saved scan state must be complete. If `--state` carries `partial_result`, `source_errors`, or `source_degraded`, inventory, appendix, and ticket exports return `invalid_input` (exit `6`) before writing derived output.
+
 Compatibility note:
 
 - `wrkr inventory --json` is a developer-facing wrapper over `wrkr export --format inventory --json`.

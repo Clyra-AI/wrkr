@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 func TestScanContinuesOnDetectorError(t *testing.T) {
@@ -113,6 +115,157 @@ func TestScanOrgMaterializationFailureReturnsPartialResult(t *testing.T) {
 	}
 	if degraded, ok := payload["source_degraded"].(bool); !ok || degraded {
 		t.Fatalf("expected source_degraded=false for non-degraded failure, got %v", payload["source_degraded"])
+	}
+
+	loaded, err := state.Load(statePath)
+	if err != nil {
+		t.Fatalf("load saved partial state: %v", err)
+	}
+	if !loaded.PartialResult {
+		t.Fatalf("expected saved state to preserve partial_result=true")
+	}
+	if len(loaded.SourceErrors) != len(sourceErrors) {
+		t.Fatalf("expected saved state source_errors=%d, got %d", len(sourceErrors), len(loaded.SourceErrors))
+	}
+	if loaded.SourceDegraded {
+		t.Fatalf("expected saved state source_degraded=false")
+	}
+}
+
+func TestPartialSavedStateBlocksDownstreamArtifacts(t *testing.T) {
+	t.Parallel()
+
+	server := newMaterializationFailureServer(t)
+	defer server.Close()
+
+	tmp := t.TempDir()
+	partialStatePath := filepath.Join(tmp, "partial-state.json")
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+
+	code := Run([]string{
+		"scan",
+		"--org", "acme",
+		"--github-api", server.URL,
+		"--state", partialStatePath,
+		"--json",
+	}, &scanOut, &scanErr)
+	if code != exitSuccess {
+		t.Fatalf("partial scan failed unexpectedly: exit=%d stderr=%s", code, scanErr.String())
+	}
+
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "report",
+			args: []string{"report", "--state", partialStatePath, "--json"},
+		},
+		{
+			name: "evidence",
+			args: []string{"evidence", "--frameworks", "soc2", "--state", partialStatePath, "--output", filepath.Join(tmp, "evidence"), "--json"},
+		},
+		{
+			name: "export",
+			args: []string{"export", "--state", partialStatePath, "--json"},
+		},
+		{
+			name: "export tickets",
+			args: []string{"export", "tickets", "--dry-run", "--state", partialStatePath, "--json"},
+		},
+		{
+			name: "regress init",
+			args: []string{"regress", "init", "--baseline", partialStatePath, "--output", filepath.Join(tmp, "baseline.json"), "--json"},
+		},
+		{
+			name: "regress run raw partial baseline",
+			args: []string{"regress", "run", "--baseline", partialStatePath, "--state", partialStatePath, "--json"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			var errOut bytes.Buffer
+			code := Run(tc.args, &out, &errOut)
+			if code != exitInvalidInput {
+				t.Fatalf("expected exit %d, got %d stdout=%q stderr=%q", exitInvalidInput, code, out.String(), errOut.String())
+			}
+			assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+			assertIncompleteSavedStateError(t, errOut.Bytes())
+		})
+	}
+}
+
+func TestRegressRunBlocksPartialCurrentState(t *testing.T) {
+	t.Parallel()
+
+	server := newMaterializationFailureServer(t)
+	defer server.Close()
+
+	tmp := t.TempDir()
+	cleanReposPath := filepath.Join(tmp, "clean-repos")
+	if err := os.MkdirAll(filepath.Join(cleanReposPath, "alpha", ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir clean repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cleanReposPath, "alpha", ".codex", "config.toml"), []byte("approval_policy = \"never\"\n"), 0o600); err != nil {
+		t.Fatalf("write clean repo fixture: %v", err)
+	}
+
+	cleanStatePath := filepath.Join(tmp, "clean-state.json")
+	var cleanScanOut bytes.Buffer
+	var cleanScanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", cleanReposPath, "--state", cleanStatePath, "--json"}, &cleanScanOut, &cleanScanErr); code != exitSuccess {
+		t.Fatalf("clean scan failed unexpectedly: exit=%d stderr=%s", code, cleanScanErr.String())
+	}
+
+	baselinePath := filepath.Join(tmp, "baseline.json")
+	var initOut bytes.Buffer
+	var initErr bytes.Buffer
+	if code := Run([]string{"regress", "init", "--baseline", cleanStatePath, "--output", baselinePath, "--json"}, &initOut, &initErr); code != exitSuccess {
+		t.Fatalf("baseline init failed unexpectedly: exit=%d stderr=%s", code, initErr.String())
+	}
+
+	partialStatePath := filepath.Join(tmp, "partial-state.json")
+	var partialScanOut bytes.Buffer
+	var partialScanErr bytes.Buffer
+	if code := Run([]string{
+		"scan",
+		"--org", "acme",
+		"--github-api", server.URL,
+		"--state", partialStatePath,
+		"--json",
+	}, &partialScanOut, &partialScanErr); code != exitSuccess {
+		t.Fatalf("partial scan failed unexpectedly: exit=%d stderr=%s", code, partialScanErr.String())
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{"regress", "run", "--baseline", baselinePath, "--state", partialStatePath, "--json"}, &out, &errOut)
+	if code != exitInvalidInput {
+		t.Fatalf("expected exit %d, got %d stdout=%q stderr=%q", exitInvalidInput, code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "invalid_input", exitInvalidInput)
+	assertIncompleteSavedStateError(t, errOut.Bytes())
+}
+
+func assertIncompleteSavedStateError(t *testing.T, payload []byte) {
+	t.Helper()
+
+	envelope := parseTrailingJSONEnvelope(t, payload)
+	errorPayload, ok := envelope["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", envelope)
+	}
+	message, ok := errorPayload["message"].(string)
+	if !ok {
+		t.Fatalf("expected error message string, got %v", errorPayload["message"])
+	}
+	for _, want := range []string{"must be complete", "partial_result=true", "source_errors=1"} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("expected error message to contain %q, got %q", want, message)
+		}
 	}
 }
 

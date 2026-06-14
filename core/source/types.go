@@ -91,13 +91,22 @@ func SortManifest(m Manifest) Manifest {
 		}
 		return m.Repos[i].Repo < m.Repos[j].Repo
 	})
-	sort.Slice(m.Failures, func(i, j int) bool {
-		if m.Failures[i].Repo == m.Failures[j].Repo {
-			return m.Failures[i].Reason < m.Failures[j].Reason
-		}
-		return m.Failures[i].Repo < m.Failures[j].Repo
-	})
+	m.Failures = SortRepoFailures(m.Failures)
 	return m
+}
+
+func SortRepoFailures(failures []RepoFailure) []RepoFailure {
+	if len(failures) == 0 {
+		return nil
+	}
+	sorted := append([]RepoFailure(nil), failures...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Repo == sorted[j].Repo {
+			return sorted[i].Reason < sorted[j].Reason
+		}
+		return sorted[i].Repo < sorted[j].Repo
+	})
+	return sorted
 }
 
 func SortPublicEvidence(items []PublicEvidence) []PublicEvidence {

@@ -15,10 +15,12 @@ description: "Release hardening checks, reproducibility expectations, and integr
 - Tag releases build candidate artifacts without publishing them, verify checksums, generate an SBOM, run Grype, sign the checksum manifest, generate and verify provenance attestations, and only then publish GitHub release assets and Homebrew tap updates.
 - Exact release scanner/signing versions are pinned in CI and checked by local/CI hygiene gates.
 - `CHANGELOG.md` release-note entries finalized before tag publication with `scripts/finalize_release_changelog.py`, and tag builds verify them with `scripts/validate_release_changelog.py`.
-- Current bounded release-path exceptions are explicit and reviewed during every runtime uplift:
-  - `Homebrew/actions/setup-homebrew@cced187498280712e078aaba62dc13a3e9cd80bf`
-  - `anchore/sbom-action@v0`
-  - `anchore/scan-action@v4`
+- Broad major aliases on the release/docs scanner and GitHub Pages helper path are removed. These helpers are pinned to immutable commit refs:
+  - `actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b`
+  - `actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e`
+  - `anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610`
+  - `anchore/scan-action@64a33b277ea7a1215a3c142735a1091341939ff5`
+- Remaining release/docs action-ref exceptions are explicit in `.github/action-ref-exceptions.yaml`, owner-scoped, expiring, and reviewed during every runtime uplift.
 
 ## Command anchors
 

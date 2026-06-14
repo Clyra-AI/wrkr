@@ -66,6 +66,7 @@ wrkr report --template agent-action-bom --recent-pr-review --review-ids pr/42,mr
 
 wrkr report renders deterministic summaries from saved scan state without changing JSON or exit-code contracts.
 wrkr report --pdf writes a deterministic PDF artifact with wrapped, paginated executive-summary output; the board-ready claim is acceptance-backed by explicit executive report fixtures.
+Saved scan state must be complete. If the selected `--state` or `--previous-state` carries `partial_result`, `source_errors`, or `source_degraded`, `wrkr report` returns `invalid_input` (exit `6`) and does not write report artifacts; rerun the scan cleanly before publishing a report.
 `--share-profile internal` is now an explicit opt-in for cleartext owner,
 reviewer, identity-label, account-like, and local-path detail. Shareable/default
 artifacts are customer-safe by default.
