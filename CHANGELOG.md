@@ -12,9 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- [semver:patch] Required measured receipts for size, redaction, privacy, and customer-safe release claims, and added a Sprint 0 temporary freeze gate for new scan/report surface expansion until the size, redaction, and readability gates are green.
-- [semver:minor] Changed saved-state, report, control-backlog, graph, and Agent Action BOM projections to keep canonical endpoint and authority refs while omitting repeated embedded payload clones from shareable/default artifacts.
-- [semver:patch] Tightened the Agent Action BOM lead view into a bounded buyer-readable rollup with concise top action paths up front and detailed workflow, policy, assessment, and detector context moved into explicit appendices.
+- (none yet)
 
 ### Deprecated
 
@@ -26,20 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Persisted saved-scan completeness markers and made report, evidence, export, and regress handoff commands reject incomplete source states with `invalid_input` until the scan reruns cleanly.
-- [semver:patch] Replaced broad major release/docs workflow aliases for GitHub Pages and Anchore helper actions with immutable commit refs and removed their now-unneeded action-ref exceptions.
-- [semver:patch] Reduced unnecessary JS/TS detector parsing by scoping WebMCP, MCP-candidate, prompt-channel, and source-framework source inspection to explicit high-signal entrypoints while suppressing generated and low-signal JS-family paths.
-- [semver:patch] Added synthetic enterprise-shaped JS/TS scan-quality receipts and acceptance coverage so parser-edge repos degrade to reduced coverage context instead of surfacing as ranked security findings.
-- [semver:patch] Closed remaining nested owner leaks so shareable report, evidence, paired-artifact, and Agent Action BOM outputs redact owner decisions, rejected owner candidates, and production-context owner fields recursively.
-- [semver:patch] Unified scan/report/evidence/assess/saved-state canonicalization so writer outputs keep canonical endpoint and authority refs while stripping repeated embedded clones before serialization.
-- [semver:patch] Added real-scan-shaped size, signal, redaction, and BOM readability regression fixtures to block artifact bloat and shareable-output leaks before release.
-- [semver:patch] Bounded persisted derived scan/report/evidence projections with explicit suppression metadata, switched large JSON artifact writes to streaming file sinks, and grouped repeated policy outcomes in saved state and score inputs so posture/readout noise no longer scales linearly with repo fanout.
-- [semver:patch] Grouped repeated policy-check and policy-violation fanout in proof emission by stable policy outcome id while preserving affected-scope metadata, reducing proof-chain size for enterprise-shaped scans without dropping non-policy finding records.
-- [semver:patch] Qualified WebMCP and MCP negative-claim posture with primary-view coverage status so parse-limited or unsupported JS/TS surfaces stay in scan-quality context instead of reading like authoritative clean negatives.
+- (none yet)
 
 ### Security
 
-- [semver:patch] Made customer-safe report and assessment output the default share posture for report-style workflows; cleartext owner, reviewer, account-like, and local-path detail now requires an explicit `--share-profile internal` selection.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -49,6 +38,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.8.0] - 2026-06-14
+<!-- release-semver: minor -->
+
+### Changed
+
+- Required measured receipts for size, redaction, privacy, and customer-safe release claims, and added a Sprint 0 temporary freeze gate for new scan/report surface expansion until the size, redaction, and readability gates are green.
+- Changed saved-state, report, control-backlog, graph, and Agent Action BOM projections to keep canonical endpoint and authority refs while omitting repeated embedded payload clones from shareable/default artifacts.
+- Tightened the Agent Action BOM lead view into a bounded buyer-readable rollup with concise top action paths up front and detailed workflow, policy, assessment, and detector context moved into explicit appendices.
+
+### Fixed
+
+- Persisted saved-scan completeness markers and made report, evidence, export, and regress handoff commands reject incomplete source states with `invalid_input` until the scan reruns cleanly.
+- Replaced broad major release/docs workflow aliases for GitHub Pages and Anchore helper actions with immutable commit refs and removed their now-unneeded action-ref exceptions.
+- Reduced unnecessary JS/TS detector parsing by scoping WebMCP, MCP-candidate, prompt-channel, and source-framework source inspection to explicit high-signal entrypoints while suppressing generated and low-signal JS-family paths.
+- Added synthetic enterprise-shaped JS/TS scan-quality receipts and acceptance coverage so parser-edge repos degrade to reduced coverage context instead of surfacing as ranked security findings.
+- Closed remaining nested owner leaks so shareable report, evidence, paired-artifact, and Agent Action BOM outputs redact owner decisions, rejected owner candidates, and production-context owner fields recursively.
+- Unified scan/report/evidence/assess/saved-state canonicalization so writer outputs keep canonical endpoint and authority refs while stripping repeated embedded clones before serialization.
+- Added real-scan-shaped size, signal, redaction, and BOM readability regression fixtures to block artifact bloat and shareable-output leaks before release.
+- Bounded persisted derived scan/report/evidence projections with explicit suppression metadata, switched large JSON artifact writes to streaming file sinks, and grouped repeated policy outcomes in saved state and score inputs so posture/readout noise no longer scales linearly with repo fanout.
+- Grouped repeated policy-check and policy-violation fanout in proof emission by stable policy outcome id while preserving affected-scope metadata, reducing proof-chain size for enterprise-shaped scans without dropping non-policy finding records.
+- Qualified WebMCP and MCP negative-claim posture with primary-view coverage status so parse-limited or unsupported JS/TS surfaces stay in scan-quality context instead of reading like authoritative clean negatives.
+
+### Security
+
+- Made customer-safe report and assessment output the default share posture for report-style workflows; cleartext owner, reviewer, account-like, and local-path detail now requires an explicit `--share-profile internal` selection.
 
 ## [v1.7.2] - 2026-06-12
 <!-- release-semver: patch -->
