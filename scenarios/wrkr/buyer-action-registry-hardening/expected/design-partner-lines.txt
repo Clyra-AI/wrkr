@@ -14,6 +14,6 @@ Confidence lane: likely action path
 Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
 Credential authority: no credential authority was linked to this path
 High-stakes: credential_bearing_automation (credential_authority:present); external_egress (external_egress:detected); mutable_endpoint (mutable_endpoint:present); payment_flow (payment_surface:detected); production_path (production_path:detected); regulated_customer_workflow (customer_or_regulated_surface:detected)
-Mutable endpoint: 19 grouped endpoint semantics; 4 route groups; production_mutation x5, refund x4, data_export x3, write x3; samples=delete /v1/users/:userid | GET fs-7f087b6a | get fs-7f087b6a | post /v1/payments/:paymentid/refund | POST fs-611a6921 | post /v1/payments/{paymentid}/refund | refund-control
+Mutable endpoint: 19 grouped endpoint semantics; 4 route groups; production_mutation x5, refund x4, data_export x3, write x3; samples=endpoint-dc74895a | endpoint-73437816 | endpoint-d66e2561 | endpoint-0d2751ad | endpoint-fed73031 | endpoint-0315367e | endpoint-412970ad
 Production context: status=correlated, surface=label-6dd0f3ed, credential=standing credential, target=production_impacting, deployment=unknown, operations=label-73437816,label-fed73031,label-dc74895a,label-d66e2561,label-0d2751ad,label-0315367e,label-412970ad
 Owner: owner-ab37caea

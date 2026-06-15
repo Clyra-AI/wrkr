@@ -70,6 +70,34 @@ func TestBuildDedupesAcrossReposWithLocationContext(t *testing.T) {
 	}
 }
 
+func TestBuildMutableEndpointGroupProjectionPreservesRefPairing(t *testing.T) {
+	t.Parallel()
+
+	semantics := []MutableEndpointSemantic{
+		{Semantic: EndpointSemanticRefund, Confidence: "high", Surface: "openapi", Operation: "POST /v1/payments/123/refund", EvidenceRefs: []string{"finding:1"}},
+		{Semantic: EndpointSemanticDeploy, Confidence: "high", Surface: "openapi", Operation: "POST /v1/deployments/456/run", EvidenceRefs: []string{"finding:2"}},
+	}
+	refs := CanonicalMutableEndpointRefs(semantics)
+	projection := BuildMutableEndpointGroupProjection(refs, semantics)
+	if len(projection.EndpointRefSamples) != 2 {
+		t.Fatalf("expected two endpoint ref samples, got %+v", projection)
+	}
+	for _, sample := range projection.EndpointRefSamples {
+		switch sample.Operation {
+		case "POST /v1/payments/123/refund":
+			if sample.RefID != mutableEndpointSemanticRefID(semantics[0]) {
+				t.Fatalf("expected refund sample to keep matching ref, got %+v", sample)
+			}
+		case "POST /v1/deployments/456/run":
+			if sample.RefID != mutableEndpointSemanticRefID(semantics[1]) {
+				t.Fatalf("expected deploy sample to keep matching ref, got %+v", sample)
+			}
+		default:
+			t.Fatalf("unexpected sample operation: %+v", sample)
+		}
+	}
+}
+
 func TestBuildApprovalSummaryRatios(t *testing.T) {
 	t.Parallel()
 	manifest := source.Manifest{Target: source.Target{Mode: "org", Value: "acme"}, Repos: []source.RepoManifest{{Repo: "acme/a", Location: t.TempDir()}, {Repo: "acme/b", Location: t.TempDir()}, {Repo: "acme/c", Location: t.TempDir()}}}
