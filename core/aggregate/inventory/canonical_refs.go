@@ -18,6 +18,7 @@ const (
 type CanonicalStores struct {
 	Version                  string                          `json:"version"`
 	MutableEndpointSemantics []MutableEndpointSemanticRecord `json:"mutable_endpoint_semantics,omitempty"`
+	MutableEndpointGroups    []MutableEndpointGroupRecord    `json:"mutable_endpoint_groups,omitempty"`
 	CredentialAuthorities    []CredentialAuthorityRecord     `json:"credential_authorities,omitempty"`
 	AuthorityBindings        []AuthorityBindingRecord        `json:"authority_bindings,omitempty"`
 }
@@ -60,6 +61,7 @@ func ApplyCanonicalStores(inventory *Inventory) {
 
 type canonicalStoreBuilder struct {
 	mutableEndpointSemantics map[string]MutableEndpointSemanticRecord
+	mutableEndpointGroups    map[string]MutableEndpointGroupRecord
 	credentialAuthorities    map[string]CredentialAuthorityRecord
 	authorityBindings        map[string]AuthorityBindingRecord
 }
@@ -67,6 +69,7 @@ type canonicalStoreBuilder struct {
 func newCanonicalStoreBuilder() *canonicalStoreBuilder {
 	return &canonicalStoreBuilder{
 		mutableEndpointSemantics: map[string]MutableEndpointSemanticRecord{},
+		mutableEndpointGroups:    map[string]MutableEndpointGroupRecord{},
 		credentialAuthorities:    map[string]CredentialAuthorityRecord{},
 		authorityBindings:        map[string]AuthorityBindingRecord{},
 	}
@@ -90,6 +93,14 @@ func (b *canonicalStoreBuilder) mutableEndpointRefs(values []MutableEndpointSema
 	}
 	sort.Strings(refs)
 	return refs
+}
+
+func (b *canonicalStoreBuilder) mutableEndpointGroup(refs []string, values []MutableEndpointSemantic) EndpointRefGroupProjection {
+	result := buildMutableEndpointGroup(refs, values)
+	if result.record.GroupID != "" {
+		b.mutableEndpointGroups[result.record.GroupID] = result.record
+	}
+	return result.projection
 }
 
 func (b *canonicalStoreBuilder) credentialAuthorityRef(value *CredentialAuthority) string {
@@ -131,12 +142,13 @@ func (b *canonicalStoreBuilder) authorityBindingRefs(values []*AuthorityBinding)
 }
 
 func (b *canonicalStoreBuilder) build() *CanonicalStores {
-	if len(b.mutableEndpointSemantics) == 0 && len(b.credentialAuthorities) == 0 && len(b.authorityBindings) == 0 {
+	if len(b.mutableEndpointSemantics) == 0 && len(b.mutableEndpointGroups) == 0 && len(b.credentialAuthorities) == 0 && len(b.authorityBindings) == 0 {
 		return nil
 	}
 	return &CanonicalStores{
 		Version:                  canonicalStoreVersion,
 		MutableEndpointSemantics: sortCanonicalMutableEndpointRecords(b.mutableEndpointSemantics),
+		MutableEndpointGroups:    sortCanonicalMutableEndpointGroupRecords(b.mutableEndpointGroups),
 		CredentialAuthorities:    sortCanonicalCredentialAuthorityRecords(b.credentialAuthorities),
 		AuthorityBindings:        sortCanonicalAuthorityBindingRecords(b.authorityBindings),
 	}
@@ -216,6 +228,20 @@ func sortCanonicalMutableEndpointRecords(values map[string]MutableEndpointSemant
 	}
 	sort.Slice(out, func(i, j int) bool {
 		return out[i].RefID < out[j].RefID
+	})
+	return out
+}
+
+func sortCanonicalMutableEndpointGroupRecords(values map[string]MutableEndpointGroupRecord) []MutableEndpointGroupRecord {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]MutableEndpointGroupRecord, 0, len(values))
+	for _, item := range values {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].GroupID < out[j].GroupID
 	})
 	return out
 }

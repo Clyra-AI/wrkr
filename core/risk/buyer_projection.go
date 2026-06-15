@@ -45,6 +45,7 @@ type ActionPathSummaryOptions struct {
 
 func ProjectActionPath(path ActionPath) ActionPath {
 	out := path
+	out.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(out.EndpointRefGroupProjection, out.MutableEndpointSemanticRefs, out.MutableEndpointSemantics)
 	out.ConfidenceLane, out.ConfidenceLaneReasons = deriveConfidenceLane(out)
 	out = projectEvidenceStates(out)
 	derivedTargetClass, derivedTargetReasons, derivedTargetRefs := deriveTargetClass(out)

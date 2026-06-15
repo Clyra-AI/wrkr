@@ -16,6 +16,7 @@ func BackfillCanonicalProjectionRefs(paths []ActionPath, inventory *agginventory
 	out := make([]ActionPath, 0, len(paths))
 	for _, path := range paths {
 		copyPath := path
+		copyPath.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(copyPath.EndpointRefGroupProjection, copyPath.MutableEndpointSemanticRefs, copyPath.MutableEndpointSemantics)
 		if len(copyPath.MutableEndpointSemanticRefs) == 0 && len(copyPath.MutableEndpointSemantics) > 0 {
 			copyPath.MutableEndpointSemanticRefs = agginventory.CanonicalMutableEndpointRefs(copyPath.MutableEndpointSemantics)
 		}
@@ -42,6 +43,10 @@ func HydrateCanonicalProjectionDetails(paths []ActionPath, inventory *agginvento
 	out := make([]ActionPath, 0, len(paths))
 	for _, path := range BackfillCanonicalProjectionRefs(paths, inventory) {
 		copyPath := path
+		copyPath.EndpointRefGroupProjection = resolver.ResolveMutableEndpointGroupProjection(copyPath.EndpointRefGroupProjection)
+		if strings.TrimSpace(copyPath.EndpointRefGroupID) != "" && copyPath.EndpointRefCount > len(copyPath.MutableEndpointSemanticRefs) {
+			copyPath.MutableEndpointSemanticRefs = resolver.ResolveMutableEndpointGroupRefs(copyPath.EndpointRefGroupID, copyPath.MutableEndpointSemanticRefs)
+		}
 		if len(copyPath.MutableEndpointSemantics) == 0 && len(copyPath.MutableEndpointSemanticRefs) > 0 {
 			copyPath.MutableEndpointSemantics = resolver.ResolveMutableEndpointSemantics(copyPath.MutableEndpointSemanticRefs, nil)
 		}
@@ -63,7 +68,9 @@ func StripCanonicalProjectionDetails(paths []ActionPath) []ActionPath {
 	out := make([]ActionPath, 0, len(paths))
 	for _, path := range paths {
 		copyPath := path
+		copyPath.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(copyPath.EndpointRefGroupProjection, copyPath.MutableEndpointSemanticRefs, copyPath.MutableEndpointSemantics)
 		if len(copyPath.MutableEndpointSemanticRefs) > 0 {
+			copyPath.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(copyPath.MutableEndpointSemanticRefs, copyPath.MutableEndpointSemantics)
 			copyPath.MutableEndpointSemantics = nil
 		}
 		if strings.TrimSpace(copyPath.CredentialAuthorityRef) != "" {

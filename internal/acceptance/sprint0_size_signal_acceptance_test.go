@@ -17,6 +17,8 @@ const (
 	sprint0AcceptanceMarkdownLineCap = 1500
 	sprint0AcceptanceLeadLineCap     = 45
 	sprint0AcceptanceLeadSectionCap  = 4
+	sprint0EndpointDenseRepoCount    = 4
+	sprint0EndpointDenseStateBudget  = 24 << 20
 )
 
 func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
@@ -112,6 +114,67 @@ func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
 	requireAcceptanceOwnerFieldsRedacted(t, reportPayload)
 }
 
+func TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection(t *testing.T) {
+	tmp := t.TempDir()
+	scanRoot := filepath.Join(tmp, "endpoint-dense-pressure")
+	if err := enterprisepressure.MaterializeEndpointDense(scanRoot, sprint0EndpointDenseRepoCount, enterprisepressure.DefaultDenseOpenAPIOperations); err != nil {
+		t.Fatalf("materialize endpoint-dense fixture: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "endpoint-dense-scan.json")
+	scanPayload := runJSONOK(t, "scan", "--path", scanRoot, "--state", statePath, "--quiet", "--json")
+	actionPaths := requireArrayFromObject(t, scanPayload, "action_paths")
+	groupedPathFound := false
+	for _, raw := range actionPaths {
+		path := requireObjectItem(t, raw)
+		count, _ := path["endpoint_ref_count"].(float64)
+		refs := requireOptionalArrayLength(path["mutable_endpoint_semantic_refs"])
+		if int(count) > refs && int(count) >= 1000 {
+			groupedPathFound = true
+		}
+	}
+	if !groupedPathFound {
+		t.Fatalf("expected grouped endpoint-dense action path, got %v", actionPaths)
+	}
+
+	reportPayload := runJSONOK(
+		t,
+		"report",
+		"--state", statePath,
+		"--template", "agent-action-bom",
+		"--share-profile", "customer-redacted",
+		"--json",
+	)
+	bom := requireObject(t, reportPayload, "agent_action_bom")
+	items := requireArrayFromObject(t, bom, "items")
+	groupedItemFound := false
+	for _, raw := range items {
+		item := requireObjectItem(t, raw)
+		count, _ := item["endpoint_ref_count"].(float64)
+		refs := requireOptionalArrayLength(item["mutable_endpoint_semantic_refs"])
+		if int(count) > refs && int(count) >= 1000 {
+			groupedItemFound = true
+			if refs > 8 {
+				t.Fatalf("expected bounded endpoint ref samples, got %d in %v", refs, item)
+			}
+			if requireOptionalArrayLength(item["endpoint_ref_samples"]) == 0 {
+				t.Fatalf("expected endpoint_ref_samples on grouped BOM item, got %v", item)
+			}
+		}
+	}
+	if !groupedItemFound {
+		t.Fatalf("expected grouped endpoint-dense BOM item, got %v", items)
+	}
+
+	stateBytes, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read endpoint-dense state: %v", err)
+	}
+	if len(stateBytes) > sprint0EndpointDenseStateBudget {
+		t.Fatalf("expected endpoint-dense state under %d bytes, got %d", sprint0EndpointDenseStateBudget, len(stateBytes))
+	}
+}
+
 func requirePositiveAcceptanceSuppressedCount(t *testing.T, payload map[string]any, key string) {
 	t.Helper()
 
@@ -184,4 +247,12 @@ func requireAcceptanceOwnerFieldsRedacted(t *testing.T, reportPayload map[string
 			t.Fatalf("expected shareable owner field to be redacted, got %q", owner)
 		}
 	}
+}
+
+func requireOptionalArrayLength(value any) int {
+	items, ok := value.([]any)
+	if !ok {
+		return 0
+	}
+	return len(items)
 }

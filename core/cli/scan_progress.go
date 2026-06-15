@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ const defaultScanProgressHeartbeatInterval = 5 * time.Second
 
 type scanProgressReporterOptions struct {
 	RequestedMode     scanProgressMode
+	HeapReceipts      bool
 	JSONOutput        bool
 	Stderr            io.Writer
 	StartedAt         time.Time
@@ -91,6 +93,10 @@ type scanProgressUpdate struct {
 	DetectorTotal  int
 	Message        string
 	Footer         scanProgressFooter
+	Subphase       string
+	Step           int
+	StepTotal      int
+	HeapReceipt    *state.ScanHeapReceipt
 }
 
 type scanProgressState struct {
@@ -104,6 +110,7 @@ type scanProgressState struct {
 	repoProgress        state.ScanRepoProgress
 	detectorProgress    state.ScanDetectorProgress
 	phaseStarted        map[string]time.Time
+	heapReceipts        bool
 }
 
 type scanProgressReporter struct {
@@ -155,6 +162,7 @@ func newScanProgressReporter(opts scanProgressReporterOptions) *scanProgressRepo
 		state: scanProgressState{
 			startedAt:    opts.StartedAt.UTC(),
 			phaseStarted: map[string]time.Time{},
+			heapReceipts: opts.HeapReceipts,
 		},
 		stopCh:        make(chan struct{}),
 		doneCh:        make(chan struct{}),
@@ -317,6 +325,10 @@ func (r *scanProgressReporter) ScanPhase(targetMode, targetValue, phase string) 
 	durationMillis := r.recordPhaseTimingLocked(strings.TrimSpace(phase), now)
 	r.state.currentPhase = basePhase
 	r.state.progressMessage = phaseProgressMessage(phase)
+	r.state.phaseProgress.Subphase = ""
+	r.state.phaseProgress.SubphaseStep = 0
+	r.state.phaseProgress.SubphaseTotal = 0
+	r.state.phaseProgress.HeapReceipt = nil
 	if strings.HasSuffix(strings.TrimSpace(phase), "_complete") {
 		r.state.lastSuccessfulPhase = basePhase
 	}
@@ -499,6 +511,41 @@ func (r *scanProgressReporter) Heartbeat() {
 	})
 }
 
+func (r *scanProgressReporter) PhaseSubstep(phase, subphase string, step, total int) {
+	if r == nil {
+		return
+	}
+	phase = normalizeScanStatusPhase(phase)
+	subphase = strings.TrimSpace(subphase)
+	if phase == "" || subphase == "" {
+		return
+	}
+	r.emit(scanProgressUpdate{
+		Kind:        "phase_substep",
+		TargetMode:  r.targetMode,
+		TargetValue: r.targetValue,
+		Phase:       phase,
+		Subphase:    subphase,
+		Step:        step,
+		StepTotal:   total,
+		HeapReceipt: r.heapReceipt(),
+		Message:     phaseSubstepProgressMessage(phase, subphase, step, total),
+	}, func(now time.Time) scanProgressSnapshot {
+		r.state.currentPhase = phase
+		r.state.progressMessage = phaseSubstepProgressMessage(phase, subphase, step, total)
+		r.state.phaseProgress = state.ScanPhaseProgress{
+			Phase:         phase,
+			Percent:       computePhaseSubstepPercent(phase, step, total),
+			Subphase:      subphase,
+			SubphaseStep:  step,
+			SubphaseTotal: total,
+			HeapReceipt:   r.heapReceipt(),
+		}
+		r.recomputePercentLocked()
+		return r.snapshotLocked(now)
+	})
+}
+
 func (r *scanProgressReporter) Flush() {
 	if r == nil {
 		return
@@ -608,7 +655,7 @@ func (r *scanProgressReporter) snapshotLocked(now time.Time) scanProgressSnapsho
 		ProgressMessage: r.state.progressMessage,
 		LastProgressAt:  now,
 		ElapsedSeconds:  elapsedSeconds(r.state.startedAt, now),
-		PhaseProgress:   r.state.phaseProgress,
+		PhaseProgress:   clonePhaseProgress(r.state.phaseProgress),
 		RepoProgress:    r.state.repoProgress,
 		DetectorProgress: state.ScanDetectorProgress{
 			Total:          r.state.detectorProgress.Total,
@@ -648,9 +695,11 @@ func (r *scanProgressReporter) recomputePercentLocked() {
 		overallPercent = r.state.progressPercent
 	}
 	r.state.progressPercent = overallPercent
-	r.state.phaseProgress = state.ScanPhaseProgress{
-		Phase:   phase,
-		Percent: phasePercent,
+	r.state.phaseProgress.Phase = phase
+	if r.state.phaseProgress.Subphase == "" || r.state.phaseProgress.SubphaseTotal == 0 {
+		r.state.phaseProgress.Percent = phasePercent
+	} else if phasePercent > r.state.phaseProgress.Percent {
+		r.state.phaseProgress.Percent = phasePercent
 	}
 }
 
@@ -721,6 +770,55 @@ func phaseProgressMessage(phase string) string {
 		return fmt.Sprintf("running %s phase", base)
 	default:
 		return "scan progress updated"
+	}
+}
+
+func phaseSubstepProgressMessage(phase, subphase string, step, total int) string {
+	phase = normalizeScanStatusPhase(phase)
+	subphase = strings.TrimSpace(subphase)
+	if total > 0 && step > 0 {
+		return fmt.Sprintf("%s phase: %s (%d/%d)", phase, subphase, step, total)
+	}
+	return fmt.Sprintf("%s phase: %s", phase, subphase)
+}
+
+func computePhaseSubstepPercent(phase string, step, total int) int {
+	if total <= 0 || step <= 0 {
+		_, phasePercent := computeScanProgressPercent(phase, state.ScanRepoProgress{}, state.ScanDetectorProgress{})
+		return phasePercent
+	}
+	if step > total {
+		step = total
+	}
+	return int(float64(step) / float64(total) * 100)
+}
+
+func clonePhaseProgress(in state.ScanPhaseProgress) state.ScanPhaseProgress {
+	out := in
+	out.Phase = strings.TrimSpace(out.Phase)
+	out.Subphase = strings.TrimSpace(out.Subphase)
+	if in.HeapReceipt != nil {
+		copyHeap := *in.HeapReceipt
+		out.HeapReceipt = &copyHeap
+	}
+	return out
+}
+
+func (r *scanProgressReporter) heapReceipt() *state.ScanHeapReceipt {
+	if r == nil {
+		return nil
+	}
+	if !r.state.heapReceipts || r.mode != scanProgressModeEvents {
+		return nil
+	}
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return &state.ScanHeapReceipt{
+		AllocBytes:   stats.Alloc,
+		HeapObjects:  stats.HeapObjects,
+		HeapSysBytes: stats.HeapSys,
+		NextGCBytes:  stats.NextGC,
+		NumGC:        stats.NumGC,
 	}
 }
 

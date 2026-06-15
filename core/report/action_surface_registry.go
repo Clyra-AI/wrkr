@@ -54,8 +54,13 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 					ConfigSource:           strings.TrimSpace(path.ConfigSource),
 					CredentialAuthorityRef: strings.TrimSpace(path.CredentialAuthorityRef),
 					AuthorityBindingRefs:   append([]string(nil), path.AuthorityBindingRefs...),
-					ConfidenceLane:         strings.TrimSpace(path.ConfidenceLane),
-					Remediation:            risk.RemediationForActionPath(path),
+					EndpointRefGroupProjection: agginventory.BackfillMutableEndpointGroupProjection(
+						path.EndpointRefGroupProjection,
+						path.MutableEndpointSemanticRefs,
+						path.MutableEndpointSemantics,
+					),
+					ConfidenceLane: strings.TrimSpace(path.ConfidenceLane),
+					Remediation:    risk.RemediationForActionPath(path),
 				},
 			}
 			groups[key] = group
@@ -77,6 +82,7 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 		group.entry.ReachableActions = uniqueSortedStrings(append(group.entry.ReachableActions, append([]string(nil), path.ActionClasses...)...))
 		group.entry.MutableEndpointSemanticRefs = uniqueSortedStrings(append(group.entry.MutableEndpointSemanticRefs, append([]string(nil), path.MutableEndpointSemanticRefs...)...))
 		group.entry.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(append(group.entry.MutableEndpointSemantics, path.MutableEndpointSemantics...))
+		group.entry.EndpointRefGroupProjection = agginventory.BuildMutableEndpointGroupProjection(group.entry.MutableEndpointSemanticRefs, group.entry.MutableEndpointSemantics)
 		group.entry.PathIDs = uniqueSortedStrings(append(group.entry.PathIDs, strings.TrimSpace(path.PathID)))
 		group.entry.ActionPathCount = len(group.entry.PathIDs)
 		group.entry.GraphRefs = mergeRegistryGraphRefs(group.entry.GraphRefs, graphRefsByPath[strings.TrimSpace(path.PathID)])
@@ -121,6 +127,8 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 	})
 	out := make([]ActionSurfaceRegistryEntry, 0, len(ordered))
 	for _, group := range ordered {
+		group.entry.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(group.entry.MutableEndpointSemanticRefs, group.entry.MutableEndpointSemantics)
+		group.entry.MutableEndpointSemantics = agginventory.BoundedMutableEndpointSemantics(group.entry.MutableEndpointSemantics)
 		out = append(out, group.entry)
 	}
 	if len(out) == 0 {

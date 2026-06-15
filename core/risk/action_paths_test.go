@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"fmt"
 	"maps"
 	"regexp"
 	"testing"
@@ -1413,6 +1414,47 @@ func TestDecorateActionLineageFiltersGovernanceEdgesPerSegment(t *testing.T) {
 	}
 	if approval.EdgeIDs[0] == proof.EdgeIDs[0] {
 		t.Fatalf("expected approval and proof edge IDs to differ, got approval=%+v proof=%+v", approval, proof)
+	}
+}
+
+func TestBuildActionPathsCarriesEndpointGroupProjection(t *testing.T) {
+	t.Parallel()
+
+	semantics := make([]agginventory.MutableEndpointSemantic, 0, 64)
+	for idx := 0; idx < 64; idx++ {
+		semantics = append(semantics, agginventory.MutableEndpointSemantic{
+			Semantic:     agginventory.EndpointSemanticPayment,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    fmt.Sprintf("POST /v1/payments/%03d/capture", idx),
+			EvidenceRefs: []string{fmt.Sprintf("finding:%03d", idx)},
+		})
+	}
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
+			AgentID:                     "wrkr:openapi:acme",
+			ToolID:                      "openapi-pressure",
+			ToolType:                    "openapi",
+			Framework:                   "openapi",
+			Org:                         "acme",
+			Repos:                       []string{"acme/payments"},
+			Location:                    "openapi/payments.yaml",
+			MutableEndpointSemantics:    semantics,
+			MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+		}},
+	})
+	if len(paths) != 1 {
+		t.Fatalf("expected one action path, got %+v", paths)
+	}
+	path := paths[0]
+	if path.EndpointRefGroupID == "" {
+		t.Fatalf("expected endpoint_ref_group_id, got %+v", path)
+	}
+	if path.EndpointRefCount != len(semantics) {
+		t.Fatalf("expected endpoint_ref_count=%d, got %+v", len(semantics), path)
+	}
+	if len(path.EndpointRefSamples) == 0 || len(path.EndpointRouteGroups) == 0 || len(path.EndpointOperationCounts) == 0 {
+		t.Fatalf("expected grouped endpoint projection detail, got %+v", path)
 	}
 }
 

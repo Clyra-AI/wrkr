@@ -111,6 +111,34 @@
           "type": "array",
           "items": {"$ref": "#/$defs/authorityBinding"}
         },
+        "endpoint_ref_group_id": {"type": "string"},
+        "endpoint_ref_count": {"type": "integer", "minimum": 0},
+        "endpoint_route_groups": {"type": "array", "items": {"type": "string"}},
+        "endpoint_operation_counts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["class", "count"],
+            "properties": {
+              "class": {"type": "string"},
+              "count": {"type": "integer", "minimum": 0}
+            },
+            "additionalProperties": false
+          }
+        },
+        "endpoint_ref_samples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ref_id": {"type": "string"},
+              "operation": {"type": "string"},
+              "surface": {"type": "string"},
+              "semantics": {"type": "array", "items": {"type": "string"}}
+            },
+            "additionalProperties": false
+          }
+        },
         "mutable_endpoint_semantics": {
           "type": "array",
           "items": {"$ref": "#/$defs/mutableEndpointSemantic"}

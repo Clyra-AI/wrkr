@@ -3,6 +3,7 @@ package report
 import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
@@ -43,7 +44,9 @@ func stripActionSurfaceRegistryCanonicalProjectionDetails(in []ActionSurfaceRegi
 	out := make([]ActionSurfaceRegistryEntry, 0, len(in))
 	for _, item := range in {
 		copyItem := item
+		copyItem.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(copyItem.EndpointRefGroupProjection, copyItem.MutableEndpointSemanticRefs, copyItem.MutableEndpointSemantics)
 		if len(copyItem.MutableEndpointSemanticRefs) > 0 {
+			copyItem.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(copyItem.MutableEndpointSemanticRefs, copyItem.MutableEndpointSemantics)
 			copyItem.MutableEndpointSemantics = nil
 		}
 		if copyItem.CredentialAuthorityRef != "" {
@@ -62,7 +65,9 @@ func stripAgentActionBOMCanonicalProjectionDetails(in *AgentActionBOM) *AgentAct
 	copyBOM.Items = append([]AgentActionBOMItem(nil), in.Items...)
 	for idx := range copyBOM.Items {
 		item := &copyBOM.Items[idx]
+		item.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(item.EndpointRefGroupProjection, item.MutableEndpointSemanticRefs, item.MutableEndpointSemantics)
 		if len(item.MutableEndpointSemanticRefs) > 0 {
+			item.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(item.MutableEndpointSemanticRefs, item.MutableEndpointSemantics)
 			item.MutableEndpointSemantics = nil
 		}
 		if item.CredentialAuthorityRef != "" {

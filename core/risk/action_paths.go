@@ -52,57 +52,58 @@ type ActionPathSummary struct {
 }
 
 type ActionPath struct {
-	PathID                              string                                  `json:"path_id"`
-	Org                                 string                                  `json:"org"`
-	Repo                                string                                  `json:"repo"`
-	AgentID                             string                                  `json:"agent_id,omitempty"`
-	ToolFamilyID                        string                                  `json:"tool_family_id,omitempty"`
-	ToolInstanceID                      string                                  `json:"tool_instance_id,omitempty"`
-	ToolType                            string                                  `json:"tool_type"`
-	Location                            string                                  `json:"location,omitempty"`
-	LocationRange                       *model.LocationRange                    `json:"location_range,omitempty"`
-	Purpose                             string                                  `json:"purpose,omitempty"`
-	PurposeSource                       string                                  `json:"purpose_source,omitempty"`
-	PurposeConfidence                   string                                  `json:"purpose_confidence,omitempty"`
-	Version                             string                                  `json:"version,omitempty"`
-	VersionSource                       string                                  `json:"version_source,omitempty"`
-	ConfigFingerprint                   string                                  `json:"config_fingerprint,omitempty"`
-	ConfigSource                        string                                  `json:"config_source,omitempty"`
-	WriteCapable                        bool                                    `json:"write_capable"`
-	OperationalOwner                    string                                  `json:"operational_owner,omitempty"`
-	OwnerSource                         string                                  `json:"owner_source,omitempty"`
-	OwnershipStatus                     string                                  `json:"ownership_status,omitempty"`
-	OwnershipState                      string                                  `json:"ownership_state,omitempty"`
-	OwnershipConfidence                 float64                                 `json:"ownership_confidence,omitempty"`
-	OwnershipEvidence                   []string                                `json:"ownership_evidence_basis,omitempty"`
-	OwnershipConflicts                  []string                                `json:"ownership_conflicts,omitempty"`
-	EvidenceDecisions                   []evidencepolicy.Decision               `json:"evidence_decisions,omitempty"`
-	Contradictions                      []evidencepolicy.Contradiction          `json:"contradictions,omitempty"`
-	ControlResolutionState              string                                  `json:"control_resolution_state,omitempty"`
-	BoundaryLabel                       string                                  `json:"boundary_label,omitempty"`
-	ControlResolutionReasons            []string                                `json:"control_resolution_reasons,omitempty"`
-	ControlEvidenceRefs                 []string                                `json:"control_evidence_refs,omitempty"`
-	ConstraintEvidenceClasses           []string                                `json:"constraint_evidence_classes,omitempty"`
-	ConstraintEvidenceRefs              []string                                `json:"constraint_evidence_refs,omitempty"`
-	ConstraintEvidenceStatus            string                                  `json:"constraint_evidence_status,omitempty"`
-	ApprovalEvidenceState               string                                  `json:"approval_evidence_state,omitempty"`
-	OwnerEvidenceState                  string                                  `json:"owner_evidence_state,omitempty"`
-	ProofEvidenceState                  string                                  `json:"proof_evidence_state,omitempty"`
-	RuntimeEvidenceState                string                                  `json:"runtime_evidence_state,omitempty"`
-	TargetEvidenceState                 string                                  `json:"target_evidence_state,omitempty"`
-	CredentialEvidenceState             string                                  `json:"credential_evidence_state,omitempty"`
-	TargetClass                         string                                  `json:"target_class,omitempty"`
-	TargetClassReasons                  []string                                `json:"target_class_reasons,omitempty"`
-	TargetClassEvidenceRefs             []string                                `json:"target_class_evidence_refs,omitempty"`
-	ActionPathType                      string                                  `json:"action_path_type,omitempty"`
-	ActionPathTypeReasons               []string                                `json:"action_path_type_reasons,omitempty"`
-	ActionPathTypeEvidenceRefs          []string                                `json:"action_path_type_evidence_refs,omitempty"`
-	ApprovalGapReasons                  []string                                `json:"approval_gap_reasons,omitempty"`
-	WritePathClasses                    []string                                `json:"write_path_classes,omitempty"`
-	ActionClasses                       []string                                `json:"action_classes,omitempty"`
-	ActionReasons                       []string                                `json:"action_reasons,omitempty"`
-	OccurrenceCount                     int                                     `json:"occurrence_count,omitempty"`
-	OccurrenceRefs                      []string                                `json:"occurrence_refs,omitempty"`
+	PathID                     string                         `json:"path_id"`
+	Org                        string                         `json:"org"`
+	Repo                       string                         `json:"repo"`
+	AgentID                    string                         `json:"agent_id,omitempty"`
+	ToolFamilyID               string                         `json:"tool_family_id,omitempty"`
+	ToolInstanceID             string                         `json:"tool_instance_id,omitempty"`
+	ToolType                   string                         `json:"tool_type"`
+	Location                   string                         `json:"location,omitempty"`
+	LocationRange              *model.LocationRange           `json:"location_range,omitempty"`
+	Purpose                    string                         `json:"purpose,omitempty"`
+	PurposeSource              string                         `json:"purpose_source,omitempty"`
+	PurposeConfidence          string                         `json:"purpose_confidence,omitempty"`
+	Version                    string                         `json:"version,omitempty"`
+	VersionSource              string                         `json:"version_source,omitempty"`
+	ConfigFingerprint          string                         `json:"config_fingerprint,omitempty"`
+	ConfigSource               string                         `json:"config_source,omitempty"`
+	WriteCapable               bool                           `json:"write_capable"`
+	OperationalOwner           string                         `json:"operational_owner,omitempty"`
+	OwnerSource                string                         `json:"owner_source,omitempty"`
+	OwnershipStatus            string                         `json:"ownership_status,omitempty"`
+	OwnershipState             string                         `json:"ownership_state,omitempty"`
+	OwnershipConfidence        float64                        `json:"ownership_confidence,omitempty"`
+	OwnershipEvidence          []string                       `json:"ownership_evidence_basis,omitempty"`
+	OwnershipConflicts         []string                       `json:"ownership_conflicts,omitempty"`
+	EvidenceDecisions          []evidencepolicy.Decision      `json:"evidence_decisions,omitempty"`
+	Contradictions             []evidencepolicy.Contradiction `json:"contradictions,omitempty"`
+	ControlResolutionState     string                         `json:"control_resolution_state,omitempty"`
+	BoundaryLabel              string                         `json:"boundary_label,omitempty"`
+	ControlResolutionReasons   []string                       `json:"control_resolution_reasons,omitempty"`
+	ControlEvidenceRefs        []string                       `json:"control_evidence_refs,omitempty"`
+	ConstraintEvidenceClasses  []string                       `json:"constraint_evidence_classes,omitempty"`
+	ConstraintEvidenceRefs     []string                       `json:"constraint_evidence_refs,omitempty"`
+	ConstraintEvidenceStatus   string                         `json:"constraint_evidence_status,omitempty"`
+	ApprovalEvidenceState      string                         `json:"approval_evidence_state,omitempty"`
+	OwnerEvidenceState         string                         `json:"owner_evidence_state,omitempty"`
+	ProofEvidenceState         string                         `json:"proof_evidence_state,omitempty"`
+	RuntimeEvidenceState       string                         `json:"runtime_evidence_state,omitempty"`
+	TargetEvidenceState        string                         `json:"target_evidence_state,omitempty"`
+	CredentialEvidenceState    string                         `json:"credential_evidence_state,omitempty"`
+	TargetClass                string                         `json:"target_class,omitempty"`
+	TargetClassReasons         []string                       `json:"target_class_reasons,omitempty"`
+	TargetClassEvidenceRefs    []string                       `json:"target_class_evidence_refs,omitempty"`
+	ActionPathType             string                         `json:"action_path_type,omitempty"`
+	ActionPathTypeReasons      []string                       `json:"action_path_type_reasons,omitempty"`
+	ActionPathTypeEvidenceRefs []string                       `json:"action_path_type_evidence_refs,omitempty"`
+	ApprovalGapReasons         []string                       `json:"approval_gap_reasons,omitempty"`
+	WritePathClasses           []string                       `json:"write_path_classes,omitempty"`
+	ActionClasses              []string                       `json:"action_classes,omitempty"`
+	ActionReasons              []string                       `json:"action_reasons,omitempty"`
+	OccurrenceCount            int                            `json:"occurrence_count,omitempty"`
+	OccurrenceRefs             []string                       `json:"occurrence_refs,omitempty"`
+	agginventory.EndpointRefGroupProjection
 	MutableEndpointSemanticRefs         []string                                `json:"mutable_endpoint_semantic_refs,omitempty"`
 	MutableEndpointSemantics            []agginventory.MutableEndpointSemantic  `json:"mutable_endpoint_semantics,omitempty"`
 	PullRequestWrite                    bool                                    `json:"pull_request_write,omitempty"`
@@ -312,6 +313,7 @@ func buildActionPath(
 		ActionReasons:               dedupeSortedStrings(entry.ActionReasons),
 		OccurrenceCount:             1,
 		OccurrenceRefs:              []string{actionPathOccurrenceRef(entry)},
+		EndpointRefGroupProjection:  agginventory.BuildMutableEndpointGroupProjection(entry.MutableEndpointSemanticRefs, entry.MutableEndpointSemantics),
 		MutableEndpointSemanticRefs: append([]string(nil), entry.MutableEndpointSemanticRefs...),
 		MutableEndpointSemantics:    agginventory.CloneMutableEndpointSemantics(entry.MutableEndpointSemantics),
 		PullRequestWrite:            entry.PullRequestWrite,
@@ -492,6 +494,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	}
 	merged.MutableEndpointSemanticRefs = dedupeSortedStrings(append(append([]string(nil), current.MutableEndpointSemanticRefs...), incoming.MutableEndpointSemanticRefs...))
 	merged.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(append(append([]agginventory.MutableEndpointSemantic(nil), current.MutableEndpointSemantics...), incoming.MutableEndpointSemantics...))
+	merged.EndpointRefGroupProjection = agginventory.BuildMutableEndpointGroupProjection(merged.MutableEndpointSemanticRefs, merged.MutableEndpointSemantics)
 	merged.MatchedProductionTargets = dedupeSortedStrings(append(append([]string(nil), current.MatchedProductionTargets...), incoming.MatchedProductionTargets...))
 	merged.ProductionTargetStatus = mergeProductionTargetStatus(current.ProductionTargetStatus, incoming.ProductionTargetStatus)
 	merged.SecurityVisibilityStatus = mergeSecurityVisibilityStatus(current.SecurityVisibilityStatus, incoming.SecurityVisibilityStatus)
@@ -681,6 +684,7 @@ func BuildControlPathGraph(paths []ActionPath) *aggattack.ControlPathGraph {
 			CredentialAuthority:         agginventory.CloneCredentialAuthority(path.CredentialAuthority),
 			AuthorityBindingRefs:        dedupeSortedStrings(path.AuthorityBindingRefs),
 			AuthorityBindings:           agginventory.CloneAuthorityBindings(path.AuthorityBindings),
+			EndpointRefGroupProjection:  agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics),
 			MutableEndpointSemanticRefs: dedupeSortedStrings(path.MutableEndpointSemanticRefs),
 			MutableEndpointSemantics:    agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics),
 			GovernanceControls:          append([]agginventory.GovernanceControlMapping(nil), path.GovernanceControls...),

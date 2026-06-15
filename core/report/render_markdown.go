@@ -978,7 +978,7 @@ func designPartnerProblem(item AgentActionBOMItem) string {
 		return "A standing credential can drive this path without enough compensating proof or gating."
 	case item.ProductionWrite || item.ControlState == "block_recommended":
 		return "This path can change production-adjacent state and is missing enough governance evidence."
-	case len(item.MutableEndpointSemantics) > 0:
+	case itemHasMutableEndpointProjection(item):
 		return "The path reaches declared mutable actions that need tighter approval, proof, or scope."
 	case item.ApprovalGap:
 		return "The path is operationally meaningful, but approval evidence is not yet linked or complete."
@@ -1020,17 +1020,8 @@ func designPartnerThreat(item AgentActionBOMItem) string {
 	if status := strings.TrimSpace(item.ProductionTargetStatus); status != "" {
 		parts = append(parts, "production_target_status="+status)
 	}
-	if len(item.MutableEndpointSemantics) > 0 {
-		semantics := make([]string, 0, len(item.MutableEndpointSemantics))
-		for _, semantic := range item.MutableEndpointSemantics {
-			if strings.TrimSpace(semantic.Semantic) == "" {
-				continue
-			}
-			semantics = append(semantics, strings.TrimSpace(semantic.Semantic))
-		}
-		if len(semantics) > 0 {
-			parts = append(parts, "mutable_endpoint="+strings.Join(semantics, ","))
-		}
+	if summary := itemMutableEndpointThreatSummary(item); summary != "" {
+		parts = append(parts, "mutable_endpoint="+summary)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -1074,8 +1065,11 @@ func designPartnerCredentialAuthority(item AgentActionBOMItem) string {
 }
 
 func designPartnerMutableEndpoint(item AgentActionBOMItem) string {
-	if len(item.MutableEndpointSemantics) == 0 {
+	if !itemHasMutableEndpointProjection(item) {
 		return "no declared mutable endpoint semantics were linked to this path"
+	}
+	if summary := itemGroupedMutableEndpointSummary(item); summary != "" {
+		return summary
 	}
 	parts := make([]string, 0, len(item.MutableEndpointSemantics))
 	for _, semantic := range item.MutableEndpointSemantics {
@@ -1107,6 +1101,89 @@ func designPartnerHighStakes(item AgentActionBOMItem) string {
 		return "no high-stakes preset was projected for this path"
 	}
 	return strings.Join(parts, "; ")
+}
+
+func itemHasMutableEndpointProjection(item AgentActionBOMItem) bool {
+	return len(item.MutableEndpointSemantics) > 0 || item.EndpointRefCount > 0
+}
+
+func itemMutableEndpointThreatSummary(item AgentActionBOMItem) string {
+	labels := itemMutableEndpointClassLabels(item, 3)
+	if len(labels) > 0 {
+		return strings.Join(labels, ",")
+	}
+	if item.EndpointRefCount > 0 {
+		return fmt.Sprintf("grouped_refs=%d", item.EndpointRefCount)
+	}
+	return ""
+}
+
+func itemGroupedMutableEndpointSummary(item AgentActionBOMItem) string {
+	classes := itemMutableEndpointClassLabels(item, 4)
+	parts := []string{}
+	if item.EndpointRefCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d grouped endpoint semantics", item.EndpointRefCount))
+	}
+	if len(item.EndpointRouteGroups) > 0 {
+		parts = append(parts, fmt.Sprintf("%d route groups", len(item.EndpointRouteGroups)))
+	}
+	if len(classes) > 0 {
+		parts = append(parts, strings.Join(classes, ", "))
+	}
+	if len(item.EndpointRefSamples) > 0 {
+		samples := make([]string, 0, len(item.EndpointRefSamples))
+		for _, sample := range item.EndpointRefSamples {
+			label := firstNonEmptyValue(strings.TrimSpace(sample.Operation), strings.Join(sample.Semantics, ","), strings.TrimSpace(sample.RefID))
+			if label == "" {
+				continue
+			}
+			samples = append(samples, label)
+		}
+		if len(samples) > 0 {
+			parts = append(parts, "samples="+strings.Join(samples, " | "))
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "; ")
+}
+
+func itemMutableEndpointClassLabels(item AgentActionBOMItem, limit int) []string {
+	if limit <= 0 {
+		limit = 3
+	}
+	if len(item.MutableEndpointSemantics) > 0 {
+		labels := make([]string, 0, len(item.MutableEndpointSemantics))
+		for _, semantic := range item.MutableEndpointSemantics {
+			if trimmed := strings.TrimSpace(semantic.Semantic); trimmed != "" {
+				labels = append(labels, trimmed)
+			}
+		}
+		labels = uniqueSortedStrings(labels)
+		if len(labels) > limit {
+			labels = labels[:limit]
+		}
+		return labels
+	}
+	if len(item.EndpointOperationCounts) == 0 {
+		return nil
+	}
+	out := make([]string, 0, minInt(limit, len(item.EndpointOperationCounts)))
+	for idx, count := range item.EndpointOperationCounts {
+		if idx >= limit {
+			break
+		}
+		label := strings.TrimSpace(count.Class)
+		if label == "" {
+			continue
+		}
+		if count.Count > 0 {
+			label = fmt.Sprintf("%s x%d", label, count.Count)
+		}
+		out = append(out, label)
+	}
+	return out
 }
 
 func designPartnerProductionContext(item AgentActionBOMItem) string {
