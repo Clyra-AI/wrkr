@@ -346,7 +346,7 @@
     },
     "actionContractReadinessState": {
       "type": "string",
-      "enum": ["blocked", "needs_owner", "needs_approval_evidence", "needs_proof_evidence", "needs_correlation", "ready_for_report_only", "ready_for_control", "blocked_by_contradiction"]
+      "enum": ["draft", "blocked", "needs_owner", "needs_approval_evidence", "needs_proof_evidence", "needs_correlation", "ready_for_report_only", "ready_for_control", "blocked_by_contradiction"]
     },
     "recommendedActionContract": {
       "type": "object",

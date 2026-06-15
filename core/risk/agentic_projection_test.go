@@ -296,6 +296,14 @@ func TestProjectActionPathRemainsStableOnReprojection(t *testing.T) {
 	}
 }
 
+func TestValidActionContractReadinessStatePreservesDraftCompatibility(t *testing.T) {
+	t.Parallel()
+
+	if !ValidActionContractReadinessState(ActionContractReadinessDraft) {
+		t.Fatalf("expected draft readiness state to remain schema-compatible")
+	}
+}
+
 func containsString(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {

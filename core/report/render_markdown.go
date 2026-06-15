@@ -580,6 +580,8 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 			bom.Summary.CoverageConfidence,
 			reasons,
 		)
+		renderSurfaceContextSection(builder, "Target Surface Context", targetSurfaceContextItems(bom.Items))
+		renderSurfaceContextSection(builder, "Instruction Control Surfaces", instructionControlSurfaceItems(bom.Items))
 		return true
 	}
 
