@@ -104,6 +104,7 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 			copyItem.CredentialAuthority = agginventory.CloneCredentialAuthority(copyItem.CredentialAuthority)
 			copyItem.CredentialAuthority.ReasonCodes = cloneStrings(copyItem.CredentialAuthority.ReasonCodes)
 		}
+		copyItem.EndpointRefGroupProjection = sanitizeEndpointRefGroupProjectionWithConfig(copyItem.EndpointRefGroupProjection, config)
 		copyItem.MutableEndpointSemantics = sanitizeMutableEndpointSemanticsWithConfig(copyItem.MutableEndpointSemantics, config)
 		copyItem.Credentials = redactCredentialsWithConfig(copyItem.Credentials, config)
 		copyItem.ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyItem.ClosureRequirements, config)
@@ -179,6 +180,7 @@ func sanitizeActionSurfaceRegistryWithConfig(in []ActionSurfaceRegistryEntry, co
 			copyItem.CredentialAuthority = agginventory.CloneCredentialAuthority(copyItem.CredentialAuthority)
 			copyItem.CredentialAuthority.ReasonCodes = cloneStrings(copyItem.CredentialAuthority.ReasonCodes)
 		}
+		copyItem.EndpointRefGroupProjection = sanitizeEndpointRefGroupProjectionWithConfig(copyItem.EndpointRefGroupProjection, config)
 		out = append(out, copyItem)
 	}
 	return out
@@ -197,6 +199,28 @@ func sanitizeMutableEndpointSemanticsWithConfig(in []agginventory.MutableEndpoin
 			out[idx].Operation = strings.TrimSpace(out[idx].Operation)
 			out[idx].EvidenceRefs = cloneStrings(out[idx].EvidenceRefs)
 		}
+	}
+	return out
+}
+
+func sanitizeEndpointRefGroupProjectionWithConfig(in agginventory.EndpointRefGroupProjection, config RedactionConfig) agginventory.EndpointRefGroupProjection {
+	out := in
+	if !config.Has(RedactionPaths) {
+		out.EndpointRouteGroups = cloneStrings(out.EndpointRouteGroups)
+		out.EndpointRefSamples = append([]agginventory.EndpointRefSample(nil), out.EndpointRefSamples...)
+		for idx := range out.EndpointRefSamples {
+			out.EndpointRefSamples[idx].Operation = strings.TrimSpace(out.EndpointRefSamples[idx].Operation)
+			out.EndpointRefSamples[idx].Surface = strings.TrimSpace(out.EndpointRefSamples[idx].Surface)
+			out.EndpointRefSamples[idx].Semantics = cloneStrings(out.EndpointRefSamples[idx].Semantics)
+		}
+		return out
+	}
+	out.EndpointRouteGroups = redactStringSlice(out.EndpointRouteGroups, "endpoint")
+	out.EndpointRefSamples = append([]agginventory.EndpointRefSample(nil), out.EndpointRefSamples...)
+	for idx := range out.EndpointRefSamples {
+		out.EndpointRefSamples[idx].Operation = redactValue("endpoint", out.EndpointRefSamples[idx].Operation, 8)
+		out.EndpointRefSamples[idx].Surface = strings.TrimSpace(out.EndpointRefSamples[idx].Surface)
+		out.EndpointRefSamples[idx].Semantics = cloneStrings(out.EndpointRefSamples[idx].Semantics)
 	}
 	return out
 }
@@ -285,6 +309,7 @@ func sanitizeControlPathGraphWithConfig(in *aggattack.ControlPathGraph, config R
 			copyGraph.Nodes[idx].CredentialAuthority = agginventory.CloneCredentialAuthority(copyGraph.Nodes[idx].CredentialAuthority)
 			copyGraph.Nodes[idx].CredentialAuthority.ReasonCodes = cloneStrings(copyGraph.Nodes[idx].CredentialAuthority.ReasonCodes)
 		}
+		copyGraph.Nodes[idx].EndpointRefGroupProjection = sanitizeEndpointRefGroupProjectionWithConfig(copyGraph.Nodes[idx].EndpointRefGroupProjection, config)
 	}
 	for idx := range copyGraph.Edges {
 		if config.Has(RedactionGraphRefs) {
@@ -491,6 +516,7 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 			copyBOM.Items[idx].CredentialAuthority = agginventory.CloneCredentialAuthority(copyBOM.Items[idx].CredentialAuthority)
 			copyBOM.Items[idx].CredentialAuthority.ReasonCodes = cloneStrings(copyBOM.Items[idx].CredentialAuthority.ReasonCodes)
 		}
+		copyBOM.Items[idx].EndpointRefGroupProjection = sanitizeEndpointRefGroupProjectionWithConfig(copyBOM.Items[idx].EndpointRefGroupProjection, config)
 		copyBOM.Items[idx].MutableEndpointSemantics = sanitizeMutableEndpointSemanticsWithConfig(copyBOM.Items[idx].MutableEndpointSemantics, config)
 		copyBOM.Items[idx].Credentials = redactCredentialsWithConfig(copyBOM.Items[idx].Credentials, config)
 		copyBOM.Items[idx].ActionLineage = sanitizeActionLineageWithConfig(copyBOM.Items[idx].ActionLineage, config)

@@ -155,11 +155,21 @@ func buildEndpointRefSamples(refs []string, semantics []MutableEndpointSemantic)
 		return out, sampleRefs
 	}
 
+	refSet := map[string]struct{}{}
+	for _, refID := range refs {
+		refID = strings.TrimSpace(refID)
+		if refID == "" {
+			continue
+		}
+		refSet[refID] = struct{}{}
+	}
 	byOperation := map[string]*endpointOperationSample{}
-	for idx, item := range semantics {
-		refID := ""
-		if idx < len(refs) {
-			refID = refs[idx]
+	for _, item := range semantics {
+		refID := strings.TrimSpace(mutableEndpointSemanticRefID(item))
+		if len(refSet) > 0 {
+			if _, ok := refSet[refID]; !ok {
+				refID = ""
+			}
 		}
 		operation := firstNonEmptyEndpointValue(strings.TrimSpace(item.Operation), strings.TrimSpace(item.Semantic), "declared_mutation")
 		sample, ok := byOperation[operation]

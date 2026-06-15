@@ -684,6 +684,38 @@ func TestCanonicalRefsReplaceEmbeddedAuthorityPayloadsAcrossProjections(t *testi
 	}
 }
 
+func TestSanitizeAgentActionBOMWithConfigRedactsGroupedEndpointRoutes(t *testing.T) {
+	t.Parallel()
+
+	config := ResolveRedactionConfig(ShareProfileCustomerRedacted, nil)
+	bom := sanitizeAgentActionBOMWithConfig(&AgentActionBOM{
+		Items: []AgentActionBOMItem{{
+			PathID: "apc-endpoint-group",
+			EndpointRefGroupProjection: agginventory.EndpointRefGroupProjection{
+				EndpointRefGroupID:  "meg-123456",
+				EndpointRefCount:    3,
+				EndpointRouteGroups: []string{"POST /v1/payments/*/refund"},
+				EndpointRefSamples: []agginventory.EndpointRefSample{{
+					RefID:     "mes-123456",
+					Operation: "POST /v1/payments/123/refund",
+					Surface:   "openapi",
+					Semantics: []string{"refund"},
+				}},
+			},
+		}},
+	}, ShareProfileCustomerRedacted, config)
+	if bom == nil || len(bom.Items) != 1 {
+		t.Fatalf("expected sanitized BOM item, got %+v", bom)
+	}
+	item := bom.Items[0]
+	if len(item.EndpointRouteGroups) != 1 || item.EndpointRouteGroups[0] == "POST /v1/payments/*/refund" {
+		t.Fatalf("expected grouped endpoint routes to be redacted, got %+v", item.EndpointRouteGroups)
+	}
+	if len(item.EndpointRefSamples) != 1 || item.EndpointRefSamples[0].Operation == "POST /v1/payments/123/refund" {
+		t.Fatalf("expected endpoint sample operation to be redacted, got %+v", item.EndpointRefSamples)
+	}
+}
+
 func TestSanitizeProofReferenceWithConfigHonorsSelectedFields(t *testing.T) {
 	t.Parallel()
 
