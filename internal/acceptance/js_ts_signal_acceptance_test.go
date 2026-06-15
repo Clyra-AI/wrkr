@@ -46,6 +46,20 @@ func TestScanQualityParserHonestyOnJSEnterpriseFixture(t *testing.T) {
 			t.Fatalf("expected parse diagnostics to stay out of ranked top findings, got %v", topFindings)
 		}
 	}
+	findings := requireArray(t, scanPayload, "findings")
+	for _, raw := range findings {
+		finding := requireObjectItem(t, raw)
+		if finding["finding_type"] == "parse_error" {
+			t.Fatalf("expected JS/TS parse diagnostics to stay out of scan findings, got %v", findings)
+		}
+	}
+	actionPaths := requireArray(t, scanPayload, "action_paths")
+	for _, raw := range actionPaths {
+		actionPath := requireObjectItem(t, raw)
+		if actionPath["repo"] == "parse-edge-repo" && actionPath["location"] == "server/register.mjs" {
+			t.Fatalf("expected parse-limited JS surface to stay out of action paths, got %v", actionPaths)
+		}
+	}
 
 	runJSONOK(
 		t,

@@ -10,6 +10,7 @@ wrkr scan status --state <path> [--json]
 ```
 
 Scan-time `action_paths[*]` are evidence-scoped. `control_resolution_state` and the canonical `approval_evidence_state`, `owner_evidence_state`, `proof_evidence_state`, `runtime_evidence_state`, `target_evidence_state`, and `credential_evidence_state` fields explain what Wrkr could verify, what was only declared or inferred, and what remained unknown in the scanned inputs. `action_path_eligible` plus `action_binding_state` (`bound`, `partially_bound`, `unbound_context`, `contradictory`) distinguish executable/governable paths from correlation-needed context. `action_path_type` now also separates `agent_instruction_surface` and `dependency_only_signal` from broader AI-assisted and unknown-executable buckets so downstream reports do not overclaim actionability when the evidence only supports instruction governance or static context.
+For high-signal JS/TS detector surfaces such as WebMCP, prompt-channel declarations, and route declarations, parse-limited or unsupported source now degrades to `scan_quality` coverage context instead of surfacing as top-level scan findings or govern-first action paths in the command-response JSON.
 
 When imported or declared enterprise evidence is present, `action_paths[*]` may also emit additive `evidence_decisions[]` and `contradictions[]`. These preserve the selected source, freshness state (`fresh`, `stale`, `expired`, `unknown`), rejected candidates, stable reason codes, and contradiction evidence refs instead of flattening everything into one winner string.
 

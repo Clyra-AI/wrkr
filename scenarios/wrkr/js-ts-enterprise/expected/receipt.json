@@ -12,9 +12,7 @@
   ],
   "expected_finding_types_by_repo": {
     "parse-edge-repo": [
-      "agent_framework",
-      "parse_error",
-      "webmcp_declaration"
+      "agent_framework"
     ],
     "route-repo": [
       "webmcp_declaration"

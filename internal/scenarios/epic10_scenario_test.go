@@ -163,6 +163,14 @@ func TestScenarioEpic10WebMCPStaticDetectionAC25(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected findings array, got %T", payload["findings"])
 	}
+	scanQuality, ok := payload["scan_quality"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected scan_quality object, got %T", payload["scan_quality"])
+	}
+	parseIssues, ok := scanQuality["parse_errors"].([]any)
+	if !ok {
+		t.Fatalf("expected scan_quality.parse_errors array, got %T", scanQuality["parse_errors"])
+	}
 
 	methods := map[string]bool{}
 	hasParseError := false
@@ -172,8 +180,7 @@ func TestScenarioEpic10WebMCPStaticDetectionAC25(t *testing.T) {
 			continue
 		}
 		if finding["finding_type"] == "parse_error" {
-			hasParseError = true
-			continue
+			t.Fatalf("expected malformed JavaScript to stay in scan_quality, not findings, got %v", findings)
 		}
 		if finding["finding_type"] != "webmcp_declaration" {
 			continue
@@ -203,8 +210,18 @@ func TestScenarioEpic10WebMCPStaticDetectionAC25(t *testing.T) {
 			t.Fatalf("expected declaration method %q in webmcp findings, got %v", required, methods)
 		}
 	}
+	for _, item := range parseIssues {
+		parseIssue, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if parseIssue["detector"] == "webmcp" {
+			hasParseError = true
+			break
+		}
+	}
 	if !hasParseError {
-		t.Fatal("expected parse_error finding for malformed JavaScript fixture")
+		t.Fatal("expected malformed JavaScript parse issue in scan_quality for WebMCP fixture")
 	}
 }
 

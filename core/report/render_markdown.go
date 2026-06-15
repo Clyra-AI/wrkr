@@ -26,37 +26,11 @@ func RenderMarkdown(summary Summary) string {
 
 	agentActionBOMLeadHandledEmptyState := false
 	if summary.AgentActionBOM != nil && isAgentActionBOMTemplate {
+		if summary.RecentPRReview != nil {
+			renderRecentPRReviewWorkflowSection(&builder, summary)
+		}
 		agentActionBOMLeadHandledEmptyState = renderAgentActionBOMLeadSection(&builder, summary)
 		renderAgentActionBOMContextAppendix(&builder, summary)
-		if summary.RecentPRReview != nil {
-			builder.WriteString("## Recent PR Review Appendix\n\n")
-			builder.WriteString(fmt.Sprintf("- Mode: %s limit=%d total_candidates=%d\n",
-				summary.RecentPRReview.Mode,
-				summary.RecentPRReview.Limit,
-				summary.RecentPRReview.TotalCandidates,
-			))
-			for _, item := range summary.RecentPRReview.Ranked {
-				builder.WriteString(fmt.Sprintf("- rank=%d ref=%s repo=%s workflow=%s autonomy=%s readiness=%s control=%s target=%s contradictions=%t checks=%d approvals=%d deployments=%d focus_path=%s proof_refs=%s packet_refs=%s missing_evidence=%s\n",
-					item.Rank,
-					firstNonEmptyValue(item.Reference, item.ReviewID),
-					item.Repo,
-					item.Workflow,
-					risk.BuyerAutonomyTierShortLabel(item.AutonomyTier),
-					risk.BuyerDelegationReadinessLabel(item.DelegationReadinessState),
-					risk.BuyerRecommendedControlLabel(item.RecommendedControl),
-					item.TargetClass,
-					item.Contradiction,
-					item.CheckCount,
-					item.ApprovalCount,
-					item.DeploymentCount,
-					item.FocusBOMPathID,
-					strings.Join(item.ProofRefs, ", "),
-					strings.Join(item.EvidencePacketRefs, ", "),
-					strings.Join(item.MissingEvidence, ", "),
-				))
-			}
-			builder.WriteString("\n")
-		}
 
 		emptyStateStatus := strings.TrimSpace(summary.AgentActionBOM.Summary.EmptyStateStatus)
 		emptyStateReasons := summary.AgentActionBOM.Summary.EmptyStateReasons
@@ -565,6 +539,7 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 		bom.Summary.DelegationReadiness.ReviewRequired,
 		firstNonEmptyValue(strings.TrimSpace(bom.Summary.CoverageConfidence), scanquality.AbsenceStatusNotScanned),
 	)
+	renderBuyerDiagnosticCards(builder, summary)
 	builder.WriteString("\n")
 
 	emptyStateStatus := strings.TrimSpace(bom.Summary.EmptyStateStatus)
@@ -590,6 +565,177 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 	renderSurfaceContextSection(builder, "Target Surface Context", targetSurfaceContextItems(bom.Items))
 	renderSurfaceContextSection(builder, "Instruction Control Surfaces", instructionControlSurfaceItems(bom.Items))
 	return false
+}
+
+type buyerDiagnosticCard struct {
+	Inspect            string
+	Why                string
+	EvidenceFound      string
+	EvidenceUnresolved string
+	RecommendedAction  string
+}
+
+func renderBuyerDiagnosticCards(builder *strings.Builder, summary Summary) {
+	if builder == nil {
+		return
+	}
+	cards := buildBuyerDiagnosticCards(summary)
+	for idx, card := range cards {
+		prefix := "Inspect first"
+		if idx > 0 {
+			prefix = "Inspect next"
+		}
+		fmt.Fprintf(builder, "- %s: %s. Why: %s. Evidence found: %s. Evidence unresolved: %s. Recommended action: %s.\n",
+			prefix,
+			card.Inspect,
+			firstNonEmptyValue(card.Why, "This remains one of the highest-signal governable paths in the scan."),
+			firstNonEmptyValue(card.EvidenceFound, "evidence summary unavailable"),
+			firstNonEmptyValue(card.EvidenceUnresolved, "none"),
+			firstNonEmptyValue(card.RecommendedAction, "review this path before expanding scope"),
+		)
+	}
+}
+
+func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
+	if summary.AgentActionBOM == nil || summary.AgentActionBOM.Summary.PrimaryView == nil {
+		return nil
+	}
+	itemsByPath := map[string]AgentActionBOMItem{}
+	for _, item := range summary.AgentActionBOM.Items {
+		itemsByPath[strings.TrimSpace(item.PathID)] = item
+	}
+
+	cards := make([]buyerDiagnosticCard, 0, 2)
+	primaryView := summary.AgentActionBOM.Summary.PrimaryView
+	primaryPathID := strings.TrimSpace(primaryView.PathID)
+	seen := map[string]struct{}{}
+	if primaryItem, ok := itemsByPath[primaryPathID]; ok {
+		cards = append(cards, diagnosticCardFromItem(primaryView, primaryItem))
+		seen[primaryPathID] = struct{}{}
+	} else {
+		cards = append(cards, diagnosticCardFromPrimaryView(primaryView))
+	}
+
+	if summary.WorkflowHighlights == nil {
+		return cards
+	}
+	for _, highlight := range summary.WorkflowHighlights.Highlights {
+		pathID := strings.TrimSpace(highlight.PathID)
+		if pathID == "" {
+			continue
+		}
+		if _, ok := seen[pathID]; ok {
+			continue
+		}
+		item, ok := itemsByPath[pathID]
+		if !ok {
+			continue
+		}
+		cards = append(cards, diagnosticCardFromHighlight(highlight, item))
+		if len(cards) >= 2 {
+			break
+		}
+	}
+	return cards
+}
+
+func diagnosticCardFromPrimaryView(view *AgentActionBOMPrimaryView) buyerDiagnosticCard {
+	if view == nil {
+		return buyerDiagnosticCard{}
+	}
+	return buyerDiagnosticCard{
+		Inspect:            fmt.Sprintf("%s in %s via %s", firstNonEmptyValue(view.PathMap.Tool, "unknown tool"), firstNonEmptyValue(view.PathMap.RepoPR, "unknown repo"), firstNonEmptyValue(view.PathMap.Workflow, "unknown workflow")),
+		Why:                fmt.Sprintf("%s path with %s posture", humanizeEnum(firstNonEmptyValue(view.PathMap.Target, "unknown")), humanizeEnum(firstNonEmptyValue(view.DelegationReadinessState, "unknown"))),
+		EvidenceFound:      fmt.Sprintf("control=%s approval=%s proof=%s runtime=%s", risk.BuyerControlResolutionLabel(view.ControlResolutionState), risk.BuyerEvidenceStateLabel("approval", view.ApprovalEvidenceState), risk.BuyerEvidenceStateLabel("proof", view.ProofEvidenceState), risk.BuyerEvidenceStateLabel("runtime", view.RuntimeEvidenceState)),
+		EvidenceUnresolved: strings.Join(view.UnresolvedEvidence, ", "),
+		RecommendedAction:  strings.Join(view.RecommendedNextActions, " | "),
+	}
+}
+
+func diagnosticCardFromItem(view *AgentActionBOMPrimaryView, item AgentActionBOMItem) buyerDiagnosticCard {
+	card := diagnosticCardFromPrimaryView(view)
+	if authority := workflowAuthoritySummary(item); authority != "" {
+		card.Why = fmt.Sprintf("%s with %s", firstNonEmptyValue(card.Why, "High-signal governable path"), authority)
+	}
+	return card
+}
+
+func diagnosticCardFromHighlight(highlight WorkflowHighlight, item AgentActionBOMItem) buyerDiagnosticCard {
+	unresolved := primaryViewUnresolvedEvidence(item)
+	return buyerDiagnosticCard{
+		Inspect:            fmt.Sprintf("%s in %s via %s", firstNonEmptyValue(highlight.PathType, "workflow path"), firstNonEmptyValue(highlight.Repo, "unknown repo"), firstNonEmptyValue(highlight.Workflow, "unknown workflow")),
+		Why:                fmt.Sprintf("%s path with %s and %s", humanizeEnum(firstNonEmptyValue(highlight.TargetClass, "unknown")), humanizeEnum(firstNonEmptyValue(highlight.DelegationReadiness, "unknown")), firstNonEmptyValue(highlight.Authority, "limited authority context")),
+		EvidenceFound:      fmt.Sprintf("%s; approval=%s; proof=%s; runtime=%s", firstNonEmptyValue(highlight.EvidenceSummary, "evidence summary unavailable"), firstNonEmptyValue(highlight.ApprovalPath, "unknown"), firstNonEmptyValue(highlight.ProofStatus, "unknown"), firstNonEmptyValue(highlight.RuntimeStatus, "unknown")),
+		EvidenceUnresolved: firstNonEmptyValue(strings.Join(unresolved, ", "), "none"),
+		RecommendedAction:  firstNonEmptyValue(highlight.Recommendation, workflowRecommendation(item), "review this workflow path"),
+	}
+}
+
+func renderRecentPRReviewWorkflowSection(builder *strings.Builder, summary Summary) {
+	if builder == nil || summary.RecentPRReview == nil {
+		return
+	}
+	builder.WriteString("## Recent PR Review Workflow\n\n")
+	fmt.Fprintf(builder, "- Mode: %s limit=%d total_candidates=%d\n",
+		summary.RecentPRReview.Mode,
+		summary.RecentPRReview.Limit,
+		summary.RecentPRReview.TotalCandidates,
+	)
+	itemsByPath := map[string]AgentActionBOMItem{}
+	if summary.AgentActionBOM != nil {
+		for _, item := range summary.AgentActionBOM.Items {
+			itemsByPath[strings.TrimSpace(item.PathID)] = item
+		}
+	}
+	for _, item := range summary.RecentPRReview.Ranked {
+		pathItem, ok := itemsByPath[strings.TrimSpace(item.PathID)]
+		detail := recentPRReviewDetail(item, ok, pathItem)
+		fmt.Fprintf(builder, "- #%d %s in %s via %s. Change: %s. Authority: %s. Blast radius: %s. Control resolution: %s. Unresolved evidence: %s. Draft action contract: %s. Focus drilldown: %s.\n",
+			item.Rank,
+			firstNonEmptyValue(item.Reference, item.ReviewID),
+			firstNonEmptyValue(item.Repo, "unknown repo"),
+			firstNonEmptyValue(item.Workflow, "unknown workflow"),
+			firstNonEmptyValue(detail.Change, item.Workflow),
+			firstNonEmptyValue(detail.Authority, "authority evidence not yet linked"),
+			firstNonEmptyValue(detail.BlastRadius, humanizeEnum(firstNonEmptyValue(item.TargetClass, "unknown"))),
+			firstNonEmptyValue(detail.ControlResolution, risk.BuyerRecommendedControlLabel(item.RecommendedControl)),
+			firstNonEmptyValue(detail.UnresolvedEvidence, strings.Join(item.MissingEvidence, ", ")),
+			firstNonEmptyValue(detail.ActionContract, "attach path-specific approval and proof evidence"),
+			firstNonEmptyValue(item.FocusBOMPathID, "not_available"),
+		)
+	}
+	builder.WriteString("\n")
+}
+
+type recentPRReviewWorkflowDetail struct {
+	Change             string
+	Authority          string
+	BlastRadius        string
+	ControlResolution  string
+	UnresolvedEvidence string
+	ActionContract     string
+}
+
+func recentPRReviewDetail(reviewItem RecentPRReviewItem, hasPathItem bool, pathItem AgentActionBOMItem) recentPRReviewWorkflowDetail {
+	detail := recentPRReviewWorkflowDetail{}
+	if !hasPathItem {
+		detail.UnresolvedEvidence = strings.Join(reviewItem.MissingEvidence, ", ")
+		return detail
+	}
+	if pathItem.AgenticDeliverySystemChange != nil {
+		detail.Change = strings.TrimSpace(pathItem.AgenticDeliverySystemChange.ChangedArtifact)
+	}
+	detail.Authority = workflowAuthoritySummary(pathItem)
+	detail.BlastRadius = workflowBlastRadiusSummary(pathItem)
+	detail.ControlResolution = risk.BuyerControlResolutionLabel(pathItem.ControlResolutionState)
+	unresolved := uniqueSortedStrings(append(primaryViewUnresolvedEvidence(pathItem), reviewItem.MissingEvidence...))
+	detail.UnresolvedEvidence = strings.Join(unresolved, ", ")
+	if pathItem.RecommendedActionContract != nil {
+		detail.ActionContract = markdownActionContract(pathItem.RecommendedActionContract)
+	} else {
+		detail.ActionContract = firstSentence(pathItem.Remediation)
+	}
+	return detail
 }
 
 func renderAgentActionBOMContextAppendix(builder *strings.Builder, summary Summary) {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -30,9 +29,6 @@ type declaration struct {
 	method string
 	rel    string
 }
-
-var modelContextRegisterPattern = regexp.MustCompile(`(?i)navigator(?:\?\.|\.)modelcontext(?:\?\.|\.)register(?:tool)?\s*\(\s*["']([^"']+)["']\s*(?:,|\))`)
-var modelContextRegisterFallbackPattern = regexp.MustCompile(`(?is)navigator(?:\?\.|\.)modelcontext(?:\?\.|\.)register(?:tool)?\s*\([^)]*\)`)
 
 func (Detector) Detect(_ context.Context, scope detect.Scope, options detect.Options) ([]model.Finding, error) {
 	if err := detect.ValidateScopeRoot(scope.Root); err != nil {
@@ -257,8 +253,7 @@ func parseHTMLDeclarations(root, rel string) ([]string, *model.ParseError) {
 func parseJSDeclarationsBytes(rel string, payload []byte) ([]string, *model.ParseError) {
 	program, err := parser.ParseFile(nil, rel, payload, 0)
 	if err != nil {
-		names := parseJSDeclarationsFallback(payload)
-		return names, &model.ParseError{Kind: "parse_error", Format: "javascript", Path: rel, Detector: detectorID, Message: err.Error()}
+		return nil, &model.ParseError{Kind: "parse_error", Format: "javascript", Path: rel, Detector: detectorID, Message: err.Error()}
 	}
 	set := map[string]struct{}{}
 	walkAST(program, func(node any) {
@@ -276,24 +271,6 @@ func parseJSDeclarationsBytes(rel string, payload []byte) ([]string, *model.Pars
 		set[name] = struct{}{}
 	})
 	return sortedSet(set), nil
-}
-
-func parseJSDeclarationsFallback(payload []byte) []string {
-	set := map[string]struct{}{}
-	for _, match := range modelContextRegisterPattern.FindAllSubmatch(payload, -1) {
-		if len(match) != 2 {
-			continue
-		}
-		name := strings.ToLower(strings.TrimSpace(string(match[1])))
-		if name == "" {
-			continue
-		}
-		set[name] = struct{}{}
-	}
-	if len(set) == 0 && modelContextRegisterFallbackPattern.Match(payload) {
-		set["webmcp"] = struct{}{}
-	}
-	return sortedSet(set)
 }
 
 func walkAST(node any, visit func(any)) {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/attribution"
+	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
 func TestBuildRecentPRReviewRanksHigherRiskPathsFirst(t *testing.T) {
@@ -121,10 +122,28 @@ func TestRenderMarkdownIncludesRecentPRReviewSection(t *testing.T) {
 	t.Parallel()
 
 	markdown := RenderMarkdown(Summary{
-		GeneratedAt:    "2026-05-26T15:00:00Z",
-		Template:       string(TemplateAgentActionBOM),
-		ShareProfile:   string(ShareProfileInternal),
-		AgentActionBOM: &AgentActionBOM{BOMID: "bom-1", Summary: AgentActionBOMSummary{CoverageConfidence: "complete"}},
+		GeneratedAt:  "2026-05-26T15:00:00Z",
+		Template:     string(TemplateAgentActionBOM),
+		ShareProfile: string(ShareProfileInternal),
+		AgentActionBOM: &AgentActionBOM{
+			BOMID: "bom-1",
+			Summary: AgentActionBOMSummary{
+				CoverageConfidence: "complete",
+			},
+			Items: []AgentActionBOMItem{{
+				PathID:                   "apc-release-1",
+				Repo:                     "acme/payments",
+				Location:                 ".github/workflows/release.yml",
+				TargetClass:              "production_impacting",
+				ControlResolutionState:   "no_visible_control",
+				DelegationReadinessState: "approval_required",
+				RecommendedControl:       "approval_required",
+				RecommendedActionContract: &risk.RecommendedActionContract{
+					RequiredApproval: "Attach approval evidence for this exact workflow path",
+				},
+				Remediation: "Attach approval evidence for this exact workflow path.",
+			}},
+		},
 		RecentPRReview: &RecentPRReview{
 			Mode:            "local_sidecars",
 			Limit:           10,
@@ -140,7 +159,13 @@ func TestRenderMarkdownIncludesRecentPRReviewSection(t *testing.T) {
 			}},
 		},
 	})
-	if !strings.Contains(markdown, "## Recent PR Review Appendix") || !strings.Contains(markdown, "pr/42") {
+	if !strings.Contains(markdown, "## Recent PR Review Workflow") || !strings.Contains(markdown, "pr/42") {
 		t.Fatalf("expected recent review markdown section, got %q", markdown)
+	}
+	if strings.Contains(markdown, "## Recent PR Review Appendix") {
+		t.Fatalf("expected named buyer workflow section instead of appendix, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "Draft action contract:") {
+		t.Fatalf("expected recent review workflow to include draft action contract, got %q", markdown)
 	}
 }
