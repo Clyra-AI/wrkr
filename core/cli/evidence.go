@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -30,6 +29,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
+	jsonStdoutRaw := fs.String("json-stdout", string(jsonStdoutModeAuto), "stdout JSON mode [auto|full]")
 	frameworksRaw := fs.String("frameworks", "", "comma-separated framework ids")
 	outputDir := fs.String("output", "wrkr-evidence", "evidence output directory")
 	statePathFlag := fs.String("state", "", "state file path override")
@@ -39,6 +39,10 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "evidence does not accept positional arguments", exitInvalidInput)
+	}
+	jsonStdoutModeValue, jsonStdoutModeErr := parseJSONStdoutMode(*jsonStdoutRaw)
+	if jsonStdoutModeErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonStdoutModeErr.Error(), exitInvalidInput)
 	}
 	frameworks := parseFrameworkFlags(*frameworksRaw)
 	if len(frameworks) == 0 {
@@ -96,7 +100,30 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 		if result.RuntimeEvidence != nil {
 			payload["runtime_evidence"] = result.RuntimeEvidence
 		}
-		_ = json.NewEncoder(stdout).Encode(payload)
+		jsonSink, err := newJSONOutputSink(true, "", stdout, jsonStdoutModeValue)
+		if err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		var compactPayload any
+		if jsonSink.usesCompactStdout() {
+			var suppressed any
+			if value, ok := payload["suppressed_counts"]; ok {
+				suppressed = value
+			}
+			compactPayload = buildEvidenceCompactJSONSummary(resolvedStatePath, map[string]any{
+				"output_dir":             result.OutputDir,
+				"frameworks":             result.Frameworks,
+				"manifest_path":          result.ManifestPath,
+				"artifact_manifest_path": result.ArtifactManifestPath,
+				"chain_path":             result.ChainPath,
+				"state_path":             resolvedStatePath,
+				"control_evidence_json":  filepath.Join(result.OutputDir, "control-evidence.json"),
+				"deployment_mode":        result.DeploymentMode,
+			}, suppressed)
+		}
+		if err := jsonSink.writePayloads(compactPayload, payload); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		}
 		return exitSuccess
 	}
 	_, _ = fmt.Fprintf(stdout, "wrkr evidence bundle written to %s\n", result.OutputDir)

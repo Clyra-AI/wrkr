@@ -3,12 +3,13 @@
 ## Synopsis
 
 ```bash
- wrkr report [--json] [--explain] [--md] [--md-path <path>] [--pdf] [--pdf-path <path>] [--evidence-json] [--evidence-json-path <path>] [--csv-backlog] [--csv-backlog-path <path>] [--template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--paired-share-profile customer-redacted|design-partner|external-redacted|investor-safe] [--redact <fields>] [--baseline <path>] [--previous-state <path>] [--top <n>] [--focus bom|release|write-deploy|approval-evidence-unknown|owner-evidence-unknown|evidence-gaps|contradictions|drift-review|recommendations] [--focus-path <path_id>] [--recent-pr-review] [--review-ids <ids>] [--review-since <date>] [--review-until <date>] [--review-limit <n>] [--state <path>]
+ wrkr report [--json] [--json-stdout auto|full] [--explain] [--md] [--md-path <path>] [--pdf] [--pdf-path <path>] [--evidence-json] [--evidence-json-path <path>] [--csv-backlog] [--csv-backlog-path <path>] [--template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--paired-share-profile customer-redacted|design-partner|external-redacted|investor-safe] [--redact <fields>] [--baseline <path>] [--previous-state <path>] [--top <n>] [--focus bom|release|write-deploy|approval-evidence-unknown|owner-evidence-unknown|evidence-gaps|contradictions|drift-review|recommendations] [--focus-path <path_id>] [--recent-pr-review] [--review-ids <ids>] [--review-since <date>] [--review-until <date>] [--review-limit <n>] [--state <path>]
 ```
 
 ## Flags
 
 - `--json`
+- `--json-stdout`
 - `--explain`
 - `--md`
 - `--md-path`
@@ -66,6 +67,7 @@ wrkr report --template agent-action-bom --recent-pr-review --review-ids pr/42,mr
 
 wrkr report renders deterministic summaries from saved scan state without changing JSON or exit-code contracts.
 wrkr report --pdf writes a deterministic PDF artifact with wrapped, paginated executive-summary output; the board-ready claim is acceptance-backed by explicit executive report fixtures.
+Non-interactive stdout keeps the full machine-readable `--json` payload. Interactive TTY stdout defaults to a compact summary for large-output report workflows; use `--json-stdout=full` when you intentionally want the full interactive payload.
 Saved scan state must be complete. If the selected `--state` or `--previous-state` carries `partial_result`, `source_errors`, or `source_degraded`, `wrkr report` returns `invalid_input` (exit `6`) and does not write report artifacts; rerun the scan cleanly before publishing a report.
 `--share-profile internal` is now an explicit opt-in for cleartext owner,
 reviewer, identity-label, account-like, and local-path detail. Shareable/default
@@ -82,7 +84,7 @@ For shareable/default report, evidence, paired-artifact, and assess-generated re
 `summary.operational_exposure` and `summary.governance_readiness` are additive split readiness axes. They separate what a path can operationally do from how complete its ownership/approval/policy/proof posture is.
 `summary.executive_rollup` is an additive large-org compression surface for reports, markdown, evidence JSON, and control-backlog exports. Each group carries a stable `group_id`, deterministic dimension labels (`action_class`, `target_class`, `risk_zone`, `credential_authority`, `production_target`, `evidence_state`, `owner_state`, `repo_cluster`, `detector_confidence`, `contradiction_state`, `closure_action`), grouped `count`, additive `top_example_refs`, additive `evidence_state_summary`, and a deterministic closure recommendation without exposing raw repo or owner names.
 `summary.policy_outcomes` and additive top-level `policy_outcomes` group repeated `policy_check` / `policy_violation` results by rule, outcome, and severity. Each row carries deterministic `occurrence_count`, `affected_repo_count`, bounded `top_repo_refs`, and additive `suppressed_count` for omitted repo examples.
-`summary.suppressed_counts` and additive top-level `suppressed_counts` record how many attack paths, action paths, backlog items, graph nodes/edges, workflow chains, exposure groups, or BOM items were omitted by deterministic size caps so large reports stay readable without pretending the omitted rows vanished.
+`summary.suppressed_counts` and additive top-level `suppressed_counts` record how many attack paths, action paths, backlog items, graph nodes/edges, workflow chains, exposure groups, or BOM items were omitted by deterministic size caps so large reports stay readable without pretending the omitted rows vanished. `summary.artifact_budget`, `summary.appendix_available`, `summary.focused_bundle_available`, and `summary.full_export_available` expose the active report-side budgeting and detail-handoff metadata that shaped the current artifact.
 When top-level report arrays are bounded, `artifact_paths.state` points back to the saved scan artifact that the report was rendered from.
 `summary.governed_usage_metrics` is an additive non-sensitive packaging/value surface for monitored paths, governed paths, evidence packs, audit export families, approval decisions, connected runtimes, governed agents/workflows, verified controls, unknown controls, and contradictions. These counters are value indicators only; they are not billing enforcement and they do not serialize raw source, private URLs, prompt text, proof payloads, or customer names.
 `summary.repeat_usage_signals` and `agent_action_bom.summary.repeat_usage_signals` are additive local-repeatability signals. They count only local artifact families such as baselines, assess reruns, regress artifacts, evidence exports, ticket exports, and action-contract exports. They do not serialize raw filesystem paths, owner names, prompts, private URLs, or proof payloads.

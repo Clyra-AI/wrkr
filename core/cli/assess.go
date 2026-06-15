@@ -109,6 +109,7 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	}
 
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
+	jsonStdoutRaw := fs.String("json-stdout", string(jsonStdoutModeAuto), "stdout JSON mode [auto|full]")
 	quiet := fs.Bool("quiet", false, "suppress non-error output")
 	explain := fs.Bool("explain", false, "emit rationale")
 	outputDir := fs.String("output-dir", "wrkr-assessment", "assessment output directory")
@@ -140,6 +141,10 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 	}
 	if *quiet && *explain && !*jsonOut {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--quiet and --explain cannot be used together", exitInvalidInput)
+	}
+	jsonStdoutModeValue, jsonStdoutModeErr := parseJSONStdoutMode(*jsonStdoutRaw)
+	if jsonStdoutModeErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonStdoutModeErr.Error(), exitInvalidInput)
 	}
 
 	template, shareProfile, parseErr := parseReportTemplateShare(*templateRaw, *shareProfileRaw)
@@ -530,13 +535,24 @@ func runAssess(ctx context.Context, args []string, stdout io.Writer, stderr io.W
 		if finalExit == exitRegressionDrift {
 			status = "drift_detected"
 		}
-		_ = json.NewEncoder(stdout).Encode(map[string]any{
+		payload := map[string]any{
 			"status":        status,
 			"output_dir":    resolvedOutputDir,
 			"manifest_path": manifestPath,
 			"stages":        stages,
 			"artifacts":     artifacts,
-		})
+		}
+		jsonSink, err := newJSONOutputSink(true, "", stdout, jsonStdoutModeValue)
+		if err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		var compactPayload any
+		if jsonSink.usesCompactStdout() {
+			compactPayload = buildAssessCompactJSONSummary(resolvedOutputDir, manifestPath, stages, artifacts, status)
+		}
+		if err := jsonSink.writePayloads(compactPayload, payload); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		}
 		return finalExit
 	}
 	if *quiet {

@@ -83,6 +83,10 @@ type Summary struct {
 	DeploymentMode           string                                 `json:"deployment_mode,omitempty"`
 	ShareProfileMetadata     *ShareProfileMetadata                  `json:"share_profile_metadata,omitempty"`
 	ArtifactMetadata         *ArtifactMetadata                      `json:"artifact_metadata,omitempty"`
+	ArtifactBudget           *ArtifactBudget                        `json:"artifact_budget,omitempty"`
+	AppendixAvailable        bool                                   `json:"appendix_available,omitempty"`
+	FocusedBundleAvailable   bool                                   `json:"focused_bundle_available,omitempty"`
+	FullExportAvailable      bool                                   `json:"full_export_available,omitempty"`
 	SectionOrder             []string                               `json:"section_order"`
 	Sections                 []Section                              `json:"sections"`
 	Headline                 Headline                               `json:"headline"`
@@ -148,6 +152,19 @@ type ArtifactMetadata struct {
 	SourceArtifactRefs []string `json:"source_artifact_refs,omitempty"`
 	PrivateJoinMapPath string   `json:"private_join_map_path,omitempty"`
 	ShareabilityStatus string   `json:"shareability_status,omitempty"`
+}
+
+type ArtifactBudget struct {
+	MaxActionPaths         int `json:"max_action_paths,omitempty"`
+	MaxBacklogItems        int `json:"max_backlog_items,omitempty"`
+	MaxGraphNodes          int `json:"max_graph_nodes,omitempty"`
+	MaxGraphEdges          int `json:"max_graph_edges,omitempty"`
+	MaxWorkflowChains      int `json:"max_workflow_chains,omitempty"`
+	MaxExposureGroups      int `json:"max_exposure_groups,omitempty"`
+	MaxAgentActionBOM      int `json:"max_agent_action_bom_items,omitempty"`
+	MarkdownLineCap        int `json:"markdown_line_cap,omitempty"`
+	MarkdownLeadLineCap    int `json:"markdown_lead_line_cap,omitempty"`
+	MarkdownLeadSectionCap int `json:"markdown_lead_section_cap,omitempty"`
 }
 
 type PolicyOutcome = outputsignal.PolicyOutcome

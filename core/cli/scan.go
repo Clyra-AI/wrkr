@@ -63,6 +63,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
+	jsonStdoutRaw := fs.String("json-stdout", string(jsonStdoutModeAuto), "stdout JSON mode [auto|full]")
 	jsonPath := fs.String("json-path", "", "write final machine-readable output to a file path")
 	resume := fs.Bool("resume", false, "resume a prior interrupted org scan from checkpoint state")
 	explain := fs.Bool("explain", false, "emit rationale details")
@@ -108,6 +109,10 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	if *timeout < 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--timeout must be >= 0", exitInvalidInput)
+	}
+	jsonStdoutModeValue, jsonStdoutModeErr := parseJSONStdoutMode(*jsonStdoutRaw)
+	if jsonStdoutModeErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonStdoutModeErr.Error(), exitInvalidInput)
 	}
 	scanMode, scanModeErr := parseScanMode(*scanModeRaw)
 	if scanModeErr != nil {
@@ -199,7 +204,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		}
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", preflightErr.Error(), exitInvalidInput)
 	}
-	jsonSink, jsonSinkErr := newJSONOutputSink(*jsonOut, artifactPreflight.JSONPath, stdout)
+	jsonSink, jsonSinkErr := newJSONOutputSink(*jsonOut, artifactPreflight.JSONPath, stdout, jsonStdoutModeValue)
 	if jsonSinkErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonSinkErr.Error(), exitInvalidInput)
 	}
@@ -838,13 +843,20 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 
 	if jsonSink.enabled() {
+		finalArtifactPaths := finalScanArtifactPaths(statePath, artifactPreflight, jsonSink.outputPath, scanReportPath, scanSARIFPath)
+		var compactPayload any
+		if jsonSink.usesCompactStdout() {
+			suppressed, _ := payload["suppressed_counts"].(*reportcore.SuppressedCounts)
+			compactPayload = buildScanCompactJSONSummary(statePath, finalArtifactPaths, suppressed)
+		}
 		if err := checkScanContext(); err != nil {
 			return emitRolledBackScanFailure(err)
 		}
-		if err := jsonSink.writePayload(payload); err != nil {
+		if err := jsonSink.writePayloads(compactPayload, payload); err != nil {
 			return emitRolledBackScanError("runtime_failure", err.Error(), exitRuntime)
 		}
 		progress.ScanPhase(progressTargetMode, progressTargetValue, "artifact_commit_complete")
+		artifactPaths = finalArtifactPaths
 		if code := completeScanStatus(); code != exitSuccess {
 			return code
 		}

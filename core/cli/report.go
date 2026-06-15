@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -82,6 +81,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	jsonOut := fs.Bool("json", false, "emit machine-readable output")
+	jsonStdoutRaw := fs.String("json-stdout", string(jsonStdoutModeAuto), "stdout JSON mode [auto|full]")
 	explain := fs.Bool("explain", false, "emit rationale")
 	pdf := fs.Bool("pdf", false, "write a deterministic PDF summary")
 	pdfPath := fs.String("pdf-path", "wrkr-report.pdf", "pdf output path")
@@ -115,6 +115,10 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if fs.NArg() != 0 {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "report does not accept positional arguments", exitInvalidInput)
+	}
+	jsonStdoutModeValue, jsonStdoutModeErr := parseJSONStdoutMode(*jsonStdoutRaw)
+	if jsonStdoutModeErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonStdoutModeErr.Error(), exitInvalidInput)
 	}
 
 	template, shareProfile, parseErr := parseReportTemplateShare(*templateRaw, *shareProfileRaw)
@@ -239,6 +243,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		if reportcore.IsAgentActionBOMFocusError(err) {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 		}
+		if reportcore.IsShareableSafetyError(err) {
+			return emitError(stderr, jsonRequested || *jsonOut, "unsafe_operation_blocked", err.Error(), exitUnsafeBlocked)
+		}
 		if reportcore.IsComplianceSummaryError(err) {
 			return emitError(stderr, jsonRequested || *jsonOut, "policy_schema_violation", err.Error(), exitPolicyViolation)
 		}
@@ -322,10 +329,20 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		}
 		payload.ArtifactPaths["state"] = resolvedStatePath
 	}
-	payload.NextSteps = reportNextSteps(resolvedStatePath, artifacts)
+	payload.NextSteps = reportNextSteps(resolvedStatePath, summary.ShareProfile, artifacts)
 
 	if *jsonOut {
-		_ = json.NewEncoder(stdout).Encode(payload)
+		jsonSink, err := newJSONOutputSink(true, "", stdout, jsonStdoutModeValue)
+		if err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+		var compactPayload any
+		if jsonSink.usesCompactStdout() {
+			compactPayload = buildReportCompactJSONSummary(resolvedStatePath, payload)
+		}
+		if err := jsonSink.writePayloads(compactPayload, payload); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
+		}
 		return exitSuccess
 	}
 	if *explain {

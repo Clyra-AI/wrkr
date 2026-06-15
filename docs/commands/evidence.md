@@ -3,12 +3,13 @@
 ## Synopsis
 
 ```bash
-wrkr evidence --frameworks <comma-separated-frameworks> [--output <dir>] [--state <path>] [--json]
+wrkr evidence --frameworks <comma-separated-frameworks> [--output <dir>] [--state <path>] [--json] [--json-stdout auto|full]
 ```
 
 ## Flags
 
 - `--json`
+- `--json-stdout`
 - `--frameworks`
 - `--output`
 - `--state`
@@ -67,8 +68,10 @@ Pair this with the saved-state `wrkr report` and explicit proof-chain verificati
 `wrkr evidence` now requires the saved proof chain to be intact before it will stage or publish a bundle; it does not replace the explicit operator or CI proof-chain verification gate.
 
 Expected JSON keys: `status`, additive `deployment_mode`, `output_dir`, `frameworks`, `manifest_path`, additive `artifact_manifest_path`, `chain_path`, `framework_coverage`, bounded `control_evidence`, additive `coverage_note`, bounded `report_artifacts`, additive `source_privacy`, additive `runtime_sessions`, additive `runtime_evidence`, additive `agent_action_bom`, additive `governed_usage_metrics`, additive `next_steps`, and additive `suppressed_counts`.
+Non-interactive stdout keeps the full machine-readable `--json` payload. Interactive TTY stdout defaults to a compact summary for evidence bundle runs; use `--json-stdout=full` when you intentionally want the full interactive payload.
 `coverage_note` is the machine-readable interpretation companion for `framework_coverage`: it states that coverage reflects only controls evidenced in the current scanned state and that low or zero first-run coverage indicates evidence gaps rather than unsupported framework parsing.
 `control_evidence` lists a bounded preview of active control backlog items with existing proof events, missing proof requirements, and related proof record ids when present. When preview caps apply, `suppressed_counts` plus `artifact_paths.control_evidence_json` point to the fuller bundle file.
+Paired report-evidence JSON artifacts now also carry additive `artifact_budget`, `appendix_available`, `focused_bundle_available`, `full_export_available`, and `suppressed_counts` metadata so shareable bundle consumers can tell which caps and detail handoff paths shaped the artifact.
 `governed_usage_metrics` is the additive non-sensitive packaging/value counter set reused by report summaries and Agent Action BOM summaries. It counts monitored paths, governed paths, evidence packs, audit export families, approval decisions, connected runtimes, governed agents/workflows, verified controls, unknown controls, and contradictions without serializing raw source, owner names, private URLs, or proof payloads.
 Current evidence bundle output is one of the local artifact families counted by later `summary.repeat_usage_signals` / `agent_action_bom.summary.repeat_usage_signals` surfaces when you rerun `report` or `assess` against the same working area.
 Top-level `deployment_mode` mirrors the saved scan state's data-boundary label, and `source_privacy.deployment_mode` keeps the same value inside the richer source-privacy contract used by bundle metadata and report artifacts.

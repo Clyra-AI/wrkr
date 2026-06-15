@@ -332,6 +332,13 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err != nil {
 		return BuildResult{}, err
 	}
+	redactedMarkdown := reportcore.RenderMarkdown(redactedSummary)
+	if err := reportcore.ValidateShareableArtifacts(snapshot, redactedSummary, redactedMarkdown, true); err != nil {
+		if reportcore.IsShareableSafetyError(err) {
+			return BuildResult{}, classifyError(ErrorClassUnsafeOperationBlocked, err)
+		}
+		return BuildResult{}, classifyError(ErrorClassRuntimeFailure, err)
+	}
 	pairID := reportcore.BuildPairID(summary, reportcore.ShareProfileCustomerRedacted)
 	privateJoinMapPath := filepath.Join(filepath.Dir(targetOutputDir), "."+filepath.Base(targetOutputDir)+"-"+pairID+"-private-join-map.json")
 	summary.ArtifactMetadata = reportcore.BuildArtifactMetadata(summary, []string{resolvedStatePath}, reportcore.ArtifactVariantInternal, pairID, privateJoinMapPath)
@@ -346,7 +353,7 @@ func Build(in BuildInput) (BuildResult, error) {
 	}
 	reportArtifacts = append(reportArtifacts, auditReportPath)
 	customerAuditReportPath := reportcore.PairedArtifactPath(auditReportPath, string(reportcore.ShareProfileCustomerRedacted))
-	if err := os.WriteFile(customerAuditReportPath, []byte(reportcore.RenderMarkdown(redactedSummary)), 0o600); err != nil {
+	if err := os.WriteFile(customerAuditReportPath, []byte(redactedMarkdown), 0o600); err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write customer-redacted report summary: %w", err)
 	}
 	reportArtifacts = append(reportArtifacts, customerAuditReportPath)
@@ -587,7 +594,7 @@ func buildReportSummaries(statePath string, snapshot state.Snapshot) (reportcore
 	if err != nil {
 		return reportcore.Summary{}, reportcore.Summary{}, classifyErrorf(ErrorClassRuntimeFailure, "build deterministic report summary: %w", err)
 	}
-	summary = reportcore.FinalizeSummaryForShareProfile(summary)
+	summary = reportcore.FinalizeSummaryForSerialization(summary)
 
 	redactedReportSnapshot, err := cloneReportSnapshot(snapshot)
 	if err != nil {
@@ -603,7 +610,11 @@ func buildReportSummaries(statePath string, snapshot state.Snapshot) (reportcore
 	if err != nil {
 		return reportcore.Summary{}, reportcore.Summary{}, classifyErrorf(ErrorClassRuntimeFailure, "build customer-redacted report summary: %w", err)
 	}
-	redactedSummary = reportcore.FinalizeSummaryForShareProfile(redactedSummary)
+	redactedSummary = reportcore.FinalizeSummaryForSerialization(redactedSummary)
+	redactedSummary, err = reportcore.ApplyShareableResidualRedaction(snapshot, redactedSummary)
+	if err != nil {
+		return reportcore.Summary{}, reportcore.Summary{}, classifyErrorf(ErrorClassRuntimeFailure, "apply customer-redacted residual redaction: %w", err)
+	}
 	return summary, redactedSummary, nil
 }
 

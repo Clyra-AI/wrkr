@@ -12,7 +12,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- (none yet)
+- [semver:minor] Changed interactive `--json` output for large scan, report, evidence, and assess commands to emit compact TTY-safe summaries by default while preserving the full machine-readable payload for pipes, redirects, `--json-path`, and explicit `--json-stdout=full`.
+- [semver:minor] Unified report and evidence serialization metadata with shared suppression and artifact-budget hints so shareable/default outputs advertise caps, appendix availability, and focused/detail handoff paths consistently.
 
 ### Deprecated
 
@@ -28,7 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- [semver:patch] Added fail-closed residual-token validation plus recursive shareable output redaction for nested owner, repo, provider, PR URL, and filesystem-path evidence strings before customer-safe artifacts are written.
 
 ## Changelog maintenance process
 

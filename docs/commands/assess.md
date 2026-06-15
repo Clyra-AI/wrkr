@@ -3,12 +3,13 @@
 ## Synopsis
 
 ```bash
-wrkr assess [--json] [--quiet] [--explain] [--path <dir> | --my-setup | --target <mode>:<value> ...] [--output-dir <path>] [--state <path>] [--template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--paired-share-profile customer-redacted|design-partner|external-redacted|investor-safe] [--focus bom|release|write-deploy|approval-evidence-unknown|owner-evidence-unknown|evidence-gaps|contradictions|drift-review|recommendations] [--focus-path <path_id>] [--baseline <path>] [--runtime-input <path>] [--frameworks <ids>] [--ticket-format jira|github|servicenow] [--profile baseline|standard|strict|assessment] [--top <n>]
+wrkr assess [--json] [--json-stdout auto|full] [--quiet] [--explain] [--path <dir> | --my-setup | --target <mode>:<value> ...] [--output-dir <path>] [--state <path>] [--template exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary] [--share-profile internal|public|customer-redacted|design-partner|external-redacted|investor-safe] [--paired-share-profile customer-redacted|design-partner|external-redacted|investor-safe] [--focus bom|release|write-deploy|approval-evidence-unknown|owner-evidence-unknown|evidence-gaps|contradictions|drift-review|recommendations] [--focus-path <path_id>] [--baseline <path>] [--runtime-input <path>] [--frameworks <ids>] [--ticket-format jira|github|servicenow] [--profile baseline|standard|strict|assessment] [--top <n>]
 ```
 
 ## Flags
 
 - `--json`
+- `--json-stdout`
 - `--quiet`
 - `--explain`
 - `--path`
@@ -70,7 +71,7 @@ export, and drift artifacts when those stages ran successfully.
 
 State, lifecycle, proof-chain, and proof-attestation files are local assessment artifacts. Share only the explicitly redacted report or evidence artifacts that match your intended audience.
 
-Expected JSON keys: `status`, `output_dir`, `manifest_path`, `stages`, and `artifacts`. The JSON stdout remains a bounded stage/artifact handoff; full assessment detail is written to the output directory artifacts through the same streaming JSON file-sink path used by scan/report/evidence. When `--baseline` is supplied, `stages.regress` now also carries additive `comparison_status` and `drift_category_count` fields so recurring assessment automation can tell the difference between actionable drift, unavailable baseline comparison data, and clean re-runs.
+Expected JSON keys: `status`, `output_dir`, `manifest_path`, `stages`, and `artifacts`. Non-interactive stdout keeps that full machine-readable handoff payload. Interactive TTY stdout defaults to a compact summary for assessment runs; use `--json-stdout=full` when you intentionally want the full interactive payload. Full assessment detail is written to the output directory artifacts through the same streaming JSON file-sink path used by scan/report/evidence. When `--baseline` is supplied, `stages.regress` now also carries additive `comparison_status` and `drift_category_count` fields so recurring assessment automation can tell the difference between actionable drift, unavailable baseline comparison data, and clean re-runs.
 
 ## Output layout
 
