@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	VariantBaseline = "baseline"
-	VariantCurrent  = "current"
-	RepoCount       = 320
+	VariantBaseline               = "baseline"
+	VariantCurrent                = "current"
+	RepoCount                     = 320
+	DefaultDenseOpenAPIOperations = 192
 )
 
 type externalControlEvidenceDocument struct {
@@ -66,6 +67,17 @@ func MaterializeCount(root string, variant string, repoCount int) error {
 		}
 	}
 	return nil
+}
+
+func MaterializeEndpointDense(root string, repoCount int, operationCount int) error {
+	if operationCount <= 0 {
+		operationCount = DefaultDenseOpenAPIOperations
+	}
+	if err := MaterializeCount(root, VariantBaseline, repoCount); err != nil {
+		return err
+	}
+	repoPath := filepath.Join(root, RepoName(1))
+	return writeDenseOpenAPIRepo(repoPath, operationCount)
 }
 
 func RepoName(idx int) string {
@@ -380,4 +392,44 @@ func appendExternalControlEvidence(repoPath, generatedAt string, record external
 		return fmt.Errorf("marshal %s: %w", rel, err)
 	}
 	return writeFile(repoPath, rel, string(encoded)+"\n")
+}
+
+func writeDenseOpenAPIRepo(repoPath string, operationCount int) error {
+	if operationCount <= 0 {
+		return fmt.Errorf("operation count must be positive")
+	}
+	return writeFile(repoPath, "openapi/enterprise-openapi.yaml", buildDenseOpenAPISpec(operationCount))
+}
+
+func buildDenseOpenAPISpec(operationCount int) string {
+	var builder strings.Builder
+	builder.WriteString("openapi: 3.1.0\n")
+	builder.WriteString("info:\n")
+	builder.WriteString("  title: Enterprise Pressure API\n")
+	builder.WriteString("  version: 1.0.0\n")
+	builder.WriteString("paths:\n")
+	for idx := 0; idx < operationCount; idx++ {
+		path, method, summary, operationID := denseOpenAPIOperation(idx)
+		builder.WriteString(fmt.Sprintf("  %s:\n", path))
+		builder.WriteString(fmt.Sprintf("    %s:\n", strings.ToLower(method)))
+		builder.WriteString(fmt.Sprintf("      operationId: %s\n", operationID))
+		builder.WriteString(fmt.Sprintf("      summary: %s\n", summary))
+		builder.WriteString("      responses:\n")
+		builder.WriteString("        '200':\n")
+		builder.WriteString("          description: ok\n")
+	}
+	return builder.String()
+}
+
+func denseOpenAPIOperation(idx int) (string, string, string, string) {
+	switch idx % 4 {
+	case 0:
+		return fmt.Sprintf("/v1/payments/refunds/admin-exports/%03d/deploy", idx), "POST", "Capture payment refund export deploy", fmt.Sprintf("capturePayment%03d", idx)
+	case 1:
+		return fmt.Sprintf("/v1/refunds/admin-users/%03d/export", idx), "DELETE", "Issue refund export admin user delete", fmt.Sprintf("issueRefund%03d", idx)
+	case 2:
+		return fmt.Sprintf("/v1/deployments/%03d/refunds/payments", idx), "POST", "Deploy refund payment mutation", fmt.Sprintf("deleteUser%03d", idx)
+	default:
+		return fmt.Sprintf("/v1/admin/users/%03d/payments/export", idx), "POST", "Export customer data and payment admin changes", fmt.Sprintf("exportData%03d", idx)
+	}
 }

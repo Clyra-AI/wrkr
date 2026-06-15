@@ -60,8 +60,20 @@ type PhaseTiming struct {
 }
 
 type ScanPhaseProgress struct {
-	Phase   string `json:"phase,omitempty"`
-	Percent int    `json:"percent,omitempty"`
+	Phase         string           `json:"phase,omitempty"`
+	Percent       int              `json:"percent,omitempty"`
+	Subphase      string           `json:"subphase,omitempty"`
+	SubphaseStep  int              `json:"subphase_step,omitempty"`
+	SubphaseTotal int              `json:"subphase_total,omitempty"`
+	HeapReceipt   *ScanHeapReceipt `json:"heap_receipt,omitempty"`
+}
+
+type ScanHeapReceipt struct {
+	AllocBytes   uint64 `json:"alloc_bytes,omitempty"`
+	HeapObjects  uint64 `json:"heap_objects,omitempty"`
+	HeapSysBytes uint64 `json:"heap_sys_bytes,omitempty"`
+	NextGCBytes  uint64 `json:"next_gc_bytes,omitempty"`
+	NumGC        uint32 `json:"num_gc,omitempty"`
 }
 
 type ScanRepoProgress struct {
@@ -165,6 +177,11 @@ func normalizeScanStatus(statePath string, status ScanStatus) ScanStatus {
 	if status.PhaseProgress != nil {
 		phaseProgress := *status.PhaseProgress
 		phaseProgress.Phase = strings.TrimSpace(phaseProgress.Phase)
+		phaseProgress.Subphase = strings.TrimSpace(phaseProgress.Subphase)
+		if phaseProgress.HeapReceipt != nil {
+			copyHeap := *phaseProgress.HeapReceipt
+			phaseProgress.HeapReceipt = &copyHeap
+		}
 		status.PhaseProgress = &phaseProgress
 	}
 	if status.RepoProgress != nil {

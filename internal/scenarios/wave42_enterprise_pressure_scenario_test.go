@@ -202,6 +202,98 @@ func TestScenarioWave42EnterprisePressureChaos(t *testing.T) {
 	}
 }
 
+func TestScenarioWave42EndpointDenseProjectionBoundaries(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "endpoint-dense")
+	if err := enterprisepressure.MaterializeEndpointDense(root, 4, enterprisepressure.DefaultDenseOpenAPIOperations); err != nil {
+		t.Fatalf("materialize endpoint-dense fixture: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "endpoint-dense-state.json")
+	scanPayload := runScenarioCommandJSON(t, []string{"scan", "--path", root, "--state", statePath, "--quiet", "--json"})
+	reportPath := filepath.Join(tmp, "endpoint-dense-evidence.json")
+	reportPayload := runScenarioCommandJSON(t, []string{
+		"report",
+		"--state", statePath,
+		"--template", "agent-action-bom",
+		"--share-profile", "customer-redacted",
+		"--evidence-json",
+		"--evidence-json-path", reportPath,
+		"--json",
+	})
+	evidencePayload := readScenarioJSONFile(t, reportPath)
+
+	actionPaths := requireScenarioArrayFromObject(t, scanPayload, "action_paths")
+	groupedActionPathFound := false
+	for _, raw := range actionPaths {
+		path := requireScenarioMapForRepo(raw)
+		count := objectInt(path["endpoint_ref_count"])
+		refs := arrayLength(path["mutable_endpoint_semantic_refs"])
+		if count > refs && count >= 1000 {
+			groupedActionPathFound = true
+			if strings.TrimSpace(stringValue(path["endpoint_ref_group_id"])) == "" {
+				t.Fatalf("expected grouped action path to expose endpoint_ref_group_id, got %v", path)
+			}
+			if arrayLength(path["endpoint_ref_samples"]) == 0 {
+				t.Fatalf("expected grouped action path to expose endpoint_ref_samples, got %v", path)
+			}
+		}
+	}
+	if !groupedActionPathFound {
+		t.Fatalf("expected at least one grouped endpoint-dense action path, got %v", actionPaths)
+	}
+
+	bom := requireScenarioObject(t, reportPayload, "agent_action_bom")
+	items := requireScenarioArrayFromObject(t, bom, "items")
+	groupedBOMFound := false
+	for _, raw := range items {
+		item := requireScenarioMapForRepo(raw)
+		count := objectInt(item["endpoint_ref_count"])
+		refs := arrayLength(item["mutable_endpoint_semantic_refs"])
+		if count > refs && count >= 1000 {
+			groupedBOMFound = true
+			if refs > 8 {
+				t.Fatalf("expected BOM endpoint refs to stay bounded, got %d in %v", refs, item)
+			}
+			if arrayLength(item["endpoint_route_groups"]) == 0 {
+				t.Fatalf("expected BOM endpoint_route_groups, got %v", item)
+			}
+			if arrayLength(item["endpoint_operation_counts"]) == 0 {
+				t.Fatalf("expected BOM endpoint_operation_counts, got %v", item)
+			}
+		}
+	}
+	if !groupedBOMFound {
+		t.Fatalf("expected grouped endpoint-dense BOM item, got %v", items)
+	}
+
+	graph := requireScenarioObject(t, evidencePayload, "control_path_graph")
+	nodes := requireScenarioArrayFromObject(t, graph, "nodes")
+	groupedNodeFound := false
+	for _, raw := range nodes {
+		node := requireScenarioMapForRepo(raw)
+		count := objectInt(node["endpoint_ref_count"])
+		refs := arrayLength(node["mutable_endpoint_semantic_refs"])
+		if count > refs && count >= 1000 {
+			groupedNodeFound = true
+			if refs > 8 {
+				t.Fatalf("expected graph node endpoint refs to stay bounded, got %d in %v", refs, node)
+			}
+		}
+	}
+	if !groupedNodeFound {
+		t.Fatalf("expected grouped endpoint-dense graph node, got %v", nodes)
+	}
+
+	stateBytes, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatalf("read endpoint-dense state: %v", err)
+	}
+	if len(stateBytes) > 24<<20 {
+		t.Fatalf("expected endpoint-dense saved state under 24MiB, got %d", len(stateBytes))
+	}
+}
+
 func loadEnterprisePressureContract(t *testing.T, repoRoot string) enterprisePressureContract {
 	t.Helper()
 

@@ -78,6 +78,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	timeout := fs.Duration("timeout", 0, "optional scan timeout (0 disables)")
 	scanModeRaw := fs.String("mode", "governance", "scan mode [quick|governance|deep]")
 	progressModeRaw := fs.String("progress", string(scanProgressModeAuto), "progress output [auto|bar|plain|events|none]")
+	progressHeap := fs.Bool("progress-heap", false, "include heap receipts in --progress events output")
 	sourceRetentionRaw := fs.String("source-retention", sourceprivacy.RetentionEphemeral, "hosted source retention [ephemeral|retain_for_resume|retain]")
 	deploymentModeRaw := fs.String("deployment-mode", sourceprivacy.DeploymentModeLocalOnly, "deployment/data mode [local_only|customer_controlled_storage|connected_saas_metadata|managed_platform]")
 	allowSourceMaterialization := fs.Bool("allow-source-materialization", false, "allow hosted scans to fetch generic source-code files")
@@ -260,6 +261,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	progress := newScanProgressReporter(scanProgressReporterOptions{
 		RequestedMode:     progressMode,
+		HeapReceipts:      *progressHeap,
 		JSONOutput:        *jsonOut,
 		Stderr:            stderr,
 		StartedAt:         scanStartedAt,
@@ -407,6 +409,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := statusTracker.Phase("analysis_start"); err != nil {
 		return emitScanFailure(err)
 	}
+	progress.PhaseSubstep("analysis", "inventory", 1, 6)
 
 	previousSnapshot, loadPreviousErr := loadPreviousSnapshot(statePath, strings.TrimSpace(*baselinePath))
 	if loadPreviousErr != nil {
@@ -527,6 +530,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	agginventory.ApplySecurityVisibilityToPrivilegeMap(&inventoryOut)
 	agginventory.ApplyCanonicalStores(&inventoryOut)
+	progress.PhaseSubstep("analysis", "action_paths", 2, 6)
 	riskReport.ActionPaths, riskReport.ActionPathToControlFirst = risk.BuildActionPaths(riskReport.AttackPaths, &inventoryOut)
 	riskReport.ActionPaths = risk.DecoratePolicyCoverage(riskReport.ActionPaths, findings)
 	riskReport.ActionPaths = risk.DecorateIntroducedBy(riskReport.ActionPaths, repoAttributionContexts(manifestOut, now))
@@ -560,7 +564,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	})
 	artifactFindings := summarizeArtifactFindings(findings, scanMode)
 	riskReport.ActionPaths = risk.DecorateEvidenceContext(riskReport.ActionPaths, &scanQuality)
+	progress.PhaseSubstep("analysis", "control_graph", 3, 6)
 	riskReport.ControlPathGraph = risk.BuildControlPathGraph(riskReport.ActionPaths)
+	progress.PhaseSubstep("analysis", "workflow_chains", 4, 6)
 	riskReport.WorkflowChains = risk.BuildWorkflowChains(riskReport.ActionPaths, riskReport.ControlPathGraph)
 	riskReport.ActionPaths = risk.DecorateWorkflowChainRefs(riskReport.ActionPaths, riskReport.WorkflowChains)
 	riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
@@ -571,6 +577,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		Transitions: transitions,
 	})
 	inventoryOut.LifecycleQueue = lifecycle.BuildQueue(lifecycleGaps)
+	progress.PhaseSubstep("analysis", "backlog", 5, 6)
 	controlBacklog := controlbacklog.Build(controlbacklog.Input{
 		Mode:             scanMode,
 		GeneratedAt:      now,
@@ -603,6 +610,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := checkScanContext(); err != nil {
 		return emitScanFailure(err)
 	}
+	progress.PhaseSubstep("analysis", "state_finalization", 6, 6)
 
 	snapshot := state.Snapshot{
 		Version:                    state.SnapshotVersion,
@@ -650,6 +658,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	if err := statusTracker.Phase("artifact_commit_start"); err != nil {
 		return emitScanFailure(err)
 	}
+	progress.PhaseSubstep("artifact_commit", "artifact_write", 1, 1)
 	emitRolledBackScanFailure := func(err error) int {
 		if err == nil {
 			return exitSuccess

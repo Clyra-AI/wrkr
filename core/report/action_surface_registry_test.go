@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	"testing"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -117,5 +118,47 @@ func TestActionSurfaceRegistrySortsFamilyOnlyGroupsWithoutPanicking(t *testing.T
 	}
 	if registry[0].Location != "agents/langchain.yaml" {
 		t.Fatalf("expected family-only path to sort without panic and retain rank order, got %+v", registry)
+	}
+}
+
+func TestActionSurfaceRegistryUsesBoundedEndpointProjection(t *testing.T) {
+	t.Parallel()
+
+	semantics := make([]agginventory.MutableEndpointSemantic, 0, 40)
+	for idx := 0; idx < 40; idx++ {
+		semantics = append(semantics, agginventory.MutableEndpointSemantic{
+			Semantic:     agginventory.EndpointSemanticRefund,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    fmt.Sprintf("POST /v1/refunds/%03d/issue", idx),
+			EvidenceRefs: []string{fmt.Sprintf("finding:%03d", idx)},
+		})
+	}
+	path := risk.ProjectActionPath(risk.ActionPath{
+		PathID:                      "ap-dense-registry",
+		ToolInstanceID:              "workflow-release",
+		Org:                         "acme",
+		Repo:                        "demo",
+		ToolType:                    "ci_agent",
+		Location:                    ".github/workflows/release.yml",
+		MutableEndpointSemantics:    semantics,
+		MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+	})
+	summary := Summary{
+		ActionPaths:      []risk.ActionPath{path},
+		ControlPathGraph: risk.BuildControlPathGraph([]risk.ActionPath{path}),
+	}
+	summary.AgentActionBOM = BuildAgentActionBOM(summary)
+
+	registry := BuildActionSurfaceRegistry(summary)
+	if len(registry) != 1 {
+		t.Fatalf("expected one registry entry, got %+v", registry)
+	}
+	entry := registry[0]
+	if entry.EndpointRefGroupID == "" || entry.EndpointRefCount != len(semantics) {
+		t.Fatalf("expected grouped endpoint projection on registry entry, got %+v", entry)
+	}
+	if len(entry.MutableEndpointSemanticRefs) > 8 || len(entry.MutableEndpointSemantics) > 12 {
+		t.Fatalf("expected bounded endpoint samples on registry entry, got %+v", entry)
 	}
 }

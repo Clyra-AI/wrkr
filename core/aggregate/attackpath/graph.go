@@ -477,29 +477,30 @@ const (
 )
 
 type ControlPathInput struct {
-	PathID                      string
-	AgentID                     string
-	Org                         string
-	Repo                        string
-	ToolType                    string
-	Location                    string
-	Purpose                     string
-	PurposeSource               string
-	PurposeConfidence           string
-	Version                     string
-	VersionSource               string
-	ConfigFingerprint           string
-	ConfigSource                string
-	ExecutionIdentity           string
-	ExecutionIdentityType       string
-	ExecutionIdentitySource     string
-	ExecutionIdentityStatus     string
-	CredentialAccess            bool
-	CredentialProvenance        *agginventory.CredentialProvenance
-	CredentialAuthorityRef      string
-	CredentialAuthority         *agginventory.CredentialAuthority
-	AuthorityBindingRefs        []string
-	AuthorityBindings           []*agginventory.AuthorityBinding
+	PathID                  string
+	AgentID                 string
+	Org                     string
+	Repo                    string
+	ToolType                string
+	Location                string
+	Purpose                 string
+	PurposeSource           string
+	PurposeConfidence       string
+	Version                 string
+	VersionSource           string
+	ConfigFingerprint       string
+	ConfigSource            string
+	ExecutionIdentity       string
+	ExecutionIdentityType   string
+	ExecutionIdentitySource string
+	ExecutionIdentityStatus string
+	CredentialAccess        bool
+	CredentialProvenance    *agginventory.CredentialProvenance
+	CredentialAuthorityRef  string
+	CredentialAuthority     *agginventory.CredentialAuthority
+	AuthorityBindingRefs    []string
+	AuthorityBindings       []*agginventory.AuthorityBinding
+	agginventory.EndpointRefGroupProjection
 	MutableEndpointSemanticRefs []string
 	MutableEndpointSemantics    []agginventory.MutableEndpointSemantic
 	GovernanceControls          []agginventory.GovernanceControlMapping
@@ -547,29 +548,30 @@ type ControlPathKindRollup struct {
 }
 
 type ControlPathNode struct {
-	NodeID                      string                                 `json:"node_id"`
-	PathID                      string                                 `json:"path_id"`
-	Kind                        string                                 `json:"kind"`
-	LineageSegment              string                                 `json:"lineage_segment,omitempty"`
-	Org                         string                                 `json:"org"`
-	Repo                        string                                 `json:"repo"`
-	Label                       string                                 `json:"label,omitempty"`
-	ToolType                    string                                 `json:"tool_type,omitempty"`
-	Location                    string                                 `json:"location,omitempty"`
-	AgentID                     string                                 `json:"agent_id,omitempty"`
-	BoundaryLabel               string                                 `json:"boundary_label,omitempty"`
-	Purpose                     string                                 `json:"purpose,omitempty"`
-	PurposeSource               string                                 `json:"purpose_source,omitempty"`
-	PurposeConfidence           string                                 `json:"purpose_confidence,omitempty"`
-	Version                     string                                 `json:"version,omitempty"`
-	VersionSource               string                                 `json:"version_source,omitempty"`
-	ConfigFingerprint           string                                 `json:"config_fingerprint,omitempty"`
-	ConfigSource                string                                 `json:"config_source,omitempty"`
-	Status                      string                                 `json:"status,omitempty"`
-	CredentialAuthorityRef      string                                 `json:"credential_authority_ref,omitempty"`
-	CredentialAuthority         *agginventory.CredentialAuthority      `json:"credential_authority,omitempty"`
-	AuthorityBindingRefs        []string                               `json:"authority_binding_refs,omitempty"`
-	AuthorityBindings           []*agginventory.AuthorityBinding       `json:"authority_bindings,omitempty"`
+	NodeID                 string                            `json:"node_id"`
+	PathID                 string                            `json:"path_id"`
+	Kind                   string                            `json:"kind"`
+	LineageSegment         string                            `json:"lineage_segment,omitempty"`
+	Org                    string                            `json:"org"`
+	Repo                   string                            `json:"repo"`
+	Label                  string                            `json:"label,omitempty"`
+	ToolType               string                            `json:"tool_type,omitempty"`
+	Location               string                            `json:"location,omitempty"`
+	AgentID                string                            `json:"agent_id,omitempty"`
+	BoundaryLabel          string                            `json:"boundary_label,omitempty"`
+	Purpose                string                            `json:"purpose,omitempty"`
+	PurposeSource          string                            `json:"purpose_source,omitempty"`
+	PurposeConfidence      string                            `json:"purpose_confidence,omitempty"`
+	Version                string                            `json:"version,omitempty"`
+	VersionSource          string                            `json:"version_source,omitempty"`
+	ConfigFingerprint      string                            `json:"config_fingerprint,omitempty"`
+	ConfigSource           string                            `json:"config_source,omitempty"`
+	Status                 string                            `json:"status,omitempty"`
+	CredentialAuthorityRef string                            `json:"credential_authority_ref,omitempty"`
+	CredentialAuthority    *agginventory.CredentialAuthority `json:"credential_authority,omitempty"`
+	AuthorityBindingRefs   []string                          `json:"authority_binding_refs,omitempty"`
+	AuthorityBindings      []*agginventory.AuthorityBinding  `json:"authority_bindings,omitempty"`
+	agginventory.EndpointRefGroupProjection
 	MutableEndpointSemanticRefs []string                               `json:"mutable_endpoint_semantic_refs,omitempty"`
 	MutableEndpointSemantics    []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
 	EvidenceRefs                []string                               `json:"evidence_refs,omitempty"`
@@ -837,8 +839,9 @@ func controlCredentialNode(pathID string, path ControlPathInput, org string, rep
 	node.CredentialAuthority = agginventory.CloneCredentialAuthority(path.CredentialAuthority)
 	node.AuthorityBindingRefs = append([]string(nil), path.AuthorityBindingRefs...)
 	node.AuthorityBindings = agginventory.CloneAuthorityBindings(path.AuthorityBindings)
-	node.MutableEndpointSemanticRefs = append([]string(nil), path.MutableEndpointSemanticRefs...)
-	node.MutableEndpointSemantics = agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics)
+	node.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
+	node.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
+	node.MutableEndpointSemantics = agginventory.BoundedMutableEndpointSemantics(path.MutableEndpointSemantics)
 	return &node
 }
 
@@ -854,8 +857,9 @@ func applyNodeMetadata(node *ControlPathNode, path ControlPathInput, lineageSegm
 	node.VersionSource = strings.TrimSpace(path.VersionSource)
 	node.ConfigFingerprint = strings.TrimSpace(path.ConfigFingerprint)
 	node.ConfigSource = strings.TrimSpace(path.ConfigSource)
-	node.MutableEndpointSemanticRefs = append([]string(nil), path.MutableEndpointSemanticRefs...)
-	node.MutableEndpointSemantics = agginventory.CloneMutableEndpointSemantics(path.MutableEndpointSemantics)
+	node.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
+	node.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
+	node.MutableEndpointSemantics = agginventory.BoundedMutableEndpointSemantics(path.MutableEndpointSemantics)
 }
 
 func lineageSegmentForGovernanceControl(control string) string {

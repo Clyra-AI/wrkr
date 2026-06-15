@@ -1,6 +1,7 @@
 package attackpath
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -377,6 +378,53 @@ func TestControlPathGraphCarriesPurposeVersionAndAuthorityMetadata(t *testing.T)
 	}
 	if credentialNode == nil || credentialNode.CredentialAuthority == nil || !credentialNode.CredentialAuthority.CredentialUsableByPath {
 		t.Fatalf("expected credential authority on graph node, got %+v", credentialNode)
+	}
+}
+
+func TestBuildControlPathGraphUsesBoundedEndpointProjection(t *testing.T) {
+	t.Parallel()
+
+	semantics := make([]agginventory.MutableEndpointSemantic, 0, 48)
+	for idx := 0; idx < 48; idx++ {
+		semantics = append(semantics, agginventory.MutableEndpointSemantic{
+			Semantic:     agginventory.EndpointSemanticRefund,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    fmt.Sprintf("POST /v1/refunds/%03d/issue", idx),
+			EvidenceRefs: []string{fmt.Sprintf("finding:%03d", idx)},
+		})
+	}
+	input := ControlPathInput{
+		PathID:                      "apc-dense",
+		AgentID:                     "wrkr:openapi:acme",
+		Org:                         "acme",
+		Repo:                        "acme/payments",
+		ToolType:                    "openapi",
+		Location:                    "openapi/payments.yaml",
+		EndpointRefGroupProjection:  agginventory.BuildMutableEndpointGroupProjection(nil, semantics),
+		MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+		MutableEndpointSemantics:    semantics,
+	}
+	graph := BuildControlPathGraph([]ControlPathInput{input})
+	if graph == nil || len(graph.Nodes) == 0 {
+		t.Fatalf("expected graph nodes, got %+v", graph)
+	}
+	var grouped *ControlPathNode
+	for idx := range graph.Nodes {
+		node := &graph.Nodes[idx]
+		if node.EndpointRefCount > len(node.MutableEndpointSemanticRefs) {
+			grouped = node
+			break
+		}
+	}
+	if grouped == nil {
+		t.Fatalf("expected at least one grouped endpoint node, got %+v", graph.Nodes)
+	}
+	if grouped.EndpointRefGroupID == "" || len(grouped.EndpointRouteGroups) == 0 || len(grouped.EndpointOperationCounts) == 0 {
+		t.Fatalf("expected grouped endpoint metadata, got %+v", grouped)
+	}
+	if len(grouped.MutableEndpointSemanticRefs) > 8 || len(grouped.MutableEndpointSemantics) > 12 {
+		t.Fatalf("expected bounded endpoint samples on graph node, got %+v", grouped)
 	}
 }
 

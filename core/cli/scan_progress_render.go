@@ -163,6 +163,13 @@ func formatScanProgressBarLine(snapshot scanProgressSnapshot) string {
 		fmt.Sprintf("scan [%s] %3d%%", bar, snapshot.ProgressPercent),
 		"phase=" + fallbackForExplain(snapshot.PhaseProgress.Phase, "unknown"),
 	}
+	if strings.TrimSpace(snapshot.PhaseProgress.Subphase) != "" {
+		if snapshot.PhaseProgress.SubphaseTotal > 0 {
+			parts = append(parts, fmt.Sprintf("subphase=%s(%d/%d)", snapshot.PhaseProgress.Subphase, snapshot.PhaseProgress.SubphaseStep, snapshot.PhaseProgress.SubphaseTotal))
+		} else {
+			parts = append(parts, "subphase="+snapshot.PhaseProgress.Subphase)
+		}
+	}
 	if snapshot.RepoProgress.Total > 0 {
 		parts = append(parts, fmt.Sprintf("repos=%d/%d", snapshot.RepoProgress.Completed, snapshot.RepoProgress.Total))
 	}
@@ -174,6 +181,9 @@ func formatScanProgressBarLine(snapshot scanProgressSnapshot) string {
 	}
 	if strings.TrimSpace(snapshot.DetectorProgress.ActiveDetector) != "" {
 		parts = append(parts, "detector="+snapshot.DetectorProgress.ActiveDetector)
+	}
+	if snapshot.PhaseProgress.HeapReceipt != nil {
+		parts = append(parts, fmt.Sprintf("heap=%dMB", snapshot.PhaseProgress.HeapReceipt.AllocBytes/(1024*1024)))
 	}
 	parts = append(parts, fmt.Sprintf("elapsed=%ds", snapshot.ElapsedSeconds))
 	return strings.Join(parts, " ")
@@ -186,6 +196,13 @@ func formatScanProgressPlainLine(snapshot scanProgressSnapshot) string {
 		fmt.Sprintf("progress=%d%%", snapshot.ProgressPercent),
 		"phase=" + fallbackForExplain(snapshot.PhaseProgress.Phase, "unknown"),
 	}
+	if strings.TrimSpace(snapshot.PhaseProgress.Subphase) != "" {
+		if snapshot.PhaseProgress.SubphaseTotal > 0 {
+			parts = append(parts, fmt.Sprintf("subphase=%s(%d/%d)", snapshot.PhaseProgress.Subphase, snapshot.PhaseProgress.SubphaseStep, snapshot.PhaseProgress.SubphaseTotal))
+		} else {
+			parts = append(parts, "subphase="+snapshot.PhaseProgress.Subphase)
+		}
+	}
 	if snapshot.RepoProgress.Total > 0 {
 		parts = append(parts, fmt.Sprintf("repos=%d/%d", snapshot.RepoProgress.Completed, snapshot.RepoProgress.Total))
 	}
@@ -197,6 +214,9 @@ func formatScanProgressPlainLine(snapshot scanProgressSnapshot) string {
 	}
 	if strings.TrimSpace(snapshot.DetectorProgress.ActiveDetector) != "" {
 		parts = append(parts, "detector="+snapshot.DetectorProgress.ActiveDetector)
+	}
+	if snapshot.PhaseProgress.HeapReceipt != nil {
+		parts = append(parts, fmt.Sprintf("heap_alloc_bytes=%d", snapshot.PhaseProgress.HeapReceipt.AllocBytes))
 	}
 	parts = append(parts, fmt.Sprintf("elapsed=%ds", snapshot.ElapsedSeconds))
 	if strings.TrimSpace(snapshot.ProgressMessage) != "" {
@@ -258,6 +278,26 @@ func formatScanProgressEventLine(snapshot scanProgressSnapshot, update scanProgr
 			fmt.Sprintf("completed=%d", snapshot.RepoProgress.Completed),
 			fmt.Sprintf("failed=%d", snapshot.RepoProgress.Failed),
 		), " ")
+	case "phase_substep":
+		fields := append(base,
+			"event=phase_substep",
+			"phase="+fallbackForExplain(update.Phase, fallbackForExplain(snapshot.PhaseProgress.Phase, "unknown")),
+			"subphase="+fallbackForExplain(update.Subphase, "unknown"),
+			fmt.Sprintf("step=%d", update.Step),
+			fmt.Sprintf("step_total=%d", update.StepTotal),
+			fmt.Sprintf("progress_percent=%d", snapshot.ProgressPercent),
+			fmt.Sprintf("elapsed_seconds=%d", snapshot.ElapsedSeconds),
+		)
+		if update.HeapReceipt != nil {
+			fields = append(fields,
+				fmt.Sprintf("heap_alloc_bytes=%d", update.HeapReceipt.AllocBytes),
+				fmt.Sprintf("heap_objects=%d", update.HeapReceipt.HeapObjects),
+				fmt.Sprintf("heap_sys_bytes=%d", update.HeapReceipt.HeapSysBytes),
+				fmt.Sprintf("next_gc_bytes=%d", update.HeapReceipt.NextGCBytes),
+				fmt.Sprintf("num_gc=%d", update.HeapReceipt.NumGC),
+			)
+		}
+		return strings.Join(fields, " ")
 	case "retry":
 		return strings.Join(append(base,
 			"event=retry",

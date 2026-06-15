@@ -284,7 +284,7 @@ func workflowBlastRadiusSummary(item AgentActionBOMItem) string {
 		return "customer-data-adjacent reach"
 	case strings.TrimSpace(item.TargetClass) == risk.TargetClassReleaseAdjacent || hasHighStakesPreset(item.HighStakesPresets, "release_automation", "package_publishing"):
 		return "release or deploy reach"
-	case len(item.MutableEndpointSemantics) > 0:
+	case itemHasMutableEndpointProjection(item):
 		return "mutable endpoint reach"
 	case item.CredentialAccess || item.StandingPrivilege:
 		return "credential-backed write reach"

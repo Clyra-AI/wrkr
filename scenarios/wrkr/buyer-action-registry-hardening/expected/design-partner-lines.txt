@@ -8,12 +8,12 @@
 1. repo-d236d5 in loc-6dd0f3ed
 Problem: This path can change production-adjacent state and is missing enough governance evidence.
 Likely explanation: config=loc-6dd0f3ed
-Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured
+Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=production_mutation x5,refund x4,data_export x3
 Recommended control: Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
 Confidence lane: likely action path
 Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
 Credential authority: no credential authority was linked to this path
 High-stakes: credential_bearing_automation (credential_authority:present); external_egress (external_egress:detected); mutable_endpoint (mutable_endpoint:present); payment_flow (payment_surface:detected); production_path (production_path:detected); regulated_customer_workflow (customer_or_regulated_surface:detected)
-Mutable endpoint: no declared mutable endpoint semantics were linked to this path
+Mutable endpoint: 19 grouped endpoint semantics; 4 route groups; production_mutation x5, refund x4, data_export x3, write x3; samples=delete /v1/users/:userid | GET fs-7f087b6a | get fs-7f087b6a | post /v1/payments/:paymentid/refund | POST fs-611a6921 | post /v1/payments/{paymentid}/refund | refund-control
 Production context: status=correlated, surface=label-6dd0f3ed, credential=standing credential, target=production_impacting, deployment=unknown, operations=label-73437816,label-fed73031,label-dc74895a,label-d66e2561,label-0d2751ad,label-0315367e,label-412970ad
 Owner: owner-ab37caea

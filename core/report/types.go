@@ -198,28 +198,29 @@ type RepeatUsageSignals struct {
 }
 
 type ActionSurfaceRegistryEntry struct {
-	RegistryID                  string                                 `json:"registry_id"`
-	SurfaceType                 string                                 `json:"surface_type,omitempty"`
-	Org                         string                                 `json:"org"`
-	Repo                        string                                 `json:"repo"`
-	ToolType                    string                                 `json:"tool_type"`
-	ToolInstanceID              string                                 `json:"tool_instance_id,omitempty"`
-	Location                    string                                 `json:"location,omitempty"`
-	Label                       string                                 `json:"label,omitempty"`
-	Owner                       string                                 `json:"owner,omitempty"`
-	OwnerSource                 string                                 `json:"owner_source,omitempty"`
-	Purpose                     string                                 `json:"purpose,omitempty"`
-	PurposeSource               string                                 `json:"purpose_source,omitempty"`
-	PurposeConfidence           string                                 `json:"purpose_confidence,omitempty"`
-	Version                     string                                 `json:"version,omitempty"`
-	VersionSource               string                                 `json:"version_source,omitempty"`
-	ConfigFingerprint           string                                 `json:"config_fingerprint,omitempty"`
-	ConfigSource                string                                 `json:"config_source,omitempty"`
-	Credentials                 []*agginventory.CredentialProvenance   `json:"credentials,omitempty"`
-	CredentialAuthorityRef      string                                 `json:"credential_authority_ref,omitempty"`
-	CredentialAuthority         *agginventory.CredentialAuthority      `json:"credential_authority,omitempty"`
-	AuthorityBindingRefs        []string                               `json:"authority_binding_refs,omitempty"`
-	ReachableActions            []string                               `json:"reachable_actions,omitempty"`
+	RegistryID             string                               `json:"registry_id"`
+	SurfaceType            string                               `json:"surface_type,omitempty"`
+	Org                    string                               `json:"org"`
+	Repo                   string                               `json:"repo"`
+	ToolType               string                               `json:"tool_type"`
+	ToolInstanceID         string                               `json:"tool_instance_id,omitempty"`
+	Location               string                               `json:"location,omitempty"`
+	Label                  string                               `json:"label,omitempty"`
+	Owner                  string                               `json:"owner,omitempty"`
+	OwnerSource            string                               `json:"owner_source,omitempty"`
+	Purpose                string                               `json:"purpose,omitempty"`
+	PurposeSource          string                               `json:"purpose_source,omitempty"`
+	PurposeConfidence      string                               `json:"purpose_confidence,omitempty"`
+	Version                string                               `json:"version,omitempty"`
+	VersionSource          string                               `json:"version_source,omitempty"`
+	ConfigFingerprint      string                               `json:"config_fingerprint,omitempty"`
+	ConfigSource           string                               `json:"config_source,omitempty"`
+	Credentials            []*agginventory.CredentialProvenance `json:"credentials,omitempty"`
+	CredentialAuthorityRef string                               `json:"credential_authority_ref,omitempty"`
+	CredentialAuthority    *agginventory.CredentialAuthority    `json:"credential_authority,omitempty"`
+	AuthorityBindingRefs   []string                             `json:"authority_binding_refs,omitempty"`
+	ReachableActions       []string                             `json:"reachable_actions,omitempty"`
+	agginventory.EndpointRefGroupProjection
 	MutableEndpointSemanticRefs []string                               `json:"mutable_endpoint_semantic_refs,omitempty"`
 	MutableEndpointSemantics    []agginventory.MutableEndpointSemantic `json:"mutable_endpoint_semantics,omitempty"`
 	ConfidenceLane              string                                 `json:"confidence_lane,omitempty"`

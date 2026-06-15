@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- [semver:minor] Added scan `phase_substep` progress events plus optional `--progress-heap` receipts so long analysis runs can identify inventory, graph, workflow-chain, backlog, state-finalization, and artifact-write phases without corrupting stdout JSON.
 
 ### Changed
 
@@ -25,7 +25,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Added endpoint-dense enterprise-pressure fixtures and bounded-artifact receipts so route-heavy scans regress in deterministic tests before they bloat saved state, graph output, or BOM artifacts.
+- [semver:minor] Replaced endpoint-heavy graph, BOM, and action-surface fanout with grouped endpoint receipts (`endpoint_ref_group_id`, counts, route groups, operation counts, and bounded samples) so report/shareable surfaces stop cloning thousands of endpoint refs per node or item.
 
 ### Security
 

@@ -554,6 +554,88 @@ func TestScanStatusReportsInterruptedPartialPhase(t *testing.T) {
 	close(releaseRepo)
 }
 
+func TestScanProgressReportsAnalysisSubphases(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repoRoot := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "AGENTS.md"), []byte("# test\n"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--path", repoRoot,
+		"--state", statePath,
+		"--json",
+		"--progress", "events",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("scan failed: %d stderr=%s", code, errOut.String())
+	}
+
+	for _, want := range []string{
+		"event=phase_substep phase=analysis subphase=inventory step=1 step_total=6",
+		"event=phase_substep phase=analysis subphase=action_paths step=2 step_total=6",
+		"event=phase_substep phase=analysis subphase=control_graph step=3 step_total=6",
+		"event=phase_substep phase=analysis subphase=workflow_chains step=4 step_total=6",
+		"event=phase_substep phase=analysis subphase=backlog step=5 step_total=6",
+		"event=phase_substep phase=analysis subphase=state_finalization step=6 step_total=6",
+		"event=phase_substep phase=artifact_commit subphase=artifact_write step=1 step_total=1",
+	} {
+		if !strings.Contains(errOut.String(), want) {
+			t.Fatalf("expected progress stderr to contain %q, got %q", want, errOut.String())
+		}
+	}
+}
+
+func TestScanProgressHeapReceiptsStayOffJSONStdout(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	repoRoot := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "AGENTS.md"), []byte("# test\n"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+
+	statePath := filepath.Join(tmp, "state.json")
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"scan",
+		"--path", repoRoot,
+		"--state", statePath,
+		"--json",
+		"--progress", "events",
+		"--progress-heap",
+	}, &out, &errOut)
+	if code != exitSuccess {
+		t.Fatalf("scan failed: %d stderr=%s", code, errOut.String())
+	}
+	if strings.Contains(out.String(), "heap_alloc_bytes=") {
+		t.Fatalf("expected heap receipts to stay off stdout JSON, got %q", out.String())
+	}
+	if !strings.Contains(errOut.String(), "heap_alloc_bytes=") {
+		t.Fatalf("expected heap receipts on events stderr, got %q", errOut.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse stdout payload: %v", err)
+	}
+	if payload["status"] != "ok" {
+		t.Fatalf("unexpected stdout payload: %v", payload)
+	}
+}
+
 type liveBuffer struct {
 	mu                sync.Mutex
 	buf               bytes.Buffer

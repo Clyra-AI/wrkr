@@ -4,6 +4,7 @@ import "strings"
 
 type CanonicalResolver struct {
 	mutableEndpointSemantics map[string]MutableEndpointSemantic
+	mutableEndpointGroups    map[string]MutableEndpointGroupRecord
 	credentialAuthorities    map[string]CredentialAuthority
 	authorityBindings        map[string]*AuthorityBinding
 }
@@ -11,6 +12,7 @@ type CanonicalResolver struct {
 func NewCanonicalResolver(stores *CanonicalStores) CanonicalResolver {
 	resolver := CanonicalResolver{
 		mutableEndpointSemantics: map[string]MutableEndpointSemantic{},
+		mutableEndpointGroups:    map[string]MutableEndpointGroupRecord{},
 		credentialAuthorities:    map[string]CredentialAuthority{},
 		authorityBindings:        map[string]*AuthorityBinding{},
 	}
@@ -27,6 +29,21 @@ func NewCanonicalResolver(stores *CanonicalStores) CanonicalResolver {
 			continue
 		}
 		resolver.mutableEndpointSemantics[refID] = normalized[0]
+	}
+	for _, item := range stores.MutableEndpointGroups {
+		groupID := strings.TrimSpace(item.GroupID)
+		if groupID == "" {
+			continue
+		}
+		copyItem := item
+		copyItem.RefIDs = uniqueSortedEndpointRefs(copyItem.RefIDs)
+		copyItem.RouteGroups = uniqueSortedEndpointRefs(copyItem.RouteGroups)
+		copyItem.OperationCounts = cloneEndpointOperationCounts(copyItem.OperationCounts)
+		copyItem.RefSamples = cloneEndpointRefSamples(copyItem.RefSamples)
+		if copyItem.RefCount == 0 {
+			copyItem.RefCount = len(copyItem.RefIDs)
+		}
+		resolver.mutableEndpointGroups[groupID] = copyItem
 	}
 	for _, item := range stores.CredentialAuthorities {
 		refID := strings.TrimSpace(item.RefID)
@@ -51,6 +68,43 @@ func NewCanonicalResolver(stores *CanonicalStores) CanonicalResolver {
 		resolver.authorityBindings[refID] = normalized
 	}
 	return resolver
+}
+
+func (r CanonicalResolver) ResolveMutableEndpointGroupRefs(groupID string, fallback []string) []string {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return uniqueSortedEndpointRefs(fallback)
+	}
+	item, ok := r.mutableEndpointGroups[groupID]
+	if !ok || len(item.RefIDs) == 0 {
+		return uniqueSortedEndpointRefs(fallback)
+	}
+	return append([]string(nil), item.RefIDs...)
+}
+
+func (r CanonicalResolver) ResolveMutableEndpointGroupProjection(group EndpointRefGroupProjection) EndpointRefGroupProjection {
+	groupID := strings.TrimSpace(group.EndpointRefGroupID)
+	if groupID == "" {
+		return group
+	}
+	item, ok := r.mutableEndpointGroups[groupID]
+	if !ok {
+		return group
+	}
+	out := group
+	if out.EndpointRefCount == 0 {
+		out.EndpointRefCount = item.RefCount
+	}
+	if len(out.EndpointRouteGroups) == 0 {
+		out.EndpointRouteGroups = append([]string(nil), item.RouteGroups...)
+	}
+	if len(out.EndpointOperationCounts) == 0 {
+		out.EndpointOperationCounts = cloneEndpointOperationCounts(item.OperationCounts)
+	}
+	if len(out.EndpointRefSamples) == 0 {
+		out.EndpointRefSamples = cloneEndpointRefSamples(item.RefSamples)
+	}
+	return out
 }
 
 func (r CanonicalResolver) ResolveMutableEndpointSemantics(refs []string, fallback []MutableEndpointSemantic) []MutableEndpointSemantic {
@@ -191,6 +245,7 @@ func AugmentCanonicalStores(in *Inventory, mutableEndpointGroups [][]MutableEndp
 	seedCanonicalStoreBuilder(builder, in.CanonicalStores)
 	for _, group := range mutableEndpointGroups {
 		builder.mutableEndpointRefs(group)
+		builder.mutableEndpointGroup(nil, group)
 	}
 	for _, authority := range credentialAuthorities {
 		builder.credentialAuthorityRef(authority)
@@ -250,6 +305,37 @@ func StripCanonicalProjectionDetails(in *Inventory) {
 	}
 }
 
+func BackfillMutableEndpointGroupProjection(group EndpointRefGroupProjection, refs []string, semantics []MutableEndpointSemantic) EndpointRefGroupProjection {
+	if strings.TrimSpace(group.EndpointRefGroupID) != "" &&
+		group.EndpointRefCount > 0 &&
+		(len(group.EndpointRouteGroups) > 0 || len(group.EndpointOperationCounts) > 0 || len(group.EndpointRefSamples) > 0) {
+		return group
+	}
+	if len(refs) == 0 && len(semantics) == 0 {
+		return group
+	}
+	built := BuildMutableEndpointGroupProjection(refs, semantics)
+	if built.EndpointRefGroupID == "" {
+		return group
+	}
+	if strings.TrimSpace(group.EndpointRefGroupID) != "" {
+		built.EndpointRefGroupID = strings.TrimSpace(group.EndpointRefGroupID)
+	}
+	if group.EndpointRefCount > 0 {
+		built.EndpointRefCount = group.EndpointRefCount
+	}
+	if len(group.EndpointRouteGroups) > 0 {
+		built.EndpointRouteGroups = append([]string(nil), group.EndpointRouteGroups...)
+	}
+	if len(group.EndpointOperationCounts) > 0 {
+		built.EndpointOperationCounts = cloneEndpointOperationCounts(group.EndpointOperationCounts)
+	}
+	if len(group.EndpointRefSamples) > 0 {
+		built.EndpointRefSamples = cloneEndpointRefSamples(group.EndpointRefSamples)
+	}
+	return built
+}
+
 func inventoryHasInlineCanonicalDetails(in *Inventory) bool {
 	if in == nil {
 		return false
@@ -276,6 +362,12 @@ func seedCanonicalStoreBuilder(builder *canonicalStoreBuilder, stores *Canonical
 			continue
 		}
 		builder.mutableEndpointSemantics[item.RefID] = item
+	}
+	for _, item := range stores.MutableEndpointGroups {
+		if strings.TrimSpace(item.GroupID) == "" {
+			continue
+		}
+		builder.mutableEndpointGroups[item.GroupID] = item
 	}
 	for _, item := range stores.CredentialAuthorities {
 		if strings.TrimSpace(item.RefID) == "" {

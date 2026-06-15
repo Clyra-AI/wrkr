@@ -1,6 +1,10 @@
 package attackpath
 
-import "strings"
+import (
+	"strings"
+
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+)
 
 func StripCanonicalProjectionDetails(in *ControlPathGraph) *ControlPathGraph {
 	if in == nil {
@@ -11,7 +15,9 @@ func StripCanonicalProjectionDetails(in *ControlPathGraph) *ControlPathGraph {
 	copyGraph.Edges = append([]ControlPathEdge(nil), in.Edges...)
 	for idx := range copyGraph.Nodes {
 		node := &copyGraph.Nodes[idx]
+		node.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(node.EndpointRefGroupProjection, node.MutableEndpointSemanticRefs, node.MutableEndpointSemantics)
 		if len(node.MutableEndpointSemanticRefs) > 0 {
+			node.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(node.MutableEndpointSemanticRefs, node.MutableEndpointSemantics)
 			node.MutableEndpointSemantics = nil
 		}
 		if strings.TrimSpace(node.CredentialAuthorityRef) != "" {
