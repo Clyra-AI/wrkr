@@ -801,8 +801,8 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			MarkdownPath:     artifactPreflight.ReportPath,
 		})
 		if reportErr != nil {
-			if isArtifactPathError(reportErr) {
-				return emitRolledBackScanError("invalid_input", reportErr.Error(), exitInvalidInput)
+			if code, exitCode, handled := classifyScanReportArtifactError(reportErr); handled {
+				return emitRolledBackScanError(code, reportErr.Error(), exitCode)
 			}
 			return emitRolledBackScanFailure(reportErr)
 		}
@@ -927,6 +927,16 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	progress.Finish(statusTracker.FooterData())
 	_, _ = fmt.Fprintln(stdout, "wrkr scan complete")
 	return exitSuccess
+}
+
+func classifyScanReportArtifactError(err error) (string, int, bool) {
+	if isArtifactPathError(err) {
+		return "invalid_input", exitInvalidInput, true
+	}
+	if reportcore.IsShareableSafetyError(err) {
+		return "unsafe_operation_blocked", exitUnsafeBlocked, true
+	}
+	return "", 0, false
 }
 
 func writeScanUsage(out io.Writer, fs *flag.FlagSet) {
