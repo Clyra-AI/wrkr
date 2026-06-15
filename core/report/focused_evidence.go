@@ -5,6 +5,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	"github.com/Clyra-AI/wrkr/core/outputsignal"
+	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
 const focusedEvidenceTopPathLimit = 5
@@ -18,18 +19,11 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 	}
 
 	pathIDs := focusedEvidencePathIDs(summary, focusPathID)
-	if len(pathIDs) == 0 {
-		return summary
-	}
-
 	pathIDSet := map[string]struct{}{}
 	for _, pathID := range pathIDs {
 		if trimmed := strings.TrimSpace(pathID); trimmed != "" {
 			pathIDSet[trimmed] = struct{}{}
 		}
-	}
-	if len(pathIDSet) == 0 {
-		return summary
 	}
 
 	focused := summary
@@ -37,6 +31,7 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 	if focused.SuppressedCounts == nil {
 		focused.SuppressedCounts = &SuppressedCounts{}
 	}
+	focused.ActionPaths = filterFocusedActionPaths(summary.ActionPaths, pathIDSet)
 
 	if summary.AgentActionBOM != nil {
 		bomCopy := *summary.AgentActionBOM
@@ -45,6 +40,12 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 			focused.SuppressedCounts.AgentActionBOM += omitted
 		}
 		bomCopy.Items = filteredItems
+		bomCopy.Summary.PrimaryView = nil
+		if strings.TrimSpace(focusPathID) != "" {
+			_ = selectAgentActionBOMPrimaryView(&bomCopy, focusPathID)
+		} else {
+			_ = selectAgentActionBOMPrimaryView(&bomCopy, "")
+		}
 		focused.AgentActionBOM = &bomCopy
 	}
 
@@ -77,7 +78,7 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 		focused.ExposureGroups = nil
 	}
 
-	focused.ActionSurfaceRegistry = filterActionSurfaceRegistry(summary.ActionSurfaceRegistry, pathIDSet)
+	focused.ActionSurfaceRegistry = buildFocusedActionSurfaceRegistry(focused.ActionPaths, focused.AgentActionBOM)
 
 	if !outputsignal.HasSuppressedCounts(focused.SuppressedCounts) {
 		focused.SuppressedCounts = nil
@@ -141,29 +142,30 @@ func filterFocusedBacklog(backlog *controlbacklog.Backlog, pathIDSet map[string]
 	return &copyBacklog
 }
 
-func filterActionSurfaceRegistry(entries []ActionSurfaceRegistryEntry, pathIDSet map[string]struct{}) []ActionSurfaceRegistryEntry {
-	if len(entries) == 0 {
+func filterFocusedActionPaths(paths []risk.ActionPath, pathIDSet map[string]struct{}) []risk.ActionPath {
+	if len(paths) == 0 || len(pathIDSet) == 0 {
 		return nil
 	}
-	filtered := make([]ActionSurfaceRegistryEntry, 0, len(entries))
-	for _, entry := range entries {
-		matched := false
-		for _, pathID := range entry.PathIDs {
-			if _, ok := pathIDSet[strings.TrimSpace(pathID)]; ok {
-				matched = true
-				break
-			}
-		}
-		if !matched {
+	filtered := make([]risk.ActionPath, 0, len(paths))
+	for _, path := range paths {
+		if _, ok := pathIDSet[strings.TrimSpace(path.PathID)]; !ok {
 			continue
 		}
-		filtered = append(filtered, entry)
-	}
-	if len(filtered) == 0 {
-		return nil
-	}
-	if len(filtered) > focusedEvidenceTopPathLimit {
-		return append([]ActionSurfaceRegistryEntry(nil), filtered[:focusedEvidenceTopPathLimit]...)
+		filtered = append(filtered, path)
 	}
 	return filtered
+}
+
+func buildFocusedActionSurfaceRegistry(paths []risk.ActionPath, bom *AgentActionBOM) []ActionSurfaceRegistryEntry {
+	if len(paths) == 0 {
+		return nil
+	}
+	registry := BuildActionSurfaceRegistry(Summary{
+		ActionPaths:    paths,
+		AgentActionBOM: bom,
+	})
+	if len(registry) > focusedEvidenceTopPathLimit {
+		return append([]ActionSurfaceRegistryEntry(nil), registry[:focusedEvidenceTopPathLimit]...)
+	}
+	return registry
 }
