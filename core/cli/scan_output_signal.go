@@ -314,6 +314,9 @@ func retainArtifactFinding(finding source.Finding) bool {
 			detector = strings.TrimSpace(finding.ParseError.Detector)
 		}
 	}
+	if parseLimitedJSTSSurface(detector, toolType, kind) {
+		return false
+	}
 	switch {
 	case kind == "unsafe_path", kind == "schema_validation_error":
 		return true
@@ -324,4 +327,19 @@ func retainArtifactFinding(finding source.Finding) bool {
 	default:
 		return false
 	}
+}
+
+func parseLimitedJSTSSurface(detector string, toolType string, kind string) bool {
+	if strings.TrimSpace(kind) != "parse_error" {
+		return false
+	}
+	switch strings.TrimSpace(detector) {
+	case "webmcp", "promptchannel", "routes":
+		return true
+	}
+	switch strings.TrimSpace(toolType) {
+	case "webmcp", "prompt_channel", "route":
+		return true
+	}
+	return false
 }

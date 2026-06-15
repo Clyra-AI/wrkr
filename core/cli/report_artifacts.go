@@ -244,17 +244,19 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 
 	evidenceJSONPath := ""
 	if opts.WriteEvidenceJSON {
+		evidenceSummary := reportcore.PrepareEvidenceBundleSummary(summary, opts.FocusPathID, opts.FocusPreset)
 		path, pathErr := resolveArtifactOutputPath(opts.EvidenceJSONPath)
 		if pathErr != nil {
 			return reportArtifactResult{}, artifactPathError{err: pathErr}
 		}
-		if writeErr := reportcore.WriteEvidenceBundleJSON(path, summary); writeErr != nil {
+		if writeErr := reportcore.WriteEvidenceBundleJSON(path, evidenceSummary); writeErr != nil {
 			return reportArtifactResult{}, writeErr
 		}
 		evidenceJSONPath = path
 		if hasPairedSummary {
+			pairedEvidenceSummary := reportcore.PrepareEvidenceBundleSummary(pairedSummary, opts.FocusPathID, opts.FocusPreset)
 			externalPath := reportcore.PairedArtifactPath(path, strings.ReplaceAll(string(opts.PairedShareProfile), " ", "-"))
-			if writeErr := reportcore.WriteEvidenceBundleJSON(externalPath, pairedSummary); writeErr != nil {
+			if writeErr := reportcore.WriteEvidenceBundleJSON(externalPath, pairedEvidenceSummary); writeErr != nil {
 				return reportArtifactResult{}, writeErr
 			}
 			pairedPaths["evidence_json_"+strings.ReplaceAll(string(opts.PairedShareProfile), "-", "_")] = externalPath

@@ -126,6 +126,30 @@ func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
 	if focusedPrimaryView["path_id"] != afterTopItem["path_id"] || focusedPrimaryView["selection_reason"] != "explicit_focus_path" {
 		t.Fatalf("expected explicit focus primary view, got %v", focusedPrimaryView)
 	}
+	focusedEvidencePath := filepath.Join(t.TempDir(), "focused-agent-action-bom-evidence.json")
+	runJSONOK(
+		t,
+		"report",
+		"--state", afterState,
+		"--template", "agent-action-bom",
+		"--share-profile", "internal",
+		"--focus-path", afterTopItem["path_id"].(string),
+		"--evidence-json",
+		"--evidence-json-path", focusedEvidencePath,
+		"--json",
+	)
+	focusedEvidenceBundle := loadAcceptanceJSONFile(t, focusedEvidencePath)
+	focusedEvidenceBOM := requireObject(t, focusedEvidenceBundle, "agent_action_bom")
+	focusedEvidenceItems := requireArrayFromObject(t, focusedEvidenceBOM, "items")
+	if len(focusedEvidenceItems) != 1 {
+		t.Fatalf("expected focused evidence bundle to keep one BOM item, got %v", focusedEvidenceItems)
+	}
+	if requireObjectItem(t, focusedEvidenceItems[0])["path_id"] != afterTopItem["path_id"] {
+		t.Fatalf("expected focused evidence bundle to keep the selected path, got %v", focusedEvidenceItems)
+	}
+	if _, ok := focusedEvidenceBundle["control_path_graph"]; ok {
+		t.Fatalf("expected focused evidence bundle to omit full control graph export, got %v", focusedEvidenceBundle["control_path_graph"])
+	}
 }
 
 func containsArrayValue(values []any, want string) bool {

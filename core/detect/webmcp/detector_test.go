@@ -111,7 +111,7 @@ func TestWebMCPParserRejectsRuntimeEvalPath(t *testing.T) {
 	}
 }
 
-func TestWebMCPFallbackExtractsSignalsFromModernESM(t *testing.T) {
+func TestWebMCPModernESMParseFailureStaysOutOfDeclarations(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
@@ -121,14 +121,11 @@ func TestWebMCPFallbackExtractsSignalsFromModernESM(t *testing.T) {
 	if err != nil {
 		t.Fatalf("detect webmcp: %v", err)
 	}
-	if count := countFindingType(findings, "webmcp_declaration"); count != 1 {
-		t.Fatalf("expected fallback declaration finding, got %#v", findings)
+	if count := countFindingType(findings, "webmcp_declaration"); count != 0 {
+		t.Fatalf("expected parse-limited ESM declaration to stay out of positive findings, got %#v", findings)
 	}
 	if count := countFindingType(findings, "parse_error"); count != 1 {
-		t.Fatalf("expected reduced-coverage parse diagnostic alongside fallback finding, got %#v", findings)
-	}
-	if !hasEvidencePair(findings, "declaration_method", "fallback_js") {
-		t.Fatalf("expected fallback_js evidence in webmcp findings, got %#v", findings)
+		t.Fatalf("expected reduced-coverage parse diagnostic, got %#v", findings)
 	}
 }
 

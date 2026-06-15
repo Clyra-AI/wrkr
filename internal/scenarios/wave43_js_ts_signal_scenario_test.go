@@ -96,7 +96,6 @@ func TestScenarioWave43JSTSSignalReceipts(t *testing.T) {
 	wave3FindingTypes := map[string]struct{}{
 		"agent_framework":                  {},
 		"mcp_server_candidate":             {},
-		"parse_error":                      {},
 		"prompt_channel_hidden_text":       {},
 		"prompt_channel_override":          {},
 		"prompt_channel_semantic":          {},
@@ -132,6 +131,13 @@ func TestScenarioWave43JSTSSignalReceipts(t *testing.T) {
 	}
 
 	routeDetected := false
+	actionPaths := requireArray(t, payload, "action_paths")
+	for _, raw := range actionPaths {
+		actionPath := requireObjectItem(t, raw)
+		if actionPath["repo"] == "parse-edge-repo" && actionPath["location"] == "server/register.mjs" {
+			t.Fatalf("expected parse-limited JS surface to stay out of action paths, got %v", actionPaths)
+		}
+	}
 	for _, raw := range findings {
 		finding := requireObjectItem(t, raw)
 		if finding["repo"] != "route-repo" || finding["finding_type"] != "webmcp_declaration" {

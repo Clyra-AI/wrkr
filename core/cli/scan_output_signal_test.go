@@ -7,6 +7,7 @@ import (
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/model"
 	reportcore "github.com/Clyra-AI/wrkr/core/report"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/source"
@@ -321,6 +322,44 @@ func TestBuildScanJSONSummaryDropsCanonicalStoresWhenSuppressedActionPathsExist(
 	}
 	if inventory.CanonicalStores != nil {
 		t.Fatalf("expected canonical stores to be omitted when action paths are suppressed, got %+v", inventory.CanonicalStores)
+	}
+}
+
+func TestRetainArtifactFindingDropsJSTSParseCoverageOnlyFinding(t *testing.T) {
+	t.Parallel()
+
+	keep := retainArtifactFinding(source.Finding{
+		FindingType: "parse_error",
+		ToolType:    "webmcp",
+		Detector:    "webmcp",
+		Location:    "ui/register.mjs",
+		ParseError: &model.ParseError{
+			Kind:     "parse_error",
+			Path:     "ui/register.mjs",
+			Detector: "webmcp",
+		},
+	})
+	if keep {
+		t.Fatal("expected parse-limited JS/TS finding to stay out of artifact findings")
+	}
+}
+
+func TestRetainArtifactFindingKeepsUnsafePathParseFinding(t *testing.T) {
+	t.Parallel()
+
+	keep := retainArtifactFinding(source.Finding{
+		FindingType: "parse_error",
+		ToolType:    "webmcp",
+		Detector:    "webmcp",
+		Location:    "ui/register.mjs",
+		ParseError: &model.ParseError{
+			Kind:     "unsafe_path",
+			Path:     "ui/register.mjs",
+			Detector: "webmcp",
+		},
+	})
+	if !keep {
+		t.Fatal("expected unsafe_path parse finding to remain visible")
 	}
 }
 

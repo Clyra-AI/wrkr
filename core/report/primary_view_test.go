@@ -242,6 +242,9 @@ func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) 
 	if !strings.Contains(markdown, "Next actions: Attach approval evidence for this exact workflow path | Attach path-specific proof before promotion.") {
 		t.Fatalf("expected concise next actions in markdown, got %q", markdown)
 	}
+	if !strings.Contains(markdown, "Inspect first: codex in acme/release / pr/108 via .github/workflows/release.yml.") {
+		t.Fatalf("expected buyer diagnostic card lead, got %q", markdown)
+	}
 	lead := markdown[:contextIdx]
 	if strings.Contains(lead, "Decision traces:") || strings.Contains(lead, "Appendix refs:") {
 		t.Fatalf("expected hash-heavy refs to stay out of the lead view, got %q", lead)
