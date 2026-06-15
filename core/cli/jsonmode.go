@@ -64,10 +64,6 @@ func (s jsonOutputSink) usesCompactStdout() bool {
 	return s.writeStdout && s.stdoutMode != jsonStdoutModeFull && s.capability.Interactive
 }
 
-func (s jsonOutputSink) writePayload(payload any) error {
-	return s.writePayloads(payload, payload)
-}
-
 func (s jsonOutputSink) writePayloads(stdoutPayload any, filePayload any) error {
 	if !s.enabled() {
 		return nil
