@@ -182,6 +182,12 @@ func compareActionPaths(left, right ActionPath) bool {
 	if leftModel.controlPriorityRank != rightModel.controlPriorityRank {
 		return leftModel.controlPriorityRank < rightModel.controlPriorityRank
 	}
+	if IsActionPathEligible(leftProjection) != IsActionPathEligible(rightProjection) {
+		return IsActionPathEligible(leftProjection)
+	}
+	if actionBindingRank(leftProjection.ActionBindingState) != actionBindingRank(rightProjection.ActionBindingState) {
+		return actionBindingRank(leftProjection.ActionBindingState) < actionBindingRank(rightProjection.ActionBindingState)
+	}
 	if autonomyTierRank(leftProjection.AutonomyTier) != autonomyTierRank(rightProjection.AutonomyTier) {
 		return autonomyTierRank(leftProjection.AutonomyTier) < autonomyTierRank(rightProjection.AutonomyTier)
 	}
@@ -396,6 +402,16 @@ func sourceFindingKeyOrder(keys []string) string {
 
 func RemediationForActionPath(path ActionPath) string {
 	path = ProjectActionPath(path)
+	if pathLikelyNeedsCorrelation(path) {
+		switch {
+		case IsInstructionControlSurface(path):
+			return "Correlate this instruction surface to the workflow, agent runtime, MCP/tool path, or recent change that actually consumes it, then attach owner and review evidence before treating it as governable."
+		case actionPathDependencyOnly(path):
+			return "Keep this dependency-only signal in context until executable, runtime, or control evidence proves it governs a real path."
+		default:
+			return "Correlate this target surface to a real workflow, credential use, MCP/tool binding, deploy path, runtime caller, or recent change before promoting it into a governable action path."
+		}
+	}
 	if actionPathHasContradictoryControlEvidence(path) {
 		return "Control evidence is contradictory for this path; resolve the conflicting control or evidence signals, keep it in fail-closed review, and rerun the scan before treating it as governed."
 	}

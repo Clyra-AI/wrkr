@@ -47,8 +47,8 @@ func TestPrecisionCalibrationAcceptance(t *testing.T) {
 
 	actionPaths := requireArray(t, reportPayload, "action_paths")
 	deployAgent := findAcceptancePathID(t, actionPaths, deployAgentPathID)
-	if deployAgent["action_path_type"] != "ai_assisted_workflow" {
-		t.Fatalf("expected deploy-agent to stay AI-assisted, got %v", deployAgent)
+	if deployAgent["action_path_type"] != "agent_instruction_surface" {
+		t.Fatalf("expected deploy-agent instruction surface classification, got %v", deployAgent)
 	}
 	bomItems := requireArrayFromObject(t, requireObject(t, reportPayload, "agent_action_bom"), "items")
 	deployAgentBOM := findAcceptancePathID(t, bomItems, deployAgentPathID)

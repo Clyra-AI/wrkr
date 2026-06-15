@@ -234,10 +234,16 @@ func BuyerRecommendedControlLabel(value string) string {
 
 func BuyerActionContractReadinessLabel(value string) string {
 	switch strings.TrimSpace(value) {
+	case ActionContractReadinessBlocked:
+		return "blocked"
 	case ActionContractReadinessNeedsOwner:
 		return "needs owner evidence"
 	case ActionContractReadinessNeedsApproval:
 		return "needs approval evidence"
+	case ActionContractReadinessNeedsProof:
+		return "needs proof evidence"
+	case ActionContractReadinessNeedsCorrelation:
+		return "needs correlation evidence"
 	case ActionContractReadinessReadyForReportOnly:
 		return "ready for report only"
 	case ActionContractReadinessReadyForControl:

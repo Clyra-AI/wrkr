@@ -1,9 +1,5 @@
 {
   "top_action_path": {
-    "path_id": "apc-6626703372d7",
-    "tool_type": "ci_agent",
-    "repo": "demo-app",
-    "location": ".github/workflows/release.yml",
     "action_classes": [
       "credential_access",
       "deploy",
@@ -11,28 +7,16 @@
       "read",
       "write"
     ],
-    "credential_kind": "cloud_admin_key",
     "control_state": "block_recommended",
-    "risk_zone": "production_data",
-    "review_burden": "critical",
+    "credential_kind": "cloud_admin_key",
     "introduced_by": {
-      "source": "source_metadata",
-      "confidence": "high",
-      "reference": "pr/108",
-      "pr_number": 108,
-      "commit_sha": "deadbeef108",
       "author": "demo-bot",
-      "timestamp": "2026-05-08T12:00:00Z",
       "changed_file": ".github/workflows/release.yml",
-      "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+      "commit_sha": "deadbeef108",
+      "confidence": "high",
+      "pr_number": 108,
       "provenance": {
-        "kind": "pull_request",
-        "reference": "pr/108",
-        "number": 108,
-        "provider_url": "https://github.example.com/acme/demo-app/pull/108",
-        "head_sha": "deadbeef108",
         "author": "demo-bot",
-        "updated_at": "2026-05-08T12:00:00Z",
         "changed_files": [
           ".agents/skills/release/SKILL.md",
           ".github/workflows/release.yml",
@@ -40,6 +24,8 @@
           "AGENTS.md"
         ],
         "conflict_state": "partial",
+        "head_sha": "deadbeef108",
+        "kind": "pull_request",
         "missing_evidence": [
           "approvals_missing",
           "branch_protection_missing",
@@ -47,14 +33,28 @@
           "deployments_missing",
           "environment_gates_missing",
           "reviewers_missing"
-        ]
-      }
+        ],
+        "number": 108,
+        "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+        "reference": "pr/108",
+        "updated_at": "2026-05-08T12:00:00Z"
+      },
+      "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+      "reference": "pr/108",
+      "source": "source_metadata",
+      "timestamp": "2026-05-08T12:00:00Z"
     },
+    "location": ".github/workflows/release.yml",
     "matched_production_targets": [
       "built_in:deploy_workflow",
       "built_in:kubernetes",
       "built_in:release_automation"
     ],
-    "policy_coverage_status": "none"
+    "path_id": "apc-6626703372d7",
+    "policy_coverage_status": "none",
+    "repo": "demo-app",
+    "review_burden": "critical",
+    "risk_zone": "production_data",
+    "tool_type": "ci_agent"
   }
 }

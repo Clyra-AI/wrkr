@@ -1,19 +1,6 @@
 {
   "runtime_evidence": null,
   "summary": {
-    "total_items": 6,
-    "control_first_items": 4,
-    "standing_privilege_items": 2,
-    "static_credential_items": 2,
-    "production_target_items": 5,
-    "missing_approval_items": 6,
-    "missing_policy_items": 0,
-    "missing_proof_items": 6,
-    "runtime_proven_items": 0,
-    "confirmed_action_path_items": 2,
-    "likely_action_path_items": 2,
-    "semantic_review_candidate_items": 1,
-    "context_only_items": 1,
     "autonomy_tiers": {
       "tier_0_safe_metadata": 0,
       "tier_1_low_risk_internal": 0,
@@ -21,27 +8,19 @@
       "tier_3_sensitive_code_or_infra": 1,
       "tier_4_prod_privileged_or_customer_impacting": 5
     },
+    "confirmed_action_path_items": 2,
+    "context_only_items": 1,
+    "control_first_items": 4,
+    "coverage_confidence": "complete",
     "delegation_readiness": {
-      "safe_to_delegate": 0,
-      "review_required": 4,
       "approval_required": 0,
+      "blocked": 2,
+      "blocked_by_contradiction": 0,
       "proof_required": 0,
       "ready_for_control": 0,
-      "blocked": 2,
-      "blocked_by_contradiction": 0
+      "review_required": 4,
+      "safe_to_delegate": 0
     },
-    "recommended_controls": {
-      "allow": 0,
-      "owner_review": 0,
-      "security_review": 4,
-      "approval_required": 0,
-      "jit_credential_required": 0,
-      "proof_required": 0,
-      "block_standing_credential": 2,
-      "block": 0
-    },
-    "coverage_confidence": "complete",
-    "empty_state_status": "not_eligible",
     "empty_state_reasons": [
       "approval_evidence_unknown_paths_present",
       "confirmed_action_paths_present",
@@ -55,113 +34,67 @@
       "standing_privilege_paths_present",
       "write_capable_paths_present"
     ],
-    "scan_scope": {
-      "mode": "path",
-      "scope_label": "local repository path",
-      "source_boundary": "local_path",
-      "repo_count": 1,
-      "target_count": 1
-    },
-    "operational_exposure": {
-      "grade": "critical",
-      "path_count": 6,
-      "driver": "production_and_credentials",
-      "rationale": [
-        "production_backed_paths=5",
-        "credential_bearing_paths=1",
-        "write_capable_paths=5",
-        "runtime_deployed_paths=2"
-      ]
-    },
-    "governance_readiness": {
-      "grade": "low",
-      "path_count": 6,
-      "driver": "governance_gaps_present",
-      "rationale": [
-        "approval_gaps=6",
-        "missing_owner_paths=0",
-        "policy_gaps=6",
-        "missing_proof_paths=14",
-        "coverage_reduced=false"
-      ]
-    },
-    "governed_usage_metrics": {
-      "active_monitored_action_paths": 5,
-      "governed_paths": 5,
-      "evidence_packs": 0,
-      "audit_exports": 4,
-      "approval_decisions": 0,
-      "connected_runtimes": 0,
-      "governed_agents_workflows": 6,
-      "verified_control_paths": 6,
-      "unknown_control_paths": 0,
-      "contradictory_paths": 0
-    },
-    "repeat_usage_signals": {
-      "status": "first_run"
-    },
+    "empty_state_status": "not_eligible",
     "evidence_completeness": {
-      "average_total_score": 59,
-      "label": "insufficient_evidence",
-      "path_count": 6,
+      "average_total_score": 60,
       "axis_scores": [
         {
           "axis": "discovery",
-          "score": 81,
           "reasons": [
-            "action_path_type:plain_source_code",
             "confidence_lane:confirmed_action_path",
             "confidence_lane:context_only",
             "confidence_lane:likely_action_path",
             "confidence_lane:semantic_review_candidate"
-          ]
+          ],
+          "score": 83
         },
         {
           "axis": "authority",
-          "score": 53,
           "reasons": [
             "approval:unknown",
             "owner:inferred"
-          ]
+          ],
+          "score": 53
         },
         {
           "axis": "blast_radius",
-          "score": 77,
           "reasons": [
             "credential:inferred",
             "credential:verified",
             "target:inferred",
             "target:unknown",
             "target:verified"
-          ]
+          ],
+          "score": 77
         },
         {
           "axis": "control",
-          "score": 83,
           "reasons": [
             "constraint_evidence:missing",
             "control_resolution:detected_control"
-          ]
+          ],
+          "score": 83
         },
         {
           "axis": "runtime_evidence",
-          "score": 35,
           "reasons": [
             "runtime:unknown",
             "runtime_absence_status:not_collected"
-          ]
+          ],
+          "score": 35
         },
         {
           "axis": "proof",
-          "score": 25,
           "reasons": [
             "policy_coverage:none",
             "proof:unknown"
-          ]
+          ],
+          "score": 25
         }
       ],
+      "label": "partial_evidence",
+      "path_count": 6,
       "reasons": [
-        "action_path_type:plain_source_code",
         "approval:unknown",
         "approval_evidence:none",
         "confidence_lane:confirmed_action_path",
@@ -185,240 +118,189 @@
       ]
     },
     "executive_rollup": {
-      "total_groups": 4,
-      "total_paths": 6,
       "groups": [
         {
-          "group_id": "xrg-807baf425c49",
-          "count": 2,
-          "highest_severity": "critical",
-          "highest_priority": "control_first",
           "closure_recommendation": "remediate standing production deploy paths first",
-          "top_example_refs": [
-            "apc-1ee0525913ac",
-            "apc-6626703372d7"
-          ],
+          "count": 2,
+          "dimensions": {
+            "action_class": "deploy",
+            "closure_action": "remediate",
+            "contradiction_state": "consistent",
+            "credential_authority": "standing",
+            "detector_confidence": "confirmed_action_path",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "production_target": "production_targeted",
+            "repo_cluster": "single_repo",
+            "risk_zone": "production_data",
+            "target_class": "production_impacting"
+          },
           "evidence_state_summary": {
-            "verified": 0,
+            "contradictory": 0,
             "declared": 0,
             "inferred": 0,
             "unknown": 2,
-            "contradictory": 0
+            "verified": 0
           },
+          "group_id": "xrg-807baf425c49",
+          "highest_priority": "control_first",
+          "highest_severity": "critical",
           "rationale": [
             "2 deploy paths grouped by production_impacting and unknown evidence",
             "closure=remediate repo_cluster=single_repo credential_authority=standing"
           ],
-          "dimensions": {
-            "action_class": "deploy",
-            "target_class": "production_impacting",
-            "risk_zone": "production_data",
-            "credential_authority": "standing",
-            "production_target": "production_targeted",
-            "evidence_state": "unknown",
-            "owner_state": "inferred",
-            "repo_cluster": "single_repo",
-            "detector_confidence": "confirmed_action_path",
-            "contradiction_state": "consistent",
-            "closure_action": "remediate"
-          }
+          "top_example_refs": [
+            "apc-1ee0525913ac",
+            "apc-6626703372d7"
+          ]
         },
         {
-          "group_id": "xrg-b45caa145891",
-          "count": 2,
-          "highest_severity": "critical",
-          "highest_priority": "control_first",
           "closure_recommendation": "remediate standing production deploy paths first",
-          "top_example_refs": [
-            "apc-2ae55d8266e8",
-            "apc-b80b0694aa2c"
-          ],
+          "count": 2,
+          "dimensions": {
+            "action_class": "deploy",
+            "closure_action": "remediate",
+            "contradiction_state": "consistent",
+            "credential_authority": "unknown",
+            "detector_confidence": "likely_action_path",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "production_target": "production_targeted",
+            "repo_cluster": "single_repo",
+            "risk_zone": "production_data",
+            "target_class": "production_impacting"
+          },
           "evidence_state_summary": {
-            "verified": 0,
+            "contradictory": 0,
             "declared": 0,
             "inferred": 0,
             "unknown": 2,
-            "contradictory": 0
+            "verified": 0
           },
+          "group_id": "xrg-b45caa145891",
+          "highest_priority": "control_first",
+          "highest_severity": "critical",
           "rationale": [
             "2 deploy paths grouped by production_impacting and unknown evidence",
             "closure=remediate repo_cluster=single_repo credential_authority=unknown"
           ],
-          "dimensions": {
-            "action_class": "deploy",
-            "target_class": "production_impacting",
-            "risk_zone": "production_data",
-            "credential_authority": "unknown",
-            "production_target": "production_targeted",
-            "evidence_state": "unknown",
-            "owner_state": "inferred",
-            "repo_cluster": "single_repo",
-            "detector_confidence": "likely_action_path",
-            "contradiction_state": "consistent",
-            "closure_action": "remediate"
-          }
+          "top_example_refs": [
+            "apc-2ae55d8266e8",
+            "apc-b80b0694aa2c"
+          ]
         },
         {
-          "group_id": "xrg-0a4bb7bdeb02",
-          "count": 1,
-          "highest_severity": "critical",
-          "highest_priority": "review_queue",
           "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
-          "top_example_refs": [
-            "apc-4b1b72ce2c70"
-          ],
+          "count": 1,
+          "dimensions": {
+            "action_class": "deploy",
+            "closure_action": "attach_evidence",
+            "contradiction_state": "consistent",
+            "credential_authority": "unknown",
+            "detector_confidence": "context_only",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "production_target": "production_targeted",
+            "repo_cluster": "single_repo",
+            "risk_zone": "production_data",
+            "target_class": "production_impacting"
+          },
           "evidence_state_summary": {
-            "verified": 0,
+            "contradictory": 0,
             "declared": 0,
             "inferred": 0,
             "unknown": 1,
-            "contradictory": 0
+            "verified": 0
           },
+          "group_id": "xrg-0a4bb7bdeb02",
+          "highest_priority": "review_queue",
+          "highest_severity": "critical",
           "rationale": [
             "1 deploy paths grouped by production_impacting and unknown evidence",
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
-          "dimensions": {
-            "action_class": "deploy",
-            "target_class": "production_impacting",
-            "risk_zone": "production_data",
-            "credential_authority": "unknown",
-            "production_target": "production_targeted",
-            "evidence_state": "unknown",
-            "owner_state": "inferred",
-            "repo_cluster": "single_repo",
-            "detector_confidence": "context_only",
-            "contradiction_state": "consistent",
-            "closure_action": "attach_evidence"
-          }
+          "top_example_refs": [
+            "apc-4b1b72ce2c70"
+          ]
         },
         {
-          "group_id": "xrg-72044fd98ef0",
-          "count": 1,
-          "highest_severity": "high",
-          "highest_priority": "review_queue",
           "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
-          "top_example_refs": [
-            "apc-3f4bc303fa3d"
-          ],
+          "count": 1,
+          "dimensions": {
+            "action_class": "read",
+            "closure_action": "attach_evidence",
+            "contradiction_state": "consistent",
+            "credential_authority": "unknown",
+            "detector_confidence": "semantic_review_candidate",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "production_target": "non_production_or_unknown",
+            "repo_cluster": "single_repo",
+            "risk_zone": "coding_help",
+            "target_class": "test_demo_sandbox"
+          },
           "evidence_state_summary": {
-            "verified": 0,
+            "contradictory": 0,
             "declared": 0,
             "inferred": 0,
             "unknown": 1,
-            "contradictory": 0
+            "verified": 0
           },
+          "group_id": "xrg-72044fd98ef0",
+          "highest_priority": "review_queue",
+          "highest_severity": "high",
           "rationale": [
             "1 read paths grouped by test_demo_sandbox and unknown evidence",
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
-          "dimensions": {
-            "action_class": "read",
-            "target_class": "test_demo_sandbox",
-            "risk_zone": "coding_help",
-            "credential_authority": "unknown",
-            "production_target": "non_production_or_unknown",
-            "evidence_state": "unknown",
-            "owner_state": "inferred",
-            "repo_cluster": "single_repo",
-            "detector_confidence": "semantic_review_candidate",
-            "contradiction_state": "consistent",
-            "closure_action": "attach_evidence"
-          }
+          "top_example_refs": [
+            "apc-3f4bc303fa3d"
+          ]
         }
+      ],
+      "total_groups": 4,
+      "total_paths": 6
+    },
+    "governance_readiness": {
+      "driver": "governance_gaps_present",
+      "grade": "low",
+      "path_count": 6,
+      "rationale": [
+        "approval_gaps=6",
+        "missing_owner_paths=0",
+        "policy_gaps=6",
+        "missing_proof_paths=14",
+        "coverage_reduced=false"
+      ]
+    },
+    "governed_usage_metrics": {
+      "active_monitored_action_paths": 5,
+      "approval_decisions": 0,
+      "audit_exports": 4,
+      "connected_runtimes": 0,
+      "contradictory_paths": 0,
+      "evidence_packs": 0,
+      "governed_agents_workflows": 6,
+      "governed_paths": 5,
+      "unknown_control_paths": 0,
+      "verified_control_paths": 6
+    },
+    "likely_action_path_items": 2,
+    "missing_approval_items": 6,
+    "missing_policy_items": 0,
+    "missing_proof_items": 6,
+    "operational_exposure": {
+      "driver": "production_and_credentials",
+      "grade": "critical",
+      "path_count": 6,
+      "rationale": [
+        "production_backed_paths=5",
+        "credential_bearing_paths=1",
+        "write_capable_paths=5",
+        "runtime_deployed_paths=2"
       ]
     },
     "primary_view": {
-      "path_id": "apc-6626703372d7",
-      "selection_reason": "default_top_path",
-      "boundary_label": "report_only",
-      "approval_evidence_state": "unknown",
-      "credential_evidence_state": "verified",
-      "proof_evidence_state": "unknown",
-      "runtime_evidence_state": "unknown",
-      "target_evidence_state": "inferred",
-      "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
-      "delegation_readiness_state": "blocked",
-      "recommended_control": "block_standing_credential",
-      "risk_tier": "critical",
-      "evidence_completeness_label": "partial_evidence",
-      "evidence_completeness_score": 63,
-      "unresolved_evidence": [
-        "approval",
-        "proof"
-      ],
-      "recommended_next_actions": [
-        "attach path-specific proof and runtime or policy evidence",
-        "record explicit owner approval with scope and expiry",
-        "replace standing credential with repo-scoped JIT or brokered authority"
-      ],
-      "coverage_status": "complete",
-      "coverage_impact": "Coverage for scanned inputs was complete enough to support scoped negative claims.",
-      "path_map": {
-        "tool": "wrkr:ci-agent-457b801fb1:local",
-        "repo_pr": "demo-app / pr/108",
-        "workflow": ".github/workflows/release.yml",
-        "credential": "cloud_admin_key source_control source_control_write standing",
-        "action": "credential_access,deploy,execute,read,write",
-        "target": "built_in:deploy_workflow,built_in:kubernetes,built_in:release_automation"
-      },
-      "today_path": {
-        "label": "today_path",
-        "summary": "Today this path is prod or customer impacting using standing credential with approval evidence not found and path-specific proof not found.",
-        "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
-        "delegation_readiness_state": "blocked",
-        "recommended_control": "block_standing_credential",
-        "credential_mode": "standing credential",
-        "approval_evidence_state": "unknown",
-        "proof_evidence_state": "unknown",
-        "outcome_evidence_state": "unknown",
-        "path_type": "ci_cd_workflow",
-        "target_class": "production_impacting",
-        "reason_codes": [
-          "tier:production_or_customer_impact"
-        ]
-      },
-      "recommended_governed_path": {
-        "label": "recommended_governed_path",
-        "summary": "Recommended governed path uses block standing credential, requires approval evidence, blocking control, proof evidence, and leaves this path blocked.",
-        "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
-        "delegation_readiness_state": "blocked",
-        "recommended_control": "block_standing_credential",
-        "credential_mode": "jit or brokered credential",
-        "approval_evidence_state": "unknown",
-        "proof_evidence_state": "unknown",
-        "outcome_evidence_state": "unknown",
-        "path_type": "ci_cd_workflow",
-        "target_class": "production_impacting",
-        "reason_codes": [
-          "readiness:standing_credential_block",
-          "recommended_control:block_standing_credential"
-        ]
-      },
-      "recommended_action_contract": {
-        "path_summary": "prod or customer impacting path for production_impacting",
-        "allowed_action": "block_standing_credential",
-        "required_authority": "replace standing credential with repo-scoped JIT or brokered authority",
-        "required_review": "review per existing local governance policy",
-        "required_approval": "record explicit owner approval with scope and expiry",
-        "required_proof": "attach path-specific proof and runtime or policy evidence",
-        "allowed_autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
-        "validation_step": "replace standing credential, attach proof, and rerun the scan",
-        "default_posture": "block until contradictory or broad authority evidence is resolved",
-        "delegation_readiness_state": "blocked",
-        "approval_evidence_state": "unknown",
-        "owner_evidence_state": "inferred",
-        "proof_evidence_state": "unknown",
-        "outcome_evidence_state": "unknown",
-        "contract_readiness_state": "needs_owner",
-        "report_only": true,
-        "reason_codes": [
-          "readiness:standing_credential_block"
-        ]
-      },
-      "decision_trace_refs": [
-        "decision_trace:dt-c62008fe3f27"
-      ],
       "appendix_refs": [
         "bom_items",
         "decision_traces",
@@ -428,36 +310,186 @@
         "recommended_actions",
         "scan_quality",
         "workflow_chains"
+      ],
+      "approval_evidence_state": "unknown",
+      "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+      "boundary_label": "report_only",
+      "coverage_impact": "Coverage for scanned inputs was complete enough to support scoped negative claims.",
+      "coverage_status": "complete",
+      "credential_evidence_state": "verified",
+      "decision_trace_refs": [
+        "decision_trace:dt-c62008fe3f27"
+      ],
+      "delegation_readiness_state": "blocked",
+      "evidence_completeness_label": "partial_evidence",
+      "evidence_completeness_score": 63,
+      "path_id": "apc-6626703372d7",
+      "path_map": {
+        "action": "credential_access,deploy,execute,read,write",
+        "credential": "cloud_admin_key source_control source_control_write standing",
+        "repo_pr": "demo-app / pr/108",
+        "target": "built_in:deploy_workflow,built_in:kubernetes,built_in:release_automation",
+        "tool": "wrkr:ci-agent-457b801fb1:local",
+        "workflow": ".github/workflows/release.yml"
+      },
+      "proof_evidence_state": "unknown",
+      "recommended_action_contract": {
+        "allowed_action": "block_standing_credential",
+        "allowed_autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+        "approval_evidence_state": "unknown",
+        "contract_readiness_state": "blocked",
+        "default_posture": "block until contradictory or broad authority evidence is resolved",
+        "delegation_readiness_state": "blocked",
+        "outcome_evidence_state": "unknown",
+        "owner_evidence_state": "inferred",
+        "path_summary": "prod or customer impacting path for production_impacting",
+        "proof_evidence_state": "unknown",
+        "reason_codes": [
+          "readiness:standing_credential_block"
+        ],
+        "report_only": true,
+        "required_approval": "record explicit owner approval with scope and expiry",
+        "required_authority": "replace standing credential with repo-scoped JIT or brokered authority",
+        "required_proof": "attach path-specific proof and runtime or policy evidence",
+        "required_review": "review per existing local governance policy",
+        "validation_step": "replace standing credential, attach proof, and rerun the scan"
+      },
+      "recommended_control": "block_standing_credential",
+      "recommended_governed_path": {
+        "approval_evidence_state": "unknown",
+        "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+        "credential_mode": "jit or brokered credential",
+        "delegation_readiness_state": "blocked",
+        "label": "recommended_governed_path",
+        "outcome_evidence_state": "unknown",
+        "path_type": "ci_cd_workflow",
+        "proof_evidence_state": "unknown",
+        "reason_codes": [
+          "readiness:standing_credential_block",
+          "recommended_control:block_standing_credential"
+        ],
+        "recommended_control": "block_standing_credential",
+        "summary": "Recommended governed path uses block standing credential, requires approval evidence, blocking control, proof evidence, and leaves this path blocked.",
+        "target_class": "production_impacting"
+      },
+      "recommended_next_actions": [
+        "attach path-specific proof and runtime or policy evidence",
+        "record explicit owner approval with scope and expiry",
+        "replace standing credential with repo-scoped JIT or brokered authority"
+      ],
+      "risk_tier": "critical",
+      "runtime_evidence_state": "unknown",
+      "selection_reason": "default_top_path",
+      "target_evidence_state": "inferred",
+      "today_path": {
+        "approval_evidence_state": "unknown",
+        "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+        "credential_mode": "standing credential",
+        "delegation_readiness_state": "blocked",
+        "label": "today_path",
+        "outcome_evidence_state": "unknown",
+        "path_type": "ci_cd_workflow",
+        "proof_evidence_state": "unknown",
+        "reason_codes": [
+          "tier:production_or_customer_impact"
+        ],
+        "recommended_control": "block_standing_credential",
+        "summary": "Today this path is prod or customer impacting using standing credential with approval evidence not found and path-specific proof not found.",
+        "target_class": "production_impacting"
+      },
+      "unresolved_evidence": [
+        "approval",
+        "proof"
       ]
-    }
+    },
+    "production_target_items": 5,
+    "recommended_controls": {
+      "allow": 0,
+      "approval_required": 0,
+      "block": 0,
+      "block_standing_credential": 2,
+      "jit_credential_required": 0,
+      "owner_review": 0,
+      "proof_required": 0,
+      "security_review": 4
+    },
+    "repeat_usage_signals": {
+      "status": "first_run"
+    },
+    "runtime_proven_items": 0,
+    "scan_scope": {
+      "mode": "path",
+      "repo_count": 1,
+      "scope_label": "local repository path",
+      "source_boundary": "local_path",
+      "target_count": 1
+    },
+    "semantic_review_candidate_items": 1,
+    "standing_privilege_items": 2,
+    "static_credential_items": 2,
+    "total_items": 6
   },
   "top_item": {
-    "path_id": "apc-6626703372d7",
-    "tool_type": "ci_agent",
     "control_state": "block_recommended",
-    "risk_zone": "production_data",
-    "review_burden": "critical",
-    "proof_coverage": "missing",
-    "policy_status": "none",
-    "runtime_evidence_status": "",
+    "gait_coverage": {
+      "action_outcome": {
+        "reasons": [
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:action_outcome"
+        ],
+        "status": "missing"
+      },
+      "approval": {
+        "reasons": [
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:approval"
+        ],
+        "status": "missing"
+      },
+      "freeze_window": {
+        "reasons": [
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:freeze_window"
+        ],
+        "status": "missing"
+      },
+      "jit_credential": {
+        "reasons": [
+          "not_applicable:jit_credential",
+          "runtime_absence_status:not_applicable"
+        ],
+        "status": "not_applicable"
+      },
+      "kill_switch": {
+        "reasons": [
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:kill_switch"
+        ],
+        "status": "missing"
+      },
+      "policy_decision": {
+        "reasons": [
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:policy_decision"
+        ],
+        "status": "missing"
+      },
+      "proof_verification": {
+        "reasons": [
+          "runtime_absence_status:not_collected",
+          "runtime_evidence_not_collected:proof_verification"
+        ],
+        "status": "missing"
+      }
+    },
     "introduced_by": {
-      "source": "source_metadata",
-      "confidence": "high",
-      "reference": "pr/108",
-      "pr_number": 108,
-      "commit_sha": "deadbeef108",
       "author": "demo-bot",
-      "timestamp": "2026-05-08T12:00:00Z",
       "changed_file": ".github/workflows/release.yml",
-      "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+      "commit_sha": "deadbeef108",
+      "confidence": "high",
+      "pr_number": 108,
       "provenance": {
-        "kind": "pull_request",
-        "reference": "pr/108",
-        "number": 108,
-        "provider_url": "https://github.example.com/acme/demo-app/pull/108",
-        "head_sha": "deadbeef108",
         "author": "demo-bot",
-        "updated_at": "2026-05-08T12:00:00Z",
         "changed_files": [
           ".agents/skills/release/SKILL.md",
           ".github/workflows/release.yml",
@@ -465,6 +497,8 @@
           "AGENTS.md"
         ],
         "conflict_state": "partial",
+        "head_sha": "deadbeef108",
+        "kind": "pull_request",
         "missing_evidence": [
           "approvals_missing",
           "branch_protection_missing",
@@ -472,59 +506,23 @@
           "deployments_missing",
           "environment_gates_missing",
           "reviewers_missing"
-        ]
-      }
+        ],
+        "number": 108,
+        "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+        "reference": "pr/108",
+        "updated_at": "2026-05-08T12:00:00Z"
+      },
+      "provider_url": "https://github.example.com/acme/demo-app/pull/108",
+      "reference": "pr/108",
+      "source": "source_metadata",
+      "timestamp": "2026-05-08T12:00:00Z"
     },
-    "gait_coverage": {
-      "policy_decision": {
-        "status": "missing",
-        "reasons": [
-          "runtime_absence_status:not_collected",
-          "runtime_evidence_not_collected:policy_decision"
-        ]
-      },
-      "approval": {
-        "status": "missing",
-        "reasons": [
-          "runtime_absence_status:not_collected",
-          "runtime_evidence_not_collected:approval"
-        ]
-      },
-      "jit_credential": {
-        "status": "not_applicable",
-        "reasons": [
-          "not_applicable:jit_credential",
-          "runtime_absence_status:not_applicable"
-        ]
-      },
-      "freeze_window": {
-        "status": "missing",
-        "reasons": [
-          "runtime_absence_status:not_collected",
-          "runtime_evidence_not_collected:freeze_window"
-        ]
-      },
-      "kill_switch": {
-        "status": "missing",
-        "reasons": [
-          "runtime_absence_status:not_collected",
-          "runtime_evidence_not_collected:kill_switch"
-        ]
-      },
-      "action_outcome": {
-        "status": "missing",
-        "reasons": [
-          "runtime_absence_status:not_collected",
-          "runtime_evidence_not_collected:action_outcome"
-        ]
-      },
-      "proof_verification": {
-        "status": "missing",
-        "reasons": [
-          "runtime_absence_status:not_collected",
-          "runtime_evidence_not_collected:proof_verification"
-        ]
-      }
-    }
+    "path_id": "apc-6626703372d7",
+    "policy_status": "none",
+    "proof_coverage": "missing",
+    "review_burden": "critical",
+    "risk_zone": "production_data",
+    "runtime_evidence_status": "",
+    "tool_type": "ci_agent"
   }
 }

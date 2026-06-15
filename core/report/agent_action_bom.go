@@ -59,6 +59,9 @@ type AgentActionBOMSummary struct {
 	LikelyActionPathItems        int                                  `json:"likely_action_path_items,omitempty"`
 	SemanticReviewCandidateItems int                                  `json:"semantic_review_candidate_items,omitempty"`
 	ContextOnlyItems             int                                  `json:"context_only_items,omitempty"`
+	EligibleActionPathItems      int                                  `json:"eligible_action_path_items,omitempty"`
+	TargetSurfaceContextItems    int                                  `json:"target_surface_context_items,omitempty"`
+	InstructionControlItems      int                                  `json:"instruction_control_surface_items,omitempty"`
 	EmptyStateStatus             string                               `json:"empty_state_status,omitempty"`
 	EmptyStateReasons            []string                             `json:"empty_state_reasons,omitempty"`
 	ScanScope                    *ScanScopeSummary                    `json:"scan_scope,omitempty"`
@@ -115,6 +118,8 @@ type AgentActionBOMItem struct {
 	TargetClass                         string                               `json:"target_class,omitempty"`
 	TargetClassReasons                  []string                             `json:"target_class_reasons,omitempty"`
 	TargetClassEvidenceRefs             []string                             `json:"target_class_evidence_refs,omitempty"`
+	ActionPathEligible                  bool                                 `json:"action_path_eligible,omitempty"`
+	ActionBindingState                  string                               `json:"action_binding_state,omitempty"`
 	ActionPathType                      string                               `json:"action_path_type,omitempty"`
 	ActionPathTypeReasons               []string                             `json:"action_path_type_reasons,omitempty"`
 	ActionPathTypeEvidenceRefs          []string                             `json:"action_path_type_evidence_refs,omitempty"`
@@ -343,6 +348,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			TargetClass:                         strings.TrimSpace(path.TargetClass),
 			TargetClassReasons:                  append([]string(nil), path.TargetClassReasons...),
 			TargetClassEvidenceRefs:             append([]string(nil), path.TargetClassEvidenceRefs...),
+			ActionPathEligible:                  path.ActionPathEligible,
+			ActionBindingState:                  strings.TrimSpace(path.ActionBindingState),
 			ActionPathType:                      strings.TrimSpace(path.ActionPathType),
 			ActionPathTypeReasons:               append([]string(nil), path.ActionPathTypeReasons...),
 			ActionPathTypeEvidenceRefs:          append([]string(nil), path.ActionPathTypeEvidenceRefs...),
@@ -916,6 +923,15 @@ func summarizeAgentActionBOMItems(items []AgentActionBOMItem, paths []risk.Actio
 		DriftReview:                  cloneRegressSummary(regressSummary),
 	}
 	for _, item := range items {
+		if strings.TrimSpace(item.ExclusionReason) == "" {
+			if item.ActionPathEligible {
+				counts.EligibleActionPathItems++
+			} else if item.ActionPathType == risk.ActionPathTypeAgentInstruction {
+				counts.InstructionControlItems++
+			} else {
+				counts.TargetSurfaceContextItems++
+			}
+		}
 		if strings.TrimSpace(item.ControlPriority) == risk.ControlPriorityControlFirst {
 			counts.ControlFirstItems++
 		}

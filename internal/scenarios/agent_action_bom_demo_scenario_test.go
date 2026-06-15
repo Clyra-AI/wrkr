@@ -30,6 +30,16 @@ func TestScenarioAgentActionBOMDemoContract(t *testing.T) {
 	afterIngest := extractDemoJSONFile(t, filepath.Join(afterOutput, "ingest.json"), "runtime_evidence", "correlations")
 	afterEvidenceReport := extractDemoEvidenceReport(t, filepath.Join(afterOutput, "evidence-bundle", "reports", "agent-action-bom.json"))
 
+	if os.Getenv("WRKR_UPDATE_GOLDENS") == "1" {
+		writeDemoScenarioValue(t, filepath.Join(expectedRoot, "before-scan.json"), beforeScan)
+		writeDemoScenarioValue(t, filepath.Join(expectedRoot, "before-report.json"), beforeReport)
+		writeDemoScenarioValue(t, filepath.Join(expectedRoot, "after-scan.json"), afterScan)
+		writeDemoScenarioValue(t, filepath.Join(expectedRoot, "after-report.json"), afterReport)
+		writeDemoScenarioValue(t, filepath.Join(expectedRoot, "after-ingest.json"), afterIngest)
+		writeDemoScenarioValue(t, filepath.Join(expectedRoot, "after-evidence-report.json"), afterEvidenceReport)
+		return
+	}
+
 	assertDemoScenarioEqual(t, beforeScan, mustLoadDemoScenarioValue(t, filepath.Join(expectedRoot, "before-scan.json")))
 	assertDemoScenarioEqual(t, beforeReport, mustLoadDemoScenarioValue(t, filepath.Join(expectedRoot, "before-report.json")))
 	assertDemoScenarioEqual(t, afterScan, mustLoadDemoScenarioValue(t, filepath.Join(expectedRoot, "after-scan.json")))
@@ -244,6 +254,17 @@ func mustLoadDemoScenarioValue(t *testing.T, path string) any {
 		t.Fatalf("parse %s: %v", path, err)
 	}
 	return decoded
+}
+
+func writeDemoScenarioValue(t *testing.T, path string, payload any) {
+	t.Helper()
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, append(encoded, '\n'), 0o600); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
 }
 
 func assertDemoScenarioEqual(t *testing.T, got, want any) {

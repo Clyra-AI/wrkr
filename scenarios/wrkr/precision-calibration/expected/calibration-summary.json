@@ -109,7 +109,7 @@
   "dependency-only": {
     "action_paths": [
       {
-        "action_path_type": "unknown_executable_path",
+        "action_path_type": "dependency_only_signal",
         "approval_evidence_state": "unknown",
         "constraint_evidence": null,
         "contradiction_count": null,
@@ -123,7 +123,7 @@
     ],
     "bom_items": [
       {
-        "action_path_type": "unknown_executable_path",
+        "action_path_type": "dependency_only_signal",
         "approval_evidence_state": "unknown",
         "control_state": "inventory_only",
         "owner_evidence_state": "inferred",
@@ -149,7 +149,7 @@
   "deploy-agent": {
     "action_paths": [
       {
-        "action_path_type": "ai_assisted_workflow",
+        "action_path_type": "agent_instruction_surface",
         "approval_evidence_state": "unknown",
         "constraint_evidence": null,
         "contradiction_count": null,
@@ -161,7 +161,7 @@
         "target_evidence_state": "unknown"
       },
       {
-        "action_path_type": "ai_assisted_workflow",
+        "action_path_type": "agent_instruction_surface",
         "approval_evidence_state": "unknown",
         "constraint_evidence": null,
         "contradiction_count": null,
@@ -175,7 +175,7 @@
     ],
     "bom_items": [
       {
-        "action_path_type": "ai_assisted_workflow",
+        "action_path_type": "agent_instruction_surface",
         "approval_evidence_state": "unknown",
         "control_state": "approval_required",
         "owner_evidence_state": "inferred",
@@ -188,7 +188,7 @@
         "runtime_evidence_status": "matched"
       },
       {
-        "action_path_type": "ai_assisted_workflow",
+        "action_path_type": "agent_instruction_surface",
         "approval_evidence_state": "unknown",
         "control_state": "approval_required",
         "owner_evidence_state": "inferred",

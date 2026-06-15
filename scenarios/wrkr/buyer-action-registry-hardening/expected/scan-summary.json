@@ -1,42 +1,17 @@
 {
   "action_path_count": 7,
+  "confirmed_path": {
+    "confidence_lane": "confirmed_action_path",
+    "location": "server/refund_routes.js",
+    "repo": "payments-private"
+  },
   "lane_counts": {
     "confirmed_action_path": 2,
     "context_only": 1,
     "likely_action_path": 3,
     "semantic_review_candidate": 1
   },
-  "confirmed_path": {
-    "repo": "payments-private",
-    "location": "server/refund_routes.js",
-    "confidence_lane": "confirmed_action_path"
-  },
   "mutable_surface_path": {
-    "repo": "payments-private",
-    "location": "openapi/refund-openapi.yaml",
-    "confidence_lane": "likely_action_path",
-    "semantics": [
-      "data_export",
-      "data_export",
-      "data_export",
-      "delete",
-      "production_mutation",
-      "production_mutation",
-      "production_mutation",
-      "production_mutation",
-      "production_mutation",
-      "read",
-      "read",
-      "refund",
-      "refund",
-      "refund",
-      "refund",
-      "user_admin",
-      "write",
-      "write",
-      "write"
-    ],
-    "config_fingerprint": "cfg-410cd236c577",
     "action_lineage_kinds": [
       "intent",
       "task",
@@ -56,6 +31,32 @@
       "outcome",
       "proof",
       "evidence"
+    ],
+    "confidence_lane": "confirmed_action_path",
+    "config_fingerprint": "cfg-25ce41dafe7a",
+    "location": "server/refund_routes.js",
+    "repo": "payments-private",
+    "semantics": [
+      "data_export",
+      "data_export",
+      "delete",
+      "delete",
+      "production_mutation",
+      "production_mutation",
+      "production_mutation",
+      "production_mutation",
+      "production_mutation",
+      "production_mutation",
+      "read",
+      "refund",
+      "refund",
+      "refund",
+      "refund",
+      "user_admin",
+      "user_admin",
+      "write",
+      "write",
+      "write"
     ]
   }
 }

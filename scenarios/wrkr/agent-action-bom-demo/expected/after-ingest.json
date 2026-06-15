@@ -1,22 +1,11 @@
 [
   {
-    "path_id": "apc-6626703372d7",
+    "action_classes": [
+      "deploy",
+      "write"
+    ],
     "agent_id": "wrkr:ci-agent-457b801fb1:local",
-    "record_kinds": [
-      "runtime"
-    ],
-    "source_types": [
-      "unknown"
-    ],
-    "tool": "ci_agent",
-    "repo": "demo-app",
-    "service": "demo-app",
-    "workflow": ".github/workflows/release.yml",
     "environment": "built_in:deploy_workflow",
-    "path": ".github/workflows/release.yml",
-    "location": ".github/workflows/release.yml",
-    "target": "built_in:deploy_workflow",
-    "status": "matched",
     "evidence_classes": [
       "action_outcome",
       "approval",
@@ -25,14 +14,14 @@
       "policy_decision",
       "proof_verification"
     ],
-    "action_classes": [
-      "deploy",
-      "write"
+    "freshness_state": "unknown",
+    "freshness_states": [
+      "unknown"
     ],
-    "sources": [
-      "gait_runtime",
-      "proof_runtime"
-    ],
+    "latest_observed_at": "2026-04-29T19:42:00Z",
+    "location": ".github/workflows/release.yml",
+    "path": ".github/workflows/release.yml",
+    "path_id": "apc-6626703372d7",
     "policy_refs": [
       "gait://release-control"
     ],
@@ -47,10 +36,21 @@
       "demo-app:policy_decision:2026-04-29T19:40:00Z",
       "demo-app:proof_verification:2026-04-29T19:42:00Z"
     ],
-    "latest_observed_at": "2026-04-29T19:42:00Z",
-    "freshness_state": "unknown",
-    "freshness_states": [
+    "record_kinds": [
+      "runtime"
+    ],
+    "repo": "demo-app",
+    "service": "demo-app",
+    "source_types": [
       "unknown"
-    ]
+    ],
+    "sources": [
+      "gait_runtime",
+      "proof_runtime"
+    ],
+    "status": "matched",
+    "target": "built_in:deploy_workflow",
+    "tool": "ci_agent",
+    "workflow": ".github/workflows/release.yml"
   }
 ]

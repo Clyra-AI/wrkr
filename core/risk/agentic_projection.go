@@ -28,9 +28,11 @@ const (
 	RecommendedControlProofRequired           = "proof_required"
 	RecommendedControlBlockStandingCredential = "block_standing_credential"
 	RecommendedControlBlock                   = "block"
-	ActionContractReadinessDraft              = "draft"
+	ActionContractReadinessBlocked            = "blocked"
 	ActionContractReadinessNeedsOwner         = "needs_owner"
 	ActionContractReadinessNeedsApproval      = "needs_approval_evidence"
+	ActionContractReadinessNeedsProof         = "needs_proof_evidence"
+	ActionContractReadinessNeedsCorrelation   = "needs_correlation"
 	ActionContractReadinessReadyForReportOnly = "ready_for_report_only"
 	ActionContractReadinessReadyForControl    = "ready_for_control"
 	ActionContractReadinessBlockedContradict  = "blocked_by_contradiction"
@@ -168,9 +170,11 @@ func ValidRecommendedControl(value string) bool {
 
 func ValidActionContractReadinessState(value string) bool {
 	switch strings.TrimSpace(value) {
-	case ActionContractReadinessDraft,
+	case ActionContractReadinessBlocked,
 		ActionContractReadinessNeedsOwner,
 		ActionContractReadinessNeedsApproval,
+		ActionContractReadinessNeedsProof,
+		ActionContractReadinessNeedsCorrelation,
 		ActionContractReadinessReadyForReportOnly,
 		ActionContractReadinessReadyForControl,
 		ActionContractReadinessBlockedContradict:
@@ -392,7 +396,8 @@ func buildRecommendedActionContract(path ActionPath) *RecommendedActionContract 
 	if strings.TrimSpace(path.ControlPriority) != ControlPriorityControlFirst &&
 		path.AutonomyTier != AutonomyTier3SensitiveCodeOrInfra &&
 		path.AutonomyTier != AutonomyTier4ProdPrivilegedCustomerImpact &&
-		path.DelegationReadinessState == DelegationReadinessSafeToDelegate {
+		path.DelegationReadinessState == DelegationReadinessSafeToDelegate &&
+		IsActionPathEligible(path) {
 		return nil
 	}
 
@@ -415,6 +420,12 @@ func buildRecommendedActionContract(path ActionPath) *RecommendedActionContract 
 		ContractReadinessState:   deriveContractReadiness(path),
 		ReportOnly:               true,
 		ReasonCodes:              dedupeSortedStrings(append(append([]string(nil), path.DelegationReadinessReasons...), path.RiskClassificationValidationReasons...)),
+	}
+	if !IsActionPathEligible(path) {
+		contract.RequiredAuthority = "Correlation evidence for the real workflow, runtime, tool, deploy, or change path"
+		contract.RequiredReview = "Owner review for the correlated path and control surface"
+		contract.RequiredApproval = ""
+		contract.RequiredProof = "Correlation guidance only until executable binding is proven"
 	}
 	return contract
 }
@@ -460,6 +471,9 @@ func buildRecommendedGovernedPathView(path ActionPath) *GovernedPathView {
 }
 
 func pathNeedsGovernedPathView(path ActionPath) bool {
+	if pathLikelyNeedsCorrelation(path) {
+		return true
+	}
 	if strings.TrimSpace(path.ControlPriority) == ControlPriorityControlFirst {
 		return true
 	}
@@ -708,16 +722,22 @@ func deriveContractReadiness(path ActionPath) string {
 	switch {
 	case len(path.Contradictions) > 0 || actionPathHasContradictoryControlEvidence(path):
 		return ActionContractReadinessBlockedContradict
+	case strings.TrimSpace(path.DelegationReadinessState) == DelegationReadinessBlocked:
+		return ActionContractReadinessBlocked
+	case !IsActionPathEligible(path):
+		return ActionContractReadinessNeedsCorrelation
 	case normalizeEvidenceState(path.OwnerEvidenceState) == EvidenceStateUnknown || normalizeEvidenceState(path.OwnerEvidenceState) == EvidenceStateInferred:
 		return ActionContractReadinessNeedsOwner
 	case normalizeEvidenceState(path.ApprovalEvidenceState) == EvidenceStateUnknown || normalizeEvidenceState(path.ApprovalEvidenceState) == EvidenceStateInferred:
 		return ActionContractReadinessNeedsApproval
 	case pathNeedsProof(path):
+		return ActionContractReadinessNeedsProof
+	case strings.TrimSpace(path.ActionBindingState) == ActionBindingStatePartiallyBound:
 		return ActionContractReadinessReadyForReportOnly
 	case strings.TrimSpace(path.DelegationReadinessState) == DelegationReadinessReadyForControl || strings.TrimSpace(path.DelegationReadinessState) == DelegationReadinessSafeToDelegate:
 		return ActionContractReadinessReadyForControl
 	default:
-		return ActionContractReadinessDraft
+		return ActionContractReadinessReadyForReportOnly
 	}
 }
 

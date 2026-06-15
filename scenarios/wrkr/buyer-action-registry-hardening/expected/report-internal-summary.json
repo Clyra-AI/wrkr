@@ -1,58 +1,103 @@
 {
-  "template": "agent-action-bom",
-  "share_profile": "internal",
   "bom_count": 7,
-  "registry_count": 7,
+  "confirmed_item": {
+    "credential_authority": {
+      "access_type": "standing",
+      "confidence": "high",
+      "credential_present": true,
+      "credential_referenced_by_workflow": true,
+      "credential_source": "workflow_secret_ref",
+      "credential_usable_by_path": false,
+      "rotation_evidence_status": "missing",
+      "standing_access": true
+    },
+    "lineage_statuses": [
+      {
+        "kind": "intent",
+        "status": "unknown"
+      },
+      {
+        "kind": "task",
+        "status": "unknown"
+      },
+      {
+        "kind": "human",
+        "status": "inferred"
+      },
+      {
+        "kind": "repo",
+        "status": "present"
+      },
+      {
+        "kind": "pr",
+        "status": "unknown"
+      },
+      {
+        "kind": "workflow",
+        "status": "present"
+      },
+      {
+        "kind": "workflow_run",
+        "status": "present"
+      },
+      {
+        "kind": "agent",
+        "status": "present"
+      },
+      {
+        "kind": "action",
+        "status": "present"
+      },
+      {
+        "kind": "credential",
+        "status": "referenced_only"
+      },
+      {
+        "kind": "target",
+        "status": "present"
+      },
+      {
+        "kind": "owner",
+        "status": "present"
+      },
+      {
+        "kind": "approval",
+        "status": "missing"
+      },
+      {
+        "kind": "control",
+        "status": "declared"
+      },
+      {
+        "kind": "deployment",
+        "status": "unknown"
+      },
+      {
+        "kind": "outcome",
+        "status": "unknown"
+      },
+      {
+        "kind": "proof",
+        "status": "missing"
+      },
+      {
+        "kind": "evidence",
+        "status": "verified"
+      }
+    ],
+    "location": "server/refund_routes.js",
+    "policy_status": "none",
+    "proof_coverage": "missing",
+    "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
+    "repo": "payments-private"
+  },
   "lane_counts": {
     "confirmed_action_path": 2,
     "context_only": 1,
     "likely_action_path": 3,
     "semantic_review_candidate": 1
   },
-  "confirmed_item": {
-    "repo": "payments-private",
-    "location": "server/refund_routes.js",
-    "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
-    "proof_coverage": "missing",
-    "policy_status": "none",
-    "credential_authority": {
-      "credential_present": true,
-      "credential_referenced_by_workflow": true,
-      "credential_usable_by_path": false,
-      "access_type": "standing",
-      "standing_access": true,
-      "rotation_evidence_status": "missing",
-      "credential_source": "workflow_secret_ref",
-      "confidence": "high"
-    },
-    "lineage_statuses": [
-      {"kind": "intent", "status": "unknown"},
-      {"kind": "task", "status": "unknown"},
-      {"kind": "human", "status": "inferred"},
-      {"kind": "repo", "status": "present"},
-      {"kind": "pr", "status": "unknown"},
-      {"kind": "workflow", "status": "present"},
-      {"kind": "workflow_run", "status": "present"},
-      {"kind": "agent", "status": "present"},
-      {"kind": "action", "status": "present"},
-      {"kind": "credential", "status": "referenced_only"},
-      {"kind": "target", "status": "present"},
-      {"kind": "owner", "status": "present"},
-      {"kind": "approval", "status": "missing"},
-      {"kind": "control", "status": "declared"},
-      {"kind": "deployment", "status": "unknown"},
-      {"kind": "outcome", "status": "unknown"},
-      {"kind": "proof", "status": "missing"},
-      {"kind": "evidence", "status": "verified"}
-    ]
-  },
-  "semantic_item": {
-    "repo": "payments-private",
-    "location": "AGENTS.md",
-    "remediation": "Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.",
-    "confidence_lane": "semantic_review_candidate",
-    "proof_coverage": "missing"
-  },
+  "registry_count": 7,
   "registry_surface_types": [
     "agent_config",
     "api_schema",
@@ -61,5 +106,14 @@
     "server",
     "surface",
     "workflow"
-  ]
+  ],
+  "semantic_item": {
+    "confidence_lane": "semantic_review_candidate",
+    "location": "AGENTS.md",
+    "proof_coverage": "missing",
+    "remediation": "Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.",
+    "repo": "payments-private"
+  },
+  "share_profile": "internal",
+  "template": "agent-action-bom"
 }

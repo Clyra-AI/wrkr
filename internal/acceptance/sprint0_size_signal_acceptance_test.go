@@ -16,7 +16,7 @@ const (
 	sprint0AcceptanceEvidenceBudget  = 2 << 20
 	sprint0AcceptanceMarkdownLineCap = 1500
 	sprint0AcceptanceLeadLineCap     = 45
-	sprint0AcceptanceLeadSectionCap  = 4
+	sprint0AcceptanceLeadSectionCap  = 5
 	sprint0EndpointDenseRepoCount    = 4
 	sprint0EndpointDenseStateBudget  = 24 << 20
 )

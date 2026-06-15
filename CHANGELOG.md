@@ -9,11 +9,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - [semver:minor] Added scan `phase_substep` progress events plus optional `--progress-heap` receipts so long analysis runs can identify inventory, graph, workflow-chain, backlog, state-finalization, and artifact-write phases without corrupting stdout JSON.
+- [semver:minor] Added Target Surface Context and agent instruction control-surface modeling so unbound OpenAPI/routes/source context and instruction files are separated from executable govern-first paths in BOM and report output.
 
 ### Changed
 
 - [semver:minor] Changed interactive `--json` output for large scan, report, evidence, and assess commands to emit compact TTY-safe summaries by default while preserving the full machine-readable payload for pipes, redirects, `--json-path`, and explicit `--json-stdout=full`.
 - [semver:minor] Unified report and evidence serialization metadata with shared suppression and artifact-budget hints so shareable/default outputs advertise caps, appendix availability, and focused/detail handoff paths consistently.
+- [semver:minor] Updated Agent Action BOM closure guidance, path-type framing, and Action Contract readiness states so instruction surfaces, dependency-only signals, and correlation-needed context use conservative remediation language instead of full action-contract wording.
 
 ### Deprecated
 
@@ -27,6 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:patch] Added endpoint-dense enterprise-pressure fixtures and bounded-artifact receipts so route-heavy scans regress in deterministic tests before they bloat saved state, graph output, or BOM artifacts.
 - [semver:minor] Replaced endpoint-heavy graph, BOM, and action-surface fanout with grouped endpoint receipts (`endpoint_ref_group_id`, counts, route groups, operation counts, and bounded samples) so report/shareable surfaces stop cloning thousands of endpoint refs per node or item.
+- [semver:minor] Tightened action-path eligibility and authority correlation so static context surfaces no longer inherit governable workflow status from repo-wide credential or deploy signals without a real binding.
 
 ### Security
 

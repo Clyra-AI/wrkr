@@ -152,6 +152,9 @@ func agentActionBOMItemEligibleForPrimaryView(item AgentActionBOMItem) bool {
 	if strings.TrimSpace(item.ExclusionReason) != "" {
 		return false
 	}
+	if !bomItemEligible(item) {
+		return false
+	}
 	if strings.TrimSpace(item.ConfidenceLane) == risk.ConfidenceLaneContextOnly {
 		return false
 	}
