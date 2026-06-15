@@ -233,8 +233,8 @@ func TestReportJSONIncludesDeterministicNextSteps(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected second next step type: %T", nextSteps[1])
 	}
-	quotedStatePath := "'" + statePath + "'"
-	expectedEvidenceCmd := "wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state " + quotedStatePath + " --output ./wrkr-evidence --json"
+	expectedStateArg := "'<saved-scan-state>'"
+	expectedEvidenceCmd := "wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state " + expectedStateArg + " --output ./wrkr-evidence --json"
 	if second["command"] != expectedEvidenceCmd {
 		t.Fatalf("expected evidence handoff command %q, got %v", expectedEvidenceCmd, second["command"])
 	}
@@ -243,7 +243,7 @@ func TestReportJSONIncludesDeterministicNextSteps(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected third next step type: %T", nextSteps[2])
 	}
-	expectedVerifyCmd := "wrkr verify --chain --state " + quotedStatePath + " --json"
+	expectedVerifyCmd := "wrkr verify --chain --state " + expectedStateArg + " --json"
 	if third["command"] != expectedVerifyCmd {
 		t.Fatalf("expected verify handoff command %q, got %v", expectedVerifyCmd, third["command"])
 	}

@@ -33,8 +33,11 @@ func missingTargetNextSteps() []nextStep {
 	}
 }
 
-func reportNextSteps(statePath string, artifacts reportArtifactResult) []nextStep {
+func reportNextSteps(statePath, shareProfile string, artifacts reportArtifactResult) []nextStep {
 	stateArg := shellQuoteArg(statePath)
+	if strings.TrimSpace(shareProfile) != "" && strings.TrimSpace(shareProfile) != "internal" {
+		stateArg = "'<saved-scan-state>'"
+	}
 	return []nextStep{
 		{
 			ID:          "review_report_artifacts",

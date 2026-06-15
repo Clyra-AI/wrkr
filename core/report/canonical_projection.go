@@ -14,6 +14,12 @@ func FinalizeSummaryForShareProfile(summary Summary) Summary {
 	return FinalizeSummaryForOutput(summary)
 }
 
+func FinalizeSummaryForSerialization(summary Summary) Summary {
+	summary = FinalizeSummaryForShareProfile(summary)
+	attachSummaryOutputMetadata(&summary)
+	return summary
+}
+
 func FinalizeSummaryForOutput(summary Summary) Summary {
 	summary.ActionPaths = risk.StripCanonicalProjectionDetails(summary.ActionPaths)
 	summary.ActionPathToControlFirst = risk.StripActionPathToControlFirstCanonicalProjectionDetails(summary.ActionPathToControlFirst)
@@ -92,4 +98,25 @@ func stripAssessmentActionPath(in *risk.ActionPath) *risk.ActionPath {
 		return nil
 	}
 	return &path
+}
+
+func attachSummaryOutputMetadata(summary *Summary) {
+	if summary == nil {
+		return
+	}
+	summary.ArtifactBudget = &ArtifactBudget{
+		MaxActionPaths:         defaultMaxActionPaths,
+		MaxBacklogItems:        defaultMaxBacklogItems,
+		MaxGraphNodes:          defaultMaxGraphNodes,
+		MaxGraphEdges:          defaultMaxGraphEdges,
+		MaxWorkflowChains:      defaultMaxWorkflowChains,
+		MaxExposureGroups:      defaultMaxExposureGroups,
+		MaxAgentActionBOM:      defaultMaxAgentActionBOM,
+		MarkdownLineCap:        defaultMarkdownLineCap,
+		MarkdownLeadLineCap:    defaultBOMLeadLineCap,
+		MarkdownLeadSectionCap: defaultBOMLeadSectionCap,
+	}
+	summary.AppendixAvailable = len(summary.Sections) > 0 || len(summary.ActionPaths) > 0 || summary.AgentActionBOM != nil
+	summary.FocusedBundleAvailable = summary.AgentActionBOM != nil && len(summary.AgentActionBOM.Items) > 0
+	summary.FullExportAvailable = false
 }

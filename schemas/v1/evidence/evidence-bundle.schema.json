@@ -26,6 +26,15 @@
     "runtime_evidence": {
       "$ref": "#/definitions/runtimeEvidence"
     },
+    "artifact_budget": {
+      "$ref": "../report/report-summary.schema.json#/$defs/artifactBudget"
+    },
+    "appendix_available": {"type": "boolean"},
+    "focused_bundle_available": {"type": "boolean"},
+    "full_export_available": {"type": "boolean"},
+    "suppressed_counts": {
+      "$ref": "../report/report-summary.schema.json#/$defs/suppressedCounts"
+    },
     "evidence_packets": {
       "$ref": "../report/report-summary.schema.json#/$defs/evidencePacketSummary"
     },

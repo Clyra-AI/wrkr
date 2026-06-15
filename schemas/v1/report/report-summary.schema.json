@@ -45,6 +45,18 @@
     "artifact_metadata": {
       "$ref": "#/$defs/artifactMetadata"
     },
+    "artifact_budget": {
+      "$ref": "#/$defs/artifactBudget"
+    },
+    "appendix_available": {
+      "type": "boolean"
+    },
+    "focused_bundle_available": {
+      "type": "boolean"
+    },
+    "full_export_available": {
+      "type": "boolean"
+    },
     "section_order": {
       "type": "array",
       "items": {
@@ -230,6 +242,22 @@
           "enum": ["internal_only", "shareable"],
           "description": "Explicit internal output is marked internal_only; default/shareable profiles are marked shareable."
         }
+      },
+      "additionalProperties": false
+    },
+    "artifactBudget": {
+      "type": "object",
+      "properties": {
+        "max_action_paths": {"type": "integer", "minimum": 0},
+        "max_backlog_items": {"type": "integer", "minimum": 0},
+        "max_graph_nodes": {"type": "integer", "minimum": 0},
+        "max_graph_edges": {"type": "integer", "minimum": 0},
+        "max_workflow_chains": {"type": "integer", "minimum": 0},
+        "max_exposure_groups": {"type": "integer", "minimum": 0},
+        "max_agent_action_bom_items": {"type": "integer", "minimum": 0},
+        "markdown_line_cap": {"type": "integer", "minimum": 0},
+        "markdown_lead_line_cap": {"type": "integer", "minimum": 0},
+        "markdown_lead_section_cap": {"type": "integer", "minimum": 0}
       },
       "additionalProperties": false
     },

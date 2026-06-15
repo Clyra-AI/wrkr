@@ -42,6 +42,12 @@ func BuildArtifactMetadata(summary Summary, sourceArtifactRefs []string, variant
 	if strings.TrimSpace(variantKind) == ArtifactVariantCustomerRedacted || strings.TrimSpace(summary.ShareProfile) != string(ShareProfileInternal) {
 		shareability = ArtifactShareabilityShareable
 	}
+	sourceRefs := uniqueSortedStrings(sourceArtifactRefs)
+	joinMapPath := strings.TrimSpace(privateJoinMapPath)
+	if shareability == ArtifactShareabilityShareable {
+		sourceRefs = redactStringSlice(sourceRefs, "artifact")
+		joinMapPath = ""
+	}
 	return &ArtifactMetadata{
 		ArtifactID:         buildArtifactID(summary, variantKind),
 		PairID:             strings.TrimSpace(pairID),
@@ -49,8 +55,8 @@ func BuildArtifactMetadata(summary Summary, sourceArtifactRefs []string, variant
 		ShareProfile:       strings.TrimSpace(summary.ShareProfile),
 		RedactionVersion:   redactionVersion,
 		SelectedFields:     selectedFields,
-		SourceArtifactRefs: uniqueSortedStrings(sourceArtifactRefs),
-		PrivateJoinMapPath: strings.TrimSpace(privateJoinMapPath),
+		SourceArtifactRefs: sourceRefs,
+		PrivateJoinMapPath: joinMapPath,
 		ShareabilityStatus: shareability,
 	}
 }
@@ -161,6 +167,22 @@ func cloneArtifactMetadata(in *ArtifactMetadata) *ArtifactMetadata {
 	out := *in
 	out.SelectedFields = append([]string(nil), in.SelectedFields...)
 	out.SourceArtifactRefs = append([]string(nil), in.SourceArtifactRefs...)
+	return &out
+}
+
+func cloneArtifactBudget(in *ArtifactBudget) *ArtifactBudget {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	return &out
+}
+
+func cloneSuppressedCounts(in *SuppressedCounts) *SuppressedCounts {
+	if in == nil {
+		return nil
+	}
+	out := *in
 	return &out
 }
 

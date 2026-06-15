@@ -119,7 +119,11 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 		if err := reportcore.ApplyFocusPreset(&summary, opts.FocusPreset); err != nil {
 			return reportcore.Summary{}, err
 		}
-		summary = reportcore.FinalizeSummaryForShareProfile(summary)
+		summary = reportcore.FinalizeSummaryForSerialization(summary)
+		summary, err = reportcore.ApplyShareableResidualRedaction(opts.Snapshot, summary)
+		if err != nil {
+			return reportcore.Summary{}, err
+		}
 		return summary, nil
 	}
 
@@ -185,6 +189,26 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 	}
 
 	markdown := reportcore.RenderMarkdown(summary)
+	pairedMarkdown := ""
+	if hasPairedSummary && (opts.WriteMarkdown || opts.WritePDF) {
+		pairedMarkdown = reportcore.RenderMarkdown(pairedSummary)
+	}
+	validationMarkdown := ""
+	if opts.WriteMarkdown || opts.WritePDF {
+		validationMarkdown = markdown
+	}
+	if err := reportcore.ValidateShareableArtifacts(opts.Snapshot, summary, validationMarkdown, opts.WriteEvidenceJSON); err != nil {
+		return reportArtifactResult{}, err
+	}
+	if hasPairedSummary {
+		pairedValidationMarkdown := ""
+		if opts.WriteMarkdown || opts.WritePDF {
+			pairedValidationMarkdown = pairedMarkdown
+		}
+		if err := reportcore.ValidateShareableArtifacts(opts.Snapshot, pairedSummary, pairedValidationMarkdown, opts.WriteEvidenceJSON); err != nil {
+			return reportArtifactResult{}, err
+		}
+	}
 	mdOutPath := ""
 	if opts.WriteMarkdown {
 		path, writeErr := writePaired("markdown", opts.MarkdownPath, func(current reportcore.Summary) ([]byte, error) {
@@ -210,7 +234,7 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 		if hasPairedSummary {
 			externalPath := pairedPaths["pdf_"+strings.ReplaceAll(string(opts.PairedShareProfile), "-", "_")]
 			if externalPath != "" {
-				if writeErr := writeReportPDF(externalPath, reportcore.MarkdownLines(reportcore.RenderMarkdown(pairedSummary))); writeErr != nil {
+				if writeErr := writeReportPDF(externalPath, reportcore.MarkdownLines(pairedMarkdown)); writeErr != nil {
 					return reportArtifactResult{}, writeErr
 				}
 			}
