@@ -258,10 +258,25 @@ func looksLikeRepoValue(value string) bool {
 	case "", "repo", "org", "organization", "multi", "path", "public-surface", "local":
 		return false
 	}
+	if isDigitsOnly(trimmed) {
+		return false
+	}
 	return strings.Contains(trimmed, "/") ||
 		strings.Contains(trimmed, "-") ||
 		strings.Contains(trimmed, "_") ||
 		strings.ContainsAny(trimmed, "0123456789")
+}
+
+func isDigitsOnly(value string) bool {
+	if strings.TrimSpace(value) == "" {
+		return false
+	}
+	for _, r := range value {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func keyContainsAny(key string, parts ...string) bool {

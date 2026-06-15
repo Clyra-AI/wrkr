@@ -91,3 +91,27 @@ func TestValidateShareableArtifactsFailsClosedOnResidualSensitiveTokens(t *testi
 		t.Fatalf("expected shareable safety error, got %T (%v)", err, err)
 	}
 }
+
+func TestApplyShareableResidualRedactionDoesNotRewriteNumericTimestamps(t *testing.T) {
+	t.Parallel()
+
+	summary, err := ApplyShareableResidualRedaction(
+		state.Snapshot{
+			Findings: []source.Finding{{
+				Repo: "2026",
+				Org:  "acme",
+			}},
+		},
+		Summary{
+			ShareProfile: string(ShareProfileCustomerRedacted),
+			GeneratedAt:  "2026-06-15T00:00:00Z",
+			Sections:     []Section{{ID: "headline", Facts: []string{"ok"}}},
+		},
+	)
+	if err != nil {
+		t.Fatalf("apply residual redaction: %v", err)
+	}
+	if summary.GeneratedAt != "2026-06-15T00:00:00Z" {
+		t.Fatalf("expected generated_at to remain unchanged, got %q", summary.GeneratedAt)
+	}
+}
