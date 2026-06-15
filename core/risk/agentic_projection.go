@@ -28,6 +28,7 @@ const (
 	RecommendedControlProofRequired           = "proof_required"
 	RecommendedControlBlockStandingCredential = "block_standing_credential"
 	RecommendedControlBlock                   = "block"
+	ActionContractReadinessDraft              = "draft"
 	ActionContractReadinessBlocked            = "blocked"
 	ActionContractReadinessNeedsOwner         = "needs_owner"
 	ActionContractReadinessNeedsApproval      = "needs_approval_evidence"
@@ -170,7 +171,8 @@ func ValidRecommendedControl(value string) bool {
 
 func ValidActionContractReadinessState(value string) bool {
 	switch strings.TrimSpace(value) {
-	case ActionContractReadinessBlocked,
+	case ActionContractReadinessDraft,
+		ActionContractReadinessBlocked,
 		ActionContractReadinessNeedsOwner,
 		ActionContractReadinessNeedsApproval,
 		ActionContractReadinessNeedsProof,
