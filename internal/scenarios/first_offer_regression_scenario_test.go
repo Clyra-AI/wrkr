@@ -46,6 +46,10 @@ func TestScenarioFirstOfferMixedGovernanceReportUsefulness(t *testing.T) {
 
 	expected := mustLoadFirstOfferExpected(t, repoRoot, "scenarios/wrkr/first-offer-mixed-governance/expected/assessment-report.json")
 	projected := projectFirstOfferMixedGovernanceReport(t, reportPayload)
+	if os.Getenv("WRKR_UPDATE_GOLDENS") == "1" {
+		writeFirstOfferExpected(t, filepath.Join(repoRoot, "scenarios", "wrkr", "first-offer-mixed-governance", "expected", "assessment-report.json"), projected)
+		return
+	}
 	if !reflect.DeepEqual(projected, expected) {
 		t.Fatalf("first-offer mixed-governance report drifted\nprojected=%v\nexpected=%v", projected, expected)
 	}
@@ -89,6 +93,17 @@ func mustLoadFirstOfferExpected(t *testing.T, repoRoot, rel string) map[string]a
 		t.Fatalf("parse expected fixture %s: %v", rel, err)
 	}
 	return out
+}
+
+func writeFirstOfferExpected(t *testing.T, path string, payload map[string]any) {
+	t.Helper()
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal expected fixture %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, append(encoded, '\n'), 0o600); err != nil {
+		t.Fatalf("write expected fixture %s: %v", path, err)
+	}
 }
 
 func projectFirstOfferNoisePackScan(t *testing.T, payload map[string]any) map[string]any {

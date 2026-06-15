@@ -21,7 +21,7 @@ func TestBuildAgentActionBOMSelectsPrimaryViewFromTopEligiblePath(t *testing.T) 
 				ToolType:                 "codex",
 				Location:                 ".codex/config.toml",
 				ConfidenceLane:           risk.ConfidenceLaneLikelyActionPath,
-				ActionPathType:           risk.ActionPathTypeAIAssistedWorkflow,
+				ActionPathType:           risk.ActionPathTypeAgentInstruction,
 				AutonomyTier:             risk.AutonomyTier3SensitiveCodeOrInfra,
 				DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
 				RecommendedControl:       risk.RecommendedControlApprovalRequired,

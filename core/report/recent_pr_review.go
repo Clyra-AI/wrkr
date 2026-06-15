@@ -141,6 +141,9 @@ func buildRecentPRReviewItem(item AgentActionBOMItem) RecentPRReviewItem {
 }
 
 func isRecentPRReviewCandidate(item AgentActionBOMItem) bool {
+	if !bomItemEligible(item) {
+		return false
+	}
 	if item.IntroducedBy == nil {
 		return false
 	}

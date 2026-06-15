@@ -223,7 +223,7 @@ func RenderMarkdown(summary Summary) string {
 		for idx := 0; idx < limit; idx++ {
 			item := summary.AgentActionBOM.Items[idx]
 			builder.WriteString(fmt.Sprintf("- %s repo=%s location=%s owner=%s boundary=%s lane=%s type=%s state=%s zone=%s target=%s review=%s queue=%s priority=%s tier=%s autonomy=%s readiness=%s recommended_control=%s control=%s approval=%s proof=%s runtime=%s session=%s confidence=%s evidence=%s completeness=%s(%d) policy=%s remediation=%s\n",
-				markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType),
+				markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType, bomItemEligible(item), bomItemBindingState(item)),
 				item.Repo,
 				item.Location,
 				item.Owner,
@@ -452,7 +452,19 @@ func markdownBOMRuntimeEvidenceLabel(item AgentActionBOMItem) string {
 	return risk.BuyerRuntimeEvidenceLabel(item.RuntimeEvidenceState, item.RuntimeEvidenceAbsenceStatus, item.GaitCoverage)
 }
 
-func markdownActionPathLabel(lane string, actionPathType string) string {
+func markdownActionPathLabel(lane string, actionPathType string, eligible bool, bindingState string) string {
+	if !eligible {
+		switch strings.TrimSpace(actionPathType) {
+		case risk.ActionPathTypeAgentInstruction:
+			return "instruction control surface"
+		case risk.ActionPathTypeDependencyOnlySignal:
+			return "dependency-only context"
+		default:
+			if strings.TrimSpace(bindingState) == risk.ActionBindingStateUnboundContext {
+				return "target surface context"
+			}
+		}
+	}
 	switch strings.TrimSpace(actionPathType) {
 	case risk.ActionPathTypeAIAssistedWorkflow:
 		switch strings.TrimSpace(lane) {
@@ -475,6 +487,13 @@ func markdownActionPathLabel(lane string, actionPathType string) string {
 		case risk.ConfidenceLaneConfirmedActionPath:
 			return "confirmed automation bot"
 		}
+	case risk.ActionPathTypeAgentInstruction:
+		if strings.TrimSpace(lane) == risk.ConfidenceLaneSemanticReviewCandidate {
+			return "review candidate instruction surface"
+		}
+		return "agent instruction surface"
+	case risk.ActionPathTypeDependencyOnlySignal:
+		return "dependency-only signal"
 	}
 	switch strings.TrimSpace(lane) {
 	case "confirmed_action_path":
@@ -566,6 +585,8 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 
 	renderPrimaryWorkflowBOMSection(builder, bom.Summary.PrimaryView)
 	renderCompactTopActionPathsSection(builder, summary.WorkflowHighlights)
+	renderSurfaceContextSection(builder, "Target Surface Context", targetSurfaceContextItems(bom.Items))
+	renderSurfaceContextSection(builder, "Instruction Control Surfaces", instructionControlSurfaceItems(bom.Items))
 	return false
 }
 
@@ -633,6 +654,11 @@ func renderAgentActionBOMContextAppendix(builder *strings.Builder, summary Summa
 		summary.AgentActionBOM.Summary.ApprovalEvidenceUnknownItems,
 		summary.AgentActionBOM.Summary.ControlEvidenceUnknownItems,
 		summary.AgentActionBOM.Summary.ProofEvidenceUnknownItems,
+	)
+	fmt.Fprintf(builder, "- Eligibility split: eligible=%d target_surface_context=%d instruction_control_surfaces=%d\n",
+		summary.AgentActionBOM.Summary.EligibleActionPathItems,
+		summary.AgentActionBOM.Summary.TargetSurfaceContextItems,
+		summary.AgentActionBOM.Summary.InstructionControlItems,
 	)
 	fmt.Fprintf(builder, "- Autonomy tiers: safe_metadata=%d low_risk_internal=%d owner_review_app_code=%d sensitive_code_or_infra=%d prod_or_customer_impacting=%d\n",
 		summary.AgentActionBOM.Summary.AutonomyTiers.Tier0SafeMetadata,
@@ -737,6 +763,59 @@ func renderCompactTopActionPathsSection(builder *strings.Builder, highlights *Wo
 		builder.WriteString(".\n")
 	}
 	builder.WriteString("\n")
+}
+
+func renderSurfaceContextSection(builder *strings.Builder, title string, items []AgentActionBOMItem) {
+	if builder == nil || len(items) == 0 {
+		return
+	}
+	builder.WriteString("## " + title + "\n\n")
+	for _, item := range items {
+		fmt.Fprintf(builder, "- %s in %s via %s: binding=%s target=%s owner=%s next=%s.\n",
+			markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType, bomItemEligible(item), bomItemBindingState(item)),
+			firstNonEmptyValue(item.Repo, "unknown repo"),
+			firstNonEmptyValue(item.Location, "unknown surface"),
+			humanizeEnum(firstNonEmptyValue(bomItemBindingState(item), risk.ActionBindingStateUnboundContext)),
+			humanizeEnum(firstNonEmptyValue(item.TargetClass, "unknown")),
+			firstNonEmptyValue(item.Owner, "owner not confirmed"),
+			firstNonEmptyValue(item.Remediation, item.RecommendedNextAction, "correlate this surface before promoting it"),
+		)
+	}
+	builder.WriteString("\n")
+}
+
+func targetSurfaceContextItems(items []AgentActionBOMItem) []AgentActionBOMItem {
+	out := make([]AgentActionBOMItem, 0, len(items))
+	for _, item := range items {
+		if bomItemEligible(item) || strings.TrimSpace(item.ExclusionReason) != "" {
+			continue
+		}
+		if bomItemBindingState(item) != risk.ActionBindingStateUnboundContext {
+			continue
+		}
+		if item.ActionPathType == risk.ActionPathTypeAgentInstruction {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func instructionControlSurfaceItems(items []AgentActionBOMItem) []AgentActionBOMItem {
+	out := make([]AgentActionBOMItem, 0, len(items))
+	for _, item := range items {
+		if bomItemEligible(item) || strings.TrimSpace(item.ExclusionReason) != "" {
+			continue
+		}
+		if bomItemBindingState(item) != risk.ActionBindingStateUnboundContext {
+			continue
+		}
+		if item.ActionPathType != risk.ActionPathTypeAgentInstruction {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 type compactWorkflowHighlight struct {
@@ -886,7 +965,7 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 			builder.WriteString(fmt.Sprintf("Likely explanation: %s\n", designPartnerExplanation(item)))
 			builder.WriteString(fmt.Sprintf("Threat: %s\n", designPartnerThreat(item)))
 			builder.WriteString(fmt.Sprintf("Recommended control: %s\n", firstNonEmptyValue(item.Remediation, item.RecommendedNextAction, "review and add path-specific proof before approval")))
-			builder.WriteString(fmt.Sprintf("Confidence lane: %s\n", markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType)))
+			builder.WriteString(fmt.Sprintf("Confidence lane: %s\n", markdownActionPathLabel(item.ConfidenceLane, item.ActionPathType, bomItemEligible(item), bomItemBindingState(item))))
 			builder.WriteString(fmt.Sprintf("Proof gap: %s\n", designPartnerProofGap(item)))
 			builder.WriteString(fmt.Sprintf("Credential authority: %s\n", designPartnerCredentialAuthority(item)))
 			builder.WriteString(fmt.Sprintf("High-stakes: %s\n", designPartnerHighStakes(item)))
@@ -932,6 +1011,9 @@ func designPartnerItems(summary Summary) []AgentActionBOMItem {
 	}
 	filtered := make([]AgentActionBOMItem, 0, len(summary.AgentActionBOM.Items))
 	for _, item := range summary.AgentActionBOM.Items {
+		if !bomItemEligible(item) {
+			continue
+		}
 		if strings.TrimSpace(item.ConfidenceLane) == "context_only" {
 			continue
 		}

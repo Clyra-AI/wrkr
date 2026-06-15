@@ -32,16 +32,26 @@ type shareableSensitiveToken struct {
 	Value    string
 }
 
+type shareableRedactionEntry struct {
+	Token       shareableSensitiveToken
+	Replacement string
+}
+
+type shareableRedactionPlan struct {
+	Entries []shareableRedactionEntry
+	Tokens  []shareableSensitiveToken
+}
+
 func ApplyShareableResidualRedaction(snapshot state.Snapshot, summary Summary) (Summary, error) {
 	profile, ok := ParseShareProfile(summary.ShareProfile)
 	if !ok || !shareProfileRequiresRedaction(profile) {
 		return summary, nil
 	}
-	tokens, err := collectShareableSensitiveTokens(snapshot)
+	plan, err := buildShareableRedactionPlan(snapshot)
 	if err != nil {
 		return Summary{}, err
 	}
-	if len(tokens) == 0 {
+	if len(plan.Entries) == 0 {
 		return summary, nil
 	}
 	payload, err := json.Marshal(summary)
@@ -52,7 +62,7 @@ func ApplyShareableResidualRedaction(snapshot state.Snapshot, summary Summary) (
 	if err := json.Unmarshal(payload, &raw); err != nil {
 		return Summary{}, fmt.Errorf("unmarshal shareable summary for residual redaction: %w", err)
 	}
-	raw = applyShareableTokenRedaction(raw, tokens)
+	raw = applyShareableTokenRedaction(raw, plan)
 	redactedPayload, err := json.Marshal(raw)
 	if err != nil {
 		return Summary{}, fmt.Errorf("marshal shareable summary after residual redaction: %w", err)
@@ -69,11 +79,11 @@ func ValidateShareableArtifacts(snapshot state.Snapshot, summary Summary, markdo
 	if !ok || !shareProfileRequiresRedaction(profile) {
 		return nil
 	}
-	tokens, err := collectShareableSensitiveTokens(snapshot)
+	plan, err := buildShareableRedactionPlan(snapshot)
 	if err != nil {
 		return err
 	}
-	if len(tokens) == 0 {
+	if len(plan.Tokens) == 0 {
 		return nil
 	}
 	outputs := []struct {
@@ -104,7 +114,7 @@ func ValidateShareableArtifacts(snapshot state.Snapshot, summary Summary, markdo
 		})
 	}
 	for _, output := range outputs {
-		if violation, ok := findResidualSensitiveToken(output.content, tokens); ok {
+		if violation, ok := findResidualSensitiveToken(output.content, plan.Tokens); ok {
 			return &shareableSafetyError{label: output.label, category: violation.Category}
 		}
 	}
@@ -141,6 +151,36 @@ func collectShareableSensitiveTokens(snapshot state.Snapshot) ([]shareableSensit
 		return out[i].Category < out[j].Category
 	})
 	return out, nil
+}
+
+func buildShareableRedactionPlan(snapshot state.Snapshot) (shareableRedactionPlan, error) {
+	tokens, err := collectShareableSensitiveTokens(snapshot)
+	if err != nil {
+		return shareableRedactionPlan{}, err
+	}
+	entries := make([]shareableRedactionEntry, 0, len(tokens))
+	for _, token := range tokens {
+		if strings.TrimSpace(token.Value) == "" {
+			continue
+		}
+		entries = append(entries, shareableRedactionEntry{
+			Token:       token,
+			Replacement: shareableTokenReplacement(token),
+		})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if len(entries[i].Token.Value) == len(entries[j].Token.Value) {
+			if entries[i].Token.Category == entries[j].Token.Category {
+				return entries[i].Token.Value < entries[j].Token.Value
+			}
+			return entries[i].Token.Category < entries[j].Token.Category
+		}
+		return len(entries[i].Token.Value) > len(entries[j].Token.Value)
+	})
+	return shareableRedactionPlan{
+		Entries: entries,
+		Tokens:  tokens,
+	}, nil
 }
 
 func walkShareableSensitiveTokens(value any, path []string, deduped map[string]shareableSensitiveToken) {
@@ -304,44 +344,34 @@ func findResidualSensitiveToken(content string, tokens []shareableSensitiveToken
 	return shareableSensitiveToken{}, false
 }
 
-func applyShareableTokenRedaction(value any, tokens []shareableSensitiveToken) any {
+func applyShareableTokenRedaction(value any, plan shareableRedactionPlan) any {
 	switch typed := value.(type) {
 	case map[string]any:
 		out := make(map[string]any, len(typed))
 		for key, nested := range typed {
-			out[key] = applyShareableTokenRedaction(nested, tokens)
+			out[key] = applyShareableTokenRedaction(nested, plan)
 		}
 		return out
 	case []any:
 		out := make([]any, 0, len(typed))
 		for _, nested := range typed {
-			out = append(out, applyShareableTokenRedaction(nested, tokens))
+			out = append(out, applyShareableTokenRedaction(nested, plan))
 		}
 		return out
 	case string:
-		return redactShareableTokenString(typed, tokens)
+		return redactShareableTokenString(typed, plan)
 	default:
 		return value
 	}
 }
 
-func redactShareableTokenString(value string, tokens []shareableSensitiveToken) string {
+func redactShareableTokenString(value string, plan shareableRedactionPlan) string {
 	out := value
-	ordered := append([]shareableSensitiveToken(nil), tokens...)
-	sort.Slice(ordered, func(i, j int) bool {
-		if len(ordered[i].Value) == len(ordered[j].Value) {
-			if ordered[i].Category == ordered[j].Category {
-				return ordered[i].Value < ordered[j].Value
-			}
-			return ordered[i].Category < ordered[j].Category
-		}
-		return len(ordered[i].Value) > len(ordered[j].Value)
-	})
-	for _, token := range ordered {
-		if token.Value == "" {
+	for _, entry := range plan.Entries {
+		if entry.Token.Value == "" {
 			continue
 		}
-		out = strings.ReplaceAll(out, token.Value, shareableTokenReplacement(token))
+		out = strings.ReplaceAll(out, entry.Token.Value, entry.Replacement)
 	}
 	return out
 }

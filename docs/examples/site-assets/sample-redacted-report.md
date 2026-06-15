@@ -6,7 +6,7 @@
 
 ## Executive Rollup
 
-- total_groups=12 total_paths=20
+- total_groups=13 total_paths=20
 - group=xrg-ef3bf0cab866 count=1 severity=critical priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-4bd1cfe8
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=1 credential_access paths grouped by production_impacting and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=standing
@@ -16,15 +16,18 @@
 - group=xrg-ca230a7008b5 count=4 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-1a6e2fbd, path-aea359df, path-c427c00e
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=4 egress paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-72044fd98ef0 count=3 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-45689901, path-e20cb15e, path-f557e358
-  recommendation=attach missing approval, proof, or runtime evidence before promotion
-  rationale=3 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
 - group=xrg-0c18386d7513 count=2 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-7462113c, path-7bc48b8c
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=2 read paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
 - group=xrg-4ed90b3e19cb count=2 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-ad8e5de2, path-fa61c8c4
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=2 read paths grouped by unknown and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
+- group=xrg-72044fd98ef0 count=2 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-45689901, path-e20cb15e
+  recommendation=attach missing approval, proof, or runtime evidence before promotion
+  rationale=2 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
+- group=xrg-27c8ba42b953 count=1 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-f557e358
+  recommendation=attach missing approval, proof, or runtime evidence before promotion
+  rationale=1 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=none
 - group=xrg-343a544f0af3 count=1 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-6c68d1b5
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=1 read paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
@@ -37,30 +40,30 @@
 - group=xrg-b339af3f7b36 count=1 severity=low priority=inventory_hygiene closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-9ed20f75
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=1 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-c3730c7e7271 count=1 severity=low priority=inventory_hygiene closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-827d9232
-  recommendation=attach missing approval, proof, or runtime evidence before promotion
-  rationale=1 read paths grouped by unknown and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
 - group=xrg-c6684b5fc5ea count=1 severity=low priority=inventory_hygiene closure=remediate evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-efbe1d8d
   recommendation=remediate standing production deploy paths first
   rationale=1 write paths grouped by test_demo_sandbox and unknown evidence | closure=remediate repo_cluster=single_repo credential_authority=unknown
+- group=xrg-e18e7d78ad58 count=1 severity=low priority=inventory_hygiene closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-827d9232
+  recommendation=attach missing approval, proof, or runtime evidence before promotion
+  rationale=1 read paths grouped by unknown and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=none
 
 ## Workflow Chain Highlights
 
 - Total buyer-facing workflow paths: 17
 
-- path=path-31e098e8 repo=repo-10e08a workflow=loc-f27ac6f3 type=ai_assisted_workflow target=developer_productivity autonomy=prod or customer impacting readiness=review required authority=unknown | unknown | unknown blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
+- path=path-31e098e8 repo=repo-10e08a workflow=loc-f27ac6f3 type=agent_instruction_surface target=developer_productivity autonomy=prod or customer impacting readiness=review required authority=unknown | unknown | unknown blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
   explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
-- path=path-2f2bda2d repo=repo-0f9c7c workflow=loc-f32a51ab type=ai_assisted_workflow target=developer_productivity autonomy=prod or customer impacting readiness=review required authority=unknown | unknown | unknown blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
+- path=path-2f2bda2d repo=repo-0f9c7c workflow=loc-f32a51ab type=agent_instruction_surface target=developer_productivity autonomy=prod or customer impacting readiness=review required authority=unknown | unknown | unknown blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
   explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
 - path=path-4bd1cfe8 repo=repo-eb0de2 workflow=loc-415e1600 type=ci_cd_workflow target=production_impacting autonomy=prod or customer impacting readiness=blocked authority=credential-9d82507e | standing | workflow_secret_ref blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=partial evidence coverage
   explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
-- path=path-445e7c6c repo=repo-10e08a workflow=loc-d5d3368a type=plain_source_code target=unknown autonomy=sensitive code or infra readiness=review required authority=unknown | unknown | unknown blast_radius=unknown approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
+- path=path-445e7c6c repo=repo-10e08a workflow=loc-d5d3368a type=agent_instruction_surface target=unknown autonomy=sensitive code or infra readiness=review required authority=unknown | unknown | unknown blast_radius=unknown approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
   explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
-- path=path-f290d9be repo=repo-1cf387 workflow=loc-6d5c8bdb type=ai_assisted_workflow target=developer_productivity autonomy=sensitive code or infra readiness=review required authority=unknown | unknown | unknown blast_radius=developer productivity approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
+- path=path-f290d9be repo=repo-1cf387 workflow=loc-6d5c8bdb type=agent_instruction_surface target=developer_productivity autonomy=sensitive code or infra readiness=review required authority=unknown | unknown | unknown blast_radius=developer productivity approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
   explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
 
@@ -138,7 +141,7 @@
   closure_requirements=clr-cf97cb28:Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. | clr-4b5bab15:Attach approval evidence for this exact path with scope and expiry before treating it as governed. | clr-d425aa53:Attach a path-specific policy or proof reference for this exact path and rescan so proof is no longer inferred or absent. | clr-eee180f3:Collect runtime evidence for this path and correlate it back to the saved path before treating runtime claims as verified.
   lifecycle_queue=missing_approval severity=medium credential_status=no_credential_access closure=Attach fresh approval evidence with owner, expiry, and review scope.
 - repo-10e08a loc-d5d3368a owner=owner-c115ecf5 queue=control_first visibility=primary action=attach_evidence sla=14d closure=Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. remediation=Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.
-  completeness=insufficient evidence coverage(57)
+  completeness=insufficient evidence coverage(59)
   closure_requirements=clr-4dbb5bec:Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. | clr-685ddba1:Attach approval evidence for this exact path with scope and expiry before treating it as governed. | clr-1dfeb0c7:Attach a path-specific policy or proof reference for this exact path and rescan so proof is no longer inferred or absent. | clr-80b35933:Collect runtime evidence for this path and correlate it back to the saved path before treating runtime claims as verified.
   lifecycle_queue=missing_approval severity=medium credential_status=no_credential_access closure=Attach fresh approval evidence with owner, expiry, and review scope.
 - repo-10e08a loc-6ebdb617 owner=owner-c115ecf5 queue=control_first visibility=primary action=attach_evidence sla=14d closure=Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it. remediation=Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.
@@ -240,15 +243,15 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
 - #4 5.67 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-d5d3368a
 - #5 10.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
 - #6 5.67 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-f27ac6f3
-- #7 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-d5d3368a
-- #8 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
-- #9 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-0f9c7c location=loc-a54ff182
-- #10 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-315161dd
-- #11 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-6ebdb617
-- #12 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-20c5bf90
-- #13 6.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-0db9f46c
-- #14 3.60 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-e026f56c
-- #15 7.29 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-8b2df8 location=loc-d7e67997
+- #7 7.29 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-8b2df8 location=loc-d7e67997
+- #8 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-d5d3368a
+- #9 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
+- #10 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-0f9c7c location=loc-a54ff182
+- #11 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-315161dd
+- #12 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-6ebdb617
+- #13 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-20c5bf90
+- #14 6.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-0db9f46c
+- #15 3.60 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-e026f56c
 - #16 3.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-e98d5093
 - #17 3.96 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-eb0de2 location=loc-227c2c26
 - #18 3.60 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=coding_help review=high repo=repo-0f9c7c location=loc-a28316bc

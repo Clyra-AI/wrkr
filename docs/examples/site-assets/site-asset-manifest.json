@@ -8,14 +8,14 @@
       "description": "Architecture boundary page data derived from source, detection, aggregation, and proof summaries.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:802e50bf91231d73272d6d8230e44597143a84d7b4279b0ba78f40a5180cf605"
+      "sha256": "sha256:33d956cfb136a234d34980961df927638ec4363aca28294d0449a3cd7228aec3"
     },
     {
       "path": "interactive-lab-data.json",
       "description": "Interactive lab summary data projected from deterministic report and evidence outputs.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:0220687ee637dcc615d7a50a92bd5b47b9a5e04f693f2eaf0c596b0bdcbfe880"
+      "sha256": "sha256:01de955df145e26e9098a0dbc14932df06e647ba5ae37981224bbea592d54267"
     },
     {
       "path": "local-private-posture.md",
@@ -27,7 +27,7 @@
       "description": "Customer-redacted Agent Action BOM sample derived from the multi-repo scan fixture.",
       "share_profile": "customer-redacted",
       "template": "agent-action-bom",
-      "sha256": "sha256:3562db343d7f15fd20772cbee022f53bd7bb71d95cd23fed3565604b45187fac"
+      "sha256": "sha256:d00718ac8c1e950c99373a9dbf6784ec05be49b645b34d9f9091cb49c36c7c8e"
     },
     {
       "path": "sample-control-path-graph.json",
@@ -41,7 +41,7 @@
       "description": "Customer-redacted executive markdown report suitable for public-facing demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:103dbd56836c52a566b36b62e2844eeaa143a29733eafe23cf419257f0550066"
+      "sha256": "sha256:a743e1a4f2663bacc1231bd754c7292a077c98c13575dcfc2464eefeefa3ccb0"
     }
   ],
   "commands": [

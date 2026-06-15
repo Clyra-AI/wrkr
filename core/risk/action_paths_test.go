@@ -1048,6 +1048,40 @@ func TestOpenAPIWithoutAuthorityCorrelationStaysAppendixOnlyProductionContext(t 
 	if paths[0].ProductionContext == nil || paths[0].ProductionContext.Status != ProductionContextAppendixOnly {
 		t.Fatalf("expected appendix_only production context, got %+v", paths[0].ProductionContext)
 	}
+	if paths[0].ActionPathEligible {
+		t.Fatalf("expected uncorrelated openapi path to stay in target-surface context, got %+v", paths[0])
+	}
+	if paths[0].ActionBindingState != ActionBindingStateUnboundContext {
+		t.Fatalf("expected uncorrelated openapi binding_state=unbound_context, got %+v", paths[0])
+	}
+}
+
+func TestCodexConfigProjectsAsInstructionSurfaceWithToolBinding(t *testing.T) {
+	t.Parallel()
+
+	paths := ProjectActionPaths([]ActionPath{{
+		PathID:             "codex-config",
+		Org:                "acme",
+		Repo:               "acme/app",
+		ToolType:           "codex",
+		Location:           ".codex/config.toml",
+		ApprovalGap:        true,
+		ApprovalGapReasons: []string{"approval_source_missing"},
+		ActionClasses:      []string{"deploy"},
+	}})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one projected path, got %+v", paths)
+	}
+	if paths[0].ActionPathType != ActionPathTypeAgentInstruction {
+		t.Fatalf("expected instruction-surface path type, got %+v", paths[0])
+	}
+	if !paths[0].ActionPathEligible {
+		t.Fatalf("expected codex config to stay eligible through tool binding, got %+v", paths[0])
+	}
+	if paths[0].ActionBindingState != ActionBindingStatePartiallyBound {
+		t.Fatalf("expected codex config to stay partially_bound, got %+v", paths[0])
+	}
 }
 
 func TestTargetClassProductionSignalOverridesCustomerDataSurface(t *testing.T) {
@@ -1098,8 +1132,8 @@ func TestDependencyOnlyFindingIsNotAgenticActionPath(t *testing.T) {
 	if len(paths) != 1 {
 		t.Fatalf("expected one projected path, got %+v", paths)
 	}
-	if paths[0].ActionPathType != ActionPathTypeUnknownExecutablePath {
-		t.Fatalf("expected dependency-only path to stay non-agentic, got %+v", paths[0])
+	if paths[0].ActionPathType != ActionPathTypeDependencyOnlySignal {
+		t.Fatalf("expected dependency-only path to stay explicit dependency context, got %+v", paths[0])
 	}
 }
 

@@ -184,6 +184,16 @@ func buyerActionRegistryEvidenceSummary(t *testing.T, evidencePath string) map[s
 
 func assertScenarioJSONEquals(t *testing.T, path string, actual map[string]any) {
 	t.Helper()
+	if os.Getenv("WRKR_UPDATE_GOLDENS") == "1" {
+		payload, err := json.MarshalIndent(actual, "", "  ")
+		if err != nil {
+			t.Fatalf("marshal %s: %v", path, err)
+		}
+		if err := os.WriteFile(path, append(payload, '\n'), 0o600); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+		return
+	}
 	expected := loadScenarioJSONFile(t, path)
 	if !reflect.DeepEqual(expected, actual) {
 		t.Fatalf("scenario mismatch for %s\nexpected=%v\nactual=%v", path, expected, actual)
@@ -199,6 +209,12 @@ func assertScenarioMarkdownLinesEqual(t *testing.T, expectedPath, actualPath str
 	actualPayload, err := os.ReadFile(actualPath)
 	if err != nil {
 		t.Fatalf("read actual markdown: %v", err)
+	}
+	if os.Getenv("WRKR_UPDATE_GOLDENS") == "1" {
+		if err := os.WriteFile(expectedPath, actualPayload, 0o600); err != nil {
+			t.Fatalf("write %s: %v", expectedPath, err)
+		}
+		return
 	}
 	expectedLines := filteredScenarioMarkdownLines(string(expectedPayload))
 	actualLines := filteredScenarioMarkdownLines(string(actualPayload))

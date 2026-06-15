@@ -46,6 +46,7 @@ type ActionPathSummaryOptions struct {
 func ProjectActionPath(path ActionPath) ActionPath {
 	out := path
 	out.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(out.EndpointRefGroupProjection, out.MutableEndpointSemanticRefs, out.MutableEndpointSemantics)
+	out = stripUncorrelatedContextAuthority(out)
 	out.ConfidenceLane, out.ConfidenceLaneReasons = deriveConfidenceLane(out)
 	out = projectEvidenceStates(out)
 	derivedTargetClass, derivedTargetReasons, derivedTargetRefs := deriveTargetClass(out)
@@ -62,6 +63,7 @@ func ProjectActionPath(path ActionPath) ActionPath {
 		out.ControlResolutionReasons = dedupeSortedStrings(append(out.ControlResolutionReasons, contradictionReasonCodes(out.Contradictions)...))
 		out.ControlResolutionState, out.ControlResolutionReasons = deriveControlResolutionState(out, out.ControlResolutionReasons)
 	}
+	out.ActionPathEligible, out.ActionBindingState = deriveActionBindingProjection(out)
 
 	model := deriveGovernFirstModel(out)
 	out.InventoryRisk = model.inventoryRisk
@@ -857,6 +859,10 @@ func confidenceLaneRank(value string) int {
 	default:
 		return 3
 	}
+}
+
+func pathLikelyNeedsCorrelation(path ActionPath) bool {
+	return !IsActionPathEligible(path) && (pathTargetsCorrelationContext(path) || pathIsAgentInstructionControlSurface(path))
 }
 
 func reviewBurdenRank(value string) int {

@@ -94,6 +94,8 @@ type ActionPath struct {
 	TargetClass                string                         `json:"target_class,omitempty"`
 	TargetClassReasons         []string                       `json:"target_class_reasons,omitempty"`
 	TargetClassEvidenceRefs    []string                       `json:"target_class_evidence_refs,omitempty"`
+	ActionPathEligible         bool                           `json:"action_path_eligible,omitempty"`
+	ActionBindingState         string                         `json:"action_binding_state,omitempty"`
 	ActionPathType             string                         `json:"action_path_type,omitempty"`
 	ActionPathTypeReasons      []string                       `json:"action_path_type_reasons,omitempty"`
 	ActionPathTypeEvidenceRefs []string                       `json:"action_path_type_evidence_refs,omitempty"`
@@ -523,6 +525,8 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.TargetClass = chooseTargetClass(current.TargetClass, incoming.TargetClass)
 	merged.TargetClassReasons = dedupeSortedStrings(append(append([]string(nil), current.TargetClassReasons...), incoming.TargetClassReasons...))
 	merged.TargetClassEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.TargetClassEvidenceRefs...), incoming.TargetClassEvidenceRefs...))
+	merged.ActionPathEligible = current.ActionPathEligible || incoming.ActionPathEligible
+	merged.ActionBindingState = mergeActionBindingState(current.ActionBindingState, incoming.ActionBindingState)
 	merged.ActionPathType = chooseActionPathType(current.ActionPathType, incoming.ActionPathType)
 	merged.ActionPathTypeReasons = dedupeSortedStrings(append(append([]string(nil), current.ActionPathTypeReasons...), incoming.ActionPathTypeReasons...))
 	merged.ActionPathTypeEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.ActionPathTypeEvidenceRefs...), incoming.ActionPathTypeEvidenceRefs...))
@@ -587,6 +591,38 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 
 func summarizeActionPaths(paths []ActionPath) ActionPathSummary {
 	return SummarizeActionPaths(paths, ActionPathSummaryOptions{})
+}
+
+func mergeActionBindingState(current, incoming string) string {
+	current = strings.TrimSpace(current)
+	incoming = strings.TrimSpace(incoming)
+	switch {
+	case !ValidActionBindingState(current):
+		return incoming
+	case !ValidActionBindingState(incoming):
+		return current
+	case current == incoming:
+		return current
+	case actionBindingRank(incoming) < actionBindingRank(current):
+		return incoming
+	default:
+		return current
+	}
+}
+
+func actionBindingRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case ActionBindingStateBound:
+		return 0
+	case ActionBindingStatePartiallyBound:
+		return 1
+	case ActionBindingStateUnboundContext:
+		return 2
+	case ActionBindingStateContradictory:
+		return 3
+	default:
+		return 99
+	}
 }
 
 func firstNonNilAgenticDeliverySystemChange(current, incoming *AgenticDeliverySystemChange) *AgenticDeliverySystemChange {

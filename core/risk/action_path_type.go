@@ -8,8 +8,10 @@ import (
 const (
 	ActionPathTypeAIAssistedWorkflow    = "ai_assisted_workflow"
 	ActionPathTypeAgentFramework        = "agent_framework"
+	ActionPathTypeAgentInstruction      = "agent_instruction_surface"
 	ActionPathTypeAutomationBot         = "automation_bot"
 	ActionPathTypeCICDWorkflow          = "ci_cd_workflow"
+	ActionPathTypeDependencyOnlySignal  = "dependency_only_signal"
 	ActionPathTypeLegacyScript          = "legacy_script"
 	ActionPathTypePlainSourceCode       = "plain_source_code"
 	ActionPathTypeUnknownExecutablePath = "unknown_executable_path"
@@ -19,8 +21,10 @@ func ValidActionPathType(value string) bool {
 	switch strings.TrimSpace(value) {
 	case ActionPathTypeAIAssistedWorkflow,
 		ActionPathTypeAgentFramework,
+		ActionPathTypeAgentInstruction,
 		ActionPathTypeAutomationBot,
 		ActionPathTypeCICDWorkflow,
+		ActionPathTypeDependencyOnlySignal,
 		ActionPathTypeLegacyScript,
 		ActionPathTypePlainSourceCode,
 		ActionPathTypeUnknownExecutablePath:
@@ -59,6 +63,9 @@ func deriveActionPathType(path ActionPath) (string, []string, []string) {
 	case actionPathHasBotIdentity(path):
 		addReason("bot_identity:" + strings.TrimSpace(path.ExecutionIdentityType))
 		return ActionPathTypeAutomationBot, dedupeSortedStrings(reasons), dedupeSortedStrings(refs)
+	case pathIsAgentInstructionControlSurface(path):
+		addReason("instruction_surface:true")
+		return ActionPathTypeAgentInstruction, dedupeSortedStrings(reasons), dedupeSortedStrings(refs)
 	case pathIsPromptOrInstructionSurface(path) || pathIsDeveloperProductivity(path):
 		addReason("ai_workflow_surface:true")
 		return ActionPathTypeAIAssistedWorkflow, dedupeSortedStrings(reasons), dedupeSortedStrings(refs)
@@ -70,7 +77,7 @@ func deriveActionPathType(path ActionPath) (string, []string, []string) {
 		return ActionPathTypeLegacyScript, dedupeSortedStrings(reasons), dedupeSortedStrings(refs)
 	case actionPathDependencyOnly(path):
 		addReason("dependency_only:true")
-		return ActionPathTypeUnknownExecutablePath, dedupeSortedStrings(reasons), dedupeSortedStrings(refs)
+		return ActionPathTypeDependencyOnlySignal, dedupeSortedStrings(reasons), dedupeSortedStrings(refs)
 	case pathHasExecutableBinding(path):
 		addReason("source_execution_linkage:true")
 		return ActionPathTypePlainSourceCode, dedupeSortedStrings(reasons), dedupeSortedStrings(refs)
@@ -113,14 +120,18 @@ func actionPathTypeRank(value string) int {
 		return 1
 	case ActionPathTypeAutomationBot:
 		return 2
-	case ActionPathTypeAIAssistedWorkflow:
+	case ActionPathTypeAgentInstruction:
 		return 3
-	case ActionPathTypeLegacyScript:
+	case ActionPathTypeAIAssistedWorkflow:
 		return 4
-	case ActionPathTypePlainSourceCode:
+	case ActionPathTypeLegacyScript:
 		return 5
-	case ActionPathTypeUnknownExecutablePath:
+	case ActionPathTypePlainSourceCode:
 		return 6
+	case ActionPathTypeDependencyOnlySignal:
+		return 7
+	case ActionPathTypeUnknownExecutablePath:
+		return 8
 	default:
 		return 99
 	}

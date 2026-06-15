@@ -21,6 +21,7 @@ const (
 	ClosureRequirementAttachApproval            = "attach_approval"
 	ClosureRequirementAttachPolicyReference     = "attach_policy_reference"
 	ClosureRequirementAttachProof               = "attach_proof"
+	ClosureRequirementCorrelateSurface          = "correlate_surface"
 	ClosureRequirementCollectRuntimeEvidence    = "collect_runtime_evidence"
 	ClosureRequirementExpandScanCoverage        = "expand_scan_coverage"
 	ClosureRequirementProvideProviderExport     = "provide_provider_export"
@@ -242,6 +243,9 @@ func buildClosureRequirements(path ActionPath, signals scanquality.CompletenessS
 	for _, freshness := range freshnessClosureRequirements(path) {
 		add(freshness)
 	}
+	if correlationRequirement, ok := correlationClosureRequirement(path); ok {
+		add(correlationRequirement)
+	}
 	if ownerRequirement, ok := ownerClosureRequirement(path); ok {
 		add(ownerRequirement)
 	}
@@ -368,6 +372,52 @@ func freshnessClosureRequirements(path ActionPath) []ClosureRequirement {
 		})
 	}
 	return out
+}
+
+func correlationClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
+	if IsActionPathEligible(path) || strings.TrimSpace(actionBindingStateForPath(path)) != ActionBindingStateUnboundContext {
+		return ClosureRequirement{}, false
+	}
+
+	requiredEvidence := "Correlation evidence that links this surface to a real workflow, credential use, tool binding, deploy path, runtime caller, or recent change."
+	examples := []string{
+		"Attach a workflow, runtime, or MCP/tool reference that consumes this surface directly.",
+		"Attach a recent change or owner-reviewed declaration that links this surface to the execution path it governs.",
+	}
+	guidance := "Correlate this surface to a real executable or governable path before promoting it into Top Action Paths or Action Contracts."
+	reasonCodes := []string{"binding_state:" + actionBindingStateForPath(path)}
+	refs := dedupeSortedStrings(append(append([]string(nil), path.TargetClassEvidenceRefs...), path.ActionPathTypeEvidenceRefs...))
+
+	switch {
+	case IsInstructionControlSurface(path):
+		requiredEvidence = "Correlation evidence plus owner/review evidence that links this instruction surface to the workflow, agent runtime, tool config, or provider boundary that consumes it."
+		examples = []string{
+			"Attach CODEOWNERS, branch-protection, provider-team, app-catalog, or customer-owner evidence for the instruction surface.",
+			"Attach the workflow, runtime, or tool-binding evidence that proves which execution path consumes this instruction file or config.",
+		}
+		guidance = "Correlate this instruction surface to the workflow, agent runtime, MCP/tool path, or recent change that consumes it, then attach owner and review evidence before treating it as governable."
+	case actionPathDependencyOnly(path):
+		requiredEvidence = "Executable or runtime/control evidence that proves this dependency signal governs a real path."
+		examples = []string{
+			"Attach the workflow, runtime, or tool path that loads or executes the dependency.",
+			"Keep the dependency signal in context-only output until a governable binding is proven.",
+		}
+		guidance = "Keep this dependency-only signal in context until executable, runtime, or control evidence proves it governs a real path."
+	}
+
+	return ClosureRequirement{
+		ID:                      closureRequirementID(path.PathID, ClosureRequirementCorrelateSurface, strings.TrimSpace(path.ActionPathType)),
+		Severity:                ClosureSeverityHigh,
+		RequirementType:         ClosureRequirementCorrelateSurface,
+		CurrentEvidenceState:    EvidenceStateUnknown,
+		RequiredEvidence:        requiredEvidence,
+		AcceptableSourceClasses: []string{evidencepolicy.SourceTypeProviderExport, evidencepolicy.SourceTypeRuntime, evidencepolicy.SourceTypeRepoPolicy, evidencepolicy.SourceTypeSignedDeclaration, evidencepolicy.SourceTypeTicketExport},
+		FreshnessRequirement:    "correlation evidence should match the current path and control surface",
+		Examples:                examples,
+		ClosureRefs:             refs,
+		ReasonCodes:             reasonCodes,
+		Guidance:                guidance,
+	}, true
 }
 
 func ownerClosureRequirement(path ActionPath) (ClosureRequirement, bool) {

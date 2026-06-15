@@ -182,6 +182,39 @@ func TestProjectActionPathContradictoryEvidenceBlocksContract(t *testing.T) {
 	}
 }
 
+func TestProjectActionPathContextOnlySurfaceNeedsCorrelationContract(t *testing.T) {
+	t.Parallel()
+
+	path := ProjectActionPath(ActionPath{
+		PathID:                "apc-openapi-context",
+		Org:                   "acme",
+		Repo:                  "acme/payments",
+		ToolType:              "openapi",
+		Location:              "openapi/payments.yaml",
+		WriteCapable:          true,
+		ApprovalEvidenceState: EvidenceStateVerified,
+		OwnerEvidenceState:    EvidenceStateVerified,
+		ProofEvidenceState:    EvidenceStateVerified,
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{{
+			Semantic:     agginventory.EndpointSemanticPayment,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    "POST /v1/payments",
+			EvidenceRefs: []string{"POST /v1/payments"},
+		}},
+	})
+
+	if path.ActionPathEligible {
+		t.Fatalf("expected uncorrelated target surface to remain ineligible, got %+v", path)
+	}
+	if path.RecommendedActionContract == nil {
+		t.Fatal("expected correlation guidance contract")
+	}
+	if path.RecommendedActionContract.ContractReadinessState != ActionContractReadinessNeedsCorrelation {
+		t.Fatalf("expected needs_correlation contract readiness, got %+v", path.RecommendedActionContract)
+	}
+}
+
 func TestSummarizeActionPathsCountsWave1Enums(t *testing.T) {
 	t.Parallel()
 

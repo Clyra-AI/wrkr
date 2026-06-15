@@ -1,7 +1,28 @@
 {
-  "template": "design-partner-summary",
-  "share_profile": "design-partner",
+  "bom_count": 7,
+  "first_bom": {
+    "confidence_lane": "confirmed_action_path",
+    "location": "loc-dd191250",
+    "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
+    "repo": "repo-d236d5"
+  },
+  "first_registry": {
+    "confidence_lane": "confirmed_action_path",
+    "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
+    "surface_type": "route_file"
+  },
   "metadata": {
+    "profile_default_fields": [
+      "authors",
+      "credential-subjects",
+      "filesystem",
+      "graph-refs",
+      "owners",
+      "paths",
+      "proof-refs",
+      "providers",
+      "repos"
+    ],
     "redaction_applied": true,
     "redaction_version": "customer-share-v2",
     "selected_fields": [
@@ -14,30 +35,9 @@
       "proof-refs",
       "providers",
       "repos"
-    ],
-    "profile_default_fields": [
-      "authors",
-      "credential-subjects",
-      "filesystem",
-      "graph-refs",
-      "owners",
-      "paths",
-      "proof-refs",
-      "providers",
-      "repos"
     ]
   },
   "registry_count": 7,
-  "bom_count": 7,
-  "first_registry": {
-    "surface_type": "api_schema",
-    "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
-    "confidence_lane": "likely_action_path"
-  },
-  "first_bom": {
-    "repo": "repo-d236d5",
-    "location": "loc-6dd0f3ed",
-    "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
-    "confidence_lane": "likely_action_path"
-  }
+  "share_profile": "design-partner",
+  "template": "design-partner-summary"
 }

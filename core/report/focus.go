@@ -130,6 +130,9 @@ func eligibleWorkflowHighlightItems(bom *AgentActionBOM) []AgentActionBOMItem {
 
 	filtered := make([]AgentActionBOMItem, 0, len(bom.Items))
 	for _, item := range bom.Items {
+		if !bomItemEligible(item) {
+			continue
+		}
 		if strings.TrimSpace(item.ConfidenceLane) == risk.ConfidenceLaneContextOnly {
 			continue
 		}
@@ -138,7 +141,7 @@ func eligibleWorkflowHighlightItems(bom *AgentActionBOM) []AgentActionBOMItem {
 	if len(filtered) > 0 {
 		return filtered
 	}
-	return append([]AgentActionBOMItem(nil), bom.Items...)
+	return nil
 }
 
 func filterFocusPresetItems(items []AgentActionBOMItem, preset FocusPreset, summary Summary) []AgentActionBOMItem {

@@ -1,11 +1,45 @@
 # Wrkr Design Partner Summary
+
+- Generated at: 2026-06-15T16:41:58Z
 - Template: design-partner-summary
 - Share profile: design-partner
 - Boundary: static posture from saved scan state only; no live runtime observation, endpoint probing, or control-layer enforcement
 - Scan scope: local repository path mode=path repos=1 targets=1
 - Share redaction: version=customer-share-v2 fields=authors, credential-subjects, filesystem, graph-refs, owners, paths, proof-refs, providers, repos
+
 ## Top Validated Findings
-1. repo-d236d5 in loc-6dd0f3ed
+
+1. repo-d236d5 in loc-dd191250
+Problem: This path can change production-adjacent state and is missing enough governance evidence.
+Likely explanation: config=loc-dd191250
+Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=production_mutation x6,refund x4,write x3
+Recommended control: Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
+Confidence lane: confirmed action path
+Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
+Credential authority: no credential authority was linked to this path
+High-stakes: credential_bearing_automation (credential_authority:present); mutable_endpoint (mutable_endpoint:present); payment_flow (payment_surface:detected); production_path (production_path:detected); regulated_customer_workflow (customer_or_regulated_surface:detected)
+Mutable endpoint: 20 grouped endpoint semantics; 4 route groups; production_mutation x6, refund x4, write x3, data_export x2; samples=endpoint-8be61507 | endpoint-dc74895a | endpoint-d66e2561 | endpoint-c43f7237 | endpoint-0d2751ad | endpoint-0315367e | endpoint-412970ad
+Production context: status=correlated, surface=label-dd191250, credential=standing credential, target=production_impacting, deployment=unknown, operations=label-8be61507,label-c43f7237,label-dc74895a,label-d66e2561,label-0d2751ad,label-0315367e,label-412970ad
+Owner: owner-c6dd827f
+Purpose: purpose not confirmed
+Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-dd191250 -> label-dd191250 -> label-880ec2e1 -> label-190c1a6b -> label-f82078a0 -> label-eb24c1ad -> label-c6dd827f -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+
+2. repo-d236d5 in loc-d5d3368a
+Problem: This path can change production-adjacent state and is missing enough governance evidence.
+Likely explanation: purpose=mcp integration, purpose_source=location_heuristic, config=loc-d5d3368a
+Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=data_export x1,production_mutation x1,refund x1
+Recommended control: Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
+Confidence lane: agent instruction surface
+Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
+Credential authority: no credential authority was linked to this path
+High-stakes: external_egress (external_egress:detected); mcp_tool_config (tool_or_mcp_config:detected); mutable_endpoint (mutable_endpoint:present); payment_flow (payment_surface:detected); production_path (production_path:detected); regulated_customer_workflow (customer_or_regulated_surface:detected)
+Mutable endpoint: 3 grouped endpoint semantics; 1 route groups; data_export x1, production_mutation x1, refund x1; samples=endpoint-412970ad
+Production context: status=correlated, surface=label-625a4c05, credential=no credential evidence, target=customer_data_adjacent, deployment=unknown, operations=label-412970ad
+Owner: owner-f9ae3305
+Purpose: mcp integration
+Lineage: label-625a4c05 -> label-625a4c05 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-d5d3368a -> label-d5d3368a -> label-3561f2b0 -> label-eef5b827 -> label-b23a6a84 (missing) -> label-5a824d8e -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-5a824d8e -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+
+3. repo-d236d5 in loc-6dd0f3ed
 Problem: This path can change production-adjacent state and is missing enough governance evidence.
 Likely explanation: config=loc-6dd0f3ed
 Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=production_mutation x5,refund x4,data_export x3
@@ -17,3 +51,65 @@ High-stakes: credential_bearing_automation (credential_authority:present); exter
 Mutable endpoint: 19 grouped endpoint semantics; 4 route groups; production_mutation x5, refund x4, data_export x3, write x3; samples=endpoint-dc74895a | endpoint-73437816 | endpoint-d66e2561 | endpoint-0d2751ad | endpoint-fed73031 | endpoint-0315367e | endpoint-412970ad
 Production context: status=correlated, surface=label-6dd0f3ed, credential=standing credential, target=production_impacting, deployment=unknown, operations=label-73437816,label-fed73031,label-dc74895a,label-d66e2561,label-0d2751ad,label-0315367e,label-412970ad
 Owner: owner-ab37caea
+Purpose: purpose not confirmed
+Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-6dd0f3ed -> label-6dd0f3ed -> label-837b932d -> label-44b4c4e4 -> label-f82078a0 -> label-eb24c1ad -> label-ab37caea -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+
+4. repo-d236d5 in loc-d5d3368a
+Problem: This path can change production-adjacent state and is missing enough governance evidence.
+Likely explanation: purpose=mcp integration, purpose_source=location_heuristic, config=loc-d5d3368a
+Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=data_export x1,production_mutation x1,refund x1
+Recommended control: Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
+Confidence lane: agent instruction surface
+Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
+Credential authority: no credential authority was linked to this path
+High-stakes: external_egress (external_egress:detected); mcp_tool_config (tool_or_mcp_config:detected); mutable_endpoint (mutable_endpoint:present); payment_flow (payment_surface:detected); production_path (production_path:detected); regulated_customer_workflow (customer_or_regulated_surface:detected)
+Mutable endpoint: 3 grouped endpoint semantics; 1 route groups; data_export x1, production_mutation x1, refund x1; samples=endpoint-412970ad
+Production context: status=correlated, surface=label-625a4c05, credential=no credential evidence, target=customer_data_adjacent, deployment=unknown, operations=label-412970ad
+Owner: owner-f9ae3305
+Purpose: mcp integration
+Lineage: label-625a4c05 -> label-625a4c05 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-d5d3368a -> label-d5d3368a -> label-b29c45ca -> label-eef5b827 -> label-b23a6a84 (missing) -> label-5a824d8e -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-5a824d8e -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+
+5. repo-d236d5 in loc-cd78127f
+Problem: This path can change production-adjacent state and is missing enough governance evidence.
+Likely explanation: purpose=refund agent, purpose_source=workflow_name, config=loc-cd78127f
+Threat: risk_zone=credential_bearing, risk_tier=critical, production_target_status=configured
+Recommended control: Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius.
+Confidence lane: confirmed action path
+Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
+Credential authority: credential access is present, but normalized authority details are incomplete
+High-stakes: credential_bearing_automation (credential_authority:present); production_path (production_path:detected)
+Mutable endpoint: no declared mutable endpoint semantics were linked to this path
+Production context: no production-data context was projected for this path
+Owner: owner-920a23be
+Purpose: refund agent
+Lineage: label-9132aafa -> label-9132aafa -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-cd78127f -> label-cd78127f -> label-6656cc9d -> label-bab06f2c -> label-f82078a0 -> target (missing) -> label-920a23be -> label-05227691 (missing) -> label-a6769766 -> label-77fcb75d (missing) -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+
+6. repo-d236d5 in loc-a54ff182
+Problem: The path is operationally meaningful, but approval evidence is not yet linked or complete.
+Likely explanation: config=loc-a54ff182
+Threat: risk_zone=coding_help, risk_tier=high, production_target_status=configured
+Recommended control: Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.
+Confidence lane: review candidate instruction surface
+Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
+Credential authority: no credential authority was linked to this path
+High-stakes: mcp_tool_config (tool_or_mcp_config:detected)
+Mutable endpoint: no declared mutable endpoint semantics were linked to this path
+Production context: no production-data context was projected for this path
+Owner: owner-f9ae3305
+Purpose: purpose not confirmed
+Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-a54ff182 -> label-a54ff182 -> label-a9322446 -> label-3316348d -> label-b23a6a84 (missing) -> target (missing) -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-77fcb75d (missing) -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
+
+## Registry Highlights
+
+- label-8a84e406 surface=route_file owner=owner-c6dd827f purpose=purpose not confirmed confidence=confirmed_action_path remediation=Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
+- label-625a4c05 surface=server owner=owner-f9ae3305 purpose=mcp integration confidence=likely_action_path remediation=Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
+- label-2d676fe1 surface=api_schema owner=owner-ab37caea purpose=purpose not confirmed confidence=likely_action_path remediation=Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
+- label-625a4c05 surface=surface owner=owner-f9ae3305 purpose=mcp integration confidence=likely_action_path remediation=Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
+- label-9132aafa surface=workflow owner=owner-920a23be purpose=refund agent confidence=confirmed_action_path remediation=Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius.
+
+## Known Limits
+
+- This summary reflects declared code, workflow, MCP, route, and evidence artifacts only.
+- Runtime control, live endpoint reachability, and Gait enforcement are not claimed unless explicit runtime evidence is attached.
+- Semantic prompt or instruction findings stay labeled as review candidates until executable linkage, permissions, and authority are proven.
+

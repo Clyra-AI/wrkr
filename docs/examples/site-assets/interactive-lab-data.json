@@ -67,8 +67,8 @@
           "closure=remediate repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-2e0ac995ef4b",
-          "path-07618905b8d2"
+          "path-a0148cc443aa",
+          "path-976cd7720979"
         ]
       },
       {
@@ -102,45 +102,9 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-9f799d7fdd64",
-          "path-6feb19d82180",
-          "path-b539539fde6f"
-        ]
-      },
-      {
-        "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
-        "count": 3,
-        "dimensions": {
-          "action_class": "read",
-          "closure_action": "attach_evidence",
-          "contradiction_state": "consistent",
-          "credential_authority": "unknown",
-          "detector_confidence": "semantic_review_candidate",
-          "evidence_state": "unknown",
-          "owner_state": "inferred",
-          "production_target": "non_production_or_unknown",
-          "repo_cluster": "single_repo",
-          "risk_zone": "coding_help",
-          "target_class": "test_demo_sandbox"
-        },
-        "evidence_state_summary": {
-          "contradictory": 0,
-          "declared": 0,
-          "inferred": 0,
-          "unknown": 3,
-          "verified": 0
-        },
-        "group_id": "xrg-72044fd98ef0",
-        "highest_priority": "review_queue",
-        "highest_severity": "high",
-        "rationale": [
-          "3 read paths grouped by test_demo_sandbox and unknown evidence",
-          "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
-        ],
-        "top_example_refs": [
-          "path-347817d9abd5",
-          "path-86a567d8ff5e",
-          "path-d2f2834909d1"
+          "path-5e74203c9ef9",
+          "path-6570aca51ab1",
+          "path-868e45a637fe"
         ]
       },
       {
@@ -174,8 +138,8 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-25c6ee3ab5f4",
-          "path-0408789c39ea"
+          "path-84f171cab980",
+          "path-b3bb3a28a9a6"
         ]
       },
       {
@@ -211,6 +175,75 @@
         "top_example_refs": [
           "path-ac130052c789",
           "path-bf95ca34171f"
+        ]
+      },
+      {
+        "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+        "count": 2,
+        "dimensions": {
+          "action_class": "read",
+          "closure_action": "attach_evidence",
+          "contradiction_state": "consistent",
+          "credential_authority": "unknown",
+          "detector_confidence": "semantic_review_candidate",
+          "evidence_state": "unknown",
+          "owner_state": "inferred",
+          "production_target": "non_production_or_unknown",
+          "repo_cluster": "single_repo",
+          "risk_zone": "coding_help",
+          "target_class": "test_demo_sandbox"
+        },
+        "evidence_state_summary": {
+          "contradictory": 0,
+          "declared": 0,
+          "inferred": 0,
+          "unknown": 2,
+          "verified": 0
+        },
+        "group_id": "xrg-72044fd98ef0",
+        "highest_priority": "review_queue",
+        "highest_severity": "high",
+        "rationale": [
+          "2 read paths grouped by test_demo_sandbox and unknown evidence",
+          "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
+        ],
+        "top_example_refs": [
+          "path-d5d0c4cfffdc",
+          "path-9f02eb0f17d7"
+        ]
+      },
+      {
+        "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+        "count": 1,
+        "dimensions": {
+          "action_class": "read",
+          "closure_action": "attach_evidence",
+          "contradiction_state": "consistent",
+          "credential_authority": "none",
+          "detector_confidence": "semantic_review_candidate",
+          "evidence_state": "unknown",
+          "owner_state": "inferred",
+          "production_target": "non_production_or_unknown",
+          "repo_cluster": "single_repo",
+          "risk_zone": "coding_help",
+          "target_class": "test_demo_sandbox"
+        },
+        "evidence_state_summary": {
+          "contradictory": 0,
+          "declared": 0,
+          "inferred": 0,
+          "unknown": 1,
+          "verified": 0
+        },
+        "group_id": "xrg-27c8ba42b953",
+        "highest_priority": "review_queue",
+        "highest_severity": "high",
+        "rationale": [
+          "1 read paths grouped by test_demo_sandbox and unknown evidence",
+          "closure=attach_evidence repo_cluster=single_repo credential_authority=none"
+        ],
+        "top_example_refs": [
+          "path-d2f2834909d1"
         ]
       },
       {
@@ -312,7 +345,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-d7eca33d1d72"
+          "path-746fc559895f"
         ]
       },
       {
@@ -346,41 +379,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-a0f84f4a31ce"
-        ]
-      },
-      {
-        "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
-        "count": 1,
-        "dimensions": {
-          "action_class": "read",
-          "closure_action": "attach_evidence",
-          "contradiction_state": "consistent",
-          "credential_authority": "unknown",
-          "detector_confidence": "context_only",
-          "evidence_state": "unknown",
-          "owner_state": "inferred",
-          "production_target": "non_production_or_unknown",
-          "repo_cluster": "single_repo",
-          "risk_zone": "coding_help",
-          "target_class": "unknown"
-        },
-        "evidence_state_summary": {
-          "contradictory": 0,
-          "declared": 0,
-          "inferred": 0,
-          "unknown": 1,
-          "verified": 0
-        },
-        "group_id": "xrg-c3730c7e7271",
-        "highest_priority": "inventory_hygiene",
-        "highest_severity": "low",
-        "rationale": [
-          "1 read paths grouped by unknown and unknown evidence",
-          "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
-        ],
-        "top_example_refs": [
-          "path-4579b70a194e"
+          "path-3d2a8c596dbe"
         ]
       },
       {
@@ -414,11 +413,45 @@
           "closure=remediate repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-a67afbe3e0d4"
+          "path-bbdde1593d3a"
+        ]
+      },
+      {
+        "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+        "count": 1,
+        "dimensions": {
+          "action_class": "read",
+          "closure_action": "attach_evidence",
+          "contradiction_state": "consistent",
+          "credential_authority": "none",
+          "detector_confidence": "context_only",
+          "evidence_state": "unknown",
+          "owner_state": "inferred",
+          "production_target": "non_production_or_unknown",
+          "repo_cluster": "single_repo",
+          "risk_zone": "coding_help",
+          "target_class": "unknown"
+        },
+        "evidence_state_summary": {
+          "contradictory": 0,
+          "declared": 0,
+          "inferred": 0,
+          "unknown": 1,
+          "verified": 0
+        },
+        "group_id": "xrg-e18e7d78ad58",
+        "highest_priority": "inventory_hygiene",
+        "highest_severity": "low",
+        "rationale": [
+          "1 read paths grouped by unknown and unknown evidence",
+          "closure=attach_evidence repo_cluster=single_repo credential_authority=none"
+        ],
+        "top_example_refs": [
+          "path-7e3df12c76d1"
         ]
       }
     ],
-    "total_groups": 12,
+    "total_groups": 13,
     "total_paths": 20
   },
   "governed_usage_metrics": {
@@ -514,22 +547,22 @@
   ],
   "top_action_paths": [
     {
-      "action_path_type": "ai_assisted_workflow",
+      "action_path_type": "agent_instruction_surface",
       "control_resolution_state": "detected_control",
-      "location": "loc-dfdfca6cba0d",
-      "path_id": "path-0777638ce938",
+      "location": "loc-5f003e85cbe9",
+      "path_id": "path-a47fb014332f",
       "recommended_action": "control",
-      "repo": "repo-a0701a7ad405",
+      "repo": "repo-503db001f569",
       "risk_zone": "production_data",
       "target_class": "developer_productivity"
     },
     {
-      "action_path_type": "ai_assisted_workflow",
+      "action_path_type": "agent_instruction_surface",
       "control_resolution_state": "detected_control",
-      "location": "loc-ef3203e26642",
-      "path_id": "path-40577b7339cf",
+      "location": "loc-21d63fac9022",
+      "path_id": "path-ea467bc10158",
       "recommended_action": "control",
-      "repo": "repo-08fe8aa8662a",
+      "repo": "repo-476c0f22ae4d",
       "risk_zone": "production_data",
       "target_class": "developer_productivity"
     },
@@ -544,22 +577,22 @@
       "target_class": "production_impacting"
     },
     {
-      "action_path_type": "plain_source_code",
+      "action_path_type": "agent_instruction_surface",
       "control_resolution_state": "detected_control",
-      "location": "loc-e53aad57193e",
-      "path_id": "path-8724f0f76099",
+      "location": "loc-f1cc49528d35",
+      "path_id": "path-ce3d97844a4d",
       "recommended_action": "proof",
-      "repo": "repo-63722de8a307",
+      "repo": "repo-8b08b69ec4bb",
       "risk_zone": "external_egress",
       "target_class": "unknown"
     },
     {
-      "action_path_type": "ai_assisted_workflow",
+      "action_path_type": "agent_instruction_surface",
       "control_resolution_state": "detected_control",
-      "location": "loc-37894f57d787",
-      "path_id": "path-df547c195065",
+      "location": "loc-348362f4c694",
+      "path_id": "path-741d452c639f",
       "recommended_action": "proof",
-      "repo": "repo-cc0c29a940d4",
+      "repo": "repo-e4eb0f9929f8",
       "risk_zone": "external_egress",
       "target_class": "developer_productivity"
     }

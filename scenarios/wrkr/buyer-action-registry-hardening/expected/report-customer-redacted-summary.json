@@ -1,7 +1,33 @@
 {
-  "template": "agent-action-bom",
-  "share_profile": "customer-redacted",
+  "first_item": {
+    "graph_ref_prefixes": {
+      "edge": "edge-",
+      "node": "node-"
+    },
+    "lineage_prefixes": {
+      "evidence": "evidence-",
+      "label": "label-",
+      "segment": "segment-"
+    },
+    "location": "loc-dd191250",
+    "owner": "owner-c6dd827f",
+    "proof_refs": [
+      "proof-1b388508"
+    ],
+    "repo": "repo-d236d5"
+  },
   "metadata": {
+    "profile_default_fields": [
+      "authors",
+      "credential-subjects",
+      "filesystem",
+      "graph-refs",
+      "owners",
+      "paths",
+      "proof-refs",
+      "providers",
+      "repos"
+    ],
     "redaction_applied": true,
     "redaction_version": "customer-share-v2",
     "selected_fields": [
@@ -14,35 +40,9 @@
       "proof-refs",
       "providers",
       "repos"
-    ],
-    "profile_default_fields": [
-      "authors",
-      "credential-subjects",
-      "filesystem",
-      "graph-refs",
-      "owners",
-      "paths",
-      "proof-refs",
-      "providers",
-      "repos"
     ]
   },
-  "first_item": {
-    "repo": "repo-d236d5",
-    "location": "loc-6dd0f3ed",
-    "owner": "owner-ab37caea",
-    "proof_refs": [
-      "proof-beb7dc32"
-    ],
-    "graph_ref_prefixes": {
-      "node": "node-",
-      "edge": "edge-"
-    },
-    "lineage_prefixes": {
-      "segment": "segment-",
-      "label": "label-",
-      "evidence": "evidence-"
-    }
-  },
-  "proof_chain": "redacted://proof-chain.json"
+  "proof_chain": "redacted://proof-chain.json",
+  "share_profile": "customer-redacted",
+  "template": "agent-action-bom"
 }

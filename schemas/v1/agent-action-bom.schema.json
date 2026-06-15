@@ -63,6 +63,9 @@
         "likely_action_path_items": {"type": "integer"},
         "semantic_review_candidate_items": {"type": "integer"},
         "context_only_items": {"type": "integer"},
+        "eligible_action_path_items": {"type": "integer"},
+        "target_surface_context_items": {"type": "integer"},
+        "instruction_control_surface_items": {"type": "integer"},
         "empty_state_status": {"type": "string", "enum": ["eligible", "not_eligible", "coverage_reduced"]},
         "empty_state_reasons": {"type": "array", "items": {"type": "string"}},
         "scan_scope": {"$ref": "#/$defs/scanScope"},
@@ -124,7 +127,9 @@
         "target_class": {"type": "string", "enum": ["production_impacting", "release_adjacent", "customer_data_adjacent", "internal_tooling", "developer_productivity", "test_demo_sandbox", "unknown"]},
         "target_class_reasons": {"type": "array", "items": {"type": "string"}},
         "target_class_evidence_refs": {"type": "array", "items": {"type": "string"}},
-        "action_path_type": {"type": "string", "enum": ["ai_assisted_workflow", "agent_framework", "automation_bot", "ci_cd_workflow", "legacy_script", "plain_source_code", "unknown_executable_path"]},
+        "action_path_eligible": {"type": "boolean"},
+        "action_binding_state": {"type": "string", "enum": ["bound", "partially_bound", "unbound_context", "contradictory"]},
+        "action_path_type": {"type": "string", "enum": ["ai_assisted_workflow", "agent_framework", "agent_instruction_surface", "automation_bot", "ci_cd_workflow", "dependency_only_signal", "legacy_script", "plain_source_code", "unknown_executable_path"]},
         "action_path_type_reasons": {"type": "array", "items": {"type": "string"}},
         "action_path_type_evidence_refs": {"type": "array", "items": {"type": "string"}},
         "credential_access": {"type": "boolean"},
@@ -308,7 +313,7 @@
     },
     "actionContractReadinessState": {
       "type": "string",
-      "enum": ["draft", "needs_owner", "needs_approval_evidence", "ready_for_report_only", "ready_for_control", "blocked_by_contradiction"]
+      "enum": ["blocked", "needs_owner", "needs_approval_evidence", "needs_proof_evidence", "needs_correlation", "ready_for_report_only", "ready_for_control", "blocked_by_contradiction"]
     },
     "autonomyTierCounts": {
       "type": "object",

@@ -28,7 +28,7 @@ func TestTargetClassificationScenario(t *testing.T) {
 	}
 
 	codexPath := findActionPathByLocation(t, actionPaths, ".codex/config.toml")
-	if codexPath["target_class"] != "developer_productivity" || codexPath["action_path_type"] != "ai_assisted_workflow" {
-		t.Fatalf("expected codex config productivity/ai-workflow classification, got %v", codexPath)
+	if codexPath["target_class"] != "developer_productivity" || codexPath["action_path_type"] != "agent_instruction_surface" {
+		t.Fatalf("expected codex config productivity/instruction-surface classification, got %v", codexPath)
 	}
 }

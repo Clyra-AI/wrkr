@@ -1,102 +1,22 @@
 {
-  "bom_id": "bom-d25c73d5ae31",
+  "bom_id": "bom-46890143d2a1",
   "items": [
     {
-      "action_path_type": "ai_assisted_workflow",
+      "action_path_type": "agent_instruction_surface",
       "approval_evidence_state": "unknown",
       "autonomy_tier": "tier_3_sensitive_code_or_infra",
-      "confidence_lane": "semantic_review_candidate",
+      "confidence_lane": "context_only",
       "control_resolution_state": "detected_control",
-      "control_state": "approval_required",
+      "control_state": "inventory_only",
       "delegation_readiness_state": "review_required",
       "evidence_strength": null,
-      "location": "loc-04aa468de0c3",
+      "location": "loc-63ac2495214e",
       "owner_evidence_state": "inferred",
-      "path_id": "path-0408789c39ea",
+      "path_id": "path-3d2a8c596dbe",
       "proof_evidence_state": "unknown",
-      "queue": "control_first",
+      "queue": "inventory_hygiene",
       "recommended_action": null,
-      "repo": "repo-b83c2ddb3d58",
-      "risk_zone": "coding_help",
-      "runtime_evidence_state": "unknown",
-      "target_class": "developer_productivity"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
-      "approval_evidence_state": "unknown",
-      "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
-      "confidence_lane": "likely_action_path",
-      "control_resolution_state": "detected_control",
-      "control_state": "approval_required",
-      "delegation_readiness_state": "review_required",
-      "evidence_strength": null,
-      "location": "loc-012c2f72372d",
-      "owner_evidence_state": "inferred",
-      "path_id": "path-07618905b8d2",
-      "proof_evidence_state": "unknown",
-      "queue": "control_first",
-      "recommended_action": null,
-      "repo": "repo-844a3abd72c2",
-      "risk_zone": "production_data",
-      "runtime_evidence_state": "unknown",
-      "target_class": "developer_productivity"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
-      "approval_evidence_state": "unknown",
-      "autonomy_tier": "tier_2_app_code_owner_review",
-      "confidence_lane": "semantic_review_candidate",
-      "control_resolution_state": "detected_control",
-      "control_state": "approval_required",
-      "delegation_readiness_state": "review_required",
-      "evidence_strength": null,
-      "location": "loc-405ea50668d9",
-      "owner_evidence_state": "inferred",
-      "path_id": "path-25c6ee3ab5f4",
-      "proof_evidence_state": "unknown",
-      "queue": "control_first",
-      "recommended_action": null,
-      "repo": "repo-87ca60151b5c",
-      "risk_zone": "coding_help",
-      "runtime_evidence_state": "unknown",
-      "target_class": "developer_productivity"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
-      "approval_evidence_state": "unknown",
-      "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
-      "confidence_lane": "likely_action_path",
-      "control_resolution_state": "detected_control",
-      "control_state": "approval_required",
-      "delegation_readiness_state": "review_required",
-      "evidence_strength": null,
-      "location": "loc-f3f67adafbb1",
-      "owner_evidence_state": "inferred",
-      "path_id": "path-2e0ac995ef4b",
-      "proof_evidence_state": "unknown",
-      "queue": "control_first",
-      "recommended_action": null,
-      "repo": "repo-035deadf94d8",
-      "risk_zone": "production_data",
-      "runtime_evidence_state": "unknown",
-      "target_class": "developer_productivity"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
-      "approval_evidence_state": "unknown",
-      "autonomy_tier": "tier_3_sensitive_code_or_infra",
-      "confidence_lane": "semantic_review_candidate",
-      "control_resolution_state": "detected_control",
-      "control_state": "approval_required",
-      "delegation_readiness_state": "review_required",
-      "evidence_strength": null,
-      "location": "loc-825ca683e639",
-      "owner_evidence_state": "inferred",
-      "path_id": "path-347817d9abd5",
-      "proof_evidence_state": "unknown",
-      "queue": "control_first",
-      "recommended_action": null,
-      "repo": "repo-7ea4aec7d1cf",
+      "repo": "repo-adb75c3358a9",
       "risk_zone": "coding_help",
       "runtime_evidence_state": "unknown",
       "target_class": "test_demo_sandbox"
@@ -122,7 +42,107 @@
       "target_class": "production_impacting"
     },
     {
-      "action_path_type": "unknown_executable_path",
+      "action_path_type": "ai_assisted_workflow",
+      "approval_evidence_state": "unknown",
+      "autonomy_tier": "tier_2_app_code_owner_review",
+      "confidence_lane": "likely_action_path",
+      "control_resolution_state": "detected_control",
+      "control_state": "approval_required",
+      "delegation_readiness_state": "review_required",
+      "evidence_strength": null,
+      "location": "loc-ac18aa09125a",
+      "owner_evidence_state": "inferred",
+      "path_id": "path-5532c97b62fe",
+      "proof_evidence_state": "unknown",
+      "queue": "control_first",
+      "recommended_action": null,
+      "repo": "repo-f2bc88883e41",
+      "risk_zone": "coding_help",
+      "runtime_evidence_state": "unknown",
+      "target_class": "developer_productivity"
+    },
+    {
+      "action_path_type": "ai_assisted_workflow",
+      "approval_evidence_state": "unknown",
+      "autonomy_tier": "tier_2_app_code_owner_review",
+      "confidence_lane": "likely_action_path",
+      "control_resolution_state": "detected_control",
+      "control_state": "approval_required",
+      "delegation_readiness_state": "review_required",
+      "evidence_strength": null,
+      "location": "loc-ac18aa09125a",
+      "owner_evidence_state": "inferred",
+      "path_id": "path-5532c97b62fe",
+      "proof_evidence_state": "unknown",
+      "queue": "control_first",
+      "recommended_action": null,
+      "repo": "repo-f2bc88883e41",
+      "risk_zone": "coding_help",
+      "runtime_evidence_state": "unknown",
+      "target_class": "developer_productivity"
+    },
+    {
+      "action_path_type": "agent_instruction_surface",
+      "approval_evidence_state": "unknown",
+      "autonomy_tier": "tier_3_sensitive_code_or_infra",
+      "confidence_lane": "likely_action_path",
+      "control_resolution_state": "detected_control",
+      "control_state": "approval_required",
+      "delegation_readiness_state": "review_required",
+      "evidence_strength": null,
+      "location": "loc-4643cf44db72",
+      "owner_evidence_state": "inferred",
+      "path_id": "path-5e74203c9ef9",
+      "proof_evidence_state": "unknown",
+      "queue": "control_first",
+      "recommended_action": null,
+      "repo": "repo-b9fb7d2d28c9",
+      "risk_zone": "external_egress",
+      "runtime_evidence_state": "unknown",
+      "target_class": "developer_productivity"
+    },
+    {
+      "action_path_type": "agent_instruction_surface",
+      "approval_evidence_state": "unknown",
+      "autonomy_tier": "tier_3_sensitive_code_or_infra",
+      "confidence_lane": "likely_action_path",
+      "control_resolution_state": "detected_control",
+      "control_state": "approval_required",
+      "delegation_readiness_state": "review_required",
+      "evidence_strength": null,
+      "location": "loc-b8abed668b6f",
+      "owner_evidence_state": "inferred",
+      "path_id": "path-6570aca51ab1",
+      "proof_evidence_state": "unknown",
+      "queue": "control_first",
+      "recommended_action": null,
+      "repo": "repo-1c02f99dd063",
+      "risk_zone": "external_egress",
+      "runtime_evidence_state": "unknown",
+      "target_class": "developer_productivity"
+    },
+    {
+      "action_path_type": "agent_instruction_surface",
+      "approval_evidence_state": "unknown",
+      "autonomy_tier": "tier_3_sensitive_code_or_infra",
+      "confidence_lane": "likely_action_path",
+      "control_resolution_state": "detected_control",
+      "control_state": "approval_required",
+      "delegation_readiness_state": "review_required",
+      "evidence_strength": null,
+      "location": "loc-64a33c916b0b",
+      "owner_evidence_state": "inferred",
+      "path_id": "path-746fc559895f",
+      "proof_evidence_state": "unknown",
+      "queue": "control_first",
+      "recommended_action": null,
+      "repo": "repo-a095389146c7",
+      "risk_zone": "external_egress",
+      "runtime_evidence_state": "unknown",
+      "target_class": "unknown"
+    },
+    {
+      "action_path_type": "dependency_only_signal",
       "approval_evidence_state": "unknown",
       "autonomy_tier": "tier_0_safe_metadata",
       "confidence_lane": "context_only",
@@ -130,19 +150,39 @@
       "control_state": "inventory_only",
       "delegation_readiness_state": "safe_to_delegate",
       "evidence_strength": null,
-      "location": "loc-e41325a15b6f",
+      "location": "loc-966b706a7f48",
       "owner_evidence_state": "inferred",
-      "path_id": "path-4579b70a194e",
+      "path_id": "path-7e3df12c76d1",
       "proof_evidence_state": "unknown",
       "queue": "inventory_hygiene",
       "recommended_action": null,
-      "repo": "repo-61a950e23922",
+      "repo": "repo-bd1f9000b22a",
       "risk_zone": "coding_help",
       "runtime_evidence_state": "unknown",
       "target_class": "unknown"
     },
     {
-      "action_path_type": "ai_assisted_workflow",
+      "action_path_type": "agent_instruction_surface",
+      "approval_evidence_state": "unknown",
+      "autonomy_tier": "tier_2_app_code_owner_review",
+      "confidence_lane": "semantic_review_candidate",
+      "control_resolution_state": "detected_control",
+      "control_state": "approval_required",
+      "delegation_readiness_state": "review_required",
+      "evidence_strength": null,
+      "location": "loc-03bb58f1182c",
+      "owner_evidence_state": "inferred",
+      "path_id": "path-84f171cab980",
+      "proof_evidence_state": "unknown",
+      "queue": "control_first",
+      "recommended_action": null,
+      "repo": "repo-a605e7b60cd7",
+      "risk_zone": "coding_help",
+      "runtime_evidence_state": "unknown",
+      "target_class": "developer_productivity"
+    },
+    {
+      "action_path_type": "agent_instruction_surface",
       "approval_evidence_state": "unknown",
       "autonomy_tier": "tier_3_sensitive_code_or_infra",
       "confidence_lane": "likely_action_path",
@@ -150,79 +190,39 @@
       "control_state": "approval_required",
       "delegation_readiness_state": "review_required",
       "evidence_strength": null,
-      "location": "loc-08d036f12cef",
+      "location": "loc-1d82e4ca47e8",
       "owner_evidence_state": "inferred",
-      "path_id": "path-50f94ba2f47d",
+      "path_id": "path-868e45a637fe",
       "proof_evidence_state": "unknown",
       "queue": "control_first",
       "recommended_action": null,
-      "repo": "repo-61dbf96286b9",
+      "repo": "repo-0b30c08c914e",
       "risk_zone": "external_egress",
       "runtime_evidence_state": "unknown",
       "target_class": "developer_productivity"
     },
     {
-      "action_path_type": "ai_assisted_workflow",
+      "action_path_type": "agent_instruction_surface",
       "approval_evidence_state": "unknown",
-      "autonomy_tier": "tier_2_app_code_owner_review",
+      "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
       "confidence_lane": "likely_action_path",
       "control_resolution_state": "detected_control",
       "control_state": "approval_required",
       "delegation_readiness_state": "review_required",
       "evidence_strength": null,
-      "location": "loc-ac18aa09125a",
+      "location": "loc-d894703b904c",
       "owner_evidence_state": "inferred",
-      "path_id": "path-5532c97b62fe",
+      "path_id": "path-976cd7720979",
       "proof_evidence_state": "unknown",
       "queue": "control_first",
       "recommended_action": null,
-      "repo": "repo-f2bc88883e41",
-      "risk_zone": "coding_help",
+      "repo": "repo-8803ad6289ef",
+      "risk_zone": "production_data",
       "runtime_evidence_state": "unknown",
       "target_class": "developer_productivity"
     },
     {
-      "action_path_type": "ai_assisted_workflow",
-      "approval_evidence_state": "unknown",
-      "autonomy_tier": "tier_2_app_code_owner_review",
-      "confidence_lane": "likely_action_path",
-      "control_resolution_state": "detected_control",
-      "control_state": "approval_required",
-      "delegation_readiness_state": "review_required",
-      "evidence_strength": null,
-      "location": "loc-ac18aa09125a",
-      "owner_evidence_state": "inferred",
-      "path_id": "path-5532c97b62fe",
-      "proof_evidence_state": "unknown",
-      "queue": "control_first",
-      "recommended_action": null,
-      "repo": "repo-f2bc88883e41",
-      "risk_zone": "coding_help",
-      "runtime_evidence_state": "unknown",
-      "target_class": "developer_productivity"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
-      "approval_evidence_state": "unknown",
-      "autonomy_tier": "tier_3_sensitive_code_or_infra",
-      "confidence_lane": "likely_action_path",
-      "control_resolution_state": "detected_control",
-      "control_state": "approval_required",
-      "delegation_readiness_state": "review_required",
-      "evidence_strength": null,
-      "location": "loc-118fce62f9cc",
-      "owner_evidence_state": "inferred",
-      "path_id": "path-6feb19d82180",
-      "proof_evidence_state": "unknown",
-      "queue": "control_first",
-      "recommended_action": null,
-      "repo": "repo-29286ffe085d",
-      "risk_zone": "external_egress",
-      "runtime_evidence_state": "unknown",
-      "target_class": "developer_productivity"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
+      "action_path_type": "agent_instruction_surface",
       "approval_evidence_state": "unknown",
       "autonomy_tier": "tier_3_sensitive_code_or_infra",
       "confidence_lane": "semantic_review_candidate",
@@ -230,19 +230,39 @@
       "control_state": "approval_required",
       "delegation_readiness_state": "review_required",
       "evidence_strength": null,
-      "location": "loc-91e8a837484a",
+      "location": "loc-09bba9a6d760",
       "owner_evidence_state": "inferred",
-      "path_id": "path-86a567d8ff5e",
+      "path_id": "path-9f02eb0f17d7",
       "proof_evidence_state": "unknown",
       "queue": "control_first",
       "recommended_action": null,
-      "repo": "repo-7acadc3d6bd6",
+      "repo": "repo-f6e6942458ee",
       "risk_zone": "coding_help",
       "runtime_evidence_state": "unknown",
       "target_class": "test_demo_sandbox"
     },
     {
-      "action_path_type": "ai_assisted_workflow",
+      "action_path_type": "agent_instruction_surface",
+      "approval_evidence_state": "unknown",
+      "autonomy_tier": "tier_4_prod_privileged_or_customer_impacting",
+      "confidence_lane": "likely_action_path",
+      "control_resolution_state": "detected_control",
+      "control_state": "approval_required",
+      "delegation_readiness_state": "review_required",
+      "evidence_strength": null,
+      "location": "loc-1e0443e1f92d",
+      "owner_evidence_state": "inferred",
+      "path_id": "path-a0148cc443aa",
+      "proof_evidence_state": "unknown",
+      "queue": "control_first",
+      "recommended_action": null,
+      "repo": "repo-b51843d4070b",
+      "risk_zone": "production_data",
+      "runtime_evidence_state": "unknown",
+      "target_class": "developer_productivity"
+    },
+    {
+      "action_path_type": "agent_instruction_surface",
       "approval_evidence_state": "unknown",
       "autonomy_tier": "tier_3_sensitive_code_or_infra",
       "confidence_lane": "likely_action_path",
@@ -250,56 +270,16 @@
       "control_state": "approval_required",
       "delegation_readiness_state": "review_required",
       "evidence_strength": null,
-      "location": "loc-64cf7f86a9cb",
+      "location": "loc-52f012756b8a",
       "owner_evidence_state": "inferred",
-      "path_id": "path-9f799d7fdd64",
+      "path_id": "path-ab48ea7f275d",
       "proof_evidence_state": "unknown",
       "queue": "control_first",
       "recommended_action": null,
-      "repo": "repo-10e7a284861e",
+      "repo": "repo-86715e0c2f5c",
       "risk_zone": "external_egress",
       "runtime_evidence_state": "unknown",
       "target_class": "developer_productivity"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
-      "approval_evidence_state": "unknown",
-      "autonomy_tier": "tier_3_sensitive_code_or_infra",
-      "confidence_lane": "context_only",
-      "control_resolution_state": "detected_control",
-      "control_state": "inventory_only",
-      "delegation_readiness_state": "review_required",
-      "evidence_strength": null,
-      "location": "loc-108a944ee5c4",
-      "owner_evidence_state": "inferred",
-      "path_id": "path-a0f84f4a31ce",
-      "proof_evidence_state": "unknown",
-      "queue": "inventory_hygiene",
-      "recommended_action": null,
-      "repo": "repo-1c91e5134cd9",
-      "risk_zone": "coding_help",
-      "runtime_evidence_state": "unknown",
-      "target_class": "test_demo_sandbox"
-    },
-    {
-      "action_path_type": "ai_assisted_workflow",
-      "approval_evidence_state": "unknown",
-      "autonomy_tier": "tier_3_sensitive_code_or_infra",
-      "confidence_lane": "context_only",
-      "control_resolution_state": "detected_control",
-      "control_state": "inventory_only",
-      "delegation_readiness_state": "review_required",
-      "evidence_strength": null,
-      "location": "loc-9819e1be711b",
-      "owner_evidence_state": "inferred",
-      "path_id": "path-a67afbe3e0d4",
-      "proof_evidence_state": "unknown",
-      "queue": "inventory_hygiene",
-      "recommended_action": null,
-      "repo": "repo-0272976aa4ea",
-      "risk_zone": "repo_write",
-      "runtime_evidence_state": "unknown",
-      "target_class": "test_demo_sandbox"
     },
     {
       "action_path_type": "plain_source_code",
@@ -322,24 +302,44 @@
       "target_class": "unknown"
     },
     {
-      "action_path_type": "ai_assisted_workflow",
+      "action_path_type": "agent_instruction_surface",
       "approval_evidence_state": "unknown",
       "autonomy_tier": "tier_3_sensitive_code_or_infra",
-      "confidence_lane": "likely_action_path",
+      "confidence_lane": "semantic_review_candidate",
       "control_resolution_state": "detected_control",
       "control_state": "approval_required",
       "delegation_readiness_state": "review_required",
       "evidence_strength": null,
-      "location": "loc-346aacff1d0d",
+      "location": "loc-2ff0c0bd7f6f",
       "owner_evidence_state": "inferred",
-      "path_id": "path-b539539fde6f",
+      "path_id": "path-b3bb3a28a9a6",
       "proof_evidence_state": "unknown",
       "queue": "control_first",
       "recommended_action": null,
-      "repo": "repo-2c7bf9849b17",
-      "risk_zone": "external_egress",
+      "repo": "repo-f4dedecdf2f6",
+      "risk_zone": "coding_help",
       "runtime_evidence_state": "unknown",
       "target_class": "developer_productivity"
+    },
+    {
+      "action_path_type": "agent_instruction_surface",
+      "approval_evidence_state": "unknown",
+      "autonomy_tier": "tier_3_sensitive_code_or_infra",
+      "confidence_lane": "context_only",
+      "control_resolution_state": "detected_control",
+      "control_state": "inventory_only",
+      "delegation_readiness_state": "review_required",
+      "evidence_strength": null,
+      "location": "loc-7f2c4d1f27c8",
+      "owner_evidence_state": "inferred",
+      "path_id": "path-bbdde1593d3a",
+      "proof_evidence_state": "unknown",
+      "queue": "inventory_hygiene",
+      "recommended_action": null,
+      "repo": "repo-7c9da74e6e8e",
+      "risk_zone": "repo_write",
+      "runtime_evidence_state": "unknown",
+      "target_class": "test_demo_sandbox"
     },
     {
       "action_path_type": "unknown_executable_path",
@@ -382,24 +382,24 @@
       "target_class": "test_demo_sandbox"
     },
     {
-      "action_path_type": "plain_source_code",
+      "action_path_type": "agent_instruction_surface",
       "approval_evidence_state": "unknown",
       "autonomy_tier": "tier_3_sensitive_code_or_infra",
-      "confidence_lane": "likely_action_path",
+      "confidence_lane": "semantic_review_candidate",
       "control_resolution_state": "detected_control",
       "control_state": "approval_required",
       "delegation_readiness_state": "review_required",
       "evidence_strength": null,
-      "location": "loc-9ebda6fde6e7",
+      "location": "loc-40dec4200d47",
       "owner_evidence_state": "inferred",
-      "path_id": "path-d7eca33d1d72",
+      "path_id": "path-d5d0c4cfffdc",
       "proof_evidence_state": "unknown",
       "queue": "control_first",
       "recommended_action": null,
-      "repo": "repo-609587f1c6d2",
-      "risk_zone": "external_egress",
+      "repo": "repo-730fdd1cfd19",
+      "risk_zone": "coding_help",
       "runtime_evidence_state": "unknown",
-      "target_class": "unknown"
+      "target_class": "test_demo_sandbox"
     }
   ],
   "schema_version": "v1",
@@ -482,8 +482,8 @@
             "closure=remediate repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-2e0ac995ef4b",
-            "path-07618905b8d2"
+            "path-a0148cc443aa",
+            "path-976cd7720979"
           ]
         },
         {
@@ -517,45 +517,9 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-9f799d7fdd64",
-            "path-6feb19d82180",
-            "path-b539539fde6f"
-          ]
-        },
-        {
-          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
-          "count": 3,
-          "dimensions": {
-            "action_class": "read",
-            "closure_action": "attach_evidence",
-            "contradiction_state": "consistent",
-            "credential_authority": "unknown",
-            "detector_confidence": "semantic_review_candidate",
-            "evidence_state": "unknown",
-            "owner_state": "inferred",
-            "production_target": "non_production_or_unknown",
-            "repo_cluster": "single_repo",
-            "risk_zone": "coding_help",
-            "target_class": "test_demo_sandbox"
-          },
-          "evidence_state_summary": {
-            "contradictory": 0,
-            "declared": 0,
-            "inferred": 0,
-            "unknown": 3,
-            "verified": 0
-          },
-          "group_id": "xrg-72044fd98ef0",
-          "highest_priority": "review_queue",
-          "highest_severity": "high",
-          "rationale": [
-            "3 read paths grouped by test_demo_sandbox and unknown evidence",
-            "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
-          ],
-          "top_example_refs": [
-            "path-347817d9abd5",
-            "path-86a567d8ff5e",
-            "path-d2f2834909d1"
+            "path-5e74203c9ef9",
+            "path-6570aca51ab1",
+            "path-868e45a637fe"
           ]
         },
         {
@@ -589,8 +553,8 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-25c6ee3ab5f4",
-            "path-0408789c39ea"
+            "path-84f171cab980",
+            "path-b3bb3a28a9a6"
           ]
         },
         {
@@ -626,6 +590,75 @@
           "top_example_refs": [
             "path-ac130052c789",
             "path-bf95ca34171f"
+          ]
+        },
+        {
+          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+          "count": 2,
+          "dimensions": {
+            "action_class": "read",
+            "closure_action": "attach_evidence",
+            "contradiction_state": "consistent",
+            "credential_authority": "unknown",
+            "detector_confidence": "semantic_review_candidate",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "production_target": "non_production_or_unknown",
+            "repo_cluster": "single_repo",
+            "risk_zone": "coding_help",
+            "target_class": "test_demo_sandbox"
+          },
+          "evidence_state_summary": {
+            "contradictory": 0,
+            "declared": 0,
+            "inferred": 0,
+            "unknown": 2,
+            "verified": 0
+          },
+          "group_id": "xrg-72044fd98ef0",
+          "highest_priority": "review_queue",
+          "highest_severity": "high",
+          "rationale": [
+            "2 read paths grouped by test_demo_sandbox and unknown evidence",
+            "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
+          ],
+          "top_example_refs": [
+            "path-d5d0c4cfffdc",
+            "path-9f02eb0f17d7"
+          ]
+        },
+        {
+          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+          "count": 1,
+          "dimensions": {
+            "action_class": "read",
+            "closure_action": "attach_evidence",
+            "contradiction_state": "consistent",
+            "credential_authority": "none",
+            "detector_confidence": "semantic_review_candidate",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "production_target": "non_production_or_unknown",
+            "repo_cluster": "single_repo",
+            "risk_zone": "coding_help",
+            "target_class": "test_demo_sandbox"
+          },
+          "evidence_state_summary": {
+            "contradictory": 0,
+            "declared": 0,
+            "inferred": 0,
+            "unknown": 1,
+            "verified": 0
+          },
+          "group_id": "xrg-27c8ba42b953",
+          "highest_priority": "review_queue",
+          "highest_severity": "high",
+          "rationale": [
+            "1 read paths grouped by test_demo_sandbox and unknown evidence",
+            "closure=attach_evidence repo_cluster=single_repo credential_authority=none"
+          ],
+          "top_example_refs": [
+            "path-d2f2834909d1"
           ]
         },
         {
@@ -727,7 +760,7 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-d7eca33d1d72"
+            "path-746fc559895f"
           ]
         },
         {
@@ -761,41 +794,7 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-a0f84f4a31ce"
-          ]
-        },
-        {
-          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
-          "count": 1,
-          "dimensions": {
-            "action_class": "read",
-            "closure_action": "attach_evidence",
-            "contradiction_state": "consistent",
-            "credential_authority": "unknown",
-            "detector_confidence": "context_only",
-            "evidence_state": "unknown",
-            "owner_state": "inferred",
-            "production_target": "non_production_or_unknown",
-            "repo_cluster": "single_repo",
-            "risk_zone": "coding_help",
-            "target_class": "unknown"
-          },
-          "evidence_state_summary": {
-            "contradictory": 0,
-            "declared": 0,
-            "inferred": 0,
-            "unknown": 1,
-            "verified": 0
-          },
-          "group_id": "xrg-c3730c7e7271",
-          "highest_priority": "inventory_hygiene",
-          "highest_severity": "low",
-          "rationale": [
-            "1 read paths grouped by unknown and unknown evidence",
-            "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
-          ],
-          "top_example_refs": [
-            "path-4579b70a194e"
+            "path-3d2a8c596dbe"
           ]
         },
         {
@@ -829,11 +828,45 @@
             "closure=remediate repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-a67afbe3e0d4"
+            "path-bbdde1593d3a"
+          ]
+        },
+        {
+          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+          "count": 1,
+          "dimensions": {
+            "action_class": "read",
+            "closure_action": "attach_evidence",
+            "contradiction_state": "consistent",
+            "credential_authority": "none",
+            "detector_confidence": "context_only",
+            "evidence_state": "unknown",
+            "owner_state": "inferred",
+            "production_target": "non_production_or_unknown",
+            "repo_cluster": "single_repo",
+            "risk_zone": "coding_help",
+            "target_class": "unknown"
+          },
+          "evidence_state_summary": {
+            "contradictory": 0,
+            "declared": 0,
+            "inferred": 0,
+            "unknown": 1,
+            "verified": 0
+          },
+          "group_id": "xrg-e18e7d78ad58",
+          "highest_priority": "inventory_hygiene",
+          "highest_severity": "low",
+          "rationale": [
+            "1 read paths grouped by unknown and unknown evidence",
+            "closure=attach_evidence repo_cluster=single_repo credential_authority=none"
+          ],
+          "top_example_refs": [
+            "path-7e3df12c76d1"
           ]
         }
       ],
-      "total_groups": 12,
+      "total_groups": 13,
       "total_paths": 20
     },
     "governed_usage_metrics": {
@@ -858,7 +891,7 @@
       "evidence_completeness_label": "insufficient_evidence",
       "evidence_completeness_score": 58,
       "owner_evidence_state": "inferred",
-      "path_id": "path-07618905b8d2",
+      "path_id": "path-976cd7720979",
       "proof_evidence_state": "unknown",
       "recommended_action_contract": {
         "allowed_action": "security_review",
@@ -889,7 +922,7 @@
         "delegation_readiness_state": "review_required",
         "label": "recommended_governed_path",
         "outcome_evidence_state": "unknown",
-        "path_type": "ai_assisted_workflow",
+        "path_type": "agent_instruction_surface",
         "proof_evidence_state": "unknown",
         "reason_codes": [
           "readiness:owner_review_needed",
@@ -909,7 +942,7 @@
         "delegation_readiness_state": "review_required",
         "label": "today_path",
         "outcome_evidence_state": "unknown",
-        "path_type": "ai_assisted_workflow",
+        "path_type": "agent_instruction_surface",
         "proof_evidence_state": "unknown",
         "reason_codes": [
           "tier:production_or_customer_impact"
