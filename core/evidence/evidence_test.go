@@ -159,6 +159,52 @@ func TestBuildEvidenceBundle(t *testing.T) {
 	}
 }
 
+func TestBuildEvidenceBundleSignsArtifactManifest(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := createEvidenceStateWithProof(t, tmp)
+	outputDir := filepath.Join(tmp, "wrkr-evidence")
+
+	if _, err := Build(BuildInput{
+		StatePath:   statePath,
+		Frameworks:  []string{"soc2"},
+		OutputDir:   outputDir,
+		GeneratedAt: time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("build evidence bundle: %v", err)
+	}
+
+	payload, err := os.ReadFile(filepath.Join(outputDir, "manifest.json"))
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	var manifest proof.BundleManifest
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		t.Fatalf("parse manifest: %v", err)
+	}
+	foundArtifactManifest := false
+	for _, entry := range manifest.Files {
+		if entry.Path == "artifact-manifest.json" {
+			foundArtifactManifest = true
+			break
+		}
+	}
+	if !foundArtifactManifest {
+		t.Fatalf("expected signed bundle manifest to include artifact-manifest.json, got %+v", manifest.Files)
+	}
+	if _, err := proof.VerifyBundle(outputDir, proof.BundleVerifyOpts{}); err != nil {
+		t.Fatalf("expected fresh bundle to verify: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(outputDir, "artifact-manifest.json"), []byte("{\"tampered\":true}\n"), 0o600); err != nil {
+		t.Fatalf("tamper artifact manifest: %v", err)
+	}
+	if _, err := proof.VerifyBundle(outputDir, proof.BundleVerifyOpts{}); err == nil {
+		t.Fatal("expected tampered artifact manifest to fail bundle verification")
+	}
+}
+
 func TestBuildEvidenceBundleFinalizesCanonicalProjectionSidecars(t *testing.T) {
 	t.Parallel()
 

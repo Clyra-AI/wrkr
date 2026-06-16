@@ -2216,6 +2216,63 @@ func TestCustomerRedactedProjectionPreservesControlState(t *testing.T) {
 	}
 }
 
+func TestCustomerRedactedAgentActionBOMPreservesCoverageJoin(t *testing.T) {
+	t.Parallel()
+
+	summary, err := BuildSummary(BuildInput{
+		Snapshot: state.Snapshot{
+			ScanQuality: &scanquality.Report{
+				ScanQualityVersion: scanquality.ReportVersion,
+				Mode:               "governance",
+				Detectors: []scanquality.DetectorHealth{
+					{Org: "acme", Repo: "backend", Detector: "mcp", Status: "complete"},
+				},
+			},
+			RiskReport: &risk.Report{
+				ActionPaths: []risk.ActionPath{{
+					PathID:                   "apc-redacted-coverage",
+					Org:                      "acme",
+					Repo:                     "backend",
+					ToolType:                 "claude",
+					Location:                 ".claude/settings.json",
+					ConfidenceLane:           risk.ConfidenceLaneLikelyActionPath,
+					ActionPathType:           risk.ActionPathTypeAgentInstruction,
+					DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+					RecommendedControl:       risk.RecommendedControlSecurityReview,
+					ActionClasses:            []string{"write"},
+					TargetClass:              risk.TargetClassDeveloperProductivity,
+				}},
+			},
+		},
+		Template:     TemplateAgentActionBOM,
+		ShareProfile: ShareProfileCustomerRedacted,
+		GeneratedAt:  time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("build redacted summary: %v", err)
+	}
+	if summary.AgentActionBOM == nil || len(summary.AgentActionBOM.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", summary.AgentActionBOM)
+	}
+	if summary.AgentActionBOM.ScanQuality == nil || len(summary.AgentActionBOM.ScanQuality.Detectors) != 1 {
+		t.Fatalf("expected one BOM detector row, got %+v", summary.AgentActionBOM.ScanQuality)
+	}
+	item := summary.AgentActionBOM.Items[0]
+	detector := summary.AgentActionBOM.ScanQuality.Detectors[0]
+	if item.Org != detector.Org || item.Repo != detector.Repo {
+		t.Fatalf("expected redacted BOM item and scan-quality detector to keep the same pseudonym join, item=%+v detector=%+v", item, detector)
+	}
+	if summary.AgentActionBOM.Summary.ScanCoverage == nil || summary.AgentActionBOM.Summary.ScanCoverage.CoverageConfidence != scanquality.CoverageConfidenceComplete {
+		t.Fatalf("expected complete compact scan coverage, got %+v", summary.AgentActionBOM.Summary.ScanCoverage)
+	}
+	if summary.AgentActionBOM.Summary.PrimaryView == nil {
+		t.Fatalf("expected primary view, got %+v", summary.AgentActionBOM.Summary)
+	}
+	if summary.AgentActionBOM.Summary.PrimaryView.CoverageStatus != scanquality.CoverageConfidenceComplete {
+		t.Fatalf("expected primary view coverage to remain complete after redaction, got %+v", summary.AgentActionBOM.Summary.PrimaryView)
+	}
+}
+
 func TestRenderMarkdownUsesReviewCandidateWording(t *testing.T) {
 	t.Parallel()
 

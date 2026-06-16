@@ -163,6 +163,12 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
 	rawActionPathToControlFirst := riskReport.ActionPathToControlFirst
 	controlBacklog = decorateControlBacklogDecisionPrecedents(controlBacklog, riskReport.ActionPaths)
+	rawControlBacklog := controlBacklog
+	rawScanQuality := scanQuality
+	rawRuntimeSessions := runtimeSessions
+	rawRuntimeEvidence := runtimeEvidence
+	rawEvidencePackets := evidencePackets
+	rawControlProofStatus := controlProofStatus
 	shareProfileMetadata := BuildShareProfileMetadata(redactionConfig)
 	operationalExposure := scorecore.SummarizeOperationalExposure(riskReport.ActionPaths)
 	governanceReadiness := scorecore.SummarizeGovernanceReadiness(riskReport.ActionPaths, missingProofPathCount(controlProofStatus), scanQualityCoverageReduced(scanQuality))
@@ -284,6 +290,12 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	bomSource.ActionPathToControlFirst = rawActionPathToControlFirst
 	bomSource.ControlPathGraph = rawControlPathGraph
 	bomSource.WorkflowChains = rawWorkflowChains
+	bomSource.ControlBacklog = rawControlBacklog
+	bomSource.ScanQuality = rawScanQuality
+	bomSource.RuntimeSessions = rawRuntimeSessions
+	bomSource.RuntimeEvidence = rawRuntimeEvidence
+	bomSource.EvidencePackets = rawEvidencePackets
+	bomSource.controlProofStatus = rawControlProofStatus
 	summary.AgentActionBOM = buildAgentActionBOMFromSnapshot(bomSource, in.Snapshot)
 	registrySource := bomSource
 	registrySource.AgentActionBOM = summary.AgentActionBOM
