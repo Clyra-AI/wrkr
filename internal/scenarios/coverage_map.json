@@ -151,7 +151,8 @@
     "TestWave4DriftReviewSchemasDeclareCategoryContracts"
   ],
   "W2-target-classification": [
-    "TestTargetClassificationScenario"
+    "TestTargetClassificationScenario",
+    "TestSwaggerWithUnrelatedWorkflowCredentialStaysTargetContext"
   ],
   "W4-high-stakes-authority": [
     "TestWave4HighStakesAuthorityScenario"

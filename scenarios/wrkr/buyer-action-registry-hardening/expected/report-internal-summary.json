@@ -7,18 +7,18 @@
       "credential_present": true,
       "credential_referenced_by_workflow": true,
       "credential_source": "workflow_secret_ref",
-      "credential_usable_by_path": false,
+      "credential_usable_by_path": true,
       "rotation_evidence_status": "missing",
       "standing_access": true
     },
     "lineage_statuses": [
       {
         "kind": "intent",
-        "status": "unknown"
+        "status": "declared"
       },
       {
         "kind": "task",
-        "status": "unknown"
+        "status": "declared"
       },
       {
         "kind": "human",
@@ -50,11 +50,11 @@
       },
       {
         "kind": "credential",
-        "status": "referenced_only"
+        "status": "present"
       },
       {
         "kind": "target",
-        "status": "present"
+        "status": "missing"
       },
       {
         "kind": "owner",
@@ -70,7 +70,7 @@
       },
       {
         "kind": "deployment",
-        "status": "unknown"
+        "status": "missing"
       },
       {
         "kind": "outcome",
@@ -82,19 +82,19 @@
       },
       {
         "kind": "evidence",
-        "status": "verified"
+        "status": "unknown"
       }
     ],
-    "location": "server/refund_routes.js",
+    "location": ".github/workflows/refund-agent.yml",
     "policy_status": "none",
     "proof_coverage": "missing",
-    "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
+    "remediation": "Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius.",
     "repo": "payments-private"
   },
   "lane_counts": {
-    "confirmed_action_path": 2,
+    "confirmed_action_path": 1,
     "context_only": 1,
-    "likely_action_path": 3,
+    "likely_action_path": 4,
     "semantic_review_candidate": 1
   },
   "registry_count": 7,

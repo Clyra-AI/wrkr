@@ -33,6 +33,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:patch] Added endpoint-dense enterprise-pressure fixtures and bounded-artifact receipts so route-heavy scans regress in deterministic tests before they bloat saved state, graph output, or BOM artifacts.
 - [semver:minor] Replaced endpoint-heavy graph, BOM, and action-surface fanout with grouped endpoint receipts (`endpoint_ref_group_id`, counts, route groups, operation counts, and bounded samples) so report/shareable surfaces stop cloning thousands of endpoint refs per node or item.
 - [semver:minor] Tightened action-path eligibility and authority correlation so static context surfaces no longer inherit governable workflow status from repo-wide credential or deploy signals without a real binding.
+- [semver:patch] Tightened OpenAPI and route authority correlation so static target context no longer inherits unrelated repo-wide workflow credentials or broad repo-derived binding metadata as governable action-path proof.
 - [semver:patch] Kept parse-limited JS/TS WebMCP surfaces in scan-quality coverage receipts instead of surfacing them as scan findings or govern-first action paths.
 
 ### Security

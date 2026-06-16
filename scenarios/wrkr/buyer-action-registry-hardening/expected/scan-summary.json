@@ -2,13 +2,13 @@
   "action_path_count": 7,
   "confirmed_path": {
     "confidence_lane": "confirmed_action_path",
-    "location": "server/refund_routes.js",
+    "location": ".github/workflows/refund-agent.yml",
     "repo": "payments-private"
   },
   "lane_counts": {
-    "confirmed_action_path": 2,
+    "confirmed_action_path": 1,
     "context_only": 1,
-    "likely_action_path": 3,
+    "likely_action_path": 4,
     "semantic_review_candidate": 1
   },
   "mutable_surface_path": {
@@ -32,7 +32,7 @@
       "proof",
       "evidence"
     ],
-    "confidence_lane": "confirmed_action_path",
+    "confidence_lane": "likely_action_path",
     "config_fingerprint": "cfg-25ce41dafe7a",
     "location": "server/refund_routes.js",
     "repo": "payments-private",

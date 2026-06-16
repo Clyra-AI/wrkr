@@ -1053,3 +1053,112 @@ func TestBuildCorrelatesRepoWideAuthorityBindingsIntoWorkflowEntry(t *testing.T)
 		t.Fatalf("expected aws provider on authority binding, got %+v", entries[0].AuthorityBindings)
 	}
 }
+
+func TestOpenAPIRouteAuthorityRequiresDirectCorrelation(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name          string
+		toolType      string
+		location      string
+		useAgentMatch bool
+	}{
+		{
+			name:     "openapi tool match",
+			toolType: "openapi",
+			location: "openapi/payments.yaml",
+		},
+		{
+			name:     "route tool match",
+			toolType: "route",
+			location: "api/routes/payments.ts",
+		},
+		{
+			name:          "openapi agent match",
+			toolType:      "openapi",
+			location:      "openapi/payments.yaml",
+			useAgentMatch: true,
+		},
+		{
+			name:          "route agent match",
+			toolType:      "route",
+			location:      "api/routes/payments.ts",
+			useAgentMatch: true,
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			findings := []model.Finding{
+				{
+					FindingType: "compiled_action",
+					ToolType:    "compiled_action",
+					Location:    ".github/workflows/release.yml",
+					Repo:        "acme/payments",
+					Org:         "acme",
+					Evidence: []model.Evidence{
+						{Key: "workflow_secret_refs", Value: "PROD_DEPLOY_PAT"},
+						{Key: "credential_subject", Value: "PROD_DEPLOY_PAT"},
+						{Key: "credential_provenance_type", Value: "static_secret"},
+						{Key: "credential_scope", Value: agginventory.CredentialScopeWorkflow},
+						{Key: "credential_confidence", Value: "high"},
+						{Key: "workflow_environment", Value: "production"},
+					},
+				},
+				{
+					FindingType: tc.toolType + "_surface",
+					ToolType:    tc.toolType,
+					Location:    tc.location,
+					Repo:        "acme/payments",
+					Org:         "acme",
+					Evidence: []model.Evidence{
+						{Key: "mutable_endpoint_semantic", Value: "payment|high|" + tc.toolType + "|POST /v1/payments"},
+					},
+				},
+			}
+
+			signalsByAgent := buildSignalsByAgent(findings)
+			signalsByRepoLocation := buildSignalsByRepoLocation(findings)
+			signalsByRepo := buildSignalsByRepo(findings)
+			tool := agginventory.Tool{
+				ToolID:    tc.toolType + "-tool",
+				AgentID:   "wrkr:" + tc.toolType + ":acme",
+				ToolType:  tc.toolType,
+				Org:       "acme",
+				Repos:     []string{"acme/payments"},
+				Locations: []agginventory.ToolLocation{{Repo: "acme/payments", Location: tc.location}},
+			}
+
+			var signal findingSignals
+			if tc.useAgentMatch {
+				signal = matchingSignalsForAgent(
+					agginventory.Agent{
+						AgentID:  tc.toolType + "-instance",
+						Org:      "acme",
+						Repo:     "acme/payments",
+						Location: tc.location,
+					},
+					tool,
+					signalsByRepoLocation,
+					signalsByRepo,
+				)
+			} else {
+				signal = matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation, signalsByRepo)
+			}
+
+			if got := signal.EvidenceKV["workflow_secret_refs"]; len(got) > 0 {
+				t.Fatalf("expected repo-wide workflow secrets to stay off %s target context, got %v", tc.toolType, got)
+			}
+			if got := signal.EvidenceKV["credential_subject"]; len(got) > 0 {
+				t.Fatalf("expected repo-wide credential subjects to stay off %s target context, got %v", tc.toolType, got)
+			}
+			if got := signal.EvidenceKV["credential_provenance_type"]; len(got) > 0 {
+				t.Fatalf("expected repo-wide credential provenance to stay off %s target context, got %v", tc.toolType, got)
+			}
+			if got := signal.EvidenceKV["workflow_environment"]; len(got) == 0 || got[0] != "production" {
+				t.Fatalf("expected non-authority production context to remain available, got %v", got)
+			}
+		})
+	}
+}
