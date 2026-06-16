@@ -467,6 +467,13 @@ func Build(in BuildInput) (BuildResult, error) {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write key id: %w", err)
 	}
 
+	artifactManifest, err := buildPortableArtifactManifest(outputDir, generatedAt, snapshot.SourcePrivacy, summary, redactedSummary, runtimeSessions, runtimeEvidence, evidencePackets)
+	if err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build portable artifact manifest: %w", err)
+	}
+	if err := writeJSON(filepath.Join(outputDir, "artifact-manifest.json"), artifactManifest); err != nil {
+		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write portable artifact manifest: %w", err)
+	}
 	entries, err := buildManifestEntries(outputDir)
 	if err != nil {
 		if isOutputDirSafetyError(err) {
@@ -488,13 +495,6 @@ func Build(in BuildInput) (BuildResult, error) {
 	}
 	if _, err := proof.VerifyBundle(outputDir, proof.BundleVerifyOpts{}); err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "verify bundle integrity: %w", err)
-	}
-	artifactManifest, err := buildPortableArtifactManifest(outputDir, generatedAt, snapshot.SourcePrivacy, summary, redactedSummary, runtimeSessions, runtimeEvidence, evidencePackets)
-	if err != nil {
-		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "build portable artifact manifest: %w", err)
-	}
-	if err := writeJSON(filepath.Join(outputDir, "artifact-manifest.json"), artifactManifest); err != nil {
-		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write portable artifact manifest: %w", err)
 	}
 	if err := publishStagedOutput(stageDir, targetOutputDir); err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "publish evidence bundle: %w", err)

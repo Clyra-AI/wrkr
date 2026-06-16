@@ -379,7 +379,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-3d2a8c596dbe"
+          "path-3ae029f79c6d"
         ]
       },
       {
@@ -413,7 +413,7 @@
           "closure=remediate repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-bbdde1593d3a"
+          "path-81386ae88268"
         ]
       },
       {
@@ -447,7 +447,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=none"
         ],
         "top_example_refs": [
-          "path-7e3df12c76d1"
+          "path-9383e93f1437"
         ]
       }
     ],

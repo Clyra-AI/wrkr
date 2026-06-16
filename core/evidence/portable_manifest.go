@@ -61,7 +61,9 @@ func buildPortableArtifactManifest(
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-		if rel == "artifact-manifest.json" {
+		// The signed bundle manifest covers both files, so the richer artifact
+		// manifest deliberately omits recursive manifest rows from its own digest list.
+		if rel == "artifact-manifest.json" || rel == "manifest.json" {
 			return nil
 		}
 		payload, err := os.ReadFile(path) // #nosec G304 -- bundle files are deterministic local outputs under outputDir.
