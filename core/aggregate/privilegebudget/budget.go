@@ -871,7 +871,6 @@ func filteredRepoLocationSignals(signal findingSignals) findingSignals {
 	}
 	out := findingSignals{
 		Repos:      append([]string(nil), signal.Repos...),
-		Locations:  append([]string(nil), signal.Locations...),
 		Values:     []string{},
 		EvidenceKV: map[string][]string{},
 	}
@@ -920,7 +919,6 @@ func filteredRepoLocationSignals(signal findingSignals) findingSignals {
 		out.Values = append(out.Values, values...)
 	}
 	out.Values = append(out.Values, out.Repos...)
-	out.Values = append(out.Values, out.Locations...)
 	return normalizeFindingSignals(out)
 }
 
