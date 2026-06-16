@@ -366,9 +366,10 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 }
 
 func buildLabData(scanPayload, reportPayload, summary, controlBacklog, proof map[string]any, ids publishedIDMaps) labData {
+	exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey := buildExecutiveRollupExampleProjectionMaps(cloneArray(requireObject(requireObject(reportPayload, "agent_action_bom"), "items")))
 	return labData{
 		DeploymentMode:        stringValue(reportPayload["deployment_mode"]),
-		ExecutiveRollup:       projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids),
+		ExecutiveRollup:       projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey),
 		GovernedUsageMetrics:  cloneObject(requireObject(summary, "governed_usage_metrics")),
 		ToolTypeBreakdown:     cloneArray(scanPayload["tool_type_breakdown"]),
 		TopFindings:           projectTopFindings(limitArray(cloneArray(reportPayload["top_findings"]), 5)),
@@ -389,6 +390,7 @@ func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) m
 	summary := requireObject(agentActionBOM, "summary")
 	items := cloneArray(agentActionBOM["items"])
 	projectedItems := make([]map[string]any, 0, len(items))
+	exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey := buildExecutiveRollupExampleProjectionMaps(items)
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
 		repoID, pathID, locationID := publishedIDsForRow(row)
@@ -433,7 +435,7 @@ func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) m
 		"coverage_confidence":      summary["coverage_confidence"],
 		"scan_coverage":            summary["scan_coverage"],
 		"delegation_readiness":     summary["delegation_readiness"],
-		"executive_rollup":         projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids),
+		"executive_rollup":         projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey),
 		"governed_usage_metrics":   summary["governed_usage_metrics"],
 		"primary_view":             projectPrimaryView(requireObject(summary, "primary_view"), ids),
 	}
@@ -448,6 +450,29 @@ func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) m
 		"summary":        projectedSummary,
 		"items":          projectedItemsAny,
 	}
+}
+
+func buildExecutiveRollupExampleProjectionMaps(items []any) (map[string]string, map[string][]string) {
+	exampleSelectionKeyByRawPathID := map[string]string{}
+	projectedPathIDsByExampleSelectionKey := map[string][]string{}
+	for _, raw := range items {
+		row := requireObjectFromAny(raw)
+		rawPathID := stringValue(row["path_id"])
+		if rawPathID == "" {
+			continue
+		}
+		_, pathID, _ := publishedIDsForRow(row)
+		if pathID == "" {
+			continue
+		}
+		selectionKey := executiveRollupExampleSelectionKey(row)
+		if selectionKey == "" {
+			continue
+		}
+		exampleSelectionKeyByRawPathID[rawPathID] = selectionKey
+		projectedPathIDsByExampleSelectionKey[selectionKey] = append(projectedPathIDsByExampleSelectionKey[selectionKey], pathID)
+	}
+	return exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey
 }
 
 func projectControlPathGraph(graph map[string]any) map[string]any {
@@ -984,18 +1009,13 @@ func projectTopActionPaths(items []any, ids publishedIDMaps) []any {
 	return projected
 }
 
-func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps) map[string]any {
+func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps, exampleSelectionKeyByRawPathID map[string]string, projectedPathIDsByExampleSelectionKey map[string][]string) map[string]any {
 	out := cloneObject(executiveRollup)
 	groups := cloneArray(executiveRollup["groups"])
 	projectedGroups := make([]any, 0, len(groups))
 	for _, raw := range groups {
 		group := cloneObject(requireObjectFromAny(raw))
-		refs := cloneArray(group["top_example_refs"])
-		projectedRefStrings := make([]string, 0, len(refs))
-		for _, ref := range refs {
-			projectedRefStrings = append(projectedRefStrings, normalizeOpaqueRef(stringValue(ref), ids))
-		}
-		sort.Strings(projectedRefStrings)
+		projectedRefStrings := projectExecutiveRollupTopExampleRefs(cloneArray(group["top_example_refs"]), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey)
 		projectedRefs := make([]any, 0, len(projectedRefStrings))
 		for _, ref := range projectedRefStrings {
 			projectedRefs = append(projectedRefs, ref)
@@ -1005,6 +1025,37 @@ func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps)
 	}
 	out["groups"] = projectedGroups
 	return out
+}
+
+func projectExecutiveRollupTopExampleRefs(refs []any, ids publishedIDMaps, exampleSelectionKeyByRawPathID map[string]string, projectedPathIDsByExampleSelectionKey map[string][]string) []string {
+	selectionKeys := map[string]struct{}{}
+	for _, ref := range refs {
+		if key := strings.TrimSpace(exampleSelectionKeyByRawPathID[stringValue(ref)]); key != "" {
+			selectionKeys[key] = struct{}{}
+		}
+	}
+	candidateSet := map[string]struct{}{}
+	for key := range selectionKeys {
+		for _, pathID := range projectedPathIDsByExampleSelectionKey[key] {
+			if strings.TrimSpace(pathID) != "" {
+				candidateSet[strings.TrimSpace(pathID)] = struct{}{}
+			}
+		}
+	}
+	projectedRefStrings := make([]string, 0, len(candidateSet))
+	for pathID := range candidateSet {
+		projectedRefStrings = append(projectedRefStrings, pathID)
+	}
+	if len(projectedRefStrings) == 0 {
+		for _, ref := range refs {
+			projectedRefStrings = append(projectedRefStrings, normalizeOpaqueRef(stringValue(ref), ids))
+		}
+	}
+	sort.Strings(projectedRefStrings)
+	if len(projectedRefStrings) > 3 {
+		projectedRefStrings = append([]string(nil), projectedRefStrings[:3]...)
+	}
+	return projectedRefStrings
 }
 
 func projectPrimaryView(primaryView map[string]any, ids publishedIDMaps) map[string]any {
@@ -1082,4 +1133,71 @@ func normalizePublishedValue(value any) any {
 	default:
 		return value
 	}
+}
+
+func executiveRollupExampleSelectionKey(row map[string]any) string {
+	fingerprint := map[string]any{
+		"action_class":               executiveRollupExampleActionClass(row),
+		"action_path_type":           row["action_path_type"],
+		"approval_evidence_state":    row["approval_evidence_state"],
+		"autonomy_tier":              row["autonomy_tier"],
+		"boundary_label":             row["boundary_label"],
+		"confidence_lane":            row["confidence_lane"],
+		"control_resolution_state":   row["control_resolution_state"],
+		"control_state":              row["control_state"],
+		"credential_access":          row["credential_access"],
+		"credential_authority_ref":   row["credential_authority_ref"],
+		"credential_evidence_state":  row["credential_evidence_state"],
+		"delegation_readiness_state": row["delegation_readiness_state"],
+		"matched_production_targets": arrayLength(row["matched_production_targets"]),
+		"owner_evidence_state":       row["owner_evidence_state"],
+		"production_write":           row["production_write"],
+		"proof_evidence_state":       row["proof_evidence_state"],
+		"queue":                      row["queue"],
+		"risk_zone":                  row["risk_zone"],
+		"runtime_evidence_state":     row["runtime_evidence_state"],
+		"target_class":               row["target_class"],
+		"target_evidence_state":      row["target_evidence_state"],
+	}
+	payload, err := json.Marshal(fingerprint)
+	if err != nil {
+		return ""
+	}
+	return string(payload)
+}
+
+func executiveRollupExampleActionClass(row map[string]any) string {
+	values := stringArray(row["action_classes"])
+	sort.Strings(values)
+	for _, candidate := range []string{"deploy", "write", "repo_write", "admin", "delete", "credential_access"} {
+		for _, value := range values {
+			if value == candidate {
+				return candidate
+			}
+		}
+	}
+	switch {
+	case boolValue(row["production_write"]):
+		return "deploy"
+	case boolValue(row["credential_access"]):
+		return "credential_access"
+	case len(values) > 0:
+		return values[0]
+	default:
+		return "unknown"
+	}
+}
+
+func stringArray(value any) []string {
+	items, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if text := stringValue(item); text != "" {
+			out = append(out, text)
+		}
+	}
+	return out
 }
