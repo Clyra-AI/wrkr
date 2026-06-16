@@ -1,8 +1,10 @@
 package siteassets
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -123,60 +125,63 @@ func TestProjectControlPathGraphCanonicalizesRawIDs(t *testing.T) {
 	}
 }
 
-func TestProjectExecutiveRollupCanonicalizesExampleRefOrderAfterOpaqueProjection(t *testing.T) {
+func TestProjectExecutiveRollupCanonicalizesExampleSelectionAfterOpaqueProjection(t *testing.T) {
 	t.Parallel()
 
+	rollup := map[string]any{
+		"total_groups": 1,
+		"total_paths":  4,
+		"groups": []any{
+			map[string]any{
+				"group_id":               "xrg-demo",
+				"count":                  4,
+				"highest_severity":       "high",
+				"highest_priority":       "review_queue",
+				"closure_recommendation": "attach evidence",
+				"top_example_refs":       []any{"raw-a", "raw-b", "raw-d"},
+				"rationale":              []any{"demo rationale"},
+				"evidence_state_summary": map[string]any{"verified": 0, "declared": 0, "inferred": 0, "unknown": 4, "contradictory": 0},
+				"dimensions":             map[string]any{"action_class": "read", "target_class": "developer_productivity"},
+			},
+		},
+	}
 	ids := publishedIDMaps{
 		Path: map[string]string{
-			"raw-a": "path-b",
-			"raw-z": "path-a",
+			"raw-a": "path-c",
+			"raw-b": "path-a",
+			"raw-c": "path-b",
+			"raw-d": "path-d",
 		},
 	}
-	first := map[string]any{
-		"total_groups": 1,
-		"total_paths":  2,
-		"groups": []any{
-			map[string]any{
-				"group_id":               "xrg-demo",
-				"count":                  2,
-				"highest_severity":       "high",
-				"highest_priority":       "review_queue",
-				"closure_recommendation": "attach evidence",
-				"top_example_refs":       []any{"raw-a", "raw-z"},
-				"rationale":              []any{"demo rationale"},
-				"evidence_state_summary": map[string]any{"verified": 0, "declared": 0, "inferred": 0, "unknown": 2, "contradictory": 0},
-				"dimensions":             map[string]any{"action_class": "read", "target_class": "developer_productivity"},
-			},
-		},
+	selectionKey := executiveRollupExampleSelectionKey(map[string]any{
+		"action_classes": []any{"read"},
+	})
+	selectionKeyByRawPathID := map[string]string{
+		"raw-a": selectionKey,
+		"raw-b": selectionKey,
+		"raw-c": selectionKey,
+		"raw-d": selectionKey,
 	}
-	second := map[string]any{
-		"total_groups": 1,
-		"total_paths":  2,
-		"groups": []any{
-			map[string]any{
-				"group_id":               "xrg-demo",
-				"count":                  2,
-				"highest_severity":       "high",
-				"highest_priority":       "review_queue",
-				"closure_recommendation": "attach evidence",
-				"top_example_refs":       []any{"raw-z", "raw-a"},
-				"rationale":              []any{"demo rationale"},
-				"evidence_state_summary": map[string]any{"verified": 0, "declared": 0, "inferred": 0, "unknown": 2, "contradictory": 0},
-				"dimensions":             map[string]any{"action_class": "read", "target_class": "developer_productivity"},
-			},
-		},
+	projectedPathIDsBySelectionKey := map[string][]string{
+		selectionKey: {"path-c", "path-a", "path-b", "path-d"},
 	}
 
-	firstPayload, err := marshalJSON(normalizePublishedValue(projectExecutiveRollup(first, ids)))
+	projected, err := marshalJSON(normalizePublishedValue(projectExecutiveRollup(rollup, ids, selectionKeyByRawPathID, projectedPathIDsBySelectionKey)))
 	if err != nil {
-		t.Fatalf("marshal first rollup: %v", err)
+		t.Fatalf("marshal rollup: %v", err)
 	}
-	secondPayload, err := marshalJSON(normalizePublishedValue(projectExecutiveRollup(second, ids)))
-	if err != nil {
-		t.Fatalf("marshal second rollup: %v", err)
+	var decoded map[string]any
+	if err := json.Unmarshal(projected, &decoded); err != nil {
+		t.Fatalf("unmarshal projected rollup: %v", err)
 	}
-	if string(firstPayload) != string(secondPayload) {
-		t.Fatalf("projected executive rollup should ignore volatile raw ref order\nfirst:\n%s\nsecond:\n%s", firstPayload, secondPayload)
+	groups := cloneArray(decoded["groups"])
+	if len(groups) != 1 {
+		t.Fatalf("expected one projected group, got %d", len(groups))
+	}
+	gotRefs := stringArray(requireObjectFromAny(groups[0])["top_example_refs"])
+	wantRefs := []string{"path-a", "path-b", "path-c"}
+	if !reflect.DeepEqual(gotRefs, wantRefs) {
+		t.Fatalf("expected projected executive rollup refs %v, got %v", wantRefs, gotRefs)
 	}
 }
 
