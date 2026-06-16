@@ -1162,3 +1162,54 @@ func TestOpenAPIRouteAuthorityRequiresDirectCorrelation(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAPIDirectAuthorityKeepsTargetLocationWhenRepoHasUnrelatedWorkflow(t *testing.T) {
+	t.Parallel()
+
+	findings := []model.Finding{
+		{
+			FindingType: "compiled_action",
+			ToolType:    "compiled_action",
+			Location:    ".github/workflows/release.yml",
+			Repo:        "acme/payments",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "workflow_environment", Value: "production"},
+				{Key: "workflow_secret_refs", Value: "PROD_DEPLOY_PAT"},
+			},
+		},
+		{
+			FindingType: "openapi_surface",
+			ToolType:    "openapi",
+			Location:    "openapi/payments.yaml",
+			Repo:        "acme/payments",
+			Org:         "acme",
+			Evidence: []model.Evidence{
+				{Key: "credential_subject", Value: "PAYMENTS_SERVICE_TOKEN"},
+				{Key: "credential_provenance_type", Value: "static_secret"},
+				{Key: "credential_scope", Value: agginventory.CredentialScopeTool},
+				{Key: "credential_confidence", Value: "high"},
+			},
+		},
+	}
+
+	signalsByAgent := buildSignalsByAgent(findings)
+	signalsByRepoLocation := buildSignalsByRepoLocation(findings)
+	signalsByRepo := buildSignalsByRepo(findings)
+	tool := agginventory.Tool{
+		ToolID:    "openapi-tool",
+		AgentID:   "wrkr:openapi:acme",
+		ToolType:  "openapi",
+		Org:       "acme",
+		Repos:     []string{"acme/payments"},
+		Locations: []agginventory.ToolLocation{{Repo: "acme/payments", Location: "openapi/payments.yaml"}},
+	}
+
+	signal := matchingSignalsForTool(tool, signalsByAgent, signalsByRepoLocation, signalsByRepo)
+	if got := credentialEvidenceLocation(signal); got != "openapi/payments.yaml" {
+		t.Fatalf("expected direct openapi credential evidence to keep target location, got %q from %+v", got, signal)
+	}
+	if len(signal.Locations) != 1 || signal.Locations[0] != "openapi/payments.yaml" {
+		t.Fatalf("expected filtered repo-wide signals to avoid unrelated workflow locations, got %+v", signal.Locations)
+	}
+}

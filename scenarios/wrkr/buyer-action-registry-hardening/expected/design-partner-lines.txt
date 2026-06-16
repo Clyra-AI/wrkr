@@ -1,6 +1,6 @@
 # Wrkr Design Partner Summary
 
-- Generated at: 2026-06-16T22:20:38Z
+- Generated at: 2026-06-16T23:36:48Z
 - Template: design-partner-summary
 - Share profile: design-partner
 - Boundary: static posture from saved scan state only; no live runtime observation, endpoint probing, or control-layer enforcement
@@ -22,7 +22,7 @@ Mutable endpoint: 20 grouped endpoint semantics; 4 route groups; production_muta
 Production context: status=correlated, surface=label-dd191250, credential=no credential evidence, target=production_impacting, deployment=unknown, operations=label-8be61507,label-c43f7237,label-dc74895a,label-d66e2561,label-0d2751ad,label-0315367e,label-412970ad
 Owner: owner-c6dd827f
 Purpose: purpose not confirmed
-Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-dd191250 -> label-dd191250 -> label-880ec2e1 -> label-190c1a6b -> label-b23a6a84 -> label-eb24c1ad -> label-c6dd827f -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-dd191250 -> label-dd191250 -> label-880ec2e1 -> label-190c1a6b -> label-b23a6a84 (missing) -> label-eb24c1ad -> label-c6dd827f -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
 
 2. repo-d236d5 in loc-d5d3368a
 Problem: This path can change production-adjacent state and is missing enough governance evidence.
