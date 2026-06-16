@@ -123,6 +123,63 @@ func TestProjectControlPathGraphCanonicalizesRawIDs(t *testing.T) {
 	}
 }
 
+func TestProjectExecutiveRollupCanonicalizesExampleRefOrderAfterOpaqueProjection(t *testing.T) {
+	t.Parallel()
+
+	ids := publishedIDMaps{
+		Path: map[string]string{
+			"raw-a": "path-b",
+			"raw-z": "path-a",
+		},
+	}
+	first := map[string]any{
+		"total_groups": 1,
+		"total_paths":  2,
+		"groups": []any{
+			map[string]any{
+				"group_id":               "xrg-demo",
+				"count":                  2,
+				"highest_severity":       "high",
+				"highest_priority":       "review_queue",
+				"closure_recommendation": "attach evidence",
+				"top_example_refs":       []any{"raw-a", "raw-z"},
+				"rationale":              []any{"demo rationale"},
+				"evidence_state_summary": map[string]any{"verified": 0, "declared": 0, "inferred": 0, "unknown": 2, "contradictory": 0},
+				"dimensions":             map[string]any{"action_class": "read", "target_class": "developer_productivity"},
+			},
+		},
+	}
+	second := map[string]any{
+		"total_groups": 1,
+		"total_paths":  2,
+		"groups": []any{
+			map[string]any{
+				"group_id":               "xrg-demo",
+				"count":                  2,
+				"highest_severity":       "high",
+				"highest_priority":       "review_queue",
+				"closure_recommendation": "attach evidence",
+				"top_example_refs":       []any{"raw-z", "raw-a"},
+				"rationale":              []any{"demo rationale"},
+				"evidence_state_summary": map[string]any{"verified": 0, "declared": 0, "inferred": 0, "unknown": 2, "contradictory": 0},
+				"dimensions":             map[string]any{"action_class": "read", "target_class": "developer_productivity"},
+			},
+		},
+	}
+
+	firstPayload, err := marshalJSON(normalizePublishedValue(projectExecutiveRollup(first, ids)))
+	if err != nil {
+		t.Fatalf("marshal first rollup: %v", err)
+	}
+	secondPayload, err := marshalJSON(normalizePublishedValue(projectExecutiveRollup(second, ids)))
+	if err != nil {
+		t.Fatalf("marshal second rollup: %v", err)
+	}
+	if string(firstPayload) != string(secondPayload) {
+		t.Fatalf("projected executive rollup should ignore volatile raw ref order\nfirst:\n%s\nsecond:\n%s", firstPayload, secondPayload)
+	}
+}
+
 func sampleControlPathGraph(fromNodeID, toNodeID, edgeID string) map[string]any {
 	return map[string]any{
 		"version": "1",

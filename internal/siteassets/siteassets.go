@@ -991,9 +991,14 @@ func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps)
 	for _, raw := range groups {
 		group := cloneObject(requireObjectFromAny(raw))
 		refs := cloneArray(group["top_example_refs"])
-		projectedRefs := make([]any, 0, len(refs))
+		projectedRefStrings := make([]string, 0, len(refs))
 		for _, ref := range refs {
-			projectedRefs = append(projectedRefs, normalizeOpaqueRef(stringValue(ref), ids))
+			projectedRefStrings = append(projectedRefStrings, normalizeOpaqueRef(stringValue(ref), ids))
+		}
+		sort.Strings(projectedRefStrings)
+		projectedRefs := make([]any, 0, len(projectedRefStrings))
+		for _, ref := range projectedRefStrings {
+			projectedRefs = append(projectedRefs, ref)
 		}
 		group["top_example_refs"] = projectedRefs
 		projectedGroups = append(projectedGroups, group)
