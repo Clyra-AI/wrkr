@@ -1,5 +1,5 @@
 {
-  "bom_id": "bom-50eeb5491a52",
+  "bom_id": "bom-0114bd6f55e8",
   "items": [
     {
       "action_path_type": "agent_instruction_surface",
@@ -482,8 +482,8 @@
             "closure=remediate repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-a0148cc443aa",
-            "path-976cd7720979"
+            "path-976cd7720979",
+            "path-a0148cc443aa"
           ]
         },
         {
@@ -623,8 +623,8 @@
             "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
           ],
           "top_example_refs": [
-            "path-d5d0c4cfffdc",
-            "path-9f02eb0f17d7"
+            "path-9f02eb0f17d7",
+            "path-d5d0c4cfffdc"
           ]
         },
         {
