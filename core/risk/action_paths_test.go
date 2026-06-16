@@ -1056,6 +1056,110 @@ func TestOpenAPIWithoutAuthorityCorrelationStaysAppendixOnlyProductionContext(t 
 	}
 }
 
+func TestTargetContextSurfacesStripUncorrelatedAuthority(t *testing.T) {
+	t.Parallel()
+
+	unrelatedCredential := &agginventory.CredentialProvenance{
+		Type:             agginventory.CredentialProvenanceStaticSecret,
+		Subject:          "PROD_DEPLOY_PAT",
+		Scope:            agginventory.CredentialScopeWorkflow,
+		Confidence:       "high",
+		CredentialKind:   agginventory.CredentialKindGitHubPAT,
+		AccessType:       agginventory.CredentialAccessTypeStanding,
+		StandingAccess:   true,
+		EvidenceLocation: ".github/workflows/release.yml",
+	}
+	unrelatedAuthority := &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+		StandingAccess:         true,
+		Confidence:             "high",
+		ReasonCodes:            []string{"credential_present:true"},
+	}
+	unrelatedBindings := []*agginventory.AuthorityBinding{{
+		Kind:         agginventory.AuthorityBindingSaaSToken,
+		Provider:     "github",
+		TargetSystem: "source_control",
+		LikelyScope:  "source_control_write",
+		AccessLevel:  agginventory.AuthorityAccessWrite,
+		Confidence:   "high",
+		EvidenceRefs: []string{".github/workflows/release.yml"},
+	}}
+
+	for _, tc := range []struct {
+		name        string
+		toolType    string
+		location    string
+		pathContext *agginventory.PathContext
+	}{
+		{
+			name:     "openapi",
+			toolType: "openapi",
+			location: "openapi/payments.yaml",
+		},
+		{
+			name:     "route",
+			toolType: "route",
+			location: "api/routes/payments.ts",
+		},
+		{
+			name:        "generated client",
+			toolType:    "openapi",
+			location:    "generated/client/payments_client.go",
+			pathContext: &agginventory.PathContext{Kind: agginventory.PathContextGeneratedCode, Confidence: "high"},
+		},
+		{
+			name:        "docs",
+			toolType:    "openapi",
+			location:    "docs/openapi/payments.md",
+			pathContext: &agginventory.PathContext{Kind: agginventory.PathContextDocs, Confidence: "high"},
+		},
+		{
+			name:     "dependency",
+			toolType: "dependency",
+			location: "package-lock.json",
+		},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			paths := ProjectActionPaths([]ActionPath{{
+				PathID:               "target-context-" + tc.name,
+				Org:                  "acme",
+				Repo:                 "acme/payments",
+				ToolType:             tc.toolType,
+				Location:             tc.location,
+				PathContext:          tc.pathContext,
+				CredentialAccess:     true,
+				Credentials:          []*agginventory.CredentialProvenance{agginventory.CloneCredentialProvenance(unrelatedCredential)},
+				CredentialProvenance: agginventory.CloneCredentialProvenance(unrelatedCredential),
+				CredentialAuthority:  agginventory.CloneCredentialAuthority(unrelatedAuthority),
+				AuthorityBindings:    agginventory.CloneAuthorityBindings(unrelatedBindings),
+				StandingPrivilege:    true,
+			}})
+
+			if len(paths) != 1 {
+				t.Fatalf("expected one projected path, got %+v", paths)
+			}
+			if paths[0].ActionPathEligible {
+				t.Fatalf("expected %s target context to remain ineligible without direct correlation, got %+v", tc.name, paths[0])
+			}
+			if paths[0].ActionBindingState != ActionBindingStateUnboundContext {
+				t.Fatalf("expected %s binding_state=unbound_context, got %+v", tc.name, paths[0])
+			}
+			if paths[0].CredentialAccess {
+				t.Fatalf("expected %s to drop unrelated credential_access, got %+v", tc.name, paths[0])
+			}
+			if paths[0].CredentialProvenance != nil || paths[0].CredentialAuthority != nil || len(paths[0].AuthorityBindings) > 0 {
+				t.Fatalf("expected %s to strip unrelated authority payloads, got %+v", tc.name, paths[0])
+			}
+		})
+	}
+}
+
 func TestCodexConfigProjectsAsInstructionSurfaceWithToolBinding(t *testing.T) {
 	t.Parallel()
 

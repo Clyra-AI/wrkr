@@ -48,6 +48,55 @@ paths:
 	}
 }
 
+func TestSwaggerWithUnrelatedWorkflowCredentialStaysTargetContext(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	writeWave3ScenarioFile(t, root, ".github/workflows/release.yml", `name: release
+on: workflow_dispatch
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./release.sh
+        env:
+          PROD_DEPLOY_PAT: ${{ secrets.PROD_DEPLOY_PAT }}
+`)
+	writeWave3ScenarioFile(t, root, "openapi/swagger.yaml", `openapi: 3.0.0
+paths:
+  /v1/payments:
+    post:
+      summary: Create payment
+      operationId: createPayment
+`)
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	scanPayload := runScenarioCommandJSON(t, []string{"scan", "--path", root, "--state", statePath, "--json"})
+	actionPaths := requireArray(t, scanPayload, "action_paths")
+	swaggerPath := findActionPathByLocation(t, actionPaths, "openapi/swagger.yaml")
+	if value, ok := swaggerPath["action_path_eligible"]; ok && value != false {
+		t.Fatalf("expected swagger target context to stay ineligible when only an unrelated workflow secret exists, got %v", swaggerPath)
+	}
+	if swaggerPath["action_binding_state"] != "unbound_context" {
+		t.Fatalf("expected swagger binding_state=unbound_context, got %v", swaggerPath)
+	}
+	if credentialAccess, ok := swaggerPath["credential_access"].(bool); ok && credentialAccess {
+		t.Fatalf("expected swagger target context to drop unrelated credential_access, got %v", swaggerPath)
+	}
+	if _, ok := swaggerPath["credential_authority_ref"]; ok {
+		t.Fatalf("expected swagger target context to omit credential_authority_ref, got %v", swaggerPath)
+	}
+	if _, ok := swaggerPath["credential_authority"]; ok {
+		t.Fatalf("expected swagger target context to omit embedded credential_authority, got %v", swaggerPath)
+	}
+	if refs, ok := swaggerPath["authority_binding_refs"].([]any); ok && len(refs) > 0 {
+		t.Fatalf("expected swagger target context to omit authority_binding_refs, got %v", swaggerPath)
+	}
+	if bindings, ok := swaggerPath["authority_bindings"].([]any); ok && len(bindings) > 0 {
+		t.Fatalf("expected swagger target context to omit embedded authority_bindings, got %v", swaggerPath)
+	}
+}
+
 func writeWave3ScenarioFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))

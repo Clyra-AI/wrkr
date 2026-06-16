@@ -1,6 +1,7 @@
 package risk
 
 import (
+	pathpkg "path"
 	"strings"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
@@ -81,6 +82,7 @@ func pathHasGovernableBinding(path ActionPath) bool {
 }
 
 func pathHasContextSurfaceCorrelation(path ActionPath) bool {
+	targetContext := pathTargetsCorrelationContext(path)
 	if pathHasExecutableBinding(path) {
 		return true
 	}
@@ -93,17 +95,23 @@ func pathHasContextSurfaceCorrelation(path ActionPath) bool {
 			return true
 		}
 	}
-	if path.DeployWrite || strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") || hasOperationalTargetCorrelation(path.MatchedProductionTargets) {
+	if !targetContext && (path.DeployWrite || strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") || hasOperationalTargetCorrelation(path.MatchedProductionTargets)) {
 		return true
 	}
-	if actionPathHasStrongIdentity(path) {
+	if !targetContext && actionPathHasStrongIdentity(path) {
 		return true
 	}
 	if hasRuntimeCorrelationEvidence(path) {
 		return true
 	}
+	if !targetContext && (len(path.DeliveryHarnesses) > 0 || len(path.ResolverRefs) > 0 || len(path.EvalConfigRefs) > 0 || len(path.WorkflowChainRefs) > 0) {
+		return true
+	}
 	if path.IntroducedBy != nil && (strings.TrimSpace(path.IntroducedBy.Reference) != "" || strings.TrimSpace(path.IntroducedBy.Timestamp) != "") {
 		return true
+	}
+	if targetContext {
+		return pathHasPathScopedAuthorityEvidence(path)
 	}
 	for _, binding := range agginventory.NormalizeAuthorityBindings(path.AuthorityBindings) {
 		if binding == nil {
@@ -119,6 +127,54 @@ func pathHasContextSurfaceCorrelation(path ActionPath) bool {
 		}
 	}
 	return false
+}
+
+func pathHasPathScopedAuthorityEvidence(path ActionPath) bool {
+	location := normalizeCorrelationLocation(path.Location)
+	if location == "" {
+		return false
+	}
+	for _, credential := range agginventory.NormalizeCredentialProvenances(path.Credentials) {
+		if credential == nil {
+			continue
+		}
+		if evidenceLocationMatchesPath(credential.EvidenceLocation, location) {
+			return true
+		}
+	}
+	if provenance := agginventory.NormalizeCredentialProvenance(path.CredentialProvenance); provenance != nil {
+		if evidenceLocationMatchesPath(provenance.EvidenceLocation, location) {
+			return true
+		}
+	}
+	for _, binding := range agginventory.NormalizeAuthorityBindings(path.AuthorityBindings) {
+		if binding == nil {
+			continue
+		}
+		for _, ref := range binding.EvidenceRefs {
+			if evidenceLocationMatchesPath(ref, location) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func evidenceLocationMatchesPath(ref, location string) bool {
+	normalized := normalizeCorrelationLocation(ref)
+	if normalized == "" || location == "" {
+		return false
+	}
+	return normalized == location || strings.HasSuffix(normalized, "/"+location)
+}
+
+func normalizeCorrelationLocation(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(strings.ToLower(value), "\\", "/"))
+	value = strings.TrimPrefix(value, "./")
+	if value == "" {
+		return ""
+	}
+	return pathpkg.Clean(value)
 }
 
 func hasOperationalTargetCorrelation(targets []string) bool {

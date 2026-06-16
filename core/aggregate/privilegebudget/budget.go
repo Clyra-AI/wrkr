@@ -818,10 +818,7 @@ func buildSignalsByRepo(findings []model.Finding) map[string]findingSignals {
 }
 
 func matchingSignalsForTool(tool agginventory.Tool, signalsByAgent map[string]findingSignals, signalsByRepoLocation map[string]findingSignals, signalsByRepo map[string]findingSignals) findingSignals {
-	repoWide := findingSignals{}
-	if repoWideEligibleToolType(tool.ToolType) {
-		repoWide = repoWideSignalsForRepos(tool.Org, tool.Repos, signalsByRepo)
-	}
+	repoWide := repoWideSignalsForTool(tool.ToolType, tool.Org, tool.Repos, signalsByRepo)
 	if signal := signalsByAgent[strings.TrimSpace(tool.AgentID)]; !isEmptyFindingSignals(signal) {
 		return mergeFindingSignalSets(signal, repoWide)
 	}
@@ -862,7 +859,7 @@ func matchingSignalsForAgent(agent agginventory.Agent, tool agginventory.Tool, s
 		return mergeFindingSignalSets(
 			merged,
 			filteredRepoLocationSignals(signalsByRepoLocation[repoLocationSignalKey(agent.Org, "", location)]),
-			repoWideSignalsForRepos(agent.Org, repos, signalsByRepo),
+			repoWideSignalsForTool(firstNonEmptyString(tool.ToolType, agent.Framework), agent.Org, repos, signalsByRepo),
 		)
 	}
 	return mergeFindingSignalSets(merged, filteredRepoLocationSignals(signalsByRepoLocation[repoLocationSignalKey(agent.Org, "", location)]))
@@ -934,6 +931,65 @@ func repoWideSignalsForRepos(org string, repos []string, signalsByRepo map[strin
 		merged = mergeFindingSignalSets(merged, filteredRepoLocationSignals(signalsByRepo[key]))
 	}
 	return merged
+}
+
+func repoWideSignalsForTool(toolType, org string, repos []string, signalsByRepo map[string]findingSignals) findingSignals {
+	if !repoWideEligibleToolType(toolType) {
+		return findingSignals{}
+	}
+	merged := repoWideSignalsForRepos(org, repos, signalsByRepo)
+	if !targetContextAuthorityFilteringRequired(toolType) {
+		return merged
+	}
+	return stripRepoWideAuthoritySignals(merged)
+}
+
+func targetContextAuthorityFilteringRequired(toolType string) bool {
+	switch normalizeToken(toolType) {
+	case "openapi", "route":
+		return true
+	default:
+		return false
+	}
+}
+
+func stripRepoWideAuthoritySignals(signal findingSignals) findingSignals {
+	if isEmptyFindingSignals(signal) {
+		return findingSignals{}
+	}
+	blockedKeys := map[string]struct{}{
+		"workflow_secret_refs":        {},
+		"credential_keys":             {},
+		"credential_provenance_type":  {},
+		"credential_subject":          {},
+		"credential_scope":            {},
+		"credential_confidence":       {},
+		"workflow_builtin_token":      {},
+		"workflow_token_permission":   {},
+		"identity_type":               {},
+		"subject":                     {},
+		"authority_binding":           {},
+		"credential_target_system":    {},
+		"credential_likely_scope":     {},
+		"credential_scope_confidence": {},
+	}
+	out := findingSignals{
+		Repos:      append([]string(nil), signal.Repos...),
+		Locations:  append([]string(nil), signal.Locations...),
+		Values:     []string{},
+		EvidenceKV: map[string][]string{},
+	}
+	for key, values := range signal.EvidenceKV {
+		if _, blocked := blockedKeys[key]; blocked {
+			continue
+		}
+		out.EvidenceKV[key] = append([]string(nil), values...)
+		out.Values = append(out.Values, key)
+		out.Values = append(out.Values, values...)
+	}
+	out.Values = append(out.Values, out.Repos...)
+	out.Values = append(out.Values, out.Locations...)
+	return normalizeFindingSignals(out)
 }
 
 func repoWideEligibleToolType(toolType string) bool {

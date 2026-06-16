@@ -1,13 +1,13 @@
 {
   "bom_count": 7,
   "first_bom": {
-    "confidence_lane": "confirmed_action_path",
+    "confidence_lane": "likely_action_path",
     "location": "loc-dd191250",
     "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
     "repo": "repo-d236d5"
   },
   "first_registry": {
-    "confidence_lane": "confirmed_action_path",
+    "confidence_lane": "likely_action_path",
     "remediation": "Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.",
     "surface_type": "route_file"
   },
