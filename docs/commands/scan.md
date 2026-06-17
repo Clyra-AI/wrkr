@@ -39,8 +39,8 @@ Automation / CI workflow:
 
 ```bash
 wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json
-wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
-wrkr scan --my-setup --state ./.wrkr/last-scan.json
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr scan --my-setup --state ./.wrkr/last-scan.json --json
 ```
 
 Use either one legacy target source (`--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`) or one or more repeatable `--target <mode>:<value>` flags.
@@ -158,7 +158,7 @@ Existing state files without a status sidecar are interpreted as `completed` whe
 ## Developer personal-hygiene example
 
 ```bash
-wrkr scan --my-setup --state ./.wrkr/last-scan.json
+wrkr scan --my-setup --json
 ```
 
 This local/offline mode inventories supported user-home tool configs, selected environment key presence, and local agent project markers. Use it when a developer wants to answer "what AI tooling is already on this machine?" before widening to the org workflow.
@@ -201,7 +201,7 @@ wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/
 Automation / CI equivalent:
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 ```
 
 Wrkr now exposes one explicit progress contract through `--progress auto|bar|plain|events|none`.
@@ -233,21 +233,21 @@ If a run is interrupted after some repositories are checkpointed, rerun the same
 For long org scans, run the foreground command under your process supervisor or shell backgrounding rather than relying on a hidden daemon:
 
 ```bash
-nohup wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --json-path ./.wrkr/scan.json > ./.wrkr/scan.stdout 2> ./.wrkr/scan.stderr &
+nohup wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json > ./.wrkr/scan.stdout 2> ./.wrkr/scan.stderr &
 wrkr scan status --state ./.wrkr/last-scan.json --json
 ```
 
 Mixed target example:
 
 ```bash
-wrkr scan --target org:acme --target path:./repos --github-api https://api.github.com --state ./.wrkr/last-scan.json
-wrkr scan --target public-surface:./docs/examples/public-surface-assessment.v1.yaml --state ./.wrkr/last-scan.json
+wrkr scan --target org:acme --target path:./repos --github-api https://api.github.com --json
+wrkr scan --target public-surface:./docs/examples/public-surface-assessment.v1.yaml --json
 ```
 
 ## Repo/path example
 
 ```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
 ```
 
 This is the canonical `repo_set` example for `--path`: the selected directory is a bundle of immediate child repos, so Wrkr preserves per-child repo manifests and deterministic ordering instead of collapsing the bundle into one repo.

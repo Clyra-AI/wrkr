@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -124,117 +123,6 @@ func TestBuildAgentActionBOMSkipsContextOnlyPrimarySelection(t *testing.T) {
 	if bom.Summary.PrimaryView.PathID != "apc-eligible" {
 		t.Fatalf("expected primary view to skip context-only path, got %+v", bom.Summary.PrimaryView)
 	}
-}
-
-func TestApplyAgentActionBOMFocusSelectsSuppressedSourceItem(t *testing.T) {
-	t.Parallel()
-
-	semantics := []agginventory.MutableEndpointSemantic{{
-		Semantic:     agginventory.EndpointSemanticDeploy,
-		Confidence:   "high",
-		Surface:      "workflow",
-		Operation:    "deploy release",
-		EvidenceRefs: []string{"deploy release"},
-	}}
-	authority := &agginventory.CredentialAuthority{
-		CredentialPresent:      true,
-		CredentialUsableByPath: true,
-		CredentialKind:         agginventory.CredentialKindGitHubPAT,
-		AccessType:             agginventory.CredentialAccessTypeStanding,
-		StandingAccess:         true,
-	}
-	binding := &agginventory.AuthorityBinding{
-		Kind:         agginventory.AuthorityBindingSaaSToken,
-		Provider:     "github",
-		TargetSystem: "source_control",
-		LikelyScope:  "repo_write",
-		AccessLevel:  agginventory.AuthorityAccessWrite,
-		Confidence:   "high",
-	}
-	visible := []AgentActionBOMItem{
-		{
-			PathID:         "apc-visible-1",
-			Org:            "acme",
-			Repo:           "acme/release",
-			ToolType:       "codex",
-			Location:       ".github/workflows/release.yml",
-			ConfidenceLane: risk.ConfidenceLaneConfirmedActionPath,
-			ActionPathType: risk.ActionPathTypeCICDWorkflow,
-		},
-		{
-			PathID:         "apc-visible-2",
-			Org:            "acme",
-			Repo:           "acme/release",
-			ToolType:       "codex",
-			Location:       ".github/workflows/deploy.yml",
-			ConfidenceLane: risk.ConfidenceLaneLikelyActionPath,
-			ActionPathType: risk.ActionPathTypeCICDWorkflow,
-		},
-	}
-	suppressed := AgentActionBOMItem{
-		PathID:                   "apc-suppressed-focus",
-		Org:                      "acme",
-		Repo:                     "acme/release",
-		ToolType:                 "codex",
-		Location:                 ".github/workflows/publish.yml",
-		ConfidenceLane:           risk.ConfidenceLaneSemanticReviewCandidate,
-		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
-		DelegationReadinessState: risk.DelegationReadinessProofRequired,
-		RecommendedControl:       risk.RecommendedControlProofRequired,
-		MutableEndpointSemantics: semantics,
-		CredentialAuthority:      authority,
-		AuthorityBindings:        []*agginventory.AuthorityBinding{binding},
-	}
-	summary := Summary{
-		AgentActionBOM: &AgentActionBOM{
-			Summary: AgentActionBOMSummary{},
-			Items:   append([]AgentActionBOMItem(nil), visible...),
-			focusSourceItems: append(append([]AgentActionBOMItem(nil), visible...),
-				suppressed,
-			),
-		},
-	}
-
-	if err := ApplyAgentActionBOMFocus(&summary, "apc-suppressed-focus"); err != nil {
-		t.Fatalf("expected suppressed focus path to remain selectable: %v", err)
-	}
-	if summary.AgentActionBOM.Summary.PrimaryView == nil || summary.AgentActionBOM.Summary.PrimaryView.PathID != "apc-suppressed-focus" {
-		t.Fatalf("expected primary view for suppressed focus path, got %+v", summary.AgentActionBOM.Summary.PrimaryView)
-	}
-	if !agentActionBOMItemsContainPath(summary.AgentActionBOM.Items, "apc-suppressed-focus") {
-		t.Fatalf("expected focused source item to be visible in capped BOM items, got %+v", summary.AgentActionBOM.Items)
-	}
-	focusedItem, ok := agentActionBOMItemByPath(summary.AgentActionBOM.Items, "apc-suppressed-focus")
-	if !ok {
-		t.Fatalf("expected focused source item to be visible in capped BOM items, got %+v", summary.AgentActionBOM.Items)
-	}
-	if focusedItem.CredentialAuthorityRef == "" || len(focusedItem.AuthorityBindingRefs) == 0 || len(focusedItem.MutableEndpointSemanticRefs) == 0 {
-		t.Fatalf("expected focused display item to carry canonical refs, got %+v", focusedItem)
-	}
-	if focusedItem.CredentialAuthority != nil || len(focusedItem.AuthorityBindings) > 0 || len(focusedItem.MutableEndpointSemantics) > 0 {
-		t.Fatalf("expected focused display item to omit embedded canonical payload clones, got %+v", focusedItem)
-	}
-	sourceItem, ok := agentActionBOMItemByPath(summary.AgentActionBOM.focusSourceItems, "apc-suppressed-focus")
-	if !ok {
-		t.Fatalf("expected rich focused source item to remain available, got %+v", summary.AgentActionBOM.focusSourceItems)
-	}
-	if sourceItem.CredentialAuthority == nil || len(sourceItem.AuthorityBindings) == 0 || len(sourceItem.MutableEndpointSemantics) == 0 {
-		t.Fatalf("expected rich focused source item to remain unstripped for primary view context, got %+v", sourceItem)
-	}
-}
-
-func agentActionBOMItemsContainPath(items []AgentActionBOMItem, pathID string) bool {
-	_, ok := agentActionBOMItemByPath(items, pathID)
-	return ok
-}
-
-func agentActionBOMItemByPath(items []AgentActionBOMItem, pathID string) (AgentActionBOMItem, bool) {
-	for _, item := range items {
-		if strings.TrimSpace(item.PathID) == pathID {
-			return item, true
-		}
-	}
-	return AgentActionBOMItem{}, false
 }
 
 func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) {

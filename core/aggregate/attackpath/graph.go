@@ -837,15 +837,12 @@ func controlCredentialNode(pathID string, path ControlPathInput, org string, rep
 	node := newControlPathNode(pathID, ControlPathNodeCredential, org, repo, label, toolType, location, strings.TrimSpace(path.AgentID), status, evidenceRefs, controlSourceRefs(repo, location), path.AttackPathRefs, path.SourceFindingKeys)
 	applyNodeMetadata(&node, path, "credential")
 	node.CredentialAuthorityRef = strings.TrimSpace(path.CredentialAuthorityRef)
-	if node.CredentialAuthorityRef == "" && path.CredentialAuthority != nil {
-		node.CredentialAuthorityRef = agginventory.CanonicalCredentialAuthorityRef(path.CredentialAuthority)
-	}
+	node.CredentialAuthority = agginventory.CloneCredentialAuthority(path.CredentialAuthority)
 	node.AuthorityBindingRefs = append([]string(nil), path.AuthorityBindingRefs...)
-	if len(node.AuthorityBindingRefs) == 0 && len(path.AuthorityBindings) > 0 {
-		node.AuthorityBindingRefs = agginventory.CanonicalAuthorityBindingRefs(path.AuthorityBindings)
-	}
+	node.AuthorityBindings = agginventory.CloneAuthorityBindings(path.AuthorityBindings)
 	node.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
 	node.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
+	node.MutableEndpointSemantics = agginventory.BoundedMutableEndpointSemantics(path.MutableEndpointSemantics)
 	return &node
 }
 
@@ -863,6 +860,7 @@ func applyNodeMetadata(node *ControlPathNode, path ControlPathInput, lineageSegm
 	node.ConfigSource = strings.TrimSpace(path.ConfigSource)
 	node.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
 	node.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
+	node.MutableEndpointSemantics = agginventory.BoundedMutableEndpointSemantics(path.MutableEndpointSemantics)
 }
 
 func lineageSegmentForGovernanceControl(control string) string {

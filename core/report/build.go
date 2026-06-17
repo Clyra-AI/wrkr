@@ -319,11 +319,8 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		summary.AgentActionBOM.Summary.GovernedUsageMetrics = summary.GovernedUsageMetrics
 		summary.AgentActionBOM.Summary.RepeatUsageSignals = cloneRepeatUsageSignals(summary.RepeatUsageSignals)
 	}
-	ApplySummaryCaps(&summary)
-	if summary.AgentActionBOM != nil {
-		_ = selectAgentActionBOMPrimaryView(summary.AgentActionBOM, "")
-	}
 	summary.WorkflowHighlights = BuildWorkflowHighlights(summary)
+	ApplySummaryCaps(&summary)
 	summary.ActionPaths = risk.StripCanonicalProjectionDetails(risk.BackfillCanonicalProjectionRefs(summary.ActionPaths, in.Snapshot.Inventory))
 	summary.ActionPathToControlFirst = risk.StripActionPathToControlFirstCanonicalProjectionDetails(
 		risk.BackfillActionPathToControlFirstCanonicalProjectionRefs(summary.ActionPathToControlFirst, in.Snapshot.Inventory),

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -79,7 +78,6 @@ type labData struct {
 	ExecutiveRollup       map[string]any `json:"executive_rollup"`
 	GovernedUsageMetrics  map[string]any `json:"governed_usage_metrics"`
 	ToolTypeBreakdown     []any          `json:"tool_type_breakdown"`
-	ToolTypeCountMode     string         `json:"tool_type_count_mode"`
 	TopFindings           []any          `json:"top_findings"`
 	TopActionPaths        []any          `json:"top_action_paths"`
 	ControlBacklogSummary map[string]any `json:"control_backlog_summary"`
@@ -141,10 +139,7 @@ func Build(repoRoot string) (AssetSet, error) {
 		_ = os.RemoveAll(tmpDir)
 	}()
 
-	scenarioRoot, err := prepareScenarioSnapshot(repoRoot, tmpDir)
-	if err != nil {
-		return AssetSet{}, err
-	}
+	scenarioRoot := filepath.Join(repoRoot, ScenarioRelPath)
 	statePath := filepath.Join(tmpDir, "site-assets-state.json")
 	reportEvidencePath := filepath.Join(tmpDir, "site-assets-public-evidence.json")
 	redactedReportPath := filepath.Join(tmpDir, "site-assets-redacted.md")
@@ -354,8 +349,7 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 		},
 		Detection: map[string]any{
 			"total_tools":          scanPayload["total_tools"],
-			"tool_type_breakdown":  projectPublicToolTypeBreakdown(scanPayload["tool_type_breakdown"]),
-			"tool_type_count_mode": "presence_by_type",
+			"tool_type_breakdown":  scanPayload["tool_type_breakdown"],
 			"compliance_gap_count": scanPayload["compliance_gap_count"],
 		},
 		Aggregation: map[string]any{
@@ -365,24 +359,19 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 			"control_backlog_items":    objectInt(summary["control_backlog"], "total_items"),
 		},
 		Proof: map[string]any{
-			"chain_present":     objectInt(summary["proof"], "record_count") > 0,
-			"record_count":      presenceCount(objectInt(summary["proof"], "record_count") > 0),
-			"record_count_mode": "presence",
+			"chain_present": objectInt(summary["proof"], "record_count") > 0,
+			"record_count":  objectInt(summary["proof"], "record_count"),
 		},
 	}
 }
 
 func buildLabData(scanPayload, reportPayload, summary, controlBacklog, proof map[string]any, ids publishedIDMaps) labData {
-	agentActionBOM := requireObject(reportPayload, "agent_action_bom")
-	agentActionBOMSummary := requireObject(agentActionBOM, "summary")
-	agentActionBOMItems := cloneArray(agentActionBOM["items"])
-	projectedBOMItems := projectAgentActionBOMItems(agentActionBOMItems)
+	exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey := buildExecutiveRollupExampleProjectionMaps(cloneArray(requireObject(requireObject(reportPayload, "agent_action_bom"), "items")))
 	return labData{
 		DeploymentMode:        stringValue(reportPayload["deployment_mode"]),
-		ExecutiveRollup:       projectSampleExecutiveRollup(projectedBOMItems),
-		GovernedUsageMetrics:  projectGovernedUsageMetrics(requireObject(agentActionBOMSummary, "governed_usage_metrics"), projectedBOMItems),
-		ToolTypeBreakdown:     projectPublicToolTypeBreakdown(scanPayload["tool_type_breakdown"]),
-		ToolTypeCountMode:     "presence_by_type",
+		ExecutiveRollup:       projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey),
+		GovernedUsageMetrics:  cloneObject(requireObject(summary, "governed_usage_metrics")),
+		ToolTypeBreakdown:     cloneArray(scanPayload["tool_type_breakdown"]),
 		TopFindings:           projectTopFindings(limitArray(cloneArray(reportPayload["top_findings"]), 5)),
 		TopActionPaths:        projectTopActionPaths(limitArray(cloneArray(reportPayload["action_paths"]), 5), ids),
 		ControlBacklogSummary: cloneObject(requireObject(controlBacklog, "summary")),
@@ -390,77 +379,22 @@ func buildLabData(scanPayload, reportPayload, summary, controlBacklog, proof map
 	}
 }
 
-func projectPublicToolTypeBreakdown(raw any) []any {
-	rows := cloneArray(raw)
-	toolTypes := make([]string, 0, len(rows))
-	seen := map[string]struct{}{}
-	for _, rowAny := range rows {
-		row := requireObjectFromAny(rowAny)
-		toolType := stringValue(row["tool_type"])
-		if toolType == "" {
-			continue
-		}
-		if _, ok := seen[toolType]; ok {
-			continue
-		}
-		seen[toolType] = struct{}{}
-		toolTypes = append(toolTypes, toolType)
-	}
-	sort.Strings(toolTypes)
-
-	out := make([]any, 0, len(toolTypes))
-	for _, toolType := range toolTypes {
-		out = append(out, map[string]any{
-			"count":     1,
-			"tool_type": toolType,
-		})
-	}
-	return out
-}
-
 func projectProofSummary(proof map[string]any) map[string]any {
-	chainPresent := proof["record_count"] != nil && objectInt(proof, "record_count") > 0
 	return map[string]any{
-		"chain_present":     chainPresent,
-		"record_count":      presenceCount(chainPresent),
-		"record_count_mode": "presence",
+		"chain_present": proof["record_count"] != nil && objectInt(proof, "record_count") > 0,
+		"record_count":  proof["record_count"],
 	}
-}
-
-func presenceCount(present bool) int {
-	if present {
-		return 1
-	}
-	return 0
 }
 
 func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) map[string]any {
 	summary := requireObject(agentActionBOM, "summary")
 	items := cloneArray(agentActionBOM["items"])
-	projectedItems := projectAgentActionBOMItems(items)
-	projectedItemsAny := make([]any, len(projectedItems))
-	for idx, item := range projectedItems {
-		projectedItemsAny[idx] = item
-	}
-	projectedSummary := projectAgentActionBOMSummary(summary, projectedItems, ids)
-	fingerprint := map[string]any{
-		"schema_version": agentActionBOM["schema_version"],
-		"items":          projectedItemsAny,
-	}
-	return map[string]any{
-		"bom_id":         stableOpaqueID("bom", fingerprint),
-		"schema_version": agentActionBOM["schema_version"],
-		"summary":        projectedSummary,
-		"items":          projectedItemsAny,
-	}
-}
-
-func projectAgentActionBOMItems(items []any) []map[string]any {
 	projectedItems := make([]map[string]any, 0, len(items))
+	exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey := buildExecutiveRollupExampleProjectionMaps(items)
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
 		repoID, pathID, locationID := publishedIDsForRow(row)
-		projected := map[string]any{
+		projectedItems = append(projectedItems, map[string]any{
 			"path_id":                    pathID,
 			"repo":                       repoID,
 			"location":                   locationID,
@@ -479,11 +413,7 @@ func projectAgentActionBOMItems(items []any) []map[string]any {
 			"confidence_lane":            row["confidence_lane"],
 			"evidence_strength":          row["evidence_strength"],
 			"recommended_action":         row["recommended_action"],
-		}
-		if boolValue(row["standing_privilege"]) {
-			projected["standing_privilege"] = true
-		}
-		projectedItems = append(projectedItems, projected)
+		})
 	}
 	sort.Slice(projectedItems, func(i, j int) bool {
 		left := stringValue(projectedItems[i]["path_id"])
@@ -493,328 +423,56 @@ func projectAgentActionBOMItems(items []any) []map[string]any {
 		}
 		return stringValue(projectedItems[i]["location"]) < stringValue(projectedItems[j]["location"])
 	})
-	return projectedItems
-}
-
-func projectAgentActionBOMSummary(summary map[string]any, projectedItems []map[string]any, ids publishedIDMaps) map[string]any {
-	return map[string]any{
-		"total_items":              len(projectedItems),
-		"control_first_items":      countProjectedItems(projectedItems, "queue", "control_first"),
-		"standing_privilege_items": countProjectedBoolItems(projectedItems, "standing_privilege"),
-		"runtime_proven_items":     countProjectedItems(projectedItems, "runtime_evidence_state", "verified"),
+	projectedItemsAny := make([]any, len(projectedItems))
+	for idx, item := range projectedItems {
+		projectedItemsAny[idx] = item
+	}
+	projectedSummary := map[string]any{
+		"total_items":              summary["total_items"],
+		"control_first_items":      summary["control_first_items"],
+		"standing_privilege_items": summary["standing_privilege_items"],
+		"runtime_proven_items":     summary["runtime_proven_items"],
 		"coverage_confidence":      summary["coverage_confidence"],
 		"scan_coverage":            summary["scan_coverage"],
-		"delegation_readiness":     projectDelegationReadiness(projectedItems),
-		"executive_rollup":         projectSampleExecutiveRollup(projectedItems),
-		"governed_usage_metrics":   projectGovernedUsageMetrics(requireObject(summary, "governed_usage_metrics"), projectedItems),
+		"delegation_readiness":     summary["delegation_readiness"],
+		"executive_rollup":         projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey),
+		"governed_usage_metrics":   summary["governed_usage_metrics"],
 		"primary_view":             projectPrimaryView(requireObject(summary, "primary_view"), ids),
 	}
-}
-
-func projectDelegationReadiness(items []map[string]any) map[string]any {
-	states := []string{
-		"approval_required",
-		"blocked",
-		"blocked_by_contradiction",
-		"proof_required",
-		"ready_for_control",
-		"review_required",
-		"safe_to_delegate",
+	fingerprint := map[string]any{
+		"schema_version": agentActionBOM["schema_version"],
+		"summary":        projectedSummary,
+		"items":          projectedItemsAny,
 	}
-	out := make(map[string]any, len(states))
-	for _, state := range states {
-		out[state] = 0
-	}
-	for _, item := range items {
-		state := stringValue(item["delegation_readiness_state"])
-		if _, ok := out[state]; ok {
-			out[state] = objectCount(out[state]) + 1
-		}
-	}
-	return out
-}
-
-func projectGovernedUsageMetrics(source map[string]any, items []map[string]any) map[string]any {
 	return map[string]any{
-		"active_monitored_action_paths": countActiveMonitoredProjectedItems(items),
-		"approval_decisions":            metricInt(source, "approval_decisions", 0),
-		"audit_exports":                 metricInt(source, "audit_exports", 4),
-		"connected_runtimes":            metricInt(source, "connected_runtimes", 0),
-		"contradictory_paths":           countContradictoryProjectedItems(items),
-		"evidence_packs":                metricInt(source, "evidence_packs", 0),
-		"governed_agents_workflows":     len(items),
-		"governed_paths":                countProjectedItems(items, "queue", "control_first"),
-		"unknown_control_paths":         countProjectedItems(items, "control_resolution_state", "no_visible_control") + countProjectedItems(items, "control_resolution_state", "unknown"),
-		"verified_control_paths":        countVerifiedControlProjectedItems(items),
+		"bom_id":         stableOpaqueID("bom", fingerprint),
+		"schema_version": agentActionBOM["schema_version"],
+		"summary":        projectedSummary,
+		"items":          projectedItemsAny,
 	}
 }
 
-type sampleExecutiveRollupGroup struct {
-	count          int
-	dimensions     map[string]any
-	evidenceStates map[string]int
-	refs           []string
-}
-
-func projectSampleExecutiveRollup(items []map[string]any) map[string]any {
-	groupsByKey := map[string]*sampleExecutiveRollupGroup{}
-	for _, item := range items {
-		evidenceState := sampleEvidenceState(item)
-		closureAction := sampleClosureAction(item)
-		dimensions := map[string]any{
-			"closure_action":      closureAction,
-			"contradiction_state": sampleContradictionState(item),
-			"detector_confidence": item["confidence_lane"],
-			"evidence_state":      evidenceState,
-			"risk_zone":           item["risk_zone"],
-			"target_class":        item["target_class"],
-		}
-		key := canonicalJSONKey(dimensions)
-		group := groupsByKey[key]
-		if group == nil {
-			group = &sampleExecutiveRollupGroup{
-				dimensions:     dimensions,
-				evidenceStates: map[string]int{"verified": 0, "declared": 0, "inferred": 0, "unknown": 0, "contradictory": 0},
-			}
-			groupsByKey[key] = group
-		}
-		group.count++
-		if pathID := stringValue(item["path_id"]); pathID != "" {
-			group.refs = append(group.refs, pathID)
-		}
-		group.evidenceStates[evidenceState]++
-	}
-
-	groups := make([]any, 0, len(groupsByKey))
-	totalPaths := 0
-	for _, group := range groupsByKey {
-		sort.Strings(group.refs)
-		refs := append([]string(nil), group.refs...)
-		if len(refs) > 3 {
-			refs = refs[:3]
-		}
-		topExampleRefs := make([]any, 0, len(refs))
-		for _, ref := range refs {
-			topExampleRefs = append(topExampleRefs, ref)
-		}
-		totalPaths += group.count
-		groups = append(groups, map[string]any{
-			"closure_recommendation": sampleClosureRecommendation(group),
-			"count":                  group.count,
-			"dimensions":             group.dimensions,
-			"evidence_state_summary": map[string]any{
-				"contradictory": group.evidenceStates["contradictory"],
-				"declared":      group.evidenceStates["declared"],
-				"inferred":      group.evidenceStates["inferred"],
-				"unknown":       group.evidenceStates["unknown"],
-				"verified":      group.evidenceStates["verified"],
-			},
-			"group_id":         stableOpaqueID("xrg", group.dimensions),
-			"highest_priority": sampleHighestPriority(group),
-			"highest_severity": sampleHighestSeverity(group),
-			"rationale": []any{
-				fmt.Sprintf("%d %s paths grouped by %s target and %s evidence", group.count, stringValue(group.dimensions["risk_zone"]), stringValue(group.dimensions["target_class"]), stringValue(group.dimensions["evidence_state"])),
-				fmt.Sprintf("closure_action=%s detector_confidence=%s", stringValue(group.dimensions["closure_action"]), stringValue(group.dimensions["detector_confidence"])),
-			},
-			"top_example_refs": topExampleRefs,
-		})
-	}
-	sort.Slice(groups, func(i, j int) bool {
-		left := requireObjectFromAny(groups[i])
-		right := requireObjectFromAny(groups[j])
-		if stringValue(left["highest_priority"]) != stringValue(right["highest_priority"]) {
-			return stringValue(left["highest_priority"]) < stringValue(right["highest_priority"])
-		}
-		return stringValue(left["group_id"]) < stringValue(right["group_id"])
-	})
-	return map[string]any{
-		"total_groups": len(groups),
-		"total_paths":  totalPaths,
-		"groups":       groups,
-	}
-}
-
-func sampleEvidenceState(item map[string]any) string {
-	state := "verified"
-	if value := controlResolutionEvidenceState(stringValue(item["control_resolution_state"])); value != "" {
-		state = mergeEvidenceState(state, value)
-	}
-	for _, key := range []string{
-		"approval_evidence_state",
-		"owner_evidence_state",
-		"proof_evidence_state",
-		"runtime_evidence_state",
-		"target_evidence_state",
-		"credential_evidence_state",
-	} {
-		if value := stringValue(item[key]); value != "" {
-			state = mergeEvidenceState(state, value)
-		}
-	}
-	return state
-}
-
-func sampleClosureRecommendation(group *sampleExecutiveRollupGroup) string {
-	switch stringValue(group.dimensions["closure_action"]) {
-	case "block_or_remediate":
-		return "block or remediate before delegation"
-	case "owner_review":
-		return "require owner review and attach evidence"
-	case "attach_evidence":
-		return "attach path-specific control and proof evidence"
-	default:
-		return "keep as monitored sample path"
-	}
-}
-
-func sampleHighestSeverity(group *sampleExecutiveRollupGroup) string {
-	switch stringValue(group.dimensions["closure_action"]) {
-	case "block_or_remediate":
-		return "critical"
-	case "approval_required", "proof_required", "owner_review", "attach_evidence":
-		return "high"
-	default:
-		return "medium"
-	}
-}
-
-func sampleHighestPriority(group *sampleExecutiveRollupGroup) string {
-	switch stringValue(group.dimensions["closure_action"]) {
-	case "block_or_remediate", "approval_required", "proof_required", "attach_evidence":
-		return "control_first"
-	case "owner_review":
-		return "review_queue"
-	default:
-		return "inventory_hygiene"
-	}
-}
-
-func sampleClosureAction(item map[string]any) string {
-	switch stringValue(item["delegation_readiness_state"]) {
-	case "blocked", "blocked_by_contradiction":
-		return "block_or_remediate"
-	case "approval_required":
-		return "approval_required"
-	case "proof_required":
-		return "proof_required"
-	case "review_required":
-		return "owner_review"
-	}
-	if sampleEvidenceState(item) != "verified" {
-		return "attach_evidence"
-	}
-	return "monitor"
-}
-
-func sampleContradictionState(item map[string]any) string {
-	if stringValue(item["control_resolution_state"]) == "contradictory_control" || stringValue(item["delegation_readiness_state"]) == "blocked_by_contradiction" {
-		return "contradictory"
-	}
-	return "consistent"
-}
-
-func controlResolutionEvidenceState(value string) string {
-	switch strings.TrimSpace(value) {
-	case "contradictory_control":
-		return "contradictory"
-	case "no_visible_control", "unknown":
-		return "unknown"
-	case "declared_control", "external_control_reference":
-		return "declared"
-	case "detected_control", "not_applicable":
-		return "verified"
-	default:
-		return ""
-	}
-}
-
-func mergeEvidenceState(current, next string) string {
-	if evidenceStateRank(next) > evidenceStateRank(current) {
-		return next
-	}
-	return current
-}
-
-func evidenceStateRank(value string) int {
-	switch strings.TrimSpace(value) {
-	case "contradictory":
-		return 5
-	case "unknown":
-		return 4
-	case "inferred":
-		return 3
-	case "declared":
-		return 2
-	case "verified":
-		return 1
-	default:
-		return 0
-	}
-}
-
-func countProjectedItems(items []map[string]any, key, want string) int {
-	count := 0
-	for _, item := range items {
-		if stringValue(item[key]) == want {
-			count++
-		}
-	}
-	return count
-}
-
-func countContradictoryProjectedItems(items []map[string]any) int {
-	count := 0
-	for _, item := range items {
-		if stringValue(item["control_resolution_state"]) == "contradictory_control" || stringValue(item["delegation_readiness_state"]) == "blocked_by_contradiction" {
-			count++
-		}
-	}
-	return count
-}
-
-func countProjectedBoolItems(items []map[string]any, key string) int {
-	count := 0
-	for _, item := range items {
-		if boolValue(item[key]) {
-			count++
-		}
-	}
-	return count
-}
-
-func countActiveMonitoredProjectedItems(items []map[string]any) int {
-	count := 0
-	for _, item := range items {
-		switch stringValue(item["action_path_type"]) {
-		case "dependency_inventory_signal", "dependency_only_signal":
+func buildExecutiveRollupExampleProjectionMaps(items []any) (map[string]string, map[string][]string) {
+	exampleSelectionKeyByRawPathID := map[string]string{}
+	projectedPathIDsByExampleSelectionKey := map[string][]string{}
+	for _, raw := range items {
+		row := requireObjectFromAny(raw)
+		rawPathID := stringValue(row["path_id"])
+		if rawPathID == "" {
 			continue
-		default:
-			count++
 		}
-	}
-	return count
-}
-
-func countVerifiedControlProjectedItems(items []map[string]any) int {
-	count := 0
-	for _, item := range items {
-		switch stringValue(item["control_resolution_state"]) {
-		case "detected_control", "declared_control", "external_control_reference":
-			count++
+		_, pathID, _ := publishedIDsForRow(row)
+		if pathID == "" {
+			continue
 		}
+		selectionKey := executiveRollupExampleSelectionKey(row)
+		if selectionKey == "" {
+			continue
+		}
+		exampleSelectionKeyByRawPathID[rawPathID] = selectionKey
+		projectedPathIDsByExampleSelectionKey[selectionKey] = append(projectedPathIDsByExampleSelectionKey[selectionKey], pathID)
 	}
-	return count
-}
-
-func metricInt(source map[string]any, key string, fallback int) int {
-	if _, ok := source[key]; !ok {
-		return fallback
-	}
-	return objectCount(source[key])
-}
-
-func objectCount(value any) int {
-	return int(floatValue(value))
+	return exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey
 }
 
 func projectControlPathGraph(graph map[string]any) map[string]any {
@@ -830,77 +488,6 @@ func projectControlPathGraph(graph map[string]any) map[string]any {
 	out["nodes"] = projectedNodes
 	out["edges"] = projectControlPathGraphEdges(cloneArray(graph["edges"]), pathIDMap, nodeIDMap)
 	return out
-}
-
-func prepareScenarioSnapshot(repoRoot, tmpDir string) (string, error) {
-	repoRoot, err := filepath.Abs(repoRoot)
-	if err != nil {
-		return "", fmt.Errorf("resolve repo root: %w", err)
-	}
-	cmd := exec.Command("git", "-C", repoRoot, "ls-files", "-z", "--", ScenarioRelPath) // #nosec G204 -- constant git binary with shell-free arguments; repoRoot is resolved locally and no user-controlled shell is invoked.
-	payload, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("list tracked site-asset fixture files: %w", err)
-	}
-	entries := bytes.Split(payload, []byte{0})
-	if len(entries) == 0 {
-		return "", fmt.Errorf("site-asset fixture has no tracked files under %s", ScenarioRelPath)
-	}
-	snapshotRoot := filepath.Join(tmpDir, "scenario-snapshot")
-	copied := 0
-	for _, entry := range entries {
-		relSlash := strings.TrimSpace(string(entry))
-		if relSlash == "" {
-			continue
-		}
-		relPath := filepath.FromSlash(relSlash)
-		if filepath.IsAbs(relPath) || strings.HasPrefix(filepath.Clean(relPath), ".."+string(filepath.Separator)) {
-			return "", fmt.Errorf("unsafe site-asset fixture path from git: %s", relSlash)
-		}
-		src, err := safeJoinUnderRoot(repoRoot, relPath)
-		if err != nil {
-			return "", fmt.Errorf("resolve tracked site-asset fixture %s: %w", relSlash, err)
-		}
-		info, err := os.Lstat(src)
-		if err != nil {
-			return "", fmt.Errorf("stat tracked site-asset fixture %s: %w", relSlash, err)
-		}
-		if !info.Mode().IsRegular() {
-			continue
-		}
-		payload, err := os.ReadFile(src) // #nosec G304 -- src is constrained by safeJoinUnderRoot and originates from git ls-files under ScenarioRelPath.
-		if err != nil {
-			return "", fmt.Errorf("read tracked site-asset fixture %s: %w", relSlash, err)
-		}
-		dst := filepath.Join(snapshotRoot, relPath)
-		if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
-			return "", fmt.Errorf("create site-asset fixture snapshot dir: %w", err)
-		}
-		if err := os.WriteFile(dst, payload, 0o600); err != nil {
-			return "", fmt.Errorf("write site-asset fixture snapshot %s: %w", relSlash, err)
-		}
-		copied++
-	}
-	if copied == 0 {
-		return "", fmt.Errorf("site-asset fixture has no regular tracked files under %s", ScenarioRelPath)
-	}
-	return filepath.Join(snapshotRoot, filepath.FromSlash(ScenarioRelPath)), nil
-}
-
-func safeJoinUnderRoot(root, relPath string) (string, error) {
-	if filepath.IsAbs(relPath) {
-		return "", fmt.Errorf("absolute path is not allowed: %s", relPath)
-	}
-	root = filepath.Clean(root)
-	candidate := filepath.Clean(filepath.Join(root, relPath))
-	relative, err := filepath.Rel(root, candidate)
-	if err != nil {
-		return "", err
-	}
-	if relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || relative == ".." {
-		return "", fmt.Errorf("path escapes root: %s", relPath)
-	}
-	return candidate, nil
 }
 
 type projectedControlPathNode struct {
@@ -949,8 +536,8 @@ func projectControlPathGraphPathIDs(nodes []any, edges []any) map[string]string 
 		return projected[i].oldID < projected[j].oldID
 	})
 	out := map[string]string{}
-	for _, path := range projected {
-		out[path.oldID] = stableOpaqueID("path", path.fingerprint)
+	for idx, path := range projected {
+		out[path.oldID] = ordinalOpaqueID("path", idx+1)
 	}
 	return out
 }
@@ -1000,12 +587,12 @@ func projectControlPathGraphNodes(items []any, pathIDMap map[string]string) []pr
 
 func assignControlPathNodeIDs(nodes []projectedControlPathNode, nodeIDMap map[string]string) {
 	for idx := range nodes {
-		newID := stableOpaqueID("node", controlPathNodeFingerprint(nodes[idx].row))
+		newID := ordinalOpaqueID("node", idx+1)
 		if nodes[idx].oldID != "" {
 			nodeIDMap[nodes[idx].oldID] = newID
 		}
 		nodes[idx].row["node_id"] = newID
-		canonicalizePublishedGraphNode(nodes[idx].row)
+		canonicalizePublishedGraphNode(nodes[idx].row, idx+1)
 	}
 }
 
@@ -1043,20 +630,24 @@ func projectControlPathGraphEdges(items []any, pathIDMap map[string]string, node
 	})
 	for idx := range out {
 		row := requireObjectFromAny(out[idx])
-		row["edge_id"] = stableOpaqueID("edge", controlPathEdgeFingerprint(row))
+		row["edge_id"] = ordinalOpaqueID("edge", idx+1)
 		canonicalizePublishedGraphEdge(row)
 	}
 	return out
 }
 
-func canonicalizePublishedGraphNode(row map[string]any) {
-	canonicalizeGraphString(row, "label", "label")
-	canonicalizeGraphString(row, "org", "org")
-	canonicalizeGraphString(row, "repo", "repo")
-	canonicalizeGraphString(row, "location", "loc")
-	canonicalizeGraphString(row, "agent_id", "agent")
-	canonicalizeGraphString(row, "config_source", "loc")
-	canonicalizeGraphString(row, "config_fingerprint", "cfg")
+func canonicalizePublishedGraphNode(row map[string]any, nodeOrdinal int) {
+	pathOrdinal := ordinalFromOpaqueID(stringValue(row["path_id"]))
+	if pathOrdinal == 0 {
+		pathOrdinal = nodeOrdinal
+	}
+	canonicalizeGraphString(row, "label", "label", nodeOrdinal)
+	canonicalizeGraphString(row, "org", "org", pathOrdinal)
+	canonicalizeGraphString(row, "repo", "repo", pathOrdinal)
+	canonicalizeGraphString(row, "location", "loc", pathOrdinal)
+	canonicalizeGraphString(row, "agent_id", "agent", pathOrdinal)
+	canonicalizeGraphString(row, "config_source", "loc", pathOrdinal)
+	canonicalizeGraphString(row, "config_fingerprint", "cfg", pathOrdinal)
 	canonicalizeGraphStringSlice(row, "evidence_refs", "evidence")
 	canonicalizeGraphStringSlice(row, "source_refs", "source")
 	canonicalizeGraphStringSlice(row, "attack_path_refs", "attack")
@@ -1070,12 +661,11 @@ func canonicalizePublishedGraphEdge(row map[string]any) {
 	canonicalizeGraphStringSlice(row, "source_finding_keys", "finding")
 }
 
-func canonicalizeGraphString(row map[string]any, key string, prefix string) {
-	value := stringValue(row[key])
-	if value == "" {
+func canonicalizeGraphString(row map[string]any, key string, prefix string, ordinal int) {
+	if stringValue(row[key]) == "" {
 		return
 	}
-	row[key] = stableOpaqueID(prefix, value)
+	row[key] = ordinalOpaqueID(prefix, ordinal)
 }
 
 func canonicalizeGraphStringSlice(row map[string]any, key string, prefix string) {
@@ -1084,20 +674,16 @@ func canonicalizeGraphStringSlice(row map[string]any, key string, prefix string)
 	}
 	items := cloneArray(row[key])
 	out := make([]any, 0, len(items))
-	for _, item := range items {
-		value := stringValue(item)
-		if value == "" {
+	for idx, item := range items {
+		if stringValue(item) == "" {
 			continue
 		}
-		out = append(out, stableOpaqueID(prefix, value))
+		out = append(out, ordinalOpaqueID(prefix, idx+1))
 	}
 	if len(out) == 0 {
 		delete(row, key)
 		return
 	}
-	sort.Slice(out, func(i, j int) bool {
-		return stringValue(out[i]) < stringValue(out[j])
-	})
 	row[key] = out
 }
 
@@ -1138,6 +724,22 @@ func controlPathEdgeFingerprint(row map[string]any) map[string]any {
 func canonicalJSONKey(value any) string {
 	payload, _ := json.Marshal(normalizePublishedValue(value))
 	return string(payload)
+}
+
+func ordinalOpaqueID(prefix string, ordinal int) string {
+	return fmt.Sprintf("%s-%06d", prefix, ordinal)
+}
+
+func ordinalFromOpaqueID(value string) int {
+	_, suffix, ok := strings.Cut(strings.TrimSpace(value), "-")
+	if !ok {
+		return 0
+	}
+	ordinal, err := strconv.Atoi(suffix)
+	if err != nil {
+		return 0
+	}
+	return ordinal
 }
 
 func renderLocalPrivatePosture(evidencePayload, sourcePrivacy map[string]any) []byte {
@@ -1195,10 +797,6 @@ func normalizePublishedMarkdown(payload []byte) []byte {
 	for idx, line := range lines {
 		if strings.HasPrefix(line, "- Generated at: ") {
 			lines[idx] = "- Generated at: 2026-01-01T00:00:00Z"
-			continue
-		}
-		if strings.HasPrefix(line, "- Total buyer-facing workflow paths: ") {
-			lines[idx] = "- Displayed buyer-facing workflow paths: 5"
 			continue
 		}
 		lines[idx] = replaceVolatileHeadHash(lines[idx])
@@ -1415,67 +1013,18 @@ func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps,
 	out := cloneObject(executiveRollup)
 	groups := cloneArray(executiveRollup["groups"])
 	projectedGroups := make([]any, 0, len(groups))
-	totalProjectedPaths := 0
 	for _, raw := range groups {
 		group := cloneObject(requireObjectFromAny(raw))
 		projectedRefStrings := projectExecutiveRollupTopExampleRefs(cloneArray(group["top_example_refs"]), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey)
-		if len(projectedRefStrings) == 0 {
-			continue
-		}
 		projectedRefs := make([]any, 0, len(projectedRefStrings))
 		for _, ref := range projectedRefStrings {
 			projectedRefs = append(projectedRefs, ref)
 		}
 		group["top_example_refs"] = projectedRefs
-		group["count"] = len(projectedRefs)
-		group["evidence_state_summary"] = projectExecutiveRollupEvidenceSummary(group, len(projectedRefs))
-		group["rationale"] = projectExecutiveRollupRationale(cloneArray(group["rationale"]), len(projectedRefs))
-		totalProjectedPaths += len(projectedRefs)
 		projectedGroups = append(projectedGroups, group)
 	}
 	out["groups"] = projectedGroups
-	out["total_groups"] = len(projectedGroups)
-	out["total_paths"] = totalProjectedPaths
 	return out
-}
-
-func projectExecutiveRollupEvidenceSummary(group map[string]any, count int) map[string]any {
-	states := []string{"verified", "declared", "inferred", "unknown", "contradictory"}
-	out := make(map[string]any, len(states))
-	for _, state := range states {
-		out[state] = 0
-	}
-	state := stringValue(requireObjectFromAny(group["dimensions"])["evidence_state"])
-	if _, ok := out[state]; !ok {
-		state = "unknown"
-	}
-	out[state] = count
-	return out
-}
-
-func projectExecutiveRollupRationale(items []any, count int) []any {
-	out := make([]any, 0, len(items))
-	for idx, raw := range items {
-		text := stringValue(raw)
-		if idx == 0 {
-			text = replaceLeadingInteger(text, count)
-		}
-		out = append(out, text)
-	}
-	return out
-}
-
-func replaceLeadingInteger(text string, value int) string {
-	firstSpace := strings.IndexByte(text, ' ')
-	if firstSpace <= 0 {
-		return text
-	}
-	for _, ch := range text[:firstSpace] {
-		if ch < '0' || ch > '9' {
-			return text
-		}
-	}
-	return strconv.Itoa(value) + text[firstSpace:]
 }
 
 func projectExecutiveRollupTopExampleRefs(refs []any, ids publishedIDMaps, exampleSelectionKeyByRawPathID map[string]string, projectedPathIDsByExampleSelectionKey map[string][]string) []string {
@@ -1496,6 +1045,11 @@ func projectExecutiveRollupTopExampleRefs(refs []any, ids publishedIDMaps, examp
 	projectedRefStrings := make([]string, 0, len(candidateSet))
 	for pathID := range candidateSet {
 		projectedRefStrings = append(projectedRefStrings, pathID)
+	}
+	if len(projectedRefStrings) == 0 {
+		for _, ref := range refs {
+			projectedRefStrings = append(projectedRefStrings, normalizeOpaqueRef(stringValue(ref), ids))
+		}
 	}
 	sort.Strings(projectedRefStrings)
 	if len(projectedRefStrings) > 3 {
