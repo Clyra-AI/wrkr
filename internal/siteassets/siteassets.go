@@ -734,7 +734,11 @@ func projectControlPathGraph(graph map[string]any) map[string]any {
 }
 
 func prepareScenarioSnapshot(repoRoot, tmpDir string) (string, error) {
-	cmd := exec.Command("git", "-C", repoRoot, "ls-files", "-z", "--", ScenarioRelPath)
+	repoRoot, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return "", fmt.Errorf("resolve repo root: %w", err)
+	}
+	cmd := exec.Command("git", "-C", repoRoot, "ls-files", "-z", "--", ScenarioRelPath) // #nosec G204 -- constant git binary with shell-free arguments; repoRoot is resolved locally and no user-controlled shell is invoked.
 	payload, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("list tracked site-asset fixture files: %w", err)
@@ -754,7 +758,10 @@ func prepareScenarioSnapshot(repoRoot, tmpDir string) (string, error) {
 		if filepath.IsAbs(relPath) || strings.HasPrefix(filepath.Clean(relPath), ".."+string(filepath.Separator)) {
 			return "", fmt.Errorf("unsafe site-asset fixture path from git: %s", relSlash)
 		}
-		src := filepath.Join(repoRoot, relPath)
+		src, err := safeJoinUnderRoot(repoRoot, relPath)
+		if err != nil {
+			return "", fmt.Errorf("resolve tracked site-asset fixture %s: %w", relSlash, err)
+		}
 		info, err := os.Lstat(src)
 		if err != nil {
 			return "", fmt.Errorf("stat tracked site-asset fixture %s: %w", relSlash, err)
@@ -762,7 +769,7 @@ func prepareScenarioSnapshot(repoRoot, tmpDir string) (string, error) {
 		if !info.Mode().IsRegular() {
 			continue
 		}
-		payload, err := os.ReadFile(src)
+		payload, err := os.ReadFile(src) // #nosec G304 -- src is constrained by safeJoinUnderRoot and originates from git ls-files under ScenarioRelPath.
 		if err != nil {
 			return "", fmt.Errorf("read tracked site-asset fixture %s: %w", relSlash, err)
 		}
@@ -779,6 +786,22 @@ func prepareScenarioSnapshot(repoRoot, tmpDir string) (string, error) {
 		return "", fmt.Errorf("site-asset fixture has no regular tracked files under %s", ScenarioRelPath)
 	}
 	return filepath.Join(snapshotRoot, filepath.FromSlash(ScenarioRelPath)), nil
+}
+
+func safeJoinUnderRoot(root, relPath string) (string, error) {
+	if filepath.IsAbs(relPath) {
+		return "", fmt.Errorf("absolute path is not allowed: %s", relPath)
+	}
+	root = filepath.Clean(root)
+	candidate := filepath.Clean(filepath.Join(root, relPath))
+	relative, err := filepath.Rel(root, candidate)
+	if err != nil {
+		return "", err
+	}
+	if relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || relative == ".." {
+		return "", fmt.Errorf("path escapes root: %s", relPath)
+	}
+	return candidate, nil
 }
 
 type projectedControlPathNode struct {
