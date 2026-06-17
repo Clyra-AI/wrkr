@@ -775,8 +775,8 @@ func projectControlPathGraphPathIDs(nodes []any, edges []any) map[string]string 
 		return projected[i].oldID < projected[j].oldID
 	})
 	out := map[string]string{}
-	for idx, path := range projected {
-		out[path.oldID] = ordinalOpaqueID("path", idx+1)
+	for _, path := range projected {
+		out[path.oldID] = stableOpaqueID("path", path.fingerprint)
 	}
 	return out
 }
@@ -826,12 +826,12 @@ func projectControlPathGraphNodes(items []any, pathIDMap map[string]string) []pr
 
 func assignControlPathNodeIDs(nodes []projectedControlPathNode, nodeIDMap map[string]string) {
 	for idx := range nodes {
-		newID := ordinalOpaqueID("node", idx+1)
+		newID := stableOpaqueID("node", controlPathNodeFingerprint(nodes[idx].row))
 		if nodes[idx].oldID != "" {
 			nodeIDMap[nodes[idx].oldID] = newID
 		}
 		nodes[idx].row["node_id"] = newID
-		canonicalizePublishedGraphNode(nodes[idx].row, idx+1)
+		canonicalizePublishedGraphNode(nodes[idx].row)
 	}
 }
 
@@ -869,24 +869,20 @@ func projectControlPathGraphEdges(items []any, pathIDMap map[string]string, node
 	})
 	for idx := range out {
 		row := requireObjectFromAny(out[idx])
-		row["edge_id"] = ordinalOpaqueID("edge", idx+1)
+		row["edge_id"] = stableOpaqueID("edge", controlPathEdgeFingerprint(row))
 		canonicalizePublishedGraphEdge(row)
 	}
 	return out
 }
 
-func canonicalizePublishedGraphNode(row map[string]any, nodeOrdinal int) {
-	pathOrdinal := ordinalFromOpaqueID(stringValue(row["path_id"]))
-	if pathOrdinal == 0 {
-		pathOrdinal = nodeOrdinal
-	}
-	canonicalizeGraphString(row, "label", "label", nodeOrdinal)
-	canonicalizeGraphString(row, "org", "org", pathOrdinal)
-	canonicalizeGraphString(row, "repo", "repo", pathOrdinal)
-	canonicalizeGraphString(row, "location", "loc", pathOrdinal)
-	canonicalizeGraphString(row, "agent_id", "agent", pathOrdinal)
-	canonicalizeGraphString(row, "config_source", "loc", pathOrdinal)
-	canonicalizeGraphString(row, "config_fingerprint", "cfg", pathOrdinal)
+func canonicalizePublishedGraphNode(row map[string]any) {
+	canonicalizeGraphString(row, "label", "label")
+	canonicalizeGraphString(row, "org", "org")
+	canonicalizeGraphString(row, "repo", "repo")
+	canonicalizeGraphString(row, "location", "loc")
+	canonicalizeGraphString(row, "agent_id", "agent")
+	canonicalizeGraphString(row, "config_source", "loc")
+	canonicalizeGraphString(row, "config_fingerprint", "cfg")
 	canonicalizeGraphStringSlice(row, "evidence_refs", "evidence")
 	canonicalizeGraphStringSlice(row, "source_refs", "source")
 	canonicalizeGraphStringSlice(row, "attack_path_refs", "attack")
@@ -900,11 +896,12 @@ func canonicalizePublishedGraphEdge(row map[string]any) {
 	canonicalizeGraphStringSlice(row, "source_finding_keys", "finding")
 }
 
-func canonicalizeGraphString(row map[string]any, key string, prefix string, ordinal int) {
-	if stringValue(row[key]) == "" {
+func canonicalizeGraphString(row map[string]any, key string, prefix string) {
+	value := stringValue(row[key])
+	if value == "" {
 		return
 	}
-	row[key] = ordinalOpaqueID(prefix, ordinal)
+	row[key] = stableOpaqueID(prefix, value)
 }
 
 func canonicalizeGraphStringSlice(row map[string]any, key string, prefix string) {
@@ -913,16 +910,20 @@ func canonicalizeGraphStringSlice(row map[string]any, key string, prefix string)
 	}
 	items := cloneArray(row[key])
 	out := make([]any, 0, len(items))
-	for idx, item := range items {
-		if stringValue(item) == "" {
+	for _, item := range items {
+		value := stringValue(item)
+		if value == "" {
 			continue
 		}
-		out = append(out, ordinalOpaqueID(prefix, idx+1))
+		out = append(out, stableOpaqueID(prefix, value))
 	}
 	if len(out) == 0 {
 		delete(row, key)
 		return
 	}
+	sort.Slice(out, func(i, j int) bool {
+		return stringValue(out[i]) < stringValue(out[j])
+	})
 	row[key] = out
 }
 
