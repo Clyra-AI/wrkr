@@ -115,7 +115,7 @@ If you start with `wrkr scan --json` and no target on a clean machine, the JSON 
 Automation / CI equivalent:
 
 ```bash
-wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --json-path ./.wrkr/scan.json
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json
 wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 wrkr assess --path ./your-repo --output-dir ./.wrkr/assessment --json
