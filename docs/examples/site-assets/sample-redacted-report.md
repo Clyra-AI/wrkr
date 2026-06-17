@@ -6,16 +6,16 @@
 
 ## Executive Rollup
 
-- total_groups=13 total_paths=20
+- total_groups=13 total_paths=22
 - group=xrg-ef3bf0cab866 count=1 severity=critical priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-4bd1cfe8
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=1 credential_access paths grouped by production_impacting and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=standing
 - group=xrg-504feb2957f4 count=2 severity=critical priority=control_first closure=remediate evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-2f2bda2d, path-31e098e8
   recommendation=remediate standing production deploy paths first
   rationale=2 deploy paths grouped by developer_productivity and unknown evidence | closure=remediate repo_cluster=single_repo credential_authority=unknown
-- group=xrg-ca230a7008b5 count=4 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-1a6e2fbd, path-aea359df, path-c427c00e
+- group=xrg-ca230a7008b5 count=5 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-1a6e2fbd, path-7d58f43e, path-aea359df
   recommendation=attach missing approval, proof, or runtime evidence before promotion
-  rationale=4 egress paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
+  rationale=5 egress paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
 - group=xrg-0c18386d7513 count=2 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-7462113c, path-7bc48b8c
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=2 read paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
@@ -25,6 +25,9 @@
 - group=xrg-72044fd98ef0 count=2 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-45689901, path-e20cb15e
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=2 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
+- group=xrg-b4eb30e04fc1 count=2 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-445e7c6c, path-4e78dcfb
+  recommendation=attach missing approval, proof, or runtime evidence before promotion
+  rationale=2 egress paths grouped by unknown and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
 - group=xrg-27c8ba42b953 count=1 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-f557e358
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=1 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=none
@@ -34,9 +37,6 @@
 - group=xrg-9082d90b7239 count=1 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-316db0d7
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=1 execute paths grouped by developer_productivity and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
-- group=xrg-b4eb30e04fc1 count=1 severity=high priority=review_queue closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-445e7c6c
-  recommendation=attach missing approval, proof, or runtime evidence before promotion
-  rationale=1 egress paths grouped by unknown and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
 - group=xrg-b339af3f7b36 count=1 severity=low priority=inventory_hygiene closure=attach_evidence evidence=unknown owner=inferred repo_cluster=single_repo contradictions=consistent examples=path-9ed20f75
   recommendation=attach missing approval, proof, or runtime evidence before promotion
   rationale=1 read paths grouped by test_demo_sandbox and unknown evidence | closure=attach_evidence repo_cluster=single_repo credential_authority=unknown
@@ -49,7 +49,7 @@
 
 ## Workflow Chain Highlights
 
-- Total buyer-facing workflow paths: 17
+- Total buyer-facing workflow paths: 19
 
 - path=path-31e098e8 repo=repo-10e08a workflow=loc-f27ac6f3 type=agent_instruction_surface target=developer_productivity autonomy=prod or customer impacting readiness=review required authority=no credential authority linked blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
@@ -63,26 +63,25 @@
 - path=path-445e7c6c repo=repo-10e08a workflow=loc-d5d3368a type=agent_instruction_surface target=unknown autonomy=sensitive code or infra readiness=review required authority=no credential authority linked blast_radius=unknown approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
   explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
-- path=path-f290d9be repo=repo-1cf387 workflow=loc-6d5c8bdb type=agent_instruction_surface target=developer_productivity autonomy=sensitive code or infra readiness=review required authority=no credential authority linked blast_radius=developer productivity approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
+- path=path-4e78dcfb repo=repo-eb0de2 workflow=loc-756c99ad type=plain_source_code target=unknown autonomy=sensitive code or infra readiness=review required authority=no credential authority linked blast_radius=unknown approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
   explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
 
 ## Assessment Summary
 
 - Scope: static posture from saved scan state only; no runtime observation or enforcement
-- Governable paths: 20
+- Governable paths: 22
 - Write-capable paths: 3
 - Production-target-backed paths: 2
 - Top path to control first: repo-10e08a loc-f27ac6f3 (control, trigger=deploy_pipeline)
-- Ownerless exposure: explicit=0 inferred=20 unresolved=0 conflict=0
+- Ownerless exposure: explicit=0 inferred=22 unresolved=0 conflict=0
 - Proof chain: redacted://proof-chain.json
-- Exposure groups: 14
+- Exposure groups: 15
 
 ## Policy Outcomes
 
 - Rule WRKR-A006 is fail across 8 occurrence(s) in 4 repo(s): repo-b583bb, repo-a24cd4, repo-88604b, plus 1 more.
 - Rule WRKR-A007 is fail across 8 occurrence(s) in 4 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 1 more.
-- Rule WRKR-A005 is fail across 6 occurrence(s) in 3 repo(s): repo-fbf3f7, repo-a24cd4, repo-34614a.
 - Rule WRKR-011 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
 - Rule WRKR-012 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
 - Rule WRKR-013 is pass across 5 occurrence(s) in 5 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 2 more.
@@ -96,13 +95,14 @@
 - Rule WRKR-A001 is pass across 4 occurrence(s) in 4 repo(s): repo-b583bb, repo-fbf3f7, repo-88604b, plus 1 more.
 - Rule WRKR-A002 is fail across 4 occurrence(s) in 2 repo(s): repo-a24cd4, repo-34614a.
 - Rule WRKR-A004 is pass across 4 occurrence(s) in 4 repo(s): repo-b583bb, repo-fbf3f7, repo-a24cd4, plus 1 more.
+- Rule WRKR-A005 is fail across 4 occurrence(s) in 2 repo(s): repo-fbf3f7, repo-a24cd4.
 - Rule WRKR-A002 is pass across 3 occurrence(s) in 3 repo(s): repo-b583bb, repo-fbf3f7, repo-88604b.
+- Rule WRKR-A005 is pass across 3 occurrence(s) in 3 repo(s): repo-b583bb, repo-88604b, repo-34614a.
 - Rule WRKR-014 is fail across 2 occurrence(s) in 1 repo(s): repo-88604b.
 - Rule WRKR-015 is fail across 2 occurrence(s) in 1 repo(s): repo-88604b.
 - Rule WRKR-016 is fail across 2 occurrence(s) in 1 repo(s): repo-34614a.
 - Rule WRKR-A001 is fail across 2 occurrence(s) in 1 repo(s): repo-a24cd4.
 - Rule WRKR-A004 is fail across 2 occurrence(s) in 1 repo(s): repo-34614a.
-- Rule WRKR-A005 is pass across 2 occurrence(s) in 2 repo(s): repo-b583bb, repo-88604b.
 - Rule WRKR-A006 is pass across 1 occurrence(s) in 1 repo(s): repo-fbf3f7.
 - Rule WRKR-A007 is pass across 1 occurrence(s) in 1 repo(s): repo-88604b.
 
@@ -111,7 +111,6 @@
 - Mode: governance
 - Coverage summary: confidence=complete reduced_detectors=0 parse_failures=0 suppressed_generated_files=0 blocked_detectors=0 unsupported_declarations=0 impact=Coverage for scanned inputs was complete enough to support scoped negative claims.
 - mcp_server absence_status=not_found_with_complete_coverage reasons=detector:mcp=complete,detector:webmcp=complete,webmcp:no_candidate_inputs impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
-- mcp_server absence_status=not_found_with_complete_coverage reasons=detector:mcp=complete,detector:webmcp=complete,mcp:no_candidate_inputs,webmcp:no_candidate_inputs impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
 - mcp_server absence_status=not_found_with_complete_coverage reasons=detector:mcp=complete,detector:webmcp=complete,mcp:no_candidate_inputs,webmcp:no_candidate_inputs impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
 
 ## Control Backlog
@@ -169,71 +168,71 @@
 - mcp status=complete attempted=1 parsed=1 partial=0 suppressed=0 failures=0 reasons=
 - webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
 - ciagent status=complete attempted=1 parsed=1 partial=0 suppressed=0 failures=0 reasons=
-- mcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
+- mcp status=complete attempted=1 parsed=1 partial=0 suppressed=0 failures=0 reasons=
 - webmcp status=complete attempted=0 parsed=0 partial=0 suppressed=0 failures=0 reasons=no_candidate_inputs
 
 ## CISO control backlog summary (headline_posture)
 
-- posture score 51.98 (F)
+- posture score 51.89 (F)
 - profile status fail at 43.75%
-- tools=20 write_capable=3 credential_access=1 exec_capable=5
+- tools=22 write_capable=3 credential_access=1 exec_capable=5
 - bundled framework mappings stay available; profile compliance reflects only controls evidenced in the current deterministic scan state
 - report scope stays at static posture and offline-verifiable proof; it does not claim runtime observation or control-layer enforcement
-- security_visibility reference=initial_scan unknown_to_security_tools=20 unknown_to_security_agents=20 unknown_to_security_write_capable_agents=3
+- security_visibility reference=initial_scan unknown_to_security_tools=22 unknown_to_security_agents=22 unknown_to_security_write_capable_agents=3
 - 22 findings map to EU Artificial Intelligence Act ARTICLE-12 (Record-Keeping)
 - 32 findings map to EU Artificial Intelligence Act ARTICLE-14 (Human Oversight)
 - coverage still reflects only controls evidenced in the current scan state; remediate gaps, rescan, and regenerate report/evidence artifacts
 - production_write=2 (status=configured)
 - source_privacy deployment_mode=local_only retention=ephemeral retained=false raw_source_in_artifacts=false serialized_locations=filesystem cleanup_status=not_applicable
-- control_path_graph version=1 nodes=550 edges=512
-- control_path_graph nodes[action_capability]=27
-- control_path_graph nodes[agent]=20
-- control_path_graph nodes[agent_team]=20
-- control_path_graph nodes[approval_identity]=20
-- control_path_graph nodes[asset_identity]=20
-- control_path_graph nodes[control_path]=20
+- control_path_graph version=1 nodes=604 edges=562
+- control_path_graph nodes[action_capability]=29
+- control_path_graph nodes[agent]=22
+- control_path_graph nodes[agent_team]=22
+- control_path_graph nodes[approval_identity]=22
+- control_path_graph nodes[asset_identity]=22
+- control_path_graph nodes[control_path]=22
 - control_path_graph nodes[credential]=1
-- control_path_graph nodes[deployment_path]=20
-- control_path_graph nodes[evidence_identity]=20
-- control_path_graph nodes[execution_identity]=20
-- control_path_graph nodes[governance_control]=160
-- control_path_graph nodes[human_identity]=20
-- control_path_graph nodes[intent]=20
-- control_path_graph nodes[outcome]=20
-- control_path_graph nodes[policy_identity]=20
-- control_path_graph nodes[pull_request]=20
-- control_path_graph nodes[repo]=20
+- control_path_graph nodes[deployment_path]=22
+- control_path_graph nodes[evidence_identity]=22
+- control_path_graph nodes[execution_identity]=22
+- control_path_graph nodes[governance_control]=176
+- control_path_graph nodes[human_identity]=22
+- control_path_graph nodes[intent]=22
+- control_path_graph nodes[outcome]=22
+- control_path_graph nodes[policy_identity]=22
+- control_path_graph nodes[pull_request]=22
+- control_path_graph nodes[repo]=22
 - control_path_graph nodes[target]=2
-- control_path_graph nodes[task]=20
-- control_path_graph nodes[tool]=20
-- control_path_graph nodes[workflow]=20
-- control_path_graph nodes[workflow_run]=20
-- control_path_graph edges[agent_controls_path]=20
-- control_path_graph edges[agent_team_uses_tool]=20
-- control_path_graph edges[approval_authorizes_deploy]=20
-- control_path_graph edges[checks_gate_approval]=20
+- control_path_graph nodes[task]=22
+- control_path_graph nodes[tool]=22
+- control_path_graph nodes[workflow]=22
+- control_path_graph nodes[workflow_run]=22
+- control_path_graph edges[agent_controls_path]=22
+- control_path_graph edges[agent_team_uses_tool]=22
+- control_path_graph edges[approval_authorizes_deploy]=22
+- control_path_graph edges[checks_gate_approval]=22
 - control_path_graph edges[credential_authorizes_workflow]=1
-- control_path_graph edges[deploy_affects_asset]=20
-- control_path_graph edges[evidence_proves_outcome]=20
+- control_path_graph edges[deploy_affects_asset]=22
+- control_path_graph edges[evidence_proves_outcome]=22
 - control_path_graph edges[execution_uses_credential]=1
-- control_path_graph edges[human_delegates_task]=20
-- control_path_graph edges[path_enables_action]=27
-- control_path_graph edges[path_executes_workflow]=20
-- control_path_graph edges[path_governed_by]=160
-- control_path_graph edges[path_runs_as]=20
+- control_path_graph edges[human_delegates_task]=22
+- control_path_graph edges[path_enables_action]=29
+- control_path_graph edges[path_executes_workflow]=22
+- control_path_graph edges[path_governed_by]=176
+- control_path_graph edges[path_runs_as]=22
 - control_path_graph edges[path_targets_surface]=2
-- control_path_graph edges[path_uses_tool]=20
-- control_path_graph edges[pull_request_runs_checks]=20
-- control_path_graph edges[repo_produces_pull_request]=20
-- control_path_graph edges[request_to_human]=20
-- control_path_graph edges[task_executed_by_agent_team]=20
+- control_path_graph edges[path_uses_tool]=22
+- control_path_graph edges[pull_request_runs_checks]=22
+- control_path_graph edges[repo_produces_pull_request]=22
+- control_path_graph edges[request_to_human]=22
+- control_path_graph edges[task_executed_by_agent_team]=22
 - control_path_graph edges[tool_uses_credential]=1
-- control_path_graph edges[workflow_changes_repo]=20
-- control_path_graph edges[workflow_in_repo]=20
+- control_path_graph edges[workflow_changes_repo]=22
+- control_path_graph edges[workflow_in_repo]=22
 
 Impact: profile compliance is failing and introduces immediate governance risk
 Action: resolve failing or missing controls, regenerate evidence, and rerun scan with the same deterministic inputs
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=130
 
 ## Top governance control backlog items (top_prioritized_risks)
 
@@ -241,41 +240,43 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
 - #2 8.20 likely_action_path [critical] lane=likely_action_path action=control state=approval_required zone=production_data review=critical repo=repo-0f9c7c location=loc-f32a51ab
 - #3 10.00 confirmed_action_path [critical] lane=confirmed_action_path action=proof state=block_recommended zone=credential_bearing review=critical repo=repo-eb0de2 location=loc-415e1600
 - #4 5.67 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-d5d3368a
-- #5 10.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
-- #6 5.67 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-f27ac6f3
-- #7 7.29 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-8b2df8 location=loc-d7e67997
-- #8 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-d5d3368a
-- #9 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
-- #10 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-0f9c7c location=loc-a54ff182
-- #11 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-315161dd
-- #12 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-6ebdb617
-- #13 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-20c5bf90
-- #14 6.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-0db9f46c
-- #15 3.60 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-e026f56c
-- #16 3.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-e98d5093
-- #17 3.96 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-eb0de2 location=loc-227c2c26
-- #18 3.60 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=coding_help review=high repo=repo-0f9c7c location=loc-a28316bc
-- #19 9.80 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=repo_write review=high repo=repo-1cf387 location=loc-768f8ff8
-- #20 4.60 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=coding_help review=high repo=repo-0f9c7c location=loc-33ef32bf
+- #5 10.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-eb0de2 location=loc-756c99ad
+- #6 10.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
+- #7 5.67 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-f27ac6f3
+- #8 7.29 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-8b2df8 location=loc-d7e67997
+- #9 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-10e08a location=loc-d5d3368a
+- #10 4.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-1cf387 location=loc-6d5c8bdb
+- #11 4.40 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=external_egress review=critical repo=repo-eb0de2 location=loc-756c99ad
+- #12 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-0f9c7c location=loc-a54ff182
+- #13 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-315161dd
+- #14 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-6ebdb617
+- #15 3.60 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-20c5bf90
+- #16 6.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-0db9f46c
+- #17 3.60 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-10e08a location=loc-e026f56c
+- #18 3.00 likely_action_path [high] lane=likely_action_path action=proof state=approval_required zone=coding_help review=critical repo=repo-1cf387 location=loc-e98d5093
+- #19 3.96 review_candidate [high] lane=semantic_review_candidate action=proof state=approval_required zone=coding_help review=critical repo=repo-eb0de2 location=loc-227c2c26
+- #20 3.60 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=coding_help review=high repo=repo-0f9c7c location=loc-a28316bc
+- #21 9.80 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=repo_write review=high repo=repo-1cf387 location=loc-768f8ff8
+- #22 4.60 context_only_evidence [low] lane=context_only action=inventory state=inventory_only zone=coding_help review=high repo=repo-0f9c7c location=loc-33ef32bf
 - attack paths: none generated from current findings
 
-Impact: top 20 risks concentrate the highest blast-radius findings
+Impact: top 22 risks concentrate the highest blast-radius findings
 Action: work highest score first and apply deterministic least-privilege remediation
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=130
 
 ## Risk and approval movement (change_since_previous)
 
 - risk score trend current=10.00 delta=0.00 (no previous reference)
 - profile compliance delta current=43.75 delta=0.00 (no previous reference)
-- posture score trend delta current=51.98 delta=0.00 (no previous reference)
+- posture score trend delta current=51.89 delta=0.00 (no previous reference)
 
 Impact: change deltas remain within expected deterministic variance
 Action: continue baseline comparison on every governance scan cadence
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=130
 
 ## Executive ownership and approval actions (lifecycle_actions)
 
-- identities=20 pending_action=41 under_review=0 revoked=0 deprecated=0
+- identities=22 pending_action=45 under_review=0 revoked=0 deprecated=0
 - gap inactive_but_credentialed severity=high repo=repo-eb0de2 location=loc-415e1600
 - gap missing_approval severity=high repo=repo-10e08a location=loc-0db9f46c
 - gap missing_approval severity=high repo=repo-10e08a location=loc-f27ac6f3
@@ -297,6 +298,8 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
 - gap missing_approval severity=medium repo=repo-1cf387 location=loc-315161dd
 - gap missing_approval severity=medium repo=repo-1cf387 location=loc-e98d5093
 - gap missing_approval severity=medium repo=repo-eb0de2 location=loc-227c2c26
+- gap missing_approval severity=medium repo=repo-eb0de2 location=loc-756c99ad
+- gap missing_approval severity=medium repo=repo-eb0de2 location=loc-756c99ad
 - gap owner_inferred severity=medium repo=repo-10e08a location=loc-e026f56c
 - gap owner_inferred severity=medium repo=repo-10e08a location=loc-0db9f46c
 - gap owner_inferred severity=medium repo=repo-10e08a location=loc-f27ac6f3
@@ -317,36 +320,38 @@ Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
 - gap owner_inferred severity=medium repo=repo-1cf387 location=loc-e98d5093
 - gap owner_inferred severity=medium repo=repo-eb0de2 location=loc-227c2c26
 - gap owner_inferred severity=medium repo=repo-eb0de2 location=loc-415e1600
+- gap owner_inferred severity=medium repo=repo-eb0de2 location=loc-756c99ad
+- gap owner_inferred severity=medium repo=repo-eb0de2 location=loc-756c99ad
 - transition agent-b5d97428 ->discovered (first_seen)
 - transition agent-7736d637 ->discovered (first_seen)
 - transition agent-897dbff8 ->discovered (first_seen)
 - transition agent-b29c45ca ->discovered (first_seen)
 - transition agent-2d482eed ->discovered (first_seen)
 
-Impact: 41 identities require lifecycle approval/review/revocation handling
+Impact: 45 identities require lifecycle approval/review/revocation handling
 Action: prioritize under_review and revoked identities before enabling additional autonomy
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=130
 
 ## Evidence and proof verification (proof_verification_footer)
 
 - chain_path=redacted://proof-chain.json
 - head_hash=sha256:demo-proof-head
-- record_count=121
-- record_type decision_trace=11
-- record_type lifecycle_transition=20
-- record_type risk_assessment=27
-- record_type scan_finding=63
+- record_count=130
+- record_type decision_trace=13
+- record_type lifecycle_transition=22
+- record_type risk_assessment=29
+- record_type scan_finding=66
 
 Impact: proof chain references are attached for deterministic traceability
 Action: preserve chain path and head hash when distributing this artifact
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=130
 
 ## Next executive control actions (next_actions)
 
 - review govern-first path path-31e098e8 in repo-10e08a:loc-f27ac6f3 (action=control score=8.20)
-- review 41 lifecycle records requiring approval/review/revocation action
+- review 45 lifecycle records requiring approval/review/revocation action
 - verify proof chain integrity before sharing artifacts externally
 
 Impact: deterministic next actions focus operators on highest leverage controls
 Action: execute checklist items in order and rescan to confirm posture improvement
-Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=121
+Proof: chain=redacted://proof-chain.json head=sha256:demo-proof-head records=130

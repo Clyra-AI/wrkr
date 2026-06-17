@@ -24,7 +24,7 @@ proved a real binding.
    `bound`, `partially_bound`, `unbound_context`, and `contradictory`.
 2. Treat agent instruction and tool-config files as a dedicated
    `agent_instruction_surface` path type instead of generic AI workflow text.
-3. Treat dependency-only signals as a dedicated `dependency_only_signal` path
+3. Treat dependency inventory signals as a dedicated `dependency_only_signal` path
    type instead of lumping them into the generic unknown executable bucket.
 4. Strip credential and authority projections from target-context surfaces when
    Wrkr cannot prove a real correlation binding.

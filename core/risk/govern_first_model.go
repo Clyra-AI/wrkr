@@ -419,7 +419,7 @@ func RemediationForActionPath(path ActionPath) string {
 	}
 	if path.ControlPriority == ControlPriorityInventoryHygiene || deriveGovernFirstModel(path).controlPriority == ControlPriorityInventoryHygiene {
 		if actionPathDependencyOnly(path) {
-			return "Confirm whether this dependency-only AI package is active agent code; if not, suppress it as accepted inventory, otherwise add source-level binding evidence."
+			return "Confirm whether this AI dependency package is active agent code; if not, suppress it as accepted inventory, otherwise add source-level binding evidence."
 		}
 		return "Review this low-governance path for production relevance and either suppress it as accepted inventory or add stronger binding evidence."
 	}

@@ -32,7 +32,7 @@
         "tool_type": "compiled_action"
       },
       {
-        "count": 1,
+        "count": 2,
         "tool_type": "copilot"
       },
       {
@@ -48,7 +48,7 @@
         "tool_type": "gait_policy"
       },
       {
-        "count": 3,
+        "count": 4,
         "tool_type": "mcp"
       },
       {
@@ -66,6 +66,6 @@
   },
   "proof": {
     "chain_present": true,
-    "record_count": 121
+    "record_count": 130
   }
 }

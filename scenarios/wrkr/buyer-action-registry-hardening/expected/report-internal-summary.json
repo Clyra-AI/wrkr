@@ -1,5 +1,5 @@
 {
-  "bom_count": 7,
+  "bom_count": 5,
   "confirmed_item": {
     "credential_authority_ref": "cred-37b44654e74a",
     "lineage_statuses": [
@@ -84,8 +84,7 @@
   },
   "lane_counts": {
     "confirmed_action_path": 1,
-    "context_only": 1,
-    "likely_action_path": 4,
+    "likely_action_path": 3,
     "semantic_review_candidate": 1
   },
   "registry_count": 7,

@@ -342,7 +342,7 @@ func TestClosureCopyByPathType(t *testing.T) {
 				ControlResolutionState: ControlResolutionStateNoVisibleControl,
 			}),
 			requirementType: ClosureRequirementCorrelateSurface,
-			wantContains:    []string{"dependency-only signal", "context"},
+			wantContains:    []string{"dependency inventory signal", "context"},
 			wantExcludes:    []string{"workflow path"},
 		},
 		{
@@ -384,7 +384,7 @@ func TestClosureCopyByPathType(t *testing.T) {
 			}),
 			requirementType: ClosureRequirementAttachPolicyReference,
 			wantContains:    []string{"release workflow path"},
-			wantExcludes:    []string{"dependency-only signal"},
+			wantExcludes:    []string{"dependency inventory signal"},
 		},
 	}
 
