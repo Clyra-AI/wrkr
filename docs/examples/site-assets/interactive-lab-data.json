@@ -193,13 +193,6 @@
       "tool_type": "mcp"
     },
     {
-      "finding_type": "mcp_server",
-      "location": "loc-756c99ad",
-      "risk_score": 10,
-      "severity": "critical",
-      "tool_type": "mcp"
-    },
-    {
       "finding_type": "prompt_channel_semantic",
       "location": "loc-415e1600",
       "risk_score": 10,
@@ -211,6 +204,13 @@
       "location": "loc-768f8ff8",
       "risk_score": 10,
       "severity": "high",
+      "tool_type": "skill"
+    },
+    {
+      "finding_type": "skill_metrics",
+      "location": "loc-135f227e",
+      "risk_score": 10,
+      "severity": "medium",
       "tool_type": "skill"
     }
   ],
@@ -256,37 +256,37 @@
       "target_class": "unknown"
     },
     {
-      "action_path_type": "plain_source_code",
+      "action_path_type": "agent_instruction_surface",
       "control_resolution_state": "detected_control",
-      "location": "loc-5e6f1e67d106",
-      "path_id": "path-869d90643b92",
+      "location": "loc-348362f4c694",
+      "path_id": "path-741d452c639f",
       "recommended_action": "proof",
-      "repo": "repo-d39621eaad71",
+      "repo": "repo-e4eb0f9929f8",
       "risk_zone": "external_egress",
-      "target_class": "unknown"
+      "target_class": "developer_productivity"
     }
   ],
   "control_backlog_summary": {
     "approve_action_items": 1,
-    "attach_evidence_action_items": 25,
+    "attach_evidence_action_items": 22,
     "autonomy_tiers": {
       "tier_0_safe_metadata": 2,
       "tier_1_low_risk_internal": 2,
       "tier_2_app_code_owner_review": 3,
-      "tier_3_sensitive_code_or_infra": 16,
+      "tier_3_sensitive_code_or_infra": 13,
       "tier_4_prod_privileged_or_customer_impacting": 4
     },
-    "control_first_queue_items": 23,
+    "control_first_queue_items": 20,
     "delegation_readiness": {
       "approval_required": 0,
       "blocked": 2,
       "blocked_by_contradiction": 0,
       "proof_required": 0,
       "ready_for_control": 0,
-      "review_required": 23,
+      "review_required": 20,
       "safe_to_delegate": 2
     },
-    "lifecycle_queue_items": 22,
+    "lifecycle_queue_items": 20,
     "recommended_controls": {
       "allow": 2,
       "approval_required": 0,
@@ -295,13 +295,13 @@
       "jit_credential_required": 0,
       "owner_review": 5,
       "proof_required": 0,
-      "security_review": 18
+      "security_review": 15
     },
-    "remediate_action_items": 20,
-    "review_queue_items": 23,
-    "supporting_security_signal_items": 4,
-    "total_items": 46,
-    "unique_wrkr_signal_items": 42
+    "remediate_action_items": 21,
+    "review_queue_items": 24,
+    "supporting_security_signal_items": 3,
+    "total_items": 44,
+    "unique_wrkr_signal_items": 41
   },
   "proof_summary": {
     "chain_present": true,

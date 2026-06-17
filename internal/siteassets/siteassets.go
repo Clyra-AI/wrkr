@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -139,7 +140,10 @@ func Build(repoRoot string) (AssetSet, error) {
 		_ = os.RemoveAll(tmpDir)
 	}()
 
-	scenarioRoot := filepath.Join(repoRoot, ScenarioRelPath)
+	scenarioRoot, err := prepareScenarioSnapshot(repoRoot, tmpDir)
+	if err != nil {
+		return AssetSet{}, err
+	}
 	statePath := filepath.Join(tmpDir, "site-assets-state.json")
 	reportEvidencePath := filepath.Join(tmpDir, "site-assets-public-evidence.json")
 	redactedReportPath := filepath.Join(tmpDir, "site-assets-redacted.md")
@@ -727,6 +731,54 @@ func projectControlPathGraph(graph map[string]any) map[string]any {
 	out["nodes"] = projectedNodes
 	out["edges"] = projectControlPathGraphEdges(cloneArray(graph["edges"]), pathIDMap, nodeIDMap)
 	return out
+}
+
+func prepareScenarioSnapshot(repoRoot, tmpDir string) (string, error) {
+	cmd := exec.Command("git", "-C", repoRoot, "ls-files", "-z", "--", ScenarioRelPath)
+	payload, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("list tracked site-asset fixture files: %w", err)
+	}
+	entries := bytes.Split(payload, []byte{0})
+	if len(entries) == 0 {
+		return "", fmt.Errorf("site-asset fixture has no tracked files under %s", ScenarioRelPath)
+	}
+	snapshotRoot := filepath.Join(tmpDir, "scenario-snapshot")
+	copied := 0
+	for _, entry := range entries {
+		relSlash := strings.TrimSpace(string(entry))
+		if relSlash == "" {
+			continue
+		}
+		relPath := filepath.FromSlash(relSlash)
+		if filepath.IsAbs(relPath) || strings.HasPrefix(filepath.Clean(relPath), ".."+string(filepath.Separator)) {
+			return "", fmt.Errorf("unsafe site-asset fixture path from git: %s", relSlash)
+		}
+		src := filepath.Join(repoRoot, relPath)
+		info, err := os.Lstat(src)
+		if err != nil {
+			return "", fmt.Errorf("stat tracked site-asset fixture %s: %w", relSlash, err)
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
+		payload, err := os.ReadFile(src)
+		if err != nil {
+			return "", fmt.Errorf("read tracked site-asset fixture %s: %w", relSlash, err)
+		}
+		dst := filepath.Join(snapshotRoot, relPath)
+		if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
+			return "", fmt.Errorf("create site-asset fixture snapshot dir: %w", err)
+		}
+		if err := os.WriteFile(dst, payload, 0o600); err != nil {
+			return "", fmt.Errorf("write site-asset fixture snapshot %s: %w", relSlash, err)
+		}
+		copied++
+	}
+	if copied == 0 {
+		return "", fmt.Errorf("site-asset fixture has no regular tracked files under %s", ScenarioRelPath)
+	}
+	return filepath.Join(snapshotRoot, filepath.FromSlash(ScenarioRelPath)), nil
 }
 
 type projectedControlPathNode struct {
