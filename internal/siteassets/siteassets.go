@@ -360,8 +360,9 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 			"control_backlog_items":    objectInt(summary["control_backlog"], "total_items"),
 		},
 		Proof: map[string]any{
-			"chain_present": objectInt(summary["proof"], "record_count") > 0,
-			"record_count":  objectInt(summary["proof"], "record_count"),
+			"chain_present":     objectInt(summary["proof"], "record_count") > 0,
+			"record_count":      presenceCount(objectInt(summary["proof"], "record_count") > 0),
+			"record_count_mode": "presence",
 		},
 	}
 }
@@ -410,10 +411,19 @@ func projectPublicToolTypeBreakdown(raw any) []any {
 }
 
 func projectProofSummary(proof map[string]any) map[string]any {
+	chainPresent := proof["record_count"] != nil && objectInt(proof, "record_count") > 0
 	return map[string]any{
-		"chain_present": proof["record_count"] != nil && objectInt(proof, "record_count") > 0,
-		"record_count":  proof["record_count"],
+		"chain_present":     chainPresent,
+		"record_count":      presenceCount(chainPresent),
+		"record_count_mode": "presence",
 	}
+}
+
+func presenceCount(present bool) int {
+	if present {
+		return 1
+	}
+	return 0
 }
 
 func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) map[string]any {

@@ -8,14 +8,14 @@
       "description": "Architecture boundary page data derived from source, detection, aggregation, and proof summaries.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:a25b51924118ee1cb74c538f49d0e607010dd2a5e930d7aaf06754191b73a9de"
+      "sha256": "sha256:7393d325846c2ea45d0c8477a94af42089f51872b614c29c9ec57fdb425544b9"
     },
     {
       "path": "interactive-lab-data.json",
       "description": "Interactive lab summary data projected from deterministic report and evidence outputs.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:4ec3f7fc0e7496636d4a61bab81bd6cefb25db46d513d259f07a64e85e057302"
+      "sha256": "sha256:7a2d000b62ad570b3cf1fec2e3aab004efecc43a806463849d949697475c18f7"
     },
     {
       "path": "local-private-posture.md",

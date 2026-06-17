@@ -67,6 +67,7 @@
   },
   "proof": {
     "chain_present": true,
-    "record_count": 130
+    "record_count": 1,
+    "record_count_mode": "presence"
   }
 }
