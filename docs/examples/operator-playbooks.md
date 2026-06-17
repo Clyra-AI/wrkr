@@ -5,7 +5,7 @@ Canonical local artifact locations are documented in [`docs/state_lifecycle.md`]
 ## Scan workflow
 
 ```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md --report-template operator
 wrkr scan status --state ./.wrkr/last-scan.json --json
 wrkr export tickets --top 10 --format jira --dry-run --state ./.wrkr/last-scan.json --json
 ```
@@ -23,7 +23,7 @@ Wrkr resolves local ownership from CODEOWNERS, optional `.wrkr/owners.*` mapping
 ### Large-org background pattern
 
 ```bash
-nohup wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json > ./.wrkr/scan.stdout 2> ./.wrkr/scan.stderr &
+nohup wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --json-path ./.wrkr/scan.json > ./.wrkr/scan.stdout 2> ./.wrkr/scan.stderr &
 wrkr scan status --state ./.wrkr/last-scan.json --json
 ```
 
@@ -77,9 +77,9 @@ Use this bounded loop when one repo/workflow needs a before/after governed-path
 review instead of a broad inventory pass:
 
 ```bash
-wrkr scan --path ./your-repo --profile assessment --json
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json
 wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
-wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json
+wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --output-dir ./.wrkr/assessment
 ```
 
 Interpretation notes:

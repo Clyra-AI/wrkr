@@ -48,7 +48,7 @@ func pathSurfaceLabel(path ActionPath) string {
 	case pathGuidanceMCPConfig:
 		return "MCP configuration surface"
 	case pathGuidanceDependency:
-		return "dependency-only signal"
+		return "dependency inventory signal"
 	case pathGuidanceCIWorkflow:
 		return "workflow path"
 	case pathGuidanceRelease:
@@ -91,12 +91,12 @@ func pathCorrelationClosureCopy(path ActionPath) (required string, examples []st
 			},
 			"Correlate this MCP configuration surface to the server, workflow, runtime, or tool binding that consumes it, then attach owner and review evidence before treating it as governable."
 	case pathGuidanceDependency:
-		return "Executable or runtime/control evidence that proves this dependency-only signal governs a real path.",
+		return "Executable or runtime/control evidence that proves this dependency inventory signal governs a real path.",
 			[]string{
 				"Attach the workflow, runtime, or tool path that loads or executes the dependency.",
 				"Keep the dependency signal in context-only output until a governable binding is proven.",
 			},
-			"Keep this dependency-only signal in context until executable, runtime, or control evidence proves it governs a real path."
+			"Keep this dependency inventory signal in context until executable, runtime, or control evidence proves it governs a real path."
 	default:
 		return "Correlation evidence that links this surface to a real workflow, credential use, tool binding, deploy path, runtime caller, or recent change.",
 			[]string{

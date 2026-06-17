@@ -1,6 +1,6 @@
 # Wrkr Design Partner Summary
 
-- Generated at: 2026-06-17T02:31:10Z
+- Generated at: 2026-06-17T20:38:30Z
 - Template: design-partner-summary
 - Share profile: design-partner
 - Boundary: static posture from saved scan state only; no live runtime observation, endpoint probing, or control-layer enforcement
@@ -54,20 +54,20 @@ Owner: owner-ab37caea
 Purpose: purpose not confirmed
 Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-6dd0f3ed -> label-6dd0f3ed -> label-837b932d -> label-44b4c4e4 -> credential (missing) -> label-eb24c1ad -> label-ab37caea -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
 
-4. repo-d236d5 in loc-d5d3368a
-Problem: This path can change production-adjacent state and is missing enough governance evidence.
-Likely explanation: purpose=mcp integration, purpose_source=location_heuristic, config=loc-d5d3368a
-Threat: risk_zone=production_data, risk_tier=critical, production_target_status=configured, mutable_endpoint=data_export x1,production_mutation x1,refund x1
-Recommended control: Review the declared mutable endpoint scope, require owner approval and proof for the exact action path, tighten token scope where possible, and rescan before treating this mutation surface as governed.
-Confidence lane: agent instruction surface
+4. repo-d236d5 in loc-a54ff182
+Problem: The path is operationally meaningful, but approval evidence is not yet linked or complete.
+Likely explanation: config=loc-a54ff182
+Threat: risk_zone=coding_help, risk_tier=high, production_target_status=configured
+Recommended control: Attach the missing policy or proof reference for this exact instruction surface and rescan so governance coverage is no longer inferred from the global chain.
+Confidence lane: review candidate instruction surface
 Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
 Credential authority: no credential authority was linked to this path
-High-stakes: external_egress (external_egress:detected); mcp_tool_config (tool_or_mcp_config:detected); mutable_endpoint (mutable_endpoint:present); payment_flow (payment_surface:detected); production_path (production_path:detected); regulated_customer_workflow (customer_or_regulated_surface:detected)
-Mutable endpoint: 3 grouped endpoint semantics; 1 route groups; data_export x1, production_mutation x1, refund x1; samples=endpoint-412970ad
-Production context: status=correlated, surface=label-625a4c05, credential=no credential evidence, target=customer_data_adjacent, deployment=unknown, operations=label-412970ad
+High-stakes: mcp_tool_config (tool_or_mcp_config:detected)
+Mutable endpoint: no declared mutable endpoint semantics were linked to this path
+Production context: no production-data context was projected for this path
 Owner: owner-f9ae3305
-Purpose: mcp integration
-Lineage: label-625a4c05 -> label-625a4c05 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-d5d3368a -> label-d5d3368a -> label-b29c45ca -> label-eef5b827 -> label-b23a6a84 (missing) -> label-5a824d8e -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-5a824d8e -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+Purpose: purpose not confirmed
+Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-a54ff182 -> label-a54ff182 -> label-a9322446 -> label-3316348d -> label-b23a6a84 (missing) -> target (missing) -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-77fcb75d (missing) -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
 
 5. repo-d236d5 in loc-cd78127f
 Problem: A standing credential can drive this path without enough compensating proof or gating.
@@ -83,21 +83,6 @@ Production context: no production-data context was projected for this path
 Owner: owner-920a23be
 Purpose: refund agent
 Lineage: label-9132aafa -> label-9132aafa -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-cd78127f -> label-cd78127f -> label-6656cc9d -> label-bab06f2c -> label-f82078a0 -> target (missing) -> label-920a23be -> label-05227691 (missing) -> label-a6769766 -> label-77fcb75d (missing) -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
-
-6. repo-d236d5 in loc-a54ff182
-Problem: The path is operationally meaningful, but approval evidence is not yet linked or complete.
-Likely explanation: config=loc-a54ff182
-Threat: risk_zone=coding_help, risk_tier=high, production_target_status=configured
-Recommended control: Attach the missing policy or proof reference for this exact instruction surface and rescan so governance coverage is no longer inferred from the global chain.
-Confidence lane: review candidate instruction surface
-Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
-Credential authority: no credential authority was linked to this path
-High-stakes: mcp_tool_config (tool_or_mcp_config:detected)
-Mutable endpoint: no declared mutable endpoint semantics were linked to this path
-Production context: no production-data context was projected for this path
-Owner: owner-f9ae3305
-Purpose: purpose not confirmed
-Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-a54ff182 -> label-a54ff182 -> label-a9322446 -> label-3316348d -> label-b23a6a84 (missing) -> target (missing) -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-77fcb75d (missing) -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
 
 ## Registry Highlights
 

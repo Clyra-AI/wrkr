@@ -375,7 +375,7 @@ func RenderMarkdown(summary Summary) string {
 	if !strings.HasSuffix(builder.String(), "\n") {
 		builder.WriteString("\n")
 	}
-	markdown, _ := ApplyMarkdownBudget(builder.String())
+	markdown, _ := ApplyMarkdownBudgetForTemplate(builder.String(), summary.Template)
 	return markdown
 }
 
@@ -438,7 +438,7 @@ func markdownActionPathLabel(lane string, actionPathType string, eligible bool, 
 		case risk.ActionPathTypeAgentInstruction:
 			return "instruction control surface"
 		case risk.ActionPathTypeDependencyOnlySignal:
-			return "dependency-only context"
+			return "dependency inventory context"
 		default:
 			if strings.TrimSpace(bindingState) == risk.ActionBindingStateUnboundContext {
 				return "target surface context"
@@ -473,7 +473,7 @@ func markdownActionPathLabel(lane string, actionPathType string, eligible bool, 
 		}
 		return "agent instruction surface"
 	case risk.ActionPathTypeDependencyOnlySignal:
-		return "dependency-only signal"
+		return "dependency inventory signal"
 	}
 	switch strings.TrimSpace(lane) {
 	case "confirmed_action_path":

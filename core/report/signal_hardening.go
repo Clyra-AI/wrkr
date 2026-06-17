@@ -10,18 +10,19 @@ import (
 )
 
 const (
-	defaultMaxActionPaths    = 150
-	defaultMaxBacklogItems   = 150
-	defaultMaxGraphNodes     = 5000
-	defaultMaxGraphEdges     = 7500
-	defaultMaxWorkflowChains = 150
-	defaultMaxExposureGroups = 150
-	defaultMaxAgentActionBOM = 100
-	defaultMarkdownLineCap   = 1500
-	defaultBOMLeadLineCap    = 45
-	defaultBOMLeadSectionCap = 4
-	defaultBOMLeadTopPaths   = 5
-	defaultBOMInspectCards   = 5
+	defaultMaxActionPaths     = 150
+	defaultMaxBacklogItems    = 150
+	defaultMaxGraphNodes      = 5000
+	defaultMaxGraphEdges      = 7500
+	defaultMaxWorkflowChains  = 150
+	defaultMaxExposureGroups  = 150
+	defaultMaxAgentActionBOM  = 5
+	defaultMarkdownLineCap    = 1500
+	defaultBOMMarkdownLineCap = 300
+	defaultBOMLeadLineCap     = 45
+	defaultBOMLeadSectionCap  = 4
+	defaultBOMLeadTopPaths    = 5
+	defaultBOMInspectCards    = 5
 )
 
 func BuildPolicyOutcomes(findings []model.Finding) []PolicyOutcome {
@@ -57,7 +58,7 @@ func ApplySummaryCaps(summary *Summary) {
 		suppressed.ExposureGroups = count
 	}
 	if summary.AgentActionBOM != nil {
-		summary.AgentActionBOM.Items, count = outputsignal.CapSlice(summary.AgentActionBOM.Items, defaultMaxAgentActionBOM)
+		summary.AgentActionBOM.Items, count = capAgentActionBOMItems(summary.AgentActionBOM.Items, defaultMaxAgentActionBOM)
 		suppressed.AgentActionBOM = count
 	}
 
@@ -66,6 +67,89 @@ func ApplySummaryCaps(summary *Summary) {
 		return
 	}
 	summary.SuppressedCounts = suppressed
+}
+
+func capAgentActionBOMItems(items []AgentActionBOMItem, limit int) ([]AgentActionBOMItem, int) {
+	if limit <= 0 || len(items) <= limit {
+		return items, 0
+	}
+	capped := append([]AgentActionBOMItem(nil), items[:limit]...)
+	for _, lane := range []string{risk.ConfidenceLaneConfirmedActionPath, risk.ConfidenceLaneSemanticReviewCandidate} {
+		if bomItemsContainLane(capped, lane) {
+			continue
+		}
+		candidate, ok := firstBOMItemByLane(items, lane, capped)
+		if !ok {
+			continue
+		}
+		capped[replacementIndexForBOMLaneDiversity(capped)] = candidate
+	}
+	return capped, len(items) - len(capped)
+}
+
+func bomItemsContainLane(items []AgentActionBOMItem, lane string) bool {
+	for _, item := range items {
+		if strings.TrimSpace(item.ConfidenceLane) == lane {
+			return true
+		}
+	}
+	return false
+}
+
+func firstBOMItemByLane(items []AgentActionBOMItem, lane string, excluded []AgentActionBOMItem) (AgentActionBOMItem, bool) {
+	for _, item := range items {
+		if strings.TrimSpace(item.ConfidenceLane) != lane {
+			continue
+		}
+		if bomItemsContainItem(excluded, item) {
+			continue
+		}
+		return item, true
+	}
+	return AgentActionBOMItem{}, false
+}
+
+func bomItemsContainItem(items []AgentActionBOMItem, candidate AgentActionBOMItem) bool {
+	candidateKey := bomItemDiversityKey(candidate)
+	for _, item := range items {
+		if bomItemDiversityKey(item) == candidateKey {
+			return true
+		}
+	}
+	return false
+}
+
+func bomItemDiversityKey(item AgentActionBOMItem) string {
+	parts := []string{
+		strings.TrimSpace(item.PathID),
+		strings.TrimSpace(item.Repo),
+		strings.TrimSpace(item.Location),
+		strings.TrimSpace(item.ConfidenceLane),
+	}
+	return strings.Join(parts, "\x00")
+}
+
+func replacementIndexForBOMLaneDiversity(items []AgentActionBOMItem) int {
+	laneCounts := map[string]int{}
+	for _, item := range items {
+		laneCounts[strings.TrimSpace(item.ConfidenceLane)]++
+	}
+	for idx := len(items) - 1; idx >= 0; idx-- {
+		lane := strings.TrimSpace(items[idx].ConfidenceLane)
+		switch lane {
+		case risk.ConfidenceLaneConfirmedActionPath, risk.ConfidenceLaneSemanticReviewCandidate:
+			continue
+		default:
+			return idx
+		}
+	}
+	for idx := len(items) - 1; idx >= 0; idx-- {
+		lane := strings.TrimSpace(items[idx].ConfidenceLane)
+		if laneCounts[lane] > 1 {
+			return idx
+		}
+	}
+	return len(items) - 1
 }
 
 func BuildSuppressedCountsForScan(r risk.Report, backlog *controlbacklog.Backlog) *SuppressedCounts {
@@ -105,15 +189,27 @@ func sanitizePolicyOutcomesWithConfig(in []PolicyOutcome, config RedactionConfig
 }
 
 func ApplyMarkdownBudget(markdown string) (string, int) {
+	return applyMarkdownBudgetWithCap(markdown, defaultMarkdownLineCap)
+}
+
+func ApplyMarkdownBudgetForTemplate(markdown string, template string) (string, int) {
+	lineCap := defaultMarkdownLineCap
+	if strings.TrimSpace(template) == string(TemplateAgentActionBOM) {
+		lineCap = defaultBOMMarkdownLineCap
+	}
+	return applyMarkdownBudgetWithCap(markdown, lineCap)
+}
+
+func applyMarkdownBudgetWithCap(markdown string, lineCap int) (string, int) {
 	lines := strings.Split(strings.TrimRight(markdown, "\n"), "\n")
-	if len(lines) <= defaultMarkdownLineCap {
+	if lineCap <= 0 || len(lines) <= lineCap {
 		if strings.HasSuffix(markdown, "\n") {
 			return markdown, 0
 		}
 		return markdown + "\n", 0
 	}
-	suppressed := len(lines) - defaultMarkdownLineCap
-	kept := append([]string(nil), lines[:defaultMarkdownLineCap]...)
+	suppressed := len(lines) - lineCap
+	kept := append([]string(nil), lines[:lineCap]...)
 	kept = append(kept, "", "... output truncated to stay within the markdown line budget ...")
 	return strings.Join(kept, "\n") + "\n", suppressed
 }
