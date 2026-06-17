@@ -367,11 +367,10 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 
 func buildLabData(scanPayload, reportPayload, summary, controlBacklog, proof map[string]any, ids publishedIDMaps) labData {
 	agentActionBOMItems := cloneArray(requireObject(reportPayload, "agent_action_bom")["items"])
-	exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey := buildExecutiveRollupExampleProjectionMaps(agentActionBOMItems)
 	projectedBOMItems := projectAgentActionBOMItems(agentActionBOMItems)
 	return labData{
 		DeploymentMode:        stringValue(reportPayload["deployment_mode"]),
-		ExecutiveRollup:       projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey),
+		ExecutiveRollup:       projectSampleExecutiveRollup(projectedBOMItems),
 		GovernedUsageMetrics:  projectGovernedUsageMetrics(projectedBOMItems),
 		ToolTypeBreakdown:     cloneArray(scanPayload["tool_type_breakdown"]),
 		TopFindings:           projectTopFindings(limitArray(cloneArray(reportPayload["top_findings"]), 5)),
@@ -391,13 +390,12 @@ func projectProofSummary(proof map[string]any) map[string]any {
 func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) map[string]any {
 	summary := requireObject(agentActionBOM, "summary")
 	items := cloneArray(agentActionBOM["items"])
-	exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey := buildExecutiveRollupExampleProjectionMaps(items)
 	projectedItems := projectAgentActionBOMItems(items)
 	projectedItemsAny := make([]any, len(projectedItems))
 	for idx, item := range projectedItems {
 		projectedItemsAny[idx] = item
 	}
-	projectedSummary := projectAgentActionBOMSummary(summary, projectedItems, ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey)
+	projectedSummary := projectAgentActionBOMSummary(summary, projectedItems, ids)
 	fingerprint := map[string]any{
 		"schema_version": agentActionBOM["schema_version"],
 		"items":          projectedItemsAny,
@@ -447,7 +445,7 @@ func projectAgentActionBOMItems(items []any) []map[string]any {
 	return projectedItems
 }
 
-func projectAgentActionBOMSummary(summary map[string]any, projectedItems []map[string]any, ids publishedIDMaps, exampleSelectionKeyByRawPathID map[string]string, projectedPathIDsByExampleSelectionKey map[string][]string) map[string]any {
+func projectAgentActionBOMSummary(summary map[string]any, projectedItems []map[string]any, ids publishedIDMaps) map[string]any {
 	return map[string]any{
 		"total_items":              len(projectedItems),
 		"control_first_items":      countProjectedItems(projectedItems, "queue", "control_first"),
@@ -456,7 +454,7 @@ func projectAgentActionBOMSummary(summary map[string]any, projectedItems []map[s
 		"coverage_confidence":      summary["coverage_confidence"],
 		"scan_coverage":            summary["scan_coverage"],
 		"delegation_readiness":     projectDelegationReadiness(projectedItems),
-		"executive_rollup":         projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey),
+		"executive_rollup":         projectSampleExecutiveRollup(projectedItems),
 		"governed_usage_metrics":   projectGovernedUsageMetrics(projectedItems),
 		"primary_view":             projectPrimaryView(requireObject(summary, "primary_view"), ids),
 	}
@@ -497,6 +495,126 @@ func projectGovernedUsageMetrics(items []map[string]any) map[string]any {
 		"governed_paths":                countProjectedItems(items, "queue", "control_first"),
 		"unknown_control_paths":         countProjectedItems(items, "control_resolution_state", "no_visible_control") + countProjectedItems(items, "control_resolution_state", "unknown"),
 		"verified_control_paths":        countProjectedItems(items, "control_resolution_state", "detected_control"),
+	}
+}
+
+type sampleExecutiveRollupGroup struct {
+	count          int
+	dimensions     map[string]any
+	evidenceStates map[string]int
+	refs           []string
+}
+
+func projectSampleExecutiveRollup(items []map[string]any) map[string]any {
+	groupsByKey := map[string]*sampleExecutiveRollupGroup{}
+	for _, item := range items {
+		dimensions := map[string]any{
+			"control_resolution_state":   item["control_resolution_state"],
+			"detector_confidence":        item["confidence_lane"],
+			"delegation_readiness_state": item["delegation_readiness_state"],
+			"queue":                      item["queue"],
+			"risk_zone":                  item["risk_zone"],
+			"target_class":               item["target_class"],
+		}
+		key := canonicalJSONKey(dimensions)
+		group := groupsByKey[key]
+		if group == nil {
+			group = &sampleExecutiveRollupGroup{
+				dimensions:     dimensions,
+				evidenceStates: map[string]int{"verified": 0, "declared": 0, "inferred": 0, "unknown": 0, "contradictory": 0},
+			}
+			groupsByKey[key] = group
+		}
+		group.count++
+		if pathID := stringValue(item["path_id"]); pathID != "" {
+			group.refs = append(group.refs, pathID)
+		}
+		group.evidenceStates[sampleEvidenceState(item)]++
+	}
+
+	groups := make([]any, 0, len(groupsByKey))
+	totalPaths := 0
+	for _, group := range groupsByKey {
+		sort.Strings(group.refs)
+		refs := append([]string(nil), group.refs...)
+		if len(refs) > 3 {
+			refs = refs[:3]
+		}
+		topExampleRefs := make([]any, 0, len(refs))
+		for idx := range refs {
+			topExampleRefs = append(topExampleRefs, fmt.Sprintf("path-example-%02d", idx+1))
+		}
+		totalPaths += group.count
+		groups = append(groups, map[string]any{
+			"closure_recommendation": sampleClosureRecommendation(group),
+			"count":                  group.count,
+			"dimensions":             group.dimensions,
+			"evidence_state_summary": map[string]any{
+				"contradictory": group.evidenceStates["contradictory"],
+				"declared":      group.evidenceStates["declared"],
+				"inferred":      group.evidenceStates["inferred"],
+				"unknown":       group.evidenceStates["unknown"],
+				"verified":      group.evidenceStates["verified"],
+			},
+			"group_id":         stableOpaqueID("xrg", group.dimensions),
+			"highest_priority": stringValue(group.dimensions["queue"]),
+			"highest_severity": sampleHighestSeverity(group),
+			"rationale": []any{
+				fmt.Sprintf("%d %s paths grouped by %s target and %s readiness", group.count, stringValue(group.dimensions["risk_zone"]), stringValue(group.dimensions["target_class"]), stringValue(group.dimensions["delegation_readiness_state"])),
+				fmt.Sprintf("control_resolution=%s detector_confidence=%s", stringValue(group.dimensions["control_resolution_state"]), stringValue(group.dimensions["detector_confidence"])),
+			},
+			"top_example_refs": topExampleRefs,
+		})
+	}
+	sort.Slice(groups, func(i, j int) bool {
+		left := requireObjectFromAny(groups[i])
+		right := requireObjectFromAny(groups[j])
+		if stringValue(left["highest_priority"]) != stringValue(right["highest_priority"]) {
+			return stringValue(left["highest_priority"]) < stringValue(right["highest_priority"])
+		}
+		return stringValue(left["group_id"]) < stringValue(right["group_id"])
+	})
+	return map[string]any{
+		"total_groups": len(groups),
+		"total_paths":  totalPaths,
+		"groups":       groups,
+	}
+}
+
+func sampleEvidenceState(item map[string]any) string {
+	if stringValue(item["control_resolution_state"]) == "contradictory_control" {
+		return "contradictory"
+	}
+	for _, key := range []string{"approval_evidence_state", "proof_evidence_state", "runtime_evidence_state"} {
+		if stringValue(item[key]) == "unknown" {
+			return "unknown"
+		}
+	}
+	if stringValue(item["owner_evidence_state"]) == "inferred" {
+		return "inferred"
+	}
+	return "verified"
+}
+
+func sampleClosureRecommendation(group *sampleExecutiveRollupGroup) string {
+	switch stringValue(group.dimensions["delegation_readiness_state"]) {
+	case "blocked", "blocked_by_contradiction":
+		return "block or remediate before delegation"
+	case "review_required":
+		return "require owner review and attach evidence"
+	default:
+		return "keep as monitored sample path"
+	}
+}
+
+func sampleHighestSeverity(group *sampleExecutiveRollupGroup) string {
+	switch stringValue(group.dimensions["delegation_readiness_state"]) {
+	case "blocked", "blocked_by_contradiction":
+		return "critical"
+	case "approval_required", "proof_required", "review_required":
+		return "high"
+	default:
+		return "medium"
 	}
 }
 
