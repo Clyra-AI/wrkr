@@ -91,14 +91,14 @@
           "contradictory": 0,
           "declared": 0,
           "inferred": 0,
-          "unknown": 5,
+          "unknown": 3,
           "verified": 0
         },
         "group_id": "xrg-ca230a7008b5",
         "highest_priority": "review_queue",
         "highest_severity": "high",
         "rationale": [
-          "5 egress paths grouped by developer_productivity and unknown evidence",
+          "3 egress paths grouped by developer_productivity and unknown evidence",
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
@@ -197,14 +197,14 @@
           "contradictory": 0,
           "declared": 0,
           "inferred": 0,
-          "unknown": 2,
+          "unknown": 1,
           "verified": 0
         },
         "group_id": "xrg-72044fd98ef0",
         "highest_priority": "review_queue",
         "highest_severity": "high",
         "rationale": [
-          "2 read paths grouped by test_demo_sandbox and unknown evidence",
+          "1 read paths grouped by test_demo_sandbox and unknown evidence",
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
@@ -231,14 +231,14 @@
           "contradictory": 0,
           "declared": 0,
           "inferred": 0,
-          "unknown": 2,
+          "unknown": 1,
           "verified": 0
         },
         "group_id": "xrg-b4eb30e04fc1",
         "highest_priority": "review_queue",
         "highest_severity": "high",
         "rationale": [
-          "2 egress paths grouped by unknown and unknown evidence",
+          "1 egress paths grouped by unknown and unknown evidence",
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [

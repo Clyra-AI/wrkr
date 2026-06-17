@@ -1109,6 +1109,8 @@ func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps,
 		}
 		group["top_example_refs"] = projectedRefs
 		group["count"] = len(projectedRefs)
+		group["evidence_state_summary"] = projectExecutiveRollupEvidenceSummary(group, len(projectedRefs))
+		group["rationale"] = projectExecutiveRollupRationale(cloneArray(group["rationale"]), len(projectedRefs))
 		totalProjectedPaths += len(projectedRefs)
 		projectedGroups = append(projectedGroups, group)
 	}
@@ -1116,6 +1118,45 @@ func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps,
 	out["total_groups"] = len(projectedGroups)
 	out["total_paths"] = totalProjectedPaths
 	return out
+}
+
+func projectExecutiveRollupEvidenceSummary(group map[string]any, count int) map[string]any {
+	states := []string{"verified", "declared", "inferred", "unknown", "contradictory"}
+	out := make(map[string]any, len(states))
+	for _, state := range states {
+		out[state] = 0
+	}
+	state := stringValue(requireObjectFromAny(group["dimensions"])["evidence_state"])
+	if _, ok := out[state]; !ok {
+		state = "unknown"
+	}
+	out[state] = count
+	return out
+}
+
+func projectExecutiveRollupRationale(items []any, count int) []any {
+	out := make([]any, 0, len(items))
+	for idx, raw := range items {
+		text := stringValue(raw)
+		if idx == 0 {
+			text = replaceLeadingInteger(text, count)
+		}
+		out = append(out, text)
+	}
+	return out
+}
+
+func replaceLeadingInteger(text string, value int) string {
+	firstSpace := strings.IndexByte(text, ' ')
+	if firstSpace <= 0 {
+		return text
+	}
+	for _, ch := range text[:firstSpace] {
+		if ch < '0' || ch > '9' {
+			return text
+		}
+	}
+	return strconv.Itoa(value) + text[firstSpace:]
 }
 
 func projectExecutiveRollupTopExampleRefs(refs []any, ids publishedIDMaps, exampleSelectionKeyByRawPathID map[string]string, projectedPathIDsByExampleSelectionKey map[string][]string) []string {
