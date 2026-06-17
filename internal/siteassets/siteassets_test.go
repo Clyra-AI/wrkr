@@ -179,7 +179,7 @@ func TestProjectExecutiveRollupCanonicalizesExampleSelectionAfterOpaqueProjectio
 		t.Fatalf("expected one projected group, got %d", len(groups))
 	}
 	gotRefs := stringArray(requireObjectFromAny(groups[0])["top_example_refs"])
-	wantRefs := []string{"path-a", "path-b", "path-c"}
+	wantRefs := []string{"path-example-01", "path-example-02", "path-example-03"}
 	if !reflect.DeepEqual(gotRefs, wantRefs) {
 		t.Fatalf("expected projected executive rollup refs %v, got %v", wantRefs, gotRefs)
 	}

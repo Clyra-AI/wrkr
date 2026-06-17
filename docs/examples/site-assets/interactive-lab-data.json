@@ -33,7 +33,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=standing"
         ],
         "top_example_refs": [
-          "path-3d4294dea973"
+          "path-example-01"
         ]
       },
       {
@@ -67,8 +67,8 @@
           "closure=remediate repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-976cd7720979",
-          "path-a0148cc443aa"
+          "path-example-01",
+          "path-example-02"
         ]
       },
       {
@@ -102,9 +102,9 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-1a6e2fbd",
-          "path-7d58f43e",
-          "path-aea359df"
+          "path-example-01",
+          "path-example-02",
+          "path-example-03"
         ]
       },
       {
@@ -138,8 +138,8 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-7462113c",
-          "path-7bc48b8c"
+          "path-example-01",
+          "path-example-02"
         ]
       },
       {
@@ -173,8 +173,8 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-ad8e5de2",
-          "path-fa61c8c4"
+          "path-example-01",
+          "path-example-02"
         ]
       },
       {
@@ -208,7 +208,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-d5d0c4cfffdc"
+          "path-example-01"
         ]
       },
       {
@@ -242,7 +242,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-746fc559895f"
+          "path-example-01"
         ]
       },
       {
@@ -276,7 +276,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=none"
         ],
         "top_example_refs": [
-          "path-f557e358"
+          "path-example-01"
         ]
       },
       {
@@ -310,7 +310,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-6c68d1b5"
+          "path-example-01"
         ]
       },
       {
@@ -344,7 +344,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-316db0d7"
+          "path-example-01"
         ]
       },
       {
@@ -378,7 +378,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-9ed20f75"
+          "path-example-01"
         ]
       },
       {
@@ -412,7 +412,7 @@
           "closure=remediate repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-efbe1d8d"
+          "path-example-01"
         ]
       },
       {
@@ -446,7 +446,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=none"
         ],
         "top_example_refs": [
-          "path-827d9232"
+          "path-example-01"
         ]
       }
     ],

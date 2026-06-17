@@ -1187,6 +1187,9 @@ func projectExecutiveRollupTopExampleRefs(refs []any, ids publishedIDMaps, examp
 	if len(projectedRefStrings) > 3 {
 		projectedRefStrings = append([]string(nil), projectedRefStrings[:3]...)
 	}
+	for idx := range projectedRefStrings {
+		projectedRefStrings[idx] = fmt.Sprintf("path-example-%02d", idx+1)
+	}
 	return projectedRefStrings
 }
 
