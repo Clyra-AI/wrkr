@@ -104,7 +104,7 @@
   ],
   "schema_version": "v1",
   "summary": {
-    "control_first_items": 2,
+    "control_first_items": 5,
     "coverage_confidence": "complete",
     "delegation_readiness": {
       "approval_required": 0,
@@ -112,8 +112,8 @@
       "blocked_by_contradiction": 0,
       "proof_required": 0,
       "ready_for_control": 0,
-      "review_required": 19,
-      "safe_to_delegate": 2
+      "review_required": 4,
+      "safe_to_delegate": 0
     },
     "executive_rollup": {
       "groups": [
@@ -569,16 +569,16 @@
       "total_paths": 22
     },
     "governed_usage_metrics": {
-      "active_monitored_action_paths": 19,
+      "active_monitored_action_paths": 5,
       "approval_decisions": 0,
       "audit_exports": 4,
       "connected_runtimes": 0,
       "contradictory_paths": 0,
       "evidence_packs": 0,
-      "governed_agents_workflows": 22,
-      "governed_paths": 19,
+      "governed_agents_workflows": 5,
+      "governed_paths": 5,
       "unknown_control_paths": 0,
-      "verified_control_paths": 22
+      "verified_control_paths": 5
     },
     "primary_view": {
       "approval_evidence_state": "unknown",
@@ -661,6 +661,6 @@
       "impact_statement": "Coverage for scanned inputs was complete enough to support scoped negative claims."
     },
     "standing_privilege_items": 1,
-    "total_items": 22
+    "total_items": 5
   }
 }

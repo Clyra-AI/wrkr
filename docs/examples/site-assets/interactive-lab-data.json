@@ -208,8 +208,7 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-d5d0c4cfffdc",
-          "path-e20cb15e"
+          "path-d5d0c4cfffdc"
         ]
       },
       {
@@ -243,7 +242,6 @@
           "closure=attach_evidence repo_cluster=single_repo credential_authority=unknown"
         ],
         "top_example_refs": [
-          "path-4e78dcfb",
           "path-746fc559895f"
         ]
       },
@@ -456,16 +454,16 @@
     "total_paths": 22
   },
   "governed_usage_metrics": {
-    "active_monitored_action_paths": 19,
+    "active_monitored_action_paths": 5,
     "approval_decisions": 0,
     "audit_exports": 4,
     "connected_runtimes": 0,
     "contradictory_paths": 0,
     "evidence_packs": 0,
-    "governed_agents_workflows": 22,
-    "governed_paths": 19,
+    "governed_agents_workflows": 5,
+    "governed_paths": 5,
     "unknown_control_paths": 0,
-    "verified_control_paths": 22
+    "verified_control_paths": 5
   },
   "tool_type_breakdown": [
     {

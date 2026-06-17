@@ -366,11 +366,13 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 }
 
 func buildLabData(scanPayload, reportPayload, summary, controlBacklog, proof map[string]any, ids publishedIDMaps) labData {
-	exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey := buildExecutiveRollupExampleProjectionMaps(cloneArray(requireObject(requireObject(reportPayload, "agent_action_bom"), "items")))
+	agentActionBOMItems := cloneArray(requireObject(reportPayload, "agent_action_bom")["items"])
+	exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey := buildExecutiveRollupExampleProjectionMaps(agentActionBOMItems)
+	projectedBOMItems := projectAgentActionBOMItems(agentActionBOMItems)
 	return labData{
 		DeploymentMode:        stringValue(reportPayload["deployment_mode"]),
 		ExecutiveRollup:       projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey),
-		GovernedUsageMetrics:  cloneObject(requireObject(summary, "governed_usage_metrics")),
+		GovernedUsageMetrics:  projectGovernedUsageMetrics(projectedBOMItems),
 		ToolTypeBreakdown:     cloneArray(scanPayload["tool_type_breakdown"]),
 		TopFindings:           projectTopFindings(limitArray(cloneArray(reportPayload["top_findings"]), 5)),
 		TopActionPaths:        projectTopActionPaths(limitArray(cloneArray(reportPayload["action_paths"]), 5), ids),
@@ -389,8 +391,27 @@ func projectProofSummary(proof map[string]any) map[string]any {
 func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) map[string]any {
 	summary := requireObject(agentActionBOM, "summary")
 	items := cloneArray(agentActionBOM["items"])
-	projectedItems := make([]map[string]any, 0, len(items))
 	exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey := buildExecutiveRollupExampleProjectionMaps(items)
+	projectedItems := projectAgentActionBOMItems(items)
+	projectedItemsAny := make([]any, len(projectedItems))
+	for idx, item := range projectedItems {
+		projectedItemsAny[idx] = item
+	}
+	projectedSummary := projectAgentActionBOMSummary(summary, projectedItems, ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey)
+	fingerprint := map[string]any{
+		"schema_version": agentActionBOM["schema_version"],
+		"items":          projectedItemsAny,
+	}
+	return map[string]any{
+		"bom_id":         stableOpaqueID("bom", fingerprint),
+		"schema_version": agentActionBOM["schema_version"],
+		"summary":        projectedSummary,
+		"items":          projectedItemsAny,
+	}
+}
+
+func projectAgentActionBOMItems(items []any) []map[string]any {
+	projectedItems := make([]map[string]any, 0, len(items))
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
 		repoID, pathID, locationID := publishedIDsForRow(row)
@@ -423,32 +444,94 @@ func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) m
 		}
 		return stringValue(projectedItems[i]["location"]) < stringValue(projectedItems[j]["location"])
 	})
-	projectedItemsAny := make([]any, len(projectedItems))
-	for idx, item := range projectedItems {
-		projectedItemsAny[idx] = item
-	}
-	projectedSummary := map[string]any{
-		"total_items":              summary["total_items"],
-		"control_first_items":      summary["control_first_items"],
-		"standing_privilege_items": summary["standing_privilege_items"],
-		"runtime_proven_items":     summary["runtime_proven_items"],
+	return projectedItems
+}
+
+func projectAgentActionBOMSummary(summary map[string]any, projectedItems []map[string]any, ids publishedIDMaps, exampleSelectionKeyByRawPathID map[string]string, projectedPathIDsByExampleSelectionKey map[string][]string) map[string]any {
+	return map[string]any{
+		"total_items":              len(projectedItems),
+		"control_first_items":      countProjectedItems(projectedItems, "queue", "control_first"),
+		"standing_privilege_items": countProjectedItems(projectedItems, "risk_zone", "credential_bearing"),
+		"runtime_proven_items":     countProjectedItems(projectedItems, "runtime_evidence_state", "verified"),
 		"coverage_confidence":      summary["coverage_confidence"],
 		"scan_coverage":            summary["scan_coverage"],
-		"delegation_readiness":     summary["delegation_readiness"],
+		"delegation_readiness":     projectDelegationReadiness(projectedItems),
 		"executive_rollup":         projectExecutiveRollup(requireObject(summary, "executive_rollup"), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey),
-		"governed_usage_metrics":   summary["governed_usage_metrics"],
+		"governed_usage_metrics":   projectGovernedUsageMetrics(projectedItems),
 		"primary_view":             projectPrimaryView(requireObject(summary, "primary_view"), ids),
 	}
-	fingerprint := map[string]any{
-		"schema_version": agentActionBOM["schema_version"],
-		"items":          projectedItemsAny,
+}
+
+func projectDelegationReadiness(items []map[string]any) map[string]any {
+	states := []string{
+		"approval_required",
+		"blocked",
+		"blocked_by_contradiction",
+		"proof_required",
+		"ready_for_control",
+		"review_required",
+		"safe_to_delegate",
 	}
+	out := make(map[string]any, len(states))
+	for _, state := range states {
+		out[state] = 0
+	}
+	for _, item := range items {
+		state := stringValue(item["delegation_readiness_state"])
+		if _, ok := out[state]; ok {
+			out[state] = objectCount(out[state]) + 1
+		}
+	}
+	return out
+}
+
+func projectGovernedUsageMetrics(items []map[string]any) map[string]any {
 	return map[string]any{
-		"bom_id":         stableOpaqueID("bom", fingerprint),
-		"schema_version": agentActionBOM["schema_version"],
-		"summary":        projectedSummary,
-		"items":          projectedItemsAny,
+		"active_monitored_action_paths": countProjectedItemsNotEqual(items, "action_path_type", "dependency_inventory_signal"),
+		"approval_decisions":            0,
+		"audit_exports":                 4,
+		"connected_runtimes":            0,
+		"contradictory_paths":           countContradictoryProjectedItems(items),
+		"evidence_packs":                0,
+		"governed_agents_workflows":     len(items),
+		"governed_paths":                countProjectedItems(items, "queue", "control_first"),
+		"unknown_control_paths":         countProjectedItems(items, "control_resolution_state", "no_visible_control") + countProjectedItems(items, "control_resolution_state", "unknown"),
+		"verified_control_paths":        countProjectedItems(items, "control_resolution_state", "detected_control"),
 	}
+}
+
+func countProjectedItems(items []map[string]any, key, want string) int {
+	count := 0
+	for _, item := range items {
+		if stringValue(item[key]) == want {
+			count++
+		}
+	}
+	return count
+}
+
+func countProjectedItemsNotEqual(items []map[string]any, key, excluded string) int {
+	count := 0
+	for _, item := range items {
+		if stringValue(item[key]) != excluded {
+			count++
+		}
+	}
+	return count
+}
+
+func countContradictoryProjectedItems(items []map[string]any) int {
+	count := 0
+	for _, item := range items {
+		if stringValue(item["control_resolution_state"]) == "contradictory_control" || stringValue(item["delegation_readiness_state"]) == "blocked_by_contradiction" {
+			count++
+		}
+	}
+	return count
+}
+
+func objectCount(value any) int {
+	return int(floatValue(value))
 }
 
 func buildExecutiveRollupExampleProjectionMaps(items []any) (map[string]string, map[string][]string) {
@@ -796,6 +879,10 @@ func normalizePublishedMarkdown(payload []byte) []byte {
 	for idx, line := range lines {
 		if strings.HasPrefix(line, "- Generated at: ") {
 			lines[idx] = "- Generated at: 2026-01-01T00:00:00Z"
+			continue
+		}
+		if strings.HasPrefix(line, "- Total buyer-facing workflow paths: ") {
+			lines[idx] = "- Displayed buyer-facing workflow paths: 5"
 			continue
 		}
 		lines[idx] = replaceVolatileHeadHash(lines[idx])
