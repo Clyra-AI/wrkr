@@ -3,6 +3,7 @@ package siteassets
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -185,6 +186,47 @@ func TestProjectExecutiveRollupCanonicalizesExampleSelectionAfterOpaqueProjectio
 	}
 }
 
+func TestPrepareScenarioSnapshotCopiesOnlyTrackedFixtureFiles(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skipf("git unavailable: %v", err)
+	}
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+
+	trackedRel := filepath.ToSlash(filepath.Join(ScenarioRelPath, "tracked.txt"))
+	trackedPath := filepath.Join(repoRoot, filepath.FromSlash(trackedRel))
+	if err := os.MkdirAll(filepath.Dir(trackedPath), 0o750); err != nil {
+		t.Fatalf("create tracked fixture dir: %v", err)
+	}
+	if err := os.WriteFile(trackedPath, []byte("tracked\n"), 0o600); err != nil {
+		t.Fatalf("write tracked fixture: %v", err)
+	}
+
+	untrackedRel := filepath.ToSlash(filepath.Join(ScenarioRelPath, "local-only", "settings.json"))
+	untrackedPath := filepath.Join(repoRoot, filepath.FromSlash(untrackedRel))
+	if err := os.MkdirAll(filepath.Dir(untrackedPath), 0o750); err != nil {
+		t.Fatalf("create untracked fixture dir: %v", err)
+	}
+	if err := os.WriteFile(untrackedPath, []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("write untracked fixture: %v", err)
+	}
+
+	runGit(t, repoRoot, "add", trackedRel)
+
+	snapshotRoot, err := prepareScenarioSnapshot(repoRoot, t.TempDir())
+	if err != nil {
+		t.Fatalf("prepare scenario snapshot: %v", err)
+	}
+	if payload, err := os.ReadFile(filepath.Join(snapshotRoot, "tracked.txt")); err != nil || string(payload) != "tracked\n" {
+		t.Fatalf("tracked file not copied correctly: payload=%q err=%v", string(payload), err)
+	}
+	if _, err := os.Stat(filepath.Join(snapshotRoot, "local-only", "settings.json")); !os.IsNotExist(err) {
+		t.Fatalf("untracked file should not be copied, err=%v", err)
+	}
+}
+
 func sampleControlPathGraph(fromNodeID, toNodeID, edgeID string) map[string]any {
 	return map[string]any{
 		"version": "1",
@@ -222,6 +264,16 @@ func sampleControlPathGraph(fromNodeID, toNodeID, edgeID string) map[string]any 
 				"to_node_id":     toNodeID,
 			},
 		},
+	}
+}
+
+func runGit(t *testing.T, repoRoot string, args ...string) {
+	t.Helper()
+
+	cmdArgs := append([]string{"-C", repoRoot}, args...)
+	cmd := exec.Command("git", cmdArgs...)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %s failed: %v\n%s", strings.Join(args, " "), err, output)
 	}
 }
 

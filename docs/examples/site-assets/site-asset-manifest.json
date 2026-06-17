@@ -15,7 +15,7 @@
       "description": "Interactive lab summary data projected from deterministic report and evidence outputs.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:7a2d000b62ad570b3cf1fec2e3aab004efecc43a806463849d949697475c18f7"
+      "sha256": "sha256:3d8e3c15e076e3563228b20af6add17863c4e90dfd6876cb978765c375677c27"
     },
     {
       "path": "local-private-posture.md",
@@ -34,14 +34,14 @@
       "description": "Customer-redacted Control Path Graph sample for website graph rendering and demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:3c155af81cb9277e1021214a67ec009989564a799c5786f9b209054ee728be1b"
+      "sha256": "sha256:a3ec534a1b328e9261307477bcce25480ecdc6ae1c79cbb1ecc5b1b69bf43753"
     },
     {
       "path": "sample-redacted-report.md",
       "description": "Customer-redacted executive markdown report suitable for public-facing demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:e68c78b734c3250dde134a109f71f78aa928e10bae4af9de6558c1bb18a77498"
+      "sha256": "sha256:c0353a9360fcbf66f76396e4ace490bbf81b1e6e2eb2abff804729a8880e80f8"
     }
   ],
   "commands": [
