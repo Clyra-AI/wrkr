@@ -2308,6 +2308,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].EvidencePacketRefs = redactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet")
 		copyBOM.Items[idx].DecisionTraceRefs = redactStringSlice(copyBOM.Items[idx].DecisionTraceRefs, "proof")
 	}
+	copyBOM.focusSourceItems = append([]AgentActionBOMItem(nil), copyBOM.Items...)
 	return &copyBOM
 }
 
