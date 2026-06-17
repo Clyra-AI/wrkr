@@ -441,7 +441,6 @@ func projectAgentActionBOM(agentActionBOM map[string]any, ids publishedIDMaps) m
 	}
 	fingerprint := map[string]any{
 		"schema_version": agentActionBOM["schema_version"],
-		"summary":        projectedSummary,
 		"items":          projectedItemsAny,
 	}
 	return map[string]any{
