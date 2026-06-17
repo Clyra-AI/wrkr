@@ -31,13 +31,23 @@ wrkr assess [--json] [--json-stdout auto|full] [--quiet] [--explain] [--path <di
 
 ## Example
 
+Human/manual handoff:
+
 ```bash
-wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json
-wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --json
-wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --focus release --share-profile customer-redacted --json
-wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --runtime-input ./fixtures/runtime-session.json --frameworks soc2,eu-ai-act --json
-wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --baseline ./.wrkr/wrkr-regress-baseline.json --focus drift-review --json
-wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --paired-share-profile customer-redacted --ticket-format jira --json
+wrkr assess --path ./your-repo --output-dir ./.wrkr/assessment --template agent-action-bom --share-profile customer-redacted
+wrkr assess --path ./your-repo --output-dir ./.wrkr/design-partner-assessment --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira
+wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --output-dir ./.tmp/wrkr-evaluator-assessment --focus release --share-profile customer-redacted
+```
+
+Automation / CI workflow:
+
+```bash
+wrkr assess --path ./your-repo --output-dir ./.wrkr/assessment --json
+wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --output-dir ./.tmp/wrkr-evaluator-assessment --json
+wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --output-dir ./.tmp/wrkr-evaluator-assessment --focus release --share-profile customer-redacted --json
+wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --output-dir ./.tmp/wrkr-evaluator-assessment --runtime-input ./fixtures/runtime-session.json --frameworks soc2,eu-ai-act --json
+wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --output-dir ./.tmp/wrkr-evaluator-assessment --baseline ./.wrkr/wrkr-regress-baseline.json --focus drift-review --json
+wrkr assess --path ./scenarios/wrkr/scan-mixed-org/repos --output-dir ./.tmp/wrkr-evaluator-assessment --paired-share-profile customer-redacted --ticket-format jira --json
 ```
 
 ## Behavior contract

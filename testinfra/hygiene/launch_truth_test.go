@@ -11,8 +11,8 @@ func TestLaunchTruthScenarioFirstOnboarding(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := mustFindRepoRoot(t)
-	scenarioCmd := "wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json"
-	repoFallbackCmd := "wrkr scan --path ./your-repo --json"
+	scenarioCmd := "wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scenario-summary.md"
+	repoFallbackCmd := "wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md"
 	requiredNoiseText := "repo-root fixture noise"
 
 	cases := []struct {
@@ -51,7 +51,7 @@ func TestLaunchTruthReadmeStartHereLeadsWithShippedWedge(t *testing.T) {
 	}
 
 	for _, required := range []string{
-		"wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json",
+		"wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scenario-summary.md",
 		"wrkr evidence --frameworks",
 		"wrkr verify --chain",
 		"wrkr regress init",

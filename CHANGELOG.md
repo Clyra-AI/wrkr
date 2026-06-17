@@ -18,6 +18,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Unified report and evidence serialization metadata with shared suppression and artifact-budget hints so shareable/default outputs advertise caps, appendix availability, and focused/detail handoff paths consistently.
 - [semver:minor] Updated Agent Action BOM and control-backlog closure guidance so OpenAPI, route, instruction, MCP config, dependency, CI, and release workflow surfaces use path-type-specific remediation language.
 - [semver:minor] Reworked Agent Action BOM Markdown to lead with buyer-facing inspect-first diagnostics, keep appendix-heavy refs later, and promote recent PR review into a named workflow instead of appendix-style output.
+- [semver:minor] Reworked the default Agent Action BOM buyer view to start with inspect-first cards, keep the primary path plus top five eligible paths on the first page, and move machine-heavy BOM metadata into appendices and evidence artifacts.
+- [semver:patch] Clarified scan, report, evidence, assess, README, and docs-site guidance so manual large-scan workflows center `--state` plus durable artifacts while `--json` examples stay explicitly labeled for automation and CI.
 
 ### Deprecated
 

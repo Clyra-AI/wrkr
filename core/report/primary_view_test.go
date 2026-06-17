@@ -214,10 +214,14 @@ func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) 
 	}
 
 	markdown := RenderMarkdown(summary)
+	inspectFirstIdx := strings.Index(markdown, "## What To Look At First")
 	primaryIdx := strings.Index(markdown, "## Primary Workflow BOM")
 	topPathsIdx := strings.Index(markdown, "## Top Action Paths")
 	contextIdx := strings.Index(markdown, "## Report Context Appendix")
 	appendixIdx := strings.Index(markdown, "## Workflow BOM Appendix")
+	if inspectFirstIdx < 0 {
+		t.Fatalf("expected inspect-first lead section, got %q", markdown)
+	}
 	if primaryIdx < 0 {
 		t.Fatalf("expected primary workflow section, got %q", markdown)
 	}
@@ -230,11 +234,17 @@ func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) 
 	if appendixIdx < 0 {
 		t.Fatalf("expected workflow appendix section, got %q", markdown)
 	}
+	if inspectFirstIdx > primaryIdx {
+		t.Fatalf("expected inspect-first cards to lead before primary workflow BOM, got %q", markdown)
+	}
 	if primaryIdx > appendixIdx {
 		t.Fatalf("expected primary workflow BOM to lead before appendix, got %q", markdown)
 	}
 	if !strings.Contains(markdown, "Workflow: codex in acme/release / pr/108 via .github/workflows/release.yml.") {
 		t.Fatalf("expected human-readable workflow line in markdown, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "Visible controls:") {
+		t.Fatalf("expected visible controls lead line in markdown, got %q", markdown)
 	}
 	if !strings.Contains(markdown, "Coverage status: complete.") {
 		t.Fatalf("expected coverage status in primary workflow section, got %q", markdown)
@@ -251,7 +261,119 @@ func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) 
 	}
 }
 
-func TestAgentActionBOMPrimaryViewFitsLineBudget(t *testing.T) {
+func TestAgentActionBOMStartsWithInspectFirstCards(t *testing.T) {
+	t.Parallel()
+
+	items := []AgentActionBOMItem{}
+	highlights := []WorkflowHighlight{}
+	for idx := 0; idx < 6; idx++ {
+		pathID := "apc-card-" + string(rune('0'+idx))
+		repo := "acme/repo-" + string(rune('0'+idx))
+		workflow := ".github/workflows/workflow-" + string(rune('0'+idx)) + ".yml"
+		items = append(items, AgentActionBOMItem{
+			PathID:                   pathID,
+			Org:                      "acme",
+			Repo:                     repo,
+			ToolType:                 "compiled_action",
+			Location:                 workflow,
+			ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+			ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+			DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
+			RecommendedControl:       risk.RecommendedControlApprovalRequired,
+			TargetClass:              risk.TargetClassProductionImpacting,
+			ApprovalGap:              true,
+			CredentialAccess:         true,
+			ControlResolutionState:   risk.ControlResolutionStateNoVisibleControl,
+			ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+			ProofEvidenceState:       risk.EvidenceStateUnknown,
+			RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+		})
+		highlights = append(highlights, WorkflowHighlight{
+			PathID:              pathID,
+			PathType:            "workflow path",
+			Repo:                repo,
+			Workflow:            workflow,
+			TargetClass:         risk.TargetClassProductionImpacting,
+			DelegationReadiness: risk.DelegationReadinessApprovalRequired,
+			Authority:           "credential access declared",
+			EvidenceSummary:     "control=no visible control",
+			ApprovalPath:        "approval evidence unknown",
+			ProofStatus:         "proof evidence unknown",
+			RuntimeStatus:       "runtime evidence unknown",
+			Recommendation:      "Attach approval evidence for this exact workflow path",
+		})
+	}
+
+	summary := Summary{
+		GeneratedAt:  "2026-06-17T12:00:00Z",
+		Template:     string(TemplateAgentActionBOM),
+		ShareProfile: string(ShareProfileCustomerRedacted),
+		AgentActionBOM: &AgentActionBOM{
+			BOMID:         "bom-cards",
+			SchemaVersion: AgentActionBOMSchemaVersion,
+			Summary: AgentActionBOMSummary{
+				TotalItems:        len(items),
+				ControlFirstItems: len(items),
+				PrimaryView: &AgentActionBOMPrimaryView{
+					PathID:                   "apc-card-0",
+					SelectionReason:          AgentActionBOMPrimarySelectionDefaultTopPath,
+					BoundaryLabel:            BoundaryLabelReportOnly,
+					AutonomyTier:             risk.AutonomyTier4ProdPrivilegedCustomerImpact,
+					DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
+					RecommendedControl:       risk.RecommendedControlApprovalRequired,
+					RiskTier:                 "critical",
+					PathMap: AgentActionBOMPrimaryPathMap{
+						Tool:       "codex",
+						RepoPR:     "acme/repo-0 / pr/108",
+						Workflow:   ".github/workflows/workflow-0.yml",
+						Credential: "prod-deployer",
+						Action:     "deploy",
+						Target:     "production_impacting",
+					},
+					ControlResolutionState: risk.ControlResolutionStateNoVisibleControl,
+					ApprovalEvidenceState:  risk.EvidenceStateUnknown,
+					ProofEvidenceState:     risk.EvidenceStateUnknown,
+					RuntimeEvidenceState:   risk.EvidenceStateUnknown,
+					UnresolvedEvidence:     []string{"approval", "proof"},
+					RecommendedNextActions: []string{
+						"Attach approval evidence for this exact workflow path",
+						"Attach path-specific proof before promotion",
+					},
+				},
+			},
+			Items: items,
+		},
+		WorkflowHighlights: &WorkflowHighlights{
+			TotalItems: len(highlights),
+			Highlights: highlights,
+		},
+	}
+
+	markdown := RenderMarkdown(summary)
+	inspectFirstIdx := strings.Index(markdown, "## What To Look At First")
+	primaryIdx := strings.Index(markdown, "## Primary Workflow BOM")
+	topPathsIdx := strings.Index(markdown, "## Top Action Paths")
+	contextIdx := strings.Index(markdown, "## Report Context Appendix")
+	if inspectFirstIdx < 0 || primaryIdx < 0 || topPathsIdx < 0 || contextIdx < 0 {
+		t.Fatalf("expected inspect-first, primary, top-path, and appendix sections, got %q", markdown)
+	}
+	leadCards := markdown[inspectFirstIdx:primaryIdx]
+	if strings.Contains(leadCards, "BOM id:") {
+		t.Fatalf("expected machine-heavy BOM metadata to stay out of the lead cards, got %q", leadCards)
+	}
+	if strings.Contains(leadCards, "apc-card-") {
+		t.Fatalf("expected opaque path ids to stay out of the lead cards, got %q", leadCards)
+	}
+	if count := strings.Count(leadCards, "- Inspect "); count != 5 {
+		t.Fatalf("expected five inspect-first cards when enough eligible paths exist, got %d in %q", count, leadCards)
+	}
+	topPaths := markdown[topPathsIdx:contextIdx]
+	if count := strings.Count(topPaths, "\n- "); count != 5 {
+		t.Fatalf("expected five compact top action paths before appendices, got %d in %q", count, topPaths)
+	}
+}
+
+func TestDefaultAgentActionBOMOnePageBudget(t *testing.T) {
 	t.Parallel()
 
 	summary := Summary{

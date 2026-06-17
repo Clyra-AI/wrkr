@@ -55,9 +55,9 @@ review the top workflow/action path before widening to org-scale inventory.
 ### Focused Repo Review (Recommended first path)
 
 ```bash
-wrkr scan --path ./your-repo --profile assessment --json
-wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
-wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md --json
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --evidence-json --evidence-json-path ./.tmp/focused-agent-action-bom-evidence.json
 ```
 
 Use this when you want the shortest route from "what can this workflow change?"
@@ -68,7 +68,15 @@ over time, initialize a baseline and rerun the bounded assess flow:
 
 ```bash
 wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
-wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json
+wrkr assess --path ./your-repo --output-dir ./.wrkr/design-partner-assessment --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira
+```
+
+Automation / CI equivalent:
+
+```bash
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
+wrkr assess --path ./your-repo --output-dir ./.wrkr/assessment --json
 ```
 
 Choose one explicit first-value path:
@@ -91,14 +99,14 @@ Hosted prerequisites for this path:
 - large-org runbook: [`docs/examples/security-team.md`](docs/examples/security-team.md)
 
 ```bash
-wrkr init --non-interactive --org acme --github-api https://api.github.com --json
-wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
-wrkr report --state ./.wrkr/last-scan.json --template design-partner-summary --share-profile design-partner --md --md-path ./.wrkr/design-partner-summary.md --evidence-json --evidence-json-path ./.wrkr/design-partner-evidence.json --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr init --non-interactive --org acme --github-api https://api.github.com
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr report --state ./.wrkr/last-scan.json --template design-partner-summary --share-profile design-partner --md --md-path ./.wrkr/design-partner-summary.md --evidence-json --evidence-json-path ./.wrkr/design-partner-evidence.json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence
+wrkr verify --chain --state ./.wrkr/last-scan.json
 ```
 
-`--json` keeps stdout reserved for the final bounded machine-readable scan summary. Full findings, inventory, risk, action paths, and control backlog detail are written to `--state` for report, evidence, verify, and regress handoff; stdout includes previews and `suppressed_counts` when full-detail sections exceed the inline budget. `--progress auto` preserves stderr-only structured progress by default for `--json` scans, while interactive human scans can render a live bar and non-TTY runs degrade to plain newline progress on stderr. Use `--progress events` for deterministic machine-readable liveness, `--progress none` for CI-stable quiet stderr, or `--quiet` to suppress progress output entirely. `--json-path` adds a byte-identical copy of the bounded JSON stdout artifact on disk, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted. Hosted GitHub materialization is sparse by default, fetching detector-relevant files instead of every repository blob. `--json-path`, `--report-md-path`, and `--sarif-path` must each stay unique and must not alias `--state` or Wrkr-managed sibling artifacts; collisions now fail closed with `invalid_input` before any scan state is mutated. `--profile assessment` narrows the govern-first readout for customer-style scans without changing raw findings, proof chains, or exit codes.
+For human/manual large scans, `--state` plus the generated markdown, evidence, and verify artifacts are the durable handoff. `--json` keeps stdout reserved for the final bounded machine-readable scan summary when automation or CI needs it. Full findings, inventory, risk, action paths, and control backlog detail are written to `--state` for report, evidence, verify, and regress handoff; stdout includes previews and `suppressed_counts` when full-detail sections exceed the inline budget. `--progress auto` preserves stderr-only structured progress by default for `--json` scans, while interactive human scans can render a live bar and non-TTY runs degrade to plain newline progress on stderr. Use `--progress events` for deterministic machine-readable liveness, `--progress none` for CI-stable quiet stderr, or `--quiet` to suppress progress output entirely. `--json-path` adds a byte-identical copy of the bounded JSON stdout artifact on disk, and `--resume` reuses durable org-scan checkpoint state under the scan-state directory when an earlier hosted scan was interrupted. Hosted GitHub materialization is sparse by default, fetching detector-relevant files instead of every repository blob. `--json-path`, `--report-md-path`, and `--sarif-path` must each stay unique and must not alias `--state` or Wrkr-managed sibling artifacts; collisions now fail closed with `invalid_input` before any scan state is mutated. `--profile assessment` narrows the govern-first readout for customer-style scans without changing raw findings, proof chains, or exit codes.
 `wrkr init` can now persist the hosted GitHub API base together with the default org target, so the follow-on `wrkr scan --config ...` path stays copy-pasteable without repeating `--github-api` on every run.
 If a hosted org scan is interrupted, rerun the same target with `--resume`. Treat `partial_result`, `source_errors`, or `source_degraded` as incomplete posture output and rerun after rate limits, permission issues, or upstream failures are resolved. Saved state now preserves those completeness markers, and report, evidence, export, and regress handoff commands reject incomplete saved scans with `invalid_input` instead of producing downstream artifacts.
 `wrkr evidence` now requires the saved scan state to be complete and the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain` remains the explicit operator/CI integrity gate. `--resume` also revalidates checkpoint files and reused materialized repo roots so symlink-swapped entries fail closed instead of being treated as trusted scan roots.
@@ -120,11 +128,12 @@ Use the curated scenario bundle when you want a clean evaluator-safe pass throug
 This bundle is intentionally risky by design. A low posture score or low first-run framework coverage is expected here and demonstrates that Wrkr is surfacing real control and evidence gaps, not that the product is failing.
 
 ```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scenario-summary.md
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/evaluator-bom.md
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence
+wrkr verify --chain --state ./.wrkr/last-scan.json
 wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
+wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json
 ```
 
 This curated path is the recommended fallback and demo workflow when hosted prerequisites are not ready yet or when you want to show the shipped wedge without repo-root fixture noise from Wrkr's own scenario, docs, and test fixtures.
@@ -134,8 +143,8 @@ Low or zero first-run `framework_coverage` in this evaluator path is still an ev
 If hosted prerequisites are still not ready yet after the evaluator-safe scenario, start with one of these deterministic local fallback paths:
 
 ```bash
-wrkr scan --path ./your-repo --json
-wrkr scan --my-setup --json
+wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md
+wrkr scan --my-setup --state ./.wrkr/last-scan.json
 ```
 
 Use `./your-repo` when the selected directory itself is the repo root. Use a bundle root like `./scenarios/wrkr/scan-mixed-org/repos` when the selected directory is intentionally a set of immediate child repos.

@@ -47,12 +47,20 @@ Evidence output directories are fail-closed:
 
 Recommended operator actions when coverage is low:
 
-1. Run `wrkr scan --json` against the intended scope and confirm findings were produced.
-2. Review prioritized risk/control gaps with `wrkr report --json`.
+1. Run `wrkr scan` against the intended scope and confirm the saved state and report artifacts were produced.
+2. Review prioritized risk/control gaps with the saved-state `wrkr report` workflow described in [`docs/commands/report.md`](report.md).
 3. Implement/remediate missing controls and approvals.
-4. Re-run `wrkr scan --json`, `wrkr evidence --frameworks ... --json`, and `wrkr report --json` to measure updated evidence state.
+4. Re-run `wrkr scan`, `wrkr evidence --frameworks ... --state ./.wrkr/last-scan.json --output ./.wrkr/evidence`, and the saved-state `wrkr report` handoff to measure updated evidence state.
 
 ## Example
+
+Human/manual handoff:
+
+```bash
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence
+```
+
+Automation / CI workflow:
 
 ```bash
 wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
@@ -61,10 +69,10 @@ wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json
 Security-team handoff example:
 
 ```bash
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence
 ```
 
-Pair this with the saved-state `wrkr report` and explicit proof-chain verification flow documented in [`docs/examples/security-team.md`](../examples/security-team.md). Design-partner handoff workflows typically pair evidence generation with a design-partner summary report and its deterministic report-evidence bundle.
+Pair this with the saved-state `wrkr report` workflow and the explicit proof-chain verification step documented in [`docs/examples/security-team.md`](../examples/security-team.md). Design-partner handoff workflows typically pair evidence generation with a design-partner summary report and its deterministic report-evidence bundle.
 `wrkr evidence` now requires the saved proof chain to be intact before it will stage or publish a bundle; it does not replace the explicit operator or CI proof-chain verification gate.
 
 Expected JSON keys: `status`, additive `deployment_mode`, `output_dir`, `frameworks`, `manifest_path`, additive `artifact_manifest_path`, `chain_path`, `framework_coverage`, bounded `control_evidence`, additive `coverage_note`, bounded `report_artifacts`, additive `source_privacy`, additive `runtime_sessions`, additive `runtime_evidence`, additive `agent_action_bom`, additive `governed_usage_metrics`, additive `next_steps`, and additive `suppressed_counts`.

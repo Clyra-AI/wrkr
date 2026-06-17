@@ -17,8 +17,8 @@ func TestWave31FocusedRepoWorkflowDocsRemainPresent(t *testing.T) {
 
 	for _, content := range []string{readme, quickstart, quickstartLLM} {
 		for _, required := range []string{
-			"wrkr scan --path ./your-repo --profile assessment --json",
-			"wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json",
+			"wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md",
+			"wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md",
 			"wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json",
 		} {
 			if !strings.Contains(content, required) {

@@ -19,10 +19,12 @@ func RenderMarkdown(summary Summary) string {
 
 	var builder strings.Builder
 	builder.WriteString("# Wrkr Deterministic Report\n\n")
-	builder.WriteString(fmt.Sprintf("- Generated at: %s\n", summary.GeneratedAt))
-	builder.WriteString(fmt.Sprintf("- Template: %s\n", summary.Template))
-	builder.WriteString(fmt.Sprintf("- Share profile: %s\n\n", summary.ShareProfile))
-	renderExecutiveRollupSection(&builder, templatespkg.Resolve(summary.Template).ExecutiveRollupTitle, resolveExecutiveRollup(summary))
+	if !isAgentActionBOMTemplate {
+		builder.WriteString(fmt.Sprintf("- Generated at: %s\n", summary.GeneratedAt))
+		builder.WriteString(fmt.Sprintf("- Template: %s\n", summary.Template))
+		builder.WriteString(fmt.Sprintf("- Share profile: %s\n\n", summary.ShareProfile))
+		renderExecutiveRollupSection(&builder, templatespkg.Resolve(summary.Template).ExecutiveRollupTitle, resolveExecutiveRollup(summary))
+	}
 
 	agentActionBOMLeadHandledEmptyState := false
 	if summary.AgentActionBOM != nil && isAgentActionBOMTemplate {
@@ -31,6 +33,9 @@ func RenderMarkdown(summary Summary) string {
 		}
 		agentActionBOMLeadHandledEmptyState = renderAgentActionBOMLeadSection(&builder, summary)
 		renderAgentActionBOMContextAppendix(&builder, summary)
+		renderExecutiveRollupSection(&builder, "Executive Rollup Appendix", resolveExecutiveRollup(summary))
+		renderSurfaceContextSection(&builder, "Target Surface Context Appendix", targetSurfaceContextItems(summary.AgentActionBOM.Items))
+		renderSurfaceContextSection(&builder, "Instruction Control Surfaces Appendix", instructionControlSurfaceItems(summary.AgentActionBOM.Items))
 
 		emptyStateStatus := strings.TrimSpace(summary.AgentActionBOM.Summary.EmptyStateStatus)
 		emptyStateReasons := summary.AgentActionBOM.Summary.EmptyStateReasons
@@ -530,15 +535,7 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 		return false
 	}
 	bom := summary.AgentActionBOM
-	builder.WriteString("## Agent Action BOM\n\n")
-	fmt.Fprintf(builder, "- BOM id: %s\n", bom.BOMID)
-	fmt.Fprintf(builder, "- Lead summary: %d governable paths, %d control-first, %d blocked, %d review required, coverage %s.\n",
-		bom.Summary.TotalItems,
-		bom.Summary.ControlFirstItems,
-		bom.Summary.DelegationReadiness.Blocked,
-		bom.Summary.DelegationReadiness.ReviewRequired,
-		firstNonEmptyValue(strings.TrimSpace(bom.Summary.CoverageConfidence), scanquality.AbsenceStatusNotScanned),
-	)
+	builder.WriteString("## What To Look At First\n\n")
 	renderBuyerDiagnosticCards(builder, summary)
 	builder.WriteString("\n")
 
@@ -555,15 +552,11 @@ func renderAgentActionBOMLeadSection(builder *strings.Builder, summary Summary) 
 			bom.Summary.CoverageConfidence,
 			reasons,
 		)
-		renderSurfaceContextSection(builder, "Target Surface Context", targetSurfaceContextItems(bom.Items))
-		renderSurfaceContextSection(builder, "Instruction Control Surfaces", instructionControlSurfaceItems(bom.Items))
 		return true
 	}
 
 	renderPrimaryWorkflowBOMSection(builder, bom.Summary.PrimaryView)
 	renderCompactTopActionPathsSection(builder, summary.WorkflowHighlights)
-	renderSurfaceContextSection(builder, "Target Surface Context", targetSurfaceContextItems(bom.Items))
-	renderSurfaceContextSection(builder, "Instruction Control Surfaces", instructionControlSurfaceItems(bom.Items))
 	return false
 }
 
@@ -605,7 +598,7 @@ func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
 		itemsByPath[strings.TrimSpace(item.PathID)] = item
 	}
 
-	cards := make([]buyerDiagnosticCard, 0, 2)
+	cards := make([]buyerDiagnosticCard, 0, defaultBOMInspectCards)
 	primaryView := summary.AgentActionBOM.Summary.PrimaryView
 	primaryPathID := strings.TrimSpace(primaryView.PathID)
 	seen := map[string]struct{}{}
@@ -616,23 +609,40 @@ func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
 		cards = append(cards, diagnosticCardFromPrimaryView(primaryView))
 	}
 
-	if summary.WorkflowHighlights == nil {
+	if summary.WorkflowHighlights != nil {
+		for _, highlight := range summary.WorkflowHighlights.Highlights {
+			pathID := strings.TrimSpace(highlight.PathID)
+			if pathID == "" {
+				continue
+			}
+			if _, ok := seen[pathID]; ok {
+				continue
+			}
+			item, ok := itemsByPath[pathID]
+			if !ok {
+				continue
+			}
+			cards = append(cards, diagnosticCardFromHighlight(highlight, item))
+			seen[pathID] = struct{}{}
+			if len(cards) >= defaultBOMInspectCards {
+				break
+			}
+		}
+	}
+	if len(cards) >= defaultBOMInspectCards {
 		return cards
 	}
-	for _, highlight := range summary.WorkflowHighlights.Highlights {
-		pathID := strings.TrimSpace(highlight.PathID)
+	for _, item := range eligibleWorkflowHighlightItems(summary.AgentActionBOM) {
+		pathID := strings.TrimSpace(item.PathID)
 		if pathID == "" {
 			continue
 		}
 		if _, ok := seen[pathID]; ok {
 			continue
 		}
-		item, ok := itemsByPath[pathID]
-		if !ok {
-			continue
-		}
-		cards = append(cards, diagnosticCardFromHighlight(highlight, item))
-		if len(cards) >= 2 {
+		cards = append(cards, diagnosticCardFromHighlight(workflowHighlightFromItem(item), item))
+		seen[pathID] = struct{}{}
+		if len(cards) >= defaultBOMInspectCards {
 			break
 		}
 	}
@@ -743,6 +753,17 @@ func renderAgentActionBOMContextAppendix(builder *strings.Builder, summary Summa
 		return
 	}
 	builder.WriteString("## Report Context Appendix\n\n")
+	fmt.Fprintf(builder, "- Generated at: %s\n", summary.GeneratedAt)
+	fmt.Fprintf(builder, "- Template: %s\n", summary.Template)
+	fmt.Fprintf(builder, "- Share profile: %s\n", summary.ShareProfile)
+	fmt.Fprintf(builder, "- BOM id: %s\n", summary.AgentActionBOM.BOMID)
+	fmt.Fprintf(builder, "- Lead summary: %d governable paths, %d control-first, %d blocked, %d review required, coverage %s.\n",
+		summary.AgentActionBOM.Summary.TotalItems,
+		summary.AgentActionBOM.Summary.ControlFirstItems,
+		summary.AgentActionBOM.Summary.DelegationReadiness.Blocked,
+		summary.AgentActionBOM.Summary.DelegationReadiness.ReviewRequired,
+		firstNonEmptyValue(strings.TrimSpace(summary.AgentActionBOM.Summary.CoverageConfidence), scanquality.AbsenceStatusNotScanned),
+	)
 	if summary.ScanScope != nil {
 		fmt.Fprintf(builder, "- Scanned scope: %s mode=%s repos=%d targets=%d boundary=%s\n",
 			summary.ScanScope.ScopeLabel,
@@ -846,27 +867,24 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		return
 	}
 	builder.WriteString("## Primary Workflow BOM\n\n")
-	fmt.Fprintf(builder, "- Selection: %s inside the %s boundary.\n",
-		humanizeEnum(view.SelectionReason),
-		humanizeEnum(firstNonEmptyValue(view.BoundaryLabel, BoundaryLabelReportOnly)),
-	)
 	fmt.Fprintf(builder, "- Workflow: %s in %s via %s.\n",
 		firstNonEmptyValue(view.PathMap.Tool, "unknown tool"),
 		firstNonEmptyValue(view.PathMap.RepoPR, "unknown repo"),
 		firstNonEmptyValue(view.PathMap.Workflow, "unknown workflow"),
+	)
+	fmt.Fprintf(builder, "- Why it leads: %s inside the %s boundary with %s readiness, %s risk, and %s autonomy.\n",
+		humanizeEnum(firstNonEmptyValue(view.PathMap.Target, "unknown target")),
+		humanizeEnum(firstNonEmptyValue(view.BoundaryLabel, BoundaryLabelReportOnly)),
+		risk.BuyerDelegationReadinessLabel(view.DelegationReadinessState),
+		firstNonEmptyValue(strings.TrimSpace(view.RiskTier), "unknown"),
+		risk.BuyerAutonomyTierShortLabel(view.AutonomyTier),
 	)
 	fmt.Fprintf(builder, "- Authority and target: %s can %s against %s.\n",
 		firstNonEmptyValue(view.PathMap.Credential, "no visible credential"),
 		firstNonEmptyValue(view.PathMap.Action, "unknown action"),
 		firstNonEmptyValue(view.PathMap.Target, "unknown target"),
 	)
-	fmt.Fprintf(builder, "- Posture: risk=%s autonomy=%s readiness=%s recommended_control=%s.\n",
-		firstNonEmptyValue(strings.TrimSpace(view.RiskTier), "unknown"),
-		risk.BuyerAutonomyTierShortLabel(view.AutonomyTier),
-		risk.BuyerDelegationReadinessLabel(view.DelegationReadinessState),
-		risk.BuyerRecommendedControlLabel(view.RecommendedControl),
-	)
-	fmt.Fprintf(builder, "- Control coverage: control=%s approval=%s owner=%s proof=%s runtime=%s target=%s credential=%s evidence=%s(%d).\n",
+	fmt.Fprintf(builder, "- Visible controls: control=%s approval=%s owner=%s proof=%s runtime=%s target=%s credential=%s evidence=%s(%d) recommended_control=%s.\n",
 		risk.BuyerControlResolutionLabel(view.ControlResolutionState),
 		risk.BuyerEvidenceStateLabel("approval", view.ApprovalEvidenceState),
 		risk.BuyerEvidenceStateLabel("owner", view.OwnerEvidenceState),
@@ -876,9 +894,13 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		risk.BuyerEvidenceStateLabel("credential", view.CredentialEvidenceState),
 		markdownPrimaryViewEvidenceCompleteness(view),
 		view.EvidenceCompletenessScore,
+		risk.BuyerRecommendedControlLabel(view.RecommendedControl),
 	)
 	if len(view.UnresolvedEvidence) > 0 {
 		fmt.Fprintf(builder, "- Unresolved evidence: %s.\n", strings.Join(view.UnresolvedEvidence, ", "))
+	}
+	if contract := strings.TrimSpace(markdownActionContract(view.RecommendedActionContract)); contract != "" {
+		fmt.Fprintf(builder, "- Recommended action contract: %s.\n", contract)
 	}
 	if strings.TrimSpace(view.CoverageStatus) != "" {
 		fmt.Fprintf(builder, "- Coverage status: %s.\n", humanizeEnum(view.CoverageStatus))
@@ -889,6 +911,7 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 	if len(view.RecommendedNextActions) > 0 {
 		fmt.Fprintf(builder, "- Next actions: %s.\n", strings.Join(view.RecommendedNextActions, " | "))
 	}
+	fmt.Fprintf(builder, "- Appendix handoff: full graph refs, policy diagnostics, and proof detail remain in the appendices and evidence JSON.\n")
 	builder.WriteString("\n")
 }
 

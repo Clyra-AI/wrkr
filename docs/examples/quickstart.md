@@ -9,9 +9,9 @@ Wrkr gives security and platform teams an evidence-ready view of org-wide AI too
 Use this first when you want the shortest path from scan to one workflow BOM:
 
 ```bash
-wrkr scan --path ./your-repo --profile assessment --json
-wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
-wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md --json
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --evidence-json --evidence-json-path ./.tmp/focused-agent-action-bom-evidence.json
 ```
 
 The report leads with `agent_action_bom.summary.primary_view`, which answers the
@@ -22,7 +22,7 @@ baseline and use `assess`:
 
 ```bash
 wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
-wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json
+wrkr assess --path ./your-repo --output-dir ./.wrkr/design-partner-assessment --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira
 ```
 
 `summary.repeat_usage_signals` and `agent_action_bom.summary.repeat_usage_signals`
@@ -60,12 +60,12 @@ Hosted prerequisites for this path:
 - connector endpoints: `GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`, `GET /repos/{owner}/{repo}/git/blobs/{sha}`
 
 ```bash
-wrkr init --non-interactive --org acme --github-api https://api.github.com --json
-wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
-wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json --evidence-json --evidence-json-path ./.tmp/agent-action-bom-evidence.json
+wrkr init --non-interactive --org acme --github-api https://api.github.com
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.wrkr/focused-agent-action-bom.md --evidence-json --evidence-json-path ./.tmp/agent-action-bom-evidence.json
 ./scripts/run_agent_action_bom_demo.sh after ./.tmp/agent-action-bom-demo
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json
-wrkr verify --chain --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/evidence
+wrkr verify --chain --state ./.wrkr/last-scan.json
 ```
 
 `wrkr evidence` now fails closed when the saved proof chain is malformed or tampered, and `wrkr verify --chain --json` remains the explicit integrity gate for CI and operator workflows.
@@ -91,11 +91,11 @@ Use the curated scenario bundle when hosted prerequisites are not ready yet, or 
 The curated bundle is intentionally risky by design. An `F` posture score or low first-run `framework_coverage` is expected here and shows that Wrkr is surfacing control and evidence gaps in the sample repo-set.
 
 ```bash
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scenario-summary.md
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence
+wrkr verify --chain --state ./.wrkr/last-scan.json
 wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
+wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json
 ```
 
 Use this flow when you want the evaluator-safe fallback. It avoids repo-root fixture noise from Wrkr's own scenarios, docs, and tests while still exercising the shipped wedge.
@@ -105,17 +105,26 @@ Low or zero first-run `framework_coverage` in this path is still an evidence-gap
 ## If hosted prerequisites are not ready yet
 
 ```bash
-wrkr scan --path ./your-repo --json
-wrkr scan --my-setup --json
+wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md
+wrkr scan --my-setup --state ./.wrkr/last-scan.json
 ```
 
 Use `--path` when you want repo-local discovery with no hosted setup. When `./your-repo` itself is the repo root and carries repo-root signals such as `.git`, `go.mod`, `AGENTS.md`, or `.codex/`, Wrkr scans that directory as one repo. Use a bundle root like `./scenarios/wrkr/scan-mixed-org/repos` when you want Wrkr to scan immediate child repos as a repo-set. Use `--my-setup` when you want developer-machine hygiene for local configs, MCP posture, and secret-presence signals.
 If you start with `wrkr scan --json` and no target on a clean machine, the JSON error now points back to these same hosted, evaluator-safe, and `--my-setup` entry paths with additive `error.next_steps[]`.
 
+Automation / CI equivalent:
+
+```bash
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
+wrkr assess --path ./your-repo --output-dir ./.wrkr/assessment --json
+```
+
 ## Developer-machine hygiene (secondary path)
 
 ```bash
-wrkr scan --my-setup --json
+wrkr scan --my-setup --state ./.wrkr/last-scan.json
 wrkr mcp-list --state ./.wrkr/last-scan.json --json
 ```
 
@@ -139,8 +148,8 @@ Optional enrich-mode note:
 ## Evidence + verification
 
 ```bash
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --output ./.tmp/evidence --json
-wrkr verify --chain --json
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/evidence
+wrkr verify --chain --state ./.wrkr/last-scan.json
 ```
 
 `wrkr evidence` does not replace `wrkr verify --chain --json`; it now reuses the same proof-chain prerequisite and aborts before publish when saved proof state is malformed or tampered.

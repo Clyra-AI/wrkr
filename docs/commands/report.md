@@ -37,25 +37,33 @@
 
 ## Example
 
-Use the saved state from a prior `wrkr scan --json` run when you want the
-focused repo review path to continue into the Agent Action BOM.
+Use the saved state from a prior `wrkr scan --state ./.wrkr/last-scan.json`
+run when you want the focused repo review path to continue into the Agent
+Action BOM.
 
 Unless you explicitly pass `--share-profile internal`, `wrkr report` defaults
 to `customer-redacted` for most templates, `public` for `public` and
 `customer-draft`, and `design-partner` for `design-partner-summary`.
 
+Human/manual artifact handoff:
+
+```bash
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --share-profile customer-redacted --md --md-path ./.tmp/customer-bom.md --evidence-json --evidence-json-path ./.tmp/customer-bom.json
+wrkr report --state ./.wrkr/last-scan.json --template design-partner-summary --share-profile design-partner --md --md-path ./.tmp/design-partner.md --evidence-json --evidence-json-path ./.tmp/design-partner-evidence.json
+wrkr report --state ./.wrkr/last-scan.json --template ciso --md --md-path ./.tmp/ciso.md --pdf --pdf-path ./.tmp/ciso.pdf --evidence-json --evidence-json-path ./.tmp/evidence.json --csv-backlog --csv-backlog-path ./.tmp/backlog.csv
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --share-profile internal --paired-share-profile customer-redacted --md --md-path ./.tmp/paired-bom.md --evidence-json --evidence-json-path ./.tmp/paired-bom.json
+```
+
+Automation / CI workflow:
+
 ```bash
 wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
-wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md --json
-wrkr report --md --md-path ./.tmp/wrkr-summary.md --template operator --share-profile internal --json
-wrkr report --pdf --pdf-path ./.tmp/wrkr-summary.pdf --template exec --json
-wrkr report --md --md-path ./.tmp/wrkr-summary-public.md --template public --share-profile public --json
-wrkr report --template agent-action-bom --share-profile customer-redacted --md --md-path ./.tmp/customer-bom.md --evidence-json --evidence-json-path ./.tmp/customer-bom.json --json
-wrkr report --template design-partner-summary --share-profile design-partner --md --md-path ./.tmp/design-partner.md --evidence-json --evidence-json-path ./.tmp/design-partner-evidence.json --json
-wrkr report --template agent-action-bom --share-profile internal --redact owners,repos,paths --json
-wrkr report --template agent-action-bom --share-profile internal --paired-share-profile customer-redacted --md --md-path ./.tmp/paired-bom.md --evidence-json --evidence-json-path ./.tmp/paired-bom.json --json
-wrkr report --template ciso --md --md-path ./.tmp/ciso.md --pdf --pdf-path ./.tmp/ciso.pdf --evidence-json --evidence-json-path ./.tmp/evidence.json --csv-backlog --csv-backlog-path ./.tmp/backlog.csv --json
-wrkr report --template agent-action-bom --json --evidence-json --evidence-json-path ./.tmp/agent-action-bom-evidence.json
+wrkr report --state ./.wrkr/last-scan.json --template operator --share-profile internal --json
+wrkr report --state ./.wrkr/last-scan.json --template exec --pdf --pdf-path ./.tmp/wrkr-summary.pdf --json
+wrkr report --state ./.wrkr/last-scan.json --template public --share-profile public --md --md-path ./.tmp/wrkr-summary-public.md --json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --share-profile internal --redact owners,repos,paths --json
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --evidence-json --evidence-json-path ./.tmp/agent-action-bom-evidence.json --json
 wrkr report --template platform --focus release --json
 wrkr report --template agent-action-bom --focus-path apc-12345678 --md --md-path ./.tmp/focused-agent-action-bom.md --json
 wrkr report --template agent-action-bom --focus write-deploy --focus-path apc-12345678 --json

@@ -14,21 +14,33 @@ For high-signal JS/TS detector surfaces such as WebMCP, prompt-channel declarati
 
 When imported or declared enterprise evidence is present, `action_paths[*]` may also emit additive `evidence_decisions[]` and `contradictions[]`. These preserve the selected source, freshness state (`fresh`, `stale`, `expired`, `unknown`), rejected candidates, stable reason codes, and contradiction evidence refs instead of flattening everything into one winner string.
 
+For manual large scans, treat `--state` plus generated report/evidence artifacts
+as the durable handoff. Reserve `--json` and `--json-path` for automation, CI,
+or when another tool needs the command-response envelope directly.
+
 Start here with one of these first-value paths:
 
 ```bash
 # Focused repo review first
-wrkr scan --path ./your-repo --profile assessment --json
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md
 
 # Hosted org posture when prerequisites are ready
 # Initialize the default hosted target first as described in docs/commands/init.md, then run:
-wrkr scan --config ~/.wrkr/config.json --json
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 
 # Evaluator-safe fallback when hosted prerequisites are not ready yet
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scenario-summary.md
 
 # Developer-machine hygiene
-wrkr scan --my-setup --json
+wrkr scan --my-setup --state ./.wrkr/last-scan.json
+```
+
+Automation / CI workflow:
+
+```bash
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr scan --my-setup --state ./.wrkr/last-scan.json --json
 ```
 
 Use either one legacy target source (`--repo`, `--org`, `--github-org`, `--path`, or `--my-setup`) or one or more repeatable `--target <mode>:<value>` flags.
@@ -156,7 +168,7 @@ For the current minimum-now launch posture, security/platform teams should start
 ## Security-team org example
 
 ```bash
-wrkr scan --github-org acme --github-api https://api.github.com --json --json-path ./.wrkr/scan.json
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 ```
 
 `--github-org` is the additive alias for `--org`. Use it when security or platform teams need the deterministic saved-state input for `wrkr report`, `wrkr evidence`, `wrkr mcp-list`, or `wrkr inventory --diff`.
@@ -164,8 +176,8 @@ Private repos and public API rate-limit avoidance usually require a GitHub token
 If you already configured the hosted source and target with `wrkr init`, you can reuse them:
 
 ```bash
-wrkr init --org acme --github-api https://api.github.com --json
-wrkr scan --config ~/.wrkr/config.json --json
+wrkr init --org acme --github-api https://api.github.com
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 ```
 
 Wrkr's hosted connector currently calls these GitHub REST endpoints:
@@ -181,6 +193,12 @@ Fine-grained PAT guidance for the selected repositories:
 - repository contents: read-only
 
 Opinionated large-org command path:
+
+```bash
+wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+```
+
+Automation / CI equivalent:
 
 ```bash
 wrkr scan --github-org acme --github-api https://api.github.com --state ./.wrkr/last-scan.json --timeout 30m --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
