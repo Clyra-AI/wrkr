@@ -16,10 +16,11 @@ func RenderMarkdown(summary Summary) string {
 		return renderDesignPartnerMarkdown(summary)
 	}
 	isAgentActionBOMTemplate := summary.Template == string(TemplateAgentActionBOM)
+	usesAgentActionBOMLead := isAgentActionBOMTemplate && summary.AgentActionBOM != nil
 
 	var builder strings.Builder
 	builder.WriteString("# Wrkr Deterministic Report\n\n")
-	if !isAgentActionBOMTemplate {
+	if !usesAgentActionBOMLead {
 		builder.WriteString(fmt.Sprintf("- Generated at: %s\n", summary.GeneratedAt))
 		builder.WriteString(fmt.Sprintf("- Template: %s\n", summary.Template))
 		builder.WriteString(fmt.Sprintf("- Share profile: %s\n\n", summary.ShareProfile))

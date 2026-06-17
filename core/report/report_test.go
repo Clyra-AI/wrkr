@@ -1807,6 +1807,30 @@ func TestAgentActionBOMMarkdownLeadsWithBuyerSummary(t *testing.T) {
 	}
 }
 
+func TestAgentActionBOMWithoutBOMStillRendersGenericContext(t *testing.T) {
+	t.Parallel()
+
+	markdown := RenderMarkdown(Summary{
+		GeneratedAt:  "2026-06-17T16:00:00Z",
+		Template:     string(TemplateAgentActionBOM),
+		ShareProfile: string(ShareProfileCustomerRedacted),
+	})
+
+	for _, required := range []string{
+		"# Wrkr Deterministic Report",
+		"- Generated at: 2026-06-17T16:00:00Z",
+		"- Template: agent-action-bom",
+		"- Share profile: customer-redacted",
+	} {
+		if !strings.Contains(markdown, required) {
+			t.Fatalf("expected generic context %q in markdown, got %q", required, markdown)
+		}
+	}
+	if strings.Contains(markdown, "## What To Look At First") {
+		t.Fatalf("did not expect inspect-first BOM lead without an AgentActionBOM payload, got %q", markdown)
+	}
+}
+
 func TestMarkdownApprovalUnknownUsesEvidenceNotFound(t *testing.T) {
 	t.Parallel()
 
