@@ -349,7 +349,8 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 		},
 		Detection: map[string]any{
 			"total_tools":          scanPayload["total_tools"],
-			"tool_type_breakdown":  scanPayload["tool_type_breakdown"],
+			"tool_type_breakdown":  projectPublicToolTypeBreakdown(scanPayload["tool_type_breakdown"]),
+			"tool_type_count_mode": "presence_by_type",
 			"compliance_gap_count": scanPayload["compliance_gap_count"],
 		},
 		Aggregation: map[string]any{
@@ -372,12 +373,40 @@ func buildLabData(scanPayload, reportPayload, summary, controlBacklog, proof map
 		DeploymentMode:        stringValue(reportPayload["deployment_mode"]),
 		ExecutiveRollup:       projectSampleExecutiveRollup(projectedBOMItems),
 		GovernedUsageMetrics:  projectGovernedUsageMetrics(projectedBOMItems),
-		ToolTypeBreakdown:     cloneArray(scanPayload["tool_type_breakdown"]),
+		ToolTypeBreakdown:     projectPublicToolTypeBreakdown(scanPayload["tool_type_breakdown"]),
 		TopFindings:           projectTopFindings(limitArray(cloneArray(reportPayload["top_findings"]), 5)),
 		TopActionPaths:        projectTopActionPaths(limitArray(cloneArray(reportPayload["action_paths"]), 5), ids),
 		ControlBacklogSummary: cloneObject(requireObject(controlBacklog, "summary")),
 		ProofSummary:          projectProofSummary(proof),
 	}
+}
+
+func projectPublicToolTypeBreakdown(raw any) []any {
+	rows := cloneArray(raw)
+	toolTypes := make([]string, 0, len(rows))
+	seen := map[string]struct{}{}
+	for _, rowAny := range rows {
+		row := requireObjectFromAny(rowAny)
+		toolType := stringValue(row["tool_type"])
+		if toolType == "" {
+			continue
+		}
+		if _, ok := seen[toolType]; ok {
+			continue
+		}
+		seen[toolType] = struct{}{}
+		toolTypes = append(toolTypes, toolType)
+	}
+	sort.Strings(toolTypes)
+
+	out := make([]any, 0, len(toolTypes))
+	for _, toolType := range toolTypes {
+		out = append(out, map[string]any{
+			"count":     1,
+			"tool_type": toolType,
+		})
+	}
+	return out
 }
 
 func projectProofSummary(proof map[string]any) map[string]any {

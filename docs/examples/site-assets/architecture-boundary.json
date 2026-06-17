@@ -20,11 +20,11 @@
         "tool_type": "ci_agent"
       },
       {
-        "count": 5,
+        "count": 1,
         "tool_type": "claude"
       },
       {
-        "count": 3,
+        "count": 1,
         "tool_type": "codex"
       },
       {
@@ -32,11 +32,11 @@
         "tool_type": "compiled_action"
       },
       {
-        "count": 2,
+        "count": 1,
         "tool_type": "copilot"
       },
       {
-        "count": 3,
+        "count": 1,
         "tool_type": "cursor"
       },
       {
@@ -48,7 +48,7 @@
         "tool_type": "gait_policy"
       },
       {
-        "count": 4,
+        "count": 1,
         "tool_type": "mcp"
       },
       {
@@ -56,6 +56,7 @@
         "tool_type": "skill"
       }
     ],
+    "tool_type_count_mode": "presence_by_type",
     "total_tools": null
   },
   "aggregation": {
