@@ -131,10 +131,6 @@ func attachSummaryOutputMetadata(summary *Summary) {
 	if summary == nil {
 		return
 	}
-	markdownLineCap := defaultMarkdownLineCap
-	if summary.Template == string(TemplateAgentActionBOM) {
-		markdownLineCap = defaultBOMMarkdownLineCap
-	}
 	summary.ArtifactBudget = &ArtifactBudget{
 		MaxActionPaths:         defaultMaxActionPaths,
 		MaxBacklogItems:        defaultMaxBacklogItems,
@@ -143,7 +139,7 @@ func attachSummaryOutputMetadata(summary *Summary) {
 		MaxWorkflowChains:      defaultMaxWorkflowChains,
 		MaxExposureGroups:      defaultMaxExposureGroups,
 		MaxAgentActionBOM:      defaultMaxAgentActionBOM,
-		MarkdownLineCap:        markdownLineCap,
+		MarkdownLineCap:        defaultMarkdownLineCap,
 		MarkdownLeadLineCap:    defaultBOMLeadLineCap,
 		MarkdownLeadSectionCap: defaultBOMLeadSectionCap,
 	}

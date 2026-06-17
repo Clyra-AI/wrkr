@@ -105,33 +105,3 @@ func TestPolicyOutcomeSuppressedCounts(t *testing.T) {
 		t.Fatalf("expected suppressed repo examples, got %+v", outcomes[0])
 	}
 }
-
-func TestAgentActionBOMCapPreservesSemanticReviewCandidate(t *testing.T) {
-	t.Parallel()
-
-	items := []AgentActionBOMItem{}
-	for idx := 0; idx < defaultMaxAgentActionBOM; idx++ {
-		items = append(items, AgentActionBOMItem{
-			PathID:         fmt.Sprintf("likely-%d", idx),
-			ConfidenceLane: risk.ConfidenceLaneLikelyActionPath,
-		})
-	}
-	items = append(items,
-		AgentActionBOMItem{PathID: "confirmed", ConfidenceLane: risk.ConfidenceLaneConfirmedActionPath},
-		AgentActionBOMItem{PathID: "semantic", ConfidenceLane: risk.ConfidenceLaneSemanticReviewCandidate},
-	)
-
-	capped, suppressed := capAgentActionBOMItems(items, defaultMaxAgentActionBOM)
-	if len(capped) != defaultMaxAgentActionBOM {
-		t.Fatalf("expected capped BOM length %d, got %d", defaultMaxAgentActionBOM, len(capped))
-	}
-	if suppressed != 2 {
-		t.Fatalf("expected suppressed count 2, got %d", suppressed)
-	}
-	if !bomItemsContainLane(capped, risk.ConfidenceLaneConfirmedActionPath) {
-		t.Fatalf("expected capped BOM to preserve confirmed action path, got %+v", capped)
-	}
-	if !bomItemsContainLane(capped, risk.ConfidenceLaneSemanticReviewCandidate) {
-		t.Fatalf("expected capped BOM to preserve semantic review candidate, got %+v", capped)
-	}
-}

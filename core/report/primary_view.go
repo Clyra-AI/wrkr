@@ -111,9 +111,11 @@ func selectAgentActionBOMPrimaryView(bom *AgentActionBOM, focusPathID string) er
 		bom.Summary.PrimaryView = buildAgentActionBOMPrimaryView(bom, primaryViewSourceItem(bom, *selected), AgentActionBOMPrimarySelectionDefaultTopPath)
 		return nil
 	default:
-		matches := agentActionBOMItemsByPathID(bom.Items, trimmedFocus)
-		if len(matches) == 0 {
-			matches = agentActionBOMItemsByPathID(bom.focusSourceItems, trimmedFocus)
+		matches := []AgentActionBOMItem{}
+		for _, item := range bom.Items {
+			if strings.TrimSpace(item.PathID) == trimmedFocus {
+				matches = append(matches, item)
+			}
 		}
 		switch len(matches) {
 		case 0:
@@ -126,53 +128,12 @@ func selectAgentActionBOMPrimaryView(bom *AgentActionBOM, focusPathID string) er
 				}
 				return &agentActionBOMFocusError{pathID: trimmedFocus, reason: reason}
 			}
-			ensureFocusedBOMItemVisible(bom, matches[0])
 			bom.Summary.PrimaryView = buildAgentActionBOMPrimaryView(bom, primaryViewSourceItem(bom, matches[0]), AgentActionBOMPrimarySelectionExplicitFocusPath)
 			return nil
 		default:
 			return &agentActionBOMFocusError{pathID: trimmedFocus, reason: "ambiguous"}
 		}
 	}
-}
-
-func agentActionBOMItemsByPathID(items []AgentActionBOMItem, pathID string) []AgentActionBOMItem {
-	trimmedPathID := strings.TrimSpace(pathID)
-	if trimmedPathID == "" {
-		return nil
-	}
-	matches := []AgentActionBOMItem{}
-	for _, item := range items {
-		if strings.TrimSpace(item.PathID) == trimmedPathID {
-			matches = append(matches, item)
-		}
-	}
-	return matches
-}
-
-func ensureFocusedBOMItemVisible(bom *AgentActionBOM, item AgentActionBOMItem) {
-	if bom == nil || strings.TrimSpace(item.PathID) == "" {
-		return
-	}
-	visibleItem := strippedAgentActionBOMItem(item)
-	for _, visible := range bom.Items {
-		if strings.TrimSpace(visible.PathID) == strings.TrimSpace(item.PathID) {
-			return
-		}
-	}
-	if len(bom.Items) == 0 {
-		bom.Items = []AgentActionBOMItem{visibleItem}
-		return
-	}
-	bom.Items[len(bom.Items)-1] = visibleItem
-}
-
-func strippedAgentActionBOMItem(item AgentActionBOMItem) AgentActionBOMItem {
-	bom := &AgentActionBOM{Items: []AgentActionBOMItem{item}}
-	stripped := stripAgentActionBOMCanonicalProjectionDetails(backfillAgentActionBOMCanonicalProjectionRefs(bom))
-	if stripped == nil || len(stripped.Items) == 0 {
-		return item
-	}
-	return stripped.Items[0]
 }
 
 func primaryViewSourceItem(bom *AgentActionBOM, item AgentActionBOMItem) AgentActionBOMItem {

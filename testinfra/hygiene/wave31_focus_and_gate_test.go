@@ -28,7 +28,7 @@ func TestWave31FocusedRepoWorkflowDocsRemainPresent(t *testing.T) {
 	}
 	for _, required := range []string{
 		"Design-partner control validation workflow",
-		"wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --output-dir ./.wrkr/assessment",
+		"wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json",
 		"summary.repeat_usage_signals",
 	} {
 		if !strings.Contains(playbook, required) {

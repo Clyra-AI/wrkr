@@ -8,14 +8,14 @@
       "description": "Architecture boundary page data derived from source, detection, aggregation, and proof summaries.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:7393d325846c2ea45d0c8477a94af42089f51872b614c29c9ec57fdb425544b9"
+      "sha256": "sha256:33d956cfb136a234d34980961df927638ec4363aca28294d0449a3cd7228aec3"
     },
     {
       "path": "interactive-lab-data.json",
       "description": "Interactive lab summary data projected from deterministic report and evidence outputs.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:87375cf93421f7d19a2612ed6fb85fc83056ac66ee84eae3a22334c62d9ef3aa"
+      "sha256": "sha256:83f1086ca1903fe863a612d2501771ad06b2cda8ddf95e84def555a815b82fcf"
     },
     {
       "path": "local-private-posture.md",
@@ -27,21 +27,21 @@
       "description": "Customer-redacted Agent Action BOM sample derived from the multi-repo scan fixture.",
       "share_profile": "customer-redacted",
       "template": "agent-action-bom",
-      "sha256": "sha256:095714b6b17cd2485d08bd6c732643fe7c834ed6e6fdde11c85f35b778f1e0cf"
+      "sha256": "sha256:659e085f0df9847094aec0823c18d8a5a73d7afe7af0a7fd30d9dc8434095183"
     },
     {
       "path": "sample-control-path-graph.json",
       "description": "Customer-redacted Control Path Graph sample for website graph rendering and demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:a3ec534a1b328e9261307477bcce25480ecdc6ae1c79cbb1ecc5b1b69bf43753"
+      "sha256": "sha256:8bf893c83a4282024956412f7fec58c492fa59b674cfdffb80f3e9a4afd85695"
     },
     {
       "path": "sample-redacted-report.md",
       "description": "Customer-redacted executive markdown report suitable for public-facing demos.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:208ce2eb444b80b102a8faf2d791f572cb2827c32ee83df66aab6ec1f981fc5b"
+      "sha256": "sha256:87074a987f2c623e4541fae104f0a92573ca1d8a5f51893bc06c73e04b45b25a"
     }
   ],
   "commands": [

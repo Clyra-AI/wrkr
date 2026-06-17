@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -119,22 +118,11 @@ func TestScanStatusIncludesProgressFieldsDuringRun(t *testing.T) {
 	t.Parallel()
 
 	releaseRepo := make(chan struct{})
-	var releaseOnce sync.Once
-	release := func() {
-		releaseOnce.Do(func() {
-			close(releaseRepo)
-		})
-	}
-	repoDetailRequested := make(chan struct{})
-	var repoDetailOnce sync.Once
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/orgs/acme/repos":
 			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"}]`)
 		case "/repos/acme/a":
-			repoDetailOnce.Do(func() {
-				close(repoDetailRequested)
-			})
 			<-releaseRepo
 			_, _ = fmt.Fprint(w, `{"full_name":"acme/a","default_branch":"main"}`)
 		case "/repos/acme/a/git/trees/main":
@@ -160,37 +148,18 @@ func TestScanStatusIncludesProgressFieldsDuringRun(t *testing.T) {
 		}, &out, errOut)
 	}()
 
-	doneConsumed := false
-	defer func() {
-		release()
-		if doneConsumed {
-			return
-		}
-		select {
-		case <-done:
-		case <-time.After(10 * time.Second):
-			t.Errorf("scan did not exit after test cleanup; stderr=%q", errOut.String())
-		}
-	}()
-
-	select {
-	case <-repoDetailRequested:
-	case code := <-done:
-		doneConsumed = true
-		t.Fatalf("scan exited before status inspection: %d stderr=%q", code, errOut.String())
-	case <-time.After(10 * time.Second):
-		t.Fatalf("expected repo materialize request before status inspection, got %q", errOut.String())
+	if !errOut.waitFor("event=repo_materialize", 2*time.Second) {
+		t.Fatalf("expected materialize progress before status inspection, got %q", errOut.String())
 	}
 
-	status := waitForActiveScanStatus(t, statePath, 10*time.Second)
-	if status["status"] != "running" {
-		t.Fatalf("expected running status during active scan, got %v", status)
+	var statusOut bytes.Buffer
+	var statusErr bytes.Buffer
+	if statusCode := Run([]string{"scan", "status", "--state", statePath, "--json"}, &statusOut, &statusErr); statusCode != exitSuccess {
+		t.Fatalf("scan status failed: %d stderr=%q", statusCode, statusErr.String())
 	}
-	if status["current_phase"] != "source_acquire" {
-		t.Fatalf("expected source_acquire current phase during active scan, got %v", status)
-	}
-	if status["repo_total"] != float64(1) {
-		t.Fatalf("expected repo total during active scan, got %v", status)
+	var status map[string]any
+	if err := json.Unmarshal(statusOut.Bytes(), &status); err != nil {
+		t.Fatalf("parse status: %v", err)
 	}
 	if status["progress_percent"] == nil {
 		t.Fatalf("expected progress_percent during active scan, got %v", status)
@@ -210,45 +179,10 @@ func TestScanStatusIncludesProgressFieldsDuringRun(t *testing.T) {
 		t.Fatalf("expected repo progress totals during active scan, got %v", status)
 	}
 
-	release()
+	close(releaseRepo)
 	if code := <-done; code != exitSuccess {
-		doneConsumed = true
 		t.Fatalf("scan failed: %d stderr=%q", code, errOut.String())
 	}
-	doneConsumed = true
-}
-
-func waitForActiveScanStatus(t *testing.T, statePath string, timeout time.Duration) map[string]any {
-	t.Helper()
-	deadline := time.Now().Add(timeout)
-	var lastStatus map[string]any
-	var lastStatusErr string
-	for time.Now().Before(deadline) {
-		var statusOut bytes.Buffer
-		var statusErr bytes.Buffer
-		statusCode := Run([]string{"scan", "status", "--state", statePath, "--json"}, &statusOut, &statusErr)
-		if statusCode == exitSuccess {
-			var status map[string]any
-			if err := json.Unmarshal(statusOut.Bytes(), &status); err != nil {
-				t.Fatalf("parse status: %v", err)
-			}
-			lastStatus = status
-			if status["status"] == "running" &&
-				status["current_phase"] == "source_acquire" &&
-				status["progress_percent"] != nil &&
-				status["progress_message"] != nil &&
-				status["last_progress_at"] != nil &&
-				status["phase_progress"] != nil &&
-				status["repo_progress"] != nil {
-				return status
-			}
-		} else {
-			lastStatusErr = statusErr.String()
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
-	t.Fatalf("expected active scan status before timeout; last_status=%v last_stderr=%q", lastStatus, lastStatusErr)
-	return nil
 }
 
 func TestScanProgressBarRendersOnTTYStderr(t *testing.T) {

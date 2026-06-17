@@ -28,7 +28,7 @@ wrkr verify --chain --state ./.wrkr/last-scan.json
 If a hosted org scan is interrupted, rerun the same target with `--resume` to reuse checkpointed materialization state under the scan-state directory:
 
 ```bash
-wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --resume --json-path ./.wrkr/scan.json
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --resume --json --json-path ./.wrkr/scan.json
 ```
 
 Interpretation notes:
