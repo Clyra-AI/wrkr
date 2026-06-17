@@ -269,6 +269,12 @@ func primaryViewCredential(item AgentActionBOMItem) string {
 		if scope := strings.TrimSpace(item.CredentialProvenance.LikelyScope); scope != "" {
 			parts = append(parts, scope)
 		}
+		switch {
+		case item.CredentialProvenance.StandingAccess:
+			parts = append(parts, "standing")
+		case item.CredentialProvenance.LikelyJIT:
+			parts = append(parts, "jit")
+		}
 		if len(parts) > 0 {
 			return strings.Join(parts, " ")
 		}

@@ -1,16 +1,7 @@
 {
   "bom_count": 7,
   "confirmed_item": {
-    "credential_authority": {
-      "access_type": "standing",
-      "confidence": "high",
-      "credential_present": true,
-      "credential_referenced_by_workflow": true,
-      "credential_source": "workflow_secret_ref",
-      "credential_usable_by_path": true,
-      "rotation_evidence_status": "missing",
-      "standing_access": true
-    },
+    "credential_authority_ref": "cred-37b44654e74a",
     "lineage_statuses": [
       {
         "kind": "intent",
@@ -111,7 +102,7 @@
     "confidence_lane": "semantic_review_candidate",
     "location": "AGENTS.md",
     "proof_coverage": "missing",
-    "remediation": "Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.",
+    "remediation": "Attach the missing policy or proof reference for this exact instruction surface and rescan so governance coverage is no longer inferred from the global chain.",
     "repo": "payments-private"
   },
   "share_profile": "internal",

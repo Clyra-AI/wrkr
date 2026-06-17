@@ -1204,7 +1204,7 @@ func renderRepeatUsageSignals(builder *strings.Builder, signals *RepeatUsageSign
 
 func designPartnerProblem(item AgentActionBOMItem) string {
 	switch {
-	case item.StandingPrivilege && item.CredentialAuthority != nil && item.CredentialAuthority.StandingAccess:
+	case item.StandingPrivilege:
 		return "A standing credential can drive this path without enough compensating proof or gating."
 	case item.ProductionWrite || item.ControlState == "block_recommended":
 		return "This path can change production-adjacent state and is missing enough governance evidence."
@@ -1270,6 +1270,24 @@ func designPartnerProofGap(item AgentActionBOMItem) string {
 
 func designPartnerCredentialAuthority(item AgentActionBOMItem) string {
 	if item.CredentialAuthority == nil {
+		if item.CredentialProvenance != nil {
+			parts := []string{}
+			if kind := strings.TrimSpace(item.CredentialProvenance.CredentialKind); kind != "" {
+				parts = append(parts, "kind="+kind)
+			}
+			if source := strings.TrimSpace(item.CredentialProvenance.Type); source != "" {
+				parts = append(parts, "source="+source)
+			}
+			if scope := strings.TrimSpace(item.CredentialProvenance.Scope); scope != "" {
+				parts = append(parts, "scope="+scope)
+			}
+			if item.CredentialProvenance.StandingAccess {
+				parts = append(parts, "access=standing")
+			}
+			if len(parts) > 0 {
+				return strings.Join(parts, ", ")
+			}
+		}
 		if item.CredentialAccess {
 			return "credential access is present, but normalized authority details are incomplete"
 		}

@@ -249,6 +249,169 @@ func TestEvidenceCompletenessSummaryCountsReducedCoverageWithoutUnsupportedSurfa
 	}
 }
 
+func TestClosureCopyByPathType(t *testing.T) {
+	t.Parallel()
+
+	openAPISemantics := []agginventory.MutableEndpointSemantic{{
+		Semantic:     agginventory.EndpointSemanticPayment,
+		Confidence:   "high",
+		Surface:      "openapi",
+		Operation:    "POST /v1/payments",
+		EvidenceRefs: []string{"POST /v1/payments"},
+	}}
+
+	cases := []struct {
+		name            string
+		path            ActionPath
+		requirementType string
+		wantContains    []string
+		wantExcludes    []string
+	}{
+		{
+			name: "openapi target context uses caller correlation guidance",
+			path: ProjectActionPath(ActionPath{
+				PathID:                   "apc-openapi-closure",
+				Org:                      "acme",
+				Repo:                     "acme/payments",
+				ToolType:                 "openapi",
+				Location:                 "openapi/payments.yaml",
+				WriteCapable:             true,
+				MutableEndpointSemantics: openAPISemantics,
+			}),
+			requirementType: ClosureRequirementCorrelateSurface,
+			wantContains:    []string{"API specification surface", "runtime caller"},
+			wantExcludes:    []string{"approval evidence"},
+		},
+		{
+			name: "route target context uses route-specific correlation guidance",
+			path: ProjectActionPath(ActionPath{
+				PathID:       "apc-route-closure",
+				Org:          "acme",
+				Repo:         "acme/payments",
+				ToolType:     "route",
+				Location:     "api/routes/payments.ts",
+				WriteCapable: true,
+			}),
+			requirementType: ClosureRequirementCorrelateSurface,
+			wantContains:    []string{"route surface", "deploy path"},
+			wantExcludes:    []string{"approval evidence"},
+		},
+		{
+			name: "agents instruction surface uses owner governance wording",
+			path: ProjectActionPath(ActionPath{
+				PathID:                 "apc-agents-owner",
+				Org:                    "acme",
+				Repo:                   "acme/app",
+				ToolType:               "codex",
+				Location:               "AGENTS.md",
+				OwnerEvidenceState:     EvidenceStateUnknown,
+				ApprovalEvidenceState:  EvidenceStateVerified,
+				ProofEvidenceState:     EvidenceStateVerified,
+				ControlResolutionState: ControlResolutionStateNoVisibleControl,
+				ControlPriority:        ControlPriorityControlFirst,
+			}),
+			requirementType: ClosureRequirementAssignOwner,
+			wantContains:    []string{"instruction surface"},
+			wantExcludes:    []string{"workflow path"},
+		},
+		{
+			name: "mcp config uses mcp-specific governance wording",
+			path: ProjectActionPath(ActionPath{
+				PathID:                 "apc-mcp-correlation",
+				Org:                    "acme",
+				Repo:                   "acme/app",
+				ToolType:               "mcp",
+				Location:               ".mcp.json",
+				OwnerEvidenceState:     EvidenceStateUnknown,
+				ApprovalEvidenceState:  EvidenceStateUnknown,
+				ControlResolutionState: ControlResolutionStateNoVisibleControl,
+				ControlPriority:        ControlPriorityControlFirst,
+			}),
+			requirementType: ClosureRequirementAssignOwner,
+			wantContains:    []string{"MCP configuration surface"},
+			wantExcludes:    []string{"workflow path"},
+		},
+		{
+			name: "dependency signal keeps dependency guidance",
+			path: ProjectActionPath(ActionPath{
+				PathID:                 "apc-dependency-closure",
+				Org:                    "acme",
+				Repo:                   "acme/app",
+				ToolType:               "dependency",
+				Location:               "package-lock.json",
+				ControlResolutionState: ControlResolutionStateNoVisibleControl,
+			}),
+			requirementType: ClosureRequirementCorrelateSurface,
+			wantContains:    []string{"dependency-only signal", "context"},
+			wantExcludes:    []string{"workflow path"},
+		},
+		{
+			name: "ci workflow keeps workflow-specific approval wording",
+			path: ProjectActionPath(ActionPath{
+				PathID:                 "apc-ci-approval",
+				Org:                    "acme",
+				Repo:                   "acme/app",
+				ToolType:               "compiled_action",
+				Location:               ".github/workflows/ci.yml",
+				WriteCapable:           true,
+				OwnerEvidenceState:     EvidenceStateVerified,
+				ApprovalEvidenceState:  EvidenceStateUnknown,
+				ProofEvidenceState:     EvidenceStateVerified,
+				ControlResolutionState: ControlResolutionStateNoVisibleControl,
+				ControlPriority:        ControlPriorityControlFirst,
+			}),
+			requirementType: ClosureRequirementAttachApproval,
+			wantContains:    []string{"workflow path"},
+			wantExcludes:    []string{"instruction surface"},
+		},
+		{
+			name: "release workflow keeps release-specific proof wording",
+			path: ProjectActionPath(ActionPath{
+				PathID:                 "apc-release-proof",
+				Org:                    "acme",
+				Repo:                   "acme/app",
+				ToolType:               "compiled_action",
+				Location:               ".github/workflows/release.yml",
+				WriteCapable:           true,
+				DeployWrite:            true,
+				ProductionWrite:        true,
+				OwnerEvidenceState:     EvidenceStateVerified,
+				ApprovalEvidenceState:  EvidenceStateVerified,
+				ProofEvidenceState:     EvidenceStateUnknown,
+				PolicyCoverageStatus:   PolicyCoverageStatusNone,
+				ControlResolutionState: ControlResolutionStateNoVisibleControl,
+				ControlPriority:        ControlPriorityControlFirst,
+			}),
+			requirementType: ClosureRequirementAttachPolicyReference,
+			wantContains:    []string{"release workflow path"},
+			wantExcludes:    []string{"dependency-only signal"},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			path := DecorateEvidenceContext([]ActionPath{tc.path}, nil)[0]
+			requirement, ok := findClosureRequirement(path.ClosureRequirements, tc.requirementType)
+			if !ok {
+				t.Fatalf("expected requirement %s, got %+v", tc.requirementType, path.ClosureRequirements)
+			}
+			for _, want := range tc.wantContains {
+				if !strings.Contains(requirement.Guidance, want) {
+					t.Fatalf("expected guidance %q to contain %q, got %+v", requirement.Guidance, want, requirement)
+				}
+			}
+			for _, unwanted := range tc.wantExcludes {
+				if strings.Contains(requirement.Guidance, unwanted) {
+					t.Fatalf("expected guidance %q to omit %q, got %+v", requirement.Guidance, unwanted, requirement)
+				}
+			}
+		})
+	}
+}
+
 func findClosureRequirement(items []ClosureRequirement, requirementType string) (ClosureRequirement, bool) {
 	for _, item := range items {
 		if strings.TrimSpace(item.RequirementType) == strings.TrimSpace(requirementType) {

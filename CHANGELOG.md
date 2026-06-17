@@ -16,7 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:minor] Changed interactive `--json` output for large scan, report, evidence, and assess commands to emit compact TTY-safe summaries by default while preserving the full machine-readable payload for pipes, redirects, `--json-path`, and explicit `--json-stdout=full`.
 - [semver:minor] Unified report and evidence serialization metadata with shared suppression and artifact-budget hints so shareable/default outputs advertise caps, appendix availability, and focused/detail handoff paths consistently.
-- [semver:minor] Updated Agent Action BOM closure guidance, path-type framing, and Action Contract readiness states so instruction surfaces, dependency-only signals, and correlation-needed context use conservative remediation language instead of full action-contract wording.
+- [semver:minor] Updated Agent Action BOM and control-backlog closure guidance so OpenAPI, route, instruction, MCP config, dependency, CI, and release workflow surfaces use path-type-specific remediation language.
 - [semver:minor] Reworked Agent Action BOM Markdown to lead with buyer-facing inspect-first diagnostics, keep appendix-heavy refs later, and promote recent PR review into a named workflow instead of appendix-style output.
 
 ### Deprecated
@@ -32,6 +32,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:patch] Canonicalized published Agent Action BOM example refs after opaque-ID redaction so generated site assets remain byte-stable even if upstream raw path IDs reorder.
 - [semver:patch] Added endpoint-dense enterprise-pressure fixtures and bounded-artifact receipts so route-heavy scans regress in deterministic tests before they bloat saved state, graph output, or BOM artifacts.
 - [semver:minor] Replaced endpoint-heavy graph, BOM, and action-surface fanout with grouped endpoint receipts (`endpoint_ref_group_id`, counts, route groups, operation counts, and bounded samples) so report/shareable surfaces stop cloning thousands of endpoint refs per node or item.
+- [semver:patch] Removed analysis-time embedded authority and endpoint payload clones from graph, action-path, BOM, and control-backlog projections so enterprise-shaped scans use ref-only defaults before artifact serialization.
 - [semver:minor] Tightened action-path eligibility and authority correlation so static context surfaces no longer inherit governable workflow status from repo-wide credential or deploy signals without a real binding.
 - [semver:patch] Tightened OpenAPI and route authority correlation so static target context no longer inherits unrelated repo-wide workflow credentials or broad repo-derived binding metadata as governable action-path proof.
 - [semver:patch] Kept parse-limited JS/TS WebMCP surfaces in scan-quality coverage receipts instead of surfacing them as scan findings or govern-first action paths.

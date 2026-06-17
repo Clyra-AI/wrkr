@@ -245,11 +245,15 @@ func Build(input Input) Backlog {
 		builder.addFinding(finding, input.Mode)
 	}
 	items := builder.items()
-	return Backlog{
+	backlog := Backlog{
 		ControlBacklogVersion: BacklogVersion,
 		Summary:               summarize(items),
 		Items:                 items,
 	}
+	if stripped := StripCanonicalProjectionDetails(BackfillCanonicalProjectionRefs(&backlog)); stripped != nil {
+		return *stripped
+	}
+	return backlog
 }
 
 func ValidSignalClass(value string) bool {

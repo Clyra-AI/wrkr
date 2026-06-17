@@ -656,7 +656,7 @@ func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
 		return edges[i].EdgeID < edges[j].EdgeID
 	})
 
-	return &ControlPathGraph{
+	graph := &ControlPathGraph{
 		Version: ControlPathGraphVersion,
 		Summary: ControlPathGraphSummary{
 			TotalNodes:                len(nodes),
@@ -670,6 +670,7 @@ func BuildControlPathGraph(paths []ControlPathInput) *ControlPathGraph {
 		Nodes: nodes,
 		Edges: edges,
 	}
+	return StripCanonicalProjectionDetails(BackfillCanonicalProjectionRefs(graph))
 }
 
 func buildControlPath(path ControlPathInput) ([]ControlPathNode, []ControlPathEdge) {

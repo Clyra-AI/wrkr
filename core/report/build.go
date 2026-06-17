@@ -321,6 +321,10 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	summary.WorkflowHighlights = BuildWorkflowHighlights(summary)
 	ApplySummaryCaps(&summary)
+	summary.ActionPaths = risk.StripCanonicalProjectionDetails(risk.BackfillCanonicalProjectionRefs(summary.ActionPaths, in.Snapshot.Inventory))
+	summary.ActionPathToControlFirst = risk.StripActionPathToControlFirstCanonicalProjectionDetails(
+		risk.BackfillActionPathToControlFirstCanonicalProjectionRefs(summary.ActionPathToControlFirst, in.Snapshot.Inventory),
+	)
 	summary.SuppressedCounts = outputsignal.MergeSuppressedCounts(in.Snapshot.SuppressedCounts, summary.SuppressedCounts)
 
 	return summary, nil

@@ -273,6 +273,21 @@ func workflowAuthoritySummary(item AgentActionBOMItem) string {
 			return strings.Join(parts, " | ")
 		}
 	}
+	if item.CredentialProvenance != nil {
+		parts := []string{}
+		if kind := strings.TrimSpace(item.CredentialProvenance.CredentialKind); kind != "" {
+			parts = append(parts, kind)
+		}
+		if scope := strings.TrimSpace(item.CredentialProvenance.Scope); scope != "" {
+			parts = append(parts, scope)
+		}
+		if item.CredentialProvenance.StandingAccess {
+			parts = append(parts, "standing")
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, " | ")
+		}
+	}
 	if item.CredentialAccess {
 		return "credential access declared"
 	}
