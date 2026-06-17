@@ -15,7 +15,7 @@
       "description": "Interactive lab summary data projected from deterministic report and evidence outputs.",
       "share_profile": "customer-redacted",
       "template": "ciso",
-      "sha256": "sha256:0477fd13f19582c35f9512b4656341c2b05009be771c4cf1626a7987787094b3"
+      "sha256": "sha256:5e9acd977b5384ea81de20c890b1bb65b2bf53b4e937efe918e9ba2c386e5d44"
     },
     {
       "path": "local-private-posture.md",
@@ -27,7 +27,7 @@
       "description": "Customer-redacted Agent Action BOM sample derived from the multi-repo scan fixture.",
       "share_profile": "customer-redacted",
       "template": "agent-action-bom",
-      "sha256": "sha256:da098e0a02cef8e0bd4c1440e5982ffcb8709c6107e2afa82c819e6093d86e97"
+      "sha256": "sha256:9deb6bac2643ac2e6f7f0f8c8aad5d0439ee1d7410eccf19eb0aebb9e8bb55da"
     },
     {
       "path": "sample-control-path-graph.json",

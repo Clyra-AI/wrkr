@@ -1099,6 +1099,7 @@ func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps,
 	out := cloneObject(executiveRollup)
 	groups := cloneArray(executiveRollup["groups"])
 	projectedGroups := make([]any, 0, len(groups))
+	totalProjectedPaths := 0
 	for _, raw := range groups {
 		group := cloneObject(requireObjectFromAny(raw))
 		projectedRefStrings := projectExecutiveRollupTopExampleRefs(cloneArray(group["top_example_refs"]), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey)
@@ -1107,9 +1108,13 @@ func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps,
 			projectedRefs = append(projectedRefs, ref)
 		}
 		group["top_example_refs"] = projectedRefs
+		group["count"] = len(projectedRefs)
+		totalProjectedPaths += len(projectedRefs)
 		projectedGroups = append(projectedGroups, group)
 	}
 	out["groups"] = projectedGroups
+	out["total_groups"] = len(projectedGroups)
+	out["total_paths"] = totalProjectedPaths
 	return out
 }
 

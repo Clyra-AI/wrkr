@@ -73,7 +73,7 @@
       },
       {
         "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
-        "count": 5,
+        "count": 3,
         "dimensions": {
           "action_class": "egress",
           "closure_action": "attach_evidence",
@@ -179,7 +179,7 @@
       },
       {
         "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
-        "count": 2,
+        "count": 1,
         "dimensions": {
           "action_class": "read",
           "closure_action": "attach_evidence",
@@ -213,7 +213,7 @@
       },
       {
         "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
-        "count": 2,
+        "count": 1,
         "dimensions": {
           "action_class": "egress",
           "closure_action": "attach_evidence",
@@ -451,7 +451,7 @@
       }
     ],
     "total_groups": 13,
-    "total_paths": 22
+    "total_paths": 18
   },
   "governed_usage_metrics": {
     "active_monitored_action_paths": 5,
