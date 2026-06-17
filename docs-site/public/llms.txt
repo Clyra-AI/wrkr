@@ -6,20 +6,29 @@
 - https://github.com/Clyra-AI/wrkr
 - https://clyra-ai.github.io/wrkr/
 
-## Core Commands
-- wrkr init --org <org> --github-api <url> --json
+## Human Review Workflows
+- wrkr init --org <org> --github-api <url>
+- wrkr scan --path <dir> --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md
+- wrkr scan --github-org <org> --github-api <url> --state ./.wrkr/last-scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+- wrkr scan --my-setup --state ./.wrkr/last-scan.json
+- wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md
+- wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence
+- wrkr verify --chain --state ./.wrkr/last-scan.json
+- wrkr assess --path <dir> --output-dir ./.wrkr/assessment
+
+## Automation And CI Workflows
 - wrkr --help
 - wrkr help <command>
-- wrkr scan --my-setup --json
-- wrkr mcp-list --state ./.wrkr/last-scan.json --json
 - wrkr scan --repo <owner/repo> --github-api <url> --json
 - wrkr scan --org <org> --github-api <url> --json
-- wrkr scan --github-org <org> --github-api <url> --json
-- wrkr scan --path <dir> --sarif --json
+- wrkr scan --github-org <org> --github-api <url> --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json
+- wrkr scan --path <dir> --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json
+- wrkr scan --my-setup --state ./.wrkr/last-scan.json --json
+- wrkr mcp-list --state ./.wrkr/last-scan.json --json
 - wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json
 - wrkr inventory approve <agent-id> --owner <team> --evidence <ticket-or-url> --expires 90d --state ./.wrkr/last-scan.json --json
 - wrkr inventory attach-evidence <agent-id> --control <control-id> --url <url> --state ./.wrkr/last-scan.json --json
-- wrkr report --top <n> --json
+- wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
 - wrkr score --json
 - wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
 - wrkr verify --chain --json

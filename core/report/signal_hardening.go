@@ -20,7 +20,8 @@ const (
 	defaultMarkdownLineCap   = 1500
 	defaultBOMLeadLineCap    = 45
 	defaultBOMLeadSectionCap = 4
-	defaultBOMLeadTopPaths   = 3
+	defaultBOMLeadTopPaths   = 5
+	defaultBOMInspectCards   = 5
 )
 
 func BuildPolicyOutcomes(findings []model.Finding) []PolicyOutcome {

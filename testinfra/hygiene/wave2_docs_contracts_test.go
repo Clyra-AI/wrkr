@@ -158,8 +158,8 @@ func TestLandingReadmeStartHerePersonaAndFallback(t *testing.T) {
 		"Hosted prerequisites for this path:",
 		"`--github-api https://api.github.com`",
 		"If hosted prerequisites are still not ready yet after the evaluator-safe scenario, start with one of these deterministic local fallback paths:",
-		"wrkr scan --path ./your-repo --json",
-		"wrkr scan --my-setup --json",
+		"wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md",
+		"wrkr scan --my-setup --state ./.wrkr/last-scan.json",
 		"### Developers (Secondary local hygiene)",
 	} {
 		if !strings.Contains(readme, required) {
@@ -173,8 +173,8 @@ func TestLandingReadmeStartHerePersonaAndFallback(t *testing.T) {
 	for _, required := range []string{
 		"Hosted prerequisites for this path:",
 		"## If hosted prerequisites are not ready yet",
-		"wrkr scan --path ./your-repo --json",
-		"wrkr scan --my-setup --json",
+		"wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md",
+		"wrkr scan --my-setup --state ./.wrkr/last-scan.json",
 	} {
 		if !strings.Contains(quickstart, required) {
 			t.Fatalf("quickstart missing persona/fallback requirement %q", required)
@@ -184,7 +184,7 @@ func TestLandingReadmeStartHerePersonaAndFallback(t *testing.T) {
 		t.Fatal("quickstart must foreground the security/platform org posture flow before the evaluator fallback")
 	}
 
-	if !strings.Contains(securityTeam, "if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first") {
+	if !strings.Contains(securityTeam, "if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md` or `wrkr scan --my-setup --state ./.wrkr/last-scan.json` first") {
 		t.Fatal("security-team workflow missing explicit hosted-prerequisite fallback")
 	}
 	if !strings.Contains(personalHygiene, "secondary fallback when the hosted org posture prerequisites are not ready yet") {
@@ -200,8 +200,8 @@ func TestDocsSiteQuickstartMirrorInstallAndFallback(t *testing.T) {
 	quickstart := mustReadFile(t, filepath.Join(repoRoot, "docs-site/public/llm/quickstart.md"))
 
 	for _, required := range []string{
-		"wrkr scan --path ./your-repo --json",
-		"wrkr scan --my-setup --json",
+		"wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md",
+		"wrkr scan --my-setup --state ./.wrkr/last-scan.json",
 	} {
 		if !strings.Contains(homepage, required) {
 			t.Fatalf("docs-site homepage missing fallback requirement %q", required)
@@ -211,9 +211,9 @@ func TestDocsSiteQuickstartMirrorInstallAndFallback(t *testing.T) {
 		"brew install Clyra-AI/tap/wrkr",
 		"go install github.com/Clyra-AI/wrkr/cmd/wrkr@\"${WRKR_VERSION}\"",
 		"wrkr version --json",
-		"wrkr init --non-interactive --org acme --github-api https://api.github.com --json",
-		"wrkr scan --path ./your-repo --json",
-		"wrkr scan --my-setup --json",
+		"wrkr init --non-interactive --org acme --github-api https://api.github.com",
+		"wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md",
+		"wrkr scan --my-setup --state ./.wrkr/last-scan.json",
 	} {
 		if !strings.Contains(quickstart, required) {
 			t.Fatalf("docs-site llm quickstart missing mirrored requirement %q", required)

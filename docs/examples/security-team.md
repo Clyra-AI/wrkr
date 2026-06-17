@@ -11,15 +11,15 @@ Hosted prerequisites for this path:
 - token resolution order is `--github-token`, config `auth.scan.token`, `WRKR_GITHUB_TOKEN`, then `GITHUB_TOKEN`
 - fine-grained PAT guidance: select only the target repositories and grant read-only repository metadata plus read-only repository contents
 - connector endpoints: `GET /orgs/{org}/repos`, `GET /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}/git/trees/{default_branch}?recursive=1`, `GET /repos/{owner}/{repo}/git/blobs/{sha}`
-- if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --json` or `wrkr scan --my-setup --json` first and return to this flow when GitHub access is configured; `--path` scans the selected directory itself when it is the repo root and uses bundle roots like `./scenarios/wrkr/scan-mixed-org/repos` when you want a deterministic repo-set
+- if hosted prerequisites are not ready yet, start with `wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md` or `wrkr scan --my-setup --state ./.wrkr/last-scan.json` first and return to this flow when GitHub access is configured; `--path` scans the selected directory itself when it is the repo root and uses bundle roots like `./scenarios/wrkr/scan-mixed-org/repos` when you want a deterministic repo-set
 
 ```bash
-wrkr init --non-interactive --org acme --github-api https://api.github.com --json
-wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --json --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
-wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json --evidence-json --evidence-json-path ./.wrkr/agent-action-bom-evidence.json
-wrkr report --state ./.wrkr/last-scan.json --template ciso --md --md-path ./.wrkr/ciso.md --pdf --pdf-path ./.wrkr/ciso.pdf --evidence-json --evidence-json-path ./.wrkr/report-evidence.json --csv-backlog --csv-backlog-path ./.wrkr/control-backlog.csv --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr init --non-interactive --org acme --github-api https://api.github.com
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --profile assessment --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.wrkr/agent-action-bom.md --evidence-json --evidence-json-path ./.wrkr/agent-action-bom-evidence.json
+wrkr report --state ./.wrkr/last-scan.json --template ciso --md --md-path ./.wrkr/ciso.md --pdf --pdf-path ./.wrkr/ciso.pdf --evidence-json --evidence-json-path ./.wrkr/report-evidence.json --csv-backlog --csv-backlog-path ./.wrkr/control-backlog.csv
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./wrkr-evidence
+wrkr verify --chain --state ./.wrkr/last-scan.json
 ```
 
 `wrkr evidence` now requires the saved proof chain to be intact before it stages or publishes a bundle, and `wrkr verify --chain --json` remains the explicit operator/CI integrity gate.

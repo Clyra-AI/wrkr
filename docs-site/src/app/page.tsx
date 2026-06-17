@@ -12,32 +12,32 @@ export const metadata: Metadata = {
 };
 
 const QUICKSTART = `# Focused repo review first
-wrkr scan --path ./your-repo --profile assessment --json
-wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --json
-wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md --json
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --md --md-path ./.tmp/focused-agent-action-bom.md
+wrkr report --state ./.wrkr/last-scan.json --template agent-action-bom --evidence-json --evidence-json-path ./.tmp/focused-agent-action-bom-evidence.json
 wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.wrkr/wrkr-regress-baseline.json --json
-wrkr assess --path ./your-repo --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira --json
+wrkr assess --path ./your-repo --output-dir ./.wrkr/design-partner-assessment --baseline ./.wrkr/wrkr-regress-baseline.json --template design-partner-summary --share-profile design-partner --ticket-format jira
 
 # Security and platform teams: use hosted org posture first when prerequisites are ready
-wrkr init --non-interactive --org acme --github-api https://api.github.com --json
-wrkr scan --config ~/.wrkr/config.json --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr init --non-interactive --org acme --github-api https://api.github.com
+wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.wrkr/evidence
+wrkr verify --chain --state ./.wrkr/last-scan.json
 
 # Low or zero first-run framework_coverage means the current state is evidence sparse, not that parsing is broken
 
 # Evaluator-safe scenario fallback when hosted prerequisites are not ready yet
-wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --json
-wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence --json
-wrkr verify --chain --state ./.wrkr/last-scan.json --json
+wrkr scan --path ./scenarios/wrkr/scan-mixed-org/repos --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scenario-summary.md
+wrkr evidence --frameworks eu-ai-act,soc2,pci-dss --state ./.wrkr/last-scan.json --output ./.tmp/wrkr-scenario-evidence
+wrkr verify --chain --state ./.wrkr/last-scan.json
 wrkr regress init --baseline ./.wrkr/last-scan.json --output ./.tmp/wrkr-regress-baseline.json --json
-wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json --json
+wrkr regress run --baseline ./.tmp/wrkr-regress-baseline.json --state ./.wrkr/last-scan.json
 
 # If hosted prerequisites are still not ready yet, use a deterministic local fallback
-wrkr scan --path ./your-repo --json
+wrkr scan --path ./your-repo --state ./.wrkr/last-scan.json --report-md --report-md-path ./.tmp/scan-summary.md
 
 # Developers: use the secondary local-machine hygiene path
-wrkr scan --my-setup --json
+wrkr scan --my-setup --state ./.wrkr/last-scan.json
 wrkr mcp-list --state ./.wrkr/last-scan.json --json
 cp ./.wrkr/last-scan.json ./.wrkr/inventory-baseline.json
 wrkr inventory --diff --baseline ./.wrkr/inventory-baseline.json --state ./.wrkr/last-scan.json --json`;

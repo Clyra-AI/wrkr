@@ -1745,13 +1745,13 @@ func TestAgentActionBOMTemplateLeadsWithBOMSections(t *testing.T) {
 		t.Fatalf("expected agent_action_bom on summary, got %+v", summary)
 	}
 	markdown := RenderMarkdown(summary)
-	bomIdx := strings.Index(markdown, "## Agent Action BOM")
+	leadIdx := strings.Index(markdown, "## What To Look At First")
 	topRiskIdx := strings.Index(markdown, "Top risky agent action BOM items")
-	if bomIdx < 0 {
-		t.Fatalf("expected BOM section in markdown, got %q", markdown)
+	if leadIdx < 0 {
+		t.Fatalf("expected inspect-first lead section in markdown, got %q", markdown)
 	}
-	if topRiskIdx >= 0 && bomIdx > topRiskIdx {
-		t.Fatalf("expected BOM section to lead before raw sections, got %q", markdown)
+	if topRiskIdx >= 0 && leadIdx > topRiskIdx {
+		t.Fatalf("expected inspect-first lead to appear before raw sections, got %q", markdown)
 	}
 }
 
