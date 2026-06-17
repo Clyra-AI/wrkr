@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/state"
 )
@@ -101,5 +102,53 @@ func TestRenderMarkdownIncludesFocusView(t *testing.T) {
 	}
 	if !strings.Contains(markdown, "- Preset: release") {
 		t.Fatalf("expected release preset in markdown, got %q", markdown)
+	}
+}
+
+func TestApplyAgentActionBOMFocusPreservesAuthorityDetailFromFocusSourceItems(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		GeneratedAt: "2026-06-17T03:00:00Z",
+		ActionPaths: []risk.ActionPath{risk.ProjectActionPath(risk.ActionPath{
+			PathID:                   "apc-focus-authority",
+			Org:                      "acme",
+			Repo:                     "acme/release",
+			ToolType:                 "compiled_action",
+			Location:                 ".github/workflows/release.yml",
+			WriteCapable:             true,
+			CredentialAccess:         true,
+			ApprovalGap:              true,
+			ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+			ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+			DelegationReadinessState: risk.DelegationReadinessBlocked,
+			RecommendedControl:       risk.RecommendedControlBlockStandingCredential,
+			CredentialAuthority: &agginventory.CredentialAuthority{
+				CredentialPresent:      true,
+				CredentialUsableByPath: true,
+				CredentialKind:         agginventory.CredentialKindGitHubPAT,
+				TargetSystem:           "source_control",
+				LikelyScope:            "repo_write",
+				AccessType:             agginventory.CredentialAccessTypeStanding,
+				StandingAccess:         true,
+			},
+		})},
+	}
+	summary.AgentActionBOM = BuildAgentActionBOM(summary)
+	if summary.AgentActionBOM == nil || len(summary.AgentActionBOM.Items) != 1 {
+		t.Fatalf("expected one BOM item, got %+v", summary.AgentActionBOM)
+	}
+	if summary.AgentActionBOM.Items[0].CredentialAuthority != nil {
+		t.Fatalf("expected returned BOM items to be stripped by default, got %+v", summary.AgentActionBOM.Items[0])
+	}
+
+	if err := ApplyAgentActionBOMFocus(&summary, "apc-focus-authority"); err != nil {
+		t.Fatalf("apply focus: %v", err)
+	}
+	if summary.AgentActionBOM.Summary.PrimaryView == nil {
+		t.Fatalf("expected primary view after focus, got %+v", summary.AgentActionBOM.Summary)
+	}
+	if got := summary.AgentActionBOM.Summary.PrimaryView.PathMap.Credential; !strings.Contains(got, agginventory.CredentialKindGitHubPAT) || !strings.Contains(got, "standing") {
+		t.Fatalf("expected focused primary view to preserve authority detail, got %q", got)
 	}
 }

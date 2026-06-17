@@ -36,6 +36,7 @@ type AgentActionBOM struct {
 	GraphRefs            AgentActionBOMGraphRefs `json:"graph_refs,omitempty"`
 	EvidenceRefs         []string                `json:"evidence_refs,omitempty"`
 	ProofRefs            []string                `json:"proof_refs,omitempty"`
+	focusSourceItems     []AgentActionBOMItem    `json:"-"`
 }
 
 type AgentActionBOMSummary struct {
@@ -510,6 +511,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		GraphRefs:            graphRefs,
 		EvidenceRefs:         summaryEvidenceRefs(items),
 		ProofRefs:            globalProofRefs,
+		focusSourceItems:     append([]AgentActionBOMItem(nil), items...),
 	}
 	_ = selectAgentActionBOMPrimaryView(bom, "")
 	return stripAgentActionBOMCanonicalProjectionDetails(backfillAgentActionBOMCanonicalProjectionRefs(bom))

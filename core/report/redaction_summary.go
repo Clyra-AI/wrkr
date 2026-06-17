@@ -539,6 +539,7 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].EvidencePacketRefs = maybeRedactStringSlice(copyBOM.Items[idx].EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 		copyBOM.Items[idx].DecisionTraceRefs = maybeRedactStringSlice(copyBOM.Items[idx].DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 	}
+	copyBOM.focusSourceItems = append([]AgentActionBOMItem(nil), copyBOM.Items...)
 	return &copyBOM
 }
 

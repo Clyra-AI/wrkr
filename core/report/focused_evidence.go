@@ -36,10 +36,16 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 	if summary.AgentActionBOM != nil {
 		bomCopy := *summary.AgentActionBOM
 		filteredItems := filterAgentActionBOMItems(summary.AgentActionBOM.Items, pathIDSet)
+		filteredSourceItems := filterAgentActionBOMItems(summary.AgentActionBOM.focusSourceItems, pathIDSet)
 		if omitted := len(summary.AgentActionBOM.Items) - len(filteredItems); omitted > 0 {
 			focused.SuppressedCounts.AgentActionBOM += omitted
 		}
 		bomCopy.Items = filteredItems
+		if len(filteredSourceItems) > 0 {
+			bomCopy.focusSourceItems = filteredSourceItems
+		} else {
+			bomCopy.focusSourceItems = append([]AgentActionBOMItem(nil), filteredItems...)
+		}
 		bomCopy.Summary.PrimaryView = nil
 		if strings.TrimSpace(focusPathID) != "" {
 			_ = selectAgentActionBOMPrimaryView(&bomCopy, focusPathID)
