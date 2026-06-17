@@ -512,7 +512,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		ProofRefs:            globalProofRefs,
 	}
 	_ = selectAgentActionBOMPrimaryView(bom, "")
-	return bom
+	return stripAgentActionBOMCanonicalProjectionDetails(backfillAgentActionBOMCanonicalProjectionRefs(bom))
 }
 
 func buildAgentActionBOMFromSnapshot(summary Summary, snapshot state.Snapshot) *AgentActionBOM {

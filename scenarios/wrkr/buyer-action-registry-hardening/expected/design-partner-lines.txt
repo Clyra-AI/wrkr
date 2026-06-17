@@ -1,6 +1,6 @@
 # Wrkr Design Partner Summary
 
-- Generated at: 2026-06-16T23:36:48Z
+- Generated at: 2026-06-17T02:31:10Z
 - Template: design-partner-summary
 - Share profile: design-partner
 - Boundary: static posture from saved scan state only; no live runtime observation, endpoint probing, or control-layer enforcement
@@ -70,13 +70,13 @@ Purpose: mcp integration
 Lineage: label-625a4c05 -> label-625a4c05 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-d5d3368a -> label-d5d3368a -> label-b29c45ca -> label-eef5b827 -> label-b23a6a84 (missing) -> label-5a824d8e -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-5a824d8e -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
 
 5. repo-d236d5 in loc-cd78127f
-Problem: This path can change production-adjacent state and is missing enough governance evidence.
+Problem: A standing credential can drive this path without enough compensating proof or gating.
 Likely explanation: purpose=refund agent, purpose_source=workflow_name, config=loc-cd78127f
 Threat: risk_zone=credential_bearing, risk_tier=critical, production_target_status=configured
 Recommended control: Replace the standing credential with brokered or JIT access where possible, attach rotation evidence, and rescan to confirm the reduced blast radius.
 Confidence lane: confirmed action path
 Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
-Credential authority: credential access is present, but normalized authority details are incomplete
+Credential authority: kind=static_secret, source=static_secret, scope=workflow, access=standing
 High-stakes: credential_bearing_automation (credential_authority:present); production_path (production_path:detected)
 Mutable endpoint: no declared mutable endpoint semantics were linked to this path
 Production context: no production-data context was projected for this path
@@ -88,7 +88,7 @@ Lineage: label-9132aafa -> label-9132aafa -> label-3cd2637d -> label-d236d5a6 ->
 Problem: The path is operationally meaningful, but approval evidence is not yet linked or complete.
 Likely explanation: config=loc-a54ff182
 Threat: risk_zone=coding_help, risk_tier=high, production_target_status=configured
-Recommended control: Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain.
+Recommended control: Attach the missing policy or proof reference for this exact instruction surface and rescan so governance coverage is no longer inferred from the global chain.
 Confidence lane: review candidate instruction surface
 Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evidence not collected, approval=approval evidence not found
 Credential authority: no credential authority was linked to this path

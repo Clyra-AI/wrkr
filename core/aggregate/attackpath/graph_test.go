@@ -337,7 +337,7 @@ func TestControlPathGraphLinksIdentityCredentialToolWorkflowTargetAction(t *test
 	}
 }
 
-func TestControlPathGraphCarriesPurposeVersionAndAuthorityMetadata(t *testing.T) {
+func TestControlPathGraphCarriesPurposeVersionAndAuthorityRefs(t *testing.T) {
 	t.Parallel()
 
 	graph := BuildControlPathGraph([]ControlPathInput{{
@@ -376,8 +376,11 @@ func TestControlPathGraphCarriesPurposeVersionAndAuthorityMetadata(t *testing.T)
 	if toolNode == nil || toolNode.Purpose != "registry sync" || toolNode.Version != "1.2.3" || toolNode.ConfigFingerprint != "cfg-abc123" {
 		t.Fatalf("expected tool node metadata, got %+v", toolNode)
 	}
-	if credentialNode == nil || credentialNode.CredentialAuthority == nil || !credentialNode.CredentialAuthority.CredentialUsableByPath {
+	if credentialNode == nil || credentialNode.CredentialAuthorityRef == "" {
 		t.Fatalf("expected credential authority on graph node, got %+v", credentialNode)
+	}
+	if credentialNode.CredentialAuthority != nil {
+		t.Fatalf("expected graph node to omit embedded credential authority by default, got %+v", credentialNode)
 	}
 }
 
@@ -423,8 +426,11 @@ func TestBuildControlPathGraphUsesBoundedEndpointProjection(t *testing.T) {
 	if grouped.EndpointRefGroupID == "" || len(grouped.EndpointRouteGroups) == 0 || len(grouped.EndpointOperationCounts) == 0 {
 		t.Fatalf("expected grouped endpoint metadata, got %+v", grouped)
 	}
-	if len(grouped.MutableEndpointSemanticRefs) > 8 || len(grouped.MutableEndpointSemantics) > 12 {
-		t.Fatalf("expected bounded endpoint samples on graph node, got %+v", grouped)
+	if len(grouped.MutableEndpointSemanticRefs) > 8 {
+		t.Fatalf("expected bounded endpoint refs on graph node, got %+v", grouped)
+	}
+	if len(grouped.MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected graph node to omit embedded endpoint payload clones by default, got %+v", grouped)
 	}
 }
 

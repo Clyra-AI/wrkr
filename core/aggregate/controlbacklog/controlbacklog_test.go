@@ -466,6 +466,111 @@ func TestBacklogCarriesClosureRequirementsAndCompleteness(t *testing.T) {
 	}
 }
 
+func TestBacklogClosureCopyByPathType(t *testing.T) {
+	t.Parallel()
+
+	openAPIPath := risk.ProjectActionPath(risk.ActionPath{
+		PathID:       "apc-openapi-backlog",
+		Org:          "acme",
+		Repo:         "acme/payments",
+		ToolType:     "openapi",
+		Location:     "openapi/payments.yaml",
+		WriteCapable: true,
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{{
+			Semantic:     agginventory.EndpointSemanticPayment,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    "POST /v1/payments",
+			EvidenceRefs: []string{"POST /v1/payments"},
+		}},
+	})
+	instructionPath := risk.ProjectActionPath(risk.ActionPath{
+		PathID:                 "apc-instruction-backlog",
+		Org:                    "acme",
+		Repo:                   "acme/app",
+		ToolType:               "codex",
+		Location:               "AGENTS.md",
+		OwnerEvidenceState:     risk.EvidenceStateUnknown,
+		ApprovalEvidenceState:  risk.EvidenceStateVerified,
+		ProofEvidenceState:     risk.EvidenceStateVerified,
+		ControlResolutionState: risk.ControlResolutionStateNoVisibleControl,
+		ControlPriority:        risk.ControlPriorityControlFirst,
+	})
+
+	backlog := Build(Input{
+		ActionPaths: risk.DecorateEvidenceContext([]risk.ActionPath{
+			openAPIPath,
+			instructionPath,
+		}, nil),
+	})
+	if len(backlog.Items) != 2 {
+		t.Fatalf("expected two backlog items, got %+v", backlog.Items)
+	}
+
+	var openAPIItem, instructionItem *Item
+	for idx := range backlog.Items {
+		switch backlog.Items[idx].LinkedActionPathID {
+		case "apc-openapi-backlog":
+			openAPIItem = &backlog.Items[idx]
+		case "apc-instruction-backlog":
+			instructionItem = &backlog.Items[idx]
+		}
+	}
+	if openAPIItem == nil || instructionItem == nil {
+		t.Fatalf("expected keyed backlog items, got %+v", backlog.Items)
+	}
+	if !strings.Contains(openAPIItem.ClosureCriteria, "API specification surface") || strings.Contains(openAPIItem.ClosureCriteria, "approval evidence") {
+		t.Fatalf("expected openapi backlog closure wording to stay target-context specific, got %+v", openAPIItem)
+	}
+	if !strings.Contains(strings.ToLower(instructionItem.ClosureCriteria), "instruction surface") {
+		t.Fatalf("expected instruction backlog closure wording, got %+v", instructionItem)
+	}
+	if strings.Contains(strings.ToLower(instructionItem.ClosureCriteria), "workflow path") {
+		t.Fatalf("expected instruction backlog closure to avoid workflow wording, got %+v", instructionItem)
+	}
+}
+
+func TestBuildStripsEmbeddedCanonicalPayloadsByDefault(t *testing.T) {
+	t.Parallel()
+
+	path := risk.ProjectActionPath(risk.ActionPath{
+		PathID:           "apc-backlog-canonical",
+		Org:              "acme",
+		Repo:             "acme/payments",
+		ToolType:         "compiled_action",
+		Location:         ".github/workflows/release.yml",
+		WriteCapable:     true,
+		CredentialAccess: true,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			CredentialKind:         agginventory.CredentialKindGitHubPAT,
+			AccessType:             agginventory.CredentialAccessTypeStanding,
+			StandingAccess:         true,
+		},
+		AuthorityBindings: []*agginventory.AuthorityBinding{{
+			Kind:         agginventory.AuthorityBindingSaaSToken,
+			Provider:     "github",
+			TargetSystem: "source_control",
+			LikelyScope:  "repo_write",
+			AccessLevel:  agginventory.AuthorityAccessWrite,
+			Confidence:   "high",
+		}},
+	})
+
+	backlog := Build(Input{ActionPaths: []risk.ActionPath{path}})
+	if len(backlog.Items) != 1 {
+		t.Fatalf("expected one backlog item, got %+v", backlog.Items)
+	}
+	item := backlog.Items[0]
+	if item.CredentialAuthorityRef == "" || len(item.AuthorityBindingRefs) == 0 {
+		t.Fatalf("expected canonical refs on backlog item, got %+v", item)
+	}
+	if item.CredentialAuthority != nil || len(item.AuthorityBindings) > 0 {
+		t.Fatalf("expected backlog item to omit embedded canonical payload clones by default, got %+v", item)
+	}
+}
+
 func TestCriticalReviewBurdenRoutesToControlFirstQueue(t *testing.T) {
 	t.Parallel()
 

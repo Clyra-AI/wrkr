@@ -403,14 +403,8 @@ func sourceFindingKeyOrder(keys []string) string {
 func RemediationForActionPath(path ActionPath) string {
 	path = ProjectActionPath(path)
 	if pathLikelyNeedsCorrelation(path) {
-		switch {
-		case IsInstructionControlSurface(path):
-			return "Correlate this instruction surface to the workflow, agent runtime, MCP/tool path, or recent change that actually consumes it, then attach owner and review evidence before treating it as governable."
-		case actionPathDependencyOnly(path):
-			return "Keep this dependency-only signal in context until executable, runtime, or control evidence proves it governs a real path."
-		default:
-			return "Correlate this target surface to a real workflow, credential use, MCP/tool binding, deploy path, runtime caller, or recent change before promoting it into a governable action path."
-		}
+		_, _, guidance := pathCorrelationClosureCopy(path)
+		return guidance
 	}
 	if actionPathHasContradictoryControlEvidence(path) {
 		return "Control evidence is contradictory for this path; resolve the conflicting control or evidence signals, keep it in fail-closed review, and rerun the scan before treating it as governed."
@@ -418,9 +412,9 @@ func RemediationForActionPath(path ActionPath) string {
 	if actionPathHasWeakOwnership(path) {
 		switch normalizeEvidenceState(path.OwnerEvidenceState) {
 		case EvidenceStateContradictory:
-			return "Owner evidence is contradictory for this path; resolve the conflict, record one explicit owner, and rerun the scan before approving or expanding it."
+			return "Owner evidence is contradictory for this " + pathSurfaceLabel(path) + "; resolve the conflict, record one explicit owner, and rerun the scan before approving or expanding it."
 		default:
-			return "Owner evidence is unknown for this path; assign an explicit owner, attach linked ownership evidence, and rerun the scan before approving or expanding it."
+			return "Owner evidence is unknown for this " + pathSurfaceLabel(path) + "; assign an explicit owner, attach linked ownership evidence, and rerun the scan before approving or expanding it."
 		}
 	}
 	if path.ControlPriority == ControlPriorityInventoryHygiene || deriveGovernFirstModel(path).controlPriority == ControlPriorityInventoryHygiene {
@@ -453,13 +447,13 @@ func RemediationForActionPath(path ActionPath) string {
 		return "Require CODEOWNERS or equivalent merge approval on this write path, attach the approval and proof reference, and rescan."
 	}
 	if path.ApprovalGap && actionPathHasStrongIdentity(path) && actionPathHasStrongOwnership(path) && !actionPathUnknownToSecurity(path) {
-		return "Record a time-bounded owner approval with scope and expiry, link the proof to this path, and rescan."
+		return "Record a time-bounded owner approval with scope and expiry for this exact " + pathSurfaceLabel(path) + ", link the proof to it, and rescan."
 	}
 	if strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusNone || len(path.PolicyMissingReasons) > 0 {
-		return "Attach the missing policy or proof reference for this exact path and rescan so governance coverage is no longer inferred from the global chain."
+		return "Attach the missing policy or proof reference for this exact " + pathSurfaceLabel(path) + " and rescan so governance coverage is no longer inferred from the global chain."
 	}
 	if path.CredentialAccess {
-		return "Classify the credential authority on this path, attach proof for scope and ownership, and confirm whether standing access can be reduced."
+		return "Classify the credential authority on this " + pathSurfaceLabel(path) + ", attach proof for scope and ownership, and confirm whether standing access can be reduced."
 	}
-	return "Add the missing identity, ownership, or control proof for this path and rescan before treating it as approved inventory."
+	return "Add the missing identity, ownership, or control proof for this " + pathSurfaceLabel(path) + " and rescan before treating it as approved inventory."
 }

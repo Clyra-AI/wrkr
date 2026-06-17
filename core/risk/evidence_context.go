@@ -379,31 +379,9 @@ func correlationClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 		return ClosureRequirement{}, false
 	}
 
-	requiredEvidence := "Correlation evidence that links this surface to a real workflow, credential use, tool binding, deploy path, runtime caller, or recent change."
-	examples := []string{
-		"Attach a workflow, runtime, or MCP/tool reference that consumes this surface directly.",
-		"Attach a recent change or owner-reviewed declaration that links this surface to the execution path it governs.",
-	}
-	guidance := "Correlate this surface to a real executable or governable path before promoting it into Top Action Paths or Action Contracts."
+	requiredEvidence, examples, guidance := pathCorrelationClosureCopy(path)
 	reasonCodes := []string{"binding_state:" + actionBindingStateForPath(path)}
 	refs := dedupeSortedStrings(append(append([]string(nil), path.TargetClassEvidenceRefs...), path.ActionPathTypeEvidenceRefs...))
-
-	switch {
-	case IsInstructionControlSurface(path):
-		requiredEvidence = "Correlation evidence plus owner/review evidence that links this instruction surface to the workflow, agent runtime, tool config, or provider boundary that consumes it."
-		examples = []string{
-			"Attach CODEOWNERS, branch-protection, provider-team, app-catalog, or customer-owner evidence for the instruction surface.",
-			"Attach the workflow, runtime, or tool-binding evidence that proves which execution path consumes this instruction file or config.",
-		}
-		guidance = "Correlate this instruction surface to the workflow, agent runtime, MCP/tool path, or recent change that consumes it, then attach owner and review evidence before treating it as governable."
-	case actionPathDependencyOnly(path):
-		requiredEvidence = "Executable or runtime/control evidence that proves this dependency signal governs a real path."
-		examples = []string{
-			"Attach the workflow, runtime, or tool path that loads or executes the dependency.",
-			"Keep the dependency signal in context-only output until a governable binding is proven.",
-		}
-		guidance = "Keep this dependency-only signal in context until executable, runtime, or control evidence proves it governs a real path."
-	}
 
 	return ClosureRequirement{
 		ID:                      closureRequirementID(path.PathID, ClosureRequirementCorrelateSurface, strings.TrimSpace(path.ActionPathType)),
@@ -428,7 +406,7 @@ func ownerClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 			Severity:                ownerClosureSeverity(path),
 			RequirementType:         ClosureRequirementAssignOwner,
 			CurrentEvidenceState:    normalizeEvidenceState(path.OwnerEvidenceState),
-			RequiredEvidence:        "Explicit owner evidence for this path with a linked team, service, or approver record.",
+			RequiredEvidence:        "Explicit owner evidence for this " + pathSurfaceLabel(path) + " with a linked team, service, or approver record.",
 			AcceptableSourceClasses: []string{evidencepolicy.SourceTypeProviderExport, evidencepolicy.SourceTypeCustomerOwnerMap, evidencepolicy.SourceTypeSignedDeclaration, evidencepolicy.SourceTypeAppCatalog, evidencepolicy.SourceTypeCodeowners},
 			FreshnessRequirement:    "owner evidence should be current and reviewable",
 			Examples: []string{
@@ -437,7 +415,7 @@ func ownerClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 			},
 			ClosureRefs: append([]string(nil), path.OwnershipEvidence...),
 			ReasonCodes: []string{"owner_evidence:" + normalizeEvidenceState(path.OwnerEvidenceState)},
-			Guidance:    "Assign explicit owner evidence for this path and attach a linked owner record before approving or expanding it.",
+			Guidance:    pathOwnerClosureGuidance(path),
 		}, true
 	case EvidenceStateDeclared:
 		if path.ControlPriority != ControlPriorityControlFirst {
@@ -456,7 +434,7 @@ func ownerClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 			},
 			ClosureRefs: append([]string(nil), path.OwnershipEvidence...),
 			ReasonCodes: []string{"owner_evidence:declared"},
-			Guidance:    "Provide provider-exported owner evidence for this path if you need it to move from declared ownership toward verified ownership.",
+			Guidance:    "Provide provider-exported owner evidence for this " + pathSurfaceLabel(path) + " if you need it to move from declared ownership toward verified ownership.",
 		}, true
 	default:
 		return ClosureRequirement{}, false
@@ -471,7 +449,7 @@ func approvalClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 			Severity:                approvalClosureSeverity(path),
 			RequirementType:         ClosureRequirementAttachApproval,
 			CurrentEvidenceState:    normalizeEvidenceState(path.ApprovalEvidenceState),
-			RequiredEvidence:        "Path-scoped approval evidence with owner, scope, expiry, and linked proof or ticket refs.",
+			RequiredEvidence:        "Path-scoped approval evidence for this " + pathSurfaceLabel(path) + " with owner, scope, expiry, and linked proof or ticket refs.",
 			AcceptableSourceClasses: []string{evidencepolicy.SourceTypeProviderExport, evidencepolicy.SourceTypeTicketExport, evidencepolicy.SourceTypeSignedDeclaration, evidencepolicy.SourceTypeRepoPolicy},
 			FreshnessRequirement:    "approval evidence must be current and time-bounded",
 			Examples: []string{
@@ -480,7 +458,7 @@ func approvalClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 			},
 			ClosureRefs: append([]string(nil), path.ControlEvidenceRefs...),
 			ReasonCodes: dedupeSortedStrings(append([]string{"approval_evidence:" + normalizeEvidenceState(path.ApprovalEvidenceState)}, path.ApprovalGapReasons...)),
-			Guidance:    "Attach approval evidence for this exact path with scope and expiry before treating it as governed.",
+			Guidance:    pathApprovalClosureGuidance(path),
 		}, true
 	case EvidenceStateDeclared:
 		if path.ControlPriority != ControlPriorityControlFirst {
@@ -499,7 +477,7 @@ func approvalClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 			},
 			ClosureRefs: append([]string(nil), path.ControlEvidenceRefs...),
 			ReasonCodes: []string{"approval_evidence:declared"},
-			Guidance:    "Provide exported approval evidence for this path if you need it to move from declared approval toward verified approval.",
+			Guidance:    "Provide exported approval evidence for this " + pathSurfaceLabel(path) + " if you need it to move from declared approval toward verified approval.",
 		}, true
 	default:
 		return ClosureRequirement{}, false
@@ -523,7 +501,7 @@ func proofClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 			},
 			ClosureRefs: append([]string(nil), path.PolicyEvidenceRefs...),
 			ReasonCodes: dedupeSortedStrings(append([]string{"proof_evidence:none"}, path.PolicyMissingReasons...)),
-			Guidance:    "Attach a path-specific policy or proof reference for this exact path and rescan so proof is no longer inferred or absent.",
+			Guidance:    pathPolicyClosureGuidance(path),
 		}, true
 	case normalizeEvidenceState(path.ProofEvidenceState) == EvidenceStateUnknown || normalizeEvidenceState(path.ProofEvidenceState) == EvidenceStateInferred:
 		return ClosureRequirement{
@@ -540,7 +518,7 @@ func proofClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 			},
 			ClosureRefs: append([]string(nil), path.PolicyEvidenceRefs...),
 			ReasonCodes: []string{"proof_evidence:" + normalizeEvidenceState(path.ProofEvidenceState)},
-			Guidance:    "Attach path-specific proof for the current control claim before treating this path as fully verified.",
+			Guidance:    pathProofClosureGuidance(path),
 		}, true
 	default:
 		return ClosureRequirement{}, false
@@ -551,14 +529,14 @@ func runtimeClosureRequirement(path ActionPath) (ClosureRequirement, bool) {
 	absence := RuntimeEvidenceAbsenceStatus(path)
 	requirementType := ClosureRequirementCollectRuntimeEvidence
 	required := "Runtime control evidence for this path with correlation back to the current path_id."
-	guidance := "Collect runtime evidence for this path and correlate it back to the saved path before treating runtime claims as verified."
+	guidance := pathRuntimeClosureGuidance(path)
 	examples := []string{
 		"Attach a runtime evidence bundle with policy, approval, or action outcome records for this path.",
 	}
 	if likelyJITCredential(path) {
 		requirementType = ClosureRequirementProveJITCredential
-		required = "JIT credential evidence for this path that proves the credential is brokered or short-lived."
-		guidance = "Provide JIT credential evidence for this path and correlate it back to the saved path before treating standing-access risk as reduced."
+		required = "JIT credential evidence for this " + pathSurfaceLabel(path) + " that proves the credential is brokered or short-lived."
+		guidance = pathJITClosureGuidance(path)
 		examples = append(examples, "Attach a runtime record that proves the credential was issued just in time for this path.")
 	}
 	switch absence {

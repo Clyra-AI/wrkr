@@ -57,6 +57,28 @@ func stripActionSurfaceRegistryCanonicalProjectionDetails(in []ActionSurfaceRegi
 	return out
 }
 
+func backfillAgentActionBOMCanonicalProjectionRefs(in *AgentActionBOM) *AgentActionBOM {
+	if in == nil {
+		return nil
+	}
+	copyBOM := *in
+	copyBOM.Items = append([]AgentActionBOMItem(nil), in.Items...)
+	for idx := range copyBOM.Items {
+		item := &copyBOM.Items[idx]
+		item.EndpointRefGroupProjection = agginventory.BackfillMutableEndpointGroupProjection(item.EndpointRefGroupProjection, item.MutableEndpointSemanticRefs, item.MutableEndpointSemantics)
+		if len(item.MutableEndpointSemanticRefs) == 0 && len(item.MutableEndpointSemantics) > 0 {
+			item.MutableEndpointSemanticRefs = agginventory.CanonicalMutableEndpointRefs(item.MutableEndpointSemantics)
+		}
+		if item.CredentialAuthorityRef == "" && item.CredentialAuthority != nil {
+			item.CredentialAuthorityRef = agginventory.CanonicalCredentialAuthorityRef(item.CredentialAuthority)
+		}
+		if len(item.AuthorityBindingRefs) == 0 && len(item.AuthorityBindings) > 0 {
+			item.AuthorityBindingRefs = agginventory.CanonicalAuthorityBindingRefs(item.AuthorityBindings)
+		}
+	}
+	return &copyBOM
+}
+
 func stripAgentActionBOMCanonicalProjectionDetails(in *AgentActionBOM) *AgentActionBOM {
 	if in == nil {
 		return nil
