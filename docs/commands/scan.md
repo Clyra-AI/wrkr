@@ -38,7 +38,7 @@ wrkr scan --my-setup --state ./.wrkr/last-scan.json
 Automation / CI workflow:
 
 ```bash
-wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --json-path ./.wrkr/scan.json
+wrkr scan --path ./your-repo --profile assessment --state ./.wrkr/last-scan.json --json --json-path ./.wrkr/scan.json
 wrkr scan --config ~/.wrkr/config.json --state ./.wrkr/last-scan.json --timeout 30m --json-path ./.wrkr/scan.json --report-md --report-md-path ./.wrkr/scan-summary.md --sarif --sarif-path ./.wrkr/wrkr.sarif
 wrkr scan --my-setup --state ./.wrkr/last-scan.json
 ```
