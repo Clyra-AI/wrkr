@@ -999,7 +999,9 @@ func controlPathTaskStatus(path ControlPathInput) string {
 }
 
 func controlPathHumanLabel(result *attribution.Result) string {
-	if result != nil && strings.TrimSpace(result.Author) != "" {
+	if result != nil &&
+		strings.TrimSpace(result.Confidence) == attribution.ConfidenceHigh &&
+		strings.TrimSpace(result.Author) != "" {
 		return strings.TrimSpace(result.Author)
 	}
 	return "unknown_human"
