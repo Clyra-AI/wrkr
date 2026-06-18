@@ -169,7 +169,7 @@ jobs:
       - name: Run gosec
         if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
         run: |
-          "$(go env GOPATH)/bin/gosec" $(scripts/first_party_go_packages.sh)
+          "$(go env GOPATH)/bin/gosec" -concurrency=1 $(scripts/first_party_go_packages.sh)
 
       - name: Install golangci-lint
         if: steps.changes.outputs.go == 'true' || steps.changes.outputs.workflow_or_policy == 'true'
