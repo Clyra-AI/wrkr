@@ -382,9 +382,7 @@ func taskLineageEvidence(path ActionPath) []string {
 }
 
 func humanLineageLabel(path ActionPath) string {
-	if path.IntroducedBy != nil &&
-		strings.TrimSpace(path.IntroducedBy.Confidence) == attribution.ConfidenceHigh &&
-		strings.TrimSpace(path.IntroducedBy.Author) != "" {
+	if path.IntroducedBy != nil && strings.TrimSpace(path.IntroducedBy.Author) != "" {
 		return strings.TrimSpace(path.IntroducedBy.Author)
 	}
 	return "unknown_human"

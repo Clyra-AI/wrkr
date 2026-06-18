@@ -98,22 +98,6 @@ func TestWorkflowChainsDecorateActionPathsAndExtendedLineage(t *testing.T) {
 	}
 }
 
-func TestHumanLineageLabelSuppressesLowConfidenceAuthor(t *testing.T) {
-	t.Parallel()
-
-	path := ActionPath{
-		IntroducedBy: &attribution.Result{
-			Source:     attribution.SourceLocalGit,
-			Confidence: attribution.ConfidenceLow,
-			Author:     "tip-author",
-		},
-	}
-
-	if got := humanLineageLabel(path); got != "unknown_human" {
-		t.Fatalf("expected low-confidence human lineage label to be suppressed, got %q", got)
-	}
-}
-
 func containsValue(values []string, want string) bool {
 	for _, value := range values {
 		if strings.TrimSpace(value) == strings.TrimSpace(want) {

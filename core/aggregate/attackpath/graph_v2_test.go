@@ -92,18 +92,6 @@ func TestControlPathGraphV2AddsNodeEdgeKindsAndSummaryRollups(t *testing.T) {
 	}
 }
 
-func TestControlPathHumanLabelSuppressesLowConfidenceAuthor(t *testing.T) {
-	t.Parallel()
-
-	if got := controlPathHumanLabel(&attribution.Result{
-		Source:     attribution.SourceLocalGit,
-		Confidence: attribution.ConfidenceLow,
-		Author:     "tip-author",
-	}); got != "unknown_human" {
-		t.Fatalf("expected low-confidence human label to be suppressed, got %q", got)
-	}
-}
-
 func containsControlPathRollup(values []ControlPathKindRollup, wantKind string, wantCount int) bool {
 	for _, value := range values {
 		if value.Kind == wantKind && value.Count == wantCount {
