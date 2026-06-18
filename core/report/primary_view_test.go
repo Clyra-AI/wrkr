@@ -125,6 +125,70 @@ func TestBuildAgentActionBOMSkipsContextOnlyPrimarySelection(t *testing.T) {
 	}
 }
 
+func TestApplyAgentActionBOMFocusSelectsSuppressedSourceItem(t *testing.T) {
+	t.Parallel()
+
+	visible := []AgentActionBOMItem{
+		{
+			PathID:         "apc-visible-1",
+			Org:            "acme",
+			Repo:           "acme/release",
+			ToolType:       "codex",
+			Location:       ".github/workflows/release.yml",
+			ConfidenceLane: risk.ConfidenceLaneConfirmedActionPath,
+			ActionPathType: risk.ActionPathTypeCICDWorkflow,
+		},
+		{
+			PathID:         "apc-visible-2",
+			Org:            "acme",
+			Repo:           "acme/release",
+			ToolType:       "codex",
+			Location:       ".github/workflows/deploy.yml",
+			ConfidenceLane: risk.ConfidenceLaneLikelyActionPath,
+			ActionPathType: risk.ActionPathTypeCICDWorkflow,
+		},
+	}
+	suppressed := AgentActionBOMItem{
+		PathID:                   "apc-suppressed-focus",
+		Org:                      "acme",
+		Repo:                     "acme/release",
+		ToolType:                 "codex",
+		Location:                 ".github/workflows/publish.yml",
+		ConfidenceLane:           risk.ConfidenceLaneSemanticReviewCandidate,
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		DelegationReadinessState: risk.DelegationReadinessProofRequired,
+		RecommendedControl:       risk.RecommendedControlProofRequired,
+	}
+	summary := Summary{
+		AgentActionBOM: &AgentActionBOM{
+			Summary: AgentActionBOMSummary{},
+			Items:   append([]AgentActionBOMItem(nil), visible...),
+			focusSourceItems: append(append([]AgentActionBOMItem(nil), visible...),
+				suppressed,
+			),
+		},
+	}
+
+	if err := ApplyAgentActionBOMFocus(&summary, "apc-suppressed-focus"); err != nil {
+		t.Fatalf("expected suppressed focus path to remain selectable: %v", err)
+	}
+	if summary.AgentActionBOM.Summary.PrimaryView == nil || summary.AgentActionBOM.Summary.PrimaryView.PathID != "apc-suppressed-focus" {
+		t.Fatalf("expected primary view for suppressed focus path, got %+v", summary.AgentActionBOM.Summary.PrimaryView)
+	}
+	if !agentActionBOMItemsContainPath(summary.AgentActionBOM.Items, "apc-suppressed-focus") {
+		t.Fatalf("expected focused source item to be visible in capped BOM items, got %+v", summary.AgentActionBOM.Items)
+	}
+}
+
+func agentActionBOMItemsContainPath(items []AgentActionBOMItem, pathID string) bool {
+	for _, item := range items {
+		if strings.TrimSpace(item.PathID) == pathID {
+			return true
+		}
+	}
+	return false
+}
+
 func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) {
 	t.Parallel()
 

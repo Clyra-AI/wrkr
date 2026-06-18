@@ -180,9 +180,143 @@ func TestProjectExecutiveRollupCanonicalizesExampleSelectionAfterOpaqueProjectio
 		t.Fatalf("expected one projected group, got %d", len(groups))
 	}
 	gotRefs := stringArray(requireObjectFromAny(groups[0])["top_example_refs"])
-	wantRefs := []string{"path-example-01", "path-example-02", "path-example-03"}
+	wantRefs := []string{"path-a", "path-b", "path-c"}
 	if !reflect.DeepEqual(gotRefs, wantRefs) {
 		t.Fatalf("expected projected executive rollup refs %v, got %v", wantRefs, gotRefs)
+	}
+}
+
+func TestProjectGovernedUsageMetricsUsesDisplayedRowsAndPreservesSourceCounters(t *testing.T) {
+	t.Parallel()
+
+	items := []map[string]any{
+		{
+			"path_id":                  "path-dependency",
+			"action_path_type":         "dependency_only_signal",
+			"standing_privilege":       true,
+			"risk_zone":                "production_data",
+			"control_resolution_state": "declared_control",
+		},
+		{
+			"path_id":                  "path-release",
+			"action_path_type":         "ci_cd_workflow",
+			"standing_privilege":       true,
+			"risk_zone":                "release",
+			"queue":                    "control_first",
+			"control_resolution_state": "external_control_reference",
+		},
+		{
+			"path_id":                  "path-agent",
+			"action_path_type":         "ai_assisted_workflow",
+			"risk_zone":                "credential_bearing",
+			"control_resolution_state": "detected_control",
+		},
+	}
+	sourceMetrics := map[string]any{
+		"approval_decisions": 7,
+		"connected_runtimes": 3,
+		"evidence_packs":     2,
+		"audit_exports":      9,
+	}
+
+	metrics := projectGovernedUsageMetrics(sourceMetrics, items)
+	if got := objectCount(metrics["active_monitored_action_paths"]); got != 2 {
+		t.Fatalf("expected dependency-only rows excluded from active paths, got %d metrics=%v", got, metrics)
+	}
+	if got := objectCount(metrics["verified_control_paths"]); got != 3 {
+		t.Fatalf("expected detected, declared, and external controls counted as verified, got %d metrics=%v", got, metrics)
+	}
+	for key, want := range map[string]int{
+		"approval_decisions": 7,
+		"connected_runtimes": 3,
+		"evidence_packs":     2,
+		"audit_exports":      9,
+	} {
+		if got := objectCount(metrics[key]); got != want {
+			t.Fatalf("expected preserved source metric %s=%d, got %d metrics=%v", key, want, got, metrics)
+		}
+	}
+
+	summary := projectAgentActionBOMSummary(map[string]any{
+		"governed_usage_metrics": sourceMetrics,
+		"primary_view":           map[string]any{},
+	}, items, publishedIDMaps{})
+	if got := objectCount(summary["standing_privilege_items"]); got != 2 {
+		t.Fatalf("expected standing privilege count from explicit flag, got %d summary=%v", got, summary)
+	}
+}
+
+func TestProjectSampleExecutiveRollupUsesPublishedPathRefsAndEvidenceStates(t *testing.T) {
+	t.Parallel()
+
+	rollup := projectSampleExecutiveRollup([]map[string]any{
+		{
+			"path_id":                    "path-declared",
+			"risk_zone":                  "release",
+			"target_class":               "release_adjacent",
+			"confidence_lane":            "confirmed_action_path",
+			"control_resolution_state":   "declared_control",
+			"approval_evidence_state":    "declared",
+			"owner_evidence_state":       "verified",
+			"proof_evidence_state":       "verified",
+			"runtime_evidence_state":     "verified",
+			"target_evidence_state":      "verified",
+			"credential_evidence_state":  "verified",
+			"delegation_readiness_state": "ready_for_control",
+		},
+		{
+			"path_id":                    "path-unknown",
+			"risk_zone":                  "release",
+			"target_class":               "release_adjacent",
+			"confidence_lane":            "confirmed_action_path",
+			"control_resolution_state":   "detected_control",
+			"approval_evidence_state":    "verified",
+			"owner_evidence_state":       "verified",
+			"proof_evidence_state":       "unknown",
+			"runtime_evidence_state":     "verified",
+			"target_evidence_state":      "verified",
+			"credential_evidence_state":  "verified",
+			"delegation_readiness_state": "proof_required",
+		},
+		{
+			"path_id":                    "path-contradictory",
+			"risk_zone":                  "production_data",
+			"target_class":               "customer_data_adjacent",
+			"confidence_lane":            "semantic_review_candidate",
+			"control_resolution_state":   "contradictory_control",
+			"approval_evidence_state":    "verified",
+			"owner_evidence_state":       "verified",
+			"proof_evidence_state":       "verified",
+			"runtime_evidence_state":     "verified",
+			"target_evidence_state":      "verified",
+			"credential_evidence_state":  "verified",
+			"delegation_readiness_state": "blocked_by_contradiction",
+		},
+	})
+	groups := cloneArray(rollup["groups"])
+	if len(groups) != 3 {
+		t.Fatalf("expected one group per evidence/action shape, got %d rollup=%v", len(groups), rollup)
+	}
+	seenStates := map[string]bool{}
+	for _, raw := range groups {
+		group := requireObjectFromAny(raw)
+		dimensions := requireObjectFromAny(group["dimensions"])
+		for _, forbidden := range []string{"control_resolution_state", "delegation_readiness_state", "queue"} {
+			if _, ok := dimensions[forbidden]; ok {
+				t.Fatalf("published rollup dimension %s is not in the schema contract: %v", forbidden, dimensions)
+			}
+		}
+		for _, ref := range stringArray(group["top_example_refs"]) {
+			if strings.HasPrefix(ref, "path-example-") {
+				t.Fatalf("expected real published path refs, got %v", group["top_example_refs"])
+			}
+		}
+		seenStates[stringValue(dimensions["evidence_state"])] = true
+	}
+	for _, state := range []string{"declared", "unknown", "contradictory"} {
+		if !seenStates[state] {
+			t.Fatalf("expected evidence state %s in rollup dimensions, got %v", state, seenStates)
+		}
 	}
 }
 

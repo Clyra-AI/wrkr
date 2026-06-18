@@ -1,32 +1,5 @@
 {
   "schema_id": "wrkr.docs_site.audit_exceptions",
   "schema_version": "1.0.0",
-  "exceptions": [
-    {
-      "package": "js-yaml",
-      "advisory": "GHSA-h67p-54hq-rp68",
-      "severity": "moderate",
-      "affected_node": "node_modules/gray-matter/node_modules/js-yaml",
-      "direct_dependency": "gray-matter",
-      "current_version": "4.0.3",
-      "owner": "docs-platform",
-      "scope": "docs-site production dependencies",
-      "rationale": "The latest stable gray-matter release still vendors js-yaml 3.14.2, so the docs-site audit gate needs a temporary pinned exception until upstream ships a fixed production dependency chain.",
-      "expires_on": "2026-06-30",
-      "upgrade_trigger": "Remove this exception as soon as gray-matter ships a stable release that no longer vendors vulnerable js-yaml and npm audit --omit=dev stops reporting GHSA-h67p-54hq-rp68 for docs-site production dependencies."
-    },
-    {
-      "package": "postcss",
-      "advisory": "GHSA-qx2v-qp2m-jg93",
-      "severity": "moderate",
-      "affected_node": "node_modules/next/node_modules/postcss",
-      "direct_dependency": "next",
-      "current_version": "16.2.6",
-      "owner": "docs-platform",
-      "scope": "docs-site production dependencies",
-      "rationale": "The latest stable Next.js release available during implementation is still 16.2.6, and npm audit only offers an unsafe semver-major downgrade path to next 9.3.3.",
-      "expires_on": "2026-06-30",
-      "upgrade_trigger": "Remove this exception as soon as a stable Next.js release ships with nested postcss >= 8.5.10 and npm audit --omit=dev no longer reports GHSA-qx2v-qp2m-jg93."
-    }
-  ]
+  "exceptions": []
 }
