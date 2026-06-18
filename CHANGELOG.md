@@ -8,18 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added scan `phase_substep` progress events plus optional `--progress-heap` receipts so long analysis runs can identify inventory, graph, workflow-chain, backlog, state-finalization, and artifact-write phases without corrupting stdout JSON.
-- [semver:minor] Added Target Surface Context and agent instruction control-surface modeling so unbound OpenAPI/routes/source context and instruction files are separated from executable govern-first paths in BOM and report output.
-- [semver:minor] Added focused evidence bundles for `--focus-path` and focus-preset report workflows so bounded shareable evidence can follow one selected path or a compact top-path set without shipping the full graph and workflow export.
+- (none yet)
 
 ### Changed
 
-- [semver:minor] Changed interactive `--json` output for large scan, report, evidence, and assess commands to emit compact TTY-safe summaries by default while preserving the full machine-readable payload for pipes, redirects, `--json-path`, and explicit `--json-stdout=full`.
-- [semver:minor] Unified report and evidence serialization metadata with shared suppression and artifact-budget hints so shareable/default outputs advertise caps, appendix availability, and focused/detail handoff paths consistently.
-- [semver:minor] Updated Agent Action BOM and control-backlog closure guidance so OpenAPI, route, instruction, MCP config, dependency, CI, and release workflow surfaces use path-type-specific remediation language.
-- [semver:minor] Reworked Agent Action BOM Markdown to lead with buyer-facing inspect-first diagnostics, keep appendix-heavy refs later, and promote recent PR review into a named workflow instead of appendix-style output.
-- [semver:minor] Reworked the default Agent Action BOM buyer view to start with inspect-first cards, keep the primary path plus top five eligible paths on the first page, and move machine-heavy BOM metadata into appendices and evidence artifacts.
-- [semver:patch] Clarified scan, report, evidence, assess, README, and docs-site guidance so manual large-scan workflows center `--state` plus durable artifacts while `--json` examples stay explicitly labeled for automation and CI.
+- (none yet)
 
 ### Deprecated
 
@@ -31,17 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Canonicalized published Agent Action BOM example refs after opaque-ID redaction so generated site assets remain byte-stable even if upstream raw path IDs reorder.
-- [semver:patch] Added endpoint-dense enterprise-pressure fixtures and bounded-artifact receipts so route-heavy scans regress in deterministic tests before they bloat saved state, graph output, or BOM artifacts.
-- [semver:minor] Replaced endpoint-heavy graph, BOM, and action-surface fanout with grouped endpoint receipts (`endpoint_ref_group_id`, counts, route groups, operation counts, and bounded samples) so report/shareable surfaces stop cloning thousands of endpoint refs per node or item.
-- [semver:patch] Removed analysis-time embedded authority and endpoint payload clones from graph, action-path, BOM, and control-backlog projections so enterprise-shaped scans use ref-only defaults before artifact serialization.
-- [semver:minor] Tightened action-path eligibility and authority correlation so static context surfaces no longer inherit governable workflow status from repo-wide credential or deploy signals without a real binding.
-- [semver:patch] Tightened OpenAPI and route authority correlation so static target context no longer inherits unrelated repo-wide workflow credentials or broad repo-derived binding metadata as governable action-path proof.
-- [semver:patch] Kept parse-limited JS/TS WebMCP surfaces in scan-quality coverage receipts instead of surfacing them as scan findings or govern-first action paths.
+- (none yet)
 
 ### Security
 
-- [semver:patch] Added fail-closed residual-token validation plus recursive shareable output redaction for nested owner, repo, provider, PR URL, and filesystem-path evidence strings before customer-safe artifacts are written.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -51,6 +38,38 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.9.0] - 2026-06-18
+<!-- release-semver: minor -->
+
+### Added
+
+- Added scan `phase_substep` progress events plus optional `--progress-heap` receipts so long analysis runs can identify inventory, graph, workflow-chain, backlog, state-finalization, and artifact-write phases without corrupting stdout JSON.
+- Added Target Surface Context and agent instruction control-surface modeling so unbound OpenAPI/routes/source context and instruction files are separated from executable govern-first paths in BOM and report output.
+- Added focused evidence bundles for `--focus-path` and focus-preset report workflows so bounded shareable evidence can follow one selected path or a compact top-path set without shipping the full graph and workflow export.
+
+### Changed
+
+- Changed interactive `--json` output for large scan, report, evidence, and assess commands to emit compact TTY-safe summaries by default while preserving the full machine-readable payload for pipes, redirects, `--json-path`, and explicit `--json-stdout=full`.
+- Unified report and evidence serialization metadata with shared suppression and artifact-budget hints so shareable/default outputs advertise caps, appendix availability, and focused/detail handoff paths consistently.
+- Updated Agent Action BOM and control-backlog closure guidance so OpenAPI, route, instruction, MCP config, dependency, CI, and release workflow surfaces use path-type-specific remediation language.
+- Reworked Agent Action BOM Markdown to lead with buyer-facing inspect-first diagnostics, keep appendix-heavy refs later, and promote recent PR review into a named workflow instead of appendix-style output.
+- Reworked the default Agent Action BOM buyer view to start with inspect-first cards, keep the primary path plus top five eligible paths on the first page, and move machine-heavy BOM metadata into appendices and evidence artifacts.
+- Clarified scan, report, evidence, assess, README, and docs-site guidance so manual large-scan workflows center `--state` plus durable artifacts while `--json` examples stay explicitly labeled for automation and CI.
+
+### Fixed
+
+- Canonicalized published Agent Action BOM example refs after opaque-ID redaction so generated site assets remain byte-stable even if upstream raw path IDs reorder.
+- Added endpoint-dense enterprise-pressure fixtures and bounded-artifact receipts so route-heavy scans regress in deterministic tests before they bloat saved state, graph output, or BOM artifacts.
+- Replaced endpoint-heavy graph, BOM, and action-surface fanout with grouped endpoint receipts (`endpoint_ref_group_id`, counts, route groups, operation counts, and bounded samples) so report/shareable surfaces stop cloning thousands of endpoint refs per node or item.
+- Removed analysis-time embedded authority and endpoint payload clones from graph, action-path, BOM, and control-backlog projections so enterprise-shaped scans use ref-only defaults before artifact serialization.
+- Tightened action-path eligibility and authority correlation so static context surfaces no longer inherit governable workflow status from repo-wide credential or deploy signals without a real binding.
+- Tightened OpenAPI and route authority correlation so static target context no longer inherits unrelated repo-wide workflow credentials or broad repo-derived binding metadata as governable action-path proof.
+- Kept parse-limited JS/TS WebMCP surfaces in scan-quality coverage receipts instead of surfacing them as scan findings or govern-first action paths.
+
+### Security
+
+- Added fail-closed residual-token validation plus recursive shareable output redaction for nested owner, repo, provider, PR URL, and filesystem-path evidence strings before customer-safe artifacts are written.
 
 ## [v1.8.0] - 2026-06-14
 <!-- release-semver: minor -->
