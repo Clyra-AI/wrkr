@@ -4,7 +4,7 @@ Install with Homebrew or the pinned Go path first, then verify the installed CLI
 
 ```bash
 brew install Clyra-AI/tap/wrkr
-WRKR_VERSION="v1.8.0"
+WRKR_VERSION="v1.9.0"
 go install github.com/Clyra-AI/wrkr/cmd/wrkr@"${WRKR_VERSION}"
 wrkr version --json
 
