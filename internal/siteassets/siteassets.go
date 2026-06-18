@@ -695,29 +695,6 @@ func objectCount(value any) int {
 	return int(floatValue(value))
 }
 
-func buildExecutiveRollupExampleProjectionMaps(items []any) (map[string]string, map[string][]string) {
-	exampleSelectionKeyByRawPathID := map[string]string{}
-	projectedPathIDsByExampleSelectionKey := map[string][]string{}
-	for _, raw := range items {
-		row := requireObjectFromAny(raw)
-		rawPathID := stringValue(row["path_id"])
-		if rawPathID == "" {
-			continue
-		}
-		_, pathID, _ := publishedIDsForRow(row)
-		if pathID == "" {
-			continue
-		}
-		selectionKey := executiveRollupExampleSelectionKey(row)
-		if selectionKey == "" {
-			continue
-		}
-		exampleSelectionKeyByRawPathID[rawPathID] = selectionKey
-		projectedPathIDsByExampleSelectionKey[selectionKey] = append(projectedPathIDsByExampleSelectionKey[selectionKey], pathID)
-	}
-	return exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey
-}
-
 func projectControlPathGraph(graph map[string]any) map[string]any {
 	out := cloneObject(graph)
 	pathIDMap := projectControlPathGraphPathIDs(cloneArray(graph["nodes"]), cloneArray(graph["edges"]))
@@ -1039,22 +1016,6 @@ func controlPathEdgeFingerprint(row map[string]any) map[string]any {
 func canonicalJSONKey(value any) string {
 	payload, _ := json.Marshal(normalizePublishedValue(value))
 	return string(payload)
-}
-
-func ordinalOpaqueID(prefix string, ordinal int) string {
-	return fmt.Sprintf("%s-%06d", prefix, ordinal)
-}
-
-func ordinalFromOpaqueID(value string) int {
-	_, suffix, ok := strings.Cut(strings.TrimSpace(value), "-")
-	if !ok {
-		return 0
-	}
-	ordinal, err := strconv.Atoi(suffix)
-	if err != nil {
-		return 0
-	}
-	return ordinal
 }
 
 func renderLocalPrivatePosture(evidencePayload, sourcePrivacy map[string]any) []byte {
