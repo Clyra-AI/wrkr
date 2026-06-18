@@ -153,16 +153,26 @@ func ensureFocusedBOMItemVisible(bom *AgentActionBOM, item AgentActionBOMItem) {
 	if bom == nil || strings.TrimSpace(item.PathID) == "" {
 		return
 	}
+	visibleItem := strippedAgentActionBOMItem(item)
 	for _, visible := range bom.Items {
 		if strings.TrimSpace(visible.PathID) == strings.TrimSpace(item.PathID) {
 			return
 		}
 	}
 	if len(bom.Items) == 0 {
-		bom.Items = []AgentActionBOMItem{item}
+		bom.Items = []AgentActionBOMItem{visibleItem}
 		return
 	}
-	bom.Items[len(bom.Items)-1] = item
+	bom.Items[len(bom.Items)-1] = visibleItem
+}
+
+func strippedAgentActionBOMItem(item AgentActionBOMItem) AgentActionBOMItem {
+	bom := &AgentActionBOM{Items: []AgentActionBOMItem{item}}
+	stripped := stripAgentActionBOMCanonicalProjectionDetails(backfillAgentActionBOMCanonicalProjectionRefs(bom))
+	if stripped == nil || len(stripped.Items) == 0 {
+		return item
+	}
+	return stripped.Items[0]
 }
 
 func primaryViewSourceItem(bom *AgentActionBOM, item AgentActionBOMItem) AgentActionBOMItem {
