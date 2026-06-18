@@ -49,7 +49,7 @@
 
 ## Workflow Chain Highlights
 
-- Total buyer-facing workflow paths: 17
+- Total buyer-facing workflow paths: 16
 
 - path=path-31e098e8 repo=repo-10e08a workflow=loc-f27ac6f3 type=agent_instruction_surface target=developer_productivity autonomy=prod or customer impacting readiness=review required authority=no credential authority linked blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach approval evidence for the exact workflow path
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
