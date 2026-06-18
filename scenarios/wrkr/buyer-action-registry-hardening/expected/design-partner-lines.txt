@@ -22,7 +22,7 @@ Mutable endpoint: 20 grouped endpoint semantics; 4 route groups; production_muta
 Production context: status=correlated, surface=label-dd191250, credential=no credential evidence, target=production_impacting, deployment=unknown, operations=label-8be61507,label-c43f7237,label-dc74895a,label-d66e2561,label-0d2751ad,label-0315367e,label-412970ad
 Owner: owner-c6dd827f
 Purpose: purpose not confirmed
-Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-dd191250 -> label-dd191250 -> label-880ec2e1 -> label-190c1a6b -> label-b23a6a84 (missing) -> label-eb24c1ad -> label-c6dd827f -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+Lineage: label-9431ef09 -> label-119136f6 -> label-844ed1a9 -> label-d236d5a6 -> label-9614be72 -> label-dd191250 -> label-dd191250 -> label-880ec2e1 -> label-190c1a6b -> label-b23a6a84 (missing) -> label-eb24c1ad -> label-c6dd827f -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
 
 2. repo-d236d5 in loc-d5d3368a
 Problem: This path can change production-adjacent state and is missing enough governance evidence.
@@ -37,7 +37,7 @@ Mutable endpoint: 3 grouped endpoint semantics; 1 route groups; data_export x1, 
 Production context: status=correlated, surface=label-625a4c05, credential=no credential evidence, target=customer_data_adjacent, deployment=unknown, operations=label-412970ad
 Owner: owner-f9ae3305
 Purpose: mcp integration
-Lineage: label-625a4c05 -> label-625a4c05 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-d5d3368a -> label-d5d3368a -> label-3561f2b0 -> label-eef5b827 -> label-b23a6a84 (missing) -> label-5a824d8e -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-5a824d8e -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+Lineage: label-625a4c05 -> label-625a4c05 -> label-844ed1a9 -> label-d236d5a6 -> label-9614be72 -> label-d5d3368a -> label-d5d3368a -> label-3561f2b0 -> label-eef5b827 -> label-b23a6a84 (missing) -> label-5a824d8e -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-5a824d8e -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
 
 3. repo-d236d5 in loc-6dd0f3ed
 Problem: This path can change production-adjacent state and is missing enough governance evidence.
@@ -52,7 +52,7 @@ Mutable endpoint: 19 grouped endpoint semantics; 4 route groups; production_muta
 Production context: status=correlated, surface=label-6dd0f3ed, credential=no credential evidence, target=production_impacting, deployment=unknown, operations=label-73437816,label-fed73031,label-dc74895a,label-d66e2561,label-0d2751ad,label-0315367e,label-412970ad
 Owner: owner-ab37caea
 Purpose: purpose not confirmed
-Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-6dd0f3ed -> label-6dd0f3ed -> label-837b932d -> label-44b4c4e4 -> credential (missing) -> label-eb24c1ad -> label-ab37caea -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
+Lineage: label-9431ef09 -> label-119136f6 -> label-844ed1a9 -> label-d236d5a6 -> label-9614be72 -> label-6dd0f3ed -> label-6dd0f3ed -> label-837b932d -> label-44b4c4e4 -> credential (missing) -> label-eb24c1ad -> label-ab37caea -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
 
 4. repo-d236d5 in loc-a54ff182
 Problem: The path is operationally meaningful, but approval evidence is not yet linked or complete.
@@ -67,7 +67,7 @@ Mutable endpoint: no declared mutable endpoint semantics were linked to this pat
 Production context: no production-data context was projected for this path
 Owner: owner-f9ae3305
 Purpose: purpose not confirmed
-Lineage: label-9431ef09 -> label-119136f6 -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-a54ff182 -> label-a54ff182 -> label-a9322446 -> label-3316348d -> label-b23a6a84 (missing) -> target (missing) -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-77fcb75d (missing) -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
+Lineage: label-9431ef09 -> label-119136f6 -> label-844ed1a9 -> label-d236d5a6 -> label-9614be72 -> label-a54ff182 -> label-a54ff182 -> label-a9322446 -> label-3316348d -> label-b23a6a84 (missing) -> target (missing) -> label-f9ae3305 -> label-05227691 (missing) -> label-a6769766 -> label-77fcb75d (missing) -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9
 
 5. repo-d236d5 in loc-cd78127f
 Problem: A standing credential can drive this path without enough compensating proof or gating.
@@ -82,7 +82,7 @@ Mutable endpoint: no declared mutable endpoint semantics were linked to this pat
 Production context: no production-data context was projected for this path
 Owner: owner-920a23be
 Purpose: refund agent
-Lineage: label-9132aafa -> label-9132aafa -> label-3cd2637d -> label-d236d5a6 -> label-9614be72 -> label-cd78127f -> label-cd78127f -> label-6656cc9d -> label-bab06f2c -> label-f82078a0 -> target (missing) -> label-920a23be -> label-05227691 (missing) -> label-a6769766 -> label-77fcb75d (missing) -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
+Lineage: label-9132aafa -> label-9132aafa -> label-844ed1a9 -> label-d236d5a6 -> label-9614be72 -> label-cd78127f -> label-cd78127f -> label-6656cc9d -> label-bab06f2c -> label-f82078a0 -> target (missing) -> label-920a23be -> label-05227691 (missing) -> label-a6769766 -> label-77fcb75d (missing) -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
 
 ## Registry Highlights
 
@@ -97,4 +97,3 @@ Lineage: label-9132aafa -> label-9132aafa -> label-3cd2637d -> label-d236d5a6 ->
 - This summary reflects declared code, workflow, MCP, route, and evidence artifacts only.
 - Runtime control, live endpoint reachability, and Gait enforcement are not claimed unless explicit runtime evidence is attached.
 - Semantic prompt or instruction findings stay labeled as review candidates until executable linkage, permissions, and authority are proven.
-
