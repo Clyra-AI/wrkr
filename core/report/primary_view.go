@@ -111,11 +111,9 @@ func selectAgentActionBOMPrimaryView(bom *AgentActionBOM, focusPathID string) er
 		bom.Summary.PrimaryView = buildAgentActionBOMPrimaryView(bom, primaryViewSourceItem(bom, *selected), AgentActionBOMPrimarySelectionDefaultTopPath)
 		return nil
 	default:
-		matches := []AgentActionBOMItem{}
-		for _, item := range bom.Items {
-			if strings.TrimSpace(item.PathID) == trimmedFocus {
-				matches = append(matches, item)
-			}
+		matches := agentActionBOMItemsByPathID(bom.Items, trimmedFocus)
+		if len(matches) == 0 {
+			matches = agentActionBOMItemsByPathID(bom.focusSourceItems, trimmedFocus)
 		}
 		switch len(matches) {
 		case 0:
@@ -134,6 +132,20 @@ func selectAgentActionBOMPrimaryView(bom *AgentActionBOM, focusPathID string) er
 			return &agentActionBOMFocusError{pathID: trimmedFocus, reason: "ambiguous"}
 		}
 	}
+}
+
+func agentActionBOMItemsByPathID(items []AgentActionBOMItem, pathID string) []AgentActionBOMItem {
+	trimmedPathID := strings.TrimSpace(pathID)
+	if trimmedPathID == "" {
+		return nil
+	}
+	matches := []AgentActionBOMItem{}
+	for _, item := range items {
+		if strings.TrimSpace(item.PathID) == trimmedPathID {
+			matches = append(matches, item)
+		}
+	}
+	return matches
 }
 
 func primaryViewSourceItem(bom *AgentActionBOM, item AgentActionBOMItem) AgentActionBOMItem {
