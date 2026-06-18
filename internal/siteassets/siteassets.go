@@ -79,6 +79,7 @@ type labData struct {
 	ExecutiveRollup       map[string]any `json:"executive_rollup"`
 	GovernedUsageMetrics  map[string]any `json:"governed_usage_metrics"`
 	ToolTypeBreakdown     []any          `json:"tool_type_breakdown"`
+	ToolTypeCountMode     string         `json:"tool_type_count_mode"`
 	TopFindings           []any          `json:"top_findings"`
 	TopActionPaths        []any          `json:"top_action_paths"`
 	ControlBacklogSummary map[string]any `json:"control_backlog_summary"`
@@ -372,13 +373,16 @@ func buildBoundaryData(scanPayload, summary, evidencePayload, sourcePrivacy map[
 }
 
 func buildLabData(scanPayload, reportPayload, summary, controlBacklog, proof map[string]any, ids publishedIDMaps) labData {
-	agentActionBOMItems := cloneArray(requireObject(reportPayload, "agent_action_bom")["items"])
+	agentActionBOM := requireObject(reportPayload, "agent_action_bom")
+	agentActionBOMSummary := requireObject(agentActionBOM, "summary")
+	agentActionBOMItems := cloneArray(agentActionBOM["items"])
 	projectedBOMItems := projectAgentActionBOMItems(agentActionBOMItems)
 	return labData{
 		DeploymentMode:        stringValue(reportPayload["deployment_mode"]),
 		ExecutiveRollup:       projectSampleExecutiveRollup(projectedBOMItems),
-		GovernedUsageMetrics:  projectGovernedUsageMetrics(projectedBOMItems),
+		GovernedUsageMetrics:  projectGovernedUsageMetrics(requireObject(agentActionBOMSummary, "governed_usage_metrics"), projectedBOMItems),
 		ToolTypeBreakdown:     projectPublicToolTypeBreakdown(scanPayload["tool_type_breakdown"]),
+		ToolTypeCountMode:     "presence_by_type",
 		TopFindings:           projectTopFindings(limitArray(cloneArray(reportPayload["top_findings"]), 5)),
 		TopActionPaths:        projectTopActionPaths(limitArray(cloneArray(reportPayload["action_paths"]), 5), ids),
 		ControlBacklogSummary: cloneObject(requireObject(controlBacklog, "summary")),
@@ -456,7 +460,7 @@ func projectAgentActionBOMItems(items []any) []map[string]any {
 	for _, raw := range items {
 		row := requireObjectFromAny(raw)
 		repoID, pathID, locationID := publishedIDsForRow(row)
-		projectedItems = append(projectedItems, map[string]any{
+		projected := map[string]any{
 			"path_id":                    pathID,
 			"repo":                       repoID,
 			"location":                   locationID,
@@ -475,7 +479,11 @@ func projectAgentActionBOMItems(items []any) []map[string]any {
 			"confidence_lane":            row["confidence_lane"],
 			"evidence_strength":          row["evidence_strength"],
 			"recommended_action":         row["recommended_action"],
-		})
+		}
+		if boolValue(row["standing_privilege"]) {
+			projected["standing_privilege"] = true
+		}
+		projectedItems = append(projectedItems, projected)
 	}
 	sort.Slice(projectedItems, func(i, j int) bool {
 		left := stringValue(projectedItems[i]["path_id"])
@@ -492,13 +500,13 @@ func projectAgentActionBOMSummary(summary map[string]any, projectedItems []map[s
 	return map[string]any{
 		"total_items":              len(projectedItems),
 		"control_first_items":      countProjectedItems(projectedItems, "queue", "control_first"),
-		"standing_privilege_items": countProjectedItems(projectedItems, "risk_zone", "credential_bearing"),
+		"standing_privilege_items": countProjectedBoolItems(projectedItems, "standing_privilege"),
 		"runtime_proven_items":     countProjectedItems(projectedItems, "runtime_evidence_state", "verified"),
 		"coverage_confidence":      summary["coverage_confidence"],
 		"scan_coverage":            summary["scan_coverage"],
 		"delegation_readiness":     projectDelegationReadiness(projectedItems),
 		"executive_rollup":         projectSampleExecutiveRollup(projectedItems),
-		"governed_usage_metrics":   projectGovernedUsageMetrics(projectedItems),
+		"governed_usage_metrics":   projectGovernedUsageMetrics(requireObject(summary, "governed_usage_metrics"), projectedItems),
 		"primary_view":             projectPrimaryView(requireObject(summary, "primary_view"), ids),
 	}
 }
@@ -526,18 +534,18 @@ func projectDelegationReadiness(items []map[string]any) map[string]any {
 	return out
 }
 
-func projectGovernedUsageMetrics(items []map[string]any) map[string]any {
+func projectGovernedUsageMetrics(source map[string]any, items []map[string]any) map[string]any {
 	return map[string]any{
-		"active_monitored_action_paths": countProjectedItemsNotEqual(items, "action_path_type", "dependency_inventory_signal"),
-		"approval_decisions":            0,
-		"audit_exports":                 4,
-		"connected_runtimes":            0,
+		"active_monitored_action_paths": countActiveMonitoredProjectedItems(items),
+		"approval_decisions":            metricInt(source, "approval_decisions", 0),
+		"audit_exports":                 metricInt(source, "audit_exports", 4),
+		"connected_runtimes":            metricInt(source, "connected_runtimes", 0),
 		"contradictory_paths":           countContradictoryProjectedItems(items),
-		"evidence_packs":                0,
+		"evidence_packs":                metricInt(source, "evidence_packs", 0),
 		"governed_agents_workflows":     len(items),
 		"governed_paths":                countProjectedItems(items, "queue", "control_first"),
 		"unknown_control_paths":         countProjectedItems(items, "control_resolution_state", "no_visible_control") + countProjectedItems(items, "control_resolution_state", "unknown"),
-		"verified_control_paths":        countProjectedItems(items, "control_resolution_state", "detected_control"),
+		"verified_control_paths":        countVerifiedControlProjectedItems(items),
 	}
 }
 
@@ -551,13 +559,15 @@ type sampleExecutiveRollupGroup struct {
 func projectSampleExecutiveRollup(items []map[string]any) map[string]any {
 	groupsByKey := map[string]*sampleExecutiveRollupGroup{}
 	for _, item := range items {
+		evidenceState := sampleEvidenceState(item)
+		closureAction := sampleClosureAction(item)
 		dimensions := map[string]any{
-			"control_resolution_state":   item["control_resolution_state"],
-			"detector_confidence":        item["confidence_lane"],
-			"delegation_readiness_state": item["delegation_readiness_state"],
-			"queue":                      item["queue"],
-			"risk_zone":                  item["risk_zone"],
-			"target_class":               item["target_class"],
+			"closure_action":      closureAction,
+			"contradiction_state": sampleContradictionState(item),
+			"detector_confidence": item["confidence_lane"],
+			"evidence_state":      evidenceState,
+			"risk_zone":           item["risk_zone"],
+			"target_class":        item["target_class"],
 		}
 		key := canonicalJSONKey(dimensions)
 		group := groupsByKey[key]
@@ -572,7 +582,7 @@ func projectSampleExecutiveRollup(items []map[string]any) map[string]any {
 		if pathID := stringValue(item["path_id"]); pathID != "" {
 			group.refs = append(group.refs, pathID)
 		}
-		group.evidenceStates[sampleEvidenceState(item)]++
+		group.evidenceStates[evidenceState]++
 	}
 
 	groups := make([]any, 0, len(groupsByKey))
@@ -584,8 +594,8 @@ func projectSampleExecutiveRollup(items []map[string]any) map[string]any {
 			refs = refs[:3]
 		}
 		topExampleRefs := make([]any, 0, len(refs))
-		for idx := range refs {
-			topExampleRefs = append(topExampleRefs, fmt.Sprintf("path-example-%02d", idx+1))
+		for _, ref := range refs {
+			topExampleRefs = append(topExampleRefs, ref)
 		}
 		totalPaths += group.count
 		groups = append(groups, map[string]any{
@@ -600,11 +610,11 @@ func projectSampleExecutiveRollup(items []map[string]any) map[string]any {
 				"verified":      group.evidenceStates["verified"],
 			},
 			"group_id":         stableOpaqueID("xrg", group.dimensions),
-			"highest_priority": stringValue(group.dimensions["queue"]),
+			"highest_priority": sampleHighestPriority(group),
 			"highest_severity": sampleHighestSeverity(group),
 			"rationale": []any{
-				fmt.Sprintf("%d %s paths grouped by %s target and %s readiness", group.count, stringValue(group.dimensions["risk_zone"]), stringValue(group.dimensions["target_class"]), stringValue(group.dimensions["delegation_readiness_state"])),
-				fmt.Sprintf("control_resolution=%s detector_confidence=%s", stringValue(group.dimensions["control_resolution_state"]), stringValue(group.dimensions["detector_confidence"])),
+				fmt.Sprintf("%d %s paths grouped by %s target and %s evidence", group.count, stringValue(group.dimensions["risk_zone"]), stringValue(group.dimensions["target_class"]), stringValue(group.dimensions["evidence_state"])),
+				fmt.Sprintf("closure_action=%s detector_confidence=%s", stringValue(group.dimensions["closure_action"]), stringValue(group.dimensions["detector_confidence"])),
 			},
 			"top_example_refs": topExampleRefs,
 		})
@@ -625,39 +635,120 @@ func projectSampleExecutiveRollup(items []map[string]any) map[string]any {
 }
 
 func sampleEvidenceState(item map[string]any) string {
-	if stringValue(item["control_resolution_state"]) == "contradictory_control" {
-		return "contradictory"
+	state := "verified"
+	if value := controlResolutionEvidenceState(stringValue(item["control_resolution_state"])); value != "" {
+		state = mergeEvidenceState(state, value)
 	}
-	for _, key := range []string{"approval_evidence_state", "proof_evidence_state", "runtime_evidence_state"} {
-		if stringValue(item[key]) == "unknown" {
-			return "unknown"
+	for _, key := range []string{
+		"approval_evidence_state",
+		"owner_evidence_state",
+		"proof_evidence_state",
+		"runtime_evidence_state",
+		"target_evidence_state",
+		"credential_evidence_state",
+	} {
+		if value := stringValue(item[key]); value != "" {
+			state = mergeEvidenceState(state, value)
 		}
 	}
-	if stringValue(item["owner_evidence_state"]) == "inferred" {
-		return "inferred"
-	}
-	return "verified"
+	return state
 }
 
 func sampleClosureRecommendation(group *sampleExecutiveRollupGroup) string {
-	switch stringValue(group.dimensions["delegation_readiness_state"]) {
-	case "blocked", "blocked_by_contradiction":
+	switch stringValue(group.dimensions["closure_action"]) {
+	case "block_or_remediate":
 		return "block or remediate before delegation"
-	case "review_required":
+	case "owner_review":
 		return "require owner review and attach evidence"
+	case "attach_evidence":
+		return "attach path-specific control and proof evidence"
 	default:
 		return "keep as monitored sample path"
 	}
 }
 
 func sampleHighestSeverity(group *sampleExecutiveRollupGroup) string {
-	switch stringValue(group.dimensions["delegation_readiness_state"]) {
-	case "blocked", "blocked_by_contradiction":
+	switch stringValue(group.dimensions["closure_action"]) {
+	case "block_or_remediate":
 		return "critical"
-	case "approval_required", "proof_required", "review_required":
+	case "approval_required", "proof_required", "owner_review", "attach_evidence":
 		return "high"
 	default:
 		return "medium"
+	}
+}
+
+func sampleHighestPriority(group *sampleExecutiveRollupGroup) string {
+	switch stringValue(group.dimensions["closure_action"]) {
+	case "block_or_remediate", "approval_required", "proof_required", "attach_evidence":
+		return "control_first"
+	case "owner_review":
+		return "review_queue"
+	default:
+		return "inventory_hygiene"
+	}
+}
+
+func sampleClosureAction(item map[string]any) string {
+	switch stringValue(item["delegation_readiness_state"]) {
+	case "blocked", "blocked_by_contradiction":
+		return "block_or_remediate"
+	case "approval_required":
+		return "approval_required"
+	case "proof_required":
+		return "proof_required"
+	case "review_required":
+		return "owner_review"
+	}
+	if sampleEvidenceState(item) != "verified" {
+		return "attach_evidence"
+	}
+	return "monitor"
+}
+
+func sampleContradictionState(item map[string]any) string {
+	if stringValue(item["control_resolution_state"]) == "contradictory_control" || stringValue(item["delegation_readiness_state"]) == "blocked_by_contradiction" {
+		return "contradictory"
+	}
+	return "consistent"
+}
+
+func controlResolutionEvidenceState(value string) string {
+	switch strings.TrimSpace(value) {
+	case "contradictory_control":
+		return "contradictory"
+	case "no_visible_control", "unknown":
+		return "unknown"
+	case "declared_control", "external_control_reference":
+		return "declared"
+	case "detected_control", "not_applicable":
+		return "verified"
+	default:
+		return ""
+	}
+}
+
+func mergeEvidenceState(current, next string) string {
+	if evidenceStateRank(next) > evidenceStateRank(current) {
+		return next
+	}
+	return current
+}
+
+func evidenceStateRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case "contradictory":
+		return 5
+	case "unknown":
+		return 4
+	case "inferred":
+		return 3
+	case "declared":
+		return 2
+	case "verified":
+		return 1
+	default:
+		return 0
 	}
 }
 
@@ -665,16 +756,6 @@ func countProjectedItems(items []map[string]any, key, want string) int {
 	count := 0
 	for _, item := range items {
 		if stringValue(item[key]) == want {
-			count++
-		}
-	}
-	return count
-}
-
-func countProjectedItemsNotEqual(items []map[string]any, key, excluded string) int {
-	count := 0
-	for _, item := range items {
-		if stringValue(item[key]) != excluded {
 			count++
 		}
 	}
@@ -689,6 +770,47 @@ func countContradictoryProjectedItems(items []map[string]any) int {
 		}
 	}
 	return count
+}
+
+func countProjectedBoolItems(items []map[string]any, key string) int {
+	count := 0
+	for _, item := range items {
+		if boolValue(item[key]) {
+			count++
+		}
+	}
+	return count
+}
+
+func countActiveMonitoredProjectedItems(items []map[string]any) int {
+	count := 0
+	for _, item := range items {
+		switch stringValue(item["action_path_type"]) {
+		case "dependency_inventory_signal", "dependency_only_signal":
+			continue
+		default:
+			count++
+		}
+	}
+	return count
+}
+
+func countVerifiedControlProjectedItems(items []map[string]any) int {
+	count := 0
+	for _, item := range items {
+		switch stringValue(item["control_resolution_state"]) {
+		case "detected_control", "declared_control", "external_control_reference":
+			count++
+		}
+	}
+	return count
+}
+
+func metricInt(source map[string]any, key string, fallback int) int {
+	if _, ok := source[key]; !ok {
+		return fallback
+	}
+	return objectCount(source[key])
 }
 
 func objectCount(value any) int {
@@ -1297,6 +1419,9 @@ func projectExecutiveRollup(executiveRollup map[string]any, ids publishedIDMaps,
 	for _, raw := range groups {
 		group := cloneObject(requireObjectFromAny(raw))
 		projectedRefStrings := projectExecutiveRollupTopExampleRefs(cloneArray(group["top_example_refs"]), ids, exampleSelectionKeyByRawPathID, projectedPathIDsByExampleSelectionKey)
+		if len(projectedRefStrings) == 0 {
+			continue
+		}
 		projectedRefs := make([]any, 0, len(projectedRefStrings))
 		for _, ref := range projectedRefStrings {
 			projectedRefs = append(projectedRefs, ref)
@@ -1372,17 +1497,9 @@ func projectExecutiveRollupTopExampleRefs(refs []any, ids publishedIDMaps, examp
 	for pathID := range candidateSet {
 		projectedRefStrings = append(projectedRefStrings, pathID)
 	}
-	if len(projectedRefStrings) == 0 {
-		for _, ref := range refs {
-			projectedRefStrings = append(projectedRefStrings, normalizeOpaqueRef(stringValue(ref), ids))
-		}
-	}
 	sort.Strings(projectedRefStrings)
 	if len(projectedRefStrings) > 3 {
 		projectedRefStrings = append([]string(nil), projectedRefStrings[:3]...)
-	}
-	for idx := range projectedRefStrings {
-		projectedRefStrings[idx] = fmt.Sprintf("path-example-%02d", idx+1)
 	}
 	return projectedRefStrings
 }
