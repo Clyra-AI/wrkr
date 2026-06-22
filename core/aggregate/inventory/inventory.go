@@ -375,14 +375,14 @@ func Build(input BuildInput) Inventory {
 			DeploymentEvidenceKeys: cloneStringSlice(input.AgentDeployments[instanceID].DeploymentEvidenceKeys),
 		}
 
-		item.tool.MutableEndpointSemantics = NormalizeMutableEndpointSemantics(append(item.tool.MutableEndpointSemantics, mutableEndpointSemanticsFromFinding(finding)...))
+		item.tool.MutableEndpointSemantics = append(item.tool.MutableEndpointSemantics, mutableEndpointSemanticsFromFinding(finding)...)
 
 		if finding.Repo != "" {
 			item.repoSet[finding.Repo] = struct{}{}
 		}
-		owner := owners.ResolveWithMetadataAt(repoRoot(input.Manifest, finding.Repo), finding.Repo, findingOrg, finding.Location, ownerMetadata(input.Manifest, finding.Repo), generatedAt)
 		locKey := finding.Repo + "::" + finding.Location
 		if _, exists := item.locSet[locKey]; !exists {
+			owner := owners.ResolveWithMetadataAt(repoRoot(input.Manifest, finding.Repo), finding.Repo, findingOrg, finding.Location, ownerMetadata(input.Manifest, finding.Repo), generatedAt)
 			item.locSet[locKey] = struct{}{}
 			item.tool.Locations = append(item.tool.Locations, ToolLocation{
 				Repo:                finding.Repo,

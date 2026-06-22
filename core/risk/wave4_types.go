@@ -75,7 +75,7 @@ func CloneProductionContext(in *ProductionContext) *ProductionContext {
 	out.PathType = strings.TrimSpace(out.PathType)
 	out.TargetClass = strings.TrimSpace(out.TargetClass)
 	out.ActionClasses = dedupeSortedStrings(out.ActionClasses)
-	out.MutableEndpointOperations = dedupeSortedStrings(out.MutableEndpointOperations)
+	out.MutableEndpointOperations = dedupeStringsPreserveOrder(out.MutableEndpointOperations)
 	out.EvidenceRefs = dedupeSortedStrings(out.EvidenceRefs)
 	out.ReasonCodes = dedupeSortedStrings(out.ReasonCodes)
 	return &out
@@ -92,5 +92,29 @@ func normalizeHighStakesPresets(in []HighStakesPreset) []HighStakesPreset {
 		}
 		return strings.Join(out[i].ReasonCodes, ",") < strings.Join(out[j].ReasonCodes, ",")
 	})
+	return out
+}
+
+func dedupeStringsPreserveOrder(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		key := value
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
 	return out
 }

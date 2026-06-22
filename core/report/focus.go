@@ -130,10 +130,7 @@ func eligibleWorkflowHighlightItems(bom *AgentActionBOM) []AgentActionBOMItem {
 
 	filtered := make([]AgentActionBOMItem, 0, len(bom.Items))
 	for _, item := range bom.Items {
-		if !bomItemEligible(item) {
-			continue
-		}
-		if strings.TrimSpace(item.ConfidenceLane) == risk.ConfidenceLaneContextOnly {
+		if !bomItemPromotableActionPath(item) {
 			continue
 		}
 		filtered = append(filtered, item)

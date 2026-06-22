@@ -486,14 +486,10 @@ func buildSignalsByInstance(findings []model.Finding) map[string]findingSignals 
 				entry.EvidenceKV[key] = append(entry.EvidenceKV[key], normalizedValue)
 			}
 		}
-		entry.Repos = dedupeSortedPreserveCase(entry.Repos)
-		entry.Locations = dedupeSortedPreserveCase(entry.Locations)
-		entry.Permissions = dedupeSortedPreserveCase(entry.Permissions)
-		entry.Values = dedupeSorted(entry.Values)
-		for key, values := range entry.EvidenceKV {
-			entry.EvidenceKV[key] = dedupeSorted(values)
-		}
 		out[instanceID] = entry
+	}
+	for key, entry := range out {
+		out[key] = normalizeFindingSignals(entry)
 	}
 	return out
 }
@@ -538,6 +534,17 @@ func normalizeFindingSignals(entry findingSignals) findingSignals {
 	entry.Repos = dedupeSortedPreserveCase(entry.Repos)
 	entry.Locations = dedupeSortedPreserveCase(entry.Locations)
 	entry.Permissions = dedupeSortedPreserveCase(entry.Permissions)
+	entry.Values = dedupeSorted(entry.Values)
+	for key, values := range entry.EvidenceKV {
+		entry.EvidenceKV[key] = dedupeSorted(values)
+	}
+	return entry
+}
+
+func normalizeAgentFindingSignals(entry findingSignals) findingSignals {
+	entry.Repos = dedupeSorted(entry.Repos)
+	entry.Locations = dedupeSorted(entry.Locations)
+	entry.Permissions = dedupeSorted(entry.Permissions)
 	entry.Values = dedupeSorted(entry.Values)
 	for key, values := range entry.EvidenceKV {
 		entry.EvidenceKV[key] = dedupeSorted(values)
@@ -770,14 +777,10 @@ func buildSignalsByAgent(findings []model.Finding) map[string]findingSignals {
 				entry.EvidenceKV[key] = append(entry.EvidenceKV[key], value)
 			}
 		}
-		entry.Repos = dedupeSorted(entry.Repos)
-		entry.Locations = dedupeSorted(entry.Locations)
-		entry.Permissions = dedupeSorted(entry.Permissions)
-		entry.Values = dedupeSorted(entry.Values)
-		for key, values := range entry.EvidenceKV {
-			entry.EvidenceKV[key] = dedupeSorted(values)
-		}
 		out[agentID] = entry
+	}
+	for key, entry := range out {
+		out[key] = normalizeAgentFindingSignals(entry)
 	}
 	return out
 }
@@ -794,6 +797,9 @@ func buildSignalsByRepoLocation(findings []model.Finding) map[string]findingSign
 			entry.EvidenceKV = map[string][]string{}
 		}
 		mergeFindingSignal(&entry, finding)
+		out[key] = entry
+	}
+	for key, entry := range out {
 		out[key] = normalizeFindingSignals(entry)
 	}
 	return out
@@ -812,6 +818,9 @@ func buildSignalsByRepo(findings []model.Finding) map[string]findingSignals {
 			entry.EvidenceKV = map[string][]string{}
 		}
 		mergeFindingSignal(&entry, finding)
+		out[key] = entry
+	}
+	for key, entry := range out {
 		out[key] = normalizeFindingSignals(entry)
 	}
 	return out

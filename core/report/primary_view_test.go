@@ -125,6 +125,95 @@ func TestBuildAgentActionBOMSkipsContextOnlyPrimarySelection(t *testing.T) {
 	}
 }
 
+func TestBuildAgentActionBOMSkipsPlainSourcePrimarySelection(t *testing.T) {
+	t.Parallel()
+
+	bom := BuildAgentActionBOM(Summary{
+		GeneratedAt: "2026-05-27T12:00:00Z",
+		ActionPaths: []risk.ActionPath{
+			{
+				PathID:                   "apc-swagger",
+				Org:                      "acme",
+				Repo:                     "acme/api",
+				ToolType:                 "openapi",
+				Location:                 "src/proto/payments/v1/payments.swagger.json",
+				ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+				ActionPathType:           risk.ActionPathTypePlainSourceCode,
+				DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
+				RecommendedControl:       risk.RecommendedControlApprovalRequired,
+				TargetClass:              risk.TargetClassCustomerDataAdjacent,
+				ActionClasses:            []string{"read", "write"},
+				ApprovalGap:              true,
+				CredentialAccess:         true,
+			},
+			{
+				PathID:                   "apc-workflow",
+				Org:                      "acme",
+				Repo:                     "acme/api",
+				ToolType:                 "ci_agent",
+				Location:                 ".github/workflows/release.yml",
+				ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+				ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+				DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
+				RecommendedControl:       risk.RecommendedControlApprovalRequired,
+				TargetClass:              risk.TargetClassReleaseAdjacent,
+				ActionClasses:            []string{"deploy"},
+				ApprovalGap:              true,
+				CredentialAccess:         true,
+			},
+		},
+	})
+	if bom == nil || bom.Summary.PrimaryView == nil {
+		t.Fatalf("expected primary view, got %+v", bom)
+	}
+	if bom.Summary.PrimaryView.PathID != "apc-workflow" {
+		t.Fatalf("expected primary view to skip source-only API spec path, got %+v", bom.Summary.PrimaryView)
+	}
+}
+
+func TestBuildWorkflowHighlightsSkipsPlainSourceContext(t *testing.T) {
+	t.Parallel()
+
+	highlights := BuildWorkflowHighlights(Summary{
+		AgentActionBOM: &AgentActionBOM{
+			Items: []AgentActionBOMItem{
+				{
+					PathID:                   "apc-swagger",
+					Repo:                     "acme/api",
+					ToolType:                 "openapi",
+					Location:                 "src/proto/payments/v1/payments.swagger.json",
+					ActionPathEligible:       true,
+					ActionBindingState:       risk.ActionBindingStateBound,
+					ActionPathType:           risk.ActionPathTypePlainSourceCode,
+					ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+					DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
+					RecommendedControl:       risk.RecommendedControlApprovalRequired,
+					CredentialAccess:         true,
+				},
+				{
+					PathID:                   "apc-workflow",
+					Repo:                     "acme/api",
+					ToolType:                 "ci_agent",
+					Location:                 ".github/workflows/release.yml",
+					ActionPathEligible:       true,
+					ActionBindingState:       risk.ActionBindingStateBound,
+					ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+					ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+					DelegationReadinessState: risk.DelegationReadinessApprovalRequired,
+					RecommendedControl:       risk.RecommendedControlApprovalRequired,
+					CredentialAccess:         true,
+				},
+			},
+		},
+	})
+	if highlights == nil || len(highlights.Highlights) != 1 {
+		t.Fatalf("expected one promotable workflow highlight, got %+v", highlights)
+	}
+	if highlights.Highlights[0].PathID != "apc-workflow" {
+		t.Fatalf("expected workflow highlight to skip source-only API spec path, got %+v", highlights.Highlights)
+	}
+}
+
 func TestRenderMarkdownAgentActionBOMLeadsWithPrimaryWorkflowPath(t *testing.T) {
 	t.Parallel()
 

@@ -110,9 +110,8 @@
 
 - Mode: governance
 - Coverage summary: confidence=complete reduced_detectors=0 parse_failures=0 suppressed_generated_files=0 blocked_detectors=0 unsupported_declarations=0 impact=Coverage for scanned inputs was complete enough to support scoped negative claims.
+- mcp_server absence_status=not_found_with_complete_coverage across 2 repo(s) reasons=detector:mcp=complete,detector:webmcp=complete,mcp:no_candidate_inputs,webmcp:no_candidate_inputs impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
 - mcp_server absence_status=not_found_with_complete_coverage reasons=detector:mcp=complete,detector:webmcp=complete,webmcp:no_candidate_inputs impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
-- mcp_server absence_status=not_found_with_complete_coverage reasons=detector:mcp=complete,detector:webmcp=complete,mcp:no_candidate_inputs,webmcp:no_candidate_inputs impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
-- mcp_server absence_status=not_found_with_complete_coverage reasons=detector:mcp=complete,detector:webmcp=complete,mcp:no_candidate_inputs,webmcp:no_candidate_inputs impact=Complete MCP coverage supported a clean negative result for the scanned surfaces.
 
 ## Control Backlog
 

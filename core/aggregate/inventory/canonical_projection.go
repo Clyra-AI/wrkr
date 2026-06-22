@@ -287,13 +287,16 @@ func StripCanonicalProjectionDetails(in *Inventory) {
 		return
 	}
 	for idx := range in.Tools {
-		if len(in.Tools[idx].MutableEndpointSemanticRefs) > 0 {
-			in.Tools[idx].MutableEndpointSemantics = nil
+		tool := &in.Tools[idx]
+		if len(tool.MutableEndpointSemanticRefs) > 0 {
+			tool.MutableEndpointSemanticRefs = uniqueSortedEndpointRefs(tool.MutableEndpointSemanticRefs)
+			tool.MutableEndpointSemantics = nil
 		}
 	}
 	for idx := range in.AgentPrivilegeMap {
 		entry := &in.AgentPrivilegeMap[idx]
 		if len(entry.MutableEndpointSemanticRefs) > 0 {
+			entry.MutableEndpointSemanticRefs = uniqueSortedEndpointRefs(entry.MutableEndpointSemanticRefs)
 			entry.MutableEndpointSemantics = nil
 		}
 		if strings.TrimSpace(entry.CredentialAuthorityRef) != "" {

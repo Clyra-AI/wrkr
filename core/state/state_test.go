@@ -3,6 +3,7 @@ package state
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -313,13 +314,17 @@ func TestLegacyEmbeddedAuthorityStateStillReads(t *testing.T) {
 		Production:   true,
 		Confidence:   "high",
 	}
-	semantics := []agginventory.MutableEndpointSemantic{{
-		Semantic:     agginventory.EndpointSemanticDeploy,
-		Confidence:   "high",
-		Surface:      "workflow",
-		Operation:    "deploy release",
-		EvidenceRefs: []string{"deploy release"},
-	}}
+	var semantics []agginventory.MutableEndpointSemantic
+	for idx := 0; idx < 12; idx++ {
+		operation := fmt.Sprintf("deploy release %02d", idx)
+		semantics = append(semantics, agginventory.MutableEndpointSemantic{
+			Semantic:     agginventory.EndpointSemanticDeploy,
+			Confidence:   "high",
+			Surface:      "workflow",
+			Operation:    operation,
+			EvidenceRefs: []string{operation},
+		})
+	}
 	legacy := Snapshot{
 		Version: SnapshotVersion,
 		Target:  source.Target{Mode: "path", Value: "./repos"},
@@ -421,14 +426,17 @@ func TestStateSavePreservesProjectionDetailsThroughCanonicalStore(t *testing.T) 
 		Production:   true,
 		Confidence:   "high",
 	}
-	semantics := []agginventory.MutableEndpointSemantic{{
-		Semantic:     agginventory.EndpointSemanticDeploy,
-		Confidence:   "high",
-		Surface:      "workflow",
-		Operation:    "deploy release",
-		EvidenceRefs: []string{"deploy release"},
-	}}
-
+	var semantics []agginventory.MutableEndpointSemantic
+	for idx := 0; idx < 12; idx++ {
+		operation := fmt.Sprintf("deploy release %02d", idx)
+		semantics = append(semantics, agginventory.MutableEndpointSemantic{
+			Semantic:     agginventory.EndpointSemanticDeploy,
+			Confidence:   "high",
+			Surface:      "workflow",
+			Operation:    operation,
+			EvidenceRefs: []string{operation},
+		})
+	}
 	snapshot := Snapshot{
 		Target: source.Target{Mode: "path", Value: "./repos"},
 		Inventory: &agginventory.Inventory{
@@ -511,17 +519,35 @@ func TestSavedStateOmitsEmbeddedClonesWhenRefsExist(t *testing.T) {
 		Production:   true,
 		Confidence:   "high",
 	}
-	semantics := []agginventory.MutableEndpointSemantic{{
-		Semantic:     agginventory.EndpointSemanticDeploy,
-		Confidence:   "high",
-		Surface:      "workflow",
-		Operation:    "deploy release",
-		EvidenceRefs: []string{"deploy release"},
-	}}
+	var semantics []agginventory.MutableEndpointSemantic
+	for idx := 0; idx < 12; idx++ {
+		operation := fmt.Sprintf("deploy release %02d", idx)
+		semantics = append(semantics, agginventory.MutableEndpointSemantic{
+			Semantic:     agginventory.EndpointSemanticDeploy,
+			Confidence:   "high",
+			Surface:      "workflow",
+			Operation:    operation,
+			EvidenceRefs: []string{operation},
+		})
+	}
+	var productionTargets []string
+	for idx := 0; idx < 70; idx++ {
+		productionTargets = append(productionTargets, fmt.Sprintf("prod-target-%02d", idx))
+	}
 
 	snapshot := Snapshot{
 		Target: source.Target{Mode: "path", Value: "./repos"},
 		Inventory: &agginventory.Inventory{
+			Tools: []agginventory.Tool{{
+				ToolID:                      "tool-1",
+				ToolType:                    "compiled_action",
+				ToolCategory:                "automation",
+				ConfidenceScore:             0.9,
+				Org:                         "acme",
+				Repos:                       []string{"acme/release"},
+				MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
+				MutableEndpointSemantics:    semantics,
+			}},
 			AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{{
 				AgentID:                     "agent-1",
 				ToolID:                      "tool-1",
@@ -549,6 +575,7 @@ func TestSavedStateOmitsEmbeddedClonesWhenRefsExist(t *testing.T) {
 				CredentialAccess:            true,
 				ApprovalGap:                 true,
 				RecommendedAction:           "control",
+				MatchedProductionTargets:    productionTargets,
 				MutableEndpointSemanticRefs: agginventory.CanonicalMutableEndpointRefs(semantics),
 				MutableEndpointSemantics:    semantics,
 				CredentialAuthorityRef:      agginventory.CanonicalCredentialAuthorityRef(authority),
@@ -578,9 +605,23 @@ func TestSavedStateOmitsEmbeddedClonesWhenRefsExist(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load raw snapshot: %v", err)
 	}
+	tool := raw.Inventory.Tools[0]
+	if len(tool.MutableEndpointSemanticRefs) == 0 {
+		t.Fatalf("expected canonical refs in raw saved tool, got %+v", tool)
+	}
+	if got, want := len(tool.MutableEndpointSemanticRefs), len(semantics); got != want {
+		t.Fatalf("expected raw saved tool to preserve all endpoint refs for hydration, got %d want %d", got, want)
+	}
+	if len(tool.MutableEndpointSemantics) > 0 {
+		t.Fatalf("expected raw saved tool to omit embedded endpoint clones, got %+v", tool)
+	}
+
 	entry := raw.Inventory.AgentPrivilegeMap[0]
 	if entry.CredentialAuthorityRef == "" || len(entry.AuthorityBindingRefs) == 0 || len(entry.MutableEndpointSemanticRefs) == 0 {
 		t.Fatalf("expected canonical refs in raw saved inventory, got %+v", entry)
+	}
+	if got, want := len(entry.MutableEndpointSemanticRefs), len(semantics); got != want {
+		t.Fatalf("expected raw saved inventory to preserve all endpoint refs for hydration, got %d want %d", got, want)
 	}
 	if entry.CredentialAuthority != nil || len(entry.AuthorityBindings) > 0 || len(entry.MutableEndpointSemantics) > 0 {
 		t.Fatalf("expected raw saved inventory to omit embedded clones, got %+v", entry)
@@ -589,6 +630,9 @@ func TestSavedStateOmitsEmbeddedClonesWhenRefsExist(t *testing.T) {
 	pathOut := raw.RiskReport.ActionPaths[0]
 	if pathOut.CredentialAuthorityRef == "" || len(pathOut.AuthorityBindingRefs) == 0 || len(pathOut.MutableEndpointSemanticRefs) == 0 {
 		t.Fatalf("expected canonical refs in raw saved action path, got %+v", pathOut)
+	}
+	if got, want := len(pathOut.MatchedProductionTargets), len(productionTargets); got != want {
+		t.Fatalf("expected raw saved action path to preserve all matched production targets, got %d want %d", got, want)
 	}
 	if pathOut.CredentialAuthority != nil || len(pathOut.AuthorityBindings) > 0 || len(pathOut.MutableEndpointSemantics) > 0 {
 		t.Fatalf("expected raw saved action path to omit embedded clones, got %+v", pathOut)
@@ -600,6 +644,20 @@ func TestSavedStateOmitsEmbeddedClonesWhenRefsExist(t *testing.T) {
 	}
 	if item.CredentialAuthority != nil || len(item.AuthorityBindings) > 0 {
 		t.Fatalf("expected raw saved backlog item to omit embedded clones, got %+v", item)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load saved snapshot: %v", err)
+	}
+	if got, want := len(loaded.Inventory.Tools[0].MutableEndpointSemantics), len(semantics); got != want {
+		t.Fatalf("expected loaded tool to hydrate all endpoint semantics, got %d want %d", got, want)
+	}
+	if got, want := len(loaded.Inventory.AgentPrivilegeMap[0].MutableEndpointSemantics), len(semantics); got != want {
+		t.Fatalf("expected loaded inventory to hydrate all endpoint semantics, got %d want %d", got, want)
+	}
+	if got, want := len(loaded.RiskReport.ActionPaths[0].MatchedProductionTargets), len(productionTargets); got != want {
+		t.Fatalf("expected loaded action path to preserve all matched production targets, got %d want %d", got, want)
 	}
 }
 

@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
@@ -176,7 +177,7 @@ func RenderMarkdown(summary Summary) string {
 				firstNonEmptyValue(strings.TrimSpace(compact.ImpactStatement), "Coverage metadata was unavailable."),
 			))
 		}
-		for _, claim := range summary.ScanQuality.AbsenceClaims {
+		for _, claim := range groupedAbsenceClaims(summary.ScanQuality.AbsenceClaims) {
 			if strings.TrimSpace(claim.Surface) == "" {
 				continue
 			}
@@ -184,9 +185,14 @@ func RenderMarkdown(summary Summary) string {
 			if len(claim.Reasons) > 0 {
 				reasons = strings.Join(claim.Reasons, ",")
 			}
-			builder.WriteString(fmt.Sprintf("- %s absence_status=%s reasons=%s impact=%s\n",
+			scope := ""
+			if claim.Count > 1 {
+				scope = fmt.Sprintf(" across %d repo(s)", claim.Count)
+			}
+			builder.WriteString(fmt.Sprintf("- %s absence_status=%s%s reasons=%s impact=%s\n",
 				claim.Surface,
 				claim.Status,
+				scope,
 				reasons,
 				firstNonEmptyValue(strings.TrimSpace(claim.Impact), "none"),
 			))
@@ -1175,6 +1181,79 @@ func renderDesignPartnerMarkdown(summary Summary) string {
 	builder.WriteString("- Semantic prompt or instruction findings stay labeled as review candidates until executable linkage, permissions, and authority are proven.\n")
 	builder.WriteString("\n")
 	return builder.String()
+}
+
+type renderedAbsenceClaim struct {
+	Surface string
+	Status  string
+	Reasons []string
+	Impact  string
+	Count   int
+}
+
+func groupedAbsenceClaims(claims []scanquality.AbsenceClaim) []renderedAbsenceClaim {
+	if len(claims) == 0 {
+		return nil
+	}
+	type group struct {
+		claim renderedAbsenceClaim
+		repos map[string]struct{}
+	}
+	groups := map[string]*group{}
+	for _, claim := range claims {
+		surface := strings.TrimSpace(claim.Surface)
+		if surface == "" {
+			continue
+		}
+		reasons := uniqueSortedStrings(claim.Reasons)
+		key := strings.Join([]string{
+			surface,
+			strings.TrimSpace(claim.Status),
+			strings.Join(reasons, "|"),
+			strings.TrimSpace(claim.Impact),
+		}, "\x00")
+		current := groups[key]
+		if current == nil {
+			current = &group{
+				claim: renderedAbsenceClaim{
+					Surface: surface,
+					Status:  strings.TrimSpace(claim.Status),
+					Reasons: reasons,
+					Impact:  strings.TrimSpace(claim.Impact),
+				},
+				repos: map[string]struct{}{},
+			}
+			groups[key] = current
+		}
+		repoKey := strings.TrimSpace(claim.Org) + "/" + strings.TrimSpace(claim.Repo)
+		if repoKey == "/" {
+			repoKey = surface
+		}
+		current.repos[repoKey] = struct{}{}
+	}
+	out := make([]renderedAbsenceClaim, 0, len(groups))
+	for _, item := range groups {
+		item.claim.Count = len(item.repos)
+		out = append(out, item.claim)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Surface != out[j].Surface {
+			return out[i].Surface < out[j].Surface
+		}
+		if out[i].Status != out[j].Status {
+			return out[i].Status < out[j].Status
+		}
+		leftReasons := strings.Join(out[i].Reasons, "|")
+		rightReasons := strings.Join(out[j].Reasons, "|")
+		if leftReasons != rightReasons {
+			return leftReasons < rightReasons
+		}
+		if out[i].Impact != out[j].Impact {
+			return out[i].Impact < out[j].Impact
+		}
+		return out[i].Count < out[j].Count
+	})
+	return out
 }
 
 func designPartnerItems(summary Summary) []AgentActionBOMItem {

@@ -81,8 +81,7 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 		group.entry.Remediation = firstNonEmptyValue(group.entry.Remediation, risk.RemediationForActionPath(path))
 		group.entry.ReachableActions = uniqueSortedStrings(append(group.entry.ReachableActions, append([]string(nil), path.ActionClasses...)...))
 		group.entry.MutableEndpointSemanticRefs = uniqueSortedStrings(append(group.entry.MutableEndpointSemanticRefs, append([]string(nil), path.MutableEndpointSemanticRefs...)...))
-		group.entry.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(append(group.entry.MutableEndpointSemantics, path.MutableEndpointSemantics...))
-		group.entry.EndpointRefGroupProjection = agginventory.BuildMutableEndpointGroupProjection(group.entry.MutableEndpointSemanticRefs, group.entry.MutableEndpointSemantics)
+		group.entry.MutableEndpointSemantics = append(group.entry.MutableEndpointSemantics, path.MutableEndpointSemantics...)
 		group.entry.PathIDs = uniqueSortedStrings(append(group.entry.PathIDs, strings.TrimSpace(path.PathID)))
 		group.entry.ActionPathCount = len(group.entry.PathIDs)
 		group.entry.GraphRefs = mergeRegistryGraphRefs(group.entry.GraphRefs, graphRefsByPath[strings.TrimSpace(path.PathID)])
@@ -127,6 +126,8 @@ func BuildActionSurfaceRegistry(summary Summary) []ActionSurfaceRegistryEntry {
 	})
 	out := make([]ActionSurfaceRegistryEntry, 0, len(ordered))
 	for _, group := range ordered {
+		group.entry.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(group.entry.MutableEndpointSemantics)
+		group.entry.EndpointRefGroupProjection = agginventory.BuildMutableEndpointGroupProjection(group.entry.MutableEndpointSemanticRefs, group.entry.MutableEndpointSemantics)
 		group.entry.MutableEndpointSemanticRefs = agginventory.BoundedMutableEndpointSemanticRefs(group.entry.MutableEndpointSemanticRefs, group.entry.MutableEndpointSemantics)
 		group.entry.MutableEndpointSemantics = agginventory.BoundedMutableEndpointSemantics(group.entry.MutableEndpointSemantics)
 		out = append(out, group.entry)

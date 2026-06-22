@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Clyra-AI/wrkr/core/state"
 )
 
 func TestScanProgressModeRejectsInvalidValue(t *testing.T) {
@@ -182,6 +184,58 @@ func TestScanStatusIncludesProgressFieldsDuringRun(t *testing.T) {
 	close(releaseRepo)
 	if code := <-done; code != exitSuccess {
 		t.Fatalf("scan failed: %d stderr=%q", code, errOut.String())
+	}
+}
+
+func TestScanStatusFlagsStaleRunningSidecarAsLikelyInterrupted(t *testing.T) {
+	t.Parallel()
+
+	statePath := filepath.Join(t.TempDir(), "last-scan.json")
+	oldProgress := time.Now().UTC().Add(-30 * time.Minute).Truncate(time.Second).Format(time.RFC3339)
+	if err := state.SaveScanStatus(statePath, state.ScanStatus{
+		Status:          state.ScanStatusRunning,
+		CurrentPhase:    "analysis",
+		ProgressPercent: 80,
+		LastProgressAt:  oldProgress,
+		UpdatedAt:       oldProgress,
+		PhaseProgress: &state.ScanPhaseProgress{
+			Phase:         "analysis",
+			Percent:       80,
+			Subphase:      "control_graph",
+			SubphaseStep:  3,
+			SubphaseTotal: 7,
+		},
+	}); err != nil {
+		t.Fatalf("save scan status: %v", err)
+	}
+
+	var jsonOut bytes.Buffer
+	var jsonErr bytes.Buffer
+	if statusCode := Run([]string{"scan", "status", "--state", statePath, "--json"}, &jsonOut, &jsonErr); statusCode != exitSuccess {
+		t.Fatalf("scan status failed: %d stderr=%q", statusCode, jsonErr.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(jsonOut.Bytes(), &payload); err != nil {
+		t.Fatalf("parse status: %v", err)
+	}
+	if payload["likely_interrupted"] != true {
+		t.Fatalf("expected stale running status to be diagnosed as likely interrupted, got %v", payload)
+	}
+	if _, ok := payload["diagnostic_reason"].(string); !ok {
+		t.Fatalf("expected diagnostic reason, got %v", payload)
+	}
+	steps, ok := payload["diagnostic_next_steps"].([]any)
+	if !ok || len(steps) == 0 {
+		t.Fatalf("expected diagnostic next steps, got %v", payload)
+	}
+
+	var humanOut bytes.Buffer
+	var humanErr bytes.Buffer
+	if statusCode := Run([]string{"scan", "status", "--state", statePath}, &humanOut, &humanErr); statusCode != exitSuccess {
+		t.Fatalf("human scan status failed: %d stderr=%q", statusCode, humanErr.String())
+	}
+	if !strings.Contains(humanOut.String(), "diagnostic likely_interrupted=true") {
+		t.Fatalf("expected human status diagnostic, got %q", humanOut.String())
 	}
 }
 

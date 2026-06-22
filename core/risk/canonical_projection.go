@@ -4,6 +4,12 @@ import (
 	"strings"
 
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
+)
+
+const (
+	maxOutputEvidenceRefs       = 64
+	maxOutputEndpointOperations = 32
 )
 
 func BackfillCanonicalProjectionRefs(paths []ActionPath, inventory *agginventory.Inventory) []ActionPath {
@@ -79,7 +85,92 @@ func StripCanonicalProjectionDetails(paths []ActionPath) []ActionPath {
 		if len(copyPath.AuthorityBindingRefs) > 0 {
 			copyPath.AuthorityBindings = nil
 		}
+		copyPath = stripActionPathOutputEvidenceDetails(copyPath)
 		out = append(out, copyPath)
+	}
+	return out
+}
+
+func stripActionPathOutputEvidenceDetails(path ActionPath) ActionPath {
+	path.ControlEvidenceRefs = boundedOutputEvidenceRefs(path.ControlEvidenceRefs)
+	path.ConstraintEvidenceRefs = boundedOutputEvidenceRefs(path.ConstraintEvidenceRefs)
+	path.TargetClassEvidenceRefs = boundedOutputEvidenceRefs(path.TargetClassEvidenceRefs)
+	path.ActionPathTypeEvidenceRefs = boundedOutputEvidenceRefs(path.ActionPathTypeEvidenceRefs)
+	path.PolicyEvidenceRefs = boundedOutputEvidenceRefs(path.PolicyEvidenceRefs)
+	path.AutonomyTierEvidenceRefs = boundedOutputEvidenceRefs(path.AutonomyTierEvidenceRefs)
+	path.RiskClassificationValidationRefs = boundedOutputEvidenceRefs(path.RiskClassificationValidationRefs)
+	path.StateLocationRefs = boundedOutputEvidenceRefs(path.StateLocationRefs)
+	path.StateDigestRefs = boundedOutputEvidenceRefs(path.StateDigestRefs)
+	path.EvidencePacketRefs = boundedOutputEvidenceRefs(path.EvidencePacketRefs)
+	path.AttackPathRefs = boundedOutputEvidenceRefs(path.AttackPathRefs)
+	path.SourceFindingKeys = boundedOutputEvidenceRefs(path.SourceFindingKeys)
+	path.WorkflowChainRefs = boundedOutputEvidenceRefs(path.WorkflowChainRefs)
+	path.DecisionTraceRefs = boundedOutputEvidenceRefs(path.DecisionTraceRefs)
+	path.MatchedProductionTargets = dedupeSortedStrings(path.MatchedProductionTargets)
+
+	path.EvidenceDecisions = append([]evidencepolicy.Decision(nil), path.EvidenceDecisions...)
+	for idx := range path.EvidenceDecisions {
+		path.EvidenceDecisions[idx] = cloneEvidenceDecision(path.EvidenceDecisions[idx])
+		path.EvidenceDecisions[idx].SelectedEvidenceRefs = boundedOutputEvidenceRefs(path.EvidenceDecisions[idx].SelectedEvidenceRefs)
+		for detailIdx := range path.EvidenceDecisions[idx].RejectedCandidates {
+			path.EvidenceDecisions[idx].RejectedCandidates[detailIdx].EvidenceRefs = boundedOutputEvidenceRefs(path.EvidenceDecisions[idx].RejectedCandidates[detailIdx].EvidenceRefs)
+		}
+	}
+	path.Contradictions = cloneContradictionsForOutput(path.Contradictions)
+	for idx := range path.Contradictions {
+		path.Contradictions[idx].EvidenceRefs = boundedOutputEvidenceRefs(path.Contradictions[idx].EvidenceRefs)
+	}
+
+	path.HighStakesPresets = CloneHighStakesPresets(path.HighStakesPresets)
+	for idx := range path.HighStakesPresets {
+		path.HighStakesPresets[idx].EvidenceRefs = boundedOutputEvidenceRefs(path.HighStakesPresets[idx].EvidenceRefs)
+	}
+	path.ClosureRequirements = CloneClosureRequirements(path.ClosureRequirements)
+	for idx := range path.ClosureRequirements {
+		path.ClosureRequirements[idx].ClosureRefs = boundedOutputEvidenceRefs(path.ClosureRequirements[idx].ClosureRefs)
+	}
+	if path.ProductionContext != nil {
+		path.ProductionContext = CloneProductionContext(path.ProductionContext)
+		path.ProductionContext.EvidenceRefs = boundedOutputEvidenceRefs(path.ProductionContext.EvidenceRefs)
+		path.ProductionContext.MutableEndpointOperations = boundedOutputStrings(path.ProductionContext.MutableEndpointOperations, maxOutputEndpointOperations)
+	}
+	if path.AgenticDeliverySystemChange != nil {
+		path.AgenticDeliverySystemChange = CloneAgenticDeliverySystemChange(path.AgenticDeliverySystemChange)
+		path.AgenticDeliverySystemChange.EvidenceRefs = boundedOutputEvidenceRefs(path.AgenticDeliverySystemChange.EvidenceRefs)
+		path.AgenticDeliverySystemChange.ReachableTargets = boundedOutputStrings(path.AgenticDeliverySystemChange.ReachableTargets, maxOutputEndpointOperations)
+	}
+	if path.DecisionPrecedent != nil {
+		path.DecisionPrecedent = CloneDecisionPrecedent(path.DecisionPrecedent)
+		path.DecisionPrecedent.EvidenceRefs = boundedOutputEvidenceRefs(path.DecisionPrecedent.EvidenceRefs)
+	}
+	if path.ActionLineage != nil {
+		path.ActionLineage = CloneActionLineage(path.ActionLineage)
+		for idx := range path.ActionLineage.Segments {
+			path.ActionLineage.Segments[idx].EvidenceRefs = boundedOutputEvidenceRefs(path.ActionLineage.Segments[idx].EvidenceRefs)
+		}
+	}
+	return path
+}
+
+func boundedOutputEvidenceRefs(values []string) []string {
+	return boundedOutputStrings(values, maxOutputEvidenceRefs)
+}
+
+func boundedOutputStrings(values []string, limit int) []string {
+	values = dedupeSortedStrings(values)
+	if limit <= 0 || len(values) <= limit {
+		return values
+	}
+	return append([]string(nil), values[:limit]...)
+}
+
+func cloneContradictionsForOutput(contradictions []evidencepolicy.Contradiction) []evidencepolicy.Contradiction {
+	if len(contradictions) == 0 {
+		return nil
+	}
+	out := append([]evidencepolicy.Contradiction(nil), contradictions...)
+	for idx := range out {
+		out[idx].EvidenceRefs = append([]string(nil), out[idx].EvidenceRefs...)
 	}
 	return out
 }
