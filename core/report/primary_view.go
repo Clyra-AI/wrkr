@@ -183,10 +183,7 @@ func agentActionBOMItemEligibleForPrimaryView(item AgentActionBOMItem) bool {
 	if !bomItemEligible(item) {
 		return false
 	}
-	if strings.TrimSpace(item.ConfidenceLane) == risk.ConfidenceLaneContextOnly {
-		return false
-	}
-	return true
+	return bomItemPromotableActionPath(item)
 }
 
 func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem, selectionReason string) *AgentActionBOMPrimaryView {

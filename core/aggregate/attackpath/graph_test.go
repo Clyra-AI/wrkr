@@ -432,11 +432,35 @@ func TestBuildControlPathGraphUsesBoundedEndpointProjection(t *testing.T) {
 	if len(grouped.MutableEndpointSemantics) > 0 {
 		t.Fatalf("expected graph node to omit embedded endpoint payload clones by default, got %+v", grouped)
 	}
+	targetCount := 0
+	for _, node := range graph.Nodes {
+		if node.Kind == ControlPathNodeTarget {
+			targetCount++
+			if strings.HasPrefix(node.Label, "POST /v1/refunds/") {
+				t.Fatalf("expected endpoint operations to be grouped before target-node emission, got %s", node.Label)
+			}
+		}
+	}
+	if targetCount > maxControlPathTargetsPerPath {
+		t.Fatalf("expected bounded target nodes, got %d nodes in %+v", targetCount, graph.Nodes)
+	}
+	if !hasControlPathNodeLabel(graph.Nodes, ControlPathNodeTarget, "endpoint_class:refund:48") {
+		t.Fatalf("expected grouped endpoint target label, got %+v", graph.Nodes)
+	}
 }
 
 func hasControlPathNodeKind(nodes []ControlPathNode, want string) bool {
 	for _, node := range nodes {
 		if node.Kind == want {
+			return true
+		}
+	}
+	return false
+}
+
+func hasControlPathNodeLabel(nodes []ControlPathNode, kind string, label string) bool {
+	for _, node := range nodes {
+		if node.Kind == kind && node.Label == label {
 			return true
 		}
 	}

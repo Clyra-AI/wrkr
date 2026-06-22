@@ -50,6 +50,9 @@ type ScanStatus struct {
 	ArtifactPaths       map[string]string       `json:"artifact_paths,omitempty"`
 	PhaseTimings        []PhaseTiming           `json:"phase_timings,omitempty"`
 	SourcePrivacy       *sourceprivacy.Contract `json:"source_privacy,omitempty"`
+	LikelyInterrupted   bool                    `json:"likely_interrupted,omitempty"`
+	DiagnosticReason    string                  `json:"diagnostic_reason,omitempty"`
+	DiagnosticNextSteps []string                `json:"diagnostic_next_steps,omitempty"`
 }
 
 type PhaseTiming struct {
@@ -158,6 +161,18 @@ func normalizeScanStatus(statePath string, status ScanStatus) ScanStatus {
 	status.StatePath = filepath.Clean(fallbackString(status.StatePath, ResolvePath(statePath)))
 	status.ProgressMessage = strings.TrimSpace(status.ProgressMessage)
 	status.LastProgressAt = strings.TrimSpace(status.LastProgressAt)
+	status.DiagnosticReason = strings.TrimSpace(status.DiagnosticReason)
+	if len(status.DiagnosticNextSteps) > 0 {
+		steps := make([]string, 0, len(status.DiagnosticNextSteps))
+		for _, step := range status.DiagnosticNextSteps {
+			step = strings.TrimSpace(step)
+			if step == "" {
+				continue
+			}
+			steps = append(steps, step)
+		}
+		status.DiagnosticNextSteps = steps
+	}
 	if status.ArtifactPaths != nil {
 		normalized := map[string]string{}
 		for key, value := range status.ArtifactPaths {

@@ -19,7 +19,7 @@ Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evi
 Credential authority: no credential authority was linked to this path
 High-stakes: mutable_endpoint (mutable_endpoint:present); payment_flow (payment_surface:detected); production_path (production_path:detected); regulated_customer_workflow (customer_or_regulated_surface:detected)
 Mutable endpoint: 20 grouped endpoint semantics; 4 route groups; production_mutation x6, refund x4, write x3, data_export x2; samples=endpoint-8be61507 | endpoint-dc74895a | endpoint-d66e2561 | endpoint-c43f7237 | endpoint-0d2751ad | endpoint-0315367e | endpoint-412970ad
-Production context: status=correlated, surface=label-dd191250, credential=no credential evidence, target=production_impacting, deployment=unknown, operations=label-8be61507,label-c43f7237,label-dc74895a,label-d66e2561,label-0d2751ad,label-0315367e,label-412970ad
+Production context: status=correlated, surface=label-dd191250, credential=no credential evidence, target=production_impacting, deployment=unknown, operations=label-0315367e,label-0d2751ad,label-412970ad,label-8be61507,label-c43f7237,label-d66e2561,label-dc74895a
 Owner: owner-c6dd827f
 Purpose: purpose not confirmed
 Lineage: label-9431ef09 -> label-119136f6 -> label-844ed1a9 -> label-d236d5a6 -> label-9614be72 -> label-dd191250 -> label-dd191250 -> label-880ec2e1 -> label-190c1a6b -> label-b23a6a84 (missing) -> label-eb24c1ad -> label-c6dd827f -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-78aef3a3
@@ -49,7 +49,7 @@ Proof gap: proof=path-specific proof not found, policy=none, runtime=runtime evi
 Credential authority: no credential authority was linked to this path
 High-stakes: external_egress (external_egress:detected); mutable_endpoint (mutable_endpoint:present); payment_flow (payment_surface:detected); production_path (production_path:detected); regulated_customer_workflow (customer_or_regulated_surface:detected)
 Mutable endpoint: 19 grouped endpoint semantics; 4 route groups; production_mutation x5, refund x4, data_export x3, write x3; samples=endpoint-dc74895a | endpoint-73437816 | endpoint-d66e2561 | endpoint-0d2751ad | endpoint-fed73031 | endpoint-0315367e | endpoint-412970ad
-Production context: status=correlated, surface=label-6dd0f3ed, credential=no credential evidence, target=production_impacting, deployment=unknown, operations=label-73437816,label-fed73031,label-dc74895a,label-d66e2561,label-0d2751ad,label-0315367e,label-412970ad
+Production context: status=correlated, surface=label-6dd0f3ed, credential=no credential evidence, target=production_impacting, deployment=unknown, operations=label-0315367e,label-0d2751ad,label-412970ad,label-73437816,label-d66e2561,label-dc74895a,label-fed73031
 Owner: owner-ab37caea
 Purpose: purpose not confirmed
 Lineage: label-9431ef09 -> label-119136f6 -> label-844ed1a9 -> label-d236d5a6 -> label-9614be72 -> label-6dd0f3ed -> label-6dd0f3ed -> label-837b932d -> label-44b4c4e4 -> credential (missing) -> label-eb24c1ad -> label-ab37caea -> label-05227691 (missing) -> label-a6769766 -> label-eb24c1ad -> label-dcf46005 -> label-2575fc52 (missing) -> label-3ebe56d9

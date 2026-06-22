@@ -246,6 +246,7 @@ func BuildActionPaths(attackPaths []riskattack.ScoredPath, inventory *agginvento
 	if len(paths) == 0 {
 		return nil, nil
 	}
+	paths = finalizeActionPathEndpointProjections(paths)
 	paths = DecorateActionPaths(paths)
 	paths = LinkAttackPaths(paths, attackPaths)
 	paths = applyLinkedAttackPathScores(paths, attackPaths)
@@ -495,8 +496,8 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 		}
 	}
 	merged.MutableEndpointSemanticRefs = dedupeSortedStrings(append(append([]string(nil), current.MutableEndpointSemanticRefs...), incoming.MutableEndpointSemanticRefs...))
-	merged.MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(append(append([]agginventory.MutableEndpointSemantic(nil), current.MutableEndpointSemantics...), incoming.MutableEndpointSemantics...))
-	merged.EndpointRefGroupProjection = agginventory.BuildMutableEndpointGroupProjection(merged.MutableEndpointSemanticRefs, merged.MutableEndpointSemantics)
+	merged.MutableEndpointSemantics = append(append([]agginventory.MutableEndpointSemantic(nil), current.MutableEndpointSemantics...), incoming.MutableEndpointSemantics...)
+	merged.EndpointRefGroupProjection = mergeEndpointRefGroupProjection(current.EndpointRefGroupProjection, incoming.EndpointRefGroupProjection)
 	merged.MatchedProductionTargets = dedupeSortedStrings(append(append([]string(nil), current.MatchedProductionTargets...), incoming.MatchedProductionTargets...))
 	merged.ProductionTargetStatus = mergeProductionTargetStatus(current.ProductionTargetStatus, incoming.ProductionTargetStatus)
 	merged.SecurityVisibilityStatus = mergeSecurityVisibilityStatus(current.SecurityVisibilityStatus, incoming.SecurityVisibilityStatus)
@@ -587,6 +588,22 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.DecisionTraceRefs = dedupeSortedStrings(append(append([]string(nil), current.DecisionTraceRefs...), incoming.DecisionTraceRefs...))
 	merged.ActionLineage = CloneActionLineage(firstNonNilLineage(current.ActionLineage, incoming.ActionLineage))
 	return merged
+}
+
+func finalizeActionPathEndpointProjections(paths []ActionPath) []ActionPath {
+	for idx := range paths {
+		paths[idx].MutableEndpointSemanticRefs = dedupeSortedStrings(paths[idx].MutableEndpointSemanticRefs)
+		paths[idx].MutableEndpointSemantics = agginventory.NormalizeMutableEndpointSemantics(paths[idx].MutableEndpointSemantics)
+		paths[idx].EndpointRefGroupProjection = agginventory.BuildMutableEndpointGroupProjection(paths[idx].MutableEndpointSemanticRefs, paths[idx].MutableEndpointSemantics)
+	}
+	return paths
+}
+
+func mergeEndpointRefGroupProjection(current, incoming agginventory.EndpointRefGroupProjection) agginventory.EndpointRefGroupProjection {
+	if current.EndpointRefCount >= incoming.EndpointRefCount {
+		return current
+	}
+	return incoming
 }
 
 func summarizeActionPaths(paths []ActionPath) ActionPathSummary {

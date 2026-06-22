@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -43,21 +45,23 @@ func BuildArtifactMetadata(summary Summary, sourceArtifactRefs []string, variant
 		shareability = ArtifactShareabilityShareable
 	}
 	sourceRefs := uniqueSortedStrings(sourceArtifactRefs)
+	sourceDigests := sourceArtifactDigests(sourceRefs)
 	joinMapPath := strings.TrimSpace(privateJoinMapPath)
 	if shareability == ArtifactShareabilityShareable {
 		sourceRefs = redactStringSlice(sourceRefs, "artifact")
 		joinMapPath = ""
 	}
 	return &ArtifactMetadata{
-		ArtifactID:         buildArtifactID(summary, variantKind),
-		PairID:             strings.TrimSpace(pairID),
-		VariantKind:        strings.TrimSpace(variantKind),
-		ShareProfile:       strings.TrimSpace(summary.ShareProfile),
-		RedactionVersion:   redactionVersion,
-		SelectedFields:     selectedFields,
-		SourceArtifactRefs: sourceRefs,
-		PrivateJoinMapPath: joinMapPath,
-		ShareabilityStatus: shareability,
+		ArtifactID:            buildArtifactID(summary, variantKind),
+		PairID:                strings.TrimSpace(pairID),
+		VariantKind:           strings.TrimSpace(variantKind),
+		ShareProfile:          strings.TrimSpace(summary.ShareProfile),
+		RedactionVersion:      redactionVersion,
+		SelectedFields:        selectedFields,
+		SourceArtifactRefs:    sourceRefs,
+		SourceArtifactDigests: sourceDigests,
+		PrivateJoinMapPath:    joinMapPath,
+		ShareabilityStatus:    shareability,
 	}
 }
 
@@ -160,6 +164,37 @@ func PairedArtifactPath(path string, suffix string) string {
 	return base + "-" + suffix + ext
 }
 
+func sourceArtifactDigests(sourceArtifactRefs []string) []string {
+	digests := []string{}
+	for _, ref := range uniqueSortedStrings(sourceArtifactRefs) {
+		ref = strings.TrimSpace(ref)
+		if ref == "" {
+			continue
+		}
+		digest, ok := fileSHA256Digest(ref)
+		if !ok {
+			continue
+		}
+		digests = append(digests, digest)
+	}
+	return uniqueSortedStrings(digests)
+}
+
+func fileSHA256Digest(path string) (string, bool) {
+	file, err := os.Open(path) // #nosec G304 -- artifact refs are explicit local report inputs.
+	if err != nil {
+		return "", false
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", false
+	}
+	return "sha256:" + hex.EncodeToString(hash.Sum(nil)), true
+}
+
 func cloneArtifactMetadata(in *ArtifactMetadata) *ArtifactMetadata {
 	if in == nil {
 		return nil
@@ -167,6 +202,7 @@ func cloneArtifactMetadata(in *ArtifactMetadata) *ArtifactMetadata {
 	out := *in
 	out.SelectedFields = append([]string(nil), in.SelectedFields...)
 	out.SourceArtifactRefs = append([]string(nil), in.SourceArtifactRefs...)
+	out.SourceArtifactDigests = append([]string(nil), in.SourceArtifactDigests...)
 	return &out
 }
 

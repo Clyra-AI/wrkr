@@ -143,15 +143,16 @@ type ShareProfileMetadata struct {
 }
 
 type ArtifactMetadata struct {
-	ArtifactID         string   `json:"artifact_id"`
-	PairID             string   `json:"pair_id,omitempty"`
-	VariantKind        string   `json:"variant_kind,omitempty"`
-	ShareProfile       string   `json:"share_profile,omitempty"`
-	RedactionVersion   string   `json:"redaction_version,omitempty"`
-	SelectedFields     []string `json:"selected_fields,omitempty"`
-	SourceArtifactRefs []string `json:"source_artifact_refs,omitempty"`
-	PrivateJoinMapPath string   `json:"private_join_map_path,omitempty"`
-	ShareabilityStatus string   `json:"shareability_status,omitempty"`
+	ArtifactID            string   `json:"artifact_id"`
+	PairID                string   `json:"pair_id,omitempty"`
+	VariantKind           string   `json:"variant_kind,omitempty"`
+	ShareProfile          string   `json:"share_profile,omitempty"`
+	RedactionVersion      string   `json:"redaction_version,omitempty"`
+	SelectedFields        []string `json:"selected_fields,omitempty"`
+	SourceArtifactRefs    []string `json:"source_artifact_refs,omitempty"`
+	SourceArtifactDigests []string `json:"source_artifact_digests,omitempty"`
+	PrivateJoinMapPath    string   `json:"private_join_map_path,omitempty"`
+	ShareabilityStatus    string   `json:"shareability_status,omitempty"`
 }
 
 type ArtifactBudget struct {

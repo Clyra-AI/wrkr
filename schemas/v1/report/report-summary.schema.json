@@ -236,6 +236,10 @@
           "type": "array",
           "items": {"type": "string"}
         },
+        "source_artifact_digests": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
         "private_join_map_path": {"type": "string"},
         "shareability_status": {
           "type": "string",

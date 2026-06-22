@@ -27,6 +27,8 @@ type scanStatusTracker struct {
 	lastProgress scanProgressSnapshot
 }
 
+const scanStatusStaleAfter = 10 * time.Minute
+
 func runScanStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	jsonRequested := wantsJSONOutput(args)
 	fs := flag.NewFlagSet("scan status", flag.ContinueOnError)
@@ -52,6 +54,7 @@ func runScanStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 	if err != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 	}
+	status = decorateScanStatusForInspection(status, time.Now().UTC())
 	if *jsonOut {
 		_ = json.NewEncoder(stdout).Encode(status)
 		return exitSuccess
@@ -88,7 +91,59 @@ func runScanStatus(args []string, stdout io.Writer, stderr io.Writer) int {
 			_, _ = fmt.Fprintf(stdout, "source privacy warning: %s\n", warning)
 		}
 	}
+	if status.LikelyInterrupted {
+		_, _ = fmt.Fprintf(stdout, "diagnostic likely_interrupted=true reason=%s\n", status.DiagnosticReason)
+		for _, step := range status.DiagnosticNextSteps {
+			_, _ = fmt.Fprintf(stdout, "diagnostic next_step=%s\n", step)
+		}
+	}
 	return exitSuccess
+}
+
+func decorateScanStatusForInspection(status state.ScanStatus, now time.Time) state.ScanStatus {
+	if status.Status != state.ScanStatusRunning || now.IsZero() {
+		return status
+	}
+	lastProgress := scanStatusLastProgress(status)
+	if lastProgress.IsZero() || now.Before(lastProgress) || now.Sub(lastProgress) < scanStatusStaleAfter {
+		return status
+	}
+	status.LikelyInterrupted = true
+	status.DiagnosticReason = fmt.Sprintf("running status has not advanced for %s; the scan process may have been killed outside Wrkr", roundStatusDuration(now.Sub(lastProgress)))
+	status.DiagnosticNextSteps = []string{
+		"check whether a wrkr scan process is still running for this state path",
+		"check OS OOM or SIGKILL logs; Linux: dmesg -T | grep -i 'killed process\\|out of memory'; macOS: log show --last 1h --predicate 'eventMessage CONTAINS[c] \"memory\" OR eventMessage CONTAINS[c] \"killed\"'",
+		"rerun with --progress events --progress-heap and --json-path so scan output stays on disk",
+	}
+	return status
+}
+
+func scanStatusLastProgress(status state.ScanStatus) time.Time {
+	for _, raw := range []string{status.LastProgressAt, status.UpdatedAt, status.StartedAt} {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		parsed, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			continue
+		}
+		return parsed.UTC()
+	}
+	return time.Time{}
+}
+
+func roundStatusDuration(duration time.Duration) string {
+	if duration < 0 {
+		return "0s"
+	}
+	if duration >= time.Hour {
+		return duration.Round(time.Minute).String()
+	}
+	if duration >= time.Minute {
+		return duration.Round(time.Second).String()
+	}
+	return duration.Round(time.Second).String()
 }
 
 func newScanStatusTracker(statePath string, target source.Target, targets []source.Target, startedAt time.Time, artifactPaths map[string]string, sourcePrivacy sourceprivacy.Contract) *scanStatusTracker {

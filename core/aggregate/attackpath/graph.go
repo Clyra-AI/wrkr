@@ -13,6 +13,10 @@ import (
 	"github.com/Clyra-AI/wrkr/core/model"
 )
 
+const (
+	maxControlPathTargetsPerPath = 16
+)
+
 type Node struct {
 	NodeID       string `json:"node_id"`
 	Org          string `json:"org"`
@@ -958,18 +962,75 @@ func controlSourceRefs(repo string, location string) []string {
 
 func controlTargets(path ControlPathInput) []string {
 	values := uniqueSortedStrings(path.MatchedProductionTargets)
-	for _, item := range agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics) {
-		if strings.TrimSpace(item.Operation) != "" {
-			values = append(values, strings.TrimSpace(item.Operation))
-			continue
-		}
-		values = append(values, strings.TrimSpace(item.Semantic))
-	}
-	values = uniqueSortedStrings(values)
+	values = append(values, endpointTargetGroups(path)...)
+	values = capControlTargets(uniqueSortedStrings(values))
 	if len(values) == 0 && path.ProductionWrite {
 		return []string{"unknown_production_target"}
 	}
 	return values
+}
+
+func endpointTargetGroups(path ControlPathInput) []string {
+	projection := agginventory.BackfillMutableEndpointGroupProjection(path.EndpointRefGroupProjection, path.MutableEndpointSemanticRefs, path.MutableEndpointSemantics)
+	out := make([]string, 0, maxControlPathTargetsPerPath)
+	for _, item := range projection.EndpointOperationCounts {
+		if len(out) >= maxControlPathTargetsPerPath {
+			break
+		}
+		class := strings.TrimSpace(item.Class)
+		if class == "" {
+			continue
+		}
+		count := item.Count
+		if count <= 0 {
+			out = append(out, "endpoint_class:"+class)
+			continue
+		}
+		out = append(out, fmt.Sprintf("endpoint_class:%s:%d", class, count))
+	}
+	if len(out) == 0 {
+		for _, group := range projection.EndpointRouteGroups {
+			if len(out) >= maxControlPathTargetsPerPath {
+				break
+			}
+			group = strings.TrimSpace(group)
+			if group == "" {
+				continue
+			}
+			out = append(out, "endpoint_route:"+group)
+		}
+	}
+	if len(out) == 0 {
+		seen := map[string]int{}
+		for _, item := range agginventory.NormalizeMutableEndpointSemantics(path.MutableEndpointSemantics) {
+			semantic := strings.TrimSpace(item.Semantic)
+			if semantic == "" {
+				continue
+			}
+			seen[semantic]++
+		}
+		var classes []string
+		for class := range seen {
+			classes = append(classes, class)
+		}
+		sort.Strings(classes)
+		for _, class := range classes {
+			if len(out) >= maxControlPathTargetsPerPath {
+				break
+			}
+			out = append(out, fmt.Sprintf("endpoint_class:%s:%d", class, seen[class]))
+		}
+	}
+	return uniqueSortedStrings(out)
+}
+
+func capControlTargets(values []string) []string {
+	if len(values) <= maxControlPathTargetsPerPath {
+		return values
+	}
+	out := append([]string(nil), values[:maxControlPathTargetsPerPath-1]...)
+	out = append(out, fmt.Sprintf("additional_targets:%d", len(values)-len(out)))
+	return out
 }
 
 func controlPathIntentStatus(path ControlPathInput) string {
