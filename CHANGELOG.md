@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Hardened large-org Agent Action BOM scan/report output by grouping endpoint-derived graph targets, demoting static API-spec context from primary Top Action Paths, bounding repeated endpoint/evidence projections in saved state and reports, adding stale scan-status diagnostics, and adding source artifact SHA-256 digests to report metadata. Validation receipts include a 40-repo endpoint-heavy mock scan reducing saved state from ~142 MB to ~38 MB, `TestScanStatusFlagsStaleRunningSidecarAsLikelyInterrupted`, `TestBuildArtifactMetadataIncludesSourceArtifactDigests`, endpoint graph cap tests, and primary-view static-context tests.
+- (none yet)
 
 ### Security
 
@@ -38,6 +38,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.9.1] - 2026-06-22
+<!-- release-semver: patch -->
+
+### Fixed
+
+- Hardened large-org Agent Action BOM scan/report output by grouping endpoint-derived graph targets, demoting static API-spec context from primary Top Action Paths, bounding repeated endpoint/evidence projections in saved state and reports, adding stale scan-status diagnostics, and adding source artifact SHA-256 digests to report metadata. Validation receipts include a 40-repo endpoint-heavy mock scan reducing saved state from ~142 MB to ~38 MB, `TestScanStatusFlagsStaleRunningSidecarAsLikelyInterrupted`, `TestBuildArtifactMetadataIncludesSourceArtifactDigests`, endpoint graph cap tests, and primary-view static-context tests.
 
 ## [v1.9.0] - 2026-06-18
 <!-- release-semver: minor -->
