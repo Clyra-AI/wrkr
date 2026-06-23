@@ -105,10 +105,15 @@ func selectAgentActionBOMPrimaryView(bom *AgentActionBOM, focusPathID string) er
 	case "":
 		selected := defaultAgentActionBOMPrimaryItem(bom.Items)
 		if selected == nil {
+			selected = defaultAgentActionBOMPrimaryItem(bom.focusSourceItems)
+		}
+		if selected == nil {
 			bom.Summary.PrimaryView = nil
 			return nil
 		}
-		bom.Summary.PrimaryView = buildAgentActionBOMPrimaryView(bom, primaryViewSourceItem(bom, *selected), AgentActionBOMPrimarySelectionDefaultTopPath)
+		sourceItem := primaryViewSourceItem(bom, *selected)
+		bom.Summary.PrimaryView = buildAgentActionBOMPrimaryView(bom, sourceItem, AgentActionBOMPrimarySelectionDefaultTopPath)
+		ensureAgentActionBOMPrimaryItemVisible(bom, sourceItem)
 		return nil
 	default:
 		matches := agentActionBOMItemsByPathID(bom.Items, trimmedFocus)
@@ -126,7 +131,9 @@ func selectAgentActionBOMPrimaryView(bom *AgentActionBOM, focusPathID string) er
 				}
 				return &agentActionBOMFocusError{pathID: trimmedFocus, reason: reason}
 			}
-			bom.Summary.PrimaryView = buildAgentActionBOMPrimaryView(bom, primaryViewSourceItem(bom, matches[0]), AgentActionBOMPrimarySelectionExplicitFocusPath)
+			sourceItem := primaryViewSourceItem(bom, matches[0])
+			bom.Summary.PrimaryView = buildAgentActionBOMPrimaryView(bom, sourceItem, AgentActionBOMPrimarySelectionExplicitFocusPath)
+			ensureAgentActionBOMPrimaryItemVisible(bom, sourceItem)
 			return nil
 		default:
 			return &agentActionBOMFocusError{pathID: trimmedFocus, reason: "ambiguous"}
@@ -184,6 +191,38 @@ func agentActionBOMItemEligibleForPrimaryView(item AgentActionBOMItem) bool {
 		return false
 	}
 	return bomItemPromotableActionPath(item)
+}
+
+func ensureAgentActionBOMPrimaryItemVisible(bom *AgentActionBOM, item AgentActionBOMItem) {
+	if bom == nil {
+		return
+	}
+	pathID := strings.TrimSpace(item.PathID)
+	if pathID == "" {
+		return
+	}
+	visible := canonicalVisibleAgentActionBOMItem(item)
+	for idx := range bom.Items {
+		if strings.TrimSpace(bom.Items[idx].PathID) != pathID {
+			continue
+		}
+		bom.Items[idx] = visible
+		return
+	}
+	if len(bom.Items) == 0 {
+		bom.Items = []AgentActionBOMItem{visible}
+		return
+	}
+	bom.Items[len(bom.Items)-1] = visible
+}
+
+func canonicalVisibleAgentActionBOMItem(item AgentActionBOMItem) AgentActionBOMItem {
+	bom := &AgentActionBOM{Items: []AgentActionBOMItem{item}}
+	stripped := stripAgentActionBOMCanonicalProjectionDetails(backfillAgentActionBOMCanonicalProjectionRefs(bom))
+	if stripped == nil || len(stripped.Items) != 1 {
+		return item
+	}
+	return stripped.Items[0]
 }
 
 func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem, selectionReason string) *AgentActionBOMPrimaryView {

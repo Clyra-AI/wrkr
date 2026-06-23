@@ -163,7 +163,7 @@
           ]
         },
         {
-          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+          "closure_recommendation": "attach or import approval, proof, or runtime evidence before making a control claim",
           "count": 1,
           "dimensions": {
             "action_class": "deploy",
@@ -232,7 +232,7 @@
           ]
         },
         {
-          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+          "closure_recommendation": "attach or import approval, proof, or runtime evidence before making a control claim",
           "count": 1,
           "dimensions": {
             "action_class": "read",
@@ -266,7 +266,7 @@
           ]
         },
         {
-          "closure_recommendation": "attach missing approval, proof, or runtime evidence before promotion",
+          "closure_recommendation": "attach or import approval, proof, or runtime evidence before making a control claim",
           "count": 1,
           "dimensions": {
             "action_class": "read",

@@ -99,6 +99,15 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		model.governableScore = float64(governFirstPriorityScore(path))
 		return model
 	}
+	if pathIsStandardCIControlContext(path) {
+		model.controlPriority = ControlPriorityInventoryHygiene
+		model.controlPriorityRank = 2
+		model.riskTier = RiskTierLow
+		model.riskTierRank = 3
+		model.recommendedAction = "inventory"
+		model.governableScore = 0
+		return model
+	}
 
 	switch {
 	case path.ProductionWrite ||
@@ -172,6 +181,108 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		model.governableScore = 0
 	}
 	return model
+}
+
+func pathIsStandardCIControlContext(path ActionPath) bool {
+	if !pathLooksLikeCIWorkflow(path) {
+		return false
+	}
+	if path.AttackPathScore >= 8.5 {
+		return false
+	}
+	if pathHasAgenticCIInfluence(path) || pathHasHighImpactDeliveryEvidence(path) {
+		return false
+	}
+	return path.CredentialAccess ||
+		path.WriteCapable ||
+		path.PullRequestWrite ||
+		path.ApprovalGap ||
+		path.PolicyCoverageStatus == PolicyCoverageStatusNone ||
+		len(path.PolicyMissingReasons) > 0
+}
+
+func pathLooksLikeCIWorkflow(path ActionPath) bool {
+	if strings.TrimSpace(path.ActionPathType) == ActionPathTypeCICDWorkflow {
+		return true
+	}
+	toolType := strings.ToLower(strings.TrimSpace(path.ToolType))
+	if toolType == "ci_agent" || toolType == "compiled_action" || toolType == "github_actions" || toolType == "gitlab_ci" || toolType == "azure_pipelines" || toolType == "jenkins" {
+		return true
+	}
+	location := strings.ToLower(strings.TrimSpace(path.Location))
+	switch {
+	case strings.HasPrefix(location, ".github/workflows/"):
+		return true
+	case strings.Contains(location, ".gitlab-ci"):
+		return true
+	case strings.Contains(location, "azure-pipelines"):
+		return true
+	case strings.HasSuffix(location, "jenkinsfile"):
+		return true
+	default:
+		return false
+	}
+}
+
+func pathHasAgenticCIInfluence(path ActionPath) bool {
+	switch strings.TrimSpace(path.ActionPathType) {
+	case ActionPathTypeAIAssistedWorkflow, ActionPathTypeAgentFramework, ActionPathTypeAgentInstruction:
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(path.ToolType)) {
+	case "claude", "codex", "cursor", "copilot", "openai_agents", "langchain", "langgraph", "crewai", "autogen", "llamaindex", "semantic_kernel", "custom_agent":
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(path.AutonomyLevel)) {
+	case "headless_auto", "headless_gated", "copilot":
+		return true
+	}
+	if path.AgenticDeliverySystemChange != nil {
+		return true
+	}
+	if strings.TrimSpace(path.RuntimeProvider) != "" || strings.TrimSpace(path.RuntimeKind) != "" {
+		return true
+	}
+	return len(path.DeliveryHarnesses) > 0 ||
+		len(path.ResolverRefs) > 0 ||
+		len(path.EvalConfigRefs) > 0 ||
+		len(path.WorkflowChainRefs) > 0
+}
+
+func pathHasHighImpactDeliveryEvidence(path ActionPath) bool {
+	if path.ProductionWrite ||
+		path.DeployWrite ||
+		path.MergeExecute ||
+		len(path.MatchedProductionTargets) > 0 ||
+		pathHasHighImpactMutableEndpoint(path) ||
+		strings.EqualFold(strings.TrimSpace(path.DeploymentStatus), "deployed") {
+		return true
+	}
+	switch normalizeTargetClass(path.TargetClass) {
+	case TargetClassProductionImpacting, TargetClassReleaseAdjacent, TargetClassCustomerDataAdjacent:
+		return true
+	}
+	if containsAnyPathClass(path.WritePathClasses, "release_write", "package_publish", "infra_write", "production_write", "deploy_write") {
+		return true
+	}
+	if containsAnyPathClass(path.ActionClasses, "deploy", "delete", "destructive", "egress") {
+		return true
+	}
+	for _, preset := range path.HighStakesPresets {
+		switch strings.TrimSpace(preset.Preset) {
+		case HighStakesPresetProductionPath,
+			HighStakesPresetReleaseAutomation,
+			HighStakesPresetPackagePublishing,
+			HighStakesPresetInfrastructureAsCode,
+			HighStakesPresetIdentityAuthCode,
+			HighStakesPresetPaymentFlow,
+			HighStakesPresetRegulatedCustomerFlow,
+			HighStakesPresetExternalEgress,
+			HighStakesPresetMutableEndpoint:
+			return true
+		}
+	}
+	return false
 }
 
 func compareActionPaths(left, right ActionPath) bool {

@@ -336,6 +336,109 @@ func TestRecommendedActionFollowsStrongestGovernableSignal(t *testing.T) {
 	}
 }
 
+func TestStandardCICredentialContextStaysInventoryWithoutAgenticOrReleaseEvidence(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                "wrkr:ci:acme",
+				Framework:              "compiled_action",
+				ToolType:               "compiled_action",
+				Org:                    "acme",
+				Repos:                  []string{"acme/app"},
+				Location:               ".github/workflows/ci.yml",
+				RiskScore:              7.6,
+				WriteCapable:           true,
+				CredentialAccess:       true,
+				PullRequestWrite:       true,
+				AutonomyLevel:          "interactive",
+				ApprovalClassification: "unknown",
+			},
+		},
+	})
+
+	if len(paths) != 1 {
+		t.Fatalf("expected one action path, got %+v", paths)
+	}
+	if paths[0].ActionPathType != ActionPathTypeCICDWorkflow {
+		t.Fatalf("expected CI/CD action path type, got %+v", paths[0])
+	}
+	if paths[0].AutonomyLevel != "interactive" {
+		t.Fatalf("expected autonomy_level to be carried into action path, got %+v", paths[0])
+	}
+	if paths[0].ControlPriority != ControlPriorityInventoryHygiene || paths[0].RecommendedAction != "inventory" || paths[0].RiskTier != RiskTierLow {
+		t.Fatalf("expected standard CI credential context to stay inventory, got %+v", paths[0])
+	}
+}
+
+func TestHighScoringStandardCIAttackPathIsNotDemotedToInventory(t *testing.T) {
+	t.Parallel()
+
+	model := deriveGovernFirstModel(ActionPath{
+		ActionPathType:   ActionPathTypeCICDWorkflow,
+		ToolType:         "compiled_action",
+		Location:         ".github/workflows/ci.yml",
+		RiskScore:        7.6,
+		AttackPathScore:  8.9,
+		WriteCapable:     true,
+		CredentialAccess: true,
+		PullRequestWrite: true,
+		AutonomyLevel:    "interactive",
+	})
+
+	if model.controlPriority != ControlPriorityControlFirst || model.recommendedAction != "control" {
+		t.Fatalf("expected high-scoring CI attack path to stay control-first, got %+v", model)
+	}
+}
+
+func TestAgenticOrReleaseCIContextIsNotDemotedToInventory(t *testing.T) {
+	t.Parallel()
+
+	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
+		AgentPrivilegeMap: []agginventory.AgentPrivilegeMapEntry{
+			{
+				AgentID:                "wrkr:agent-ci:acme",
+				Framework:              "compiled_action",
+				ToolType:               "compiled_action",
+				Org:                    "acme",
+				Repos:                  []string{"acme/app"},
+				Location:               ".github/workflows/agent.yml",
+				RiskScore:              7.6,
+				WriteCapable:           true,
+				CredentialAccess:       true,
+				PullRequestWrite:       true,
+				AutonomyLevel:          "headless_auto",
+				ApprovalClassification: "unknown",
+			},
+			{
+				AgentID:                "wrkr:release-ci:acme",
+				Framework:              "compiled_action",
+				ToolType:               "compiled_action",
+				Org:                    "acme",
+				Repos:                  []string{"acme/release"},
+				Location:               ".github/workflows/release.yml",
+				RiskScore:              7.6,
+				WriteCapable:           true,
+				CredentialAccess:       true,
+				PullRequestWrite:       true,
+				DeployWrite:            true,
+				AutonomyLevel:          "interactive",
+				ApprovalClassification: "unknown",
+			},
+		},
+	})
+
+	if len(paths) != 2 {
+		t.Fatalf("expected two action paths, got %+v", paths)
+	}
+	for _, path := range paths {
+		if path.ControlPriority == ControlPriorityInventoryHygiene {
+			t.Fatalf("expected agentic and release CI contexts to remain governable, got %+v", paths)
+		}
+	}
+}
+
 func TestBuildActionPathsUsesHiddenIdentityDimensionsForUniquePathIDs(t *testing.T) {
 	t.Parallel()
 
@@ -427,6 +530,7 @@ func TestBuildActionPathsExercisesAllRecommendedActionClasses(t *testing.T) {
 				DeliveryChainStatus:      "pr_only",
 				ApprovalClassification:   "unknown",
 				ApprovalGapReasons:       []string{"approval_source_missing"},
+				AutonomyLevel:            "headless_gated",
 				OwnershipStatus:          "explicit",
 				SecurityVisibilityStatus: agginventory.SecurityVisibilityApproved,
 			},
@@ -441,6 +545,7 @@ func TestBuildActionPathsExercisesAllRecommendedActionClasses(t *testing.T) {
 				CredentialAccess:         true,
 				PullRequestWrite:         true,
 				DeliveryChainStatus:      "pr_only",
+				AutonomyLevel:            "headless_auto",
 				ApprovalClassification:   "approved",
 				OwnershipStatus:          "unresolved",
 				SecurityVisibilityStatus: agginventory.SecurityVisibilityUnknownToSecurity,

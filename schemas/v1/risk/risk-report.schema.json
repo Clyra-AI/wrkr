@@ -51,6 +51,7 @@
         "version_source": {"type": "string"},
         "config_fingerprint": {"type": "string"},
         "config_source": {"type": "string"},
+        "autonomy_level": {"type": "string"},
         "write_capable": {"type": "boolean"},
         "write_path_classes": {"type": "array", "items": {"type": "string"}},
         "control_resolution_state": {"type": "string", "enum": ["detected_control", "declared_control", "external_control_reference", "no_visible_control", "not_applicable", "contradictory_control"]},

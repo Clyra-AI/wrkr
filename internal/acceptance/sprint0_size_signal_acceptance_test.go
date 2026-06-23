@@ -79,9 +79,10 @@ func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
 		t.Fatalf("read markdown artifact: %v", err)
 	}
 	lines := strings.Split(strings.TrimRight(string(markdownBytes), "\n"), "\n")
-	if len(lines) > sprint0AcceptanceMarkdownLineCap+2 {
-		t.Fatalf("expected markdown under %d lines plus truncation note, got %d", sprint0AcceptanceMarkdownLineCap+2, len(lines))
+	if len(lines) > sprint0AcceptanceMarkdownLineCap {
+		t.Fatalf("expected markdown at or under %d lines including truncation note, got %d", sprint0AcceptanceMarkdownLineCap, len(lines))
 	}
+	requireAcceptanceLeadEvidenceBundle(t, evidenceBytes)
 	contextIdx := strings.Index(string(markdownBytes), "## Report Context Appendix")
 	if contextIdx < 0 {
 		t.Fatalf("expected report context appendix in BOM markdown, got %q", string(markdownBytes))
@@ -93,6 +94,11 @@ func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
 	}
 	if strings.Count(lead, "\n## ") > sprint0AcceptanceLeadSectionCap {
 		t.Fatalf("expected BOM lead view to stay within %d sections, got %q", sprint0AcceptanceLeadSectionCap, lead)
+	}
+	for _, machineID := range []string{"xrg-", "path=", "examples=path-", "apc-"} {
+		if strings.Contains(lead, machineID) {
+			t.Fatalf("expected BOM lead view to hide machine id %q, got %q", machineID, lead)
+		}
 	}
 
 	reportBytes, err := json.Marshal(reportPayload)
@@ -232,6 +238,32 @@ func requireAcceptanceCanonicalRefs(t *testing.T, reportPayload map[string]any) 
 	}
 	if !hasCredentialAuthorityRef && !hasAuthorityBindingRefs && !hasEndpointRefs {
 		t.Fatalf("expected canonical ref joins in BOM items, got %v", items)
+	}
+}
+
+func requireAcceptanceLeadEvidenceBundle(t *testing.T, evidenceBytes []byte) {
+	t.Helper()
+
+	var evidence map[string]any
+	if err := json.Unmarshal(evidenceBytes, &evidence); err != nil {
+		t.Fatalf("unmarshal evidence artifact: %v", err)
+	}
+	if focused, _ := evidence["focused_bundle_available"].(bool); !focused {
+		t.Fatalf("expected default agent-action-bom evidence to be a focused lead bundle, got %v", evidence["focused_bundle_available"])
+	}
+	if _, ok := evidence["control_path_graph"]; ok {
+		t.Fatalf("expected lead evidence bundle to omit full control_path_graph")
+	}
+	if _, ok := evidence["workflow_chains"]; ok {
+		t.Fatalf("expected lead evidence bundle to omit full workflow_chains")
+	}
+	if full, ok := evidence["full_export_available"].(bool); ok && !full {
+		t.Fatalf("expected full_export_available to be true when present, got %v", evidence["full_export_available"])
+	}
+	if counts, ok := evidence["suppressed_counts"].(map[string]any); ok {
+		if graphNodes, ok := counts["graph_nodes"].(float64); ok && graphNodes <= 0 {
+			t.Fatalf("expected positive graph node suppression when graph_nodes is present, got %v", counts)
+		}
 	}
 }
 

@@ -73,6 +73,27 @@ func TestAgentActionBOMPrimaryViewLineBudget(t *testing.T) {
 	}
 }
 
+func TestApplyMarkdownBudgetKeepsTruncationInsideLineCap(t *testing.T) {
+	t.Parallel()
+
+	var builder strings.Builder
+	for idx := 0; idx < defaultMarkdownLineCap+10; idx++ {
+		builder.WriteString(fmt.Sprintf("line-%04d\n", idx))
+	}
+
+	markdown, suppressed := ApplyMarkdownBudget(builder.String())
+	if suppressed <= 0 {
+		t.Fatalf("expected markdown budget to suppress overflow lines, got %d", suppressed)
+	}
+	lines := strings.Split(strings.TrimRight(markdown, "\n"), "\n")
+	if len(lines) > defaultMarkdownLineCap {
+		t.Fatalf("expected markdown including truncation note at or under %d lines, got %d", defaultMarkdownLineCap, len(lines))
+	}
+	if !strings.Contains(markdown, "output truncated to stay within the markdown line budget") {
+		t.Fatalf("expected truncation note in capped markdown, got %q", markdown)
+	}
+}
+
 func TestPolicyOutcomeSuppressedCounts(t *testing.T) {
 	t.Parallel()
 

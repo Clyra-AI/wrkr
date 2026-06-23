@@ -89,6 +89,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	mdPath := fs.String("md-path", "wrkr-report.md", "markdown output path")
 	evidenceJSON := fs.Bool("evidence-json", false, "write a deterministic JSON evidence bundle")
 	evidenceJSONPath := fs.String("evidence-json-path", "wrkr-report-evidence.json", "JSON evidence bundle output path")
+	evidenceJSONScope := fs.String("evidence-json-scope", "lead", "Agent Action BOM evidence bundle scope [lead|full]")
 	csvBacklog := fs.Bool("csv-backlog", false, "write a deterministic CSV control backlog")
 	csvBacklogPath := fs.String("csv-backlog-path", "wrkr-control-backlog.csv", "CSV control backlog output path")
 	templateRaw := fs.String("template", string(reportcore.TemplateOperator), "report template [exec|operator|audit|public|ciso|appsec|platform|customer-draft|agent-action-bom|design-partner-summary]")
@@ -151,6 +152,9 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if strings.TrimSpace(*focusPathID) != "" && template != reportcore.TemplateAgentActionBOM {
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--focus-path requires --template agent-action-bom", exitInvalidInput)
+	}
+	if scope := strings.TrimSpace(*evidenceJSONScope); scope != "" && scope != "lead" && scope != "full" {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", "--evidence-json-scope must be lead or full", exitInvalidInput)
 	}
 	redactionConfig := reportcore.ResolveRedactionConfig(shareProfile, redactionFields)
 
@@ -230,6 +234,7 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 		PDFPath:           *pdfPath,
 		WriteEvidenceJSON: *evidenceJSON,
 		EvidenceJSONPath:  *evidenceJSONPath,
+		EvidenceJSONScope: strings.TrimSpace(*evidenceJSONScope),
 		WriteBacklogCSV:   *csvBacklog,
 		BacklogCSVPath:    *csvBacklogPath,
 	})

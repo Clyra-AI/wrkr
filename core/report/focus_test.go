@@ -58,6 +58,27 @@ func TestBuildSummaryIncludesWorkflowHighlights(t *testing.T) {
 	}
 }
 
+func TestWorkflowRecommendationForStandardCIImportsControlEvidence(t *testing.T) {
+	t.Parallel()
+
+	item := AgentActionBOMItem{
+		ActionPathType:        risk.ActionPathTypeCICDWorkflow,
+		ControlPriority:       risk.ControlPriorityInventoryHygiene,
+		CredentialAccess:      true,
+		ApprovalEvidenceState: risk.EvidenceStateUnknown,
+		ProofEvidenceState:    risk.EvidenceStateUnknown,
+	}
+
+	recommendation := workflowRecommendation(item)
+	if !strings.Contains(recommendation, "import PR review, branch protection, deployment environment, or owner-map evidence") {
+		t.Fatalf("expected standard CI recommendation to ask for evidence import, got %q", recommendation)
+	}
+	explanation := workflowExplanation(item)
+	if !strings.Contains(explanation, "standard CI authority") || !strings.Contains(explanation, "has not imported") {
+		t.Fatalf("expected standard CI explanation to avoid missing-control claim, got %q", explanation)
+	}
+}
+
 func TestRenderMarkdownIncludesFocusView(t *testing.T) {
 	t.Parallel()
 

@@ -14,8 +14,12 @@ import (
 const detectorID = "workstation"
 
 type markerSpec struct {
-	Path     string
-	ToolType string
+	Path        string
+	ToolType    string
+	FindingType string
+	Severity    string
+	Surface     string
+	Remediation string
 }
 
 type Detector struct{}
@@ -53,6 +57,14 @@ var projectMarkers = []markerSpec{
 	{Path: "CLAUDE.md", ToolType: "claude"},
 	{Path: ".claude", ToolType: "claude"},
 	{Path: ".agents", ToolType: "skill"},
+	{Path: ".agents/skills", ToolType: "agentic_factory", FindingType: "agentic_factory", Severity: model.SeverityMedium, Surface: "local_agentic_factory", Remediation: "Map this local agentic factory to PR review, branch protection, CI, and credential evidence before treating downstream actions as controlled."},
+	{Path: "factory/skills", ToolType: "agentic_factory", FindingType: "agentic_factory", Severity: model.SeverityMedium, Surface: "local_agentic_factory", Remediation: "Map this local agentic factory to PR review, branch protection, CI, and credential evidence before treating downstream actions as controlled."},
+	{Path: ".factory", ToolType: "agentic_factory", FindingType: "agentic_factory", Severity: model.SeverityMedium, Surface: "local_agentic_factory", Remediation: "Map this local agentic factory to PR review, branch protection, CI, and credential evidence before treating downstream actions as controlled."},
+	{Path: "bob.yaml", ToolType: "agentic_factory", FindingType: "agentic_factory", Severity: model.SeverityMedium, Surface: "local_agentic_factory", Remediation: "Map this local agentic factory to PR review, branch protection, CI, and credential evidence before treating downstream actions as controlled."},
+	{Path: "bob.yml", ToolType: "agentic_factory", FindingType: "agentic_factory", Severity: model.SeverityMedium, Surface: "local_agentic_factory", Remediation: "Map this local agentic factory to PR review, branch protection, CI, and credential evidence before treating downstream actions as controlled."},
+	{Path: ".wrkr/provenance/pr-mr-provenance.json", ToolType: "local_pr_handoff", FindingType: "local_pr_handoff", Severity: model.SeverityLow, Surface: "local_pr_handoff", Remediation: "Use this PR/MR provenance sidecar to resolve local agentic factory output against review, checks, and approval evidence."},
+	{Path: ".wrkr/provenance/source-metadata.json", ToolType: "local_pr_handoff", FindingType: "local_pr_handoff", Severity: model.SeverityLow, Surface: "local_pr_handoff", Remediation: "Use this source metadata sidecar to resolve local agentic factory output against review, checks, and approval evidence."},
+	{Path: ".wrkr/provenance/runtime-sessions.json", ToolType: "local_pr_handoff", FindingType: "runtime_session_handoff", Severity: model.SeverityLow, Surface: "runtime_session_handoff", Remediation: "Join runtime session evidence to PR, workflow, and control evidence before claiming end-to-end proof."},
 	{Path: ".codex/config.toml", ToolType: "codex"},
 	{Path: ".codex/config.yaml", ToolType: "codex"},
 	{Path: ".codex/config.yml", ToolType: "codex"},
@@ -178,23 +190,48 @@ func markerHits(root, workspaceRoot, projectName string, markers []markerSpec) (
 		if workspaceRoot != "" || projectName != "" {
 			location = filepath.ToSlash(filepath.Join(workspaceRoot, projectName, marker.Path))
 		}
+		evidence := []model.Evidence{
+			{Key: "project_name", Value: projectName},
+			{Key: "workspace_root", Value: workspaceRoot},
+			{Key: "marker", Value: marker.Path},
+		}
+		if strings.TrimSpace(marker.Surface) != "" {
+			evidence = append(evidence, model.Evidence{Key: "surface", Value: strings.TrimSpace(marker.Surface)})
+		}
 		findings = append(findings, model.Finding{
-			FindingType: "tool_config",
-			Severity:    model.SeverityLow,
+			FindingType: markerFindingType(marker),
+			Severity:    markerSeverity(marker),
 			ToolType:    marker.ToolType,
 			Location:    location,
 			Repo:        "local-machine",
 			Org:         "local",
 			Detector:    detectorID,
-			Evidence: []model.Evidence{
-				{Key: "project_name", Value: projectName},
-				{Key: "workspace_root", Value: workspaceRoot},
-				{Key: "marker", Value: marker.Path},
-			},
-			Remediation: "Review local agent project boundaries and ensure tool access is intentional.",
+			Evidence:    evidence,
+			Remediation: markerRemediation(marker),
 		})
 	}
 	return findings, nil
+}
+
+func markerFindingType(marker markerSpec) string {
+	if strings.TrimSpace(marker.FindingType) != "" {
+		return strings.TrimSpace(marker.FindingType)
+	}
+	return "tool_config"
+}
+
+func markerSeverity(marker markerSpec) string {
+	if strings.TrimSpace(marker.Severity) != "" {
+		return strings.TrimSpace(marker.Severity)
+	}
+	return model.SeverityLow
+}
+
+func markerRemediation(marker markerSpec) string {
+	if strings.TrimSpace(marker.Remediation) != "" {
+		return strings.TrimSpace(marker.Remediation)
+	}
+	return "Review local agent project boundaries and ensure tool access is intentional."
 }
 
 func fallbackOrg(org string) string {

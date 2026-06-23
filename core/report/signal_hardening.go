@@ -59,6 +59,16 @@ func ApplySummaryCaps(summary *Summary) {
 	if summary.AgentActionBOM != nil {
 		summary.AgentActionBOM.Items, count = outputsignal.CapSlice(summary.AgentActionBOM.Items, defaultMaxAgentActionBOM)
 		suppressed.AgentActionBOM = count
+		if summary.AgentActionBOM.Summary.PrimaryView == nil {
+			_ = selectAgentActionBOMPrimaryView(summary.AgentActionBOM, "")
+		} else {
+			for _, item := range summary.AgentActionBOM.focusSourceItems {
+				if strings.TrimSpace(item.PathID) == strings.TrimSpace(summary.AgentActionBOM.Summary.PrimaryView.PathID) {
+					ensureAgentActionBOMPrimaryItemVisible(summary.AgentActionBOM, item)
+					break
+				}
+			}
+		}
 	}
 
 	if !outputsignal.HasSuppressedCounts(suppressed) {
@@ -112,8 +122,13 @@ func ApplyMarkdownBudget(markdown string) (string, int) {
 		}
 		return markdown + "\n", 0
 	}
-	suppressed := len(lines) - defaultMarkdownLineCap
-	kept := append([]string(nil), lines[:defaultMarkdownLineCap]...)
-	kept = append(kept, "", "... output truncated to stay within the markdown line budget ...")
+	noteLines := []string{"", "... output truncated to stay within the markdown line budget ..."}
+	keepLimit := defaultMarkdownLineCap - len(noteLines)
+	if keepLimit < 0 {
+		keepLimit = 0
+	}
+	suppressed := len(lines) - keepLimit
+	kept := append([]string(nil), lines[:keepLimit]...)
+	kept = append(kept, noteLines...)
 	return strings.Join(kept, "\n") + "\n", suppressed
 }

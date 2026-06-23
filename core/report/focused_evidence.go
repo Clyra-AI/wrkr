@@ -14,11 +14,18 @@ const focusedEvidenceTopPathLimit = 5
 // selected path or focus preset while preserving shared suppression and
 // redaction metadata from the canonical summary finalizer.
 func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPreset string) Summary {
-	if strings.TrimSpace(focusPathID) == "" && strings.TrimSpace(focusPreset) == "" {
+	explicitFocus := strings.TrimSpace(focusPathID) != "" || strings.TrimSpace(focusPreset) != ""
+	if !explicitFocus && strings.TrimSpace(summary.Template) != string(TemplateAgentActionBOM) {
 		return summary
 	}
 
 	pathIDs := focusedEvidencePathIDs(summary, focusPathID)
+	if !explicitFocus {
+		pathIDs = defaultEvidenceBundlePathIDs(summary)
+	}
+	if len(pathIDs) == 0 && !explicitFocus {
+		return summary
+	}
 	pathIDSet := map[string]struct{}{}
 	for _, pathID := range pathIDs {
 		if trimmed := strings.TrimSpace(pathID); trimmed != "" {
@@ -31,6 +38,7 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 	if focused.SuppressedCounts == nil {
 		focused.SuppressedCounts = &SuppressedCounts{}
 	}
+	focused.FocusedBundleAvailable = true
 	focused.ActionPaths = filterFocusedActionPaths(summary.ActionPaths, pathIDSet)
 
 	if summary.AgentActionBOM != nil {
@@ -72,16 +80,19 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 		focused.SuppressedCounts.GraphNodes += len(summary.ControlPathGraph.Nodes)
 		focused.SuppressedCounts.GraphEdges += len(summary.ControlPathGraph.Edges)
 		focused.ControlPathGraph = nil
+		focused.FullExportAvailable = true
 	}
 
 	if summary.WorkflowChains != nil {
 		focused.SuppressedCounts.WorkflowChains += len(summary.WorkflowChains.Chains)
 		focused.WorkflowChains = nil
+		focused.FullExportAvailable = true
 	}
 
 	if len(summary.ExposureGroups) > 0 {
 		focused.SuppressedCounts.ExposureGroups += len(summary.ExposureGroups)
 		focused.ExposureGroups = nil
+		focused.FullExportAvailable = true
 	}
 
 	focused.ActionSurfaceRegistry = buildFocusedActionSurfaceRegistry(focused.ActionPaths, focused.AgentActionBOM)
@@ -90,6 +101,47 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 		focused.SuppressedCounts = nil
 	}
 	return focused
+}
+
+func defaultEvidenceBundlePathIDs(summary Summary) []string {
+	if summary.AgentActionBOM == nil {
+		return nil
+	}
+	out := make([]string, 0, focusedEvidenceTopPathLimit)
+	add := func(pathID string) {
+		pathID = strings.TrimSpace(pathID)
+		if pathID == "" || focusedEvidenceContainsPathID(out, pathID) {
+			return
+		}
+		out = append(out, pathID)
+	}
+	if summary.AgentActionBOM.Summary.PrimaryView != nil {
+		add(summary.AgentActionBOM.Summary.PrimaryView.PathID)
+	}
+	if summary.WorkflowHighlights != nil {
+		for _, highlight := range summary.WorkflowHighlights.Highlights {
+			add(highlight.PathID)
+			if len(out) >= focusedEvidenceTopPathLimit {
+				return out
+			}
+		}
+	}
+	for _, item := range eligibleWorkflowHighlightItems(summary.AgentActionBOM) {
+		add(item.PathID)
+		if len(out) >= focusedEvidenceTopPathLimit {
+			return out
+		}
+	}
+	return out
+}
+
+func focusedEvidenceContainsPathID(items []string, want string) bool {
+	for _, item := range items {
+		if strings.TrimSpace(item) == strings.TrimSpace(want) {
+			return true
+		}
+	}
+	return false
 }
 
 func focusedEvidencePathIDs(summary Summary, focusPathID string) []string {

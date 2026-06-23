@@ -267,7 +267,7 @@ func RenderMarkdown(summary Summary) string {
 			}
 			if item.LifecycleQueue != nil {
 				builder.WriteString(fmt.Sprintf("  lifecycle_queue=%s severity=%s credential_status=%s closure=%s\n",
-					item.LifecycleQueue.ReasonCode,
+					markdownEvidenceReasonLabel(item.LifecycleQueue.ReasonCode),
 					item.LifecycleQueue.Severity,
 					item.LifecycleQueue.CredentialStatus,
 					item.LifecycleQueue.ClosureCriteria,
@@ -275,13 +275,13 @@ func RenderMarkdown(summary Summary) string {
 			}
 			if item.GaitCoverage != nil {
 				builder.WriteString(fmt.Sprintf("  gait=policy:%s approval:%s jit:%s freeze:%s kill:%s outcome:%s proof:%s\n",
-					item.GaitCoverage.PolicyDecision.Status,
-					item.GaitCoverage.Approval.Status,
-					item.GaitCoverage.JITCredential.Status,
-					item.GaitCoverage.FreezeWindow.Status,
-					item.GaitCoverage.KillSwitch.Status,
-					item.GaitCoverage.ActionOutcome.Status,
-					item.GaitCoverage.ProofVerification.Status,
+					markdownGaitCoverageStatus(item.GaitCoverage.PolicyDecision.Status),
+					markdownGaitCoverageStatus(item.GaitCoverage.Approval.Status),
+					markdownGaitCoverageStatus(item.GaitCoverage.JITCredential.Status),
+					markdownGaitCoverageStatus(item.GaitCoverage.FreezeWindow.Status),
+					markdownGaitCoverageStatus(item.GaitCoverage.KillSwitch.Status),
+					markdownGaitCoverageStatus(item.GaitCoverage.ActionOutcome.Status),
+					markdownGaitCoverageStatus(item.GaitCoverage.ProofVerification.Status),
 				))
 			}
 			if len(item.DecisionTraceRefs) > 0 {
@@ -333,7 +333,7 @@ func RenderMarkdown(summary Summary) string {
 			}
 			if item.LifecycleQueue != nil {
 				builder.WriteString(fmt.Sprintf("  lifecycle_queue=%s severity=%s credential_status=%s closure=%s\n",
-					item.LifecycleQueue.ReasonCode,
+					markdownEvidenceReasonLabel(item.LifecycleQueue.ReasonCode),
 					item.LifecycleQueue.Severity,
 					item.LifecycleQueue.CredentialStatus,
 					item.LifecycleQueue.ClosureCriteria,
@@ -436,6 +436,30 @@ func renderTriggerClassSuffix(triggerClass string) string {
 
 func markdownBOMRuntimeEvidenceLabel(item AgentActionBOMItem) string {
 	return risk.BuyerRuntimeEvidenceLabel(item.RuntimeEvidenceState, item.RuntimeEvidenceAbsenceStatus, item.GaitCoverage)
+}
+
+func markdownEvidenceReasonLabel(reason string) string {
+	switch strings.TrimSpace(reason) {
+	case "missing_approval":
+		return "approval_evidence_not_found"
+	case "missing_owner":
+		return "owner_evidence_not_found"
+	case "missing_proof":
+		return "proof_evidence_not_found"
+	case "missing_runtime":
+		return "runtime_evidence_not_collected"
+	default:
+		return strings.TrimSpace(reason)
+	}
+}
+
+func markdownGaitCoverageStatus(status string) string {
+	switch strings.TrimSpace(status) {
+	case "missing":
+		return "not_observed"
+	default:
+		return strings.TrimSpace(status)
+	}
 }
 
 func markdownActionPathLabel(lane string, actionPathType string, eligible bool, bindingState string) string {
