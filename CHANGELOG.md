@@ -8,13 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- Added `wrkr report --evidence-json-scope` so Agent Action BOM evidence can default to a buyer-facing lead bundle while still allowing explicit full graph/workflow evidence export.
-- Added workstation detection for local agentic factory and handoff artifacts such as `.agents/skills`, `factory/skills`, Bob config, local PR provenance, and runtime-session sidecars.
+- (none yet)
 
 ### Changed
 
-- Changed Agent Action BOM markdown and evidence output to keep the lead view focused on the primary path and compact top paths, with appendices/full evidence available through explicit output scope.
-- Changed control guidance for standard CI credential references to request imported PR review, branch protection, deployment, or owner-map evidence instead of implying approval or proof is absent from source alone.
+- (none yet)
 
 ### Deprecated
 
@@ -26,8 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- Fixed standard non-agentic CI credential paths so they remain inventory hygiene unless agentic influence or high-impact release/production evidence makes them control-first.
-- Fixed buyer-facing report labels so approval and runtime gaps render as evidence not observed in the scanned/imported context instead of unsupported missing-control claims.
+- (none yet)
 
 ### Security
 
@@ -41,6 +38,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.10.0] - 2026-06-23
+<!-- release-semver: minor -->
+
+### Added
+
+- Added `wrkr report --evidence-json-scope` so Agent Action BOM evidence can default to a buyer-facing lead bundle while still allowing explicit full graph/workflow evidence export.
+- Added workstation detection for local agentic factory and handoff artifacts such as `.agents/skills`, `factory/skills`, Bob config, local PR provenance, and runtime-session sidecars.
+
+### Changed
+
+- Changed Agent Action BOM markdown and evidence output to keep the lead view focused on the primary path and compact top paths, with appendices/full evidence available through explicit output scope.
+- Changed control guidance for standard CI credential references to request imported PR review, branch protection, deployment, or owner-map evidence instead of implying approval or proof is absent from source alone.
+
+### Fixed
+
+- Fixed standard non-agentic CI credential paths so they remain inventory hygiene unless agentic influence or high-impact release/production evidence makes them control-first.
+- Fixed buyer-facing report labels so approval and runtime gaps render as evidence not observed in the scanned/imported context instead of unsupported missing-control claims.
 
 ## [v1.9.1] - 2026-06-22
 <!-- release-semver: patch -->
