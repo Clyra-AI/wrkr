@@ -1222,7 +1222,7 @@ func buildSections(
 		fmt.Sprintf("identities=%d pending_action=%d under_review=%d revoked=%d deprecated=%d", lifecycleSummary.IdentityCount, lifecycleSummary.PendingActionCount, lifecycleSummary.UnderReviewCount, lifecycleSummary.RevokedCount, lifecycleSummary.DeprecatedCount),
 	}
 	for _, gap := range lifecycleSummary.Gaps {
-		lifecycleFacts = append(lifecycleFacts, fmt.Sprintf("gap %s severity=%s repo=%s location=%s", gap.ReasonCode, gap.Severity, gap.Repo, gap.Location))
+		lifecycleFacts = append(lifecycleFacts, fmt.Sprintf("gap %s severity=%s repo=%s location=%s", markdownEvidenceReasonLabel(gap.ReasonCode), gap.Severity, gap.Repo, gap.Location))
 	}
 	for _, transition := range lifecycleSummary.RecentTransitions {
 		lifecycleFacts = append(lifecycleFacts, fmt.Sprintf("transition %s %s->%s (%s)", transition.AgentID, transition.PreviousState, transition.NewState, transition.Trigger))

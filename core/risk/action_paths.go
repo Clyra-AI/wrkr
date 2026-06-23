@@ -68,6 +68,7 @@ type ActionPath struct {
 	VersionSource              string                         `json:"version_source,omitempty"`
 	ConfigFingerprint          string                         `json:"config_fingerprint,omitempty"`
 	ConfigSource               string                         `json:"config_source,omitempty"`
+	AutonomyLevel              string                         `json:"autonomy_level,omitempty"`
 	WriteCapable               bool                           `json:"write_capable"`
 	OperationalOwner           string                         `json:"operational_owner,omitempty"`
 	OwnerSource                string                         `json:"owner_source,omitempty"`
@@ -294,6 +295,7 @@ func buildActionPath(
 		VersionSource:               strings.TrimSpace(entry.VersionSource),
 		ConfigFingerprint:           strings.TrimSpace(entry.ConfigFingerprint),
 		ConfigSource:                strings.TrimSpace(entry.ConfigSource),
+		AutonomyLevel:               strings.TrimSpace(entry.AutonomyLevel),
 		DeliveryHarnesses:           dedupeSortedStrings(entry.DeliveryHarnesses),
 		ResolverRefs:                dedupeSortedStrings(entry.ResolverRefs),
 		EvalConfigRefs:              dedupeSortedStrings(entry.EvalConfigRefs),
@@ -540,6 +542,7 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.VersionSource = chooseMetadataSource(current.VersionSource, incoming.VersionSource, current.Version, incoming.Version)
 	merged.ConfigFingerprint = firstNonEmptyString(current.ConfigFingerprint, incoming.ConfigFingerprint)
 	merged.ConfigSource = firstNonEmptyString(current.ConfigSource, incoming.ConfigSource)
+	merged.AutonomyLevel = chooseAutonomyLevel(current.AutonomyLevel, incoming.AutonomyLevel)
 	merged.DeliveryHarnesses = dedupeSortedStrings(append(append([]string(nil), current.DeliveryHarnesses...), incoming.DeliveryHarnesses...))
 	merged.ResolverRefs = dedupeSortedStrings(append(append([]string(nil), current.ResolverRefs...), incoming.ResolverRefs...))
 	merged.EvalConfigRefs = dedupeSortedStrings(append(append([]string(nil), current.EvalConfigRefs...), incoming.EvalConfigRefs...))
@@ -625,6 +628,15 @@ func mergeActionBindingState(current, incoming string) string {
 	default:
 		return current
 	}
+}
+
+func chooseAutonomyLevel(current, incoming string) string {
+	current = strings.TrimSpace(current)
+	incoming = strings.TrimSpace(incoming)
+	if autonomyRank(incoming) > autonomyRank(current) {
+		return incoming
+	}
+	return current
 }
 
 func actionBindingRank(value string) int {

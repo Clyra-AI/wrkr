@@ -283,6 +283,10 @@ func deriveControlState(path ActionPath) (string, []string) {
 		!path.StandingPrivilege:
 		add("control_priority:inventory_hygiene")
 		return ControlStateInventoryOnly, dedupeSortedStrings(reasons)
+	case strings.TrimSpace(path.ControlPriority) == ControlPriorityInventoryHygiene &&
+		pathIsStandardCIControlContext(path):
+		add("standard_ci_authority:control_evidence_import_needed")
+		return ControlStateInventoryOnly, dedupeSortedStrings(reasons)
 	case highBlastRadius &&
 		path.StandingPrivilege &&
 		(path.ApprovalGap || missingPolicyOrProof):
@@ -404,6 +408,9 @@ func deriveReviewBurden(path ActionPath) (string, []string) {
 		}
 		reasons = append(reasons, strings.TrimSpace(reason))
 		score += delta
+	}
+	if pathIsStandardCIControlContext(path) {
+		return ReviewBurdenLow, []string{"standard_ci_authority:control_evidence_import_needed"}
 	}
 
 	switch strings.TrimSpace(path.ControlState) {

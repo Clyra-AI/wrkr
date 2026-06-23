@@ -37,6 +37,7 @@ type reportArtifactOptions struct {
 	PDFPath            string
 	WriteEvidenceJSON  bool
 	EvidenceJSONPath   string
+	EvidenceJSONScope  string
 	WriteBacklogCSV    bool
 	BacklogCSVPath     string
 }
@@ -244,7 +245,10 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 
 	evidenceJSONPath := ""
 	if opts.WriteEvidenceJSON {
-		evidenceSummary := reportcore.PrepareEvidenceBundleSummary(summary, opts.FocusPathID, opts.FocusPreset)
+		evidenceSummary := summary
+		if reportEvidenceScopeIsLead(opts) {
+			evidenceSummary = reportcore.PrepareEvidenceBundleSummary(summary, opts.FocusPathID, opts.FocusPreset)
+		}
 		path, pathErr := resolveArtifactOutputPath(opts.EvidenceJSONPath)
 		if pathErr != nil {
 			return reportArtifactResult{}, artifactPathError{err: pathErr}
@@ -254,7 +258,10 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 		}
 		evidenceJSONPath = path
 		if hasPairedSummary {
-			pairedEvidenceSummary := reportcore.PrepareEvidenceBundleSummary(pairedSummary, opts.FocusPathID, opts.FocusPreset)
+			pairedEvidenceSummary := pairedSummary
+			if reportEvidenceScopeIsLead(opts) {
+				pairedEvidenceSummary = reportcore.PrepareEvidenceBundleSummary(pairedSummary, opts.FocusPathID, opts.FocusPreset)
+			}
 			externalPath := reportcore.PairedArtifactPath(path, strings.ReplaceAll(string(opts.PairedShareProfile), " ", "-"))
 			if writeErr := reportcore.WriteEvidenceBundleJSON(externalPath, pairedEvidenceSummary); writeErr != nil {
 				return reportArtifactResult{}, writeErr
@@ -283,4 +290,11 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 		PairedArtifactPaths: pairedPaths,
 		PrivateJoinMapPath:  privateJoinMapPath,
 	}, nil
+}
+
+func reportEvidenceScopeIsLead(opts reportArtifactOptions) bool {
+	if strings.TrimSpace(opts.EvidenceJSONScope) == "full" {
+		return false
+	}
+	return opts.Template == reportcore.TemplateAgentActionBOM || strings.TrimSpace(opts.FocusPathID) != "" || strings.TrimSpace(opts.FocusPreset) != ""
 }

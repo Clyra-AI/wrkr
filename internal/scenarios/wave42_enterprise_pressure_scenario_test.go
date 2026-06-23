@@ -219,6 +219,7 @@ func TestScenarioWave42EndpointDenseProjectionBoundaries(t *testing.T) {
 		"--share-profile", "customer-redacted",
 		"--evidence-json",
 		"--evidence-json-path", reportPath,
+		"--evidence-json-scope", "full",
 		"--json",
 	})
 	evidencePayload := readScenarioJSONFile(t, reportPath)

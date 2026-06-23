@@ -325,23 +325,107 @@ func workflowEvidenceSummary(item AgentActionBOMItem) string {
 }
 
 func workflowRecommendation(item AgentActionBOMItem) string {
+	subject := workflowRecommendationSubject(item)
+	scope := workflowRecommendationScope(item)
 	switch {
 	case len(item.Contradictions) > 0 || hasContradictoryEvidenceState(item):
-		return "resolve contradictory control evidence before promoting this path"
+		return "resolve contradictory control evidence for " + subject + " before promoting it"
+	case bomItemStandardCIControlContext(item):
+		return "import PR review, branch protection, deployment environment, or owner-map evidence for this standard CI workflow before treating it as an approval gap"
 	case strings.TrimSpace(item.OwnerEvidenceState) == risk.EvidenceStateUnknown:
-		return "attach explicit owner evidence and rescan"
+		return "attach explicit owner evidence for " + subject + " and rescan"
 	case strings.TrimSpace(item.ApprovalEvidenceState) == risk.EvidenceStateUnknown || item.ApprovalGap:
-		return "attach approval evidence for the exact workflow path"
+		return "attach scoped approval evidence for " + subject + scope
 	case strings.TrimSpace(item.ProofEvidenceState) == risk.EvidenceStateUnknown:
-		return "attach path-specific proof before broader rollout"
+		return "attach path-specific proof for " + subject + scope
 	case item.StandingPrivilege || strings.TrimSpace(item.RecommendedControl) == risk.RecommendedControlBlockStandingCredential:
-		return "replace the standing credential with tighter or JIT access"
+		return "replace standing credential authority on " + subject + " with tighter or JIT access"
 	case strings.TrimSpace(item.RuntimeEvidenceState) == risk.EvidenceStateVerified:
-		return "join runtime evidence to the static path and keep proof current"
+		return "join runtime evidence to " + subject + " and keep proof current"
 	case strings.TrimSpace(item.DelegationReadinessState) == risk.DelegationReadinessReadyForControl:
-		return "move this path into a control review with linked proof"
+		return "move " + subject + " into a control review with linked proof"
 	default:
 		return firstNonEmptyValue(strings.TrimSpace(item.Remediation), "review this path and tighten ownership, approval, or proof evidence")
+	}
+}
+
+func workflowRecommendationSubject(item AgentActionBOMItem) string {
+	if bomItemStaticContextSurface(item) {
+		switch strings.ToLower(strings.TrimSpace(item.ToolType)) {
+		case "openapi":
+			return "this API specification surface"
+		case "route":
+			return "this route surface"
+		}
+	}
+	switch strings.TrimSpace(item.ActionPathType) {
+	case risk.ActionPathTypeCICDWorkflow:
+		return "this CI/CD workflow path"
+	case risk.ActionPathTypeAIAssistedWorkflow:
+		return "this AI-assisted workflow path"
+	case risk.ActionPathTypeAgentFramework:
+		return "this agent framework path"
+	case risk.ActionPathTypeAgentInstruction:
+		return "this agent instruction surface"
+	case risk.ActionPathTypeAutomationBot:
+		return "this automation bot path"
+	case risk.ActionPathTypeLegacyScript:
+		return "this legacy script path"
+	case risk.ActionPathTypeUnknownExecutablePath:
+		return "this executable path"
+	case risk.ActionPathTypeDependencyOnlySignal:
+		return "this dependency signal"
+	case risk.ActionPathTypePlainSourceCode:
+		return "this source surface"
+	default:
+		return "this action path"
+	}
+}
+
+func workflowRecommendationScope(item AgentActionBOMItem) string {
+	action := workflowActionSummary(item)
+	target := workflowTargetSummary(item)
+	if action == "" && target == "" {
+		return ""
+	}
+	if action == "" {
+		return " for " + target
+	}
+	if target == "" {
+		return " before allowing " + action
+	}
+	return " before allowing " + action + " against " + target
+}
+
+func workflowActionSummary(item AgentActionBOMItem) string {
+	actions := uniqueSortedStrings(item.ActionClasses)
+	if len(actions) == 0 {
+		return ""
+	}
+	if len(actions) > 3 {
+		actions = actions[:3]
+	}
+	return strings.Join(actions, "/")
+}
+
+func workflowTargetSummary(item AgentActionBOMItem) string {
+	switch strings.TrimSpace(item.TargetClass) {
+	case risk.TargetClassProductionImpacting:
+		return "production-impacting targets"
+	case risk.TargetClassReleaseAdjacent:
+		return "release-adjacent targets"
+	case risk.TargetClassCustomerDataAdjacent:
+		return "customer-data-adjacent targets"
+	case risk.TargetClassInternalTooling:
+		return "internal tooling"
+	case risk.TargetClassDeveloperProductivity:
+		return "developer-productivity systems"
+	case risk.TargetClassTestDemoSandbox:
+		return "test/demo/sandbox targets"
+	case risk.TargetClassUnknown, "":
+		return ""
+	default:
+		return strings.ReplaceAll(strings.TrimSpace(item.TargetClass), "_", "-") + " targets"
 	}
 }
 
@@ -349,6 +433,8 @@ func workflowExplanation(item AgentActionBOMItem) string {
 	switch {
 	case len(item.Contradictions) > 0 || hasContradictoryEvidenceState(item):
 		return "Wrkr found conflicting control evidence, so this workflow should stay in review until the contradiction is resolved."
+	case bomItemStandardCIControlContext(item):
+		return "This looks like standard CI authority. Wrkr found the workflow and credential reference, but has not imported the PR review, branch protection, deployment environment, or owner-map evidence that may already cover it."
 	case strings.TrimSpace(item.OwnerEvidenceState) == risk.EvidenceStateUnknown:
 		return "Wrkr can see what this workflow can do, but it still lacks ownership evidence strong enough for buyer-facing confidence."
 	case strings.TrimSpace(item.ApprovalEvidenceState) == risk.EvidenceStateUnknown || item.ApprovalGap:
@@ -364,6 +450,51 @@ func workflowExplanation(item AgentActionBOMItem) string {
 	default:
 		return "This workflow remains one of the highest-signal paths to review because it combines meaningful authority with incomplete buyer-safe evidence."
 	}
+}
+
+func bomItemStandardCIControlContext(item AgentActionBOMItem) bool {
+	if strings.TrimSpace(item.ActionPathType) != risk.ActionPathTypeCICDWorkflow {
+		return false
+	}
+	if strings.TrimSpace(item.ControlPriority) != risk.ControlPriorityInventoryHygiene {
+		return false
+	}
+	if len(item.Contradictions) > 0 || hasContradictoryEvidenceState(item) {
+		return false
+	}
+	if bomItemHighImpactDeliveryEvidence(item) {
+		return false
+	}
+	return item.CredentialAccess ||
+		item.ApprovalGap ||
+		item.StandingPrivilege ||
+		strings.TrimSpace(item.ApprovalEvidenceState) == risk.EvidenceStateUnknown ||
+		strings.TrimSpace(item.ProofEvidenceState) == risk.EvidenceStateUnknown
+}
+
+func bomItemHighImpactDeliveryEvidence(item AgentActionBOMItem) bool {
+	if item.ProductionWrite || len(item.MatchedProductionTargets) > 0 {
+		return true
+	}
+	switch strings.TrimSpace(item.TargetClass) {
+	case risk.TargetClassProductionImpacting, risk.TargetClassReleaseAdjacent, risk.TargetClassCustomerDataAdjacent:
+		return true
+	}
+	for _, preset := range item.HighStakesPresets {
+		switch strings.TrimSpace(preset.Preset) {
+		case risk.HighStakesPresetProductionPath,
+			risk.HighStakesPresetReleaseAutomation,
+			risk.HighStakesPresetPackagePublishing,
+			risk.HighStakesPresetInfrastructureAsCode,
+			risk.HighStakesPresetIdentityAuthCode,
+			risk.HighStakesPresetPaymentFlow,
+			risk.HighStakesPresetRegulatedCustomerFlow,
+			risk.HighStakesPresetExternalEgress,
+			risk.HighStakesPresetMutableEndpoint:
+			return true
+		}
+	}
+	return false
 }
 
 func focusPresetTitle(preset FocusPreset) string {

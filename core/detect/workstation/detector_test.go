@@ -17,11 +17,20 @@ func TestDetectLocalMachineEnvAndProjectSignals(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "redacted")
 
 	projectRoot := filepath.Join(home, "Projects", "demo-agent")
-	if err := os.MkdirAll(filepath.Join(projectRoot, ".agents"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".agents", "skills"), 0o755); err != nil {
 		t.Fatalf("mkdir project: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".wrkr", "provenance"), 0o755); err != nil {
+		t.Fatalf("mkdir provenance: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(projectRoot, "AGENTS.md"), []byte("agent"), 0o600); err != nil {
 		t.Fatalf("write AGENTS.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(projectRoot, "bob.yaml"), []byte("version: 1\n"), 0o600); err != nil {
+		t.Fatalf("write bob.yaml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(projectRoot, ".wrkr", "provenance", "source-metadata.json"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("write source metadata: %v", err)
 	}
 
 	scopeRoot := filepath.Join(home, ".wrkr-local-machine")
@@ -44,12 +53,18 @@ func TestDetectLocalMachineEnvAndProjectSignals(t *testing.T) {
 
 	foundEnv := false
 	foundProject := false
+	foundFactory := false
+	foundHandoff := false
 	for _, finding := range findings {
 		switch {
 		case finding.Location == "process:env":
 			foundEnv = true
 		case finding.ToolType == "codex":
 			foundProject = true
+		case finding.FindingType == "agentic_factory" && finding.ToolType == "agentic_factory":
+			foundFactory = true
+		case finding.FindingType == "local_pr_handoff" && finding.ToolType == "local_pr_handoff":
+			foundHandoff = true
 		}
 	}
 	if !foundEnv {
@@ -57,5 +72,11 @@ func TestDetectLocalMachineEnvAndProjectSignals(t *testing.T) {
 	}
 	if !foundProject {
 		t.Fatal("expected agent project finding")
+	}
+	if !foundFactory {
+		t.Fatal("expected local agentic factory finding")
+	}
+	if !foundHandoff {
+		t.Fatal("expected local PR handoff finding")
 	}
 }

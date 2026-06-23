@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
@@ -159,4 +160,106 @@ func TestPrepareEvidenceBundleSummaryKeepsFocusedModeWhenPresetIsEmpty(t *testin
 	if focused.SuppressedCounts == nil || focused.SuppressedCounts.AgentActionBOM != 1 || focused.SuppressedCounts.ControlBacklog != 1 {
 		t.Fatalf("expected suppressions to record the stripped focused surfaces, got %+v", focused.SuppressedCounts)
 	}
+}
+
+func TestPrepareEvidenceBundleSummaryDefaultsAgentActionBOMToLeadBundle(t *testing.T) {
+	t.Parallel()
+
+	paths := []risk.ActionPath{}
+	items := []AgentActionBOMItem{}
+	for idx := 1; idx <= 6; idx++ {
+		pathID := fmt.Sprintf("apc-%d", idx)
+		paths = append(paths, risk.ActionPath{PathID: pathID, Repo: "acme/release", Location: ".github/workflows/release.yml"})
+		items = append(items, AgentActionBOMItem{
+			PathID:                  pathID,
+			Repo:                    "acme/release",
+			Location:                ".github/workflows/release.yml",
+			ActionPathEligible:      true,
+			ActionBindingState:      risk.ActionBindingStateBound,
+			ActionPathType:          risk.ActionPathTypeCICDWorkflow,
+			ConfidenceLane:          risk.ConfidenceLaneConfirmedActionPath,
+			RecommendedControl:      risk.RecommendedControlApprovalRequired,
+			ApprovalEvidenceState:   risk.EvidenceStateUnknown,
+			ProofEvidenceState:      risk.EvidenceStateUnknown,
+			CredentialEvidenceState: risk.EvidenceStateVerified,
+		})
+	}
+	summary := Summary{
+		Template:    string(TemplateAgentActionBOM),
+		ActionPaths: paths,
+		WorkflowHighlights: &WorkflowHighlights{Highlights: []WorkflowHighlight{
+			{PathID: "apc-1"},
+			{PathID: "apc-2"},
+			{PathID: "apc-3"},
+			{PathID: "apc-4"},
+			{PathID: "apc-5"},
+			{PathID: "apc-6"},
+		}},
+		AgentActionBOM: &AgentActionBOM{
+			Summary: AgentActionBOMSummary{
+				PrimaryView: &AgentActionBOMPrimaryView{PathID: "apc-6"},
+			},
+			Items: items,
+		},
+		ControlBacklog: &controlbacklog.Backlog{
+			Items: []controlbacklog.Item{
+				{ID: "cb-1", LinkedActionPathID: "apc-1"},
+				{ID: "cb-6", LinkedActionPathID: "apc-6"},
+			},
+		},
+		ControlPathGraph: &aggattack.ControlPathGraph{
+			Nodes: []aggattack.ControlPathNode{{NodeID: "node-1", PathID: "apc-1"}},
+			Edges: []aggattack.ControlPathEdge{{EdgeID: "edge-1", PathID: "apc-1"}},
+		},
+		WorkflowChains: &agentresolver.WorkflowChainArtifact{
+			Chains: []agentresolver.WorkflowChain{{ChainID: "wc-1", PathIDs: []string{"apc-1"}}},
+		},
+	}
+
+	focused := PrepareEvidenceBundleSummary(summary, "", "")
+	if !focused.FocusedBundleAvailable {
+		t.Fatalf("expected default Agent Action BOM evidence to be marked as focused lead bundle")
+	}
+	if !focused.FullExportAvailable {
+		t.Fatalf("expected full export to be advertised when graph-heavy surfaces are stripped")
+	}
+	if focused.ControlPathGraph != nil || focused.WorkflowChains != nil {
+		t.Fatalf("expected default lead evidence to omit graph-heavy appendix, graph=%+v chains=%+v", focused.ControlPathGraph, focused.WorkflowChains)
+	}
+	if focused.AgentActionBOM == nil || len(focused.AgentActionBOM.Items) != focusedEvidenceTopPathLimit {
+		t.Fatalf("expected default lead evidence to keep top %d BOM items, got %+v", focusedEvidenceTopPathLimit, focused.AgentActionBOM)
+	}
+	if !focusedEvidenceContainsPathID(itemPathIDs(focused.AgentActionBOM.Items), "apc-6") {
+		t.Fatalf("expected default lead evidence to keep the primary path, got %+v", focused.AgentActionBOM.Items)
+	}
+	if focused.SuppressedCounts == nil || focused.SuppressedCounts.GraphNodes == 0 || focused.SuppressedCounts.WorkflowChains == 0 {
+		t.Fatalf("expected lead evidence suppressions for graph-heavy appendix, got %+v", focused.SuppressedCounts)
+	}
+}
+
+func TestPrepareEvidenceBundleSummaryKeepsNonBOMDefaultFullExport(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		Template: string(TemplateOperator),
+		ControlPathGraph: &aggattack.ControlPathGraph{
+			Nodes: []aggattack.ControlPathNode{{NodeID: "node-1", PathID: "apc-1"}},
+		},
+	}
+
+	focused := PrepareEvidenceBundleSummary(summary, "", "")
+	if focused.FocusedBundleAvailable {
+		t.Fatalf("expected non-BOM evidence without explicit focus to remain full export")
+	}
+	if focused.ControlPathGraph == nil || len(focused.ControlPathGraph.Nodes) != 1 {
+		t.Fatalf("expected non-BOM evidence to keep graph by default, got %+v", focused.ControlPathGraph)
+	}
+}
+
+func itemPathIDs(items []AgentActionBOMItem) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		out = append(out, item.PathID)
+	}
+	return out
 }

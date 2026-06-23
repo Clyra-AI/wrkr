@@ -1,9 +1,11 @@
 package report
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -168,6 +170,84 @@ func TestBuildAgentActionBOMSkipsPlainSourcePrimarySelection(t *testing.T) {
 	}
 	if bom.Summary.PrimaryView.PathID != "apc-workflow" {
 		t.Fatalf("expected primary view to skip source-only API spec path, got %+v", bom.Summary.PrimaryView)
+	}
+}
+
+func TestApplySummaryCapsSelectsPrimaryViewFromUncappedWorkflowSource(t *testing.T) {
+	t.Parallel()
+
+	items := make([]AgentActionBOMItem, 0, defaultMaxAgentActionBOM+1)
+	for idx := 0; idx < defaultMaxAgentActionBOM; idx++ {
+		items = append(items, AgentActionBOMItem{
+			PathID:                  fmt.Sprintf("apc-context-%03d", idx),
+			Repo:                    "acme/api",
+			ToolType:                "openapi",
+			Location:                fmt.Sprintf("src/proto/%03d/openapi.yaml", idx),
+			ActionPathEligible:      true,
+			ActionBindingState:      risk.ActionBindingStateBound,
+			ActionPathType:          risk.ActionPathTypePlainSourceCode,
+			ConfidenceLane:          risk.ConfidenceLaneConfirmedActionPath,
+			RecommendedControl:      risk.RecommendedControlOwnerReview,
+			TargetClass:             risk.TargetClassCustomerDataAdjacent,
+			ApprovalEvidenceState:   risk.EvidenceStateUnknown,
+			CredentialEvidenceState: risk.EvidenceStateUnknown,
+		})
+	}
+	authority := &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+		StandingAccess:         true,
+	}
+	workflow := AgentActionBOMItem{
+		PathID:                   "apc-workflow",
+		Repo:                     "acme/release",
+		ToolType:                 "ci_agent",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathEligible:       true,
+		ActionBindingState:       risk.ActionBindingStateBound,
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+		DelegationReadinessState: risk.DelegationReadinessBlocked,
+		RecommendedControl:       risk.RecommendedControlBlockStandingCredential,
+		TargetClass:              risk.TargetClassReleaseAdjacent,
+		ActionClasses:            []string{"deploy", "write"},
+		CredentialAccess:         true,
+		CredentialAuthorityRef:   agginventory.CanonicalCredentialAuthorityRef(authority),
+		CredentialAuthority:      authority,
+	}
+	allItems := append(append([]AgentActionBOMItem(nil), items...), workflow)
+	summary := Summary{
+		AgentActionBOM: &AgentActionBOM{
+			Items:            append([]AgentActionBOMItem(nil), allItems...),
+			focusSourceItems: allItems,
+		},
+	}
+
+	ApplySummaryCaps(&summary)
+
+	if summary.AgentActionBOM == nil || summary.AgentActionBOM.Summary.PrimaryView == nil {
+		t.Fatalf("expected capped summary to select a primary workflow, got %+v", summary.AgentActionBOM)
+	}
+	if summary.AgentActionBOM.Summary.PrimaryView.PathID != "apc-workflow" {
+		t.Fatalf("expected primary view from uncapped workflow source, got %+v", summary.AgentActionBOM.Summary.PrimaryView)
+	}
+	found := false
+	for _, item := range summary.AgentActionBOM.Items {
+		if item.PathID != "apc-workflow" {
+			continue
+		}
+		found = true
+		if item.CredentialAuthorityRef == "" {
+			t.Fatalf("expected visible primary workflow to keep credential authority ref, got %+v", item)
+		}
+		if item.CredentialAuthority != nil {
+			t.Fatalf("expected visible primary workflow to strip embedded credential authority, got %+v", item.CredentialAuthority)
+		}
+	}
+	if !found {
+		t.Fatalf("expected primary workflow to be made visible after caps, got %+v", summary.AgentActionBOM.Items)
 	}
 }
 

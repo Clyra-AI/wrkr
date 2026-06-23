@@ -457,7 +457,7 @@ func executiveClosureRecommendation(group controlbacklog.ExecutiveRollupGroup) s
 	case controlbacklog.ActionRemediate:
 		return "remediate standing production deploy paths first"
 	case controlbacklog.ActionAttachEvidence:
-		return "attach missing approval, proof, or runtime evidence before promotion"
+		return "attach or import approval, proof, or runtime evidence before making a control claim"
 	case controlbacklog.ActionApprove:
 		return "complete the explicit approval trail and rescan"
 	case controlbacklog.ActionInventoryReview:

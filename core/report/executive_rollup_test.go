@@ -335,6 +335,19 @@ func TestRenderMarkdownPlacesExecutiveRollupBeforeControlBacklog(t *testing.T) {
 	}
 }
 
+func TestExecutiveClosureRecommendationUsesEvidenceImportLanguage(t *testing.T) {
+	t.Parallel()
+
+	got := executiveClosureRecommendation(controlbacklog.ExecutiveRollupGroup{
+		Dimensions: controlbacklog.ExecutiveRollupDimensions{
+			ClosureAction: controlbacklog.ActionAttachEvidence,
+		},
+	})
+	if strings.Contains(got, "missing approval") || !strings.Contains(got, "attach or import approval") {
+		t.Fatalf("expected buyer-safe evidence import wording, got %q", got)
+	}
+}
+
 func TestCompareExecutiveRollupGroupsHonorsPriorityChain(t *testing.T) {
 	t.Parallel()
 
