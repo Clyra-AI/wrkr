@@ -90,6 +90,8 @@
         "action_path_type": {"type": "string", "enum": ["ai_assisted_workflow", "agent_framework", "agent_instruction_surface", "automation_bot", "ci_cd_workflow", "dependency_only_signal", "legacy_script", "plain_source_code", "unknown_executable_path"]},
         "action_path_type_reasons": {"type": "array", "items": {"type": "string"}},
         "action_path_type_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "ci_flow_class": {"type": "string", "enum": ["standard_governed_ci", "ci_with_broad_standing_authority", "ci_reachable_from_untrusted_pr", "ci_editing_release_or_workflow_path", "agentic_ci_flow", "production_or_release_action_path"]},
+        "ci_flow_reasons": {"type": "array", "items": {"type": "string"}},
         "action_classes": {"type": "array", "items": {"type": "string"}},
         "action_reasons": {"type": "array", "items": {"type": "string"}},
         "endpoint_ref_group_id": {"type": "string"},

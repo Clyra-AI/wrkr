@@ -56,6 +56,7 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out.ActionPathType, out.ActionPathTypeReasons, out.ActionPathTypeEvidenceRefs = deriveActionPathType(out)
 	out.HighStakesPresets = deriveHighStakesPresets(out)
 	out.ProductionContext = deriveProductionContext(out)
+	out.CIFlowClass, out.CIFlowReasons = deriveCIFlowClassification(out)
 	out.Contradictions = deriveContradictions(out)
 	if len(out.Contradictions) > 0 {
 		out.TargetEvidenceState = EvidenceStateContradictory

@@ -194,6 +194,13 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 }
 
 func pathIsStandardCIControlContext(path ActionPath) bool {
+	if strings.TrimSpace(path.CIFlowClass) != "" {
+		return strings.TrimSpace(path.CIFlowClass) == CIFlowClassStandardGovernedCI
+	}
+	return legacyStandardCIControlContext(path)
+}
+
+func legacyStandardCIControlContext(path ActionPath) bool {
 	if !pathLooksLikeCIWorkflow(path) {
 		return false
 	}
@@ -542,6 +549,9 @@ func RemediationForActionPath(path ActionPath) string {
 		if actionPathDependencyOnly(path) {
 			return "Confirm whether this dependency-only AI package is active agent code; if not, suppress it as accepted inventory, otherwise add source-level binding evidence."
 		}
+		if strings.TrimSpace(path.CIFlowClass) == CIFlowClassStandardGovernedCI {
+			return "Import PR review, branch protection, environment approval, required-check, or owner evidence for this exact CI path before treating unknown approval or proof state as a real control gap."
+		}
 		return "Review this low-governance path for production relevance and either suppress it as accepted inventory or add stronger binding evidence."
 	}
 	if path.CredentialAccess && path.CredentialAuthority != nil && path.CredentialAuthority.StandingAccess {
@@ -572,6 +582,9 @@ func RemediationForActionPath(path ActionPath) string {
 	}
 	if strings.TrimSpace(path.PolicyCoverageStatus) == PolicyCoverageStatusNone || len(path.PolicyMissingReasons) > 0 {
 		return "Attach the missing policy or proof reference for this exact " + pathSurfaceLabel(path) + " and rescan so governance coverage is no longer inferred from the global chain."
+	}
+	if path.CredentialAccess && pathHasUnknownCredentialAuthority(path) {
+		return "Classify or correlate the exact credential authority and scope for this " + pathSurfaceLabel(path) + " before changing credential posture, then rerun the scan."
 	}
 	if path.CredentialAccess {
 		return "Classify the credential authority on this " + pathSurfaceLabel(path) + ", attach proof for scope and ownership, and confirm whether standing access can be reduced."

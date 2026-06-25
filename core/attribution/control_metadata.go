@@ -404,22 +404,44 @@ type externalControlEvidencePayload struct {
 }
 
 type externalControlEvidenceRecord struct {
-	RecordKind    string   `json:"record_kind"`
-	SourceType    string   `json:"source_type"`
-	Source        string   `json:"source"`
-	Repo          string   `json:"repo"`
-	Path          string   `json:"path"`
-	Workflow      string   `json:"workflow"`
-	Location      string   `json:"location"`
-	ObservedAt    string   `json:"observed_at"`
-	ValidUntil    string   `json:"valid_until"`
-	MaxAge        string   `json:"max_age"`
-	Issuer        string   `json:"issuer"`
-	Confidence    string   `json:"confidence"`
-	EvidenceClass string   `json:"evidence_class"`
-	Status        string   `json:"status"`
-	Owner         string   `json:"owner"`
-	EvidenceRefs  []string `json:"evidence_refs"`
+	RecordKind     string   `json:"record_kind"`
+	SourceType     string   `json:"source_type"`
+	Source         string   `json:"source"`
+	Repo           string   `json:"repo"`
+	Service        string   `json:"service"`
+	Workflow       string   `json:"workflow"`
+	Environment    string   `json:"environment"`
+	Path           string   `json:"path"`
+	Location       string   `json:"location"`
+	PathID         string   `json:"path_id"`
+	ResolutionKey  string   `json:"resolution_key"`
+	AgentID        string   `json:"agent_id"`
+	Tool           string   `json:"tool"`
+	Target         string   `json:"target"`
+	ActionClasses  []string `json:"action_classes"`
+	PolicyRef      string   `json:"policy_ref"`
+	ProofRef       string   `json:"proof_ref"`
+	GraphNodeRefs  []string `json:"graph_node_refs"`
+	GraphEdgeRefs  []string `json:"graph_edge_refs"`
+	ObservedAt     string   `json:"observed_at"`
+	ValidUntil     string   `json:"valid_until"`
+	MaxAge         string   `json:"max_age"`
+	Issuer         string   `json:"issuer"`
+	Confidence     string   `json:"confidence"`
+	RedactionHints []string `json:"redaction_hints"`
+	EvidenceClass  string   `json:"evidence_class"`
+	Status         string   `json:"status"`
+	Owner          string   `json:"owner"`
+	RequiredChecks []string `json:"required_checks"`
+	Branch         string   `json:"branch"`
+	EvidenceRefs   []string `json:"evidence_refs"`
+}
+
+type ExternalControlMatch struct {
+	PathID        string          `json:"path_id,omitempty"`
+	ResolutionKey string          `json:"resolution_key,omitempty"`
+	AgentID       string          `json:"agent_id,omitempty"`
+	Metadata      ControlMetadata `json:"metadata"`
 }
 
 func loadExternalControlMetadata(payload []byte, generatedAt time.Time) []ControlMetadata {
@@ -432,71 +454,113 @@ func loadExternalControlMetadata(payload []byte, generatedAt time.Time) []Contro
 	}
 	out := make([]ControlMetadata, 0, len(decoded.Records))
 	for _, record := range decoded.Records {
-		if strings.TrimSpace(record.RecordKind) != "external_control" {
+		item, ok := externalControlMetadataFromRecord(record, generatedAt)
+		if !ok || strings.TrimSpace(item.Path) == "" {
 			continue
-		}
-		path := filepath.ToSlash(firstNonEmptyMetadata(record.Path, record.Workflow, record.Location))
-		if path == "" {
-			continue
-		}
-		item := ControlMetadata{
-			Path:                     path,
-			ControlResolutionReasons: []string{"external_evidence:" + strings.TrimSpace(record.EvidenceClass)},
-			ControlEvidenceRefs:      normalizeStringList(record.EvidenceRefs),
-			ExternalReferences:       normalizeStringList(record.EvidenceRefs),
-			ConstraintEvidenceStatus: normalizeExternalConstraintStatus(record.Status),
-		}
-		switch strings.TrimSpace(record.EvidenceClass) {
-		case "owner_assignment":
-			item.EvidenceDecisions = append(item.EvidenceDecisions, evidencepolicy.ResolveDecision([]evidencepolicy.Candidate{{
-				Field:        evidencepolicy.FieldOwner,
-				Value:        strings.TrimSpace(record.Owner),
-				SourceType:   strings.TrimSpace(record.SourceType),
-				Source:       strings.TrimSpace(record.Source),
-				EvidenceRefs: normalizeStringList(record.EvidenceRefs),
-				ObservedAt:   strings.TrimSpace(record.ObservedAt),
-				ValidUntil:   strings.TrimSpace(record.ValidUntil),
-				MaxAge:       strings.TrimSpace(record.MaxAge),
-				Issuer:       strings.TrimSpace(record.Issuer),
-				Confidence:   strings.TrimSpace(record.Confidence),
-				Status:       strings.TrimSpace(record.Status),
-			}}, generatedAt))
-		case "approval", "branch_protection", "protected_environment", "deployment_approval", "required_check", "security_gate":
-			item.EvidenceDecisions = append(item.EvidenceDecisions, evidencepolicy.ResolveDecision([]evidencepolicy.Candidate{{
-				Field:        evidencepolicy.FieldApproval,
-				Value:        strings.TrimSpace(record.EvidenceClass),
-				SourceType:   strings.TrimSpace(record.SourceType),
-				Source:       strings.TrimSpace(record.Source),
-				EvidenceRefs: normalizeStringList(record.EvidenceRefs),
-				ObservedAt:   strings.TrimSpace(record.ObservedAt),
-				ValidUntil:   strings.TrimSpace(record.ValidUntil),
-				MaxAge:       strings.TrimSpace(record.MaxAge),
-				Issuer:       strings.TrimSpace(record.Issuer),
-				Confidence:   strings.TrimSpace(record.Confidence),
-				Status:       strings.TrimSpace(record.Status),
-			}}, generatedAt))
-		}
-		switch strings.TrimSpace(record.EvidenceClass) {
-		case "branch_protection", "protected_environment", "deployment_approval", "required_check", "security_gate", "freeze_window", "kill_switch":
-			item.ConstraintEvidenceClasses = []string{strings.TrimSpace(record.EvidenceClass)}
-			item.ConstraintEvidenceRefs = normalizeStringList(record.EvidenceRefs)
-			item.EvidenceDecisions = append(item.EvidenceDecisions, evidencepolicy.ResolveDecision([]evidencepolicy.Candidate{{
-				Field:        evidencepolicy.FieldConstraint,
-				Value:        strings.TrimSpace(record.EvidenceClass),
-				SourceType:   strings.TrimSpace(record.SourceType),
-				Source:       strings.TrimSpace(record.Source),
-				EvidenceRefs: normalizeStringList(record.EvidenceRefs),
-				ObservedAt:   strings.TrimSpace(record.ObservedAt),
-				ValidUntil:   strings.TrimSpace(record.ValidUntil),
-				MaxAge:       strings.TrimSpace(record.MaxAge),
-				Issuer:       strings.TrimSpace(record.Issuer),
-				Confidence:   strings.TrimSpace(record.Confidence),
-				Status:       strings.TrimSpace(record.Status),
-			}}, generatedAt))
 		}
 		out = append(out, item)
 	}
 	return out
+}
+
+func loadExternalControlMatchesAt(repoRoot string, generatedAt time.Time) []ExternalControlMatch {
+	payload, err := os.ReadFile(filepath.Join(repoRoot, ".wrkr", "provenance", "external-control-evidence.json")) // #nosec G304 -- deterministic local external-control sidecar under the scanned repo root.
+	if err != nil {
+		return nil
+	}
+	return loadExternalControlMatches(payload, generatedAt)
+}
+
+func loadExternalControlMatches(payload []byte, generatedAt time.Time) []ExternalControlMatch {
+	var decoded externalControlEvidencePayload
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil
+	}
+	if strings.TrimSpace(decoded.SchemaVersion) != "" && strings.TrimSpace(decoded.SchemaVersion) != "v1" {
+		return nil
+	}
+	out := make([]ExternalControlMatch, 0, len(decoded.Records))
+	for _, record := range decoded.Records {
+		item, ok := externalControlMetadataFromRecord(record, generatedAt)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(record.PathID) == "" && strings.TrimSpace(record.ResolutionKey) == "" && strings.TrimSpace(record.AgentID) == "" {
+			continue
+		}
+		out = append(out, ExternalControlMatch{
+			PathID:        strings.TrimSpace(record.PathID),
+			ResolutionKey: strings.TrimSpace(record.ResolutionKey),
+			AgentID:       strings.TrimSpace(record.AgentID),
+			Metadata:      item,
+		})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func externalControlMetadataFromRecord(record externalControlEvidenceRecord, generatedAt time.Time) (ControlMetadata, bool) {
+	if strings.TrimSpace(record.RecordKind) != "external_control" {
+		return ControlMetadata{}, false
+	}
+	item := ControlMetadata{
+		Path:                     filepath.ToSlash(firstNonEmptyMetadata(record.Path, record.Workflow, record.Location)),
+		ControlResolutionReasons: []string{"external_evidence:" + strings.TrimSpace(record.EvidenceClass)},
+		ControlEvidenceRefs:      normalizeStringList(record.EvidenceRefs),
+		ExternalReferences:       normalizeStringList(record.EvidenceRefs),
+		ConstraintEvidenceStatus: normalizeExternalConstraintStatus(record.Status),
+	}
+	switch strings.TrimSpace(record.EvidenceClass) {
+	case "owner_assignment":
+		item.EvidenceDecisions = append(item.EvidenceDecisions, evidencepolicy.ResolveDecision([]evidencepolicy.Candidate{{
+			Field:        evidencepolicy.FieldOwner,
+			Value:        strings.TrimSpace(record.Owner),
+			SourceType:   strings.TrimSpace(record.SourceType),
+			Source:       strings.TrimSpace(record.Source),
+			EvidenceRefs: normalizeStringList(record.EvidenceRefs),
+			ObservedAt:   strings.TrimSpace(record.ObservedAt),
+			ValidUntil:   strings.TrimSpace(record.ValidUntil),
+			MaxAge:       strings.TrimSpace(record.MaxAge),
+			Issuer:       strings.TrimSpace(record.Issuer),
+			Confidence:   strings.TrimSpace(record.Confidence),
+			Status:       strings.TrimSpace(record.Status),
+		}}, generatedAt))
+	case "approval", "branch_protection", "protected_environment", "deployment_approval", "required_check", "security_gate", "merge_metadata":
+		item.EvidenceDecisions = append(item.EvidenceDecisions, evidencepolicy.ResolveDecision([]evidencepolicy.Candidate{{
+			Field:        evidencepolicy.FieldApproval,
+			Value:        strings.TrimSpace(record.EvidenceClass),
+			SourceType:   strings.TrimSpace(record.SourceType),
+			Source:       strings.TrimSpace(record.Source),
+			EvidenceRefs: normalizeStringList(record.EvidenceRefs),
+			ObservedAt:   strings.TrimSpace(record.ObservedAt),
+			ValidUntil:   strings.TrimSpace(record.ValidUntil),
+			MaxAge:       strings.TrimSpace(record.MaxAge),
+			Issuer:       strings.TrimSpace(record.Issuer),
+			Confidence:   strings.TrimSpace(record.Confidence),
+			Status:       strings.TrimSpace(record.Status),
+		}}, generatedAt))
+	}
+	switch strings.TrimSpace(record.EvidenceClass) {
+	case "branch_protection", "protected_environment", "deployment_approval", "required_check", "security_gate", "freeze_window", "kill_switch", "workflow_permission", "merge_metadata":
+		item.ConstraintEvidenceClasses = []string{strings.TrimSpace(record.EvidenceClass)}
+		item.ConstraintEvidenceRefs = normalizeStringList(record.EvidenceRefs)
+		item.EvidenceDecisions = append(item.EvidenceDecisions, evidencepolicy.ResolveDecision([]evidencepolicy.Candidate{{
+			Field:        evidencepolicy.FieldConstraint,
+			Value:        strings.TrimSpace(record.EvidenceClass),
+			SourceType:   strings.TrimSpace(record.SourceType),
+			Source:       strings.TrimSpace(record.Source),
+			EvidenceRefs: normalizeStringList(record.EvidenceRefs),
+			ObservedAt:   strings.TrimSpace(record.ObservedAt),
+			ValidUntil:   strings.TrimSpace(record.ValidUntil),
+			MaxAge:       strings.TrimSpace(record.MaxAge),
+			Issuer:       strings.TrimSpace(record.Issuer),
+			Confidence:   strings.TrimSpace(record.Confidence),
+			Status:       strings.TrimSpace(record.Status),
+		}}, generatedAt))
+	}
+	return finalizeControlMetadata(item), true
 }
 
 func normalizeExternalConstraintStatus(value string) string {

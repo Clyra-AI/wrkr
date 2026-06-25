@@ -336,7 +336,7 @@ func TestRecommendedActionFollowsStrongestGovernableSignal(t *testing.T) {
 	}
 }
 
-func TestStandardCICredentialContextStaysInventoryWithoutAgenticOrReleaseEvidence(t *testing.T) {
+func TestStandardCICredentialContextRoutesToUntrustedPRReviewWhenPRReachIsOpen(t *testing.T) {
 	t.Parallel()
 
 	paths, _ := BuildActionPaths(nil, &agginventory.Inventory{
@@ -367,8 +367,11 @@ func TestStandardCICredentialContextStaysInventoryWithoutAgenticOrReleaseEvidenc
 	if paths[0].AutonomyLevel != "interactive" {
 		t.Fatalf("expected autonomy_level to be carried into action path, got %+v", paths[0])
 	}
-	if paths[0].ControlPriority != ControlPriorityInventoryHygiene || paths[0].RecommendedAction != "inventory" || paths[0].RiskTier != RiskTierLow {
-		t.Fatalf("expected standard CI credential context to stay inventory, got %+v", paths[0])
+	if paths[0].CIFlowClass != CIFlowClassReachableFromUntrustedPR {
+		t.Fatalf("expected PR-reachable CI flow classification, got %+v", paths[0])
+	}
+	if paths[0].ControlPriority == ControlPriorityInventoryHygiene {
+		t.Fatalf("expected PR-reachable CI path to stay out of inventory hygiene, got %+v", paths[0])
 	}
 }
 

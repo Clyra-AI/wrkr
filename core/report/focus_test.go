@@ -173,3 +173,28 @@ func TestApplyAgentActionBOMFocusPreservesAuthorityDetailFromFocusSourceItems(t 
 		t.Fatalf("expected focused primary view to preserve authority detail, got %q", got)
 	}
 }
+
+func TestStaticAPIFindingRecommendsCallerCorrelation(t *testing.T) {
+	t.Parallel()
+
+	item := AgentActionBOMItem{
+		ToolType:              "openapi",
+		Location:              "openapi/payments.yaml",
+		ActionPathType:        risk.ActionPathTypePlainSourceCode,
+		ControlPriority:       risk.ControlPriorityReviewQueue,
+		OwnerEvidenceState:    risk.EvidenceStateUnknown,
+		ApprovalEvidenceState: risk.EvidenceStateUnknown,
+		ProofEvidenceState:    risk.EvidenceStateUnknown,
+		ConfidenceLane:        risk.ConfidenceLaneConfirmedActionPath,
+		RecommendedControl:    risk.RecommendedControlProofRequired,
+		RecommendedNextAction: "proof",
+	}
+
+	recommendation := strings.ToLower(workflowRecommendation(item))
+	if strings.Contains(recommendation, "owner evidence") || strings.Contains(recommendation, "standing credential") {
+		t.Fatalf("expected static API guidance to avoid owner or credential-first remediation, got %q", recommendation)
+	}
+	if !strings.Contains(recommendation, "caller") && !strings.Contains(recommendation, "correlat") {
+		t.Fatalf("expected static API guidance to request caller correlation, got %q", recommendation)
+	}
+}

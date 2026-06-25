@@ -649,8 +649,14 @@ func hasClassificationReason(path ActionPath, reason string) bool {
 
 func requiredAuthorityForPath(path ActionPath) string {
 	switch {
+	case pathLikelyNeedsCorrelation(path) || pathTargetsCorrelationContext(path):
+		return "correlate the runtime caller, workflow, or tool binding that exercises this exact surface"
+	case strings.TrimSpace(path.CIFlowClass) == CIFlowClassStandardGovernedCI:
+		return "import branch protection, PR review, environment approval, or owner evidence for this exact CI path"
 	case standingCredentialWithBroadAuthority(path):
 		return "replace standing credential with repo-scoped JIT or brokered authority"
+	case pathHasUnknownCredentialAuthority(path):
+		return "classify or correlate the exact credential authority and scope used by this path before credential remediation"
 	case path.CredentialAccess:
 		return "use workload or brokered authority scoped to this exact path"
 	case path.AutonomyTier == AutonomyTier4ProdPrivilegedCustomerImpact:
@@ -690,11 +696,22 @@ func requiredProofForPath(path ActionPath) string {
 
 func validationStepForPath(path ActionPath) string {
 	switch strings.TrimSpace(path.RecommendedControl) {
+	case RecommendedControlAllow:
+		if pathLikelyNeedsCorrelation(path) || pathTargetsCorrelationContext(path) {
+			return "attach caller or workflow correlation evidence and rerun the scan"
+		}
+		if strings.TrimSpace(path.CIFlowClass) == CIFlowClassStandardGovernedCI {
+			return "import provider control evidence and rerun the scan"
+		}
+		return "rerun the scan and confirm the path stays byte-stable"
 	case RecommendedControlBlockStandingCredential:
 		return "replace standing credential, attach proof, and rerun the scan"
 	case RecommendedControlApprovalRequired:
 		return "attach owner approval evidence and rerun the scan"
 	case RecommendedControlProofRequired, RecommendedControlJITCredentialRequired:
+		if pathHasUnknownCredentialAuthority(path) {
+			return "correlate credential authority or scope, attach evidence, and rerun the scan"
+		}
 		return "attach proof or JIT credential evidence and rerun the scan"
 	case RecommendedControlSecurityReview:
 		return "complete security review, attach control evidence, and rerun the scan"
@@ -708,6 +725,9 @@ func validationStepForPath(path ActionPath) string {
 func defaultPostureForPath(path ActionPath) string {
 	switch strings.TrimSpace(path.RecommendedControl) {
 	case RecommendedControlAllow:
+		if pathLikelyNeedsCorrelation(path) || pathTargetsCorrelationContext(path) {
+			return "correlate before delegation"
+		}
 		return "allow after deterministic local validation"
 	case RecommendedControlOwnerReview, RecommendedControlSecurityReview:
 		return "review before delegation"
@@ -717,6 +737,27 @@ func defaultPostureForPath(path ActionPath) string {
 		return "proof before delegation"
 	default:
 		return "block until contradictory or broad authority evidence is resolved"
+	}
+}
+
+func pathHasUnknownCredentialAuthority(path ActionPath) bool {
+	if !path.CredentialAccess {
+		return false
+	}
+	if standingCredentialWithBroadAuthority(path) {
+		return false
+	}
+	authority := agginventory.NormalizeCredentialAuthority(path.CredentialAuthority)
+	provenance := agginventory.NormalizeCredentialProvenance(path.CredentialProvenance)
+	switch {
+	case authority == nil && provenance == nil:
+		return true
+	case authority != nil && (!authority.CredentialUsableByPath || strings.TrimSpace(authority.AccessType) == "" || strings.TrimSpace(authority.AccessType) == agginventory.CredentialAccessTypeUnknown):
+		return true
+	case provenance != nil && (strings.TrimSpace(provenance.Scope) == "" || strings.TrimSpace(provenance.Scope) == agginventory.CredentialScopeUnknown):
+		return true
+	default:
+		return false
 	}
 }
 
