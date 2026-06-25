@@ -129,6 +129,52 @@ review_dispositions:
 	}
 }
 
+func TestDeclarationResolutionKeyMatchesWhenPathIDIsStale(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wrkr"), 0o755); err != nil {
+		t.Fatalf("mkdir .wrkr: %v", err)
+	}
+	payload := `schema_version: v1
+review_dispositions:
+  - state: accepted_risk
+    source: governance-ticket
+    issuer: release-cab
+    rationale: Stable resolution keys should survive stale path ids.
+    observed_at: 2026-06-25T10:00:00Z
+    scope: repo
+    path_id: apc-stale-path-id
+    resolution_key: rk-stable-path
+`
+	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "control-declarations.yaml"), []byte(payload), 0o600); err != nil {
+		t.Fatalf("write declarations: %v", err)
+	}
+
+	path := ProjectActionPath(ActionPath{
+		PathID:         "apc-current-path-id",
+		Org:            "acme",
+		Repo:           "acme/release",
+		ToolType:       "compiled_action",
+		Location:       ".github/workflows/release.yml",
+		WriteCapable:   true,
+		ActionClasses:  []string{"deploy"},
+		ResolutionKey:  "rk-stable-path",
+		ConfidenceLane: ConfidenceLaneConfirmedActionPath,
+	})
+
+	ctx := attribution.LoadContextAt(repoRoot, time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC))
+	decorated := DecorateControlMetadata([]ActionPath{path}, map[string]attribution.Context{
+		repoKey(path.Org, path.Repo): ctx,
+	})
+	if len(decorated) != 1 {
+		t.Fatalf("expected one decorated path, got %+v", decorated)
+	}
+	if decorated[0].ReviewLifecycleState != ReviewLifecycleStateAcceptedRisk {
+		t.Fatalf("expected accepted-risk lifecycle state via resolution_key fallback, got %+v", decorated[0])
+	}
+}
+
 func TestResolutionSelectorAmbiguityFailsClosed(t *testing.T) {
 	t.Parallel()
 

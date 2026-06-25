@@ -706,9 +706,6 @@ func actionPathCredentialAuthority(path risk.ActionPath) string {
 }
 
 func actionPathFallbackMatchKey(path ActionPathState) string {
-	if strings.TrimSpace(path.ResolutionKey) != "" {
-		return strings.TrimSpace(path.ResolutionKey)
-	}
 	parts := []string{
 		strings.TrimSpace(path.Platform),
 		fallback(strings.TrimSpace(path.Org), "local"),

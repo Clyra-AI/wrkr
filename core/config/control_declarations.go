@@ -231,6 +231,9 @@ func validateControlDeclarations(doc ControlDeclarations) error {
 		if strings.TrimSpace(item.Scope) == "" {
 			return fmt.Errorf("review_dispositions.scope is required")
 		}
+		if strings.TrimSpace(item.ObservedAt) == "" {
+			return fmt.Errorf("review_dispositions.observed_at is required")
+		}
 		if err := validateDeclarationTiming(item.ObservedAt, item.ValidUntil, item.MaxAge); err != nil {
 			return err
 		}
