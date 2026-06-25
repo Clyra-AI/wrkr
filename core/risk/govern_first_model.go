@@ -76,6 +76,16 @@ func deriveGovernFirstModel(path ActionPath) governFirstModel {
 		model.inventoryRiskRank = 3
 	}
 
+	if reviewLifecycleResolvedAppendixState(path.ReviewLifecycleState) {
+		model.controlPriority = ControlPriorityInventoryHygiene
+		model.controlPriorityRank = 2
+		model.riskTier = RiskTierLow
+		model.riskTierRank = 3
+		model.recommendedAction = "inventory"
+		model.governableScore = 0
+		return model
+	}
+
 	if lane == ConfidenceLaneContextOnly {
 		model.controlPriority = ControlPriorityInventoryHygiene
 		model.controlPriorityRank = 2

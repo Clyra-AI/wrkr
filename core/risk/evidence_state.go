@@ -23,15 +23,21 @@ const (
 	EvidenceStateUnknown       = "unknown"
 	EvidenceStateContradictory = "contradictory"
 
-	ReviewLifecycleStateOpen                 = "open"
-	ReviewLifecycleStateConfirmed            = "confirmed"
-	ReviewLifecycleStateDeclaredControlled   = "declared_controlled"
-	ReviewLifecycleStateAcceptedRisk         = "accepted_risk"
-	ReviewLifecycleStateNotApplicable        = "not_applicable"
-	ReviewLifecycleStateFalsePositive        = "false_positive"
-	ReviewLifecycleStateNeedsRuntimeEvidence = "needs_runtime_evidence"
-	ReviewLifecycleStateExpired              = "expired"
-	ReviewLifecycleStateReopenedByDrift      = "reopened_by_drift"
+	ReviewLifecycleStateOpen                     = "open"
+	ReviewLifecycleStateConfirmed                = "confirmed"
+	ReviewLifecycleStateDeclaredControlled       = "declared_controlled"
+	ReviewLifecycleStateCoveredByImportedControl = "covered_by_imported_control"
+	ReviewLifecycleStateAcceptedRisk             = "accepted_risk"
+	ReviewLifecycleStateNotApplicable            = "not_applicable"
+	ReviewLifecycleStateFalsePositive            = "false_positive"
+	ReviewLifecycleStateNeedsRuntimeEvidence     = "needs_runtime_evidence"
+	ReviewLifecycleStateExpired                  = "expired"
+	ReviewLifecycleStateReopenedByDrift          = "reopened_by_drift"
+
+	ReviewResolvedVisibilityPrimary  = "primary"
+	ReviewResolvedVisibilityAppendix = "appendix"
+
+	ReviewReopenStateReopened = "reopened"
 )
 
 func ValidControlResolutionState(value string) bool {
@@ -66,6 +72,7 @@ func ValidReviewLifecycleState(value string) bool {
 	case ReviewLifecycleStateOpen,
 		ReviewLifecycleStateConfirmed,
 		ReviewLifecycleStateDeclaredControlled,
+		ReviewLifecycleStateCoveredByImportedControl,
 		ReviewLifecycleStateAcceptedRisk,
 		ReviewLifecycleStateNotApplicable,
 		ReviewLifecycleStateFalsePositive,

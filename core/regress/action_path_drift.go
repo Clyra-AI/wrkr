@@ -30,38 +30,46 @@ const (
 )
 
 type ActionPathState struct {
-	PathID                   string   `json:"path_id,omitempty"`
-	ResolutionKey            string   `json:"resolution_key,omitempty"`
-	MatchKey                 string   `json:"match_key,omitempty"`
-	Platform                 string   `json:"platform,omitempty"`
-	Org                      string   `json:"org"`
-	Repo                     string   `json:"repo"`
-	Location                 string   `json:"location,omitempty"`
-	ToolType                 string   `json:"tool_type,omitempty"`
-	ActionPathType           string   `json:"action_path_type,omitempty"`
-	TargetClass              string   `json:"target_class,omitempty"`
-	BoundaryLabel            string   `json:"boundary_label,omitempty"`
-	ControlResolutionState   string   `json:"control_resolution_state,omitempty"`
-	DelegationReadinessState string   `json:"delegation_readiness_state,omitempty"`
-	ApprovalEvidenceState    string   `json:"approval_evidence_state,omitempty"`
-	OwnerEvidenceState       string   `json:"owner_evidence_state,omitempty"`
-	ProofEvidenceState       string   `json:"proof_evidence_state,omitempty"`
-	RuntimeEvidenceState     string   `json:"runtime_evidence_state,omitempty"`
-	TargetEvidenceState      string   `json:"target_evidence_state,omitempty"`
-	CredentialEvidenceState  string   `json:"credential_evidence_state,omitempty"`
-	WriteCapable             bool     `json:"write_capable,omitempty"`
-	DeployWrite              bool     `json:"deploy_write,omitempty"`
-	ProductionWrite          bool     `json:"production_write,omitempty"`
-	CredentialAccess         bool     `json:"credential_access,omitempty"`
-	ApprovalGap              bool     `json:"approval_gap,omitempty"`
-	RiskScore                float64  `json:"risk_score,omitempty"`
-	ContradictionCount       int      `json:"contradiction_count,omitempty"`
-	ActionClasses            []string `json:"action_classes,omitempty"`
-	WritePathClasses         []string `json:"write_path_classes,omitempty"`
-	AuthorityBindings        []string `json:"authority_bindings,omitempty"`
-	CredentialSubjects       []string `json:"credential_subjects,omitempty"`
-	CredentialAuthority      string   `json:"credential_authority,omitempty"`
-	EvidenceRefs             []string `json:"evidence_refs,omitempty"`
+	PathID                       string   `json:"path_id,omitempty"`
+	ResolutionKey                string   `json:"resolution_key,omitempty"`
+	MatchKey                     string   `json:"match_key,omitempty"`
+	Platform                     string   `json:"platform,omitempty"`
+	Org                          string   `json:"org"`
+	Repo                         string   `json:"repo"`
+	Location                     string   `json:"location,omitempty"`
+	ToolType                     string   `json:"tool_type,omitempty"`
+	ActionPathType               string   `json:"action_path_type,omitempty"`
+	TargetClass                  string   `json:"target_class,omitempty"`
+	BoundaryLabel                string   `json:"boundary_label,omitempty"`
+	ControlResolutionState       string   `json:"control_resolution_state,omitempty"`
+	ReviewLifecycleState         string   `json:"review_lifecycle_state,omitempty"`
+	PreviousReviewLifecycleState string   `json:"previous_review_lifecycle_state,omitempty"`
+	ResolvedVisibility           string   `json:"resolved_visibility,omitempty"`
+	ReopenState                  string   `json:"reopen_state,omitempty"`
+	DelegationReadinessState     string   `json:"delegation_readiness_state,omitempty"`
+	ApprovalEvidenceState        string   `json:"approval_evidence_state,omitempty"`
+	OwnerEvidenceState           string   `json:"owner_evidence_state,omitempty"`
+	ProofEvidenceState           string   `json:"proof_evidence_state,omitempty"`
+	RuntimeEvidenceState         string   `json:"runtime_evidence_state,omitempty"`
+	TargetEvidenceState          string   `json:"target_evidence_state,omitempty"`
+	CredentialEvidenceState      string   `json:"credential_evidence_state,omitempty"`
+	WriteCapable                 bool     `json:"write_capable,omitempty"`
+	DeployWrite                  bool     `json:"deploy_write,omitempty"`
+	ProductionWrite              bool     `json:"production_write,omitempty"`
+	CredentialAccess             bool     `json:"credential_access,omitempty"`
+	ApprovalGap                  bool     `json:"approval_gap,omitempty"`
+	RiskScore                    float64  `json:"risk_score,omitempty"`
+	ContradictionCount           int      `json:"contradiction_count,omitempty"`
+	ActionClasses                []string `json:"action_classes,omitempty"`
+	WritePathClasses             []string `json:"write_path_classes,omitempty"`
+	AuthorityBindings            []string `json:"authority_bindings,omitempty"`
+	CredentialSubjects           []string `json:"credential_subjects,omitempty"`
+	CredentialAuthority          string   `json:"credential_authority,omitempty"`
+	ReviewScope                  string   `json:"review_scope,omitempty"`
+	ReviewValidUntil             string   `json:"review_valid_until,omitempty"`
+	ConfigFingerprint            string   `json:"config_fingerprint,omitempty"`
+	EvidenceRefs                 []string `json:"evidence_refs,omitempty"`
+	ReopenReasons                []string `json:"reopen_reasons,omitempty"`
 }
 
 type DriftCategorySummary struct {
@@ -76,25 +84,29 @@ type DriftCategorySummary struct {
 }
 
 type DriftExample struct {
-	PathID                   string   `json:"path_id,omitempty"`
-	BaselinePathID           string   `json:"baseline_path_id,omitempty"`
-	CurrentPathRef           string   `json:"current_path_ref,omitempty"`
-	BaselinePathRef          string   `json:"baseline_path_ref,omitempty"`
-	Repo                     string   `json:"repo,omitempty"`
-	Location                 string   `json:"location,omitempty"`
-	BaselineLocation         string   `json:"baseline_location,omitempty"`
-	CurrentTargetClass       string   `json:"current_target_class,omitempty"`
-	BaselineTargetClass      string   `json:"baseline_target_class,omitempty"`
-	CurrentBoundaryLabel     string   `json:"current_boundary_label,omitempty"`
-	BaselineBoundaryLabel    string   `json:"baseline_boundary_label,omitempty"`
-	CurrentAuthoritySummary  []string `json:"current_authority_summary,omitempty"`
-	BaselineAuthoritySummary []string `json:"baseline_authority_summary,omitempty"`
-	CurrentEvidenceSummary   []string `json:"current_evidence_summary,omitempty"`
-	BaselineEvidenceSummary  []string `json:"baseline_evidence_summary,omitempty"`
-	CurrentEvidenceRefs      []string `json:"current_evidence_refs,omitempty"`
-	BaselineEvidenceRefs     []string `json:"baseline_evidence_refs,omitempty"`
-	Detail                   string   `json:"detail"`
-	RecommendedNextAction    string   `json:"recommended_next_action,omitempty"`
+	PathID                       string   `json:"path_id,omitempty"`
+	BaselinePathID               string   `json:"baseline_path_id,omitempty"`
+	CurrentPathRef               string   `json:"current_path_ref,omitempty"`
+	BaselinePathRef              string   `json:"baseline_path_ref,omitempty"`
+	Repo                         string   `json:"repo,omitempty"`
+	Location                     string   `json:"location,omitempty"`
+	BaselineLocation             string   `json:"baseline_location,omitempty"`
+	CurrentTargetClass           string   `json:"current_target_class,omitempty"`
+	BaselineTargetClass          string   `json:"baseline_target_class,omitempty"`
+	CurrentBoundaryLabel         string   `json:"current_boundary_label,omitempty"`
+	BaselineBoundaryLabel        string   `json:"baseline_boundary_label,omitempty"`
+	CurrentAuthoritySummary      []string `json:"current_authority_summary,omitempty"`
+	BaselineAuthoritySummary     []string `json:"baseline_authority_summary,omitempty"`
+	CurrentEvidenceSummary       []string `json:"current_evidence_summary,omitempty"`
+	BaselineEvidenceSummary      []string `json:"baseline_evidence_summary,omitempty"`
+	CurrentEvidenceRefs          []string `json:"current_evidence_refs,omitempty"`
+	BaselineEvidenceRefs         []string `json:"baseline_evidence_refs,omitempty"`
+	CurrentReviewLifecycleState  string   `json:"current_review_lifecycle_state,omitempty"`
+	BaselineReviewLifecycleState string   `json:"baseline_review_lifecycle_state,omitempty"`
+	ReopenState                  string   `json:"reopen_state,omitempty"`
+	ReopenReasons                []string `json:"reopen_reasons,omitempty"`
+	Detail                       string   `json:"detail"`
+	RecommendedNextAction        string   `json:"recommended_next_action,omitempty"`
 }
 
 type actionPathPair struct {
@@ -271,37 +283,45 @@ func newActionPathState(path risk.ActionPath) ActionPathState {
 		path.ResolutionKey = risk.ProjectActionPath(path).ResolutionKey
 	}
 	out := normalizeActionPathState(ActionPathState{
-		PathID:                   strings.TrimSpace(path.PathID),
-		ResolutionKey:            strings.TrimSpace(path.ResolutionKey),
-		Platform:                 actionPathPlatform(path),
-		Org:                      fallback(strings.TrimSpace(path.Org), "local"),
-		Repo:                     strings.TrimSpace(path.Repo),
-		Location:                 strings.TrimSpace(path.Location),
-		ToolType:                 strings.TrimSpace(path.ToolType),
-		ActionPathType:           strings.TrimSpace(path.ActionPathType),
-		TargetClass:              strings.TrimSpace(path.TargetClass),
-		BoundaryLabel:            strings.TrimSpace(path.BoundaryLabel),
-		ControlResolutionState:   strings.TrimSpace(path.ControlResolutionState),
-		DelegationReadinessState: strings.TrimSpace(path.DelegationReadinessState),
-		ApprovalEvidenceState:    strings.TrimSpace(path.ApprovalEvidenceState),
-		OwnerEvidenceState:       strings.TrimSpace(path.OwnerEvidenceState),
-		ProofEvidenceState:       strings.TrimSpace(path.ProofEvidenceState),
-		RuntimeEvidenceState:     strings.TrimSpace(path.RuntimeEvidenceState),
-		TargetEvidenceState:      strings.TrimSpace(path.TargetEvidenceState),
-		CredentialEvidenceState:  strings.TrimSpace(path.CredentialEvidenceState),
-		WriteCapable:             path.WriteCapable,
-		DeployWrite:              path.DeployWrite,
-		ProductionWrite:          path.ProductionWrite,
-		CredentialAccess:         path.CredentialAccess,
-		ApprovalGap:              path.ApprovalGap,
-		RiskScore:                round2(path.RiskScore),
-		ContradictionCount:       len(path.Contradictions),
-		ActionClasses:            mergeSortedStrings(path.ActionClasses, nil),
-		WritePathClasses:         mergeSortedStrings(path.WritePathClasses, nil),
-		AuthorityBindings:        actionPathAuthorityBindings(path),
-		CredentialSubjects:       actionPathCredentialSubjects(path),
-		CredentialAuthority:      actionPathCredentialAuthority(path),
-		EvidenceRefs:             mergeSortedStrings(append(append([]string(nil), path.SourceFindingKeys...), path.AttackPathRefs...), nil),
+		PathID:                       strings.TrimSpace(path.PathID),
+		ResolutionKey:                strings.TrimSpace(path.ResolutionKey),
+		Platform:                     actionPathPlatform(path),
+		Org:                          fallback(strings.TrimSpace(path.Org), "local"),
+		Repo:                         strings.TrimSpace(path.Repo),
+		Location:                     strings.TrimSpace(path.Location),
+		ToolType:                     strings.TrimSpace(path.ToolType),
+		ActionPathType:               strings.TrimSpace(path.ActionPathType),
+		TargetClass:                  strings.TrimSpace(path.TargetClass),
+		BoundaryLabel:                strings.TrimSpace(path.BoundaryLabel),
+		ControlResolutionState:       strings.TrimSpace(path.ControlResolutionState),
+		ReviewLifecycleState:         strings.TrimSpace(path.ReviewLifecycleState),
+		PreviousReviewLifecycleState: strings.TrimSpace(path.PreviousReviewLifecycleState),
+		ResolvedVisibility:           strings.TrimSpace(path.ResolvedVisibility),
+		ReopenState:                  strings.TrimSpace(path.ReopenState),
+		DelegationReadinessState:     strings.TrimSpace(path.DelegationReadinessState),
+		ApprovalEvidenceState:        strings.TrimSpace(path.ApprovalEvidenceState),
+		OwnerEvidenceState:           strings.TrimSpace(path.OwnerEvidenceState),
+		ProofEvidenceState:           strings.TrimSpace(path.ProofEvidenceState),
+		RuntimeEvidenceState:         strings.TrimSpace(path.RuntimeEvidenceState),
+		TargetEvidenceState:          strings.TrimSpace(path.TargetEvidenceState),
+		CredentialEvidenceState:      strings.TrimSpace(path.CredentialEvidenceState),
+		WriteCapable:                 path.WriteCapable,
+		DeployWrite:                  path.DeployWrite,
+		ProductionWrite:              path.ProductionWrite,
+		CredentialAccess:             path.CredentialAccess,
+		ApprovalGap:                  path.ApprovalGap,
+		RiskScore:                    round2(path.RiskScore),
+		ContradictionCount:           len(path.Contradictions),
+		ActionClasses:                mergeSortedStrings(path.ActionClasses, nil),
+		WritePathClasses:             mergeSortedStrings(path.WritePathClasses, nil),
+		AuthorityBindings:            actionPathAuthorityBindings(path),
+		CredentialSubjects:           actionPathCredentialSubjects(path),
+		CredentialAuthority:          actionPathCredentialAuthority(path),
+		ReviewScope:                  strings.TrimSpace(path.ReviewScope),
+		ReviewValidUntil:             strings.TrimSpace(path.ReviewValidUntil),
+		ConfigFingerprint:            strings.TrimSpace(path.ConfigFingerprint),
+		EvidenceRefs:                 mergeSortedStrings(append(append(append([]string(nil), path.SourceFindingKeys...), path.AttackPathRefs...), append(path.ControlEvidenceRefs, path.ReopenEvidenceRefs...)...), nil),
+		ReopenReasons:                mergeSortedStrings(path.ReopenReasons, nil),
 	})
 	out.MatchKey = actionPathFallbackMatchKey(out)
 	return out
@@ -320,6 +340,10 @@ func normalizeActionPathState(in ActionPathState) ActionPathState {
 	in.TargetClass = strings.TrimSpace(in.TargetClass)
 	in.BoundaryLabel = strings.TrimSpace(in.BoundaryLabel)
 	in.ControlResolutionState = strings.TrimSpace(in.ControlResolutionState)
+	in.ReviewLifecycleState = strings.TrimSpace(in.ReviewLifecycleState)
+	in.PreviousReviewLifecycleState = strings.TrimSpace(in.PreviousReviewLifecycleState)
+	in.ResolvedVisibility = strings.TrimSpace(in.ResolvedVisibility)
+	in.ReopenState = strings.TrimSpace(in.ReopenState)
 	in.DelegationReadinessState = strings.TrimSpace(in.DelegationReadinessState)
 	in.ApprovalEvidenceState = strings.TrimSpace(in.ApprovalEvidenceState)
 	in.OwnerEvidenceState = strings.TrimSpace(in.OwnerEvidenceState)
@@ -332,7 +356,11 @@ func normalizeActionPathState(in ActionPathState) ActionPathState {
 	in.AuthorityBindings = mergeSortedStrings(in.AuthorityBindings, nil)
 	in.CredentialSubjects = mergeSortedStrings(in.CredentialSubjects, nil)
 	in.CredentialAuthority = strings.TrimSpace(in.CredentialAuthority)
+	in.ReviewScope = strings.TrimSpace(in.ReviewScope)
+	in.ReviewValidUntil = strings.TrimSpace(in.ReviewValidUntil)
+	in.ConfigFingerprint = strings.TrimSpace(in.ConfigFingerprint)
 	in.EvidenceRefs = mergeSortedStrings(in.EvidenceRefs, nil)
+	in.ReopenReasons = mergeSortedStrings(in.ReopenReasons, nil)
 	if in.MatchKey == "" {
 		in.MatchKey = actionPathFallbackMatchKey(in)
 	}
@@ -619,25 +647,29 @@ func addDriftCategoryExample(bucket *driftBucket, current ActionPathState, basel
 		return
 	}
 	bucket.examples = append(bucket.examples, DriftExample{
-		PathID:                   current.PathID,
-		BaselinePathID:           baseline.PathID,
-		CurrentPathRef:           driftPathRef("current", current),
-		BaselinePathRef:          driftPathRef("baseline", baseline),
-		Repo:                     firstNonEmptyString(current.Repo, baseline.Repo),
-		Location:                 current.Location,
-		BaselineLocation:         baseline.Location,
-		CurrentTargetClass:       current.TargetClass,
-		BaselineTargetClass:      baseline.TargetClass,
-		CurrentBoundaryLabel:     current.BoundaryLabel,
-		BaselineBoundaryLabel:    baseline.BoundaryLabel,
-		CurrentAuthoritySummary:  actionPathAuthoritySummary(current),
-		BaselineAuthoritySummary: actionPathAuthoritySummary(baseline),
-		CurrentEvidenceSummary:   actionPathEvidenceSummary(current),
-		BaselineEvidenceSummary:  actionPathEvidenceSummary(baseline),
-		CurrentEvidenceRefs:      append([]string(nil), current.EvidenceRefs...),
-		BaselineEvidenceRefs:     append([]string(nil), baseline.EvidenceRefs...),
-		Detail:                   detail,
-		RecommendedNextAction:    firstCategoryAction(bucket.recommended),
+		PathID:                       current.PathID,
+		BaselinePathID:               baseline.PathID,
+		CurrentPathRef:               driftPathRef("current", current),
+		BaselinePathRef:              driftPathRef("baseline", baseline),
+		Repo:                         firstNonEmptyString(current.Repo, baseline.Repo),
+		Location:                     current.Location,
+		BaselineLocation:             baseline.Location,
+		CurrentTargetClass:           current.TargetClass,
+		BaselineTargetClass:          baseline.TargetClass,
+		CurrentBoundaryLabel:         current.BoundaryLabel,
+		BaselineBoundaryLabel:        baseline.BoundaryLabel,
+		CurrentAuthoritySummary:      actionPathAuthoritySummary(current),
+		BaselineAuthoritySummary:     actionPathAuthoritySummary(baseline),
+		CurrentEvidenceSummary:       actionPathEvidenceSummary(current),
+		BaselineEvidenceSummary:      actionPathEvidenceSummary(baseline),
+		CurrentEvidenceRefs:          append([]string(nil), current.EvidenceRefs...),
+		BaselineEvidenceRefs:         append([]string(nil), baseline.EvidenceRefs...),
+		CurrentReviewLifecycleState:  strings.TrimSpace(current.ReviewLifecycleState),
+		BaselineReviewLifecycleState: strings.TrimSpace(baseline.ReviewLifecycleState),
+		ReopenState:                  strings.TrimSpace(current.ReopenState),
+		ReopenReasons:                append([]string(nil), current.ReopenReasons...),
+		Detail:                       detail,
+		RecommendedNextAction:        firstCategoryAction(bucket.recommended),
 	})
 }
 
@@ -716,6 +748,7 @@ func actionPathFallbackMatchKey(path ActionPathState) string {
 		strings.Join(path.ActionClasses, ","),
 		strings.Join(path.CredentialSubjects, ","),
 		strings.TrimSpace(path.BoundaryLabel),
+		strings.TrimSpace(path.ConfigFingerprint),
 		actionPathEvidenceSignature(path),
 	}
 	return strings.Trim(strings.Join(parts, "|"), "|")
@@ -724,12 +757,19 @@ func actionPathFallbackMatchKey(path ActionPathState) string {
 func actionPathEvidenceSignature(path ActionPathState) string {
 	return strings.Join([]string{
 		strings.TrimSpace(path.ControlResolutionState),
+		strings.TrimSpace(path.ReviewLifecycleState),
+		strings.TrimSpace(path.PreviousReviewLifecycleState),
+		strings.TrimSpace(path.ResolvedVisibility),
+		strings.TrimSpace(path.ReopenState),
+		strings.Join(path.ReopenReasons, ","),
 		strings.TrimSpace(path.ApprovalEvidenceState),
 		strings.TrimSpace(path.OwnerEvidenceState),
 		strings.TrimSpace(path.ProofEvidenceState),
 		strings.TrimSpace(path.RuntimeEvidenceState),
 		strings.TrimSpace(path.TargetEvidenceState),
 		strings.TrimSpace(path.CredentialEvidenceState),
+		strings.TrimSpace(path.ReviewScope),
+		strings.TrimSpace(path.ReviewValidUntil),
 		boolString(path.ApprovalGap),
 	}, "|")
 }

@@ -36,6 +36,12 @@ Wrkr uses two path classes:
 4. `wrkr evidence` consumes state only after the saved proof chain passes the same local integrity prerequisite used by Wrkr's verification runtime, then emits evidence bundle outputs while preserving chain continuity and only publishing a complete verified bundle to the requested output path.
 5. `wrkr verify --chain` remains the explicit proof-chain integrity gate for operators and CI from the state directory.
 
+Customer review-loop state is now first-class in the saved scan snapshot and derived report artifacts.
+
+- `review_lifecycle_state` defaults to `open` and may move to `confirmed`, `declared_controlled`, `covered_by_imported_control`, `accepted_risk`, `not_applicable`, `false_positive`, `needs_runtime_evidence`, `expired`, or `reopened_by_drift`.
+- Resolved states stay visible through `resolved_visibility=appendix`, `resolved_appendix_refs[]`, and `review_audit_context` instead of disappearing from audit output.
+- When a previously resolved path expires, contradicts a non-production declaration, loses imported control evidence, changes credential family, or escalates target class, Wrkr records `previous_review_lifecycle_state`, `reopen_state`, `reopen_reasons[]`, and `reopen_evidence_refs[]` and moves the path back into primary review surfaces.
+
 Saved scan state also carries additive governance output: `control_backlog`, `scan_quality`, inventory write-path classes, and governance control mappings. Approval evidence that expires is represented as `approval_status=expired` and a lifecycle state requiring review; governance backlog visibility maps that condition to `needs_review` instead of continuing to treat the path as approved. First observation persists as `status=discovered`; Wrkr reserves `under_review` for explicit review and approval-expiry return-to-review semantics rather than auto-normalizing every fresh discovery into review.
 
 ## Manual transition commit rule

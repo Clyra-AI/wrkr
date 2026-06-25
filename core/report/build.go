@@ -123,6 +123,7 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		riskReport.ActionPaths = risk.DecorateWorkflowChainRefs(riskReport.ActionPaths, riskReport.WorkflowChains)
 		riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
 	}
+	riskReport.ActionPaths = risk.ProjectReviewLifecycleTransitions(riskReport.ActionPaths, previousSummaryActionPaths(in.PreviousSnapshot))
 	runtimeSessions = decorateSessionSummaryBoundary(runtimeSessions, riskReport.ActionPaths)
 	runtimeEvidence = decorateRuntimeEvidenceSummaryBoundary(runtimeEvidence, riskReport.ActionPaths)
 	evidencePackets = decorateEvidencePacketSummaryBoundary(evidencePackets, riskReport.ActionPaths)
@@ -1538,6 +1539,21 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 		copyBacklog.Items[idx].ReviewBurdenReasons = uniqueStrings(append(append([]string(nil), item.ReviewBurdenReasons...), path.ReviewBurdenReasons...))
 		copyBacklog.Items[idx].ConfidenceLane = firstNonEmptyValue(strings.TrimSpace(path.ConfidenceLane), strings.TrimSpace(item.ConfidenceLane))
 		copyBacklog.Items[idx].ConfidenceLaneReasons = uniqueStrings(append(append([]string(nil), item.ConfidenceLaneReasons...), path.ConfidenceLaneReasons...))
+		copyBacklog.Items[idx].ReviewLifecycleState = firstNonEmptyValue(strings.TrimSpace(path.ReviewLifecycleState), strings.TrimSpace(item.ReviewLifecycleState))
+		copyBacklog.Items[idx].ReviewLifecycleReasons = uniqueStrings(append(append([]string(nil), item.ReviewLifecycleReasons...), path.ReviewLifecycleReasons...))
+		copyBacklog.Items[idx].ReviewRationale = firstNonEmptyValue(strings.TrimSpace(path.ReviewRationale), strings.TrimSpace(item.ReviewRationale))
+		copyBacklog.Items[idx].ReviewOwner = firstNonEmptyValue(strings.TrimSpace(path.ReviewOwner), strings.TrimSpace(item.ReviewOwner))
+		copyBacklog.Items[idx].ReviewSource = firstNonEmptyValue(strings.TrimSpace(path.ReviewSource), strings.TrimSpace(item.ReviewSource))
+		copyBacklog.Items[idx].ReviewObservedAt = firstNonEmptyValue(strings.TrimSpace(path.ReviewObservedAt), strings.TrimSpace(item.ReviewObservedAt))
+		copyBacklog.Items[idx].ReviewValidUntil = firstNonEmptyValue(strings.TrimSpace(path.ReviewValidUntil), strings.TrimSpace(item.ReviewValidUntil))
+		copyBacklog.Items[idx].ReviewScope = firstNonEmptyValue(strings.TrimSpace(path.ReviewScope), strings.TrimSpace(item.ReviewScope))
+		copyBacklog.Items[idx].ReviewAuditContext = risk.CloneReviewAuditContext(path.ReviewAuditContext)
+		copyBacklog.Items[idx].ResolvedVisibility = firstNonEmptyValue(strings.TrimSpace(path.ResolvedVisibility), strings.TrimSpace(item.ResolvedVisibility))
+		copyBacklog.Items[idx].ResolvedAppendixRefs = uniqueStrings(append(append([]string(nil), item.ResolvedAppendixRefs...), path.ResolvedAppendixRefs...))
+		copyBacklog.Items[idx].PreviousReviewLifecycleState = firstNonEmptyValue(strings.TrimSpace(path.PreviousReviewLifecycleState), strings.TrimSpace(item.PreviousReviewLifecycleState))
+		copyBacklog.Items[idx].ReopenState = firstNonEmptyValue(strings.TrimSpace(path.ReopenState), strings.TrimSpace(item.ReopenState))
+		copyBacklog.Items[idx].ReopenReasons = uniqueStrings(append(append([]string(nil), item.ReopenReasons...), path.ReopenReasons...))
+		copyBacklog.Items[idx].ReopenEvidenceRefs = uniqueStrings(append(append([]string(nil), item.ReopenEvidenceRefs...), path.ReopenEvidenceRefs...))
 		copyBacklog.Items[idx].AutonomyTier = firstNonEmptyValue(strings.TrimSpace(path.AutonomyTier), strings.TrimSpace(item.AutonomyTier))
 		copyBacklog.Items[idx].AutonomyTierReasons = uniqueStrings(append(append([]string(nil), item.AutonomyTierReasons...), path.AutonomyTierReasons...))
 		copyBacklog.Items[idx].AutonomyTierEvidenceRefs = uniqueStrings(append(append([]string(nil), item.AutonomyTierEvidenceRefs...), path.AutonomyTierEvidenceRefs...))
@@ -1707,6 +1723,13 @@ func actionPathRemediation(path risk.ActionPath) string {
 	return risk.RemediationForActionPath(path)
 }
 
+func previousSummaryActionPaths(previous *state.Snapshot) []risk.ActionPath {
+	if previous == nil || previous.RiskReport == nil {
+		return nil
+	}
+	return append([]risk.ActionPath(nil), previous.RiskReport.ActionPaths...)
+}
+
 func controlPriorityForPath(path risk.ActionPath) string {
 	path = risk.ProjectActionPath(path)
 	if strings.TrimSpace(path.ControlPriority) != "" {
@@ -1867,6 +1890,9 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.ToolInstanceID = redactValue("instance", copyItem.ToolInstanceID, 8)
 		copyItem.Location = redactValue("loc", copyItem.Location, 8)
 		copyItem.OperationalOwner = redactValue("owner", copyItem.OperationalOwner, 8)
+		copyItem.ReviewOwner = redactValue("owner", copyItem.ReviewOwner, 8)
+		copyItem.ReviewSource = redactValue("review", copyItem.ReviewSource, 8)
+		copyItem.ReviewRationale = redactValue("review", copyItem.ReviewRationale, 8)
 		copyItem.ExecutionIdentity = redactValue("identity", copyItem.ExecutionIdentity, 8)
 		copyItem.ConfigSource = redactValue("loc", copyItem.ConfigSource, 8)
 		copyItem.OccurrenceRefs = redactStringSlice(copyItem.OccurrenceRefs, "path")
@@ -1909,6 +1935,9 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.AgentIdentity = sanitizeAgentIdentityPublic(copyItem.AgentIdentity)
 		copyItem.DecisionPrecedent = sanitizeDecisionPrecedentPublic(copyItem.DecisionPrecedent)
 		copyItem.DeliveryControlContext = sanitizeDeliveryControlContextPublic(copyItem.DeliveryControlContext)
+		copyItem.ReviewAuditContext = sanitizeReviewAuditContextPublic(copyItem.ReviewAuditContext)
+		copyItem.ResolvedAppendixRefs = redactStringSlice(copyItem.ResolvedAppendixRefs, "path")
+		copyItem.ReopenEvidenceRefs = redactStringSlice(copyItem.ReopenEvidenceRefs, "evidence")
 		copyItem.DeliveryHarnesses = redactStringSlice(copyItem.DeliveryHarnesses, "delivery")
 		copyItem.ResolverRefs = redactStringSlice(copyItem.ResolverRefs, "resolver")
 		copyItem.EvalConfigRefs = redactStringSlice(copyItem.EvalConfigRefs, "eval")
@@ -2181,6 +2210,9 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 		copyBacklog.Items[idx].Repo = redactValue("repo", copyBacklog.Items[idx].Repo, 6)
 		copyBacklog.Items[idx].Path = redactValue("loc", copyBacklog.Items[idx].Path, 8)
 		copyBacklog.Items[idx].Owner = redactValue("owner", copyBacklog.Items[idx].Owner, 8)
+		copyBacklog.Items[idx].ReviewOwner = redactValue("owner", copyBacklog.Items[idx].ReviewOwner, 8)
+		copyBacklog.Items[idx].ReviewSource = redactValue("review", copyBacklog.Items[idx].ReviewSource, 8)
+		copyBacklog.Items[idx].ReviewRationale = redactValue("review", copyBacklog.Items[idx].ReviewRationale, 8)
 		copyBacklog.Items[idx].LinkedFindingIDs = redactStringSlice(copyBacklog.Items[idx].LinkedFindingIDs, "finding")
 		copyBacklog.Items[idx].LinkedActionPathID = redactValue("path", copyBacklog.Items[idx].LinkedActionPathID, 8)
 		copyBacklog.Items[idx].LinkedControlPathNodeIDs = redactStringSlice(copyBacklog.Items[idx].LinkedControlPathNodeIDs, "node")
@@ -2199,6 +2231,9 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionPublic(copyBacklog.Items[idx].GovernanceDisposition)
 		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueuePublic(copyBacklog.Items[idx].LifecycleQueue)
 		copyBacklog.Items[idx].ProductionContext = sanitizeProductionContextPublic(copyBacklog.Items[idx].ProductionContext)
+		copyBacklog.Items[idx].ReviewAuditContext = sanitizeReviewAuditContextPublic(copyBacklog.Items[idx].ReviewAuditContext)
+		copyBacklog.Items[idx].ResolvedAppendixRefs = redactStringSlice(copyBacklog.Items[idx].ResolvedAppendixRefs, "path")
+		copyBacklog.Items[idx].ReopenEvidenceRefs = redactStringSlice(copyBacklog.Items[idx].ReopenEvidenceRefs, "evidence")
 		copyBacklog.Items[idx].PolicyRefs = redactStringSlice(copyBacklog.Items[idx].PolicyRefs, "policy")
 		copyBacklog.Items[idx].PolicyEvidenceRefs = redactStringSlice(copyBacklog.Items[idx].PolicyEvidenceRefs, "evidence")
 		copyBacklog.Items[idx].HighStakesPresets = sanitizeHighStakesPresetsPublic(copyBacklog.Items[idx].HighStakesPresets)
@@ -2243,6 +2278,9 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].Repo = redactValue("repo", copyBOM.Items[idx].Repo, 6)
 		copyBOM.Items[idx].Location = redactValue("loc", copyBOM.Items[idx].Location, 8)
 		copyBOM.Items[idx].Owner = redactValue("owner", copyBOM.Items[idx].Owner, 8)
+		copyBOM.Items[idx].ReviewOwner = redactValue("owner", copyBOM.Items[idx].ReviewOwner, 8)
+		copyBOM.Items[idx].ReviewSource = redactValue("review", copyBOM.Items[idx].ReviewSource, 8)
+		copyBOM.Items[idx].ReviewRationale = redactValue("review", copyBOM.Items[idx].ReviewRationale, 8)
 		copyBOM.Items[idx].ConfigSource = redactValue("loc", copyBOM.Items[idx].ConfigSource, 8)
 		copyBOM.Items[idx].OccurrenceRefs = redactStringSlice(copyBOM.Items[idx].OccurrenceRefs, "path")
 		copyBOM.Items[idx].ProofRefs = redactStringSlice(copyBOM.Items[idx].ProofRefs, "proof")
@@ -2302,6 +2340,9 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].AgentIdentity = sanitizeAgentIdentityPublic(copyBOM.Items[idx].AgentIdentity)
 		copyBOM.Items[idx].DecisionPrecedent = sanitizeDecisionPrecedentPublic(copyBOM.Items[idx].DecisionPrecedent)
 		copyBOM.Items[idx].DeliveryControlContext = sanitizeDeliveryControlContextPublic(copyBOM.Items[idx].DeliveryControlContext)
+		copyBOM.Items[idx].ReviewAuditContext = sanitizeReviewAuditContextPublic(copyBOM.Items[idx].ReviewAuditContext)
+		copyBOM.Items[idx].ResolvedAppendixRefs = redactStringSlice(copyBOM.Items[idx].ResolvedAppendixRefs, "path")
+		copyBOM.Items[idx].ReopenEvidenceRefs = redactStringSlice(copyBOM.Items[idx].ReopenEvidenceRefs, "evidence")
 		copyBOM.Items[idx].HighStakesPresets = sanitizeHighStakesPresetsPublic(copyBOM.Items[idx].HighStakesPresets)
 		copyBOM.Items[idx].EvidenceDecisions = sanitizeEvidenceDecisionsPublic(copyBOM.Items[idx].EvidenceDecisions)
 		copyBOM.Items[idx].ProductionContext = sanitizeProductionContextPublic(copyBOM.Items[idx].ProductionContext)
@@ -2310,6 +2351,18 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 	}
 	copyBOM.focusSourceItems = append([]AgentActionBOMItem(nil), copyBOM.Items...)
 	return &copyBOM
+}
+
+func sanitizeReviewAuditContextPublic(in *risk.ReviewAuditContext) *risk.ReviewAuditContext {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneReviewAuditContext(in)
+	out.Owner = redactValue("owner", out.Owner, 8)
+	out.Source = redactValue("review", out.Source, 8)
+	out.Rationale = redactValue("review", out.Rationale, 8)
+	out.EvidenceRefs = redactStringSlice(out.EvidenceRefs, "evidence")
+	return out
 }
 
 func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPrimaryView {

@@ -64,6 +64,7 @@ func ProjectActionPath(path ActionPath) ActionPath {
 		out.ControlResolutionState, out.ControlResolutionReasons = deriveControlResolutionState(out, out.ControlResolutionReasons)
 	}
 	out.ActionPathEligible, out.ActionBindingState = deriveActionBindingProjection(out)
+	out = applyCurrentReviewLifecycleProjection(out)
 
 	model := deriveGovernFirstModel(out)
 	out.InventoryRisk = model.inventoryRisk
@@ -75,6 +76,7 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out.RiskZone, out.RiskZoneReasons = deriveRiskZone(out)
 	out.ReviewBurden, out.ReviewBurdenReasons = deriveReviewBurden(out)
 	out = normalizeProjectedControlState(out)
+	out = applyResolvedReviewLifecycleOutputOverrides(out)
 	out = populateAgenticProjection(out)
 	out.AgenticDeliverySystemChange = buildAgenticDeliverySystemChange(out)
 	out.DeliveryControlContext = buildDeliveryControlContext(out)

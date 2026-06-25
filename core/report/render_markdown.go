@@ -855,6 +855,13 @@ func renderAgentActionBOMContextAppendix(builder *strings.Builder, summary Summa
 		summary.AgentActionBOM.Summary.ControlEvidenceUnknownItems,
 		summary.AgentActionBOM.Summary.ProofEvidenceUnknownItems,
 	)
+	resolvedAppendixItems, acceptedRiskItems := markdownResolvedReviewCounts(summary.AgentActionBOM)
+	if resolvedAppendixItems > 0 || acceptedRiskItems > 0 {
+		fmt.Fprintf(builder, "- Resolved review decisions: appendix=%d accepted_risk=%d. Full audit context remains in the appendix and evidence JSON.\n",
+			resolvedAppendixItems,
+			acceptedRiskItems,
+		)
+	}
 	fmt.Fprintf(builder, "- Eligibility split: eligible=%d target_surface_context=%d instruction_control_surfaces=%d\n",
 		summary.AgentActionBOM.Summary.EligibleActionPathItems,
 		summary.AgentActionBOM.Summary.TargetSurfaceContextItems,
@@ -944,6 +951,26 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 	}
 	fmt.Fprintf(builder, "- Appendix handoff: full graph refs, policy diagnostics, and proof detail remain in the appendices and evidence JSON.\n")
 	builder.WriteString("\n")
+}
+
+func markdownResolvedReviewCounts(bom *AgentActionBOM) (int, int) {
+	if bom == nil {
+		return 0, 0
+	}
+	resolvedAppendixItems := bom.Summary.ResolvedAppendixItems
+	acceptedRiskItems := bom.Summary.AcceptedRiskItems
+	if len(bom.Items) == 0 || resolvedAppendixItems != 0 || acceptedRiskItems != 0 {
+		return resolvedAppendixItems, acceptedRiskItems
+	}
+	for _, item := range bom.Items {
+		if strings.TrimSpace(item.ResolvedVisibility) == risk.ReviewResolvedVisibilityAppendix {
+			resolvedAppendixItems++
+		}
+		if strings.TrimSpace(item.ReviewLifecycleState) == risk.ReviewLifecycleStateAcceptedRisk {
+			acceptedRiskItems++
+		}
+	}
+	return resolvedAppendixItems, acceptedRiskItems
 }
 
 func renderCompactTopActionPathsSection(builder *strings.Builder, highlights *WorkflowHighlights) {

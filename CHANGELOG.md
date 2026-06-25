@@ -10,10 +10,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:minor] Added stable `resolution_key` action-path, BOM, report, and regress-baseline joins plus selector-fallback match metadata so reviewed paths can survive harmless `path_id` churn across reruns.
 - [semver:minor] Added review disposition declarations in `wrkr-control-declarations.yaml` / `.wrkr/control-declarations.yaml` for controlled, accepted-risk, not-applicable, false-positive, runtime-evidence-needed, and confirmed paths.
+- [semver:minor] Added expiry, contradiction, disappeared-import, credential-family, and target-escalation reopen tracking for reviewed action paths in reports and regress baselines.
 
 ### Changed
 
-- (none yet)
+- [semver:minor] Changed reviewed action-path handling so declared, imported, accepted-risk, not-applicable, and false-positive paths move to auditable appendix visibility with explicit lifecycle and reopen metadata instead of remaining in unresolved top output.
 
 ### Deprecated
 

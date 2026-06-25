@@ -193,8 +193,10 @@ func mergeReviewDispositionProjection(path ActionPath, projection reviewDisposit
 		out.ResolutionMatchConfidence = strings.TrimSpace(projection.ResolutionMatchConfidence)
 	}
 	out.ResolutionMismatchReasons = dedupeSortedStrings(append(append([]string(nil), out.ResolutionMismatchReasons...), projection.ResolutionMismatchReasons...))
-	if strings.TrimSpace(out.ReviewLifecycleState) == "" {
+	if strings.TrimSpace(projection.ReviewLifecycleState) != "" && (strings.TrimSpace(out.ReviewLifecycleState) == "" || strings.TrimSpace(out.ReviewLifecycleState) == ReviewLifecycleStateOpen) {
 		out.ReviewLifecycleState = strings.TrimSpace(projection.ReviewLifecycleState)
+	} else if strings.TrimSpace(projection.ReviewLifecycleState) == "" && strings.TrimSpace(out.ReviewLifecycleState) == ReviewLifecycleStateOpen {
+		out.ReviewLifecycleState = ""
 	}
 	out.ReviewLifecycleReasons = dedupeSortedStrings(append(append([]string(nil), out.ReviewLifecycleReasons...), projection.ReviewLifecycleReasons...))
 	out.ReviewRationale = firstNonEmptyString(out.ReviewRationale, projection.ReviewRationale)
