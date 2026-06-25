@@ -291,7 +291,7 @@ Tasks:
 - Add schema coverage for control declarations under `schemas/v1/evidence/control-declarations.schema.json` or an equivalent v1 evidence schema path.
 - Load declarations through the existing `core/config/control_declarations.go` path and project normalized metadata through `core/attribution/control_metadata.go`.
 - Preserve current owner/target/control declaration compatibility and deterministic merge ordering.
-- Add explicit unsupported-state, duplicate-scope, expired-at-load, invalid-time-window, unsafe-path, and raw-secret-looking payload failures.
+- Add explicit unsupported-state, duplicate-scope, invalid-time-window, unsafe-path, and raw-secret-looking payload failures; otherwise valid but expired declarations must load as inactive/reopen evidence with deterministic expiry reasons.
 - Update docs with examples for repo-local and governance-repo declaration files.
 
 Repo paths:
