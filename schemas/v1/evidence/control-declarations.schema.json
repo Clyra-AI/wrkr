@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/evidence/control-declarations.schema.json",
+  "title": "Wrkr Control Declarations",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "v1"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issuer": {
+      "type": "string"
+    },
+    "signature_ref": {
+      "type": "string"
+    },
+    "owners": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ownerDeclaration"
+      }
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetDeclaration"
+      }
+    },
+    "controls": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/controlDeclaration"
+      }
+    },
+    "review_dispositions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/reviewDisposition"
+      }
+    }
+  },
+  "$defs": {
+    "ownerDeclaration": {
+      "type": "object",
+      "required": ["owner"],
+      "properties": {
+        "repo": {"type": "string"},
+        "repos": {"type": "array", "items": {"type": "string"}},
+        "path": {"type": "string"},
+        "pattern": {"type": "string"},
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "owner": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "valid_until": {"type": "string", "format": "date-time"},
+        "max_age": {"type": "string"},
+        "issuer": {"type": "string"},
+        "confidence": {"type": "string"},
+        "redaction_mode": {"type": "string", "enum": ["none", "hash", "omit"]}
+      },
+      "additionalProperties": false
+    },
+    "targetDeclaration": {
+      "type": "object",
+      "required": ["target_class"],
+      "properties": {
+        "repo": {"type": "string"},
+        "repos": {"type": "array", "items": {"type": "string"}},
+        "path": {"type": "string"},
+        "pattern": {"type": "string"},
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "target_class": {
+          "type": "string",
+          "enum": [
+            "production_impacting",
+            "release_adjacent",
+            "customer_data_adjacent",
+            "internal_tooling",
+            "developer_productivity",
+            "test_demo_sandbox",
+            "unknown"
+          ]
+        },
+        "non_production": {"type": "boolean"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "valid_until": {"type": "string", "format": "date-time"},
+        "max_age": {"type": "string"},
+        "issuer": {"type": "string"},
+        "confidence": {"type": "string"},
+        "redaction_mode": {"type": "string", "enum": ["none", "hash", "omit"]}
+      },
+      "additionalProperties": false
+    },
+    "controlDeclaration": {
+      "type": "object",
+      "properties": {
+        "repo": {"type": "string"},
+        "repos": {"type": "array", "items": {"type": "string"}},
+        "path": {"type": "string"},
+        "workflow": {"type": "string"},
+        "environment": {"type": "string"},
+        "branch": {"type": "string"},
+        "approval_required": {"type": "boolean"},
+        "required_checks": {"type": "array", "items": {"type": "string"}},
+        "security_gates": {"type": "array", "items": {"type": "string"}},
+        "freeze_windows": {"type": "array", "items": {"type": "string"}},
+        "kill_switches": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "valid_until": {"type": "string", "format": "date-time"},
+        "max_age": {"type": "string"},
+        "issuer": {"type": "string"},
+        "confidence": {"type": "string"},
+        "redaction_mode": {"type": "string", "enum": ["none", "hash", "omit"]}
+      },
+      "additionalProperties": false
+    },
+    "resolutionSelector": {
+      "type": "object",
+      "properties": {
+        "repo": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "locations": {"type": "array", "items": {"type": "string"}},
+        "action_classes": {"type": "array", "items": {"type": "string"}},
+        "target_class": {"type": "string"},
+        "credential_kinds": {"type": "array", "items": {"type": "string"}},
+        "finding_keys": {"type": "array", "items": {"type": "string"}},
+        "evidence_locations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "reviewDisposition": {
+      "type": "object",
+      "required": ["state", "source", "rationale", "observed_at", "scope"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "declared_controlled",
+            "accepted_risk",
+            "not_applicable",
+            "false_positive",
+            "needs_runtime_evidence",
+            "confirmed"
+          ]
+        },
+        "source": {"type": "string"},
+        "issuer": {"type": "string"},
+        "owner": {"type": "string"},
+        "rationale": {"type": "string"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "valid_until": {"type": "string", "format": "date-time"},
+        "max_age": {"type": "string"},
+        "scope": {"type": "string"},
+        "path_id": {"type": "string"},
+        "resolution_key": {"type": "string"},
+        "finding_key": {"type": "string"},
+        "selector": {"$ref": "#/$defs/resolutionSelector"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "anyOf": [
+        {"required": ["path_id"]},
+        {"required": ["resolution_key"]},
+        {"required": ["finding_key"]},
+        {"required": ["selector"]}
+      ],
+      "allOf": [
+        {
+          "anyOf": [
+            {"required": ["issuer"]},
+            {"required": ["owner"]}
+          ]
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

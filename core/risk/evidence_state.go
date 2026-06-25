@@ -22,6 +22,16 @@ const (
 	EvidenceStateInferred      = "inferred"
 	EvidenceStateUnknown       = "unknown"
 	EvidenceStateContradictory = "contradictory"
+
+	ReviewLifecycleStateOpen                 = "open"
+	ReviewLifecycleStateConfirmed            = "confirmed"
+	ReviewLifecycleStateDeclaredControlled   = "declared_controlled"
+	ReviewLifecycleStateAcceptedRisk         = "accepted_risk"
+	ReviewLifecycleStateNotApplicable        = "not_applicable"
+	ReviewLifecycleStateFalsePositive        = "false_positive"
+	ReviewLifecycleStateNeedsRuntimeEvidence = "needs_runtime_evidence"
+	ReviewLifecycleStateExpired              = "expired"
+	ReviewLifecycleStateReopenedByDrift      = "reopened_by_drift"
 )
 
 func ValidControlResolutionState(value string) bool {
@@ -45,6 +55,23 @@ func ValidEvidenceState(value string) bool {
 		EvidenceStateInferred,
 		EvidenceStateUnknown,
 		EvidenceStateContradictory:
+		return true
+	default:
+		return false
+	}
+}
+
+func ValidReviewLifecycleState(value string) bool {
+	switch strings.TrimSpace(value) {
+	case ReviewLifecycleStateOpen,
+		ReviewLifecycleStateConfirmed,
+		ReviewLifecycleStateDeclaredControlled,
+		ReviewLifecycleStateAcceptedRisk,
+		ReviewLifecycleStateNotApplicable,
+		ReviewLifecycleStateFalsePositive,
+		ReviewLifecycleStateNeedsRuntimeEvidence,
+		ReviewLifecycleStateExpired,
+		ReviewLifecycleStateReopenedByDrift:
 		return true
 	default:
 		return false
@@ -88,7 +115,7 @@ func DecorateControlMetadata(paths []ActionPath, repoContexts map[string]attribu
 		out[i].TargetClassEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out[i].TargetClassEvidenceRefs...), meta.TargetClassEvidenceRefs...))
 		out[i].EvidenceDecisions = mergeEvidenceDecisions(out[i].EvidenceDecisions, meta.EvidenceDecisions)
 	}
-	return out
+	return decorateReviewDispositions(out, repoContexts)
 }
 
 func repoContextForPath(path ActionPath, repoContexts map[string]attribution.Context) attribution.Context {

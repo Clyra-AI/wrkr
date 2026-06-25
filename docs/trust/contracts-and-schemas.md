@@ -32,7 +32,10 @@ Secret-bearing workflow semantics are also additive. Workflow references such as
 Wrkr's public report, backlog, risk, and evidence contracts now lead with evidence-scoped control posture.
 
 - `control_resolution_state` is one of `detected_control`, `declared_control`, `external_control_reference`, `no_visible_control`, `not_applicable`, or `contradictory_control`.
+- `resolution_key` is the additive durable review join key for governable action paths, BOM items, and regress baselines. It is distinct from opaque `path_id`, which remains the direct per-run identifier.
+- `resolution_selector`, `resolution_match_confidence`, and `resolution_mismatch_reasons` are additive selector-fallback trace fields used when a declaration or imported control can be correlated even though a prior `path_id` no longer matches directly.
 - Canonical `approval_evidence_state`, `owner_evidence_state`, `proof_evidence_state`, `runtime_evidence_state`, `target_evidence_state`, and `credential_evidence_state` are one of `verified`, `declared`, `inferred`, `unknown`, or `contradictory`.
+- `review_lifecycle_state` is additive review-loop input metadata and may be one of `open`, `confirmed`, `declared_controlled`, `accepted_risk`, `not_applicable`, `false_positive`, `needs_runtime_evidence`, `expired`, or `reopened_by_drift`.
 - `target_class` is one of `production_impacting`, `release_adjacent`, `customer_data_adjacent`, `internal_tooling`, `developer_productivity`, `test_demo_sandbox`, or `unknown`.
 - `action_path_type` is one of `ai_assisted_workflow`, `agent_framework`, `automation_bot`, `ci_cd_workflow`, `legacy_script`, `plain_source_code`, or `unknown_executable_path`.
 - Coverage-qualified absence surfaces use `not_found_with_complete_coverage`, `not_found_with_reduced_coverage`, `not_scanned`, `unsupported_surface`, or `candidate_parse_failed`.
@@ -45,7 +48,8 @@ Compatibility aliases such as `missing_approval_paths`, `missing_policy_paths`, 
 Wrkr's Sprint 2 enterprise-evidence surface stays local-file based and deterministic.
 
 - `schemas/v1/evidence/external-control-evidence.schema.json` is the public v1 sidecar contract for imported ownership, approval, branch protection, deployment approvals, required checks, freeze windows, kill switches, and other external control evidence.
-- `wrkr-control-declarations.yaml` and `.wrkr/control-declarations.yaml` are versioned declaration inputs for owner mappings, target classes, non-production declarations, and declared control links.
+- `schemas/v1/evidence/control-declarations.schema.json` is the public v1 declaration contract for owner, target, control, and review-disposition inputs.
+- `wrkr-control-declarations.yaml` and `.wrkr/control-declarations.yaml` are versioned declaration inputs for owner mappings, target classes, non-production declarations, declared control links, and additive review dispositions.
 - `action_paths[*].evidence_decisions[]` and `agent_action_bom.items[*].evidence_decisions[]` preserve source precedence, freshness, selected evidence, and rejected lower-precedence candidates instead of flattening imported evidence to one opaque winner.
 - `action_paths[*].contradictions[]`, `closure_requirements`, `lifecycle_queue`, and `evidence_completeness` keep enterprise conflicts, required closure evidence, lifecycle ownership gaps, and sufficiency scoring explicit across report, BOM, and risk surfaces.
 - Accepted governance dispositions stay auditable: `accepted_risk` and suppression metadata remain visible in JSON/report artifacts instead of deleting evidence.

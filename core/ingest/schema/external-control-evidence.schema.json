@@ -77,6 +77,9 @@
         "path_id": {
           "type": "string"
         },
+        "resolution_key": {
+          "type": "string"
+        },
         "agent_id": {
           "type": "string"
         },
@@ -162,6 +165,7 @@
       },
       "anyOf": [
         {"required": ["path_id"]},
+        {"required": ["resolution_key"]},
         {"required": ["agent_id"]},
         {"required": ["policy_ref"]},
         {"required": ["proof_ref"]},

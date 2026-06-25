@@ -8,19 +8,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Clyra-AI/wrkr/core/resolution"
 	"gopkg.in/yaml.v3"
 )
 
 const ControlDeclarationsVersion = "v1"
 
 type ControlDeclarations struct {
-	SchemaVersion string                      `json:"schema_version" yaml:"schema_version"`
-	GeneratedAt   string                      `json:"generated_at,omitempty" yaml:"generated_at,omitempty"`
-	Issuer        string                      `json:"issuer,omitempty" yaml:"issuer,omitempty"`
-	SignatureRef  string                      `json:"signature_ref,omitempty" yaml:"signature_ref,omitempty"`
-	Owners        []ControlDeclarationOwner   `json:"owners,omitempty" yaml:"owners,omitempty"`
-	Targets       []ControlDeclarationTarget  `json:"targets,omitempty" yaml:"targets,omitempty"`
-	Controls      []ControlDeclarationControl `json:"controls,omitempty" yaml:"controls,omitempty"`
+	SchemaVersion      string                                `json:"schema_version" yaml:"schema_version"`
+	GeneratedAt        string                                `json:"generated_at,omitempty" yaml:"generated_at,omitempty"`
+	Issuer             string                                `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	SignatureRef       string                                `json:"signature_ref,omitempty" yaml:"signature_ref,omitempty"`
+	Owners             []ControlDeclarationOwner             `json:"owners,omitempty" yaml:"owners,omitempty"`
+	Targets            []ControlDeclarationTarget            `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Controls           []ControlDeclarationControl           `json:"controls,omitempty" yaml:"controls,omitempty"`
+	ReviewDispositions []ControlDeclarationReviewDisposition `json:"review_dispositions,omitempty" yaml:"review_dispositions,omitempty"`
 }
 
 type ControlDeclarationOwner struct {
@@ -75,6 +77,23 @@ type ControlDeclarationControl struct {
 	Issuer           string   `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 	Confidence       string   `json:"confidence,omitempty" yaml:"confidence,omitempty"`
 	RedactionMode    string   `json:"redaction_mode,omitempty" yaml:"redaction_mode,omitempty"`
+}
+
+type ControlDeclarationReviewDisposition struct {
+	State         string              `json:"state" yaml:"state"`
+	Source        string              `json:"source" yaml:"source"`
+	Issuer        string              `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	Owner         string              `json:"owner,omitempty" yaml:"owner,omitempty"`
+	Rationale     string              `json:"rationale" yaml:"rationale"`
+	ObservedAt    string              `json:"observed_at" yaml:"observed_at"`
+	ValidUntil    string              `json:"valid_until,omitempty" yaml:"valid_until,omitempty"`
+	MaxAge        string              `json:"max_age,omitempty" yaml:"max_age,omitempty"`
+	Scope         string              `json:"scope" yaml:"scope"`
+	PathID        string              `json:"path_id,omitempty" yaml:"path_id,omitempty"`
+	ResolutionKey string              `json:"resolution_key,omitempty" yaml:"resolution_key,omitempty"`
+	FindingKey    string              `json:"finding_key,omitempty" yaml:"finding_key,omitempty"`
+	Selector      resolution.Selector `json:"selector,omitempty" yaml:"selector,omitempty"`
+	EvidenceRefs  []string            `json:"evidence_refs,omitempty" yaml:"evidence_refs,omitempty"`
 }
 
 func LoadControlDeclarations(root string) (ControlDeclarations, []string, error) {
@@ -196,6 +215,59 @@ func validateControlDeclarations(doc ControlDeclarations) error {
 			seen[key] = struct{}{}
 		}
 	}
+	for _, item := range doc.ReviewDispositions {
+		if !validReviewDispositionState(item.State) {
+			return fmt.Errorf("invalid review_disposition state %q", item.State)
+		}
+		if strings.TrimSpace(item.Source) == "" {
+			return fmt.Errorf("review_dispositions.source is required")
+		}
+		if strings.TrimSpace(item.Issuer) == "" && strings.TrimSpace(item.Owner) == "" {
+			return fmt.Errorf("review_dispositions issuer or owner is required")
+		}
+		if strings.TrimSpace(item.Rationale) == "" {
+			return fmt.Errorf("review_dispositions.rationale is required")
+		}
+		if strings.TrimSpace(item.Scope) == "" {
+			return fmt.Errorf("review_dispositions.scope is required")
+		}
+		if err := validateDeclarationTiming(item.ObservedAt, item.ValidUntil, item.MaxAge); err != nil {
+			return err
+		}
+		if err := validateEvidenceRefs(item.EvidenceRefs); err != nil {
+			return err
+		}
+		normalizedSelector := resolution.NormalizeSelector(item.Selector)
+		if err := validateDeclarationPaths(normalizedSelector.Locations); err != nil {
+			return err
+		}
+		if !hasReviewDispositionReference(item, normalizedSelector) {
+			return fmt.Errorf("review_dispositions require path_id, resolution_key, finding_key, or selector fields")
+		}
+		for _, value := range []string{
+			item.Source,
+			item.Issuer,
+			item.Owner,
+			item.Rationale,
+			item.PathID,
+			item.ResolutionKey,
+			item.FindingKey,
+		} {
+			if err := validateNoSecretLikeValue(value); err != nil {
+				return err
+			}
+		}
+		for _, value := range append(append([]string(nil), item.EvidenceRefs...), append(normalizedSelector.FindingKeys, normalizedSelector.Locations...)...) {
+			if err := validateNoSecretLikeValue(value); err != nil {
+				return err
+			}
+		}
+		key := reviewDispositionScopeKey(item, normalizedSelector)
+		if _, exists := seen[key]; exists {
+			return fmt.Errorf("duplicate review_disposition scope %s", key)
+		}
+		seen[key] = struct{}{}
+	}
 	return nil
 }
 
@@ -216,6 +288,7 @@ func mergeControlDeclarations(base, incoming ControlDeclarations) ControlDeclara
 	out.Owners = append(out.Owners, incoming.Owners...)
 	out.Targets = append(out.Targets, incoming.Targets...)
 	out.Controls = append(out.Controls, incoming.Controls...)
+	out.ReviewDispositions = append(out.ReviewDispositions, incoming.ReviewDispositions...)
 	sort.Slice(out.Owners, func(i, j int) bool {
 		return declarationSortKey(out.Owners[i].Repo, out.Owners[i].Repos, pathValues(out.Owners[i].Path, out.Owners[i].Pattern, out.Owners[i].Paths)) < declarationSortKey(out.Owners[j].Repo, out.Owners[j].Repos, pathValues(out.Owners[j].Path, out.Owners[j].Pattern, out.Owners[j].Paths))
 	})
@@ -224,6 +297,11 @@ func mergeControlDeclarations(base, incoming ControlDeclarations) ControlDeclara
 	})
 	sort.Slice(out.Controls, func(i, j int) bool {
 		return declarationSortKey(out.Controls[i].Repo, out.Controls[i].Repos, pathValues(out.Controls[i].Path, out.Controls[i].Workflow, nil)) < declarationSortKey(out.Controls[j].Repo, out.Controls[j].Repos, pathValues(out.Controls[j].Path, out.Controls[j].Workflow, nil))
+	})
+	sort.Slice(out.ReviewDispositions, func(i, j int) bool {
+		left := resolution.NormalizeSelector(out.ReviewDispositions[i].Selector)
+		right := resolution.NormalizeSelector(out.ReviewDispositions[j].Selector)
+		return reviewDispositionSortKey(out.ReviewDispositions[i], left) < reviewDispositionSortKey(out.ReviewDispositions[j], right)
 	})
 	return out
 }
@@ -343,4 +421,77 @@ func pathValues(pathValue, pattern string, values []string) []string {
 
 func declarationSortKey(repo string, repos []string, paths []string) string {
 	return strings.Join(append(append([]string{strings.TrimSpace(repo)}, repos...), paths...), "|")
+}
+
+func validReviewDispositionState(value string) bool {
+	switch strings.TrimSpace(value) {
+	case "declared_controlled", "accepted_risk", "not_applicable", "false_positive", "needs_runtime_evidence", "confirmed":
+		return true
+	default:
+		return false
+	}
+}
+
+func hasReviewDispositionReference(item ControlDeclarationReviewDisposition, selector resolution.Selector) bool {
+	return strings.TrimSpace(item.PathID) != "" ||
+		strings.TrimSpace(item.ResolutionKey) != "" ||
+		strings.TrimSpace(item.FindingKey) != "" ||
+		resolution.HasSelectorFields(selector)
+}
+
+func reviewDispositionScopeKey(item ControlDeclarationReviewDisposition, selector resolution.Selector) string {
+	parts := []string{
+		"review_disposition",
+		strings.TrimSpace(item.State),
+		strings.TrimSpace(item.Scope),
+		strings.TrimSpace(item.PathID),
+		strings.TrimSpace(item.ResolutionKey),
+		strings.TrimSpace(item.FindingKey),
+		strings.TrimSpace(selector.Repo),
+		strings.TrimSpace(selector.ToolType),
+		strings.Join(selector.ActionClasses, ","),
+		strings.TrimSpace(selector.TargetClass),
+		strings.Join(selector.CredentialKinds, ","),
+		strings.Join(selector.FindingKeys, ","),
+		strings.Join(selector.Locations, ","),
+		strings.Join(selector.EvidenceLocations, ","),
+	}
+	return strings.Join(parts, "|")
+}
+
+func reviewDispositionSortKey(item ControlDeclarationReviewDisposition, selector resolution.Selector) string {
+	return strings.Join([]string{
+		strings.TrimSpace(item.State),
+		strings.TrimSpace(item.Scope),
+		strings.TrimSpace(item.PathID),
+		strings.TrimSpace(item.ResolutionKey),
+		strings.TrimSpace(item.FindingKey),
+		strings.TrimSpace(selector.Repo),
+		strings.TrimSpace(selector.ToolType),
+		strings.Join(selector.ActionClasses, ","),
+		strings.TrimSpace(selector.TargetClass),
+		strings.Join(selector.CredentialKinds, ","),
+		strings.Join(selector.FindingKeys, ","),
+		strings.Join(selector.Locations, ","),
+	}, "|")
+}
+
+func validateNoSecretLikeValue(value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	for _, marker := range []string{
+		"ghp_",
+		"github_pat_",
+		"AKIA",
+		"AIza",
+		"-----BEGIN PRIVATE KEY-----",
+		"-----BEGIN RSA PRIVATE KEY-----",
+	} {
+		if strings.Contains(trimmed, marker) {
+			return fmt.Errorf("raw secret-looking payload is not allowed")
+		}
+	}
+	return nil
 }

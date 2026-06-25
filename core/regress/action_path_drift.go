@@ -31,6 +31,7 @@ const (
 
 type ActionPathState struct {
 	PathID                   string   `json:"path_id,omitempty"`
+	ResolutionKey            string   `json:"resolution_key,omitempty"`
 	MatchKey                 string   `json:"match_key,omitempty"`
 	Platform                 string   `json:"platform,omitempty"`
 	Org                      string   `json:"org"`
@@ -266,8 +267,12 @@ func snapshotComparableActionPaths(snapshot state.Snapshot) ([]risk.ActionPath, 
 }
 
 func newActionPathState(path risk.ActionPath) ActionPathState {
+	if strings.TrimSpace(path.ResolutionKey) == "" {
+		path.ResolutionKey = risk.ProjectActionPath(path).ResolutionKey
+	}
 	out := normalizeActionPathState(ActionPathState{
 		PathID:                   strings.TrimSpace(path.PathID),
+		ResolutionKey:            strings.TrimSpace(path.ResolutionKey),
 		Platform:                 actionPathPlatform(path),
 		Org:                      fallback(strings.TrimSpace(path.Org), "local"),
 		Repo:                     strings.TrimSpace(path.Repo),
@@ -304,6 +309,7 @@ func newActionPathState(path risk.ActionPath) ActionPathState {
 
 func normalizeActionPathState(in ActionPathState) ActionPathState {
 	in.PathID = strings.TrimSpace(in.PathID)
+	in.ResolutionKey = strings.TrimSpace(in.ResolutionKey)
 	in.MatchKey = strings.TrimSpace(in.MatchKey)
 	in.Platform = strings.TrimSpace(in.Platform)
 	in.Org = fallback(strings.TrimSpace(in.Org), "local")
@@ -337,6 +343,9 @@ func sortActionPathStates(values []ActionPathState) {
 	sort.Slice(values, func(i, j int) bool {
 		if values[i].PathID != values[j].PathID {
 			return values[i].PathID < values[j].PathID
+		}
+		if values[i].ResolutionKey != values[j].ResolutionKey {
+			return values[i].ResolutionKey < values[j].ResolutionKey
 		}
 		if values[i].MatchKey != values[j].MatchKey {
 			return values[i].MatchKey < values[j].MatchKey
@@ -425,6 +434,35 @@ func matchActionPathStates(baseline []ActionPathState, current []ActionPathState
 		}
 	}
 
+	baseByResolutionKey := map[string]int{}
+	for idx, item := range baseline {
+		if baselineMatched[idx] {
+			continue
+		}
+		if item.ResolutionKey == "" {
+			continue
+		}
+		if _, exists := baseByResolutionKey[item.ResolutionKey]; exists {
+			issues = append(issues, "duplicate baseline resolution_key:"+item.ResolutionKey)
+			continue
+		}
+		baseByResolutionKey[item.ResolutionKey] = idx
+	}
+
+	for idx, item := range current {
+		if currentMatched[idx] {
+			continue
+		}
+		if item.ResolutionKey == "" {
+			continue
+		}
+		if baseIdx, exists := baseByResolutionKey[item.ResolutionKey]; exists && !baselineMatched[baseIdx] {
+			baselineMatched[baseIdx] = true
+			currentMatched[idx] = true
+			pairs = append(pairs, actionPathPair{Baseline: baseline[baseIdx], Current: item})
+		}
+	}
+
 	baseByMatchKey := map[string]int{}
 	for idx, item := range baseline {
 		if baselineMatched[idx] {
@@ -471,6 +509,9 @@ func matchActionPathStates(baseline []ActionPathState, current []ActionPathState
 	sort.Slice(pairs, func(i, j int) bool {
 		if pairs[i].Current.PathID != pairs[j].Current.PathID {
 			return pairs[i].Current.PathID < pairs[j].Current.PathID
+		}
+		if pairs[i].Current.ResolutionKey != pairs[j].Current.ResolutionKey {
+			return pairs[i].Current.ResolutionKey < pairs[j].Current.ResolutionKey
 		}
 		if pairs[i].Current.MatchKey != pairs[j].Current.MatchKey {
 			return pairs[i].Current.MatchKey < pairs[j].Current.MatchKey
@@ -665,6 +706,9 @@ func actionPathCredentialAuthority(path risk.ActionPath) string {
 }
 
 func actionPathFallbackMatchKey(path ActionPathState) string {
+	if strings.TrimSpace(path.ResolutionKey) != "" {
+		return strings.TrimSpace(path.ResolutionKey)
+	}
 	parts := []string{
 		strings.TrimSpace(path.Platform),
 		fallback(strings.TrimSpace(path.Org), "local"),
@@ -908,6 +952,9 @@ func driftPathRef(kind string, path ActionPathState) string {
 	if strings.TrimSpace(path.PathID) != "" {
 		return strings.TrimSpace(kind) + ":" + strings.TrimSpace(path.PathID)
 	}
+	if strings.TrimSpace(path.ResolutionKey) != "" {
+		return strings.TrimSpace(kind) + ":" + strings.TrimSpace(path.ResolutionKey)
+	}
 	if strings.TrimSpace(path.MatchKey) != "" {
 		return strings.TrimSpace(kind) + ":" + strings.TrimSpace(path.MatchKey)
 	}
@@ -915,7 +962,7 @@ func driftPathRef(kind string, path ActionPathState) string {
 }
 
 func firstPathIdentity(path ActionPathState) string {
-	return firstNonEmptyString(path.PathID, path.MatchKey, path.Repo+"@"+path.Location)
+	return firstNonEmptyString(path.PathID, path.ResolutionKey, path.MatchKey, path.Repo+"@"+path.Location)
 }
 
 func firstCategoryAction(values []string) string {

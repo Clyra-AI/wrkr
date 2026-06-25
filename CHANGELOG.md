@@ -8,7 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- [semver:minor] Added stable `resolution_key` action-path, BOM, report, and regress-baseline joins plus selector-fallback match metadata so reviewed paths can survive harmless `path_id` churn across reruns.
+- [semver:minor] Added review disposition declarations in `wrkr-control-declarations.yaml` / `.wrkr/control-declarations.yaml` for controlled, accepted-risk, not-applicable, false-positive, runtime-evidence-needed, and confirmed paths.
 
 ### Changed
 

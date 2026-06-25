@@ -67,6 +67,7 @@ func TestStory7SchemaContractsStable(t *testing.T) {
 		"schemas/v1/config/config.schema.json",
 		"schemas/v1/control-path-graph.schema.json",
 		"schemas/v1/evidence/agentic-evidence-packets.schema.json",
+		"schemas/v1/evidence/control-declarations.schema.json",
 		"schemas/v1/evidence/evidence-bundle.schema.json",
 		"schemas/v1/evidence/external-control-evidence.schema.json",
 		"schemas/v1/evidence/runtime-sessions.schema.json",

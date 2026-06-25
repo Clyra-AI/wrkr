@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,8 +45,11 @@ func TestSprint2SchemaExamplesValidate(t *testing.T) {
 	t.Run("control declarations example", func(t *testing.T) {
 		t.Parallel()
 
-		root := t.TempDir()
+		schemaPath := filepath.Join(repoRoot, "schemas", "v1", "evidence", "control-declarations.schema.json")
 		sourcePath := filepath.Join(repoRoot, "testinfra", "contracts", "fixtures", "sprint2", "wrkr-control-declarations.yaml")
+		validateYAMLFixtureAgainstSchema(t, schemaPath, sourcePath)
+
+		root := t.TempDir()
 		payload, err := os.ReadFile(sourcePath)
 		if err != nil {
 			t.Fatalf("read declarations fixture: %v", err)
@@ -64,7 +68,7 @@ func TestSprint2SchemaExamplesValidate(t *testing.T) {
 		if loaded.SchemaVersion != config.ControlDeclarationsVersion {
 			t.Fatalf("expected schema version %q, got %+v", config.ControlDeclarationsVersion, loaded)
 		}
-		if len(loaded.Owners) == 0 || len(loaded.Targets) == 0 || len(loaded.Controls) == 0 {
+		if len(loaded.Owners) == 0 || len(loaded.Targets) == 0 || len(loaded.Controls) == 0 || len(loaded.ReviewDispositions) == 0 {
 			t.Fatalf("expected owners, targets, and controls in declarations fixture, got %+v", loaded)
 		}
 	})
@@ -332,6 +336,78 @@ func validateFixtureAgainstDefinition(t *testing.T, schemaPath, definition, fixt
 	}
 }
 
+func validateYAMLFixtureAgainstSchema(t *testing.T, schemaPath, fixturePath string) {
+	t.Helper()
+
+	compiler := jsonschema.NewCompiler()
+	if err := compiler.AddResource(schemaPath, strings.NewReader(string(mustReadBytes(t, schemaPath)))); err != nil {
+		t.Fatalf("add schema resource %s: %v", schemaPath, err)
+	}
+	compiled, err := compiler.Compile(schemaPath)
+	if err != nil {
+		t.Fatalf("compile schema %s: %v", schemaPath, err)
+	}
+
+	var decoded any
+	if err := yaml.Unmarshal(mustReadBytes(t, fixturePath), &decoded); err != nil {
+		t.Fatalf("parse yaml fixture %s: %v", fixturePath, err)
+	}
+	decoded = normalizeYAMLScalars(decoded)
+	if err := compiled.Validate(decoded); err != nil {
+		t.Fatalf("fixture %s must validate against schema %s: %v", fixturePath, schemaPath, err)
+	}
+}
+
+func mustReadBytes(t *testing.T, path string) []byte {
+	t.Helper()
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return payload
+}
+
+func normalizeYAMLScalars(value any) any {
+	switch typed := value.(type) {
+	case time.Time:
+		return typed.UTC().Format(time.RFC3339)
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			out[key] = normalizeYAMLScalars(item)
+		}
+		return out
+	case map[any]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			out[normalizeMapKey(key)] = normalizeYAMLScalars(item)
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, normalizeYAMLScalars(item))
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+func normalizeMapKey(value any) string {
+	return strings.TrimSpace(fmt.Sprint(value))
+}
+
+/*
+	func normalizeMapKeyLegacy(value any) string {
+		switch typed := value.(type) {
+		case string:
+			return typed
+		default:
+			return strings.TrimSpace(strings.ReplaceAll(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(strings.Trim(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace(strings.TrimSpace("")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "")), "\n", " ")
+		}
+	}
+*/
 func containsString(values []string, needle string) bool {
 	for _, value := range values {
 		if value == needle {

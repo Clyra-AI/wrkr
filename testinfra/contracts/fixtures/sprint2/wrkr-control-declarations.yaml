@@ -41,3 +41,21 @@ controls:
     confidence: high
     evidence_refs:
       - evidence://fake/declarations.yaml#controls/release
+review_dispositions:
+  - state: accepted_risk
+    source: governance-ticket
+    issuer: "@acme/security"
+    rationale: Time-boxed release exception while provider-exported approvals are being migrated.
+    observed_at: 2026-05-25T17:00:00Z
+    valid_until: 2026-05-31T17:00:00Z
+    scope: repo
+    resolution_key: rk-acme-payments-release
+    selector:
+      repo: acme/payments
+      tool_type: compiled_action
+      action_classes:
+        - release
+      credential_kinds:
+        - github_workflow_token
+    evidence_refs:
+      - evidence://fake/declarations.yaml#review/accepted-risk
