@@ -301,6 +301,7 @@ Repo paths:
 - `core/attribution/control_metadata.go`
 - `core/attribution/attribution_test.go`
 - `core/risk/evidence_state.go`
+- `schemas/v1/evidence/control-declarations.schema.json`
 - `schemas/v1/evidence/external-control-evidence.schema.json`
 - `schemas/v1/README.md`
 - `docs/commands/scan.md`
