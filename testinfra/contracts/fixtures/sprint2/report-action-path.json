@@ -15,6 +15,21 @@
     "declaration:non_production",
     "target:production_secret_present"
   ],
+  "resolution_key": "rk-acme-payments-release",
+  "resolution_selector": {
+    "repo": "acme/payments",
+    "tool_type": "compiled_action",
+    "action_classes": [
+      "release"
+    ],
+    "credential_kinds": [
+      "github_workflow_token"
+    ]
+  },
+  "resolution_match_confidence": "high",
+  "resolution_mismatch_reasons": [
+    "selector:path_id_stale"
+  ],
   "control_evidence_refs": [
     "evidence://fake/provider-export.json#branch/main",
     "evidence://fake/declarations.yaml#targets/non-prod"
@@ -143,6 +158,16 @@
   "confidence_lane_reasons": [
     "workflow:write_capable"
   ],
+  "review_lifecycle_state": "accepted_risk",
+  "review_lifecycle_reasons": [
+    "review_declaration:matched"
+  ],
+  "review_rationale": "Time-boxed release exception while provider-exported approvals are being migrated.",
+  "review_owner": "@acme/security",
+  "review_source": "governance-ticket",
+  "review_observed_at": "2026-05-25T17:00:00Z",
+  "review_valid_until": "2026-05-31T17:00:00Z",
+  "review_scope": "repo",
   "gait_coverage": {
     "policy_decision": {
       "status": "present",

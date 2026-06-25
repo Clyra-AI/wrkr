@@ -14,6 +14,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/model"
 	"github.com/Clyra-AI/wrkr/core/owners"
+	"github.com/Clyra-AI/wrkr/core/resolution"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 )
 
@@ -82,6 +83,10 @@ type ActionPath struct {
 	ControlResolutionState     string                         `json:"control_resolution_state,omitempty"`
 	BoundaryLabel              string                         `json:"boundary_label,omitempty"`
 	ControlResolutionReasons   []string                       `json:"control_resolution_reasons,omitempty"`
+	ResolutionKey              string                         `json:"resolution_key,omitempty"`
+	ResolutionSelector         *resolution.Selector           `json:"resolution_selector,omitempty"`
+	ResolutionMatchConfidence  string                         `json:"resolution_match_confidence,omitempty"`
+	ResolutionMismatchReasons  []string                       `json:"resolution_mismatch_reasons,omitempty"`
 	ControlEvidenceRefs        []string                       `json:"control_evidence_refs,omitempty"`
 	ConstraintEvidenceClasses  []string                       `json:"constraint_evidence_classes,omitempty"`
 	ConstraintEvidenceRefs     []string                       `json:"constraint_evidence_refs,omitempty"`
@@ -145,6 +150,14 @@ type ActionPath struct {
 	ReviewBurdenReasons                 []string                                `json:"review_burden_reasons,omitempty"`
 	ConfidenceLane                      string                                  `json:"confidence_lane,omitempty"`
 	ConfidenceLaneReasons               []string                                `json:"confidence_lane_reasons,omitempty"`
+	ReviewLifecycleState                string                                  `json:"review_lifecycle_state,omitempty"`
+	ReviewLifecycleReasons              []string                                `json:"review_lifecycle_reasons,omitempty"`
+	ReviewRationale                     string                                  `json:"review_rationale,omitempty"`
+	ReviewOwner                         string                                  `json:"review_owner,omitempty"`
+	ReviewSource                        string                                  `json:"review_source,omitempty"`
+	ReviewObservedAt                    string                                  `json:"review_observed_at,omitempty"`
+	ReviewValidUntil                    string                                  `json:"review_valid_until,omitempty"`
+	ReviewScope                         string                                  `json:"review_scope,omitempty"`
 	PolicyCoverageStatus                string                                  `json:"policy_coverage_status,omitempty"`
 	PolicyRefs                          []string                                `json:"policy_refs,omitempty"`
 	PolicyMissingReasons                []string                                `json:"policy_missing_reasons,omitempty"`

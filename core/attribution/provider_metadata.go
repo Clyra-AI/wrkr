@@ -20,9 +20,11 @@ const (
 )
 
 type Context struct {
-	RepoRoot        string
-	Candidates      []Candidate
-	ControlMetadata map[string]ControlMetadata
+	RepoRoot           string
+	GeneratedAt        time.Time
+	Candidates         []Candidate
+	ControlMetadata    map[string]ControlMetadata
+	ReviewDispositions []ReviewDisposition
 }
 
 type Candidate struct {
@@ -57,9 +59,11 @@ func LoadContext(repoRoot string) Context {
 func LoadContextAt(repoRoot string, generatedAt time.Time) Context {
 	repoRoot = strings.TrimSpace(repoRoot)
 	return Context{
-		RepoRoot:        repoRoot,
-		Candidates:      loadCandidates(repoRoot),
-		ControlMetadata: loadControlMetadataAt(repoRoot, generatedAt),
+		RepoRoot:           repoRoot,
+		GeneratedAt:        generatedAt.UTC(),
+		Candidates:         loadCandidates(repoRoot),
+		ControlMetadata:    loadControlMetadataAt(repoRoot, generatedAt),
+		ReviewDispositions: loadReviewDispositions(repoRoot),
 	}
 }
 

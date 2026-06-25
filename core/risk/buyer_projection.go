@@ -79,6 +79,7 @@ func ProjectActionPath(path ActionPath) ActionPath {
 	out.AgenticDeliverySystemChange = buildAgenticDeliverySystemChange(out)
 	out.DeliveryControlContext = buildDeliveryControlContext(out)
 	out.AgentIdentity = buildAgentIdentity(out)
+	out = applyResolutionDefaults(out)
 	return out
 }
 

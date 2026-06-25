@@ -105,6 +105,7 @@
       "required": ["org", "repo"],
       "properties": {
         "path_id": {"type": "string"},
+        "resolution_key": {"type": "string"},
         "match_key": {"type": "string"},
         "platform": {"type": "string"},
         "org": {"type": "string"},

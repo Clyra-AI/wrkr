@@ -15,6 +15,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/model"
+	"github.com/Clyra-AI/wrkr/core/resolution"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	riskattack "github.com/Clyra-AI/wrkr/core/risk/attackpath"
 	scorecore "github.com/Clyra-AI/wrkr/core/score"
@@ -107,6 +108,10 @@ type AgentActionBOMItem struct {
 	ControlResolutionState              string                               `json:"control_resolution_state,omitempty"`
 	BoundaryLabel                       string                               `json:"boundary_label,omitempty"`
 	ControlResolutionReasons            []string                             `json:"control_resolution_reasons,omitempty"`
+	ResolutionKey                       string                               `json:"resolution_key,omitempty"`
+	ResolutionSelector                  *resolution.Selector                 `json:"resolution_selector,omitempty"`
+	ResolutionMatchConfidence           string                               `json:"resolution_match_confidence,omitempty"`
+	ResolutionMismatchReasons           []string                             `json:"resolution_mismatch_reasons,omitempty"`
 	ControlEvidenceRefs                 []string                             `json:"control_evidence_refs,omitempty"`
 	ConstraintEvidenceClasses           []string                             `json:"constraint_evidence_classes,omitempty"`
 	ConstraintEvidenceRefs              []string                             `json:"constraint_evidence_refs,omitempty"`
@@ -142,6 +147,14 @@ type AgentActionBOMItem struct {
 	ReviewBurdenReasons                 []string                             `json:"review_burden_reasons,omitempty"`
 	ConfidenceLane                      string                               `json:"confidence_lane,omitempty"`
 	ConfidenceLaneReasons               []string                             `json:"confidence_lane_reasons,omitempty"`
+	ReviewLifecycleState                string                               `json:"review_lifecycle_state,omitempty"`
+	ReviewLifecycleReasons              []string                             `json:"review_lifecycle_reasons,omitempty"`
+	ReviewRationale                     string                               `json:"review_rationale,omitempty"`
+	ReviewOwner                         string                               `json:"review_owner,omitempty"`
+	ReviewSource                        string                               `json:"review_source,omitempty"`
+	ReviewObservedAt                    string                               `json:"review_observed_at,omitempty"`
+	ReviewValidUntil                    string                               `json:"review_valid_until,omitempty"`
+	ReviewScope                         string                               `json:"review_scope,omitempty"`
 	AutonomyTier                        string                               `json:"autonomy_tier,omitempty"`
 	AutonomyTierReasons                 []string                             `json:"autonomy_tier_reasons,omitempty"`
 	AutonomyTierEvidenceRefs            []string                             `json:"autonomy_tier_evidence_refs,omitempty"`
@@ -337,6 +350,10 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			ControlResolutionState:              strings.TrimSpace(path.ControlResolutionState),
 			BoundaryLabel:                       strings.TrimSpace(path.BoundaryLabel),
 			ControlResolutionReasons:            append([]string(nil), path.ControlResolutionReasons...),
+			ResolutionKey:                       strings.TrimSpace(path.ResolutionKey),
+			ResolutionSelector:                  resolution.CloneSelector(path.ResolutionSelector),
+			ResolutionMatchConfidence:           strings.TrimSpace(path.ResolutionMatchConfidence),
+			ResolutionMismatchReasons:           append([]string(nil), path.ResolutionMismatchReasons...),
 			ControlEvidenceRefs:                 append([]string(nil), path.ControlEvidenceRefs...),
 			ConstraintEvidenceClasses:           append([]string(nil), path.ConstraintEvidenceClasses...),
 			ConstraintEvidenceRefs:              append([]string(nil), path.ConstraintEvidenceRefs...),
@@ -372,6 +389,14 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			ReviewBurdenReasons:                 append([]string(nil), path.ReviewBurdenReasons...),
 			ConfidenceLane:                      strings.TrimSpace(path.ConfidenceLane),
 			ConfidenceLaneReasons:               append([]string(nil), path.ConfidenceLaneReasons...),
+			ReviewLifecycleState:                strings.TrimSpace(path.ReviewLifecycleState),
+			ReviewLifecycleReasons:              append([]string(nil), path.ReviewLifecycleReasons...),
+			ReviewRationale:                     strings.TrimSpace(path.ReviewRationale),
+			ReviewOwner:                         strings.TrimSpace(path.ReviewOwner),
+			ReviewSource:                        strings.TrimSpace(path.ReviewSource),
+			ReviewObservedAt:                    strings.TrimSpace(path.ReviewObservedAt),
+			ReviewValidUntil:                    strings.TrimSpace(path.ReviewValidUntil),
+			ReviewScope:                         strings.TrimSpace(path.ReviewScope),
 			AutonomyTier:                        strings.TrimSpace(path.AutonomyTier),
 			AutonomyTierReasons:                 append([]string(nil), path.AutonomyTierReasons...),
 			AutonomyTierEvidenceRefs:            append([]string(nil), path.AutonomyTierEvidenceRefs...),
