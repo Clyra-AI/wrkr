@@ -212,10 +212,10 @@ func reviewDispositionContradictsScope(scope string, path ActionPath) bool {
 			strings.TrimSpace(path.TargetClass) == TargetClassProductionImpacting ||
 			strings.TrimSpace(path.TargetClass) == TargetClassReleaseAdjacent
 	case "production":
-		return !(path.ProductionWrite ||
-			len(path.MatchedProductionTargets) > 0 ||
-			strings.TrimSpace(path.TargetClass) == TargetClassProductionImpacting ||
-			strings.TrimSpace(path.TargetClass) == TargetClassReleaseAdjacent)
+		return !path.ProductionWrite &&
+			len(path.MatchedProductionTargets) == 0 &&
+			strings.TrimSpace(path.TargetClass) != TargetClassProductionImpacting &&
+			strings.TrimSpace(path.TargetClass) != TargetClassReleaseAdjacent
 	default:
 		return false
 	}
