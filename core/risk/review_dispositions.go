@@ -109,25 +109,27 @@ func matchReviewDisposition(disposition attribution.ReviewDisposition, paths []A
 
 func directReviewDispositionMatches(disposition attribution.ReviewDisposition, paths []ActionPath) []reviewDispositionMatch {
 	out := []reviewDispositionMatch{}
-	switch {
-	case strings.TrimSpace(disposition.PathID) != "":
-		for _, path := range paths {
-			if strings.TrimSpace(path.PathID) == strings.TrimSpace(disposition.PathID) {
-				out = append(out, reviewDispositionMatch{path: path})
-			}
+	seen := map[string]struct{}{}
+	for _, path := range paths {
+		matched := false
+		if strings.TrimSpace(disposition.PathID) != "" && strings.TrimSpace(path.PathID) == strings.TrimSpace(disposition.PathID) {
+			matched = true
 		}
-	case strings.TrimSpace(disposition.ResolutionKey) != "":
-		for _, path := range paths {
-			if strings.TrimSpace(path.ResolutionKey) == strings.TrimSpace(disposition.ResolutionKey) {
-				out = append(out, reviewDispositionMatch{path: path})
-			}
+		if strings.TrimSpace(disposition.ResolutionKey) != "" && strings.TrimSpace(path.ResolutionKey) == strings.TrimSpace(disposition.ResolutionKey) {
+			matched = true
 		}
-	case strings.TrimSpace(disposition.FindingKey) != "":
-		for _, path := range paths {
-			if reviewDispositionContains(path.SourceFindingKeys, strings.TrimSpace(disposition.FindingKey)) {
-				out = append(out, reviewDispositionMatch{path: path})
-			}
+		if strings.TrimSpace(disposition.FindingKey) != "" && reviewDispositionContains(path.SourceFindingKeys, strings.TrimSpace(disposition.FindingKey)) {
+			matched = true
 		}
+		if !matched {
+			continue
+		}
+		key := reviewDispositionPathKey(path)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, reviewDispositionMatch{path: path})
 	}
 	return out
 }

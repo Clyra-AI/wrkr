@@ -58,3 +58,25 @@ review_dispositions:
 		t.Fatal("expected invalid review disposition to fail closed")
 	}
 }
+
+func TestReviewDispositionWithoutObservedAtFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	payload := []byte(`schema_version: v1
+review_dispositions:
+  - state: accepted_risk
+    source: governance-ticket
+    issuer: release-cab
+    rationale: Missing observed_at must fail closed.
+    scope: repo
+    resolution_key: rk-release
+`)
+	if err := os.WriteFile(filepath.Join(root, "wrkr-control-declarations.yaml"), payload, 0o600); err != nil {
+		t.Fatalf("write declarations: %v", err)
+	}
+
+	if _, _, err := LoadControlDeclarations(root); err == nil {
+		t.Fatal("expected missing observed_at to fail closed")
+	}
+}
