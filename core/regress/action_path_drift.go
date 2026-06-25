@@ -320,7 +320,7 @@ func newActionPathState(path risk.ActionPath) ActionPathState {
 		ReviewScope:                  strings.TrimSpace(path.ReviewScope),
 		ReviewValidUntil:             strings.TrimSpace(path.ReviewValidUntil),
 		ConfigFingerprint:            strings.TrimSpace(path.ConfigFingerprint),
-		EvidenceRefs:                 mergeSortedStrings(append(append(append([]string(nil), path.SourceFindingKeys...), path.AttackPathRefs...), append(path.ControlEvidenceRefs, path.ReopenEvidenceRefs...)...), nil),
+		EvidenceRefs:                 mergeSortedStrings(append(append(append(append([]string(nil), path.SourceFindingKeys...), path.AttackPathRefs...), append(path.ControlEvidenceRefs, path.ReopenEvidenceRefs...)...), reviewAuditEvidenceRefs(path.ReviewAuditContext)...), nil),
 		ReopenReasons:                mergeSortedStrings(path.ReopenReasons, nil),
 	})
 	out.MatchKey = actionPathFallbackMatchKey(out)
@@ -772,6 +772,13 @@ func actionPathEvidenceSignature(path ActionPathState) string {
 		strings.TrimSpace(path.ReviewValidUntil),
 		boolString(path.ApprovalGap),
 	}, "|")
+}
+
+func reviewAuditEvidenceRefs(ctx *risk.ReviewAuditContext) []string {
+	if ctx == nil {
+		return nil
+	}
+	return append([]string(nil), ctx.EvidenceRefs...)
 }
 
 func actionPathAuthoritySummary(path ActionPathState) []string {

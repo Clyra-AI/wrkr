@@ -20,6 +20,7 @@ type reviewDispositionProjection struct {
 	ReviewObservedAt          string
 	ReviewValidUntil          string
 	ReviewScope               string
+	ReviewEvidenceRefs        []string
 }
 
 func decorateReviewDispositions(paths []ActionPath, repoContexts map[string]attribution.Context) []ActionPath {
@@ -164,6 +165,7 @@ func buildReviewDispositionProjection(ctx attribution.Context, disposition attri
 		ReviewObservedAt:          strings.TrimSpace(disposition.ObservedAt),
 		ReviewValidUntil:          strings.TrimSpace(disposition.ValidUntil),
 		ReviewScope:               strings.TrimSpace(disposition.Scope),
+		ReviewEvidenceRefs:        dedupeSortedStrings(append([]string(nil), disposition.EvidenceRefs...)),
 	}
 	if ambiguous {
 		projection.ReviewLifecycleReasons = dedupeSortedStrings(append(projection.ReviewLifecycleReasons, "review_declaration:ambiguous_selector"))
@@ -205,6 +207,7 @@ func mergeReviewDispositionProjection(path ActionPath, projection reviewDisposit
 	out.ReviewObservedAt = firstNonEmptyString(out.ReviewObservedAt, projection.ReviewObservedAt)
 	out.ReviewValidUntil = firstNonEmptyString(out.ReviewValidUntil, projection.ReviewValidUntil)
 	out.ReviewScope = firstNonEmptyString(out.ReviewScope, projection.ReviewScope)
+	out.ReviewEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out.ReviewEvidenceRefs...), projection.ReviewEvidenceRefs...))
 	return out
 }
 

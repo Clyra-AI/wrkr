@@ -231,7 +231,7 @@ func buildReviewAuditContext(path ActionPath) *ReviewAuditContext {
 	observedAt := strings.TrimSpace(path.ReviewObservedAt)
 	validUntil := strings.TrimSpace(path.ReviewValidUntil)
 	scope := strings.TrimSpace(path.ReviewScope)
-	evidenceRefs := dedupeSortedStrings(path.ControlEvidenceRefs)
+	evidenceRefs := dedupeSortedStrings(append(append([]string(nil), path.ControlEvidenceRefs...), path.ReviewEvidenceRefs...))
 	reasonCodes := dedupeSortedStrings(append(append([]string(nil), path.ReviewLifecycleReasons...), path.ReopenReasons...))
 	if state == "" && owner == "" && source == "" && rationale == "" && observedAt == "" && validUntil == "" && scope == "" && len(evidenceRefs) == 0 && len(reasonCodes) == 0 {
 		return nil

@@ -164,6 +164,33 @@ func TestNonProdDeclarationContradictedByProductionSecretReopens(t *testing.T) {
 	}
 }
 
+func TestReviewAuditContextCarriesDeclarationEvidenceRefs(t *testing.T) {
+	t.Parallel()
+
+	current := ProjectReviewLifecycleTransitions([]ActionPath{{
+		PathID:               "apc-declared",
+		Org:                  "acme",
+		Repo:                 "acme/release",
+		ToolType:             "compiled_action",
+		Location:             ".github/workflows/release.yml",
+		ResolutionKey:        "rk-declared",
+		ReviewLifecycleState: ReviewLifecycleStateAcceptedRisk,
+		ReviewSource:         "governance-ticket",
+		ReviewOwner:          "release-cab",
+		ReviewRationale:      "Accepted residual risk after review.",
+		ReviewObservedAt:     "2026-06-25T10:00:00Z",
+		ReviewScope:          "repo",
+		ReviewEvidenceRefs:   []string{"evidence://governance/release-risk-123"},
+	}}, nil)
+
+	if len(current) != 1 {
+		t.Fatalf("expected one projected path, got %+v", current)
+	}
+	if current[0].ReviewAuditContext == nil || !containsReviewLifecycleReason(current[0].ReviewAuditContext.EvidenceRefs, "evidence://governance/release-risk-123") {
+		t.Fatalf("expected review audit context to carry declaration evidence refs, got %+v", current[0].ReviewAuditContext)
+	}
+}
+
 func findReviewLifecyclePath(t *testing.T, paths []ActionPath, pathID string) ActionPath {
 	t.Helper()
 	for _, path := range paths {

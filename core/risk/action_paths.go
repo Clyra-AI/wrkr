@@ -170,6 +170,7 @@ type ActionPath struct {
 	ReviewObservedAt                    string                                  `json:"review_observed_at,omitempty"`
 	ReviewValidUntil                    string                                  `json:"review_valid_until,omitempty"`
 	ReviewScope                         string                                  `json:"review_scope,omitempty"`
+	ReviewEvidenceRefs                  []string                                `json:"-"`
 	ReviewAuditContext                  *ReviewAuditContext                     `json:"review_audit_context,omitempty"`
 	ResolvedVisibility                  string                                  `json:"resolved_visibility,omitempty"`
 	ResolvedAppendixRefs                []string                                `json:"resolved_appendix_refs,omitempty"`
