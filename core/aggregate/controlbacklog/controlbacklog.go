@@ -200,6 +200,13 @@ type Item struct {
 	ReviewObservedAt                    string                                  `json:"review_observed_at,omitempty"`
 	ReviewValidUntil                    string                                  `json:"review_valid_until,omitempty"`
 	ReviewScope                         string                                  `json:"review_scope,omitempty"`
+	ReviewAuditContext                  *risk.ReviewAuditContext                `json:"review_audit_context,omitempty"`
+	ResolvedVisibility                  string                                  `json:"resolved_visibility,omitempty"`
+	ResolvedAppendixRefs                []string                                `json:"resolved_appendix_refs,omitempty"`
+	PreviousReviewLifecycleState        string                                  `json:"previous_review_lifecycle_state,omitempty"`
+	ReopenState                         string                                  `json:"reopen_state,omitempty"`
+	ReopenReasons                       []string                                `json:"reopen_reasons,omitempty"`
+	ReopenEvidenceRefs                  []string                                `json:"reopen_evidence_refs,omitempty"`
 	AutonomyTier                        string                                  `json:"autonomy_tier,omitempty"`
 	AutonomyTierReasons                 []string                                `json:"autonomy_tier_reasons,omitempty"`
 	AutonomyTierEvidenceRefs            []string                                `json:"autonomy_tier_evidence_refs,omitempty"`
@@ -473,6 +480,13 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		ReviewObservedAt:                    strings.TrimSpace(path.ReviewObservedAt),
 		ReviewValidUntil:                    strings.TrimSpace(path.ReviewValidUntil),
 		ReviewScope:                         strings.TrimSpace(path.ReviewScope),
+		ReviewAuditContext:                  risk.CloneReviewAuditContext(path.ReviewAuditContext),
+		ResolvedVisibility:                  strings.TrimSpace(path.ResolvedVisibility),
+		ResolvedAppendixRefs:                append([]string(nil), path.ResolvedAppendixRefs...),
+		PreviousReviewLifecycleState:        strings.TrimSpace(path.PreviousReviewLifecycleState),
+		ReopenState:                         strings.TrimSpace(path.ReopenState),
+		ReopenReasons:                       append([]string(nil), path.ReopenReasons...),
+		ReopenEvidenceRefs:                  append([]string(nil), path.ReopenEvidenceRefs...),
 		AutonomyTier:                        strings.TrimSpace(path.AutonomyTier),
 		AutonomyTierReasons:                 append([]string(nil), path.AutonomyTierReasons...),
 		AutonomyTierEvidenceRefs:            append([]string(nil), path.AutonomyTierEvidenceRefs...),
@@ -2046,6 +2060,15 @@ func firstNonEmptyConfidenceLane(current, incoming string) string {
 }
 
 func queueFromActionPath(path risk.ActionPath) string {
+	switch strings.TrimSpace(path.ReviewLifecycleState) {
+	case risk.ReviewLifecycleStateAcceptedRisk:
+		return QueueAcceptedRisk
+	case risk.ReviewLifecycleStateDeclaredControlled,
+		risk.ReviewLifecycleStateCoveredByImportedControl,
+		risk.ReviewLifecycleStateNotApplicable,
+		risk.ReviewLifecycleStateFalsePositive:
+		return QueueInventoryHygiene
+	}
 	switch strings.TrimSpace(path.DelegationReadinessState) {
 	case risk.DelegationReadinessBlocked, risk.DelegationReadinessBlockedByContradiction:
 		return QueueControlFirst
@@ -2073,6 +2096,9 @@ func queueFromActionPath(path risk.ActionPath) string {
 }
 
 func visibilityFromActionPath(path risk.ActionPath) string {
+	if strings.TrimSpace(path.ResolvedVisibility) == risk.ReviewResolvedVisibilityAppendix {
+		return FindingVisibilityAppendix
+	}
 	return visibilityForQueue(queueFromActionPath(path))
 }
 

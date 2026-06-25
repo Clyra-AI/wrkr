@@ -52,6 +52,18 @@ type ActionPathSummary struct {
 	EmptyStateReasons            []string                  `json:"empty_state_reasons,omitempty"`
 }
 
+type ReviewAuditContext struct {
+	LifecycleState string   `json:"lifecycle_state,omitempty"`
+	Owner          string   `json:"owner,omitempty"`
+	Source         string   `json:"source,omitempty"`
+	Rationale      string   `json:"rationale,omitempty"`
+	ObservedAt     string   `json:"observed_at,omitempty"`
+	ValidUntil     string   `json:"valid_until,omitempty"`
+	Scope          string   `json:"scope,omitempty"`
+	EvidenceRefs   []string `json:"evidence_refs,omitempty"`
+	ReasonCodes    []string `json:"reason_codes,omitempty"`
+}
+
 type ActionPath struct {
 	PathID                     string                         `json:"path_id"`
 	Org                        string                         `json:"org"`
@@ -158,6 +170,13 @@ type ActionPath struct {
 	ReviewObservedAt                    string                                  `json:"review_observed_at,omitempty"`
 	ReviewValidUntil                    string                                  `json:"review_valid_until,omitempty"`
 	ReviewScope                         string                                  `json:"review_scope,omitempty"`
+	ReviewAuditContext                  *ReviewAuditContext                     `json:"review_audit_context,omitempty"`
+	ResolvedVisibility                  string                                  `json:"resolved_visibility,omitempty"`
+	ResolvedAppendixRefs                []string                                `json:"resolved_appendix_refs,omitempty"`
+	PreviousReviewLifecycleState        string                                  `json:"previous_review_lifecycle_state,omitempty"`
+	ReopenState                         string                                  `json:"reopen_state,omitempty"`
+	ReopenReasons                       []string                                `json:"reopen_reasons,omitempty"`
+	ReopenEvidenceRefs                  []string                                `json:"reopen_evidence_refs,omitempty"`
 	PolicyCoverageStatus                string                                  `json:"policy_coverage_status,omitempty"`
 	PolicyRefs                          []string                                `json:"policy_refs,omitempty"`
 	PolicyMissingReasons                []string                                `json:"policy_missing_reasons,omitempty"`

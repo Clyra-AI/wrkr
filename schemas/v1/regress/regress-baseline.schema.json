@@ -116,6 +116,10 @@
         "target_class": {"type": "string"},
         "boundary_label": {"type": "string"},
         "control_resolution_state": {"type": "string"},
+        "review_lifecycle_state": {"type": "string"},
+        "previous_review_lifecycle_state": {"type": "string"},
+        "resolved_visibility": {"type": "string"},
+        "reopen_state": {"type": "string"},
         "delegation_readiness_state": {"type": "string"},
         "approval_evidence_state": {"type": "string"},
         "owner_evidence_state": {"type": "string"},
@@ -135,7 +139,11 @@
         "authority_bindings": {"type": "array", "items": {"type": "string"}},
         "credential_subjects": {"type": "array", "items": {"type": "string"}},
         "credential_authority": {"type": "string"},
-        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+        "review_scope": {"type": "string"},
+        "review_valid_until": {"type": "string", "format": "date-time"},
+        "config_fingerprint": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "reopen_reasons": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     }

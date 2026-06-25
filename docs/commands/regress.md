@@ -44,6 +44,7 @@ Expected JSON keys include `status`, `baseline_path`, `tool_count` (init) and dr
 Saved scan state must be complete. `wrkr regress init` rejects incomplete baseline scan snapshots, and `wrkr regress run` rejects incomplete current state or raw saved-scan baselines carrying `partial_result`, `source_errors`, or `source_degraded` with `invalid_input` (exit `6`).
 Baseline `tools[*]` continue to expose `agent_id` and `tool_id`; additive `agent_instance_id` is now included when instance-scoped identity is available.
 Baseline `tools[*]` may also include additive approved control-path state: `security_visibility`, `owner`, `evidence_expires`, `write_path_classes`, `secret_bearing`, `confidence`, `control_path_type`, `repo`, `location`, and `risk_score`.
+Captured `action_paths[*]` in the regress baseline now also preserve additive review-loop comparison fields such as `review_lifecycle_state`, `previous_review_lifecycle_state`, `resolved_visibility`, `reopen_state`, `reopen_reasons`, `review_scope`, `review_valid_until`, `config_fingerprint`, and imported/declaration evidence refs so recurring customer review decisions reopen only on material drift.
 `wrkr regress init` reads the saved scan snapshot directly, so approvals recorded with `wrkr identity` or `wrkr inventory` become visible in newly generated baselines without requiring a follow-up scan.
 Drift `reasons[*]` continue to expose `agent_id`/`tool_id` and now include additive `agent_instance_id` when the current state carries instance-scoped identity.
 Deprecated or revoked tools that reappear in current scan state produce deterministic `deprecated_tool_reappeared` or `revoked_tool_reappeared` drift reasons.
@@ -66,6 +67,7 @@ Action-path drift categories are additive and stable:
 - `changed_target_class`
 
 Each `drift_categories[*]` row includes severity, priority, stable current/baseline path refs, additive evidence refs, buyer-facing examples, and recommended next actions. Legacy `reasons[*]` remain present for lifecycle, approval-expiry, owner-change, permission-expansion, and critical attack-path contracts.
+Action-path drift review stays additive and deterministic: benign report ordering does not reopen resolved paths, while expiry, contradiction, disappeared imported controls, credential-family changes, and target-class escalation show up through the same stable path matching and evidence refs without forcing scan/report commands to fail as runtime errors.
 
 When a legacy regress baseline lacks captured action-path comparison data, Wrkr now fails closed with `comparison_status=baseline_action_paths_unavailable` instead of silently emitting a clean no-drift result. Regenerate the baseline from a current `wrkr scan --state ... --json` snapshot or `wrkr regress init` artifact before relying on drift-review output.
 The canonical baseline artifact (`.wrkr/wrkr-regress-baseline.json`) and any generated drift artifacts are also counted by later `summary.repeat_usage_signals` / `agent_action_bom.summary.repeat_usage_signals` surfaces when you rerun `report` or `assess` in the same working area.

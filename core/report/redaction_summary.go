@@ -85,6 +85,9 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		copyItem.Repo = maybeRedactRepo(copyItem.Repo, config)
 		copyItem.Location = maybeRedactLocationLike(copyItem.Location, config)
 		copyItem.OperationalOwner = maybeRedactOwner(copyItem.OperationalOwner, config)
+		copyItem.ReviewOwner = maybeRedactOwner(copyItem.ReviewOwner, config)
+		copyItem.ReviewSource = maybeRedactCompositeLabel(copyItem.ReviewSource, config)
+		copyItem.ReviewRationale = maybeRedactCompositeLabel(copyItem.ReviewRationale, config)
 		copyItem.ConfigSource = maybeRedactLocationLike(copyItem.ConfigSource, config)
 		copyItem.OccurrenceRefs = maybeRedactStringSlice(copyItem.OccurrenceRefs, "path", config.Has(RedactionPaths) || config.Has(RedactionRepos))
 		copyItem.AttackPathRefs = maybeRedactStringSlice(copyItem.AttackPathRefs, "attack", config.Has(RedactionGraphRefs))
@@ -127,6 +130,9 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		copyItem.AgentIdentity = sanitizeAgentIdentityWithConfig(copyItem.AgentIdentity, config)
 		copyItem.DecisionPrecedent = sanitizeDecisionPrecedentWithConfig(copyItem.DecisionPrecedent, config)
 		copyItem.DeliveryControlContext = sanitizeDeliveryControlContextWithConfig(copyItem.DeliveryControlContext, config)
+		copyItem.ReviewAuditContext = sanitizeReviewAuditContextWithConfig(copyItem.ReviewAuditContext, config)
+		copyItem.ResolvedAppendixRefs = maybeRedactLocationLikeSlice(copyItem.ResolvedAppendixRefs, config)
+		copyItem.ReopenEvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.ReopenEvidenceRefs, config)
 		copyItem.DeliveryHarnesses = maybeRedactCompositeLabelSlice(copyItem.DeliveryHarnesses, config)
 		copyItem.ResolverRefs = maybeRedactLocationLikeSlice(copyItem.ResolverRefs, config)
 		copyItem.EvalConfigRefs = maybeRedactLocationLikeSlice(copyItem.EvalConfigRefs, config)
@@ -419,6 +425,9 @@ func sanitizeControlBacklogWithConfig(in *controlbacklog.Backlog, config Redacti
 		copyBacklog.Items[idx].Repo = maybeRedactRepo(copyBacklog.Items[idx].Repo, config)
 		copyBacklog.Items[idx].Path = maybeRedactLocationLike(copyBacklog.Items[idx].Path, config)
 		copyBacklog.Items[idx].Owner = maybeRedactOwner(copyBacklog.Items[idx].Owner, config)
+		copyBacklog.Items[idx].ReviewOwner = maybeRedactOwner(copyBacklog.Items[idx].ReviewOwner, config)
+		copyBacklog.Items[idx].ReviewSource = maybeRedactCompositeLabel(copyBacklog.Items[idx].ReviewSource, config)
+		copyBacklog.Items[idx].ReviewRationale = maybeRedactCompositeLabel(copyBacklog.Items[idx].ReviewRationale, config)
 		copyBacklog.Items[idx].LinkedFindingIDs = maybeRedactStringSlice(copyBacklog.Items[idx].LinkedFindingIDs, "finding", shouldRedactFindingKeys(config))
 		copyBacklog.Items[idx].LinkedActionPathID = maybeRedactPathID(copyBacklog.Items[idx].LinkedActionPathID, config)
 		copyBacklog.Items[idx].LinkedControlPathNodeIDs = maybeRedactStringSlice(copyBacklog.Items[idx].LinkedControlPathNodeIDs, "node", config.Has(RedactionGraphRefs))
@@ -437,6 +446,9 @@ func sanitizeControlBacklogWithConfig(in *controlbacklog.Backlog, config Redacti
 		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionWithConfig(copyBacklog.Items[idx].GovernanceDisposition, config)
 		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueueWithConfig(copyBacklog.Items[idx].LifecycleQueue, config)
 		copyBacklog.Items[idx].ProductionContext = sanitizeProductionContextWithConfig(copyBacklog.Items[idx].ProductionContext, config)
+		copyBacklog.Items[idx].ReviewAuditContext = sanitizeReviewAuditContextWithConfig(copyBacklog.Items[idx].ReviewAuditContext, config)
+		copyBacklog.Items[idx].ResolvedAppendixRefs = maybeRedactLocationLikeSlice(copyBacklog.Items[idx].ResolvedAppendixRefs, config)
+		copyBacklog.Items[idx].ReopenEvidenceRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].ReopenEvidenceRefs, config)
 		copyBacklog.Items[idx].PolicyRefs = maybeRedactStringSlice(copyBacklog.Items[idx].PolicyRefs, "policy", config.Has(RedactionPaths) || config.Has(RedactionRepos) || config.Has(RedactionProofRefs))
 		copyBacklog.Items[idx].PolicyEvidenceRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].PolicyEvidenceRefs, config)
 		copyBacklog.Items[idx].HighStakesPresets = sanitizeHighStakesPresetsWithConfig(copyBacklog.Items[idx].HighStakesPresets, config)
@@ -475,6 +487,9 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].Repo = maybeRedactRepo(copyBOM.Items[idx].Repo, config)
 		copyBOM.Items[idx].Location = maybeRedactLocationLike(copyBOM.Items[idx].Location, config)
 		copyBOM.Items[idx].Owner = maybeRedactOwner(copyBOM.Items[idx].Owner, config)
+		copyBOM.Items[idx].ReviewOwner = maybeRedactOwner(copyBOM.Items[idx].ReviewOwner, config)
+		copyBOM.Items[idx].ReviewSource = maybeRedactCompositeLabel(copyBOM.Items[idx].ReviewSource, config)
+		copyBOM.Items[idx].ReviewRationale = maybeRedactCompositeLabel(copyBOM.Items[idx].ReviewRationale, config)
 		copyBOM.Items[idx].ConfigSource = maybeRedactLocationLike(copyBOM.Items[idx].ConfigSource, config)
 		copyBOM.Items[idx].OccurrenceRefs = maybeRedactStringSlice(copyBOM.Items[idx].OccurrenceRefs, "path", config.Has(RedactionPaths) || config.Has(RedactionRepos))
 		copyBOM.Items[idx].ProofRefs = maybeRedactStringSlice(copyBOM.Items[idx].ProofRefs, "proof", config.Has(RedactionProofRefs))
@@ -533,6 +548,9 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].AgentIdentity = sanitizeAgentIdentityWithConfig(copyBOM.Items[idx].AgentIdentity, config)
 		copyBOM.Items[idx].DecisionPrecedent = sanitizeDecisionPrecedentWithConfig(copyBOM.Items[idx].DecisionPrecedent, config)
 		copyBOM.Items[idx].DeliveryControlContext = sanitizeDeliveryControlContextWithConfig(copyBOM.Items[idx].DeliveryControlContext, config)
+		copyBOM.Items[idx].ReviewAuditContext = sanitizeReviewAuditContextWithConfig(copyBOM.Items[idx].ReviewAuditContext, config)
+		copyBOM.Items[idx].ResolvedAppendixRefs = maybeRedactLocationLikeSlice(copyBOM.Items[idx].ResolvedAppendixRefs, config)
+		copyBOM.Items[idx].ReopenEvidenceRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].ReopenEvidenceRefs, config)
 		copyBOM.Items[idx].HighStakesPresets = sanitizeHighStakesPresetsWithConfig(copyBOM.Items[idx].HighStakesPresets, config)
 		copyBOM.Items[idx].EvidenceDecisions = sanitizeEvidenceDecisionsWithConfig(copyBOM.Items[idx].EvidenceDecisions, config)
 		copyBOM.Items[idx].ProductionContext = sanitizeProductionContextWithConfig(copyBOM.Items[idx].ProductionContext, config)
@@ -541,6 +559,18 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 	}
 	copyBOM.focusSourceItems = append([]AgentActionBOMItem(nil), copyBOM.Items...)
 	return &copyBOM
+}
+
+func sanitizeReviewAuditContextWithConfig(in *risk.ReviewAuditContext, config RedactionConfig) *risk.ReviewAuditContext {
+	if in == nil {
+		return nil
+	}
+	out := risk.CloneReviewAuditContext(in)
+	out.Owner = maybeRedactOwner(out.Owner, config)
+	out.Source = maybeRedactCompositeLabel(out.Source, config)
+	out.Rationale = maybeRedactCompositeLabel(out.Rationale, config)
+	out.EvidenceRefs = maybeRedactEvidenceRefSlice(out.EvidenceRefs, config)
+	return out
 }
 
 func sanitizePrimaryViewWithConfig(in *AgentActionBOMPrimaryView, config RedactionConfig) *AgentActionBOMPrimaryView {

@@ -154,6 +154,10 @@
         "baseline_evidence_summary": {"type": "array", "items": {"type": "string"}},
         "current_evidence_refs": {"type": "array", "items": {"type": "string"}},
         "baseline_evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "current_review_lifecycle_state": {"type": "string"},
+        "baseline_review_lifecycle_state": {"type": "string"},
+        "reopen_state": {"type": "string"},
+        "reopen_reasons": {"type": "array", "items": {"type": "string"}},
         "detail": {"type": "string"},
         "recommended_next_action": {"type": "string"}
       },

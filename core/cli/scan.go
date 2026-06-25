@@ -570,6 +570,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	riskReport.WorkflowChains = risk.BuildWorkflowChains(riskReport.ActionPaths, riskReport.ControlPathGraph)
 	riskReport.ActionPaths = risk.DecorateWorkflowChainRefs(riskReport.ActionPaths, riskReport.WorkflowChains)
 	riskReport.ActionPaths = risk.DecorateActionLineage(riskReport.ActionPaths, riskReport.ControlPathGraph)
+	riskReport.ActionPaths = risk.ProjectReviewLifecycleTransitions(riskReport.ActionPaths, previousSnapshotActionPaths(previousSnapshot))
 	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	lifecycleGaps := lifecycle.DetectGaps(lifecycle.GapInput{
 		Identities:  nextManifest.Identities,

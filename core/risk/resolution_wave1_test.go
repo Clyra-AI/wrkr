@@ -279,7 +279,7 @@ review_dispositions:
 		t.Fatalf("write declarations: %v", err)
 	}
 
-	path := ProjectActionPath(ActionPath{
+	path := ActionPath{
 		PathID:         "apc-expired",
 		Org:            "acme",
 		Repo:           "acme/release",
@@ -290,14 +290,14 @@ review_dispositions:
 		ResolutionKey:  "rk-expired",
 		ReviewBurden:   ReviewBurdenHigh,
 		ConfidenceLane: ConfidenceLaneConfirmedActionPath,
-	})
+	}
 
 	ctx := attribution.LoadContextAt(repoRoot, time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC))
-	decorated := DecorateControlMetadata([]ActionPath{path}, map[string]attribution.Context{
+	decorated := ProjectActionPaths(DecorateControlMetadata([]ActionPath{path}, map[string]attribution.Context{
 		repoKey(path.Org, path.Repo): ctx,
-	})
-	if decorated[0].ReviewLifecycleState != "" {
-		t.Fatalf("expected expired declaration to remain inactive, got %+v", decorated[0])
+	}))
+	if decorated[0].ReviewLifecycleState != ReviewLifecycleStateExpired {
+		t.Fatalf("expected expired declaration to stay inactive and explicit, got %+v", decorated[0])
 	}
 	if !containsReason(decorated[0].ReviewLifecycleReasons, "review_declaration:expired") {
 		t.Fatalf("expected expired declaration reason on decorated path, got %+v", decorated[0])

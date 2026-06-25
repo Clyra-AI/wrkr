@@ -798,6 +798,13 @@ func buildSecurityVisibilityReference(previousSnapshot *state.Snapshot, statePat
 	return ref
 }
 
+func previousSnapshotActionPaths(previousSnapshot *state.Snapshot) []risk.ActionPath {
+	if previousSnapshot == nil || previousSnapshot.RiskReport == nil {
+		return nil
+	}
+	return append([]risk.ActionPath(nil), previousSnapshot.RiskReport.ActionPaths...)
+}
+
 func loadManifest(path string) (manifest.Manifest, error) {
 	loaded, err := manifest.Load(path)
 	if err == nil {

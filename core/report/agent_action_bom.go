@@ -47,6 +47,7 @@ type AgentActionBOMSummary struct {
 	StaticCredentialItems        int                                  `json:"static_credential_items"`
 	ProductionTargetItems        int                                  `json:"production_target_items"`
 	AcceptedRiskItems            int                                  `json:"accepted_risk_items,omitempty"`
+	ResolvedAppendixItems        int                                  `json:"resolved_appendix_items,omitempty"`
 	LifecycleQueueItems          int                                  `json:"lifecycle_queue_items,omitempty"`
 	ApprovalEvidenceUnknownItems int                                  `json:"approval_evidence_unknown_items,omitempty"`
 	ControlEvidenceUnknownItems  int                                  `json:"control_evidence_unknown_items,omitempty"`
@@ -155,6 +156,13 @@ type AgentActionBOMItem struct {
 	ReviewObservedAt                    string                               `json:"review_observed_at,omitempty"`
 	ReviewValidUntil                    string                               `json:"review_valid_until,omitempty"`
 	ReviewScope                         string                               `json:"review_scope,omitempty"`
+	ReviewAuditContext                  *risk.ReviewAuditContext             `json:"review_audit_context,omitempty"`
+	ResolvedVisibility                  string                               `json:"resolved_visibility,omitempty"`
+	ResolvedAppendixRefs                []string                             `json:"resolved_appendix_refs,omitempty"`
+	PreviousReviewLifecycleState        string                               `json:"previous_review_lifecycle_state,omitempty"`
+	ReopenState                         string                               `json:"reopen_state,omitempty"`
+	ReopenReasons                       []string                             `json:"reopen_reasons,omitempty"`
+	ReopenEvidenceRefs                  []string                             `json:"reopen_evidence_refs,omitempty"`
 	AutonomyTier                        string                               `json:"autonomy_tier,omitempty"`
 	AutonomyTierReasons                 []string                             `json:"autonomy_tier_reasons,omitempty"`
 	AutonomyTierEvidenceRefs            []string                             `json:"autonomy_tier_evidence_refs,omitempty"`
@@ -397,6 +405,13 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			ReviewObservedAt:                    strings.TrimSpace(path.ReviewObservedAt),
 			ReviewValidUntil:                    strings.TrimSpace(path.ReviewValidUntil),
 			ReviewScope:                         strings.TrimSpace(path.ReviewScope),
+			ReviewAuditContext:                  risk.CloneReviewAuditContext(path.ReviewAuditContext),
+			ResolvedVisibility:                  strings.TrimSpace(path.ResolvedVisibility),
+			ResolvedAppendixRefs:                append([]string(nil), path.ResolvedAppendixRefs...),
+			PreviousReviewLifecycleState:        strings.TrimSpace(path.PreviousReviewLifecycleState),
+			ReopenState:                         strings.TrimSpace(path.ReopenState),
+			ReopenReasons:                       append([]string(nil), path.ReopenReasons...),
+			ReopenEvidenceRefs:                  append([]string(nil), path.ReopenEvidenceRefs...),
 			AutonomyTier:                        strings.TrimSpace(path.AutonomyTier),
 			AutonomyTierReasons:                 append([]string(nil), path.AutonomyTierReasons...),
 			AutonomyTierEvidenceRefs:            append([]string(nil), path.AutonomyTierEvidenceRefs...),
@@ -971,8 +986,12 @@ func summarizeAgentActionBOMItems(items []AgentActionBOMItem, paths []risk.Actio
 		if item.ProductionWrite || len(item.MatchedProductionTargets) > 0 {
 			counts.ProductionTargetItems++
 		}
-		if item.GovernanceDisposition != nil && item.GovernanceDisposition.Kind == controlbacklog.GovernanceKindAcceptedRisk && item.GovernanceDisposition.Status == controlbacklog.GovernanceStatusActive {
+		if item.GovernanceDisposition != nil && item.GovernanceDisposition.Kind == controlbacklog.GovernanceKindAcceptedRisk && item.GovernanceDisposition.Status == controlbacklog.GovernanceStatusActive ||
+			strings.TrimSpace(item.ReviewLifecycleState) == risk.ReviewLifecycleStateAcceptedRisk {
 			counts.AcceptedRiskItems++
+		}
+		if strings.TrimSpace(item.ResolvedVisibility) == risk.ReviewResolvedVisibilityAppendix {
+			counts.ResolvedAppendixItems++
 		}
 		if item.LifecycleQueue != nil {
 			counts.LifecycleQueueItems++
@@ -1156,6 +1175,15 @@ func queueForControlPriority(priority string) string {
 
 func queueForActionPath(path risk.ActionPath) string {
 	path = risk.ProjectActionPath(path)
+	switch strings.TrimSpace(path.ReviewLifecycleState) {
+	case risk.ReviewLifecycleStateAcceptedRisk:
+		return controlbacklog.QueueAcceptedRisk
+	case risk.ReviewLifecycleStateDeclaredControlled,
+		risk.ReviewLifecycleStateCoveredByImportedControl,
+		risk.ReviewLifecycleStateNotApplicable,
+		risk.ReviewLifecycleStateFalsePositive:
+		return controlbacklog.QueueInventoryHygiene
+	}
 	if strings.TrimSpace(path.ReviewBurden) == risk.ReviewBurdenCritical {
 		return controlbacklog.QueueControlFirst
 	}
@@ -1166,7 +1194,7 @@ func visibilityForQueue(queue string) string {
 	switch strings.TrimSpace(queue) {
 	case controlbacklog.QueueControlFirst, controlbacklog.QueueReviewQueue:
 		return controlbacklog.FindingVisibilityPrimary
-	case controlbacklog.QueueInventoryHygiene:
+	case controlbacklog.QueueAcceptedRisk, controlbacklog.QueueInventoryHygiene:
 		return controlbacklog.FindingVisibilityAppendix
 	default:
 		return controlbacklog.FindingVisibilityDebug
