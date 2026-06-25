@@ -112,9 +112,9 @@ review_dispositions:
 	})
 
 	ctx := attribution.LoadContextAt(repoRoot, time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC))
-	decorated := DecorateControlMetadata([]ActionPath{path}, map[string]attribution.Context{
+	decorated := ProjectActionPaths(DecorateControlMetadata([]ActionPath{path}, map[string]attribution.Context{
 		repoKey(path.Org, path.Repo): ctx,
-	})
+	}))
 	if len(decorated) != 1 {
 		t.Fatalf("expected one decorated path, got %+v", decorated)
 	}
@@ -146,6 +146,8 @@ review_dispositions:
     scope: repo
     path_id: apc-stale-path-id
     resolution_key: rk-stable-path
+    evidence_refs:
+      - evidence://governance/release-risk-123
 `
 	if err := os.WriteFile(filepath.Join(repoRoot, ".wrkr", "control-declarations.yaml"), []byte(payload), 0o600); err != nil {
 		t.Fatalf("write declarations: %v", err)
@@ -293,9 +295,9 @@ review_dispositions:
 	}
 
 	ctx := attribution.LoadContextAt(repoRoot, time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC))
-	decorated := ProjectActionPaths(DecorateControlMetadata([]ActionPath{path}, map[string]attribution.Context{
+	decorated := ProjectReviewLifecycleTransitions(DecorateControlMetadata([]ActionPath{path}, map[string]attribution.Context{
 		repoKey(path.Org, path.Repo): ctx,
-	}))
+	}), nil)
 	if decorated[0].ReviewLifecycleState != ReviewLifecycleStateExpired {
 		t.Fatalf("expected expired declaration to stay inactive and explicit, got %+v", decorated[0])
 	}

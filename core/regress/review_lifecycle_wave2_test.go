@@ -69,3 +69,33 @@ func TestRemovedImportedBranchProtectionReopensControlGap(t *testing.T) {
 		t.Fatalf("expected removed imported control to surface as drift, got %+v", categories)
 	}
 }
+
+func TestActionPathStateCarriesReviewAuditEvidenceRefs(t *testing.T) {
+	t.Parallel()
+
+	state := newActionPathState(risk.ActionPath{
+		PathID:        "apc-review-audit",
+		Org:           "acme",
+		Repo:          "acme/release",
+		ToolType:      "compiled_action",
+		Location:      ".github/workflows/release.yml",
+		ResolutionKey: "rk-review-audit",
+		ReviewAuditContext: &risk.ReviewAuditContext{
+			LifecycleState: risk.ReviewLifecycleStateAcceptedRisk,
+			EvidenceRefs:   []string{"evidence://governance/release-risk-123"},
+		},
+	})
+
+	if !containsStringValue(state.EvidenceRefs, "evidence://governance/release-risk-123") {
+		t.Fatalf("expected action path state to carry review audit evidence refs, got %+v", state)
+	}
+}
+
+func containsStringValue(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
