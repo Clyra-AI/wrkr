@@ -26,6 +26,7 @@ import (
 	detectdefaults "github.com/Clyra-AI/wrkr/core/detect/defaults"
 	"github.com/Clyra-AI/wrkr/core/diff"
 	exportsarif "github.com/Clyra-AI/wrkr/core/export/sarif"
+	"github.com/Clyra-AI/wrkr/core/ingest"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
 	"github.com/Clyra-AI/wrkr/core/manifest"
 	"github.com/Clyra-AI/wrkr/core/outputsignal"
@@ -421,6 +422,9 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 
 	now := time.Now().UTC().Truncate(time.Second)
 	if err := validateRepoControlDeclarations(manifestOut); err != nil {
+		return emitScanError("policy_schema_violation", err.Error(), exitPolicyViolation)
+	}
+	if err := validateRepoExternalControlEvidence(manifestOut); err != nil {
 		return emitScanError("policy_schema_violation", err.Error(), exitPolicyViolation)
 	}
 	scanMethodology := buildScanMethodology(manifestOut, findings, scanStartedAt, now)
@@ -1304,6 +1308,31 @@ func validateRepoControlDeclarations(manifest source.Manifest) error {
 		}
 		if _, _, err := config.LoadControlDeclarations(repoRoot); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func validateRepoExternalControlEvidence(manifest source.Manifest) error {
+	for _, repo := range manifest.Repos {
+		repoRoot := strings.TrimSpace(repo.ScanRoot)
+		if repoRoot == "" {
+			repoRoot = strings.TrimSpace(repo.Location)
+		}
+		repoRoot = filepath.Clean(repoRoot)
+		if repoRoot == "" {
+			continue
+		}
+		path := filepath.Join(repoRoot, ".wrkr", "provenance", "external-control-evidence.json")
+		payload, err := os.ReadFile(path) // #nosec G304 -- deterministic local sidecar under the selected repo root.
+		if err != nil {
+			if os.IsNotExist(err) || os.IsPermission(err) {
+				continue
+			}
+			return fmt.Errorf("read external control evidence %s: %w", filepath.ToSlash(path), err)
+		}
+		if err := ingest.ValidateExternalControlEvidenceJSON(payload); err != nil {
+			return fmt.Errorf("validate external control evidence %s: %w", filepath.ToSlash(path), err)
 		}
 	}
 	return nil

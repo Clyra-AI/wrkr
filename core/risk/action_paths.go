@@ -117,6 +117,8 @@ type ActionPath struct {
 	ActionPathType             string                         `json:"action_path_type,omitempty"`
 	ActionPathTypeReasons      []string                       `json:"action_path_type_reasons,omitempty"`
 	ActionPathTypeEvidenceRefs []string                       `json:"action_path_type_evidence_refs,omitempty"`
+	CIFlowClass                string                         `json:"ci_flow_class,omitempty"`
+	CIFlowReasons              []string                       `json:"ci_flow_reasons,omitempty"`
 	ApprovalGapReasons         []string                       `json:"approval_gap_reasons,omitempty"`
 	WritePathClasses           []string                       `json:"write_path_classes,omitempty"`
 	ActionClasses              []string                       `json:"action_classes,omitempty"`
@@ -566,6 +568,8 @@ func mergeActionPath(current, incoming ActionPath) ActionPath {
 	merged.ActionPathType = chooseActionPathType(current.ActionPathType, incoming.ActionPathType)
 	merged.ActionPathTypeReasons = dedupeSortedStrings(append(append([]string(nil), current.ActionPathTypeReasons...), incoming.ActionPathTypeReasons...))
 	merged.ActionPathTypeEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), current.ActionPathTypeEvidenceRefs...), incoming.ActionPathTypeEvidenceRefs...))
+	merged.CIFlowClass = firstNonEmptyString(current.CIFlowClass, incoming.CIFlowClass)
+	merged.CIFlowReasons = dedupeSortedStrings(append(append([]string(nil), current.CIFlowReasons...), incoming.CIFlowReasons...))
 	merged.ExecutionIdentity, merged.ExecutionIdentityType, merged.ExecutionIdentitySource, merged.ExecutionIdentityStatus, merged.ExecutionIdentityRationale = mergeExecutionIdentity(current, incoming)
 	merged.BusinessStateSurface = mergeBusinessStateSurface(current.BusinessStateSurface, incoming.BusinessStateSurface)
 	merged.ToolFamilyID = firstNonEmptyString(current.ToolFamilyID, incoming.ToolFamilyID)

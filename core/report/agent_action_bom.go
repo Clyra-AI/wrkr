@@ -130,6 +130,8 @@ type AgentActionBOMItem struct {
 	ActionPathType                      string                               `json:"action_path_type,omitempty"`
 	ActionPathTypeReasons               []string                             `json:"action_path_type_reasons,omitempty"`
 	ActionPathTypeEvidenceRefs          []string                             `json:"action_path_type_evidence_refs,omitempty"`
+	CIFlowClass                         string                               `json:"ci_flow_class,omitempty"`
+	CIFlowReasons                       []string                             `json:"ci_flow_reasons,omitempty"`
 	CredentialAccess                    bool                                 `json:"credential_access"`
 	Credentials                         []*agginventory.CredentialProvenance `json:"credentials,omitempty"`
 	CredentialProvenance                *agginventory.CredentialProvenance   `json:"credential_provenance,omitempty"`
@@ -379,6 +381,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			ActionPathType:                      strings.TrimSpace(path.ActionPathType),
 			ActionPathTypeReasons:               append([]string(nil), path.ActionPathTypeReasons...),
 			ActionPathTypeEvidenceRefs:          append([]string(nil), path.ActionPathTypeEvidenceRefs...),
+			CIFlowClass:                         strings.TrimSpace(path.CIFlowClass),
+			CIFlowReasons:                       append([]string(nil), path.CIFlowReasons...),
 			CredentialAccess:                    path.CredentialAccess,
 			Credentials:                         agginventory.CloneCredentialProvenances(path.Credentials),
 			CredentialProvenance:                agginventory.CloneCredentialProvenance(path.CredentialProvenance),

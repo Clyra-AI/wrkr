@@ -92,37 +92,71 @@ func DecorateControlMetadata(paths []ActionPath, repoContexts map[string]attribu
 	out := append([]ActionPath(nil), paths...)
 	for i := range out {
 		ctx := repoContextForPath(out[i], repoContexts)
-		if ctx.ControlMetadata == nil {
+		if ctx.ControlMetadata == nil && len(ctx.ExternalControlMatches) == 0 {
 			continue
 		}
 		meta, ok := attribution.ResolveControlMetadata(ctx.ControlMetadata, strings.TrimSpace(out[i].Location))
-		if !ok {
+		if ok {
+			out[i] = mergeActionPathControlMetadata(out[i], meta)
+		}
+		if !ok && len(ctx.ExternalControlMatches) == 0 {
+			out[i] = decorateDirectExternalControlMatches(out[i], ctx.ExternalControlMatches)
 			continue
 		}
-		if strings.TrimSpace(out[i].OperationalOwner) == "" && strings.TrimSpace(meta.Owner) != "" {
-			out[i].OperationalOwner = strings.TrimSpace(meta.Owner)
-		}
-		if strings.TrimSpace(out[i].OwnerSource) == "" && strings.TrimSpace(meta.OwnerSource) != "" {
-			out[i].OwnerSource = strings.TrimSpace(meta.OwnerSource)
-		}
-		out[i].ControlResolutionState = chooseControlResolutionState(out[i].ControlResolutionState, meta.ControlResolutionState)
-		out[i].ControlResolutionReasons = dedupeSortedStrings(append(append([]string(nil), out[i].ControlResolutionReasons...), meta.ControlResolutionReasons...))
-		out[i].ControlEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out[i].ControlEvidenceRefs...), append(meta.ControlEvidenceRefs, meta.ExternalReferences...)...))
-		out[i].ConstraintEvidenceClasses = dedupeSortedStrings(append(append([]string(nil), out[i].ConstraintEvidenceClasses...), meta.ConstraintEvidenceClasses...))
-		out[i].ConstraintEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out[i].ConstraintEvidenceRefs...), append(meta.ConstraintEvidenceRefs, meta.ControlEvidenceRefs...)...))
-		out[i].ConstraintEvidenceStatus = mergeConstraintEvidenceStatus(out[i].ConstraintEvidenceStatus, meta.ConstraintEvidenceStatus)
-		out[i].ApprovalEvidenceState = chooseEvidenceState(out[i].ApprovalEvidenceState, meta.ApprovalEvidenceState)
-		out[i].OwnerEvidenceState = chooseEvidenceState(out[i].OwnerEvidenceState, meta.OwnerEvidenceState)
-		out[i].ProofEvidenceState = chooseEvidenceState(out[i].ProofEvidenceState, meta.ProofEvidenceState)
-		out[i].RuntimeEvidenceState = chooseEvidenceState(out[i].RuntimeEvidenceState, meta.RuntimeEvidenceState)
-		out[i].TargetEvidenceState = chooseEvidenceState(out[i].TargetEvidenceState, meta.TargetEvidenceState)
-		out[i].CredentialEvidenceState = chooseEvidenceState(out[i].CredentialEvidenceState, meta.CredentialEvidenceState)
-		out[i].TargetClass = chooseTargetClass(out[i].TargetClass, meta.TargetClass)
-		out[i].TargetClassReasons = dedupeSortedStrings(append(append([]string(nil), out[i].TargetClassReasons...), meta.TargetClassReasons...))
-		out[i].TargetClassEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out[i].TargetClassEvidenceRefs...), meta.TargetClassEvidenceRefs...))
-		out[i].EvidenceDecisions = mergeEvidenceDecisions(out[i].EvidenceDecisions, meta.EvidenceDecisions)
+		out[i] = decorateDirectExternalControlMatches(out[i], ctx.ExternalControlMatches)
 	}
 	return decorateReviewDispositions(out, repoContexts)
+}
+
+func decorateDirectExternalControlMatches(path ActionPath, matches []attribution.ExternalControlMatch) ActionPath {
+	if len(matches) == 0 {
+		return path
+	}
+	out := path
+	for _, match := range matches {
+		if !directExternalControlMatchApplies(out, match) {
+			continue
+		}
+		out = mergeActionPathControlMetadata(out, match.Metadata)
+	}
+	return out
+}
+
+func directExternalControlMatchApplies(path ActionPath, match attribution.ExternalControlMatch) bool {
+	if strings.TrimSpace(match.PathID) != "" && strings.TrimSpace(path.PathID) == strings.TrimSpace(match.PathID) {
+		return true
+	}
+	if strings.TrimSpace(match.ResolutionKey) != "" && strings.TrimSpace(path.ResolutionKey) == strings.TrimSpace(match.ResolutionKey) {
+		return true
+	}
+	return strings.TrimSpace(match.AgentID) != "" && strings.TrimSpace(path.AgentID) == strings.TrimSpace(match.AgentID)
+}
+
+func mergeActionPathControlMetadata(path ActionPath, meta attribution.ControlMetadata) ActionPath {
+	out := path
+	if strings.TrimSpace(out.OperationalOwner) == "" && strings.TrimSpace(meta.Owner) != "" {
+		out.OperationalOwner = strings.TrimSpace(meta.Owner)
+	}
+	if strings.TrimSpace(out.OwnerSource) == "" && strings.TrimSpace(meta.OwnerSource) != "" {
+		out.OwnerSource = strings.TrimSpace(meta.OwnerSource)
+	}
+	out.ControlResolutionState = chooseControlResolutionState(out.ControlResolutionState, meta.ControlResolutionState)
+	out.ControlResolutionReasons = dedupeSortedStrings(append(append([]string(nil), out.ControlResolutionReasons...), meta.ControlResolutionReasons...))
+	out.ControlEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out.ControlEvidenceRefs...), append(meta.ControlEvidenceRefs, meta.ExternalReferences...)...))
+	out.ConstraintEvidenceClasses = dedupeSortedStrings(append(append([]string(nil), out.ConstraintEvidenceClasses...), meta.ConstraintEvidenceClasses...))
+	out.ConstraintEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out.ConstraintEvidenceRefs...), append(meta.ConstraintEvidenceRefs, meta.ControlEvidenceRefs...)...))
+	out.ConstraintEvidenceStatus = mergeConstraintEvidenceStatus(out.ConstraintEvidenceStatus, meta.ConstraintEvidenceStatus)
+	out.ApprovalEvidenceState = chooseEvidenceState(out.ApprovalEvidenceState, meta.ApprovalEvidenceState)
+	out.OwnerEvidenceState = chooseEvidenceState(out.OwnerEvidenceState, meta.OwnerEvidenceState)
+	out.ProofEvidenceState = chooseEvidenceState(out.ProofEvidenceState, meta.ProofEvidenceState)
+	out.RuntimeEvidenceState = chooseEvidenceState(out.RuntimeEvidenceState, meta.RuntimeEvidenceState)
+	out.TargetEvidenceState = chooseEvidenceState(out.TargetEvidenceState, meta.TargetEvidenceState)
+	out.CredentialEvidenceState = chooseEvidenceState(out.CredentialEvidenceState, meta.CredentialEvidenceState)
+	out.TargetClass = chooseTargetClass(out.TargetClass, meta.TargetClass)
+	out.TargetClassReasons = dedupeSortedStrings(append(append([]string(nil), out.TargetClassReasons...), meta.TargetClassReasons...))
+	out.TargetClassEvidenceRefs = dedupeSortedStrings(append(append([]string(nil), out.TargetClassEvidenceRefs...), meta.TargetClassEvidenceRefs...))
+	out.EvidenceDecisions = mergeEvidenceDecisions(out.EvidenceDecisions, meta.EvidenceDecisions)
+	return out
 }
 
 func repoContextForPath(path ActionPath, repoContexts map[string]attribution.Context) attribution.Context {

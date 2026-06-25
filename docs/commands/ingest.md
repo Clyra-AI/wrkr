@@ -31,7 +31,7 @@ Runtime and external-control records are normalized and sorted deterministically
 
 External-control sidecars should validate against `schemas/v1/evidence/external-control-evidence.schema.json` and use `record_kind=external_control` plus a deterministic `source_type` such as `provider_export`, `signed_declaration`, `repo_policy`, `app_catalog`, `ticket_export`, or `customer_owner_map`.
 
-Each record must also provide at least one deterministic correlation key: `path_id`, `agent_id`, `repo` + `location`, `repo` + `workflow`, `repo` + `environment`, `service`, `policy_ref`, `proof_ref`, `target`, or graph refs.
+Each record must also provide at least one deterministic correlation key: `path_id`, `resolution_key`, `agent_id`, `repo` + `location`, `repo` + `workflow`, `repo` + `environment`, `service`, `policy_ref`, `proof_ref`, `target`, or graph refs.
 
 Normalized evidence classes:
 
@@ -49,11 +49,13 @@ Normalized evidence classes:
 - `deployment_approval`
 - `required_check`
 - `security_gate`
+- `workflow_permission`
+- `merge_metadata`
 - `other` for explicit legacy/unknown carry-through
 
 Additional additive keys may include `tool`, `repo`, `service`, `workflow`, `environment`, `path`, `target`, `action_classes`, `policy_ref`, `proof_ref`, `graph_node_refs`, `graph_edge_refs`, `status`, `issuer`, `valid_until`, `max_age`, `confidence`, `freshness_state`, `redaction_hints`, `owner`, `required_checks`, `branch`, and `evidence_refs`.
 
-Wrkr normalizes external-control records with deterministic source precedence and freshness metadata. Correlation summaries now preserve additive `freshness_state` / `freshness_states` so stale or expired evidence is visible without silently verifying a control.
+Wrkr normalizes external-control records with deterministic source precedence and freshness metadata. Correlation summaries now preserve additive `freshness_state` / `freshness_states` so stale or expired evidence is visible without silently verifying a control. Imported provider records can now correlate directly by additive `resolution_key` when path locations churn but the underlying governable path is still equivalent.
 These imports stay local-file based and deterministic; Wrkr correlates them without live provider calls.
 Agentic evidence-packet sidecars should validate against `schemas/v1/evidence/agentic-evidence-packets.schema.json`. They are typed local audit packets for consequential AI-assisted or automation-assisted SDLC changes and can correlate by `path_id`, `agent_id`, `repo` + `workflow`, `pull_request_ref`, `files_touched`, `proof_refs`, or graph refs. Packet output stays summary-level: refs, digests, result, and missing-evidence state are serialized, but raw secret values and raw diff payloads are not.
 Coding-agent session artifacts can be either normalized `schemas/v1/evidence/runtime-sessions.schema.json` bundles or provider-shaped local JSON exports that Wrkr normalizes at ingest time. Supported providers are `codex`, `claude_code`, `cursor`, `copilot`, `gait`, and `unknown`. Raw prompt or response text is never persisted directly; Wrkr stores deterministic refs/digests plus redaction hints instead.
@@ -65,6 +67,7 @@ Retained-state posture is additive and fail-closed: use `state_retention_status`
 - Malformed JSON input returns exit `6`.
 - Schema or contract violations return exit `3`.
 - Unsafe managed output paths return exit `8`.
+- Repo-local external-control sidecars are validated before scan-time correlation. Invalid provider records fail closed instead of partially resolving governable paths.
 - Static scan findings remain unchanged; report and evidence commands consume runtime evidence only as corroborating metadata.
 - Runtime evidence can promote BOM/report policy coverage to `runtime_proven` without rewriting saved scan findings.
 - External control evidence can attach deterministic ownership, approval, branch-protection, protected-environment, required-check, security-gate, freeze-window, and kill-switch refs to govern-first paths without live provider calls.

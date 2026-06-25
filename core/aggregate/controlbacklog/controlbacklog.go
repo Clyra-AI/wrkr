@@ -154,6 +154,8 @@ type Item struct {
 	ActionPathType                      string                                  `json:"action_path_type,omitempty"`
 	ActionPathTypeReasons               []string                                `json:"action_path_type_reasons,omitempty"`
 	ActionPathTypeEvidenceRefs          []string                                `json:"action_path_type_evidence_refs,omitempty"`
+	CIFlowClass                         string                                  `json:"ci_flow_class,omitempty"`
+	CIFlowReasons                       []string                                `json:"ci_flow_reasons,omitempty"`
 	EvidenceSource                      string                                  `json:"evidence_source"`
 	EvidenceBasis                       []string                                `json:"evidence_basis"`
 	ApprovalStatus                      string                                  `json:"approval_status"`
@@ -445,6 +447,8 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		ActionPathType:                      strings.TrimSpace(path.ActionPathType),
 		ActionPathTypeReasons:               append([]string(nil), path.ActionPathTypeReasons...),
 		ActionPathTypeEvidenceRefs:          append([]string(nil), path.ActionPathTypeEvidenceRefs...),
+		CIFlowClass:                         strings.TrimSpace(path.CIFlowClass),
+		CIFlowReasons:                       append([]string(nil), path.CIFlowReasons...),
 		EvidenceSource:                      "risk_action_path",
 		EvidenceBasis:                       evidenceBasisFromActionPath(path),
 		ApprovalStatus:                      approvalStatus(path.ApprovalGap, path.SecurityVisibilityStatus),

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/regress"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
@@ -330,8 +331,12 @@ func workflowRecommendation(item AgentActionBOMItem) string {
 	switch {
 	case len(item.Contradictions) > 0 || hasContradictoryEvidenceState(item):
 		return "resolve contradictory control evidence for " + subject + " before promoting it"
+	case bomItemStaticContextSurface(item):
+		return "correlate this caller-facing surface to the workflow, runtime caller, or tool binding that actually uses it before promoting it"
 	case bomItemStandardCIControlContext(item):
-		return "import PR review, branch protection, deployment environment, or owner-map evidence for this standard CI workflow before treating it as an approval gap"
+		return "import PR review, branch protection, deployment environment, or owner-map evidence for this standard CI workflow, and include required-check evidence when it gates the path, before treating it as an approval or proof gap"
+	case bomItemNeedsAuthorityCorrelation(item):
+		return "classify or correlate the exact credential authority and scope for " + subject + scope
 	case strings.TrimSpace(item.OwnerEvidenceState) == risk.EvidenceStateUnknown:
 		return "attach explicit owner evidence for " + subject + " and rescan"
 	case strings.TrimSpace(item.ApprovalEvidenceState) == risk.EvidenceStateUnknown || item.ApprovalGap:
@@ -433,8 +438,12 @@ func workflowExplanation(item AgentActionBOMItem) string {
 	switch {
 	case len(item.Contradictions) > 0 || hasContradictoryEvidenceState(item):
 		return "Wrkr found conflicting control evidence, so this workflow should stay in review until the contradiction is resolved."
+	case bomItemStaticContextSurface(item):
+		return "This is static target context, so Wrkr keeps it in caller-correlation guidance until a real workflow, runtime caller, or tool binding is proven."
 	case bomItemStandardCIControlContext(item):
-		return "This looks like standard CI authority. Wrkr found the workflow and credential reference, but has not imported the PR review, branch protection, deployment environment, or owner-map evidence that may already cover it."
+		return "This looks like standard CI authority. Wrkr found the workflow and credential reference, but it has not imported the PR review, branch protection, deployment environment, owner-map, and any gating required-check evidence that may already cover it."
+	case bomItemNeedsAuthorityCorrelation(item):
+		return "Wrkr can see credential-bearing workflow reach, but the exact authority and scope are still incomplete, so the next step is to correlate or classify that authority rather than jump straight to standing-credential remediation."
 	case strings.TrimSpace(item.OwnerEvidenceState) == risk.EvidenceStateUnknown:
 		return "Wrkr can see what this workflow can do, but it still lacks ownership evidence strong enough for buyer-facing confidence."
 	case strings.TrimSpace(item.ApprovalEvidenceState) == risk.EvidenceStateUnknown || item.ApprovalGap:
@@ -453,6 +462,9 @@ func workflowExplanation(item AgentActionBOMItem) string {
 }
 
 func bomItemStandardCIControlContext(item AgentActionBOMItem) bool {
+	if strings.TrimSpace(item.CIFlowClass) != "" {
+		return strings.TrimSpace(item.CIFlowClass) == risk.CIFlowClassStandardGovernedCI
+	}
 	if strings.TrimSpace(item.ActionPathType) != risk.ActionPathTypeCICDWorkflow {
 		return false
 	}
@@ -470,6 +482,24 @@ func bomItemStandardCIControlContext(item AgentActionBOMItem) bool {
 		item.StandingPrivilege ||
 		strings.TrimSpace(item.ApprovalEvidenceState) == risk.EvidenceStateUnknown ||
 		strings.TrimSpace(item.ProofEvidenceState) == risk.EvidenceStateUnknown
+}
+
+func bomItemNeedsAuthorityCorrelation(item AgentActionBOMItem) bool {
+	if !item.CredentialAccess || item.StandingPrivilege {
+		return false
+	}
+	authority := agginventory.NormalizeCredentialAuthority(item.CredentialAuthority)
+	provenance := agginventory.NormalizeCredentialProvenance(item.CredentialProvenance)
+	switch {
+	case authority == nil && provenance == nil:
+		return true
+	case authority != nil && (!authority.CredentialUsableByPath || strings.TrimSpace(authority.AccessType) == "" || strings.TrimSpace(authority.AccessType) == agginventory.CredentialAccessTypeUnknown):
+		return true
+	case provenance != nil && (strings.TrimSpace(provenance.Scope) == "" || strings.TrimSpace(provenance.Scope) == agginventory.CredentialScopeUnknown):
+		return true
+	default:
+		return false
+	}
 }
 
 func bomItemHighImpactDeliveryEvidence(item AgentActionBOMItem) bool {

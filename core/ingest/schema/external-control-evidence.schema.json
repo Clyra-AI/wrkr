@@ -141,7 +141,9 @@
             "protected_environment",
             "deployment_approval",
             "required_check",
-            "security_gate"
+            "security_gate",
+            "workflow_permission",
+            "merge_metadata"
           ]
         },
         "status": {

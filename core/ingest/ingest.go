@@ -35,6 +35,8 @@ const (
 	EvidenceClassDeploymentApproval   = "deployment_approval"
 	EvidenceClassRequiredCheck        = "required_check"
 	EvidenceClassSecurityGate         = "security_gate"
+	EvidenceClassWorkflowPermission   = "workflow_permission"
+	EvidenceClassMergeMetadata        = "merge_metadata"
 	EvidenceClassOther                = "other"
 	CorrelationStatusMatched          = "matched"
 	CorrelationStatusUnmatched        = "unmatched"
