@@ -286,3 +286,47 @@ func TestExternalEvidenceCorrelatesServiceOnlyRecords(t *testing.T) {
 		t.Fatalf("expected service-only record to match apc-service-1, got %+v", summary.Correlations[0])
 	}
 }
+
+func TestExternalEvidenceCorrelatesByResolutionKey(t *testing.T) {
+	t.Parallel()
+
+	summary := Correlate(state.Snapshot{
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:        "apc-release-resolution",
+				ResolutionKey: "rk-release-resolution",
+				Repo:          "acme/payments",
+				Location:      ".github/workflows/release-renamed.yml",
+				ToolType:      "compiled_action",
+				ActionClasses: []string{"deploy"},
+			}},
+		},
+	}, "external-control-evidence.json", Bundle{
+		SchemaVersion: SchemaVersion,
+		GeneratedAt:   time.Date(2026, 6, 25, 17, 30, 30, 0, time.UTC).Format(time.RFC3339),
+		Records: []Record{{
+			RecordKind:    RecordKindExternalControl,
+			SourceType:    "provider_export",
+			Source:        "github_branch_protection_export",
+			ResolutionKey: "rk-release-resolution",
+			ObservedAt:    time.Date(2026, 6, 25, 17, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			EvidenceClass: EvidenceClassBranchProtection,
+		}},
+	})
+	if summary.MatchedRecords != 1 || len(summary.Correlations) != 1 {
+		t.Fatalf("expected resolution-key correlation, got %+v", summary)
+	}
+	if summary.Correlations[0].PathID != "apc-release-resolution" {
+		t.Fatalf("expected resolution-key record to match path, got %+v", summary.Correlations[0])
+	}
+}
+
+func TestNormalizeEvidenceClassPreservesWave3ProviderClasses(t *testing.T) {
+	t.Parallel()
+
+	for _, want := range []string{EvidenceClassWorkflowPermission, EvidenceClassMergeMetadata} {
+		if got := normalizeEvidenceClass(want); got != want {
+			t.Fatalf("expected normalizeEvidenceClass(%q)=%q, got %q", want, want, got)
+		}
+	}
+}

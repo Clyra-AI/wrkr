@@ -56,6 +56,7 @@ type Record struct {
 	SourcePrecedenceKey string   `json:"source_precedence_key,omitempty"`
 	RecordID            string   `json:"record_id"`
 	PathID              string   `json:"path_id,omitempty"`
+	ResolutionKey       string   `json:"resolution_key,omitempty"`
 	AgentID             string   `json:"agent_id,omitempty"`
 	Tool                string   `json:"tool,omitempty"`
 	Repo                string   `json:"repo,omitempty"`
@@ -334,6 +335,7 @@ func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 	record.RecordKind = normalizeRecordKind(record.RecordKind, record)
 	record.SourceType = normalizeSourceType(record.SourceType)
 	record.PathID = strings.TrimSpace(record.PathID)
+	record.ResolutionKey = strings.TrimSpace(record.ResolutionKey)
 	record.AgentID = strings.TrimSpace(record.AgentID)
 	record.Tool = strings.TrimSpace(record.Tool)
 	record.Repo = strings.TrimSpace(record.Repo)
@@ -366,7 +368,7 @@ func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 	record.RequiredChecks = mergeStrings(record.RequiredChecks...)
 	record.Branch = strings.TrimSpace(record.Branch)
 	record.SourcePrecedenceKey = sourcePrecedenceSortKey(record)
-	label := firstNonEmpty(record.PathID, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source)
+	label := firstNonEmpty(record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source)
 	if record.Source == "" {
 		return Record{}, fmt.Errorf("runtime evidence record source is required for %s", fallbackRecordLabel(label))
 	}
@@ -403,7 +405,7 @@ func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 		return Record{}, fmt.Errorf("runtime evidence record evidence_class is required for %s", fallbackRecordLabel(label))
 	}
 	if !recordHasCorrelationKey(record) {
-		return Record{}, fmt.Errorf("runtime evidence record requires at least one correlation key (path_id, agent_id, repo+location, repo+workflow, repo+environment, service, policy_ref, proof_ref, target, or graph refs)")
+		return Record{}, fmt.Errorf("runtime evidence record requires at least one correlation key (path_id, resolution_key, agent_id, repo+location, repo+workflow, repo+environment, service, policy_ref, proof_ref, target, or graph refs)")
 	}
 	if record.RecordKind == RecordKindExternalControl {
 		if err := rejectSecretLikeValues(record); err != nil {
@@ -415,30 +417,32 @@ func normalizeRecord(record Record, generatedAt time.Time) (Record, error) {
 			record.RecordID = strings.Join([]string{
 				record.RecordKind,
 				record.SourcePrecedenceKey,
-				firstNonEmpty(record.PathID, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source),
+				firstNonEmpty(record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.Service, record.Workflow, record.Path, record.PolicyRef, record.ProofRef, record.Source),
 				record.EvidenceClass,
 				record.ObservedAt,
 			}, ":")
 		} else {
-			record.RecordID = firstNonEmpty(record.PathID, record.AgentID, record.Repo, record.PolicyRef, record.ProofRef, record.Source) + ":" + record.EvidenceClass + ":" + record.ObservedAt
+			record.RecordID = firstNonEmpty(record.PathID, record.ResolutionKey, record.AgentID, record.Repo, record.PolicyRef, record.ProofRef, record.Source) + ":" + record.EvidenceClass + ":" + record.ObservedAt
 		}
 	}
 	return record, nil
 }
 
 type pathMatchIndex struct {
-	byPathID       map[string]statePathMatch
-	byAgentID      map[string][]statePathMatch
-	byRepoLocation map[string][]statePathMatch
-	byEnvironment  map[string][]statePathMatch
-	byService      map[string][]statePathMatch
-	byServiceOnly  map[string][]statePathMatch
-	byPolicyRef    map[string][]statePathMatch
-	byGraphRef     map[string][]statePathMatch
+	byPathID        map[string]statePathMatch
+	byResolutionKey map[string]statePathMatch
+	byAgentID       map[string][]statePathMatch
+	byRepoLocation  map[string][]statePathMatch
+	byEnvironment   map[string][]statePathMatch
+	byService       map[string][]statePathMatch
+	byServiceOnly   map[string][]statePathMatch
+	byPolicyRef     map[string][]statePathMatch
+	byGraphRef      map[string][]statePathMatch
 }
 
 type statePathMatch struct {
 	PathID                   string
+	ResolutionKey            string
 	AgentID                  string
 	ToolType                 string
 	Repo                     string
@@ -457,14 +461,15 @@ type workflowMetadata struct {
 
 func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 	index := pathMatchIndex{
-		byPathID:       map[string]statePathMatch{},
-		byAgentID:      map[string][]statePathMatch{},
-		byRepoLocation: map[string][]statePathMatch{},
-		byEnvironment:  map[string][]statePathMatch{},
-		byService:      map[string][]statePathMatch{},
-		byServiceOnly:  map[string][]statePathMatch{},
-		byPolicyRef:    map[string][]statePathMatch{},
-		byGraphRef:     map[string][]statePathMatch{},
+		byPathID:        map[string]statePathMatch{},
+		byResolutionKey: map[string]statePathMatch{},
+		byAgentID:       map[string][]statePathMatch{},
+		byRepoLocation:  map[string][]statePathMatch{},
+		byEnvironment:   map[string][]statePathMatch{},
+		byService:       map[string][]statePathMatch{},
+		byServiceOnly:   map[string][]statePathMatch{},
+		byPolicyRef:     map[string][]statePathMatch{},
+		byGraphRef:      map[string][]statePathMatch{},
 	}
 	if snapshot.RiskReport == nil {
 		return index
@@ -474,6 +479,7 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 		workflowMeta := workflowByRepoLocation[repoLocationKey(path.Repo, path.Location)]
 		match := statePathMatch{
 			PathID:                   strings.TrimSpace(path.PathID),
+			ResolutionKey:            strings.TrimSpace(path.ResolutionKey),
 			AgentID:                  strings.TrimSpace(path.AgentID),
 			ToolType:                 strings.TrimSpace(path.ToolType),
 			Repo:                     strings.TrimSpace(path.Repo),
@@ -489,6 +495,9 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 			continue
 		}
 		index.byPathID[match.PathID] = match
+		if match.ResolutionKey != "" {
+			index.byResolutionKey[match.ResolutionKey] = match
+		}
 		if match.AgentID != "" {
 			index.byAgentID[match.AgentID] = append(index.byAgentID[match.AgentID], match)
 		}
@@ -533,6 +542,9 @@ func buildPathIndex(snapshot state.Snapshot) pathMatchIndex {
 
 func (index pathMatchIndex) match(record Record) (string, statePathMatch) {
 	if matched, ok := index.byPathID[record.PathID]; ok && strings.TrimSpace(record.PathID) != "" {
+		return matched.PathID, matched
+	}
+	if matched, ok := index.byResolutionKey[record.ResolutionKey]; ok && strings.TrimSpace(record.ResolutionKey) != "" {
 		return matched.PathID, matched
 	}
 	candidates := []statePathMatch{}
@@ -685,6 +697,10 @@ func normalizeEvidenceClass(value string) string {
 		return EvidenceClassRequiredCheck
 	case EvidenceClassSecurityGate:
 		return EvidenceClassSecurityGate
+	case EvidenceClassWorkflowPermission:
+		return EvidenceClassWorkflowPermission
+	case EvidenceClassMergeMetadata:
+		return EvidenceClassMergeMetadata
 	case EvidenceClassOther:
 		return EvidenceClassOther
 	default:
@@ -735,6 +751,7 @@ func correlationStatusRank(value string) int {
 
 func recordHasCorrelationKey(record Record) bool {
 	return strings.TrimSpace(record.PathID) != "" ||
+		strings.TrimSpace(record.ResolutionKey) != "" ||
 		strings.TrimSpace(record.AgentID) != "" ||
 		(strings.TrimSpace(record.Repo) != "" && strings.TrimSpace(record.Location) != "") ||
 		(strings.TrimSpace(record.Repo) != "" && strings.TrimSpace(record.Workflow) != "") ||
@@ -750,6 +767,7 @@ func recordHasCorrelationKey(record Record) bool {
 func fallbackCorrelationKey(record Record) string {
 	return firstNonEmpty(
 		strings.TrimSpace(record.PathID),
+		strings.TrimSpace(record.ResolutionKey),
 		strings.TrimSpace(record.AgentID),
 		repoLocationKey(record.Repo, record.Location),
 		repoScopedKey(record.Repo, record.Workflow),
@@ -886,7 +904,9 @@ func normalizeRecordKind(value string, record Record) string {
 		EvidenceClassProtectedEnvironment,
 		EvidenceClassDeploymentApproval,
 		EvidenceClassRequiredCheck,
-		EvidenceClassSecurityGate:
+		EvidenceClassSecurityGate,
+		EvidenceClassWorkflowPermission,
+		EvidenceClassMergeMetadata:
 		return RecordKindExternalControl
 	}
 	if strings.TrimSpace(record.SourceType) != "" ||
