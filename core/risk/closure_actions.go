@@ -223,11 +223,13 @@ func BuildClosureActionsForPath(raw ActionPath) []ClosureAction {
 
 func closureActionID(path ActionPath, action ClosureAction) string {
 	parts := []string{
-		strings.TrimSpace(path.PathID),
 		strings.TrimSpace(path.ResolutionKey),
 		strings.TrimSpace(action.ActionType),
 		strings.TrimSpace(action.ReviewDispositionState),
 		strings.TrimSpace(action.ProviderEvidenceClass),
+	}
+	if strings.TrimSpace(parts[0]) == "" {
+		parts[0] = strings.TrimSpace(path.PathID)
 	}
 	return strings.Join(parts, "|")
 }

@@ -2228,6 +2228,7 @@ func sanitizeControlBacklogPublic(in *controlbacklog.Backlog) *controlbacklog.Ba
 		copyBacklog.Items[idx].AutonomyTierEvidenceRefs = redactStringSlice(copyBacklog.Items[idx].AutonomyTierEvidenceRefs, "evidence")
 		copyBacklog.Items[idx].RiskClassificationValidationRefs = redactStringSlice(copyBacklog.Items[idx].RiskClassificationValidationRefs, "evidence")
 		copyBacklog.Items[idx].ClosureRequirements = sanitizeClosureRequirementsPublic(copyBacklog.Items[idx].ClosureRequirements)
+		copyBacklog.Items[idx].ClosureActions = sanitizeClosureActionsPublic(copyBacklog.Items[idx].ClosureActions)
 		copyBacklog.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBacklog.Items[idx].EvidenceCompleteness)
 		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionPublic(copyBacklog.Items[idx].GovernanceDisposition)
 		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueuePublic(copyBacklog.Items[idx].LifecycleQueue)
@@ -2297,6 +2298,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].AutonomyTierEvidenceRefs = redactStringSlice(copyBOM.Items[idx].AutonomyTierEvidenceRefs, "evidence")
 		copyBOM.Items[idx].RiskClassificationValidationRefs = redactStringSlice(copyBOM.Items[idx].RiskClassificationValidationRefs, "evidence")
 		copyBOM.Items[idx].ClosureRequirements = sanitizeClosureRequirementsPublic(copyBOM.Items[idx].ClosureRequirements)
+		copyBOM.Items[idx].ClosureActions = sanitizeClosureActionsPublic(copyBOM.Items[idx].ClosureActions)
 		copyBOM.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBOM.Items[idx].EvidenceCompleteness)
 		copyBOM.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionPublic(copyBOM.Items[idx].GovernanceDisposition)
 		copyBOM.Items[idx].LifecycleQueue = sanitizeLifecycleQueuePublic(copyBOM.Items[idx].LifecycleQueue)
@@ -2534,6 +2536,17 @@ func sanitizeClosureRequirementsPublic(in []risk.ClosureRequirement) []risk.Clos
 	out := risk.CloneClosureRequirements(in)
 	for idx := range out {
 		out[idx].ClosureRefs = redactStringSlice(out[idx].ClosureRefs, "evidence")
+	}
+	return out
+}
+
+func sanitizeClosureActionsPublic(in []risk.ClosureAction) []risk.ClosureAction {
+	if len(in) == 0 {
+		return nil
+	}
+	out := risk.CloneClosureActions(in)
+	for idx := range out {
+		out[idx].ID = redactValue("path", out[idx].ID, 8)
 	}
 	return out
 }

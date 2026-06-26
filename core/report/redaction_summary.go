@@ -442,6 +442,7 @@ func sanitizeControlBacklogWithConfig(in *controlbacklog.Backlog, config Redacti
 		copyBacklog.Items[idx].AutonomyTierEvidenceRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].AutonomyTierEvidenceRefs, config)
 		copyBacklog.Items[idx].RiskClassificationValidationRefs = maybeRedactEvidenceRefSlice(copyBacklog.Items[idx].RiskClassificationValidationRefs, config)
 		copyBacklog.Items[idx].ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyBacklog.Items[idx].ClosureRequirements, config)
+		copyBacklog.Items[idx].ClosureActions = sanitizeClosureActionsWithConfig(copyBacklog.Items[idx].ClosureActions, config)
 		copyBacklog.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBacklog.Items[idx].EvidenceCompleteness)
 		copyBacklog.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionWithConfig(copyBacklog.Items[idx].GovernanceDisposition, config)
 		copyBacklog.Items[idx].LifecycleQueue = sanitizeLifecycleQueueWithConfig(copyBacklog.Items[idx].LifecycleQueue, config)
@@ -507,6 +508,7 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].AutonomyTierEvidenceRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].AutonomyTierEvidenceRefs, config)
 		copyBOM.Items[idx].RiskClassificationValidationRefs = maybeRedactEvidenceRefSlice(copyBOM.Items[idx].RiskClassificationValidationRefs, config)
 		copyBOM.Items[idx].ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyBOM.Items[idx].ClosureRequirements, config)
+		copyBOM.Items[idx].ClosureActions = sanitizeClosureActionsWithConfig(copyBOM.Items[idx].ClosureActions, config)
 		copyBOM.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyBOM.Items[idx].EvidenceCompleteness)
 		copyBOM.Items[idx].GovernanceDisposition = sanitizeGovernanceDispositionWithConfig(copyBOM.Items[idx].GovernanceDisposition, config)
 		copyBOM.Items[idx].LifecycleQueue = sanitizeLifecycleQueueWithConfig(copyBOM.Items[idx].LifecycleQueue, config)
@@ -842,6 +844,20 @@ func sanitizeClosureRequirementsWithConfig(in []risk.ClosureRequirement, config 
 	out := risk.CloneClosureRequirements(in)
 	for idx := range out {
 		out[idx].ClosureRefs = maybeRedactStringSlice(out[idx].ClosureRefs, "evidence", config.Has(RedactionProofRefs) || config.Has(RedactionGraphRefs) || config.Has(RedactionProviders))
+	}
+	return out
+}
+
+func sanitizeClosureActionsWithConfig(in []risk.ClosureAction, config RedactionConfig) []risk.ClosureAction {
+	if len(in) == 0 {
+		return nil
+	}
+	out := risk.CloneClosureActions(in)
+	for idx := range out {
+		out[idx].ID = maybeRedactPathID(out[idx].ID, config)
+		out[idx].Title = maybeRedactCompositeLabel(out[idx].Title, config)
+		out[idx].Guidance = maybeRedactCompositeLabel(out[idx].Guidance, config)
+		out[idx].ProviderEvidenceClass = maybeRedactCompositeLabel(out[idx].ProviderEvidenceClass, config)
 	}
 	return out
 }
