@@ -44,9 +44,7 @@ func CloneClosureActions(in []ClosureAction) []ClosureAction {
 		return nil
 	}
 	out := make([]ClosureAction, 0, len(in))
-	for _, item := range in {
-		out = append(out, item)
-	}
+	out = append(out, in...)
 	return out
 }
 
