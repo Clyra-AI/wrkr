@@ -49,7 +49,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Added expiry, contradiction, disappeared-import, credential-family, and target-escalation reopen tracking for reviewed action paths in reports and regress baselines.
 - Added provider-control evidence correlation for local PR review, branch protection, required-check, environment approval, workflow permission, merge metadata, and owner evidence exports, including direct `resolution_key` joins.
 - Added path-specific closure actions plus deterministic declaration snippet export for reviewed BOM and backlog items, including repo-local and governance-repo declaration modes.
-- Added synthetic enterprise review-loop fixtures that gate closure actions, lifecycle reopen behavior, governed-CI ranking, and share-safe declaration/report wording.
+- Added synthetic enterprise review-loop fixtures that gate closure actions, lifecycle reopen behavior, governed-CI ranking, and declaration/report wording.
 
 ### Changed
 
@@ -58,7 +58,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- Fixed paired internal and customer-redacted artifact handling so local join maps preserve stable `resolution_key` and evidence joins while staying excluded from shareable bundles by default.
+- Fixed paired artifact join handling so local outputs preserve stable `resolution_key` and evidence joins across related artifacts.
 
 ## [v1.10.0] - 2026-06-23
 <!-- release-semver: minor -->
