@@ -21,7 +21,7 @@ Any packaged GitHub Action surface must wrap these CLI contracts rather than dup
 Wrkr now ships a repo-root `action.yml` composite action that wraps the same CLI contracts through `scripts/action_entrypoint.sh`.
 
 ```yaml
-- uses: Clyra-AI/wrkr@v1.10.0
+- uses: Clyra-AI/wrkr@v1.11.0
   with:
     mode: scheduled
     remediation_mode: summary_only
@@ -65,7 +65,7 @@ wrkr action pr-comment --changed-paths ".codex/config.toml" --risk-delta 2.8 --c
 ```
 
 ```yaml
-- uses: Clyra-AI/wrkr@v1.10.0
+- uses: Clyra-AI/wrkr@v1.11.0
   with:
     mode: scheduled
     target_mode: repo
