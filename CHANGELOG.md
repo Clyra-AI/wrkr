@@ -8,17 +8,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- [semver:minor] Added stable `resolution_key` action-path, BOM, report, and regress-baseline joins plus selector-fallback match metadata so reviewed paths can survive harmless `path_id` churn across reruns.
-- [semver:minor] Added review disposition declarations in `wrkr-control-declarations.yaml` / `.wrkr/control-declarations.yaml` for controlled, accepted-risk, not-applicable, false-positive, runtime-evidence-needed, and confirmed paths.
-- [semver:minor] Added expiry, contradiction, disappeared-import, credential-family, and target-escalation reopen tracking for reviewed action paths in reports and regress baselines.
-- [semver:minor] Added provider-control evidence correlation for local PR review, branch protection, required-check, environment approval, workflow permission, merge metadata, and owner evidence exports, including direct `resolution_key` joins.
-- [semver:minor] Added path-specific closure actions plus deterministic declaration snippet export for reviewed BOM and backlog items, including repo-local and governance-repo declaration modes.
-- [semver:minor] Added synthetic enterprise review-loop fixtures that gate closure actions, lifecycle reopen behavior, governed-CI ranking, and share-safe declaration/report wording.
+- (none yet)
 
 ### Changed
 
-- [semver:minor] Changed reviewed action-path handling so declared, imported, accepted-risk, not-applicable, and false-positive paths move to auditable appendix visibility with explicit lifecycle and reopen metadata instead of remaining in unresolved top output.
-- [semver:minor] Changed top action recommendations to account for credential authority confidence, static caller context, and governed CI control evidence before suggesting stronger credential remediation.
+- (none yet)
 
 ### Deprecated
 
@@ -30,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Fixed paired internal and customer-redacted artifact handling so local join maps preserve stable `resolution_key` and evidence joins while staying excluded from shareable bundles by default.
+- (none yet)
 
 ### Security
 
@@ -44,6 +38,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.11.0] - 2026-06-26
+<!-- release-semver: minor -->
+
+### Added
+
+- Added stable `resolution_key` action-path, BOM, report, and regress-baseline joins plus selector-fallback match metadata so reviewed paths can survive harmless `path_id` churn across reruns.
+- Added review disposition declarations in `wrkr-control-declarations.yaml` / `.wrkr/control-declarations.yaml` for controlled, accepted-risk, not-applicable, false-positive, runtime-evidence-needed, and confirmed paths.
+- Added expiry, contradiction, disappeared-import, credential-family, and target-escalation reopen tracking for reviewed action paths in reports and regress baselines.
+- Added provider-control evidence correlation for local PR review, branch protection, required-check, environment approval, workflow permission, merge metadata, and owner evidence exports, including direct `resolution_key` joins.
+- Added path-specific closure actions plus deterministic declaration snippet export for reviewed BOM and backlog items, including repo-local and governance-repo declaration modes.
+- Added synthetic enterprise review-loop fixtures that gate closure actions, lifecycle reopen behavior, governed-CI ranking, and share-safe declaration/report wording.
+
+### Changed
+
+- Changed reviewed action-path handling so declared, imported, accepted-risk, not-applicable, and false-positive paths move to auditable appendix visibility with explicit lifecycle and reopen metadata instead of remaining in unresolved top output.
+- Changed top action recommendations to account for credential authority confidence, static caller context, and governed CI control evidence before suggesting stronger credential remediation.
+
+### Fixed
+
+- Fixed paired internal and customer-redacted artifact handling so local join maps preserve stable `resolution_key` and evidence joins while staying excluded from shareable bundles by default.
 
 ## [v1.10.0] - 2026-06-23
 <!-- release-semver: minor -->
