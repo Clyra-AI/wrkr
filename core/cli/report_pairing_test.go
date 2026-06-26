@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	reportcore "github.com/Clyra-AI/wrkr/core/report"
 )
 
 func TestReportPairedShareProfileWritesExternalArtifactsAndPrivateJoinMap(t *testing.T) {
@@ -126,5 +128,42 @@ func TestPairedArtifactsDoNotLeakOwnerLikeFields(t *testing.T) {
 		if strings.Contains(string(externalBytes), forbidden) {
 			t.Fatalf("expected paired redacted evidence artifact to redact %q, got %q", forbidden, string(externalBytes))
 		}
+	}
+}
+
+func TestReportPairedShareProfilePreflightsExternalArtifactPaths(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	mdPath := filepath.Join(tmp, "report.md")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 {
+		t.Fatalf("scan failed to seed state: %d", code)
+	}
+
+	externalPath := reportcore.PairedArtifactPath(mdPath, "customer-redacted")
+	if err := os.MkdirAll(externalPath, 0o750); err != nil {
+		t.Fatalf("mkdir paired artifact blocker: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"report",
+		"--state", statePath,
+		"--share-profile", "internal",
+		"--md",
+		"--md-path", mdPath,
+		"--paired-share-profile", "customer-redacted",
+		"--json",
+	}, &out, &errOut)
+	if code != exitUnsafeBlocked {
+		t.Fatalf("expected paired report to fail with exit %d, got %d stdout=%q stderr=%q", exitUnsafeBlocked, code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "unsafe_operation_blocked", exitUnsafeBlocked)
+	if _, err := os.Stat(mdPath); !os.IsNotExist(err) {
+		t.Fatalf("expected internal artifact write to be skipped on paired preflight failure, got err=%v", err)
 	}
 }

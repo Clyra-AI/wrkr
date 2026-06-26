@@ -10,6 +10,9 @@ Why generated instead of checked in:
   truth.
 - Release gates can mutate a few deterministic repos to exercise drift
   categories without customer data.
+- Review-loop declarations, imported controls, and governed-CI examples in this
+  fixture are synthetic only. They intentionally use fake repos, owners, URLs,
+  providers, and evidence refs, and they do not contain customer data.
 
 Safe update flow:
 

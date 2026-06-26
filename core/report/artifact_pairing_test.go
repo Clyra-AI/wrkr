@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
 func TestBuildArtifactMetadataIncludesSourceArtifactDigests(t *testing.T) {
@@ -51,4 +53,74 @@ func TestBuildArtifactMetadataIncludesSourceArtifactDigests(t *testing.T) {
 	if redacted.PrivateJoinMapPath != "" {
 		t.Fatalf("expected shareable metadata to omit private join-map path, got %q", redacted.PrivateJoinMapPath)
 	}
+}
+
+func TestBuildPrivateJoinMapCarriesResolutionKeysAndEvidenceRefs(t *testing.T) {
+	t.Parallel()
+
+	internal := Summary{
+		GeneratedAt:  "2026-06-25T18:00:00Z",
+		ShareProfile: string(ShareProfileInternal),
+		ActionPaths: []risk.ActionPath{{
+			PathID:              "apc-internal",
+			ResolutionKey:       "rk-internal",
+			Repo:                "acme/payments",
+			Location:            ".github/workflows/release.yml",
+			ControlEvidenceRefs: []string{"evidence://internal/branch-protection"},
+		}},
+		AgentActionBOM: &AgentActionBOM{
+			Items: []AgentActionBOMItem{{
+				PathID:              "apc-internal",
+				ResolutionKey:       "rk-internal",
+				Repo:                "acme/payments",
+				Location:            ".github/workflows/release.yml",
+				ControlEvidenceRefs: []string{"evidence://internal/branch-protection"},
+				EvidenceRefs:        []string{"evidence://internal/customer-review"},
+			}},
+		},
+	}
+	external := Summary{
+		GeneratedAt:  "2026-06-25T18:00:00Z",
+		ShareProfile: string(ShareProfileCustomerRedacted),
+		ActionPaths: []risk.ActionPath{{
+			PathID:              "path-12345678",
+			ResolutionKey:       "rk-internal",
+			Repo:                "repo-123456",
+			Location:            "path-abcdef12",
+			ControlEvidenceRefs: []string{"evidence-12345678"},
+		}},
+		AgentActionBOM: &AgentActionBOM{
+			Items: []AgentActionBOMItem{{
+				PathID:              "path-12345678",
+				ResolutionKey:       "rk-internal",
+				Repo:                "repo-123456",
+				Location:            "path-abcdef12",
+				ControlEvidenceRefs: []string{"evidence-12345678"},
+				EvidenceRefs:        []string{"evidence-87654321"},
+			}},
+		},
+	}
+
+	joinMap := BuildPrivateJoinMap(internal, external, "pair-review-loop")
+	if len(joinMap.Entries) == 0 {
+		t.Fatalf("expected join-map entries, got %+v", joinMap)
+	}
+	if !containsJoinKind(joinMap.Entries, "resolution_key") {
+		t.Fatalf("expected action-path resolution key entry, got %+v", joinMap.Entries)
+	}
+	if !containsJoinKind(joinMap.Entries, "bom_resolution_key") {
+		t.Fatalf("expected BOM resolution key entry, got %+v", joinMap.Entries)
+	}
+	if !containsJoinKind(joinMap.Entries, "bom_control_evidence_ref") {
+		t.Fatalf("expected BOM control evidence ref entry, got %+v", joinMap.Entries)
+	}
+}
+
+func containsJoinKind(entries []ArtifactJoinEntry, kind string) bool {
+	for _, entry := range entries {
+		if entry.Kind == kind {
+			return true
+		}
+	}
+	return false
 }

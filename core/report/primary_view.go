@@ -394,6 +394,9 @@ func primaryViewAppendixRefs(bom *AgentActionBOM, item AgentActionBOMItem) []str
 	if len(item.RecommendedNextAction) > 0 || item.RecommendedActionContract != nil {
 		refs = append(refs, "recommended_actions")
 	}
+	if len(item.ClosureActions) > 0 {
+		refs = append(refs, "closure_actions")
+	}
 	if len(item.GraphRefs.NodeIDs) > 0 || len(item.GraphRefs.EdgeIDs) > 0 {
 		refs = append(refs, "graph_refs")
 	}
@@ -427,6 +430,9 @@ func primaryViewRecommendedNextActions(item AgentActionBOMItem) []string {
 		add(item.RecommendedActionContract.RequiredProof)
 		add(item.RecommendedActionContract.RequiredAuthority)
 		add(item.RecommendedActionContract.ValidationStep)
+	}
+	for _, action := range item.ClosureActions {
+		add(action.Title)
 	}
 	if len(actions) == 0 {
 		add(firstSentence(item.Remediation))

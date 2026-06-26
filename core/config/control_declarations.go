@@ -131,6 +131,10 @@ func LoadControlDeclarations(root string) (ControlDeclarations, []string, error)
 	return loaded, used, nil
 }
 
+func ValidateControlDeclarations(doc ControlDeclarations) error {
+	return validateControlDeclarations(doc)
+}
+
 func validateControlDeclarations(doc ControlDeclarations) error {
 	version := strings.TrimSpace(doc.SchemaVersion)
 	if version == "" {

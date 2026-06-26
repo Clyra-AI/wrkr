@@ -12,6 +12,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - [semver:minor] Added review disposition declarations in `wrkr-control-declarations.yaml` / `.wrkr/control-declarations.yaml` for controlled, accepted-risk, not-applicable, false-positive, runtime-evidence-needed, and confirmed paths.
 - [semver:minor] Added expiry, contradiction, disappeared-import, credential-family, and target-escalation reopen tracking for reviewed action paths in reports and regress baselines.
 - [semver:minor] Added provider-control evidence correlation for local PR review, branch protection, required-check, environment approval, workflow permission, merge metadata, and owner evidence exports, including direct `resolution_key` joins.
+- [semver:minor] Added path-specific closure actions plus deterministic declaration snippet export for reviewed BOM and backlog items, including repo-local and governance-repo declaration modes.
+- [semver:minor] Added synthetic enterprise review-loop fixtures that gate closure actions, lifecycle reopen behavior, governed-CI ranking, and share-safe declaration/report wording.
 
 ### Changed
 
@@ -28,7 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Fixed paired internal and customer-redacted artifact handling so local join maps preserve stable `resolution_key` and evidence joins while staying excluded from shareable bundles by default.
 
 ### Security
 

@@ -53,6 +53,7 @@ Wrkr's Sprint 2 enterprise-evidence surface stays local-file based and determini
 - `wrkr-control-declarations.yaml` and `.wrkr/control-declarations.yaml` are versioned declaration inputs for owner mappings, target classes, non-production declarations, declared control links, and additive review dispositions.
 - `action_paths[*].evidence_decisions[]` and `agent_action_bom.items[*].evidence_decisions[]` preserve source precedence, freshness, selected evidence, and rejected lower-precedence candidates instead of flattening imported evidence to one opaque winner.
 - `action_paths[*].contradictions[]`, `closure_requirements`, `lifecycle_queue`, and `evidence_completeness` keep enterprise conflicts, required closure evidence, lifecycle ownership gaps, and sufficiency scoring explicit across report, BOM, and risk surfaces.
+- `agent_action_bom.items[*].closure_actions[]` is the additive action-level closure contract for the operator loop. It distinguishes import actions (for example PR review, branch protection, and environment approval) from declaration-capable actions (owner, target, and review-disposition exports).
 - Accepted governance dispositions stay auditable: `accepted_risk` and suppression metadata remain visible in JSON/report artifacts instead of deleting evidence.
 - Evidence completeness is not risk scoring. Low `evidence_completeness` means Wrkr needs more evidence for the current conclusion, not that the path is safe.
 - Canonical source precedence is documented and deterministic: provider export, signed declaration, repo-local policy/config, app catalog ownership, git/review inference, then naming-convention or repo fallback.
@@ -65,6 +66,7 @@ Wrkr's Sprint 2 enterprise-evidence surface stays local-file based and determini
 - `inventory.canonical_stores` is the authoritative per-scan store for full mutable-endpoint, credential-authority, and authority-binding detail.
 - Shareable/default report and BOM projections keep the canonical ref fields and omit embedded `mutable_endpoint_semantics`, `credential_authority`, and `authority_bindings` payloads; explicit `--share-profile internal` output may resolve those fields from the canonical store for non-shareable detail views.
 - Report-style workflows now default to a redacted share profile (`customer-redacted`, `public`, or `design-partner` depending on template). Explicit internal output is marked `artifact_metadata.shareability_status=internal_only`.
+- `wrkr export declarations` is the deterministic local declaration-export contract. It emits validated YAML snippets or patch artifacts, prefers `resolution_key` over transient `path_id`, and must warn instead of leaking identifiers when shareable/pseudonymized inputs are not directly applicable.
 
 - Root exit codes and flags: `docs/commands/root.md`
 - Command contract index: `docs/commands/index.md`

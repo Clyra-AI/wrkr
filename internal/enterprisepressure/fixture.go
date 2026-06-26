@@ -164,6 +164,12 @@ func applyCurrentMutations(root string, repoCount int) error {
 			return fmt.Errorf("remove branch protection sidecar: %w", err)
 		}
 	}
+	if repoCount >= 11 {
+		repo := filepath.Join(root, RepoName(11))
+		if err := writeReviewDisposition(repo, RepoName(11), "accepted_risk", "production", "2026-05-01T00:00:00Z"); err != nil {
+			return err
+		}
+	}
 	if repoCount >= 143 {
 		repo := filepath.Join(root, RepoName(143))
 		if err := writeFile(repo, ".github/workflows/release.yml", workflowYAML("Dependency Escalation", true, true, false)); err != nil {
@@ -195,6 +201,24 @@ func writeSimpleWorkflowRepo(repoPath, repoName string, idx int) error {
 	}
 	if idx%12 == 0 {
 		if err := writeBranchProtectionSidecar(repoPath, repoName); err != nil {
+			return err
+		}
+	}
+	switch idx {
+	case 5:
+		if err := writeReviewDisposition(repoPath, repoName, "accepted_risk", "production", "2026-12-31T00:00:00Z"); err != nil {
+			return err
+		}
+	case 9:
+		if err := writeReviewDisposition(repoPath, repoName, "false_positive", "production", ""); err != nil {
+			return err
+		}
+	case 10:
+		if err := writeReviewDisposition(repoPath, repoName, "declared_controlled", "production", ""); err != nil {
+			return err
+		}
+	case 11:
+		if err := writeReviewDisposition(repoPath, repoName, "accepted_risk", "production", "2026-12-31T00:00:00Z"); err != nil {
 			return err
 		}
 	}
@@ -297,6 +321,30 @@ targets:
     evidence_refs:
       - evidence://public/targets.yaml#%s
 `, repoName, targetClass, nonProduction, repoName))
+}
+
+func writeReviewDisposition(repoPath, repoName, state, scope, validUntil string) error {
+	observedAt := "2026-05-31T15:30:00Z"
+	if strings.TrimSpace(validUntil) != "" && strings.TrimSpace(validUntil) < observedAt {
+		observedAt = "2026-04-01T00:00:00Z"
+	}
+	return writeFile(repoPath, ".wrkr/control-declarations.yaml", fmt.Sprintf(`schema_version: v1
+issuer: demo-platform
+review_dispositions:
+  - state: %s
+    source: synthetic_customer_review
+    owner: "@acme/platform-review"
+    rationale: "Synthetic enterprise review-loop fixture for %s."
+    observed_at: "%s"
+    valid_until: "%s"
+    scope: %s
+    selector:
+      repo: %s
+      locations:
+        - .github/workflows/release.yml
+    evidence_refs:
+      - evidence://public/review-loop.yaml#%s
+`, state, repoName, observedAt, validUntil, scope, repoName, repoName))
 }
 
 func workflowYAML(name string, includeSecret bool, production bool, includeIDToken bool) string {

@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -181,4 +182,190 @@ func TestExportTicketsUnsupportedFormatExit6(t *testing.T) {
 	if errObj["code"] != "invalid_input" {
 		t.Fatalf("expected invalid_input, got %v", payload)
 	}
+}
+
+func TestExportDeclarationsGeneratesReviewDispositionSnippet(t *testing.T) {
+	t.Parallel()
+
+	statePath, selection := seedDeclarationExportSelection(t)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"export", "declarations",
+		"--state", statePath,
+		"--resolution-key", selection["resolution_key"],
+		"--action", "accept_risk_with_expiry",
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("export declarations failed: %d %s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse declaration export payload: %v", err)
+	}
+	snippet, ok := payload["snippet"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected snippet object, got %T", payload["snippet"])
+	}
+	if snippet["correlation_kind"] != "resolution_key" {
+		t.Fatalf("expected resolution_key correlation, got %v", snippet)
+	}
+	content, _ := snippet["content"].(string)
+	if !strings.Contains(content, "state: accepted_risk") || !strings.Contains(content, selection["resolution_key"]) {
+		t.Fatalf("expected accepted_risk declaration content, got %q", content)
+	}
+}
+
+func TestExportDeclarationsShareableOwnerSnippetWarns(t *testing.T) {
+	t.Parallel()
+
+	statePath, selection := seedOwnerDeclarationExportSelection(t)
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"export", "declarations",
+		"--state", statePath,
+		"--resolution-key", selection["resolution_key"],
+		"--action", "declare_repo_owner",
+		"--share-profile", "customer-redacted",
+		"--json",
+	}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("shareable export declarations failed: %d %s", code, errOut.String())
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(out.Bytes(), &payload); err != nil {
+		t.Fatalf("parse shareable declaration export payload: %v", err)
+	}
+	snippet := payload["snippet"].(map[string]any)
+	if snippet["directly_applicable"] != false {
+		t.Fatalf("expected shareable owner declaration to require internal artifacts, got %v", snippet)
+	}
+	warnings, _ := snippet["warnings"].([]any)
+	if len(warnings) == 0 {
+		t.Fatalf("expected shareable owner declaration warning, got %v", snippet)
+	}
+}
+
+func TestExportDeclarationsRejectsUnsafePatchPath(t *testing.T) {
+	t.Parallel()
+
+	statePath, selection := seedDeclarationExportSelection(t)
+	tmp := t.TempDir()
+	patchPath := filepath.Join(tmp, "existing-dir")
+	if err := os.MkdirAll(patchPath, 0o750); err != nil {
+		t.Fatalf("mkdir patch path: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	code := Run([]string{
+		"export", "declarations",
+		"--state", statePath,
+		"--resolution-key", selection["resolution_key"],
+		"--action", "accept_risk_with_expiry",
+		"--patch-path", patchPath,
+		"--json",
+	}, &out, &errOut)
+	if code != exitUnsafeBlocked {
+		t.Fatalf("expected unsafe patch path to fail with exit %d, got %d stdout=%q stderr=%q", exitUnsafeBlocked, code, out.String(), errOut.String())
+	}
+	assertErrorEnvelopeCode(t, errOut.Bytes(), "unsafe_operation_blocked", exitUnsafeBlocked)
+}
+
+func seedDeclarationExportSelection(t *testing.T) (string, map[string]string) {
+	t.Helper()
+
+	statePath, reportPayload := seedDeclarationExportStateAndReport(t)
+	bom, ok := reportPayload["agent_action_bom"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected agent_action_bom, got %T", reportPayload["agent_action_bom"])
+	}
+	items, ok := bom["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected BOM items, got %v", bom["items"])
+	}
+	for _, raw := range items {
+		item, _ := raw.(map[string]any)
+		actions, _ := item["closure_actions"].([]any)
+		if !hasNamedClosureAction(actions, "accept_risk_with_expiry") {
+			continue
+		}
+		resolutionKey, _ := item["resolution_key"].(string)
+		pathID, _ := item["path_id"].(string)
+		if resolutionKey != "" && pathID != "" {
+			return statePath, map[string]string{"resolution_key": resolutionKey, "path_id": pathID}
+		}
+	}
+	t.Fatalf("expected a BOM item with resolution_key and accept_risk_with_expiry action, got %v", items)
+	return "", nil
+}
+
+func seedOwnerDeclarationExportSelection(t *testing.T) (string, map[string]string) {
+	t.Helper()
+
+	statePath, reportPayload := seedDeclarationExportStateAndReport(t)
+	bom, ok := reportPayload["agent_action_bom"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected agent_action_bom, got %T", reportPayload["agent_action_bom"])
+	}
+	items, ok := bom["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected BOM items, got %v", bom["items"])
+	}
+	for _, raw := range items {
+		item, _ := raw.(map[string]any)
+		actions, _ := item["closure_actions"].([]any)
+		if !hasNamedClosureAction(actions, "declare_repo_owner") {
+			continue
+		}
+		resolutionKey, _ := item["resolution_key"].(string)
+		if resolutionKey != "" {
+			return statePath, map[string]string{"resolution_key": resolutionKey}
+		}
+	}
+	t.Fatalf("expected a BOM item with declare_repo_owner action, got %v", items)
+	return "", nil
+}
+
+func seedDeclarationExportStateAndReport(t *testing.T) (string, map[string]any) {
+	t.Helper()
+
+	tmp := t.TempDir()
+	statePath := filepath.Join(tmp, "state.json")
+	repoRoot := mustFindRepoRoot(t)
+	scanPath := filepath.Join(repoRoot, "scenarios", "wrkr", "scan-mixed-org", "repos")
+
+	var scanOut bytes.Buffer
+	var scanErr bytes.Buffer
+	if code := Run([]string{"scan", "--path", scanPath, "--state", statePath, "--json"}, &scanOut, &scanErr); code != 0 {
+		t.Fatalf("scan failed: %d (%s)", code, scanErr.String())
+	}
+
+	var reportOut bytes.Buffer
+	var reportErr bytes.Buffer
+	if code := Run([]string{"report", "--state", statePath, "--template", "agent-action-bom", "--share-profile", "internal", "--json"}, &reportOut, &reportErr); code != 0 {
+		t.Fatalf("report failed: %d (%s)", code, reportErr.String())
+	}
+
+	var reportPayload map[string]any
+	if err := json.Unmarshal(reportOut.Bytes(), &reportPayload); err != nil {
+		t.Fatalf("parse report payload: %v", err)
+	}
+	return statePath, reportPayload
+}
+
+func hasNamedClosureAction(actions []any, actionType string) bool {
+	for _, raw := range actions {
+		item, _ := raw.(map[string]any)
+		if item["action_type"] == actionType {
+			return true
+		}
+	}
+	return false
 }

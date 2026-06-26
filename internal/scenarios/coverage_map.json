@@ -145,6 +145,11 @@
     "TestScenarioWave42EnterprisePressureChaos",
     "TestWave42EnterprisePressureContracts"
   ],
+  "W45-enterprise-review-loop": [
+    "TestEnterpriseReviewLoopFixtureBudgets",
+    "TestEnterpriseFixtureGovernedCINotTopControlFirst",
+    "TestEnterpriseFixtureExpiredDeclarationReopens"
+  ],
   "W4-drift-review": [
     "TestCompareAddsActionPathDriftCategories",
     "TestReportFocusPresetFiltersToDriftedPaths",

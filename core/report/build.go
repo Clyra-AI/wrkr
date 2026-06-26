@@ -1573,6 +1573,7 @@ func decorateControlBacklogFromActionPaths(backlog *controlbacklog.Backlog, path
 		copyBacklog.Items[idx].PolicyEvidenceRefs = uniqueStrings(append(append([]string(nil), item.PolicyEvidenceRefs...), path.PolicyEvidenceRefs...))
 		copyBacklog.Items[idx].PolicyConfidence = firstNonEmptyValue(strings.TrimSpace(path.PolicyConfidence), strings.TrimSpace(item.PolicyConfidence))
 		copyBacklog.Items[idx].ClosureRequirements = risk.CloneClosureRequirements(path.ClosureRequirements)
+		copyBacklog.Items[idx].ClosureActions = risk.CloneClosureActions(risk.BuildClosureActionsForPath(path))
 		copyBacklog.Items[idx].EvidenceCompleteness = risk.CloneEvidenceCompleteness(path.EvidenceCompleteness)
 		copyBacklog.Items[idx].ClosureCriteria = risk.ClosureCriteriaText(copyBacklog.Items[idx].ClosureRequirements, strings.TrimSpace(item.ClosureCriteria))
 		copyBacklog.Items[idx].Queue = queueForActionPath(path)
