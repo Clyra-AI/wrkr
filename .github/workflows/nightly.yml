@@ -62,7 +62,8 @@ jobs:
         run: go test ./internal/integration/interop -count=1
 
       - name: Run race lane
-        run: go test -race ./... -count=1
+        # Keep race-lane package timeouts aligned with the repo's standard Go test budget.
+        run: go test -race ./... -count=1 -timeout=20m
 
       - name: Run vulnerability scan
         run: |
