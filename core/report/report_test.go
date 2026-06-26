@@ -716,6 +716,28 @@ func TestSanitizeAgentActionBOMWithConfigRedactsGroupedEndpointRoutes(t *testing
 	}
 }
 
+func TestSanitizeAgentActionBOMWithConfigRedactsClosureActionIDs(t *testing.T) {
+	t.Parallel()
+
+	config := ResolveRedactionConfig(ShareProfileCustomerRedacted, nil)
+	bom := sanitizeAgentActionBOMWithConfig(&AgentActionBOM{
+		Items: []AgentActionBOMItem{{
+			PathID: "apc-secret1234",
+			ClosureActions: []risk.ClosureAction{{
+				ID:         "apc-secret1234|accept_risk_with_expiry",
+				ActionType: "accept_risk_with_expiry",
+				Title:      "Accept risk with expiry",
+			}},
+		}},
+	}, ShareProfileCustomerRedacted, config)
+	if bom == nil || len(bom.Items) != 1 || len(bom.Items[0].ClosureActions) != 1 {
+		t.Fatalf("expected sanitized BOM closure actions, got %+v", bom)
+	}
+	if strings.Contains(bom.Items[0].ClosureActions[0].ID, "apc-secret1234") {
+		t.Fatalf("expected closure action id to be redacted, got %+v", bom.Items[0].ClosureActions)
+	}
+}
+
 func TestSanitizeProofReferenceWithConfigHonorsSelectedFields(t *testing.T) {
 	t.Parallel()
 

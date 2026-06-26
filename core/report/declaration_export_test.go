@@ -77,3 +77,28 @@ func TestBuildDeclarationSnippetFromRedactedOwnerActionWarns(t *testing.T) {
 		t.Fatalf("expected owner placeholder in redacted snippet, got %q", snippet.Content)
 	}
 }
+
+func TestBuildDeclarationSnippetDoesNotTreatReviewOwnerAsDeclaredOwner(t *testing.T) {
+	t.Parallel()
+
+	snippet, err := BuildDeclarationSnippetFromBOM(AgentActionBOMItem{
+		PathID:      "apc-owner-gap",
+		Repo:        "acme/payments",
+		Location:    ".github/workflows/release.yml",
+		ReviewOwner: "@acme/reviewer",
+		ClosureActions: []risk.ClosureAction{{
+			ActionType:      risk.ClosureActionDeclareRepoOwner,
+			Title:           "Declare repo owner",
+			DeclarationKind: risk.ClosureActionDeclarationKindOwner,
+		}},
+	}, ShareProfileInternal, risk.ClosureActionDeclareRepoOwner, DeclarationExportModeRepoLocal, time.Date(2026, 6, 25, 15, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("build owner declaration snippet: %v", err)
+	}
+	if !strings.Contains(snippet.Content, "owner: owner-review-required") {
+		t.Fatalf("expected missing owner placeholder, got %q", snippet.Content)
+	}
+	if strings.Contains(snippet.Content, "owner: '@acme/reviewer'") || strings.Contains(snippet.Content, "owner: \"@acme/reviewer\"") {
+		t.Fatalf("expected review owner not to be copied into the owner declaration, got %q", snippet.Content)
+	}
+}
