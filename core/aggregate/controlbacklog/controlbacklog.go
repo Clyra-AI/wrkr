@@ -171,6 +171,7 @@ type Item struct {
 	SLA                                 string                                  `json:"sla"`
 	ClosureCriteria                     string                                  `json:"closure_criteria"`
 	ClosureRequirements                 []risk.ClosureRequirement               `json:"closure_requirements,omitempty"`
+	ClosureActions                      []risk.ClosureAction                    `json:"closure_actions,omitempty"`
 	EvidenceCompleteness                *risk.EvidenceCompleteness              `json:"evidence_completeness,omitempty"`
 	GovernanceDisposition               *GovernanceDisposition                  `json:"governance_disposition,omitempty"`
 	LifecycleQueue                      *governancequeue.Item                   `json:"lifecycle_queue,omitempty"`
@@ -512,6 +513,7 @@ func (b *builder) addActionPath(path risk.ActionPath) {
 		PolicyConfidence:                    strings.TrimSpace(path.PolicyConfidence),
 		TrustDepth:                          agginventory.CloneTrustDepth(path.TrustDepth),
 		ClosureRequirements:                 risk.CloneClosureRequirements(path.ClosureRequirements),
+		ClosureActions:                      risk.CloneClosureActions(risk.BuildClosureActionsForPath(path)),
 		EvidenceCompleteness:                risk.CloneEvidenceCompleteness(path.EvidenceCompleteness),
 	}
 	item.LinkedFindingIDs = b.linkedFindingIDs(path.Org, path.Repo, path.Location)
@@ -682,6 +684,9 @@ func (b *builder) merge(item Item) {
 	}
 	if len(current.ClosureRequirements) == 0 {
 		current.ClosureRequirements = risk.CloneClosureRequirements(item.ClosureRequirements)
+	}
+	if len(current.ClosureActions) == 0 {
+		current.ClosureActions = risk.CloneClosureActions(item.ClosureActions)
 	}
 	if current.EvidenceCompleteness == nil {
 		current.EvidenceCompleteness = risk.CloneEvidenceCompleteness(item.EvidenceCompleteness)
@@ -1648,6 +1653,7 @@ func normalizeItem(item Item) Item {
 	item.Remediation = fallback(item.Remediation, remediationForBacklogAction(item.RecommendedAction))
 	item.SLA = fallback(item.SLA, slaForAction(item.RecommendedAction))
 	item.ClosureRequirements = risk.CloneClosureRequirements(item.ClosureRequirements)
+	item.ClosureActions = risk.CloneClosureActions(item.ClosureActions)
 	item.EvidenceCompleteness = risk.CloneEvidenceCompleteness(item.EvidenceCompleteness)
 	item.ClosureCriteria = risk.ClosureCriteriaText(item.ClosureRequirements, fallback(item.ClosureCriteria, closureCriteriaForAction(item.RecommendedAction)))
 	item.EvidenceGaps = mergeStrings(item.EvidenceGaps, nil)

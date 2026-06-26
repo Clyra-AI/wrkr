@@ -374,6 +374,7 @@
     "primary_view": {
       "appendix_refs": [
         "bom_items",
+        "closure_actions",
         "decision_traces",
         "detector_diagnostics",
         "graph_refs",
@@ -444,9 +445,9 @@
         "target_class": "production_impacting"
       },
       "recommended_next_actions": [
-        "keep path-specific proof linked as the path evolves",
-        "record explicit owner approval with scope and expiry",
-        "replace standing credential with repo-scoped JIT or brokered authority"
+        "Accept risk with expiry",
+        "Declare controlled path",
+        "Declare repo owner"
       ],
       "risk_tier": "critical",
       "runtime_evidence_state": "verified",

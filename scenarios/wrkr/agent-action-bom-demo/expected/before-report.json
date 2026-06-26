@@ -303,6 +303,7 @@
     "primary_view": {
       "appendix_refs": [
         "bom_items",
+        "closure_actions",
         "decision_traces",
         "detector_diagnostics",
         "graph_refs",
@@ -373,9 +374,9 @@
         "target_class": "production_impacting"
       },
       "recommended_next_actions": [
-        "attach path-specific proof and runtime or policy evidence",
-        "record explicit owner approval with scope and expiry",
-        "replace standing credential with repo-scoped JIT or brokered authority"
+        "Accept risk with expiry",
+        "Attach policy or proof reference",
+        "Declare controlled path"
       ],
       "risk_tier": "critical",
       "runtime_evidence_state": "unknown",

@@ -238,6 +238,7 @@ type AgentActionBOMItem struct {
 	FindingVisibility            string                                 `json:"finding_visibility,omitempty"`
 	Remediation                  string                                 `json:"remediation,omitempty"`
 	ClosureRequirements          []risk.ClosureRequirement              `json:"closure_requirements,omitempty"`
+	ClosureActions               []risk.ClosureAction                   `json:"closure_actions,omitempty"`
 	EvidenceCompleteness         *risk.EvidenceCompleteness             `json:"evidence_completeness,omitempty"`
 	GovernanceDisposition        *controlbacklog.GovernanceDisposition  `json:"governance_disposition,omitempty"`
 	LifecycleQueue               *governancequeue.Item                  `json:"lifecycle_queue,omitempty"`
@@ -484,6 +485,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			FindingVisibility:                   firstNonEmptyValue(strings.TrimSpace(backlogItem.FindingVisibility), visibilityForQueue(firstNonEmptyValue(strings.TrimSpace(backlogItem.Queue), queueForActionPath(path)))),
 			Remediation:                         firstNonEmptyValue(strings.TrimSpace(backlogItem.Remediation), risk.RemediationForActionPath(path)),
 			ClosureRequirements:                 firstNonEmptyClosureRequirementsForBOM(path.ClosureRequirements, backlogItem.ClosureRequirements),
+			ClosureActions:                      firstNonEmptyClosureActionsForBOM(risk.BuildClosureActionsForPath(path), backlogItem.ClosureActions),
 			EvidenceCompleteness:                firstNonNilEvidenceCompletenessForBOM(path.EvidenceCompleteness, backlogItem.EvidenceCompleteness),
 			GovernanceDisposition:               cloneGovernanceDisposition(backlogItem.GovernanceDisposition),
 			LifecycleQueue:                      cloneLifecycleQueue(backlogItem.LifecycleQueue),
@@ -607,6 +609,9 @@ func backlogItemsByPath(backlog *controlbacklog.Backlog) map[string]controlbackl
 		}
 		if len(current.ClosureRequirements) == 0 {
 			current.ClosureRequirements = risk.CloneClosureRequirements(item.ClosureRequirements)
+		}
+		if len(current.ClosureActions) == 0 {
+			current.ClosureActions = risk.CloneClosureActions(item.ClosureActions)
 		}
 		if current.EvidenceCompleteness == nil {
 			current.EvidenceCompleteness = risk.CloneEvidenceCompleteness(item.EvidenceCompleteness)
@@ -1129,6 +1134,13 @@ func firstNonEmptyClosureRequirementsForBOM(pathRequirements []risk.ClosureRequi
 		return risk.CloneClosureRequirements(pathRequirements)
 	}
 	return risk.CloneClosureRequirements(backlogRequirements)
+}
+
+func firstNonEmptyClosureActionsForBOM(pathActions []risk.ClosureAction, backlogActions []risk.ClosureAction) []risk.ClosureAction {
+	if len(pathActions) > 0 {
+		return risk.CloneClosureActions(pathActions)
+	}
+	return risk.CloneClosureActions(backlogActions)
 }
 
 func firstNonNilEvidenceCompletenessForBOM(pathCompleteness *risk.EvidenceCompleteness, backlogCompleteness *risk.EvidenceCompleteness) *risk.EvidenceCompleteness {

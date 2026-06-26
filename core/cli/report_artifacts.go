@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -168,20 +167,37 @@ func generateReportArtifacts(opts reportArtifactOptions) (reportArtifactResult, 
 		if pathErr != nil {
 			return "", artifactPathError{err: pathErr}
 		}
+		if err := rejectUnsafeExistingManagedFile(path, kind); err != nil {
+			return "", unsafeManagedArtifactPathError{err: err}
+		}
 		payload, renderErr := render(internalSummary)
 		if renderErr != nil {
 			return "", renderErr
 		}
-		if writeErr := os.WriteFile(path, payload, 0o600); writeErr != nil {
-			return "", writeErr
-		}
+		externalPath := ""
+		externalPayload := []byte(nil)
 		if hasPairedSummary {
-			externalPath := reportcore.PairedArtifactPath(path, strings.ReplaceAll(string(opts.PairedShareProfile), " ", "-"))
-			externalPayload, externalErr := render(externalSummary)
+			externalPath = reportcore.PairedArtifactPath(path, strings.ReplaceAll(string(opts.PairedShareProfile), " ", "-"))
+			if err := rejectUnsafeExistingManagedFile(externalPath, kind+" paired artifact"); err != nil {
+				return "", unsafeManagedArtifactPathError{err: err}
+			}
+			var externalErr error
+			externalPayload, externalErr = render(externalSummary)
 			if externalErr != nil {
 				return "", externalErr
 			}
-			if writeErr := os.WriteFile(externalPath, externalPayload, 0o600); writeErr != nil {
+		}
+		if writeErr := atomicwrite.WriteFileFunc(path, 0o600, func(w io.Writer) error {
+			_, err := w.Write(payload)
+			return err
+		}); writeErr != nil {
+			return "", writeErr
+		}
+		if hasPairedSummary {
+			if writeErr := atomicwrite.WriteFileFunc(externalPath, 0o600, func(w io.Writer) error {
+				_, err := w.Write(externalPayload)
+				return err
+			}); writeErr != nil {
 				return "", writeErr
 			}
 			pairedPaths[kind+"_"+strings.ReplaceAll(string(opts.PairedShareProfile), "-", "_")] = externalPath

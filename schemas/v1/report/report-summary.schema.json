@@ -843,6 +843,7 @@
         "write_path_classes": {"type": "array", "items": {"type": "string"}},
         "governance_controls": {"type": "array", "items": {"type": "object"}},
         "closure_requirements": {"type": "array", "items": {"$ref": "#/$defs/closureRequirement"}},
+        "closure_actions": {"type": "array", "items": {"$ref": "#/$defs/closureAction"}},
         "evidence_completeness": {"$ref": "#/$defs/evidenceCompleteness"},
         "action_lineage": {"$ref": "#/$defs/actionLineage"}
       }
@@ -1074,6 +1075,20 @@
         "closure_refs": {"type": "array", "items": {"type": "string"}},
         "reason_codes": {"type": "array", "items": {"type": "string"}},
         "guidance": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "closureAction": {
+      "type": "object",
+      "required": ["id", "action_type", "title"],
+      "properties": {
+        "id": {"type": "string"},
+        "action_type": {"type": "string"},
+        "title": {"type": "string"},
+        "guidance": {"type": "string"},
+        "declaration_kind": {"type": "string", "enum": ["owner", "target", "review_disposition"]},
+        "review_disposition_state": {"type": "string", "enum": ["open", "confirmed", "declared_controlled", "covered_by_imported_control", "accepted_risk", "not_applicable", "false_positive", "needs_runtime_evidence", "expired", "reopened_by_drift"]},
+        "provider_evidence_class": {"type": "string"}
       },
       "additionalProperties": false
     },

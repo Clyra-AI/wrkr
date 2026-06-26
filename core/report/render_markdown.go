@@ -253,6 +253,9 @@ func RenderMarkdown(summary Summary) string {
 			if len(item.ClosureRequirements) > 0 {
 				builder.WriteString(fmt.Sprintf("  closure_requirements=%s\n", markdownClosureRequirements(item.ClosureRequirements)))
 			}
+			if len(item.ClosureActions) > 0 {
+				builder.WriteString(fmt.Sprintf("  closure_actions=%s\n", markdownClosureActions(item.ClosureActions)))
+			}
 			if len(item.Contradictions) > 0 {
 				builder.WriteString(fmt.Sprintf("  contradictions=%s\n", markdownContradictions(item.Contradictions)))
 			}
@@ -1628,6 +1631,30 @@ func markdownActionContract(contract *risk.RecommendedActionContract) string {
 		firstNonEmptyValue(contract.RequiredAuthority, "not specified"),
 		firstNonEmptyValue(contract.RequiredProof, "not specified"),
 	)
+}
+
+func markdownClosureActions(actions []risk.ClosureAction) string {
+	if len(actions) == 0 {
+		return "none"
+	}
+	parts := make([]string, 0, len(actions))
+	for _, action := range actions {
+		title := strings.TrimSpace(action.Title)
+		if title == "" {
+			continue
+		}
+		if state := strings.TrimSpace(action.ReviewDispositionState); state != "" {
+			title = title + " [" + state + "]"
+		}
+		parts = append(parts, title)
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+	if len(parts) > 4 {
+		parts = append([]string(nil), parts[:4]...)
+	}
+	return strings.Join(parts, "; ")
 }
 
 func markdownAgenticDeliveryChange(change *risk.AgenticDeliverySystemChange) string {

@@ -79,12 +79,31 @@ func BuildPrivateJoinMap(internal Summary, external Summary, pairID string) Arti
 			External: externalValue,
 		})
 	}
+	addStableEntry := func(kind, internalValue, externalValue string) {
+		internalValue = strings.TrimSpace(internalValue)
+		externalValue = strings.TrimSpace(externalValue)
+		if internalValue == "" || externalValue == "" {
+			return
+		}
+		entries = append(entries, ArtifactJoinEntry{
+			Kind:     strings.TrimSpace(kind),
+			Internal: internalValue,
+			External: externalValue,
+		})
+	}
 
 	for idx := 0; idx < minInt(len(internal.ActionPaths), len(external.ActionPaths)); idx++ {
 		addEntry("path_id", internal.ActionPaths[idx].PathID, external.ActionPaths[idx].PathID)
+		addStableEntry("resolution_key", internal.ActionPaths[idx].ResolutionKey, external.ActionPaths[idx].ResolutionKey)
 		addEntry("repo", internal.ActionPaths[idx].Repo, external.ActionPaths[idx].Repo)
 		addEntry("location", internal.ActionPaths[idx].Location, external.ActionPaths[idx].Location)
 		addEntry("agent_id", internal.ActionPaths[idx].AgentID, external.ActionPaths[idx].AgentID)
+		for itemIdx := 0; itemIdx < minInt(len(internal.ActionPaths[idx].ControlEvidenceRefs), len(external.ActionPaths[idx].ControlEvidenceRefs)); itemIdx++ {
+			addEntry("control_evidence_ref", internal.ActionPaths[idx].ControlEvidenceRefs[itemIdx], external.ActionPaths[idx].ControlEvidenceRefs[itemIdx])
+		}
+		for itemIdx := 0; itemIdx < minInt(len(internal.ActionPaths[idx].PolicyEvidenceRefs), len(external.ActionPaths[idx].PolicyEvidenceRefs)); itemIdx++ {
+			addEntry("policy_evidence_ref", internal.ActionPaths[idx].PolicyEvidenceRefs[itemIdx], external.ActionPaths[idx].PolicyEvidenceRefs[itemIdx])
+		}
 	}
 	if internal.RuntimeSessions != nil && external.RuntimeSessions != nil {
 		for idx := 0; idx < minInt(len(internal.RuntimeSessions.Correlations), len(external.RuntimeSessions.Correlations)); idx++ {
@@ -104,10 +123,17 @@ func BuildPrivateJoinMap(internal Summary, external Summary, pairID string) Arti
 	if internal.AgentActionBOM != nil && external.AgentActionBOM != nil {
 		for idx := 0; idx < minInt(len(internal.AgentActionBOM.Items), len(external.AgentActionBOM.Items)); idx++ {
 			addEntry("bom_path_id", internal.AgentActionBOM.Items[idx].PathID, external.AgentActionBOM.Items[idx].PathID)
+			addStableEntry("bom_resolution_key", internal.AgentActionBOM.Items[idx].ResolutionKey, external.AgentActionBOM.Items[idx].ResolutionKey)
 			addEntry("bom_repo", internal.AgentActionBOM.Items[idx].Repo, external.AgentActionBOM.Items[idx].Repo)
 			addEntry("bom_location", internal.AgentActionBOM.Items[idx].Location, external.AgentActionBOM.Items[idx].Location)
 			for itemIdx := 0; itemIdx < minInt(len(internal.AgentActionBOM.Items[idx].ProofRefs), len(external.AgentActionBOM.Items[idx].ProofRefs)); itemIdx++ {
 				addEntry("bom_proof_ref", internal.AgentActionBOM.Items[idx].ProofRefs[itemIdx], external.AgentActionBOM.Items[idx].ProofRefs[itemIdx])
+			}
+			for itemIdx := 0; itemIdx < minInt(len(internal.AgentActionBOM.Items[idx].ControlEvidenceRefs), len(external.AgentActionBOM.Items[idx].ControlEvidenceRefs)); itemIdx++ {
+				addEntry("bom_control_evidence_ref", internal.AgentActionBOM.Items[idx].ControlEvidenceRefs[itemIdx], external.AgentActionBOM.Items[idx].ControlEvidenceRefs[itemIdx])
+			}
+			for itemIdx := 0; itemIdx < minInt(len(internal.AgentActionBOM.Items[idx].EvidenceRefs), len(external.AgentActionBOM.Items[idx].EvidenceRefs)); itemIdx++ {
+				addEntry("bom_evidence_ref", internal.AgentActionBOM.Items[idx].EvidenceRefs[itemIdx], external.AgentActionBOM.Items[idx].EvidenceRefs[itemIdx])
 			}
 		}
 	}
