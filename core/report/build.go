@@ -1456,6 +1456,9 @@ func buildAttackPathSummary(report risk.Report) AttackPathSummary {
 
 func buildAttackPathFacts(report risk.Report) []string {
 	if len(report.TopAttackPaths) == 0 {
+		if hasHighImpactGovernableActionPath(report.ActionPaths) {
+			return []string{"attack paths: none generated because the saved static graph did not include attack-path joins for the current high-impact action paths; review the governable action paths separately."}
+		}
 		return []string{"attack paths: none generated from current findings"}
 	}
 	facts := make([]string, 0, len(report.TopAttackPaths))
@@ -1464,6 +1467,26 @@ func buildAttackPathFacts(report risk.Report) []string {
 		facts = append(facts, fmt.Sprintf("attack_path #%d score=%.2f id=%s", idx+1, path.PathScore, path.PathID))
 	}
 	return facts
+}
+
+func hasHighImpactGovernableActionPath(paths []risk.ActionPath) bool {
+	for _, path := range paths {
+		if strings.TrimSpace(path.PathID) == "" {
+			continue
+		}
+		if path.ProductionWrite || path.CredentialAccess || path.WriteCapable || path.StandingPrivilege {
+			return true
+		}
+		switch strings.TrimSpace(path.TargetClass) {
+		case risk.TargetClassProductionImpacting, risk.TargetClassReleaseAdjacent, risk.TargetClassCustomerDataAdjacent:
+			return true
+		}
+		switch strings.TrimSpace(path.DelegationReadinessState) {
+		case risk.DelegationReadinessBlocked, risk.DelegationReadinessBlockedByContradiction, risk.DelegationReadinessApprovalRequired:
+			return true
+		}
+	}
+	return false
 }
 
 func buildAssessmentSummary(paths []risk.ActionPath, controlFirst *risk.ActionPathToControlFirst, inventory *agginventory.Inventory, proof ProofReference) *AssessmentSummary {

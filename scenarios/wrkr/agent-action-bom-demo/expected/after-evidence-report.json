@@ -445,9 +445,9 @@
         "target_class": "production_impacting"
       },
       "recommended_next_actions": [
-        "Accept risk with expiry",
-        "Declare controlled path",
-        "Declare repo owner"
+        "replace standing credential authority on this CI/CD workflow path with brokered or repo-scoped JIT access",
+        "record explicit owner approval with scope and expiry",
+        "keep path-specific proof linked as the path evolves"
       ],
       "risk_tier": "critical",
       "runtime_evidence_state": "verified",

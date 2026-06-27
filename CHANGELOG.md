@@ -12,7 +12,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- (none yet)
+- [semver:patch] Agent Action BOM Markdown now groups repeated top action paths in the buyer lead while preserving full detail in appendices and evidence JSON.
+- [semver:patch] First-run Agent Action BOM reports now summarize approval/proof evidence gaps as onboarding context instead of repeating raw unknown evidence fields throughout the lead.
+- [semver:patch] Reports now explain attack-path non-generation when high-impact action paths exist but attack-path graph prerequisites were not available.
 
 ### Deprecated
 
@@ -24,11 +26,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- (none yet)
+- [semver:patch] Report QA now blocks buyer-hostile primary Markdown patterns such as weak blocked-credential remediation, internal token leakage, repeated raw evidence gaps, and oversized lead lines.
 
 ### Security
 
-- (none yet)
+- [semver:patch] Blocked standing-credential report guidance now leads with reducing, replacing, revoking, rotating, or moving authority to JIT/brokered access before any accept-risk option.
 
 ## Changelog maintenance process
 

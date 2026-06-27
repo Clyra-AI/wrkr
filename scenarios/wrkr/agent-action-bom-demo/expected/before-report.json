@@ -374,9 +374,9 @@
         "target_class": "production_impacting"
       },
       "recommended_next_actions": [
-        "Accept risk with expiry",
-        "Attach policy or proof reference",
-        "Declare controlled path"
+        "replace standing credential authority on this CI/CD workflow path with brokered or repo-scoped JIT access",
+        "record explicit owner approval with scope and expiry",
+        "attach path-specific proof and runtime or policy evidence"
       ],
       "risk_tier": "critical",
       "runtime_evidence_state": "unknown",

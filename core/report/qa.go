@@ -19,6 +19,19 @@ var unsupportedBuyerArtifactPhrases = []string{
 	"not governed",
 }
 
+var buyerPrimaryInternalTokens = []string{
+	"approval_evidence_unknown",
+	"proof_evidence_unknown",
+	"control_first",
+	"prod_or_customer_impacting",
+	"production_impacting",
+	"report_only",
+	"recommended_control",
+	"not_collected",
+}
+
+const buyerPrimaryMaxLineLength = 520
+
 type BuyerArtifactQAInput struct {
 	ActionPathTypes []string
 	PathEvidence    []BuyerArtifactPathEvidence
@@ -54,6 +67,7 @@ func ValidateBuyerArtifactTexts(input BuyerArtifactQAInput) error {
 				issues = append(issues, fmt.Sprintf("%s contains unsupported buyer phrase %q", name, phrase))
 			}
 		}
+		issues = append(issues, validateBuyerPrimaryText(name, text)...)
 		if strings.Contains(lower, "agent framework") {
 			if !hasAgentFrameworkEvidence(input) {
 				issues = append(issues, fmt.Sprintf("%s contains agent-framework wording without action_path_type=%q evidence", name, risk.ActionPathTypeAgentFramework))
@@ -71,6 +85,78 @@ func ValidateBuyerArtifactTexts(input BuyerArtifactQAInput) error {
 	slices.Sort(issues)
 	issues = slices.Compact(issues)
 	return errors.New(strings.Join(issues, "; "))
+}
+
+func validateBuyerPrimaryText(name string, text string) []string {
+	primary := buyerPrimarySection(text)
+	if primary == "" {
+		return nil
+	}
+	issues := make([]string, 0)
+	lower := strings.ToLower(primary)
+	for _, token := range buyerPrimaryInternalTokens {
+		if strings.Contains(lower, token) {
+			issues = append(issues, fmt.Sprintf("%s primary lead contains internal token %q", name, token))
+		}
+	}
+	for idx, line := range strings.Split(primary, "\n") {
+		if len(line) > buyerPrimaryMaxLineLength {
+			issues = append(issues, fmt.Sprintf("%s primary lead line %d exceeds %d characters", name, idx+1, buyerPrimaryMaxLineLength))
+		}
+	}
+	if strings.Count(lower, "approval evidence not found") > 1 {
+		issues = append(issues, fmt.Sprintf("%s primary lead repeats raw approval evidence gap wording", name))
+	}
+	if strings.Count(lower, "path-specific proof not found") > 1 {
+		issues = append(issues, fmt.Sprintf("%s primary lead repeats raw proof evidence gap wording", name))
+	}
+	if weakBlockedCredentialLead(lower) {
+		issues = append(issues, fmt.Sprintf("%s primary lead starts blocked standing-credential guidance with accept-risk before reduction", name))
+	}
+	return issues
+}
+
+func buyerPrimarySection(text string) string {
+	normalized := strings.ReplaceAll(text, "\r\n", "\n")
+	start := strings.Index(normalized, "## What To Look At First")
+	if start < 0 {
+		return ""
+	}
+	end := strings.Index(normalized[start:], "## Report Context Appendix")
+	if end < 0 {
+		return strings.TrimSpace(normalized[start:])
+	}
+	return strings.TrimSpace(normalized[start : start+end])
+}
+
+func weakBlockedCredentialLead(lower string) bool {
+	if !strings.Contains(lower, "blocked") {
+		return false
+	}
+	if !strings.Contains(lower, "standing credential") && !strings.Contains(lower, "standing") {
+		return false
+	}
+	acceptIdx := strings.Index(lower, "accept risk")
+	if acceptIdx < 0 {
+		return false
+	}
+	strongIdx := firstStrongCredentialVerbIndex(lower)
+	return strongIdx < 0 || acceptIdx < strongIdx
+}
+
+func firstStrongCredentialVerbIndex(lower string) int {
+	strongTerms := []string{"replace standing credential", "reduce standing credential", "revoke", "rotate", "jit", "brokered"}
+	best := -1
+	for _, term := range strongTerms {
+		idx := strings.Index(lower, term)
+		if idx < 0 {
+			continue
+		}
+		if best < 0 || idx < best {
+			best = idx
+		}
+	}
+	return best
 }
 
 func hasActionPathType(actionPathTypes []string, want string) bool {
