@@ -59,7 +59,7 @@
   explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
 - path=path-4bd1cfe8 repo=repo-eb0de2 workflow=loc-415e1600 type=ci_cd_workflow target=production_impacting autonomy=prod or customer impacting readiness=blocked authority=credential-9d82507e | workflow | standing blast_radius=production-impacting authority approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=replace standing credential authority on this CI/CD workflow path with brokered or repo-scoped JIT access
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=partial evidence coverage
-  explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
+  explanation=This path is already blocked with standing credential metadata, so replacement or JIT reduction should lead before correlation work.
 - path=path-445e7c6c repo=repo-10e08a workflow=loc-d5d3368a type=agent_instruction_surface target=unknown autonomy=sensitive code or infra readiness=review required authority=no credential authority linked blast_radius=unknown approval=approval evidence not found proof=path-specific proof not found runtime=runtime evidence not collected session=not_collected boundary=report_only recommendation=attach scoped approval evidence for this agent instruction surface before allowing egress/read
   evidence=control=visible control evidence detected | owner=owner evidence inferred | coverage=insufficient evidence coverage
   explanation=The authority is visible, but approval evidence for this exact workflow path is still missing or weak.
