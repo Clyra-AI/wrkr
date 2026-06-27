@@ -233,3 +233,37 @@ func TestWorkflowRecommendationDetectsStandingCredentialAuthorityBeforeBindingSu
 		t.Fatalf("expected standing credential replacement recommendation, got %q", recommendation)
 	}
 }
+
+func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeCorrelation(t *testing.T) {
+	t.Parallel()
+
+	item := AgentActionBOMItem{
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		DelegationReadinessState: risk.DelegationReadinessBlocked,
+		ControlState:             "block_recommended",
+		CredentialAccess:         true,
+		ApprovalEvidenceState:    risk.EvidenceStateVerified,
+		ProofEvidenceState:       risk.EvidenceStateVerified,
+		OwnerEvidenceState:       risk.EvidenceStateVerified,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: false,
+			StandingAccess:         true,
+		},
+	}
+
+	if !bomItemNeedsAuthorityCorrelation(item) {
+		t.Fatalf("expected incomplete standing credential metadata to require authority correlation")
+	}
+	recommendation := strings.ToLower(workflowRecommendation(item))
+	if !strings.Contains(recommendation, "replace standing credential authority") {
+		t.Fatalf("expected blocked standing credential remediation to lead, got %q", recommendation)
+	}
+	if strings.Contains(recommendation, "classify or correlate") {
+		t.Fatalf("expected remediation to avoid correlation-first wording, got %q", recommendation)
+	}
+	explanation := strings.ToLower(workflowExplanation(item))
+	if !strings.Contains(explanation, "replacement or jit reduction") {
+		t.Fatalf("expected explanation to preserve remediation-first rationale, got %q", explanation)
+	}
+}

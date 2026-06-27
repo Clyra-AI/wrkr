@@ -356,10 +356,10 @@ func workflowRecommendation(item AgentActionBOMItem) string {
 		return "correlate this caller-facing surface to the workflow, runtime caller, or tool binding that actually uses it before promoting it"
 	case bomItemStandardCIControlContext(item):
 		return "import PR review, branch protection, deployment environment, or owner-map evidence for this standard CI workflow, and include required-check evidence when it gates the path, before treating it as an approval or proof gap"
-	case bomItemNeedsAuthorityCorrelation(item):
-		return "classify or correlate the exact credential authority and scope for " + subject + scope
 	case bomItemBlockedStandingCredential(item):
 		return blockedStandingCredentialNextAction(item)
+	case bomItemNeedsAuthorityCorrelation(item):
+		return "classify or correlate the exact credential authority and scope for " + subject + scope
 	case strings.TrimSpace(item.OwnerEvidenceState) == risk.EvidenceStateUnknown:
 		return "attach explicit owner evidence for " + subject + " and rescan"
 	case strings.TrimSpace(item.ApprovalEvidenceState) == risk.EvidenceStateUnknown || item.ApprovalGap:
@@ -511,6 +511,8 @@ func workflowExplanation(item AgentActionBOMItem) string {
 		return "This is static target context, so Wrkr keeps it in caller-correlation guidance until a real workflow, runtime caller, or tool binding is proven."
 	case bomItemStandardCIControlContext(item):
 		return "This looks like standard CI authority. Wrkr found the workflow and credential reference, but it has not imported the PR review, branch protection, deployment environment, owner-map, and any gating required-check evidence that may already cover it."
+	case bomItemBlockedStandingCredential(item):
+		return "This path is already blocked with standing credential metadata, so replacement or JIT reduction should lead before correlation work."
 	case bomItemNeedsAuthorityCorrelation(item):
 		return "Wrkr can see credential-bearing workflow reach, but the exact authority and scope are still incomplete, so the next step is to correlate or classify that authority rather than jump straight to standing-credential remediation."
 	case strings.TrimSpace(item.OwnerEvidenceState) == risk.EvidenceStateUnknown:
