@@ -1214,10 +1214,10 @@ func workflowHighlightAuthorityFamily(authority string) string {
 		return "static_secret"
 	case strings.Contains(normalized, "github"):
 		return "github"
-	case strings.Contains(normalized, "credential"):
-		return "credential"
 	case strings.Contains(normalized, "no credential"):
 		return "no_credential"
+	case strings.Contains(normalized, "credential"):
+		return "credential"
 	case strings.Contains(normalized, "unknown"):
 		return "unknown"
 	default:

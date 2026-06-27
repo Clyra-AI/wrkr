@@ -216,3 +216,14 @@ func TestRenderMarkdownSummarizesFirstRunEvidenceOnboarding(t *testing.T) {
 		t.Fatalf("expected repeated raw proof evidence gap to be summarized in lead, got %d:\n%s", count, lead)
 	}
 }
+
+func TestWorkflowHighlightAuthorityFamilyKeepsNoCredentialSeparate(t *testing.T) {
+	t.Parallel()
+
+	if got := workflowHighlightAuthorityFamily("no credential authority linked"); got != "no_credential" {
+		t.Fatalf("expected no-credential authority family, got %q", got)
+	}
+	if got := workflowHighlightAuthorityFamily("credential authority linked"); got != "credential" {
+		t.Fatalf("expected generic credential authority family, got %q", got)
+	}
+}
