@@ -290,6 +290,26 @@ func TestEvidenceOnboardingUsesGovernableItemCounts(t *testing.T) {
 	if !shouldRenderEvidenceOnboarding(summary) {
 		t.Fatalf("expected eligible governable evidence gaps to enable onboarding decision")
 	}
+
+	summary.AgentActionBOM.Items = append(summary.AgentActionBOM.Items, AgentActionBOMItem{
+		PathID:                   "workflow-2",
+		ActionPathEligible:       true,
+		ActionBindingState:       risk.ActionBindingStateBound,
+		ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassProductionImpacting,
+		ApprovalEvidenceState:    risk.EvidenceStateVerified,
+		ProofEvidenceState:       risk.EvidenceStateVerified,
+		DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+	})
+	if shouldRenderEvidenceOnboarding(summary) {
+		t.Fatalf("expected half of eligible governable paths missing evidence to stay below most-paths threshold")
+	}
+	summary.AgentActionBOM.Items[3].ApprovalEvidenceState = risk.EvidenceStateUnknown
+	summary.AgentActionBOM.Items[3].ProofEvidenceState = risk.EvidenceStateUnknown
+	if !shouldRenderEvidenceOnboarding(summary) {
+		t.Fatalf("expected strict majority of eligible governable paths missing evidence to enable onboarding")
+	}
 }
 
 func TestSummarizedLeadUnresolvedEvidenceKeepsEmptyCardsResolved(t *testing.T) {
