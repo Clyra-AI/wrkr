@@ -58,6 +58,66 @@ func TestBuildSummaryIncludesWorkflowHighlights(t *testing.T) {
 	}
 }
 
+func TestBuildWorkflowHighlightsUsesFocusSourceItemsForCredentialFamilies(t *testing.T) {
+	t.Parallel()
+
+	base := AgentActionBOMItem{
+		Repo:                     "acme/release",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathEligible:       true,
+		ActionBindingState:       risk.ActionBindingStateBound,
+		ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassProductionImpacting,
+		DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+		CredentialAccess:         true,
+	}
+	publicPAT := base
+	publicPAT.PathID = "apc-pat"
+	publicPAT.CredentialAuthorityRef = "credential_authority:github_pat"
+	publicToken := base
+	publicToken.PathID = "apc-workflow-token"
+	publicToken.CredentialAuthorityRef = "credential_authority:github_workflow_token"
+
+	sourcePAT := publicPAT
+	sourcePAT.DelegationReadinessState = risk.DelegationReadinessBlocked
+	sourcePAT.ControlState = "block_recommended"
+	sourcePAT.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		StandingAccess:         true,
+	}
+	sourceToken := publicToken
+	sourceToken.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		CredentialKind:         agginventory.CredentialKindGitHubWorkflowToken,
+	}
+
+	highlights := BuildWorkflowHighlights(Summary{AgentActionBOM: &AgentActionBOM{
+		Items:            []AgentActionBOMItem{publicPAT, publicToken},
+		focusSourceItems: []AgentActionBOMItem{sourcePAT, sourceToken},
+	}})
+	if highlights == nil || len(highlights.sourceHighlights) != 2 {
+		t.Fatalf("expected uncapped source highlights from focus source items, got %+v", highlights)
+	}
+	if got := strings.ToLower(highlights.sourceHighlights[0].Authority); !strings.Contains(got, "github_pat") {
+		t.Fatalf("expected PAT authority from focus source item, got %q", got)
+	}
+	if got := strings.ToLower(highlights.sourceHighlights[1].Authority); !strings.Contains(got, "github_workflow_token") {
+		t.Fatalf("expected workflow-token authority from focus source item, got %q", got)
+	}
+	if got := strings.ToLower(highlights.sourceHighlights[0].Recommendation); !strings.Contains(got, "replace standing credential authority") {
+		t.Fatalf("expected PAT-specific remediation from focus source item, got %q", got)
+	}
+
+	groups := compactWorkflowHighlightGroups(workflowHighlightsGroupingSource(highlights))
+	if len(groups) != 2 {
+		t.Fatalf("expected compact grouping to keep PAT and workflow-token paths separate, got %+v", groups)
+	}
+}
+
 func TestWorkflowRecommendationForStandardCIImportsControlEvidence(t *testing.T) {
 	t.Parallel()
 
