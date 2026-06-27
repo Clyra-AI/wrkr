@@ -8,7 +8,10 @@ import (
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
-const focusedEvidenceTopPathLimit = 5
+const (
+	focusedEvidenceTopPathLimit     = 5
+	defaultLeadEvidenceTopPathLimit = defaultBOMLeadTopPaths + 1
+)
 
 // PrepareEvidenceBundleSummary trims report evidence output down to the
 // selected path or focus preset while preserving shared suppression and
@@ -48,11 +51,11 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 		if omitted := len(summary.AgentActionBOM.Items) - len(filteredItems); omitted > 0 {
 			focused.SuppressedCounts.AgentActionBOM += omitted
 		}
-		bomCopy.Items = filteredItems
+		bomCopy.Items = mergeFocusedAgentActionBOMItems(filteredItems, filteredSourceItems)
 		if len(filteredSourceItems) > 0 {
 			bomCopy.focusSourceItems = filteredSourceItems
 		} else {
-			bomCopy.focusSourceItems = append([]AgentActionBOMItem(nil), filteredItems...)
+			bomCopy.focusSourceItems = append([]AgentActionBOMItem(nil), bomCopy.Items...)
 		}
 		bomCopy.Summary.PrimaryView = nil
 		if strings.TrimSpace(focusPathID) != "" {
@@ -107,10 +110,10 @@ func defaultEvidenceBundlePathIDs(summary Summary) []string {
 	if summary.AgentActionBOM == nil {
 		return nil
 	}
-	out := make([]string, 0, focusedEvidenceTopPathLimit)
+	out := make([]string, 0, defaultLeadEvidenceTopPathLimit)
 	add := func(pathID string) {
 		pathID = strings.TrimSpace(pathID)
-		if pathID == "" || focusedEvidenceContainsPathID(out, pathID) {
+		if pathID == "" || len(out) >= defaultLeadEvidenceTopPathLimit || focusedEvidenceContainsPathID(out, pathID) {
 			return
 		}
 		out = append(out, pathID)
@@ -119,18 +122,46 @@ func defaultEvidenceBundlePathIDs(summary Summary) []string {
 		add(summary.AgentActionBOM.Summary.PrimaryView.PathID)
 	}
 	if summary.WorkflowHighlights != nil {
-		for _, highlight := range summary.WorkflowHighlights.Highlights {
-			add(highlight.PathID)
-			if len(out) >= focusedEvidenceTopPathLimit {
+		for _, group := range compactWorkflowHighlightGroups(workflowHighlightsGroupingSource(summary.WorkflowHighlights)) {
+			add(group.Highlight.PathID)
+			if len(out) >= defaultLeadEvidenceTopPathLimit {
 				return out
 			}
 		}
 	}
 	for _, item := range eligibleWorkflowHighlightItems(summary.AgentActionBOM) {
 		add(item.PathID)
-		if len(out) >= focusedEvidenceTopPathLimit {
+		if len(out) >= defaultLeadEvidenceTopPathLimit {
 			return out
 		}
+	}
+	return out
+}
+
+func mergeFocusedAgentActionBOMItems(filteredItems []AgentActionBOMItem, filteredSourceItems []AgentActionBOMItem) []AgentActionBOMItem {
+	if len(filteredSourceItems) == 0 {
+		return filteredItems
+	}
+	if len(filteredItems) == 0 {
+		return filteredSourceItems
+	}
+	out := append([]AgentActionBOMItem(nil), filteredItems...)
+	seen := make(map[string]struct{}, len(out))
+	for _, item := range out {
+		if pathID := strings.TrimSpace(item.PathID); pathID != "" {
+			seen[pathID] = struct{}{}
+		}
+	}
+	for _, item := range filteredSourceItems {
+		pathID := strings.TrimSpace(item.PathID)
+		if pathID == "" {
+			continue
+		}
+		if _, ok := seen[pathID]; ok {
+			continue
+		}
+		out = append(out, item)
+		seen[pathID] = struct{}{}
 	}
 	return out
 }

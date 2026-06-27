@@ -7,6 +7,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	"github.com/Clyra-AI/wrkr/core/aggregate/controlbacklog"
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/risk"
 )
 
@@ -226,14 +227,77 @@ func TestPrepareEvidenceBundleSummaryDefaultsAgentActionBOMToLeadBundle(t *testi
 	if focused.ControlPathGraph != nil || focused.WorkflowChains != nil {
 		t.Fatalf("expected default lead evidence to omit graph-heavy appendix, graph=%+v chains=%+v", focused.ControlPathGraph, focused.WorkflowChains)
 	}
-	if focused.AgentActionBOM == nil || len(focused.AgentActionBOM.Items) != focusedEvidenceTopPathLimit {
-		t.Fatalf("expected default lead evidence to keep top %d BOM items, got %+v", focusedEvidenceTopPathLimit, focused.AgentActionBOM)
+	if focused.AgentActionBOM == nil || len(focused.AgentActionBOM.Items) != defaultLeadEvidenceTopPathLimit {
+		t.Fatalf("expected default lead evidence to keep top %d BOM items, got %+v", defaultLeadEvidenceTopPathLimit, focused.AgentActionBOM)
 	}
 	if !focusedEvidenceContainsPathID(itemPathIDs(focused.AgentActionBOM.Items), "apc-6") {
 		t.Fatalf("expected default lead evidence to keep the primary path, got %+v", focused.AgentActionBOM.Items)
 	}
 	if focused.SuppressedCounts == nil || focused.SuppressedCounts.GraphNodes == 0 || focused.SuppressedCounts.WorkflowChains == 0 {
 		t.Fatalf("expected lead evidence suppressions for graph-heavy appendix, got %+v", focused.SuppressedCounts)
+	}
+}
+
+func TestPrepareEvidenceBundleSummaryDefaultUsesCompactedHighlightSource(t *testing.T) {
+	t.Parallel()
+
+	base := AgentActionBOMItem{
+		Repo:                     "acme/release",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathEligible:       true,
+		ActionBindingState:       risk.ActionBindingStateBound,
+		ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassProductionImpacting,
+		DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		},
+	}
+	items := make([]AgentActionBOMItem, 0, workflowHighlightLimit+1)
+	paths := make([]risk.ActionPath, 0, workflowHighlightLimit+1)
+	for idx := 0; idx < workflowHighlightLimit; idx++ {
+		item := base
+		item.PathID = fmt.Sprintf("apc-duplicate-%d", idx+1)
+		items = append(items, item)
+		paths = append(paths, risk.ActionPath{PathID: item.PathID})
+	}
+	distinct := base
+	distinct.PathID = "apc-distinct"
+	distinct.Location = ".github/workflows/deploy-prod.yml"
+	items = append(items, distinct)
+	paths = append(paths, risk.ActionPath{PathID: distinct.PathID})
+
+	fullBOM := &AgentActionBOM{Items: items}
+	highlights := BuildWorkflowHighlights(Summary{AgentActionBOM: fullBOM})
+	if highlights == nil || len(highlights.Highlights) != workflowHighlightLimit {
+		t.Fatalf("expected public highlights to be capped at %d, got %+v", workflowHighlightLimit, highlights)
+	}
+
+	summary := Summary{
+		Template:           string(TemplateAgentActionBOM),
+		ActionPaths:        paths,
+		WorkflowHighlights: highlights,
+		AgentActionBOM:     &AgentActionBOM{Items: append([]AgentActionBOMItem(nil), items[:workflowHighlightLimit]...), focusSourceItems: items},
+		ControlPathGraph:   &aggattack.ControlPathGraph{Nodes: []aggattack.ControlPathNode{{NodeID: "node-1", PathID: "apc-distinct"}}},
+		WorkflowChains:     &agentresolver.WorkflowChainArtifact{Chains: []agentresolver.WorkflowChain{{ChainID: "wc-1", PathIDs: []string{"apc-distinct"}}}},
+		ControlBacklog:     &controlbacklog.Backlog{Items: []controlbacklog.Item{{ID: "cb-distinct", LinkedActionPathID: "apc-distinct"}}},
+		ShareProfile:       string(ShareProfileCustomerRedacted),
+		GeneratedAt:        "2026-06-27T00:00:00Z",
+	}
+	summary.AgentActionBOM.Summary.PrimaryView = &AgentActionBOMPrimaryView{PathID: "apc-duplicate-1"}
+
+	focused := PrepareEvidenceBundleSummary(summary, "", "")
+	if focused.AgentActionBOM == nil || !focusedEvidenceContainsPathID(itemPathIDs(focused.AgentActionBOM.Items), "apc-distinct") {
+		t.Fatalf("expected lead evidence to include compact top-action path from uncapped highlights, got %+v", focused.AgentActionBOM)
+	}
+	if !focusedEvidenceContainsPathID(actionPathIDs(focused.ActionPaths), "apc-distinct") {
+		t.Fatalf("expected action path evidence for compact top-action path, got %+v", focused.ActionPaths)
+	}
+	if focused.ControlBacklog == nil || len(focused.ControlBacklog.Items) != 1 || focused.ControlBacklog.Items[0].LinkedActionPathID != "apc-distinct" {
+		t.Fatalf("expected backlog evidence for compact top-action path, got %+v", focused.ControlBacklog)
 	}
 }
 
@@ -260,6 +324,14 @@ func itemPathIDs(items []AgentActionBOMItem) []string {
 	out := make([]string, 0, len(items))
 	for _, item := range items {
 		out = append(out, item.PathID)
+	}
+	return out
+}
+
+func actionPathIDs(paths []risk.ActionPath) []string {
+	out := make([]string, 0, len(paths))
+	for _, path := range paths {
+		out = append(out, path.PathID)
 	}
 	return out
 }
