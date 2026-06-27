@@ -355,12 +355,12 @@ func workflowRecommendation(item AgentActionBOMItem) string {
 	subject := workflowRecommendationSubject(item)
 	scope := workflowRecommendationScope(item)
 	switch {
+	case bomItemBlockedStandingCredential(item):
+		return blockedStandingCredentialNextAction(item)
 	case len(item.Contradictions) > 0 || hasContradictoryEvidenceState(item):
 		return "resolve contradictory control evidence for " + subject + " before promoting it"
 	case bomItemStaticContextSurface(item):
 		return "correlate this caller-facing surface to the workflow, runtime caller, or tool binding that actually uses it before promoting it"
-	case bomItemBlockedStandingCredential(item):
-		return blockedStandingCredentialNextAction(item)
 	case bomItemStandardCIControlContext(item):
 		return "import PR review, branch protection, deployment environment, or owner-map evidence for this standard CI workflow, and include required-check evidence when it gates the path, before treating it as an approval or proof gap"
 	case bomItemNeedsAuthorityCorrelation(item):
