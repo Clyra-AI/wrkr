@@ -306,3 +306,37 @@ func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeStandar
 		t.Fatalf("expected explanation to preserve standing remediation priority, got %q", explanation)
 	}
 }
+
+func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeContradictions(t *testing.T) {
+	t.Parallel()
+
+	item := AgentActionBOMItem{
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		DelegationReadinessState: risk.DelegationReadinessBlockedByContradiction,
+		ControlState:             "block_recommended",
+		CredentialAccess:         true,
+		ApprovalEvidenceState:    risk.EvidenceStateContradictory,
+		ProofEvidenceState:       risk.EvidenceStateVerified,
+		OwnerEvidenceState:       risk.EvidenceStateVerified,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			CredentialKind:         agginventory.CredentialKindGitHubPAT,
+			StandingAccess:         true,
+		},
+	}
+
+	if !hasContradictoryEvidenceState(item) {
+		t.Fatalf("expected fixture to carry contradictory evidence")
+	}
+	if !bomItemBlockedStandingCredential(item) {
+		t.Fatalf("expected fixture to match blocked standing credential")
+	}
+	recommendation := strings.ToLower(workflowRecommendation(item))
+	if !strings.Contains(recommendation, "replace standing credential authority") {
+		t.Fatalf("expected blocked standing credential remediation to lead, got %q", recommendation)
+	}
+	if strings.Contains(recommendation, "resolve contradictory") {
+		t.Fatalf("expected remediation to avoid contradiction-first wording, got %q", recommendation)
+	}
+}
