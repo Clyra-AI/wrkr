@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 	"github.com/Clyra-AI/wrkr/core/governancequeue"
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -391,5 +392,45 @@ func TestWorkflowHighlightAuthorityFamilyKeepsNoCredentialSeparate(t *testing.T)
 	}
 	if got := workflowHighlightAuthorityFamily("credential authority linked"); got != "credential" {
 		t.Fatalf("expected generic credential authority family, got %q", got)
+	}
+}
+
+func TestWorkflowHighlightGroupingSeparatesStandingCredentialMetadata(t *testing.T) {
+	t.Parallel()
+
+	base := AgentActionBOMItem{
+		PathID:                   "apc-non-standing",
+		Repo:                     "acme/release",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassReleaseAdjacent,
+		DelegationReadinessState: risk.DelegationReadinessBlocked,
+		AuthorityBindings: []*agginventory.AuthorityBinding{{
+			Kind:         agginventory.AuthorityBindingCloudRole,
+			Provider:     "aws",
+			TargetSystem: "deploy",
+			AccessLevel:  agginventory.AuthorityAccessWrite,
+		}},
+	}
+	standing := base
+	standing.PathID = "apc-standing"
+	standing.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		AccessType:             agginventory.CredentialAccessTypeStanding,
+		StandingAccess:         true,
+	}
+
+	standingAuthority := workflowAuthoritySummary(standing)
+	if !strings.Contains(strings.ToLower(standingAuthority), "standing credential") {
+		t.Fatalf("expected standing metadata in authority summary, got %q", standingAuthority)
+	}
+	groups := compactWorkflowHighlightGroups([]WorkflowHighlight{
+		workflowHighlightFromItem(base),
+		workflowHighlightFromItem(standing),
+	})
+	if len(groups) != 2 {
+		t.Fatalf("expected standing and non-standing authority highlights to stay separate, got %+v", groups)
 	}
 }

@@ -110,8 +110,11 @@ func validateBuyerPrimaryText(name string, text string) []string {
 	if strings.Count(lower, "path-specific proof not found") > 1 {
 		issues = append(issues, fmt.Sprintf("%s primary lead repeats raw proof evidence gap wording", name))
 	}
-	if weakBlockedCredentialLead(lower) {
-		issues = append(issues, fmt.Sprintf("%s primary lead starts blocked standing-credential guidance with accept-risk before reduction", name))
+	for _, card := range buyerPrimaryLeadCards(primary) {
+		if weakBlockedCredentialLead(strings.ToLower(card)) {
+			issues = append(issues, fmt.Sprintf("%s primary lead starts blocked standing-credential guidance with accept-risk before reduction", name))
+			break
+		}
 	}
 	return issues
 }
@@ -127,6 +130,47 @@ func buyerPrimarySection(text string) string {
 		return strings.TrimSpace(normalized[start:])
 	}
 	return strings.TrimSpace(normalized[start : start+end])
+}
+
+func buyerPrimaryLeadCards(primary string) []string {
+	lines := strings.Split(primary, "\n")
+	cards := make([]string, 0)
+	current := make([]string, 0)
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if buyerPrimaryLeadCardStart(trimmed) {
+			if len(current) > 0 {
+				cards = append(cards, strings.Join(current, "\n"))
+			}
+			current = current[:0]
+		}
+		if len(current) > 0 || buyerPrimaryLeadCardStart(trimmed) {
+			current = append(current, line)
+		}
+	}
+	if len(current) > 0 {
+		cards = append(cards, strings.Join(current, "\n"))
+	}
+	if len(cards) == 0 {
+		return []string{primary}
+	}
+	return cards
+}
+
+func buyerPrimaryLeadCardStart(trimmed string) bool {
+	if strings.HasPrefix(trimmed, "- Inspect") {
+		return true
+	}
+	dot := strings.Index(trimmed, ".")
+	if dot <= 0 || dot+1 >= len(trimmed) {
+		return false
+	}
+	for _, char := range trimmed[:dot] {
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return strings.HasPrefix(strings.TrimSpace(trimmed[dot+1:]), "Inspect:")
 }
 
 func weakBlockedCredentialLead(lower string) bool {

@@ -34,6 +34,19 @@ func TestBuyerArtifactQAAllowsStrongBlockedCredentialLead(t *testing.T) {
 	}
 }
 
+func TestBuyerArtifactQAScopesBlockedCredentialOrderingPerLeadCard(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
+		Texts: map[string]string{
+			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n1. Inspect: workflow in repo via loc-a.\n  Why: approval-required path.\n  Evidence: control visible; unresolved: proof.\n  Action: Accept risk with expiry.\n2. Inspect: workflow in repo via loc-b.\n  Why: blocked path with standing credential.\n  Evidence: control visible; unresolved: approval.\n  Action: Replace standing credential with brokered JIT access.\n\n## Report Context Appendix\n\n- detail=ok\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected accept-risk in a separate non-blocked card to pass QA, got %v", err)
+	}
+}
+
 func TestBuyerArtifactQABlocksPrimaryInternalTokensAndRepeatedEvidenceGaps(t *testing.T) {
 	t.Parallel()
 

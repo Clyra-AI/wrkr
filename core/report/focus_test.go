@@ -225,8 +225,8 @@ func TestWorkflowRecommendationDetectsStandingCredentialAuthorityBeforeBindingSu
 	}
 
 	authoritySummary := strings.ToLower(workflowAuthoritySummary(item))
-	if strings.Contains(authoritySummary, "standing") {
-		t.Fatalf("test setup should exercise binding summary before credential authority, got %q", authoritySummary)
+	if !strings.Contains(authoritySummary, "standing credential") {
+		t.Fatalf("expected authority summary to preserve standing credential metadata, got %q", authoritySummary)
 	}
 	recommendation := strings.ToLower(workflowRecommendation(item))
 	if !strings.Contains(recommendation, "replace standing credential authority") {
