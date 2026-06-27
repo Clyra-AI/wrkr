@@ -79,11 +79,16 @@ func BuildWorkflowHighlights(summary Summary) *WorkflowHighlights {
 	}
 
 	out := &WorkflowHighlights{
-		TotalItems: len(items),
-		Highlights: make([]WorkflowHighlight, 0, limit),
+		TotalItems:       len(items),
+		Highlights:       make([]WorkflowHighlight, 0, limit),
+		sourceHighlights: make([]WorkflowHighlight, 0, len(items)),
 	}
-	for idx := 0; idx < limit; idx++ {
-		out.Highlights = append(out.Highlights, workflowHighlightFromItem(items[idx]))
+	for idx, item := range items {
+		highlight := workflowHighlightFromItem(item)
+		out.sourceHighlights = append(out.sourceHighlights, highlight)
+		if idx < limit {
+			out.Highlights = append(out.Highlights, highlight)
+		}
 	}
 	return out
 }

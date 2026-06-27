@@ -462,6 +462,51 @@ func TestWorkflowHighlightGroupingSeparatesGitHubCredentialKinds(t *testing.T) {
 	}
 }
 
+func TestCompactTopActionPathsGroupsBeforeDisplayCap(t *testing.T) {
+	t.Parallel()
+
+	base := AgentActionBOMItem{
+		Repo:                     "acme/release",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathEligible:       true,
+		ActionBindingState:       risk.ActionBindingStateBound,
+		ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassProductionImpacting,
+		DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		},
+	}
+	items := make([]AgentActionBOMItem, 0, workflowHighlightLimit+1)
+	for idx := 0; idx < workflowHighlightLimit; idx++ {
+		item := base
+		item.PathID = "apc-duplicate-" + string(rune('a'+idx))
+		items = append(items, item)
+	}
+	distinct := base
+	distinct.PathID = "apc-distinct"
+	distinct.Location = ".github/workflows/deploy-prod.yml"
+	items = append(items, distinct)
+
+	highlights := BuildWorkflowHighlights(Summary{AgentActionBOM: &AgentActionBOM{Items: items}})
+	if highlights == nil || len(highlights.Highlights) != workflowHighlightLimit {
+		t.Fatalf("expected public highlights to stay capped at %d, got %+v", workflowHighlightLimit, highlights)
+	}
+
+	var builder strings.Builder
+	renderCompactTopActionPathsSection(&builder, highlights)
+	markdown := builder.String()
+	if !strings.Contains(markdown, "deploy-prod.yml") {
+		t.Fatalf("expected compact section to include distinct group beyond raw cap, got:\n%s", markdown)
+	}
+	if count := strings.Count(markdown, "- "); count != 2 {
+		t.Fatalf("expected duplicate group plus distinct group, got %d rows:\n%s", count, markdown)
+	}
+}
+
 func TestWorkflowHighlightGroupingSeparatesStandingCredentialMetadata(t *testing.T) {
 	t.Parallel()
 

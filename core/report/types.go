@@ -289,8 +289,9 @@ type PublicSurfaceEntry struct {
 }
 
 type WorkflowHighlights struct {
-	TotalItems int                 `json:"total_items"`
-	Highlights []WorkflowHighlight `json:"highlights,omitempty"`
+	TotalItems       int                 `json:"total_items"`
+	Highlights       []WorkflowHighlight `json:"highlights,omitempty"`
+	sourceHighlights []WorkflowHighlight `json:"-"`
 }
 
 type WorkflowHighlight struct {
