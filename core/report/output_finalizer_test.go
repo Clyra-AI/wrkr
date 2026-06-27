@@ -1,6 +1,8 @@
 package report
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Clyra-AI/wrkr/core/risk"
@@ -113,5 +115,68 @@ func TestApplyShareableResidualRedactionDoesNotRewriteNumericTimestamps(t *testi
 	}
 	if summary.GeneratedAt != "2026-06-15T00:00:00Z" {
 		t.Fatalf("expected generated_at to remain unchanged, got %q", summary.GeneratedAt)
+	}
+}
+
+func TestApplyShareableResidualRedactionPreservesUncappedWorkflowHighlightSource(t *testing.T) {
+	t.Parallel()
+
+	base := AgentActionBOMItem{
+		Repo:                     "acme/private",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathEligible:       true,
+		ActionBindingState:       risk.ActionBindingStateBound,
+		ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassProductionImpacting,
+		DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+	}
+	items := make([]AgentActionBOMItem, 0, workflowHighlightLimit+1)
+	for idx := 0; idx < workflowHighlightLimit; idx++ {
+		item := base
+		item.PathID = fmt.Sprintf("apc-duplicate-%d", idx+1)
+		items = append(items, item)
+	}
+	distinct := base
+	distinct.PathID = "apc-distinct"
+	distinct.Location = ".github/workflows/deploy-prod.yml"
+	items = append(items, distinct)
+
+	highlights := BuildWorkflowHighlights(Summary{AgentActionBOM: &AgentActionBOM{Items: items}})
+	if highlights == nil || len(highlights.Highlights) != workflowHighlightLimit {
+		t.Fatalf("expected public highlights to be capped at %d, got %+v", workflowHighlightLimit, highlights)
+	}
+	summary := Summary{
+		Template:           string(TemplateAgentActionBOM),
+		ShareProfile:       string(ShareProfileCustomerRedacted),
+		WorkflowHighlights: highlights,
+		AgentActionBOM: &AgentActionBOM{
+			Summary:          AgentActionBOMSummary{PrimaryView: &AgentActionBOMPrimaryView{PathID: "apc-duplicate-1"}},
+			Items:            append([]AgentActionBOMItem(nil), items[:workflowHighlightLimit]...),
+			focusSourceItems: items,
+		},
+	}
+
+	redacted, err := ApplyShareableResidualRedaction(
+		state.Snapshot{Findings: []source.Finding{{Repo: "acme/private"}}},
+		summary,
+	)
+	if err != nil {
+		t.Fatalf("apply residual redaction: %v", err)
+	}
+	if redacted.WorkflowHighlights == nil || len(redacted.WorkflowHighlights.sourceHighlights) != len(items) {
+		t.Fatalf("expected uncapped workflow highlight source to survive residual redaction, got %+v", redacted.WorkflowHighlights)
+	}
+	if redacted.AgentActionBOM == nil || !focusedEvidenceContainsPathID(itemPathIDs(redacted.AgentActionBOM.focusSourceItems), "apc-distinct") {
+		t.Fatalf("expected uncapped BOM source items to survive residual redaction, got %+v", redacted.AgentActionBOM)
+	}
+	for _, highlight := range redacted.WorkflowHighlights.sourceHighlights {
+		if strings.Contains(highlight.Repo, "acme/private") {
+			t.Fatalf("expected preserved source highlight repo to remain redacted, got %+v", highlight)
+		}
+	}
+	markdown := RenderMarkdown(redacted)
+	if !strings.Contains(markdown, "deploy-prod.yml") {
+		t.Fatalf("expected compact top-action row from uncapped source after residual redaction, got:\n%s", markdown)
 	}
 }
