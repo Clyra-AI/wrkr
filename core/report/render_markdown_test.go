@@ -234,6 +234,78 @@ func TestRenderMarkdownSummarizesFirstRunEvidenceOnboarding(t *testing.T) {
 	}
 }
 
+func TestEvidenceOnboardingUsesGovernableItemCounts(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		AgentActionBOM: &AgentActionBOM{
+			Summary: AgentActionBOMSummary{
+				TotalItems:                   3,
+				ApprovalEvidenceUnknownItems: 2,
+				ProofEvidenceUnknownItems:    2,
+			},
+			Items: []AgentActionBOMItem{
+				{
+					PathID:                   "context-1",
+					ActionPathEligible:       false,
+					ActionBindingState:       risk.ActionBindingStateUnboundContext,
+					ConfidenceLane:           risk.ConfidenceLaneContextOnly,
+					ActionPathType:           risk.ActionPathTypePlainSourceCode,
+					TargetClass:              risk.TargetClassProductionImpacting,
+					ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+					ProofEvidenceState:       risk.EvidenceStateUnknown,
+					DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+				},
+				{
+					PathID:                   "context-2",
+					ActionPathEligible:       false,
+					ActionBindingState:       risk.ActionBindingStateUnboundContext,
+					ConfidenceLane:           risk.ConfidenceLaneContextOnly,
+					ActionPathType:           risk.ActionPathTypePlainSourceCode,
+					TargetClass:              risk.TargetClassProductionImpacting,
+					ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+					ProofEvidenceState:       risk.EvidenceStateUnknown,
+					DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+				},
+				{
+					PathID:                   "workflow-1",
+					ActionPathEligible:       true,
+					ActionBindingState:       risk.ActionBindingStateBound,
+					ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+					ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+					TargetClass:              risk.TargetClassProductionImpacting,
+					ApprovalEvidenceState:    risk.EvidenceStateVerified,
+					ProofEvidenceState:       risk.EvidenceStateVerified,
+					DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+				},
+			},
+		},
+	}
+	if shouldRenderEvidenceOnboarding(summary) {
+		t.Fatalf("expected context-only evidence gaps to be excluded from governable onboarding decision")
+	}
+
+	summary.AgentActionBOM.Items[2].ApprovalEvidenceState = risk.EvidenceStateUnknown
+	summary.AgentActionBOM.Items[2].ProofEvidenceState = risk.EvidenceStateUnknown
+	if !shouldRenderEvidenceOnboarding(summary) {
+		t.Fatalf("expected eligible governable evidence gaps to enable onboarding decision")
+	}
+}
+
+func TestSummarizedLeadUnresolvedEvidenceKeepsEmptyCardsResolved(t *testing.T) {
+	t.Parallel()
+
+	if got := summarizedLeadUnresolvedEvidence(nil); got != "none" {
+		t.Fatalf("expected empty unresolved evidence to remain resolved, got %q", got)
+	}
+	if got := summarizedLeadUnresolvedEvidence([]string{""}); got != "none" {
+		t.Fatalf("expected blank unresolved evidence to remain resolved, got %q", got)
+	}
+	if got := summarizedLeadUnresolvedEvidence([]string{"approval", "runtime"}); got != "see evidence onboarding note, runtime" {
+		t.Fatalf("expected approval/proof gaps to collapse to onboarding note with other gaps preserved, got %q", got)
+	}
+}
+
 func TestWorkflowHighlightAuthorityFamilyKeepsNoCredentialSeparate(t *testing.T) {
 	t.Parallel()
 
