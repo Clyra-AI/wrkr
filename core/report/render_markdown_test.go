@@ -326,6 +326,63 @@ func TestSummarizedLeadUnresolvedEvidenceKeepsEmptyCardsResolved(t *testing.T) {
 	}
 }
 
+func TestBuyerDiagnosticCardsKeepFocusedSiblingHighlightVisible(t *testing.T) {
+	t.Parallel()
+
+	primary := AgentActionBOMItem{
+		PathID:                   "apc-focused",
+		Repo:                     "acme/release",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassReleaseAdjacent,
+		DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+		ControlResolutionState:   risk.ControlResolutionStateDetectedControl,
+		ApprovalEvidenceState:    risk.EvidenceStateVerified,
+		ProofEvidenceState:       risk.EvidenceStateVerified,
+		RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+	}
+	siblingA := primary
+	siblingA.PathID = "apc-sibling-a"
+	siblingB := primary
+	siblingB.PathID = "apc-sibling-b"
+
+	summary := Summary{
+		AgentActionBOM: &AgentActionBOM{
+			Summary: AgentActionBOMSummary{
+				PrimaryView: &AgentActionBOMPrimaryView{
+					PathID:                   primary.PathID,
+					PathMap:                  AgentActionBOMPrimaryPathMap{Tool: "workflow", RepoPR: primary.Repo, Workflow: primary.Location, Target: primary.TargetClass},
+					DelegationReadinessState: primary.DelegationReadinessState,
+					ControlResolutionState:   primary.ControlResolutionState,
+					ApprovalEvidenceState:    primary.ApprovalEvidenceState,
+					ProofEvidenceState:       primary.ProofEvidenceState,
+					RuntimeEvidenceState:     primary.RuntimeEvidenceState,
+					RecommendedNextActions:   []string{"review focused path"},
+				},
+			},
+			Items: []AgentActionBOMItem{primary, siblingA, siblingB},
+		},
+		WorkflowHighlights: &WorkflowHighlights{
+			TotalItems: 2,
+			Highlights: []WorkflowHighlight{
+				workflowHighlightFromItem(siblingA),
+				workflowHighlightFromItem(siblingB),
+			},
+		},
+	}
+
+	cards := buildBuyerDiagnosticCards(summary)
+	if len(cards) < 2 {
+		t.Fatalf("expected focused primary and sibling highlight cards, got %+v", cards)
+	}
+	if cards[0].RelatedCount != 0 {
+		t.Fatalf("expected sibling group not to collapse into focused primary, got related=%d", cards[0].RelatedCount)
+	}
+	if cards[1].RelatedCount != 2 {
+		t.Fatalf("expected sibling card to retain collapsed sibling count, got %+v", cards[1])
+	}
+}
+
 func TestWorkflowHighlightAuthorityFamilyKeepsNoCredentialSeparate(t *testing.T) {
 	t.Parallel()
 
