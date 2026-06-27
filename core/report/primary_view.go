@@ -425,6 +425,9 @@ func primaryViewRecommendedNextActions(item AgentActionBOMItem) []string {
 		actions = append(actions, value)
 	}
 
+	if action := blockedStandingCredentialNextAction(item); action != "" {
+		add(action)
+	}
 	if item.RecommendedActionContract != nil {
 		add(item.RecommendedActionContract.RequiredApproval)
 		add(item.RecommendedActionContract.RequiredProof)
@@ -437,11 +440,32 @@ func primaryViewRecommendedNextActions(item AgentActionBOMItem) []string {
 	if len(actions) == 0 {
 		add(firstSentence(item.Remediation))
 	}
-	actions = uniqueSortedStrings(actions)
+	actions = uniquePreserveOrderStrings(actions)
 	if len(actions) > 3 {
 		actions = append([]string(nil), actions[:3]...)
 	}
 	return actions
+}
+
+func uniquePreserveOrderStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
 }
 
 func primaryViewCoverage(bom *AgentActionBOM, item AgentActionBOMItem) (string, []string, string) {

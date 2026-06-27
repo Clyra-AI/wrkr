@@ -662,3 +662,125 @@ func TestBuildAgentActionBOMPrimaryViewCarriesQualifiedCoverageStatus(t *testing
 		t.Fatalf("expected qualified coverage impact, got %+v", bom.Summary.PrimaryView)
 	}
 }
+
+func TestPrimaryViewBlockedStandingCredentialNextActionsLeadWithReplacement(t *testing.T) {
+	t.Parallel()
+
+	actions := primaryViewRecommendedNextActions(AgentActionBOMItem{
+		PathID:                   "apc-blocked",
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		DelegationReadinessState: risk.DelegationReadinessBlocked,
+		RecommendedControl:       risk.RecommendedControlBlockStandingCredential,
+		StandingPrivilege:        true,
+		ClosureActions: []risk.ClosureAction{
+			{ActionType: risk.ClosureActionAcceptRiskWithExpiry, Title: "Accept risk with expiry"},
+			{ActionType: risk.ClosureActionAttachPolicyOrProof, Title: "Attach policy or proof reference"},
+			{ActionType: risk.ClosureActionReduceStandingCredential, Title: "Reduce standing credential scope"},
+		},
+	})
+
+	if len(actions) == 0 {
+		t.Fatal("expected next actions")
+	}
+	if !strings.Contains(strings.ToLower(actions[0]), "replace standing credential") {
+		t.Fatalf("expected blocked standing credential to lead with replacement, got %+v", actions)
+	}
+	for idx, action := range actions {
+		if strings.Contains(strings.ToLower(action), "accept risk") && idx == 0 {
+			t.Fatalf("accept-risk must not be first for blocked standing credentials: %+v", actions)
+		}
+	}
+}
+
+func TestRenderMarkdownGroupsRepeatedWorkflowAuthorities(t *testing.T) {
+	t.Parallel()
+
+	items := []AgentActionBOMItem{
+		{
+			PathID:                   "apc-1",
+			Repo:                     "repo-a",
+			Location:                 "loc-release",
+			ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+			TargetClass:              risk.TargetClassProductionImpacting,
+			DelegationReadinessState: risk.DelegationReadinessBlocked,
+			RecommendedControl:       risk.RecommendedControlBlockStandingCredential,
+			StandingPrivilege:        true,
+			ControlState:             "block_recommended",
+			ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+			ProofEvidenceState:       risk.EvidenceStateUnknown,
+			RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+		},
+		{
+			PathID:                   "apc-2",
+			Repo:                     "repo-a",
+			Location:                 "loc-release",
+			ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+			TargetClass:              risk.TargetClassProductionImpacting,
+			DelegationReadinessState: risk.DelegationReadinessBlocked,
+			RecommendedControl:       risk.RecommendedControlBlockStandingCredential,
+			StandingPrivilege:        true,
+			ControlState:             "block_recommended",
+			ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+			ProofEvidenceState:       risk.EvidenceStateUnknown,
+			RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+		},
+	}
+	summary := Summary{
+		GeneratedAt:  "2026-06-26T12:00:00Z",
+		Template:     string(TemplateAgentActionBOM),
+		ShareProfile: string(ShareProfileCustomerRedacted),
+		AgentActionBOM: &AgentActionBOM{
+			BOMID: "bom-grouped",
+			Summary: AgentActionBOMSummary{
+				TotalItems:                   2,
+				ControlFirstItems:            2,
+				ApprovalEvidenceUnknownItems: 2,
+				ProofEvidenceUnknownItems:    2,
+				PrimaryView: &AgentActionBOMPrimaryView{
+					PathID:                   "apc-1",
+					PathMap:                  AgentActionBOMPrimaryPathMap{Tool: "workflow", RepoPR: "repo-a", Workflow: "loc-release", Credential: "github_pat | standing", Action: "credential_access,deploy,read", Target: risk.TargetClassProductionImpacting},
+					BoundaryLabel:            BoundaryLabelReportOnly,
+					DelegationReadinessState: risk.DelegationReadinessBlocked,
+					RecommendedControl:       risk.RecommendedControlBlockStandingCredential,
+					RiskTier:                 risk.RiskTierCritical,
+					ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+					ProofEvidenceState:       risk.EvidenceStateUnknown,
+					RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+					UnresolvedEvidence:       []string{"approval", "proof"},
+					RecommendedNextActions:   []string{"replace standing credential authority on this CI/CD workflow path with brokered or repo-scoped JIT access"},
+				},
+			},
+			Items: items,
+		},
+		WorkflowHighlights: &WorkflowHighlights{
+			TotalItems: 2,
+			Highlights: []WorkflowHighlight{
+				{PathID: "apc-1", Repo: "repo-a", Workflow: "loc-release", PathType: risk.ActionPathTypeCICDWorkflow, TargetClass: risk.TargetClassProductionImpacting, DelegationReadiness: risk.DelegationReadinessBlocked, Authority: "github_pat | workflow | standing", Recommendation: "replace standing credential authority on this CI/CD workflow path with brokered or repo-scoped JIT access"},
+				{PathID: "apc-2", Repo: "repo-a", Workflow: "loc-release", PathType: risk.ActionPathTypeCICDWorkflow, TargetClass: risk.TargetClassProductionImpacting, DelegationReadiness: risk.DelegationReadinessBlocked, Authority: "github_pat | workflow | standing", Recommendation: "attach scoped approval evidence for this CI/CD workflow path"},
+			},
+		},
+	}
+
+	markdown := RenderMarkdown(summary)
+	contextIdx := strings.Index(markdown, "## Report Context Appendix")
+	if contextIdx < 0 {
+		t.Fatalf("expected context appendix, got %q", markdown)
+	}
+	lead := markdown[:contextIdx]
+	if strings.Contains(lead, "Inspect next") {
+		t.Fatalf("expected repeated workflow to be collapsed out of duplicate inspect cards:\n%s", lead)
+	}
+	if !strings.Contains(lead, "plus 1 related authority collapsed") {
+		t.Fatalf("expected collapsed related-authority count, got:\n%s", lead)
+	}
+	topPathsIdx := strings.Index(lead, "## Top Action Paths")
+	if topPathsIdx < 0 {
+		t.Fatalf("expected top action paths section, got:\n%s", lead)
+	}
+	if count := strings.Count(lead[topPathsIdx:], "\n- "); count != 1 {
+		t.Fatalf("expected one grouped top action path, got %d:\n%s", count, lead[topPathsIdx:])
+	}
+	if !strings.Contains(markdown[contextIdx:], "repo=repo-a location=loc-release") {
+		t.Fatalf("expected appendix detail to remain available, got:\n%s", markdown)
+	}
+}

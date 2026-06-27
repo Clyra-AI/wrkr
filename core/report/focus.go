@@ -286,6 +286,9 @@ func workflowAuthoritySummary(item AgentActionBOMItem) string {
 			return strings.Join(parts, " | ")
 		}
 	}
+	if item.StandingPrivilege {
+		return "standing credential authority"
+	}
 	if item.CredentialAccess {
 		return "credential access declared"
 	}
@@ -337,6 +340,8 @@ func workflowRecommendation(item AgentActionBOMItem) string {
 		return "import PR review, branch protection, deployment environment, or owner-map evidence for this standard CI workflow, and include required-check evidence when it gates the path, before treating it as an approval or proof gap"
 	case bomItemNeedsAuthorityCorrelation(item):
 		return "classify or correlate the exact credential authority and scope for " + subject + scope
+	case bomItemBlockedStandingCredential(item):
+		return blockedStandingCredentialNextAction(item)
 	case strings.TrimSpace(item.OwnerEvidenceState) == risk.EvidenceStateUnknown:
 		return "attach explicit owner evidence for " + subject + " and rescan"
 	case strings.TrimSpace(item.ApprovalEvidenceState) == risk.EvidenceStateUnknown || item.ApprovalGap:
@@ -352,6 +357,42 @@ func workflowRecommendation(item AgentActionBOMItem) string {
 	default:
 		return firstNonEmptyValue(strings.TrimSpace(item.Remediation), "review this path and tighten ownership, approval, or proof evidence")
 	}
+}
+
+func bomItemBlockedStandingCredential(item AgentActionBOMItem) bool {
+	if !bomItemStandingCredential(item) {
+		return false
+	}
+	switch strings.TrimSpace(item.DelegationReadinessState) {
+	case risk.DelegationReadinessBlocked, risk.DelegationReadinessBlockedByContradiction:
+		return true
+	}
+	if strings.TrimSpace(item.RecommendedControl) == risk.RecommendedControlBlockStandingCredential {
+		return true
+	}
+	return strings.TrimSpace(item.ControlState) == "block_recommended"
+}
+
+func bomItemStandingCredential(item AgentActionBOMItem) bool {
+	if item.StandingPrivilege {
+		return true
+	}
+	if strings.TrimSpace(item.RecommendedControl) == risk.RecommendedControlBlockStandingCredential {
+		return true
+	}
+	if item.CredentialProvenance != nil && item.CredentialProvenance.StandingAccess {
+		return true
+	}
+	authority := strings.ToLower(workflowAuthoritySummary(item))
+	return strings.Contains(authority, "standing")
+}
+
+func blockedStandingCredentialNextAction(item AgentActionBOMItem) string {
+	if !bomItemBlockedStandingCredential(item) {
+		return ""
+	}
+	subject := workflowRecommendationSubject(item)
+	return "replace standing credential authority on " + subject + " with brokered or repo-scoped JIT access"
 }
 
 func workflowRecommendationSubject(item AgentActionBOMItem) string {

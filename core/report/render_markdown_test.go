@@ -113,3 +113,106 @@ func TestRenderMarkdownUsesEvidenceScopedLifecycleAndGaitLabels(t *testing.T) {
 		t.Fatalf("expected readable evidence labels, got %q", markdown)
 	}
 }
+
+func TestBuildAttackPathFactsExplainsNonGenerationForHighImpactPaths(t *testing.T) {
+	t.Parallel()
+
+	facts := buildAttackPathFacts(risk.Report{
+		ActionPaths: []risk.ActionPath{{
+			PathID:                   "apc-critical",
+			TargetClass:              risk.TargetClassProductionImpacting,
+			DelegationReadinessState: risk.DelegationReadinessBlocked,
+			CredentialAccess:         true,
+		}},
+	})
+
+	if len(facts) != 1 {
+		t.Fatalf("expected one attack-path fact, got %+v", facts)
+	}
+	if !strings.Contains(facts[0], "graph") || !strings.Contains(facts[0], "governable action paths") {
+		t.Fatalf("expected graph-prerequisite explanation, got %+v", facts)
+	}
+
+	emptyFacts := buildAttackPathFacts(risk.Report{})
+	if len(emptyFacts) != 1 || emptyFacts[0] != "attack paths: none generated from current findings" {
+		t.Fatalf("expected simple empty-report wording, got %+v", emptyFacts)
+	}
+}
+
+func TestRenderMarkdownSummarizesFirstRunEvidenceOnboarding(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		GeneratedAt:  "2026-06-26T12:00:00Z",
+		Template:     string(TemplateAgentActionBOM),
+		ShareProfile: string(ShareProfileCustomerRedacted),
+		AgentActionBOM: &AgentActionBOM{
+			BOMID: "bom-evidence-onboarding",
+			Summary: AgentActionBOMSummary{
+				TotalItems:                   3,
+				ControlFirstItems:            3,
+				ApprovalEvidenceUnknownItems: 3,
+				ProofEvidenceUnknownItems:    3,
+				PrimaryView: &AgentActionBOMPrimaryView{
+					PathID:                   "apc-1",
+					PathMap:                  AgentActionBOMPrimaryPathMap{Tool: "workflow", RepoPR: "repo-a", Workflow: "loc-release", Credential: "github_pat | standing", Action: "deploy", Target: risk.TargetClassProductionImpacting},
+					BoundaryLabel:            BoundaryLabelReportOnly,
+					DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+					RecommendedControl:       risk.RecommendedControlSecurityReview,
+					RiskTier:                 risk.RiskTierCritical,
+					ControlResolutionState:   risk.ControlResolutionStateDetectedControl,
+					ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+					ProofEvidenceState:       risk.EvidenceStateUnknown,
+					RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+					UnresolvedEvidence:       []string{"approval", "proof"},
+					RecommendedNextActions:   []string{"Attach approval evidence for this exact workflow path", "Attach path-specific proof before promotion"},
+				},
+			},
+			Items: []AgentActionBOMItem{{
+				PathID:                   "apc-1",
+				Repo:                     "repo-a",
+				Location:                 "loc-release",
+				ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+				TargetClass:              risk.TargetClassProductionImpacting,
+				DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+				ControlResolutionState:   risk.ControlResolutionStateDetectedControl,
+				ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+				ProofEvidenceState:       risk.EvidenceStateUnknown,
+				RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+			}},
+		},
+		WorkflowHighlights: &WorkflowHighlights{
+			TotalItems: 1,
+			Highlights: []WorkflowHighlight{{
+				PathID:              "apc-1",
+				Repo:                "repo-a",
+				Workflow:            "loc-release",
+				PathType:            risk.ActionPathTypeCICDWorkflow,
+				TargetClass:         risk.TargetClassProductionImpacting,
+				DelegationReadiness: risk.DelegationReadinessReviewRequired,
+				Authority:           "github_pat | workflow | standing",
+				EvidenceSummary:     "control=visible control evidence detected",
+				ApprovalPath:        "approval evidence not found",
+				ProofStatus:         "path-specific proof not found",
+				RuntimeStatus:       "runtime evidence not collected",
+				Recommendation:      "Attach approval evidence for this exact workflow path",
+			}},
+		},
+	}
+
+	markdown := RenderMarkdown(summary)
+	contextIdx := strings.Index(markdown, "## Report Context Appendix")
+	if contextIdx < 0 {
+		t.Fatalf("expected report context appendix, got %q", markdown)
+	}
+	lead := markdown[:contextIdx]
+	if !strings.Contains(lead, "Evidence onboarding: approval/proof evidence was not imported or observed") {
+		t.Fatalf("expected evidence onboarding note, got:\n%s", lead)
+	}
+	if count := strings.Count(lead, "approval evidence not found"); count > 1 {
+		t.Fatalf("expected repeated raw approval evidence gap to be summarized in lead, got %d:\n%s", count, lead)
+	}
+	if count := strings.Count(lead, "path-specific proof not found"); count > 1 {
+		t.Fatalf("expected repeated raw proof evidence gap to be summarized in lead, got %d:\n%s", count, lead)
+	}
+}
