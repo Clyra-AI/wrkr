@@ -380,6 +380,9 @@ func bomItemStandingCredential(item AgentActionBOMItem) bool {
 	if strings.TrimSpace(item.RecommendedControl) == risk.RecommendedControlBlockStandingCredential {
 		return true
 	}
+	if authority := agginventory.NormalizeCredentialAuthority(item.CredentialAuthority); authority != nil && authority.StandingAccess {
+		return true
+	}
 	if item.CredentialProvenance != nil && item.CredentialProvenance.StandingAccess {
 		return true
 	}

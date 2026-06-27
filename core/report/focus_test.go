@@ -198,3 +198,38 @@ func TestStaticAPIFindingRecommendsCallerCorrelation(t *testing.T) {
 		t.Fatalf("expected static API guidance to request caller correlation, got %q", recommendation)
 	}
 }
+
+func TestWorkflowRecommendationDetectsStandingCredentialAuthorityBeforeBindingSummary(t *testing.T) {
+	t.Parallel()
+
+	item := AgentActionBOMItem{
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		DelegationReadinessState: risk.DelegationReadinessBlocked,
+		ControlState:             "block_recommended",
+		ApprovalEvidenceState:    risk.EvidenceStateVerified,
+		ProofEvidenceState:       risk.EvidenceStateVerified,
+		OwnerEvidenceState:       risk.EvidenceStateVerified,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			CredentialKind:         agginventory.CredentialKindGitHubPAT,
+			AccessType:             agginventory.CredentialAccessTypeStanding,
+			StandingAccess:         true,
+		},
+		AuthorityBindings: []*agginventory.AuthorityBinding{{
+			Kind:         agginventory.AuthorityBindingCloudRole,
+			Provider:     "aws",
+			TargetSystem: "deploy",
+			AccessLevel:  agginventory.AuthorityAccessWrite,
+		}},
+	}
+
+	authoritySummary := strings.ToLower(workflowAuthoritySummary(item))
+	if strings.Contains(authoritySummary, "standing") {
+		t.Fatalf("test setup should exercise binding summary before credential authority, got %q", authoritySummary)
+	}
+	recommendation := strings.ToLower(workflowRecommendation(item))
+	if !strings.Contains(recommendation, "replace standing credential authority") {
+		t.Fatalf("expected standing credential replacement recommendation, got %q", recommendation)
+	}
+}
