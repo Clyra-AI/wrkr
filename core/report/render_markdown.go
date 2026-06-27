@@ -1272,7 +1272,130 @@ func workflowHighlightGroupKey(item WorkflowHighlight) string {
 		strings.TrimSpace(item.TargetClass),
 		strings.TrimSpace(item.DelegationReadiness),
 		workflowHighlightAuthorityFamily(item.Authority),
+		workflowHighlightRecommendationFamily(item.Recommendation),
+		workflowHighlightEvidenceFamily(item),
 	}, "|")
+}
+
+func workflowHighlightRecommendationFamily(recommendation string) string {
+	normalized := strings.ToLower(strings.TrimSpace(recommendation))
+	switch {
+	case normalized == "":
+		return "review"
+	case strings.Contains(normalized, "contradictory") || strings.Contains(normalized, "contradiction"):
+		return "resolve_contradictory_evidence"
+	case strings.Contains(normalized, "caller-facing surface"):
+		return "correlate_caller_surface"
+	case strings.Contains(normalized, "standing credential") &&
+		(strings.Contains(normalized, "replace") || strings.Contains(normalized, "reduce") || strings.Contains(normalized, "jit") || strings.Contains(normalized, "brokered")):
+		return "replace_standing_credential"
+	case strings.Contains(normalized, "standard ci") ||
+		strings.Contains(normalized, "pr review") ||
+		strings.Contains(normalized, "branch protection") ||
+		strings.Contains(normalized, "deployment environment") ||
+		strings.Contains(normalized, "required-check"):
+		return "import_standard_ci_controls"
+	case strings.Contains(normalized, "control review"):
+		return "move_to_control_review"
+	case strings.Contains(normalized, "credential authority") ||
+		strings.Contains(normalized, "authority and scope") ||
+		strings.Contains(normalized, "classify") ||
+		strings.Contains(normalized, "correlate"):
+		return "correlate_authority"
+	case strings.Contains(normalized, "owner evidence"):
+		return "attach_owner_evidence"
+	case strings.Contains(normalized, "approval evidence"):
+		return "attach_approval_evidence"
+	case strings.Contains(normalized, "runtime evidence"):
+		return "join_runtime_evidence"
+	case strings.Contains(normalized, "proof"):
+		return "attach_proof"
+	default:
+		return workflowHighlightKeyFragment(normalized)
+	}
+}
+
+func workflowHighlightEvidenceFamily(item WorkflowHighlight) string {
+	return strings.Join([]string{
+		"control:" + workflowHighlightEvidenceSummaryFamily(item.EvidenceSummary, "control"),
+		"owner:" + workflowHighlightEvidenceSummaryFamily(item.EvidenceSummary, "owner"),
+		"coverage:" + workflowHighlightEvidenceSummaryFamily(item.EvidenceSummary, "coverage"),
+		"contradictions:" + workflowHighlightEvidenceSummaryFamily(item.EvidenceSummary, "contradictions"),
+		"approval:" + workflowHighlightEvidenceTextFamily(item.ApprovalPath),
+		"proof:" + workflowHighlightEvidenceTextFamily(item.ProofStatus),
+		"runtime:" + workflowHighlightEvidenceTextFamily(item.RuntimeStatus),
+	}, ",")
+}
+
+func workflowHighlightEvidenceSummaryFamily(summary string, key string) string {
+	key = strings.ToLower(strings.TrimSpace(key))
+	for _, part := range strings.Split(summary, "|") {
+		name, value, ok := strings.Cut(strings.TrimSpace(part), "=")
+		if !ok || strings.ToLower(strings.TrimSpace(name)) != key {
+			continue
+		}
+		return workflowHighlightEvidenceTextFamily(value)
+	}
+	return "unknown"
+}
+
+func workflowHighlightEvidenceTextFamily(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	switch {
+	case normalized == "":
+		return "unknown"
+	case strings.Contains(normalized, "contradictory") || strings.Contains(normalized, "conflict"):
+		return "contradictory"
+	case strings.Contains(normalized, "stale"):
+		return "stale"
+	case strings.Contains(normalized, "not applicable"):
+		return "not_applicable"
+	case strings.Contains(normalized, "required but not linked") ||
+		strings.Contains(normalized, "missing") ||
+		strings.Contains(normalized, "not found") ||
+		strings.Contains(normalized, "not collected") ||
+		strings.Contains(normalized, "not imported") ||
+		strings.Contains(normalized, "unknown") ||
+		strings.Contains(normalized, "no visible"):
+		return "missing"
+	case strings.Contains(normalized, "verified") ||
+		strings.Contains(normalized, "detected"):
+		return "verified"
+	case strings.Contains(normalized, "declared"):
+		return "declared"
+	case strings.Contains(normalized, "inferred"):
+		return "inferred"
+	case strings.Contains(normalized, "present"):
+		return "present"
+	default:
+		return workflowHighlightKeyFragment(normalized)
+	}
+}
+
+func workflowHighlightKeyFragment(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if normalized == "" {
+		return "unknown"
+	}
+	var builder strings.Builder
+	lastSeparator := false
+	for _, r := range normalized {
+		isAlnum := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
+		if isAlnum {
+			builder.WriteRune(r)
+			lastSeparator = false
+			continue
+		}
+		if !lastSeparator {
+			builder.WriteByte('_')
+			lastSeparator = true
+		}
+	}
+	out := strings.Trim(builder.String(), "_")
+	if out == "" {
+		return "unknown"
+	}
+	return out
 }
 
 func workflowHighlightAuthorityFamily(authority string) string {

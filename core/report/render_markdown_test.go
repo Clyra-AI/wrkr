@@ -462,6 +462,63 @@ func TestWorkflowHighlightGroupingSeparatesGitHubCredentialKinds(t *testing.T) {
 	}
 }
 
+func TestWorkflowHighlightGroupingSeparatesRecommendationFamilies(t *testing.T) {
+	t.Parallel()
+
+	base := WorkflowHighlight{
+		Repo:                "acme/release",
+		Workflow:            ".github/workflows/release.yml",
+		PathType:            risk.ActionPathTypeCICDWorkflow,
+		TargetClass:         risk.TargetClassProductionImpacting,
+		DelegationReadiness: risk.DelegationReadinessBlocked,
+		Authority:           "github_pat | workflow | standing",
+		EvidenceSummary:     "control=no visible control evidence found | owner=owner evidence verified",
+		ApprovalPath:        "approval evidence not found",
+		ProofStatus:         "path-specific proof not found",
+		RuntimeStatus:       "runtime evidence not collected",
+	}
+	replaceCredential := base
+	replaceCredential.PathID = "apc-standing"
+	replaceCredential.Recommendation = "replace standing credential authority on this CI/CD workflow path with brokered or repo-scoped JIT access"
+	attachApproval := base
+	attachApproval.PathID = "apc-approval"
+	attachApproval.Recommendation = "attach scoped approval evidence for this CI/CD workflow path"
+
+	groups := compactWorkflowHighlightGroups([]WorkflowHighlight{replaceCredential, attachApproval})
+	if len(groups) != 2 {
+		t.Fatalf("expected distinct recommendation families to stay separate, got %+v", groups)
+	}
+}
+
+func TestWorkflowHighlightGroupingSeparatesEvidenceFamilies(t *testing.T) {
+	t.Parallel()
+
+	base := WorkflowHighlight{
+		Repo:                "acme/release",
+		Workflow:            ".github/workflows/release.yml",
+		PathType:            risk.ActionPathTypeCICDWorkflow,
+		TargetClass:         risk.TargetClassProductionImpacting,
+		DelegationReadiness: risk.DelegationReadinessReviewRequired,
+		Authority:           "github_workflow_token | workflow",
+		Recommendation:      "review this workflow path",
+		EvidenceSummary:     "control=visible control evidence detected | owner=owner evidence verified",
+		RuntimeStatus:       "runtime evidence not collected",
+	}
+	approvalGap := base
+	approvalGap.PathID = "apc-approval"
+	approvalGap.ApprovalPath = "approval evidence not found"
+	approvalGap.ProofStatus = "path-specific proof verified"
+	proofGap := base
+	proofGap.PathID = "apc-proof"
+	proofGap.ApprovalPath = "approval evidence verified"
+	proofGap.ProofStatus = "path-specific proof not found"
+
+	groups := compactWorkflowHighlightGroups([]WorkflowHighlight{approvalGap, proofGap})
+	if len(groups) != 2 {
+		t.Fatalf("expected unresolved evidence drivers to stay separate, got %+v", groups)
+	}
+}
+
 func TestCompactTopActionPathsGroupsBeforeDisplayCap(t *testing.T) {
 	t.Parallel()
 

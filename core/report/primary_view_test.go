@@ -692,7 +692,7 @@ func TestPrimaryViewBlockedStandingCredentialNextActionsLeadWithReplacement(t *t
 	}
 }
 
-func TestRenderMarkdownGroupsRepeatedWorkflowAuthorities(t *testing.T) {
+func TestRenderMarkdownSeparatesRepeatedWorkflowAuthoritiesWithDifferentActions(t *testing.T) {
 	t.Parallel()
 
 	items := []AgentActionBOMItem{
@@ -767,18 +767,21 @@ func TestRenderMarkdownGroupsRepeatedWorkflowAuthorities(t *testing.T) {
 		t.Fatalf("expected context appendix, got %q", markdown)
 	}
 	lead := markdown[:contextIdx]
-	if strings.Contains(lead, "Inspect next") {
-		t.Fatalf("expected repeated workflow to be collapsed out of duplicate inspect cards:\n%s", lead)
+	if !strings.Contains(lead, "Inspect next") {
+		t.Fatalf("expected distinct remediation action to stay visible in inspect cards:\n%s", lead)
 	}
-	if !strings.Contains(lead, "plus 1 related authority collapsed") {
-		t.Fatalf("expected collapsed related-authority count, got:\n%s", lead)
+	if strings.Contains(lead, "plus 1 related authority collapsed") {
+		t.Fatalf("expected different remediation actions not to collapse as related authorities:\n%s", lead)
 	}
 	topPathsIdx := strings.Index(lead, "## Top Action Paths")
 	if topPathsIdx < 0 {
 		t.Fatalf("expected top action paths section, got:\n%s", lead)
 	}
-	if count := strings.Count(lead[topPathsIdx:], "\n- "); count != 1 {
-		t.Fatalf("expected one grouped top action path, got %d:\n%s", count, lead[topPathsIdx:])
+	if count := strings.Count(lead[topPathsIdx:], "\n- "); count != 2 {
+		t.Fatalf("expected separate top action paths for different remediation actions, got %d:\n%s", count, lead[topPathsIdx:])
+	}
+	if !strings.Contains(lead[topPathsIdx:], "replace standing credential authority") || !strings.Contains(lead[topPathsIdx:], "attach scoped approval evidence") {
+		t.Fatalf("expected both remediation actions in top action paths, got:\n%s", lead[topPathsIdx:])
 	}
 	if !strings.Contains(markdown[contextIdx:], "repo=repo-a location=loc-release") {
 		t.Fatalf("expected appendix detail to remain available, got:\n%s", markdown)
