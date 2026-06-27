@@ -120,6 +120,8 @@ func TestBuildAttackPathFactsExplainsNonGenerationForHighImpactPaths(t *testing.
 	facts := buildAttackPathFacts(risk.Report{
 		ActionPaths: []risk.ActionPath{{
 			PathID:                   "apc-critical",
+			ActionPathEligible:       true,
+			ActionBindingState:       risk.ActionBindingStateBound,
 			TargetClass:              risk.TargetClassProductionImpacting,
 			DelegationReadinessState: risk.DelegationReadinessBlocked,
 			CredentialAccess:         true,
@@ -136,6 +138,21 @@ func TestBuildAttackPathFactsExplainsNonGenerationForHighImpactPaths(t *testing.
 	emptyFacts := buildAttackPathFacts(risk.Report{})
 	if len(emptyFacts) != 1 || emptyFacts[0] != "attack paths: none generated from current findings" {
 		t.Fatalf("expected simple empty-report wording, got %+v", emptyFacts)
+	}
+
+	contextOnlyFacts := buildAttackPathFacts(risk.Report{
+		ActionPaths: []risk.ActionPath{{
+			PathID:                   "apc-context",
+			ActionPathEligible:       false,
+			ActionBindingState:       risk.ActionBindingStateUnboundContext,
+			ConfidenceLane:           risk.ConfidenceLaneContextOnly,
+			TargetClass:              risk.TargetClassProductionImpacting,
+			DelegationReadinessState: risk.DelegationReadinessBlocked,
+			CredentialAccess:         true,
+		}},
+	})
+	if len(contextOnlyFacts) != 1 || contextOnlyFacts[0] != "attack paths: none generated from current findings" {
+		t.Fatalf("expected context-only paths to avoid governable gap wording, got %+v", contextOnlyFacts)
 	}
 }
 

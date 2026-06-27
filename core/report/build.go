@@ -1474,6 +1474,9 @@ func hasHighImpactGovernableActionPath(paths []risk.ActionPath) bool {
 		if strings.TrimSpace(path.PathID) == "" {
 			continue
 		}
+		if strings.TrimSpace(path.ConfidenceLane) == risk.ConfidenceLaneContextOnly || !risk.IsActionPathEligible(path) {
+			continue
+		}
 		if path.ProductionWrite || path.CredentialAccess || path.WriteCapable || path.StandingPrivilege {
 			return true
 		}
