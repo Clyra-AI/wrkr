@@ -646,7 +646,6 @@ func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
 	if primaryItem, ok := itemsByPath[primaryPathID]; ok {
 		cards = append(cards, diagnosticCardFromItem(primaryView, primaryItem, summarizeEvidenceGaps))
 		seen[primaryPathID] = struct{}{}
-		seenGroups[workflowHighlightGroupKey(workflowHighlightFromItem(primaryItem))] = struct{}{}
 	} else {
 		cards = append(cards, diagnosticCardFromPrimaryView(primaryView, summarizeEvidenceGaps))
 	}
@@ -657,6 +656,16 @@ func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
 			groupKey := workflowHighlightGroupKey(highlight)
 			pathID := strings.TrimSpace(highlight.PathID)
 			if pathID == "" {
+				continue
+			}
+			if compactWorkflowHighlightContainsPathID(group, primaryPathID) {
+				if len(cards) > 0 && cards[0].RelatedCount < group.DuplicateCount {
+					cards[0].RelatedCount = group.DuplicateCount
+				}
+				for _, groupedPathID := range group.PathIDs {
+					seen[groupedPathID] = struct{}{}
+				}
+				seenGroups[groupKey] = struct{}{}
 				continue
 			}
 			if _, ok := seenGroups[groupKey]; ok {
@@ -675,7 +684,9 @@ func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
 			card := diagnosticCardFromHighlight(highlight, item, summarizeEvidenceGaps)
 			card.RelatedCount = group.DuplicateCount
 			cards = append(cards, card)
-			seen[pathID] = struct{}{}
+			for _, groupedPathID := range group.PathIDs {
+				seen[groupedPathID] = struct{}{}
+			}
 			seenGroups[groupKey] = struct{}{}
 			if len(cards) >= defaultBOMInspectCards {
 				break
@@ -1190,6 +1201,7 @@ func instructionControlSurfaceItems(items []AgentActionBOMItem) []AgentActionBOM
 type compactWorkflowHighlight struct {
 	Highlight      WorkflowHighlight
 	DuplicateCount int
+	PathIDs        []string
 }
 
 func compactWorkflowHighlightGroups(highlights []WorkflowHighlight) []compactWorkflowHighlight {
@@ -1197,20 +1209,45 @@ func compactWorkflowHighlightGroups(highlights []WorkflowHighlight) []compactWor
 	indexByKey := map[string]int{}
 	for _, item := range highlights {
 		key := workflowHighlightGroupKey(item)
+		pathID := strings.TrimSpace(item.PathID)
 		if idx, ok := indexByKey[key]; ok {
 			grouped[idx].DuplicateCount++
+			if pathID != "" {
+				grouped[idx].PathIDs = append(grouped[idx].PathIDs, pathID)
+			}
 			continue
 		}
 		indexByKey[key] = len(grouped)
 		grouped = append(grouped, compactWorkflowHighlight{
 			Highlight:      item,
 			DuplicateCount: 1,
+			PathIDs:        compactWorkflowHighlightPathIDs(pathID),
 		})
 	}
 	if len(grouped) > defaultBOMLeadTopPaths {
 		grouped = append([]compactWorkflowHighlight(nil), grouped[:defaultBOMLeadTopPaths]...)
 	}
 	return grouped
+}
+
+func compactWorkflowHighlightPathIDs(pathID string) []string {
+	if pathID == "" {
+		return nil
+	}
+	return []string{pathID}
+}
+
+func compactWorkflowHighlightContainsPathID(group compactWorkflowHighlight, pathID string) bool {
+	pathID = strings.TrimSpace(pathID)
+	if pathID == "" {
+		return false
+	}
+	for _, groupedPathID := range group.PathIDs {
+		if strings.TrimSpace(groupedPathID) == pathID {
+			return true
+		}
+	}
+	return false
 }
 
 func workflowHighlightGroupKey(item WorkflowHighlight) string {
