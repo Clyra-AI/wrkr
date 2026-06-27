@@ -54,6 +54,14 @@ func ApplyShareableResidualRedaction(snapshot state.Snapshot, summary Summary) (
 	if len(plan.Entries) == 0 {
 		return summary, nil
 	}
+	var sourceHighlights []WorkflowHighlight
+	if summary.WorkflowHighlights != nil && len(summary.WorkflowHighlights.sourceHighlights) > 0 {
+		sourceHighlights = append([]WorkflowHighlight(nil), summary.WorkflowHighlights.sourceHighlights...)
+	}
+	var focusSourceItems []AgentActionBOMItem
+	if summary.AgentActionBOM != nil && len(summary.AgentActionBOM.focusSourceItems) > 0 {
+		focusSourceItems = append([]AgentActionBOMItem(nil), summary.AgentActionBOM.focusSourceItems...)
+	}
 	payload, err := json.Marshal(summary)
 	if err != nil {
 		return Summary{}, fmt.Errorf("marshal shareable summary for residual redaction: %w", err)
@@ -70,6 +78,42 @@ func ApplyShareableResidualRedaction(snapshot state.Snapshot, summary Summary) (
 	var out Summary
 	if err := json.Unmarshal(redactedPayload, &out); err != nil {
 		return Summary{}, fmt.Errorf("unmarshal shareable summary after residual redaction: %w", err)
+	}
+	if len(sourceHighlights) > 0 && out.WorkflowHighlights != nil {
+		redacted, err := applyShareableResidualRedactionValue("workflow highlight source", sourceHighlights, plan)
+		if err != nil {
+			return Summary{}, err
+		}
+		out.WorkflowHighlights.sourceHighlights = redacted
+	}
+	if len(focusSourceItems) > 0 && out.AgentActionBOM != nil {
+		redacted, err := applyShareableResidualRedactionValue("agent action bom source items", focusSourceItems, plan)
+		if err != nil {
+			return Summary{}, err
+		}
+		out.AgentActionBOM.focusSourceItems = redacted
+	}
+	return out, nil
+}
+
+func applyShareableResidualRedactionValue[T any](label string, value T, plan shareableRedactionPlan) (T, error) {
+	var zero T
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return zero, fmt.Errorf("marshal %s for residual redaction: %w", label, err)
+	}
+	var raw any
+	if err := json.Unmarshal(payload, &raw); err != nil {
+		return zero, fmt.Errorf("unmarshal %s for residual redaction: %w", label, err)
+	}
+	raw = applyShareableTokenRedaction(raw, plan)
+	redactedPayload, err := json.Marshal(raw)
+	if err != nil {
+		return zero, fmt.Errorf("marshal %s after residual redaction: %w", label, err)
+	}
+	var out T
+	if err := json.Unmarshal(redactedPayload, &out); err != nil {
+		return zero, fmt.Errorf("unmarshal %s after residual redaction: %w", label, err)
 	}
 	return out, nil
 }
