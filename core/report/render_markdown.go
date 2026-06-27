@@ -803,7 +803,7 @@ func shouldRenderEvidenceOnboarding(summary Summary) bool {
 		if total == 0 {
 			return false
 		}
-		threshold := (total + 1) / 2
+		threshold := total/2 + 1
 		return approvalUnknown >= threshold && proofUnknown >= threshold
 	}
 	total := bom.Summary.TotalItems
@@ -822,7 +822,7 @@ func shouldRenderEvidenceOnboarding(summary Summary) bool {
 			}
 		}
 	}
-	threshold := (total + 1) / 2
+	threshold := total/2 + 1
 	return approvalUnknown >= threshold && proofUnknown >= threshold
 }
 
