@@ -339,4 +339,11 @@ func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeContrad
 	if strings.Contains(recommendation, "resolve contradictory") {
 		t.Fatalf("expected remediation to avoid contradiction-first wording, got %q", recommendation)
 	}
+	explanation := strings.ToLower(workflowExplanation(item))
+	if !strings.Contains(explanation, "replacement or jit reduction") {
+		t.Fatalf("expected explanation to preserve standing remediation priority, got %q", explanation)
+	}
+	if strings.Contains(explanation, "conflicting control evidence") {
+		t.Fatalf("expected explanation to avoid contradiction-first wording, got %q", explanation)
+	}
 }
