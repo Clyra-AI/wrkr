@@ -1263,11 +1263,20 @@ func workflowHighlightGroupKey(item WorkflowHighlight) string {
 
 func workflowHighlightAuthorityFamily(authority string) string {
 	normalized := strings.ToLower(strings.TrimSpace(authority))
+	githubFamily := workflowHighlightGitHubAuthorityFamily(normalized)
 	switch {
 	case strings.Contains(normalized, "standing"):
+		if githubFamily != "" {
+			return "standing_" + githubFamily
+		}
 		return "standing"
 	case strings.Contains(normalized, "static"):
+		if githubFamily != "" {
+			return "static_" + githubFamily
+		}
 		return "static_secret"
+	case githubFamily != "":
+		return githubFamily
 	case strings.Contains(normalized, "github"):
 		return "github"
 	case strings.Contains(normalized, "no credential"):
@@ -1278,6 +1287,19 @@ func workflowHighlightAuthorityFamily(authority string) string {
 		return "unknown"
 	default:
 		return normalized
+	}
+}
+
+func workflowHighlightGitHubAuthorityFamily(normalized string) string {
+	switch {
+	case strings.Contains(normalized, "github_pat") || strings.Contains(normalized, "github pat"):
+		return "github_pat"
+	case strings.Contains(normalized, "github_workflow_token") || strings.Contains(normalized, "github workflow token"):
+		return "github_workflow_token"
+	case strings.Contains(normalized, "github_app_key") || strings.Contains(normalized, "github app key"):
+		return "github_app_key"
+	default:
+		return ""
 	}
 }
 

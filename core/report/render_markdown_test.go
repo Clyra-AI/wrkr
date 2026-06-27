@@ -395,6 +395,36 @@ func TestWorkflowHighlightAuthorityFamilyKeepsNoCredentialSeparate(t *testing.T)
 	}
 }
 
+func TestWorkflowHighlightGroupingSeparatesGitHubCredentialKinds(t *testing.T) {
+	t.Parallel()
+
+	if got := workflowHighlightAuthorityFamily("github_pat | workflow"); got != "github_pat" {
+		t.Fatalf("expected GitHub PAT authority family, got %q", got)
+	}
+	if got := workflowHighlightAuthorityFamily("github_workflow_token | workflow"); got != "github_workflow_token" {
+		t.Fatalf("expected GitHub workflow token authority family, got %q", got)
+	}
+
+	base := WorkflowHighlight{
+		Repo:                "acme/release",
+		Workflow:            ".github/workflows/release.yml",
+		PathType:            risk.ActionPathTypeCICDWorkflow,
+		TargetClass:         risk.TargetClassProductionImpacting,
+		DelegationReadiness: risk.DelegationReadinessReviewRequired,
+	}
+	workflowToken := base
+	workflowToken.PathID = "apc-workflow-token"
+	workflowToken.Authority = "github_workflow_token | workflow"
+	pat := base
+	pat.PathID = "apc-pat"
+	pat.Authority = "github_pat | workflow"
+
+	groups := compactWorkflowHighlightGroups([]WorkflowHighlight{workflowToken, pat})
+	if len(groups) != 2 {
+		t.Fatalf("expected GitHub workflow token and PAT highlights to stay separate, got %+v", groups)
+	}
+}
+
 func TestWorkflowHighlightGroupingSeparatesStandingCredentialMetadata(t *testing.T) {
 	t.Parallel()
 
