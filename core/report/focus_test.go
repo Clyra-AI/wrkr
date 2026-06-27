@@ -267,3 +267,42 @@ func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeCorrela
 		t.Fatalf("expected explanation to preserve remediation-first rationale, got %q", explanation)
 	}
 }
+
+func TestWorkflowRecommendationPrioritizesBlockedStandingCredentialBeforeStandardCI(t *testing.T) {
+	t.Parallel()
+
+	item := AgentActionBOMItem{
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		ControlPriority:          risk.ControlPriorityInventoryHygiene,
+		DelegationReadinessState: risk.DelegationReadinessBlocked,
+		ControlState:             "block_recommended",
+		CredentialAccess:         true,
+		ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+		ProofEvidenceState:       risk.EvidenceStateUnknown,
+		OwnerEvidenceState:       risk.EvidenceStateVerified,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			CredentialKind:         agginventory.CredentialKindGitHubPAT,
+			StandingAccess:         true,
+		},
+	}
+
+	if !bomItemStandardCIControlContext(item) {
+		t.Fatalf("expected fixture to match standard CI context")
+	}
+	if !bomItemBlockedStandingCredential(item) {
+		t.Fatalf("expected fixture to match blocked standing credential")
+	}
+	recommendation := strings.ToLower(workflowRecommendation(item))
+	if !strings.Contains(recommendation, "replace standing credential authority") {
+		t.Fatalf("expected blocked standing credential remediation to lead, got %q", recommendation)
+	}
+	if strings.Contains(recommendation, "import pr review") {
+		t.Fatalf("expected remediation to avoid standard-CI import-first wording, got %q", recommendation)
+	}
+	explanation := strings.ToLower(workflowExplanation(item))
+	if !strings.Contains(explanation, "replacement or jit reduction") {
+		t.Fatalf("expected explanation to preserve standing remediation priority, got %q", explanation)
+	}
+}
