@@ -651,7 +651,7 @@ func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
 	}
 
 	if summary.WorkflowHighlights != nil {
-		for _, group := range compactWorkflowHighlightGroups(summary.WorkflowHighlights.Highlights) {
+		for _, group := range compactWorkflowHighlightGroups(workflowHighlightsGroupingSource(summary.WorkflowHighlights)) {
 			highlight := group.Highlight
 			groupKey := workflowHighlightGroupKey(highlight)
 			pathID := strings.TrimSpace(highlight.PathID)
@@ -1129,11 +1129,11 @@ func markdownResolvedReviewCounts(bom *AgentActionBOM) (int, int) {
 }
 
 func renderCompactTopActionPathsSection(builder *strings.Builder, highlights *WorkflowHighlights) {
-	if builder == nil || highlights == nil || len(highlights.Highlights) == 0 {
+	if builder == nil || highlights == nil || len(workflowHighlightsGroupingSource(highlights)) == 0 {
 		return
 	}
 	builder.WriteString("## Top Action Paths\n\n")
-	for _, item := range compactWorkflowHighlightGroups(highlights.Highlights) {
+	for _, item := range compactWorkflowHighlightGroups(workflowHighlightsGroupingSource(highlights)) {
 		fmt.Fprintf(builder, "- %s %s path in %s via %s: %s",
 			risk.BuyerDelegationReadinessLabel(item.Highlight.DelegationReadiness),
 			humanizeEnum(firstNonEmptyValue(item.Highlight.TargetClass, "unknown")),
@@ -1147,6 +1147,16 @@ func renderCompactTopActionPathsSection(builder *strings.Builder, highlights *Wo
 		builder.WriteString(".\n")
 	}
 	builder.WriteString("\n")
+}
+
+func workflowHighlightsGroupingSource(highlights *WorkflowHighlights) []WorkflowHighlight {
+	if highlights == nil {
+		return nil
+	}
+	if len(highlights.sourceHighlights) > 0 {
+		return highlights.sourceHighlights
+	}
+	return highlights.Highlights
 }
 
 func renderSurfaceContextSection(builder *strings.Builder, title string, items []AgentActionBOMItem) {
