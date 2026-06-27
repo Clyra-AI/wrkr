@@ -434,3 +434,41 @@ func TestWorkflowHighlightGroupingSeparatesStandingCredentialMetadata(t *testing
 		t.Fatalf("expected standing and non-standing authority highlights to stay separate, got %+v", groups)
 	}
 }
+
+func TestWorkflowHighlightGroupingSeparatesStandingCredentialWithoutAccessType(t *testing.T) {
+	t.Parallel()
+
+	base := AgentActionBOMItem{
+		PathID:                   "apc-non-standing",
+		Repo:                     "acme/release",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassReleaseAdjacent,
+		DelegationReadinessState: risk.DelegationReadinessBlocked,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			CredentialKind:         agginventory.CredentialKindGitHubWorkflowToken,
+		},
+	}
+	standing := base
+	standing.PathID = "apc-standing"
+	standing.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		CredentialKind:         agginventory.CredentialKindGitHubWorkflowToken,
+		StandingAccess:         true,
+	}
+
+	standingAuthority := workflowAuthoritySummary(standing)
+	if !strings.Contains(strings.ToLower(standingAuthority), "standing credential") {
+		t.Fatalf("expected standing metadata without access type in authority summary, got %q", standingAuthority)
+	}
+	groups := compactWorkflowHighlightGroups([]WorkflowHighlight{
+		workflowHighlightFromItem(base),
+		workflowHighlightFromItem(standing),
+	})
+	if len(groups) != 2 {
+		t.Fatalf("expected standing and non-standing credential highlights to stay separate, got %+v", groups)
+	}
+}
