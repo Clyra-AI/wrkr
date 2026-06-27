@@ -784,10 +784,29 @@ func shouldRenderEvidenceOnboarding(summary Summary) bool {
 		return false
 	}
 	bom := summary.AgentActionBOM
-	total := bom.Summary.TotalItems
-	if total == 0 {
-		total = len(bom.Items)
+	if len(bom.Items) > 0 {
+		total := 0
+		approvalUnknown := 0
+		proofUnknown := 0
+		for _, item := range bom.Items {
+			if !bomItemPromotableActionPath(item) {
+				continue
+			}
+			total++
+			if strings.TrimSpace(item.ApprovalEvidenceState) == risk.EvidenceStateUnknown || item.ApprovalGap {
+				approvalUnknown++
+			}
+			if strings.TrimSpace(item.ProofEvidenceState) == risk.EvidenceStateUnknown {
+				proofUnknown++
+			}
+		}
+		if total == 0 {
+			return false
+		}
+		threshold := (total + 1) / 2
+		return approvalUnknown >= threshold && proofUnknown >= threshold
 	}
+	total := bom.Summary.TotalItems
 	if total == 0 {
 		return false
 	}
@@ -809,7 +828,7 @@ func shouldRenderEvidenceOnboarding(summary Summary) bool {
 
 func summarizedLeadUnresolvedEvidence(values []string) string {
 	if len(values) == 0 {
-		return "see evidence onboarding note"
+		return "none"
 	}
 	other := make([]string, 0, len(values))
 	hasApprovalProof := false
@@ -828,7 +847,7 @@ func summarizedLeadUnresolvedEvidence(values []string) string {
 		other = append([]string{"see evidence onboarding note"}, other...)
 	}
 	if len(other) == 0 {
-		return "see evidence onboarding note"
+		return "none"
 	}
 	return strings.Join(uniquePreserveOrderStrings(other), ", ")
 }
