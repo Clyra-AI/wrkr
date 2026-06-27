@@ -354,10 +354,10 @@ func workflowRecommendation(item AgentActionBOMItem) string {
 		return "resolve contradictory control evidence for " + subject + " before promoting it"
 	case bomItemStaticContextSurface(item):
 		return "correlate this caller-facing surface to the workflow, runtime caller, or tool binding that actually uses it before promoting it"
-	case bomItemStandardCIControlContext(item):
-		return "import PR review, branch protection, deployment environment, or owner-map evidence for this standard CI workflow, and include required-check evidence when it gates the path, before treating it as an approval or proof gap"
 	case bomItemBlockedStandingCredential(item):
 		return blockedStandingCredentialNextAction(item)
+	case bomItemStandardCIControlContext(item):
+		return "import PR review, branch protection, deployment environment, or owner-map evidence for this standard CI workflow, and include required-check evidence when it gates the path, before treating it as an approval or proof gap"
 	case bomItemNeedsAuthorityCorrelation(item):
 		return "classify or correlate the exact credential authority and scope for " + subject + scope
 	case strings.TrimSpace(item.OwnerEvidenceState) == risk.EvidenceStateUnknown:
@@ -509,10 +509,10 @@ func workflowExplanation(item AgentActionBOMItem) string {
 		return "Wrkr found conflicting control evidence, so this workflow should stay in review until the contradiction is resolved."
 	case bomItemStaticContextSurface(item):
 		return "This is static target context, so Wrkr keeps it in caller-correlation guidance until a real workflow, runtime caller, or tool binding is proven."
-	case bomItemStandardCIControlContext(item):
-		return "This looks like standard CI authority. Wrkr found the workflow and credential reference, but it has not imported the PR review, branch protection, deployment environment, owner-map, and any gating required-check evidence that may already cover it."
 	case bomItemBlockedStandingCredential(item):
 		return "This path is already blocked with standing credential metadata, so replacement or JIT reduction should lead before correlation work."
+	case bomItemStandardCIControlContext(item):
+		return "This looks like standard CI authority. Wrkr found the workflow and credential reference, but it has not imported the PR review, branch protection, deployment environment, owner-map, and any gating required-check evidence that may already cover it."
 	case bomItemNeedsAuthorityCorrelation(item):
 		return "Wrkr can see credential-bearing workflow reach, but the exact authority and scope are still incomplete, so the next step is to correlate or classify that authority rather than jump straight to standing-credential remediation."
 	case strings.TrimSpace(item.OwnerEvidenceState) == risk.EvidenceStateUnknown:

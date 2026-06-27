@@ -795,11 +795,15 @@ func shouldRenderEvidenceOnboarding(summary Summary) bool {
 		return false
 	}
 	bom := summary.AgentActionBOM
-	if len(bom.Items) > 0 {
+	items := bom.Items
+	if len(bom.focusSourceItems) > 0 {
+		items = bom.focusSourceItems
+	}
+	if len(items) > 0 {
 		total := 0
 		approvalUnknown := 0
 		proofUnknown := 0
-		for _, item := range bom.Items {
+		for _, item := range items {
 			if !bomItemPromotableActionPath(item) {
 				continue
 			}

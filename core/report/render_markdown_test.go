@@ -313,6 +313,43 @@ func TestEvidenceOnboardingUsesGovernableItemCounts(t *testing.T) {
 	}
 }
 
+func TestEvidenceOnboardingUsesUncappedFocusSourceItems(t *testing.T) {
+	t.Parallel()
+
+	missing := AgentActionBOMItem{
+		ActionPathEligible:       true,
+		ActionBindingState:       risk.ActionBindingStateBound,
+		ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassProductionImpacting,
+		ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+		ProofEvidenceState:       risk.EvidenceStateUnknown,
+		DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+	}
+	verified := missing
+	verified.ApprovalEvidenceState = risk.EvidenceStateVerified
+	verified.ProofEvidenceState = risk.EvidenceStateVerified
+
+	summary := Summary{
+		AgentActionBOM: &AgentActionBOM{
+			Items: []AgentActionBOMItem{
+				missing,
+				missing,
+			},
+			focusSourceItems: []AgentActionBOMItem{
+				missing,
+				missing,
+				verified,
+				verified,
+				verified,
+			},
+		},
+	}
+	if shouldRenderEvidenceOnboarding(summary) {
+		t.Fatalf("expected uncapped source rows to keep capped missing rows below most-paths threshold")
+	}
+}
+
 func TestSummarizedLeadUnresolvedEvidenceKeepsEmptyCardsResolved(t *testing.T) {
 	t.Parallel()
 
