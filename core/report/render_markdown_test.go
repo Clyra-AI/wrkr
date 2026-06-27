@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -429,6 +430,84 @@ func TestWorkflowHighlightAuthorityFamilyKeepsNoCredentialSeparate(t *testing.T)
 	}
 	if got := workflowHighlightAuthorityFamily("credential authority linked"); got != "credential" {
 		t.Fatalf("expected generic credential authority family, got %q", got)
+	}
+}
+
+func TestBuyerDiagnosticCardsUseUncappedBOMSourceItems(t *testing.T) {
+	t.Parallel()
+
+	base := AgentActionBOMItem{
+		Repo:                     "acme/release",
+		Location:                 ".github/workflows/release.yml",
+		ActionPathEligible:       true,
+		ActionBindingState:       risk.ActionBindingStateBound,
+		ConfidenceLane:           risk.ConfidenceLaneConfirmedActionPath,
+		ActionPathType:           risk.ActionPathTypeCICDWorkflow,
+		TargetClass:              risk.TargetClassProductionImpacting,
+		DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+		CredentialAccess:         true,
+		ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+		ProofEvidenceState:       risk.EvidenceStateUnknown,
+		RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			CredentialPresent:      true,
+			CredentialUsableByPath: true,
+			CredentialKind:         agginventory.CredentialKindGitHubWorkflowToken,
+		},
+	}
+	items := make([]AgentActionBOMItem, 0, workflowHighlightLimit+1)
+	for idx := 0; idx < workflowHighlightLimit; idx++ {
+		item := base
+		item.PathID = fmt.Sprintf("apc-duplicate-%d", idx+1)
+		items = append(items, item)
+	}
+	distinct := base
+	distinct.PathID = "apc-distinct"
+	distinct.Location = ".github/workflows/deploy-prod.yml"
+	distinct.DelegationReadinessState = risk.DelegationReadinessBlocked
+	distinct.ControlState = "block_recommended"
+	distinct.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent:      true,
+		CredentialUsableByPath: true,
+		CredentialKind:         agginventory.CredentialKindGitHubPAT,
+		StandingAccess:         true,
+	}
+	items = append(items, distinct)
+
+	bom := &AgentActionBOM{
+		Items:            append([]AgentActionBOMItem(nil), items[:workflowHighlightLimit]...),
+		focusSourceItems: items,
+	}
+	bom.Summary.PrimaryView = &AgentActionBOMPrimaryView{
+		PathID: items[0].PathID,
+		PathMap: AgentActionBOMPrimaryPathMap{
+			Tool:     "workflow",
+			RepoPR:   items[0].Repo,
+			Workflow: items[0].Location,
+			Target:   items[0].TargetClass,
+		},
+		DelegationReadinessState: items[0].DelegationReadinessState,
+		ApprovalEvidenceState:    risk.EvidenceStateUnknown,
+		ProofEvidenceState:       risk.EvidenceStateUnknown,
+		RuntimeEvidenceState:     risk.EvidenceStateUnknown,
+		UnresolvedEvidence:       []string{"approval", "proof"},
+		RecommendedNextActions:   []string{"attach scoped approval evidence for this CI/CD workflow path"},
+	}
+
+	summary := Summary{
+		Template:           string(TemplateAgentActionBOM),
+		ShareProfile:       string(ShareProfileInternal),
+		AgentActionBOM:     bom,
+		WorkflowHighlights: BuildWorkflowHighlights(Summary{AgentActionBOM: bom}),
+	}
+	markdown := RenderMarkdown(summary)
+	leadEnd := strings.Index(markdown, "## Primary Workflow BOM")
+	if leadEnd < 0 {
+		t.Fatalf("expected primary workflow section, got:\n%s", markdown)
+	}
+	lead := markdown[:leadEnd]
+	if !strings.Contains(lead, "Inspect next") || !strings.Contains(lead, "deploy-prod.yml") {
+		t.Fatalf("expected inspect card for distinct path beyond public item cap, got:\n%s", lead)
 	}
 }
 

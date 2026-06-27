@@ -632,10 +632,7 @@ func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
 	if summary.AgentActionBOM == nil || summary.AgentActionBOM.Summary.PrimaryView == nil {
 		return nil
 	}
-	itemsByPath := map[string]AgentActionBOMItem{}
-	for _, item := range summary.AgentActionBOM.Items {
-		itemsByPath[strings.TrimSpace(item.PathID)] = item
-	}
+	itemsByPath := agentActionBOMItemsByPath(summary.AgentActionBOM)
 
 	cards := make([]buyerDiagnosticCard, 0, defaultBOMInspectCards)
 	primaryView := summary.AgentActionBOM.Summary.PrimaryView
@@ -696,7 +693,7 @@ func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
 	if len(cards) >= defaultBOMInspectCards {
 		return cards
 	}
-	for _, item := range eligibleWorkflowHighlightItems(summary.AgentActionBOM) {
+	for _, item := range eligibleWorkflowHighlightSourceItems(summary.AgentActionBOM) {
 		pathID := strings.TrimSpace(item.PathID)
 		if pathID == "" {
 			continue
@@ -716,6 +713,24 @@ func buildBuyerDiagnosticCards(summary Summary) []buyerDiagnosticCard {
 		}
 	}
 	return cards
+}
+
+func agentActionBOMItemsByPath(bom *AgentActionBOM) map[string]AgentActionBOMItem {
+	itemsByPath := map[string]AgentActionBOMItem{}
+	if bom == nil {
+		return itemsByPath
+	}
+	for _, item := range bom.Items {
+		if pathID := strings.TrimSpace(item.PathID); pathID != "" {
+			itemsByPath[pathID] = item
+		}
+	}
+	for _, item := range bom.focusSourceItems {
+		if pathID := strings.TrimSpace(item.PathID); pathID != "" {
+			itemsByPath[pathID] = item
+		}
+	}
+	return itemsByPath
 }
 
 func diagnosticCardFromPrimaryView(view *AgentActionBOMPrimaryView, summarizeEvidenceGaps bool) buyerDiagnosticCard {
