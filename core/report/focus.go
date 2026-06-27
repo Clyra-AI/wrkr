@@ -68,7 +68,7 @@ func ApplyFocusPreset(summary *Summary, raw string) error {
 }
 
 func BuildWorkflowHighlights(summary Summary) *WorkflowHighlights {
-	items := eligibleWorkflowHighlightItems(summary.AgentActionBOM)
+	items := eligibleWorkflowHighlightSourceItems(summary.AgentActionBOM)
 	if len(items) == 0 {
 		return nil
 	}
@@ -94,7 +94,7 @@ func BuildWorkflowHighlights(summary Summary) *WorkflowHighlights {
 }
 
 func buildFocusView(summary Summary, preset FocusPreset) *FocusView {
-	items := eligibleWorkflowHighlightItems(summary.AgentActionBOM)
+	items := eligibleWorkflowHighlightSourceItems(summary.AgentActionBOM)
 	matches := filterFocusPresetItems(items, preset, summary)
 	pathIDs := orderedFocusPathIDs(matches)
 	workflowChainRefs := orderedFocusWorkflowChainRefs(matches)
@@ -145,6 +145,17 @@ func eligibleWorkflowHighlightItems(bom *AgentActionBOM) []AgentActionBOMItem {
 		return filtered
 	}
 	return nil
+}
+
+func eligibleWorkflowHighlightSourceItems(bom *AgentActionBOM) []AgentActionBOMItem {
+	if bom == nil {
+		return nil
+	}
+	if len(bom.focusSourceItems) == 0 {
+		return eligibleWorkflowHighlightItems(bom)
+	}
+	sourceBOM := &AgentActionBOM{Items: bom.focusSourceItems}
+	return eligibleWorkflowHighlightItems(sourceBOM)
 }
 
 func filterFocusPresetItems(items []AgentActionBOMItem, preset FocusPreset, summary Summary) []AgentActionBOMItem {
