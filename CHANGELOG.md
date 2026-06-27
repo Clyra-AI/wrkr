@@ -12,9 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- [semver:patch] Agent Action BOM Markdown now groups repeated top action paths in the buyer lead while preserving full detail in appendices and evidence JSON.
-- [semver:patch] First-run Agent Action BOM reports now summarize approval/proof evidence gaps as onboarding context instead of repeating raw unknown evidence fields throughout the lead.
-- [semver:patch] Reports now explain attack-path non-generation when high-impact action paths exist but attack-path graph prerequisites were not available.
+- (none yet)
 
 ### Deprecated
 
@@ -26,11 +24,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- [semver:patch] Report QA now blocks buyer-hostile primary Markdown patterns such as weak blocked-credential remediation, internal token leakage, repeated raw evidence gaps, and oversized lead lines.
+- (none yet)
 
 ### Security
 
-- [semver:patch] Blocked standing-credential report guidance now leads with reducing, replacing, revoking, rotating, or moving authority to JIT/brokered access before any accept-risk option.
+- (none yet)
 
 ## Changelog maintenance process
 
@@ -40,6 +38,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 4. Keep entries concise and operator-facing: what changed, why it matters, and any migration/action notes.
 5. Link release notes and tag artifacts to the finalized changelog section.
 6. The Sprint 0 v1.7.3 clarification workflow item must record measured artifact-size deltas, redaction test names, and fixture coverage before release notes claim size, privacy, redaction, customer-safe, or readability hardening.
+
+## [v1.11.1] - 2026-06-27
+<!-- release-semver: patch -->
+
+### Changed
+
+- Agent Action BOM Markdown now groups repeated top action paths in the buyer lead while preserving full detail in appendices and evidence JSON.
+- First-run Agent Action BOM reports now summarize approval/proof evidence gaps as onboarding context instead of repeating raw unknown evidence fields throughout the lead.
+- Reports now explain attack-path non-generation when high-impact action paths exist but attack-path graph prerequisites were not available.
+
+### Fixed
+
+- Report QA now blocks buyer-hostile primary Markdown patterns such as weak blocked-credential remediation, internal token leakage, repeated raw evidence gaps, and oversized lead lines.
+
+### Security
+
+- Blocked standing-credential report guidance now leads with reducing, replacing, revoking, rotating, or moving authority to JIT/brokered access before any accept-risk option.
 
 ## [v1.11.0] - 2026-06-26
 <!-- release-semver: minor -->
