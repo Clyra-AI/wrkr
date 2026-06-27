@@ -253,9 +253,7 @@ func workflowAuthoritySummary(item AgentActionBOMItem) string {
 			if len(parts) > 2 {
 				parts = parts[:2]
 			}
-			if bomItemStandingCredentialMetadata(item) {
-				parts = append(parts, "standing credential")
-			}
+			parts = appendStandingCredentialMetadata(parts, item)
 			return strings.Join(parts, " | ")
 		}
 	}
@@ -271,6 +269,7 @@ func workflowAuthoritySummary(item AgentActionBOMItem) string {
 			parts = append(parts, source)
 		}
 		if len(parts) > 0 {
+			parts = appendStandingCredentialMetadata(parts, item)
 			return strings.Join(parts, " | ")
 		}
 	}
@@ -286,8 +285,12 @@ func workflowAuthoritySummary(item AgentActionBOMItem) string {
 			parts = append(parts, "standing")
 		}
 		if len(parts) > 0 {
+			parts = appendStandingCredentialMetadata(parts, item)
 			return strings.Join(parts, " | ")
 		}
+	}
+	if bomItemStandingCredentialMetadata(item) {
+		return "standing credential authority"
 	}
 	if item.StandingPrivilege {
 		return "standing credential authority"
@@ -296,6 +299,18 @@ func workflowAuthoritySummary(item AgentActionBOMItem) string {
 		return "credential access declared"
 	}
 	return "no credential authority linked"
+}
+
+func appendStandingCredentialMetadata(parts []string, item AgentActionBOMItem) []string {
+	if !bomItemStandingCredentialMetadata(item) {
+		return parts
+	}
+	for _, part := range parts {
+		if strings.Contains(strings.ToLower(strings.TrimSpace(part)), "standing") {
+			return parts
+		}
+	}
+	return append(parts, "standing credential")
 }
 
 func workflowBlastRadiusSummary(item AgentActionBOMItem) string {

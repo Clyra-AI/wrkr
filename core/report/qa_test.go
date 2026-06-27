@@ -47,6 +47,19 @@ func TestBuyerArtifactQAScopesBlockedCredentialOrderingPerLeadCard(t *testing.T)
 	}
 }
 
+func TestBuyerArtifactQALeadCardParsingStopsAtNextSection(t *testing.T) {
+	t.Parallel()
+
+	err := ValidateBuyerArtifactTexts(BuyerArtifactQAInput{
+		Texts: map[string]string{
+			"markdown": "# Wrkr Deterministic Report\n\n## What To Look At First\n\n1. Inspect: workflow in repo via loc-a.\n  Why: approval-required path.\n  Evidence: control visible; unresolved: proof.\n  Action: Accept risk with expiry.\n\n## Top Action Paths\n\n- blocked standing credential path should not be folded into the previous lead card.\n\n## Report Context Appendix\n\n- detail=ok\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected later sections not to be folded into the last lead card, got %v", err)
+	}
+}
+
 func TestBuyerArtifactQABlocksPrimaryInternalTokensAndRepeatedEvidenceGaps(t *testing.T) {
 	t.Parallel()
 

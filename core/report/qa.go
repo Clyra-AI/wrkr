@@ -138,6 +138,12 @@ func buyerPrimaryLeadCards(primary string) []string {
 	current := make([]string, 0)
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
+		if buyerPrimarySectionBoundary(trimmed) {
+			if len(current) > 0 {
+				cards = append(cards, strings.Join(current, "\n"))
+			}
+			break
+		}
 		if buyerPrimaryLeadCardStart(trimmed) {
 			if len(current) > 0 {
 				cards = append(cards, strings.Join(current, "\n"))
@@ -155,6 +161,13 @@ func buyerPrimaryLeadCards(primary string) []string {
 		return []string{primary}
 	}
 	return cards
+}
+
+func buyerPrimarySectionBoundary(trimmed string) bool {
+	if !strings.HasPrefix(trimmed, "#") {
+		return false
+	}
+	return !strings.EqualFold(trimmed, "## What To Look At First")
 }
 
 func buyerPrimaryLeadCardStart(trimmed string) bool {
