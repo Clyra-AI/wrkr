@@ -55,6 +55,16 @@ def parse_args() -> argparse.Namespace:
         "--audit-report",
         help="optional pre-recorded npm audit JSON file; when omitted the script runs npm audit",
     )
+    parser.add_argument(
+        "--today",
+        help="override today's date as YYYY-MM-DD for deterministic validation tests",
+    )
+    parser.add_argument(
+        "--warn-expiring-within-days",
+        type=int,
+        default=0,
+        help="emit non-failing warnings for matching exceptions expiring within this many days",
+    )
     parser.add_argument("--json", action="store_true", help="emit JSON result")
     return parser.parse_args()
 
@@ -188,7 +198,22 @@ def collect_actionable_advisories(report: dict[str, Any], lockfile: dict[str, An
     )
 
 
-def validate_exception_shape(raw: dict[str, Any], failures: list[str]) -> None:
+def parse_validation_date(raw_today: str | None) -> date:
+    if not raw_today:
+        return date.today()
+    try:
+        return date.fromisoformat(raw_today)
+    except ValueError as exc:
+        raise ValueError(f"invalid --today {raw_today!r}; expected YYYY-MM-DD") from exc
+
+
+def validate_exception_shape(
+    raw: dict[str, Any],
+    failures: list[str],
+    warnings: list[str],
+    today: date,
+    warn_expiring_within_days: int,
+) -> None:
     for field in REQUIRED_EXCEPTION_FIELDS:
         value = raw.get(field)
         if value is None or not str(value).strip():
@@ -207,13 +232,26 @@ def validate_exception_shape(raw: dict[str, Any], failures: list[str]) -> None:
                 f"exception {raw.get('advisory', '<unknown>')!r} has invalid expires_on {expires_on!r}"
             )
             return
-        if expiry < date.today():
+        if expiry < today:
             failures.append(
                 f"exception {raw.get('advisory', '<unknown>')!r} expired on {expires_on}"
             )
+            return
+        days_remaining = (expiry - today).days
+        if warn_expiring_within_days > 0 and days_remaining <= warn_expiring_within_days:
+            warnings.append(
+                f"exception {raw.get('advisory', '<unknown>')!r} expires on {expires_on} "
+                f"({days_remaining} days remaining)"
+            )
 
 
-def load_exceptions(path: Path, failures: list[str]) -> list[dict[str, str]]:
+def load_exceptions(
+    path: Path,
+    failures: list[str],
+    warnings: list[str],
+    today: date,
+    warn_expiring_within_days: int,
+) -> list[dict[str, str]]:
     payload = load_json(path)
     if payload.get("schema_id") != EXCEPTION_SCHEMA_ID:
         failures.append(f"{path}: unexpected schema_id {payload.get('schema_id')!r}")
@@ -230,7 +268,7 @@ def load_exceptions(path: Path, failures: list[str]) -> list[dict[str, str]]:
         if not isinstance(raw, dict):
             failures.append(f"{path}: exception entries must be objects")
             continue
-        validate_exception_shape(raw, failures)
+        validate_exception_shape(raw, failures, warnings, today, warn_expiring_within_days)
         normalized.append({key: str(raw.get(key, "")).strip() for key in REQUIRED_EXCEPTION_FIELDS})
     return normalized
 
@@ -252,8 +290,11 @@ def validate_audit(
     exceptions_path: Path,
     lockfile_path: Path,
     audit_report_path: Path | None,
+    today: date,
+    warn_expiring_within_days: int,
 ) -> dict[str, Any]:
     failures: list[str] = []
+    warnings: list[str] = []
     if not package_dir.exists():
         failures.append(f"package directory does not exist: {package_dir}")
     if not exceptions_path.exists():
@@ -265,11 +306,12 @@ def validate_audit(
     if failures:
         return {
             "status": "fail",
+            "warnings": warnings,
             "failures": failures,
         }
 
     lockfile = load_json(lockfile_path)
-    exceptions = load_exceptions(exceptions_path, failures)
+    exceptions = load_exceptions(exceptions_path, failures, warnings, today, warn_expiring_within_days)
     if audit_report_path is not None:
         audit_report = load_json(audit_report_path)
     else:
@@ -279,6 +321,7 @@ def validate_audit(
             failures.append(str(exc))
             return {
                 "status": "fail",
+                "warnings": warnings,
                 "failures": failures,
             }
 
@@ -344,6 +387,7 @@ def validate_audit(
         "unmatched_advisories": unmatched_advisories,
         "stale_exceptions": stale_exceptions,
         "metadata_vulnerabilities": vulnerability_counts,
+        "warnings": warnings,
         "failures": failures,
     }
 
@@ -357,16 +401,22 @@ def main() -> int:
     audit_report_path = resolve_path(repo_root, args.audit_report) if args.audit_report else None
 
     try:
+        today = parse_validation_date(args.today)
+        if args.warn_expiring_within_days < 0:
+            raise ValueError("--warn-expiring-within-days must be zero or greater")
         result = validate_audit(
             repo_root=repo_root,
             package_dir=package_dir,
             exceptions_path=exceptions_path,
             lockfile_path=lockfile_path,
             audit_report_path=audit_report_path,
+            today=today,
+            warn_expiring_within_days=args.warn_expiring_within_days,
         )
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         result = {
             "status": "fail",
+            "warnings": [],
             "failures": [str(exc)],
         }
 
@@ -375,6 +425,8 @@ def main() -> int:
     else:
         if result["status"] == "pass":
             print("docs-site audit validation passed")
+            for warning in result.get("warnings", []):
+                print(f"warning: {warning}", file=sys.stderr)
         else:
             print("docs-site audit validation failed", file=sys.stderr)
             for failure in result.get("failures", []):
