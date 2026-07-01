@@ -28,6 +28,7 @@ description: "Release hardening checks, reproducibility expectations, and integr
 ```bash
 make lint-fast
 python3 scripts/validate_docs_site_audit.py --repo-root . --json
+python3 scripts/validate_docs_site_audit.py --repo-root . --json --warn-expiring-within-days 14
 python3 scripts/resolve_release_version.py --json
 python3 scripts/finalize_release_changelog.py --json
 python3 scripts/validate_release_changelog.py --release-version vX.Y.Z --json
@@ -49,6 +50,8 @@ make test-release-smoke
 - removable as soon as a patched stable upstream release clears the advisory
 
 If an advisory disappears, the node path changes, the direct dependency version drifts, or the exception expires, the gate fails closed instead of silently approving the docs site.
+
+For deterministic tests, the validator accepts `--today YYYY-MM-DD` so fixture expiry checks do not depend on the wall clock. The weekly `docs-site-audit-watch` workflow runs the same validator with `--warn-expiring-within-days 14`; it opens or updates one GitHub issue when an exception is approaching expiry and closes that issue once the exception register is current again. Warning mode does not weaken the release gate: expired, stale, mismatched, high, or critical findings still fail.
 
 ## Factory profile trust posture
 

@@ -1,19 +1,5 @@
 {
   "schema_id": "wrkr.docs_site.audit_exceptions",
   "schema_version": "1.0.0",
-  "exceptions": [
-    {
-      "package": "js-yaml",
-      "advisory": "GHSA-h67p-54hq-rp68",
-      "severity": "moderate",
-      "affected_node": "node_modules/gray-matter/node_modules/js-yaml",
-      "direct_dependency": "gray-matter",
-      "current_version": "4.0.3",
-      "owner": "docs-platform",
-      "scope": "docs-site production dependencies",
-      "rationale": "The latest stable gray-matter release still vendors js-yaml 3.14.2, so the docs-site audit gate needs a temporary pinned exception until upstream ships a fixed production dependency chain.",
-      "expires_on": "2026-06-30",
-      "upgrade_trigger": "Remove this exception as soon as gray-matter ships a stable release that no longer vendors vulnerable js-yaml and npm audit --omit=dev stops reporting GHSA-h67p-54hq-rp68 for docs-site production dependencies."
-    }
-  ]
+  "exceptions": []
 }

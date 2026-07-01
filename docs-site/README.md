@@ -63,6 +63,8 @@ make docs-site-audit-prod
 
 `make docs-site-audit-prod` validates live `npm audit --omit=dev` output against [`docs-site/security-advisory-exceptions.json`](security-advisory-exceptions.json). Exceptions are owner-scoped, expiring, and pinned to the exact advisory, affected node path, direct dependency, and locked version so the gate fails closed when upstream fixes land or the lockfile drifts.
 
+The audit validator also supports deterministic date injection for tests with `--today YYYY-MM-DD` and non-failing lead-time warnings with `--warn-expiring-within-days N`. The weekly `docs-site-audit-watch` workflow uses the warning mode to open or update a GitHub issue before an exception expires.
+
 The `/scan` route is a thin bootstrap shell only. It prepares an equivalent handoff, points back to existing Wrkr org scan contracts, and projects returned machine-readable summaries without introducing dashboard persistence.
 
 ## SEO and AEO Assets

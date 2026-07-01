@@ -5,9 +5,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
+
+const docsSiteAuditPolicyFixtureToday = "2026-06-15"
 
 func TestDocsSiteAuditPolicyAllowsCurrentModerateException(t *testing.T) {
 	t.Parallel()
@@ -23,6 +26,25 @@ func TestDocsSiteAuditPolicyAllowsCurrentModerateException(t *testing.T) {
 	}
 	if len(result.MatchedExceptions) != 1 {
 		t.Fatalf("expected 1 matched exception, got %d", len(result.MatchedExceptions))
+	}
+}
+
+func TestDocsSiteAuditPolicyWarnsBeforeExceptionExpiry(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := writeDocsSiteAuditFixtureRepo(t, fixtureRepoOptions{})
+	result := runDocsSiteAuditPolicyWithOptions(t, repoRoot, docsSiteAuditRunOptions{
+		WarnExpiringWithinDays: 20,
+	})
+
+	if result.Status != "pass" {
+		t.Fatalf("expected pass, failures=%v", result.Failures)
+	}
+	if len(result.Warnings) != 1 {
+		t.Fatalf("expected 1 warning, got %d: %v", len(result.Warnings), result.Warnings)
+	}
+	if !strings.Contains(result.Warnings[0], "expires on 2026-06-30") {
+		t.Fatalf("expected expiry warning, got %q", result.Warnings[0])
 	}
 }
 
@@ -112,9 +134,15 @@ func TestDocsSiteAuditPolicyAllowsEmptyExceptionsWhenAuditIsClean(t *testing.T) 
 
 type docsSiteAuditPolicyResult struct {
 	Status               string              `json:"status"`
+	Warnings             []string            `json:"warnings"`
 	Failures             []string            `json:"failures"`
 	ActionableAdvisories []map[string]string `json:"actionable_advisories"`
 	MatchedExceptions    []map[string]string `json:"matched_exceptions"`
+}
+
+type docsSiteAuditRunOptions struct {
+	Today                  string
+	WarnExpiringWithinDays int
 }
 
 type fixtureRepoOptions struct {
@@ -131,7 +159,17 @@ type fixtureRepoOptions struct {
 func runDocsSiteAuditPolicy(t *testing.T, repoRoot string) docsSiteAuditPolicyResult {
 	t.Helper()
 
-	stdout, stderr, err := runDocsSiteAuditPolicyRaw(t, repoRoot)
+	return runDocsSiteAuditPolicyWithOptions(t, repoRoot, docsSiteAuditRunOptions{})
+}
+
+func runDocsSiteAuditPolicyWithOptions(
+	t *testing.T,
+	repoRoot string,
+	opts docsSiteAuditRunOptions,
+) docsSiteAuditPolicyResult {
+	t.Helper()
+
+	stdout, stderr, err := runDocsSiteAuditPolicyRawWithOptions(t, repoRoot, opts)
 	if err != nil {
 		t.Fatalf("run docs-site audit policy: %v\nstderr=%s", err, stderr)
 	}
@@ -146,6 +184,16 @@ func runDocsSiteAuditPolicy(t *testing.T, repoRoot string) docsSiteAuditPolicyRe
 func runDocsSiteAuditPolicyRaw(t *testing.T, repoRoot string) (string, string, error) {
 	t.Helper()
 
+	return runDocsSiteAuditPolicyRawWithOptions(t, repoRoot, docsSiteAuditRunOptions{})
+}
+
+func runDocsSiteAuditPolicyRawWithOptions(
+	t *testing.T,
+	repoRoot string,
+	opts docsSiteAuditRunOptions,
+) (string, string, error) {
+	t.Helper()
+
 	pythonPath, err := exec.LookPath("python3")
 	if err != nil {
 		t.Skip("python3 not available in test environment")
@@ -155,15 +203,23 @@ func runDocsSiteAuditPolicyRaw(t *testing.T, repoRoot string) (string, string, e
 	auditPath := filepath.Join(repoRoot, "docs-site", "audit.json")
 	exceptionsPath := filepath.Join(repoRoot, "docs-site", "security-advisory-exceptions.json")
 	lockfilePath := filepath.Join(repoRoot, "docs-site", "package-lock.json")
-	cmd := exec.Command(
-		pythonPath,
+	today := opts.Today
+	if today == "" {
+		today = docsSiteAuditPolicyFixtureToday
+	}
+	args := []string{
 		scriptPath,
 		"--repo-root", repoRoot,
 		"--audit-report", auditPath,
 		"--exceptions", exceptionsPath,
 		"--lockfile", lockfilePath,
+		"--today", today,
 		"--json",
-	)
+	}
+	if opts.WarnExpiringWithinDays > 0 {
+		args = append(args, "--warn-expiring-within-days", strconv.Itoa(opts.WarnExpiringWithinDays))
+	}
+	cmd := exec.Command(pythonPath, args...)
 	output, err := cmd.CombinedOutput()
 	text := strings.TrimSpace(string(output))
 	if err != nil {

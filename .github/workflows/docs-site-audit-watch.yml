@@ -1,0 +1,82 @@
+name: docs-site-audit-watch
+
+on:
+  schedule:
+    - cron: '42 10 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: docs-site-audit-watch
+  cancel-in-progress: true
+
+jobs:
+  exception-watch:
+    name: exception-watch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v6.3.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: '3.13'
+
+      - name: Run docs-site audit exception watch
+        id: audit
+        shell: bash
+        env:
+          NPM_CONFIG_CACHE: ${{ github.workspace }}/.tmp/npm-cache
+        run: |
+          mkdir -p .tmp/docs-site-audit "$NPM_CONFIG_CACHE"
+          set +e
+          python3 scripts/validate_docs_site_audit.py \
+            --repo-root . \
+            --json \
+            --warn-expiring-within-days 14 > .tmp/docs-site-audit/result.json
+          audit_exit=$?
+          set -e
+          python3 scripts/prepare_docs_site_audit_issue.py \
+            --result .tmp/docs-site-audit/result.json \
+            --output-body .tmp/docs-site-audit/issue.md \
+            --github-output "$GITHUB_OUTPUT"
+          echo "audit_exit=$audit_exit" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update docs-site audit issue
+        if: steps.audit.outputs.has_notice == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_TITLE: ${{ steps.audit.outputs.issue_title }}
+        run: |
+          issue_number="$(gh issue list --state open --search "$ISSUE_TITLE in:title" --json number --jq '.[0].number // ""')"
+          if [[ -n "$issue_number" ]]; then
+            gh issue edit "$issue_number" --title "$ISSUE_TITLE" --body-file .tmp/docs-site-audit/issue.md
+          else
+            gh issue create --title "$ISSUE_TITLE" --body-file .tmp/docs-site-audit/issue.md
+          fi
+
+      - name: Close resolved docs-site audit issue
+        if: steps.audit.outputs.has_notice == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_TITLE: ${{ steps.audit.outputs.issue_title }}
+        run: |
+          issue_number="$(gh issue list --state open --search "$ISSUE_TITLE in:title" --json number --jq '.[0].number // ""')"
+          if [[ -n "$issue_number" ]]; then
+            gh issue close "$issue_number" --comment "Docs-site audit exceptions are current; closing this watch issue."
+          fi
+
+      - name: Fail on docs-site audit violation
+        if: steps.audit.outputs.audit_status == 'fail'
+        run: exit 1
