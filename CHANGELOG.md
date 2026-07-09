@@ -28,7 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Security
 
-- (none yet)
+- Raised the pinned Go toolchain to `1.26.5` to clear standard-library advisory `GO-2026-5856` in binary `govulncheck` CI lanes.
 
 ## Changelog maintenance process
 
