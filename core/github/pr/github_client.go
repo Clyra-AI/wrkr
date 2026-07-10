@@ -13,6 +13,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"github.com/Clyra-AI/wrkr/internal/githubendpoint"
 )
 
 const (
@@ -24,6 +26,12 @@ type GitHubClient struct {
 	baseURL string
 	token   string
 	http    *http.Client
+	options githubendpoint.Options
+}
+
+// GitHubClientOptions controls explicit development-only client behavior.
+type GitHubClientOptions struct {
+	AllowInsecureLoopback bool
 }
 
 type httpStatusError struct {
@@ -38,18 +46,35 @@ func (e *httpStatusError) Error() string {
 }
 
 func NewGitHubClient(baseURL, token string, client *http.Client) *GitHubClient {
+	return NewGitHubClientWithOptions(baseURL, token, client, GitHubClientOptions{})
+}
+
+// NewGitHubClientWithOptions permits loopback HTTP only when explicitly
+// requested for local development or tests. Production callers must use NewGitHubClient.
+func NewGitHubClientWithOptions(baseURL, token string, client *http.Client, options GitHubClientOptions) *GitHubClient {
 	trimmedBase := strings.TrimSpace(baseURL)
 	if trimmedBase == "" {
 		trimmedBase = defaultGitHubAPI
 	}
-	if client == nil {
-		client = http.DefaultClient
-	}
+	endpointOptions := githubendpoint.Options{AllowInsecureLoopback: options.AllowInsecureLoopback}
+	client = newSafeHTTPClient(trimmedBase, endpointOptions, client)
 	return &GitHubClient{
 		baseURL: strings.TrimRight(trimmedBase, "/"),
 		token:   strings.TrimSpace(token),
 		http:    client,
+		options: endpointOptions,
 	}
+}
+
+func newSafeHTTPClient(baseURL string, options githubendpoint.Options, source *http.Client) *http.Client {
+	client := *http.DefaultClient
+	if source != nil {
+		client = *source
+	}
+	if endpoint, err := githubendpoint.Parse(baseURL, options); err == nil {
+		client.CheckRedirect = githubendpoint.RedirectPolicy(endpoint)
+	}
+	return &client
 }
 
 func (c *GitHubClient) ListOpenByHead(ctx context.Context, owner, repo, headBranch, baseBranch string) ([]PullRequest, error) {
@@ -394,9 +419,9 @@ func shouldRetry(statusCode int) bool {
 }
 
 func (c *GitHubClient) repoURL(owner, repo string, parts ...string) (*url.URL, error) {
-	base, err := url.Parse(c.baseURL)
+	base, err := githubendpoint.Parse(c.baseURL, c.options)
 	if err != nil {
-		return nil, fmt.Errorf("parse github base url: %w", err)
+		return nil, err
 	}
 	segments := []string{"repos", owner, repo}
 	segments = append(segments, parts...)

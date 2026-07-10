@@ -222,6 +222,7 @@ func runIdentityManualTransition(stateName, agentID, approver, scope, reason str
 	if err != nil {
 		return emitStateMutationError(stderr, jsonOut, err)
 	}
+	defer func() { _ = ctx.releaseLease() }()
 	now := time.Now().UTC().Truncate(time.Second)
 	nextManifest, transition, transitionErr := lifecycle.ApplyManualState(ctx.manifest, agentID, stateName, approver, scope, reason, expiresAt, now)
 	if transitionErr != nil {

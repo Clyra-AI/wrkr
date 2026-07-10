@@ -70,7 +70,7 @@ func TestE2EPRUpsertIdempotentWithSimulatedAPI(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := pr.NewGitHubClient(server.URL, "token", server.Client())
+	client := pr.NewGitHubClientWithOptions(server.URL, "token", server.Client(), pr.GitHubClientOptions{AllowInsecureLoopback: true})
 	input := pr.UpsertInput{
 		Owner:       "acme",
 		Repo:        "backend",

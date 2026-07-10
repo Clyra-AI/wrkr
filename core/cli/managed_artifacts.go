@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/state"
 	verifycore "github.com/Clyra-AI/wrkr/core/verify"
 	"github.com/Clyra-AI/wrkr/internal/atomicwrite"
+	"github.com/Clyra-AI/wrkr/internal/statelock"
 )
 
 const (
@@ -46,6 +48,7 @@ type managedArtifactFile struct {
 type managedArtifactTransaction struct {
 	journalPath string
 	snapshots   []managedArtifactSnapshot
+	lease       *statelock.Lease
 	completed   bool
 }
 
@@ -151,6 +154,27 @@ func recoverManagedArtifactTransaction(statePath string) error {
 }
 
 func beginManagedArtifactTransaction(statePath string, operation string, files []managedArtifactFile) (*managedArtifactTransaction, error) {
+	lease, err := statelock.Acquire(context.Background(), statePath)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := beginManagedArtifactTransactionWithLease(statePath, operation, files, lease)
+	if err != nil {
+		if releaseErr := lease.Release(); releaseErr != nil {
+			return nil, fmt.Errorf("%v (release managed artifact lock: %v)", err, releaseErr)
+		}
+		return nil, err
+	}
+	tx.lease = lease
+	return tx, nil
+}
+
+// beginManagedArtifactTransactionWithLease starts a transaction while the caller
+// holds the state-directory lease for the complete operation.
+func beginManagedArtifactTransactionWithLease(statePath string, operation string, files []managedArtifactFile, lease *statelock.Lease) (*managedArtifactTransaction, error) {
+	if lease == nil {
+		return nil, fmt.Errorf("managed artifact transaction requires a state lease")
+	}
 	if err := recoverManagedArtifactTransaction(statePath); err != nil {
 		return nil, err
 	}
@@ -198,15 +222,28 @@ func (tx *managedArtifactTransaction) Rollback(actionErr error) error {
 		removeErr = nil
 	}
 	tx.completed = true
+	releaseErr := tx.releaseLease()
 
+	if restoreErr != nil && removeErr != nil && releaseErr != nil {
+		return fmt.Errorf("%v (rollback restore failed: %v; transaction cleanup failed: %v; lock release failed: %v)", actionErr, restoreErr, removeErr, releaseErr)
+	}
 	if restoreErr != nil && removeErr != nil {
 		return fmt.Errorf("%v (rollback restore failed: %v; transaction cleanup failed: %v)", actionErr, restoreErr, removeErr)
+	}
+	if restoreErr != nil && releaseErr != nil {
+		return fmt.Errorf("%v (rollback restore failed: %v; lock release failed: %v)", actionErr, restoreErr, releaseErr)
 	}
 	if restoreErr != nil {
 		return fmt.Errorf("%v (rollback restore failed: %v)", actionErr, restoreErr)
 	}
+	if removeErr != nil && releaseErr != nil {
+		return fmt.Errorf("%v (transaction cleanup failed: %v; lock release failed: %v)", actionErr, removeErr, releaseErr)
+	}
 	if removeErr != nil {
 		return fmt.Errorf("%v (transaction cleanup failed: %v)", actionErr, removeErr)
+	}
+	if releaseErr != nil {
+		return fmt.Errorf("%v (lock release failed: %v)", actionErr, releaseErr)
 	}
 	return actionErr
 }
@@ -219,7 +256,16 @@ func (tx *managedArtifactTransaction) Complete() error {
 		return fmt.Errorf("remove managed artifact transaction: %w", err)
 	}
 	tx.completed = true
-	return nil
+	return tx.releaseLease()
+}
+
+func (tx *managedArtifactTransaction) releaseLease() error {
+	if tx == nil || tx.lease == nil {
+		return nil
+	}
+	lease := tx.lease
+	tx.lease = nil
+	return lease.Release()
 }
 
 func managedArtifactTransactionPath(statePath string) string {

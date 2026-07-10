@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/wrkr/core/source"
+	"github.com/Clyra-AI/wrkr/internal/githubendpoint"
 	"github.com/Clyra-AI/wrkr/internal/reponame"
 )
 
@@ -40,6 +41,7 @@ type Connector struct {
 	// AllowSourceMaterialization permits broad source-code extension fetching for
 	// explicit deep/debug scans. Default hosted scans keep this false.
 	AllowSourceMaterialization bool
+	endpointOptions            githubendpoint.Options
 
 	mu                  sync.Mutex
 	consecutiveFailures int
@@ -49,6 +51,11 @@ type Connector struct {
 	onRetry             func(RetryEvent)
 	onCooldown          func(CooldownEvent)
 	cooldownErr         error
+}
+
+// ConnectorOptions controls explicit development-only connector behavior.
+type ConnectorOptions struct {
+	AllowInsecureLoopback bool
 }
 
 type RetryEvent struct {
@@ -63,8 +70,17 @@ type CooldownEvent struct {
 }
 
 func NewConnector(baseURL, token string, client HTTPClient) *Connector {
-	if client == nil {
-		client = &http.Client{Timeout: 10 * time.Second}
+	return NewConnectorWithOptions(baseURL, token, client, ConnectorOptions{})
+}
+
+// NewConnectorWithOptions permits loopback HTTP only when explicitly requested
+// for local development or tests. Production callers must use NewConnector.
+func NewConnectorWithOptions(baseURL, token string, client HTTPClient, options ConnectorOptions) *Connector {
+	endpointOptions := githubendpoint.Options{AllowInsecureLoopback: options.AllowInsecureLoopback}
+	if configured, ok := client.(*http.Client); ok {
+		client = newSafeHTTPClient(baseURL, endpointOptions, configured)
+	} else if client == nil {
+		client = newSafeHTTPClient(baseURL, endpointOptions, nil)
 	}
 	return &Connector{
 		BaseURL:          strings.TrimRight(baseURL, "/"),
@@ -75,9 +91,29 @@ func NewConnector(baseURL, token string, client HTTPClient) *Connector {
 		MaxBackoff:       2 * time.Second,
 		FailureThreshold: 3,
 		Cooldown:         10 * time.Second,
+		endpointOptions:  endpointOptions,
 		nowFn:            time.Now,
 		sleepFn:          sleepWithContext,
 	}
+}
+
+func newSafeHTTPClient(baseURL string, options githubendpoint.Options, source *http.Client) *http.Client {
+	client := http.Client{Timeout: 10 * time.Second}
+	if source != nil {
+		client = *source
+	}
+	if endpoint, err := githubendpoint.Parse(baseURL, options); err == nil {
+		client.CheckRedirect = githubendpoint.RedirectPolicy(endpoint)
+	}
+	return &client
+}
+
+func (c *Connector) validateEndpoint() error {
+	if c == nil {
+		return errors.New("github connector is required")
+	}
+	_, err := githubendpoint.Parse(c.BaseURL, c.endpointOptions)
+	return err
 }
 
 func (c *Connector) SetRetryHandler(fn func(RetryEvent)) {
@@ -173,6 +209,9 @@ func (c *Connector) AcquireRepo(ctx context.Context, repo string) (source.RepoMa
 	if c.BaseURL == "" {
 		return source.RepoManifest{}, errors.New("github api base url is required for repository acquisition")
 	}
+	if err := c.validateEndpoint(); err != nil {
+		return source.RepoManifest{}, err
+	}
 
 	meta, err := c.repoMetadata(ctx, repo)
 	if err != nil {
@@ -201,6 +240,9 @@ func (c *Connector) ListOrgRepos(ctx context.Context, org string) ([]string, err
 	}
 	if c.BaseURL == "" {
 		return nil, errors.New("github api base url is required for organization acquisition")
+	}
+	if err := c.validateEndpoint(); err != nil {
+		return nil, err
 	}
 
 	u, err := url.Parse(c.BaseURL)
@@ -269,6 +311,9 @@ func (c *Connector) MaterializeRepo(ctx context.Context, repo string, materializ
 	}
 	if c.BaseURL == "" {
 		return source.RepoManifest{}, errors.New("github api base url is required for repository materialization")
+	}
+	if err := c.validateEndpoint(); err != nil {
+		return source.RepoManifest{}, err
 	}
 
 	meta, err := c.repoMetadata(ctx, repo)

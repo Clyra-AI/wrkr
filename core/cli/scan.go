@@ -44,6 +44,8 @@ import (
 	sourceorg "github.com/Clyra-AI/wrkr/core/source/org"
 	"github.com/Clyra-AI/wrkr/core/sourceprivacy"
 	"github.com/Clyra-AI/wrkr/core/state"
+	"github.com/Clyra-AI/wrkr/internal/githubendpoint"
+	"github.com/Clyra-AI/wrkr/internal/statelock"
 )
 
 func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
@@ -190,6 +192,11 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			exitDependencyMissing,
 		)
 	}
+	if strings.TrimSpace(*githubBaseURL) != "" {
+		if _, err := githubendpoint.Parse(*githubBaseURL, githubendpoint.Options{}); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
+	}
 	artifactPreflight, preflightErr := preflightScanArtifacts(
 		state.ResolvePath(*statePathFlag),
 		*jsonPath,
@@ -211,6 +218,17 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", jsonSinkErr.Error(), exitInvalidInput)
 	}
 	statePath := artifactPreflight.StatePath
+	ctx := parentCtx
+	cancel := func() {}
+	if *timeout > 0 {
+		ctx, cancel = context.WithTimeout(parentCtx, *timeout)
+	}
+	defer cancel()
+	lease, leaseErr := statelock.Acquire(ctx, statePath)
+	if leaseErr != nil {
+		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, leaseErr)
+	}
+	defer func() { _ = lease.Release() }()
 	if recoveryErr := recoverManagedArtifactTransaction(statePath); recoveryErr != nil {
 		return emitScanRuntimeError(stderr, jsonRequested || *jsonOut, recoveryErr)
 	}
@@ -229,12 +247,6 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	sourcePrivacy := sourceprivacy.InitialContract(sourceRetentionMode, materializedRoot != "", allowHostedSourceMaterialization, deploymentMode)
 	sourceCleanupFinalized := false
 
-	ctx := parentCtx
-	cancel := func() {}
-	if *timeout > 0 {
-		ctx, cancel = context.WithTimeout(parentCtx, *timeout)
-	}
-	defer cancel()
 	scanStartedAt := time.Now().UTC().Truncate(time.Second)
 	progressTargetMode, progressTargetValue := scanProgressTargetLabel(targets)
 	artifactPaths := map[string]string{
@@ -642,7 +654,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 	}
 	chainPath := artifactPreflight.LifecyclePath
 	proofChainPath := artifactPreflight.ProofChainPath
-	transaction, snapshotErr := beginManagedArtifactTransaction(statePath, "scan", []managedArtifactFile{
+	transaction, snapshotErr := beginManagedArtifactTransactionWithLease(statePath, "scan", []managedArtifactFile{
 		{label: "state", path: statePath},
 		{label: "manifest", path: manifestPath},
 		{label: "lifecycle chain", path: chainPath},
@@ -652,7 +664,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 		{label: "report markdown", path: artifactPreflight.ReportPath},
 		{label: "sarif", path: artifactPreflight.SARIFPath},
 		{label: "json output", path: jsonSink.outputPath},
-	})
+	}, lease)
 	if snapshotErr != nil {
 		return emitScanFailure(snapshotErr)
 	}

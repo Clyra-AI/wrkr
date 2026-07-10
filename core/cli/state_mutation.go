@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/score"
 	scoremodel "github.com/Clyra-AI/wrkr/core/score/model"
 	"github.com/Clyra-AI/wrkr/core/state"
+	"github.com/Clyra-AI/wrkr/internal/statelock"
 )
 
 type stateMutationContext struct {
@@ -28,6 +30,7 @@ type stateMutationContext struct {
 	snapshot       state.Snapshot
 	manifest       manifest.Manifest
 	lifecycleChain *proof.Chain
+	lease          *statelock.Lease
 }
 
 func loadStateMutationContext(statePathRaw string) (stateMutationContext, error) {
@@ -38,31 +41,51 @@ func loadStateMutationContext(statePathRaw string) (stateMutationContext, error)
 		}
 		return stateMutationContext{}, unsafeManagedArtifactPathError{err: err}
 	}
-	if err := preflightManagedArtifactRead(preflight.statePath); err != nil {
+	lease, err := statelock.Acquire(nil, preflight.statePath)
+	if err != nil {
 		return stateMutationContext{}, err
+	}
+	releaseOnError := func(err error) (stateMutationContext, error) {
+		if releaseErr := lease.Release(); releaseErr != nil {
+			return stateMutationContext{}, fmt.Errorf("%v (release managed artifact lock: %v)", err, releaseErr)
+		}
+		return stateMutationContext{}, err
+	}
+	if err := preflightManagedArtifactRead(preflight.statePath); err != nil {
+		return releaseOnError(err)
 	}
 	snapshot, err := state.Load(preflight.statePath)
 	if err != nil {
-		return stateMutationContext{}, err
+		return releaseOnError(err)
 	}
 	loadedManifest, err := manifest.Load(preflight.manifestPath)
 	if err != nil {
-		return stateMutationContext{}, err
+		return releaseOnError(err)
 	}
 	loadedManifest.Identities = model.FilterLegacyArtifactIdentityRecords(loadedManifest.Identities)
 	lifecycleChain, err := lifecycle.LoadChain(preflight.lifecyclePath)
 	if err != nil {
-		return stateMutationContext{}, err
+		return releaseOnError(err)
 	}
 	if _, err := proofemit.LoadChain(preflight.proofChainPath); err != nil {
-		return stateMutationContext{}, err
+		return releaseOnError(err)
 	}
 	return stateMutationContext{
 		preflight:      preflight,
 		snapshot:       snapshot,
 		manifest:       loadedManifest,
 		lifecycleChain: lifecycleChain,
+		lease:          lease,
 	}, nil
+}
+
+func (ctx *stateMutationContext) releaseLease() error {
+	if ctx == nil || ctx.lease == nil {
+		return nil
+	}
+	lease := ctx.lease
+	ctx.lease = nil
+	return lease.Release()
 }
 
 func applyStateMutationToSnapshot(snapshot *state.Snapshot, nextManifest manifest.Manifest, transition lifecycle.Transition) error {
@@ -152,14 +175,14 @@ func refreshDerivedMutationSnapshot(snapshot *state.Snapshot) error {
 }
 
 func commitStateMutationContext(ctx stateMutationContext, transition lifecycle.Transition, eventType string) error {
-	transaction, err := beginManagedArtifactTransaction(ctx.preflight.statePath, "state_mutation", []managedArtifactFile{
+	transaction, err := beginManagedArtifactTransactionWithLease(ctx.preflight.statePath, "state_mutation", []managedArtifactFile{
 		{label: "state", path: ctx.preflight.statePath},
 		{label: "manifest", path: ctx.preflight.manifestPath},
 		{label: "lifecycle chain", path: ctx.preflight.lifecyclePath},
 		{label: "proof chain", path: ctx.preflight.proofChainPath},
 		{label: "proof attestation", path: ctx.preflight.proofAttestationPath},
 		{label: "proof signing key", path: ctx.preflight.signingKeyPath},
-	})
+	}, ctx.lease)
 	if err != nil {
 		return unsafeManagedArtifactPathError{err: err}
 	}

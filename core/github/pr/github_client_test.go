@@ -4,13 +4,38 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/Clyra-AI/wrkr/internal/githubendpoint"
 )
+
+func TestGitHubClientRejectsInsecureEndpointBeforeSendingToken(t *testing.T) {
+	t.Parallel()
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if got := r.Header.Get("Authorization"); got != "" {
+			t.Errorf("authorization = %q, want no credential delivery", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewGitHubClient(server.URL, "secret-token", server.Client())
+	_, err := client.ListOpenByHead(context.Background(), "acme", "repo", "branch", "main")
+	if !errors.Is(err, githubendpoint.ErrUnsafeEndpoint) {
+		t.Fatalf("ListOpenByHead() error = %v, want unsafe endpoint", err)
+	}
+	if requests != 0 {
+		t.Fatalf("requests = %d, want 0", requests)
+	}
+}
 
 func TestGitHubClientListCreateUpdateWithRetry(t *testing.T) {
 	t.Parallel()
@@ -43,7 +68,7 @@ func TestGitHubClientListCreateUpdateWithRetry(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewGitHubClient(server.URL, "token", server.Client())
+	client := NewGitHubClientWithOptions(server.URL, "token", server.Client(), GitHubClientOptions{AllowInsecureLoopback: true})
 
 	list, err := client.ListOpenByHead(context.Background(), "acme", "repo", "wrkr-bot/remediation/repo/adhoc/abc", "main")
 	if err != nil {
@@ -86,7 +111,7 @@ func TestGitHubClientRepoURLPreservesBasePathPrefix(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewGitHubClient(server.URL+"/api/v3", "token", server.Client())
+	client := NewGitHubClientWithOptions(server.URL+"/api/v3", "token", server.Client(), GitHubClientOptions{AllowInsecureLoopback: true})
 	if _, err := client.ListOpenByHead(context.Background(), "acme", "repo", "branch", "main"); err != nil {
 		t.Fatalf("list prs: %v", err)
 	}
@@ -116,7 +141,7 @@ func TestGitHubClientEnsureHeadRefCreatesMissingBranchFromBase(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewGitHubClient(server.URL, "token", server.Client())
+	client := NewGitHubClientWithOptions(server.URL, "token", server.Client(), GitHubClientOptions{AllowInsecureLoopback: true})
 	if err := client.EnsureHeadRef(context.Background(), "acme", "repo", "wrkr-bot/remediation/repo/weekly/abc", "main"); err != nil {
 		t.Fatalf("ensure head ref: %v", err)
 	}
@@ -184,7 +209,7 @@ func TestGitHubClientEnsureFileContentCreateUpdateAndNoop(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewGitHubClient(server.URL, "token", server.Client())
+	client := NewGitHubClientWithOptions(server.URL, "token", server.Client(), GitHubClientOptions{AllowInsecureLoopback: true})
 	path := ".wrkr/remediations/abc123/plan.json"
 
 	changed, err := client.EnsureFileContent(context.Background(), "acme", "repo", "main", path, "update remediation plan", []byte("{\"v\":1}\n"))
@@ -234,7 +259,7 @@ func TestGitHubClientEnsureFileContentNormalizesWindowsSeparators(t *testing.T) 
 	}))
 	defer server.Close()
 
-	client := NewGitHubClient(server.URL, "token", server.Client())
+	client := NewGitHubClientWithOptions(server.URL, "token", server.Client(), GitHubClientOptions{AllowInsecureLoopback: true})
 	_, err := client.EnsureFileContent(
 		context.Background(),
 		"acme",
@@ -296,7 +321,7 @@ func TestGitHubClientIssueCommentCRUD(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewGitHubClient(server.URL, "token", server.Client())
+	client := NewGitHubClientWithOptions(server.URL, "token", server.Client(), GitHubClientOptions{AllowInsecureLoopback: true})
 	created, err := client.CreateIssueComment(context.Background(), "acme", "repo", 12, "first comment")
 	if err != nil {
 		t.Fatalf("create issue comment: %v", err)
@@ -354,7 +379,7 @@ func TestGitHubClientListIssueCommentsPaginates(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewGitHubClient(server.URL, "token", server.Client())
+	client := NewGitHubClientWithOptions(server.URL, "token", server.Client(), GitHubClientOptions{AllowInsecureLoopback: true})
 	listed, err := client.ListIssueComments(context.Background(), "acme", "repo", 12)
 	if err != nil {
 		t.Fatalf("list issue comments: %v", err)
