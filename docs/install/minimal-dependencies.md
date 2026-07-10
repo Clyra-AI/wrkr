@@ -7,7 +7,7 @@ The main README landing page surfaces Homebrew, the pinned Go install path below
 ## Go-only pinned install
 
 ```bash
-WRKR_VERSION="v1.11.1"
+WRKR_VERSION="v1.11.2"
 go install github.com/Clyra-AI/wrkr/cmd/wrkr@"${WRKR_VERSION}"
 ```
 
@@ -56,6 +56,6 @@ Install commands above are validated by release UAT together with the public `wr
 
 ```bash
 scripts/test_uat_local.sh --skip-global-gates
-scripts/test_uat_local.sh --release-version v1.11.1 --skip-global-gates
-scripts/test_uat_local.sh --release-version v1.11.1 --brew-formula Clyra-AI/tap/wrkr --skip-global-gates
+scripts/test_uat_local.sh --release-version v1.11.2 --skip-global-gates
+scripts/test_uat_local.sh --release-version v1.11.2 --brew-formula Clyra-AI/tap/wrkr --skip-global-gates
 ```
