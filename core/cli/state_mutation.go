@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -41,7 +42,7 @@ func loadStateMutationContext(statePathRaw string) (stateMutationContext, error)
 		}
 		return stateMutationContext{}, unsafeManagedArtifactPathError{err: err}
 	}
-	lease, err := statelock.Acquire(nil, preflight.statePath)
+	lease, err := statelock.Acquire(context.Background(), preflight.statePath)
 	if err != nil {
 		return stateMutationContext{}, err
 	}
