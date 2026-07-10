@@ -192,7 +192,7 @@ func runScanWithContext(parentCtx context.Context, args []string, stdout io.Writ
 			exitDependencyMissing,
 		)
 	}
-	if strings.TrimSpace(*githubBaseURL) != "" {
+	if (anyTargetNeedsGitHub(targets) || *enrich) && strings.TrimSpace(*githubBaseURL) != "" {
 		if _, err := githubendpoint.Parse(*githubBaseURL, githubEndpointOptions()); err != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 		}
