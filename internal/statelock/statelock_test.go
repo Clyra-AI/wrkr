@@ -19,8 +19,8 @@ func TestAcquireBlocksOtherProcessLeaseUntilRelease(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	if _, err := Acquire(ctx, statePath); !errors.Is(err, ErrBusy) {
-		t.Fatalf("Acquire(second) error = %v, want ErrBusy", err)
+	if _, err := Acquire(ctx, statePath); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Acquire(second) error = %v, want context deadline", err)
 	}
 
 	if err := first.Release(); err != nil {

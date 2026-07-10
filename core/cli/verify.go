@@ -44,12 +44,13 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	chainPath, keyLookupPath := resolveVerifyPaths(*statePathFlag, *chainPathFlag)
-	lease, leaseErr := statelock.Acquire(context.Background(), keyLookupPath)
-	if leaseErr != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", leaseErr.Error(), exitRuntime)
-	}
-	defer func() { _ = lease.Release() }()
-	if strings.TrimSpace(*chainPathFlag) == "" || strings.TrimSpace(*statePathFlag) != "" {
+	usesManagedState := strings.TrimSpace(*chainPathFlag) == "" || strings.TrimSpace(*statePathFlag) != ""
+	if usesManagedState {
+		lease, leaseErr := statelock.Acquire(context.Background(), keyLookupPath)
+		if leaseErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", leaseErr.Error(), exitRuntime)
+		}
+		defer func() { _ = lease.Release() }()
 		if err := recoverManagedArtifactTransaction(keyLookupPath); err != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)
 		}
