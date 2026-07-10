@@ -22,7 +22,7 @@ import (
 )
 
 var newGitHubPRClient = func(baseURL, token string) githubpr.API {
-	return githubpr.NewGitHubClient(baseURL, token, nil)
+	return githubpr.NewGitHubClientWithOptions(baseURL, token, nil, githubpr.GitHubClientOptions{AllowInsecureLoopback: githubEndpointOptions().AllowInsecureLoopback})
 }
 
 const (
@@ -107,9 +107,6 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if *openPR {
-		if _, endpointErr := githubendpoint.Parse(*githubAPI, githubendpoint.Options{}); endpointErr != nil {
-			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", endpointErr.Error(), exitInvalidInput)
-		}
 		publicationPlan := plan
 		if *applyMode {
 			publicationPlan = fix.ApplyCapablePlan(plan)
@@ -136,6 +133,11 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 		token, tokenErr := auth.ResolveFixToken(cfg.Auth.Scan.Token, cfg.Auth.Fix.Token, *fixToken)
 		if tokenErr != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "approval_required", tokenErr.Error(), exitApprovalRequired)
+		}
+		if strings.TrimSpace(*githubAPI) != "" {
+			if _, endpointErr := githubendpoint.Parse(*githubAPI, githubEndpointOptions()); endpointErr != nil {
+				return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", endpointErr.Error(), exitInvalidInput)
+			}
 		}
 
 		title := strings.TrimSpace(*prTitle)

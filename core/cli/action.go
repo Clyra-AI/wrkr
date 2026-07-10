@@ -144,11 +144,13 @@ func runActionPRComment(args []string, stdout io.Writer, stderr io.Writer) int {
 	if token == "" {
 		return emitError(stderr, jsonRequested || *jsonOut, "dependency_missing", "github token is required for PR comment publishing", exitDependencyMissing)
 	}
-	if _, err := githubendpoint.Parse(strings.TrimSpace(*githubBaseURL), githubendpoint.Options{}); err != nil {
-		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+	if strings.TrimSpace(*githubBaseURL) != "" {
+		if _, err := githubendpoint.Parse(strings.TrimSpace(*githubBaseURL), githubEndpointOptions()); err != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
+		}
 	}
 
-	client := pr.NewGitHubClient(strings.TrimSpace(*githubBaseURL), token, nil)
+	client := pr.NewGitHubClientWithOptions(strings.TrimSpace(*githubBaseURL), token, nil, pr.GitHubClientOptions{AllowInsecureLoopback: githubEndpointOptions().AllowInsecureLoopback})
 	commentResult, err := pr.UpsertIssueComment(context.Background(), client, pr.UpsertIssueCommentInput{
 		Owner:       strings.TrimSpace(*owner),
 		Repo:        strings.TrimSpace(*repo),
