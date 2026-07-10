@@ -18,6 +18,7 @@ import (
 	githubpr "github.com/Clyra-AI/wrkr/core/github/pr"
 	"github.com/Clyra-AI/wrkr/core/risk"
 	"github.com/Clyra-AI/wrkr/core/state"
+	"github.com/Clyra-AI/wrkr/internal/githubendpoint"
 )
 
 var newGitHubPRClient = func(baseURL, token string) githubpr.API {
@@ -106,6 +107,9 @@ func runFix(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	if *openPR {
+		if _, endpointErr := githubendpoint.Parse(*githubAPI, githubendpoint.Options{}); endpointErr != nil {
+			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", endpointErr.Error(), exitInvalidInput)
+		}
 		publicationPlan := plan
 		if *applyMode {
 			publicationPlan = fix.ApplyCapablePlan(plan)

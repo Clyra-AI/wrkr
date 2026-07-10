@@ -97,6 +97,7 @@ func runInventoryMutation(action string, args []string, stdout io.Writer, stderr
 	if err != nil {
 		return emitStateMutationError(stderr, jsonRequested || *jsonOut, err)
 	}
+	defer func() { _ = ctx.releaseLease() }()
 
 	agentID, resolveErr := resolveInventoryMutationAgentID(id, ctx.manifest, ctx.snapshot)
 	if resolveErr != nil {

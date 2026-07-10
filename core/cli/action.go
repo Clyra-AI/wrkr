@@ -11,6 +11,7 @@ import (
 
 	coreaction "github.com/Clyra-AI/wrkr/core/action"
 	"github.com/Clyra-AI/wrkr/core/github/pr"
+	"github.com/Clyra-AI/wrkr/internal/githubendpoint"
 )
 
 const (
@@ -142,6 +143,9 @@ func runActionPRComment(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	if token == "" {
 		return emitError(stderr, jsonRequested || *jsonOut, "dependency_missing", "github token is required for PR comment publishing", exitDependencyMissing)
+	}
+	if _, err := githubendpoint.Parse(strings.TrimSpace(*githubBaseURL), githubendpoint.Options{}); err != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
 	}
 
 	client := pr.NewGitHubClient(strings.TrimSpace(*githubBaseURL), token, nil)

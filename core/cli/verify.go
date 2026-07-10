@@ -15,6 +15,7 @@ import (
 	"github.com/Clyra-AI/wrkr/core/proofemit"
 	"github.com/Clyra-AI/wrkr/core/state"
 	verifycore "github.com/Clyra-AI/wrkr/core/verify"
+	"github.com/Clyra-AI/wrkr/internal/statelock"
 )
 
 func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -42,6 +43,11 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	chainPath, keyLookupPath := resolveVerifyPaths(*statePathFlag, *chainPathFlag)
+	lease, leaseErr := statelock.Acquire(nil, keyLookupPath)
+	if leaseErr != nil {
+		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", leaseErr.Error(), exitRuntime)
+	}
+	defer func() { _ = lease.Release() }()
 	if strings.TrimSpace(*chainPathFlag) == "" || strings.TrimSpace(*statePathFlag) != "" {
 		if err := recoverManagedArtifactTransaction(keyLookupPath); err != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", err.Error(), exitRuntime)

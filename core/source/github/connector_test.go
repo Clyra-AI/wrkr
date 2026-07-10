@@ -15,7 +15,57 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Clyra-AI/wrkr/internal/githubendpoint"
 )
+
+func TestConnectorRejectsInsecureEndpointBeforeSendingToken(t *testing.T) {
+	t.Parallel()
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if got := r.Header.Get("Authorization"); got != "" {
+			t.Errorf("authorization = %q, want no credential delivery", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "secret-token", server.Client())
+	_, err := connector.ListOrgRepos(context.Background(), "acme")
+	if !errors.Is(err, githubendpoint.ErrUnsafeEndpoint) {
+		t.Fatalf("ListOrgRepos() error = %v, want unsafe endpoint", err)
+	}
+	if requests != 0 {
+		t.Fatalf("requests = %d, want 0", requests)
+	}
+}
+
+func TestConnectorRejectsRedirectBeforeSendingTokenOffOrigin(t *testing.T) {
+	t.Parallel()
+	redirectedRequests := 0
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		redirectedRequests++
+		if got := r.Header.Get("Authorization"); got != "" {
+			t.Errorf("authorization = %q, want no credential delivery", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusFound)
+	}))
+	defer server.Close()
+
+	connector := NewConnector(server.URL, "secret-token", server.Client())
+	_, err := connector.ListOrgRepos(context.Background(), "acme")
+	if !errors.Is(err, githubendpoint.ErrUnsafeEndpoint) {
+		t.Fatalf("ListOrgRepos() error = %v, want unsafe redirect", err)
+	}
+	if redirectedRequests != 0 {
+		t.Fatalf("redirected requests = %d, want 0", redirectedRequests)
+	}
+}
 
 func TestAcquireRepoRequiresBaseURL(t *testing.T) {
 	t.Parallel()
@@ -37,7 +87,7 @@ func TestListOrgReposIntegrationSimulatedAPI(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "test-token", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "test-token", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	repos, err := connector.ListOrgRepos(context.Background(), "acme")
 	if err != nil {
 		t.Fatalf("list org repos: %v", err)
@@ -81,7 +131,7 @@ func TestListOrgReposPaginatesDeterministically(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	repos, err := connector.ListOrgRepos(context.Background(), "acme")
 	if err != nil {
 		t.Fatalf("list org repos: %v", err)
@@ -133,7 +183,7 @@ func TestListOrgReposRetriesTransientPageFailure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	repos, err := connector.ListOrgRepos(context.Background(), "acme")
 	if err != nil {
 		t.Fatalf("list org repos: %v", err)
@@ -170,7 +220,7 @@ func TestListOrgReposFailsClosedOnLaterPageError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	repos, err := connector.ListOrgRepos(context.Background(), "acme")
 	if err == nil {
 		t.Fatal("expected page error to fail closed")
@@ -195,7 +245,7 @@ func TestAcquireRepoRetriesTransientStatus(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	manifest, err := connector.AcquireRepo(context.Background(), "acme/backend")
 	if err != nil {
 		t.Fatalf("expected retry to recover: %v", err)
@@ -236,7 +286,7 @@ func TestListOrgReposAllowsEmptyResultWithoutSyntheticFallback(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	repos, err := connector.ListOrgRepos(context.Background(), "acme")
 	if err != nil {
 		t.Fatalf("list org repos: %v", err)
@@ -327,7 +377,7 @@ func TestMaterializeRepoWritesRepositoryTree(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	manifest, err := connector.MaterializeRepo(context.Background(), "acme/backend", tmp)
 	if err != nil {
 		t.Fatalf("materialize repo: %v", err)
@@ -444,7 +494,7 @@ func TestMaterializeRepoAllowsGenericSourceWhenExplicitlyEnabled(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	connector.SetAllowSourceMaterialization(true)
 	manifest, err := connector.MaterializeRepo(context.Background(), "acme/backend", tmp)
 	if err != nil {
@@ -480,7 +530,7 @@ func TestMaterializeRepoRejectsPathTraversal(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	if _, err := connector.MaterializeRepo(context.Background(), "acme/backend", tmp); err == nil {
 		t.Fatal("expected traversal path to fail")
 	}
@@ -509,7 +559,7 @@ func TestMaterializeRepoRejectsUnsafeMetadataFullName(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	if _, err := connector.MaterializeRepo(context.Background(), "acme/backend", materializedRoot); err == nil {
 		t.Fatal("expected unsafe metadata full_name to fail")
 	}
@@ -529,7 +579,7 @@ func TestListOrgReposRejectsUnsafeFullName(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	if _, err := connector.ListOrgRepos(context.Background(), "acme"); err == nil {
 		t.Fatal("expected unsafe repo metadata to fail closed")
 	}
@@ -551,7 +601,7 @@ func TestMaterializeRepoFailsClosedOnTruncatedTree(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	_, err := connector.MaterializeRepo(context.Background(), "acme/backend", tmp)
 	if err == nil {
 		t.Fatal("expected truncated tree to fail closed")
@@ -578,7 +628,7 @@ func TestConnectorHonorsRetryAfter429(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	connector.MaxRetries = 2
 	connector.sleepFn = func(_ context.Context, duration time.Duration) error {
 		slept = append(slept, duration)
@@ -613,7 +663,7 @@ func TestConnectorRetriesRecognizedRateLimit403(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	connector.MaxRetries = 2
 	connector.sleepFn = func(_ context.Context, duration time.Duration) error {
 		slept = append(slept, duration)
@@ -642,7 +692,7 @@ func TestConnectorDoesNotRetryNonRateLimit403(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	connector.MaxRetries = 2
 	connector.sleepFn = func(_ context.Context, _ time.Duration) error {
 		t.Fatal("unexpected sleep for non-rate-limit 403")
@@ -674,7 +724,7 @@ func TestConnectorReturnsRateLimitedErrorWhenRetriesExhausted(t *testing.T) {
 	defer server.Close()
 
 	now := time.Unix(1_700_000_000, 0)
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	connector.MaxRetries = 1
 	connector.nowFn = func() time.Time { return now }
 	connector.sleepFn = func(_ context.Context, _ time.Duration) error { return nil }
@@ -713,7 +763,7 @@ func TestConnectorCircuitBreakerCooldown(t *testing.T) {
 	defer server.Close()
 
 	now := time.Unix(1_700_000_000, 0)
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	connector.MaxRetries = 0
 	connector.FailureThreshold = 2
 	connector.Cooldown = 30 * time.Second
@@ -781,7 +831,7 @@ func TestConnectorNonRetryableStatusResetsTransientFailureStreak(t *testing.T) {
 	defer server.Close()
 
 	now := time.Unix(1_700_000_000, 0)
-	connector := NewConnector(server.URL, "", server.Client())
+	connector := NewConnectorWithOptions(server.URL, "", server.Client(), ConnectorOptions{AllowInsecureLoopback: true})
 	connector.MaxRetries = 0
 	connector.FailureThreshold = 2
 	connector.Cooldown = 30 * time.Second

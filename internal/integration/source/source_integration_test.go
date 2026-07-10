@@ -29,7 +29,7 @@ func TestIntegrationOrgAcquireWithSimulatedGitHub(t *testing.T) {
 	}))
 	defer server.Close()
 
-	connector := github.NewConnector(server.URL, "token", server.Client())
+	connector := github.NewConnectorWithOptions(server.URL, "token", server.Client(), github.ConnectorOptions{AllowInsecureLoopback: true})
 	repos, failures, err := org.Acquire(context.Background(), "acme", connector, connector)
 	if err != nil {
 		t.Fatalf("acquire org: %v", err)
