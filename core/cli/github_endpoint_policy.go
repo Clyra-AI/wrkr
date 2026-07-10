@@ -15,5 +15,6 @@ func githubEndpointOptions() githubendpoint.Options {
 }
 
 func isDevelopmentTestProcess() bool {
-	return strings.HasSuffix(filepath.Base(os.Args[0]), ".test")
+	name := strings.ToLower(filepath.Base(os.Args[0]))
+	return strings.HasSuffix(name, ".test") || strings.HasSuffix(name, ".test.exe")
 }
