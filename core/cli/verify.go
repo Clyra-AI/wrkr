@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -43,7 +44,7 @@ func runVerify(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 
 	chainPath, keyLookupPath := resolveVerifyPaths(*statePathFlag, *chainPathFlag)
-	lease, leaseErr := statelock.Acquire(nil, keyLookupPath)
+	lease, leaseErr := statelock.Acquire(context.Background(), keyLookupPath)
 	if leaseErr != nil {
 		return emitError(stderr, jsonRequested || *jsonOut, "runtime_failure", leaseErr.Error(), exitRuntime)
 	}
