@@ -200,7 +200,7 @@ func acquireSources(ctx context.Context, targets []config.Target, githubBaseURL,
 		return source.Manifest{}, nil, fmt.Errorf("at least one scan target is required")
 	}
 
-	connector := github.NewConnector(githubBaseURL, githubToken, nil)
+	connector := github.NewConnectorWithOptions(githubBaseURL, githubToken, nil, github.ConnectorOptions{AllowInsecureLoopback: githubEndpointOptions().AllowInsecureLoopback})
 	connector.SetAllowSourceMaterialization(opts.AllowSourceMaterialization)
 	manifestOut := source.Manifest{
 		Target:           manifestTargetFromTargets(targets),
