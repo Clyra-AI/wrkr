@@ -49,13 +49,13 @@ func Acquire(ctx context.Context, statePath string) (*Lease, error) {
 	locked, err := lock.TryLockContext(lockCtx, retryDelay)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return nil, fmt.Errorf("%w: %v", ErrBusy, err)
+			return nil, fmt.Errorf("%w: %w", ErrBusy, err)
 		}
 		return nil, fmt.Errorf("acquire managed artifact lock: %w", err)
 	}
 	if !locked {
 		if lockCtx.Err() != nil {
-			return nil, fmt.Errorf("%w: %v", ErrBusy, lockCtx.Err())
+			return nil, fmt.Errorf("%w: %w", ErrBusy, lockCtx.Err())
 		}
 		return nil, ErrBusy
 	}
