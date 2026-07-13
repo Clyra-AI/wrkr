@@ -46,7 +46,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 - Sprint 0 freeze gates are green before any new public scan/report/schema surface lands, with validation receipts for size, redaction, recursive redaction, clone-strip, readability, and finding-noise budgets.
 - Composition evidence reuses canonical evidence states, freshness, `policy_coverage_status`, and `gait_coverage`; it does not introduce a second evidence vocabulary.
 - Wrkr distinguishes possible static composition from observed execution in JSON, Markdown, proof refs, and docs.
-- Wrkr emits additive `proposed_action_contract` objects that reference compositions and include allowed/prohibited transitions, approval-required transitions, target constraints, credential mode, delegation depth, evidence requirements, countersigner requirements, expected outcome class, compensation requirements, expiry, source digests, and `report_only: true`.
+- Wrkr emits additive `proposed_action_contract` objects that reference compositions and include allowed/prohibited transitions, approval-required transitions, target constraints, credential mode, delegation depth, evidence requirements, countersigner requirements, expected outcome class, compensation requirements, deterministic expiry when present, source digests, and `report_only: true`.
 - Existing `recommended_action_contract` consumers remain compatible during migration, with docs leading on the proposed Action Contract name.
 - Decision trace records and evidence bundle exports carry explicit `resolution_key`, `composition_ids`, `proposed_action_contract_ref`, workflow-chain refs, autonomy tier, recommended control, and evidence-state fields for Gait and Axym joins without heuristic matching.
 - The Agent Action BOM primary view and Markdown report lead with the highest-risk composition and required control closure before broad graph or inventory appendices.
@@ -61,7 +61,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
   - Validation receipts must identify the exact size, redaction, recursive-redaction, clone-strip, readability, and finding-noise commands or tests used.
 - Risk report JSON:
   - Add top-level `composed_action_paths[]` and `composed_action_path_to_control_first`.
-  - Add `composition_refs[]` or `composition_ids[]` on relevant `action_paths[]` entries.
+  - Add `composition_ids[]` on relevant `action_paths[]` entries, matching Agent Action BOM and decision-trace join fields.
   - Keep `action_paths[]`, `workflow_chains`, `control_path_graph`, and `recommended_action_contract` backward compatible.
 - Agent Action BOM JSON:
   - Add `summary.primary_view.composition_id`, composition path map fields, and a focused composition block.
@@ -412,7 +412,8 @@ Expected benefit: Teams can convert discovered composition risk into Gait contro
 
 Tasks:
 - Add `risk.ProposedActionContract` with `contract_id`, `contract_family_id`, `contract_content_digest`, `contract_version`, `contract_kind`, `composition_ref`, `resolution_key`, `allowed_transitions`, `prohibited_transitions`, `approval_required_transitions`, `target_constraints`, `required_credential_mode`, `maximum_delegation_depth`, `evidence_requirements`, `acceptable_countersigners`, `expected_outcome_class`, `compensation_required`, `expires_at`, `source_digests`, `report_only`, `readiness_state`, and reason codes.
-- Derive `contract_family_id` from composition ID, target identity, and stable control intent, then derive `contract_id` and `contract_content_digest` from all semantically meaningful contract fields, including transitions, target constraints, credential mode, delegation depth, evidence requirements, countersigners, outcome class, compensation requirement, expiry, source digests, report-only posture, readiness state, and contract version.
+- Derive `contract_family_id` from composition ID, target identity, and stable control intent, then derive `contract_id` and `contract_content_digest` from all semantically meaningful contract fields, including transitions, target constraints, credential mode, delegation depth, evidence requirements, countersigners, outcome class, compensation requirement, deterministic expiry when present, source digests, report-only posture, readiness state, and contract version.
+- Populate `expires_at` only from explicit scanned evidence or deterministic repo policy/config. Do not derive expiry from scan time, generation time, or floating TTL defaults; leave it unset with a reason code when no deterministic source exists.
 - Keep `report_only: true` for Wrkr-produced contracts.
 - Add `schemas/v1/proposed-action-contract.schema.json`.
 - Add additive `proposed_action_contract` on compositions, action paths, Agent Action BOM primary view, and report JSON where deterministically available.
@@ -444,9 +445,9 @@ Run commands:
 - `make test-fast`
 
 Test requirements:
-- Stable generation and stable digest tests.
+- Stable generation, stable digest, and repeated-run stable-ID tests, including scans with no deterministic expiry source.
 - Schema compatibility tests for both `proposed_action_contract` and existing `recommended_action_contract`.
-- Tests for contradictory evidence, incomplete correlation, standing credentials, prohibited transitions, countersignature requirements, expiry, and report-only flag.
+- Tests for contradictory evidence, incomplete correlation, standing credentials, prohibited transitions, countersignature requirements, deterministic expiry, absent expiry reason codes, and report-only flag.
 - Markdown tests proving wording says "Proposed Action Contract" and does not imply Wrkr enforcement.
 
 Matrix wiring:
@@ -460,6 +461,7 @@ Matrix wiring:
 Acceptance criteria:
 - Gait can validate the proposed contract shape without parsing prose or re-running Wrkr discovery/composition logic.
 - Wrkr output and docs consistently call the new object a proposed Action Contract.
+- Identical inputs produce identical `contract_id` and `contract_content_digest` whether expiry is deterministically present or absent.
 - Existing `recommended_action_contract` consumers are not broken.
 
 Changelog impact: required
