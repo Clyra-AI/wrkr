@@ -43,7 +43,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 
 - Wrkr emits a bounded `composed_action_paths[]` artifact from existing action paths, workflow chains, graph refs, evidence decisions, and runtime evidence sidecars, with deterministic `composition_id`, pattern ID, ordered stages, transitions, target identity, durable outcome key, recommendation, and proof/evidence refs.
 - Composition IDs remain stable across harmless `path_id` churn, input ordering changes, duplicate stage candidates, and repeated runs. IDs change only when durable members, roles, pattern, target identity, or consequential outcome semantics change.
-- Sprint 0 freeze gates are green before any new public scan/report/schema surface lands, with validation receipts for size, redaction, recursive redaction, clone-strip, readability, and finding-noise budgets.
+- Sprint 0 freeze gates are green before any new public scan/report/schema surface lands, with committed validation receipts for size, redaction, recursive redaction, clone-strip, readability, and finding-noise budgets.
 - Composition evidence reuses canonical evidence states, freshness, `policy_coverage_status`, and `gait_coverage`; it does not introduce a second evidence vocabulary.
 - Wrkr distinguishes possible static composition from observed execution in JSON, Markdown, proof refs, and docs.
 - Wrkr emits additive `proposed_action_contract` objects that reference compositions and include allowed/prohibited transitions, approval-required transitions, target constraints, credential mode, delegation depth, evidence requirements, countersigner requirements, expected outcome class, compensation requirements, deterministic expiry when present, source digests, and `report_only: true`.
@@ -58,7 +58,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 - Public-surface prerequisite:
   - Story 0.1 must pass before implementation stories expose new top-level or schema-documented public fields.
   - If Story 0.1 is not green, composition work may proceed only as an internal/private projection or fixture experiment with public JSON/schema/report expansion deferred.
-  - Validation receipts must identify the exact size, redaction, recursive-redaction, clone-strip, readability, and finding-noise commands or tests used.
+  - Committed validation receipts must identify the exact size, redaction, recursive-redaction, clone-strip, readability, and finding-noise commands or tests used.
 - Risk report JSON:
   - Add top-level `composed_action_paths[]` and `composed_action_path_to_control_first`.
   - Add `composition_ids[]` on relevant `action_paths[]` entries, matching Agent Action BOM and decision-trace join fields.
@@ -203,9 +203,10 @@ Expected benefit: Composition work cannot reintroduce output-size, redaction, re
 Tasks:
 - Read the current `AGENTS.md`, `product/PLAN_NEXT.md`, `product/dev_guides.md`, and `docs/commands/report.md` freeze language before implementing any public composition JSON/schema/report field.
 - Identify the exact local and CI gates that prove output-size budgets, redaction, recursive redaction, clone-strip contracts, readability, and finding-noise budgets are green for current buyer-facing surfaces.
-- Add or update a small freeze-gate receipt artifact or test note in the implementation PR description that records the commands, fixture names, and pass/fail result before Story 1.1 exposes public fields.
+- Add or update a committed freeze-gate receipt artifact, for example under `testinfra/contracts/fixtures/freeze-gate/`, that records the commands, fixture names, artifact-size deltas, redaction cases, readability checks, finding-noise checks, and pass/fail result before Story 1.1 exposes public fields.
 - If any freeze gate is missing or red, keep composition work internal/private and defer public `composed_action_paths[]`, proposed contract schema exposure, and Agent Action BOM primary-view expansion until the gate is green.
-- Require every later story that adds public scan/report/schema output to reference the Story 0.1 validation receipt in its PR description.
+- Add an automated contract test that fails when public composition scan/report/schema fields are present without a committed green Story 0.1 receipt.
+- Require every later story that adds public scan/report/schema output to reference the committed Story 0.1 validation receipt path in its tests and PR description.
 - Add a docs note that new composition fields are intentionally gated by the Sprint 0 output-safety freeze.
 - Add changelog entry only if implementation adds a new automated freeze-gate check or public docs note.
 
@@ -218,6 +219,7 @@ Repo paths:
 - `scripts/check_docs_storyline.sh`
 - `scripts/check_docs_consistency.sh`
 - `testinfra/contracts/`
+- `testinfra/contracts/fixtures/freeze-gate/`
 - `CHANGELOG.md`
 
 Run commands:
@@ -233,7 +235,7 @@ Test requirements:
 - A failing or missing freeze-gate fixture must block public composition fields.
 - Redaction tests must cover recursive redaction and clone-strip behavior for any new composition fixture before it becomes public output.
 - Readability and output-size checks must use buyer-facing report fixtures, not only unit-level JSON snapshots.
-- Negative test or documented receipt proving public fields are deferred when gates are red or unavailable.
+- Negative test proving public fields are deferred when the committed receipt is missing, stale, red, or unavailable.
 
 Matrix wiring:
 - Fast lane: docs parity/storyline checks, focused contract tests, and `make lint-fast`.
@@ -242,11 +244,11 @@ Matrix wiring:
 - Cross-platform lane: redaction and clone-strip path normalization checks must run on at least Linux plus the existing Windows smoke lane when public output changes.
 - Risk lane: `make test-risk-lane` when any public report/risk/schema surface is exposed.
 - Release/UAT lane: `make prepush-full` before release promotion.
-- Gating rule: Story 1.1 through Story 3.4 cannot expose public composition fields unless this story's gate receipt is green or the later PR explicitly keeps the work internal/private.
+- Gating rule: Story 1.1 through Story 3.4 cannot expose public composition fields unless this story's committed gate receipt is green and the automated contract check passes, or the later PR explicitly keeps the work internal/private.
 
 Acceptance criteria:
-- Public composition JSON/schema/report expansion is blocked until the Sprint 0 output-safety gate has green receipts.
-- The gate receipt names size, redaction, recursive-redaction, clone-strip, readability, and finding-noise validations.
+- Public composition JSON/schema/report expansion is blocked until the Sprint 0 output-safety gate has a committed green receipt and automated check coverage.
+- The gate receipt names size, redaction, recursive-redaction, clone-strip, readability, and finding-noise validations, including measured artifact-size deltas and fixture names.
 - Later implementation PRs have a clear go/no-go decision for public composition output.
 
 Changelog impact: required
@@ -276,7 +278,7 @@ Tasks:
 - Add `risk.ComposedActionPath`, `CompositionStage`, `CompositionTransition`, `CompositionPattern`, and summary types in a new composition-focused risk file.
 - Define stage roles as `source`, `transform`, `sink`, `internal_sink`, `external_sink`, `privileged_sink`, and `destructive_sink`; specialized sink roles refine the generic `sink` contract rather than replacing it.
 - Implement bounded deterministic patterns for sensitive-read-to-egress, secret-to-network, code-to-deploy, workflow-mutation-to-production, and package-change-to-release using existing `ActionPath`, workflow-chain, action class, credential, target class, mutable endpoint, and graph ref fields.
-- Derive `composition_id` from pattern ID, ordered stage roles, member `resolution_key` values, target identity, and durable outcome-key components: affected asset, target class, outcome class, and environment. Exclude volatile `path_id` from the durable ID.
+- Derive `composition_id` from pattern ID, ordered stage roles, member `resolution_key` values, stable target identity, and durable outcome-key components: affected asset, target class, stable target identity, outcome class, and environment. Deduplicate identical target material before hashing so target identity is represented once but remains part of outcome semantics. Exclude volatile `path_id` from the durable ID.
 - Include member `path_ids[]` and workflow-chain refs as references, not ID material.
 - Sort candidates, stages, transitions, evidence refs, and output compositions deterministically.
 - Deduplicate duplicate stage candidates and cap candidate expansion with explicit `unsupported_surfaces[]` or `truncated_candidates[]` when bounds are reached.
@@ -829,11 +831,11 @@ Strategic direction: Start with bounded outcome equivalence for deploy, external
 Expected benefit: Security can find uncontrolled alternatives to a protected path without grouping unrelated actions merely because they share a repo or tool family.
 
 Tasks:
-- Add `outcome_key` derivation from affected asset, target class, outcome class, and environment.
+- Add `outcome_key` derivation from affected asset, target class, stable target identity, outcome class, and environment.
 - Add bounded equivalence matching for deploy, external egress, privileged mutation, and package/release outcomes.
 - Compare equivalent compositions for materially different authority identity, workflow/token identity, approval requirements, policy coverage, Gait coverage, credential mode, and evidence state; keep these comparison dimensions out of `outcome_key` material.
 - Emit `equivalent_outcome_refs[]`, `approval_evasion_signal`, `coverage_delta_reasons[]`, and `materiality` fields.
-- Keep grouping deterministic and capped by outcome class and target identity.
+- Keep grouping deterministic and capped by `outcome_key`; target identity is part of that key, while authority and credential posture remain comparison dimensions.
 - Add report, schema, docs, and changelog updates.
 
 Repo paths:
@@ -857,7 +859,7 @@ Run commands:
 
 Test requirements:
 - Equivalent deploy route, multiple egress connector, direct-versus-workflow mutation, multiple release mechanism, and same-outcome different-authority tests.
-- Negative tests for materially different outcomes, unknown targets, and unrelated shared repo/tool family matches.
+- Negative tests for materially different outcomes, distinct stable target identities under the same asset/environment, unknown targets, and unrelated shared repo/tool family matches.
 - Stable ordering and output bounds tests.
 
 Matrix wiring:
@@ -870,7 +872,7 @@ Matrix wiring:
 
 Acceptance criteria:
 - Wrkr reports plausible approval-evasion paths with exact coverage deltas.
-- Unrelated actions are not grouped merely by repo or tool family.
+- Unrelated actions are not grouped merely by repo, tool family, affected asset, or environment when stable target identity differs.
 - Authority, workflow/token, and credential differences are reported as comparison deltas, not separate outcome groups.
 - Equivalent-outcome output remains bounded and deterministic.
 
