@@ -21,6 +21,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 - Proposed Action Contracts are report-only proposals from Wrkr with `report_only: true`; Gait remains authoritative for runtime transition checks, sequence state, approvals, credentials, attenuation, revocation, and execution closure.
 - Cross-product compatibility fixtures are release-level API surfaces. Wrkr must not ship a composition artifact that Gait cannot validate or Axym cannot correlate without a failing fixture or contract test.
 - Buyer-facing output leads with the highest-risk consequential composition, affected asset, authority, evidence posture, current control gap, proposed Action Contract, and closure requirements. Deep stage/path detail belongs in appendices.
+- Public scan/report/schema surface expansion is blocked until the Sprint 0 freeze gate is explicitly green. Size, redaction, recursive redaction, clone-strip, readability, and finding-noise gates must pass before `composed_action_paths[]`, proposed contract fields, or primary-view composition fields can become public JSON/schema output.
 - No scan-time LLM calls, live tool execution, raw payload inspection, secret extraction, default network calls, or scan-data exfiltration are allowed.
 
 ## Current Baseline (Observed)
@@ -42,6 +43,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 
 - Wrkr emits a bounded `composed_action_paths[]` artifact from existing action paths, workflow chains, graph refs, evidence decisions, and runtime evidence sidecars, with deterministic `composition_id`, pattern ID, ordered stages, transitions, target identity, recommendation, and proof/evidence refs.
 - Composition IDs remain stable across harmless `path_id` churn, input ordering changes, duplicate stage candidates, and repeated runs. IDs change only when durable members, roles, pattern, target identity, or consequential outcome semantics change.
+- Sprint 0 freeze gates are green before any new public scan/report/schema surface lands, with validation receipts for size, redaction, recursive redaction, clone-strip, readability, and finding-noise budgets.
 - Composition evidence reuses canonical evidence states, freshness, `policy_coverage_status`, and `gait_coverage`; it does not introduce a second evidence vocabulary.
 - Wrkr distinguishes possible static composition from observed execution in JSON, Markdown, proof refs, and docs.
 - Wrkr emits additive `proposed_action_contract` objects that reference compositions and include allowed/prohibited transitions, approval-required transitions, target constraints, credential mode, delegation depth, evidence requirements, countersigner requirements, expected outcome class, compensation requirements, expiry, source digests, and `report_only: true`.
@@ -53,6 +55,10 @@ All local checkout paths from the recommendation source are normalized to repo-r
 
 ## Public API and Contract Map
 
+- Public-surface prerequisite:
+  - Story 0.1 must pass before implementation stories expose new top-level or schema-documented public fields.
+  - If Story 0.1 is not green, composition work may proceed only as an internal/private projection or fixture experiment with public JSON/schema/report expansion deferred.
+  - Validation receipts must identify the exact size, redaction, recursive-redaction, clone-strip, readability, and finding-noise commands or tests used.
 - Risk report JSON:
   - Add top-level `composed_action_paths[]` and `composed_action_path_to_control_first`.
   - Add `composition_refs[]` or `composition_ids[]` on relevant `action_paths[]` entries.
@@ -122,6 +128,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 
 | Recommendation | Priority | Planned Coverage |
 |---|---:|---|
+| Sprint 0 public surface freeze gate | P0 | Story 0.1 |
 | 1. Composed Action-Path Contract and Pattern Engine | P0 | Stories 1.1, 1.2, 2.3 |
 | 2. Proposed Action Contract V2 | P0 | Story 1.3 |
 | 3. Cross-Product Composition Correlation | P0 | Story 2.1 |
@@ -145,6 +152,8 @@ All local checkout paths from the recommendation source are normalized to repo-r
 
 ## Minimum-Now Sequence
 
+- Wave 0 - Freeze gate prerequisite:
+  - Story 0.1: verify Sprint 0 size, redaction, recursive-redaction, clone-strip, readability, and finding-noise gates before public composition surface expansion.
 - Wave 1 - Composition contract spine:
   - Story 1.1: define the `composed_action_path` model, schema, stable ID, and bounded pattern engine.
   - Story 1.2: project canonical evidence, policy coverage, Gait coverage, freshness, and static-versus-observed claims onto composition stages and transitions.
@@ -179,6 +188,78 @@ All local checkout paths from the recommendation source are normalized to repo-r
 - Buyer-facing output answers which permitted capabilities compose into the most consequential authority path, what evidence proves or fails to prove control, and what closure is required.
 - Canonical scenarios and schema fixtures prove deterministic composition, proposed contract, decision trace, evidence requirements, redaction, and drift behavior.
 - Docs, schemas, command help, examples, changelog, and scenario goldens agree with executable behavior.
+
+## Epic 0: Sprint 0 Freeze Gate and Output-Safety Prerequisite
+
+Objective: keep the existing temporary freeze on new scan/report surface area enforceable while allowing composition planning to proceed only after buyer-output size, redaction, and readability gates are green.
+
+### Story 0.1: Verify Sprint 0 gates before public composition fields
+
+Priority: P0
+Recommendation coverage: prerequisite for all public composition output
+Strategic direction: Treat the repo's temporary freeze as a hard public-surface gate, not a note buried in implementation stories.
+Expected benefit: Composition work cannot reintroduce output-size, redaction, readability, clone-strip, or finding-noise regressions while Wrkr is still stabilizing buyer-facing surfaces.
+
+Tasks:
+- Read the current `AGENTS.md`, `product/PLAN_NEXT.md`, `product/dev_guides.md`, and `docs/commands/report.md` freeze language before implementing any public composition JSON/schema/report field.
+- Identify the exact local and CI gates that prove output-size budgets, redaction, recursive redaction, clone-strip contracts, readability, and finding-noise budgets are green for current buyer-facing surfaces.
+- Add or update a small freeze-gate receipt artifact or test note in the implementation PR description that records the commands, fixture names, and pass/fail result before Story 1.1 exposes public fields.
+- If any freeze gate is missing or red, keep composition work internal/private and defer public `composed_action_paths[]`, proposed contract schema exposure, and Agent Action BOM primary-view expansion until the gate is green.
+- Require every later story that adds public scan/report/schema output to reference the Story 0.1 validation receipt in its PR description.
+- Add a docs note that new composition fields are intentionally gated by the Sprint 0 output-safety freeze.
+- Add changelog entry only if implementation adds a new automated freeze-gate check or public docs note.
+
+Repo paths:
+- `AGENTS.md`
+- `product/PLAN_NEXT.md`
+- `product/dev_guides.md`
+- `docs/commands/report.md`
+- `docs/commands/scan.md`
+- `scripts/check_docs_storyline.sh`
+- `scripts/check_docs_consistency.sh`
+- `testinfra/contracts/`
+- `CHANGELOG.md`
+
+Run commands:
+- `scripts/check_docs_storyline.sh`
+- `scripts/check_docs_consistency.sh`
+- `scripts/check_docs_cli_parity.sh`
+- `go test ./testinfra/contracts -run 'Test.*Redaction|Test.*Clone|Test.*Report|Test.*Output|Test.*Noise' -count=1`
+- `make test-focused-docs`
+- `make test-contracts`
+- `make lint-fast`
+
+Test requirements:
+- A failing or missing freeze-gate fixture must block public composition fields.
+- Redaction tests must cover recursive redaction and clone-strip behavior for any new composition fixture before it becomes public output.
+- Readability and output-size checks must use buyer-facing report fixtures, not only unit-level JSON snapshots.
+- Negative test or documented receipt proving public fields are deferred when gates are red or unavailable.
+
+Matrix wiring:
+- Fast lane: docs parity/storyline checks, focused contract tests, and `make lint-fast`.
+- Core CI lane: `make test-contracts`, `make test-focused-docs`, and `make test-fast` when implementation changes tests/scripts.
+- Acceptance lane: scenario validation becomes required before Story 2.3 public fixtures land.
+- Cross-platform lane: redaction and clone-strip path normalization checks must run on at least Linux plus the existing Windows smoke lane when public output changes.
+- Risk lane: `make test-risk-lane` when any public report/risk/schema surface is exposed.
+- Release/UAT lane: `make prepush-full` before release promotion.
+- Gating rule: Story 1.1 through Story 3.4 cannot expose public composition fields unless this story's gate receipt is green or the later PR explicitly keeps the work internal/private.
+
+Acceptance criteria:
+- Public composition JSON/schema/report expansion is blocked until the Sprint 0 output-safety gate has green receipts.
+- The gate receipt names size, redaction, recursive-redaction, clone-strip, readability, and finding-noise validations.
+- Later implementation PRs have a clear go/no-go decision for public composition output.
+
+Changelog impact: required
+Changelog section: Changed
+Draft changelog entry: Documented the Sprint 0 public-surface freeze gate that composition work must satisfy before exposing new scan/report/schema fields.
+Semver marker override: none
+Contract/API impact: No new public fields by itself; gates future public composition surface area.
+Versioning/migration impact: No migration; this story is a prerequisite and enforcement receipt.
+Architecture constraints: The gate must preserve existing buyer-output contracts before risk/report/schema expansion begins.
+ADR required: no
+TDD first failing test(s): `TestCompositionPublicSurfaceRequiresSprint0FreezeGateReceipt`.
+Cost/perf impact: low
+Chaos/failure hypothesis: If redaction, clone-strip, readability, or output-size gates are missing or red, public composition output remains disabled/deferred instead of shipping a noisy or unsafe buyer-facing surface.
 
 ## Epic 1: Composition Contract Spine
 
