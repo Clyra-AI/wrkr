@@ -15,7 +15,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 - `source`, `transform`, `sink`, `internal_sink`, `external_sink`, `privileged_sink`, and `destructive_sink` roles live inside the one `composed_action_path.stages[]` model. They are not a parallel classification system outside the composition object.
 - Static reachability and observed execution stay separate. Wrkr may say a composition is possible or statically inferred; it must not claim that the sequence executed unless imported runtime evidence explicitly proves execution.
 - Existing `resolution_key`, action-path IDs, workflow-chain IDs, evidence states, freshness semantics, autonomy tiers, canonical recommendations, policy coverage, and Gait coverage remain canonical.
-- `path_id` remains an instance identifier. Durable cross-product joins use `resolution_key`, `composition_id`, `proposed_action_contract_ref`, workflow-chain refs, and decision-trace refs.
+- `path_id` remains an instance identifier. Durable cross-product joins use `resolution_key`, `composition_id`, `proposed_action_contract_refs[]`, workflow-chain refs, and decision-trace refs.
 - A declared policy, matched policy file, or static Gait config is not runtime-proven enforcement. Runtime control claims require sufficient `gait_coverage` and outcome/proof evidence.
 - The action contract surface is named `proposed_action_contract` in new artifacts because Wrkr is not runtime-authoritative. Existing `recommended_action_contract` output must remain compatible during migration and may be backfilled from the proposed contract where needed.
 - Proposed Action Contracts are report-only proposals from Wrkr with `report_only: true`; Gait remains authoritative for runtime transition checks, sequence state, approvals, credentials, attenuation, revocation, and execution closure.
@@ -34,7 +34,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 - `core/aggregate/attackpath/graph.go` already builds graph nodes and edges over entry, pivot, target, workflow, tool, credential, and action-capability contexts. Composition should consume this context where useful without becoming an arbitrary graph query engine.
 - `core/report/agent_action_bom.go`, `core/report/primary_view.go`, and `core/report/render_markdown.go` already expose a focused Agent Action BOM, primary view, buyer-safe redaction, closure actions, and action contract wording. The BOM does not yet lead with a first-class composition object.
 - `schemas/v1/risk/risk-report.schema.json`, `schemas/v1/agent-action-bom.schema.json`, and `schemas/v1/report/report-summary.schema.json` already carry action-path, evidence-state, Gait coverage, workflow-chain, and recommended action contract fields. There is no `composed_action_path` schema or `proposed_action_contract` schema today.
-- `schemas/v1/proof-outputs/decision-trace-record.schema.json` already defines additive decision-trace proof output, but it does not require or project `resolution_key`, `composition_ids`, `proposed_action_contract_ref`, workflow-chain refs, autonomy tier, canonical recommendation, or stage evidence references.
+- `schemas/v1/proof-outputs/decision-trace-record.schema.json` already defines additive decision-trace proof output, but it does not require or project `resolution_key`, `composition_ids`, `proposed_action_contract_refs[]`, workflow-chain refs, autonomy tier, canonical recommendation, or stage evidence references.
 - `core/regress/action_path_drift.go` already compares action paths across baselines using `resolution_key`, authority, evidence, target class, lifecycle, and risk fields. It does not yet compare composed action paths or detect composition drift.
 - Existing docs in `docs/commands/report.md`, `docs/commands/ingest.md`, and `schemas/v1/README.md` already explain action paths, Agent Action BOM evidence, Gait coverage, freshness, and Wrkr/Gait boundaries. They do not yet document composed action paths or proposed Action Contracts.
 - Search found no existing `composed_action_path`, `composition_id`, or composition stage-role artifact in `core/`, `schemas/`, `internal/`, `scenarios/`, or docs.
@@ -48,7 +48,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 - Wrkr distinguishes possible static composition from observed execution in JSON, Markdown, proof refs, and docs.
 - Wrkr emits additive `proposed_action_contract` objects that reference compositions and include allowed/prohibited transitions, approval-required transitions, target constraints, credential mode, delegation depth, evidence requirements, countersigner requirements, expected outcome class, compensation requirements, deterministic expiry when present, source digests, and `report_only: true`.
 - Existing `recommended_action_contract` consumers remain compatible during migration, with docs leading on the proposed Action Contract name.
-- Decision trace records and evidence bundle exports carry explicit `resolution_key`, `composition_ids`, `proposed_action_contract_ref`, workflow-chain refs, autonomy tier, recommended control, and evidence-state fields for Gait and Axym joins without heuristic matching.
+- Decision trace records and evidence bundle exports carry explicit `resolution_key`, `composition_ids`, `proposed_action_contract_refs[]`, workflow-chain refs, autonomy tier, recommended control, and evidence-state fields for Gait and Axym joins without heuristic matching.
 - The Agent Action BOM primary view and Markdown report lead with the highest-risk composition and required control closure before broad graph or inventory appendices.
 - Canonical scenarios cover sensitive-read-to-egress, secret-to-network, code-to-deploy, workflow-mutation-to-production, package-change-to-release, standing credentials, incomplete outcomes, and controlled versus uncontrolled transitions.
 - Regress detects meaningful composition drift, including introduced compositions, removed compositions, member changes, newly introduced sinks, coverage degradation, evidence degradation, alternate routes, newly ungoverned transitions, and worsened recommendations without reporting harmless ordering or instance-ID churn.
@@ -66,7 +66,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 - Agent Action BOM JSON:
   - Add `summary.primary_view.composition_id`, composition path map fields, and a focused composition block.
   - Add `items[*].composition_ids[]` where an item contributes to one or more compositions.
-  - Add a top-level or summary-level `composed_action_paths[]` reference list only when it can be derived from saved state.
+  - Add top-level `composed_action_paths[]` alongside `items[]` only when it can be derived from saved state; do not duplicate this list under `summary`.
 - Schemas:
   - Add `schemas/v1/composed-action-path.schema.json`.
   - Add `schemas/v1/proposed-action-contract.schema.json`.
@@ -416,7 +416,7 @@ Tasks:
 - Populate `expires_at` only from explicit scanned evidence or deterministic repo policy/config. Do not derive expiry from scan time, generation time, or floating TTL defaults; leave it unset with a reason code when no deterministic source exists.
 - Keep `report_only: true` for Wrkr-produced contracts.
 - Add `schemas/v1/proposed-action-contract.schema.json`.
-- Add additive `proposed_action_contract` on compositions, action paths, Agent Action BOM primary view, and report JSON where deterministically available.
+- Add additive `proposed_action_contract` on compositions, plus `proposed_action_contract_refs[]` on action paths, Agent Action BOM primary view, and report JSON where deterministically available.
 - Preserve `recommended_action_contract` as a compatibility projection or alias during migration; document the preferred proposed contract name.
 - Add contradictory evidence and incomplete correlation states that block `ready_for_report_only`.
 - Add docs, schema README, compatibility matrix, and changelog updates.
@@ -488,9 +488,9 @@ Strategic direction: Extend the existing stable correlation model to composition
 Expected benefit: Discovery, policy, approval, credential, outcome, and evidence records remain joinable across rescans and products even when path instance IDs churn.
 
 Tasks:
-- Add `resolution_key`, `composition_ids`, `proposed_action_contract_ref`, `workflow_chain_refs`, `autonomy_tier`, `recommended_control`, `evidence_states`, and relevant Gait coverage summaries to decision-trace events and schema.
+- Add `resolution_key`, `composition_ids`, `proposed_action_contract_refs[]`, `workflow_chain_refs`, `autonomy_tier`, `recommended_control`, `evidence_states`, and relevant Gait coverage summaries to decision-trace events and schema.
 - Add composition refs to proof map and evidence bundle exports without duplicating proof content.
-- Add mapping helpers that join action paths, compositions, workflow chains, proposed contracts, and decision traces by explicit refs.
+- Add mapping helpers that join action paths, compositions, workflow chains, proposed contracts, and decision traces by explicit refs, using each proposed contract's `composition_ref` to map plural contract refs back to specific compositions.
 - Backfill refs into `AgentActionBOMItem`, `AgentActionBOMPrimaryView`, and risk report summaries where saved state has the required data.
 - Preserve existing IDs and make all new fields additive.
 - Add redaction tests for public/customer-redacted share profiles.
@@ -522,7 +522,7 @@ Run commands:
 
 Test requirements:
 - Path-ID churn tests proving `resolution_key` and composition refs survive harmless instance changes.
-- Tests for missing references, additive schema compatibility, redaction, and downstream fixture consumption.
+- Tests for missing references, multi-composition proposed-contract refs, additive schema compatibility, redaction, and downstream fixture consumption.
 - Golden evidence bundle tests proving refs are deterministic and sorted.
 
 Matrix wiring:
@@ -536,7 +536,7 @@ Matrix wiring:
 Acceptance criteria:
 - Gait and Axym can join compositions and proposed contracts through explicit references without heuristic matching.
 - New correlation fields are additive and redacted appropriately in shareable outputs.
-- Decision trace refs point to the relevant composition and proposed contract when available.
+- Decision trace refs point to the relevant compositions and proposed contracts when available, with plural contract refs preserving the per-composition join.
 
 Changelog impact: required
 Changelog section: Added
