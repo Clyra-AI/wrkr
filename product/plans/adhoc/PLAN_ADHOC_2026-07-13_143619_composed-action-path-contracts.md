@@ -12,7 +12,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 - Wrkr remains the deterministic See product in the See -> Prove -> Control sequence. This plan adds discovery, correlation, report, proof-reference, and contract-proposal artifacts only; it does not add Gait runtime enforcement or Axym compliance engine behavior.
 - `composed_action_path` is the single composition object reused by risk reports, Agent Action BOM output, proposed Action Contracts, proof/decision trace references, regress drift, and control recommendations.
 - Composition uses bounded deterministic patterns, not LLM judgment, arbitrary graph queries, or runtime event reconstruction.
-- Source, transform, sink, privileged sink, destructive sink, and external sink roles live inside the one `composed_action_path.stages[]` model. They are not a parallel classification system outside the composition object.
+- `source`, `transform`, `sink`, `internal_sink`, `external_sink`, `privileged_sink`, and `destructive_sink` roles live inside the one `composed_action_path.stages[]` model. They are not a parallel classification system outside the composition object.
 - Static reachability and observed execution stay separate. Wrkr may say a composition is possible or statically inferred; it must not claim that the sequence executed unless imported runtime evidence explicitly proves execution.
 - Existing `resolution_key`, action-path IDs, workflow-chain IDs, evidence states, freshness semantics, autonomy tiers, canonical recommendations, policy coverage, and Gait coverage remain canonical.
 - `path_id` remains an instance identifier. Durable cross-product joins use `resolution_key`, `composition_id`, `proposed_action_contract_ref`, workflow-chain refs, and decision-trace refs.
@@ -106,7 +106,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
   - `CHANGELOG.md`
 - Docs must state:
   - What a composed action path is and how it differs from an action path, workflow chain, and observed execution.
-  - Why source/transform/sink roles are stage roles inside `composed_action_path`, not a second classification system.
+  - Why source/transform/sink roles, including specialized sink roles, are stage roles inside `composed_action_path`, not a second classification system.
   - Why Wrkr emits a proposed Action Contract and why Gait remains runtime-authoritative.
   - Which composition patterns are supported and which are explicitly out of scope.
   - How composition IDs, resolution keys, workflow-chain refs, proposed contract refs, decision trace refs, and proof refs join.
@@ -274,7 +274,7 @@ Expected benefit: Wrkr can detect sensitive-read-to-egress, secret-to-network, c
 
 Tasks:
 - Add `risk.ComposedActionPath`, `CompositionStage`, `CompositionTransition`, `CompositionPattern`, and summary types in a new composition-focused risk file.
-- Define stage roles as `source`, `transform`, `internal_sink`, `external_sink`, `privileged_sink`, and `destructive_sink`.
+- Define stage roles as `source`, `transform`, `sink`, `internal_sink`, `external_sink`, `privileged_sink`, and `destructive_sink`; specialized sink roles refine the generic `sink` contract rather than replacing it.
 - Implement bounded deterministic patterns for sensitive-read-to-egress, secret-to-network, code-to-deploy, workflow-mutation-to-production, and package-change-to-release using existing `ActionPath`, workflow-chain, action class, credential, target class, mutable endpoint, and graph ref fields.
 - Derive `composition_id` from pattern ID, ordered stage roles, member `resolution_key` values, target identity, and outcome class. Exclude volatile `path_id` from the durable ID.
 - Include member `path_ids[]` and workflow-chain refs as references, not ID material.
@@ -821,9 +821,9 @@ Strategic direction: Start with bounded outcome equivalence for deploy, external
 Expected benefit: Security can find uncontrolled alternatives to a protected path without grouping unrelated actions merely because they share a repo or tool family.
 
 Tasks:
-- Add `outcome_key` derivation from affected asset, target class, outcome class, environment, and authority identity.
+- Add `outcome_key` derivation from affected asset, target class, outcome class, and environment.
 - Add bounded equivalence matching for deploy, external egress, privileged mutation, and package/release outcomes.
-- Compare equivalent compositions for materially different approval requirements, policy coverage, Gait coverage, credential mode, and evidence state.
+- Compare equivalent compositions for materially different authority identity, workflow/token identity, approval requirements, policy coverage, Gait coverage, credential mode, and evidence state; keep these comparison dimensions out of `outcome_key` material.
 - Emit `equivalent_outcome_refs[]`, `approval_evasion_signal`, `coverage_delta_reasons[]`, and `materiality` fields.
 - Keep grouping deterministic and capped by outcome class and target identity.
 - Add report, schema, docs, and changelog updates.
@@ -848,7 +848,7 @@ Run commands:
 - `make test-fast`
 
 Test requirements:
-- Equivalent deploy route, multiple egress connector, direct-versus-workflow mutation, and multiple release mechanism tests.
+- Equivalent deploy route, multiple egress connector, direct-versus-workflow mutation, multiple release mechanism, and same-outcome different-authority tests.
 - Negative tests for materially different outcomes, unknown targets, and unrelated shared repo/tool family matches.
 - Stable ordering and output bounds tests.
 
@@ -863,6 +863,7 @@ Matrix wiring:
 Acceptance criteria:
 - Wrkr reports plausible approval-evasion paths with exact coverage deltas.
 - Unrelated actions are not grouped merely by repo or tool family.
+- Authority, workflow/token, and credential differences are reported as comparison deltas, not separate outcome groups.
 - Equivalent-outcome output remains bounded and deterministic.
 
 Changelog impact: required
