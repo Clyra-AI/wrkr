@@ -895,7 +895,7 @@ Expected benefit: Teams can block newly introduced dangerous compositions and re
 
 Tasks:
 - Add `CompositionState` snapshots with `composition_id`, `composition_family_key`, pattern ID, member resolution keys, target identity, outcome key, risk, recommendation, evidence states, policy coverage, Gait coverage, delegation relationship, and equivalent-outcome refs.
-- Derive `composition_family_key` from stable non-outcome material: pattern ID, ordered stage roles, member `resolution_key` values, and stable route/source identity. Exclude `composition_id`, volatile `path_id`, target identity, outcome key, environment, and outcome class from this match key so regress can classify outcome changes without treating them as removed plus introduced compositions.
+- Derive `composition_family_key` from stable non-outcome material: pattern ID, ordered stage roles, member `resolution_key` values, stable target identity, and stable route/source identity. Exclude `composition_id`, volatile `path_id`, outcome key, environment, and outcome class from this match key so regress can classify outcome changes without treating them as removed plus introduced compositions while avoiding collisions between distinct targets.
 - Compare baseline and current composition states by `composition_family_key`, not volatile path IDs or outcome-bearing `composition_id`.
 - Emit drift categories for introduced, removed, changed members, newly introduced sinks, coverage degraded, evidence degraded, newly ungoverned, worsened recommendation, alternate route appeared, and outcome changed.
 - Preserve existing action-path drift categories and exit `5`.
@@ -927,6 +927,7 @@ Test requirements:
 - Harmless path-ID churn tests proving no false composition drift.
 - Tests for member changes, newly introduced sinks, coverage degradation, stale evidence, alternate path appearance, removed compositions, and stable output.
 - Outcome-change tests proving staging-to-production deploys and internal-to-external egress changes emit `outcome changed`, not removed plus introduced.
+- Collision tests proving parallel compositions with the same member paths but different stable target identities receive distinct `composition_family_key` values.
 - Backward-compatible baseline tests for states with no composition material.
 - CLI exit-code tests preserving exit `5`.
 
