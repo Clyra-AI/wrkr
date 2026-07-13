@@ -41,7 +41,7 @@ All local checkout paths from the recommendation source are normalized to repo-r
 
 ## Exit Criteria
 
-- Wrkr emits a bounded `composed_action_paths[]` artifact from existing action paths, workflow chains, graph refs, evidence decisions, and runtime evidence sidecars, with deterministic `composition_id`, pattern ID, ordered stages, transitions, target identity, recommendation, and proof/evidence refs.
+- Wrkr emits a bounded `composed_action_paths[]` artifact from existing action paths, workflow chains, graph refs, evidence decisions, and runtime evidence sidecars, with deterministic `composition_id`, pattern ID, ordered stages, transitions, target identity, durable outcome key, recommendation, and proof/evidence refs.
 - Composition IDs remain stable across harmless `path_id` churn, input ordering changes, duplicate stage candidates, and repeated runs. IDs change only when durable members, roles, pattern, target identity, or consequential outcome semantics change.
 - Sprint 0 freeze gates are green before any new public scan/report/schema surface lands, with validation receipts for size, redaction, recursive redaction, clone-strip, readability, and finding-noise budgets.
 - Composition evidence reuses canonical evidence states, freshness, `policy_coverage_status`, and `gait_coverage`; it does not introduce a second evidence vocabulary.
@@ -276,7 +276,7 @@ Tasks:
 - Add `risk.ComposedActionPath`, `CompositionStage`, `CompositionTransition`, `CompositionPattern`, and summary types in a new composition-focused risk file.
 - Define stage roles as `source`, `transform`, `sink`, `internal_sink`, `external_sink`, `privileged_sink`, and `destructive_sink`; specialized sink roles refine the generic `sink` contract rather than replacing it.
 - Implement bounded deterministic patterns for sensitive-read-to-egress, secret-to-network, code-to-deploy, workflow-mutation-to-production, and package-change-to-release using existing `ActionPath`, workflow-chain, action class, credential, target class, mutable endpoint, and graph ref fields.
-- Derive `composition_id` from pattern ID, ordered stage roles, member `resolution_key` values, target identity, and outcome class. Exclude volatile `path_id` from the durable ID.
+- Derive `composition_id` from pattern ID, ordered stage roles, member `resolution_key` values, target identity, and durable outcome-key components: affected asset, target class, outcome class, and environment. Exclude volatile `path_id` from the durable ID.
 - Include member `path_ids[]` and workflow-chain refs as references, not ID material.
 - Sort candidates, stages, transitions, evidence refs, and output compositions deterministically.
 - Deduplicate duplicate stage candidates and cap candidate expansion with explicit `unsupported_surfaces[]` or `truncated_candidates[]` when bounds are reached.
@@ -306,6 +306,7 @@ Run commands:
 Test requirements:
 - TDD tests for each supported composition pattern.
 - Reordered input and duplicate-stage tests proving stable IDs and output ordering.
+- Tests proving identical members with materially different outcome contexts, such as staging versus production deploy or internal versus external egress, produce different `composition_id` values.
 - Negative tests for missing intermediates, unsupported surfaces, unknown stage roles, and non-consequential paths.
 - Contract tests for schema validity and additive risk-report JSON fields.
 
@@ -417,6 +418,7 @@ Tasks:
 - Keep `report_only: true` for Wrkr-produced contracts.
 - Add `schemas/v1/proposed-action-contract.schema.json`.
 - Add additive `proposed_action_contract` on compositions, plus `proposed_action_contract_refs[]` on action paths, Agent Action BOM primary view, and report JSON where deterministically available.
+- Update report sanitizers and redaction summaries so public/customer-redacted share profiles scrub proposed contract target constraints, countersigner details, source digests, transition details, and other payload fields consistently across compositions, action paths, Agent Action BOM primary view, and report JSON.
 - Preserve `recommended_action_contract` as a compatibility projection or alias during migration; document the preferred proposed contract name.
 - Add contradictory evidence and incomplete correlation states that block `ready_for_report_only`.
 - Add docs, schema README, compatibility matrix, and changelog updates.
@@ -426,8 +428,10 @@ Repo paths:
 - `core/risk/composition.go`
 - `core/risk/proposed_action_contract.go`
 - `core/risk/agentic_projection_test.go`
+- `core/report/build.go`
 - `core/report/agent_action_bom.go`
 - `core/report/primary_view.go`
+- `core/report/redaction_summary.go`
 - `core/report/render_markdown.go`
 - `schemas/v1/proposed-action-contract.schema.json`
 - `schemas/v1/composed-action-path.schema.json`
@@ -439,7 +443,7 @@ Repo paths:
 
 Run commands:
 - `go test ./core/risk -run 'Test.*ProposedActionContract|Test.*RecommendedActionContract' -count=1`
-- `go test ./core/report -run 'Test.*ProposedActionContract|Test.*PrimaryView|Test.*Markdown' -count=1`
+- `go test ./core/report -run 'Test.*ProposedActionContract|Test.*PrimaryView|Test.*Markdown|Test.*Redaction' -count=1`
 - `make test-contracts`
 - `make test-docs-consistency`
 - `make test-fast`
@@ -448,6 +452,7 @@ Test requirements:
 - Stable generation, stable digest, and repeated-run stable-ID tests, including scans with no deterministic expiry source.
 - Schema compatibility tests for both `proposed_action_contract` and existing `recommended_action_contract`.
 - Tests for contradictory evidence, incomplete correlation, standing credentials, prohibited transitions, countersignature requirements, deterministic expiry, absent expiry reason codes, and report-only flag.
+- Public/customer-redacted share-profile tests proving proposed contract fields are scrubbed consistently in compositions, action paths, Agent Action BOM primary view, and report JSON.
 - Markdown tests proving wording says "Proposed Action Contract" and does not imply Wrkr enforcement.
 
 Matrix wiring:
@@ -462,6 +467,7 @@ Acceptance criteria:
 - Gait can validate the proposed contract shape without parsing prose or re-running Wrkr discovery/composition logic.
 - Wrkr output and docs consistently call the new object a proposed Action Contract.
 - Identical inputs produce identical `contract_id` and `contract_content_digest` whether expiry is deterministically present or absent.
+- Public/customer-redacted outputs do not leak proposed contract payload fields that the current share profile should hide.
 - Existing `recommended_action_contract` consumers are not broken.
 
 Changelog impact: required
