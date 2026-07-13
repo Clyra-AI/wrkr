@@ -894,8 +894,9 @@ Strategic direction: Extend the existing action-path regress model instead of cr
 Expected benefit: Teams can block newly introduced dangerous compositions and reopened control gaps in CI even when individual findings appear unchanged.
 
 Tasks:
-- Add `CompositionState` snapshots with `composition_id`, pattern ID, member resolution keys, target identity, outcome key, risk, recommendation, evidence states, policy coverage, Gait coverage, delegation relationship, and equivalent-outcome refs.
-- Compare baseline and current composition states by durable match key, not volatile path IDs.
+- Add `CompositionState` snapshots with `composition_id`, `composition_family_key`, pattern ID, member resolution keys, target identity, outcome key, risk, recommendation, evidence states, policy coverage, Gait coverage, delegation relationship, and equivalent-outcome refs.
+- Derive `composition_family_key` from stable non-outcome material: pattern ID, ordered stage roles, member `resolution_key` values, and stable route/source identity. Exclude `composition_id`, volatile `path_id`, target identity, outcome key, environment, and outcome class from this match key so regress can classify outcome changes without treating them as removed plus introduced compositions.
+- Compare baseline and current composition states by `composition_family_key`, not volatile path IDs or outcome-bearing `composition_id`.
 - Emit drift categories for introduced, removed, changed members, newly introduced sinks, coverage degraded, evidence degraded, newly ungoverned, worsened recommendation, alternate route appeared, and outcome changed.
 - Preserve existing action-path drift categories and exit `5`.
 - Add focused report and Agent Action BOM drift summaries for compositions.
@@ -925,6 +926,7 @@ Run commands:
 Test requirements:
 - Harmless path-ID churn tests proving no false composition drift.
 - Tests for member changes, newly introduced sinks, coverage degradation, stale evidence, alternate path appearance, removed compositions, and stable output.
+- Outcome-change tests proving staging-to-production deploys and internal-to-external egress changes emit `outcome changed`, not removed plus introduced.
 - Backward-compatible baseline tests for states with no composition material.
 - CLI exit-code tests preserving exit `5`.
 
@@ -938,6 +940,7 @@ Matrix wiring:
 
 Acceptance criteria:
 - Wrkr deterministically detects meaningful composition drift without reporting harmless ordering or identifier changes as new risk.
+- Outcome-key changes are matched by `composition_family_key` and classified as `outcome changed` drift.
 - Composition drift is visible in regress JSON, buyer report drift review, and Agent Action BOM summaries.
 - Baselines lacking compositions fail closed only when comparison is required and otherwise preserve existing action-path drift behavior.
 
