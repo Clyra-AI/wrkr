@@ -330,8 +330,8 @@ Strategic direction: Extend the current action contract projection into a versio
 Expected benefit: Teams can convert discovered composition risk into Gait controls without manually interpreting report prose or making Wrkr responsible for runtime policy.
 
 Tasks:
-- Add `risk.ProposedActionContract` with `contract_id`, `contract_version`, `contract_kind`, `composition_ref`, `resolution_key`, `allowed_transitions`, `prohibited_transitions`, `approval_required_transitions`, `target_constraints`, `required_credential_mode`, `maximum_delegation_depth`, `evidence_requirements`, `acceptable_countersigners`, `expected_outcome_class`, `compensation_required`, `expires_at`, `source_digests`, `report_only`, `readiness_state`, and reason codes.
-- Derive `contract_id` from composition ID, target identity, transition set, required credential mode, evidence requirement digest, and contract version.
+- Add `risk.ProposedActionContract` with `contract_id`, `contract_family_id`, `contract_content_digest`, `contract_version`, `contract_kind`, `composition_ref`, `resolution_key`, `allowed_transitions`, `prohibited_transitions`, `approval_required_transitions`, `target_constraints`, `required_credential_mode`, `maximum_delegation_depth`, `evidence_requirements`, `acceptable_countersigners`, `expected_outcome_class`, `compensation_required`, `expires_at`, `source_digests`, `report_only`, `readiness_state`, and reason codes.
+- Derive `contract_family_id` from composition ID, target identity, and stable control intent, then derive `contract_id` and `contract_content_digest` from all semantically meaningful contract fields, including transitions, target constraints, credential mode, delegation depth, evidence requirements, countersigners, outcome class, compensation requirement, expiry, source digests, report-only posture, readiness state, and contract version.
 - Keep `report_only: true` for Wrkr-produced contracts.
 - Add `schemas/v1/proposed-action-contract.schema.json`.
 - Add additive `proposed_action_contract` on compositions, action paths, Agent Action BOM primary view, and report JSON where deterministically available.
