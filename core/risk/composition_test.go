@@ -219,6 +219,51 @@ func TestBuildComposedActionPathsSurfacesTruncation(t *testing.T) {
 	}
 }
 
+func TestMergeComposedActionPathRebuildsProposedContract(t *testing.T) {
+	base := ComposedActionPath{
+		CompositionID:        "cap-1",
+		ResolutionKey:        "rk",
+		TargetIdentity:       "prod",
+		OutcomeClass:         "production_deploy",
+		TargetClass:          TargetClassProductionImpacting,
+		Environment:          "production",
+		Stages:               []CompositionStage{{StageID: "stage-1", Role: CompositionStageRoleSource}, {StageID: "stage-2", Role: CompositionStageRolePrivilegedSink}},
+		Transitions:          []CompositionTransition{{TransitionID: "transition-1", FromStageID: "stage-1", ToStageID: "stage-2"}},
+		EvidenceState:        EvidenceStateDeclared,
+		PolicyCoverageStatus: PolicyCoverageStatusDeclared,
+		RecommendedControl:   RecommendedControlApprovalRequired,
+	}
+	base.ProposedActionContract = BuildProposedActionContract(base)
+	base.ProposedActionContractRefs = []string{base.ProposedActionContract.ContractID}
+
+	incoming := base
+	incoming.EvidenceState = EvidenceStateContradictory
+	incoming.ClaimState = CompositionClaimContradictory
+	incoming.RecommendedControl = RecommendedControlBlock
+
+	merged := mergeComposedActionPath(base, incoming)
+	if merged.ProposedActionContract == nil {
+		t.Fatalf("expected merged proposed contract, got %+v", merged)
+	}
+	if merged.ProposedActionContract.ReadinessState != ActionContractReadinessBlockedContradict {
+		t.Fatalf("expected merged contract to reflect contradictory state, got %+v", merged.ProposedActionContract)
+	}
+	if len(merged.ProposedActionContractRefs) != 1 || merged.ProposedActionContractRefs[0] != merged.ProposedActionContract.ContractID {
+		t.Fatalf("expected merged contract refs to be rebuilt, got %+v", merged.ProposedActionContractRefs)
+	}
+}
+
+func TestProposedApprovalRequiredTransitionsSkipsProhibitedTransitions(t *testing.T) {
+	transitions := []ProposedActionTransition{{TransitionID: "transition-1", FromStageID: "stage-1", ToStageID: "stage-2"}}
+	got := proposedApprovalRequiredTransitions(ComposedActionPath{
+		ClaimState:         CompositionClaimContradictory,
+		RecommendedControl: RecommendedControlBlock,
+	}, transitions)
+	if got != nil {
+		t.Fatalf("expected prohibited transitions to stay out of approval-required set, got %+v", got)
+	}
+}
+
 func TestCompositionEvidenceStateSeedsFirstConcreteStage(t *testing.T) {
 	if got := compositionEvidenceState("", EvidenceStateDeclared); got != EvidenceStateDeclared {
 		t.Fatalf("expected first concrete evidence state to seed aggregation, got %q", got)

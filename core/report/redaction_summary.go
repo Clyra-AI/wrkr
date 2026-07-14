@@ -176,6 +176,7 @@ func sanitizeComposedActionPathsPublic(in []risk.ComposedActionPath) []risk.Comp
 		copyItem := item
 		copyItem.PathIDs = redactStringSlice(copyItem.PathIDs, "path")
 		copyItem.WorkflowChainRefs = redactStringSlice(copyItem.WorkflowChainRefs, "workflow")
+		copyItem.ResolutionKey = redactValue("resolution", copyItem.ResolutionKey, 8)
 		copyItem.TargetIdentity = redactValue("target", copyItem.TargetIdentity, 8)
 		copyItem.DurableOutcomeKey = redactValue("outcome", copyItem.DurableOutcomeKey, 8)
 		copyItem.AffectedAsset = redactValue("target", copyItem.AffectedAsset, 8)
@@ -212,9 +213,11 @@ func sanitizeComposedActionPathsWithConfig(in []risk.ComposedActionPath, config 
 	out := make([]risk.ComposedActionPath, 0, len(in))
 	for _, item := range in {
 		copyItem := item
+		redactComposedIdentity := config.Has(RedactionPaths) || config.Has(RedactionRepos)
 		if config.Has(RedactionPaths) {
 			copyItem.PathIDs = redactStringSlice(copyItem.PathIDs, "path")
 			copyItem.WorkflowChainRefs = redactStringSlice(copyItem.WorkflowChainRefs, "workflow")
+			copyItem.ResolutionKey = redactValue("resolution", copyItem.ResolutionKey, 8)
 			copyItem.TargetIdentity = redactValue("target", copyItem.TargetIdentity, 8)
 			copyItem.DurableOutcomeKey = redactValue("outcome", copyItem.DurableOutcomeKey, 8)
 			copyItem.AffectedAsset = redactValue("target", copyItem.AffectedAsset, 8)
@@ -225,13 +228,19 @@ func sanitizeComposedActionPathsWithConfig(in []risk.ComposedActionPath, config 
 			copyItem.WorkflowChainRefs = cloneStrings(copyItem.WorkflowChainRefs)
 			copyItem.Stages = sanitizeCompositionStagesWithConfig(copyItem.Stages, config)
 			copyItem.Transitions = sanitizeCompositionTransitionsWithConfig(copyItem.Transitions, config)
+			if redactComposedIdentity {
+				copyItem.ResolutionKey = redactValue("resolution", copyItem.ResolutionKey, 8)
+				copyItem.TargetIdentity = redactValue("target", copyItem.TargetIdentity, 8)
+				copyItem.DurableOutcomeKey = redactValue("outcome", copyItem.DurableOutcomeKey, 8)
+				copyItem.AffectedAsset = redactValue("target", copyItem.AffectedAsset, 8)
+			}
 		}
 		copyItem.EvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.EvidenceRefs, config)
 		copyItem.ProofRefs = maybeRedactStringSlice(copyItem.ProofRefs, "proof", config.Has(RedactionProofRefs))
 		copyItem.SourceDecisionRefs = maybeRedactStringSlice(copyItem.SourceDecisionRefs, "decision", config.Has(RedactionProofRefs))
 		copyItem.ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyItem.ClosureRequirements, config)
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
-		if config.Has(RedactionPaths) || config.Has(RedactionProofRefs) || config.Has(RedactionOwners) {
+		if redactComposedIdentity || config.Has(RedactionProofRefs) || config.Has(RedactionOwners) {
 			copyItem.ProposedActionContract = sanitizeProposedActionContractPublic(copyItem.ProposedActionContract)
 		} else {
 			copyItem.ProposedActionContract = risk.CloneProposedActionContract(copyItem.ProposedActionContract)
@@ -274,6 +283,9 @@ func sanitizeCompositionStagesWithConfig(in []risk.CompositionStage, config Reda
 	for _, stage := range in {
 		copyStage := stage
 		copyStage.PathID = maybeRedactPathID(copyStage.PathID, config)
+		if config.Has(RedactionPaths) || config.Has(RedactionRepos) {
+			copyStage.ResolutionKey = redactValue("resolution", copyStage.ResolutionKey, 8)
+		}
 		copyStage.Location = maybeRedactLocationLike(copyStage.Location, config)
 		copyStage.EvidenceRefs = maybeRedactEvidenceRefSlice(copyStage.EvidenceRefs, config)
 		copyStage.ProofRefs = maybeRedactStringSlice(copyStage.ProofRefs, "proof", config.Has(RedactionProofRefs))
@@ -312,6 +324,7 @@ func sanitizeProposedActionContractPublic(in *risk.ProposedActionContract) *risk
 		return nil
 	}
 	out := risk.CloneProposedActionContract(in)
+	out.ResolutionKey = redactValue("resolution", out.ResolutionKey, 8)
 	out.AllowedTransitions = nil
 	out.ProhibitedTransitions = nil
 	out.ApprovalRequiredTransitions = nil

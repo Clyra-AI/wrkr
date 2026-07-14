@@ -235,6 +235,7 @@ func MergeSuppressedCounts(items ...*SuppressedCounts) *SuppressedCounts {
 		merged.RankedFindings += item.RankedFindings
 		merged.AttackPaths += item.AttackPaths
 		merged.ActionPaths += item.ActionPaths
+		merged.ComposedActionPaths += item.ComposedActionPaths
 		merged.ControlBacklog += item.ControlBacklog
 		merged.InventoryAgents += item.InventoryAgents
 		merged.InventoryTools += item.InventoryTools
@@ -263,6 +264,7 @@ func HasSuppressedCounts(counts *SuppressedCounts) bool {
 		counts.RankedFindings > 0 ||
 		counts.AttackPaths > 0 ||
 		counts.ActionPaths > 0 ||
+		counts.ComposedActionPaths > 0 ||
 		counts.ControlBacklog > 0 ||
 		counts.InventoryAgents > 0 ||
 		counts.InventoryTools > 0 ||

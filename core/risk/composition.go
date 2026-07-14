@@ -510,6 +510,12 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	if strings.TrimSpace(incoming.ClaimState) == CompositionClaimObservedExecution || strings.TrimSpace(current.ClaimState) == CompositionClaimObservedExecution {
 		merged.ClaimState = CompositionClaimObservedExecution
 	}
+	merged.ProposedActionContract = BuildProposedActionContract(merged)
+	if merged.ProposedActionContract != nil {
+		merged.ProposedActionContractRefs = []string{merged.ProposedActionContract.ContractID}
+	} else {
+		merged.ProposedActionContractRefs = nil
+	}
 	return merged
 }
 
