@@ -337,6 +337,7 @@ func sanitizeProposedActionContractPublic(in *risk.ProposedActionContract) *risk
 	out.TargetConstraints = nil
 	out.AcceptableCountersigners = nil
 	out.SourceDigests = nil
+	risk.RefreshProposedActionContractIdentity(out)
 	return out
 }
 

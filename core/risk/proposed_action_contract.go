@@ -85,13 +85,7 @@ func BuildProposedActionContract(composition ComposedActionPath) *ProposedAction
 	if strings.TrimSpace(contract.ExpiresAt) == "" {
 		contract.ReasonCodes = dedupeSortedStrings(append(contract.ReasonCodes, "expiry:deterministic_source_absent"))
 	}
-	contract.ContractFamilyID = proposedContractFamilyID(composition, contract)
-	contract.ContractContentDigest = proposedContractContentDigest(contract)
-	contract.ContractID = "pac-" + stableProposedContractHash(strings.Join([]string{
-		contract.ContractFamilyID,
-		contract.ContractContentDigest,
-		contract.ContractVersion,
-	}, "|"))
+	RefreshProposedActionContractIdentity(contract)
 	return contract
 }
 
@@ -134,6 +128,9 @@ func proposedTransitionsForComposition(composition ComposedActionPath, reason st
 }
 
 func proposedAllowedTransitions(composition ComposedActionPath, transitions []ProposedActionTransition) []ProposedActionTransition {
+	if len(proposedProhibitedTransitions(composition, transitions)) > 0 {
+		return nil
+	}
 	switch strings.TrimSpace(composition.ClaimState) {
 	case CompositionClaimRuntimeControlled, CompositionClaimObservedExecution:
 		return append([]ProposedActionTransition(nil), transitions...)
@@ -288,17 +285,37 @@ func proposedActionContractReadiness(composition ComposedActionPath) (string, []
 	return ActionContractReadinessReadyForReportOnly, dedupeSortedStrings(reasons)
 }
 
-func proposedContractFamilyID(composition ComposedActionPath, contract *ProposedActionContract) string {
+func RefreshProposedActionContractIdentity(contract *ProposedActionContract) {
+	if contract == nil {
+		return
+	}
+	contract.ContractFamilyID = proposedContractFamilyID(contract)
+	contract.ContractContentDigest = proposedContractContentDigest(contract)
+	contract.ContractID = "pac-" + stableProposedContractHash(strings.Join([]string{
+		contract.ContractFamilyID,
+		contract.ContractContentDigest,
+		contract.ContractVersion,
+	}, "|"))
+}
+
+func proposedContractFamilyID(contract *ProposedActionContract) string {
+	if contract == nil {
+		return ""
+	}
 	controlIntent := strings.Join([]string{
-		strings.TrimSpace(composition.RecommendedControl),
 		strings.TrimSpace(contract.RequiredCredentialMode),
 		strconv.Itoa(contract.MaximumDelegationDepth),
-		strings.TrimSpace(composition.OutcomeClass),
+		strings.TrimSpace(contract.ExpectedOutcomeClass),
+		strings.TrimSpace(contract.ResolutionKey),
 	}, "|")
+	targetConstraints := make([]string, 0, len(contract.TargetConstraints))
+	for _, constraint := range contract.TargetConstraints {
+		targetConstraints = append(targetConstraints, constraint.Key+"="+constraint.Value)
+	}
 	return "pacf-" + stableProposedContractHash(strings.Join([]string{
-		strings.TrimSpace(composition.CompositionID),
-		strings.TrimSpace(composition.TargetIdentity),
+		strings.TrimSpace(contract.CompositionRef),
 		controlIntent,
+		strings.Join(targetConstraints, "|"),
 	}, "\x1f"))
 }
 

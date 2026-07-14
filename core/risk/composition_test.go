@@ -271,6 +271,9 @@ func TestMergeComposedActionPathRebuildsProposedContract(t *testing.T) {
 	if len(merged.Transitions) != 1 || merged.Transitions[0].FromStageID != merged.Stages[0].StageID {
 		t.Fatalf("expected transitions to be rebuilt from merged stages, got %+v with stages %+v", merged.Transitions, merged.Stages)
 	}
+	if merged.Transitions[0].ClaimState != merged.ClaimState || len(merged.Transitions[0].ReasonCodes) == 0 {
+		t.Fatalf("expected rebuilt transitions to carry merged audit context, got %+v", merged.Transitions[0])
+	}
 	if merged.ProposedActionContract.ReadinessState != ActionContractReadinessBlockedContradict {
 		t.Fatalf("expected merged contract to reflect contradictory state, got %+v", merged.ProposedActionContract)
 	}
@@ -287,6 +290,17 @@ func TestProposedApprovalRequiredTransitionsSkipsProhibitedTransitions(t *testin
 	}, transitions)
 	if got != nil {
 		t.Fatalf("expected prohibited transitions to stay out of approval-required set, got %+v", got)
+	}
+}
+
+func TestProposedAllowedTransitionsSkipsProhibitedTransitions(t *testing.T) {
+	transitions := []ProposedActionTransition{{TransitionID: "transition-1", FromStageID: "stage-1", ToStageID: "stage-2"}}
+	got := proposedAllowedTransitions(ComposedActionPath{
+		ClaimState:         CompositionClaimObservedExecution,
+		RecommendedControl: RecommendedControlBlock,
+	}, transitions)
+	if got != nil {
+		t.Fatalf("expected prohibited transitions to stay out of allowed set, got %+v", got)
 	}
 }
 
