@@ -189,7 +189,7 @@ func sanitizeComposedActionPathsPublic(in []risk.ComposedActionPath) []risk.Comp
 		copyItem.Stages = sanitizeCompositionStagesPublic(copyItem.Stages)
 		copyItem.Transitions = sanitizeCompositionTransitionsPublic(copyItem.Transitions)
 		copyItem.ProposedActionContract = sanitizeProposedActionContractPublic(copyItem.ProposedActionContract)
-		copyItem.ProposedActionContractRefs = cloneStrings(copyItem.ProposedActionContractRefs)
+		copyItem.ProposedActionContractRefs = sanitizeProposedActionContractRefs(copyItem.ProposedActionContract, copyItem.ProposedActionContractRefs)
 		out = append(out, copyItem)
 	}
 	return out
@@ -251,7 +251,7 @@ func sanitizeComposedActionPathsWithConfig(in []risk.ComposedActionPath, config 
 		} else {
 			copyItem.ProposedActionContract = risk.CloneProposedActionContract(copyItem.ProposedActionContract)
 		}
-		copyItem.ProposedActionContractRefs = cloneStrings(copyItem.ProposedActionContractRefs)
+		copyItem.ProposedActionContractRefs = sanitizeProposedActionContractRefs(copyItem.ProposedActionContract, copyItem.ProposedActionContractRefs)
 		out = append(out, copyItem)
 	}
 	return out
@@ -339,6 +339,13 @@ func sanitizeProposedActionContractPublic(in *risk.ProposedActionContract) *risk
 	out.SourceDigests = nil
 	risk.RefreshProposedActionContractIdentity(out)
 	return out
+}
+
+func sanitizeProposedActionContractRefs(contract *risk.ProposedActionContract, refs []string) []string {
+	if contract != nil && strings.TrimSpace(contract.ContractID) != "" {
+		return []string{strings.TrimSpace(contract.ContractID)}
+	}
+	return cloneStrings(refs)
 }
 
 func sanitizeActionSurfaceRegistryWithConfig(in []ActionSurfaceRegistryEntry, config RedactionConfig) []ActionSurfaceRegistryEntry {

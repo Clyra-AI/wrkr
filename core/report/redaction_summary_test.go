@@ -81,6 +81,9 @@ func TestSanitizeComposedActionPathsWithRepoRedactionHidesDerivedTargetsAndResol
 	if got.ProposedActionContract == nil || got.ProposedActionContract.TargetConstraints != nil {
 		t.Fatalf("expected proposed contract to use public sanitizer under repo redaction, got %+v", got.ProposedActionContract)
 	}
+	if len(got.ProposedActionContractRefs) != 1 || got.ProposedActionContractRefs[0] != got.ProposedActionContract.ContractID {
+		t.Fatalf("expected proposed contract refs to be remapped to sanitized contract id, got refs=%+v contract=%+v", got.ProposedActionContractRefs, got.ProposedActionContract)
+	}
 	if got.ProposedActionContract.ContractID == input[0].ProposedActionContract.ContractID ||
 		got.ProposedActionContract.ContractContentDigest == input[0].ProposedActionContract.ContractContentDigest ||
 		got.ProposedActionContract.ContractFamilyID == input[0].ProposedActionContract.ContractFamilyID {
