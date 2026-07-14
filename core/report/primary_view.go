@@ -51,6 +51,8 @@ type AgentActionBOMPrimaryView struct {
 	DecisionPrecedent           *risk.DecisionPrecedent           `json:"decision_precedent,omitempty"`
 	DeliveryControlContext      *risk.DeliveryControlContext      `json:"delivery_control_context,omitempty"`
 	WorkflowChainRefs           []string                          `json:"workflow_chain_refs,omitempty"`
+	CompositionIDs              []string                          `json:"composition_ids,omitempty"`
+	ProposedActionContractRefs  []string                          `json:"proposed_action_contract_refs,omitempty"`
 	GraphRefs                   AgentActionBOMGraphRefs           `json:"graph_refs,omitempty"`
 	ProofRefs                   []string                          `json:"proof_refs,omitempty"`
 	EvidencePacketRefs          []string                          `json:"evidence_packet_refs,omitempty"`
@@ -259,6 +261,8 @@ func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem
 		DecisionPrecedent:           risk.CloneDecisionPrecedent(item.DecisionPrecedent),
 		DeliveryControlContext:      risk.CloneDeliveryControlContext(item.DeliveryControlContext),
 		WorkflowChainRefs:           cloneStrings(item.WorkflowChainRefs),
+		CompositionIDs:              cloneStrings(item.CompositionIDs),
+		ProposedActionContractRefs:  cloneStrings(item.ProposedActionContractRefs),
 		GraphRefs: AgentActionBOMGraphRefs{
 			NodeIDs: cloneStrings(item.GraphRefs.NodeIDs),
 			EdgeIDs: cloneStrings(item.GraphRefs.EdgeIDs),

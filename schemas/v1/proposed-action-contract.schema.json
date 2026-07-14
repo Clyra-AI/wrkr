@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/proposed-action-contract.schema.json",
+  "title": "Wrkr Proposed Action Contract",
+  "type": "object",
+  "required": [
+    "contract_id",
+    "contract_family_id",
+    "contract_content_digest",
+    "contract_version",
+    "contract_kind",
+    "composition_ref",
+    "maximum_delegation_depth",
+    "report_only"
+  ],
+  "properties": {
+    "contract_id": {"type": "string"},
+    "contract_family_id": {"type": "string"},
+    "contract_content_digest": {"type": "string"},
+    "contract_version": {"type": "string", "enum": ["2"]},
+    "contract_kind": {"type": "string", "enum": ["proposed_action_contract"]},
+    "composition_ref": {"type": "string"},
+    "resolution_key": {"type": "string"},
+    "allowed_transitions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/transition"}
+    },
+    "prohibited_transitions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/transition"}
+    },
+    "approval_required_transitions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/transition"}
+    },
+    "target_constraints": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/targetConstraint"}
+    },
+    "required_credential_mode": {
+      "type": "string",
+      "enum": ["ephemeral", "scoped", "standing_or_unknown"]
+    },
+    "maximum_delegation_depth": {"type": "integer", "minimum": 0},
+    "evidence_requirements": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "acceptable_countersigners": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "expected_outcome_class": {"type": "string"},
+    "compensation_required": {"type": "boolean"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "source_digests": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "report_only": {"type": "boolean", "const": true},
+    "readiness_state": {
+      "type": "string",
+      "enum": ["ready_for_report_only", "needs_evidence", "blocked_by_contradiction"]
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "transition": {
+      "type": "object",
+      "required": ["transition_id", "from_stage_id", "to_stage_id"],
+      "properties": {
+        "transition_id": {"type": "string"},
+        "from_stage_id": {"type": "string"},
+        "to_stage_id": {"type": "string"},
+        "from_role": {"$ref": "#/$defs/stageRole"},
+        "to_role": {"$ref": "#/$defs/stageRole"},
+        "reason": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "targetConstraint": {
+      "type": "object",
+      "required": ["key", "value"],
+      "properties": {
+        "key": {"type": "string"},
+        "value": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "stageRole": {
+      "type": "string",
+      "enum": ["source", "transform", "sink", "internal_sink", "external_sink", "privileged_sink", "destructive_sink"]
+    }
+  }
+}

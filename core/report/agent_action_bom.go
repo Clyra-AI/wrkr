@@ -26,18 +26,19 @@ import (
 const AgentActionBOMSchemaVersion = "v1"
 
 type AgentActionBOM struct {
-	BOMID                string                  `json:"bom_id"`
-	SchemaVersion        string                  `json:"schema_version"`
-	GeneratedAt          string                  `json:"generated_at"`
-	ShareProfile         string                  `json:"share_profile,omitempty"`
-	ShareProfileMetadata *ShareProfileMetadata   `json:"share_profile_metadata,omitempty"`
-	Summary              AgentActionBOMSummary   `json:"summary"`
-	ScanQuality          *scanquality.Report     `json:"scan_quality,omitempty"`
-	Items                []AgentActionBOMItem    `json:"items,omitempty"`
-	GraphRefs            AgentActionBOMGraphRefs `json:"graph_refs,omitempty"`
-	EvidenceRefs         []string                `json:"evidence_refs,omitempty"`
-	ProofRefs            []string                `json:"proof_refs,omitempty"`
-	focusSourceItems     []AgentActionBOMItem    `json:"-"`
+	BOMID                string                    `json:"bom_id"`
+	SchemaVersion        string                    `json:"schema_version"`
+	GeneratedAt          string                    `json:"generated_at"`
+	ShareProfile         string                    `json:"share_profile,omitempty"`
+	ShareProfileMetadata *ShareProfileMetadata     `json:"share_profile_metadata,omitempty"`
+	Summary              AgentActionBOMSummary     `json:"summary"`
+	ScanQuality          *scanquality.Report       `json:"scan_quality,omitempty"`
+	Items                []AgentActionBOMItem      `json:"items,omitempty"`
+	ComposedActionPaths  []risk.ComposedActionPath `json:"composed_action_paths,omitempty"`
+	GraphRefs            AgentActionBOMGraphRefs   `json:"graph_refs,omitempty"`
+	EvidenceRefs         []string                  `json:"evidence_refs,omitempty"`
+	ProofRefs            []string                  `json:"proof_refs,omitempty"`
+	focusSourceItems     []AgentActionBOMItem      `json:"-"`
 }
 
 type AgentActionBOMSummary struct {
@@ -246,6 +247,8 @@ type AgentActionBOMItem struct {
 	SourceFindingKeys            []string                               `json:"source_finding_keys,omitempty"`
 	WorkflowChainRefs            []string                               `json:"workflow_chain_refs,omitempty"`
 	DecisionTraceRefs            []string                               `json:"decision_trace_refs,omitempty"`
+	CompositionIDs               []string                               `json:"composition_ids,omitempty"`
+	ProposedActionContractRefs   []string                               `json:"proposed_action_contract_refs,omitempty"`
 	ExclusionReason              string                                 `json:"exclusion_reason,omitempty"`
 	GraphRefs                    AgentActionBOMGraphRefs                `json:"graph_refs,omitempty"`
 	EvidenceRefs                 []string                               `json:"evidence_refs,omitempty"`
@@ -493,6 +496,8 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 			SourceFindingKeys:                   append([]string(nil), path.SourceFindingKeys...),
 			WorkflowChainRefs:                   append([]string(nil), path.WorkflowChainRefs...),
 			DecisionTraceRefs:                   uniqueSortedStrings(append(append([]string(nil), path.DecisionTraceRefs...), summary.decisionTraceRefsByPath[pathID]...)),
+			CompositionIDs:                      append([]string(nil), path.CompositionIDs...),
+			ProposedActionContractRefs:          append([]string(nil), path.ProposedActionContractRefs...),
 			GraphRefs:                           itemGraphRefs,
 			Reachability:                        reachability,
 			ReachableServers:                    reachableServers,
@@ -554,6 +559,7 @@ func buildAgentActionBOM(summary Summary, findings []model.Finding) *AgentAction
 		Summary:              counts,
 		ScanQuality:          cloneScanQualityReport(summary.ScanQuality),
 		Items:                items,
+		ComposedActionPaths:  append([]risk.ComposedActionPath(nil), summary.ComposedActionPaths...),
 		GraphRefs:            graphRefs,
 		EvidenceRefs:         summaryEvidenceRefs(items),
 		ProofRefs:            globalProofRefs,

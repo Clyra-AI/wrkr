@@ -12,6 +12,7 @@ description: "Compatibility expectations for Wrkr command contracts, schema surf
 | Exit codes | Stable and versioned as API |
 | `--json` envelope | Stable keys for major line |
 | Schema assets in `schemas/v1` | Backward-compatible additive changes |
+| `composed_action_paths` and proposed Action Contracts | Additive v1 surfaces; IDs are stable join keys and contracts remain report-only |
 | `decision_trace` proof records | Additive within the v1 proof-output line; reference by `record_id`, not by chain position |
 | Manifest spec | Managed by `spec_version` |
 
@@ -20,6 +21,7 @@ description: "Compatibility expectations for Wrkr command contracts, schema surf
 - Validate schema before processing exported artifacts.
 - Treat unknown required fields as blocking.
 - Treat regress drift exit `5` as a stable CI failure signal.
+- Treat `composed_action_paths[*].claim_state` as a conservative evidence claim. Static or declared compositions are not runtime enforcement proof, and `proposed_action_contract.report_only=true` means Wrkr is proposing a downstream control shape, not enforcing it.
 - Treat `decision_trace_refs` and `proof-records/decision-traces.jsonl` as additive traceability surfaces; existing consumers should ignore them if unused.
 
 ## Command Anchors

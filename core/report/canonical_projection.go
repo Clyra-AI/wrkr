@@ -129,6 +129,8 @@ func stripAgentActionBOMItemOutputEvidenceDetails(item *AgentActionBOMItem) {
 	item.SourceFindingKeys = boundedBOMEvidenceRefs(item.SourceFindingKeys)
 	item.WorkflowChainRefs = boundedBOMEvidenceRefs(item.WorkflowChainRefs)
 	item.DecisionTraceRefs = boundedBOMEvidenceRefs(item.DecisionTraceRefs)
+	item.CompositionIDs = boundedBOMEvidenceRefs(item.CompositionIDs)
+	item.ProposedActionContractRefs = boundedBOMEvidenceRefs(item.ProposedActionContractRefs)
 	item.OccurrenceRefs = boundedBOMEvidenceRefs(item.OccurrenceRefs)
 	item.MatchedProductionTargets = boundedBOMEvidenceRefs(item.MatchedProductionTargets)
 	item.EvidenceRefs = boundedBOMEvidenceRefs(item.EvidenceRefs)
@@ -289,6 +291,7 @@ func attachSummaryOutputMetadata(summary *Summary) {
 	}
 	summary.ArtifactBudget = &ArtifactBudget{
 		MaxActionPaths:         defaultMaxActionPaths,
+		MaxComposedActionPaths: defaultMaxComposedActionPaths,
 		MaxBacklogItems:        defaultMaxBacklogItems,
 		MaxGraphNodes:          defaultMaxGraphNodes,
 		MaxGraphEdges:          defaultMaxGraphEdges,

@@ -1110,6 +1110,9 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 	if contract := strings.TrimSpace(markdownActionContract(view.RecommendedActionContract)); contract != "" {
 		fmt.Fprintf(builder, "- Recommended action contract: %s.\n", contract)
 	}
+	if len(view.ProposedActionContractRefs) > 0 {
+		fmt.Fprintf(builder, "- Proposed Action Contract refs: %s (report-only; Wrkr does not enforce runtime policy).\n", markdownProposedActionContractRefs(view.ProposedActionContractRefs))
+	}
 	if strings.TrimSpace(view.CoverageStatus) != "" {
 		fmt.Fprintf(builder, "- Coverage status: %s.\n", humanizeEnum(view.CoverageStatus))
 	}
@@ -2041,6 +2044,18 @@ func markdownActionContract(contract *risk.RecommendedActionContract) string {
 		firstNonEmptyValue(contract.RequiredAuthority, "not specified"),
 		firstNonEmptyValue(contract.RequiredProof, "not specified"),
 	)
+}
+
+func markdownProposedActionContractRefs(refs []string) string {
+	trimmed := uniqueSortedStrings(refs)
+	if len(trimmed) == 0 {
+		return ""
+	}
+	const limit = 3
+	if len(trimmed) <= limit {
+		return strings.Join(trimmed, ", ")
+	}
+	return fmt.Sprintf("%s (+%d more)", strings.Join(trimmed[:limit], ", "), len(trimmed)-limit)
 }
 
 func markdownClosureActions(actions []risk.ClosureAction) string {

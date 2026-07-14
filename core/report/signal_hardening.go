@@ -10,18 +10,19 @@ import (
 )
 
 const (
-	defaultMaxActionPaths    = 150
-	defaultMaxBacklogItems   = 150
-	defaultMaxGraphNodes     = 5000
-	defaultMaxGraphEdges     = 7500
-	defaultMaxWorkflowChains = 150
-	defaultMaxExposureGroups = 150
-	defaultMaxAgentActionBOM = 100
-	defaultMarkdownLineCap   = 1500
-	defaultBOMLeadLineCap    = 45
-	defaultBOMLeadSectionCap = 4
-	defaultBOMLeadTopPaths   = 5
-	defaultBOMInspectCards   = 5
+	defaultMaxActionPaths         = 150
+	defaultMaxComposedActionPaths = 150
+	defaultMaxBacklogItems        = 150
+	defaultMaxGraphNodes          = 5000
+	defaultMaxGraphEdges          = 7500
+	defaultMaxWorkflowChains      = 150
+	defaultMaxExposureGroups      = 150
+	defaultMaxAgentActionBOM      = 100
+	defaultMarkdownLineCap        = 1500
+	defaultBOMLeadLineCap         = 45
+	defaultBOMLeadSectionCap      = 4
+	defaultBOMLeadTopPaths        = 5
+	defaultBOMInspectCards        = 5
 )
 
 func BuildPolicyOutcomes(findings []model.Finding) []PolicyOutcome {
@@ -37,6 +38,8 @@ func ApplySummaryCaps(summary *Summary) {
 	var count int
 	summary.ActionPaths, count = outputsignal.CapSlice(summary.ActionPaths, defaultMaxActionPaths)
 	suppressed.ActionPaths = count
+	summary.ComposedActionPaths, count = outputsignal.CapSlice(summary.ComposedActionPaths, defaultMaxComposedActionPaths)
+	suppressed.ComposedActionPaths = count
 
 	if summary.ControlBacklog != nil {
 		summary.ControlBacklog.Items, count = outputsignal.CapSlice(summary.ControlBacklog.Items, defaultMaxBacklogItems)
@@ -57,6 +60,7 @@ func ApplySummaryCaps(summary *Summary) {
 		suppressed.ExposureGroups = count
 	}
 	if summary.AgentActionBOM != nil {
+		summary.AgentActionBOM.ComposedActionPaths = append([]risk.ComposedActionPath(nil), summary.ComposedActionPaths...)
 		summary.AgentActionBOM.Items, count = outputsignal.CapSlice(summary.AgentActionBOM.Items, defaultMaxAgentActionBOM)
 		suppressed.AgentActionBOM = count
 		if summary.AgentActionBOM.Summary.PrimaryView == nil {
@@ -81,6 +85,7 @@ func ApplySummaryCaps(summary *Summary) {
 func BuildSuppressedCountsForScan(r risk.Report, backlog *controlbacklog.Backlog) *SuppressedCounts {
 	suppressed := &SuppressedCounts{}
 	suppressed.ActionPaths = outputsignal.PositiveOverflow(len(r.ActionPaths), defaultMaxActionPaths)
+	suppressed.ComposedActionPaths = outputsignal.PositiveOverflow(len(r.ComposedActionPaths), defaultMaxComposedActionPaths)
 	if backlog != nil {
 		suppressed.ControlBacklog = outputsignal.PositiveOverflow(len(backlog.Items), defaultMaxBacklogItems)
 	}

@@ -1,0 +1,125 @@
+{
+  "receipt_id": "story-0.1-sprint0-public-surface-freeze-gate",
+  "plan_path": "product/plans/adhoc/PLAN_ADHOC_2026-07-13_143619_composed-action-path-contracts.md",
+  "status": "green",
+  "applies_to": [
+    "composed_action_paths",
+    "composed_action_path_to_control_first",
+    "proposed_action_contract",
+    "composition_ids",
+    "proposed_action_contract_refs"
+  ],
+  "validated_on": "2026-07-13",
+  "fixture_names": [
+    "internal/enterprisepressure.VariantBaseline:96-repos",
+    "internal/enterprisepressure.EndpointDense:4-repos",
+    "scenarios/wrkr/first-offer-noise-pack",
+    "scenarios/wrkr/scan-diff-no-noise"
+  ],
+  "artifact_size_deltas": [
+    {
+      "artifact": "last-scan.json",
+      "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
+      "measured_bytes": 0,
+      "budget_bytes": 16777216,
+      "delta_bytes": 0,
+      "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
+    },
+    {
+      "artifact": "agent-action-bom-evidence.json",
+      "fixture": "internal/enterprisepressure.VariantBaseline:96-repos",
+      "measured_bytes": 0,
+      "budget_bytes": 2097152,
+      "delta_bytes": 0,
+      "measurement_source": "internal/acceptance.TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted"
+    },
+    {
+      "artifact": "endpoint-dense-scan.json",
+      "fixture": "internal/enterprisepressure.EndpointDense:4-repos",
+      "measured_bytes": 0,
+      "budget_bytes": 25165824,
+      "delta_bytes": 0,
+      "measurement_source": "internal/acceptance.TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection"
+    }
+  ],
+  "validations": [
+    {
+      "name": "output_size_budget",
+      "status": "pass",
+      "commands": [
+        "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
+        "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1"
+      ],
+      "fixture_names": [
+        "internal/enterprisepressure.VariantBaseline:96-repos",
+        "internal/enterprisepressure.EndpointDense:4-repos"
+      ],
+      "evidence": "Saved state, evidence JSON, and endpoint-dense state remain under committed byte budgets."
+    },
+    {
+      "name": "redaction",
+      "status": "pass",
+      "commands": [
+        "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
+        "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureHardening -count=1"
+      ],
+      "fixture_names": [
+        "internal/enterprisepressure.VariantBaseline:96-repos",
+        "internal/enterprisepressure.VariantBaseline:64-repos"
+      ],
+      "evidence": "Shareable report, evidence, and markdown artifacts reject local paths, raw owner names, private PR URLs, proof refs, graph refs, and fixture repo names."
+    },
+    {
+      "name": "recursive_redaction",
+      "status": "pass",
+      "commands": [
+        "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1"
+      ],
+      "fixture_names": [
+        "internal/enterprisepressure.VariantBaseline:96-repos"
+      ],
+      "evidence": "Nested owner fields are checked through requireAcceptanceOwnerFieldsRedacted across customer-redacted report payloads."
+    },
+    {
+      "name": "clone_strip",
+      "status": "pass",
+      "commands": [
+        "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
+        "go test ./internal/acceptance -run TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection -count=1"
+      ],
+      "fixture_names": [
+        "internal/enterprisepressure.VariantBaseline:96-repos",
+        "internal/enterprisepressure.EndpointDense:4-repos"
+      ],
+      "evidence": "Canonical refs remain present while repeated endpoint, authority, and mutable-endpoint payload clones are bounded or omitted from shareable/default artifacts."
+    },
+    {
+      "name": "readability",
+      "status": "pass",
+      "commands": [
+        "go test ./internal/acceptance -run TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted -count=1",
+        "go test -tags scenario ./internal/scenarios -run TestScenarioWave42EnterprisePressureContract -count=1"
+      ],
+      "fixture_names": [
+        "internal/enterprisepressure.VariantBaseline:96-repos",
+        "scenarios/wrkr/enterprise-pressure"
+      ],
+      "evidence": "Agent Action BOM lead stays under 45 lines and 5 sections; enterprise markdown stays under the scenario contract line budget."
+    },
+    {
+      "name": "finding_noise",
+      "status": "pass",
+      "commands": [
+        "go test ./internal/e2e/diff -run TestE2EScenarioUnchangedReposProduceZeroDiffNoise -count=1",
+        "go test -tags scenario ./internal/scenarios -run TestScenarioFirstOfferNoisePackAssessmentSharpening -count=1",
+        "go test ./testinfra/contracts -run TestStory24NoisePackAssessmentContracts -count=1"
+      ],
+      "fixture_names": [
+        "scenarios/wrkr/scan-diff-no-noise",
+        "scenarios/wrkr/first-offer-noise-pack"
+      ],
+      "evidence": "Unchanged fixture scans produce zero diff noise, and first-offer assessment fixtures keep expected focused findings."
+    }
+  ],
+  "public_surface_decision": "composition public surface may be exposed only when this receipt is present, status is green, and every validation listed here is pass"
+}

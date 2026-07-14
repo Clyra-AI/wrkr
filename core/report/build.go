@@ -160,9 +160,13 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	riskReport.ActionPaths = decorateDecisionTraceRefs(riskReport.ActionPaths, decisionTraceRefsByPath)
 	riskReport.ActionPaths = decorateActionPathsWithPrecedents(in.StatePath, now, riskReport.ActionPaths)
+	riskReport.ComposedActionPaths, riskReport.ComposedActionPathToControlFirst = risk.BuildComposedActionPaths(riskReport.ActionPaths, riskReport.WorkflowChains)
+	riskReport.ActionPaths = risk.DecorateActionPathCompositionRefs(riskReport.ActionPaths, riskReport.ComposedActionPaths)
 	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
 	rawActionPathToControlFirst := riskReport.ActionPathToControlFirst
+	rawComposedActionPaths := append([]risk.ComposedActionPath(nil), riskReport.ComposedActionPaths...)
+	rawComposedActionPathToControlFirst := riskReport.ComposedActionPathToControlFirst
 	controlBacklog = decorateControlBacklogDecisionPrecedents(controlBacklog, riskReport.ActionPaths)
 	rawControlBacklog := controlBacklog
 	rawScanQuality := scanQuality
@@ -182,6 +186,8 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		activation = sanitizeActivationSummaryPublic(activation)
 		riskReport.ActionPaths = sanitizeActionPathsPublic(riskReport.ActionPaths)
 		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublic(riskReport.ActionPathToControlFirst)
+		riskReport.ComposedActionPaths = sanitizeComposedActionPathsPublic(riskReport.ComposedActionPaths)
+		riskReport.ComposedActionPathToControlFirst = sanitizeComposedActionPathToControlFirstPublic(riskReport.ComposedActionPathToControlFirst)
 		riskReport.ControlPathGraph = sanitizeControlPathGraphPublic(riskReport.ControlPathGraph)
 		riskReport.WorkflowChains = sanitizeWorkflowChainsPublic(riskReport.WorkflowChains)
 		exposureGroups = sanitizeExposureGroupsPublic(exposureGroups)
@@ -198,6 +204,8 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		activation = sanitizeActivationSummaryWithConfig(activation, redactionConfig)
 		riskReport.ActionPaths = sanitizeActionPathsWithConfig(riskReport.ActionPaths, redactionConfig)
 		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstWithConfig(riskReport.ActionPathToControlFirst, redactionConfig)
+		riskReport.ComposedActionPaths = sanitizeComposedActionPathsWithConfig(riskReport.ComposedActionPaths, redactionConfig)
+		riskReport.ComposedActionPathToControlFirst = sanitizeComposedActionPathToControlFirstWithConfig(riskReport.ComposedActionPathToControlFirst, redactionConfig)
 		riskReport.ControlPathGraph = sanitizeControlPathGraphWithConfig(riskReport.ControlPathGraph, redactionConfig)
 		riskReport.WorkflowChains = sanitizeWorkflowChainsWithConfig(riskReport.WorkflowChains, redactionConfig)
 		exposureGroups = sanitizeExposureGroupsWithConfig(exposureGroups, redactionConfig)
@@ -243,52 +251,56 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 
 	summary := Summary{
-		SummaryVersion:           SummaryVersion,
-		GeneratedAt:              now.Format(time.RFC3339),
-		Template:                 string(template),
-		ShareProfile:             string(shareProfile),
-		DeploymentMode:           deploymentMode,
-		ShareProfileMetadata:     shareProfileMetadata,
-		SectionOrder:             sectionOrder,
-		Sections:                 sections,
-		Headline:                 headline,
-		ScanScope:                scanScope,
-		OperationalExposure:      &operationalExposure,
-		GovernanceReadiness:      &governanceReadiness,
-		EvidenceCompleteness:     evidenceCompleteness,
-		AssessmentSummary:        assessmentSummary,
-		PublicSurfaceAssessment:  publicSurfaceAssessment,
-		Methodology:              methodology,
-		TopRisks:                 riskItems,
-		PrivilegeBudget:          privilegeBudget,
-		SecurityVisibility:       securityVisibility,
-		Deltas:                   deltas,
-		Lifecycle:                lifecycleSummary,
-		RegressDrift:             regressSummary,
-		AttackPaths:              attackPathSummary,
-		ComplianceSummary:        complianceSummary,
-		ControlBacklog:           controlBacklog,
-		ScanQuality:              scanQuality,
-		RuntimeSessions:          runtimeSessions,
-		RuntimeEvidence:          runtimeEvidence,
-		EvidencePackets:          evidencePackets,
-		Proof:                    proofRef,
-		NextActions:              nextActions,
-		Activation:               activation,
-		PolicyOutcomes:           policyOutcomes,
-		ActionPaths:              riskReport.ActionPaths,
-		ActionPathToControlFirst: riskReport.ActionPathToControlFirst,
-		ControlPathGraph:         riskReport.ControlPathGraph,
-		WorkflowChains:           riskReport.WorkflowChains,
-		ExposureGroups:           exposureGroups,
-		SourcePrivacy:            sourcePrivacy,
-		controlProofStatus:       controlProofStatus,
-		decisionTraceRefsByPath:  decisionTraceRefsByPath,
-		topAttackPaths:           append([]riskattack.ScoredPath(nil), riskReport.TopAttackPaths...),
+		SummaryVersion:                   SummaryVersion,
+		GeneratedAt:                      now.Format(time.RFC3339),
+		Template:                         string(template),
+		ShareProfile:                     string(shareProfile),
+		DeploymentMode:                   deploymentMode,
+		ShareProfileMetadata:             shareProfileMetadata,
+		SectionOrder:                     sectionOrder,
+		Sections:                         sections,
+		Headline:                         headline,
+		ScanScope:                        scanScope,
+		OperationalExposure:              &operationalExposure,
+		GovernanceReadiness:              &governanceReadiness,
+		EvidenceCompleteness:             evidenceCompleteness,
+		AssessmentSummary:                assessmentSummary,
+		PublicSurfaceAssessment:          publicSurfaceAssessment,
+		Methodology:                      methodology,
+		TopRisks:                         riskItems,
+		PrivilegeBudget:                  privilegeBudget,
+		SecurityVisibility:               securityVisibility,
+		Deltas:                           deltas,
+		Lifecycle:                        lifecycleSummary,
+		RegressDrift:                     regressSummary,
+		AttackPaths:                      attackPathSummary,
+		ComplianceSummary:                complianceSummary,
+		ControlBacklog:                   controlBacklog,
+		ScanQuality:                      scanQuality,
+		RuntimeSessions:                  runtimeSessions,
+		RuntimeEvidence:                  runtimeEvidence,
+		EvidencePackets:                  evidencePackets,
+		Proof:                            proofRef,
+		NextActions:                      nextActions,
+		Activation:                       activation,
+		PolicyOutcomes:                   policyOutcomes,
+		ActionPaths:                      riskReport.ActionPaths,
+		ActionPathToControlFirst:         riskReport.ActionPathToControlFirst,
+		ComposedActionPaths:              riskReport.ComposedActionPaths,
+		ComposedActionPathToControlFirst: riskReport.ComposedActionPathToControlFirst,
+		ControlPathGraph:                 riskReport.ControlPathGraph,
+		WorkflowChains:                   riskReport.WorkflowChains,
+		ExposureGroups:                   exposureGroups,
+		SourcePrivacy:                    sourcePrivacy,
+		controlProofStatus:               controlProofStatus,
+		decisionTraceRefsByPath:          decisionTraceRefsByPath,
+		topAttackPaths:                   append([]riskattack.ScoredPath(nil), riskReport.TopAttackPaths...),
 	}
 	bomSource := summary
 	bomSource.ActionPaths = append([]risk.ActionPath(nil), rawActionPaths...)
 	bomSource.ActionPathToControlFirst = rawActionPathToControlFirst
+	bomSource.ComposedActionPaths = append([]risk.ComposedActionPath(nil), rawComposedActionPaths...)
+	bomSource.ComposedActionPathToControlFirst = rawComposedActionPathToControlFirst
 	bomSource.ControlPathGraph = rawControlPathGraph
 	bomSource.WorkflowChains = rawWorkflowChains
 	bomSource.ControlBacklog = rawControlBacklog
@@ -1976,6 +1988,8 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.ProductionContext = sanitizeProductionContextPublic(copyItem.ProductionContext)
 		copyItem.EvidencePacketRefs = redactStringSlice(copyItem.EvidencePacketRefs, "packet")
 		copyItem.DecisionTraceRefs = redactStringSlice(copyItem.DecisionTraceRefs, "proof")
+		copyItem.CompositionIDs = cloneStrings(copyItem.CompositionIDs)
+		copyItem.ProposedActionContractRefs = cloneStrings(copyItem.ProposedActionContractRefs)
 		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
 		for _, target := range copyItem.MatchedProductionTargets {
 			redacted := redactValue("target", target, 8)
@@ -2289,6 +2303,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 	copyBOM.ShareProfileMetadata = cloneShareProfileMetadata(in.ShareProfileMetadata)
 	copyBOM.Summary.EvidenceCompleteness = risk.CloneEvidenceCompletenessSummary(in.Summary.EvidenceCompleteness)
 	copyBOM.ScanQuality = sanitizeScanQualityPublic(in.ScanQuality)
+	copyBOM.ComposedActionPaths = sanitizeComposedActionPathsPublic(in.ComposedActionPaths)
 	copyBOM.EvidenceRefs = redactStringSlice(in.EvidenceRefs, "evidence")
 	copyBOM.ProofRefs = redactStringSlice(in.ProofRefs, "proof")
 	copyBOM.GraphRefs = AgentActionBOMGraphRefs{
@@ -2330,6 +2345,8 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].LifecycleQueue = sanitizeLifecycleQueuePublic(copyBOM.Items[idx].LifecycleQueue)
 		copyBOM.Items[idx].AttackPathRefs = redactStringSlice(copyBOM.Items[idx].AttackPathRefs, "attack")
 		copyBOM.Items[idx].SourceFindingKeys = redactStringSlice(copyBOM.Items[idx].SourceFindingKeys, "finding")
+		copyBOM.Items[idx].CompositionIDs = cloneStrings(copyBOM.Items[idx].CompositionIDs)
+		copyBOM.Items[idx].ProposedActionContractRefs = cloneStrings(copyBOM.Items[idx].ProposedActionContractRefs)
 		copyBOM.Items[idx].EvidenceRefs = redactStringSlice(copyBOM.Items[idx].EvidenceRefs, "evidence")
 		copyBOM.Items[idx].GraphRefs = AgentActionBOMGraphRefs{
 			NodeIDs: redactStringSlice(copyBOM.Items[idx].GraphRefs.NodeIDs, "node"),
@@ -2422,6 +2439,8 @@ func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPri
 	out.DecisionPrecedent = sanitizeDecisionPrecedentPublic(in.DecisionPrecedent)
 	out.DeliveryControlContext = sanitizeDeliveryControlContextPublic(in.DeliveryControlContext)
 	out.WorkflowChainRefs = redactStringSlice(in.WorkflowChainRefs, "chain")
+	out.CompositionIDs = cloneStrings(in.CompositionIDs)
+	out.ProposedActionContractRefs = cloneStrings(in.ProposedActionContractRefs)
 	out.GraphRefs = AgentActionBOMGraphRefs{
 		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
 		EdgeIDs: redactStringSlice(in.GraphRefs.EdgeIDs, "edge"),

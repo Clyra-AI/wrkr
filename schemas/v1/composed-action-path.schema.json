@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wrkr.dev/schemas/v1/composed-action-path.schema.json",
+  "title": "Wrkr Composed Action Path",
+  "type": "object",
+  "required": ["composition_id", "pattern_id", "pattern", "stages"],
+  "properties": {
+    "composition_id": {"type": "string"},
+    "pattern_id": {"$ref": "#/$defs/patternID"},
+    "pattern": {"$ref": "#/$defs/pattern"},
+    "resolution_key": {"type": "string"},
+    "path_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "workflow_chain_refs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "stages": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/stage"}
+    },
+    "transitions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/transition"}
+    },
+    "target_identity": {"type": "string"},
+    "durable_outcome_key": {"type": "string"},
+    "affected_asset": {"type": "string"},
+    "outcome_class": {"type": "string"},
+    "environment": {"type": "string"},
+    "target_class": {"$ref": "#/$defs/targetClass"},
+    "claim_state": {"$ref": "#/$defs/claimState"},
+    "evidence_state": {"$ref": "#/$defs/evidenceState"},
+    "freshness_state": {"$ref": "#/$defs/freshnessState"},
+    "policy_coverage_status": {"$ref": "#/$defs/policyCoverageStatus"},
+    "gait_coverage": {"type": "object", "additionalProperties": true},
+    "runtime_evidence_absence_status": {"type": "string"},
+    "contradictions": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "proof_refs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "source_decision_refs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "risk_tier": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+    "recommended_control": {"type": "string"},
+    "closure_requirements": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    },
+    "evidence_completeness": {"type": "object", "additionalProperties": true},
+    "unsupported_surfaces": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "truncated_candidates": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "proposed_action_contract": {"$ref": "proposed-action-contract.schema.json"},
+    "proposed_action_contract_refs": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "pattern": {
+      "type": "object",
+      "required": ["pattern_id"],
+      "properties": {
+        "pattern_id": {"$ref": "#/$defs/patternID"},
+        "description": {"type": "string"},
+        "stage_roles": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/stageRole"}
+        },
+        "outcome_class": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "stage": {
+      "type": "object",
+      "required": ["stage_id", "role"],
+      "properties": {
+        "stage_id": {"type": "string"},
+        "role": {"$ref": "#/$defs/stageRole"},
+        "path_id": {"type": "string"},
+        "resolution_key": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "location": {"type": "string"},
+        "action_classes": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "target_class": {"$ref": "#/$defs/targetClass"},
+        "evidence_state": {"$ref": "#/$defs/evidenceState"},
+        "freshness_state": {"$ref": "#/$defs/freshnessState"},
+        "policy_coverage_status": {"$ref": "#/$defs/policyCoverageStatus"},
+        "gait_coverage": {"type": "object", "additionalProperties": true},
+        "runtime_evidence_absence_status": {"type": "string"},
+        "contradictions": {
+          "type": "array",
+          "items": {"type": "object", "additionalProperties": true}
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "proof_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "source_decision_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "transition": {
+      "type": "object",
+      "required": ["transition_id", "from_stage_id", "to_stage_id"],
+      "properties": {
+        "transition_id": {"type": "string"},
+        "from_stage_id": {"type": "string"},
+        "to_stage_id": {"type": "string"},
+        "claim_state": {"$ref": "#/$defs/claimState"},
+        "evidence_state": {"$ref": "#/$defs/evidenceState"},
+        "policy_coverage_status": {"$ref": "#/$defs/policyCoverageStatus"},
+        "gait_coverage": {"type": "object", "additionalProperties": true},
+        "runtime_evidence_absence_status": {"type": "string"},
+        "evidence_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "proof_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "source_decision_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "stageRole": {
+      "type": "string",
+      "enum": ["source", "transform", "sink", "internal_sink", "external_sink", "privileged_sink", "destructive_sink"]
+    },
+    "patternID": {
+      "type": "string",
+      "enum": ["sensitive_read_to_egress", "secret_to_network", "code_to_deploy", "workflow_mutation_to_production", "package_change_to_release"]
+    },
+    "claimState": {
+      "type": "string",
+      "enum": ["static_only", "partially_evidenced", "declared_policy_only", "runtime_controlled", "observed_execution", "contradictory", "unknown"]
+    },
+    "evidenceState": {
+      "type": "string",
+      "enum": ["verified", "declared", "inferred", "unknown", "contradictory"]
+    },
+    "freshnessState": {
+      "type": "string",
+      "enum": ["fresh", "stale", "expired", "unknown"]
+    },
+    "policyCoverageStatus": {
+      "type": "string",
+      "enum": ["none", "declared", "matched", "runtime_proven", "stale", "conflict"]
+    },
+    "targetClass": {
+      "type": "string",
+      "enum": ["production_impacting", "release_adjacent", "customer_data_adjacent", "internal_tooling", "developer_productivity", "test_demo_sandbox", "unknown"]
+    }
+  }
+}

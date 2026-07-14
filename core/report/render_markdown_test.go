@@ -64,6 +64,50 @@ func TestContradictionMarkdownIsEvidenceScoped(t *testing.T) {
 	}
 }
 
+func TestRenderMarkdownNamesProposedActionContractAsReportOnly(t *testing.T) {
+	t.Parallel()
+
+	markdown := RenderMarkdown(Summary{
+		GeneratedAt:  "2026-07-13T18:00:00Z",
+		Template:     string(TemplateAgentActionBOM),
+		ShareProfile: string(ShareProfileInternal),
+		AgentActionBOM: &AgentActionBOM{
+			BOMID: "bom-1",
+			Summary: AgentActionBOMSummary{
+				TotalItems:         1,
+				ControlFirstItems:  1,
+				CoverageConfidence: "complete",
+				PrimaryView: &AgentActionBOMPrimaryView{
+					PathID:                     "apc-primary",
+					SelectionReason:            AgentActionBOMPrimarySelectionDefaultTopPath,
+					PathMap:                    AgentActionBOMPrimaryPathMap{Tool: "codex", RepoPR: "acme/app", Workflow: "release", Credential: "github token", Action: "deploy", Target: "production"},
+					DelegationReadinessState:   risk.DelegationReadinessReviewRequired,
+					RiskTier:                   risk.RiskTierHigh,
+					AutonomyTier:               risk.AutonomyTier4ProdPrivilegedCustomerImpact,
+					RecommendedControl:         risk.RecommendedControlApprovalRequired,
+					ProposedActionContractRefs: []string{"pac-1234"},
+				},
+			},
+			Items: []AgentActionBOMItem{{PathID: "apc-primary"}},
+		},
+	})
+	if !strings.Contains(markdown, "Proposed Action Contract refs: pac-1234 (report-only; Wrkr does not enforce runtime policy).") {
+		t.Fatalf("expected report-only proposed Action Contract wording, got %q", markdown)
+	}
+	if strings.Contains(markdown, "Wrkr enforces") {
+		t.Fatalf("markdown must not imply Wrkr enforces proposed contracts, got %q", markdown)
+	}
+}
+
+func TestMarkdownProposedActionContractRefsStayBounded(t *testing.T) {
+	t.Parallel()
+
+	got := markdownProposedActionContractRefs([]string{"pac-4", "pac-2", "pac-1", "pac-3"})
+	if got != "pac-1, pac-2, pac-3 (+1 more)" {
+		t.Fatalf("expected bounded sorted proposed contract refs, got %q", got)
+	}
+}
+
 func TestRenderMarkdownUsesEvidenceScopedLifecycleAndGaitLabels(t *testing.T) {
 	t.Parallel()
 
