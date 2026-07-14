@@ -192,6 +192,19 @@ func TestProposedActionContractReadinessMapsSpecificGapsToNeedsEvidence(t *testi
 	if !containsAnyPathClass(reasons, "readiness:needs_policy_evidence") {
 		t.Fatalf("expected policy reason code, got %v", reasons)
 	}
+
+	readiness, reasons = proposedActionContractReadiness(ComposedActionPath{
+		CompositionID:        "cap-4",
+		Stages:               base.Stages,
+		EvidenceState:        EvidenceStateDeclared,
+		PolicyCoverageStatus: PolicyCoverageStatusStale,
+	})
+	if readiness != proposedActionContractReadinessNeedsEvidence {
+		t.Fatalf("expected stale policy to remain an evidence gap, got %q", readiness)
+	}
+	if !containsAnyPathClass(reasons, "readiness:needs_policy_evidence") {
+		t.Fatalf("expected stale policy reason code, got %v", reasons)
+	}
 }
 
 func TestBuildComposedActionPathsSurfacesTruncation(t *testing.T) {

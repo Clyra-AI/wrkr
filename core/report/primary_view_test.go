@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -248,6 +249,51 @@ func TestApplySummaryCapsSelectsPrimaryViewFromUncappedWorkflowSource(t *testing
 	}
 	if !found {
 		t.Fatalf("expected primary workflow to be made visible after caps, got %+v", summary.AgentActionBOM.Items)
+	}
+}
+
+func TestApplySummaryCapsDropsRefsToSuppressedComposedContracts(t *testing.T) {
+	t.Parallel()
+
+	composed := make([]risk.ComposedActionPath, 0, defaultMaxComposedActionPaths+1)
+	for idx := 0; idx < defaultMaxComposedActionPaths+1; idx++ {
+		ref := fmt.Sprintf("pac-%03d", idx)
+		composed = append(composed, risk.ComposedActionPath{
+			CompositionID:              fmt.Sprintf("cap-%03d", idx),
+			ProposedActionContractRefs: []string{ref},
+		})
+	}
+	summary := Summary{
+		ActionPaths: []risk.ActionPath{{
+			PathID:                     "apc-1",
+			ProposedActionContractRefs: []string{"pac-000", fmt.Sprintf("pac-%03d", defaultMaxComposedActionPaths)},
+		}},
+		ComposedActionPaths: composed,
+		AgentActionBOM: &AgentActionBOM{
+			Items: []AgentActionBOMItem{{
+				PathID:                     "apc-1",
+				ProposedActionContractRefs: []string{"pac-000", fmt.Sprintf("pac-%03d", defaultMaxComposedActionPaths)},
+			}},
+			Summary: AgentActionBOMSummary{
+				PrimaryView: &AgentActionBOMPrimaryView{
+					PathID:                     "apc-1",
+					ProposedActionContractRefs: []string{"pac-000", fmt.Sprintf("pac-%03d", defaultMaxComposedActionPaths)},
+				},
+			},
+		},
+	}
+
+	ApplySummaryCaps(&summary)
+
+	want := []string{"pac-000"}
+	if !reflect.DeepEqual(summary.ActionPaths[0].ProposedActionContractRefs, want) {
+		t.Fatalf("expected action path refs to drop suppressed contracts, got %+v", summary.ActionPaths[0].ProposedActionContractRefs)
+	}
+	if !reflect.DeepEqual(summary.AgentActionBOM.Items[0].ProposedActionContractRefs, want) {
+		t.Fatalf("expected BOM item refs to drop suppressed contracts, got %+v", summary.AgentActionBOM.Items[0].ProposedActionContractRefs)
+	}
+	if !reflect.DeepEqual(summary.AgentActionBOM.Summary.PrimaryView.ProposedActionContractRefs, want) {
+		t.Fatalf("expected primary view refs to drop suppressed contracts, got %+v", summary.AgentActionBOM.Summary.PrimaryView.ProposedActionContractRefs)
 	}
 }
 

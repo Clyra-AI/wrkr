@@ -74,6 +74,10 @@ func sanitizeActivationSummaryWithConfig(in *ActivationSummary, config Redaction
 }
 
 func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig) []risk.ActionPath {
+	return sanitizeActionPathsWithConfigAndContractRefs(in, config, nil)
+}
+
+func sanitizeActionPathsWithConfigAndContractRefs(in []risk.ActionPath, config RedactionConfig, proposedContractRefMap map[string]string) []risk.ActionPath {
 	if len(in) == 0 {
 		return nil
 	}
@@ -145,7 +149,7 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 		copyItem.EvidencePacketRefs = maybeRedactStringSlice(copyItem.EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
 		copyItem.DecisionTraceRefs = maybeRedactStringSlice(copyItem.DecisionTraceRefs, "proof", config.Has(RedactionProofRefs))
 		copyItem.CompositionIDs = cloneStrings(copyItem.CompositionIDs)
-		copyItem.ProposedActionContractRefs = cloneStrings(copyItem.ProposedActionContractRefs)
+		copyItem.ProposedActionContractRefs = remapProposedActionContractRefs(copyItem.ProposedActionContractRefs, proposedContractRefMap)
 		copyItem.MatchedProductionTargets = cloneStrings(copyItem.MatchedProductionTargets)
 		out = append(out, copyItem)
 	}
@@ -153,11 +157,15 @@ func sanitizeActionPathsWithConfig(in []risk.ActionPath, config RedactionConfig)
 }
 
 func sanitizeActionPathToControlFirstWithConfig(in *risk.ActionPathToControlFirst, config RedactionConfig) *risk.ActionPathToControlFirst {
+	return sanitizeActionPathToControlFirstWithContractRefs(in, config, nil)
+}
+
+func sanitizeActionPathToControlFirstWithContractRefs(in *risk.ActionPathToControlFirst, config RedactionConfig, proposedContractRefMap map[string]string) *risk.ActionPathToControlFirst {
 	if in == nil {
 		return nil
 	}
 	copySummary := in.Summary
-	paths := sanitizeActionPathsWithConfig([]risk.ActionPath{in.Path}, config)
+	paths := sanitizeActionPathsWithConfigAndContractRefs([]risk.ActionPath{in.Path}, config, proposedContractRefMap)
 	if len(paths) == 0 {
 		return &risk.ActionPathToControlFirst{Summary: copySummary}
 	}
@@ -661,10 +669,11 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 	copyBOM.Summary.EvidenceCompleteness = risk.CloneEvidenceCompletenessSummary(in.Summary.EvidenceCompleteness)
 	copyBOM.ScanQuality = sanitizeScanQualityWithConfig(in.ScanQuality, config)
 	copyBOM.ComposedActionPaths = sanitizeComposedActionPathsWithConfig(in.ComposedActionPaths, config)
+	proposedContractRefMap := proposedActionContractRefMap(in.ComposedActionPaths, copyBOM.ComposedActionPaths)
 	copyBOM.EvidenceRefs = maybeRedactStringSlice(in.EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
 	copyBOM.ProofRefs = maybeRedactStringSlice(in.ProofRefs, "proof", config.Has(RedactionProofRefs))
 	copyBOM.GraphRefs = sanitizeGraphRefsWithConfig(in.GraphRefs, config)
-	copyBOM.Summary.PrimaryView = sanitizePrimaryViewWithConfig(in.Summary.PrimaryView, config)
+	copyBOM.Summary.PrimaryView = sanitizePrimaryViewWithContractRefs(in.Summary.PrimaryView, config, proposedContractRefMap)
 	copyBOM.Items = append([]AgentActionBOMItem(nil), in.Items...)
 	for idx := range copyBOM.Items {
 		copyBOM.Items[idx].PathID = maybeRedactPathID(copyBOM.Items[idx].PathID, config)
@@ -699,7 +708,7 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 		copyBOM.Items[idx].AttackPathRefs = maybeRedactStringSlice(copyBOM.Items[idx].AttackPathRefs, "attack", config.Has(RedactionGraphRefs))
 		copyBOM.Items[idx].SourceFindingKeys = maybeRedactStringSlice(copyBOM.Items[idx].SourceFindingKeys, "finding", shouldRedactFindingKeys(config))
 		copyBOM.Items[idx].CompositionIDs = cloneStrings(copyBOM.Items[idx].CompositionIDs)
-		copyBOM.Items[idx].ProposedActionContractRefs = cloneStrings(copyBOM.Items[idx].ProposedActionContractRefs)
+		copyBOM.Items[idx].ProposedActionContractRefs = remapProposedActionContractRefs(copyBOM.Items[idx].ProposedActionContractRefs, proposedContractRefMap)
 		copyBOM.Items[idx].EvidenceRefs = maybeRedactStringSlice(copyBOM.Items[idx].EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
 		copyBOM.Items[idx].GraphRefs = sanitizeGraphRefsWithConfig(copyBOM.Items[idx].GraphRefs, config)
 		copyBOM.Items[idx].Reachability = sanitizeReachabilityWithConfig(copyBOM.Items[idx].Reachability, config)
@@ -762,6 +771,10 @@ func sanitizeReviewAuditContextWithConfig(in *risk.ReviewAuditContext, config Re
 }
 
 func sanitizePrimaryViewWithConfig(in *AgentActionBOMPrimaryView, config RedactionConfig) *AgentActionBOMPrimaryView {
+	return sanitizePrimaryViewWithContractRefs(in, config, nil)
+}
+
+func sanitizePrimaryViewWithContractRefs(in *AgentActionBOMPrimaryView, config RedactionConfig, proposedContractRefMap map[string]string) *AgentActionBOMPrimaryView {
 	if in == nil {
 		return nil
 	}
@@ -790,7 +803,7 @@ func sanitizePrimaryViewWithConfig(in *AgentActionBOMPrimaryView, config Redacti
 	out.DeliveryControlContext = sanitizeDeliveryControlContextWithConfig(in.DeliveryControlContext, config)
 	out.WorkflowChainRefs = maybeRedactStringSlice(in.WorkflowChainRefs, "chain", config.Has(RedactionPaths) || config.Has(RedactionGraphRefs))
 	out.CompositionIDs = cloneStrings(in.CompositionIDs)
-	out.ProposedActionContractRefs = cloneStrings(in.ProposedActionContractRefs)
+	out.ProposedActionContractRefs = remapProposedActionContractRefs(in.ProposedActionContractRefs, proposedContractRefMap)
 	out.GraphRefs = sanitizeGraphRefsWithConfig(in.GraphRefs, config)
 	out.ProofRefs = maybeRedactStringSlice(in.ProofRefs, "proof", config.Has(RedactionProofRefs))
 	out.EvidencePacketRefs = maybeRedactStringSlice(in.EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
