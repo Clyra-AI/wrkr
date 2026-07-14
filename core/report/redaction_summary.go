@@ -183,6 +183,7 @@ func sanitizeComposedActionPathsPublic(in []risk.ComposedActionPath) []risk.Comp
 		copyItem.EvidenceRefs = redactStringSlice(copyItem.EvidenceRefs, "evidence")
 		copyItem.ProofRefs = redactStringSlice(copyItem.ProofRefs, "proof")
 		copyItem.SourceDecisionRefs = redactStringSlice(copyItem.SourceDecisionRefs, "decision")
+		copyItem.TruncatedCandidates = redactStringSlice(copyItem.TruncatedCandidates, "candidate")
 		copyItem.ClosureRequirements = sanitizeClosureRequirementsPublic(copyItem.ClosureRequirements)
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
 		copyItem.Stages = sanitizeCompositionStagesPublic(copyItem.Stages)
@@ -238,6 +239,11 @@ func sanitizeComposedActionPathsWithConfig(in []risk.ComposedActionPath, config 
 		copyItem.EvidenceRefs = maybeRedactEvidenceRefSlice(copyItem.EvidenceRefs, config)
 		copyItem.ProofRefs = maybeRedactStringSlice(copyItem.ProofRefs, "proof", config.Has(RedactionProofRefs))
 		copyItem.SourceDecisionRefs = maybeRedactStringSlice(copyItem.SourceDecisionRefs, "decision", config.Has(RedactionProofRefs))
+		if redactComposedIdentity {
+			copyItem.TruncatedCandidates = redactStringSlice(copyItem.TruncatedCandidates, "candidate")
+		} else {
+			copyItem.TruncatedCandidates = cloneStrings(copyItem.TruncatedCandidates)
+		}
 		copyItem.ClosureRequirements = sanitizeClosureRequirementsWithConfig(copyItem.ClosureRequirements, config)
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
 		if redactComposedIdentity || config.Has(RedactionProofRefs) || config.Has(RedactionOwners) {

@@ -276,6 +276,15 @@ func TestCompositionFreshnessStateSeedsFirstConcreteStage(t *testing.T) {
 	}
 }
 
+func TestCompositionPolicyCoverageStatusPreservesMissingStageGap(t *testing.T) {
+	if got := compositionPolicyCoverageStatusFromStages([]CompositionStage{
+		{PolicyCoverageStatus: PolicyCoverageStatusDeclared},
+		{PolicyCoverageStatus: PolicyCoverageStatusNone},
+	}); got != PolicyCoverageStatusNone {
+		t.Fatalf("expected missing stage policy to keep composition coverage at none, got %q", got)
+	}
+}
+
 func compositionTestPath(pathID, resolutionKey string, actionClasses []string, targetClass string) ActionPath {
 	return ProjectActionPath(ActionPath{
 		PathID:                   pathID,

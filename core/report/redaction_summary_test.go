@@ -54,6 +54,9 @@ func TestSanitizeComposedActionPathsWithRepoRedactionHidesDerivedTargetsAndResol
 		TargetIdentity:    "acme/private",
 		DurableOutcomeKey: "asset=acme/private|target_class=production_impacting",
 		AffectedAsset:     "acme/private",
+		TruncatedCandidates: []string{
+			"acme/private|release.yml->acme/private|deploy.yml",
+		},
 		Stages: []risk.CompositionStage{{
 			StageID:       "stage-source",
 			Role:          risk.CompositionStageRoleSource,
@@ -77,5 +80,8 @@ func TestSanitizeComposedActionPathsWithRepoRedactionHidesDerivedTargetsAndResol
 	}
 	if got.ProposedActionContract == nil || got.ProposedActionContract.TargetConstraints != nil {
 		t.Fatalf("expected proposed contract to use public sanitizer under repo redaction, got %+v", got.ProposedActionContract)
+	}
+	if len(got.TruncatedCandidates) != 1 || strings.Contains(got.TruncatedCandidates[0], "acme/private") {
+		t.Fatalf("expected truncated candidates to be redacted under repo redaction, got %+v", got.TruncatedCandidates)
 	}
 }
