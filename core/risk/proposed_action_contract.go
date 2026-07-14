@@ -275,7 +275,8 @@ func proposedActionContractReadiness(composition ComposedActionPath) (string, []
 	case EvidenceStateUnknown, EvidenceStateInferred:
 		reasons = append(reasons, "readiness:needs_proof_evidence")
 	}
-	if strings.TrimSpace(composition.PolicyCoverageStatus) == PolicyCoverageStatusNone {
+	switch strings.TrimSpace(composition.PolicyCoverageStatus) {
+	case PolicyCoverageStatusNone, PolicyCoverageStatusStale:
 		reasons = append(reasons, "readiness:needs_policy_evidence")
 	}
 	if len(reasons) > 0 {

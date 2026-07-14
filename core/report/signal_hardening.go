@@ -40,6 +40,16 @@ func ApplySummaryCaps(summary *Summary) {
 	suppressed.ActionPaths = count
 	summary.ComposedActionPaths, count = outputsignal.CapSlice(summary.ComposedActionPaths, defaultMaxComposedActionPaths)
 	suppressed.ComposedActionPaths = count
+	allowedComposedContractRefs := allowedComposedContractRefs(summary.ComposedActionPaths)
+	if len(allowedComposedContractRefs) > 0 {
+		summary.ActionPaths = filterActionPathContractRefs(summary.ActionPaths, allowedComposedContractRefs)
+		if summary.ActionPathToControlFirst != nil {
+			filtered := filterActionPathContractRefs([]risk.ActionPath{summary.ActionPathToControlFirst.Path}, allowedComposedContractRefs)
+			if len(filtered) == 1 {
+				summary.ActionPathToControlFirst.Path = filtered[0]
+			}
+		}
+	}
 
 	if summary.ControlBacklog != nil {
 		summary.ControlBacklog.Items, count = outputsignal.CapSlice(summary.ControlBacklog.Items, defaultMaxBacklogItems)
@@ -61,6 +71,14 @@ func ApplySummaryCaps(summary *Summary) {
 	}
 	if summary.AgentActionBOM != nil {
 		summary.AgentActionBOM.ComposedActionPaths = append([]risk.ComposedActionPath(nil), summary.ComposedActionPaths...)
+		if len(allowedComposedContractRefs) > 0 {
+			if summary.AgentActionBOM.Summary.PrimaryView != nil {
+				summary.AgentActionBOM.Summary.PrimaryView.ProposedActionContractRefs = filterStringSet(summary.AgentActionBOM.Summary.PrimaryView.ProposedActionContractRefs, allowedComposedContractRefs)
+			}
+			for idx := range summary.AgentActionBOM.Items {
+				summary.AgentActionBOM.Items[idx].ProposedActionContractRefs = filterStringSet(summary.AgentActionBOM.Items[idx].ProposedActionContractRefs, allowedComposedContractRefs)
+			}
+		}
 		summary.AgentActionBOM.Items, count = outputsignal.CapSlice(summary.AgentActionBOM.Items, defaultMaxAgentActionBOM)
 		suppressed.AgentActionBOM = count
 		if summary.AgentActionBOM.Summary.PrimaryView == nil {
@@ -80,6 +98,49 @@ func ApplySummaryCaps(summary *Summary) {
 		return
 	}
 	summary.SuppressedCounts = suppressed
+}
+
+func allowedComposedContractRefs(paths []risk.ComposedActionPath) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, path := range paths {
+		for _, ref := range path.ProposedActionContractRefs {
+			if trimmed := strings.TrimSpace(ref); trimmed != "" {
+				out[trimmed] = struct{}{}
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func filterActionPathContractRefs(paths []risk.ActionPath, allowed map[string]struct{}) []risk.ActionPath {
+	if len(paths) == 0 || len(allowed) == 0 {
+		return paths
+	}
+	out := make([]risk.ActionPath, 0, len(paths))
+	for _, path := range paths {
+		copyPath := path
+		copyPath.ProposedActionContractRefs = filterStringSet(copyPath.ProposedActionContractRefs, allowed)
+		out = append(out, copyPath)
+	}
+	return out
+}
+
+func filterStringSet(values []string, allowed map[string]struct{}) []string {
+	if len(values) == 0 || len(allowed) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			if _, ok := allowed[trimmed]; ok {
+				out = append(out, trimmed)
+			}
+		}
+	}
+	return out
 }
 
 func BuildSuppressedCountsForScan(r risk.Report, backlog *controlbacklog.Backlog) *SuppressedCounts {
