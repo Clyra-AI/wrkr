@@ -135,6 +135,9 @@ func TestScanInterruptedAfterStateSaveRecoversManagedArtifacts(t *testing.T) {
 	if err := os.WriteFile(statePath, []byte(`{"version":"v1","findings":[]}`+"\n"), 0o600); err != nil {
 		t.Fatalf("write interrupted state: %v", err)
 	}
+	if err := transaction.releaseLease(); err != nil {
+		t.Fatalf("release interrupted transaction lease: %v", err)
+	}
 
 	var out bytes.Buffer
 	var errOut bytes.Buffer
