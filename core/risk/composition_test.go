@@ -221,22 +221,42 @@ func TestBuildComposedActionPathsSurfacesTruncation(t *testing.T) {
 
 func TestMergeComposedActionPathRebuildsProposedContract(t *testing.T) {
 	base := ComposedActionPath{
-		CompositionID:        "cap-1",
-		ResolutionKey:        "rk",
-		TargetIdentity:       "prod",
-		OutcomeClass:         "production_deploy",
-		TargetClass:          TargetClassProductionImpacting,
-		Environment:          "production",
-		Stages:               []CompositionStage{{StageID: "stage-1", Role: CompositionStageRoleSource}, {StageID: "stage-2", Role: CompositionStageRolePrivilegedSink}},
-		Transitions:          []CompositionTransition{{TransitionID: "transition-1", FromStageID: "stage-1", ToStageID: "stage-2"}},
+		CompositionID:  "cap-1",
+		ResolutionKey:  "rk",
+		TargetIdentity: "prod",
+		OutcomeClass:   "production_deploy",
+		TargetClass:    TargetClassProductionImpacting,
+		Environment:    "production",
+		Stages: []CompositionStage{
+			{
+				StageID:              compositionStageID(CompositionStageRoleSource, "rk-source", TargetClassProductionImpacting, EvidenceStateDeclared),
+				Role:                 CompositionStageRoleSource,
+				ResolutionKey:        "rk-source",
+				TargetClass:          TargetClassProductionImpacting,
+				EvidenceState:        EvidenceStateDeclared,
+				PolicyCoverageStatus: PolicyCoverageStatusDeclared,
+			},
+			{
+				StageID:              compositionStageID(CompositionStageRolePrivilegedSink, "rk-sink", TargetClassProductionImpacting, EvidenceStateDeclared),
+				Role:                 CompositionStageRolePrivilegedSink,
+				ResolutionKey:        "rk-sink",
+				TargetClass:          TargetClassProductionImpacting,
+				EvidenceState:        EvidenceStateDeclared,
+				PolicyCoverageStatus: PolicyCoverageStatusDeclared,
+			},
+		},
 		EvidenceState:        EvidenceStateDeclared,
 		PolicyCoverageStatus: PolicyCoverageStatusDeclared,
 		RecommendedControl:   RecommendedControlApprovalRequired,
 	}
+	base.Transitions = buildCompositionTransitions(base.CompositionID, base.Stages)
 	base.ProposedActionContract = BuildProposedActionContract(base)
 	base.ProposedActionContractRefs = []string{base.ProposedActionContract.ContractID}
 
 	incoming := base
+	incoming.Stages[0].EvidenceState = EvidenceStateContradictory
+	incoming.Stages[0].StageID = compositionStageID(incoming.Stages[0].Role, incoming.Stages[0].ResolutionKey, incoming.Stages[0].TargetClass, incoming.Stages[0].EvidenceState)
+	incoming.Transitions = buildCompositionTransitions(incoming.CompositionID, incoming.Stages)
 	incoming.EvidenceState = EvidenceStateContradictory
 	incoming.ClaimState = CompositionClaimContradictory
 	incoming.RecommendedControl = RecommendedControlBlock
@@ -244,6 +264,12 @@ func TestMergeComposedActionPathRebuildsProposedContract(t *testing.T) {
 	merged := mergeComposedActionPath(base, incoming)
 	if merged.ProposedActionContract == nil {
 		t.Fatalf("expected merged proposed contract, got %+v", merged)
+	}
+	if len(merged.Stages) != 2 || merged.Stages[0].EvidenceState != EvidenceStateContradictory {
+		t.Fatalf("expected merged stages to reflect strongest evidence state, got %+v", merged.Stages)
+	}
+	if len(merged.Transitions) != 1 || merged.Transitions[0].FromStageID != merged.Stages[0].StageID {
+		t.Fatalf("expected transitions to be rebuilt from merged stages, got %+v with stages %+v", merged.Transitions, merged.Stages)
 	}
 	if merged.ProposedActionContract.ReadinessState != ActionContractReadinessBlockedContradict {
 		t.Fatalf("expected merged contract to reflect contradictory state, got %+v", merged.ProposedActionContract)

@@ -451,6 +451,7 @@ func dedupeCompositionStages(stages []CompositionStage) []CompositionStage {
 		current.FreshnessState = compositionFreshnessState(current.FreshnessState, stage.FreshnessState)
 		current.PolicyCoverageStatus = compositionPolicyCoverageStatus(current.PolicyCoverageStatus, stage.PolicyCoverageStatus)
 		current.RuntimeEvidenceAbsenceStatus = compositionRuntimeAbsence(current.RuntimeEvidenceAbsenceStatus, stage.RuntimeEvidenceAbsenceStatus)
+		current.StageID = compositionStageID(current.Role, current.ResolutionKey, current.TargetClass, current.EvidenceState)
 		byKey[key] = current
 	}
 	out := make([]CompositionStage, 0, len(byKey))
@@ -499,6 +500,11 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.SourceDecisionRefs = dedupeSortedStrings(append(merged.SourceDecisionRefs, incoming.SourceDecisionRefs...))
 	merged.TruncatedCandidates = dedupeSortedStrings(append(merged.TruncatedCandidates, incoming.TruncatedCandidates...))
 	merged.ProposedActionContractRefs = dedupeSortedStrings(append(merged.ProposedActionContractRefs, incoming.ProposedActionContractRefs...))
+	merged.Stages = dedupeCompositionStages(append(append([]CompositionStage(nil), merged.Stages...), incoming.Stages...))
+	merged.Transitions = buildCompositionTransitions(merged.CompositionID, merged.Stages)
+	merged.Contradictions = mergeContradictions(merged.Contradictions, incoming.Contradictions)
+	merged.ClosureRequirements = CloneClosureRequirements(firstNonEmptyClosureRequirements(merged.ClosureRequirements, incoming.ClosureRequirements))
+	merged.EvidenceCompleteness = firstNonNilEvidenceCompleteness(merged.EvidenceCompleteness, incoming.EvidenceCompleteness)
 	merged.GaitCoverage = MergeGaitCoverage(merged.GaitCoverage, incoming.GaitCoverage)
 	merged.EvidenceState = compositionEvidenceState(merged.EvidenceState, incoming.EvidenceState)
 	merged.FreshnessState = compositionFreshnessState(merged.FreshnessState, incoming.FreshnessState)
