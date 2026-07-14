@@ -769,8 +769,16 @@ func compositionRuntimeAbsenceFromStages(stages []CompositionStage) string {
 }
 
 func compositionEvidenceState(current, incoming string) string {
-	current = firstNonEmptyString(normalizeEvidenceState(current), EvidenceStateUnknown)
-	incoming = firstNonEmptyString(normalizeEvidenceState(incoming), EvidenceStateUnknown)
+	current = normalizeEvidenceState(current)
+	incoming = normalizeEvidenceState(incoming)
+	if strings.TrimSpace(current) == "" {
+		return firstNonEmptyString(incoming, EvidenceStateUnknown)
+	}
+	if strings.TrimSpace(incoming) == "" {
+		return firstNonEmptyString(current, EvidenceStateUnknown)
+	}
+	current = firstNonEmptyString(current, EvidenceStateUnknown)
+	incoming = firstNonEmptyString(incoming, EvidenceStateUnknown)
 	if evidenceStatePriority(incoming) > evidenceStatePriority(current) {
 		return incoming
 	}
@@ -778,6 +786,9 @@ func compositionEvidenceState(current, incoming string) string {
 }
 
 func compositionFreshnessState(current, incoming string) string {
+	if strings.TrimSpace(current) == "" {
+		return normalizeCompositionFreshness(incoming)
+	}
 	current = normalizeCompositionFreshness(current)
 	incoming = normalizeCompositionFreshness(incoming)
 	if compositionFreshnessRank(incoming) > compositionFreshnessRank(current) {
