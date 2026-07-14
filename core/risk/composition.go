@@ -163,7 +163,7 @@ func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.
 					truncated[spec.id] = append(truncated[spec.id], compositionCandidateKey(source)+"->"+compositionCandidateKey(sink))
 					continue
 				}
-				composition := buildComposedActionPath(spec, source, sink, chainRefsByPath, truncated[spec.id])
+				composition := buildComposedActionPath(spec, source, sink, chainRefsByPath)
 				compositionsByKey[composition.CompositionID] = mergeComposedActionPath(compositionsByKey[composition.CompositionID], composition)
 			}
 		}
@@ -180,6 +180,7 @@ func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.
 	sort.Slice(compositions, func(i, j int) bool {
 		return compareComposedActionPaths(compositions[i], compositions[j])
 	})
+	attachTruncatedCandidates(compositions, truncated)
 	summary := SummarizeComposedActionPaths(compositions)
 	return compositions, &ComposedActionPathToControlFirst{
 		Summary: summary,
@@ -215,6 +216,7 @@ func DecorateActionPathCompositionRefs(paths []ActionPath, compositions []Compos
 
 func SummarizeComposedActionPaths(paths []ComposedActionPath) ComposedActionPathSummary {
 	summary := ComposedActionPathSummary{TotalCompositions: len(paths)}
+	truncatedPatterns := map[string]struct{}{}
 	for _, path := range paths {
 		if strings.TrimSpace(path.RecommendedControl) != RecommendedControlAllow {
 			summary.ControlFirstCompositions++
@@ -230,9 +232,16 @@ func SummarizeComposedActionPaths(paths []ComposedActionPath) ComposedActionPath
 			summary.ContradictoryCompositions++
 		}
 		if len(path.TruncatedCandidates) > 0 {
-			summary.TruncatedCandidatePatterns++
+			patternID := strings.TrimSpace(path.PatternID)
+			if patternID == "" {
+				patternID = strings.TrimSpace(path.CompositionID)
+			}
+			if patternID != "" {
+				truncatedPatterns[patternID] = struct{}{}
+			}
 		}
 	}
+	summary.TruncatedCandidatePatterns = len(truncatedPatterns)
 	return summary
 }
 
@@ -303,7 +312,7 @@ func compositionCandidatesCompatible(source, sink ActionPath) bool {
 	return strings.TrimSpace(source.Repo) == strings.TrimSpace(sink.Repo)
 }
 
-func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPath, chainRefsByPath map[string][]string, truncated []string) ComposedActionPath {
+func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPath, chainRefsByPath map[string][]string) ComposedActionPath {
 	stages := dedupeCompositionStages([]CompositionStage{
 		buildCompositionStage(spec.sourceRole, source),
 		buildCompositionStage(spec.sinkRole, sink),
@@ -357,7 +366,6 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 		RecommendedControl:           recommended,
 		ClosureRequirements:          compositionClosureRequirements(paths),
 		EvidenceCompleteness:         compositionEvidenceCompleteness(paths),
-		TruncatedCandidates:          append([]string(nil), truncated...),
 	}
 	for idx := range composition.Transitions {
 		composition.Transitions[idx].ClaimState = claimState
@@ -375,6 +383,29 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 		composition.ProposedActionContractRefs = []string{composition.ProposedActionContract.ContractID}
 	}
 	return composition
+}
+
+func attachTruncatedCandidates(compositions []ComposedActionPath, truncated map[string][]string) {
+	if len(compositions) == 0 || len(truncated) == 0 {
+		return
+	}
+	firstByPattern := map[string]int{}
+	for idx, composition := range compositions {
+		patternID := strings.TrimSpace(composition.PatternID)
+		if patternID == "" {
+			continue
+		}
+		if _, ok := firstByPattern[patternID]; !ok {
+			firstByPattern[patternID] = idx
+		}
+	}
+	for patternID, candidates := range truncated {
+		idx, ok := firstByPattern[strings.TrimSpace(patternID)]
+		if !ok || len(candidates) == 0 {
+			continue
+		}
+		compositions[idx].TruncatedCandidates = dedupeSortedStrings(append(compositions[idx].TruncatedCandidates, candidates...))
+	}
 }
 
 func buildCompositionStage(role string, path ActionPath) CompositionStage {

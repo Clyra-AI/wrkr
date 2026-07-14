@@ -11,6 +11,10 @@ import (
 const (
 	ProposedActionContractVersion = "2"
 	ProposedActionContractKind    = "proposed_action_contract"
+
+	proposedActionContractReadinessNeedsEvidence = "needs_evidence"
+	proposedCredentialModeEphemeral              = "ephemeral"
+	proposedCredentialModeScoped                 = "scoped"
 )
 
 type ProposedActionContract struct {
@@ -198,15 +202,15 @@ func proposedCredentialMode(composition ComposedActionPath) string {
 	for _, stage := range composition.Stages {
 		for _, reason := range stage.EvidenceRefs {
 			if strings.Contains(strings.ToLower(reason), "jit") {
-				return "jit_or_brokered"
+				return proposedCredentialModeEphemeral
 			}
 		}
 	}
 	switch strings.TrimSpace(composition.RecommendedControl) {
 	case RecommendedControlJITCredentialRequired, RecommendedControlBlockStandingCredential:
-		return "jit_or_brokered"
+		return proposedCredentialModeEphemeral
 	default:
-		return "least_privilege"
+		return proposedCredentialModeScoped
 	}
 }
 
@@ -260,21 +264,22 @@ func proposedSourceDigests(composition ComposedActionPath) []string {
 }
 
 func proposedActionContractReadiness(composition ComposedActionPath) (string, []string) {
-	reasons := []string{}
 	if strings.TrimSpace(composition.ClaimState) == CompositionClaimContradictory {
 		return ActionContractReadinessBlockedContradict, []string{"readiness:contradictory_composition"}
 	}
+	reasons := []string{}
 	if strings.TrimSpace(composition.CompositionID) == "" || len(composition.Stages) < 2 {
-		return ActionContractReadinessNeedsCorrelation, []string{"readiness:needs_composition_correlation"}
+		reasons = append(reasons, "readiness:needs_composition_correlation")
 	}
 	switch strings.TrimSpace(composition.EvidenceState) {
 	case EvidenceStateUnknown, EvidenceStateInferred:
 		reasons = append(reasons, "readiness:needs_proof_evidence")
-		return ActionContractReadinessNeedsProof, dedupeSortedStrings(reasons)
 	}
 	if strings.TrimSpace(composition.PolicyCoverageStatus) == PolicyCoverageStatusNone {
 		reasons = append(reasons, "readiness:needs_policy_evidence")
-		return ActionContractReadinessNeedsApproval, dedupeSortedStrings(reasons)
+	}
+	if len(reasons) > 0 {
+		return proposedActionContractReadinessNeedsEvidence, dedupeSortedStrings(reasons)
 	}
 	reasons = append(reasons, "readiness:ready_for_report_only")
 	return ActionContractReadinessReadyForReportOnly, dedupeSortedStrings(reasons)
