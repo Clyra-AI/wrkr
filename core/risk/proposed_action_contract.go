@@ -158,6 +158,9 @@ func proposedApprovalRequiredTransitions(composition ComposedActionPath, transit
 	if len(transitions) == 0 {
 		return nil
 	}
+	if len(proposedProhibitedTransitions(composition, transitions)) > 0 {
+		return nil
+	}
 	switch strings.TrimSpace(composition.ClaimState) {
 	case CompositionClaimRuntimeControlled, CompositionClaimObservedExecution:
 		if strings.TrimSpace(composition.RecommendedControl) == RecommendedControlAllow {

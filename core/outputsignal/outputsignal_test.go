@@ -107,3 +107,20 @@ func TestBuildPolicyOutcomesKeepsQualifiedRepoRefsStable(t *testing.T) {
 		t.Fatalf("expected qualified repo ref to stay stable, got %+v", outcomes[0].TopRepoRefs)
 	}
 }
+
+func TestMergeSuppressedCountsIncludesComposedActionPaths(t *testing.T) {
+	t.Parallel()
+
+	merged := MergeSuppressedCounts(&SuppressedCounts{ComposedActionPaths: 2}, &SuppressedCounts{ComposedActionPaths: 3})
+	if merged == nil || merged.ComposedActionPaths != 5 {
+		t.Fatalf("expected composed action path suppressions to merge, got %+v", merged)
+	}
+}
+
+func TestHasSuppressedCountsIncludesComposedActionPaths(t *testing.T) {
+	t.Parallel()
+
+	if !HasSuppressedCounts(&SuppressedCounts{ComposedActionPaths: 1}) {
+		t.Fatal("expected composed action path suppression to count as non-empty")
+	}
+}
