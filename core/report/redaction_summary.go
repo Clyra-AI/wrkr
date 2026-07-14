@@ -156,10 +156,6 @@ func sanitizeActionPathsWithConfigAndContractRefs(in []risk.ActionPath, config R
 	return out
 }
 
-func sanitizeActionPathToControlFirstWithConfig(in *risk.ActionPathToControlFirst, config RedactionConfig) *risk.ActionPathToControlFirst {
-	return sanitizeActionPathToControlFirstWithContractRefs(in, config, nil)
-}
-
 func sanitizeActionPathToControlFirstWithContractRefs(in *risk.ActionPathToControlFirst, config RedactionConfig, proposedContractRefMap map[string]string) *risk.ActionPathToControlFirst {
 	if in == nil {
 		return nil
@@ -768,10 +764,6 @@ func sanitizeReviewAuditContextWithConfig(in *risk.ReviewAuditContext, config Re
 	out.Rationale = maybeRedactCompositeLabel(out.Rationale, config)
 	out.EvidenceRefs = maybeRedactEvidenceRefSlice(out.EvidenceRefs, config)
 	return out
-}
-
-func sanitizePrimaryViewWithConfig(in *AgentActionBOMPrimaryView, config RedactionConfig) *AgentActionBOMPrimaryView {
-	return sanitizePrimaryViewWithContractRefs(in, config, nil)
 }
 
 func sanitizePrimaryViewWithContractRefs(in *AgentActionBOMPrimaryView, config RedactionConfig, proposedContractRefMap map[string]string) *AgentActionBOMPrimaryView {
