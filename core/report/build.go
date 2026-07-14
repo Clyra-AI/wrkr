@@ -160,7 +160,14 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	}
 	riskReport.ActionPaths = decorateDecisionTraceRefs(riskReport.ActionPaths, decisionTraceRefsByPath)
 	riskReport.ActionPaths = decorateActionPathsWithPrecedents(in.StatePath, now, riskReport.ActionPaths)
-	riskReport.ComposedActionPaths, riskReport.ComposedActionPathToControlFirst = risk.BuildComposedActionPaths(riskReport.ActionPaths, riskReport.WorkflowChains)
+	if len(riskReport.ComposedActionPaths) == 0 {
+		riskReport.ComposedActionPaths, riskReport.ComposedActionPathToControlFirst = risk.BuildComposedActionPaths(riskReport.ActionPaths, riskReport.WorkflowChains)
+	} else if riskReport.ComposedActionPathToControlFirst == nil && len(riskReport.ComposedActionPaths) > 0 {
+		riskReport.ComposedActionPathToControlFirst = &risk.ComposedActionPathToControlFirst{
+			Summary: risk.SummarizeComposedActionPaths(riskReport.ComposedActionPaths),
+			Path:    riskReport.ComposedActionPaths[0],
+		}
+	}
 	riskReport.ActionPaths = risk.DecorateActionPathCompositionRefs(riskReport.ActionPaths, riskReport.ComposedActionPaths)
 	riskReport.ActionPathToControlFirst = risk.BuildActionPathChoice(riskReport.ActionPaths)
 	rawActionPaths := append([]risk.ActionPath(nil), riskReport.ActionPaths...)
@@ -180,13 +187,15 @@ func BuildSummary(in BuildInput) (Summary, error) {
 	evidenceCompleteness := risk.BuildEvidenceCompletenessSummary(riskReport.ActionPaths)
 
 	if shareProfileRequiresRedaction(shareProfile) {
+		sanitizedComposedActionPaths := sanitizeComposedActionPathsPublic(riskReport.ComposedActionPaths)
+		proposedContractRefMap := proposedActionContractRefMap(rawComposedActionPaths, sanitizedComposedActionPaths)
 		proofRef = sanitizeProofReferencePublic(proofRef)
 		lifecycleSummary = sanitizeLifecycleSummaryPublic(lifecycleSummary)
 		riskItems = sanitizeRiskItemsPublic(riskItems)
 		activation = sanitizeActivationSummaryPublic(activation)
-		riskReport.ActionPaths = sanitizeActionPathsPublic(riskReport.ActionPaths)
-		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublic(riskReport.ActionPathToControlFirst)
-		riskReport.ComposedActionPaths = sanitizeComposedActionPathsPublic(riskReport.ComposedActionPaths)
+		riskReport.ActionPaths = sanitizeActionPathsPublicWithContractRefs(riskReport.ActionPaths, proposedContractRefMap)
+		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstPublicWithContractRefs(riskReport.ActionPathToControlFirst, proposedContractRefMap)
+		riskReport.ComposedActionPaths = sanitizedComposedActionPaths
 		riskReport.ComposedActionPathToControlFirst = sanitizeComposedActionPathToControlFirstPublic(riskReport.ComposedActionPathToControlFirst)
 		riskReport.ControlPathGraph = sanitizeControlPathGraphPublic(riskReport.ControlPathGraph)
 		riskReport.WorkflowChains = sanitizeWorkflowChainsPublic(riskReport.WorkflowChains)
@@ -1915,6 +1924,10 @@ func sanitizeActivationSummaryPublic(in *ActivationSummary) *ActivationSummary {
 }
 
 func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
+	return sanitizeActionPathsPublicWithContractRefs(in, nil)
+}
+
+func sanitizeActionPathsPublicWithContractRefs(in []risk.ActionPath, proposedContractRefMap map[string]string) []risk.ActionPath {
 	if len(in) == 0 {
 		return nil
 	}
@@ -1989,7 +2002,7 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 		copyItem.EvidencePacketRefs = redactStringSlice(copyItem.EvidencePacketRefs, "packet")
 		copyItem.DecisionTraceRefs = redactStringSlice(copyItem.DecisionTraceRefs, "proof")
 		copyItem.CompositionIDs = cloneStrings(copyItem.CompositionIDs)
-		copyItem.ProposedActionContractRefs = cloneStrings(copyItem.ProposedActionContractRefs)
+		copyItem.ProposedActionContractRefs = remapProposedActionContractRefs(copyItem.ProposedActionContractRefs, proposedContractRefMap)
 		targets := make([]string, 0, len(copyItem.MatchedProductionTargets))
 		for _, target := range copyItem.MatchedProductionTargets {
 			redacted := redactValue("target", target, 8)
@@ -2005,11 +2018,15 @@ func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
 }
 
 func sanitizeActionPathToControlFirstPublic(in *risk.ActionPathToControlFirst) *risk.ActionPathToControlFirst {
+	return sanitizeActionPathToControlFirstPublicWithContractRefs(in, nil)
+}
+
+func sanitizeActionPathToControlFirstPublicWithContractRefs(in *risk.ActionPathToControlFirst, proposedContractRefMap map[string]string) *risk.ActionPathToControlFirst {
 	if in == nil {
 		return nil
 	}
 	copySummary := in.Summary
-	paths := sanitizeActionPathsPublic([]risk.ActionPath{in.Path})
+	paths := sanitizeActionPathsPublicWithContractRefs([]risk.ActionPath{in.Path}, proposedContractRefMap)
 	if len(paths) == 0 {
 		return &risk.ActionPathToControlFirst{Summary: copySummary}
 	}
@@ -2304,13 +2321,14 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 	copyBOM.Summary.EvidenceCompleteness = risk.CloneEvidenceCompletenessSummary(in.Summary.EvidenceCompleteness)
 	copyBOM.ScanQuality = sanitizeScanQualityPublic(in.ScanQuality)
 	copyBOM.ComposedActionPaths = sanitizeComposedActionPathsPublic(in.ComposedActionPaths)
+	proposedContractRefMap := proposedActionContractRefMap(in.ComposedActionPaths, copyBOM.ComposedActionPaths)
 	copyBOM.EvidenceRefs = redactStringSlice(in.EvidenceRefs, "evidence")
 	copyBOM.ProofRefs = redactStringSlice(in.ProofRefs, "proof")
 	copyBOM.GraphRefs = AgentActionBOMGraphRefs{
 		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
 		EdgeIDs: redactStringSlice(in.GraphRefs.EdgeIDs, "edge"),
 	}
-	copyBOM.Summary.PrimaryView = sanitizePrimaryViewPublic(in.Summary.PrimaryView)
+	copyBOM.Summary.PrimaryView = sanitizePrimaryViewPublicWithContractRefs(in.Summary.PrimaryView, proposedContractRefMap)
 	copyBOM.Items = append([]AgentActionBOMItem(nil), in.Items...)
 	for idx := range copyBOM.Items {
 		copyBOM.Items[idx].PathID = redactValue("path", copyBOM.Items[idx].PathID, 8)
@@ -2346,7 +2364,7 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 		copyBOM.Items[idx].AttackPathRefs = redactStringSlice(copyBOM.Items[idx].AttackPathRefs, "attack")
 		copyBOM.Items[idx].SourceFindingKeys = redactStringSlice(copyBOM.Items[idx].SourceFindingKeys, "finding")
 		copyBOM.Items[idx].CompositionIDs = cloneStrings(copyBOM.Items[idx].CompositionIDs)
-		copyBOM.Items[idx].ProposedActionContractRefs = cloneStrings(copyBOM.Items[idx].ProposedActionContractRefs)
+		copyBOM.Items[idx].ProposedActionContractRefs = remapProposedActionContractRefs(copyBOM.Items[idx].ProposedActionContractRefs, proposedContractRefMap)
 		copyBOM.Items[idx].EvidenceRefs = redactStringSlice(copyBOM.Items[idx].EvidenceRefs, "evidence")
 		copyBOM.Items[idx].GraphRefs = AgentActionBOMGraphRefs{
 			NodeIDs: redactStringSlice(copyBOM.Items[idx].GraphRefs.NodeIDs, "node"),
@@ -2412,6 +2430,10 @@ func sanitizeReviewAuditContextPublic(in *risk.ReviewAuditContext) *risk.ReviewA
 }
 
 func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPrimaryView {
+	return sanitizePrimaryViewPublicWithContractRefs(in, nil)
+}
+
+func sanitizePrimaryViewPublicWithContractRefs(in *AgentActionBOMPrimaryView, proposedContractRefMap map[string]string) *AgentActionBOMPrimaryView {
 	if in == nil {
 		return nil
 	}
@@ -2440,7 +2462,7 @@ func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPri
 	out.DeliveryControlContext = sanitizeDeliveryControlContextPublic(in.DeliveryControlContext)
 	out.WorkflowChainRefs = redactStringSlice(in.WorkflowChainRefs, "chain")
 	out.CompositionIDs = cloneStrings(in.CompositionIDs)
-	out.ProposedActionContractRefs = cloneStrings(in.ProposedActionContractRefs)
+	out.ProposedActionContractRefs = remapProposedActionContractRefs(in.ProposedActionContractRefs, proposedContractRefMap)
 	out.GraphRefs = AgentActionBOMGraphRefs{
 		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
 		EdgeIDs: redactStringSlice(in.GraphRefs.EdgeIDs, "edge"),
@@ -2453,6 +2475,53 @@ func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPri
 	out.RecommendedNextActions = cloneStrings(in.RecommendedNextActions)
 	out.CoverageReasons = cloneStrings(in.CoverageReasons)
 	return &out
+}
+
+func proposedActionContractRefMap(raw, sanitized []risk.ComposedActionPath) map[string]string {
+	if len(raw) == 0 || len(sanitized) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for idx := 0; idx < len(raw) && idx < len(sanitized); idx++ {
+		rawRefs := raw[idx].ProposedActionContractRefs
+		sanitizedRefs := sanitized[idx].ProposedActionContractRefs
+		if len(sanitizedRefs) == 0 && sanitized[idx].ProposedActionContract != nil && strings.TrimSpace(sanitized[idx].ProposedActionContract.ContractID) != "" {
+			sanitizedRefs = []string{strings.TrimSpace(sanitized[idx].ProposedActionContract.ContractID)}
+		}
+		if len(rawRefs) == 0 || len(sanitizedRefs) == 0 {
+			continue
+		}
+		for _, rawRef := range rawRefs {
+			if trimmed := strings.TrimSpace(rawRef); trimmed != "" {
+				out[trimmed] = strings.TrimSpace(sanitizedRefs[0])
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func remapProposedActionContractRefs(refs []string, proposedContractRefMap map[string]string) []string {
+	if len(refs) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		trimmed := strings.TrimSpace(ref)
+		if trimmed == "" {
+			continue
+		}
+		if proposedContractRefMap != nil {
+			if mapped := strings.TrimSpace(proposedContractRefMap[trimmed]); mapped != "" {
+				out = append(out, mapped)
+				continue
+			}
+		}
+		out = append(out, trimmed)
+	}
+	return cloneStrings(out)
 }
 
 func sanitizeAgenticDeliverySystemChangePublic(in *risk.AgenticDeliverySystemChange) *risk.AgenticDeliverySystemChange {
