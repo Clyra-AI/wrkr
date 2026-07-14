@@ -30,6 +30,7 @@ const (
 	scanSummaryInlineGraphNodesCap      = 50
 	scanSummaryInlineGraphEdgesCap      = 100
 	scanSummaryInlineWorkflowChainsCap  = 5
+	scanSummaryInlineCompositionsCap    = 5
 )
 
 type scanJSONSummaryInput struct {
@@ -144,6 +145,12 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 	if input.RiskReport.ActionPathToControlFirst != nil {
 		payload["action_path_to_control_first"] = input.RiskReport.ActionPathToControlFirst
 	}
+	if compositions := scanPreview(input.RiskReport.ComposedActionPaths, scanSummaryInlineCompositionsCap); len(compositions) > 0 {
+		payload["composed_action_paths"] = compositions
+	}
+	if input.RiskReport.ComposedActionPathToControlFirst != nil {
+		payload["composed_action_path_to_control_first"] = input.RiskReport.ComposedActionPathToControlFirst
+	}
 	if scanSummaryInlineBacklogItemsCap >= 0 {
 		backlog := input.ControlBacklog
 		backlog.Items = scanPreview(input.ControlBacklog.Items, scanSummaryInlineBacklogItemsCap)
@@ -173,17 +180,18 @@ func buildScanJSONSummary(input scanJSONSummaryInput) map[string]any {
 
 func buildScanSuppressedCounts(input scanJSONSummaryInput) *reportcore.SuppressedCounts {
 	suppressed := &reportcore.SuppressedCounts{
-		Findings:        positiveOverflow(len(input.Findings), scanSummaryInlineFindingsCap),
-		RankedFindings:  positiveOverflow(len(input.RiskReport.Ranked), scanSummaryInlineRankedFindingsCap),
-		AttackPaths:     positiveOverflow(len(input.RiskReport.AttackPaths), scanSummaryInlineAttackPathsCap),
-		ActionPaths:     positiveOverflow(len(input.RiskReport.ActionPaths), scanSummaryInlineActionPathsCap),
-		ControlBacklog:  positiveOverflow(len(input.ControlBacklog.Items), scanSummaryInlineBacklogItemsCap),
-		InventoryAgents: positiveOverflow(len(input.Inventory.Agents), scanSummaryInlineInventoryAgentsCap),
-		InventoryTools:  positiveOverflow(len(input.Inventory.Tools), scanSummaryInlineInventoryToolsCap),
-		PrivilegeRows:   positiveOverflow(len(input.Inventory.AgentPrivilegeMap), scanSummaryInlinePrivilegeRowsCap),
-		GraphNodes:      0,
-		GraphEdges:      0,
-		WorkflowChains:  0,
+		Findings:            positiveOverflow(len(input.Findings), scanSummaryInlineFindingsCap),
+		RankedFindings:      positiveOverflow(len(input.RiskReport.Ranked), scanSummaryInlineRankedFindingsCap),
+		AttackPaths:         positiveOverflow(len(input.RiskReport.AttackPaths), scanSummaryInlineAttackPathsCap),
+		ActionPaths:         positiveOverflow(len(input.RiskReport.ActionPaths), scanSummaryInlineActionPathsCap),
+		ComposedActionPaths: positiveOverflow(len(input.RiskReport.ComposedActionPaths), scanSummaryInlineCompositionsCap),
+		ControlBacklog:      positiveOverflow(len(input.ControlBacklog.Items), scanSummaryInlineBacklogItemsCap),
+		InventoryAgents:     positiveOverflow(len(input.Inventory.Agents), scanSummaryInlineInventoryAgentsCap),
+		InventoryTools:      positiveOverflow(len(input.Inventory.Tools), scanSummaryInlineInventoryToolsCap),
+		PrivilegeRows:       positiveOverflow(len(input.Inventory.AgentPrivilegeMap), scanSummaryInlinePrivilegeRowsCap),
+		GraphNodes:          0,
+		GraphEdges:          0,
+		WorkflowChains:      0,
 	}
 	if input.RiskReport.ControlPathGraph != nil {
 		suppressed.GraphNodes = positiveOverflow(len(input.RiskReport.ControlPathGraph.Nodes), scanSummaryInlineGraphNodesCap)
@@ -193,6 +201,7 @@ func buildScanSuppressedCounts(input scanJSONSummaryInput) *reportcore.Suppresse
 		suppressed.WorkflowChains = positiveOverflow(len(input.RiskReport.WorkflowChains.Chains), scanSummaryInlineWorkflowChainsCap)
 	}
 	if suppressed.ActionPaths == 0 &&
+		suppressed.ComposedActionPaths == 0 &&
 		suppressed.AttackPaths == 0 &&
 		suppressed.ControlBacklog == 0 &&
 		suppressed.Findings == 0 &&

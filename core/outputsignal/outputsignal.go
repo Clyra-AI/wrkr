@@ -28,6 +28,7 @@ type SuppressedCounts struct {
 	RankedFindings        int `json:"ranked_findings,omitempty"`
 	AttackPaths           int `json:"attack_paths,omitempty"`
 	ActionPaths           int `json:"action_paths,omitempty"`
+	ComposedActionPaths   int `json:"composed_action_paths,omitempty"`
 	ControlBacklog        int `json:"control_backlog,omitempty"`
 	InventoryAgents       int `json:"inventory_agents,omitempty"`
 	InventoryTools        int `json:"inventory_tools,omitempty"`

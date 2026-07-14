@@ -25,39 +25,41 @@ import (
 )
 
 type reportPayload struct {
-	Status                   string                        `json:"status"`
-	GeneratedAt              string                        `json:"generated_at"`
-	DeploymentMode           string                        `json:"deployment_mode,omitempty"`
-	NextSteps                []nextStep                    `json:"next_steps,omitempty"`
-	Targets                  []source.Target               `json:"targets,omitempty"`
-	TopFindings              []risk.ScoredFinding          `json:"top_findings"`
-	AttackPaths              any                           `json:"attack_paths,omitempty"`
-	TopAttackPaths           any                           `json:"top_attack_paths,omitempty"`
-	ActionPaths              any                           `json:"action_paths,omitempty"`
-	AgentActionBOM           any                           `json:"agent_action_bom,omitempty"`
-	FocusView                any                           `json:"focus_view,omitempty"`
-	ActionPathToControlFirst any                           `json:"action_path_to_control_first,omitempty"`
-	ControlPathGraph         any                           `json:"control_path_graph,omitempty"`
-	WorkflowChains           any                           `json:"workflow_chains,omitempty"`
-	RuntimeSessions          *ingest.SessionSummary        `json:"runtime_sessions,omitempty"`
-	RuntimeEvidence          *ingest.Summary               `json:"runtime_evidence,omitempty"`
-	EvidencePackets          *ingest.EvidencePacketSummary `json:"evidence_packets,omitempty"`
-	RecentPRReview           *reportcore.RecentPRReview    `json:"recent_pr_review,omitempty"`
-	AssessmentSummary        any                           `json:"assessment_summary,omitempty"`
-	PublicSurfaceAssessment  any                           `json:"public_surface_assessment,omitempty"`
-	ExposureGroups           any                           `json:"exposure_groups,omitempty"`
-	TotalTools               int                           `json:"total_tools"`
-	ToolTypeBreakdown        []toolTypeCount               `json:"tool_type_breakdown"`
-	ComplianceGapCount       int                           `json:"compliance_gap_count"`
-	ComplianceSummary        compliance.RollupSummary      `json:"compliance_summary"`
-	PrivilegeBudget          agginventory.PrivilegeBudget  `json:"privilege_budget"`
-	SuppressedCounts         *reportcore.SuppressedCounts  `json:"suppressed_counts,omitempty"`
-	Summary                  reportcore.Summary            `json:"summary"`
-	MDPath                   string                        `json:"md_path,omitempty"`
-	PDFPath                  string                        `json:"pdf_path,omitempty"`
-	EvidenceJSONPath         string                        `json:"evidence_json_path,omitempty"`
-	BacklogCSVPath           string                        `json:"backlog_csv_path,omitempty"`
-	ArtifactPaths            map[string]string             `json:"artifact_paths,omitempty"`
+	Status                           string                        `json:"status"`
+	GeneratedAt                      string                        `json:"generated_at"`
+	DeploymentMode                   string                        `json:"deployment_mode,omitempty"`
+	NextSteps                        []nextStep                    `json:"next_steps,omitempty"`
+	Targets                          []source.Target               `json:"targets,omitempty"`
+	TopFindings                      []risk.ScoredFinding          `json:"top_findings"`
+	AttackPaths                      any                           `json:"attack_paths,omitempty"`
+	TopAttackPaths                   any                           `json:"top_attack_paths,omitempty"`
+	ActionPaths                      any                           `json:"action_paths,omitempty"`
+	ComposedActionPaths              any                           `json:"composed_action_paths,omitempty"`
+	AgentActionBOM                   any                           `json:"agent_action_bom,omitempty"`
+	FocusView                        any                           `json:"focus_view,omitempty"`
+	ActionPathToControlFirst         any                           `json:"action_path_to_control_first,omitempty"`
+	ComposedActionPathToControlFirst any                           `json:"composed_action_path_to_control_first,omitempty"`
+	ControlPathGraph                 any                           `json:"control_path_graph,omitempty"`
+	WorkflowChains                   any                           `json:"workflow_chains,omitempty"`
+	RuntimeSessions                  *ingest.SessionSummary        `json:"runtime_sessions,omitempty"`
+	RuntimeEvidence                  *ingest.Summary               `json:"runtime_evidence,omitempty"`
+	EvidencePackets                  *ingest.EvidencePacketSummary `json:"evidence_packets,omitempty"`
+	RecentPRReview                   *reportcore.RecentPRReview    `json:"recent_pr_review,omitempty"`
+	AssessmentSummary                any                           `json:"assessment_summary,omitempty"`
+	PublicSurfaceAssessment          any                           `json:"public_surface_assessment,omitempty"`
+	ExposureGroups                   any                           `json:"exposure_groups,omitempty"`
+	TotalTools                       int                           `json:"total_tools"`
+	ToolTypeBreakdown                []toolTypeCount               `json:"tool_type_breakdown"`
+	ComplianceGapCount               int                           `json:"compliance_gap_count"`
+	ComplianceSummary                compliance.RollupSummary      `json:"compliance_summary"`
+	PrivilegeBudget                  agginventory.PrivilegeBudget  `json:"privilege_budget"`
+	SuppressedCounts                 *reportcore.SuppressedCounts  `json:"suppressed_counts,omitempty"`
+	Summary                          reportcore.Summary            `json:"summary"`
+	MDPath                           string                        `json:"md_path,omitempty"`
+	PDFPath                          string                        `json:"pdf_path,omitempty"`
+	EvidenceJSONPath                 string                        `json:"evidence_json_path,omitempty"`
+	BacklogCSVPath                   string                        `json:"backlog_csv_path,omitempty"`
+	ArtifactPaths                    map[string]string             `json:"artifact_paths,omitempty"`
 }
 
 type toolTypeCount struct {
@@ -285,32 +287,34 @@ func runReport(args []string, stdout io.Writer, stderr io.Writer) int {
 	totalTools, typeBreakdown := inventorySummary(snapshot.Inventory)
 	attackPaths, attackPathOverflow := boundedReportAttackPaths(riskReport.AttackPaths)
 	payload := reportPayload{
-		Status:                   "ok",
-		GeneratedAt:              summary.GeneratedAt,
-		DeploymentMode:           summary.DeploymentMode,
-		TopFindings:              top,
-		AttackPaths:              attackPaths,
-		TopAttackPaths:           riskReport.TopAttackPaths,
-		ActionPaths:              summary.ActionPaths,
-		AgentActionBOM:           summary.AgentActionBOM,
-		FocusView:                summary.FocusView,
-		ActionPathToControlFirst: summary.ActionPathToControlFirst,
-		ControlPathGraph:         summary.ControlPathGraph,
-		WorkflowChains:           summary.WorkflowChains,
-		RuntimeSessions:          summary.RuntimeSessions,
-		RuntimeEvidence:          summary.RuntimeEvidence,
-		EvidencePackets:          summary.EvidencePackets,
-		RecentPRReview:           summary.RecentPRReview,
-		AssessmentSummary:        summary.AssessmentSummary,
-		PublicSurfaceAssessment:  summary.PublicSurfaceAssessment,
-		ExposureGroups:           summary.ExposureGroups,
-		TotalTools:               totalTools,
-		ToolTypeBreakdown:        typeBreakdown,
-		ComplianceGapCount:       profileGapCount(snapshot),
-		ComplianceSummary:        summary.ComplianceSummary,
-		PrivilegeBudget:          summary.PrivilegeBudget,
-		SuppressedCounts:         summary.SuppressedCounts,
-		Summary:                  summary,
+		Status:                           "ok",
+		GeneratedAt:                      summary.GeneratedAt,
+		DeploymentMode:                   summary.DeploymentMode,
+		TopFindings:                      top,
+		AttackPaths:                      attackPaths,
+		TopAttackPaths:                   riskReport.TopAttackPaths,
+		ActionPaths:                      summary.ActionPaths,
+		ComposedActionPaths:              summary.ComposedActionPaths,
+		AgentActionBOM:                   summary.AgentActionBOM,
+		FocusView:                        summary.FocusView,
+		ActionPathToControlFirst:         summary.ActionPathToControlFirst,
+		ComposedActionPathToControlFirst: summary.ComposedActionPathToControlFirst,
+		ControlPathGraph:                 summary.ControlPathGraph,
+		WorkflowChains:                   summary.WorkflowChains,
+		RuntimeSessions:                  summary.RuntimeSessions,
+		RuntimeEvidence:                  summary.RuntimeEvidence,
+		EvidencePackets:                  summary.EvidencePackets,
+		RecentPRReview:                   summary.RecentPRReview,
+		AssessmentSummary:                summary.AssessmentSummary,
+		PublicSurfaceAssessment:          summary.PublicSurfaceAssessment,
+		ExposureGroups:                   summary.ExposureGroups,
+		TotalTools:                       totalTools,
+		ToolTypeBreakdown:                typeBreakdown,
+		ComplianceGapCount:               profileGapCount(snapshot),
+		ComplianceSummary:                summary.ComplianceSummary,
+		PrivilegeBudget:                  summary.PrivilegeBudget,
+		SuppressedCounts:                 summary.SuppressedCounts,
+		Summary:                          summary,
 	}
 	if len(snapshot.Targets) > 0 {
 		payload.Targets = snapshot.Targets

@@ -8,11 +8,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- (none yet)
+- [semver:minor] Added a deterministic `composed_action_path` artifact that identifies bounded multi-stage authority paths from existing action paths and workflow chains without claiming observed execution.
+- [semver:minor] Added report-only proposed Action Contract v2 output linked to composed action paths for downstream Gait/control workflows.
 
 ### Changed
 
-- (none yet)
+- Documented the Sprint 0 public-surface freeze gate that composition work must satisfy before exposing new scan/report/schema fields.
+- [semver:minor] Projected existing evidence state, freshness, policy coverage, and Gait coverage onto composed action-path stages so reports distinguish static reachability from runtime-proven control.
 
 ### Deprecated
 

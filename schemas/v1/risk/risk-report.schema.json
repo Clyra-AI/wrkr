@@ -23,6 +23,18 @@
       },
       "additionalProperties": true
     },
+    "composed_action_paths": {
+      "type": "array",
+      "items": {"$ref": "../composed-action-path.schema.json"}
+    },
+    "composed_action_path_to_control_first": {
+      "type": "object",
+      "properties": {
+        "summary": {"type": "object"},
+        "path": {"$ref": "../composed-action-path.schema.json"}
+      },
+      "additionalProperties": true
+    },
     "workflow_chains": {
       "$ref": "#/$defs/workflowChainArtifact"
     },
@@ -247,6 +259,8 @@
         "source_finding_keys": {"type": "array", "items": {"type": "string"}},
         "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
         "decision_trace_refs": {"type": "array", "items": {"type": "string"}},
+        "composition_ids": {"type": "array", "items": {"type": "string"}},
+        "proposed_action_contract_refs": {"type": "array", "items": {"type": "string"}},
         "matched_production_targets": {"type": "array", "items": {"type": "string"}},
         "governance_controls": {"type": "array"},
         "closure_requirements": {"type": "array", "items": {"$ref": "#/$defs/closureRequirement"}},

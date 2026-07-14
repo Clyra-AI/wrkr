@@ -5,6 +5,7 @@ This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifac
 - `cli/`: shared CLI success/error envelope contracts.
 - `assess/assessment-manifest.schema.json`: canonical repeatable-assessment manifest contract for `wrkr assess` output directories.
 - `agent-action-bom.schema.json`: canonical Agent Action BOM artifact contract for report and evidence outputs.
+- `composed-action-path.schema.json` and `proposed-action-contract.schema.json`: additive deterministic composition and report-only proposed Action Contract surfaces shared by risk reports, report summaries, and Agent Action BOM output.
 - `evidence/external-control-evidence.schema.json`: canonical local sidecar contract for imported ownership, approval, branch, deployment, and policy control evidence.
 - `evidence/control-declarations.schema.json`: canonical local declaration contract for owners, targets, controls, and review dispositions.
 - `evidence/agentic-evidence-packets.schema.json`: canonical local sidecar contract for typed Agentic SDLC evidence packets.
@@ -23,6 +24,7 @@ This directory contains versioned JSON/YAML schemas for Wrkr runtime and artifac
 - Agent Action BOM summary contracts now also carry additive `drift_review` metadata when report or assess output is baseline-backed.
 - Action-path and BOM contracts also carry additive `evidence_decisions[]` and `contradictions[]` for source precedence, freshness, rejected candidates, and enterprise-evidence conflicts.
 - Report and BOM action-path contracts also carry `closure_requirements`, `lifecycle_queue`, `governance_disposition`, and `evidence_completeness` so accepted-risk, suppression, closure guidance, lifecycle ownership work, and evidence sufficiency stay explicit in v1.
+- Risk-report, report-summary, and Agent Action BOM contracts now also carry additive `composed_action_paths[]`, `composed_action_path_to_control_first`, `composition_ids[]`, and `proposed_action_contract_refs[]` fields. Composition stage roles live inside the `composed_action_path` object, while `proposed_action_contract.report_only=true` preserves the boundary that Wrkr proposes controls and Gait/runtime systems enforce them.
 - `findings/`: finding and extension-detector descriptor contracts.
 - `inventory/` and `risk/`: deterministic privilege, credential-provenance, action-path, and govern-first contracts.
 - `manifest/`: open `wrkr-manifest.yaml` interoperability specification.
@@ -38,6 +40,8 @@ Canonical enum additions in the v1 schema line include:
 - `action_path_type`: `ai_assisted_workflow`, `agent_framework`, `automation_bot`, `ci_cd_workflow`, `legacy_script`, `plain_source_code`, `unknown_executable_path`
 - coverage-qualified absence states: `not_found_with_complete_coverage`, `not_found_with_reduced_coverage`, `not_scanned`, `unsupported_surface`, `candidate_parse_failed`
 - runtime absence states: `not_collected`, `not_applicable`, `missing_required`, `missing_for_control_claim`
+- composition stage roles: `source`, `transform`, `sink`, `internal_sink`, `external_sink`, `privileged_sink`, `destructive_sink`
+- composition claim states: `static_only`, `partially_evidenced`, `declared_policy_only`, `runtime_controlled`, `observed_execution`, `contradictory`, `unknown`
 
 Compatibility aliases can remain present in v1 where existing consumers still expect them, but schema examples and user-facing docs should lead with the canonical evidence-state fields instead of unsupported blanket `missing_*` wording.
 

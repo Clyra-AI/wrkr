@@ -23,6 +23,10 @@
       "type": "array",
       "items": {"$ref": "#/$defs/item"}
     },
+    "composed_action_paths": {
+      "type": "array",
+      "items": {"$ref": "composed-action-path.schema.json"}
+    },
     "graph_refs": {"$ref": "#/$defs/graphRefs"},
     "evidence_refs": {"type": "array", "items": {"type": "string"}},
     "proof_refs": {"type": "array", "items": {"type": "string"}}
@@ -313,6 +317,8 @@
         "source_finding_keys": {"type": "array", "items": {"type": "string"}},
         "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
         "decision_trace_refs": {"type": "array", "items": {"type": "string"}},
+        "composition_ids": {"type": "array", "items": {"type": "string"}},
+        "proposed_action_contract_refs": {"type": "array", "items": {"type": "string"}},
         "exclusion_reason": {"type": "string"},
         "graph_refs": {"$ref": "#/$defs/graphRefs"},
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
@@ -443,6 +449,8 @@
         "decision_precedent": {"type": "object"},
         "delivery_control_context": {"type": "object"},
         "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
+        "composition_ids": {"type": "array", "items": {"type": "string"}},
+        "proposed_action_contract_refs": {"type": "array", "items": {"type": "string"}},
         "graph_refs": {"$ref": "#/$defs/graphRefs"},
         "proof_refs": {"type": "array", "items": {"type": "string"}},
         "evidence_packet_refs": {"type": "array", "items": {"type": "string"}},

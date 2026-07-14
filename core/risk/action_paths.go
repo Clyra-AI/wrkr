@@ -239,6 +239,8 @@ type ActionPath struct {
 	SourceFindingKeys                   []string                                `json:"source_finding_keys,omitempty"`
 	WorkflowChainRefs                   []string                                `json:"workflow_chain_refs,omitempty"`
 	DecisionTraceRefs                   []string                                `json:"decision_trace_refs,omitempty"`
+	CompositionIDs                      []string                                `json:"composition_ids,omitempty"`
+	ProposedActionContractRefs          []string                                `json:"proposed_action_contract_refs,omitempty"`
 	MatchedProductionTargets            []string                                `json:"matched_production_targets,omitempty"`
 	GovernanceControls                  []agginventory.GovernanceControlMapping `json:"governance_controls,omitempty"`
 	ClosureRequirements                 []ClosureRequirement                    `json:"closure_requirements,omitempty"`

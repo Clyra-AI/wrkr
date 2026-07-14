@@ -76,62 +76,64 @@ type BuildInput struct {
 }
 
 type Summary struct {
-	SummaryVersion           string                                 `json:"summary_version"`
-	GeneratedAt              string                                 `json:"generated_at"`
-	Template                 string                                 `json:"template"`
-	ShareProfile             string                                 `json:"share_profile"`
-	DeploymentMode           string                                 `json:"deployment_mode,omitempty"`
-	ShareProfileMetadata     *ShareProfileMetadata                  `json:"share_profile_metadata,omitempty"`
-	ArtifactMetadata         *ArtifactMetadata                      `json:"artifact_metadata,omitempty"`
-	ArtifactBudget           *ArtifactBudget                        `json:"artifact_budget,omitempty"`
-	AppendixAvailable        bool                                   `json:"appendix_available,omitempty"`
-	FocusedBundleAvailable   bool                                   `json:"focused_bundle_available,omitempty"`
-	FullExportAvailable      bool                                   `json:"full_export_available,omitempty"`
-	SectionOrder             []string                               `json:"section_order"`
-	Sections                 []Section                              `json:"sections"`
-	Headline                 Headline                               `json:"headline"`
-	ScanScope                *ScanScopeSummary                      `json:"scan_scope,omitempty"`
-	OperationalExposure      *scorecore.AxisSummary                 `json:"operational_exposure,omitempty"`
-	GovernanceReadiness      *scorecore.AxisSummary                 `json:"governance_readiness,omitempty"`
-	EvidenceCompleteness     *risk.EvidenceCompletenessSummary      `json:"evidence_completeness,omitempty"`
-	ExecutiveRollup          *controlbacklog.ExecutiveRollup        `json:"executive_rollup,omitempty"`
-	GovernedUsageMetrics     *controlbacklog.GovernedUsageMetrics   `json:"governed_usage_metrics,omitempty"`
-	WorkflowHighlights       *WorkflowHighlights                    `json:"workflow_highlights,omitempty"`
-	FocusView                *FocusView                             `json:"focus_view,omitempty"`
-	RepeatUsageSignals       *RepeatUsageSignals                    `json:"repeat_usage_signals,omitempty"`
-	AssessmentSummary        *AssessmentSummary                     `json:"assessment_summary,omitempty"`
-	PublicSurfaceAssessment  *PublicSurfaceAssessment               `json:"public_surface_assessment,omitempty"`
-	Methodology              Methodology                            `json:"methodology"`
-	TopRisks                 []RiskItem                             `json:"top_risks"`
-	PrivilegeBudget          agginventory.PrivilegeBudget           `json:"privilege_budget"`
-	SecurityVisibility       agginventory.SecurityVisibilitySummary `json:"security_visibility"`
-	Deltas                   DeltaSummary                           `json:"deltas"`
-	Lifecycle                LifecycleSummary                       `json:"lifecycle"`
-	RegressDrift             *RegressSummary                        `json:"regress_drift,omitempty"`
-	AttackPaths              AttackPathSummary                      `json:"attack_paths"`
-	ComplianceSummary        compliance.RollupSummary               `json:"compliance_summary"`
-	ControlBacklog           *controlbacklog.Backlog                `json:"control_backlog,omitempty"`
-	ScanQuality              *scanquality.Report                    `json:"scan_quality,omitempty"`
-	RuntimeSessions          *ingest.SessionSummary                 `json:"runtime_sessions,omitempty"`
-	RuntimeEvidence          *ingest.Summary                        `json:"runtime_evidence,omitempty"`
-	EvidencePackets          *ingest.EvidencePacketSummary          `json:"evidence_packets,omitempty"`
-	AgentActionBOM           *AgentActionBOM                        `json:"agent_action_bom,omitempty"`
-	RecentPRReview           *RecentPRReview                        `json:"recent_pr_review,omitempty"`
-	Proof                    ProofReference                         `json:"proof"`
-	NextActions              []ChecklistItem                        `json:"next_actions"`
-	Activation               *ActivationSummary                     `json:"activation,omitempty"`
-	PolicyOutcomes           []PolicyOutcome                        `json:"policy_outcomes,omitempty"`
-	SuppressedCounts         *SuppressedCounts                      `json:"suppressed_counts,omitempty"`
-	ActionPaths              []risk.ActionPath                      `json:"action_paths,omitempty"`
-	ActionPathToControlFirst *risk.ActionPathToControlFirst         `json:"action_path_to_control_first,omitempty"`
-	ActionSurfaceRegistry    []ActionSurfaceRegistryEntry           `json:"action_surface_registry,omitempty"`
-	ControlPathGraph         *aggattack.ControlPathGraph            `json:"control_path_graph,omitempty"`
-	WorkflowChains           *agentresolver.WorkflowChainArtifact   `json:"workflow_chains,omitempty"`
-	ExposureGroups           []risk.ExposureGroup                   `json:"exposure_groups,omitempty"`
-	SourcePrivacy            *sourceprivacy.Contract                `json:"source_privacy,omitempty"`
-	controlProofStatus       []ControlProofStatus
-	decisionTraceRefsByPath  map[string][]string
-	topAttackPaths           []riskattack.ScoredPath
+	SummaryVersion                   string                                 `json:"summary_version"`
+	GeneratedAt                      string                                 `json:"generated_at"`
+	Template                         string                                 `json:"template"`
+	ShareProfile                     string                                 `json:"share_profile"`
+	DeploymentMode                   string                                 `json:"deployment_mode,omitempty"`
+	ShareProfileMetadata             *ShareProfileMetadata                  `json:"share_profile_metadata,omitempty"`
+	ArtifactMetadata                 *ArtifactMetadata                      `json:"artifact_metadata,omitempty"`
+	ArtifactBudget                   *ArtifactBudget                        `json:"artifact_budget,omitempty"`
+	AppendixAvailable                bool                                   `json:"appendix_available,omitempty"`
+	FocusedBundleAvailable           bool                                   `json:"focused_bundle_available,omitempty"`
+	FullExportAvailable              bool                                   `json:"full_export_available,omitempty"`
+	SectionOrder                     []string                               `json:"section_order"`
+	Sections                         []Section                              `json:"sections"`
+	Headline                         Headline                               `json:"headline"`
+	ScanScope                        *ScanScopeSummary                      `json:"scan_scope,omitempty"`
+	OperationalExposure              *scorecore.AxisSummary                 `json:"operational_exposure,omitempty"`
+	GovernanceReadiness              *scorecore.AxisSummary                 `json:"governance_readiness,omitempty"`
+	EvidenceCompleteness             *risk.EvidenceCompletenessSummary      `json:"evidence_completeness,omitempty"`
+	ExecutiveRollup                  *controlbacklog.ExecutiveRollup        `json:"executive_rollup,omitempty"`
+	GovernedUsageMetrics             *controlbacklog.GovernedUsageMetrics   `json:"governed_usage_metrics,omitempty"`
+	WorkflowHighlights               *WorkflowHighlights                    `json:"workflow_highlights,omitempty"`
+	FocusView                        *FocusView                             `json:"focus_view,omitempty"`
+	RepeatUsageSignals               *RepeatUsageSignals                    `json:"repeat_usage_signals,omitempty"`
+	AssessmentSummary                *AssessmentSummary                     `json:"assessment_summary,omitempty"`
+	PublicSurfaceAssessment          *PublicSurfaceAssessment               `json:"public_surface_assessment,omitempty"`
+	Methodology                      Methodology                            `json:"methodology"`
+	TopRisks                         []RiskItem                             `json:"top_risks"`
+	PrivilegeBudget                  agginventory.PrivilegeBudget           `json:"privilege_budget"`
+	SecurityVisibility               agginventory.SecurityVisibilitySummary `json:"security_visibility"`
+	Deltas                           DeltaSummary                           `json:"deltas"`
+	Lifecycle                        LifecycleSummary                       `json:"lifecycle"`
+	RegressDrift                     *RegressSummary                        `json:"regress_drift,omitempty"`
+	AttackPaths                      AttackPathSummary                      `json:"attack_paths"`
+	ComplianceSummary                compliance.RollupSummary               `json:"compliance_summary"`
+	ControlBacklog                   *controlbacklog.Backlog                `json:"control_backlog,omitempty"`
+	ScanQuality                      *scanquality.Report                    `json:"scan_quality,omitempty"`
+	RuntimeSessions                  *ingest.SessionSummary                 `json:"runtime_sessions,omitempty"`
+	RuntimeEvidence                  *ingest.Summary                        `json:"runtime_evidence,omitempty"`
+	EvidencePackets                  *ingest.EvidencePacketSummary          `json:"evidence_packets,omitempty"`
+	AgentActionBOM                   *AgentActionBOM                        `json:"agent_action_bom,omitempty"`
+	RecentPRReview                   *RecentPRReview                        `json:"recent_pr_review,omitempty"`
+	Proof                            ProofReference                         `json:"proof"`
+	NextActions                      []ChecklistItem                        `json:"next_actions"`
+	Activation                       *ActivationSummary                     `json:"activation,omitempty"`
+	PolicyOutcomes                   []PolicyOutcome                        `json:"policy_outcomes,omitempty"`
+	SuppressedCounts                 *SuppressedCounts                      `json:"suppressed_counts,omitempty"`
+	ActionPaths                      []risk.ActionPath                      `json:"action_paths,omitempty"`
+	ActionPathToControlFirst         *risk.ActionPathToControlFirst         `json:"action_path_to_control_first,omitempty"`
+	ComposedActionPaths              []risk.ComposedActionPath              `json:"composed_action_paths,omitempty"`
+	ComposedActionPathToControlFirst *risk.ComposedActionPathToControlFirst `json:"composed_action_path_to_control_first,omitempty"`
+	ActionSurfaceRegistry            []ActionSurfaceRegistryEntry           `json:"action_surface_registry,omitempty"`
+	ControlPathGraph                 *aggattack.ControlPathGraph            `json:"control_path_graph,omitempty"`
+	WorkflowChains                   *agentresolver.WorkflowChainArtifact   `json:"workflow_chains,omitempty"`
+	ExposureGroups                   []risk.ExposureGroup                   `json:"exposure_groups,omitempty"`
+	SourcePrivacy                    *sourceprivacy.Contract                `json:"source_privacy,omitempty"`
+	controlProofStatus               []ControlProofStatus
+	decisionTraceRefsByPath          map[string][]string
+	topAttackPaths                   []riskattack.ScoredPath
 }
 
 type ShareProfileMetadata struct {
@@ -157,6 +159,7 @@ type ArtifactMetadata struct {
 
 type ArtifactBudget struct {
 	MaxActionPaths         int `json:"max_action_paths,omitempty"`
+	MaxComposedActionPaths int `json:"max_composed_action_paths,omitempty"`
 	MaxBacklogItems        int `json:"max_backlog_items,omitempty"`
 	MaxGraphNodes          int `json:"max_graph_nodes,omitempty"`
 	MaxGraphEdges          int `json:"max_graph_edges,omitempty"`

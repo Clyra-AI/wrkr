@@ -31,6 +31,7 @@ const ApprovalInventoryVersion = "1"
 const (
 	maxSavedAttackPaths           = 150
 	maxSavedActionPaths           = 150
+	maxSavedComposedActionPaths   = 150
 	maxSavedBacklogItems          = 150
 	maxSavedGraphNodes            = 5000
 	maxSavedGraphEdges            = 7500
@@ -90,14 +91,16 @@ type scoreSnapshotEnvelope struct {
 }
 
 type scoreRiskReportEnvelope struct {
-	GeneratedAt              json.RawMessage         `json:"generated_at"`
-	TopN                     json.RawMessage         `json:"top_findings"`
-	Ranked                   json.RawMessage         `json:"ranked_findings"`
-	Repos                    json.RawMessage         `json:"repo_risk"`
-	AttackPaths              []riskattack.ScoredPath `json:"attack_paths,omitempty"`
-	TopAttackPaths           []riskattack.ScoredPath `json:"top_attack_paths,omitempty"`
-	ActionPaths              json.RawMessage         `json:"action_paths,omitempty"`
-	ActionPathToControlFirst json.RawMessage         `json:"action_path_to_control_first,omitempty"`
+	GeneratedAt                      json.RawMessage         `json:"generated_at"`
+	TopN                             json.RawMessage         `json:"top_findings"`
+	Ranked                           json.RawMessage         `json:"ranked_findings"`
+	Repos                            json.RawMessage         `json:"repo_risk"`
+	AttackPaths                      []riskattack.ScoredPath `json:"attack_paths,omitempty"`
+	TopAttackPaths                   []riskattack.ScoredPath `json:"top_attack_paths,omitempty"`
+	ActionPaths                      json.RawMessage         `json:"action_paths,omitempty"`
+	ActionPathToControlFirst         json.RawMessage         `json:"action_path_to_control_first,omitempty"`
+	ComposedActionPaths              json.RawMessage         `json:"composed_action_paths,omitempty"`
+	ComposedActionPathToControlFirst json.RawMessage         `json:"composed_action_path_to_control_first,omitempty"`
 }
 
 func ResolvePath(explicit string) string {
@@ -191,6 +194,7 @@ func cloneSnapshotForSave(in Snapshot) Snapshot {
 		copyReport.AttackPaths = append([]riskattack.ScoredPath(nil), in.RiskReport.AttackPaths...)
 		copyReport.TopAttackPaths = append([]riskattack.ScoredPath(nil), in.RiskReport.TopAttackPaths...)
 		copyReport.ActionPaths = append([]risk.ActionPath(nil), in.RiskReport.ActionPaths...)
+		copyReport.ComposedActionPaths = append([]risk.ComposedActionPath(nil), in.RiskReport.ComposedActionPaths...)
 		out.RiskReport = &copyReport
 	}
 	if in.ControlBacklog != nil {
@@ -306,6 +310,7 @@ func applySnapshotSignalCaps(snapshot *Snapshot) {
 		snapshot.RiskReport.Ranked, suppressed.RankedFindings = outputsignal.CapSlice(snapshot.RiskReport.Ranked, maxSavedRankedFindings)
 		snapshot.RiskReport.AttackPaths, suppressed.AttackPaths = outputsignal.CapSlice(snapshot.RiskReport.AttackPaths, maxSavedAttackPaths)
 		snapshot.RiskReport.ActionPaths, suppressed.ActionPaths = outputsignal.CapSlice(snapshot.RiskReport.ActionPaths, maxSavedActionPaths)
+		snapshot.RiskReport.ComposedActionPaths, suppressed.ComposedActionPaths = outputsignal.CapSlice(snapshot.RiskReport.ComposedActionPaths, maxSavedComposedActionPaths)
 		if snapshot.RiskReport.ControlPathGraph != nil {
 			snapshot.RiskReport.ControlPathGraph.Nodes, suppressed.GraphNodes = outputsignal.CapSlice(snapshot.RiskReport.ControlPathGraph.Nodes, maxSavedGraphNodes)
 			snapshot.RiskReport.ControlPathGraph.Edges, suppressed.GraphEdges = outputsignal.CapSlice(snapshot.RiskReport.ControlPathGraph.Edges, maxSavedGraphEdges)
@@ -524,6 +529,12 @@ func validateCachedScoreSnapshot(envelope scoreSnapshotEnvelope) (*scoreRiskRepo
 		return nil, err
 	}
 	if err := validateRawShape(report.ActionPathToControlFirst, rawObject, rawNull); err != nil {
+		return nil, err
+	}
+	if err := validateRawShape(report.ComposedActionPaths, rawArray, rawNull); err != nil {
+		return nil, err
+	}
+	if err := validateRawShape(report.ComposedActionPathToControlFirst, rawObject, rawNull); err != nil {
 		return nil, err
 	}
 	return &report, nil
