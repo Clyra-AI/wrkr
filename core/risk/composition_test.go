@@ -6,6 +6,7 @@ import (
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/agentresolver"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 )
 
 func TestBuildComposedActionPathsStableIDIgnoresPathIDChurn(t *testing.T) {
@@ -215,6 +216,18 @@ func TestBuildComposedActionPathsSurfacesTruncation(t *testing.T) {
 	}
 	if flagged != 1 {
 		t.Fatalf("expected one representative composition to carry truncation evidence, got %d", flagged)
+	}
+}
+
+func TestCompositionEvidenceStateSeedsFirstConcreteStage(t *testing.T) {
+	if got := compositionEvidenceState("", EvidenceStateDeclared); got != EvidenceStateDeclared {
+		t.Fatalf("expected first concrete evidence state to seed aggregation, got %q", got)
+	}
+}
+
+func TestCompositionFreshnessStateSeedsFirstConcreteStage(t *testing.T) {
+	if got := compositionFreshnessState("", evidencepolicy.FreshnessStateFresh); got != evidencepolicy.FreshnessStateFresh {
+		t.Fatalf("expected first concrete freshness state to seed aggregation, got %q", got)
 	}
 }
 
