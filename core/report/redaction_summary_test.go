@@ -81,6 +81,11 @@ func TestSanitizeComposedActionPathsWithRepoRedactionHidesDerivedTargetsAndResol
 	if got.ProposedActionContract == nil || got.ProposedActionContract.TargetConstraints != nil {
 		t.Fatalf("expected proposed contract to use public sanitizer under repo redaction, got %+v", got.ProposedActionContract)
 	}
+	if got.ProposedActionContract.ContractID == input[0].ProposedActionContract.ContractID ||
+		got.ProposedActionContract.ContractContentDigest == input[0].ProposedActionContract.ContractContentDigest ||
+		got.ProposedActionContract.ContractFamilyID == input[0].ProposedActionContract.ContractFamilyID {
+		t.Fatalf("expected redacted proposed contract identity to be recomputed, got %+v", got.ProposedActionContract)
+	}
 	if len(got.TruncatedCandidates) != 1 || strings.Contains(got.TruncatedCandidates[0], "acme/private") {
 		t.Fatalf("expected truncated candidates to be redacted under repo redaction, got %+v", got.TruncatedCandidates)
 	}

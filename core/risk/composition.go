@@ -367,17 +367,7 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 		ClosureRequirements:          compositionClosureRequirements(paths),
 		EvidenceCompleteness:         compositionEvidenceCompleteness(paths),
 	}
-	for idx := range composition.Transitions {
-		composition.Transitions[idx].ClaimState = claimState
-		composition.Transitions[idx].EvidenceState = evidenceState
-		composition.Transitions[idx].PolicyCoverageStatus = policyCoverage
-		composition.Transitions[idx].GaitCoverage = CloneGaitCoverage(gaitCoverage)
-		composition.Transitions[idx].RuntimeEvidenceAbsenceStatus = runtimeAbsence
-		composition.Transitions[idx].EvidenceRefs = append([]string(nil), composition.EvidenceRefs...)
-		composition.Transitions[idx].ProofRefs = append([]string(nil), composition.ProofRefs...)
-		composition.Transitions[idx].SourceDecisionRefs = append([]string(nil), composition.SourceDecisionRefs...)
-		composition.Transitions[idx].ReasonCodes = dedupeSortedStrings([]string{"pattern:" + spec.id, "claim_state:" + claimState})
-	}
+	hydrateCompositionTransitions(&composition)
 	composition.ProposedActionContract = BuildProposedActionContract(composition)
 	if composition.ProposedActionContract != nil {
 		composition.ProposedActionContractRefs = []string{composition.ProposedActionContract.ContractID}
@@ -516,6 +506,7 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	if strings.TrimSpace(incoming.ClaimState) == CompositionClaimObservedExecution || strings.TrimSpace(current.ClaimState) == CompositionClaimObservedExecution {
 		merged.ClaimState = CompositionClaimObservedExecution
 	}
+	hydrateCompositionTransitions(&merged)
 	merged.ProposedActionContract = BuildProposedActionContract(merged)
 	if merged.ProposedActionContract != nil {
 		merged.ProposedActionContractRefs = []string{merged.ProposedActionContract.ContractID}
@@ -523,6 +514,23 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 		merged.ProposedActionContractRefs = nil
 	}
 	return merged
+}
+
+func hydrateCompositionTransitions(composition *ComposedActionPath) {
+	if composition == nil {
+		return
+	}
+	for idx := range composition.Transitions {
+		composition.Transitions[idx].ClaimState = composition.ClaimState
+		composition.Transitions[idx].EvidenceState = composition.EvidenceState
+		composition.Transitions[idx].PolicyCoverageStatus = composition.PolicyCoverageStatus
+		composition.Transitions[idx].GaitCoverage = CloneGaitCoverage(composition.GaitCoverage)
+		composition.Transitions[idx].RuntimeEvidenceAbsenceStatus = composition.RuntimeEvidenceAbsenceStatus
+		composition.Transitions[idx].EvidenceRefs = append([]string(nil), composition.EvidenceRefs...)
+		composition.Transitions[idx].ProofRefs = append([]string(nil), composition.ProofRefs...)
+		composition.Transitions[idx].SourceDecisionRefs = append([]string(nil), composition.SourceDecisionRefs...)
+		composition.Transitions[idx].ReasonCodes = dedupeSortedStrings([]string{"pattern:" + composition.PatternID, "claim_state:" + composition.ClaimState})
+	}
 }
 
 func compareComposedActionPaths(left, right ComposedActionPath) bool {
