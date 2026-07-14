@@ -207,13 +207,15 @@ func BuildSummary(in BuildInput) (Summary, error) {
 		controlProofStatus = sanitizeControlProofStatusPublic(controlProofStatus, rawActionPaths, riskReport.ActionPaths)
 		evidencePackets = sanitizeEvidencePacketSummaryPublic(evidencePackets, rawActionPaths, riskReport.ActionPaths)
 	} else if redactionConfig.Applies() {
+		sanitizedComposedActionPaths := sanitizeComposedActionPathsWithConfig(riskReport.ComposedActionPaths, redactionConfig)
+		proposedContractRefMap := proposedActionContractRefMap(rawComposedActionPaths, sanitizedComposedActionPaths)
 		proofRef = sanitizeProofReferenceWithConfig(proofRef, redactionConfig)
 		lifecycleSummary = sanitizeLifecycleSummaryWithConfig(lifecycleSummary, redactionConfig)
 		riskItems = sanitizeRiskItemsWithConfig(riskItems, redactionConfig)
 		activation = sanitizeActivationSummaryWithConfig(activation, redactionConfig)
-		riskReport.ActionPaths = sanitizeActionPathsWithConfig(riskReport.ActionPaths, redactionConfig)
-		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstWithConfig(riskReport.ActionPathToControlFirst, redactionConfig)
-		riskReport.ComposedActionPaths = sanitizeComposedActionPathsWithConfig(riskReport.ComposedActionPaths, redactionConfig)
+		riskReport.ActionPaths = sanitizeActionPathsWithConfigAndContractRefs(riskReport.ActionPaths, redactionConfig, proposedContractRefMap)
+		riskReport.ActionPathToControlFirst = sanitizeActionPathToControlFirstWithContractRefs(riskReport.ActionPathToControlFirst, redactionConfig, proposedContractRefMap)
+		riskReport.ComposedActionPaths = sanitizedComposedActionPaths
 		riskReport.ComposedActionPathToControlFirst = sanitizeComposedActionPathToControlFirstWithConfig(riskReport.ComposedActionPathToControlFirst, redactionConfig)
 		riskReport.ControlPathGraph = sanitizeControlPathGraphWithConfig(riskReport.ControlPathGraph, redactionConfig)
 		riskReport.WorkflowChains = sanitizeWorkflowChainsWithConfig(riskReport.WorkflowChains, redactionConfig)
