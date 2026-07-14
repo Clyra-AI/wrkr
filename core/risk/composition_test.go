@@ -138,6 +138,84 @@ func TestProposedActionContractIncludesCompositionTransitionsAndReportOnly(t *te
 	if !containsAnyPathClass(contract.ReasonCodes, "expiry:deterministic_source_absent") {
 		t.Fatalf("expected absent expiry reason code, got %v", contract.ReasonCodes)
 	}
+	if contract.ReadinessState != proposedActionContractReadinessNeedsEvidence {
+		t.Fatalf("expected schema-valid needs-evidence readiness, got %q", contract.ReadinessState)
+	}
+	if contract.RequiredCredentialMode != proposedCredentialModeScoped {
+		t.Fatalf("expected schema-valid scoped credential mode, got %q", contract.RequiredCredentialMode)
+	}
+}
+
+func TestProposedActionContractReadinessMapsSpecificGapsToNeedsEvidence(t *testing.T) {
+	base := ComposedActionPath{
+		CompositionID: "cap-1",
+		Stages: []CompositionStage{
+			{StageID: "stage-1", Role: CompositionStageRoleSource},
+			{StageID: "stage-2", Role: CompositionStageRoleExternalSink},
+		},
+	}
+
+	readiness, reasons := proposedActionContractReadiness(ComposedActionPath{
+		CompositionID: "cap-correlation",
+		Stages:        base.Stages[:1],
+	})
+	if readiness != proposedActionContractReadinessNeedsEvidence {
+		t.Fatalf("expected schema-valid needs-evidence readiness for correlation gap, got %q", readiness)
+	}
+	if !containsAnyPathClass(reasons, "readiness:needs_composition_correlation") {
+		t.Fatalf("expected correlation reason code, got %v", reasons)
+	}
+
+	readiness, reasons = proposedActionContractReadiness(ComposedActionPath{
+		CompositionID:        "cap-2",
+		Stages:               base.Stages,
+		EvidenceState:        EvidenceStateUnknown,
+		PolicyCoverageStatus: PolicyCoverageStatusDeclared,
+	})
+	if readiness != proposedActionContractReadinessNeedsEvidence {
+		t.Fatalf("expected schema-valid needs-evidence readiness for proof gap, got %q", readiness)
+	}
+	if !containsAnyPathClass(reasons, "readiness:needs_proof_evidence") {
+		t.Fatalf("expected proof reason code, got %v", reasons)
+	}
+
+	readiness, reasons = proposedActionContractReadiness(ComposedActionPath{
+		CompositionID:        "cap-3",
+		Stages:               base.Stages,
+		EvidenceState:        EvidenceStateDeclared,
+		PolicyCoverageStatus: PolicyCoverageStatusNone,
+	})
+	if readiness != proposedActionContractReadinessNeedsEvidence {
+		t.Fatalf("expected schema-valid needs-evidence readiness for policy gap, got %q", readiness)
+	}
+	if !containsAnyPathClass(reasons, "readiness:needs_policy_evidence") {
+		t.Fatalf("expected policy reason code, got %v", reasons)
+	}
+}
+
+func TestBuildComposedActionPathsSurfacesTruncation(t *testing.T) {
+	paths := make([]ActionPath, 0, 24)
+	for idx := 0; idx < 12; idx++ {
+		paths = append(paths, compositionTestPath("apc-read-"+string(rune('a'+idx)), "rk-read-"+string(rune('a'+idx)), []string{"read"}, TargetClassCustomerDataAdjacent))
+		paths = append(paths, compositionTestPath("apc-egress-"+string(rune('a'+idx)), "rk-egress-"+string(rune('a'+idx)), []string{"egress"}, TargetClassUnknown))
+	}
+
+	compositions, choice := BuildComposedActionPaths(paths, nil)
+	if len(compositions) != maxComposedActionPathCandidates {
+		t.Fatalf("expected composition cap at %d, got %d", maxComposedActionPathCandidates, len(compositions))
+	}
+	if choice == nil || choice.Summary.TruncatedCandidatePatterns != 1 {
+		t.Fatalf("expected one truncated pattern in summary, got %+v", choice)
+	}
+	flagged := 0
+	for _, composition := range compositions {
+		if len(composition.TruncatedCandidates) > 0 {
+			flagged++
+		}
+	}
+	if flagged != 1 {
+		t.Fatalf("expected one representative composition to carry truncation evidence, got %d", flagged)
+	}
 }
 
 func compositionTestPath(pathID, resolutionKey string, actionClasses []string, targetClass string) ActionPath {

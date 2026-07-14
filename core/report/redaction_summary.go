@@ -287,8 +287,6 @@ func sanitizeCompositionTransitionsPublic(in []risk.CompositionTransition) []ris
 	out := make([]risk.CompositionTransition, 0, len(in))
 	for _, transition := range in {
 		copyTransition := transition
-		copyTransition.FromStageID = redactValue("stage", copyTransition.FromStageID, 8)
-		copyTransition.ToStageID = redactValue("stage", copyTransition.ToStageID, 8)
 		copyTransition.EvidenceRefs = redactStringSlice(copyTransition.EvidenceRefs, "evidence")
 		copyTransition.ProofRefs = redactStringSlice(copyTransition.ProofRefs, "proof")
 		copyTransition.SourceDecisionRefs = redactStringSlice(copyTransition.SourceDecisionRefs, "decision")
