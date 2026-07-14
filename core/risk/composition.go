@@ -449,7 +449,7 @@ func dedupeCompositionStages(stages []CompositionStage) []CompositionStage {
 		current.GaitCoverage = MergeGaitCoverage(current.GaitCoverage, stage.GaitCoverage)
 		current.EvidenceState = compositionEvidenceState(current.EvidenceState, stage.EvidenceState)
 		current.FreshnessState = compositionFreshnessState(current.FreshnessState, stage.FreshnessState)
-		current.PolicyCoverageStatus = choosePolicyCoverageStatus(current.PolicyCoverageStatus, stage.PolicyCoverageStatus)
+		current.PolicyCoverageStatus = compositionPolicyCoverageStatus(current.PolicyCoverageStatus, stage.PolicyCoverageStatus)
 		current.RuntimeEvidenceAbsenceStatus = compositionRuntimeAbsence(current.RuntimeEvidenceAbsenceStatus, stage.RuntimeEvidenceAbsenceStatus)
 		byKey[key] = current
 	}
@@ -502,7 +502,7 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.GaitCoverage = MergeGaitCoverage(merged.GaitCoverage, incoming.GaitCoverage)
 	merged.EvidenceState = compositionEvidenceState(merged.EvidenceState, incoming.EvidenceState)
 	merged.FreshnessState = compositionFreshnessState(merged.FreshnessState, incoming.FreshnessState)
-	merged.PolicyCoverageStatus = choosePolicyCoverageStatus(merged.PolicyCoverageStatus, incoming.PolicyCoverageStatus)
+	merged.PolicyCoverageStatus = compositionPolicyCoverageStatus(merged.PolicyCoverageStatus, incoming.PolicyCoverageStatus)
 	merged.RuntimeEvidenceAbsenceStatus = compositionRuntimeAbsence(merged.RuntimeEvidenceAbsenceStatus, incoming.RuntimeEvidenceAbsenceStatus)
 	merged.RiskTier = compositionRiskTierFromValues(merged.RiskTier, incoming.RiskTier)
 	merged.RecommendedControl = compositionRecommendedControlFromValues(merged.RecommendedControl, incoming.RecommendedControl)
@@ -750,7 +750,7 @@ func compositionFreshnessStateFromStages(stages []CompositionStage) string {
 func compositionPolicyCoverageStatusFromStages(stages []CompositionStage) string {
 	status := ""
 	for _, stage := range stages {
-		status = choosePolicyCoverageStatus(status, stage.PolicyCoverageStatus)
+		status = compositionPolicyCoverageStatus(status, stage.PolicyCoverageStatus)
 	}
 	if strings.TrimSpace(status) == "" {
 		return PolicyCoverageStatusNone
@@ -786,6 +786,33 @@ func compositionEvidenceState(current, incoming string) string {
 	current = firstNonEmptyString(current, EvidenceStateUnknown)
 	incoming = firstNonEmptyString(incoming, EvidenceStateUnknown)
 	if evidenceStatePriority(incoming) > evidenceStatePriority(current) {
+		return incoming
+	}
+	return current
+}
+
+func compositionPolicyCoverageStatus(current, incoming string) string {
+	current = strings.TrimSpace(current)
+	incoming = strings.TrimSpace(incoming)
+	if current == "" {
+		if incoming == "" {
+			return PolicyCoverageStatusNone
+		}
+		return incoming
+	}
+	if incoming == "" {
+		return current
+	}
+	if current == PolicyCoverageStatusConflict || incoming == PolicyCoverageStatusConflict {
+		return PolicyCoverageStatusConflict
+	}
+	if current == PolicyCoverageStatusNone || incoming == PolicyCoverageStatusNone {
+		return PolicyCoverageStatusNone
+	}
+	if current == PolicyCoverageStatusStale || incoming == PolicyCoverageStatusStale {
+		return PolicyCoverageStatusStale
+	}
+	if choosePolicyCoverageStatus(current, incoming) == current {
 		return incoming
 	}
 	return current
