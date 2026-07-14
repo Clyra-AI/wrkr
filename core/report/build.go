@@ -2017,10 +2017,6 @@ func sanitizeActionPathsPublicWithContractRefs(in []risk.ActionPath, proposedCon
 	return out
 }
 
-func sanitizeActionPathToControlFirstPublic(in *risk.ActionPathToControlFirst) *risk.ActionPathToControlFirst {
-	return sanitizeActionPathToControlFirstPublicWithContractRefs(in, nil)
-}
-
 func sanitizeActionPathToControlFirstPublicWithContractRefs(in *risk.ActionPathToControlFirst, proposedContractRefMap map[string]string) *risk.ActionPathToControlFirst {
 	if in == nil {
 		return nil
@@ -2427,10 +2423,6 @@ func sanitizeReviewAuditContextPublic(in *risk.ReviewAuditContext) *risk.ReviewA
 	out.Rationale = redactValue("review", out.Rationale, 8)
 	out.EvidenceRefs = redactStringSlice(out.EvidenceRefs, "evidence")
 	return out
-}
-
-func sanitizePrimaryViewPublic(in *AgentActionBOMPrimaryView) *AgentActionBOMPrimaryView {
-	return sanitizePrimaryViewPublicWithContractRefs(in, nil)
 }
 
 func sanitizePrimaryViewPublicWithContractRefs(in *AgentActionBOMPrimaryView, proposedContractRefMap map[string]string) *AgentActionBOMPrimaryView {
