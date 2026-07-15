@@ -158,12 +158,14 @@ func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.
 				if !compositionCandidatesCompatible(source, sink) {
 					continue
 				}
-				count++
-				if count > maxComposedActionPathCandidates {
-					truncated[spec.id] = append(truncated[spec.id], compositionCandidateKey(source)+"->"+compositionCandidateKey(sink))
-					continue
-				}
 				composition := buildComposedActionPath(spec, source, sink, chainRefsByPath)
+				if _, seen := compositionsByKey[composition.CompositionID]; !seen {
+					count++
+					if count > maxComposedActionPathCandidates {
+						truncated[spec.id] = append(truncated[spec.id], compositionCandidateKey(source)+"->"+compositionCandidateKey(sink))
+						continue
+					}
+				}
 				compositionsByKey[composition.CompositionID] = mergeComposedActionPath(compositionsByKey[composition.CompositionID], composition)
 			}
 		}
@@ -506,10 +508,6 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.RiskTier = compositionRiskTierFromValues(merged.RiskTier, incoming.RiskTier)
 	merged.RecommendedControl = compositionRecommendedControlFromValues(merged.RecommendedControl, incoming.RecommendedControl)
 	merged.ClaimState = compositionClaimState(merged.EvidenceState, merged.PolicyCoverageStatus, merged.FreshnessState, merged.GaitCoverage, merged.Stages, nil)
-	if merged.ClaimState != CompositionClaimContradictory &&
-		(strings.TrimSpace(incoming.ClaimState) == CompositionClaimObservedExecution || strings.TrimSpace(current.ClaimState) == CompositionClaimObservedExecution) {
-		merged.ClaimState = CompositionClaimObservedExecution
-	}
 	hydrateCompositionTransitions(&merged)
 	merged.ProposedActionContract = BuildProposedActionContract(merged)
 	if merged.ProposedActionContract != nil {
@@ -1005,7 +1003,7 @@ func compositionClaimState(evidenceState, policyCoverage, freshnessState string,
 	if strings.TrimSpace(evidenceState) == EvidenceStateContradictory || strings.TrimSpace(policyCoverage) == PolicyCoverageStatusConflict || GaitCoverageHasStatus(gaitCoverage, GaitStatusConflict) {
 		return CompositionClaimContradictory
 	}
-	if compositionObservedExecution(paths, gaitCoverage) {
+	if compositionObservedExecution(paths, stages, gaitCoverage) {
 		return CompositionClaimObservedExecution
 	}
 	if compositionRuntimeControlled(policyCoverage, freshnessState, gaitCoverage, stages) {
@@ -1025,18 +1023,33 @@ func compositionClaimState(evidenceState, policyCoverage, freshnessState string,
 	}
 }
 
-func compositionObservedExecution(paths []ActionPath, coverage *GaitCoverage) bool {
-	if coverage == nil || strings.TrimSpace(coverage.ActionOutcome.Status) != GaitStatusPresent || len(paths) == 0 {
+func compositionObservedExecution(paths []ActionPath, stages []CompositionStage, coverage *GaitCoverage) bool {
+	if coverage == nil || strings.TrimSpace(coverage.ActionOutcome.Status) != GaitStatusPresent {
 		return false
 	}
-	for _, path := range paths {
-		if strings.TrimSpace(path.RuntimeEvidenceState) != EvidenceStateVerified {
+	if len(paths) > 0 {
+		for _, path := range paths {
+			if strings.TrimSpace(path.RuntimeEvidenceState) != EvidenceStateVerified {
+				return false
+			}
+			if path.GaitCoverage == nil {
+				return false
+			}
+			actionOutcome := path.GaitCoverage.ActionOutcome
+			if strings.TrimSpace(actionOutcome.Status) != GaitStatusPresent || len(actionOutcome.EvidenceRefs) == 0 {
+				return false
+			}
+		}
+		return true
+	}
+	if len(stages) == 0 {
+		return false
+	}
+	for _, stage := range stages {
+		if stage.GaitCoverage == nil {
 			return false
 		}
-		if path.GaitCoverage == nil {
-			return false
-		}
-		actionOutcome := path.GaitCoverage.ActionOutcome
+		actionOutcome := stage.GaitCoverage.ActionOutcome
 		if strings.TrimSpace(actionOutcome.Status) != GaitStatusPresent || len(actionOutcome.EvidenceRefs) == 0 {
 			return false
 		}
