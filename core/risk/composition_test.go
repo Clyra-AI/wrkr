@@ -140,6 +140,74 @@ func TestBuildComposedActionPathsObservedExecutionWhenEveryStageHasRuntimeEviden
 	}
 }
 
+func TestCompositionTargetIdentityPreservesEndpointTuples(t *testing.T) {
+	t.Parallel()
+
+	first := compositionTargetIdentity(compositionPatternSpec{}, []ActionPath{{
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{
+			{Surface: "apiA", Operation: "GET /x"},
+			{Surface: "apiB", Operation: "POST /y"},
+		},
+	}})
+	second := compositionTargetIdentity(compositionPatternSpec{}, []ActionPath{{
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{
+			{Surface: "apiA", Operation: "POST /y"},
+			{Surface: "apiB", Operation: "GET /x"},
+		},
+	}})
+
+	if first == second {
+		t.Fatalf("expected endpoint tuple order to stay encoded in target identity, got %q", first)
+	}
+}
+
+func TestBuildComposedActionPathsAggregatesEvidenceCompletenessAcrossStages(t *testing.T) {
+	t.Parallel()
+
+	source := compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent)
+	source.EvidenceCompleteness = &EvidenceCompleteness{
+		TotalScore: 92,
+		Label:      EvidenceCompletenessStrong,
+		AxisScores: []EvidenceCompletenessAxisScore{
+			{Axis: CompletenessAxisDiscovery, Score: 90, Reasons: []string{"source-discovery"}},
+			{Axis: CompletenessAxisProof, Score: 95, Reasons: []string{"source-proof"}},
+		},
+		Reasons: []string{"source-strong"},
+	}
+	sink := compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown)
+	sink.EvidenceCompleteness = &EvidenceCompleteness{
+		TotalScore:   54,
+		Label:        EvidenceCompletenessInsufficient,
+		EvidenceGaps: []string{"missing sink proof"},
+		AxisScores: []EvidenceCompletenessAxisScore{
+			{Axis: CompletenessAxisDiscovery, Score: 40, Reasons: []string{"sink-discovery-gap"}},
+			{Axis: CompletenessAxisProof, Score: 30, Reasons: []string{"sink-proof-gap"}},
+		},
+		Reasons: []string{"sink-insufficient"},
+	}
+
+	compositions, _ := BuildComposedActionPaths([]ActionPath{source, sink}, nil)
+	got := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
+	if got == nil || got.EvidenceCompleteness == nil {
+		t.Fatalf("expected composition evidence completeness, got %+v", got)
+	}
+	if got.EvidenceCompleteness.TotalScore != 54 || got.EvidenceCompleteness.Label != EvidenceCompletenessInsufficient {
+		t.Fatalf("expected composition completeness to conservatively reflect the weaker stage, got %+v", got.EvidenceCompleteness)
+	}
+	if !containsAnyPathClass(got.EvidenceCompleteness.EvidenceGaps, "missing sink proof") {
+		t.Fatalf("expected sink evidence gaps to be preserved, got %+v", got.EvidenceCompleteness)
+	}
+	if len(got.EvidenceCompleteness.AxisScores) < 2 {
+		t.Fatalf("expected aggregated axis scores, got %+v", got.EvidenceCompleteness.AxisScores)
+	}
+	if got.EvidenceCompleteness.AxisScores[0].Axis != CompletenessAxisDiscovery || got.EvidenceCompleteness.AxisScores[0].Score != 40 {
+		t.Fatalf("expected discovery axis to use conservative score, got %+v", got.EvidenceCompleteness.AxisScores)
+	}
+	if got.EvidenceCompleteness.AxisScores[1].Axis != CompletenessAxisProof || got.EvidenceCompleteness.AxisScores[1].Score != 30 {
+		t.Fatalf("expected proof axis to use conservative score, got %+v", got.EvidenceCompleteness.AxisScores)
+	}
+}
+
 func TestDecorateActionPathCompositionRefs(t *testing.T) {
 	paths := []ActionPath{
 		compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent),
