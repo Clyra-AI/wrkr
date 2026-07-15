@@ -139,13 +139,13 @@
     },
     "composed_action_paths": {
       "type": "array",
-      "items": {"$ref": "../composed-action-path.schema.json"}
+      "items": {"$ref": "https://wrkr.dev/schemas/v1/composed-action-path.schema.json"}
     },
     "composed_action_path_to_control_first": {
       "type": "object",
       "properties": {
         "summary": {"type": "object"},
-        "path": {"$ref": "../composed-action-path.schema.json"}
+        "path": {"$ref": "https://wrkr.dev/schemas/v1/composed-action-path.schema.json"}
       },
       "additionalProperties": true
     },

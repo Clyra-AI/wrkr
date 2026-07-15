@@ -152,6 +152,9 @@ func TestCompositionFieldsReachAggregateSchemas(t *testing.T) {
 	reportProps := compositionSchemaProperties(t, reportSchema)
 	compositionRequireProperty(t, reportProps, "composed_action_paths")
 	compositionRequireProperty(t, reportProps, "composed_action_path_to_control_first")
+	if got := compositionRequireProperty(t, reportProps, "composed_action_paths")["items"].(map[string]any)["$ref"]; got != "https://wrkr.dev/schemas/v1/composed-action-path.schema.json" {
+		t.Fatalf("expected canonical composed-action schema ref in report summary, got %+v", got)
+	}
 	compositionRequireProperty(t, compositionDefinitionProperties(t, reportSchema, "actionPath"), "composition_ids")
 	compositionRequireProperty(t, compositionDefinitionProperties(t, reportSchema, "actionPath"), "proposed_action_contract_refs")
 	compositionRequireProperty(t, compositionDefinitionProperties(t, reportSchema, "artifactBudget"), "max_composed_action_paths")

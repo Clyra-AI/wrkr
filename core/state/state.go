@@ -311,6 +311,17 @@ func applySnapshotSignalCaps(snapshot *Snapshot) {
 		snapshot.RiskReport.AttackPaths, suppressed.AttackPaths = outputsignal.CapSlice(snapshot.RiskReport.AttackPaths, maxSavedAttackPaths)
 		snapshot.RiskReport.ActionPaths, suppressed.ActionPaths = outputsignal.CapSlice(snapshot.RiskReport.ActionPaths, maxSavedActionPaths)
 		snapshot.RiskReport.ComposedActionPaths, suppressed.ComposedActionPaths = outputsignal.CapSlice(snapshot.RiskReport.ComposedActionPaths, maxSavedComposedActionPaths)
+		allowedCompositionIDs := allowedSavedCompositionIDs(snapshot.RiskReport.ComposedActionPaths)
+		allowedContractRefs := allowedSavedContractRefs(snapshot.RiskReport.ComposedActionPaths)
+		if len(allowedCompositionIDs) > 0 || len(allowedContractRefs) > 0 {
+			snapshot.RiskReport.ActionPaths = filterSavedActionPathRefs(snapshot.RiskReport.ActionPaths, allowedCompositionIDs, allowedContractRefs)
+			if snapshot.RiskReport.ActionPathToControlFirst != nil {
+				filtered := filterSavedActionPathRefs([]risk.ActionPath{snapshot.RiskReport.ActionPathToControlFirst.Path}, allowedCompositionIDs, allowedContractRefs)
+				if len(filtered) == 1 {
+					snapshot.RiskReport.ActionPathToControlFirst.Path = filtered[0]
+				}
+			}
+		}
 		if snapshot.RiskReport.ControlPathGraph != nil {
 			snapshot.RiskReport.ControlPathGraph.Nodes, suppressed.GraphNodes = outputsignal.CapSlice(snapshot.RiskReport.ControlPathGraph.Nodes, maxSavedGraphNodes)
 			snapshot.RiskReport.ControlPathGraph.Edges, suppressed.GraphEdges = outputsignal.CapSlice(snapshot.RiskReport.ControlPathGraph.Edges, maxSavedGraphEdges)
@@ -324,6 +335,63 @@ func applySnapshotSignalCaps(snapshot *Snapshot) {
 	}
 
 	snapshot.SuppressedCounts = outputsignal.MergeSuppressedCounts(snapshot.SuppressedCounts, suppressed)
+}
+
+func allowedSavedCompositionIDs(paths []risk.ComposedActionPath) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, path := range paths {
+		if trimmed := strings.TrimSpace(path.CompositionID); trimmed != "" {
+			out[trimmed] = struct{}{}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func allowedSavedContractRefs(paths []risk.ComposedActionPath) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, path := range paths {
+		for _, ref := range path.ProposedActionContractRefs {
+			if trimmed := strings.TrimSpace(ref); trimmed != "" {
+				out[trimmed] = struct{}{}
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func filterSavedActionPathRefs(paths []risk.ActionPath, allowedCompositionIDs map[string]struct{}, allowedContractRefs map[string]struct{}) []risk.ActionPath {
+	if len(paths) == 0 || (len(allowedCompositionIDs) == 0 && len(allowedContractRefs) == 0) {
+		return paths
+	}
+	out := make([]risk.ActionPath, 0, len(paths))
+	for _, path := range paths {
+		copyPath := path
+		copyPath.CompositionIDs = filterSavedStringSet(copyPath.CompositionIDs, allowedCompositionIDs)
+		copyPath.ProposedActionContractRefs = filterSavedStringSet(copyPath.ProposedActionContractRefs, allowedContractRefs)
+		out = append(out, copyPath)
+	}
+	return out
+}
+
+func filterSavedStringSet(values []string, allowed map[string]struct{}) []string {
+	if len(values) == 0 || len(allowed) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			if _, ok := allowed[trimmed]; ok {
+				out = append(out, trimmed)
+			}
+		}
+	}
+	return out
 }
 
 func ensureSnapshotCanonicalStores(snapshot *Snapshot) {
