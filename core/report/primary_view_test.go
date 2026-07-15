@@ -297,6 +297,53 @@ func TestApplySummaryCapsDropsRefsToSuppressedComposedContracts(t *testing.T) {
 	}
 }
 
+func TestApplySummaryCapsDropsSuppressedCompositionIDs(t *testing.T) {
+	t.Parallel()
+
+	composed := make([]risk.ComposedActionPath, 0, defaultMaxComposedActionPaths+1)
+	for idx := 0; idx < defaultMaxComposedActionPaths+1; idx++ {
+		composed = append(composed, risk.ComposedActionPath{
+			CompositionID:              fmt.Sprintf("cap-%03d", idx),
+			ProposedActionContractRefs: []string{fmt.Sprintf("pac-%03d", idx)},
+		})
+	}
+	summary := Summary{
+		ActionPaths: []risk.ActionPath{{
+			PathID:                     "apc-1",
+			CompositionIDs:             []string{"cap-000", fmt.Sprintf("cap-%03d", defaultMaxComposedActionPaths)},
+			ProposedActionContractRefs: []string{"pac-000", fmt.Sprintf("pac-%03d", defaultMaxComposedActionPaths)},
+		}},
+		ComposedActionPaths: composed,
+		AgentActionBOM: &AgentActionBOM{
+			Items: []AgentActionBOMItem{{
+				PathID:                     "apc-1",
+				CompositionIDs:             []string{"cap-000", fmt.Sprintf("cap-%03d", defaultMaxComposedActionPaths)},
+				ProposedActionContractRefs: []string{"pac-000", fmt.Sprintf("pac-%03d", defaultMaxComposedActionPaths)},
+			}},
+			Summary: AgentActionBOMSummary{
+				PrimaryView: &AgentActionBOMPrimaryView{
+					PathID:                     "apc-1",
+					CompositionIDs:             []string{"cap-000", fmt.Sprintf("cap-%03d", defaultMaxComposedActionPaths)},
+					ProposedActionContractRefs: []string{"pac-000", fmt.Sprintf("pac-%03d", defaultMaxComposedActionPaths)},
+				},
+			},
+		},
+	}
+
+	ApplySummaryCaps(&summary)
+
+	wantIDs := []string{"cap-000"}
+	if !reflect.DeepEqual(summary.ActionPaths[0].CompositionIDs, wantIDs) {
+		t.Fatalf("expected action path composition ids to drop suppressed compositions, got %+v", summary.ActionPaths[0].CompositionIDs)
+	}
+	if !reflect.DeepEqual(summary.AgentActionBOM.Items[0].CompositionIDs, wantIDs) {
+		t.Fatalf("expected BOM item composition ids to drop suppressed compositions, got %+v", summary.AgentActionBOM.Items[0].CompositionIDs)
+	}
+	if !reflect.DeepEqual(summary.AgentActionBOM.Summary.PrimaryView.CompositionIDs, wantIDs) {
+		t.Fatalf("expected primary view composition ids to drop suppressed compositions, got %+v", summary.AgentActionBOM.Summary.PrimaryView.CompositionIDs)
+	}
+}
+
 func TestBuildWorkflowHighlightsSkipsPlainSourceContext(t *testing.T) {
 	t.Parallel()
 
