@@ -298,6 +298,9 @@ func compositionPatternSpecs() []compositionPatternSpec {
 func filterCompositionCandidates(paths []ActionPath, predicate func(ActionPath) bool) []ActionPath {
 	out := []ActionPath{}
 	for _, path := range paths {
+		if !IsActionPathEligible(path) {
+			continue
+		}
 		if predicate(path) {
 			out = append(out, path)
 		}
