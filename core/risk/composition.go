@@ -503,7 +503,8 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.RiskTier = compositionRiskTierFromValues(merged.RiskTier, incoming.RiskTier)
 	merged.RecommendedControl = compositionRecommendedControlFromValues(merged.RecommendedControl, incoming.RecommendedControl)
 	merged.ClaimState = compositionClaimState(merged.EvidenceState, merged.PolicyCoverageStatus, merged.GaitCoverage, nil)
-	if strings.TrimSpace(incoming.ClaimState) == CompositionClaimObservedExecution || strings.TrimSpace(current.ClaimState) == CompositionClaimObservedExecution {
+	if merged.ClaimState != CompositionClaimContradictory &&
+		(strings.TrimSpace(incoming.ClaimState) == CompositionClaimObservedExecution || strings.TrimSpace(current.ClaimState) == CompositionClaimObservedExecution) {
 		merged.ClaimState = CompositionClaimObservedExecution
 	}
 	hydrateCompositionTransitions(&merged)
