@@ -190,8 +190,9 @@ func sanitizeComposedActionPathsPublic(in []risk.ComposedActionPath) []risk.Comp
 		copyItem.TruncatedCandidates = redactStringSlice(copyItem.TruncatedCandidates, "candidate")
 		copyItem.ClosureRequirements = sanitizeClosureRequirementsPublic(copyItem.ClosureRequirements)
 		copyItem.EvidenceCompleteness = risk.CloneEvidenceCompleteness(copyItem.EvidenceCompleteness)
-		copyItem.Stages = sanitizeCompositionStagesPublic(copyItem.Stages)
-		copyItem.Transitions = sanitizeCompositionTransitionsPublic(copyItem.Transitions)
+		stageIDMap := map[string]string{}
+		copyItem.Stages = sanitizeCompositionStagesPublic(copyItem.Stages, stageIDMap)
+		copyItem.Transitions = sanitizeCompositionTransitionsPublic(copyItem.Transitions, stageIDMap)
 		copyItem.ProposedActionContract = sanitizeProposedActionContractPublic(copyItem.ProposedActionContract)
 		copyItem.ProposedActionContractRefs = sanitizeProposedActionContractRefs(copyItem.ProposedActionContract, copyItem.ProposedActionContractRefs)
 		out = append(out, copyItem)
@@ -226,13 +227,15 @@ func sanitizeComposedActionPathsWithConfig(in []risk.ComposedActionPath, config 
 			copyItem.TargetIdentity = redactValue("target", copyItem.TargetIdentity, 8)
 			copyItem.DurableOutcomeKey = redactValue("outcome", copyItem.DurableOutcomeKey, 8)
 			copyItem.AffectedAsset = redactValue("target", copyItem.AffectedAsset, 8)
-			copyItem.Stages = sanitizeCompositionStagesPublic(copyItem.Stages)
-			copyItem.Transitions = sanitizeCompositionTransitionsPublic(copyItem.Transitions)
+			stageIDMap := map[string]string{}
+			copyItem.Stages = sanitizeCompositionStagesPublic(copyItem.Stages, stageIDMap)
+			copyItem.Transitions = sanitizeCompositionTransitionsPublic(copyItem.Transitions, stageIDMap)
 		} else {
 			copyItem.PathIDs = cloneStrings(copyItem.PathIDs)
 			copyItem.WorkflowChainRefs = cloneStrings(copyItem.WorkflowChainRefs)
-			copyItem.Stages = sanitizeCompositionStagesWithConfig(copyItem.Stages, config)
-			copyItem.Transitions = sanitizeCompositionTransitionsWithConfig(copyItem.Transitions, config)
+			stageIDMap := map[string]string{}
+			copyItem.Stages = sanitizeCompositionStagesWithConfig(copyItem.Stages, config, stageIDMap)
+			copyItem.Transitions = sanitizeCompositionTransitionsWithConfig(copyItem.Transitions, config, stageIDMap)
 			if redactComposedIdentity {
 				copyItem.ResolutionKey = redactValue("resolution", copyItem.ResolutionKey, 8)
 				copyItem.TargetIdentity = redactValue("target", copyItem.TargetIdentity, 8)
@@ -273,10 +276,11 @@ func sanitizeComposedActionPathToControlFirstWithConfig(in *risk.ComposedActionP
 	return out
 }
 
-func sanitizeCompositionStagesPublic(in []risk.CompositionStage) []risk.CompositionStage {
+func sanitizeCompositionStagesPublic(in []risk.CompositionStage, stageIDMap map[string]string) []risk.CompositionStage {
 	out := make([]risk.CompositionStage, 0, len(in))
 	for _, stage := range in {
 		copyStage := stage
+		copyStage.StageID = remapStageID(copyStage.StageID, stageIDMap)
 		copyStage.PathID = redactValue("path", copyStage.PathID, 8)
 		copyStage.ResolutionKey = redactValue("resolution", copyStage.ResolutionKey, 8)
 		copyStage.Location = redactValue("loc", copyStage.Location, 8)
@@ -288,10 +292,13 @@ func sanitizeCompositionStagesPublic(in []risk.CompositionStage) []risk.Composit
 	return out
 }
 
-func sanitizeCompositionStagesWithConfig(in []risk.CompositionStage, config RedactionConfig) []risk.CompositionStage {
+func sanitizeCompositionStagesWithConfig(in []risk.CompositionStage, config RedactionConfig, stageIDMap map[string]string) []risk.CompositionStage {
 	out := make([]risk.CompositionStage, 0, len(in))
 	for _, stage := range in {
 		copyStage := stage
+		if config.Has(RedactionPaths) || config.Has(RedactionRepos) {
+			copyStage.StageID = remapStageID(copyStage.StageID, stageIDMap)
+		}
 		copyStage.PathID = maybeRedactPathID(copyStage.PathID, config)
 		if config.Has(RedactionPaths) || config.Has(RedactionRepos) {
 			copyStage.ResolutionKey = redactValue("resolution", copyStage.ResolutionKey, 8)
@@ -305,10 +312,13 @@ func sanitizeCompositionStagesWithConfig(in []risk.CompositionStage, config Reda
 	return out
 }
 
-func sanitizeCompositionTransitionsPublic(in []risk.CompositionTransition) []risk.CompositionTransition {
+func sanitizeCompositionTransitionsPublic(in []risk.CompositionTransition, stageIDMap map[string]string) []risk.CompositionTransition {
 	out := make([]risk.CompositionTransition, 0, len(in))
 	for _, transition := range in {
 		copyTransition := transition
+		copyTransition.TransitionID = redactValue("transition", copyTransition.TransitionID, 8)
+		copyTransition.FromStageID = remapStageID(copyTransition.FromStageID, stageIDMap)
+		copyTransition.ToStageID = remapStageID(copyTransition.ToStageID, stageIDMap)
 		copyTransition.EvidenceRefs = redactStringSlice(copyTransition.EvidenceRefs, "evidence")
 		copyTransition.ProofRefs = redactStringSlice(copyTransition.ProofRefs, "proof")
 		copyTransition.SourceDecisionRefs = redactStringSlice(copyTransition.SourceDecisionRefs, "decision")
@@ -317,10 +327,15 @@ func sanitizeCompositionTransitionsPublic(in []risk.CompositionTransition) []ris
 	return out
 }
 
-func sanitizeCompositionTransitionsWithConfig(in []risk.CompositionTransition, config RedactionConfig) []risk.CompositionTransition {
+func sanitizeCompositionTransitionsWithConfig(in []risk.CompositionTransition, config RedactionConfig, stageIDMap map[string]string) []risk.CompositionTransition {
 	out := make([]risk.CompositionTransition, 0, len(in))
 	for _, transition := range in {
 		copyTransition := transition
+		if config.Has(RedactionPaths) || config.Has(RedactionRepos) {
+			copyTransition.TransitionID = redactValue("transition", copyTransition.TransitionID, 8)
+			copyTransition.FromStageID = remapStageID(copyTransition.FromStageID, stageIDMap)
+			copyTransition.ToStageID = remapStageID(copyTransition.ToStageID, stageIDMap)
+		}
 		copyTransition.EvidenceRefs = maybeRedactEvidenceRefSlice(copyTransition.EvidenceRefs, config)
 		copyTransition.ProofRefs = maybeRedactStringSlice(copyTransition.ProofRefs, "proof", config.Has(RedactionProofRefs))
 		copyTransition.SourceDecisionRefs = maybeRedactStringSlice(copyTransition.SourceDecisionRefs, "decision", config.Has(RedactionProofRefs))
@@ -350,6 +365,22 @@ func sanitizeProposedActionContractRefs(contract *risk.ProposedActionContract, r
 		return []string{strings.TrimSpace(contract.ContractID)}
 	}
 	return cloneStrings(refs)
+}
+
+func remapStageID(value string, stageIDMap map[string]string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	if stageIDMap == nil {
+		return redactValue("stage", trimmed, 8)
+	}
+	if mapped, ok := stageIDMap[trimmed]; ok {
+		return mapped
+	}
+	mapped := redactValue("stage", trimmed, 8)
+	stageIDMap[trimmed] = mapped
+	return mapped
 }
 
 func sanitizeActionSurfaceRegistryWithConfig(in []ActionSurfaceRegistryEntry, config RedactionConfig) []ActionSurfaceRegistryEntry {
