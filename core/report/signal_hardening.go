@@ -40,11 +40,12 @@ func ApplySummaryCaps(summary *Summary) {
 	suppressed.ActionPaths = count
 	summary.ComposedActionPaths, count = outputsignal.CapSlice(summary.ComposedActionPaths, defaultMaxComposedActionPaths)
 	suppressed.ComposedActionPaths = count
+	allowedCompositionIDs := allowedCompositionIDs(summary.ComposedActionPaths)
 	allowedComposedContractRefs := allowedComposedContractRefs(summary.ComposedActionPaths)
-	if len(allowedComposedContractRefs) > 0 {
-		summary.ActionPaths = filterActionPathContractRefs(summary.ActionPaths, allowedComposedContractRefs)
+	if len(allowedCompositionIDs) > 0 || len(allowedComposedContractRefs) > 0 {
+		summary.ActionPaths = filterActionPathCompositionRefs(summary.ActionPaths, allowedCompositionIDs, allowedComposedContractRefs)
 		if summary.ActionPathToControlFirst != nil {
-			filtered := filterActionPathContractRefs([]risk.ActionPath{summary.ActionPathToControlFirst.Path}, allowedComposedContractRefs)
+			filtered := filterActionPathCompositionRefs([]risk.ActionPath{summary.ActionPathToControlFirst.Path}, allowedCompositionIDs, allowedComposedContractRefs)
 			if len(filtered) == 1 {
 				summary.ActionPathToControlFirst.Path = filtered[0]
 			}
@@ -71,11 +72,13 @@ func ApplySummaryCaps(summary *Summary) {
 	}
 	if summary.AgentActionBOM != nil {
 		summary.AgentActionBOM.ComposedActionPaths = append([]risk.ComposedActionPath(nil), summary.ComposedActionPaths...)
-		if len(allowedComposedContractRefs) > 0 {
+		if len(allowedCompositionIDs) > 0 || len(allowedComposedContractRefs) > 0 {
 			if summary.AgentActionBOM.Summary.PrimaryView != nil {
+				summary.AgentActionBOM.Summary.PrimaryView.CompositionIDs = filterStringSet(summary.AgentActionBOM.Summary.PrimaryView.CompositionIDs, allowedCompositionIDs)
 				summary.AgentActionBOM.Summary.PrimaryView.ProposedActionContractRefs = filterStringSet(summary.AgentActionBOM.Summary.PrimaryView.ProposedActionContractRefs, allowedComposedContractRefs)
 			}
 			for idx := range summary.AgentActionBOM.Items {
+				summary.AgentActionBOM.Items[idx].CompositionIDs = filterStringSet(summary.AgentActionBOM.Items[idx].CompositionIDs, allowedCompositionIDs)
 				summary.AgentActionBOM.Items[idx].ProposedActionContractRefs = filterStringSet(summary.AgentActionBOM.Items[idx].ProposedActionContractRefs, allowedComposedContractRefs)
 			}
 		}
@@ -115,14 +118,28 @@ func allowedComposedContractRefs(paths []risk.ComposedActionPath) map[string]str
 	return out
 }
 
-func filterActionPathContractRefs(paths []risk.ActionPath, allowed map[string]struct{}) []risk.ActionPath {
-	if len(paths) == 0 || len(allowed) == 0 {
+func allowedCompositionIDs(paths []risk.ComposedActionPath) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, path := range paths {
+		if trimmed := strings.TrimSpace(path.CompositionID); trimmed != "" {
+			out[trimmed] = struct{}{}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func filterActionPathCompositionRefs(paths []risk.ActionPath, allowedCompositionIDs map[string]struct{}, allowedContractRefs map[string]struct{}) []risk.ActionPath {
+	if len(paths) == 0 || (len(allowedCompositionIDs) == 0 && len(allowedContractRefs) == 0) {
 		return paths
 	}
 	out := make([]risk.ActionPath, 0, len(paths))
 	for _, path := range paths {
 		copyPath := path
-		copyPath.ProposedActionContractRefs = filterStringSet(copyPath.ProposedActionContractRefs, allowed)
+		copyPath.CompositionIDs = filterStringSet(copyPath.CompositionIDs, allowedCompositionIDs)
+		copyPath.ProposedActionContractRefs = filterStringSet(copyPath.ProposedActionContractRefs, allowedContractRefs)
 		out = append(out, copyPath)
 	}
 	return out

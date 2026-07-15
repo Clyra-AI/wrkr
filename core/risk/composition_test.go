@@ -338,6 +338,30 @@ func TestCompositionPolicyCoverageStatusPreservesMissingStageGap(t *testing.T) {
 	}
 }
 
+func TestMergeComposedActionPathPreservesContradictionOverObservedExecution(t *testing.T) {
+	current := ComposedActionPath{
+		CompositionID: "cap-1",
+		ClaimState:    CompositionClaimObservedExecution,
+		Stages: []CompositionStage{
+			{StageID: "stage-1", Role: CompositionStageRoleSource},
+			{StageID: "stage-2", Role: CompositionStageRolePrivilegedSink},
+		},
+	}
+	incoming := ComposedActionPath{
+		CompositionID:        "cap-1",
+		EvidenceState:        EvidenceStateContradictory,
+		PolicyCoverageStatus: PolicyCoverageStatusConflict,
+		Stages: []CompositionStage{
+			{StageID: "stage-1", Role: CompositionStageRoleSource},
+			{StageID: "stage-2", Role: CompositionStageRolePrivilegedSink},
+		},
+	}
+	merged := mergeComposedActionPath(current, incoming)
+	if merged.ClaimState != CompositionClaimContradictory {
+		t.Fatalf("expected contradiction to dominate observed execution, got %+v", merged)
+	}
+}
+
 func compositionTestPath(pathID, resolutionKey string, actionClasses []string, targetClass string) ActionPath {
 	return ProjectActionPath(ActionPath{
 		PathID:                   pathID,
