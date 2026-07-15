@@ -140,6 +140,54 @@ func TestBuildComposedActionPathsObservedExecutionWhenEveryStageHasRuntimeEviden
 	}
 }
 
+func TestCompositionRuntimeControlledRequiresPerStageCoverage(t *testing.T) {
+	t.Parallel()
+
+	coverage := &GaitCoverage{
+		PolicyDecision:    GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:policy"}},
+		ActionOutcome:     GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:outcome"}},
+		ProofVerification: GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:proof"}},
+		Approval:          GaitCoverageDetail{Status: GaitStatusNotApplicable},
+		JITCredential:     GaitCoverageDetail{Status: GaitStatusNotApplicable},
+		FreezeWindow:      GaitCoverageDetail{Status: GaitStatusNotApplicable},
+		KillSwitch:        GaitCoverageDetail{Status: GaitStatusNotApplicable},
+	}
+	stages := []CompositionStage{
+		{
+			Role:                 CompositionStageRoleSource,
+			PolicyCoverageStatus: PolicyCoverageStatusRuntimeProven,
+			FreshnessState:       evidencepolicy.FreshnessStateFresh,
+			GaitCoverage: &GaitCoverage{
+				PolicyDecision:    GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:policy"}},
+				ActionOutcome:     GaitCoverageDetail{Status: GaitStatusMissing},
+				ProofVerification: GaitCoverageDetail{Status: GaitStatusMissing},
+				Approval:          GaitCoverageDetail{Status: GaitStatusNotApplicable},
+				JITCredential:     GaitCoverageDetail{Status: GaitStatusNotApplicable},
+				FreezeWindow:      GaitCoverageDetail{Status: GaitStatusNotApplicable},
+				KillSwitch:        GaitCoverageDetail{Status: GaitStatusNotApplicable},
+			},
+		},
+		{
+			Role:                 CompositionStageRoleExternalSink,
+			PolicyCoverageStatus: PolicyCoverageStatusRuntimeProven,
+			FreshnessState:       evidencepolicy.FreshnessStateFresh,
+			GaitCoverage: &GaitCoverage{
+				PolicyDecision:    GaitCoverageDetail{Status: GaitStatusMissing},
+				ActionOutcome:     GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:outcome"}},
+				ProofVerification: GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:proof"}},
+				Approval:          GaitCoverageDetail{Status: GaitStatusNotApplicable},
+				JITCredential:     GaitCoverageDetail{Status: GaitStatusNotApplicable},
+				FreezeWindow:      GaitCoverageDetail{Status: GaitStatusNotApplicable},
+				KillSwitch:        GaitCoverageDetail{Status: GaitStatusNotApplicable},
+			},
+		},
+	}
+
+	if got := compositionClaimState(EvidenceStateDeclared, PolicyCoverageStatusRuntimeProven, evidencepolicy.FreshnessStateFresh, coverage, stages, nil); got == CompositionClaimRuntimeControlled {
+		t.Fatalf("expected split stage runtime evidence to stay below runtime_controlled, got %q", got)
+	}
+}
+
 func TestCompositionTargetIdentityPreservesEndpointTuples(t *testing.T) {
 	t.Parallel()
 
@@ -316,6 +364,20 @@ func TestProposedActionContractReadinessMapsSpecificGapsToNeedsEvidence(t *testi
 	}
 	if !containsAnyPathClass(reasons, "readiness:needs_policy_evidence") {
 		t.Fatalf("expected stale policy reason code, got %v", reasons)
+	}
+
+	readiness, reasons = proposedActionContractReadiness(ComposedActionPath{
+		CompositionID:        "cap-5",
+		Stages:               base.Stages,
+		EvidenceState:        EvidenceStateDeclared,
+		PolicyCoverageStatus: PolicyCoverageStatusMatched,
+		FreshnessState:       evidencepolicy.FreshnessStateExpired,
+	})
+	if readiness != proposedActionContractReadinessNeedsEvidence {
+		t.Fatalf("expected stale freshness to remain an evidence gap, got %q", readiness)
+	}
+	if !containsAnyPathClass(reasons, "readiness:needs_fresh_evidence") {
+		t.Fatalf("expected freshness reason code, got %v", reasons)
 	}
 }
 

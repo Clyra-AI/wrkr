@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/Clyra-AI/wrkr/core/evidencepolicy"
 )
 
 const (
@@ -278,6 +280,10 @@ func proposedActionContractReadiness(composition ComposedActionPath) (string, []
 	switch strings.TrimSpace(composition.PolicyCoverageStatus) {
 	case PolicyCoverageStatusNone, PolicyCoverageStatusStale:
 		reasons = append(reasons, "readiness:needs_policy_evidence")
+	}
+	switch strings.TrimSpace(composition.FreshnessState) {
+	case evidencepolicy.FreshnessStateStale, evidencepolicy.FreshnessStateExpired:
+		reasons = append(reasons, "readiness:needs_fresh_evidence")
 	}
 	if len(reasons) > 0 {
 		return proposedActionContractReadinessNeedsEvidence, dedupeSortedStrings(reasons)
