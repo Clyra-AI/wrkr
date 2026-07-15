@@ -344,6 +344,50 @@ func TestApplySummaryCapsDropsSuppressedCompositionIDs(t *testing.T) {
 	}
 }
 
+func TestApplySummaryCapsDropsSuppressedAssessmentRefs(t *testing.T) {
+	t.Parallel()
+
+	composed := make([]risk.ComposedActionPath, 0, defaultMaxComposedActionPaths+1)
+	for idx := 0; idx < defaultMaxComposedActionPaths+1; idx++ {
+		composed = append(composed, risk.ComposedActionPath{
+			CompositionID:              fmt.Sprintf("cap-%03d", idx),
+			ProposedActionContractRefs: []string{fmt.Sprintf("pac-%03d", idx)},
+		})
+	}
+	summary := Summary{
+		ComposedActionPaths: composed,
+		AssessmentSummary: &AssessmentSummary{
+			TopPathToControlFirst: &risk.ActionPath{
+				PathID:                     "apc-top",
+				CompositionIDs:             []string{"cap-000", fmt.Sprintf("cap-%03d", defaultMaxComposedActionPaths)},
+				ProposedActionContractRefs: []string{"pac-000", fmt.Sprintf("pac-%03d", defaultMaxComposedActionPaths)},
+			},
+			TopExecutionIdentityBacked: &risk.ActionPath{
+				PathID:                     "apc-exec",
+				CompositionIDs:             []string{"cap-000", fmt.Sprintf("cap-%03d", defaultMaxComposedActionPaths)},
+				ProposedActionContractRefs: []string{"pac-000", fmt.Sprintf("pac-%03d", defaultMaxComposedActionPaths)},
+			},
+		},
+	}
+
+	ApplySummaryCaps(&summary)
+
+	wantIDs := []string{"cap-000"}
+	wantRefs := []string{"pac-000"}
+	if !reflect.DeepEqual(summary.AssessmentSummary.TopPathToControlFirst.CompositionIDs, wantIDs) {
+		t.Fatalf("expected assessment top path composition ids to drop suppressed compositions, got %+v", summary.AssessmentSummary.TopPathToControlFirst.CompositionIDs)
+	}
+	if !reflect.DeepEqual(summary.AssessmentSummary.TopPathToControlFirst.ProposedActionContractRefs, wantRefs) {
+		t.Fatalf("expected assessment top path contract refs to drop suppressed contracts, got %+v", summary.AssessmentSummary.TopPathToControlFirst.ProposedActionContractRefs)
+	}
+	if !reflect.DeepEqual(summary.AssessmentSummary.TopExecutionIdentityBacked.CompositionIDs, wantIDs) {
+		t.Fatalf("expected assessment execution-backed composition ids to drop suppressed compositions, got %+v", summary.AssessmentSummary.TopExecutionIdentityBacked.CompositionIDs)
+	}
+	if !reflect.DeepEqual(summary.AssessmentSummary.TopExecutionIdentityBacked.ProposedActionContractRefs, wantRefs) {
+		t.Fatalf("expected assessment execution-backed contract refs to drop suppressed contracts, got %+v", summary.AssessmentSummary.TopExecutionIdentityBacked.ProposedActionContractRefs)
+	}
+}
+
 func TestBuildWorkflowHighlightsSkipsPlainSourceContext(t *testing.T) {
 	t.Parallel()
 

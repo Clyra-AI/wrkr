@@ -338,7 +338,7 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 	policyCoverage := compositionPolicyCoverageStatusFromStages(stages)
 	gaitCoverage := compositionGaitCoverageFromStages(stages)
 	runtimeAbsence := compositionRuntimeAbsenceFromStages(stages)
-	claimState := compositionClaimState(evidenceState, policyCoverage, gaitCoverage, paths)
+	claimState := compositionClaimState(evidenceState, policyCoverage, freshnessState, gaitCoverage, stages, paths)
 	recommended := compositionRecommendedControl(paths, claimState)
 	composition := ComposedActionPath{
 		CompositionID:                compositionID,
@@ -505,7 +505,7 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.RuntimeEvidenceAbsenceStatus = compositionRuntimeAbsence(merged.RuntimeEvidenceAbsenceStatus, incoming.RuntimeEvidenceAbsenceStatus)
 	merged.RiskTier = compositionRiskTierFromValues(merged.RiskTier, incoming.RiskTier)
 	merged.RecommendedControl = compositionRecommendedControlFromValues(merged.RecommendedControl, incoming.RecommendedControl)
-	merged.ClaimState = compositionClaimState(merged.EvidenceState, merged.PolicyCoverageStatus, merged.GaitCoverage, nil)
+	merged.ClaimState = compositionClaimState(merged.EvidenceState, merged.PolicyCoverageStatus, merged.FreshnessState, merged.GaitCoverage, merged.Stages, nil)
 	if merged.ClaimState != CompositionClaimContradictory &&
 		(strings.TrimSpace(incoming.ClaimState) == CompositionClaimObservedExecution || strings.TrimSpace(current.ClaimState) == CompositionClaimObservedExecution) {
 		merged.ClaimState = CompositionClaimObservedExecution
@@ -1001,14 +1001,14 @@ func pathFreshnessState(path ActionPath) string {
 	return state
 }
 
-func compositionClaimState(evidenceState, policyCoverage string, gaitCoverage *GaitCoverage, paths []ActionPath) string {
+func compositionClaimState(evidenceState, policyCoverage, freshnessState string, gaitCoverage *GaitCoverage, stages []CompositionStage, paths []ActionPath) string {
 	if strings.TrimSpace(evidenceState) == EvidenceStateContradictory || strings.TrimSpace(policyCoverage) == PolicyCoverageStatusConflict || GaitCoverageHasStatus(gaitCoverage, GaitStatusConflict) {
 		return CompositionClaimContradictory
 	}
 	if compositionObservedExecution(paths, gaitCoverage) {
 		return CompositionClaimObservedExecution
 	}
-	if compositionRuntimeControlled(policyCoverage, gaitCoverage) {
+	if compositionRuntimeControlled(policyCoverage, freshnessState, gaitCoverage, stages) {
 		return CompositionClaimRuntimeControlled
 	}
 	switch strings.TrimSpace(policyCoverage) {
@@ -1044,8 +1044,12 @@ func compositionObservedExecution(paths []ActionPath, coverage *GaitCoverage) bo
 	return true
 }
 
-func compositionRuntimeControlled(policyCoverage string, coverage *GaitCoverage) bool {
-	if strings.TrimSpace(policyCoverage) != PolicyCoverageStatusRuntimeProven || coverage == nil {
+func compositionRuntimeControlled(policyCoverage, freshnessState string, coverage *GaitCoverage, stages []CompositionStage) bool {
+	if strings.TrimSpace(policyCoverage) != PolicyCoverageStatusRuntimeProven || coverage == nil || len(stages) < 2 {
+		return false
+	}
+	switch strings.TrimSpace(freshnessState) {
+	case evidencepolicy.FreshnessStateStale, evidencepolicy.FreshnessStateExpired:
 		return false
 	}
 	required := []GaitCoverageDetail{coverage.PolicyDecision, coverage.ActionOutcome, coverage.ProofVerification}
@@ -1058,6 +1062,47 @@ func compositionRuntimeControlled(policyCoverage string, coverage *GaitCoverage)
 		switch strings.TrimSpace(detail.Status) {
 		case GaitStatusPresent, GaitStatusNotApplicable:
 		default:
+			return false
+		}
+	}
+	for _, stage := range stages {
+		if !compositionStageHasRuntimeControlledCoverage(stage) {
+			return false
+		}
+	}
+	return true
+}
+
+func compositionStageHasRuntimeControlledCoverage(stage CompositionStage) bool {
+	if strings.TrimSpace(stage.PolicyCoverageStatus) != PolicyCoverageStatusRuntimeProven || stage.GaitCoverage == nil {
+		return false
+	}
+	switch strings.TrimSpace(stage.FreshnessState) {
+	case evidencepolicy.FreshnessStateStale, evidencepolicy.FreshnessStateExpired:
+		return false
+	}
+	required := []GaitCoverageDetail{
+		stage.GaitCoverage.PolicyDecision,
+		stage.GaitCoverage.ActionOutcome,
+		stage.GaitCoverage.ProofVerification,
+	}
+	for _, detail := range required {
+		if strings.TrimSpace(detail.Status) != GaitStatusPresent || len(detail.EvidenceRefs) == 0 {
+			return false
+		}
+	}
+	for _, detail := range []GaitCoverageDetail{
+		stage.GaitCoverage.Approval,
+		stage.GaitCoverage.JITCredential,
+		stage.GaitCoverage.FreezeWindow,
+		stage.GaitCoverage.KillSwitch,
+	} {
+		switch strings.TrimSpace(detail.Status) {
+		case GaitStatusPresent, GaitStatusNotApplicable:
+		default:
+			return false
+		}
+		if strings.TrimSpace(detail.Status) == GaitStatusPresent && len(detail.EvidenceRefs) == 0 {
 			return false
 		}
 	}

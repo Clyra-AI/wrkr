@@ -50,6 +50,20 @@ func ApplySummaryCaps(summary *Summary) {
 				summary.ActionPathToControlFirst.Path = filtered[0]
 			}
 		}
+		if summary.AssessmentSummary != nil {
+			if summary.AssessmentSummary.TopPathToControlFirst != nil {
+				filtered := filterActionPathCompositionRefs([]risk.ActionPath{*summary.AssessmentSummary.TopPathToControlFirst}, allowedCompositionIDs, allowedComposedContractRefs)
+				if len(filtered) == 1 {
+					summary.AssessmentSummary.TopPathToControlFirst = &filtered[0]
+				}
+			}
+			if summary.AssessmentSummary.TopExecutionIdentityBacked != nil {
+				filtered := filterActionPathCompositionRefs([]risk.ActionPath{*summary.AssessmentSummary.TopExecutionIdentityBacked}, allowedCompositionIDs, allowedComposedContractRefs)
+				if len(filtered) == 1 {
+					summary.AssessmentSummary.TopExecutionIdentityBacked = &filtered[0]
+				}
+			}
+		}
 	}
 
 	if summary.ControlBacklog != nil {
