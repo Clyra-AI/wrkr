@@ -232,6 +232,40 @@ func TestBuildComposedActionPathsSurfacesTruncation(t *testing.T) {
 	}
 }
 
+func TestBuildComposedActionPathsSkipsContextOnlyCandidates(t *testing.T) {
+	t.Parallel()
+
+	contextOnlySource := ProjectActionPath(ActionPath{
+		PathID:   "appendix-openapi",
+		Org:      "acme",
+		Repo:     "checkout",
+		ToolType: "openapi",
+		Location: "openapi/customer-export.yaml",
+		PathContext: &agginventory.PathContext{
+			Kind:       agginventory.PathContextRuntimeSource,
+			Confidence: "high",
+		},
+		MutableEndpointSemantics: []agginventory.MutableEndpointSemantic{{
+			Semantic:     agginventory.EndpointSemanticDataExport,
+			Confidence:   "high",
+			Surface:      "openapi",
+			Operation:    "GET /v1/customers/export",
+			EvidenceRefs: []string{"GET /v1/customers/export"},
+		}},
+	})
+	if contextOnlySource.ActionPathEligible {
+		t.Fatalf("expected appendix-only openapi path to stay out of action-path composition, got %+v", contextOnlySource)
+	}
+	if contextOnlySource.ConfidenceLane != ConfidenceLaneContextOnly {
+		t.Fatalf("expected appendix-only openapi path to stay context_only, got %+v", contextOnlySource)
+	}
+
+	compositions, _ := BuildComposedActionPaths([]ActionPath{contextOnlySource}, nil)
+	if got := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress); got != nil {
+		t.Fatalf("expected context-only appendix path to stay out of composed contracts, got %+v", got)
+	}
+}
+
 func TestMergeComposedActionPathRebuildsProposedContract(t *testing.T) {
 	base := ComposedActionPath{
 		CompositionID:  "cap-1",
