@@ -150,8 +150,8 @@ func TestScanStatusIncludesProgressFieldsDuringRun(t *testing.T) {
 		}, &out, errOut)
 	}()
 
-	if !errOut.waitFor("event=repo_materialize", 2*time.Second) {
-		t.Fatalf("expected materialize progress before status inspection, got %q", errOut.String())
+	if !errOut.waitFor("event=repo_discovery", 2*time.Second) {
+		t.Fatalf("expected repo discovery progress before status inspection, got %q", errOut.String())
 	}
 
 	var statusOut bytes.Buffer
