@@ -96,6 +96,50 @@ func TestCompositionCoverageDoesNotTreatDeclaredPolicyAsRuntimeControl(t *testin
 	}
 }
 
+func TestBuildComposedActionPathsObservedExecutionRequiresRuntimeEvidenceForEveryStage(t *testing.T) {
+	t.Parallel()
+
+	source := compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent)
+	source.GaitCoverage.ActionOutcome = GaitCoverageDetail{
+		Status:       GaitStatusPresent,
+		EvidenceRefs: []string{"runtime:read"},
+	}
+	sink := compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown)
+
+	compositions, _ := BuildComposedActionPaths([]ActionPath{source, sink}, nil)
+	got := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
+	if got == nil {
+		t.Fatalf("expected sensitive-read-to-egress composition, got %+v", compositions)
+	}
+	if got.ClaimState == CompositionClaimObservedExecution {
+		t.Fatalf("expected missing sink runtime evidence to keep composed path below observed execution, got %+v", got)
+	}
+}
+
+func TestBuildComposedActionPathsObservedExecutionWhenEveryStageHasRuntimeEvidence(t *testing.T) {
+	t.Parallel()
+
+	source := compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent)
+	source.GaitCoverage.ActionOutcome = GaitCoverageDetail{
+		Status:       GaitStatusPresent,
+		EvidenceRefs: []string{"runtime:read"},
+	}
+	sink := compositionTestPath("apc-egress", "rk-egress", []string{"egress"}, TargetClassUnknown)
+	sink.GaitCoverage.ActionOutcome = GaitCoverageDetail{
+		Status:       GaitStatusPresent,
+		EvidenceRefs: []string{"runtime:egress"},
+	}
+
+	compositions, _ := BuildComposedActionPaths([]ActionPath{source, sink}, nil)
+	got := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress)
+	if got == nil {
+		t.Fatalf("expected sensitive-read-to-egress composition, got %+v", compositions)
+	}
+	if got.ClaimState != CompositionClaimObservedExecution {
+		t.Fatalf("expected full stage runtime evidence to upgrade composed path to observed execution, got %+v", got)
+	}
+}
+
 func TestDecorateActionPathCompositionRefs(t *testing.T) {
 	paths := []ActionPath{
 		compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent),

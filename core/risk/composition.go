@@ -949,15 +949,22 @@ func compositionClaimState(evidenceState, policyCoverage string, gaitCoverage *G
 }
 
 func compositionObservedExecution(paths []ActionPath, coverage *GaitCoverage) bool {
-	if coverage == nil || strings.TrimSpace(coverage.ActionOutcome.Status) != GaitStatusPresent {
+	if coverage == nil || strings.TrimSpace(coverage.ActionOutcome.Status) != GaitStatusPresent || len(paths) == 0 {
 		return false
 	}
 	for _, path := range paths {
-		if strings.TrimSpace(path.RuntimeEvidenceState) == EvidenceStateVerified {
-			return true
+		if strings.TrimSpace(path.RuntimeEvidenceState) != EvidenceStateVerified {
+			return false
+		}
+		if path.GaitCoverage == nil {
+			return false
+		}
+		actionOutcome := path.GaitCoverage.ActionOutcome
+		if strings.TrimSpace(actionOutcome.Status) != GaitStatusPresent || len(actionOutcome.EvidenceRefs) == 0 {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func compositionRuntimeControlled(policyCoverage string, coverage *GaitCoverage) bool {
