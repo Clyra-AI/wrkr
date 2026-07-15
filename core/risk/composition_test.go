@@ -256,6 +256,43 @@ func TestBuildComposedActionPathsAggregatesEvidenceCompletenessAcrossStages(t *t
 	}
 }
 
+func TestBuildComposedActionPathsCapCountsUniqueCompositionIDs(t *testing.T) {
+	t.Parallel()
+
+	paths := make([]ActionPath, 0, maxComposedActionPathCandidates+3)
+	for idx := 0; idx < maxComposedActionPathCandidates+1; idx++ {
+		source := compositionTestPath("apc-read-dup-"+string(rune('a'+(idx%26))), "rk-read-dup", []string{"read"}, TargetClassCustomerDataAdjacent)
+		source.PathID = "apc-read-dup-" + string(rune('a'+(idx%26))) + string(rune('a'+(idx/26)))
+		source.Repo = "checkout"
+		source.Location = ".github/workflows/release.yml"
+		paths = append(paths, source)
+	}
+	sink := compositionTestPath("apc-egress-dup", "rk-egress-dup", []string{"egress"}, TargetClassUnknown)
+	sink.Repo = "checkout"
+	paths = append(paths, sink)
+
+	distinctSource := compositionTestPath("apc-read-distinct", "rk-read-distinct", []string{"read"}, TargetClassCustomerDataAdjacent)
+	distinctSource.Repo = "payments"
+	distinctSink := compositionTestPath("apc-egress-distinct", "rk-egress-distinct", []string{"egress"}, TargetClassUnknown)
+	distinctSink.Repo = "payments"
+	paths = append(paths, distinctSource, distinctSink)
+
+	compositions, _ := BuildComposedActionPaths(paths, nil)
+	if got := findCompositionByPattern(compositions, CompositionPatternSensitiveReadToEgress); got == nil {
+		t.Fatalf("expected duplicated composition to still be present, got %+v", compositions)
+	}
+	foundDistinct := false
+	for _, composition := range compositions {
+		if composition.ResolutionKey == compositionResolutionKey([]ActionPath{distinctSource, distinctSink}) {
+			foundDistinct = true
+			break
+		}
+	}
+	if !foundDistinct {
+		t.Fatalf("expected distinct composition after duplicate pairs to survive cap accounting, got %+v", compositions)
+	}
+}
+
 func TestDecorateActionPathCompositionRefs(t *testing.T) {
 	paths := []ActionPath{
 		compositionTestPath("apc-read", "rk-read", []string{"read"}, TargetClassCustomerDataAdjacent),
@@ -378,6 +415,71 @@ func TestProposedActionContractReadinessMapsSpecificGapsToNeedsEvidence(t *testi
 	}
 	if !containsAnyPathClass(reasons, "readiness:needs_fresh_evidence") {
 		t.Fatalf("expected freshness reason code, got %v", reasons)
+	}
+}
+
+func TestMergeComposedActionPathRevalidatesObservedExecutionAfterDuplicates(t *testing.T) {
+	t.Parallel()
+
+	current := ComposedActionPath{
+		CompositionID:        "cap-1",
+		ClaimState:           CompositionClaimObservedExecution,
+		EvidenceState:        EvidenceStateDeclared,
+		PolicyCoverageStatus: PolicyCoverageStatusDeclared,
+		FreshnessState:       evidencepolicy.FreshnessStateFresh,
+		GaitCoverage: &GaitCoverage{
+			ActionOutcome: GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:sequence"}},
+		},
+		Stages: []CompositionStage{
+			{
+				StageID:        "stage-1",
+				Role:           CompositionStageRoleSource,
+				FreshnessState: evidencepolicy.FreshnessStateFresh,
+				GaitCoverage: &GaitCoverage{
+					ActionOutcome: GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:source"}},
+				},
+			},
+			{
+				StageID:        "stage-2",
+				Role:           CompositionStageRoleExternalSink,
+				FreshnessState: evidencepolicy.FreshnessStateFresh,
+				GaitCoverage: &GaitCoverage{
+					ActionOutcome: GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:sink"}},
+				},
+			},
+		},
+	}
+	incoming := ComposedActionPath{
+		CompositionID:        "cap-1",
+		EvidenceState:        EvidenceStateDeclared,
+		PolicyCoverageStatus: PolicyCoverageStatusDeclared,
+		FreshnessState:       evidencepolicy.FreshnessStateFresh,
+		GaitCoverage: &GaitCoverage{
+			ActionOutcome: GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:sequence"}},
+		},
+		Stages: []CompositionStage{
+			{
+				StageID:        "stage-1",
+				Role:           CompositionStageRoleSource,
+				FreshnessState: evidencepolicy.FreshnessStateFresh,
+				GaitCoverage: &GaitCoverage{
+					ActionOutcome: GaitCoverageDetail{Status: GaitStatusMissing},
+				},
+			},
+			{
+				StageID:        "stage-2",
+				Role:           CompositionStageRoleExternalSink,
+				FreshnessState: evidencepolicy.FreshnessStateFresh,
+				GaitCoverage: &GaitCoverage{
+					ActionOutcome: GaitCoverageDetail{Status: GaitStatusPresent, EvidenceRefs: []string{"runtime:sink"}},
+				},
+			},
+		},
+	}
+
+	merged := mergeComposedActionPath(current, incoming)
+	if merged.ClaimState == CompositionClaimObservedExecution {
+		t.Fatalf("expected merged duplicate without full stage runtime proof to drop observed_execution, got %+v", merged)
 	}
 }
 
