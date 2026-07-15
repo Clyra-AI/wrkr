@@ -1927,10 +1927,6 @@ func sanitizeActivationSummaryPublic(in *ActivationSummary) *ActivationSummary {
 	return &copySummary
 }
 
-func sanitizeActionPathsPublic(in []risk.ActionPath) []risk.ActionPath {
-	return sanitizeActionPathsPublicWithContractRefs(in, nil, nil)
-}
-
 func sanitizeActionPathsPublicWithContractRefs(in []risk.ActionPath, proposedContractRefMap map[string]string, compositionIDMap map[string]string) []risk.ActionPath {
 	if len(in) == 0 {
 		return nil
