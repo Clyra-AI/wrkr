@@ -497,7 +497,7 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.Transitions = buildCompositionTransitions(merged.CompositionID, merged.Stages)
 	merged.Contradictions = mergeContradictions(merged.Contradictions, incoming.Contradictions)
 	merged.ClosureRequirements = CloneClosureRequirements(firstNonEmptyClosureRequirements(merged.ClosureRequirements, incoming.ClosureRequirements))
-	merged.EvidenceCompleteness = firstNonNilEvidenceCompleteness(merged.EvidenceCompleteness, incoming.EvidenceCompleteness)
+	merged.EvidenceCompleteness = mergeEvidenceCompletenessValues(merged.EvidenceCompleteness, incoming.EvidenceCompleteness)
 	merged.GaitCoverage = MergeGaitCoverage(merged.GaitCoverage, incoming.GaitCoverage)
 	merged.EvidenceState = compositionEvidenceState(merged.EvidenceState, incoming.EvidenceState)
 	merged.FreshnessState = compositionFreshnessState(merged.FreshnessState, incoming.FreshnessState)
@@ -634,7 +634,7 @@ func compositionTargetIdentity(_ compositionPatternSpec, paths []ActionPath) str
 			values = append(values, "endpoint_group:"+strings.TrimSpace(path.EndpointRefGroupID))
 		}
 		for _, item := range path.MutableEndpointSemantics {
-			values = append(values, strings.TrimSpace(item.Surface), strings.TrimSpace(item.Operation))
+			values = append(values, compositionMutableEndpointIdentity(item))
 		}
 		if path.CredentialAuthority != nil {
 			values = append(values, strings.TrimSpace(path.CredentialAuthority.TargetSystem), strings.TrimSpace(path.CredentialAuthority.LikelyScope))
@@ -735,12 +735,89 @@ func compositionClosureRequirements(paths []ActionPath) []ClosureRequirement {
 }
 
 func compositionEvidenceCompleteness(paths []ActionPath) *EvidenceCompleteness {
+	var merged *EvidenceCompleteness
 	for _, path := range paths {
-		if path.EvidenceCompleteness != nil {
-			return CloneEvidenceCompleteness(path.EvidenceCompleteness)
+		merged = mergeEvidenceCompletenessValues(merged, path.EvidenceCompleteness)
+	}
+	return merged
+}
+
+func compositionMutableEndpointIdentity(item agginventory.MutableEndpointSemantic) string {
+	surface := strings.TrimSpace(item.Surface)
+	operation := strings.TrimSpace(item.Operation)
+	switch {
+	case surface == "" && operation == "":
+		return ""
+	case surface == "":
+		return "endpoint:(operation=" + operation + ")"
+	case operation == "":
+		return "endpoint:(surface=" + surface + ")"
+	default:
+		return "endpoint:(surface=" + surface + ",operation=" + operation + ")"
+	}
+}
+
+func mergeEvidenceCompletenessValues(values ...*EvidenceCompleteness) *EvidenceCompleteness {
+	present := make([]*EvidenceCompleteness, 0, len(values))
+	for _, value := range values {
+		if value != nil {
+			present = append(present, CloneEvidenceCompleteness(value))
 		}
 	}
-	return nil
+	if len(present) == 0 {
+		return nil
+	}
+	merged := present[0]
+	axisScores := map[string]EvidenceCompletenessAxisScore{}
+	for _, item := range merged.AxisScores {
+		axisScores[strings.TrimSpace(item.Axis)] = item
+	}
+	for _, completeness := range present[1:] {
+		if completeness.TotalScore < merged.TotalScore {
+			merged.TotalScore = completeness.TotalScore
+		}
+		merged.EvidenceGaps = dedupeSortedStrings(append(merged.EvidenceGaps, completeness.EvidenceGaps...))
+		merged.UnsupportedSurfaces = dedupeSortedStrings(append(merged.UnsupportedSurfaces, completeness.UnsupportedSurfaces...))
+		merged.FreshnessPenalties = dedupeSortedStrings(append(merged.FreshnessPenalties, completeness.FreshnessPenalties...))
+		merged.ContradictionPenalties = dedupeSortedStrings(append(merged.ContradictionPenalties, completeness.ContradictionPenalties...))
+		merged.Reasons = dedupeSortedStrings(append(merged.Reasons, completeness.Reasons...))
+		for _, incoming := range completeness.AxisScores {
+			key := strings.TrimSpace(incoming.Axis)
+			current, ok := axisScores[key]
+			if !ok {
+				axisScores[key] = incoming
+				continue
+			}
+			if incoming.Score < current.Score {
+				current.Score = incoming.Score
+			}
+			current.Reasons = dedupeSortedStrings(append(current.Reasons, incoming.Reasons...))
+			axisScores[key] = current
+		}
+	}
+	merged.Label = evidenceCompletenessLabel(merged.TotalScore)
+	merged.AxisScores = make([]EvidenceCompletenessAxisScore, 0, len(axisScores))
+	seen := map[string]struct{}{}
+	for _, axis := range completenessAxisOrder {
+		score, ok := axisScores[axis]
+		if !ok {
+			continue
+		}
+		merged.AxisScores = append(merged.AxisScores, score)
+		seen[axis] = struct{}{}
+	}
+	extras := make([]string, 0, len(axisScores))
+	for axis := range axisScores {
+		if _, ok := seen[axis]; ok {
+			continue
+		}
+		extras = append(extras, axis)
+	}
+	sort.Strings(extras)
+	for _, axis := range extras {
+		merged.AxisScores = append(merged.AxisScores, axisScores[axis])
+	}
+	return merged
 }
 
 func compositionEvidenceStateFromStages(stages []CompositionStage) string {
