@@ -213,6 +213,51 @@ func TestSaveAddsPolicyOutcomesAndSuppressedCounts(t *testing.T) {
 	}
 }
 
+func TestSaveFiltersComposedRefsAfterSnapshotCaps(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "state.json")
+
+	composed := make([]risk.ComposedActionPath, 0, maxSavedComposedActionPaths+1)
+	for idx := 0; idx < maxSavedComposedActionPaths+1; idx++ {
+		composed = append(composed, risk.ComposedActionPath{
+			CompositionID:              fmt.Sprintf("cap-%03d", idx),
+			ProposedActionContractRefs: []string{fmt.Sprintf("pac-%03d", idx)},
+		})
+	}
+
+	snapshot := Snapshot{
+		Target: source.Target{Mode: "repo", Value: "acme/repo"},
+		RiskReport: &risk.Report{
+			ActionPaths: []risk.ActionPath{{
+				PathID:                     "apc-1",
+				CompositionIDs:             []string{"cap-000", fmt.Sprintf("cap-%03d", maxSavedComposedActionPaths)},
+				ProposedActionContractRefs: []string{"pac-000", fmt.Sprintf("pac-%03d", maxSavedComposedActionPaths)},
+			}},
+			ComposedActionPaths: composed,
+		},
+	}
+
+	if err := Save(path, snapshot); err != nil {
+		t.Fatalf("save snapshot: %v", err)
+	}
+
+	loaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load snapshot: %v", err)
+	}
+	if len(loaded.RiskReport.ActionPaths) != 1 {
+		t.Fatalf("expected one action path, got %+v", loaded.RiskReport.ActionPaths)
+	}
+	if !reflect.DeepEqual(loaded.RiskReport.ActionPaths[0].CompositionIDs, []string{"cap-000"}) {
+		t.Fatalf("expected capped snapshot to drop suppressed composition ids, got %+v", loaded.RiskReport.ActionPaths[0].CompositionIDs)
+	}
+	if !reflect.DeepEqual(loaded.RiskReport.ActionPaths[0].ProposedActionContractRefs, []string{"pac-000"}) {
+		t.Fatalf("expected capped snapshot to drop suppressed contract refs, got %+v", loaded.RiskReport.ActionPaths[0].ProposedActionContractRefs)
+	}
+}
+
 func TestSaveRebuildsPolicyOutcomesFromCurrentFindings(t *testing.T) {
 	t.Parallel()
 
