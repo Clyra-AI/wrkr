@@ -388,6 +388,92 @@ func TestApplySummaryCapsDropsSuppressedAssessmentRefs(t *testing.T) {
 	}
 }
 
+func TestApplySummaryCapsDropsComposedPathsThatReferenceSuppressedActionPaths(t *testing.T) {
+	t.Parallel()
+
+	actionPaths := make([]risk.ActionPath, 0, defaultMaxActionPaths+1)
+	for idx := 0; idx < defaultMaxActionPaths+1; idx++ {
+		actionPaths = append(actionPaths, risk.ActionPath{
+			PathID: fmt.Sprintf("apc-%03d", idx),
+		})
+	}
+	actionPaths[0].CompositionIDs = []string{"cap-keep", "cap-drop"}
+	actionPaths[0].ProposedActionContractRefs = []string{"pac-keep", "pac-drop"}
+
+	summary := Summary{
+		ActionPaths: actionPaths,
+		ComposedActionPaths: []risk.ComposedActionPath{
+			{
+				CompositionID:              "cap-keep",
+				PathIDs:                    []string{"apc-000"},
+				ProposedActionContractRefs: []string{"pac-keep"},
+				Stages: []risk.CompositionStage{
+					{StageID: "stage-keep", PathID: "apc-000"},
+				},
+			},
+			{
+				CompositionID:              "cap-drop",
+				PathIDs:                    []string{fmt.Sprintf("apc-%03d", defaultMaxActionPaths)},
+				ProposedActionContractRefs: []string{"pac-drop"},
+				Stages: []risk.CompositionStage{
+					{StageID: "stage-drop", PathID: fmt.Sprintf("apc-%03d", defaultMaxActionPaths)},
+				},
+			},
+		},
+		AgentActionBOM: &AgentActionBOM{
+			Items: []AgentActionBOMItem{{
+				PathID:                     "apc-000",
+				CompositionIDs:             []string{"cap-keep", "cap-drop"},
+				ProposedActionContractRefs: []string{"pac-keep", "pac-drop"},
+			}},
+			Summary: AgentActionBOMSummary{
+				PrimaryView: &AgentActionBOMPrimaryView{
+					PathID:                     "apc-000",
+					CompositionIDs:             []string{"cap-keep", "cap-drop"},
+					ProposedActionContractRefs: []string{"pac-keep", "pac-drop"},
+				},
+			},
+		},
+		AssessmentSummary: &AssessmentSummary{
+			TopPathToControlFirst: &risk.ActionPath{
+				PathID:                     "apc-000",
+				CompositionIDs:             []string{"cap-keep", "cap-drop"},
+				ProposedActionContractRefs: []string{"pac-keep", "pac-drop"},
+			},
+		},
+	}
+
+	ApplySummaryCaps(&summary)
+
+	if len(summary.ActionPaths) != defaultMaxActionPaths {
+		t.Fatalf("expected action paths to cap at %d, got %d", defaultMaxActionPaths, len(summary.ActionPaths))
+	}
+	if len(summary.ComposedActionPaths) != 1 || summary.ComposedActionPaths[0].CompositionID != "cap-keep" {
+		t.Fatalf("expected composed paths to drop refs to capped action paths, got %+v", summary.ComposedActionPaths)
+	}
+
+	wantIDs := []string{"cap-keep"}
+	wantRefs := []string{"pac-keep"}
+	if !reflect.DeepEqual(summary.ActionPaths[0].CompositionIDs, wantIDs) {
+		t.Fatalf("expected action path composition ids to drop capped references, got %+v", summary.ActionPaths[0].CompositionIDs)
+	}
+	if !reflect.DeepEqual(summary.ActionPaths[0].ProposedActionContractRefs, wantRefs) {
+		t.Fatalf("expected action path contract refs to drop capped references, got %+v", summary.ActionPaths[0].ProposedActionContractRefs)
+	}
+	if !reflect.DeepEqual(summary.AgentActionBOM.Items[0].CompositionIDs, wantIDs) {
+		t.Fatalf("expected BOM item composition ids to drop capped references, got %+v", summary.AgentActionBOM.Items[0].CompositionIDs)
+	}
+	if !reflect.DeepEqual(summary.AgentActionBOM.Summary.PrimaryView.CompositionIDs, wantIDs) {
+		t.Fatalf("expected primary view composition ids to drop capped references, got %+v", summary.AgentActionBOM.Summary.PrimaryView.CompositionIDs)
+	}
+	if !reflect.DeepEqual(summary.AssessmentSummary.TopPathToControlFirst.CompositionIDs, wantIDs) {
+		t.Fatalf("expected assessment composition ids to drop capped references, got %+v", summary.AssessmentSummary.TopPathToControlFirst.CompositionIDs)
+	}
+	if summary.SuppressedCounts == nil || summary.SuppressedCounts.ActionPaths != 1 || summary.SuppressedCounts.ComposedActionPaths != 1 {
+		t.Fatalf("expected suppressed counts to record both action-path and composed-path caps, got %+v", summary.SuppressedCounts)
+	}
+}
+
 func TestBuildWorkflowHighlightsSkipsPlainSourceContext(t *testing.T) {
 	t.Parallel()
 
