@@ -238,6 +238,46 @@ func TestPrepareEvidenceBundleSummaryDefaultsAgentActionBOMToLeadBundle(t *testi
 	}
 }
 
+func TestPrepareEvidenceBundleSummaryFiltersComposedPathsToLeadScope(t *testing.T) {
+	t.Parallel()
+
+	summary := Summary{
+		Template: string(TemplateAgentActionBOM),
+		ActionPaths: []risk.ActionPath{
+			{PathID: "apc-focus"},
+			{PathID: "apc-other"},
+		},
+		ComposedActionPaths: []risk.ComposedActionPath{
+			{CompositionID: "cap-focus", PathIDs: []string{"apc-focus"}},
+			{CompositionID: "cap-other", PathIDs: []string{"apc-other"}},
+		},
+		AgentActionBOM: &AgentActionBOM{
+			Summary: AgentActionBOMSummary{
+				PrimaryView: &AgentActionBOMPrimaryView{PathID: "apc-focus"},
+			},
+			Items: []AgentActionBOMItem{
+				{PathID: "apc-focus"},
+				{PathID: "apc-other"},
+			},
+			ComposedActionPaths: []risk.ComposedActionPath{
+				{CompositionID: "cap-focus", PathIDs: []string{"apc-focus"}},
+				{CompositionID: "cap-other", PathIDs: []string{"apc-other"}},
+			},
+		},
+	}
+
+	focused := PrepareEvidenceBundleSummary(summary, "apc-focus", "")
+	if len(focused.ComposedActionPaths) != 1 || focused.ComposedActionPaths[0].CompositionID != "cap-focus" {
+		t.Fatalf("expected focused summary composed paths to keep only the selected path, got %+v", focused.ComposedActionPaths)
+	}
+	if focused.AgentActionBOM == nil || len(focused.AgentActionBOM.ComposedActionPaths) != 1 || focused.AgentActionBOM.ComposedActionPaths[0].CompositionID != "cap-focus" {
+		t.Fatalf("expected focused BOM composed paths to keep only the selected path, got %+v", focused.AgentActionBOM)
+	}
+	if focused.SuppressedCounts == nil || focused.SuppressedCounts.ComposedActionPaths != 1 {
+		t.Fatalf("expected focused lead bundle to record suppressed composed paths, got %+v", focused.SuppressedCounts)
+	}
+}
+
 func TestPrepareEvidenceBundleSummaryDefaultUsesCompactedHighlightSource(t *testing.T) {
 	t.Parallel()
 

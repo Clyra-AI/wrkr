@@ -209,6 +209,35 @@ func TestCompositionTargetIdentityPreservesEndpointTuples(t *testing.T) {
 	}
 }
 
+func TestCompositionTargetIdentityPreservesCredentialTuples(t *testing.T) {
+	t.Parallel()
+
+	first := compositionTargetIdentity(compositionPatternSpec{}, []ActionPath{{
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			TargetSystem: "aws",
+			LikelyScope:  "prod",
+		},
+		CredentialProvenance: &agginventory.CredentialProvenance{
+			TargetSystem: "gcp",
+			LikelyScope:  "staging",
+		},
+	}})
+	second := compositionTargetIdentity(compositionPatternSpec{}, []ActionPath{{
+		CredentialAuthority: &agginventory.CredentialAuthority{
+			TargetSystem: "aws",
+			LikelyScope:  "staging",
+		},
+		CredentialProvenance: &agginventory.CredentialProvenance{
+			TargetSystem: "gcp",
+			LikelyScope:  "prod",
+		},
+	}})
+
+	if first == second {
+		t.Fatalf("expected credential target/scope tuples to stay encoded in target identity, got %q", first)
+	}
+}
+
 func TestBuildComposedActionPathsAggregatesEvidenceCompletenessAcrossStages(t *testing.T) {
 	t.Parallel()
 

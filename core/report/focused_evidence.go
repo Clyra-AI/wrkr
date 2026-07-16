@@ -43,6 +43,10 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 	}
 	focused.FocusedBundleAvailable = true
 	focused.ActionPaths = filterFocusedActionPaths(summary.ActionPaths, pathIDSet)
+	focused.ComposedActionPaths = filterFocusedComposedActionPaths(summary.ComposedActionPaths, pathIDSet)
+	if omitted := len(summary.ComposedActionPaths) - len(focused.ComposedActionPaths); omitted > 0 {
+		focused.SuppressedCounts.ComposedActionPaths += omitted
+	}
 
 	if summary.AgentActionBOM != nil {
 		bomCopy := *summary.AgentActionBOM
@@ -57,6 +61,7 @@ func PrepareEvidenceBundleSummary(summary Summary, focusPathID string, focusPres
 		} else {
 			bomCopy.focusSourceItems = append([]AgentActionBOMItem(nil), bomCopy.Items...)
 		}
+		bomCopy.ComposedActionPaths = append([]risk.ComposedActionPath(nil), focused.ComposedActionPaths...)
 		bomCopy.Summary.PrimaryView = nil
 		if strings.TrimSpace(focusPathID) != "" {
 			_ = selectAgentActionBOMPrimaryView(&bomCopy, focusPathID)
@@ -205,6 +210,25 @@ func filterAgentActionBOMItems(items []AgentActionBOMItem, pathIDSet map[string]
 			continue
 		}
 		filtered = append(filtered, item)
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
+}
+
+func filterFocusedComposedActionPaths(paths []risk.ComposedActionPath, pathIDSet map[string]struct{}) []risk.ComposedActionPath {
+	if len(paths) == 0 || len(pathIDSet) == 0 {
+		return nil
+	}
+	filtered := make([]risk.ComposedActionPath, 0, len(paths))
+	for _, path := range paths {
+		for _, pathID := range path.PathIDs {
+			if _, ok := pathIDSet[strings.TrimSpace(pathID)]; ok {
+				filtered = append(filtered, path)
+				break
+			}
+		}
 	}
 	if len(filtered) == 0 {
 		return nil
