@@ -8,6 +8,8 @@ import (
 )
 
 func TestAgentActionBOMAcceptanceStaticToRuntimeEvidence(t *testing.T) {
+	t.Parallel()
+
 	paths := loadAcceptancePaths(t)
 
 	beforeState := filepath.Join(t.TempDir(), "before-state.json")

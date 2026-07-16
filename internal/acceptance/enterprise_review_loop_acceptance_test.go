@@ -10,6 +10,8 @@ import (
 )
 
 func TestEnterpriseReviewLoopFixtureBudgets(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	scanRoot := filepath.Join(tmp, "enterprise-review-loop")
 	if err := enterprisepressure.MaterializeCount(scanRoot, enterprisepressure.VariantBaseline, sprint0AcceptanceRepoCount); err != nil {
@@ -79,6 +81,8 @@ func TestEnterpriseReviewLoopFixtureBudgets(t *testing.T) {
 }
 
 func TestEnterpriseFixtureGovernedCINotTopControlFirst(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	scanRoot := filepath.Join(tmp, "enterprise-governed-vs-broad")
 	if err := enterprisepressure.MaterializeCount(scanRoot, enterprisepressure.VariantBaseline, 160); err != nil {
@@ -106,6 +110,8 @@ func TestEnterpriseFixtureGovernedCINotTopControlFirst(t *testing.T) {
 }
 
 func TestEnterpriseFixtureExpiredDeclarationReopens(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	baselineRoot := filepath.Join(tmp, "baseline")
 	currentRoot := filepath.Join(tmp, "current")

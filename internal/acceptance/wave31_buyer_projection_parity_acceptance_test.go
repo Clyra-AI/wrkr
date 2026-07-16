@@ -8,6 +8,8 @@ import (
 )
 
 func TestWave31BuyerProjectionParityAcrossConsumers(t *testing.T) {
+	t.Parallel()
+
 	paths := loadAcceptancePaths(t)
 
 	statePath := filepath.Join(t.TempDir(), "after-state.json")

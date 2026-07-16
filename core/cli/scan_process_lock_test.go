@@ -30,6 +30,8 @@ func TestScanProcessHelper(t *testing.T) {
 }
 
 func TestConcurrentScanProcessesPreserveCompleteProofChain(t *testing.T) {
+	t.Parallel()
+
 	repoRoot, err := filepath.Abs(filepath.Join("..", "..", "scenarios", "wrkr", "scan-mixed-org", "repos"))
 	if err != nil {
 		t.Fatalf("resolve fixture path: %v", err)

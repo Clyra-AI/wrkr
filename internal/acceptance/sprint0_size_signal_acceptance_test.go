@@ -22,6 +22,8 @@ const (
 )
 
 func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	scanRoot := filepath.Join(tmp, "enterprise-pressure")
 	if err := enterprisepressure.MaterializeCount(scanRoot, enterprisepressure.VariantBaseline, sprint0AcceptanceRepoCount); err != nil {
@@ -121,6 +123,8 @@ func TestSprint0AgentActionBOMArtifactsStayBoundedAndRedacted(t *testing.T) {
 }
 
 func TestSprint0EndpointDenseArtifactsUseGroupedEndpointProjection(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	scanRoot := filepath.Join(tmp, "endpoint-dense-pressure")
 	if err := enterprisepressure.MaterializeEndpointDense(scanRoot, sprint0EndpointDenseRepoCount, enterprisepressure.DefaultDenseOpenAPIOperations); err != nil {

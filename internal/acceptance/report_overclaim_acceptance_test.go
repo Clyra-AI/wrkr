@@ -11,9 +11,13 @@ import (
 )
 
 func TestReportOverclaimAcceptance(t *testing.T) {
+	t.Parallel()
+
 	paths := loadAcceptancePaths(t)
 
 	t.Run("control-evidence-internal", func(t *testing.T) {
+		t.Parallel()
+
 		statePath := filepath.Join(t.TempDir(), "control-evidence-state.json")
 		mdPath := filepath.Join(t.TempDir(), "control-evidence.md")
 		scanRoot := filepath.Join(paths.repoRoot, "scenarios", "wrkr", "control-evidence-state", "repos")
@@ -34,6 +38,8 @@ func TestReportOverclaimAcceptance(t *testing.T) {
 	})
 
 	t.Run("static-runtime-internal", func(t *testing.T) {
+		t.Parallel()
+
 		statePath := filepath.Join(t.TempDir(), "agent-action-bom-before.json")
 		mdPath := filepath.Join(t.TempDir(), "agent-action-bom-before.md")
 		scanRoot := filepath.Join(paths.repoRoot, "scenarios", "wrkr", "agent-action-bom-demo", "before", "repos")
@@ -54,6 +60,8 @@ func TestReportOverclaimAcceptance(t *testing.T) {
 	})
 
 	t.Run("customer-redacted", func(t *testing.T) {
+		t.Parallel()
+
 		statePath := filepath.Join(t.TempDir(), "customer-redacted-state.json")
 		mdPath := filepath.Join(t.TempDir(), "customer-redacted.md")
 		scanRoot := filepath.Join(paths.repoRoot, "scenarios", "wrkr", "buyer-action-registry-hardening", "repos")

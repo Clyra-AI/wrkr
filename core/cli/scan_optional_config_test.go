@@ -36,6 +36,8 @@ func TestScanExplicitTargetIgnoresInvalidDefaultConfig(t *testing.T) {
 }
 
 func TestScanExplicitConfigStillFailsWhenInvalid(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	reposPath := filepath.Join(tmp, "repos")
 	repoPath := filepath.Join(reposPath, "backend")

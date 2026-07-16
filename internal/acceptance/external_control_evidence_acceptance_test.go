@@ -7,6 +7,8 @@ import (
 )
 
 func TestExternalControlEvidenceAcceptance(t *testing.T) {
+	t.Parallel()
+
 	repoRoot := filepath.Join(t.TempDir(), "demo-app")
 	if err := os.MkdirAll(filepath.Join(repoRoot, ".github", "workflows"), 0o755); err != nil {
 		t.Fatalf("mkdir workflow dir: %v", err)

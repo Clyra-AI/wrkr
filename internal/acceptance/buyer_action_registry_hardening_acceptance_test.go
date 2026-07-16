@@ -9,6 +9,8 @@ import (
 )
 
 func TestBuyerActionRegistryHardeningAcceptance(t *testing.T) {
+	t.Parallel()
+
 	paths := loadAcceptancePaths(t)
 	scanRoot := filepath.Join(paths.repoRoot, "scenarios", "wrkr", "buyer-action-registry-hardening", "repos")
 	tmp := t.TempDir()

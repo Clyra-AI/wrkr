@@ -167,6 +167,8 @@ func TestScanGitHubAPIBasePrecedenceConfigOverEnv(t *testing.T) {
 }
 
 func TestScanUsesConfigHostedGitHubAPIBaseForDefaultTarget(t *testing.T) {
+	t.Parallel()
+
 	configServer := newHostedScanBaseServer(t)
 	defer configServer.Close()
 
