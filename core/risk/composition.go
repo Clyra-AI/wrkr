@@ -635,10 +635,10 @@ func compositionTargetIdentity(_ compositionPatternSpec, paths []ActionPath) str
 			values = append(values, compositionMutableEndpointIdentity(item))
 		}
 		if path.CredentialAuthority != nil {
-			values = append(values, strings.TrimSpace(path.CredentialAuthority.TargetSystem), strings.TrimSpace(path.CredentialAuthority.LikelyScope))
+			values = append(values, compositionCredentialAuthorityIdentity(path.CredentialAuthority))
 		}
 		if path.CredentialProvenance != nil {
-			values = append(values, strings.TrimSpace(path.CredentialProvenance.TargetSystem), strings.TrimSpace(path.CredentialProvenance.LikelyScope), strings.TrimSpace(path.CredentialProvenance.Scope))
+			values = append(values, compositionCredentialProvenanceIdentity(path.CredentialProvenance))
 		}
 	}
 	values = dedupeSortedStrings(values)
@@ -753,6 +753,47 @@ func compositionMutableEndpointIdentity(item agginventory.MutableEndpointSemanti
 	default:
 		return "endpoint:(surface=" + surface + ",operation=" + operation + ")"
 	}
+}
+
+func compositionCredentialAuthorityIdentity(authority *agginventory.CredentialAuthority) string {
+	if authority == nil {
+		return ""
+	}
+	targetSystem := strings.TrimSpace(authority.TargetSystem)
+	likelyScope := strings.TrimSpace(authority.LikelyScope)
+	switch {
+	case targetSystem == "" && likelyScope == "":
+		return ""
+	case targetSystem == "":
+		return "credential_authority:(likely_scope=" + likelyScope + ")"
+	case likelyScope == "":
+		return "credential_authority:(target_system=" + targetSystem + ")"
+	default:
+		return "credential_authority:(target_system=" + targetSystem + ",likely_scope=" + likelyScope + ")"
+	}
+}
+
+func compositionCredentialProvenanceIdentity(provenance *agginventory.CredentialProvenance) string {
+	if provenance == nil {
+		return ""
+	}
+	targetSystem := strings.TrimSpace(provenance.TargetSystem)
+	likelyScope := strings.TrimSpace(provenance.LikelyScope)
+	scope := strings.TrimSpace(provenance.Scope)
+	parts := []string{}
+	if targetSystem != "" {
+		parts = append(parts, "target_system="+targetSystem)
+	}
+	if likelyScope != "" {
+		parts = append(parts, "likely_scope="+likelyScope)
+	}
+	if scope != "" {
+		parts = append(parts, "scope="+scope)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return "credential_provenance:(" + strings.Join(parts, ",") + ")"
 }
 
 func mergeEvidenceCompletenessValues(values ...*EvidenceCompleteness) *EvidenceCompleteness {
