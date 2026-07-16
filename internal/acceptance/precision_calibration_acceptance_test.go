@@ -11,6 +11,8 @@ import (
 )
 
 func TestPrecisionCalibrationAcceptance(t *testing.T) {
+	t.Parallel()
+
 	paths := loadAcceptancePaths(t)
 	scanRoot := filepath.Join(paths.repoRoot, "scenarios", "wrkr", "precision-calibration", "repos")
 	statePath := filepath.Join(t.TempDir(), "precision-acceptance-state.json")

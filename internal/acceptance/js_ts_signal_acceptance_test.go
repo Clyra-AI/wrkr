@@ -13,6 +13,8 @@ type jsTSEnterpriseAcceptanceReceipt struct {
 }
 
 func TestScanQualityParserHonestyOnJSEnterpriseFixture(t *testing.T) {
+	t.Parallel()
+
 	repoRoot := mustFindRepoRoot(t)
 	scenarioRoot := filepath.Join(repoRoot, "scenarios", "wrkr", "js-ts-enterprise")
 	scanRoot := filepath.Join(scenarioRoot, "repos")

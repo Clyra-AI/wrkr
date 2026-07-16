@@ -261,6 +261,8 @@ func TestScanProgressBarRendersOnTTYStderr(t *testing.T) {
 }
 
 func TestScanProgressPlainRendererForNonTTY(t *testing.T) {
+	t.Parallel()
+
 	var errOut bytes.Buffer
 	progress := newScanProgressReporter(scanProgressReporterOptions{
 		RequestedMode: scanProgressModeBar,

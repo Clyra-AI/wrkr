@@ -13,7 +13,11 @@ import (
 
 // Acceptance fixtures for executive report PDF output and detailed wrapped output.
 func TestAcceptanceExecutiveReportPDFFixtures(t *testing.T) {
+	t.Parallel()
+
 	t.Run("executive_summary_fixture_keeps_key_sections_visible", func(t *testing.T) {
+		t.Parallel()
+
 		statePath := filepath.Join(t.TempDir(), "state.json")
 		writeJSON(t, statePath, map[string]any{
 			"version": "v1",
@@ -74,6 +78,8 @@ func TestAcceptanceExecutiveReportPDFFixtures(t *testing.T) {
 	})
 
 	t.Run("detailed_report_fixture_wraps_and_paginates", func(t *testing.T) {
+		t.Parallel()
+
 		statePath := filepath.Join(t.TempDir(), "state.json")
 		ranked := make([]any, 0, 70)
 		for i := 0; i < 70; i++ {

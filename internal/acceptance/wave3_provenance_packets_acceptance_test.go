@@ -7,6 +7,8 @@ import (
 )
 
 func TestWave3AcceptanceEvidencePacketsAndRecentReview(t *testing.T) {
+	t.Parallel()
+
 	paths := loadAcceptancePaths(t)
 
 	statePath := filepath.Join(t.TempDir(), "wave3-state.json")

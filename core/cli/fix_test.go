@@ -154,6 +154,8 @@ func TestFixOpenPRWritesRemediationArtifacts(t *testing.T) {
 }
 
 func TestFixApplyRequiresOpenPR(t *testing.T) {
+	t.Parallel()
+
 	statePath := writeApplyStateFixture(t)
 	var out bytes.Buffer
 	var errOut bytes.Buffer

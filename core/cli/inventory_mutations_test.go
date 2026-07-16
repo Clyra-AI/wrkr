@@ -19,6 +19,8 @@ import (
 )
 
 func TestInventoryApproveWritesApprovalProofRecordAtomically(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	statePath, agentID := writeInventoryMutationFixture(t, tmp)
 
@@ -88,6 +90,8 @@ func TestInventoryApproveWritesApprovalProofRecordAtomically(t *testing.T) {
 }
 
 func TestInventoryAcceptRiskRequiresGovernanceFields(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	statePath, agentID := writeInventoryMutationFixture(t, tmp)
 
@@ -111,6 +115,8 @@ func TestInventoryAcceptRiskRequiresGovernanceFields(t *testing.T) {
 }
 
 func TestInventoryExcludeRequiresOwnerAndExpiry(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	statePath, agentID := writeInventoryMutationFixture(t, tmp)
 
@@ -136,6 +142,8 @@ func TestInventoryExcludeRequiresOwnerAndExpiry(t *testing.T) {
 }
 
 func TestInventoryMutationRejectsUnsafeManagedMarker(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	realStatePath, agentID := writeInventoryMutationFixture(t, tmp)
 	stateLink := filepath.Join(tmp, "state-link.json")
@@ -160,6 +168,8 @@ func TestInventoryMutationRejectsUnsafeManagedMarker(t *testing.T) {
 }
 
 func TestInventoryApproveUpdatesOnlyResolvedAgentID(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	statePath, agentID := writeInventoryMutationFixture(t, tmp)
 	loadedState, err := state.Load(statePath)
@@ -227,6 +237,8 @@ func TestInventoryApproveUpdatesOnlyResolvedAgentID(t *testing.T) {
 }
 
 func TestInventoryMutationRejectsAmbiguousToolID(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	statePath, _ := writeInventoryMutationFixture(t, tmp)
 	loadedState, err := state.Load(statePath)
