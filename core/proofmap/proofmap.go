@@ -418,18 +418,14 @@ func MapDecisionTraces(paths []risk.ActionPath, now time.Time) []MappedRecord {
 			"approval_exception_reason": decisionTraceApprovalOrExceptionReason(projected),
 			"context_used":              decisionTraceContextUsed(projected),
 			"what_changed": map[string]any{
-				"artifact":        strings.TrimSpace(projected.Location),
-				"surface_type":    decisionTraceSurfaceType(projected),
-				"purpose":         strings.TrimSpace(projected.Purpose),
-				"workflow_chains": append([]string(nil), projected.WorkflowChainRefs...),
+				"artifact":     strings.TrimSpace(projected.Location),
+				"surface_type": decisionTraceSurfaceType(projected),
+				"purpose":      strings.TrimSpace(projected.Purpose),
 			},
-			"evidence_refs":                 evidenceRefs,
-			"workflow_chain_refs":           append([]string(nil), projected.WorkflowChainRefs...),
-			"composition_ids":               append([]string(nil), projected.CompositionIDs...),
-			"proposed_action_contract_refs": append([]string(nil), projected.ProposedActionContractRefs...),
-			"autonomy_tier":                 strings.TrimSpace(projected.AutonomyTier),
-			"recommended_control":           strings.TrimSpace(projected.RecommendedControl),
-			"evidence_states":               decisionTraceEvidenceStates(projected),
+			"evidence_refs":       evidenceRefs,
+			"autonomy_tier":       strings.TrimSpace(projected.AutonomyTier),
+			"recommended_control": strings.TrimSpace(projected.RecommendedControl),
+			"evidence_states":     decisionTraceEvidenceStates(projected),
 			"outcome": map[string]any{
 				"recommended_control":        strings.TrimSpace(projected.RecommendedControl),
 				"delegation_readiness_state": strings.TrimSpace(projected.DelegationReadinessState),
@@ -438,18 +434,36 @@ func MapDecisionTraces(paths []risk.ActionPath, now time.Time) []MappedRecord {
 			},
 			"proof_refs": proofRefs,
 		}
+		if workflowChains := cloneNonEmptyStrings(projected.WorkflowChainRefs); len(workflowChains) > 0 {
+			event["workflow_chain_refs"] = workflowChains
+			if whatChanged, ok := event["what_changed"].(map[string]any); ok {
+				whatChanged["workflow_chains"] = workflowChains
+			}
+		}
+		if compositionIDs := cloneNonEmptyStrings(projected.CompositionIDs); len(compositionIDs) > 0 {
+			event["composition_ids"] = compositionIDs
+		}
+		if proposedContractRefs := cloneNonEmptyStrings(projected.ProposedActionContractRefs); len(proposedContractRefs) > 0 {
+			event["proposed_action_contract_refs"] = proposedContractRefs
+		}
 		if gaitCoverage := decisionTraceGaitCoverageSummary(projected.GaitCoverage); len(gaitCoverage) > 0 {
 			event["gait_coverage"] = gaitCoverage
 		}
 		metadata := map[string]any{
-			"rank":                          idx + 1,
-			"path_id":                       strings.TrimSpace(projected.PathID),
-			"trace_id":                      traceID,
-			"resolution_key":                strings.TrimSpace(projected.ResolutionKey),
-			"source_finding_keys":           append([]string(nil), projected.SourceFindingKeys...),
-			"workflow_chain_refs":           append([]string(nil), projected.WorkflowChainRefs...),
-			"composition_ids":               append([]string(nil), projected.CompositionIDs...),
-			"proposed_action_contract_refs": append([]string(nil), projected.ProposedActionContractRefs...),
+			"rank":                idx + 1,
+			"path_id":             strings.TrimSpace(projected.PathID),
+			"trace_id":            traceID,
+			"resolution_key":      strings.TrimSpace(projected.ResolutionKey),
+			"source_finding_keys": append([]string(nil), projected.SourceFindingKeys...),
+		}
+		if workflowChains := cloneNonEmptyStrings(projected.WorkflowChainRefs); len(workflowChains) > 0 {
+			metadata["workflow_chain_refs"] = workflowChains
+		}
+		if compositionIDs := cloneNonEmptyStrings(projected.CompositionIDs); len(compositionIDs) > 0 {
+			metadata["composition_ids"] = compositionIDs
+		}
+		if proposedContractRefs := cloneNonEmptyStrings(projected.ProposedActionContractRefs); len(proposedContractRefs) > 0 {
+			metadata["proposed_action_contract_refs"] = proposedContractRefs
 		}
 		records = append(records, sanitizeMappedRecord(MappedRecord{
 			RecordType:   "decision_trace",
@@ -461,6 +475,22 @@ func MapDecisionTraces(paths []risk.ActionPath, now time.Time) []MappedRecord {
 		}))
 	}
 	return records
+}
+
+func cloneNonEmptyStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func boundedScoredFindings(report risk.Report) []risk.ScoredFinding {

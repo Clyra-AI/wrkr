@@ -494,6 +494,46 @@ func TestDecisionTraceCarriesCompositionAndProposedContractRefs(t *testing.T) {
 	}
 }
 
+func TestDecisionTraceOmitsEmptyCompositionAndWorkflowRefs(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 7, 17, 17, 30, 37, 0, time.UTC)
+	path := risk.ProjectActionPath(risk.ActionPath{
+		PathID:                "apc-standalone",
+		ResolutionKey:         "rk-standalone",
+		AgentID:               "wrkr:codex:acme",
+		Org:                   "acme",
+		Repo:                  "acme/release",
+		ToolType:              "compiled_action",
+		Location:              ".github/workflows/release.yml",
+		WriteCapable:          true,
+		DeployWrite:           true,
+		CredentialAccess:      true,
+		AutonomyTier:          risk.AutonomyTier4ProdPrivilegedCustomerImpact,
+		RecommendedControl:    risk.RecommendedControlBlockStandingCredential,
+		ApprovalEvidenceState: risk.EvidenceStateUnknown,
+		OwnerEvidenceState:    risk.EvidenceStateVerified,
+		ProofEvidenceState:    risk.EvidenceStateInferred,
+	})
+
+	records := MapDecisionTraces([]risk.ActionPath{path}, now)
+	if len(records) != 1 {
+		t.Fatalf("expected one decision trace, got %+v", records)
+	}
+	for _, key := range []string{"workflow_chain_refs", "composition_ids", "proposed_action_contract_refs"} {
+		if _, ok := records[0].Event[key]; ok {
+			t.Fatalf("expected event.%s to be omitted when empty, got %+v", key, records[0].Event[key])
+		}
+		if _, ok := records[0].Metadata[key]; ok {
+			t.Fatalf("expected metadata.%s to be omitted when empty, got %+v", key, records[0].Metadata[key])
+		}
+	}
+	whatChanged, _ := records[0].Event["what_changed"].(map[string]any)
+	if _, ok := whatChanged["workflow_chains"]; ok {
+		t.Fatalf("expected what_changed.workflow_chains to be omitted when empty, got %+v", whatChanged["workflow_chains"])
+	}
+}
+
 func relationshipHasRef(rel *proof.Relationship, kind, id string) bool {
 	if rel == nil {
 		return false
