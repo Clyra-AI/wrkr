@@ -167,20 +167,43 @@ func TestSanitizeAgentActionBOMRemapsCompositionIDsToSanitizedComposedPaths(t *t
 		ContractFamilyID:      "pac-family",
 		ContractContentDigest: "pac-digest",
 		CompositionRef:        "cap-raw",
+		ContractVersion:       risk.ProposedActionContractVersion,
+		ContractKind:          risk.ProposedActionContractKind,
+		ResolutionKey:         "acme/private|release.yml",
+		ExpectedOutcomeClass:  "production_deploy",
 	}
 	raw := risk.ComposedActionPath{
-		CompositionID:              "cap-raw",
-		ResolutionKey:              "acme/private|release.yml",
-		TargetIdentity:             "acme/private",
-		DurableOutcomeKey:          "asset=acme/private|target_class=production_impacting",
-		AffectedAsset:              "acme/private",
+		CompositionID:      "cap-raw",
+		PathIDs:            []string{"apc-raw"},
+		ResolutionKey:      "acme/private|release.yml",
+		TargetIdentity:     "acme/private",
+		DurableOutcomeKey:  "asset=acme/private|target_class=production_impacting",
+		AffectedAsset:      "acme/private",
+		OutcomeClass:       "production_deploy",
+		RecommendedControl: risk.RecommendedControlBlockStandingCredential,
+		TargetClass:        risk.TargetClassProductionImpacting,
+		Stages: []risk.CompositionStage{{
+			StageID:  "stage-raw",
+			Role:     risk.CompositionStageRoleSource,
+			PathID:   "apc-raw",
+			Location: ".github/workflows/release.yml",
+		}},
 		ProposedActionContract:     rawContract,
 		ProposedActionContractRefs: []string{"pac-raw"},
+		ClosureRequirements: []risk.ClosureRequirement{{
+			ID:          "closure-raw",
+			ClosureRefs: []string{"evidence://private/closure"},
+		}},
 	}
 	bom := &AgentActionBOM{
 		ComposedActionPaths: []risk.ComposedActionPath{raw},
 		Summary: AgentActionBOMSummary{
 			PrimaryView: &AgentActionBOMPrimaryView{
+				CompositionID:              "cap-raw",
+				CompositionStageMap:        []AgentActionBOMCompositionStage{{StageID: "stage-raw", Role: risk.CompositionStageRoleSource, PathID: "apc-raw", Location: ".github/workflows/release.yml"}},
+				TargetSummary:              "acme/private production_impacting",
+				ProposedActionContract:     risk.CloneProposedActionContract(rawContract),
+				ClosureRequirements:        risk.CloneClosureRequirements(raw.ClosureRequirements),
 				CompositionIDs:             []string{"cap-raw"},
 				ProposedActionContractRefs: []string{"pac-raw"},
 			},
@@ -191,21 +214,58 @@ func TestSanitizeAgentActionBOMRemapsCompositionIDsToSanitizedComposedPaths(t *t
 		}},
 	}
 
-	redacted := sanitizeAgentActionBOM(bom, ShareProfileCustomerRedacted)
-	if redacted == nil || len(redacted.ComposedActionPaths) != 1 {
-		t.Fatalf("expected one redacted composed path, got %+v", redacted)
+	assertPrimaryViewRedaction := func(label string, redacted *AgentActionBOM) {
+		t.Helper()
+		if redacted == nil || len(redacted.ComposedActionPaths) != 1 {
+			t.Fatalf("%s: expected one redacted composed path, got %+v", label, redacted)
+		}
+		wantCompositionID := redacted.ComposedActionPaths[0].CompositionID
+		if wantCompositionID == "cap-raw" {
+			t.Fatalf("%s: expected composed path id to be redacted, got %+v", label, redacted.ComposedActionPaths[0])
+		}
+		if redacted.ComposedActionPaths[0].ProposedActionContract == nil || redacted.ComposedActionPaths[0].ProposedActionContract.CompositionRef != wantCompositionID {
+			t.Fatalf("%s: expected sanitized contract composition ref to match sanitized composed path id, got %+v", label, redacted.ComposedActionPaths[0].ProposedActionContract)
+		}
+		if got := redacted.Summary.PrimaryView.CompositionID; got != wantCompositionID {
+			t.Fatalf("%s: expected primary view composition id to be remapped, got %q want %q", label, got, wantCompositionID)
+		}
+		if got := redacted.Summary.PrimaryView.CompositionIDs; len(got) != 1 || got[0] != wantCompositionID {
+			t.Fatalf("%s: expected primary view composition ids to be remapped, got %+v want %q", label, got, wantCompositionID)
+		}
+		if got := redacted.Items[0].CompositionIDs; len(got) != 1 || got[0] != wantCompositionID {
+			t.Fatalf("%s: expected BOM item composition ids to be remapped, got %+v want %q", label, got, wantCompositionID)
+		}
+		if len(redacted.Summary.PrimaryView.CompositionStageMap) != 1 {
+			t.Fatalf("%s: expected primary view stage map to survive redaction, got %+v", label, redacted.Summary.PrimaryView.CompositionStageMap)
+		}
+		stage := redacted.Summary.PrimaryView.CompositionStageMap[0]
+		composedStage := redacted.ComposedActionPaths[0].Stages[0]
+		if stage.StageID != composedStage.StageID || stage.PathID != composedStage.PathID || stage.Location != composedStage.Location {
+			t.Fatalf("%s: expected primary view stage map to follow sanitized composed stage, got %+v want %+v", label, stage, composedStage)
+		}
+		if strings.Contains(stage.PathID, "apc-raw") || strings.Contains(stage.Location, ".github/workflows/release.yml") {
+			t.Fatalf("%s: expected primary view stage map to redact raw path/location, got %+v", label, stage)
+		}
+		if redacted.Summary.PrimaryView.ProposedActionContract == nil {
+			t.Fatalf("%s: expected primary view proposed contract after redaction", label)
+		}
+		if redacted.Summary.PrimaryView.ProposedActionContract.ContractID != redacted.ComposedActionPaths[0].ProposedActionContract.ContractID {
+			t.Fatalf("%s: expected primary view contract id to match sanitized composed path contract, got %+v vs %+v", label, redacted.Summary.PrimaryView.ProposedActionContract, redacted.ComposedActionPaths[0].ProposedActionContract)
+		}
+		if redacted.Summary.PrimaryView.ProposedActionContract.CompositionRef != wantCompositionID {
+			t.Fatalf("%s: expected primary view contract composition ref to match sanitized composition id, got %+v", label, redacted.Summary.PrimaryView.ProposedActionContract)
+		}
+		if len(redacted.Summary.PrimaryView.ProposedActionContractRefs) != 1 || redacted.Summary.PrimaryView.ProposedActionContractRefs[0] != redacted.Summary.PrimaryView.ProposedActionContract.ContractID {
+			t.Fatalf("%s: expected primary view contract refs to follow sanitized contract identity, got refs=%+v contract=%+v", label, redacted.Summary.PrimaryView.ProposedActionContractRefs, redacted.Summary.PrimaryView.ProposedActionContract)
+		}
+		if strings.Contains(redacted.Summary.PrimaryView.TargetSummary, "acme/private") {
+			t.Fatalf("%s: expected primary view target summary to follow sanitized composition target fields, got %q", label, redacted.Summary.PrimaryView.TargetSummary)
+		}
+		if got, want := redacted.Summary.PrimaryView.ClosureRequirements, redacted.ComposedActionPaths[0].ClosureRequirements; len(got) != len(want) || len(got) != 1 || len(got[0].ClosureRefs) != len(want[0].ClosureRefs) || got[0].ClosureRefs[0] != want[0].ClosureRefs[0] {
+			t.Fatalf("%s: expected primary view closure requirements to follow sanitized composed-path closure requirements, got %+v want %+v", label, got, want)
+		}
 	}
-	wantCompositionID := redacted.ComposedActionPaths[0].CompositionID
-	if wantCompositionID == "cap-raw" {
-		t.Fatalf("expected composed path id to be redacted, got %+v", redacted.ComposedActionPaths[0])
-	}
-	if redacted.ComposedActionPaths[0].ProposedActionContract == nil || redacted.ComposedActionPaths[0].ProposedActionContract.CompositionRef != wantCompositionID {
-		t.Fatalf("expected sanitized contract composition ref to match sanitized composed path id, got %+v", redacted.ComposedActionPaths[0].ProposedActionContract)
-	}
-	if got := redacted.Summary.PrimaryView.CompositionIDs; len(got) != 1 || got[0] != wantCompositionID {
-		t.Fatalf("expected primary view composition ids to be remapped, got %+v want %q", got, wantCompositionID)
-	}
-	if got := redacted.Items[0].CompositionIDs; len(got) != 1 || got[0] != wantCompositionID {
-		t.Fatalf("expected BOM item composition ids to be remapped, got %+v want %q", got, wantCompositionID)
-	}
+
+	assertPrimaryViewRedaction("public", sanitizeAgentActionBOM(bom, ShareProfileCustomerRedacted))
+	assertPrimaryViewRedaction("config", sanitizeAgentActionBOMWithConfig(bom, ShareProfileInternal, ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionRepos, RedactionPaths})))
 }
