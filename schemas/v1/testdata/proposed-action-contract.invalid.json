@@ -1,0 +1,10 @@
+{
+  "contract_id": "pac-schema-invalid",
+  "contract_family_id": "pac-family-schema-invalid",
+  "contract_content_digest": "sha256:schema-invalid",
+  "contract_version": "2",
+  "contract_kind": "proposed_action_contract",
+  "composition_ref": "cap-schema-invalid",
+  "maximum_delegation_depth": 1,
+  "report_only": false
+}

@@ -10,11 +10,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - [semver:minor] Added a deterministic `composed_action_path` artifact that identifies bounded multi-stage authority paths from existing action paths and workflow chains without claiming observed execution.
 - [semver:minor] Added report-only proposed Action Contract v2 output linked to composed action paths for downstream Gait/control workflows.
+- [semver:minor] Added explicit composition, proposed contract, workflow-chain, and resolution-key references to decision traces and evidence exports for stable Gait and Axym correlation.
+- [semver:minor] Added canonical composed action-path fixtures and contract tests covering sensitive egress, secret-to-network, deploy, release, standing credential, incomplete outcome, and controlled transition scenarios.
 
 ### Changed
 
 - Documented the Sprint 0 public-surface freeze gate that composition work must satisfy before exposing new scan/report/schema fields.
 - [semver:minor] Projected existing evidence state, freshness, policy coverage, and Gait coverage onto composed action-path stages so reports distinguish static reachability from runtime-proven control.
+- [semver:minor] Updated Agent Action BOM reporting to lead with the highest-risk composed authority path, current evidence posture, control gap, and proposed Action Contract.
 
 ### Deprecated
 

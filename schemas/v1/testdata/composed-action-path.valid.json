@@ -1,0 +1,64 @@
+{
+  "composition_id": "cap-schema-valid",
+  "pattern_id": "code_to_deploy",
+  "pattern": {
+    "pattern_id": "code_to_deploy",
+    "stage_roles": ["source", "privileged_sink"],
+    "outcome_class": "production_deploy"
+  },
+  "resolution_key": "rk-schema-valid",
+  "path_ids": ["apc-schema-source", "apc-schema-sink"],
+  "workflow_chain_refs": ["workflow_chain:wfc-schema-valid"],
+  "stages": [
+    {
+      "stage_id": "stage-schema-source",
+      "role": "source",
+      "path_id": "apc-schema-source",
+      "resolution_key": "rk-schema-source",
+      "tool_type": "codex",
+      "location": "agents/release/AGENTS.md",
+      "action_classes": ["code_write"],
+      "target_class": "release_adjacent",
+      "evidence_state": "declared",
+      "freshness_state": "fresh",
+      "policy_coverage_status": "declared"
+    },
+    {
+      "stage_id": "stage-schema-sink",
+      "role": "privileged_sink",
+      "path_id": "apc-schema-sink",
+      "resolution_key": "rk-schema-sink",
+      "tool_type": "workflow",
+      "location": ".github/workflows/deploy.yml",
+      "action_classes": ["deploy"],
+      "target_class": "production_impacting",
+      "evidence_state": "verified",
+      "freshness_state": "fresh",
+      "policy_coverage_status": "matched"
+    }
+  ],
+  "transitions": [
+    {
+      "transition_id": "transition-schema",
+      "from_stage_id": "stage-schema-source",
+      "to_stage_id": "stage-schema-sink",
+      "claim_state": "partially_evidenced",
+      "evidence_state": "declared",
+      "policy_coverage_status": "declared"
+    }
+  ],
+  "target_identity": "prod-cluster",
+  "durable_outcome_key": "asset:service|target:prod-cluster|outcome:production_deploy|env:production",
+  "affected_asset": "service",
+  "outcome_class": "production_deploy",
+  "environment": "production",
+  "target_class": "production_impacting",
+  "claim_state": "partially_evidenced",
+  "evidence_state": "declared",
+  "freshness_state": "fresh",
+  "policy_coverage_status": "declared",
+  "runtime_evidence_absence_status": "missing_required",
+  "risk_tier": "high",
+  "recommended_control": "approval_required",
+  "proposed_action_contract_refs": ["pac-schema-valid"]
+}

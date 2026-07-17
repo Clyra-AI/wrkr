@@ -13,6 +13,29 @@
         "event_type": {"const": "decision_trace"},
         "trace_id": {"type": "string"},
         "path_id": {"type": "string"},
+        "resolution_key": {"type": "string"},
+        "composition_ids": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "proposed_action_contract_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "workflow_chain_refs": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "autonomy_tier": {"type": "string"},
+        "recommended_control": {"type": "string"},
+        "evidence_states": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "gait_coverage": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
         "actor": {"type": "object"},
         "authority": {"type": "object"},
         "policy_checked": {"type": "object"},

@@ -437,6 +437,19 @@
         "today_path": {"$ref": "#/$defs/governedPathView"},
         "recommended_governed_path": {"$ref": "#/$defs/governedPathView"},
         "recommended_action_contract": {"$ref": "#/$defs/recommendedActionContract"},
+        "composition_id": {"type": "string"},
+        "composition_stage_map": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/compositionStageMapItem"}
+        },
+        "credential_summary": {"type": "string"},
+        "delegation_summary": {"type": "string"},
+        "target_summary": {"type": "string"},
+        "current_coverage": {"type": "string"},
+        "proposed_control": {"$ref": "#/$defs/recommendedControl"},
+        "expected_outcome": {"type": "string"},
+        "proposed_action_contract": {"$ref": "#/$defs/proposedActionContract"},
+        "closure_requirements": {"type": "array", "items": {"$ref": "#/$defs/closureRequirement"}},
         "agentic_delivery_system_change": {"$ref": "#/$defs/agenticDeliverySystemChange"},
         "runtime_provider": {"type": "string"},
         "runtime_host": {"type": "string"},
@@ -456,6 +469,21 @@
         "evidence_packet_refs": {"type": "array", "items": {"type": "string"}},
         "decision_trace_refs": {"type": "array", "items": {"type": "string"}},
         "appendix_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "compositionStageMapItem": {
+      "type": "object",
+      "required": ["stage_id", "role"],
+      "properties": {
+        "stage_id": {"type": "string"},
+        "role": {"type": "string", "enum": ["source", "transform", "sink", "internal_sink", "external_sink", "privileged_sink", "destructive_sink"]},
+        "path_id": {"type": "string"},
+        "tool_type": {"type": "string"},
+        "location": {"type": "string"},
+        "action_classes": {"type": "array", "items": {"type": "string"}},
+        "target_class": {"type": "string"},
+        "evidence_state": {"type": "string"}
       },
       "additionalProperties": false
     },
@@ -511,6 +539,66 @@
         "contract_readiness_state": {"$ref": "#/$defs/actionContractReadinessState"},
         "report_only": {"type": "boolean"},
         "reason_codes": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "proposedActionContract": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "contract_family_id",
+        "contract_content_digest",
+        "contract_version",
+        "contract_kind",
+        "composition_ref",
+        "maximum_delegation_depth",
+        "report_only"
+      ],
+      "properties": {
+        "contract_id": {"type": "string"},
+        "contract_family_id": {"type": "string"},
+        "contract_content_digest": {"type": "string"},
+        "contract_version": {"type": "string", "enum": ["2"]},
+        "contract_kind": {"type": "string", "enum": ["proposed_action_contract"]},
+        "composition_ref": {"type": "string"},
+        "resolution_key": {"type": "string"},
+        "allowed_transitions": {"type": "array", "items": {"$ref": "#/$defs/proposedActionTransition"}},
+        "prohibited_transitions": {"type": "array", "items": {"$ref": "#/$defs/proposedActionTransition"}},
+        "approval_required_transitions": {"type": "array", "items": {"$ref": "#/$defs/proposedActionTransition"}},
+        "target_constraints": {"type": "array", "items": {"$ref": "#/$defs/proposedActionTargetConstraint"}},
+        "required_credential_mode": {"type": "string", "enum": ["ephemeral", "scoped", "standing_or_unknown"]},
+        "maximum_delegation_depth": {"type": "integer", "minimum": 0},
+        "evidence_requirements": {"type": "array", "items": {"type": "string"}},
+        "acceptable_countersigners": {"type": "array", "items": {"type": "string"}},
+        "expected_outcome_class": {"type": "string"},
+        "compensation_required": {"type": "boolean"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "source_digests": {"type": "array", "items": {"type": "string"}},
+        "report_only": {"type": "boolean", "const": true},
+        "readiness_state": {"type": "string", "enum": ["ready_for_report_only", "needs_evidence", "blocked_by_contradiction"]},
+        "reason_codes": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "proposedActionTransition": {
+      "type": "object",
+      "required": ["transition_id", "from_stage_id", "to_stage_id"],
+      "properties": {
+        "transition_id": {"type": "string"},
+        "from_stage_id": {"type": "string"},
+        "to_stage_id": {"type": "string"},
+        "from_role": {"type": "string"},
+        "to_role": {"type": "string"},
+        "reason": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "proposedActionTargetConstraint": {
+      "type": "object",
+      "required": ["key", "value"],
+      "properties": {
+        "key": {"type": "string"},
+        "value": {"type": "string"}
       },
       "additionalProperties": false
     },

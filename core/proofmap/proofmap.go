@@ -395,9 +395,10 @@ func MapDecisionTraces(paths []risk.ActionPath, now time.Time) []MappedRecord {
 		evidenceRefs := decisionTraceEvidenceRefs(projected)
 		proofRefs := decisionTraceProofRefs(projected)
 		event := map[string]any{
-			"event_type": "decision_trace",
-			"trace_id":   traceID,
-			"path_id":    projected.PathID,
+			"event_type":     "decision_trace",
+			"trace_id":       traceID,
+			"path_id":        projected.PathID,
+			"resolution_key": strings.TrimSpace(projected.ResolutionKey),
 			"actor": map[string]any{
 				"agent_id":     strings.TrimSpace(projected.AgentID),
 				"identity_ref": decisionTraceIdentityRef(projected),
@@ -422,7 +423,13 @@ func MapDecisionTraces(paths []risk.ActionPath, now time.Time) []MappedRecord {
 				"purpose":         strings.TrimSpace(projected.Purpose),
 				"workflow_chains": append([]string(nil), projected.WorkflowChainRefs...),
 			},
-			"evidence_refs": evidenceRefs,
+			"evidence_refs":                 evidenceRefs,
+			"workflow_chain_refs":           append([]string(nil), projected.WorkflowChainRefs...),
+			"composition_ids":               append([]string(nil), projected.CompositionIDs...),
+			"proposed_action_contract_refs": append([]string(nil), projected.ProposedActionContractRefs...),
+			"autonomy_tier":                 strings.TrimSpace(projected.AutonomyTier),
+			"recommended_control":           strings.TrimSpace(projected.RecommendedControl),
+			"evidence_states":               decisionTraceEvidenceStates(projected),
 			"outcome": map[string]any{
 				"recommended_control":        strings.TrimSpace(projected.RecommendedControl),
 				"delegation_readiness_state": strings.TrimSpace(projected.DelegationReadinessState),
@@ -431,12 +438,18 @@ func MapDecisionTraces(paths []risk.ActionPath, now time.Time) []MappedRecord {
 			},
 			"proof_refs": proofRefs,
 		}
+		if gaitCoverage := decisionTraceGaitCoverageSummary(projected.GaitCoverage); len(gaitCoverage) > 0 {
+			event["gait_coverage"] = gaitCoverage
+		}
 		metadata := map[string]any{
-			"rank":                idx + 1,
-			"path_id":             strings.TrimSpace(projected.PathID),
-			"trace_id":            traceID,
-			"source_finding_keys": append([]string(nil), projected.SourceFindingKeys...),
-			"workflow_chain_refs": append([]string(nil), projected.WorkflowChainRefs...),
+			"rank":                          idx + 1,
+			"path_id":                       strings.TrimSpace(projected.PathID),
+			"trace_id":                      traceID,
+			"resolution_key":                strings.TrimSpace(projected.ResolutionKey),
+			"source_finding_keys":           append([]string(nil), projected.SourceFindingKeys...),
+			"workflow_chain_refs":           append([]string(nil), projected.WorkflowChainRefs...),
+			"composition_ids":               append([]string(nil), projected.CompositionIDs...),
+			"proposed_action_contract_refs": append([]string(nil), projected.ProposedActionContractRefs...),
 		}
 		records = append(records, sanitizeMappedRecord(MappedRecord{
 			RecordType:   "decision_trace",
@@ -1053,14 +1066,24 @@ func buildPostureRelationship(profileName string) *proof.Relationship {
 
 func buildDecisionTraceRelationship(path risk.ActionPath, traceID string) *proof.Relationship {
 	toolID := identity.ToolID(path.ToolType, path.Location)
-	entityRefs := relationshipRefs(
+	refs := []proof.RelationshipRef{
 		proof.RelationshipRef{Kind: "agent", ID: strings.TrimSpace(path.AgentID)},
 		proof.RelationshipRef{Kind: "tool", ID: toolID},
 		proof.RelationshipRef{Kind: "resource", ID: scopedID("org", canonicalOrg(path.Org))},
 		proof.RelationshipRef{Kind: "resource", ID: scopedID("repo", strings.TrimSpace(path.Repo))},
 		proof.RelationshipRef{Kind: "evidence", ID: scopedID("decision_trace", traceID)},
 		proof.RelationshipRef{Kind: "resource", ID: scopedID("path", strings.TrimSpace(path.PathID))},
-	)
+	}
+	for _, compositionID := range path.CompositionIDs {
+		refs = append(refs, proof.RelationshipRef{Kind: "resource", ID: scopedID("composition", compositionID)})
+	}
+	for _, contractRef := range path.ProposedActionContractRefs {
+		refs = append(refs, proof.RelationshipRef{Kind: "evidence", ID: scopedID("proposed_action_contract", contractRef)})
+	}
+	for _, workflowRef := range path.WorkflowChainRefs {
+		refs = append(refs, proof.RelationshipRef{Kind: "resource", ID: scopedID("workflow_chain", workflowRef)})
+	}
+	entityRefs := relationshipRefs(refs...)
 	edges := relationshipEdges(
 		proof.RelationshipEdge{
 			Kind: "calls",
@@ -1074,6 +1097,50 @@ func buildDecisionTraceRelationship(path risk.ActionPath, traceID string) *proof
 		},
 	)
 	return buildRelationshipEnvelope(entityRefs, nil, strings.TrimSpace(path.AgentID), edges)
+}
+
+func decisionTraceEvidenceStates(path risk.ActionPath) map[string]string {
+	states := map[string]string{
+		"approval":   strings.TrimSpace(path.ApprovalEvidenceState),
+		"owner":      strings.TrimSpace(path.OwnerEvidenceState),
+		"proof":      strings.TrimSpace(path.ProofEvidenceState),
+		"runtime":    strings.TrimSpace(path.RuntimeEvidenceState),
+		"target":     strings.TrimSpace(path.TargetEvidenceState),
+		"credential": strings.TrimSpace(path.CredentialEvidenceState),
+	}
+	for key, value := range states {
+		if value == "" {
+			delete(states, key)
+		}
+	}
+	if len(states) == 0 {
+		return nil
+	}
+	return states
+}
+
+func decisionTraceGaitCoverageSummary(coverage *risk.GaitCoverage) map[string]string {
+	if coverage == nil {
+		return nil
+	}
+	out := map[string]string{
+		"policy_decision":    strings.TrimSpace(coverage.PolicyDecision.Status),
+		"approval":           strings.TrimSpace(coverage.Approval.Status),
+		"jit_credential":     strings.TrimSpace(coverage.JITCredential.Status),
+		"freeze_window":      strings.TrimSpace(coverage.FreezeWindow.Status),
+		"kill_switch":        strings.TrimSpace(coverage.KillSwitch.Status),
+		"action_outcome":     strings.TrimSpace(coverage.ActionOutcome.Status),
+		"proof_verification": strings.TrimSpace(coverage.ProofVerification.Status),
+	}
+	for key, value := range out {
+		if value == "" {
+			delete(out, key)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func decisionTraceIdentityRef(path risk.ActionPath) string {

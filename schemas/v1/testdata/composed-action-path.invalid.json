@@ -1,0 +1,13 @@
+{
+  "composition_id": "cap-schema-invalid",
+  "pattern_id": "unsupported_pattern",
+  "pattern": {
+    "pattern_id": "unsupported_pattern"
+  },
+  "stages": [
+    {
+      "stage_id": "stage-invalid",
+      "role": "unknown_role"
+    }
+  ]
+}

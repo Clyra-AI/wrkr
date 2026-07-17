@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -60,6 +61,35 @@ func TestBuildEvidenceBundleCarriesOutputMetadataAndSuppressionCounts(t *testing
 	}
 	if !bundle.FocusedBundleAvailable {
 		t.Fatalf("expected focused bundle availability on evidence bundle, got %+v", bundle)
+	}
+}
+
+func TestBuildEvidenceBundleCarriesCompactCompositionRefs(t *testing.T) {
+	t.Parallel()
+
+	bundle := BuildEvidenceBundle(Summary{
+		ShareProfile: string(ShareProfileDesignPartner),
+		ComposedActionPaths: []risk.ComposedActionPath{{
+			CompositionID:              "cap-release-prod",
+			ResolutionKey:              "rk-release-prod",
+			PathIDs:                    []string{"apc-build", "apc-deploy"},
+			WorkflowChainRefs:          []string{"workflow_chain:wfc-release"},
+			ProposedActionContractRefs: []string{"pac-release-prod"},
+		}},
+	})
+
+	if len(bundle.CompositionRefs) != 1 {
+		t.Fatalf("expected one compact composition ref, got %+v", bundle.CompositionRefs)
+	}
+	ref := bundle.CompositionRefs[0]
+	if ref.CompositionID != "cap-release-prod" || ref.ResolutionKey != "rk-release-prod" {
+		t.Fatalf("expected stable composition identity refs, got %+v", ref)
+	}
+	if !reflect.DeepEqual(ref.PathIDs, []string{"apc-build", "apc-deploy"}) {
+		t.Fatalf("expected path refs to survive without proof duplication, got %+v", ref)
+	}
+	if !reflect.DeepEqual(ref.ProposedActionContractRefs, []string{"pac-release-prod"}) {
+		t.Fatalf("expected proposed contract refs, got %+v", ref)
 	}
 }
 

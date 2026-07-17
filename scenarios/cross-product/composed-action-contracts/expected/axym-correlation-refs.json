@@ -1,0 +1,31 @@
+{
+  "fixture_version": "1",
+  "consumer": "axym",
+  "source_fixture": "scenarios/wrkr/composed-action-paths/expected/composition-contract-fixtures.json",
+  "correlation_refs": [
+    {
+      "composition_id": "cap-sensitive-egress-prod",
+      "resolution_key": "rk-sensitive-egress-prod",
+      "workflow_chain_refs": ["workflow_chain:wfc-sensitive-egress"],
+      "decision_trace_refs": ["decision_trace:dt-sensitive-egress-prod"],
+      "proposed_action_contract_refs": ["pac-sensitive-egress-prod"],
+      "evidence_refs": ["evidence:scenario/sensitive-egress"]
+    },
+    {
+      "composition_id": "cap-secret-network-prod",
+      "resolution_key": "rk-secret-network-prod",
+      "workflow_chain_refs": ["workflow_chain:wfc-secret-network"],
+      "decision_trace_refs": ["decision_trace:dt-secret-network-prod"],
+      "proposed_action_contract_refs": ["pac-secret-network-prod"],
+      "evidence_refs": ["evidence:scenario/secret-network"]
+    },
+    {
+      "composition_id": "cap-controlled-transition",
+      "resolution_key": "rk-controlled-transition",
+      "workflow_chain_refs": ["workflow_chain:wfc-controlled-transition"],
+      "decision_trace_refs": ["decision_trace:dt-controlled-transition"],
+      "proposed_action_contract_refs": ["pac-controlled-transition"],
+      "evidence_refs": ["evidence:scenario/controlled-transition"]
+    }
+  ]
+}
