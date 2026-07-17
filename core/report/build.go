@@ -2319,13 +2319,14 @@ func sanitizeAgentActionBOM(in *AgentActionBOM, profile ShareProfile) *AgentActi
 	copyBOM.ComposedActionPaths = sanitizeComposedActionPathsPublic(in.ComposedActionPaths)
 	proposedContractRefMap := proposedActionContractRefMap(in.ComposedActionPaths, copyBOM.ComposedActionPaths)
 	compositionIDMap := compositionRefMap(in.ComposedActionPaths, copyBOM.ComposedActionPaths)
+	compositionProjectionMap := primaryViewCompositionProjectionMap(in.ComposedActionPaths, copyBOM.ComposedActionPaths)
 	copyBOM.EvidenceRefs = redactStringSlice(in.EvidenceRefs, "evidence")
 	copyBOM.ProofRefs = redactStringSlice(in.ProofRefs, "proof")
 	copyBOM.GraphRefs = AgentActionBOMGraphRefs{
 		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
 		EdgeIDs: redactStringSlice(in.GraphRefs.EdgeIDs, "edge"),
 	}
-	copyBOM.Summary.PrimaryView = sanitizePrimaryViewPublicWithContractRefs(in.Summary.PrimaryView, proposedContractRefMap, compositionIDMap)
+	copyBOM.Summary.PrimaryView = sanitizePrimaryViewPublicWithContractRefs(in.Summary.PrimaryView, proposedContractRefMap, compositionIDMap, compositionProjectionMap)
 	copyBOM.Items = append([]AgentActionBOMItem(nil), in.Items...)
 	for idx := range copyBOM.Items {
 		copyBOM.Items[idx].PathID = redactValue("path", copyBOM.Items[idx].PathID, 8)
@@ -2426,7 +2427,7 @@ func sanitizeReviewAuditContextPublic(in *risk.ReviewAuditContext) *risk.ReviewA
 	return out
 }
 
-func sanitizePrimaryViewPublicWithContractRefs(in *AgentActionBOMPrimaryView, proposedContractRefMap map[string]string, compositionIDMap map[string]string) *AgentActionBOMPrimaryView {
+func sanitizePrimaryViewPublicWithContractRefs(in *AgentActionBOMPrimaryView, proposedContractRefMap map[string]string, compositionIDMap map[string]string, compositionProjectionMap map[string]risk.ComposedActionPath) *AgentActionBOMPrimaryView {
 	if in == nil {
 		return nil
 	}
@@ -2454,8 +2455,29 @@ func sanitizePrimaryViewPublicWithContractRefs(in *AgentActionBOMPrimaryView, pr
 	out.DecisionPrecedent = sanitizeDecisionPrecedentPublic(in.DecisionPrecedent)
 	out.DeliveryControlContext = sanitizeDeliveryControlContextPublic(in.DeliveryControlContext)
 	out.WorkflowChainRefs = redactStringSlice(in.WorkflowChainRefs, "chain")
+	out.CompositionID = remapPrimaryViewCompositionID(in.CompositionID, compositionIDMap, true)
 	out.CompositionIDs = remapCompositionRefs(in.CompositionIDs, compositionIDMap)
+	if composition := primaryViewSanitizedComposition(in, compositionProjectionMap); composition != nil {
+		applyPrimaryViewCompositionProjection(&out, *composition)
+	} else {
+		out.CompositionStageMap = sanitizePrimaryViewCompositionStagesPublic(in.CompositionStageMap)
+		out.CredentialSummary = redactValue("credential", in.CredentialSummary, 8)
+		out.TargetSummary = redactValue("target", in.TargetSummary, 8)
+		out.ExpectedOutcome = redactValue("outcome", in.ExpectedOutcome, 8)
+		out.ProposedActionContract = sanitizeProposedActionContractPublic(in.ProposedActionContract)
+		if out.ProposedActionContract != nil && strings.TrimSpace(out.CompositionID) != "" {
+			out.ProposedActionContract.CompositionRef = out.CompositionID
+			risk.RefreshProposedActionContractIdentity(out.ProposedActionContract)
+		}
+		out.ClosureRequirements = sanitizeClosureRequirementsPublic(in.ClosureRequirements)
+	}
+	if strings.TrimSpace(out.CompositionID) != "" {
+		out.CompositionIDs = uniqueSortedStrings(append(out.CompositionIDs, out.CompositionID))
+	}
 	out.ProposedActionContractRefs = remapProposedActionContractRefs(in.ProposedActionContractRefs, proposedContractRefMap)
+	if out.ProposedActionContract != nil {
+		out.ProposedActionContractRefs = sanitizeProposedActionContractRefs(out.ProposedActionContract, out.ProposedActionContractRefs)
+	}
 	out.GraphRefs = AgentActionBOMGraphRefs{
 		NodeIDs: redactStringSlice(in.GraphRefs.NodeIDs, "node"),
 		EdgeIDs: redactStringSlice(in.GraphRefs.EdgeIDs, "edge"),
@@ -2468,6 +2490,109 @@ func sanitizePrimaryViewPublicWithContractRefs(in *AgentActionBOMPrimaryView, pr
 	out.RecommendedNextActions = cloneStrings(in.RecommendedNextActions)
 	out.CoverageReasons = cloneStrings(in.CoverageReasons)
 	return &out
+}
+
+func primaryViewCompositionProjectionMap(raw, sanitized []risk.ComposedActionPath) map[string]risk.ComposedActionPath {
+	if len(raw) == 0 || len(sanitized) == 0 {
+		return nil
+	}
+	out := map[string]risk.ComposedActionPath{}
+	for idx := 0; idx < len(raw) && idx < len(sanitized); idx++ {
+		rawID := strings.TrimSpace(raw[idx].CompositionID)
+		if rawID == "" {
+			continue
+		}
+		out[rawID] = sanitized[idx]
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func primaryViewSanitizedComposition(in *AgentActionBOMPrimaryView, compositionProjectionMap map[string]risk.ComposedActionPath) *risk.ComposedActionPath {
+	if in == nil || len(compositionProjectionMap) == 0 {
+		return nil
+	}
+	for _, rawID := range []string{
+		strings.TrimSpace(in.CompositionID),
+		firstNonEmptyString(in.CompositionIDs),
+		firstNonEmptyCompositionRef(in.ProposedActionContract),
+	} {
+		if rawID == "" {
+			continue
+		}
+		if composition, ok := compositionProjectionMap[rawID]; ok {
+			copyComposition := composition
+			return &copyComposition
+		}
+	}
+	return nil
+}
+
+func firstNonEmptyString(values []string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func firstNonEmptyCompositionRef(contract *risk.ProposedActionContract) string {
+	if contract == nil {
+		return ""
+	}
+	return strings.TrimSpace(contract.CompositionRef)
+}
+
+func remapPrimaryViewCompositionID(value string, compositionIDMap map[string]string, redactMissing bool) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	if mapped, ok := compositionIDMap[trimmed]; ok && strings.TrimSpace(mapped) != "" {
+		return strings.TrimSpace(mapped)
+	}
+	if redactMissing {
+		return redactValue("composition", trimmed, 8)
+	}
+	return trimmed
+}
+
+func applyPrimaryViewCompositionProjection(view *AgentActionBOMPrimaryView, composition risk.ComposedActionPath) {
+	if view == nil {
+		return
+	}
+	view.CompositionID = strings.TrimSpace(composition.CompositionID)
+	view.CompositionStageMap = primaryCompositionStageMap(composition)
+	view.CredentialSummary = primaryCompositionCredentialSummary(composition)
+	view.DelegationSummary = primaryCompositionDelegationSummary(composition)
+	view.TargetSummary = primaryCompositionTargetSummary(composition)
+	view.CurrentCoverage = primaryCompositionCoverageSummary(composition)
+	view.ProposedControl = strings.TrimSpace(composition.RecommendedControl)
+	view.ExpectedOutcome = firstNonEmptyValue(strings.TrimSpace(composition.OutcomeClass), strings.TrimSpace(composition.DurableOutcomeKey))
+	view.ProposedActionContract = risk.CloneProposedActionContract(composition.ProposedActionContract)
+	if view.ProposedActionContract != nil && strings.TrimSpace(view.ExpectedOutcome) == "" {
+		view.ExpectedOutcome = strings.TrimSpace(view.ProposedActionContract.ExpectedOutcomeClass)
+	}
+	view.ClosureRequirements = risk.CloneClosureRequirements(composition.ClosureRequirements)
+}
+
+func sanitizePrimaryViewCompositionStagesPublic(in []AgentActionBOMCompositionStage) []AgentActionBOMCompositionStage {
+	if len(in) == 0 {
+		return nil
+	}
+	stageIDMap := map[string]string{}
+	out := make([]AgentActionBOMCompositionStage, 0, len(in))
+	for _, stage := range in {
+		copyStage := stage
+		copyStage.StageID = remapStageID(copyStage.StageID, stageIDMap)
+		copyStage.PathID = redactValue("path", copyStage.PathID, 8)
+		copyStage.Location = redactValue("loc", copyStage.Location, 8)
+		out = append(out, copyStage)
+	}
+	return out
 }
 
 func proposedActionContractRefMap(raw, sanitized []risk.ComposedActionPath) map[string]string {

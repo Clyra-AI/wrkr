@@ -775,10 +775,11 @@ func sanitizeAgentActionBOMWithConfig(in *AgentActionBOM, profile ShareProfile, 
 	copyBOM.ComposedActionPaths = sanitizeComposedActionPathsWithConfig(in.ComposedActionPaths, config)
 	proposedContractRefMap := proposedActionContractRefMap(in.ComposedActionPaths, copyBOM.ComposedActionPaths)
 	compositionIDMap := compositionRefMap(in.ComposedActionPaths, copyBOM.ComposedActionPaths)
+	compositionProjectionMap := primaryViewCompositionProjectionMap(in.ComposedActionPaths, copyBOM.ComposedActionPaths)
 	copyBOM.EvidenceRefs = maybeRedactStringSlice(in.EvidenceRefs, "evidence", config.Has(RedactionProofRefs))
 	copyBOM.ProofRefs = maybeRedactStringSlice(in.ProofRefs, "proof", config.Has(RedactionProofRefs))
 	copyBOM.GraphRefs = sanitizeGraphRefsWithConfig(in.GraphRefs, config)
-	copyBOM.Summary.PrimaryView = sanitizePrimaryViewWithContractRefs(in.Summary.PrimaryView, config, proposedContractRefMap, compositionIDMap)
+	copyBOM.Summary.PrimaryView = sanitizePrimaryViewWithContractRefs(in.Summary.PrimaryView, config, proposedContractRefMap, compositionIDMap, compositionProjectionMap)
 	copyBOM.Items = append([]AgentActionBOMItem(nil), in.Items...)
 	for idx := range copyBOM.Items {
 		copyBOM.Items[idx].PathID = maybeRedactPathID(copyBOM.Items[idx].PathID, config)
@@ -875,7 +876,7 @@ func sanitizeReviewAuditContextWithConfig(in *risk.ReviewAuditContext, config Re
 	return out
 }
 
-func sanitizePrimaryViewWithContractRefs(in *AgentActionBOMPrimaryView, config RedactionConfig, proposedContractRefMap map[string]string, compositionIDMap map[string]string) *AgentActionBOMPrimaryView {
+func sanitizePrimaryViewWithContractRefs(in *AgentActionBOMPrimaryView, config RedactionConfig, proposedContractRefMap map[string]string, compositionIDMap map[string]string, compositionProjectionMap map[string]risk.ComposedActionPath) *AgentActionBOMPrimaryView {
 	if in == nil {
 		return nil
 	}
@@ -903,8 +904,37 @@ func sanitizePrimaryViewWithContractRefs(in *AgentActionBOMPrimaryView, config R
 	out.DecisionPrecedent = sanitizeDecisionPrecedentWithConfig(in.DecisionPrecedent, config)
 	out.DeliveryControlContext = sanitizeDeliveryControlContextWithConfig(in.DeliveryControlContext, config)
 	out.WorkflowChainRefs = maybeRedactStringSlice(in.WorkflowChainRefs, "chain", config.Has(RedactionPaths) || config.Has(RedactionGraphRefs))
+	out.CompositionID = remapPrimaryViewCompositionID(in.CompositionID, compositionIDMap, config.Has(RedactionPaths) || config.Has(RedactionRepos))
 	out.CompositionIDs = remapCompositionRefs(in.CompositionIDs, compositionIDMap)
+	if composition := primaryViewSanitizedComposition(in, compositionProjectionMap); composition != nil {
+		applyPrimaryViewCompositionProjection(&out, *composition)
+	} else {
+		out.CompositionStageMap = sanitizePrimaryViewCompositionStagesWithConfig(in.CompositionStageMap, config)
+		out.CredentialSummary = maybeRedactCompositeLabel(in.CredentialSummary, config)
+		out.TargetSummary = maybeRedactCompositeLabel(in.TargetSummary, config)
+		if config.Has(RedactionPaths) || config.Has(RedactionRepos) {
+			out.ExpectedOutcome = redactValue("outcome", in.ExpectedOutcome, 8)
+		} else {
+			out.ExpectedOutcome = strings.TrimSpace(in.ExpectedOutcome)
+		}
+		if config.Has(RedactionPaths) || config.Has(RedactionRepos) || config.Has(RedactionProofRefs) || config.Has(RedactionOwners) {
+			out.ProposedActionContract = sanitizeProposedActionContractPublic(in.ProposedActionContract)
+		} else {
+			out.ProposedActionContract = risk.CloneProposedActionContract(in.ProposedActionContract)
+		}
+		if out.ProposedActionContract != nil && strings.TrimSpace(out.CompositionID) != "" && (config.Has(RedactionPaths) || config.Has(RedactionRepos)) {
+			out.ProposedActionContract.CompositionRef = out.CompositionID
+			risk.RefreshProposedActionContractIdentity(out.ProposedActionContract)
+		}
+		out.ClosureRequirements = sanitizeClosureRequirementsWithConfig(in.ClosureRequirements, config)
+	}
+	if strings.TrimSpace(out.CompositionID) != "" {
+		out.CompositionIDs = uniqueSortedStrings(append(out.CompositionIDs, out.CompositionID))
+	}
 	out.ProposedActionContractRefs = remapProposedActionContractRefs(in.ProposedActionContractRefs, proposedContractRefMap)
+	if out.ProposedActionContract != nil {
+		out.ProposedActionContractRefs = sanitizeProposedActionContractRefs(out.ProposedActionContract, out.ProposedActionContractRefs)
+	}
 	out.GraphRefs = sanitizeGraphRefsWithConfig(in.GraphRefs, config)
 	out.ProofRefs = maybeRedactStringSlice(in.ProofRefs, "proof", config.Has(RedactionProofRefs))
 	out.EvidencePacketRefs = maybeRedactStringSlice(in.EvidencePacketRefs, "packet", config.Has(RedactionPaths) || config.Has(RedactionProofRefs))
@@ -914,6 +944,24 @@ func sanitizePrimaryViewWithContractRefs(in *AgentActionBOMPrimaryView, config R
 	out.RecommendedNextActions = cloneStrings(in.RecommendedNextActions)
 	out.CoverageReasons = cloneStrings(in.CoverageReasons)
 	return &out
+}
+
+func sanitizePrimaryViewCompositionStagesWithConfig(in []AgentActionBOMCompositionStage, config RedactionConfig) []AgentActionBOMCompositionStage {
+	if len(in) == 0 {
+		return nil
+	}
+	stageIDMap := map[string]string{}
+	out := make([]AgentActionBOMCompositionStage, 0, len(in))
+	for _, stage := range in {
+		copyStage := stage
+		if config.Has(RedactionPaths) || config.Has(RedactionRepos) {
+			copyStage.StageID = remapStageID(copyStage.StageID, stageIDMap)
+		}
+		copyStage.PathID = maybeRedactPathID(copyStage.PathID, config)
+		copyStage.Location = maybeRedactLocationLike(copyStage.Location, config)
+		out = append(out, copyStage)
+	}
+	return out
 }
 
 func sanitizeAgenticDeliverySystemChangeWithConfig(in *risk.AgenticDeliverySystemChange, config RedactionConfig) *risk.AgenticDeliverySystemChange {
