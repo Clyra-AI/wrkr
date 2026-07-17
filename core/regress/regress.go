@@ -48,13 +48,15 @@ const (
 )
 
 type Baseline struct {
-	Version             string              `json:"version"`
-	GeneratedAt         string              `json:"generated_at"`
-	Tools               []ToolState         `json:"tools"`
-	AttackPaths         []AttackPathState   `json:"attack_paths,omitempty"`
-	LifecycleGaps       []LifecycleGapState `json:"lifecycle_gaps,omitempty"`
-	ActionPathsCaptured bool                `json:"action_paths_captured,omitempty"`
-	ActionPaths         []ActionPathState   `json:"action_paths,omitempty"`
+	Version              string              `json:"version"`
+	GeneratedAt          string              `json:"generated_at"`
+	Tools                []ToolState         `json:"tools"`
+	AttackPaths          []AttackPathState   `json:"attack_paths,omitempty"`
+	LifecycleGaps        []LifecycleGapState `json:"lifecycle_gaps,omitempty"`
+	ActionPathsCaptured  bool                `json:"action_paths_captured,omitempty"`
+	ActionPaths          []ActionPathState   `json:"action_paths,omitempty"`
+	CompositionsCaptured bool                `json:"compositions_captured,omitempty"`
+	Compositions         []CompositionState  `json:"compositions,omitempty"`
 }
 
 type ToolState struct {
@@ -150,14 +152,17 @@ func BuildBaseline(snapshot state.Snapshot, generatedAt time.Time) Baseline {
 	}
 	tools := SnapshotTools(snapshot)
 	actionPaths, actionPathsCaptured := snapshotActionPathStates(snapshot)
+	compositions, compositionsCaptured := snapshotCompositionStates(snapshot)
 	return Baseline{
-		Version:             BaselineVersion,
-		GeneratedAt:         now.Format(time.RFC3339),
-		Tools:               tools,
-		AttackPaths:         snapshotAttackPaths(snapshot),
-		LifecycleGaps:       snapshotLifecycleGaps(snapshot),
-		ActionPathsCaptured: actionPathsCaptured,
-		ActionPaths:         actionPaths,
+		Version:              BaselineVersion,
+		GeneratedAt:          now.Format(time.RFC3339),
+		Tools:                tools,
+		AttackPaths:          snapshotAttackPaths(snapshot),
+		LifecycleGaps:        snapshotLifecycleGaps(snapshot),
+		ActionPathsCaptured:  actionPathsCaptured,
+		ActionPaths:          actionPaths,
+		CompositionsCaptured: compositionsCaptured,
+		Compositions:         compositions,
 	}
 }
 
@@ -573,7 +578,12 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 			AttackPathDrift: attackPathDrift,
 		})
 	}
-	driftCategories, comparisonStatus, comparisonIssues := compareActionPathDrift(baseline, current)
+	actionDriftCategories, actionComparisonStatus, actionComparisonIssues := compareActionPathDrift(baseline, current)
+	compositionDriftCategories, compositionComparisonStatus, compositionComparisonIssues := compareCompositionDrift(baseline, current)
+	driftCategories := append([]DriftCategorySummary(nil), actionDriftCategories...)
+	driftCategories = append(driftCategories, compositionDriftCategories...)
+	comparisonStatus := mergeComparisonStatus(actionComparisonStatus, compositionComparisonStatus)
+	comparisonIssues := uniqueSortedStrings(append(actionComparisonIssues, compositionComparisonIssues...))
 
 	sort.Slice(reasons, func(i, j int) bool {
 		if reasons[i].Code != reasons[j].Code {
@@ -599,6 +609,29 @@ func Compare(baseline Baseline, current state.Snapshot) Result {
 		DriftCategories:    driftCategories,
 		ComparisonStatus:   comparisonStatus,
 		ComparisonIssues:   comparisonIssues,
+	}
+}
+
+func mergeComparisonStatus(left, right string) string {
+	left = strings.TrimSpace(left)
+	right = strings.TrimSpace(right)
+	switch {
+	case left == "":
+		return right
+	case right == "":
+		return left
+	case left == DriftComparisonStatusOK:
+		return right
+	case right == DriftComparisonStatusOK:
+		return left
+	case left == right:
+		return left
+	case left == DriftComparisonStatusBaselineMissing || left == DriftComparisonStatusCurrentMissing:
+		return left
+	case right == DriftComparisonStatusBaselineMissing || right == DriftComparisonStatusCurrentMissing:
+		return right
+	default:
+		return DriftComparisonStatusIncomplete
 	}
 }
 

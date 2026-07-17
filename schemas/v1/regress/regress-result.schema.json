@@ -26,6 +26,8 @@
         "ok",
         "baseline_action_paths_unavailable",
         "current_action_paths_unavailable",
+        "baseline_compositions_unavailable",
+        "current_compositions_unavailable",
         "comparison_incomplete"
       ]
     },
@@ -158,6 +160,14 @@
         "baseline_review_lifecycle_state": {"type": "string"},
         "reopen_state": {"type": "string"},
         "reopen_reasons": {"type": "array", "items": {"type": "string"}},
+        "composition_id": {"type": "string"},
+        "baseline_composition_id": {"type": "string"},
+        "current_composition_ref": {"type": "string"},
+        "baseline_composition_ref": {"type": "string"},
+        "current_outcome_key": {"type": "string"},
+        "baseline_outcome_key": {"type": "string"},
+        "current_recommended_control": {"type": "string"},
+        "baseline_recommended_control": {"type": "string"},
         "detail": {"type": "string"},
         "recommended_next_action": {"type": "string"}
       },
@@ -181,7 +191,17 @@
             "removed_paths",
             "changed_authority",
             "changed_evidence",
-            "changed_target_class"
+            "changed_target_class",
+            "introduced_compositions",
+            "removed_compositions",
+            "changed_composition_members",
+            "newly_introduced_sinks",
+            "composition_coverage_degraded",
+            "composition_evidence_degraded",
+            "newly_ungoverned_compositions",
+            "worsened_composition_recommendation",
+            "alternate_route_appeared",
+            "composition_outcome_changed"
           ]
         },
         "severity": {

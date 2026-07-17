@@ -231,6 +231,19 @@ func proposedEvidenceRequirements(composition ComposedActionPath) []string {
 		strings.TrimSpace(composition.RecommendedControl) == RecommendedControlBlockStandingCredential {
 		requirements = append(requirements, "jit_credential")
 	}
+	for _, transition := range composition.Transitions {
+		switch strings.TrimSpace(transition.Relationship) {
+		case CompositionDelegationBroadened:
+			requirements = append(requirements, "delegation_relationship", "credential_attenuation", "runtime_token_propagation")
+		case CompositionDelegationContradictory:
+			requirements = append(requirements, "delegation_relationship", "contradiction_resolution")
+		case CompositionDelegationUnknown:
+			requirements = append(requirements, "delegation_relationship", "runtime_token_propagation")
+		}
+	}
+	if strings.TrimSpace(composition.ApprovalEvasionSignal) == CompositionApprovalEvasionPossible {
+		requirements = append(requirements, "equivalent_outcome_review", "approval_path_parity")
+	}
 	return dedupeSortedStrings(requirements)
 }
 
@@ -284,6 +297,19 @@ func proposedActionContractReadiness(composition ComposedActionPath) (string, []
 	switch strings.TrimSpace(composition.FreshnessState) {
 	case evidencepolicy.FreshnessStateStale, evidencepolicy.FreshnessStateExpired:
 		reasons = append(reasons, "readiness:needs_fresh_evidence")
+	}
+	for _, transition := range composition.Transitions {
+		switch strings.TrimSpace(transition.Relationship) {
+		case CompositionDelegationBroadened:
+			reasons = append(reasons, "readiness:needs_delegation_attenuation_evidence")
+		case CompositionDelegationUnknown:
+			reasons = append(reasons, "readiness:needs_runtime_token_propagation_evidence")
+		case CompositionDelegationContradictory:
+			return ActionContractReadinessBlockedContradict, []string{"readiness:contradictory_delegation_relationship"}
+		}
+	}
+	if strings.TrimSpace(composition.ApprovalEvasionSignal) == CompositionApprovalEvasionPossible {
+		reasons = append(reasons, "readiness:needs_equivalent_outcome_control_parity")
 	}
 	if len(reasons) > 0 {
 		return proposedActionContractReadinessNeedsEvidence, dedupeSortedStrings(reasons)

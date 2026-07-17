@@ -34,7 +34,22 @@ const (
 	CompositionClaimContradictory      = "contradictory"
 	CompositionClaimUnknown            = "unknown"
 
+	CompositionDelegationNarrowed      = "narrowed"
+	CompositionDelegationEqual         = "equal"
+	CompositionDelegationBroadened     = "broadened"
+	CompositionDelegationUnknown       = "unknown"
+	CompositionDelegationContradictory = "contradictory"
+
+	CompositionApprovalEvasionNone     = "none"
+	CompositionApprovalEvasionPossible = "possible"
+	CompositionApprovalEvasionUnknown  = "unknown"
+
+	CompositionMaterialityNone     = "none"
+	CompositionMaterialityLow      = "low"
+	CompositionMaterialityMaterial = "material"
+
 	maxComposedActionPathCandidates = 128
+	maxEquivalentOutcomeRefs        = 8
 )
 
 type CompositionPattern struct {
@@ -62,6 +77,14 @@ type CompositionStage struct {
 	EvidenceRefs                 []string                       `json:"evidence_refs,omitempty"`
 	ProofRefs                    []string                       `json:"proof_refs,omitempty"`
 	SourceDecisionRefs           []string                       `json:"source_decision_refs,omitempty"`
+	Relationship                 string                         `json:"relationship,omitempty"`
+	ParentAuthorityRef           string                         `json:"parent_authority_ref,omitempty"`
+	ChildAuthorityRef            string                         `json:"child_authority_ref,omitempty"`
+	ScopeDelta                   []string                       `json:"scope_delta,omitempty"`
+	TargetDelta                  []string                       `json:"target_delta,omitempty"`
+	CredentialDelta              []string                       `json:"credential_delta,omitempty"`
+	ExpiryDelta                  []string                       `json:"expiry_delta,omitempty"`
+	ReasonCodes                  []string                       `json:"reason_codes,omitempty"`
 }
 
 type CompositionTransition struct {
@@ -77,6 +100,13 @@ type CompositionTransition struct {
 	ProofRefs                    []string      `json:"proof_refs,omitempty"`
 	SourceDecisionRefs           []string      `json:"source_decision_refs,omitempty"`
 	ReasonCodes                  []string      `json:"reason_codes,omitempty"`
+	Relationship                 string        `json:"relationship,omitempty"`
+	ParentAuthorityRef           string        `json:"parent_authority_ref,omitempty"`
+	ChildAuthorityRef            string        `json:"child_authority_ref,omitempty"`
+	ScopeDelta                   []string      `json:"scope_delta,omitempty"`
+	TargetDelta                  []string      `json:"target_delta,omitempty"`
+	CredentialDelta              []string      `json:"credential_delta,omitempty"`
+	ExpiryDelta                  []string      `json:"expiry_delta,omitempty"`
 }
 
 type ComposedActionPath struct {
@@ -90,6 +120,7 @@ type ComposedActionPath struct {
 	Transitions                  []CompositionTransition        `json:"transitions,omitempty"`
 	TargetIdentity               string                         `json:"target_identity,omitempty"`
 	DurableOutcomeKey            string                         `json:"durable_outcome_key,omitempty"`
+	OutcomeKey                   string                         `json:"outcome_key,omitempty"`
 	AffectedAsset                string                         `json:"affected_asset,omitempty"`
 	OutcomeClass                 string                         `json:"outcome_class,omitempty"`
 	Environment                  string                         `json:"environment,omitempty"`
@@ -106,12 +137,19 @@ type ComposedActionPath struct {
 	SourceDecisionRefs           []string                       `json:"source_decision_refs,omitempty"`
 	RiskTier                     string                         `json:"risk_tier,omitempty"`
 	RecommendedControl           string                         `json:"recommended_control,omitempty"`
+	RecommendedControlReasons    []string                       `json:"recommended_control_reasons,omitempty"`
+	EscalatingTransitionRefs     []string                       `json:"escalating_transition_refs,omitempty"`
+	MostRestrictiveSource        string                         `json:"most_restrictive_source,omitempty"`
 	ClosureRequirements          []ClosureRequirement           `json:"closure_requirements,omitempty"`
 	EvidenceCompleteness         *EvidenceCompleteness          `json:"evidence_completeness,omitempty"`
 	UnsupportedSurfaces          []string                       `json:"unsupported_surfaces,omitempty"`
 	TruncatedCandidates          []string                       `json:"truncated_candidates,omitempty"`
 	ProposedActionContract       *ProposedActionContract        `json:"proposed_action_contract,omitempty"`
 	ProposedActionContractRefs   []string                       `json:"proposed_action_contract_refs,omitempty"`
+	EquivalentOutcomeRefs        []string                       `json:"equivalent_outcome_refs,omitempty"`
+	ApprovalEvasionSignal        string                         `json:"approval_evasion_signal,omitempty"`
+	CoverageDeltaReasons         []string                       `json:"coverage_delta_reasons,omitempty"`
+	Materiality                  string                         `json:"materiality,omitempty"`
 }
 
 type ComposedActionPathSummary struct {
@@ -179,6 +217,7 @@ func BuildComposedActionPaths(paths []ActionPath, workflowChains *agentresolver.
 		composition.TruncatedCandidates = dedupeSortedStrings(composition.TruncatedCandidates)
 		compositions = append(compositions, composition)
 	}
+	annotateEquivalentOutcomeSignals(compositions)
 	sort.Slice(compositions, func(i, j int) bool {
 		return compareComposedActionPaths(compositions[i], compositions[j])
 	})
@@ -341,7 +380,6 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 	gaitCoverage := compositionGaitCoverageFromStages(stages)
 	runtimeAbsence := compositionRuntimeAbsenceFromStages(stages)
 	claimState := compositionClaimState(evidenceState, policyCoverage, freshnessState, gaitCoverage, stages, paths)
-	recommended := compositionRecommendedControl(paths, claimState)
 	composition := ComposedActionPath{
 		CompositionID:                compositionID,
 		PatternID:                    spec.id,
@@ -353,6 +391,7 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 		Transitions:                  transitions,
 		TargetIdentity:               targetIdentity,
 		DurableOutcomeKey:            outcomeKey,
+		OutcomeKey:                   outcomeKey,
 		AffectedAsset:                targetIdentity,
 		OutcomeClass:                 spec.outcome,
 		Environment:                  environment,
@@ -368,10 +407,11 @@ func buildComposedActionPath(spec compositionPatternSpec, source, sink ActionPat
 		ProofRefs:                    compositionProofRefs(paths),
 		SourceDecisionRefs:           compositionSourceDecisionRefs(paths),
 		RiskTier:                     compositionRiskTier(paths),
-		RecommendedControl:           recommended,
 		ClosureRequirements:          compositionClosureRequirements(paths),
 		EvidenceCompleteness:         compositionEvidenceCompleteness(paths),
 	}
+	applyCompositionDelegationRelationships(&composition, paths)
+	applyCompositionRecommendedControl(&composition, paths)
 	hydrateCompositionTransitions(&composition)
 	composition.ProposedActionContract = BuildProposedActionContract(composition)
 	if composition.ProposedActionContract != nil {
@@ -483,6 +523,550 @@ func buildCompositionTransitions(compositionID string, stages []CompositionStage
 	return out
 }
 
+type compositionAuthorityProfile struct {
+	Ref             string
+	Scopes          []string
+	Targets         []string
+	Credentials     []string
+	Expiry          string
+	AccessRank      int
+	DelegationDepth int
+	EvidenceRefs    []string
+	ReasonCodes     []string
+	Unknown         bool
+	Contradictory   bool
+}
+
+type compositionRecommendationCandidate struct {
+	Control        string
+	Source         string
+	TransitionRefs []string
+	Reasons        []string
+}
+
+func applyCompositionDelegationRelationships(composition *ComposedActionPath, paths []ActionPath) {
+	if composition == nil || len(composition.Stages) == 0 {
+		return
+	}
+	profiles := compositionAuthorityProfiles(paths)
+	for idx := range composition.Stages {
+		stage := &composition.Stages[idx]
+		if profile, ok := profiles[strings.TrimSpace(stage.ResolutionKey)]; ok {
+			stage.ChildAuthorityRef = strings.TrimSpace(profile.Ref)
+			stage.ReasonCodes = dedupeSortedStrings(append(stage.ReasonCodes, profile.ReasonCodes...))
+			stage.EvidenceRefs = dedupeSortedStrings(append(stage.EvidenceRefs, profile.EvidenceRefs...))
+		}
+	}
+	stageByID := map[string]int{}
+	for idx, stage := range composition.Stages {
+		stageByID[strings.TrimSpace(stage.StageID)] = idx
+	}
+	for idx := range composition.Transitions {
+		fromIdx, fromOK := stageByID[strings.TrimSpace(composition.Transitions[idx].FromStageID)]
+		toIdx, toOK := stageByID[strings.TrimSpace(composition.Transitions[idx].ToStageID)]
+		if !fromOK || !toOK {
+			continue
+		}
+		parent := profiles[strings.TrimSpace(composition.Stages[fromIdx].ResolutionKey)]
+		child := profiles[strings.TrimSpace(composition.Stages[toIdx].ResolutionKey)]
+		relationship, scopeDelta, targetDelta, credentialDelta, expiryDelta, reasons := compareCompositionAuthority(parent, child)
+		composition.Transitions[idx].Relationship = relationship
+		composition.Transitions[idx].ParentAuthorityRef = strings.TrimSpace(parent.Ref)
+		composition.Transitions[idx].ChildAuthorityRef = strings.TrimSpace(child.Ref)
+		composition.Transitions[idx].ScopeDelta = scopeDelta
+		composition.Transitions[idx].TargetDelta = targetDelta
+		composition.Transitions[idx].CredentialDelta = credentialDelta
+		composition.Transitions[idx].ExpiryDelta = expiryDelta
+		composition.Transitions[idx].EvidenceRefs = dedupeSortedStrings(append(append(composition.Transitions[idx].EvidenceRefs, parent.EvidenceRefs...), child.EvidenceRefs...))
+		composition.Transitions[idx].ReasonCodes = dedupeSortedStrings(append(composition.Transitions[idx].ReasonCodes, reasons...))
+
+		for _, stageIdx := range []int{fromIdx, toIdx} {
+			stage := &composition.Stages[stageIdx]
+			stage.Relationship = relationship
+			stage.ParentAuthorityRef = strings.TrimSpace(parent.Ref)
+			stage.ChildAuthorityRef = strings.TrimSpace(child.Ref)
+			stage.ScopeDelta = dedupeSortedStrings(append(stage.ScopeDelta, scopeDelta...))
+			stage.TargetDelta = dedupeSortedStrings(append(stage.TargetDelta, targetDelta...))
+			stage.CredentialDelta = dedupeSortedStrings(append(stage.CredentialDelta, credentialDelta...))
+			stage.ExpiryDelta = dedupeSortedStrings(append(stage.ExpiryDelta, expiryDelta...))
+			stage.ReasonCodes = dedupeSortedStrings(append(stage.ReasonCodes, reasons...))
+			stage.EvidenceRefs = dedupeSortedStrings(append(append(stage.EvidenceRefs, parent.EvidenceRefs...), child.EvidenceRefs...))
+		}
+	}
+}
+
+func compositionAuthorityProfiles(paths []ActionPath) map[string]compositionAuthorityProfile {
+	out := map[string]compositionAuthorityProfile{}
+	for _, path := range paths {
+		key := compositionMemberKey(path)
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		out[key] = compositionAuthorityProfileForPath(path)
+	}
+	return out
+}
+
+func compositionAuthorityProfileForPath(path ActionPath) compositionAuthorityProfile {
+	profile := compositionAuthorityProfile{
+		Ref:             compositionAuthorityRef(path),
+		Scopes:          compositionAuthorityScopes(path),
+		Targets:         compositionAuthorityTargets(path),
+		Credentials:     compositionAuthorityCredentials(path),
+		Expiry:          strings.TrimSpace(path.ReviewValidUntil),
+		AccessRank:      compositionAuthorityAccessRank(path),
+		DelegationDepth: compositionDelegationDepth(path),
+		EvidenceRefs:    compositionAuthorityEvidenceRefs(path),
+		ReasonCodes:     []string{"authority_profile:static_projection"},
+		Contradictory:   path.EvidenceStateContradictory(),
+	}
+	if strings.TrimSpace(profile.Ref) == "" {
+		profile.Unknown = true
+		profile.Ref = "authority-unknown:" + stableCompositionHash(compositionMemberKey(path))
+		profile.ReasonCodes = append(profile.ReasonCodes, "authority_profile:missing_identity")
+	}
+	if len(profile.Scopes) == 0 {
+		profile.ReasonCodes = append(profile.ReasonCodes, "scope:unknown")
+	}
+	if len(profile.Targets) == 0 {
+		profile.ReasonCodes = append(profile.ReasonCodes, "target:unknown")
+	}
+	if strings.TrimSpace(profile.Expiry) == "" {
+		profile.ReasonCodes = append(profile.ReasonCodes, "expiry:unknown")
+	}
+	profile.Scopes = dedupeSortedStrings(profile.Scopes)
+	profile.Targets = dedupeSortedStrings(profile.Targets)
+	profile.Credentials = dedupeSortedStrings(profile.Credentials)
+	profile.EvidenceRefs = dedupeSortedStrings(profile.EvidenceRefs)
+	profile.ReasonCodes = dedupeSortedStrings(profile.ReasonCodes)
+	return profile
+}
+
+func (path ActionPath) EvidenceStateContradictory() bool {
+	for _, value := range []string{
+		path.ControlResolutionStateEvidence(),
+		path.OwnerEvidenceState,
+		path.ApprovalEvidenceState,
+		path.ProofEvidenceState,
+		path.RuntimeEvidenceState,
+		path.TargetEvidenceState,
+		path.CredentialEvidenceState,
+	} {
+		if strings.TrimSpace(value) == EvidenceStateContradictory {
+			return true
+		}
+	}
+	return len(path.Contradictions) > 0
+}
+
+func compositionAuthorityRef(path ActionPath) string {
+	values := []string{strings.TrimSpace(path.CredentialAuthorityRef)}
+	if path.CredentialAuthority != nil {
+		values = append(values, compositionCredentialAuthorityIdentity(path.CredentialAuthority))
+	}
+	if path.CredentialProvenance != nil {
+		values = append(values, compositionCredentialProvenanceIdentity(path.CredentialProvenance))
+	}
+	for _, credential := range path.Credentials {
+		if credential == nil {
+			continue
+		}
+		values = append(values, compositionCredentialProvenanceIdentity(credential))
+	}
+	for _, binding := range path.AuthorityBindings {
+		if binding == nil {
+			continue
+		}
+		values = append(values, strings.Join([]string{
+			"binding",
+			strings.TrimSpace(binding.Kind),
+			strings.TrimSpace(binding.Provider),
+			strings.TrimSpace(binding.TargetSystem),
+			strings.TrimSpace(binding.Subject),
+			strings.TrimSpace(binding.Resource),
+			strings.TrimSpace(binding.AccessLevel),
+		}, ":"))
+	}
+	values = dedupeSortedStrings(values)
+	if len(values) == 0 {
+		return ""
+	}
+	return "authority-" + stableCompositionHash(strings.Join(values, "\x1f"))
+}
+
+func compositionAuthorityScopes(path ActionPath) []string {
+	values := []string{}
+	if path.CredentialAuthority != nil {
+		values = append(values, path.CredentialAuthority.LikelyScope)
+		values = append(values, path.CredentialAuthority.TargetSystem)
+	}
+	if path.CredentialProvenance != nil {
+		values = append(values, path.CredentialProvenance.Scope, path.CredentialProvenance.LikelyScope, path.CredentialProvenance.TargetSystem)
+	}
+	for _, credential := range path.Credentials {
+		if credential == nil {
+			continue
+		}
+		values = append(values, credential.Scope, credential.LikelyScope, credential.TargetSystem)
+	}
+	for _, binding := range path.AuthorityBindings {
+		if binding == nil {
+			continue
+		}
+		values = append(values, binding.LikelyScope, binding.Resource, binding.TargetSystem)
+	}
+	return dedupeSortedStrings(values)
+}
+
+func compositionAuthorityTargets(path ActionPath) []string {
+	values := []string{normalizeTargetClass(path.TargetClass)}
+	values = append(values, path.MatchedProductionTargets...)
+	if strings.TrimSpace(path.EndpointRefGroupID) != "" {
+		values = append(values, "endpoint_group:"+strings.TrimSpace(path.EndpointRefGroupID))
+	}
+	for _, item := range path.MutableEndpointSemantics {
+		values = append(values, compositionMutableEndpointIdentity(item))
+	}
+	if path.CredentialAuthority != nil {
+		values = append(values, path.CredentialAuthority.TargetSystem, path.CredentialAuthority.LikelyScope)
+	}
+	if path.CredentialProvenance != nil {
+		values = append(values, path.CredentialProvenance.TargetSystem, path.CredentialProvenance.LikelyScope)
+	}
+	for _, binding := range path.AuthorityBindings {
+		if binding == nil {
+			continue
+		}
+		values = append(values, binding.TargetSystem, binding.Resource, binding.Environment)
+	}
+	return dedupeSortedStrings(values)
+}
+
+func compositionAuthorityCredentials(path ActionPath) []string {
+	values := []string{}
+	if path.CredentialAuthority != nil {
+		values = append(values,
+			"authority_kind:"+strings.TrimSpace(path.CredentialAuthority.CredentialKind),
+			"authority_access:"+strings.TrimSpace(path.CredentialAuthority.AccessType),
+			"authority_source:"+strings.TrimSpace(path.CredentialAuthority.CredentialSource),
+		)
+		if path.CredentialAuthority.StandingAccess {
+			values = append(values, "authority_standing:true")
+		}
+		if path.CredentialAuthority.LikelyJIT {
+			values = append(values, "authority_jit:true")
+		}
+	}
+	if path.CredentialProvenance != nil {
+		values = append(values,
+			"provenance_type:"+strings.TrimSpace(path.CredentialProvenance.Type),
+			"provenance_subject:"+strings.TrimSpace(path.CredentialProvenance.Subject),
+			"provenance_access:"+strings.TrimSpace(path.CredentialProvenance.AccessType),
+			"provenance_kind:"+strings.TrimSpace(path.CredentialProvenance.CredentialKind),
+		)
+	}
+	for _, binding := range path.AuthorityBindings {
+		if binding == nil {
+			continue
+		}
+		values = append(values,
+			"binding_subject:"+strings.TrimSpace(binding.Subject),
+			"binding_access:"+strings.TrimSpace(binding.AccessLevel),
+		)
+	}
+	return dedupeSortedStrings(values)
+}
+
+func compositionAuthorityEvidenceRefs(path ActionPath) []string {
+	refs := append([]string(nil), path.ControlEvidenceRefs...)
+	refs = append(refs, path.ConstraintEvidenceRefs...)
+	refs = append(refs, path.TargetClassEvidenceRefs...)
+	refs = append(refs, path.PolicyEvidenceRefs...)
+	if path.CredentialAuthority != nil {
+		refs = append(refs, path.CredentialAuthority.ReasonCodes...)
+	}
+	if path.CredentialProvenance != nil {
+		refs = append(refs, path.CredentialProvenance.EvidenceBasis...)
+		refs = append(refs, path.CredentialProvenance.ClassificationReasons...)
+	}
+	for _, binding := range path.AuthorityBindings {
+		if binding == nil {
+			continue
+		}
+		refs = append(refs, binding.EvidenceRefs...)
+		refs = append(refs, binding.ReasonCodes...)
+	}
+	return dedupeSortedStrings(refs)
+}
+
+func compositionAuthorityAccessRank(path ActionPath) int {
+	rank := 0
+	for _, class := range append(append([]string(nil), path.ActionClasses...), path.WritePathClasses...) {
+		rank = maxInt(rank, compositionActionClassAccessRank(class))
+	}
+	if path.CredentialAccess {
+		rank = maxInt(rank, 3)
+	}
+	if path.WriteCapable || path.PullRequestWrite || path.MergeExecute {
+		rank = maxInt(rank, 3)
+	}
+	if path.DeployWrite {
+		rank = maxInt(rank, 4)
+	}
+	if path.ProductionWrite {
+		rank = maxInt(rank, 5)
+	}
+	if path.CredentialAuthority != nil {
+		rank = maxInt(rank, compositionAccessLevelRank(path.CredentialAuthority.AccessType))
+		if path.CredentialAuthority.StandingAccess {
+			rank = maxInt(rank, 4)
+		}
+	}
+	if path.CredentialProvenance != nil {
+		rank = maxInt(rank, compositionAccessLevelRank(path.CredentialProvenance.AccessType))
+		if path.CredentialProvenance.StandingAccess {
+			rank = maxInt(rank, 4)
+		}
+	}
+	for _, binding := range path.AuthorityBindings {
+		if binding == nil {
+			continue
+		}
+		rank = maxInt(rank, compositionAccessLevelRank(binding.AccessLevel))
+		if binding.Production {
+			rank = maxInt(rank, 5)
+		}
+	}
+	return rank
+}
+
+func compositionActionClassAccessRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case "admin", "owner", "production_deploy":
+		return 5
+	case "deploy", "deploy_write", "release", "package_publish", "publish", "release_write":
+		return 4
+	case "write", "code_write", "repo_write", "pull_request_write", "merge", "workflow_mutation", "workflow_write", "ci_write", "external_write", "credential", "secret":
+		return 3
+	case "egress", "network", "network_egress", "data_export":
+		return 2
+	case "read", "data.read", "sensitive_read", "secret_read", "credential_read":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func compositionAccessLevelRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case agginventory.AuthorityAccessAdmin, "owner", "write-all", "full":
+		return 5
+	case agginventory.AuthorityAccessWrite, "deploy", "release":
+		return 3
+	case agginventory.AuthorityAccessRead:
+		return 1
+	case agginventory.AuthorityAccessUnknown, "":
+		return 0
+	default:
+		if strings.Contains(strings.ToLower(value), "admin") {
+			return 5
+		}
+		if strings.Contains(strings.ToLower(value), "write") {
+			return 3
+		}
+		if strings.Contains(strings.ToLower(value), "read") {
+			return 1
+		}
+		return 0
+	}
+}
+
+func compositionDelegationDepth(path ActionPath) int {
+	depth := 0
+	if path.CredentialProvenance != nil && strings.TrimSpace(path.CredentialProvenance.Type) == agginventory.CredentialProvenanceOAuthDelegation {
+		depth = maxInt(depth, 1)
+	}
+	if path.TrustDepth != nil {
+		switch strings.TrimSpace(path.TrustDepth.DelegationModel) {
+		case agginventory.TrustDelegationAgent:
+			depth = maxInt(depth, 2)
+		case agginventory.TrustDelegationToolProxy:
+			depth = maxInt(depth, 1)
+		case agginventory.TrustDelegationUnknown:
+			depth = maxInt(depth, 1)
+		}
+	}
+	return depth
+}
+
+func compareCompositionAuthority(parent, child compositionAuthorityProfile) (string, []string, []string, []string, []string, []string) {
+	reasons := []string{"delegation_relationship:static_not_runtime_token_proof"}
+	scopeDelta := stringSetDeltaLabels("scope", parent.Scopes, child.Scopes)
+	targetDelta := stringSetDeltaLabels("target", parent.Targets, child.Targets)
+	credentialDelta := stringSetDeltaLabels("credential", parent.Credentials, child.Credentials)
+	expiryDelta := expiryDeltaLabels(parent.Expiry, child.Expiry)
+	if parent.Contradictory || child.Contradictory {
+		reasons = append(reasons, "delegation_relationship:contradictory_evidence")
+		return CompositionDelegationContradictory, scopeDelta, targetDelta, credentialDelta, expiryDelta, dedupeSortedStrings(reasons)
+	}
+	if parent.Unknown || child.Unknown {
+		reasons = append(reasons, "delegation_relationship:unknown_authority_identity")
+		return CompositionDelegationUnknown, scopeDelta, targetDelta, credentialDelta, expiryDelta, dedupeSortedStrings(reasons)
+	}
+
+	broadened := false
+	narrowed := false
+	if child.AccessRank > parent.AccessRank {
+		broadened = true
+		reasons = append(reasons, "access:broadened")
+	} else if child.AccessRank < parent.AccessRank {
+		narrowed = true
+		reasons = append(reasons, "access:narrowed")
+	}
+	if child.DelegationDepth > parent.DelegationDepth {
+		broadened = true
+		reasons = append(reasons, "delegation_depth:broadened")
+	} else if child.DelegationDepth < parent.DelegationDepth {
+		narrowed = true
+		reasons = append(reasons, "delegation_depth:narrowed")
+	}
+	if targetRankBroadened(parent.Targets, child.Targets) {
+		broadened = true
+		reasons = append(reasons, "target:broadened")
+	} else if len(targetDelta) > 0 {
+		narrowed = true
+	}
+	if hasAddedDelta(scopeDelta) {
+		broadened = true
+		reasons = append(reasons, "scope:broadened")
+	} else if len(scopeDelta) > 0 {
+		narrowed = true
+	}
+	if hasAddedDelta(credentialDelta) && child.AccessRank >= parent.AccessRank {
+		broadened = true
+		reasons = append(reasons, "credential:changed_or_broadened")
+	}
+	if childExpiryLessRestrictive(parent.Expiry, child.Expiry) {
+		broadened = true
+		reasons = append(reasons, "expiry:broadened_or_missing")
+	} else if len(expiryDelta) > 0 {
+		narrowed = true
+	}
+	switch {
+	case broadened:
+		return CompositionDelegationBroadened, scopeDelta, targetDelta, credentialDelta, expiryDelta, dedupeSortedStrings(reasons)
+	case narrowed:
+		return CompositionDelegationNarrowed, scopeDelta, targetDelta, credentialDelta, expiryDelta, dedupeSortedStrings(reasons)
+	default:
+		reasons = append(reasons, "delegation_relationship:equal_authority")
+		return CompositionDelegationEqual, nil, nil, nil, nil, dedupeSortedStrings(reasons)
+	}
+}
+
+func stringSetDeltaLabels(prefix string, parent, child []string) []string {
+	parentSet := stringSet(parent)
+	childSet := stringSet(child)
+	out := []string{}
+	for _, value := range child {
+		if _, ok := parentSet[value]; !ok {
+			out = append(out, prefix+":added:"+value)
+		}
+	}
+	for _, value := range parent {
+		if _, ok := childSet[value]; !ok {
+			out = append(out, prefix+":removed:"+value)
+		}
+	}
+	return dedupeSortedStrings(out)
+}
+
+func stringSet(values []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			out[trimmed] = struct{}{}
+		}
+	}
+	return out
+}
+
+func hasAddedDelta(values []string) bool {
+	for _, value := range values {
+		if strings.Contains(value, ":added:") {
+			return true
+		}
+	}
+	return false
+}
+
+func targetRankBroadened(parent, child []string) bool {
+	parentRank := 99
+	childRank := 99
+	for _, value := range parent {
+		parentRank = minInt(parentRank, targetClassRank(value))
+	}
+	for _, value := range child {
+		childRank = minInt(childRank, targetClassRank(value))
+	}
+	return childRank < parentRank
+}
+
+func expiryDeltaLabels(parent, child string) []string {
+	parent = strings.TrimSpace(parent)
+	child = strings.TrimSpace(child)
+	switch {
+	case parent == "" && child == "":
+		return nil
+	case parent == child:
+		return nil
+	case parent == "":
+		return []string{"expiry:added:" + child}
+	case child == "":
+		return []string{"expiry:removed:" + parent}
+	default:
+		return []string{"expiry:changed:" + parent + "->" + child}
+	}
+}
+
+func childExpiryLessRestrictive(parent, child string) bool {
+	parent = strings.TrimSpace(parent)
+	child = strings.TrimSpace(child)
+	if parent == "" {
+		return false
+	}
+	if child == "" {
+		return true
+	}
+	return child > parent
+}
+
+func mergeCompositionTransitionDelegation(composition *ComposedActionPath, sources ...[]CompositionTransition) {
+	if composition == nil || len(composition.Transitions) == 0 {
+		return
+	}
+	byTransition := map[string]CompositionTransition{}
+	for _, source := range sources {
+		for _, transition := range source {
+			byTransition[strings.TrimSpace(transition.TransitionID)] = transition
+		}
+	}
+	for idx := range composition.Transitions {
+		current, ok := byTransition[strings.TrimSpace(composition.Transitions[idx].TransitionID)]
+		if !ok {
+			continue
+		}
+		composition.Transitions[idx].Relationship = strings.TrimSpace(current.Relationship)
+		composition.Transitions[idx].ParentAuthorityRef = strings.TrimSpace(current.ParentAuthorityRef)
+		composition.Transitions[idx].ChildAuthorityRef = strings.TrimSpace(current.ChildAuthorityRef)
+		composition.Transitions[idx].ScopeDelta = dedupeSortedStrings(current.ScopeDelta)
+		composition.Transitions[idx].TargetDelta = dedupeSortedStrings(current.TargetDelta)
+		composition.Transitions[idx].CredentialDelta = dedupeSortedStrings(current.CredentialDelta)
+		composition.Transitions[idx].ExpiryDelta = dedupeSortedStrings(current.ExpiryDelta)
+		composition.Transitions[idx].ReasonCodes = dedupeSortedStrings(append(composition.Transitions[idx].ReasonCodes, current.ReasonCodes...))
+	}
+}
+
 func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActionPath {
 	if strings.TrimSpace(current.CompositionID) == "" {
 		return incoming
@@ -497,6 +1081,7 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.ProposedActionContractRefs = dedupeSortedStrings(append(merged.ProposedActionContractRefs, incoming.ProposedActionContractRefs...))
 	merged.Stages = dedupeCompositionStages(append(append([]CompositionStage(nil), merged.Stages...), incoming.Stages...))
 	merged.Transitions = buildCompositionTransitions(merged.CompositionID, merged.Stages)
+	mergeCompositionTransitionDelegation(&merged, current.Transitions, incoming.Transitions)
 	merged.Contradictions = mergeContradictions(merged.Contradictions, incoming.Contradictions)
 	merged.ClosureRequirements = CloneClosureRequirements(firstNonEmptyClosureRequirements(merged.ClosureRequirements, incoming.ClosureRequirements))
 	merged.EvidenceCompleteness = mergeEvidenceCompletenessValues(merged.EvidenceCompleteness, incoming.EvidenceCompleteness)
@@ -507,6 +1092,11 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.RuntimeEvidenceAbsenceStatus = compositionRuntimeAbsence(merged.RuntimeEvidenceAbsenceStatus, incoming.RuntimeEvidenceAbsenceStatus)
 	merged.RiskTier = compositionRiskTierFromValues(merged.RiskTier, incoming.RiskTier)
 	merged.RecommendedControl = compositionRecommendedControlFromValues(merged.RecommendedControl, incoming.RecommendedControl)
+	merged.RecommendedControlReasons = dedupeSortedStrings(append(merged.RecommendedControlReasons, incoming.RecommendedControlReasons...))
+	merged.EscalatingTransitionRefs = dedupeSortedStrings(append(merged.EscalatingTransitionRefs, incoming.EscalatingTransitionRefs...))
+	if strings.TrimSpace(merged.MostRestrictiveSource) == "" {
+		merged.MostRestrictiveSource = strings.TrimSpace(incoming.MostRestrictiveSource)
+	}
 	merged.ClaimState = compositionClaimState(merged.EvidenceState, merged.PolicyCoverageStatus, merged.FreshnessState, merged.GaitCoverage, merged.Stages, nil)
 	hydrateCompositionTransitions(&merged)
 	merged.ProposedActionContract = BuildProposedActionContract(merged)
@@ -531,7 +1121,301 @@ func hydrateCompositionTransitions(composition *ComposedActionPath) {
 		composition.Transitions[idx].EvidenceRefs = append([]string(nil), composition.EvidenceRefs...)
 		composition.Transitions[idx].ProofRefs = append([]string(nil), composition.ProofRefs...)
 		composition.Transitions[idx].SourceDecisionRefs = append([]string(nil), composition.SourceDecisionRefs...)
-		composition.Transitions[idx].ReasonCodes = dedupeSortedStrings([]string{"pattern:" + composition.PatternID, "claim_state:" + composition.ClaimState})
+		composition.Transitions[idx].ReasonCodes = dedupeSortedStrings(append(composition.Transitions[idx].ReasonCodes, "pattern:"+composition.PatternID, "claim_state:"+composition.ClaimState))
+	}
+}
+
+func applyCompositionRecommendedControl(composition *ComposedActionPath, paths []ActionPath) {
+	if composition == nil {
+		return
+	}
+	candidates := []compositionRecommendationCandidate{}
+	for _, path := range paths {
+		control := strings.TrimSpace(path.RecommendedControl)
+		if control == "" {
+			control = RecommendedControlOwnerReview
+		}
+		source := "path:" + firstNonEmptyString(strings.TrimSpace(path.PathID), compositionMemberKey(path))
+		reasons := append([]string(nil), path.RecommendedControlReasons...)
+		if len(reasons) == 0 {
+			reasons = append(reasons, "path_recommendation:"+control)
+		}
+		candidates = append(candidates, compositionRecommendationCandidate{
+			Control: control,
+			Source:  source,
+			Reasons: reasons,
+		})
+	}
+	switch strings.TrimSpace(composition.ClaimState) {
+	case CompositionClaimContradictory:
+		candidates = append(candidates, compositionRecommendationCandidate{
+			Control: RecommendedControlBlock,
+			Source:  "composition_claim_state",
+			Reasons: []string{"composition:contradictory_claim"},
+		})
+	case CompositionClaimStaticOnly, CompositionClaimUnknown:
+		candidates = append(candidates, compositionRecommendationCandidate{
+			Control: RecommendedControlSecurityReview,
+			Source:  "composition_claim_state",
+			Reasons: []string{"composition:static_or_unknown_claim"},
+		})
+	}
+	switch strings.TrimSpace(composition.EvidenceState) {
+	case EvidenceStateUnknown, EvidenceStateInferred:
+		candidates = append(candidates, compositionRecommendationCandidate{
+			Control: RecommendedControlProofRequired,
+			Source:  "composition_evidence_state",
+			Reasons: []string{"composition:evidence_incomplete"},
+		})
+	}
+	switch strings.TrimSpace(composition.PolicyCoverageStatus) {
+	case PolicyCoverageStatusNone, PolicyCoverageStatusStale:
+		candidates = append(candidates, compositionRecommendationCandidate{
+			Control: RecommendedControlApprovalRequired,
+			Source:  "composition_policy_coverage",
+			Reasons: []string{"composition:policy_coverage_gap"},
+		})
+	case PolicyCoverageStatusConflict:
+		candidates = append(candidates, compositionRecommendationCandidate{
+			Control: RecommendedControlBlock,
+			Source:  "composition_policy_coverage",
+			Reasons: []string{"composition:policy_coverage_conflict"},
+		})
+	}
+	for _, transition := range composition.Transitions {
+		ref := strings.TrimSpace(transition.TransitionID)
+		switch strings.TrimSpace(transition.Relationship) {
+		case CompositionDelegationContradictory:
+			candidates = append(candidates, compositionRecommendationCandidate{
+				Control:        RecommendedControlBlock,
+				Source:         "transition:" + ref,
+				TransitionRefs: []string{ref},
+				Reasons:        []string{"composition:delegation_contradictory"},
+			})
+		case CompositionDelegationBroadened:
+			candidates = append(candidates, compositionRecommendationCandidate{
+				Control:        RecommendedControlJITCredentialRequired,
+				Source:         "transition:" + ref,
+				TransitionRefs: []string{ref},
+				Reasons:        []string{"composition:delegation_broadened"},
+			})
+		case CompositionDelegationUnknown:
+			candidates = append(candidates, compositionRecommendationCandidate{
+				Control:        RecommendedControlSecurityReview,
+				Source:         "transition:" + ref,
+				TransitionRefs: []string{ref},
+				Reasons:        []string{"composition:delegation_unknown"},
+			})
+		}
+	}
+	control := RecommendedControlAllow
+	source := ""
+	reasons := []string{}
+	transitionRefs := []string{}
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate.Control) == "" {
+			continue
+		}
+		reasons = append(reasons, candidate.Reasons...)
+		transitionRefs = append(transitionRefs, candidate.TransitionRefs...)
+		if recommendedControlRank(candidate.Control) < recommendedControlRank(control) {
+			control = strings.TrimSpace(candidate.Control)
+			source = strings.TrimSpace(candidate.Source)
+		}
+	}
+	if strings.TrimSpace(control) == "" {
+		control = RecommendedControlOwnerReview
+	}
+	composition.RecommendedControl = control
+	composition.RecommendedControlReasons = dedupeSortedStrings(reasons)
+	composition.EscalatingTransitionRefs = dedupeSortedStrings(transitionRefs)
+	composition.MostRestrictiveSource = strings.TrimSpace(source)
+	if composition.MostRestrictiveSource == "" && control != RecommendedControlAllow {
+		composition.MostRestrictiveSource = "composition"
+	}
+}
+
+func annotateEquivalentOutcomeSignals(compositions []ComposedActionPath) {
+	if len(compositions) < 2 {
+		return
+	}
+	byOutcome := map[string][]int{}
+	for idx := range compositions {
+		compositions[idx].OutcomeKey = firstNonEmptyString(strings.TrimSpace(compositions[idx].OutcomeKey), strings.TrimSpace(compositions[idx].DurableOutcomeKey))
+		if !compositionOutcomeEquivalenceEligible(compositions[idx]) {
+			if strings.TrimSpace(compositions[idx].OutcomeKey) == "" || !compositionHasStableOutcomeTarget(compositions[idx]) {
+				compositions[idx].CoverageDeltaReasons = dedupeSortedStrings(append(compositions[idx].CoverageDeltaReasons, "equivalence:stable_target_identity_absent"))
+				compositions[idx].ApprovalEvasionSignal = CompositionApprovalEvasionUnknown
+				compositions[idx].Materiality = CompositionMaterialityNone
+			}
+			continue
+		}
+		byOutcome[strings.TrimSpace(compositions[idx].OutcomeKey)] = append(byOutcome[strings.TrimSpace(compositions[idx].OutcomeKey)], idx)
+	}
+	for _, indexes := range byOutcome {
+		if len(indexes) < 2 {
+			continue
+		}
+		for _, idx := range indexes {
+			refs := []string{}
+			reasons := []string{}
+			material := false
+			possibleEvasion := false
+			for _, peerIdx := range indexes {
+				if peerIdx == idx {
+					continue
+				}
+				peer := compositions[peerIdx]
+				deltas := equivalentOutcomeDeltaReasons(compositions[idx], peer)
+				if len(deltas) == 0 {
+					continue
+				}
+				refs = append(refs, strings.TrimSpace(peer.CompositionID))
+				reasons = append(reasons, deltas...)
+				material = true
+				if compositionWeakerThanPeer(compositions[idx], peer) {
+					possibleEvasion = true
+				}
+			}
+			refs = dedupeSortedStrings(refs)
+			if len(refs) > maxEquivalentOutcomeRefs {
+				refs = append(append([]string(nil), refs[:maxEquivalentOutcomeRefs]...), "truncated:"+stableCompositionHash(strings.Join(refs, "\x1f")))
+			}
+			compositions[idx].EquivalentOutcomeRefs = refs
+			compositions[idx].CoverageDeltaReasons = dedupeSortedStrings(append(compositions[idx].CoverageDeltaReasons, reasons...))
+			switch {
+			case possibleEvasion:
+				compositions[idx].ApprovalEvasionSignal = CompositionApprovalEvasionPossible
+			case material:
+				compositions[idx].ApprovalEvasionSignal = CompositionApprovalEvasionNone
+			default:
+				compositions[idx].ApprovalEvasionSignal = CompositionApprovalEvasionNone
+			}
+			if material {
+				compositions[idx].Materiality = CompositionMaterialityMaterial
+			} else {
+				compositions[idx].Materiality = CompositionMaterialityNone
+			}
+			compositions[idx].ProposedActionContract = BuildProposedActionContract(compositions[idx])
+			if compositions[idx].ProposedActionContract != nil {
+				compositions[idx].ProposedActionContractRefs = []string{compositions[idx].ProposedActionContract.ContractID}
+			}
+		}
+	}
+}
+
+func compositionOutcomeEquivalenceEligible(composition ComposedActionPath) bool {
+	if strings.TrimSpace(composition.OutcomeKey) == "" || !compositionHasStableOutcomeTarget(composition) {
+		return false
+	}
+	switch strings.TrimSpace(composition.OutcomeClass) {
+	case "production_deploy", "data_egress", "network_egress", "production_mutation", "release_publish":
+		return true
+	default:
+		return false
+	}
+}
+
+func compositionHasStableOutcomeTarget(composition ComposedActionPath) bool {
+	target := strings.TrimSpace(composition.TargetIdentity)
+	if target == "" || target == TargetClassUnknown || target == "unknown" {
+		return false
+	}
+	return !strings.HasSuffix(target, "/") && target != strings.TrimSpace(composition.TargetClass)
+}
+
+func equivalentOutcomeDeltaReasons(current, peer ComposedActionPath) []string {
+	reasons := []string{}
+	if strings.Join(compositionAuthorityRefs(current), ",") != strings.Join(compositionAuthorityRefs(peer), ",") {
+		reasons = append(reasons, "equivalent_outcome:authority_identity_delta")
+	}
+	if strings.Join(current.WorkflowChainRefs, ",") != strings.Join(peer.WorkflowChainRefs, ",") {
+		reasons = append(reasons, "equivalent_outcome:workflow_identity_delta")
+	}
+	if compositionTransitionApprovalRequired(current) != compositionTransitionApprovalRequired(peer) {
+		reasons = append(reasons, "equivalent_outcome:approval_requirement_delta")
+	}
+	if strings.TrimSpace(current.PolicyCoverageStatus) != strings.TrimSpace(peer.PolicyCoverageStatus) {
+		reasons = append(reasons, "equivalent_outcome:policy_coverage_delta")
+	}
+	if compositionGaitCoverageSignature(current.GaitCoverage) != compositionGaitCoverageSignature(peer.GaitCoverage) {
+		reasons = append(reasons, "equivalent_outcome:gait_coverage_delta")
+	}
+	if proposedCredentialMode(current) != proposedCredentialMode(peer) {
+		reasons = append(reasons, "equivalent_outcome:credential_mode_delta")
+	}
+	if strings.TrimSpace(current.EvidenceState) != strings.TrimSpace(peer.EvidenceState) ||
+		strings.TrimSpace(current.ClaimState) != strings.TrimSpace(peer.ClaimState) {
+		reasons = append(reasons, "equivalent_outcome:evidence_state_delta")
+	}
+	if recommendedControlRank(current.RecommendedControl) != recommendedControlRank(peer.RecommendedControl) {
+		reasons = append(reasons, "equivalent_outcome:recommended_control_delta")
+	}
+	return dedupeSortedStrings(reasons)
+}
+
+func compositionAuthorityRefs(composition ComposedActionPath) []string {
+	refs := []string{}
+	for _, stage := range composition.Stages {
+		refs = append(refs, stage.ParentAuthorityRef, stage.ChildAuthorityRef)
+	}
+	for _, transition := range composition.Transitions {
+		refs = append(refs, transition.ParentAuthorityRef, transition.ChildAuthorityRef)
+	}
+	return dedupeSortedStrings(refs)
+}
+
+func compositionTransitionApprovalRequired(composition ComposedActionPath) bool {
+	if composition.ProposedActionContract == nil {
+		return false
+	}
+	return len(composition.ProposedActionContract.ApprovalRequiredTransitions) > 0 || len(composition.ProposedActionContract.ProhibitedTransitions) > 0
+}
+
+func compositionGaitCoverageSignature(coverage *GaitCoverage) string {
+	if coverage == nil {
+		return ""
+	}
+	return strings.Join([]string{
+		strings.TrimSpace(coverage.PolicyDecision.Status),
+		strings.TrimSpace(coverage.Approval.Status),
+		strings.TrimSpace(coverage.JITCredential.Status),
+		strings.TrimSpace(coverage.FreezeWindow.Status),
+		strings.TrimSpace(coverage.KillSwitch.Status),
+		strings.TrimSpace(coverage.ActionOutcome.Status),
+		strings.TrimSpace(coverage.ProofVerification.Status),
+	}, "|")
+}
+
+func compositionWeakerThanPeer(current, peer ComposedActionPath) bool {
+	if recommendedControlRank(current.RecommendedControl) > recommendedControlRank(peer.RecommendedControl) {
+		return true
+	}
+	if compositionPolicyCoverageRank(current.PolicyCoverageStatus) > compositionPolicyCoverageRank(peer.PolicyCoverageStatus) {
+		return true
+	}
+	if evidenceStatePriority(current.EvidenceState) > evidenceStatePriority(peer.EvidenceState) {
+		return true
+	}
+	return false
+}
+
+func compositionPolicyCoverageRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case PolicyCoverageStatusRuntimeProven:
+		return 0
+	case PolicyCoverageStatusMatched:
+		return 1
+	case PolicyCoverageStatusDeclared:
+		return 2
+	case PolicyCoverageStatusStale:
+		return 3
+	case PolicyCoverageStatusNone:
+		return 4
+	case PolicyCoverageStatusConflict:
+		return 5
+	default:
+		return 4
 	}
 }
 

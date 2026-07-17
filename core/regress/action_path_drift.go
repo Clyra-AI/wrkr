@@ -10,23 +10,35 @@ import (
 )
 
 const (
-	DriftCategoryNewWritePaths           = "new_write_paths"
-	DriftCategoryNewDeployPaths          = "new_deploy_paths"
-	DriftCategoryNewCredentials          = "new_credentials"
-	DriftCategoryNewUnknownApproval      = "new_unknown_approval_evidence"
-	DriftCategoryResolvedGaps            = "resolved_gaps"
-	DriftCategoryWorsenedPaths           = "worsened_paths"
-	DriftCategoryNewContradictions       = "new_contradictions"
-	DriftCategoryPathsReadyForControl    = "paths_ready_for_control"
-	DriftCategoryRemovedPaths            = "removed_paths"
-	DriftCategoryChangedAuthority        = "changed_authority"
-	DriftCategoryChangedEvidence         = "changed_evidence"
-	DriftCategoryChangedTargetClass      = "changed_target_class"
-	DriftComparisonStatusOK              = "ok"
-	DriftComparisonStatusBaselineMissing = "baseline_action_paths_unavailable"
-	DriftComparisonStatusCurrentMissing  = "current_action_paths_unavailable"
-	DriftComparisonStatusIncomplete      = "comparison_incomplete"
-	driftExampleLimit                    = 5
+	DriftCategoryNewWritePaths                       = "new_write_paths"
+	DriftCategoryNewDeployPaths                      = "new_deploy_paths"
+	DriftCategoryNewCredentials                      = "new_credentials"
+	DriftCategoryNewUnknownApproval                  = "new_unknown_approval_evidence"
+	DriftCategoryResolvedGaps                        = "resolved_gaps"
+	DriftCategoryWorsenedPaths                       = "worsened_paths"
+	DriftCategoryNewContradictions                   = "new_contradictions"
+	DriftCategoryPathsReadyForControl                = "paths_ready_for_control"
+	DriftCategoryRemovedPaths                        = "removed_paths"
+	DriftCategoryChangedAuthority                    = "changed_authority"
+	DriftCategoryChangedEvidence                     = "changed_evidence"
+	DriftCategoryChangedTargetClass                  = "changed_target_class"
+	DriftCategoryIntroducedCompositions              = "introduced_compositions"
+	DriftCategoryRemovedCompositions                 = "removed_compositions"
+	DriftCategoryChangedCompositionMembers           = "changed_composition_members"
+	DriftCategoryNewCompositionSinks                 = "newly_introduced_sinks"
+	DriftCategoryCompositionCoverageDegraded         = "composition_coverage_degraded"
+	DriftCategoryCompositionEvidenceDegraded         = "composition_evidence_degraded"
+	DriftCategoryNewlyUngovernedCompositions         = "newly_ungoverned_compositions"
+	DriftCategoryWorsenedCompositionRecommendation   = "worsened_composition_recommendation"
+	DriftCategoryAlternateRouteAppeared              = "alternate_route_appeared"
+	DriftCategoryCompositionOutcomeChanged           = "composition_outcome_changed"
+	DriftComparisonStatusOK                          = "ok"
+	DriftComparisonStatusBaselineMissing             = "baseline_action_paths_unavailable"
+	DriftComparisonStatusCurrentMissing              = "current_action_paths_unavailable"
+	DriftComparisonStatusBaselineCompositionsMissing = "baseline_compositions_unavailable"
+	DriftComparisonStatusCurrentCompositionsMissing  = "current_compositions_unavailable"
+	DriftComparisonStatusIncomplete                  = "comparison_incomplete"
+	driftExampleLimit                                = 5
 )
 
 type ActionPathState struct {
@@ -105,6 +117,14 @@ type DriftExample struct {
 	BaselineReviewLifecycleState string   `json:"baseline_review_lifecycle_state,omitempty"`
 	ReopenState                  string   `json:"reopen_state,omitempty"`
 	ReopenReasons                []string `json:"reopen_reasons,omitempty"`
+	CompositionID                string   `json:"composition_id,omitempty"`
+	BaselineCompositionID        string   `json:"baseline_composition_id,omitempty"`
+	CurrentCompositionRef        string   `json:"current_composition_ref,omitempty"`
+	BaselineCompositionRef       string   `json:"baseline_composition_ref,omitempty"`
+	CurrentOutcomeKey            string   `json:"current_outcome_key,omitempty"`
+	BaselineOutcomeKey           string   `json:"baseline_outcome_key,omitempty"`
+	CurrentRecommendation        string   `json:"current_recommended_control,omitempty"`
+	BaselineRecommendation       string   `json:"baseline_recommended_control,omitempty"`
 	Detail                       string   `json:"detail"`
 	RecommendedNextAction        string   `json:"recommended_next_action,omitempty"`
 }
@@ -240,6 +260,96 @@ var driftCategoryPlanOrder = []categoryMetadata{
 		recommended: []string{
 			"Review target-class movement because buyer-facing severity and workflow ordering may change.",
 			"Confirm the new class reflects the path's real deploy, release, or customer impact.",
+		},
+	},
+	{
+		category: DriftCategoryIntroducedCompositions,
+		severity: "high",
+		priority: "P0",
+		recommended: []string{
+			"Review newly introduced composed authority before refreshing the baseline.",
+			"Attach policy, approval, and proof evidence for every consequential transition.",
+		},
+	},
+	{
+		category: DriftCategoryRemovedCompositions,
+		severity: "medium",
+		priority: "P1",
+		recommended: []string{
+			"Confirm whether the removed composition was intentionally retired or scan coverage changed.",
+			"Refresh the baseline only after validating the removal.",
+		},
+	},
+	{
+		category: DriftCategoryChangedCompositionMembers,
+		severity: "medium",
+		priority: "P1",
+		recommended: []string{
+			"Review replaced composition members because historical approval may no longer cover the route.",
+			"Update evidence refs for the new source-to-sink member set.",
+		},
+	},
+	{
+		category: DriftCategoryNewCompositionSinks,
+		severity: "high",
+		priority: "P0",
+		recommended: []string{
+			"Treat newly introduced sinks as control-blocking until ownership and approval evidence is attached.",
+			"Confirm the sink target identity and outcome class before accepting the route.",
+		},
+	},
+	{
+		category: DriftCategoryCompositionCoverageDegraded,
+		severity: "high",
+		priority: "P0",
+		recommended: []string{
+			"Restore policy and Gait coverage for the composition before relying on previous approvals.",
+			"Block or reduce the route when coverage cannot be proven.",
+		},
+	},
+	{
+		category: DriftCategoryCompositionEvidenceDegraded,
+		severity: "medium",
+		priority: "P1",
+		recommended: []string{
+			"Refresh stale or missing evidence for the affected composition transitions.",
+			"Keep the composition under review until proof and runtime evidence posture is restored.",
+		},
+	},
+	{
+		category: DriftCategoryNewlyUngovernedCompositions,
+		severity: "high",
+		priority: "P0",
+		recommended: []string{
+			"Treat newly ungoverned composed authority as release-blocking drift.",
+			"Reattach policy coverage or reduce the route's authority before baseline refresh.",
+		},
+	},
+	{
+		category: DriftCategoryWorsenedCompositionRecommendation,
+		severity: "high",
+		priority: "P0",
+		recommended: []string{
+			"Prioritize the worsened composition recommendation in the next control cycle.",
+			"Capture the transition-level reason before allowing wider rollout.",
+		},
+	},
+	{
+		category: DriftCategoryAlternateRouteAppeared,
+		severity: "high",
+		priority: "P0",
+		recommended: []string{
+			"Review alternate routes to the same outcome for approval-evasion risk.",
+			"Ensure equivalent outcomes have equivalent policy and approval coverage.",
+		},
+	},
+	{
+		category: DriftCategoryCompositionOutcomeChanged,
+		severity: "high",
+		priority: "P0",
+		recommended: []string{
+			"Review outcome changes before carrying forward historical approvals.",
+			"Regenerate proposed Action Contracts for the changed outcome class or target.",
 		},
 	},
 }
