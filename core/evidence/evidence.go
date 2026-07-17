@@ -37,22 +37,23 @@ type BuildInput struct {
 }
 
 type BuildResult struct {
-	OutputDir            string                               `json:"output_dir"`
-	DeploymentMode       string                               `json:"deployment_mode,omitempty"`
-	Frameworks           []string                             `json:"frameworks"`
-	ManifestPath         string                               `json:"manifest_path"`
-	ArtifactManifestPath string                               `json:"artifact_manifest_path,omitempty"`
-	ChainPath            string                               `json:"chain_path"`
-	FrameworkCoverage    map[string]float64                   `json:"framework_coverage"`
-	ControlEvidence      []ControlEvidence                    `json:"control_evidence,omitempty"`
-	CoverageNote         CoverageNote                         `json:"coverage_note"`
-	ReportArtifacts      []string                             `json:"report_artifacts"`
-	SourcePrivacy        *sourceprivacy.Contract              `json:"source_privacy,omitempty"`
-	RuntimeSessions      *ingest.SessionSummary               `json:"runtime_sessions,omitempty"`
-	RuntimeEvidence      *ingest.Summary                      `json:"runtime_evidence,omitempty"`
-	EvidencePackets      *ingest.EvidencePacketSummary        `json:"evidence_packets,omitempty"`
-	AgentActionBOM       *reportcore.AgentActionBOM           `json:"agent_action_bom,omitempty"`
-	GovernedUsageMetrics *controlbacklog.GovernedUsageMetrics `json:"governed_usage_metrics,omitempty"`
+	OutputDir            string                                 `json:"output_dir"`
+	DeploymentMode       string                                 `json:"deployment_mode,omitempty"`
+	Frameworks           []string                               `json:"frameworks"`
+	ManifestPath         string                                 `json:"manifest_path"`
+	ArtifactManifestPath string                                 `json:"artifact_manifest_path,omitempty"`
+	ChainPath            string                                 `json:"chain_path"`
+	FrameworkCoverage    map[string]float64                     `json:"framework_coverage"`
+	ControlEvidence      []ControlEvidence                      `json:"control_evidence,omitempty"`
+	CoverageNote         CoverageNote                           `json:"coverage_note"`
+	ReportArtifacts      []string                               `json:"report_artifacts"`
+	SourcePrivacy        *sourceprivacy.Contract                `json:"source_privacy,omitempty"`
+	RuntimeSessions      *ingest.SessionSummary                 `json:"runtime_sessions,omitempty"`
+	RuntimeEvidence      *ingest.Summary                        `json:"runtime_evidence,omitempty"`
+	EvidencePackets      *ingest.EvidencePacketSummary          `json:"evidence_packets,omitempty"`
+	CompositionRefs      []reportcore.CompositionCorrelationRef `json:"composition_refs,omitempty"`
+	AgentActionBOM       *reportcore.AgentActionBOM             `json:"agent_action_bom,omitempty"`
+	GovernedUsageMetrics *controlbacklog.GovernedUsageMetrics   `json:"governed_usage_metrics,omitempty"`
 }
 
 type ControlEvidence struct {
@@ -505,6 +506,7 @@ func Build(in BuildInput) (BuildResult, error) {
 	if err := writeJSON(privateJoinMapPath, joinMap); err != nil {
 		return BuildResult{}, classifyErrorf(ErrorClassRuntimeFailure, "write private join map: %w", err)
 	}
+	redactedEvidenceBundle := reportcore.BuildEvidenceBundle(redactedSummary)
 
 	return BuildResult{
 		OutputDir:            targetOutputDir,
@@ -521,6 +523,7 @@ func Build(in BuildInput) (BuildResult, error) {
 		RuntimeSessions:      runtimeSessions,
 		RuntimeEvidence:      runtimeEvidence,
 		EvidencePackets:      evidencePackets,
+		CompositionRefs:      redactedEvidenceBundle.CompositionRefs,
 		AgentActionBOM:       redactedSummary.AgentActionBOM,
 		GovernedUsageMetrics: summary.GovernedUsageMetrics,
 	}, nil

@@ -68,38 +68,7 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 	resolvedStatePath := state.ResolvePath(*statePathFlag)
 
 	if *jsonOut {
-		controlEvidence, controlEvidenceOverflow := outputsignal.CapSlice(result.ControlEvidence, evidenceJSONInlineControlEvidenceCap)
-		reportArtifacts, reportArtifactsOverflow := outputsignal.CapSlice(result.ReportArtifacts, evidenceJSONInlineReportArtifactsCap)
-		payload := map[string]any{
-			"status":                 "ok",
-			"deployment_mode":        result.DeploymentMode,
-			"output_dir":             result.OutputDir,
-			"frameworks":             result.Frameworks,
-			"manifest_path":          result.ManifestPath,
-			"artifact_manifest_path": result.ArtifactManifestPath,
-			"chain_path":             result.ChainPath,
-			"framework_coverage":     result.FrameworkCoverage,
-			"control_evidence":       controlEvidence,
-			"coverage_note":          result.CoverageNote,
-			"report_artifacts":       reportArtifacts,
-			"source_privacy":         result.SourcePrivacy,
-			"agent_action_bom":       result.AgentActionBOM,
-			"governed_usage_metrics": result.GovernedUsageMetrics,
-			"next_steps":             evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
-		}
-		if suppressed := outputsignal.MergeSuppressedCounts(&outputsignal.SuppressedCounts{
-			ControlEvidence: controlEvidenceOverflow,
-			ReportArtifacts: reportArtifactsOverflow,
-		}); suppressed != nil {
-			payload["suppressed_counts"] = suppressed
-			payload["artifact_paths"] = map[string]any{
-				"state":                 resolvedStatePath,
-				"control_evidence_json": filepath.Join(result.OutputDir, "control-evidence.json"),
-			}
-		}
-		if result.RuntimeEvidence != nil {
-			payload["runtime_evidence"] = result.RuntimeEvidence
-		}
+		payload := buildEvidenceJSONPayload(result, resolvedStatePath)
 		jsonSink, err := newJSONOutputSink(true, "", stdout, jsonStdoutModeValue)
 		if err != nil {
 			return emitError(stderr, jsonRequested || *jsonOut, "invalid_input", err.Error(), exitInvalidInput)
@@ -128,6 +97,48 @@ func runEvidence(args []string, stdout io.Writer, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintf(stdout, "wrkr evidence bundle written to %s\n", result.OutputDir)
 	return exitSuccess
+}
+
+func buildEvidenceJSONPayload(result evidence.BuildResult, resolvedStatePath string) map[string]any {
+	controlEvidence, controlEvidenceOverflow := outputsignal.CapSlice(result.ControlEvidence, evidenceJSONInlineControlEvidenceCap)
+	reportArtifacts, reportArtifactsOverflow := outputsignal.CapSlice(result.ReportArtifacts, evidenceJSONInlineReportArtifactsCap)
+	payload := map[string]any{
+		"status":                 "ok",
+		"deployment_mode":        result.DeploymentMode,
+		"output_dir":             result.OutputDir,
+		"frameworks":             result.Frameworks,
+		"manifest_path":          result.ManifestPath,
+		"artifact_manifest_path": result.ArtifactManifestPath,
+		"chain_path":             result.ChainPath,
+		"framework_coverage":     result.FrameworkCoverage,
+		"control_evidence":       controlEvidence,
+		"coverage_note":          result.CoverageNote,
+		"report_artifacts":       reportArtifacts,
+		"source_privacy":         result.SourcePrivacy,
+		"agent_action_bom":       result.AgentActionBOM,
+		"governed_usage_metrics": result.GovernedUsageMetrics,
+		"next_steps":             evidenceNextSteps(resolvedStatePath, result.OutputDir, result.ManifestPath, result.ReportArtifacts),
+	}
+	if result.RuntimeSessions != nil {
+		payload["runtime_sessions"] = result.RuntimeSessions
+	}
+	if result.RuntimeEvidence != nil {
+		payload["runtime_evidence"] = result.RuntimeEvidence
+	}
+	if len(result.CompositionRefs) > 0 {
+		payload["composition_refs"] = result.CompositionRefs
+	}
+	if suppressed := outputsignal.MergeSuppressedCounts(&outputsignal.SuppressedCounts{
+		ControlEvidence: controlEvidenceOverflow,
+		ReportArtifacts: reportArtifactsOverflow,
+	}); suppressed != nil {
+		payload["suppressed_counts"] = suppressed
+		payload["artifact_paths"] = map[string]any{
+			"state":                 resolvedStatePath,
+			"control_evidence_json": filepath.Join(result.OutputDir, "control-evidence.json"),
+		}
+	}
+	return payload
 }
 
 func parseFrameworkFlags(raw string) []string {
