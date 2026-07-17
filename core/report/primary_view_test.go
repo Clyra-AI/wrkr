@@ -88,6 +88,143 @@ func TestBuildAgentActionBOMSelectsPrimaryViewFromTopEligiblePath(t *testing.T) 
 	}
 }
 
+func TestAgentActionBOMPrimaryViewSelectsHighestRiskComposition(t *testing.T) {
+	t.Parallel()
+
+	bom := BuildAgentActionBOM(Summary{
+		GeneratedAt: "2026-07-13T14:36:19Z",
+		ActionPaths: []risk.ActionPath{
+			{
+				PathID:             "apc-low",
+				Org:                "acme",
+				Repo:               "acme/app",
+				ToolType:           "codex",
+				Location:           "AGENTS.md",
+				ConfidenceLane:     risk.ConfidenceLaneLikelyActionPath,
+				ActionPathType:     risk.ActionPathTypeAgentInstruction,
+				RecommendedControl: risk.RecommendedControlOwnerReview,
+				RiskTier:           risk.RiskTierMedium,
+				TargetClass:        risk.TargetClassInternalTooling,
+				ControlPriority:    risk.ControlPriorityReviewQueue,
+				CredentialAccess:   true,
+			},
+			{
+				PathID:                     "apc-high",
+				Org:                        "acme",
+				Repo:                       "acme/release",
+				ToolType:                   "compiled_action",
+				Location:                   ".github/workflows/release.yml",
+				ConfidenceLane:             risk.ConfidenceLaneConfirmedActionPath,
+				ActionPathType:             risk.ActionPathTypeCICDWorkflow,
+				RecommendedControl:         risk.RecommendedControlBlockStandingCredential,
+				RiskTier:                   risk.RiskTierCritical,
+				TargetClass:                risk.TargetClassProductionImpacting,
+				ActionClasses:              []string{"deploy"},
+				ControlPriority:            risk.ControlPriorityControlFirst,
+				CredentialAccess:           true,
+				WorkflowChainRefs:          []string{"workflow_chain:wfc-release"},
+				CompositionIDs:             []string{"cap-release-prod"},
+				ProposedActionContractRefs: []string{"pac-release-prod"},
+				ClosureRequirements: []risk.ClosureRequirement{{
+					ID:               "closure-release-prod",
+					Severity:         risk.ClosureSeverityCritical,
+					RequirementType:  "runtime_control",
+					RequiredEvidence: "gait_decision",
+					Guidance:         "Require runtime control evidence before release deploy.",
+				}},
+			},
+		},
+		ComposedActionPaths: []risk.ComposedActionPath{
+			{
+				CompositionID:      "cap-low",
+				PathIDs:            []string{"apc-low"},
+				RiskTier:           risk.RiskTierMedium,
+				RecommendedControl: risk.RecommendedControlOwnerReview,
+				Stages: []risk.CompositionStage{{
+					StageID: "cap-low:source",
+					Role:    "source",
+					PathID:  "apc-low",
+				}},
+			},
+			{
+				CompositionID:                "cap-release-prod",
+				ResolutionKey:                "rk-release-prod",
+				PathIDs:                      []string{"apc-high"},
+				WorkflowChainRefs:            []string{"workflow_chain:wfc-release"},
+				RiskTier:                     risk.RiskTierCritical,
+				RecommendedControl:           risk.RecommendedControlBlockStandingCredential,
+				PolicyCoverageStatus:         risk.PolicyCoverageStatusDeclared,
+				RuntimeEvidenceAbsenceStatus: risk.RuntimeEvidenceAbsenceMissingForClaim,
+				TargetIdentity:               "production",
+				AffectedAsset:                "release",
+				OutcomeClass:                 "production_deploy",
+				TargetClass:                  risk.TargetClassProductionImpacting,
+				ClosureRequirements: []risk.ClosureRequirement{{
+					ID:               "closure-release-prod",
+					Severity:         risk.ClosureSeverityCritical,
+					RequirementType:  "runtime_control",
+					RequiredEvidence: "gait_decision",
+					Guidance:         "Require runtime control evidence before release deploy.",
+				}},
+				Stages: []risk.CompositionStage{
+					{
+						StageID:       "cap-release-prod:source",
+						Role:          "source",
+						PathID:        "apc-high",
+						ToolType:      "compiled_action",
+						Location:      ".github/workflows/release.yml",
+						ActionClasses: []string{"deploy"},
+						TargetClass:   risk.TargetClassProductionImpacting,
+					},
+					{
+						StageID:       "cap-release-prod:sink",
+						Role:          "privileged_sink",
+						PathID:        "apc-high",
+						ToolType:      "github_actions",
+						Location:      "production",
+						ActionClasses: []string{"deploy"},
+						TargetClass:   risk.TargetClassProductionImpacting,
+					},
+				},
+				ProposedActionContract: &risk.ProposedActionContract{
+					ContractID:            "pac-release-prod",
+					ContractFamilyID:      "pac-family-release-prod",
+					ContractContentDigest: "sha256:release-prod",
+					ContractVersion:       risk.ProposedActionContractVersion,
+					ContractKind:          risk.ProposedActionContractKind,
+					CompositionRef:        "cap-release-prod",
+					ReportOnly:            true,
+					ExpectedOutcomeClass:  "production_deploy",
+					ReadinessState:        "needs_evidence",
+				},
+				ProposedActionContractRefs: []string{"pac-release-prod"},
+			},
+		},
+	})
+	if bom == nil || bom.Summary.PrimaryView == nil {
+		t.Fatalf("expected primary view, got %+v", bom)
+	}
+	view := bom.Summary.PrimaryView
+	if view.CompositionID != "cap-release-prod" {
+		t.Fatalf("expected highest-risk composition to lead primary view, got %+v", view)
+	}
+	if view.PathID != "apc-high" {
+		t.Fatalf("expected primary view to anchor on the high-risk member path, got %+v", view)
+	}
+	if len(view.CompositionStageMap) != 2 || view.CompositionStageMap[1].Role != "privileged_sink" {
+		t.Fatalf("expected ordered composition stage map, got %+v", view.CompositionStageMap)
+	}
+	if view.ProposedActionContract == nil || view.ProposedActionContract.ContractID != "pac-release-prod" {
+		t.Fatalf("expected proposed action contract on primary view, got %+v", view)
+	}
+	if view.ExpectedOutcome != "production_deploy" || view.ProposedControl != risk.RecommendedControlBlockStandingCredential {
+		t.Fatalf("expected composition outcome/control summary, got %+v", view)
+	}
+	if len(view.ClosureRequirements) != 1 || view.ClosureRequirements[0].ID != "closure-release-prod" {
+		t.Fatalf("expected composition closure requirements, got %+v", view.ClosureRequirements)
+	}
+}
+
 func TestBuildAgentActionBOMSkipsContextOnlyPrimarySelection(t *testing.T) {
 	t.Parallel()
 

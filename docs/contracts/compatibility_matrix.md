@@ -22,7 +22,8 @@ description: "Compatibility expectations for Wrkr command contracts, schema surf
 - Treat unknown required fields as blocking.
 - Treat regress drift exit `5` as a stable CI failure signal.
 - Treat `composed_action_paths[*].claim_state` as a conservative evidence claim. Static or declared compositions are not runtime enforcement proof, and `proposed_action_contract.report_only=true` means Wrkr is proposing a downstream control shape, not enforcing it.
-- Treat `decision_trace_refs` and `proof-records/decision-traces.jsonl` as additive traceability surfaces; existing consumers should ignore them if unused.
+- Treat `decision_trace_refs`, decision-trace `composition_ids[]` / `proposed_action_contract_refs[]`, evidence-bundle `composition_refs[]`, and `proof-records/decision-traces.jsonl` as additive traceability surfaces; existing consumers should ignore them if unused.
+- Treat `agent_action_bom.summary.primary_view.composition_id` and its bounded `composition_stage_map[]` as the buyer lead when present. If absent, existing path-first primary-view behavior remains compatible.
 
 ## Command Anchors
 

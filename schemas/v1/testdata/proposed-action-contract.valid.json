@@ -1,0 +1,26 @@
+{
+  "contract_id": "pac-schema-valid",
+  "contract_family_id": "pac-family-schema-valid",
+  "contract_content_digest": "sha256:schema-valid",
+  "contract_version": "2",
+  "contract_kind": "proposed_action_contract",
+  "composition_ref": "cap-schema-valid",
+  "resolution_key": "rk-schema-valid",
+  "approval_required_transitions": [
+    {
+      "transition_id": "transition-schema",
+      "from_stage_id": "stage-schema-source",
+      "to_stage_id": "stage-schema-sink",
+      "from_role": "source",
+      "to_role": "privileged_sink",
+      "reason": "production_deploy_requires_approval"
+    }
+  ],
+  "required_credential_mode": "scoped",
+  "maximum_delegation_depth": 1,
+  "evidence_requirements": ["policy_decision", "approval", "action_outcome", "proof_verification"],
+  "expected_outcome_class": "production_deploy",
+  "report_only": true,
+  "readiness_state": "needs_evidence",
+  "reason_codes": ["report_only:true"]
+}

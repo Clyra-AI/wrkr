@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	proof "github.com/Clyra-AI/proof"
 	aggattack "github.com/Clyra-AI/wrkr/core/aggregate/attackpath"
 	agginventory "github.com/Clyra-AI/wrkr/core/aggregate/inventory"
 	"github.com/Clyra-AI/wrkr/core/lifecycle"
@@ -423,6 +424,86 @@ func TestMapDecisionTracesEmitsBoundedHighImpactRecords(t *testing.T) {
 			t.Fatalf("did not expect low-signal path to emit decision trace, got %+v", record)
 		}
 	}
+}
+
+func TestDecisionTraceCarriesCompositionAndProposedContractRefs(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 7, 13, 14, 36, 19, 0, time.UTC)
+	path := risk.ProjectActionPath(risk.ActionPath{
+		PathID:                     "apc-release",
+		ResolutionKey:              "rk-release-prod",
+		AgentID:                    "wrkr:codex:acme",
+		Org:                        "acme",
+		Repo:                       "acme/release",
+		ToolType:                   "compiled_action",
+		Location:                   ".github/workflows/release.yml",
+		WriteCapable:               true,
+		DeployWrite:                true,
+		CredentialAccess:           true,
+		WorkflowChainRefs:          []string{"workflow_chain:wfc-release"},
+		CompositionIDs:             []string{"cap-release-prod"},
+		ProposedActionContractRefs: []string{"pac-release-prod"},
+		AutonomyTier:               risk.AutonomyTier4ProdPrivilegedCustomerImpact,
+		RecommendedControl:         risk.RecommendedControlBlockStandingCredential,
+		ApprovalEvidenceState:      risk.EvidenceStateUnknown,
+		OwnerEvidenceState:         risk.EvidenceStateVerified,
+		ProofEvidenceState:         risk.EvidenceStateInferred,
+		RuntimeEvidenceState:       risk.EvidenceStateUnknown,
+		TargetEvidenceState:        risk.EvidenceStateVerified,
+		CredentialEvidenceState:    risk.EvidenceStateVerified,
+	})
+
+	records := MapDecisionTraces([]risk.ActionPath{path}, now)
+	if len(records) != 1 {
+		t.Fatalf("expected one decision trace, got %+v", records)
+	}
+	event := records[0].Event
+	for key, want := range map[string]string{
+		"resolution_key":      "rk-release-prod",
+		"autonomy_tier":       risk.AutonomyTier4ProdPrivilegedCustomerImpact,
+		"recommended_control": risk.RecommendedControlApprovalRequired,
+	} {
+		if got, _ := event[key].(string); got != want {
+			t.Fatalf("expected event.%s=%q, got %q in %+v", key, want, got, event)
+		}
+	}
+	for key, want := range map[string]string{
+		"composition_ids":               "cap-release-prod",
+		"proposed_action_contract_refs": "pac-release-prod",
+		"workflow_chain_refs":           "workflow_chain:wfc-release",
+	} {
+		values, _ := event[key].([]string)
+		if len(values) != 1 || values[0] != want {
+			t.Fatalf("expected event.%s to carry %q, got %#v", key, want, event[key])
+		}
+		metadataValues, _ := records[0].Metadata[key].([]string)
+		if len(metadataValues) != 1 || metadataValues[0] != want {
+			t.Fatalf("expected metadata.%s to carry %q, got %#v", key, want, records[0].Metadata[key])
+		}
+	}
+	states, _ := event["evidence_states"].(map[string]string)
+	if states["approval"] != risk.EvidenceStateUnknown || states["credential"] != risk.EvidenceStateVerified {
+		t.Fatalf("expected decision trace evidence states, got %#v", event["evidence_states"])
+	}
+	if !relationshipHasRef(records[0].Relationship, "resource", "composition:cap-release-prod") {
+		t.Fatalf("expected relationship composition ref, got %+v", records[0].Relationship)
+	}
+	if !relationshipHasRef(records[0].Relationship, "evidence", "proposed_action_contract:pac-release-prod") {
+		t.Fatalf("expected relationship proposed contract ref, got %+v", records[0].Relationship)
+	}
+}
+
+func relationshipHasRef(rel *proof.Relationship, kind, id string) bool {
+	if rel == nil {
+		return false
+	}
+	for _, ref := range rel.EntityRefs {
+		if ref.Kind == kind && ref.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 func mapRiskAssessmentTypes(records []MappedRecord) map[string]int {

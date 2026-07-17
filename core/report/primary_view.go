@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Clyra-AI/wrkr/core/aggregate/scanquality"
@@ -39,6 +40,16 @@ type AgentActionBOMPrimaryView struct {
 	TodayPath                   *risk.GovernedPathView            `json:"today_path,omitempty"`
 	RecommendedGovernedPath     *risk.GovernedPathView            `json:"recommended_governed_path,omitempty"`
 	RecommendedActionContract   *risk.RecommendedActionContract   `json:"recommended_action_contract,omitempty"`
+	CompositionID               string                            `json:"composition_id,omitempty"`
+	CompositionStageMap         []AgentActionBOMCompositionStage  `json:"composition_stage_map,omitempty"`
+	CredentialSummary           string                            `json:"credential_summary,omitempty"`
+	DelegationSummary           string                            `json:"delegation_summary,omitempty"`
+	TargetSummary               string                            `json:"target_summary,omitempty"`
+	CurrentCoverage             string                            `json:"current_coverage,omitempty"`
+	ProposedControl             string                            `json:"proposed_control,omitempty"`
+	ExpectedOutcome             string                            `json:"expected_outcome,omitempty"`
+	ProposedActionContract      *risk.ProposedActionContract      `json:"proposed_action_contract,omitempty"`
+	ClosureRequirements         []risk.ClosureRequirement         `json:"closure_requirements,omitempty"`
 	AgenticDeliverySystemChange *risk.AgenticDeliverySystemChange `json:"agentic_delivery_system_change,omitempty"`
 	RuntimeProvider             string                            `json:"runtime_provider,omitempty"`
 	RuntimeHost                 string                            `json:"runtime_host,omitempty"`
@@ -58,6 +69,17 @@ type AgentActionBOMPrimaryView struct {
 	EvidencePacketRefs          []string                          `json:"evidence_packet_refs,omitempty"`
 	DecisionTraceRefs           []string                          `json:"decision_trace_refs,omitempty"`
 	AppendixRefs                []string                          `json:"appendix_refs,omitempty"`
+}
+
+type AgentActionBOMCompositionStage struct {
+	StageID       string   `json:"stage_id"`
+	Role          string   `json:"role"`
+	PathID        string   `json:"path_id,omitempty"`
+	ToolType      string   `json:"tool_type,omitempty"`
+	Location      string   `json:"location,omitempty"`
+	ActionClasses []string `json:"action_classes,omitempty"`
+	TargetClass   string   `json:"target_class,omitempty"`
+	EvidenceState string   `json:"evidence_state,omitempty"`
 }
 
 type AgentActionBOMPrimaryPathMap struct {
@@ -105,7 +127,10 @@ func selectAgentActionBOMPrimaryView(bom *AgentActionBOM, focusPathID string) er
 	trimmedFocus := strings.TrimSpace(focusPathID)
 	switch trimmedFocus {
 	case "":
-		selected := defaultAgentActionBOMPrimaryItem(bom.Items)
+		selected := defaultAgentActionBOMPrimaryCompositionItem(bom)
+		if selected == nil {
+			selected = defaultAgentActionBOMPrimaryItem(bom.Items)
+		}
 		if selected == nil {
 			selected = defaultAgentActionBOMPrimaryItem(bom.focusSourceItems)
 		}
@@ -276,8 +301,292 @@ func buildAgentActionBOMPrimaryView(bom *AgentActionBOM, item AgentActionBOMItem
 		view.EvidenceCompletenessLabel = strings.TrimSpace(item.EvidenceCompleteness.Label)
 		view.EvidenceCompletenessScore = item.EvidenceCompleteness.TotalScore
 	}
+	applyPrimaryViewComposition(view, primaryViewCompositionForItem(bom, item))
 	view.CoverageStatus, view.CoverageReasons, view.CoverageImpact = primaryViewCoverage(bom, item)
 	return view
+}
+
+func defaultAgentActionBOMPrimaryCompositionItem(bom *AgentActionBOM) *AgentActionBOMItem {
+	composition := defaultAgentActionBOMPrimaryComposition(bom)
+	if composition == nil {
+		return nil
+	}
+	if item := primaryItemForComposition(bom.Items, *composition); item != nil {
+		return item
+	}
+	return primaryItemForComposition(bom.focusSourceItems, *composition)
+}
+
+func defaultAgentActionBOMPrimaryComposition(bom *AgentActionBOM) *risk.ComposedActionPath {
+	if bom == nil || len(bom.ComposedActionPaths) == 0 {
+		return nil
+	}
+	if len(bom.Items) > 0 && len(bom.ComposedActionPaths) > len(bom.Items) {
+		return nil
+	}
+	candidates := make([]risk.ComposedActionPath, 0, len(bom.ComposedActionPaths))
+	for _, composition := range bom.ComposedActionPaths {
+		if strings.TrimSpace(composition.CompositionID) == "" {
+			continue
+		}
+		candidates = append(candidates, composition)
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return primaryCompositionLess(candidates[i], candidates[j])
+	})
+	return &candidates[0]
+}
+
+func primaryItemForComposition(items []AgentActionBOMItem, composition risk.ComposedActionPath) *AgentActionBOMItem {
+	pathIDs := map[string]struct{}{}
+	for _, pathID := range composition.PathIDs {
+		if trimmed := strings.TrimSpace(pathID); trimmed != "" {
+			pathIDs[trimmed] = struct{}{}
+		}
+	}
+	compositionID := strings.TrimSpace(composition.CompositionID)
+	for _, pathID := range uniqueSortedStrings(composition.PathIDs) {
+		for idx := range items {
+			if strings.TrimSpace(items[idx].PathID) != pathID || !agentActionBOMItemEligibleForPrimaryView(items[idx]) {
+				continue
+			}
+			return &items[idx]
+		}
+	}
+	for idx := range items {
+		if !agentActionBOMItemEligibleForPrimaryView(items[idx]) {
+			continue
+		}
+		if _, ok := pathIDs[strings.TrimSpace(items[idx].PathID)]; ok {
+			return &items[idx]
+		}
+		if primaryViewContainsString(items[idx].CompositionIDs, compositionID) {
+			return &items[idx]
+		}
+	}
+	return nil
+}
+
+func primaryViewContainsString(values []string, want string) bool {
+	trimmedWant := strings.TrimSpace(want)
+	if trimmedWant == "" {
+		return false
+	}
+	for _, value := range values {
+		if strings.TrimSpace(value) == trimmedWant {
+			return true
+		}
+	}
+	return false
+}
+
+func primaryViewCompositionForItem(bom *AgentActionBOM, item AgentActionBOMItem) *risk.ComposedActionPath {
+	if bom == nil || len(bom.ComposedActionPaths) == 0 {
+		return nil
+	}
+	candidates := []risk.ComposedActionPath{}
+	itemPathID := strings.TrimSpace(item.PathID)
+	itemCompositionIDs := map[string]struct{}{}
+	for _, compositionID := range item.CompositionIDs {
+		if trimmed := strings.TrimSpace(compositionID); trimmed != "" {
+			itemCompositionIDs[trimmed] = struct{}{}
+		}
+	}
+	for _, composition := range bom.ComposedActionPaths {
+		compositionID := strings.TrimSpace(composition.CompositionID)
+		if _, ok := itemCompositionIDs[compositionID]; ok {
+			candidates = append(candidates, composition)
+			continue
+		}
+		for _, pathID := range composition.PathIDs {
+			if strings.TrimSpace(pathID) == itemPathID && itemPathID != "" {
+				candidates = append(candidates, composition)
+				break
+			}
+		}
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return primaryCompositionLess(candidates[i], candidates[j])
+	})
+	return &candidates[0]
+}
+
+func primaryCompositionLess(left, right risk.ComposedActionPath) bool {
+	if primaryRiskTierRank(left.RiskTier) != primaryRiskTierRank(right.RiskTier) {
+		return primaryRiskTierRank(left.RiskTier) < primaryRiskTierRank(right.RiskTier)
+	}
+	if primaryRecommendedControlRank(left.RecommendedControl) != primaryRecommendedControlRank(right.RecommendedControl) {
+		return primaryRecommendedControlRank(left.RecommendedControl) < primaryRecommendedControlRank(right.RecommendedControl)
+	}
+	if primaryTargetClassRank(left.TargetClass) != primaryTargetClassRank(right.TargetClass) {
+		return primaryTargetClassRank(left.TargetClass) < primaryTargetClassRank(right.TargetClass)
+	}
+	if len(left.ClosureRequirements) != len(right.ClosureRequirements) {
+		return len(left.ClosureRequirements) > len(right.ClosureRequirements)
+	}
+	if strings.TrimSpace(left.PolicyCoverageStatus) != strings.TrimSpace(right.PolicyCoverageStatus) {
+		return strings.TrimSpace(left.PolicyCoverageStatus) < strings.TrimSpace(right.PolicyCoverageStatus)
+	}
+	return strings.TrimSpace(left.CompositionID) < strings.TrimSpace(right.CompositionID)
+}
+
+func primaryRiskTierRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case risk.RiskTierCritical:
+		return 0
+	case risk.RiskTierHigh:
+		return 1
+	case risk.RiskTierMedium:
+		return 2
+	case risk.RiskTierLow:
+		return 3
+	default:
+		return 4
+	}
+}
+
+func primaryRecommendedControlRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case risk.RecommendedControlBlock:
+		return 0
+	case risk.RecommendedControlBlockStandingCredential:
+		return 1
+	case risk.RecommendedControlProofRequired:
+		return 2
+	case risk.RecommendedControlJITCredentialRequired:
+		return 3
+	case risk.RecommendedControlApprovalRequired:
+		return 4
+	case risk.RecommendedControlSecurityReview:
+		return 5
+	case risk.RecommendedControlOwnerReview:
+		return 6
+	case risk.RecommendedControlAllow:
+		return 7
+	default:
+		return 8
+	}
+}
+
+func primaryTargetClassRank(value string) int {
+	switch strings.TrimSpace(value) {
+	case risk.TargetClassProductionImpacting:
+		return 0
+	case risk.TargetClassReleaseAdjacent:
+		return 1
+	case risk.TargetClassCustomerDataAdjacent:
+		return 2
+	case risk.TargetClassInternalTooling:
+		return 3
+	case risk.TargetClassDeveloperProductivity:
+		return 4
+	case risk.TargetClassTestDemoSandbox:
+		return 5
+	default:
+		return 6
+	}
+}
+
+func applyPrimaryViewComposition(view *AgentActionBOMPrimaryView, composition *risk.ComposedActionPath) {
+	if view == nil || composition == nil {
+		return
+	}
+	view.CompositionID = strings.TrimSpace(composition.CompositionID)
+	view.CompositionStageMap = primaryCompositionStageMap(*composition)
+	view.CredentialSummary = primaryCompositionCredentialSummary(*composition)
+	view.DelegationSummary = primaryCompositionDelegationSummary(*composition)
+	view.TargetSummary = primaryCompositionTargetSummary(*composition)
+	view.CurrentCoverage = primaryCompositionCoverageSummary(*composition)
+	view.ProposedControl = strings.TrimSpace(composition.RecommendedControl)
+	view.ExpectedOutcome = firstNonEmptyValue(strings.TrimSpace(composition.OutcomeClass), strings.TrimSpace(composition.DurableOutcomeKey))
+	view.ProposedActionContract = risk.CloneProposedActionContract(composition.ProposedActionContract)
+	if view.ProposedActionContract != nil && strings.TrimSpace(view.ExpectedOutcome) == "" {
+		view.ExpectedOutcome = strings.TrimSpace(view.ProposedActionContract.ExpectedOutcomeClass)
+	}
+	view.ClosureRequirements = risk.CloneClosureRequirements(composition.ClosureRequirements)
+	view.CompositionIDs = uniqueSortedStrings(append(view.CompositionIDs, composition.CompositionID))
+	view.WorkflowChainRefs = uniqueSortedStrings(append(view.WorkflowChainRefs, composition.WorkflowChainRefs...))
+	view.ProposedActionContractRefs = uniqueSortedStrings(append(view.ProposedActionContractRefs, composition.ProposedActionContractRefs...))
+	view.ProofRefs = uniqueSortedStrings(append(view.ProofRefs, composition.ProofRefs...))
+}
+
+func primaryCompositionStageMap(composition risk.ComposedActionPath) []AgentActionBOMCompositionStage {
+	if len(composition.Stages) == 0 {
+		return nil
+	}
+	out := make([]AgentActionBOMCompositionStage, 0, len(composition.Stages))
+	for _, stage := range composition.Stages {
+		out = append(out, AgentActionBOMCompositionStage{
+			StageID:       strings.TrimSpace(stage.StageID),
+			Role:          strings.TrimSpace(stage.Role),
+			PathID:        strings.TrimSpace(stage.PathID),
+			ToolType:      strings.TrimSpace(stage.ToolType),
+			Location:      strings.TrimSpace(stage.Location),
+			ActionClasses: uniqueSortedStrings(stage.ActionClasses),
+			TargetClass:   strings.TrimSpace(stage.TargetClass),
+			EvidenceState: strings.TrimSpace(stage.EvidenceState),
+		})
+	}
+	return out
+}
+
+func primaryCompositionCredentialSummary(composition risk.ComposedActionPath) string {
+	if composition.ProposedActionContract != nil {
+		if mode := strings.TrimSpace(composition.ProposedActionContract.RequiredCredentialMode); mode != "" {
+			return mode
+		}
+	}
+	for _, stage := range composition.Stages {
+		for _, actionClass := range stage.ActionClasses {
+			if strings.Contains(strings.ToLower(strings.TrimSpace(actionClass)), "credential") || strings.Contains(strings.ToLower(strings.TrimSpace(actionClass)), "secret") {
+				return strings.TrimSpace(actionClass)
+			}
+		}
+	}
+	return ""
+}
+
+func primaryCompositionDelegationSummary(composition risk.ComposedActionPath) string {
+	if composition.ProposedActionContract != nil && composition.ProposedActionContract.MaximumDelegationDepth > 0 {
+		return fmt.Sprintf("max_delegation_depth=%d", composition.ProposedActionContract.MaximumDelegationDepth)
+	}
+	return ""
+}
+
+func primaryCompositionTargetSummary(composition risk.ComposedActionPath) string {
+	return strings.Join(uniqueSortedStrings([]string{
+		strings.TrimSpace(composition.AffectedAsset),
+		strings.TrimSpace(composition.TargetIdentity),
+		strings.TrimSpace(composition.TargetClass),
+	}), " ")
+}
+
+func primaryCompositionCoverageSummary(composition risk.ComposedActionPath) string {
+	parts := []string{}
+	if policy := strings.TrimSpace(composition.PolicyCoverageStatus); policy != "" {
+		parts = append(parts, "policy="+policy)
+	}
+	if evidence := strings.TrimSpace(composition.EvidenceState); evidence != "" {
+		parts = append(parts, "evidence="+evidence)
+	}
+	if absence := strings.TrimSpace(composition.RuntimeEvidenceAbsenceStatus); absence != "" {
+		parts = append(parts, "runtime="+absence)
+	}
+	if composition.GaitCoverage != nil {
+		if status := strings.TrimSpace(composition.GaitCoverage.PolicyDecision.Status); status != "" {
+			parts = append(parts, "gait_policy_decision="+status)
+		}
+		if status := strings.TrimSpace(composition.GaitCoverage.ActionOutcome.Status); status != "" {
+			parts = append(parts, "gait_action_outcome="+status)
+		}
+	}
+	return strings.Join(uniqueSortedStrings(parts), " ")
 }
 
 func buildAgentActionBOMPrimaryPathMap(item AgentActionBOMItem) AgentActionBOMPrimaryPathMap {

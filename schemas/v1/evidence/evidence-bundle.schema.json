@@ -38,6 +38,10 @@
     "evidence_packets": {
       "$ref": "../report/report-summary.schema.json#/$defs/evidencePacketSummary"
     },
+    "composition_refs": {
+      "type": "array",
+      "items": {"$ref": "#/definitions/compositionRef"}
+    },
     "executive_rollup": {
       "$ref": "../report/report-summary.schema.json#/$defs/executiveRollup"
     },
@@ -141,6 +145,26 @@
         "latest_observed_at": {"type": "string"}
       },
       "additionalProperties": true
+    },
+    "compositionRef": {
+      "type": "object",
+      "required": ["composition_id"],
+      "properties": {
+        "composition_id": {"type": "string"},
+        "resolution_key": {"type": "string"},
+        "pattern_id": {"type": "string"},
+        "path_ids": {"type": "array", "items": {"type": "string"}},
+        "workflow_chain_refs": {"type": "array", "items": {"type": "string"}},
+        "proposed_action_contract_refs": {"type": "array", "items": {"type": "string"}},
+        "recommended_control": {"type": "string"},
+        "evidence_state": {"type": "string"},
+        "policy_coverage_status": {"type": "string"},
+        "gait_coverage_summary": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

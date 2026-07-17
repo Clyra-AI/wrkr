@@ -78,13 +78,29 @@ func TestRenderMarkdownNamesProposedActionContractAsReportOnly(t *testing.T) {
 				ControlFirstItems:  1,
 				CoverageConfidence: "complete",
 				PrimaryView: &AgentActionBOMPrimaryView{
-					PathID:                     "apc-primary",
-					SelectionReason:            AgentActionBOMPrimarySelectionDefaultTopPath,
-					PathMap:                    AgentActionBOMPrimaryPathMap{Tool: "codex", RepoPR: "acme/app", Workflow: "release", Credential: "github token", Action: "deploy", Target: "production"},
-					DelegationReadinessState:   risk.DelegationReadinessReviewRequired,
-					RiskTier:                   risk.RiskTierHigh,
-					AutonomyTier:               risk.AutonomyTier4ProdPrivilegedCustomerImpact,
-					RecommendedControl:         risk.RecommendedControlApprovalRequired,
+					PathID:                   "apc-primary",
+					SelectionReason:          AgentActionBOMPrimarySelectionDefaultTopPath,
+					PathMap:                  AgentActionBOMPrimaryPathMap{Tool: "codex", RepoPR: "acme/app", Workflow: "release", Credential: "github token", Action: "deploy", Target: "production"},
+					CompositionID:            "cap-primary",
+					CompositionStageMap:      []AgentActionBOMCompositionStage{{StageID: "source", Role: "source", Location: "release"}, {StageID: "sink", Role: "privileged_sink", Location: "production"}},
+					DelegationReadinessState: risk.DelegationReadinessReviewRequired,
+					RiskTier:                 risk.RiskTierHigh,
+					AutonomyTier:             risk.AutonomyTier4ProdPrivilegedCustomerImpact,
+					RecommendedControl:       risk.RecommendedControlApprovalRequired,
+					ProposedControl:          risk.RecommendedControlApprovalRequired,
+					ExpectedOutcome:          "production_deploy",
+					CurrentCoverage:          "policy=declared runtime=missing_for_control_claim",
+					ProposedActionContract: &risk.ProposedActionContract{
+						ContractID:            "pac-1234",
+						ContractFamilyID:      "pac-family-1234",
+						ContractContentDigest: "sha256:1234",
+						ContractVersion:       risk.ProposedActionContractVersion,
+						ContractKind:          risk.ProposedActionContractKind,
+						CompositionRef:        "cap-primary",
+						ExpectedOutcomeClass:  "production_deploy",
+						ReadinessState:        "needs_evidence",
+						ReportOnly:            true,
+					},
 					ProposedActionContractRefs: []string{"pac-1234"},
 				},
 			},
@@ -93,6 +109,15 @@ func TestRenderMarkdownNamesProposedActionContractAsReportOnly(t *testing.T) {
 	})
 	if !strings.Contains(markdown, "Proposed Action Contract refs: pac-1234 (report-only; Wrkr does not enforce runtime policy).") {
 		t.Fatalf("expected report-only proposed Action Contract wording, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "Primary composition: cap-primary reaches production deploy") {
+		t.Fatalf("expected primary composition to lead markdown, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "Composition stages: source:release -> privileged_sink:production.") {
+		t.Fatalf("expected bounded composition stage map, got %q", markdown)
+	}
+	if !strings.Contains(markdown, "Proposed Action Contract: pac-1234 expected_outcome=production_deploy readiness=needs_evidence report-only=true.") {
+		t.Fatalf("expected proposed Action Contract summary, got %q", markdown)
 	}
 	if strings.Contains(markdown, "Wrkr enforces") {
 		t.Fatalf("markdown must not imply Wrkr enforces proposed contracts, got %q", markdown)

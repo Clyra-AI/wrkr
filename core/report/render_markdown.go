@@ -1075,6 +1075,19 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 		return
 	}
 	builder.WriteString("## Primary Workflow BOM\n\n")
+	if strings.TrimSpace(view.CompositionID) != "" {
+		fmt.Fprintf(builder, "- Primary composition: %s reaches %s with proposed control %s.\n",
+			strings.TrimSpace(view.CompositionID),
+			humanizeEnum(firstNonEmptyValue(view.ExpectedOutcome, view.TargetSummary, "unknown outcome")),
+			risk.BuyerRecommendedControlLabel(firstNonEmptyValue(view.ProposedControl, view.RecommendedControl)),
+		)
+		if len(view.CompositionStageMap) > 0 {
+			fmt.Fprintf(builder, "- Composition stages: %s.\n", markdownCompositionStageMap(view.CompositionStageMap))
+		}
+		if strings.TrimSpace(view.CurrentCoverage) != "" {
+			fmt.Fprintf(builder, "- Composition coverage: %s.\n", strings.TrimSpace(view.CurrentCoverage))
+		}
+	}
 	fmt.Fprintf(builder, "- Workflow: %s in %s via %s.\n",
 		firstNonEmptyValue(view.PathMap.Tool, "unknown tool"),
 		firstNonEmptyValue(view.PathMap.RepoPR, "unknown repo"),
@@ -1110,6 +1123,14 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 	if contract := strings.TrimSpace(markdownActionContract(view.RecommendedActionContract)); contract != "" {
 		fmt.Fprintf(builder, "- Recommended action contract: %s.\n", contract)
 	}
+	if view.ProposedActionContract != nil {
+		fmt.Fprintf(builder, "- Proposed Action Contract: %s expected_outcome=%s readiness=%s report-only=%t.\n",
+			strings.TrimSpace(view.ProposedActionContract.ContractID),
+			firstNonEmptyValue(strings.TrimSpace(view.ProposedActionContract.ExpectedOutcomeClass), strings.TrimSpace(view.ExpectedOutcome), "unknown"),
+			firstNonEmptyValue(strings.TrimSpace(view.ProposedActionContract.ReadinessState), "unknown"),
+			view.ProposedActionContract.ReportOnly,
+		)
+	}
 	if len(view.ProposedActionContractRefs) > 0 {
 		fmt.Fprintf(builder, "- Proposed Action Contract refs: %s (report-only; Wrkr does not enforce runtime policy).\n", markdownProposedActionContractRefs(view.ProposedActionContractRefs))
 	}
@@ -1124,6 +1145,24 @@ func renderPrimaryWorkflowBOMSection(builder *strings.Builder, view *AgentAction
 	}
 	fmt.Fprintf(builder, "- Appendix handoff: full graph refs, policy diagnostics, and proof detail remain in the appendices and evidence JSON.\n")
 	builder.WriteString("\n")
+}
+
+func markdownCompositionStageMap(stages []AgentActionBOMCompositionStage) string {
+	if len(stages) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(stages))
+	for _, stage := range stages {
+		label := strings.TrimSpace(stage.Role)
+		if label == "" {
+			label = "stage"
+		}
+		if location := strings.TrimSpace(stage.Location); location != "" {
+			label += ":" + location
+		}
+		parts = append(parts, label)
+	}
+	return strings.Join(parts, " -> ")
 }
 
 func markdownResolvedReviewCounts(bom *AgentActionBOM) (int, int) {
