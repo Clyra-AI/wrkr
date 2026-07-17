@@ -27,6 +27,7 @@
     },
     "target_identity": {"type": "string"},
     "durable_outcome_key": {"type": "string"},
+    "outcome_key": {"type": "string"},
     "affected_asset": {"type": "string"},
     "outcome_class": {"type": "string"},
     "environment": {"type": "string"},
@@ -55,6 +56,15 @@
     },
     "risk_tier": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
     "recommended_control": {"type": "string"},
+    "recommended_control_reasons": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "escalating_transition_refs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "most_restrictive_source": {"type": "string"},
     "closure_requirements": {
       "type": "array",
       "items": {"type": "object", "additionalProperties": true}
@@ -72,6 +82,22 @@
     "proposed_action_contract_refs": {
       "type": "array",
       "items": {"type": "string"}
+    },
+    "equivalent_outcome_refs": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "approval_evasion_signal": {
+      "type": "string",
+      "enum": ["none", "possible", "unknown"]
+    },
+    "coverage_delta_reasons": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "materiality": {
+      "type": "string",
+      "enum": ["none", "low", "material"]
     }
   },
   "additionalProperties": false,
@@ -125,6 +151,29 @@
         "source_decision_refs": {
           "type": "array",
           "items": {"type": "string"}
+        },
+        "relationship": {"$ref": "#/$defs/delegationRelationship"},
+        "parent_authority_ref": {"type": "string"},
+        "child_authority_ref": {"type": "string"},
+        "scope_delta": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "target_delta": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "credential_delta": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "expiry_delta": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {"type": "string"}
         }
       },
       "additionalProperties": false
@@ -156,6 +205,25 @@
         "reason_codes": {
           "type": "array",
           "items": {"type": "string"}
+        },
+        "relationship": {"$ref": "#/$defs/delegationRelationship"},
+        "parent_authority_ref": {"type": "string"},
+        "child_authority_ref": {"type": "string"},
+        "scope_delta": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "target_delta": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "credential_delta": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "expiry_delta": {
+          "type": "array",
+          "items": {"type": "string"}
         }
       },
       "additionalProperties": false
@@ -171,6 +239,10 @@
     "claimState": {
       "type": "string",
       "enum": ["static_only", "partially_evidenced", "declared_policy_only", "runtime_controlled", "observed_execution", "contradictory", "unknown"]
+    },
+    "delegationRelationship": {
+      "type": "string",
+      "enum": ["narrowed", "equal", "broadened", "unknown", "contradictory"]
     },
     "evidenceState": {
       "type": "string",

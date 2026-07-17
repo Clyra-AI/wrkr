@@ -66,10 +66,25 @@ Action-path drift categories are additive and stable:
 - `changed_evidence`
 - `changed_target_class`
 
-Each `drift_categories[*]` row includes severity, priority, stable current/baseline path refs, additive evidence refs, buyer-facing examples, and recommended next actions. Legacy `reasons[*]` remain present for lifecycle, approval-expiry, owner-change, permission-expansion, and critical attack-path contracts.
+Composition drift categories are also additive and use the same `drift_categories[]` contract when saved scan state carries `composed_action_paths[]`:
+
+- `introduced_compositions`
+- `removed_compositions`
+- `changed_composition_members`
+- `newly_introduced_sinks`
+- `composition_coverage_degraded`
+- `composition_evidence_degraded`
+- `newly_ungoverned_compositions`
+- `worsened_composition_recommendation`
+- `alternate_route_appeared`
+- `composition_outcome_changed`
+
+Composition comparison matches by `composition_family_key`, not volatile `path_id` or member-bearing `composition_id`. The key includes pattern, ordered stage roles, stable target identity, and stable route/source identity while excluding member resolution keys, outcome key, environment, and outcome class so member swaps and outcome changes produce material drift categories instead of removed-plus-introduced noise.
+Each `drift_categories[*]` row includes severity, priority, stable current/baseline path or composition refs, additive evidence refs, buyer-facing examples, and recommended next actions. Legacy `reasons[*]` remain present for lifecycle, approval-expiry, owner-change, permission-expansion, and critical attack-path contracts.
 Action-path drift review stays additive and deterministic: benign report ordering does not reopen resolved paths, while expiry, contradiction, disappeared imported controls, credential-family changes, and target-class escalation show up through the same stable path matching and evidence refs without forcing scan/report commands to fail as runtime errors.
 
 When a legacy regress baseline lacks captured action-path comparison data, Wrkr now fails closed with `comparison_status=baseline_action_paths_unavailable` instead of silently emitting a clean no-drift result. Regenerate the baseline from a current `wrkr scan --state ... --json` snapshot or `wrkr regress init` artifact before relying on drift-review output.
+When a current scan contains compositions but the baseline lacks comparable composition data, Wrkr fails closed with `comparison_status=baseline_compositions_unavailable`. Regenerate the baseline from a current saved scan before relying on composition drift results.
 The canonical baseline artifact (`.wrkr/wrkr-regress-baseline.json`) and any generated drift artifacts are also counted by later `summary.repeat_usage_signals` / `agent_action_bom.summary.repeat_usage_signals` surfaces when you rerun `report` or `assess` in the same working area.
 
 Compatibility note:

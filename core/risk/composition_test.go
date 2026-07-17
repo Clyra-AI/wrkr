@@ -373,6 +373,136 @@ func TestProposedActionContractIncludesCompositionTransitionsAndReportOnly(t *te
 	}
 }
 
+func TestCompositionDelegationRelationshipDetectsBroadenedChildAuthority(t *testing.T) {
+	source := compositionTestPath("apc-code", "rk-code", []string{"write"}, TargetClassReleaseAdjacent)
+	source.CredentialAuthorityRef = "authority:repo-read"
+	source.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent: true,
+		CredentialKind:    "github_token",
+		AccessType:        agginventory.AuthorityAccessRead,
+		TargetSystem:      "github",
+		LikelyScope:       "repo:read",
+		ReasonCodes:       []string{"source:repo-read"},
+	}
+	source.RecommendedControl = RecommendedControlAllow
+	source.RecommendedControlReasons = nil
+
+	sink := compositionTestPath("apc-deploy", "rk-deploy", []string{"deploy"}, TargetClassProductionImpacting)
+	sink.CredentialAuthorityRef = "authority:prod-admin"
+	sink.CredentialAuthority = &agginventory.CredentialAuthority{
+		CredentialPresent: true,
+		CredentialKind:    "cloud_role",
+		AccessType:        agginventory.AuthorityAccessAdmin,
+		StandingAccess:    true,
+		TargetSystem:      "aws",
+		LikelyScope:       "prod:*",
+		ReasonCodes:       []string{"sink:prod-admin"},
+	}
+	sink.RecommendedControl = RecommendedControlApprovalRequired
+	sink.RecommendedControlReasons = []string{"sink:approval_required"}
+
+	compositions, _ := BuildComposedActionPaths([]ActionPath{source, sink}, nil)
+	got := findCompositionByPattern(compositions, CompositionPatternCodeToDeploy)
+	if got == nil || len(got.Transitions) == 0 {
+		t.Fatalf("expected code-to-deploy composition with transition, got %+v", got)
+	}
+	transition := got.Transitions[0]
+	if transition.Relationship != CompositionDelegationBroadened {
+		t.Fatalf("expected broadened delegation relationship, got %+v", transition)
+	}
+	if transition.ParentAuthorityRef == "" || transition.ChildAuthorityRef == "" || transition.ParentAuthorityRef == transition.ChildAuthorityRef {
+		t.Fatalf("expected distinct parent/child authority refs, got %+v", transition)
+	}
+	if len(transition.ScopeDelta) == 0 || len(transition.TargetDelta) == 0 || len(transition.CredentialDelta) == 0 {
+		t.Fatalf("expected scope/target/credential deltas, got %+v", transition)
+	}
+	if got.ProposedActionContract == nil || !containsAnyPathClass(got.ProposedActionContract.EvidenceRequirements, "delegation_relationship", "credential_attenuation", "runtime_token_propagation") {
+		t.Fatalf("expected proposed contract delegation evidence requirements, got %+v", got.ProposedActionContract)
+	}
+}
+
+func TestCompositionRecommendationUsesMostRestrictiveTransition(t *testing.T) {
+	source := compositionTestPath("apc-code", "rk-code", []string{"write"}, TargetClassReleaseAdjacent)
+	source.CredentialAuthorityRef = "authority:repo-write"
+	source.CredentialAuthority = &agginventory.CredentialAuthority{CredentialPresent: true, AccessType: agginventory.AuthorityAccessWrite, LikelyScope: "repo"}
+	source.RecommendedControl = RecommendedControlAllow
+	source.RecommendedControlReasons = []string{"source:allow"}
+
+	sink := compositionTestPath("apc-deploy", "rk-deploy", []string{"deploy"}, TargetClassProductionImpacting)
+	sink.CredentialAuthorityRef = "authority:prod-admin"
+	sink.CredentialAuthority = &agginventory.CredentialAuthority{CredentialPresent: true, AccessType: agginventory.AuthorityAccessAdmin, StandingAccess: true, LikelyScope: "prod"}
+	sink.RecommendedControl = RecommendedControlApprovalRequired
+	sink.RecommendedControlReasons = []string{"sink:approval_required"}
+
+	compositions, _ := BuildComposedActionPaths([]ActionPath{source, sink}, nil)
+	got := findCompositionByPattern(compositions, CompositionPatternCodeToDeploy)
+	if got == nil {
+		t.Fatalf("expected composition, got %+v", compositions)
+	}
+	if got.RecommendedControl != RecommendedControlJITCredentialRequired {
+		t.Fatalf("expected broadened transition to select JIT credential control, got %+v", got)
+	}
+	if len(got.EscalatingTransitionRefs) == 0 || got.MostRestrictiveSource == "" || !containsAnyPathClass(got.RecommendedControlReasons, "composition:delegation_broadened", "sink:approval_required") {
+		t.Fatalf("expected transition-level rationale and preserved reasons, got %+v", got)
+	}
+}
+
+func TestEquivalentOutcomeDoesNotGroupUnrelatedRepoActions(t *testing.T) {
+	checkoutCode := compositionTestPath("apc-code-checkout", "rk-code-checkout", []string{"write"}, TargetClassReleaseAdjacent)
+	checkoutCode.Repo = "checkout"
+	checkoutDeploy := compositionTestPath("apc-deploy-checkout", "rk-deploy-checkout", []string{"deploy"}, TargetClassProductionImpacting)
+	checkoutDeploy.Repo = "checkout"
+	checkoutDeploy.MatchedProductionTargets = []string{"prod:checkout"}
+
+	billingCode := compositionTestPath("apc-code-billing", "rk-code-billing", []string{"write"}, TargetClassReleaseAdjacent)
+	billingCode.Repo = "billing"
+	billingDeploy := compositionTestPath("apc-deploy-billing", "rk-deploy-billing", []string{"deploy"}, TargetClassProductionImpacting)
+	billingDeploy.Repo = "billing"
+	billingDeploy.MatchedProductionTargets = []string{"prod:billing"}
+
+	compositions, _ := BuildComposedActionPaths([]ActionPath{checkoutCode, checkoutDeploy, billingCode, billingDeploy}, nil)
+	for _, composition := range compositions {
+		if len(composition.EquivalentOutcomeRefs) > 0 {
+			t.Fatalf("did not expect unrelated repo/target compositions to be grouped, got %+v", composition)
+		}
+	}
+}
+
+func TestEquivalentOutcomeSignalsApprovalEvasionForWeakerRoute(t *testing.T) {
+	codeA := compositionTestPath("apc-code-a", "rk-code-a", []string{"write"}, TargetClassReleaseAdjacent)
+	codeA.RecommendedControl = RecommendedControlApprovalRequired
+	deployA := compositionTestPath("apc-deploy-a", "rk-deploy-a", []string{"deploy"}, TargetClassProductionImpacting)
+	deployA.MatchedProductionTargets = []string{"prod:checkout"}
+	deployA.PolicyCoverageStatus = PolicyCoverageStatusRuntimeProven
+	deployA.ProofEvidenceState = EvidenceStateVerified
+	deployA.RuntimeEvidenceState = EvidenceStateVerified
+	deployA.RecommendedControl = RecommendedControlApprovalRequired
+
+	codeB := compositionTestPath("apc-code-b", "rk-code-b", []string{"write"}, TargetClassReleaseAdjacent)
+	codeB.RecommendedControl = RecommendedControlAllow
+	deployB := compositionTestPath("apc-deploy-b", "rk-deploy-b", []string{"deploy"}, TargetClassProductionImpacting)
+	deployB.MatchedProductionTargets = []string{"prod:checkout"}
+	deployB.PolicyCoverageStatus = PolicyCoverageStatusNone
+	deployB.ProofEvidenceState = EvidenceStateUnknown
+	deployB.RuntimeEvidenceState = EvidenceStateUnknown
+	deployB.RecommendedControl = RecommendedControlAllow
+
+	compositions, _ := BuildComposedActionPaths([]ActionPath{codeA, deployA, codeB, deployB}, nil)
+	found := false
+	for _, composition := range compositions {
+		if len(composition.EquivalentOutcomeRefs) == 0 {
+			continue
+		}
+		found = true
+		if composition.Materiality != CompositionMaterialityMaterial || len(composition.CoverageDeltaReasons) == 0 {
+			t.Fatalf("expected material bounded equivalent-outcome deltas, got %+v", composition)
+		}
+	}
+	if !found {
+		t.Fatalf("expected equivalent outcome refs, got %+v", compositions)
+	}
+}
+
 func TestProposedActionContractReadinessMapsSpecificGapsToNeedsEvidence(t *testing.T) {
 	base := ComposedActionPath{
 		CompositionID: "cap-1",
