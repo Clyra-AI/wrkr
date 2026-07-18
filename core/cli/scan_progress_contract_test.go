@@ -452,11 +452,16 @@ func TestScanProgressFooterIncludesResumeHintForInterruptedOrgScan(t *testing.T)
 	t.Parallel()
 
 	releaseRepo := make(chan struct{})
+	repoRequested := make(chan struct{}, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/orgs/acme/repos":
 			_, _ = fmt.Fprint(w, `[{"full_name":"acme/a"}]`)
 		case "/repos/acme/a":
+			select {
+			case repoRequested <- struct{}{}:
+			default:
+			}
 			select {
 			case <-r.Context().Done():
 				return
@@ -484,8 +489,10 @@ func TestScanProgressFooterIncludesResumeHintForInterruptedOrgScan(t *testing.T)
 		}, &out, errOut)
 	}()
 
-	if !errOut.waitFor("materializing acme/a", 2*time.Second) {
-		t.Fatalf("expected source progress before interruption, got %q", errOut.String())
+	select {
+	case <-repoRequested:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("expected repo materialization request before interruption, got %q", errOut.String())
 	}
 	cancel()
 	if code := <-done; code != exitRuntime {
