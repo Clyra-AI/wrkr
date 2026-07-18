@@ -159,6 +159,107 @@ func TestSanitizeComposedActionPathsPublicRedactsNestedGaitAndContradictionEvide
 	assertRedactedRefs("transition gait proof verification", got.Transitions[0].GaitCoverage.ProofVerification.EvidenceRefs)
 }
 
+func TestSanitizeComposedActionPathsPublicRedactsOutcomeKeyAndAuthorityDeltas(t *testing.T) {
+	t.Parallel()
+
+	input := []risk.ComposedActionPath{{
+		CompositionID:     "cap-1",
+		TargetIdentity:    "prod:checkout",
+		DurableOutcomeKey: "asset=prod:checkout|target_class=production_impacting|outcome=production_deploy|environment=production",
+		OutcomeKey:        "asset=prod:checkout|target_class=production_impacting|outcome=production_deploy|environment=production",
+		Stages: []risk.CompositionStage{{
+			StageID:            "stage-source",
+			Role:               risk.CompositionStageRoleSource,
+			ParentAuthorityRef: "authority:repo-admin",
+			ChildAuthorityRef:  "authority:prod-admin",
+			ScopeDelta:         []string{"scope:added:prod:*"},
+			TargetDelta:        []string{"target:added:prod:checkout"},
+			CredentialDelta:    []string{"credential:added:aws:sts-role"},
+			ExpiryDelta:        []string{"expiry:removed:2026-07-31T00:00:00Z"},
+		}},
+		Transitions: []risk.CompositionTransition{{
+			TransitionID:       "transition-1",
+			FromStageID:        "stage-source",
+			ToStageID:          "stage-sink",
+			ParentAuthorityRef: "authority:repo-admin",
+			ChildAuthorityRef:  "authority:prod-admin",
+			ScopeDelta:         []string{"scope:added:prod:*"},
+			TargetDelta:        []string{"target:added:prod:checkout"},
+			CredentialDelta:    []string{"credential:added:aws:sts-role"},
+			ExpiryDelta:        []string{"expiry:removed:2026-07-31T00:00:00Z"},
+		}},
+	}}
+
+	redacted := sanitizeComposedActionPathsPublic(input)
+	if len(redacted) != 1 {
+		t.Fatalf("expected one redacted composed path, got %+v", redacted)
+	}
+	got := redacted[0]
+	for _, value := range []string{got.DurableOutcomeKey, got.OutcomeKey, got.Stages[0].ParentAuthorityRef, got.Stages[0].ChildAuthorityRef, got.Transitions[0].ParentAuthorityRef, got.Transitions[0].ChildAuthorityRef} {
+		if strings.Contains(value, "prod:checkout") || strings.Contains(value, "authority:repo-admin") || strings.Contains(value, "authority:prod-admin") {
+			t.Fatalf("expected composed outcome and authority refs to be redacted, got %+v", got)
+		}
+	}
+	for _, values := range [][]string{got.Stages[0].ScopeDelta, got.Stages[0].TargetDelta, got.Stages[0].CredentialDelta, got.Stages[0].ExpiryDelta, got.Transitions[0].ScopeDelta, got.Transitions[0].TargetDelta, got.Transitions[0].CredentialDelta, got.Transitions[0].ExpiryDelta} {
+		for _, value := range values {
+			if strings.Contains(value, "prod:*") || strings.Contains(value, "prod:checkout") || strings.Contains(value, "aws:sts-role") || strings.Contains(value, "2026-07-31") {
+				t.Fatalf("expected authority delta arrays to be redacted, got %+v", got)
+			}
+		}
+	}
+}
+
+func TestSanitizeComposedActionPathsWithConfigRedactsOutcomeKeyAndAuthorityDeltas(t *testing.T) {
+	t.Parallel()
+
+	input := []risk.ComposedActionPath{{
+		CompositionID:     "cap-1",
+		TargetIdentity:    "prod:checkout",
+		DurableOutcomeKey: "asset=prod:checkout|target_class=production_impacting|outcome=production_deploy|environment=production",
+		OutcomeKey:        "asset=prod:checkout|target_class=production_impacting|outcome=production_deploy|environment=production",
+		Stages: []risk.CompositionStage{{
+			StageID:            "stage-source",
+			Role:               risk.CompositionStageRoleSource,
+			ResolutionKey:      "acme/private|release.yml",
+			ParentAuthorityRef: "authority:repo-admin",
+			ChildAuthorityRef:  "authority:prod-admin",
+			ScopeDelta:         []string{"scope:added:prod:*"},
+			TargetDelta:        []string{"target:added:prod:checkout"},
+			CredentialDelta:    []string{"credential:added:aws:sts-role"},
+			ExpiryDelta:        []string{"expiry:removed:2026-07-31T00:00:00Z"},
+		}},
+		Transitions: []risk.CompositionTransition{{
+			TransitionID:       "transition-1",
+			FromStageID:        "stage-source",
+			ToStageID:          "stage-sink",
+			ParentAuthorityRef: "authority:repo-admin",
+			ChildAuthorityRef:  "authority:prod-admin",
+			ScopeDelta:         []string{"scope:added:prod:*"},
+			TargetDelta:        []string{"target:added:prod:checkout"},
+			CredentialDelta:    []string{"credential:added:aws:sts-role"},
+			ExpiryDelta:        []string{"expiry:removed:2026-07-31T00:00:00Z"},
+		}},
+	}}
+
+	redacted := sanitizeComposedActionPathsWithConfig(input, ResolveRedactionConfig(ShareProfileInternal, []RedactionField{RedactionPaths}))
+	if len(redacted) != 1 {
+		t.Fatalf("expected one redacted composed path, got %+v", redacted)
+	}
+	got := redacted[0]
+	for _, value := range []string{got.DurableOutcomeKey, got.OutcomeKey, got.Stages[0].ParentAuthorityRef, got.Stages[0].ChildAuthorityRef, got.Transitions[0].ParentAuthorityRef, got.Transitions[0].ChildAuthorityRef} {
+		if strings.Contains(value, "prod:checkout") || strings.Contains(value, "authority:repo-admin") || strings.Contains(value, "authority:prod-admin") {
+			t.Fatalf("expected configured composed outcome and authority refs to be redacted, got %+v", got)
+		}
+	}
+	for _, values := range [][]string{got.Stages[0].ScopeDelta, got.Stages[0].TargetDelta, got.Stages[0].CredentialDelta, got.Stages[0].ExpiryDelta, got.Transitions[0].ScopeDelta, got.Transitions[0].TargetDelta, got.Transitions[0].CredentialDelta, got.Transitions[0].ExpiryDelta} {
+		for _, value := range values {
+			if strings.Contains(value, "prod:*") || strings.Contains(value, "prod:checkout") || strings.Contains(value, "aws:sts-role") || strings.Contains(value, "2026-07-31") {
+				t.Fatalf("expected configured authority delta arrays to be redacted, got %+v", got)
+			}
+		}
+	}
+}
+
 func TestSanitizeAgentActionBOMRemapsCompositionIDsToSanitizedComposedPaths(t *testing.T) {
 	t.Parallel()
 
