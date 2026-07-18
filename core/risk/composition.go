@@ -930,7 +930,7 @@ func compareCompositionAuthority(parent, child compositionAuthorityProfile) (str
 		narrowed = true
 		reasons = append(reasons, "delegation_depth:narrowed")
 	}
-	if targetRankBroadened(parent.Targets, child.Targets) {
+	if targetRankBroadened(parent.Targets, child.Targets) || hasAddedDelta(targetDelta) {
 		broadened = true
 		reasons = append(reasons, "target:broadened")
 	} else if len(targetDelta) > 0 {
@@ -1041,18 +1041,36 @@ func childExpiryLessRestrictive(parent, child string) bool {
 	return child > parent
 }
 
-func mergeCompositionTransitionDelegation(composition *ComposedActionPath, sources ...[]CompositionTransition) {
+type compositionTransitionDelegationSource struct {
+	stages      []CompositionStage
+	transitions []CompositionTransition
+}
+
+func mergeCompositionTransitionDelegation(composition *ComposedActionPath, sources ...compositionTransitionDelegationSource) {
 	if composition == nil || len(composition.Transitions) == 0 {
 		return
 	}
 	byTransition := map[string]CompositionTransition{}
 	for _, source := range sources {
-		for _, transition := range source {
-			byTransition[strings.TrimSpace(transition.TransitionID)] = transition
+		for _, transition := range source.transitions {
+			for _, key := range compositionTransitionDelegationKeys(transition, source.stages) {
+				byTransition[key] = mergeCompositionTransitionDelegationValue(byTransition[key], transition)
+			}
 		}
 	}
 	for idx := range composition.Transitions {
-		current, ok := byTransition[strings.TrimSpace(composition.Transitions[idx].TransitionID)]
+		var (
+			current CompositionTransition
+			ok      bool
+		)
+		for _, key := range compositionTransitionDelegationKeys(composition.Transitions[idx], composition.Stages) {
+			candidate, exists := byTransition[key]
+			if !exists {
+				continue
+			}
+			current = mergeCompositionTransitionDelegationValue(current, candidate)
+			ok = true
+		}
 		if !ok {
 			continue
 		}
@@ -1065,6 +1083,51 @@ func mergeCompositionTransitionDelegation(composition *ComposedActionPath, sourc
 		composition.Transitions[idx].ExpiryDelta = dedupeSortedStrings(current.ExpiryDelta)
 		composition.Transitions[idx].ReasonCodes = dedupeSortedStrings(append(composition.Transitions[idx].ReasonCodes, current.ReasonCodes...))
 	}
+}
+
+func mergeCompositionTransitionDelegationValue(current, incoming CompositionTransition) CompositionTransition {
+	if strings.TrimSpace(current.TransitionID) == "" {
+		current = incoming
+	}
+	if strings.TrimSpace(current.Relationship) == "" {
+		current.Relationship = strings.TrimSpace(incoming.Relationship)
+	}
+	if strings.TrimSpace(current.ParentAuthorityRef) == "" {
+		current.ParentAuthorityRef = strings.TrimSpace(incoming.ParentAuthorityRef)
+	}
+	if strings.TrimSpace(current.ChildAuthorityRef) == "" {
+		current.ChildAuthorityRef = strings.TrimSpace(incoming.ChildAuthorityRef)
+	}
+	current.ScopeDelta = dedupeSortedStrings(append(current.ScopeDelta, incoming.ScopeDelta...))
+	current.TargetDelta = dedupeSortedStrings(append(current.TargetDelta, incoming.TargetDelta...))
+	current.CredentialDelta = dedupeSortedStrings(append(current.CredentialDelta, incoming.CredentialDelta...))
+	current.ExpiryDelta = dedupeSortedStrings(append(current.ExpiryDelta, incoming.ExpiryDelta...))
+	current.ReasonCodes = dedupeSortedStrings(append(current.ReasonCodes, incoming.ReasonCodes...))
+	return current
+}
+
+func compositionTransitionDelegationKeys(transition CompositionTransition, stages []CompositionStage) []string {
+	keys := []string{}
+	if transitionID := strings.TrimSpace(transition.TransitionID); transitionID != "" {
+		keys = append(keys, transitionID)
+	}
+	stageByID := map[string]CompositionStage{}
+	for _, stage := range stages {
+		stageByID[strings.TrimSpace(stage.StageID)] = stage
+	}
+	from, fromOK := stageByID[strings.TrimSpace(transition.FromStageID)]
+	to, toOK := stageByID[strings.TrimSpace(transition.ToStageID)]
+	if fromOK && toOK {
+		keys = append(keys, strings.Join([]string{
+			strings.TrimSpace(from.Role),
+			strings.TrimSpace(from.ResolutionKey),
+			strings.TrimSpace(from.TargetClass),
+			strings.TrimSpace(to.Role),
+			strings.TrimSpace(to.ResolutionKey),
+			strings.TrimSpace(to.TargetClass),
+		}, "|"))
+	}
+	return dedupeSortedStrings(keys)
 }
 
 func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActionPath {
@@ -1081,7 +1144,10 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	merged.ProposedActionContractRefs = dedupeSortedStrings(append(merged.ProposedActionContractRefs, incoming.ProposedActionContractRefs...))
 	merged.Stages = dedupeCompositionStages(append(append([]CompositionStage(nil), merged.Stages...), incoming.Stages...))
 	merged.Transitions = buildCompositionTransitions(merged.CompositionID, merged.Stages)
-	mergeCompositionTransitionDelegation(&merged, current.Transitions, incoming.Transitions)
+	mergeCompositionTransitionDelegation(&merged,
+		compositionTransitionDelegationSource{stages: current.Stages, transitions: current.Transitions},
+		compositionTransitionDelegationSource{stages: incoming.Stages, transitions: incoming.Transitions},
+	)
 	merged.Contradictions = mergeContradictions(merged.Contradictions, incoming.Contradictions)
 	merged.ClosureRequirements = CloneClosureRequirements(firstNonEmptyClosureRequirements(merged.ClosureRequirements, incoming.ClosureRequirements))
 	merged.EvidenceCompleteness = mergeEvidenceCompletenessValues(merged.EvidenceCompleteness, incoming.EvidenceCompleteness)
