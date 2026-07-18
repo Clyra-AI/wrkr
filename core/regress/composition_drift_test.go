@@ -59,6 +59,33 @@ func TestCompositionDriftReportsMissingBaselineCompositionData(t *testing.T) {
 	}
 }
 
+func TestCompositionDriftReportsMissingCurrentCompositionDataWhenSnapshotOmitsComparableSurfaces(t *testing.T) {
+	baselineComposition := regressTestComposition("cap-baseline", "rk-egress", "prod:checkout", "production_deploy")
+	baseline := BuildBaseline(state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{baselineComposition}}}, time.Date(2026, 7, 18, 1, 0, 0, 0, time.UTC))
+
+	result := Compare(baseline, state.Snapshot{RiskReport: &risk.Report{}})
+
+	if result.ComparisonStatus != DriftComparisonStatusCurrentCompositionsMissing {
+		t.Fatalf("expected missing current composition status, got %+v", result)
+	}
+	if hasDriftCategory(result.DriftCategories, DriftCategoryRemovedCompositions) {
+		t.Fatalf("missing comparable current composition data should fail closed, not report removed compositions: %+v", result.DriftCategories)
+	}
+}
+
+func TestCompositionDriftTreatsMissingGaitCoverageAsDegraded(t *testing.T) {
+	baselineComposition := regressTestComposition("cap-baseline", "rk-deploy", "prod:checkout", "production_deploy")
+	currentComposition := regressTestComposition("cap-baseline", "rk-deploy", "prod:checkout", "production_deploy")
+	currentComposition.GaitCoverage = nil
+
+	baseline := BuildBaseline(state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{baselineComposition}}}, time.Date(2026, 7, 18, 1, 0, 0, 0, time.UTC))
+	result := Compare(baseline, state.Snapshot{RiskReport: &risk.Report{ComposedActionPaths: []risk.ComposedActionPath{currentComposition}}})
+
+	if !hasDriftCategory(result.DriftCategories, DriftCategoryCompositionCoverageDegraded) {
+		t.Fatalf("expected missing gait coverage to degrade composition coverage, got %+v", result.DriftCategories)
+	}
+}
+
 func regressTestComposition(compositionID, sinkResolutionKey, targetIdentity, outcomeClass string) risk.ComposedActionPath {
 	return risk.ComposedActionPath{
 		CompositionID:        compositionID,
