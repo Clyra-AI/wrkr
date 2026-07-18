@@ -13,7 +13,7 @@ Story paths and commands resolve from `$REPO_ROOT`. The source recommendations a
 - The public name remains `proposed_action_contract`. All new contract artifacts keep `report_only: true`; imported Gait or Axym state is evidence about downstream activity, never a Wrkr-owned runtime state transition.
 - Introduce `proposed_action_contract` contract version `3` for the richer typed model. Freeze the current version `2` schema and fixtures for compatibility, emit version `3` after migration, and keep readers able to validate both. Do not silently rewrite a version `2` contract into version `3`.
 - Add `schemas/v1/proposed-action-contract-v3.schema.json` instead of changing the meaning of the existing version `2` schema in place. Public embedding schemas accept the explicit versioned alternatives.
-- Contract family identity is stable over the durable resolution key and outcome family. A contract ID identifies one immutable revision. Revision defaults to `1` when no prior-family evidence exists and increments only from an explicitly supplied, validated predecessor; wall-clock time or scan order must never infer revision order.
+- Preserve the existing version `2` `contract_family_id` derivation and its compatibility goldens. A contract ID identifies one immutable revision. Version `3` carries that family identity forward; any future family-ID domain change requires an explicit migration rather than silently re-keying version `2` families. Revision defaults to `1` when no prior-family evidence exists and increments only from an explicitly supplied, validated predecessor; wall-clock time or scan order must never infer revision order.
 - The portable artifact envelope has its own schema version and identity. Its canonical content digest covers normalized contract content and durable references, excludes explicitly documented volatile presentation timestamps, and uses the shared `github.com/Clyra-AI/proof/core/canon` RFC 8785 JCS domain rather than a second local canonicalizer.
 - Required and satisfied are different fields. A requirement may be `verified`, `declared`, `inferred`, `unknown`, or `contradictory`, with separate freshness and evidence references. An inferred requirement is never presented as a verified grant.
 - Authority, readiness, confirmation, approval, credential, effect, and compensation requirements are structured data. Prose is a rendering of the typed contract, not an input Gait must parse.
@@ -27,7 +27,7 @@ Story paths and commands resolve from `$REPO_ROOT`. The source recommendations a
 ## Current Baseline (Observed)
 
 - `core/risk/proposed_action_contract.go` emits contract version `2` nested inside composed action paths. It has deterministic IDs, allowed/prohibited/approval-required transitions, target constraints, credential mode, delegation depth, evidence requirement strings, countersigners, expected outcome class, a compensation-required boolean, source digests, readiness, reason codes, and `report_only: true`.
-- `schemas/v1/proposed-action-contract.schema.json` is closed with `additionalProperties: false` and accepts only contract version `2`; it has no artifact envelope, family ID, revision, typed authority requirement, typed precondition, structured confirmation/compensation, or downstream lifecycle evidence.
+- `schemas/v1/proposed-action-contract.schema.json` is closed with `additionalProperties: false` and accepts only contract version `2`. Version `2` already requires `contract_family_id` and `contract_content_digest`, populated by `RefreshProposedActionContractIdentity`; it has no artifact envelope, revision, typed authority requirement, typed precondition, structured confirmation/compensation, or downstream lifecycle evidence.
 - Version `2` contract identity is locally assembled with SHA-256. The repo already depends on `github.com/Clyra-AI/proof v0.4.6`, whose stable `core/canon` package provides RFC 8785 JCS canonicalization and digest primitives suitable for the portable artifact.
 - `core/risk/composition.go` builds bounded pairwise compositions and calls `annotateEquivalentOutcomeSignals` after each path recommendation is chosen. Equivalent-outcome metadata identifies weaker peers but does not raise their recommended control, so approval-evasion alternatives can remain less restrictive.
 - The existing composition engine is source/sink and pairwise-pattern oriented. It can cap output and sort deterministically, but it does not model bounded ordered three-to-five-stage paths across repo, CI, cloud, package, SaaS, and communications boundaries.
@@ -268,7 +268,7 @@ Tasks:
 - Reuse canonical `verified`, `declared`, `inferred`, `unknown`, and `contradictory` states plus existing freshness semantics. Do not add `satisfied` as an evidence synonym.
 - Add deterministic missing/contradiction reasons and a derived authority readiness summary that cannot be `ready` when a required binding is missing, stale beyond policy, unknown, inferred-only where verification is required, or contradictory.
 - Add `schemas/v1/proposed-action-contract-v3.schema.json`; preserve the version `2` schema and fixtures, update embedding schemas to accept explicit version alternatives, and add version `2` read-compat tests.
-- Make family and revision fields present in version `3` with deterministic revision `1` until Story 2.2 supplies validated predecessor evidence.
+- Carry the existing version `2` family identity into version `3`, lock its current derivation with compatibility goldens, and add deterministic revision `1` until Story 2.2 supplies validated predecessor evidence.
 - Update saved-state/report decoders, docs, compatibility matrix, and create the contract-version ADR.
 
 Repo paths:
@@ -486,7 +486,7 @@ Repo paths:
 - `core/proofmap/`
 - `core/evidence/`
 - `schemas/v1/proposed-action-contract-artifact.schema.json`
-- `schemas/v1/evidence-bundle.schema.json`
+- `schemas/v1/evidence/evidence-bundle.schema.json`
 - `testinfra/contracts/`
 - `testinfra/contracts/fixtures/freeze-gate/story-0.1-receipt.json`
 - `docs/commands/export.md`
@@ -544,7 +544,7 @@ Expected benefit: Gait can activate or reject a precise immutable revision and A
 
 Tasks:
 - Add first-failing tests for new family, unchanged content, valid successor, skipped revision, missing predecessor, family mismatch, predecessor digest mismatch, rejection, activation receipt, supersession, executed effect, conflicting downstream states, and Axym bundle linkage.
-- Add deterministic `contract_family_id`, numeric `revision`, optional `supersedes_ref`, and immutable-content validation to the builder/export model.
+- Preserve the existing deterministic `contract_family_id` derivation, then add numeric `revision`, optional `supersedes_ref`, and immutable-content validation to the builder/export model.
 - Accept prior-family evidence only through explicit validated saved baseline or imported evidence. Default to revision `1` without a predecessor; never derive revision from timestamps, filenames, or scan order.
 - Define typed lifecycle observations for proposal creation, activation request/receipt, rejection reason codes, supersession, executed contract/effect refs, and Axym bundle refs with producer, evidence/freshness state, observed time, and proof/evidence refs.
 - Treat Gait/Axym observations as imported evidence. Conflicts remain contradictory; Wrkr does not resolve or perform transitions and does not rewrite the immutable contract content.
@@ -561,7 +561,7 @@ Repo paths:
 - `core/proofmap/`
 - `schemas/v1/proposed-action-contract-v3.schema.json`
 - `schemas/v1/proposed-action-contract-artifact.schema.json`
-- `schemas/v1/evidence-bundle.schema.json`
+- `schemas/v1/evidence/evidence-bundle.schema.json`
 - `testinfra/contracts/`
 - `docs/commands/ingest.md`
 - `docs/commands/regress.md`
