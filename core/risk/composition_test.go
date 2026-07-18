@@ -447,6 +447,76 @@ func TestCompositionRecommendationUsesMostRestrictiveTransition(t *testing.T) {
 	}
 }
 
+func TestCompositionDelegationTreatsAddedTargetsAsBroadened(t *testing.T) {
+	parent := compositionAuthorityProfile{
+		Ref:     "authority:repo",
+		Targets: []string{"prod:checkout"},
+	}
+	child := compositionAuthorityProfile{
+		Ref:     "authority:repo",
+		Targets: []string{"prod:checkout", "prod:billing"},
+	}
+
+	relationship, _, targetDelta, _, _, reasons := compareCompositionAuthority(parent, child)
+	if relationship != CompositionDelegationBroadened {
+		t.Fatalf("expected added targets to broaden delegation, got relationship=%q delta=%v reasons=%v", relationship, targetDelta, reasons)
+	}
+	if !containsAnyPathClass(targetDelta, "target:added:prod:billing") || !containsAnyPathClass(reasons, "target:broadened") {
+		t.Fatalf("expected added target delta to preserve broadened rationale, got delta=%v reasons=%v", targetDelta, reasons)
+	}
+}
+
+func TestMergeComposedActionPathPreservesDelegationMetadataAfterStageRebuild(t *testing.T) {
+	base := ComposedActionPath{
+		CompositionID: "cap-1",
+		Stages: []CompositionStage{
+			{
+				StageID:       compositionStageID(CompositionStageRoleSource, "rk-source", TargetClassReleaseAdjacent, EvidenceStateDeclared),
+				Role:          CompositionStageRoleSource,
+				ResolutionKey: "rk-source",
+				TargetClass:   TargetClassReleaseAdjacent,
+				EvidenceState: EvidenceStateDeclared,
+			},
+			{
+				StageID:       compositionStageID(CompositionStageRolePrivilegedSink, "rk-sink", TargetClassProductionImpacting, EvidenceStateDeclared),
+				Role:          CompositionStageRolePrivilegedSink,
+				ResolutionKey: "rk-sink",
+				TargetClass:   TargetClassProductionImpacting,
+				EvidenceState: EvidenceStateDeclared,
+			},
+		},
+		EvidenceState:        EvidenceStateDeclared,
+		PolicyCoverageStatus: PolicyCoverageStatusDeclared,
+	}
+	base.Transitions = buildCompositionTransitions(base.CompositionID, base.Stages)
+	base.Transitions[0].Relationship = CompositionDelegationBroadened
+	base.Transitions[0].ParentAuthorityRef = "authority:repo"
+	base.Transitions[0].ChildAuthorityRef = "authority:prod"
+	base.Transitions[0].TargetDelta = []string{"target:added:prod:billing"}
+	base.Transitions[0].ReasonCodes = []string{"target:broadened"}
+
+	incoming := base
+	incoming.Stages = append([]CompositionStage(nil), base.Stages...)
+	incoming.Stages[0].EvidenceState = EvidenceStateContradictory
+	incoming.Stages[0].StageID = compositionStageID(incoming.Stages[0].Role, incoming.Stages[0].ResolutionKey, incoming.Stages[0].TargetClass, incoming.Stages[0].EvidenceState)
+	incoming.Transitions = buildCompositionTransitions(incoming.CompositionID, incoming.Stages)
+
+	merged := mergeComposedActionPath(base, incoming)
+	if len(merged.Transitions) != 1 {
+		t.Fatalf("expected merged composition to rebuild one transition, got %+v", merged.Transitions)
+	}
+	transition := merged.Transitions[0]
+	if transition.Relationship != CompositionDelegationBroadened {
+		t.Fatalf("expected rebuilt transition to preserve broadened delegation, got %+v", transition)
+	}
+	if transition.ParentAuthorityRef != "authority:repo" || transition.ChildAuthorityRef != "authority:prod" {
+		t.Fatalf("expected rebuilt transition to preserve authority refs, got %+v", transition)
+	}
+	if !containsAnyPathClass(transition.TargetDelta, "target:added:prod:billing") || !containsAnyPathClass(transition.ReasonCodes, "target:broadened") {
+		t.Fatalf("expected rebuilt transition to preserve target deltas and reasons, got %+v", transition)
+	}
+}
+
 func TestEquivalentOutcomeDoesNotGroupUnrelatedRepoActions(t *testing.T) {
 	checkoutCode := compositionTestPath("apc-code-checkout", "rk-code-checkout", []string{"write"}, TargetClassReleaseAdjacent)
 	checkoutCode.Repo = "checkout"
