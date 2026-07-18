@@ -386,13 +386,16 @@ func SaveBaseline(path string, baseline Baseline) error {
 
 func BuildBaselineFromSnapshot(snapshot state.Snapshot) Baseline {
 	actionPaths, actionPathsCaptured := snapshotActionPathStates(snapshot)
+	compositions, compositionsCaptured := snapshotCompositionStates(snapshot)
 	return normalizeBaseline(Baseline{
-		Version:             BaselineVersion,
-		Tools:               SnapshotTools(snapshot),
-		AttackPaths:         snapshotAttackPaths(snapshot),
-		LifecycleGaps:       snapshotLifecycleGaps(snapshot),
-		ActionPathsCaptured: actionPathsCaptured,
-		ActionPaths:         actionPaths,
+		Version:              BaselineVersion,
+		Tools:                SnapshotTools(snapshot),
+		AttackPaths:          snapshotAttackPaths(snapshot),
+		LifecycleGaps:        snapshotLifecycleGaps(snapshot),
+		ActionPathsCaptured:  actionPathsCaptured,
+		ActionPaths:          actionPaths,
+		CompositionsCaptured: compositionsCaptured,
+		Compositions:         compositions,
 	})
 }
 
@@ -776,6 +779,13 @@ func normalizeBaseline(baseline Baseline) Baseline {
 		baseline.ActionPathsCaptured = true
 	}
 	sortActionPathStates(baseline.ActionPaths)
+	for i := range baseline.Compositions {
+		baseline.Compositions[i] = normalizeCompositionState(baseline.Compositions[i])
+	}
+	if len(baseline.Compositions) > 0 {
+		baseline.CompositionsCaptured = true
+	}
+	sortCompositionStates(baseline.Compositions)
 	sort.Slice(baseline.LifecycleGaps, func(i, j int) bool {
 		if baseline.LifecycleGaps[i].ReasonCode != baseline.LifecycleGaps[j].ReasonCode {
 			return baseline.LifecycleGaps[i].ReasonCode < baseline.LifecycleGaps[j].ReasonCode

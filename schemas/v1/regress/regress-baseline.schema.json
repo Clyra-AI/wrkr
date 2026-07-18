@@ -15,6 +15,9 @@
     "action_paths_captured": {
       "type": "boolean"
     },
+    "compositions_captured": {
+      "type": "boolean"
+    },
     "attack_paths": {
       "type": "array",
       "items": {
@@ -31,6 +34,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/actionPathState"
+      }
+    },
+    "compositions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/compositionState"
       }
     },
     "tools": {
@@ -144,6 +153,33 @@
         "config_fingerprint": {"type": "string"},
         "evidence_refs": {"type": "array", "items": {"type": "string"}},
         "reopen_reasons": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "compositionState": {
+      "type": "object",
+      "properties": {
+        "composition_id": {"type": "string"},
+        "composition_family_key": {"type": "string"},
+        "pattern_id": {"type": "string"},
+        "stage_roles": {"type": "array", "items": {"type": "string"}},
+        "member_resolution_keys": {"type": "array", "items": {"type": "string"}},
+        "stable_route_source_identity": {"type": "string"},
+        "target_identity": {"type": "string"},
+        "outcome_key": {"type": "string"},
+        "outcome_class": {"type": "string"},
+        "environment": {"type": "string"},
+        "risk_tier": {"type": "string"},
+        "recommended_control": {"type": "string"},
+        "evidence_state": {"type": "string"},
+        "freshness_state": {"type": "string"},
+        "policy_coverage_status": {"type": "string"},
+        "gait_coverage_summary": {"type": "array", "items": {"type": "string"}},
+        "delegation_relationships": {"type": "array", "items": {"type": "string"}},
+        "equivalent_outcome_refs": {"type": "array", "items": {"type": "string"}},
+        "sink_stage_keys": {"type": "array", "items": {"type": "string"}},
+        "path_ids": {"type": "array", "items": {"type": "string"}},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
       },
       "additionalProperties": false
     }

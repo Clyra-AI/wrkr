@@ -26,11 +26,43 @@ func TestWave4DriftReviewSchemasDeclareCategoryContracts(t *testing.T) {
 			t.Fatalf("report regress schema missing %s: %v", field, reportRegressProps)
 		}
 	}
+	reportDriftExample := schemaDefinition(t, reportSchema, "driftExample")
+	reportDriftExampleProps := reportDriftExample["properties"].(map[string]any)
+	for _, field := range []string{
+		"composition_id",
+		"baseline_composition_id",
+		"current_composition_ref",
+		"baseline_composition_ref",
+		"current_outcome_key",
+		"baseline_outcome_key",
+		"current_recommended_control",
+		"baseline_recommended_control",
+	} {
+		if _, ok := reportDriftExampleProps[field].(map[string]any); !ok {
+			t.Fatalf("report drift example schema missing %s: %v", field, reportDriftExampleProps)
+		}
+	}
 
 	bomSchema := mustReadJSON(t, filepath.Join(repoRoot, "schemas", "v1", "agent-action-bom.schema.json"))
 	bomSummary := schemaDefinition(t, bomSchema, "summary")
 	if _, ok := bomSummary["properties"].(map[string]any)["drift_review"].(map[string]any); !ok {
 		t.Fatalf("agent action bom summary schema missing drift_review: %v", bomSummary)
+	}
+	bomDriftExample := schemaDefinition(t, bomSchema, "driftExample")
+	bomDriftExampleProps := bomDriftExample["properties"].(map[string]any)
+	for _, field := range []string{
+		"composition_id",
+		"baseline_composition_id",
+		"current_composition_ref",
+		"baseline_composition_ref",
+		"current_outcome_key",
+		"baseline_outcome_key",
+		"current_recommended_control",
+		"baseline_recommended_control",
+	} {
+		if _, ok := bomDriftExampleProps[field].(map[string]any); !ok {
+			t.Fatalf("agent action bom drift example schema missing %s: %v", field, bomDriftExampleProps)
+		}
 	}
 }
 
@@ -41,7 +73,7 @@ func TestWave4DriftReviewBaselineAndAssessSchemasDeclareMetadata(t *testing.T) {
 
 	baselineSchema := mustReadJSON(t, filepath.Join(repoRoot, "schemas", "v1", "regress", "regress-baseline.schema.json"))
 	baselineProps := baselineSchema["properties"].(map[string]any)
-	for _, field := range []string{"action_paths_captured", "action_paths"} {
+	for _, field := range []string{"action_paths_captured", "action_paths", "compositions_captured", "compositions"} {
 		if _, ok := baselineProps[field].(map[string]any); !ok {
 			t.Fatalf("regress baseline schema missing %s: %v", field, baselineProps)
 		}

@@ -52,7 +52,27 @@ func snapshotCompositionStates(snapshot state.Snapshot) ([]CompositionState, boo
 
 func snapshotComparableCompositions(snapshot state.Snapshot) ([]risk.ComposedActionPath, bool) {
 	if snapshot.RiskReport != nil {
-		return append([]risk.ComposedActionPath(nil), snapshot.RiskReport.ComposedActionPaths...), true
+		if len(snapshot.RiskReport.ComposedActionPaths) > 0 {
+			return append([]risk.ComposedActionPath(nil), snapshot.RiskReport.ComposedActionPaths...), true
+		}
+		if len(snapshot.RiskReport.ActionPaths) > 0 {
+			compositions, _ := risk.BuildComposedActionPaths(snapshot.RiskReport.ActionPaths, snapshot.RiskReport.WorkflowChains)
+			return compositions, true
+		}
+		if snapshot.Inventory != nil {
+			paths, _ := risk.BuildActionPaths(snapshot.RiskReport.AttackPaths, snapshot.Inventory)
+			compositions, _ := risk.BuildComposedActionPaths(paths, snapshot.RiskReport.WorkflowChains)
+			return compositions, true
+		}
+		// Older saved states can carry a risk report while omitting comparable
+		// composition material entirely. Treat that as unavailable so drift
+		// review fails closed instead of comparing against a synthetic empty set.
+		return nil, false
+	}
+	if snapshot.Inventory != nil {
+		paths, _ := risk.BuildActionPaths(nil, snapshot.Inventory)
+		compositions, _ := risk.BuildComposedActionPaths(paths, nil)
+		return compositions, true
 	}
 	return nil, false
 }
@@ -492,7 +512,7 @@ func compositionPolicyRank(value string) int {
 }
 
 func compositionGaitCoverageRank(values []string) int {
-	rank := 0
+	rank := -1
 	for _, value := range values {
 		parts := strings.SplitN(value, ":", 2)
 		if len(parts) != 2 {
@@ -512,6 +532,9 @@ func compositionGaitCoverageRank(values []string) int {
 		default:
 			rank = maxInt(rank, 3)
 		}
+	}
+	if rank < 0 {
+		return 4
 	}
 	return rank
 }

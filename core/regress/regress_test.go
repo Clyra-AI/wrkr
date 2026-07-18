@@ -127,6 +127,27 @@ func TestLoadComparableBaselineAcceptsScanSnapshot(t *testing.T) {
 	}
 }
 
+func TestBuildBaselineFromSnapshotCapturesCompositionData(t *testing.T) {
+	t.Parallel()
+
+	snapshot := state.Snapshot{
+		Version: state.SnapshotVersion,
+		RiskReport: &risk.Report{
+			ComposedActionPaths: []risk.ComposedActionPath{
+				regressTestComposition("cap-snapshot", "rk-deploy", "prod:checkout", "production_deploy"),
+			},
+		},
+	}
+
+	baseline := BuildBaselineFromSnapshot(snapshot)
+	if !baseline.CompositionsCaptured {
+		t.Fatalf("expected comparable snapshot baseline to capture compositions, got %+v", baseline)
+	}
+	if len(baseline.Compositions) != 1 {
+		t.Fatalf("expected one captured composition, got %+v", baseline.Compositions)
+	}
+}
+
 func TestLoadComparableBaselinePrefersSnapshotMarkersOverAttackPaths(t *testing.T) {
 	t.Parallel()
 
@@ -565,7 +586,7 @@ func TestCompareAddsActionPathDriftCategories(t *testing.T) {
 				{
 					PathID:                   "apc-new-write",
 					Org:                      "acme",
-					Repo:                     "payments",
+					Repo:                     "billing",
 					Location:                 ".github/workflows/write.yml",
 					WriteCapable:             true,
 					TargetClass:              "production_impacting",
