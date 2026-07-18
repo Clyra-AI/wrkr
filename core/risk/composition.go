@@ -1000,6 +1000,15 @@ func hasAddedDelta(values []string) bool {
 	return false
 }
 
+func containsNonEmptyString(values []string, want string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == strings.TrimSpace(want) && strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func targetRankBroadened(parent, child []string) bool {
 	parentRank := 99
 	childRank := 99
@@ -1165,6 +1174,7 @@ func mergeComposedActionPath(current, incoming ComposedActionPath) ComposedActio
 	}
 	merged.ClaimState = compositionClaimState(merged.EvidenceState, merged.PolicyCoverageStatus, merged.FreshnessState, merged.GaitCoverage, merged.Stages, nil)
 	hydrateCompositionTransitions(&merged)
+	refreshCompositionEscalatingTransitionRefs(&merged)
 	merged.ProposedActionContract = BuildProposedActionContract(merged)
 	if merged.ProposedActionContract != nil {
 		merged.ProposedActionContractRefs = []string{merged.ProposedActionContract.ContractID}
@@ -1298,6 +1308,47 @@ func applyCompositionRecommendedControl(composition *ComposedActionPath, paths [
 	composition.MostRestrictiveSource = strings.TrimSpace(source)
 	if composition.MostRestrictiveSource == "" && control != RecommendedControlAllow {
 		composition.MostRestrictiveSource = "composition"
+	}
+}
+
+func refreshCompositionEscalatingTransitionRefs(composition *ComposedActionPath) {
+	if composition == nil {
+		return
+	}
+	refs := []string{}
+	bestRef := ""
+	bestRank := 999
+	for _, transition := range composition.Transitions {
+		ref := strings.TrimSpace(transition.TransitionID)
+		if ref == "" {
+			continue
+		}
+		control := ""
+		switch strings.TrimSpace(transition.Relationship) {
+		case CompositionDelegationContradictory:
+			control = RecommendedControlBlock
+		case CompositionDelegationBroadened:
+			control = RecommendedControlJITCredentialRequired
+		case CompositionDelegationUnknown:
+			control = RecommendedControlSecurityReview
+		default:
+			continue
+		}
+		refs = append(refs, ref)
+		if rank := recommendedControlRank(control); rank < bestRank {
+			bestRank = rank
+			bestRef = ref
+		}
+	}
+	composition.EscalatingTransitionRefs = dedupeSortedStrings(refs)
+	if strings.HasPrefix(strings.TrimSpace(composition.MostRestrictiveSource), "transition:") {
+		currentRef := strings.TrimPrefix(strings.TrimSpace(composition.MostRestrictiveSource), "transition:")
+		if !containsNonEmptyString(composition.EscalatingTransitionRefs, currentRef) {
+			composition.MostRestrictiveSource = ""
+		}
+	}
+	if strings.TrimSpace(composition.MostRestrictiveSource) == "" && bestRef != "" {
+		composition.MostRestrictiveSource = "transition:" + bestRef
 	}
 }
 
@@ -1583,12 +1634,6 @@ func compositionTargetIdentity(_ compositionPatternSpec, paths []ActionPath) str
 		}
 		for _, item := range path.MutableEndpointSemantics {
 			values = append(values, compositionMutableEndpointIdentity(item))
-		}
-		if path.CredentialAuthority != nil {
-			values = append(values, compositionCredentialAuthorityIdentity(path.CredentialAuthority))
-		}
-		if path.CredentialProvenance != nil {
-			values = append(values, compositionCredentialProvenanceIdentity(path.CredentialProvenance))
 		}
 	}
 	values = dedupeSortedStrings(values)

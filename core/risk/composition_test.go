@@ -209,10 +209,11 @@ func TestCompositionTargetIdentityPreservesEndpointTuples(t *testing.T) {
 	}
 }
 
-func TestCompositionTargetIdentityPreservesCredentialTuples(t *testing.T) {
+func TestCompositionTargetIdentityIgnoresCredentialTuplesForEquivalentOutcomes(t *testing.T) {
 	t.Parallel()
 
 	first := compositionTargetIdentity(compositionPatternSpec{}, []ActionPath{{
+		MatchedProductionTargets: []string{"prod:checkout"},
 		CredentialAuthority: &agginventory.CredentialAuthority{
 			TargetSystem: "aws",
 			LikelyScope:  "prod",
@@ -223,6 +224,7 @@ func TestCompositionTargetIdentityPreservesCredentialTuples(t *testing.T) {
 		},
 	}})
 	second := compositionTargetIdentity(compositionPatternSpec{}, []ActionPath{{
+		MatchedProductionTargets: []string{"prod:checkout"},
 		CredentialAuthority: &agginventory.CredentialAuthority{
 			TargetSystem: "aws",
 			LikelyScope:  "staging",
@@ -233,8 +235,8 @@ func TestCompositionTargetIdentityPreservesCredentialTuples(t *testing.T) {
 		},
 	}})
 
-	if first == second {
-		t.Fatalf("expected credential target/scope tuples to stay encoded in target identity, got %q", first)
+	if first != second || first != "prod:checkout" {
+		t.Fatalf("expected equivalent-outcome grouping to ignore credential tuples, got first=%q second=%q", first, second)
 	}
 }
 
@@ -494,6 +496,8 @@ func TestMergeComposedActionPathPreservesDelegationMetadataAfterStageRebuild(t *
 	base.Transitions[0].ChildAuthorityRef = "authority:prod"
 	base.Transitions[0].TargetDelta = []string{"target:added:prod:billing"}
 	base.Transitions[0].ReasonCodes = []string{"target:broadened"}
+	base.EscalatingTransitionRefs = []string{base.Transitions[0].TransitionID}
+	base.MostRestrictiveSource = "transition:" + base.Transitions[0].TransitionID
 
 	incoming := base
 	incoming.Stages = append([]CompositionStage(nil), base.Stages...)
@@ -514,6 +518,9 @@ func TestMergeComposedActionPathPreservesDelegationMetadataAfterStageRebuild(t *
 	}
 	if !containsAnyPathClass(transition.TargetDelta, "target:added:prod:billing") || !containsAnyPathClass(transition.ReasonCodes, "target:broadened") {
 		t.Fatalf("expected rebuilt transition to preserve target deltas and reasons, got %+v", transition)
+	}
+	if !containsAnyPathClass(merged.EscalatingTransitionRefs, transition.TransitionID) || merged.MostRestrictiveSource != "transition:"+transition.TransitionID {
+		t.Fatalf("expected rebuilt transition refs to point at merged transition ids, got refs=%v source=%q transition=%+v", merged.EscalatingTransitionRefs, merged.MostRestrictiveSource, transition)
 	}
 }
 
@@ -543,6 +550,8 @@ func TestEquivalentOutcomeSignalsApprovalEvasionForWeakerRoute(t *testing.T) {
 	codeA.RecommendedControl = RecommendedControlApprovalRequired
 	deployA := compositionTestPath("apc-deploy-a", "rk-deploy-a", []string{"deploy"}, TargetClassProductionImpacting)
 	deployA.MatchedProductionTargets = []string{"prod:checkout"}
+	deployA.CredentialAuthorityRef = "authority:prod-admin-a"
+	deployA.CredentialAuthority = &agginventory.CredentialAuthority{CredentialPresent: true, AccessType: agginventory.AuthorityAccessAdmin, TargetSystem: "aws", LikelyScope: "prod:checkout"}
 	deployA.PolicyCoverageStatus = PolicyCoverageStatusRuntimeProven
 	deployA.ProofEvidenceState = EvidenceStateVerified
 	deployA.RuntimeEvidenceState = EvidenceStateVerified
@@ -552,6 +561,8 @@ func TestEquivalentOutcomeSignalsApprovalEvasionForWeakerRoute(t *testing.T) {
 	codeB.RecommendedControl = RecommendedControlAllow
 	deployB := compositionTestPath("apc-deploy-b", "rk-deploy-b", []string{"deploy"}, TargetClassProductionImpacting)
 	deployB.MatchedProductionTargets = []string{"prod:checkout"}
+	deployB.CredentialAuthorityRef = "authority:prod-admin-b"
+	deployB.CredentialProvenance = &agginventory.CredentialProvenance{Subject: "sts-role", AccessType: agginventory.AuthorityAccessWrite, TargetSystem: "aws", LikelyScope: "prod:checkout"}
 	deployB.PolicyCoverageStatus = PolicyCoverageStatusNone
 	deployB.ProofEvidenceState = EvidenceStateUnknown
 	deployB.RuntimeEvidenceState = EvidenceStateUnknown
