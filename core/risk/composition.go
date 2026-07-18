@@ -2065,20 +2065,6 @@ func compositionRiskTierFromValues(current, incoming string) string {
 	return strings.TrimSpace(incoming)
 }
 
-func compositionRecommendedControl(paths []ActionPath, claimState string) string {
-	control := RecommendedControlAllow
-	for _, path := range paths {
-		control = compositionRecommendedControlFromValues(control, path.RecommendedControl)
-	}
-	if strings.TrimSpace(claimState) == CompositionClaimContradictory {
-		return RecommendedControlBlock
-	}
-	if strings.TrimSpace(control) == "" {
-		return RecommendedControlOwnerReview
-	}
-	return control
-}
-
 func compositionRecommendedControlFromValues(current, incoming string) string {
 	if recommendedControlRank(incoming) < recommendedControlRank(current) {
 		return strings.TrimSpace(incoming)
